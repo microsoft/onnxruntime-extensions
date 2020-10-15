@@ -18,13 +18,13 @@ set(CMAKE_CXX_STANDARD 14)
 
 option(CC_OPTIMIZE "Allow compiler optimizations.  Set to OFF to disable" OFF)
 
-if(NOT CC_OPTIMIZE)
-    string(REGEX REPLACE "(\-O[011123456789])" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    string(REGEX REPLACE "(\-O[011123456789])" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+# if(NOT CC_OPTIMIZE)
+#     string(REGEX REPLACE "(\-O[011123456789])" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+#     string(REGEX REPLACE "(\-O[011123456789])" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
-endif()
+#     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
+#     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
+# endif()
 
 set(CMAKE_FIND_FRAMEWORK NEVER CACHE STRING "...")
 if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
@@ -45,7 +45,7 @@ file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc")
 Python3_add_library(ortcustomops SHARED ${TARGET_SRC} ${TARGET_SRC_KERNELS} ${TARGET_SRC_PYOPS})
 target_include_directories(ortcustomops PUBLIC
   ./includes
-  ./includes/ort)
+  ./includes/onnxruntime)
 
 set_source_files_properties(ortcustomops.def PROPERTIES HEADER_FILE_ONLY TRUE)
 target_compile_definitions(ortcustomops PRIVATE ONNX_NAMESPACE=onnx ONNX_ML NOMINMAX)

@@ -3,9 +3,11 @@
 
 #pragma once
 
+#define ORT_API_MANUAL_INIT
 #define EXCLUDE_REFERENCE_TO_ORT_DLL
 #include "onnxruntime_cxx_api.h"
 #undef EXCLUDE_REFERENCE_TO_ORT_DLL
+#undef ORT_API_MANUAL_INIT
 
 const char c_OpDomain[] = "ai.onnx.contrib";
 

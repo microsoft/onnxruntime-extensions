@@ -141,7 +141,9 @@ OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtA
   auto custom_op_list = GetCustomOpSchemaList();
   for (auto it = custom_op_list; *it != nullptr; ++it) {
     auto obj_ptr = (*it)();
-    if (auto status = ortApi->CustomOpDomain_Add(domain, obj_ptr)) {
+    // TODO: it doesn't make sense ORT needs non-const OrtCustomOp object, will fix in new ORT release
+    OrtCustomOp * op_ptr = const_cast<OrtCustomOp *>(obj_ptr);
+    if (auto status = ortApi->CustomOpDomain_Add(domain, op_ptr)) {
       return status;
     }
   }
@@ -150,7 +152,9 @@ OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtA
   size_t count = 0;
   auto c_ops = FetchPyCustomOps(count);
   for (size_t n = 0; n < count; ++n){
-    if (auto status = ortApi->CustomOpDomain_Add(domain, c_ops+n)) {
+    // TODO: it doesn't make sense ORT needs non-const OrtCustomOp object, will fix in new ORT release
+    OrtCustomOp * op_ptr = const_cast<OrtCustomOp *>(c_ops+n);
+    if (auto status = ortApi->CustomOpDomain_Add(domain, op_ptr)) {
       return status;
     }
   }
