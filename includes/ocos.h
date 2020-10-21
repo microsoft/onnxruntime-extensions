@@ -11,10 +11,6 @@
 
 const char c_OpDomain[] = "ai.onnx.contrib";
 
-
-// TODO: move it to CMakeLists
-#define PYTHON_OP_SUPPORT 1
-
 #if defined(PYTHON_OP_SUPPORT)
 
 const OrtCustomOp* FetchPyCustomOps(size_t& count);
