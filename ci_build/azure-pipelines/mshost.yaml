@@ -17,12 +17,12 @@ jobs:
   - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
     displayName: Add conda to PATH
 
-  - script: conda create --yes --quiet --name py37 -c conda-forge python='3.7' numpy
+  - script: conda create --yes --quiet --name py37 -c conda-forge python=3.7 numpy
     displayName: Create Anaconda environment
 
   - script: |
       call activate py37
       python -m pip install --upgrade pip numpy
       echo Test numpy installation... && python -c "import numpy"
-      .\build.bat
+      call .\build.bat
     displayName: build the custom-op library
