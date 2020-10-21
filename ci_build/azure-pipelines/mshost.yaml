@@ -25,4 +25,10 @@ jobs:
       python -m pip install --upgrade pip numpy
       echo Test numpy installation... && python -c "import numpy"
       call .\build.bat
-    displayName: build the custom-op library
+    displayName: Build the custom-op library
+
+  - script: |
+      call activate py37
+      python -m pip install -e out\Windows\RelWithDebInfo
+      python .\test\test_pyops.py
+    displayName: Run python test
