@@ -24,8 +24,8 @@ option(ENABLE_PYTHON "Enable Python component building" ON)
 
 if(NOT CC_OPTIMIZE)
   message("!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
-  string(REGEX REPLACE "([\-\/]O[011123456789])" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-  string(REGEX REPLACE "([\-\/]O[011123456789])" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REGEX REPLACE "([\\-\\/]O[011123456789])" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  string(REGEX REPLACE "([\\-\\/]O[011123456789])" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 
   if (NOT WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
@@ -97,7 +97,7 @@ if(ENABLE_PYTHON)
 
   add_custom_command(
     TARGET ortcustomops POST_BUILD
-    COMMAND powershell  -NoProfile -ExecutionPolicy RemoteSigned -Command  ./pysetup.ps1 "$<TARGET_FILE_DIR:ortcustomops>"
+    COMMAND powershell  -NoProfile -ExecutionPolicy RemoteSigned -file ./pysetup.ps1 "$<TARGET_FILE_DIR:ortcustomops>"
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   )
 endif()

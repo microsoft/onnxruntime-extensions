@@ -25,4 +25,4 @@ Copy-Item .\requirements.txt $target_folder
 $pysrc_dir = Join-Path $(Get-Location) "ocos\pyfunc"
 Link-Copy -Path "$package_root\_ocos.py" -Target $(Join-Path $pysrc_dir "\_ocos.py")
 Link-Copy -Path "$package_root\__init__.py" -Target $(Join-Path $pysrc_dir "\__init__.py")
-Link-Copy -Path "$package_root\_ortcustomops.pyd" -Target "$target_folder\ortcustomops.dll"
+Link-Copy -Path "$package_root\_ortcustomops.pyd" -Target $(Join-Path $target_folder "ortcustomops.dll")
