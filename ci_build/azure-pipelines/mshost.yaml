@@ -23,6 +23,7 @@ jobs:
   - script: |
       call activate py37
       python -m pip install --upgrade pip numpy
+      python -m install onnxruntime
       echo Test numpy installation... && python -c "import numpy"
       call .\build.bat
     displayName: Build the custom-op library
