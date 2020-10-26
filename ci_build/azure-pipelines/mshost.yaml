@@ -22,15 +22,20 @@ jobs:
 
   - script: |
       call activate py37
-      python -m pip install --upgrade pip numpy
+      python -m pip install --upgrade pip
+      python -m conda install -r requirements.txt
+    displayName: Install requirements.txt
+
+  - script: |
+      call activate py37
       echo Test numpy installation... && python -c "import numpy"
       call .\build.bat
     displayName: Build the custom-op library
 
   - script: |
       call activate py37
-      python -m conda install -r requirements.txt
-    displayName: Install requirements.txt
+      python -m pip install -e out\Windows\RelWithDebInfo
+    displayName: Build 
 
   - script: |
       call activate py37
@@ -39,6 +44,5 @@ jobs:
 
   - script: |
       call activate py37
-      python -m pip install -e out\Windows\RelWithDebInfo
       python -m pytest test
     displayName: Run python test
