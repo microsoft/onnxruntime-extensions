@@ -1,6 +1,6 @@
+# coding: utf-8
 import unittest
 import numpy as np
-from numpy.testing import assert_almost_equal
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
 from ortcustomops import (
@@ -58,7 +58,7 @@ class TestPythonOpString(unittest.TestCase):
         for t in type_list:
             self.assertIn(t, def_list)
 
-    def _test_string_upper_cc(self):
+    def test_string_upper_cc(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_upper('test.customop')
@@ -66,7 +66,17 @@ class TestPythonOpString(unittest.TestCase):
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         input_1 = np.array([["Abc"]])
         txout = sess.run(None, {'input_1': input_1})
-        assert_almost_equal(txout[0], np.array([["ABC"]]))
+        self.assertEqual(txout[0].tolist(), np.array([["ABC"]]).tolist())
+
+    def test_string_upper_cc_accent(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_upper('test.customop')
+        self.assertIn('op_type: "StringUpper"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        input_1 = np.array([["Abcé"]])
+        txout = sess.run(None, {'input_1': input_1})
+        self.assertEqual(txout[0].tolist(), np.array([["ABCé"]]).tolist())
 
     def test_string_upper_python(self):
         so = _ort.SessionOptions()
@@ -77,6 +87,17 @@ class TestPythonOpString(unittest.TestCase):
         input_1 = np.array([["Abc"]])
         txout = sess.run(None, {'input_1': input_1})
         self.assertEqual(txout[0].tolist(), np.array([["ABC"]]).tolist())
+
+    def test_string_upper_python_accent(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_upper('ai.onnx.contrib')
+        self.assertIn('op_type: "StringUpper"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        input_1 = np.array([["Abcé"]])
+        txout = sess.run(None, {'input_1': input_1})
+        self.assertEqual(txout[0].tolist(),
+                         np.array([["ABCé".upper()]]).tolist())
 
 
 if __name__ == "__main__":
