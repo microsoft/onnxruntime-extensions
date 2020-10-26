@@ -31,5 +31,5 @@ jobs:
       call activate py37
       python -m pip install onnxruntime onnxconverter_common
       python -m pip install -e out\Windows\RelWithDebInfo
-      python .\test\test_pyops.py
+      python -m pytest test
     displayName: Run python test
