@@ -30,7 +30,15 @@ jobs:
   - script: |
       call activate py37
       python -m conda install -r requirements.txt
+    displayName: Install requirements.txt
+
+  - script: |
+      call activate py37
       python -m conda install -r requirements-dev.txt
+    displayName: Install requirements-dev.txt
+
+  - script: |
+      call activate py37
       python -m pip install -e out\Windows\RelWithDebInfo
       python -m pytest test
     displayName: Run python test
