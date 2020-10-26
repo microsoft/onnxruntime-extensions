@@ -44,7 +44,7 @@ jobs:
 
   - script: |
       call activate py37
-      python -m install -r requirements-dev.txt
+      python -m pip install -r requirements-dev.txt
     displayName: Install requirements-dev.txt
 
   - script: |
