@@ -26,15 +26,17 @@ def _create_test_model_double(domain):
     return model
 
 
-@onnx_op(op_type="AddEpsilon",
-         inputs=[PyCustomOpDef.dt_double],
-         outputs=[PyCustomOpDef.dt_double])
-def add_epsilon(x):
-    # The user custom op implementation here.
-    return x + 1e-3
-
-
 class TestPythonOpDouble(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+
+        @onnx_op(op_type="AddEpsilon",
+                 inputs=[PyCustomOpDef.dt_double],
+                 outputs=[PyCustomOpDef.dt_double])
+        def add_epsilon(x):
+            # The user custom op implementation here.
+            return x + 1e-3
 
     def test_add_epsilon_python(self):
         so = _ort.SessionOptions()

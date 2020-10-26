@@ -26,15 +26,17 @@ def _create_test_model_string_upper(domain):
     return model
 
 
-@onnx_op(op_type="StringUpper",
-         inputs=[PyCustomOpDef.dt_string],
-         outputs=[PyCustomOpDef.dt_string])
-def string_upper(x):
-    # The user custom op implementation here.
-    return np.array([s.upper() for s in x.ravel()]).reshape(x.shape)
-
-
 class TestPythonOpString(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+
+        @onnx_op(op_type="StringUpper",
+                 inputs=[PyCustomOpDef.dt_string],
+                 outputs=[PyCustomOpDef.dt_string])
+        def string_upper(x):
+            # The user custom op implementation here.
+            return np.array([s.upper() for s in x.ravel()]).reshape(x.shape)
 
     def test_check_types(self):
         def_list = set(dir(PyCustomOpDef))
