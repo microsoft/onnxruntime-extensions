@@ -49,5 +49,10 @@ jobs:
 
   - script: |
       call activate py37
+      python -m unittest discover test -v
+    displayName: Run python test
+
+  - script: |
+      call activate py37
       python -m pytest test
     displayName: Run python test

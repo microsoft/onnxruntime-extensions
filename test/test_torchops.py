@@ -11,12 +11,6 @@ from ortcustomops import (
     get_library_path as _get_library_path)
 
 
-@onnx_op(op_type="Inverse")
-def inverse(x):
-    # the user custom op implementation here:
-    return numpy.linalg.inv(x)
-
-
 def my_inverse(g, self):
     return g.op("ai.onnx.contrib::Inverse", self)
 
@@ -27,6 +21,14 @@ class CustomInverse(torch.nn.Module):
 
 
 class TestPyTorchCustomOp(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+
+        @onnx_op(op_type="Inverse")
+        def inverse(x):
+            # the user custom op implementation here:
+            return numpy.linalg.inv(x)
 
     def test_custom_pythonop_pytorch(self):
 
