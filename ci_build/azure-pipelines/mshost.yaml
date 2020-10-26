@@ -23,7 +23,7 @@ jobs:
   - script: |
       call activate py37
       python -m pip install --upgrade pip
-      python -m conda install -r requirements.txt
+      python -m pip install -r requirements.txt
     displayName: Install requirements.txt
 
   - script: |
@@ -35,11 +35,16 @@ jobs:
   - script: |
       call activate py37
       python -m pip install -e out\Windows\RelWithDebInfo
-    displayName: Build 
+    displayName: Install the custom-op library
 
   - script: |
       call activate py37
-      python -m conda install -r requirements-dev.txt
+      python -m pip install torch==1.6.0+cpu torchvision==0.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+    displayName: Install pytorch
+
+  - script: |
+      call activate py37
+      python -m install -r requirements-dev.txt
     displayName: Install requirements-dev.txt
 
   - script: |
