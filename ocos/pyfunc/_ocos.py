@@ -44,10 +44,14 @@ class Opdef:
 
         # TODO: add handle more types and multiple inputs/outputs.
         # by default the op is single in/out
-        if kwargs.get('inputs', None) is None:
-            opdef._nativedef.input_types = [PyCustomOpDef.dt_float]
-        if kwargs.get('outputs', None) is None:
-            opdef._nativedef.output_types = [PyCustomOpDef.dt_float]
+        inputs = kwargs.get('inputs', None)
+        if inputs is None:
+            inputs = [PyCustomOpDef.dt_float]
+        opdef._nativedef.input_types = inputs
+        outputs = kwargs.get('outputs', None)
+        if outputs is None:
+            outputs = [PyCustomOpDef.dt_float]
+        opdef._nativedef.output_types = outputs
 
         add_custom_op(opdef._nativedef)
         return opdef

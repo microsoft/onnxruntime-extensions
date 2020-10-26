@@ -30,7 +30,7 @@ def _create_test_model():
 @onnx_op(op_type="ReverseMatrix")
 def reverse_matrix(x):
     # The user custom op implementation here.
-    return np.flip(x, axis=0)
+    return np.flip(x, axis=0).astype(np.float32)
 
 
 class TestPythonOp(unittest.TestCase):
