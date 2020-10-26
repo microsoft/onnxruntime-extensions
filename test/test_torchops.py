@@ -27,12 +27,12 @@ class CustomInverse(torch.nn.Module):
 
 
 class TestPyTorchCustomOp(unittest.TestCase):
-    
+
     def test_custom_pythonop_pytorch(self):
 
-        # register_custom_op_symbolic('<namespace>::inverse', my_inverse, <opset_version>)
+        # register_custom_op_symbolic(
+        #   '<namespace>::inverse', my_inverse, <opset_version>)
         register_custom_op_symbolic('::inverse', my_inverse, 1)
-
 
         x = torch.randn(3, 3)
 

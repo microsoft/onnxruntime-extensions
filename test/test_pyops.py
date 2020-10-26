@@ -42,7 +42,8 @@ class TestPythonOp(unittest.TestCase):
         onnx_model = _create_test_model()
         self.assertIn('op_type: "ReverseMatrix"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-        input_1 = np.array([1, 2, 3, 4, 5, 6]).astype(np.float32).reshape([3, 2])
+        input_1 = np.array(
+            [1, 2, 3, 4, 5, 6]).astype(np.float32).reshape([3, 2])
         txout = sess.run(None, {'input_1': input_1})
         assert_almost_equal(txout[0], np.array([[5., 6.], [3., 4.], [1., 2.]]))
 
