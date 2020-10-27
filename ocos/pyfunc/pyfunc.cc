@@ -16,27 +16,10 @@
 #include <pybind11/numpy.h>
 #include <thread>
 
+#include "../helpers/utils.h"
 #include "pykernel.h"
 
 namespace py = pybind11;
-
-template <typename T>
-inline void MakeStringInternal(std::ostringstream& ss, const T& t) noexcept {
-  ss << t;
-}
-
-template <typename T, typename... Args>
-void MakeStringInternal(std::ostringstream& ss, const T& t, const Args&... args) noexcept {
-  MakeStringInternal(ss, t);
-  MakeStringInternal(ss, args...);
-}
-
-template <typename... Args>
-std::string MakeString(const Args&... args) {
-  std::ostringstream ss;
-  MakeStringInternal(ss, args...);
-  return std::string(ss.str());
-}
 
 static int to_numpy(ONNXTensorElementDataType dt) {
   switch (dt) {
@@ -199,24 +182,33 @@ std::auto_ptr<PyCustomOpDefImpl::callback_t> PyCustomOpDefImpl::op_invoker;
 // static std::condition_variable op_cv;
 // static bool is_ready = false;
 
+typedef struct {
+  const OrtValue* input_X;
+  ONNXTensorElementDataType dtype;
+  std::vector<int64_t> dimensions;
+} InputInformation;
+
 void PyCustomOpKernel::Compute(OrtKernelContext* context) {
   // std::unique_lock<std::mutex> lck(op_mutex);
   // is_ready = true;
   // op_cv.notify_all();
   //  std::this_thread::sleep_for(std::chrono::milliseconds(5000));
-  if (ort_.KernelContext_GetInputCount(context) != 1)
-    throw std::runtime_error("Python operator only implemented for 1 input.");
+  size_t n_inputs = ort_.KernelContext_GetInputCount(context);
   if (ort_.KernelContext_GetOutputCount(context) != 1)
     throw std::runtime_error("Python operator only implemented for 1 output.");
 
   // Setup inputs
-  const OrtValue* input_X = ort_.KernelContext_GetInput(context, 0);
-  std::vector<int64_t> i_dimensions;
-  OrtTensorTypeAndShapeInfo* i_info = ort_.GetTensorTypeAndShape(input_X);
-  i_dimensions = ort_.GetTensorShape(i_info);
-  ONNXTensorElementDataType i_dtype = ort_.GetTensorElementType(i_info);
-  const void* X = (const void*)ort_.GetTensorData<float>(input_X);
-  ort_.ReleaseTensorTypeAndShapeInfo(i_info);
+  std::vector<InputInformation> inputs;
+  inputs.reserve(n_inputs);
+  for (size_t index = 0; index < n_inputs; ++index) {
+    const OrtValue* input_X = ort_.KernelContext_GetInput(context, index);
+    std::vector<int64_t> i_dimensions;
+    OrtTensorTypeAndShapeInfo* i_info = ort_.GetTensorTypeAndShape(input_X);
+    i_dimensions = ort_.GetTensorShape(i_info);
+    ONNXTensorElementDataType i_dtype = ort_.GetTensorElementType(i_info);
+    ort_.ReleaseTensorTypeAndShapeInfo(i_info);
+    inputs.push_back(InputInformation{input_X, i_dtype, i_dimensions});
+  }
 
   /* Acquire GIL before calling Python code, due to it was released in sess.run */
   py::gil_scoped_acquire acquire;
@@ -235,9 +227,13 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
   //      sizeof(float)});
 
   {
-    py::object input0 = PyCustomOpDefImpl::BuildPyObjFromTensor(X, i_dimensions, i_dtype);
-    auto feed = py::make_tuple(input0);
-    py::tuple fetch = PyCustomOpDefImpl::InvokePyFunction(obj_id_, feed);
+    py::list pyinputs;
+    for (auto it = inputs.begin(); it != inputs.end(); ++it) {
+      py::object input0 = PyCustomOpDefImpl::BuildPyObjFromTensor(
+          (const void*)ort_.GetTensorData<float>(it->input_X), it->dimensions, it->dtype);
+      pyinputs.append(input0);
+    }
+    py::tuple fetch = PyCustomOpDefImpl::InvokePyFunction(obj_id_, pyinputs);
     int64_t rid = fetch[0].cast<int64_t>();
     assert(rid == obj_id_);
     auto dims = fetch[1].cast<std::vector<int64_t>>();

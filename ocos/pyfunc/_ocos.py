@@ -3,7 +3,6 @@
 # license information.
 ###############################################################################
 
-import numpy as np
 from pathlib import Path
 from ._ortcustomops import PyCustomOpDef, add_custom_op
 
@@ -11,7 +10,6 @@ from ._ortcustomops import PyCustomOpDef, add_custom_op
 def get_library_path():
     pkg_dir = Path(__file__).parent
     return str(pkg_dir / "_ortcustomops.pyd")
-
 
 
 class Opdef:

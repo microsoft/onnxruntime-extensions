@@ -26,6 +26,30 @@ def _create_test_model_string_upper(domain):
     return model
 
 
+def _create_test_model_string_join(domain):
+    nodes = []
+    nodes.append(
+        helper.make_node('Identity', ['text'], ['identity1']))
+    nodes.append(
+        helper.make_node('Identity', ['sep'], ['identity2']))
+    nodes.append(
+        helper.make_node(
+            'StringJoin', ['identity1', 'identity2'],
+            ['customout'], domain=domain))
+
+    input0 = helper.make_tensor_value_info(
+        'text', onnx_proto.TensorProto.STRING, [None, None])
+    input1 = helper.make_tensor_value_info(
+        'sep', onnx_proto.TensorProto.STRING, [1])
+    output0 = helper.make_tensor_value_info(
+        'customout', onnx_proto.TensorProto.STRING, [None, 1])
+
+    graph = helper.make_graph(nodes, 'test0', [input0, input1], [output0])
+    model = helper.make_model(
+        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    return model
+
+
 class TestPythonOpString(unittest.TestCase):
 
     @classmethod
@@ -37,6 +61,17 @@ class TestPythonOpString(unittest.TestCase):
         def string_upper(x):
             # The user custom op implementation here.
             return np.array([s.upper() for s in x.ravel()]).reshape(x.shape)
+
+        @onnx_op(op_type="StringJoin",
+                 inputs=[PyCustomOpDef.dt_string, PyCustomOpDef.dt_string],
+                 outputs=[PyCustomOpDef.dt_string])
+        def string_join(x, sep):
+            # The user custom op implementation here.
+            if sep.shape != (1, ):
+                raise RuntimeError(
+                    "Unexpected shape {} for 'sep'.".format(sep.shape))
+            sp = sep[0]
+            return np.array([sp.join(row) for row in x])
 
     def test_check_types(self):
         def_list = set(dir(PyCustomOpDef))
@@ -100,6 +135,33 @@ class TestPythonOpString(unittest.TestCase):
         txout = sess.run(None, {'input_1': input_1})
         self.assertEqual(txout[0].tolist(),
                          np.array([["ABCé".upper()]]).tolist())
+
+    def test_string_join_python(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_join('ai.onnx.contrib')
+        self.assertIn('op_type: "StringJoin"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        text = np.vstack([np.array([["a", "b", "c"]]),
+                          np.array([["aa", "bb", ""]])])
+        self.assertEqual(text.shape, (2, 3))
+        sep = np.array([";"])
+        txout = sess.run(None, {'text': text, 'sep': sep})
+        self.assertEqual(
+            txout[0].tolist(), np.array(["a;b;c", "aa;bb;"]).tolist())
+
+    def test_string_join_cc(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_join('test.customop')
+        self.assertIn('op_type: "StringJoin"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        text = np.vstack([np.array([["a", "b", "c"]]),
+                          np.array([["aa", "bb", ""]])])
+        sep = np.array([";"])
+        txout = sess.run(None, {'text': text, 'sep': sep})
+        self.assertEqual(
+            txout[0].tolist(), np.array(["a;b;c", "aa;bb;"]).tolist())
 
 
 if __name__ == "__main__":
