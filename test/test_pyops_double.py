@@ -8,24 +8,6 @@ from ortcustomops import (
     get_library_path as _get_library_path)
 
 
-def _create_test_model_double(domain):
-    nodes = []
-    nodes[0:] = [helper.make_node('Identity', ['input_1'], ['identity1'])]
-    nodes[1:] = [helper.make_node('AddEpsilon',
-                                  ['identity1'], ['customout'],
-                                  domain=domain)]
-
-    input0 = helper.make_tensor_value_info(
-        'input_1', onnx_proto.TensorProto.DOUBLE, [None, None])
-    output0 = helper.make_tensor_value_info(
-        'customout', onnx_proto.TensorProto.DOUBLE, [None, None])
-
-    graph = helper.make_graph(nodes, 'test0', [input0], [output0])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
-    return model
-
-
 class TestPythonOpDouble(unittest.TestCase):
 
     @classmethod

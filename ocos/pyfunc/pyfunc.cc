@@ -304,16 +304,29 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
   }
 }
 
+std::vector<PyCustomOpFactory>& PyCustomOpDef_python_operator_list() {
+  static std::vector<PyCustomOpFactory> lst_custom_opdef;
+  return lst_custom_opdef;
+}
+
+void PyCustomOpDef::AddOp(const PyCustomOpDef* cod) {
+  // No need to protect against concurrent access, GIL is doing that.
+  PyCustomOpDef_python_operator_list().push_back(PyCustomOpFactory(cod));
+}
+
+const PyCustomOpFactory* PyCustomOpDef_FetchPyCustomOps(size_t count) {
+  // The result must stay alive
+  std::vector<PyCustomOpFactory>& copy = PyCustomOpDef_python_operator_list();
+  if (count < copy.size())
+    return &(copy[count]);
+  return nullptr;
+}
+
 const OrtCustomOp* FetchPyCustomOps(size_t& count) {
-  static std::vector<PyCustomOpFactory> c_pycustomops;
-  c_pycustomops.clear();
-
-  for (auto od_ptr : PyCustomOpDef::FullList()) {
-    c_pycustomops.emplace_back(PyCustomOpFactory(od_ptr));
-  }
-
-  count = c_pycustomops.size();
-  return c_pycustomops.data();
+  auto ptr = PyCustomOpDef_FetchPyCustomOps(count);
+  if (ptr == nullptr)
+    return nullptr;
+  return ptr;
 }
 
 // static std::ofstream logger;
@@ -325,7 +338,7 @@ static int init_numpy() {
 }
 
 void AddGlobalMethods(pybind11::module& m) {
-  m.def("add_custom_op", [](const PyCustomOpDef& cod) { PyCustomOpDef::FullList().push_back(&cod); });
+  m.def("add_custom_op", [](const PyCustomOpDef& cod) { PyCustomOpDef::AddOp(&cod); });
 }
 
 void AddObjectMethods(pybind11::module& m) {

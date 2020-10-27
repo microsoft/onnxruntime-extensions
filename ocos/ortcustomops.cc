@@ -7,6 +7,7 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <iostream>
 
 struct OrtTensorDimensions : std::vector<int64_t> {
   OrtTensorDimensions(Ort::CustomOpApi& ort, const OrtValue* value) {
@@ -200,13 +201,15 @@ OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtA
 
 #if defined(PYTHON_OP_SUPPORT)
   size_t count = 0;
-  auto c_ops = FetchPyCustomOps(count);
-  for (size_t n = 0; n < count; ++n) {
-    // TODO: it doesn't make sense ORT needs non-const OrtCustomOp object, will fix in new ORT release
-    OrtCustomOp* op_ptr = const_cast<OrtCustomOp*>(c_ops + n);
-    if (auto status = ortApi->CustomOpDomain_Add(domain, op_ptr)) {
+  const OrtCustomOp* c_ops = FetchPyCustomOps(count);
+  while (c_ops != nullptr) {
+    OrtCustomOp* op_ptr = const_cast<OrtCustomOp*>(c_ops);
+    auto status = ortApi->CustomOpDomain_Add(domain, op_ptr);
+    if (status) {
       return status;
     }
+    ++count;
+    c_ops = FetchPyCustomOps(count);
   }
 #endif
 
