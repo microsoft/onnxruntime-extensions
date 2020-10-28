@@ -66,7 +66,16 @@ def _on_pyop_invocation(k_id, feed):
             "Did you decorate the operator with @onnx_op?.".format(k_id))
     op_ = Opdef._odlist[k_id]
     rv = op_.body(*feed)
-    return k_id, rv.shape, rv.flatten().tolist()
+    if isinstance(rv, tuple):
+        # Multiple outputs.
+        res = []
+        for r in rv:
+            res.append(r.shape)
+            res.append(r.flatten().tolist())
+        res = tuple(res)
+    else:
+        res = (rv.shape, rv.flatten().tolist())
+    return (k_id, ) + res
 
 
 PyCustomOpDef.install_hooker(_on_pyop_invocation)

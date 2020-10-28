@@ -45,6 +45,26 @@ def _create_test_model_double(domain):
     return model
 
 
+def _create_test_model_2outputs(domain):
+    nodes = [
+        helper.make_node('Identity', ['x'], ['identity1']),
+        helper.make_node(
+            'NegPos', ['identity1'], ['neg', 'pos'], domain=domain)
+    ]
+
+    input0 = helper.make_tensor_value_info(
+        'x', onnx_proto.TensorProto.FLOAT, [])
+    output1 = helper.make_tensor_value_info(
+        'neg', onnx_proto.TensorProto.FLOAT, [])
+    output2 = helper.make_tensor_value_info(
+        'pos', onnx_proto.TensorProto.FLOAT, [])
+
+    graph = helper.make_graph(nodes, 'test0', [input0], [output1, output2])
+    model = helper.make_model(
+        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    return model
+
+
 class TestPythonOp(unittest.TestCase):
 
     @classmethod
@@ -61,6 +81,16 @@ class TestPythonOp(unittest.TestCase):
         def add_epsilon(x):
             # The user custom op implementation here.
             return x + 1e-3
+
+        @onnx_op(op_type="NegPos",
+                 inputs=[PyCustomOpDef.dt_float],
+                 outputs=[PyCustomOpDef.dt_float, PyCustomOpDef.dt_float])
+        def negpos(x):
+            neg = x.copy()
+            pos = x.copy()
+            neg[x > 0] = 0
+            pos[x < 0] = 0
+            return neg, pos
 
     def test_python_operator(self):
         so = _ort.SessionOptions()
@@ -82,6 +112,28 @@ class TestPythonOp(unittest.TestCase):
         input_1 = np.array([[0., 1., 1.5], [7., 8., -5.5]])
         txout = sess.run(None, {'input_1': input_1})
         diff = txout[0] - input_1 - 1e-3
+        assert_almost_equal(diff, np.zeros(diff.shape))
+
+    def test_python_negpos(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_2outputs('ai.onnx.contrib')
+        self.assertIn('op_type: "NegPos"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        x = np.array([[0., 1., 1.5], [7., 8., -5.5]]).astype(np.float32)
+        neg, pos = sess.run(None, {'x': x})
+        diff = x - (neg + pos)
+        assert_almost_equal(diff, np.zeros(diff.shape))
+
+    def test_cc_negpos(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_2outputs('test.customop')
+        self.assertIn('op_type: "NegPos"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        x = np.array([[0., 1., 1.5], [7., 8., -5.5]]).astype(np.float32)
+        neg, pos = sess.run(None, {'x': x})
+        diff = x - (neg + pos)
         assert_almost_equal(diff, np.zeros(diff.shape))
 
     def test_cc_operator(self):

@@ -159,6 +159,46 @@ struct KernelStringJoin {
   Ort::CustomOpApi ort_;
 };
 
+struct KernelNegPos {
+  KernelNegPos(OrtApi api)
+      : api_(api),
+        ort_(api_) {
+  }
+
+  void Compute(OrtKernelContext* context) {
+    // Setup inputs
+    const OrtValue* input_X = ort_.KernelContext_GetInput(context, 0);
+    const float* X = ort_.GetTensorData<float>(input_X);
+
+    // Setup output
+    OrtTensorDimensions dimensions(ort_, input_X);
+
+    OrtValue* output0 = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
+    float* out0 = ort_.GetTensorMutableData<float>(output0);
+    OrtValue* output1 = ort_.KernelContext_GetOutput(context, 1, dimensions.data(), dimensions.size());
+    float* out1 = ort_.GetTensorMutableData<float>(output1);
+
+    OrtTensorTypeAndShapeInfo* output_info = ort_.GetTensorTypeAndShape(output0);
+    int64_t size = ort_.GetTensorShapeElementCount(output_info);
+    ort_.ReleaseTensorTypeAndShapeInfo(output_info);
+
+    // Do computation
+    for (int64_t i = 0; i < size; i++) {
+      if (X[i] > 0) {
+        out0[i] = 0;
+        out1[i] = X[i];
+      } else {
+        out0[i] = X[i];
+        out1[i] = 0;
+      }
+    }
+  }
+
+ private:
+  OrtApi api_;  // keep a copy of the struct, whose ref is used in the ort_
+  Ort::CustomOpApi ort_;
+};
+
 struct CustomOpOne : Ort::CustomOpBase<CustomOpOne, KernelOne> {
   void* CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) {
     return new KernelOne(api);
@@ -219,6 +259,21 @@ struct CustomOpStringJoin : Ort::CustomOpBase<CustomOpStringJoin, KernelStringJo
 
 } c_CustomOpStringJoin;
 
+struct CustomOpNegPos : Ort::CustomOpBase<CustomOpNegPos, KernelNegPos> {
+  void* CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) {
+    return new KernelNegPos(api);
+  };
+
+  const char* GetName() const { return "NegPos"; };
+
+  size_t GetInputTypeCount() const { return 1; };
+  ONNXTensorElementDataType GetInputType(size_t /*index*/) const { return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT; };
+
+  size_t GetOutputTypeCount() const { return 2; };
+  ONNXTensorElementDataType GetOutputType(size_t /*index*/) const { return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT; };
+
+} c_CustomOpNegPos;
+
 OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api) {
   OrtCustomOpDomain* domain = nullptr;
   const OrtApi* ortApi = api->GetApi(ORT_API_VERSION);
@@ -239,6 +294,10 @@ OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtA
     }
 
     if (auto status = ortApi->CustomOpDomain_Add(domain, &c_CustomOpStringJoin)) {
+      return status;
+    }
+
+    if (auto status = ortApi->CustomOpDomain_Add(domain, &c_CustomOpNegPos)) {
       return status;
     }
 

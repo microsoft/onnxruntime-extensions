@@ -194,8 +194,7 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
   // op_cv.notify_all();
   //  std::this_thread::sleep_for(std::chrono::milliseconds(5000));
   size_t n_inputs = ort_.KernelContext_GetInputCount(context);
-  if (ort_.KernelContext_GetOutputCount(context) != 1)
-    throw std::runtime_error("Python operator only implemented for 1 output.");
+  size_t n_outputs = ort_.KernelContext_GetOutputCount(context);
 
   // Setup inputs
   std::vector<InputInformation> inputs;
@@ -233,43 +232,47 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
           (const void*)ort_.GetTensorData<float>(it->input_X), it->dimensions, it->dtype);
       pyinputs.append(input0);
     }
+
+    // Call python function id, shape, flat coefficient.
     py::tuple fetch = PyCustomOpDefImpl::InvokePyFunction(obj_id_, pyinputs);
     int64_t rid = fetch[0].cast<int64_t>();
     assert(rid == obj_id_);
-    auto dims = fetch[1].cast<std::vector<int64_t>>();
 
     // Setup output.
-    OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dims.data(), dims.size());
-    OrtTensorTypeAndShapeInfo* o_info = ort_.GetTensorTypeAndShape(output);
-    ONNXTensorElementDataType o_dtype = ort_.GetTensorElementType(o_info);
-    const void* Y = (const void*)ort_.GetTensorData<float>(output);
-    ort_.ReleaseTensorTypeAndShapeInfo(o_info);
-    void* out = (void*)ort_.GetTensorMutableData<float>(output);
+    for (size_t no = 0; no < n_outputs; ++no) {
+      auto dims = fetch[1 + no * 2].cast<std::vector<int64_t>>();
+      OrtValue* output = ort_.KernelContext_GetOutput(context, no, dims.data(), dims.size());
+      OrtTensorTypeAndShapeInfo* o_info = ort_.GetTensorTypeAndShape(output);
+      ONNXTensorElementDataType o_dtype = ort_.GetTensorElementType(o_info);
+      const void* Y = (const void*)ort_.GetTensorData<float>(output);
+      ort_.ReleaseTensorTypeAndShapeInfo(o_info);
+      void* out = (void*)ort_.GetTensorMutableData<float>(output);
 
-    if (o_dtype == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
-      auto retval = fetch[2].cast<std::vector<std::string>>();
-      std::string* type_outPtr = (std::string*)out;
-      std::string* end = type_outPtr + retval.size();
-      const std::string* source = (const std::string*)retval.data();
-      for (; type_outPtr != end; ++type_outPtr, ++source) {
-        *type_outPtr = *source;
-      }
-    } else {
-      py::array retval = fetch[2].cast<py::array>();
-      if (element_size(o_dtype) != retval.itemsize()) {
-        switch (o_dtype) {
-          case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
-            retval = fetch[2].cast<py::array_t<float>>();
-            break;
-          default:
-            throw std::runtime_error(MakeString(
-                "Type mismatch between declared output element size (",
-                element_size(o_dtype), ") and python element size (",
-                retval.itemsize(), ")"));
+      if (o_dtype == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
+        auto retval = fetch[2 + no * 2].cast<std::vector<std::string>>();
+        std::string* type_outPtr = (std::string*)out;
+        std::string* end = type_outPtr + retval.size();
+        const std::string* source = (const std::string*)retval.data();
+        for (; type_outPtr != end; ++type_outPtr, ++source) {
+          *type_outPtr = *source;
         }
+      } else {
+        py::array retval = fetch[2 + no * 2].cast<py::array>();
+        if (element_size(o_dtype) != retval.itemsize()) {
+          switch (o_dtype) {
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
+              retval = fetch[2 + no * 2].cast<py::array_t<float>>();
+              break;
+            default:
+              throw std::runtime_error(MakeString(
+                  "Type mismatch between declared output element size (",
+                  element_size(o_dtype), ") and python element size (",
+                  retval.itemsize(), ")"));
+          }
+        }
+        size_t size = element_size(o_dtype);
+        memcpy(out, retval.data(), size * retval.size());
       }
-      size_t size = element_size(o_dtype);
-      memcpy(out, retval.data(), size * retval.size());
     }
 
     py::gil_scoped_release release;
