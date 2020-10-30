@@ -16,43 +16,124 @@
 #include <pybind11/numpy.h>
 #include <thread>
 
+#include "../utils.h"
 #include "pykernel.h"
 
 namespace py = pybind11;
 
-const std::map<int, int>& PyCustomOpDef::get_numpy_type_map(bool from_or_to) {
-  static std::map<int, int> to_type_map{
-      {dt_bool, NPY_BOOL},
-      {dt_float, NPY_FLOAT},
-      {dt_float16, NPY_FLOAT16},
-      {dt_double, NPY_DOUBLE},
-      {dt_int8, NPY_INT8},
-      {dt_uint8, NPY_UINT8},
-      {dt_int16, NPY_INT16},
-      {dt_uint16, NPY_UINT16},
-      {dt_int32, NPY_INT},
-      {dt_uint32, NPY_UINT},
-      {dt_int64, NPY_LONGLONG},
-      {dt_uint64, NPY_ULONGLONG},
-  };
+static int to_numpy(ONNXTensorElementDataType dt) {
+  switch (dt) {
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
+      return NPY_FLOAT;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
+      return NPY_UINT8;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8:
+      return NPY_INT8;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16:
+      return NPY_UINT16;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16:
+      return NPY_INT16;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
+      return NPY_INT32;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
+      return NPY_INT64;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL:
+      return NPY_BOOL;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16:
+      return NPY_FLOAT16;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE:
+      return NPY_DOUBLE;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32:
+      return NPY_UINT32;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64:
+      return NPY_UINT64;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64:
+      return NPY_COMPLEX64;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128:
+      return NPY_COMPLEX128;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING:
+      return NPY_OBJECT;
+    default:
+      throw std::runtime_error("No corresponding Numpy data type/Tensor data Type.");
+  }
+}
 
-  static auto from_type_map = [] {std::map<int, int> reversed;
-                          for(auto it:to_type_map) reversed[it.second] = it.first; return reversed; }();
+static size_t element_size(ONNXTensorElementDataType dt) {
+  switch (dt) {
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
+      return sizeof(float);
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
+      return sizeof(uint8_t);
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8:
+      return sizeof(int8_t);
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16:
+      return sizeof(uint16_t);
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16:
+      return sizeof(int16_t);
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
+      return sizeof(int32_t);
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
+      return sizeof(int64_t);
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL:
+      return sizeof(bool);
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16:
+      return sizeof(uint16_t);
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE:
+      return sizeof(double);
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32:
+      return sizeof(uint32_t);
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64:
+      return sizeof(uint64_t);
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64:
+      return sizeof(_C_float_complex);
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128:
+      return sizeof(_C_double_complex);
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING:
+      return sizeof(std::string*);
+    default:
+      throw std::runtime_error("No corresponding Numpy data type/Tensor data Type.");
+  }
+}
 
-  return from_or_to ? from_type_map : to_type_map;
+static ONNXTensorElementDataType from_numpy(int dt) {
+  switch (dt) {
+    case NPY_FLOAT:
+      return ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
+    case NPY_UINT8:
+      return ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
+    case NPY_INT8:
+      return ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8;
+    case NPY_UINT16:
+      return ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16;
+    case NPY_INT16:
+      return ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16;
+    case NPY_INT32:
+      return ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32;
+    case NPY_INT64:
+      return ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+    case NPY_BOOL:
+      return ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL;
+    case NPY_FLOAT16:
+      return ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16;
+    case NPY_DOUBLE:
+      return ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE;
+    case NPY_UINT32:
+      return ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32;
+    case NPY_UINT64:
+      return ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64;
+    case NPY_COMPLEX64:
+      return ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64;
+    case NPY_COMPLEX128:
+      return ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128;
+    case NPY_OBJECT:
+    case NPY_STRING:
+      return ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+    default:
+      throw std::runtime_error("No corresponding ONNX data type/Tensor data Type.");
+  }
 }
 
 struct PyCustomOpDefImpl : public PyCustomOpDef {
-  static int to_numpy(int dt, bool from_or_to = false) {
-    auto type_map = get_numpy_type_map(from_or_to);
-    const auto it = type_map.find(dt);
-    if (it == type_map.end()) {
-      throw std::runtime_error("No corresponding Numpy data type/Tensor data Type.");
-    } else {
-      return it->second;
-    }
-  }
-
   typedef std::vector<int64_t> shape_t;
   static int64_t calc_size_from_shape(const shape_t& sp) {
     size_t c = 1;
@@ -62,25 +143,28 @@ struct PyCustomOpDefImpl : public PyCustomOpDef {
     return c;
   }
 
-  static int from_numpy(int dt) {
-    return to_numpy(dt, true);
-  }
-
-  template <typename _DT>
-  static py::object BuildPyObjFromTensor(const _DT* p, const shape_t& shape) {
+  static py::object BuildPyObjFromTensor(const void* p, const shape_t& shape, ONNXTensorElementDataType dtype) {
     std::vector<npy_intp> npy_dims;
     for (auto n : shape) {
       npy_dims.push_back(n);
     }
-
-    const int numpy_type = to_numpy(dt_float);
-    auto obj = py::reinterpret_borrow<py::object>(PyArray_SimpleNew(
+    const int numpy_type = to_numpy(dtype);
+    py::object obj = py::reinterpret_steal<py::object>(PyArray_SimpleNew(
         static_cast<int>(shape.size()), npy_dims.data(), numpy_type));
-
-    void* outPtr = static_cast<void*>(
+    void* out_ptr = static_cast<void*>(
         PyArray_DATA(reinterpret_cast<PyArrayObject*>(obj.ptr())));
 
-    memcpy(outPtr, p, sizeof(_DT) * calc_size_from_shape(shape));
+    if (dtype == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
+      py::object* outObj = static_cast<py::object*>(out_ptr);
+      auto size = calc_size_from_shape(shape);
+      const std::string* src = (const std::string*)p;
+      for (int i = 0; i < size; i++, src++) {
+        outObj[i] = py::cast(*src);
+      }
+    } else {
+      size_t size_type = element_size(dtype);
+      memcpy(out_ptr, p, size_type * calc_size_from_shape(shape));
+    }
     return obj;
   }
 
@@ -98,21 +182,32 @@ std::auto_ptr<PyCustomOpDefImpl::callback_t> PyCustomOpDefImpl::op_invoker;
 // static std::condition_variable op_cv;
 // static bool is_ready = false;
 
+typedef struct {
+  const OrtValue* input_X;
+  ONNXTensorElementDataType dtype;
+  std::vector<int64_t> dimensions;
+} InputInformation;
+
 void PyCustomOpKernel::Compute(OrtKernelContext* context) {
   // std::unique_lock<std::mutex> lck(op_mutex);
   // is_ready = true;
   // op_cv.notify_all();
   //  std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+  size_t n_inputs = ort_.KernelContext_GetInputCount(context);
+  size_t n_outputs = ort_.KernelContext_GetOutputCount(context);
 
   // Setup inputs
-  const OrtValue* input_X = ort_.KernelContext_GetInput(context, 0);
-  const float* X = ort_.GetTensorData<float>(input_X);
-
-  // Setup output
-  std::vector<int64_t> dimensions;
-  OrtTensorTypeAndShapeInfo* info = ort_.GetTensorTypeAndShape(input_X);
-  dimensions = (ort_.GetTensorShape(info));
-  ort_.ReleaseTensorTypeAndShapeInfo(info);
+  std::vector<InputInformation> inputs;
+  inputs.reserve(n_inputs);
+  for (size_t index = 0; index < n_inputs; ++index) {
+    const OrtValue* input_X = ort_.KernelContext_GetInput(context, index);
+    std::vector<int64_t> i_dimensions;
+    OrtTensorTypeAndShapeInfo* i_info = ort_.GetTensorTypeAndShape(input_X);
+    i_dimensions = ort_.GetTensorShape(i_info);
+    ONNXTensorElementDataType i_dtype = ort_.GetTensorElementType(i_info);
+    ort_.ReleaseTensorTypeAndShapeInfo(i_info);
+    inputs.push_back(InputInformation{input_X, i_dtype, i_dimensions});
+  }
 
   /* Acquire GIL before calling Python code, due to it was released in sess.run */
   py::gil_scoped_acquire acquire;
@@ -131,18 +226,56 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
   //      sizeof(float)});
 
   {
-    py::object input0 = PyCustomOpDefImpl::BuildPyObjFromTensor(X, dimensions);
-    auto feed = py::make_tuple(input0);
-    py::tuple fetch = PyCustomOpDefImpl::InvokePyFunction(obj_id_, feed);
+    py::list pyinputs;
+    for (auto it = inputs.begin(); it != inputs.end(); ++it) {
+      py::object input0 = PyCustomOpDefImpl::BuildPyObjFromTensor(
+          (const void*)ort_.GetTensorData<float>(it->input_X), it->dimensions, it->dtype);
+      pyinputs.append(input0);
+    }
+
+    // Call python function id, shape, flat coefficient.
+    py::tuple fetch = PyCustomOpDefImpl::InvokePyFunction(obj_id_, pyinputs);
     int64_t rid = fetch[0].cast<int64_t>();
     assert(rid == obj_id_);
-    auto dims = fetch[1].cast<std::vector<int64_t>>();
-    auto retval = fetch[2].cast<std::vector<float>>();
+
+    // Setup output.
+    for (size_t no = 0; no < n_outputs; ++no) {
+      auto dims = fetch[1 + no * 2].cast<std::vector<int64_t>>();
+      OrtValue* output = ort_.KernelContext_GetOutput(context, no, dims.data(), dims.size());
+      OrtTensorTypeAndShapeInfo* o_info = ort_.GetTensorTypeAndShape(output);
+      ONNXTensorElementDataType o_dtype = ort_.GetTensorElementType(o_info);
+      const void* Y = (const void*)ort_.GetTensorData<float>(output);
+      ort_.ReleaseTensorTypeAndShapeInfo(o_info);
+      void* out = (void*)ort_.GetTensorMutableData<float>(output);
+
+      if (o_dtype == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
+        auto retval = fetch[2 + no * 2].cast<std::vector<std::string>>();
+        std::string* type_outPtr = (std::string*)out;
+        std::string* end = type_outPtr + retval.size();
+        const std::string* source = (const std::string*)retval.data();
+        for (; type_outPtr != end; ++type_outPtr, ++source) {
+          *type_outPtr = *source;
+        }
+      } else {
+        py::array retval = fetch[2 + no * 2].cast<py::array>();
+        if (element_size(o_dtype) != retval.itemsize()) {
+          switch (o_dtype) {
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
+              retval = fetch[2 + no * 2].cast<py::array_t<float>>();
+              break;
+            default:
+              throw std::runtime_error(MakeString(
+                  "Type mismatch between declared output element size (",
+                  element_size(o_dtype), ") and python element size (",
+                  retval.itemsize(), ")"));
+          }
+        }
+        size_t size = element_size(o_dtype);
+        memcpy(out, retval.data(), size * retval.size());
+      }
+    }
 
     py::gil_scoped_release release;
-    OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dims.data(), dims.size());
-    float* out = ort_.GetTensorMutableData<float>(output);
-    std::copy(retval.data(), retval.data()+retval.size(), out);
 
     // TODO: the return value from the python callback function doesn't work in pybind11&numpy.
     // py::gil_scoped_acquire acquire;
@@ -170,16 +303,29 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
   }
 }
 
+std::vector<PyCustomOpFactory>& PyCustomOpDef_python_operator_list() {
+  static std::vector<PyCustomOpFactory> lst_custom_opdef;
+  return lst_custom_opdef;
+}
+
+void PyCustomOpDef::AddOp(const PyCustomOpDef* cod) {
+  // No need to protect against concurrent access, GIL is doing that.
+  PyCustomOpDef_python_operator_list().push_back(PyCustomOpFactory(cod));
+}
+
+const PyCustomOpFactory* PyCustomOpDef_FetchPyCustomOps(size_t count) {
+  // The result must stay alive
+  std::vector<PyCustomOpFactory>& copy = PyCustomOpDef_python_operator_list();
+  if (count < copy.size())
+    return &(copy[count]);
+  return nullptr;
+}
+
 const OrtCustomOp* FetchPyCustomOps(size_t& count) {
-  static std::vector<PyCustomOpFactory> c_pycustomops;
-  c_pycustomops.clear();
-
-  for (auto od_ptr : PyCustomOpDef::FullList()) {
-    c_pycustomops.emplace_back(PyCustomOpFactory(od_ptr));
-  }
-
-  count = c_pycustomops.size();
-  return c_pycustomops.data();
+  auto ptr = PyCustomOpDef_FetchPyCustomOps(count);
+  if (ptr == nullptr)
+    return nullptr;
+  return ptr;
 }
 
 // static std::ofstream logger;
@@ -191,7 +337,7 @@ static int init_numpy() {
 }
 
 void AddGlobalMethods(pybind11::module& m) {
-  m.def("add_custom_op", [](const PyCustomOpDef& cod) { PyCustomOpDef::FullList().push_back(&cod); });
+  m.def("add_custom_op", [](const PyCustomOpDef& cod) { PyCustomOpDef::AddOp(&cod); });
 }
 
 void AddObjectMethods(pybind11::module& m) {
