@@ -3,7 +3,7 @@
 
 #include "ocos.h"
 #include "kernels/kernels.h"
-#include "helpers/utils.h"
+#include "utils.h"
 
 #include <vector>
 #include <cmath>

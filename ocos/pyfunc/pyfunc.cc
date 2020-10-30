@@ -16,7 +16,7 @@
 #include <pybind11/numpy.h>
 #include <thread>
 
-#include "../helpers/utils.h"
+#include "../utils.h"
 #include "pykernel.h"
 
 namespace py = pybind11;
