@@ -5,11 +5,6 @@
 
 #include "ocos.h"
 
-typedef OrtCustomOp const* CPTR_OrtCustomOp;
-typedef CPTR_OrtCustomOp (*FxGetSchemaInstance)();
-
-FxGetSchemaInstance const* GetCustomOpSchemaList();
-
 struct BaseKernel {
   BaseKernel(OrtApi api);
 
