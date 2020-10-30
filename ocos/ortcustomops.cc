@@ -11,40 +11,34 @@
 #include <cmath>
 #include <algorithm>
 
-OrtCustomOp* get_operator_lists(size_t& n_ops) {
-  static OrtCustomOp operator_lists[] = {
-      CustomOpStringUpper(),
-      CustomOpStringJoin(),
-      CustomOpOne(),
-      CustomOpTwo(),
-      CustomOpNegPos()};
-  n_ops = sizeof(operator_lists) / sizeof(operator_lists[0]);
-  return operator_lists;
-}
+CustomOpStringUpper c_CustomOpStringUpper;
+CustomOpStringJoin c_CustomOpStringJoin;
+CustomOpOne c_CustomOpOne;
+CustomOpTwo c_CustomOpTwo;
+CustomOpNegPos c_CustomOpNegPos;
+
+OrtCustomOp* operator_lists[] = {
+    &c_CustomOpStringUpper,
+    &c_CustomOpStringJoin,
+    &c_CustomOpOne,
+    &c_CustomOpTwo,
+    &c_CustomOpNegPos,
+    nullptr};
 
 OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api) {
-  std::cout << "reg\n";
   OrtCustomOpDomain* domain = nullptr;
   const OrtApi* ortApi = api->GetApi(ORT_API_VERSION);
 
-  if (auto status = ortApi->CreateCustomOpDomain("test.customop", &domain)) {
-    std::cout << "domain\n";
-    return status;
-  } else {
-    std::cout << "ops\n";
-    size_t n_ops;
-    OrtCustomOp* ops = get_operator_lists(n_ops);
-    for (size_t i = 0; i < n_ops; ++i) {
-      if (auto status = ortApi->CustomOpDomain_Add(domain, &ops[i])) {
-        std::cout << "reg " << i << "/" << n_ops << "\n";
-        return status;
-      }
-    }
-  }
-
-  domain = nullptr;
   if (auto status = ortApi->CreateCustomOpDomain(c_OpDomain, &domain)) {
     return status;
+  }
+
+  OrtCustomOp** ops = operator_lists;
+  while (*ops != nullptr) {
+    if (auto status = ortApi->CustomOpDomain_Add(domain, *ops)) {
+      return status;
+    }
+    ++ops;
   }
 
 #if defined(PYTHON_OP_SUPPORT)
@@ -52,8 +46,7 @@ OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtA
   const OrtCustomOp* c_ops = FetchPyCustomOps(count);
   while (c_ops != nullptr) {
     OrtCustomOp* op_ptr = const_cast<OrtCustomOp*>(c_ops);
-    auto status = ortApi->CustomOpDomain_Add(domain, op_ptr);
-    if (status) {
+    if (auto status = ortApi->CustomOpDomain_Add(domain, op_ptr)) {
       return status;
     }
     ++count;
