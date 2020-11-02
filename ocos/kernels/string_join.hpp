@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "ocos.h"
 #include "kernels.h"
 #include "../utils.h"
 
