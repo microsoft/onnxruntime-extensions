@@ -13,10 +13,7 @@ struct PyCustomOpDef {
   std::vector<int> input_types;
   std::vector<int> output_types;
 
-  static std::vector<const PyCustomOpDef*>& FullList() {
-    static std::vector<const PyCustomOpDef*> lst_custom_opdef;
-    return lst_custom_opdef;
-  }
+  static void AddOp(const PyCustomOpDef* cod);
 
   static const int undefined = ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED;
   static const int dt_float = ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;    // maps to c type float
@@ -35,21 +32,16 @@ struct PyCustomOpDef {
   static const int dt_complex64 = ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64;    // complex with float32 real and imaginary components
   static const int dt_complex128 = ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128;  // complex with float64 real and imaginary components
   static const int dt_bfloat16 = ONNX_TENSOR_ELEMENT_DATA_TYPE_BFLOAT16;      // Non-IEEE floating-point format based on IEEE754 single-precision
-
-  static const std::map<int, int>& get_numpy_type_map(bool from_or_to);
 };
 
 struct PyCustomOpKernel {
-  PyCustomOpKernel(OrtApi api)
+  PyCustomOpKernel(OrtApi api, uint64_t id)
       : api_(api),
         ort_(api_),
-        obj_id_(0) {
+        obj_id_(id) {
   }
 
   void Compute(OrtKernelContext* context);
-  void set_opdef_id(uint64_t id) {
-    obj_id_ = id;
-  }
 
  private:
   OrtApi api_;  // keep a copy of the struct, whose ref is used in the ort_
@@ -58,35 +50,38 @@ struct PyCustomOpKernel {
 };
 
 struct PyCustomOpFactory : Ort::CustomOpBase<PyCustomOpFactory, PyCustomOpKernel> {
-  PyCustomOpFactory(PyCustomOpDef const* opdef) {
+  PyCustomOpFactory(const PyCustomOpDef* opdef) {
+    if (opdef == nullptr)
+      throw std::runtime_error("Python definition is empty.");
     opdef_ = opdef;
   }
 
   void* CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) {
-    auto kernel = new PyCustomOpKernel(api);
-    kernel->set_opdef_id(opdef_ == nullptr? uint64_t(0):opdef_->obj_id);
-    return kernel;
+    return new PyCustomOpKernel(api, opdef_->obj_id);
   };
 
   const char* GetName() const {
-    return opdef_ == nullptr ? "Unknown" : opdef_->op_type.c_str();
+    return opdef_->op_type.c_str();
   };
 
   size_t GetInputTypeCount() const {
-    return opdef_ == nullptr ? 1 : opdef_->input_types.size();
+    return opdef_->input_types.size();
   };
 
   ONNXTensorElementDataType GetInputType(size_t idx) const {
-    return opdef_ == nullptr ? ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT : static_cast<ONNXTensorElementDataType>(opdef_->input_types[idx]);
+    return static_cast<ONNXTensorElementDataType>(opdef_->input_types[idx]);
   };
 
   size_t GetOutputTypeCount() const {
-    return opdef_ == nullptr ? 1 : opdef_->output_types.size();
+    return opdef_->output_types.size();
   };
 
   ONNXTensorElementDataType GetOutputType(size_t idx) const {
-    return opdef_ == nullptr ? ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT : static_cast<ONNXTensorElementDataType>(opdef_->output_types[idx]);
-  };
+    return static_cast<ONNXTensorElementDataType>(opdef_->output_types[idx]);
+  }
 
-  PyCustomOpDef const* opdef_ = nullptr;
+  const PyCustomOpDef* opdef_;
 };
+
+std::vector<PyCustomOpFactory>& PyCustomOpDef_python_operator_list();
+const PyCustomOpFactory* PyCustomOpDef_FetchPyCustomOps(size_t count);

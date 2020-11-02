@@ -17,12 +17,37 @@ jobs:
   - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
     displayName: Add conda to PATH
 
-  - script: conda create --yes --quiet --name py37 -c conda-forge python=3.7 numpy
+  - script: conda create --yes --quiet --name pyenv -c conda-forge python=3.7 numpy
     displayName: Create Anaconda environment
 
   - script: |
-      call activate py37
-      python -m pip install --upgrade pip numpy
+      call activate pyenv
+      python -m pip install --upgrade pip
+      python -m pip install -r requirements.txt
+    displayName: Install requirements.txt
+
+  - script: |
+      call activate pyenv
       echo Test numpy installation... && python -c "import numpy"
       call .\build.bat
-    displayName: build the custom-op library
+    displayName: Build the custom-op library
+
+  - script: |
+      call activate pyenv
+      python -m pip install -e out\Windows\RelWithDebInfo
+    displayName: Install the custom-op library
+
+  - script: |
+      call activate pyenv
+      python -m pip install torch==1.6.0+cpu torchvision==0.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+    displayName: Install pytorch
+
+  - script: |
+      call activate pyenv
+      python -m pip install -r requirements-dev.txt
+    displayName: Install requirements-dev.txt
+
+  - script: |
+      call activate pyenv
+      python -m pytest test
+    displayName: Run python test

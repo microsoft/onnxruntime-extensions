@@ -1,3 +1,4 @@
 numpy
-protobuf
 onnx
+onnxconverter_common
+onnxruntime
