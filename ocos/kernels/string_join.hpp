@@ -11,20 +11,6 @@
 #include <cmath>
 #include <algorithm>
 
-struct KernelStringUpper : BaseKernel {
-  KernelStringUpper(OrtApi api);
-  void Compute(OrtKernelContext* context);
-};
-
-struct CustomOpStringUpper : Ort::CustomOpBase<CustomOpStringUpper, KernelStringUpper> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info);
-  const char* GetName() const;
-  size_t GetInputTypeCount() const;
-  ONNXTensorElementDataType GetInputType(size_t index) const;
-  size_t GetOutputTypeCount() const;
-  ONNXTensorElementDataType GetOutputType(size_t index) const;
-};
-
 struct KernelStringJoin : BaseKernel {
   KernelStringJoin(OrtApi api);
   void Compute(OrtKernelContext* context);

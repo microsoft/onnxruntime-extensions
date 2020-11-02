@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "dummy_kernels.hpp"
+#include "test_output.hpp"
 
 KernelOne::KernelOne(OrtApi api) : BaseKernel(api) {
 }

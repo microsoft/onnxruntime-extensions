@@ -11,7 +11,7 @@ typedef CPTR_OrtCustomOp (*FxGetSchemaInstance)();
 FxGetSchemaInstance const* GetCustomOpSchemaList();
 
 struct BaseKernel {
-  BaseKernel(OrtApi api);
+  BaseKernel(OrtApi api) : api_(api), ort_(api_) { }
 
  protected:
   OrtApi api_;  // keep a copy of the struct, whose ref is used in the ort_

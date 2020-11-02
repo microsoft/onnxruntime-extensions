@@ -1,10 +1,9 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "ocos.h"
-#include "kernels/kernels.h"
-#include "kernels/dummy_kernels.hpp"
-#include "kernels/string_kernels.hpp"
+#include "kernels/string_join.hpp"
+#include "kernels/string_upper.hpp"
+#include "kernels/test_output.hpp"
 #include "utils.h"
 
 #include <vector>
