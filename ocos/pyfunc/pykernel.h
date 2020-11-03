@@ -7,11 +7,23 @@
 #include <map>
 #include "ocos.h"
 
+struct PyCustomOpDefAttribute {
+  std::string name;
+  std::string dtype;
+  std::string desc;
+  PyCustomOpDefAttribute(const char* name, const char* dtype, const char* desc) {
+    this->name = name;
+    this->dtype = dtype;
+    this->desc = desc;
+  }
+};
+
 struct PyCustomOpDef {
   std::string op_type;
   uint64_t obj_id;
   std::vector<int> input_types;
   std::vector<int> output_types;
+  std::vector<PyCustomOpDefAttribute> atts;
 
   static void AddOp(const PyCustomOpDef* cod);
 

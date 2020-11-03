@@ -3,8 +3,10 @@
 # license information.
 ###############################################################################
 
+import warnings
 from pathlib import Path
-from ._ortcustomops import PyCustomOpDef, add_custom_op
+from ._ortcustomops import (  # noqa
+    PyCustomOpDef, add_custom_op, PyCustomOpDefAttribute)
 
 
 def get_library_path():
@@ -41,6 +43,10 @@ class Opdef:
         opdef._nativedef = PyCustomOpDef()
         opdef._nativedef.op_type = op_type
         opdef._nativedef.obj_id = od_id
+        if 'atts' in kwargs:
+            warnings.warn("onnxruntime C API does not support attributes yet, "
+                          "attributes are ignored.")
+            # opdef._nativedef.atts = kwargs['atts']
 
         # TODO: add handle more types and multiple inputs/outputs.
         # by default the op is single in/out

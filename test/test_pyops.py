@@ -4,8 +4,9 @@ import numpy as np
 from numpy.testing import assert_almost_equal
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
+from onnxruntime.capi.onnxruntime_pybind11_state import RuntimeException
 from ortcustomops import (
-    onnx_op, PyCustomOpDef,
+    onnx_op, PyCustomOpDef, PyCustomOpDefAttribute,
     get_library_path as _get_library_path)
 
 
@@ -88,6 +89,24 @@ def _create_test_model_2outputs(prefix, domain='ai.onnx.contrib'):
     return model
 
 
+def _create_test_model_random(prefix):
+    nodes = []
+    nodes[0:] = [helper.make_node('Identity', ['input_1'], ['identity1'])]
+    nodes[1:] = [helper.make_node('%sRandom' % prefix, ['identity1'], ['rnd'],
+                                  kind='normal',
+                                  domain='ai.onnx.contrib')]
+
+    input0 = helper.make_tensor_value_info(
+        'input_1', onnx_proto.TensorProto.INT64, [None])
+    output0 = helper.make_tensor_value_info(
+        'rnd', onnx_proto.TensorProto.FLOAT, [])
+
+    graph = helper.make_graph(nodes, 'test0', [input0], [output0])
+    model = helper.make_model(
+        graph, opset_imports=[helper.make_operatorsetid('ai.onnx.contrib', 1)])
+    return model
+
+
 class TestPythonOp(unittest.TestCase):
 
     @classmethod
@@ -107,13 +126,25 @@ class TestPythonOp(unittest.TestCase):
 
         @onnx_op(op_type="PyNegPos",
                  inputs=[PyCustomOpDef.dt_float],
-                 outputs=[PyCustomOpDef.dt_float, PyCustomOpDef.dt_float])
+                 outputs=[PyCustomOpDef.dt_float, PyCustomOpDef.dt_float],
+                 atts=[PyCustomOpDefAttribute('kind', 'string',
+                                              "'uniform' or 'normal'")])
         def negpos(x):
             neg = x.copy()
             pos = x.copy()
             neg[x > 0] = 0
             pos[x < 0] = 0
             return neg, pos
+
+        @onnx_op(op_type="PyRandom",
+                 inputs=[PyCustomOpDef.dt_int64],
+                 outputs=[PyCustomOpDef.dt_float])
+        def random(shape, kind=None):
+            if kind == 'uniform':
+                return np.random.rand(*shape).astype(np.float32)
+            if kind == ' normal':
+                return np.random.randn(*shape).astype(np.float32)
+            raise RuntimeError("Unexpected kind='{}'.".format(kind))
 
     def test_python_operator(self):
         so = _ort.SessionOptions()
@@ -148,6 +179,24 @@ class TestPythonOp(unittest.TestCase):
         diff = x - (neg + pos)
         assert_almost_equal(diff, np.zeros(diff.shape))
 
+    def test_python_random(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_random('Py')
+        self.assertIn('op_type: "PyRandom"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sh = np.array([3, 4]).astype(np.int64)
+        try:
+            res = sess.run(None, {'input_1': sh})[0]
+        except RuntimeException as e:
+            if "Unexpected kind='None'" in str(e):
+                # Attribute are not supported yet by onnxruntime C API.
+                return
+            raise
+        assert_almost_equal(res.shape, sh)
+        ave = np.sum(res)
+        assert np.abs(ave) < 0.25
+
     def test_cc_negpos(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
@@ -165,7 +214,8 @@ class TestPythonOp(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_content = _create_test_model_test()
         onnx_bytes = onnx_content.SerializeToString()
-        with open(os.path.join(this, 'data', 'custom_op_test.onnx'), 'rb') as f:
+        with open(os.path.join(this, 'data', 'custom_op_test.onnx'),
+                  'rb') as f:
             saved = f.read()
         assert onnx_bytes == saved
 

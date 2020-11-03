@@ -309,6 +309,8 @@ std::vector<PyCustomOpFactory>& PyCustomOpDef_python_operator_list() {
 
 void PyCustomOpDef::AddOp(const PyCustomOpDef* cod) {
   // No need to protect against concurrent access, GIL is doing that.
+  if (cod->atts.size() > 0)
+    throw std::runtime_error("onnxruntime C API does not support attributes yet.");
   PyCustomOpDef_python_operator_list().push_back(PyCustomOpFactory(cod));
 }
 
@@ -340,15 +342,22 @@ void AddGlobalMethods(pybind11::module& m) {
 }
 
 void AddObjectMethods(pybind11::module& m) {
+  pybind11::class_<PyCustomOpDefAttribute>(m, "PyCustomOpDefAttribute")
+      .def(py::init<const char*, const char*, const char*>(), py::arg("name"), py::arg("dtype"), py::arg("desc"))
+      .def_readwrite("name", &PyCustomOpDefAttribute::name)
+      .def_readwrite("dtype", &PyCustomOpDefAttribute::dtype)
+      .def_readwrite("desc", &PyCustomOpDefAttribute::desc);
+
   pybind11::class_<PyCustomOpDef>(m, "PyCustomOpDef")
-      .def(pybind11::init<>())
+      .def(py::init<>())
       .def_readwrite("op_type", &PyCustomOpDef::op_type)
       .def_readwrite("obj_id", &PyCustomOpDef::obj_id)
       .def_readwrite("input_types", &PyCustomOpDef::input_types)
       .def_readwrite("output_types", &PyCustomOpDef::output_types)
+      .def_readwrite("atts", &PyCustomOpDef::atts)
       .def_static("install_hooker", [](py::object obj) {
-        std::auto_ptr<PyCustomOpDefImpl::callback_t> s_obj(new PyCustomOpDefImpl::callback_t(obj));
-        PyCustomOpDefImpl::op_invoker = s_obj; })
+    std::auto_ptr<PyCustomOpDefImpl::callback_t> s_obj(new PyCustomOpDefImpl::callback_t(obj));
+    PyCustomOpDefImpl::op_invoker = s_obj; })
       .def_readonly_static("undefined", &PyCustomOpDef::undefined)
       .def_readonly_static("dt_float", &PyCustomOpDef::dt_float)
       .def_readonly_static("dt_uint8", &PyCustomOpDef::dt_uint8)
