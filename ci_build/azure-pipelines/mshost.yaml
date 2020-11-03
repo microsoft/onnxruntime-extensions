@@ -34,6 +34,11 @@ jobs:
 
   - script: |
       call activate pyenv
+      .\out\Windows\RelWithDebInfo\ortcustomops_test.exe
+    displayName: Run C++ Test
+
+  - script: |
+      call activate pyenv
       python -m pip install -e out\Windows\RelWithDebInfo
     displayName: Install the custom-op library
 

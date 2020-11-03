@@ -53,9 +53,9 @@ if(ENABLE_PYTHON)
   find_package(Python3 COMPONENTS Interpreter Development)
 endif()
 
-file(GLOB TARGET_SRC "./ocos/*.cc"  "./ocos/ortcustomops.def")
-file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc")
-file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc")
+file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/*.h*" "./ocos/ortcustomops.def")
+file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
+file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc" "./ocos/pyfunc/*.h*")
 
 if (ENABLE_PYTHON)
   Python3_add_library(ortcustomops SHARED ${TARGET_SRC} ${TARGET_SRC_KERNELS} ${TARGET_SRC_PYOPS})
@@ -106,8 +106,9 @@ if(ENABLE_PYTHON)
 endif()
 
 include(googletest)
-add_executable(cuop_test ${PROJECT_SOURCE_DIR}/test/test_main.cc)
+file(GLOB TEST_SRC "${PROJECT_SOURCE_DIR}/test/test*.cc" "${PROJECT_SOURCE_DIR}/test/test*.h*")
+add_executable(ortcustomops_test ${TEST_SRC})
 
-target_link_libraries(cuop_test gtest_main ortcustomops)
+target_link_libraries(ortcustomops_test gtest_main ortcustomops)
 
-add_test(NAME cuop_test COMMAND test)
+add_test(NAME ortcustomops_test COMMAND test)

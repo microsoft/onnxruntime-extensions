@@ -2,9 +2,9 @@
 // Licensed under the MIT License.
 
 #pragma once
+
 #include <vector>
 #include <map>
-
 #include "ocos.h"
 
 struct PyCustomOpDef {

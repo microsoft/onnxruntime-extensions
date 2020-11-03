@@ -8,10 +8,10 @@ from ortcustomops import (
     get_library_path as _get_library_path)
 
 
-def _create_test_model_string_upper(domain):
+def _create_test_model_string_upper(prefix, domain='ai.onnx.contrib'):
     nodes = []
     nodes[0:] = [helper.make_node('Identity', ['input_1'], ['identity1'])]
-    nodes[1:] = [helper.make_node('StringUpper',
+    nodes[1:] = [helper.make_node('%sStringUpper' % prefix,
                                   ['identity1'], ['customout'],
                                   domain=domain)]
 
@@ -26,7 +26,7 @@ def _create_test_model_string_upper(domain):
     return model
 
 
-def _create_test_model_string_join(domain):
+def _create_test_model_string_join(prefix, domain='ai.onnx.contrib'):
     nodes = []
     nodes.append(
         helper.make_node('Identity', ['text'], ['identity1']))
@@ -34,7 +34,7 @@ def _create_test_model_string_join(domain):
         helper.make_node('Identity', ['sep'], ['identity2']))
     nodes.append(
         helper.make_node(
-            'StringJoin', ['identity1', 'identity2'],
+            '%sStringJoin' % prefix, ['identity1', 'identity2'],
             ['customout'], domain=domain))
 
     input0 = helper.make_tensor_value_info(
@@ -55,14 +55,14 @@ class TestPythonOpString(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
 
-        @onnx_op(op_type="StringUpper",
+        @onnx_op(op_type="PyStringUpper",
                  inputs=[PyCustomOpDef.dt_string],
                  outputs=[PyCustomOpDef.dt_string])
         def string_upper(x):
             # The user custom op implementation here.
             return np.array([s.upper() for s in x.ravel()]).reshape(x.shape)
 
-        @onnx_op(op_type="StringJoin",
+        @onnx_op(op_type="PyStringJoin",
                  inputs=[PyCustomOpDef.dt_string, PyCustomOpDef.dt_string],
                  outputs=[PyCustomOpDef.dt_string])
         def string_join(x, sep):
@@ -98,7 +98,7 @@ class TestPythonOpString(unittest.TestCase):
     def test_string_upper_cc(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_string_upper('test.customop')
+        onnx_model = _create_test_model_string_upper('')
         self.assertIn('op_type: "StringUpper"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         input_1 = np.array([["Abc"]])
@@ -108,7 +108,7 @@ class TestPythonOpString(unittest.TestCase):
     def test_string_upper_cc_accent(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_string_upper('test.customop')
+        onnx_model = _create_test_model_string_upper('')
         self.assertIn('op_type: "StringUpper"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         input_1 = np.array([["Abcé"]])
@@ -118,8 +118,8 @@ class TestPythonOpString(unittest.TestCase):
     def test_string_upper_python(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_string_upper('ai.onnx.contrib')
-        self.assertIn('op_type: "StringUpper"', str(onnx_model))
+        onnx_model = _create_test_model_string_upper('Py')
+        self.assertIn('op_type: "PyStringUpper"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         input_1 = np.array([["Abc"]])
         txout = sess.run(None, {'input_1': input_1})
@@ -128,8 +128,8 @@ class TestPythonOpString(unittest.TestCase):
     def test_string_upper_python_accent(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_string_upper('ai.onnx.contrib')
-        self.assertIn('op_type: "StringUpper"', str(onnx_model))
+        onnx_model = _create_test_model_string_upper('Py')
+        self.assertIn('op_type: "PyStringUpper"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         input_1 = np.array([["Abcé"]])
         txout = sess.run(None, {'input_1': input_1})
@@ -139,8 +139,8 @@ class TestPythonOpString(unittest.TestCase):
     def test_string_join_python(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_string_join('ai.onnx.contrib')
-        self.assertIn('op_type: "StringJoin"', str(onnx_model))
+        onnx_model = _create_test_model_string_join('Py')
+        self.assertIn('op_type: "PyStringJoin"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         text = np.vstack([np.array([["a", "b", "c"]]),
                           np.array([["aa", "bb", ""]])])
@@ -153,7 +153,7 @@ class TestPythonOpString(unittest.TestCase):
     def test_string_join_cc(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_string_join('test.customop')
+        onnx_model = _create_test_model_string_join('')
         self.assertIn('op_type: "StringJoin"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         text = np.vstack([np.array([["a", "b", "c"]]),
