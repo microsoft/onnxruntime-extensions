@@ -1,3 +1,4 @@
+import os
 import unittest
 import numpy as np
 from numpy.testing import assert_almost_equal
@@ -157,6 +158,16 @@ class TestPythonOp(unittest.TestCase):
         neg, pos = sess.run(None, {'x': x})
         diff = x - (neg + pos)
         assert_almost_equal(diff, np.zeros(diff.shape))
+
+    def test_check_saved_model(self):
+        this = os.path.dirname(__file__)
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_content = _create_test_model_test()
+        onnx_bytes = onnx_content.SerializeToString()
+        with open(os.path.join(this, 'data', 'custom_op_test.onnx'), 'rb') as f:
+            saved = f.read()
+        assert onnx_bytes == saved
 
     def test_cc_operator(self):
         so = _ort.SessionOptions()
