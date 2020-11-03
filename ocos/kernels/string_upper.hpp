@@ -6,10 +6,6 @@
 #include "kernels.h"
 #include "../utils.h"
 
-#include <vector>
-#include <cmath>
-#include <algorithm>
-
 struct KernelStringUpper : BaseKernel {
   KernelStringUpper(OrtApi api);
   void Compute(OrtKernelContext* context);

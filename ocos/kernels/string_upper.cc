@@ -2,6 +2,10 @@
 // Licensed under the MIT License.
 
 #include "string_upper.hpp"
+#include <vector>
+#include <cmath>
+#include <algorithm>
+
 
 KernelStringUpper::KernelStringUpper(OrtApi api) : BaseKernel(api) {
 }

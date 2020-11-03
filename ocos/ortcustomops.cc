@@ -6,10 +6,6 @@
 #include "kernels/test_output.hpp"
 #include "utils.h"
 
-#include <vector>
-#include <cmath>
-#include <algorithm>
-
 CustomOpStringUpper c_CustomOpStringUpper;
 CustomOpStringJoin c_CustomOpStringJoin;
 CustomOpOne c_CustomOpOne;
