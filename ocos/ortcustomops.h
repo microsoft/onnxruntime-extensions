@@ -13,3 +13,6 @@ OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtA
 #ifdef __cplusplus
 }
 #endif
+
+size_t ORT_API_CALL NumberOfAvailableOperators();
+const char* ORT_API_CALL GetNameOfAvailableOperator(size_t n);

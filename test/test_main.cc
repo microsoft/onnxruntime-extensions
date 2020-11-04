@@ -5,7 +5,6 @@
 #include <iostream>
 #include <fstream>
 #include "gtest/gtest.h"
-#include "test_utils.h"
 
 #ifdef _WIN32
 int wmain(int argc, wchar_t* argv[]) {

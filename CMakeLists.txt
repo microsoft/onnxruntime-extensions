@@ -15,6 +15,7 @@ set(ONNX_ML 1)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(REPO_ROOT ${PROJECT_SOURCE_DIR})
 include(CheckCXXCompilerFlag)
 include(CheckLanguage)
 
@@ -44,71 +45,39 @@ if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
   message(FATAL_ERROR "CMAKE_FIND_FRAMEWORK is not NEVER")
 endif()
 
-if(ENABLE_PYTHON)
-  set(Python3_FIND_REGISTRY NEVER CACHE STRING "...")
-  if(NOT "${Python3_FIND_REGISTRY}" STREQUAL "NEVER")
-    message(FATAL_ERROR "Python3_FIND_REGISTRY is not NEVER")
-  endif()
+# re2
+add_subdirectory(cmake/externals/re2 EXCLUDE_FROM_ALL)
+set_target_properties(re2 PROPERTIES FOLDER "cmake/externals/re2")
+add_library(re2::re2 ALIAS re2)
+set(RE2_INCLUDE_DIR ./cmake/externals/re2)
 
-  find_package(Python3 COMPONENTS Interpreter Development)
-endif()
-
-file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/*.h*" "./ocos/ortcustomops.def")
-file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
-file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc" "./ocos/pyfunc/*.h*")
-
-if (ENABLE_PYTHON)
-  Python3_add_library(ortcustomops SHARED ${TARGET_SRC} ${TARGET_SRC_KERNELS} ${TARGET_SRC_PYOPS})
-  target_compile_definitions(ortcustomops PRIVATE PYTHON_OP_SUPPORT)
-else()
-  add_library(ortcustomops SHARED ${TARGET_SRC} ${TARGET_SRC_KERNELS} ${TARGET_SRC_PYOPS})
-endif()
-
-target_include_directories(ortcustomops PUBLIC
-  ./includes
-  ./includes/onnxruntime)
-
-set_source_files_properties(ortcustomops.def PROPERTIES HEADER_FILE_ONLY TRUE)
-target_compile_definitions(ortcustomops PRIVATE ONNX_NAMESPACE=onnx ONNX_ML NOMINMAX)
-target_compile_features(ortcustomops PUBLIC cxx_std_11)
-
-
-set(CPACK_PROJECT_NAME ${PROJECT_NAME})
-set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
-include(CPack)
-
-
-# External dependencies
+# external dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
 
-if(ENABLE_PYTHON)
-  include(pybind11)
-  set(NUMPY_NOT_FOUND false)
-  exec_program("${Python3_EXECUTABLE}"
-      ARGS "-c \"import numpy; print(numpy.get_include())\""
-      OUTPUT_VARIABLE NUMPY_INCLUDE_DIR
-      RETURN_VALUE NUMPY_NOT_FOUND)
-  if(${NUMPY_NOT_FOUND})
-      message(FATAL_ERROR
-              "Cannot get NumPy include directory: Is NumPy installed?")
-  endif(${NUMPY_NOT_FOUND})
-
-  target_include_directories(ortcustomops PRIVATE
-      ${NUMPY_INCLUDE_DIR}
-      ${pybind11_INCLUDE_DIRS}
-      )
-
-  add_custom_command(
-    TARGET ortcustomops POST_BUILD
-    COMMAND powershell  -NoProfile -ExecutionPolicy RemoteSigned -file ./pysetup.ps1 "$<TARGET_FILE_DIR:ortcustomops>"
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  )
+# Build ortcustomops
+if (ENABLE_PYTHON)
+  # External dependencies
+  include(cmake/ortcustom_python.cmake)
 endif()
 
+# static build
+file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/*.h*")
+file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
+add_library(ortcustomops_lib STATIC ${TARGET_SRC} ${TARGET_SRC_KERNELS})
+target_include_directories(ortcustomops_lib PUBLIC ./includes ./includes/onnxruntime ${RE2_INCLUDE_DIR})
+target_compile_definitions(ortcustomops_lib PRIVATE ONNX_NAMESPACE=onnx ONNX_ML NOMINMAX)
+target_compile_features(ortcustomops_lib PUBLIC cxx_std_11)
+
+#set(CPACK_PROJECT_NAME ${PROJECT_NAME})
+#set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
+#include(CPack)  
+
+# Unit tests
 include(googletest)
 file(GLOB TEST_SRC "${PROJECT_SOURCE_DIR}/test/test*.cc" "${PROJECT_SOURCE_DIR}/test/test*.h*")
 add_executable(ortcustomops_test ${TEST_SRC})
+target_include_directories(ortcustomops_test PUBLIC ./includes ./includes/onnxruntime)
 
-target_link_libraries(ortcustomops_test gtest_main ortcustomops)
+target_link_libraries(ortcustomops_test gtest_main ortcustomops_lib re2::re2)
 
 add_test(NAME ortcustomops_test COMMAND test)

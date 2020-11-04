@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 #include "gtest/gtest.h"
-#include "test_utils.h"
 #include "../ocos/utils.h"
 
 TEST(utils, make_string) {
