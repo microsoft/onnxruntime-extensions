@@ -46,10 +46,10 @@ if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
 endif()
 
 # re2
-add_subdirectory(cmake/externals/re2 EXCLUDE_FROM_ALL)
+add_subdirectory(${PROJECT_SOURCE_DIR}/cmake/externals/re2 EXCLUDE_FROM_ALL)
 add_library(re2::re2 ALIAS re2)
-set_target_properties(re2 PROPERTIES FOLDER "cmake/externals/re2")
-set(RE2_INCLUDE_DIR ./cmake/externals/re2)
+set_target_properties(re2 PROPERTIES FOLDER "${PROJECT_SOURCE_DIR}/cmake/externals/re2")
+set(RE2_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/cmake/externals/re2)
 
 # external dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
@@ -57,7 +57,7 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
 # Build ortcustomops
 if (ENABLE_PYTHON)
   # External dependencies
-  include(cmake/ortcustom_python.cmake)
+  include(${PROJECT_SOURCE_DIR}/cmake/ortcustom_python.cmake)
 endif()
 
 # static build
