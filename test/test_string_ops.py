@@ -216,8 +216,8 @@ class TestPythonOpString(unittest.TestCase):
         onnx_model = _create_test_model_string_replace('')
         self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-        pattern = np.array(r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):')
-        rewrite = np.array(r'static PyObject* py_\1(void) {')
+        pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
+        rewrite = np.array([r'static PyObject* py_\1(void) {'])
         text = np.array([['def myfunc():'], ['def dummy():']])
         txout = sess.run(
             None, {'text': text, 'pattern': pattern, 'rewrite': rewrite})
