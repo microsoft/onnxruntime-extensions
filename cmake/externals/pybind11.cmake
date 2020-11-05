@@ -1,7 +1,3 @@
-if(onnxruntime_PREFER_SYSTEM_LIB)
-  find_package(pybind11)
-endif()
-
 if(NOT TARGET pybind11::module)
   include(ExternalProject)
 
