@@ -47,8 +47,8 @@ endif()
 
 # re2
 add_subdirectory(cmake/externals/re2 EXCLUDE_FROM_ALL)
-set_target_properties(re2 PROPERTIES FOLDER "cmake/externals/re2")
 add_library(re2::re2 ALIAS re2)
+set_target_properties(re2 PROPERTIES FOLDER "cmake/externals/re2")
 set(RE2_INCLUDE_DIR ./cmake/externals/re2)
 
 # external dependencies

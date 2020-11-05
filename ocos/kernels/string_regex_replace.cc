@@ -1,16 +1,16 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "string_Replace.hpp"
+#include "string_regex_replace.hpp"
 #include <vector>
 #include <cmath>
 #include <algorithm>
 #include "re2/re2.h"
 
-KernelStringReplace::KernelStringReplace(OrtApi api) : BaseKernel(api) {
+KernelStringRegexReplace::KernelStringRegexReplace(OrtApi api) : BaseKernel(api) {
 }
 
-void KernelStringReplace::Compute(OrtKernelContext* context) {
+void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
   const std::string* str_input = ort_.GetTensorData<std::string>(input);
@@ -50,24 +50,24 @@ void KernelStringReplace::Compute(OrtKernelContext* context) {
   }
 }
 
-void* CustomOpStringReplace::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) {
-  return new KernelStringReplace(api);
+void* CustomOpStringRegexReplace::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) {
+  return new KernelStringRegexReplace(api);
 };
 
-const char* CustomOpStringReplace::GetName() const { return "StringReplace"; };
+const char* CustomOpStringRegexReplace::GetName() const { return "StringRegexReplace"; };
 
-size_t CustomOpStringReplace::GetInputTypeCount() const {
+size_t CustomOpStringRegexReplace::GetInputTypeCount() const {
   return 3;
 };
 
-ONNXTensorElementDataType CustomOpStringReplace::GetInputType(size_t /*index*/) const {
+ONNXTensorElementDataType CustomOpStringRegexReplace::GetInputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
 };
 
-size_t CustomOpStringReplace::GetOutputTypeCount() const {
+size_t CustomOpStringRegexReplace::GetOutputTypeCount() const {
   return 1;
 };
 
-ONNXTensorElementDataType CustomOpStringReplace::GetOutputType(size_t /*index*/) const {
+ONNXTensorElementDataType CustomOpStringRegexReplace::GetOutputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
 };

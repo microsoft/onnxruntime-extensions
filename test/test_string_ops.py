@@ -61,7 +61,7 @@ def _create_test_model_string_replace(prefix, domain='ai.onnx.contrib'):
         helper.make_node('Identity', ['rewrite'], ['id3']))
     nodes.append(
         helper.make_node(
-            '%sStringReplace' % prefix, ['id1', 'id2', 'id3'],
+            '%sStringRegexReplace' % prefix, ['id1', 'id2', 'id3'],
             ['customout'], domain=domain))
 
     input0 = helper.make_tensor_value_info(
@@ -103,7 +103,7 @@ class TestPythonOpString(unittest.TestCase):
             sp = sep[0]
             return np.array([sp.join(row) for row in x])
 
-        @onnx_op(op_type="PyStringReplace",
+        @onnx_op(op_type="PyStringRegexReplace",
                  inputs=[PyCustomOpDef.dt_string, PyCustomOpDef.dt_string,
                          PyCustomOpDef.dt_string],
                  outputs=[PyCustomOpDef.dt_string])
@@ -214,10 +214,10 @@ class TestPythonOpString(unittest.TestCase):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace('')
-        self.assertIn('op_type: "StringReplace"', str(onnx_model))
+        self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-        pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
-        rewrite = np.array([r'static PyObject* py_\1(void) {'])
+        pattern = np.array(r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):')
+        rewrite = np.array(r'static PyObject* py_\1(void) {')
         text = np.array([['def myfunc():'], ['def dummy():']])
         txout = sess.run(
             None, {'text': text, 'pattern': pattern, 'rewrite': rewrite})
@@ -229,7 +229,7 @@ class TestPythonOpString(unittest.TestCase):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace('Py')
-        self.assertIn('op_type: "PyStringReplace"', str(onnx_model))
+        self.assertIn('op_type: "PyStringRegexReplace"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
         rewrite = np.array([r'static PyObject*\npy_\1(void)\n{'])

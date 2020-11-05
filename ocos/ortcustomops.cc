@@ -2,14 +2,14 @@
 // Licensed under the MIT License.
 
 #include "kernels/string_join.hpp"
-#include "kernels/string_replace.hpp"
+#include "kernels/string_regex_replace.hpp"
 #include "kernels/string_upper.hpp"
 #include "kernels/test_output.hpp"
 #include "utils.h"
 
 CustomOpNegPos c_CustomOpNegPos;
 CustomOpStringJoin c_CustomOpStringJoin;
-CustomOpStringReplace c_CustomOpStringReplace;
+CustomOpStringRegexReplace c_CustomOpStringRegexReplace;
 CustomOpStringUpper c_CustomOpStringUpper;
 CustomOpOne c_CustomOpOne;
 CustomOpTwo c_CustomOpTwo;
@@ -17,7 +17,7 @@ CustomOpTwo c_CustomOpTwo;
 OrtCustomOp* operator_lists[] = {
     &c_CustomOpNegPos,
     &c_CustomOpStringJoin,
-    &c_CustomOpStringReplace,
+    &c_CustomOpStringRegexReplace,
     &c_CustomOpStringUpper,
     &c_CustomOpOne,
     &c_CustomOpTwo,
