@@ -23,17 +23,6 @@ OrtCustomOp* operator_lists[] = {
     &c_CustomOpTwo,
     nullptr};
 
-size_t ORT_API_CALL NumberOfAvailableOperators() {
-  size_t n = 0;
-  for (; operator_lists[n] != nullptr; ++n)
-    ;
-  return n;
-}
-
-const char* ORT_API_CALL GetNameOfAvailableOperator(size_t n) {
-  return operator_lists[n]->GetName(operator_lists[n]);
-}
-
 OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api) {
   OrtCustomOpDomain* domain = nullptr;
   const OrtApi* ortApi = api->GetApi(ORT_API_VERSION);
