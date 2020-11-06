@@ -47,9 +47,13 @@ endif()
 
 # external dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
+set(CPACK_PROJECT_NAME ${PROJECT_NAME})
+set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
+include(CPack)  
 
 # Build ortcustomops
 include(googlere2)
+FetchContent_GetProperties(googlere2)
 if (ENABLE_PYTHON)
   # External dependencies
   include(${PROJECT_SOURCE_DIR}/cmake/ortcustom_python.cmake)
@@ -59,6 +63,7 @@ endif()
 file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/*.h*")
 file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
 add_library(ortcustomops_lib STATIC ${TARGET_SRC} ${TARGET_SRC_KERNELS})
+add_dependencies(ortcustomops_lib re2)
 target_include_directories(ortcustomops_lib PUBLIC 
   ./includes
   ./includes/onnxruntime
@@ -66,13 +71,8 @@ target_include_directories(ortcustomops_lib PUBLIC
 target_compile_definitions(ortcustomops_lib PRIVATE ONNX_NAMESPACE=onnx ONNX_ML NOMINMAX)
 target_compile_features(ortcustomops_lib PUBLIC cxx_std_11)
 
-#set(CPACK_PROJECT_NAME ${PROJECT_NAME})
-#set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
-#include(CPack)  
-
 # Unit tests
 include(googletest)
-FetchContent_GetProperties(googlere2)
 
 file(GLOB TEST_SRC "${PROJECT_SOURCE_DIR}/test/test*.cc")
 add_executable(ortcustomops_test ${TEST_SRC})

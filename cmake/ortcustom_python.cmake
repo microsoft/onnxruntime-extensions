@@ -68,7 +68,9 @@ target_include_directories(_ortcustomops PUBLIC
 )
 
 if(MSVC)
-  target_compile_options(_ortcustomops PRIVATE "$<$<COMPILE_LANGUAGE:CUDA>:SHELL:--compiler-options /utf-8>" "$<$<NOT:$<COMPILE_LANGUAGE:CUDA>>:/utf-8>")
+  target_compile_options(_ortcustomops PRIVATE 
+    "$<$<COMPILE_LANGUAGE:CUDA>:SHELL:--compiler-options /utf-8>" 
+    "$<$<NOT:$<COMPILE_LANGUAGE:CUDA>>:/utf-8>")
 endif()
 if(HAS_CAST_FUNCTION_TYPE)
   target_compile_options(_ortcustomops PRIVATE "-Wno-cast-function-type")
@@ -95,7 +97,7 @@ endif()
 
 set(ortcustomops_libs ${pybind11_lib} ${googlere2_BINARY_DIR}/${CMAKE_BUILD_TYPE}/re2.lib Python3::Python) 
 set(python_libs c:/Python372_x64/libs)
-add_dependencies(_ortcustomops ${pybind11_dep} googlere2)
+add_dependencies(_ortcustomops ${pybind11_dep} re2)
 
 if (MSVC)
   # if MSVC, pybind11 looks for release version of python lib (pybind11/detail/common.h undefs _DEBUG)
