@@ -49,7 +49,7 @@ endif()
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
 
 # Build ortcustomops
-include(re2)
+include(googlere2)
 if (ENABLE_PYTHON)
   # External dependencies
   include(${PROJECT_SOURCE_DIR}/cmake/ortcustom_python.cmake)
@@ -59,7 +59,10 @@ endif()
 file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/*.h*")
 file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
 add_library(ortcustomops_lib STATIC ${TARGET_SRC} ${TARGET_SRC_KERNELS})
-target_include_directories(ortcustomops_lib PUBLIC ./includes ./includes/onnxruntime ${RE2_INCLUDE_DIRS})
+target_include_directories(ortcustomops_lib PUBLIC 
+  ./includes
+  ./includes/onnxruntime
+  ${googlere2_SOURCE_DIR})
 target_compile_definitions(ortcustomops_lib PRIVATE ONNX_NAMESPACE=onnx ONNX_ML NOMINMAX)
 target_compile_features(ortcustomops_lib PUBLIC cxx_std_11)
 
@@ -69,13 +72,17 @@ target_compile_features(ortcustomops_lib PUBLIC cxx_std_11)
 
 # Unit tests
 include(googletest)
-include(googlere2)
 FetchContent_GetProperties(googlere2)
 
 file(GLOB TEST_SRC "${PROJECT_SOURCE_DIR}/test/test*.cc")
 add_executable(ortcustomops_test ${TEST_SRC})
-target_include_directories(ortcustomops_test PRIVATE ${googlere2_SOURCE_DIR})
-
-target_link_libraries(ortcustomops_test gtest_main ${googlere2_BINARY_DIR}/${CMAKE_BUILD_TYPE}/re2.lib ortcustomops)
+target_include_directories(ortcustomops_test PRIVATE 
+  ./includes
+  ./includes/onnxruntime
+  ${googlere2_SOURCE_DIR})
+target_link_libraries(ortcustomops_test
+  gtest_main
+  ${googlere2_BINARY_DIR}/${CMAKE_BUILD_TYPE}/re2.lib
+  ortcustomops_lib)
 
 add_test(NAME ortcustomops_test COMMAND test)

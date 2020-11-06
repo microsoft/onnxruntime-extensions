@@ -64,7 +64,7 @@ target_compile_definitions(_ortcustomops PRIVATE PYTHON_OP_SUPPORT)
 target_include_directories(_ortcustomops PUBLIC
    ./includes
    ./includes/onnxruntime
-   ${RE2_INCLUDE_DIRS}
+   ${googlere2_SOURCE_DIR}
 )
 
 if(MSVC)
@@ -87,15 +87,15 @@ target_include_directories(_ortcustomops PRIVATE
     ${PYTHON_INCLUDE_DIR}
     ${NUMPY_INCLUDE_DIR}
     ${pybind11_INCLUDE_DIRS}
-    ${RE2_INCLUDE_DIRS}
+    ${googlere2_SOURCE_DIR}
 )
 if(ortcustomops_USE_CUDA)
     target_include_directories(_ortcustomops PRIVATE ${ortcustomops_CUDNN_HOME}/include)
 endif()
 
-set(ortcustomops_libs ${pybind11_lib} ${re2_STATIC_LIBRARIES} Python3::Python) 
+set(ortcustomops_libs ${pybind11_lib} ${googlere2_BINARY_DIR}/${CMAKE_BUILD_TYPE}/re2.lib Python3::Python) 
 set(python_libs c:/Python372_x64/libs)
-add_dependencies(_ortcustomops ${pybind11_dep} ${re2_dep})
+add_dependencies(_ortcustomops ${pybind11_dep} googlere2)
 
 if (MSVC)
   # if MSVC, pybind11 looks for release version of python lib (pybind11/detail/common.h undefs _DEBUG)
