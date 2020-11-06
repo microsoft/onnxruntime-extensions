@@ -93,7 +93,7 @@ if(ortcustomops_USE_CUDA)
     target_include_directories(_ortcustomops PRIVATE ${ortcustomops_CUDNN_HOME}/include)
 endif()
 
-set(ortcustomops_libs ${pybind11_lib} ${re2_lib} Python3::Python) 
+set(ortcustomops_libs ${pybind11_lib} ${re2_STATIC_LIBRARIES} Python3::Python) 
 set(python_libs c:/Python372_x64/libs)
 add_dependencies(_ortcustomops ${pybind11_dep} ${re2_dep})
 

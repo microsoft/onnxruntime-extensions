@@ -1,34 +1,49 @@
-if(onnxruntime_PREFER_SYSTEM_LIB)
-  find_package(re2)
-endif()
+# Copyright 2017 The TensorFlow Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+include (ExternalProject)
 
-if(NOT TARGET re2::re2)
-  include(ExternalProject)
+set(re2_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/re2/install/include)
+set(re2_URL https://github.com/google/re2)
+set(re2_BUILD ${CMAKE_CURRENT_BINARY_DIR}/re2/src/re2)
+set(re2_INSTALL ${CMAKE_CURRENT_BINARY_DIR}/re2/install)
+set(re2_TAG e7efc48)
+set(RE2_INCLUDE_DIRS ${CMAKE_CURRENT_BINARY_DIR}/re2/src/re2)
 
-  set(RE2_INCLUDE_DIRS ${CMAKE_CURRENT_BINARY_DIR}/re2/src/re2)
-  set(RE2_URL https://github.com/google/re2.git)
-  set(RE2_TAG 2020-11-01)
-
-  ExternalProject_Add(re2
-        PREFIX re2
-        GIT_REPOSITORY ${RE2_URL}
-        GIT_TAG ${RE2_TAG}
-        BUILD_IN_SOURCE 1
-  )
-  set(re2_dep re2)
-  # set(re2_lib re2::re2)
-  # set_target_properties(re2 PROPERTIES EXCLUDE_FROM_ALL ON)
+if(WIN32)
+  set(re2_STATIC_LIBRARIES ${re2_BUILD}/$(Configuration)/re2.lib)
 else()
-  set(re2_dep re2)
-  # set(re2_lib re2::re2)
+  set(re2_STATIC_LIBRARIES ${re2_BUILD}/libre2.a)
 endif()
 
-#if ( WIN32 )   
-#  set(RE2_STATIC_LIBRARIES ${RE2_BUILD}/${CMAKE_BUILD_TYPE}/re2.lib) 
-#else ()   
-#  set(RE2_STATIC_LIBRARIES ${RE2_BUILD}/libre2.a) 
-#end()
+set(re2_HEADERS
+    ${re2_INSTALL}/include/re2/re2.h
+)
 
-# add_library(re2)
-# set_target_properties(re2 PROPERTIES FOLDER "${PROJECT_SOURCE_DIR}/cmake/externals/re2")
-# set_target_properties(re2_lib PROPERTIES IMPORTED_LOCATION ${RE2_STATIC_LIBRARIES})
+ExternalProject_Add(re2
+    PREFIX re2
+    GIT_REPOSITORY ${re2_URL}
+    GIT_TAG ${re2_TAG}
+    INSTALL_DIR ${re2_INSTALL}
+    BUILD_IN_SOURCE 1
+    DOWNLOAD_DIR "${DOWNLOAD_LOCATION}"
+    CMAKE_CACHE_ARGS
+		if(tensorflow_ENABLE_POSITION_INDEPENDENT_CODE)
+			-DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=ON
+		else()
+			-DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=OFF
+		endif()
+        -DCMAKE_BUILD_TYPE:STRING=Release
+        -DCMAKE_INSTALL_PREFIX:STRING=${re2_INSTALL}
+)

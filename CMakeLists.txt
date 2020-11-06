@@ -73,6 +73,6 @@ file(GLOB TEST_SRC "${PROJECT_SOURCE_DIR}/test/test*.cc" "${PROJECT_SOURCE_DIR}/
 add_executable(ortcustomops_test ${TEST_SRC})
 target_include_directories(ortcustomops_test PUBLIC ./includes ./includes/onnxruntime)
 
-target_link_libraries(ortcustomops_test gtest_main ortcustomops_lib ${re2_lib})
+target_link_libraries(ortcustomops_test gtest_main ortcustomops_lib ${re2_STATIC_LIBRARIES})
 
 add_test(NAME ortcustomops_test COMMAND test)
