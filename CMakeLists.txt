@@ -69,10 +69,13 @@ target_compile_features(ortcustomops_lib PUBLIC cxx_std_11)
 
 # Unit tests
 include(googletest)
-file(GLOB TEST_SRC "${PROJECT_SOURCE_DIR}/test/test*.cc" "${PROJECT_SOURCE_DIR}/test/test*.h*")
-add_executable(ortcustomops_test ${TEST_SRC})
-target_include_directories(ortcustomops_test PUBLIC ./includes ./includes/onnxruntime)
+include(googlere2)
+FetchContent_GetProperties(googlere2)
 
-target_link_libraries(ortcustomops_test gtest_main ortcustomops_lib ${re2_STATIC_LIBRARIES})
+file(GLOB TEST_SRC "${PROJECT_SOURCE_DIR}/test/test*.cc")
+add_executable(ortcustomops_test ${TEST_SRC})
+target_include_directories(ortcustomops_test PRIVATE ${googlere2_SOURCE_DIR})
+
+target_link_libraries(ortcustomops_test gtest_main ${googlere2_BINARY_DIR}/${CMAKE_BUILD_TYPE}/re2.lib ortcustomops)
 
 add_test(NAME ortcustomops_test COMMAND test)
