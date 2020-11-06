@@ -99,11 +99,7 @@ if(ENABLE_PYTHON)
       ${pybind11_INCLUDE_DIRS}
       ${googlere2_SOURCE_DIR}
       )
-  # This line does not work. 
-  # CMake Error at CMakeLists.txt:102 (target_link_libraries):
-  # The keyword signature for target_link_libraries has already been used with
-  # the target "ortcustomops".
-  # target_link_libraries(ortcustomops ${googlere2_BINARY_DIR}/${CMAKE_BUILD_TYPE}/re2.lib)
+  target_link_libraries(ortcustomops PRIVATE ${googlere2_BINARY_DIR}/${CMAKE_BUILD_TYPE}/re2.lib)
 
   add_custom_command(
     TARGET ortcustomops POST_BUILD
