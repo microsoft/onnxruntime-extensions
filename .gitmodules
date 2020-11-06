@@ -1,3 +1,0 @@
-[submodule "cmake/externals/re2"]
-	path = cmake/externals/re2
-	url = https://github.com/google/re2.git

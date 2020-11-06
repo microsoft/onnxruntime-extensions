@@ -45,16 +45,11 @@ if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
   message(FATAL_ERROR "CMAKE_FIND_FRAMEWORK is not NEVER")
 endif()
 
-# re2
-add_subdirectory(${PROJECT_SOURCE_DIR}/cmake/externals/re2 EXCLUDE_FROM_ALL)
-add_library(re2::re2 ALIAS re2)
-set_target_properties(re2 PROPERTIES FOLDER "${PROJECT_SOURCE_DIR}/cmake/externals/re2")
-set(RE2_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/cmake/externals/re2)
-
 # external dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
 
 # Build ortcustomops
+include(re2)
 if (ENABLE_PYTHON)
   # External dependencies
   include(${PROJECT_SOURCE_DIR}/cmake/ortcustom_python.cmake)
@@ -64,7 +59,7 @@ endif()
 file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/*.h*")
 file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
 add_library(ortcustomops_lib STATIC ${TARGET_SRC} ${TARGET_SRC_KERNELS})
-target_include_directories(ortcustomops_lib PUBLIC ./includes ./includes/onnxruntime ${RE2_INCLUDE_DIR})
+target_include_directories(ortcustomops_lib PUBLIC ./includes ./includes/onnxruntime ${RE2_INCLUDE_DIRS})
 target_compile_definitions(ortcustomops_lib PRIVATE ONNX_NAMESPACE=onnx ONNX_ML NOMINMAX)
 target_compile_features(ortcustomops_lib PUBLIC cxx_std_11)
 
@@ -78,6 +73,6 @@ file(GLOB TEST_SRC "${PROJECT_SOURCE_DIR}/test/test*.cc" "${PROJECT_SOURCE_DIR}/
 add_executable(ortcustomops_test ${TEST_SRC})
 target_include_directories(ortcustomops_test PUBLIC ./includes ./includes/onnxruntime)
 
-target_link_libraries(ortcustomops_test gtest_main ortcustomops_lib re2::re2)
+target_link_libraries(ortcustomops_test gtest_main ortcustomops_lib ${re2_lib})
 
 add_test(NAME ortcustomops_test COMMAND test)
