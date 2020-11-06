@@ -72,14 +72,15 @@ set_source_files_properties(ortcustomops.def PROPERTIES HEADER_FILE_ONLY TRUE)
 target_compile_definitions(ortcustomops PRIVATE ONNX_NAMESPACE=onnx ONNX_ML NOMINMAX)
 target_compile_features(ortcustomops PUBLIC cxx_std_11)
 
-
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
-
 # External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
+include(googletest)
+include(googlere2)
+FetchContent_GetProperties(googlere2)
 
 if(ENABLE_PYTHON)
   include(pybind11)
@@ -96,7 +97,13 @@ if(ENABLE_PYTHON)
   target_include_directories(ortcustomops PRIVATE
       ${NUMPY_INCLUDE_DIR}
       ${pybind11_INCLUDE_DIRS}
+      ${googlere2_SOURCE_DIR}
       )
+  # This line does not work. 
+  # CMake Error at CMakeLists.txt:102 (target_link_libraries):
+  # The keyword signature for target_link_libraries has already been used with
+  # the target "ortcustomops".
+  # target_link_libraries(ortcustomops ${googlere2_BINARY_DIR}/${CMAKE_BUILD_TYPE}/re2.lib)
 
   add_custom_command(
     TARGET ortcustomops POST_BUILD
@@ -104,10 +111,6 @@ if(ENABLE_PYTHON)
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   )
 endif()
-
-include(googletest)
-include(googlere2)
-FetchContent_GetProperties(googlere2)
 
 file(GLOB TEST_SRC "${PROJECT_SOURCE_DIR}/test/test*.cc")
 add_executable(ortcustomops_test ${TEST_SRC})

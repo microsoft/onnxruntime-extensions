@@ -165,7 +165,8 @@ class TestPythonOp(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_content = _create_test_model_test()
         onnx_bytes = onnx_content.SerializeToString()
-        with open(os.path.join(this, 'data', 'custom_op_test.onnx'), 'rb') as f:
+        with open(os.path.join(this, 'data', 'custom_op_test.onnx'),
+                  'rb') as f:
             saved = f.read()
         assert onnx_bytes == saved
 

@@ -2,23 +2,37 @@
 // Licensed under the MIT License.
 
 #include "kernels/string_join.hpp"
+#include "kernels/string_regex_replace.hpp"
 #include "kernels/string_upper.hpp"
 #include "kernels/test_output.hpp"
 #include "utils.h"
 
-CustomOpStringUpper c_CustomOpStringUpper;
+CustomOpNegPos c_CustomOpNegPos;
 CustomOpStringJoin c_CustomOpStringJoin;
+CustomOpStringRegexReplace c_CustomOpStringRegexReplace;
+CustomOpStringUpper c_CustomOpStringUpper;
 CustomOpOne c_CustomOpOne;
 CustomOpTwo c_CustomOpTwo;
-CustomOpNegPos c_CustomOpNegPos;
 
 OrtCustomOp* operator_lists[] = {
-    &c_CustomOpStringUpper,
+    &c_CustomOpNegPos,
     &c_CustomOpStringJoin,
+    &c_CustomOpStringRegexReplace,
+    &c_CustomOpStringUpper,
     &c_CustomOpOne,
     &c_CustomOpTwo,
-    &c_CustomOpNegPos,
     nullptr};
+
+size_t ORT_API_CALL NumberOfAvailableOperators() {
+  size_t n = 0;
+  for (; operator_lists[n] != nullptr; ++n)
+    ;
+  return n;
+}
+
+const char* ORT_API_CALL GetNameOfAvailableOperator(size_t n) {
+  return operator_lists[n]->GetName(operator_lists[n]);
+}
 
 OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api) {
   OrtCustomOpDomain* domain = nullptr;
