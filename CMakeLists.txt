@@ -99,7 +99,7 @@ if(ENABLE_PYTHON)
       ${pybind11_INCLUDE_DIRS}
       ${googlere2_SOURCE_DIR}
       )
-  target_link_libraries(ortcustomops PRIVATE ${googlere2_BINARY_DIR}/${CMAKE_BUILD_TYPE}/re2.lib)
+  target_link_libraries(ortcustomops PRIVATE re2)
 
   add_custom_command(
     TARGET ortcustomops POST_BUILD
@@ -112,6 +112,6 @@ file(GLOB TEST_SRC "${PROJECT_SOURCE_DIR}/test/test*.cc")
 add_executable(ortcustomops_test ${TEST_SRC})
 target_include_directories(ortcustomops_test PRIVATE ${googlere2_SOURCE_DIR})
 
-target_link_libraries(ortcustomops_test gtest_main ${googlere2_BINARY_DIR}/${CMAKE_BUILD_TYPE}/re2.lib ortcustomops)
+target_link_libraries(ortcustomops_test gtest_main re2 ortcustomops)
 
 add_test(NAME ortcustomops_test COMMAND test)
