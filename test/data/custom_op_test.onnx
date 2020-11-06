@@ -1,9 +1,9 @@
-OnnxRuntime:È
-8
+:Å
+:
 input_1
-input_2output_1"CustomOpOne:test.customop
-.
-output_1output"CustomOpTwo:test.customopCustomOpTestZ
+input_2output_1"CustomOpOne:ai.onnx.contrib
+0
+output_1output"CustomOpTwo:ai.onnx.contribtest0Z
 input_1
 
 
@@ -15,4 +15,5 @@
 output
 
 
-B
+B
+ai.onnx.contrib

@@ -53,7 +53,7 @@ if(ENABLE_PYTHON)
   find_package(Python3 COMPONENTS Interpreter Development)
 endif()
 
-file(GLOB TARGET_SRC "./ocos/*.cc"  "./ocos/ortcustomops.def")
+file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/ortcustomops.def")
 file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc")
 file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc")
 
@@ -106,8 +106,13 @@ if(ENABLE_PYTHON)
 endif()
 
 include(googletest)
-add_executable(cuop_test ${PROJECT_SOURCE_DIR}/test/test_main.cc)
+include(googlere2)
+FetchContent_GetProperties(googlere2)
 
-target_link_libraries(cuop_test gtest_main ortcustomops)
+file(GLOB TEST_SRC "${PROJECT_SOURCE_DIR}/test/test*.cc")
+add_executable(ortcustomops_test ${TEST_SRC})
+target_include_directories(ortcustomops_test PRIVATE ${googlere2_SOURCE_DIR})
 
-add_test(NAME cuop_test COMMAND test)
+target_link_libraries(ortcustomops_test gtest_main ${googlere2_BINARY_DIR}/${CMAKE_BUILD_TYPE}/re2.lib ortcustomops)
+
+add_test(NAME ortcustomops_test COMMAND test)
