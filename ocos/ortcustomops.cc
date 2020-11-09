@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include "kernels/string_hash.hpp"
 #include "kernels/string_join.hpp"
 #include "kernels/string_regex_replace.hpp"
 #include "kernels/string_upper.hpp"
@@ -8,6 +9,7 @@
 #include "utils.h"
 
 CustomOpNegPos c_CustomOpNegPos;
+CustomOpStringHash c_CustomOpStringHash;
 CustomOpStringJoin c_CustomOpStringJoin;
 CustomOpStringRegexReplace c_CustomOpStringRegexReplace;
 CustomOpStringUpper c_CustomOpStringUpper;
@@ -16,6 +18,7 @@ CustomOpTwo c_CustomOpTwo;
 
 OrtCustomOp* operator_lists[] = {
     &c_CustomOpNegPos,
+    &c_CustomOpStringHash,
     &c_CustomOpStringJoin,
     &c_CustomOpStringRegexReplace,
     &c_CustomOpStringUpper,

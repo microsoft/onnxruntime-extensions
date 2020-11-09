@@ -17,6 +17,7 @@
 #include <thread>
 #include "../utils.h"
 #include "pykernel.h"
+#include "../kernels/string_hash.hpp"
 
 namespace py = pybind11;
 
@@ -262,6 +263,15 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
             case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
               retval = fetch[2 + no * 2].cast<py::array_t<float>>();
               break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE:
+              retval = fetch[2 + no * 2].cast<py::array_t<double>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
+              retval = fetch[2 + no * 2].cast<py::array_t<int32_t>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
+              retval = fetch[2 + no * 2].cast<py::array_t<int64_t>>();
+              break;
             default:
               throw std::runtime_error(MakeString(
                   "Type mismatch between declared output element size (",
@@ -335,8 +345,13 @@ static int init_numpy() {
   return 0;
 }
 
+uint64_t hash_64(const std::string& str, uint64_t num_buckets) {
+  return Hash64(str.c_str(), str.size()) % static_cast<uint64_t>(num_buckets);
+}
+
 void AddGlobalMethods(pybind11::module& m) {
   m.def("add_custom_op", [](const PyCustomOpDef& cod) { PyCustomOpDef::AddOp(&cod); });
+  m.def("hash_64", &hash_64, "Computes a uint64 hash for a string (from tensorflow).");
 }
 
 void AddObjectMethods(pybind11::module& m) {
