@@ -339,8 +339,8 @@ class TestPythonOpString(unittest.TestCase):
             '', kind='hash_bucket')
         self.assertIn('op_type: "StringToHashBucket"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-        raw = ["abc", "abcdé", "$$^l!%*ù", ""]
-        text = np.array(raw).reshape((2, 2))
+        raw = ["abc", "abcdé", "$$^l!%*ù", "", "a", "A"]
+        text = np.array(raw).reshape((3, 2))
         num_buckets = np.array([44], dtype=np.int64)
         txout = sess.run(
             None, {'text': text, 'num_buckets': num_buckets})
@@ -354,7 +354,7 @@ class TestPythonOpString(unittest.TestCase):
                 input=text, num_buckets=num_buckets[0])
             self.assertEqual(tfres.shape, txout[0].shape)
             self.assertEqual(tfres.numpy().tolist(), txout[0].tolist())
-        exp = np.array([[5, 43], [37, 3]], dtype=np.int64)
+        exp = np.array([[5, 43], [37, 3], [0, 0]], dtype=np.int64)
         self.assertEqual(exp.shape, txout[0].shape)
         self.assertEqual(exp.tolist(), txout[0].tolist())
 
@@ -365,10 +365,10 @@ class TestPythonOpString(unittest.TestCase):
             'Py', kind='hash_bucket')
         self.assertIn('op_type: "PyStringToHashBucket"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-        raw = ["abc", "abcdé", "$$^l!%*ù", ""]
-        text = np.array(raw).reshape((2, 2))
+        raw = ["abc", "abcdé", "$$^l!%*ù", "", "a", "A"]
+        text = np.array(raw).reshape((3, 2))
         num_buckets = np.array([44], dtype=np.int64)
-        exp = np.array([[5, 43], [37, 3]], dtype=np.int64)
+        exp = np.array([[5, 43], [37, 3], [0, 0]], dtype=np.int64)
         txout = sess.run(
             None, {'text': text, 'num_buckets': num_buckets})
         self.assertEqual(exp.shape, txout[0].shape)
@@ -376,4 +376,7 @@ class TestPythonOpString(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    cl = TestPythonOpString()
+    cl.setUpClass()
+    cl.test_string_to_hash_bucket_cc()
     unittest.main()
