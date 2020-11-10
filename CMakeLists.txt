@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16.0)
 project(ortcustomops VERSION 0.1.0 LANGUAGES C CXX)
-# set(CMAKE_VERBOSE_MAKEFILE ON)
+set(CMAKE_VERBOSE_MAKEFILE ON)
 
 # Enable CTest
 enable_testing()
@@ -78,6 +78,7 @@ include(CPack)
 
 # External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
+include(FetchContent)
 include(googletest)
 include(googlere2)
 FetchContent_GetProperties(googlere2)
@@ -101,11 +102,29 @@ if(ENABLE_PYTHON)
       )
   target_link_libraries(ortcustomops PRIVATE re2)
 
-  add_custom_command(
-    TARGET ortcustomops POST_BUILD
-    COMMAND powershell  -NoProfile -ExecutionPolicy RemoteSigned -file ./pysetup.ps1 "$<TARGET_FILE_DIR:ortcustomops>"
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  )
+  if (WIN32)
+    add_custom_command(
+      TARGET ortcustomops POST_BUILD
+      COMMAND powershell  -NoProfile -ExecutionPolicy RemoteSigned -file ./pysetup.ps1 "$<TARGET_FILE_DIR:ortcustomops>"
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+  else()
+    set(ortcustomops_pypkgdir $<TARGET_FILE_DIR:ortcustomops>/ortcustomops)
+    file(GLOB ortcustom_pysrcs CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/ocos/pyfunc/*.py")
+    file(GLOB ortcustom_pypkg_mics CONFIGURE_DEPENDS
+      "${PROJECT_SOURCE_DIR}/setup.py"
+      "${PROJECT_SOURCE_DIR}/README.md"
+      "${PROJECT_SOURCE_DIR}/requirements.txt"
+    )
+
+    add_custom_command(
+      TARGET ortcustomops POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E make_directory ${ortcustomops_pypkgdir}
+      COMMAND ${CMAKE_COMMAND} -E copy ${ortcustom_pysrcs} ${ortcustomops_pypkgdir}
+      COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:ortcustomops> ${ortcustomops_pypkgdir}
+      COMMAND ${CMAKE_COMMAND} -E copy ${ortcustom_pypkg_mics} ${ortcustomops_pypkgdir}/../
+    )
+  endif()
 endif()
 
 file(GLOB TEST_SRC "${PROJECT_SOURCE_DIR}/test/test*.cc")

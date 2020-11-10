@@ -4,6 +4,7 @@
 #include <vector>
 #include <fstream>
 #include <mutex>
+#include <complex>
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define PY_ARRAY_UNIQUE_SYMBOL ocos_python_ARRAY_API
@@ -83,10 +84,10 @@ static size_t element_size(ONNXTensorElementDataType dt) {
       return sizeof(uint32_t);
     case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64:
       return sizeof(uint64_t);
-    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64:
-      return sizeof(_C_float_complex);
-    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128:
-      return sizeof(_C_double_complex);
+    // case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64:
+    //   return sizeof(_C_float_complex);
+    // case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128:
+    //   return sizeof(_C_double_complex);
     case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING:
       return sizeof(std::string*);
     default:
