@@ -1,5 +1,6 @@
 # coding: utf-8
 import unittest
+import re
 import numpy as np
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
@@ -50,6 +51,35 @@ def _create_test_model_string_join(prefix, domain='ai.onnx.contrib'):
     return model
 
 
+def _create_test_model_string_replace(prefix, domain='ai.onnx.contrib'):
+    nodes = []
+    nodes.append(
+        helper.make_node('Identity', ['text'], ['id1']))
+    nodes.append(
+        helper.make_node('Identity', ['pattern'], ['id2']))
+    nodes.append(
+        helper.make_node('Identity', ['rewrite'], ['id3']))
+    nodes.append(
+        helper.make_node(
+            '%sStringRegexReplace' % prefix, ['id1', 'id2', 'id3'],
+            ['customout'], domain=domain))
+
+    input0 = helper.make_tensor_value_info(
+        'text', onnx_proto.TensorProto.STRING, [None, 1])
+    input1 = helper.make_tensor_value_info(
+        'pattern', onnx_proto.TensorProto.STRING, [1])
+    input2 = helper.make_tensor_value_info(
+        'rewrite', onnx_proto.TensorProto.STRING, [1])
+    output0 = helper.make_tensor_value_info(
+        'customout', onnx_proto.TensorProto.STRING, [None, 1])
+
+    graph = helper.make_graph(
+        nodes, 'test0', [input0, input1, input2], [output0])
+    model = helper.make_model(
+        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    return model
+
+
 class TestPythonOpString(unittest.TestCase):
 
     @classmethod
@@ -72,6 +102,23 @@ class TestPythonOpString(unittest.TestCase):
                     "Unexpected shape {} for 'sep'.".format(sep.shape))
             sp = sep[0]
             return np.array([sp.join(row) for row in x])
+
+        @onnx_op(op_type="PyStringRegexReplace",
+                 inputs=[PyCustomOpDef.dt_string, PyCustomOpDef.dt_string,
+                         PyCustomOpDef.dt_string],
+                 outputs=[PyCustomOpDef.dt_string])
+        def string_replace(x, pattern, rewrite):
+            # The user custom op implementation here.
+            if pattern.shape != (1, ):
+                raise RuntimeError(
+                    "Unexpected shape {} for 'pattern'.".format(pattern.shape))
+            if rewrite.shape != (1, ):
+                raise RuntimeError(
+                    "Unexpected shape {} for 'rewrite'.".format(rewrite.shape))
+            reg = re.compile(pattern[0])
+            res = np.array(
+                list(map(lambda t: reg.sub(rewrite[0], t), x.ravel())))
+            return res.reshape(x.shape)
 
     def test_check_types(self):
         def_list = set(dir(PyCustomOpDef))
@@ -162,6 +209,36 @@ class TestPythonOpString(unittest.TestCase):
         txout = sess.run(None, {'text': text, 'sep': sep})
         self.assertEqual(
             txout[0].tolist(), np.array(["a;b;c", "aa;bb;"]).tolist())
+
+    def test_string_replace_cc(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_replace('')
+        self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
+        rewrite = np.array([r'static PyObject* py_\1(void) {'])
+        text = np.array([['def myfunc():'], ['def dummy():']])
+        txout = sess.run(
+            None, {'text': text, 'pattern': pattern, 'rewrite': rewrite})
+        exp = [['static PyObject* py_myfunc(void) {'],
+               ['static PyObject* py_dummy(void) {']]
+        self.assertEqual(exp, txout[0].tolist())
+
+    def test_string_replace_python(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_replace('Py')
+        self.assertIn('op_type: "PyStringRegexReplace"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
+        rewrite = np.array([r'static PyObject*\npy_\1(void)\n{'])
+        text = np.array([['def myfunc():'], ['def dummy():']])
+        txout = sess.run(
+            None, {'text': text, 'pattern': pattern, 'rewrite': rewrite})
+        exp = [['static PyObject*\npy_myfunc(void)\n{'],
+               ['static PyObject*\npy_dummy(void)\n{']]
+        self.assertEqual(exp, txout[0].tolist())
 
 
 if __name__ == "__main__":
