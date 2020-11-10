@@ -19,9 +19,9 @@ def _create_test_model_string_upper(prefix, domain='ai.onnx.contrib'):
                                   domain=domain)]
 
     input0 = helper.make_tensor_value_info(
-        'input_1', onnx_proto.TensorProto.STRING, [None, 1])
+        'input_1', onnx_proto.TensorProto.STRING, [None, None])
     output0 = helper.make_tensor_value_info(
-        'customout', onnx_proto.TensorProto.STRING, [None, 1])
+        'customout', onnx_proto.TensorProto.STRING, [None, None])
 
     graph = helper.make_graph(nodes, 'test0', [input0], [output0])
     model = helper.make_model(
@@ -36,18 +36,23 @@ def _create_test_model_string_join(prefix, domain='ai.onnx.contrib'):
     nodes.append(
         helper.make_node('Identity', ['sep'], ['identity2']))
     nodes.append(
+        helper.make_node('Identity', ['axis'], ['identity3']))
+    nodes.append(
         helper.make_node(
-            '%sStringJoin' % prefix, ['identity1', 'identity2'],
+            '%sStringJoin' % prefix, ['identity1', 'identity2', 'identity3'],
             ['customout'], domain=domain))
 
     input0 = helper.make_tensor_value_info(
-        'text', onnx_proto.TensorProto.STRING, [None, None])
+        'text', onnx_proto.TensorProto.STRING, None)
     input1 = helper.make_tensor_value_info(
         'sep', onnx_proto.TensorProto.STRING, [1])
+    input2 = helper.make_tensor_value_info(
+        'axis', onnx_proto.TensorProto.INT64, [1])
     output0 = helper.make_tensor_value_info(
-        'customout', onnx_proto.TensorProto.STRING, [None, 1])
+        'customout', onnx_proto.TensorProto.STRING, None)
 
-    graph = helper.make_graph(nodes, 'test0', [input0, input1], [output0])
+    graph = helper.make_graph(
+        nodes, 'test0', [input0, input1, input2], [output0])
     model = helper.make_model(
         graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
     return model
@@ -120,7 +125,7 @@ def _create_test_model_string_to_hash(
 
 class TestPythonOpString(unittest.TestCase):
 
-    _ops = []
+    _string_join = None
 
     @classmethod
     def setUpClass(cls):
@@ -133,15 +138,33 @@ class TestPythonOpString(unittest.TestCase):
             return np.array([s.upper() for s in x.ravel()]).reshape(x.shape)
 
         @onnx_op(op_type="PyStringJoin",
-                 inputs=[PyCustomOpDef.dt_string, PyCustomOpDef.dt_string],
+                 inputs=[PyCustomOpDef.dt_string, PyCustomOpDef.dt_string,
+                         PyCustomOpDef.dt_int64],
                  outputs=[PyCustomOpDef.dt_string])
-        def string_join(x, sep):
+        def string_join(x, sep, axis):
             # The user custom op implementation here.
             if sep.shape != (1, ):
                 raise RuntimeError(
                     "Unexpected shape {} for 'sep'.".format(sep.shape))
+            if axis.shape != (1, ):
+                raise RuntimeError(
+                    "Unexpected shape {} for 'axis'.".format(axis.shape))
             sp = sep[0]
-            return np.array([sp.join(row) for row in x])
+            ax = axis[0]
+            if ax < 0 or ax >= len(x.shape):
+                raise RuntimeError("axis must be in [%r,%r] but is" % (
+                    0, len(x.shape), ax))
+            if len(x.shape) == 1:
+                return np.array([sp.join(x)])
+            dims = np.arange(len(x.shape))
+            dims[ax], dims[-1] = dims[-1], dims[ax]
+            x2 = np.transpose(x, dims)
+            res_shape = x2.shape[:-1]
+            x2 = x2.reshape((-1, x2.shape[-1]))
+            res = np.empty(x2.shape[0], dtype=x.dtype)
+            for i in range(x2.shape[0]):
+                res[i] = sp.join(x2[i, :])
+            return res.reshape(res_shape)
 
         @onnx_op(op_type="PyStringRegexReplace",
                  inputs=[PyCustomOpDef.dt_string, PyCustomOpDef.dt_string,
@@ -190,11 +213,7 @@ class TestPythonOpString(unittest.TestCase):
                     x.ravel())))
             return res.reshape(x.shape).astype(np.int64)
 
-        cls._ops.append(string_upper)
-        cls._ops.append(string_join)
-        cls._ops.append(string_replace)
-        cls._ops.append(string_to_crc32)
-        cls._ops.append(string_to_hash_bucket)
+        cls._string_join = string_join
 
     def test_check_types(self):
         def_list = set(dir(PyCustomOpDef))
@@ -269,9 +288,45 @@ class TestPythonOpString(unittest.TestCase):
                           np.array([["aa", "bb", ""]])])
         self.assertEqual(text.shape, (2, 3))
         sep = np.array([";"])
-        txout = sess.run(None, {'text': text, 'sep': sep})
+        axis = np.array([1], dtype=np.int64)
+        TestPythonOpString._string_join(text, sep, axis)
+        txout = sess.run(None, {'text': text, 'sep': sep, 'axis': axis})
         self.assertEqual(
             txout[0].tolist(), np.array(["a;b;c", "aa;bb;"]).tolist())
+        axis = np.array([0], dtype=np.int64)
+        TestPythonOpString._string_join(text, sep, axis)
+        txout = sess.run(None, {'text': text, 'sep': sep, 'axis': axis})
+        self.assertEqual(
+            txout[0].tolist(), np.array(['a;aa', 'b;bb', 'c;']).tolist())
+
+    def test_string_join_python_3d(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_join('Py')
+        self.assertIn('op_type: "PyStringJoin"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        text = np.vstack([np.array([["a", "b", "c"]]),
+                          np.array([["aa", "bb", ""]])]).reshape((2, 3, 1))
+        sep = np.array([";"])
+        axis = np.array([1], dtype=np.int64)
+        TestPythonOpString._string_join(text, sep, axis)
+        txout = sess.run(None, {'text': text, 'sep': sep, 'axis': axis})
+        self.assertEqual(
+            txout[0].tolist(), np.array([['a;b;c'], ['aa;bb;']]).tolist())
+
+    def test_string_join_python_1d(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_join('Py')
+        self.assertIn('op_type: "PyStringJoin"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        text = np.array(["a", "b", "cc"])
+        sep = np.array([";"])
+        axis = np.array([0], dtype=np.int64)
+        txout = sess.run(None, {'text': text, 'sep': sep, 'axis': axis})
+        self.assertEqual(txout[0].shape, (1, ))
+        self.assertEqual(
+            txout[0].tolist(), np.array(["a;b;cc"]).tolist())
 
     def test_string_join_cc(self):
         so = _ort.SessionOptions()
@@ -282,9 +337,52 @@ class TestPythonOpString(unittest.TestCase):
         text = np.vstack([np.array([["a", "b", "c"]]),
                           np.array([["aa", "bb", ""]])])
         sep = np.array([";"])
-        txout = sess.run(None, {'text': text, 'sep': sep})
+        axis = np.array([1], dtype=np.int64)
+        txout = sess.run(None, {'text': text, 'sep': sep, 'axis': axis})
         self.assertEqual(
             txout[0].tolist(), np.array(["a;b;c", "aa;bb;"]).tolist())
+        axis = np.array([0], dtype=np.int64)
+        txout = sess.run(None, {'text': text, 'sep': sep, 'axis': axis})
+        self.assertEqual(
+            txout[0].tolist(), np.array(['a;aa', 'b;bb', 'c;']).tolist())
+
+    def test_string_join_cc_1d(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_join('')
+        self.assertIn('op_type: "StringJoin"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        text = np.array(["a", "b", "cc"])
+        sep = np.array([";"])
+        axis = np.array([0], dtype=np.int64)
+        txout = sess.run(None, {'text': text, 'sep': sep, 'axis': axis})
+        self.assertEqual(
+            txout[0].tolist(), np.array(["a;b;cc"]).tolist())
+
+    def test_string_join_cc_3d(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_join('')
+        self.assertIn('op_type: "StringJoin"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        text = np.array(["a", "b", "c", "d", "e", "f", "g", "h"]).reshape((
+            2, 2, 2))
+        sep = np.array([";"])
+        axis = np.array([2], dtype=np.int64)
+        txout = sess.run(None, {'text': text, 'sep': sep, 'axis': axis})
+        self.assertEqual(
+            txout[0].tolist(),
+            np.array([['a;b', 'c;d'], ['e;f', 'g;h']]).tolist())
+        axis = np.array([1], dtype=np.int64)
+        txout = sess.run(None, {'text': text, 'sep': sep, 'axis': axis})
+        self.assertEqual(
+            txout[0].tolist(),
+            np.array([['a;c', 'b;d'], ['e;g', 'f;h']]).tolist())
+        axis = np.array([0], dtype=np.int64)
+        txout = sess.run(None, {'text': text, 'sep': sep, 'axis': axis})
+        self.assertEqual(
+            txout[0].tolist(),
+            np.array([['a;e', 'b;f'], ['c;g', 'd;h']]).tolist())
 
     def test_string_replace_cc(self):
         so = _ort.SessionOptions()
