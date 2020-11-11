@@ -53,25 +53,6 @@ if(ENABLE_PYTHON)
   find_package(Python3 COMPONENTS Interpreter Development)
 endif()
 
-file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/ortcustomops.def")
-file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc")
-file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc")
-
-if (ENABLE_PYTHON)
-  Python3_add_library(ortcustomops SHARED ${TARGET_SRC} ${TARGET_SRC_KERNELS} ${TARGET_SRC_PYOPS})
-  target_compile_definitions(ortcustomops PRIVATE PYTHON_OP_SUPPORT)
-else()
-  add_library(ortcustomops SHARED ${TARGET_SRC} ${TARGET_SRC_KERNELS} ${TARGET_SRC_PYOPS})
-endif()
-
-target_include_directories(ortcustomops PUBLIC
-  ./includes
-  ./includes/onnxruntime)
-
-set_source_files_properties(ortcustomops.def PROPERTIES HEADER_FILE_ONLY TRUE)
-target_compile_definitions(ortcustomops PRIVATE ONNX_NAMESPACE=onnx ONNX_ML NOMINMAX)
-target_compile_features(ortcustomops PUBLIC cxx_std_11)
-
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
@@ -80,7 +61,44 @@ include(CPack)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
 include(googletest)
 include(googlere2)
+include(farmhash)
 FetchContent_GetProperties(googlere2)
+FetchContent_GetProperties(farmhash)
+
+file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/ortcustomops.def")
+file(GLOB TARGET_HEADERS "./ocos/*.h*")
+file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
+file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc" "./ocos/pyfunc/*.h*")
+file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")
+
+if (ENABLE_PYTHON)
+  Python3_add_library(ortcustomops SHARED
+    ${TARGET_SRC}
+    ${TARGET_SRC_KERNELS}
+    ${TARGET_SRC_PYOPS}
+    ${TARGET_HEADERS}
+    ${TARGET_SRC_HASH})
+  target_compile_definitions(ortcustomops PRIVATE PYTHON_OP_SUPPORT)
+else()
+  add_library(ortcustomops SHARED
+    ${TARGET_SRC}
+    ${TARGET_SRC_KERNELS}
+    ${TARGET_SRC_PYOPS}
+    ${TARGET_HEADERS}
+    ${TARGET_SRC_HASH})
+endif()
+
+target_include_directories(ortcustomops PUBLIC
+  ./includes
+  ./includes/onnxruntime)
+
+set_source_files_properties(ortcustomops.def PROPERTIES HEADER_FILE_ONLY TRUE)
+target_compile_definitions(ortcustomops PRIVATE 
+    ONNX_NAMESPACE=onnx
+    ONNX_ML
+    NOMINMAX
+    FARMHASH_NO_BUILTIN_EXPECT)
+target_compile_features(ortcustomops PUBLIC cxx_std_11)
 
 if(ENABLE_PYTHON)
   include(pybind11)
@@ -98,6 +116,7 @@ if(ENABLE_PYTHON)
       ${NUMPY_INCLUDE_DIR}
       ${pybind11_INCLUDE_DIRS}
       ${googlere2_SOURCE_DIR}
+      ${farmhash_SOURCE_DIR}/src
       )
   target_link_libraries(ortcustomops PRIVATE re2)
 

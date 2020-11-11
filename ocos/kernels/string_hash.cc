@@ -6,6 +6,7 @@
 #include <cmath>
 #include <algorithm>
 #include "re2/re2.h"
+#include "farmhash.h"
 
 // Source: https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/platform/hash.cc#L28
 static inline uint64_t ByteAs64(char c) { return static_cast<uint64_t>(c) & 0xff; }
@@ -48,22 +49,16 @@ uint64_t Hash64(const char* data, size_t n, uint64_t seed) {
   switch (n) {
     case 7:
       h ^= ByteAs64(data[6]) << 48;
-      // TF_FALLTHROUGH_INTENDED;
     case 6:
       h ^= ByteAs64(data[5]) << 40;
-      // TF_FALLTHROUGH_INTENDED;
     case 5:
       h ^= ByteAs64(data[4]) << 32;
-      // TF_FALLTHROUGH_INTENDED;
     case 4:
       h ^= ByteAs64(data[3]) << 24;
-      // TF_FALLTHROUGH_INTENDED;
     case 3:
       h ^= ByteAs64(data[2]) << 16;
-      // TF_FALLTHROUGH_INTENDED;
     case 2:
       h ^= ByteAs64(data[1]) << 8;
-      // TF_FALLTHROUGH_INTENDED;
     case 1:
       h ^= ByteAs64(data[0]);
       h *= m;
@@ -135,5 +130,67 @@ size_t CustomOpStringHash::GetOutputTypeCount() const {
 };
 
 ONNXTensorElementDataType CustomOpStringHash::GetOutputType(size_t /*index*/) const {
+  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+};
+
+KernelStringHashFast::KernelStringHashFast(OrtApi api) : BaseKernel(api) {
+}
+
+void KernelStringHashFast::Compute(OrtKernelContext* context) {
+  // Setup inputs
+  const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
+  const std::string* str_input = ort_.GetTensorData<std::string>(input);
+  const OrtValue* num_buckets = ort_.KernelContext_GetInput(context, 1);
+  const int64_t* p_num_buckets = ort_.GetTensorData<int64_t>(num_buckets);
+
+  // Verifications
+  OrtTensorDimensions num_buckets_dimensions(ort_, num_buckets);
+  if (num_buckets_dimensions.size() != 1 || num_buckets_dimensions[0] != 1)
+    throw std::runtime_error(MakeString(
+        "num_buckets must contain only one element. It has ",
+        num_buckets_dimensions.size(), " dimensions."));
+
+  // Setup output
+  OrtTensorDimensions dimensions(ort_, input);
+  OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
+  int64_t* out = ort_.GetTensorMutableData<int64_t>(output);
+
+  OrtTensorTypeAndShapeInfo* output_info = ort_.GetTensorTypeAndShape(output);
+  int64_t size = ort_.GetTensorShapeElementCount(output_info);
+  ort_.ReleaseTensorTypeAndShapeInfo(output_info);
+
+  // Do computation
+  size_t nb = static_cast<size_t>(*p_num_buckets);
+  for (int64_t i = 0; i < size; i++) {
+    out[i] = static_cast<int64_t>(util::Fingerprint64(str_input[i].c_str(), str_input[i].size()) % nb);
+  }
+}
+
+void* CustomOpStringHashFast::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) {
+  return new KernelStringHashFast(api);
+};
+
+const char* CustomOpStringHashFast::GetName() const { return "StringToHashBucketFast"; };
+
+size_t CustomOpStringHashFast::GetInputTypeCount() const {
+  return 2;
+};
+
+ONNXTensorElementDataType CustomOpStringHashFast::GetInputType(size_t index) const {
+  switch (index) {
+    case 0:
+      return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+    case 1:
+      return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+    default:
+      throw std::runtime_error(MakeString("Unexpected input index ", index));
+  }
+};
+
+size_t CustomOpStringHashFast::GetOutputTypeCount() const {
+  return 1;
+};
+
+ONNXTensorElementDataType CustomOpStringHashFast::GetOutputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 };

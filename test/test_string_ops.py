@@ -10,6 +10,8 @@ from ortcustomops import (
     get_library_path as _get_library_path,
     hash_64)
 
+NUM_BUCKETS = 23
+
 
 def _create_test_model_string_upper(prefix, domain='ai.onnx.contrib'):
     nodes = []
@@ -97,6 +99,10 @@ def _create_test_model_string_to_hash(
         op_type = 'StringToHashBucket'
         out_type = onnx_proto.TensorProto.INT64
         in_type = out_type
+    elif kind == 'hash_bucket_fast':
+        op_type = 'StringToHashBucketFast'
+        out_type = onnx_proto.TensorProto.INT64
+        in_type = out_type
     else:
         raise ValueError('Unknown value %r.' % kind)
     nodes = []
@@ -126,6 +132,7 @@ def _create_test_model_string_to_hash(
 class TestPythonOpString(unittest.TestCase):
 
     _string_join = None
+    _string_to_crc32 = None
 
     @classmethod
     def setUpClass(cls):
@@ -152,7 +159,7 @@ class TestPythonOpString(unittest.TestCase):
             sp = sep[0]
             ax = axis[0]
             if ax < 0 or ax >= len(x.shape):
-                raise RuntimeError("axis must be in [%r,%r] but is" % (
+                raise RuntimeError("axis must be in [%r,%r] but is %r." % (
                     0, len(x.shape), ax))
             if len(x.shape) == 1:
                 return np.array([sp.join(x)])
@@ -214,6 +221,7 @@ class TestPythonOpString(unittest.TestCase):
             return res.reshape(x.shape).astype(np.int64)
 
         cls._string_join = string_join
+        cls._string_to_crc32 = string_to_crc32
 
     def test_check_types(self):
         def_list = set(dir(PyCustomOpDef))
@@ -422,7 +430,7 @@ class TestPythonOpString(unittest.TestCase):
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         text = np.array([["abc", "abcdé"], ["$$^l!%*ù", ""]])
         num_buckets = np.array([44], dtype=np.uint32)
-        res = self._ops[3](text, num_buckets)
+        res = self._string_to_crc32(text, num_buckets)
         self.assertEqual(res.shape, text.shape)
         exp = np.array([[10, 38], [29, 0]], dtype=np.uint32)
         self.assertEqual(exp.tolist(), res.tolist())
@@ -439,7 +447,33 @@ class TestPythonOpString(unittest.TestCase):
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         raw = ["abc", "abcdé", "$$^l!%*ù", "", "a", "A"]
         text = np.array(raw).reshape((3, 2))
-        num_buckets = np.array([44], dtype=np.int64)
+        num_buckets = np.array([NUM_BUCKETS], dtype=np.int64)
+        txout = sess.run(
+            None, {'text': text, 'num_buckets': num_buckets})
+        try:
+            from tensorflow.raw_ops import StringToHashBucket
+            dotf = True
+        except ImportError:
+            dotf = False
+        if dotf:
+            tfres = StringToHashBucket(
+                string_tensor=text, num_buckets=num_buckets[0])
+            self.assertEqual(tfres.shape, txout[0].shape)
+            self.assertEqual(tfres.numpy().tolist(), txout[0].tolist())
+        exp = np.array([[15, 11], [10, 21], [20, 21]], dtype=np.int64)
+        self.assertEqual(exp.shape, txout[0].shape)
+        self.assertEqual(exp.tolist(), txout[0].tolist())
+
+    def test_string_to_hash_bucket_fast_cc(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_to_hash(
+            '', kind='hash_bucket_fast')
+        self.assertIn('op_type: "StringToHashBucketFast"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        raw = ["abc", "abcdé", "$$^l!%*ù", "", "a", "A"]
+        text = np.array(raw).reshape((3, 2))
+        num_buckets = np.array([NUM_BUCKETS], dtype=np.int64)
         txout = sess.run(
             None, {'text': text, 'num_buckets': num_buckets})
         try:
@@ -452,7 +486,7 @@ class TestPythonOpString(unittest.TestCase):
                 input=text, num_buckets=num_buckets[0])
             self.assertEqual(tfres.shape, txout[0].shape)
             self.assertEqual(tfres.numpy().tolist(), txout[0].tolist())
-        exp = np.array([[5, 43], [37, 3], [0, 0]], dtype=np.int64)
+        exp = np.array([[9, 17], [4, 21], [14, 12]], dtype=np.int64)
         self.assertEqual(exp.shape, txout[0].shape)
         self.assertEqual(exp.tolist(), txout[0].tolist())
 
@@ -465,8 +499,8 @@ class TestPythonOpString(unittest.TestCase):
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         raw = ["abc", "abcdé", "$$^l!%*ù", "", "a", "A"]
         text = np.array(raw).reshape((3, 2))
-        num_buckets = np.array([44], dtype=np.int64)
-        exp = np.array([[5, 43], [37, 3], [0, 0]], dtype=np.int64)
+        num_buckets = np.array([NUM_BUCKETS], dtype=np.int64)
+        exp = np.array([[15, 22], [17, 21], [20, 21]], dtype=np.int64)
         txout = sess.run(
             None, {'text': text, 'num_buckets': num_buckets})
         self.assertEqual(exp.shape, txout[0].shape)
@@ -474,7 +508,4 @@ class TestPythonOpString(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    cl = TestPythonOpString()
-    cl.setUpClass()
-    cl.test_string_to_hash_bucket_cc()
     unittest.main()
