@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16.0)
 project(ortcustomops VERSION 0.1.0 LANGUAGES C CXX)
-set(CMAKE_VERBOSE_MAKEFILE ON)
+# set(CMAKE_VERBOSE_MAKEFILE ON)
 
 # Enable CTest
 enable_testing()

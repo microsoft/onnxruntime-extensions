@@ -6,6 +6,5 @@ FetchContent_Declare(
   GIT_TAG        2020-11-01
 )
 
-set(googlere2_BUILD_TESTS OFF)
-set(BUILD_SHARED_LIBS ON)
+set(BUILD_SHARED_LIBS ON) # google/re2 using a general name.
 FetchContent_MakeAvailable(googlere2)
