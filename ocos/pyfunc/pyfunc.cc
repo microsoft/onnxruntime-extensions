@@ -284,8 +284,8 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
               retval = fetch[2 + no * 2].cast<py::array_t<bool>>();
               break;
             case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16:
-              retval = fetch[2 + no * 2].cast<py::array_t<uint16_t>>();
-              break;
+              throw std::runtime_error(MakeString(
+                  "Type float16 not supported by python customops api"));
             case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE:
               retval = fetch[2 + no * 2].cast<py::array_t<double>>();
               break;
