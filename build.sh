@@ -1,6 +1,6 @@
 mkdir -p out/Linux
 cd out/Linux
 
-cmake -A x64 %* ../..
+cmake &* ../..
 cmake --build . --config RelWithDebInfo
 cd ../..

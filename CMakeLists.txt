@@ -111,7 +111,6 @@ if(ENABLE_PYTHON)
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     )
   else()
-    set(ortcustomops_pypkgdir $<TARGET_FILE_DIR:ortcustomops>/ortcustomops)
     file(GLOB ortcustom_pypkg_srcs CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/ocos/pyfunc/*.py")
     file(GLOB ortcustom_pypkg_mics CONFIGURE_DEPENDS
       "${PROJECT_SOURCE_DIR}/setup.py"
