@@ -284,6 +284,45 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
             case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
               retval = fetch[2 + no * 2].cast<py::array_t<float>>();
               break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
+              retval = fetch[2 + no * 2].cast<py::array_t<uint8_t>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8:
+              retval = fetch[2 + no * 2].cast<py::array_t<int8_t>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16:
+              retval = fetch[2 + no * 2].cast<py::array_t<uint16_t>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16:
+              retval = fetch[2 + no * 2].cast<py::array_t<int16_t>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
+              retval = fetch[2 + no * 2].cast<py::array_t<int32_t>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
+              retval = fetch[2 + no * 2].cast<py::array_t<int64_t>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL:
+              retval = fetch[2 + no * 2].cast<py::array_t<bool>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16:
+              throw std::runtime_error(MakeString(
+                  "Type float16 not supported by python customops api"));
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE:
+              retval = fetch[2 + no * 2].cast<py::array_t<double>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32:
+              retval = fetch[2 + no * 2].cast<py::array_t<uint32_t>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64:
+              retval = fetch[2 + no * 2].cast<py::array_t<uint64_t>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64:
+              retval = fetch[2 + no * 2].cast<py::array_t<_C_float_complex>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128:
+              retval = fetch[2 + no * 2].cast<py::array_t<_C_double_complex>>();
+              break;
             default:
               throw std::runtime_error(MakeString(
                   "Type mismatch between declared output element size (",
