@@ -135,8 +135,9 @@ class TestPythonOpString(unittest.TestCase):
             sp = sep[0]
             ax = axis[0]
             if ax < 0 or ax >= len(x.shape):
-                raise RuntimeError("axis must be in [%r,%r] but is" % (
-                    0, len(x.shape), ax))
+                raise RuntimeError(
+                    "axis must be in [%r,%r] but is %r" % (
+                        0, len(x.shape), ax))
             if len(x.shape) == 1:
                 return np.array([sp.join(x)])
             dims = np.arange(len(x.shape))
@@ -373,6 +374,24 @@ class TestPythonOpString(unittest.TestCase):
                ['static PyObject*\npy_dummy(void)\n{']]
         self.assertEqual(exp, txout[0].tolist())
 
+    def enumerate_matrix_couples(self):
+        for i in range(1, 5):
+            shape = (3,) * i
+            a = (np.random.rand(*shape) * 10).astype(np.int32).astype(np.str)
+            yield a, a
+            for j in range(i):
+                shape2 = list(shape)
+                shape2[j] = 1
+                b = (np.random.rand(*shape2) * 10).astype(
+                    np.int32).astype(np.str)
+                yield a, b
+                for k in range(j+1, i):
+                    shape3 = list(shape2)
+                    shape3[k] = 1
+                    b = (np.random.rand(*shape3) * 10).astype(
+                        np.int32).astype(np.str)
+                    yield a, b
+
     def test_string_equal_python(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
@@ -380,20 +399,20 @@ class TestPythonOpString(unittest.TestCase):
         self.assertIn('op_type: "PyStringEqual"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
 
-        checks = [
-            (np.array([["a", "b"], ["a", "b"]]),
-             np.array([["a", "b"], ["a", "b"]])),
-            (np.array([["a", "b"], ["a", "b"]]),
-             np.array([["a", "b"], ["a", "c"]])),
-            (np.array([["a", "b"], ["a", "b"]]),
-             np.array([["a", "b"]])),
-            (np.array([["a", "b"], ["a", "b"]]),
-             np.array(["a", "b"])),
-            (np.array([["a", "b"], ["a", "b"]]),
-             np.array([["a", "b"]]).T)
-        ]
+        for x, y in self.enumerate_matrix_couples():
+            txout = sess.run(None, {'x': x, 'y': y})
+            self.assertEqual(txout[0].tolist(), (x == y).tolist())
+            txout = sess.run(None, {'x': y, 'y': x})
+            self.assertEqual(txout[0].tolist(), (y == x).tolist())
 
-        for x, y in checks:
+    def test_string_equal_cc(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_equal('')
+        self.assertIn('op_type: "StringEqual"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+
+        for x, y in self.enumerate_matrix_couples():
             txout = sess.run(None, {'x': x, 'y': y})
             self.assertEqual(txout[0].tolist(), (x == y).tolist())
             txout = sess.run(None, {'x': y, 'y': x})
