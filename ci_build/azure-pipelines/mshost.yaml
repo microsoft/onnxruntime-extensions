@@ -1,9 +1,10 @@
 jobs:
-# - job: Linux
-#   pool:
-#     vmImage: 'ubuntu-latest'
-#   steps:
-#   - script: echo hello from Linux
+- job: Linux
+  pool:
+    vmImage: 'ubuntu-latest'
+  steps:
+  - script: |
+    sh ./build.sh -DENABLE_PYTHON=OFF
 # - job: macOS
 #   pool:
 #     vmImage: 'macOS-latest'
