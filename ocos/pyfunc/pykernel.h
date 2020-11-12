@@ -15,23 +15,24 @@ struct PyCustomOpDef {
 
   static void AddOp(const PyCustomOpDef* cod);
 
-  static const int undefined = ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED;
-  static const int dt_float = ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;    // maps to c type float
-  static const int dt_uint8 = ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;    // maps to c type uint8_t
-  static const int dt_int8 = ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8;      // maps to c type int8_t
-  static const int dt_uint16 = ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16;  // maps to c type uint16_t
-  static const int dt_int16 = ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16;    // maps to c type int16_t
-  static const int dt_int32 = ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32;    // maps to c type int32_t
-  static const int dt_int64 = ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;    // maps to c type int64_t
-  static const int dt_string = ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;  // maps to c++ type std::string
-  static const int dt_bool = ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL;
-  static const int dt_float16 = ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16;
-  static const int dt_double = ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE;          // maps to c type double
-  static const int dt_uint32 = ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32;          // maps to c type uint32_t
-  static const int dt_uint64 = ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64;          // maps to c type uint64_t
-  static const int dt_complex64 = ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64;    // complex with float32 real and imaginary components
-  static const int dt_complex128 = ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128;  // complex with float64 real and imaginary components
-  static const int dt_bfloat16 = ONNX_TENSOR_ELEMENT_DATA_TYPE_BFLOAT16;      // Non-IEEE floating-point format based on IEEE754 single-precision
+  // no initializer here to avoid gcc whole-archive
+  static const int undefined;
+  static const int dt_float;
+  static const int dt_uint8;
+  static const int dt_int8;
+  static const int dt_uint16;
+  static const int dt_int16;
+  static const int dt_int32;
+  static const int dt_int64;
+  static const int dt_string;
+  static const int dt_bool;
+  static const int dt_float16;
+  static const int dt_double;
+  static const int dt_uint32;
+  static const int dt_uint64;
+  static const int dt_complex64;
+  static const int dt_complex128;
+  static const int dt_bfloat16;
 };
 
 struct PyCustomOpKernel {
