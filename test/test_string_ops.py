@@ -215,9 +215,7 @@ class TestPythonOpString(unittest.TestCase):
                         num_buckets.shape))
             nb = num_buckets[0]
             res = np.array(
-                list(map(
-                    lambda x: hash_64(x.encode('iso-8859-15'), nb),
-                    x.ravel())))
+                list(map(lambda x: hash_64(x, nb, True), x.ravel())))
             return res.reshape(x.shape).astype(np.int64)
 
         cls._string_join = string_join
@@ -500,7 +498,7 @@ class TestPythonOpString(unittest.TestCase):
         raw = ["abc", "abcdé", "$$^l!%*ù", "", "a", "A"]
         text = np.array(raw).reshape((3, 2))
         num_buckets = np.array([NUM_BUCKETS], dtype=np.int64)
-        exp = np.array([[15, 22], [17, 21], [20, 21]], dtype=np.int64)
+        exp = np.array([[9, 17], [4, 21], [14, 12]], dtype=np.int64)
         txout = sess.run(
             None, {'text': text, 'num_buckets': num_buckets})
         self.assertEqual(exp.shape, txout[0].shape)

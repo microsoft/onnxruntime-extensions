@@ -12,6 +12,8 @@ inline uint64_t Hash64(const char* data, size_t n) {
   return Hash64(data, n, 0xDECAFCAFFE);
 }
 
+uint64_t Hash64Fast(const char* data, size_t n);
+
 struct KernelStringHash : BaseKernel {
   KernelStringHash(OrtApi api);
   void Compute(OrtKernelContext* context);

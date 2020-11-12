@@ -263,8 +263,6 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
             case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
               retval = fetch[2 + no * 2].cast<py::array_t<float>>();
               break;
-            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE:
-              retval = fetch[2 + no * 2].cast<py::array_t<double>>();
             case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
               retval = fetch[2 + no * 2].cast<py::array_t<uint8_t>>();
               break;
@@ -377,7 +375,10 @@ static int init_numpy() {
   return 0;
 }
 
-uint64_t hash_64(const std::string& str, uint64_t num_buckets) {
+uint64_t hash_64(const std::string& str, uint64_t num_buckets, bool fast) {
+  if (fast) {
+    return Hash64Fast(str.c_str(), str.size()) % static_cast<uint64_t>(num_buckets);
+  }
   return Hash64(str.c_str(), str.size()) % static_cast<uint64_t>(num_buckets);
 }
 
