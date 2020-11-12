@@ -85,6 +85,27 @@ def _create_test_model_string_replace(prefix, domain='ai.onnx.contrib'):
     return model
 
 
+def _create_test_model_string_equal(prefix, domain='ai.onnx.contrib'):
+    nodes = []
+    nodes.append(helper.make_node('Identity', ['x'], ['id1']))
+    nodes.append(helper.make_node('Identity', ['y'], ['id2']))
+    nodes.append(
+        helper.make_node(
+            '%sStringEqual' % prefix, ['id1', 'id2'], ['z'], domain=domain))
+
+    input0 = helper.make_tensor_value_info(
+        'x', onnx_proto.TensorProto.STRING, [])
+    input1 = helper.make_tensor_value_info(
+        'y', onnx_proto.TensorProto.STRING, [])
+    output0 = helper.make_tensor_value_info(
+        'z', onnx_proto.TensorProto.BOOL, [])
+
+    graph = helper.make_graph(nodes, 'test0', [input0, input1], [output0])
+    model = helper.make_model(
+        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    return model
+
+
 class TestPythonOpString(unittest.TestCase):
 
     _string_join = None
@@ -144,6 +165,12 @@ class TestPythonOpString(unittest.TestCase):
             res = np.array(
                 list(map(lambda t: reg.sub(rewrite[0], t), x.ravel())))
             return res.reshape(x.shape)
+
+        @onnx_op(op_type="PyStringEqual",
+                 inputs=[PyCustomOpDef.dt_string, PyCustomOpDef.dt_string],
+                 outputs=[PyCustomOpDef.dt_bool])
+        def string_equal(x, y):
+            return x == y
 
         cls._string_join = string_join
 
@@ -345,6 +372,32 @@ class TestPythonOpString(unittest.TestCase):
         exp = [['static PyObject*\npy_myfunc(void)\n{'],
                ['static PyObject*\npy_dummy(void)\n{']]
         self.assertEqual(exp, txout[0].tolist())
+
+    def test_string_equal_python(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_equal('Py')
+        self.assertIn('op_type: "PyStringEqual"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+
+        checks = [
+            (np.array([["a", "b"], ["a", "b"]]),
+             np.array([["a", "b"], ["a", "b"]])),
+            (np.array([["a", "b"], ["a", "b"]]),
+             np.array([["a", "b"], ["a", "c"]])),
+            (np.array([["a", "b"], ["a", "b"]]),
+             np.array([["a", "b"]])),
+            (np.array([["a", "b"], ["a", "b"]]),
+             np.array(["a", "b"])),
+            (np.array([["a", "b"], ["a", "b"]]),
+             np.array([["a", "b"]]).T)
+        ]
+
+        for x, y in checks:
+            txout = sess.run(None, {'x': x, 'y': y})
+            self.assertEqual(txout[0].tolist(), (x == y).tolist())
+            txout = sess.run(None, {'x': y, 'y': x})
+            self.assertEqual(txout[0].tolist(), (y == x).tolist())
 
 
 if __name__ == "__main__":
