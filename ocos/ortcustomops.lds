@@ -1,7 +1,7 @@
 VERS_1.0.0 {
  global:
   RegisterCustomOps;
-  PyInit__ortcustomops;
+  PyInit_ortcustomops;
  local:
     *;
 };

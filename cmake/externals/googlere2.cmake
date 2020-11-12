@@ -4,7 +4,12 @@ FetchContent_Declare(
   GIT_TAG        2020-11-01
 )
 
-set(RE2_BUILD_TESTING OFF)
-# google/re2 is using a too general name for this option
-set(BUILD_SHARED_LIBS ON)
-FetchContent_MakeAvailable(googlere2)
+FetchContent_GetProperties(googlere2)
+string(TOLOWER "googlere2" lcName)
+if(NOT ${lcName}_POPULATED)
+  FetchContent_Populate(googlere2)
+  add_subdirectory(${googlere2_SOURCE_DIR} ${googlere2_BINARY_DIR})
+  set_target_properties(re2
+    PROPERTIES
+        POSITION_INDEPENDENT_CODE ON)
+endif()

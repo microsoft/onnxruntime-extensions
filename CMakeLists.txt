@@ -44,44 +44,46 @@ if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
   message(FATAL_ERROR "CMAKE_FIND_FRAMEWORK is not NEVER")
 endif()
 
+set(CPACK_PROJECT_NAME ${PROJECT_NAME})
+set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
+include(CPack)
+
+file(GLOB TARGET_SRC "./ocos/*.cc" )
+file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc")
+file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc")
+
 if(ENABLE_PYTHON)
+  list(APPEND TARGET_SRC "./ocos/ortcustomops_pyd.def")
   set(Python3_FIND_REGISTRY NEVER CACHE STRING "...")
   if(NOT "${Python3_FIND_REGISTRY}" STREQUAL "NEVER")
     message(FATAL_ERROR "Python3_FIND_REGISTRY is not NEVER")
   endif()
 
   find_package(Python3 COMPONENTS Interpreter Development)
-endif()
-
-file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/ortcustomops.def")
-file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc")
-file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc")
-
-if (ENABLE_PYTHON)
   Python3_add_library(ortcustomops SHARED ${TARGET_SRC} ${TARGET_SRC_KERNELS} ${TARGET_SRC_PYOPS})
   target_compile_definitions(ortcustomops PRIVATE PYTHON_OP_SUPPORT)
+  set_source_files_properties(ortcustomops_pyd.def PROPERTIES HEADER_FILE_ONLY TRUE)
 else()
-  add_library(ortcustomops SHARED ${TARGET_SRC} ${TARGET_SRC_KERNELS} ${TARGET_SRC_PYOPS})
+  list(APPEND TARGET_SRC "./ocos/ortcustomops.def")
+  add_library(ortcustomops SHARED ${TARGET_SRC} ${TARGET_SRC_KERNELS})
+  set_source_files_properties(ortcustomops.def PROPERTIES HEADER_FILE_ONLY TRUE)
 endif()
-
-target_include_directories(ortcustomops PUBLIC
-  ./includes
-  ./includes/onnxruntime)
-
-set_source_files_properties(ortcustomops.def PROPERTIES HEADER_FILE_ONLY TRUE)
-target_compile_definitions(ortcustomops PRIVATE ONNX_NAMESPACE=onnx ONNX_ML NOMINMAX)
-target_compile_features(ortcustomops PUBLIC cxx_std_11)
-
-set(CPACK_PROJECT_NAME ${PROJECT_NAME})
-set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
-include(CPack)
 
 # External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
 include(FetchContent)
-include(googletest)
 include(googlere2)
 FetchContent_GetProperties(googlere2)
+
+target_include_directories(ortcustomops PUBLIC
+  ./includes
+  ./includes/onnxruntime
+  ${googlere2_SOURCE_DIR})
+
+target_link_libraries(ortcustomops PRIVATE re2)
+
+target_compile_definitions(ortcustomops PRIVATE ONNX_NAMESPACE=onnx ONNX_ML NOMINMAX)
+target_compile_features(ortcustomops PUBLIC cxx_std_11)
 
 if(ENABLE_PYTHON)
   include(pybind11)
@@ -98,9 +100,7 @@ if(ENABLE_PYTHON)
   target_include_directories(ortcustomops PRIVATE
       ${NUMPY_INCLUDE_DIR}
       ${pybind11_INCLUDE_DIRS}
-      ${googlere2_SOURCE_DIR}
       )
-  target_link_libraries(ortcustomops PRIVATE re2)
 
   set(ortcustomops_pypkgdir $<TARGET_FILE_DIR:ortcustomops>)
   if (WIN32)
@@ -128,10 +128,10 @@ if(ENABLE_PYTHON)
   endif()
 endif()
 
+# test section
+include(googletest)
 file(GLOB TEST_SRC "${PROJECT_SOURCE_DIR}/test/test*.cc")
 add_executable(ortcustomops_test ${TEST_SRC})
-target_include_directories(ortcustomops_test PRIVATE ${googlere2_SOURCE_DIR})
-
 target_link_libraries(ortcustomops_test gtest_main re2 ortcustomops)
 
 add_test(NAME ortcustomops_test COMMAND test)
