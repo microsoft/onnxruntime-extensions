@@ -105,10 +105,10 @@ static size_t element_size(ONNXTensorElementDataType dt) {
       return sizeof(uint32_t);
     case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64:
       return sizeof(uint64_t);
-    // case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64:
-    //   return sizeof(_C_float_complex);
-    // case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128:
-    //   return sizeof(_C_double_complex);
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64:
+      return sizeof(std::complex<float>);
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128:
+      return sizeof(std::complex<double>);
     case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING:
       return sizeof(std::string*);
     default:
@@ -318,10 +318,10 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
               retval = fetch[2 + no * 2].cast<py::array_t<uint64_t>>();
               break;
             case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64:
-              retval = fetch[2 + no * 2].cast<py::array_t<_C_float_complex>>();
+              retval = fetch[2 + no * 2].cast<py::array_t<std::complex<float>>>();
               break;
             case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128:
-              retval = fetch[2 + no * 2].cast<py::array_t<_C_double_complex>>();
+              retval = fetch[2 + no * 2].cast<py::array_t<std::complex<double>>>();
               break;
             default:
               throw std::runtime_error(MakeString(
