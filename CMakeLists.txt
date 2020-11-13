@@ -56,7 +56,7 @@ include(farmhash)
 FetchContent_GetProperties(googlere2)
 FetchContent_GetProperties(farmhash)
 
-file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/ortcustomops.def")
+file(GLOB TARGET_SRC "./ocos/*.cc")
 file(GLOB TARGET_HEADERS "./ocos/*.h*")
 file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
 file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc" "./ocos/pyfunc/*.h*")
