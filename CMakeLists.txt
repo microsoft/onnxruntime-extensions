@@ -51,7 +51,6 @@ include(CPack)
 # External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
 include(FetchContent)
-include(googletest)
 include(googlere2)
 include(farmhash)
 FetchContent_GetProperties(googlere2)
@@ -84,18 +83,21 @@ else()
   add_library(ortcustomops SHARED
     ${TARGET_SRC}
     ${TARGET_SRC_KERNELS}
-    ${TARGET_SRC_PYOPS}
     ${TARGET_HEADERS}
     ${TARGET_SRC_HASH})
   set_source_files_properties(ortcustomops.def PROPERTIES HEADER_FILE_ONLY TRUE)
 endif()
 
-target_include_directories(ortcustomops PUBLIC
-  ./includes
-  ./includes/onnxruntime
-  ${googlere2_SOURCE_DIR})
+set(external_libraries re2)
 
-target_link_libraries(ortcustomops PRIVATE re2)
+target_include_directories(ortcustomops PUBLIC
+  ${PROJECT_SOURCE_DIR}/includes
+  ${PROJECT_SOURCE_DIR}/includes/onnxruntime
+  ${PROJECT_SOURCE_DIR}/ocos
+  ${googlere2_SOURCE_DIR}
+  ${farmhash_SOURCE_DIR}/src)
+
+target_link_libraries(ortcustomops PRIVATE ${external_libraries})
 
 target_compile_definitions(ortcustomops PRIVATE
     ONNX_NAMESPACE=onnx
@@ -119,8 +121,6 @@ if(ENABLE_PYTHON)
   target_include_directories(ortcustomops PRIVATE
       ${NUMPY_INCLUDE_DIR}
       ${pybind11_INCLUDE_DIRS}
-      ${googlere2_SOURCE_DIR}
-      ${farmhash_SOURCE_DIR}/src
       )
 
   set(ortcustomops_pypkgdir $<TARGET_FILE_DIR:ortcustomops>)
@@ -153,6 +153,6 @@ endif()
 include(googletest)
 file(GLOB TEST_SRC "${PROJECT_SOURCE_DIR}/test/test*.cc")
 add_executable(ortcustomops_test ${TEST_SRC})
-target_link_libraries(ortcustomops_test gtest_main re2 ortcustomops)
+target_link_libraries(ortcustomops_test gtest_main ortcustomops ${external_libraries})
 
 add_test(NAME ortcustomops_test COMMAND test)
