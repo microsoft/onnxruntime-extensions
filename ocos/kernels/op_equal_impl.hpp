@@ -124,7 +124,7 @@ void KernelEqual_Compute(Ort::CustomOpApi& ort_, OrtKernelContext* context) {
   OrtTensorDimensions dimensions_y(ort_, input_Y);
   Compare<T> cmp;
 
-  BroadcastIteratorRight<T, T, bool>::BroadcastIteratorRightState state;
+  typename BroadcastIteratorRight<T, T, bool>::BroadcastIteratorRightState state;
   if (Size(dimensions_x) >= Size(dimensions_y)) {
     OrtValue* v = ort_.KernelContext_GetOutput(context, 0, dimensions_x.data(), dimensions_x.size());
     bool* out = ort_.GetTensorMutableData<bool>(v);
