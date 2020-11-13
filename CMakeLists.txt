@@ -44,15 +44,6 @@ if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
   message(FATAL_ERROR "CMAKE_FIND_FRAMEWORK is not NEVER")
 endif()
 
-if(ENABLE_PYTHON)
-  set(Python3_FIND_REGISTRY NEVER CACHE STRING "...")
-  if(NOT "${Python3_FIND_REGISTRY}" STREQUAL "NEVER")
-    message(FATAL_ERROR "Python3_FIND_REGISTRY is not NEVER")
-  endif()
-
-  find_package(Python3 COMPONENTS Interpreter Development)
-endif()
-
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
@@ -71,29 +62,41 @@ file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
 file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc" "./ocos/pyfunc/*.h*")
 file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")
 
-if (ENABLE_PYTHON)
-  Python3_add_library(ortcustomops SHARED
+if(ENABLE_PYTHON)
+  list(APPEND TARGET_SRC "./ocos/ortcustomops_pyd.def")
+  set(Python3_FIND_REGISTRY NEVER CACHE STRING "...")
+  if(NOT "${Python3_FIND_REGISTRY}" STREQUAL "NEVER")
+    message(FATAL_ERROR "Python3_FIND_REGISTRY is not NEVER")
+  endif()
+
+  find_package(Python3 COMPONENTS Interpreter Development)
+  Python3_add_library(ortcustomops SHARED 
     ${TARGET_SRC}
     ${TARGET_SRC_KERNELS}
     ${TARGET_SRC_PYOPS}
     ${TARGET_HEADERS}
     ${TARGET_SRC_HASH})
   target_compile_definitions(ortcustomops PRIVATE PYTHON_OP_SUPPORT)
+  set_source_files_properties(ortcustomops_pyd.def PROPERTIES HEADER_FILE_ONLY TRUE)
 else()
+  list(APPEND TARGET_SRC "./ocos/ortcustomops.def")
   add_library(ortcustomops SHARED
     ${TARGET_SRC}
     ${TARGET_SRC_KERNELS}
     ${TARGET_SRC_PYOPS}
     ${TARGET_HEADERS}
     ${TARGET_SRC_HASH})
+  set_source_files_properties(ortcustomops.def PROPERTIES HEADER_FILE_ONLY TRUE)
 endif()
 
 target_include_directories(ortcustomops PUBLIC
   ./includes
-  ./includes/onnxruntime)
+  ./includes/onnxruntime
+  ${googlere2_SOURCE_DIR})
 
-set_source_files_properties(ortcustomops.def PROPERTIES HEADER_FILE_ONLY TRUE)
-target_compile_definitions(ortcustomops PRIVATE 
+target_link_libraries(ortcustomops PRIVATE re2)
+
+target_compile_definitions(ortcustomops PRIVATE
     ONNX_NAMESPACE=onnx
     ONNX_ML
     NOMINMAX
@@ -118,19 +121,37 @@ if(ENABLE_PYTHON)
       ${googlere2_SOURCE_DIR}
       ${farmhash_SOURCE_DIR}/src
       )
-  target_link_libraries(ortcustomops PRIVATE re2)
 
-  add_custom_command(
-    TARGET ortcustomops POST_BUILD
-    COMMAND powershell  -NoProfile -ExecutionPolicy RemoteSigned -file ./pysetup.ps1 "$<TARGET_FILE_DIR:ortcustomops>"
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  )
+  set(ortcustomops_pypkgdir $<TARGET_FILE_DIR:ortcustomops>)
+  if (WIN32)
+    set(pysetup_script ${PROJECT_SOURCE_DIR}/cmake/utils/pysetup.ps1)
+    add_custom_command(
+      TARGET ortcustomops POST_BUILD
+      COMMAND powershell  -NoProfile -ExecutionPolicy RemoteSigned -file "${pysetup_script}"  "${ortcustomops_pypkgdir}"
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+  else()
+    file(GLOB ortcustom_pypkg_srcs CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/ocos/pyfunc/*.py")
+    file(GLOB ortcustom_pypkg_mics CONFIGURE_DEPENDS
+      "${PROJECT_SOURCE_DIR}/setup.py"
+      "${PROJECT_SOURCE_DIR}/README.md"
+      "${PROJECT_SOURCE_DIR}/requirements.txt"
+    )
+
+    add_custom_command(
+      TARGET ortcustomops POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E make_directory ${ortcustomops_pypkgdir}/ortcustomops
+      COMMAND ${CMAKE_COMMAND} -E copy ${ortcustom_pypkg_srcs} ${ortcustomops_pypkgdir}/ortcustomops
+      COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:ortcustomops> ${ortcustomops_pypkgdir}/ortcustomops
+      COMMAND ${CMAKE_COMMAND} -E copy ${ortcustom_pypkg_mics} ${ortcustomops_pypkgdir}
+    )
+  endif()
 endif()
 
+# test section
+include(googletest)
 file(GLOB TEST_SRC "${PROJECT_SOURCE_DIR}/test/test*.cc")
 add_executable(ortcustomops_test ${TEST_SRC})
-target_include_directories(ortcustomops_test PRIVATE ${googlere2_SOURCE_DIR})
-
 target_link_libraries(ortcustomops_test gtest_main re2 ortcustomops)
 
 add_test(NAME ortcustomops_test COMMAND test)
