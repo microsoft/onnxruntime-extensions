@@ -1,12 +1,16 @@
 # coding: utf-8
 import unittest
 import re
+from binascii import crc32
 import numpy as np
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
 from ortcustomops import (
     onnx_op, PyCustomOpDef,
-    get_library_path as _get_library_path)
+    get_library_path as _get_library_path,
+    hash_64)
+
+NUM_BUCKETS = 23
 
 
 def _create_test_model_string_upper(prefix, domain='ai.onnx.contrib'):
@@ -85,6 +89,46 @@ def _create_test_model_string_replace(prefix, domain='ai.onnx.contrib'):
     return model
 
 
+def _create_test_model_string_to_hash(
+        prefix, domain='ai.onnx.contrib', kind=None):
+    if kind == 'crc32':
+        op_type = 'StringToCRC32'
+        out_type = onnx_proto.TensorProto.UINT32
+        in_type = out_type
+    elif kind == 'hash_bucket':
+        op_type = 'StringToHashBucket'
+        out_type = onnx_proto.TensorProto.INT64
+        in_type = out_type
+    elif kind == 'hash_bucket_fast':
+        op_type = 'StringToHashBucketFast'
+        out_type = onnx_proto.TensorProto.INT64
+        in_type = out_type
+    else:
+        raise ValueError('Unknown value %r.' % kind)
+    nodes = []
+    nodes.append(
+        helper.make_node('Identity', ['text'], ['id1']))
+    nodes.append(
+        helper.make_node('Identity', ['num_buckets'], ['id2']))
+    nodes.append(
+        helper.make_node(
+            '%s%s' % (prefix, op_type), ['id1', 'id2'],
+            ['customout'], domain=domain))
+
+    input0 = helper.make_tensor_value_info(
+        'text', onnx_proto.TensorProto.STRING, [None, None])
+    input1 = helper.make_tensor_value_info(
+        'num_buckets', in_type, [1])
+    output0 = helper.make_tensor_value_info(
+        'customout', out_type, [None, None])
+
+    graph = helper.make_graph(
+        nodes, 'test0', [input0, input1], [output0])
+    model = helper.make_model(
+        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    return model
+
+
 def _create_test_model_string_equal(prefix, domain='ai.onnx.contrib'):
     nodes = []
     nodes.append(helper.make_node('Identity', ['x'], ['id1']))
@@ -109,6 +153,7 @@ def _create_test_model_string_equal(prefix, domain='ai.onnx.contrib'):
 class TestPythonOpString(unittest.TestCase):
 
     _string_join = None
+    _string_to_crc32 = None
 
     @classmethod
     def setUpClass(cls):
@@ -167,6 +212,34 @@ class TestPythonOpString(unittest.TestCase):
                 list(map(lambda t: reg.sub(rewrite[0], t), x.ravel())))
             return res.reshape(x.shape)
 
+        @onnx_op(op_type="PyStringToCRC32",
+                 inputs=[PyCustomOpDef.dt_string, PyCustomOpDef.dt_uint32],
+                 outputs=[PyCustomOpDef.dt_uint32])
+        def string_to_crc32(x, num_buckets):
+            if num_buckets.shape != (1, ):
+                raise RuntimeError(
+                    "Unexpected shape {} for 'num_buckets'.".format(
+                        num_buckets.shape))
+            nb = num_buckets[0]
+            res = np.array(
+                list(map(
+                    lambda x: crc32(x.encode('iso-8859-15')) % nb,
+                    x.ravel())))
+            return res.reshape(x.shape)
+
+        @onnx_op(op_type="PyStringToHashBucket",
+                 inputs=[PyCustomOpDef.dt_string, PyCustomOpDef.dt_int64],
+                 outputs=[PyCustomOpDef.dt_int64])
+        def string_to_hash_bucket(x, num_buckets):
+            if num_buckets.shape != (1, ):
+                raise RuntimeError(
+                    "Unexpected shape {} for 'num_buckets'.".format(
+                        num_buckets.shape))
+            nb = num_buckets[0]
+            res = np.array(
+                list(map(lambda x: hash_64(x, nb, True), x.ravel())))
+            return res.reshape(x.shape).astype(np.int64)
+
         @onnx_op(op_type="PyStringEqual",
                  inputs=[PyCustomOpDef.dt_string, PyCustomOpDef.dt_string],
                  outputs=[PyCustomOpDef.dt_bool])
@@ -174,6 +247,7 @@ class TestPythonOpString(unittest.TestCase):
             return x == y
 
         cls._string_join = string_join
+        cls._string_to_crc32 = string_to_crc32
 
     def test_check_types(self):
         def_list = set(dir(PyCustomOpDef))
@@ -373,6 +447,90 @@ class TestPythonOpString(unittest.TestCase):
         exp = [['static PyObject*\npy_myfunc(void)\n{'],
                ['static PyObject*\npy_dummy(void)\n{']]
         self.assertEqual(exp, txout[0].tolist())
+
+    def test_string_to_crc32_python(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_to_hash('Py', kind='crc32')
+        self.assertIn('op_type: "PyStringToCRC32"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        text = np.array([["abc", "abcdé"], ["$$^l!%*ù", ""]])
+        num_buckets = np.array([44], dtype=np.uint32)
+        res = self._string_to_crc32(text, num_buckets)
+        self.assertEqual(res.shape, text.shape)
+        exp = np.array([[10, 38], [29, 0]], dtype=np.uint32)
+        self.assertEqual(exp.tolist(), res.tolist())
+        txout = sess.run(
+            None, {'text': text, 'num_buckets': num_buckets})
+        self.assertEqual(exp.tolist(), txout[0].tolist())
+
+    def test_string_to_hash_bucket_cc(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_to_hash(
+            '', kind='hash_bucket')
+        self.assertIn('op_type: "StringToHashBucket"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        raw = ["abc", "abcdé", "$$^l!%*ù", "", "a", "A"]
+        text = np.array(raw).reshape((3, 2))
+        num_buckets = np.array([NUM_BUCKETS], dtype=np.int64)
+        txout = sess.run(
+            None, {'text': text, 'num_buckets': num_buckets})
+        try:
+            from tensorflow.raw_ops import StringToHashBucket
+            dotf = True
+        except ImportError:
+            dotf = False
+        if dotf:
+            tfres = StringToHashBucket(
+                string_tensor=text, num_buckets=num_buckets[0])
+            self.assertEqual(tfres.shape, txout[0].shape)
+            self.assertEqual(tfres.numpy().tolist(), txout[0].tolist())
+        exp = np.array([[15, 11], [10, 21], [20, 21]], dtype=np.int64)
+        self.assertEqual(exp.shape, txout[0].shape)
+        self.assertEqual(exp.tolist(), txout[0].tolist())
+
+    def test_string_to_hash_bucket_fast_cc(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_to_hash(
+            '', kind='hash_bucket_fast')
+        self.assertIn('op_type: "StringToHashBucketFast"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        raw = ["abc", "abcdé", "$$^l!%*ù", "", "a", "A"]
+        text = np.array(raw).reshape((3, 2))
+        num_buckets = np.array([NUM_BUCKETS], dtype=np.int64)
+        txout = sess.run(
+            None, {'text': text, 'num_buckets': num_buckets})
+        try:
+            from tensorflow.raw_ops import StringToHashBucketFast
+            dotf = True
+        except ImportError:
+            dotf = False
+        if dotf:
+            tfres = StringToHashBucketFast(
+                input=text, num_buckets=num_buckets[0])
+            self.assertEqual(tfres.shape, txout[0].shape)
+            self.assertEqual(tfres.numpy().tolist(), txout[0].tolist())
+        exp = np.array([[9, 17], [4, 21], [14, 12]], dtype=np.int64)
+        self.assertEqual(exp.shape, txout[0].shape)
+        self.assertEqual(exp.tolist(), txout[0].tolist())
+
+    def test_string_to_hash_bucket_python(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_to_hash(
+            'Py', kind='hash_bucket')
+        self.assertIn('op_type: "PyStringToHashBucket"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        raw = ["abc", "abcdé", "$$^l!%*ù", "", "a", "A"]
+        text = np.array(raw).reshape((3, 2))
+        num_buckets = np.array([NUM_BUCKETS], dtype=np.int64)
+        exp = np.array([[9, 17], [4, 21], [14, 12]], dtype=np.int64)
+        txout = sess.run(
+            None, {'text': text, 'num_buckets': num_buckets})
+        self.assertEqual(exp.shape, txout[0].shape)
+        self.assertEqual(exp.tolist(), txout[0].tolist())
 
     def enumerate_matrix_couples(self):
         for i in range(1, 5):

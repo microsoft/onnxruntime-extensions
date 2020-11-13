@@ -12,6 +12,6 @@ __author__ = "Microsoft"
 
 
 from ._ocos import get_library_path  # noqa
-from ._ocos import Opdef, PyCustomOpDef  # noqa
+from ._ocos import Opdef, PyCustomOpDef, hash_64  # noqa
 
 onnx_op = Opdef.declare

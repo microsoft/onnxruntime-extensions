@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #include "kernels/op_equal.hpp"
+#include "kernels/string_hash.hpp"
 #include "kernels/string_join.hpp"
 #include "kernels/string_regex_replace.hpp"
 #include "kernels/string_upper.hpp"
@@ -10,6 +11,8 @@
 
 CustomOpNegPos c_CustomOpNegPos;
 CustomOpStringEqual c_CustomOpStringEqual;
+CustomOpStringHash c_CustomOpStringHash;
+CustomOpStringHashFast c_CustomOpStringHashFast;
 CustomOpStringJoin c_CustomOpStringJoin;
 CustomOpStringRegexReplace c_CustomOpStringRegexReplace;
 CustomOpStringUpper c_CustomOpStringUpper;
@@ -19,6 +22,8 @@ CustomOpTwo c_CustomOpTwo;
 OrtCustomOp* operator_lists[] = {
     &c_CustomOpNegPos,
     &c_CustomOpStringEqual,
+    &c_CustomOpStringHash,
+    &c_CustomOpStringHashFast,
     &c_CustomOpStringJoin,
     &c_CustomOpStringRegexReplace,
     &c_CustomOpStringUpper,

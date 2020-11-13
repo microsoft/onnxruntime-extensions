@@ -4,7 +4,8 @@
 ###############################################################################
 
 from pathlib import Path
-from ._ortcustomops import PyCustomOpDef, add_custom_op
+from ._ortcustomops import (  # noqa
+    PyCustomOpDef, add_custom_op, hash_64)
 
 
 def get_library_path():
