@@ -3,7 +3,7 @@
 
 #include "gtest/gtest.h"
 #include "test_utils.h"
-#include "../ocos/utils.h"
+#include "utils.h"
 #include "re2/re2.h"
 
 
