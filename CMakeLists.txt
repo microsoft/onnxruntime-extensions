@@ -50,6 +50,7 @@ include(CPack)
 
 # External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
+include(FetchContent)
 include(googletest)
 include(googlere2)
 include(farmhash)

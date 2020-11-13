@@ -128,6 +128,7 @@ def _create_test_model_string_to_hash(
         graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
     return model
 
+
 def _create_test_model_string_equal(prefix, domain='ai.onnx.contrib'):
     nodes = []
     nodes.append(helper.make_node('Identity', ['x'], ['id1']))
