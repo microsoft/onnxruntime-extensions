@@ -150,6 +150,36 @@ def _create_test_model_string_equal(prefix, domain='ai.onnx.contrib'):
     return model
 
 
+def _create_test_model_string_split(prefix, domain='ai.onnx.contrib'):
+    nodes = []
+    nodes.append(helper.make_node('Identity', ['input'], ['id1']))
+    nodes.append(helper.make_node('Identity', ['delimiter'], ['id2']))
+    nodes.append(helper.make_node('Identity', ['skip_empty'], ['id3']))
+    nodes.append(
+        helper.make_node(
+            '%sStringSplit' % prefix, ['id1', 'id2', 'id3'],
+            ['indices', 'values', 'shape'], domain=domain))
+
+    input0 = helper.make_tensor_value_info(
+        'input', onnx_proto.TensorProto.STRING, [])
+    input1 = helper.make_tensor_value_info(
+        'delimiter', onnx_proto.TensorProto.STRING, [])
+    input2 = helper.make_tensor_value_info(
+        'skip_empty', onnx_proto.TensorProto.BOOL, [])
+    output0 = helper.make_tensor_value_info(
+        'indices', onnx_proto.TensorProto.INT64, [])
+    output1 = helper.make_tensor_value_info(
+        'values', onnx_proto.TensorProto.STRING, [])
+    output2 = helper.make_tensor_value_info(
+        'shape', onnx_proto.TensorProto.INT64, [])
+
+    graph = helper.make_graph(nodes, 'test0', [input0, input1, input2],
+                              [output0, output1, output2])
+    model = helper.make_model(
+        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    return model
+
+
 class TestPythonOpString(unittest.TestCase):
 
     _string_join = None
@@ -245,6 +275,36 @@ class TestPythonOpString(unittest.TestCase):
                  outputs=[PyCustomOpDef.dt_bool])
         def string_equal(x, y):
             return x == y
+
+        @onnx_op(op_type="PyStringSplit",
+                 inputs=[PyCustomOpDef.dt_string, PyCustomOpDef.dt_string,
+                         PyCustomOpDef.dt_bool],
+                 outputs=[PyCustomOpDef.dt_int64, PyCustomOpDef.dt_string,
+                          PyCustomOpDef.dt_int64])
+        def string_split(input, delimiter, skip_empty):
+            if delimiter.shape != (1, ):
+                raise RuntimeError("demiliter must a single element tensor.")
+            if skip_empty.shape != (1, ):
+                raise RuntimeError("skip_empty must a single element tensor.")
+            if len(input.shape) != 1:
+                raise RuntimeError("input must a one dimension tensor.")
+            delimiter = delimiter[0]
+            skip_empty = skip_empty[0]
+            texts = []
+            indices = []
+            max_split = 0
+            for row, text in enumerate(input):
+                if not text:
+                    continue
+                res = text.split(delimiter)                
+                if skip_empty:
+                    res = [t for t in res if t]
+                texts.extend(res)
+                max_split = max(max_split, len(res))
+                indices.extend((row, i) for i in range(len(res)))
+            return (np.array(indices, dtype=np.int64),
+                    np.array(texts),
+                    np.array([len(input), max_split], dtype=np.int64))
 
         cls._string_join = string_join
         cls._string_to_crc32 = string_to_crc32
@@ -575,6 +635,79 @@ class TestPythonOpString(unittest.TestCase):
             self.assertEqual(txout[0].tolist(), (x == y).tolist())
             txout = sess.run(None, {'x': y, 'y': x})
             self.assertEqual(txout[0].tolist(), (y == x).tolist())
+
+    def test_string_split_python(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_split('Py')
+        self.assertIn('op_type: "PyStringSplit"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        input = np.array(["a,,b", "", "aa,b,c", "dddddd"])
+        delimiter = np.array([","])
+        
+        for skip in [True, False]:
+            with self.subTest(skip=skip):
+                skip_empty = np.array([skip])
+                
+                txout = sess.run(
+                    None, {'input': input, 'delimiter': delimiter,
+                           'skip_empty': skip_empty})
+
+                if skip_empty:
+                    exp_indices = np.array(
+                        [[0, 0], [0, 1], [2, 0], [2, 1], [2, 2], [3, 0]])
+                    exp_text = np.array(['a', 'b', 'aa', 'b', 'c', 'dddddd'])
+                else:
+                    exp_indices = np.array(
+                        [[0, 0], [0, 1], [0, 2], [2, 0], [2, 1], [2, 2], [3, 0]])
+                    exp_text = np.array(['a', '', 'b', 'aa', 'b', 'c', 'dddddd'])
+                exp_shape = np.array([4, 3])
+                self.assertEqual(exp_indices.tolist(), txout[0].tolist())
+                self.assertEqual(exp_text.tolist(), txout[1].tolist())
+                self.assertEqual(exp_shape.tolist(), txout[2].tolist())
+
+    def test_string_split_cc(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_split('')
+        self.assertIn('op_type: "StringSplit"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        input = np.array(["a,,b", "", "aa,b,c", "dddddd"])
+        delimiter = np.array([","])
+        
+        for skip in [True, False]:
+            with self.subTest(skip=skip):
+                skip_empty = np.array([skip])
+                
+                txout = sess.run(
+                    None, {'input': input, 'delimiter': delimiter,
+                           'skip_empty': skip_empty})
+
+                try:
+                    from tensorflow.raw_ops import StringSplit
+                    dotf = True
+                except ImportError:
+                    dotf = False
+                if dotf:
+                    tfres = StringSplit(
+                        input=input, delimiter=",,", skip_empty=skip)
+                    self.assertEqual([_.decode() for _ in tfres[1].numpy().tolist()],
+                                     txout[1].tolist())
+                    self.assertEqual(tfres[0].numpy().tolist(), txout[0].tolist())
+                    self.assertEqual(tfres[2].numpy().tolist(), txout[2].tolist())
+
+                if skip_empty:
+                    exp_indices = np.array(
+                        [[0, 0], [0, 1], [2, 0], [2, 1], [2, 2], [3, 0]])
+                    exp_text = np.array(['a', 'b', 'aa', 'b', 'c', 'dddddd'])
+                else:
+                    exp_indices = np.array(
+                        [[0, 0], [0, 1], [0, 2], [2, 0], [2, 1], [2, 2], [3, 0]])
+                    exp_text = np.array(['a', '', 'b', 'aa', 'b', 'c', 'dddddd'])
+                exp_shape = np.array([4, 3])
+                self.assertEqual(exp_indices.tolist(), txout[0].tolist())
+                self.assertEqual(exp_text.tolist(), txout[1].tolist())
+                self.assertEqual(exp_shape.tolist(), txout[2].tolist())
 
 
 if __name__ == "__main__":
