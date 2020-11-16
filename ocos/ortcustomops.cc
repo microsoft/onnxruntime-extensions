@@ -5,6 +5,7 @@
 #include "kernels/string_hash.hpp"
 #include "kernels/string_join.hpp"
 #include "kernels/string_regex_replace.hpp"
+#include "kernels/string_split.hpp"
 #include "kernels/string_upper.hpp"
 #include "kernels/test_output.hpp"
 #include "utils.h"
@@ -15,6 +16,7 @@ CustomOpStringHash c_CustomOpStringHash;
 CustomOpStringHashFast c_CustomOpStringHashFast;
 CustomOpStringJoin c_CustomOpStringJoin;
 CustomOpStringRegexReplace c_CustomOpStringRegexReplace;
+CustomOpStringSplit c_CustomOpStringSplit;
 CustomOpStringUpper c_CustomOpStringUpper;
 CustomOpOne c_CustomOpOne;
 CustomOpTwo c_CustomOpTwo;
@@ -26,6 +28,7 @@ OrtCustomOp* operator_lists[] = {
     &c_CustomOpStringHashFast,
     &c_CustomOpStringJoin,
     &c_CustomOpStringRegexReplace,
+    &c_CustomOpStringSplit,
     &c_CustomOpStringUpper,
     &c_CustomOpOne,
     &c_CustomOpTwo,
