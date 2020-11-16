@@ -493,6 +493,21 @@ class TestPythonOpString(unittest.TestCase):
                ['static PyObject* py_dummy(void) {']]
         self.assertEqual(exp, txout[0].tolist())
 
+    def test_string_replace_cc_x2(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_replace('')
+        self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
+        rewrite = np.array([r'static PyObject* py_\1(void) {'])
+        text = np.array([['def myfunc():'], ['def dummy():' * 2]])
+        txout = sess.run(
+            None, {'text': text, 'pattern': pattern, 'rewrite': rewrite})
+        exp = [['static PyObject* py_myfunc(void) {'],
+               ['static PyObject* py_dummy(void) {' * 2]]
+        self.assertEqual(exp, txout[0].tolist())
+
     def test_string_replace_python(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
@@ -506,6 +521,21 @@ class TestPythonOpString(unittest.TestCase):
             None, {'text': text, 'pattern': pattern, 'rewrite': rewrite})
         exp = [['static PyObject*\npy_myfunc(void)\n{'],
                ['static PyObject*\npy_dummy(void)\n{']]
+        self.assertEqual(exp, txout[0].tolist())
+
+    def test_string_replace_python_x2(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_replace('Py')
+        self.assertIn('op_type: "PyStringRegexReplace"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
+        rewrite = np.array([r'static PyObject*\npy_\1(void)\n{'])
+        text = np.array([['def myfunc():'], ['def dummy():' * 2]])
+        txout = sess.run(
+            None, {'text': text, 'pattern': pattern, 'rewrite': rewrite})
+        exp = [['static PyObject*\npy_myfunc(void)\n{'],
+               ['static PyObject*\npy_dummy(void)\n{' * 2]]
         self.assertEqual(exp, txout[0].tolist())
 
     def test_string_to_crc32_python(self):

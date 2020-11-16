@@ -46,7 +46,7 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
   // Do computation
   for (int64_t i = 0; i < size; i++) {
     out[i] = str_input[i];
-    re2::RE2::Replace(out + i, reg, piece);
+    re2::RE2::GlobalReplace(out + i, reg, piece);
   }
 }
 
