@@ -31,32 +31,49 @@ void KernelStringSplit::Compute(OrtKernelContext* context) {
   int64_t maxc = 0;
   int64_t col;
   std::string delimiter = *sep;
-  bool keep = !(*skip_empty);
-  std::size_t current, previous = 0;
-  for (int64_t row = 0; row < dimensions[0]; ++row) {
-    const std::string& str = X[row];
-    if (str.empty())
-      continue;
-    previous = 0;
-    col = 0;
-    current = str.find_first_of(delimiter);
-    while (current != std::string::npos) {
+  if (delimiter.size() == 0) {
+    char word[2] = "a";
+    for (int64_t row = 0; row < dimensions[0]; ++row) {
+      const std::string& str = X[row];
+      if (str.empty())
+        continue;
+      maxc = str.size() > maxc ? str.size() : maxc;
+      for (auto it = str.begin(); it != str.end(); ++it) {
+        word[0] = *it;
+        words.push_back(word);
+        indices.push_back(row);
+        indices.push_back(std::distance(str.begin(), it));
+      }
+    }
+  } else {
+    bool keep = !(*skip_empty);
+    std::size_t current, previous = 0;
+    for (int64_t row = 0; row < dimensions[0]; ++row) {
+      const std::string& str = X[row];
+      if (str.empty())
+        continue;
+      previous = 0;
+      col = 0;
+      current = str.find_first_of(delimiter);
+      while (current != std::string::npos) {
+        if (keep || current > previous) {
+          words.push_back(str.substr(previous, current - previous));
+          indices.push_back(row);
+          indices.push_back(col);
+          ++col;
+        }
+        previous = current + 1;
+        current = str.find_first_of(delimiter, previous);
+      }
+      current = str.size();
       if (keep || current > previous) {
         words.push_back(str.substr(previous, current - previous));
         indices.push_back(row);
         indices.push_back(col);
         ++col;
       }
-      previous = current + 1;
-      current = str.find_first_of(delimiter, previous);
+      maxc = col > maxc ? col : maxc;
     }
-    if (keep || current > previous) {
-      words.push_back(str.substr(previous, current - previous));
-      indices.push_back(row);
-      indices.push_back(col);
-      ++col;
-    }
-    maxc = col > maxc ? col : maxc;
   }
 
   std::vector<int64_t> shape_indices = {static_cast<int64_t>(indices.size()) / 2, 2};

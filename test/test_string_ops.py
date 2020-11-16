@@ -296,7 +296,7 @@ class TestPythonOpString(unittest.TestCase):
             for row, text in enumerate(input):
                 if not text:
                     continue
-                res = text.split(delimiter)                
+                res = text.split(delimiter)
                 if skip_empty:
                     res = [t for t in res if t]
                 texts.extend(res)
@@ -644,11 +644,11 @@ class TestPythonOpString(unittest.TestCase):
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         input = np.array(["a,,b", "", "aa,b,c", "dddddd"])
         delimiter = np.array([","])
-        
+
         for skip in [True, False]:
             with self.subTest(skip=skip):
                 skip_empty = np.array([skip])
-                
+
                 txout = sess.run(
                     None, {'input': input, 'delimiter': delimiter,
                            'skip_empty': skip_empty})
@@ -659,8 +659,10 @@ class TestPythonOpString(unittest.TestCase):
                     exp_text = np.array(['a', 'b', 'aa', 'b', 'c', 'dddddd'])
                 else:
                     exp_indices = np.array(
-                        [[0, 0], [0, 1], [0, 2], [2, 0], [2, 1], [2, 2], [3, 0]])
-                    exp_text = np.array(['a', '', 'b', 'aa', 'b', 'c', 'dddddd'])
+                        [[0, 0], [0, 1], [0, 2], [2, 0], [2, 1],
+                         [2, 2], [3, 0]])
+                    exp_text = np.array(
+                        ['a', '', 'b', 'aa', 'b', 'c', 'dddddd'])
                 exp_shape = np.array([4, 3])
                 self.assertEqual(exp_indices.tolist(), txout[0].tolist())
                 self.assertEqual(exp_text.tolist(), txout[1].tolist())
@@ -674,11 +676,11 @@ class TestPythonOpString(unittest.TestCase):
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         input = np.array(["a,,b", "", "aa,b,c", "dddddd"])
         delimiter = np.array([","])
-        
+
         for skip in [True, False]:
             with self.subTest(skip=skip):
                 skip_empty = np.array([skip])
-                
+
                 txout = sess.run(
                     None, {'input': input, 'delimiter': delimiter,
                            'skip_empty': skip_empty})
@@ -691,10 +693,13 @@ class TestPythonOpString(unittest.TestCase):
                 if dotf:
                     tfres = StringSplit(
                         input=input, delimiter=",,", skip_empty=skip)
-                    self.assertEqual([_.decode() for _ in tfres[1].numpy().tolist()],
-                                     txout[1].tolist())
-                    self.assertEqual(tfres[0].numpy().tolist(), txout[0].tolist())
-                    self.assertEqual(tfres[2].numpy().tolist(), txout[2].tolist())
+                    self.assertEqual(
+                        [_.decode() for _ in tfres[1].numpy().tolist()],
+                        txout[1].tolist())
+                    self.assertEqual(
+                        tfres[0].numpy().tolist(), txout[0].tolist())
+                    self.assertEqual(
+                        tfres[2].numpy().tolist(), txout[2].tolist())
 
                 if skip_empty:
                     exp_indices = np.array(
@@ -702,11 +707,107 @@ class TestPythonOpString(unittest.TestCase):
                     exp_text = np.array(['a', 'b', 'aa', 'b', 'c', 'dddddd'])
                 else:
                     exp_indices = np.array(
-                        [[0, 0], [0, 1], [0, 2], [2, 0], [2, 1], [2, 2], [3, 0]])
-                    exp_text = np.array(['a', '', 'b', 'aa', 'b', 'c', 'dddddd'])
+                        [[0, 0], [0, 1], [0, 2], [2, 0], [2, 1],
+                         [2, 2], [3, 0]])
+                    exp_text = np.array(
+                        ['a', '', 'b', 'aa', 'b', 'c', 'dddddd'])
                 exp_shape = np.array([4, 3])
                 self.assertEqual(exp_indices.tolist(), txout[0].tolist())
                 self.assertEqual(exp_text.tolist(), txout[1].tolist())
+                self.assertEqual(exp_shape.tolist(), txout[2].tolist())
+
+    def test_string_split_cc_sep2(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_split('')
+        self.assertIn('op_type: "StringSplit"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        input = np.array(["a*b", "a,*b", "aa,b,,c", 'z', "dddddd,", "**"])
+        delimiter = np.array([",*"])
+
+        for skip in [True, False]:
+            with self.subTest(skip=skip):
+                skip_empty = np.array([skip])
+
+                txout = sess.run(
+                    None, {'input': input, 'delimiter': delimiter,
+                           'skip_empty': skip_empty})
+
+                try:
+                    from tensorflow.raw_ops import StringSplit
+                    dotf = True
+                except ImportError:
+                    dotf = False
+                if dotf:
+                    tfres = StringSplit(
+                        input=input, delimiter=",*", skip_empty=skip)
+                    self.assertEqual(
+                        [_.decode() for _ in tfres[1].numpy().tolist()],
+                        txout[1].tolist())
+                    self.assertEqual(
+                        tfres[0].numpy().tolist(), txout[0].tolist())
+                    self.assertEqual(
+                        tfres[2].numpy().tolist(), txout[2].tolist())
+
+                if skip_empty:
+                    exp_indices = np.array(
+                        [[0, 0], [0, 1], [1, 0], [1, 1], [2, 0], [2, 1],
+                         [2, 2], [3, 0], [4, 0]])
+                    exp_text = np.array(
+                        ['a', 'b', 'a', 'b', 'aa', 'b', 'c', 'z', 'dddddd'])
+                    exp_shape = np.array([6, 3])
+                else:
+                    exp_indices = np.array(
+                        [[0, 0], [0, 1], [1, 0], [1, 1], [1, 2], [2, 0],
+                         [2, 1], [2, 2], [2, 3], [3, 0], [4, 0], [4, 1],
+                         [5, 0], [5, 1], [5, 2]])
+                    exp_text = np.array(
+                        ['a', 'b', 'a', '', 'b', 'aa', 'b', '', 'c',
+                         'z', 'dddddd', '', '', '', ''])
+                    exp_shape = np.array([6, 4])
+                self.assertEqual(exp_text.tolist(), txout[1].tolist())
+                self.assertEqual(exp_indices.tolist(), txout[0].tolist())
+                self.assertEqual(exp_shape.tolist(), txout[2].tolist())
+
+    def test_string_split_cc_sep0(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_split('')
+        self.assertIn('op_type: "StringSplit"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        input = np.array(["a*b", "a,*b"])
+        delimiter = np.array([""])
+
+        for skip in [True, False]:
+            with self.subTest(skip=skip):
+                skip_empty = np.array([skip])
+
+                txout = sess.run(
+                    None, {'input': input, 'delimiter': delimiter,
+                           'skip_empty': skip_empty})
+
+                try:
+                    from tensorflow.raw_ops import StringSplit
+                    dotf = True
+                except ImportError:
+                    dotf = False
+                if dotf:
+                    tfres = StringSplit(
+                        input=input, delimiter="", skip_empty=skip)
+                    self.assertEqual(
+                        [_.decode() for _ in tfres[1].numpy().tolist()],
+                        txout[1].tolist())
+                    self.assertEqual(
+                        tfres[0].numpy().tolist(), txout[0].tolist())
+                    self.assertEqual(
+                        tfres[2].numpy().tolist(), txout[2].tolist())
+
+                exp_indices = np.array(
+                    [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2], [1, 3]])
+                exp_text = np.array(['a', '*', 'b', 'a', ',', '*', 'b'])
+                exp_shape = np.array([2, 4])
+                self.assertEqual(exp_text.tolist(), txout[1].tolist())
+                self.assertEqual(exp_indices.tolist(), txout[0].tolist())
                 self.assertEqual(exp_shape.tolist(), txout[2].tolist())
 
 
