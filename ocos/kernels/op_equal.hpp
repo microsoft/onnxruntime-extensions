@@ -6,16 +6,16 @@
 #include "kernels.h"
 #include "utils.h"
 
-struct KernelStringJoin : BaseKernel {
-  KernelStringJoin(OrtApi api);
+struct KernelStringEqual : BaseKernel {
+  KernelStringEqual(OrtApi api);
   void Compute(OrtKernelContext* context);
 };
 
-struct CustomOpStringJoin : Ort::CustomOpBase<CustomOpStringJoin, KernelStringJoin> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info);
-  const char* GetName() const;
+struct CustomOpStringEqual : Ort::CustomOpBase<CustomOpStringEqual, KernelStringEqual> {
   size_t GetInputTypeCount() const;
-  ONNXTensorElementDataType GetInputType(size_t index) const;
   size_t GetOutputTypeCount() const;
   ONNXTensorElementDataType GetOutputType(size_t index) const;
+  const char* GetName() const;
+  void* CreateKernel(OrtApi api, const OrtKernelInfo* info);
+  ONNXTensorElementDataType GetInputType(size_t index) const;
 };

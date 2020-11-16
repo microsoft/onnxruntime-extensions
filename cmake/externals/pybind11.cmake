@@ -1,19 +1,15 @@
-if(NOT TARGET pybind11::module)
-  include(ExternalProject)
+FetchContent_Declare(
+  pybind11
+  GIT_REPOSITORY https://github.com/pybind/pybind11.git
+  GIT_TAG        v2.6.0
+)
 
-  set(pybind11_INCLUDE_DIRS ${CMAKE_CURRENT_BINARY_DIR}/pybind11/src/pybind11/include)
-  set(pybind11_URL https://github.com/pybind/pybind11.git)
-  set(pybind11_TAG v2.4.0)
-
-  ExternalProject_Add(pybind11
-        PREFIX pybind11
-        GIT_REPOSITORY ${pybind11_URL}
-        GIT_TAG ${pybind11_TAG}
-        CONFIGURE_COMMAND ""
-        BUILD_COMMAND ""
-        INSTALL_COMMAND ""
-  )
-  set(pybind11_dep pybind11)
-else()
-  set(pybind11_lib pybind11::module)
+FetchContent_GetProperties(pybind11)
+# Check if population has already been performed
+string(TOLOWER "pybind11" lcName)
+if(NOT ${lcName}_POPULATED)
+  # Fetch the content using previously declared details
+  FetchContent_Populate(pybind11)
 endif()
+
+set(pybind11_INCLUDE_DIRS ${pybind11_SOURCE_DIR}/include)

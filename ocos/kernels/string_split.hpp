@@ -6,12 +6,12 @@
 #include "kernels.h"
 #include "utils.h"
 
-struct KernelStringRegexReplace : BaseKernel {
-  KernelStringRegexReplace(OrtApi api);
+struct KernelStringSplit : BaseKernel {
+  KernelStringSplit(OrtApi api);
   void Compute(OrtKernelContext* context);
 };
 
-struct CustomOpStringRegexReplace : Ort::CustomOpBase<CustomOpStringRegexReplace, KernelStringRegexReplace> {
+struct CustomOpStringSplit : Ort::CustomOpBase<CustomOpStringSplit, KernelStringSplit> {
   void* CreateKernel(OrtApi api, const OrtKernelInfo* info);
   const char* GetName() const;
   size_t GetInputTypeCount() const;

@@ -4,6 +4,7 @@
 #include <vector>
 #include <fstream>
 #include <mutex>
+#include <complex>
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define PY_ARRAY_UNIQUE_SYMBOL ocos_python_ARRAY_API
@@ -15,10 +16,32 @@
 #include <pybind11/functional.h>
 #include <pybind11/numpy.h>
 #include <thread>
-#include "../utils.h"
+#include "utils.h"
 #include "pykernel.h"
+#include "kernels/string_hash.hpp"
 
 namespace py = pybind11;
+
+const int PyCustomOpDef::undefined = ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED;
+const int PyCustomOpDef::dt_float = ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;    // maps to c type float
+const int PyCustomOpDef::dt_uint8 = ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;    // maps to c type uint8_t
+const int PyCustomOpDef::dt_int8 = ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8;      // maps to c type int8_t
+const int PyCustomOpDef::dt_uint16 = ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16;  // maps to c type uint16_t
+const int PyCustomOpDef::dt_int16 = ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16;    // maps to c type int16_t
+const int PyCustomOpDef::dt_int32 = ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32;    // maps to c type int32_t
+const int PyCustomOpDef::dt_int64 = ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;    // maps to c type int64_t
+const int PyCustomOpDef::dt_string = ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;  // maps to c++ type std::string
+const int PyCustomOpDef::dt_bool = ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL;
+const int PyCustomOpDef::dt_float16 = ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16;
+const int PyCustomOpDef::dt_double = ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE;          // maps to c type double
+const int PyCustomOpDef::dt_uint32 = ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32;          // maps to c type uint32_t
+const int PyCustomOpDef::dt_uint64 = ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64;          // maps to c type uint64_t
+// complex with float32 real and imaginary components
+const int PyCustomOpDef::dt_complex64 = ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64;  
+// complex with float64 real and imaginary components
+const int PyCustomOpDef::dt_complex128 = ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128;
+// Non-IEEE floating-point format based on IEEE754 single-precision
+const int PyCustomOpDef::dt_bfloat16 = ONNX_TENSOR_ELEMENT_DATA_TYPE_BFLOAT16;
 
 static int to_numpy(ONNXTensorElementDataType dt) {
   switch (dt) {
@@ -84,9 +107,9 @@ static size_t element_size(ONNXTensorElementDataType dt) {
     case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64:
       return sizeof(uint64_t);
     case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64:
-      return sizeof(_C_float_complex);
+      return sizeof(std::complex<float>);
     case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128:
-      return sizeof(_C_double_complex);
+      return sizeof(std::complex<double>);
     case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING:
       return sizeof(std::string*);
     default:
@@ -262,6 +285,45 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
             case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
               retval = fetch[2 + no * 2].cast<py::array_t<float>>();
               break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
+              retval = fetch[2 + no * 2].cast<py::array_t<uint8_t>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8:
+              retval = fetch[2 + no * 2].cast<py::array_t<int8_t>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16:
+              retval = fetch[2 + no * 2].cast<py::array_t<uint16_t>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16:
+              retval = fetch[2 + no * 2].cast<py::array_t<int16_t>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
+              retval = fetch[2 + no * 2].cast<py::array_t<int32_t>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
+              retval = fetch[2 + no * 2].cast<py::array_t<int64_t>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL:
+              retval = fetch[2 + no * 2].cast<py::array_t<bool>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16:
+              throw std::runtime_error(MakeString(
+                  "Type float16 not supported by python customops api"));
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE:
+              retval = fetch[2 + no * 2].cast<py::array_t<double>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32:
+              retval = fetch[2 + no * 2].cast<py::array_t<uint32_t>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64:
+              retval = fetch[2 + no * 2].cast<py::array_t<uint64_t>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64:
+              retval = fetch[2 + no * 2].cast<py::array_t<std::complex<float>>>();
+              break;
+            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128:
+              retval = fetch[2 + no * 2].cast<py::array_t<std::complex<double>>>();
+              break;
             default:
               throw std::runtime_error(MakeString(
                   "Type mismatch between declared output element size (",
@@ -335,8 +397,16 @@ static int init_numpy() {
   return 0;
 }
 
+uint64_t hash_64(const std::string& str, uint64_t num_buckets, bool fast) {
+  if (fast) {
+    return Hash64Fast(str.c_str(), str.size()) % static_cast<uint64_t>(num_buckets);
+  }
+  return Hash64(str.c_str(), str.size()) % static_cast<uint64_t>(num_buckets);
+}
+
 void AddGlobalMethods(pybind11::module& m) {
   m.def("add_custom_op", [](const PyCustomOpDef& cod) { PyCustomOpDef::AddOp(&cod); });
+  m.def("hash_64", &hash_64, "Computes a uint64 hash for a string (from tensorflow).");
 }
 
 void AddObjectMethods(pybind11::module& m) {

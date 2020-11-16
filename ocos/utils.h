@@ -21,3 +21,11 @@ std::string MakeString(const Args&... args) {
   MakeStringInternal(ss, args...);
   return std::string(ss.str());
 }
+
+inline int64_t Size(const std::vector<int64_t>& shape) {
+  int64_t res = 1;
+  for (auto it = shape.begin(); it != shape.end(); ++it) {
+    res *= *it;
+  }
+  return res;
+}
