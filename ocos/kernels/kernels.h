@@ -24,4 +24,5 @@ struct OrtTensorDimensions : std::vector<int64_t> {
     std::vector<int64_t>::operator=(ort.GetTensorShape(info));
     ort.ReleaseTensorTypeAndShapeInfo(info);
   }
+  const std::vector<int64_t>& GetDims() const { return *this; }
 };
