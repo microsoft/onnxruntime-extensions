@@ -3,18 +3,19 @@ This repository provides a library of add-on custom operators for [ONNX Runtime]
 
 # Getting started
 Windows:
-- Install Visual Studio with C++ development tools, and prepare Python env if Python suport needed.
+- Install Visual Studio with C++ development tools, and prepare Python env if Python support needed.
 - Copy build.bat to mybuild.bat and edit as needed. You may need to change "Enterprise" to "Community" depending on your Visual Studio version.
 - Run mybuild.bat
 
 Linux:
-- Install gcc with C++ support, cmake, and prepare Python env if Python suport needed.
+- Install gcc with C++ support, cmake, and prepare Python env if Python support needed.
 
 Installation
 - cd into `out/<OS_NAME>/RelWithDebInfo` and run `pip install -e .`
 
 Test:
-- Run `python test/test_pyops.py` and run the repo root
+- cd into `out/<OS_NAME>/RelWithDebInfo` and run `./ortcustomops_test`
+- cd into the repo root and run `pytest test` if the Python support enabled.
 
 # Contributing
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
