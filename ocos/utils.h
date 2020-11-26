@@ -9,6 +9,13 @@ inline void MakeStringInternal(std::ostringstream& ss, const T& t) noexcept {
   ss << t;
 }
 
+template <>
+inline void MakeStringInternal(std::ostringstream& ss, const std::vector<int64_t>& t) noexcept {
+  for (auto it = t.begin(); it != t.end(); ++it) {
+    ss << *it << "x";
+  }
+}
+
 template <typename T, typename... Args>
 void MakeStringInternal(std::ostringstream& ss, const T& t, const Args&... args) noexcept {
   MakeStringInternal(ss, t);
