@@ -3,12 +3,14 @@ This repository provides a library of add-on custom operators for [ONNX Runtime]
 
 # Getting started
 Windows:
-- Install Visual Studio with C++ development tools, and prepare Python env if Python support needed.
+- Install Visual Studio with C++ development tools
+- Prepare Python env and install the pip packages in the requirements.txt if Python support is needed.
 - Copy build.bat to mybuild.bat and edit as needed. You may need to change "Enterprise" to "Community" depending on your Visual Studio version.
 - Run mybuild.bat
 
 Linux:
-- Install gcc with C++ support, cmake, and prepare Python env if Python support needed.
+- Install gcc with C++ support, cmake
+- Prepare Python env and install the pip packages in the requirements.txt if Python support is needed.
 
 Installation
 - cd into `out/<OS_NAME>/RelWithDebInfo` and run `pip install -e .`
