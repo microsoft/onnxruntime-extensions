@@ -9,7 +9,7 @@ Windows:
 - Run mybuild.bat
 
 Linux/MacOS:
-- Install gcc with C++ support, cmake
+- Install gcc or xcode with C++ support, cmake
 - Prepare Python env and install the pip packages in the requirements.txt if Python support is needed.
 - bash ./build.sh
 
