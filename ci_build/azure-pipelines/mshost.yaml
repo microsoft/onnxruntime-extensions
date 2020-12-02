@@ -12,6 +12,8 @@ jobs:
     displayName: Run the native only unit tests
 
 - job: macOS
+  pool:
+    vmImage: 'macOS-latest'
   - script: |
       sh ./build.sh -DENABLE_PYTHON=OFF
     displayName: Build the library and tests
@@ -43,7 +45,6 @@ jobs:
     displayName: Build the custom-op library
 
   - script: |
-      call activate pyenv
       .\out\Windows\RelWithDebInfo\ortcustomops_test.exe
     displayName: Run C++ Test
 
