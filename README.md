@@ -8,9 +8,10 @@ Windows:
 - Copy build.bat to mybuild.bat and edit as needed. You may need to change "Enterprise" to "Community" depending on your Visual Studio version.
 - Run mybuild.bat
 
-Linux:
+Linux/MacOS:
 - Install gcc with C++ support, cmake
 - Prepare Python env and install the pip packages in the requirements.txt if Python support is needed.
+- bash ./build.sh
 
 Installation
 - cd into `out/<OS_NAME>/RelWithDebInfo` and run `pip install -e .`
