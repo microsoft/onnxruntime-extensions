@@ -12,7 +12,7 @@ struct KernelStringJoin : BaseKernel {
 };
 
 struct CustomOpStringJoin : Ort::CustomOpBase<CustomOpStringJoin, KernelStringJoin> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info);
+  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

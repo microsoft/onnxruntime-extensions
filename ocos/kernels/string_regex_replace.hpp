@@ -12,7 +12,7 @@ struct KernelStringRegexReplace : BaseKernel {
 };
 
 struct CustomOpStringRegexReplace : Ort::CustomOpBase<CustomOpStringRegexReplace, KernelStringRegexReplace> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info);
+  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

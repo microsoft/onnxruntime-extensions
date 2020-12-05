@@ -12,7 +12,7 @@ struct KernelOne : BaseKernel {
 };
 
 struct CustomOpOne : Ort::CustomOpBase<CustomOpOne, KernelOne> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info);
+  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;
@@ -26,7 +26,7 @@ struct KernelTwo : BaseKernel {
 };
 
 struct CustomOpTwo : Ort::CustomOpBase<CustomOpTwo, KernelTwo> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info);
+  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;
@@ -40,7 +40,7 @@ struct KernelNegPos : BaseKernel {
 };
 
 struct CustomOpNegPos : Ort::CustomOpBase<CustomOpNegPos, KernelNegPos> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info);
+  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;
