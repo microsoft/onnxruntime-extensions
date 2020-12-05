@@ -57,7 +57,7 @@ struct PyCustomOpFactory : Ort::CustomOpBase<PyCustomOpFactory, PyCustomOpKernel
     opdef_ = opdef;
   }
 
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) {
+  void* CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
     return new PyCustomOpKernel(api, opdef_->obj_id);
   };
 

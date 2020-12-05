@@ -95,7 +95,7 @@ void KernelStringSplit::Compute(OrtKernelContext* context) {
   std::copy(words.begin(), words.end(), p_text);
 }
 
-void* CustomOpStringSplit::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) {
+void* CustomOpStringSplit::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
   return new KernelStringSplit(api);
 };
 

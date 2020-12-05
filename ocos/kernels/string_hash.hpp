@@ -20,7 +20,7 @@ struct KernelStringHash : BaseKernel {
 };
 
 struct CustomOpStringHash : Ort::CustomOpBase<CustomOpStringHash, KernelStringHash> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info);
+  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;
@@ -34,7 +34,7 @@ struct KernelStringHashFast : BaseKernel {
 };
 
 struct CustomOpStringHashFast : Ort::CustomOpBase<CustomOpStringHashFast, KernelStringHashFast> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info);
+  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

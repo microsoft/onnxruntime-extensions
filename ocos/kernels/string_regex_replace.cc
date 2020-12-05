@@ -50,7 +50,7 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
   }
 }
 
-void* CustomOpStringRegexReplace::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) {
+void* CustomOpStringRegexReplace::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
   return new KernelStringRegexReplace(api);
 };
 

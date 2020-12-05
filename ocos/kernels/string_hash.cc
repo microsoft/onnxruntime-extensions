@@ -108,7 +108,7 @@ void KernelStringHash::Compute(OrtKernelContext* context) {
   }
 }
 
-void* CustomOpStringHash::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) {
+void* CustomOpStringHash::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
   return new KernelStringHash(api);
 };
 
@@ -170,7 +170,7 @@ void KernelStringHashFast::Compute(OrtKernelContext* context) {
   }
 }
 
-void* CustomOpStringHashFast::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) {
+void* CustomOpStringHashFast::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
   return new KernelStringHashFast(api);
 };
 

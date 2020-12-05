@@ -29,7 +29,7 @@ void KernelOne::Compute(OrtKernelContext* context) {
   }
 }
 
-void* CustomOpOne::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) {
+void* CustomOpOne::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
   return new KernelOne(api);
 };
 
@@ -77,7 +77,7 @@ void KernelTwo::Compute(OrtKernelContext* context) {
   }
 }
 
-void* CustomOpTwo::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) {
+void* CustomOpTwo::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
   return new KernelTwo(api);
 };
 
@@ -133,7 +133,7 @@ void KernelNegPos::Compute(OrtKernelContext* context) {
   }
 }
 
-void* CustomOpNegPos::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) {
+void* CustomOpNegPos::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
   return new KernelNegPos(api);
 };
 

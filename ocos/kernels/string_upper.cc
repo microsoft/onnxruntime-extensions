@@ -31,7 +31,7 @@ void KernelStringUpper::Compute(OrtKernelContext* context) {
   }
 }
 
-void* CustomOpStringUpper::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) {
+void* CustomOpStringUpper::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
   return new KernelStringUpper(api);
 };
 

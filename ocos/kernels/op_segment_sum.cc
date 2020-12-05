@@ -71,7 +71,7 @@ ONNXTensorElementDataType CustomOpSegmentSum::GetOutputType(size_t /*index*/) co
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
 };
 
-void* CustomOpSegmentSum::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) {
+void* CustomOpSegmentSum::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
   return new KernelSegmentSum(api);
 };
 
