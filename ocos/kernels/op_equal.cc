@@ -24,7 +24,7 @@ ONNXTensorElementDataType CustomOpStringEqual::GetOutputType(size_t /*index*/) c
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL;
 };
 
-void* CustomOpStringEqual::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) {
+void* CustomOpStringEqual::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const{
   return new KernelStringEqual(api);
 };
 

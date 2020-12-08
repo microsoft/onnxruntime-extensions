@@ -67,7 +67,7 @@ void KernelStringJoin::Compute(OrtKernelContext* context) {
   }
 }
 
-void* CustomOpStringJoin::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) {
+void* CustomOpStringJoin::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
   return new KernelStringJoin(api);
 };
 
