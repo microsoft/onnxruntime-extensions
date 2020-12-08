@@ -53,6 +53,7 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
 include(FetchContent)
 include(googlere2)
 include(farmhash)
+include(json)
 FetchContent_GetProperties(googlere2)
 FetchContent_GetProperties(farmhash)
 
@@ -88,7 +89,7 @@ else()
   set_source_files_properties(ortcustomops.def PROPERTIES HEADER_FILE_ONLY TRUE)
 endif()
 
-set(external_libraries re2)
+set(external_libraries re2 nlohmann_json::nlohmann_json)
 
 target_include_directories(ortcustomops PUBLIC
   ${PROJECT_SOURCE_DIR}/includes
