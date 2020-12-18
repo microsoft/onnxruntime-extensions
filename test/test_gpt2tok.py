@@ -40,7 +40,7 @@ def _bind_tokenizer(model, **kwargs):
     )
 
 
-class TestBPETokenizer(unittest.TestCase):
+class TestGPT2Tokenizer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         tokjson = _get_test_data_file('data', 'gpt2.vocab')
@@ -53,11 +53,11 @@ class TestBPETokenizer(unittest.TestCase):
         def bpe_toenizer(s):
             # The user custom op implementation here.
             return np.array(
-                [TestBPETokenizer.tokenizer.encode(st_) for st_ in s])
+                [TestGPT2Tokenizer.tokenizer.encode(st_) for st_ in s])
 
     def test_tokenizer(self):
         test_sentence = "I can feel the magic, can you?"
-        tokenizer = TestBPETokenizer.tokenizer
+        tokenizer = TestGPT2Tokenizer.tokenizer
         indexed_tokens = tokenizer.encode(test_sentence)
 
         model = _create_test_model()
