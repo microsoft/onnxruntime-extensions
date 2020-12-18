@@ -27,7 +27,7 @@ struct hash_pair {
 };
 
 struct BpeNode {
-  int Id;
+  int id;
   int value;
 };
 
@@ -99,8 +99,12 @@ class SpecialTokenMap {
 };
 
 using json = nlohmann::json;
-class GlobalData {
+class VocabData {
  public:
+   VocabData()
+     : unk_id_(-1) {
+   }
+
   void Load(const char* p_vocab_file, const char* p_bpe_file, const char* unk_token, const char* special_tokens) {
     std::ifstream json_stream(p_vocab_file);
     if (json_stream.fail()) {
@@ -109,50 +113,31 @@ class GlobalData {
 
     json tok_json;
     json_stream >> tok_json;
-    m_vocab = std::move(tok_json.get<std::unordered_map<std::string, int>>());
+    vocab_map_ = std::move(tok_json.get<std::unordered_map<std::string, int>>());
 
-    // int index = 0;
-    // std::string line;
-    // while (std::getline(file, line)) {
-    //   line = std::regex_replace(line, std::regex("\r"), "");
-    //   if (line.empty()) continue;
-    //   if (m_vocab.find(line) != m_vocab.end()) {
-    //     throw std::runtime_error(std::string("Word Duplicate: ") + line);
-    //   }
-    //   m_vocab[line] = index;
-    //   ++index;
-    // }
-
-    auto it = m_vocab.find(unk_token);
-    if (it != m_vocab.end()) {
-      m_unk_id = it->second;
+    auto it = vocab_map_.find(unk_token);
+    if (it != vocab_map_.end()) {
+      unk_id_ = it->second;
     } else {
-      int id = (int)m_vocab.size();
-      m_vocab[unk_token] = id;
+      int id = (int)vocab_map_.size();
+      vocab_map_[unk_token] = id;
       std::cerr << "Special token (" << unk_token << ") have been added in the vocabulary." << std::endl;
     }
-    // using json = nlohmann::json;
-    // std::ifstream json_stream(f_json);
-    // json tok_json;
-    // json_stream >> tok_json;
-    // m_vocab = std::move(tok_json["model"]["vocab"].get<std::map<std::string, int>>());
-    // auto merges = tok_json["model"]["merges"].get<std::vector<std::string>>();
 
     std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> str_convert;
-
     for (auto i = 33; i <= 126; ++i)
-      m_byte_encoder[i] = GetVocabIndex(str_convert.to_bytes((char32_t)i));
+      byte_encoder_[i] = GetVocabIndex(str_convert.to_bytes((char32_t)i));
     for (auto i = 161; i <= 172; ++i)
-      m_byte_encoder[i] = GetVocabIndex(str_convert.to_bytes((char32_t)i));
+      byte_encoder_[i] = GetVocabIndex(str_convert.to_bytes((char32_t)i));
     for (auto i = 174; i <= 255; ++i)
-      m_byte_encoder[i] = GetVocabIndex(str_convert.to_bytes((char32_t)i));
+      byte_encoder_[i] = GetVocabIndex(str_convert.to_bytes((char32_t)i));
 
     int index = 256;
     for (auto i = 0; i < 33; ++i)
-      m_byte_encoder[i] = GetVocabIndex(str_convert.to_bytes((char32_t)(index++)));
+      byte_encoder_[i] = GetVocabIndex(str_convert.to_bytes((char32_t)(index++)));
     for (auto i = 127; i < 161; ++i)
-      m_byte_encoder[i] = GetVocabIndex(str_convert.to_bytes((char32_t)(index++)));
-    m_byte_encoder[173] = GetVocabIndex(str_convert.to_bytes((char32_t)(index++)));
+      byte_encoder_[i] = GetVocabIndex(str_convert.to_bytes((char32_t)(index++)));
+    byte_encoder_[173] = GetVocabIndex(str_convert.to_bytes((char32_t)(index++)));
 
     std::ifstream bpe_file(p_bpe_file);
     if (bpe_file.fail()) {
@@ -176,7 +161,7 @@ class GlobalData {
       int iww = GetVocabIndex(w1 + w2);
       std::pair<int, int> key{iw1, iw2};
       BpeNode value{iww, index++};
-      m_bpe_map[key] = value;
+      bpe_map_[key] = value;
     }
 
     if (special_tokens) {
@@ -186,18 +171,18 @@ class GlobalData {
         if (line.empty()) continue;
         line = std::regex_replace(line, std::regex("\r"), "");
         std::u32string line_32 = str_convert.from_bytes(line);
-        int id = (int)m_vocab.size();
-        if (auto it = m_vocab.find(line); it != m_vocab.end())
+        int id = (int)vocab_map_.size();
+        if (auto it = vocab_map_.find(line); it != vocab_map_.end())
           id = it->second;
         else
-          m_vocab[line] = id;
-        m_special_tokens.Add(std::move(line_32), id);
+          vocab_map_[line] = id;
+        special_tokens_.Add(std::move(line_32), id);
       }
     }
 
-    m_id2token_map.resize(m_vocab.size());
-    for (const auto& [t, i] : m_vocab) {
-      m_id2token_map[i] = t;
+    id2token_map_.resize(vocab_map_.size());
+    for (const auto& [t, i] : vocab_map_) {
+      id2token_map_[i] = t;
     }
   }
 
@@ -212,14 +197,14 @@ class GlobalData {
         auto it2 = it;
         ++it2;
         if (it2 == vals.end()) break;
-        auto map_it = m_bpe_map.find({*it, *it2});
-        if (map_it == m_bpe_map.end()) continue;
+        auto map_it = bpe_map_.find({*it, *it2});
+        if (map_it == bpe_map_.end()) continue;
         if (minval > map_it->second.value) {
           ori_id1 = *it;
           ori_id2 = *it2;
           minval = map_it->second.value;
           pos_it = it;
-          aim_id = map_it->second.Id;
+          aim_id = map_it->second.id;
         }
       }
       if (pos_it == vals.end()) break;
@@ -239,54 +224,50 @@ class GlobalData {
   }
 
   const auto& ByteEncoder() const {
-    return m_byte_encoder;
+    return byte_encoder_;
   }
 
   auto SplitBySpeicalTokens(const std::u32string& input) const {
-    return m_special_tokens.SplitBySpeicalTokens(input);
+    return special_tokens_.SplitBySpeicalTokens(input);
   }
 
-  size_t VocabSize() const { return m_vocab.size(); }
+  size_t VocabSize() const { return vocab_map_.size(); }
 
   int TokenToID(const std::string& input) const {
-    auto it = m_vocab.find(input);
-    if (it == m_vocab.end()) {
+    auto it = vocab_map_.find(input);
+    if (it == vocab_map_.end()) {
       throw std::runtime_error("Token not found: " + input);
     }
     return it->second;
   }
 
   const std::string& IdToToken(int id) const {
-    if ((id < 0) || (id >= m_id2token_map.size())) {
+    if ((id < 0) || (id >= id2token_map_.size())) {
       throw std::runtime_error("Invalid ID: " + std::to_string(id));
     }
-    return m_id2token_map[id];
+    return id2token_map_[id];
   }
 
  private:
   int GetVocabIndex(const std::string& str) {
-    auto it = m_vocab.find(str);
-    if (it == m_vocab.end()) {
+    auto it = vocab_map_.find(str);
+    if (it == vocab_map_.end()) {
       throw std::runtime_error("Cannot find word in vocabulary: " + str);
     }
     return it->second;
   }
 
  private:
-  int m_byte_encoder[256] = {};
-  std::unordered_map<std::string, int> m_vocab;
-  std::vector<std::string> m_id2token_map;
-  std::unordered_map<std::pair<int, int>, BpeNode, hash_pair> m_bpe_map;
-  int m_unk_id;
-  SpecialTokenMap m_special_tokens;
+  int byte_encoder_[256] = {};
+  std::unordered_map<std::string, int> vocab_map_;
+  std::vector<std::string> id2token_map_;
+  std::unordered_map<std::pair<int, int>, BpeNode, hash_pair> bpe_map_;
+  int unk_id_;
+  SpecialTokenMap special_tokens_;
 };
 
 class TokenWithRegularExp {
  public:
-  void Clean() {
-    m_text = std::u32string_view{};
-  }
-
   void Set(std::u32string_view val) {
     m_text = val;
   }
@@ -327,7 +308,7 @@ class TokenWithRegularExp {
       }
     }
 
-    //  ?\p{L}+
+    // ?\p{L}+
     if ((m_text[0] == U' ') && (m_text.size() > 1) && (ufal::unilib::unicode::category(m_text[1]) & ufal::unilib::unicode::L)) {
       size_t i = 2;
       for (; i < m_text.size(); ++i) {
@@ -349,7 +330,7 @@ class TokenWithRegularExp {
       return res;
     }
 
-    //  ?\p{N}+
+    // ?\p{N}+
     if ((m_text[0] == U' ') && (m_text.size() > 1) && (ufal::unilib::unicode::category(m_text[1]) & ufal::unilib::unicode::N)) {
       size_t i = 2;
       for (; i < m_text.size(); ++i) {
@@ -393,7 +374,7 @@ class TokenWithRegularExp {
       return res;
     }
 
-    //\s+(?!\S)|\s+
+    // \s+(?!\S)|\s+
     if ((m_text.size() >= 1) && (IsZ(m_text[0]))) {
       size_t i = 1;
       for (; i < m_text.size(); ++i) {
@@ -432,6 +413,7 @@ class TokenWithRegularExp {
  private:
   std::u32string_view m_text;
 };
+
 template <typename TKey, typename TVal>
 class LruCache {
  public:
@@ -473,8 +455,6 @@ class LruCache {
   const size_t m_capacity;
 };
 
-std::unique_ptr<GlobalData> g_global_data;
-
 //Note: the following logic comes from CPython: unicodetype_db.h (_PyUnicode_IsWhitespace)
 bool IsUnicodeSpace(char32_t ch) {
   switch (ch) {
@@ -514,20 +494,20 @@ bool IsUnicodeSpace(char32_t ch) {
 }  // namespace
 
 struct KernelBpeTokenizer : BaseKernel {
-  KernelBpeTokenizer(OrtApi api, const GlobalData* global_data)
+  KernelBpeTokenizer(OrtApi api, const VocabData* global_data)
       : BaseKernel(api)
-      , g_global_data(global_data)
-      , m_token2id_cache(30 * 1024){
+      , vocab_data_(global_data)
+      , token2id_cache_(30 * 1024){
   }
 
   static size_t const p_max_len = 1024;
+  using StringConverter = std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t>;
 
 private:
-  std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> m_str_convert;
 
-  LruCache<std::string, std::list<int>> m_token2id_cache;
-  std::list<int> m_byte_list;
-  const GlobalData* g_global_data;
+  LruCache<std::string, std::list<int>> token2id_cache_;
+  std::list<int> byte_list_;
+  const VocabData* vocab_data_;
 
 public:
   size_t Tokenize(const std::u32string& input_32, int* p_index_array, size_t p_max_len) {
@@ -540,9 +520,10 @@ public:
     }
     if (all_space_chars) return 0;
 
-    auto special_token_split_res = g_global_data->SplitBySpeicalTokens(input_32);
+    auto special_token_split_res = vocab_data_->SplitBySpeicalTokens(input_32);
     size_t cur_id = 0;
     TokenWithRegularExp regcmp;
+    StringConverter str_convert;
     for (auto& seg_id : special_token_split_res) {
       if (cur_id >= p_max_len) break;
       if (seg_id.second != -1) {
@@ -560,17 +541,17 @@ public:
         auto [b, tok] = regcmp.GetNextToken();
         if (!b) break;
 
-        std::string utf8_token = m_str_convert.to_bytes(tok.data(), tok.data() + tok.size());
-        auto cache_res = m_token2id_cache.Get(utf8_token);
+        std::string utf8_token = str_convert.to_bytes(tok.data(), tok.data() + tok.size());
+        auto cache_res = token2id_cache_.Get(utf8_token);
         if (cache_res) {
           UpdateOutputBuffer(p_index_array, p_max_len, cur_id, *cache_res);
         } else {
-          m_byte_list.clear();
+          byte_list_.clear();
           for (char& cp : utf8_token)
-            m_byte_list.push_back(g_global_data->ByteEncoder()[(unsigned char)cp]);
-          g_global_data->bpe(m_byte_list);
-          m_token2id_cache.Set(utf8_token, m_byte_list);
-          UpdateOutputBuffer(p_index_array, p_max_len, cur_id, m_byte_list);
+            byte_list_.push_back(vocab_data_->ByteEncoder()[(unsigned char)cp]);
+          vocab_data_->bpe(byte_list_);
+          token2id_cache_.Set(utf8_token, byte_list_);
+          UpdateOutputBuffer(p_index_array, p_max_len, cur_id, byte_list_);
         }
       }
     }
@@ -590,7 +571,7 @@ public:
   }
 
   size_t Tokenize(const std::string& p_input, int* p_index_array, size_t p_max_len) {
-    std::u32string input_32 = m_str_convert.from_bytes(p_input);
+    std::u32string input_32 = StringConverter().from_bytes(p_input);
     return Tokenize(input_32, p_index_array, p_max_len);
   }
 
@@ -623,7 +604,7 @@ public:
 
 struct CustomOpBpeTokenizer : Ort::CustomOpBase<CustomOpBpeTokenizer, KernelBpeTokenizer> {
 
-  GlobalData bbpe_tokenizer_;
+  VocabData bbpe_tokenizer_;
 
   void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
     return new KernelBpeTokenizer(api, &bbpe_tokenizer_);
