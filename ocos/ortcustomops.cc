@@ -57,12 +57,21 @@ OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtA
   size_t count = 0;
   const OrtCustomOp* c_ops = FetchPyCustomOps(count);
   while (c_ops != nullptr) {
-    OrtCustomOp* op_ptr = const_cast<OrtCustomOp*>(c_ops);
-    if (auto status = ortApi->CustomOpDomain_Add(domain, op_ptr)) {
+    if (auto status = ortApi->CustomOpDomain_Add(domain, c_ops)) {
       return status;
     }
     ++count;
     c_ops = FetchPyCustomOps(count);
+  }
+#endif
+
+#if defined(ENABLE_TOKENIZER)
+  auto** t_ops = LoadTokenizerSchemaList();
+  while (*t_ops != nullptr) {
+    if (auto status = ortApi->CustomOpDomain_Add(domain, *t_ops)){
+      return status;
+    }
+    t_ops++;
   }
 #endif
 

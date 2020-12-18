@@ -27,6 +27,6 @@ struct OrtTensorDimensions : std::vector<int64_t> {
   const std::vector<int64_t>& GetDims() const { return *this; }
 };
 
-#if defined(ENABLE_TEXT_DOMAIN)
-const OrtCustomOp* LoadTextDomainSchemaList()
+#if defined(ENABLE_TOKENIZER)
+const OrtCustomOp** LoadTokenizerSchemaList();
 #endif // ENABLE_TEXT_DOMAIN

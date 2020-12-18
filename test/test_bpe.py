@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 import unittest
 import numpy as np
-from tokenizers import Tokenizer
 from onnx import helper, onnx_pb as onnx_proto
+from transformers import GPT2Tokenizer
 import onnxruntime as _ort
 from ortcustomops import (
     onnx_op,
@@ -14,7 +14,7 @@ from ortcustomops import (
 
 def _get_test_data_file(*sub_dirs):
     test_dir = Path(__file__).parent
-    return str(test_dir.joinpath(test_dir, *sub_dirs))
+    return str(test_dir.joinpath(*sub_dirs))
 
 
 def _create_test_model():
@@ -35,7 +35,7 @@ def _bind_tokenizer(model, **kwargs):
     return expand_onnx_inputs(
         model, 'input_1',
         [helper.make_node(
-            'BPETokenizer', ['string_input'], ['input_1'], name='bpetok', domain='ai.onnx.contrib')],
+            'GPT2Tokenizer', ['string_input'], ['input_1'], name='bpetok', domain='ai.onnx.contrib')],
         [helper.make_tensor_value_info('string_input', onnx_proto.TensorProto.STRING, [None])],
     )
 
@@ -43,20 +43,22 @@ def _bind_tokenizer(model, **kwargs):
 class TestBPETokenizer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.tokenizer = Tokenizer.from_file(_get_test_data_file('data', 'tokenizer-wiki.json'))
+        tokjson = _get_test_data_file('data', 'gpt2.vocab')
+        os.environ["GPT2TOKFILE"] = tokjson
+        cls.tokenizer = GPT2Tokenizer(tokjson, tokjson.replace('.vocab', '.merges.txt'))
 
-        @onnx_op(op_type="BPETokenizer",
+        @onnx_op(op_type="BBPETokenizer",
                  inputs=[PyCustomOpDef.dt_string],
                  outputs=[PyCustomOpDef.dt_int64])
         def bpe_toenizer(s):
             # The user custom op implementation here.
             return np.array(
-                [TestBPETokenizer.tokenizer.encode(st_).ids for st_ in s])
+                [TestBPETokenizer.tokenizer.encode(st_) for st_ in s])
 
     def test_tokenizer(self):
         test_sentence = "I can feel the magic, can you?"
         tokenizer = TestBPETokenizer.tokenizer
-        encoded = tokenizer.encode(test_sentence)
+        indexed_tokens = tokenizer.encode(test_sentence)
 
         model = _create_test_model()
         binded_model = _bind_tokenizer(model)
@@ -67,7 +69,7 @@ class TestBPETokenizer(unittest.TestCase):
         input_text = np.array([test_sentence])
         txout = sess.run(None, {'string_input': input_text})
 
-        np.testing.assert_array_equal(txout[0], np.array([encoded.ids]))
+        np.testing.assert_array_equal(txout[0], np.array([indexed_tokens]))
 
 
 if __name__ == "__main__":

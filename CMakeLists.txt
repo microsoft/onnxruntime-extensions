@@ -12,16 +12,17 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 set(ONNX_ML 1)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 include(CheckCXXCompilerFlag)
 include(CheckLanguage)
 
-set(CMAKE_CXX_STANDARD 14)
 
 option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
 option(ENABLE_PYTHON "Enable Python component building" ON)
+option(ENABLE_TOKENIZER "Enable the tokenizer building" ON)
+
 
 if(NOT CC_OPTIMIZE)
   message("!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
@@ -53,15 +54,23 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
 include(FetchContent)
 include(googlere2)
 include(farmhash)
-include(json)
 FetchContent_GetProperties(googlere2)
 FetchContent_GetProperties(farmhash)
+
+if (ENABLE_TOKENIZER)
+  include(json)
+endif()
 
 file(GLOB TARGET_SRC "./ocos/*.cc")
 file(GLOB TARGET_HEADERS "./ocos/*.h*")
 file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
 file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc" "./ocos/pyfunc/*.h*")
 file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")
+
+if (ENABLE_TOKENIZER)
+  file(GLOB tok_TARGET_SRC "tokenizer/*.cc")
+  list(APPEND TARGET_SRC ${tok_TARGET_SRC})
+endif()
 
 if(ENABLE_PYTHON)
   list(APPEND TARGET_SRC "./ocos/ortcustomops_pyd.def")
@@ -89,7 +98,11 @@ else()
   set_source_files_properties(ortcustomops.def PROPERTIES HEADER_FILE_ONLY TRUE)
 endif()
 
-set(external_libraries re2 nlohmann_json::nlohmann_json)
+set(external_libraries re2)
+if (ENABLE_TOKENIZER)
+  target_compile_definitions(ortcustomops PRIVATE ENABLE_TOKENIZER)
+  list(APPEND external_libraries nlohmann_json::nlohmann_json)
+endif()
 
 target_include_directories(ortcustomops PUBLIC
   ${PROJECT_SOURCE_DIR}/includes
