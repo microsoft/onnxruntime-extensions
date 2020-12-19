@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+// Partial code comes from other Microsoft employee.
+
 #include <string>
 #include <vector>
 #include <fstream>
@@ -17,39 +21,25 @@
 #include "unicode.h"
 
 namespace {
-struct hash_pair {
-  template <class T1, class T2>
-  size_t operator()(const std::pair<T1, T2>& p) const {
-    auto hash1 = std::hash<T1>{}(p.first);
-    auto hash2 = std::hash<T2>{}(p.second);
-    return hash1 ^ hash2;
-  }
-};
-
-struct BpeNode {
-  int id;
-  int value;
-};
-
 class SpecialTokenMap {
  public:
-  SpecialTokenMap() = default;
   void Add(std::u32string p_str, int p_id) {
-      auto it = m_special_token_map.find(p_str);
-      if (it != m_special_token_map.end()) {
-      if (it->second != p_id) {
-        throw std::runtime_error("Duplicate special tokens");
+      auto it = token_map_.find(p_str);
+      if (it != token_map_.end()) {
+        if (it->second != p_id) {
+          throw std::runtime_error("Duplicate special tokens");
+        }
       }
-      return;
-    }
-    m_special_token_map[p_str] = p_id;
-    m_special_tokens.push_back(SpecialTokenInfo(std::move(p_str), p_id));
+      else {
+        token_map_[p_str] = p_id;
+        token_list_.push_back(SpecialTokenInfo(std::move(p_str), p_id));
+      }
   }
 
   std::list<std::pair<std::u32string, int>> SplitBySpeicalTokens(std::u32string input) const {
     std::list<std::pair<std::u32string, int>> res;
     res.push_back({std::move(input), -1});
-    for (const auto& st : m_special_tokens) {
+    for (const auto& st : token_list_) {
       std::list<std::pair<std::u32string, int>> new_split_res;
       for (auto& str : res) {
         if (str.second != -1) {
@@ -94,16 +84,21 @@ class SpecialTokenMap {
     }
   };
 
-  std::list<SpecialTokenInfo> m_special_tokens;
-  std::unordered_map<std::u32string, int> m_special_token_map;
+  std::list<SpecialTokenInfo> token_list_;
+  std::unordered_map<std::u32string, int> token_map_;
 };
 
 using json = nlohmann::json;
 class VocabData {
  public:
-   VocabData()
-     : unk_id_(-1) {
-   }
+  VocabData()
+    : unk_id_(-1) {
+  }
+
+  struct BpeNode {
+    int id;
+    int value;
+  };
 
   void Load(const char* p_vocab_file, const char* p_bpe_file, const char* unk_token, const char* special_tokens) {
     std::ifstream json_stream(p_vocab_file);
@@ -258,10 +253,20 @@ class VocabData {
   }
 
  private:
+  struct hash_pair {
+    template <class T1, class T2>
+    size_t operator()(const std::pair<T1, T2>& p) const {
+      auto hash1 = std::hash<T1>{}(p.first);
+      auto hash2 = std::hash<T2>{}(p.second);
+      return hash1 ^ (hash2 << 16);
+    }
+  };
+  std::unordered_map<std::pair<int, int>, BpeNode, hash_pair> bpe_map_;
+
   int byte_encoder_[256] = {};
   std::unordered_map<std::string, int> vocab_map_;
   std::vector<std::string> id2token_map_;
-  std::unordered_map<std::pair<int, int>, BpeNode, hash_pair> bpe_map_;
+
   int unk_id_;
   SpecialTokenMap special_tokens_;
 };
@@ -503,8 +508,7 @@ struct KernelBpeTokenizer : BaseKernel {
   static size_t const p_max_len = 1024;
   using StringConverter = std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t>;
 
-private:
-
+ private:
   LruCache<std::string, std::list<int>> token2id_cache_;
   std::list<int> byte_list_;
   const VocabData* vocab_data_;
