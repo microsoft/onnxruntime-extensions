@@ -50,7 +50,7 @@ class SpecialTokenMap {
         size_t search_pos = 0;
         while (it != str.first.end()) {
   #if defined(__APPLE__)
-          auto search_it = std::search(it, str.first.end());
+          auto search_it = std::search(it, str.first.end(), st.str.begin(), st.str.end());
   #else
           auto search_it = std::search(it, str.first.end(),
             std::boyer_moore_searcher(st.str.begin(), st.str.end()));
