@@ -72,7 +72,11 @@ class SpecialTokenMap {
  private:
   struct SpecialTokenInfo {
     std::u32string str;
+#if defined(__APPLE__)
+    std::search<std::u32string::iterator> searcher;
+#else
     std::boyer_moore_searcher<std::u32string::iterator> searcher;
+#endif
     int id;
     size_t length;
 
