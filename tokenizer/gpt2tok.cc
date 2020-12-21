@@ -49,7 +49,12 @@ class SpecialTokenMap {
         auto it = str.first.begin();
         size_t search_pos = 0;
         while (it != str.first.end()) {
-          auto search_it = std::search(it, str.first.end(), st.searcher);
+  #if defined(__APPLE__)
+          auto search_it = std::search(it, str.first.end());
+  #else
+          auto search_it = std::search(it, str.first.end(),
+            std::boyer_moore_searcher(st.str.begin(), st.str.end()));
+  #endif
           if (search_it == str.first.end()) {
             new_split_res.push_back({str.first.substr(search_pos), -1});
             break;
@@ -59,9 +64,9 @@ class SpecialTokenMap {
             new_split_res.push_back({str.first.substr(search_pos, prefixLen), -1});
             search_pos += prefixLen;
           }
-          new_split_res.push_back({str.first.substr(search_pos, st.length), st.id});
-          it = search_it + st.length;
-          search_pos += st.length;
+          new_split_res.push_back({str.first.substr(search_pos, st.str.size()), st.id});
+          it = search_it + st.str.size();
+          search_pos += st.str.size();
         }
       }
       std::swap(new_split_res, res);
@@ -72,17 +77,12 @@ class SpecialTokenMap {
  private:
   struct SpecialTokenInfo {
     std::u32string str;
-#if defined(__APPLE__)
-    std::search<std::u32string::iterator> searcher;
-#else
-    std::boyer_moore_searcher<std::u32string::iterator> searcher;
-#endif
     int id;
-    size_t length;
 
     SpecialTokenInfo(std::u32string p_str, int p_id)
-        : str(std::move(p_str)), searcher(str.begin(), str.end()), id(p_id), length(str.size()) {
-      if (length == 0) {
+      : str(std::move(p_str))
+      , id(p_id) {
+      if (str.size() == 0) {
         throw std::runtime_error("Empty special token.");
       }
     }
