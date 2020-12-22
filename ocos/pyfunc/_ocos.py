@@ -3,6 +3,8 @@
 # license information.
 ###############################################################################
 
+import copy
+from onnx import helper
 from pathlib import Path
 from ._ortcustomops import (  # noqa
     PyCustomOpDef, add_custom_op, hash_64)
@@ -77,6 +79,26 @@ def _on_pyop_invocation(k_id, feed):
     else:
         res = (rv.shape, rv.flatten().tolist())
     return (k_id, ) + res
+
+
+def expand_onnx_inputs(model, target_input, extra_nodes, new_inputs):
+    graph = model.graph
+    new_inputs = [n for n in graph.input if n.name != target_input] + new_inputs
+    new_nodes = list(model.graph.node) + extra_nodes
+    new_graph = helper.make_graph(
+        new_nodes, graph.name, new_inputs, list(graph.output), list(graph.initializer))
+
+    new_model = copy.deepcopy(model)
+    new_model.graph.CopyFrom(new_graph)
+    domain_missing = True
+    for oi_ in model.opset_import:
+        if oi_.domain == 'ai.onnx.contrib':
+            domain_missing = False
+
+    if domain_missing:
+        new_model.opset_import.extend([helper.make_operatorsetid('ai.onnx.contrib', 1)])
+
+    return new_model
 
 
 PyCustomOpDef.install_hooker(_on_pyop_invocation)

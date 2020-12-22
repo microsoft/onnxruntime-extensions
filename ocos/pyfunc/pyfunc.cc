@@ -5,6 +5,7 @@
 #include <fstream>
 #include <mutex>
 #include <complex>
+#include <memory>
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define PY_ARRAY_UNIQUE_SYMBOL ocos_python_ARRAY_API
@@ -195,10 +196,10 @@ struct PyCustomOpDefImpl : public PyCustomOpDef {
   }
 
   using callback_t = std::function<py::object(uint64_t id, const py::object&)>;
-  static std::auto_ptr<callback_t> op_invoker;
+  static std::unique_ptr<callback_t> op_invoker;
 };
 
-std::auto_ptr<PyCustomOpDefImpl::callback_t> PyCustomOpDefImpl::op_invoker;
+std::unique_ptr<PyCustomOpDefImpl::callback_t> PyCustomOpDefImpl::op_invoker;
 // static py::function g_pyfunc_caller;
 // static std::mutex op_mutex;
 // static std::condition_variable op_cv;
@@ -417,8 +418,7 @@ void AddObjectMethods(pybind11::module& m) {
       .def_readwrite("input_types", &PyCustomOpDef::input_types)
       .def_readwrite("output_types", &PyCustomOpDef::output_types)
       .def_static("install_hooker", [](py::object obj) {
-        std::auto_ptr<PyCustomOpDefImpl::callback_t> s_obj(new PyCustomOpDefImpl::callback_t(obj));
-        PyCustomOpDefImpl::op_invoker = s_obj; })
+        PyCustomOpDefImpl::op_invoker = std::make_unique<PyCustomOpDefImpl::callback_t>(obj); })
       .def_readonly_static("undefined", &PyCustomOpDef::undefined)
       .def_readonly_static("dt_float", &PyCustomOpDef::dt_float)
       .def_readonly_static("dt_uint8", &PyCustomOpDef::dt_uint8)
@@ -435,7 +435,7 @@ void AddObjectMethods(pybind11::module& m) {
       .def_readonly_static("dt_uint64", &PyCustomOpDef::dt_uint64)
       .def_readonly_static("dt_complex64", &PyCustomOpDef::dt_complex64)
       .def_readonly_static("dt_complex128", &PyCustomOpDef::dt_complex128)
-      .def_readonly_static("dt_bfloat16 =", &PyCustomOpDef::dt_bfloat16);
+      .def_readonly_static("dt_bfloat16", &PyCustomOpDef::dt_bfloat16);
 }
 
 PYBIND11_MODULE(_ortcustomops, m) {
