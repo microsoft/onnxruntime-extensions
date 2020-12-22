@@ -4,7 +4,7 @@ import numpy as np
 from numpy.testing import assert_almost_equal
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
-from ortcustomops import (
+from onnxruntime_customops import (
     onnx_op, PyCustomOpDef,
     get_library_path as _get_library_path)
 

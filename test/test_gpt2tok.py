@@ -5,7 +5,7 @@ import numpy as np
 from onnx import helper, onnx_pb as onnx_proto
 from transformers import GPT2Tokenizer
 import onnxruntime as _ort
-from ortcustomops import (
+from onnxruntime_customops import (
     onnx_op,
     PyCustomOpDef,
     expand_onnx_inputs,
