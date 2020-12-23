@@ -6,7 +6,7 @@ import io
 import numpy
 
 from torch.onnx import register_custom_op_symbolic
-from ortcustomops import (
+from onnxruntime_customops import (
     onnx_op,
     get_library_path as _get_library_path)
 

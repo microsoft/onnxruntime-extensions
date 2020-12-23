@@ -20,7 +20,7 @@ assert packages
 
 # read version from the package file.
 version_str = '1.0.0'
-with (open(os.path.join(this, 'ortcustomops/__init__.py'), "r")) as f:
+with (open(os.path.join(this, 'onnxruntime_customops/__init__.py'), "r")) as f:
     line = [_ for _ in [_.strip("\r\n ")
                         for _ in f.readlines()] if _.startswith("__version__")]
     if len(line) > 0:
@@ -31,7 +31,7 @@ with open(README) as f:
     long_description = f.read()
 
 setup(
-    name='ortcustomops',
+    name='onnxruntime_customops',
     version=version_str,
     description="ONNXRuntime Custom Operator Library",
     long_description=long_description,

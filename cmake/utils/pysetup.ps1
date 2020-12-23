@@ -12,7 +12,7 @@ function Link-Copy {
 }
 
 write-host "Build pip package folder in: $target_folder..."
-$package_root = Join-Path $target_folder "ortcustomops"
+$package_root = Join-Path $target_folder "onnxruntime_customops"
 if ( -not (Test-Path $package_root)){
     mkdir $package_root
 }

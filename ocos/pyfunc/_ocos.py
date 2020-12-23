@@ -3,6 +3,7 @@
 # license information.
 ###############################################################################
 
+import sys
 import copy
 from onnx import helper
 from pathlib import Path
@@ -12,7 +13,8 @@ from ._ortcustomops import (  # noqa
 
 def get_library_path():
     pkg_dir = Path(__file__).parent
-    return str(pkg_dir / "_ortcustomops.pyd")
+    return str(pkg_dir / (
+        "_ortcustomops.pyd" if sys.platform == "win32" else "_ortcustomops.so"))
 
 
 class Opdef:

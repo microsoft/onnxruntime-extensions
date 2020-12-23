@@ -155,9 +155,9 @@ if(ENABLE_PYTHON)
 
     add_custom_command(
       TARGET ortcustomops POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E make_directory ${ortcustomops_pypkgdir}/ortcustomops
-      COMMAND ${CMAKE_COMMAND} -E copy ${ortcustom_pypkg_srcs} ${ortcustomops_pypkgdir}/ortcustomops
-      COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:ortcustomops> ${ortcustomops_pypkgdir}/ortcustomops
+      COMMAND ${CMAKE_COMMAND} -E make_directory ${ortcustomops_pypkgdir}/onnxruntime_customops
+      COMMAND ${CMAKE_COMMAND} -E copy ${ortcustom_pypkg_srcs} ${ortcustomops_pypkgdir}/onnxruntime_customops
+      COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:ortcustomops> ${ortcustomops_pypkgdir}/onnxruntime_customops/_ortcustomops.so
       COMMAND ${CMAKE_COMMAND} -E copy ${ortcustom_pypkg_mics} ${ortcustomops_pypkgdir}
     )
   endif()
