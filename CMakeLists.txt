@@ -74,13 +74,15 @@ if (ENABLE_TOKENIZER)
 endif()
 
 if(ENABLE_PYTHON)
-  list(APPEND TARGET_SRC "./ocos/ortcustomops_pyd.def")
   set(Python3_FIND_REGISTRY NEVER CACHE STRING "...")
   if(NOT "${Python3_FIND_REGISTRY}" STREQUAL "NEVER")
     message(FATAL_ERROR "Python3_FIND_REGISTRY is not NEVER")
   endif()
-
   find_package(Python3 COMPONENTS Interpreter Development)
+
+  if (WIN32)
+    list(APPEND TARGET_SRC "${PROJECT_SOURCE_DIR}/onnxruntime_customops/ortcustomops.def")
+  endif()
   Python3_add_library(ortcustomops SHARED 
     ${TARGET_SRC}
     ${TARGET_SRC_KERNELS}
@@ -88,15 +90,16 @@ if(ENABLE_PYTHON)
     ${TARGET_HEADERS}
     ${TARGET_SRC_HASH})
   target_compile_definitions(ortcustomops PRIVATE PYTHON_OP_SUPPORT)
-  set_source_files_properties(ortcustomops_pyd.def PROPERTIES HEADER_FILE_ONLY TRUE)
 else()
-  list(APPEND TARGET_SRC "./ocos/ortcustomops.def")
+  list(APPEND TARGET_SRC "${PROJECT_SOURCE_DIR}/ocos/ortcustomops.def")
   add_library(ortcustomops SHARED
     ${TARGET_SRC}
     ${TARGET_SRC_KERNELS}
     ${TARGET_HEADERS}
     ${TARGET_SRC_HASH})
-  set_source_files_properties(ortcustomops.def PROPERTIES HEADER_FILE_ONLY TRUE)
+endif()
+if (WIN32)
+  set_source_files_properties(ortcustomops_pyd.def PROPERTIES HEADER_FILE_ONLY TRUE)
 endif()
 
 set(external_libraries re2)

@@ -12,9 +12,8 @@ from ._ortcustomops import (  # noqa
 
 
 def get_library_path():
-    pkg_dir = Path(__file__).parent
-    return str(pkg_dir / (
-        "_ortcustomops.pyd" if sys.platform == "win32" else "_ortcustomops.so"))
+    mod = sys.modules['onnxruntime_customops._ortcustomops']
+    return mod.__file__
 
 
 class Opdef:
