@@ -18,11 +18,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(CheckCXXCompilerFlag)
 include(CheckLanguage)
 
-
 option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
-option(ENABLE_PYTHON "Enable Python component building" ON)
+option(ENABLE_PYTHON "Enable Python component building" OFF)
 option(ENABLE_TOKENIZER "Enable the tokenizer building" ON)
-
 
 if(NOT CC_OPTIMIZE)
   message("!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
@@ -39,6 +37,9 @@ if(NOT CC_OPTIMIZE)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Od")
   endif()
 endif()
+
+# Build the libraries with -fPIC
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(CMAKE_FIND_FRAMEWORK NEVER CACHE STRING "...")
 if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
@@ -135,31 +136,12 @@ if(ENABLE_PYTHON)
   target_include_directories(ortcustomops PRIVATE
       ${NUMPY_INCLUDE_DIR}
       ${pybind11_INCLUDE_DIRS}
-      )
-
-  set(ortcustomops_pypkgdir $<TARGET_FILE_DIR:ortcustomops>)
-  if (WIN32)
-    set(pysetup_script ${PROJECT_SOURCE_DIR}/cmake/utils/pysetup.ps1)
-    add_custom_command(
-      TARGET ortcustomops POST_BUILD
-      COMMAND powershell  -NoProfile -ExecutionPolicy RemoteSigned -file "${pysetup_script}"  "${ortcustomops_pypkgdir}"
-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    )
-  else()
-    file(GLOB ortcustom_pypkg_srcs CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/ocos/pyfunc/*.py")
-    file(GLOB ortcustom_pypkg_mics CONFIGURE_DEPENDS
-      "${PROJECT_SOURCE_DIR}/setup.py"
-      "${PROJECT_SOURCE_DIR}/README.md"
-      "${PROJECT_SOURCE_DIR}/requirements.txt"
-    )
-
-    add_custom_command(
-      TARGET ortcustomops POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E make_directory ${ortcustomops_pypkgdir}/onnxruntime_customops
-      COMMAND ${CMAKE_COMMAND} -E copy ${ortcustom_pypkg_srcs} ${ortcustomops_pypkgdir}/onnxruntime_customops
-      COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:ortcustomops> ${ortcustomops_pypkgdir}/onnxruntime_customops/_ortcustomops.so
-      COMMAND ${CMAKE_COMMAND} -E copy ${ortcustom_pypkg_mics} ${ortcustomops_pypkgdir}
-    )
+  )
+  if(NOT "${OCOS_EXTENTION_NAME}" STREQUAL "")
+    set_target_properties(ortcustomops PROPERTIES
+      LIBRARY_OUTPUT_NAME ${OCOS_EXTENTION_NAME}
+      PREFIX ""
+      SUFFIX "")
   endif()
 endif()
 
