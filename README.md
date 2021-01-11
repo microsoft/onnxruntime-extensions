@@ -5,12 +5,12 @@ This repository provides a library of add-on custom operators for [ONNX Runtime]
 This project supports Python and build it from source easily.
 ## Python package
 - Install Visual Studio with C++ development tools on Windows, or gcc for Linux or xcode for MacOS, and cmake on the unix-like platform.
-- Prepare Python env and install the pip packages in the requirements.txt
-- `python setup.py bdist_wheel` and `pip install dist/onnxruntime_customops-*.whl` to install the package.
-- OR `python setup.py develop` which is more friendly for you development, and no installation is needed.
+- Prepare Python env and install the pip packages in the requirements.txt.
+- `python setup.py install` to build and install the package.
+- OR `python setup.py develop` which is more friendly for you development.
 
 Test:
-- run `pytest test`.
+- run `pytest test` in the project root directory.
 
 ## The share library or DLL only
 If only DLL/shared library is needed without any Python bits, please run `build.bat` or `bash ./build.sh` to build the library.
