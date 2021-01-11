@@ -1,24 +1,20 @@
 # ONNX Runtime Custom Ops Library
 This repository provides a library of add-on custom operators for [ONNX Runtime](http://onnxruntime.ai). The package can be installed to run with ONNX Runtime for operators not natively supported by ORT. Learn more about [custom ops in ORT](https://www.onnxruntime.ai/docs/how-to/add-custom-op.html). 
 
-# Getting started
-Windows:
-- Install Visual Studio with C++ development tools
-- Prepare Python env and install the pip packages in the requirements.txt if Python support is needed.
-- Copy build.bat to mybuild.bat and edit as needed. You may need to change "Enterprise" to "Community" depending on your Visual Studio version.
-- Run mybuild.bat
-
-Linux/MacOS:
-- Install gcc or xcode with C++ support, cmake
-- Prepare Python env and install the pip packages in the requirements.txt if Python support is needed.
-- bash ./build.sh
-
-Installation
-- cd into `out/<OS_NAME>/RelWithDebInfo` and run `pip install -e .`
+# Build and Development
+This project supports Python and can be built from source easily.
+## Python package
+- Install Visual Studio with C++ development tools on Windows, or gcc for Linux or xcode for MacOS, and cmake on the unix-like platform.
+- Prepare Python env and install the pip packages in the requirements.txt.
+- `python setup.py install` to build and install the package.
+- OR `python setup.py develop` to install the package in the development mode, which is more friendly for the developer since (re)installation is not needed with every build.
 
 Test:
-- cd into `out/<OS_NAME>/RelWithDebInfo` and run `./ortcustomops_test`
-- cd into the repo root and run `pytest test` if the Python support enabled.
+- run `pytest test` in the project root directory.
+
+## The share library or DLL only
+If only DLL/shared library is needed without any Python dependencies, please run `build.bat` or `bash ./build.sh` to build the library.
+By default the DLL or the library will be generated in the directory `out/<OS>/<FLAVOR>`. There is a unit test to help verify the build.
 
 # Contributing
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a

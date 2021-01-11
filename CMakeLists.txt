@@ -18,11 +18,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(CheckCXXCompilerFlag)
 include(CheckLanguage)
 
-
 option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
-option(ENABLE_PYTHON "Enable Python component building" ON)
+option(ENABLE_PYTHON "Enable Python component building" OFF)
 option(ENABLE_TOKENIZER "Enable the tokenizer building" ON)
-
 
 if(NOT CC_OPTIMIZE)
   message("!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
@@ -39,6 +37,9 @@ if(NOT CC_OPTIMIZE)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Od")
   endif()
 endif()
+
+# Build the libraries with -fPIC
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(CMAKE_FIND_FRAMEWORK NEVER CACHE STRING "...")
 if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
@@ -73,13 +74,15 @@ if (ENABLE_TOKENIZER)
 endif()
 
 if(ENABLE_PYTHON)
-  list(APPEND TARGET_SRC "./ocos/ortcustomops_pyd.def")
   set(Python3_FIND_REGISTRY NEVER CACHE STRING "...")
   if(NOT "${Python3_FIND_REGISTRY}" STREQUAL "NEVER")
     message(FATAL_ERROR "Python3_FIND_REGISTRY is not NEVER")
   endif()
-
   find_package(Python3 COMPONENTS Interpreter Development)
+
+  if (WIN32)
+    list(APPEND TARGET_SRC "${PROJECT_SOURCE_DIR}/onnxruntime_customops/ortcustomops.def")
+  endif()
   Python3_add_library(ortcustomops SHARED 
     ${TARGET_SRC}
     ${TARGET_SRC_KERNELS}
@@ -87,15 +90,16 @@ if(ENABLE_PYTHON)
     ${TARGET_HEADERS}
     ${TARGET_SRC_HASH})
   target_compile_definitions(ortcustomops PRIVATE PYTHON_OP_SUPPORT)
-  set_source_files_properties(ortcustomops_pyd.def PROPERTIES HEADER_FILE_ONLY TRUE)
 else()
-  list(APPEND TARGET_SRC "./ocos/ortcustomops.def")
+  list(APPEND TARGET_SRC "${PROJECT_SOURCE_DIR}/ocos/ortcustomops.def")
   add_library(ortcustomops SHARED
     ${TARGET_SRC}
     ${TARGET_SRC_KERNELS}
     ${TARGET_HEADERS}
     ${TARGET_SRC_HASH})
-  set_source_files_properties(ortcustomops.def PROPERTIES HEADER_FILE_ONLY TRUE)
+endif()
+if (WIN32)
+  set_source_files_properties(ortcustomops_pyd.def PROPERTIES HEADER_FILE_ONLY TRUE)
 endif()
 
 set(external_libraries re2)
@@ -135,31 +139,14 @@ if(ENABLE_PYTHON)
   target_include_directories(ortcustomops PRIVATE
       ${NUMPY_INCLUDE_DIR}
       ${pybind11_INCLUDE_DIRS}
-      )
-
-  set(ortcustomops_pypkgdir $<TARGET_FILE_DIR:ortcustomops>)
-  if (WIN32)
-    set(pysetup_script ${PROJECT_SOURCE_DIR}/cmake/utils/pysetup.ps1)
-    add_custom_command(
-      TARGET ortcustomops POST_BUILD
-      COMMAND powershell  -NoProfile -ExecutionPolicy RemoteSigned -file "${pysetup_script}"  "${ortcustomops_pypkgdir}"
-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    )
-  else()
-    file(GLOB ortcustom_pypkg_srcs CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/ocos/pyfunc/*.py")
-    file(GLOB ortcustom_pypkg_mics CONFIGURE_DEPENDS
-      "${PROJECT_SOURCE_DIR}/setup.py"
-      "${PROJECT_SOURCE_DIR}/README.md"
-      "${PROJECT_SOURCE_DIR}/requirements.txt"
-    )
-
-    add_custom_command(
-      TARGET ortcustomops POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E make_directory ${ortcustomops_pypkgdir}/onnxruntime_customops
-      COMMAND ${CMAKE_COMMAND} -E copy ${ortcustom_pypkg_srcs} ${ortcustomops_pypkgdir}/onnxruntime_customops
-      COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:ortcustomops> ${ortcustomops_pypkgdir}/onnxruntime_customops/_ortcustomops.so
-      COMMAND ${CMAKE_COMMAND} -E copy ${ortcustom_pypkg_mics} ${ortcustomops_pypkgdir}
-    )
+  )
+  if(NOT "${OCOS_EXTENTION_NAME}" STREQUAL "")
+    if(NOT WIN32)
+      set_target_properties(ortcustomops PROPERTIES
+        LIBRARY_OUTPUT_NAME ${OCOS_EXTENTION_NAME}
+        PREFIX ""
+        SUFFIX "")
+    endif()
   endif()
 endif()
 
