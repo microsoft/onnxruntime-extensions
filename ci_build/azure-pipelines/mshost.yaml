@@ -71,7 +71,7 @@ jobs:
     displayName: Build the library and tests
 
   - script: |
-      cd out/Linux
+      cd out/Darwin
       ./ortcustomops_test
     displayName: Run the native only unit tests
 
