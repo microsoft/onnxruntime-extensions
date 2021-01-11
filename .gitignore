@@ -27,6 +27,7 @@ nuget_root/
 __pycache__
 out/
 *.egg-info/
+.setuptools-cmake-build/
 
 # Compiled Dynamic libraries
 *.so

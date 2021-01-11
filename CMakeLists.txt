@@ -141,10 +141,12 @@ if(ENABLE_PYTHON)
       ${pybind11_INCLUDE_DIRS}
   )
   if(NOT "${OCOS_EXTENTION_NAME}" STREQUAL "")
-    set_target_properties(ortcustomops PROPERTIES
-      LIBRARY_OUTPUT_NAME ${OCOS_EXTENTION_NAME}
-      PREFIX ""
-      SUFFIX "")
+    if(NOT WIN32)
+      set_target_properties(ortcustomops PROPERTIES
+        LIBRARY_OUTPUT_NAME ${OCOS_EXTENTION_NAME}
+        PREFIX ""
+        SUFFIX "")
+    endif()
   endif()
 endif()
 
