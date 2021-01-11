@@ -2,9 +2,22 @@ jobs:
 - job: Linux
   pool:
     vmImage: 'ubuntu-latest'
+  
+  strategy:
+    matrix:
+      py37:
+        python.version: '3.7'
+    maxParallel: 1
+
   steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '$(python.version)'
+      addToPath: true
+
   - script: |
       python -m pip install --upgrade pip
+      python -m pip install --upgrade setuptools
       python -m pip install -r requirements.txt
     displayName: Install requirements.txt
 
@@ -33,9 +46,22 @@ jobs:
 - job: macOS
   pool:
     vmImage: 'macOS-latest'
+
+  strategy:
+    matrix:
+      py37:
+        python.version: '3.7'
+    maxParallel: 1
+
   steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '$(python.version)'
+      addToPath: true
+
   - script: |
       python -m pip install --upgrade pip
+      python -m pip install --upgrade setuptools
       python -m pip install -r requirements.txt
     displayName: Install requirements.txt
 
