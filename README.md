@@ -1,24 +1,20 @@
 # ONNX Runtime Custom Ops Library
 This repository provides a library of add-on custom operators for [ONNX Runtime](http://onnxruntime.ai). The package can be installed to run with ONNX Runtime for operators not natively supported by ORT. Learn more about [custom ops in ORT](https://www.onnxruntime.ai/docs/how-to/add-custom-op.html). 
 
-# Getting started
-Windows:
-- Install Visual Studio with C++ development tools
-- Prepare Python env and install the pip packages in the requirements.txt if Python support is needed.
-- Copy build.bat to mybuild.bat and edit as needed. You may need to change "Enterprise" to "Community" depending on your Visual Studio version.
-- Run mybuild.bat
+# Build and Development
+This project supports Python and build it from source easily.
 
-Linux/MacOS:
-- Install gcc or xcode with C++ support, cmake
-- Prepare Python env and install the pip packages in the requirements.txt if Python support is needed.
-- bash ./build.sh
-
-Installation
-- cd into `out/<OS_NAME>/RelWithDebInfo` and run `pip install -e .`
+- Install Visual Studio with C++ development tools on Windows, or gcc for Linux or xcode for MacOS, and cmake on the unix-like platform.
+- Prepare Python env and install the pip packages in the requirements.txt
+- `python setup.py bdist_wheel` and `pip install dist/onnxruntime_customops-*.whl` to install the package.
+- OR `python setup.py develop` which is more friendly for you development, and no installation is needed.
 
 Test:
-- cd into `out/<OS_NAME>/RelWithDebInfo` and run `./ortcustomops_test`
-- cd into the repo root and run `pytest test` if the Python support enabled.
+- run `pytest test`.
+
+## share library or DLL only
+If only DLL/shared library is needed without any Python bits, please run `build.bat` or `bash ./build.sh` to build the library.
+By default the DLL or the library will be generated in the directory `out/<OS>/<FLAVOR>`. and there is a unit test to help verify the build.
 
 # Contributing
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
