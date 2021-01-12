@@ -47,38 +47,41 @@ class TestGPT2Tokenizer(unittest.TestCase):
         tokjson = _get_test_data_file('data', 'gpt2.vocab')
         os.environ["GPT2TOKFILE"] = tokjson
         cls.tokenizer = GPT2Tokenizer(tokjson, tokjson.replace('.vocab', '.merges.txt'))
+        cls.test_sentence = "I can feel the magic, can you?"
+        cls.indexed_tokens = cls.tokenizer.encode(cls.test_sentence)
 
-        @onnx_op(op_type="BBPETokenizer",
+        model = _create_test_model()
+        cls.binded_model = _bind_tokenizer(model)
+
+        @onnx_op(op_type="GPT2Tokenizer",
                  inputs=[PyCustomOpDef.dt_string],
                  outputs=[PyCustomOpDef.dt_int64])
         def bpe_toenizer(s):
             # The user custom op implementation here.
+            TestGPT2Tokenizer.pyop_invoked = True
             return np.array(
                 [TestGPT2Tokenizer.tokenizer.encode(st_) for st_ in s])
 
     def _run_tokenizer(self, pyop_flag):
-        test_sentence = "I can feel the magic, can you?"
-        tokenizer = TestGPT2Tokenizer.tokenizer
-        indexed_tokens = tokenizer.encode(test_sentence)
-
-        model = _create_test_model()
-        binded_model = _bind_tokenizer(model)
-
         so = _ort.SessionOptions()
         enable_custom_op(pyop_flag)
         so.register_custom_ops_library(_get_library_path())
-        sess = _ort.InferenceSession(binded_model.SerializeToString(), so)
-        input_text = np.array([test_sentence])
+        sess = _ort.InferenceSession(TestGPT2Tokenizer.binded_model.SerializeToString(), so)
+        input_text = np.array([TestGPT2Tokenizer.test_sentence])
         txout = sess.run(None, {'string_input': input_text})
-        np.testing.assert_array_equal(txout[0], np.array([indexed_tokens]))
+        np.testing.assert_array_equal(txout[0], np.array([self.indexed_tokens]))
         del sess
         del so
 
     def test_tokenizer(self):
+        TestGPT2Tokenizer.pyop_invoked = False
         self._run_tokenizer(False)
+        self.assertFalse(TestGPT2Tokenizer.pyop_invoked)
 
     def test_tokenizer_pyop(self):
+        TestGPT2Tokenizer.pyop_invoked = False
         self._run_tokenizer(True)
+        self.assertTrue(TestGPT2Tokenizer.pyop_invoked)
 
 
 if __name__ == "__main__":

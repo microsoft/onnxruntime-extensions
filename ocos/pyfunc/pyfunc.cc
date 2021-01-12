@@ -365,7 +365,7 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
   }
 }
 
-static bool g_python_custom_ops_disabled = false;
+static bool f_pyop_enabled = true;
 
 std::vector<PyCustomOpFactory>& PyCustomOpDef_python_operator_list() {
   static std::vector<PyCustomOpFactory> lst_custom_opdef;
@@ -378,7 +378,7 @@ void PyCustomOpDef::AddOp(const PyCustomOpDef* cod) {
 }
 
 const PyCustomOpFactory* PyCustomOpDef_FetchPyCustomOps(size_t count) {
-  if (g_python_custom_ops_disabled) {
+  if (!f_pyop_enabled) {
     return nullptr;
   }
   // The result must stay alive
@@ -395,9 +395,9 @@ const OrtCustomOp* FetchPyCustomOps(size_t& count) {
   return ptr;
 }
 
-bool EnablePyCustomOps(bool disabled){
-  bool last = g_python_custom_ops_disabled;
-  g_python_custom_ops_disabled = disabled;
+bool EnablePyCustomOps(bool enabled){
+  bool last = f_pyop_enabled;
+  f_pyop_enabled = enabled;
   return last;
 }
 

@@ -65,11 +65,10 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
 
   OrtCustomOp** ops = operator_lists;
   while (*ops != nullptr) {
-    if (pyop_nameset.find((*ops)->GetName(*ops)) != pyop_nameset.end()) {
-      continue;
-    }
-    if (auto status = ortApi->CustomOpDomain_Add(domain, *ops)) {
-      return status;
+    if (pyop_nameset.find((*ops)->GetName(*ops)) == pyop_nameset.end()) {
+      if (auto status = ortApi->CustomOpDomain_Add(domain, *ops)) {
+        return status;
+      }
     }
     ++ops;
   }
@@ -77,11 +76,10 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
 #if defined(ENABLE_TOKENIZER)
   const OrtCustomOp** t_ops = LoadTokenizerSchemaList();
   while (*t_ops != nullptr) {
-    if (pyop_nameset.find((*t_ops)->GetName(*t_ops)) != pyop_nameset.end()) {
-      continue;
-    }
-    if (auto status = ortApi->CustomOpDomain_Add(domain, *t_ops)){
-      return status;
+    if (pyop_nameset.find((*t_ops)->GetName(*t_ops)) == pyop_nameset.end()) {
+      if (auto status = ortApi->CustomOpDomain_Add(domain, *t_ops)){
+        return status;
+      }
     }
     t_ops++;
   }

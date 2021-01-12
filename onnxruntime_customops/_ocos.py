@@ -6,7 +6,6 @@
 import sys
 import copy
 from onnx import helper
-from pathlib import Path
 from ._ortcustomops import (  # noqa
     PyCustomOpDef, enable_custom_op, add_custom_op, hash_64)
 
