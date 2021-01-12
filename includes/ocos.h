@@ -14,6 +14,6 @@ const char c_OpDomain[] = "ai.onnx.contrib";
 #if defined(PYTHON_OP_SUPPORT)
 
 const OrtCustomOp* FetchPyCustomOps(size_t& count);
-bool EnablePyCustomOps(bool disabled=false);
+bool EnablePyCustomOps(bool enable=true);
 
 #endif
