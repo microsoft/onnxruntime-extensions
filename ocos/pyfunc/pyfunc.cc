@@ -365,6 +365,8 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
   }
 }
 
+static bool g_python_custom_ops_disabled = false;
+
 std::vector<PyCustomOpFactory>& PyCustomOpDef_python_operator_list() {
   static std::vector<PyCustomOpFactory> lst_custom_opdef;
   return lst_custom_opdef;
@@ -376,6 +378,9 @@ void PyCustomOpDef::AddOp(const PyCustomOpDef* cod) {
 }
 
 const PyCustomOpFactory* PyCustomOpDef_FetchPyCustomOps(size_t count) {
+  if (g_python_custom_ops_disabled) {
+    return nullptr;
+  }
   // The result must stay alive
   std::vector<PyCustomOpFactory>& copy = PyCustomOpDef_python_operator_list();
   if (count < copy.size())
@@ -388,6 +393,12 @@ const OrtCustomOp* FetchPyCustomOps(size_t& count) {
   if (ptr == nullptr)
     return nullptr;
   return ptr;
+}
+
+bool EnablePyCustomOps(bool disabled){
+  bool last = g_python_custom_ops_disabled;
+  g_python_custom_ops_disabled = disabled;
+  return last;
 }
 
 // static std::ofstream logger;
@@ -406,6 +417,7 @@ uint64_t hash_64(const std::string& str, uint64_t num_buckets, bool fast) {
 }
 
 void AddGlobalMethods(pybind11::module& m) {
+  m.def("enable_custom_op", &EnablePyCustomOps, "Enable or disable pyop functions.");
   m.def("add_custom_op", [](const PyCustomOpDef& cod) { PyCustomOpDef::AddOp(&cod); });
   m.def("hash_64", &hash_64, "Computes a uint64 hash for a string (from tensorflow).");
 }

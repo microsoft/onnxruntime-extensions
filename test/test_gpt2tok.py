@@ -7,6 +7,7 @@ from transformers import GPT2Tokenizer
 import onnxruntime as _ort
 from onnxruntime_customops import (
     onnx_op,
+    enable_custom_op,
     PyCustomOpDef,
     expand_onnx_inputs,
     get_library_path as _get_library_path)
@@ -55,7 +56,7 @@ class TestGPT2Tokenizer(unittest.TestCase):
             return np.array(
                 [TestGPT2Tokenizer.tokenizer.encode(st_) for st_ in s])
 
-    def test_tokenizer(self):
+    def _run_tokenizer(self, pyop_flag):
         test_sentence = "I can feel the magic, can you?"
         tokenizer = TestGPT2Tokenizer.tokenizer
         indexed_tokens = tokenizer.encode(test_sentence)
@@ -64,12 +65,20 @@ class TestGPT2Tokenizer(unittest.TestCase):
         binded_model = _bind_tokenizer(model)
 
         so = _ort.SessionOptions()
+        enable_custom_op(pyop_flag)
         so.register_custom_ops_library(_get_library_path())
         sess = _ort.InferenceSession(binded_model.SerializeToString(), so)
         input_text = np.array([test_sentence])
         txout = sess.run(None, {'string_input': input_text})
-
         np.testing.assert_array_equal(txout[0], np.array([indexed_tokens]))
+        del sess
+        del so
+
+    def test_tokenizer(self):
+        self._run_tokenizer(False)
+
+    def test_tokenizer_pyop(self):
+        self._run_tokenizer(True)
 
 
 if __name__ == "__main__":
