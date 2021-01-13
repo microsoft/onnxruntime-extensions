@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include <set>
+
 #include "kernels/op_equal.hpp"
 #include "kernels/op_segment_sum.hpp"
 #include "kernels/string_hash.hpp"
@@ -40,17 +42,10 @@ OrtCustomOp* operator_lists[] = {
 extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api) {
   OrtCustomOpDomain* domain = nullptr;
   const OrtApi* ortApi = api->GetApi(ORT_API_VERSION);
+  std::set<std::string> pyop_nameset;
 
   if (auto status = ortApi->CreateCustomOpDomain(c_OpDomain, &domain)) {
     return status;
-  }
-
-  OrtCustomOp** ops = operator_lists;
-  while (*ops != nullptr) {
-    if (auto status = ortApi->CustomOpDomain_Add(domain, *ops)) {
-      return status;
-    }
-    ++ops;
   }
 
 #if defined(PYTHON_OP_SUPPORT)
@@ -60,16 +55,31 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
     if (auto status = ortApi->CustomOpDomain_Add(domain, c_ops)) {
       return status;
     }
+    else {
+      pyop_nameset.emplace(c_ops->GetName(c_ops));
+    }
     ++count;
     c_ops = FetchPyCustomOps(count);
   }
 #endif
 
+  OrtCustomOp** ops = operator_lists;
+  while (*ops != nullptr) {
+    if (pyop_nameset.find((*ops)->GetName(*ops)) == pyop_nameset.end()) {
+      if (auto status = ortApi->CustomOpDomain_Add(domain, *ops)) {
+        return status;
+      }
+    }
+    ++ops;
+  }
+
 #if defined(ENABLE_TOKENIZER)
-  auto** t_ops = LoadTokenizerSchemaList();
+  const OrtCustomOp** t_ops = LoadTokenizerSchemaList();
   while (*t_ops != nullptr) {
-    if (auto status = ortApi->CustomOpDomain_Add(domain, *t_ops)){
-      return status;
+    if (pyop_nameset.find((*t_ops)->GetName(*t_ops)) == pyop_nameset.end()) {
+      if (auto status = ortApi->CustomOpDomain_Add(domain, *t_ops)){
+        return status;
+      }
     }
     t_ops++;
   }

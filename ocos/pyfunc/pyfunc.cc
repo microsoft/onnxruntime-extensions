@@ -376,6 +376,11 @@ void PyCustomOpDef::AddOp(const PyCustomOpDef* cod) {
 }
 
 const PyCustomOpFactory* PyCustomOpDef_FetchPyCustomOps(size_t count) {
+  if (!EnablePyCustomOps(true)) {
+    EnablePyCustomOps(false);
+    return nullptr;
+  }
+
   // The result must stay alive
   std::vector<PyCustomOpFactory>& copy = PyCustomOpDef_python_operator_list();
   if (count < copy.size())
@@ -388,6 +393,13 @@ const OrtCustomOp* FetchPyCustomOps(size_t& count) {
   if (ptr == nullptr)
     return nullptr;
   return ptr;
+}
+
+bool EnablePyCustomOps(bool enabled){
+  static bool f_pyop_enabled = true;
+  bool last = f_pyop_enabled;
+  f_pyop_enabled = enabled;
+  return last;
 }
 
 // static std::ofstream logger;
@@ -406,6 +418,7 @@ uint64_t hash_64(const std::string& str, uint64_t num_buckets, bool fast) {
 }
 
 void AddGlobalMethods(pybind11::module& m) {
+  m.def("enable_custom_op", &EnablePyCustomOps, "Enable or disable pyop functions.");
   m.def("add_custom_op", [](const PyCustomOpDef& cod) { PyCustomOpDef::AddOp(&cod); });
   m.def("hash_64", &hash_64, "Computes a uint64 hash for a string (from tensorflow).");
 }
