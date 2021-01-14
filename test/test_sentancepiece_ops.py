@@ -126,17 +126,6 @@ class TestPythonOpSentencePiece(unittest.TestCase):
                 sparse_indices.numpy(),
                 sparse_values.numpy(), sparse_dense_shape.numpy())
         """
-    """
-    def test_SentencepieceTokenizer(self):
-        so = _ort.SessionOptions()
-        so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_SentencepieceTokenizer('')
-        self.assertIn('op_type: "StringUpper"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-        input_1 = np.array([["Abc"]])
-        txout = sess.run(None, {'input_1': input_1})
-        self.assertEqual(txout[0].tolist(), np.array([["ABC"]]).tolist())
-    """
 
     def test_string_sentencepiece_tokenizer_python(self):
         so = _ort.SessionOptions()
