@@ -9,6 +9,7 @@ import onnxruntime as _ort
 from onnxruntime_customops import (
     onnx_op, PyCustomOpDef,
     get_library_path as _get_library_path)
+import tensorflow as tf
 from tensorflow_text import SentencepieceTokenizer
 
 
@@ -42,7 +43,6 @@ def load_piece(name):
 
 def _create_test_model_sentencepiece(prefix, domain='ai.onnx.contrib'):
     nodes = []
-
     nodes.append(helper.make_node(
         '%sSentencepieceTokenizer' % prefix,
         inputs=[
@@ -72,6 +72,51 @@ def _create_test_model_sentencepiece(prefix, domain='ai.onnx.contrib'):
         ], [
             mkv('out0', onnx_proto.TensorProto.INT32, [None]),
             mkv('out1', onnx_proto.TensorProto.INT64, [None])
+        ])
+    model = helper.make_model(
+        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    return model
+
+
+def _create_test_model_ragged_to_sparse(prefix, domain='ai.onnx.contrib'):
+    nodes = []
+    nodes.append(helper.make_node(
+        '%sSentencepieceTokenizer' % prefix,
+        inputs=[
+            'model',  # model__6
+            'inputs',  # inputs
+            'nbest_size',
+            'alpha',
+            'add_bos',
+            'add_eos',
+            'reverse',
+        ],
+        outputs=['tokout0', 'tokout1'],
+        name='SentencepieceTokenizeOpName',
+        domain='ai.onnx.contrib',
+    ))
+    nodes.append(helper.make_node(
+        '%sRaggedTensorToSparse' % prefix,
+        inputs=['tokout1', 'tokout0'],
+        outputs=['out0', 'out1', 'out2'],
+        name='RaggedTensorToSparse',
+        domain='ai.onnx.contrib',
+    ))
+
+    mkv = helper.make_tensor_value_info
+    graph = helper.make_graph(
+        nodes, 'test0', [
+            mkv('model', onnx_proto.TensorProto.STRING, [None]),
+            mkv('inputs', onnx_proto.TensorProto.STRING, [None]),
+            mkv('nbest_size', onnx_proto.TensorProto.FLOAT, [None]),
+            mkv('alpha', onnx_proto.TensorProto.FLOAT, [None]),
+            mkv('add_bos', onnx_proto.TensorProto.BOOL, [None]),
+            mkv('add_eos', onnx_proto.TensorProto.BOOL, [None]),
+            mkv('reverse', onnx_proto.TensorProto.BOOL, [None])
+        ], [
+            mkv('out0', onnx_proto.TensorProto.INT64, [None]),
+            mkv('out1', onnx_proto.TensorProto.INT32, [None]),
+            mkv('out2', onnx_proto.TensorProto.INT64, [None])
         ])
     model = helper.make_model(
         graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
@@ -110,22 +155,22 @@ class TestPythonOpSentencePiece(unittest.TestCase):
 
         cls.SentencepieceTokenizer = sentence_piece_tokenizer_op
 
-        """
-        @onnx_op(op_type="RaggedTensorToSparse",
+        @onnx_op(op_type="PyRaggedTensorToSparse",
                  inputs=[PyCustomOpDef.dt_int64,
                          PyCustomOpDef.dt_int32],
                  outputs=[PyCustomOpDef.dt_int64,
                           PyCustomOpDef.dt_int32,
                           PyCustomOpDef.dt_int64])
-        def string_segment_join(nested_splits, dense_values):
+        def ragged_tensor_to_sparse(nested_splits, dense_values):
             sparse_indices, sparse_values, sparse_dense_shape = \
                 tf.raw_ops.RaggedTensorToSparse(
                     rt_nested_splits=[nested_splits],
                     rt_dense_values=dense_values)
-            return (
-                sparse_indices.numpy(),
-                sparse_values.numpy(), sparse_dense_shape.numpy())
-        """
+            return (sparse_indices.numpy(),
+                    sparse_values.numpy(),
+                    sparse_dense_shape.numpy())
+
+        cls.RaggedTensorToSparse = ragged_tensor_to_sparse
 
     def test_string_sentencepiece_tokenizer_python(self):
         so = _ort.SessionOptions()
@@ -146,7 +191,29 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         txout = sess.run(None, inputs)
 
         exp = self.SentencepieceTokenizer(**inputs)
-        for i in range(0, 1):
+        for i in range(0, 2):
+            assert_almost_equal(exp[i], txout[i])
+
+    def test_string_ragged_string_to_sparse_python(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_ragged_to_sparse('Py')
+        self.assertIn('op_type: "PyRaggedTensorToSparse"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+
+        inputs = dict(
+            model=np.array([load_piece('model__6')], dtype=np.object),
+            inputs=np.array(
+                ["Hello world", "Hello world louder"], dtype=np.object),
+            nbest_size=np.array([0], dtype=np.float32),
+            alpha=np.array([0], dtype=np.float32),
+            add_bos=np.array([0], dtype=np.bool_),
+            add_eos=np.array([0], dtype=np.bool_),
+            reverse=np.array([0], dtype=np.bool_))
+        txout = sess.run(None, inputs)
+        temp = self.SentencepieceTokenizer(**inputs)
+        exp = self.RaggedTensorToSparse(temp[1], temp[0])
+        for i in range(0, 3):
             assert_almost_equal(exp[i], txout[i])
 
 
