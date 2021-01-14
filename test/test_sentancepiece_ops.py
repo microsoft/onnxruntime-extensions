@@ -140,6 +140,9 @@ class TestPythonOpSentencePiece(unittest.TestCase):
                           PyCustomOpDef.dt_int64])
         def sentence_piece_tokenizer_op(model, inputs, nbest_size,
                                         alpha, add_bos, add_eos, reverse):
+            """Implements `text.SentencepieceTokenizer
+            <https://github.com/tensorflow/text/blob/master/docs/
+            api_docs/python/text/SentencepieceTokenizer.md>`_."""
             # The custom op implementation.
             tokenizer = SentencepieceTokenizer(
                 base64.decodebytes(model[0].encode()),
@@ -179,20 +182,28 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         self.assertIn('op_type: "PySentencepieceTokenizer"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
 
-        inputs = dict(
-            model=np.array([load_piece('model__6')], dtype=np.object),
-            inputs=np.array(
-                ["Hello world", "Hello world louder"], dtype=np.object),
-            nbest_size=np.array([0], dtype=np.float32),
-            alpha=np.array([0], dtype=np.float32),
-            add_bos=np.array([0], dtype=np.bool_),
-            add_eos=np.array([0], dtype=np.bool_),
-            reverse=np.array([0], dtype=np.bool_))
-        txout = sess.run(None, inputs)
+        for alpha in [0, 0.5]:
+            for nbest_size in [0, 0.5]:
+                for bools in range(0, 8):
+                    with self.subTest(
+                            alpha=alpha, nbest_size=nbest_size, bools=bools):
+                        inputs = dict(
+                            model=np.array(
+                                [load_piece('model__6')], dtype=np.object),
+                            inputs=np.array(
+                                ["Hello world", "Hello world louder"],
+                                dtype=np.object),
+                            nbest_size=np.array(
+                                [nbest_size], dtype=np.float32),
+                            alpha=np.array([alpha], dtype=np.float32),
+                            add_bos=np.array([bools & 1], dtype=np.bool_),
+                            add_eos=np.array([bools & 2], dtype=np.bool_),
+                            reverse=np.array([bools & 4], dtype=np.bool_))
+                        txout = sess.run(None, inputs)
 
-        exp = self.SentencepieceTokenizer(**inputs)
-        for i in range(0, 2):
-            assert_almost_equal(exp[i], txout[i])
+                        exp = self.SentencepieceTokenizer(**inputs)
+                        for i in range(0, 2):
+                            assert_almost_equal(exp[i], txout[i])
 
     def test_string_ragged_string_to_sparse_python(self):
         so = _ort.SessionOptions()
