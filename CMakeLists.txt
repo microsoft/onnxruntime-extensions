@@ -21,6 +21,7 @@ include(CheckLanguage)
 option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
 option(ENABLE_PYTHON "Enable Python component building" OFF)
 option(ENABLE_TOKENIZER "Enable the tokenizer building" ON)
+option(ENABLE_SENTENCEPIECE "Enable SentencepieceTokenier building" ON)
 
 if(NOT CC_OPTIMIZE)
   message("!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
@@ -62,6 +63,10 @@ if (ENABLE_TOKENIZER)
   include(json)
 endif()
 
+if (ENABLE_SENTENCEPIECE)
+  include(sentencepiece)
+endif()
+
 file(GLOB TARGET_SRC "./ocos/*.cc")
 file(GLOB TARGET_HEADERS "./ocos/*.h*")
 file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
@@ -72,6 +77,11 @@ if (ENABLE_TOKENIZER)
   file(GLOB tok_TARGET_SRC "tokenizer/*.cc")
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
 endif()
+
+#if (ENABLE_SENTENCEPIECE)
+#  file(GLOB stpiece_TARGET_SRC "sentencepiece/*.cc")
+#  list(APPEND TARGET_SRC ${stpiece_TARGET_SRC})
+#endif()
 
 if(ENABLE_PYTHON)
   set(Python3_FIND_REGISTRY NEVER CACHE STRING "...")
@@ -98,6 +108,7 @@ else()
     ${TARGET_HEADERS}
     ${TARGET_SRC_HASH})
 endif()
+
 if (WIN32)
   set_source_files_properties(ortcustomops_pyd.def PROPERTIES HEADER_FILE_ONLY TRUE)
 endif()
@@ -106,6 +117,11 @@ set(external_libraries re2)
 if (ENABLE_TOKENIZER)
   target_compile_definitions(ortcustomops PRIVATE ENABLE_TOKENIZER)
   list(APPEND external_libraries nlohmann_json::nlohmann_json)
+endif()
+
+if (ENABLE_SENTENCEPIECE)
+  target_compile_definitions(ortcustomops PRIVATE ENABLE_SENTENCEPIECE)
+  list(APPEND external_libraries sentencepiece)
 endif()
 
 target_include_directories(ortcustomops PUBLIC
@@ -140,6 +156,7 @@ if(ENABLE_PYTHON)
       ${NUMPY_INCLUDE_DIR}
       ${pybind11_INCLUDE_DIRS}
   )
+
   if(NOT "${OCOS_EXTENTION_NAME}" STREQUAL "")
     if(NOT WIN32)
       set_target_properties(ortcustomops PROPERTIES
@@ -148,6 +165,10 @@ if(ENABLE_PYTHON)
         SUFFIX "")
     endif()
   endif()
+endif()
+
+if (ENABLE_SENTENCEPIECE)
+  target_include_directories(ortcustomops PRIVATE ${sentencepiece_INCLUDE_DIRS})
 endif()
 
 # test section

@@ -5,6 +5,7 @@
 
 #include "kernels/op_equal.hpp"
 #include "kernels/op_segment_sum.hpp"
+#include "kernels/sentencepiece_tokenizer.hpp"
 #include "kernels/string_hash.hpp"
 #include "kernels/string_join.hpp"
 #include "kernels/string_regex_replace.hpp"
@@ -15,6 +16,7 @@
 
 CustomOpNegPos c_CustomOpNegPos;
 CustomOpSegmentSum c_CustomOpSegmentSum;
+CustomOpSentencepieceTokenizer c_CustomOpSentencepieceTokenizer;
 CustomOpStringEqual c_CustomOpStringEqual;
 CustomOpStringHash c_CustomOpStringHash;
 CustomOpStringHashFast c_CustomOpStringHashFast;
@@ -28,6 +30,7 @@ CustomOpTwo c_CustomOpTwo;
 OrtCustomOp* operator_lists[] = {
     &c_CustomOpNegPos,
     &c_CustomOpSegmentSum,
+    &c_CustomOpSentencepieceTokenizer,
     &c_CustomOpStringEqual,
     &c_CustomOpStringHash,
     &c_CustomOpStringHashFast,

@@ -13,24 +13,6 @@ import tensorflow as tf
 from tensorflow_text import SentencepieceTokenizer
 
 
-"""
-make_node(
-    'RaggedTensorToSparse',
-    inputs=['StatefulPartitionedCall/text_preprocessor/SentenceTokenizer/SentencepieceTokenizeOp:1',
-            'StatefulPartitionedCall/text_preprocessor/SentenceTokenizer/SentencepieceTokenizeOp:0'],
-    outputs=[
-        'StatefulPartitionedCall/text_preprocessor/RaggedToSparse/RaggedTensorToSparse:0',
-        'StatefulPartitionedCall/text_preprocessor/RaggedToSparse/RaggedTensorToSparse:1',
-        'StatefulPartitionedCall/text_preprocessor/RaggedToSparse/RaggedTensorToSparse:2',
-    ],
-    name='StatefulPartitionedCall/text_preprocessor/RaggedToSparse/RaggedTensorToSparse',
-    domain='ai.onnx.contrib',
-    RAGGED_RANK=1,
-    Tsplits=7,
-),
-"""
-
-
 def load_piece(name):
     fullname = os.path.join(
         os.path.dirname(__file__), "data",
@@ -175,12 +157,15 @@ class TestPythonOpSentencePiece(unittest.TestCase):
 
         cls.RaggedTensorToSparse = ragged_tensor_to_sparse
 
-    def test_string_sentencepiece_tokenizer_python(self):
+    def test_string_sentencepiece_tokenizer(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_sentencepiece('Py')
-        self.assertIn('op_type: "PySentencepieceTokenizer"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        py_onnx_model = _create_test_model_sentencepiece('Py')
+        self.assertIn('op_type: "PySentencepieceTokenizer"', str(py_onnx_model))
+        cc_onnx_model = _create_test_model_sentencepiece('')
+        self.assertIn('op_type: "SentencepieceTokenizer"', str(cc_onnx_model))
+        py_sess = _ort.InferenceSession(py_onnx_model.SerializeToString(), so)
+        cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so)
 
         for alpha in [0, 0.5]:
             for nbest_size in [0, 0.5]:
@@ -199,11 +184,13 @@ class TestPythonOpSentencePiece(unittest.TestCase):
                             add_bos=np.array([bools & 1], dtype=np.bool_),
                             add_eos=np.array([bools & 2], dtype=np.bool_),
                             reverse=np.array([bools & 4], dtype=np.bool_))
-                        txout = sess.run(None, inputs)
+                        py_txout = py_sess.run(None, inputs)
+                        cc_txout = cc_sess.run(None, inputs)
 
                         exp = self.SentencepieceTokenizer(**inputs)
                         for i in range(0, 2):
-                            assert_almost_equal(exp[i], txout[i])
+                            assert_almost_equal(exp[i], py_txout[i])
+                            assert_almost_equal(exp[i], cc_txout[i])
 
     def test_string_ragged_string_to_sparse_python(self):
         so = _ort.SessionOptions()
