@@ -21,9 +21,9 @@
 
 |**Operator**|**Support State**|
 |------------|-----------------|
-|GPT2Tokenizer| Supported      |
-|WordPieceTokenizer| In next version |
-|BertTokenizer | In next version |
+|GPT2Tokenizer| Supported       |
+|BertTokenizer| In next version |
+|XLNetTokenizer| In next version |
 
 
 ### Decoder 
@@ -83,7 +83,7 @@ axes = np.array([0, 1], dtype=np.int64)
 steps = np.array([1, 1], dtype=np.int64)
 
 expect(node, inputs=[x, starts, ends, axes, steps], outputs=[y],
-       name='test_slice')
+       name='test_string_slice')
 ```
 </details>
 
@@ -98,38 +98,66 @@ Get the length of each string element in input tensor. Similar to the function `
 
 #### Outputs
 
-***output: tensor(int)***
+***output: tensor(int64)***
 <dd>data length tensor.</dd>
 
 #### Examples
 
 <details>
-<summary>string_slice</summary>
+<summary>string_length</summary>
 
 ```python
 
 node = onnx.helper.make_node(
-    'StringSlice',
+    'StringLength',
     inputs=['x'],
-    outputs=['y'],
+    outputs=['y']
 )
 
 x = ["abcdef", "hijkl"]
-y = [len(x[0]), len(x[1]) ]
+y = np.array([len(x[0]), len(x[1])], dtype=np.int64)
 
 
 expect(node, inputs=[x], outputs=[y],
-       name='test_slice')
+       name='test_string_length')
 ```
 </details>
 
 
 ### <a name="StringMapping"></a><a name="StringMapping">**StringMapping**</a>
 
+StringMapping will map each string element in the input to the corresponding vector according to the mapping file. The mapping file is a utf-8 encoding text file in tsv format:
+
+    <string>\t<scalar_1>\s<scalar_2>\s<scalar_3>...<scalar_n>
+
+Unmapped string will output the value of the attribute `unmapping_value`.
+
+Example:
+
+*Attributes:*
+
+- `mapping_file_name`: vocabulary.txt
+  ```
+  a   0 0 1 2
+  b   0 1 2 3
+  d   0 1 3 4
+  ```
+  
+- `unmapping_value`: [0 0 0 0]
+
+*Inputs:*
+- data: ["a", "d", "e"]
+
+*Ouputs:*
+- output: [[0,0,1,2],[0,1,3,4],[0,0,0,0]]
+
 #### Attributes
 
 ***mapping_file_name***
 <dd>the name of your string to vector mapping file.</dd>
+
+***unmapping_value***
+<dd>mapping result for unmapped string</dd>
 
 #### Inputs
 
@@ -149,23 +177,30 @@ expect(node, inputs=[x], outputs=[y],
 #### Examples
 
 <details>
-<summary>string_slice</summary>
+<summary>string_mapping</summary>
 
 ```python
+# what's in vocabulary.txt
+
+# a   0 0 1 2
+# b   0 1 2 3
+# d   0 1 3 4
 
 node = onnx.helper.make_node(
-    'StringSlice',
+    'StringMapping',
     inputs=['x'],
     outputs=['y'],
+    mapping_file_name='vocabulary.txt',
+    unmapping_value=[0,0,0,0]
 )
 
-x = ["abcdef", "hijkl"]
-y = [len(x[0]), len(x[1]) ]
+
+x = ["a", "d", "e"]
+y = np.array([[0,0,1,2],[0,1,3,4],[0,0,0,0]], type=np.int64)
 
 
 expect(node, inputs=[x], outputs=[y],
-       name='test_slice')
-
+       name='test_string_mapping')
 ```
 </details>
 
@@ -173,10 +208,86 @@ expect(node, inputs=[x], outputs=[y],
 
 ### <a name="GPT2Tokenizer"></a><a name="GPT2Tokenizer">**GPT2Tokenizer**</a>
 
-### <a name="WordPieceTokenizer"></a><a name="WordPieceTokenizer">**WordPieceTokenizer**</a>
+GPT2Tokenizer that performs byte-level bpe tokenization to the input tensor, based on the [hugging face version](https://huggingface.co/transformers/_modules/transformers/tokenization_gpt2.html).
+
+#### Inputs
+
+***data: tensor(string)***
+<dd>the string tensor for tokenization</dd>
+
+#### Outputs
+
+***output: tensor(int64)***
+<dd>the tokenized result of input</dd>
+
+#### Examples
+
+<details>
+<summary>gpt2tokenizer</summary>
+
+```python
+
+node = onnx.helper.make_node(
+    'GPT2Tokenizer',
+    inputs=['x'],
+    outputs=['y'],
+)
+
+x = ["hey cortana"]
+y = np.array([20342, 12794, 2271], dtype=np.int64)
+
+expect(node, inputs=[x], outputs=[y],
+       name='test_gpt2_tokenizer')
+```
+</details>
+
 
 ### <a name="BertTokenizer"></a><a name="BertTokenizer">**BertTokenizer**</a>
 
+BertTokenizer that performs WordPiece tokenization to the input tensor, based on the [hugging face version](https://huggingface.co/transformers/model_doc/bert.html#berttokenizer).
+
+#### Inputs
+
+***data: tensor(string)***
+<dd>the string tensor for tokenization</dd>
+
+#### Outputs
+
+***output: tensor(int64)***
+<dd>Tokenized result of the input</dd>
+
+#### Examples
+
+<details>
+<summary>word_piece_tokenizer</summary>
+
+```python
+```
+</details>
+
+### <a name="XLNetTokenizer"></a><a name="XLNetTokenizer">**XLNetTokenizer**</a>
+
+GPT2Tokenizer that performs SentencePiece tokenization to the input tensor, based on the [hugging face version](https://huggingface.co/transformers/model_doc/xlnet.html#xlnettokenizer).
+
+#### Inputs
+
+***data: tensor(string)***
+<dd>The string tensor for tokenization</dd>
+
+#### Outputs
+
+***output: tensor(int64)***
+<dd>Tokenized result of the input</dd>
+
+#### Examples
+
+<details>
+<summary>word_piece_tokenizer</summary>
+
+```python
+
+```
+</details>
 
 ## Decoder
 
