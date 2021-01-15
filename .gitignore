@@ -28,6 +28,7 @@ __pycache__
 out/
 *.egg-info/
 .setuptools-cmake-build/
+onnxruntime-*-*-*/
 
 # Compiled Dynamic libraries
 *.so
