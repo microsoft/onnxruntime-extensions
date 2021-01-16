@@ -13,7 +13,8 @@
 |StringUpper  | Supported     |
 |StringSlice | In next version |
 |StringLength | In next version |
-|StringMapping|  In next version|
+|StringToVector|  In next version|
+|VectorToString| In next version |
 
 
 
@@ -24,12 +25,6 @@
 |GPT2Tokenizer| Supported       |
 |BertTokenizer| In next version |
 |XLNetTokenizer| In next version |
-
-
-### Decoder 
-|**Operator**|**Support State**|
-|------------|-----------------|
-|GPT2Decoder | In next version |
 
 
 ## Auxiliary String Operator
@@ -124,9 +119,9 @@ expect(node, inputs=[x], outputs=[y],
 </details>
 
 
-### <a name="StringMapping"></a><a name="StringMapping">**StringMapping**</a>
+### <a name="StringToVector"></a><a name="StringToVector">**StringToVector**</a>
 
-StringMapping will map each string element in the input to the corresponding vector according to the mapping file. The mapping file is a utf-8 encoding text file in tsv format:
+StringToVector will map each string element in the input to the corresponding vector according to the mapping file. The mapping file is a utf-8 encoding text file in tsv format:
 
     <string>\t<scalar_1>\s<scalar_2>\s<scalar_3>...<scalar_n>
 
@@ -150,6 +145,86 @@ Example:
 
 *Ouputs:*
 - output: [[0,0,1,2],[0,1,3,4],[0,0,0,0]]
+
+#### Attributes
+
+***mapping_file_name:string***
+<dd>the name of your string to vector mapping file.</dd>
+
+***unmapping_value:list(int)***
+<dd>mapping result for unmapped string</dd>
+
+#### Inputs
+
+***data: tensor(string)***
+<dd></dd>
+
+#### Outputs
+
+***output: tensor(T)***
+<dd>the mapping result of the input</dd>
+
+#### Type Constraints
+***T:tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64), tensor(bfloat16), tensor(float16), tensor(float), tensor(double), tensor(bool)***
+<dd>Constrain input and output types to numerical tensors.</dd>
+
+
+#### Examples
+
+<details>
+<summary>string_to_vector</summary>
+
+```python
+# what's in vocabulary.txt
+
+# a   0 0 1 2
+# b   0 1 2 3
+# d   0 1 3 4
+
+node = onnx.helper.make_node(
+    'StringToVector',
+    inputs=['x'],
+    outputs=['y'],
+    mapping_file_name='vocabulary.txt',
+    unmapping_value=[0,0,0,0]
+)
+
+
+x = ["a", "d", "e"]
+y = np.array([[0,0,1,2],[0,1,3,4],[0,0,0,0]], type=np.int64)
+
+
+expect(node, inputs=[x], outputs=[y],
+       name='test_string_to_vector')
+```
+</details>
+
+### <a name="VectorToString"></a><a name="VectorToString">**VectorToString**</a>
+
+VectorToString is the contrary operation to the `StringToVector` , they share same format of mapping file:
+
+    <string>\t<scalar_1>\s<scalar_2>\s<scalar_3>...<scalar_n>
+
+Unmapped vector will output the value of the attribute `unmapping_value`.
+
+Example:
+
+*Attributes:*
+
+- `mapping_file_name`: vocabulary.txt
+  ```
+  a   0 0 1 2
+  b   0 1 2 3
+  d   0 1 3 4
+  ```
+
+- `unmapping_value`: "unknown_word"
+
+*Inputs:*
+- data: [[0,0,1,2],[0,1,3,4],[0,0,0,0]]
+
+*Ouputs:*
+- output: ["a", "d", "unknown_word" ]
 
 #### Attributes
 
@@ -177,7 +252,7 @@ Example:
 #### Examples
 
 <details>
-<summary>string_mapping</summary>
+<summary>vector_to_string</summary>
 
 ```python
 # what's in vocabulary.txt
@@ -187,20 +262,20 @@ Example:
 # d   0 1 3 4
 
 node = onnx.helper.make_node(
-    'StringMapping',
+    'StringToVector',
     inputs=['x'],
     outputs=['y'],
     mapping_file_name='vocabulary.txt',
-    unmapping_value=[0,0,0,0]
+    unmapping_value="unknown_word"
 )
 
 
-x = ["a", "d", "e"]
-y = np.array([[0,0,1,2],[0,1,3,4],[0,0,0,0]], type=np.int64)
+x = np.array([[0,0,1,2],[0,1,3,4],[0,0,0,0]], type=np.int64)
+y = ["a", "d", "unknown_worde"]
 
 
 expect(node, inputs=[x], outputs=[y],
-       name='test_string_mapping')
+       name='test_vector_to_string')
 ```
 </details>
 
@@ -288,7 +363,3 @@ GPT2Tokenizer that performs SentencePiece tokenization to the input tensor, base
 
 ```
 </details>
-
-## Decoder
-
-### <a name="GPT2Decoder"></a><a name="GPT2Decoder">**GPT2Decoder**</a>
