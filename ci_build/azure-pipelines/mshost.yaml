@@ -35,16 +35,13 @@ jobs:
       ./ortcustomops_test
     displayName: Run the native only unit tests
 
-  - script: |
-      python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
+  - script: python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
     displayName: Install pytorch
 
-  - script: |
-      python -m pip install -r requirements-dev.txt
+  - script: python -m pip install -r requirements-dev.txt
     displayName: Install requirements-dev.txt
 
-  - script: |
-      python -m pytest test
+  - script: python -m pytest test
     displayName: Run python test
 
 #######
@@ -73,8 +70,12 @@ jobs:
       python -m pip install -r requirements.txt
     displayName: Install requirements.txt
 
+  - script: python -c "import onnxruntime;print(onnxruntime.__version__)"
+    displayName: Check installation
+
   - script: |
       sh ./build.sh
+      call activate pyenv
       python setup.py develop
     displayName: Build the library and tests
 
@@ -83,16 +84,13 @@ jobs:
       ./ortcustomops_test
     displayName: Run the native only unit tests
 
-  - script: |
-      python -m pip install -r requirements-dev.txt
+  - script: python -m pip install -r requirements-dev.txt
     displayName: Install requirements-dev.txt
 
-  - script: |
-      python -m pip install torch torchvision torchaudio
+  - script: python -m pip install torch torchvision torchaudio
     displayName: Install pytorch
 
-  - script: |
-      python -m pytest test --verbose
+  - script: python -m pytest test --verbose
     displayName: Run python test
 
 #########
