@@ -84,11 +84,15 @@ jobs:
     displayName: Run the native only unit tests
 
   - script: |
+      python -m pip install -r requirements-dev.txt
+    displayName: Install requirements-dev.txt
+
+  - script: |
       python -m pip install torch torchvision torchaudio
     displayName: Install pytorch
 
   - script: |
-      python -m pytest test
+      python -m pytest test --verbose
     displayName: Run python test
 
 #########
