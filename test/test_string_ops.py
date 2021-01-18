@@ -309,9 +309,9 @@ class TestPythonOpString(unittest.TestCase):
 
         cls._string_join = string_join
         cls._string_to_crc32 = string_to_crc32
+        print('done.')
 
     def test_check_types(self):
-        print(self._testMethodName)
         def_list = set(dir(PyCustomOpDef))
         type_list = [
             # 'dt_bfloat16',
@@ -334,7 +334,6 @@ class TestPythonOpString(unittest.TestCase):
             self.assertIn(t, def_list)
 
     def test_string_upper_cc(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_upper('')
@@ -345,7 +344,6 @@ class TestPythonOpString(unittest.TestCase):
         self.assertEqual(txout[0].tolist(), np.array([["ABC"]]).tolist())
 
     def test_string_upper_cc_accent(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_upper('')
@@ -356,7 +354,6 @@ class TestPythonOpString(unittest.TestCase):
         self.assertEqual(txout[0].tolist(), np.array([["ABCé"]]).tolist())
 
     def test_string_upper_python(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_upper('Py')
@@ -367,7 +364,6 @@ class TestPythonOpString(unittest.TestCase):
         self.assertEqual(txout[0].tolist(), np.array([["ABC"]]).tolist())
 
     def test_string_upper_python_accent(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_upper('Py')
@@ -379,7 +375,6 @@ class TestPythonOpString(unittest.TestCase):
                          np.array([["ABCé".upper()]]).tolist())
 
     def test_string_join_python(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_join('Py')
@@ -401,7 +396,6 @@ class TestPythonOpString(unittest.TestCase):
             txout[0].tolist(), np.array(['a;aa', 'b;bb', 'c;']).tolist())
 
     def test_string_join_python_3d(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_join('Py')
@@ -417,7 +411,6 @@ class TestPythonOpString(unittest.TestCase):
             txout[0].tolist(), np.array([['a;b;c'], ['aa;bb;']]).tolist())
 
     def test_string_join_python_1d(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_join('Py')
@@ -432,7 +425,6 @@ class TestPythonOpString(unittest.TestCase):
             txout[0].tolist(), np.array(["a;b;cc"]).tolist())
 
     def test_string_join_cc(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_join('')
@@ -451,7 +443,6 @@ class TestPythonOpString(unittest.TestCase):
             txout[0].tolist(), np.array(['a;aa', 'b;bb', 'c;']).tolist())
 
     def test_string_join_cc_1d(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_join('')
@@ -465,7 +456,6 @@ class TestPythonOpString(unittest.TestCase):
             txout[0].tolist(), np.array(["a;b;cc"]).tolist())
 
     def test_string_join_cc_3d(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_join('')
@@ -491,7 +481,6 @@ class TestPythonOpString(unittest.TestCase):
             np.array([['a;e', 'b;f'], ['c;g', 'd;h']]).tolist())
 
     def test_string_replace_cc(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace('')
@@ -507,7 +496,6 @@ class TestPythonOpString(unittest.TestCase):
         self.assertEqual(exp, txout[0].tolist())
 
     def test_string_replace_cc_x2(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace('')
@@ -523,7 +511,6 @@ class TestPythonOpString(unittest.TestCase):
         self.assertEqual(exp, txout[0].tolist())
 
     def test_string_replace_python(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace('Py')
@@ -539,7 +526,6 @@ class TestPythonOpString(unittest.TestCase):
         self.assertEqual(exp, txout[0].tolist())
 
     def test_string_replace_python_x2(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace('Py')
@@ -555,7 +541,6 @@ class TestPythonOpString(unittest.TestCase):
         self.assertEqual(exp, txout[0].tolist())
 
     def test_string_to_crc32_python(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_to_hash('Py', kind='crc32')
@@ -572,7 +557,6 @@ class TestPythonOpString(unittest.TestCase):
         self.assertEqual(exp.tolist(), txout[0].tolist())
 
     def test_string_to_hash_bucket_cc(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_to_hash(
@@ -599,7 +583,6 @@ class TestPythonOpString(unittest.TestCase):
         self.assertEqual(exp.tolist(), txout[0].tolist())
 
     def test_string_to_hash_bucket_fast_cc(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_to_hash(
@@ -626,7 +609,6 @@ class TestPythonOpString(unittest.TestCase):
         self.assertEqual(exp.tolist(), txout[0].tolist())
 
     def test_string_to_hash_bucket_python(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_to_hash(
@@ -661,7 +643,6 @@ class TestPythonOpString(unittest.TestCase):
                     yield a, b
 
     def test_string_equal_python(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_equal('Py')
@@ -675,7 +656,6 @@ class TestPythonOpString(unittest.TestCase):
             self.assertEqual(txout[0].tolist(), (y == x).tolist())
 
     def test_string_equal_cc(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_equal('')
@@ -689,7 +669,6 @@ class TestPythonOpString(unittest.TestCase):
             self.assertEqual(txout[0].tolist(), (y == x).tolist())
 
     def test_string_split_python(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_split('Py')
@@ -722,7 +701,6 @@ class TestPythonOpString(unittest.TestCase):
                 self.assertEqual(exp_shape.tolist(), txout[2].tolist())
 
     def test_string_split_cc(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_split('')
@@ -771,7 +749,6 @@ class TestPythonOpString(unittest.TestCase):
                 self.assertEqual(exp_shape.tolist(), txout[2].tolist())
 
     def test_string_split_cc_sep2(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_split('')
@@ -825,7 +802,6 @@ class TestPythonOpString(unittest.TestCase):
                 self.assertEqual(exp_shape.tolist(), txout[2].tolist())
 
     def test_string_split_cc_sep0(self):
-        print(self._testMethodName)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_split('')
