@@ -653,7 +653,7 @@ class TestPythonOpString(unittest.TestCase):
             txout = sess.run(None, {'x': y, 'y': x})
             self.assertEqual(txout[0].tolist(), (y == x).tolist())
 
-    def _test_string_equal_cc(self):
+    def test_string_equal_cc(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_equal('')
