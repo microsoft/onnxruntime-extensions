@@ -54,28 +54,6 @@ jobs:
     displayName: Run test_string_ops.py
     continueOnError: True
 
-  - script: python -u -X faulthandler test/test_string_ops.py --verbose -k test_string_to_hash_bucket_cc
-    displayName: Run test_string_ops.py
-    continueOnError: True
-
-  - script: python -u -X faulthandler test/test_string_ops.py --verbose -k test_string_equal_cc
-    displayName: Run test_string_ops.py
-    continueOnError: True
-
-  - script: python -u -X faulthandler test/test_string_ops.py --verbose -k test_string_join_cc
-    displayName: Run test_string_ops.py
-    continueOnError: True
-
-  - script: python -u -X faulthandler test/test_string_ops.py --verbose -k test_string_split_cc
-    displayName: Run test_string_ops.py
-    continueOnError: True
-
-  - script: python -u -X faulthandler test/test_string_ops.py --verbose
-    displayName: Run test_string_ops.py
-
-  - script: python -u test/test_gpt2tok.py --verbose
-    displayName: Run test_gpt2tok.py
-
   - script: python -m pytest test
     displayName: Run python test
 

@@ -7,6 +7,8 @@
 // These are the inline implementations of the C++ header APIs. They're in this separate file as to not clutter
 // the main C++ file with implementation details.
 
+#pragma once
+
 namespace Ort {
 
 inline void ThrowOnError(const OrtApi& ort, OrtStatus* status) {
