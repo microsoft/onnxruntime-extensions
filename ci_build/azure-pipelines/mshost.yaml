@@ -41,6 +41,9 @@ jobs:
   - script: python -m pip install -r requirements-dev.txt
     displayName: Install requirements-dev.txt
 
+  - script: python -u test/test_math_ops.py --verbose
+    displayName: Run test_math_ops.py
+
   - script: python -u test/test_string_ops.py --verbose
     displayName: Run test_string_ops.py
 
