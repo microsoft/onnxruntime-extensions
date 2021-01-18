@@ -46,21 +46,27 @@ jobs:
 
   - script: python -u -X faulthandler test/test_string_ops.py --verbose -k test_string_upper_cc
     displayName: Run test_string_ops.py
+    continueOnError: True
 
   - script: python -u -X faulthandler test/test_string_ops.py --verbose -k test_string_replace_cc
     displayName: Run test_string_ops.py
+    continueOnError: True
 
   - script: python -u -X faulthandler test/test_string_ops.py --verbose -k test_string_to_hash_bucket_cc
     displayName: Run test_string_ops.py
+    continueOnError: True
 
   - script: python -u -X faulthandler test/test_string_ops.py --verbose -k test_string_equal_cc
     displayName: Run test_string_ops.py
+    continueOnError: True
 
   - script: python -u -X faulthandler test/test_string_ops.py --verbose -k test_string_join_cc
     displayName: Run test_string_ops.py
+    continueOnError: True
 
   - script: python -u -X faulthandler test/test_string_ops.py --verbose -k test_string_split_cc
     displayName: Run test_string_ops.py
+    continueOnError: True
 
   - script: python -u -X faulthandler test/test_string_ops.py --verbose
     displayName: Run test_string_ops.py
