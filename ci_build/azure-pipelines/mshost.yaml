@@ -1,3 +1,7 @@
+#######
+# Linux
+#######
+
 jobs:
 - job: Linux
   pool:
@@ -5,7 +9,7 @@ jobs:
   
   strategy:
     matrix:
-      py37:
+      py38:
         python.version: '3.8'
     maxParallel: 1
 
@@ -32,7 +36,7 @@ jobs:
     displayName: Run the native only unit tests
 
   - script: |
-      python -m pip install torch==1.6.0+cpu torchvision==0.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+      python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
     displayName: Install pytorch
 
   - script: |
@@ -40,9 +44,12 @@ jobs:
     displayName: Install requirements-dev.txt
 
   - script: |
-      # FIXME: need check the CI environment for the failure.
-      # python -m pytest test
+      python -m pytest test
     displayName: Run python test
+
+#######
+# macOS
+#######
 
 - job: macOS
   pool:
@@ -50,7 +57,7 @@ jobs:
 
   strategy:
     matrix:
-      py37:
+      py38:
         python.version: '3.8'
     maxParallel: 1
 
@@ -76,6 +83,18 @@ jobs:
       ./ortcustomops_test
     displayName: Run the native only unit tests
 
+  - script: |
+      python -m pip install torch torchvision torchaudio
+    displayName: Install pytorch
+
+  - script: |
+      python -m pytest test
+    displayName: Run python test
+
+#########
+# Windows
+#########
+
 - job: Windows
   pool:
     vmImage: 'windows-latest'
@@ -83,7 +102,7 @@ jobs:
   - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
     displayName: Add conda to PATH
 
-  - script: conda create --yes --quiet --name pyenv -c conda-forge python=3.7 numpy
+  - script: conda create --yes --quiet --name pyenv -c conda-forge python=3.8 numpy
     displayName: Create Anaconda environment
 
   - script: |
@@ -106,13 +125,8 @@ jobs:
 
   - script: |
       call activate pyenv
-      python -m pip install torch==1.6.0+cpu torchvision==0.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+      python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio===0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
     displayName: Install pytorch
-
-  - script: |
-      call activate pyenv
-      python -m pip install -r requirements-dev.txt
-    displayName: Install requirements-dev.txt
 
   - script: |
       call activate pyenv
