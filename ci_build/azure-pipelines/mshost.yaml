@@ -41,6 +41,12 @@ jobs:
   - script: python -m pip install -r requirements-dev.txt
     displayName: Install requirements-dev.txt
 
+  - script: python -u test/test_string_ops.py
+    displayName: Run test_string_ops.py
+
+  - script: python -u test/test_gpt2tok.py
+    displayName: Run test_gpt2tok.py
+
   - script: python -m pytest test
     displayName: Run python test
 
@@ -63,6 +69,10 @@ jobs:
     inputs:
       versionSpec: '$(python.version)'
       addToPath: true
+
+  - script: |
+      sudo-apt get install libomp
+    displayName: Install packages
 
   - script: |
       python -m pip install --upgrade pip
