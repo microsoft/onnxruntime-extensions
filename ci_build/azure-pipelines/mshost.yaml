@@ -44,7 +44,7 @@ jobs:
   - script: python -u test/test_math_ops.py --verbose
     displayName: Run test_math_ops.py
 
-  - script: python -u test/test_string_ops.py --verbose
+  - script: python -u -X faulthandler test/test_string_ops.py --verbose
     displayName: Run test_string_ops.py
 
   - script: python -u test/test_gpt2tok.py --verbose
