@@ -70,9 +70,8 @@ jobs:
       versionSpec: '$(python.version)'
       addToPath: true
 
-  - script: |
-      sudo-apt get install libomp
-    displayName: Install packages
+  - script: brew install libomp
+    displayName: 'Install omp'
 
   - script: |
       python -m pip install --upgrade pip
