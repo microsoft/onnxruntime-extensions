@@ -187,7 +187,6 @@ class TestPythonOpString(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        print('setUpClass')
 
         @onnx_op(op_type="PyStringUpper",
                  inputs=[PyCustomOpDef.dt_string],
@@ -309,7 +308,6 @@ class TestPythonOpString(unittest.TestCase):
 
         cls._string_join = string_join
         cls._string_to_crc32 = string_to_crc32
-        print('done.')
 
     def test_check_types(self):
         def_list = set(dir(PyCustomOpDef))
@@ -655,7 +653,7 @@ class TestPythonOpString(unittest.TestCase):
             txout = sess.run(None, {'x': y, 'y': x})
             self.assertEqual(txout[0].tolist(), (y == x).tolist())
 
-    def test_string_equal_cc(self):
+    def _test_string_equal_cc(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_equal('')
