@@ -9,6 +9,8 @@ jobs:
   
   strategy:
     matrix:
+      py37:
+        python.version: '3.7'
       py38:
         python.version: '3.8'
     maxParallel: 1
