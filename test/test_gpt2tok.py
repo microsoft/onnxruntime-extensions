@@ -10,8 +10,7 @@ from onnxruntime_customops import (
     enable_custom_op,
     PyCustomOpDef,
     expand_onnx_inputs,
-    get_library_path as _get_library_path,
-    __file__ as ortc_file)
+    get_library_path as _get_library_path)
 
 
 def _get_test_data_file(*sub_dirs):
