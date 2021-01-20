@@ -20,6 +20,7 @@
 #include "utils.h"
 #include "pykernel.h"
 #include "kernels/string_hash.hpp"
+#include "kernels/string_common.h"
 
 namespace py = pybind11;
 
@@ -34,11 +35,11 @@ const int PyCustomOpDef::dt_int64 = ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;    // m
 const int PyCustomOpDef::dt_string = ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;  // maps to c++ type std::string
 const int PyCustomOpDef::dt_bool = ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL;
 const int PyCustomOpDef::dt_float16 = ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16;
-const int PyCustomOpDef::dt_double = ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE;          // maps to c type double
-const int PyCustomOpDef::dt_uint32 = ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32;          // maps to c type uint32_t
-const int PyCustomOpDef::dt_uint64 = ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64;          // maps to c type uint64_t
+const int PyCustomOpDef::dt_double = ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE;  // maps to c type double
+const int PyCustomOpDef::dt_uint32 = ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32;  // maps to c type uint32_t
+const int PyCustomOpDef::dt_uint64 = ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64;  // maps to c type uint64_t
 // complex with float32 real and imaginary components
-const int PyCustomOpDef::dt_complex64 = ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64;  
+const int PyCustomOpDef::dt_complex64 = ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64;
 // complex with float64 real and imaginary components
 const int PyCustomOpDef::dt_complex128 = ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128;
 // Non-IEEE floating-point format based on IEEE754 single-precision
@@ -166,7 +167,9 @@ struct PyCustomOpDefImpl : public PyCustomOpDef {
     return c;
   }
 
-  static py::object BuildPyObjFromTensor(const void* p, const shape_t& shape, ONNXTensorElementDataType dtype) {
+  static py::object BuildPyObjFromTensor(
+      Ort::CustomOpApi& ort, OrtKernelContext* context, const OrtValue* value,
+      const shape_t& shape, ONNXTensorElementDataType dtype) {
     std::vector<npy_intp> npy_dims;
     for (auto n : shape) {
       npy_dims.push_back(n);
@@ -180,11 +183,13 @@ struct PyCustomOpDefImpl : public PyCustomOpDef {
     if (dtype == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
       py::object* outObj = static_cast<py::object*>(out_ptr);
       auto size = calc_size_from_shape(shape);
-      const std::string* src = (const std::string*)p;
-      for (int i = 0; i < size; i++, src++) {
-        outObj[i] = py::cast(*src);
+      std::vector<std::string> src;
+      GetTensorMutableDataString(ort, context, value, src);
+      for (int i = 0; i < size; ++i) {
+        outObj[i] = py::cast(src[i]);
       }
     } else {
+      const void* p = (const void*)ort.GetTensorData<char>(value);
       size_t size_type = element_size(dtype);
       memcpy(out_ptr, p, size_type * calc_size_from_shape(shape));
     }
@@ -215,7 +220,7 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
   // std::unique_lock<std::mutex> lck(op_mutex);
   // is_ready = true;
   // op_cv.notify_all();
-  //  std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+  // std::this_thread::sleep_for(std::chrono::milliseconds(5000));
   size_t n_inputs = ort_.KernelContext_GetInputCount(context);
   size_t n_outputs = ort_.KernelContext_GetOutputCount(context);
 
@@ -252,7 +257,7 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
     py::list pyinputs;
     for (auto it = inputs.begin(); it != inputs.end(); ++it) {
       py::object input0 = PyCustomOpDefImpl::BuildPyObjFromTensor(
-          (const void*)ort_.GetTensorData<float>(it->input_X), it->dimensions, it->dtype);
+          ort_, context, it->input_X, it->dimensions, it->dtype);
       pyinputs.append(input0);
     }
 
@@ -267,19 +272,14 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
       OrtValue* output = ort_.KernelContext_GetOutput(context, no, dims.data(), dims.size());
       OrtTensorTypeAndShapeInfo* o_info = ort_.GetTensorTypeAndShape(output);
       ONNXTensorElementDataType o_dtype = ort_.GetTensorElementType(o_info);
-      const void* Y = (const void*)ort_.GetTensorData<float>(output);
       ort_.ReleaseTensorTypeAndShapeInfo(o_info);
-      void* out = (void*)ort_.GetTensorMutableData<float>(output);
 
       if (o_dtype == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
-        auto retval = fetch[2 + no * 2].cast<std::vector<std::string>>();
-        std::string* type_outPtr = (std::string*)out;
-        std::string* end = type_outPtr + retval.size();
-        const std::string* source = (const std::string*)retval.data();
-        for (; type_outPtr != end; ++type_outPtr, ++source) {
-          *type_outPtr = *source;
-        }
+        std::vector<std::string> retval = fetch[2 + no * 2].cast<std::vector<std::string>>();
+        FillTensorDataString(ort_, context, retval, output);
       } else {
+        const void* Y = (const void*)ort_.GetTensorData<float>(output);
+        void* out = (void*)ort_.GetTensorMutableData<float>(output);
         py::array retval = fetch[2 + no * 2].cast<py::array>();
         if (element_size(o_dtype) != retval.itemsize()) {
           switch (o_dtype) {
@@ -395,7 +395,7 @@ const OrtCustomOp* FetchPyCustomOps(size_t& count) {
   return ptr;
 }
 
-bool EnablePyCustomOps(bool enabled){
+bool EnablePyCustomOps(bool enabled) {
   static bool f_pyop_enabled = true;
   bool last = f_pyop_enabled;
   f_pyop_enabled = enabled;
@@ -430,8 +430,7 @@ void AddObjectMethods(pybind11::module& m) {
       .def_readwrite("obj_id", &PyCustomOpDef::obj_id)
       .def_readwrite("input_types", &PyCustomOpDef::input_types)
       .def_readwrite("output_types", &PyCustomOpDef::output_types)
-      .def_static("install_hooker", [](py::object obj) {
-        PyCustomOpDefImpl::op_invoker = std::make_unique<PyCustomOpDefImpl::callback_t>(obj); })
+      .def_static("install_hooker", [](py::object obj) { PyCustomOpDefImpl::op_invoker = std::make_unique<PyCustomOpDefImpl::callback_t>(obj); })
       .def_readonly_static("undefined", &PyCustomOpDef::undefined)
       .def_readonly_static("dt_float", &PyCustomOpDef::dt_float)
       .def_readonly_static("dt_uint8", &PyCustomOpDef::dt_uint8)
