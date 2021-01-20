@@ -11,10 +11,10 @@
 |StringRegexReplace| Supported  |
 |StringSplit | Supported       |
 |StringUpper  | Supported     |
-|StringSlice | In next version |
-|StringLength | In next version |
-|StringToVector|  In next version|
-|VectorToString| In next version |
+|StringSlice | Under development|
+|StringLength | Under development |
+|StringToVector|  Under development|
+|VectorToString| Under development |
 
 
 
@@ -23,8 +23,8 @@
 |**Operator**|**Support State**|
 |------------|-----------------|
 |GPT2Tokenizer| Supported       |
-|BertTokenizer| In next version |
-|XLNetTokenizer| In next version |
+|BertTokenizer| Under development |
+|XLNetTokenizer| Under development |
 
 
 ## Auxiliary String Operator
