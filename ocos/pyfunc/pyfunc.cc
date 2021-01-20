@@ -113,7 +113,7 @@ static size_t element_size(ONNXTensorElementDataType dt) {
     case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128:
       return sizeof(std::complex<double>);
     case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING:
-      return sizeof(std::string*);
+      throw std::runtime_error("OrtValue content cannot be casted into std::string*.");
     default:
       throw std::runtime_error("No corresponding Numpy data type/Tensor data Type.");
   }
