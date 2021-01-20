@@ -54,7 +54,7 @@ jobs:
     displayName: Run test_string_ops.py
     continueOnError: True
 
-  - script: python -m pytest test
+  - script: python -m pytest test --verbose --verbose 
     displayName: Run python test
 
 #######
