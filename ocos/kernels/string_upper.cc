@@ -13,9 +13,6 @@ KernelStringUpper::KernelStringUpper(OrtApi api) : BaseKernel(api) {
 void KernelStringUpper::Compute(OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input_X = ort_.KernelContext_GetInput(context, 0);
-
-  // const std::string* X = ort_.GetTensorData<std::string>(input_X);
-  std::string X_buffer;
   std::vector<std::string> X;
   GetTensorMutableDataString(ort_, context, input_X, X);
 
