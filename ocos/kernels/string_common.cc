@@ -12,6 +12,11 @@ const OrtApi* _GetApi(Ort::CustomOpApi& ort) {
     // InitApi is missing when linking.
     // OrtGetApiBase() is missing when linking.
     const OrtApi* api = (const OrtApi*)((OrtApi**)&ort) - 1;
+    /*
+    // The following code checks api is equal to the expected
+    // pointer stored ins Ort::CustomOpApi ort as a private member.
+    // The following method can be added `const OrtApi& Api() { return api_; }`
+    // to give access to this value.
     if (api != &(ort.Api())) {
       // Ort::InitApi(); - missing from link
       auto diff = (int64_t)(&(ort.Api()) - api);
@@ -20,6 +25,7 @@ const OrtApi* _GetApi(Ort::CustomOpApi& ort) {
           api, "!=", &(ort.Api()), " (expected) (other value ", &(Ort::GetApi()),
           ", delta=", diff, ")."));
     }
+    */
     return api;
   }
   throw std::runtime_error(MakeString(

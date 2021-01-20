@@ -599,7 +599,6 @@ struct CustomOpApi {
   OrtValue* KernelContext_GetOutput(OrtKernelContext* context, _In_ size_t index, _In_ const int64_t* dim_values, size_t dim_count);
 
   void ThrowOnError(OrtStatus* result);
-  const OrtApi& Api() { return api_; }
 
  private:
   const OrtApi& api_;
