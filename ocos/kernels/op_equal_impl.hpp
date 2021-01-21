@@ -2,7 +2,9 @@
 // Licensed under the MIT License.
 #pragma once
 #include <vector>
+#include <string>
 #include "utils.h"
+#include "string_common.h"
 
 template <typename T1, typename T2, typename T3>
 class BroadcastIteratorRight {
@@ -136,6 +138,39 @@ void KernelEqual_Compute(Ort::CustomOpApi& ort_, OrtKernelContext* context) {
     OrtValue* v = ort_.KernelContext_GetOutput(context, 0, dimensions_y.data(), dimensions_y.size());
     bool* out = ort_.GetTensorMutableData<bool>(v);
     BroadcastIteratorRight<T, T, bool> iter(dimensions_y, dimensions_x, Y, X, out);
+    state.init(iter);
+    state.loop(cmp, state);
+  }
+}
+
+template <>
+void KernelEqual_Compute<std::string>(Ort::CustomOpApi& ort_, OrtKernelContext* context) {
+  // Setup inputs
+  const OrtValue* input_X = ort_.KernelContext_GetInput(context, 0);
+  const OrtValue* input_Y = ort_.KernelContext_GetInput(context, 1);
+  std::vector<std::string> X, Y;
+  GetTensorMutableDataString(ort_, context, input_X, X);
+  GetTensorMutableDataString(ort_, context, input_Y, Y);
+
+  // Setup output
+  OrtTensorDimensions dimensions_x(ort_, input_X);
+  OrtTensorDimensions dimensions_y(ort_, input_Y);
+  Compare<std::string> cmp;
+
+  typename BroadcastIteratorRight<std::string, std::string, bool>::BroadcastIteratorRightState state;
+  if (Size(dimensions_x) >= Size(dimensions_y)) {
+    OrtValue* v = ort_.KernelContext_GetOutput(context, 0, dimensions_x.data(), dimensions_x.size());
+    bool* out = ort_.GetTensorMutableData<bool>(v);
+    BroadcastIteratorRight<std::string, std::string, bool> iter(
+        dimensions_x, dimensions_y, X.data(), Y.data(), out);
+    state.init(iter);
+    state.loop(cmp, state);
+  } else {
+    // Operator Equal is commutative.
+    OrtValue* v = ort_.KernelContext_GetOutput(context, 0, dimensions_y.data(), dimensions_y.size());
+    bool* out = ort_.GetTensorMutableData<bool>(v);
+    BroadcastIteratorRight<std::string, std::string, bool> iter(
+        dimensions_y, dimensions_x, Y.data(), X.data(), out);
     state.init(iter);
     state.loop(cmp, state);
   }

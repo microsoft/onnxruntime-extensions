@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #include "string_split.hpp"
+#include "string_common.h"
 
 KernelStringSplit::KernelStringSplit(OrtApi api) : BaseKernel(api) {
 }
@@ -9,11 +10,12 @@ KernelStringSplit::KernelStringSplit(OrtApi api) : BaseKernel(api) {
 void KernelStringSplit::Compute(OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input_X = ort_.KernelContext_GetInput(context, 0);
-  const std::string* X = ort_.GetTensorData<std::string>(input_X);
   const OrtValue* input_sep = ort_.KernelContext_GetInput(context, 1);
-  const std::string* sep = ort_.GetTensorData<std::string>(input_sep);
   const OrtValue* input_skip_empty = ort_.KernelContext_GetInput(context, 2);
   const bool* skip_empty = ort_.GetTensorData<bool>(input_skip_empty);
+  std::vector<std::string> X, sep;
+  GetTensorMutableDataString(ort_, context, input_X, X);
+  GetTensorMutableDataString(ort_, context, input_sep, sep);
 
   // Setup output
   OrtTensorDimensions dimensions_sep(ort_, input_sep);
@@ -30,7 +32,7 @@ void KernelStringSplit::Compute(OrtKernelContext* context) {
   std::vector<int64_t> indices;
   int64_t maxc = 0;
   int64_t col;
-  std::string delimiter = *sep;
+  std::string delimiter = sep[0];
   if (delimiter.size() == 0) {
     char word[2] = "a";
     for (int64_t row = 0; row < dimensions[0]; ++row) {
@@ -86,13 +88,12 @@ void KernelStringSplit::Compute(OrtKernelContext* context) {
   OrtValue* out_shape = ort_.KernelContext_GetOutput(context, 2, shape_shape.data(), shape_shape.size());
 
   int64_t* p_indices = ort_.GetTensorMutableData<int64_t>(out_indices);
-  std::string* p_text = ort_.GetTensorMutableData<std::string>(out_text);
   int64_t* p_shape = ort_.GetTensorMutableData<int64_t>(out_shape);
 
   memcpy(p_indices, indices.data(), indices.size() * sizeof(int64_t));
   p_shape[0] = dimensions[0];
   p_shape[1] = maxc;
-  std::copy(words.begin(), words.end(), p_text);
+  FillTensorDataString(ort_, context, words, out_text);
 }
 
 void* CustomOpStringSplit::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
