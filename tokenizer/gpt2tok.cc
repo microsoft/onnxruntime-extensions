@@ -18,6 +18,7 @@
 
 #include "nlohmann/json.hpp"
 #include "kernels/kernels.h"
+#include "kernels/string_common.h"
 #include "unicode.h"
 
 namespace {
@@ -586,7 +587,8 @@ public:
   void Compute(OrtKernelContext* context) {
     // Setup inputs
     const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
-    const std::string* str_input = ort_.GetTensorData<std::string>(input);
+    std::vector<std::string> str_input;
+    GetTensorMutableDataString(ort_, context, input, str_input);
 
     OrtTensorDimensions dimensions(ort_, input);
     int tok_res[p_max_len];

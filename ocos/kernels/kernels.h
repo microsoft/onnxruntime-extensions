@@ -11,7 +11,7 @@ typedef CPTR_OrtCustomOp (*FxGetSchemaInstance)();
 FxGetSchemaInstance const* GetCustomOpSchemaList();
 
 struct BaseKernel {
-  BaseKernel(OrtApi api) : api_(api), ort_(api_) { }
+  BaseKernel(OrtApi api) : api_(api), ort_(api_) {}
 
  protected:
   OrtApi api_;  // keep a copy of the struct, whose ref is used in the ort_
@@ -25,8 +25,14 @@ struct OrtTensorDimensions : std::vector<int64_t> {
     ort.ReleaseTensorTypeAndShapeInfo(info);
   }
   const std::vector<int64_t>& GetDims() const { return *this; }
+  int64_t Size() const {
+    int64_t s = 1.;
+    for (auto it = begin(); it != end(); ++it)
+      s *= *it;
+    return s;
+  }
 };
 
 #if defined(ENABLE_TOKENIZER)
 const OrtCustomOp** LoadTokenizerSchemaList();
-#endif // ENABLE_TEXT_DOMAIN
+#endif  // ENABLE_TEXT_DOMAIN

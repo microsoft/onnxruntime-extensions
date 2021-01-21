@@ -6,6 +6,7 @@
 #include <cmath>
 #include <algorithm>
 #include "re2/re2.h"
+#include "string_common.h"
 
 KernelStringRegexReplace::KernelStringRegexReplace(OrtApi api) : BaseKernel(api) {
 }
@@ -13,11 +14,12 @@ KernelStringRegexReplace::KernelStringRegexReplace(OrtApi api) : BaseKernel(api)
 void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
-  const std::string* str_input = ort_.GetTensorData<std::string>(input);
   const OrtValue* pattern = ort_.KernelContext_GetInput(context, 1);
-  const std::string* str_pattern = ort_.GetTensorData<std::string>(pattern);
   const OrtValue* rewrite = ort_.KernelContext_GetInput(context, 2);
-  const std::string* str_rewrite = ort_.GetTensorData<std::string>(rewrite);
+  std::vector<std::string> str_input, str_pattern, str_rewrite;
+  GetTensorMutableDataString(ort_, context, input, str_input);
+  GetTensorMutableDataString(ort_, context, pattern, str_pattern);
+  GetTensorMutableDataString(ort_, context, rewrite, str_rewrite);
 
   // Verifications
   OrtTensorDimensions pattern_dimensions(ort_, pattern);
@@ -34,20 +36,19 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
   // Setup output
   OrtTensorDimensions dimensions(ort_, input);
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
-  std::string* out = ort_.GetTensorMutableData<std::string>(output);
 
   OrtTensorTypeAndShapeInfo* output_info = ort_.GetTensorTypeAndShape(output);
   int64_t size = ort_.GetTensorShapeElementCount(output_info);
   ort_.ReleaseTensorTypeAndShapeInfo(output_info);
 
-  re2::StringPiece piece(*str_rewrite);
-  re2::RE2 reg(*str_pattern);
+  re2::StringPiece piece(str_rewrite[0]);
+  re2::RE2 reg(str_pattern[0]);
 
   // Do computation
   for (int64_t i = 0; i < size; i++) {
-    out[i] = str_input[i];
-    re2::RE2::GlobalReplace(out + i, reg, piece);
+    re2::RE2::GlobalReplace(&(str_input[i]), reg, piece);
   }
+  FillTensorDataString(ort_, context, str_input, output);
 }
 
 void* CustomOpStringRegexReplace::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {

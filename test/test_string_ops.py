@@ -347,9 +347,11 @@ class TestPythonOpString(unittest.TestCase):
         onnx_model = _create_test_model_string_upper('')
         self.assertIn('op_type: "StringUpper"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-        input_1 = np.array([["Abcé"]])
+        input_1 = np.array([["R"], ["Abcé"], ["ABC"], ["A"]])
         txout = sess.run(None, {'input_1': input_1})
-        self.assertEqual(txout[0].tolist(), np.array([["ABCé"]]).tolist())
+        self.assertEqual(
+            txout[0].tolist(),
+            np.array([["R"], ["ABCé"], ["ABC"], ["A"]]).tolist())
 
     def test_string_upper_python(self):
         so = _ort.SessionOptions()

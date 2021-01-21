@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #include "string_join.hpp"
+#include "string_common.h"
 
 KernelStringJoin::KernelStringJoin(OrtApi api) : BaseKernel(api) {
 }
@@ -9,11 +10,12 @@ KernelStringJoin::KernelStringJoin(OrtApi api) : BaseKernel(api) {
 void KernelStringJoin::Compute(OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input_X = ort_.KernelContext_GetInput(context, 0);
-  const std::string* X = ort_.GetTensorData<std::string>(input_X);
   const OrtValue* input_sep = ort_.KernelContext_GetInput(context, 1);
-  const std::string* sep = ort_.GetTensorData<std::string>(input_sep);
   const OrtValue* input_axis = ort_.KernelContext_GetInput(context, 2);
   const int64_t* axis = ort_.GetTensorData<int64_t>(input_axis);
+  std::vector<std::string> X, sep;
+  GetTensorMutableDataString(ort_, context, input_X, X);
+  GetTensorMutableDataString(ort_, context, input_sep, sep);
 
   // Setup output
   OrtTensorDimensions dimensions_sep(ort_, input_sep);
@@ -38,11 +40,10 @@ void KernelStringJoin::Compute(OrtKernelContext* context) {
   }
 
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions_out.data(), dimensions_out.size());
-  std::string* out = ort_.GetTensorMutableData<std::string>(output);
-
   OrtTensorTypeAndShapeInfo* output_info = ort_.GetTensorTypeAndShape(output);
   int64_t size = ort_.GetTensorShapeElementCount(output_info);
   ort_.ReleaseTensorTypeAndShapeInfo(output_info);
+  std::vector<std::string> out(size);
 
   // Do computation
   int64_t h = 1;
@@ -59,12 +60,13 @@ void KernelStringJoin::Compute(OrtKernelContext* context) {
       std::ostringstream st;
       int64_t index = ri + li * inc;
       for (int64_t j = 0; j < n_red; ++j, index += h) {
-        st << X[index] << *sep;
+        st << X[index] << sep[0];
       }
       st << X[index];
       out[pos] = st.str();
     }
   }
+  FillTensorDataString(ort_, context, out, output);
 }
 
 void* CustomOpStringJoin::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
