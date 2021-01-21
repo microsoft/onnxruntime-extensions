@@ -94,7 +94,7 @@ Get the length of each string element in input tensor. Similar to the function `
 #### Outputs
 
 ***output: tensor(int64)***
-<dd>data length tensor.</dd>
+<dd>Data length tensor.</dd>
 
 #### Examples
 
@@ -149,20 +149,20 @@ Example:
 #### Attributes
 
 ***mapping_file_name:string***
-<dd>the name of your string to vector mapping file.</dd>
+<dd>The name of your string to vector mapping file.</dd>
 
 ***unmapping_value:list(int)***
-<dd>mapping result for unmapped string</dd>
+<dd>Mapping result for unmapped string</dd>
 
 #### Inputs
 
 ***data: tensor(string)***
-<dd></dd>
+<dd>Iut tensor</dd>
 
 #### Outputs
 
 ***output: tensor(T)***
-<dd>the mapping result of the input</dd>
+<dd>The mapping result of the input</dd>
 
 #### Type Constraints
 ***T:tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64), tensor(bfloat16), tensor(float16), tensor(float), tensor(double), tensor(bool)***
@@ -229,20 +229,20 @@ Example:
 #### Attributes
 
 ***mapping_file_name***
-<dd>the name of your string to vector mapping file.</dd>
+<dd>The name of your string to vector mapping file.</dd>
 
 ***unmapping_value***
-<dd>mapping result for unmapped string</dd>
+<dd>Mapping result for unmapped string</dd>
 
 #### Inputs
 
 ***data: tensor(string)***
-<dd></dd>
+<dd>Input tensor</dd>
 
 #### Outputs
 
 ***output: tensor(T)***
-<dd>the mapping result of the input</dd>
+<dd>The mapping result of the input</dd>
 
 #### Type Constraints
 ***T:tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64), tensor(bfloat16), tensor(float16), tensor(float), tensor(double), tensor(bool)***
@@ -288,12 +288,12 @@ GPT2Tokenizer that performs byte-level bpe tokenization to the input tensor, bas
 #### Inputs
 
 ***data: tensor(string)***
-<dd>the string tensor for tokenization</dd>
+<dd>The string tensor for tokenization</dd>
 
 #### Outputs
 
 ***output: tensor(int64)***
-<dd>the tokenized result of input</dd>
+<dd>The tokenized result of input</dd>
 
 #### Examples
 
@@ -324,7 +324,7 @@ BertTokenizer that performs WordPiece tokenization to the input tensor, based on
 #### Inputs
 
 ***data: tensor(string)***
-<dd>the string tensor for tokenization</dd>
+<dd>The string tensor for tokenization</dd>
 
 #### Outputs
 
