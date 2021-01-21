@@ -50,7 +50,7 @@ c = a[3:1:-1]
 <dd>The tensor of ending indices of corresponding string in data, which has same dimension of data.</dd>
 
 ***steps(optional): tensor(int64/int32)***
-<dd>The tensor of slice step of corresponding string in data, which has same dimension of data.</dd>
+<dd>The tensor of slice step of corresponding string in data, which has same dimension of data.If steps is empty tensor, we will use default value 1 for each string</dd>
 
 #### Outputs
 
