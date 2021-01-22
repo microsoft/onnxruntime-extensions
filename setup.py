@@ -87,7 +87,8 @@ class BuildCMakeExt(_build_ext):
                 self.spawn(['cmake', '--build', '.'] + build_args)
 
         if sys.platform == "win32":
-            self.copy_file(build_temp / config / 'ortcustomops.dll', self.get_ext_filename(extension.name))
+            self.copy_file(build_temp / config / 'ortcustomops.dll',
+                           self.get_ext_filename(extension.name))
 
 
 class BuildPy(_build_py):

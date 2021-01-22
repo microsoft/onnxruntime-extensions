@@ -64,7 +64,7 @@ if (ENABLE_TOKENIZER)
 endif()
 
 if (ENABLE_SENTENCEPIECE)
-  include(sentencepiece)
+  include(sentencepieceproject)
 endif()
 
 file(GLOB TARGET_SRC "./ocos/*.cc")
@@ -78,10 +78,11 @@ if (ENABLE_TOKENIZER)
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
 endif()
 
-#if (ENABLE_SENTENCEPIECE)
-#  file(GLOB stpiece_TARGET_SRC "sentencepiece/*.cc")
-#  list(APPEND TARGET_SRC ${stpiece_TARGET_SRC})
-#endif()
+if (ENABLE_SENTENCEPIECE)
+   file(GLOB stpiece_TARGET_SRC "sentencepiece/*.cc")
+   list(REMOVE_ITEM stpiece_TARGET_SRC INCLUDE REGEX ".*((spm)|(train)).*")
+   # list(APPEND TARGET_SRC ${stpiece_TARGET_SRC})
+endif()
 
 if(ENABLE_PYTHON)
   set(Python3_FIND_REGISTRY NEVER CACHE STRING "...")
@@ -114,6 +115,13 @@ if (WIN32)
 endif()
 
 set(external_libraries re2)
+target_include_directories(ortcustomops PUBLIC
+  ${PROJECT_SOURCE_DIR}/includes
+  ${PROJECT_SOURCE_DIR}/includes/onnxruntime
+  ${PROJECT_SOURCE_DIR}/ocos
+  ${googlere2_SOURCE_DIR}
+  ${farmhash_SOURCE_DIR}/src)
+
 if (ENABLE_TOKENIZER)
   target_compile_definitions(ortcustomops PRIVATE ENABLE_TOKENIZER)
   list(APPEND external_libraries nlohmann_json::nlohmann_json)
@@ -121,15 +129,9 @@ endif()
 
 if (ENABLE_SENTENCEPIECE)
   target_compile_definitions(ortcustomops PRIVATE ENABLE_SENTENCEPIECE)
-  list(APPEND external_libraries sentencepiece)
+  target_include_directories(ortcustomops PRIVATE ${sentencepieceproject_INCLUDE_DIRS})
+  list(APPEND external_libraries sentencepiece-static)
 endif()
-
-target_include_directories(ortcustomops PUBLIC
-  ${PROJECT_SOURCE_DIR}/includes
-  ${PROJECT_SOURCE_DIR}/includes/onnxruntime
-  ${PROJECT_SOURCE_DIR}/ocos
-  ${googlere2_SOURCE_DIR}
-  ${farmhash_SOURCE_DIR}/src)
 
 target_link_libraries(ortcustomops PRIVATE ${external_libraries})
 
@@ -165,10 +167,6 @@ if(ENABLE_PYTHON)
         SUFFIX "")
     endif()
   endif()
-endif()
-
-if (ENABLE_SENTENCEPIECE)
-  target_include_directories(ortcustomops PRIVATE ${sentencepiece_INCLUDE_DIRS})
 endif()
 
 # test section

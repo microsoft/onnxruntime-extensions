@@ -20,7 +20,9 @@ def load_piece(name):
             os.path.splitext(os.path.split(__file__)[-1])[0],
             name))
     with open(fullname, "r") as f:
-        return f.read()
+        content = f.read()
+    t = base64.decodebytes(content.encode())
+    return np.array(list(t), dtype=np.uint8)
 
 
 def _create_test_model_sentencepiece(prefix, domain='ai.onnx.contrib'):
@@ -44,7 +46,7 @@ def _create_test_model_sentencepiece(prefix, domain='ai.onnx.contrib'):
     mkv = helper.make_tensor_value_info
     graph = helper.make_graph(
         nodes, 'test0', [
-            mkv('model', onnx_proto.TensorProto.STRING, [None]),
+            mkv('model', onnx_proto.TensorProto.UINT8, [None]),
             mkv('inputs', onnx_proto.TensorProto.STRING, [None]),
             mkv('nbest_size', onnx_proto.TensorProto.FLOAT, [None]),
             mkv('alpha', onnx_proto.TensorProto.FLOAT, [None]),
@@ -88,7 +90,7 @@ def _create_test_model_ragged_to_sparse(prefix, domain='ai.onnx.contrib'):
     mkv = helper.make_tensor_value_info
     graph = helper.make_graph(
         nodes, 'test0', [
-            mkv('model', onnx_proto.TensorProto.STRING, [None]),
+            mkv('model', onnx_proto.TensorProto.UINT8, [None]),
             mkv('inputs', onnx_proto.TensorProto.STRING, [None]),
             mkv('nbest_size', onnx_proto.TensorProto.FLOAT, [None]),
             mkv('alpha', onnx_proto.TensorProto.FLOAT, [None]),
@@ -111,7 +113,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
     def setUpClass(cls):
 
         @onnx_op(op_type="PySentencepieceTokenizer",
-                 inputs=[PyCustomOpDef.dt_string,  # 0: model
+                 inputs=[PyCustomOpDef.dt_uint8,  # 0: model
                          PyCustomOpDef.dt_string,  # 1: input
                          PyCustomOpDef.dt_float,  # 2: nbest_size
                          PyCustomOpDef.dt_float,  # 3: alpha
@@ -127,7 +129,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
             api_docs/python/text/SentencepieceTokenizer.md>`_."""
             # The custom op implementation.
             tokenizer = SentencepieceTokenizer(
-                base64.decodebytes(model[0].encode()),
+                model=model.tobytes(),
                 reverse=reverse[0],
                 add_bos=add_bos[0],
                 add_eos=add_eos[0],
@@ -157,13 +159,37 @@ class TestPythonOpSentencePiece(unittest.TestCase):
 
         cls.RaggedTensorToSparse = ragged_tensor_to_sparse
 
+    def test_string_ragged_string_to_sparse_python(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_ragged_to_sparse('Py')
+        self.assertIn('op_type: "PyRaggedTensorToSparse"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        model = load_piece('model__6')
+
+        inputs = dict(
+            model=model,
+            inputs=np.array(
+                ["Hello world", "Hello world louder"], dtype=np.object),
+            nbest_size=np.array([0], dtype=np.float32),
+            alpha=np.array([0], dtype=np.float32),
+            add_bos=np.array([0], dtype=np.bool_),
+            add_eos=np.array([0], dtype=np.bool_),
+            reverse=np.array([0], dtype=np.bool_))
+        txout = sess.run(None, inputs)
+        temp = self.SentencepieceTokenizer(**inputs)
+        exp = self.RaggedTensorToSparse(temp[1], temp[0])
+        for i in range(0, 3):
+            assert_almost_equal(exp[i], txout[i])
+
     def test_string_sentencepiece_tokenizer(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         py_onnx_model = _create_test_model_sentencepiece('Py')
         self.assertIn('op_type: "PySentencepieceTokenizer"', str(py_onnx_model))
-        cc_onnx_model = _create_test_model_sentencepiece('')
-        self.assertIn('op_type: "SentencepieceTokenizer"', str(cc_onnx_model))
+        cc_onnx_model = _create_test_model_sentencepiece('')    
+        self.assertIn('op_type: "SentencepieceTokenizer"', str(cc_onnx_model))        
+        model = load_piece('model__6')
         py_sess = _ort.InferenceSession(py_onnx_model.SerializeToString(), so)
         cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so)
 
@@ -173,8 +199,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
                     with self.subTest(
                             alpha=alpha, nbest_size=nbest_size, bools=bools):
                         inputs = dict(
-                            model=np.array(
-                                [load_piece('model__6')], dtype=np.object),
+                            model=model,
                             inputs=np.array(
                                 ["Hello world", "Hello world louder"],
                                 dtype=np.object),
@@ -192,28 +217,10 @@ class TestPythonOpSentencePiece(unittest.TestCase):
                             assert_almost_equal(exp[i], py_txout[i])
                             assert_almost_equal(exp[i], cc_txout[i])
 
-    def test_string_ragged_string_to_sparse_python(self):
-        so = _ort.SessionOptions()
-        so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_ragged_to_sparse('Py')
-        self.assertIn('op_type: "PyRaggedTensorToSparse"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-
-        inputs = dict(
-            model=np.array([load_piece('model__6')], dtype=np.object),
-            inputs=np.array(
-                ["Hello world", "Hello world louder"], dtype=np.object),
-            nbest_size=np.array([0], dtype=np.float32),
-            alpha=np.array([0], dtype=np.float32),
-            add_bos=np.array([0], dtype=np.bool_),
-            add_eos=np.array([0], dtype=np.bool_),
-            reverse=np.array([0], dtype=np.bool_))
-        txout = sess.run(None, inputs)
-        temp = self.SentencepieceTokenizer(**inputs)
-        exp = self.RaggedTensorToSparse(temp[1], temp[0])
-        for i in range(0, 3):
-            assert_almost_equal(exp[i], txout[i])
 
 
 if __name__ == "__main__":
+    # cl = TestPythonOpSentencePiece()
+    # cl.setUpClass()
+    # cl.test_string_sentencepiece_tokenizer()
     unittest.main()

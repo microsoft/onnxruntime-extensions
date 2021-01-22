@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #include "sentencepiece_processor.h"
+#include "sentencepiece_model.pb.h"
 #include "sentencepiece_tokenizer.hpp"
 
 KernelSentencepieceTokenizer::KernelSentencepieceTokenizer(OrtApi api) : BaseKernel(api) {
@@ -17,7 +18,9 @@ static void _check_dimension_constant(Ort::CustomOpApi ort, const OrtValue* ort_
 void KernelSentencepieceTokenizer::Compute(OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* ort_model = ort_.KernelContext_GetInput(context, 0);
-  const std::string* str_model = ort_.GetTensorData<std::string>(ort_model);
+  const uint8_t* str_model = ort_.GetTensorData<uint8_t>(ort_model);
+
+  // Update with the new API
   const OrtValue* ort_input = ort_.KernelContext_GetInput(context, 1);
   const std::string* str_input = ort_.GetTensorData<std::string>(ort_input);
   const OrtValue* ort_nbest_size = ort_.KernelContext_GetInput(context, 2);
@@ -32,7 +35,7 @@ void KernelSentencepieceTokenizer::Compute(OrtKernelContext* context) {
   const bool* p_add_rev = ort_.GetTensorData<bool>(ort_add_rev);
 
   // Verifications
-  _check_dimension_constant(ort_, ort_model, "model");
+  OrtTensorDimensions model_size(ort_, ort_input);
   _check_dimension_constant(ort_, ort_nbest_size, "nbest_size");
   _check_dimension_constant(ort_, ort_alpha, "alpha");
   _check_dimension_constant(ort_, ort_add_bos, "add_bos");
@@ -41,9 +44,13 @@ void KernelSentencepieceTokenizer::Compute(OrtKernelContext* context) {
 
   // computation
   sentencepiece::SentencePieceProcessor* tokenizer = new sentencepiece::SentencePieceProcessor();
-  sentencepiece::util::Status status = tokenizer->LoadFromSerializedProto(str_model->c_str());
+  sentencepiece::ModelProto model_proto;  
+  model_proto.ParseFromArray(str_model, model_size[0]);
+  sentencepiece::util::Status status = tokenizer->Load(model_proto);
   if (!status.ok())
-    throw std::runtime_error("Failed to create SentencePieceProcessor instance.");
+    throw std::runtime_error(MakeString(
+        "Failed to create SentencePieceProcessor instance. Error code is ",
+        (int)status.code(), ". Message is '", status.error_message(), "'."));
 
   OrtTensorDimensions dimensions(ort_, ort_input);
   std::vector<std::vector<int>> output(dimensions[0]);
@@ -80,6 +87,7 @@ size_t CustomOpSentencepieceTokenizer::GetInputTypeCount() const {
 ONNXTensorElementDataType CustomOpSentencepieceTokenizer::GetInputType(size_t index) const {
   switch (index) {
     case 0:
+      return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
     case 1:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
     case 2:
