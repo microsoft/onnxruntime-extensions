@@ -19,23 +19,6 @@ jobs:
       versionSpec: '$(python.version)'
       addToPath: true
 
-  - task: DownloadGitHubRelease@0
-    inputs:
-      connection: 'wenbingl'
-      userRepository: 'microsoft/onnxruntime'
-      defaultVersionType: 'latest'
-      itemPattern: '*linux-x64*'
-      downloadPath: '$(Build.sourcesdirectory)'
-    displayName: Download the ONNXRuntime prebuilt package.
-
-  - task: ExtractFiles@1
-    inputs:
-      archiveFilePatterns: '**/*.tgz'
-      destinationFolder: '$(Build.sourcesdirectory)'
-      cleanDestinationFolder: false
-      overwriteExistingFiles: true
-    displayName: Unpack Ort package.
-
   - script: |
       python -m pip install --upgrade pip
       python -m pip install --upgrade setuptools
@@ -127,6 +110,24 @@ jobs:
 
   - script: conda create --yes --quiet --name pyenv -c conda-forge python=3.8 numpy
     displayName: Create Anaconda environment
+
+  - task: DownloadGitHubRelease@0
+    inputs:
+      connection: 'wenbingl'
+      userRepository: 'microsoft/onnxruntime'
+      defaultVersionType: 'specificVersion'
+      version: '34858191'
+      itemPattern: '*-win-x64-1.6.0*'
+      downloadPath: '$(Build.sourcesdirectory)'
+    displayName: Download the ONNXRuntime prebuilt package.
+
+  - task: ExtractFiles@1
+    inputs:
+      archiveFilePatterns: '**/*.zip'
+      destinationFolder: '$(Build.sourcesdirectory)'
+      cleanDestinationFolder: false
+      overwriteExistingFiles: true
+    displayName: Unpack Ort package.
 
   - script: |
       call activate pyenv
