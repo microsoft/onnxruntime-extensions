@@ -16,7 +16,9 @@
 
 CustomOpNegPos c_CustomOpNegPos;
 CustomOpSegmentSum c_CustomOpSegmentSum;
+#ifdef ENABLE_SENTENCEPIECE
 CustomOpSentencepieceTokenizer c_CustomOpSentencepieceTokenizer;
+#endif
 CustomOpStringEqual c_CustomOpStringEqual;
 CustomOpStringHash c_CustomOpStringHash;
 CustomOpStringHashFast c_CustomOpStringHashFast;
@@ -30,7 +32,9 @@ CustomOpTwo c_CustomOpTwo;
 OrtCustomOp* operator_lists[] = {
     &c_CustomOpNegPos,
     &c_CustomOpSegmentSum,
+#ifdef ENABLE_SENTENCEPIECE
     &c_CustomOpSentencepieceTokenizer,
+#endif
     &c_CustomOpStringEqual,
     &c_CustomOpStringHash,
     &c_CustomOpStringHashFast,
@@ -57,8 +61,7 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
   while (c_ops != nullptr) {
     if (auto status = ortApi->CustomOpDomain_Add(domain, c_ops)) {
       return status;
-    }
-    else {
+    } else {
       pyop_nameset.emplace(c_ops->GetName(c_ops));
     }
     ++count;
@@ -80,7 +83,7 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
   const OrtCustomOp** t_ops = LoadTokenizerSchemaList();
   while (*t_ops != nullptr) {
     if (pyop_nameset.find((*t_ops)->GetName(*t_ops)) == pyop_nameset.end()) {
-      if (auto status = ortApi->CustomOpDomain_Add(domain, *t_ops)){
+      if (auto status = ortApi->CustomOpDomain_Add(domain, *t_ops)) {
         return status;
       }
     }

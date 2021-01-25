@@ -4,6 +4,7 @@
 #include "sentencepiece_processor.h"
 #include "sentencepiece_model.pb.h"
 #include "sentencepiece_tokenizer.hpp"
+#include "string_common.h"
 
 KernelSentencepieceTokenizer::KernelSentencepieceTokenizer(OrtApi api) : BaseKernel(api) {
 }
@@ -22,7 +23,8 @@ void KernelSentencepieceTokenizer::Compute(OrtKernelContext* context) {
 
   // Update with the new API
   const OrtValue* ort_input = ort_.KernelContext_GetInput(context, 1);
-  const std::string* str_input = ort_.GetTensorData<std::string>(ort_input);
+  std::vector<std::string> str_input;
+  GetTensorMutableDataString(ort_, context, ort_input, str_input);
   const OrtValue* ort_nbest_size = ort_.KernelContext_GetInput(context, 2);
   const float* p_nbest_size = ort_.GetTensorData<float>(ort_nbest_size);
   const OrtValue* ort_alpha = ort_.KernelContext_GetInput(context, 3);
@@ -35,7 +37,7 @@ void KernelSentencepieceTokenizer::Compute(OrtKernelContext* context) {
   const bool* p_add_rev = ort_.GetTensorData<bool>(ort_add_rev);
 
   // Verifications
-  OrtTensorDimensions model_size(ort_, ort_input);
+  OrtTensorDimensions model_size(ort_, ort_model);
   _check_dimension_constant(ort_, ort_nbest_size, "nbest_size");
   _check_dimension_constant(ort_, ort_alpha, "alpha");
   _check_dimension_constant(ort_, ort_add_bos, "add_bos");
@@ -44,32 +46,60 @@ void KernelSentencepieceTokenizer::Compute(OrtKernelContext* context) {
 
   // computation
   sentencepiece::SentencePieceProcessor* tokenizer = new sentencepiece::SentencePieceProcessor();
-  sentencepiece::ModelProto model_proto;  
-  model_proto.ParseFromArray(str_model, model_size[0]);
+  sentencepiece::ModelProto model_proto;
+  model_proto.ParseFromArray(str_model, model_size.Size());
   sentencepiece::util::Status status = tokenizer->Load(model_proto);
   if (!status.ok())
     throw std::runtime_error(MakeString(
         "Failed to create SentencePieceProcessor instance. Error code is ",
         (int)status.code(), ". Message is '", status.error_message(), "'."));
 
-  OrtTensorDimensions dimensions(ort_, ort_input);
-  std::vector<std::vector<int>> output(dimensions[0]);
-  for (std::vector<std::vector<int>>::iterator it = output.begin(); it != output.end(); ++it, ++str_input) {
-    if (!tokenizer->Encode(str_input->c_str(), &(*it)).ok())
+  std::vector<int64_t> indices;
+  std::vector<int> content;
+  indices.reserve(str_input.size() + 1);
+  std::vector<int> inloop;
+  for (size_t i = 0; i < str_input.size(); ++i) {
+    if (!tokenizer->Encode(str_input[i].c_str(), &inloop).ok())
       throw std::runtime_error(MakeString(
-          "Unable to encode string '", *str_input, "'."));
-  }
+          "Unable to encode string '", str_input[i], "'."));
+    indices.push_back(content.size());
 
+    if (*p_add_rev) {
+      if (*p_add_eos) {
+        content.push_back(tokenizer->eos_id());
+      }
+      content.insert(content.end(), inloop.rbegin(), inloop.rend());
+      if (*p_add_bos) {
+        content.push_back(tokenizer->bos_id());
+      }
+    } else {
+      if (*p_add_bos) {
+        content.push_back(tokenizer->bos_id());
+      }
+      content.insert(content.end(), inloop.begin(), inloop.end());
+      if (*p_add_eos) {
+        content.push_back(tokenizer->eos_id());
+      }
+    }
+  }
+  indices.push_back(content.size());
+
+  // Should we cash the tokenizer?
   delete tokenizer;
 
   // Setup output
-  // OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
-  // int64_t* out = ort_.GetTensorMutableData<int64_t>(output);
-  // OrtTensorTypeAndShapeInfo* output_info = ort_.GetTensorTypeAndShape(output);
-  // int64_t size = ort_.GetTensorShapeElementCount(output_info);
-  // ort_.ReleaseTensorTypeAndShapeInfo(output_info);
+  std::vector<int64_t> size_content(1);
+  size_content[0] = content.size();
+  OrtValue* out_content = ort_.KernelContext_GetOutput(context, 0, size_content.data(), size_content.size());
 
-  throw std::runtime_error("not implemented yet");
+  std::vector<int64_t> size_indices(1);
+  size_indices[0] = indices.size();
+  OrtValue* out_indices = ort_.KernelContext_GetOutput(context, 1, size_indices.data(), size_indices.size());
+
+  int* ptr_content = ort_.GetTensorMutableData<int>(out_content);
+  memcpy(ptr_content, content.data(), content.size() * sizeof(int));
+  int64_t* ptr_indices = ort_.GetTensorMutableData<int64_t>(out_indices);
+  memcpy(ptr_indices, indices.data(), indices.size() * sizeof(int64_t));
 }
 
 void* CustomOpSentencepieceTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {

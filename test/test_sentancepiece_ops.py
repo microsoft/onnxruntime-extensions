@@ -220,7 +220,4 @@ class TestPythonOpSentencePiece(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    # cl = TestPythonOpSentencePiece()
-    # cl.setUpClass()
-    # cl.test_string_sentencepiece_tokenizer()
     unittest.main()
