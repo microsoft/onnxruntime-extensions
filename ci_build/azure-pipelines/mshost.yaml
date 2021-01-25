@@ -113,7 +113,7 @@ jobs:
 
   - task: DownloadGitHubRelease@0
     inputs:
-      connection: 'wenbingl'
+      connection: 'github_on_ms'
       userRepository: 'microsoft/onnxruntime'
       defaultVersionType: 'specificVersion'
       version: '34858191'
