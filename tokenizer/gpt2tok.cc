@@ -504,10 +504,11 @@ bool IsUnicodeSpace(char32_t ch) {
 }  // namespace
 
 struct KernelBpeTokenizer : BaseKernel {
-  KernelBpeTokenizer(OrtApi api, const VocabData* global_data)
-      : BaseKernel(api)
+  KernelBpeTokenizer(OrtApi api, const OrtKernelInfo* info, const VocabData* global_data)
+      : BaseKernel(api, info)
       , vocab_data_(global_data)
-      , token2id_cache_(30 * 1024){
+      , token2id_cache_(30 * 1024) {
+    std::cout << ort_.KernelInfoGetAttribute<std::string>(info_, "vocabulary_file") << std::endl;
   }
 
   static size_t const p_max_len = 1024;
@@ -617,7 +618,7 @@ struct CustomOpBpeTokenizer : Ort::CustomOpBase<CustomOpBpeTokenizer, KernelBpeT
   VocabData bbpe_tokenizer_;
 
   void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
-    return new KernelBpeTokenizer(api, &bbpe_tokenizer_);
+    return new KernelBpeTokenizer(api, info, &bbpe_tokenizer_);
   }
 
   const char* GetName() const {

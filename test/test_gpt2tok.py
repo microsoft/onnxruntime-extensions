@@ -36,7 +36,7 @@ def _bind_tokenizer(model, **kwargs):
     return expand_onnx_inputs(
         model, 'input_1',
         [helper.make_node(
-            'GPT2Tokenizer', ['string_input'], ['input_1'], name='bpetok', domain='ai.onnx.contrib')],
+            'GPT2Tokenizer', ['string_input'], ['input_1'], vocabulary_file="./path", name='bpetok', domain='ai.onnx.contrib')],
         [helper.make_tensor_value_info('string_input', onnx_proto.TensorProto.STRING, [None])],
     )
 
