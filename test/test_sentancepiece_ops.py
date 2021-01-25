@@ -272,6 +272,5 @@ class TestPythonOpSentencePiece(unittest.TestCase):
                             assert_almost_equal(exp[i], cc_txout[i])
 
 
-
 if __name__ == "__main__":
     unittest.main()
