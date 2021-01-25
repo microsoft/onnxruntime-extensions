@@ -65,6 +65,7 @@ endif()
 
 if (ENABLE_SENTENCEPIECE)
   include(sentencepieceproject)
+  include(base64project)
 endif()
 
 file(GLOB TARGET_SRC "./ocos/*.cc")
@@ -79,9 +80,9 @@ if (ENABLE_TOKENIZER)
 endif()
 
 if (ENABLE_SENTENCEPIECE)
-   file(GLOB stpiece_TARGET_SRC "sentencepiece/*.cc")
-   list(REMOVE_ITEM stpiece_TARGET_SRC INCLUDE REGEX ".*((spm)|(train)).*")
-   # list(APPEND TARGET_SRC ${stpiece_TARGET_SRC})
+  file(GLOB stpiece_TARGET_SRC "sentencepiece/*.cc")
+  list(REMOVE_ITEM stpiece_TARGET_SRC INCLUDE REGEX ".*((spm)|(train)).*")
+  list(APPEND TARGET_SRC ${base64_TARGET_SRC})
 endif()
 
 if(ENABLE_PYTHON)
@@ -131,6 +132,7 @@ if (ENABLE_SENTENCEPIECE)
   target_compile_definitions(ortcustomops PRIVATE ENABLE_SENTENCEPIECE)
   target_include_directories(ortcustomops PRIVATE ${sentencepieceproject_INCLUDE_DIRS})
   list(APPEND external_libraries sentencepiece-static)
+  target_include_directories(ortcustomops PRIVATE ${base64project_SOURCE_DIR})
 endif()
 
 target_link_libraries(ortcustomops PRIVATE ${external_libraries})

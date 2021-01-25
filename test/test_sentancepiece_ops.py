@@ -22,30 +22,30 @@ def load_piece(name):
     with open(fullname, "r") as f:
         content = f.read()
     t = base64.decodebytes(content.encode())
-    return np.array(list(t), dtype=np.uint8)
+    b64 = base64.b64encode(t)
+    return np.array(list(t), dtype=np.uint8), b64
 
 
-def _create_test_model_sentencepiece(prefix, domain='ai.onnx.contrib'):
+def _create_test_model_sentencepiece(prefix, model_b64, domain='ai.onnx.contrib'):
     nodes = []
-    nodes.append(helper.make_node(
-        '%sSentencepieceTokenizer' % prefix,
-        inputs=[
-            'model',  # model__6
-            'inputs',  # inputs
-            'nbest_size',
-            'alpha',
-            'add_bos',
-            'add_eos',
-            'reverse',
-        ],
-        outputs=['out0', 'out1'],
-        name='SentencepieceTokenizeOpName',
-        domain='ai.onnx.contrib',
-    ))
-
     mkv = helper.make_tensor_value_info
-    graph = helper.make_graph(
-        nodes, 'test0', [
+    if model_b64 is None:
+        nodes.append(helper.make_node(
+            '%sSentencepieceTokenizer' % prefix,
+            inputs=[
+                'model',  # model__6
+                'inputs',  # inputs
+                'nbest_size',
+                'alpha',
+                'add_bos',
+                'add_eos',
+                'reverse',
+            ],
+            outputs=['out0', 'out1'],
+            name='SentencepieceTokenizeOpName',
+            domain='ai.onnx.contrib',
+        ))
+        inputs = [
             mkv('model', onnx_proto.TensorProto.UINT8, [None]),
             mkv('inputs', onnx_proto.TensorProto.STRING, [None]),
             mkv('nbest_size', onnx_proto.TensorProto.FLOAT, [None]),
@@ -53,7 +53,34 @@ def _create_test_model_sentencepiece(prefix, domain='ai.onnx.contrib'):
             mkv('add_bos', onnx_proto.TensorProto.BOOL, [None]),
             mkv('add_eos', onnx_proto.TensorProto.BOOL, [None]),
             mkv('reverse', onnx_proto.TensorProto.BOOL, [None])
-        ], [
+        ]
+    else:
+        nodes.append(helper.make_node(
+            '%sSentencepieceTokenizer' % prefix,
+            inputs=[
+                'inputs',  # inputs
+                'nbest_size',
+                'alpha',
+                'add_bos',
+                'add_eos',
+                'reverse',
+            ],
+            outputs=['out0', 'out1'],
+            model=model_b64,
+            name='SentencepieceTokenizeOpName',
+            domain='ai.onnx.contrib',
+        ))
+        inputs = [
+            mkv('inputs', onnx_proto.TensorProto.STRING, [None]),
+            mkv('nbest_size', onnx_proto.TensorProto.FLOAT, [None]),
+            mkv('alpha', onnx_proto.TensorProto.FLOAT, [None]),
+            mkv('add_bos', onnx_proto.TensorProto.BOOL, [None]),
+            mkv('add_eos', onnx_proto.TensorProto.BOOL, [None]),
+            mkv('reverse', onnx_proto.TensorProto.BOOL, [None])
+        ]
+
+    graph = helper.make_graph(
+        nodes, 'test0', inputs, [
             mkv('out0', onnx_proto.TensorProto.INT32, [None]),
             mkv('out1', onnx_proto.TensorProto.INT64, [None])
         ])
@@ -62,23 +89,59 @@ def _create_test_model_sentencepiece(prefix, domain='ai.onnx.contrib'):
     return model
 
 
-def _create_test_model_ragged_to_sparse(prefix, domain='ai.onnx.contrib'):
+def _create_test_model_ragged_to_sparse(prefix, model_b64, domain='ai.onnx.contrib'):
     nodes = []
-    nodes.append(helper.make_node(
-        '%sSentencepieceTokenizer' % prefix,
-        inputs=[
-            'model',  # model__6
-            'inputs',  # inputs
-            'nbest_size',
-            'alpha',
-            'add_bos',
-            'add_eos',
-            'reverse',
-        ],
-        outputs=['tokout0', 'tokout1'],
-        name='SentencepieceTokenizeOpName',
-        domain='ai.onnx.contrib',
-    ))
+    mkv = helper.make_tensor_value_info
+    if model_b64 is None:
+        nodes.append(helper.make_node(
+            '%sSentencepieceTokenizer' % prefix,
+            inputs=[
+                'model',  # model__6
+                'inputs',  # inputs
+                'nbest_size',
+                'alpha',
+                'add_bos',
+                'add_eos',
+                'reverse',
+            ],
+            outputs=['tokout0', 'tokout1'],
+            name='SentencepieceTokenizeOpName',
+            domain='ai.onnx.contrib',
+        ))
+        inputs = [
+            mkv('model', onnx_proto.TensorProto.UINT8, [None]),
+            mkv('inputs', onnx_proto.TensorProto.STRING, [None]),
+            mkv('nbest_size', onnx_proto.TensorProto.FLOAT, [None]),
+            mkv('alpha', onnx_proto.TensorProto.FLOAT, [None]),
+            mkv('add_bos', onnx_proto.TensorProto.BOOL, [None]),
+            mkv('add_eos', onnx_proto.TensorProto.BOOL, [None]),
+            mkv('reverse', onnx_proto.TensorProto.BOOL, [None])
+        ]
+    else:
+        nodes.append(helper.make_node(
+            '%sSentencepieceTokenizer' % prefix,
+            inputs=[
+                'inputs',  # inputs
+                'nbest_size',
+                'alpha',
+                'add_bos',
+                'add_eos',
+                'reverse',
+            ],
+            outputs=['tokout0', 'tokout1'],
+            model=model_b64,
+            name='SentencepieceTokenizeOpName',
+            domain='ai.onnx.contrib',
+        ))
+        inputs = [
+            mkv('inputs', onnx_proto.TensorProto.STRING, [None]),
+            mkv('nbest_size', onnx_proto.TensorProto.FLOAT, [None]),
+            mkv('alpha', onnx_proto.TensorProto.FLOAT, [None]),
+            mkv('add_bos', onnx_proto.TensorProto.BOOL, [None]),
+            mkv('add_eos', onnx_proto.TensorProto.BOOL, [None]),
+            mkv('reverse', onnx_proto.TensorProto.BOOL, [None])
+        ]
+
     nodes.append(helper.make_node(
         '%sRaggedTensorToSparse' % prefix,
         inputs=['tokout1', 'tokout0'],
@@ -87,17 +150,8 @@ def _create_test_model_ragged_to_sparse(prefix, domain='ai.onnx.contrib'):
         domain='ai.onnx.contrib',
     ))
 
-    mkv = helper.make_tensor_value_info
     graph = helper.make_graph(
-        nodes, 'test0', [
-            mkv('model', onnx_proto.TensorProto.UINT8, [None]),
-            mkv('inputs', onnx_proto.TensorProto.STRING, [None]),
-            mkv('nbest_size', onnx_proto.TensorProto.FLOAT, [None]),
-            mkv('alpha', onnx_proto.TensorProto.FLOAT, [None]),
-            mkv('add_bos', onnx_proto.TensorProto.BOOL, [None]),
-            mkv('add_eos', onnx_proto.TensorProto.BOOL, [None]),
-            mkv('reverse', onnx_proto.TensorProto.BOOL, [None])
-        ], [
+        nodes, 'test0', inputs, [
             mkv('out0', onnx_proto.TensorProto.INT64, [None]),
             mkv('out1', onnx_proto.TensorProto.INT32, [None]),
             mkv('out2', onnx_proto.TensorProto.INT64, [None])
@@ -113,7 +167,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
     def setUpClass(cls):
 
         @onnx_op(op_type="PySentencepieceTokenizer",
-                 inputs=[PyCustomOpDef.dt_uint8,  # 0: model
+                 inputs=[PyCustomOpDef.dt_uint8,  # 0: input,
                          PyCustomOpDef.dt_string,  # 1: input
                          PyCustomOpDef.dt_float,  # 2: nbest_size
                          PyCustomOpDef.dt_float,  # 3: alpha
@@ -162,10 +216,10 @@ class TestPythonOpSentencePiece(unittest.TestCase):
     def test_string_ragged_string_to_sparse_python(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_ragged_to_sparse('Py')
+        model, model_b64 = load_piece('model__6')
+        onnx_model = _create_test_model_ragged_to_sparse('Py', None)
         self.assertIn('op_type: "PyRaggedTensorToSparse"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-        model = load_piece('model__6')
 
         inputs = dict(
             model=model,
@@ -185,11 +239,11 @@ class TestPythonOpSentencePiece(unittest.TestCase):
     def test_string_sentencepiece_tokenizer(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        py_onnx_model = _create_test_model_sentencepiece('Py')
+        model, model_b64 = load_piece('model__6')
+        py_onnx_model = _create_test_model_sentencepiece('Py', None)
         self.assertIn('op_type: "PySentencepieceTokenizer"', str(py_onnx_model))
-        cc_onnx_model = _create_test_model_sentencepiece('')    
-        self.assertIn('op_type: "SentencepieceTokenizer"', str(cc_onnx_model))        
-        model = load_piece('model__6')
+        cc_onnx_model = _create_test_model_sentencepiece('', model_b64)    
+        self.assertIn('op_type: "SentencepieceTokenizer"', str(cc_onnx_model))
         py_sess = _ort.InferenceSession(py_onnx_model.SerializeToString(), so)
         cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so)
 
@@ -209,10 +263,10 @@ class TestPythonOpSentencePiece(unittest.TestCase):
                             add_bos=np.array([bools & 1], dtype=np.bool_),
                             add_eos=np.array([bools & 2], dtype=np.bool_),
                             reverse=np.array([bools & 4], dtype=np.bool_))
-                        py_txout = py_sess.run(None, inputs)
-                        cc_txout = cc_sess.run(None, inputs)
-
                         exp = self.SentencepieceTokenizer(**inputs)
+                        py_txout = py_sess.run(None, inputs)
+                        del inputs['model']
+                        cc_txout = cc_sess.run(None, inputs)
                         for i in range(0, 2):
                             assert_almost_equal(exp[i], py_txout[i])
                             assert_almost_equal(exp[i], cc_txout[i])

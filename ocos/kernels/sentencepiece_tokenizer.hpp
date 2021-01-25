@@ -5,10 +5,14 @@
 
 #include "kernels.h"
 #include "utils.h"
+#include "sentencepiece_processor.h"
 
 struct KernelSentencepieceTokenizer : BaseKernel {
-  KernelSentencepieceTokenizer(OrtApi api);
+  KernelSentencepieceTokenizer(OrtApi api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
+
+ private:
+  sentencepiece::SentencePieceProcessor tokenizer_;
 };
 
 struct CustomOpSentencepieceTokenizer : Ort::CustomOpBase<CustomOpSentencepieceTokenizer, KernelSentencepieceTokenizer> {
