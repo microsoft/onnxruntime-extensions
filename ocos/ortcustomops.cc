@@ -5,6 +5,7 @@
 
 #include "kernels/op_equal.hpp"
 #include "kernels/op_segment_sum.hpp"
+#include "kernels/op_ragged.hpp"
 #include "kernels/sentencepiece_tokenizer.hpp"
 #include "kernels/string_hash.hpp"
 #include "kernels/string_join.hpp"
@@ -16,6 +17,7 @@
 
 CustomOpNegPos c_CustomOpNegPos;
 CustomOpSegmentSum c_CustomOpSegmentSum;
+CustomOpRagged c_CustomOpRagged;
 #ifdef ENABLE_SENTENCEPIECE
 CustomOpSentencepieceTokenizer c_CustomOpSentencepieceTokenizer;
 #endif
@@ -31,6 +33,7 @@ CustomOpTwo c_CustomOpTwo;
 
 OrtCustomOp* operator_lists[] = {
     &c_CustomOpNegPos,
+    &c_CustomOpRagged,
     &c_CustomOpSegmentSum,
 #ifdef ENABLE_SENTENCEPIECE
     &c_CustomOpSentencepieceTokenizer,

@@ -26,7 +26,8 @@ def load_piece(name):
     return np.array(list(t), dtype=np.uint8), b64
 
 
-def _create_test_model_sentencepiece(prefix, model_b64, domain='ai.onnx.contrib'):
+def _create_test_model_sentencepiece(
+        prefix, model_b64, domain='ai.onnx.contrib'):
     nodes = []
     mkv = helper.make_tensor_value_info
     if model_b64 is None:
@@ -89,7 +90,8 @@ def _create_test_model_sentencepiece(prefix, model_b64, domain='ai.onnx.contrib'
     return model
 
 
-def _create_test_model_ragged_to_sparse(prefix, model_b64, domain='ai.onnx.contrib'):
+def _create_test_model_ragged_to_sparse(
+        prefix, model_b64, domain='ai.onnx.contrib'):
     nodes = []
     mkv = helper.make_tensor_value_info
     if model_b64 is None:
@@ -117,6 +119,14 @@ def _create_test_model_ragged_to_sparse(prefix, model_b64, domain='ai.onnx.contr
             mkv('add_eos', onnx_proto.TensorProto.BOOL, [None]),
             mkv('reverse', onnx_proto.TensorProto.BOOL, [None])
         ]
+
+        nodes.append(helper.make_node(
+            '%sRaggedTensorToSparse' % prefix,
+            inputs=['tokout1', 'tokout0'],
+            outputs=['out0', 'out1', 'out2'],
+            name='RaggedTensorToSparse',
+            domain='ai.onnx.contrib',
+        ))
     else:
         nodes.append(helper.make_node(
             '%sSentencepieceTokenizer' % prefix,
@@ -142,13 +152,19 @@ def _create_test_model_ragged_to_sparse(prefix, model_b64, domain='ai.onnx.contr
             mkv('reverse', onnx_proto.TensorProto.BOOL, [None])
         ]
 
-    nodes.append(helper.make_node(
-        '%sRaggedTensorToSparse' % prefix,
-        inputs=['tokout1', 'tokout0'],
-        outputs=['out0', 'out1', 'out2'],
-        name='RaggedTensorToSparse',
-        domain='ai.onnx.contrib',
-    ))
+        nodes.append(helper.make_node(
+            'Shape', inputs=['tokout1'], outputs=['n_els']))
+
+        nodes.append(helper.make_node(
+            'Ragged',
+            inputs=['tokout1'],
+            outputs=['out0', 'out2'],
+            name='RaggedTensorToSparse',
+            domain='ai.onnx.contrib',
+        ))
+
+        nodes.append(helper.make_node(
+            'Identity', inputs=['tokout0'], outputs=['out1']))
 
     graph = helper.make_graph(
         nodes, 'test0', inputs, [
@@ -236,13 +252,41 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         for i in range(0, 3):
             assert_almost_equal(exp[i], txout[i])
 
+    def test_string_ragged_string_to_sparse_cc(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        model, model_b64 = load_piece('model__6')
+        onnx_model = _create_test_model_ragged_to_sparse('', model_b64)
+        self.assertIn('op_type: "Ragged"', str(onnx_model))
+        with open("text.txt", "w") as f:
+            f.write(str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+
+        inputs = dict(
+            model=model,
+            inputs=np.array(
+                ["Hello world", "Hello world louder"], dtype=np.object),
+            nbest_size=np.array([0], dtype=np.float32),
+            alpha=np.array([0], dtype=np.float32),
+            add_bos=np.array([0], dtype=np.bool_),
+            add_eos=np.array([0], dtype=np.bool_),
+            reverse=np.array([0], dtype=np.bool_))
+        temp = self.SentencepieceTokenizer(**inputs)
+        exp = self.RaggedTensorToSparse(temp[1], temp[0])
+        del inputs['model']
+        txout = sess.run(None, inputs)
+        assert_almost_equal(exp[0], txout[0])
+        assert_almost_equal(exp[1], txout[1])
+        assert_almost_equal(exp[2], txout[2])
+
     def test_string_sentencepiece_tokenizer(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         model, model_b64 = load_piece('model__6')
         py_onnx_model = _create_test_model_sentencepiece('Py', None)
-        self.assertIn('op_type: "PySentencepieceTokenizer"', str(py_onnx_model))
-        cc_onnx_model = _create_test_model_sentencepiece('', model_b64)    
+        self.assertIn(
+            'op_type: "PySentencepieceTokenizer"', str(py_onnx_model))
+        cc_onnx_model = _create_test_model_sentencepiece('', model_b64)
         self.assertIn('op_type: "SentencepieceTokenizer"', str(cc_onnx_model))
         py_sess = _ort.InferenceSession(py_onnx_model.SerializeToString(), so)
         cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so)
