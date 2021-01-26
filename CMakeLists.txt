@@ -56,6 +56,7 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
 include(FetchContent)
 include(googlere2)
 include(farmhash)
+include(base64project)
 FetchContent_GetProperties(googlere2)
 FetchContent_GetProperties(farmhash)
 
@@ -65,11 +66,9 @@ endif()
 
 if (ENABLE_SENTENCEPIECE)
   include(sentencepieceproject)
-  include(base64project)
 endif()
 
-file(GLOB TARGET_SRC "./ocos/*.cc")
-file(GLOB TARGET_HEADERS "./ocos/*.h*")
+file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/*.h*")
 file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
 file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc" "./ocos/pyfunc/*.h*")
 file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")
@@ -82,7 +81,6 @@ endif()
 if (ENABLE_SENTENCEPIECE)
   file(GLOB stpiece_TARGET_SRC "sentencepiece/*.cc")
   list(REMOVE_ITEM stpiece_TARGET_SRC INCLUDE REGEX ".*((spm)|(train)).*")
-  list(APPEND TARGET_SRC ${base64_TARGET_SRC})
 endif()
 
 if(ENABLE_PYTHON)
@@ -97,17 +95,17 @@ if(ENABLE_PYTHON)
   endif()
   Python3_add_library(ortcustomops SHARED 
     ${TARGET_SRC}
+    ${base64_TARGET_SRC}
     ${TARGET_SRC_KERNELS}
     ${TARGET_SRC_PYOPS}
-    ${TARGET_HEADERS}
     ${TARGET_SRC_HASH})
   target_compile_definitions(ortcustomops PRIVATE PYTHON_OP_SUPPORT)
 else()
   list(APPEND TARGET_SRC "${PROJECT_SOURCE_DIR}/ocos/ortcustomops.def")
   add_library(ortcustomops SHARED
     ${TARGET_SRC}
+    ${base64_TARGET_SRC}
     ${TARGET_SRC_KERNELS}
-    ${TARGET_HEADERS}
     ${TARGET_SRC_HASH})
 endif()
 
@@ -132,7 +130,6 @@ if (ENABLE_SENTENCEPIECE)
   target_compile_definitions(ortcustomops PRIVATE ENABLE_SENTENCEPIECE)
   target_include_directories(ortcustomops PRIVATE ${sentencepieceproject_INCLUDE_DIRS})
   list(APPEND external_libraries sentencepiece-static)
-  target_include_directories(ortcustomops PRIVATE ${base64project_SOURCE_DIR})
 endif()
 
 target_link_libraries(ortcustomops PRIVATE ${external_libraries})
@@ -160,7 +157,7 @@ if(ENABLE_PYTHON)
       ${NUMPY_INCLUDE_DIR}
       ${pybind11_INCLUDE_DIRS}
   )
-
+  
   if(NOT "${OCOS_EXTENTION_NAME}" STREQUAL "")
     if(NOT WIN32)
       set_target_properties(ortcustomops PROPERTIES
@@ -170,6 +167,9 @@ if(ENABLE_PYTHON)
     endif()
   endif()
 endif()
+
+# common
+target_include_directories(ortcustomops PRIVATE ${base64project_SOURCE_DIR})
 
 # test section
 include(googletest)
