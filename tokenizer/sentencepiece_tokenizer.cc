@@ -34,7 +34,7 @@ void KernelSentencepieceTokenizer::Compute(OrtKernelContext* context) {
   // Update with the new API
   const OrtValue* ort_input = ort_.KernelContext_GetInput(context, 0);
   std::vector<std::string> str_input;
-  GetTensorMutableDataString(ort_, context, ort_input, str_input);
+  GetTensorMutableDataString(api_, ort_, context, ort_input, str_input);
   const OrtValue* ort_nbest_size = ort_.KernelContext_GetInput(context, 1);
   const float* p_nbest_size = ort_.GetTensorData<float>(ort_nbest_size);
   const OrtValue* ort_alpha = ort_.KernelContext_GetInput(context, 2);
