@@ -9,9 +9,10 @@
 
 KernelSentencepieceTokenizer::KernelSentencepieceTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api) {
   std::string model_as_string = ort_.KernelInfoGetAttribute<std::string>(info, "model");
-  std::string model_as_bytes = base64_decode(model_as_string);
+  std::vector<uint8_t> model_as_bytes;
+  base64_decode(model_as_string, model_as_bytes);
   sentencepiece::ModelProto model_proto;
-  model_proto.ParseFromArray(model_as_bytes.c_str(), model_as_bytes.size());
+  model_proto.ParseFromArray(model_as_bytes.data(), model_as_bytes.size());
   sentencepiece::util::Status status = tokenizer_.Load(model_proto);
   if (!status.ok())
     throw std::runtime_error(MakeString(

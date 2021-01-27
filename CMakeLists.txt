@@ -55,7 +55,6 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
 include(FetchContent)
 include(googlere2)
 include(farmhash)
-include(base64project)
 FetchContent_GetProperties(googlere2)
 FetchContent_GetProperties(farmhash)
 
@@ -76,6 +75,11 @@ if (ENABLE_TOKENIZER)
   list(APPEND TARGET_SRC ${stpiece_TARGET_SRC})
 endif()
 
+add_library(ortcustomops_static STATIC
+  ${TARGET_SRC}
+  ${TARGET_SRC_KERNELS}
+  ${TARGET_SRC_HASH})
+
 if(ENABLE_PYTHON)
   set(Python3_FIND_REGISTRY NEVER CACHE STRING "...")
   if(NOT "${Python3_FIND_REGISTRY}" STREQUAL "NEVER")
@@ -88,7 +92,6 @@ if(ENABLE_PYTHON)
   endif()
   Python3_add_library(ortcustomops SHARED 
     ${TARGET_SRC}
-    ${base64_TARGET_SRC}
     ${TARGET_SRC_KERNELS}
     ${TARGET_SRC_PYOPS}
     ${TARGET_SRC_HASH})
@@ -97,7 +100,6 @@ else()
   list(APPEND TARGET_SRC "${PROJECT_SOURCE_DIR}/ocos/ortcustomops.def")
   add_library(ortcustomops SHARED
     ${TARGET_SRC}
-    ${base64_TARGET_SRC}
     ${TARGET_SRC_KERNELS}
     ${TARGET_SRC_HASH})
 endif()
@@ -114,6 +116,13 @@ target_include_directories(ortcustomops PUBLIC
   ${googlere2_SOURCE_DIR}
   ${farmhash_SOURCE_DIR}/src)
 
+target_include_directories(ortcustomops_static PUBLIC
+  ${PROJECT_SOURCE_DIR}/includes
+  ${PROJECT_SOURCE_DIR}/includes/onnxruntime
+  ${PROJECT_SOURCE_DIR}/ocos
+  ${googlere2_SOURCE_DIR}
+  ${farmhash_SOURCE_DIR}/src)
+
 if (ENABLE_TOKENIZER)
   target_compile_definitions(ortcustomops PRIVATE ENABLE_TOKENIZER)
   # GPT2
@@ -123,6 +132,12 @@ if (ENABLE_TOKENIZER)
     ${sentencepieceproject_INCLUDE_DIRS}
     ${PROJECT_SOURCE_DIR}/tokenizer)
   list(APPEND external_libraries sentencepiece-static)
+
+  target_compile_definitions(ortcustomops_static PRIVATE ENABLE_TOKENIZER)
+  target_include_directories(ortcustomops_static PRIVATE 
+    ${sentencepieceproject_INCLUDE_DIRS}
+    ${PROJECT_SOURCE_DIR}/tokenizer
+    ${json_SOURCE_DIR}/single_include)
 endif()
 
 target_link_libraries(ortcustomops PRIVATE ${external_libraries})
@@ -133,6 +148,13 @@ target_compile_definitions(ortcustomops PRIVATE
     NOMINMAX
     FARMHASH_NO_BUILTIN_EXPECT)
 target_compile_features(ortcustomops PUBLIC cxx_std_11)
+
+target_compile_definitions(ortcustomops_static PRIVATE
+    ONNX_NAMESPACE=onnx
+    ONNX_ML
+    NOMINMAX
+    FARMHASH_NO_BUILTIN_EXPECT)
+target_compile_features(ortcustomops_static PUBLIC cxx_std_11)
 
 if(ENABLE_PYTHON)
   include(pybind11)
@@ -161,13 +183,10 @@ if(ENABLE_PYTHON)
   endif()
 endif()
 
-# common
-target_include_directories(ortcustomops PRIVATE ${base64project_SOURCE_DIR})
-
 # test section
 include(googletest)
 file(GLOB TEST_SRC "${PROJECT_SOURCE_DIR}/test/test*.cc")
 add_executable(ortcustomops_test ${TEST_SRC})
-target_link_libraries(ortcustomops_test gtest_main ortcustomops ${external_libraries})
+target_link_libraries(ortcustomops_test gtest_main ortcustomops_static ${external_libraries})
 
 add_test(NAME ortcustomops_test COMMAND test)
