@@ -168,7 +168,7 @@ struct PyCustomOpDefImpl : public PyCustomOpDef {
   }
 
   static py::object BuildPyObjFromTensor(
-      Ort::CustomOpApi& ort, OrtKernelContext* context, const OrtValue* value,
+      OrtApi& api, Ort::CustomOpApi& ort, OrtKernelContext* context, const OrtValue* value,
       const shape_t& shape, ONNXTensorElementDataType dtype) {
     std::vector<npy_intp> npy_dims;
     for (auto n : shape) {
@@ -184,7 +184,7 @@ struct PyCustomOpDefImpl : public PyCustomOpDef {
       py::object* outObj = static_cast<py::object*>(out_ptr);
       auto size = calc_size_from_shape(shape);
       std::vector<std::string> src;
-      GetTensorMutableDataString(ort, context, value, src);
+      GetTensorMutableDataString(api, ort, context, value, src);
       for (int i = 0; i < size; ++i) {
         outObj[i] = py::cast(src[i]);
       }
@@ -257,7 +257,7 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
     py::list pyinputs;
     for (auto it = inputs.begin(); it != inputs.end(); ++it) {
       py::object input0 = PyCustomOpDefImpl::BuildPyObjFromTensor(
-          ort_, context, it->input_X, it->dimensions, it->dtype);
+          api_, ort_, context, it->input_X, it->dimensions, it->dtype);
       pyinputs.append(input0);
     }
 
@@ -276,7 +276,7 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
 
       if (o_dtype == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
         std::vector<std::string> retval = fetch[2 + no * 2].cast<std::vector<std::string>>();
-        FillTensorDataString(ort_, context, retval, output);
+        FillTensorDataString(api_, ort_, context, retval, output);
       } else {
         const void* Y = (const void*)ort_.GetTensorData<float>(output);
         void* out = (void*)ort_.GetTensorMutableData<float>(output);

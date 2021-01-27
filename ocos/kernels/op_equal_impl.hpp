@@ -114,7 +114,7 @@ inline bool Compare<std::string>::operator()(const std::string& s1, const std::s
 }
 
 template <typename T>
-void KernelEqual_Compute(Ort::CustomOpApi& ort_, OrtKernelContext* context) {
+void KernelEqual_Compute(const OrtApi& api, Ort::CustomOpApi& ort_, OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input_X = ort_.KernelContext_GetInput(context, 0);
   const T* X = ort_.GetTensorData<T>(input_X);
@@ -144,13 +144,13 @@ void KernelEqual_Compute(Ort::CustomOpApi& ort_, OrtKernelContext* context) {
 }
 
 template <>
-void KernelEqual_Compute<std::string>(Ort::CustomOpApi& ort_, OrtKernelContext* context) {
+void KernelEqual_Compute<std::string>(const OrtApi& api, Ort::CustomOpApi& ort_, OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input_X = ort_.KernelContext_GetInput(context, 0);
   const OrtValue* input_Y = ort_.KernelContext_GetInput(context, 1);
   std::vector<std::string> X, Y;
-  GetTensorMutableDataString(ort_, context, input_X, X);
-  GetTensorMutableDataString(ort_, context, input_Y, Y);
+  GetTensorMutableDataString(api, ort_, context, input_X, X);
+  GetTensorMutableDataString(api, ort_, context, input_Y, Y);
 
   // Setup output
   OrtTensorDimensions dimensions_x(ort_, input_X);

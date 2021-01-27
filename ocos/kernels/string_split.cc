@@ -14,8 +14,8 @@ void KernelStringSplit::Compute(OrtKernelContext* context) {
   const OrtValue* input_skip_empty = ort_.KernelContext_GetInput(context, 2);
   const bool* skip_empty = ort_.GetTensorData<bool>(input_skip_empty);
   std::vector<std::string> X, sep;
-  GetTensorMutableDataString(ort_, context, input_X, X);
-  GetTensorMutableDataString(ort_, context, input_sep, sep);
+  GetTensorMutableDataString(api_, ort_, context, input_X, X);
+  GetTensorMutableDataString(api_, ort_, context, input_sep, sep);
 
   // Setup output
   OrtTensorDimensions dimensions_sep(ort_, input_sep);
@@ -93,7 +93,7 @@ void KernelStringSplit::Compute(OrtKernelContext* context) {
   memcpy(p_indices, indices.data(), indices.size() * sizeof(int64_t));
   p_shape[0] = dimensions[0];
   p_shape[1] = maxc;
-  FillTensorDataString(ort_, context, words, out_text);
+  FillTensorDataString(api_, ort_, context, words, out_text);
 }
 
 void* CustomOpStringSplit::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
