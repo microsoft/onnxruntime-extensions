@@ -17,9 +17,9 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
   const OrtValue* pattern = ort_.KernelContext_GetInput(context, 1);
   const OrtValue* rewrite = ort_.KernelContext_GetInput(context, 2);
   std::vector<std::string> str_input, str_pattern, str_rewrite;
-  GetTensorMutableDataString(ort_, context, input, str_input);
-  GetTensorMutableDataString(ort_, context, pattern, str_pattern);
-  GetTensorMutableDataString(ort_, context, rewrite, str_rewrite);
+  GetTensorMutableDataString(api_, ort_, context, input, str_input);
+  GetTensorMutableDataString(api_, ort_, context, pattern, str_pattern);
+  GetTensorMutableDataString(api_, ort_, context, rewrite, str_rewrite);
 
   // Verifications
   OrtTensorDimensions pattern_dimensions(ort_, pattern);
@@ -48,7 +48,7 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
   for (int64_t i = 0; i < size; i++) {
     re2::RE2::GlobalReplace(&(str_input[i]), reg, piece);
   }
-  FillTensorDataString(ort_, context, str_input, output);
+  FillTensorDataString(api_, ort_, context, str_input, output);
 }
 
 void* CustomOpStringRegexReplace::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {

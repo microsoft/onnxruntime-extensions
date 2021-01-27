@@ -9,7 +9,7 @@ KernelStringEqual::KernelStringEqual(OrtApi api) : BaseKernel(api) {
 }
 
 void KernelStringEqual::Compute(OrtKernelContext* context) {
-  KernelEqual_Compute<std::string>(ort_, context);
+  KernelEqual_Compute<std::string>(api_, ort_, context);
 }
 
 size_t CustomOpStringEqual::GetInputTypeCount() const {

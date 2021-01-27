@@ -588,7 +588,7 @@ public:
     // Setup inputs
     const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
     std::vector<std::string> str_input;
-    GetTensorMutableDataString(ort_, context, input, str_input);
+    GetTensorMutableDataString(api_, ort_, context, input, str_input);
 
     OrtTensorDimensions dimensions(ort_, input);
     int tok_res[p_max_len];
