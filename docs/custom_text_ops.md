@@ -16,8 +16,6 @@
 |StringToVector|  Under development|
 |VectorToString| Under development |
 
-
-
 ### Tokenizer
 
 |**Operator**|**Support State**|
@@ -26,36 +24,43 @@
 |BertTokenizer| Under development |
 |XLNetTokenizer| Under development |
 
-
 ## Auxiliary String Operator
 
 [TODO: Add existing operators]
 
 ### <a name="StringSlice"></a><a name="StringSlice">**StringSlice**</a>
+
 Do the slice operation to each string element in input tensor. Similar to string slice in python
+
 ```python
 a = "abcdef"
 b = a[1:2]
 c = a[3:1:-1]
 ```
+
 #### Inputs
 
 ***data: tensor(string)***
-<dd>String tensor to extract slices from.</dd>
+
+String tensor to extract slices from.
 
 ***starts: tensor(int64/int32)***
-<dd>The tensor of starting indices of corresponding string in data, which has same dimension of data.</dd>
+
+The tensor of starting indices of corresponding string in data, which has same dimension of data.
 
 ***ends: tensor(int64/int32)***
-<dd>The tensor of ending indices of corresponding string in data, which has same dimension of data.</dd>
+
+The tensor of ending indices of corresponding string in data, which has same dimension of data.
 
 ***steps(optional): tensor(int64/int32)***
-<dd>The tensor of slice step of corresponding string in data, which has same dimension of data.If steps is empty tensor, we will use default value 1 for each string</dd>
+
+The tensor of slice step of corresponding string in data, which has same dimension of data.If steps is empty tensor, we will use default value 1 for each string
 
 #### Outputs
 
 ***output: tensor(string)***
-<dd>Sliced data tensor.</dd>
+
+Sliced data tensor.
 
 #### Examples
 
@@ -80,6 +85,7 @@ steps = np.array([1, 1], dtype=np.int64)
 expect(node, inputs=[x, starts, ends, axes, steps], outputs=[y],
        name='test_string_slice')
 ```
+
 </details>
 
 ### <a name="StringLength"></a><a name="StringLength">**StringLength**</a>
@@ -89,12 +95,14 @@ Get the length of each string element in input tensor. Similar to the function `
 #### Inputs 
 
 ***data: tensor(string)***
-<dd>String tensor to get length of its each string element.</dd>
+
+String tensor to get length of its each string element.
 
 #### Outputs
 
 ***output: tensor(int64)***
-<dd>Data length tensor.</dd>
+
+Data length tensor.
 
 #### Examples
 
@@ -149,25 +157,29 @@ Example:
 #### Attributes
 
 ***mapping_file_name:string***
-<dd>The name of your string to vector mapping file.</dd>
+
+The name of your string to vector mapping file.
 
 ***unmapping_value:list(int)***
-<dd>Mapping result for unmapped string</dd>
+
+Mapping result for unmapped string
 
 #### Inputs
 
 ***data: tensor(string)***
-<dd>Iut tensor</dd>
+
+Iut tensor
 
 #### Outputs
 
 ***output: tensor(T)***
-<dd>The mapping result of the input</dd>
+
+The mapping result of the input
 
 #### Type Constraints
 ***T:tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64), tensor(bfloat16), tensor(float16), tensor(float), tensor(double), tensor(bool)***
-<dd>Constrain input and output types to numerical tensors.</dd>
 
+Constrain input and output types to numerical tensors.
 
 #### Examples
 
@@ -197,6 +209,7 @@ y = np.array([[0,0,1,2],[0,1,3,4],[0,0,0,0]], type=np.int64)
 expect(node, inputs=[x], outputs=[y],
        name='test_string_to_vector')
 ```
+
 </details>
 
 ### <a name="VectorToString"></a><a name="VectorToString">**VectorToString**</a>
@@ -229,24 +242,29 @@ Example:
 #### Attributes
 
 ***mapping_file_name***
-<dd>The name of your string to vector mapping file.</dd>
+
+The name of your string to vector mapping file.
 
 ***unmapping_value***
-<dd>Mapping result for unmapped string</dd>
+
+Mapping result for unmapped string
 
 #### Inputs
 
 ***data: tensor(string)***
-<dd>Input tensor</dd>
+
+Input tensor
 
 #### Outputs
 
 ***output: tensor(T)***
-<dd>The mapping result of the input</dd>
+
+The mapping result of the input
 
 #### Type Constraints
 ***T:tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64), tensor(bfloat16), tensor(float16), tensor(float), tensor(double), tensor(bool)***
-<dd>Constrain input and output types to numerical tensors.</dd>
+
+Constrain input and output types to numerical tensors.
 
 
 #### Examples
@@ -285,15 +303,28 @@ expect(node, inputs=[x], outputs=[y],
 
 GPT2Tokenizer that performs byte-level bpe tokenization to the input tensor, based on the [hugging face version](https://huggingface.co/transformers/_modules/transformers/tokenization_gpt2.html).
 
+#### Attributes
+
+***vocab***
+
+The **content** of the vocabulary file, its format is same with [hugging face](https://huggingface.co/gpt2/resolve/main/vocab.json).
+
+***merges***
+
+The **content** of the merges file, its format is same with [hugging face](https://huggingface.co/gpt2/resolve/main/merges.txt).
+
+
 #### Inputs
 
 ***data: tensor(string)***
-<dd>The string tensor for tokenization</dd>
+
+The string tensor for tokenization
 
 #### Outputs
 
 ***output: tensor(int64)***
-<dd>The tokenized result of input</dd>
+
+The tokenized result of input
 
 #### Examples
 
@@ -301,11 +332,16 @@ GPT2Tokenizer that performs byte-level bpe tokenization to the input tensor, bas
 <summary>gpt2tokenizer</summary>
 
 ```python
+def get_file_content(path):
+  with open(path, "rb") as file:
+    return file.read()
 
 node = onnx.helper.make_node(
     'GPT2Tokenizer',
     inputs=['x'],
     outputs=['y'],
+    vocab=get_file_content(vocabulary_file),
+    merges=get_file_content(merges_file)
 )
 
 x = ["hey cortana"]
@@ -324,12 +360,14 @@ BertTokenizer that performs WordPiece tokenization to the input tensor, based on
 #### Inputs
 
 ***data: tensor(string)***
-<dd>The string tensor for tokenization</dd>
+
+The string tensor for tokenization
 
 #### Outputs
 
 ***output: tensor(int64)***
-<dd>Tokenized result of the input</dd>
+
+Tokenized result of the input
 
 #### Examples
 
@@ -347,12 +385,13 @@ GPT2Tokenizer that performs SentencePiece tokenization to the input tensor, base
 #### Inputs
 
 ***data: tensor(string)***
-<dd>The string tensor for tokenization</dd>
+The string tensor for tokenization
 
 #### Outputs
 
 ***output: tensor(int64)***
-<dd>Tokenized result of the input</dd>
+
+Tokenized result of the input
 
 #### Examples
 
