@@ -6,12 +6,12 @@
 #include "kernels.h"
 #include "utils.h"
 
-struct KernelRagged : BaseKernel {
-  KernelRagged(OrtApi api);
+struct KernelRaggedTensorToSparse : BaseKernel {
+  KernelRaggedTensorToSparse(OrtApi api);
   void Compute(OrtKernelContext* context);
 };
 
-struct CustomOpRagged : Ort::CustomOpBase<CustomOpRagged, KernelRagged> {
+struct CustomOpRaggedTensorToSparse : Ort::CustomOpBase<CustomOpRaggedTensorToSparse, KernelRaggedTensorToSparse> {
   size_t GetInputTypeCount() const;
   size_t GetOutputTypeCount() const;
   ONNXTensorElementDataType GetOutputType(size_t index) const;

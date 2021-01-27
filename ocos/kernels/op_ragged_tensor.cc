@@ -1,13 +1,13 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "op_ragged.hpp"
+#include "op_ragged_tensor.hpp"
 #include <string>
 
-KernelRagged::KernelRagged(OrtApi api) : BaseKernel(api) {
+KernelRaggedTensorToSparse::KernelRaggedTensorToSparse(OrtApi api) : BaseKernel(api) {
 }
 
-void KernelRagged::Compute(OrtKernelContext* context) {
+void KernelRaggedTensorToSparse::Compute(OrtKernelContext* context) {
   const OrtValue* n_elements = ort_.KernelContext_GetInput(context, 0);
   const int64_t* p_n_elements = ort_.GetTensorData<int64_t>(n_elements);
 
@@ -41,26 +41,26 @@ void KernelRagged::Compute(OrtKernelContext* context) {
   }
 }
 
-size_t CustomOpRagged::GetInputTypeCount() const {
+size_t CustomOpRaggedTensorToSparse::GetInputTypeCount() const {
   return 1;
 };
 
-size_t CustomOpRagged::GetOutputTypeCount() const {
+size_t CustomOpRaggedTensorToSparse::GetOutputTypeCount() const {
   return 2;
 };
 
-ONNXTensorElementDataType CustomOpRagged::GetOutputType(size_t /*index*/) const {
+ONNXTensorElementDataType CustomOpRaggedTensorToSparse::GetOutputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 };
 
-void* CustomOpRagged::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
-  return new KernelRagged(api);
+void* CustomOpRaggedTensorToSparse::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
+  return new KernelRaggedTensorToSparse(api);
 };
 
-const char* CustomOpRagged::GetName() const {
-  return "Ragged";
+const char* CustomOpRaggedTensorToSparse::GetName() const {
+  return "RaggedTensorToSparse";
 };
 
-ONNXTensorElementDataType CustomOpRagged::GetInputType(size_t /*index*/) const {
+ONNXTensorElementDataType CustomOpRaggedTensorToSparse::GetInputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 };

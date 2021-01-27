@@ -5,8 +5,7 @@
 
 #include "kernels/op_equal.hpp"
 #include "kernels/op_segment_sum.hpp"
-#include "kernels/op_ragged.hpp"
-#include "kernels/sentencepiece_tokenizer.hpp"
+#include "kernels/op_ragged_tensor.hpp"
 #include "kernels/string_hash.hpp"
 #include "kernels/string_join.hpp"
 #include "kernels/string_regex_replace.hpp"
@@ -15,10 +14,14 @@
 #include "kernels/test_output.hpp"
 #include "utils.h"
 
+#ifdef ENABLE_TOKENIZER
+#include "sentencepiece_tokenizer.hpp"
+#endif
+
 CustomOpNegPos c_CustomOpNegPos;
 CustomOpSegmentSum c_CustomOpSegmentSum;
-CustomOpRagged c_CustomOpRagged;
-#ifdef ENABLE_SENTENCEPIECE
+CustomOpRaggedTensorToSparse c_CustomOpRaggedTensorToSparse;
+#ifdef ENABLE_TOKENIZER
 CustomOpSentencepieceTokenizer c_CustomOpSentencepieceTokenizer;
 #endif
 CustomOpStringEqual c_CustomOpStringEqual;
@@ -33,9 +36,9 @@ CustomOpTwo c_CustomOpTwo;
 
 OrtCustomOp* operator_lists[] = {
     &c_CustomOpNegPos,
-    &c_CustomOpRagged,
+    &c_CustomOpRaggedTensorToSparse,
     &c_CustomOpSegmentSum,
-#ifdef ENABLE_SENTENCEPIECE
+#ifdef ENABLE_TOKENIZER
     &c_CustomOpSentencepieceTokenizer,
 #endif
     &c_CustomOpStringEqual,

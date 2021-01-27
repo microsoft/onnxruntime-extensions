@@ -156,7 +156,7 @@ def _create_test_model_ragged_to_sparse(
             'Shape', inputs=['tokout1'], outputs=['n_els']))
 
         nodes.append(helper.make_node(
-            'Ragged',
+            'RaggedTensorToSparse',
             inputs=['tokout1'],
             outputs=['out0', 'out2'],
             name='RaggedTensorToSparse',
@@ -257,9 +257,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         model, model_b64 = load_piece('model__6')
         onnx_model = _create_test_model_ragged_to_sparse('', model_b64)
-        self.assertIn('op_type: "Ragged"', str(onnx_model))
-        with open("text.txt", "w") as f:
-            f.write(str(onnx_model))
+        self.assertIn('op_type: "RaggedTensorToSparse"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
 
         inputs = dict(

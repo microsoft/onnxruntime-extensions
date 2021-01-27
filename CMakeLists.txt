@@ -21,7 +21,6 @@ include(CheckLanguage)
 option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
 option(ENABLE_PYTHON "Enable Python component building" OFF)
 option(ENABLE_TOKENIZER "Enable the tokenizer building" ON)
-option(ENABLE_SENTENCEPIECE "Enable SentencepieceTokenier building" ON)
 
 if(NOT CC_OPTIMIZE)
   message("!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
@@ -60,27 +59,21 @@ include(base64project)
 FetchContent_GetProperties(googlere2)
 FetchContent_GetProperties(farmhash)
 
-if (ENABLE_TOKENIZER)
-  include(json)
-endif()
-
-if (ENABLE_SENTENCEPIECE)
-  include(sentencepieceproject)
-endif()
-
 file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/*.h*")
 file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
 file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc" "./ocos/pyfunc/*.h*")
 file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")
 
 if (ENABLE_TOKENIZER)
-  file(GLOB tok_TARGET_SRC "tokenizer/*.cc")
+  # GPT2
+  include(json)
+  file(GLOB tok_TARGET_SRC "tokenizer/gpt*.cc" "tokenizer/unicode*.*")
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
-endif()
-
-if (ENABLE_SENTENCEPIECE)
-  file(GLOB stpiece_TARGET_SRC "sentencepiece/*.cc")
+  # SentencePiece
+  include(sentencepieceproject)
+  file(GLOB stpiece_TARGET_SRC "sentencepiece/*.cc" "tokenizer/sentencepiece*")
   list(REMOVE_ITEM stpiece_TARGET_SRC INCLUDE REGEX ".*((spm)|(train)).*")
+  list(APPEND TARGET_SRC ${stpiece_TARGET_SRC})
 endif()
 
 if(ENABLE_PYTHON)
@@ -123,12 +116,12 @@ target_include_directories(ortcustomops PUBLIC
 
 if (ENABLE_TOKENIZER)
   target_compile_definitions(ortcustomops PRIVATE ENABLE_TOKENIZER)
+  # GPT2
   list(APPEND external_libraries nlohmann_json::nlohmann_json)
-endif()
-
-if (ENABLE_SENTENCEPIECE)
-  target_compile_definitions(ortcustomops PRIVATE ENABLE_SENTENCEPIECE)
-  target_include_directories(ortcustomops PRIVATE ${sentencepieceproject_INCLUDE_DIRS})
+  # SentencePiece
+  target_include_directories(ortcustomops PRIVATE 
+    ${sentencepieceproject_INCLUDE_DIRS}
+    ${PROJECT_SOURCE_DIR}/tokenizer)
   list(APPEND external_libraries sentencepiece-static)
 endif()
 

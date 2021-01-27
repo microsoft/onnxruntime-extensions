@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "kernels.h"
+#include "kernels/kernels.h"
 #include "utils.h"
 #include "sentencepiece_processor.h"
 

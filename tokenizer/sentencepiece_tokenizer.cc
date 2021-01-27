@@ -4,7 +4,7 @@
 #include "sentencepiece_processor.h"
 #include "sentencepiece_model.pb.h"
 #include "sentencepiece_tokenizer.hpp"
-#include "string_common.h"
+#include "kernels/string_common.h"
 #include "base64.h"
 
 KernelSentencepieceTokenizer::KernelSentencepieceTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api) {
