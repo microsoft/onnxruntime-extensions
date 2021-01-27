@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <fstream>
+#include <sstream>
 #include <iostream>
 #include <list>
 #include <memory>
@@ -25,21 +26,20 @@ namespace {
 class SpecialTokenMap {
  public:
   void Add(std::u32string p_str, int p_id) {
-      auto it = token_map_.find(p_str);
-      if (it != token_map_.end()) {
-        if (it->second != p_id) {
-          throw std::runtime_error("Duplicate special tokens");
-        }
+    auto it = token_map_.find(p_str);
+    if (it != token_map_.end()) {
+      if (it->second != p_id) {
+        throw std::runtime_error("Duplicate special tokens");
       }
-      else {
-        token_map_[p_str] = p_id;
-        token_list_.push_back(SpecialTokenInfo(std::move(p_str), p_id));
-      }
+    } else {
+      token_map_[p_str] = p_id;
+      token_list_.push_back(SpecialTokenInfo(std::move(p_str), p_id));
+    }
   }
 
   std::list<std::pair<std::u32string, int>> SplitBySpeicalTokens(std::u32string input) const {
     std::list<std::pair<std::u32string, int>> res;
-    res.push_back({std::move(input), -1});
+    res.emplace_back(std::move(input), -1);
     for (const auto& st : token_list_) {
       std::list<std::pair<std::u32string, int>> new_split_res;
       for (auto& str : res) {
@@ -50,22 +50,22 @@ class SpecialTokenMap {
         auto it = str.first.begin();
         size_t search_pos = 0;
         while (it != str.first.end()) {
-  #if defined(__APPLE__)
+#if defined(__APPLE__)
           auto search_it = std::search(it, str.first.end(), st.str.begin(), st.str.end());
-  #else
+#else
           auto search_it = std::search(it, str.first.end(),
-            std::boyer_moore_searcher(st.str.begin(), st.str.end()));
-  #endif
+                                       std::boyer_moore_searcher(st.str.begin(), st.str.end()));
+#endif
           if (search_it == str.first.end()) {
-            new_split_res.push_back({str.first.substr(search_pos), -1});
+            new_split_res.emplace_back(str.first.substr(search_pos), -1);
             break;
           }
           auto prefixLen = search_it - it;
           if (prefixLen != 0) {
-            new_split_res.push_back({str.first.substr(search_pos, prefixLen), -1});
+            new_split_res.emplace_back(str.first.substr(search_pos, prefixLen), -1);
             search_pos += prefixLen;
           }
-          new_split_res.push_back({str.first.substr(search_pos, st.str.size()), st.id});
+          new_split_res.emplace_back(str.first.substr(search_pos, st.str.size()), st.id);
           it = search_it + st.str.size();
           search_pos += st.str.size();
         }
@@ -81,9 +81,8 @@ class SpecialTokenMap {
     int id;
 
     SpecialTokenInfo(std::u32string p_str, int p_id)
-      : str(std::move(p_str))
-      , id(p_id) {
-      if (str.size() == 0) {
+        : str(std::move(p_str)), id(p_id) {
+      if (str.empty()) {
         throw std::runtime_error("Empty special token.");
       }
     }
@@ -97,7 +96,7 @@ using json = nlohmann::json;
 class VocabData {
  public:
   VocabData()
-    : unk_id_(-1) {
+      : unk_id_(-1) {
   }
 
   struct BpeNode {
@@ -105,14 +104,9 @@ class VocabData {
     int value;
   };
 
-  void Load(const char* p_vocab_file, const char* p_bpe_file, const char* unk_token, const char* special_tokens) {
-    std::ifstream json_stream(p_vocab_file);
-    if (json_stream.fail()) {
-      throw std::runtime_error(std::string("Fail to open vocab file: ") + p_vocab_file);
-    }
-
+  void Load(std::istream& vocab_stream, std::istream& merges_stream, const char* unk_token, const char* special_tokens) {
     json tok_json;
-    json_stream >> tok_json;
+    vocab_stream >> tok_json;
     vocab_map_ = std::move(tok_json.get<std::unordered_map<std::string, int>>());
 
     auto it = vocab_map_.find(unk_token);
@@ -125,28 +119,28 @@ class VocabData {
     }
 
     std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> str_convert;
-    for (auto i = 33; i <= 126; ++i)
+    for (auto i = 33; i <= 126; ++i) {
       byte_encoder_[i] = GetVocabIndex(str_convert.to_bytes((char32_t)i));
-    for (auto i = 161; i <= 172; ++i)
+    }
+    for (auto i = 161; i <= 172; ++i) {
       byte_encoder_[i] = GetVocabIndex(str_convert.to_bytes((char32_t)i));
-    for (auto i = 174; i <= 255; ++i)
+    }
+    for (auto i = 174; i <= 255; ++i) {
       byte_encoder_[i] = GetVocabIndex(str_convert.to_bytes((char32_t)i));
+    }
 
     int index = 256;
-    for (auto i = 0; i < 33; ++i)
+    for (auto i = 0; i < 33; ++i) {
       byte_encoder_[i] = GetVocabIndex(str_convert.to_bytes((char32_t)(index++)));
-    for (auto i = 127; i < 161; ++i)
-      byte_encoder_[i] = GetVocabIndex(str_convert.to_bytes((char32_t)(index++)));
-    byte_encoder_[173] = GetVocabIndex(str_convert.to_bytes((char32_t)(index++)));
-
-    std::ifstream bpe_file(p_bpe_file);
-    if (bpe_file.fail()) {
-      throw std::runtime_error(std::string("Fail to open vocab file: ") + p_bpe_file);
     }
+    for (auto i = 127; i < 161; ++i) {
+      byte_encoder_[i] = GetVocabIndex(str_convert.to_bytes((char32_t)(index++)));
+    }
+    byte_encoder_[173] = GetVocabIndex(str_convert.to_bytes((char32_t)(index++)));
 
     index = 0;
     std::string line;
-    while (std::getline(bpe_file, line)) {
+    while (std::getline(merges_stream, line)) {
       line = std::regex_replace(line, std::regex("\r"), "");
       if (line.empty()) continue;
       if ((line[0] == '#') && (index == 0)) continue;
@@ -164,18 +158,19 @@ class VocabData {
       bpe_map_[key] = value;
     }
 
-    if (special_tokens) {
+    if (special_tokens != nullptr) {
       std::istringstream istrea(special_tokens);
-      std::string line;
+
       while (istrea >> line) {
         if (line.empty()) continue;
         line = std::regex_replace(line, std::regex("\r"), "");
         std::u32string line_32 = str_convert.from_bytes(line);
         int id = (int)vocab_map_.size();
-        if (auto it = vocab_map_.find(line); it != vocab_map_.end())
+        if (auto it = vocab_map_.find(line); it != vocab_map_.end()) {
           id = it->second;
-        else
+        } else {
           vocab_map_[line] = id;
+        }
         special_tokens_.Add(std::move(line_32), id);
       }
     }
@@ -186,7 +181,6 @@ class VocabData {
     }
   }
 
- public:
   void bpe(std::list<int>& vals) const {
     while (vals.size() >= 2) {
       auto pos_it = vals.end();
@@ -307,7 +301,9 @@ class TokenWithRegularExp {
         std::u32string_view res = m_text.substr(0, 2);
         m_text = m_text.substr(2);
         return res;
-      } else if (m_text.size() > 2) {
+      }
+
+      if (m_text.size() > 2) {
         if (((m_text[1] == U'r') && (m_text[2] == U'e')) ||
             ((m_text[1] == U'v') && (m_text[2] == U'e')) ||
             ((m_text[1] == U'l') && (m_text[2] == U'l'))) {
@@ -396,12 +392,11 @@ class TokenWithRegularExp {
         std::u32string_view res = m_text.substr(0, i);
         m_text = m_text.substr(i);
         return res;
-      } else  // \s+
-      {
-        std::u32string_view res = m_text.substr(0, i);
-        m_text = m_text.substr(i);
-        return res;
       }
+      // \s+
+      std::u32string_view res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
     }
 
     return std::u32string_view{};
@@ -422,47 +417,6 @@ class TokenWithRegularExp {
 
  private:
   std::u32string_view m_text;
-};
-
-template <typename TKey, typename TVal>
-class LruCache {
- public:
-  LruCache(size_t capacity)
-      : m_capacity(capacity) {}
-
-  const TVal* Get(const TKey& key) {
-    if (auto it = m_map.find(key); it != m_map.end()) {
-      TVal* res = &(it->second->second);
-
-      auto lst_it = it->second;
-      m_list.splice(m_list.begin(), m_list, lst_it);
-      if (lst_it != m_list.begin()) {
-        throw std::runtime_error("list splice error in LruCache");
-      }
-      return res;
-    }
-    return nullptr;
-  }
-
-  void Set(const TKey& key, TVal value) {
-    if (auto try_res = Get(key); try_res) {
-      m_list.front().second = std::move(value);
-      return;
-    }
-    if (m_list.size() >= m_capacity) {
-      auto p = m_list.back().first;
-      m_map.erase(p);
-      m_list.pop_back();
-    }
-    m_list.push_front(std::pair<TKey, TVal>{key, std::move(value)});
-    m_map.insert({key, m_list.begin()});
-  }
-
- private:
-  using ListElem = std::list<std::pair<TKey, TVal>>;
-  ListElem m_list;
-  std::unordered_map<TKey, typename ListElem::iterator> m_map;
-  const size_t m_capacity;
 };
 
 //Note: the following logic comes from CPython: unicodetype_db.h (_PyUnicode_IsWhitespace)
@@ -504,33 +458,43 @@ bool IsUnicodeSpace(char32_t ch) {
 }  // namespace
 
 struct KernelBpeTokenizer : BaseKernel {
-  KernelBpeTokenizer(OrtApi api, const OrtKernelInfo* info, const VocabData* global_data)
-      : BaseKernel(api, info)
-      , vocab_data_(global_data)
-      , token2id_cache_(30 * 1024) {
-    std::cout << ort_.KernelInfoGetAttribute<std::string>(info_, "vocabulary_file") << std::endl;
+  KernelBpeTokenizer(OrtApi api, const OrtKernelInfo* info)
+      : BaseKernel(api, info) {
+    std::string vocab = ort_.KernelInfoGetAttribute<std::string>(info, "vocab");
+    if (vocab.empty()) {
+      throw std::runtime_error("vocabulary shouldn't be empty.");
+    }
+
+    std::string merges = ort_.KernelInfoGetAttribute<std::string>(info, "merges");
+    if (merges.empty()) {
+      throw std::runtime_error("merges shouldn't be empty.");
+    }
+
+    std::stringstream vocabu_stream(vocab);
+    std::stringstream merges_stream(merges);
+    bbpe_tokenizer_.Load(vocabu_stream, merges_stream, "<|endoftext|>", "<|endoftext|>");
   }
 
   static size_t const p_max_len = 1024;
   using StringConverter = std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t>;
 
  private:
-  LruCache<std::string, std::list<int>> token2id_cache_;
   std::list<int> byte_list_;
-  const VocabData* vocab_data_;
+  VocabData bbpe_tokenizer_;
 
-public:
+ public:
   size_t Tokenize(const std::u32string& input_32, int* p_index_array, size_t p_max_len) {
     bool all_space_chars = true;
     for (auto ch : input_32) {
-      if (IsUnicodeSpace(ch)) {
+      if (!IsUnicodeSpace(ch)) {
         all_space_chars = false;
         break;
       }
     }
     if (all_space_chars) return 0;
 
-    auto special_token_split_res = vocab_data_->SplitBySpeicalTokens(input_32);
+    auto special_token_split_res = bbpe_tokenizer_.SplitBySpeicalTokens(input_32);
+
     size_t cur_id = 0;
     TokenWithRegularExp regcmp;
     StringConverter str_convert;
@@ -552,17 +516,14 @@ public:
         if (!b) break;
 
         std::string utf8_token = str_convert.to_bytes(tok.data(), tok.data() + tok.size());
-        auto cache_res = token2id_cache_.Get(utf8_token);
-        if (cache_res) {
-          UpdateOutputBuffer(p_index_array, p_max_len, cur_id, *cache_res);
-        } else {
-          byte_list_.clear();
-          for (char& cp : utf8_token)
-            byte_list_.push_back(vocab_data_->ByteEncoder()[(unsigned char)cp]);
-          vocab_data_->bpe(byte_list_);
-          token2id_cache_.Set(utf8_token, byte_list_);
-          UpdateOutputBuffer(p_index_array, p_max_len, cur_id, byte_list_);
+
+        byte_list_.clear();
+        for (char& cp : utf8_token) {
+          byte_list_.push_back(bbpe_tokenizer_.ByteEncoder()[(unsigned char)cp]);
         }
+
+        bbpe_tokenizer_.bpe(byte_list_);
+        UpdateOutputBuffer(p_index_array, p_max_len, cur_id, byte_list_);
       }
     }
     return cur_id;
@@ -614,11 +575,8 @@ public:
 };
 
 struct CustomOpBpeTokenizer : Ort::CustomOpBase<CustomOpBpeTokenizer, KernelBpeTokenizer> {
-
-  VocabData bbpe_tokenizer_;
-
   void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
-    return new KernelBpeTokenizer(api, info, &bbpe_tokenizer_);
+    return new KernelBpeTokenizer(api, info);
   }
 
   const char* GetName() const {
@@ -639,30 +597,12 @@ struct CustomOpBpeTokenizer : Ort::CustomOpBase<CustomOpBpeTokenizer, KernelBpeT
   ONNXTensorElementDataType GetOutputType(size_t index) const {
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   }
-
-  CustomOpBpeTokenizer() {
-    if (const char* filepath = std::getenv("GPT2TOKFILE")) {
-      std::string merges(filepath);
-      std::string vocab_ext(".vocab");
-      if (size_t pos = merges.find(vocab_ext); pos != std::string::npos) {
-        merges.replace(pos, vocab_ext.length(), ".merges.txt");
-        bbpe_tokenizer_.Load(filepath, merges.c_str(), "<|endoftext|>", "<|endoftext|>");
-      }
-      else{
-        throw std::runtime_error(std::string("cannot find the vocab file: ") + filepath);
-      }
-    }
-  }
-
-  ~CustomOpBpeTokenizer() {
-    // STL container objects in global data will be cleaned on their own.
-  }
 };
 
 const OrtCustomOp** LoadTokenizerSchemaList() {
   // create the global objects here to let the ORT catch the expection if any
   static std::unique_ptr<CustomOpBpeTokenizer> p_CoBpeTokenizer;
-  static const OrtCustomOp* c_DomainList[2] = {nullptr}; // {&c_CoBpeTokenizer, nullptr};
+  static const OrtCustomOp* c_DomainList[2] = {nullptr};  // {&c_CoBpeTokenizer, nullptr};
   static std::mutex mtx_loaded;
   std::lock_guard<std::mutex> lck(mtx_loaded);
   if (p_CoBpeTokenizer.get() == nullptr) {
