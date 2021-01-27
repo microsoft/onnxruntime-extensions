@@ -313,6 +313,41 @@ class TestPythonOpSentencePiece(unittest.TestCase):
                             assert_almost_equal(exp[i], py_txout[i])
                             assert_almost_equal(exp[i], cc_txout[i])
 
+    def test_string_sentencepiece_tokenizer_bin(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        model, model_b64 = load_piece('model__6')
+        modelb = bytes(model)
+        py_onnx_model = _create_test_model_sentencepiece('Py', None)
+        self.assertIn(
+            'op_type: "PySentencepieceTokenizer"', str(py_onnx_model))
+        cc_onnx_model = _create_test_model_sentencepiece('', modelb)
+        self.assertIn('op_type: "SentencepieceTokenizer"', str(cc_onnx_model))
+        py_sess = _ort.InferenceSession(py_onnx_model.SerializeToString(), so)
+        cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so)
+
+        alpha = 0
+        nbest_size = 0
+        bools = 0
+        inputs = dict(
+            model=model,
+            inputs=np.array(
+                ["Hello world", "Hello world louder"],
+                dtype=np.object),
+            nbest_size=np.array(
+                [nbest_size], dtype=np.float32),
+            alpha=np.array([alpha], dtype=np.float32),
+            add_bos=np.array([bools & 1], dtype=np.bool_),
+            add_eos=np.array([bools & 2], dtype=np.bool_),
+            reverse=np.array([bools & 4], dtype=np.bool_))
+        exp = self.SentencepieceTokenizer(**inputs)
+        py_txout = py_sess.run(None, inputs)
+        del inputs['model']
+        cc_txout = cc_sess.run(None, inputs)
+        for i in range(0, 2):
+            assert_almost_equal(exp[i], py_txout[i])
+            assert_almost_equal(exp[i], cc_txout[i])
+
 
 if __name__ == "__main__":
     unittest.main()

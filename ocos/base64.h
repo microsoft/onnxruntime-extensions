@@ -5,5 +5,5 @@
 #include <string>
 #include <vector>
 
-void base64_encode(const std::vector<uint8_t>& input, std::string& encoded);
-void base64_decode(const std::string& encoded, std::vector<uint8_t>& raw);
+bool base64_encode(const std::vector<uint8_t>& input, std::string& encoded);
+bool base64_decode(const std::string& encoded, std::vector<uint8_t>& raw);

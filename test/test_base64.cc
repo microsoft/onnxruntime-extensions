@@ -38,3 +38,17 @@ TEST(base64, decode_encode) {
   base64_encode(raw, encode2);
   EXPECT_EQ(encoded, encode2);
 }
+
+TEST(base64, decode_false_length) {
+  std::vector<uint8_t> raw;
+  std::string encoded("AAAC0HAAQ=");
+  bool r = base64_decode(encoded, raw);
+  EXPECT_EQ(r, false);
+}
+
+TEST(base64, decode_false_wrong) {
+  std::vector<uint8_t> raw;
+  std::string encoded("AAECAC0HAA'=");
+  bool r = base64_decode(encoded, raw);
+  EXPECT_EQ(r, false);
+}

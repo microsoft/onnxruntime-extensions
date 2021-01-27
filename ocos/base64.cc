@@ -6,7 +6,7 @@
 const static std::string encodeLookup("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
 const static char padCharacter = '=';
 
-void base64_encode(const std::vector<uint8_t>& input, std::string& encoded) {
+bool base64_encode(const std::vector<uint8_t>& input, std::string& encoded) {
   encoded.clear();
   encoded.reserve(((input.size() / 3) + (input.size() % 3 > 0)) * 4);
   uint32_t temp;
@@ -22,13 +22,13 @@ void base64_encode(const std::vector<uint8_t>& input, std::string& encoded) {
   }
   switch (input.size() % 3) {
     case 1:
-      temp = (*cursor++) << 16;  //Convert to big endian
+      temp = (*cursor++) << 16;
       encoded.append(1, encodeLookup[(temp & 0x00FC0000) >> 18]);
       encoded.append(1, encodeLookup[(temp & 0x0003F000) >> 12]);
       encoded.append(2, padCharacter);
       break;
     case 2:
-      temp = (*cursor++) << 16;  //Convert to big endian
+      temp = (*cursor++) << 16;
       temp += (*cursor++) << 8;
       encoded.append(1, encodeLookup[(temp & 0x00FC0000) >> 18]);
       encoded.append(1, encodeLookup[(temp & 0x0003F000) >> 12]);
@@ -37,11 +37,12 @@ void base64_encode(const std::vector<uint8_t>& input, std::string& encoded) {
       break;
   }
   encoded = encoded;
+  return true;
 }
 
-void base64_decode(const std::string& input, std::vector<uint8_t>& decoded) {
-  if (input.length() % 4)  //Sanity check
-    throw std::runtime_error("Non-Valid base64!");
+bool base64_decode(const std::string& input, std::vector<uint8_t>& decoded) {
+  if (input.length() % 4)
+    return false;
   size_t padding = 0;
   if (input.length()) {
     if (input[input.length() - 1] == padCharacter)
@@ -49,43 +50,44 @@ void base64_decode(const std::string& input, std::vector<uint8_t>& decoded) {
     if (input[input.length() - 2] == padCharacter)
       padding++;
   }
-  //Setup a vector to hold the result
+
   decoded.clear();
   decoded.reserve(((input.length() / 4) * 3) - padding);
-  uint32_t temp = 0;  //Holds decoded quanta
+  uint32_t temp = 0;
   std::string::const_iterator cursor = input.begin();
-  while (cursor < input.end()) {
-    for (size_t quantumPosition = 0; quantumPosition < 4; quantumPosition++) {
+  size_t quantumPosition;
+  while (cursor != input.end()) {
+    for (quantumPosition = 0; quantumPosition < 4; ++quantumPosition) {
       temp <<= 6;
-      if (*cursor >= 0x41 && *cursor <= 0x5A)  // This area will need tweaking if
-        temp |= *cursor - 0x41;                // you are using an alternate alphabet
+      if (*cursor >= 0x41 && *cursor <= 0x5A)
+        temp |= *cursor - 0x41;
       else if (*cursor >= 0x61 && *cursor <= 0x7A)
         temp |= *cursor - 0x47;
       else if (*cursor >= 0x30 && *cursor <= 0x39)
         temp |= *cursor + 0x04;
       else if (*cursor == 0x2B)
-        temp |= 0x3E;  //change to 0x2D for URL alphabet
+        temp |= 0x3E;
       else if (*cursor == 0x2F)
-        temp |= 0x3F;                    //change to 0x5F for URL alphabet
-      else if (*cursor == padCharacter)  //pad
-      {
+        temp |= 0x3F;
+      else if (*cursor == padCharacter) {
         switch (input.end() - cursor) {
           case 1:  //One pad character
             decoded.push_back((temp >> 16) & 0x000000FF);
             decoded.push_back((temp >> 8) & 0x000000FF);
-            return;
+            return true;
           case 2:  //Two pad characters
             decoded.push_back((temp >> 10) & 0x000000FF);
-            return;
+            return true;
           default:
-            throw std::runtime_error("Invalid Padding in Base 64!");
+            return false;
         }
       } else
-        throw std::runtime_error("Non-Valid Character in Base 64!");
-      cursor++;
+        return false;
+      ++cursor;
     }
     decoded.push_back((temp >> 16) & 0x000000FF);
     decoded.push_back((temp >> 8) & 0x000000FF);
     decoded.push_back((temp)&0x000000FF);
   }
+  return true;
 }
