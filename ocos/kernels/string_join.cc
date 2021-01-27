@@ -14,8 +14,8 @@ void KernelStringJoin::Compute(OrtKernelContext* context) {
   const OrtValue* input_axis = ort_.KernelContext_GetInput(context, 2);
   const int64_t* axis = ort_.GetTensorData<int64_t>(input_axis);
   std::vector<std::string> X, sep;
-  GetTensorMutableDataString(ort_, context, input_X, X);
-  GetTensorMutableDataString(ort_, context, input_sep, sep);
+  GetTensorMutableDataString(api_, ort_, context, input_X, X);
+  GetTensorMutableDataString(api_, ort_, context, input_sep, sep);
 
   // Setup output
   OrtTensorDimensions dimensions_sep(ort_, input_sep);
@@ -66,7 +66,7 @@ void KernelStringJoin::Compute(OrtKernelContext* context) {
       out[pos] = st.str();
     }
   }
-  FillTensorDataString(ort_, context, out, output);
+  FillTensorDataString(api_, ort_, context, out, output);
 }
 
 void* CustomOpStringJoin::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {

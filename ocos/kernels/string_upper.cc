@@ -14,7 +14,7 @@ void KernelStringUpper::Compute(OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input_X = ort_.KernelContext_GetInput(context, 0);
   std::vector<std::string> X;
-  GetTensorMutableDataString(ort_, context, input_X, X);
+  GetTensorMutableDataString(api_, ort_, context, input_X, X);
 
   // Setup output
   OrtTensorDimensions dimensions(ort_, input_X);
@@ -26,7 +26,7 @@ void KernelStringUpper::Compute(OrtKernelContext* context) {
   }
 
   // Fills the output
-  FillTensorDataString(ort_, context, X, output);
+  FillTensorDataString(api_, ort_, context, X, output);
 }
 
 void* CustomOpStringUpper::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
