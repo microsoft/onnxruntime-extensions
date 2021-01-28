@@ -12,6 +12,7 @@ struct PyCustomOpDef {
   uint64_t obj_id;
   std::vector<int> input_types;
   std::vector<int> output_types;
+  std::vector<std::string> attribute_names;
 
   static void AddOp(const PyCustomOpDef* cod);
 
@@ -36,10 +37,13 @@ struct PyCustomOpDef {
 };
 
 struct PyCustomOpKernel {
-  PyCustomOpKernel(OrtApi api, uint64_t id)
+  PyCustomOpKernel(OrtApi api, const OrtKernelInfo* info, uint64_t id, const std::vector<std::string>& attribute_names)
       : api_(api),
         ort_(api_),
         obj_id_(id) {
+    for (std::vector<std::string>::const_iterator it = attribute_names.begin(); it != attribute_names.end(); ++it) {
+      attribute_values_[*it] = ort_.KernelInfoGetAttribute<std::string>(info, it->c_str());
+    }
   }
 
   void Compute(OrtKernelContext* context);
@@ -48,6 +52,7 @@ struct PyCustomOpKernel {
   OrtApi api_;  // keep a copy of the struct, whose ref is used in the ort_
   Ort::CustomOpApi ort_;
   uint64_t obj_id_;
+  std::map<std::string, std::string> attribute_values_;
 };
 
 struct PyCustomOpFactory : Ort::CustomOpBase<PyCustomOpFactory, PyCustomOpKernel> {
@@ -57,8 +62,8 @@ struct PyCustomOpFactory : Ort::CustomOpBase<PyCustomOpFactory, PyCustomOpKernel
     opdef_ = opdef;
   }
 
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
-    return new PyCustomOpKernel(api, opdef_->obj_id);
+  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+    return new PyCustomOpKernel(api, info, opdef_->obj_id, opdef_->attribute_names);
   };
 
   const char* GetName() const {
@@ -72,6 +77,10 @@ struct PyCustomOpFactory : Ort::CustomOpBase<PyCustomOpFactory, PyCustomOpKernel
   ONNXTensorElementDataType GetInputType(size_t idx) const {
     return static_cast<ONNXTensorElementDataType>(opdef_->input_types[idx]);
   };
+
+  const std::vector<std::string>& GetAttributesNames() const {
+    return opdef_->attribute_names;
+  }
 
   size_t GetOutputTypeCount() const {
     return opdef_->output_types.size();

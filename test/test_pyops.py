@@ -88,6 +88,25 @@ def _create_test_model_2outputs(prefix, domain='ai.onnx.contrib'):
     return model
 
 
+def _create_test_join():
+    nodes = []
+    nodes[0:] = [helper.make_node('Identity', ['input_1'], ['identity1'])]
+    nodes[1:] = [helper.make_node('PyOpJoin',
+                                  ['identity1'], ['joined'],
+                                  sep=',',
+                                  domain='ai.onnx.contrib')]
+
+    input0 = helper.make_tensor_value_info(
+        'input_1', onnx_proto.TensorProto.STRING, [None, None])
+    output0 = helper.make_tensor_value_info(
+        'joined', onnx_proto.TensorProto.STRING, [None])
+
+    graph = helper.make_graph(nodes, 'test0', [input0], [output0])
+    model = helper.make_model(
+        graph, opset_imports=[helper.make_operatorsetid('ai.onnx.contrib', 1)])
+    return model
+
+
 class TestPythonOp(unittest.TestCase):
 
     @classmethod
@@ -114,6 +133,17 @@ class TestPythonOp(unittest.TestCase):
             neg[x > 0] = 0
             pos[x < 0] = 0
             return neg, pos
+
+        @onnx_op(op_type="PyOpJoin",
+                 inputs=[PyCustomOpDef.dt_string],
+                 outputs=[PyCustomOpDef.dt_string],
+                 atts=['sep'])
+        def join(xs, **kwargs):
+            sep = kwargs.get('sep', '')
+            res = []
+            for x in xs:
+                res.append(sep.join(x))
+            return np.array(res, dtype=np.object)
 
     def test_python_operator(self):
         so = _ort.SessionOptions()
@@ -181,6 +211,17 @@ class TestPythonOp(unittest.TestCase):
             'input_1': np.random.rand(3, 5).astype(np.float32),
             'input_2': np.random.rand(3, 5).astype(np.float32)})
         self.assertEqual(res[0].shape, (3, 5))
+
+    def test_python_join(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_join()
+        self.assertIn('op_type: "PyOpJoin"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        arr = np.array([["a", "b"]], dtype=np.object)
+        txout = sess.run(None, {'input_1': arr})
+        exp = np.array(["a,b"], dtype=np.object)
+        assert txout[0][0] == exp[0]
 
 
 if __name__ == "__main__":
