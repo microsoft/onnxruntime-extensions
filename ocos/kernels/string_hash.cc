@@ -85,7 +85,7 @@ void KernelStringHash::Compute(OrtKernelContext* context) {
   const OrtValue* num_buckets = ort_.KernelContext_GetInput(context, 1);
   const int64_t* p_num_buckets = ort_.GetTensorData<int64_t>(num_buckets);
   std::vector<std::string> str_input;
-  GetTensorMutableDataString(ort_, context, input, str_input);
+  GetTensorMutableDataString(api_, ort_, context, input, str_input);
 
   // Verifications
   OrtTensorDimensions num_buckets_dimensions(ort_, num_buckets);
@@ -148,7 +148,7 @@ void KernelStringHashFast::Compute(OrtKernelContext* context) {
   const OrtValue* num_buckets = ort_.KernelContext_GetInput(context, 1);
   const int64_t* p_num_buckets = ort_.GetTensorData<int64_t>(num_buckets);
   std::vector<std::string> str_input;
-  GetTensorMutableDataString(ort_, context, input, str_input);
+  GetTensorMutableDataString(api_, ort_, context, input, str_input);
 
   // Verifications
   OrtTensorDimensions num_buckets_dimensions(ort_, num_buckets);

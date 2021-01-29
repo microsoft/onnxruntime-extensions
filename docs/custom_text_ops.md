@@ -16,8 +16,6 @@
 |StringToVector|  Under development|
 |VectorToString| Under development |
 
-
-
 ### Tokenizer
 
 |**Operator**|**Support State**|
@@ -25,37 +23,45 @@
 |GPT2Tokenizer| Supported       |
 |BertTokenizer| Under development |
 |XLNetTokenizer| Under development |
-
+|SentencepieceTokenizer| Supported       |
 
 ## Auxiliary String Operator
 
 [TODO: Add existing operators]
 
 ### <a name="StringSlice"></a><a name="StringSlice">**StringSlice**</a>
+
 Do the slice operation to each string element in input tensor. Similar to string slice in python
+
 ```python
 a = "abcdef"
 b = a[1:2]
 c = a[3:1:-1]
 ```
+
 #### Inputs
 
 ***data: tensor(string)***
-<dd>String tensor to extract slices from.</dd>
+
+String tensor to extract slices from.
 
 ***starts: tensor(int64/int32)***
-<dd>The tensor of starting indices of corresponding string in data, which has same dimension of data.</dd>
+
+The tensor of starting indices of corresponding string in data, which has same dimension of data.
 
 ***ends: tensor(int64/int32)***
-<dd>The tensor of ending indices of corresponding string in data, which has same dimension of data.</dd>
+
+The tensor of ending indices of corresponding string in data, which has same dimension of data.
 
 ***steps(optional): tensor(int64/int32)***
-<dd>The tensor of slice step of corresponding string in data, which has same dimension of data.If steps is empty tensor, we will use default value 1 for each string</dd>
+
+The tensor of slice step of corresponding string in data, which has same dimension of data.If steps is empty tensor, we will use default value 1 for each string
 
 #### Outputs
 
 ***output: tensor(string)***
-<dd>Sliced data tensor.</dd>
+
+Sliced data tensor.
 
 #### Examples
 
@@ -80,6 +86,7 @@ steps = np.array([1, 1], dtype=np.int64)
 expect(node, inputs=[x, starts, ends, axes, steps], outputs=[y],
        name='test_string_slice')
 ```
+
 </details>
 
 ### <a name="StringLength"></a><a name="StringLength">**StringLength**</a>
@@ -89,12 +96,14 @@ Get the length of each string element in input tensor. Similar to the function `
 #### Inputs 
 
 ***data: tensor(string)***
-<dd>String tensor to get length of its each string element.</dd>
+
+String tensor to get length of its each string element.
 
 #### Outputs
 
 ***output: tensor(int64)***
-<dd>Data length tensor.</dd>
+
+Data length tensor.
 
 #### Examples
 
@@ -149,25 +158,29 @@ Example:
 #### Attributes
 
 ***mapping_file_name:string***
-<dd>The name of your string to vector mapping file.</dd>
+
+The name of your string to vector mapping file.
 
 ***unmapping_value:list(int)***
-<dd>Mapping result for unmapped string</dd>
+
+Mapping result for unmapped string
 
 #### Inputs
 
 ***data: tensor(string)***
-<dd>Iut tensor</dd>
+
+Iut tensor
 
 #### Outputs
 
 ***output: tensor(T)***
-<dd>The mapping result of the input</dd>
+
+The mapping result of the input
 
 #### Type Constraints
 ***T:tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64), tensor(bfloat16), tensor(float16), tensor(float), tensor(double), tensor(bool)***
-<dd>Constrain input and output types to numerical tensors.</dd>
 
+Constrain input and output types to numerical tensors.
 
 #### Examples
 
@@ -197,6 +210,7 @@ y = np.array([[0,0,1,2],[0,1,3,4],[0,0,0,0]], type=np.int64)
 expect(node, inputs=[x], outputs=[y],
        name='test_string_to_vector')
 ```
+
 </details>
 
 ### <a name="VectorToString"></a><a name="VectorToString">**VectorToString**</a>
@@ -229,24 +243,29 @@ Example:
 #### Attributes
 
 ***mapping_file_name***
-<dd>The name of your string to vector mapping file.</dd>
+
+The name of your string to vector mapping file.
 
 ***unmapping_value***
-<dd>Mapping result for unmapped string</dd>
+
+Mapping result for unmapped string
 
 #### Inputs
 
 ***data: tensor(string)***
-<dd>Input tensor</dd>
+
+Input tensor
 
 #### Outputs
 
 ***output: tensor(T)***
-<dd>The mapping result of the input</dd>
+
+The mapping result of the input
 
 #### Type Constraints
 ***T:tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64), tensor(bfloat16), tensor(float16), tensor(float), tensor(double), tensor(bool)***
-<dd>Constrain input and output types to numerical tensors.</dd>
+
+Constrain input and output types to numerical tensors.
 
 
 #### Examples
@@ -285,15 +304,28 @@ expect(node, inputs=[x], outputs=[y],
 
 GPT2Tokenizer that performs byte-level bpe tokenization to the input tensor, based on the [hugging face version](https://huggingface.co/transformers/_modules/transformers/tokenization_gpt2.html).
 
+#### Attributes
+
+***vocab***
+
+The **content** of the vocabulary file, its format is same with [hugging face](https://huggingface.co/gpt2/resolve/main/vocab.json).
+
+***merges***
+
+The **content** of the merges file, its format is same with [hugging face](https://huggingface.co/gpt2/resolve/main/merges.txt).
+
+
 #### Inputs
 
 ***data: tensor(string)***
-<dd>The string tensor for tokenization</dd>
+
+The string tensor for tokenization
 
 #### Outputs
 
 ***output: tensor(int64)***
-<dd>The tokenized result of input</dd>
+
+The tokenized result of input
 
 #### Examples
 
@@ -301,11 +333,16 @@ GPT2Tokenizer that performs byte-level bpe tokenization to the input tensor, bas
 <summary>gpt2tokenizer</summary>
 
 ```python
+def get_file_content(path):
+  with open(path, "rb") as file:
+    return file.read()
 
 node = onnx.helper.make_node(
     'GPT2Tokenizer',
     inputs=['x'],
     outputs=['y'],
+    vocab=get_file_content(vocabulary_file),
+    merges=get_file_content(merges_file)
 )
 
 x = ["hey cortana"]
@@ -324,12 +361,14 @@ BertTokenizer that performs WordPiece tokenization to the input tensor, based on
 #### Inputs
 
 ***data: tensor(string)***
-<dd>The string tensor for tokenization</dd>
+
+The string tensor for tokenization
 
 #### Outputs
 
 ***output: tensor(int64)***
-<dd>Tokenized result of the input</dd>
+
+Tokenized result of the input
 
 #### Examples
 
@@ -340,6 +379,77 @@ BertTokenizer that performs WordPiece tokenization to the input tensor, based on
 ```
 </details>
 
+### <a name="SentencepieceTokenizer"></a><a name="SentencepieceTokenizer">**SentencepieceTokenizer**</a>
+
+SentencepieceTokenizer replicates [SentencepieceTokenizer](https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/SentencepieceTokenizer.md).
+
+#### Inputs
+
+***data: tensor(string)*** The string tensor for tokenization
+
+***nbest_size: tensor(int64)***	A scalar for sampling. nbest_size = {0,1}: No sampling is performed.
+(default) nbest_size > 1: samples from the nbest_size results. nbest_size < 0: assuming that
+nbest_size is infinite and samples from the all hypothesis (lattice) using
+forward-filtering-and-backward-sampling algorithm.
+
+***alpha: tensor(float)*** A scalar for a smoothing parameter. Inverse temperature for probability rescaling.
+
+***reverse: tensor(bool)*** Reverses the tokenized sequence (Default = false)
+
+***add_bos: tensor(bool)*** Add beginning of sentence token to the result (Default = false)
+
+***add_eos: tensor(bool)*** Add end of sentence token to the result (Default = false).
+When reverse=True beginning/end of sentence tokens are added after reversing.
+
+#### Attributes
+
+***model: string*** The sentencepiece model serialized proto as stored as a string.
+
+#### Outputs
+
+***tokens: tensor(int32)*** Indices of each token.
+
+***indices: tensor(int64)*** Indices of every first token of input sentences.
+`indices[i+1] - indices[i]` is the number of tokens in input `i`.
+
+Tokenized result of the input
+
+#### Examples
+
+<details>
+<summary>example 1</summary>
+
+```python
+
+url = "https://github.com/microsoft/ort-customops/raw/main/test/data/test_sentencepiece_ops_model__6.txt"
+with urllib.request.urlopen(url) as f:
+    content = f.read()
+model = np.array(list(base64.decodebytes(content.encode())), dtype=np.uint8)
+
+node = onnx.helper.make_node(
+    'SentencepieceTokenizer',
+    inputs=['inputs', 'nbest_size', 'alpha', 'add_bos', 'add_eos', 'reverse'],
+    outputs=['indices', 'output'],
+    mapping_file_name='vocabulary.txt',
+    unmapping_value="unknown_word",
+    model=model
+)
+
+inputs = np.array(["Hello world", "Hello world louder"], dtype=np.object),
+nbest_size = np.array([0], dtype=np.float32),
+alpha = np.array([0], dtype=np.float32),
+add_bos = np.array([0], dtype=np.bool_),
+add_eos = np.array([0], dtype=np.bool_),
+reverse = np.array([0], dtype=np.bool_)
+
+tokens = array([17486,  1017, 17486,  1017,   155, 21869], dtype=int32)
+indices = array([0, 2, 6], dtype=int64)
+
+expect(node, inputs=[inputs, nbest_size, alpha, add_bos, add_eos, reverse],
+       outputs=[tokens, indices], name='sp')
+```
+</details>
+
 ### <a name="XLNetTokenizer"></a><a name="XLNetTokenizer">**XLNetTokenizer**</a>
 
 GPT2Tokenizer that performs SentencePiece tokenization to the input tensor, based on the [hugging face version](https://huggingface.co/transformers/model_doc/xlnet.html#xlnettokenizer).
@@ -347,12 +457,13 @@ GPT2Tokenizer that performs SentencePiece tokenization to the input tensor, base
 #### Inputs
 
 ***data: tensor(string)***
-<dd>The string tensor for tokenization</dd>
+The string tensor for tokenization
 
 #### Outputs
 
 ***output: tensor(int64)***
-<dd>Tokenized result of the input</dd>
+
+Tokenized result of the input
 
 #### Examples
 
