@@ -401,9 +401,9 @@ forward-filtering-and-backward-sampling algorithm.
 ***add_eos: tensor(bool)*** Add end of sentence token to the result (Default = false).
 When reverse=True beginning/end of sentence tokens are added after reversing.
 
-#### Arguments
+#### Attributes
 
-***model: string*** The sentencepiece model serialized proto as stored as a strin.
+***model: string*** The sentencepiece model serialized proto as stored as a string.
 
 #### Outputs
 
