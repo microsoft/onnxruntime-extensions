@@ -49,7 +49,7 @@ def _create_test_model_sentencepiece(
         inputs = [
             mkv('model', onnx_proto.TensorProto.UINT8, [None]),
             mkv('inputs', onnx_proto.TensorProto.STRING, [None]),
-            mkv('nbest_size', onnx_proto.TensorProto.FLOAT, [None]),
+            mkv('nbest_size', onnx_proto.TensorProto.INT64, [None]),
             mkv('alpha', onnx_proto.TensorProto.FLOAT, [None]),
             mkv('add_bos', onnx_proto.TensorProto.BOOL, [None]),
             mkv('add_eos', onnx_proto.TensorProto.BOOL, [None]),
@@ -73,7 +73,7 @@ def _create_test_model_sentencepiece(
         ))
         inputs = [
             mkv('inputs', onnx_proto.TensorProto.STRING, [None]),
-            mkv('nbest_size', onnx_proto.TensorProto.FLOAT, [None]),
+            mkv('nbest_size', onnx_proto.TensorProto.INT64, [None]),
             mkv('alpha', onnx_proto.TensorProto.FLOAT, [None]),
             mkv('add_bos', onnx_proto.TensorProto.BOOL, [None]),
             mkv('add_eos', onnx_proto.TensorProto.BOOL, [None]),
@@ -113,7 +113,7 @@ def _create_test_model_ragged_to_sparse(
         inputs = [
             mkv('model', onnx_proto.TensorProto.UINT8, [None]),
             mkv('inputs', onnx_proto.TensorProto.STRING, [None]),
-            mkv('nbest_size', onnx_proto.TensorProto.FLOAT, [None]),
+            mkv('nbest_size', onnx_proto.TensorProto.INT64, [None]),
             mkv('alpha', onnx_proto.TensorProto.FLOAT, [None]),
             mkv('add_bos', onnx_proto.TensorProto.BOOL, [None]),
             mkv('add_eos', onnx_proto.TensorProto.BOOL, [None]),
@@ -145,7 +145,7 @@ def _create_test_model_ragged_to_sparse(
         ))
         inputs = [
             mkv('inputs', onnx_proto.TensorProto.STRING, [None]),
-            mkv('nbest_size', onnx_proto.TensorProto.FLOAT, [None]),
+            mkv('nbest_size', onnx_proto.TensorProto.INT64, [None]),
             mkv('alpha', onnx_proto.TensorProto.FLOAT, [None]),
             mkv('add_bos', onnx_proto.TensorProto.BOOL, [None]),
             mkv('add_eos', onnx_proto.TensorProto.BOOL, [None]),
@@ -185,7 +185,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         @onnx_op(op_type="PySentencepieceTokenizer",
                  inputs=[PyCustomOpDef.dt_uint8,  # 0: input,
                          PyCustomOpDef.dt_string,  # 1: input
-                         PyCustomOpDef.dt_float,  # 2: nbest_size
+                         PyCustomOpDef.dt_int64,  # 2: nbest_size
                          PyCustomOpDef.dt_float,  # 3: alpha
                          PyCustomOpDef.dt_bool,  # 4: add_bos
                          PyCustomOpDef.dt_bool,  # 5: add_eos
@@ -241,7 +241,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
             model=model,
             inputs=np.array(
                 ["Hello world", "Hello world louder"], dtype=np.object),
-            nbest_size=np.array([0], dtype=np.float32),
+            nbest_size=np.array([0], dtype=np.int64),
             alpha=np.array([0], dtype=np.float32),
             add_bos=np.array([0], dtype=np.bool_),
             add_eos=np.array([0], dtype=np.bool_),
@@ -264,7 +264,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
             model=model,
             inputs=np.array(
                 ["Hello world", "Hello world louder"], dtype=np.object),
-            nbest_size=np.array([0], dtype=np.float32),
+            nbest_size=np.array([0], dtype=np.int64),
             alpha=np.array([0], dtype=np.float32),
             add_bos=np.array([0], dtype=np.bool_),
             add_eos=np.array([0], dtype=np.bool_),
@@ -290,7 +290,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so)
 
         for alpha in [0, 0.5]:
-            for nbest_size in [0, 0.5]:
+            for nbest_size in [0, 1]:
                 for bools in range(0, 8):
                     with self.subTest(
                             alpha=alpha, nbest_size=nbest_size, bools=bools):
@@ -300,7 +300,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
                                 ["Hello world", "Hello world louder"],
                                 dtype=np.object),
                             nbest_size=np.array(
-                                [nbest_size], dtype=np.float32),
+                                [nbest_size], dtype=np.int64),
                             alpha=np.array([alpha], dtype=np.float32),
                             add_bos=np.array([bools & 1], dtype=np.bool_),
                             add_eos=np.array([bools & 2], dtype=np.bool_),
@@ -335,7 +335,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
                 ["Hello world", "Hello world louder"],
                 dtype=np.object),
             nbest_size=np.array(
-                [nbest_size], dtype=np.float32),
+                [nbest_size], dtype=np.int64),
             alpha=np.array([alpha], dtype=np.float32),
             add_bos=np.array([bools & 1], dtype=np.bool_),
             add_eos=np.array([bools & 2], dtype=np.bool_),
