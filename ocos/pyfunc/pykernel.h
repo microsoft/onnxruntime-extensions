@@ -12,7 +12,7 @@ struct PyCustomOpDef {
   uint64_t obj_id;
   std::vector<int> input_types;
   std::vector<int> output_types;
-  std::vector<std::string> attribute_names;
+  std::vector<std::string> attrs;
 
   static void AddOp(const PyCustomOpDef* cod);
 
@@ -37,12 +37,32 @@ struct PyCustomOpDef {
 };
 
 struct PyCustomOpKernel {
-  PyCustomOpKernel(OrtApi api, const OrtKernelInfo* info, uint64_t id, const std::vector<std::string>& attribute_names)
+  PyCustomOpKernel(OrtApi api, const OrtKernelInfo* info, uint64_t id, const std::vector<std::string>& attrs)
       : api_(api),
         ort_(api_),
         obj_id_(id) {
-    for (std::vector<std::string>::const_iterator it = attribute_names.begin(); it != attribute_names.end(); ++it) {
-      attribute_values_[*it] = ort_.KernelInfoGetAttribute<std::string>(info, it->c_str());
+    size_t size;
+    for (std::vector<std::string>::const_iterator it = attrs.begin(); it != attrs.end(); ++it) {
+      size = 0;
+      OrtStatus* status = api_.KernelInfoGetAttribute_string(info, it->c_str(), nullptr, &size);
+      if (api_.GetErrorCode(status) != ORT_INVALID_ARGUMENT) {
+        api_.ReleaseStatus(status);
+        throw std::runtime_error(MakeString(
+            "Unable to find attribute '", *it, "' due to '",
+            api_.GetErrorMessage(status), "'."));
+      }
+      api_.ReleaseStatus(status);
+      attrs_values_[*it] = "";
+      attrs_values_[*it].resize(size);
+      status = api_.KernelInfoGetAttribute_string(info, it->c_str(), &(attrs_values_[*it][0]), &size);
+      if ((status != nullptr) && (api_.GetErrorCode(status) != ORT_OK)) {
+        api_.ReleaseStatus(status);
+        throw std::runtime_error(MakeString(
+            "Unable to retrieve attribute '", *it, "' due to '",
+            api_.GetErrorMessage(status), "'."));
+      }
+      attrs_values_[*it].resize(size - 1);
+      api_.ReleaseStatus(status);
     }
   }
 
@@ -52,7 +72,7 @@ struct PyCustomOpKernel {
   OrtApi api_;  // keep a copy of the struct, whose ref is used in the ort_
   Ort::CustomOpApi ort_;
   uint64_t obj_id_;
-  std::map<std::string, std::string> attribute_values_;
+  std::map<std::string, std::string> attrs_values_;
 };
 
 struct PyCustomOpFactory : Ort::CustomOpBase<PyCustomOpFactory, PyCustomOpKernel> {
@@ -63,7 +83,7 @@ struct PyCustomOpFactory : Ort::CustomOpBase<PyCustomOpFactory, PyCustomOpKernel
   }
 
   void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
-    return new PyCustomOpKernel(api, info, opdef_->obj_id, opdef_->attribute_names);
+    return new PyCustomOpKernel(api, info, opdef_->obj_id, opdef_->attrs);
   };
 
   const char* GetName() const {
@@ -79,7 +99,7 @@ struct PyCustomOpFactory : Ort::CustomOpBase<PyCustomOpFactory, PyCustomOpKernel
   };
 
   const std::vector<std::string>& GetAttributesNames() const {
-    return opdef_->attribute_names;
+    return opdef_->attrs;
   }
 
   size_t GetOutputTypeCount() const {

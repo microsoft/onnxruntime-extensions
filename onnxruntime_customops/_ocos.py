@@ -55,10 +55,10 @@ class Opdef:
         if outputs is None:
             outputs = [PyCustomOpDef.dt_float]
         opdef._nativedef.output_types = outputs
-        atts = kwargs.get('atts', None)
-        if atts is None:
-            atts = []
-        opdef._nativedef.attribute_names = atts
+        attrs = kwargs.get('attrs', None)
+        if attrs is None:
+            attrs = []
+        opdef._nativedef.attrs = attrs
         add_custom_op(opdef._nativedef)
         return opdef
 

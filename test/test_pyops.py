@@ -137,7 +137,7 @@ class TestPythonOp(unittest.TestCase):
         @onnx_op(op_type="PyOpJoin",
                  inputs=[PyCustomOpDef.dt_string],
                  outputs=[PyCustomOpDef.dt_string],
-                 atts=['sep'])
+                 attrs=['sep'])
         def join(xs, **kwargs):
             sep = kwargs.get('sep', '')
             res = []

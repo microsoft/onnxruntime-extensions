@@ -196,8 +196,8 @@ struct PyCustomOpDefImpl : public PyCustomOpDef {
     return obj;
   }
 
-  static py::object InvokePyFunction(uint64_t id, const py::object& feed, const py::object& atts) {
-    return (*op_invoker)(id, feed, atts);
+  static py::object InvokePyFunction(uint64_t id, const py::object& feed, const py::object& attrs) {
+    return (*op_invoker)(id, feed, attrs);
   }
 
   using callback_t = std::function<py::object(uint64_t id, const py::object&, const py::object&)>;
@@ -261,13 +261,13 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
       pyinputs.append(input0);
     }
 
-    py::dict pyatts;
-    for (auto it = attribute_values_.begin(); it != attribute_values_.end(); ++it) {
-      pyatts[py::str(it->first)] = py::str(it->second);
+    py::dict pyattrs;
+    for (auto it = attrs_values_.begin(); it != attrs_values_.end(); ++it) {
+      pyattrs[py::str(it->first)] = py::str(it->second);
     }
 
     // Call python function id, shape, flat coefficient.
-    py::tuple fetch = PyCustomOpDefImpl::InvokePyFunction(obj_id_, pyinputs, pyatts);
+    py::tuple fetch = PyCustomOpDefImpl::InvokePyFunction(obj_id_, pyinputs, pyattrs);
     int64_t rid = fetch[0].cast<int64_t>();
     assert(rid == obj_id_);
 
@@ -435,7 +435,7 @@ void AddObjectMethods(pybind11::module& m) {
       .def_readwrite("obj_id", &PyCustomOpDef::obj_id)
       .def_readwrite("input_types", &PyCustomOpDef::input_types)
       .def_readwrite("output_types", &PyCustomOpDef::output_types)
-      .def_readwrite("attribute_names", &PyCustomOpDef::attribute_names)
+      .def_readwrite("attrs", &PyCustomOpDef::attrs)
       .def_static("install_hooker", [](py::object obj) { PyCustomOpDefImpl::op_invoker = std::make_unique<PyCustomOpDefImpl::callback_t>(obj); })
       .def_readonly_static("undefined", &PyCustomOpDef::undefined)
       .def_readonly_static("dt_float", &PyCustomOpDef::dt_float)
