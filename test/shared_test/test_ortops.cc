@@ -3,10 +3,9 @@
 
 #include "onnxruntime_cxx_api.h"
 #include "gtest/gtest.h"
-#include "test_utils.h"
 #include "ocos.h"
 
-#include "cc_test/test_kernel.hpp"
+#include "test_kernel.hpp"
 
 
 struct Input {

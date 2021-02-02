@@ -8,9 +8,9 @@
 #undef ORT_API_MANUAL_INIT
 
 
-#if defined(ENABLE_TOKENIZER)
+#if defined(ENABLE_GPT2_TOKENIZER)
 const OrtCustomOp** LoadTokenizerSchemaList();
-#endif  // ENABLE_TEXT_DOMAIN
+#endif  // ENABLE_GPT2_TOKENIZER
 
 
 #if defined(PYTHON_OP_SUPPORT)

@@ -14,14 +14,14 @@
 #include "kernels/negpos.hpp"
 #include "utils.h"
 
-#ifdef ENABLE_TOKENIZER
+#ifdef ENABLE_SPM_TOKENIZER
 #include "sentencepiece_tokenizer.hpp"
 #endif
 
 CustomOpNegPos c_CustomOpNegPos;
 CustomOpSegmentSum c_CustomOpSegmentSum;
 CustomOpRaggedTensorToSparse c_CustomOpRaggedTensorToSparse;
-#ifdef ENABLE_TOKENIZER
+#ifdef ENABLE_SPM_TOKENIZER
 CustomOpSentencepieceTokenizer c_CustomOpSentencepieceTokenizer;
 #endif
 CustomOpStringEqual c_CustomOpStringEqual;
@@ -36,7 +36,7 @@ OrtCustomOp* operator_lists[] = {
     &c_CustomOpNegPos,
     &c_CustomOpRaggedTensorToSparse,
     &c_CustomOpSegmentSum,
-#ifdef ENABLE_TOKENIZER
+#ifdef ENABLE_SPM_TOKENIZER
     &c_CustomOpSentencepieceTokenizer,
 #endif
     &c_CustomOpStringEqual,
@@ -119,7 +119,7 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
     ++ops;
   }
 
-#if defined(ENABLE_TOKENIZER)
+#if defined(ENABLE_GPT2_TOKENIZER)
   const OrtCustomOp** t_ops = LoadTokenizerSchemaList();
   while (*t_ops != nullptr) {
     if (pyop_nameset.find((*t_ops)->GetName(*t_ops)) == pyop_nameset.end()) {
