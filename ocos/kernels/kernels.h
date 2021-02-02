@@ -12,12 +12,14 @@ FxGetSchemaInstance const* GetCustomOpSchemaList();
 
 struct BaseKernel {
   BaseKernel(OrtApi api) : api_(api), info_(nullptr), ort_(api_) {}
-  BaseKernel(OrtApi api, const OrtKernelInfo *info) : api_(api), info_(info), ort_(api_) {}
+  BaseKernel(OrtApi api, const OrtKernelInfo* info) : api_(api), info_(info), ort_(api_) {}
+
+  bool HasAttribute(const char* name) const;
 
  protected:
   OrtApi api_;  // keep a copy of the struct, whose ref is used in the ort_
   Ort::CustomOpApi ort_;
-  const OrtKernelInfo* info_;
+  const OrtKernelInfo* info_ = nullptr;
 };
 
 struct OrtTensorDimensions : std::vector<int64_t> {

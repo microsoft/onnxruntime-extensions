@@ -8,7 +8,8 @@
 #include "re2/re2.h"
 #include "string_common.h"
 
-KernelStringRegexReplace::KernelStringRegexReplace(OrtApi api) : BaseKernel(api) {
+KernelStringRegexReplace::KernelStringRegexReplace(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+  global_replace_ = HasAttribute("global_replace") ? ort_.KernelInfoGetAttribute<int64_t>(info_, "global_replace") : 1;
 }
 
 void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
@@ -16,6 +17,7 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
   const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
   const OrtValue* pattern = ort_.KernelContext_GetInput(context, 1);
   const OrtValue* rewrite = ort_.KernelContext_GetInput(context, 2);
+
   std::vector<std::string> str_input, str_pattern, str_rewrite;
   GetTensorMutableDataString(api_, ort_, context, input, str_input);
   GetTensorMutableDataString(api_, ort_, context, pattern, str_pattern);
@@ -45,14 +47,20 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
   re2::RE2 reg(str_pattern[0]);
 
   // Do computation
-  for (int64_t i = 0; i < size; i++) {
-    re2::RE2::GlobalReplace(&(str_input[i]), reg, piece);
+  if (global_replace_) {
+    for (int64_t i = 0; i < size; i++) {
+      re2::RE2::GlobalReplace(&(str_input[i]), reg, piece);
+    }
+  } else {
+    for (int64_t i = 0; i < size; i++) {
+      re2::RE2::Replace(&(str_input[i]), reg, piece);
+    }
   }
   FillTensorDataString(api_, ort_, context, str_input, output);
 }
 
-void* CustomOpStringRegexReplace::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
-  return new KernelStringRegexReplace(api);
+void* CustomOpStringRegexReplace::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+  return new KernelStringRegexReplace(api, info);
 };
 
 const char* CustomOpStringRegexReplace::GetName() const { return "StringRegexReplace"; };
