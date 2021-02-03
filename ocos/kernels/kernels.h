@@ -21,6 +21,7 @@ struct BaseKernel {
 };
 
 struct OrtTensorDimensions : std::vector<int64_t> {
+  OrtTensorDimensions() = default;
   OrtTensorDimensions(Ort::CustomOpApi& ort, const OrtValue* value) {
     OrtTensorTypeAndShapeInfo* info = ort.GetTensorTypeAndShape(value);
     std::vector<int64_t>::operator=(ort.GetTensorShape(info));
@@ -29,8 +30,9 @@ struct OrtTensorDimensions : std::vector<int64_t> {
   const std::vector<int64_t>& GetDims() const { return *this; }
   int64_t Size() const {
     int64_t s = 1.;
-    for (auto it = begin(); it != end(); ++it)
-      s *= *it;
+    for (auto it : *this) {
+      s *= it;
+    }
     return s;
   }
 };

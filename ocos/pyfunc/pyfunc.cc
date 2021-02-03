@@ -17,7 +17,7 @@
 #include <pybind11/functional.h>
 #include <pybind11/numpy.h>
 #include <thread>
-#include "utils.h"
+#include "utils/string_utils.h"
 #include "pykernel.h"
 #include "kernels/string_hash.hpp"
 #include "kernels/string_common.h"

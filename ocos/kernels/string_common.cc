@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 #include "string_common.h"
-#include "utils.h"
+#include "utils/string_utils.h"
 
 void GetTensorMutableDataString(const OrtApi& api, Ort::CustomOpApi& ort, OrtKernelContext* context,
                                 const OrtValue* value, std::vector<std::string>& output) {

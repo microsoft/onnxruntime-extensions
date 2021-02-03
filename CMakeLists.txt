@@ -58,7 +58,7 @@ include(farmhash)
 FetchContent_GetProperties(googlere2)
 FetchContent_GetProperties(farmhash)
 
-file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/*.h*")
+file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/*.h*" "./ocos/utils/*.cc" "./ocos/utils/*.h")
 file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
 file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc" "./ocos/pyfunc/*.h*")
 file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")

@@ -4,7 +4,7 @@
 #pragma once
 
 #include "kernels.h"
-#include "utils.h"
+#include "utils/string_utils.h"
 
 struct KernelStringEqual : BaseKernel {
   KernelStringEqual(OrtApi api);

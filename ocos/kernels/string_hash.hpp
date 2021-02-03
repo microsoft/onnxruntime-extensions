@@ -4,7 +4,7 @@
 #pragma once
 
 #include "kernels.h"
-#include "utils.h"
+#include "utils/string_utils.h"
 
 uint64_t Hash64(const char* data, size_t n, uint64_t seed);
 

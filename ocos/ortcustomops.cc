@@ -12,7 +12,7 @@
 #include "kernels/string_split.hpp"
 #include "kernels/string_upper.hpp"
 #include "kernels/test_output.hpp"
-#include "utils.h"
+#include "kernels/vector_to_string.hpp"
 
 #ifdef ENABLE_TOKENIZER
 #include "sentencepiece_tokenizer.hpp"
@@ -31,6 +31,7 @@ CustomOpStringJoin c_CustomOpStringJoin;
 CustomOpStringRegexReplace c_CustomOpStringRegexReplace;
 CustomOpStringSplit c_CustomOpStringSplit;
 CustomOpStringUpper c_CustomOpStringUpper;
+CustomOpVectorToString c_CustomOpVectorToString;
 CustomOpOne c_CustomOpOne;
 CustomOpTwo c_CustomOpTwo;
 
@@ -48,6 +49,7 @@ OrtCustomOp* operator_lists[] = {
     &c_CustomOpStringRegexReplace,
     &c_CustomOpStringSplit,
     &c_CustomOpStringUpper,
+    &c_CustomOpVectorToString,
     &c_CustomOpOne,
     &c_CustomOpTwo,
     nullptr};

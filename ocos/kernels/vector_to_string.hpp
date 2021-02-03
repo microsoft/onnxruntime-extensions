@@ -3,15 +3,25 @@
 
 #pragma once
 
+
 #include "kernels.h"
 #include "utils/string_utils.h"
 
-struct KernelStringSplit : BaseKernel {
-  KernelStringSplit(OrtApi api);
-  void Compute(OrtKernelContext* context);
+class VectorToStringImplBase
+{
+ public:
+  virtual std::vector<std::string> Compute(const void* input, const OrtTensorDimensions& input_dim, OrtTensorDimensions& output_dim) = 0;
 };
 
-struct CustomOpStringSplit : Ort::CustomOpBase<CustomOpStringSplit, KernelStringSplit> {
+struct KernalVectorToString : BaseKernel {
+  KernalVectorToString(OrtApi api, const OrtKernelInfo* info);
+  void Compute(OrtKernelContext* context);
+
+ private:
+  std::shared_ptr<VectorToStringImplBase> impl_;
+};
+
+struct CustomOpVectorToString : Ort::CustomOpBase<CustomOpVectorToString, KernalVectorToString> {
   void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;

@@ -24,17 +24,17 @@ void KernelSegmentSum_Compute(Ort::CustomOpApi& ort_, OrtKernelContext* context)
         " segment_ids shape: ", dim_seg.GetDims()));
 
   int64_t last_seg = p_segment_ids[dim_seg[0] - 1];
-  std::vector<int64_t> dim_out = dim_data;
+  OrtTensorDimensions dim_out = dim_data;
   dim_out[0] = last_seg + 1;
 
   OrtValue* v = ort_.KernelContext_GetOutput(context, 0, dim_out.data(), dim_out.size());
   T* p_output = ort_.GetTensorMutableData<T>(v);
-  int64_t out_size = Size(dim_out);
+  int64_t out_size = dim_out.Size();
   memset(p_output, 0, out_size * sizeof(T));
 
   // The implementation is naive. It could be parallelized and
   // use SIMD instructions to be faster.
-  int64_t in_stride = Size(dim_data);
+  int64_t in_stride = dim_data.Size();
   const T* begin = p_data;
   const T* end = p_data + in_stride;
   in_stride /= dim_data[0];

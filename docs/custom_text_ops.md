@@ -190,15 +190,18 @@ Constrain input and output types to numerical tensors.
 ```python
 # what's in vocabulary.txt
 
-# a   0 0 1 2
-# b   0 1 2 3
-# d   0 1 3 4
+mapping_table = \
+"""
+a   0 0 1 2
+b   0 1 2 3
+d   0 1 3 4
+"""
 
 node = onnx.helper.make_node(
     'StringToVector',
     inputs=['x'],
     outputs=['y'],
-    mapping_file_name='vocabulary.txt',
+    mapping_table=mapping_table,
     unmapping_value=[0,0,0,0]
 )
 
@@ -215,24 +218,24 @@ expect(node, inputs=[x], outputs=[y],
 
 ### <a name="VectorToString"></a><a name="VectorToString">**VectorToString**</a>
 
-VectorToString is the contrary operation to the `StringToVector` , they share same format of mapping file:
+VectorToString is the contrary operation to the `StringToVector` , they share same format of mapping table:
 
     <string>\t<scalar_1>\s<scalar_2>\s<scalar_3>...<scalar_n>
 
-Unmapped vector will output the value of the attribute `unmapping_value`.
+Unmapped vector will output the value of the attribute `unk`.
 
 Example:
 
 *Attributes:*
 
-- `mapping_file_name`: vocabulary.txt
+- `map`: 
   ```
   a   0 0 1 2
   b   0 1 2 3
   d   0 1 3 4
   ```
 
-- `unmapping_value`: "unknown_word"
+- `unk`: "unknown_word"
 
 *Inputs:*
 - data: [[0,0,1,2],[0,1,3,4],[0,0,0,0]]
@@ -244,11 +247,11 @@ Example:
 
 ***mapping_file_name***
 
-The name of your string to vector mapping file.
+the formative mapping table
 
 ***unmapping_value***
 
-Mapping result for unmapped string
+the result returned when a vector aren't found in the map
 
 #### Inputs
 
@@ -274,18 +277,19 @@ Constrain input and output types to numerical tensors.
 <summary>vector_to_string</summary>
 
 ```python
-# what's in vocabulary.txt
-
-# a   0 0 1 2
-# b   0 1 2 3
-# d   0 1 3 4
+mapping_table = \
+  """
+  a   0 0 1 2
+  b   0 1 2 3
+  d   0 1 3 4
+  """
 
 node = onnx.helper.make_node(
     'StringToVector',
     inputs=['x'],
     outputs=['y'],
-    mapping_file_name='vocabulary.txt',
-    unmapping_value="unknown_word"
+    map=mapping_table,
+    unk="unknown_word"
 )
 
 
