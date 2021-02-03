@@ -58,6 +58,10 @@ jobs:
       versionSpec: '$(python.version)'
       addToPath: true
 
+  # needed for onnxruntime
+  - script: brew install libomp
+    displayName: 'Install omp'
+
   - script: |
       python -m pip install --upgrade pip
       python -m pip install --upgrade setuptools
