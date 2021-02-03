@@ -24,16 +24,12 @@ jobs:
       downloadPath: '$(Build.sourcesdirectory)'
   displayName: Download the ONNXRuntime prebuilt package.
 
-  - task: ExtractFiles@1
-    inputs:
-      archiveFilePatterns: '**/*.tgz'
-      destinationFolder: '$(Build.sourcesdirectory)'
-      cleanDestinationFolder: false
-      overwriteExistingFiles: true
+  - script: |
+      tar -xzf onnxruntime-linux-x64-gpu-1.6.0.tgz
     displayName: Unpack ONNXRuntime package.
 
   - script: |
-      call .\build.sh -DONNXRUNTIME_LIB_DIR=.\onnxruntime-linux-x64-1.6.0\lib
+      call ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-linux-x64-1.6.0/lib
     displayName: build the customop library with onnxruntime
 
   - script: |
@@ -90,16 +86,12 @@ jobs:
       downloadPath: '$(Build.sourcesdirectory)'
   displayName: Download the ONNXRuntime prebuilt package.
 
-  - task: ExtractFiles@1
-    inputs:
-      archiveFilePatterns: '**/*.tgz'
-      destinationFolder: '$(Build.sourcesdirectory)'
-      cleanDestinationFolder: false
-      overwriteExistingFiles: true
+  - script: |
+      tar -xzf onnxruntime-linux-x64-gpu-1.6.0.tgz
     displayName: Unpack ONNXRuntime package.
 
   - script: |
-      call .\build.sh -DONNXRUNTIME_LIB_DIR=.\onnxruntime-osx-x64-1.6.0\lib
+      call ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-linux-x64-1.6.0/lib
     displayName: build the customop library with onnxruntime
 
   - script: |
