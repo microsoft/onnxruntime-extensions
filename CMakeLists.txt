@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16.0)
 project(ortcustomops VERSION 0.1.0 LANGUAGES C CXX)
-set(CMAKE_VERBOSE_MAKEFILE ON)
+# set(CMAKE_VERBOSE_MAKEFILE ON)
 
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Build type not set - using RelWithDebInfo")
@@ -99,18 +99,20 @@ if (OCOS_ENABLE_TF_STRING)
   target_include_directories(ortcustomops_static PUBLIC
     ${googlere2_SOURCE_DIR}
     ${farmhash_SOURCE_DIR}/src)
+  target_compile_definitions(ortcustomops_static PRIVATE ENABLE_TF_STRING)
+
 endif()
 
 if (OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
   target_include_directories(ortcustomops_static PRIVATE ${json_SOURCE_DIR}/single_include)
-  target_compile_definitions(ortcustomops_static PRIVATE OCOS_ENABLE_GPT2_TOKENIZER)
+  target_compile_definitions(ortcustomops_static PRIVATE ENABLE_GPT2_TOKENIZER)
   list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 if (OCOS_ENABLE_SPM_TOKENIZER)
   # SentencePiece
   target_include_directories(ortcustomops_static PRIVATE ${sentencepieceproject_INCLUDE_DIRS})
-  target_compile_definitions(ortcustomops_static PRIVATE OCOS_ENABLE_SPM_TOKENIZER)
+  target_compile_definitions(ortcustomops_static PRIVATE ENABLE_SPM_TOKENIZER)
   list(APPEND ocos_libraries sentencepiece-static)
 endif()
 
@@ -184,7 +186,7 @@ if (NOT OCOS_ENABLE_PYTHON)
   file(GLOB static_TEST_SRC "${TEST_SRC_DIR}/static_test/*.cc")
   add_executable(ortcustomops_static_test ${static_TEST_SRC})
   target_link_libraries(ortcustomops_static_test gtest_main ${ocos_libraries})
-  add_test(NAME ortcustomops_static_test COMMAND test)
+  add_test(NAME ortcustomops_static_test COMMAND $<TARGET_FILE:ortcustomops_static_test>)
 
   file(GLOB shared_TEST_SRC "${TEST_SRC_DIR}/shared_test/*.cc")
   add_executable(ortcustomops_test ${shared_TEST_SRC})
@@ -201,7 +203,7 @@ if (NOT OCOS_ENABLE_PYTHON)
   endif()
 
   set(TEST_DATA_SRC ${TEST_SRC_DIR}/data)
-  set(TEST_DATA_DES $<TARGET_FILE_DIR:ortcustomops_test>/data)
+  set(TEST_DATA_DES ${ortcustomops_BINARY_DIR}/data)
 
   # Copy test data from source to destination.
   add_custom_command(
@@ -209,5 +211,5 @@ if (NOT OCOS_ENABLE_PYTHON)
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${TEST_DATA_SRC}
     ${TEST_DATA_DES})
-    add_test(NAME ortcustomops_test COMMAND test)
+  add_test(NAME ortcustomops_test COMMAND $<TARGET_FILE:ortcustomops_test>)
 endif()

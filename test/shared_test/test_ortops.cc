@@ -99,13 +99,13 @@ TEST(utils, test_ort_case) {
 
 #if defined(_WIN32)
   const char lib_name[] = "ortcustomops.dll";
-  const ORTCHAR_T model_path[] = L"test\\data\\custom_op_test.onnx";
+  const ORTCHAR_T model_path[] = L"data\\custom_op_test.onnx";
 #elif defined(__APPLE__)
   const char lib_name[] = "libortcustomops.dylib";
-  const ORTCHAR_T model_path[] = "test/data/custom_op_test.onnx";
+  const ORTCHAR_T model_path[] = "data/custom_op_test.onnx";
 #else
   const char lib_name[] = "./libortcustomops.so";
-  const ORTCHAR_T model_path[] = "test/data/custom_op_test.onnx";
+  const ORTCHAR_T model_path[] = "data/custom_op_test.onnx";
 #endif
   AddExternalCustomOp(&op_1st);
   AddExternalCustomOp(&op_2nd);
