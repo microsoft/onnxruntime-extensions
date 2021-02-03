@@ -26,14 +26,8 @@ jobs:
     displayName: Install requirements.txt
 
   - script: |
-      sh ./build.sh
       python setup.py develop
     displayName: Build the library and tests
-
-  - script: |
-      cd out/Linux
-      ./ortcustomops_test
-    displayName: Run the native only unit tests
 
   - script: python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
     displayName: Install pytorch
@@ -64,10 +58,6 @@ jobs:
       versionSpec: '$(python.version)'
       addToPath: true
 
-  # needed for onnxruntime
-  - script: brew install libomp
-    displayName: 'Install omp'
-
   - script: |
       python -m pip install --upgrade pip
       python -m pip install --upgrade setuptools
@@ -78,15 +68,9 @@ jobs:
     displayName: Check installation
 
   - script: |
-      sh ./build.sh
       call activate pyenv
       python setup.py develop
     displayName: Build the library and tests
-
-  - script: |
-      cd out/Darwin
-      ./ortcustomops_test
-    displayName: Run the native only unit tests
 
   - script: python -m pip install -r requirements-dev.txt
     displayName: Install requirements-dev.txt
@@ -138,19 +122,14 @@ jobs:
 
   - script: |
       call activate pyenv
-      echo Test numpy installation... && python -c "import numpy"
-      call .\build.bat
-      python setup.py develop
-    displayName: Build the custom-op library
-
-  - script: |
-      .\out\Windows\RelWithDebInfo\ortcustomops_test.exe
-    displayName: Run C++ Test
+      python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio===0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
+    displayName: Install pytorch
 
   - script: |
       call activate pyenv
-      python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio===0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
-    displayName: Install pytorch
+      echo Test numpy installation... && python -c "import numpy"
+      python setup.py develop
+    displayName: Build the custom-op library
 
   - script: |
       call activate pyenv
