@@ -1,3 +1,4 @@
 LIBRARY "ortcustomops.dll"
 EXPORTS
  RegisterCustomOps @1
+ AddExternalCustomOp @2
