@@ -26,14 +26,8 @@ jobs:
     displayName: Install requirements.txt
 
   - script: |
-      sh ./build.sh
       python setup.py develop
     displayName: Build the library and tests
-
-  - script: |
-      cd out/Linux
-      ./ortcustomops_test
-    displayName: Run the native only unit tests
 
   - script: python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
     displayName: Install pytorch
@@ -78,15 +72,9 @@ jobs:
     displayName: Check installation
 
   - script: |
-      sh ./build.sh
       call activate pyenv
       python setup.py develop
     displayName: Build the library and tests
-
-  - script: |
-      cd out/Darwin
-      ./ortcustomops_test
-    displayName: Run the native only unit tests
 
   - script: python -m pip install -r requirements-dev.txt
     displayName: Install requirements-dev.txt
@@ -111,6 +99,24 @@ jobs:
   - script: conda create --yes --quiet --name pyenv -c conda-forge python=3.8 numpy
     displayName: Create Anaconda environment
 
+  - task: DownloadGitHubRelease@0
+    inputs:
+      connection: 'microsoft'
+      userRepository: 'microsoft/onnxruntime'
+      defaultVersionType: 'specificVersion'
+      version: '34858191'
+      itemPattern: '*-win-x64-1.6.0*'
+      downloadPath: '$(Build.sourcesdirectory)'
+    displayName: Download the ONNXRuntime prebuilt package.
+
+  - task: ExtractFiles@1
+    inputs:
+      archiveFilePatterns: '**/*.zip'
+      destinationFolder: '$(Build.sourcesdirectory)'
+      cleanDestinationFolder: false
+      overwriteExistingFiles: true
+    displayName: Unpack Ort package.
+
   - script: |
       call activate pyenv
       python -m pip install --upgrade pip
@@ -120,19 +126,14 @@ jobs:
 
   - script: |
       call activate pyenv
-      echo Test numpy installation... && python -c "import numpy"
-      call .\build.bat
-      python setup.py develop
-    displayName: Build the custom-op library
-
-  - script: |
-      .\out\Windows\RelWithDebInfo\ortcustomops_test.exe
-    displayName: Run C++ Test
+      python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio===0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
+    displayName: Install pytorch
 
   - script: |
       call activate pyenv
-      python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio===0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
-    displayName: Install pytorch
+      echo Test numpy installation... && python -c "import numpy"
+      python setup.py develop
+    displayName: Build the custom-op library
 
   - script: |
       call activate pyenv

@@ -117,6 +117,7 @@ ONNXTensorElementDataType CustomOpSentencepieceTokenizer::GetInputType(size_t in
     case 0:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
     case 1:
+      return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
     case 2:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
     case 3:

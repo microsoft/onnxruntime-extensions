@@ -112,6 +112,16 @@ class TestPythonOp(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
 
+        @onnx_op(op_type="CustomOpOne",
+                 inputs=[PyCustomOpDef.dt_float, PyCustomOpDef.dt_float])
+        def custom_one_op(x, y):
+            return np.add(x, y)
+
+        @onnx_op(op_type="CustomOpTwo",
+                 outputs=[PyCustomOpDef.dt_int32])
+        def custom_two_op(f):
+            return np.round(f).astype(np.int32)
+
         @onnx_op(op_type="PyReverseMatrix")
         def reverse_matrix(x):
             # The user custom op implementation here.

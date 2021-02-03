@@ -23,6 +23,7 @@
 |GPT2Tokenizer| Supported       |
 |BertTokenizer| Under development |
 |XLNetTokenizer| Under development |
+|SentencepieceTokenizer| Supported       |
 
 ## Auxiliary String Operator
 
@@ -375,6 +376,77 @@ Tokenized result of the input
 <summary>word_piece_tokenizer</summary>
 
 ```python
+```
+</details>
+
+### <a name="SentencepieceTokenizer"></a><a name="SentencepieceTokenizer">**SentencepieceTokenizer**</a>
+
+SentencepieceTokenizer replicates [SentencepieceTokenizer](https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/SentencepieceTokenizer.md).
+
+#### Inputs
+
+***data: tensor(string)*** The string tensor for tokenization
+
+***nbest_size: tensor(int64)***	A scalar for sampling. nbest_size = {0,1}: No sampling is performed.
+(default) nbest_size > 1: samples from the nbest_size results. nbest_size < 0: assuming that
+nbest_size is infinite and samples from the all hypothesis (lattice) using
+forward-filtering-and-backward-sampling algorithm.
+
+***alpha: tensor(float)*** A scalar for a smoothing parameter. Inverse temperature for probability rescaling.
+
+***reverse: tensor(bool)*** Reverses the tokenized sequence (Default = false)
+
+***add_bos: tensor(bool)*** Add beginning of sentence token to the result (Default = false)
+
+***add_eos: tensor(bool)*** Add end of sentence token to the result (Default = false).
+When reverse=True beginning/end of sentence tokens are added after reversing.
+
+#### Attributes
+
+***model: string*** The sentencepiece model serialized proto as stored as a string.
+
+#### Outputs
+
+***tokens: tensor(int32)*** Indices of each token.
+
+***indices: tensor(int64)*** Indices of every first token of input sentences.
+`indices[i+1] - indices[i]` is the number of tokens in input `i`.
+
+Tokenized result of the input
+
+#### Examples
+
+<details>
+<summary>example 1</summary>
+
+```python
+
+url = "https://github.com/microsoft/ort-customops/raw/main/test/data/test_sentencepiece_ops_model__6.txt"
+with urllib.request.urlopen(url) as f:
+    content = f.read()
+model = np.array(list(base64.decodebytes(content.encode())), dtype=np.uint8)
+
+node = onnx.helper.make_node(
+    'SentencepieceTokenizer',
+    inputs=['inputs', 'nbest_size', 'alpha', 'add_bos', 'add_eos', 'reverse'],
+    outputs=['indices', 'output'],
+    mapping_file_name='vocabulary.txt',
+    unmapping_value="unknown_word",
+    model=model
+)
+
+inputs = np.array(["Hello world", "Hello world louder"], dtype=np.object),
+nbest_size = np.array([0], dtype=np.float32),
+alpha = np.array([0], dtype=np.float32),
+add_bos = np.array([0], dtype=np.bool_),
+add_eos = np.array([0], dtype=np.bool_),
+reverse = np.array([0], dtype=np.bool_)
+
+tokens = array([17486,  1017, 17486,  1017,   155, 21869], dtype=int32)
+indices = array([0, 2, 6], dtype=int64)
+
+expect(node, inputs=[inputs, nbest_size, alpha, add_bos, add_eos, reverse],
+       outputs=[tokens, indices], name='sp')
 ```
 </details>
 
