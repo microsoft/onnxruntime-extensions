@@ -2,16 +2,11 @@ cmake_minimum_required(VERSION 3.16.0)
 project(ortcustomops VERSION 0.1.0 LANGUAGES C CXX)
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 
-# Enable CTest
-enable_testing()
-include(CTest)
-
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Build type not set - using RelWithDebInfo")
   set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Choose build type: Debug Release RelWithDebInfo." FORCE)
 endif()
 
-set(ONNX_ML 1)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -19,8 +14,15 @@ include(CheckCXXCompilerFlag)
 include(CheckLanguage)
 
 option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
-option(ENABLE_PYTHON "Enable Python component building" OFF)
-option(ENABLE_TOKENIZER "Enable the tokenizer building" ON)
+option(OCOS_ENABLE_PYTHON "Enable Python component building" OFF)
+option(OCOS_ENABLE_TF_STRING "Enable String Operator Set" ON)
+option(OCOS_ENABLE_GPT2_TOKENIZER "Enable the GPT2 tokenizer building" ON)
+option(OCOS_ENABLE_SPM_TOKENIZER "Enable the SentencePiece tokenizer building" ON)
+
+find_library(ONNXRUNTIME onnxruntime HINTS "${ONNXRUNTIME_LIB_DIR}")
+if ((NOT OCOS_ENABLE_PYTHON) AND (NOT ONNXRUNTIME))
+  message(FATAL_ERROR "Cannot find onnxruntime in the default library paths, please specify the ONNXRUNTIME_LIB_DIR.")
+endif()
 
 if(NOT CC_OPTIMIZE)
   message("!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
@@ -46,41 +48,87 @@ if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
   message(FATAL_ERROR "CMAKE_FIND_FRAMEWORK is not NEVER")
 endif()
 
-set(CPACK_PROJECT_NAME ${PROJECT_NAME})
-set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
-include(CPack)
-
 # External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
 include(FetchContent)
-include(googlere2)
-include(farmhash)
-FetchContent_GetProperties(googlere2)
-FetchContent_GetProperties(farmhash)
+if (OCOS_ENABLE_TF_STRING)
+  set(RE2_BUILD_TESTING OFF CACHE INTERNAL "")
+  include(googlere2)
+  include(farmhash)
+  FetchContent_GetProperties(googlere2)
+  FetchContent_GetProperties(farmhash)
+endif()
 
 file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/*.h*")
-file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
-file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc" "./ocos/pyfunc/*.h*")
-file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")
+if (OCOS_ENABLE_TF_STRING)
+  file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
+  file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")
+  list(APPEND TARGET_SRC ${TARGET_SRC_KERNELS} ${TARGET_SRC_HASH})
+endif()
 
-if (ENABLE_TOKENIZER)
+if (OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
+  set(JSON_BuildTests OFF CACHE INTERNAL "")
   include(json)
   file(GLOB tok_TARGET_SRC "tokenizer/gpt*.cc" "tokenizer/unicode*.*")
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
+endif()
+if (OCOS_ENABLE_SPM_TOKENIZER)
   # SentencePiece
+  set(SPM_ENABLE_TCMALLOC OFF CACHE INTERNAL "")
+  set(SPM_ENABLE_SHARED OFF CACHE INTERNAL "")
   include(sentencepieceproject)
   file(GLOB stpiece_TARGET_SRC "sentencepiece/*.cc" "tokenizer/sentencepiece*")
   list(REMOVE_ITEM stpiece_TARGET_SRC INCLUDE REGEX ".*((spm)|(train)).*")
   list(APPEND TARGET_SRC ${stpiece_TARGET_SRC})
 endif()
 
-add_library(ortcustomops_static STATIC
-  ${TARGET_SRC}
-  ${TARGET_SRC_KERNELS}
-  ${TARGET_SRC_HASH})
+add_library(ortcustomops_static STATIC ${TARGET_SRC})
 
-if(ENABLE_PYTHON)
+set(ocos_libraries ortcustomops_static)
+if (OCOS_ENABLE_TF_STRING)
+  list(APPEND ocos_libraries re2)
+endif()
+
+target_include_directories(ortcustomops_static PUBLIC
+  ${PROJECT_SOURCE_DIR}/includes
+  ${PROJECT_SOURCE_DIR}/includes/onnxruntime
+  ${PROJECT_SOURCE_DIR}/ocos)
+
+set(OCOS_COMPILE_DEFINITIONS "")
+
+if (OCOS_ENABLE_TF_STRING)
+  target_include_directories(ortcustomops_static PUBLIC
+    ${googlere2_SOURCE_DIR}
+    ${farmhash_SOURCE_DIR}/src)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING)
+endif()
+
+if (OCOS_ENABLE_GPT2_TOKENIZER)
+  # GPT2
+  target_include_directories(ortcustomops_static PRIVATE ${json_SOURCE_DIR}/single_include)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_GPT2_TOKENIZER)
+  list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
+endif()
+
+if (OCOS_ENABLE_SPM_TOKENIZER)
+  # SentencePiece
+  target_include_directories(ortcustomops_static PRIVATE ${PROJECT_SOURCE_DIR}/tokenizer ${sentencepieceproject_INCLUDE_DIRS})
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_SPM_TOKENIZER)
+  list(APPEND ocos_libraries sentencepiece-static)
+endif()
+
+if (OCOS_ENABLE_TF_STRING)
+  target_compile_definitions(ortcustomops_static PRIVATE
+      NOMINMAX
+      FARMHASH_NO_BUILTIN_EXPECT)
+endif()
+
+target_compile_definitions(ortcustomops_static PRIVATE ${OCOS_COMPILE_DEFINITIONS})
+
+file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h")
+if(OCOS_ENABLE_PYTHON)
+  file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc" "./ocos/pyfunc/*.h*")
   set(Python3_FIND_REGISTRY NEVER CACHE STRING "...")
   if(NOT "${Python3_FIND_REGISTRY}" STREQUAL "NEVER")
     message(FATAL_ERROR "Python3_FIND_REGISTRY is not NEVER")
@@ -88,75 +136,23 @@ if(ENABLE_PYTHON)
   find_package(Python3 COMPONENTS Interpreter Development)
 
   if (WIN32)
-    list(APPEND TARGET_SRC "${PROJECT_SOURCE_DIR}/onnxruntime_customops/ortcustomops.def")
+    list(APPEND shared_TARGET_SRC "${PROJECT_SOURCE_DIR}/onnxruntime_customops/ortcustomops.def")
   endif()
-  Python3_add_library(ortcustomops SHARED 
-    ${TARGET_SRC}
-    ${TARGET_SRC_KERNELS}
-    ${TARGET_SRC_PYOPS}
-    ${TARGET_SRC_HASH})
-  target_compile_definitions(ortcustomops PRIVATE PYTHON_OP_SUPPORT)
+
+  Python3_add_library(ortcustomops SHARED ${TARGET_SRC_PYOPS} ${shared_TARGET_SRC})
+  list(APPEND OCOS_COMPILE_DEFINITIONS PYTHON_OP_SUPPORT)
 else()
-  list(APPEND TARGET_SRC "${PROJECT_SOURCE_DIR}/ocos/ortcustomops.def")
-  add_library(ortcustomops SHARED
-    ${TARGET_SRC}
-    ${TARGET_SRC_KERNELS}
-    ${TARGET_SRC_HASH})
+  list(APPEND shared_TARGET_SRC "${PROJECT_SOURCE_DIR}/shared/ortcustomops.def")
+  add_library(ortcustomops SHARED ${shared_TARGET_SRC})
 endif()
 
-if (WIN32)
-  set_source_files_properties(ortcustomops_pyd.def PROPERTIES HEADER_FILE_ONLY TRUE)
+target_compile_definitions(ortcustomops PRIVATE  ${OCOS_COMPILE_DEFINITIONS})
+if (OCOS_ENABLE_SPM_TOKENIZER)   # FIXME: this include path is not recommendeded.
+  target_include_directories(ortcustomops PRIVATE ${PROJECT_SOURCE_DIR}/tokenizer ${sentencepieceproject_INCLUDE_DIRS})
 endif()
+target_link_libraries(ortcustomops PRIVATE ${ocos_libraries})
 
-set(external_libraries re2)
-target_include_directories(ortcustomops PUBLIC
-  ${PROJECT_SOURCE_DIR}/includes
-  ${PROJECT_SOURCE_DIR}/includes/onnxruntime
-  ${PROJECT_SOURCE_DIR}/ocos
-  ${googlere2_SOURCE_DIR}
-  ${farmhash_SOURCE_DIR}/src)
-
-target_include_directories(ortcustomops_static PUBLIC
-  ${PROJECT_SOURCE_DIR}/includes
-  ${PROJECT_SOURCE_DIR}/includes/onnxruntime
-  ${PROJECT_SOURCE_DIR}/ocos
-  ${googlere2_SOURCE_DIR}
-  ${farmhash_SOURCE_DIR}/src)
-
-if (ENABLE_TOKENIZER)
-  target_compile_definitions(ortcustomops PRIVATE ENABLE_TOKENIZER)
-  # GPT2
-  list(APPEND external_libraries nlohmann_json::nlohmann_json)
-  # SentencePiece
-  target_include_directories(ortcustomops PRIVATE 
-    ${sentencepieceproject_INCLUDE_DIRS}
-    ${PROJECT_SOURCE_DIR}/tokenizer)
-  list(APPEND external_libraries sentencepiece-static)
-
-  target_compile_definitions(ortcustomops_static PRIVATE ENABLE_TOKENIZER)
-  target_include_directories(ortcustomops_static PRIVATE 
-    ${sentencepieceproject_INCLUDE_DIRS}
-    ${PROJECT_SOURCE_DIR}/tokenizer
-    ${json_SOURCE_DIR}/single_include)
-endif()
-
-target_link_libraries(ortcustomops PRIVATE ${external_libraries})
-
-target_compile_definitions(ortcustomops PRIVATE
-    ONNX_NAMESPACE=onnx
-    ONNX_ML
-    NOMINMAX
-    FARMHASH_NO_BUILTIN_EXPECT)
-target_compile_features(ortcustomops PUBLIC cxx_std_11)
-
-target_compile_definitions(ortcustomops_static PRIVATE
-    ONNX_NAMESPACE=onnx
-    ONNX_ML
-    NOMINMAX
-    FARMHASH_NO_BUILTIN_EXPECT)
-target_compile_features(ortcustomops_static PUBLIC cxx_std_11)
-
-if(ENABLE_PYTHON)
+if(OCOS_ENABLE_PYTHON)
   include(pybind11)
   set(NUMPY_NOT_FOUND false)
   exec_program("${Python3_EXECUTABLE}"
@@ -183,10 +179,45 @@ if(ENABLE_PYTHON)
   endif()
 endif()
 
-# test section
-include(googletest)
-file(GLOB TEST_SRC "${PROJECT_SOURCE_DIR}/test/test*.cc")
-add_executable(ortcustomops_test ${TEST_SRC})
-target_link_libraries(ortcustomops_test gtest_main ortcustomops_static ${external_libraries})
+set(CPACK_PROJECT_NAME ${PROJECT_NAME})
+set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
+include(CPack)
 
-add_test(NAME ortcustomops_test COMMAND test)
+# test section
+if (NOT OCOS_ENABLE_PYTHON)
+  # Enable CTest
+  enable_testing()
+  include(CTest)
+
+  set(TEST_SRC_DIR ${PROJECT_SOURCE_DIR}/test)
+  include(googletest)
+  file(GLOB static_TEST_SRC "${TEST_SRC_DIR}/static_test/*.cc")
+  add_executable(ortcustomops_static_test ${static_TEST_SRC})
+  target_link_libraries(ortcustomops_static_test gtest_main ${ocos_libraries})
+  add_test(NAME ortcustomops_static_test COMMAND $<TARGET_FILE:ortcustomops_static_test>)
+
+  file(GLOB shared_TEST_SRC "${TEST_SRC_DIR}/shared_test/*.cc")
+  add_executable(ortcustomops_test ${shared_TEST_SRC})
+  if (ONNXRUNTIME_LIB_DIR)
+    target_link_directories(ortcustomops_test PRIVATE ${ONNXRUNTIME_LIB_DIR})
+    target_link_libraries(ortcustomops_test ortcustomops onnxruntime gtest_main ${ocos_libraries})
+    if (WIN32)
+      file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
+      file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
+      add_custom_command(
+        TARGET ortcustomops_test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy ${ONNXRUNTIME_LIB_FILES} $<TARGET_FILE_DIR:ortcustomops_test>)
+    endif()
+  endif()
+
+  set(TEST_DATA_SRC ${TEST_SRC_DIR}/data)
+  set(TEST_DATA_DES ${ortcustomops_BINARY_DIR}/data)
+
+  # Copy test data from source to destination.
+  add_custom_command(
+    TARGET ortcustomops_test POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${TEST_DATA_SRC}
+    ${TEST_DATA_DES})
+  add_test(NAME ortcustomops_test COMMAND $<TARGET_FILE:ortcustomops_test>)
+endif()
