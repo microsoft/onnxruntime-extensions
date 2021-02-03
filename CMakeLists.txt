@@ -95,24 +95,26 @@ target_include_directories(ortcustomops_static PUBLIC
   ${PROJECT_SOURCE_DIR}/includes/onnxruntime
   ${PROJECT_SOURCE_DIR}/ocos)
 
+set(OCOS_COMPILE_DEFINITIONS "")
+
 if (OCOS_ENABLE_TF_STRING)
   target_include_directories(ortcustomops_static PUBLIC
     ${googlere2_SOURCE_DIR}
     ${farmhash_SOURCE_DIR}/src)
-  target_compile_definitions(ortcustomops_static PRIVATE ENABLE_TF_STRING)
-
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING)
 endif()
 
 if (OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
   target_include_directories(ortcustomops_static PRIVATE ${json_SOURCE_DIR}/single_include)
-  target_compile_definitions(ortcustomops_static PRIVATE ENABLE_GPT2_TOKENIZER)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_GPT2_TOKENIZER)
   list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
+
 if (OCOS_ENABLE_SPM_TOKENIZER)
   # SentencePiece
-  target_include_directories(ortcustomops_static PRIVATE ${sentencepieceproject_INCLUDE_DIRS})
-  target_compile_definitions(ortcustomops_static PRIVATE ENABLE_SPM_TOKENIZER)
+  target_include_directories(ortcustomops_static PRIVATE ${PROJECT_SOURCE_DIR}/tokenizer ${sentencepieceproject_INCLUDE_DIRS})
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_SPM_TOKENIZER)
   list(APPEND ocos_libraries sentencepiece-static)
 endif()
 
@@ -121,6 +123,8 @@ if (OCOS_ENABLE_TF_STRING)
       NOMINMAX
       FARMHASH_NO_BUILTIN_EXPECT)
 endif()
+
+target_compile_definitions(ortcustomops_static PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 
 file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h")
 if(OCOS_ENABLE_PYTHON)
@@ -136,12 +140,16 @@ if(OCOS_ENABLE_PYTHON)
   endif()
 
   Python3_add_library(ortcustomops SHARED ${TARGET_SRC_PYOPS} ${shared_TARGET_SRC})
-  target_compile_definitions(ortcustomops PRIVATE PYTHON_OP_SUPPORT)
+  list(APPEND OCOS_COMPILE_DEFINITIONS PYTHON_OP_SUPPORT)
 else()
   list(APPEND shared_TARGET_SRC "${PROJECT_SOURCE_DIR}/shared/ortcustomops.def")
   add_library(ortcustomops SHARED ${shared_TARGET_SRC})
 endif()
 
+target_compile_definitions(ortcustomops PRIVATE  ${OCOS_COMPILE_DEFINITIONS})
+if (OCOS_ENABLE_SPM_TOKENIZER)   # FIXME: this include path is not recommendeded.
+  target_include_directories(ortcustomops PRIVATE ${PROJECT_SOURCE_DIR}/tokenizer ${sentencepieceproject_INCLUDE_DIRS})
+endif()
 target_link_libraries(ortcustomops PRIVATE ${ocos_libraries})
 
 if(OCOS_ENABLE_PYTHON)
