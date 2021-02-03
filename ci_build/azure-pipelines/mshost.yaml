@@ -93,12 +93,6 @@ jobs:
   pool:
     vmImage: 'windows-latest'
   steps:
-  - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
-    displayName: Add conda to PATH
-
-  - script: conda create --yes --quiet --name pyenv -c conda-forge python=3.8 numpy
-    displayName: Create Anaconda environment
-
   - task: DownloadGitHubRelease@0
     inputs:
       connection: 'microsoft'
@@ -116,6 +110,21 @@ jobs:
       cleanDestinationFolder: false
       overwriteExistingFiles: true
     displayName: Unpack Ort package.
+
+  - script: |
+      call .\build.bat -DONNXRUNTIME_LIB_DIR=.\onnxruntime-win-x64-1.6.0\lib
+    displayName: build the customop library with onnxruntime
+
+  - script: |
+      cd out/Windows
+      ctest -C RelWithDebInfo
+    displayName: Run C++ native tests
+
+  - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+    displayName: Add conda to PATH
+
+  - script: conda create --yes --quiet --name pyenv -c conda-forge python=3.8 numpy
+    displayName: Create Anaconda environment
 
   - script: |
       call activate pyenv
