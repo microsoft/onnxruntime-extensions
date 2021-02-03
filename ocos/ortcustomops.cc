@@ -20,7 +20,12 @@
 
 CustomOpNegPos c_CustomOpNegPos;
 CustomOpSegmentSum c_CustomOpSegmentSum;
+
 CustomOpRaggedTensorToSparse c_CustomOpRaggedTensorToSparse;
+CustomOpTensorToRaggedTensor<float> c_CustomOpTensorToRaggedTensorFloat;
+CustomOpTensorToRaggedTensor<double> c_CustomOpTensorToRaggedTensorDouble;
+CustomOpTensorToRaggedTensor<int64_t> c_CustomOpTensorToRaggedTensorInt64;
+
 #ifdef ENABLE_TOKENIZER
 CustomOpSentencepieceTokenizer c_CustomOpSentencepieceTokenizer;
 #endif
@@ -37,6 +42,9 @@ CustomOpTwo c_CustomOpTwo;
 OrtCustomOp* operator_lists[] = {
     &c_CustomOpNegPos,
     &c_CustomOpRaggedTensorToSparse,
+    &c_CustomOpTensorToRaggedTensorFloat,
+    &c_CustomOpTensorToRaggedTensorDouble,
+    &c_CustomOpTensorToRaggedTensorInt64,
     &c_CustomOpSegmentSum,
 #ifdef ENABLE_TOKENIZER
     &c_CustomOpSentencepieceTokenizer,
