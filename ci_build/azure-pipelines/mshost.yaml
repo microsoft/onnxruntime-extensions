@@ -14,6 +14,33 @@ jobs:
     maxParallel: 1
 
   steps:
+  - task: DownloadGitHubRelease@0
+    inputs:
+      connection: 'microsoft'
+      userRepository: 'microsoft/onnxruntime'
+      defaultVersionType: 'specificVersion'
+      version: '34858191'
+      itemPattern: '*-linux-x64-1.6.0*'
+      downloadPath: '$(Build.sourcesdirectory)'
+  displayName: Download the ONNXRuntime prebuilt package.
+
+  - task: ExtractFiles@1
+    inputs:
+      archiveFilePatterns: '**/*.tgz'
+      destinationFolder: '$(Build.sourcesdirectory)'
+      cleanDestinationFolder: false
+      overwriteExistingFiles: true
+    displayName: Unpack ONNXRuntime package.
+
+  - script: |
+      call .\build.sh -DONNXRUNTIME_LIB_DIR=.\onnxruntime-linux-x64-1.6.0\lib
+    displayName: build the customop library with onnxruntime
+
+  - script: |
+      cd out/Linux
+      ctest -C RelWithDebInfo
+    displayName: Run C++ native tests
+
   - task: UsePythonVersion@0
     inputs:
       versionSpec: '$(python.version)'
@@ -53,6 +80,33 @@ jobs:
     maxParallel: 1
 
   steps:
+  - task: DownloadGitHubRelease@0
+    inputs:
+      connection: 'microsoft'
+      userRepository: 'microsoft/onnxruntime'
+      defaultVersionType: 'specificVersion'
+      version: '34858191'
+      itemPattern: '*-osx-x64-1.6.0*'
+      downloadPath: '$(Build.sourcesdirectory)'
+  displayName: Download the ONNXRuntime prebuilt package.
+
+  - task: ExtractFiles@1
+    inputs:
+      archiveFilePatterns: '**/*.tgz'
+      destinationFolder: '$(Build.sourcesdirectory)'
+      cleanDestinationFolder: false
+      overwriteExistingFiles: true
+    displayName: Unpack ONNXRuntime package.
+
+  - script: |
+      call .\build.sh -DONNXRUNTIME_LIB_DIR=.\onnxruntime-osx-x64-1.6.0\lib
+    displayName: build the customop library with onnxruntime
+
+  - script: |
+      cd out/Darwin
+      ctest -C RelWithDebInfo
+    displayName: Run C++ native tests
+
   - task: UsePythonVersion@0
     inputs:
       versionSpec: '$(python.version)'
@@ -109,7 +163,7 @@ jobs:
       destinationFolder: '$(Build.sourcesdirectory)'
       cleanDestinationFolder: false
       overwriteExistingFiles: true
-    displayName: Unpack Ort package.
+    displayName: Unpack ONNXRuntime package.
 
   - script: |
       call .\build.bat -DONNXRUNTIME_LIB_DIR=.\onnxruntime-win-x64-1.6.0\lib
