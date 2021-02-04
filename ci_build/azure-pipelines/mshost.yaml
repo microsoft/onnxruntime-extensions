@@ -80,6 +80,10 @@ jobs:
     maxParallel: 1
 
   steps:
+  # needed for onnxruntime
+  - script: brew install libomp
+    displayName: 'Install omp'
+
   - task: DownloadGitHubRelease@0
     inputs:
       connection: 'microsoft'
@@ -111,10 +115,6 @@ jobs:
     inputs:
       versionSpec: '$(python.version)'
       addToPath: true
-
-  # needed for onnxruntime
-  - script: brew install libomp
-    displayName: 'Install omp'
 
   - script: |
       python -m pip install --upgrade pip
