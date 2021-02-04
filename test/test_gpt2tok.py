@@ -1,10 +1,10 @@
-import os
-from pathlib import Path
 import unittest
 import numpy as np
+import onnxruntime as _ort
+
+from pathlib import Path
 from onnx import helper, onnx_pb as onnx_proto
 from transformers import GPT2Tokenizer
-import onnxruntime as _ort
 from onnxruntime_customops import (
     onnx_op,
     enable_custom_op,
