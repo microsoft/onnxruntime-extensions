@@ -90,6 +90,7 @@ extern "C" bool AddExternalCustomOp(const OrtCustomOp* c_op) {
 
 
 extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api) {
+  std::cout << "Register successfully" << std::endl;
   OrtCustomOpDomain* domain = nullptr;
   const OrtApi* ortApi = api->GetApi(ORT_API_VERSION);
   std::set<std::string> pyop_nameset;

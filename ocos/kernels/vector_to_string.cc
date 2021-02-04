@@ -4,17 +4,17 @@
 #include "kernels.h"
 #include "utils/string_utils.h"
 #include "vector_to_string.hpp"
+#include "farmhash.h"
 #include "string_common.h"
 
 
 namespace std {
 
 template <class T>
-struct hash<std::vector<T>>
-    : public __hash_base<size_t, string_view> {
+struct hash<std::vector<T>> {
 
   size_t operator()(const vector<T>& __vector) const noexcept {
-    return std::_Hash_impl::hash(__vector.data(), __vector.size() * sizeof(T));
+    return util::Hash(reinterpret_cast<const char *>(__vector.data()), __vector.size() * sizeof(T));
   }
 };
 }  // namespace std
