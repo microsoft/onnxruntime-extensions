@@ -55,6 +55,10 @@ class Opdef:
         if outputs is None:
             outputs = [PyCustomOpDef.dt_float]
         opdef._nativedef.output_types = outputs
+        attrs = kwargs.get('attrs', None)
+        if attrs is None:
+            attrs = []
+        opdef._nativedef.attrs = attrs
         add_custom_op(opdef._nativedef)
         return opdef
 
@@ -62,13 +66,13 @@ class Opdef:
         return self.body(*args, **kwargs)
 
 
-def _on_pyop_invocation(k_id, feed):
+def _on_pyop_invocation(k_id, feed, attributes):
     if k_id not in Opdef._odlist:
         raise RuntimeError(
             "Unable to find function id={}. "
             "Did you decorate the operator with @onnx_op?.".format(k_id))
     op_ = Opdef._odlist[k_id]
-    rv = op_.body(*feed)
+    rv = op_.body(*feed, **attributes)
     if isinstance(rv, tuple):
         # Multiple outputs.
         res = []
