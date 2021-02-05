@@ -29,6 +29,61 @@
 
 [TODO: Add existing operators]
 
+### <a name="StringRegexReplace"></a><a name="StringRegexReplace">**StringRegexReplace**</a>
+
+String replacement based on regular expressions.
+
+#### Inputs
+
+***text: tensor(string)***
+
+String tensor to extract slices from.
+
+***pattern: tensor(string)***
+
+Pattern of the regular expression.
+
+***rewrite: tensor(string)***
+
+Replacement.
+
+#### Attributes
+
+***global_replace: int64*** (default is 1)
+
+Replace all strings matching the pattern or the first one.
+
+#### Outputs
+
+***output: tensor(string)***
+
+String with replacements.
+
+#### Examples
+
+<details>
+<summary>string_slice</summary>
+
+```python
+
+node = onnx.helper.make_node(
+    'StringRegexReplace',
+    inputs=['text', 'pattern', 'rewrite'],
+    outputs=['y'],
+)
+
+text = np.array([['def myfunc():'], ['def dummy():']])
+pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
+rewrite = np.array([r'static PyObject* py_\1(void) {'])
+y = [['static PyObject* py_myfunc(void) {'],
+     ['static PyObject* py_dummy(void) {']]
+
+expect(node, inputs=[text, pattern, rewrite], outputs=[y],
+       name='test_string_regex_replace')
+```
+
+</details>
+
 ### <a name="StringSlice"></a><a name="StringSlice">**StringSlice**</a>
 
 Do the slice operation to each string element in input tensor. Similar to string slice in python

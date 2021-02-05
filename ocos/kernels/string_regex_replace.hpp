@@ -7,8 +7,11 @@
 #include "utils/string_utils.h"
 
 struct KernelStringRegexReplace : BaseKernel {
-  KernelStringRegexReplace(OrtApi api);
+  KernelStringRegexReplace(OrtApi api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
+
+ protected:
+  int64_t global_replace_;
 };
 
 struct CustomOpStringRegexReplace : Ort::CustomOpBase<CustomOpStringRegexReplace, KernelStringRegexReplace> {
