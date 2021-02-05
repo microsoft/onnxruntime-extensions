@@ -60,7 +60,7 @@ def _create_test_model_string_join(prefix, domain='ai.onnx.contrib'):
     return model
 
 
-def _create_test_model_string_replace(prefix, domain='ai.onnx.contrib'):
+def _create_test_model_string_replace(prefix, domain='ai.onnx.contrib', global_replace=True):
     nodes = []
     nodes.append(
         helper.make_node('Identity', ['text'], ['id1']))
@@ -68,10 +68,17 @@ def _create_test_model_string_replace(prefix, domain='ai.onnx.contrib'):
         helper.make_node('Identity', ['pattern'], ['id2']))
     nodes.append(
         helper.make_node('Identity', ['rewrite'], ['id3']))
-    nodes.append(
-        helper.make_node(
-            '%sStringRegexReplace' % prefix, ['id1', 'id2', 'id3'],
-            ['customout'], domain=domain))
+    if global_replace:
+        nodes.append(
+            helper.make_node(
+                '%sStringRegexReplace' % prefix, ['id1', 'id2', 'id3'],
+                ['customout'], domain=domain))
+    else:
+        nodes.append(
+            helper.make_node(
+                '%sStringRegexReplace' % prefix, ['id1', 'id2', 'id3'],
+                ['customout'], domain=domain,
+                global_replace=0))
 
     input0 = helper.make_tensor_value_info(
         'text', onnx_proto.TensorProto.STRING, [None, 1])
@@ -493,6 +500,21 @@ class TestPythonOpString(unittest.TestCase):
             None, {'text': text, 'pattern': pattern, 'rewrite': rewrite})
         exp = [['static PyObject* py_myfunc(void) {'],
                ['static PyObject* py_dummy(void) {']]
+        self.assertEqual(exp, txout[0].tolist())
+
+    def test_string_replace_cc_first(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())        
+        onnx_model = _create_test_model_string_replace('', global_replace=False)
+        self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
+        rewrite = np.array([r'static PyObject* py_\1(void) {'])
+        text = np.array([['def myfunc():def myfunc():'], ['def dummy():def dummy():']])
+        txout = sess.run(
+            None, {'text': text, 'pattern': pattern, 'rewrite': rewrite})
+        exp = [['static PyObject* py_myfunc(void) {def myfunc():'],
+               ['static PyObject* py_dummy(void) {def dummy():']]
         self.assertEqual(exp, txout[0].tolist())
 
     def test_string_replace_cc_x2(self):

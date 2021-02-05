@@ -93,7 +93,7 @@ def _create_test_join():
     nodes[0:] = [helper.make_node('Identity', ['input_1'], ['identity1'])]
     nodes[1:] = [helper.make_node('PyOpJoin',
                                   ['identity1'], ['joined'],
-                                  sep=',',
+                                  sep=';',
                                   domain='ai.onnx.contrib')]
 
     input0 = helper.make_tensor_value_info(
@@ -230,7 +230,7 @@ class TestPythonOp(unittest.TestCase):
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         arr = np.array([["a", "b"]], dtype=np.object)
         txout = sess.run(None, {'input_1': arr})
-        exp = np.array(["a,b"], dtype=np.object)
+        exp = np.array(["a;b"], dtype=np.object)
         assert txout[0][0] == exp[0]
 
 
