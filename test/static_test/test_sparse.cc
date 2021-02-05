@@ -9,10 +9,10 @@ TEST(utils, create_ragged_from_dense) {
   std::vector<int64_t> shape{2, 3};
   std::vector<float> values{0, 1, 2, 3, 4, 5};
   SparseInTensor<float> tensor;
-  SparseInTensor<float>::create_ragged_from_dense(shape, values, tensor);
+  SparseInTensor<float>::create_ragged_from_dense(shape, values.data(), tensor);
   EXPECT_EQ(tensor.ndims(), 2);
   EXPECT_EQ(tensor.shape(), shape);
-  EXPECT_EQ(tensor.size(), 84);
+  EXPECT_EQ(tensor.size(), 92);
   EXPECT_EQ(tensor.nvalues(), 6);
   EXPECT_EQ(tensor.nindices(), 3);
   EXPECT_EQ(tensor.indices(), std::vector<int64_t>({0, 3, 6}));
@@ -26,7 +26,7 @@ TEST(utils, create_ragged) {
   SparseInTensor<float>::create_ragged(values, indices, tensor);
   EXPECT_EQ(tensor.ndims(), 2);
   EXPECT_EQ(tensor.shape(), std::vector<int64_t>({2, 0}));
-  EXPECT_EQ(tensor.size(), 84);
+  EXPECT_EQ(tensor.size(), 92);
   EXPECT_EQ(tensor.nvalues(), 6);
   EXPECT_EQ(tensor.nindices(), 3);
   EXPECT_EQ(tensor.indices(), std::vector<int64_t>({0, 3, 6}));

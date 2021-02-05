@@ -23,13 +23,12 @@ class TestPythonOpRaggedTensor(unittest.TestCase):
         nodes = [
             helper.make_node(
                 '%sTensorToRaggedTensor%s' % (prefix, suffix),
-                ['tensor'], ['values', 'indices'], domain=domain)
+                ['tensor'], ['ragged'], domain=domain)
         ]
         input0 = helper.make_tensor_value_info('tensor', proto_type, None)
-        output0 = helper.make_tensor_value_info('values', proto_type, [None])
-        output1 = helper.make_tensor_value_info(
-            'indices', onnx_proto.TensorProto.INT64, [None])
-        graph = helper.make_graph(nodes, 'test0', [input0], [output0, output1])
+        output0 = helper.make_tensor_value_info(
+            'ragged', onnx_proto.TensorProto.UINT8, [None])
+        graph = helper.make_graph(nodes, 'test0', [input0], [output0])
         model = helper.make_model(
             graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
         return model
@@ -58,17 +57,42 @@ class TestPythonOpRaggedTensor(unittest.TestCase):
                           str(onnx_model))
             sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
 
-            tensor = (np.random.randn(10) * 10).astype(dtype)
+            tensor = (np.arange(10) * 10).astype(dtype)
             txout = sess.run(None, {'tensor': tensor})
-            assert_almost_equal(tensor.ravel(), txout[0].ravel())
-            assert_almost_equal(np.array([0, 10], dtype=np.int64),
-                                txout[1].ravel())
 
-            tensor = (np.random.randn(3, 10) * 10).astype(dtype)
+            if suffix == 'Float':
+                expected = np.array([
+                    1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 172, 0, 0, 0,
+                    0, 0, 0, 0, 11, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0,
+                    0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0,
+                    0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0,
+                    0, 5, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0,
+                    7, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 9,
+                    0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 32, 65, 0, 0, 160, 65, 0, 0, 240, 65,
+                    0, 0, 32, 66, 0, 0, 72, 66, 0, 0, 112, 66, 0, 0,
+                    140, 66, 0, 0, 160, 66, 0, 0, 180, 66], dtype=np.uint8)
+                assert_almost_equal(expected, txout[0])
+
+            tensor = (np.arange(30).reshape(3, -1) * 10).astype(dtype)
             txout = sess.run(None, {'tensor': tensor})
-            assert_almost_equal(tensor.ravel(), txout[0].ravel())
-            assert_almost_equal(np.array([0, 10, 20, 30], dtype=np.int64),
-                                txout[1].ravel())
+            if suffix == 'Float':
+                expected = np.array([
+                    1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 196, 0, 0, 0,
+                    0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0,
+                    0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0,
+                    0, 0, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32,
+                    65, 0, 0, 160, 65, 0, 0, 240, 65, 0, 0, 32, 66, 0, 0,
+                    72, 66, 0, 0, 112, 66, 0, 0, 140, 66, 0, 0, 160, 66,
+                    0, 0, 180, 66, 0, 0, 200, 66, 0, 0, 220, 66, 0, 0,
+                    240, 66, 0, 0, 2, 67, 0, 0, 12, 67, 0, 0, 22, 67, 0,
+                    0, 32, 67, 0, 0, 42, 67, 0, 0, 52, 67, 0, 0, 62, 67,
+                    0, 0, 72, 67, 0, 0, 82, 67, 0, 0, 92, 67, 0, 0, 102,
+                    67, 0, 0, 112, 67, 0, 0, 122, 67, 0, 0, 130, 67, 0,
+                    0, 135, 67, 0, 0, 140, 67, 0, 0, 145, 67], dtype=np.uint8)
+                assert_almost_equal(expected, txout[0])
 
 
 if __name__ == "__main__":

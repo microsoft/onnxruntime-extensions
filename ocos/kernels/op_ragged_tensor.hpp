@@ -5,6 +5,7 @@
 
 #include "kernels.h"
 #include "utils.h"
+#include "sparse.hpp"
 
 struct KernelRaggedTensorToSparse : BaseKernel {
   KernelRaggedTensorToSparse(OrtApi api);
@@ -28,61 +29,39 @@ struct KernelTensorToRaggedTensor : BaseKernel {
     const T* p_in_tensor = ort_.GetTensorData<T>(in_tensor);
 
     OrtTensorDimensions in_dimension(ort_, in_tensor);
+    SparseInTensor<T> ragged;
 
     if (in_dimension.size() == 1) {
-      std::vector<int64_t> output_shape{Size(in_dimension)};
-      OrtValue* values = ort_.KernelContext_GetOutput(context, 0, output_shape.data(), output_shape.size());
-      T* p_values = ort_.GetTensorMutableData<T>(values);
-      memcpy(p_values, p_in_tensor, output_shape[0] * sizeof(T));
-
-      std::vector<int64_t> indices_shape{2};
-      OrtValue* indices = ort_.KernelContext_GetOutput(context, 1, indices_shape.data(), indices_shape.size());
-      int64_t* p_indices = ort_.GetTensorMutableData<int64_t>(indices);
-      p_indices[0] = 0;
-      p_indices[1] = output_shape[0];
-      return;
+      std::vector<int64_t> in_dimension2(2);
+      in_dimension2[0] = in_dimension[0];
+      in_dimension2[1] = 1;
+      SparseInTensor<T>::create_ragged_from_dense(in_dimension2, p_in_tensor, ragged);
+    } else if (in_dimension.size() == 2) {
+      SparseInTensor<T>::create_ragged_from_dense(in_dimension, p_in_tensor, ragged);
+    } else {
+      throw std::runtime_error(MakeString(
+          "Input tensor must have one or two dimensions but has ", in_dimension.size(), "."));
     }
-
-    if (in_dimension.size() == 2) {
-      std::vector<int64_t> output_shape{Size(in_dimension)};
-      OrtValue* values = ort_.KernelContext_GetOutput(context, 0, output_shape.data(), output_shape.size());
-      T* p_values = ort_.GetTensorMutableData<T>(values);
-      memcpy(p_values, p_in_tensor, output_shape[0] * sizeof(T));
-
-      std::vector<int64_t> indices_shape{in_dimension[0] + 1};
-      OrtValue* indices = ort_.KernelContext_GetOutput(context, 1, indices_shape.data(), indices_shape.size());
-      int64_t* p_indices = ort_.GetTensorMutableData<int64_t>(indices);
-      int64_t index = 0, i = 0;
-      for (i = 0; i < in_dimension[0]; ++i, index += in_dimension[1]) {
-        p_indices[i] = index;
-      }
-      p_indices[i] = index;
-      return;
-    }
-
-    throw std::runtime_error(MakeString(
-        "Input tensor must have one or two dimensions but has ", in_dimension.size(), "."));
+    std::vector<int64_t> output_shape{ragged.size()};
+    OrtValue* values = ort_.KernelContext_GetOutput(
+        context, 0, output_shape.data(), output_shape.size());
+    uint8_t* p_values = ort_.GetTensorMutableData<uint8_t>(values);
+    memcpy(p_values, ragged.content().data(), ragged.size());
+    return;
   }
 };
 
 template <typename T>
 struct CustomOpTensorToRaggedTensor : Ort::CustomOpBase<CustomOpTensorToRaggedTensor<T>, KernelTensorToRaggedTensor<T>> {
   size_t GetInputTypeCount() const { return 1; }
-  size_t GetOutputTypeCount() const { return 2; }
+  size_t GetOutputTypeCount() const { return 1; }
 
-  ONNXTensorElementDataType GetInputType(size_t index) const {
+  ONNXTensorElementDataType GetInputType(size_t /*index*/) const {
     return GetTensorType<T>();
   }
 
-  ONNXTensorElementDataType GetOutputType(size_t index) const {
-    switch (index) {
-      case 0:
-        return GetTensorType<T>();
-      case 1:
-        return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-      default:
-        throw std::runtime_error("Unexpected output index.");
-    }
+  ONNXTensorElementDataType GetOutputType(size_t /*index*/) const {
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
   }
 
   const char* GetName() const {
