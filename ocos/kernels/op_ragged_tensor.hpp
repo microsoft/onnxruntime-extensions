@@ -46,7 +46,7 @@ struct KernelTensorToRaggedTensor : BaseKernel {
     OrtValue* values = ort_.KernelContext_GetOutput(
         context, 0, output_shape.data(), output_shape.size());
     uint8_t* p_values = ort_.GetTensorMutableData<uint8_t>(values);
-    memcpy(p_values, ragged.content().data(), ragged.size());
+    memcpy(p_values, ragged.buffer(), ragged.size());
     return;
   }
 };
