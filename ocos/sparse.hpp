@@ -14,8 +14,6 @@ typedef enum SparseInTensorType {
 */
 template <typename T>
 struct SparseInTensor {
-  using value_type = typename T;
-
   inline int64_t size() const { return *size_; }                      // total number of bytes
   inline size_t ndims() const { return *ndims_; }                     // number of dimensions
   inline size_t nindices() const { return *nindices_; }               // number of indices
