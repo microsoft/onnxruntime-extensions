@@ -13,15 +13,15 @@ class VectorToStringImplBase
   virtual std::vector<std::string> Compute(const void* input, const OrtTensorDimensions& input_dim, OrtTensorDimensions& output_dim) = 0;
 };
 
-struct KernalVectorToString : BaseKernel {
-  KernalVectorToString(OrtApi api, const OrtKernelInfo* info);
+struct KernelVectorToString : BaseKernel {
+  KernelVectorToString(OrtApi api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
 
  private:
   std::shared_ptr<VectorToStringImplBase> impl_;
 };
 
-struct CustomOpVectorToString : Ort::CustomOpBase<CustomOpVectorToString, KernalVectorToString> {
+struct CustomOpVectorToString : Ort::CustomOpBase<CustomOpVectorToString, KernelVectorToString> {
   void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;

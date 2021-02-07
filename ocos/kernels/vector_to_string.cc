@@ -122,7 +122,7 @@ class VectorToStringImpl : public VectorToStringImplBase {
   size_t vector_len_;
 };
 
-KernalVectorToString::KernalVectorToString(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+KernelVectorToString::KernelVectorToString(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   std::string map = ort_.KernelInfoGetAttribute<std::string>(info, "map");
   std::string unk = ort_.KernelInfoGetAttribute<std::string>(info, "unk");
 
@@ -130,7 +130,7 @@ KernalVectorToString::KernalVectorToString(OrtApi api, const OrtKernelInfo* info
   impl_.reset(new VectorToStringImpl<int64_t>(map, unk));
 }
 
-void KernalVectorToString::Compute(OrtKernelContext* context) {
+void KernelVectorToString::Compute(OrtKernelContext* context) {
   const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
   const void* input_data = ort_.GetTensorData<int64_t>(input);
 
@@ -144,7 +144,7 @@ void KernalVectorToString::Compute(OrtKernelContext* context) {
 }
 
 void* CustomOpVectorToString::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
-  return new KernalVectorToString(api, info);
+  return new KernelVectorToString(api, info);
 };
 
 const char* CustomOpVectorToString::GetName() const { return "VectorToString"; };
