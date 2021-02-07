@@ -42,8 +42,13 @@ TEST(utils, splite_string) {
   EXPECT_EQ(result.size(), 2);
   EXPECT_EQ(result[0], "eabc");
 
+  result = SplitString("a\nb\n", "\n");
+  EXPECT_EQ(result.size(), 2);
+  EXPECT_EQ(result[1], "b");
+
   // two seps
   result = SplitString("ea,bc\nas,bd", ",\n");
   EXPECT_EQ(result.size(), 4);
   EXPECT_EQ(result[1], "bc");
+
 }

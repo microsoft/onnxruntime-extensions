@@ -32,7 +32,8 @@ class VectorToStringImpl : public VectorToStringImplBase {
 
     const T* ptr = static_cast<const T*>(input);
 
-    if (vector_len_ == 1) {
+    if (vector_len_ == 1 && input_dim.size() == 1) {
+      // only hit when the key is a scalar and the input is a vector
       output_dim = input_dim;
     } else {
       if (input_dim[input_dim.size() - 1] != vector_len_) {
