@@ -47,7 +47,7 @@ def _run_vector_to_string(input, output, map, unk):
     np.testing.assert_array_equal(result, [output])
 
 
-class TestGPT2Tokenizer(unittest.TestCase):
+class TestVectorToString(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         pass

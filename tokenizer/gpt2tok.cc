@@ -20,7 +20,7 @@
 #include "nlohmann/json.hpp"
 #include "kernels/kernels.h"
 #include "kernels/string_common.h"
-#include "utils/unicode.h"
+#include "unicode.h"
 
 namespace {
 class SpecialTokenMap {
