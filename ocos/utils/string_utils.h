@@ -3,6 +3,7 @@
 #pragma once
 #include <iostream>
 #include <sstream>
+#include <vector>
 
 template <typename T>
 inline void MakeStringInternal(std::ostringstream& ss, const T& t) noexcept {
@@ -11,9 +12,14 @@ inline void MakeStringInternal(std::ostringstream& ss, const T& t) noexcept {
 
 template <>
 inline void MakeStringInternal(std::ostringstream& ss, const std::vector<int64_t>& t) noexcept {
-  for (auto it = t.begin(); it != t.end(); ++it) {
-    ss << *it << "x";
+  ss << "[";
+  for (int i = 0; i < t.size(); i++) {
+    if (i != 0) {
+      ss << ", ";
+    }
+    ss << t[i];
   }
+  ss << "]";
 }
 
 template <typename T, typename... Args>
@@ -29,10 +35,5 @@ std::string MakeString(const Args&... args) {
   return std::string(ss.str());
 }
 
-inline int64_t Size(const std::vector<int64_t>& shape) {
-  int64_t res = 1;
-  for (auto it = shape.begin(); it != shape.end(); ++it) {
-    res *= *it;
-  }
-  return res;
-}
+std::vector<std::string_view> SplitString(const std::string_view& str, const std::string_view& seps, bool remove_empty_entries = false);
+
