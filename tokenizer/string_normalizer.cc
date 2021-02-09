@@ -4,25 +4,28 @@
 #include "string_normalizer.hpp"
 #include "kernels/string_common.h"
 #include "sentencepiece_trainer.h"
+#include "normalizer.h"
 #include <vector>
 #include <cmath>
 #include <algorithm>
 
 KernelStringNormalizer::KernelStringNormalizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   std::string form;
+  /*
   if (HasAttribute("form")) {
-    form = ort_.KernelInfoGetAttribute<std::string>(info, "form");
+    form = ort_.KernelInfoGetAttribute<std::string>(info_, "form");
   }
+  */
   sentencepiece::NormalizerSpec spec;
   if (form.empty() || (form == "NFKC"))
     spec = sentencepiece::SentencePieceTrainer::GetNormalizerSpec("nmt_nfkc");
   else
     throw std::runtime_error(MakeString("Unexpected value for form '", form, "'."));
-  normalizer_ = new sentencepiece::normalizer::Normalizer(spec);
+  normalizer_ = (void*)new sentencepiece::normalizer::Normalizer(spec);
 }
 
 KernelStringNormalizer::~KernelStringNormalizer() {
-  delete normalizer_;
+  delete (sentencepiece::normalizer::Normalizer*)normalizer_;
 }
 
 void KernelStringNormalizer::Compute(OrtKernelContext* context) {
@@ -37,7 +40,9 @@ void KernelStringNormalizer::Compute(OrtKernelContext* context) {
 
   // Do computation
   for (int64_t i = 0; i < (int64_t)X.size(); ++i) {
-    X[i] = normalizer_->Normalize(X[i]);
+    std::cout << "<-'" << X[i] << "'\n";
+    X[i] = ((sentencepiece::normalizer::Normalizer*)normalizer_)->Normalize(X[i]);
+    std::cout << "->'" << X[i] << "'\n";
   }
 
   // Fills the output

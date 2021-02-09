@@ -76,13 +76,17 @@ if (OCOS_ENABLE_GPT2_TOKENIZER)
   file(GLOB tok_TARGET_SRC "tokenizer/gpt*.cc" "tokenizer/unicode*.*")
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
 endif()
+
 if (OCOS_ENABLE_SPM_TOKENIZER)
   # SentencePiece
   set(SPM_ENABLE_TCMALLOC OFF CACHE INTERNAL "")
   set(SPM_ENABLE_SHARED OFF CACHE INTERNAL "")
+  # set(SPM_ENABLE_NFKC_COMPILE ON CACHE INTERNAL "")
   message(STATUS "fetch sentencepiece")
   include(sentencepieceproject)
-  file(GLOB stpiece_TARGET_SRC "sentencepiece/*.cc" "tokenizer/sentencepiece*")
+  file(GLOB stpiece_TARGET_SRC
+    "tokenizer/sentencepiece*"
+    "tokenizer/string_normalize*")
   list(REMOVE_ITEM stpiece_TARGET_SRC INCLUDE REGEX ".*((spm)|(train)).*")
   list(APPEND TARGET_SRC ${stpiece_TARGET_SRC})
 endif()
@@ -118,8 +122,8 @@ endif()
 if (OCOS_ENABLE_SPM_TOKENIZER)
   # SentencePiece
   target_include_directories(ortcustomops_static PRIVATE ${PROJECT_SOURCE_DIR}/tokenizer ${sentencepieceproject_INCLUDE_DIRS})
-  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_SPM_TOKENIZER)
-  list(APPEND ocos_libraries sentencepiece-static)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_SPM_TOKENIZER _USE_INTERNAL_STRING_VIEW)
+  list(APPEND ocos_libraries sentencepiece-static sentencepiece_train-static)
 endif()
 
 if (OCOS_ENABLE_TF_STRING)

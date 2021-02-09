@@ -16,6 +16,7 @@
 
 #ifdef ENABLE_SPM_TOKENIZER
 #include "sentencepiece_tokenizer.hpp"
+#include "string_normalizer.hpp"
 #endif
 
 CustomOpNegPos c_CustomOpNegPos;
@@ -23,6 +24,7 @@ CustomOpSegmentSum c_CustomOpSegmentSum;
 CustomOpRaggedTensorToSparse c_CustomOpRaggedTensorToSparse;
 #ifdef ENABLE_SPM_TOKENIZER
 CustomOpSentencepieceTokenizer c_CustomOpSentencepieceTokenizer;
+CustomOpStringNormalizer c_CustomOpStringNormalizer;
 #endif
 CustomOpStringEqual c_CustomOpStringEqual;
 CustomOpStringHash c_CustomOpStringHash;
@@ -38,6 +40,7 @@ OrtCustomOp* operator_lists[] = {
     &c_CustomOpSegmentSum,
 #ifdef ENABLE_SPM_TOKENIZER
     &c_CustomOpSentencepieceTokenizer,
+    &c_CustomOpStringNormalizer,
 #endif
     &c_CustomOpStringEqual,
     &c_CustomOpStringHash,

@@ -12,11 +12,11 @@ from onnxruntime_customops import (
 class TestPythonOpNormalizer(unittest.TestCase):
 
     def _create_test_model_string_normalize(
-            self, prefix, domain='ai.onnx.contrib'):
+            self, prefix, domain='ai.onnx.contrib', form="NFKC"):
         nodes = [
             helper.make_node(
-                '%sStringNormalize' % prefix, ['input_1'], ['output_1'],
-                domain=domain)]
+                '%sStringNormalizer' % prefix, ['input_1'], ['output_1'],
+                domain=domain)]#, form=form)]
 
         input0 = helper.make_tensor_value_info(
             'input_1', onnx_proto.TensorProto.STRING, [None, None])
@@ -35,11 +35,11 @@ class TestPythonOpNormalizer(unittest.TestCase):
     def test_string_normlize_cc(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        onnx_model = self._create_test_model_string_normalize('')
-        self.assertIn('op_type: "StringNormalize"', str(onnx_model))
+        onnx_model = self._create_test_model_string_normalize('', form="NFKC")
+        self.assertIn('op_type: "StringNormalizer"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         input_1 = np.array([["Abc"]])
-        expected = np.array([[unicodedata.normalize(input_1[0, 0])]])
+        expected = np.array([[unicodedata.normalize("NFKC", input_1[0, 0])]])
         txout = sess.run(None, {'input_1': input_1})
         self.assertEqual(txout[0].tolist(), expected.tolist())
 

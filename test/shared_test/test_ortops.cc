@@ -4,54 +4,195 @@
 #include "onnxruntime_cxx_api.h"
 #include "gtest/gtest.h"
 #include "ocos.h"
-
 #include "test_kernel.hpp"
+#include <filesystem>
 
+const char* GetLibraryPath() {
+#if defined(_WIN32)
+  return "ortcustomops.dll";
+#elif defined(__APPLE__)
+  return "libortcustomops.dylib";
+#else
+  return "./libortcustomops.so";
+#endif
+}
 
-struct Input {
-  const char* name = nullptr;
-  std::vector<int64_t> dims;
-  std::vector<float> values;
+struct KernelOne : BaseKernel {
+  KernelOne(OrtApi api) : BaseKernel(api) {
+  }
+
+  void Compute(OrtKernelContext* context) {
+    // Setup inputs
+    const OrtValue* input_X = ort_.KernelContext_GetInput(context, 0);
+    const OrtValue* input_Y = ort_.KernelContext_GetInput(context, 1);
+    const float* X = ort_.GetTensorData<float>(input_X);
+    const float* Y = ort_.GetTensorData<float>(input_Y);
+
+    // Setup output
+    OrtTensorDimensions dimensions(ort_, input_X);
+
+    OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
+    float* out = ort_.GetTensorMutableData<float>(output);
+
+    OrtTensorTypeAndShapeInfo* output_info = ort_.GetTensorTypeAndShape(output);
+    int64_t size = ort_.GetTensorShapeElementCount(output_info);
+    ort_.ReleaseTensorTypeAndShapeInfo(output_info);
+
+    // Do computation
+    for (int64_t i = 0; i < size; i++) {
+      out[i] = X[i] + Y[i];
+    }
+  }
 };
 
-void RunSession(Ort::Session& session_object,
-                const std::vector<Input>& inputs,
-                const char* output_name,
-                const std::vector<int64_t>& dims_y,
-                const std::vector<int32_t>& values_y) {
+struct CustomOpOne : Ort::CustomOpBase<CustomOpOne, KernelOne> {
+  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+    return new KernelOne(api);
+  };
+  const char* GetName() const {
+    return "CustomOpOne";
+  };
+  size_t GetInputTypeCount() const {
+    return 2;
+  };
+  ONNXTensorElementDataType GetInputType(size_t index) const {
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
+  };
+  size_t GetOutputTypeCount() const {
+    return 1;
+  };
+  ONNXTensorElementDataType GetOutputType(size_t index) const {
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
+  };
+};
 
+struct KernelTwo : BaseKernel {
+  KernelTwo(OrtApi api) : BaseKernel(api) {
+  }
+  void Compute(OrtKernelContext* context) {
+    // Setup inputs
+    const OrtValue* input_X = ort_.KernelContext_GetInput(context, 0);
+    const float* X = ort_.GetTensorData<float>(input_X);
+
+    // Setup output
+    OrtTensorDimensions dimensions(ort_, input_X);
+
+    OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
+    int32_t* out = ort_.GetTensorMutableData<int32_t>(output);
+
+    OrtTensorTypeAndShapeInfo* output_info = ort_.GetTensorTypeAndShape(output);
+    int64_t size = ort_.GetTensorShapeElementCount(output_info);
+    ort_.ReleaseTensorTypeAndShapeInfo(output_info);
+
+    // Do computation
+    for (int64_t i = 0; i < size; i++) {
+      out[i] = (int32_t)(round(X[i]));
+    }
+  }
+};
+
+struct CustomOpTwo : Ort::CustomOpBase<CustomOpTwo, KernelTwo> {
+  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+    return new KernelTwo(api);
+  };
+  const char* GetName() const {
+    return "CustomOpTwo";
+  };
+  size_t GetInputTypeCount() const {
+    return 1;
+  };
+  ONNXTensorElementDataType GetInputType(size_t index) const {
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
+  };
+  size_t GetOutputTypeCount() const {
+    return 1;
+  };
+  ONNXTensorElementDataType GetOutputType(size_t index) const {
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32;
+  };
+};
+
+template <typename T>
+void _emplace_back(Ort::MemoryInfo& memory_info, std::vector<Ort::Value>& ort_inputs, const std::vector<T>& values, const std::vector<int64_t>& dims) {
+  ort_inputs.emplace_back(Ort::Value::CreateTensor<T>(
+      memory_info, const_cast<T*>(values.data()), values.size(), dims.data(), dims.size()));
+}
+
+template <typename T>
+void _assert_eq(Ort::Value& output_tensor, const std::vector<T>& expected, size_t total_len) {
+  ASSERT_EQ(expected.size(), total_len);
+  T* f = output_tensor.GetTensorMutableData<T>();
+  for (size_t i = 0; i != total_len; ++i) {
+    ASSERT_EQ(expected[i], f[i]);
+  }
+}
+
+void RunSession(Ort::Session& session_object,
+                const std::vector<TestValue>& inputs,
+                const char* output_name,
+                const std::vector<TestValue>& outputs) {
   std::vector<Ort::Value> ort_inputs;
   std::vector<const char*> input_names;
 
   auto memory_info = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU);
+  Ort::AllocatorWithDefaultOptions allocator;
 
   for (size_t i = 0; i < inputs.size(); i++) {
     input_names.emplace_back(inputs[i].name);
-    ort_inputs.emplace_back(Ort::Value::CreateTensor<float>(memory_info, 
-      const_cast<float*>(inputs[i].values.data()), inputs[i].values.size(), inputs[i].dims.data(), inputs[i].dims.size()));
+    switch (inputs[i].element_type) {
+      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
+        _emplace_back(memory_info, ort_inputs, inputs[i].values_float, inputs[i].dims);
+        break;
+      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
+        _emplace_back(memory_info, ort_inputs, inputs[i].values_int32, inputs[i].dims);
+        break;
+      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING: {
+        Ort::Value& ort_value = ort_inputs.emplace_back(
+            Ort::Value::CreateTensor(allocator, inputs[i].dims.data(), inputs[i].dims.size(),
+                                     ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING));
+        for (size_t i_str = 0; i_str < inputs[i].values_string.size(); ++i_str) {
+          ort_value.FillStringTensorElement(inputs[i].values_string[i_str].c_str(), i_str);
+        }
+      } break;
+      default:
+        throw std::runtime_error("Not implemented yet for this type.");
+    }
   }
 
   std::vector<Ort::Value> ort_outputs;
   ort_outputs = session_object.Run(Ort::RunOptions{nullptr}, input_names.data(), ort_inputs.data(), ort_inputs.size(), &output_name, 1);
-  ASSERT_EQ(ort_outputs.size(), 1u);
-  auto output_tensor = &ort_outputs[0];
+  ASSERT_EQ(outputs.size(), ort_outputs.size());
+  for (size_t index = 0; index < outputs.size(); ++index) {
+    auto output_tensor = &ort_outputs[index];
+    const TestValue& expected = outputs[index];
 
-  auto type_info = output_tensor->GetTensorTypeAndShapeInfo();
-  ASSERT_EQ(type_info.GetShape(), dims_y);
-  size_t total_len = type_info.GetElementCount();
-  ASSERT_EQ(values_y.size(), total_len);
+    auto type_info = output_tensor->GetTensorTypeAndShapeInfo();
+    ONNXTensorElementDataType output_type = type_info.GetElementType();
+    ASSERT_EQ(output_type, expected.element_type);
+    std::vector<int64_t> dimension = type_info.GetShape();
+    ASSERT_EQ(dimension, expected.dims);
+    size_t total_len = type_info.GetElementCount();
+    switch (expected.element_type) {
+      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
+        _assert_eq(*output_tensor, expected.values_float, total_len);
+        break;
+      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
+        _assert_eq(*output_tensor, expected.values_int32, total_len);
+        break;
+      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING:
+        _assert_eq(*output_tensor, expected.values_string, total_len);
+        break;
 
-  int32_t* f = output_tensor->GetTensorMutableData<int32_t>();
-  for (size_t i = 0; i != total_len; ++i) {
-    ASSERT_EQ(values_y[i], f[i]);
+      default:
+        throw std::runtime_error("Not implemented yet for this type.");
+    }
   }
 }
 
 void TestInference(Ort::Env& env, const ORTCHAR_T* model_uri,
-                   const std::vector<Input>& inputs,
+                   const std::vector<TestValue>& inputs,
                    const char* output_name,
-                   const std::vector<int64_t>& expected_dims_y,
-                   const std::vector<int32_t>& expected_values_y,
+                   const std::vector<TestValue>& outputs,
                    const char* custom_op_library_filename) {
   Ort::SessionOptions session_options;
   void* handle = nullptr;
@@ -64,50 +205,48 @@ void TestInference(Ort::Env& env, const ORTCHAR_T* model_uri,
 
   // Now run
   RunSession(session,
-              inputs,
-              output_name,
-              expected_dims_y,
-              expected_values_y);
+             inputs,
+             output_name,
+             outputs);
 }
 
 static CustomOpOne op_1st;
 static CustomOpTwo op_2nd;
 
 TEST(utils, test_ort_case) {
-  
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
   std::cout << "Running custom op inference" << std::endl;
 
-  std::vector<Input> inputs(2);
+  std::vector<TestValue> inputs(2);
   inputs[0].name = "input_1";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
   inputs[0].dims = {3, 5};
-  inputs[0].values = {1.1f, 2.2f, 3.3f, 4.4f, 5.5f,
-                      6.6f, 7.7f, 8.8f, 9.9f, 10.0f,
-                      11.1f, 12.2f, 13.3f, 14.4f, 15.5f};
+  inputs[0].values_float = {1.1f, 2.2f, 3.3f, 4.4f, 5.5f,
+                            6.6f, 7.7f, 8.8f, 9.9f, 10.0f,
+                            11.1f, 12.2f, 13.3f, 14.4f, 15.5f};
   inputs[1].name = "input_2";
+  inputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
   inputs[1].dims = {3, 5};
-  inputs[1].values = {15.5f, 14.4f, 13.3f, 12.2f, 11.1f,
-                      10.0f, 9.9f, 8.8f, 7.7f, 6.6f,
-                      5.5f, 4.4f, 3.3f, 2.2f, 1.1f};
+  inputs[1].values_float = {15.5f, 14.4f, 13.3f, 12.2f, 11.1f,
+                            10.0f, 9.9f, 8.8f, 7.7f, 6.6f,
+                            5.5f, 4.4f, 3.3f, 2.2f, 1.1f};
 
   // prepare expected inputs and outputs
-  std::vector<int64_t> expected_dims_y = {3, 5};
-  std::vector<int32_t> expected_values_y =
-      {17, 17, 17, 17, 17,
-       17, 18, 18, 18, 17,
-       17, 17, 17, 17, 17};
+  std::vector<TestValue> outputs(1);
+  outputs[0].name = "output_1";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32;
+  outputs[0].dims = {3, 5};
+  outputs[0].values_int32 = {17, 17, 17, 17, 17,
+                             17, 18, 18, 18, 17,
+                             17, 17, 17, 17, 17};
 
-#if defined(_WIN32)
-  const char lib_name[] = "ortcustomops.dll";
-  const ORTCHAR_T model_path[] = L"data\\custom_op_test.onnx";
-#elif defined(__APPLE__)
-  const char lib_name[] = "libortcustomops.dylib";
-  const ORTCHAR_T model_path[] = "data/custom_op_test.onnx";
-#else
-  const char lib_name[] = "./libortcustomops.so";
-  const ORTCHAR_T model_path[] = "data/custom_op_test.onnx";
-#endif
+  std::filesystem::path model_path = __FILE__;
+  model_path = model_path.parent_path();
+  model_path /= "..";
+  model_path /= "data";
+  model_path /= "custom_op_test.onnx";
   AddExternalCustomOp(&op_1st);
   AddExternalCustomOp(&op_2nd);
-  TestInference(*ort_env, model_path, inputs, "output", expected_dims_y, expected_values_y, lib_name);
+  TestInference(*ort_env, model_path.c_str(), inputs, "output", outputs, GetLibraryPath());
 }
+

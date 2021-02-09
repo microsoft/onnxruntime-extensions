@@ -5,7 +5,6 @@
 
 #include "kernels/kernels.h"
 #include "utils.h"
-#include "normalizer.h"
 
 struct KernelStringNormalizer : BaseKernel {
   KernelStringNormalizer(OrtApi api, const OrtKernelInfo* info);
@@ -13,7 +12,8 @@ struct KernelStringNormalizer : BaseKernel {
   ~KernelStringNormalizer();
 
  private:
-  sentencepiece::normalizer::Normalizer* normalizer_;
+  void* normalizer_;  // type: sentencepiece::normalizer::Normalizer*
+                      // using void* avoids including a header from sentencepiece
 };
 
 struct CustomOpStringNormalizer : Ort::CustomOpBase<CustomOpStringNormalizer, KernelStringNormalizer> {
