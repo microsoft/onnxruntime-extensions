@@ -3,22 +3,20 @@
 
 #pragma once
 
-#include "kernels.h"
+#include "kernels/kernels.h"
 #include "utils.h"
 #include "normalizer.h"
 
-struct KernelStringNormalize : BaseKernel {
-  KernelStringNormalize(OrtApi api, const OrtKernelInfo* info);
+struct KernelStringNormalizer : BaseKernel {
+  KernelStringNormalizer(OrtApi api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
-
- protected:
-  ~KernelStringNormalize();
+  ~KernelStringNormalizer();
 
  private:
   sentencepiece::normalizer::Normalizer* normalizer_;
 };
 
-struct CustomOpStringNormalize : Ort::CustomOpBase<CustomOpStringNormalize, KernelStringNormalize> {
+struct CustomOpStringNormalizer : Ort::CustomOpBase<CustomOpStringNormalizer, KernelStringNormalizer> {
   void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;

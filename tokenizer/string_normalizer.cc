@@ -1,14 +1,14 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "string_normalize.hpp"
-#include "string_common.h"
+#include "string_normalizer.hpp"
+#include "kernels/string_common.h"
 #include "sentencepiece_trainer.h"
 #include <vector>
 #include <cmath>
 #include <algorithm>
 
-KernelStringNormalize::KernelStringNormalize(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+KernelStringNormalizer::KernelStringNormalizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   std::string form;
   if (HasAttribute("form")) {
     form = ort_.KernelInfoGetAttribute<std::string>(info, "form");
@@ -21,11 +21,11 @@ KernelStringNormalize::KernelStringNormalize(OrtApi api, const OrtKernelInfo* in
   normalizer_ = new sentencepiece::normalizer::Normalizer(spec);
 }
 
-KernelStringNormalize::~KernelStringNormalize() {
+KernelStringNormalizer::~KernelStringNormalizer() {
   delete normalizer_;
 }
 
-void KernelStringNormalize::Compute(OrtKernelContext* context) {
+void KernelStringNormalizer::Compute(OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input_X = ort_.KernelContext_GetInput(context, 0);
   std::vector<std::string> X;
@@ -44,24 +44,24 @@ void KernelStringNormalize::Compute(OrtKernelContext* context) {
   FillTensorDataString(api_, ort_, context, X, output);
 }
 
-void* CustomOpStringNormalize::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
-  return new KernelStringNormalize(api);
+void* CustomOpStringNormalizer::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+  return new KernelStringNormalizer(api, info);
 };
 
-const char* CustomOpStringNormalize::GetName() const { return "StringNormalize"; };
+const char* CustomOpStringNormalizer::GetName() const { return "StringNormalizer"; };
 
-size_t CustomOpStringNormalize::GetInputTypeCount() const {
+size_t CustomOpStringNormalizer::GetInputTypeCount() const {
   return 1;
 };
 
-ONNXTensorElementDataType CustomOpStringNormalize::GetInputType(size_t /*index*/) const {
+ONNXTensorElementDataType CustomOpStringNormalizer::GetInputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
 };
 
-size_t CustomOpStringNormalize::GetOutputTypeCount() const {
+size_t CustomOpStringNormalizer::GetOutputTypeCount() const {
   return 1;
 };
 
-ONNXTensorElementDataType CustomOpStringNormalize::GetOutputType(size_t /*index*/) const {
+ONNXTensorElementDataType CustomOpStringNormalizer::GetOutputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
 };
