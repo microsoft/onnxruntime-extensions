@@ -504,7 +504,7 @@ class TestPythonOpString(unittest.TestCase):
 
     def test_string_replace_cc_first(self):
         so = _ort.SessionOptions()
-        so.register_custom_ops_library(_get_library_path())        
+        so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace('', global_replace=False)
         self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)

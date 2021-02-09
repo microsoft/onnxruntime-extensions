@@ -15,4 +15,5 @@ set(sentencepieceproject_INCLUDE_DIRS
     ${sentencepieceproject_SOURCE_DIR}/src/builtin_pb
     ${sentencepieceproject_SOURCE_DIR}/third_party    
     ${sentencepieceproject_SOURCE_DIR}/src
+    ${sentencepieceproject_BINARY_DIR}
     )
