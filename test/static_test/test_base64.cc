@@ -3,7 +3,7 @@
 
 #include "gtest/gtest.h"
 #include "test_base64.h"
-#include "utils/base64.h"
+#include "../../tokenizer/base64.h"
 
 TEST(base64, encode_decode) {
   std::vector<uint8_t> raw{0, 1, 2, 0, 45, 7, 255, 4};
