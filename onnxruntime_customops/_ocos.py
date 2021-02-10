@@ -107,7 +107,7 @@ def expand_onnx_inputs(model, target_input, extra_nodes, new_inputs):
     new_model = copy.deepcopy(model)
     new_model.graph.CopyFrom(new_graph)
 
-    return _ensure_opset_domain(model)
+    return _ensure_opset_domain(new_model)
 
 
 def hook_model_op(model, node_name, hook_func):
