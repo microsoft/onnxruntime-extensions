@@ -76,7 +76,7 @@ class TestPyTorchCustomOp(unittest.TestCase):
             torch.onnx.export(model, (x, ), f)
             model = onnx.load_model_from_string(f.getvalue())
 
-            hkd_model = hook_model_op(model, 'Gather_152', TestPyTorchCustomOp.on_hook)
+            hkd_model = hook_model_op(model, model.graph.node[5].name, TestPyTorchCustomOp.on_hook)
 
             so = _ort.SessionOptions()
             so.register_custom_ops_library(_get_library_path())
