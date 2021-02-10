@@ -4,7 +4,7 @@
 #pragma once
 
 #include "kernels/kernels.h"
-#include "utils.h"
+#include "utils/string_utils.h"
 #include "sentencepiece_processor.h"
 
 struct KernelSentencepieceTokenizer : BaseKernel {

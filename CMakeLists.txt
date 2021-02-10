@@ -61,7 +61,7 @@ if (OCOS_ENABLE_TF_STRING)
   FetchContent_GetProperties(farmhash)
 endif()
 
-file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/*.h*")
+file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/*.h*"  "./ocos/utils/*.h*" "./ocos/utils/*.cc")
 if (OCOS_ENABLE_TF_STRING)
   file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
   file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")

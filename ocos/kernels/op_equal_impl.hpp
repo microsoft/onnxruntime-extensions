@@ -3,7 +3,7 @@
 #pragma once
 #include <vector>
 #include <string>
-#include "utils.h"
+#include "utils/string_utils.h"
 #include "string_common.h"
 
 template <typename T1, typename T2, typename T3>
@@ -127,7 +127,7 @@ void KernelEqual_Compute(const OrtApi& api, Ort::CustomOpApi& ort_, OrtKernelCon
   Compare<T> cmp;
 
   typename BroadcastIteratorRight<T, T, bool>::BroadcastIteratorRightState state;
-  if (Size(dimensions_x) >= Size(dimensions_y)) {
+  if (dimensions_x.Size() >= dimensions_y.Size()) {
     OrtValue* v = ort_.KernelContext_GetOutput(context, 0, dimensions_x.data(), dimensions_x.size());
     bool* out = ort_.GetTensorMutableData<bool>(v);
     BroadcastIteratorRight<T, T, bool> iter(dimensions_x, dimensions_y, X, Y, out);
@@ -158,7 +158,7 @@ void KernelEqual_Compute<std::string>(const OrtApi& api, Ort::CustomOpApi& ort_,
   Compare<std::string> cmp;
 
   typename BroadcastIteratorRight<std::string, std::string, bool>::BroadcastIteratorRightState state;
-  if (Size(dimensions_x) >= Size(dimensions_y)) {
+  if (dimensions_x.Size() >= dimensions_y.Size()) {
     OrtValue* v = ort_.KernelContext_GetOutput(context, 0, dimensions_x.data(), dimensions_x.size());
     bool* out = ort_.GetTensorMutableData<bool>(v);
     BroadcastIteratorRight<std::string, std::string, bool> iter(

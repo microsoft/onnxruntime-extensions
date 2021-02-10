@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 #include "ocos.h"
-#include "utils.h"
+#include "utils/string_utils.h"
 
 bool BaseKernel::HasAttribute(const char* name) const {
   if (info_ == nullptr) {
