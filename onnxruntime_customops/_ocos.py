@@ -12,6 +12,10 @@ from ._ortcustomops import (  # noqa
 
 
 def get_library_path():
+    """
+    The custom operator library binary path
+    :return: A string of the this library path.
+    """
     mod = sys.modules['onnxruntime_customops._ortcustomops']
     return mod.__file__
 
@@ -98,6 +102,14 @@ def _ensure_opset_domain(model):
 
 
 def expand_onnx_inputs(model, target_input, extra_nodes, new_inputs):
+    """
+    Replace the existing inputs of a model with the new inputs, plus some extra nodes
+    :param model: The ONNX model loaded as ModelProto
+    :param target_input: The input name to be replaced
+    :param extra_nodes: The extra nodes to be added
+    :param new_inputs: The new input (type: ValueInfoProto) sequence
+    :return: The ONNX model after modification
+    """
     graph = model.graph
     new_inputs = [n for n in graph.input if n.name != target_input] + new_inputs
     new_nodes = list(model.graph.node) + extra_nodes
@@ -111,7 +123,13 @@ def expand_onnx_inputs(model, target_input, extra_nodes, new_inputs):
 
 
 def hook_model_op(model, node_name, hook_func):
-
+    """
+    Add a hook function node in the ONNX Model, which could be used for the model diagnosis.
+    :param model: The ONNX model loaded as ModelProto
+    :param node_name: The node name where the hook will be installed
+    :param hook_func: The hook function, callback on the model inference
+    :return: The ONNX model with the hook installed
+    """
     hkd_model = shape_inference.infer_shapes(model)
 
     n_idx = 0
@@ -133,7 +151,7 @@ def hook_model_op(model, node_name, hook_func):
         n_idx += 1
 
     if hnode is None:
-        raise ValueError("{} is not operator node name".format(node_name))
+        raise ValueError("{} is not an operator node name".format(node_name))
 
     repacked = nodes[:n_idx] + [hnode, nnode] + nodes[n_idx+1:]
     del hkd_model.graph.node[:]
