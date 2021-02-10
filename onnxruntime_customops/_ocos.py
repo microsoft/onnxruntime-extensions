@@ -146,6 +146,7 @@ def hook_model_op(model, node_name, hook_func):
             type_dict[vi_.name] = vi_.type.tensor_type.elem_type
 
     arg_inputs = [type_dict[ky_] for ky_ in input_names]
+    arg_inputs = [PyCustomOpDef.dt_float if n_ is None else n_ for n_ in arg_inputs]
     # FIXME: Need check whether the hook_func already registered if the function was hooked with several nodes
     Opdef.create(hook_func, op_type=optype_name, inputs=arg_inputs, outputs=arg_inputs)
     return _ensure_opset_domain(hkd_model)
