@@ -8,6 +8,7 @@
 #include "kernels/op_ragged_tensor.hpp"
 #include "kernels/string_hash.hpp"
 #include "kernels/string_join.hpp"
+#include "kernels/string_lower.hpp"
 #include "kernels/string_regex_replace.hpp"
 #include "kernels/string_split.hpp"
 #include "kernels/string_upper.hpp"
@@ -29,6 +30,7 @@ CustomOpStringEqual c_CustomOpStringEqual;
 CustomOpStringHash c_CustomOpStringHash;
 CustomOpStringHashFast c_CustomOpStringHashFast;
 CustomOpStringJoin c_CustomOpStringJoin;
+CustomOpStringLower c_CustomOpStringLower;
 CustomOpStringRegexReplace c_CustomOpStringRegexReplace;
 CustomOpStringSplit c_CustomOpStringSplit;
 CustomOpStringUpper c_CustomOpStringUpper;
@@ -45,6 +47,7 @@ OrtCustomOp* operator_lists[] = {
     &c_CustomOpStringHash,
     &c_CustomOpStringHashFast,
     &c_CustomOpStringJoin,
+    &c_CustomOpStringLower,
     &c_CustomOpStringRegexReplace,
     &c_CustomOpStringSplit,
     &c_CustomOpStringUpper,
