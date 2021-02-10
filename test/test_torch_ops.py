@@ -2,6 +2,7 @@ import io
 import onnx
 import numpy
 import unittest
+import platform
 import torch, torchvision
 import onnxruntime as _ort
 
@@ -69,6 +70,7 @@ class TestPyTorchCustomOp(unittest.TestCase):
         TestPyTorchCustomOp._hooked = True
         return x
 
+    @unittest.skipIf(platform.system() == 'Darwin', "pytorch.onnx crashed for this case!")
     def test_pyop_hooking(self):    # type: () -> None
         model = torchvision.models.mobilenet_v2(pretrained=False)
         x = torch.rand(1, 3, 224, 224)
