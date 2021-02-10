@@ -19,12 +19,14 @@
 #include "sentencepiece_tokenizer.hpp"
 #endif
 
-CustomOpNegPos c_CustomOpNegPos;
-CustomOpSegmentSum c_CustomOpSegmentSum;
-CustomOpRaggedTensorToSparse c_CustomOpRaggedTensorToSparse;
 #ifdef ENABLE_SPM_TOKENIZER
 CustomOpSentencepieceTokenizer c_CustomOpSentencepieceTokenizer;
 #endif
+
+#ifdef ENABLE_TF_STRING
+CustomOpNegPos c_CustomOpNegPos;
+CustomOpSegmentSum c_CustomOpSegmentSum;
+CustomOpRaggedTensorToSparse c_CustomOpRaggedTensorToSparse;
 CustomOpStringEqual c_CustomOpStringEqual;
 CustomOpStringHash c_CustomOpStringHash;
 CustomOpStringHashFast c_CustomOpStringHashFast;
@@ -33,14 +35,17 @@ CustomOpStringRegexReplace c_CustomOpStringRegexReplace;
 CustomOpStringSplit c_CustomOpStringSplit;
 CustomOpStringUpper c_CustomOpStringUpper;
 CustomOpVectorToString c_CustomOpVectorToString;
+#endif
 
 OrtCustomOp* operator_lists[] = {
-    &c_CustomOpNegPos,
-    &c_CustomOpRaggedTensorToSparse,
-    &c_CustomOpSegmentSum,
 #ifdef ENABLE_SPM_TOKENIZER
     &c_CustomOpSentencepieceTokenizer,
 #endif
+
+#ifdef ENABLE_TF_STRING
+    &c_CustomOpNegPos,
+    &c_CustomOpRaggedTensorToSparse,
+    &c_CustomOpSegmentSum,
     &c_CustomOpStringEqual,
     &c_CustomOpStringHash,
     &c_CustomOpStringHashFast,
@@ -49,6 +54,7 @@ OrtCustomOp* operator_lists[] = {
     &c_CustomOpStringSplit,
     &c_CustomOpStringUpper,
     &c_CustomOpVectorToString,
+#endif
     nullptr};
 
 

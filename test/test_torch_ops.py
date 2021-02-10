@@ -1,13 +1,16 @@
-import unittest
-from onnx import load
-import torch
-import onnxruntime as _ort
 import io
+import onnx
 import numpy
+import unittest
+import platform
+import torch, torchvision
+import onnxruntime as _ort
 
+from onnx import load
 from torch.onnx import register_custom_op_symbolic
 from onnxruntime_customops import (
     onnx_op,
+    hook_model_op,
     get_library_path as _get_library_path)
 
 
@@ -21,6 +24,8 @@ class CustomInverse(torch.nn.Module):
 
 
 class TestPyTorchCustomOp(unittest.TestCase):
+
+    _hooked = False
 
     @classmethod
     def setUpClass(cls):
@@ -59,6 +64,28 @@ class TestPyTorchCustomOp(unittest.TestCase):
         # Validate PyTorch and ONNX Runtime results
         numpy.testing.assert_allclose(pt_outputs.cpu().numpy(),
                                       ort_outputs[0], rtol=1e-03, atol=1e-05)
+
+    @staticmethod
+    def on_hook(*x):
+        TestPyTorchCustomOp._hooked = True
+        return x
+
+    @unittest.skipIf(platform.system() == 'Darwin', "pytorch.onnx crashed for this case!")
+    def test_pyop_hooking(self):    # type: () -> None
+        model = torchvision.models.mobilenet_v2(pretrained=False)
+        x = torch.rand(1, 3, 224, 224)
+        with io.BytesIO() as f:
+            torch.onnx.export(model, (x, ), f)
+            model = onnx.load_model_from_string(f.getvalue())
+
+            hkd_model = hook_model_op(model, model.graph.node[5].name, TestPyTorchCustomOp.on_hook)
+
+            so = _ort.SessionOptions()
+            so.register_custom_ops_library(_get_library_path())
+            sess = _ort.InferenceSession(hkd_model.SerializeToString(), so)
+            TestPyTorchCustomOp._hooked = False
+            sess.run(None, {'input.1': x.numpy()})
+            self.assertTrue(TestPyTorchCustomOp._hooked)
 
 
 if __name__ == "__main__":
