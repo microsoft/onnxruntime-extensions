@@ -3,6 +3,7 @@
 
 #include "string_normalizer.hpp"
 #include "kernels/string_common.h"
+#include "utils/string_utils.h"
 #include "sentencepiece_trainer.h"
 #include "normalizer.h"
 #include <vector>
@@ -11,14 +12,20 @@
 
 KernelStringNormalizer::KernelStringNormalizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   std::string form;
-  /*
   if (HasAttribute("form")) {
     form = ort_.KernelInfoGetAttribute<std::string>(info_, "form");
   }
-  */
   sentencepiece::NormalizerSpec spec;
-  if (form.empty() || (form == "NFKC"))
+  if (form == "NFKC")
+    spec = sentencepiece::SentencePieceTrainer::GetNormalizerSpec("nfkc");
+  else if (form == "NFKC_CF")
+    spec = sentencepiece::SentencePieceTrainer::GetNormalizerSpec("nfkc_cf");
+  else if (form == "NMT_NFKC")
     spec = sentencepiece::SentencePieceTrainer::GetNormalizerSpec("nmt_nfkc");
+  else if (form == "NMT_NFKC_CF")
+    spec = sentencepiece::SentencePieceTrainer::GetNormalizerSpec("nmt_nfkc_cf");
+  else if (form.empty() || (form == "ID"))
+    spec = sentencepiece::SentencePieceTrainer::GetNormalizerSpec("identity");
   else
     throw std::runtime_error(MakeString("Unexpected value for form '", form, "'."));
   normalizer_ = (void*)new sentencepiece::normalizer::Normalizer(spec);
@@ -37,12 +44,10 @@ void KernelStringNormalizer::Compute(OrtKernelContext* context) {
   // Setup output
   OrtTensorDimensions dimensions(ort_, input_X);
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
-
+  sentencepiece::normalizer::Normalizer* type_normalizer = ((sentencepiece::normalizer::Normalizer*)normalizer_);
   // Do computation
   for (int64_t i = 0; i < (int64_t)X.size(); ++i) {
-    std::cout << "<-'" << X[i] << "'\n";
-    X[i] = ((sentencepiece::normalizer::Normalizer*)normalizer_)->Normalize(X[i]);
-    std::cout << "->'" << X[i] << "'\n";
+    X[i] = type_normalizer->Normalize(X[i]);
   }
 
   // Fills the output

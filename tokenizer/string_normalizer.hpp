@@ -4,7 +4,6 @@
 #pragma once
 
 #include "kernels/kernels.h"
-#include "utils.h"
 
 struct KernelStringNormalizer : BaseKernel {
   KernelStringNormalizer(OrtApi api, const OrtKernelInfo* info);

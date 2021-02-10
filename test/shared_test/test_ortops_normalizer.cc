@@ -23,7 +23,7 @@ TEST(utils, test_ort_normalizer) {
 
   // prepare expected inputs and outputs
   std::vector<TestValue> outputs(1);
-  outputs[0].name = "input_1";
+  outputs[0].name = "output_1";
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
   outputs[0].dims = {1, 1};
   outputs[0].values_string = {"Abc"};
@@ -34,5 +34,5 @@ TEST(utils, test_ort_normalizer) {
   model_path /= "data";
   model_path /= "custom_op_string_normalizer.onnx";
   AddExternalCustomOp(&c_CustomOpStringNormalizer);
-  TestInference(*ort_env, model_path.c_str(), inputs, "output", outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }

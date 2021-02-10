@@ -129,10 +129,10 @@ void _assert_eq(Ort::Value& output_tensor, const std::vector<T>& expected, size_
 
 void RunSession(Ort::Session& session_object,
                 const std::vector<TestValue>& inputs,
-                const char* output_name,
                 const std::vector<TestValue>& outputs) {
   std::vector<Ort::Value> ort_inputs;
   std::vector<const char*> input_names;
+  std::vector<const char*> output_names;
 
   auto memory_info = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU);
   Ort::AllocatorWithDefaultOptions allocator;
@@ -158,9 +158,14 @@ void RunSession(Ort::Session& session_object,
         throw std::runtime_error("Not implemented yet for this type.");
     }
   }
+  for (size_t index = 0; index < outputs.size(); ++index) {
+    output_names.push_back(outputs[index].name);
+  }
 
   std::vector<Ort::Value> ort_outputs;
-  ort_outputs = session_object.Run(Ort::RunOptions{nullptr}, input_names.data(), ort_inputs.data(), ort_inputs.size(), &output_name, 1);
+  ort_outputs = session_object.Run(Ort::RunOptions{nullptr},
+                                   input_names.data(), ort_inputs.data(), ort_inputs.size(),
+                                   output_names.data(), outputs.size());
   ASSERT_EQ(outputs.size(), ort_outputs.size());
   for (size_t index = 0; index < outputs.size(); ++index) {
     auto output_tensor = &ort_outputs[index];
@@ -191,7 +196,6 @@ void RunSession(Ort::Session& session_object,
 
 void TestInference(Ort::Env& env, const ORTCHAR_T* model_uri,
                    const std::vector<TestValue>& inputs,
-                   const char* output_name,
                    const std::vector<TestValue>& outputs,
                    const char* custom_op_library_filename) {
   Ort::SessionOptions session_options;
@@ -204,10 +208,7 @@ void TestInference(Ort::Env& env, const ORTCHAR_T* model_uri,
   Ort::Session session(env, model_uri, session_options);
 
   // Now run
-  RunSession(session,
-             inputs,
-             output_name,
-             outputs);
+  RunSession(session, inputs, outputs);
 }
 
 static CustomOpOne op_1st;
@@ -233,7 +234,7 @@ TEST(utils, test_ort_case) {
 
   // prepare expected inputs and outputs
   std::vector<TestValue> outputs(1);
-  outputs[0].name = "output_1";
+  outputs[0].name = "output";
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32;
   outputs[0].dims = {3, 5};
   outputs[0].values_int32 = {17, 17, 17, 17, 17,
@@ -247,6 +248,5 @@ TEST(utils, test_ort_case) {
   model_path /= "custom_op_test.onnx";
   AddExternalCustomOp(&op_1st);
   AddExternalCustomOp(&op_2nd);
-  TestInference(*ort_env, model_path.c_str(), inputs, "output", outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }
-
