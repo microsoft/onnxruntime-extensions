@@ -5,12 +5,17 @@
 
 import sys
 import copy
-from onnx import helper
+import onnx
+from onnx import helper, shape_inference
 from ._ortcustomops import (  # noqa
-    PyCustomOpDef, enable_custom_op, add_custom_op, hash_64)
+    PyCustomOpDef, enable_custom_op, add_custom_op, hash_64, default_opset_domain)
 
 
 def get_library_path():
+    """
+    The custom operator library binary path
+    :return: A string of the this library path.
+    """
     mod = sys.modules['onnxruntime_customops._ortcustomops']
     return mod.__file__
 
@@ -29,10 +34,10 @@ class Opdef:
         if len(args) > 0 and hasattr(args[0], '__call__'):
             raise RuntimeError("Unexpected arguments {}.".format(args))
             # return Opdef._create(args[0])
-        return lambda f: Opdef._create(f, *args, **kwargs)
+        return lambda f: Opdef.create(f, *args, **kwargs)
 
     @staticmethod
-    def _create(func, *args, **kwargs):
+    def create(func, *args, **kwargs):
         name = kwargs.get('op_type', None)
         op_type = name or func.__name__
         opdef = Opdef(op_type, func)
@@ -45,8 +50,6 @@ class Opdef:
         opdef._nativedef.op_type = op_type
         opdef._nativedef.obj_id = od_id
 
-        # TODO: add handle more types and multiple inputs/outputs.
-        # by default the op is single in/out
         inputs = kwargs.get('inputs', None)
         if inputs is None:
             inputs = [PyCustomOpDef.dt_float]
@@ -85,7 +88,28 @@ def _on_pyop_invocation(k_id, feed, attributes):
     return (k_id, ) + res
 
 
+def _ensure_opset_domain(model):
+    op_domain_name = default_opset_domain()
+    domain_missing = True
+    for oi_ in model.opset_import:
+        if oi_.domain == op_domain_name:
+            domain_missing = False
+
+    if domain_missing:
+        model.opset_import.extend([helper.make_operatorsetid(op_domain_name, 1)])
+
+    return model
+
+
 def expand_onnx_inputs(model, target_input, extra_nodes, new_inputs):
+    """
+    Replace the existing inputs of a model with the new inputs, plus some extra nodes
+    :param model: The ONNX model loaded as ModelProto
+    :param target_input: The input name to be replaced
+    :param extra_nodes: The extra nodes to be added
+    :param new_inputs: The new input (type: ValueInfoProto) sequence
+    :return: The ONNX model after modification
+    """
     graph = model.graph
     new_inputs = [n for n in graph.input if n.name != target_input] + new_inputs
     new_nodes = list(model.graph.node) + extra_nodes
@@ -94,15 +118,56 @@ def expand_onnx_inputs(model, target_input, extra_nodes, new_inputs):
 
     new_model = copy.deepcopy(model)
     new_model.graph.CopyFrom(new_graph)
-    domain_missing = True
-    for oi_ in model.opset_import:
-        if oi_.domain == 'ai.onnx.contrib':
-            domain_missing = False
 
-    if domain_missing:
-        new_model.opset_import.extend([helper.make_operatorsetid('ai.onnx.contrib', 1)])
+    return _ensure_opset_domain(new_model)
 
-    return new_model
+
+def hook_model_op(model, node_name, hook_func):
+    """
+    Add a hook function node in the ONNX Model, which could be used for the model diagnosis.
+    :param model: The ONNX model loaded as ModelProto
+    :param node_name: The node name where the hook will be installed
+    :param hook_func: The hook function, callback on the model inference
+    :return: The ONNX model with the hook installed
+    """
+    hkd_model = shape_inference.infer_shapes(model)
+
+    n_idx = 0
+    hnode, nnode = (None, None)
+    input_names = []
+    nodes = list(hkd_model.graph.node)
+    brkpt_name = node_name + '_hkd'
+    optype_name = "op_" + hook_func.__name__
+    for n_ in nodes:
+        if n_.name == node_name:
+            input_names = list(n_.input)
+            brk_output_name = [i_ + '_hkd' for i_ in input_names]
+            hnode = onnx.helper.make_node(
+                optype_name, n_.input, brk_output_name, name=brkpt_name, domain=default_opset_domain())
+            nnode = n_
+            del nnode.input[:]
+            nnode.input.extend(brk_output_name)
+            break
+        n_idx += 1
+
+    if hnode is None:
+        raise ValueError("{} is not an operator node name".format(node_name))
+
+    repacked = nodes[:n_idx] + [hnode, nnode] + nodes[n_idx+1:]
+    del hkd_model.graph.node[:]
+    hkd_model.graph.node.extend(repacked)
+
+    value_infos = list(hkd_model.graph.value_info)
+    type_dict = {k_: None for k_ in input_names}
+    for vi_ in value_infos:
+        if vi_.name in type_dict:
+            type_dict[vi_.name] = vi_.type.tensor_type.elem_type
+
+    arg_inputs = [type_dict[ky_] for ky_ in input_names]
+    arg_inputs = [PyCustomOpDef.dt_float if n_ is None else n_ for n_ in arg_inputs]
+    # FIXME: Need check whether the hook_func already registered if the function was hooked with several nodes
+    Opdef.create(hook_func, op_type=optype_name, inputs=arg_inputs, outputs=arg_inputs)
+    return _ensure_opset_domain(hkd_model)
 
 
 PyCustomOpDef.install_hooker(_on_pyop_invocation)
