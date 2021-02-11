@@ -16,16 +16,13 @@ void KernelStringUpper::Compute(OrtKernelContext* context) {
   std::vector<std::string> X;
   GetTensorMutableDataString(api_, ort_, context, input_X, X);
 
-  // Setup output
-  OrtTensorDimensions dimensions(ort_, input_X);
-  OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
-
-  // Do computation
   for (int64_t i = 0; i < (int64_t)X.size(); ++i) {
     std::transform(X[i].begin(), X[i].end(), X[i].begin(), ::toupper);
   }
 
   // Fills the output
+  OrtTensorDimensions dimensions(ort_, input_X);
+  OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
   FillTensorDataString(api_, ort_, context, X, output);
 }
 

@@ -1,4 +1,5 @@
 # coding: utf-8
+import sys
 import unittest
 import re
 from binascii import crc32
@@ -401,11 +402,23 @@ class TestPythonOpString(unittest.TestCase):
         onnx_model = _create_test_model_string_lower('')
         self.assertIn('op_type: "StringLower"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-        input_1 = np.array([["R"], ["Abcé"], ["ABC"], ["A"]])
+        input_1 = np.array([["R"], ["Abce"], ["ABC"], ["A"]])
         txout = sess.run(None, {'input_1': input_1})
         self.assertEqual(
             txout[0].tolist(),
-            np.array([["r"], ["abcé"], ["abc"], ["a"]]).tolist())
+            np.array([["r"], ["abce"], ["abc"], ["a"]]).tolist())
+        input_1 = np.array([['漢'], ["Abcé"]])
+        try:
+            txout = sess.run(None, {'input_1': input_1})
+        except UnicodeDecodeError as e:
+            if sys.platform == 'win32':
+                # onnxruntime is not compiled on Windows
+                # with utf-8 enabled.
+                return
+            raise e
+        self.assertEqual(
+            txout[0].tolist(),
+            np.array([['漢'], ["abcé"]]).tolist())
 
     def test_string_upper_python(self):
         so = _ort.SessionOptions()
