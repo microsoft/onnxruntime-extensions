@@ -87,6 +87,9 @@ if (OCOS_ENABLE_SPM_TOKENIZER)
   list(APPEND TARGET_SRC ${stpiece_TARGET_SRC})
 endif()
 
+
+add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
+add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_library(ortcustomops_static STATIC ${TARGET_SRC})
 
 set(ocos_libraries ortcustomops_static)
