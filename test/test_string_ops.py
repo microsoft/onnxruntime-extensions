@@ -1,5 +1,4 @@
 # coding: utf-8
-import sys
 import unittest
 import re
 from binascii import crc32
@@ -43,7 +42,8 @@ def _create_test_model_string_join(prefix, domain='ai.onnx.contrib'):
     return model
 
 
-def _create_test_model_string_replace(prefix, domain='ai.onnx.contrib', global_replace=True):
+def _create_test_model_string_replace(prefix, domain='ai.onnx.contrib',
+                                      global_replace=True):
     nodes = []
     nodes.append(
         helper.make_node('Identity', ['text'], ['id1']))
@@ -335,6 +335,22 @@ class TestPythonOpString(unittest.TestCase):
         self.assertEqual(
             txout[0].tolist(), np.array(['a;aa', 'b;bb', 'c;']).tolist())
 
+    def test_string_join_python_utf8(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_join('Py')
+        self.assertIn('op_type: "PyStringJoin"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        text = np.vstack([np.array([["a한글", "b漢字", "cé"]]),
+                          np.array([["aa", "bb", ""]])])
+        self.assertEqual(text.shape, (2, 3))
+        sep = np.array(["漢"])
+        axis = np.array([1], dtype=np.int64)
+        TestPythonOpString._string_join(text, sep, axis)
+        txout = sess.run(None, {'text': text, 'sep': sep, 'axis': axis})
+        self.assertEqual(
+            txout[0].tolist(), np.array(["a한글漢b漢字漢cé", "aa漢bb漢"]).tolist())
+
     def test_string_join_python_3d(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
@@ -368,9 +384,6 @@ class TestPythonOpString(unittest.TestCase):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_join('')
-        with open("custom_op_string_join.onnx", "wb") as f:
-            f.write(onnx_model.SerializeToString())
-        print(onnx_model.SerializeToString())
         self.assertIn('op_type: "StringJoin"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         text = np.vstack([np.array([["a", "b", "c"]]),
@@ -384,6 +397,20 @@ class TestPythonOpString(unittest.TestCase):
         txout = sess.run(None, {'text': text, 'sep': sep, 'axis': axis})
         self.assertEqual(
             txout[0].tolist(), np.array(['a;aa', 'b;bb', 'c;']).tolist())
+
+    def test_string_join_cc_utf8(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_join('')
+        self.assertIn('op_type: "StringJoin"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        text = np.vstack([np.array([["a한글", "b漢字", "cé"]]),
+                          np.array([["aa", "bb", ""]])])
+        sep = np.array(["漢"])
+        axis = np.array([1], dtype=np.int64)
+        txout = sess.run(None, {'text': text, 'sep': sep, 'axis': axis})
+        self.assertEqual(
+            txout[0].tolist(), np.array(["a한글漢b漢字漢cé", "aa漢bb漢"]).tolist())
 
     def test_string_join_cc_1d(self):
         so = _ort.SessionOptions()
@@ -438,15 +465,32 @@ class TestPythonOpString(unittest.TestCase):
                ['static PyObject* py_dummy(void) {']]
         self.assertEqual(exp, txout[0].tolist())
 
+    def test_string_replace_cc_utf8(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_replace('')
+        self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        pattern = np.array([r'한ef\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
+        rewrite = np.array([r'sta한ic PyObject* py_\1(void) {'])
+        text = np.array([['한ef myfunc():'], ['한ef dummy():']])
+        txout = sess.run(
+            None, {'text': text, 'pattern': pattern, 'rewrite': rewrite})
+        exp = [['sta한ic PyObject* py_myfunc(void) {'],
+               ['sta한ic PyObject* py_dummy(void) {']]
+        self.assertEqual(exp, txout[0].tolist())
+
     def test_string_replace_cc_first(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_string_replace('', global_replace=False)
+        onnx_model = _create_test_model_string_replace(
+            '', global_replace=False)
         self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
         rewrite = np.array([r'static PyObject* py_\1(void) {'])
-        text = np.array([['def myfunc():def myfunc():'], ['def dummy():def dummy():']])
+        text = np.array([['def myfunc():def myfunc():'],
+                         ['def dummy():def dummy():']])
         txout = sess.run(
             None, {'text': text, 'pattern': pattern, 'rewrite': rewrite})
         exp = [['static PyObject* py_myfunc(void) {def myfunc():'],
@@ -658,6 +702,72 @@ class TestPythonOpString(unittest.TestCase):
                 self.assertEqual(exp_text.tolist(), txout[1].tolist())
                 self.assertEqual(exp_shape.tolist(), txout[2].tolist())
 
+    def test_string_split_python_utf8(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_split('Py')
+        self.assertIn('op_type: "PyStringSplit"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        input = np.array(["漢글글b", "", "漢a글b글c", "漢ddddd"])
+        delimiter = np.array(["글"])
+
+        for skip in [True, False]:
+            with self.subTest(skip=skip):
+                skip_empty = np.array([skip])
+
+                txout = sess.run(
+                    None, {'input': input, 'delimiter': delimiter,
+                           'skip_empty': skip_empty})
+
+                if skip_empty:
+                    exp_indices = np.array(
+                        [[0, 0], [0, 1], [2, 0], [2, 1], [2, 2], [3, 0]])
+                    exp_text = np.array(['漢', 'b', '漢a', 'b', 'c', '漢ddddd'])
+                else:
+                    exp_indices = np.array(
+                        [[0, 0], [0, 1], [0, 2], [2, 0], [2, 1],
+                         [2, 2], [3, 0]])
+                    exp_text = np.array(
+                        ['漢', '', 'b', '漢a', 'b', 'c', '漢ddddd'])
+                exp_shape = np.array([4, 3])
+                self.assertEqual(exp_indices.tolist(), txout[0].tolist())
+                self.assertEqual(exp_text.tolist(), txout[1].tolist())
+                self.assertEqual(exp_shape.tolist(), txout[2].tolist())
+
+    @unittest.skipIf(
+        True, reason="fails because Ĭ is encoded with (U+012C) and 2C=,")
+    def test_string_split_python_utf8_2(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_split('Py')
+        self.assertIn('op_type: "PyStringSplit"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        input = np.array(["Ĭ,,b", "", "Ĭa,b,c", "Ĭddddd"])
+        delimiter = np.array([","])
+
+        for skip in [True, False]:
+            with self.subTest(skip=skip):
+                skip_empty = np.array([skip])
+
+                txout = sess.run(
+                    None, {'input': input, 'delimiter': delimiter,
+                           'skip_empty': skip_empty})
+
+                if skip_empty:
+                    exp_indices = np.array(
+                        [[0, 0], [0, 1], [2, 0], [2, 1], [2, 2], [3, 0]])
+                    exp_text = np.array(['漢', 'b', '漢a', 'b', 'c', '漢ddddd'])
+                else:
+                    exp_indices = np.array(
+                        [[0, 0], [0, 1], [0, 2], [2, 0], [2, 1],
+                         [2, 2], [3, 0]])
+                    exp_text = np.array(
+                        ['漢', '', 'b', '漢a', 'b', 'c', '漢ddddd'])
+                exp_shape = np.array([4, 3])
+                self.assertEqual(exp_indices.tolist(), txout[0].tolist())
+                self.assertEqual(exp_text.tolist(), txout[1].tolist())
+                self.assertEqual(exp_shape.tolist(), txout[2].tolist())
+
     def test_string_split_cc(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
@@ -705,6 +815,74 @@ class TestPythonOpString(unittest.TestCase):
                 self.assertEqual(exp_indices.tolist(), txout[0].tolist())
                 self.assertEqual(exp_text.tolist(), txout[1].tolist())
                 self.assertEqual(exp_shape.tolist(), txout[2].tolist())
+
+    def test_string_split_cc_utf8(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_split('')
+        self.assertIn('op_type: "StringSplit"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        input = np.array(["漢글글b", "", "漢a글b글c", "漢ddddd"])
+        delimiter = np.array(["글"])
+
+        for skip in [True, False]:
+            with self.subTest(skip=skip):
+                skip_empty = np.array([skip])
+
+                txout = sess.run(
+                    None, {'input': input, 'delimiter': delimiter,
+                           'skip_empty': skip_empty})
+
+                try:
+                    from tensorflow.raw_ops import StringSplit
+                    dotf = True
+                except ImportError:
+                    dotf = False
+                if dotf:
+                    tfres = StringSplit(
+                        input=input, delimiter="글", skip_empty=skip)
+                    self.assertEqual(
+                        [_.decode() for _ in tfres[1].numpy().tolist()],
+                        txout[1].tolist())
+                    self.assertEqual(
+                        tfres[0].numpy().tolist(), txout[0].tolist())
+                    self.assertEqual(
+                        tfres[2].numpy().tolist(), txout[2].tolist())
+
+    @unittest.skipIf(
+        True, reason="fails because Ĭ is encoded with (U+012C) and 2C=,")
+    def test_string_split_cc_utf8_2(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_split('')
+        self.assertIn('op_type: "StringSplit"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        input = np.array(["Ĭ,,b", "", "Ĭa,b,c", "Ĭddddd"])
+        delimiter = np.array([","])
+
+        for skip in [True, False]:
+            with self.subTest(skip=skip):
+                skip_empty = np.array([skip])
+
+                txout = sess.run(
+                    None, {'input': input, 'delimiter': delimiter,
+                           'skip_empty': skip_empty})
+
+                try:
+                    from tensorflow.raw_ops import StringSplit
+                    dotf = True
+                except ImportError:
+                    dotf = False
+                if dotf:
+                    tfres = StringSplit(
+                        input=input, delimiter="글", skip_empty=skip)
+                    self.assertEqual(
+                        [_.decode() for _ in tfres[1].numpy().tolist()],
+                        txout[1].tolist())
+                    self.assertEqual(
+                        tfres[0].numpy().tolist(), txout[0].tolist())
+                    self.assertEqual(
+                        tfres[2].numpy().tolist(), txout[2].tolist())
 
     def test_string_split_cc_sep2(self):
         so = _ort.SessionOptions()

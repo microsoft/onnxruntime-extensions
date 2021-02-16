@@ -186,7 +186,7 @@ struct PyCustomOpDefImpl : public PyCustomOpDef {
       std::vector<std::string> src;
       GetTensorMutableDataString(api, ort, context, value, src);
       for (int i = 0; i < size; ++i) {
-        outObj[i] = py::cast(src[i]);
+        outObj[i] = py::str(src[i]);
       }
     } else {
       const void* p = (const void*)ort.GetTensorData<char>(value);
