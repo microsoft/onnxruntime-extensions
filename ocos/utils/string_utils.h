@@ -39,3 +39,6 @@ std::vector<std::string_view> SplitString(const std::string_view& str, const std
 
 void char2unicode(const std::string& src, std::vector<uint32_t>& result);
 void unicode2char(const std::vector<uint32_t>& src, std::string& result);
+
+void to_bytes(const std::vector<std::wstring>& src, std::vector<std::string>& dest);
+void from_bytes(const std::vector<std::string>& src, std::vector<std::wstring>& dest);

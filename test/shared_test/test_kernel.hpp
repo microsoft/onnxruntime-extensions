@@ -14,6 +14,7 @@ struct TestValue {
   std::vector<float> values_float;
   std::vector<int32_t> values_int32;
   std::vector<int64_t> values_int64;
+  std::vector<bool> values_bool;
   std::vector<std::string> values_string;
 };
 

@@ -23,7 +23,7 @@ TEST(utils, json) {
   EXPECT_EQ(j.size(), 1);
 }
 
-TEST(utils, splite_string) {
+TEST(utils, split_string) {
   auto result = SplitString("a b c d e f", " ");
   EXPECT_EQ(result.size(), 6);
 
@@ -62,4 +62,13 @@ TEST(utils, utf8) {
     std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
     EXPECT_EQ(lowered[i], lower);
   }
+}
+
+TEST(utils, utf8_bytes) {
+  std::vector<std::string> srcs = {"abc", "ABCé", "中文"};
+  std::vector<std::wstring> wsrcs;
+  std::vector<std::string> srcs2;
+  from_bytes(srcs, wsrcs);
+  to_bytes(wsrcs, srcs2);
+  EXPECT_EQ(srcs, srcs2);
 }

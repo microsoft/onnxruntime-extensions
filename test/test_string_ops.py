@@ -734,8 +734,8 @@ class TestPythonOpString(unittest.TestCase):
                 self.assertEqual(exp_text.tolist(), txout[1].tolist())
                 self.assertEqual(exp_shape.tolist(), txout[2].tolist())
 
-    @unittest.skipIf(
-        True, reason="fails because Ĭ is encoded with (U+012C) and 2C=,")
+    # @unittest.skipIf(
+    #     True, reason="fails because Ĭ is encoded with (U+012C) and 2C=,")
     def test_string_split_python_utf8_2(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
@@ -756,13 +756,13 @@ class TestPythonOpString(unittest.TestCase):
                 if skip_empty:
                     exp_indices = np.array(
                         [[0, 0], [0, 1], [2, 0], [2, 1], [2, 2], [3, 0]])
-                    exp_text = np.array(['漢', 'b', '漢a', 'b', 'c', '漢ddddd'])
+                    exp_text = np.array(['Ĭ', 'b', 'Ĭa', 'b', 'c', 'Ĭddddd'])
                 else:
                     exp_indices = np.array(
                         [[0, 0], [0, 1], [0, 2], [2, 0], [2, 1],
                          [2, 2], [3, 0]])
                     exp_text = np.array(
-                        ['漢', '', 'b', '漢a', 'b', 'c', '漢ddddd'])
+                        ['Ĭ', '', 'b', 'Ĭa', 'b', 'c', 'Ĭddddd'])
                 exp_shape = np.array([4, 3])
                 self.assertEqual(exp_indices.tolist(), txout[0].tolist())
                 self.assertEqual(exp_text.tolist(), txout[1].tolist())
@@ -816,6 +816,8 @@ class TestPythonOpString(unittest.TestCase):
                 self.assertEqual(exp_text.tolist(), txout[1].tolist())
                 self.assertEqual(exp_shape.tolist(), txout[2].tolist())
 
+    # @unittest.skipIf(
+    #     True, reason="tensorflow is wrong with non ascii delimiter.")
     def test_string_split_cc_utf8(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
@@ -849,9 +851,8 @@ class TestPythonOpString(unittest.TestCase):
                     self.assertEqual(
                         tfres[2].numpy().tolist(), txout[2].tolist())
 
-    @unittest.skipIf(
-        True, reason="fails because Ĭ is encoded with (U+012C) and 2C=,")
     def test_string_split_cc_utf8_2(self):
+        "This test fails if the C++ code does not convert string into wstring."
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_split('')
@@ -875,7 +876,7 @@ class TestPythonOpString(unittest.TestCase):
                     dotf = False
                 if dotf:
                     tfres = StringSplit(
-                        input=input, delimiter="글", skip_empty=skip)
+                        input=input, delimiter=",", skip_empty=skip)
                     self.assertEqual(
                         [_.decode() for _ in tfres[1].numpy().tolist()],
                         txout[1].tolist())

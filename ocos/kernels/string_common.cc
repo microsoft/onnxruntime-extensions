@@ -30,3 +30,17 @@ void FillTensorDataString(const OrtApi& api, Ort::CustomOpApi& ort, OrtKernelCon
   }
   api.FillStringTensor(output, temp.data(), value.size());
 }
+
+void GetTensorMutableDataWString(const OrtApi& api, Ort::CustomOpApi& ort, OrtKernelContext* context,
+                                 const OrtValue* value, std::vector<std::wstring>& output) {
+  std::vector<std::string> dest;
+  GetTensorMutableDataString(api, ort, context, value, dest);
+  from_bytes(dest, output);
+}
+
+void FillTensorDataWString(const OrtApi& api, Ort::CustomOpApi& ort, OrtKernelContext* context,
+                           const std::vector<std::wstring>& value, OrtValue* output) {
+  std::vector<std::string> dest;
+  to_bytes(value, dest);
+  FillTensorDataString(api, ort, context, dest, output);
+}

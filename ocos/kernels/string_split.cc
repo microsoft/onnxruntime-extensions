@@ -13,9 +13,9 @@ void KernelStringSplit::Compute(OrtKernelContext* context) {
   const OrtValue* input_sep = ort_.KernelContext_GetInput(context, 1);
   const OrtValue* input_skip_empty = ort_.KernelContext_GetInput(context, 2);
   const bool* skip_empty = ort_.GetTensorData<bool>(input_skip_empty);
-  std::vector<std::string> X, sep;
-  GetTensorMutableDataString(api_, ort_, context, input_X, X);
-  GetTensorMutableDataString(api_, ort_, context, input_sep, sep);
+  std::vector<std::wstring> X, sep;
+  GetTensorMutableDataWString(api_, ort_, context, input_X, X);
+  GetTensorMutableDataWString(api_, ort_, context, input_sep, sep);
 
   // Setup output
   OrtTensorDimensions dimensions_sep(ort_, input_sep);
@@ -28,15 +28,15 @@ void KernelStringSplit::Compute(OrtKernelContext* context) {
   if (dimensions.size() != 1)
     throw std::runtime_error("Only 1D tensor are supported as input.");
 
-  std::vector<std::string> words;
+  std::vector<std::wstring> words;
   std::vector<int64_t> indices;
   int64_t maxc = 0;
   int64_t col;
-  std::string delimiter = sep[0];
+  std::wstring delimiter = sep[0];
   if (delimiter.size() == 0) {
-    char word[2] = "a";
+    wchar_t word[2] = L"a";
     for (int64_t row = 0; row < dimensions[0]; ++row) {
-      const std::string& str = X[row];
+      const std::wstring& str = X[row];
       if (str.empty())
         continue;
       maxc = str.size() > maxc ? str.size() : maxc;
@@ -51,7 +51,7 @@ void KernelStringSplit::Compute(OrtKernelContext* context) {
     bool keep = !(*skip_empty);
     std::size_t current, previous = 0;
     for (int64_t row = 0; row < dimensions[0]; ++row) {
-      const std::string& str = X[row];
+      const std::wstring& str = X[row];
       if (str.empty())
         continue;
       previous = 0;
@@ -93,7 +93,7 @@ void KernelStringSplit::Compute(OrtKernelContext* context) {
   memcpy(p_indices, indices.data(), indices.size() * sizeof(int64_t));
   p_shape[0] = dimensions[0];
   p_shape[1] = maxc;
-  FillTensorDataString(api_, ort_, context, words, out_text);
+  FillTensorDataWString(api_, ort_, context, words, out_text);
 }
 
 void* CustomOpStringSplit::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {

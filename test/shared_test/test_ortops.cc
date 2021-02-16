@@ -168,6 +168,15 @@ void RunSession(Ort::Session& session_object,
       case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
         _emplace_back(memory_info, ort_inputs, inputs[i].values_int64, inputs[i].dims);
         break;
+      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL: {
+        Ort::Value& ort_value = ort_inputs.emplace_back(
+            Ort::Value::CreateTensor(allocator, inputs[i].dims.data(), inputs[i].dims.size(),
+                                     ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL));
+        bool* ptr = ort_value.GetTensorMutableData<bool>();
+        for (size_t iv = 0; iv < inputs[i].values_bool.size(); ++iv) {
+          ptr[iv] = inputs[i].values_bool[iv];
+        }
+      } break;
       case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING: {
         Ort::Value& ort_value = ort_inputs.emplace_back(
             Ort::Value::CreateTensor(allocator, inputs[i].dims.data(), inputs[i].dims.size(),
