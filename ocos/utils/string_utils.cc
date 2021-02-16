@@ -166,7 +166,6 @@ class Utf8Converter {
       result = wconv_error;
     } else {
       size_t converted_bytes = buffer_len - iconv_out_bytes;
-      assert((converted_bytes % sizeof(wchar_t)) == 0);
       result.assign(reinterpret_cast<const wchar_t*>(buffer.get()), converted_bytes / sizeof(wchar_t));
     }
     iconv_close(icvt);
