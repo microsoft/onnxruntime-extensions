@@ -129,6 +129,9 @@ const std::string default_locale("en_US.UTF-8");  // All non-MS
 #ifdef _MSC_VER
 using Utf8Converter = std::wstring_convert<std::codecvt_utf8<wchar_t>>;
 #else
+const std::string conv_error("Conversion Error");
+const std::wstring wconv_error(L"Conversion Error");
+
 #if defined(__APPLE__) or defined(__ANDROID__)
 using Utf8Converter = std::wstring_convert<std::codecvt_utf8<wchar_t>>;
 #else
