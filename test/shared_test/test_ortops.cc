@@ -165,6 +165,9 @@ void RunSession(Ort::Session& session_object,
       case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
         _emplace_back(memory_info, ort_inputs, inputs[i].values_int32, inputs[i].dims);
         break;
+      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
+        _emplace_back(memory_info, ort_inputs, inputs[i].values_int64, inputs[i].dims);
+        break;
       case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING: {
         Ort::Value& ort_value = ort_inputs.emplace_back(
             Ort::Value::CreateTensor(allocator, inputs[i].dims.data(), inputs[i].dims.size(),
@@ -204,6 +207,9 @@ void RunSession(Ort::Session& session_object,
         break;
       case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
         _assert_eq(*output_tensor, expected.values_int32, total_len);
+        break;
+      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
+        _assert_eq(*output_tensor, expected.values_int64, total_len);
         break;
       case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING: {
         std::vector<std::string> output_string;

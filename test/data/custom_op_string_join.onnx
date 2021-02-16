@@ -1,0 +1,25 @@
+:ð
+
+text	identity1"Identity
+
+sep	identity2"Identity
+
+axis	identity3"Identity
+I
+	identity1
+	identity2
+	identity3	customout"
+StringJoin:ai.onnx.contribtest0Z
+text
+Z
+sep
+
+
+Z
+axis
+
+
+b
+	customout
+B
+ai.onnx.contrib

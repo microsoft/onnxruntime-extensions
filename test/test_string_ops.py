@@ -14,42 +14,6 @@ from onnxruntime_customops import (
 NUM_BUCKETS = 23
 
 
-def _create_test_model_string_upper(prefix, domain='ai.onnx.contrib'):
-    nodes = []
-    nodes[0:] = [helper.make_node('Identity', ['input_1'], ['identity1'])]
-    nodes[1:] = [helper.make_node('%sStringUpper' % prefix,
-                                  ['identity1'], ['customout'],
-                                  domain=domain)]
-
-    input0 = helper.make_tensor_value_info(
-        'input_1', onnx_proto.TensorProto.STRING, [None, None])
-    output0 = helper.make_tensor_value_info(
-        'customout', onnx_proto.TensorProto.STRING, [None, None])
-
-    graph = helper.make_graph(nodes, 'test0', [input0], [output0])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
-    return model
-
-
-def _create_test_model_string_lower(prefix, domain='ai.onnx.contrib'):
-    nodes = []
-    nodes[0:] = [helper.make_node('Identity', ['input_1'], ['identity1'])]
-    nodes[1:] = [helper.make_node('%sStringLower' % prefix,
-                                  ['identity1'], ['customout'],
-                                  domain=domain)]
-
-    input0 = helper.make_tensor_value_info(
-        'input_1', onnx_proto.TensorProto.STRING, [None, None])
-    output0 = helper.make_tensor_value_info(
-        'customout', onnx_proto.TensorProto.STRING, [None, None])
-
-    graph = helper.make_graph(nodes, 'test0', [input0], [output0])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
-    return model
-
-
 def _create_test_model_string_join(prefix, domain='ai.onnx.contrib'):
     nodes = []
     nodes.append(
@@ -214,20 +178,6 @@ class TestPythonOpString(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
 
-        @onnx_op(op_type="PyStringUpper",
-                 inputs=[PyCustomOpDef.dt_string],
-                 outputs=[PyCustomOpDef.dt_string])
-        def string_upper(x):
-            # The user custom op implementation here.
-            return np.array([s.upper() for s in x.ravel()]).reshape(x.shape)
-
-        @onnx_op(op_type="PyStringLower",
-                 inputs=[PyCustomOpDef.dt_string],
-                 outputs=[PyCustomOpDef.dt_string])
-        def string_lower(x):
-            # The user custom op implementation here.
-            return np.array([s.lower() for s in x.ravel()]).reshape(x.shape)
-
         @onnx_op(op_type="PyStringJoin",
                  inputs=[PyCustomOpDef.dt_string, PyCustomOpDef.dt_string,
                          PyCustomOpDef.dt_int64],
@@ -364,104 +314,6 @@ class TestPythonOpString(unittest.TestCase):
         for t in type_list:
             self.assertIn(t, def_list)
 
-    def test_string_upper_cc(self):
-        so = _ort.SessionOptions()
-        so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_string_upper('')
-        self.assertIn('op_type: "StringUpper"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-        input_1 = np.array([["Abc"]])
-        txout = sess.run(None, {'input_1': input_1})
-        self.assertEqual(txout[0].tolist(), np.array([["ABC"]]).tolist())
-
-    def test_string_lower_cc(self):
-        so = _ort.SessionOptions()
-        so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_string_lower('')
-        self.assertIn('op_type: "StringLower"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-        input_1 = np.array([["Abc"]])
-        txout = sess.run(None, {'input_1': input_1})
-        self.assertEqual(txout[0].tolist(), np.array([["abc"]]).tolist())
-
-    def test_string_upper_cc_accent(self):
-        so = _ort.SessionOptions()
-        so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_string_upper('')
-        self.assertIn('op_type: "StringUpper"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-        input_1 = np.array([["R"], ["Abcé"], ["ABC"], ["A"]])
-        txout = sess.run(None, {'input_1': input_1})
-        self.assertEqual(
-            txout[0].tolist(),
-            np.array([["R"], ["ABCé"], ["ABC"], ["A"]]).tolist())
-
-    def test_string_lower_cc_accent(self):
-        so = _ort.SessionOptions()
-        so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_string_lower('')
-        self.assertIn('op_type: "StringLower"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-        input_1 = np.array([["R"], ["Abce"], ["ABC"], ["A"]])
-        txout = sess.run(None, {'input_1': input_1})
-        self.assertEqual(
-            txout[0].tolist(),
-            np.array([["r"], ["abce"], ["abc"], ["a"]]).tolist())
-        input_1 = np.array([['漢'], ["Abcé"]])
-        try:
-            txout = sess.run(None, {'input_1': input_1})
-        except UnicodeDecodeError as e:
-            if sys.platform == 'win32':
-                # onnxruntime is not compiled on Windows
-                # with utf-8 enabled.
-                return
-            raise e
-        self.assertEqual(
-            txout[0].tolist(),
-            np.array([['漢'], ["abcé"]]).tolist())
-
-    def test_string_upper_python(self):
-        so = _ort.SessionOptions()
-        so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_string_upper('Py')
-        self.assertIn('op_type: "PyStringUpper"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-        input_1 = np.array([["Abc"]])
-        txout = sess.run(None, {'input_1': input_1})
-        self.assertEqual(txout[0].tolist(), np.array([["ABC"]]).tolist())
-
-    def test_string_lower_python(self):
-        so = _ort.SessionOptions()
-        so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_string_lower('Py')
-        self.assertIn('op_type: "PyStringLower"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-        input_1 = np.array([["Abc"]])
-        txout = sess.run(None, {'input_1': input_1})
-        self.assertEqual(txout[0].tolist(), np.array([["abc"]]).tolist())
-
-    def test_string_upper_python_accent(self):
-        so = _ort.SessionOptions()
-        so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_string_upper('Py')
-        self.assertIn('op_type: "PyStringUpper"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-        input_1 = np.array([["Abcé"]])
-        txout = sess.run(None, {'input_1': input_1})
-        self.assertEqual(txout[0].tolist(),
-                         np.array([["ABCé".upper()]]).tolist())
-
-    def test_string_lower_python_accent(self):
-        so = _ort.SessionOptions()
-        so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_string_lower('Py')
-        self.assertIn('op_type: "PyStringLower"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-        input_1 = np.array([["Abcé"]])
-        txout = sess.run(None, {'input_1': input_1})
-        self.assertEqual(txout[0].tolist(),
-                         np.array([["abcé".lower()]]).tolist())
-
     def test_string_join_python(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
@@ -516,6 +368,9 @@ class TestPythonOpString(unittest.TestCase):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_join('')
+        with open("custom_op_string_join.onnx", "wb") as f:
+            f.write(onnx_model.SerializeToString())
+        print(onnx_model.SerializeToString())
         self.assertIn('op_type: "StringJoin"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         text = np.vstack([np.array([["a", "b", "c"]]),
