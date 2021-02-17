@@ -139,7 +139,7 @@ using Utf8Converter = std::wstring_convert<std::codecvt_utf8<wchar_t>>;
 // All others (Linux)
 class Utf8Converter {
  public:
-  Utf8Converter(const std::string&, const std::wstring&) {}
+  Utf8Converter() {}
 
   std::wstring from_bytes(const std::string& s) const {
     std::wstring result;
