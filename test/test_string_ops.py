@@ -79,7 +79,8 @@ def _create_test_model_string_join(prefix, domain='ai.onnx.contrib'):
     return model
 
 
-def _create_test_model_string_replace(prefix, domain='ai.onnx.contrib', global_replace=True):
+def _create_test_model_string_replace(prefix, domain='ai.onnx.contrib',
+                                      global_replace=True):
     nodes = []
     nodes.append(
         helper.make_node('Identity', ['text'], ['id1']))
@@ -201,6 +202,34 @@ def _create_test_model_string_split(prefix, domain='ai.onnx.contrib'):
 
     graph = helper.make_graph(nodes, 'test0', [input0, input1, input2],
                               [output0, output1, output2])
+    model = helper.make_model(
+        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    return model
+
+
+def _create_test_model_string_regex_split(prefix, domain='ai.onnx.contrib'):
+    nodes = []
+    nodes.append(helper.make_node('Identity', ['input'], ['id1']))
+    nodes.append(helper.make_node('Identity', ['pattern'], ['id2']))
+    nodes.append(helper.make_node('Identity', ['keep_pattern'], ['id3']))
+    nodes.append(
+        helper.make_node(
+            '%sStringRegexSplitWithOffsets' % prefix, ['id1', 'id2', 'id3'],
+            ['tokens', 'indices'], domain=domain))
+
+    input0 = helper.make_tensor_value_info(
+        'input', onnx_proto.TensorProto.STRING, [])
+    input1 = helper.make_tensor_value_info(
+        'pattern', onnx_proto.TensorProto.STRING, [])
+    input2 = helper.make_tensor_value_info(
+        'keep_pattern', onnx_proto.TensorProto.STRING, [])
+    output0 = helper.make_tensor_value_info(
+        'tokens', onnx_proto.TensorProto.STRING, [])
+    output1 = helper.make_tensor_value_info(
+        'indices', onnx_proto.TensorProto.INT64, [])
+
+    graph = helper.make_graph(nodes, 'test0', [input0, input1, input2],
+                              [output0, output1])
     model = helper.make_model(
         graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
     return model
@@ -586,12 +615,14 @@ class TestPythonOpString(unittest.TestCase):
     def test_string_replace_cc_first(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_string_replace('', global_replace=False)
+        onnx_model = _create_test_model_string_replace(
+            '', global_replace=False)
         self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
         rewrite = np.array([r'static PyObject* py_\1(void) {'])
-        text = np.array([['def myfunc():def myfunc():'], ['def dummy():def dummy():']])
+        text = np.array([['def myfunc():def myfunc():'],
+                         ['def dummy():def dummy():']])
         txout = sess.run(
             None, {'text': text, 'pattern': pattern, 'rewrite': rewrite})
         exp = [['static PyObject* py_myfunc(void) {def myfunc():'],
@@ -944,6 +975,45 @@ class TestPythonOpString(unittest.TestCase):
                 self.assertEqual(exp_text.tolist(), txout[1].tolist())
                 self.assertEqual(exp_indices.tolist(), txout[0].tolist())
                 self.assertEqual(exp_shape.tolist(), txout[2].tolist())
+
+    def test_string_regex_split_cc(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_regex_split('')
+        self.assertIn('op_type: "StringRegexSplitWithOffsets"',
+                      str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        input = np.array(["hello there", "hello  there"])
+        pattern = np.array(["(\\s)"])
+
+        # keep_pattern not empty
+        keep_pattern = np.array(["\\s"])
+        txout = sess.run(
+            None, {'input': input, 'pattern': pattern,
+                   'keep_pattern': keep_pattern})
+
+        exp_text = np.array(['hello', ' ', 'there',
+                             'hello', ' ', ' ', 'there'])
+        exp_indices = np.array(
+            [[0, 0, 5], [0, 5, 6], [0, 6, 11],
+             [1, 0, 5], [1, 5, 6], [1, 6, 7], [1, 7, 12]])
+
+        self.assertEqual(exp_text.tolist(), txout[0].tolist())
+        self.assertEqual(exp_indices.tolist(), txout[1].tolist())
+
+        # keep_pattern empty
+        keep_pattern = np.array([""])
+        txout = sess.run(
+            None, {'input': input, 'pattern': pattern,
+                   'keep_pattern': keep_pattern})
+
+        exp_text = np.array(['hello', 'there', 'hello', 'there'])
+        exp_indices = np.array(
+            [[0, 0, 5], [0, 6, 11],
+             [1, 0, 5], [1, 7, 12]])
+
+        self.assertEqual(exp_text.tolist(), txout[0].tolist())
+        self.assertEqual(exp_indices.tolist(), txout[1].tolist())
 
 
 if __name__ == "__main__":

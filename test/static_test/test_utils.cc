@@ -23,7 +23,7 @@ TEST(utils, json) {
   EXPECT_EQ(j.size(), 1);
 }
 
-TEST(utils, splite_string) {
+TEST(utils, split_string) {
   auto result = SplitString("a b c d e f", " ");
   EXPECT_EQ(result.size(), 6);
 
