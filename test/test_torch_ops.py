@@ -3,7 +3,8 @@ import onnx
 import numpy
 import unittest
 import platform
-import torch, torchvision
+import torch
+import torchvision
 import onnxruntime as _ort
 
 from onnx import load
@@ -70,7 +71,8 @@ class TestPyTorchCustomOp(unittest.TestCase):
         TestPyTorchCustomOp._hooked = True
         return x
 
-    @unittest.skipIf(platform.system() == 'Darwin', "pytorch.onnx crashed for this case!")
+    @unittest.skipIf(platform.system() == 'Darwin',
+                     "pytorch.onnx crashed for this case!")
     def test_pyop_hooking(self):    # type: () -> None
         model = torchvision.models.mobilenet_v2(pretrained=False)
         x = torch.rand(1, 3, 224, 224)
@@ -78,7 +80,8 @@ class TestPyTorchCustomOp(unittest.TestCase):
             torch.onnx.export(model, (x, ), f)
             model = onnx.load_model_from_string(f.getvalue())
 
-            hkd_model = hook_model_op(model, model.graph.node[5].name, TestPyTorchCustomOp.on_hook)
+            hkd_model = hook_model_op(model, model.graph.node[5].name,
+                                      TestPyTorchCustomOp.on_hook)
 
             so = _ort.SessionOptions()
             so.register_custom_ops_library(_get_library_path())

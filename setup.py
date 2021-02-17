@@ -36,7 +36,8 @@ def load_msvcvar():
     if os.environ.get('vcvars'):
         stdout, _ = subprocess.Popen([
             'cmd', '/q', '/c', '(%vcvars% & set)'],
-            stdout=subprocess.PIPE, shell=True, universal_newlines=True).communicate()
+            stdout=subprocess.PIPE, shell=True,
+            universal_newlines=True).communicate()
         for line in stdout.splitlines():
             kv_pair = line.split('=')
             if len(kv_pair) == 2:
@@ -45,8 +46,9 @@ def load_msvcvar():
         import shutil
         if shutil.which('cmake') is None:
             raise SystemExit(
-                "Cannot find cmake in the executable path, " +
-                "please install one or specify the environement variable VCVARS to the path of VS vcvars64.bat.")
+                "Cannot find cmake in the executable path, "
+                "please install one or specify the environement "
+                "variable VCVARS to the path of VS vcvars64.bat.")
 
 
 class BuildCMakeExt(_build_ext):
@@ -67,9 +69,11 @@ class BuildCMakeExt(_build_ext):
 
         config = 'RelWithDebInfo' if self.debug else 'Release'
         cmake_args = [
-            '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + str(ext_fullpath.parent.absolute()),
+            '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=%s' % (
+                str(ext_fullpath.parent.absolute())),
             '-DOCOS_ENABLE_PYTHON=ON',
-            '-DOCOS_EXTENTION_NAME=' + pathlib.Path(self.get_ext_filename(extension.name)).name,
+            '-DOCOS_EXTENTION_NAME=%s' % (
+                pathlib.Path(self.get_ext_filename(extension.name)).name),
             '-DCMAKE_BUILD_TYPE=' + config
         ]
 
@@ -111,9 +115,11 @@ def read_requirements():
 # read version from the package file.
 def read_version():
     version_str = '1.0.0'
-    with (open(os.path.join(TOP_DIR, 'onnxruntime_customops/__init__.py'), "r")) as f:
-        line = [_ for _ in [_.strip("\r\n ")
-                            for _ in f.readlines()] if _.startswith("__version__")]
+    with (open(os.path.join(TOP_DIR,
+                            'onnxruntime_customops/__init__.py'),
+               "r")) as f:
+        line = [_ for _ in [_.strip("\r\n ") for _ in f.readlines()]
+                if _.startswith("__version__")]
         if len(line) > 0:
             version_str = line[0].split('=')[1].strip('" ')
     return version_str

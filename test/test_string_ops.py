@@ -79,7 +79,8 @@ def _create_test_model_string_join(prefix, domain='ai.onnx.contrib'):
     return model
 
 
-def _create_test_model_string_replace(prefix, domain='ai.onnx.contrib', global_replace=True):
+def _create_test_model_string_replace(prefix, domain='ai.onnx.contrib',
+                                      global_replace=True):
     nodes = []
     nodes.append(
         helper.make_node('Identity', ['text'], ['id1']))
@@ -586,12 +587,14 @@ class TestPythonOpString(unittest.TestCase):
     def test_string_replace_cc_first(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        onnx_model = _create_test_model_string_replace('', global_replace=False)
+        onnx_model = _create_test_model_string_replace(
+            '', global_replace=False)
         self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
         rewrite = np.array([r'static PyObject* py_\1(void) {'])
-        text = np.array([['def myfunc():def myfunc():'], ['def dummy():def dummy():']])
+        text = np.array([['def myfunc():def myfunc():'],
+                         ['def dummy():def dummy():']])
         txout = sess.run(
             None, {'text': text, 'pattern': pattern, 'rewrite': rewrite})
         exp = [['static PyObject* py_myfunc(void) {def myfunc():'],

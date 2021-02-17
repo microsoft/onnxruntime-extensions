@@ -33,7 +33,8 @@ def _create_test_model():
         'output_1', onnx_proto.TensorProto.INT64, [None, None])
 
     graph = helper.make_graph(nodes, 'test0', [input1], [output1])
-    model = helper.make_model(graph, opset_imports=[helper.make_operatorsetid('', 12)])
+    model = helper.make_model(
+        graph, opset_imports=[helper.make_operatorsetid('', 12)])
     return model
 
 
@@ -44,10 +45,12 @@ def _bind_tokenizer(model, **kwargs):
     return expand_onnx_inputs(
         model, 'input_1',
         [helper.make_node(
-            'GPT2Tokenizer', ['string_input'], ['input_1'], vocab=_get_file_content(vocab_file),
+            'GPT2Tokenizer', ['string_input'], ['input_1'],
+            vocab=_get_file_content(vocab_file),
             merges=_get_file_content(merges_file), name='bpetok',
             domain='ai.onnx.contrib')],
-        [helper.make_tensor_value_info('string_input', onnx_proto.TensorProto.STRING, [None])],
+        [helper.make_tensor_value_info(
+            'string_input', onnx_proto.TensorProto.STRING, [None])],
     )
 
 
@@ -59,7 +62,8 @@ class TestGPT2Tokenizer(unittest.TestCase):
         cls.tokenizer = GPT2Tokenizer(tokjson, merges)
 
         model = _create_test_model()
-        cls.binded_model = _bind_tokenizer(model, vocab_file=tokjson, merges_file=merges)
+        cls.binded_model = _bind_tokenizer(
+            model, vocab_file=tokjson, merges_file=merges)
 
         @onnx_op(op_type="GPT2Tokenizer",
                  inputs=[PyCustomOpDef.dt_string],
@@ -79,7 +83,8 @@ class TestGPT2Tokenizer(unittest.TestCase):
         input_text = np.array([test_sentence])
         txtout = sess.run(None, {'string_input': input_text})
 
-        np.testing.assert_array_equal(txtout[0], np.array([self.tokenizer.encode(test_sentence)]))
+        np.testing.assert_array_equal(
+            txtout[0], np.array([self.tokenizer.encode(test_sentence)]))
         del sess
         del so
 
