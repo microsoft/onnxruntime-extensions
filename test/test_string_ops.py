@@ -816,8 +816,7 @@ class TestPythonOpString(unittest.TestCase):
                 self.assertEqual(exp_text.tolist(), txout[1].tolist())
                 self.assertEqual(exp_shape.tolist(), txout[2].tolist())
 
-    # @unittest.skipIf(
-    #     True, reason="tensorflow is wrong with non ascii delimiter.")
+    @unittest.skipIf(True, "tensorflow is wrong with non ascii delimiter.")
     def test_string_split_cc_utf8(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
