@@ -4,6 +4,7 @@
 #include "string_length.hpp"
 #include "string_common.h"
 #include <vector>
+#include <locale>
 #include <codecvt>
 #include <algorithm>
 
