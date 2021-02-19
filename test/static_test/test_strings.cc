@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 #include "gtest/gtest.h"
-#include "test_strings.h"
 #include "utils/string_utils.h"
 #include "kernels/string_regex_split_re.hpp"
 

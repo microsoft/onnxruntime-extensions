@@ -28,5 +28,27 @@ void FillTensorDataString(const OrtApi& api, Ort::CustomOpApi& ort, OrtKernelCon
   for (size_t i = 0; i < value.size(); ++i) {
     temp[i] = value[i].c_str();
   }
-  api.FillStringTensor(output, temp.data(), value.size());
+
+  Ort::ThrowOnError(api,api.FillStringTensor(output, temp.data(), value.size()));
+}
+
+void GetTensorMutableDataString(const OrtApi& api, Ort::CustomOpApi& ort, OrtKernelContext* context,
+                                 const OrtValue* value, std::vector<ustring>& output) {
+  std::vector<std::string> utf8_strings;
+  GetTensorMutableDataString(api, ort, context, value, utf8_strings);
+
+  output.reserve(utf8_strings.size());
+  for (auto& str : utf8_strings) {
+    output.emplace_back(str);
+  }
+}
+
+void FillTensorDataString(const OrtApi& api, Ort::CustomOpApi& ort, OrtKernelContext* context,
+                          const std::vector<ustring>& value, OrtValue* output) {
+  std::vector<std::string> utf8_strings;
+  utf8_strings.reserve(value.size());
+  for (const auto& str: value) {
+    utf8_strings.push_back(std::string(str));
+  }
+  FillTensorDataString(api, ort, context, utf8_strings, output);
 }

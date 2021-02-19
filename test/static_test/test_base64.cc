@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 #include "gtest/gtest.h"
-#include "test_base64.h"
 #include "base64.h"
 
 TEST(base64, encode_decode) {
