@@ -15,6 +15,7 @@
 #include "kernels/string_upper.hpp"
 #include "kernels/negpos.hpp"
 #include "kernels/vector_to_string.hpp"
+#include "kernels/string_length.hpp"
 #include "utils/string_utils.h"
 
 #ifdef ENABLE_SPM_TOKENIZER
@@ -39,6 +40,7 @@ CustomOpStringRegexSplitWithOffsets c_CustomOpStringRegexSplitWithOffsets;
 CustomOpStringSplit c_CustomOpStringSplit;
 CustomOpStringUpper c_CustomOpStringUpper;
 CustomOpVectorToString c_CustomOpVectorToString;
+CustomOpStringLength c_CustomOpStringLength;
 #endif
 
 OrtCustomOp* operator_lists[] = {
@@ -60,6 +62,7 @@ OrtCustomOp* operator_lists[] = {
     &c_CustomOpStringSplit,
     &c_CustomOpStringUpper,
     &c_CustomOpVectorToString,
+    &c_CustomOpStringLength,
 #endif
     nullptr};
 
