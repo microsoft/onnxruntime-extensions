@@ -1,8 +1,6 @@
 #include "gtest/gtest.h"
 #include <cstring>
-#include "onnxruntime_cxx_api.h"
 #include "kernels/ustring.hpp"
-#include "kernels/string_common.h"
 
 void convert_test(const char* const_str) {
   std::string string(const_str);
