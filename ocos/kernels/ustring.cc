@@ -3,6 +3,8 @@
 #include <iostream>
 #include "ustring.hpp"
 
+ustring::ustring(): std::u32string() {
+}
 
 ustring::ustring(char* str) {
   utf8_converter str_cvt;

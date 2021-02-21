@@ -9,6 +9,7 @@
 class ustring : public std::u32string
 {
  public:
+  ustring();
   explicit ustring(char* str);
   explicit ustring(const char* str);
   explicit ustring(std::string& str);
