@@ -6,6 +6,7 @@
 #include "ocos.h"
 #include "test_kernel.hpp"
 #include "utils/string_utils.h"
+#include "kernels/string_common.h"
 #include <filesystem>
 
 const char* GetLibraryPath() {
@@ -273,4 +274,25 @@ TEST(utils, test_ort_case) {
   AddExternalCustomOp(&op_1st);
   AddExternalCustomOp(&op_2nd);
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+}
+
+TEST(ustring, tensor_operator) {
+  OrtValue *tensor;
+  OrtAllocator* allocator;
+
+  const auto* api_base = OrtGetApiBase();
+  const auto* api = api_base->GetApi(ORT_API_VERSION);
+  api->GetAllocatorWithDefaultOptions(&allocator);
+  Ort::CustomOpApi custom_api(*api);
+
+  std::vector<int64_t> dim{2, 2};
+  api->CreateTensorAsOrtValue(allocator, dim.data(), dim.size(), ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING, &tensor);
+
+  std::vector<ustring> input_value{ustring("test"), ustring("测试"), ustring("Test de"), ustring("🧐")};
+  FillTensorDataString(*api, custom_api, nullptr, input_value, tensor);
+
+  std::vector<ustring> output_value;
+  GetTensorMutableDataString(*api, custom_api, nullptr, tensor, output_value);
+
+  EXPECT_EQ(input_value, output_value);
 }

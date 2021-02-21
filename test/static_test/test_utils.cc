@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 #include "gtest/gtest.h"
-#include "test_utils.h"
 #include "utils/string_utils.h"
 #include "re2/re2.h"
 #include "nlohmann/json.hpp"
