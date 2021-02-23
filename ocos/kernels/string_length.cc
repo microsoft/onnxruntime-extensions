@@ -22,9 +22,8 @@ void KernelStringLength::Compute(OrtKernelContext* context) {
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
   auto* output_data = ort_.GetTensorMutableData<int64_t>(output);
 
-  std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> str_convert;
   for (int i = 0; i < dimensions.Size(); i++) {
-    output_data[i] = str_convert.from_bytes(input_data[i]).size();
+    output_data[i] = ustring(input_data[i]).size();
   }
 }
 
