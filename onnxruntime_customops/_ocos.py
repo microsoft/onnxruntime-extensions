@@ -6,7 +6,7 @@
 import sys
 import copy
 import onnx
-from onnx import helper, shape_inference
+from onnx import helper, shape_inference, onnx_pb as onnx_proto
 from ._ortcustomops import (  # noqa
     PyCustomOpDef, enable_custom_op, add_custom_op, hash_64, default_opset_domain)
 
@@ -64,6 +64,41 @@ class Opdef:
         opdef._nativedef.attrs = attrs
         add_custom_op(opdef._nativedef)
         return opdef
+
+    @classmethod
+    def get_opdef(cls, op_type):
+        for v_ in cls._odlist.values():
+            if v_.op_type == op_type:
+                return v_
+        return None
+
+    @classmethod
+    def get_next_id(cls):
+        if not hasattr(cls, '_id_counter'):
+            cls._id_counter = 0
+        cls._id_counter += 1
+        return cls._id_counter
+
+    @classmethod
+    def build_singleop_graph(cls, op_type, *args, **kwargs):
+        inputs = [onnx.helper.make_tensor_value_info('input_text', onnx_proto.TensorProto.STRING, [None, None])]
+        outputs = [onnx.helper.make_tensor_value_info("input_ids", onnx.TensorProto.INT64, [None, None])]
+        cuop = onnx.helper.make_node(op_type,
+                                     [i_.name for i_ in inputs],
+                                     [o_.name for o_ in outputs],
+                                     "{}_{}".format(op_type, cls.get_next_id()),
+                                     domain=default_opset_domain())
+        graph = onnx.helper.make_graph([cuop],
+                                       "og_{}_{}".format(op_type, cls.get_next_id()),
+                                       inputs,
+                                       outputs)
+        return graph
+
+    def get_input_types(self):
+        return self._nativedef.input_types
+
+    def get_output_types(self):
+        return self._nativedef.output_types
 
     def __call__(self, *args, **kwargs):
         return self.body(*args, **kwargs)
