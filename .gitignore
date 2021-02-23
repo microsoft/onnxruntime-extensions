@@ -18,6 +18,7 @@ gen
 .DS_Store
 *~
 .vs
+examples/*.onnx
 Testing/
 TestResults/
 .idea/

@@ -1,10 +1,10 @@
 import os
 import numpy
 from transformers import AutoConfig
-from _onnx_ops import ONNXTraceSession, EagerOp, mytorch as torch
+from onnxruntime_customops import ONNXTraceSession, EagerOp, mytorch as torch
 
 
-cache_dir = os.path.join(".", "cache_models")
+cache_dir = os.path.join("../..", "cache_models")
 if not os.path.exists(cache_dir):
     os.makedirs(cache_dir)
 
