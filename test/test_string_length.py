@@ -42,7 +42,7 @@ def _run_string_length(input):
     np.testing.assert_array_equal(result, [output])
 
 
-class TestVectorToString(unittest.TestCase):
+class TestStringLength(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         pass

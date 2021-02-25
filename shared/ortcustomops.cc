@@ -16,6 +16,7 @@
 #include "kernels/negpos.hpp"
 #include "kernels/vector_to_string.hpp"
 #include "kernels/string_length.hpp"
+#include "kernels/string_concat.hpp"
 #include "utils/string_utils.h"
 
 #ifdef ENABLE_SPM_TOKENIZER
@@ -41,6 +42,7 @@ CustomOpStringSplit c_CustomOpStringSplit;
 CustomOpStringUpper c_CustomOpStringUpper;
 CustomOpVectorToString c_CustomOpVectorToString;
 CustomOpStringLength c_CustomOpStringLength;
+CustomOpStringConcat c_CustomOpStringConcat;
 #endif
 
 OrtCustomOp* operator_lists[] = {
@@ -63,6 +65,7 @@ OrtCustomOp* operator_lists[] = {
     &c_CustomOpStringUpper,
     &c_CustomOpVectorToString,
     &c_CustomOpStringLength,
+    &c_CustomOpStringConcat,
 #endif
     nullptr};
 
