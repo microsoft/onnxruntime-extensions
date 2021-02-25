@@ -17,9 +17,6 @@ from ._ocos import expand_onnx_inputs  # noqa
 from ._ocos import hook_model_op  # noqa
 from ._ocos import default_opset_domain  # noqa
 
-from .mytorch.eager_op import EagerOp
-from .mytorch.session import ONNXTraceSession
-
 
 onnx_op = Opdef.declare
 PyOp = PyCustomOpDef

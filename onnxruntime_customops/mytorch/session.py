@@ -1,3 +1,5 @@
+from ._tensor import Tensor
+
 
 class ONNXTraceSession:
     activated_sessions = []
@@ -8,9 +10,11 @@ class ONNXTraceSession:
 
     def __enter__(self):
         self.activated_sessions.append(self)
+        Tensor.set_active_session(self)
         return self
 
     def __exit__(self, exec_type, exec_value, exec_tb):
+        Tensor.set_active_session(None)
         last = self.activated_sessions[-1]
         del self.activated_sessions[-1:]
         return last
@@ -20,4 +24,12 @@ class ONNXTraceSession:
         return cls.activated_sessions[0] if cls.activated_sessions else None
 
     def set_outputs(self, output_list):
+        pass
+
+    def save_as_onnx(self, file_like_or_path):
+        """
+        Build the ONNX model from the traced computation graph.
+        :param file_like_or_path:
+        :return:
+        """
         pass
