@@ -3,7 +3,16 @@ from onnx import onnx_pb as onnx_proto
 from ._ocos import default_opset_domain, get_library_path  # noqa
 
 
-class SingleOpTorch:
+class SingleOpGraph:
+    input_id, output_id = (0, 1)
+    customop_schema = {
+        # op_type: (input_list, output_list)
+        'GPT2Tokenizer': ([onnx.helper.make_tensor_value_info('input_text', onnx_proto.TensorProto.STRING, [None])]
+                          [onnx.helper.make_tensor_value_info("input_ids", onnx.TensorProto.INT64, [None, None])]),
+        'VectorToString': ([onnx.helper.make_tensor_value_info("token_ids", onnx.TensorProto.INT64, [None, None])],
+                           [onnx.helper.make_tensor_value_info('text', onnx_proto.TensorProto.STRING, [None])])
+    }
+
     @classmethod
     def get_next_id(cls):
         if not hasattr(cls, '_id_counter'):
@@ -13,8 +22,8 @@ class SingleOpTorch:
 
     @classmethod
     def build_singleop_graph(cls, op_type, *args, **kwargs):
-        inputs = [onnx.helper.make_tensor_value_info('input_text', onnx_proto.TensorProto.STRING, [None])]
-        outputs = [onnx.helper.make_tensor_value_info("input_ids", onnx.TensorProto.INT64, [None, None])]
+        inputs = cls.customop_schema[op_type][cls.input_id]
+        outputs = cls.customop_schema[op_type][cls.output_id]
         attrs = {}
         if op_type == "GPT2Tokenizer":
             attrs['vocab'] = open(kwargs.get('vocab_file'), 'rb').read()

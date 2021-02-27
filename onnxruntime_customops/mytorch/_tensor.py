@@ -1,6 +1,5 @@
-import onnx
 import torch
-
+import numpy as np
 from typing import List, Tuple, Optional, Union, Any, ContextManager, overload, Iterator, NamedTuple  # noqa
 from torch.types import _int, _float, _bool, Number, _dtype, _device, _qscheme, _size, _layout  # noqa
 from torch import strided, memory_format, contiguous_format  # noqa
@@ -66,8 +65,121 @@ class Tensor:
     def __repr__(self):
         return "name: {}, {}".format(self.name, repr(self._t))
 
+    @classmethod
+    def get_trace_session(cls):
+        if not hasattr(cls, '_active_session'):
+            raise RuntimeError("the tracing not started yet!")
+        return cls._active_session  # noqa
+
+    def _to_binary_tensor_args(self, other):
+        # convert self, other to [self, other], but if either is a number, convert that to a constant
+        x, y = self, other
+        if isinstance(y, (int, float, bool, np.ndarray)):
+            y = self.from_torch(torch.tensor(y))
+        elif isinstance(x, (int, float, bool, np.ndarray)):
+            x = self.from_torch(torch.tensor(x))
+        return x.value, y.value
+
+    def __add__(self, other):
+        return self.from_torch(torch.add(*self._to_binary_tensor_args(other)))
+
+    def __sub__(self, other):
+        return self.from_torch(torch.sub(*self._to_binary_tensor_args(other)))
+
+    def __mul__(self, other):
+        return self.from_torch(torch.mul(*self._to_binary_tensor_args(other)))
+
+    def __div__(self, other):
+        return self.from_torch(torch.div(*self._to_binary_tensor_args(other)))
+
+    def __pow__(self, other):
+        return self.from_torch(torch.pow(*self._to_binary_tensor_args(other)))
+
+    def __matmul__(self, other):
+        return self.from_torch(torch.matmul(*self._to_binary_tensor_args(other)))
+
+    def __lt__(self, other):
+        return self.from_torch(torch.less(*self._to_binary_tensor_args(other)))
+
+    def __le__(self, other):
+        return self.from_torch(torch.less_equal(*self._to_binary_tensor_args(other)))
+
+    def __eq__(self, other):
+        return self.from_torch(torch.equal(*self._to_binary_tensor_args(other)))
+
+    def __ne__(self, other):
+        return self.from_torch(torch.not_equal(*self._to_binary_tensor_args(other)))
+
+    def __gt__(self, other):
+        return self.from_torch(torch.greater(*self._to_binary_tensor_args(other)))
+
+    def __ge__(self, other):
+        return self.from_torch(torch.greater_equal(*self._to_binary_tensor_args(other)))
+
+    def __neg__(self):
+        return self.from_torch(torch.neg([self]))
+
+    def __not__(self):
+        return self.from_torch(torch.logical_not([self]))
+
+    def __getitem__(self, indices):
+        res = self.value.__getitem__(indices)
+
+        # normalize indices to tuples of slices
+        # Formats encountered:
+        #  - a single int
+        #  - a tuple of (int or slice)
+        if not isinstance(indices, (tuple, list)):  # single item: make it a tuple
+            indices = (indices,)
+        squeeze = [axis for axis, index in enumerate(indices) if
+                   isinstance(index, int)]  # which axes had a single index?
+        indices = tuple(
+            index if isinstance(index, slice) else slice(index, index + 1 if index != -1 else None, 1) for index in
+            indices)  # make all tuple items of type Slice
+        bs, es, ss, ds = [], [], [], []
+        INT_MAX = 2 ** 63 - 1
+        for axis, index in enumerate(indices):
+            if not isinstance(index, slice):
+                raise ValueError("Index expected")
+            if index.start is None and index.stop is None:  # [:] can be skipped
+                continue
+            b, e, s = index.start, index.stop, index.step
+            bs.append(b if b is not None else 0)
+            es.append(e if e is not None else INT_MAX)
+            ss.append(s if s is not None else 1)
+            ds.append(axis)
+        ox = self.get_trace_session
+        oname = ox.slice(starts=bs, ends=es, axes=ds, steps=ss)
+        if squeeze:  # single index means we must drop the axis
+            oname = ox.squeeze([res], axes=squeeze)
+
+        return self.from_torch(res, name=oname)
+
+
+    # def __getattribute__(self, attr):
+    #     """
+    #     A little hack that allows to call unary operators in a chaining fashion,
+    #     e.g. x.shape() instead of ox.shape(x).
+    #     """
+    #     if attr in Tensor._all_ops:
+    #         f = self.ox.__getattribute__(attr)
+    #
+    #         def call_it(*args, **kwargs):
+    #             assert len(args) == 0, "In chaining expressions, only keyword args are allowed"
+    #             assert "inputs" not in kwargs, "Chaining expressions do not currently support additional inputs"
+    #             return f(self, *args, **kwargs)
+    #
+    #         return call_it
+    #     else:
+    #         return object.__getattribute__(self, attr)
+
+
+    @staticmethod
+    def normalize_seq(list_or_tuple):
+        return [x.value.item() if isinstance(x, Tensor) else x for x in list_or_tuple]
+
     @property
-    def value(self):
+    def value(self) -> torch.Tensor:
         return self._t
 
     def long(self):
@@ -87,11 +199,13 @@ class Tensor:
 
 
 def empty(*size: _int, memory_format: Optional[memory_format]=None, out: Optional[Tensor]=None, dtype: _dtype=None, layout: _layout=strided, device: Union[_device, str, None]=None, requires_grad:_bool=False):  # noqa
-    return Tensor.from_torch(torch.empty(size, memory_format, out, dtype, layout, device, requires_grad))
+    n_size = Tensor.normalize_seq(size)
+    return Tensor.from_torch(torch.empty(*n_size, memory_format=memory_format, out=out, dtype=dtype, layout=layout, device=device, requires_grad=requires_grad))
 
 
 def zeros(*size: _int, out: Optional[Tensor]=None, dtype: _dtype=None, layout: _layout=strided, device: Union[_device, str, None]=None, requires_grad:_bool=False):  # noqa
-    return Tensor.from_torch(torch.zeros(*size, out, dtype, layout, device, requires_grad))
+    n_size = Tensor.normalize_seq(size)
+    return Tensor.from_torch(torch.zeros(*n_size, out, dtype, layout, device, requires_grad))
 
 
 def argmax(input: Tensor, dim: Optional[_int] = None, keepdim: _bool = False):
@@ -102,7 +216,7 @@ def cat(tensors: Union[Tuple[Tensor, ...], List[Tensor]], dim, *, out: Optional[
     return Tensor.from_torch(torch.cat(tensors, dim, out=out))
 
 
-class EagerOpTs(EagerOp):
+class _TracingEagerOp(EagerOp):
     def __call__(self, *args, **kwargs):
         outseq = super().__call__(*args, **kwargs)
         # outputs = dict(zip([n_.name for n_ in self.ort_session.get_outputs()], outseq))
@@ -116,8 +230,8 @@ class EagerOpTs(EagerOp):
 
 
 def op_from_customop(op_type, *args, **kwargs):
-    return EagerOpTs.from_customop(op_type, *args, **kwargs)
+    return _TracingEagerOp.from_customop(op_type, *args, **kwargs)
 
 
 def op_from_model(path_or_model, *args, **kwargs):
-    return EagerOpTs.from_model(path_or_model, *args, **kwargs)
+    return _TracingEagerOp.from_model(path_or_model, *args, **kwargs)
