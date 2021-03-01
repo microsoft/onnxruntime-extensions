@@ -28,12 +28,14 @@ def convert_models():
     from transformers import GPT2Tokenizer  # noqa
     from onnxruntime.transformers.gpt2_helper import Gpt2Helper, MyGPT2LMHeadModel  # noqa
     cache_dir = get_cache_directory()
+
+    tokenizer = GPT2Tokenizer.from_pretrained(model_name_or_path, cache_dir=cache_dir)
+    torch.build_customop_model('GPT2Tokenizer', tokenizer, gpt2_encoder_model_path)
+    torch.build_customop_model('VectorToString', tokenizer.decoder, gpt2_decoder_model_path)
+
     config = AutoConfig.from_pretrained(model_name_or_path, cache_dir=cache_dir)
     model = MyGPT2LMHeadModel.from_pretrained(model_name_or_path, config=config, cache_dir=cache_dir)
     Gpt2Helper.export_onnx(model, device, gpt2_core_model_path)
-    tokenizer = GPT2Tokenizer.from_pretrained(model_name_or_path, cache_dir=cache_dir)
-    torch.build_customop_model(tokenizer, 'GPT2Tokenizer', gpt2_encoder_model_path)
-    torch.build_customop_model(tokenizer.decoder, 'VectorToString', gpt2_decoder_model_path)
 
 
 def inference_and_dump_full_model():

@@ -4,6 +4,12 @@ from onnx import helper, onnx_pb as onnx_proto
 from ._tensor import Tensor
 from ._onnx_ops import ONNXElementContainer, ONNXGraphBuilder, make_model_ex
 
+from ..eager_op import SingleOpGraph, default_opset_domain, GPT2Tokenizer, VectorToString
+
+
+def _is_path(name_or_buffer):
+    return isinstance(name_or_buffer, str) or isinstance(name_or_buffer, pathlib.Path)
+
 
 class ONNXTraceSession:
     activated_sessions = []
@@ -24,10 +30,6 @@ class ONNXTraceSession:
         last = self.activated_sessions[-1]
         del self.activated_sessions[-1:]
         return last
-
-    @staticmethod
-    def _is_path(name_or_buffer):
-        return isinstance(name_or_buffer, str) or isinstance(name_or_buffer, pathlib.Path)
 
     @classmethod
     def get_active_session(cls):
@@ -67,7 +69,7 @@ class ONNXTraceSession:
         :param doc_string:
         :return:
         """
-        if self._is_path(file_like_or_path):
+        if _is_path(file_like_or_path):
             f = open(file_like_or_path, 'wb')
         else:
             f = file_like_or_path
@@ -76,19 +78,46 @@ class ONNXTraceSession:
         f.write(m.SerializeToString())
 
 
-def _build_gpt2_tokenizer(hf_gpt2_tokenizer):
-    pass
+class _GPT2Tokenizer(GPT2Tokenizer):
+    @classmethod
+    def op_type(cls): return GPT2Tokenizer.op_type()
+
+    @classmethod
+    def build(cls, hf_gpt2_tokenizer, **attrs):
+        import json
+        attrs['vocab'] = json.dumps(hf_gpt2_tokenizer.encoder)
+        sorted_merges = {v_: k_ for k_, v_ in hf_gpt2_tokenizer.bpe_ranks.items()}
+        attrs['merges'] = ',\n'.join("{} {}".format(*sorted_merges[n_]) for n_ in range(len(sorted_merges)))
+        return SingleOpGraph.build_singleop_graph(cls.op_type(), **attrs)
 
 
-def _build_vector_to_string(id_dict):
-    pass
+class _VectorToString(VectorToString):
+    @classmethod
+    def op_type(cls): return VectorToString.op_type()
+
+    @classmethod
+    def build(cls, id_dict, **attrs):
+        remap = {v: [k] for k,v in id_dict.items()}
+        attrs['map'] = '\n'.join(k + "\t" + " ".join([str(i) for i in v]) for k, v in remap.items())
+        return SingleOpGraph.build_singleop_graph(cls.op_type(), **attrs)
 
 
 customop_mbuilder = {
-    'GPT2Tokenizer': _build_gpt2_tokenizer,
-    'VectorToString': _build_vector_to_string
+    c_.op_type(): c_ for c_ in (
+        _GPT2Tokenizer,
+        _VectorToString
+    )
 }
 
 
-def build_customop_model(op_type, source, f, **attrs):
-    pass
+def build_customop_model(op_type, source, f, opset_version=11, **attrs):
+    if op_type in customop_mbuilder:
+        graph = customop_mbuilder[op_type].build(source, **attrs)
+    else:
+        graph = SingleOpGraph.build_singleop_graph(op_type, **attrs)
+
+    m = make_model_ex(graph, [(default_opset_domain(), 1)], opset_version)
+    if _is_path(f):
+        f = open(f, 'wb')
+    f.write(m.SerializeToString())
+    f.flush()

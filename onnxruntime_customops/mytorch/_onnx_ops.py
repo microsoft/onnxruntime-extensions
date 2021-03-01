@@ -2,6 +2,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 ###############################################################################
+import warnings
 import numpy as np
 from onnx import helper, defs as onnx_defs, onnx_pb as onnx_proto
 from onnx.mapping import NP_TYPE_TO_TENSOR_TYPE
@@ -41,7 +42,7 @@ def make_model_ex(graph, imported_opset_pairs, target_default_opset, **kwargs):
     purified_operator_set = dict()
     for op_domain, op_version in imported_opset_pairs:
         if op_domain not in purified_operator_set:
-            if op_domain == '':
+            if op_domain == '' or op_domain == 'ai.onnx':
                 # Initializers are a subset of graph inputs for IR_VERSION <= 3 (target opset < 8).
                 # Need upgrade opv since initializers are separate for IR_VERSION >= 4 to pass onnx.checker.
                 if op_version < 8 and target_default_opset is not None and target_default_opset >= 8:
@@ -67,7 +68,7 @@ def make_model_ex(graph, imported_opset_pairs, target_default_opset, **kwargs):
                 raise RuntimeError(('The specified opset %d is too low to convert this model, ' +
                                     'which requires at least opset %d.') % (target_default_opset, op_version))
             elif target_default_opset > op_version:
-                getLogger('onnxmltools').warning('The maximum opset needed by this model is only %d.' % op_version)
+                warnings.warn('The maximum opset needed by this model is only %d.' % op_version)
             else:
                 pass
 

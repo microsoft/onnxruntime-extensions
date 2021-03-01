@@ -1,36 +1,6 @@
-import onnx
 import onnxruntime as _ort
-from onnx import onnx_pb as onnx_proto
 from ._ocos import default_opset_domain, get_library_path  # noqa
-
-
-class _SingleOpGraph:
-    @classmethod
-    def get_next_id(cls):
-        if not hasattr(cls, '_id_counter'):
-            cls._id_counter = 0
-        cls._id_counter += 1
-        return cls._id_counter
-
-    @classmethod
-    def build_singleop_graph(cls, op_type, *args, **kwargs):
-        inputs = [onnx.helper.make_tensor_value_info('input_text', onnx_proto.TensorProto.STRING, [None])]
-        outputs = [onnx.helper.make_tensor_value_info("input_ids", onnx.TensorProto.INT64, [None, None])]
-        attrs = {}
-        if op_type == "GPT2Tokenizer":
-            attrs['vocab'] = open(kwargs.get('vocab_file'), 'rb').read()
-            attrs['merges'] = open(kwargs.get('merges_file'), 'rb').read()
-        cuop = onnx.helper.make_node(op_type,
-                                     [i_.name for i_ in inputs],
-                                     [o_.name for o_ in outputs],
-                                     "{}_{}".format(op_type, cls.get_next_id()),
-                                     **attrs,
-                                     domain=default_opset_domain())
-        graph = onnx.helper.make_graph([cuop],
-                                       "og_{}_{}".format(op_type, cls.get_next_id()),
-                                       inputs,
-                                       outputs)
-        return graph
+from ._cuops import *  # noqa
 
 
 class EagerOp:
@@ -48,12 +18,11 @@ class EagerOp:
         self.ort_session = None
 
     def create_from_customop(self, op_type, *args, **kwargs):
-        graph = _SingleOpGraph.build_singleop_graph(op_type, *args, **kwargs)
+        graph = SingleOpGraph.build_singleop_graph(op_type, *args, **kwargs)
         model = onnx.helper.make_model(graph)
         model.opset_import.extend([
             onnx.helper.make_operatorsetid(default_opset_domain(), 1)])
         self._bind(model)
-        # onnx.save_model(model, "{}.onnx".format(op_type))
         return self
 
     @property
@@ -93,11 +62,5 @@ class EagerOp:
         try:
             self._ensure_ort_session()
             return self.ort_session.run(None, self._argument_map(*args, **kwargs))
-            # outputs = dict(zip([n_.name for n_ in self.ort_session.get_outputs()], outseq))
-
-            # outputs = [Tensor.from_onnx(self.ort_session, outseq[n_], out_.name
-            #                                   ) for n_, out_ in enumerate(self.ort_session.get_outputs())]
-            # # FIXME: The tokenizer support attention_mask output
-            # outputs.append(Tensor([1] * outputs[0].value.shape[1], 'attention_mask'))
         except Exception as e:
             print(e)
