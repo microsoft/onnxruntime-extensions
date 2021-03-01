@@ -88,24 +88,12 @@ class _GPT2Tokenizer(GPT2Tokenizer):
         attrs['vocab'] = json.dumps(hf_gpt2_tokenizer.encoder)
         sorted_merges = {v_: k_ for k_, v_ in hf_gpt2_tokenizer.bpe_ranks.items()}
         attrs['merges'] = ',\n'.join("{} {}".format(*sorted_merges[n_]) for n_ in range(len(sorted_merges)))
-        return SingleOpGraph.build_singleop_graph(cls.op_type(), **attrs)
-
-
-class _VectorToString(VectorToString):
-    @classmethod
-    def op_type(cls): return VectorToString.op_type()
-
-    @classmethod
-    def build(cls, id_dict, **attrs):
-        remap = {v: [k] for k,v in id_dict.items()}
-        attrs['map'] = '\n'.join(k + "\t" + " ".join([str(i) for i in v]) for k, v in remap.items())
-        return SingleOpGraph.build_singleop_graph(cls.op_type(), **attrs)
+        return SingleOpGraph.build_my_graph(cls.op_type(), **attrs)
 
 
 customop_mbuilder = {
     c_.op_type(): c_ for c_ in (
         _GPT2Tokenizer,
-        _VectorToString
     )
 }
 
@@ -114,7 +102,7 @@ def build_customop_model(op_type, source, f, opset_version=11, **attrs):
     if op_type in customop_mbuilder:
         graph = customop_mbuilder[op_type].build(source, **attrs)
     else:
-        graph = SingleOpGraph.build_singleop_graph(op_type, **attrs)
+        graph = SingleOpGraph.build_my_graph(op_type, **attrs)
 
     m = make_model_ex(graph, [(default_opset_domain(), 1)], opset_version)
     if _is_path(f):

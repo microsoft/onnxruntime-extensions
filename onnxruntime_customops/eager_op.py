@@ -18,7 +18,7 @@ class EagerOp:
         self.ort_session = None
 
     def create_from_customop(self, op_type, *args, **kwargs):
-        graph = SingleOpGraph.build_singleop_graph(op_type, *args, **kwargs)
+        graph = SingleOpGraph.build_my_graph(op_type, *args, **kwargs)
         model = onnx.helper.make_model(graph)
         model.opset_import.extend([
             onnx.helper.make_operatorsetid(default_opset_domain(), 1)])
