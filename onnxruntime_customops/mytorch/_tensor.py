@@ -4,6 +4,7 @@ from typing import List, Tuple, Optional, Union, Any, ContextManager, overload, 
 from torch.types import _int, _float, _bool, Number, _dtype, _device, _qscheme, _size, _layout  # noqa
 from torch import strided, memory_format, contiguous_format  # noqa
 
+from ._onnx_ops import ox as _ox
 from ..eager_op import EagerOp
 
 
@@ -53,8 +54,9 @@ class Tensor:
         return t
 
     @staticmethod
-    def from_torch(_t):
-        ts = Tensor(_t, name="id_{}".format(id(_t)))
+    def from_torch(_t, name=None):
+        t_name = name if name is not None else "id_{}".format(id(_t))
+        ts = Tensor(_t, t_name)
         return ts
 
     def __init__(self, _t, name=None):
@@ -70,6 +72,53 @@ class Tensor:
         if not hasattr(cls, '_active_session'):
             raise RuntimeError("the tracing not started yet!")
         return cls._active_session  # noqa
+
+    @classmethod
+    def _process_inputs(self, inputs, name):
+        if not isinstance(inputs, (list, tuple)):
+            inputs = [inputs]
+        ox_inputs = []
+        for i_ in inputs:
+            ox_n = i_
+            if isinstance(i_, np.ndarray):
+                ox_n = self._scope.get_unique_variable_name(name + '_i')
+                self._container.add_initializer(
+                    ox_n,
+                    NP_TYPE_TO_TENSOR_TYPE[i_.dtype],
+                    i_.shape,
+                    i_.flatten()
+                )
+            elif isinstance(i_, (tuple, list)):
+                ox_n = self._scope.get_unique_variable_name(name + i_[0])
+                self._container.add_initializer(
+                    ox_n,
+                    i_[1],
+                    i_[2].shape,
+                    i_[2].flatten()
+                )
+            elif isinstance(ox_n, str):
+                pass
+            else:
+                raise ValueError(
+                    'Unknown type for ONNX initializer: {}'.format(type(ox_n)))
+            ox_inputs.append(ox_n)
+
+        return ox_inputs
+
+    def _process_outputs(self, outputs, name):
+        if outputs is None:
+            ox_outputs = 1
+        else:
+            ox_outputs = outputs
+        if isinstance(ox_outputs, int):
+            ox_outputs = [self._scope.get_unique_variable_name(
+                name + str(i_)) for i_ in range(ox_outputs)]
+        elif isinstance(ox_outputs, (list, tuple)):
+            pass
+        else:
+            raise ValueError(
+                'Unknown type for outputs: {}'.format(type(ox_outputs)))
+        return ox_outputs
 
     def _to_binary_tensor_args(self, other):
         # convert self, other to [self, other], but if either is a number, convert that to a constant
@@ -148,12 +197,25 @@ class Tensor:
             es.append(e if e is not None else INT_MAX)
             ss.append(s if s is not None else 1)
             ds.append(axis)
-        ox = self.get_trace_session
-        oname = ox.slice(starts=bs, ends=es, axes=ds, steps=ss)
+        oname = _ox.slice(*self.my_args(), starts=bs, ends=es, axes=ds, steps=ss)
         if squeeze:  # single index means we must drop the axis
-            oname = ox.squeeze([res], axes=squeeze)
+            oname = _ox.squeeze(*self.ox_name_args(oname), axes=squeeze)
 
         return self.from_torch(res, name=oname)
+
+    @classmethod
+    def ox_name_args(cls, input_name, output_n=1):
+        container = cls.get_trace_session().container
+        output_name = [_ox.get_unique_tensor_name(str(n_)) for n_ in range(output_n)]
+        operator_name = None
+        return input_name, output_name, container, operator_name
+
+    def ox_args(cls, tensors, output_n=1):
+        input_name = [ts_.name for ts_ in tensors]
+        return cls.ox_name_args(input_name, output_n)
+
+    def my_args(self):
+        return self.ox_args([self])
 
 
     # def __getattribute__(self, attr):
@@ -198,6 +260,8 @@ class Tensor:
         return self.from_torch(self._t.to(device))
 
 
+
+
 def empty(*size: _int, memory_format: Optional[memory_format]=None, out: Optional[Tensor]=None, dtype: _dtype=None, layout: _layout=strided, device: Union[_device, str, None]=None, requires_grad:_bool=False):  # noqa
     n_size = Tensor.normalize_seq(size)
     return Tensor.from_torch(torch.empty(*n_size, memory_format=memory_format, out=out, dtype=dtype, layout=layout, device=device, requires_grad=requires_grad))
@@ -213,7 +277,9 @@ def argmax(input: Tensor, dim: Optional[_int] = None, keepdim: _bool = False):
 
 
 def cat(tensors: Union[Tuple[Tensor, ...], List[Tensor]], dim, *, out: Optional[Tensor] = None):
-    return Tensor.from_torch(torch.cat(tensors, dim, out=out))
+    res = torch.cat(tensors, dim, out=out)
+    oname = _ox.concat(*Tensor.ox_args(tensors), dim)
+    return Tensor.from_torch(res, oname)
 
 
 class _TracingEagerOp(EagerOp):

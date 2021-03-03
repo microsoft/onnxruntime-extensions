@@ -37,4 +37,6 @@ from torch import (float32,
 
 
 def start_trace(inputs, target_opset=11):
-    return ONNXTraceSession(inputs, target_opset)
+    tsess = ONNXTraceSession(inputs, target_opset)
+    tsess.__enter__()
+    return tsess

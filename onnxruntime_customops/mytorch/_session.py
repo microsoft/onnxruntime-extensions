@@ -3,7 +3,7 @@ import onnx
 import pathlib
 from onnx import helper
 from ._tensor import Tensor
-from ._onnx_ops import ONNXElementContainer, ONNXGraphBuilder, make_model_ex
+from ._onnx_ops import ONNXElementContainer, make_model_ex
 
 from ..eager_op import SingleOpGraph, default_opset_domain, GPT2Tokenizer, VectorToString
 
@@ -17,7 +17,6 @@ class ONNXTraceSession:
 
     def __init__(self, inputs, target_opset):
         self.container = ONNXElementContainer(target_opset)
-        self.ox = ONNXGraphBuilder()
         self.inputs = inputs
         self.torch_ops = []
 
@@ -28,9 +27,8 @@ class ONNXTraceSession:
 
     def __exit__(self, exec_type, exec_value, exec_tb):
         Tensor.set_active_session(None)
-        last = self.activated_sessions[-1]
-        del self.activated_sessions[-1:]
-        return last
+        assert self is self.activated_sessions.pop()
+        return self
 
     @classmethod
     def get_active_session(cls):
@@ -43,6 +41,7 @@ class ONNXTraceSession:
         pass
 
     def stop_trace(self, outputs):
+        self.__exit__(None, None, None)  # looks silly.
         self.set_outputs(outputs)
 
     def build_model(self, model_name=None, doc_string=None) -> onnx.ModelProto:
