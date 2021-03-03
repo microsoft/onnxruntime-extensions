@@ -30,8 +30,8 @@ def convert_models():
     cache_dir = get_cache_directory()
 
     tokenizer = GPT2Tokenizer.from_pretrained(model_name_or_path, cache_dir=cache_dir)
-    torch.build_customop_model('GPT2Tokenizer', tokenizer, gpt2_encoder_model_path)
-    torch.build_customop_model('VectorToString', tokenizer.decoder, gpt2_decoder_model_path)
+    torch.build_customop_model('GPT2Tokenizer', gpt2_encoder_model_path, model=tokenizer)
+    torch.build_customop_model('VectorToString', gpt2_decoder_model_path, decoder=tokenizer.decoder)
 
     config = AutoConfig.from_pretrained(model_name_or_path, cache_dir=cache_dir)
     model = MyGPT2LMHeadModel.from_pretrained(model_name_or_path, config=config, cache_dir=cache_dir)

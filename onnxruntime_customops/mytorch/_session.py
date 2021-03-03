@@ -1,6 +1,7 @@
+import json
 import onnx
 import pathlib
-from onnx import helper, onnx_pb as onnx_proto
+from onnx import helper
 from ._tensor import Tensor
 from ._onnx_ops import ONNXElementContainer, ONNXGraphBuilder, make_model_ex
 
@@ -83,29 +84,46 @@ class _GPT2Tokenizer(GPT2Tokenizer):
     def op_type(cls): return GPT2Tokenizer.op_type()
 
     @classmethod
-    def build(cls, hf_gpt2_tokenizer, **attrs):
-        import json
-        attrs['vocab'] = json.dumps(hf_gpt2_tokenizer.encoder)
+    def serialize_attr(cls, kwargs):
+        assert 'model' in kwargs, "Need model parameter to build the tokenizer"
+        hf_gpt2_tokenizer = kwargs['model']
+        attrs = {'vocab': json.dumps(hf_gpt2_tokenizer.encoder, separators=(',', ':'))}
         sorted_merges = {v_: k_ for k_, v_ in hf_gpt2_tokenizer.bpe_ranks.items()}
-        attrs['merges'] = ',\n'.join("{} {}".format(*sorted_merges[n_]) for n_ in range(len(sorted_merges)))
-        return SingleOpGraph.build_my_graph(cls.op_type(), **attrs)
+        attrs['merges'] = '\n'.join("{} {}".format(*sorted_merges[n_]) for n_ in range(len(sorted_merges)))
+        return attrs
+
+
+class _VectorToString(VectorToString):
+    @classmethod
+    def op_type(cls): return VectorToString.op_type()
+
+    @classmethod
+    def serialize_attr(cls, kwargs):
+        assert 'decoder' in kwargs, "Need decoder parameter to build the tokenizer"
+        decoder = kwargs['decoder']
+        remapped = {v: [k] for k, v in decoder.items()}
+        attrs = dict(map=remapped)
+        return attrs
 
 
 customop_mbuilder = {
     c_.op_type(): c_ for c_ in (
         _GPT2Tokenizer,
+        _VectorToString
     )
 }
 
 
-def build_customop_model(op_type, source, f, opset_version=11, **attrs):
+def build_customop_model(op_type, f, opset_version=11, **attrs):
+    op_class = SingleOpGraph.get_op_class(op_type)
     if op_type in customop_mbuilder:
-        graph = customop_mbuilder[op_type].build(source, **attrs)
-    else:
-        graph = SingleOpGraph.build_my_graph(op_type, **attrs)
+        op_class = customop_mbuilder[op_type]
 
+    graph = SingleOpGraph.build_my_graph(op_class, **attrs)
     m = make_model_ex(graph, [(default_opset_domain(), 1)], opset_version)
     if _is_path(f):
-        f = open(f, 'wb')
-    f.write(m.SerializeToString())
-    f.flush()
+        with open(f, 'wb') as f_:
+            f_.write(m.SerializeToString())
+    else:
+        f.write(m.SerializeToString())
+        f.flush()

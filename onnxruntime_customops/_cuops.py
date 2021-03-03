@@ -71,7 +71,6 @@ class SingleOpGraph:
 
     @classmethod
     def build_my_graph(cls, op_class, *args, **kwargs):
-        # opcls = globals()[op_type], support the op_name here?
         op_type = op_class.op_type()
         inputs = op_class.get_inputs()
         outputs = op_class.get_outputs()
@@ -87,3 +86,7 @@ class SingleOpGraph:
                                        inputs,
                                        outputs)
         return graph
+
+    @staticmethod
+    def get_op_class(op_type):
+        return globals()[op_type]
