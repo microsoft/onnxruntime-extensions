@@ -9,8 +9,12 @@ jobs:
   
   strategy:
     matrix:
-      py38:
+      py38-170:
         python.version: '3.8'
+        ort.version: '1.7.0'
+      py38-160:
+        python.version: '3.8'
+        ort.version: '1.6.0'
     maxParallel: 1
 
   steps:
@@ -20,7 +24,7 @@ jobs:
       userRepository: 'microsoft/onnxruntime'
       defaultVersionType: 'specificVersion'
       version: '34858191'
-      itemPattern: '*-linux-x64-1.6.0*'
+      itemPattern: '*-linux-x64-$(ort.version)*'
       downloadPath: '$(Build.sourcesdirectory)'
     displayName: Download the ONNXRuntime prebuilt package.
 
@@ -33,7 +37,7 @@ jobs:
     displayName: Unpack ONNXRuntime package.
 
   - script: |
-      sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-linux-x64-1.6.0/lib
+      sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-linux-x64-$(ort.version)/lib
     displayName: build the customop library with onnxruntime
 
   - script: |
@@ -75,8 +79,12 @@ jobs:
 
   strategy:
     matrix:
-      py38:
+      py38-170:
         python.version: '3.8'
+        ort.version: '1.7.0'
+      py38-160:
+        python.version: '3.8'
+        ort.version: '1.6.0'
     maxParallel: 1
 
   steps:
@@ -90,7 +98,7 @@ jobs:
       userRepository: 'microsoft/onnxruntime'
       defaultVersionType: 'specificVersion'
       version: '34858191'
-      itemPattern: '*-osx-x64-1.6.0*'
+      itemPattern: '*-osx-x64-$(ort.version)*'
       downloadPath: '$(Build.sourcesdirectory)'
     displayName: Download the ONNXRuntime prebuilt package.
 
@@ -103,7 +111,7 @@ jobs:
     displayName: Unpack ONNXRuntime package.
 
   - script: |
-      sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-osx-x64-1.6.0/lib
+      sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-osx-x64-$(ort.version)/lib
     displayName: build the customop library with onnxruntime
 
   - script: |
@@ -146,6 +154,17 @@ jobs:
 - job: Windows
   pool:
     vmImage: 'windows-latest'
+
+  strategy:
+    matrix:
+      py38-170:
+        python.version: '3.8'
+        ort.version: '1.7.0'
+      py38-160:
+        python.version: '3.8'
+        ort.version: '1.6.0'
+    maxParallel: 1
+
   steps:
   - task: DownloadGitHubRelease@0
     inputs:
@@ -153,7 +172,7 @@ jobs:
       userRepository: 'microsoft/onnxruntime'
       defaultVersionType: 'specificVersion'
       version: '34858191'
-      itemPattern: '*-win-x64-1.6.0*'
+      itemPattern: '*-win-x64-$(ort.version)*'
       downloadPath: '$(Build.sourcesdirectory)'
     displayName: Download the ONNXRuntime prebuilt package.
 
@@ -166,7 +185,7 @@ jobs:
     displayName: Unpack ONNXRuntime package.
 
   - script: |
-      call .\build.bat -DONNXRUNTIME_LIB_DIR=.\onnxruntime-win-x64-1.6.0\lib
+      call .\build.bat -DONNXRUNTIME_LIB_DIR=.\onnxruntime-win-x64-$(ort.version)\lib
     displayName: build the customop library with onnxruntime
 
   - script: |
