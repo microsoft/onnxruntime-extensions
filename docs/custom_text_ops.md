@@ -21,7 +21,7 @@
 |**Operator**|**Support State**|
 |------------|-----------------|
 |GPT2Tokenizer| Supported       |
-|BertTokenizer| Under development |
+|BertTokenizer| Supported       |
 |XLNetTokenizer| Under development |
 |SentencepieceTokenizer| Supported       |
 
@@ -471,6 +471,21 @@ expect(node, inputs=[x], outputs=[y],
 
 BertTokenizer that performs WordPiece tokenization to the input tensor, based on the [hugging face version](https://huggingface.co/transformers/model_doc/bert.html#berttokenizer).
 
+#### Attributes
+
+***vocab***
+
+The **content** of the vocabulary file, its format is same with
+[hugging face](https://huggingface.co/gpt2/resolve/main/vocab.json).
+
+**suffix_indicator**
+
+Suffix added to token not in the first position before looking into the vocabulary.
+
+***max_input_chars_per_word***
+
+Maximum number of characters per token (optional, defaults to 200).
+
 #### Inputs
 
 ***data: tensor(string)***
@@ -479,9 +494,12 @@ The string tensor for tokenization
 
 #### Outputs
 
-***output: tensor(int64)***
+***tokens: tensor(int32)*** Indices of each token. -1 means a token outside the vocabulary.
 
-Tokenized result of the input
+***indices: tensor(int64)*** Indices of every first token of input sentences.
+`indices[i+1] - indices[i]` is the number of tokens in input `i`.
+
+Tokenized result of the input.
 
 #### Examples
 

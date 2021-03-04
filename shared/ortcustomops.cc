@@ -23,8 +23,16 @@
 #include "sentencepiece_tokenizer.hpp"
 #endif
 
+#ifdef ENABLE_BERT_TOKENIZER
+#include "bert_tokenizer.hpp"
+#endif
+
 #ifdef ENABLE_SPM_TOKENIZER
 CustomOpSentencepieceTokenizer c_CustomOpSentencepieceTokenizer;
+#endif
+
+#ifdef ENABLE_BERT_TOKENIZER
+CustomOpBertTokenizer c_CustomOpBertTokenizer;
 #endif
 
 #ifdef ENABLE_TF_STRING
@@ -48,6 +56,10 @@ CustomOpStringConcat c_CustomOpStringConcat;
 OrtCustomOp* operator_lists[] = {
 #ifdef ENABLE_SPM_TOKENIZER
     &c_CustomOpSentencepieceTokenizer,
+#endif
+
+#ifdef ENABLE_BERT_TOKENIZER
+    &c_CustomOpBertTokenizer,
 #endif
 
 #ifdef ENABLE_TF_STRING
