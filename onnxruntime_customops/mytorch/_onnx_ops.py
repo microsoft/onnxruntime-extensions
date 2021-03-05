@@ -188,6 +188,8 @@ def _create_name_or_use_existing_one(container, op_type, name):
 
 
 class _ONNXOperator:
+    def get_unique_tensor_name(self, base): pass  # implemented by the subclass
+
     def _apply_unary_operation(self, op_type, input_name, output_name, container, operator_name, **attrs):
         name = _create_name_or_use_existing_one(container, op_type, operator_name)
     
@@ -242,10 +244,12 @@ class _ONNXOperator:
     
     def abs(self, input_name, output_name, container, operator_name=None):
         self._apply_unary_operation('Abs', input_name, output_name, container, operator_name=operator_name)
+        return output_name
     
     def add(self, input_names, output_name, container, operator_name=None, axis=None, broadcast=None):
         self._apply_basic_numerical_operation('Add', input_names, output_name, container, operator_name=operator_name,
                                          axis=axis, broadcast=broadcast)
+        return output_name
     
     def argmax(self, input_name, output_name, container, operator_name=None, axis=0, keepdims=1,
                      select_last_index=0):
@@ -259,9 +263,9 @@ class _ONNXOperator:
             op_version = 12
             attrs['select_last_index'] = select_last_index
         container.add_node('ArgMax', input_name, output_name, op_version=op_version, name=name, **attrs)
+        return output_name
     
-    
-    def apply_argmin(self, input_name, output_name, container, operator_name=None, axis=0, keepdims=1,
+    def argmin(self, input_name, output_name, container, operator_name=None, axis=0, keepdims=1,
                      select_last_index=0):
         name = _create_name_or_use_existing_one(container, 'ArgMin', operator_name)
         attrs = {'axis': axis, 'keepdims': keepdims}
@@ -273,8 +277,9 @@ class _ONNXOperator:
             op_version = 12
             attrs['select_last_index'] = select_last_index
         container.add_node('ArgMin', input_name, output_name, op_version=op_version, name=name, **attrs)
+        return output_name
 
-    def apply_affine(self, input_name, output_name, container, operator_name=None, alpha=1., beta=0.):
+    def affine(self, input_name, output_name, container, operator_name=None, alpha=1., beta=0.):
         if container.target_opset < 9:
             op_type = 'Affine'
             name = _create_name_or_use_existing_one(container, 'Affine', operator_name)
@@ -290,13 +295,13 @@ class _ONNXOperator:
     
             # Compute Z = a * X, where X is the original input.
             zName = self.get_unique_tensor_name(name + '_scaled')
-            apply_mul(self, [aName, input_name], zName, container)
+            self.mul([aName, input_name], zName, container)
     
             # Compute Y = Z + b, where Y is the final output.
-            apply_add(self, [zName, bName], output_name, container)
+            self.add(self, [zName, bName], output_name, container)
+        return output_name
     
-    
-    def apply_batch_norm(self, input_names, output_names, container, operator_name=None,
+    def batch_norm(self, input_names, output_names, container, operator_name=None,
                          epsilon=None, is_test=None, momentum=None, spatial=None):
         name = _create_name_or_use_existing_one(container, 'BatchNormalization', operator_name)
         attrs = {'name': name, 'epsilon': epsilon, 'momentum': momentum}
@@ -321,9 +326,9 @@ class _ONNXOperator:
             op_version = 9
     
         container.add_node('BatchNormalization', input_names, output_names, op_version=op_version, **attrs)
+        return output_names
     
-    
-    def apply_cast(self, input_name, output_name, container, operator_name=None, to=None):
+    def cast(self, input_name, output_name, container, operator_name=None, to=None):
         """
         :param to: enum defined in ONNX TensorProto.DataType, for example, TensorProto.FLOAT and TensorProto.INT64.
         """
@@ -356,9 +361,9 @@ class _ONNXOperator:
             op_version = 9
     
         container.add_node('Cast', input_name, output_name, op_version=op_version, **attrs)
-    
-    
-    def apply_clip(self, input_name, output_name, container, operator_name=None, max=None, min=None):
+        return output_name
+
+    def clip(self, input_name, output_name, container, operator_name=None, max=None, min=None):
         name = _create_name_or_use_existing_one(container, 'Clip', operator_name)
         attrs = {'name': name}
     
@@ -444,7 +449,8 @@ class _ONNXOperator:
     
             container.add_node('Clip', inputs, output_name, op_version=op_version,
                                **attrs)
-    
+        return output_name
+
     def concat(self, input_names, output_name, container, operator_name=None, axis=0):
         name = _create_name_or_use_existing_one(container, 'Concat', operator_name)
     
@@ -456,6 +462,7 @@ class _ONNXOperator:
             op_version = 11
     
         container.add_node('Concat', input_names, output_name, op_version=op_version, name=name, axis=axis)
+        return output_name
 
     def constant(self, input_names, output_name, container, operator_name=None, value=None):
         assert len(input_names) == 0  # only a placeholder to standardize the argument list.
@@ -486,13 +493,14 @@ class _ONNXOperator:
                 attrs = {'name': name, 'value': value}
     
         container.add_node('Constant', [], output_name, op_version=op_version, **attrs)
+        return output_name
 
-    def apply_constant_of_shape(self, input_names, output_name, container, operator_name=None, value=None):
+    def constant_of_shape(self, input_names, output_name, container, operator_name=None, value=None):
         name = _create_name_or_use_existing_one(container, 'ConstantOfShape', operator_name)
         container.add_node('ConstantOfShape', input_names, output_name, name=name, op_version=9, value=value)
-    
-    
-    def apply_conv(self, input_names, output_name, container, operator_name=None, **attrs):
+        return output_name
+
+    def conv(self, input_names, output_name, container, operator_name=None, **attrs):
         name = _create_name_or_use_existing_one(container, 'Conv', operator_name)
     
         if container.target_opset < 11:
@@ -501,11 +509,11 @@ class _ONNXOperator:
             op_version = 11
     
         container.add_node('Conv', input_names, output_name, name=name, op_version=op_version, **attrs)
-    
-    
-    def apply_crop_height_width(self, input_name, output_name, container, operator_name=None,
+        return output_name
+
+    def crop_height_width(self, input_name, output_name, container, operator_name=None,
                                 top_border=0, bottom_border=0, left_border=0, right_border=0):
-        name = self.get_unique_operator_name('CropHeightWidth')
+        name = container.get_unique_operator_name('CropHeightWidth')
         if container.target_opset < 9:
             # If operator set < 9, we can use the experimental Crop in ONNX.
             attrs = {'name': name, 'border': [left_border, top_border, right_border, bottom_border]}
@@ -545,18 +553,19 @@ class _ONNXOperator:
             # Collect all input names as a list because DynamicSlice has multiple inputs.
             input_list = [input_name, starts_name, ends_name, axes_name]
             container.add_node('DynamicSlice', input_list, output_name, op_version=9)
-    
-    
-    def apply_div(self, input_names, output_name, container, operator_name=None, axis=None, broadcast=None):
-        _apply_basic_numerical_operation(self, 'Div', input_names, output_name, container, operator_name=operator_name,
-                                         axis=axis, broadcast=broadcast)
-    
-    
-    def apply_elu(self, input_name, output_name, container, operator_name=None, alpha=1.0):
+        return output_name
+
+    def div(self, input_names, output_name, container, operator_name=None, axis=None, broadcast=None):
+        self._apply_basic_numerical_operation('Div', input_names, output_name,
+                                              container, operator_name,
+                                              axis, broadcast)
+        return output_name
+
+    def elu(self, input_name, output_name, container, operator_name=None, alpha=1.0):
         self._apply_unary_operation('Elu', input_name, output_name, container, operator_name, alpha=alpha)
-    
-    
-    def apply_equal(self, input_names, output_name, container, operator_name=None):
+        return output_name
+
+    def equal(self, input_names, output_name, container, operator_name=None):
         name = _create_name_or_use_existing_one(container, 'equal', operator_name)
         if container.target_opset < 7:
             op_version = 1
@@ -565,17 +574,17 @@ class _ONNXOperator:
         else:
             op_version = 9
         container.add_node('Equal', input_names, output_name, name=name, op_version=op_version)
+        return output_name
     
-    
-    def apply_exp(self, input_name, output_name, container, operator_name=None):
+    def exp(self, input_name, output_name, container, operator_name=None):
         self._apply_unary_operation('Exp', input_name, output_name, container, operator_name=operator_name)
-    
-    
-    def apply_floor(self, input_name, output_name, container, operator_name=None):
+        return output_name
+
+    def floor(self, input_name, output_name, container, operator_name=None):
         self._apply_unary_operation('Floor', input_name, output_name, container, operator_name=operator_name)
-    
-    
-    def apply_flatten(self, input_name, output_name, container, operator_name=None, axis=1):
+        return output_name
+
+    def flatten(self, input_name, output_name, container, operator_name=None, axis=1):
         name = _create_name_or_use_existing_one(container, 'Flatten', operator_name)
         if container.target_opset < 9:
             op_version = 1
@@ -584,9 +593,9 @@ class _ONNXOperator:
         else:
             op_version = 11
         container.add_node('Flatten', input_name, output_name, name=name, op_version=op_version, axis=axis)
+        return output_name
     
-    
-    def apply_gather(self, input_names, output_name, container, operator_name=None, axis=0):
+    def gather(self, input_names, output_name, container, operator_name=None, axis=0):
         name = _create_name_or_use_existing_one(container, 'Gather', operator_name)
         if container.target_opset < 11:
             op_version = 1
@@ -594,9 +603,9 @@ class _ONNXOperator:
             op_version = 11
     
         container.add_node('Gather', input_names, output_name, name=name, op_version=op_version, axis=axis)
-    
-    
-    def apply_gemm(self, input_name, output_name, container, operator_name=None, alpha=1.0, beta=1.0,
+        return output_name
+
+    def gemm(self, input_name, output_name, container, operator_name=None, alpha=1.0, beta=1.0,
                    transA=0, transB=0):
         """
         Applies operator `gemm <https://github.com/onnx/onnx/blob/master/docs/Operators.md#gemm>`.
@@ -615,9 +624,9 @@ class _ONNXOperator:
             attrs['op_version'] = 11
     
         container.add_node('Gemm', input_name, output_name, name=name, **attrs)
-    
-    
-    def apply_greater(self, input_names, output_name, container, operator_name=None):
+        return output_name
+
+    def greater(self, input_names, output_name, container, operator_name=None):
         name = _create_name_or_use_existing_one(container, 'Greater', operator_name)
         if container.target_opset < 7:
             op_version = 1
@@ -627,10 +636,10 @@ class _ONNXOperator:
             op_version = 9
     
         container.add_node('Greater', input_names, output_name, name=name, op_version=op_version)
-    
-    
-    def _convert_compare_equal(self, input_names, output_name, container, operator_name, tf_op_string, onnx_op_string_rev,
-                               onnx_op_string):
+        return output_name
+
+    def _apply_convert_compare_equal(self, input_names, output_name, container, operator_name,
+                                     tf_op_string, onnx_op_string_rev, onnx_op_string):
         if container.target_opset < 7:
             raise ValueError(tf_op_string + " op is not supported for opset < 7")
         elif container.target_opset < 9:
@@ -661,17 +670,17 @@ class _ONNXOperator:
                                name=name + '_' + onnx_op_string_rev.lower(), op_version=op_version)
     
     
-    def apply_greater_or_equal(self, input_names, output_name, container, operator_name=None):
-        _convert_compare_equal(self, input_names, output_name, container, operator_name, 'GreaterEqual', 'Less',
-                               'GreaterOrEqual')
-    
-    
-    def apply_less_or_equal(self, input_names, output_name, container, operator_name=None):
-        _convert_compare_equal(self, input_names, output_name, container, operator_name, 'LessEqual', 'Greater',
-                               'LessOrEqual')
-    
-    
-    def apply_gru(self, input_names, output_names, container, operator_name=None, output_seq=0, reset_after=0, **attrs):
+    def greater_or_equal(self, input_names, output_name, container, operator_name=None):
+        self._apply_convert_compare_equal(input_names, output_name, container, operator_name,
+                                          'GreaterEqual', 'Less', 'GreaterOrEqual')
+        return output_name
+
+    def less_or_equal(self, input_names, output_name, container, operator_name=None):
+        self._apply_convert_compare_equal(input_names, output_name, container,
+                                          operator_name, 'LessEqual', 'Greater', 'LessOrEqual')
+        return output_name
+
+    def gru(self, input_names, output_names, container, operator_name=None, output_seq=0, reset_after=0, **attrs):
         name = _create_name_or_use_existing_one(container, 'GRU', operator_name)
         if container.target_opset < 3:
             op_version = 1
@@ -685,19 +694,19 @@ class _ONNXOperator:
                 op_version = 7
     
         container.add_node('GRU', input_names, output_names, name=name, op_version=op_version, **attrs)
+        return output_names
     
-    
-    def apply_hard_sigmoid(self, input_name, output_name, container, operator_name=None, alpha=None, beta=None):
+    def hard_sigmoid(self, input_name, output_name, container, operator_name=None, alpha=None, beta=None):
         self._apply_unary_operation('HardSigmoid', input_name, output_name, container, operator_name,
                                alpha=alpha, beta=beta)
-    
-    
-    def apply_identity(self, input_name, output_name, container, operator_name=None):
+        return output_name
+
+    def identity(self, input_name, output_name, container, operator_name=None):
         name = _create_name_or_use_existing_one(container, 'Identity', operator_name)
         container.add_node('Identity', input_name, output_name, name=name)
+        return output_name
     
-    
-    def apply_instance_norm(self, input_names, output_name, container, operator_name=None, epsilon=1e-5):
+    def instance_norm(self, input_names, output_name, container, operator_name=None, epsilon=1e-5):
         name = _create_name_or_use_existing_one(container, 'InstanceNormalization', operator_name)
         attrs = {'name': name, 'epsilon': epsilon}
     
@@ -708,22 +717,22 @@ class _ONNXOperator:
             op_version = 6
     
         container.add_node('InstanceNormalization', input_names, output_name, op_version=op_version, **attrs)
-    
-    
-    def apply_inverse(self, input_name, output_name, container, operator_name=None):
+        return output_name
+
+    def inverse(self, input_name, output_name, container, operator_name=None):
         if container.target_opset < 12:
             raise ValueError("tf op MatrixInverse is not supported for opset < 12")
         else:
             op_version = 12
         name = _create_name_or_use_existing_one(container, 'Inverse', operator_name)
         container.add_node('Inverse', input_name, output_name, name=name, op_version=op_version)
-    
-    
-    def apply_leaky_relu(self, input_name, output_name, container, operator_name=None, alpha=0.01):
+        return output_name
+
+    def leaky_relu(self, input_name, output_name, container, operator_name=None, alpha=0.01):
         self._apply_unary_operation('LeakyRelu', input_name, output_name, container, operator_name, alpha=alpha)
-    
-    
-    def apply_less(self, input_names, output_name, container, operator_name=None):
+        return output_name
+
+    def less(self, input_names, output_name, container, operator_name=None):
         name = _create_name_or_use_existing_one(container, 'Less', operator_name)
         if container.target_opset < 7:
             op_version = 1
@@ -733,13 +742,13 @@ class _ONNXOperator:
             op_version = 9
     
         container.add_node('Less', input_names, output_name, name=name, op_version=op_version)
-    
-    
-    def apply_log(self, input_name, output_name, container, operator_name=None):
+        return output_name
+
+    def log(self, input_name, output_name, container, operator_name=None):
         self._apply_unary_operation('Log', input_name, output_name, container, operator_name=operator_name)
-    
-    
-    def apply_lstm(self, input_names, output_names, container, operator_name=None, output_seq=0, **attrs):
+        return output_name
+
+    def lstm(self, input_names, output_names, container, operator_name=None, output_seq=0, **attrs):
         name = _create_name_or_use_existing_one(container, 'LSTM', operator_name)
         if container.target_opset <= 6:
             attrs['output_sequence'] = 1 if output_seq else 0
@@ -747,9 +756,9 @@ class _ONNXOperator:
         else:
             op_version = 7
         container.add_node('LSTM', input_names, output_names, name=name, op_version=op_version, **attrs)
-    
-    
-    def apply_matmul(self, input_names, output_name, container, operator_name=None):
+        return output_names
+
+    def matmul(self, input_names, output_name, container, operator_name=None):
         op_type = 'MatMul'
         name = _create_name_or_use_existing_one(container, op_type, operator_name)
         if container.target_opset <= 9:
@@ -757,39 +766,40 @@ class _ONNXOperator:
         else:
             op_version = 9
         container.add_node(op_type, input_names, output_name, op_version=op_version, name=name)
+        return output_name
     
-    
-    def apply_max(self, input_names, output_name, container, operator_name=None):
+    def max(self, input_names, output_name, container, operator_name=None):
         self._apply_pointwise_operation('Max', input_names, output_name, container, operator_name)
+        return output_name
     
-    
-    def apply_mean(self, input_names, output_name, container, operator_name=None):
+    def mean(self, input_names, output_name, container, operator_name=None):
         self._apply_pointwise_operation('Mean', input_names, output_name, container, operator_name)
+        return output_name
     
-    
-    def apply_min(self, input_names, output_name, container, operator_name=None):
+    def min(self, input_names, output_name, container, operator_name=None):
         self._apply_pointwise_operation('Min', input_names, output_name, container, operator_name)
-    
-    
-    def apply_mul(self, input_names, output_name, container, operator_name=None, axis=None, broadcast=None):
-        _apply_basic_numerical_operation(self, 'Mul', input_names, output_name, container, operator_name=operator_name,
-                                         axis=axis, broadcast=broadcast)
-    
-    
-    def apply_neg(self, input_name, output_name, container, operator_name=None):
+        return output_name
+
+    def mul(self, input_names, output_name, container, operator_name=None, axis=None, broadcast=None):
+        self._apply_basic_numerical_operation(self, 'Mul', input_names, output_name,
+                                              container, operator_name=operator_name,
+                                              axis=axis, broadcast=broadcast)
+        return output_name
+
+    def neg(self, input_name, output_name, container, operator_name=None):
         self._apply_unary_operation('Neg', input_name, output_name, container, operator_name)
+        return output_name
     
-    
-    def apply_normalization(self, input_name, output_name, container, operator_name=None, axis=1, p=2):
+    def normalization(self, input_name, output_name, container, operator_name=None, axis=1, p=2):
         name = _create_name_or_use_existing_one(container, 'LpNormalization', operator_name)
         container.add_node('LpNormalization', input_name, output_name, name=name, p=p, axis=axis)
+        return output_name
     
-    
-    def apply_not_op(self, input_name, output_name, container, operator_name=None):
+    def not_op(self, input_name, output_name, container, operator_name=None):
         self._apply_unary_operation('Not', input_name, output_name, container, operator_name)
+        return output_name
     
-    
-    def apply_pad(self, input_name, output_name, container, operator_name=None, mode=None, pads=None, value=None,
+    def pad(self, input_name, output_name, container, operator_name=None, mode=None, pads=None, value=None,
                   onnx_type=onnx_proto.TensorProto.FLOAT):
         name = _create_name_or_use_existing_one(container, 'Pad', operator_name)
         attrs = {'name': name}
@@ -823,9 +833,9 @@ class _ONNXOperator:
                 inputs.append(value_name)
     
         container.add_node('Pad', inputs, output_name, op_version=op_version, **attrs)
-    
-    
-    def apply_parametric_softplus(self, input_name, output_name, container, operator_name=None, alpha=None, beta=None):
+        return output_name
+
+    def parametric_softplus(self, input_name, output_name, container, operator_name=None, alpha=None, beta=None):
         if alpha is None:
             alpha = [1.0]
         if beta is None:
@@ -851,25 +861,25 @@ class _ONNXOperator:
     
             # c = b * x
             cName = self.get_unique_tensor_name(name + '_c')
-            apply_mul(self, [input_name, bName], cName, container)
+            self.mul([input_name, bName], cName, container)
     
             # d = exp(c)
             dName = self.get_unique_tensor_name(name + '_d')
-            apply_exp(self, cName, dName, container)
+            self.exp(cName, dName, container)
     
             # e = 1 + d
             eName = self.get_unique_tensor_name(name + '_e')
-            apply_add(self, [dName, oneName], eName, container)
+            self.add([dName, oneName], eName, container)
     
             # f = log(e)
             fName = self.get_unique_tensor_name(name + '_f')
-            apply_log(self, eName, fName, container)
+            self.log(eName, fName, container)
     
             # g = a * f
-            apply_mul(self, [fName, aName], output_name, container)
-    
-    
-    def apply_pow(self, input_names, output_name, container, operator_name=None, axis=None, broadcast=None):
+            self.mul([fName, aName], output_name, container)
+        return output_name
+
+    def pow(self, input_names, output_name, container, operator_name=None, axis=None, broadcast=None):
         name = _create_name_or_use_existing_one(container, 'Pow', operator_name)
     
         attrs = {'name': name}
@@ -887,9 +897,9 @@ class _ONNXOperator:
             op_version = 12
     
         container.add_node('Pow', input_names, output_name, op_version=op_version, **attrs)
-    
-    
-    def apply_prelu(self, input_name, output_name, container, operator_name=None, slope=None):
+        return output_name
+
+    def prelu(self, input_name, output_name, container, operator_name=None, slope=None):
         name = _create_name_or_use_existing_one(container, 'PRelu', operator_name)
         slope_tensor_name = self.get_unique_tensor_name('slope')
         s_shape = slope.shape
@@ -910,18 +920,19 @@ class _ONNXOperator:
                 op_version = 9
     
             container.add_node('PRelu', [input_name, slope_tensor_name], output_name, op_version=op_version, name=name)
-    
-    
-    def apply_range(self, input_name, output_name, container, operator_name=None):
+        return output_name
+
+    def range(self, input_name, output_name, container, operator_name=None):
         name = _create_name_or_use_existing_one(container, 'Range', operator_name)
         container.add_node('Range', input_name, output_name, op_version=11, name=name)
-    
-    
-    def apply_reciprocal(self, input_name, output_name, container, operator_name=None):
+        return output_name
+
+    def reciprocal(self, input_name, output_name, container, operator_name=None):
         self._apply_unary_operation('Reciprocal', input_name, output_name, container, operator_name=operator_name)
-    
+        return output_name
+
     # Some old ORT supports axis < 0 case, so put rank=0 as default.
-    def apply_reducesum(self, input_name, output_name, container, operator_name=None, axes=None, keepdims=1, rank=0):
+    def reducesum(self, input_name, output_name, container, operator_name=None, axes=None, keepdims=1, rank=0):
         name = _create_name_or_use_existing_one(container, 'ReduceSum', operator_name)
         if axes is None:
             axes = []
@@ -948,20 +959,19 @@ class _ONNXOperator:
                 container.add_initializer(axes_name, onnx_proto.TensorProto.INT64, [len(axes)], axes)
                 container.add_node('ReduceSum', input_name + [axes_name], output_name,
                                    op_version=op_version, name=name, keepdims=keepdims)
-    
-    
-    def apply_relu(self, input_name, output_name, container, operator_name=None):
+        return output_name
+
+    def relu(self, input_name, output_name, container, operator_name=None):
         self._apply_unary_operation('Relu', input_name, output_name, container, operator_name)
-    
-    
-    def apply_relu_6(self, input_name, output_name, container, operator_name=None, zero_value=0.0):
+        return output_name
+
+    def relu_6(self, input_name, output_name, container, operator_name=None, zero_value=0.0):
         name_relu = _create_name_or_use_existing_one(container, 'relu', operator_name)
         name_relu_op = _create_name_or_use_existing_one(container, 'relu6', operator_name)
-        apply_relu(self, input_name, name_relu, container, name_relu_op+'_relu')
-        apply_clip(self, name_relu, output_name, container, name_relu_op + '_clip', zero_value+6, zero_value)
-    
-    
-    def apply_reshape(self, input_name, output_name, container, operator_name=None, desired_shape=None):
+        self.relu(input_name, name_relu, container, name_relu_op+'_relu')
+        self.clip(name_relu, output_name, container, name_relu_op + '_clip', zero_value+6, zero_value)
+
+    def reshape(self, input_name, output_name, container, operator_name=None, desired_shape=None):
         if not isinstance(desired_shape, str) and len(list(i for i in desired_shape if i is not None and i < 0)) > 1:
             raise ValueError('There can only be one -1 in the targeted shape of a Reshape but got %s' % desired_shape)
     
@@ -984,9 +994,9 @@ class _ONNXOperator:
             else:
                 input_name = [input_name, desired_shape_name]
             container.add_node('Reshape', input_name, output_name, op_version=5, name=name)
-    
-    
-    def apply_resize(self, input_name, output_name, container, operator_name=None, mode='nearest',
+        return output_name
+
+    def resize(self, input_name, output_name, container, operator_name=None, mode='nearest',
                      coordinate_transformation_mode='asymmetric', scales=None):
         """
         :param mode: "nearest" or "linear"
@@ -1014,9 +1024,9 @@ class _ONNXOperator:
         container.add_initializer(scales_tensor_name, onnx_proto.TensorProto.FLOAT, [len(scales)], scales)
         inputs.append(scales_tensor_name)
         container.add_node('Resize', inputs, output_name, op_version=op_version, **attrs)
-    
-    
-    def apply_rnn(self, input_names, output_names, container, operator_name=None, output_seq=0, **attrs):
+        return output_name
+
+    def rnn(self, input_names, output_names, container, operator_name=None, output_seq=0, **attrs):
         name = _create_name_or_use_existing_one(container, 'RNN', operator_name)
         if container.target_opset <= 6:
             attrs['output_sequence'] = 1 if output_seq else 0
@@ -1024,35 +1034,35 @@ class _ONNXOperator:
         else:
             op_version = 7
         container.add_node('RNN', input_names, output_names, name=name, op_version=op_version, **attrs)
-    
-    
-    def apply_shape(self, input_name, output_name, container, operator_name=None):
+        return output_names
+
+    def shape(self, input_name, output_name, container, operator_name=None):
         name = _create_name_or_use_existing_one(container, 'Shape', operator_name)
         container.add_node('Shape', input_name, output_name, name=name, op_version=1)
-    
-    
-    def apply_sigmoid(self, input_name, output_name, container, operator_name=None):
+        return output_name
+
+    def sigmoid(self, input_name, output_name, container, operator_name=None):
         self._apply_unary_operation('Sigmoid', input_name, output_name, container, operator_name)
-    
-    
-    def apply_softsign(self, input_name, output_name, container, operator_name=None):
+        return output_name
+
+    def softsign(self, input_name, output_name, container, operator_name=None):
         name = _create_name_or_use_existing_one(container, 'Softsign', operator_name)
         container.add_node('Softsign', input_name, output_name, name=name, op_version=1)
-    
-    
+        return output_name
+
     # See alpha and gamma at https://github.com/keras-team/keras/blob/master/keras/activations.py#L80-L81
-    def apply_selu(self, input_name, output_name, container, operator_name=None, alpha=1.673263, gamma=1.050701):
+    def selu(self, input_name, output_name, container, operator_name=None, alpha=1.673263, gamma=1.050701):
         self._apply_unary_operation('Selu', input_name, output_name, container, operator_name, alpha=alpha, gamma=gamma)
-    
-    
-    def apply_softmax(self, input_name, output_name, container, operator_name=None, axis=None):
+        return output_name
+
+    def softmax(self, input_name, output_name, container, operator_name=None, axis=None):
         name = _create_name_or_use_existing_one(container, 'Softmax', operator_name)
         if axis is None:
             axis = 1 if container.target_opset < 13 else -1
         container.add_node('Softmax', input_name, output_name, name=name, axis=axis)
-    
-    
-    def apply_scaled_tanh(self, input_name, output_name, container, operator_name=None, alpha=None, beta=None):
+        return output_name
+
+    def scaled_tanh(self, input_name, output_name, container, operator_name=None, alpha=None, beta=None):
         if alpha is None:
             alpha = [1.0]
         if beta is None:
@@ -1077,14 +1087,15 @@ class _ONNXOperator:
     
             # c = b * x
             cName = self.get_unique_tensor_name(name + '_c')
-            apply_mul(self, [input_name, bName], cName, container)
+            self.mul([input_name, bName], cName, container)
     
             # d = tanh(c)
             dName = self.get_unique_tensor_name(name + '_d')
-            apply_tanh(self, cName, dName, container)
+            self.tanh(cName, dName, container)
     
             # output = a * d
-            apply_mul(self, [aName, dName], output_name, container)
+            self.mul([aName, dName], output_name, container)
+        return output_name
 
     def slice(self, input_name, output_name, container,
               operator_name=None, starts=None, ends=None, axes=None, steps=None):
@@ -1143,7 +1154,7 @@ class _ONNXOperator:
                                op_version=op_version)
         return output_name
     
-    def apply_split(self, input_name, output_names, container, operator_name=None, split=None, axis=0):
+    def split(self, input_name, output_names, container, operator_name=None, split=None, axis=0):
         name = _create_name_or_use_existing_one(container, 'Split', operator_name)
         if container.target_opset <= 1:
             op_version = 1
@@ -1172,10 +1183,12 @@ class _ONNXOperator:
             attrs['axis'] = axis
     
         container.add_node('Split', input_name, output_names, op_version=op_version, **attrs)
-    
-    def apply_sqrt(self, input_name, output_name, container, operator_name=None):
+        return output_names
+
+    def sqrt(self, input_name, output_name, container, operator_name=None):
         self._apply_unary_operation('Sqrt', input_name, output_name, container, operator_name=operator_name)
-        
+        return output_name
+
     def _apply_squeeze_unsqueeze(self, input_name, output_name, container, squeeze_str, operator_name=None, axes=None,
                                  rank=0):
         name = _create_name_or_use_existing_one(container, squeeze_str, operator_name)
@@ -1198,6 +1211,7 @@ class _ONNXOperator:
                 axes_name = self.get_unique_tensor_name(name + '_axes')
                 container.add_initializer(axes_name, onnx_proto.TensorProto.INT64, [len(axes)], axes)
                 container.add_node(squeeze_str, input_name + [axes_name], output_name, op_version=op_version, name=name)
+        return output_name
     
     def squeeze(self, input_name, output_name, container, operator_name=None, axes=None, rank=0):
         if axes is None:
@@ -1205,24 +1219,25 @@ class _ONNXOperator:
         self._apply_squeeze_unsqueeze(input_name, output_name, container, 'Squeeze', operator_name, axes, rank)
         return output_name
     
-    def apply_sub(self, input_names, output_name, container, operator_name=None, axis=None, broadcast=0):
+    def sub(self, input_names, output_name, container, operator_name=None, axis=None, broadcast=0):
         self._apply_basic_numerical_operation('Sub', input_names, output_name, container, operator_name=operator_name,
-                                         axis=axis, broadcast=broadcast)
+                                              axis=axis, broadcast=broadcast)
+        return output_name
 
-    def apply_sum(self, input_names, output_name, container, operator_name=None):
+    def sum(self, input_names, output_name, container, operator_name=None):
         name = _create_name_or_use_existing_one(container, 'Sum', operator_name)
         if container.target_opset < 6:
             op_version = 1
         else:
             op_version = 6
         container.add_node('Sum', input_names, output_name, op_version=op_version, name=name)
+        return output_name
     
-    
-    def apply_tanh(self, input_name, output_name, container, operator_name=None):
+    def tanh(self, input_name, output_name, container, operator_name=None):
         self._apply_unary_operation('Tanh', input_name, output_name, container, operator_name)
+        return output_name
     
-    
-    def apply_thresholded_relu(self, input_name, output_name, container, operator_name=None, alpha=None):
+    def thresholded_relu(self, input_name, output_name, container, operator_name=None, alpha=None):
         if alpha is None:
             alpha = [1.0]
     
@@ -1236,9 +1251,9 @@ class _ONNXOperator:
         else:
             op_version = 10
         container.add_node('ThresholdedRelu', input_name, output_name, op_version=op_version, **attrs)
+        return output_name
     
-    
-    def apply_tile(self, input_name, output_name, container, operator_name=None, repeats=None):
+    def tile(self, input_name, output_name, container, operator_name=None, repeats=None):
         name = _create_name_or_use_existing_one(container, 'Tile', operator_name)
     
         if repeats is None or (not isinstance(repeats, str) and all(repeat_count == 1 for repeat_count in repeats)):
@@ -1273,7 +1288,7 @@ class _ONNXOperator:
                 intermediate_input_name = intermediate_output_name
     
                 # Create a new name for next Tile
-                name = self.get_unique_operator_name('Tile')
+                name = container.get_unique_operator_name('Tile')
     
             # Use the last Tile name for the name of an Identity
             container.add_node('Identity', intermediate_output_name, output_name, op_version=1, name=name)
@@ -1285,9 +1300,9 @@ class _ONNXOperator:
                 repeat_tensor_name = self.get_unique_tensor_name(name + '_repeats')
                 container.add_initializer(repeat_tensor_name, onnx_proto.TensorProto.INT64, [len(repeats)], repeats)
                 container.add_node('Tile', [input_name, repeat_tensor_name], output_name, op_version=6, name=name)
+        return output_name
     
-    
-    def apply_topk(self, input_name, output_names, container, k, operator_name=None):
+    def topk(self, input_name, output_names, container, k, operator_name=None):
         name = _create_name_or_use_existing_one(container, 'TopK', operator_name)
     
         if container.target_opset < 10:
@@ -1306,14 +1321,14 @@ class _ONNXOperator:
                 k_value_name = self.get_unique_tensor_name('k_value')
                 container.add_initializer(k_value_name, onnx_proto.TensorProto.INT64, [1], [k])
             container.add_node('TopK', input_name + [k_value_name], output_names, name=name, op_version=op_version)
+        return output_names
     
-    
-    def apply_transpose(self, input_name, output_name, container, operator_name=None, perm=None):
+    def transpose(self, input_name, output_name, container, operator_name=None, perm=None):
         name = _create_name_or_use_existing_one(container, 'Transpose', operator_name)
         container.add_node('Transpose', input_name, output_name, name=name, perm=perm)
+        return output_name
     
-    
-    def apply_upsample(self, input_name, output_name, container, operator_name=None, mode='nearest',
+    def upsample(self, input_name, output_name, container, operator_name=None, mode='nearest',
                        coordinate_transformation_mode='asymmetric', scales=None):
         """
         :param mode: nearest or linear
@@ -1346,8 +1361,9 @@ class _ONNXOperator:
         else:
             # Upsample op is deprecated in ONNX opset 10
             # We implement Upsample through Resize instead
-            self.apply_resize(input_name, output_name, container, operator_name, mode, coordinate_transformation_mode,
+            self.resize(input_name, output_name, container, operator_name, mode, coordinate_transformation_mode,
                          scales)
+        return output_name
     
     def unsqueeze(self, input_name, output_name, container, operator_name=None, axes=None, rank=0):
         if axes is None:
