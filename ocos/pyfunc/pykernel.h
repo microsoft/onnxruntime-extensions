@@ -46,10 +46,11 @@ struct PyCustomOpKernel {
       size = 0;
       OrtStatus* status = api_.KernelInfoGetAttribute_string(info, it->c_str(), nullptr, &size);
       if (api_.GetErrorCode(status) != ORT_INVALID_ARGUMENT) {
+        std::string error_message(api_.GetErrorMessage(status));
         api_.ReleaseStatus(status);
         throw std::runtime_error(MakeString(
             "Unable to find attribute '", *it, "' due to '",
-            api_.GetErrorMessage(status), "'."));
+            error_message, "'."));
       }
       api_.ReleaseStatus(status);
       attrs_values_[*it] = "";

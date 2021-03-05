@@ -70,7 +70,7 @@ class BuildCMakeExt(_build_ext):
             '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + str(ext_fullpath.parent.absolute()),
             '-DOCOS_ENABLE_PYTHON=ON',
             '-DOCOS_EXTENTION_NAME=' + pathlib.Path(self.get_ext_filename(extension.name)).name,
-            '-DCMAKE_BUILD_TYPE=' + config
+            '-DCMAKE_BUILD_TYPE=' + "Debug"
         ]
 
         if self.debug:
