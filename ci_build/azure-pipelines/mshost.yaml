@@ -9,9 +9,9 @@ jobs:
   
   strategy:
     matrix:
-      py38-170:
+      py38-171:
         python.version: '3.8'
-        ort.version: '1.7.0'
+        ort.version: '1.7.1'
       py38-160:
         python.version: '3.8'
         ort.version: '1.6.0'
@@ -79,9 +79,9 @@ jobs:
 
   strategy:
     matrix:
-      py38-170:
+      py38-171:
         python.version: '3.8'
-        ort.version: '1.7.0'
+        ort.version: '1.7.1'
       py38-160:
         python.version: '3.8'
         ort.version: '1.6.0'
@@ -157,9 +157,9 @@ jobs:
 
   strategy:
     matrix:
-      py38-170:
+      py38-171:
         python.version: '3.8'
-        ort.version: '1.7.0'
+        ort.version: '1.7.1'
       py38-160:
         python.version: '3.8'
         ort.version: '1.6.0'
