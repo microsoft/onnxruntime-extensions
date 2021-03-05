@@ -101,8 +101,8 @@ class _VectorToString(VectorToString):
         assert 'decoder' in kwargs, "Need decoder parameter to build the tokenizer"
         decoder = kwargs['decoder']
         remapped = {v: [k] for k, v in decoder.items()}
-        attrs = dict(map=remapped)
-        return attrs
+        attrs = dict(map=remapped, unk='<unknown>')
+        return super().serialize_attr(attrs)
 
 
 customop_mbuilder = {

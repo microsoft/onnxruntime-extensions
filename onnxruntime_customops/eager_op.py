@@ -55,6 +55,7 @@ class EagerOp:
         feed = {}
         for i_ in self.inputs:
             feed[i_.name] = args[idx]
+            idx += 1
 
         return feed
 

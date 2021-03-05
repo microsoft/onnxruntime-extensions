@@ -445,8 +445,7 @@ class _ONNXOperator:
             container.add_node('Clip', inputs, output_name, op_version=op_version,
                                **attrs)
     
-    
-    def apply_concat(self, input_names, output_name, container, operator_name=None, axis=0):
+    def concat(self, input_names, output_name, container, operator_name=None, axis=0):
         name = _create_name_or_use_existing_one(container, 'Concat', operator_name)
     
         if container.target_opset < 4:
@@ -457,9 +456,9 @@ class _ONNXOperator:
             op_version = 11
     
         container.add_node('Concat', input_names, output_name, op_version=op_version, name=name, axis=axis)
-    
-    
-    def apply_constant(self, output_name, container, operator_name=None, value=None):
+
+    def constant(self, input_names, output_name, container, operator_name=None, value=None):
+        assert len(input_names) == 0  # only a placeholder to standardize the argument list.
         name = _create_name_or_use_existing_one(container, 'Constant', operator_name)
     
         if value is None:
@@ -487,13 +486,7 @@ class _ONNXOperator:
                 attrs = {'name': name, 'value': value}
     
         container.add_node('Constant', [], output_name, op_version=op_version, **attrs)
-    
-    
-    def apply_constant2(self, input_names, output_name, container, operator_name=None, value=None):
-        assert len(input_names) == 0  # only a placeholder to standardize the argument list.
-        return apply_constant(self, output_name, container, operator_name, value)
-    
-    
+
     def apply_constant_of_shape(self, input_names, output_name, container, operator_name=None, value=None):
         name = _create_name_or_use_existing_one(container, 'ConstantOfShape', operator_name)
         container.add_node('ConstantOfShape', input_names, output_name, name=name, op_version=9, value=value)
@@ -1369,7 +1362,7 @@ class _ONNXOperatorBuilder(_ONNXOperator):
 
     def get_unique_tensor_name(self, hint):
         self._id_count += 1
-        return "v{}+{}".format(hint, str(self._id_count))
+        return "v{}_{}".format(hint, str(self._id_count))
 
 
 ox = _ONNXOperatorBuilder()

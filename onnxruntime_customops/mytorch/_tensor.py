@@ -2,30 +2,19 @@ import torch
 import numpy as np
 from typing import List, Tuple, Optional, Union, Any, ContextManager, overload, Iterator, NamedTuple  # noqa
 from torch.types import _int, _float, _bool, Number, _dtype, _device, _qscheme, _size, _layout  # noqa
-from torch import strided, memory_format, contiguous_format  # noqa
+from torch import strided, memory_format, contiguous_format, StringType  # noqa
 
 from ._onnx_ops import ox as _ox
 from ..eager_op import EagerOp
 
 
-class StringType:
-    is_complex = property(lambda self: object(), lambda self, v: None, lambda self: None)  # default
+# class StringTensor(object):
+#     def __init__(self, shape, value=None):
+#         self._shape = shape
+#         self._value = value
 
-    is_floating_point = property(lambda self: object(), lambda self, v: None, lambda self: None)  # default
-
-    is_signed = property(lambda self: object(), lambda self, v: None, lambda self: None)  # default
-
-
-string = StringType()
-
-
-class StringTensor(object):
-    def __init__(self, shape, value=None):
-        self._shape = shape
-        self._value = value
-
-    def __repr__(self):
-        return "StringTensor(shape={}, value={})".format(self._shape, self._value)
+#     def __repr__(self):
+#         return "StringTensor(shape={}, value={})".format(self._shape, self._value)
 
 
 class Tensor:
@@ -47,10 +36,14 @@ class Tensor:
 
     @classmethod
     def from_onnx(cls, ort_sess, out_val, name):
-        val = torch.from_numpy(out_val)
-        t = Tensor(val)
-        t._ort_session = ort_sess
-        t.name = name
+        raw_data = None
+        if out_val.dtype.name == 'object':
+            # only keep the shape and value was stored by it-self.
+            val = torch.empty(*out_val.shape, dtype=torch.uint8)
+            raw_data = out_val
+        else:
+            val = torch.from_numpy(out_val)
+        t = Tensor(val, name, ort_sess, raw_data)
         return t
 
     @staticmethod
@@ -59,13 +52,20 @@ class Tensor:
         ts = Tensor(_t, t_name)
         return ts
 
-    def __init__(self, _t, name=None):
-        # FIXME: the default is int64?
-        self._t = _t if isinstance(_t, torch.Tensor) else torch.tensor(_t, dtype=torch.int64)
+    def __init__(self, _t, name=None, sess=None, raw_data: Any = None):
+        self._t = _t if isinstance(_t, torch.Tensor) else torch.tensor(_t)
         self.name = '' if name is None else name
+        self._ort_session = sess
+        self.raw_data = raw_data
 
     def __repr__(self):
-        return "name: {}, {}".format(self.name, repr(self._t))
+        if self.raw_data is not None:
+            return "name: {}, \"{}\"".format(self.name, str(self.raw_data))
+        else:
+            return "name: {}, {}, dtype={}".format(self.name, repr(self._t), str(self._t.dtype))
+
+    def numpy(self):
+        return self._t.numpy() if isinstance(self._t, torch.Tensor) else self._t
 
     @classmethod
     def get_trace_session(cls):
@@ -171,6 +171,9 @@ class Tensor:
     def __not__(self):
         return self.from_torch(torch.logical_not([self]))
 
+    def __or__(self, other):
+        return self.from_torch(torch.bitwise_or(*self._to_binary_tensor_args(other)))
+
     def __getitem__(self, indices):
         res = self.value.__getitem__(indices)
 
@@ -210,6 +213,7 @@ class Tensor:
         operator_name = None
         return input_name, output_name, container, operator_name
 
+    @classmethod
     def ox_args(cls, tensors, output_n=1):
         input_name = [ts_.name for ts_ in tensors]
         return cls.ox_name_args(input_name, output_n)
@@ -241,8 +245,8 @@ class Tensor:
         return [x.value.item() if isinstance(x, Tensor) else x for x in list_or_tuple]
 
     @property
-    def value(self) -> torch.Tensor:
-        return self._t
+    def value(self) -> Union[torch.Tensor, Any]:
+        return self.raw_data if self.raw_data else self._t
 
     def long(self):
         return self.from_torch(self._t.long())
@@ -259,38 +263,62 @@ class Tensor:
     def to(self, device):
         return self.from_torch(self._t.to(device))
 
+    def clone(self):
+        return self.from_torch(self._t.clone())
 
+    def masked_fill(self, mask, value):
+        return self.from_torch(self._t.masked_fill(mask.value, value))
+
+    def unsqueeze(self, dim: _int):
+        return self.from_torch(self._t.unsqueeze(dim))
+
+    def squeeze(self, dim: _int):
+        return self.from_torch(self._t.squeeze(dim))
+
+
+def tensor(data: Any, dtype: Optional[_dtype]=None, device: Union[_device, str, None]=None, requires_grad: _bool=False) -> Tensor:  # noqa
+    return Tensor.from_torch(torch.tensor(data, dtype=dtype, device=device, requires_grad=requires_grad))
 
 
 def empty(*size: _int, memory_format: Optional[memory_format]=None, out: Optional[Tensor]=None, dtype: _dtype=None, layout: _layout=strided, device: Union[_device, str, None]=None, requires_grad:_bool=False):  # noqa
     n_size = Tensor.normalize_seq(size)
-    return Tensor.from_torch(torch.empty(*n_size, memory_format=memory_format, out=out, dtype=dtype, layout=layout, device=device, requires_grad=requires_grad))
+    return Tensor.from_torch(torch.empty(*n_size, memory_format=memory_format, out=out,
+                                         dtype=dtype, layout=layout, device=device, requires_grad=requires_grad))
 
 
 def zeros(*size: _int, out: Optional[Tensor]=None, dtype: _dtype=None, layout: _layout=strided, device: Union[_device, str, None]=None, requires_grad:_bool=False):  # noqa
     n_size = Tensor.normalize_seq(size)
-    return Tensor.from_torch(torch.zeros(*n_size, out, dtype, layout, device, requires_grad))
+    return Tensor.from_torch(torch.zeros(*n_size, out=out, dtype=dtype,
+                                         layout=layout, device=device, requires_grad=requires_grad))
 
 
-def argmax(input: Tensor, dim: Optional[_int] = None, keepdim: _bool = False):
-    return Tensor.from_torch(torch.zeros(input, dim, keepdim))
+def argmax(input_ts: Tensor, dim: Optional[_int] = None, keepdim: _bool = False):
+    return Tensor.from_torch(torch.argmax(input_ts.value, dim, keepdim))
 
 
 def cat(tensors: Union[Tuple[Tensor, ...], List[Tensor]], dim, *, out: Optional[Tensor] = None):
-    res = torch.cat(tensors, dim, out=out)
+    res = torch.cat([t_.value for t_ in tensors], dim, out=out)
     oname = _ox.concat(*Tensor.ox_args(tensors), dim)
     return Tensor.from_torch(res, oname)
 
 
+def onnx_loop(*tensors: Union[Tensor, int]):
+    res = Tensor.normalize_seq(tensors)
+    return range(res[0])
+
+
 class _TracingEagerOp(EagerOp):
     def __call__(self, *args, **kwargs):
-        outseq = super().__call__(*args, **kwargs)
+        np_args = [ts_.numpy() if isinstance(ts_, Tensor) else ts_ for ts_ in args]
+        outseq = super().__call__(*np_args, **kwargs)
         # outputs = dict(zip([n_.name for n_ in self.ort_session.get_outputs()], outseq))
 
         outputs = [Tensor.from_onnx(self.ort_session, outseq[n_], out_.name
                                     ) for n_, out_ in enumerate(self.ort_session.get_outputs())]
         # FIXME: The tokenizer support attention_mask output
-        outputs.append(Tensor([1] * outputs[0].value.shape[1], 'attention_mask'))
+        if self.onnx_model.graph.name.startswith('og_GPT2Tokenizer'):
+            outputs.append(Tensor.from_torch(torch.tensor(
+                [[1] * outputs[0].value.shape[1]], dtype=torch.float32), 'attention_mask'))
 
         return tuple(outputs)
 

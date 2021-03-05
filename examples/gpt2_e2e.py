@@ -34,6 +34,7 @@ def convert_models():
     torch.build_customop_model('VectorToString', gpt2_decoder_model_path, decoder=tokenizer.decoder)
 
     config = AutoConfig.from_pretrained(model_name_or_path, cache_dir=cache_dir)
+    # remove the dependency from onnxruntime-tools.
     model = MyGPT2LMHeadModel.from_pretrained(model_name_or_path, config=config, cache_dir=cache_dir)
     Gpt2Helper.export_onnx(model, device, gpt2_core_model_path)
 
@@ -64,10 +65,10 @@ def inference_and_dump_full_model():
     has_eos = torch.zeros(batch_size, dtype=torch.bool)
 
     all_token_ids = input_ids.clone()
-    all_eos = torch.tensor(0)
+    all_eos = torch.tensor(False, dtype=torch.bool)
     past = empty_past
     for step in torch.onnx_loop(num_tokens_to_produce, all_eos, past):
-        outputs = core_model(input_ids, position_ids, attention_mask, past)
+        outputs = core_model(input_ids, position_ids, attention_mask, *past)
 
         next_token_logits = outputs[0][:, -1, :]
         next_tokens = torch.argmax(next_token_logits, dim=-1)
@@ -75,6 +76,9 @@ def inference_and_dump_full_model():
         has_eos = has_eos | (next_tokens == eos_token_id)
         tokens_to_add = next_tokens.masked_fill(has_eos, eos_token_id)
         all_token_ids = torch.cat([all_token_ids, tokens_to_add.unsqueeze(-1)], dim=-1)
+
+        # FIXME: not support the loop yet.
+        break
 
         # Update input_ids, attention_mask, position_ids and past
         input_ids = tokens_to_add.clone().detach().reshape([batch_size, 1]).to(device)
@@ -90,7 +94,7 @@ def inference_and_dump_full_model():
         all_eos = torch.all(has_eos)
 
     gpt2_decoder = torch.op_from_model(gpt2_decoder_model_path)
-    output_text = gpt2_decoder(all_token_ids)
+    output_text = gpt2_decoder(all_token_ids.squeeze(0))
 
     # stop the trace session and build the all-in-one model.
     ox.stop_trace([output_text])
