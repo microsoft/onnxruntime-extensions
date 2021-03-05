@@ -1,30 +1,33 @@
 # coding: utf-8
 import unittest
-import os
-import base64
+import json
 import numpy as np
 from numpy.testing import assert_almost_equal
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
 from onnxruntime_customops import (
-    onnx_op, PyCustomOpDef,
     get_library_path as _get_library_path)
 
 
 def _create_test_model_bert(prefix, domain='ai.onnx.contrib'):
+    words = ["[UNK]", "[CLS]", "[SEP]", "want", "##want",
+             "##ed", "wa", "un", "runn", "##ing"]
+    vocab = {w: i + 10 for i, w in enumerate(words)}
+    st = json.dumps(vocab)
+    print(st)
     nodes = []
     mkv = helper.make_tensor_value_info
     nodes.append(helper.make_node(
         '%sBertTokenizer' % prefix,
         inputs=['text'],
         outputs=['out0', 'out1'],
-        name='BertTokenizeOpName',
+        name='BertTokenizerOpName',
         domain='ai.onnx.contrib',
-        vocab='{"A": 0, "##A": 1, "B": 2, "##BB": 3}'.encode('utf-8'),
+        vocab=st.encode('utf-8'),
         suffix_indicator="##",
     ))
     inputs = [
-        mkv('model', onnx_proto.TensorProto.UINT8, [None]),
+        mkv('text', onnx_proto.TensorProto.STRING, [None]),
     ]
 
     graph = helper.make_graph(
@@ -46,12 +49,13 @@ class TestPythonOpBert(unittest.TestCase):
         self.assertIn('op_type: "BertTokenizer"', str(cc_onnx_model))
         cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so)
 
-        inputs = dict(inputs=np.array(["A A B BB", "B BB A AA"], dtype=np.object))
+        inputs = dict(text=np.array(["unwanted running",
+                                     "unwantedX running"], dtype=np.object))
         cc_txout = cc_sess.run(None, inputs)
-        exp = [numpy.array([], dtype=numpy.int32),
-               numpy.array([], dtype=numpy.int64)]
+        exp = [np.array([17, 14, 15, 18, 19,
+                         17, 14, 15, -1, 18, 19], dtype=np.int32),
+               np.array([0, 5, 11], dtype=np.int64)]
         for i in range(0, 2):
-            assert_almost_equal(exp[i], py_txout[i])
             assert_almost_equal(exp[i], cc_txout[i])
 
 
