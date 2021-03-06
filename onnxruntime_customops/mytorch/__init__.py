@@ -9,7 +9,6 @@ except ImportError:
     raise RuntimeError("pytorch not installed, which is required by this ONNX build tool")
 
 from ._tensor import *  # noqa
-from ._session import ONNXTraceSession, build_customop_model
 from torch import (float32,
                    float,
                    float64,
@@ -34,9 +33,8 @@ from torch import (float32,
                    qint8,
                    qint32,
                    bool)  # noqa
+from ._session import ONNXTraceSession, build_customop_model
 
 
-def start_trace(inputs, target_opset=11):
-    tsess = ONNXTraceSession(inputs, target_opset)
-    tsess.__enter__()
-    return tsess
+start_trace = ONNXTraceSession.start_trace
+stop_trace = ONNXTraceSession.stop_trace

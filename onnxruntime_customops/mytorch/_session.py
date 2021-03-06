@@ -1,10 +1,12 @@
 import json
 import onnx
 import pathlib
+import warnings
+import numpy as np
 from onnx import helper
-from ._tensor import Tensor
+from collections import namedtuple
+from ._tensor import tensor_from_onnx, tensor_set_session
 from ._onnx_ops import ONNXElementContainer, make_model_ex
-
 from ..eager_op import SingleOpGraph, default_opset_domain, GPT2Tokenizer, VectorToString
 
 
@@ -15,19 +17,41 @@ def _is_path(name_or_buffer):
 class ONNXTraceSession:
     activated_sessions = []
 
-    def __init__(self, inputs, target_opset):
+    def __init__(self, target_opset):
         self.container = ONNXElementContainer(target_opset)
-        self.inputs = inputs
-        self.torch_ops = []
+        self.inputs = []
+        self.outputs = []
+
+    @classmethod
+    def start_trace(cls, inputs, names=None, target_opset=11):
+        self = ONNXTraceSession(target_opset)
+        self.activated_sessions.append(self)
+        tensor_set_session(self)
+
+        np_inputs = [x if isinstance(x, (np.ndarray, np.generic)) else np.asarray(x) for x in inputs]
+        itensors = [tensor_from_onnx(i_, None, None) for i_ in np_inputs]
+        if names is not None:
+            if len(inputs) != len(names):
+                warnings.warn("the name number doesn't match the inputs', assign to the ones in the front.")
+            num = min(len(itensors), len(names))
+            for idx_ in range(num):
+                itensors[idx_].name = names[idx_]
+        self.inputs = itensors
+        return itensors
 
     def __enter__(self):
-        self.activated_sessions.append(self)
-        Tensor.set_active_session(self)
+        assert len(self.activated_sessions) > 0 and self.activated_sessions[-1] is self, "trace not started?"
         return self
 
+    # need this exit to close the session
     def __exit__(self, exec_type, exec_value, exec_tb):
-        Tensor.set_active_session(None)
+        tensor_set_session(None)
         assert self is self.activated_sessions.pop()
+
+    @classmethod
+    def stop_trace(cls, outputs):
+        self = cls.get_active_session()
+        self.set_outputs(outputs)
         return self
 
     @classmethod
@@ -35,23 +59,40 @@ class ONNXTraceSession:
         return cls.activated_sessions[0] if cls.activated_sessions else None
 
     def set_outputs(self, output_list):
-        pass
+        self.outputs = output_list
 
-    def _topology_sort(self):
-        pass
+    def _reversed_travel(self):
+        op_output_map = {}
+        DynNode = namedtuple('DynNode', ['output'])
+        input_node = DynNode(nm_.name for nm_ in self.inputs)
+        for nd_ in self.container.nodes + [input_node]:
+            for ky_ in nd_.output:
+                op_output_map[ky_] = nd_
 
-    def stop_trace(self, outputs):
-        self.__exit__(None, None, None)  # looks silly.
-        self.set_outputs(outputs)
+        active_nodes = [op_output_map[o_.name] for o_ in self.outputs]
+
+        visited = {input_node}
+        sorted_nodes = []
+        while len(active_nodes) > 0:
+            op_node = active_nodes.pop(0)
+            if op_node.name in visited:
+                continue
+
+            sorted_nodes.insert(0, op_node)
+            try:
+                active_nodes.extend([op_output_map[o_] for o_ in op_node.input])
+            except KeyError as e:
+                raise RuntimeError("cannot find the operator to output {}".format(' '.join(op_node.input)))
+
+        return sorted_nodes
 
     def build_model(self, model_name=None, doc_string=None) -> onnx.ModelProto:
-        self._topology_sort()
+        nodes = self._reversed_travel()
         container = self.container
         for tensor in self.container.initializers:
             # Initializers are always tensors so we can just call make_tensor_value_info(...)
             value_info = helper.make_tensor_value_info(tensor.name, tensor.data_type, tensor.dims)
 
-        nodes = self.container.nodes
         graph = helper.make_graph(nodes, model_name, self.container.inputs,
                                   self.container.outputs, self.container.initializers)
 

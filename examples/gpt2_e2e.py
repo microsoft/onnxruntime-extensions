@@ -39,20 +39,19 @@ def convert_models():
     Gpt2Helper.export_onnx(model, device, gpt2_core_model_path)
 
 
-def inference_and_dump_full_model():
+def inference_and_dump_full_model(inputs):
     config = AutoConfig.from_pretrained(model_name_or_path, cache_dir=get_cache_directory())
     core_model = torch.op_from_model(gpt2_core_model_path)
     gpt2_tokenizer = torch.op_from_model(gpt2_encoder_model_path)
 
-    ox = torch.start_trace(inputs=[input_text])
+    inputs = torch.start_trace(inputs=[inputs], names=gpt2_tokenizer.input_names)
 
     num_attention_heads = config.n_head
     hidden_size = config.n_embd
     num_layer = config.n_layer
-    vocab_size = config.vocab_size
     eos_token_id = config.eos_token_id
 
-    input_ids, attention_mask = gpt2_tokenizer(input_text, padding=True, padding_side='left')
+    input_ids, attention_mask = gpt2_tokenizer(*inputs, padding=True, padding_side='left')
 
     position_ids = (attention_mask.long().cumsum(-1) - 1)
     # position_ids.masked_fill_(position_ids < 0, 0)
@@ -97,8 +96,8 @@ def inference_and_dump_full_model():
     output_text = gpt2_decoder(all_token_ids.squeeze(0))
 
     # stop the trace session and build the all-in-one model.
-    ox.stop_trace([output_text])
-    ox.save_as_onnx(gpt2_full_model_path)
+    with torch.stop_trace(output_text) as tc_sess:
+        tc_sess.save_as_onnx(gpt2_full_model_path)
     return output_text
 
 
@@ -107,7 +106,7 @@ if not os.path.exists(gpt2_core_model_path):
     convert_models()
 
 # 2. Run the inference with the pre and post process, trace the computation graph and build the all-in-one ONNX model
-output_ms = inference_and_dump_full_model()
+output_ms = inference_and_dump_full_model(input_text)
 
 # 3. Inference on the all-in-one model
 full_model = torch.op_from_model(gpt2_full_model_path)

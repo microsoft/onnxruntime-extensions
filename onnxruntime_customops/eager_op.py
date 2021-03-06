@@ -27,7 +27,16 @@ class EagerOp:
 
     @property
     def onnx_model(self):
+        assert self._oxml is not None, "No onnx model attached yet."
         return self._oxml
+
+    @property
+    def input_names(self):
+        return [vi_.name for vi_ in self.onnx_model.graph.input]
+
+    @property
+    def output_names(self):
+        return [vi_.name for vi_ in self.onnx_model.graph.output]
 
     def _bind(self, oxml):
         self.inputs = list(oxml.graph.input)

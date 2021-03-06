@@ -4,6 +4,7 @@
 ###############################################################################
 import warnings
 import numpy as np
+from collections import namedtuple
 from onnx import helper, defs as onnx_defs, onnx_pb as onnx_proto
 from onnx.mapping import NP_TYPE_TO_TENSOR_TYPE
 
@@ -78,25 +79,32 @@ def make_model_ex(graph, imported_opset_pairs, target_default_opset, **kwargs):
     return onnx_model
 
 
+class _ONNXModelOperator:
+    def __init__(self, name, model, input, output):
+        self.name = name
+        self.model = model
+        self.input = input
+        self.output = output
+
+    def __repr__(self):
+        """
+        without this method, it's too slow for the debugging.
+        :return:
+        """
+        return "name: {}, input: {}, output: {}".format(self.name, self.input, self.output)
+
+
 class ONNXElementContainer:
     def __init__(self, target_opset):
         """
         :param target_opset: number, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3.
-        :param targeted_onnx: A string, for example, '1.1.2' and '1.2'.
         """
-        # Inputs of ONNX graph. They are ValueInfoProto in ONNX.
         self.inputs = []
-        # Outputs of ONNX graph. They are ValueInfoProto in ONNX.
         self.outputs = []
-        # ONNX tensors (type: TensorProto). They are initializers of ONNX GraphProto.
         self.initializers = []
-        # Intermediate variables in ONNX computational graph. They are ValueInfoProto in ONNX.
         self.value_info = []
-        # ONNX nodes (type: NodeProto) used to define computation structure
         self.nodes = []
-        # ONNX operators' domain-version pair set. They will be added into opset_import field in the final ONNX model.
         self.node_domain_version_pair_sets = set()
-        # The targeted ONNX operator set (referred to as opset) that matches the ONNX version.
         self.target_opset = target_opset
         self.enable_optimizer = True
         self.opdict_counter = {}
@@ -119,7 +127,7 @@ class ONNXElementContainer:
         self.inputs.append(self._make_value_info(variable))
 
     def add_output(self, variable):
-        """
+        """1
         Add our Variable object defined _parser.py into the the output list of the final ONNX model
 
         :param variable: The Variable object to be added
@@ -176,6 +184,9 @@ class ONNXElementContainer:
         self.node_domain_version_pair_sets.add((op_domain, op_version))
         self.nodes.append(node)
 
+    def add_model_node(self, inputs, outputs, name, model):
+        self.nodes.append(_ONNXModelOperator(name=name, model=model, input=inputs, output=outputs))
+
     def get_unique_operator_name(self, op_type: str):
         name = op_type.lower()
         nn = self.opdict_counter.get(name, 0)
@@ -187,8 +198,8 @@ def _create_name_or_use_existing_one(container, op_type, name):
     return name or container.get_unique_operator_name(op_type)
 
 
-class _ONNXOperator:
-    def get_unique_tensor_name(self, base): pass  # implemented by the subclass
+class _ONNXOperatorAPI:
+    def get_unique_tensor_name(self, base): pass  # implemented by the model builder
 
     def _apply_unary_operation(self, op_type, input_name, output_name, container, operator_name, **attrs):
         name = _create_name_or_use_existing_one(container, op_type, operator_name)
@@ -1371,8 +1382,11 @@ class _ONNXOperator:
         self._apply_squeeze_unsqueeze(input_name, output_name, container, 'Unsqueeze', operator_name, axes, rank)
         return output_name
 
+    def model_call(self, input_name, output_name, container, operator_name=None, oxml=None):
+        container.add_model_node(input_name, output_name, name=operator_name, model=oxml)
 
-class _ONNXOperatorBuilder(_ONNXOperator):
+
+class _ONNXModelBuilder(_ONNXOperatorAPI):
     def __init__(self):
         self._id_count = 0
 
@@ -1381,4 +1395,4 @@ class _ONNXOperatorBuilder(_ONNXOperator):
         return "v{}_{}".format(hint, str(self._id_count))
 
 
-ox = _ONNXOperatorBuilder()
+ox = _ONNXModelBuilder()
