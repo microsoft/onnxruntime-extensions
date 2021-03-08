@@ -566,6 +566,10 @@ class _ONNXOperatorAPI:
             container.add_node('DynamicSlice', input_list, output_name, op_version=9)
         return output_name
 
+    def cumsum(self, input_names, output_names, container, operator_name=None):
+        container.add_node('CumSum', input_names, output_names, op_version=11)
+
+
     def div(self, input_names, output_name, container, operator_name=None, axis=None, broadcast=None):
         self._apply_basic_numerical_operation('Div', input_names, output_name,
                                               container, operator_name,
@@ -809,7 +813,13 @@ class _ONNXOperatorAPI:
     def not_op(self, input_name, output_name, container, operator_name=None):
         self._apply_unary_operation('Not', input_name, output_name, container, operator_name)
         return output_name
-    
+
+    def or_op(self, input_names, output_name, container, operator_name=None, axis=None, broadcast=None):
+        self._apply_basic_numerical_operation(self, 'Or', input_names, output_name,
+                                              container, operator_name=operator_name,
+                                              axis=axis, broadcast=broadcast)
+        return output_name
+ 
     def pad(self, input_name, output_name, container, operator_name=None, mode=None, pads=None, value=None,
                   onnx_type=onnx_proto.TensorProto.FLOAT):
         name = _create_name_or_use_existing_one(container, 'Pad', operator_name)
