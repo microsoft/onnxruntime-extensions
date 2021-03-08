@@ -528,7 +528,12 @@ expect(node, inputs=[x], outputs=[y],
 
 ### <a name="BertTokenizer"></a><a name="BertTokenizer">**BertTokenizer**</a>
 
-BertTokenizer that performs WordPiece tokenization to the input tensor, based on the [hugging face version](https://huggingface.co/transformers/model_doc/bert.html#berttokenizer).
+BertTokenizer that performs WordPiece tokenization to the input tensor,
+based on the [hugging face version](https://huggingface.co/transformers/model_doc/bert.html#berttokenizer).
+[BertTokenizer](https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/BertTokenizer.md)
+from *tensorflow_text* can be implemented by a pair of nodes
+*RegexSplitWithOffets* followed by *BertTokenizer*.
+it 
 
 #### Attributes
 
