@@ -70,25 +70,17 @@ class TestGPT2Tokenizer(unittest.TestCase):
         cls.tokjson = _get_test_data_file('data', 'gpt2.vocab')
         cls.merges = _get_test_data_file('data', 'gpt2.merges.txt')
         cls.tokenizer = MyGPT2Tokenizer(cls.tokjson, cls.merges)
-        cls.max_length = -1
 
         @onnx_op(op_type="GPT2Tokenizer",
                  inputs=[PyCustomOpDef.dt_string],
                  outputs=[PyCustomOpDef.dt_int64, PyCustomOpDef.dt_int64],
                  attrs=["padding_length"])
         def bpe_tokenizer(s, **kwargs):
-            # The user custom op implementation here.
-            TestGPT2Tokenizer.pyop_invoked = True
             padding_length = kwargs["padding_length"]
             input_ids, attention_mask = cls.tokenizer.tokenizer_sentence(s, padding_length)
             return input_ids, attention_mask
 
-    def _run_tokenizer(self, pyop_flag, test_sentence, padding_length=-1):
-        enable_custom_op(pyop_flag)
-
-        if padding_length == -1:
-            self.max_length = None
-
+    def _run_tokenizer(self, test_sentence, padding_length=-1):
         model = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges, max_length=padding_length)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
@@ -98,38 +90,36 @@ class TestGPT2Tokenizer(unittest.TestCase):
         expect_input_ids, expect_attention_mask = self.tokenizer.tokenizer_sentence(test_sentence, padding_length)
         np.testing.assert_array_equal(expect_input_ids, input_ids)
         np.testing.assert_array_equal(expect_attention_mask, attention_mask)
+
         del sess
         del so
 
     def test_tokenizer(self):
-        TestGPT2Tokenizer.pyop_invoked = False
+        enable_custom_op(False)
 
-        self._run_tokenizer(False, ["I can feel the magic, can you?"])
-        self.assertFalse(TestGPT2Tokenizer.pyop_invoked)
+        self._run_tokenizer(["I can feel the magic, can you?"])
+        self._run_tokenizer(["Hey Cortana"])
+        self._run_tokenizer(["你好123。david"])
+        self._run_tokenizer(["爱你一三一四"])
+        self._run_tokenizer(["women'thinsulate 3 button leather car co"])
+        self._run_tokenizer(["#$%^&()!@?><L:{}\\[];',./`ǠǡǢǣǤǥǦǧǨ"])
+        self._run_tokenizer(["ڠڡڢڣڤڥڦڧڨکڪګڬڭڮگ"])
+        self._run_tokenizer(["⛀⛁⛂⛃⛄⛅⛆⛇⛈⛉⛊⛋⛌⛍⛎⛏"])
+        self._run_tokenizer(["I can feel the magic, can you?", "Yes I do."])
+        self._run_tokenizer(["I can feel the magic, can you?", "Yes I do."], 100)
 
-        self._run_tokenizer(False, ["Hey Cortana"])
-        self._run_tokenizer(False, ["你好123。david"])
-        self._run_tokenizer(False, ["爱你一三一四"])
-        self._run_tokenizer(False, ["women'thinsulate 3 button leather car co"])
-        self._run_tokenizer(False, ["#$%^&()!@?><L:{}\\[];',./`ǠǡǢǣǤǥǦǧǨ"])
-        self._run_tokenizer(False, ["ڠڡڢڣڤڥڦڧڨکڪګڬڭڮگ"])
-        self._run_tokenizer(False, ["⛀⛁⛂⛃⛄⛅⛆⛇⛈⛉⛊⛋⛌⛍⛎⛏"])
-        self._run_tokenizer(False, ["I can feel the magic, can you?", "Yes I do."])
-        self._run_tokenizer(False, ["I can feel the magic, can you?", "Yes I do."], 100)
+        enable_custom_op(True)
 
 
 # def test_tokenizer_pyop(self):
-    #     TestGPT2Tokenizer.pyop_invoked = False
-    #     self._run_tokenizer(True, ["I can feel the magic, can you?"])
-    #     self.assertTrue(TestGPT2Tokenizer.pyop_invoked)
-    #
-    #     self._run_tokenizer(True, ["Hey Cortana"])
-    #     self._run_tokenizer(True, ["你好123。david"])
-    #     self._run_tokenizer(True, ["爱你一三一四"])
-    #     self._run_tokenizer(True, ["women'thinsulate 3 button leather car co"])
-    #     self._run_tokenizer(True, ["#$%^&()!@?><L:{}\\[];',./`ǠǡǢǣǤǥǦǧǨ"])
-    #     self._run_tokenizer(True, ["ڠڡڢڣڤڥڦڧڨکڪګڬڭڮگ"])
-    #     self._run_tokenizer(True, ["⛀⛁⛂⛃⛄⛅⛆⛇⛈⛉⛊⛋⛌⛍⛎⛏"])
+#     self._run_tokenizer(["I can feel the magic, can you?"])
+#     self._run_tokenizer(["Hey Cortana"])
+#     self._run_tokenizer(["你好123。david"])
+#     self._run_tokenizer(["爱你一三一四"])
+#     self._run_tokenizer(["women'thinsulate 3 button leather car co"])
+#     self._run_tokenizer(["#$%^&()!@?><L:{}\\[];',./`ǠǡǢǣǤǥǦǧǨ"])
+#     self._run_tokenizer(["ڠڡڢڣڤڥڦڧڨکڪګڬڭڮگ"])
+#     self._run_tokenizer(["⛀⛁⛂⛃⛄⛅⛆⛇⛈⛉⛊⛋⛌⛍⛎⛏"])
 
 
 if __name__ == "__main__":

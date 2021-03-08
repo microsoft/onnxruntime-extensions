@@ -476,6 +476,10 @@ KernelBpeTokenizer::KernelBpeTokenizer(OrtApi api, const OrtKernelInfo* info)
     padding_length_ = -1;
   }
 
+  if (padding_length_ != -1 && padding_length_ <= 0) {
+    throw std::runtime_error("padding_length should be more than 0 or equal -1")
+  }
+
   std::stringstream vocabu_stream(vocab);
   std::stringstream merges_stream(merges);
   bbpe_tokenizer_ = std::make_shared<VocabData>();
