@@ -44,13 +44,32 @@ def _create_test_model(**kwargs):
     return model
 
 
+class MyGPT2Tokenizer:
+    def __init__(self, token_json, merges):
+        self.tokenizer = GPT2Tokenizer(token_json, merges)
+        # not ensure which pad_token should be
+        self.tokenizer.pad_token = '!'  # padding token = 0
+
+    def tokenizer_sentence(self, test_sentence, padding_length):
+        if padding_length == -1:
+            input_ids = np.array(self.tokenizer(test_sentence, padding=True)["input_ids"])
+            attention_mask = np.array(self.tokenizer(test_sentence, padding=True)["attention_mask"])
+        else:
+            input_ids = np.array(
+                self.tokenizer(test_sentence, padding="max_length", truncation=True, max_length=padding_length)[
+                    "input_ids"])
+            attention_mask = np.array(
+                self.tokenizer(test_sentence, padding="max_length", truncation=True, max_length=padding_length)[
+                    "attention_mask"])
+        return input_ids, attention_mask
+
+
 class TestGPT2Tokenizer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tokjson = _get_test_data_file('data', 'gpt2.vocab')
         cls.merges = _get_test_data_file('data', 'gpt2.merges.txt')
-        cls.tokenizer = GPT2Tokenizer(cls.tokjson, cls.merges)
-        cls.tokenizer.pad_token = cls.tokenizer.bos_token
+        cls.tokenizer = MyGPT2Tokenizer(cls.tokjson, cls.merges)
         cls.max_length = -1
 
         @onnx_op(op_type="GPT2Tokenizer",
@@ -60,37 +79,25 @@ class TestGPT2Tokenizer(unittest.TestCase):
         def bpe_tokenizer(s, **kwargs):
             # The user custom op implementation here.
             TestGPT2Tokenizer.pyop_invoked = True
-            max_length = kwargs["padding_length"]
-            input_ids = np.array(
-                [TestGPT2Tokenizer.tokenizer(st_, max_length=max_length)["input_ids"] for st_ in s])
-            attention_mask = np.array(
-                [TestGPT2Tokenizer.tokenizer(st_, max_length=max_length)["attention_mask"] for st_ in s])
+            padding_length = kwargs["padding_length"]
+            input_ids, attention_mask = cls.tokenizer.tokenizer_sentence(s, padding_length)
             return input_ids, attention_mask
 
-    def _run_tokenizer(self, pyop_flag, test_sentence, max_length=-1):
+    def _run_tokenizer(self, pyop_flag, test_sentence, padding_length=-1):
         enable_custom_op(pyop_flag)
 
-        if max_length == -1:
+        if padding_length == -1:
             self.max_length = None
 
-        model = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges, max_length=max_length)
+        model = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges, max_length=padding_length)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         sess = _ort.InferenceSession(model.SerializeToString(), so)
         input_text = np.array(test_sentence)
         input_ids, attention_mask = sess.run(None, {'string_input': input_text})
-
-        if max_length == -1:
-            np.testing.assert_array_equal(input_ids, np.array(
-                [TestGPT2Tokenizer.tokenizer(st_, padding=True)["input_ids"] for st_ in test_sentence]))
-            np.testing.assert_array_equal(attention_mask, np.array(
-                [TestGPT2Tokenizer.tokenizer(st_, padding=True)["attention_mask"] for st_ in test_sentence]))
-        else:
-            np.testing.assert_array_equal(input_ids, np.array(
-                [TestGPT2Tokenizer.tokenizer(st_, padding="max_length", max_length=max_length)["input_ids"] for st_ in test_sentence]))
-            np.testing.assert_array_equal(attention_mask, np.array(
-                [TestGPT2Tokenizer.tokenizer(st_, padding="max_length", max_length=max_length)["attention_mask"] for st_ in test_sentence]))
-
+        expect_input_ids, expect_attention_mask = self.tokenizer.tokenizer_sentence(test_sentence, padding_length)
+        np.testing.assert_array_equal(expect_input_ids, input_ids)
+        np.testing.assert_array_equal(expect_attention_mask, attention_mask)
         del sess
         del so
 
@@ -108,8 +115,10 @@ class TestGPT2Tokenizer(unittest.TestCase):
         self._run_tokenizer(False, ["ڠڡڢڣڤڥڦڧڨکڪګڬڭڮگ"])
         self._run_tokenizer(False, ["⛀⛁⛂⛃⛄⛅⛆⛇⛈⛉⛊⛋⛌⛍⛎⛏"])
         self._run_tokenizer(False, ["I can feel the magic, can you?", "Yes I do."])
+        self._run_tokenizer(False, ["I can feel the magic, can you?", "Yes I do."], 100)
 
-    # def test_tokenizer_pyop(self):
+
+# def test_tokenizer_pyop(self):
     #     TestGPT2Tokenizer.pyop_invoked = False
     #     self._run_tokenizer(True, ["I can feel the magic, can you?"])
     #     self.assertTrue(TestGPT2Tokenizer.pyop_invoked)

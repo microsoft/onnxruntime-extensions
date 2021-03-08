@@ -456,9 +456,8 @@ bool IsUnicodeSpace(char32_t ch) {
   return false;
 }
 
-bool IsEmptyUString(const ustring& str)
-{
-  return std::all_of(str.begin(), str.end(), [](char32_t ch){ return IsUnicodeSpace(ch); });
+bool IsEmptyUString(const ustring& str) {
+  return std::all_of(str.begin(), str.end(), [](char32_t ch) { return IsUnicodeSpace(ch); });
 }
 
 KernelBpeTokenizer::KernelBpeTokenizer(OrtApi api, const OrtKernelInfo* info)
@@ -484,7 +483,6 @@ KernelBpeTokenizer::KernelBpeTokenizer(OrtApi api, const OrtKernelInfo* info)
 }
 
 std::vector<int64_t> KernelBpeTokenizer::Tokenize(const ustring& input, int64_t max_length) {
-
   std::vector<int64_t> res;
 
   if (IsEmptyUString(input)) {
@@ -520,7 +518,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(const ustring& input, int64_t 
 
       bbpe_tokenizer_->bpe(byte_list_);
 
-      for (auto p: byte_list_) {
+      for (auto p : byte_list_) {
         if (res.size() >= max_length) {
           break;
         }
@@ -530,9 +528,8 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(const ustring& input, int64_t 
     }
   }
 
-  return res;
+  return std::move(res);
 }
-
 
 void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
   // Setup inputs
@@ -542,7 +539,7 @@ void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
   OrtTensorDimensions input_dim(ort_, input);
 
   std::vector<std::vector<int64_t>> tokenize_results;
-  for (auto &str : str_input) {
+  for (auto& str : str_input) {
     tokenize_results.emplace_back(Tokenize(ustring(str), padding_length_ < 0 ? INT64_MAX : padding_length_));
   }
 
@@ -558,12 +555,12 @@ void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
   OrtTensorDimensions output_dim = input_dim;
   output_dim.push_back(max_length);
   OrtValue* tokenize_output = ort_.KernelContext_GetOutput(context, 0, output_dim.data(), output_dim.size());
-  OrtValue* attention_mask = ort_.KernelContext_GetOutput(context, 1,  output_dim.data(), output_dim.size());
+  OrtValue* attention_mask = ort_.KernelContext_GetOutput(context, 1, output_dim.data(), output_dim.size());
   auto* token = ort_.GetTensorMutableData<int64_t>(tokenize_output);
   auto* mask = ort_.GetTensorMutableData<int64_t>(attention_mask);
 
   int idx = 0;
-  for (auto & res : tokenize_results) {
+  for (auto& res : tokenize_results) {
     for (int64_t id : res) {
       token[idx] = id;
       mask[idx] = 1;
