@@ -215,7 +215,7 @@ def _create_test_model_string_regex_split(prefix, domain='ai.onnx.contrib'):
     nodes.append(
         helper.make_node(
             '%sStringRegexSplitWithOffsets' % prefix, ['id1', 'id2', 'id3'],
-            ['tokens', 'indices'], domain=domain))
+            ['tokens', 'indices', 'row_indices'], domain=domain))
 
     input0 = helper.make_tensor_value_info(
         'input', onnx_proto.TensorProto.STRING, [])
@@ -227,9 +227,11 @@ def _create_test_model_string_regex_split(prefix, domain='ai.onnx.contrib'):
         'tokens', onnx_proto.TensorProto.STRING, [])
     output1 = helper.make_tensor_value_info(
         'indices', onnx_proto.TensorProto.INT64, [])
+    output2 = helper.make_tensor_value_info(
+        'row_indices', onnx_proto.TensorProto.INT64, [])
 
     graph = helper.make_graph(nodes, 'test0', [input0, input1, input2],
-                              [output0, output1])
+                              [output0, output1, output2])
     model = helper.make_model(
         graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
     return model

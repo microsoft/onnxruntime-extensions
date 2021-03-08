@@ -9,6 +9,7 @@
 |StringToHashBucketFast|Supported|
 |StringJoin  | Supported         |
 |StringRegexReplace| Supported  |
+|StringRegexSplit| Supported       |
 |StringSplit | Supported       |
 |StringUpper  | Supported     |
 |StringLength | Supported |
@@ -79,6 +80,64 @@ y = [['static PyObject* py_myfunc(void) {'],
      ['static PyObject* py_dummy(void) {']]
 
 expect(node, inputs=[text, pattern, rewrite], outputs=[y],
+       name='test_string_regex_replace')
+```
+
+</details>
+
+### <a name="StringRegexSplit"></a><a name="StringRegexSplit">**StringRegexSplit**</a>
+
+Splits string based on regular expressions.
+
+#### Inputs
+
+***text: tensor(string)***
+
+String tensor to extract slices from.
+
+***delim_regex_pattern: tensor(string)***
+
+Splitting attern of the regular expression.
+
+***keep_delim_regex_pattern: tensor(string)***
+
+By default, delimiters are not included in the split string results. Delimiters may be included by specifying a regex pattern keep_delim_regex_pattern.
+
+#### Outputs
+
+***words: tensor(string)*** Tensor of words.
+
+***offsets: tensor(int64)*** 2D tensor with 3 columns:
+sentence index, position of the first character, position of the last one (excluded)
+
+***row_indices: tensor(int64)*** Indices of every first token of input sentences.
+`row_indices[i+1] - row_indices[i]` is the number of tokens in input `i`.
+These are updates row indices given as inputs or new ones if the second input is empty.
+
+
+#### Examples
+
+<details>
+<summary>StringRegexSplit</summary>
+
+```python
+
+node = onnx.helper.make_node(
+    'StringRegexSplit',
+    inputs=['text', 'pattern', 'rewrite'],
+    outputs=['y', 'begin_end', 'indices'],
+)
+
+text = np.array(["hello there"])
+pattern = np.array([r'\s'])
+rewrite = np.array([r'\s'])
+y = np.array(["hello", " ", "there"])
+z1 = np.array([[0, 0, 5],
+               [0, 5, 6],
+               [0, 6, 11]], dtype=np.int64)
+z2 = np.array([0, 2], dtype=np.int64)
+
+expect(node, inputs=[text, pattern, rewrite], outputs=[y, z1, z2],
        name='test_string_regex_replace')
 ```
 
@@ -478,9 +537,13 @@ BertTokenizer that performs WordPiece tokenization to the input tensor, based on
 The **content** of the vocabulary file, its format is same with
 [hugging face](https://huggingface.co/gpt2/resolve/main/vocab.json).
 
-**suffix_indicator**
+***suffix_indicator***
 
 Suffix added to token not in the first position before looking into the vocabulary.
+
+***unk_token***
+
+Unknown tokens. Every token not found in the vocabulary is replaced by this one.
 
 ***max_input_chars_per_word***
 
@@ -492,14 +555,25 @@ Maximum number of characters per token (optional, defaults to 200).
 
 The string tensor for tokenization
 
-#### Outputs
-
-***tokens: tensor(int32)*** Indices of each token. -1 means a token outside the vocabulary.
-
-***indices: tensor(int64)*** Indices of every first token of input sentences.
+***row_indices: tensor(int64)*** Empty or the fndices of every first token of input sentences.
 `indices[i+1] - indices[i]` is the number of tokens in input `i`.
 
-Tokenized result of the input.
+[BertTokenizer](https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/BertTokenizer.md)
+includes two steps. The first one splits sentences into words and then splits
+every work into tokens. This operator only implements the second step.
+The first one can be done with operator *StringRegexSplit*.
+This parameter can either be empty or it can be the third output
+of operator *StringRegexSplit*.
+
+#### Outputs
+
+***tokens: tensor(string)*** Every token.
+
+***token_indices: tensor(int32)*** Indices of each token. -1 means a token outside the vocabulary.
+
+***row_indices: tensor(int64)*** Indices of every first token of input sentences.
+`indices[i+1] - indices[i]` is the number of tokens in input `i`.
+These are updates row indices given as inputs or new ones if the second input is empty.
 
 #### Examples
 
@@ -507,7 +581,56 @@ Tokenized result of the input.
 <summary>word_piece_tokenizer</summary>
 
 ```python
+words = ["want", "##want",
+         "##ed", "wa", "un", "runn", "##ing"]
+vocab = {w: i + 10 for i, w in enumerate(words)}
+st = json.dumps(vocab)
+nodes = []
+mkv = helper.make_tensor_value_info
+reg = helper.make_tensor(
+    "pattern", onnx_proto.TensorProto.STRING, [1, ], ["(\\s)".encode('ascii')])
+reg_empty = helper.make_tensor(
+    "keep_pattern", onnx_proto.TensorProto.STRING, [0, ], [])
+
+nodes = [
+    helper.make_node(
+        'StringRegexSplitWithOffsets,
+        inputs=['text', 'pattern', 'keep_pattern'],
+        outputs=['words', 'begin_end', 'indices'],
+        name='StringRegexPlsitOpName',
+        domain='ai.onnx.contrib'),
+    helper.make_node(
+        'BertTokenizer',
+        inputs=['words', 'indices'],
+        outputs=['out0', 'out1', 'out2'],
+        name='BertTokenizerOpName',
+        domain='ai.onnx.contrib',
+        vocab=st.encode('utf-8'),
+        suffix_indicator="##",
+        unk_token="[UNK]")
+]
+inputs = [mkv('text', onnx_proto.TensorProto.STRING, [None])]
+graph = helper.make_graph(
+    nodes, 'test0', inputs, [
+        mkv('out0', onnx_proto.TensorProto.STRING, [None]),
+        mkv('out1', onnx_proto.TensorProto.INT32, [None]),
+        mkv('out2', onnx_proto.TensorProto.INT64, [None]),
+        mkv('words', onnx_proto.TensorProto.STRING, [None]),
+        mkv('indices', onnx_proto.TensorProto.INT64, [None])],
+    [reg, reg_empty])
+model = helper.make_model(
+    graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+
+text = np.array(["unwanted running", "unwantedX running"], dtype=np.object)
+tokens = np.array(['un', '##want', '##ed', 'runn', '##ing', 'un', '##want', '##ed',
+                  '[UNK]', 'runn', '##ing'], dtype=object),
+indices = np.array([14, 11, 12, 15, 16, 14, 11, 12, -1, 15, 16], dtype=int32)
+row_indices = np.array([ 0,  5, 11], dtype=int64)
+
+expect(model, inputs=[text], outputs=[tokens, indices, row_indices],
+       name='test_bert_tokenizer')
 ```
+
 </details>
 
 ### <a name="SentencepieceTokenizer"></a><a name="SentencepieceTokenizer">**SentencepieceTokenizer**</a>

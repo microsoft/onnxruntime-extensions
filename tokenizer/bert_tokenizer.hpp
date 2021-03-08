@@ -16,6 +16,7 @@ struct KernelBertTokenizer : BaseKernel {
  private:
   int64_t max_input_chars_per_word_;
   std::u32string suffix_indicator_;
+  ustring unk_token_;
   std::unordered_map<std::u32string, int32_t> vocab_;
 };
 
@@ -34,7 +35,11 @@ void KernelBertTokenizer_Split(const std::u32string& suffix_indicator,
 
 void KernelBertTokenizer_Tokenizer(const std::unordered_map<std::u32string, int32_t>& vocab,
                                    const std::u32string& suffix_indicator,
+                                   const ustring& unk_token,
                                    const std::vector<ustring>& texts,
+                                   std::vector<ustring>& tokens,
                                    std::vector<int32_t>& indices,
                                    std::vector<int64_t>& rows,
+                                   const int64_t* existing_rows = nullptr,
+                                   int64_t n_existing_rows = 0,
                                    int64_t max_input_chars_per_word = 200);
