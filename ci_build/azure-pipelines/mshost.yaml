@@ -12,9 +12,11 @@ jobs:
       py38-171:
         python.version: '3.8'
         ort.version: '1.7.1'
+        ortlib.version: '39249313'
       py38-160:
         python.version: '3.8'
         ort.version: '1.6.0'
+        ortlib.version: '34858191'
     maxParallel: 1
 
   steps:
@@ -23,7 +25,7 @@ jobs:
       connection: 'microsoft'
       userRepository: 'microsoft/onnxruntime'
       defaultVersionType: 'specificVersion'
-      version: '34858191'
+      version: '$(ortlib.version)'
       itemPattern: '*-linux-x64-$(ort.version)*'
       downloadPath: '$(Build.sourcesdirectory)'
     displayName: Download the ONNXRuntime prebuilt package.
@@ -82,9 +84,11 @@ jobs:
       py38-171:
         python.version: '3.8'
         ort.version: '1.7.1'
+        ortlib.version: '39249313'
       py38-160:
         python.version: '3.8'
         ort.version: '1.6.0'
+        ortlib.version: '34858191'
     maxParallel: 1
 
   steps:
@@ -97,7 +101,7 @@ jobs:
       connection: 'microsoft'
       userRepository: 'microsoft/onnxruntime'
       defaultVersionType: 'specificVersion'
-      version: '34858191'
+      version: '$(ortlib.version)'
       itemPattern: '*-osx-x64-$(ort.version)*'
       downloadPath: '$(Build.sourcesdirectory)'
     displayName: Download the ONNXRuntime prebuilt package.
@@ -160,9 +164,11 @@ jobs:
       py38-171:
         python.version: '3.8'
         ort.version: '1.7.1'
+        ortlib.version: '39249313'
       py38-160:
         python.version: '3.8'
         ort.version: '1.6.0'
+        ortlib.version: '34858191'
     maxParallel: 1
 
   steps:
@@ -171,7 +177,7 @@ jobs:
       connection: 'microsoft'
       userRepository: 'microsoft/onnxruntime'
       defaultVersionType: 'specificVersion'
-      version: '34858191'
+      version: '$(ortlib.version)'
       itemPattern: '*-win-x64-$(ort.version)*'
       downloadPath: '$(Build.sourcesdirectory)'
     displayName: Download the ONNXRuntime prebuilt package.
