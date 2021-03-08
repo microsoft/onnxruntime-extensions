@@ -477,7 +477,7 @@ KernelBpeTokenizer::KernelBpeTokenizer(OrtApi api, const OrtKernelInfo* info)
   }
 
   if (padding_length_ != -1 && padding_length_ <= 0) {
-    throw std::runtime_error("padding_length should be more than 0 or equal -1")
+    throw std::runtime_error("padding_length should be more than 0 or equal -1");
   }
 
   std::stringstream vocabu_stream(vocab);
