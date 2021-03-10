@@ -3,8 +3,7 @@ import onnx
 import numpy
 import unittest
 import platform
-import torch
-import torchvision
+import torch, torchvision
 import onnxruntime as _ort
 
 from onnx import load
@@ -35,14 +34,6 @@ class TestPyTorchCustomOp(unittest.TestCase):
         def inverse(x):
             # the user custom op implementation here:
             return numpy.linalg.inv(x)
-
-        cls.mobilenet = torchvision.models.mobilenet_v2(pretrained=True)
-
-    def test_imagenet_postprocess(self):
-        dummy_input = torch.randn(10, 3, 224, 224)
-        torch.onnx.export(self.mobilenet, dummy_input, "mobilev2.onnx")
-
-
 
     def test_custom_pythonop_pytorch(self):
 

@@ -396,6 +396,7 @@ class _TracingEagerOp(EagerOp):
     def __call__(self, *args, **kwargs):
         np_args = [ts_.numpy() if isinstance(ts_, _EagerTensor) else ts_ for ts_ in args]
         outseq = super().__call__(*np_args, **kwargs)
+        outseq = outseq if isinstance(outseq, (list, tuple)) else [outseq]
 
         outputs = [_EagerTensor.from_onnx(outseq[n_], self.ort_session, out_.name)
                    for n_, out_ in enumerate(self.ort_session.get_outputs())]
@@ -408,7 +409,7 @@ class _TracingEagerOp(EagerOp):
 
         y_names = [y.name for y in outputs]
         _ox.model_call(*_EagerTensor.ox_args(args, output_names=y_names), oxml=self.onnx_model)
-        return tuple(outputs)
+        return tuple(outputs) if len(outputs) > 1 else outputs[0]
 
 
 def op_from_customop(op_type, *args, **kwargs) -> _TracingEagerOp:

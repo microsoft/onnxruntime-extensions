@@ -6,7 +6,7 @@ from onnxruntime_customops.eager_op import EagerOp, VectorToString
 def _run_vector_to_string(input, output, map, unk):
     v2str = EagerOp.from_customop(VectorToString, map=map, unk=unk)
     result = v2str(input)
-    np.testing.assert_array_equal(result, [output])
+    np.testing.assert_array_equal(result, output)
 
 
 class TestVectorToString(unittest.TestCase):

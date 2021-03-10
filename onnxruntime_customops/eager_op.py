@@ -70,4 +70,5 @@ class EagerOp:
 
     def __call__(self, *args, **kwargs):
         self._ensure_ort_session()
-        return self.ort_session.run(None, self._argument_map(*args, **kwargs))
+        outputs = self.ort_session.run(None, self._argument_map(*args, **kwargs))
+        return outputs[0] if len(outputs) == 1 else outputs
