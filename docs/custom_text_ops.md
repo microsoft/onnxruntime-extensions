@@ -11,11 +11,11 @@
 |StringRegexReplace| Supported  |
 |StringSplit | Supported       |
 |StringUpper  | Supported     |
-|StringSlice | Under development|
-|StringLength | Under development |
+|StringLength | Supported |
+|StringConcat | Supported |
+|VectorToString| Supported |
 |StringToVector|  Under development|
-|VectorToString| Under development |
-
+|StringSlice | Under development|
 ### Tokenizer
 
 |**Operator**|**Support State**|
@@ -62,7 +62,7 @@ String with replacements.
 #### Examples
 
 <details>
-<summary>string_slice</summary>
+<summary>StringRegexReplace</summary>
 
 ```python
 
@@ -80,6 +80,60 @@ y = [['static PyObject* py_myfunc(void) {'],
 
 expect(node, inputs=[text, pattern, rewrite], outputs=[y],
        name='test_string_regex_replace')
+```
+
+</details>
+
+### <a name="StringConcat"></a><a name="StringConcat">**StringConcat**</a>
+
+Concat the corresponding string in the two string tensor. Two input tensors should have the same dimension.
+
+```python
+  output = []
+  shape = input1.shape
+  input1 = input1.flatten()
+  input2 = input2.flatten()
+  for i in range(len(input1)):
+      output.append(input1[i] + input2[i])
+  output = np.array(output).reshape(shape)
+```
+
+#### Inputs
+
+***input_1: tensor(string)***
+
+The first string tensor.
+
+***input_2: tensor(string)***
+
+The second string tensor.
+
+
+#### Outputs
+
+***output: tensor(string)***
+
+The result.
+
+#### Examples
+
+<details>
+<summary>StringConcat</summary>
+
+```python
+
+node = onnx.helper.make_node(
+    'StringConcat',
+    inputs=['x', 'y'],
+    outputs=['result'],
+)
+
+x = np.array(["abcd", "efgh"])
+y = np.array(["wxyz", "stuv"])
+result = np.array([x[0] + y[0], x[1] + y[1]])
+
+expect(node, inputs=[x, y], outputs=[result],
+       name='test_string_concat')
 ```
 
 </details>
@@ -131,8 +185,8 @@ node = onnx.helper.make_node(
     outputs=['y'],
 )
 
-x = ["abcdef", "hijkl"]
-y = [x[0][1:3:1], x[1][3:1:-1]]
+x = np.array(["abcdef", "hijkl"])
+y = np.array([x[0][1:3:1], x[1][3:1:-1]])
 starts = np.array([1, 3], dtype=np.int64)
 ends = np.array([3, 1], dtype=np.int64)
 axes = np.array([0, 1], dtype=np.int64)
