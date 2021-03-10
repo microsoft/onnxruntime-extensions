@@ -4,12 +4,12 @@
 #include "bert_tokenizer.hpp"
 #include "nlohmann/json.hpp"
 
-KernelBertTokenizer::KernelBertTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
-  // https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/BertTokenizer.md
+KernelWordpieceTokenizer::KernelWordpieceTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+  // https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/WordpieceTokenizer.md
   // https://github.com/tensorflow/text/blob/master/tensorflow_text/python/ops/bert_tokenizer.py
   std::string vocab_as_string = ort_.KernelInfoGetAttribute<std::string>(info, "vocab");
   std::string suffix_indicator = ort_.KernelInfoGetAttribute<std::string>(info, "suffix_indicator");
-  std::string unk = ort_.KernelInfoGetAttribute<std::string>(info, "unk_token");
+  std::string unk = ort_.KernelInfoGetAttribute<std::string>(info, "unknown_token");
   max_input_chars_per_word_ = HasAttribute("max_input_chars_per_word") ? ort_.KernelInfoGetAttribute<int64_t>(info, "max_input_chars_per_word") : 200;
   suffix_indicator_ = ustring(suffix_indicator);
   unk_token_ = ustring(unk);
@@ -24,9 +24,9 @@ KernelBertTokenizer::KernelBertTokenizer(OrtApi api, const OrtKernelInfo* info) 
   }
 }
 
-void KernelBertTokenizer_Split(const std::u32string& suffix_indicator,
-                               const std::u32string& text,
-                               std::vector<std::u32string>& words) {
+void KernelWordpieceTokenizer_Split(const std::u32string& suffix_indicator,
+                                    const std::u32string& text,
+                                    std::vector<std::u32string>& words) {
   ustring space(" ");
   int pos = 0;
   int last = 0;
@@ -44,16 +44,16 @@ void KernelBertTokenizer_Split(const std::u32string& suffix_indicator,
   }
 }
 
-void KernelBertTokenizer_Tokenizer(const std::unordered_map<std::u32string, int32_t>& vocab,
-                                   const std::u32string& suffix_indicator,
-                                   const ustring& unk_token,
-                                   const std::vector<ustring>& texts,
-                                   std::vector<ustring>& tokens,
-                                   std::vector<int32_t>& indices,
-                                   std::vector<int64_t>& rows,
-                                   const int64_t* existing_rows,
-                                   int64_t n_existing_rows,
-                                   int64_t max_input_chars_per_word) {
+void KernelWordpieceTokenizer_Tokenizer(const std::unordered_map<std::u32string, int32_t>& vocab,
+                                        const std::u32string& suffix_indicator,
+                                        const ustring& unk_token,
+                                        const std::vector<ustring>& texts,
+                                        std::vector<ustring>& tokens,
+                                        std::vector<int32_t>& indices,
+                                        std::vector<int64_t>& rows,
+                                        const int64_t* existing_rows,
+                                        int64_t n_existing_rows,
+                                        int64_t max_input_chars_per_word) {
   std::vector<std::u32string> words;
   bool is_bad;
   bool no_existing_rows = n_existing_rows == 0;
@@ -75,7 +75,7 @@ void KernelBertTokenizer_Tokenizer(const std::unordered_map<std::u32string, int3
       ++row_index;
     }
 
-    KernelBertTokenizer_Split(suffix_indicator, *it, words);
+    KernelWordpieceTokenizer_Split(suffix_indicator, *it, words);
 
     for (auto itk = words.begin(); itk != words.end(); ++itk) {
       if (itk->size() > max_input_chars_per_word) {
@@ -117,7 +117,7 @@ void KernelBertTokenizer_Tokenizer(const std::unordered_map<std::u32string, int3
   rows.push_back(indices.size());
 }
 
-void KernelBertTokenizer::Compute(OrtKernelContext* context) {
+void KernelWordpieceTokenizer::Compute(OrtKernelContext* context) {
   // Update with the new API
   const OrtValue* ort_input = ort_.KernelContext_GetInput(context, 0);
   std::vector<ustring> str_input;
@@ -129,41 +129,43 @@ void KernelBertTokenizer::Compute(OrtKernelContext* context) {
   std::vector<ustring> tokens;
   std::vector<int32_t> indices;
   std::vector<int64_t> row_begins;
-  KernelBertTokenizer_Tokenizer(vocab_, suffix_indicator_, unk_token_, str_input,
-                                tokens, indices, row_begins,
-                                p_row_indices, ort_row_indices_dim.size(),
-                                max_input_chars_per_word_);
+  KernelWordpieceTokenizer_Tokenizer(vocab_, suffix_indicator_, unk_token_, str_input,
+                                     tokens, indices, row_begins,
+                                     p_row_indices, ort_row_indices_dim.size(),
+                                     max_input_chars_per_word_);
 
-  std::vector<int64_t> size_content(1);
-  size_content[0] = indices.size();
-  OrtValue* out_content = ort_.KernelContext_GetOutput(context, 1, size_content.data(), size_content.size());
-
-  std::vector<int64_t> size_indices(1);
-  size_indices[0] = row_begins.size();
-  OrtValue* out_indices = ort_.KernelContext_GetOutput(context, 2, size_indices.data(), size_indices.size());
-
-  int* ptr_content = ort_.GetTensorMutableData<int>(out_content);
-  memcpy(ptr_content, indices.data(), indices.size() * sizeof(int));
-  int64_t* ptr_indices = ort_.GetTensorMutableData<int64_t>(out_indices);
-  memcpy(ptr_indices, row_begins.data(), row_begins.size() * sizeof(int64_t));
-
+  std::vector<int64_t> size_content{(int64_t)indices.size()};
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, size_content.data(), size_content.size());
   FillTensorDataString(api_, ort_, context, tokens, output);
+
+  std::vector<int64_t> size_row_lengths{(int64_t)row_begins.size() - 1};
+  OrtValue* output_row_lengths = ort_.KernelContext_GetOutput(context, 1, size_row_lengths.data(), size_row_lengths.size());
+  OrtValue* output_row_begins = ort_.KernelContext_GetOutput(context, 2, size_row_lengths.data(), size_row_lengths.size());
+  OrtValue* output_limit_values = ort_.KernelContext_GetOutput(context, 3, size_row_lengths.data(), size_row_lengths.size());
+  int64_t* ptr_row_lengths = ort_.GetTensorMutableData<int64_t>(output_row_lengths);
+  int64_t* ptr_row_begins = ort_.GetTensorMutableData<int64_t>(output_row_begins);
+  int64_t* ptr_limit_values = ort_.GetTensorMutableData<int64_t>(output_limit_values);
+
+  for (int64_t i = 0; i < size_row_lengths[0]; ++i) {
+    ptr_row_lengths[i] = row_begins[i + 1] - row_begins[i];
+    ptr_row_begins[i] = row_begins[i];
+    ptr_limit_values[i] = row_begins[i + 1];
+  }
 }
 
-void* CustomOpBertTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
-  return new KernelBertTokenizer(api, info);
+void* CustomOpWordpieceTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+  return new KernelWordpieceTokenizer(api, info);
 };
 
-const char* CustomOpBertTokenizer::GetName() const {
-  return "BertTokenizer";
+const char* CustomOpWordpieceTokenizer::GetName() const {
+  return "WordpieceTokenizer";
 };
 
-size_t CustomOpBertTokenizer::GetInputTypeCount() const {
+size_t CustomOpWordpieceTokenizer::GetInputTypeCount() const {
   return 2;
 };
 
-ONNXTensorElementDataType CustomOpBertTokenizer::GetInputType(size_t index) const {
+ONNXTensorElementDataType CustomOpWordpieceTokenizer::GetInputType(size_t index) const {
   switch (index) {
     case 0:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -174,19 +176,19 @@ ONNXTensorElementDataType CustomOpBertTokenizer::GetInputType(size_t index) cons
   }
 };
 
-size_t CustomOpBertTokenizer::GetOutputTypeCount() const {
-  return 3;
+size_t CustomOpWordpieceTokenizer::GetOutputTypeCount() const {
+  return 4;
 };
 
-ONNXTensorElementDataType CustomOpBertTokenizer::GetOutputType(size_t index) const {
+ONNXTensorElementDataType CustomOpWordpieceTokenizer::GetOutputType(size_t index) const {
   switch (index) {
     case 0:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
     case 1:
-      return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32;
     case 2:
+    case 3:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
     default:
-      throw std::runtime_error(MakeString("Unexpected output index ", index));
+      throw std::runtime_error(MakeString("[WordpieceTokenizer] Unexpected output index ", index));
   }
 };

@@ -9,7 +9,7 @@ from onnxruntime_customops import (
     get_library_path as _get_library_path)
 
 
-def _create_test_model_bert(prefix, domain='ai.onnx.contrib'):
+def _create_test_model_wordpiece(prefix, domain='ai.onnx.contrib'):
     words = ["want", "##want",
              "##ed", "wa", "un", "runn", "##ing"]
     vocab = {w: i + 10 for i, w in enumerate(words)}
@@ -23,19 +23,19 @@ def _create_test_model_bert(prefix, domain='ai.onnx.contrib'):
     nodes.append(helper.make_node(
         '%sStringRegexSplitWithOffsets' % prefix,
         inputs=['text', 'pattern', 'keep_pattern'],
-        outputs=['words', 'begin_end', 'indices'],
-        name='StringRegexPlsitOpName',
+        outputs=['words', 'begin', 'end', 'rows'],
+        name='StringRegexSplitOpName',
         domain='ai.onnx.contrib'
     ))
     nodes.append(helper.make_node(
-        '%sBertTokenizer' % prefix,
-        inputs=['words', 'indices'],
-        outputs=['out0', 'out1', 'out2'],
+        '%sWordpieceTokenizer' % prefix,
+        inputs=['words', 'rows'],
+        outputs=['out0', 'out1', 'out2', 'out3'],
         name='BertTokenizerOpName',
         domain='ai.onnx.contrib',
         vocab=st.encode('utf-8'),
         suffix_indicator="##",
-        unk_token="[UNK]",
+        unknown_token="[UNK]",
     ))
 
     inputs = [
@@ -44,10 +44,11 @@ def _create_test_model_bert(prefix, domain='ai.onnx.contrib'):
     graph = helper.make_graph(
         nodes, 'test0', inputs, [
             mkv('out0', onnx_proto.TensorProto.STRING, [None]),
-            mkv('out1', onnx_proto.TensorProto.INT32, [None]),
+            mkv('out1', onnx_proto.TensorProto.INT64, [None]),
             mkv('out2', onnx_proto.TensorProto.INT64, [None]),
+            mkv('out3', onnx_proto.TensorProto.INT64, [None]),
             mkv('words', onnx_proto.TensorProto.STRING, [None]),
-            mkv('indices', onnx_proto.TensorProto.INT64, [None])],
+            mkv('rows', onnx_proto.TensorProto.INT64, [None])],
         [reg, reg_empty]
     )
     model = helper.make_model(
@@ -57,11 +58,11 @@ def _create_test_model_bert(prefix, domain='ai.onnx.contrib'):
 
 class TestPythonOpBert(unittest.TestCase):
 
-    def test_string_bert_tokenizer(self):
+    def test_string_wordpiece_tokenizer(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        cc_onnx_model = _create_test_model_bert('')
-        self.assertIn('op_type: "BertTokenizer"', str(cc_onnx_model))
+        cc_onnx_model = _create_test_model_wordpiece('')
+        self.assertIn('op_type: "WordpieceTokenizer"', str(cc_onnx_model))
         cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so)
 
         inputs = dict(text=np.array(["unwanted running",

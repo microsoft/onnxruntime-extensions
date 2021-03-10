@@ -32,7 +32,7 @@ CustomOpSentencepieceTokenizer c_CustomOpSentencepieceTokenizer;
 #endif
 
 #ifdef ENABLE_BERT_TOKENIZER
-CustomOpBertTokenizer c_CustomOpBertTokenizer;
+CustomOpWordpieceTokenizer c_CustomOpWordpieceTokenizer;
 #endif
 
 #ifdef ENABLE_TF_STRING
@@ -45,6 +45,7 @@ CustomOpStringHash c_CustomOpStringHash;
 CustomOpStringHashFast c_CustomOpStringHashFast;
 CustomOpStringJoin c_CustomOpStringJoin;
 CustomOpStringLower c_CustomOpStringLower;
+CustomOpStringRaggedTensorToDense c_CustomOpStringRaggedTensorToDense;
 CustomOpStringRegexReplace c_CustomOpStringRegexReplace;
 CustomOpStringRegexSplitWithOffsets c_CustomOpStringRegexSplitWithOffsets;
 CustomOpStringSplit c_CustomOpStringSplit;
@@ -60,7 +61,7 @@ OrtCustomOp* operator_lists[] = {
 #endif
 
 #ifdef ENABLE_BERT_TOKENIZER
-    &c_CustomOpBertTokenizer,
+    &c_CustomOpWordpieceTokenizer,
 #endif
 
 #ifdef ENABLE_TF_STRING
@@ -73,6 +74,7 @@ OrtCustomOp* operator_lists[] = {
     &c_CustomOpStringHashFast,
     &c_CustomOpStringJoin,
     &c_CustomOpStringLower,
+    &c_CustomOpStringRaggedTensorToDense,
     &c_CustomOpStringRegexReplace,
     &c_CustomOpStringRegexSplitWithOffsets,
     &c_CustomOpStringSplit,

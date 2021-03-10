@@ -9,8 +9,8 @@
 #include "kernels/string_common.h"
 #include "utils/string_utils.h"
 
-struct KernelBertTokenizer : BaseKernel {
-  KernelBertTokenizer(OrtApi api, const OrtKernelInfo* info);
+struct KernelWordpieceTokenizer : BaseKernel {
+  KernelWordpieceTokenizer(OrtApi api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
 
  private:
@@ -20,7 +20,7 @@ struct KernelBertTokenizer : BaseKernel {
   std::unordered_map<std::u32string, int32_t> vocab_;
 };
 
-struct CustomOpBertTokenizer : Ort::CustomOpBase<CustomOpBertTokenizer, KernelBertTokenizer> {
+struct CustomOpWordpieceTokenizer : Ort::CustomOpBase<CustomOpWordpieceTokenizer, KernelWordpieceTokenizer> {
   void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
@@ -29,17 +29,17 @@ struct CustomOpBertTokenizer : Ort::CustomOpBase<CustomOpBertTokenizer, KernelBe
   ONNXTensorElementDataType GetOutputType(size_t index) const;
 };
 
-void KernelBertTokenizer_Split(const std::u32string& suffix_indicator,
-                               const std::u32string& text,
-                               std::vector<std::u32string>& words);
+void KernelWordpieceTokenizer_Split(const std::u32string& suffix_indicator,
+                                    const std::u32string& text,
+                                    std::vector<std::u32string>& words);
 
-void KernelBertTokenizer_Tokenizer(const std::unordered_map<std::u32string, int32_t>& vocab,
-                                   const std::u32string& suffix_indicator,
-                                   const ustring& unk_token,
-                                   const std::vector<ustring>& texts,
-                                   std::vector<ustring>& tokens,
-                                   std::vector<int32_t>& indices,
-                                   std::vector<int64_t>& rows,
-                                   const int64_t* existing_rows = nullptr,
-                                   int64_t n_existing_rows = 0,
-                                   int64_t max_input_chars_per_word = 200);
+void KernelWordpieceTokenizer_Tokenizer(const std::unordered_map<std::u32string, int32_t>& vocab,
+                                        const std::u32string& suffix_indicator,
+                                        const ustring& unk_token,
+                                        const std::vector<ustring>& texts,
+                                        std::vector<ustring>& tokens,
+                                        std::vector<int32_t>& indices,
+                                        std::vector<int64_t>& rows,
+                                        const int64_t* existing_rows = nullptr,
+                                        int64_t n_existing_rows = 0,
+                                        int64_t max_input_chars_per_word = 200);
