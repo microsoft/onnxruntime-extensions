@@ -22,10 +22,9 @@
 #include "kernels/string_common.h"
 #include "unicode.h"
 
-namespace {
 class SpecialTokenMap {
  public:
-  void Add(std::u32string p_str, int p_id) {
+  void Add(ustring p_str, int p_id) {
     auto it = token_map_.find(p_str);
     if (it != token_map_.end()) {
       if (it->second != p_id) {
@@ -37,11 +36,11 @@ class SpecialTokenMap {
     }
   }
 
-  std::list<std::pair<std::u32string, int>> SplitBySpeicalTokens(std::u32string input) const {
-    std::list<std::pair<std::u32string, int>> res;
+  std::list<std::pair<ustring, int>> SplitBySpeicalTokens(ustring input) const {
+    std::list<std::pair<ustring, int>> res;
     res.emplace_back(std::move(input), -1);
     for (const auto& st : token_list_) {
-      std::list<std::pair<std::u32string, int>> new_split_res;
+      std::list<std::pair<ustring, int>> new_split_res;
       for (auto& str : res) {
         if (str.second != -1) {
           new_split_res.push_back(std::move(str));
@@ -77,10 +76,10 @@ class SpecialTokenMap {
 
  private:
   struct SpecialTokenInfo {
-    std::u32string str;
+    ustring str;
     int id;
 
-    SpecialTokenInfo(std::u32string p_str, int p_id)
+    SpecialTokenInfo(ustring p_str, int p_id)
         : str(std::move(p_str)), id(p_id) {
       if (str.empty()) {
         throw std::runtime_error("Empty special token.");
@@ -89,7 +88,7 @@ class SpecialTokenMap {
   };
 
   std::list<SpecialTokenInfo> token_list_;
-  std::unordered_map<std::u32string, int> token_map_;
+  std::unordered_map<ustring, int> token_map_;
 };
 
 using json = nlohmann::json;
@@ -113,7 +112,7 @@ class VocabData {
     if (it != vocab_map_.end()) {
       unk_id_ = it->second;
     } else {
-      int id = (int)vocab_map_.size();
+      int id = static_cast<int>(vocab_map_.size());
       vocab_map_[unk_token] = id;
       std::cerr << "Special token (" << unk_token << ") have been added in the vocabulary." << std::endl;
     }
@@ -164,8 +163,8 @@ class VocabData {
       while (istrea >> line) {
         if (line.empty()) continue;
         line = std::regex_replace(line, std::regex("\r"), "");
-        std::u32string line_32 = str_convert.from_bytes(line);
-        int id = (int)vocab_map_.size();
+        ustring line_32(line);
+        int id = static_cast<int>(vocab_map_.size());
         if (auto it = vocab_map_.find(line); it != vocab_map_.end()) {
           id = it->second;
         } else {
@@ -221,7 +220,7 @@ class VocabData {
     return byte_encoder_;
   }
 
-  auto SplitBySpeicalTokens(const std::u32string& input) const {
+  auto SplitBySpeicalTokens(const ustring& input) const {
     return special_tokens_.SplitBySpeicalTokens(input);
   }
 
@@ -455,149 +454,173 @@ bool IsUnicodeSpace(char32_t ch) {
   }
   return false;
 }
-}  // namespace
+
+bool IsEmptyUString(const ustring& str) {
+  return std::all_of(str.begin(), str.end(), [](char32_t ch) { return IsUnicodeSpace(ch); });
+}
 
 struct KernelBpeTokenizer : BaseKernel {
-  KernelBpeTokenizer(OrtApi api, const OrtKernelInfo* info)
-      : BaseKernel(api, info) {
-    std::string vocab = ort_.KernelInfoGetAttribute<std::string>(info, "vocab");
-    if (vocab.empty()) {
-      throw std::runtime_error("vocabulary shouldn't be empty.");
-    }
-
-    std::string merges = ort_.KernelInfoGetAttribute<std::string>(info, "merges");
-    if (merges.empty()) {
-      throw std::runtime_error("merges shouldn't be empty.");
-    }
-
-    std::stringstream vocabu_stream(vocab);
-    std::stringstream merges_stream(merges);
-    bbpe_tokenizer_.Load(vocabu_stream, merges_stream, "<|endoftext|>", "<|endoftext|>");
-  }
-
-  static size_t const p_max_len = 1024;
-  using StringConverter = std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t>;
+  KernelBpeTokenizer(OrtApi api, const OrtKernelInfo* info);
+  void Compute(OrtKernelContext* context);
 
  private:
+  std::vector<int64_t> Tokenize(const ustring& input, int64_t max_length);
+
+  int64_t padding_length_;
   std::list<int> byte_list_;
-  VocabData bbpe_tokenizer_;
-
- public:
-  size_t Tokenize(const std::u32string& input_32, int* p_index_array, size_t p_max_len) {
-    bool all_space_chars = true;
-    for (auto ch : input_32) {
-      if (!IsUnicodeSpace(ch)) {
-        all_space_chars = false;
-        break;
-      }
-    }
-    if (all_space_chars) return 0;
-
-    auto special_token_split_res = bbpe_tokenizer_.SplitBySpeicalTokens(input_32);
-
-    size_t cur_id = 0;
-    TokenWithRegularExp regcmp;
-    StringConverter str_convert;
-    for (auto& seg_id : special_token_split_res) {
-      if (cur_id >= p_max_len) break;
-      if (seg_id.second != -1) {
-        p_index_array[cur_id] = seg_id.second;
-        ++cur_id;
-        continue;
-      }
-
-      auto cur_input = std::move(seg_id.first);
-      // Note: keep ptr to make sure the string_view is valid in the following process
-      const char32_t* ptr = cur_input.c_str();
-      regcmp.Set(ptr);
-
-      while (cur_id < p_max_len) {
-        auto [b, tok] = regcmp.GetNextToken();
-        if (!b) break;
-
-        std::string utf8_token = str_convert.to_bytes(tok.data(), tok.data() + tok.size());
-
-        byte_list_.clear();
-        for (char& cp : utf8_token) {
-          byte_list_.push_back(bbpe_tokenizer_.ByteEncoder()[(unsigned char)cp]);
-        }
-
-        bbpe_tokenizer_.bpe(byte_list_);
-        UpdateOutputBuffer(p_index_array, p_max_len, cur_id, byte_list_);
-      }
-    }
-    return cur_id;
-  }
-
-  void UpdateOutputBuffer(int* p_index_array, size_t p_max_len, size_t& cur_id, const std::list<int>& byte_lst) {
-    size_t aim_len = byte_lst.size();
-    if (aim_len + cur_id > p_max_len) aim_len = p_max_len - cur_id;
-
-    for (auto p : byte_lst) {
-      p_index_array[cur_id] = p;
-      ++cur_id;
-      --aim_len;
-      if (aim_len == 0) break;
-    }
-  }
-
-  size_t Tokenize(const std::string& p_input, int* p_index_array, size_t p_max_len) {
-    std::u32string input_32 = StringConverter().from_bytes(p_input);
-    return Tokenize(input_32, p_index_array, p_max_len);
-  }
-
-  void Compute(OrtKernelContext* context) {
-    // Setup inputs
-    const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
-    std::vector<std::string> str_input;
-    GetTensorMutableDataString(api_, ort_, context, input, str_input);
-
-    OrtTensorDimensions dimensions(ort_, input);
-    int tok_res[p_max_len];
-    auto indexed_len = Tokenize(str_input[0], tok_res, p_max_len);
-    if (dimensions.size() != 1 || dimensions[0] != 1) {
-      throw std::runtime_error("only support 1-d string input");
-    }
-
-    // Setup output
-    int64_t output_shape[2] = {1, static_cast<int64_t>(indexed_len)};
-    OrtValue* output = ort_.KernelContext_GetOutput(context, 0, output_shape, 2);
-    int64_t* out = ort_.GetTensorMutableData<int64_t>(output);
-
-    OrtTensorTypeAndShapeInfo* output_info = ort_.GetTensorTypeAndShape(output);
-    int64_t size = ort_.GetTensorShapeElementCount(output_info);
-    ort_.ReleaseTensorTypeAndShapeInfo(output_info);
-
-    for (size_t j = 0; j < indexed_len; j++) {
-      out[j] = tok_res[j];
-    }
-  }
+  std::shared_ptr<VocabData> bbpe_tokenizer_;
 };
 
 struct CustomOpBpeTokenizer : Ort::CustomOpBase<CustomOpBpeTokenizer, KernelBpeTokenizer> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
-    return new KernelBpeTokenizer(api, info);
-  }
-
-  const char* GetName() const {
-    return "GPT2Tokenizer";
-  }
-
-  size_t GetInputTypeCount() const {
-    return 1;
-  }
-
-  ONNXTensorElementDataType GetInputType(size_t index) const {
-    return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-  }
-  size_t GetOutputTypeCount() const {
-    return 1;
-  }
-
-  ONNXTensorElementDataType GetOutputType(size_t index) const {
-    return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-  }
+  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
+  const char* GetName() const;
+  size_t GetInputTypeCount() const;
+  ONNXTensorElementDataType GetInputType(size_t index) const;
+  size_t GetOutputTypeCount() const;
+  ONNXTensorElementDataType GetOutputType(size_t index) const;
 };
+
+KernelBpeTokenizer::KernelBpeTokenizer(OrtApi api, const OrtKernelInfo* info)
+    : BaseKernel(api, info) {
+  std::string vocab = ort_.KernelInfoGetAttribute<std::string>(info, "vocab");
+  if (vocab.empty()) {
+    throw std::runtime_error("vocabulary shouldn't be empty.");
+  }
+
+  std::string merges = ort_.KernelInfoGetAttribute<std::string>(info, "merges");
+  if (merges.empty()) {
+    throw std::runtime_error("merges shouldn't be empty.");
+  }
+
+  if (!TryToGetAttribute<int64_t>("padding_length", padding_length_)) {
+    padding_length_ = -1;
+  }
+
+  if (padding_length_ != -1 && padding_length_ <= 0) {
+    throw std::runtime_error("padding_length should be more than 0 or equal -1");
+  }
+
+  std::stringstream vocabu_stream(vocab);
+  std::stringstream merges_stream(merges);
+  bbpe_tokenizer_ = std::make_shared<VocabData>();
+  bbpe_tokenizer_->Load(vocabu_stream, merges_stream, "<|endoftext|>", "<|endoftext|>");
+}
+
+std::vector<int64_t> KernelBpeTokenizer::Tokenize(const ustring& input, int64_t max_length) {
+  std::vector<int64_t> res;
+
+  if (IsEmptyUString(input)) {
+    return res;
+  }
+
+  auto special_token_split_res = bbpe_tokenizer_->SplitBySpeicalTokens(input);
+  TokenWithRegularExp regcmp;
+
+  for (auto& seg_id : special_token_split_res) {
+    if (res.size() >= max_length) break;
+
+    if (seg_id.second != -1) {
+      res.push_back(seg_id.second);
+      continue;
+    }
+
+    auto cur_input = std::move(seg_id.first);
+    // Note: keep ptr to make sure the string_view is valid in the following process
+    const char32_t* ptr = cur_input.c_str();
+    regcmp.Set(ptr);
+
+    while (res.size() < max_length) {
+      auto [b, tok] = regcmp.GetNextToken();
+      if (!b) break;
+
+      std::string utf8_token = std::string(ustring(tok));
+
+      byte_list_.clear();
+      for (char& cp : utf8_token) {
+        byte_list_.push_back(bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(cp)]);
+      }
+
+      bbpe_tokenizer_->bpe(byte_list_);
+
+      for (auto p : byte_list_) {
+        if (res.size() >= max_length) {
+          break;
+        }
+
+        res.push_back(p);
+      }
+    }
+  }
+
+  return std::move(res);
+}
+
+void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
+  // Setup inputs
+  const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
+  std::vector<std::string> str_input;
+  GetTensorMutableDataString(api_, ort_, context, input, str_input);
+  OrtTensorDimensions input_dim(ort_, input);
+
+  std::vector<std::vector<int64_t>> tokenize_results;
+  for (auto& str : str_input) {
+    tokenize_results.emplace_back(Tokenize(ustring(str), padding_length_ < 0 ? INT64_MAX : padding_length_));
+  }
+
+  size_t max_length = 0;
+  if (padding_length_ == -1) {
+    for (auto& res : tokenize_results) {
+      max_length = std::max(max_length, res.size());
+    }
+  } else {
+    max_length = padding_length_;
+  }
+
+  OrtTensorDimensions output_dim = input_dim;
+  output_dim.push_back(max_length);
+  OrtValue* tokenize_output = ort_.KernelContext_GetOutput(context, 0, output_dim.data(), output_dim.size());
+  OrtValue* attention_mask = ort_.KernelContext_GetOutput(context, 1, output_dim.data(), output_dim.size());
+  auto* token = ort_.GetTensorMutableData<int64_t>(tokenize_output);
+  auto* mask = ort_.GetTensorMutableData<int64_t>(attention_mask);
+
+  int idx = 0;
+  for (auto& res : tokenize_results) {
+    for (int64_t id : res) {
+      token[idx] = id;
+      mask[idx] = 1;
+      idx++;
+    }
+
+    for (int i = res.size(); i < max_length; i++) {
+      token[idx] = 0;
+      mask[idx] = 0;
+      idx++;
+    }
+  }
+}
+
+void* CustomOpBpeTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+  return new KernelBpeTokenizer(api, info);
+}
+
+const char* CustomOpBpeTokenizer::GetName() const {
+  return "GPT2Tokenizer";
+}
+
+size_t CustomOpBpeTokenizer::GetInputTypeCount() const {
+  return 1;
+}
+
+ONNXTensorElementDataType CustomOpBpeTokenizer::GetInputType(size_t index) const {
+  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+}
+size_t CustomOpBpeTokenizer::GetOutputTypeCount() const {
+  return 2;
+}
+
+ONNXTensorElementDataType CustomOpBpeTokenizer::GetOutputType(size_t index) const {
+  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+}
 
 const OrtCustomOp** LoadTokenizerSchemaList() {
   // create the global objects here to let the ORT catch the expection if any
