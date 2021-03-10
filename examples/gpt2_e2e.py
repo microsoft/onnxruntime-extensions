@@ -44,7 +44,7 @@ def inference_and_dump_full_model(inputs):
     core_model = torch.op_from_model(gpt2_core_model_path)
     gpt2_tokenizer = torch.op_from_model(gpt2_encoder_model_path)
 
-    inputs = torch.start_trace(inputs=[inputs], names=gpt2_tokenizer.input_names)
+    inputs = torch.start_trace(inputs, names=gpt2_tokenizer.input_names)
 
     num_attention_heads = config.n_head
     hidden_size = config.n_embd

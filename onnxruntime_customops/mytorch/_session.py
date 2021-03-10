@@ -1,17 +1,12 @@
-import json
 import onnx
-import pathlib
+import torch
 import warnings
 import numpy as np
-from onnx import helper
+from onnx import helper, onnx_pb as onnx_proto
 from collections import namedtuple
-from ._tensor import tensor_from_onnx, tensor_set_session
+from ._tensor import tensor_from_onnx, tensor_from_torch, tensor_set_session
 from ._onnx_ops import ONNXElementContainer, make_model_ex
-from ..eager_op import SingleOpGraph, default_opset_domain, GPT2Tokenizer, VectorToString
-
-
-def _is_path(name_or_buffer):
-    return isinstance(name_or_buffer, str) or isinstance(name_or_buffer, pathlib.Path)
+from ._builder import is_path as _is_path
 
 
 class ONNXTraceSession:
@@ -23,13 +18,14 @@ class ONNXTraceSession:
         self.outputs = []
 
     @classmethod
-    def start_trace(cls, inputs, names=None, target_opset=11):
+    def start_trace(cls, *inputs, names=None, target_opset=11):
         self = ONNXTraceSession(target_opset)
         self.activated_sessions.append(self)
         tensor_set_session(self)
 
-        np_inputs = [x if isinstance(x, (np.ndarray, np.generic)) else np.asarray(x) for x in inputs]
-        itensors = [tensor_from_onnx(i_, None, None) for i_ in np_inputs]
+        np_inputs = [x if isinstance(x, (np.ndarray, np.generic, torch.Tensor)) else np.asarray(x) for x in inputs]
+        itensors = [tensor_from_torch(i_, None) if isinstance(i_, torch.Tensor)
+                    else tensor_from_onnx(i_, None, None) for i_ in np_inputs]
         if names is not None:
             if len(inputs) != len(names):
                 warnings.warn("the name number doesn't match the inputs', assign to the ones in the front.")
@@ -49,7 +45,7 @@ class ONNXTraceSession:
         assert self is self.activated_sessions.pop()
 
     @classmethod
-    def stop_trace(cls, outputs):
+    def stop_trace(cls, *outputs) -> 'ONNXTraceSession':
         self = cls.get_active_session()
         self.set_outputs(outputs)
         return self
@@ -61,43 +57,59 @@ class ONNXTraceSession:
     def set_outputs(self, output_list):
         self.outputs = output_list
 
-    def _reversed_travel(self):
+    def _unfold_model_node(self, container: ONNXElementContainer):
+        nodes = container.nodes
+        model_nodes = {node.name: node for node in nodes if hasattr(node, 'model')}
+        onnx_nodes = [nd_ for nd_ in nodes if nd_.name not in model_nodes]
+        for node in model_nodes.values():
+            container.initializers.extend(list(node.model.graph.initializer))
+            onnx_nodes.extend(node.model.graph.node)
+
+        return onnx_nodes
+
+    def _reversed_travel(self, container, nodes):
         op_output_map = {}
-        DynNode = namedtuple('DynNode', ['output'])
-        input_node = DynNode(nm_.name for nm_ in self.inputs)
-        for nd_ in self.container.nodes + [input_node]:
+        DynNode = namedtuple('DynNode', ['name', 'output'])
+        input_node = DynNode(name='placeholder',
+                             output=[nm_.name for nm_ in self.inputs] +
+                             [it_.name for it_ in container.initializers])
+        for nd_ in nodes + [input_node]:
             for ky_ in nd_.output:
                 op_output_map[ky_] = nd_
 
         active_nodes = [op_output_map[o_.name] for o_ in self.outputs]
 
-        visited = {input_node}
+        visited = {input_node.name}
         sorted_nodes = []
         while len(active_nodes) > 0:
             op_node = active_nodes.pop(0)
             if op_node.name in visited:
                 continue
 
+            visited.add(op_node.name)
             sorted_nodes.insert(0, op_node)
             try:
                 active_nodes.extend([op_output_map[o_] for o_ in op_node.input])
             except KeyError as e:
-                raise RuntimeError("cannot find the operator to output {}".format(' '.join(op_node.input)))
-
+                raise RuntimeError("{}: cannot find the operator to output {}".format(
+                                    op_node.name, ' '.join(op_node.input)))
         return sorted_nodes
 
     def build_model(self, model_name=None, doc_string=None) -> onnx.ModelProto:
-        nodes = self._reversed_travel()
         container = self.container
-        for tensor in self.container.initializers:
-            # Initializers are always tensors so we can just call make_tensor_value_info(...)
-            value_info = helper.make_tensor_value_info(tensor.name, tensor.data_type, tensor.dims)
+        nodes = self._unfold_model_node(container)
+        nodes = self._reversed_travel(container, nodes)
+        model_name = 'tcm' if model_name is None else model_name
+        doc_string = '' if doc_string is None else doc_string
 
-        graph = helper.make_graph(nodes, model_name, self.container.inputs,
-                                  self.container.outputs, self.container.initializers)
+        inputs = [helper.make_tensor_value_info(si.name, si.onnx_type,
+                                                si.t.size()) for si in self.inputs]
+        outputs = [helper.make_tensor_value_info(so.name, so.onnx_type,
+                                                 so.t.size()) for so in self.outputs]
 
-        # Add extra information related to the graph
-        graph.value_info.extend(self.container.value_info)
+        graph = helper.make_graph(nodes, model_name, inputs,
+                                  outputs, self.container.initializers)
+
         onnx_model = make_model_ex(graph, container.node_domain_version_pair_sets,
                                    container.target_opset, doc_string=doc_string)
         return onnx_model
@@ -110,60 +122,12 @@ class ONNXTraceSession:
         :param doc_string:
         :return:
         """
+        m = self.build_model(model_name, doc_string)
+
         if _is_path(file_like_or_path):
-            f = open(file_like_or_path, 'wb')
+            with open(file_like_or_path, 'wb') as f:
+                f.write(m.SerializeToString())
         else:
             f = file_like_or_path
-
-        m = self.build_model(model_name, doc_string)
-        f.write(m.SerializeToString())
-
-
-class _GPT2Tokenizer(GPT2Tokenizer):
-    @classmethod
-    def op_type(cls): return GPT2Tokenizer.op_type()
-
-    @classmethod
-    def serialize_attr(cls, kwargs):
-        assert 'model' in kwargs, "Need model parameter to build the tokenizer"
-        hf_gpt2_tokenizer = kwargs['model']
-        attrs = {'vocab': json.dumps(hf_gpt2_tokenizer.encoder, separators=(',', ':'))}
-        sorted_merges = {v_: k_ for k_, v_ in hf_gpt2_tokenizer.bpe_ranks.items()}
-        attrs['merges'] = '\n'.join("{} {}".format(*sorted_merges[n_]) for n_ in range(len(sorted_merges)))
-        return attrs
-
-
-class _VectorToString(VectorToString):
-    @classmethod
-    def op_type(cls): return VectorToString.op_type()
-
-    @classmethod
-    def serialize_attr(cls, kwargs):
-        assert 'decoder' in kwargs, "Need decoder parameter to build the tokenizer"
-        decoder = kwargs['decoder']
-        remapped = {v: [k] for k, v in decoder.items()}
-        attrs = dict(map=remapped, unk='<unknown>')
-        return super().serialize_attr(attrs)
-
-
-customop_mbuilder = {
-    c_.op_type(): c_ for c_ in (
-        _GPT2Tokenizer,
-        _VectorToString
-    )
-}
-
-
-def build_customop_model(op_type, f, opset_version=11, **attrs):
-    op_class = SingleOpGraph.get_op_class(op_type)
-    if op_type in customop_mbuilder:
-        op_class = customop_mbuilder[op_type]
-
-    graph = SingleOpGraph.build_my_graph(op_class, **attrs)
-    m = make_model_ex(graph, [(default_opset_domain(), 1)], opset_version)
-    if _is_path(f):
-        with open(f, 'wb') as f_:
-            f_.write(m.SerializeToString())
-    else:
-        f.write(m.SerializeToString())
-        f.flush()
+            f.write(m.SerializeToString())
+            f.flush()

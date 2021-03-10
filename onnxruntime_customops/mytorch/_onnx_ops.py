@@ -507,8 +507,11 @@ class _ONNXOperatorAPI:
         return output_name
 
     def constant_of_shape(self, input_names, output_name, container, operator_name=None, value=None):
+        attrs = {}
+        if value is not None:
+            attrs['value'] = value
         name = _create_name_or_use_existing_one(container, 'ConstantOfShape', operator_name)
-        container.add_node('ConstantOfShape', input_names, output_name, name=name, op_version=9, value=value)
+        container.add_node('ConstantOfShape', input_names, output_name, name=name, op_version=9, **attrs)
         return output_name
 
     def conv(self, input_names, output_name, container, operator_name=None, **attrs):
@@ -567,8 +570,9 @@ class _ONNXOperatorAPI:
         return output_name
 
     def cumsum(self, input_names, output_names, container, operator_name=None):
-        container.add_node('CumSum', input_names, output_names, op_version=11)
-
+        name = _create_name_or_use_existing_one(container, 'cumsum', operator_name)
+        container.add_node('CumSum', input_names, output_names, op_version=11, name=name)
+        return output_names
 
     def div(self, input_names, output_name, container, operator_name=None, axis=None, broadcast=None):
         self._apply_basic_numerical_operation('Div', input_names, output_name,
@@ -814,11 +818,10 @@ class _ONNXOperatorAPI:
         self._apply_unary_operation('Not', input_name, output_name, container, operator_name)
         return output_name
 
-    def or_op(self, input_names, output_name, container, operator_name=None, axis=None, broadcast=None):
-        self._apply_basic_numerical_operation(self, 'Or', input_names, output_name,
-                                              container, operator_name=operator_name,
-                                              axis=axis, broadcast=broadcast)
-        return output_name
+    def or_op(self, input_names, output_names, container, operator_name=None):
+        name = _create_name_or_use_existing_one(container, 'or', operator_name)
+        container.add_node('Or', input_names, output_names, op_version=7, name=name)
+        return output_names
  
     def pad(self, input_name, output_name, container, operator_name=None, mode=None, pads=None, value=None,
                   onnx_type=onnx_proto.TensorProto.FLOAT):
@@ -1392,8 +1395,18 @@ class _ONNXOperatorAPI:
         self._apply_squeeze_unsqueeze(input_name, output_name, container, 'Unsqueeze', operator_name, axes, rank)
         return output_name
 
+    def where(self, input_names, output_names, container, operator_name=None):
+        name = _create_name_or_use_existing_one(container, 'Where', operator_name)
+        container.add_node('Where', input_names, output_names, op_version=9, name=name)
+        return output_names
+
     def model_call(self, input_name, output_name, container, operator_name=None, oxml=None):
-        container.add_model_node(input_name, output_name, name=operator_name, model=oxml)
+        name = _create_name_or_use_existing_one(container, 'mc', operator_name)
+        for idx, name in enumerate(input_name):
+            if name != oxml.graph.input[idx].name:
+                self.identity([name], [oxml.graph.input[idx].name], container)
+        container.add_model_node(input_name, output_name, name=name, model=oxml)
+        return output_name
 
 
 class _ONNXModelBuilder(_ONNXOperatorAPI):

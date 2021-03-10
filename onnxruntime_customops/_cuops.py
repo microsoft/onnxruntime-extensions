@@ -6,7 +6,10 @@ from ._ocos import default_opset_domain, get_library_path  # noqa
 class CustomOp:
     @classmethod
     def op_type(cls):
-        return cls.__name__
+        rcls = cls
+        while CustomOp != rcls.__base__:
+            rcls = rcls.__base__
+        return rcls.__name__
 
     @classmethod
     def get_inputs(cls): return None

@@ -69,8 +69,5 @@ class EagerOp:
         return feed
 
     def __call__(self, *args, **kwargs):
-        try:
-            self._ensure_ort_session()
-            return self.ort_session.run(None, self._argument_map(*args, **kwargs))
-        except Exception as e:
-            print(e)
+        self._ensure_ort_session()
+        return self.ort_session.run(None, self._argument_map(*args, **kwargs))
