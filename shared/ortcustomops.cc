@@ -38,6 +38,7 @@ CustomOpBertTokenizer c_CustomOpBertTokenizer;
 #ifdef ENABLE_TF_STRING
 CustomOpNegPos c_CustomOpNegPos;
 CustomOpSegmentSum c_CustomOpSegmentSum;
+CustomOpRaggedTensorToDense c_CustomOpRaggedTensorToDense;
 CustomOpRaggedTensorToSparse c_CustomOpRaggedTensorToSparse;
 CustomOpStringEqual c_CustomOpStringEqual;
 CustomOpStringHash c_CustomOpStringHash;
@@ -64,6 +65,7 @@ OrtCustomOp* operator_lists[] = {
 
 #ifdef ENABLE_TF_STRING
     &c_CustomOpNegPos,
+    &c_CustomOpRaggedTensorToDense,
     &c_CustomOpRaggedTensorToSparse,
     &c_CustomOpSegmentSum,
     &c_CustomOpStringEqual,

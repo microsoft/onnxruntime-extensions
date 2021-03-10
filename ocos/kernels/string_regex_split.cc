@@ -22,24 +22,22 @@ void KernelStringRegexSplitWithOffsets::Compute(OrtKernelContext* context) {
   GetTensorMutableDataString(api_, ort_, context, keep_pattern, str_keep_pattern);
 
   // Verifications
-  OrtTensorDimensions pattern_dimensions(ort_, pattern);
   OrtTensorDimensions keep_pattern_dimensions(ort_, keep_pattern);
-  if (pattern_dimensions.size() != 1 || pattern_dimensions[0] != 1)
+  if (str_pattern.size() != 1)
     throw std::runtime_error(MakeString(
         "pattern (second input) must contain only one element. It has ",
-        pattern_dimensions.size(), " dimensions."));
-  int64_t keep_size = keep_pattern_dimensions.Size();
-  if (keep_size > 1)
+        str_pattern.size(), " values."));
+  if (str_keep_pattern.size() > 1)
     throw std::runtime_error(MakeString(
         "Third input must contain only one element. It has ",
-        keep_pattern_dimensions.size(), " dimensions."));
+        str_keep_pattern.size(), " values."));
   if (str_pattern[0].empty()) {
     throw std::runtime_error("Splitting pattern cannot be empty.");
   }
 
   OrtTensorDimensions dimensions(ort_, input);
   re2::RE2 reg(str_pattern[0]);
-  bool include_delimiter = (keep_size == 1) && (!str_keep_pattern[0].empty());
+  bool include_delimiter = (str_keep_pattern.size() == 1) && (!str_keep_pattern[0].empty());
   re2::RE2 keep_reg(include_delimiter ? str_keep_pattern[0] : "");
   std::vector<std::string> all_tokens;
   std::vector<int64_t> all_indices;
