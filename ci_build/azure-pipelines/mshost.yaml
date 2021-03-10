@@ -9,10 +9,10 @@ jobs:
   
   strategy:
     matrix:
-      py38-171:
+      py38-170:
         python.version: '3.8'
-        ort.version: '1.7.1'
-        ortlib.version: '39249313'
+        ort.version: '1.7.0'
+        ortlib.version: '38443267'
       py38-160:
         python.version: '3.8'
         ort.version: '1.6.0'
@@ -81,10 +81,10 @@ jobs:
 
   strategy:
     matrix:
-      py38-171:
+      py38-170:
         python.version: '3.8'
-        ort.version: '1.7.1'
-        ortlib.version: '39249313'
+        ort.version: '1.7.0'
+        ortlib.version: '38443267'
       py38-160:
         python.version: '3.8'
         ort.version: '1.6.0'
@@ -161,10 +161,10 @@ jobs:
 
   strategy:
     matrix:
-      py38-171:
+      py38-170:
         python.version: '3.8'
-        ort.version: '1.7.1'
-        ortlib.version: '39249313'
+        ort.version: '1.7.0'
+        ortlib.version: '38443267'
       py38-160:
         python.version: '3.8'
         ort.version: '1.6.0'
