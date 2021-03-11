@@ -9,6 +9,7 @@ import onnxruntime as _ort
 from onnx import load
 from torch.onnx import register_custom_op_symbolic
 from onnxruntime_customops import (
+    PyOp,
     onnx_op,
     hook_model_op,
     get_library_path as _get_library_path)
@@ -78,7 +79,8 @@ class TestPyTorchCustomOp(unittest.TestCase):
             torch.onnx.export(model, (x, ), f)
             model = onnx.load_model_from_string(f.getvalue())
 
-            hkd_model = hook_model_op(model, model.graph.node[5].name, TestPyTorchCustomOp.on_hook)
+            self.assertTrue(model.graph.node[5].op_type == 'Conv')
+            hkd_model = hook_model_op(model, model.graph.node[5].name, TestPyTorchCustomOp.on_hook, [PyOp.dt_float] * 3)
 
             so = _ort.SessionOptions()
             so.register_custom_ops_library(_get_library_path())

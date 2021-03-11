@@ -12,11 +12,11 @@ class EagerOp:
 
     @classmethod
     def get_ort_session_options(cls):
-        if not hasattr(cls, '_ort_session_options') or cls._ort_session_options is None:
-            so = _ort.SessionOptions()
-            so.register_custom_ops_library(get_library_path())
-            cls._ort_session_options = so
-        return cls._ort_session_options
+        # ONNXRuntime has a bug support reusing the SessionOptions object.
+        # Create a new one every time here
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(get_library_path())
+        return so
 
     def __init__(self):
         self._onnx_model = None

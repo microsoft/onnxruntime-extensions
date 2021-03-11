@@ -1,6 +1,6 @@
 OSNAME=$(uname -s)
 mkdir -p out/$OSNAME
-cd out/$OSNAME
+cd out/$OSNAME || exit 103
 
 cmake "$@" ../.. && cmake --build . --config RelWithDebInfo --parallel
 build_error=$?
