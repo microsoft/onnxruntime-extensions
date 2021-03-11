@@ -22,28 +22,29 @@ void KernelStringRegexSplitWithOffsets::Compute(OrtKernelContext* context) {
   GetTensorMutableDataString(api_, ort_, context, keep_pattern, str_keep_pattern);
 
   // Verifications
-  OrtTensorDimensions pattern_dimensions(ort_, pattern);
   OrtTensorDimensions keep_pattern_dimensions(ort_, keep_pattern);
-  if (pattern_dimensions.size() != 1 || pattern_dimensions[0] != 1)
+  if (str_pattern.size() != 1)
     throw std::runtime_error(MakeString(
         "pattern (second input) must contain only one element. It has ",
-        pattern_dimensions.size(), " dimensions."));
-  if (keep_pattern_dimensions.size() != 1 || keep_pattern_dimensions[0] != 1)
+        str_pattern.size(), " values."));
+  if (str_keep_pattern.size() > 1)
     throw std::runtime_error(MakeString(
         "Third input must contain only one element. It has ",
-        keep_pattern_dimensions.size(), " dimensions."));
+        str_keep_pattern.size(), " values."));
   if (str_pattern[0].empty()) {
     throw std::runtime_error("Splitting pattern cannot be empty.");
   }
 
   OrtTensorDimensions dimensions(ort_, input);
   re2::RE2 reg(str_pattern[0]);
-  bool include_delimiter = !str_keep_pattern[0].empty();
-  re2::RE2 keep_reg(str_keep_pattern[0]);
+  bool include_delimiter = (str_keep_pattern.size() == 1) && (!str_keep_pattern[0].empty());
+  re2::RE2 keep_reg(include_delimiter ? str_keep_pattern[0] : "");
   std::vector<std::string> all_tokens;
-  std::vector<int64_t> all_indices;
+  std::vector<int64_t> all_begin_offsets, all_end_offsets;
+  std::vector<int64_t> row_offsets;
 
   for (int64_t i = 0; i < dimensions[0]; i++) {
+    row_offsets.push_back(all_begin_offsets.size());
     std::vector<std::string_view> tokens;
     std::vector<int64_t> begin_offsets;
     std::vector<int64_t> end_offsets;
@@ -52,21 +53,29 @@ void KernelStringRegexSplitWithOffsets::Compute(OrtKernelContext* context) {
                    tokens, begin_offsets, end_offsets);
     all_tokens.insert(all_tokens.end(), tokens.begin(), tokens.end());
     for (size_t j = 0; j < begin_offsets.size(); ++j) {
-      all_indices.push_back(i);
-      all_indices.push_back(begin_offsets[j]);
-      all_indices.push_back(end_offsets[j]);
+      all_begin_offsets.push_back(begin_offsets[j]);
+      all_end_offsets.push_back(end_offsets[j]);
     }
   }
+  row_offsets.push_back(all_begin_offsets.size());
 
   // Setup output
-  std::vector<int64_t> dim_out_text{(int64_t)all_tokens.size()};
-  OrtValue* output_text = ort_.KernelContext_GetOutput(context, 0, dim_out_text.data(), dim_out_text.size());
+  std::vector<int64_t> dim_out{(int64_t)all_tokens.size()};
+  OrtValue* output_text = ort_.KernelContext_GetOutput(context, 0, dim_out.data(), dim_out.size());
   FillTensorDataString(api_, ort_, context, all_tokens, output_text);
 
-  std::vector<int64_t> dim_out_indices{(int64_t)all_indices.size() / 3, 3};
-  OrtValue* output_indices = ort_.KernelContext_GetOutput(context, 1, dim_out_indices.data(), dim_out_indices.size());
-  int64_t* p_output_indices = ort_.GetTensorMutableData<int64_t>(output_indices);
-  memcpy(p_output_indices, all_indices.data(), all_indices.size() * sizeof(int64_t));
+  OrtValue* output = ort_.KernelContext_GetOutput(context, 1, dim_out.data(), dim_out.size());
+  int64_t* p_output = ort_.GetTensorMutableData<int64_t>(output);
+  memcpy(p_output, all_begin_offsets.data(), all_begin_offsets.size() * sizeof(int64_t));
+
+  output = ort_.KernelContext_GetOutput(context, 2, dim_out.data(), dim_out.size());
+  p_output = ort_.GetTensorMutableData<int64_t>(output);
+  memcpy(p_output, all_end_offsets.data(), all_end_offsets.size() * sizeof(int64_t));
+
+  std::vector<int64_t> dim_out_row{(int64_t)row_offsets.size()};
+  output = ort_.KernelContext_GetOutput(context, 3, dim_out_row.data(), dim_out_row.size());
+  p_output = ort_.GetTensorMutableData<int64_t>(output);
+  memcpy(p_output, row_offsets.data(), row_offsets.size() * sizeof(int64_t));
 }
 
 void* CustomOpStringRegexSplitWithOffsets::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
@@ -84,7 +93,7 @@ ONNXTensorElementDataType CustomOpStringRegexSplitWithOffsets::GetInputType(size
 };
 
 size_t CustomOpStringRegexSplitWithOffsets::GetOutputTypeCount() const {
-  return 2;
+  return 4;
 };
 
 ONNXTensorElementDataType CustomOpStringRegexSplitWithOffsets::GetOutputType(size_t index) const {
@@ -92,8 +101,11 @@ ONNXTensorElementDataType CustomOpStringRegexSplitWithOffsets::GetOutputType(siz
     case 0:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
     case 1:
+    case 2:
+    case 3:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
     default:
-      throw std::runtime_error("StringRegexSplitWithOffsets has 2 outputs.");
+      throw std::runtime_error(MakeString(
+          "StringRegexSplitWithOffsets has 4 outputs but index is ", index, "."));
   }
 };

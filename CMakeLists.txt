@@ -18,6 +18,7 @@ option(OCOS_ENABLE_PYTHON "Enable Python component building" OFF)
 option(OCOS_ENABLE_TF_STRING "Enable String Operator Set" ON)
 option(OCOS_ENABLE_GPT2_TOKENIZER "Enable the GPT2 tokenizer building" ON)
 option(OCOS_ENABLE_SPM_TOKENIZER "Enable the SentencePiece tokenizer building" ON)
+option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
 
 find_library(ONNXRUNTIME onnxruntime HINTS "${ONNXRUNTIME_LIB_DIR}")
 if ((NOT OCOS_ENABLE_PYTHON) AND (NOT ONNXRUNTIME))
@@ -76,6 +77,7 @@ if (OCOS_ENABLE_GPT2_TOKENIZER)
   file(GLOB tok_TARGET_SRC "tokenizer/gpt*.cc" "tokenizer/unicode*.*")
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
 endif()
+
 if (OCOS_ENABLE_SPM_TOKENIZER)
   # SentencePiece
   set(SPM_ENABLE_TCMALLOC OFF CACHE INTERNAL "")
@@ -87,6 +89,11 @@ if (OCOS_ENABLE_SPM_TOKENIZER)
   list(APPEND TARGET_SRC ${stpiece_TARGET_SRC})
 endif()
 
+if (OCOS_ENABLE_BERT_TOKENIZER)
+  # Bert
+  file(GLOB bert_TARGET_SRC "tokenizer/wordpiece*.*")
+  list(APPEND TARGET_SRC ${bert_TARGET_SRC})
+endif()
 
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
@@ -129,6 +136,10 @@ if (OCOS_ENABLE_TF_STRING)
   target_compile_definitions(ortcustomops_static PRIVATE
       NOMINMAX
       FARMHASH_NO_BUILTIN_EXPECT)
+endif()
+
+if (OCOS_ENABLE_BERT_TOKENIZER)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_BERT_TOKENIZER)
 endif()
 
 target_compile_definitions(ortcustomops_static PRIVATE ${OCOS_COMPILE_DEFINITIONS})

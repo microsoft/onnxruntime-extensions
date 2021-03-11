@@ -23,19 +23,29 @@
 #include "sentencepiece_tokenizer.hpp"
 #endif
 
+#ifdef ENABLE_BERT_TOKENIZER
+#include "wordpiece_tokenizer.hpp"
+#endif
+
 #ifdef ENABLE_SPM_TOKENIZER
 CustomOpSentencepieceTokenizer c_CustomOpSentencepieceTokenizer;
+#endif
+
+#ifdef ENABLE_BERT_TOKENIZER
+CustomOpWordpieceTokenizer c_CustomOpWordpieceTokenizer;
 #endif
 
 #ifdef ENABLE_TF_STRING
 CustomOpNegPos c_CustomOpNegPos;
 CustomOpSegmentSum c_CustomOpSegmentSum;
+CustomOpRaggedTensorToDense c_CustomOpRaggedTensorToDense;
 CustomOpRaggedTensorToSparse c_CustomOpRaggedTensorToSparse;
 CustomOpStringEqual c_CustomOpStringEqual;
 CustomOpStringHash c_CustomOpStringHash;
 CustomOpStringHashFast c_CustomOpStringHashFast;
 CustomOpStringJoin c_CustomOpStringJoin;
 CustomOpStringLower c_CustomOpStringLower;
+CustomOpStringRaggedTensorToDense c_CustomOpStringRaggedTensorToDense;
 CustomOpStringRegexReplace c_CustomOpStringRegexReplace;
 CustomOpStringRegexSplitWithOffsets c_CustomOpStringRegexSplitWithOffsets;
 CustomOpStringSplit c_CustomOpStringSplit;
@@ -50,8 +60,13 @@ OrtCustomOp* operator_lists[] = {
     &c_CustomOpSentencepieceTokenizer,
 #endif
 
+#ifdef ENABLE_BERT_TOKENIZER
+    &c_CustomOpWordpieceTokenizer,
+#endif
+
 #ifdef ENABLE_TF_STRING
     &c_CustomOpNegPos,
+    &c_CustomOpRaggedTensorToDense,
     &c_CustomOpRaggedTensorToSparse,
     &c_CustomOpSegmentSum,
     &c_CustomOpStringEqual,
@@ -59,6 +74,7 @@ OrtCustomOp* operator_lists[] = {
     &c_CustomOpStringHashFast,
     &c_CustomOpStringJoin,
     &c_CustomOpStringLower,
+    &c_CustomOpStringRaggedTensorToDense,
     &c_CustomOpStringRegexReplace,
     &c_CustomOpStringRegexSplitWithOffsets,
     &c_CustomOpStringSplit,

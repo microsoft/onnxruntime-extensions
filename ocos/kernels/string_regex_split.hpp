@@ -10,9 +10,6 @@
 struct KernelStringRegexSplitWithOffsets : BaseKernel {
   KernelStringRegexSplitWithOffsets(OrtApi api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
-
- protected:
-  int64_t global_SplitWithOffsets_;
 };
 
 struct CustomOpStringRegexSplitWithOffsets : Ort::CustomOpBase<CustomOpStringRegexSplitWithOffsets, KernelStringRegexSplitWithOffsets> {
