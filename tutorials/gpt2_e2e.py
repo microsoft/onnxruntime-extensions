@@ -2,6 +2,7 @@ import os
 import numpy
 from transformers import AutoConfig
 from onnxruntime_customops import mytorch as torch
+from onnxruntime_customops.utils import trace_for_onnx, op_from_model, build_customop_model
 
 
 device = 'cpu'
@@ -30,8 +31,8 @@ def convert_models():
     cache_dir = get_cache_directory()
 
     tokenizer = GPT2Tokenizer.from_pretrained(model_name_or_path, cache_dir=cache_dir)
-    torch.build_customop_model('GPT2Tokenizer', gpt2_encoder_model_path, model=tokenizer)
-    torch.build_customop_model('VectorToString', gpt2_decoder_model_path, decoder=tokenizer.decoder)
+    build_customop_model('GPT2Tokenizer', gpt2_encoder_model_path, model=tokenizer)
+    build_customop_model('VectorToString', gpt2_decoder_model_path, decoder=tokenizer.decoder)
 
     config = AutoConfig.from_pretrained(model_name_or_path, cache_dir=cache_dir)
     # remove the dependency from onnxruntime-tools.
@@ -41,64 +42,62 @@ def convert_models():
 
 def inference_and_dump_full_model(inputs):
     config = AutoConfig.from_pretrained(model_name_or_path, cache_dir=get_cache_directory())
-    core_model = torch.op_from_model(gpt2_core_model_path)
-    gpt2_tokenizer = torch.op_from_model(gpt2_encoder_model_path)
+    core_model = op_from_model(gpt2_core_model_path)
+    gpt2_tokenizer = op_from_model(gpt2_encoder_model_path)
 
-    inputs = torch.start_trace(inputs, names=gpt2_tokenizer.input_names)
+    with trace_for_onnx(inputs, names=gpt2_tokenizer.input_names) as tc_sess:
 
-    num_attention_heads = config.n_head
-    hidden_size = config.n_embd
-    num_layer = config.n_layer
-    eos_token_id = config.eos_token_id
+        num_attention_heads = config.n_head
+        hidden_size = config.n_embd
+        num_layer = config.n_layer
+        eos_token_id = config.eos_token_id
 
-    input_ids, attention_mask = gpt2_tokenizer(*inputs, padding=True, padding_side='left')
+        input_ids, attention_mask = gpt2_tokenizer(*tc_sess.get_inputs(), padding=True, padding_side='left')
 
-    position_ids = (attention_mask.long().cumsum(-1) - 1)
-    # position_ids.masked_fill_(position_ids < 0, 0)
+        position_ids = (attention_mask.long().cumsum(-1) - 1)
+        # position_ids.masked_fill_(position_ids < 0, 0)
 
-    # Empty Past State for generating first word
-    batch_size = input_ids.size()[0]
-    past_shape = [2, batch_size, num_attention_heads, 0, hidden_size // num_attention_heads]
-    empty_past = [torch.empty(*past_shape).type(torch.float32).to(device)] * num_layer
+        # Empty Past State for generating first word
+        batch_size = input_ids.size()[0]
+        past_shape = [2, batch_size, num_attention_heads, 0, hidden_size // num_attention_heads]
+        empty_past = [torch.empty(*past_shape).type(torch.float32).to(device)] * num_layer
 
-    has_eos = torch.zeros(batch_size, dtype=torch.bool)
+        has_eos = torch.zeros(batch_size, dtype=torch.bool)
 
-    all_token_ids = input_ids.clone()
-    all_eos = torch.tensor(False, dtype=torch.bool)
-    past = empty_past
-    for step in torch.onnx_loop(num_tokens_to_produce, all_eos, past):
-        outputs = core_model(input_ids, position_ids, attention_mask, *past)
+        all_token_ids = input_ids.clone()
+        all_eos = torch.tensor(False, dtype=torch.bool)
+        past = empty_past
+        for step in torch.onnx_loop(num_tokens_to_produce, all_eos, past):
+            outputs = core_model(input_ids, position_ids, attention_mask, *past)
 
-        next_token_logits = outputs[0][:, -1, :]
-        next_tokens = torch.argmax(next_token_logits, dim=-1)
+            next_token_logits = outputs[0][:, -1, :]
+            next_tokens = torch.argmax(next_token_logits, dim=-1)
 
-        has_eos = has_eos | (next_tokens == eos_token_id)
-        tokens_to_add = next_tokens.masked_fill(has_eos, eos_token_id)
-        all_token_ids = torch.cat([all_token_ids, tokens_to_add.unsqueeze(-1)], dim=-1)
+            has_eos = has_eos | (next_tokens == eos_token_id)
+            tokens_to_add = next_tokens.masked_fill(has_eos, eos_token_id)
+            all_token_ids = torch.cat([all_token_ids, tokens_to_add.unsqueeze(-1)], dim=-1)
 
-        # FIXME: not support the loop yet.
-        break
+            # FIXME: not support the loop yet.
+            break
 
-        # Update input_ids, attention_mask, position_ids and past
-        input_ids = tokens_to_add.clone().detach().reshape([batch_size, 1]).to(device)
-        position_ids = (position_ids[:, -1] + 1).reshape(batch_size, 1)
-        attention_mask = torch.cat([attention_mask, torch.ones([batch_size, 1]).type_as(attention_mask)], 1).to(device)
+            # Update input_ids, attention_mask, position_ids and past
+            input_ids = tokens_to_add.clone().detach().reshape([batch_size, 1]).to(device)
+            position_ids = (position_ids[:, -1] + 1).reshape(batch_size, 1)
+            attention_mask = torch.cat([attention_mask, torch.ones([batch_size, 1]).type_as(attention_mask)], 1).to(device)
 
-        past = []
-        for i in range(num_layer):
-            past_i = torch.from_numpy(outputs[i + 1]) if \
-                isinstance(outputs[i + 1], numpy.ndarray) else outputs[i + 1].clone().detach()
-            past.append(past_i.to(device))
+            past = []
+            for i in range(num_layer):
+                past_i = torch.from_numpy(outputs[i + 1]) if \
+                    isinstance(outputs[i + 1], numpy.ndarray) else outputs[i + 1].clone().detach()
+                past.append(past_i.to(device))
 
-        all_eos = torch.all(has_eos)
+            all_eos = torch.all(has_eos)
 
-    gpt2_decoder = torch.op_from_model(gpt2_decoder_model_path)
-    output_text = gpt2_decoder(all_token_ids.squeeze(0))
+        gpt2_decoder = torch.op_from_model(gpt2_decoder_model_path)
+        output_text = gpt2_decoder(all_token_ids.squeeze(0))
 
-    # stop the trace session and build the all-in-one model.
-    with torch.stop_trace(output_text) as tc_sess:
-        tc_sess.save_as_onnx(gpt2_full_model_path)
-    return output_text
+        tc_sess.save_as_onnx(gpt2_full_model_path, output_text)
+        return output_text
 
 
 # 1. Check if the gpt2 models is already exported, otherwise, they are converted.

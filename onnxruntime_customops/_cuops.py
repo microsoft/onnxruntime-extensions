@@ -1,3 +1,8 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+###############################################################################
+
 import onnx
 from onnx import onnx_pb as onnx_proto
 from ._ocos import default_opset_domain, get_library_path  # noqa

@@ -2,7 +2,7 @@ import onnx
 import torch
 import warnings
 import numpy as np
-from onnx import helper, onnx_pb as onnx_proto
+from onnx import helper
 from collections import namedtuple
 from ._tensor import tensor_from_onnx, tensor_from_torch, tensor_set_session
 from ._onnx_ops import ONNXElementContainer, make_model_ex
@@ -17,8 +17,24 @@ class ONNXTraceSession:
         self.inputs = []
         self.outputs = []
 
+    def __enter__(self):
+        assert len(self.activated_sessions) > 0 and self.activated_sessions[-1] is self, "trace not started?"
+        return self
+
+    # need this exit to close the session
+    def __exit__(self, exec_type, exec_value, exec_tb):
+        tensor_set_session(None)
+        assert self is self.activated_sessions.pop()
+
     @classmethod
-    def start_trace(cls, *inputs, names=None, target_opset=11):
+    def trace_for_onnx(cls, *inputs, names=None, target_opset=11) -> 'ONNXTraceSession':
+        """
+        Starting the trace all tensor computation for ONNX graph generation.
+        :param inputs: the input tensor, could a torch.Tensor or a numpy ndarray.
+        :param names: The input names the ONNX graph
+        :param target_opset: The ONNX model opset_version
+        :return: A tracing session object, in most case, it should be used in the with statement.
+        """
         self = ONNXTraceSession(target_opset)
         self.activated_sessions.append(self)
         tensor_set_session(self)
@@ -33,31 +49,13 @@ class ONNXTraceSession:
             for idx_ in range(num):
                 itensors[idx_].name = names[idx_]
         self.inputs = itensors
-        return itensors
-
-    def __enter__(self):
-        assert len(self.activated_sessions) > 0 and self.activated_sessions[-1] is self, "trace not started?"
         return self
 
-    # need this exit to close the session
-    def __exit__(self, exec_type, exec_value, exec_tb):
-        tensor_set_session(None)
-        assert self is self.activated_sessions.pop()
+    def get_inputs(self):
+        return self.inputs
 
-    @classmethod
-    def stop_trace(cls, *outputs) -> 'ONNXTraceSession':
-        self = cls.get_active_session()
-        self.set_outputs(outputs)
-        return self
-
-    @classmethod
-    def get_active_session(cls):
-        return cls.activated_sessions[0] if cls.activated_sessions else None
-
-    def set_outputs(self, output_list):
-        self.outputs = output_list
-
-    def _unfold_model_node(self, container: ONNXElementContainer):
+    @staticmethod
+    def _unfold_model_node(container: ONNXElementContainer):
         nodes = container.nodes
         model_nodes = {node.name: node for node in nodes if hasattr(node, 'model')}
         onnx_nodes = [nd_ for nd_ in nodes if nd_.name not in model_nodes]
@@ -114,14 +112,22 @@ class ONNXTraceSession:
                                    container.target_opset, doc_string=doc_string)
         return onnx_model
 
-    def save_as_onnx(self, file_like_or_path, model_name=None, doc_string=None):
+    def save_as_onnx(self, file_like_or_path, outputs, model_name=None, doc_string=None):
         """
         Build the ONNX model from the traced computation graph.
-        :param file_like_or_path:
-        :param model_name:
-        :param doc_string:
-        :return:
+        :param file_like_or_path: an io.BytesIO like object or a file path
+        :param outputs: the output tensor to be specified as the ONNX graph output,
+            Could be a string if there are multiple output tensors.
+        :param model_name: The ONNX model internal name
+        :param doc_string: The doc string for the model
+        :return: A ONNX ModelProto object.
         """
+        if len(self.outputs) == 0 and outputs is None:
+            raise RuntimeError("No output of the graph specified.")
+
+        if len(self.outputs) == 0:
+            self.outputs = outputs if isinstance(outputs, (list, tuple)) else [outputs]
+
         m = self.build_model(model_name, doc_string)
 
         if _is_path(file_like_or_path):
@@ -131,3 +137,5 @@ class ONNXTraceSession:
             f = file_like_or_path
             f.write(m.SerializeToString())
             f.flush()
+
+        return m

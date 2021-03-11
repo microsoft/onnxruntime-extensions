@@ -33,9 +33,11 @@ from torch import (float32,
                    qint32,
                    bool)  # noqa
 
+from torch import randn, onnx  # noqa
+
+
 from ._tensor import *  # noqa
 from ._builder import build_customop_model
 from ._session import ONNXTraceSession
 
-start_trace = ONNXTraceSession.start_trace
-stop_trace = ONNXTraceSession.stop_trace
+trace_for_onnx = ONNXTraceSession.trace_for_onnx
