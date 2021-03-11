@@ -22,6 +22,18 @@ inline void MakeStringInternal(std::ostringstream& ss, const std::vector<int64_t
   ss << "]";
 }
 
+template <>
+inline void MakeStringInternal(std::ostringstream& ss, const std::vector<std::string>& t) noexcept {
+  ss << "[";
+  for (int i = 0; i < t.size(); i++) {
+    if (i != 0) {
+      ss << ", ";
+    }
+    ss << t[i];
+  }
+  ss << "]";
+}
+
 template <typename T, typename... Args>
 void MakeStringInternal(std::ostringstream& ss, const T& t, const Args&... args) noexcept {
   MakeStringInternal(ss, t);

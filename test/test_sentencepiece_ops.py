@@ -177,6 +177,63 @@ def _create_test_model_ragged_to_sparse(
     return model
 
 
+def _create_test_model_ragged_to_dense(
+        prefix, model_b64, domain='ai.onnx.contrib'):
+    nodes = []
+    mkv = helper.make_tensor_value_info
+    nodes.append(helper.make_node(
+        '%sSentencepieceTokenizer' % prefix,
+        inputs=[
+            'inputs',  # inputs
+            'nbest_size',
+            'alpha',
+            'add_bos',
+            'add_eos',
+            'reverse',
+        ],
+        outputs=['tokout0', 'tokout1'],
+        model=model_b64,
+        name='SentencepieceTokenizeOpName',
+        domain='ai.onnx.contrib',
+    ))
+    inputs = [
+        mkv('inputs', onnx_proto.TensorProto.STRING, [None]),
+        mkv('nbest_size', onnx_proto.TensorProto.INT64, [None]),
+        mkv('alpha', onnx_proto.TensorProto.FLOAT, [None]),
+        mkv('add_bos', onnx_proto.TensorProto.BOOL, [None]),
+        mkv('add_eos', onnx_proto.TensorProto.BOOL, [None]),
+        mkv('reverse', onnx_proto.TensorProto.BOOL, [None])
+    ]
+
+    nodes.append(helper.make_node(
+        'Shape', inputs=['tokout1'], outputs=['n_els']))
+    nodes.append(helper.make_node(
+        'Cast', inputs=['tokout0'], outputs=['tokout064'], to=onnx_proto.TensorProto.INT64))
+
+    default_value = helper.make_tensor("default_value", onnx_proto.TensorProto.INT64, [1, ], [-1])
+    unused = helper.make_tensor("unused", onnx_proto.TensorProto.INT64, [0, ], [])
+
+    nodes.append(helper.make_node(
+        '%sRaggedTensorToDense' % prefix,
+        inputs=['unused', 'tokout064', 'default_value', 'tokout1'],
+        outputs=['out0'],
+        name='RaggedTensorToDense',
+        domain='ai.onnx.contrib',
+    ))
+
+    nodes.append(helper.make_node(
+        'Identity', inputs=['tokout0'], outputs=['out1']))
+
+    graph = helper.make_graph(
+        nodes, 'test0', inputs, [
+            mkv('out0', onnx_proto.TensorProto.INT64, [None]),
+            mkv('out1', onnx_proto.TensorProto.INT32, [None]),
+        ], [default_value, unused])
+    model = helper.make_model(
+        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    return model
+
+
 class TestPythonOpSentencePiece(unittest.TestCase):
 
     @classmethod
@@ -276,6 +333,30 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         assert_almost_equal(exp[0], txout[0])
         assert_almost_equal(exp[1], txout[1])
         assert_almost_equal(exp[2], txout[2])
+
+    def test_string_ragged_string_to_dense_cc(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        model, model_b64 = load_piece('model__6')
+        onnx_model = _create_test_model_ragged_to_dense('', model_b64)
+        self.assertIn('op_type: "RaggedTensorToDense"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+
+        inputs = dict(
+            model=model,
+            inputs=np.array(
+                ["Hello world", "Hello world louder"], dtype=np.object),
+            nbest_size=np.array([0], dtype=np.int64),
+            alpha=np.array([0], dtype=np.float32),
+            add_bos=np.array([0], dtype=np.bool_),
+            add_eos=np.array([0], dtype=np.bool_),
+            reverse=np.array([0], dtype=np.bool_))
+        del inputs['model']
+        txout = sess.run(None, inputs)
+        assert_almost_equal(
+            txout[0], np.array([[17486, 1017, -1, -1], [17486, 1017, 155, 21869]], dtype=np.int64))
+        assert_almost_equal(
+            txout[1], np.array([17486, 1017, 17486, 1017, 155, 21869], dtype=np.int32))
 
     def test_string_sentencepiece_tokenizer(self):
         so = _ort.SessionOptions()
