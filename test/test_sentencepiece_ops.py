@@ -207,10 +207,15 @@ def _create_test_model_ragged_to_dense(
 
     nodes.append(helper.make_node(
         'Shape', inputs=['tokout1'], outputs=['n_els']))
+    nodes.append(helper.make_node(
+        'Cast', inputs=['tokout0'], outputs=['tokout064'], to=onnx_proto.TensorProto.INT64))
+
+    default_value = helper.make_tensor("default_value", onnx_proto.TensorProto.INT64, [1, ], [-1])
+    unused = helper.make_tensor("unused", onnx_proto.TensorProto.INT64, [0, ], [])
 
     nodes.append(helper.make_node(
         '%sRaggedTensorToDense' % prefix,
-        inputs=['tokout0', 'tokout1'],
+        inputs=['unused', 'tokout064', 'default_value', 'tokout1'],
         outputs=['out0'],
         name='RaggedTensorToDense',
         domain='ai.onnx.contrib',
@@ -221,9 +226,9 @@ def _create_test_model_ragged_to_dense(
 
     graph = helper.make_graph(
         nodes, 'test0', inputs, [
-            mkv('out0', onnx_proto.TensorProto.INT32, [None]),
+            mkv('out0', onnx_proto.TensorProto.INT64, [None]),
             mkv('out1', onnx_proto.TensorProto.INT32, [None]),
-        ])
+        ], [default_value, unused])
     model = helper.make_model(
         graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
     return model
@@ -348,8 +353,10 @@ class TestPythonOpSentencePiece(unittest.TestCase):
             reverse=np.array([0], dtype=np.bool_))
         del inputs['model']
         txout = sess.run(None, inputs)
-        self.assertEqual(txout[0].dtype == np.int32)
-        self.assertEqual(txout[1].dtype == np.int32)
+        assert_almost_equal(
+            txout[0], np.array([[17486, 1017, -1, -1], [17486, 1017, 155, 21869]], dtype=np.int64))
+        assert_almost_equal(
+            txout[1], np.array([17486, 1017, 17486, 1017, 155, 21869], dtype=np.int32))
 
     def test_string_sentencepiece_tokenizer(self):
         so = _ort.SessionOptions()
@@ -424,7 +431,4 @@ class TestPythonOpSentencePiece(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    cl = TestPythonOpSentencePiece()
-    cl.setUp()
-    cl.test_string_ragged_string_to_dense_cc()
     unittest.main()

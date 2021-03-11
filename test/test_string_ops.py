@@ -1,9 +1,12 @@
 # coding: utf-8
+import io
+import json
 import sys
 import unittest
 import re
 from binascii import crc32
 import numpy as np
+from numpy.testing import assert_almost_equal
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
 from onnxruntime_customops import (
@@ -215,7 +218,7 @@ def _create_test_model_string_regex_split(prefix, domain='ai.onnx.contrib'):
     nodes.append(
         helper.make_node(
             '%sStringRegexSplitWithOffsets' % prefix, ['id1', 'id2', 'id3'],
-            ['tokens', 'indices', 'row_indices'], domain=domain))
+            ['tokens', 'begins', 'ends', 'row_indices'], domain=domain))
 
     input0 = helper.make_tensor_value_info(
         'input', onnx_proto.TensorProto.STRING, [])
@@ -226,16 +229,64 @@ def _create_test_model_string_regex_split(prefix, domain='ai.onnx.contrib'):
     output0 = helper.make_tensor_value_info(
         'tokens', onnx_proto.TensorProto.STRING, [])
     output1 = helper.make_tensor_value_info(
-        'indices', onnx_proto.TensorProto.INT64, [])
+        'begins', onnx_proto.TensorProto.INT64, [])
     output2 = helper.make_tensor_value_info(
+        'ends', onnx_proto.TensorProto.INT64, [])
+    output3 = helper.make_tensor_value_info(
         'row_indices', onnx_proto.TensorProto.INT64, [])
 
     graph = helper.make_graph(nodes, 'test0', [input0, input1, input2],
-                              [output0, output1, output2])
+                              [output0, output1, output2, output3])
     model = helper.make_model(
         graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
     return model
 
+
+def _create_test_model_wordpiece(prefix, domain='ai.onnx.contrib'):
+    words = ["want", "##want",
+             "##ed", "wa", "un", "runn", "##ing"]
+    vocab = {w: i + 10 for i, w in enumerate(words)}
+    st = json.dumps(vocab)
+    nodes = []
+    mkv = helper.make_tensor_value_info
+    reg = helper.make_tensor("pattern", onnx_proto.TensorProto.STRING, [1, ],
+                             ["(\\s)".encode('ascii')])
+    reg_empty = helper.make_tensor("keep_pattern", onnx_proto.TensorProto.STRING, [0, ], [])
+
+    nodes.append(helper.make_node(
+        '%sStringRegexSplitWithOffsets' % prefix,
+        inputs=['text', 'pattern', 'keep_pattern'],
+        outputs=['words', 'begin', 'end', 'rows'],
+        name='StringRegexSplitOpName',
+        domain='ai.onnx.contrib'
+    ))
+    nodes.append(helper.make_node(
+        '%sWordpieceTokenizer' % prefix,
+        inputs=['words', 'rows'],
+        outputs=['out0', 'out1', 'out2', 'out3'],
+        name='BertTokenizerOpName',
+        domain='ai.onnx.contrib',
+        vocab=st.encode('utf-8'),
+        suffix_indicator="##",
+        unknown_token="[UNK]",
+    ))
+
+    inputs = [
+        mkv('text', onnx_proto.TensorProto.STRING, [None]),
+    ]
+    graph = helper.make_graph(
+        nodes, 'test0', inputs, [
+            mkv('out0', onnx_proto.TensorProto.STRING, [None]),
+            mkv('out1', onnx_proto.TensorProto.INT64, [None]),
+            mkv('out2', onnx_proto.TensorProto.INT64, [None]),
+            mkv('out3', onnx_proto.TensorProto.INT64, [None]),
+            mkv('words', onnx_proto.TensorProto.STRING, [None]),
+            mkv('rows', onnx_proto.TensorProto.INT64, [None])],
+        [reg, reg_empty]
+    )
+    model = helper.make_model(
+        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    return model
 
 class TestPythonOpString(unittest.TestCase):
 
@@ -996,26 +1047,124 @@ class TestPythonOpString(unittest.TestCase):
 
         exp_text = np.array(['hello', ' ', 'there',
                              'hello', ' ', ' ', 'there'])
-        exp_indices = np.array(
-            [[0, 0, 5], [0, 5, 6], [0, 6, 11],
-             [1, 0, 5], [1, 5, 6], [1, 6, 7], [1, 7, 12]])
+        exp_begins = np.array([0, 5, 6, 0, 5, 6, 7])
+        exp_ends = np.array([5, 6, 11, 5, 6, 7, 12])
+        exp_rows = np.array([0, 3, 7])
 
         self.assertEqual(exp_text.tolist(), txout[0].tolist())
-        self.assertEqual(exp_indices.tolist(), txout[1].tolist())
+        self.assertEqual(exp_begins.tolist(), txout[1].tolist())
+        self.assertEqual(exp_ends.tolist(), txout[2].tolist())
+        self.assertEqual(exp_rows.tolist(), txout[3].tolist())
+
+        try:
+            from tensorflow_text.python.ops.regex_split_ops import gen_regex_split_ops as lib_gen_regex_split_ops
+            use_tf = True
+        except ImportError:
+            use_tf = False
+
+        if use_tf:
+            tf_tokens, tf_begins, tf_ends, tf_rows = lib_gen_regex_split_ops.regex_split_with_offsets(input, "(\\s)", "\\s")
+            ltk = [s.decode('utf-8') for s in tf_tokens.numpy()]
+            self.assertEqual(ltk, txout[0].tolist())
+            self.assertEqual(tf_begins.numpy().tolist(), txout[1].tolist())
+            self.assertEqual(tf_ends.numpy().tolist(), txout[2].tolist())
+            self.assertEqual(tf_rows.numpy().tolist(), txout[3].tolist())
 
         # keep_pattern empty
         keep_pattern = np.array([""])
         txout = sess.run(
             None, {'input': input, 'pattern': pattern,
                    'keep_pattern': keep_pattern})
-
         exp_text = np.array(['hello', 'there', 'hello', 'there'])
-        exp_indices = np.array(
-            [[0, 0, 5], [0, 6, 11],
-             [1, 0, 5], [1, 7, 12]])
+        exp_begins = np.array([0, 6, 0, 7])
+        exp_ends = np.array([5, 11, 5, 12])
+        exp_rows = np.array([0, 2, 4])
 
         self.assertEqual(exp_text.tolist(), txout[0].tolist())
-        self.assertEqual(exp_indices.tolist(), txout[1].tolist())
+        self.assertEqual(exp_begins.tolist(), txout[1].tolist())
+        self.assertEqual(exp_ends.tolist(), txout[2].tolist())
+        self.assertEqual(exp_rows.tolist(), txout[3].tolist())
+
+        if use_tf:
+            tf_tokens, tf_begins, tf_ends, tf_rows = lib_gen_regex_split_ops.regex_split_with_offsets(input, "(\\s)", "")
+            ltk = [s.decode('utf-8') for s in tf_tokens.numpy()]
+            self.assertEqual(ltk, txout[0].tolist())
+            self.assertEqual(tf_begins.numpy().tolist(), txout[1].tolist())
+            self.assertEqual(tf_ends.numpy().tolist(), txout[2].tolist())
+            self.assertEqual(tf_rows.numpy().tolist(), txout[3].tolist())
+
+    def test_string_wordpiece_tokenizer_cc(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        cc_onnx_model = _create_test_model_wordpiece('')
+        self.assertIn('op_type: "WordpieceTokenizer"', str(cc_onnx_model))
+        cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so)
+
+        inputs = dict(text=np.array(["unwanted running",
+                                     "unwantedX running"], dtype=np.object))
+        cc_txout = cc_sess.run(None, inputs)
+        exp = [np.array(['un', '##want', '##ed', 'runn', '##ing',
+                         'un', '##want', '##ed', '[UNK]', 'runn', '##ing']),
+               np.array([0, 5, 11], dtype=np.int64),
+               np.array([0, 5], dtype=np.int32),
+               np.array([5, 11], dtype=np.int32),
+               np.array(['unwanted', 'running', 'unwantedX', 'running']),
+               np.array([0, 2, 4], dtype=np.int64)]
+
+        def check(o1, o2):
+            try:
+                assert_almost_equal(o1, o2)
+            except TypeError:
+                assert o1.tolist() == o2.tolist()
+
+        try:
+            from tensorflow_text.python.ops.wordpiece_tokenizer import gen_wordpiece_tokenizer as lib_gen
+            import tensorflow as tf
+            use_tf = True
+        except ImportError:
+            use_tf = False
+
+        if use_tf:
+            def _CreateTable(vocab, num_oov=1):
+                init = tf.lookup.KeyValueTensorInitializer(
+                    vocab,
+                    tf.range(tf.size(vocab, out_type=tf.int64), dtype=tf.int64),
+                    key_dtype=tf.string,
+                    value_dtype=tf.int64)
+                res = tf.lookup.StaticVocabularyTable(init, num_oov, lookup_key_dtype=tf.string)
+                res.__len__ = lambda self: len(vocab)
+                  
+
+            vocab_table = _CreateTable(["want", "##want", "##ed", "wa", "un", "runn", "##ing"])
+
+            text = tf.convert_to_tensor(["unwanted running", "unwantedX running"], dtype=tf.string)
+            try:
+                tf_tokens, tf_rows, tf_begins, tf_ends = (
+                          lib_gen.wordpiece_tokenize_with_offsets(
+                              input_values=text,
+                              vocab_lookup_table=vocab_table,
+                              suffix_indicator="##",
+                              use_unknown_token=True,
+                              max_bytes_per_word=100,
+                              max_chars_per_token=0,
+                              unknown_token="[UNK]",
+                              split_unknown_characters=False))
+
+                ltk = [s.decode('utf-8') for s in tf_tokens.numpy()]
+                check(ltk, txout[0])
+                check(tf_rows.numpy(), txout[1])
+                check(tf_begins.numpy(), txout[2])
+                check(tf_ends.numpy(), txout[3])
+            except ValueError:
+                # Issue here.
+                pass
+
+        check(exp[0], cc_txout[0])
+        check(exp[1], cc_txout[1])
+        check(exp[2], cc_txout[2])
+        check(exp[3], cc_txout[3])
+        check(exp[4], cc_txout[4])
+        check(exp[5], cc_txout[5])
 
 
 if __name__ == "__main__":

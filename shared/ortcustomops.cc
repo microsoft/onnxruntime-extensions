@@ -24,7 +24,7 @@
 #endif
 
 #ifdef ENABLE_BERT_TOKENIZER
-#include "bert_tokenizer.hpp"
+#include "wordpiece_tokenizer.hpp"
 #endif
 
 #ifdef ENABLE_SPM_TOKENIZER

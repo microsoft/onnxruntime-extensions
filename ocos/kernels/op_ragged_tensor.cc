@@ -69,7 +69,7 @@ CommonRaggedTensorToDense::CommonRaggedTensorToDense(OrtApi api, const OrtKernel
 }
 
 void CommonRaggedTensorToDense::GetInputDims(OrtKernelContext* context, const OrtValue** inputs, OrtTensorDimensions* dims) {
-  for (int i = 0; i < 2; ++i) {
+  for (int i = 0; i < 4; ++i) {
     inputs[i] = ort_.KernelContext_GetInput(context, i);
     dims[i] = OrtTensorDimensions(ort_, inputs[i]);
   }
@@ -93,16 +93,16 @@ void KernelRaggedTensorToDense::Compute(OrtKernelContext* context) {
   OrtTensorDimensions dims[4];
   GetInputDims(context, inputs, dims);
 
-  const int32_t* p_values = ort_.GetTensorData<int32_t>(inputs[1]);
-  const int32_t* p_missing = ort_.GetTensorData<int32_t>(inputs[2]);
+  const int64_t* p_values = ort_.GetTensorData<int64_t>(inputs[1]);
+  const int64_t* p_missing = ort_.GetTensorData<int64_t>(inputs[2]);
   const int64_t* p_indices = ort_.GetTensorData<int64_t>(inputs[3]);
 
   int64_t size = dims[1].Size();
   int64_t max_col = GetMaxCol(size, p_indices);
 
-  std::vector<int64_t> shape_out{size - 1, max_col};
+  std::vector<int64_t> shape_out{dims[3].Size() - 1, max_col};
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, shape_out.data(), shape_out.size());
-  int32_t* dense = ort_.GetTensorMutableData<int32_t>(output);
+  int64_t* dense = ort_.GetTensorMutableData<int64_t>(output);
 
   int64_t pos = 0;
   int64_t j, pos_end;
@@ -126,7 +126,7 @@ size_t CustomOpRaggedTensorToDense::GetOutputTypeCount() const {
 };
 
 ONNXTensorElementDataType CustomOpRaggedTensorToDense::GetOutputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32;
+  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 };
 
 void* CustomOpRaggedTensorToDense::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
@@ -137,17 +137,8 @@ const char* CustomOpRaggedTensorToDense::GetName() const {
   return "RaggedTensorToDense";
 };
 
-ONNXTensorElementDataType CustomOpRaggedTensorToDense::GetInputType(size_t index) const {
-  switch (index) {
-    case 1:
-    case 2:
-      return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32;
-    case 0:
-    case 3:
-      return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-    default:
-      throw std::runtime_error(MakeString("[RaggedTensorToDense] Unexpected output index ", index, "."));
-  }
+ONNXTensorElementDataType CustomOpRaggedTensorToDense::GetInputType(size_t /*index*/) const {
+  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 };
 
 KernelStringRaggedTensorToDense::KernelStringRaggedTensorToDense(OrtApi api, const OrtKernelInfo* info) : CommonRaggedTensorToDense(api, info) {
@@ -175,7 +166,7 @@ void KernelStringRaggedTensorToDense::Compute(OrtKernelContext* context) {
     pos = pos_end;
   }
 
-  std::vector<int64_t> shape_out{size - 1, max_col};
+  std::vector<int64_t> shape_out{dims[3].Size() - 1, max_col};
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, shape_out.data(), shape_out.size());
   FillTensorDataString(api_, ort_, context, dense, output);
 }

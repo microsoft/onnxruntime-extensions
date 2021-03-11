@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "bert_tokenizer.hpp"
+#include "wordpiece_tokenizer.hpp"
 #include "nlohmann/json.hpp"
 
 KernelWordpieceTokenizer::KernelWordpieceTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
@@ -138,19 +138,23 @@ void KernelWordpieceTokenizer::Compute(OrtKernelContext* context) {
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, size_content.data(), size_content.size());
   FillTensorDataString(api_, ort_, context, tokens, output);
 
-  std::vector<int64_t> size_row_lengths{(int64_t)row_begins.size() - 1};
+  std::vector<int64_t> size_row_lengths{(int64_t)row_begins.size()};
   OrtValue* output_row_lengths = ort_.KernelContext_GetOutput(context, 1, size_row_lengths.data(), size_row_lengths.size());
+  --size_row_lengths[0];
   OrtValue* output_row_begins = ort_.KernelContext_GetOutput(context, 2, size_row_lengths.data(), size_row_lengths.size());
   OrtValue* output_limit_values = ort_.KernelContext_GetOutput(context, 3, size_row_lengths.data(), size_row_lengths.size());
   int64_t* ptr_row_lengths = ort_.GetTensorMutableData<int64_t>(output_row_lengths);
   int64_t* ptr_row_begins = ort_.GetTensorMutableData<int64_t>(output_row_begins);
   int64_t* ptr_limit_values = ort_.GetTensorMutableData<int64_t>(output_limit_values);
 
-  for (int64_t i = 0; i < size_row_lengths[0]; ++i) {
-    ptr_row_lengths[i] = row_begins[i + 1] - row_begins[i];
+  int64_t i;
+  for (i = 0; i < size_row_lengths[0]; ++i) {
+    ptr_row_lengths[i] = row_begins[i];
     ptr_row_begins[i] = row_begins[i];
     ptr_limit_values[i] = row_begins[i + 1];
   }
+  i = size_row_lengths[0];
+  ptr_row_lengths[i] = row_begins[i];
 }
 
 void* CustomOpWordpieceTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {

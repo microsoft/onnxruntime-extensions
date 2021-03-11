@@ -4,7 +4,7 @@
 #include "gtest/gtest.h"
 #include "utils/string_utils.h"
 #include "kernels/string_common.h"
-#include "../tokenizer/bert_tokenizer.hpp"
+#include "../tokenizer/wordpiece_tokenizer.hpp"
 
 TEST(tokenizer, bert_word_split) {
   ustring ind("##");
