@@ -487,6 +487,11 @@ The **content** of the vocabulary file, its format is same with [hugging face](h
 
 The **content** of the merges file, its format is same with [hugging face](https://huggingface.co/gpt2/resolve/main/merges.txt).
 
+***padding_length(optional)***
+
+When the input is a set of query, the tokenized result is ragged tensor, so we need to pad the tensor to tidy tensor and the `padding_length` indicates the strategy of the padding. When the padding_length equals -1, we will pad the tensor to length of longest row. When the padding_length is more than 0, we will pad the tensor to the number of padding_length.
+
+The default value of `padding_length` is -1.
 
 #### Inputs
 
@@ -496,9 +501,13 @@ The string tensor for tokenization
 
 #### Outputs
 
-***output: tensor(int64)***
+***input_ids: tensor(int64)***
 
-The tokenized result of input
+The tokenized ids of input
+
+***attention_mask: tensor(int64)***
+
+A tensor indicates which part of input_ids is padded.
 
 #### Examples
 

@@ -23,90 +23,103 @@ def _get_test_data_file(*sub_dirs):
     return str(test_dir.joinpath(*sub_dirs))
 
 
-def _create_test_model():
-    nodes = [helper.make_node(
-        'Identity', ['input_1'], ['output_1'])]
+def _create_test_model(**kwargs):
+    vocab_file = kwargs["vocab_file"]
+    merges_file = kwargs["merges_file"]
+    max_length = kwargs["max_length"]
 
+    node = [helper.make_node(
+        'GPT2Tokenizer', ['string_input'], ['input_ids', 'attention_mask'], vocab=_get_file_content(vocab_file),
+        merges=_get_file_content(merges_file), name='bpetok', padding_length=max_length,
+        domain='ai.onnx.contrib')]
     input1 = helper.make_tensor_value_info(
-        'input_1', onnx_proto.TensorProto.INT64, [None, None])
+        'string_input', onnx_proto.TensorProto.STRING, [None])
     output1 = helper.make_tensor_value_info(
-        'output_1', onnx_proto.TensorProto.INT64, [None, None])
+        'input_ids', onnx_proto.TensorProto.INT64, [None, None])
+    output2 = helper.make_tensor_value_info(
+        'attention_mask', onnx_proto.TensorProto.INT64, [None, None])
 
-    graph = helper.make_graph(nodes, 'test0', [input1], [output1])
+    graph = helper.make_graph(node, 'test0', [input1], [output1, output2])
     model = helper.make_model(graph, opset_imports=[helper.make_operatorsetid('', 12)])
     return model
 
 
-def _bind_tokenizer(model, **kwargs):
-    vocab_file = kwargs["vocab_file"]
-    merges_file = kwargs["merges_file"]
+class MyGPT2Tokenizer:
+    def __init__(self, token_json, merges):
+        self.tokenizer = GPT2Tokenizer(token_json, merges)
+        # not ensure which pad_token should be
+        self.tokenizer.pad_token = '!'  # padding token = 0
 
-    return expand_onnx_inputs(
-        model, 'input_1',
-        [helper.make_node(
-            'GPT2Tokenizer', ['string_input'], ['input_1'], vocab=_get_file_content(vocab_file),
-            merges=_get_file_content(merges_file), name='bpetok',
-            domain='ai.onnx.contrib')],
-        [helper.make_tensor_value_info('string_input', onnx_proto.TensorProto.STRING, [None])],
-    )
+    def tokenizer_sentence(self, test_sentence, padding_length):
+        if padding_length == -1:
+            input_ids = np.array(self.tokenizer(test_sentence, padding=True)["input_ids"])
+            attention_mask = np.array(self.tokenizer(test_sentence, padding=True)["attention_mask"])
+        else:
+            input_ids = np.array(
+                self.tokenizer(test_sentence, padding="max_length", truncation=True, max_length=padding_length)[
+                    "input_ids"])
+            attention_mask = np.array(
+                self.tokenizer(test_sentence, padding="max_length", truncation=True, max_length=padding_length)[
+                    "attention_mask"])
+        return input_ids, attention_mask
 
 
 class TestGPT2Tokenizer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        tokjson = _get_test_data_file('data', 'gpt2.vocab')
-        merges = tokjson.replace('.vocab', '.merges.txt')
-        cls.tokenizer = GPT2Tokenizer(tokjson, merges)
-
-        model = _create_test_model()
-        cls.binded_model = _bind_tokenizer(model, vocab_file=tokjson, merges_file=merges)
+        cls.tokjson = _get_test_data_file('data', 'gpt2.vocab')
+        cls.merges = _get_test_data_file('data', 'gpt2.merges.txt')
+        cls.tokenizer = MyGPT2Tokenizer(cls.tokjson, cls.merges)
 
         @onnx_op(op_type="GPT2Tokenizer",
                  inputs=[PyCustomOpDef.dt_string],
-                 outputs=[PyCustomOpDef.dt_int64])
-        def bpe_toenizer(s):
-            # The user custom op implementation here.
-            TestGPT2Tokenizer.pyop_invoked = True
-            return np.array(
-                [TestGPT2Tokenizer.tokenizer.encode(st_) for st_ in s])
+                 outputs=[PyCustomOpDef.dt_int64, PyCustomOpDef.dt_int64],
+                 attrs=["padding_length"])
+        def bpe_tokenizer(s, **kwargs):
+            padding_length = kwargs["padding_length"]
+            input_ids, attention_mask = cls.tokenizer.tokenizer_sentence(s, padding_length)
+            return input_ids, attention_mask
 
-    def _run_tokenizer(self, pyop_flag, test_sentence):
-        enable_custom_op(pyop_flag)
-
+    def _run_tokenizer(self, test_sentence, padding_length=-1):
+        model = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges, max_length=padding_length)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        sess = _ort.InferenceSession(self.binded_model.SerializeToString(), so)
-        input_text = np.array([test_sentence])
-        txtout = sess.run(None, {'string_input': input_text})
+        sess = _ort.InferenceSession(model.SerializeToString(), so)
+        input_text = np.array(test_sentence)
+        input_ids, attention_mask = sess.run(None, {'string_input': input_text})
+        expect_input_ids, expect_attention_mask = self.tokenizer.tokenizer_sentence(test_sentence, padding_length)
+        np.testing.assert_array_equal(expect_input_ids, input_ids)
+        np.testing.assert_array_equal(expect_attention_mask, attention_mask)
 
-        np.testing.assert_array_equal(txtout[0], np.array([self.tokenizer.encode(test_sentence)]))
         del sess
         del so
 
     def test_tokenizer(self):
-        TestGPT2Tokenizer.pyop_invoked = False
+        enable_custom_op(False)
 
-        self._run_tokenizer(False, "I can feel the magic, can you?")
-        self.assertFalse(TestGPT2Tokenizer.pyop_invoked)
+        self._run_tokenizer(["I can feel the magic, can you?"])
+        self._run_tokenizer(["Hey Cortana"])
+        self._run_tokenizer(["你好123。david"])
+        self._run_tokenizer(["爱你一三一四"])
+        self._run_tokenizer(["women'thinsulate 3 button leather car co"])
+        self._run_tokenizer(["#$%^&()!@?><L:{}\\[];',./`ǠǡǢǣǤǥǦǧǨ"])
+        self._run_tokenizer(["ڠڡڢڣڤڥڦڧڨکڪګڬڭڮگ"])
+        self._run_tokenizer(["⛀⛁⛂⛃⛄⛅⛆⛇⛈⛉⛊⛋⛌⛍⛎⛏"])
+        self._run_tokenizer(["I can feel the magic, can you?", "Yes I do."])
+        self._run_tokenizer(["I can feel the magic, can you?", "Yes I do."], 100)
 
-        self._run_tokenizer(False, "Hey Cortana")
-        self._run_tokenizer(False, "你好123。david")
-        self._run_tokenizer(False, "women'thinsulate 3 button leather car co")
-        self._run_tokenizer(False, "#$%^&()!@?><L:{}\\[];',./`ǠǡǢǣǤǥǦǧǨ")
-        self._run_tokenizer(False, "ڠڡڢڣڤڥڦڧڨکڪګڬڭڮگ")
-        self._run_tokenizer(False, "⛀⛁⛂⛃⛄⛅⛆⛇⛈⛉⛊⛋⛌⛍⛎⛏")
+        enable_custom_op(True)
 
-    def test_tokenizer_pyop(self):
-        TestGPT2Tokenizer.pyop_invoked = False
-        self._run_tokenizer(True, "I can feel the magic, can you?")
-        self.assertTrue(TestGPT2Tokenizer.pyop_invoked)
 
-        self._run_tokenizer(True, "Hey Cortana")
-        self._run_tokenizer(True, "你好123。david")
-        self._run_tokenizer(True, "women'thinsulate 3 button leather car co")
-        self._run_tokenizer(True, "#$%^&()!@?><L:{}\\[];',./`ǠǡǢǣǤǥǦǧǨ")
-        self._run_tokenizer(True, "ڠڡڢڣڤڥڦڧڨکڪګڬڭڮگ")
-        self._run_tokenizer(True, "⛀⛁⛂⛃⛄⛅⛆⛇⛈⛉⛊⛋⛌⛍⛎⛏")
+# def test_tokenizer_pyop(self):
+#     self._run_tokenizer(["I can feel the magic, can you?"])
+#     self._run_tokenizer(["Hey Cortana"])
+#     self._run_tokenizer(["你好123。david"])
+#     self._run_tokenizer(["爱你一三一四"])
+#     self._run_tokenizer(["women'thinsulate 3 button leather car co"])
+#     self._run_tokenizer(["#$%^&()!@?><L:{}\\[];',./`ǠǡǢǣǤǥǦǧǨ"])
+#     self._run_tokenizer(["ڠڡڢڣڤڥڦڧڨکڪګڬڭڮگ"])
+#     self._run_tokenizer(["⛀⛁⛂⛃⛄⛅⛆⛇⛈⛉⛊⛋⛌⛍⛎⛏"])
 
 
 if __name__ == "__main__":
