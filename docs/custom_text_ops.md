@@ -14,6 +14,7 @@
 |StringUpper  | Supported     |
 |StringLength | Supported |
 |StringConcat | Supported |
+|StringRegexSplitWithOffsets| Supported |
 |VectorToString| Supported |
 |StringToVector|  Under development|
 |StringSlice | Under development|
@@ -22,7 +23,7 @@
 |**Operator**|**Support State**|
 |------------|-----------------|
 |GPT2Tokenizer| Supported       |
-|BertTokenizer| Supported       |
+|WordpieceTokenizer| Supported       |
 |XLNetTokenizer| Under development |
 |SentencepieceTokenizer| Supported       |
 
@@ -526,13 +527,13 @@ expect(node, inputs=[x], outputs=[y],
 </details>
 
 
-### <a name="BertTokenizer"></a><a name="BertTokenizer">**BertTokenizer**</a>
+### <a name="WordpieceTokenizer"></a><a name="WordpieceTokenizer">**WordpieceTokenizer**</a>
 
-BertTokenizer that performs WordPiece tokenization to the input tensor,
-based on the [hugging face version](https://huggingface.co/transformers/model_doc/bert.html#berttokenizer).
-[BertTokenizer](https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/BertTokenizer.md)
+WordpieceTokenizer that performs WordPiece tokenization to the input tensor,
+based on the [hugging face version](https://huggingface.co/transformers/model_doc/bert.html#WordpieceTokenizer).
+[WordpieceTokenizer](https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/WordpieceTokenizer.md)
 from *tensorflow_text* can be implemented by a pair of nodes
-*RegexSplitWithOffets* followed by *BertTokenizer*.
+*RegexSplitWithOffets* followed by *WordpieceTokenizer*.
 it 
 
 #### Attributes
@@ -563,7 +564,7 @@ The string tensor for tokenization
 ***row_indices: tensor(int64)*** Empty or the fndices of every first token of input sentences.
 `indices[i+1] - indices[i]` is the number of tokens in input `i`.
 
-[BertTokenizer](https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/BertTokenizer.md)
+[WordpieceTokenizer](https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/WordpieceTokenizer.md)
 includes two steps. The first one splits sentences into words and then splits
 every work into tokens. This operator only implements the second step.
 The first one can be done with operator *StringRegexSplit*.
@@ -605,10 +606,10 @@ nodes = [
         name='StringRegexPlsitOpName',
         domain='ai.onnx.contrib'),
     helper.make_node(
-        'BertTokenizer',
+        'WordpieceTokenizer',
         inputs=['words', 'indices'],
         outputs=['out0', 'out1', 'out2'],
-        name='BertTokenizerOpName',
+        name='WordpieceTokenizerOpName',
         domain='ai.onnx.contrib',
         vocab=st.encode('utf-8'),
         suffix_indicator="##",
