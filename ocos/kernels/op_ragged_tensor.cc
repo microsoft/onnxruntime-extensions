@@ -97,17 +97,22 @@ void KernelRaggedTensorToDense::Compute(OrtKernelContext* context) {
   const int64_t* p_missing = ort_.GetTensorData<int64_t>(inputs[2]);
   const int64_t* p_indices = ort_.GetTensorData<int64_t>(inputs[3]);
 
-  int64_t size = dims[1].Size();
+  int64_t size = dims[3].Size();
   int64_t max_col = GetMaxCol(size, p_indices);
 
-  std::vector<int64_t> shape_out{dims[3].Size() - 1, max_col};
+  std::vector<int64_t> shape_out{size - 1, max_col};
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, shape_out.data(), shape_out.size());
   int64_t* dense = ort_.GetTensorMutableData<int64_t>(output);
 
   int64_t pos = 0;
   int64_t j, pos_end;
+  int64_t shape_out_size = shape_out[0] * shape_out[1];
   for (int64_t i = 0; i < size - 1; ++i) {
     pos_end = pos + max_col;
+    if (pos_end > shape_out_size)
+      throw std::runtime_error(MakeString(
+          "Unexpected index ", pos_end, " greather than ", shape_out[0], "x", shape_out[1],
+          " - i=", i, " size=", size, "."));
     for (j = p_indices[i]; j < p_indices[i + 1]; ++j, ++pos) {
       dense[pos] = p_values[j];
     }
@@ -152,21 +157,26 @@ void KernelStringRaggedTensorToDense::Compute(OrtKernelContext* context) {
   std::vector<std::string> input;
   GetTensorMutableDataString(api_, ort_, context, inputs[1], input);
   const int64_t* p_indices = ort_.GetTensorData<int64_t>(inputs[3]);
-
-  int64_t size = dims[1].Size();
+  int64_t size = dims[3].Size();
   int64_t max_col = GetMaxCol(size, p_indices);
+  std::vector<int64_t> shape_out{size - 1, max_col};
+
+  int64_t shape_out_size = shape_out[0] * shape_out[1];
   std::vector<std::string> dense(max_col * (size - 1));
   int64_t pos = 0;
   int64_t j, pos_end;
   for (int64_t i = 0; i < size - 1; ++i) {
     pos_end = pos + max_col;
+    if (pos_end > shape_out_size)
+      throw std::runtime_error(MakeString(
+          "Unexpected index ", pos_end, " greather than ", shape_out[0], "x", shape_out[1],
+          " - i=", i, " size=", size, "."));
     for (j = p_indices[i]; j < p_indices[i + 1]; ++j, ++pos) {
       dense[pos] = input[j];
     }
     pos = pos_end;
   }
 
-  std::vector<int64_t> shape_out{dims[3].Size() - 1, max_col};
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, shape_out.data(), shape_out.size());
   FillTensorDataString(api_, ort_, context, dense, output);
 }
