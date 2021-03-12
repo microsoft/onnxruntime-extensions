@@ -339,10 +339,10 @@ def _create_ox_sequence(*size, init_value=None):
     con_x = []
     if isinstance(size, (list, tuple)):
         for x in size:
-            if not isinstance(x, _EagerTensor):
-                x_h = _ox.constant([], [_ox.get_unique_tensor_name('const')], container, None, value=x)[0]
-            else:
+            if isinstance(x, _EagerTensor):
                 x_h = x.name
+            else:
+                x_h = _ox.constant([], [_ox.get_unique_tensor_name('const')], container, None, value=x)[0]
             con_x.append(x_h)
 
     allnames = _ox.concat(con_x, [_ox.get_unique_tensor_name('concat')], container, None)

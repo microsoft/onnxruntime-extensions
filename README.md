@@ -1,7 +1,7 @@
 # ONNXRuntime CustomOps
-ONNXRuntime is a comprehensive package to extent the ONNXRuntime with some capabilities via its custom ops API.  
+ONNXRuntime CustomOps Library is a comprehensive package to extent the ONNXRuntime with some capabilities via its custom ops API.
 1. This repository provides a library of add-on custom operators for [ONNX Runtime](http://onnxruntime.ai). The package can be installed to run with ONNX Runtime for operators not natively supported by ORT. Learn more about [custom ops in ORT](https://www.onnxruntime.ai/docs/how-to/add-custom-op.html). And the custom operator support list is in [docs/custom_text_ops.md](./docs/custom_text_ops.md)
-2. Support PyOp feature to implement the custom op with a Python function. 
+2. Support PyOp feature to implement the custom op with a Python function.
 3. Build all-in-one ONNX model from the pre/post processing code, go to [docs/pre_post_processing.md](docs/pre_post_processing.md) for details.
 4. Support Python per operator debugging, checking ```hook_model_op``` in onnxruntime_customops Python package.
 
