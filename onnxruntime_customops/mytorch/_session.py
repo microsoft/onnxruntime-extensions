@@ -65,7 +65,7 @@ class ONNXTraceSession:
 
         return onnx_nodes
 
-    def _reversed_travel(self, container, nodes):
+    def _topological_sort(self, container, nodes):
         op_output_map = {}
         DynNode = namedtuple('DynNode', ['name', 'output'])
         input_node = DynNode(name='placeholder',
@@ -75,28 +75,55 @@ class ONNXTraceSession:
             for ky_ in nd_.output:
                 op_output_map[ky_] = nd_
 
-        active_nodes = [op_output_map[o_.name] for o_ in self.outputs]
+        edges = {}
+        for op in nodes:
+            for x in op.input:
+                try:
+                    predecessor = op_output_map[x]
+                except KeyError:
+                    raise RuntimeError("{}: cannot find the operator to output {}".format(op.name, x))
 
-        visited = {input_node.name}
+                val = edges.get(predecessor.name, [])
+                val.append(op)
+                edges[predecessor.name] = val
+
+        for y_ in self.outputs:
+            op = op_output_map[y_.name].name
+            if op not in edges:
+                edges[op] = []
+
+        visited = set()
         sorted_nodes = []
-        while len(active_nodes) > 0:
-            op_node = active_nodes.pop(0)
-            if op_node.name in visited:
-                continue
+        unfinished_nodes = set()
 
-            visited.add(op_node.name)
-            sorted_nodes.insert(0, op_node)
-            try:
-                active_nodes.extend([op_output_map[o_] for o_ in op_node.input])
-            except KeyError as e:
-                raise RuntimeError("{}: cannot find the operator to output {}".format(
-                                    op_node.name, ' '.join(op_node.input)))
+        def recursive_helper(node):
+            if node.name in visited:
+                return
+
+            if node.name in unfinished_nodes:
+                raise RuntimeError("ONNX Graph is not DAG, found at {}".format(node.name))
+
+            unfinished_nodes.add(node.name)
+            for successor in edges[node.name]:
+                recursive_helper(successor)
+
+            unfinished_nodes.remove(node.name)
+            visited.add(node.name)
+            sorted_nodes.insert(0, node)
+
+        recursive_helper(input_node)
+        assert sorted_nodes.pop(0) is input_node
+
+        for op in nodes:  # non-input nodes
+            if op.name not in visited:
+                sorted_nodes.insert(0, op)
+
         return sorted_nodes
 
     def build_model(self, model_name=None, doc_string=None) -> onnx.ModelProto:
         container = self.container
         nodes = self._unfold_model_node(container)
-        nodes = self._reversed_travel(container, nodes)
+        nodes = self._topological_sort(container, nodes)
         model_name = 'tcm' if model_name is None else model_name
         doc_string = '' if doc_string is None else doc_string
 

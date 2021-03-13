@@ -42,7 +42,8 @@ class GPT2Tokenizer(CustomOp):
 
     @classmethod
     def get_outputs(cls):
-        return [cls.io_def("input_ids", onnx.TensorProto.INT64, [None, None])]
+        return [cls.io_def("input_ids", onnx.TensorProto.INT64, [None, None]),
+                cls.io_def('attention_mask', onnx.TensorProto.INT64, [None, None])]
 
 
 class VectorToString(CustomOp):

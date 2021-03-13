@@ -334,20 +334,26 @@ class _EagerTensor:
         return self.from_torch(y, s[0])
 
 
-def _create_ox_sequence(*size, init_value=None):
+def _create_ox_sequence(*size, init_value=None, onnx_type=None):
     container = _EagerTensor.get_container()
     con_x = []
-    if isinstance(size, (list, tuple)):
+    if onnx_type is None:
+        onnx_type = onnx_proto.TensorProto.FLOAT
+    ts_val = _ox.make_tensor(onnx_type, [1], [init_value])
+    if any(isinstance(n_, _EagerTensor) for n_ in size):
         for x in size:
             if isinstance(x, _EagerTensor):
                 x_h = x.name
             else:
                 x_h = _ox.constant([], [_ox.get_unique_tensor_name('const')], container, None, value=x)[0]
             con_x.append(x_h)
-
-    allnames = _ox.concat(con_x, [_ox.get_unique_tensor_name('concat')], container, None)
-    s = _ox.constant_of_shape(allnames, [_ox.get_unique_tensor_name('cos')], container, None, value=init_value)
-    return s
+        allnames = _ox.concat(con_x, [_ox.get_unique_tensor_name('concat')], container, None)
+        s = _ox.constant_of_shape(allnames, [_ox.get_unique_tensor_name('cos')], container, None, value=ts_val)
+    else:
+        ts_size = _ox.make_tensor(onnx_proto.TensorProto.INT64, [len(size)], size)
+        shp_c = _ox.constant([], [_ox.get_unique_tensor_name('const')], container, None, value=ts_size)
+        s = _ox.constant_of_shape(shp_c, [_ox.get_unique_tensor_name('cos')], container, None, value=ts_val)
+    return s[0]
 
 
 def empty(*size: _int, memory_format: Optional[memory_format] = None, out: Optional[_EagerTensor] = None,
@@ -356,7 +362,7 @@ def empty(*size: _int, memory_format: Optional[memory_format] = None, out: Optio
     n_size = _EagerTensor.normalize_seq(size)
     y = torch.empty(*n_size, memory_format=memory_format, out=out,
                     dtype=dtype, layout=layout, device=device, requires_grad=requires_grad)
-    s = _create_ox_sequence(*size)
+    s = _create_ox_sequence(*size, init_value=0., onnx_type=_EagerTensor.to_onnx_type(y.dtype))
     return _EagerTensor.from_torch(y, s)
 
 
@@ -365,7 +371,7 @@ def zeros(*size: _int, out: Optional[_EagerTensor] = None, dtype: _dtype = None,
     n_size = _EagerTensor.normalize_seq(size)
     y = torch.zeros(*n_size, out=out, dtype=dtype,
                     layout=layout, device=device, requires_grad=requires_grad)
-    s = _create_ox_sequence(*size, 0)
+    s = _create_ox_sequence(*size, init_value=0, onnx_type=_EagerTensor.to_onnx_type(y.dtype))
     return _EagerTensor.from_torch(y, s)
 
 
@@ -400,12 +406,6 @@ class _TracingEagerOp(EagerOp):
 
         outputs = [_EagerTensor.from_onnx(outseq[n_], self.ort_session, out_.name)
                    for n_, out_ in enumerate(self.ort_session.get_outputs())]
-        # FIXME: The tokenizer support attention_mask output
-        if self.onnx_model.graph.name.startswith('og_GPT2Tokenizer'):
-            att_name = 'attention_mask'
-            outputs.append(_EagerTensor.from_torch(torch.tensor(
-                [[1.] * outputs[0].value.shape[1]], dtype=torch.float32), name=att_name))
-            _ox.constant([], [att_name], _EagerTensor.get_container(), None, value=[1.] * outputs[0].value.shape[1])
 
         y_names = [y.name for y in outputs]
         _ox.model_call(*_EagerTensor.ox_args(args, output_names=y_names), oxml=self.onnx_model)
