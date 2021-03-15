@@ -4,7 +4,6 @@
 ###############################################################################
 import warnings
 import numpy as np
-from collections import namedtuple
 from onnx import helper, defs as onnx_defs, onnx_pb as onnx_proto
 from onnx.mapping import NP_TYPE_TO_TENSOR_TYPE
 
@@ -1416,6 +1415,9 @@ class _ONNXModelBuilder(_ONNXOperatorAPI):
     def get_unique_tensor_name(self, hint):
         self._id_count += 1
         return "v{}_{}".format(hint, str(self._id_count))
+
+    def make_tensor(self, dtype, dims, vals):
+        return helper.make_tensor(self.get_unique_tensor_name('ts'), dtype, dims, vals)
 
 
 ox = _ONNXModelBuilder()

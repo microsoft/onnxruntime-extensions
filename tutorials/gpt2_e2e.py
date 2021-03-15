@@ -68,7 +68,7 @@ def inference_and_dump_full_model(inputs):
         all_eos = torch.tensor(False, dtype=torch.bool)
         past = empty_past
         for step in torch.onnx_loop(num_tokens_to_produce, all_eos, past):
-            outputs = core_model(input_ids, position_ids, attention_mask, *past)
+            outputs = core_model(input_ids, position_ids, attention_mask.type(torch.float32), *past)
 
             next_token_logits = outputs[0][:, -1, :]
             next_tokens = torch.argmax(next_token_logits, dim=-1)
