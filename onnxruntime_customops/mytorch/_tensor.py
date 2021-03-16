@@ -10,17 +10,7 @@ from ._onnx_ops import ox as _ox
 from ..eager_op import EagerOp
 
 
-# class StringTensor(object):
-#     def __init__(self, shape, value=None):
-#         self._shape = shape
-#         self._value = value
-
-#     def __repr__(self):
-#         return "StringTensor(shape={}, value={})".format(self._shape, self._value)
-
-
 class _EagerTensor:
-
     def __init__(self, _t, name=None, sess=None, raw_data: Any = None):
         self._t = _t if isinstance(_t, torch.Tensor) else torch.tensor(_t)
         if isinstance(name, (tuple, list)):
@@ -319,7 +309,7 @@ class _EagerTensor:
 
     def masked_fill(self, mask, value):
         y = self._t.masked_fill(mask.value, value)
-        s_val = zeros(mask.value.size()) + value
+        s_val = zeros(_EagerTensor.mytensor(list(mask.value.size()))) + value
         s = _ox.where(*_EagerTensor.ox_args([self, s_val, self]))
         return _EagerTensor.from_torch(y, s)
 

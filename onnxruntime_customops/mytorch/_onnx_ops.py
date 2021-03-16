@@ -108,6 +108,19 @@ class ONNXElementContainer:
         self.enable_optimizer = True
         self.opdict_counter = {}
 
+    # the following property make this container be compatible with onnx.GraphProto
+    @property
+    def initializer(self):
+        return self.initializers
+
+    @property
+    def input(self):
+        return self.inputs
+
+    @property
+    def output(self):
+        return self.outputs
+
     @staticmethod
     def _make_value_info(variable):
         value_info = helper.ValueInfoProto()
@@ -1400,10 +1413,15 @@ class _ONNXOperatorAPI:
         return output_names
 
     def model_call(self, input_name, output_name, container, operator_name=None, oxml=None):
-        name = _create_name_or_use_existing_one(container, 'mc', operator_name)
-        for idx, name in enumerate(input_name):
-            if name != oxml.graph.input[idx].name:
-                self.identity([name], [oxml.graph.input[idx].name], container)
+        name = operator_name
+        if name is None:
+            name = container.get_unique_operator_name('og')
+
+        # The tensor name replacement happens on unfolding ONNX model.
+        for idx, nm_ in enumerate(input_name):
+            self.identity([nm_], ["{}_{}".format(name, oxml.graph.input[idx].name)], container)
+        for idx, nm_ in enumerate(output_name):
+            self.identity(["{}_{}".format(name, oxml.graph.output[idx].name)], [nm_], container)
         container.add_model_node(input_name, output_name, name=name, model=oxml)
         return output_name
 
