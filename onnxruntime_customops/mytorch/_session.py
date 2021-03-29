@@ -5,6 +5,7 @@ import warnings
 import numpy as np
 from onnx import helper
 from collections import namedtuple
+from ..eager_op import EagerOp
 from ._builder import is_path as _is_path
 from ._onnx_ops import ONNXElementContainer, make_model_ex
 from ._tensor import tensor_from_onnx, tensor_from_torch, tensor_set_session
@@ -123,6 +124,36 @@ class ONNXModelUtils:
 
         return sorted_nodes
 
+    @staticmethod
+    def value_info_from_numpy(name, value):
+        return helper.make_tensor_value_info(name,
+                                             onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[value.dtype],
+                                             shape=value.shape)
+
+    @staticmethod
+    def model_from_ops(container, ops, ts_from, ts_to):
+        all_inputs = []
+        all_outputs = []
+        iz_needed = set()
+        iz_set = set(iz_.name for iz_ in container.initializer)
+        for op in ops:
+            iz_needed.update(it_ for it_ in op.input if it_ in iz_set)
+            all_inputs.extend(it_ for it_ in op.input if it_ not in iz_set)
+            all_outputs.extend(ot_ for ot_ in op.output)
+
+        intersections = set(all_inputs).intersection(set(all_outputs))
+        assert set(all_inputs).difference(intersections) == set(ts_.name for ts_ in ts_from),\
+            "The input list is different from the calculated from the op nodes"
+        assert set(all_outputs).difference(intersections) == set(ts_.name for ts_ in ts_to),\
+            "The output list is different from the calculated from the op nodes"
+
+        final_iz = [iz_ for iz_ in container.initializers if iz_.name in iz_needed]
+        graph = helper.make_graph(ops, 'dyngraph', ts_from, ts_to, final_iz)
+        oxml = make_model_ex(graph,
+                             container.node_domain_version_pair_sets,
+                             container.target_opset)
+        return oxml
+
 
 class ONNXTraceSession:
     activated_sessions = []
@@ -165,6 +196,48 @@ class ONNXTraceSession:
                 itensors[idx_].name = names[idx_]
         self.inputs = itensors
         return self
+
+    def runops(self, ts_from, ts_to):
+        nodes = self.container.nodes
+        inset = set(ts_.name for ts_ in ts_from)
+        inset.update(iz_.name for iz_ in self.container.initializer)
+        outset = set(ts_.name for ts_ in ts_to)
+        missing_ts_set = set()
+        node_num = len(nodes) - 1
+        while node_num >= 0:
+            node = nodes[node_num]
+            for ot_ in node.output:
+                if ot_ in missing_ts_set:
+                    missing_ts_set.remove(ot_)
+                elif ot_ in outset:
+                    outset.remove(ot_)
+            for it_ in node.input:
+                if it_ not in inset:
+                    missing_ts_set.add(it_)
+            if len(missing_ts_set) == 0:
+                break
+            node_num -= 1
+
+        assert len(outset) == 0, "Some output cannot be in the node list."
+        assert len(missing_ts_set) == 0, "Some input cannot be in the node list."
+        collected_nodes = nodes[node_num:]
+        vi_input = [ONNXModelUtils.value_info_from_numpy(ts_.name, ts_.numpy())
+                    for ts_ in ts_from]
+        vi_output = [ONNXModelUtils.value_info_from_numpy(ts_.name, ts_.numpy())
+                    for ts_ in ts_to]
+        oxml = ONNXModelUtils.model_from_ops(self.container,
+                                             collected_nodes,
+                                             vi_input,
+                                             vi_output)
+        result = None
+        try:
+            oxfunc = EagerOp.from_model(oxml)
+            result = oxfunc(*[ts_.numpy() for ts_ in ts_from])
+        finally:
+            if result is None:
+                onnx.save_model(oxml, 'mt_debmodel.onnx')
+
+        return result if isinstance(result, (list, tuple)) else [result], oxml
 
     def get_inputs(self):
         return self.inputs

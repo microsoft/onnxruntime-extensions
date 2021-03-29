@@ -487,6 +487,14 @@ class _ONNXOperatorAPI:
         container.add_node('Concat', input_names, output_name, op_version=op_version, name=name, axis=axis)
         return output_name
 
+    def concat_from_sequence(self, input_names, output_name, container, operator_name=None, axis=0, new_axis=None):
+        name = _create_name_or_use_existing_one(container, 'Concat', operator_name)
+        attrs = {'axis': axis}
+        if new_axis is not None:
+            attrs['new_axis'] = new_axis
+        container.add_node('ConcatFromSequence', input_names, output_name, op_version=11, name=name, **attrs)
+        return output_name
+
     def constant(self, input_names, output_name, container, operator_name=None, value=None):
         assert len(input_names) == 0  # only a placeholder to standardize the argument list.
         name = _create_name_or_use_existing_one(container, 'Constant', operator_name)
@@ -581,9 +589,14 @@ class _ONNXOperatorAPI:
             container.add_node('DynamicSlice', input_list, output_name, op_version=9)
         return output_name
 
-    def cumsum(self, input_names, output_names, container, operator_name=None):
+    def cumsum(self, input_names, output_names, container, operator_name=None, axis=None):
         name = _create_name_or_use_existing_one(container, 'cumsum', operator_name)
-        container.add_node('CumSum', input_names, output_names, op_version=11, name=name)
+        assert axis is not None, "Axis in Op CumSum must be provided."
+        axis_name = self.get_unique_tensor_name(name+'_dim')
+        container.add_initializer(axis_name,
+                                  onnx_proto.TensorProto.INT64,
+                                  [1], [axis])
+        container.add_node('CumSum', input_names + [axis_name], output_names, op_version=11, name=name)
         return output_names
 
     def div(self, input_names, output_name, container, operator_name=None, axis=None, broadcast=None):

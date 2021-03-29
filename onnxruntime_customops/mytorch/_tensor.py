@@ -1,3 +1,4 @@
+import onnx
 import torch
 import functools
 import numpy as np
@@ -258,6 +259,20 @@ class _EagerTensor:
         return input_names, output_names, container, operator_name
 
     @classmethod
+    def ort_verify(cls, ts_from, ts_to):
+        result, model = cls.get_trace_session().runops(ts_from, ts_to)
+        for idx in range(len(ts_to)):
+            if not np.allclose(ts_to[idx].numpy(), result[idx]):
+                onnx.save_model(model, 'mt_debmodel.onnx')
+                raise RuntimeError("ONNXRuntime Result is not same pytorch!")
+
+    def create_and_verify(self, value, name, additional_inputs=None):
+        ts_y = self.from_torch(value, name)
+        inputs = [self] + ([] if additional_inputs is None else additional_inputs)
+        self.ort_verify(inputs, [ts_y])
+        return ts_y
+
+    @classmethod
     def ox_args(cls, tensors, output_names=None):
         input_names = [ts_.name for ts_ in tensors]
         return cls.ox_name_args(input_names, output_names)
@@ -280,48 +295,49 @@ class _EagerTensor:
     def long(self):
         y = self._t.long()
         s = _ox.cast(*self.my_args(), to=onnx_proto.TensorProto.INT64)
-        return self.from_torch(y, s[0])
+        return self.create_and_verify(y, s[0])
 
     def cumsum(self, dim: _int, *, dtype: Optional[_dtype] = None):
         y = self._t.cumsum(dim, dtype=dtype)
-        s = _ox.cumsum(*self.my_args())
-        return self.from_torch(y, s[0])
+        s = _ox.cumsum(*self.my_args(), axis=dim)
+        return self.create_and_verify(y, s[0])
 
     def size(self):
         y = self._t.size()
         s = _ox.shape(*self.my_args())
-        return self.from_torch(y, s)
+        return self.create_and_verify(y, s[0])
 
     def type(self, dtype: Union[str, _dtype], non_blocking: _bool=False):
         y = self._t.type(dtype, non_blocking)
         s = _ox.cast(*self.my_args(), to=self.to_onnx_type(dtype))
-        return self.from_torch(y, s)
+        return self.create_and_verify(y, s)
 
     def to(self, device):
         y = self._t.to(device)
         s = _ox.identity(*self.my_args())
-        return self.from_torch(y, s[0])
+        return self.create_and_verify(y, s[0])
 
     def clone(self):
         y = self._t.clone()
         s = _ox.identity(*self.my_args())
-        return self.from_torch(y, s[0])
+        return self.create_and_verify(y, s[0])
 
     def masked_fill(self, mask, value):
         y = self._t.masked_fill(mask.value, value)
-        s_val = zeros(_EagerTensor.mytensor(list(mask.value.size()))) + value
-        s = _ox.where(*_EagerTensor.ox_args([self, s_val, self]))
-        return _EagerTensor.from_torch(y, s)
+        if not isinstance(value, _EagerTensor):
+            value = _EagerTensor.mytensor(value)
+        s = _ox.where(*_EagerTensor.ox_args([mask, value, self]))
+        return self.create_and_verify(y, s[0], additional_inputs=[mask, value])
 
     def unsqueeze(self, dim: _int):
         y = self._t.unsqueeze(dim)
-        s = _ox.unsqueeze(*self.my_args(), dim)
-        return self.from_torch(y, s[0])
+        s = _ox.unsqueeze(*self.my_args(), [dim])
+        return self.create_and_verify(y, s[0])
 
     def squeeze(self, dim: _int):
         y = self._t.squeeze(dim)
-        s = _ox.squeeze(*self.my_args(), dim)
-        return self.from_torch(y, s[0])
+        s = _ox.squeeze(*self.my_args(), [dim])
+        return self.create_and_verify(y, s[0])
 
 
 def _create_ox_sequence(*size, init_value=None, onnx_type=None):
@@ -380,7 +396,9 @@ def softmax(input_ts: _EagerTensor, dim: _int, dtype: Optional[_dtype]=None) -> 
 def cat(tensors: Union[Tuple[_EagerTensor, ...], List[_EagerTensor]], dim, *, out: Optional[_EagerTensor] = None) -> _EagerTensor:  # noqa
     res = torch.cat([t_.value for t_ in tensors], dim, out=out)
     oname = _ox.concat(*_EagerTensor.ox_args(tensors), dim)
-    return _EagerTensor.from_torch(res, oname[0])
+    y = _EagerTensor.from_torch(res, oname[0])
+    _EagerTensor.ort_verify(tensors, [y])
+    return y
 
 
 def onnx_loop(*tensors: Union[_EagerTensor, int]):
