@@ -126,9 +126,9 @@ class ONNXModelUtils:
 
     @staticmethod
     def value_info_from_numpy(name, value):
-        return helper.make_tensor_value_info(name,
-                                             onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[value.dtype],
-                                             shape=value.shape)
+        dtype = onnx.onnx_pb.TensorProto.STRING if \
+            value.dtype.kind in {'U', 'S'} else onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[value.dtype]
+        return helper.make_tensor_value_info(name, dtype, shape=value.shape)
 
     @staticmethod
     def model_from_ops(container, ops, ts_from, ts_to):

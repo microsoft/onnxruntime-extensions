@@ -349,9 +349,10 @@ def _create_ox_sequence(*size, init_value=None, onnx_type=None):
     if any(isinstance(n_, _EagerTensor) for n_ in size):
         for x in size:
             if isinstance(x, _EagerTensor):
-                x_h = x.name
+                x_h = _ox.unsqueeze(*_EagerTensor.ox_args([x]))[0]
             else:
-                x_h = _ox.constant([], [_ox.get_unique_tensor_name('const')], container, None, value=x)[0]
+                x_c = _ox.make_tensor(onnx_proto.TensorProto.INT64, [1], [x])
+                x_h = _ox.constant([], [_ox.get_unique_tensor_name('const')], container, None, value=x_c)[0]
             con_x.append(x_h)
         allnames = _ox.concat(con_x, [_ox.get_unique_tensor_name('concat')], container, None)
         s = _ox.constant_of_shape(allnames, [_ox.get_unique_tensor_name('cos')], container, None, value=ts_val)
@@ -393,7 +394,8 @@ def softmax(input_ts: _EagerTensor, dim: _int, dtype: Optional[_dtype]=None) -> 
     return _EagerTensor.from_torch(y, s)
 
 
-def cat(tensors: Union[Tuple[_EagerTensor, ...], List[_EagerTensor]], dim, *, out: Optional[_EagerTensor] = None) -> _EagerTensor:  # noqa
+def cat(tensors: Union[Tuple[_EagerTensor, ...], List[_EagerTensor]],
+        dim, *, out: Optional[_EagerTensor] = None) -> _EagerTensor:  # noqa
     res = torch.cat([t_.value for t_ in tensors], dim, out=out)
     oname = _ox.concat(*_EagerTensor.ox_args(tensors), dim)
     y = _EagerTensor.from_torch(res, oname[0])

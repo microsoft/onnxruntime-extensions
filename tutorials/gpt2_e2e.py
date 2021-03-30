@@ -1,7 +1,7 @@
 import os
 import numpy
 from transformers import AutoConfig
-from onnxruntime_customops import mytorch as torch
+from onnxruntime_customops import mytorch as torch, eager_op
 from onnxruntime_customops.utils import trace_for_onnx, op_from_model, build_customop_model
 
 
@@ -108,12 +108,10 @@ if not os.path.exists(gpt2_core_model_path):
 output_ms = inference_and_dump_full_model(input_text)
 
 # 3. Inference on the all-in-one model
-full_model = torch.op_from_model(gpt2_full_model_path)
-outputs = full_model(input_text)
+full_model = eager_op.EagerOp.from_model(gpt2_full_model_path)
+output_text = full_model(input_text)
 
 # 4. Test the result
-for n_, tx_ in enumerate(outputs):
-    if output_ms[n_] != outputs[n_]:
-        import warnings  # noqa
-        warnings.warn("{}: The all-in-one model output is not the same\t{}".format(n_, output_ms[n_]))
-    print("{}: {}\n\t{}".format(n_, input_text, tx_))
+if not numpy.array_equal(output_ms.numpy(), output_text):
+    import warnings  # noqa
+    warnings.warn("{}: The all-in-one model output is not the same\t{}".format(output_ms.numpy(), output_text))
