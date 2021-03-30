@@ -1,0 +1,3 @@
+[submodule "cmake/deps/emsdk"]
+	path = cmake/deps/emsdk
+	url = https://github.com/emscripten-core/emsdk.git
