@@ -241,23 +241,24 @@ jobs:
       - checkout: self
         submodules: recursive
 
-      - task: DownloadGitHubRelease@0
-        inputs:
-          connection: 'microsoft'
-          userRepository: 'microsoft/onnxruntime'
-          defaultVersionType: 'specificVersion'
-          version: '$(ortlib.version)'
-          itemPattern: '*-linux-x64-$(ort.version)*'
-          downloadPath: '$(Build.sourcesdirectory)'
-        displayName: Download the ONNXRuntime prebuilt package.
+        # disable downloading onnxruntime temporarily
+#      - task: DownloadGitHubRelease@0
+#        inputs:
+#          connection: 'microsoft'
+#          userRepository: 'microsoft/onnxruntime'
+#          defaultVersionType: 'specificVersion'
+#          version: '$(ortlib.version)'
+#          itemPattern: '*-linux-x64-$(ort.version)*'
+#          downloadPath: '$(Build.sourcesdirectory)'
+#        displayName: Download the ONNXRuntime prebuilt package.
 
-      - task: ExtractFiles@1
-        inputs:
-          archiveFilePatterns: '**/*.tgz'
-          destinationFolder: '$(Build.sourcesdirectory)'
-          cleanDestinationFolder: false
-          overwriteExistingFiles: true
-        displayName: Unpack ONNXRuntime package.
+#      - task: ExtractFiles@1
+#        inputs:
+#          archiveFilePatterns: '**/*.tgz'
+#          destinationFolder: '$(Build.sourcesdirectory)'
+#          cleanDestinationFolder: false
+#          overwriteExistingFiles: true
+#        displayName: Unpack ONNXRuntime package.
 
       - script: |
           cmake/deps/emsdk/emsdk install latest
