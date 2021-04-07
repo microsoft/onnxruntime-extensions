@@ -15,15 +15,13 @@ include(CheckLanguage)
 
 option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
 option(OCOS_ENABLE_PYTHON "Enable Python component building" OFF)
+option(OCOS_ENABLE_CTEST "Enable C++ test" ON)
 option(OCOS_ENABLE_TF_STRING "Enable String Operator Set" ON)
 option(OCOS_ENABLE_GPT2_TOKENIZER "Enable the GPT2 tokenizer building" ON)
 option(OCOS_ENABLE_SPM_TOKENIZER "Enable the SentencePiece tokenizer building" ON)
 option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
 
-find_library(ONNXRUNTIME onnxruntime HINTS "${ONNXRUNTIME_LIB_DIR}")
-if ((NOT OCOS_ENABLE_PYTHON) AND (NOT ONNXRUNTIME))
-  message(FATAL_ERROR "Cannot find onnxruntime in the default library paths, please specify the ONNXRUNTIME_LIB_DIR.")
-endif()
+
 
 if(NOT CC_OPTIMIZE)
   message("!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
@@ -60,6 +58,9 @@ if (OCOS_ENABLE_TF_STRING)
   include(farmhash)
   FetchContent_GetProperties(googlere2)
   FetchContent_GetProperties(farmhash)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    set_property(TARGET re2 PROPERTY COMPILE_OPTIONS )
+  endif()
 endif()
 
 file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/*.h*"  "./ocos/utils/*.h*" "./ocos/utils/*.cc")
@@ -98,6 +99,7 @@ endif()
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_library(ortcustomops_static STATIC ${TARGET_SRC})
+target_include_directories(ortcustomops_static PUBLIC tokenizer)
 
 set(ocos_libraries ortcustomops_static)
 if (OCOS_ENABLE_TF_STRING)
@@ -127,7 +129,7 @@ endif()
 
 if (OCOS_ENABLE_SPM_TOKENIZER)
   # SentencePiece
-  target_include_directories(ortcustomops_static PRIVATE ${PROJECT_SOURCE_DIR}/tokenizer ${sentencepieceproject_INCLUDE_DIRS})
+  target_include_directories(ortcustomops_static PUBLIC ${sentencepieceproject_INCLUDE_DIRS})
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_SPM_TOKENIZER)
   list(APPEND ocos_libraries sentencepiece-static)
 endif()
@@ -159,15 +161,30 @@ if(OCOS_ENABLE_PYTHON)
 
   Python3_add_library(ortcustomops SHARED ${TARGET_SRC_PYOPS} ${shared_TARGET_SRC})
   list(APPEND OCOS_COMPILE_DEFINITIONS PYTHON_OP_SUPPORT)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  add_executable(ortcustomops ${shared_TARGET_SRC})
+  set_target_properties(ortcustomops PROPERTIES LINK_FLAGS "                                \
+                      -s WASM=1                                                               \
+                      -s NO_EXIT_RUNTIME=0                                                    \
+                      -s ALLOW_MEMORY_GROWTH=1                                                \
+                      -s SAFE_HEAP=0                                                          \
+                      -s MODULARIZE=1                                                         \
+                      -s SAFE_HEAP_LOG=0                                                      \
+                      -s STACK_OVERFLOW_CHECK=0                                               \
+                      -s EXPORT_ALL=0                                                         \
+                      -s VERBOSE=0                                                            \
+                      --no-entry")
+  if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set_property(TARGET ortcustomops APPEND_STRING PROPERTY LINK_FLAGS " -s ASSERTIONS=1 -s DEMANGLE_SUPPORT=1")
+  else()
+    set_property(TARGET ortcustomops APPEND_STRING PROPERTY LINK_FLAGS " -s ASSERTIONS=0 -s DEMANGLE_SUPPORT=0")
+  endif()
 else()
   list(APPEND shared_TARGET_SRC "${PROJECT_SOURCE_DIR}/shared/ortcustomops.def")
   add_library(ortcustomops SHARED ${shared_TARGET_SRC})
 endif()
 
 target_compile_definitions(ortcustomops PRIVATE  ${OCOS_COMPILE_DEFINITIONS})
-if (OCOS_ENABLE_SPM_TOKENIZER)   # FIXME: this include path is not recommendeded.
-  target_include_directories(ortcustomops PRIVATE ${PROJECT_SOURCE_DIR}/tokenizer ${sentencepieceproject_INCLUDE_DIRS})
-endif()
 target_link_libraries(ortcustomops PRIVATE ${ocos_libraries})
 
 if(OCOS_ENABLE_PYTHON)
@@ -204,8 +221,12 @@ message(STATUS "fetch CPack")
 include(CPack)
 
 # test section
-if (NOT OCOS_ENABLE_PYTHON)
+if (OCOS_ENABLE_CTEST)
   # Enable CTest
+  if (NOT ONNXRUNTIME)
+    message(FATAL_ERROR "Enable ctest should provide onnxruntime path, please specify the ONNXRUNTIME_LIB_DIR.")
+  endif()
+
   enable_testing()
   message(STATUS "fetch CTest")
   include(CTest)

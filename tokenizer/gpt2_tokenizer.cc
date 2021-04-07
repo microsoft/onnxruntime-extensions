@@ -49,7 +49,8 @@ class SpecialTokenMap {
         auto it = str.first.begin();
         size_t search_pos = 0;
         while (it != str.first.end()) {
-#if defined(__APPLE__)
+// work fine for all clang-based platform: Mac OS, Android, WebAssembly
+#if defined(__clang__)
           auto search_it = std::search(it, str.first.end(), st.str.begin(), st.str.end());
 #else
           auto search_it = std::search(it, str.first.end(),
