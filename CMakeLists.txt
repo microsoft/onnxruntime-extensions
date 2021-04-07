@@ -223,6 +223,7 @@ include(CPack)
 # test section
 if (OCOS_ENABLE_CTEST)
   # Enable CTest
+  find_library(ONNXRUNTIME onnxruntime HINTS "${ONNXRUNTIME_LIB_DIR}")
   if (NOT ONNXRUNTIME)
     message(FATAL_ERROR "Enable ctest should provide onnxruntime path, please specify the ONNXRUNTIME_LIB_DIR.")
   endif()

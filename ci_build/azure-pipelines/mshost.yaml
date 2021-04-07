@@ -251,7 +251,7 @@ jobs:
 
     steps:
       - checkout: self
-        persistCredentials: true
+        submodules: recursive
 
       - task: DownloadGitHubRelease@0
         inputs:
