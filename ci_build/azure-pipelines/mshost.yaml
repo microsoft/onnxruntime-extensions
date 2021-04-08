@@ -44,7 +44,8 @@ jobs:
       export CIBW_BEFORE_BUILD=pip install .
       export CIBW_BEFORE_BUILD=pip install pybind11 cython numpy scipy scikit-learn onnx onnxruntime
       export CIBW_BUILD="cp38-manylinux_x86_64"
-      # cp37-manylinux_x86_64  cp39-manylinux_x86_64: fails...
+      # cp37-manylinux_x86_64  cp39-manylinux_x86_64
+      python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
       python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
     displayName: 'Build Package many'
     condition: eq(variables['build.lib'], '1')
@@ -212,6 +213,9 @@ jobs:
   - script: |
       call activate pyenv
       python setup.py bdist_wheel
+      # cmake produces assemblies before setup.py makes the 
+      # the list of files to include, second call solves that
+      python setup.py bdist_wheel
     displayName: Build wheel
     condition: eq(variables['build.lib'], '1')
 
@@ -302,6 +306,10 @@ jobs:
 
   - script: |
       call activate pyenv
+      python setup.py bdist_wheel
+      # cmake produces assemblies before setup.py makes the 
+      # the list of files to include, second call solves that
+      python setup.py sdist
       python setup.py bdist_wheel
     displayName: Build wheel
     condition: eq(variables['build.lib'], '1')

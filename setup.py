@@ -9,8 +9,8 @@
 from setuptools.command.build_ext import build_ext as _build_ext
 from setuptools.command.develop import develop as _develop
 from setuptools.command.build_py import build_py as _build_py
-from distutils.core import setup
 from contextlib import contextmanager
+from setuptools import setup, find_packages
 
 import os
 import sys
@@ -129,11 +129,18 @@ ext_modules = [
         sources=[])
 ]
 
+packages = find_packages()
+package_dir = {k: os.path.join('.', k.replace(".", "/")) for k in packages}
+package_data = {
+    "onnxruntime_customops": ["*.dll", "*.so", "*.pyd"],
+}
 
 setup(
     name='onnxruntime_customops',
     version=read_version(),
-    packages=['onnxruntime_customops'],
+    packages=packages,
+    package_dir=package_dir,
+    package_data=package_data,
     description="ONNXRuntime Custom Operator Library",
     long_description=open(os.path.join(os.getcwd(), "README.md"), 'r').read(),
     long_description_content_type='text/markdown',
