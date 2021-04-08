@@ -71,6 +71,20 @@ jobs:
   - script: python -m pytest test --verbose --verbose 
     displayName: Run python test
 
+  - script: |
+      python -m pip install cibuildwheel
+      export CIBW_BEFORE_BUILD=pip install .
+      export CIBW_BEFORE_BUILD=pip install pybind11 cython numpy scipy scikit-learn onnx onnxruntime
+      export CIBW_BUILD="cp38-manylinux_x86_64"
+      # cp37-manylinux_x86_64  cp39-manylinux_x86_64: fails...
+      python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
+    displayName: 'Build Package many'
+
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'wheel-linux-$(python.version)'
+      targetPath: 'dist'
+
 #######
 # macOS
 #######
@@ -151,6 +165,16 @@ jobs:
   - script: python -m pytest test --verbose
     displayName: Run python test
 
+  - script: |
+      call activate pyenv
+      python setup.py bdist_wheel
+    displayName: Build wheel
+
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'wheel-macos-$(python.version)'
+      targetPath: 'dist'
+
 #########
 # Windows
 #########
@@ -227,3 +251,13 @@ jobs:
       call activate pyenv
       python -m pytest test
     displayName: Run python test
+
+  - script: |
+      call activate pyenv
+      python setup.py bdist_wheel
+    displayName: Build wheel
+
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'wheel-window-$(python.version)'
+      targetPath: 'dist'
