@@ -38,7 +38,7 @@ jobs:
   - script: |
       python -m pip install cibuildwheel
       export CIBW_BEFORE_BUILD=pip install pybind11 cmake cython numpy scipy scikit-learn onnx onnxruntime
-      export CIBW_BEFORE_BUILD_LINUX="yum update && yum install -y wget && bash ./ci_build/azure-pipelines/install_cmake.sh && export PATH=./_install_/bin:$PATH"
+      export CIBW_BEFORE_BUILD_LINUX="yum update && yum install -y wget && mkdir _install_ && cd _install_ && wget https://github.com/Kitware/CMake/releases/download/v3.20.1/cmake-3.20.1-linux-x86_64.sh && bash  cmake-3.20.1-linux-x86_64.sh && export PATH=./_install_/bin:$PATH"
       export CIBW_BUILD="cp38-manylinux_x86_64"
       # cp37-manylinux_x86_64  cp39-manylinux_x86_64
       python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
