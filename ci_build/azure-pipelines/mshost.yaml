@@ -37,34 +37,21 @@ jobs:
 
   - script: |
       python -m pip install cibuildwheel
-      export CIBW_BEFORE_BUILD=pip install pybind11 cmake cython numpy scipy scikit-learn onnx onnxruntime
+      export CIBW_BEFORE_BUILD=pip install pybind11 cython numpy scipy scikit-learn onnx onnxruntime
       export CIBW_BEFORE_BUILD_LINUX="yum update && yum install -y wget && mkdir _install_ && cd _install_ && wget https://github.com/Kitware/CMake/releases/download/v3.20.1/cmake-3.20.1-linux-x86_64.sh && bash  cmake-3.20.1-linux-x86_64.sh && export PATH=./_install_/bin:$PATH"
       export CIBW_BUILD="cp38-manylinux_x86_64"
+      export CIBW_MANYLINUX_X86_64_IMAGE=quay.io/pypa/manylinux2014_x86_64
+      export CIBW_TEST_COMMAND=python setup.py build_ext --inplace
       # cp37-manylinux_x86_64  cp39-manylinux_x86_64
       python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
-      python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
+      # python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
     displayName: 'Build Package many'
-
-  - script: |
-      call activate pyenv
-      python -m pip install --upgrade pip
-      python -m pip install --upgrade setuptools
-      python -m pip install -r requirements.txt
-      python -m pip install -r requirements-dev.txt
-    displayName: Install requirements.txt
-
-  - script: |
-      call activate pyenv
-      python setup.py bdist_wheel
-      # cmake produces assemblies before setup.py makes the 
-      # the list of files to include, second call solves that
-      python setup.py bdist_wheel
-    displayName: Build wheel
 
   - task: PublishPipelineArtifact@0
     inputs:
-      artifactName: 'wheel-linux-$(python.version)'
+      artifactName: 'wheel-manylinux-$(python.version)'
       targetPath: 'dist'
+    condition: eq(variables['build.lib'], '1')
 
 #######
 # Linux
@@ -137,6 +124,21 @@ jobs:
 
   - script: python -m pytest test --verbose --verbose 
     displayName: Run python test
+
+  - script: |
+      call activate pyenv
+      python setup.py bdist_wheel
+      # cmake produces assemblies before setup.py makes the 
+      # the list of files to include, second call solves that
+      # python setup.py bdist_wheel
+    displayName: Build wheel
+    condition: eq(variables['build.lib'], '1')
+
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'wheel-linux-$(python.version)'
+      targetPath: 'dist'
+    condition: eq(variables['build.lib'], '1')
 
 #######
 # macOS
