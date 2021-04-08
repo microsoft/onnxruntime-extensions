@@ -1,8 +1,64 @@
+jobs:
+
+#############
+# Linux Wheel
+#############
+
+- job: LinuxWheel
+  pool:
+    vmImage: 'ubuntu-latest'
+  
+  strategy:
+    matrix:
+      py38-170:
+        python.version: '3.8'
+        ort.version: '1.7.0'
+        ortlib.version: '38443267'
+    maxParallel: 1
+
+  steps:
+  - task: DownloadGitHubRelease@0
+    inputs:
+      connection: 'microsoft'
+      userRepository: 'microsoft/onnxruntime'
+      defaultVersionType: 'specificVersion'
+      version: '$(ortlib.version)'
+      itemPattern: '*-linux-x64-$(ort.version)*'
+      downloadPath: '$(Build.sourcesdirectory)'
+    displayName: Download the ONNXRuntime prebuilt package.
+
+  - task: ExtractFiles@1
+    inputs:
+      archiveFilePatterns: '**/*.tgz'
+      destinationFolder: '$(Build.sourcesdirectory)'
+      cleanDestinationFolder: false
+      overwriteExistingFiles: true
+    displayName: Unpack ONNXRuntime package.
+
+  - script: |
+      sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-linux-x64-$(ort.version)/lib
+    displayName: build the customop library with onnxruntime
+
+  - script: |
+      python -m pip install cibuildwheel
+      export CIBW_BEFORE_BUILD=pip install .
+      export CIBW_BEFORE_BUILD=pip install pybind11 cython numpy scipy scikit-learn onnx onnxruntime
+      export CIBW_BUILD="cp38-manylinux_x86_64"
+      # cp37-manylinux_x86_64  cp39-manylinux_x86_64: fails...
+      python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
+    displayName: 'Build Package many'
+    condition: eq(variables['build.lib'], '1')
+
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'wheel-linux-$(python.version)'
+      targetPath: 'dist'
+    condition: eq(variables['build.lib'], '1')
+
 #######
 # Linux
 #######
 
-jobs:
 - job: Linux
   pool:
     vmImage: 'ubuntu-latest'
@@ -71,20 +127,6 @@ jobs:
   - script: python -m pytest test --verbose --verbose 
     displayName: Run python test
 
-  - script: |
-      python -m pip install cibuildwheel
-      export CIBW_BEFORE_BUILD=pip install .
-      export CIBW_BEFORE_BUILD=pip install pybind11 cython numpy scipy scikit-learn onnx onnxruntime
-      export CIBW_BUILD="cp38-manylinux_x86_64"
-      # cp37-manylinux_x86_64  cp39-manylinux_x86_64: fails...
-      python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
-    displayName: 'Build Package many'
-
-  - task: PublishPipelineArtifact@0
-    inputs:
-      artifactName: 'wheel-linux-$(python.version)'
-      targetPath: 'dist'
-
 #######
 # macOS
 #######
@@ -99,10 +141,12 @@ jobs:
         python.version: '3.8'
         ort.version: '1.7.0'
         ortlib.version: '38443267'
+        build.lib: '1'
       py38-160:
         python.version: '3.8'
         ort.version: '1.6.0'
         ortlib.version: '34858191'
+        build.lib: '0'
     maxParallel: 1
 
   steps:
@@ -169,11 +213,13 @@ jobs:
       call activate pyenv
       python setup.py bdist_wheel
     displayName: Build wheel
+    condition: eq(variables['build.lib'], '1')
 
   - task: PublishPipelineArtifact@0
     inputs:
       artifactName: 'wheel-macos-$(python.version)'
       targetPath: 'dist'
+    condition: eq(variables['build.lib'], '1')
 
 #########
 # Windows
@@ -189,10 +235,12 @@ jobs:
         python.version: '3.8'
         ort.version: '1.7.0'
         ortlib.version: '38443267'
+        build.lib: '1'
       py38-160:
         python.version: '3.8'
         ort.version: '1.6.0'
         ortlib.version: '34858191'
+        build.lib: '0'
     maxParallel: 1
 
   steps:
@@ -256,8 +304,10 @@ jobs:
       call activate pyenv
       python setup.py bdist_wheel
     displayName: Build wheel
+    condition: eq(variables['build.lib'], '1')
 
   - task: PublishPipelineArtifact@0
     inputs:
       artifactName: 'wheel-window-$(python.version)'
       targetPath: 'dist'
+    condition: eq(variables['build.lib'], '1')
