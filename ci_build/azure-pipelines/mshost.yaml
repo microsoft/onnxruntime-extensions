@@ -67,10 +67,12 @@ jobs:
         python.version: '3.8'
         ort.version: '1.7.0'
         ortlib.version: '38443267'
+        build.lib: '1'
       py38-160:
         python.version: '3.8'
         ort.version: '1.6.0'
         ortlib.version: '34858191'
+        build.lib: '0'
     maxParallel: 1
 
   steps:
