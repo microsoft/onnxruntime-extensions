@@ -36,14 +36,6 @@ jobs:
     displayName: Unpack ONNXRuntime package.
 
   - script: |
-      call activate pyenv
-      python -m pip install --upgrade pip
-      python -m pip install --upgrade setuptools
-      python -m pip install -r requirements.txt
-      python -m pip install -r requirements-dev.txt
-    displayName: Install requirements.txt
-
-  - script: |
       python -m pip install cibuildwheel
       export CIBW_BEFORE_BUILD=pip install pybind11 cmake cython numpy scipy scikit-learn onnx onnxruntime
       export CIBW_BEFORE_BUILD_LINUX="yum update && yum install -y wget && bash ./ci_build/azure-pipelines/install_cmake.sh && export PATH=./_install_/bin:$PATH"
@@ -52,6 +44,14 @@ jobs:
       python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
       python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
     displayName: 'Build Package many'
+
+  - script: |
+      call activate pyenv
+      python -m pip install --upgrade pip
+      python -m pip install --upgrade setuptools
+      python -m pip install -r requirements.txt
+      python -m pip install -r requirements-dev.txt
+    displayName: Install requirements.txt
 
   - script: |
       call activate pyenv
