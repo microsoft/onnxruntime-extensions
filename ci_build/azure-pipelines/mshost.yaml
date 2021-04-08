@@ -48,13 +48,11 @@ jobs:
       python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
       python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
     displayName: 'Build Package many'
-    condition: eq(variables['build.lib'], '1')
 
   - task: PublishPipelineArtifact@0
     inputs:
       artifactName: 'wheel-linux-$(python.version)'
       targetPath: 'dist'
-    condition: eq(variables['build.lib'], '1')
 
 #######
 # Linux
