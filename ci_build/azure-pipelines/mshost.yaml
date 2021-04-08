@@ -36,18 +36,30 @@ jobs:
     displayName: Unpack ONNXRuntime package.
 
   - script: |
-      sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-linux-x64-$(ort.version)/lib
-    displayName: build the customop library with onnxruntime
+      call activate pyenv
+      python -m pip install --upgrade pip
+      python -m pip install --upgrade setuptools
+      python -m pip install -r requirements.txt
+      python -m pip install -r requirements-dev.txt
+    displayName: Install requirements.txt
 
   - script: |
       python -m pip install cibuildwheel
       export CIBW_BEFORE_BUILD=pip install pybind11 cmake cython numpy scipy scikit-learn onnx onnxruntime
-      export CIBW_BEFORE_BUILD_LINUX="sudo yum update && sudo apt yum install -y wget && bash ./ci_build/azure-pipelines/install_cmake.sh && export PATH=./_install_/bin:$PATH"
+      export CIBW_BEFORE_BUILD_LINUX="yum update && yum install -y wget && bash ./ci_build/azure-pipelines/install_cmake.sh && export PATH=./_install_/bin:$PATH"
       export CIBW_BUILD="cp38-manylinux_x86_64"
       # cp37-manylinux_x86_64  cp39-manylinux_x86_64
       python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
       python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
     displayName: 'Build Package many'
+
+  - script: |
+      call activate pyenv
+      python setup.py bdist_wheel
+      # cmake produces assemblies before setup.py makes the 
+      # the list of files to include, second call solves that
+      python setup.py bdist_wheel
+    displayName: Build wheel
 
   - task: PublishPipelineArtifact@0
     inputs:
