@@ -49,13 +49,13 @@ jobs:
       python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
       # python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
     displayName: 'Build Package many'
-    condition: succeededOrFailed()
+    enabled: false
 
   - task: PublishPipelineArtifact@0
     inputs:
       artifactName: 'wheel-manylinux-$(python.version)'
       targetPath: 'dist'
-    condition: succeededOrFailed()
+    enabled: false
 
 #######
 # Linux
