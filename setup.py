@@ -163,8 +163,7 @@ setup(
     include_package_data=True,
     install_requires=read_requirements(),
     classifiers=[
-        'BuildDevelopment Status :: 4 - Beta',
-        'Environment :: Console',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
         'Operating System :: MacOS :: MacOS X',
         'Operating System :: Microsoft :: Windows',
