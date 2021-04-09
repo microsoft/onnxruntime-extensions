@@ -93,7 +93,7 @@ jobs:
 # macOS C++
 ###########
 
-- job: macOS
+- job: MacOSC++
   pool:
     vmImage: 'macOS-latest'
 
@@ -145,7 +145,7 @@ jobs:
 # macOS Wheel
 #############
 
-- job: macOS
+- job: MacOSWheel
   pool:
     vmImage: 'macOS-latest'
 
@@ -212,7 +212,7 @@ jobs:
 # Windows C++
 #########
 
-- job: Windows
+- job: WindowsC++
   pool:
     vmImage: 'windows-latest'
 
