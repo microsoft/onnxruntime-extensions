@@ -72,6 +72,12 @@ class BuildCMakeExt(_build_ext):
             '-DOCOS_EXTENTION_NAME=' + pathlib.Path(self.get_ext_filename(extension.name)).name,
             '-DCMAKE_BUILD_TYPE=' + config
         ]
+        # Uses to overwrite 
+        # export Python3_INCLUDE_DIRS=/opt/python/cp38-cp38
+        # export Python3_LIBRARIES=/opt/python/cp38-cp38
+        for env in ['Python3_INCLUDE_DIRS', '']:
+            if env in os.environ:
+                cmake_args.append("-D%s=%s" % (env, os.environ[env]))
 
         if self.debug:
             cmake_args += ['-DCC_OPTIMIZE=OFF']
@@ -164,8 +170,9 @@ setup(
         'Operating System :: Microsoft :: Windows',
         "Programming Language :: C++",
         'Programming Language :: Python',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
         "Programming Language :: Python :: Implementation :: CPython",
         'License :: OSI Approved :: MIT License'
     ],

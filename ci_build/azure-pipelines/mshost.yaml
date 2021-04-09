@@ -37,10 +37,11 @@ jobs:
 
   - script: |
       python -m pip install cibuildwheel
-      export CIBW_BEFORE_BUILD="pip install pybind11 cython numpy scipy scikit-learn onnx onnxruntime"
+      export CIBW_BEFORE_BUILD="pip install pybind11 cython numpy scipy scikit-learn onnx onnxruntime cmake"
       # Binaries of cmake remains stuck.
       # export CIBW_BEFORE_BUILD_LINUX="yum update && yum install -y wget && mkdir _install_ && cd _install_ && wget https://github.com/Kitware/CMake/releases/download/v3.20.1/cmake-3.20.1-linux-x86_64.sh && bash  cmake-3.20.1-linux-x86_64.sh && export PATH=./_install_/bin:$PATH"
-      export CIBW_BEFORE_BUILD_LINUX="yum update && yum install -y wget && wget https://github.com/Kitware/CMake/releases/download/v3.20.1/cmake-3.20.1.tar.gz && tar xzf cmake-3.20.1.tar.gz && cd cmake-3.20.1 && cmake . -DCMAKE_USE_OPENSSL=OFF && make && make install && cd .."      
+      export CIBW_BEFORE_BUILD_LINUX="yum update && yum install -y wget && wget https://github.com/Kitware/CMake/releases/download/v3.20.1/cmake-3.20.1.tar.gz && tar xzf cmake-3.20.1.tar.gz && cd cmake-3.20.1 && cmake . -DCMAKE_USE_OPENSSL=OFF && make && make install && cd .."
+      export CIBW_ENVIRONMENT="Python3_INCLUDE_DIRS=/opt/python/cp38-cp38 Python3_LIBRAIRIES=/opt/python/cp38-cp38"
       export CIBW_BUILD="cp38-manylinux_x86_64"
       export CIBW_MANYLINUX_X86_64_IMAGE=quay.io/pypa/manylinux2014_x86_64
       export CIBW_TEST_COMMAND="python setup.py build_ext --inplace"
