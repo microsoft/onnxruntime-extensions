@@ -1,62 +1,5 @@
 jobs:
 
-#############
-# Linux Wheel
-#############
-
-- job: LinuxWheel
-  pool:
-    vmImage: 'ubuntu-latest'
-  
-  strategy:
-    matrix:
-      py38-170:
-        python.version: '3.8'
-        ort.version: '1.7.0'
-        ortlib.version: '38443267'
-    maxParallel: 1
-
-  steps:
-  - task: DownloadGitHubRelease@0
-    inputs:
-      connection: 'microsoft'
-      userRepository: 'microsoft/onnxruntime'
-      defaultVersionType: 'specificVersion'
-      version: '$(ortlib.version)'
-      itemPattern: '*-linux-x64-$(ort.version)*'
-      downloadPath: '$(Build.sourcesdirectory)'
-    displayName: Download the ONNXRuntime prebuilt package.
-
-  - task: ExtractFiles@1
-    inputs:
-      archiveFilePatterns: '**/*.tgz'
-      destinationFolder: '$(Build.sourcesdirectory)'
-      cleanDestinationFolder: false
-      overwriteExistingFiles: true
-    displayName: Unpack ONNXRuntime package.
-
-  - script: |
-      python -m pip install cibuildwheel
-      export CIBW_BEFORE_BUILD="pip install pybind11 cython numpy scipy scikit-learn onnx onnxruntime cmake"
-      # Binaries of cmake remains stuck.
-      # export CIBW_BEFORE_BUILD_LINUX="yum update && yum install -y wget && mkdir _install_ && cd _install_ && wget https://github.com/Kitware/CMake/releases/download/v3.20.1/cmake-3.20.1-linux-x86_64.sh && bash  cmake-3.20.1-linux-x86_64.sh && export PATH=./_install_/bin:$PATH"
-      export CIBW_BEFORE_BUILD_LINUX="yum update && yum install -y wget && wget https://github.com/Kitware/CMake/releases/download/v3.20.1/cmake-3.20.1.tar.gz && tar xzf cmake-3.20.1.tar.gz && cd cmake-3.20.1 && cmake . -DCMAKE_USE_OPENSSL=OFF && make && make install && cd .."
-      export CIBW_ENVIRONMENT="Python3_INCLUDE_DIRS=/opt/python/cp38-cp38 Python3_LIBRARIES=/opt/python/cp38-cp38"
-      export CIBW_BUILD="cp38-manylinux_x86_64"
-      export CIBW_MANYLINUX_X86_64_IMAGE=quay.io/pypa/manylinux2014_x86_64
-      export CIBW_TEST_COMMAND="python setup.py build_ext --inplace"
-      # cp37-manylinux_x86_64  cp39-manylinux_x86_64
-      python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
-      # python -m cibuildwheel --output-dir dist/wheelhouse --platform linux
-    displayName: 'Build Package many'
-    enabled: false
-
-  - task: PublishPipelineArtifact@0
-    inputs:
-      artifactName: 'wheel-manylinux-$(python.version)'
-      targetPath: 'dist'
-    enabled: false
-
 #######
 # Linux
 #######
@@ -257,7 +200,6 @@ jobs:
         python.version: '3.8'
         ort.version: '1.7.0'
         ortlib.version: '38443267'
-        build.lib: '1'
       py38-160:
         python.version: '3.8'
         ort.version: '1.6.0'
@@ -322,6 +264,54 @@ jobs:
       python -m pytest test
     displayName: Run python test
 
+################
+# Windows wheels
+################
+
+- job: WindowsWheel
+  pool:
+    vmImage: 'windows-latest'
+
+  strategy:
+    matrix:
+      py38-170:
+        python.version: '3.8'
+        ort.version: '1.7.0'
+      py37-170:
+        python.version: '3.7'
+        ort.version: '1.7.0'
+      py36-170:
+        python.version: '3.6'
+        ort.version: '1.7.0'
+    maxParallel: 1
+
+  steps:
+  - script: conda create --yes --quiet --name pyenv -c conda-forge python=3.8 numpy
+    displayName: Create Anaconda environment
+
+  - script: |
+      call activate pyenv
+      python -m pip install --upgrade pip
+      python -m pip install -r requirements.txt
+      python -m pip install -r requirements-dev.txt
+    displayName: Install requirements.txt
+
+  - script: |
+      call activate pyenv
+      python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio===0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
+    displayName: Install pytorch
+
+  - script: |
+      call activate pyenv
+      echo Test numpy installation... && python -c "import numpy"
+      python setup.py develop
+    displayName: Build the custom-op library
+
+  - script: |
+      call activate pyenv
+      python -m pytest test
+    displayName: Run python test
+
   - script: |
       call activate pyenv
       python setup.py bdist_wheel
@@ -330,10 +320,8 @@ jobs:
       python setup.py sdist
       python setup.py bdist_wheel
     displayName: Build wheel
-    condition: eq(variables['build.lib'], '1')
 
   - task: PublishPipelineArtifact@0
     inputs:
       artifactName: 'wheel-window-$(python.version)'
       targetPath: 'dist'
-    condition: eq(variables['build.lib'], '1')
