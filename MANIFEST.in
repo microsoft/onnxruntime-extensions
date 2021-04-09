@@ -1,5 +1,5 @@
 prune ci_build
 prune docs
 exclude *.bat
-exclude *.yml
+exclude *.yaml
 exclude *.git*
