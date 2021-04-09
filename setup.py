@@ -75,7 +75,7 @@ class BuildCMakeExt(_build_ext):
         # Uses to overwrite 
         # export Python3_INCLUDE_DIRS=/opt/python/cp38-cp38
         # export Python3_LIBRARIES=/opt/python/cp38-cp38
-        for env in ['Python3_INCLUDE_DIRS', '']:
+        for env in ['Python3_INCLUDE_DIRS', 'Python3_LIBRARIES']:
             if env in os.environ:
                 cmake_args.append("-D%s=%s" % (env, os.environ[env]))
 
