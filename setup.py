@@ -164,9 +164,11 @@ setup(
     install_requires=read_requirements(),
     classifiers=[
         'Development Status :: 4 - Beta',
+        'Environment :: Console',
         'Intended Audience :: Developers',
         'Operating System :: MacOS :: MacOS X',
         'Operating System :: Microsoft :: Windows',
+        'Operating System :: POSIX :: Linux',
         "Programming Language :: C++",
         'Programming Language :: Python',
         'Programming Language :: Python :: 3.7',
