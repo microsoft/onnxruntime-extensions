@@ -7,7 +7,7 @@
 #include "kernels/string_common.h"
 #include "base64.h"
 
-KernelSentencepieceTokenizer::KernelSentencepieceTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api) {
+KernelSentencepieceTokenizer::KernelSentencepieceTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   std::string model_as_string = ort_.KernelInfoGetAttribute<std::string>(info, "model");
   sentencepiece::ModelProto model_proto;
   std::vector<uint8_t> model_as_bytes;
