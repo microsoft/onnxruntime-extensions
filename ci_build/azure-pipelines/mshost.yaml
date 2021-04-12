@@ -1,8 +1,9 @@
+jobs:
+
 #######
 # Linux
 #######
 
-jobs:
 - job: Linux
   pool:
     vmImage: 'ubuntu-latest'
@@ -13,10 +14,12 @@ jobs:
         python.version: '3.8'
         ort.version: '1.7.0'
         ortlib.version: '38443267'
+        build.lib: '1'
       py38-160:
         python.version: '3.8'
         ort.version: '1.6.0'
         ortlib.version: '34858191'
+        build.lib: '0'
     maxParallel: 1
 
   steps:
@@ -71,11 +74,26 @@ jobs:
   - script: python -m pytest test --verbose --verbose 
     displayName: Run python test
 
-#######
-# macOS
-#######
+  - script: |
+      call activate pyenv
+      python setup.py bdist_wheel
+      # cmake produces assemblies before setup.py makes the 
+      # the list of files to include, second call solves that
+      # python setup.py bdist_wheel
+    displayName: Build wheel
+    condition: eq(variables['build.lib'], '1')
 
-- job: macOS
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'wheel-linux-$(python.version)'
+      targetPath: 'dist'
+    condition: eq(variables['build.lib'], '1')
+
+###########
+# macOS C++
+###########
+
+- job: MacOSC
   pool:
     vmImage: 'macOS-latest'
 
@@ -123,6 +141,32 @@ jobs:
       ctest -C RelWithDebInfo
     displayName: Run C++ native tests
 
+#############
+# macOS Wheel
+#############
+
+- job: MacOSWheel
+  pool:
+    vmImage: 'macOS-latest'
+
+  strategy:
+    matrix:
+      py38-170:
+        python.version: '3.8'
+        ort.version: '1.7.0'
+      py37-170:
+        python.version: '3.7'
+        ort.version: '1.7.0'
+      py36-170:
+        python.version: '3.6'
+        ort.version: '1.7.0'
+    maxParallel: 1
+
+  steps:
+  # needed for onnxruntime
+  - script: brew install libomp
+    displayName: 'Install omp'
+
   - task: UsePythonVersion@0
     inputs:
       versionSpec: '$(python.version)'
@@ -151,11 +195,24 @@ jobs:
   - script: python -m pytest test --verbose
     displayName: Run python test
 
+  - script: |
+      call activate pyenv
+      python setup.py bdist_wheel
+      # cmake produces assemblies before setup.py makes the 
+      # the list of files to include, second call solves that
+      python setup.py bdist_wheel
+    displayName: Build wheel
+
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'wheel-macos-$(python.version)'
+      targetPath: 'dist'
+
 #########
-# Windows
+# Windows C++
 #########
 
-- job: Windows
+- job: WindowsC
   pool:
     vmImage: 'windows-latest'
 
@@ -169,6 +226,7 @@ jobs:
         python.version: '3.8'
         ort.version: '1.6.0'
         ortlib.version: '34858191'
+        build.lib: '0'
     maxParallel: 1
 
   steps:
@@ -199,10 +257,32 @@ jobs:
       ctest -C RelWithDebInfo
     displayName: Run C++ native tests
 
+################
+# Windows wheels
+################
+
+- job: WindowsWheel
+  pool:
+    vmImage: 'windows-latest'
+
+  strategy:
+    matrix:
+      py38-170:
+        python.version: '3.8'
+        ort.version: '1.7.0'
+      py37-170:
+        python.version: '3.7'
+        ort.version: '1.7.0'
+      py36-170:
+        python.version: '3.6'
+        ort.version: '1.7.0'
+    maxParallel: 1
+
+  steps:
   - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
     displayName: Add conda to PATH
 
-  - script: conda create --yes --quiet --name pyenv -c conda-forge python=3.8 numpy
+  - script: conda create --yes --quiet --name pyenv -c conda-forge python=$(python.version) numpy
     displayName: Create Anaconda environment
 
   - script: |
@@ -227,3 +307,17 @@ jobs:
       call activate pyenv
       python -m pytest test
     displayName: Run python test
+
+  - script: |
+      call activate pyenv
+      python setup.py bdist_wheel
+      # cmake produces assemblies before setup.py makes the 
+      # the list of files to include, second call solves that
+      python setup.py sdist
+      python setup.py bdist_wheel
+    displayName: Build wheel
+
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'wheel-window-$(python.version)'
+      targetPath: 'dist'

@@ -1,0 +1,5 @@
+prune ci_build
+prune docs
+exclude *.bat
+exclude *.yaml
+exclude *.git*
