@@ -1,327 +1,326 @@
 jobs:
 
-#######
-# Linux
-#######
+  #######
+  # Linux
+  #######
 
-- job: Linux
-  pool:
-    vmImage: 'ubuntu-latest'
+  - job: Linux
+    pool:
+      vmImage: 'ubuntu-latest'
 
-  strategy:
-    matrix:
-      py38-170:
-        python.version: '3.8'
-        ort.version: '1.7.0'
-        ortlib.version: '38443267'
-        build.lib: '1'
-      py38-160:
-        python.version: '3.8'
-        ort.version: '1.6.0'
-        ortlib.version: '34858191'
-        build.lib: '0'
-    maxParallel: 1
+    strategy:
+      matrix:
+        py38-170:
+          python.version: '3.8'
+          ort.version: '1.7.0'
+          ortlib.version: '38443267'
+          build.lib: '1'
+        py38-160:
+          python.version: '3.8'
+          ort.version: '1.6.0'
+          ortlib.version: '34858191'
+          build.lib: '0'
+      maxParallel: 1
 
-  steps:
-  - task: DownloadGitHubRelease@0
-    inputs:
-      connection: 'microsoft'
-      userRepository: 'microsoft/onnxruntime'
-      defaultVersionType: 'specificVersion'
-      version: '$(ortlib.version)'
-      itemPattern: '*-linux-x64-$(ort.version)*'
-      downloadPath: '$(Build.sourcesdirectory)'
-    displayName: Download the ONNXRuntime prebuilt package.
+    steps:
+      - task: DownloadGitHubRelease@0
+        inputs:
+          connection: 'microsoft'
+          userRepository: 'microsoft/onnxruntime'
+          defaultVersionType: 'specificVersion'
+          version: '$(ortlib.version)'
+          itemPattern: '*-linux-x64-$(ort.version)*'
+          downloadPath: '$(Build.sourcesdirectory)'
+        displayName: Download the ONNXRuntime prebuilt package.
 
-  - task: ExtractFiles@1
-    inputs:
-      archiveFilePatterns: '**/*.tgz'
-      destinationFolder: '$(Build.sourcesdirectory)'
-      cleanDestinationFolder: false
-      overwriteExistingFiles: true
-    displayName: Unpack ONNXRuntime package.
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '**/*.tgz'
+          destinationFolder: '$(Build.sourcesdirectory)'
+          cleanDestinationFolder: false
+          overwriteExistingFiles: true
+        displayName: Unpack ONNXRuntime package.
 
-  - script: |
-      sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-linux-x64-$(ort.version)/lib
-    displayName: build the customop library with onnxruntime
+      - script: |
+          sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-linux-x64-$(ort.version)/lib
+        displayName: build the customop library with onnxruntime
 
-  - script: |
-      cd out/Linux
-      ctest -C RelWithDebInfo
-    displayName: Run C++ native tests
+      - script: |
+          cd out/Linux
+          ctest -C RelWithDebInfo
+        displayName: Run C++ native tests
 
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '$(python.version)'
-      addToPath: true
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '$(python.version)'
+          addToPath: true
 
-  - script: |
-      python -m pip install --upgrade pip
-      python -m pip install --upgrade setuptools
-      python -m pip install -r requirements.txt
-    displayName: Install requirements.txt
+      - script: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade setuptools
+          python -m pip install -r requirements.txt
+        displayName: Install requirements.txt
 
-  - script: |
-      python setup.py develop
-    displayName: Build the library and tests
+      - script: |
+          python setup.py develop
+        displayName: Build the library and tests
 
-  - script: python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
-    displayName: Install pytorch
+      - script: python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
+        displayName: Install pytorch
 
-  - script: python -m pip install -r requirements-dev.txt
-    displayName: Install requirements-dev.txt
+      - script: python -m pip install -r requirements-dev.txt
+        displayName: Install requirements-dev.txt
 
-  - script: python -m pytest test --verbose --verbose 
-    displayName: Run python test
+      - script: python -m pytest test --verbose --verbose
+        displayName: Run python test
 
-  - script: |
-      call activate pyenv
-      python setup.py bdist_wheel
-      # cmake produces assemblies before setup.py makes the
-      # the list of files to include, second call solves that
-      # python setup.py bdist_wheel
-    displayName: Build wheel
-    condition: eq(variables['build.lib'], '1')
+      - script: |
+          call activate pyenv
+          python setup.py bdist_wheel
+          # cmake produces assemblies before setup.py makes the
+          # the list of files to include, second call solves that
+          # python setup.py bdist_wheel
+        displayName: Build wheel
+        condition: eq(variables['build.lib'], '1')
 
-  - task: PublishPipelineArtifact@0
-    inputs:
-      artifactName: 'wheel-linux-$(python.version)'
-      targetPath: 'dist'
-    condition: eq(variables['build.lib'], '1')
+      - task: PublishPipelineArtifact@0
+        inputs:
+          artifactName: 'wheel-linux-$(python.version)'
+          targetPath: 'dist'
+        condition: eq(variables['build.lib'], '1')
 
-###########
-# macOS C++
-###########
+  ###########
+  # macOS C++
+  ###########
 
-- job: MacOSC
-  pool:
-    vmImage: 'macOS-latest'
+  - job: MacOSC
+    pool:
+      vmImage: 'macOS-latest'
 
-  strategy:
-    matrix:
-      py38-170:
-        python.version: '3.8'
-        ort.version: '1.7.0'
-        ortlib.version: '38443267'
-      py38-160:
-        python.version: '3.8'
-        ort.version: '1.6.0'
-        ortlib.version: '34858191'
-    maxParallel: 1
+    strategy:
+      matrix:
+        py38-170:
+          python.version: '3.8'
+          ort.version: '1.7.0'
+          ortlib.version: '38443267'
+        py38-160:
+          python.version: '3.8'
+          ort.version: '1.6.0'
+          ortlib.version: '34858191'
+      maxParallel: 1
 
-  steps:
-  # needed for onnxruntime
-  - script: brew install libomp
-    displayName: 'Install omp'
+    steps:
+      # needed for onnxruntime
+      - script: brew install libomp
+        displayName: 'Install omp'
 
-  - task: DownloadGitHubRelease@0
-    inputs:
-      connection: 'microsoft'
-      userRepository: 'microsoft/onnxruntime'
-      defaultVersionType: 'specificVersion'
-      version: '$(ortlib.version)'
-      itemPattern: '*-osx-x64-$(ort.version)*'
-      downloadPath: '$(Build.sourcesdirectory)'
-    displayName: Download the ONNXRuntime prebuilt package.
+      - task: DownloadGitHubRelease@0
+        inputs:
+          connection: 'microsoft'
+          userRepository: 'microsoft/onnxruntime'
+          defaultVersionType: 'specificVersion'
+          version: '$(ortlib.version)'
+          itemPattern: '*-osx-x64-$(ort.version)*'
+          downloadPath: '$(Build.sourcesdirectory)'
+        displayName: Download the ONNXRuntime prebuilt package.
 
-  - task: ExtractFiles@1
-    inputs:
-      archiveFilePatterns: '**/*.tgz'
-      destinationFolder: '$(Build.sourcesdirectory)'
-      cleanDestinationFolder: false
-      overwriteExistingFiles: true
-    displayName: Unpack ONNXRuntime package.
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '**/*.tgz'
+          destinationFolder: '$(Build.sourcesdirectory)'
+          cleanDestinationFolder: false
+          overwriteExistingFiles: true
+        displayName: Unpack ONNXRuntime package.
 
-  - script: |
-      sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-osx-x64-$(ort.version)/lib
-    displayName: build the customop library with onnxruntime
+      - script: |
+          sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-osx-x64-$(ort.version)/lib
+        displayName: build the customop library with onnxruntime
 
-  - script: |
-      cd out/Darwin
-      ctest -C RelWithDebInfo
-    displayName: Run C++ native tests
+      - script: |
+          cd out/Darwin
+          ctest -C RelWithDebInfo
+        displayName: Run C++ native tests
 
-#############
-# macOS Wheel
-#############
+  #############
+  # macOS Wheel
+  #############
 
-- job: MacOSWheel
-  pool:
-    vmImage: 'macOS-latest'
+  - job: MacOSWheel
+    pool:
+      vmImage: 'macOS-latest'
 
-  strategy:
-    matrix:
-      py38-170:
-        python.version: '3.8'
-        ort.version: '1.7.0'
-      py37-170:
-        python.version: '3.7'
-        ort.version: '1.7.0'
-      py36-170:
-        python.version: '3.6'
-        ort.version: '1.7.0'
-    maxParallel: 1
+    strategy:
+      matrix:
+        py38-170:
+          python.version: '3.8'
+          ort.version: '1.7.0'
+        py37-170:
+          python.version: '3.7'
+          ort.version: '1.7.0'
+        py36-170:
+          python.version: '3.6'
+          ort.version: '1.7.0'
+      maxParallel: 1
 
-  steps:
-  # needed for onnxruntime
-  - script: brew install libomp
-    displayName: 'Install omp'
+    steps:
+      # needed for onnxruntime
+      - script: brew install libomp
+        displayName: 'Install omp'
 
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '$(python.version)'
-      addToPath: true
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '$(python.version)'
+          addToPath: true
 
-  - script: |
-      python -m pip install --upgrade pip
-      python -m pip install --upgrade setuptools
-      python -m pip install -r requirements.txt
-    displayName: Install requirements.txt
+      - script: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade setuptools
+          python -m pip install -r requirements.txt
+        displayName: Install requirements.txt
 
-  - script: python -c "import onnxruntime;print(onnxruntime.__version__)"
-    displayName: Check installation
+      - script: python -c "import onnxruntime;print(onnxruntime.__version__)"
+        displayName: Check installation
 
-  - script: |
-      call activate pyenv
-      python setup.py develop
-    displayName: Build the library and tests
+      - script: |
+          call activate pyenv
+          python setup.py develop
+        displayName: Build the library and tests
 
-  - script: python -m pip install -r requirements-dev.txt
-    displayName: Install requirements-dev.txt
+      - script: python -m pip install -r requirements-dev.txt
+        displayName: Install requirements-dev.txt
 
-  - script: python -m pip install torch torchvision torchaudio
-    displayName: Install pytorch
+      - script: python -m pip install torch torchvision torchaudio
+        displayName: Install pytorch
 
-  - script: python -m pytest test --verbose
-    displayName: Run python test
+      - script: python -m pytest test --verbose
+        displayName: Run python test
 
-  - script: |
-      call activate pyenv
-      python setup.py bdist_wheel
-      # cmake produces assemblies before setup.py makes the
-      # the list of files to include, second call solves that
-      python setup.py bdist_wheel
-    displayName: Build wheel
+      - script: |
+          call activate pyenv
+          python setup.py bdist_wheel
+          # cmake produces assemblies before setup.py makes the
+          # the list of files to include, second call solves that
+          python setup.py bdist_wheel
+        displayName: Build wheel
 
-  - task: PublishPipelineArtifact@0
-    inputs:
-      artifactName: 'wheel-macos-$(python.version)'
-      targetPath: 'dist'
+      - task: PublishPipelineArtifact@0
+        inputs:
+          artifactName: 'wheel-macos-$(python.version)'
+          targetPath: 'dist'
 
-#########
-# Windows C++
-#########
+  #########
+  # Windows C++
+  #########
 
-- job: WindowsC
-  pool:
-    vmImage: 'windows-latest'
+  - job: WindowsC
+    pool:
+      vmImage: 'windows-latest'
 
-  strategy:
-    matrix:
-      py38-170:
-        python.version: '3.8'
-        ort.version: '1.7.0'
-        ortlib.version: '38443267'
-      py38-160:
-        python.version: '3.8'
-        ort.version: '1.6.0'
-        ortlib.version: '34858191'
-        build.lib: '0'
-    maxParallel: 1
+    strategy:
+      matrix:
+        py38-170:
+          python.version: '3.8'
+          ort.version: '1.7.0'
+          ortlib.version: '38443267'
+        py38-160:
+          python.version: '3.8'
+          ort.version: '1.6.0'
+          ortlib.version: '34858191'
+          build.lib: '0'
+      maxParallel: 1
 
-  steps:
-  - task: DownloadGitHubRelease@0
-    inputs:
-      connection: 'microsoft'
-      userRepository: 'microsoft/onnxruntime'
-      defaultVersionType: 'specificVersion'
-      version: '$(ortlib.version)'
-      itemPattern: '*-win-x64-$(ort.version)*'
-      downloadPath: '$(Build.sourcesdirectory)'
-    displayName: Download the ONNXRuntime prebuilt package.
+    steps:
+      - task: DownloadGitHubRelease@0
+        inputs:
+          connection: 'microsoft'
+          userRepository: 'microsoft/onnxruntime'
+          defaultVersionType: 'specificVersion'
+          version: '$(ortlib.version)'
+          itemPattern: '*-win-x64-$(ort.version)*'
+          downloadPath: '$(Build.sourcesdirectory)'
+        displayName: Download the ONNXRuntime prebuilt package.
 
-  - task: ExtractFiles@1
-    inputs:
-      archiveFilePatterns: '**/*.zip'
-      destinationFolder: '$(Build.sourcesdirectory)'
-      cleanDestinationFolder: false
-      overwriteExistingFiles: true
-    displayName: Unpack ONNXRuntime package.
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '**/*.zip'
+          destinationFolder: '$(Build.sourcesdirectory)'
+          cleanDestinationFolder: false
+          overwriteExistingFiles: true
+        displayName: Unpack ONNXRuntime package.
 
-  - script: |
-      call .\build.bat -DONNXRUNTIME_LIB_DIR=.\onnxruntime-win-x64-$(ort.version)\lib
-    displayName: build the customop library with onnxruntime
+      - script: |
+          call .\build.bat -DONNXRUNTIME_LIB_DIR=.\onnxruntime-win-x64-$(ort.version)\lib
+        displayName: build the customop library with onnxruntime
 
-  - script: |
-      cd out/Windows
-      ctest -C RelWithDebInfo
-    displayName: Run C++ native tests
+      - script: |
+          cd out/Windows
+          ctest -C RelWithDebInfo
+        displayName: Run C++ native tests
 
-################
-# Windows wheels
-################
+  ################
+  # Windows wheels
+  ################
 
-- job: WindowsWheel
-  pool:
-    vmImage: 'windows-latest'
+  - job: WindowsWheel
+    pool:
+      vmImage: 'windows-latest'
 
-  strategy:
-    matrix:
-      py38-170:
-        python.version: '3.8'
-        ort.version: '1.7.0'
-      py37-170:
-        python.version: '3.7'
-        ort.version: '1.7.0'
-      py36-170:
-        python.version: '3.6'
-        ort.version: '1.7.0'
-    maxParallel: 1
+    strategy:
+      matrix:
+        py38-170:
+          python.version: '3.8'
+          ort.version: '1.7.0'
+        py37-170:
+          python.version: '3.7'
+          ort.version: '1.7.0'
+        py36-170:
+          python.version: '3.6'
+          ort.version: '1.7.0'
+      maxParallel: 1
 
-  steps:
-  - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
-    displayName: Add conda to PATH
+    steps:
+      - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+        displayName: Add conda to PATH
 
-  - script: conda create --yes --quiet --name pyenv -c conda-forge python=$(python.version) numpy
-    displayName: Create Anaconda environment
+      - script: conda create --yes --quiet --name pyenv -c conda-forge python=$(python.version) numpy
+        displayName: Create Anaconda environment
 
-  - script: |
-      call activate pyenv
-      python -m pip install --upgrade pip
-      python -m pip install -r requirements.txt
-      python -m pip install -r requirements-dev.txt
-    displayName: Install requirements.txt
+      - script: |
+          call activate pyenv
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements-dev.txt
+        displayName: Install requirements.txt
 
-  - script: |
-      call activate pyenv
-      python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio===0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
-    displayName: Install pytorch
+      - script: |
+          call activate pyenv
+          python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio===0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
+        displayName: Install pytorch
 
-  - script: |
-      call activate pyenv
-      echo Test numpy installation... && python -c "import numpy"
-      python setup.py develop
-    displayName: Build the custom-op library
+      - script: |
+          call activate pyenv
+          echo Test numpy installation... && python -c "import numpy"
+          python setup.py develop
+        displayName: Build the custom-op library
 
-  - script: |
-      call activate pyenv
-      python -m pytest test
-    displayName: Run python test
+      - script: |
+          call activate pyenv
+          python -m pytest test
+        displayName: Run python test
 
-  - script: |
-      call activate pyenv
-      python setup.py bdist_wheel
-      # cmake produces assemblies before setup.py makes the
-      # the list of files to include, second call solves that
-      python setup.py sdist
-      python setup.py bdist_wheel
-    displayName: Build wheel
+      - script: |
+          call activate pyenv
+          python setup.py bdist_wheel
+          # cmake produces assemblies before setup.py makes the
+          # the list of files to include, second call solves that
+          python setup.py sdist
+          python setup.py bdist_wheel
+        displayName: Build wheel
 
-  - task: PublishPipelineArtifact@0
-    inputs:
-      artifactName: 'wheel-window-$(python.version)'
-      targetPath: 'dist'
-
+      - task: PublishPipelineArtifact@0
+        inputs:
+          artifactName: 'wheel-window-$(python.version)'
+          targetPath: 'dist'
 
   #############
   # WebAssembly
