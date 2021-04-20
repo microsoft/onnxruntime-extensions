@@ -11,6 +11,20 @@ from ._onnx_ops import ONNXElementContainer, make_model_ex
 from ._tensor import tensor_from_onnx, tensor_from_torch, tensor_set_session
 
 
+def _is_numpy_object(x):
+    return isinstance(x, (np.ndarray, np.generic))
+
+
+def _is_numpy_string_type(arr):
+    return arr.dtype.kind in {'U', 'S'}
+
+
+def _is_string_type(x):
+    if not _is_numpy_object(x):
+        x = np.array(x)
+    return _is_numpy_string_type(x)
+
+
 class ONNXModelUtils:
     @staticmethod
     def _rename_iter(iterables, prefix_name, inplace=False):
@@ -73,7 +87,7 @@ class ONNXModelUtils:
         DynNode = namedtuple('DynNode', ['name', 'output'])
         input_node = DynNode(name='placeholder',
                              output=[nm_.name for nm_ in inputs] +
-                             [it_.name for it_ in container.initializers])
+                                    [it_.name for it_ in container.initializers])
         for nd_ in nodes + [input_node]:
             for ky_ in nd_.output:
                 op_output_map[ky_] = nd_
@@ -127,7 +141,7 @@ class ONNXModelUtils:
     @staticmethod
     def value_info_from_numpy(name, value):
         dtype = onnx.onnx_pb.TensorProto.STRING if \
-            value.dtype.kind in {'U', 'S'} else onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[value.dtype]
+            _is_numpy_string_type(value) else onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[value.dtype]
         return helper.make_tensor_value_info(name, dtype, shape=value.shape)
 
     @staticmethod
@@ -142,9 +156,9 @@ class ONNXModelUtils:
             all_outputs.extend(ot_ for ot_ in op.output)
 
         intersections = set(all_inputs).intersection(set(all_outputs))
-        assert set(all_inputs).difference(intersections) == set(ts_.name for ts_ in ts_from),\
+        assert set(all_inputs).difference(intersections) == set(ts_.name for ts_ in ts_from), \
             "The input list is different from the calculated from the op nodes"
-        assert set(all_outputs).difference(intersections) == set(ts_.name for ts_ in ts_to),\
+        assert set(all_outputs).difference(intersections) == set(ts_.name for ts_ in ts_to), \
             "The output list is different from the calculated from the op nodes"
 
         final_iz = [iz_ for iz_ in container.initializers if iz_.name in iz_needed]
@@ -185,7 +199,10 @@ class ONNXTraceSession:
         self.activated_sessions.append(self)
         tensor_set_session(self)
 
-        np_inputs = [x if isinstance(x, (np.ndarray, np.generic, torch.Tensor)) else np.asarray(x) for x in inputs]
+        np_inputs = [np.array(x) if _is_string_type(x) else x for x in inputs]
+        np_inputs = [
+            x if isinstance(x, (np.ndarray, np.generic, torch.Tensor)) or _is_string_type(x)
+            else torch.tensor(x) for x in np_inputs]
         itensors = [tensor_from_torch(i_, None) if isinstance(i_, torch.Tensor)
                     else tensor_from_onnx(i_, None, None) for i_ in np_inputs]
         if names is not None:
@@ -224,7 +241,7 @@ class ONNXTraceSession:
         vi_input = [ONNXModelUtils.value_info_from_numpy(ts_.name, ts_.numpy())
                     for ts_ in ts_from]
         vi_output = [ONNXModelUtils.value_info_from_numpy(ts_.name, ts_.numpy())
-                    for ts_ in ts_to]
+                     for ts_ in ts_to]
         oxml = ONNXModelUtils.model_from_ops(self.container,
                                              collected_nodes,
                                              vi_input,
@@ -288,3 +305,40 @@ class ONNXTraceSession:
             f.flush()
 
         return m
+
+    def stack_container(self):
+        assert self.container is not None, "Stacked container must be in another one."
+        sub_container = ONNXElementContainer(self.container.target_opset, self.container)
+        self.container = sub_container
+        return self.container
+
+    def pop_container(self):
+        assert self.container.parent is not None, "Cannot pop the root container."
+        self.container = self.container.parent
+        return self.container
+
+    def build_sub_graph(self, ts_inputs, ts_outputs, model_name=None):
+        container = self.container
+        # some constant ops are created to simulate the tensors generated from the runtime.
+        # so we need to remove the node here
+        to_del = []
+        input_list = set(si.name for si in ts_inputs)
+        for idx_, nd_ in enumerate(container.nodes):
+            if nd_.op_type == 'Constant' and list(nd_.output)[0] in input_list:
+                to_del.append(idx_)
+
+        for idx_ in to_del[::-1]:
+            container.nodes.pop(idx_)
+
+        model_name = container.get_unique_operator_name('subg') if not model_name else model_name
+        nodes = ONNXModelUtils.unfold_model_node(container)
+        nodes = ONNXModelUtils.topological_sort(container, nodes, ts_inputs, ts_outputs)
+
+        inputs = [helper.make_tensor_value_info(si.name, si.onnx_type,
+                                                si.t.size()) for si in ts_inputs]
+        outputs = [helper.make_tensor_value_info(so.name, so.onnx_type,
+                                                 so.t.size()) for so in ts_outputs]
+
+        graph = helper.make_graph(nodes, model_name, inputs,
+                                  outputs, self.container.initializers)
+        return graph

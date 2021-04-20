@@ -94,7 +94,7 @@ class _ONNXModelOperator:
 
 
 class ONNXElementContainer:
-    def __init__(self, target_opset):
+    def __init__(self, target_opset, parent=None):
         """
         :param target_opset: number, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3.
         """
@@ -107,6 +107,7 @@ class ONNXElementContainer:
         self.target_opset = target_opset
         self.enable_optimizer = True
         self.opdict_counter = {}
+        self.parent = parent
 
     # the following property make this container be compatible with onnx.GraphProto
     @property
@@ -712,8 +713,7 @@ class _ONNXOperatorAPI:
         else:
             container.add_node(onnx_op_string, input_names, output_name,
                                name=name + '_' + onnx_op_string_rev.lower(), op_version=op_version)
-    
-    
+
     def greater_or_equal(self, input_names, output_name, container, operator_name=None):
         self._apply_convert_compare_equal(input_names, output_name, container, operator_name,
                                           'GreaterEqual', 'Less', 'GreaterOrEqual')
@@ -825,7 +825,7 @@ class _ONNXOperatorAPI:
         return output_name
 
     def mul(self, input_names, output_name, container, operator_name=None, axis=None, broadcast=None):
-        self._apply_basic_numerical_operation(self, 'Mul', input_names, output_name,
+        self._apply_basic_numerical_operation('Mul', input_names, output_name,
                                               container, operator_name=operator_name,
                                               axis=axis, broadcast=broadcast)
         return output_name
@@ -834,7 +834,7 @@ class _ONNXOperatorAPI:
         self._apply_unary_operation('Neg', input_name, output_name, container, operator_name)
         return output_name
     
-    def normalization(self, input_name, output_name, container, operator_name=None, axis=1, p=2):
+    def lpnormalization(self, input_name, output_name, container, operator_name=None, axis=1, p=2):
         name = _create_name_or_use_existing_one(container, 'LpNormalization', operator_name)
         container.add_node('LpNormalization', input_name, output_name, name=name, p=p, axis=axis)
         return output_name
@@ -1327,8 +1327,8 @@ class _ONNXOperatorAPI:
                 axis_tensor_name = self.get_unique_tensor_name(name + '_axis')
                 container.add_initializer(axis_tensor_name, onnx_proto.TensorProto.FLOAT, [1], [float(axis)])
     
-                # Create tile for duplicating along one axis. After ONNX-1.2, we can duplicate along multiple axes, so we
-                # don't have to iterate through all axes.
+                # Create tile for duplicating along one axis. After ONNX-1.2, we can duplicate along multiple axes,
+                # so we don't have to iterate through all axes.
                 intermediate_output_name = self.get_unique_tensor_name(name + '_input')
                 container.add_node('Tile', [intermediate_input_name, tile_tensor_name, axis_tensor_name],
                                    intermediate_output_name, name=name)
@@ -1378,10 +1378,16 @@ class _ONNXOperatorAPI:
         return output_name
     
     def upsample(self, input_name, output_name, container, operator_name=None, mode='nearest',
-                       coordinate_transformation_mode='asymmetric', scales=None):
+                 coordinate_transformation_mode='asymmetric', scales=None):
         """
+        :param input_name:
+        :param output_name:
+        :param container:
+        :param operator_name:
         :param mode: nearest or linear
+        :param coordinate_transformation_mode:
         :param scales: an integer list of scaling-up rate of all input dimensions
+        :return:
         """
         if container.target_opset < 10:
             name = _create_name_or_use_existing_one(container, 'Upsample', operator_name)
@@ -1421,8 +1427,17 @@ class _ONNXOperatorAPI:
         return output_name
 
     def where(self, input_names, output_names, container, operator_name=None):
-        name = _create_name_or_use_existing_one(container, 'Where', operator_name)
+        name = _create_name_or_use_existing_one(container, 'where', operator_name)
         container.add_node('Where', input_names, output_names, op_version=9, name=name)
+        return output_names
+
+    def loop(self, input_names, output_names, container, operator_name=None, body=None):
+        name = _create_name_or_use_existing_one(container, 'loop', operator_name)
+        trip_count, cond, *states = tuple(input_names)
+        trip_count = '' if trip_count is None else trip_count
+        cond_name = '' if cond is None else cond
+        container.add_node(
+            'Loop', [trip_count, cond_name] + states, output_names, op_version=11, name=name, body=body)
         return output_names
 
     def model_call(self, input_name, output_name, container, operator_name=None, oxml=None):

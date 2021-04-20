@@ -13,8 +13,7 @@ gpt2_decoder_model_path = './gpt2_dec.onnx'
 gpt2_full_model_path = './gpt2_full.onnx'
 
 
-# input_text = ['best hotel in bay area', 'here is an example of gpt2 model']
-input_text = ['best hotel in bay area']
+input_text = ['best hotel in bay area', 'here is an example of gpt2 model']
 num_tokens_to_produce = 10
 
 
@@ -67,7 +66,9 @@ def inference_and_dump_full_model(inputs):
         all_token_ids = input_ids.clone()
         all_eos = torch.tensor(False, dtype=torch.bool)
         past = empty_past
-        for step in torch.onnx_loop(num_tokens_to_produce, all_eos, past):
+        cfg = torch.control_flow()
+        for states in cfg.loop(num_tokens_to_produce, all_eos, input_ids, position_ids, attention_mask, past):
+            _, input_ids, position_ids, attention_mask_f, *past = states
             outputs = core_model(input_ids, position_ids, attention_mask.type(torch.float32), *past)
 
             next_token_logits = outputs[0][:, -1, :]
@@ -77,13 +78,12 @@ def inference_and_dump_full_model(inputs):
             tokens_to_add = next_tokens.masked_fill(has_eos, eos_token_id)
             all_token_ids = torch.cat([all_token_ids, tokens_to_add.unsqueeze(-1)], dim=-1)
 
-            # FIXME: not support the loop yet.
-            break
-
             # Update input_ids, attention_mask, position_ids and past
             input_ids = tokens_to_add.clone().detach().reshape([batch_size, 1]).to(device)
             position_ids = (position_ids[:, -1] + 1).reshape(batch_size, 1)
             attention_mask = torch.cat([attention_mask, torch.ones([batch_size, 1]).type_as(attention_mask)], 1).to(device)
+
+            all_eos = torch.all(has_eos)
 
             past = []
             for i in range(num_layer):
@@ -91,17 +91,20 @@ def inference_and_dump_full_model(inputs):
                     isinstance(outputs[i + 1], numpy.ndarray) else outputs[i + 1].clone().detach()
                 past.append(past_i.to(device))
 
-            all_eos = torch.all(has_eos)
+            cfg.flow_output(all_eos, input_ids, position_ids, attention_mask, *past)
 
+        _, _, all_token_ids, *_ = cfg.finalize()
         gpt2_decoder = torch.op_from_model(gpt2_decoder_model_path)
-        output_text = gpt2_decoder(all_token_ids.squeeze(0))
+        text_out = gpt2_decoder(all_token_ids)
 
-        tc_sess.save_as_onnx(gpt2_full_model_path, output_text)
-        return output_text
+        tc_sess.save_as_onnx(gpt2_full_model_path, text_out)
+        return text_out
 
 
 # 1. Check if the gpt2 models is already exported, otherwise, they are converted.
-if not os.path.exists(gpt2_core_model_path):
+if not os.path.exists(gpt2_core_model_path) or \
+        not os.path.exists(gpt2_decoder_model_path) or \
+        not os.path.exists(gpt2_encoder_model_path):
     convert_models()
 
 # 2. Run the inference with the pre and post process, trace the computation graph and build the all-in-one ONNX model

@@ -1,4 +1,3 @@
-import onnx
 import torch
 import functools
 import numpy as np
@@ -27,7 +26,6 @@ class _EagerTensor:
         else:
             return "name: {}, {}, dtype={}".format(self.name, repr(self._t), str(self._t.dtype))
 
-    _NUMERIC_KINDS = set('buifc')
     _all_ops = {}
 
     @property
@@ -44,7 +42,7 @@ class _EagerTensor:
 
     @classmethod
     def is_numeric(cls, np_arr):
-        return np_arr.dtype.kind in cls._NUMERIC_KINDS
+        return np_arr.dtype.kind in set('buifc')
 
     @classmethod
     def set_active_session(cls, sess):
@@ -94,11 +92,16 @@ class _EagerTensor:
     # torch.tensor prototype
     def mytensor(cls, data: Any, dtype: Optional[_dtype] = None, device: Union[_device, str, None] = None, requires_grad: _bool = False):  # noqa
         y = torch.tensor(data, dtype=dtype, device=device, requires_grad=requires_grad)
-        s = _ox.constant([], [_ox.get_unique_tensor_name('const')], cls.get_container(), None, value=data)
+        val = _ox.make_tensor(cls.to_onnx_type(y.dtype), list(y.size()),
+                              [data] if isinstance(data, (int, float, str, bool)) else data)
+        s = _ox.constant([], [_ox.get_unique_tensor_name('const')], cls.get_container(), None, value=val)
         return cls.from_torch(y, s)
 
     def numpy(self):
         return self._t.numpy() if self.raw_data is None else self.raw_data
+
+    def item(self):
+        return self.numpy().item()
 
     def _to_binary_tensor_args(self, other):
         # convert self, other to [self, other], but if either is a number, convert that to a constant
@@ -263,6 +266,8 @@ class _EagerTensor:
         result, model = cls.get_trace_session().runops(ts_from, ts_to)
         for idx in range(len(ts_to)):
             if not np.allclose(ts_to[idx].numpy(), result[idx]):
+                # ONNX cannot be import globally, which is conflict with torch.onnx
+                import onnx  # noqa
                 onnx.save_model(model, 'mt_debmodel.onnx')
                 raise RuntimeError("ONNXRuntime Result is not same pytorch!")
 
@@ -288,7 +293,8 @@ class _EagerTensor:
     def to_onnx_type(torch_type):
         ty_dict = {torch.bool: onnx_proto.TensorProto.BOOL,
                    torch.float32: onnx_proto.TensorProto.FLOAT,
-                   torch.long: onnx_proto.TensorProto.INT64}
+                   torch.long: onnx_proto.TensorProto.INT64,
+                   torch.int32: onnx_proto.TensorProto.INT32}
         # ...
         return ty_dict.get(torch_type, onnx_proto.TensorProto.STRING)
 
@@ -403,9 +409,77 @@ def cat(tensors: Union[Tuple[_EagerTensor, ...], List[_EagerTensor]],
     return y
 
 
-def onnx_loop(*tensors: Union[_EagerTensor, int]):
-    res = _EagerTensor.normalize_seq(tensors)
-    return range(res[0])
+class _LoopIterator:
+    def __init__(self, ctx):
+        self.context = ctx
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.context.is_stopped():
+            raise StopIteration
+        return self.context.current()
+
+
+class _ControlFlowContext:
+    def __init__(self):
+        self.condition = None
+        self.loop_count = None
+        self.iteration_num = None
+        self.loop_states = []
+        self.scan_outputs = []
+        self.sub_graph = None
+
+    def flow_output(self, cond, *outputs):
+        self.condition = cond
+        assert len(outputs) > len(self.loop_states), "The loop body doesn't return enough objects"
+        c_state = len(self.loop_states)
+        self.loop_states = list(outputs[:c_state])
+        if len(self.scan_outputs) == 0:
+            sc = [_EagerTensor(torch.unsqueeze(sci_.value, 0), 'sc_' + sci_.name) for sci_ in outputs[c_state:]]
+            self.scan_outputs = sc
+        else:
+            next_extra_vars = []
+            for idx_, ext_ in enumerate(outputs[c_state:]):
+                et = self.scan_outputs[idx_]
+                next_extra_vars.append(_EagerTensor(
+                    torch.cat([et.value, torch.unsqueeze(outputs[c_state + idx_].value, 0)]), name=et.name))
+            self.scan_outputs = next_extra_vars
+        self.iteration_num.value.add_(1)
+        if self.sub_graph is None:
+            self.sub_graph = _EagerTensor.get_trace_session().build_sub_graph(
+                [self.iteration_num, self.condition] + self.loop_states,
+                [self.condition] + list(outputs))
+
+    def current(self):
+        return [self.iteration_num] + list(self.loop_states)
+
+    def finalize(self):
+        # generate the outputs from the enclosing scope variables
+        _EagerTensor.get_trace_session().pop_container()
+        full_outputs = [_EagerTensor(o_.value, 'lp_' + o_.name) for o_ in self.loop_states + self.scan_outputs]
+        _ox.loop(*_EagerTensor.ox_args(
+            [self.loop_count, self.condition] + self.loop_states,
+            [ts_.name for ts_ in full_outputs]), body=self.sub_graph)
+        return tuple(full_outputs)
+
+    def is_stopped(self):
+        return self.condition.item() is False or self.iteration_num.item() >= self.loop_count.item()
+
+    def loop(self, loop_c, condition, *states):
+        self.condition = condition
+        _EagerTensor.get_trace_session().stack_container()
+        self.iteration_num = _EagerTensor.mytensor(0)
+        # clone the variables for the sub graph.
+        self.loop_states = [_EagerTensor(st_.value, st_.name) for st_ in states]
+        self.loop_count = loop_c
+        loop_b = _LoopIterator(self)
+        return iter(loop_b)
+
+
+def control_flow():
+    return _ControlFlowContext()
 
 
 class _TracingEagerOp(EagerOp):

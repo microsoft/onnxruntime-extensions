@@ -3,7 +3,9 @@
 # license information.
 ###############################################################################
 
+import numpy as np
 import onnxruntime as _ort
+from onnx import onnx_pb as onnx_proto
 from ._ocos import default_opset_domain, get_library_path  # noqa
 from ._cuops import *  # noqa
 
@@ -68,7 +70,12 @@ class EagerOp:
         idx = 0
         feed = {}
         for i_ in self.inputs:
-            feed[i_.name] = args[idx]
+            x = args[idx]
+            ts_x = np.array(x) if isinstance(x, (int, float, bool)) else x
+            # an annoying bug is numpy by default is int32, while pytorch is int64.
+            # so cast the input here automatically.
+            feed[i_.name] = \
+                ts_x.astype(np.int64) if i_.type.tensor_type.elem_type == onnx_proto.TensorProto.INT64 else ts_x
             idx += 1
 
         return feed
