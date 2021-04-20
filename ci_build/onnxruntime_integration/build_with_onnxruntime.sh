@@ -19,7 +19,7 @@ git clone git@github.com:microsoft/ort-customops.git
 cd ../..
 
 cp cmake/external/ort-customops/test/data/custom_op_string_lower.onnx onnxruntime/test/testdata
-git apply cmake/external/ort-customops/ci_build/onnxruntime_integration/onnxruntime.patch
+git apply cmake/external/ort-customops/ci_build/onnxruntime_integration/onnxruntime_v1.8.patch
 
 #get ready and begin building
 cd ..
