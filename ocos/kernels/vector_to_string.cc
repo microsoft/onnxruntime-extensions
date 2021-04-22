@@ -29,7 +29,6 @@ std::vector<std::string> VectorToStringImpl::Compute(const void* input, const Or
   for (int i = 0; i < input_dim.Size(); i += vector_len_) {
     //construct key
     for (int j = 0; j < vector_len_; j++) {
-      ;
       key[j] = ptr[j];
     }
 
