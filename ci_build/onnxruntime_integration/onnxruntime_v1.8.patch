@@ -1,0 +1,201 @@
+diff --git a/cmake/CMakeLists.txt b/cmake/CMakeLists.txt
+index 46ba57cdc..5bde85a7b 100644
+--- a/cmake/CMakeLists.txt
++++ b/cmake/CMakeLists.txt
+@@ -951,6 +951,14 @@ if (onnxruntime_USE_TVM)
+   list(APPEND onnxruntime_EXTERNAL_DEPENDENCIES tvm nnvm_compiler)
+ endif()
+ 
++
++set(OCOS_ENABLE_CTEST OFF CACHE INTERNAL "")
++set(OCOS_ENABLE_STATIC_LIB ON CACHE INTERNAL "")
++set(OCOS_ENABLE_SPM_TOKENIZER OFF CACHE INTERNAL "")
++add_subdirectory(external/ort-customops EXCLUDE_FROM_ALL)
++target_include_directories(ortcustomops_static PRIVATE ${RE2_INCLUDE_DIR} external/json/include)
++target_include_directories(ortcustomops PUBLIC external/ort-customops/shared)
++
+ if (APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Android")
+   #onnx/onnx/proto_utils.h:34:16: error: 'SetTotalBytesLimit' is deprecated: Please use the single
+   #parameter version of SetTotalBytesLimit(). The second parameter is ignored.
+diff --git a/cmake/onnxruntime_session.cmake b/cmake/onnxruntime_session.cmake
+index df7eebf5a..2c511005a 100644
+--- a/cmake/onnxruntime_session.cmake
++++ b/cmake/onnxruntime_session.cmake
+@@ -16,7 +16,7 @@ if(onnxruntime_ENABLE_INSTRUMENT)
+   target_compile_definitions(onnxruntime_session PUBLIC ONNXRUNTIME_ENABLE_INSTRUMENT)
+ endif()
+ target_include_directories(onnxruntime_session PRIVATE ${ONNXRUNTIME_ROOT} ${eigen_INCLUDE_DIRS})
+-target_link_libraries(onnxruntime_session PRIVATE nlohmann_json::nlohmann_json)
++target_link_libraries(onnxruntime_session PRIVATE nlohmann_json::nlohmann_json ortcustomops)
+ add_dependencies(onnxruntime_session ${onnxruntime_EXTERNAL_DEPENDENCIES})
+ set_target_properties(onnxruntime_session PROPERTIES FOLDER "ONNXRuntime")
+ if (onnxruntime_USE_CUDA)
+diff --git a/include/onnxruntime/core/session/onnxruntime_c_api.h b/include/onnxruntime/core/session/onnxruntime_c_api.h
+index faca901ce..2fae0fb05 100644
+--- a/include/onnxruntime/core/session/onnxruntime_c_api.h
++++ b/include/onnxruntime/core/session/onnxruntime_c_api.h
+@@ -458,6 +458,11 @@ struct OrtApi {
+   ORT_API2_STATUS(RegisterCustomOpsLibrary, _Inout_ OrtSessionOptions* options, _In_ const char* library_path,
+                   void** library_handle);
+ 
++  /*
++   * Enable the operators in ORT Custom ops: https://github.com/microsoft/ort-customops
++   */
++  ORT_API2_STATUS(EnableOrtCustomOps, _Inout_ OrtSessionOptions* options);
++
+   /**
+     * To use additional providers, you must build ORT with the extra providers enabled. Then call one of these
+     * functions to enable them in the session:
+diff --git a/include/onnxruntime/core/session/onnxruntime_cxx_api.h b/include/onnxruntime/core/session/onnxruntime_cxx_api.h
+index d85ecd776..d0e9fe6a3 100644
+--- a/include/onnxruntime/core/session/onnxruntime_cxx_api.h
++++ b/include/onnxruntime/core/session/onnxruntime_cxx_api.h
+@@ -308,6 +308,7 @@ struct SessionOptions : Base<OrtSessionOptions> {
+ 
+   SessionOptions& EnableProfiling(const ORTCHAR_T* profile_file_prefix);
+   SessionOptions& DisableProfiling();
++  SessionOptions& EnableOrtCustomOps();
+ 
+   SessionOptions& EnableMemPattern();
+   SessionOptions& DisableMemPattern();
+diff --git a/include/onnxruntime/core/session/onnxruntime_cxx_inline.h b/include/onnxruntime/core/session/onnxruntime_cxx_inline.h
+index 64199ac6c..8ee32e4a1 100644
+--- a/include/onnxruntime/core/session/onnxruntime_cxx_inline.h
++++ b/include/onnxruntime/core/session/onnxruntime_cxx_inline.h
+@@ -435,6 +435,11 @@ inline SessionOptions& SessionOptions::DisableProfiling() {
+   return *this;
+ }
+ 
++inline SessionOptions& SessionOptions::EnableOrtCustomOps() {
++  ThrowOnError(GetApi().EnableOrtCustomOps(p_));
++  return *this;
++}
++
+ inline SessionOptions& SessionOptions::EnableMemPattern() {
+   ThrowOnError(GetApi().EnableMemPattern(p_));
+   return *this;
+diff --git a/onnxruntime/core/session/onnxruntime_c_api.cc b/onnxruntime/core/session/onnxruntime_c_api.cc
+index 12174163e..c21a92160 100644
+--- a/onnxruntime/core/session/onnxruntime_c_api.cc
++++ b/onnxruntime/core/session/onnxruntime_c_api.cc
+@@ -35,6 +35,8 @@
+ #include "abi_session_options_impl.h"
+ #include "core/framework/TensorSeq.h"
+ #include "core/platform/ort_mutex.h"
++
++#include "ortcustomops.h"
+ #ifdef USE_CUDA
+ #include "core/providers/cuda/cuda_provider_factory.h"
+ #endif
+@@ -403,6 +405,13 @@ ORT_API_STATUS_IMPL(OrtApis::RegisterCustomOpsLibrary, _Inout_ OrtSessionOptions
+   API_IMPL_END
+ }
+ 
++ORT_API_STATUS_IMPL(OrtApis::EnableOrtCustomOps, _Inout_ OrtSessionOptions* options) {
++  API_IMPL_BEGIN
++
++  return RegisterCustomOps(options, OrtGetApiBase());
++  API_IMPL_END
++}
++
+ namespace {
+ // provider either model_path, or modal_data + model_data_length.
+ static ORT_STATUS_PTR CreateSessionAndLoadModel(_In_ const OrtSessionOptions* options,
+@@ -1963,7 +1972,7 @@ static constexpr OrtApi ort_api_1_to_8 = {
+     &OrtApis::CustomOpDomain_Add,
+     &OrtApis::AddCustomOpDomain,
+     &OrtApis::RegisterCustomOpsLibrary,
+-
++    &OrtApis::EnableOrtCustomOps,
+     &OrtApis::SessionGetInputCount,
+     &OrtApis::SessionGetOutputCount,
+     &OrtApis::SessionGetOverridableInitializerCount,
+@@ -2127,7 +2136,7 @@ static constexpr OrtApi ort_api_1_to_8 = {
+ 
+ // Assert to do a limited check to ensure Version 1 of OrtApi never changes (will detect an addition or deletion but not if they cancel out each other)
+ // If this assert hits, read the above 'Rules on how to add a new Ort API version'
+-static_assert(offsetof(OrtApi, ReleaseCustomOpDomain) / sizeof(void*) == 101, "Size of version 1 API cannot change");
++static_assert(offsetof(OrtApi, ReleaseCustomOpDomain) / sizeof(void*) == 102, "Size of version 1 API cannot change");
+ 
+ ORT_API(const OrtApi*, OrtApis::GetApi, uint32_t version) {
+   if (version >= 1 && version <= ORT_API_VERSION)
+diff --git a/onnxruntime/core/session/ort_apis.h b/onnxruntime/core/session/ort_apis.h
+index f19b1d729..99def252c 100644
+--- a/onnxruntime/core/session/ort_apis.h
++++ b/onnxruntime/core/session/ort_apis.h
+@@ -73,6 +73,7 @@ ORT_API_STATUS_IMPL(CreateCustomOpDomain, _In_ const char* domain, _Outptr_ OrtC
+ ORT_API_STATUS_IMPL(CustomOpDomain_Add, _Inout_ OrtCustomOpDomain* custom_op_domain, _In_ const OrtCustomOp* op);
+ ORT_API_STATUS_IMPL(AddCustomOpDomain, _Inout_ OrtSessionOptions* options, _In_ OrtCustomOpDomain* custom_op_domain);
+ ORT_API_STATUS_IMPL(RegisterCustomOpsLibrary, _Inout_ OrtSessionOptions* options, _In_ const char* library_path, void** library_handle);
++ORT_API_STATUS_IMPL(EnableOrtCustomOps, _Inout_ OrtSessionOptions* options);
+ 
+ ORT_API_STATUS_IMPL(SessionGetInputCount, _In_ const OrtSession* sess, _Out_ size_t* out);
+ ORT_API_STATUS_IMPL(SessionGetOutputCount, _In_ const OrtSession* sess, _Out_ size_t* out);
+diff --git a/onnxruntime/test/shared_lib/test_inference.cc b/onnxruntime/test/shared_lib/test_inference.cc
+index 06073e528..ff51c92d8 100644
+--- a/onnxruntime/test/shared_lib/test_inference.cc
++++ b/onnxruntime/test/shared_lib/test_inference.cc
+@@ -172,6 +172,7 @@ static constexpr PATH_TYPE VARIED_INPUT_CUSTOM_OP_MODEL_URI_2 = TSTR("testdata/f
+ static constexpr PATH_TYPE OPTIONAL_INPUT_OUTPUT_CUSTOM_OP_MODEL_URI = TSTR("testdata/foo_bar_1.onnx");
+ static constexpr PATH_TYPE OPTIONAL_INPUT_OUTPUT_CUSTOM_OP_MODEL_URI_2 = TSTR("testdata/foo_bar_2.onnx");
+ static constexpr PATH_TYPE CUSTOM_OP_MODEL_WITH_ATTRIBUTES_URI = TSTR("testdata/foo_bar_3.onnx");
++static constexpr PATH_TYPE ORT_CUSTOM_OPS_MODEL_URL = TSTR("testdata/custom_op_string_lower.onnx");
+ 
+ #ifdef ENABLE_LANGUAGE_INTEROP_OPS
+ static constexpr PATH_TYPE PYOP_FLOAT_MODEL_URI = TSTR("testdata/pyop_1.onnx");
+@@ -265,6 +266,15 @@ TEST(CApiTest, custom_op_handler) {
+ #endif
+ }
+ 
++TEST(CApiTest, enable_custom_op) {
++
++  Ort::SessionOptions session_option;
++  session_option.EnableOrtCustomOps();
++
++  // only test session load
++  Ort::Session session(*ort_env, ORT_CUSTOM_OPS_MODEL_URL, session_option);
++}
++
+ //test custom op which accepts float and double as inputs
+ TEST(CApiTest, varied_input_custom_op_handler) {
+   std::vector<Input> inputs(2);
+diff --git a/onnxruntime/wasm/api.cc b/onnxruntime/wasm/api.cc
+index c3ba4eedd..ff7bbd51e 100644
+--- a/onnxruntime/wasm/api.cc
++++ b/onnxruntime/wasm/api.cc
+@@ -28,6 +28,16 @@ Ort::Session* OrtCreateSession(void* data, size_t data_length) {
+   return new Ort::Session(*g_env, data, data_length, session_options);
+ }
+ 
++Ort::Session* OrtCreateSessionWithCustomOps(void* data, size_t data_length) {
++  Ort::SessionOptions session_options;
++  session_options.SetLogId("onnxruntime");
++
++  // disable thread pool for now since not all major browsers support WebAssembly threading.
++  session_options.SetIntraOpNumThreads(1);
++
++  return new Ort::Session(*g_env, data, data_length, session_options);
++}
++
+ void OrtReleaseSession(Ort::Session* session) {
+   delete session;
+ }
+diff --git a/onnxruntime/wasm/api.h b/onnxruntime/wasm/api.h
+index 4f98a198a..e9500e1fa 100644
+--- a/onnxruntime/wasm/api.h
++++ b/onnxruntime/wasm/api.h
+@@ -35,6 +35,14 @@ void EMSCRIPTEN_KEEPALIVE OrtInit();
+  */
+ ort_session_handle_t EMSCRIPTEN_KEEPALIVE OrtCreateSession(void* data, size_t data_length);
+ 
++/**
++ * create an instance of ORT session with enabling Ort-Customops.
++ * @param data a pointer to a buffer that contains the ONNX or ORT format model.
++ * @param data_length the size of the buffer in bytes.
++ * @returns a handle of the ORT session.
++ */
++ort_session_handle_t EMSCRIPTEN_KEEPALIVE OrtCreateSessionWithCustomOps(void* data, size_t data_length);
++
+ /**
+  * release the specified ORT session.
+  */
