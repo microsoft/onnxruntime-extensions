@@ -1,204 +1,346 @@
-#######
-# Linux
-#######
-
 jobs:
-- job: Linux
-  pool:
-    vmImage: 'ubuntu-latest'
-  
-  strategy:
-    matrix:
-      py38:
-        python.version: '3.8'
-    maxParallel: 1
 
-  steps:
-  - task: DownloadGitHubRelease@0
-    inputs:
-      connection: 'microsoft'
-      userRepository: 'microsoft/onnxruntime'
-      defaultVersionType: 'specificVersion'
-      version: '34858191'
-      itemPattern: '*-linux-x64-1.6.0*'
-      downloadPath: '$(Build.sourcesdirectory)'
-    displayName: Download the ONNXRuntime prebuilt package.
+  #######
+  # Linux
+  #######
 
-  - task: ExtractFiles@1
-    inputs:
-      archiveFilePatterns: '**/*.tgz'
-      destinationFolder: '$(Build.sourcesdirectory)'
-      cleanDestinationFolder: false
-      overwriteExistingFiles: true
-    displayName: Unpack ONNXRuntime package.
+  - job: Linux
+    pool:
+      vmImage: 'ubuntu-latest'
 
-  - script: |
-      sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-linux-x64-1.6.0/lib
-    displayName: build the customop library with onnxruntime
+    strategy:
+      matrix:
+        py38-170:
+          python.version: '3.8'
+          ort.version: '1.7.0'
+          ortlib.version: '38443267'
+          build.lib: '1'
+        py38-160:
+          python.version: '3.8'
+          ort.version: '1.6.0'
+          ortlib.version: '34858191'
+          build.lib: '0'
+      maxParallel: 1
 
-  - script: |
-      cd out/Linux
-      ctest -C RelWithDebInfo
-    displayName: Run C++ native tests
+    steps:
+      - task: DownloadGitHubRelease@0
+        inputs:
+          connection: 'microsoft'
+          userRepository: 'microsoft/onnxruntime'
+          defaultVersionType: 'specificVersion'
+          version: '$(ortlib.version)'
+          itemPattern: '*-linux-x64-$(ort.version)*'
+          downloadPath: '$(Build.sourcesdirectory)'
+        displayName: Download the ONNXRuntime prebuilt package.
 
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '$(python.version)'
-      addToPath: true
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '**/*.tgz'
+          destinationFolder: '$(Build.sourcesdirectory)'
+          cleanDestinationFolder: false
+          overwriteExistingFiles: true
+        displayName: Unpack ONNXRuntime package.
 
-  - script: |
-      python -m pip install --upgrade pip
-      python -m pip install --upgrade setuptools
-      python -m pip install -r requirements.txt
-    displayName: Install requirements.txt
+      - script: |
+          sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-linux-x64-$(ort.version)/lib
+        displayName: build the customop library with onnxruntime
 
-  - script: |
-      python setup.py develop
-    displayName: Build the library and tests
+      - script: |
+          cd out/Linux
+          ctest -C RelWithDebInfo
+        displayName: Run C++ native tests
 
-  - script: python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
-    displayName: Install pytorch
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '$(python.version)'
+          addToPath: true
 
-  - script: python -m pip install -r requirements-dev.txt
-    displayName: Install requirements-dev.txt
+      - script: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade setuptools
+          python -m pip install -r requirements.txt
+        displayName: Install requirements.txt
 
-  - script: python -m pytest test --verbose --verbose 
-    displayName: Run python test
+      - script: |
+          python setup.py develop
+        displayName: Build the library and tests
 
-#######
-# macOS
-#######
+      - script: python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
+        displayName: Install pytorch
 
-- job: macOS
-  pool:
-    vmImage: 'macOS-latest'
+      - script: python -m pip install -r requirements-dev.txt
+        displayName: Install requirements-dev.txt
 
-  strategy:
-    matrix:
-      py38:
-        python.version: '3.8'
-    maxParallel: 1
+      - script: python -m pytest test --verbose --verbose
+        displayName: Run python test
 
-  steps:
-  # needed for onnxruntime
-  - script: brew install libomp
-    displayName: 'Install omp'
+      - script: |
+          call activate pyenv
+          python setup.py bdist_wheel
+          # cmake produces assemblies before setup.py makes the
+          # the list of files to include, second call solves that
+          # python setup.py bdist_wheel
+        displayName: Build wheel
+        condition: eq(variables['build.lib'], '1')
 
-  - task: DownloadGitHubRelease@0
-    inputs:
-      connection: 'microsoft'
-      userRepository: 'microsoft/onnxruntime'
-      defaultVersionType: 'specificVersion'
-      version: '34858191'
-      itemPattern: '*-osx-x64-1.6.0*'
-      downloadPath: '$(Build.sourcesdirectory)'
-    displayName: Download the ONNXRuntime prebuilt package.
+      - task: PublishPipelineArtifact@0
+        inputs:
+          artifactName: 'wheel-linux-$(python.version)'
+          targetPath: 'dist'
+        condition: eq(variables['build.lib'], '1')
 
-  - task: ExtractFiles@1
-    inputs:
-      archiveFilePatterns: '**/*.tgz'
-      destinationFolder: '$(Build.sourcesdirectory)'
-      cleanDestinationFolder: false
-      overwriteExistingFiles: true
-    displayName: Unpack ONNXRuntime package.
+  ###########
+  # macOS C++
+  ###########
 
-  - script: |
-      sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-osx-x64-1.6.0/lib
-    displayName: build the customop library with onnxruntime
+  - job: MacOSC
+    pool:
+      vmImage: 'macOS-latest'
 
-  - script: |
-      cd out/Darwin
-      ctest -C RelWithDebInfo
-    displayName: Run C++ native tests
+    strategy:
+      matrix:
+        py38-170:
+          python.version: '3.8'
+          ort.version: '1.7.0'
+          ortlib.version: '38443267'
+        py38-160:
+          python.version: '3.8'
+          ort.version: '1.6.0'
+          ortlib.version: '34858191'
+      maxParallel: 1
 
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '$(python.version)'
-      addToPath: true
+    steps:
+      # needed for onnxruntime
+      - script: brew install libomp
+        displayName: 'Install omp'
 
-  - script: |
-      python -m pip install --upgrade pip
-      python -m pip install --upgrade setuptools
-      python -m pip install -r requirements.txt
-    displayName: Install requirements.txt
+      - task: DownloadGitHubRelease@0
+        inputs:
+          connection: 'microsoft'
+          userRepository: 'microsoft/onnxruntime'
+          defaultVersionType: 'specificVersion'
+          version: '$(ortlib.version)'
+          itemPattern: '*-osx-x64-$(ort.version)*'
+          downloadPath: '$(Build.sourcesdirectory)'
+        displayName: Download the ONNXRuntime prebuilt package.
 
-  - script: python -c "import onnxruntime;print(onnxruntime.__version__)"
-    displayName: Check installation
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '**/*.tgz'
+          destinationFolder: '$(Build.sourcesdirectory)'
+          cleanDestinationFolder: false
+          overwriteExistingFiles: true
+        displayName: Unpack ONNXRuntime package.
 
-  - script: |
-      call activate pyenv
-      python setup.py develop
-    displayName: Build the library and tests
+      - script: |
+          sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-osx-x64-$(ort.version)/lib
+        displayName: build the customop library with onnxruntime
 
-  - script: python -m pip install -r requirements-dev.txt
-    displayName: Install requirements-dev.txt
+      - script: |
+          cd out/Darwin
+          ctest -C RelWithDebInfo
+        displayName: Run C++ native tests
 
-  - script: python -m pip install torch torchvision torchaudio
-    displayName: Install pytorch
+  #############
+  # macOS Wheel
+  #############
 
-  - script: python -m pytest test --verbose
-    displayName: Run python test
+  - job: MacOSWheel
+    pool:
+      vmImage: 'macOS-latest'
 
-#########
-# Windows
-#########
+    strategy:
+      matrix:
+        py38-170:
+          python.version: '3.8'
+          ort.version: '1.7.0'
+        py37-170:
+          python.version: '3.7'
+          ort.version: '1.7.0'
+        py36-170:
+          python.version: '3.6'
+          ort.version: '1.7.0'
+      maxParallel: 1
 
-- job: Windows
-  pool:
-    vmImage: 'windows-latest'
-  steps:
-  - task: DownloadGitHubRelease@0
-    inputs:
-      connection: 'microsoft'
-      userRepository: 'microsoft/onnxruntime'
-      defaultVersionType: 'specificVersion'
-      version: '34858191'
-      itemPattern: '*-win-x64-1.6.0*'
-      downloadPath: '$(Build.sourcesdirectory)'
-    displayName: Download the ONNXRuntime prebuilt package.
+    steps:
+      # needed for onnxruntime
+      - script: brew install libomp
+        displayName: 'Install omp'
 
-  - task: ExtractFiles@1
-    inputs:
-      archiveFilePatterns: '**/*.zip'
-      destinationFolder: '$(Build.sourcesdirectory)'
-      cleanDestinationFolder: false
-      overwriteExistingFiles: true
-    displayName: Unpack ONNXRuntime package.
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '$(python.version)'
+          addToPath: true
 
-  - script: |
-      call .\build.bat -DONNXRUNTIME_LIB_DIR=.\onnxruntime-win-x64-1.6.0\lib
-    displayName: build the customop library with onnxruntime
+      - script: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade setuptools
+          python -m pip install -r requirements.txt
+        displayName: Install requirements.txt
 
-  - script: |
-      cd out/Windows
-      ctest -C RelWithDebInfo
-    displayName: Run C++ native tests
+      - script: python -c "import onnxruntime;print(onnxruntime.__version__)"
+        displayName: Check installation
 
-  - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
-    displayName: Add conda to PATH
+      - script: |
+          call activate pyenv
+          python setup.py develop
+        displayName: Build the library and tests
 
-  - script: conda create --yes --quiet --name pyenv -c conda-forge python=3.8 numpy
-    displayName: Create Anaconda environment
+      - script: python -m pip install -r requirements-dev.txt
+        displayName: Install requirements-dev.txt
 
-  - script: |
-      call activate pyenv
-      python -m pip install --upgrade pip
-      python -m pip install -r requirements.txt
-      python -m pip install -r requirements-dev.txt
-    displayName: Install requirements.txt
+      - script: python -m pip install torch torchvision torchaudio
+        displayName: Install pytorch
 
-  - script: |
-      call activate pyenv
-      python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio===0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
-    displayName: Install pytorch
+      - script: python -m pytest test --verbose
+        displayName: Run python test
 
-  - script: |
-      call activate pyenv
-      echo Test numpy installation... && python -c "import numpy"
-      python setup.py develop
-    displayName: Build the custom-op library
+      - script: |
+          call activate pyenv
+          python setup.py bdist_wheel
+          # cmake produces assemblies before setup.py makes the
+          # the list of files to include, second call solves that
+          python setup.py bdist_wheel
+        displayName: Build wheel
 
-  - script: |
-      call activate pyenv
-      python -m pytest test
-    displayName: Run python test
+      - task: PublishPipelineArtifact@0
+        inputs:
+          artifactName: 'wheel-macos-$(python.version)'
+          targetPath: 'dist'
+
+  #########
+  # Windows C++
+  #########
+
+  - job: WindowsC
+    pool:
+      vmImage: 'windows-latest'
+
+    strategy:
+      matrix:
+        py38-170:
+          python.version: '3.8'
+          ort.version: '1.7.0'
+          ortlib.version: '38443267'
+        py38-160:
+          python.version: '3.8'
+          ort.version: '1.6.0'
+          ortlib.version: '34858191'
+          build.lib: '0'
+      maxParallel: 1
+
+    steps:
+      - task: DownloadGitHubRelease@0
+        inputs:
+          connection: 'microsoft'
+          userRepository: 'microsoft/onnxruntime'
+          defaultVersionType: 'specificVersion'
+          version: '$(ortlib.version)'
+          itemPattern: '*-win-x64-$(ort.version)*'
+          downloadPath: '$(Build.sourcesdirectory)'
+        displayName: Download the ONNXRuntime prebuilt package.
+
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '**/*.zip'
+          destinationFolder: '$(Build.sourcesdirectory)'
+          cleanDestinationFolder: false
+          overwriteExistingFiles: true
+        displayName: Unpack ONNXRuntime package.
+
+      - script: |
+          call .\build.bat -DONNXRUNTIME_LIB_DIR=.\onnxruntime-win-x64-$(ort.version)\lib
+        displayName: build the customop library with onnxruntime
+
+      - script: |
+          cd out/Windows
+          ctest -C RelWithDebInfo
+        displayName: Run C++ native tests
+
+  ################
+  # Windows wheels
+  ################
+
+  - job: WindowsWheel
+    pool:
+      vmImage: 'windows-latest'
+
+    strategy:
+      matrix:
+        py38-170:
+          python.version: '3.8'
+          ort.version: '1.7.0'
+        py37-170:
+          python.version: '3.7'
+          ort.version: '1.7.0'
+        py36-170:
+          python.version: '3.6'
+          ort.version: '1.7.0'
+      maxParallel: 1
+
+    steps:
+      - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+        displayName: Add conda to PATH
+
+      - script: conda create --yes --quiet --name pyenv -c conda-forge python=$(python.version) numpy
+        displayName: Create Anaconda environment
+
+      - script: |
+          call activate pyenv
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements-dev.txt
+        displayName: Install requirements.txt
+
+      - script: |
+          call activate pyenv
+          python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio===0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
+        displayName: Install pytorch
+
+      - script: |
+          call activate pyenv
+          echo Test numpy installation... && python -c "import numpy"
+          python setup.py develop
+        displayName: Build the custom-op library
+
+      - script: |
+          call activate pyenv
+          python -m pytest test
+        displayName: Run python test
+
+      - script: |
+          call activate pyenv
+          python setup.py bdist_wheel
+          # cmake produces assemblies before setup.py makes the
+          # the list of files to include, second call solves that
+          python setup.py sdist
+          python setup.py bdist_wheel
+        displayName: Build wheel
+
+      - task: PublishPipelineArtifact@0
+        inputs:
+          artifactName: 'wheel-window-$(python.version)'
+          targetPath: 'dist'
+
+  #############
+  # WebAssembly
+  #############
+
+  - job: WebAssembly
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    steps:
+      - script: |
+          cd cmake
+          mkdir deps
+          cd deps
+          git clone https://github.com/emscripten-core/emsdk
+          emsdk/emsdk install latest
+          emsdk/emsdk activate latest
+        displayName: Setup emscripten pipeline
+
+      - script: |
+          sh ./build.sh -DCMAKE_TOOLCHAIN_FILE=cmake/deps/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DOCOS_ENABLE_SPM_TOKENIZER=OFF -DOCOS_ENABLE_PYTHON=OFF -DOCOS_ENABLE_CTEST=OFF
+        displayName: build the customop library with onnxruntime
+    # TODO add unittest for webassembly

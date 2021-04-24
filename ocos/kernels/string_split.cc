@@ -132,6 +132,6 @@ ONNXTensorElementDataType CustomOpStringSplit::GetOutputType(size_t index) const
     case 1:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
     default:
-      throw std::runtime_error(MakeString("Unexpected output index ", index));
+      throw std::runtime_error(MakeString("[StringSplit] Unexpected output index ", index));
   }
 };

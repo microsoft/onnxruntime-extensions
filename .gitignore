@@ -13,11 +13,12 @@ dist/
 *.bin
 cmake_build
 .cmake_build
-cmake-build-debug
+cmake-build*
 gen
 .DS_Store
 *~
 .vs
+tutorials/*.onnx
 Testing/
 TestResults/
 .idea/

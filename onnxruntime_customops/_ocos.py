@@ -6,7 +6,7 @@
 import sys
 import copy
 import onnx
-from onnx import helper, shape_inference
+from onnx import helper
 from ._ortcustomops import (  # noqa
     PyCustomOpDef, enable_custom_op, add_custom_op, hash_64, default_opset_domain)
 
@@ -122,22 +122,25 @@ def expand_onnx_inputs(model, target_input, extra_nodes, new_inputs):
     return _ensure_opset_domain(new_model)
 
 
-def hook_model_op(model, node_name, hook_func):
+def hook_model_op(model, node_name, hook_func, input_types):
     """
     Add a hook function node in the ONNX Model, which could be used for the model diagnosis.
     :param model: The ONNX model loaded as ModelProto
     :param node_name: The node name where the hook will be installed
     :param hook_func: The hook function, callback on the model inference
+    :param input_types: The input types as a list
     :return: The ONNX model with the hook installed
     """
-    hkd_model = shape_inference.infer_shapes(model)
+
+    # onnx.shape_inference is very unstable, useless.
+    # hkd_model = shape_inference.infer_shapes(model)
+    hkd_model = model
 
     n_idx = 0
     hnode, nnode = (None, None)
-    input_names = []
     nodes = list(hkd_model.graph.node)
     brkpt_name = node_name + '_hkd'
-    optype_name = "op_" + hook_func.__name__
+    optype_name = "op_{}_{}".format(hook_func.__name__, node_name)
     for n_ in nodes:
         if n_.name == node_name:
             input_names = list(n_.input)
@@ -157,16 +160,7 @@ def hook_model_op(model, node_name, hook_func):
     del hkd_model.graph.node[:]
     hkd_model.graph.node.extend(repacked)
 
-    value_infos = list(hkd_model.graph.value_info)
-    type_dict = {k_: None for k_ in input_names}
-    for vi_ in value_infos:
-        if vi_.name in type_dict:
-            type_dict[vi_.name] = vi_.type.tensor_type.elem_type
-
-    arg_inputs = [type_dict[ky_] for ky_ in input_names]
-    arg_inputs = [PyCustomOpDef.dt_float if n_ is None else n_ for n_ in arg_inputs]
-    # FIXME: Need check whether the hook_func already registered if the function was hooked with several nodes
-    Opdef.create(hook_func, op_type=optype_name, inputs=arg_inputs, outputs=arg_inputs)
+    Opdef.create(hook_func, op_type=optype_name, inputs=input_types, outputs=input_types)
     return _ensure_opset_domain(hkd_model)
 
 

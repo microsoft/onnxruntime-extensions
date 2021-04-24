@@ -7,7 +7,7 @@
 #include "kernels/string_common.h"
 #include "base64.h"
 
-KernelSentencepieceTokenizer::KernelSentencepieceTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api) {
+KernelSentencepieceTokenizer::KernelSentencepieceTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   std::string model_as_string = ort_.KernelInfoGetAttribute<std::string>(info, "model");
   sentencepiece::ModelProto model_proto;
   std::vector<uint8_t> model_as_bytes;
@@ -140,6 +140,6 @@ ONNXTensorElementDataType CustomOpSentencepieceTokenizer::GetOutputType(size_t i
     case 1:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
     default:
-      throw std::runtime_error(MakeString("Unexpected output index ", index));
+      throw std::runtime_error(MakeString("[SentencepieceTokenizer] Unexpected output index ", index));
   }
 };
