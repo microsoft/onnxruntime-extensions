@@ -1,4 +1,6 @@
 # ONNXRuntime CustomOps
+[![Build Status](https://dev.azure.com/aiinfra/ONNX%20Converters/_apis/build/status/microsoft.ort-customops?repoName=microsoft%2Fonnxruntime-extensions&branchName=main)](https://dev.azure.com/aiinfra/ONNX%20Converters/_build/latest?definitionId=907&repoName=microsoft%2Fonnxruntime-extensions&branchName=main)
+
 ONNXRuntime CustomOps Library is a comprehensive package to extent the ONNXRuntime with some capabilities via its custom ops API.
 1. This repository provides a library of add-on custom operators for [ONNX Runtime](http://onnxruntime.ai). The package can be installed to run with ONNX Runtime for operators not natively supported by ORT. Learn more about [custom ops in ORT](https://www.onnxruntime.ai/docs/how-to/add-custom-op.html). And the custom operator support list is in [docs/custom_text_ops.md](./docs/custom_text_ops.md)
 2. Support PyOp feature to implement the custom op with a Python function.
@@ -32,6 +34,14 @@ provided by the bot. You will only need to do this once across all repos using o
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
 For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+
+# Release
+The package is currently release on test pypi
+[onnxruntime-customops](https://test.pypi.org/project/onnxruntime-customops/).
+
+# Changes
+
+**0.0.2**: 
 
 # License
 [MIT License](LICENSE)

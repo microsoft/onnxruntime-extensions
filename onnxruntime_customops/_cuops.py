@@ -65,6 +65,29 @@ class VectorToString(CustomOp):
                 attr_data[k_] = v_
         return attr_data
 
+
+class StringToVector(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def("text", onnx.TensorProto.STRING, [None])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def('token_ids', onnx_proto.TensorProto.INT64, [])]
+
+    @classmethod
+    def serialize_attr(cls, attrs):
+        attr_data = {}
+        for k_, v_ in attrs.items():
+            if k_ == 'map' and isinstance(v_, dict):
+                attr_data[k_] = '\n'.join(k + "\t" + " ".join([str(i) for i in v]) for k, v in v_.items())
+            elif k_ == 'unk' and isinstance(v_, list): 
+                attr_data[k_] = ' '.join(str(i) for i in v_)
+            else:
+                attr_data[k_] = v_
+        return attr_data
+
+
 # TODO: list all custom operators schema here:
 # ...
 # ...

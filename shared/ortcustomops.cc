@@ -12,6 +12,7 @@
 #include "kernels/string_regex_replace.hpp"
 #include "kernels/string_regex_split.hpp"
 #include "kernels/string_split.hpp"
+#include "kernels/string_to_vector.hpp"
 #include "kernels/string_upper.hpp"
 #include "kernels/negpos.hpp"
 #include "kernels/vector_to_string.hpp"
@@ -49,6 +50,7 @@ CustomOpStringRaggedTensorToDense c_CustomOpStringRaggedTensorToDense;
 CustomOpStringRegexReplace c_CustomOpStringRegexReplace;
 CustomOpStringRegexSplitWithOffsets c_CustomOpStringRegexSplitWithOffsets;
 CustomOpStringSplit c_CustomOpStringSplit;
+CustomOpStringToVector c_CustomOpStringToVector;
 CustomOpStringUpper c_CustomOpStringUpper;
 CustomOpVectorToString c_CustomOpVectorToString;
 CustomOpStringLength c_CustomOpStringLength;
@@ -78,6 +80,7 @@ OrtCustomOp* operator_lists[] = {
     &c_CustomOpStringRegexReplace,
     &c_CustomOpStringRegexSplitWithOffsets,
     &c_CustomOpStringSplit,
+    &c_CustomOpStringToVector,
     &c_CustomOpStringUpper,
     &c_CustomOpVectorToString,
     &c_CustomOpStringLength,

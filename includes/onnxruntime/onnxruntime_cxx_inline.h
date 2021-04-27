@@ -869,8 +869,10 @@ inline std::string CustomOpApi::KernelInfoGetAttribute<std::string>(_In_ const O
   OrtStatus* status = api_.KernelInfoGetAttribute_string(info, name, nullptr, &size);
 
   // The status should be ORT_INVALID_ARGUMENT because the size is insufficient to hold the string
-  if (api_.GetErrorCode(status) == ORT_INVALID_ARGUMENT) {
-    api_.ReleaseStatus(status);
+  if (status == nullptr || api_.GetErrorCode(status) == ORT_INVALID_ARGUMENT) {
+    if (status != nullptr) {
+      api_.ReleaseStatus(status);
+    }
     out.resize(size);
     ThrowOnError(api_.KernelInfoGetAttribute_string(info, name, &out[0], &size));
     out.resize(size - 1);  // remove the terminating character '\0'

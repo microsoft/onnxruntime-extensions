@@ -9,8 +9,8 @@
 from setuptools.command.build_ext import build_ext as _build_ext
 from setuptools.command.develop import develop as _develop
 from setuptools.command.build_py import build_py as _build_py
-from distutils.core import setup
 from contextlib import contextmanager
+from setuptools import setup, find_packages
 
 import os
 import sys
@@ -69,9 +69,16 @@ class BuildCMakeExt(_build_ext):
         cmake_args = [
             '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + str(ext_fullpath.parent.absolute()),
             '-DOCOS_ENABLE_PYTHON=ON',
+            '-DOCOS_ENABLE_CTEST=OFF',
             '-DOCOS_EXTENTION_NAME=' + pathlib.Path(self.get_ext_filename(extension.name)).name,
             '-DCMAKE_BUILD_TYPE=' + config
         ]
+        # Uses to overwrite 
+        # export Python3_INCLUDE_DIRS=/opt/python/cp38-cp38
+        # export Python3_LIBRARIES=/opt/python/cp38-cp38
+        for env in ['Python3_INCLUDE_DIRS', 'Python3_LIBRARIES']:
+            if env in os.environ:
+                cmake_args.append("-D%s=%s" % (env, os.environ[env]))
 
         if self.debug:
             cmake_args += ['-DCC_OPTIMIZE=OFF']
@@ -129,11 +136,18 @@ ext_modules = [
         sources=[])
 ]
 
+packages = find_packages()
+package_dir = {k: os.path.join('.', k.replace(".", "/")) for k in packages}
+package_data = {
+    "onnxruntime_customops": ["*.dll", "*.so", "*.pyd"],
+}
 
 setup(
     name='onnxruntime_customops',
     version=read_version(),
-    packages=['onnxruntime_customops'],
+    packages=packages,
+    package_dir=package_dir,
+    package_data=package_data,
     description="ONNXRuntime Custom Operator Library",
     long_description=open(os.path.join(os.getcwd(), "README.md"), 'r').read(),
     long_description_content_type='text/markdown',
@@ -150,15 +164,17 @@ setup(
     include_package_data=True,
     install_requires=read_requirements(),
     classifiers=[
-        'BuildDevelopment Status :: 4 - Beta',
+        'Development Status :: 4 - Beta',
         'Environment :: Console',
         'Intended Audience :: Developers',
         'Operating System :: MacOS :: MacOS X',
         'Operating System :: Microsoft :: Windows',
+        'Operating System :: POSIX :: Linux',
         "Programming Language :: C++",
         'Programming Language :: Python',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
         "Programming Language :: Python :: Implementation :: CPython",
         'License :: OSI Approved :: MIT License'
     ],

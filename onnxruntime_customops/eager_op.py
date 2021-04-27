@@ -10,6 +10,18 @@ from ._ocos import default_opset_domain, get_library_path  # noqa
 from ._cuops import *  # noqa
 
 
+def _get_opset_version_from_ort():
+    ORT_OPSET_SUPPORT_TABLE = {
+        "1.5": 11,
+        "1.6": 12,
+        "1.7": 13,
+        "1.8": 14
+    }
+
+    ort_ver_string = '.'.join(_ort.__version__.split('.')[0:2])
+    return ORT_OPSET_SUPPORT_TABLE.get(ort_ver_string, 11)
+
+
 class EagerOp:
 
     @classmethod
@@ -26,8 +38,8 @@ class EagerOp:
 
     def create_from_customop(self, op_type, *args, **kwargs):
         graph = SingleOpGraph.build_my_graph(op_type, *args, **kwargs)
-        model = onnx.helper.make_model(graph)
-        model.opset_import.extend([
+        model = onnx.helper.make_model(graph, opset_imports=[
+            onnx.helper.make_operatorsetid('ai.onnx', _get_opset_version_from_ort()),
             onnx.helper.make_operatorsetid(default_opset_domain(), 1)])
         self._bind(model)
         return self

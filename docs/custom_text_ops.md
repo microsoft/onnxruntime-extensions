@@ -16,7 +16,7 @@
 |StringConcat | Supported |
 |StringRegexSplitWithOffsets| Supported |
 |VectorToString| Supported |
-|StringToVector|  Under development|
+|StringToVector|  Supported|
 |StringSlice | Under development|
 ### Tokenizer
 
@@ -338,7 +338,7 @@ Mapping result for unmapped string
 
 ***data: tensor(string)***
 
-Iut tensor
+Input tensor
 
 #### Outputs
 
@@ -424,13 +424,13 @@ the result returned when a vector aren't found in the map
 
 #### Inputs
 
-***data: tensor(string)***
+***data: tensor(T)***
 
 Input tensor
 
 #### Outputs
 
-***output: tensor(T)***
+***output: tensor(string)***
 
 The mapping result of the input
 
@@ -454,7 +454,7 @@ mapping_table = \
   """
 
 node = onnx.helper.make_node(
-    'StringToVector',
+    'VectorToString',
     inputs=['x'],
     outputs=['y'],
     map=mapping_table,
@@ -463,7 +463,7 @@ node = onnx.helper.make_node(
 
 
 x = np.array([[0,0,1,2],[0,1,3,4],[0,0,0,0]], type=np.int64)
-y = ["a", "d", "unknown_worde"]
+y = ["a", "d", "unknown_word"]
 
 
 expect(node, inputs=[x], outputs=[y],
