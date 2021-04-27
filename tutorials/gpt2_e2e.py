@@ -44,44 +44,47 @@ def inference_and_dump_full_model(inputs):
     core_model = op_from_model(gpt2_core_model_path)
     gpt2_tokenizer = op_from_model(gpt2_encoder_model_path)
 
-    with trace_for_onnx(inputs, names=gpt2_tokenizer.input_names) as tc_sess:
+    with trace_for_onnx(inputs, num_tokens_to_produce, names=gpt2_tokenizer.input_names) as tc_sess:
 
         num_attention_heads = config.n_head
         hidden_size = config.n_embd
         num_layer = config.n_layer
         eos_token_id = config.eos_token_id
 
-        input_ids, attention_mask = gpt2_tokenizer(*tc_sess.get_inputs(), padding=True, padding_side='left')
-
+        inputs, num_tokens = tc_sess.get_inputs()
+        input_ids, attention_mask = gpt2_tokenizer(inputs, padding=True, padding_side='left')
+        attention_mask = attention_mask.type(torch.float)
         position_ids = (attention_mask.long().cumsum(-1) - 1)
         # position_ids.masked_fill_(position_ids < 0, 0)
 
         # Empty Past State for generating first word
         batch_size = input_ids.size()[0]
         past_shape = [2, batch_size, num_attention_heads, 0, hidden_size // num_attention_heads]
-        empty_past = [torch.empty(*past_shape).type(torch.float32).to(device)] * num_layer
+        empty_past = []
+        for _ in range(num_layer):
+            empty_past.append(torch.empty(*past_shape).type(torch.float32).to(device))
 
         has_eos = torch.zeros(batch_size, dtype=torch.bool)
 
-        all_token_ids = input_ids.clone()
         all_eos = torch.tensor(False, dtype=torch.bool)
         past = empty_past
         cfg = torch.control_flow()
-        for states in cfg.loop(num_tokens_to_produce, all_eos, input_ids, position_ids, attention_mask, past):
-            _, input_ids, position_ids, attention_mask_f, *past = states
-            outputs = core_model(input_ids, position_ids, attention_mask.type(torch.float32), *past)
-
+        for states in cfg.loop(num_tokens, ~all_eos, has_eos,
+                               input_ids, position_ids, attention_mask.type(torch.float), *past):
+            _, has_eos, input_ids, position_ids, attention_mask, *past = states
+        # for _ in [1]:
+            outputs = core_model(input_ids, position_ids, attention_mask, *past)
             next_token_logits = outputs[0][:, -1, :]
             next_tokens = torch.argmax(next_token_logits, dim=-1)
 
             has_eos = has_eos | (next_tokens == eos_token_id)
             tokens_to_add = next_tokens.masked_fill(has_eos, eos_token_id)
-            all_token_ids = torch.cat([all_token_ids, tokens_to_add.unsqueeze(-1)], dim=-1)
 
             # Update input_ids, attention_mask, position_ids and past
+            batch_size = 2
             input_ids = tokens_to_add.clone().detach().reshape([batch_size, 1]).to(device)
-            position_ids = (position_ids[:, -1] + 1).reshape(batch_size, 1)
-            attention_mask = torch.cat([attention_mask, torch.ones([batch_size, 1]).type_as(attention_mask)], 1).to(device)
+            position_ids = (position_ids[:, -1] + 1).reshape([batch_size, 1])
+            attention_mask = torch.cat([attention_mask, torch.ones(batch_size, 1).type(torch.float)], 1).to(device)
 
             all_eos = torch.all(has_eos)
 
@@ -91,12 +94,12 @@ def inference_and_dump_full_model(inputs):
                     isinstance(outputs[i + 1], numpy.ndarray) else outputs[i + 1].clone().detach()
                 past.append(past_i.to(device))
 
-            cfg.flow_output(all_eos, input_ids, position_ids, attention_mask, *past)
+            cfg.flow_output(~all_eos, has_eos, input_ids, position_ids, attention_mask, *past, tokens_to_add)
 
-        _, _, all_token_ids, *_ = cfg.finalize()
+        *_, all_token_ids = cfg.finalize()
         gpt2_decoder = torch.op_from_model(gpt2_decoder_model_path)
-        text_out = gpt2_decoder(all_token_ids)
-
+        # text_out = gpt2_decoder(tokens_to_add.unsqueeze(-1))
+        text_out = gpt2_decoder(all_token_ids.transpose(0, 1)[0].unsqueeze(-1))
         tc_sess.save_as_onnx(gpt2_full_model_path, text_out)
         return text_out
 
@@ -107,12 +110,13 @@ if not os.path.exists(gpt2_core_model_path) or \
         not os.path.exists(gpt2_encoder_model_path):
     convert_models()
 
+
 # 2. Run the inference with the pre and post process, trace the computation graph and build the all-in-one ONNX model
 output_ms = inference_and_dump_full_model(input_text)
 
 # 3. Inference on the all-in-one model
 full_model = eager_op.EagerOp.from_model(gpt2_full_model_path)
-output_text = full_model(input_text)
+output_text = full_model(input_text, num_tokens_to_produce)
 
 # 4. Test the result
 if not numpy.array_equal(output_ms.numpy(), output_text):

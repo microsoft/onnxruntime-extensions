@@ -85,10 +85,12 @@ class ONNXModelUtils:
     def topological_sort(cls, container, nodes, inputs, outputs):
         op_output_map = {}
         DynNode = namedtuple('DynNode', ['name', 'output'])
-        input_node = DynNode(name='placeholder',
-                             output=[nm_.name for nm_ in inputs] +
-                                    [it_.name for it_ in container.initializers])
-        for nd_ in nodes + [input_node]:
+        input_nodes = [DynNode(name='placeholder',
+                               output=[nm_.name for nm_ in inputs] +
+                                      [it_.name for it_ in container.initializers])] +\
+                      [nd_ for nd_ in nodes if nd_.op_type == 'Constant']
+
+        for nd_ in nodes + input_nodes:
             for ky_ in nd_.output:
                 op_output_map[ky_] = nd_
 
@@ -98,7 +100,8 @@ class ONNXModelUtils:
                 try:
                     predecessor = op_output_map[x]
                 except KeyError:
-                    raise RuntimeError("{}: cannot find the operator to produce {}".format(op.name, x))
+                    raise RuntimeError(
+                        "{}: cannot find an operator to produce the tensor: {}".format(op.name, x)) from None
 
                 val = edges.get(predecessor.name, [])
                 val.append(op)
@@ -127,14 +130,15 @@ class ONNXModelUtils:
 
             unfinished_nodes.remove(node.name)
             visited.add(node.name)
-            sorted_nodes.insert(0, node)
+            if node is not input_nodes[0]:
+                sorted_nodes.insert(0, node)
 
-        recursive_helper(input_node)
-        assert sorted_nodes.pop(0) is input_node
+        for nd_ in input_nodes:
+            recursive_helper(nd_)
 
-        for op in nodes:  # non-input nodes
-            if op.name not in visited:
-                sorted_nodes.insert(0, op)
+        # for op in nodes:  # non-input nodes
+        #     if op.name not in visited:
+        #         sorted_nodes.insert(0, op)
 
         return sorted_nodes
 
@@ -266,8 +270,13 @@ class ONNXTraceSession:
         model_name = 'tcm' if model_name is None else model_name
         doc_string = '' if doc_string is None else doc_string
 
-        inputs = [helper.make_tensor_value_info(si.name, si.onnx_type,
-                                                si.t.size()) for si in self.inputs]
+        input_names = {it_.name: None for it_ in self.inputs}
+        for vi_ in container.value_info:
+            if vi_.name in input_names:
+                input_names[vi_.name] = vi_
+
+        inputs = [helper.make_tensor_value_info(si.name, si.onnx_type, si.t.size())
+                  if input_names.get(si.name) is None else input_names[si.name] for si in self.inputs]
         outputs = [helper.make_tensor_value_info(so.name, so.onnx_type,
                                                  so.t.size()) for so in self.outputs]
 
@@ -319,12 +328,13 @@ class ONNXTraceSession:
 
     def build_sub_graph(self, ts_inputs, ts_outputs, model_name=None):
         container = self.container
-        # some constant ops are created to simulate the tensors generated from the runtime.
+        # some constant ops are created to simulate the tensors generated from the runtime in the loop,
         # so we need to remove the node here
         to_del = []
         input_list = set(si.name for si in ts_inputs)
         for idx_, nd_ in enumerate(container.nodes):
-            if nd_.op_type == 'Constant' and list(nd_.output)[0] in input_list:
+            if hasattr(nd_, 'op_type') and \
+                    nd_.op_type == 'Constant' and list(nd_.output)[0] in input_list:
                 to_del.append(idx_)
 
         for idx_ in to_del[::-1]:
@@ -334,8 +344,13 @@ class ONNXTraceSession:
         nodes = ONNXModelUtils.unfold_model_node(container)
         nodes = ONNXModelUtils.topological_sort(container, nodes, ts_inputs, ts_outputs)
 
-        inputs = [helper.make_tensor_value_info(si.name, si.onnx_type,
-                                                si.t.size()) for si in ts_inputs]
+        input_names = {it_.name: None for it_ in ts_inputs}
+        for vi_ in container.value_info:
+            if vi_.name in input_names:
+                input_names[vi_.name] = vi_
+
+        inputs = [helper.make_tensor_value_info(si.name, si.onnx_type, si.t.size())
+                  if input_names.get(si.name) is None else input_names[si.name] for si in ts_inputs]
         outputs = [helper.make_tensor_value_info(so.name, so.onnx_type,
                                                  so.t.size()) for so in ts_outputs]
 

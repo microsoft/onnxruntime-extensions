@@ -94,6 +94,9 @@ class _ONNXModelOperator:
 
 
 class ONNXElementContainer:
+
+    opdict_counter = {}
+
     def __init__(self, target_opset, parent=None):
         """
         :param target_opset: number, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3.
@@ -106,7 +109,6 @@ class ONNXElementContainer:
         self.node_domain_version_pair_sets = set()
         self.target_opset = target_opset
         self.enable_optimizer = True
-        self.opdict_counter = {}
         self.parent = parent
 
     # the following property make this container be compatible with onnx.GraphProto
@@ -1010,6 +1012,35 @@ class _ONNXOperatorAPI:
                                    op_version=op_version, name=name, keepdims=keepdims)
         return output_name
 
+    def reducemin(self, input_name, output_name, container, operator_name=None, axes=None, keepdims=1, rank=0):
+        name = _create_name_or_use_existing_one(container, 'ReduceMin', operator_name)
+        if axes is None:
+            axes = []
+        if container.target_opset < 13:
+            if container.target_opset < 11:
+                op_version = 1
+                axes = [axis if axis >= 0 else axis + rank for axis in axes]
+            else:
+                op_version = 11
+            container.add_node('ReduceMin', input_name, output_name, name=name,
+                               op_version=op_version, axes=axes, keepdims=keepdims)
+        else:
+            if not isinstance(input_name, list):
+                input_name = [input_name]
+            op_version = 13
+            if isinstance(axes, str):
+                container.add_node('ReduceMin', input_name + [axes], output_name,
+                                   op_version=op_version, name=name, keepdims=keepdims)
+            elif axes is None or len(axes) == 0:
+                container.add_node('ReduceMin', input_name, output_name,
+                                   op_version=op_version, name=name, keepdims=keepdims)
+            else:
+                axes_name = self.get_unique_tensor_name(name + '_reducemin')
+                container.add_initializer(axes_name, onnx_proto.TensorProto.INT64, [len(axes)], axes)
+                container.add_node('ReduceMin', input_name + [axes_name], output_name,
+                                   op_version=op_version, name=name, keepdims=keepdims)
+        return output_name
+
     def relu(self, input_name, output_name, container, operator_name=None):
         self._apply_unary_operation('Relu', input_name, output_name, container, operator_name)
         return output_name
@@ -1447,9 +1478,12 @@ class _ONNXOperatorAPI:
 
         # The tensor name replacement happens on unfolding ONNX model.
         for idx, nm_ in enumerate(input_name):
-            self.identity([nm_], ["{}_{}".format(name, oxml.graph.input[idx].name)], container)
+            nvi = oxml.graph.input[idx]
+            self.identity([nm_], ["{}_{}".format(name, nvi.name)], container)
+            container.value_info.append(nvi)
         for idx, nm_ in enumerate(output_name):
             self.identity(["{}_{}".format(name, oxml.graph.output[idx].name)], [nm_], container)
+        container.value_info.extend(oxml.graph.output)
         container.add_model_node(input_name, output_name, name=name, model=oxml)
         return output_name
 

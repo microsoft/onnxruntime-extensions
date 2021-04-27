@@ -17,7 +17,6 @@ class _EagerTensor:
             assert len(name) == 1, "Multiple names for one tensor!"
             name = name[0]
         self.name = '' if name is None else name
-        self._ort_session = sess
         self.raw_data = raw_data
 
     def __repr__(self):
@@ -112,6 +111,14 @@ class _EagerTensor:
             x = self.mytensor(x)
         return x, y
 
+    _dup_id = 0
+
+    def __copy__(self):
+        new_t = _EagerTensor.from_torch(self.t, self.name + '_{}'.format(_EagerTensor._dup_id))
+        self._dup_id += 1
+        new_t.raw_data = self.raw_data
+        return new_t
+
     def __add__(self, other):
         x0, x1 = self._to_binary_tensor_args(other)
         y = torch.add(x0._t, x1._t)
@@ -184,13 +191,21 @@ class _EagerTensor:
         s = _ox.greater_equal(*_EagerTensor.ox_args([x0, x1]))
         return self.from_torch(y, s)
 
+    def __invert__(self):
+        if self.t.dtype is torch.bool:
+            y = torch.logical_not(self.t)
+            s = _ox.not_op(*self.my_args())
+            return self.from_torch(y, s)
+        else:
+            raise NotImplementedError("no numeric tensor inverse supported yet.")
+
     def __neg__(self):
-        y = torch.neg([self])
+        y = torch.neg([self.t])
         s = _ox.neg(*self.my_args())
         return self.from_torch(y, s)
 
     def __not__(self):
-        y = torch.logical_not([self])
+        y = torch.logical_not(self.t)
         s = _ox.not_op(*self.my_args())
         return self.from_torch(y, s)
 
@@ -303,7 +318,7 @@ class _EagerTensor:
         s = _ox.cast(*self.my_args(), to=onnx_proto.TensorProto.INT64)
         return self.create_and_verify(y, s[0])
 
-    def cumsum(self, dim: _int, *, dtype: Optional[_dtype] = None):
+    def cumsum(self, dim: _int, *, dtype: Optional[_dtype] = None):  # noqa
         y = self._t.cumsum(dim, dtype=dtype)
         s = _ox.cumsum(*self.my_args(), axis=dim)
         return self.create_and_verify(y, s[0])
@@ -320,6 +335,11 @@ class _EagerTensor:
 
     def to(self, device):
         y = self._t.to(device)
+        s = _ox.identity(*self.my_args())
+        return self.create_and_verify(y, s[0])
+
+    def detach(self):
+        y = self._t.detach()
         s = _ox.identity(*self.my_args())
         return self.create_and_verify(y, s[0])
 
@@ -388,6 +408,15 @@ def zeros(*size: _int, out: Optional[_EagerTensor] = None, dtype: _dtype = None,
     return _EagerTensor.from_torch(y, s)
 
 
+def ones(*size: _int, out: Optional[_EagerTensor] = None, dtype: _dtype = None, layout: _layout = strided,
+          device: Union[_device, str, None] = None, requires_grad: _bool = False) -> _EagerTensor:  # noqa
+    n_size = _EagerTensor.normalize_seq(size)
+    y = torch.ones(*n_size, out=out, dtype=dtype,
+                   layout=layout, device=device, requires_grad=requires_grad)
+    s = _create_ox_sequence(*size, init_value=1, onnx_type=_EagerTensor.to_onnx_type(y.dtype))
+    return _EagerTensor.from_torch(y, s)
+
+
 def argmax(input_ts: _EagerTensor, dim: Optional[_int] = None, keepdim: _bool = False) -> _EagerTensor:  # noqa
     y = torch.argmax(input_ts.value, dim, keepdim)
     s = _ox.argmax(*input_ts.my_args(), axis=dim, keepdims=keepdim)
@@ -409,6 +438,31 @@ def cat(tensors: Union[Tuple[_EagerTensor, ...], List[_EagerTensor]],
     return y
 
 
+def all(input_ts: _EagerTensor, out: Optional[_EagerTensor]=None) -> _EagerTensor:  # noqa
+    container = _EagerTensor.get_container()
+    y = torch.all(input_ts.value)
+    s_casted = _ox.cast(*input_ts.my_args(), to=onnx_proto.TensorProto.INT64)
+    s_redm = _ox.reducemin(s_casted, [_ox.get_unique_tensor_name('reducemin')], container, None, axes=[0])
+    s0 = _ox.constant([], [_ox.get_unique_tensor_name('const')],
+                      container, None, value=_ox.make_tensor(onnx_proto.TensorProto.INT64, [1], [0]))
+    s = _ox.greater(s_redm + s0, [_ox.get_unique_tensor_name('greater')], container, None)
+    return input_ts.create_and_verify(y, s[0])
+
+
+def reshape(input_ts: _EagerTensor, shape: _size):
+    y = input_ts.t.reshape(shape)
+    s = _ox.reshape(*input_ts.my_args(), desired_shape=shape)
+    return input_ts.create_and_verify(y, s[0])
+
+
+def transpose(input_ts: _EagerTensor, dim0: _int, dim1: _int):
+    y = input_ts.t.transpose(dim0, dim1)
+    axes = list(range(y.dim()))
+    axes[dim0], axes[dim1] = axes[dim1], axes[dim0]
+    s = _ox.transpose(*input_ts.my_args(), perm=axes)
+    return input_ts.create_and_verify(y, s[0])
+
+
 class _LoopIterator:
     def __init__(self, ctx):
         self.context = ctx
@@ -418,22 +472,30 @@ class _LoopIterator:
 
     def __next__(self):
         if self.context.is_stopped():
+            _EagerTensor.get_trace_session().pop_container()
             raise StopIteration
         return self.context.current()
 
 
 class _ControlFlowContext:
     def __init__(self):
+        self.condition_i = None
         self.condition = None
         self.loop_count = None
         self.iteration_num = None
+        self.states_i = []
         self.loop_states = []
         self.scan_outputs = []
         self.sub_graph = None
 
     def flow_output(self, cond, *outputs):
-        self.condition = cond
         assert len(outputs) > len(self.loop_states), "The loop body doesn't return enough objects"
+        if self.sub_graph is None:
+            self.sub_graph = _EagerTensor.get_trace_session().build_sub_graph(
+                [self.iteration_num, self.condition] + self.loop_states,
+                [cond] + list(outputs))
+
+        self.condition = cond
         c_state = len(self.loop_states)
         self.loop_states = list(outputs[:c_state])
         if len(self.scan_outputs) == 0:
@@ -447,20 +509,15 @@ class _ControlFlowContext:
                     torch.cat([et.value, torch.unsqueeze(outputs[c_state + idx_].value, 0)]), name=et.name))
             self.scan_outputs = next_extra_vars
         self.iteration_num.value.add_(1)
-        if self.sub_graph is None:
-            self.sub_graph = _EagerTensor.get_trace_session().build_sub_graph(
-                [self.iteration_num, self.condition] + self.loop_states,
-                [self.condition] + list(outputs))
 
     def current(self):
         return [self.iteration_num] + list(self.loop_states)
 
     def finalize(self):
         # generate the outputs from the enclosing scope variables
-        _EagerTensor.get_trace_session().pop_container()
         full_outputs = [_EagerTensor(o_.value, 'lp_' + o_.name) for o_ in self.loop_states + self.scan_outputs]
         _ox.loop(*_EagerTensor.ox_args(
-            [self.loop_count, self.condition] + self.loop_states,
+            [self.loop_count, self.condition_i] + list(self.states_i),
             [ts_.name for ts_ in full_outputs]), body=self.sub_graph)
         return tuple(full_outputs)
 
@@ -469,6 +526,8 @@ class _ControlFlowContext:
 
     def loop(self, loop_c, condition, *states):
         self.condition = condition
+        self.condition_i = condition
+        self.states_i = states
         _EagerTensor.get_trace_session().stack_container()
         self.iteration_num = _EagerTensor.mytensor(0)
         # clone the variables for the sub graph.
@@ -505,7 +564,9 @@ def op_from_model(path_or_model, *args, **kwargs) -> _TracingEagerOp:
 
 
 _EagerTensor._all_ops = {'argmax': argmax,
-                         'softmax': softmax}
+                         'softmax': softmax,
+                         'reshape': reshape,
+                         'transpose': transpose}
 
 tensor = _EagerTensor.mytensor
 tensor_from_onnx = _EagerTensor.from_onnx
