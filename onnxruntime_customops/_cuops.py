@@ -49,11 +49,11 @@ class GPT2Tokenizer(CustomOp):
 class VectorToString(CustomOp):
     @classmethod
     def get_inputs(cls):
-        return [cls.io_def("token_ids", onnx.TensorProto.INT64, [None, None])]
+        return [cls.io_def("token_ids", onnx.TensorProto.INT64, [])]
 
     @classmethod
     def get_outputs(cls):
-        return [cls.io_def('text', onnx_proto.TensorProto.STRING, [None])]
+        return [cls.io_def('text', onnx_proto.TensorProto.STRING, [])]
 
     @classmethod
     def serialize_attr(cls, attrs):

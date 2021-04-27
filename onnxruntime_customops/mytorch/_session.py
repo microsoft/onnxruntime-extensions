@@ -3,7 +3,7 @@ import onnx
 import torch
 import warnings
 import numpy as np
-from onnx import helper
+from onnx import helper, mapping
 from collections import namedtuple
 from ..eager_op import EagerOp
 from ._builder import is_path as _is_path
@@ -136,16 +136,12 @@ class ONNXModelUtils:
         for nd_ in input_nodes:
             recursive_helper(nd_)
 
-        # for op in nodes:  # non-input nodes
-        #     if op.name not in visited:
-        #         sorted_nodes.insert(0, op)
-
         return sorted_nodes
 
     @staticmethod
     def value_info_from_numpy(name, value):
         dtype = onnx.onnx_pb.TensorProto.STRING if \
-            _is_numpy_string_type(value) else onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[value.dtype]
+            _is_numpy_string_type(value) else mapping.NP_TYPE_TO_TENSOR_TYPE[value.dtype]
         return helper.make_tensor_value_info(name, dtype, shape=value.shape)
 
     @staticmethod
@@ -263,26 +259,52 @@ class ONNXTraceSession:
     def get_inputs(self):
         return self.inputs
 
-    def build_model(self, model_name=None, doc_string=None) -> onnx.ModelProto:
-        container = self.container
-        nodes = ONNXModelUtils.unfold_model_node(container)
-        nodes = ONNXModelUtils.topological_sort(container, nodes, self.inputs, self.outputs)
-        model_name = 'tcm' if model_name is None else model_name
-        doc_string = '' if doc_string is None else doc_string
+    def stack_container(self):
+        assert self.container is not None, "Stacked container must be in another one."
+        sub_container = ONNXElementContainer(self.container.target_opset, self.container)
+        self.container = sub_container
+        return self.container
 
-        input_names = {it_.name: None for it_ in self.inputs}
+    def pop_container(self):
+        assert self.container.parent is not None, "Cannot pop the root container."
+        self.container = self.container.parent
+        return self.container
+
+    @staticmethod
+    def build_graph(container, ts_inputs, ts_outputs, graph_name=None):
+        # some constant ops are created to simulate the tensors generated from the runtime in the loop,
+        # so we need to remove the node here
+        to_del = []
+        input_names = {it_.name: None for it_ in ts_inputs}
+        for idx_, nd_ in enumerate(container.nodes):
+            if nd_.op_type == 'Constant' and list(nd_.output)[0] in input_names:
+                to_del.append(idx_)
+
+        for idx_ in to_del[::-1]:
+            container.nodes.pop(idx_)
+
+        graph_name = container.get_unique_operator_name('subg') if not graph_name else graph_name
+        nodes = ONNXModelUtils.unfold_model_node(container)
+        nodes = ONNXModelUtils.topological_sort(container, nodes, ts_inputs, ts_outputs)
+
         for vi_ in container.value_info:
             if vi_.name in input_names:
                 input_names[vi_.name] = vi_
 
         inputs = [helper.make_tensor_value_info(si.name, si.onnx_type, si.t.size())
-                  if input_names.get(si.name) is None else input_names[si.name] for si in self.inputs]
+                  if input_names.get(si.name) is None else input_names[si.name] for si in ts_inputs]
         outputs = [helper.make_tensor_value_info(so.name, so.onnx_type,
-                                                 so.t.size()) for so in self.outputs]
+                                                 so.t.size()) for so in ts_outputs]
 
-        graph = helper.make_graph(nodes, model_name, inputs,
-                                  outputs, self.container.initializers)
+        graph = helper.make_graph(nodes, graph_name, inputs,
+                                  outputs, container.initializers)
+        return graph
 
+    def build_model(self, model_name=None, doc_string=None) -> onnx.ModelProto:
+        model_name = 'tcm' if model_name is None else model_name
+        doc_string = '' if doc_string is None else doc_string
+        container = self.container
+        graph = self.build_graph(container, self.inputs, self.outputs, model_name)
         onnx_model = make_model_ex(graph, container.node_domain_version_pair_sets,
                                    container.target_opset, doc_string=doc_string)
         return onnx_model
@@ -314,46 +336,3 @@ class ONNXTraceSession:
             f.flush()
 
         return m
-
-    def stack_container(self):
-        assert self.container is not None, "Stacked container must be in another one."
-        sub_container = ONNXElementContainer(self.container.target_opset, self.container)
-        self.container = sub_container
-        return self.container
-
-    def pop_container(self):
-        assert self.container.parent is not None, "Cannot pop the root container."
-        self.container = self.container.parent
-        return self.container
-
-    def build_sub_graph(self, ts_inputs, ts_outputs, model_name=None):
-        container = self.container
-        # some constant ops are created to simulate the tensors generated from the runtime in the loop,
-        # so we need to remove the node here
-        to_del = []
-        input_list = set(si.name for si in ts_inputs)
-        for idx_, nd_ in enumerate(container.nodes):
-            if hasattr(nd_, 'op_type') and \
-                    nd_.op_type == 'Constant' and list(nd_.output)[0] in input_list:
-                to_del.append(idx_)
-
-        for idx_ in to_del[::-1]:
-            container.nodes.pop(idx_)
-
-        model_name = container.get_unique_operator_name('subg') if not model_name else model_name
-        nodes = ONNXModelUtils.unfold_model_node(container)
-        nodes = ONNXModelUtils.topological_sort(container, nodes, ts_inputs, ts_outputs)
-
-        input_names = {it_.name: None for it_ in ts_inputs}
-        for vi_ in container.value_info:
-            if vi_.name in input_names:
-                input_names[vi_.name] = vi_
-
-        inputs = [helper.make_tensor_value_info(si.name, si.onnx_type, si.t.size())
-                  if input_names.get(si.name) is None else input_names[si.name] for si in ts_inputs]
-        outputs = [helper.make_tensor_value_info(so.name, so.onnx_type,
-                                                 so.t.size()) for so in ts_outputs]
-
-        graph = helper.make_graph(nodes, model_name, inputs,
-                                  outputs, self.container.initializers)
-        return graph

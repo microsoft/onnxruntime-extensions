@@ -491,9 +491,10 @@ class _ControlFlowContext:
     def flow_output(self, cond, *outputs):
         assert len(outputs) > len(self.loop_states), "The loop body doesn't return enough objects"
         if self.sub_graph is None:
-            self.sub_graph = _EagerTensor.get_trace_session().build_sub_graph(
-                [self.iteration_num, self.condition] + self.loop_states,
-                [cond] + list(outputs))
+            trc = _EagerTensor.get_trace_session()
+            self.sub_graph = trc.build_graph(trc.container,
+                                             [self.iteration_num, self.condition] + self.loop_states,
+                                             [cond] + list(outputs))
 
         self.condition = cond
         c_state = len(self.loop_states)

@@ -92,6 +92,10 @@ class _ONNXModelOperator:
         """
         return "name: {}, input: {}, output: {}".format(self.name, self.input, self.output)
 
+    @property
+    def op_type(self):
+        return 'ModelOp'
+
 
 class ONNXElementContainer:
 
