@@ -1,3 +1,4 @@
+import io
 import onnx
 import unittest
 import torchvision
@@ -16,6 +17,44 @@ class TestTorchE2E(unittest.TestCase):
     def on_hook(*x):
         TestTorchE2E.argmax_input = x[0]
         return x
+
+    def test_range(self):
+        num = 10
+
+        f = io.BytesIO()
+        with trace_for_onnx(num, names=['count']) as tc_sess:
+            num_in = tc_sess.get_inputs()[0]
+            done = torch.tensor(True)
+            st_0 = torch.tensor(0)
+            cfg = torch.control_flow()
+            for _ in cfg.loop(num_in, done, st_0):
+                iter_num, *v = _
+                cfg.flow_output(done, st_0, iter_num + 0)
+
+            *_, rout = cfg.finalize()
+            tc_sess.save_as_onnx(f, rout)
+
+        m = onnx.load_model_from_string(f.getvalue())
+        onnx.save_model(m, 'range.onnx')
+        fu_m = eager_op.EagerOp.from_model(m)
+        result = fu_m(num)
+        np.testing.assert_array_equal(result, np.array(range(num)))
+
+    def test_sequence(self):
+        input_text = ['test sentence', 'sentence 2']
+        f = io.BytesIO()
+        with trace_for_onnx(input_text, names=['in_text']) as tc_sess:
+            tc_inputs = tc_sess.get_inputs()[0]
+            batchsize = tc_inputs.size()[0]
+            shape = [batchsize, 2]
+            fuse_output = torch.zeros(*shape).size()
+            tc_sess.save_as_onnx(f, fuse_output)
+
+        m = onnx.load_model_from_string(f.getvalue())
+        onnx.save_model(m, 'test00.onnx')
+        fu_m = eager_op.EagerOp.from_model(m)
+        result = fu_m(input_text)
+        np.testing.assert_array_equal(result, [2, 2])
 
     def test_imagenet_postprocess(self):
         mb_core_path = "mobilev2.onnx"

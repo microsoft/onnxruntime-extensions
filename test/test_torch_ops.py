@@ -3,7 +3,8 @@ import onnx
 import numpy
 import unittest
 import platform
-import torch, torchvision
+import torch
+import torchvision
 import onnxruntime as _ort
 
 from onnx import load
@@ -14,14 +15,27 @@ from onnxruntime_customops import (
     hook_model_op,
     get_library_path as _get_library_path)
 
+from onnxruntime_customops.eager_op import EagerOp
+
 
 def my_inverse(g, self):
     return g.op("ai.onnx.contrib::Inverse", self)
 
 
+register_custom_op_symbolic('::inverse', my_inverse, 1)
+
+
+def my_all(g, self):
+    return g.op("ai.onnx.contrib::All", self)
+
+
+register_custom_op_symbolic('::all', my_all, 1)
+
+
 class CustomInverse(torch.nn.Module):
-    def forward(self, x):
-        return torch.inverse(x) + x
+    def forward(self, x, y):
+        ress = torch.inverse(x) + x
+        return ress, torch.all(y)
 
 
 class TestPyTorchCustomOp(unittest.TestCase):
@@ -36,34 +50,32 @@ class TestPyTorchCustomOp(unittest.TestCase):
             # the user custom op implementation here:
             return numpy.linalg.inv(x)
 
+        @onnx_op(op_type='All', inputs=[PyOp.dt_bool], outputs=[PyOp.dt_bool])
+        def op_all(x):
+            return numpy.all(x)
+
     def test_custom_pythonop_pytorch(self):
 
         # register_custom_op_symbolic(
         #   '<namespace>::inverse', my_inverse, <opset_version>)
-        register_custom_op_symbolic('::inverse', my_inverse, 1)
 
-        x = torch.randn(3, 3)
+        x0, x1 = torch.randn(3, 3), torch.tensor([True, False])
 
         # Export model to ONNX
         f = io.BytesIO()
-        torch.onnx.export(CustomInverse(), (x,), f)
+        torch.onnx.export(CustomInverse(), (x0, x1), f, opset_version=12)
         onnx_model = load(io.BytesIO(f.getvalue()))
         self.assertIn('domain: "ai.onnx.contrib"', str(onnx_model))
 
         model = CustomInverse()
-        pt_outputs = model(x)
+        onnx.save_model(onnx_model, 'pytorchcustomop.onnx')
+        pt_outputs = model(x0, x1)
 
-        so = _ort.SessionOptions()
-        so.register_custom_ops_library(_get_library_path())
-
-        # Run the exported model with ONNX Runtime
-        ort_sess = _ort.InferenceSession(f.getvalue(), so)
-        ort_inputs = dict((ort_sess.get_inputs()[i].name, input.cpu().numpy())
-                          for i, input in enumerate((x,)))
-        ort_outputs = ort_sess.run(None, ort_inputs)
+        run_ort = EagerOp.from_model(onnx_model)
+        ort_outputs = run_ort(x0.numpy(), x1.numpy())
 
         # Validate PyTorch and ONNX Runtime results
-        numpy.testing.assert_allclose(pt_outputs.cpu().numpy(),
+        numpy.testing.assert_allclose(pt_outputs[0].numpy(),
                                       ort_outputs[0], rtol=1e-03, atol=1e-05)
 
     @staticmethod

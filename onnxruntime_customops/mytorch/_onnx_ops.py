@@ -92,9 +92,16 @@ class _ONNXModelOperator:
         """
         return "name: {}, input: {}, output: {}".format(self.name, self.input, self.output)
 
+    @property
+    def op_type(self):
+        return 'ModelOp'
+
 
 class ONNXElementContainer:
-    def __init__(self, target_opset):
+
+    opdict_counter = {}
+
+    def __init__(self, target_opset, parent=None):
         """
         :param target_opset: number, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3.
         """
@@ -106,7 +113,20 @@ class ONNXElementContainer:
         self.node_domain_version_pair_sets = set()
         self.target_opset = target_opset
         self.enable_optimizer = True
-        self.opdict_counter = {}
+        self.parent = parent
+
+    # the following property make this container be compatible with onnx.GraphProto
+    @property
+    def initializer(self):
+        return self.initializers
+
+    @property
+    def input(self):
+        return self.inputs
+
+    @property
+    def output(self):
+        return self.outputs
 
     @staticmethod
     def _make_value_info(variable):
@@ -474,6 +494,14 @@ class _ONNXOperatorAPI:
         container.add_node('Concat', input_names, output_name, op_version=op_version, name=name, axis=axis)
         return output_name
 
+    def concat_from_sequence(self, input_names, output_name, container, operator_name=None, axis=0, new_axis=None):
+        name = _create_name_or_use_existing_one(container, 'Concat', operator_name)
+        attrs = {'axis': axis}
+        if new_axis is not None:
+            attrs['new_axis'] = new_axis
+        container.add_node('ConcatFromSequence', input_names, output_name, op_version=11, name=name, **attrs)
+        return output_name
+
     def constant(self, input_names, output_name, container, operator_name=None, value=None):
         assert len(input_names) == 0  # only a placeholder to standardize the argument list.
         name = _create_name_or_use_existing_one(container, 'Constant', operator_name)
@@ -568,9 +596,14 @@ class _ONNXOperatorAPI:
             container.add_node('DynamicSlice', input_list, output_name, op_version=9)
         return output_name
 
-    def cumsum(self, input_names, output_names, container, operator_name=None):
+    def cumsum(self, input_names, output_names, container, operator_name=None, axis=None):
         name = _create_name_or_use_existing_one(container, 'cumsum', operator_name)
-        container.add_node('CumSum', input_names, output_names, op_version=11, name=name)
+        assert axis is not None, "Axis in Op CumSum must be provided."
+        axis_name = self.get_unique_tensor_name(name+'_dim')
+        container.add_initializer(axis_name,
+                                  onnx_proto.TensorProto.INT64,
+                                  [1], [axis])
+        container.add_node('CumSum', input_names + [axis_name], output_names, op_version=11, name=name)
         return output_names
 
     def div(self, input_names, output_name, container, operator_name=None, axis=None, broadcast=None):
@@ -686,8 +719,7 @@ class _ONNXOperatorAPI:
         else:
             container.add_node(onnx_op_string, input_names, output_name,
                                name=name + '_' + onnx_op_string_rev.lower(), op_version=op_version)
-    
-    
+
     def greater_or_equal(self, input_names, output_name, container, operator_name=None):
         self._apply_convert_compare_equal(input_names, output_name, container, operator_name,
                                           'GreaterEqual', 'Less', 'GreaterOrEqual')
@@ -799,7 +831,7 @@ class _ONNXOperatorAPI:
         return output_name
 
     def mul(self, input_names, output_name, container, operator_name=None, axis=None, broadcast=None):
-        self._apply_basic_numerical_operation(self, 'Mul', input_names, output_name,
+        self._apply_basic_numerical_operation('Mul', input_names, output_name,
                                               container, operator_name=operator_name,
                                               axis=axis, broadcast=broadcast)
         return output_name
@@ -808,7 +840,7 @@ class _ONNXOperatorAPI:
         self._apply_unary_operation('Neg', input_name, output_name, container, operator_name)
         return output_name
     
-    def normalization(self, input_name, output_name, container, operator_name=None, axis=1, p=2):
+    def lpnormalization(self, input_name, output_name, container, operator_name=None, axis=1, p=2):
         name = _create_name_or_use_existing_one(container, 'LpNormalization', operator_name)
         container.add_node('LpNormalization', input_name, output_name, name=name, p=p, axis=axis)
         return output_name
@@ -981,6 +1013,35 @@ class _ONNXOperatorAPI:
                 axes_name = self.get_unique_tensor_name(name + '_reducesum')
                 container.add_initializer(axes_name, onnx_proto.TensorProto.INT64, [len(axes)], axes)
                 container.add_node('ReduceSum', input_name + [axes_name], output_name,
+                                   op_version=op_version, name=name, keepdims=keepdims)
+        return output_name
+
+    def reducemin(self, input_name, output_name, container, operator_name=None, axes=None, keepdims=1, rank=0):
+        name = _create_name_or_use_existing_one(container, 'ReduceMin', operator_name)
+        if axes is None:
+            axes = []
+        if container.target_opset < 13:
+            if container.target_opset < 11:
+                op_version = 1
+                axes = [axis if axis >= 0 else axis + rank for axis in axes]
+            else:
+                op_version = 11
+            container.add_node('ReduceMin', input_name, output_name, name=name,
+                               op_version=op_version, axes=axes, keepdims=keepdims)
+        else:
+            if not isinstance(input_name, list):
+                input_name = [input_name]
+            op_version = 13
+            if isinstance(axes, str):
+                container.add_node('ReduceMin', input_name + [axes], output_name,
+                                   op_version=op_version, name=name, keepdims=keepdims)
+            elif axes is None or len(axes) == 0:
+                container.add_node('ReduceMin', input_name, output_name,
+                                   op_version=op_version, name=name, keepdims=keepdims)
+            else:
+                axes_name = self.get_unique_tensor_name(name + '_reducemin')
+                container.add_initializer(axes_name, onnx_proto.TensorProto.INT64, [len(axes)], axes)
+                container.add_node('ReduceMin', input_name + [axes_name], output_name,
                                    op_version=op_version, name=name, keepdims=keepdims)
         return output_name
 
@@ -1301,8 +1362,8 @@ class _ONNXOperatorAPI:
                 axis_tensor_name = self.get_unique_tensor_name(name + '_axis')
                 container.add_initializer(axis_tensor_name, onnx_proto.TensorProto.FLOAT, [1], [float(axis)])
     
-                # Create tile for duplicating along one axis. After ONNX-1.2, we can duplicate along multiple axes, so we
-                # don't have to iterate through all axes.
+                # Create tile for duplicating along one axis. After ONNX-1.2, we can duplicate along multiple axes,
+                # so we don't have to iterate through all axes.
                 intermediate_output_name = self.get_unique_tensor_name(name + '_input')
                 container.add_node('Tile', [intermediate_input_name, tile_tensor_name, axis_tensor_name],
                                    intermediate_output_name, name=name)
@@ -1352,10 +1413,16 @@ class _ONNXOperatorAPI:
         return output_name
     
     def upsample(self, input_name, output_name, container, operator_name=None, mode='nearest',
-                       coordinate_transformation_mode='asymmetric', scales=None):
+                 coordinate_transformation_mode='asymmetric', scales=None):
         """
+        :param input_name:
+        :param output_name:
+        :param container:
+        :param operator_name:
         :param mode: nearest or linear
+        :param coordinate_transformation_mode:
         :param scales: an integer list of scaling-up rate of all input dimensions
+        :return:
         """
         if container.target_opset < 10:
             name = _create_name_or_use_existing_one(container, 'Upsample', operator_name)
@@ -1395,15 +1462,32 @@ class _ONNXOperatorAPI:
         return output_name
 
     def where(self, input_names, output_names, container, operator_name=None):
-        name = _create_name_or_use_existing_one(container, 'Where', operator_name)
+        name = _create_name_or_use_existing_one(container, 'where', operator_name)
         container.add_node('Where', input_names, output_names, op_version=9, name=name)
         return output_names
 
+    def loop(self, input_names, output_names, container, operator_name=None, body=None):
+        name = _create_name_or_use_existing_one(container, 'loop', operator_name)
+        trip_count, cond, *states = tuple(input_names)
+        trip_count = '' if trip_count is None else trip_count
+        cond_name = '' if cond is None else cond
+        container.add_node(
+            'Loop', [trip_count, cond_name] + states, output_names, op_version=11, name=name, body=body)
+        return output_names
+
     def model_call(self, input_name, output_name, container, operator_name=None, oxml=None):
-        name = _create_name_or_use_existing_one(container, 'mc', operator_name)
-        for idx, name in enumerate(input_name):
-            if name != oxml.graph.input[idx].name:
-                self.identity([name], [oxml.graph.input[idx].name], container)
+        name = operator_name
+        if name is None:
+            name = container.get_unique_operator_name('og')
+
+        # The tensor name replacement happens on unfolding ONNX model.
+        for idx, nm_ in enumerate(input_name):
+            nvi = oxml.graph.input[idx]
+            self.identity([nm_], ["{}_{}".format(name, nvi.name)], container)
+            container.value_info.append(nvi)
+        for idx, nm_ in enumerate(output_name):
+            self.identity(["{}_{}".format(name, oxml.graph.output[idx].name)], [nm_], container)
+        container.value_info.extend(oxml.graph.output)
         container.add_model_node(input_name, output_name, name=name, model=oxml)
         return output_name
 

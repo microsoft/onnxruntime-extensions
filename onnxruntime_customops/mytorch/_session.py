@@ -1,12 +1,172 @@
+import copy
 import onnx
 import torch
 import warnings
 import numpy as np
-from onnx import helper
+from onnx import helper, mapping
 from collections import namedtuple
-from ._tensor import tensor_from_onnx, tensor_from_torch, tensor_set_session
-from ._onnx_ops import ONNXElementContainer, make_model_ex
+from ..eager_op import EagerOp
 from ._builder import is_path as _is_path
+from ._onnx_ops import ONNXElementContainer, make_model_ex
+from ._tensor import tensor_from_onnx, tensor_from_torch, tensor_set_session
+
+
+def _is_numpy_object(x):
+    return isinstance(x, (np.ndarray, np.generic))
+
+
+def _is_numpy_string_type(arr):
+    return arr.dtype.kind in {'U', 'S'}
+
+
+def _is_string_type(x):
+    if not _is_numpy_object(x):
+        x = np.array(x)
+    return _is_numpy_string_type(x)
+
+
+class ONNXModelUtils:
+    @staticmethod
+    def _rename_iter(iterables, prefix_name, inplace=False):
+        new_iz = iterables if inplace else [copy.deepcopy(iz_) for iz_ in iterables]
+        for iz_ in new_iz:
+            iz_.name = "{}_{}".format(prefix_name, iz_.name)
+        return new_iz
+
+    @classmethod
+    def _rename_graph(cls, graph, prefix, graph_or_container):
+        def io_rename(node, prefix_name):
+            new_node = copy.deepcopy(node)
+            del new_node.input[:]
+            new_node.input.extend("{}_{}".format(prefix_name, nm_) for nm_ in node.input)
+            del new_node.output[:]
+            new_node.output.extend("{}_{}".format(prefix_name, nm_) for nm_ in node.output)
+            return new_node
+
+        assert prefix is not None, 'The graph prefix could not be None'
+        graph_or_container.initializer.extend(cls._rename_iter(graph.initializer, prefix))
+        graph_or_container.value_info.extend(cls._rename_iter(graph.value_info, prefix))
+        return list(io_rename(nd_, prefix) for nd_ in graph.node)
+
+    @classmethod
+    def _process_node_body(cls, node, prefix):
+        if all(attr.name != 'body' for attr in node.attribute):
+            return node
+
+        def _process_attr(attr, prefix_name):
+            if attr.name == 'body':
+                new_attr = copy.deepcopy(attr)
+                del new_attr.g.value_info[:]
+                del new_attr.g.node[:]
+                new_attr.g.node.extend(cls._rename_graph(attr.g, prefix_name, new_attr.g))
+                cls._rename_iter(new_attr.g.input, prefix_name, inplace=True)
+                cls._rename_iter(new_attr.g.output, prefix_name, inplace=True)
+                return new_attr
+            else:
+                return attr
+
+        attr_list = list(_process_attr(attr_, prefix) for attr_ in node.attribute)
+        del node.attribute[:]
+        node.attribute.extend(attr_list)
+        return node
+
+    @classmethod
+    def unfold_model_node(cls, container: ONNXElementContainer):
+        nodes = container.nodes
+        model_nodes = {node.name: node for node in nodes if hasattr(node, 'model')}
+        onnx_nodes = [nd_ for nd_ in nodes if nd_.name not in model_nodes]
+
+        for node in model_nodes.values():
+            renamed_nodes = cls._rename_graph(node.model.graph, node.name, container)
+            onnx_nodes.extend(cls._process_node_body(nd_, node.name) for nd_ in renamed_nodes)
+        return onnx_nodes
+
+    @classmethod
+    def topological_sort(cls, container, nodes, inputs, outputs):
+        op_output_map = {}
+        DynNode = namedtuple('DynNode', ['name', 'output'])
+        input_nodes = [DynNode(name='placeholder',
+                               output=[nm_.name for nm_ in inputs] +
+                                      [it_.name for it_ in container.initializers])] +\
+                      [nd_ for nd_ in nodes if nd_.op_type == 'Constant']
+
+        for nd_ in nodes + input_nodes:
+            for ky_ in nd_.output:
+                op_output_map[ky_] = nd_
+
+        edges = {}
+        for op in nodes:
+            for x in op.input:
+                try:
+                    predecessor = op_output_map[x]
+                except KeyError:
+                    raise RuntimeError(
+                        "{}: cannot find an operator to produce the tensor: {}".format(op.name, x)) from None
+
+                val = edges.get(predecessor.name, [])
+                val.append(op)
+                edges[predecessor.name] = val
+
+        for y_ in outputs:
+            op = op_output_map[y_.name].name
+            if op not in edges:
+                edges[op] = []
+
+        visited = set()
+        sorted_nodes = []
+        unfinished_nodes = set()
+
+        def recursive_helper(node):
+            if node.name in visited:
+                return
+
+            if node.name in unfinished_nodes:
+                raise RuntimeError("ONNX Graph is not a DAG, the cycle is found at {}".format(node.name))
+
+            unfinished_nodes.add(node.name)
+            if node.name in edges:  # if the node's output is not in the Graph output.
+                for successor in edges[node.name]:
+                    recursive_helper(successor)
+
+            unfinished_nodes.remove(node.name)
+            visited.add(node.name)
+            if node is not input_nodes[0]:
+                sorted_nodes.insert(0, node)
+
+        for nd_ in input_nodes:
+            recursive_helper(nd_)
+
+        return sorted_nodes
+
+    @staticmethod
+    def value_info_from_numpy(name, value):
+        dtype = onnx.onnx_pb.TensorProto.STRING if \
+            _is_numpy_string_type(value) else mapping.NP_TYPE_TO_TENSOR_TYPE[value.dtype]
+        return helper.make_tensor_value_info(name, dtype, shape=value.shape)
+
+    @staticmethod
+    def model_from_ops(container, ops, ts_from, ts_to):
+        all_inputs = []
+        all_outputs = []
+        iz_needed = set()
+        iz_set = set(iz_.name for iz_ in container.initializer)
+        for op in ops:
+            iz_needed.update(it_ for it_ in op.input if it_ in iz_set)
+            all_inputs.extend(it_ for it_ in op.input if it_ not in iz_set)
+            all_outputs.extend(ot_ for ot_ in op.output)
+
+        intersections = set(all_inputs).intersection(set(all_outputs))
+        assert set(all_inputs).difference(intersections) == set(ts_.name for ts_ in ts_from), \
+            "The input list is different from the calculated from the op nodes"
+        assert set(all_outputs).difference(intersections) == set(ts_.name for ts_ in ts_to), \
+            "The output list is different from the calculated from the op nodes"
+
+        final_iz = [iz_ for iz_ in container.initializers if iz_.name in iz_needed]
+        graph = helper.make_graph(ops, 'dyngraph', ts_from, ts_to, final_iz)
+        oxml = make_model_ex(graph,
+                             container.node_domain_version_pair_sets,
+                             container.target_opset)
+        return oxml
 
 
 class ONNXTraceSession:
@@ -39,7 +199,10 @@ class ONNXTraceSession:
         self.activated_sessions.append(self)
         tensor_set_session(self)
 
-        np_inputs = [x if isinstance(x, (np.ndarray, np.generic, torch.Tensor)) else np.asarray(x) for x in inputs]
+        np_inputs = [np.array(x) if _is_string_type(x) else x for x in inputs]
+        np_inputs = [
+            x if isinstance(x, (np.ndarray, np.generic, torch.Tensor)) or _is_string_type(x)
+            else torch.tensor(x) for x in np_inputs]
         itensors = [tensor_from_torch(i_, None) if isinstance(i_, torch.Tensor)
                     else tensor_from_onnx(i_, None, None) for i_ in np_inputs]
         if names is not None:
@@ -51,90 +214,97 @@ class ONNXTraceSession:
         self.inputs = itensors
         return self
 
+    def runops(self, ts_from, ts_to):
+        nodes = self.container.nodes
+        inset = set(ts_.name for ts_ in ts_from)
+        inset.update(iz_.name for iz_ in self.container.initializer)
+        outset = set(ts_.name for ts_ in ts_to)
+        missing_ts_set = set()
+        node_num = len(nodes) - 1
+        while node_num >= 0:
+            node = nodes[node_num]
+            for ot_ in node.output:
+                if ot_ in missing_ts_set:
+                    missing_ts_set.remove(ot_)
+                elif ot_ in outset:
+                    outset.remove(ot_)
+            for it_ in node.input:
+                if it_ not in inset:
+                    missing_ts_set.add(it_)
+            if len(missing_ts_set) == 0:
+                break
+            node_num -= 1
+
+        assert len(outset) == 0, "Some output cannot be in the node list."
+        assert len(missing_ts_set) == 0, "Some input cannot be in the node list."
+        collected_nodes = nodes[node_num:]
+        vi_input = [ONNXModelUtils.value_info_from_numpy(ts_.name, ts_.numpy())
+                    for ts_ in ts_from]
+        vi_output = [ONNXModelUtils.value_info_from_numpy(ts_.name, ts_.numpy())
+                     for ts_ in ts_to]
+        oxml = ONNXModelUtils.model_from_ops(self.container,
+                                             collected_nodes,
+                                             vi_input,
+                                             vi_output)
+        result = None
+        try:
+            oxfunc = EagerOp.from_model(oxml)
+            result = oxfunc(*[ts_.numpy() for ts_ in ts_from])
+        finally:
+            if result is None:
+                onnx.save_model(oxml, 'mt_debmodel.onnx')
+
+        return result if isinstance(result, (list, tuple)) else [result], oxml
+
     def get_inputs(self):
         return self.inputs
 
+    def stack_container(self):
+        assert self.container is not None, "Stacked container must be in another one."
+        sub_container = ONNXElementContainer(self.container.target_opset, self.container)
+        self.container = sub_container
+        return self.container
+
+    def pop_container(self):
+        assert self.container.parent is not None, "Cannot pop the root container."
+        self.container = self.container.parent
+        return self.container
+
     @staticmethod
-    def _unfold_model_node(container: ONNXElementContainer):
-        nodes = container.nodes
-        model_nodes = {node.name: node for node in nodes if hasattr(node, 'model')}
-        onnx_nodes = [nd_ for nd_ in nodes if nd_.name not in model_nodes]
-        for node in model_nodes.values():
-            container.initializers.extend(list(node.model.graph.initializer))
-            onnx_nodes.extend(node.model.graph.node)
+    def build_graph(container, ts_inputs, ts_outputs, graph_name=None):
+        # some constant ops are created to simulate the tensors generated from the runtime in the loop,
+        # so we need to remove the node here
+        to_del = []
+        input_names = {it_.name: None for it_ in ts_inputs}
+        for idx_, nd_ in enumerate(container.nodes):
+            if nd_.op_type == 'Constant' and list(nd_.output)[0] in input_names:
+                to_del.append(idx_)
 
-        return onnx_nodes
+        for idx_ in to_del[::-1]:
+            container.nodes.pop(idx_)
 
-    def _topological_sort(self, container, nodes):
-        op_output_map = {}
-        DynNode = namedtuple('DynNode', ['name', 'output'])
-        input_node = DynNode(name='placeholder',
-                             output=[nm_.name for nm_ in self.inputs] +
-                             [it_.name for it_ in container.initializers])
-        for nd_ in nodes + [input_node]:
-            for ky_ in nd_.output:
-                op_output_map[ky_] = nd_
+        graph_name = container.get_unique_operator_name('subg') if not graph_name else graph_name
+        nodes = ONNXModelUtils.unfold_model_node(container)
+        nodes = ONNXModelUtils.topological_sort(container, nodes, ts_inputs, ts_outputs)
 
-        edges = {}
-        for op in nodes:
-            for x in op.input:
-                try:
-                    predecessor = op_output_map[x]
-                except KeyError:
-                    raise RuntimeError("{}: cannot find the operator to output {}".format(op.name, x))
+        for vi_ in container.value_info:
+            if vi_.name in input_names:
+                input_names[vi_.name] = vi_
 
-                val = edges.get(predecessor.name, [])
-                val.append(op)
-                edges[predecessor.name] = val
+        inputs = [helper.make_tensor_value_info(si.name, si.onnx_type, si.t.size())
+                  if input_names.get(si.name) is None else input_names[si.name] for si in ts_inputs]
+        outputs = [helper.make_tensor_value_info(so.name, so.onnx_type,
+                                                 so.t.size()) for so in ts_outputs]
 
-        for y_ in self.outputs:
-            op = op_output_map[y_.name].name
-            if op not in edges:
-                edges[op] = []
-
-        visited = set()
-        sorted_nodes = []
-        unfinished_nodes = set()
-
-        def recursive_helper(node):
-            if node.name in visited:
-                return
-
-            if node.name in unfinished_nodes:
-                raise RuntimeError("ONNX Graph is not DAG, found at {}".format(node.name))
-
-            unfinished_nodes.add(node.name)
-            for successor in edges[node.name]:
-                recursive_helper(successor)
-
-            unfinished_nodes.remove(node.name)
-            visited.add(node.name)
-            sorted_nodes.insert(0, node)
-
-        recursive_helper(input_node)
-        assert sorted_nodes.pop(0) is input_node
-
-        for op in nodes:  # non-input nodes
-            if op.name not in visited:
-                sorted_nodes.insert(0, op)
-
-        return sorted_nodes
+        graph = helper.make_graph(nodes, graph_name, inputs,
+                                  outputs, container.initializers)
+        return graph
 
     def build_model(self, model_name=None, doc_string=None) -> onnx.ModelProto:
-        container = self.container
-        nodes = self._unfold_model_node(container)
-        nodes = self._topological_sort(container, nodes)
         model_name = 'tcm' if model_name is None else model_name
         doc_string = '' if doc_string is None else doc_string
-
-        inputs = [helper.make_tensor_value_info(si.name, si.onnx_type,
-                                                si.t.size()) for si in self.inputs]
-        outputs = [helper.make_tensor_value_info(so.name, so.onnx_type,
-                                                 so.t.size()) for so in self.outputs]
-
-        graph = helper.make_graph(nodes, model_name, inputs,
-                                  outputs, self.container.initializers)
-
+        container = self.container
+        graph = self.build_graph(container, self.inputs, self.outputs, model_name)
         onnx_model = make_model_ex(graph, container.node_domain_version_pair_sets,
                                    container.target_opset, doc_string=doc_string)
         return onnx_model
