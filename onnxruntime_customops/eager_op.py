@@ -5,13 +5,12 @@
 
 import numpy as np
 import onnxruntime as _ort
-from onnx import onnx_pb as onnx_proto
 from ._ocos import default_opset_domain, get_library_path  # noqa
 from ._cuops import *  # noqa
 
 
 def _get_opset_version_from_ort():
-    ORT_OPSET_SUPPORT_TABLE = {
+    _ORT_OPSET_SUPPORT_TABLE = {
         "1.5": 11,
         "1.6": 12,
         "1.7": 13,
@@ -19,14 +18,14 @@ def _get_opset_version_from_ort():
     }
 
     ort_ver_string = '.'.join(_ort.__version__.split('.')[0:2])
-    return ORT_OPSET_SUPPORT_TABLE.get(ort_ver_string, 11)
+    return _ORT_OPSET_SUPPORT_TABLE.get(ort_ver_string, 11)
 
 
 class EagerOp:
 
     @classmethod
     def get_ort_session_options(cls):
-        # ONNXRuntime has a bug support reusing the SessionOptions object.
+        # ONNXRuntime has an issue to support reusing the SessionOptions object.
         # Create a new one every time here
         so = _ort.SessionOptions()
         so.register_custom_ops_library(get_library_path())
