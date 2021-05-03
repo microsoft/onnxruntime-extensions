@@ -2,9 +2,10 @@
 // Licensed under the MIT License.
 
 #include "gtest/gtest.h"
-#include "utils/string_utils.h"
 #include "re2/re2.h"
 #include "nlohmann/json.hpp"
+#include "string_utils.h"
+
 
 TEST(utils, make_string) {
   std::string res = MakeString("a", "b", 0);

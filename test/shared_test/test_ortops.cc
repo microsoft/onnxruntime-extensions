@@ -1,13 +1,13 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "onnxruntime_cxx_api.h"
+#include <filesystem>
 #include "gtest/gtest.h"
 #include "ocos.h"
+#include "string_utils.h"
+#include "string_tensor.h"
 #include "test_kernel.hpp"
-#include "utils/string_utils.h"
-#include "kernels/string_common.h"
-#include <filesystem>
+
 
 const char* GetLibraryPath() {
 #if defined(_WIN32)

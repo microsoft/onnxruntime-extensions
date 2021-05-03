@@ -2,8 +2,8 @@
 // Licensed under the MIT License.
 
 #include "gtest/gtest.h"
-#include "utils/string_utils.h"
-#include "kernels/string_regex_split_re.hpp"
+#include "string_utils.h"
+#include "text/string_regex_split_re.hpp"
 
 TEST(strings, regex_split) {
   std::string input = "hello  world";

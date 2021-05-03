@@ -20,8 +20,8 @@ option(OCOS_ENABLE_TF_STRING "Enable String Operator Set" ON)
 option(OCOS_ENABLE_GPT2_TOKENIZER "Enable the GPT2 tokenizer building" ON)
 option(OCOS_ENABLE_SPM_TOKENIZER "Enable the SentencePiece tokenizer building" ON)
 option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
+option(OCOS_ENABLE_MATH "Enable the math tensor operators building" ON)
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
-
 
 
 if(NOT CC_OPTIMIZE)
@@ -70,11 +70,16 @@ if (OCOS_ENABLE_TF_STRING)
   endif()
 endif()
 
-file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/*.h*"  "./ocos/utils/*.h*" "./ocos/utils/*.cc")
+file(GLOB TARGET_SRC "ocos/*.cc" "ocos/*.h")
 if (OCOS_ENABLE_TF_STRING)
-  file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
+  file(GLOB TARGET_SRC_KERNELS "ocos/text/*.cc" "ocos/text/*.h*")
   file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")
   list(APPEND TARGET_SRC ${TARGET_SRC_KERNELS} ${TARGET_SRC_HASH})
+endif()
+
+if (OCOS_ENABLE_MATH)
+  include(dlib)
+  file(GLOB TARGET_SRC_MATH "ocos/math/*.cc" "ocos/math/*.h*")
 endif()
 
 if (OCOS_ENABLE_GPT2_TOKENIZER)
@@ -85,7 +90,7 @@ if (OCOS_ENABLE_GPT2_TOKENIZER)
     include(json)
   endif()
 
-  file(GLOB tok_TARGET_SRC "tokenizer/gpt*.cc" "tokenizer/unicode*.*")
+  file(GLOB tok_TARGET_SRC "ocos/tokenizer/gpt*.cc" "ocos/tokenizer/unicode*.*")
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
 endif()
 
@@ -95,21 +100,21 @@ if (OCOS_ENABLE_SPM_TOKENIZER)
   set(SPM_ENABLE_SHARED OFF CACHE INTERNAL "")
   message(STATUS "fetch sentencepiece")
   include(sentencepieceproject)
-  file(GLOB stpiece_TARGET_SRC "sentencepiece/*.cc" "tokenizer/sentencepiece*")
+  file(GLOB stpiece_TARGET_SRC "ocos/sentencepiece/*.cc" "ocos/tokenizer/sentencepiece*")
   list(REMOVE_ITEM stpiece_TARGET_SRC INCLUDE REGEX ".*((spm)|(train)).*")
   list(APPEND TARGET_SRC ${stpiece_TARGET_SRC})
 endif()
 
 if (OCOS_ENABLE_BERT_TOKENIZER)
   # Bert
-  file(GLOB bert_TARGET_SRC "tokenizer/wordpiece*.*")
+  file(GLOB bert_TARGET_SRC "ocos/tokenizer/wordpiece*.*")
   list(APPEND TARGET_SRC ${bert_TARGET_SRC})
 endif()
 
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_library(ortcustomops_static STATIC ${TARGET_SRC})
-target_include_directories(ortcustomops_static PUBLIC tokenizer)
+target_include_directories(ortcustomops_static PUBLIC ocos/tokenizer)
 
 set(ocos_libraries ortcustomops_static)
 if (OCOS_ENABLE_TF_STRING)
@@ -128,6 +133,11 @@ if (OCOS_ENABLE_TF_STRING)
     ${googlere2_SOURCE_DIR}
     ${farmhash_SOURCE_DIR}/src)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING)
+endif()
+
+if (OCOS_ENABLE_MATH)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_MATH)
+  list(APPEND ocos_libraries dlib::dlib)
 endif()
 
 if (OCOS_ENABLE_GPT2_TOKENIZER)
@@ -158,7 +168,7 @@ target_compile_definitions(ortcustomops_static PRIVATE ${OCOS_COMPILE_DEFINITION
 
 file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h")
 if(OCOS_ENABLE_PYTHON)
-  file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc" "./ocos/pyfunc/*.h*")
+  file(GLOB TARGET_SRC_PYOPS "pyop/*.cc" "pyop/*.h")
   set(Python3_FIND_REGISTRY NEVER CACHE STRING "...")
   if(NOT "${Python3_FIND_REGISTRY}" STREQUAL "NEVER")
     message(FATAL_ERROR "Python3_FIND_REGISTRY is not NEVER")
