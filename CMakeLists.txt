@@ -153,7 +153,9 @@ if (OCOS_ENABLE_MATH)
   target_include_directories(ortcustomops_static PUBLIC ${dlib_SOURCE_DIR})
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_MATH)
   # The dlib matrix implementation is all in the headers, no library compiling needed.
-  # list(APPEND ocos_libraries dlib::dlib)
+  if (WIN32)
+    list(APPEND ocos_libraries dlib::dlib)
+  endif()
 endif()
 
 if (OCOS_ENABLE_GPT2_TOKENIZER)
