@@ -7,14 +7,16 @@
 using namespace dlib;
 
 TEST(math, matrix_op) {
-    matrix<double,3,1> y;
-    matrix<double,3,3> M;
-    matrix<double> x;
+  matrix<float> M(3,3);
+  M = 54.2,  7.4,  12.1,
+      1,     2,    3,
+      5.9,   0.05, 1;
 
-    // set all elements to 1
-    y = 1;
-    M = 1;
+  matrix<float,3,1> y;
+  y = 3.5,
+      1.2,
+      7.8;
 
-    x = y + y;
+  matrix<float> x = inv(M)*y;
+  EXPECT_FLOAT_EQ(x(1, 0), -13.909741);
 }
-
