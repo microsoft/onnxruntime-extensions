@@ -3,7 +3,6 @@ FetchContent_Declare(dlib
     GIT_TAG        v19.22
 )
 
-FetchContent_MakeAvailable(dlib)
 FetchContent_GetProperties(dlib)
 if(NOT dlib_POPULATED)
   # Fetch the content using previously declared details
