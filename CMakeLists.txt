@@ -7,6 +7,15 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Choose build type: Debug Release RelWithDebInfo." FORCE)
 endif()
 
+
+project(onnxruntime_extensions)
+set(CPACK_PACKAGE_NAME "onnxruntime_extensions")
+set(CPACK_PACKAGE_VERSION_MAJOR "0")
+set(CPACK_PACKAGE_VERSION_MINOR "2")
+set(CPACK_PACKAGE_VERSION_PATCH "0")
+set(VERSION ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH})
+
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -80,7 +89,8 @@ endif()
 if (OCOS_ENABLE_MATH)
   set(DLIB_NO_GUI_SUPPORT ON CACHE INTERNAL "")
   set(DLIB_USE_CUDA OFF CACHE INTERNAL "")
-  set(DLIB_JPEG_SUPPORT OFF CACHE INTERNAL "")
+  set(DLIB_USE_LAPACK OFF CACHE INTERNAL "")
+  set(DLIB_USE_BLAS OFF CACHE INTERNAL "")
   include(dlib)
   file(GLOB TARGET_SRC_MATH "ocos/math/*.cc" "ocos/math/*.h*")
   list(APPEND TARGET_SRC ${TARGET_SRC_MATH})
@@ -142,7 +152,8 @@ endif()
 if (OCOS_ENABLE_MATH)
   target_include_directories(ortcustomops_static PUBLIC ${dlib_SOURCE_DIR})
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_MATH)
-  list(APPEND ocos_libraries dlib::dlib)
+  # The dlib matrix implementation is all in the headers, no library compiling needed.
+  # list(APPEND ocos_libraries dlib::dlib)
 endif()
 
 if (OCOS_ENABLE_GPT2_TOKENIZER)
@@ -243,10 +254,6 @@ if(OCOS_ENABLE_PYTHON)
   endif()
 endif()
 
-set(CPACK_PROJECT_NAME ${PROJECT_NAME})
-set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
-message(STATUS "fetch CPack")
-include(CPack)
 
 # test section
 if (OCOS_ENABLE_CTEST)
@@ -268,18 +275,22 @@ if (OCOS_ENABLE_CTEST)
   target_link_libraries(ortcustomops_static_test gtest_main ${ocos_libraries})
   add_test(NAME ortcustomops_static_test COMMAND $<TARGET_FILE:ortcustomops_static_test>)
 
+  # needs to link with stdc++fs in Linux
+  if(UNIX AND NOT APPLE)
+    set(FS_STDLIB stdc++fs)
+  endif()
   file(GLOB shared_TEST_SRC "${TEST_SRC_DIR}/shared_test/*.cc")
   add_executable(ortcustomops_test ${shared_TEST_SRC})
   if (ONNXRUNTIME_LIB_DIR)
     target_link_directories(ortcustomops_test PRIVATE ${ONNXRUNTIME_LIB_DIR})
-    target_link_libraries(ortcustomops_test ortcustomops onnxruntime gtest_main ${ocos_libraries})
-    if (WIN32)
-      file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
-      file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
-      add_custom_command(
-        TARGET ortcustomops_test POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy ${ONNXRUNTIME_LIB_FILES} $<TARGET_FILE_DIR:ortcustomops_test>)
-    endif()
+  endif()
+  target_link_libraries(ortcustomops_test ortcustomops onnxruntime gtest_main ${ocos_libraries} ${FS_STDLIB})
+  if (WIN32)
+    file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
+    file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
+    add_custom_command(
+      TARGET ortcustomops_test POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy ${ONNXRUNTIME_LIB_FILES} $<TARGET_FILE_DIR:ortcustomops_test>)
   endif()
 
   set(TEST_DATA_SRC ${TEST_SRC_DIR}/data)
