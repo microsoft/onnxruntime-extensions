@@ -1,12 +1,12 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "onnxruntime_cxx_api.h"
+#include <filesystem>
 #include "gtest/gtest.h"
 #include "ocos.h"
 #include "test_kernel.hpp"
-#include "kernels/string_lower.hpp"
-#include <filesystem>
+#include "text/string_lower.hpp"
+
 
 TEST(utils, test_string_lower) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");

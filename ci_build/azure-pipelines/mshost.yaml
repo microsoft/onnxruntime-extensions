@@ -42,7 +42,7 @@ jobs:
         displayName: Unpack ONNXRuntime package.
 
       - script: |
-          sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-linux-x64-$(ort.version)/lib
+          sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-linux-x64-$(ort.version)/lib -DOCOS_ENABLE_CTEST=ON
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -133,7 +133,7 @@ jobs:
         displayName: Unpack ONNXRuntime package.
 
       - script: |
-          sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-osx-x64-$(ort.version)/lib
+          sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-osx-x64-$(ort.version)/lib -DOCOS_ENABLE_CTEST=ON
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -249,7 +249,7 @@ jobs:
         displayName: Unpack ONNXRuntime package.
 
       - script: |
-          call .\build.bat -DONNXRUNTIME_LIB_DIR=.\onnxruntime-win-x64-$(ort.version)\lib
+          call .\build.bat -DONNXRUNTIME_LIB_DIR=.\onnxruntime-win-x64-$(ort.version)\lib -DOCOS_ENABLE_CTEST=ON
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -341,6 +341,6 @@ jobs:
         displayName: Setup emscripten pipeline
 
       - script: |
-          sh ./build.sh -DCMAKE_TOOLCHAIN_FILE=cmake/deps/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DOCOS_ENABLE_SPM_TOKENIZER=OFF -DOCOS_ENABLE_PYTHON=OFF -DOCOS_ENABLE_CTEST=OFF
+          sh ./build.sh -DCMAKE_TOOLCHAIN_FILE=cmake/deps/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DOCOS_ENABLE_SPM_TOKENIZER=OFF -DOCOS_ENABLE_PYTHON=OFF
         displayName: build the customop library with onnxruntime
     # TODO add unittest for webassembly
