@@ -12,16 +12,16 @@ The following code shows how to run ONNX model and ONNXRuntime customop more str
 ```python
 import numpy
 from onnxruntime_customops import PyOrtFunction, VectorToString
-# <ProjectDir>/tutorials/data/gpt2/gpt2_tok.onnx
+# <ProjectDir>/tutorials/data/gpt-2/gpt2_tok.onnx
 encode = PyOrtFunction.from_model('gpt2_tok.onnx')
 # https://github.com/onnx/models/blob/master/text/machine_comprehension/gpt-2/model/gpt2-lm-head-10.onnx
 gpt2_core = PyOrtFunction.from_model('gpt2-lm-head-10.onnx')
-decode = PyOrtFunction.from_customop(VectorToString, map={'a': 100}, unk=[-1])
+decode = PyOrtFunction.from_customop(VectorToString, map={' a': [257]}, unk='<unknown>')
 
 input_text = ['It is very cool to have']
-output, *_ = gpt2_core(encode(input_text))
-next_id = numpy.argsort(output[:, -1, :], axis=-1)
-print(' '.join(input_text[0], decode(next_id[0])))
+output, *_ = gpt2_core(input_ids)
+next_id = numpy.argmax(output[:, :, -1, :], axis=-1)
+print(input_text[0] + decode(next_id).item())
 ```
 This is a simplified version of GPT-2 inference for the demonstration only, The comprehensive solution on the GPT-2 model and its deviants are under development, and here is the [link](tutorials/gpt2_e2e.py) to the experimental.
 
