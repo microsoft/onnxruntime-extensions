@@ -16,6 +16,7 @@ from ._ocos import Opdef, PyCustomOpDef, hash_64,  enable_custom_op  # noqa
 from ._ocos import expand_onnx_inputs  # noqa
 from ._ocos import hook_model_op  # noqa
 from ._ocos import default_opset_domain  # noqa
+from .eager_op import EagerOp as PyOrtFunction
 
 
 onnx_op = Opdef.declare
