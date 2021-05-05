@@ -1,6 +1,9 @@
-#include "gtest/gtest.h"
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 #include <cstring>
-#include "kernels/ustring.hpp"
+#include "gtest/gtest.h"
+#include "ustring.h"
 
 void convert_test(const char* const_str) {
   std::string string(const_str);

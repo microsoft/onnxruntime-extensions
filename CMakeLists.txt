@@ -7,6 +7,15 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Choose build type: Debug Release RelWithDebInfo." FORCE)
 endif()
 
+
+project(onnxruntime_extensions)
+set(CPACK_PACKAGE_NAME "onnxruntime_extensions")
+set(CPACK_PACKAGE_VERSION_MAJOR "0")
+set(CPACK_PACKAGE_VERSION_MINOR "2")
+set(CPACK_PACKAGE_VERSION_PATCH "0")
+set(VERSION ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH})
+
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -15,13 +24,13 @@ include(CheckLanguage)
 
 option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
 option(OCOS_ENABLE_PYTHON "Enable Python component building" OFF)
-option(OCOS_ENABLE_CTEST "Enable C++ test" ON)
+option(OCOS_ENABLE_CTEST "Enable C++ test" OFF)
 option(OCOS_ENABLE_TF_STRING "Enable String Operator Set" ON)
 option(OCOS_ENABLE_GPT2_TOKENIZER "Enable the GPT2 tokenizer building" ON)
 option(OCOS_ENABLE_SPM_TOKENIZER "Enable the SentencePiece tokenizer building" ON)
 option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
+option(OCOS_ENABLE_MATH "Enable the math tensor operators building" ON)
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
-
 
 
 if(NOT CC_OPTIMIZE)
@@ -54,13 +63,13 @@ include(FetchContent)
 if (OCOS_ENABLE_TF_STRING)
   if (NOT TARGET re2::re2)
     set(RE2_BUILD_TESTING OFF CACHE INTERNAL "")
-    message(STATUS "fetch googlere2")
+    message(STATUS "Fetch googlere2")
     include(googlere2)
     FetchContent_GetProperties(googlere2)
   endif()
 
   if (NOT TARGET farmhash)
-    message(STATUS "fetch farmhash")
+    message(STATUS "Fetch farmhash")
     include(farmhash)
     FetchContent_GetProperties(farmhash)
   endif()
@@ -70,22 +79,32 @@ if (OCOS_ENABLE_TF_STRING)
   endif()
 endif()
 
-file(GLOB TARGET_SRC "./ocos/*.cc" "./ocos/*.h*"  "./ocos/utils/*.h*" "./ocos/utils/*.cc")
+file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h")
 if (OCOS_ENABLE_TF_STRING)
-  file(GLOB TARGET_SRC_KERNELS "./ocos/kernels/*.cc" "./ocos/kernels/*.h*")
+  file(GLOB TARGET_SRC_KERNELS "operators/text/*.cc" "operators/text/*.h*")
   file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")
   list(APPEND TARGET_SRC ${TARGET_SRC_KERNELS} ${TARGET_SRC_HASH})
+endif()
+
+if (OCOS_ENABLE_MATH)
+  set(DLIB_NO_GUI_SUPPORT ON CACHE INTERNAL "")
+  set(DLIB_USE_CUDA OFF CACHE INTERNAL "")
+  set(DLIB_USE_LAPACK OFF CACHE INTERNAL "")
+  set(DLIB_USE_BLAS OFF CACHE INTERNAL "")
+  include(dlib)
+  file(GLOB TARGET_SRC_MATH "operators/math/*.cc" "operators/math/*.h*")
+  list(APPEND TARGET_SRC ${TARGET_SRC_MATH})
 endif()
 
 if (OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
   if (NOT TARGET nlohmann_json)
     set(JSON_BuildTests OFF CACHE INTERNAL "")
-    message(STATUS "fetch json")
+    message(STATUS "Fetch json")
     include(json)
   endif()
 
-  file(GLOB tok_TARGET_SRC "tokenizer/gpt*.cc" "tokenizer/unicode*.*")
+  file(GLOB tok_TARGET_SRC "operators/tokenizer/gpt*.cc" "operators/tokenizer/unicode*.*")
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
 endif()
 
@@ -93,23 +112,23 @@ if (OCOS_ENABLE_SPM_TOKENIZER)
   # SentencePiece
   set(SPM_ENABLE_TCMALLOC OFF CACHE INTERNAL "")
   set(SPM_ENABLE_SHARED OFF CACHE INTERNAL "")
-  message(STATUS "fetch sentencepiece")
+  message(STATUS "Fetch sentencepiece")
   include(sentencepieceproject)
-  file(GLOB stpiece_TARGET_SRC "sentencepiece/*.cc" "tokenizer/sentencepiece*")
+  file(GLOB stpiece_TARGET_SRC "operators/tokenizer/sentencepiece/*.cc" "operators/tokenizer/sentencepiece*")
   list(REMOVE_ITEM stpiece_TARGET_SRC INCLUDE REGEX ".*((spm)|(train)).*")
   list(APPEND TARGET_SRC ${stpiece_TARGET_SRC})
 endif()
 
 if (OCOS_ENABLE_BERT_TOKENIZER)
   # Bert
-  file(GLOB bert_TARGET_SRC "tokenizer/wordpiece*.*")
+  file(GLOB bert_TARGET_SRC "operators/tokenizer/wordpiece*.*")
   list(APPEND TARGET_SRC ${bert_TARGET_SRC})
 endif()
 
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_library(ortcustomops_static STATIC ${TARGET_SRC})
-target_include_directories(ortcustomops_static PUBLIC tokenizer)
+target_include_directories(ortcustomops_static PUBLIC operators/tokenizer)
 
 set(ocos_libraries ortcustomops_static)
 if (OCOS_ENABLE_TF_STRING)
@@ -119,7 +138,7 @@ endif()
 target_include_directories(ortcustomops_static PUBLIC
   ${PROJECT_SOURCE_DIR}/includes
   ${PROJECT_SOURCE_DIR}/includes/onnxruntime
-  ${PROJECT_SOURCE_DIR}/ocos)
+  ${PROJECT_SOURCE_DIR}/operators)
 
 set(OCOS_COMPILE_DEFINITIONS "")
 
@@ -128,6 +147,15 @@ if (OCOS_ENABLE_TF_STRING)
     ${googlere2_SOURCE_DIR}
     ${farmhash_SOURCE_DIR}/src)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING)
+endif()
+
+if (OCOS_ENABLE_MATH)
+  target_include_directories(ortcustomops_static PUBLIC ${dlib_SOURCE_DIR})
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_MATH)
+  # The dlib matrix implementation is all in the headers, no library compiling needed.
+  if (WIN32)
+    list(APPEND ocos_libraries dlib::dlib)
+  endif()
 endif()
 
 if (OCOS_ENABLE_GPT2_TOKENIZER)
@@ -158,7 +186,7 @@ target_compile_definitions(ortcustomops_static PRIVATE ${OCOS_COMPILE_DEFINITION
 
 file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h")
 if(OCOS_ENABLE_PYTHON)
-  file(GLOB TARGET_SRC_PYOPS "./ocos/pyfunc/*.cc" "./ocos/pyfunc/*.h*")
+  file(GLOB TARGET_SRC_PYOPS "pyop/*.cc" "pyop/*.h")
   set(Python3_FIND_REGISTRY NEVER CACHE STRING "...")
   if(NOT "${Python3_FIND_REGISTRY}" STREQUAL "NEVER")
     message(FATAL_ERROR "Python3_FIND_REGISTRY is not NEVER")
@@ -201,7 +229,7 @@ target_compile_definitions(ortcustomops PRIVATE  ${OCOS_COMPILE_DEFINITIONS})
 target_link_libraries(ortcustomops PRIVATE ${ocos_libraries})
 
 if(OCOS_ENABLE_PYTHON)
-  message(STATUS "fetch pybind11")
+  message(STATUS "Fetch pybind11")
   include(pybind11)
   set(NUMPY_NOT_FOUND false)
   exec_program("${Python3_EXECUTABLE}"
@@ -228,10 +256,6 @@ if(OCOS_ENABLE_PYTHON)
   endif()
 endif()
 
-set(CPACK_PROJECT_NAME ${PROJECT_NAME})
-set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
-message(STATUS "fetch CPack")
-include(CPack)
 
 # test section
 if (OCOS_ENABLE_CTEST)
@@ -242,29 +266,33 @@ if (OCOS_ENABLE_CTEST)
   endif()
 
   enable_testing()
-  message(STATUS "fetch CTest")
+  message(STATUS "Fetch CTest")
   include(CTest)
 
   set(TEST_SRC_DIR ${PROJECT_SOURCE_DIR}/test)
-  message(STATUS "fetch googletest")
+  message(STATUS "Fetch googletest")
   include(googletest)
   file(GLOB static_TEST_SRC "${TEST_SRC_DIR}/static_test/*.cc")
   add_executable(ortcustomops_static_test ${static_TEST_SRC})
   target_link_libraries(ortcustomops_static_test gtest_main ${ocos_libraries})
   add_test(NAME ortcustomops_static_test COMMAND $<TARGET_FILE:ortcustomops_static_test>)
 
+  # needs to link with stdc++fs in Linux
+  if(UNIX AND NOT APPLE)
+    set(FS_STDLIB stdc++fs)
+  endif()
   file(GLOB shared_TEST_SRC "${TEST_SRC_DIR}/shared_test/*.cc")
   add_executable(ortcustomops_test ${shared_TEST_SRC})
   if (ONNXRUNTIME_LIB_DIR)
     target_link_directories(ortcustomops_test PRIVATE ${ONNXRUNTIME_LIB_DIR})
-    target_link_libraries(ortcustomops_test ortcustomops onnxruntime gtest_main ${ocos_libraries})
-    if (WIN32)
-      file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
-      file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
-      add_custom_command(
-        TARGET ortcustomops_test POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy ${ONNXRUNTIME_LIB_FILES} $<TARGET_FILE_DIR:ortcustomops_test>)
-    endif()
+  endif()
+  target_link_libraries(ortcustomops_test ortcustomops onnxruntime gtest_main ${ocos_libraries} ${FS_STDLIB})
+  if (WIN32)
+    file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
+    file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
+    add_custom_command(
+      TARGET ortcustomops_test POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy ${ONNXRUNTIME_LIB_FILES} $<TARGET_FILE_DIR:ortcustomops_test>)
   endif()
 
   set(TEST_DATA_SRC ${TEST_SRC_DIR}/data)

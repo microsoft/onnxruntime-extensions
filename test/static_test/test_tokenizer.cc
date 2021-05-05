@@ -2,9 +2,8 @@
 // Licensed under the MIT License.
 
 #include "gtest/gtest.h"
-#include "utils/string_utils.h"
-#include "kernels/string_common.h"
-#include "../tokenizer/wordpiece_tokenizer.hpp"
+#include "string_utils.h"
+#include "wordpiece_tokenizer.hpp"
 
 TEST(tokenizer, bert_word_split) {
   ustring ind("##");
