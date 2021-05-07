@@ -12,14 +12,15 @@ git clone https://github.com/microsoft/onnxruntime.git
 cd onnxruntime
 
 # there is no stable version including webassembly
-git checkout 21c282ed
+git checkout e6a3308db7c03a13e0f08b221b6770e17fc3a4ef
 cd cmake/external
-git clone git@github.com:microsoft/ort-customops.git
+git clone git@github.com:microsoft/onnxruntime-extensions.git
 
 cd ../..
 
-cp cmake/external/ort-customops/test/data/custom_op_string_lower.onnx onnxruntime/test/testdata
-git apply cmake/external/ort-customops/ci_build/onnxruntime_integration/onnxruntime_v1.8.patch
+cp cmake/external/onnxruntime-extensions/test/data/custom_op_negpos.onnx onnxruntime/test/testdata
+cp cmake/external/onnxruntime-extensions/test/data/custom_op_string_lower.onnx onnxruntime/test/testdata
+git apply cmake/external/onnxruntime-extensions/ci_build/onnxruntime_integration/onnxruntime_v1.8.patch
 
 #get ready and begin building
 cd ..
