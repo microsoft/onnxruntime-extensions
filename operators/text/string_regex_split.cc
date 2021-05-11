@@ -31,9 +31,8 @@ void KernelStringRegexSplitWithOffsets::Compute(OrtKernelContext* context) {
     throw std::runtime_error(MakeString(
         "Third input must contain only one element. It has ",
         str_keep_pattern.size(), " values."));
-  if (str_pattern[0].empty()) {
+  if (str_pattern[0].empty())
     throw std::runtime_error("Splitting pattern cannot be empty.");
-  }
 
   OrtTensorDimensions dimensions(ort_, input);
   re2::RE2 reg(str_pattern[0]);
