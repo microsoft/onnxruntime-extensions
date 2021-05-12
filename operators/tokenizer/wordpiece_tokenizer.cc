@@ -71,6 +71,9 @@ void KernelWordpieceTokenizer_Tokenizer(const std::unordered_map<std::u32string,
     if (no_existing_rows) {
       rows.push_back(indices.size());
     } else if (text_index == existing_rows[row_index]) {
+      if (row_index >= n_existing_rows)
+        throw std::runtime_error(MakeString(
+            "row_index=", row_index, " is out of range=", n_existing_rows, "."));
       rows.push_back(indices.size());
       ++row_index;
     }
@@ -129,9 +132,10 @@ void KernelWordpieceTokenizer::Compute(OrtKernelContext* context) {
   std::vector<ustring> tokens;
   std::vector<int32_t> indices;
   std::vector<int64_t> row_begins;
+
   KernelWordpieceTokenizer_Tokenizer(vocab_, suffix_indicator_, unk_token_, str_input,
                                      tokens, indices, row_begins,
-                                     p_row_indices, ort_row_indices_dim.size(),
+                                     p_row_indices, ort_row_indices_dim.Size(),
                                      max_input_chars_per_word_);
 
   std::vector<int64_t> size_content{(int64_t)indices.size()};
@@ -153,6 +157,7 @@ void KernelWordpieceTokenizer::Compute(OrtKernelContext* context) {
     ptr_row_begins[i] = row_begins[i];
     ptr_limit_values[i] = row_begins[i + 1];
   }
+
   i = size_row_lengths[0];
   ptr_row_lengths[i] = row_begins[i];
 }

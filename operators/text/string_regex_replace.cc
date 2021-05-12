@@ -34,6 +34,8 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
     throw std::runtime_error(MakeString(
         "rewrite (third input) must contain only one element. It has ",
         rewrite_dimensions.size(), " dimensions."));
+  if (str_pattern[0].empty())
+    throw std::runtime_error("pattern (second input) cannot be empty.");
 
   // Setup output
   OrtTensorDimensions dimensions(ort_, input);
@@ -42,7 +44,6 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
   OrtTensorTypeAndShapeInfo* output_info = ort_.GetTensorTypeAndShape(output);
   int64_t size = ort_.GetTensorShapeElementCount(output_info);
   ort_.ReleaseTensorTypeAndShapeInfo(output_info);
-
   re2::StringPiece piece(str_rewrite[0]);
   re2::RE2 reg(str_pattern[0]);
 
