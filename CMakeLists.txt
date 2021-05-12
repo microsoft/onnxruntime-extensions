@@ -295,7 +295,7 @@ if (OCOS_ENABLE_CTEST)
   endif()
 
   set(TEST_DATA_SRC ${TEST_SRC_DIR}/data)
-  set(TEST_DATA_DES ${ortcustomops_BINARY_DIR}/data)
+  set(TEST_DATA_DES ${onnxruntime_extensions_BINARY_DIR}/data)
 
   # Copy test data from source to destination.
   add_custom_command(
