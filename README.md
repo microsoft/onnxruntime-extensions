@@ -5,13 +5,13 @@ ONNXRuntime Extensions is a comprehensive package to extend the capability of th
 1. The CustomOp C++ library for [ONNX Runtime](http://onnxruntime.ai) on ONNXRuntime CustomOp API.
 2. Support PyOp feature to implement the custom op with a Python function.
 3. Build all-in-one ONNX model from the pre/post processing code, go to [docs/pre_post_processing.md](docs/pre_post_processing.md) for details.
-4. Support Python per operator debugging, checking ```hook_model_op``` in onnxruntime_customops Python package.
+4. Support Python per operator debugging, checking ```hook_model_op``` in onnxruntime_extensions Python package.
 
 # Quick Start
 The following code shows how to run ONNX model and ONNXRuntime customop more straightforwardly.
 ```python
 import numpy
-from onnxruntime_customops import PyOrtFunction, VectorToString
+from onnxruntime_extensions import PyOrtFunction, VectorToString
 # <ProjectDir>/tutorials/data/gpt-2/gpt2_tok.onnx
 encode = PyOrtFunction.from_model('gpt2_tok.onnx')
 # https://github.com/onnx/models/blob/master/text/machine_comprehension/gpt-2/model/gpt2-lm-head-10.onnx
@@ -46,7 +46,7 @@ The CustomOp library was written with C++, so that it supports run the model in 
 Of course, with Python language, the thing becomes much easier since PyOrtFunction will directly translate the ONNX model into a python function. But if the ONNXRuntime Custom Python API want to be used, the inference process will be
 ```python
 import onnxruntime as _ort
-from onnxruntime_customops import get_library_path as _lib_path
+from onnxruntime_extensions import get_library_path as _lib_path
 
 so = _ort.SessionOptions()
 so.register_custom_ops_library(_lib_path())
@@ -60,7 +60,7 @@ so.register_custom_ops_library(_lib_path())
 Welcome to contribute the customop C++ implementation directly in this repository, which will widely benefit other users. Besides C++, if you want to quickly verify the ONNX model with some custom operators with Python language, PyOp will help with that
 ```python
 import numpy
-from onnxruntime_customops import PyOp, onnx_op
+from onnxruntime_extensions import PyOp, onnx_op
 
 # Implement the CustomOp by decorating a function with onnx_op
 @onnx_op(op_type="Inverse", inputs=[PyOp.dt_float])

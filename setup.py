@@ -56,7 +56,7 @@ class BuildCMakeExt(_build_ext):
         Perform build_cmake before doing the 'normal' stuff
         """
         for extension in self.extensions:
-            if extension.name == 'onnxruntime_customops._ortcustomops':
+            if extension.name == 'onnxruntime_extensions._ortcustomops':
                 self.build_cmake(extension)
 
     def build_cmake(self, extension):
@@ -118,7 +118,7 @@ def read_requirements():
 # read version from the package file.
 def read_version():
     version_str = '1.0.0'
-    with (open(os.path.join(TOP_DIR, 'onnxruntime_customops/__init__.py'), "r")) as f:
+    with (open(os.path.join(TOP_DIR, 'onnxruntime_extensions/__init__.py'), "r")) as f:
         line = [_ for _ in [_.strip("\r\n ")
                             for _ in f.readlines()] if _.startswith("__version__")]
         if len(line) > 0:
@@ -132,18 +132,18 @@ if sys.platform == "win32":
 
 ext_modules = [
     setuptools.extension.Extension(
-        name=str('onnxruntime_customops._ortcustomops'),
+        name=str('onnxruntime_extensions._ortcustomops'),
         sources=[])
 ]
 
 packages = find_packages()
 package_dir = {k: os.path.join('.', k.replace(".", "/")) for k in packages}
 package_data = {
-    "onnxruntime_customops": ["*.dll", "*.so", "*.pyd"],
+    "onnxruntime_extensions": ["*.dll", "*.so", "*.pyd"],
 }
 
 setup(
-    name='onnxruntime_customops',
+    name='onnxruntime_extensions',
     version=read_version(),
     packages=packages,
     package_dir=package_dir,

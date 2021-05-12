@@ -9,13 +9,13 @@ import onnxruntime as _ort
 
 from onnx import load
 from torch.onnx import register_custom_op_symbolic
-from onnxruntime_customops import (
+from onnxruntime_extensions import (
     PyOp,
     onnx_op,
     hook_model_op,
     get_library_path as _get_library_path)
 
-from onnxruntime_customops.eager_op import EagerOp
+from onnxruntime_extensions.eager_op import EagerOp
 
 
 def my_inverse(g, self):

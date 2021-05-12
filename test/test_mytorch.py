@@ -3,8 +3,8 @@ import onnx
 import unittest
 import torchvision
 import numpy as np
-from onnxruntime_customops.utils import trace_for_onnx, op_from_model
-from onnxruntime_customops import eager_op, hook_model_op, PyOp, mytorch as torch
+from onnxruntime_extensions.utils import trace_for_onnx, op_from_model
+from onnxruntime_extensions import eager_op, hook_model_op, PyOp, mytorch as torch
 
 
 class TestTorchE2E(unittest.TestCase):

@@ -1,7 +1,7 @@
 """
 override the torch importing, to dump all torch operators during the processing code.
-!!!This package depends on onnxruntime_customops root package, but not vice versa.!!!
-, since this package fully relies on pytorch, while the onnxruntime_customops doesn't
+!!!This package depends on onnxruntime_extensions root package, but not vice versa.!!!
+, since this package fully relies on pytorch, while the onnxruntime_extensions doesn't
 """
 try:
     import torch

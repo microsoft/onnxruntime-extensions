@@ -1,8 +1,8 @@
 import os
 import numpy
 from transformers import AutoConfig
-from onnxruntime_customops import mytorch as torch, eager_op
-from onnxruntime_customops.utils import trace_for_onnx, op_from_model, build_customop_model
+from onnxruntime_extensions import mytorch as torch, eager_op
+from onnxruntime_extensions.utils import trace_for_onnx, op_from_model, build_customop_model
 
 
 device = 'cpu'

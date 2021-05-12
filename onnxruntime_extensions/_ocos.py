@@ -16,7 +16,7 @@ def get_library_path():
     The custom operator library binary path
     :return: A string of the this library path.
     """
-    mod = sys.modules['onnxruntime_customops._ortcustomops']
+    mod = sys.modules['onnxruntime_extensions._ortcustomops']
     return mod.__file__
 
 
