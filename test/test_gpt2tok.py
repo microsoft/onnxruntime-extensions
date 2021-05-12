@@ -5,7 +5,7 @@ import onnxruntime as _ort
 from pathlib import Path
 from onnx import helper, onnx_pb as onnx_proto
 from transformers import GPT2Tokenizer
-from onnxruntime_customops import (
+from onnxruntime_extensions import (
     onnx_op,
     enable_custom_op,
     PyCustomOpDef,

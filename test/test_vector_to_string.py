@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from onnxruntime_customops.eager_op import EagerOp, VectorToString
+from onnxruntime_extensions.eager_op import EagerOp, VectorToString
 
 
 def _run_vector_to_string(input, output, map, unk):

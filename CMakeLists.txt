@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16.0)
-project(ortcustomops VERSION 0.1.0 LANGUAGES C CXX)
+project(onnxruntime_extensions LANGUAGES C CXX)
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -8,7 +8,6 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 
-project(onnxruntime_extensions)
 set(CPACK_PACKAGE_NAME "onnxruntime_extensions")
 set(CPACK_PACKAGE_VERSION_MAJOR "0")
 set(CPACK_PACKAGE_VERSION_MINOR "2")
@@ -194,7 +193,7 @@ if(OCOS_ENABLE_PYTHON)
   find_package(Python3 COMPONENTS Interpreter Development)
 
   if (WIN32)
-    list(APPEND shared_TARGET_SRC "${PROJECT_SOURCE_DIR}/onnxruntime_customops/ortcustomops.def")
+    list(APPEND shared_TARGET_SRC "${PROJECT_SOURCE_DIR}/onnxruntime_extensions/ortcustomops.def")
   endif()
 
   Python3_add_library(ortcustomops SHARED ${TARGET_SRC_PYOPS} ${shared_TARGET_SRC})

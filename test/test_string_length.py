@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
-from onnxruntime_customops import (
+from onnxruntime_extensions import (
     onnx_op,
     enable_custom_op,
     PyCustomOpDef,
