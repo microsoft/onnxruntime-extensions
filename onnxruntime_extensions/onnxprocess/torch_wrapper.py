@@ -1,8 +1,3 @@
-"""
-override the torch importing, to dump all torch operators during the processing code.
-!!!This package depends on onnxruntime_extensions root package, but not vice versa.!!!
-, since this package fully relies on pytorch, while the onnxruntime_extensions doesn't
-"""
 try:
     import torch
 except ImportError:
@@ -34,10 +29,4 @@ from torch import (float32,
                    bool)  # noqa
 
 from torch import randn, onnx  # noqa
-
-
 from ._tensor import *  # noqa
-from ._builder import build_customop_model
-from ._session import ONNXTraceSession
-
-trace_for_onnx = ONNXTraceSession.trace_for_onnx

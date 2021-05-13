@@ -3,8 +3,9 @@ import onnx
 import unittest
 import torchvision
 import numpy as np
-from onnxruntime_extensions.utils import trace_for_onnx, op_from_model
-from onnxruntime_extensions import eager_op, hook_model_op, PyOp, mytorch as torch
+from onnxruntime_extensions import eager_op, hook_model_op, PyOp
+from onnxruntime_extensions.onnxprocess import torch_wrapper as torch
+from onnxruntime_extensions.onnxprocess import trace_for_onnx, pyfunc_from_model
 
 
 class TestTorchE2E(unittest.TestCase):
@@ -62,7 +63,7 @@ class TestTorchE2E(unittest.TestCase):
         dummy_input = torch.randn(10, 3, 224, 224)
         np_input = dummy_input.numpy()
         torch.onnx.export(self.mobilenet, dummy_input, mb_core_path, opset_version=11)
-        mbnet2 = op_from_model(mb_core_path)
+        mbnet2 = pyfunc_from_model(mb_core_path)
 
         with trace_for_onnx(dummy_input, names=['b10_input']) as tc_sess:
             scores = mbnet2(*tc_sess.get_inputs())
