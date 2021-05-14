@@ -5,13 +5,13 @@ Most pre and post processing of the DL models are written in Python code, when t
 In the onnxruntime_extensions package, there is a utility to help on that. This tool is to trace the data flow in the processing code and convert all operation in the tracing logging into the ONNX graph, and merge all these graphs into in one single ONNX model. It supports the Python numeric operators and PyTorch's operation APIs (only a subset of the tensor API)
 
 ###Usage
-In the onnxruntime_extensions.utils, there is an API ```trace_for_onnx```, when it was fed with the input variables in Python code, it start a tracing session to log all operation starting from these variables. Also if there are some PyTorch API calls in the processing code, you need replace the import statement from ```import torch``` to ```from onnxruntime_extensions import mytorch as torch```, which will enable these PyTorch API can be traced as well.
+In the onnxruntime_extensions.utils, there is an API ```trace_for_onnx```, when it was fed with the input variables in Python code, it start a tracing session to log all operation starting from these variables. Also if there are some PyTorch API calls in the processing code, you need replace the import statement from ```import torch``` to ```from onnxruntime_extensions.onnxprocess import torch_wrapper as torch```, which will enable these PyTorch API can be traced as well.
 
 Overall, it will look like:
 
 ```python
-from onnxruntime_extensions.utils import trace_for_onnx
-from onnxruntime_extensions import mytorch as torch  # overload torch API if it is needed
+from onnxruntime_extensions.onnxprocess import trace_for_onnx
+from onnxruntime_extensions.onnxprocess import torch_wrapper as torch  # overload torch API if it is needed
 
 # the raw input, like text, image, or ...
 input_text = ...

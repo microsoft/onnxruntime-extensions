@@ -1,8 +1,8 @@
 import os
 import numpy
 from transformers import AutoConfig
-from onnxruntime_extensions import mytorch as torch, eager_op
-from onnxruntime_extensions.utils import trace_for_onnx, op_from_model, build_customop_model
+from onnxruntime_extensions.onnxprocess import torch_wrapper as torch
+from onnxruntime_extensions.onnxprocess import trace_for_onnx, pyfunc_from_model, build_customop_model
 
 
 device = 'cpu'
@@ -41,8 +41,8 @@ def convert_models():
 
 def inference_and_dump_full_model(inputs):
     config = AutoConfig.from_pretrained(model_name_or_path, cache_dir=get_cache_directory())
-    core_model = op_from_model(gpt2_core_model_path)
-    gpt2_tokenizer = op_from_model(gpt2_encoder_model_path)
+    core_model = pyfunc_from_model(gpt2_core_model_path)
+    gpt2_tokenizer = pyfunc_from_model(gpt2_encoder_model_path)
 
     with trace_for_onnx(inputs, num_tokens_to_produce, names=gpt2_tokenizer.input_names) as tc_sess:
 
