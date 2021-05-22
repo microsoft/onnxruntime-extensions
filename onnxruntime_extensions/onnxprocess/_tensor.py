@@ -1,4 +1,5 @@
 import torch
+import builtins
 import functools
 import numpy as np
 from onnx import onnx_pb as onnx_proto
@@ -18,6 +19,7 @@ class _EagerTensor:
             name = name[0]
         self.name = '' if name is None else name
         self.raw_data = raw_data
+        self.symbolic_shape = []
 
     def __repr__(self):
         if self.raw_data is not None:
@@ -101,6 +103,9 @@ class _EagerTensor:
 
     def item(self):
         return self.numpy().item()
+
+    def get_shape(self):
+        return self.t.size() if len(self.symbolic_shape) == 0 else self.symbolic_shape
 
     def _to_binary_tensor_args(self, other):
         # convert self, other to [self, other], but if either is a number, convert that to a constant
@@ -294,7 +299,7 @@ class _EagerTensor:
 
     @classmethod
     def ox_args(cls, tensors, output_names=None):
-        input_names = [ts_.name for ts_ in tensors]
+        input_names = [ts_ if isinstance(ts_, str) else ts_.name for ts_ in tensors]
         return cls.ox_name_args(input_names, output_names)
 
     def my_args(self):
@@ -338,6 +343,11 @@ class _EagerTensor:
         s = _ox.identity(*self.my_args())
         return self.create_and_verify(y, s[0])
 
+    def cpu(self):
+        y = self._t.cpu()
+        s = _ox.identity(*self.my_args())
+        return self.create_and_verify(y, s[0])
+
     def detach(self):
         y = self._t.detach()
         s = _ox.identity(*self.my_args())
@@ -366,13 +376,10 @@ class _EagerTensor:
         return self.create_and_verify(y, s[0])
 
 
-def _create_ox_sequence(*size, init_value=None, onnx_type=None):
+def _create_ox_sequence(*size):
     container = _EagerTensor.get_container()
     con_x = []
-    if onnx_type is None:
-        onnx_type = onnx_proto.TensorProto.FLOAT
-    ts_val = _ox.make_tensor(onnx_type, [1], [init_value])
-    if any(isinstance(n_, _EagerTensor) for n_ in size):
+    if builtins.any(isinstance(n_, _EagerTensor) for n_ in size):
         for x in size:
             if isinstance(x, _EagerTensor):
                 x_h = _ox.unsqueeze(*_EagerTensor.ox_args([x]))[0]
@@ -380,41 +387,69 @@ def _create_ox_sequence(*size, init_value=None, onnx_type=None):
                 x_c = _ox.make_tensor(onnx_proto.TensorProto.INT64, [1], [x])
                 x_h = _ox.constant([], [_ox.get_unique_tensor_name('const')], container, None, value=x_c)[0]
             con_x.append(x_h)
-        allnames = _ox.concat(con_x, [_ox.get_unique_tensor_name('concat')], container, None)
-        s = _ox.constant_of_shape(allnames, [_ox.get_unique_tensor_name('cos')], container, None, value=ts_val)
+        return _ox.concat(con_x, [_ox.get_unique_tensor_name('concat')], container, None)
     else:
         ts_size = _ox.make_tensor(onnx_proto.TensorProto.INT64, [len(size)], size)
-        shp_c = _ox.constant([], [_ox.get_unique_tensor_name('const')], container, None, value=ts_size)
-        s = _ox.constant_of_shape(shp_c, [_ox.get_unique_tensor_name('cos')], container, None, value=ts_val)
+        return _ox.constant([], [_ox.get_unique_tensor_name('const')], container, None, value=ts_size)
+
+
+def _create_ox_sequence_constant(*size, init_value=None, onnx_type=None):
+    if onnx_type is None:
+        onnx_type = onnx_proto.TensorProto.FLOAT
+    names = _create_ox_sequence(*size)
+    ts_val = _ox.make_tensor(onnx_type, [1], [init_value])
+
+    container = _EagerTensor.get_container()
+    s = _ox.constant_of_shape(names, [_ox.get_unique_tensor_name('cos')], container, None, value=ts_val)
     return s[0]
 
 
-def empty(*size: _int, memory_format: Optional[memory_format] = None, out: Optional[_EagerTensor] = None,
+def empty(*size: Union[_int, _EagerTensor], memory_format: Optional[memory_format] = None, out: Optional[_EagerTensor] = None,
           dtype: _dtype = None, layout: _layout = strided, device: Union[_device, str, None] = None,
           requires_grad: _bool = False) -> _EagerTensor:  # noqa
+
+    if len(size) == 1 and isinstance(size[0], list):
+        size = size[0]
     n_size = _EagerTensor.normalize_seq(size)
     y = torch.empty(*n_size, memory_format=memory_format, out=out,
                     dtype=dtype, layout=layout, device=device, requires_grad=requires_grad)
-    s = _create_ox_sequence(*size, init_value=0., onnx_type=_EagerTensor.to_onnx_type(y.dtype))
+    s = _create_ox_sequence_constant(*size, init_value=0., onnx_type=_EagerTensor.to_onnx_type(y.dtype))
     return _EagerTensor.from_torch(y, s)
 
 
-def zeros(*size: _int, out: Optional[_EagerTensor] = None, dtype: _dtype = None, layout: _layout = strided,
+def zeros(*size: Union[_int, _EagerTensor], out: Optional[_EagerTensor] = None, dtype: _dtype = None, layout: _layout = strided,
           device: Union[_device, str, None] = None, requires_grad: _bool = False) -> _EagerTensor:  # noqa
+
+    if len(size) == 1 and isinstance(size[0], list):
+        size = size[0]
     n_size = _EagerTensor.normalize_seq(size)
     y = torch.zeros(*n_size, out=out, dtype=dtype,
                     layout=layout, device=device, requires_grad=requires_grad)
-    s = _create_ox_sequence(*size, init_value=0, onnx_type=_EagerTensor.to_onnx_type(y.dtype))
+    s = _create_ox_sequence_constant(*size, init_value=0, onnx_type=_EagerTensor.to_onnx_type(y.dtype))
     return _EagerTensor.from_torch(y, s)
 
 
-def ones(*size: _int, out: Optional[_EagerTensor] = None, dtype: _dtype = None, layout: _layout = strided,
+def ones(*size: Union[_int, _EagerTensor], out: Optional[_EagerTensor] = None, dtype: _dtype = None, layout: _layout = strided,
           device: Union[_device, str, None] = None, requires_grad: _bool = False) -> _EagerTensor:  # noqa
+
+    if len(size) == 1 and isinstance(size[0], list):
+        size = size[0]
     n_size = _EagerTensor.normalize_seq(size)
     y = torch.ones(*n_size, out=out, dtype=dtype,
                    layout=layout, device=device, requires_grad=requires_grad)
-    s = _create_ox_sequence(*size, init_value=1, onnx_type=_EagerTensor.to_onnx_type(y.dtype))
+    s = _create_ox_sequence_constant(*size, init_value=1, onnx_type=_EagerTensor.to_onnx_type(y.dtype))
     return _EagerTensor.from_torch(y, s)
+
+
+def repeat(input_ts: _EagerTensor, *repeats: Union[_int, _EagerTensor]) -> _EagerTensor:  # noqa
+
+    if len(repeats) == 1 and isinstance(repeats[0], list):
+        repeats = repeats[0]
+    n_size = _EagerTensor.normalize_seq(repeats)
+    y = input_ts.t.repeat(*n_size)
+    seq = _create_ox_sequence(*repeats)
+    s = _ox.tile(*input_ts.my_args(), repeats=seq[0])
+    return _EagerTensor.from_torch(y, s[0])
 
 
 def argmax(input_ts: _EagerTensor, dim: Optional[_int] = None, keepdim: _bool = False) -> _EagerTensor:  # noqa
@@ -442,7 +477,18 @@ def all(input_ts: _EagerTensor, out: Optional[_EagerTensor]=None) -> _EagerTenso
     container = _EagerTensor.get_container()
     y = torch.all(input_ts.value)
     s_casted = _ox.cast(*input_ts.my_args(), to=onnx_proto.TensorProto.INT64)
-    s_redm = _ox.reducemin(s_casted, [_ox.get_unique_tensor_name('reducemin')], container, None, axes=[0])
+    s_redm = _ox.reducemin(s_casted, [_ox.get_unique_tensor_name('reducemin')], container, None, axes=[-1])
+    s0 = _ox.constant([], [_ox.get_unique_tensor_name('const')],
+                      container, None, value=_ox.make_tensor(onnx_proto.TensorProto.INT64, [1], [0]))
+    s = _ox.greater(s_redm + s0, [_ox.get_unique_tensor_name('greater')], container, None)
+    return input_ts.create_and_verify(y, s[0])
+
+
+def any(input_ts: _EagerTensor, out: Optional[_EagerTensor]=None) -> _EagerTensor:  # noqa
+    container = _EagerTensor.get_container()
+    y = torch.any(input_ts.value)
+    s_casted = _ox.cast(*input_ts.my_args(), to=onnx_proto.TensorProto.INT64)
+    s_redm = _ox.reducesum(s_casted, [_ox.get_unique_tensor_name('reducesum')], container, None, axes=[-1])
     s0 = _ox.constant([], [_ox.get_unique_tensor_name('const')],
                       container, None, value=_ox.make_tensor(onnx_proto.TensorProto.INT64, [1], [0]))
     s = _ox.greater(s_redm + s0, [_ox.get_unique_tensor_name('greater')], container, None)
@@ -489,7 +535,7 @@ class _ControlFlowContext:
         self.sub_graph = None
 
     def flow_output(self, cond, *outputs):
-        assert len(outputs) > len(self.loop_states), "The loop body doesn't return enough objects"
+        assert len(outputs) >= len(self.loop_states), "The loop body doesn't return enough objects"
         if self.sub_graph is None:
             trc = _EagerTensor.get_trace_session()
             self.sub_graph = trc.build_graph(trc.container,
@@ -567,7 +613,10 @@ def op_from_model(path_or_model, *args, **kwargs) -> _TracingEagerOp:
 _EagerTensor._all_ops = {'argmax': argmax,
                          'softmax': softmax,
                          'reshape': reshape,
-                         'transpose': transpose}
+                         'transpose': transpose,
+                         'repeat': repeat,
+                         'any': any,
+                         'all': all}
 
 tensor = _EagerTensor.mytensor
 tensor_from_onnx = _EagerTensor.from_onnx

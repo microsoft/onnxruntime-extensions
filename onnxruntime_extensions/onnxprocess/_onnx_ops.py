@@ -1342,7 +1342,7 @@ class _ONNXOperatorAPI:
     
         if repeats is None or (not isinstance(repeats, str) and all(repeat_count == 1 for repeat_count in repeats)):
             container.add_node('Identity', input_name, output_name, name=name)
-            return
+            return output_name
     
         if container.target_opset < 6:
             intermediate_input_name = input_name
