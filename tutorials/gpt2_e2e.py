@@ -115,7 +115,8 @@ if not os.path.exists(gpt2_core_model_path) or \
 output_ms = inference_and_dump_full_model(input_text)
 
 # 3. Inference on the all-in-one model
-full_model = eager_op.EagerOp.from_model(gpt2_full_model_path)
+from onnxruntime_extensions import PyOrtFunction
+full_model = PyOrtFunction.from_model(gpt2_full_model_path)
 output_text = full_model(input_text, num_tokens_to_produce)
 
 # 4. Test the result

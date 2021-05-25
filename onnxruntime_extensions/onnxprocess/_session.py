@@ -291,10 +291,10 @@ class ONNXTraceSession:
             if vi_.name in input_names:
                 input_names[vi_.name] = vi_
 
-        inputs = [helper.make_tensor_value_info(si.name, si.onnx_type, si.t.size())
+        inputs = [helper.make_tensor_value_info(si.name, si.onnx_type, si.get_shape())
                   if input_names.get(si.name) is None else input_names[si.name] for si in ts_inputs]
         outputs = [helper.make_tensor_value_info(so.name, so.onnx_type,
-                                                 so.t.size()) for so in ts_outputs]
+                                                 so.get_shape()) for so in ts_outputs]
 
         graph = helper.make_graph(nodes, graph_name, inputs,
                                   outputs, container.initializers)

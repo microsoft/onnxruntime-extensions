@@ -23,10 +23,10 @@ output, *_ = gpt2_core(input_ids)
 next_id = numpy.argmax(output[:, :, -1, :], axis=-1)
 print(input_text[0] + decode(next_id).item())
 ```
-This is a simplified version of GPT-2 inference for the demonstration only, The comprehensive solution on the GPT-2 model and its deviants are under development, and here is the [link](tutorials/gpt2_e2e.py) to the experimental.
+This is a simplified version of GPT-2 inference for the demonstration only, The comprehensive solution on the GPT-2 model and its deviants are under development, and here is the [link](tutorials/gpt2bs.py) to the experimental.
 
 ## Android/iOS
-The previous processing python code can be translated into all-in-one model to be run in Android/iOS mobile platform, without any Python runtime and the 3rd-party dependencies requirement. Here is the [tutorial](tutorials/ort_mobile.py)
+The previous processing python code can be translated into all-in-one model to be run in Android/iOS mobile platform, without any Python runtime and the 3rd-party dependencies requirement. Here is the [tutorial](tutorials/gpt2bs.py)
 
 ## CustomOp Conversion
 The mainstream ONNX converters support the custom op generation if there is the operation from the original framework cannot be interpreted as ONNX standard operators. Check the following two examples on how to do this.

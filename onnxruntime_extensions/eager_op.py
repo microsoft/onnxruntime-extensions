@@ -89,6 +89,7 @@ class EagerOp:
                 ts_x.astype(np.int64) if i_.type.tensor_type.elem_type == onnx_proto.TensorProto.INT64 else ts_x
             idx += 1
 
+        # feed.update(kwargs)
         return feed
 
     def __call__(self, *args, **kwargs):
