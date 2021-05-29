@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16.0)
 project(onnxruntime_extensions LANGUAGES C CXX)
-# set(CMAKE_VERBOSE_MAKEFILE ON)
+set(CMAKE_VERBOSE_MAKEFILE ON)
 
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Build type not set - using RelWithDebInfo")
@@ -80,7 +80,7 @@ endif()
 
 file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h")
 if (OCOS_ENABLE_TF_STRING)
-  file(GLOB TARGET_SRC_KERNELS "operators/text/*.cc" "operators/text/*.h*")
+  file(GLOB TARGET_SRC_KERNELS "operators/text/string_*.cc" "operators/text/string_*.h*")
   file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")
   list(APPEND TARGET_SRC ${TARGET_SRC_KERNELS} ${TARGET_SRC_HASH})
 endif()
@@ -190,20 +190,20 @@ if(OCOS_ENABLE_PYTHON)
   if(NOT "${Python3_FIND_REGISTRY}" STREQUAL "NEVER")
     message(FATAL_ERROR "Python3_FIND_REGISTRY is not NEVER")
   endif()
-  find_package(Python3 COMPONENTS Interpreter Development)
+  find_package(Python3 COMPONENTS Interpreter Development.Module NumPy)
 
   if (WIN32)
     list(APPEND shared_TARGET_SRC "${PROJECT_SOURCE_DIR}/onnxruntime_extensions/ortcustomops.def")
   endif()
 
-  Python3_add_library(ortcustomops SHARED ${TARGET_SRC_PYOPS} ${shared_TARGET_SRC})
+  add_library(ortcustomops SHARED ${TARGET_SRC_PYOPS} ${shared_TARGET_SRC})
   list(APPEND OCOS_COMPILE_DEFINITIONS PYTHON_OP_SUPPORT)
   # building static lib has higher priority
 elseif(OCOS_ENABLE_STATIC_LIB)
   add_library(ortcustomops STATIC ${shared_TARGET_SRC})
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   add_executable(ortcustomops ${shared_TARGET_SRC})
-  set_target_properties(ortcustomops PROPERTIES LINK_FLAGS "                                \
+  set_target_properties(ortcustomops PROPERTIES LINK_FLAGS "                                  \
                       -s WASM=1                                                               \
                       -s NO_EXIT_RUNTIME=0                                                    \
                       -s ALLOW_MEMORY_GROWTH=1                                                \
@@ -230,18 +230,9 @@ target_link_libraries(ortcustomops PRIVATE ${ocos_libraries})
 if(OCOS_ENABLE_PYTHON)
   message(STATUS "Fetch pybind11")
   include(pybind11)
-  set(NUMPY_NOT_FOUND false)
-  exec_program("${Python3_EXECUTABLE}"
-      ARGS "-c \"import numpy; print(numpy.get_include())\""
-      OUTPUT_VARIABLE NUMPY_INCLUDE_DIR
-      RETURN_VALUE NUMPY_NOT_FOUND)
-  if(${NUMPY_NOT_FOUND})
-      message(FATAL_ERROR
-              "Cannot get NumPy include directory: Is NumPy installed?")
-  endif(${NUMPY_NOT_FOUND})
-
   target_include_directories(ortcustomops PRIVATE
-      ${NUMPY_INCLUDE_DIR}
+      $<TARGET_PROPERTY:Python3::Module,INTERFACE_INCLUDE_DIRECTORIES>
+      $<TARGET_PROPERTY:Python3::NumPy,INTERFACE_INCLUDE_DIRECTORIES>
       ${pybind11_INCLUDE_DIRS}
   )
   
