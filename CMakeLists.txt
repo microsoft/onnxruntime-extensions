@@ -80,7 +80,7 @@ endif()
 
 file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h")
 if (OCOS_ENABLE_TF_STRING)
-  file(GLOB TARGET_SRC_KERNELS "operators/text/string_*.cc" "operators/text/string_*.h*")
+  file(GLOB TARGET_SRC_KERNELS "operators/text/*.cc" "operators/text/*.h*")
   file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")
   list(APPEND TARGET_SRC ${TARGET_SRC_KERNELS} ${TARGET_SRC_HASH})
 endif()
@@ -185,7 +185,6 @@ target_compile_definitions(ortcustomops_static PRIVATE ${OCOS_COMPILE_DEFINITION
 
 file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h")
 if(OCOS_ENABLE_PYTHON)
-  file(GLOB TARGET_SRC_PYOPS "pyop/*.cc" "pyop/*.h")
   set(Python3_FIND_REGISTRY NEVER CACHE STRING "...")
   if(NOT "${Python3_FIND_REGISTRY}" STREQUAL "NEVER")
     message(FATAL_ERROR "Python3_FIND_REGISTRY is not NEVER")
@@ -196,6 +195,7 @@ if(OCOS_ENABLE_PYTHON)
     list(APPEND shared_TARGET_SRC "${PROJECT_SOURCE_DIR}/onnxruntime_extensions/ortcustomops.def")
   endif()
 
+  file(GLOB TARGET_SRC_PYOPS "pyop/*.cc" "pyop/*.h")
   add_library(ortcustomops SHARED ${TARGET_SRC_PYOPS} ${shared_TARGET_SRC})
   list(APPEND OCOS_COMPILE_DEFINITIONS PYTHON_OP_SUPPORT)
   # building static lib has higher priority
@@ -231,11 +231,17 @@ if(OCOS_ENABLE_PYTHON)
   message(STATUS "Fetch pybind11")
   include(pybind11)
   target_include_directories(ortcustomops PRIVATE
-      $<TARGET_PROPERTY:Python3::Module,INTERFACE_INCLUDE_DIRECTORIES>
-      $<TARGET_PROPERTY:Python3::NumPy,INTERFACE_INCLUDE_DIRECTORIES>
-      ${pybind11_INCLUDE_DIRS}
+    $<TARGET_PROPERTY:Python3::Module,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:Python3::NumPy,INTERFACE_INCLUDE_DIRECTORIES>
+    ${pybind11_INCLUDE_DIRS}
   )
-  
+
+  target_compile_definitions(ortcustomops PRIVATE
+    $<TARGET_PROPERTY:Python3::Module,INTERFACE_COMPILE_DEFINITIONS>)
+
+  target_link_libraries(ortcustomops PRIVATE
+    $<TARGET_PROPERTY:Python3::Module,INTERFACE_LINK_LIBRARIES>)
+
   if(NOT "${OCOS_EXTENTION_NAME}" STREQUAL "")
     if(NOT WIN32)
       set_target_properties(ortcustomops PROPERTIES
