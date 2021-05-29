@@ -2,8 +2,8 @@ name: LinuxRelease_x86_64
 
 on:
   schedule:
-    # Run weekly on SUN 23:59
-    - cron:  '23 59 * * SUN'
+    # Run weekly on MON 00:00
+    - cron:  '00 00 * * MON'
   workflow_dispatch:
 
 jobs:
