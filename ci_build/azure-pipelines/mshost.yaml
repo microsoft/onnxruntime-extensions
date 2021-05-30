@@ -169,6 +169,9 @@ jobs:
 
       - script: |
           python setup.py bdist_wheel
+          # cmake produces assemblies before setup.py makes the
+          # the list of files to include, second call solves that
+          python setup.py bdist_wheel
           for file in dist/*.whl; do python -m pip install --upgrade $file; done
         displayName: Build and install the wheel
 
@@ -275,7 +278,9 @@ jobs:
           python setup.py bdist_wheel
         displayName: Build the wheel
 
-      - powershell: Get-ChildItem -Path dist/*.whl | foreach {python -m pip install --upgrade $_.fullname} 
+      - powershell: |
+          call activate pyenv
+          Get-ChildItem -Path dist/*.whl | foreach {python -m pip install --upgrade $_.fullname}
         displayName: Install the wheel
 
       - script: |
