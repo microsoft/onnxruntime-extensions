@@ -276,7 +276,7 @@ jobs:
         displayName: Build the wheel
 
       - powershell: Get-ChildItem -Path dist/*.whl | foreach {python -m pip install --upgrade $_.fullname} 
-        displayname: Install the wheel
+        displayName: Install the wheel
 
       - script: |
           call activate pyenv
