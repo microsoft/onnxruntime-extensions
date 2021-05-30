@@ -160,6 +160,7 @@ jobs:
       - script: |
           python -m pip install --upgrade pip
           python -m pip install --upgrade setuptools
+          python -m pip install --upgrade wheel
           python -m pip install -r requirements.txt
         displayName: Install requirements.txt
 
@@ -272,7 +273,6 @@ jobs:
       - script: |
           call activate pyenv
           python setup.py bdist_wheel
-          python -m pip install -U dist/onnxruntime_extensions*.whl
         displayName: Build the wheel
 
       - powershell: Get-ChildItem -Path dist/*.whl | foreach {python -m pip install --upgrade $_.fullname} 
