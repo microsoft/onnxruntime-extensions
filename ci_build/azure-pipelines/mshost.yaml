@@ -168,7 +168,7 @@ jobs:
 
       - script: |
           python setup.py bdist_wheel
-          python -m pip install -U dist/onnxruntime_extensions*.whl
+          for file in dist/*.whl; do python -m pip install --upgrade $file; done
         displayName: Build and install the wheel
 
       - script: python -m pip install -r requirements-dev.txt
@@ -271,14 +271,17 @@ jobs:
 
       - script: |
           call activate pyenv
-          python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio===0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
-        displayName: Install pytorch
+          python setup.py bdist_wheel
+          python -m pip install -U dist/onnxruntime_extensions*.whl
+        displayName: Build the wheel
+
+      - powershell: Get-ChildItem -Path dist/*.whl | foreach {python -m pip install --upgrade $_.fullname} 
+        displayname: Install the wheel
 
       - script: |
           call activate pyenv
-          python setup.py bdist_wheel
-          python -m pip install -U dist/onnxruntime_extensions*.whl
-        displayName: Build and install the wheel
+          python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio===0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
+        displayName: Install pytorch
 
       - script: |
           call activate pyenv
