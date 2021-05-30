@@ -5,9 +5,9 @@ on:
     # Run weekly on Monday 00:00
     - cron:  '00 00 * * MON'
   push:
-    branches: [master, rel-*]
+    branches: [rel-*]
   pull_request:
-    branches: [master, rel-*]
+    branches: [rel-*]
   workflow_dispatch:
 
 jobs:
@@ -46,3 +46,8 @@ jobs:
         python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
         python -m pip install -r requirements-dev.txt
         pytest
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: manylinux_wheels
+        path: dist
