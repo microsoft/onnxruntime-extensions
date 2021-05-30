@@ -168,7 +168,7 @@ jobs:
         displayName: Check installation
 
       - script: |
-          python setup.py bdist_wheel
+          python setup.py develop
           # cmake produces assemblies before setup.py makes the
           # the list of files to include, second call solves that
           python setup.py bdist_wheel
@@ -278,9 +278,9 @@ jobs:
           python setup.py bdist_wheel
         displayName: Build the wheel
 
-      - powershell: |
+      - script: |
           call activate pyenv
-          Get-ChildItem -Path dist/*.whl | foreach {python -m pip install --upgrade $_.fullname}
+          python -m pip install --find-links=dist\ onnxruntime-extensions
         displayName: Install the wheel
 
       - script: |
