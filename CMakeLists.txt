@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16.0)
 project(onnxruntime_extensions LANGUAGES C CXX)
-# set(CMAKE_VERBOSE_MAKEFILE ON)
+set(CMAKE_VERBOSE_MAKEFILE ON)
 
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Build type not set - using RelWithDebInfo")
@@ -126,15 +126,15 @@ endif()
 
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
-add_library(ortcustomops_static STATIC ${TARGET_SRC})
-target_include_directories(ortcustomops_static PUBLIC operators/tokenizer)
+add_library(ocos_operators STATIC ${TARGET_SRC})
+target_include_directories(ocos_operators PUBLIC operators/tokenizer)
 
-set(ocos_libraries ortcustomops_static)
+set(ocos_libraries ocos_operators)
 if (OCOS_ENABLE_TF_STRING)
   list(APPEND ocos_libraries re2)
 endif()
 
-target_include_directories(ortcustomops_static PUBLIC
+target_include_directories(ocos_operators PUBLIC
   ${PROJECT_SOURCE_DIR}/includes
   ${PROJECT_SOURCE_DIR}/includes/onnxruntime
   ${PROJECT_SOURCE_DIR}/operators)
@@ -142,14 +142,14 @@ target_include_directories(ortcustomops_static PUBLIC
 set(OCOS_COMPILE_DEFINITIONS "")
 
 if (OCOS_ENABLE_TF_STRING)
-  target_include_directories(ortcustomops_static PUBLIC
+  target_include_directories(ocos_operators PUBLIC
     ${googlere2_SOURCE_DIR}
     ${farmhash_SOURCE_DIR}/src)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING)
 endif()
 
 if (OCOS_ENABLE_MATH)
-  target_include_directories(ortcustomops_static PUBLIC ${dlib_SOURCE_DIR})
+  target_include_directories(ocos_operators PUBLIC ${dlib_SOURCE_DIR})
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_MATH)
   # The dlib matrix implementation is all in the headers, no library compiling needed.
   if (WIN32)
@@ -159,20 +159,20 @@ endif()
 
 if (OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
-  target_include_directories(ortcustomops_static PRIVATE ${json_SOURCE_DIR}/single_include)
+  target_include_directories(ocos_operators PRIVATE ${json_SOURCE_DIR}/single_include)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_GPT2_TOKENIZER)
   list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 
 if (OCOS_ENABLE_SPM_TOKENIZER)
   # SentencePiece
-  target_include_directories(ortcustomops_static PUBLIC ${sentencepieceproject_INCLUDE_DIRS})
+  target_include_directories(ocos_operators PUBLIC ${sentencepieceproject_INCLUDE_DIRS})
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_SPM_TOKENIZER)
   list(APPEND ocos_libraries sentencepiece-static)
 endif()
 
 if (OCOS_ENABLE_TF_STRING)
-  target_compile_definitions(ortcustomops_static PRIVATE
+  target_compile_definitions(ocos_operators PRIVATE
       NOMINMAX
       FARMHASH_NO_BUILTIN_EXPECT)
 endif()
@@ -181,29 +181,28 @@ if (OCOS_ENABLE_BERT_TOKENIZER)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_BERT_TOKENIZER)
 endif()
 
-target_compile_definitions(ortcustomops_static PRIVATE ${OCOS_COMPILE_DEFINITIONS})
+target_compile_definitions(ocos_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 
 file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h")
 if(OCOS_ENABLE_PYTHON)
-  file(GLOB TARGET_SRC_PYOPS "pyop/*.cc" "pyop/*.h")
   set(Python3_FIND_REGISTRY NEVER CACHE STRING "...")
   if(NOT "${Python3_FIND_REGISTRY}" STREQUAL "NEVER")
     message(FATAL_ERROR "Python3_FIND_REGISTRY is not NEVER")
   endif()
-  find_package(Python3 COMPONENTS Interpreter Development)
-
+  find_package(Python3 COMPONENTS Interpreter Development.Module NumPy)
   if (WIN32)
     list(APPEND shared_TARGET_SRC "${PROJECT_SOURCE_DIR}/onnxruntime_extensions/ortcustomops.def")
   endif()
 
-  Python3_add_library(ortcustomops SHARED ${TARGET_SRC_PYOPS} ${shared_TARGET_SRC})
+  file(GLOB TARGET_SRC_PYOPS "pyop/*.cc" "pyop/*.h")
+  add_library(ortcustomops SHARED ${TARGET_SRC_PYOPS} ${shared_TARGET_SRC})
   list(APPEND OCOS_COMPILE_DEFINITIONS PYTHON_OP_SUPPORT)
   # building static lib has higher priority
 elseif(OCOS_ENABLE_STATIC_LIB)
   add_library(ortcustomops STATIC ${shared_TARGET_SRC})
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   add_executable(ortcustomops ${shared_TARGET_SRC})
-  set_target_properties(ortcustomops PROPERTIES LINK_FLAGS "                                \
+  set_target_properties(ortcustomops PROPERTIES LINK_FLAGS "                                  \
                       -s WASM=1                                                               \
                       -s NO_EXIT_RUNTIME=0                                                    \
                       -s ALLOW_MEMORY_GROWTH=1                                                \
@@ -230,21 +229,17 @@ target_link_libraries(ortcustomops PRIVATE ${ocos_libraries})
 if(OCOS_ENABLE_PYTHON)
   message(STATUS "Fetch pybind11")
   include(pybind11)
-  set(NUMPY_NOT_FOUND false)
-  exec_program("${Python3_EXECUTABLE}"
-      ARGS "-c \"import numpy; print(numpy.get_include())\""
-      OUTPUT_VARIABLE NUMPY_INCLUDE_DIR
-      RETURN_VALUE NUMPY_NOT_FOUND)
-  if(${NUMPY_NOT_FOUND})
-      message(FATAL_ERROR
-              "Cannot get NumPy include directory: Is NumPy installed?")
-  endif(${NUMPY_NOT_FOUND})
-
   target_include_directories(ortcustomops PRIVATE
-      ${NUMPY_INCLUDE_DIR}
-      ${pybind11_INCLUDE_DIRS}
+    $<TARGET_PROPERTY:Python3::Module,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:Python3::NumPy,INTERFACE_INCLUDE_DIRECTORIES>
+    ${pybind11_INCLUDE_DIRS}
   )
-  
+
+  target_compile_definitions(ortcustomops PRIVATE
+    $<TARGET_PROPERTY:Python3::Module,INTERFACE_COMPILE_DEFINITIONS>)
+
+  target_link_libraries(ortcustomops PRIVATE Python3::Module)
+
   if(NOT "${OCOS_EXTENTION_NAME}" STREQUAL "")
     if(NOT WIN32)
       set_target_properties(ortcustomops PROPERTIES
@@ -261,7 +256,7 @@ if (OCOS_ENABLE_CTEST)
   # Enable CTest
   find_library(ONNXRUNTIME onnxruntime HINTS "${ONNXRUNTIME_LIB_DIR}")
   if (NOT ONNXRUNTIME)
-    message(FATAL_ERROR "Enable ctest should provide onnxruntime path, please specify the ONNXRUNTIME_LIB_DIR.")
+    message(FATAL_ERROR "The ctest needs the prebuilt onnxruntime libraries directory, please specify it by ONNXRUNTIME_LIB_DIR.")
   endif()
 
   enable_testing()
@@ -272,14 +267,15 @@ if (OCOS_ENABLE_CTEST)
   message(STATUS "Fetch googletest")
   include(googletest)
   file(GLOB static_TEST_SRC "${TEST_SRC_DIR}/static_test/*.cc")
-  add_executable(ortcustomops_static_test ${static_TEST_SRC})
-  target_link_libraries(ortcustomops_static_test gtest_main ${ocos_libraries})
-  add_test(NAME ortcustomops_static_test COMMAND $<TARGET_FILE:ortcustomops_static_test>)
+  add_executable(operators_test ${static_TEST_SRC})
+  target_link_libraries(operators_test gtest_main ${ocos_libraries})
+  add_test(NAME operators_test COMMAND $<TARGET_FILE:operators_test>)
 
   # needs to link with stdc++fs in Linux
   if(UNIX AND NOT APPLE)
     set(FS_STDLIB stdc++fs)
   endif()
+
   file(GLOB shared_TEST_SRC "${TEST_SRC_DIR}/shared_test/*.cc")
   add_executable(ortcustomops_test ${shared_TEST_SRC})
   if (ONNXRUNTIME_LIB_DIR)
