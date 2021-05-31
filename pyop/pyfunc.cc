@@ -205,11 +205,6 @@ struct PyCustomOpDefImpl : public PyCustomOpDef {
 };
 
 std::unique_ptr<PyCustomOpDefImpl::callback_t> PyCustomOpDefImpl::op_invoker;
-// static py::function g_pyfunc_caller;
-// static std::mutex op_mutex;
-// static std::condition_variable op_cv;
-// static bool is_ready = false;
-
 typedef struct {
   const OrtValue* input_X;
   ONNXTensorElementDataType dtype;
@@ -217,10 +212,6 @@ typedef struct {
 } InputInformation;
 
 void PyCustomOpKernel::Compute(OrtKernelContext* context) {
-  // std::unique_lock<std::mutex> lck(op_mutex);
-  // is_ready = true;
-  // op_cv.notify_all();
-  // std::this_thread::sleep_for(std::chrono::milliseconds(5000));
   size_t n_inputs = ort_.KernelContext_GetInputCount(context);
   size_t n_outputs = ort_.KernelContext_GetOutputCount(context);
 
@@ -239,19 +230,6 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
 
   /* Acquire GIL before calling Python code, due to it was released in sess.run */
   py::gil_scoped_acquire acquire;
-
-  // TODO: Direct-Buffer-Access doesn't work for some reason.
-  // OrtTensorTypeAndShapeInfo* output_info = ort_.GetTensorTypeAndShape(output);
-  // int64_t size = ort_.GetTensorShapeElementCount(output_info);
-  // ort_.ReleaseTensorTypeAndShapeInfo(output_info);
-  // py::buffer_info buf(
-  //     const_cast<void *>(X),                     /* Pointer to buffer */
-  //     sizeof(float),                             /* Size of one scalar */
-  //     py::format_descriptor<float>::format(),    /* Python struct-style format descriptor */
-  //     2,                                         /* Number of dimensions */
-  //     {2, 3},                                    /* Buffer dimensions */
-  //     {sizeof(float) * dimensions.data()[1],     /* Strides (in bytes) for each index */
-  //      sizeof(float)});
 
   {
     py::list pyinputs;
@@ -343,30 +321,6 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
     }
 
     py::gil_scoped_release release;
-
-    // TODO: the return value from the python callback function doesn't work in pybind11&numpy.
-    // py::gil_scoped_acquire acquire;
-    // int64_t rid = fetch[0].cast<int64_t>();
-    // assert(rid == obj_id_);
-    // size_t ntp = fetch.size() - 1;
-    // py::object ret_val = fetch[ntp];
-    // auto p2 = PyArray_FROM_O(ret_val.ptr());
-    // PyArrayObject* darray = reinterpret_cast<PyArrayObject*>(p2);
-    // std::vector<int64_t> dims;
-    // const int npy_type = PyArray_TYPE(darray);
-    // {
-    //   int ndim = PyArray_NDIM(darray);
-    //   const npy_intp* npy_dims = PyArray_DIMS(darray);
-    //   dims.resize(ndim);
-    //   std::copy(npy_dims, npy_dims+ndim, dims.begin());
-    // }
-
-    // auto element_type = PyCustomOpDefImpl::from_numpy(npy_type);
-    // OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dims.data(), dims.size());
-    // float* out = ort_.GetTensorMutableData<float>(output);
-    // const void* pyOut = PyData(darray, dd);
-
-    // memcpy(out, pyOut, PyArray_NBYTES((PyArrayObject*)NULL));
   }
 }
 
@@ -407,11 +361,8 @@ bool EnablePyCustomOps(bool enabled) {
   return last;
 }
 
-// static std::ofstream logger;
 static int init_numpy() {
-  import_array();
-  // logger.open("./ggtest.log.txt", std::ofstream::out | std::ofstream::app);
-  // logger << "first line." << std::endl;
+  import_array1(0);
   return 0;
 }
 
@@ -458,8 +409,7 @@ void AddObjectMethods(pybind11::module& m) {
 }
 
 PYBIND11_MODULE(_ortcustomops, m) {
-  m.doc() = "pybind11 stateful interface to ORT Custom Ops library";
-  //TODO: RegisterExceptions(m);
+  m.doc() = "pybind11 stateful interface to ONNXRuntime-Extensions";
 
   init_numpy();
   AddGlobalMethods(m);

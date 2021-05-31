@@ -10,17 +10,15 @@ jobs:
 
     strategy:
       matrix:
-        py38-170:
-          python.version: '3.8'
+        py39-170:
+          python.version: '3.9'
           ort.version: '1.7.0'
           ortlib.version: '38443267'
-          build.lib: '1'
-        py38-160:
-          python.version: '3.8'
+        py37-160:
+          python.version: '3.7'
           ort.version: '1.6.0'
           ortlib.version: '34858191'
-          build.lib: '0'
-      maxParallel: 1
+      maxParallel: 2
 
     steps:
       - task: DownloadGitHubRelease@0
@@ -71,23 +69,9 @@ jobs:
       - script: python -m pip install -r requirements-dev.txt
         displayName: Install requirements-dev.txt
 
-      - script: python -m pytest test --verbose --verbose
+      - script: python -m pytest test --verbose
         displayName: Run python test
 
-      - script: |
-          call activate pyenv
-          python setup.py bdist_wheel
-          # cmake produces assemblies before setup.py makes the
-          # the list of files to include, second call solves that
-          # python setup.py bdist_wheel
-        displayName: Build wheel
-        condition: eq(variables['build.lib'], '1')
-
-      - task: PublishPipelineArtifact@0
-        inputs:
-          artifactName: 'wheel-linux-$(python.version)'
-          targetPath: 'dist'
-        condition: eq(variables['build.lib'], '1')
 
   ###########
   # macOS C++
@@ -99,15 +83,13 @@ jobs:
 
     strategy:
       matrix:
-        py38-170:
-          python.version: '3.8'
+        ort-170:
           ort.version: '1.7.0'
           ortlib.version: '38443267'
-        py38-160:
-          python.version: '3.8'
+        ort-160:
           ort.version: '1.6.0'
           ortlib.version: '34858191'
-      maxParallel: 1
+      maxParallel: 2
 
     steps:
       # needed for onnxruntime
@@ -151,6 +133,9 @@ jobs:
 
     strategy:
       matrix:
+        py39-170:
+          python.version: '3.9'
+          ort.version: '1.7.0'
         py38-170:
           python.version: '3.8'
           ort.version: '1.7.0'
@@ -175,6 +160,7 @@ jobs:
       - script: |
           python -m pip install --upgrade pip
           python -m pip install --upgrade setuptools
+          python -m pip install --upgrade wheel
           python -m pip install -r requirements.txt
         displayName: Install requirements.txt
 
@@ -182,9 +168,12 @@ jobs:
         displayName: Check installation
 
       - script: |
-          call activate pyenv
           python setup.py develop
-        displayName: Build the library and tests
+          # cmake produces assemblies before setup.py makes the
+          # the list of files to include, second call solves that
+          python setup.py bdist_wheel
+          for file in dist/*.whl; do python -m pip install --upgrade $file; done
+        displayName: Build and install the wheel
 
       - script: python -m pip install -r requirements-dev.txt
         displayName: Install requirements-dev.txt
@@ -194,14 +183,6 @@ jobs:
 
       - script: python -m pytest test --verbose
         displayName: Run python test
-
-      - script: |
-          call activate pyenv
-          python setup.py bdist_wheel
-          # cmake produces assemblies before setup.py makes the
-          # the list of files to include, second call solves that
-          python setup.py bdist_wheel
-        displayName: Build wheel
 
       - task: PublishPipelineArtifact@0
         inputs:
@@ -218,16 +199,13 @@ jobs:
 
     strategy:
       matrix:
-        py38-170:
-          python.version: '3.8'
+        ort-170:
           ort.version: '1.7.0'
           ortlib.version: '38443267'
-        py38-160:
-          python.version: '3.8'
+        ort-160:
           ort.version: '1.6.0'
           ortlib.version: '34858191'
-          build.lib: '0'
-      maxParallel: 1
+      maxParallel: 2
 
     steps:
       - task: DownloadGitHubRelease@0
@@ -267,6 +245,9 @@ jobs:
 
     strategy:
       matrix:
+        py39-170:
+          python.version: '3.9'
+          ort.version: '1.7.0'
         py38-170:
           python.version: '3.8'
           ort.version: '1.7.0'
@@ -275,7 +256,7 @@ jobs:
           ort.version: '1.7.0'
         py36-170:
           python.version: '3.6'
-          ort.version: '1.7.0'
+          ort.version: '1.6.0'
       maxParallel: 1
 
     steps:
@@ -294,28 +275,23 @@ jobs:
 
       - script: |
           call activate pyenv
+          python setup.py bdist_wheel
+        displayName: Build the wheel
+
+      - script: |
+          call activate pyenv
+          python -m pip install --find-links=dist\ onnxruntime-extensions
+        displayName: Install the wheel
+
+      - script: |
+          call activate pyenv
           python -m pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio===0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
         displayName: Install pytorch
 
       - script: |
           call activate pyenv
-          echo Test numpy installation... && python -c "import numpy"
-          python setup.py develop
-        displayName: Build the custom-op library
-
-      - script: |
-          call activate pyenv
           python -m pytest test
         displayName: Run python test
-
-      - script: |
-          call activate pyenv
-          python setup.py bdist_wheel
-          # cmake produces assemblies before setup.py makes the
-          # the list of files to include, second call solves that
-          python setup.py sdist
-          python setup.py bdist_wheel
-        displayName: Build wheel
 
       - task: PublishPipelineArtifact@0
         inputs:
