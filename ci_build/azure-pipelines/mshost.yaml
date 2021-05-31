@@ -186,7 +186,7 @@ jobs:
 
       - task: PublishPipelineArtifact@0
         inputs:
-          artifactName: 'macos-wheels'
+          artifactName: 'wheel-macos-$(python.version)'
           targetPath: 'dist'
 
   #########
@@ -295,7 +295,7 @@ jobs:
 
       - task: PublishPipelineArtifact@0
         inputs:
-          artifactName: 'windows-wheels'
+          artifactName: 'wheel-window-$(python.version)'
           targetPath: 'dist'
 
   #############
