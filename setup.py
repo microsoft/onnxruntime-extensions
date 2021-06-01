@@ -100,12 +100,14 @@ class BuildCMakeExt(_build_ext):
 
 class BuildPy(_build_py):
     def run(self):
-        super().run()
+        self.run_command("build_ext")
+        return super().run()
 
 
 class BuildDevelop(_develop):
     def run(self):
-        super().run()
+        self.run_command("build_ext")
+        return super().run()
 
 
 def read_requirements():
