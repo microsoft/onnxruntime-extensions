@@ -100,12 +100,14 @@ class BuildCMakeExt(_build_ext):
 
 class BuildPy(_build_py):
     def run(self):
-        super().run()
+        self.run_command("build_ext")
+        return super().run()
 
 
 class BuildDevelop(_develop):
     def run(self):
-        super().run()
+        self.run_command("build_ext")
+        return super().run()
 
 
 def read_requirements():
@@ -142,19 +144,27 @@ package_data = {
     "onnxruntime_extensions": ["*.dll", "*.so", "*.pyd"],
 }
 
+long_description = ''
+with open(os.path.join(TOP_DIR, "README.md"), 'r') as f:
+    long_description = f.read()
+    start_pos = long_description.find('# Introduction')
+    start_pos = 0 if start_pos < 0 else start_pos
+    end_pos = long_description.find('# Contributing')
+    long_description = long_description[start_pos:end_pos]
+
 setup(
     name='onnxruntime_extensions',
     version=read_version(),
     packages=packages,
     package_dir=package_dir,
     package_data=package_data,
-    description="ONNXRuntime Custom Operator Library",
-    long_description=open(os.path.join(os.getcwd(), "README.md"), 'r').read(),
+    description="ONNXRuntime Extensions",
+    long_description=long_description,
     long_description_content_type='text/markdown',
     license='MIT License',
     author='Microsoft Corporation',
     author_email='onnx@microsoft.com',
-    url='https://github.com/microsoft/ortcustomops',
+    url='https://github.com/microsoft/onnxruntime-extensions',
     ext_modules=ext_modules,
     cmdclass=dict(
         build_ext=BuildCMakeExt,
@@ -172,6 +182,7 @@ setup(
         'Operating System :: POSIX :: Linux',
         "Programming Language :: C++",
         'Programming Language :: Python',
+        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',

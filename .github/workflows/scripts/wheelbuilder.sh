@@ -6,7 +6,7 @@ set -e -x -u
 PY_VERSION=$1
 PLAT=$2
 GITHUB_EVENT_NAME=$3
-BUILD_REQUIREMENTS='numpy==1.18.5'
+BUILD_REQUIREMENTS='numpy>=1.18.5 wheel'
 
 PY_VER="cp${PY_VERSION//./}-cp${PY_VERSION//./}"
 if [ ! -d "/opt/python/${PY_VER}" ] 
