@@ -1,10 +1,11 @@
 # ONNXRuntime Extensions
 [![Build Status](https://dev.azure.com/aiinfra/ONNX%20Converters/_apis/build/status/microsoft.ort-customops?repoName=microsoft%2Fonnxruntime-extensions&branchName=main)](https://dev.azure.com/aiinfra/ONNX%20Converters/_build/latest?definitionId=907&repoName=microsoft%2Fonnxruntime-extensions&branchName=main)
 
+# Introduction
 ONNXRuntime Extensions is a comprehensive package to extend the capability of the ONNX conversion and inference.
 1. The CustomOp C++ library for [ONNX Runtime](http://onnxruntime.ai) on ONNXRuntime CustomOp API.
 2. Support PyOp feature to implement the custom op with a Python function.
-3. Build all-in-one ONNX model from the pre/post processing code, go to [docs/pre_post_processing.md](docs/pre_post_processing.md) for details.
+3. Build all-in-one ONNX model from the pre/post processing code, go to [docs/pre_post_processing.md](https://github.com/microsoft/onnxruntime-extensions/blob/main/docs/pre_post_processing.md) for details.
 4. Support Python per operator debugging, checking ```hook_model_op``` in onnxruntime_extensions Python package.
 
 # Quick Start
@@ -23,15 +24,15 @@ output, *_ = gpt2_core(input_ids)
 next_id = numpy.argmax(output[:, :, -1, :], axis=-1)
 print(input_text[0] + decode(next_id).item())
 ```
-This is a simplified version of GPT-2 inference for the demonstration only, The comprehensive solution on the GPT-2 model and its deviants are under development, and here is the [link](tutorials/gpt2bs.py) to the experimental.
+This is a simplified version of GPT-2 inference for the demonstration only, The comprehensive solution on the GPT-2 model and its deviants are under development, and here is the [link](https://github.com/microsoft/onnxruntime-extensions/blob/main/tutorials/gpt2bs.py) to the experimental.
 
 ## Android/iOS
-The previous processing python code can be translated into all-in-one model to be run in Android/iOS mobile platform, without any Python runtime and the 3rd-party dependencies requirement. Here is the [tutorial](tutorials/gpt2bs.py)
+The previous processing python code can be translated into all-in-one model to be run in Android/iOS mobile platform, without any Python runtime and the 3rd-party dependencies requirement. Here is the [tutorial](https://github.com/microsoft/onnxruntime-extensions/blob/main/tutorials/gpt2bs.py)
 
 ## CustomOp Conversion
 The mainstream ONNX converters support the custom op generation if there is the operation from the original framework cannot be interpreted as ONNX standard operators. Check the following two examples on how to do this.
-1. [CustomOp conversion by pytorch.onnx.exporter](tutorials/pytorch_custom_ops_tutorial.ipynb)
-2. [CustomOp conversion by tf2onnx](tutorials/tf2onnx_custom_ops_tutorial.ipynb)
+1. [CustomOp conversion by pytorch.onnx.exporter](https://github.com/microsoft/onnxruntime-extensions/blob/main/tutorials/pytorch_custom_ops_tutorial.ipynb)
+2. [CustomOp conversion by tf2onnx](https://github.com/microsoft/onnxruntime-extensions/blob/main/tutorials/tf2onnx_custom_ops_tutorial.ipynb)
 
 ## Inference with CustomOp library
 The CustomOp library was written with C++, so that it supports run the model in the native binaries. The following is the example of C++ version.
@@ -90,7 +91,7 @@ If only DLL/shared library is needed without any Python dependencies, please run
 By default the DLL or the library will be generated in the directory `out/<OS>/<FLAVOR>`. There is a unit test to help verify the build.
 
 ## The static library and link with ONNXRuntime
-For sake of the binary size, the project can be built as a static library and link into ONNXRuntime. Here is [the script](ci_build/onnxruntime_integration/build_with_onnxruntime.sh) to this, which is especially usefully on building the mobile release.
+For sake of the binary size, the project can be built as a static library and link into ONNXRuntime. Here is [the script](https://github.com/microsoft/onnxruntime-extensions/blob/main/ci_build/onnxruntime_integration/build_with_onnxruntime.sh) to this, which is especially usefully on building the mobile release.
 
 # Contributing
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
@@ -104,14 +105,6 @@ provided by the bot. You will only need to do this once across all repos using o
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
 For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
-
-# Release
-The package is currently release on test pypi
-[onnxruntime-customops](https://test.pypi.org/project/onnxruntime-customops/).
-
-# Changes
-
-**0.0.2**: 
 
 # License
 [MIT License](LICENSE)
