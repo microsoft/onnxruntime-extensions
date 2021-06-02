@@ -168,9 +168,6 @@ jobs:
         displayName: Check installation
 
       - script: |
-          python setup.py develop
-          # cmake produces assemblies before setup.py makes the
-          # the list of files to include, second call solves that
           python setup.py bdist_wheel
           for file in dist/*.whl; do python -m pip install --upgrade $file; done
         displayName: Build and install the wheel
@@ -181,7 +178,7 @@ jobs:
       - script: python -m pip install torch torchvision torchaudio
         displayName: Install pytorch
 
-      - script: python -m pytest test --verbose
+      - script: cd test && python -m pytest . --verbose
         displayName: Run python test
 
       - task: PublishPipelineArtifact@0
