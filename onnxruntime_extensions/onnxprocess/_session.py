@@ -82,6 +82,11 @@ class ONNXModelUtils:
         for node in model_nodes.values():
             renamed_nodes = cls._rename_graph(node.model.graph, node.name, container)
             onnx_nodes.extend(cls._process_node_body(nd_, node.name) for nd_ in renamed_nodes)
+
+        while container.parent is not None:  # only one opset_import in the model.
+            container = container.parent
+
+        container.node_domain_version_pair_sets.update([(opset_.domain, opset_.version) for opset_ in node.model.opset_import])
         return onnx_nodes
 
     @classmethod
