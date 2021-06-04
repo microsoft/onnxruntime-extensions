@@ -75,6 +75,10 @@ class ONNXModelUtils:
 
     @classmethod
     def unfold_model_node(cls, container: ONNXElementContainer):
+        top_containter = container
+        while top_containter.parent is not None:  # only one opset_import in the model.
+            top_containter = top_containter.parent
+
         nodes = container.nodes
         model_nodes = {node.name: node for node in nodes if hasattr(node, 'model')}
         onnx_nodes = [nd_ for nd_ in nodes if nd_.name not in model_nodes]
@@ -83,10 +87,7 @@ class ONNXModelUtils:
             renamed_nodes = cls._rename_graph(node.model.graph, node.name, container)
             onnx_nodes.extend(cls._process_node_body(nd_, node.name) for nd_ in renamed_nodes)
 
-        while container.parent is not None:  # only one opset_import in the model.
-            container = container.parent
-
-        container.node_domain_version_pair_sets.update([(opset_.domain, opset_.version) for opset_ in node.model.opset_import])
+            top_containter.node_domain_version_pair_sets.update([(opset_.domain, opset_.version) for opset_ in node.model.opset_import])
         return onnx_nodes
 
     @classmethod
