@@ -7,7 +7,7 @@
 #include <string.h>
 
 // This value is used in structures passed to ORT so that a newer version of ORT will still work with them
-#define ORT_API_VERSION 5
+#define ORT_API_VERSION 6
 
 #ifdef __cplusplus
 extern "C" {
@@ -1120,7 +1120,7 @@ struct OrtApi {
   ORT_API2_STATUS(SetGlobalDenormalAsZero, _Inout_ OrtThreadingOptions* tp_options);
 
   /**
-  * Use this API to create the configuration of an arena that can eventually be used to define 
+  * Use this API to create the configuration of an arena that can eventually be used to define
   * an arena based allocator's behavior
   * \param max_mem - use 0 to allow ORT to choose the default
   * \param arena_extend_strategy -  use -1 to allow ORT to choose the default, 0 = kNextPowerOfTwo, 1 = kSameAsRequested

@@ -45,14 +45,16 @@ struct PyCustomOpKernel {
     for (std::vector<std::string>::const_iterator it = attrs.begin(); it != attrs.end(); ++it) {
       size = 0;
       OrtStatus* status = api_.KernelInfoGetAttribute_string(info, it->c_str(), nullptr, &size);
-      if (api_.GetErrorCode(status) != ORT_INVALID_ARGUMENT) {
+      if ((status != nullptr) && api_.GetErrorCode(status) != ORT_INVALID_ARGUMENT) {
         std::string error_message(api_.GetErrorMessage(status));
         api_.ReleaseStatus(status);
         throw std::runtime_error(MakeString(
             "Unable to find attribute '", *it, "' due to '",
             error_message, "'."));
       }
-      api_.ReleaseStatus(status);
+      if (status != nullptr) {
+        api_.ReleaseStatus(status);
+      }
       attrs_values_[*it] = "";
       attrs_values_[*it].resize(size);
       status = api_.KernelInfoGetAttribute_string(info, it->c_str(), &(attrs_values_[*it][0]), &size);
@@ -63,7 +65,9 @@ struct PyCustomOpKernel {
             api_.GetErrorMessage(status), "'."));
       }
       attrs_values_[*it].resize(size - 1);
-      api_.ReleaseStatus(status);
+      if (status != nullptr) {
+        api_.ReleaseStatus(status);
+      }
     }
   }
 
