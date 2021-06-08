@@ -1,8 +1,8 @@
 diff --git a/cmake/CMakeLists.txt b/cmake/CMakeLists.txt
-index ac9c62fb6..9893f703e 100644
+index 95bd1416c4..8c736bd69f 100644
 --- a/cmake/CMakeLists.txt
 +++ b/cmake/CMakeLists.txt
-@@ -966,6 +966,14 @@ if (onnxruntime_USE_TVM)
+@@ -1195,6 +1195,15 @@ if (onnxruntime_USE_TVM)
    list(APPEND onnxruntime_EXTERNAL_DEPENDENCIES tvm nnvm_compiler)
  endif()
  
@@ -11,14 +11,15 @@ index ac9c62fb6..9893f703e 100644
 +set(OCOS_ENABLE_STATIC_LIB ON CACHE INTERNAL "")
 +set(OCOS_ENABLE_SPM_TOKENIZER OFF CACHE INTERNAL "")
 +add_subdirectory(external/onnxruntime-extensions EXCLUDE_FROM_ALL)
-+target_include_directories(ortcustomops_static PRIVATE ${RE2_INCLUDE_DIR} external/json/include)
++# target library or executable are defined in CMakeLists.txt of onnxruntime-extensions
++target_include_directories(ocos_operators PRIVATE ${RE2_INCLUDE_DIR} external/json/include)
 +target_include_directories(ortcustomops PUBLIC external/onnxruntime-extensions/shared)
 +
  if (APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Android")
    #onnx/onnx/proto_utils.h:34:16: error: 'SetTotalBytesLimit' is deprecated: Please use the single
    #parameter version of SetTotalBytesLimit(). The second parameter is ignored.
 diff --git a/cmake/onnxruntime_session.cmake b/cmake/onnxruntime_session.cmake
-index df7eebf5a..2c511005a 100644
+index bb5eb0d166..bbc7a954e9 100644
 --- a/cmake/onnxruntime_session.cmake
 +++ b/cmake/onnxruntime_session.cmake
 @@ -16,7 +16,7 @@ if(onnxruntime_ENABLE_INSTRUMENT)
@@ -31,26 +32,26 @@ index df7eebf5a..2c511005a 100644
  set_target_properties(onnxruntime_session PROPERTIES FOLDER "ONNXRuntime")
  if (onnxruntime_USE_CUDA)
 diff --git a/include/onnxruntime/core/session/onnxruntime_c_api.h b/include/onnxruntime/core/session/onnxruntime_c_api.h
-index b28c44613..b932d55ce 100644
+index 838d202c28..e6db1b6eaa 100644
 --- a/include/onnxruntime/core/session/onnxruntime_c_api.h
 +++ b/include/onnxruntime/core/session/onnxruntime_c_api.h
-@@ -1277,6 +1277,11 @@ struct OrtApi {
-      */
-   ORT_API2_STATUS(KernelInfoGetAttributeArray_int64, _In_ const OrtKernelInfo* info, _In_ const char* name,
-                   _Out_ int64_t* out, _Inout_ size_t* size);
+@@ -1382,6 +1382,11 @@ struct OrtApi {
+                   _In_ const void* model_data, size_t model_data_length,
+                   _In_ const OrtSessionOptions* options, _Inout_ OrtPrepackedWeightsContainer* prepacked_weights_container,
+                   _Outptr_ OrtSession** out);
 +
 +  /**
-+   * Enable custom operators in ORT CustomOps: https://github.com/microsoft/onnxruntime-extensions.git
-+   */
++     * Enable custom operators in ORT CustomOps: https://github.com/microsoft/onnxruntime-extensions.git
++     */
 +  ORT_API2_STATUS(EnableOrtCustomOps, _Inout_ OrtSessionOptions* options);
  };
  
  /*
 diff --git a/include/onnxruntime/core/session/onnxruntime_cxx_api.h b/include/onnxruntime/core/session/onnxruntime_cxx_api.h
-index d85ecd776..d0e9fe6a3 100644
+index 4bd07b47c6..0fa74bcf38 100644
 --- a/include/onnxruntime/core/session/onnxruntime_cxx_api.h
 +++ b/include/onnxruntime/core/session/onnxruntime_cxx_api.h
-@@ -308,6 +308,7 @@ struct SessionOptions : Base<OrtSessionOptions> {
+@@ -310,6 +310,7 @@ struct SessionOptions : Base<OrtSessionOptions> {
  
    SessionOptions& EnableProfiling(const ORTCHAR_T* profile_file_prefix);
    SessionOptions& DisableProfiling();
@@ -59,10 +60,10 @@ index d85ecd776..d0e9fe6a3 100644
    SessionOptions& EnableMemPattern();
    SessionOptions& DisableMemPattern();
 diff --git a/include/onnxruntime/core/session/onnxruntime_cxx_inline.h b/include/onnxruntime/core/session/onnxruntime_cxx_inline.h
-index 64199ac6c..8ee32e4a1 100644
+index d08b890e80..f4b78b562f 100644
 --- a/include/onnxruntime/core/session/onnxruntime_cxx_inline.h
 +++ b/include/onnxruntime/core/session/onnxruntime_cxx_inline.h
-@@ -435,6 +435,11 @@ inline SessionOptions& SessionOptions::DisableProfiling() {
+@@ -440,6 +440,11 @@ inline SessionOptions& SessionOptions::DisableProfiling() {
    return *this;
  }
  
@@ -75,7 +76,7 @@ index 64199ac6c..8ee32e4a1 100644
    ThrowOnError(GetApi().EnableMemPattern(p_));
    return *this;
 diff --git a/onnxruntime/core/session/onnxruntime_c_api.cc b/onnxruntime/core/session/onnxruntime_c_api.cc
-index 12174163e..1fb57d39c 100644
+index e73bdbe18a..46238f02df 100644
 --- a/onnxruntime/core/session/onnxruntime_c_api.cc
 +++ b/onnxruntime/core/session/onnxruntime_c_api.cc
 @@ -35,6 +35,9 @@
@@ -102,30 +103,29 @@ index 12174163e..1fb57d39c 100644
  namespace {
  // provider either model_path, or modal_data + model_data_length.
  static ORT_STATUS_PTR CreateSessionAndLoadModel(_In_ const OrtSessionOptions* options,
-@@ -2123,6 +2133,7 @@ static constexpr OrtApi ort_api_1_to_8 = {
-     // Version 8 - In development, feel free to add/remove/rearrange here
-     &OrtApis::KernelInfoGetAttributeArray_float,
-     &OrtApis::KernelInfoGetAttributeArray_int64,
+@@ -2228,6 +2238,7 @@ static constexpr OrtApi ort_api_1_to_8 = {
+     // End of Version 8 - DO NOT MODIFY ABOVE (see above text for more information)
+ 
+     // Version 9 - In development, feel free to add/remove/rearrange here
 +    &OrtApis::EnableOrtCustomOps,
  };
  
  // Assert to do a limited check to ensure Version 1 of OrtApi never changes (will detect an addition or deletion but not if they cancel out each other)
 diff --git a/onnxruntime/core/session/ort_apis.h b/onnxruntime/core/session/ort_apis.h
-index f19b1d729..0dccf457a 100644
+index 2d99582724..0588e5af42 100644
 --- a/onnxruntime/core/session/ort_apis.h
 +++ b/onnxruntime/core/session/ort_apis.h
-@@ -263,4 +263,6 @@ ORT_API_STATUS_IMPL(SetCurrentGpuDeviceId, _In_ int device_id);
- ORT_API_STATUS_IMPL(GetCurrentGpuDeviceId, _In_ int* device_id);
- ORT_API_STATUS_IMPL(KernelInfoGetAttributeArray_float, _In_ const OrtKernelInfo* info, _In_ const char* name, _Out_ float* out, _Inout_ size_t* size);
- ORT_API_STATUS_IMPL(KernelInfoGetAttributeArray_int64, _In_ const OrtKernelInfo* info, _In_ const char* name, _Out_ int64_t* out, _Inout_ size_t* size);
-+
+@@ -277,4 +277,5 @@ ORT_API_STATUS_IMPL(CreateSessionFromArrayWithPrepackedWeightsContainer, _In_ co
+                     _In_ const OrtSessionOptions* options, _Inout_ OrtPrepackedWeightsContainer* prepacked_weights_container,
+                     _Outptr_ OrtSession** out);
+ 
 +ORT_API_STATUS_IMPL(EnableOrtCustomOps, _Inout_ OrtSessionOptions* options);
  }  // namespace OrtApis
 diff --git a/onnxruntime/test/shared_lib/test_inference.cc b/onnxruntime/test/shared_lib/test_inference.cc
-index 021636a16..5e34519a2 100644
+index 4f04588d93..d5c287893b 100644
 --- a/onnxruntime/test/shared_lib/test_inference.cc
 +++ b/onnxruntime/test/shared_lib/test_inference.cc
-@@ -172,6 +172,8 @@ static constexpr PATH_TYPE VARIED_INPUT_CUSTOM_OP_MODEL_URI_2 = TSTR("testdata/f
+@@ -173,6 +173,8 @@ static constexpr PATH_TYPE VARIED_INPUT_CUSTOM_OP_MODEL_URI_2 = TSTR("testdata/f
  static constexpr PATH_TYPE OPTIONAL_INPUT_OUTPUT_CUSTOM_OP_MODEL_URI = TSTR("testdata/foo_bar_1.onnx");
  static constexpr PATH_TYPE OPTIONAL_INPUT_OUTPUT_CUSTOM_OP_MODEL_URI_2 = TSTR("testdata/foo_bar_2.onnx");
  static constexpr PATH_TYPE CUSTOM_OP_MODEL_WITH_ATTRIBUTES_URI = TSTR("testdata/foo_bar_3.onnx");
@@ -134,7 +134,7 @@ index 021636a16..5e34519a2 100644
  
  #ifdef ENABLE_LANGUAGE_INTEROP_OPS
  static constexpr PATH_TYPE PYOP_FLOAT_MODEL_URI = TSTR("testdata/pyop_1.onnx");
-@@ -265,6 +267,91 @@ TEST(CApiTest, custom_op_handler) {
+@@ -266,6 +268,91 @@ TEST(CApiTest, custom_op_handler) {
  #endif
  }
  
@@ -227,17 +227,18 @@ index 021636a16..5e34519a2 100644
  TEST(CApiTest, varied_input_custom_op_handler) {
    std::vector<Input> inputs(2);
 diff --git a/onnxruntime/wasm/api.cc b/onnxruntime/wasm/api.cc
-index 523a2fc6f..970ca1552 100644
+index 8413197086..16e8479d35 100644
 --- a/onnxruntime/wasm/api.cc
 +++ b/onnxruntime/wasm/api.cc
-@@ -22,6 +22,10 @@ Ort::Session* OrtCreateSession(void* data, size_t data_length) {
-   Ort::SessionOptions session_options;
-   session_options.SetLogId("onnxruntime");
+@@ -122,6 +122,11 @@ OrtSession* OrtCreateSession(void* data, size_t data_length, OrtSessionOptions*
+     return nullptr;
+   }
  
 +  // Enable ORT CustomOps
 +  // TODO: add condition check here to enable ORT CustomOps
-+  session_options.EnableOrtCustomOps();
++  // session_options->EnableOrtCustomOps();
++  RETURN_NULLPTR_IF_ERROR(EnableOrtCustomOps, session_options);
 +
- #if !defined(__EMSCRIPTEN_PTHREADS__)
-   // must disable thread pool when WebAssembly multi-threads support is disabled.
-   session_options.SetIntraOpNumThreads(1);
+ #if defined(__EMSCRIPTEN_PTHREADS__)
+   RETURN_NULLPTR_IF_ERROR(DisablePerSessionThreads, session_options);
+ #else

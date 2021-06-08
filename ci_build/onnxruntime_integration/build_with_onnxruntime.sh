@@ -11,8 +11,8 @@ cd $BASE_DIR
 git clone https://github.com/microsoft/onnxruntime.git
 cd onnxruntime
 
-# there is no stable version including webassembly
-git checkout e6a3308db7c03a13e0f08b221b6770e17fc3a4ef
+# The latest commit of ONNXRuntime that has been verified for integration (#7941)
+git checkout fd23b8caaddc4c460463774d696af13bef63aa46
 cd cmake/external
 git clone git@github.com:microsoft/onnxruntime-extensions.git
 
