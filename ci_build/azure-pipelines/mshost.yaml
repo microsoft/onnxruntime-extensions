@@ -305,15 +305,13 @@ jobs:
 
     steps:
       - script: |
-          cd cmake
-          mkdir deps
-          cd deps
+          cd $(Build.BinariesDirectory)
           git clone https://github.com/emscripten-core/emsdk
           emsdk/emsdk install latest
           emsdk/emsdk activate latest
         displayName: Setup emscripten pipeline
 
       - script: |
-          sh ./build.sh -DCMAKE_TOOLCHAIN_FILE=cmake/deps/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DOCOS_ENABLE_SPM_TOKENIZER=OFF -DOCOS_ENABLE_PYTHON=OFF
+          sh ./build.sh -DCMAKE_TOOLCHAIN_FILE=$(Build.BinariesDirectory)/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DOCOS_ENABLE_SPM_TOKENIZER=OFF -DOCOS_ENABLE_PYTHON=OFF
         displayName: build the customop library with onnxruntime
     # TODO add unittest for webassembly
