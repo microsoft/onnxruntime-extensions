@@ -28,6 +28,7 @@ option(OCOS_ENABLE_TF_STRING "Enable String Operator Set" ON)
 option(OCOS_ENABLE_GPT2_TOKENIZER "Enable the GPT2 tokenizer building" ON)
 option(OCOS_ENABLE_SPM_TOKENIZER "Enable the SentencePiece tokenizer building" ON)
 option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
+option(OCOS_ENABLE_BLINGFIRE "Enable the Blingfire building" ON)
 option(OCOS_ENABLE_MATH "Enable the math tensor operators building" ON)
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 
@@ -124,6 +125,8 @@ if (OCOS_ENABLE_BERT_TOKENIZER)
   list(APPEND TARGET_SRC ${bert_TARGET_SRC})
 endif()
 
+
+
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_library(ocos_operators STATIC ${TARGET_SRC})
@@ -171,6 +174,11 @@ if (OCOS_ENABLE_SPM_TOKENIZER)
   list(APPEND ocos_libraries sentencepiece-static)
 endif()
 
+if (OCOS_ENABLE_BLINGFIRE)
+  include(blingfire)
+  list(APPEND ocos_libraries blingfiretokdll_static)
+endif()
+
 if (OCOS_ENABLE_TF_STRING)
   target_compile_definitions(ocos_operators PRIVATE
       NOMINMAX
@@ -190,6 +198,9 @@ if(OCOS_ENABLE_PYTHON)
     message(FATAL_ERROR "Python3_FIND_REGISTRY is not NEVER")
   endif()
   find_package(Python3 COMPONENTS Interpreter Development.Module NumPy)
+  if (NOT Python3_FOUND)
+    message(FATAL_ERROR "Python3 not found!")
+  endif()
   if (WIN32)
     list(APPEND shared_TARGET_SRC "${PROJECT_SOURCE_DIR}/onnxruntime_extensions/ortcustomops.def")
   endif()
