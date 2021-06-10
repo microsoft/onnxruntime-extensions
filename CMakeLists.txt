@@ -125,6 +125,10 @@ if (OCOS_ENABLE_BERT_TOKENIZER)
   list(APPEND TARGET_SRC ${bert_TARGET_SRC})
 endif()
 
+if (OCOS_ENABLE_BLINGFIRE)
+  file(GLOB blingfire_TARGET_SRC "operators/tokenizer/blingfire*.*")
+  list(APPEND TARGET_SRC ${blingfire_TARGET_SRC})
+endif()
 
 
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
@@ -176,6 +180,7 @@ endif()
 
 if (OCOS_ENABLE_BLINGFIRE)
   include(blingfire)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_BLINGFIRE)
   list(APPEND ocos_libraries blingfiretokdll_static)
 endif()
 
