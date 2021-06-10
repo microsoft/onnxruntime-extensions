@@ -68,7 +68,7 @@ class TestPyTorchCustomOp(unittest.TestCase):
         self.assertIn('domain: "ai.onnx.contrib"', str(onnx_model))
 
         model = CustomInverse()
-        onnx.save_model(onnx_model, 'pytorchcustomop.onnx')
+        onnx.save_model(onnx_model, 'temp_pytorchcustomop.onnx')
         pt_outputs = model(x0, x1)
 
         run_ort = EagerOp.from_model(onnx_model)

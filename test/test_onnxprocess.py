@@ -36,7 +36,7 @@ class TestTorchE2E(unittest.TestCase):
             tc_sess.save_as_onnx(f, rout)
 
         m = onnx.load_model_from_string(f.getvalue())
-        onnx.save_model(m, 'range.onnx')
+        onnx.save_model(m, 'temp_range.onnx')
         fu_m = eager_op.EagerOp.from_model(m)
         result = fu_m(num)
         np.testing.assert_array_equal(result, np.array(range(num)))
@@ -52,14 +52,14 @@ class TestTorchE2E(unittest.TestCase):
             tc_sess.save_as_onnx(f, fuse_output)
 
         m = onnx.load_model_from_string(f.getvalue())
-        onnx.save_model(m, 'test00.onnx')
+        onnx.save_model(m, 'temp_test00.onnx')
         fu_m = eager_op.EagerOp.from_model(m)
         result = fu_m(input_text)
         np.testing.assert_array_equal(result, [2, 2])
 
     def test_imagenet_postprocess(self):
-        mb_core_path = "mobilev2.onnx"
-        mb_full_path = "mobilev2_full.onnx"
+        mb_core_path = 'temp_mobilev2.onnx'
+        mb_full_path = 'temp_mobilev2_full.onnx'
         dummy_input = torch.randn(10, 3, 224, 224)
         np_input = dummy_input.numpy()
         torch.onnx.export(self.mobilenet, dummy_input, mb_core_path, opset_version=11)
