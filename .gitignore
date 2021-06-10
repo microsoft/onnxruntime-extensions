@@ -32,6 +32,7 @@ out/
 *.egg-info/
 .setuptools-cmake-build/
 onnxruntime-*-*-*/
+temp_*.onnx
 
 # Compiled Dynamic libraries
 *.so

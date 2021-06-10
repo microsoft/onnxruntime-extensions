@@ -445,7 +445,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
             np.array([flags & 1], dtype=np.bool_),
             np.array([flags & 2], dtype=np.bool_),
             np.array([flags & 4], dtype=np.bool_))
-        self.assertEquals(tokens.tolist(), [1095, 4054, 26, 2022, 755, 99935])
+        self.assertEqual(tokens.tolist(), [1095, 4054, 26, 2022, 755, 99935])
 
 
 if __name__ == "__main__":

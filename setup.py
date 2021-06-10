@@ -20,6 +20,12 @@ import subprocess
 
 
 TOP_DIR = os.path.dirname(__file__)
+PACKAGE_NAME = 'onnxruntime_extensions'
+
+
+if '--nightly_build' in sys.argv:
+    PACKAGE_NAME = 'ortext_nightly'
+    sys.argv.remove('--nightly_build')
 
 
 @contextmanager
@@ -153,7 +159,7 @@ with open(os.path.join(TOP_DIR, "README.md"), 'r') as f:
     long_description = long_description[start_pos:end_pos]
 
 setup(
-    name='onnxruntime_extensions',
+    name=PACKAGE_NAME,
     version=read_version(),
     packages=packages,
     package_dir=package_dir,
