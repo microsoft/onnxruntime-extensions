@@ -10,13 +10,18 @@
 
 
 KernelTextToSentences::KernelTextToSentences(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
-  std::string model = ort_.KernelInfoGetAttribute<std::string>(info, "model");
-  if (model.empty()) {
+  std::string model_data = ort_.KernelInfoGetAttribute<std::string>(info, "model");
+  if (model_data.empty()) {
     throw std::runtime_error("vocabulary shouldn't be empty.");
   }
 
-  std::shared_ptr<void*> m(SetModel(reinterpret_cast<unsigned char*>(model.data()), model.size()), FreeModel);
-  model = m;
+  void* model_ptr = SetModel(reinterpret_cast<unsigned char*>(model_data.data()), model_data.size());
+
+  if (model_ptr == nullptr) {
+    throw std::runtime_error("Invalid model");
+  }
+
+  model_ = std::shared_ptr<void>(model_ptr, FreeModel);
 }
 
 void KernelTextToSentences::Compute(OrtKernelContext* context) {

@@ -88,6 +88,25 @@ class StringToVector(CustomOp):
         return attr_data
 
 
+class TextToSentence(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def("text", onnx.TensorProto.STRING, [None])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def('sentence', onnx_proto.TensorProto.STRING, [])]
+
+    @classmethod
+    def serialize_attr(cls, attrs):
+        attrs_data = {}
+        for k_, v_ in attrs.items():
+            if k_ == 'model':
+                with open(v_, "rb") as model_file:
+                    attrs_data[k_] = model_file.read()
+            else:
+                attrs_data[k_] = v_
+        return attrs_data
 # TODO: list all custom operators schema here:
 # ...
 # ...
