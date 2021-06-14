@@ -21,6 +21,8 @@ struct KernelTextToSentences : BaseKernel {
  private:
   using ModelPtr = std::shared_ptr<void>;
   ModelPtr model_;
+  int max_sentence;
+
 };
 
 struct CustomOpTextToSentences : Ort::CustomOpBase<CustomOpTextToSentences, KernelTextToSentences> {

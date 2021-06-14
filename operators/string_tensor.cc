@@ -42,6 +42,7 @@ void GetTensorMutableDataString(const OrtApi& api, Ort::CustomOpApi& ort, OrtKer
   }
 }
 
+
 void FillTensorDataString(const OrtApi& api, Ort::CustomOpApi& ort, OrtKernelContext* context,
                           const std::vector<ustring>& value, OrtValue* output) {
   std::vector<std::string> utf8_strings;

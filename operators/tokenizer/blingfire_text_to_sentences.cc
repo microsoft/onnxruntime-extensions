@@ -8,8 +8,7 @@
 #include <codecvt>
 #include <algorithm>
 
-
-KernelTextToSentences::KernelTextToSentences(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+KernelTextToSentences::KernelTextToSentences(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info), max_sentence(-1) {
   std::string model_data = ort_.KernelInfoGetAttribute<std::string>(info, "model");
   if (model_data.empty()) {
     throw std::runtime_error("vocabulary shouldn't be empty.");
@@ -22,6 +21,10 @@ KernelTextToSentences::KernelTextToSentences(OrtApi api, const OrtKernelInfo* in
   }
 
   model_ = std::shared_ptr<void>(model_ptr, FreeModel);
+
+  if (HasAttribute("max_sentence")) {
+    max_sentence = ort_.KernelInfoGetAttribute<int64_t>(info, "max_sentence");
+  }
 }
 
 void KernelTextToSentences::Compute(OrtKernelContext* context) {
@@ -29,17 +32,43 @@ void KernelTextToSentences::Compute(OrtKernelContext* context) {
   const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
   OrtTensorDimensions dimensions(ort_, input);
 
-  if (dimensions.Size() != 1) {
-    throw std::runtime_error("We only support one text.");
+  if (dimensions.Size() != 1 && dimensions[0] != 1) {
+    throw std::runtime_error("We only support string scalar.");
   }
 
   std::vector<std::string> input_data;
   GetTensorMutableDataString(api_, ort_, context, input, input_data);
 
+  std::string& input_string = input_data[0];
+  int max_length = 2 * input_string.size() + 1;
+  std::string output_str;
+  output_str.reserve(max_length);
 
-  OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
-  auto* output_data = ort_.GetTensorMutableData<int64_t>(output);
+  int output_length = TextToSentencesWithOffsetsWithModel(input_string.data(), input_string.size(), output_str.data(), nullptr, nullptr, max_length, model_.get());
+  if (output_length < 0) {
+    throw std::runtime_error(MakeString("splitting input:\"", input_string, "\"  failed"));
+  }
 
+  // inline split output_str by newline '\n'
+  std::vector<char*> output_sentences;
+  bool head_flag = true;
+  for (int i = 0; i < output_length; i++) {
+    if (head_flag) {
+      output_sentences.push_back(&output_str[i]);
+      head_flag = false;
+    }
+
+    if (output_str[i] == '\n') {
+      head_flag = true;
+      output_str[i] = '\0';
+    }
+  }
+
+  std::vector<int64_t> output_dimensions(1);
+  output_dimensions[0] = output_sentences.size();
+
+  OrtValue* output = ort_.KernelContext_GetOutput(context, 0, output_dimensions.data(), output_dimensions.size());
+  Ort::ThrowOnError(api_, api_.FillStringTensor(output, output_sentences.data(), output_sentences.size()));
 }
 
 void* CustomOpTextToSentences::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
