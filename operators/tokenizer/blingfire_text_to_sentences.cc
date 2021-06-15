@@ -9,12 +9,12 @@
 #include <algorithm>
 
 KernelTextToSentences::KernelTextToSentences(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info), max_sentence(-1) {
-  std::string model_data = ort_.KernelInfoGetAttribute<std::string>(info, "model");
-  if (model_data.empty()) {
+  model_data_ = ort_.KernelInfoGetAttribute<std::string>(info, "model");
+  if (model_data_.empty()) {
     throw std::runtime_error("vocabulary shouldn't be empty.");
   }
 
-  void* model_ptr = SetModel(reinterpret_cast<unsigned char*>(model_data.data()), model_data.size());
+  void* model_ptr = SetModel(reinterpret_cast<unsigned char*>(model_data_.data()), model_data_.size());
 
   if (model_ptr == nullptr) {
     throw std::runtime_error("Invalid model");
