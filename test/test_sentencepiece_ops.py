@@ -7,7 +7,7 @@ from numpy.testing import assert_almost_equal
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
 from onnxruntime_extensions import (
-    onnx_op, PyCustomOpDef,
+    onnx_op, PyCustomOpDef, PyOrtFunction,
     get_library_path as _get_library_path)
 import tensorflow as tf
 from tensorflow_text import SentencepieceTokenizer
@@ -428,6 +428,24 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         for i in range(0, 2):
             assert_almost_equal(exp[i], py_txout[i])
             assert_almost_equal(exp[i], cc_txout[i])
+
+    def test_external_pretrained_model(self):
+        fullname = os.path.join(
+            os.path.dirname(__file__), 'data', 'en.wiki.bpe.vs100000.model')
+        ofunc = PyOrtFunction.from_customop("SentencepieceTokenizer", model=open(fullname, 'rb').read())
+
+        alpha = 0
+        nbest_size = 0
+        flags = 0
+        tokens, indices = ofunc(
+            np.array(['best hotel in bay area.']),
+            np.array(
+                [nbest_size], dtype=np.int64),
+            np.array([alpha], dtype=np.float32),
+            np.array([flags & 1], dtype=np.bool_),
+            np.array([flags & 2], dtype=np.bool_),
+            np.array([flags & 4], dtype=np.bool_))
+        self.assertEqual(tokens.tolist(), [1095, 4054, 26, 2022, 755, 99935])
 
 
 if __name__ == "__main__":

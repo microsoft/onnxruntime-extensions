@@ -110,6 +110,25 @@ class TextToSentence(CustomOp):
 # TODO: list all custom operators schema here:
 # ...
 # ...
+class SentencepieceTokenizer(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [
+            cls.io_def('inputs', onnx_proto.TensorProto.STRING, [None]),
+            cls.io_def('nbest_size', onnx_proto.TensorProto.INT64, [None]),
+            cls.io_def('alpha', onnx_proto.TensorProto.FLOAT, [None]),
+            cls.io_def('add_bos', onnx_proto.TensorProto.BOOL, [None]),
+            cls.io_def('add_eos', onnx_proto.TensorProto.BOOL, [None]),
+            cls.io_def('reverse', onnx_proto.TensorProto.BOOL, [None])
+        ]
+
+    @classmethod
+    def get_outputs(cls):
+        return [
+            cls.io_def('tokens', onnx_proto.TensorProto.INT32, [None]),
+            cls.io_def('indices', onnx_proto.TensorProto.INT64, [None])
+
+        ]
 
 
 class SingleOpGraph:
@@ -122,6 +141,9 @@ class SingleOpGraph:
 
     @classmethod
     def build_my_graph(cls, op_class, *args, **kwargs):
+        if isinstance(op_class, str):
+            op_class = cls.get_op_class(op_class)
+
         op_type = op_class.op_type()
         inputs = op_class.get_inputs()
         outputs = op_class.get_outputs()

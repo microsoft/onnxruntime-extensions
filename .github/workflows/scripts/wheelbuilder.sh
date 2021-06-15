@@ -26,7 +26,7 @@ fi
 
 # Build wheels
 if [ "$GITHUB_EVENT_NAME" == "schedule" ]; then
-    python setup.py bdist_wheel --weekly_build || { echo "Building wheels failed."; exit 1; }
+    python setup.py bdist_wheel --nightly_build || { echo "Building wheels failed."; exit 1; }
 else
     python setup.py bdist_wheel || { echo "Building wheels failed."; exit 1; }
 fi

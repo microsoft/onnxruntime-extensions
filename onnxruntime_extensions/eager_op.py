@@ -34,6 +34,7 @@ class EagerOp:
     def __init__(self):
         self._onnx_model = None
         self.ort_session = None
+        self.default_inputs = {}
 
     def create_from_customop(self, op_type, *args, **kwargs):
         graph = SingleOpGraph.build_my_graph(op_type, *args, **kwargs)
@@ -42,6 +43,14 @@ class EagerOp:
             onnx.helper.make_operatorsetid(default_opset_domain(), 1)])
         self._bind(model)
         return self
+
+    def add_default_input(self, **kwargs):
+        inputs = {
+            ky_: val_ if isinstance(val_, (np.ndarray, np.generic)) else \
+                np.asarray(list(val_), dtype=np.uint8) for ky_, val_ in kwargs.items()
+        }
+
+        self.default_inputs.update(inputs)
 
     @property
     def onnx_model(self):
@@ -81,6 +90,10 @@ class EagerOp:
         idx = 0
         feed = {}
         for i_ in self.inputs:
+            if i_.name in self.default_inputs:
+                feed[i_.name] = self.default_inputs[i_.name]
+                continue
+
             x = args[idx]
             ts_x = np.array(x) if isinstance(x, (int, float, bool)) else x
             # an annoying bug is numpy by default is int32, while pytorch is int64.
