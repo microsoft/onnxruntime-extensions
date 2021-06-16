@@ -1,7 +1,11 @@
+from pathlib import Path
 import unittest
 import numpy as np
 from onnxruntime_extensions.eager_op import EagerOp, TextToSentence
 
+def _get_test_data_file(*sub_dirs):
+    test_dir = Path(__file__).parent
+    return str(test_dir.joinpath(*sub_dirs))
 
 def _run_text_to_sentence(input, output, model_path):
     t2stc = EagerOp.from_customop(TextToSentence, model=model_path)
@@ -18,7 +22,7 @@ class TestTextToSentence(unittest.TestCase):
                             "Autophobia, also called monophobia, isolophobia, or eremophobia, is the specific phobia of isolation. 2007年9月日历表_2007年9月农历阳历一览表-万年历.",
                             "I saw a girl with a telescope.",
                             "Я увидел девушку с телескопом."])
-        _run_text_to_sentence(input=inputs, output=outputs, model_path="data/default_sentence_break_model.bin")
+        _run_text_to_sentence(input=inputs, output=outputs, model_path=_get_test_data_file('data', 'default_sentence_break_model.bin'))
 
 
 if __name__ == "__main__":
