@@ -1,16 +1,15 @@
 FetchContent_Declare(
         Blingfire
         GIT_REPOSITORY https://github.com/microsoft/BlingFire.git
-        GIT_TAG        master
+        GIT_TAG master
 )
 
 
 FetchContent_GetProperties(Blingfire)
 
 if (NOT blingfire_POPULATED)
-  FetchContent_Populate(Blingfire)
+    FetchContent_Populate(Blingfire)
 
     # enable size optimization build
-  set(BLING_FIRE_SIZE_OPTIMIZATION ON)
-  add_subdirectory(${blingfire_SOURCE_DIR} ${blingfire_BINARY_DIR} EXCLUDE_FROM_ALL)
-endif()
+    add_subdirectory(${blingfire_SOURCE_DIR} ${blingfire_BINARY_DIR} EXCLUDE_FROM_ALL)
+endif ()

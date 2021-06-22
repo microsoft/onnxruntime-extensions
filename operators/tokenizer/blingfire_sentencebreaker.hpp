@@ -15,8 +15,8 @@ extern "C" int FreeModel(void* ModelPtr);
 
 extern "C" void* SetModel(const unsigned char* pImgBytes, int ModelByteCount);
 
-struct KernelTextToSentences : BaseKernel {
-  KernelTextToSentences(OrtApi api, const OrtKernelInfo* info);
+struct KernelBlingFireSentenceBreaker : BaseKernel {
+  KernelBlingFireSentenceBreaker(OrtApi api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
  private:
   using ModelPtr = std::shared_ptr<void>;
@@ -25,7 +25,7 @@ struct KernelTextToSentences : BaseKernel {
   int max_sentence;
 };
 
-struct CustomOpTextToSentences : Ort::CustomOpBase<CustomOpTextToSentences, KernelTextToSentences> {
+struct CustomOpBlingFireSentenceBreaker : Ort::CustomOpBase<CustomOpBlingFireSentenceBreaker, KernelBlingFireSentenceBreaker> {
   void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;

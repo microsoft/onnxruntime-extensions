@@ -181,7 +181,7 @@ endif()
 if (OCOS_ENABLE_BLINGFIRE)
   include(blingfire)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_BLINGFIRE)
-  list(APPEND ocos_libraries blingfiretokdll_static)
+  list(APPEND ocos_libraries bingfirtinydll_static)
 endif()
 
 if (OCOS_ENABLE_TF_STRING)

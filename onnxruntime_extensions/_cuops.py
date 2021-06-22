@@ -88,7 +88,7 @@ class StringToVector(CustomOp):
         return attr_data
 
 
-class TextToSentence(CustomOp):
+class BlingFireSentenceBreaker(CustomOp):
     @classmethod
     def get_inputs(cls):
         return [cls.io_def("text", onnx.TensorProto.STRING, [None])]

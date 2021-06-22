@@ -1,14 +1,14 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "blingfire_text_to_sentences.hpp"
+#include "blingfire_sentencebreaker.hpp"
 #include "string_tensor.h"
 #include <vector>
 #include <locale>
 #include <codecvt>
 #include <algorithm>
 
-KernelTextToSentences::KernelTextToSentences(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info), max_sentence(-1) {
+KernelBlingFireSentenceBreaker::KernelBlingFireSentenceBreaker(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info), max_sentence(-1) {
   model_data_ = ort_.KernelInfoGetAttribute<std::string>(info, "model");
   if (model_data_.empty()) {
     throw std::runtime_error("vocabulary shouldn't be empty.");
@@ -27,7 +27,7 @@ KernelTextToSentences::KernelTextToSentences(OrtApi api, const OrtKernelInfo* in
   }
 }
 
-void KernelTextToSentences::Compute(OrtKernelContext* context) {
+void KernelBlingFireSentenceBreaker::Compute(OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
   OrtTensorDimensions dimensions(ort_, input);
@@ -71,24 +71,24 @@ void KernelTextToSentences::Compute(OrtKernelContext* context) {
   Ort::ThrowOnError(api_, api_.FillStringTensor(output, output_sentences.data(), output_sentences.size()));
 }
 
-void* CustomOpTextToSentences::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
-  return new KernelTextToSentences(api, info);
+void* CustomOpBlingFireSentenceBreaker::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+  return new KernelBlingFireSentenceBreaker(api, info);
 };
 
-const char* CustomOpTextToSentences::GetName() const { return "TextToSentence"; };
+const char* CustomOpBlingFireSentenceBreaker::GetName() const { return "BlingFireSentenceBreaker"; };
 
-size_t CustomOpTextToSentences::GetInputTypeCount() const {
+size_t CustomOpBlingFireSentenceBreaker::GetInputTypeCount() const {
   return 1;
 };
 
-ONNXTensorElementDataType CustomOpTextToSentences::GetInputType(size_t /*index*/) const {
+ONNXTensorElementDataType CustomOpBlingFireSentenceBreaker::GetInputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
 };
 
-size_t CustomOpTextToSentences::GetOutputTypeCount() const {
+size_t CustomOpBlingFireSentenceBreaker::GetOutputTypeCount() const {
   return 1;
 };
 
-ONNXTensorElementDataType CustomOpTextToSentences::GetOutputType(size_t /*index*/) const {
+ONNXTensorElementDataType CustomOpBlingFireSentenceBreaker::GetOutputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
 };

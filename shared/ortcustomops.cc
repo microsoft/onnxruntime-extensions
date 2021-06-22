@@ -30,7 +30,7 @@
 #endif
 
 #ifdef ENABLE_BLINGFIRE
-#include "blingfire_text_to_sentences.hpp"
+#include "blingfire_sentencebreaker.hpp"
 #endif
 
 #ifdef ENABLE_SPM_TOKENIZER
@@ -59,7 +59,7 @@ CustomOpStringUpper c_CustomOpStringUpper;
 CustomOpVectorToString c_CustomOpVectorToString;
 CustomOpStringLength c_CustomOpStringLength;
 CustomOpStringConcat c_CustomOpStringConcat;
-CustomOpTextToSentences c_CustomOpTextToSentences;
+CustomOpBlingFireSentenceBreaker c_CustomOpTextToSentences;
 #endif
 
 OrtCustomOp* operator_lists[] = {
