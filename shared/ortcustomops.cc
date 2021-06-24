@@ -29,6 +29,10 @@
 #include "wordpiece_tokenizer.hpp"
 #endif
 
+#ifdef ENABLE_BLINGFIRE
+#include "blingfire_sentencebreaker.hpp"
+#endif
+
 #ifdef ENABLE_SPM_TOKENIZER
 CustomOpSentencepieceTokenizer c_CustomOpSentencepieceTokenizer;
 #endif
@@ -55,6 +59,7 @@ CustomOpStringUpper c_CustomOpStringUpper;
 CustomOpVectorToString c_CustomOpVectorToString;
 CustomOpStringLength c_CustomOpStringLength;
 CustomOpStringConcat c_CustomOpStringConcat;
+CustomOpBlingFireSentenceBreaker c_CustomOpTextToSentences;
 #endif
 
 OrtCustomOp* operator_lists[] = {
@@ -84,6 +89,7 @@ OrtCustomOp* operator_lists[] = {
     &c_CustomOpVectorToString,
     &c_CustomOpStringLength,
     &c_CustomOpStringConcat,
+    &c_CustomOpTextToSentences,
 #endif
     nullptr};
 
