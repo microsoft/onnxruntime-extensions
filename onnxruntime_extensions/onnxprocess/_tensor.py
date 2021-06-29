@@ -38,6 +38,10 @@ class _EagerTensor:
         return self._t
 
     @property
+    def dtype(self):
+        return self._t.dtype
+
+    @property
     def onnx_type(self):
         return self.to_onnx_type(self._t.dtype)
 
