@@ -63,7 +63,7 @@ def inference_and_dump_full_model(tokenizer, func_tokenizer, input_text, num_tok
     num_layer = config.n_layer
     if func_tokenizer is None:
         input_ids, attention_mask = _extract_endict(tokenizer(input_text, padding=True, return_tensors='np'))
-        with trace_for_onnx(input_ids, attention_mask, 
+        with trace_for_onnx(input_ids, attention_mask,
                             num_tokens_to_produce, names=["input_ids", "attention_mask", "out_token_num"], target_opset=12) as tc_sess:
             input_ids, attention_mask, num_tokens = tc_sess.get_inputs()
             _beam_search(tokenizer, func_one_step, num_attention_heads, hidden_size, num_layer, tc_sess, num_tokens, input_ids, attention_mask)
@@ -185,10 +185,10 @@ def main(enable_tokenizer):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--no-tokenizer", help="No tokenizer operator for the full model",
+    parser.add_argument("--disable-tokenizer", help="No tokenizer operator for the full model",
                         action="store_true")
     parser.add_argument("--output", '-o', help="The output file name")
     args = parser.parse_args()
     if args.output is not None:
         gpt2_full_model_path = args.output
-    main(not args.no_tokenizer)
+    main(not args.disable_tokenizer)
