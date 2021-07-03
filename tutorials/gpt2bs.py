@@ -66,6 +66,9 @@ def inference_and_dump_full_model(tokenizer, func_tokenizer, input_text, num_tok
         with trace_for_onnx(input_ids, attention_mask,
                             num_tokens_to_produce, names=["input_ids", "attention_mask", "out_token_num"], target_opset=12) as tc_sess:
             input_ids, attention_mask, num_tokens = tc_sess.get_inputs()
+            input_ids.symbolic_shape = ['batch_size', 'seq_len']
+            attention_mask.symbolic_shape = ['batch_size', 'seq_len']
+
             _beam_search(tokenizer, func_one_step, num_attention_heads, hidden_size, num_layer, tc_sess, num_tokens, input_ids, attention_mask)
     else:
         with trace_for_onnx(input_text, num_tokens_to_produce, names=func_tokenizer.input_names, target_opset=12) as tc_sess:
