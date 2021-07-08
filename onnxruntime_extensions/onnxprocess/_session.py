@@ -5,7 +5,7 @@ import warnings
 import numpy as np
 from onnx import helper, mapping
 from collections import namedtuple
-from ..eager_op import EagerOp
+from .._ortapi2 import EagerOp
 from ._builder import is_path as _is_path
 from ._onnx_ops import ONNXElementContainer, make_model_ex
 from ._tensor import tensor_from_onnx, tensor_from_torch, tensor_set_session
@@ -343,12 +343,13 @@ class ONNXTraceSession:
 
         m = self.build_model(model_name, doc_string)
 
-        if _is_path(file_like_or_path):
-            with open(file_like_or_path, 'wb') as f:
+        if file_like_or_path is not None:
+            if _is_path(file_like_or_path):
+                with open(file_like_or_path, 'wb') as f:
+                    f.write(m.SerializeToString())
+            else:
+                f = file_like_or_path
                 f.write(m.SerializeToString())
-        else:
-            f = file_like_or_path
-            f.write(m.SerializeToString())
-            f.flush()
+                f.flush()
 
         return m

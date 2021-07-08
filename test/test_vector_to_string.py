@@ -1,10 +1,10 @@
 import unittest
 import numpy as np
-from onnxruntime_extensions.eager_op import EagerOp, VectorToString
+from onnxruntime_extensions import PyOrtFunction, VectorToString
 
 
 def _run_vector_to_string(input, output, map, unk):
-    v2str = EagerOp.from_customop(VectorToString, map=map, unk=unk)
+    v2str = PyOrtFunction.from_customop(VectorToString, map=map, unk=unk)
     result = v2str(input)
     np.testing.assert_array_equal(result, output)
 

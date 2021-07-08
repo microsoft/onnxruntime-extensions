@@ -15,7 +15,7 @@ from onnxruntime_extensions import (
     hook_model_op,
     get_library_path as _get_library_path)
 
-from onnxruntime_extensions.eager_op import EagerOp
+from onnxruntime_extensions import PyOrtFunction
 
 
 def my_inverse(g, self):
@@ -71,7 +71,7 @@ class TestPyTorchCustomOp(unittest.TestCase):
         onnx.save_model(onnx_model, 'temp_pytorchcustomop.onnx')
         pt_outputs = model(x0, x1)
 
-        run_ort = EagerOp.from_model(onnx_model)
+        run_ort = PyOrtFunction.from_model(onnx_model)
         ort_outputs = run_ort(x0.numpy(), x1.numpy())
 
         # Validate PyTorch and ONNX Runtime results

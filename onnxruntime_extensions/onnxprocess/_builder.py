@@ -1,7 +1,7 @@
 import json
 import pathlib
 from ._onnx_ops import make_model_ex
-from ..eager_op import SingleOpGraph, default_opset_domain, GPT2Tokenizer, VectorToString
+from .._ortapi2 import SingleOpGraph, default_opset_domain, GPT2Tokenizer, VectorToString
 
 
 def is_path(name_or_buffer):
