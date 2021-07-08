@@ -1,15 +1,8 @@
-import os
-from pathlib import Path
 import unittest
 import numpy as np
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
-from onnxruntime_extensions import (
-    onnx_op,
-    enable_custom_op,
-    PyCustomOpDef,
-    expand_onnx_inputs,
-    get_library_path as _get_library_path)
+from onnxruntime_extensions import get_library_path as _get_library_path
 
 
 def _create_test_model(intput_dims, output_dims):

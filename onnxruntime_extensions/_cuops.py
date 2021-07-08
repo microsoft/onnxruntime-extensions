@@ -5,7 +5,7 @@
 
 import onnx
 from onnx import onnx_pb as onnx_proto
-from ._ocos import default_opset_domain, get_library_path  # noqa
+from ._ocos import default_opset_domain
 
 
 class CustomOp:
@@ -107,9 +107,8 @@ class BlingFireSentenceBreaker(CustomOp):
             else:
                 attrs_data[k_] = v_
         return attrs_data
-# TODO: list all custom operators schema here:
-# ...
-# ...
+
+
 class SentencepieceTokenizer(CustomOp):
     @classmethod
     def get_inputs(cls):

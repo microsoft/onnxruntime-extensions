@@ -3,7 +3,7 @@ import onnx
 import unittest
 import torchvision
 import numpy as np
-from onnxruntime_extensions import eager_op, hook_model_op, PyOp
+from onnxruntime_extensions import PyOrtFunction, hook_model_op, PyOp
 from onnxruntime_extensions.onnxprocess import torch_wrapper as torch
 from onnxruntime_extensions.onnxprocess import trace_for_onnx, pyfunc_from_model
 
@@ -37,7 +37,7 @@ class TestTorchE2E(unittest.TestCase):
 
         m = onnx.load_model_from_string(f.getvalue())
         onnx.save_model(m, 'temp_range.onnx')
-        fu_m = eager_op.EagerOp.from_model(m)
+        fu_m = PyOrtFunction.from_model(m)
         result = fu_m(num)
         np.testing.assert_array_equal(result, np.array(range(num)))
 
@@ -53,7 +53,7 @@ class TestTorchE2E(unittest.TestCase):
 
         m = onnx.load_model_from_string(f.getvalue())
         onnx.save_model(m, 'temp_test00.onnx')
-        fu_m = eager_op.EagerOp.from_model(m)
+        fu_m = PyOrtFunction.from_model(m)
         result = fu_m(input_text)
         np.testing.assert_array_equal(result, [2, 2])
 
@@ -76,7 +76,7 @@ class TestTorchE2E(unittest.TestCase):
             tc_sess.save_as_onnx(mb_full_path, batch_top1)
 
         hkdmdl = hook_model_op(onnx.load_model(mb_full_path), 'argmax', self.on_hook, [PyOp.dt_float])
-        mbnet2_full = eager_op.EagerOp.from_model(hkdmdl)
+        mbnet2_full = PyOrtFunction.from_model(hkdmdl)
         batch_top1_2 = mbnet2_full(np_input)
         np.testing.assert_allclose(np_argmax, self.argmax_input, rtol=1e-5)
         np.testing.assert_array_equal(batch_top1_2, np_output)

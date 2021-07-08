@@ -9,7 +9,6 @@ from onnxruntime_extensions import (
     onnx_op,
     enable_custom_op,
     PyCustomOpDef,
-    expand_onnx_inputs,
     get_library_path as _get_library_path)
 
 

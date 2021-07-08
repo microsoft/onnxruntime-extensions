@@ -109,3 +109,10 @@ class EagerOp:
         self._ensure_ort_session()
         outputs = self.ort_session.run(None, self._argument_map(*args, **kwargs))
         return outputs[0] if len(outputs) == 1 else outputs
+
+
+def optimize_model(model_or_file, output_file):
+    sess_options = EagerOp.get_ort_session_options()
+    sess_options.graph_optimization_level = _ort.GraphOptimizationLevel.ORT_ENABLE_EXTENDED
+    sess_options.optimized_model_filepath = output_file
+    _ort.InferenceSession(model_or_file if isinstance(model_or_file, str) else model_or_file.SerializeToString(), sess_options)

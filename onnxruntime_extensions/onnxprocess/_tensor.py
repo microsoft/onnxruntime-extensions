@@ -8,7 +8,7 @@ from torch.types import _int, _float, _bool, Number, _dtype, _device, _qscheme, 
 from torch import strided, memory_format, contiguous_format, StringType  # noqa
 
 from ._onnx_ops import ox as _ox
-from ..eager_op import EagerOp
+from .._ortapi2 import EagerOp
 
 
 class _EagerTensor:

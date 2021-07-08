@@ -1,8 +1,14 @@
 import os
 import numpy
 import argparse
+import onnxruntime as _ort
+import onnxruntime_extensions as _ortex
 from transformers import AutoConfig
+from distutils.version import StrictVersion
 
+
+if StrictVersion(_ort.__version__) < StrictVersion('1.8.1'):
+    raise RuntimeError('Full GPT-2 model is only available on onxruntime 1.8.1 and higher version.')
 
 model_name_or_path = "gpt2"
 device = "cpu"
@@ -41,19 +47,18 @@ def get_tokenizer(model_name_or_path, enable_tokenizer, cache_dir):
 
 
 def convert_gpt2():
-    import onnxruntime
-    from distutils.version import StrictVersion
-    if StrictVersion(onnxruntime.__version__) < StrictVersion('1.8'):
-        raise RuntimeError('Full GPT-2 model is only available on onxruntime 1.8 and higher version.')
     from onnxruntime.transformers.gpt2_beamsearch_helper import Gpt2BeamSearchHelper, GPT2LMHeadModel_BeamSearchStep
     config = AutoConfig.from_pretrained(model_name_or_path, cache_dir=cache_dir)
-    model = GPT2LMHeadModel_BeamSearchStep.from_pretrained(
-        model_name_or_path, config=config, batch_size=default_batch_size, beam_size=default_beam_width, cache_dir=cache_dir)
+    model = GPT2LMHeadModel_BeamSearchStep.from_pretrained(model_name_or_path,
+                                                           config=config,
+                                                           batch_size=default_batch_size,
+                                                           beam_size=default_beam_width,
+                                                           cache_dir=cache_dir)
     model.eval().to(device)
     Gpt2BeamSearchHelper.export_onnx(model, device, onnx_model_path)
 
 
-def inference_and_dump_full_model(tokenizer, func_tokenizer, input_text, num_tokens_to_produce = 30):
+def inference_and_dump_full_model(tokenizer, func_tokenizer, input_text, num_tokens_to_produce=30):
     from onnxruntime_extensions.onnxprocess import trace_for_onnx, pyfunc_from_model
 
     func_one_step = pyfunc_from_model(onnx_model_path)
@@ -61,23 +66,33 @@ def inference_and_dump_full_model(tokenizer, func_tokenizer, input_text, num_tok
     num_attention_heads = config.n_head
     hidden_size = config.n_embd
     num_layer = config.n_layer
+    full_model = None
     if func_tokenizer is None:
         input_ids, attention_mask = _extract_endict(tokenizer(input_text, padding=True, return_tensors='np'))
         with trace_for_onnx(input_ids, attention_mask,
-                            num_tokens_to_produce, names=["input_ids", "attention_mask", "out_token_num"], target_opset=12) as tc_sess:
+                            num_tokens_to_produce,
+                            names=["input_ids", "attention_mask", "out_token_num"], target_opset=12) as tc_sess:
             input_ids, attention_mask, num_tokens = tc_sess.get_inputs()
             input_ids.symbolic_shape = ['batch_size', 'seq_len']
             attention_mask.symbolic_shape = ['batch_size', 'seq_len']
 
-            _beam_search(tokenizer, func_one_step, num_attention_heads, hidden_size, num_layer, tc_sess, num_tokens, input_ids, attention_mask)
+            full_model = _beam_search(tokenizer, func_one_step,
+                                      num_attention_heads, hidden_size, num_layer,
+                                      tc_sess, num_tokens, input_ids, attention_mask)
     else:
-        with trace_for_onnx(input_text, num_tokens_to_produce, names=func_tokenizer.input_names, target_opset=12) as tc_sess:
+        with trace_for_onnx(input_text, num_tokens_to_produce,
+                            names=func_tokenizer.input_names, target_opset=12) as tc_sess:
             inputs, num_tokens = tc_sess.get_inputs()
             input_ids, attention_mask = func_tokenizer(inputs, padding=True)
-            _beam_search(tokenizer, func_one_step, num_attention_heads, hidden_size, num_layer, tc_sess, num_tokens, input_ids, attention_mask)
+            full_model = _beam_search(tokenizer, func_one_step,
+                                      num_attention_heads, hidden_size, num_layer,
+                                      tc_sess, num_tokens, input_ids, attention_mask)
+
+    _ortex.optimize_model(full_model, gpt2_full_model_path)
 
 
-def _beam_search(tokenizer, func_one_step, num_attention_heads, hidden_size, num_layer, tc_sess, num_tokens, input_ids, attention_mask):
+def _beam_search(tokenizer, func_one_step,
+                 num_attention_heads, hidden_size, num_layer, tc_sess, num_tokens, input_ids, attention_mask):
     from onnxruntime_extensions.onnxprocess import torch_wrapper as torch
 
     if attention_mask.dtype is not torch.float32:
@@ -95,22 +110,23 @@ def _beam_search(tokenizer, func_one_step, num_attention_heads, hidden_size, num
     prev_step_scores = torch.zeros([batch_size, 1])
     beam_size = default_beam_width
     prev_step_results = input_ids.clone().detach().to(device)
-    
+
     cfg = torch.control_flow()
     for states in cfg.loop(num_tokens, torch.tensor(True), input_ids, position_ids,
-                               attention_mask, beam_select_idx, input_log_probs,
-                               input_unfinished_sents, prev_step_results, prev_step_scores, *empty_past):
+                           attention_mask, beam_select_idx, input_log_probs,
+                           input_unfinished_sents, prev_step_results, prev_step_scores, *empty_past):
         step = states[0]
         states[1].symbolic_shape = ['batch_size', 'seq_len']
         states[2].symbolic_shape = ['batch_size', 'seq_len']
         states[3].symbolic_shape = ['batch_size', 'all_seq_len']
         states[4].symbolic_shape = [1, 'batch_size']
 
-            # prev_step_results
+        # prev_step_results
         states[7].symbolic_shape = ['batch_size', 'total_seq_len']
 
         for st_ in states[-num_layer:]:
-            st_.symbolic_shape = [2, 'batch_size', num_attention_heads, 'past_seq_len', hidden_size // num_attention_heads]
+            st_.symbolic_shape = [2, 'batch_size', num_attention_heads,
+                                  'past_seq_len', hidden_size // num_attention_heads]
 
         prev_attention_mask = states[3]
         outputs = func_one_step(*states[1:])
@@ -119,8 +135,8 @@ def _beam_search(tokenizer, func_one_step, num_attention_heads, hidden_size, num
 
         input_unfinished_sents_id = -3
         prev_step_results = outputs[-2].clone().detach().to(device)
-            # position_ids = (torch.tensor([context_length + step - 1
-            #                                     ]).unsqueeze(0).repeat(batch_size * beam_size, 1).to(device))
+        # position_ids = (torch.tensor([context_length + step - 1
+        #                                     ]).unsqueeze(0).repeat(batch_size * beam_size, 1).to(device))
         position_ids = torch.zeros([batch_size * beam_size, 1], dtype=torch.int64) + attention_mask.size()[-1]
         factor = (~step.type(torch.bool)).type(torch.int64)
         prev_attention_mask = prev_attention_mask.repeat(factor * (batch_size * beam_size - 1) + 1, 1).to(device)
@@ -139,9 +155,8 @@ def _beam_search(tokenizer, func_one_step, num_attention_heads, hidden_size, num
 
         past = []
         for i in range(num_layer):
-            past_i =  outputs[i + 1].clone().detach()
+            past_i = outputs[i + 1].clone().detach()
             past.append(past_i.to(device))
-
 
         any_unfinished = input_unfinished_sents.any()
         input_ids.symbolic_shape = ['total_batch_size', 'seq_len']
@@ -149,16 +164,17 @@ def _beam_search(tokenizer, func_one_step, num_attention_heads, hidden_size, num
         attention_mask.symbolic_shape = ['total_batch_size', 'all_seq_len']
         prev_step_results.symbolic_shape = ['total_batch_size', 'step_seq_len']
         for st_ in past:
-            st_.symbolic_shape = [2, 'total_batch_size', num_attention_heads, 'all_seq_len', hidden_size // num_attention_heads]
+            st_.symbolic_shape = [2, 'total_batch_size', num_attention_heads,
+                                  'all_seq_len', hidden_size // num_attention_heads]
         cfg.flow_output(any_unfinished, input_ids,
-                            position_ids, attention_mask, beam_select_idx,
-                            input_log_probs, input_unfinished_sents, prev_step_results, prev_step_scores, *past)
+                        position_ids, attention_mask, beam_select_idx,
+                        input_log_probs, input_unfinished_sents, prev_step_results, prev_step_scores, *past)
 
     result_id = 6
     all_token_ids = cfg.finalize()[result_id]
-    tc_sess.save_as_onnx(gpt2_full_model_path, all_token_ids)
-
+    mdl = tc_sess.save_as_onnx(None, all_token_ids)
     print(tokenizer.decode(all_token_ids.t[0], skip_special_tokens=True))
+    return mdl
 
 
 def verify_bsfull_model(input_text, tokenizer, enable_tokenizer):
@@ -188,7 +204,7 @@ def main(enable_tokenizer):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--disable-tokenizer", help="No tokenizer operator for the full model",
+    parser.add_argument("--disable-tokenizer", '-d', help="No tokenizer operator for the full model",
                         action="store_true")
     parser.add_argument("--output", '-o', help="The output file name")
     args = parser.parse_args()
