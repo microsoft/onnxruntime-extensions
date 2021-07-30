@@ -1,6 +1,6 @@
 import inspect
+from ._ocos import default_opset_domain
 from . import _cuops
-from ._ortapi2 import default_opset_domain
 
 
 ALL_CUSTOM_OPS = {_name: _obj for _name, _obj in inspect.getmembers(_cuops)
