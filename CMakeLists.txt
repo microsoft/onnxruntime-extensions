@@ -31,7 +31,7 @@ option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
 option(OCOS_ENABLE_BLINGFIRE "Enable the Blingfire building" ON)
 option(OCOS_ENABLE_MATH "Enable the math tensor operators building" ON)
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
-
+option(OCOS_ENABLE_OPLIST_FILE "Enable including the selected_ops tool file" OFF)
 
 if(NOT CC_OPTIMIZE)
   message("!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
@@ -59,6 +59,10 @@ endif()
 
 # External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
+if (OCOS_ENABLE_OPLIST_FILE)
+  include(_selectedoplist)
+endif()
+
 include(FetchContent)
 if (OCOS_ENABLE_TF_STRING)
   if (NOT TARGET re2::re2)
