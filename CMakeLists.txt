@@ -25,13 +25,13 @@ option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
 option(OCOS_ENABLE_PYTHON "Enable Python component building" OFF)
 option(OCOS_ENABLE_CTEST "Enable C++ test" OFF)
 option(OCOS_ENABLE_TF_STRING "Enable String Operator Set" ON)
-option(OCOS_ENABLE_GPT2_TOKENIZER "Enable the GPT2 tokenizer building" ON)
+option(OCOS_ENABLE_GPT2_TOKENIZER "Enable the GPT2 tokenizer building" OFF)
 option(OCOS_ENABLE_SPM_TOKENIZER "Enable the SentencePiece tokenizer building" ON)
 option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
 option(OCOS_ENABLE_BLINGFIRE "Enable the Blingfire building" ON)
 option(OCOS_ENABLE_MATH "Enable the math tensor operators building" ON)
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
-
+option(OCOS_ENABLE_OPLIST_FILE "Enable the oplist file to build selected the kernels" OFF)
 
 if(NOT CC_OPTIMIZE)
   message("!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
@@ -59,6 +59,10 @@ endif()
 
 # External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
+if (OCOS_ENABLE_OPLIST_FILE)
+  include(ocos_enabledoplist)
+endif()
+
 include(FetchContent)
 if (OCOS_ENABLE_TF_STRING)
   if (NOT TARGET re2::re2)
