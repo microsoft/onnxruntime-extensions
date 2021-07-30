@@ -12,7 +12,7 @@ def _get_test_data_file(*sub_dirs):
 class TestCMakeHelper(unittest.TestCase):
     def test_cmake_file_gen(self):
         cfgfile = _get_test_data_file('data', 'test.op.config')
-        cfile = 'ocos_enabledoplist.cmake'
+        cfile = '_selectedoplist.cmake'
         cmake_helper.gen_cmake_oplist(cfgfile, cfile)
         found = False
         with open(cfile, 'r') as f:

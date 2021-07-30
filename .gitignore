@@ -14,7 +14,7 @@ dist/
 cmake_build
 .cmake_build
 cmake-build*
-ocos_enabledoplist*
+_selectedoplist.cmake
 gen
 .DS_Store
 *~

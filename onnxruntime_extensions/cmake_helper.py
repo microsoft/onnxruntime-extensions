@@ -12,7 +12,7 @@ OPMAP_TO_CMAKE_FLAGS = {'GPT2Tokenizer': 'OCOS_ENABLE_GPT2_TOKENIZER',
                        }
 
 
-def gen_cmake_oplist(opconfig_file, oplist_cmake_file):
+def gen_cmake_oplist(opconfig_file, oplist_cmake_file = '_selectedoplist.cmake'):
 
     ext_domain = default_opset_domain()
     with open(oplist_cmake_file, 'w') as f:
