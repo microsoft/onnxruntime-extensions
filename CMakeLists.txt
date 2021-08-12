@@ -31,7 +31,7 @@ option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
 option(OCOS_ENABLE_BLINGFIRE "Enable the Blingfire building" ON)
 option(OCOS_ENABLE_MATH "Enable the math tensor operators building" ON)
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
-option(OCOS_ENABLE_OPLIST_FILE "Enable including the selected_ops tool file" OFF)
+
 
 if(NOT CC_OPTIMIZE)
   message("!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
@@ -59,10 +59,6 @@ endif()
 
 # External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
-if (OCOS_ENABLE_OPLIST_FILE)
-  include(_selectedoplist)
-endif()
-
 include(FetchContent)
 if (OCOS_ENABLE_TF_STRING)
   if (NOT TARGET re2::re2)
@@ -140,7 +136,7 @@ add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_library(ocos_operators STATIC ${TARGET_SRC})
 target_include_directories(ocos_operators PUBLIC operators/tokenizer)
 
-set(ocos_libraries ocos_operators)
+set(ocos_libraries "")
 if (OCOS_ENABLE_TF_STRING)
   list(APPEND ocos_libraries re2)
 endif()
@@ -199,6 +195,7 @@ if (OCOS_ENABLE_BERT_TOKENIZER)
 endif()
 
 target_compile_definitions(ocos_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
+target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
 
 file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h")
 if(OCOS_ENABLE_PYTHON)
@@ -244,7 +241,7 @@ else()
 endif()
 
 target_compile_definitions(ortcustomops PRIVATE  ${OCOS_COMPILE_DEFINITIONS})
-target_link_libraries(ortcustomops PRIVATE ${ocos_libraries})
+target_link_libraries(ortcustomops PRIVATE ocos_operators)
 
 if(OCOS_ENABLE_PYTHON)
   message(STATUS "Fetch pybind11")

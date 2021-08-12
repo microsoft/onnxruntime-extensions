@@ -59,6 +59,9 @@ CustomOpStringUpper c_CustomOpStringUpper;
 CustomOpVectorToString c_CustomOpVectorToString;
 CustomOpStringLength c_CustomOpStringLength;
 CustomOpStringConcat c_CustomOpStringConcat;
+#endif
+
+#ifdef ENABLE_BLINGFIRE
 CustomOpBlingFireSentenceBreaker c_CustomOpTextToSentences;
 #endif
 
@@ -73,25 +76,28 @@ OrtCustomOp* operator_lists[] = {
 
 #ifdef ENABLE_TF_STRING
     &c_CustomOpRaggedTensorToDense,
-    &c_CustomOpRaggedTensorToSparse,
-    &c_CustomOpSegmentSum,
-    &c_CustomOpStringEqual,
-    &c_CustomOpStringHash,
-    &c_CustomOpStringHashFast,
-    &c_CustomOpStringJoin,
-    &c_CustomOpStringLower,
-    &c_CustomOpStringRaggedTensorToDense,
-    &c_CustomOpStringRegexReplace,
-    &c_CustomOpStringRegexSplitWithOffsets,
-    &c_CustomOpStringSplit,
-    &c_CustomOpStringToVector,
-    &c_CustomOpStringUpper,
-    &c_CustomOpVectorToString,
-    &c_CustomOpStringLength,
-    &c_CustomOpStringConcat,
-    &c_CustomOpTextToSentences,
+        &c_CustomOpRaggedTensorToSparse,
+        &c_CustomOpSegmentSum,
+        &c_CustomOpStringEqual,
+        &c_CustomOpStringHash,
+        &c_CustomOpStringHashFast,
+        &c_CustomOpStringJoin,
+        &c_CustomOpStringLower,
+        &c_CustomOpStringRaggedTensorToDense,
+        &c_CustomOpStringRegexReplace,
+        &c_CustomOpStringRegexSplitWithOffsets,
+        &c_CustomOpStringSplit,
+        &c_CustomOpStringToVector,
+        &c_CustomOpStringUpper,
+        &c_CustomOpVectorToString,
+        &c_CustomOpStringLength,
+        &c_CustomOpStringConcat,
 #endif
-    nullptr};
+
+#ifdef ENABLE_BLINGFIRE
+&c_CustomOpTextToSentences,
+#endif
+nullptr};
 
 #if ENABLE_MATH
 extern FxLoadCustomOpFactory LoadCustomOpClasses_Math;
@@ -157,14 +163,14 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
 #endif
 
   static std::vector<FxLoadCustomOpFactory> c_factories = {
-    []() { return const_cast<const OrtCustomOp**>(operator_lists); }
+      []() { return const_cast<const OrtCustomOp**>(operator_lists); }
 #if defined(ENABLE_MATH)
-    ,
-    LoadCustomOpClasses_Math
+,
+LoadCustomOpClasses_Math
 #endif
 #if defined(ENABLE_GPT2_TOKENIZER)
-    ,
-    LoadTokenizerSchemaList
+ ,
+ LoadTokenizerSchemaList
 #endif
   };
 
