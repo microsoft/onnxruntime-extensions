@@ -7,17 +7,13 @@
 #include <unordered_map>
 #include <vector>
 #include "kernels.h"
-#include "farmhash.h"
 #include "string_utils.h"
 
 namespace std {
 
 template <class T>
 struct hash<std::vector<T>> {
-
-  size_t operator()(const vector<T>& __vector) const noexcept {
-    return util::Hash(reinterpret_cast<const char *>(__vector.data()), __vector.size() * sizeof(T));
-  }
+  size_t operator()(const vector<T>& __vector) const noexcept;
 };
 }  // namespace std
 

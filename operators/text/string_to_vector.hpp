@@ -7,7 +7,6 @@
 #include <unordered_map>
 #include <vector>
 #include "kernels.h"
-#include "farmhash.h"
 #include "string_utils.h"
 
 
