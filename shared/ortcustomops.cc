@@ -20,7 +20,6 @@
 #include "text/string_length.hpp"
 #include "text/string_concat.hpp"
 
-
 #ifdef ENABLE_SPM_TOKENIZER
 #include "sentencepiece_tokenizer.hpp"
 #endif
@@ -76,32 +75,32 @@ OrtCustomOp* operator_lists[] = {
 
 #ifdef ENABLE_TF_STRING
     &c_CustomOpRaggedTensorToDense,
-        &c_CustomOpRaggedTensorToSparse,
-        &c_CustomOpSegmentSum,
-        &c_CustomOpStringEqual,
-        &c_CustomOpStringHash,
-        &c_CustomOpStringHashFast,
-        &c_CustomOpStringJoin,
-        &c_CustomOpStringLower,
-        &c_CustomOpStringRaggedTensorToDense,
-        &c_CustomOpStringRegexReplace,
-        &c_CustomOpStringRegexSplitWithOffsets,
-        &c_CustomOpStringSplit,
-        &c_CustomOpStringToVector,
-        &c_CustomOpStringUpper,
-        &c_CustomOpVectorToString,
-        &c_CustomOpStringLength,
-        &c_CustomOpStringConcat,
+    &c_CustomOpRaggedTensorToSparse,
+    &c_CustomOpSegmentSum,
+    &c_CustomOpStringEqual,
+    &c_CustomOpStringHash,
+    &c_CustomOpStringHashFast,
+    &c_CustomOpStringJoin,
+    &c_CustomOpStringLower,
+    &c_CustomOpStringRaggedTensorToDense,
+    &c_CustomOpStringRegexReplace,
+    &c_CustomOpStringRegexSplitWithOffsets,
+    &c_CustomOpStringSplit,
+    &c_CustomOpStringToVector,
+    &c_CustomOpStringUpper,
+    &c_CustomOpVectorToString,
+    &c_CustomOpStringLength,
+    &c_CustomOpStringConcat,
 #endif
 
 #ifdef ENABLE_BLINGFIRE
-&c_CustomOpTextToSentences,
+    &c_CustomOpTextToSentences,
 #endif
-nullptr};
+    nullptr};
 
 #if ENABLE_MATH
 extern FxLoadCustomOpFactory LoadCustomOpClasses_Math;
-#endif //ENABLE_MATH
+#endif  // ENABLE_MATH
 
 class ExternalCustomOps {
  public:
@@ -137,8 +136,6 @@ extern "C" bool ORT_API_CALL AddExternalCustomOp(const OrtCustomOp* c_op) {
   return true;
 }
 
-
-
 extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api) {
   OrtCustomOpDomain* domain = nullptr;
   const OrtApi* ortApi = api->GetApi(ORT_API_VERSION);
@@ -163,14 +160,14 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
 #endif
 
   static std::vector<FxLoadCustomOpFactory> c_factories = {
-      []() { return const_cast<const OrtCustomOp**>(operator_lists); }
+    []() { return const_cast<const OrtCustomOp**>(operator_lists); }
 #if defined(ENABLE_MATH)
-,
-LoadCustomOpClasses_Math
+    ,
+    LoadCustomOpClasses_Math
 #endif
 #if defined(ENABLE_GPT2_TOKENIZER)
- ,
- LoadTokenizerSchemaList
+    ,
+    LoadTokenizerSchemaList
 #endif
   };
 
