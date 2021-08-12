@@ -63,6 +63,14 @@ void RegexSplitImpl(const std::string& input, const std::regex& pattern,
                     std::vector<std::string_view>& tokens,
                     std::vector<T>& begin_offsets,
                     std::vector<T>& end_offsets) {
-//  std::regex_search()
-}
+  std::smatch base_match;
+  if (std::regex_match(input, base_match, pattern)) {
+    // The first sub_match is the whole string; the next
+    // sub_match is the first parenthesized expression.
+    if (base_match.size() == 2) {
+      std::ssub_match base_sub_match = base_match[1];
+      std::string base = base_sub_match.str();
+      std::cout << input << " has a base of " << base << '\n';
+    }
+  }}
 #endif

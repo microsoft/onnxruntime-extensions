@@ -5,10 +5,16 @@
 #include "string_utils.h"
 #include "text/string_regex_split_re.hpp"
 
+#ifdef ENABLE_RE2
+using ort_regex = re2::RE2;
+#else
+using ort_regex = std::regex;
+#endif
+
 TEST(strings, regex_split) {
   std::string input = "hello  world";
-  re2::RE2 reg("(\\s)");
-  re2::RE2 keep_reg("\\s");
+  ort_regex reg("(\\s)");
+  ort_regex keep_reg("\\s");
   std::vector<std::string_view> tokens;
   std::vector<int64_t> begin_offsets;
   std::vector<int64_t> end_offsets;
@@ -23,8 +29,8 @@ TEST(strings, regex_split) {
 
 TEST(strings, regex_split_skip) {
   std::string input = "hello world";
-  re2::RE2 reg("(\\s)");
-  re2::RE2 keep_reg("");
+  ort_regex reg("(\\s)");
+  ort_regex keep_reg("");
   std::vector<std::string_view> tokens;
   std::vector<int64_t> begin_offsets;
   std::vector<int64_t> end_offsets;
