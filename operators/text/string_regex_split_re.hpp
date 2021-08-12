@@ -4,9 +4,13 @@
 #pragma once
 #include <string>
 #include <algorithm>
+#ifdef ENABLE_RE2
 #include "re2/re2.h"
+#else
+#include <regex>
+#endif
 
-
+#ifdef ENABLE_RE2
 template <typename T>
 void RegexSplitImpl(const std::string& input, const RE2& pattern,
                     bool include_delimiter, const RE2& include_delim_regex,
@@ -52,3 +56,13 @@ void RegexSplitImpl(const std::string& input, const RE2& pattern,
     end_offsets.push_back(leftover.data() + leftover.length() - input.data());
   }
 }
+#else
+template <typename T>
+void RegexSplitImpl(const std::string& input, const std::regex& pattern,
+                    bool include_delimiter, const std::regex& include_delim_regex,
+                    std::vector<std::string_view>& tokens,
+                    std::vector<T>& begin_offsets,
+                    std::vector<T>& end_offsets) {
+//  std::regex_search()
+}
+#endif

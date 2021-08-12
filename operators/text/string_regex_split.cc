@@ -35,9 +35,16 @@ void KernelStringRegexSplitWithOffsets::Compute(OrtKernelContext* context) {
     throw std::runtime_error("Splitting pattern cannot be empty.");
 
   OrtTensorDimensions dimensions(ort_, input);
-  re2::RE2 reg(str_pattern[0]);
   bool include_delimiter = (str_keep_pattern.size() == 1) && (!str_keep_pattern[0].empty());
+
+#ifdef ENABLE_RE2
+  re2::RE2 reg(str_pattern[0]);
   re2::RE2 keep_reg(include_delimiter ? str_keep_pattern[0] : "");
+#else
+  std::regex reg(str_pattern[0]);
+  std::regex keep_reg(include_delimiter ? str_keep_pattern[0] : "");
+#endif
+
   std::vector<std::string> all_tokens;
   std::vector<int64_t> all_begin_offsets, all_end_offsets;
   std::vector<int64_t> row_offsets;
