@@ -1,4 +1,5 @@
 import os
+import onnx
 import unittest
 import numpy as np
 from numpy.testing import assert_almost_equal
@@ -27,7 +28,7 @@ def _create_test_model_test():
 
     graph = helper.make_graph(nodes, 'test0', [input0, input1], [output0])
     model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid('ai.onnx.contrib', 1)])
+        graph, opset_imports=[helper.make_operatorsetid('ai.onnx.contrib', 1)], ir_version=7)
     return model
 
 
@@ -45,7 +46,7 @@ def _create_test_model():
 
     graph = helper.make_graph(nodes, 'test0', [input0], [output0])
     model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid('ai.onnx.contrib', 1)])
+        graph, opset_imports=[helper.make_operatorsetid('ai.onnx.contrib', 1)], ir_version=7)
     return model
 
 
@@ -63,7 +64,7 @@ def _create_test_model_double(prefix, domain='ai.onnx.contrib'):
 
     graph = helper.make_graph(nodes, 'test0', [input0], [output0])
     model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+        graph, opset_imports=[helper.make_operatorsetid(domain, 1)], ir_version=7)
     return model
 
 
@@ -84,7 +85,7 @@ def _create_test_model_2outputs(prefix, domain='ai.onnx.contrib'):
 
     graph = helper.make_graph(nodes, 'test0', [input0], [output1, output2])
     model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+        graph, opset_imports=[helper.make_operatorsetid(domain, 1)], ir_version=7)
     return model
 
 
@@ -103,7 +104,7 @@ def _create_test_join():
 
     graph = helper.make_graph(nodes, 'test0', [input0], [output0])
     model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid('ai.onnx.contrib', 1)])
+        graph, opset_imports=[helper.make_operatorsetid('ai.onnx.contrib', 1)], ir_version=7)
     return model
 
 
@@ -208,7 +209,7 @@ class TestPythonOp(unittest.TestCase):
         with open(os.path.join(this, 'data', 'custom_op_test.onnx'),
                   'rb') as f:
             saved = f.read()
-        assert onnx_bytes == saved
+        self.assertEqual(onnx_content, onnx.load(os.path.join(this, 'data', 'custom_op_test.onnx')))
 
     def test_cc_operator(self):
         so = _ort.SessionOptions()
