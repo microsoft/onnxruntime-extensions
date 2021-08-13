@@ -7,7 +7,10 @@ from numpy.testing import assert_almost_equal
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
 from onnxruntime_extensions import (
-    onnx_op, PyCustomOpDef, PyOrtFunction,
+    onnx_op,
+    PyCustomOpDef,
+    PyOrtFunction,
+    make_onnx_model,
     get_library_path as _get_library_path)
 import tensorflow as tf
 from tensorflow_text import SentencepieceTokenizer
@@ -85,10 +88,8 @@ def _create_test_model_sentencepiece(
             mkv('out0', onnx_proto.TensorProto.INT32, [None]),
             mkv('out1', onnx_proto.TensorProto.INT64, [None])
         ])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    model = make_onnx_model(graph)
     return model
-
 
 def _create_test_model_ragged_to_sparse(
         prefix, model_b64, domain='ai.onnx.contrib'):
@@ -172,8 +173,7 @@ def _create_test_model_ragged_to_sparse(
             mkv('out1', onnx_proto.TensorProto.INT32, [None]),
             mkv('out2', onnx_proto.TensorProto.INT64, [None])
         ])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    model = make_onnx_model(graph)
     return model
 
 
@@ -229,8 +229,7 @@ def _create_test_model_ragged_to_dense(
             mkv('out0', onnx_proto.TensorProto.INT64, [None]),
             mkv('out1', onnx_proto.TensorProto.INT32, [None]),
         ], [default_value, unused])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    model = make_onnx_model(graph)
     return model
 
 

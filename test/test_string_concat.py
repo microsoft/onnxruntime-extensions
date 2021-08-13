@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
-from onnxruntime_extensions import get_library_path as _get_library_path
+from onnxruntime_extensions import get_library_path as _get_library_path, make_onnx_model
 
 
 def _create_test_model(input_dims, output_dims):
@@ -20,8 +20,7 @@ def _create_test_model(input_dims, output_dims):
         'output', onnx_proto.TensorProto.STRING, [None] * output_dims)
 
     graph = helper.make_graph(nodes, 'test0', [input1, input2], [output])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid("", 12)])
+    model = make_onnx_model(graph, 12)
     return model
 
 
