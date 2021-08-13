@@ -5,7 +5,7 @@ from numpy.testing import assert_almost_equal
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
 from onnxruntime_extensions import (
-    onnx_op, PyCustomOpDef,
+    onnx_op, PyCustomOpDef, make_onnx_model,
     get_library_path as _get_library_path)
 
 
@@ -27,7 +27,7 @@ def _create_test_model_test():
 
     graph = helper.make_graph(nodes, 'test0', [input0, input1], [output0])
     model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid('ai.onnx.contrib', 1)])
+        graph, opset_imports=[helper.make_operatorsetid('ai.onnx.contrib', 1)], ir_version=7)
     return model
 
 
@@ -44,8 +44,7 @@ def _create_test_model():
         'reversed', onnx_proto.TensorProto.FLOAT, [None, 2])
 
     graph = helper.make_graph(nodes, 'test0', [input0], [output0])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid('ai.onnx.contrib', 1)])
+    model = make_onnx_model(graph)
     return model
 
 
@@ -62,8 +61,7 @@ def _create_test_model_double(prefix, domain='ai.onnx.contrib'):
         'customout', onnx_proto.TensorProto.DOUBLE, [None, None])
 
     graph = helper.make_graph(nodes, 'test0', [input0], [output0])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    model = make_onnx_model(graph)
     return model
 
 
@@ -83,8 +81,7 @@ def _create_test_model_2outputs(prefix, domain='ai.onnx.contrib'):
         'pos', onnx_proto.TensorProto.FLOAT, [])
 
     graph = helper.make_graph(nodes, 'test0', [input0], [output1, output2])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    model = make_onnx_model(graph)
     return model
 
 
@@ -102,8 +99,7 @@ def _create_test_join():
         'joined', onnx_proto.TensorProto.STRING, [None])
 
     graph = helper.make_graph(nodes, 'test0', [input0], [output0])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid('ai.onnx.contrib', 1)])
+    model = make_onnx_model(graph)
     return model
 
 

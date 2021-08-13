@@ -10,7 +10,7 @@ from numpy.testing import assert_almost_equal
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
 from onnxruntime_extensions import (
-    onnx_op, PyCustomOpDef,
+    onnx_op, PyCustomOpDef, make_onnx_model,
     get_library_path as _get_library_path,
     hash_64)
 
@@ -30,8 +30,7 @@ def _create_test_model_string_upper(prefix, domain='ai.onnx.contrib'):
         'customout', onnx_proto.TensorProto.STRING, [None, None])
 
     graph = helper.make_graph(nodes, 'test0', [input0], [output0])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    model = make_onnx_model(graph)
     return model
 
 
@@ -48,8 +47,7 @@ def _create_test_model_string_lower(prefix, domain='ai.onnx.contrib'):
         'customout', onnx_proto.TensorProto.STRING, [None, None])
 
     graph = helper.make_graph(nodes, 'test0', [input0], [output0])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    model = make_onnx_model(graph)
     return model
 
 
@@ -77,8 +75,7 @@ def _create_test_model_string_join(prefix, domain='ai.onnx.contrib'):
 
     graph = helper.make_graph(
         nodes, 'test0', [input0, input1, input2], [output0])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    model = make_onnx_model(graph)
     return model
 
 
@@ -114,8 +111,7 @@ def _create_test_model_string_replace(prefix, domain='ai.onnx.contrib',
 
     graph = helper.make_graph(
         nodes, 'test0', [input0, input1, input2], [output0])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    model = make_onnx_model(graph)
     return model
 
 
@@ -154,8 +150,7 @@ def _create_test_model_string_to_hash(
 
     graph = helper.make_graph(
         nodes, 'test0', [input0, input1], [output0])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    model = make_onnx_model(graph)
     return model
 
 
@@ -175,8 +170,7 @@ def _create_test_model_string_equal(prefix, domain='ai.onnx.contrib'):
         'z', onnx_proto.TensorProto.BOOL, [])
 
     graph = helper.make_graph(nodes, 'test0', [input0, input1], [output0])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    model = make_onnx_model(graph)
     return model
 
 
@@ -205,8 +199,7 @@ def _create_test_model_string_split(prefix, domain='ai.onnx.contrib'):
 
     graph = helper.make_graph(nodes, 'test0', [input0, input1, input2],
                               [output0, output1, output2])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    model = make_onnx_model(graph)
     return model
 
 
@@ -237,8 +230,7 @@ def _create_test_model_string_regex_split(prefix, domain='ai.onnx.contrib'):
 
     graph = helper.make_graph(nodes, 'test0', [input0, input1, input2],
                               [output0, output1, output2, output3])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    model = make_onnx_model(graph)
     return model
 
 
@@ -284,8 +276,7 @@ def _create_test_model_wordpiece(prefix, domain='ai.onnx.contrib'):
             mkv('rows', onnx_proto.TensorProto.INT64, [None])],
         [reg, reg_empty]
     )
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    model = make_onnx_model(graph)
     return model
 
 class TestPythonOpString(unittest.TestCase):

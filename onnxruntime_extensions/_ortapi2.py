@@ -21,6 +21,17 @@ def _get_opset_version_from_ort():
     return _ORT_OPSET_SUPPORT_TABLE.get(ort_ver_string, 11)
 
 
+def make_onnx_model(graph, opset_version=0, extra_domain=default_opset_domain(), extra_opset_version=1):
+    if opset_version == 0:
+        opset_version = _get_opset_version_from_ort()
+    fn_mm = onnx.helper.make_model_gen_version if hasattr(onnx.helper, 'make_model_gen_version'
+                                                            ) else onnx.helper.make_model
+    model = fn_mm(graph, opset_imports=[
+        onnx.helper.make_operatorsetid('ai.onnx', opset_version)])
+    model.opset_import.extend([onnx.helper.make_operatorsetid(extra_domain, extra_opset_version)])
+    return model
+
+
 class EagerOp:
 
     @classmethod
@@ -38,10 +49,7 @@ class EagerOp:
 
     def create_from_customop(self, op_type, *args, **kwargs):
         graph = SingleOpGraph.build_my_graph(op_type, *args, **kwargs)
-        model = onnx.helper.make_model(graph, opset_imports=[
-            onnx.helper.make_operatorsetid('ai.onnx', _get_opset_version_from_ort()),
-            onnx.helper.make_operatorsetid(default_opset_domain(), 1)])
-        self._bind(model)
+        self._bind(make_onnx_model(graph))
         return self
 
     def add_default_input(self, **kwargs):
