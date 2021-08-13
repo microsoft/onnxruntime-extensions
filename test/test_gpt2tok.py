@@ -7,6 +7,7 @@ from onnx import helper, onnx_pb as onnx_proto
 from transformers import GPT2Tokenizer
 from onnxruntime_extensions import (
     onnx_op,
+    make_onnx_model,
     enable_custom_op,
     PyCustomOpDef,
     get_library_path as _get_library_path)
@@ -39,7 +40,7 @@ def _create_test_model(**kwargs):
         'attention_mask', onnx_proto.TensorProto.INT64, [None, None])
 
     graph = helper.make_graph(node, 'test0', [input1], [output1, output2])
-    model = helper.make_model(graph, opset_imports=[helper.make_operatorsetid('', 12)])
+    model = make_onnx_model(graph)
     return model
 
 
