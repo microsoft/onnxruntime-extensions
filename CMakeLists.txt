@@ -59,6 +59,10 @@ if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
   message(FATAL_ERROR "CMAKE_FIND_FRAMEWORK is not NEVER")
 endif()
 
+if (OCOS_ENABLE_OPLIST_FILE)
+  include(_selectedoplist)
+endif()
+
 # External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
 if (OCOS_ENABLE_OPLIST_FILE)
