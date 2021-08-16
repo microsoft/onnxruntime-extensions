@@ -60,6 +60,10 @@ endif()
 
 # External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
+if (OCOS_ENABLE_OPLIST_FILE)
+  include(_selectedoplist)
+endif()
+
 include(FetchContent)
 if (OCOS_ENABLE_TF_STRING)
   if (NOT TARGET re2::re2)
