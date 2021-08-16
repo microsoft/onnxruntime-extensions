@@ -1,4 +1,5 @@
 import os
+import onnx
 import unittest
 import numpy as np
 from numpy.testing import assert_almost_equal
@@ -204,7 +205,7 @@ class TestPythonOp(unittest.TestCase):
         with open(os.path.join(this, 'data', 'custom_op_test.onnx'),
                   'rb') as f:
             saved = f.read()
-        assert onnx_bytes == saved
+        self.assertEqual(onnx_content, onnx.load(os.path.join(this, 'data', 'custom_op_test.onnx')))
 
     def test_cc_operator(self):
         so = _ort.SessionOptions()

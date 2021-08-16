@@ -1,8 +1,20 @@
 #include <charconv>
+#include "farmhash.h"
 #include "kernels.h"
 #include "string_utils.h"
 #include "vector_to_string.hpp"
 #include "string_tensor.h"
+
+
+namespace std {
+
+template <class T>
+size_t hash<std::vector<T>>::operator()(const vector<T>& __vector) const noexcept {
+  return util::Hash(reinterpret_cast<const char *>(__vector.data()), __vector.size() * sizeof(T));
+}
+
+template struct hash<std::vector<std::string>>;
+}  // namespace std
 
 VectorToStringImpl::VectorToStringImpl(std::string& map, std::string& unk) : unk_value_(unk) {
   ParseMappingTable(map);
