@@ -1,4 +1,7 @@
+#ifdef ENABLE_TF_STRING
 #include "farmhash.h"
+#endif
+
 #include "string_utils.h"
 
 std::vector<std::string_view> SplitString(const std::string_view& str, const std::string_view& seps, bool remove_empty_entries) {
@@ -29,6 +32,7 @@ std::vector<std::string_view> SplitString(const std::string_view& str, const std
   return result;
 }
 
+#ifdef ENABLE_TF_STRING
 // Source: https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/platform/hash.cc#L28
 static inline uint64_t ByteAs64(char c) { return static_cast<uint64_t>(c) & 0xff; }
 
@@ -95,3 +99,5 @@ uint64_t Hash64(const char* data, size_t n, uint64_t seed) {
 uint64_t Hash64Fast(const char* data, size_t n) {
   return static_cast<int64_t>(util::Fingerprint64(data, n));
 }
+
+#endif // ENABLE_TF_STRING

@@ -1,8 +1,10 @@
 #include <charconv>
+#include "farmhash.h"
 #include "kernels.h"
 #include "string_utils.h"
 #include "string_to_vector.hpp"
 #include "string_tensor.h"
+
 
 StringToVectorImpl::StringToVectorImpl(std::string& map, std::string& unk) {
   ParseMappingTable(map);

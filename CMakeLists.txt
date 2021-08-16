@@ -24,6 +24,7 @@ include(CheckLanguage)
 option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
 option(OCOS_ENABLE_PYTHON "Enable Python component building" OFF)
 option(OCOS_ENABLE_CTEST "Enable C++ test" OFF)
+option(OCOS_ENABLE_CPP_EXCEPTIONS "Enable C++ Exception" ON)
 option(OCOS_ENABLE_TF_STRING "Enable String Operator Set" ON)
 option(OCOS_ENABLE_GPT2_TOKENIZER "Enable the GPT2 tokenizer building" ON)
 option(OCOS_ENABLE_SPM_TOKENIZER "Enable the SentencePiece tokenizer building" ON)
@@ -33,6 +34,16 @@ option(OCOS_ENABLE_MATH "Enable the math tensor operators building" ON)
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_OPLIST_FILE "Enable including the selected_ops tool file" OFF)
 
+
+function(disable_all_operators)
+  set(OCOS_ENABLE_TF_STRING OFF CACHE INTERNAL "")
+  set(OCOS_ENABLE_GPT2_TOKENIZER OFF CACHE INTERNAL "")
+  set(OCOS_ENABLE_SPM_TOKENIZER OFF CACHE INTERNAL "")
+  set(OCOS_ENABLE_BERT_TOKENIZER OFF CACHE INTERNAL "")
+  set(OCOS_ENABLE_BLINGFIRE OFF CACHE INTERNAL "")
+  set(OCOS_ENABLE_MATH OFF CACHE INTERNAL "")
+  set(OCOS_ENABLE_TF_STRING OFF CACHE INTERNAL "")
+endfunction()
 
 if(NOT CC_OPTIMIZE)
   message("!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
@@ -59,9 +70,23 @@ if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
 endif()
 
 # External dependencies
-list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals)
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals ${PROJECT_SOURCE_DIR}/cmake)
+
 if (OCOS_ENABLE_OPLIST_FILE)
+  message(STATUS "Looking for the _selectedoplist.cmake")
+  disable_all_operators()
   include(_selectedoplist)
+endif()
+
+if(NOT OCOS_ENABLE_CPP_EXCEPTIONS)
+  include(noexcep_ops)
+  add_compile_definitions(OCOS_NO_EXCEPTIONS ORT_NO_EXCEPTIONS)
+  if(MSVC)
+    string(REGEX REPLACE "/EHsc" "/EHs-c-" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    add_compile_definitions("_HAS_EXCEPTIONS=0")
+  else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables")
+  endif()
 endif()
 
 include(FetchContent)
@@ -103,12 +128,6 @@ endif()
 
 if (OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
-  if (NOT TARGET nlohmann_json)
-    set(JSON_BuildTests OFF CACHE INTERNAL "")
-    message(STATUS "Fetch json")
-    include(json)
-  endif()
-
   file(GLOB tok_TARGET_SRC "operators/tokenizer/gpt*.cc" "operators/tokenizer/unicode*.*")
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
 endif()
@@ -128,6 +147,14 @@ if (OCOS_ENABLE_BERT_TOKENIZER)
   # Bert
   file(GLOB bert_TARGET_SRC "operators/tokenizer/wordpiece*.*")
   list(APPEND TARGET_SRC ${bert_TARGET_SRC})
+endif()
+
+if (OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_BERT_TOKENIZER)
+  if (NOT TARGET nlohmann_json)
+    set(JSON_BuildTests OFF CACHE INTERNAL "")
+    message(STATUS "Fetch json")
+    include(json)
+  endif()
 endif()
 
 if (OCOS_ENABLE_BLINGFIRE)
@@ -176,11 +203,20 @@ if (OCOS_ENABLE_GPT2_TOKENIZER)
   list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 
+if (OCOS_ENABLE_BERT_TOKENIZER)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_BERT_TOKENIZER)
+endif()
+
 if (OCOS_ENABLE_SPM_TOKENIZER)
   # SentencePiece
   target_include_directories(ocos_operators PUBLIC ${sentencepieceproject_INCLUDE_DIRS})
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_SPM_TOKENIZER)
   list(APPEND ocos_libraries sentencepiece-static)
+endif()
+
+if (OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_BERT_TOKENIZER)
+  target_include_directories(ocos_operators PRIVATE ${json_SOURCE_DIR}/single_include)
+  list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 
 if (OCOS_ENABLE_BLINGFIRE)
@@ -195,9 +231,6 @@ if (OCOS_ENABLE_TF_STRING)
       FARMHASH_NO_BUILTIN_EXPECT)
 endif()
 
-if (OCOS_ENABLE_BERT_TOKENIZER)
-  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_BERT_TOKENIZER)
-endif()
 
 target_compile_definitions(ocos_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
