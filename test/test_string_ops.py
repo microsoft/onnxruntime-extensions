@@ -657,7 +657,7 @@ class TestPythonOpString(unittest.TestCase):
         self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
-        rewrite = np.array([r'static PyObject* py_\1(void) {'])
+        rewrite = np.array([r'static PyObject* py_$1(void) {'])
         text = np.array([['def myfunc():'], ['def dummy():']])
         txout = sess.run(
             None, {'text': text, 'pattern': pattern, 'rewrite': rewrite})
@@ -673,7 +673,7 @@ class TestPythonOpString(unittest.TestCase):
         self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
-        rewrite = np.array([r'static PyObject* py_\1(void) {'])
+        rewrite = np.array([r'static PyObject* py_$1(void) {'])
         text = np.array([['def myfunc():def myfunc():'],
                          ['def dummy():def dummy():']])
         txout = sess.run(
@@ -689,7 +689,7 @@ class TestPythonOpString(unittest.TestCase):
         self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
-        rewrite = np.array([r'static PyObject* py_\1(void) {'])
+        rewrite = np.array([r'static PyObject* py_$1(void) {'])
         text = np.array([['def myfunc():'], ['def dummy():' * 2]])
         txout = sess.run(
             None, {'text': text, 'pattern': pattern, 'rewrite': rewrite})

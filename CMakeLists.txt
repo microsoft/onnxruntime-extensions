@@ -32,7 +32,7 @@ option(OCOS_ENABLE_BLINGFIRE "Enable the Blingfire building" ON)
 option(OCOS_ENABLE_MATH "Enable the math tensor operators building" ON)
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_OPLIST_FILE "Enable including the selected_ops tool file" OFF)
-option(OCOS_ENABLE_RE2 "Enable re2 instead of std::regex for regex" ON)
+option(OCOS_ENABLE_RE2 "Enable re2 instead of std::regex for regex" OFF)
 
 
 if(NOT CC_OPTIMIZE)
@@ -164,9 +164,7 @@ if (OCOS_ENABLE_MATH)
   target_include_directories(ocos_operators PUBLIC ${dlib_SOURCE_DIR})
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_MATH)
   # The dlib matrix implementation is all in the headers, no library compiling needed.
-  if (WIN32)
-    list(APPEND ocos_libraries dlib::dlib)
-  endif()
+  list(APPEND ocos_libraries dlib::dlib)
 endif()
 
 if (OCOS_ENABLE_GPT2_TOKENIZER)

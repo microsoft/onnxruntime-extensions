@@ -63,14 +63,32 @@ void RegexSplitImpl(const std::string& input, const std::regex& pattern,
                     std::vector<std::string_view>& tokens,
                     std::vector<T>& begin_offsets,
                     std::vector<T>& end_offsets) {
-  std::smatch base_match;
-  if (std::regex_match(input, base_match, pattern)) {
-    // The first sub_match is the whole string; the next
-    // sub_match is the first parenthesized expression.
-    if (base_match.size() == 2) {
-      std::ssub_match base_sub_match = base_match[1];
-      std::string base = base_sub_match.str();
-      std::cout << input << " has a base of " << base << '\n';
+  ssize_t prev_pos = 0;
+  for (auto it = std::sregex_iterator(input.begin(), input.end(), pattern); it != std::sregex_iterator(); it++) {
+    int cur_pos = it->position();
+    int matched_length = it->length();
+    if (prev_pos != it->position()) {
+      tokens.emplace_back(input.c_str() + prev_pos, cur_pos - prev_pos);
+      begin_offsets.push_back(prev_pos);
+      end_offsets.push_back(cur_pos);
+      // update prev_pos for delimiter
+      prev_pos = cur_pos;
     }
-  }}
+
+    if (include_delimiter && std::regex_match(it->str(), include_delim_regex)) {
+      tokens.emplace_back(input.c_str() + prev_pos, matched_length);
+      begin_offsets.push_back(prev_pos);
+      end_offsets.push_back(prev_pos + matched_length);
+    }
+
+    //no mather include the delimiter, we should skip it
+    prev_pos += matched_length;
+  }
+
+  if (prev_pos != input.length()) {
+    tokens.emplace_back(input.c_str() + prev_pos, input.length() - prev_pos);
+    begin_offsets.push_back(prev_pos);
+    end_offsets.push_back(input.length());
+  }
+}
 #endif

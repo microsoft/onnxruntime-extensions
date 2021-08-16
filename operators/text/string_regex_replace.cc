@@ -64,15 +64,19 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
     }
   }
 #else
-  std::regex reg(str_pattern[0]);
+  std::regex reg(str_pattern[0], std::regex_constants::extended);
 
   if (global_replace_) {
     for (int64_t i = 0; i < size; i++) {
-      std::regex_replace(str_input[i], reg, str_rewrite[0]);
+      std::cout << "Input:" << str_input[i] << " Pattern: " << str_pattern[0] << " Replace:" << str_rewrite[0] << std::endl;
+      str_input[i] = std::regex_replace(str_input[i], reg, str_rewrite[0]);
+      std::cout << "Output:" << str_input[i] << std::endl;
     }
   } else {
     for (int64_t i = 0; i < size; i++) {
-      std::regex_replace(str_input[i], reg, str_rewrite[0], std::regex_constants::format_first_only);
+      std::cout << "Input:" << str_input[i] << " Pattern: " << str_pattern[0] << " Replace:" << str_rewrite[0] << std::endl;
+      str_input[i] = std::regex_replace(str_input[i], reg, str_rewrite[0], std::regex_constants::format_first_only);
+      std::cout << "Output:" << str_input[i] << std::endl;
     }
   }
 

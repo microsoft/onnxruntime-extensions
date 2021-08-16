@@ -11,4 +11,5 @@ else()
     # Fetch the content using previously declared details
     FetchContent_Populate(dlib)
   endif()
+  add_subdirectory(${dlib_SOURCE_DIR} ${dlib_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
