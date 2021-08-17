@@ -168,7 +168,7 @@ add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_library(ocos_operators STATIC ${TARGET_SRC})
 target_include_directories(ocos_operators PUBLIC operators/tokenizer)
 
-set(ocos_libraries ocos_operators)
+set(ocos_libraries "")
 if (OCOS_ENABLE_TF_STRING)
   list(APPEND ocos_libraries re2)
 endif()
@@ -233,6 +233,7 @@ endif()
 
 
 target_compile_definitions(ocos_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
+target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
 
 file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h")
 if(OCOS_ENABLE_PYTHON)
@@ -278,7 +279,7 @@ else()
 endif()
 
 target_compile_definitions(ortcustomops PRIVATE  ${OCOS_COMPILE_DEFINITIONS})
-target_link_libraries(ortcustomops PRIVATE ${ocos_libraries})
+target_link_libraries(ortcustomops PUBLIC ocos_operators)
 
 if(OCOS_ENABLE_PYTHON)
   message(STATUS "Fetch pybind11")
@@ -322,7 +323,7 @@ if (OCOS_ENABLE_CTEST)
   include(googletest)
   file(GLOB static_TEST_SRC "${TEST_SRC_DIR}/static_test/*.cc")
   add_executable(operators_test ${static_TEST_SRC})
-  target_link_libraries(operators_test gtest_main ${ocos_libraries})
+  target_link_libraries(operators_test PRIVATE gtest_main ocos_operators ${ocos_libraries})
   add_test(NAME operators_test COMMAND $<TARGET_FILE:operators_test>)
 
   # needs to link with stdc++fs in Linux
@@ -335,7 +336,7 @@ if (OCOS_ENABLE_CTEST)
   if (ONNXRUNTIME_LIB_DIR)
     target_link_directories(ortcustomops_test PRIVATE ${ONNXRUNTIME_LIB_DIR})
   endif()
-  target_link_libraries(ortcustomops_test ortcustomops onnxruntime gtest_main ${ocos_libraries} ${FS_STDLIB})
+  target_link_libraries(ortcustomops_test PRIVATE ortcustomops onnxruntime gtest_main ${ocos_libraries} ${FS_STDLIB})
   if (WIN32)
     file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
     file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
