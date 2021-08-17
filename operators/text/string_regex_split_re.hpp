@@ -63,7 +63,7 @@ void RegexSplitImpl(const std::string& input, const std::regex& pattern,
                     std::vector<std::string_view>& tokens,
                     std::vector<T>& begin_offsets,
                     std::vector<T>& end_offsets) {
-  ssize_t prev_pos = 0;
+  int prev_pos = 0;
   for (auto it = std::sregex_iterator(input.begin(), input.end(), pattern); it != std::sregex_iterator(); it++) {
     int cur_pos = it->position();
     int matched_length = it->length();
