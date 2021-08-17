@@ -4,7 +4,7 @@ import numpy as np
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
 from onnxruntime_extensions import (
-    onnx_op, PyCustomOpDef,
+    onnx_op, PyCustomOpDef, make_onnx_model,
     get_library_path as _get_library_path)
 
 
@@ -24,8 +24,7 @@ def _create_test_model_segment_sum(prefix, domain='ai.onnx.contrib'):
         'z', onnx_proto.TensorProto.FLOAT, [])
 
     graph = helper.make_graph(nodes, 'test0', [input0, input1], [output0])
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
+    model = make_onnx_model(graph)
     return model
 
 

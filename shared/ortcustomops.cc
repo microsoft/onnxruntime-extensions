@@ -20,7 +20,6 @@
 #include "text/string_length.hpp"
 #include "text/string_concat.hpp"
 
-
 #ifdef ENABLE_SPM_TOKENIZER
 #include "sentencepiece_tokenizer.hpp"
 #endif
@@ -59,6 +58,9 @@ CustomOpStringUpper c_CustomOpStringUpper;
 CustomOpVectorToString c_CustomOpVectorToString;
 CustomOpStringLength c_CustomOpStringLength;
 CustomOpStringConcat c_CustomOpStringConcat;
+#endif
+
+#ifdef ENABLE_BLINGFIRE
 CustomOpBlingFireSentenceBreaker c_CustomOpTextToSentences;
 #endif
 
@@ -89,13 +91,16 @@ OrtCustomOp* operator_lists[] = {
     &c_CustomOpVectorToString,
     &c_CustomOpStringLength,
     &c_CustomOpStringConcat,
+#endif
+
+#ifdef ENABLE_BLINGFIRE
     &c_CustomOpTextToSentences,
 #endif
     nullptr};
 
 #if ENABLE_MATH
 extern FxLoadCustomOpFactory LoadCustomOpClasses_Math;
-#endif //ENABLE_MATH
+#endif  // ENABLE_MATH
 
 class ExternalCustomOps {
  public:
@@ -130,8 +135,6 @@ extern "C" bool ORT_API_CALL AddExternalCustomOp(const OrtCustomOp* c_op) {
   ExternalCustomOps::instance().Add(c_op);
   return true;
 }
-
-
 
 extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api) {
   OrtCustomOpDomain* domain = nullptr;
