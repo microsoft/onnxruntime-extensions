@@ -32,7 +32,7 @@ option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
 option(OCOS_ENABLE_BLINGFIRE "Enable the Blingfire building" ON)
 option(OCOS_ENABLE_MATH "Enable the math tensor operators building" ON)
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
-option(OCOS_ENABLE_OPLIST_FILE "Enable including the selected_ops tool file" OFF)
+option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
 
 
 function(disable_all_operators)
@@ -72,7 +72,7 @@ endif()
 # External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals ${PROJECT_SOURCE_DIR}/cmake)
 
-if (OCOS_ENABLE_OPLIST_FILE)
+if (OCOS_ENABLE_SELECTED_OPLIST)
   message(STATUS "Looking for the _selectedoplist.cmake")
   disable_all_operators()
   include(_selectedoplist)
