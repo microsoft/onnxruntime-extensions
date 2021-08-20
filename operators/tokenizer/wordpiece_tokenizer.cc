@@ -4,9 +4,10 @@
 #include "wordpiece_tokenizer.hpp"
 #include "nlohmann/json.hpp"
 
-KernelWordpieceTokenizer::KernelWordpieceTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+KernelWordPieceTokenizer::KernelWordPieceTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   // https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/WordpieceTokenizer.md
   // https://github.com/tensorflow/text/blob/master/tensorflow_text/python/ops/bert_tokenizer.py
+  // https://huggingface.co/transformers/model_doc/bert.html#berttokenizer
   std::string vocab_as_string = ort_.KernelInfoGetAttribute<std::string>(info, "vocab");
   std::string suffix_indicator = ort_.KernelInfoGetAttribute<std::string>(info, "suffix_indicator");
   std::string unk = ort_.KernelInfoGetAttribute<std::string>(info, "unknown_token");
@@ -120,7 +121,7 @@ void KernelWordpieceTokenizer_Tokenizer(const std::unordered_map<std::u32string,
   rows.push_back(indices.size());
 }
 
-void KernelWordpieceTokenizer::Compute(OrtKernelContext* context) {
+void KernelWordPieceTokenizer::Compute(OrtKernelContext* context) {
   // Update with the new API
   const OrtValue* ort_input = ort_.KernelContext_GetInput(context, 0);
   std::vector<ustring> str_input;
@@ -162,42 +163,26 @@ void KernelWordpieceTokenizer::Compute(OrtKernelContext* context) {
   ptr_row_lengths[i] = row_begins[i];
 }
 
-void* CustomOpWordpieceTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
-  return new KernelWordpieceTokenizer(api, info);
+void* CustomOpWordPieceTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+  return new KernelWordPieceTokenizer(api, info);
 };
 
-const char* CustomOpWordpieceTokenizer::GetName() const {
+const char* CustomOpWordPieceTokenizer::GetName() const {
   return "WordpieceTokenizer";
 };
 
-size_t CustomOpWordpieceTokenizer::GetInputTypeCount() const {
-  return 2;
+size_t CustomOpWordPieceTokenizer::GetInputTypeCount() const {
+  return 1;
 };
 
-ONNXTensorElementDataType CustomOpWordpieceTokenizer::GetInputType(size_t index) const {
-  switch (index) {
-    case 0:
+ONNXTensorElementDataType CustomOpWordPieceTokenizer::GetInputType(size_t index) const {
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-    case 1:
-      return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-    default:
-      throw std::runtime_error(MakeString("Unexpected input index ", index));
-  }
 };
 
-size_t CustomOpWordpieceTokenizer::GetOutputTypeCount() const {
-  return 4;
+size_t CustomOpWordPieceTokenizer::GetOutputTypeCount() const {
+  return 3;
 };
 
-ONNXTensorElementDataType CustomOpWordpieceTokenizer::GetOutputType(size_t index) const {
-  switch (index) {
-    case 0:
-      return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-    case 1:
-    case 2:
-    case 3:
+ONNXTensorElementDataType CustomOpWordPieceTokenizer::GetOutputType(size_t index) const {
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-    default:
-      throw std::runtime_error(MakeString("[WordpieceTokenizer] Unexpected output index ", index));
-  }
 };

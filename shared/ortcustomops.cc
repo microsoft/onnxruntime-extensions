@@ -37,7 +37,7 @@ CustomOpSentencepieceTokenizer c_CustomOpSentencepieceTokenizer;
 #endif
 
 #ifdef ENABLE_BERT_TOKENIZER
-CustomOpWordpieceTokenizer c_CustomOpWordpieceTokenizer;
+CustomOpWordPieceTokenizer c_CustomOpWordpieceTokenizer;
 #endif
 
 #ifdef ENABLE_TF_STRING

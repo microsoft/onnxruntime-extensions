@@ -32,6 +32,28 @@ std::vector<std::string_view> SplitString(const std::string_view& str, const std
   return result;
 }
 
+bool IsChineseChar(char32_t c) {
+  return (c >= 0x4E00 && c <= 0x9FFF)
+         || (c >= 0x3400 && c <= 0x4DBF)
+         || (c >= 0x20000 && c <= 0x2A6DF)
+         || (c >= 0x2A700 && c <= 0x2B73F)
+         || (c >= 0x2B740 && c <= 0x2B81F)
+         || (c >= 0x2B820 && c <= 0x2CEAF)
+         || (c >= 0xF900 && c <= 0xFAFF)
+         || (c >= 0x2F800 && c <= 0x2FA1F);
+}
+
+char32_t StripAccent(char32_t c)
+{
+  //   "ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ"
+  const char* tr = "AAAAAAÆCEEEEIIIIÐNOOOOO×ØUUUUYÞßaaaaaaæceeeeiiiiðnooooo÷øuuuuyþy";
+  if (c < 192 || c > 255) {
+    return c;
+}
+
+  return tr[c - 192];
+}
+
 #ifdef ENABLE_TF_STRING
 // Source: https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/platform/hash.cc#L28
 static inline uint64_t ByteAs64(char c) { return static_cast<uint64_t>(c) & 0xff; }
@@ -100,4 +122,4 @@ uint64_t Hash64Fast(const char* data, size_t n) {
   return static_cast<int64_t>(util::Fingerprint64(data, n));
 }
 
-#endif // ENABLE_TF_STRING
+#endif  // ENABLE_TF_STRING
