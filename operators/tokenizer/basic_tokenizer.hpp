@@ -7,6 +7,7 @@
 #include "string_utils.h"
 
 class BasicTokenizer {
+ public:
   BasicTokenizer(bool do_lower_case, bool tokenize_chinese_chars, bool strip_accents, bool tokenize_punctuation, bool remove_control_chars);
   std::vector<std::string> Tokenizer(std::string input);
 

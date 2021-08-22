@@ -51,6 +51,8 @@ std::vector<std::string_view> SplitString(const std::string_view& str, const std
 
 bool IsChineseChar(char32_t c);
 
+bool IsAccent(char32_t c);
+
 char32_t StripAccent(char32_t c);
 
 uint64_t Hash64(const char* data, size_t n, uint64_t seed);

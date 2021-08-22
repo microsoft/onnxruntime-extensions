@@ -117,3 +117,19 @@ TEST(tokenizer, bert_wordpiece_tokenizer_rows) {
   EXPECT_EQ(indices, std::vector<int32_t>({7, 4, 5, 8, 9, 8, 9}));
   EXPECT_EQ(rows, std::vector<int64_t>({0, 5, 7}));
 }
+
+TEST(tokenizer, basic_tokenizer_chinese) {
+  std::string test_case = "ÀÁÂÃÄÅÇÈÉÊËÌÍÎÑÒÓÔÕÖÚÜ\t䗓𨖷虴𨀐辘𧄋脟𩑢𡗶镇伢𧎼䪱轚榶𢑌㺽𤨡!#$%&(Tom@microsoft.com)*+,-./:;<=>?@[\\]^_`{|}~";
+  std::vector<std::string> expect_result({"aaaaaaceeeeiiinooooouu", "䗓", "𨖷", "虴", "𨀐", "辘", "𧄋", "脟", "𩑢", "𡗶", "镇", "伢", "𧎼", "䪱", "轚", "榶", "𢑌", "㺽", "𤨡", "!", "#", "$", "%", "&", "(", "tom", "@", "microsoft", ".", "com", ")", "*", "+", ",", "-", ".", "/", ":", ";", "<", "=", ">", "?", "@", "[", "\\", "]", "^", "_", "`", "{", "|", "}", "~"});
+  BasicTokenizer tokenizer(true, true, true, true, true);
+  auto result = tokenizer.Tokenizer(test_case);
+  EXPECT_EQ(result, expect_result);
+}
+
+TEST(tokenizer, basic_tokenizer_russia) {
+  std::string test_case = "A $100,000 price-tag@big>small на русском языке";
+  std::vector<std::string> expect_result({"a", "$", "100", ",", "000", "price", "-", "tag", "@", "big", ">", "small", "на", "русском", "языке"});
+  BasicTokenizer tokenizer(true, true, true, true, true);
+  auto result = tokenizer.Tokenizer(test_case);
+  EXPECT_EQ(result, expect_result);
+}

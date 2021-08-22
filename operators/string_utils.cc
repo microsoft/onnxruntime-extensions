@@ -43,6 +43,13 @@ bool IsChineseChar(char32_t c) {
          || (c >= 0x2F800 && c <= 0x2FA1F);
 }
 
+bool IsAccent(char32_t c)
+{
+  // only support part of accent
+  // [TODO] support more accent
+  return c >= 0x300 && c <= 0x36F;
+}
+
 char32_t StripAccent(char32_t c)
 {
   //   "ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ"

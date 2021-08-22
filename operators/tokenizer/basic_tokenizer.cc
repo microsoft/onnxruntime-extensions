@@ -17,7 +17,6 @@ std::vector<std::string> BasicTokenizer::Tokenizer(std::string input) {
   std::vector<std::string> result;
   ustring unicode_input(input);
   ustring token;
-
   auto push_current_token_and_clear = [&result, &token]() {
     if (!token.empty()) {
       result.push_back(std::string(token));
@@ -31,38 +30,52 @@ std::vector<std::string> BasicTokenizer::Tokenizer(std::string input) {
     token.clear();
   };
 
-  if (do_lower_case_) {
-    for (auto& c : unicode_input) {
-      c = tolower(c);
-    }
-  }
-
+  // strip accent first
   if (strip_accents_) {
     for (auto& c : unicode_input) {
       c = StripAccent(c);
     }
   }
 
-  for (auto c : input) {
-    if (tokenize_punctuation_ && IsChineseChar(c)) {
-      push_current_token_and_clear();
-      push_single_char_and_clear(c);
-      continue;
+  if (do_lower_case_) {
+    for (auto& c : unicode_input) {
+        c = ::tolower(c);
     }
-
-    if (remove_control_chars_ && iscntrl(c)) {
-      continue;
-    }
-
-    if (tokenize_punctuation_ && ispunct(c)) {
-      push_current_token_and_clear();
-      push_single_char_and_clear(c);
-      continue;
-    }
-
-    if ()
   }
 
+  for (auto c : unicode_input) {
+    if (tokenize_chinese_chars_ && IsChineseChar(c)) {
+      push_current_token_and_clear();
+      push_single_char_and_clear(c);
+      continue;
+    }
+
+    if (strip_accents_ && IsAccent(c)) {
+      continue;
+    }
+
+    if (tokenize_punctuation_ && ::ispunct(c)) {
+      push_current_token_and_clear();
+      push_single_char_and_clear(c);
+      continue;
+    }
+
+    // split by space
+    if (::isspace(c)) {
+      push_current_token_and_clear();
+      continue;
+    }
+
+    // iscntrl will judge \t\f\n\r as control char
+    // but it has been filter by isspace(c)
+    if (remove_control_chars_ && ::iscntrl(c)) {
+      continue;
+    }
+
+    token.push_back(c);
+  }
+
+  push_current_token_and_clear();
   return result;
 }
 

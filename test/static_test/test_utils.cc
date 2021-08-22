@@ -5,6 +5,7 @@
 #include "re2/re2.h"
 #include "nlohmann/json.hpp"
 #include "string_utils.h"
+#include "ustring.h"
 
 
 TEST(utils, make_string) {

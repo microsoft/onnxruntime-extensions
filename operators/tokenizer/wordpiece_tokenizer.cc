@@ -8,21 +8,21 @@ KernelWordPieceTokenizer::KernelWordPieceTokenizer(OrtApi api, const OrtKernelIn
   // https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/WordpieceTokenizer.md
   // https://github.com/tensorflow/text/blob/master/tensorflow_text/python/ops/bert_tokenizer.py
   // https://huggingface.co/transformers/model_doc/bert.html#berttokenizer
-  std::string vocab_as_string = ort_.KernelInfoGetAttribute<std::string>(info, "vocab");
-  std::string suffix_indicator = ort_.KernelInfoGetAttribute<std::string>(info, "suffix_indicator");
-  std::string unk = ort_.KernelInfoGetAttribute<std::string>(info, "unknown_token");
-  max_input_chars_per_word_ = HasAttribute("max_input_chars_per_word") ? ort_.KernelInfoGetAttribute<int64_t>(info, "max_input_chars_per_word") : 200;
-  suffix_indicator_ = ustring(suffix_indicator);
-  unk_token_ = ustring(unk);
-
-  std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> cvt;
-  std::unordered_map<std::string, int32_t> vocab_map;
-  auto parsed = nlohmann::json::parse(vocab_as_string);
-  parsed.get_to(vocab_map);
-
-  for (auto it = vocab_map.begin(); it != vocab_map.end(); ++it) {
-    vocab_[ustring(it->first)] = it->second;
-  }
+//  std::string vocab_as_string = ort_.KernelInfoGetAttribute<std::string>(info, "vocab");
+//  std::string suffix_indicator = ort_.KernelInfoGetAttribute<std::string>(info, "suffix_indicator");
+//  std::string unk = ort_.KernelInfoGetAttribute<std::string>(info, "unknown_token");
+//  max_input_chars_per_word_ = HasAttribute("max_input_chars_per_word") ? ort_.KernelInfoGetAttribute<int64_t>(info, "max_input_chars_per_word") : 200;
+//  suffix_indicator_ = ustring(suffix_indicator);
+//  unk_token_ = ustring(unk);
+//
+//  std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> cvt;
+//  std::unordered_map<std::string, int32_t> vocab_map;
+//  auto parsed = nlohmann::json::parse(vocab_as_string);
+//  parsed.get_to(vocab_map);
+//
+//  for (auto it = vocab_map.begin(); it != vocab_map.end(); ++it) {
+//    vocab_[ustring(it->first)] = it->second;
+//  }
 }
 
 void KernelWordpieceTokenizer_Split(const std::u32string& suffix_indicator,
@@ -134,10 +134,10 @@ void KernelWordPieceTokenizer::Compute(OrtKernelContext* context) {
   std::vector<int32_t> indices;
   std::vector<int64_t> row_begins;
 
-  KernelWordpieceTokenizer_Tokenizer(vocab_, suffix_indicator_, unk_token_, str_input,
-                                     tokens, indices, row_begins,
-                                     p_row_indices, ort_row_indices_dim.Size(),
-                                     max_input_chars_per_word_);
+//  KernelWordpieceTokenizer_Tokenizer(vocab_, suffix_indicator_, unk_token_, str_input,
+//                                     tokens, indices, row_begins,
+//                                     p_row_indices, ort_row_indices_dim.Size(),
+//                                     max_input_chars_per_word_);
 
   std::vector<int64_t> size_content{(int64_t)indices.size()};
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, size_content.data(), size_content.size());
