@@ -1,8 +1,11 @@
-OSNAME=$(uname -s)
-mkdir -p out/$OSNAME
-cd out/$OSNAME || exit 103
+#!/bin/bash
 
-cmake "$@" ../.. && cmake --build . --config RelWithDebInfo --parallel
-build_error=$?
-cd ../..
-exit $build_error
+# The example build script to build the source in Linux-like platform
+set -e -x -u
+
+OSNAME=$(uname -s)
+BUILD_FLAVOR=RelWithDebInfo
+target_dir=out/$OSNAME/$BUILD_FLAVOR
+mkdir -p $target_dir && cd $target_dir
+
+cmake "$@" ../../.. && cmake --build . --config $BUILD_FLAVOR --parallel
