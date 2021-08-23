@@ -25,6 +25,10 @@ class ustring : public std::u32string {
   explicit ustring(const std::u32string_view& str);
   explicit ustring(const std::u32string_view&& str);
 
+  ustring(ustring& str);
+  ustring(const ustring& str);
+
+
   explicit operator std::string();
   explicit operator std::string() const;
 

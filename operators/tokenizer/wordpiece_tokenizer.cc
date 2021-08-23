@@ -5,29 +5,28 @@
 #include "nlohmann/json.hpp"
 
 KernelWordPieceTokenizer::KernelWordPieceTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
-  // https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/WordpieceTokenizer.md
+  // https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/WordPieceTokenizer.md
   // https://github.com/tensorflow/text/blob/master/tensorflow_text/python/ops/bert_tokenizer.py
-  // https://huggingface.co/transformers/model_doc/bert.html#berttokenizer
-//  std::string vocab_as_string = ort_.KernelInfoGetAttribute<std::string>(info, "vocab");
-//  std::string suffix_indicator = ort_.KernelInfoGetAttribute<std::string>(info, "suffix_indicator");
-//  std::string unk = ort_.KernelInfoGetAttribute<std::string>(info, "unknown_token");
-//  max_input_chars_per_word_ = HasAttribute("max_input_chars_per_word") ? ort_.KernelInfoGetAttribute<int64_t>(info, "max_input_chars_per_word") : 200;
-//  suffix_indicator_ = ustring(suffix_indicator);
-//  unk_token_ = ustring(unk);
-//
-//  std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> cvt;
-//  std::unordered_map<std::string, int32_t> vocab_map;
-//  auto parsed = nlohmann::json::parse(vocab_as_string);
-//  parsed.get_to(vocab_map);
-//
-//  for (auto it = vocab_map.begin(); it != vocab_map.end(); ++it) {
-//    vocab_[ustring(it->first)] = it->second;
-//  }
+  std::string vocab_as_string = ort_.KernelInfoGetAttribute<std::string>(info, "vocab");
+  std::string suffix_indicator = ort_.KernelInfoGetAttribute<std::string>(info, "suffix_indicator");
+  std::string unk = ort_.KernelInfoGetAttribute<std::string>(info, "unknown_token");
+  max_input_chars_per_word_ = HasAttribute("max_input_chars_per_word") ? ort_.KernelInfoGetAttribute<int64_t>(info, "max_input_chars_per_word") : 200;
+  suffix_indicator_ = ustring(suffix_indicator);
+  unk_token_ = ustring(unk);
+
+  std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> cvt;
+  std::unordered_map<std::string, int32_t> vocab_map;
+  auto parsed = nlohmann::json::parse(vocab_as_string);
+  parsed.get_to(vocab_map);
+
+  for (auto it = vocab_map.begin(); it != vocab_map.end(); ++it) {
+    vocab_[ustring(it->first)] = it->second;
+  }
 }
 
-void KernelWordpieceTokenizer_Split(const std::u32string& suffix_indicator,
-                                    const std::u32string& text,
-                                    std::vector<std::u32string>& words) {
+void KernelWordPieceTokenizer_Split(const ustring& suffix_indicator,
+                                    const ustring& text,
+                                    std::vector<ustring>& words) {
   ustring space(" ");
   int pos = 0;
   int last = 0;
@@ -35,18 +34,18 @@ void KernelWordpieceTokenizer_Split(const std::u32string& suffix_indicator,
   for (; pos < text.size(); ++pos) {
     if (text[pos] == space[0]) {
       if (last >= 0 && last < pos) {
-        words.push_back(text.substr(last, pos - last));
+        words.emplace_back(text.substr(last, pos - last));
       }
       last = pos + 1;
     }
   }
   if (last >= 0 && last < text.size()) {
-    words.push_back(text.substr(last, pos - last));
+    words.emplace_back(text.substr(last, pos - last));
   }
 }
 
-void KernelWordpieceTokenizer_Tokenizer(const std::unordered_map<std::u32string, int32_t>& vocab,
-                                        const std::u32string& suffix_indicator,
+void KernelWordPieceTokenizer_Tokenizer(const std::unordered_map<ustring, int32_t>& vocab,
+                                        const ustring& suffix_indicator,
                                         const ustring& unk_token,
                                         const std::vector<ustring>& texts,
                                         std::vector<ustring>& tokens,
@@ -55,16 +54,16 @@ void KernelWordpieceTokenizer_Tokenizer(const std::unordered_map<std::u32string,
                                         const int64_t* existing_rows,
                                         int64_t n_existing_rows,
                                         int64_t max_input_chars_per_word) {
-  std::vector<std::u32string> words;
+  std::vector<ustring> words;
   bool is_bad;
   bool no_existing_rows = n_existing_rows == 0;
   int start, end;
-  std::u32string substr;
+  ustring substr;
   int64_t cur_substr;
   tokens.clear();
   indices.clear();
   rows.clear();
-  std::u32string token;
+  ustring token;
   int64_t row_index = 0;
   std::vector<ustring>::const_iterator it;
   int64_t text_index;
@@ -79,7 +78,7 @@ void KernelWordpieceTokenizer_Tokenizer(const std::unordered_map<std::u32string,
       ++row_index;
     }
 
-    KernelWordpieceTokenizer_Split(suffix_indicator, *it, words);
+    KernelWordPieceTokenizer_Split(suffix_indicator, *it, words);
 
     for (auto itk = words.begin(); itk != words.end(); ++itk) {
       if (itk->size() > max_input_chars_per_word) {
@@ -93,9 +92,10 @@ void KernelWordpieceTokenizer_Tokenizer(const std::unordered_map<std::u32string,
         end = itk->size();
         cur_substr = -1;
         for (; start < end;) {
-          substr = itk->substr(start, end - start);
-          if (start > 0)
-            substr = suffix_indicator + substr;
+          substr = static_cast<const ustring>(itk->substr(start, end - start));
+          if (start > 0) {
+            substr = static_cast<const ustring>(suffix_indicator + substr);
+          }
           auto itf = vocab.find(substr);
           if (itf != vocab.end()) {
             token = substr;
@@ -134,10 +134,10 @@ void KernelWordPieceTokenizer::Compute(OrtKernelContext* context) {
   std::vector<int32_t> indices;
   std::vector<int64_t> row_begins;
 
-//  KernelWordpieceTokenizer_Tokenizer(vocab_, suffix_indicator_, unk_token_, str_input,
-//                                     tokens, indices, row_begins,
-//                                     p_row_indices, ort_row_indices_dim.Size(),
-//                                     max_input_chars_per_word_);
+  KernelWordPieceTokenizer_Tokenizer(vocab_, suffix_indicator_, unk_token_, str_input,
+                                     tokens, indices, row_begins,
+                                     p_row_indices, ort_row_indices_dim.Size(),
+                                     max_input_chars_per_word_);
 
   std::vector<int64_t> size_content{(int64_t)indices.size()};
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, size_content.data(), size_content.size());
@@ -168,21 +168,37 @@ void* CustomOpWordPieceTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* 
 };
 
 const char* CustomOpWordPieceTokenizer::GetName() const {
-  return "WordpieceTokenizer";
+  return "WordPieceTokenizer";
 };
 
 size_t CustomOpWordPieceTokenizer::GetInputTypeCount() const {
-  return 1;
+  return 2;
 };
 
 ONNXTensorElementDataType CustomOpWordPieceTokenizer::GetInputType(size_t index) const {
+  switch (index) {
+    case 0:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+    case 1:
+      return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+    default:
+      throw std::runtime_error(MakeString("Unexpected input index ", index));
+  }
 };
 
 size_t CustomOpWordPieceTokenizer::GetOutputTypeCount() const {
-  return 3;
+  return 4;
 };
 
 ONNXTensorElementDataType CustomOpWordPieceTokenizer::GetOutputType(size_t index) const {
+  switch (index) {
+    case 0:
+      return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+    case 1:
+    case 2:
+    case 3:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+    default:
+      throw std::runtime_error(MakeString("[WordPieceTokenizer] Unexpected output index ", index));
+  }
 };

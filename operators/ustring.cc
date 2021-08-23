@@ -46,6 +46,10 @@ ustring::ustring(const std::u32string_view& str):std::u32string(str) {}
 
 ustring::ustring(const std::u32string_view&& str):std::u32string(str) {}
 
+ustring::ustring(ustring& str):std::u32string(str) {}
+
+ustring::ustring(const ustring& str): std::u32string(str) {}
+
 ustring::operator std::string() {
   utf8_converter str_cvt;
   return str_cvt.to_bytes(*this);

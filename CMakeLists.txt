@@ -145,7 +145,7 @@ endif()
 
 if (OCOS_ENABLE_BERT_TOKENIZER)
   # Bert
-  file(GLOB bert_TARGET_SRC "operators/tokenizer/wordpiece*.*" "operators/tokenizer/basic_tokenizer.*")
+  file(GLOB bert_TARGET_SRC "operators/tokenizer/wordpiece*.*" "operators/tokenizer/basic_tokenizer.*" "operators/tokenizer/bert_tokenizer.*")
   list(APPEND TARGET_SRC ${bert_TARGET_SRC})
 endif()
 
