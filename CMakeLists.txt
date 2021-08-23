@@ -42,7 +42,6 @@ function(disable_all_operators)
   set(OCOS_ENABLE_BERT_TOKENIZER OFF CACHE INTERNAL "")
   set(OCOS_ENABLE_BLINGFIRE OFF CACHE INTERNAL "")
   set(OCOS_ENABLE_MATH OFF CACHE INTERNAL "")
-  set(OCOS_ENABLE_TF_STRING OFF CACHE INTERNAL "")
 endfunction()
 
 if(NOT CC_OPTIMIZE)
@@ -73,6 +72,8 @@ endif()
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals ${PROJECT_SOURCE_DIR}/cmake)
 
 if (OCOS_ENABLE_OPLIST_FILE)
+  # Need to ensure _selectedoplist.cmake file is already generated in folder: ${PROJECT_SOURCE_DIR}/cmake
+  # You could run generate_cmake_ops_list.py in folder: /onnxruntime_extensions to generate _selectedoplist.cmake
   message(STATUS "Looking for the _selectedoplist.cmake")
   disable_all_operators()
   include(_selectedoplist)
