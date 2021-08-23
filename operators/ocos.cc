@@ -3,7 +3,6 @@
 #include <sstream>
 #include "ocos.h"
 
-
 bool BaseKernel::HasAttribute(const char* name) const {
   if (info_ == nullptr) {
     ORT_CXX_API_THROW("Kernel was incorrectly initialized, pointer info_ cannot be null.", ORT_INVALID_ARGUMENT);
@@ -35,6 +34,7 @@ OrtErrorCode BaseKernel::GetErrorCodeAndRelease(OrtStatusPtr status) {
   api_.ReleaseStatus(status);
   return error_code;
 }
+
 
 template <>
 bool BaseKernel::TryToGetAttribute(const char* name, std::string& value) {
@@ -76,4 +76,11 @@ bool BaseKernel::TryToGetAttribute(const char* name, float& value) {
   }
 
   return GetErrorCodeAndRelease(api_.KernelInfoGetAttribute_float(info_, name, &value)) == ORT_OK;
+}
+
+template <class T>
+T BaseKernel::TryToGetAttributeWithDefault(const char* name, T default_value) {
+  T& result = default_value;
+  TryToGetAttribute(name, result);
+  return result;
 }

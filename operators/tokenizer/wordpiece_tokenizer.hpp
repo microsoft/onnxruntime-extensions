@@ -10,15 +10,24 @@
 #include "string_utils.h"
 #include "string_tensor.h"
 
-struct KernelWordPieceTokenizer : BaseKernel {
-  KernelWordPieceTokenizer(OrtApi api, const OrtKernelInfo* info);
-  void Compute(OrtKernelContext* context);
-
+class WordPieceTokenizer{
+ public:
+  WordPieceTokenizer(std::string vocab, ustring unk_token, int max_input_chars_per_word = 100);
+  std::vector<ustring> Tokenizer(ustring text);
+  std::vector<int64_t> Encode(std::vector<ustring> token);
  private:
   int64_t max_input_chars_per_word_;
   ustring suffix_indicator_;
   ustring unk_token_;
   std::unordered_map<ustring, int32_t> vocab_;
+};
+
+struct KernelWordPieceTokenizer : BaseKernel {
+  KernelWordPieceTokenizer(OrtApi api, const OrtKernelInfo* info);
+  void Compute(OrtKernelContext* context);
+
+ private:
+  std::shared_ptr<WordPieceTokenizer> tokenizer_;
 };
 
 struct CustomOpWordPieceTokenizer : Ort::CustomOpBase<CustomOpWordPieceTokenizer, KernelWordPieceTokenizer> {

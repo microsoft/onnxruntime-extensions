@@ -4,17 +4,28 @@
 #include "wordpiece_tokenizer.hpp"
 #include "nlohmann/json.hpp"
 
+WordPieceTokenizer::WordPieceTokenizer(std::string vocab, ustring unk_token, int max_input_chars_per_word) {
+}
+
+std::vector<ustring> WordPieceTokenizer::Tokenizer(ustring text) {
+  return std::vector<ustring>();
+}
+
+std::vector<int64_t> WordPieceTokenizer::Encode(std::vector<ustring> token) {
+  return std::vector<int64_t>();
+}
+
 KernelWordPieceTokenizer::KernelWordPieceTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   // https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/WordPieceTokenizer.md
   // https://github.com/tensorflow/text/blob/master/tensorflow_text/python/ops/bert_tokenizer.py
   std::string vocab_as_string = ort_.KernelInfoGetAttribute<std::string>(info, "vocab");
-  std::string suffix_indicator = ort_.KernelInfoGetAttribute<std::string>(info, "suffix_indicator");
-  std::string unk = ort_.KernelInfoGetAttribute<std::string>(info, "unknown_token");
-  max_input_chars_per_word_ = HasAttribute("max_input_chars_per_word") ? ort_.KernelInfoGetAttribute<int64_t>(info, "max_input_chars_per_word") : 200;
+  std::string suffix_indicator = TryToGetAttributeWithDefault<std::string>("suffix_indicator", "##");
+  std::string unk =  TryToGetAttributeWithDefault<std::string>("unknown_token", "[UNK]");
+
+  int64_t max_input_chars_per_word_ = TryToGetAttributeWithDefault("max_input_chars_per_word", 200);
   suffix_indicator_ = ustring(suffix_indicator);
   unk_token_ = ustring(unk);
 
-  std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> cvt;
   std::unordered_map<std::string, int32_t> vocab_map;
   auto parsed = nlohmann::json::parse(vocab_as_string);
   parsed.get_to(vocab_map);
