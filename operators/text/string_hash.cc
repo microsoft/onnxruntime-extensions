@@ -4,7 +4,6 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
-#include "re2/re2.h"
 #include "farmhash.h"
 #include "string_tensor.h"
 #include "string_hash.hpp"

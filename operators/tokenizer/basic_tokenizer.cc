@@ -13,37 +13,36 @@ BasicTokenizer::BasicTokenizer(bool do_lower_case, bool tokenize_chinese_chars, 
  do_lower_case_(do_lower_case), tokenize_chinese_chars_(tokenize_chinese_chars), strip_accents_(strip_accents), tokenize_punctuation_(tokenize_punctuation),
  remove_control_chars_(remove_control_chars){}
 
-std::vector<std::string> BasicTokenizer::Tokenizer(std::string input) {
-  std::vector<std::string> result;
-  ustring unicode_input(input);
+std::vector<ustring> BasicTokenizer::Tokenize(ustring text) {
+  std::vector<ustring> result;
   ustring token;
   auto push_current_token_and_clear = [&result, &token]() {
     if (!token.empty()) {
-      result.push_back(std::string(token));
+      result.push_back(token);
       token.clear();
     }
   };
 
   auto push_single_char_and_clear = [&result, &token](char32_t c) {
     token.push_back(c);
-    result.push_back(std::string(token));
+    result.push_back(token);
     token.clear();
   };
 
   // strip accent first
   if (strip_accents_) {
-    for (auto& c : unicode_input) {
+    for (auto& c : text) {
       c = StripAccent(c);
     }
   }
 
   if (do_lower_case_) {
-    for (auto& c : unicode_input) {
+    for (auto& c : text) {
         c = ::tolower(c);
     }
   }
 
-  for (auto c : unicode_input) {
+  for (auto c : text) {
     if (tokenize_chinese_chars_ && IsChineseChar(c)) {
       push_current_token_and_clear();
       push_single_char_and_clear(c);

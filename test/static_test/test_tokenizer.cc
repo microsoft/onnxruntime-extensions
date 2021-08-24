@@ -10,12 +10,12 @@ TEST(tokenizer, bert_word_split) {
   ustring ind("##");
   ustring text("A AAA B BB");
   std::vector<ustring> words;
-  KernelWordPieceTokenizer_Split(ind, text, words);
+  KernelWordpieceTokenizer_Split(ind, text, words);
   std::vector<ustring> expected{ustring("A"), ustring("AAA"), ustring("B"), ustring("BB")};
   EXPECT_EQ(expected, words);
 
   text = ustring("  A AAA  B BB ");
-  KernelWordPieceTokenizer_Split(ind, text, words);
+  KernelWordpieceTokenizer_Split(ind, text, words);
   EXPECT_EQ(words, expected);
 }
 
@@ -50,7 +50,7 @@ TEST(tokenizer, wordpiece_basic_tokenizer) {
   std::vector<ustring> tokens;
   std::vector<int32_t> indices;
   std::vector<int64_t> rows;
-  KernelWordPieceTokenizer_Tokenizer(vocab, ustring("##"), ustring("[unk]"), text, tokens, indices, rows);
+  KernelWordpieceTokenizer_Tokenizer(vocab, ustring("##"), ustring("[unk]"), text, tokens, indices, rows);
   //EXPECT_EQ(indices, std::vector<int32_t>({9, 6, 7, 12, 10, 11}));
   //EXPECT_EQ(rows, std::vector<int64_t>({0, 6}));
 }
@@ -82,21 +82,21 @@ TEST(tokenizer, wordpiece_wordpiece_tokenizer) {
   std::vector<ustring> tokens;
 
   std::vector<ustring> text = {ustring("unwanted running")};  // "un", "##want", "##ed", "runn", "##ing"
-  KernelWordPieceTokenizer_Tokenizer(vocab, ustring("##"), ustring("[UNK]"), text, tokens, indices, rows);
+  KernelWordpieceTokenizer_Tokenizer(vocab, ustring("##"), ustring("[UNK]"), text, tokens, indices, rows);
   EXPECT_EQ(tokens, std::vector<ustring>({ustring("un"), ustring("##want"), ustring("##ed"),
                                           ustring("runn"), ustring("##ing")}));
   EXPECT_EQ(indices, std::vector<int32_t>({7, 4, 5, 8, 9}));
   EXPECT_EQ(rows, std::vector<int64_t>({0, 5}));
 
   text = std::vector<ustring>({ustring("unwantedX running")});  // "[UNK]", "runn", "##ing"
-  KernelWordPieceTokenizer_Tokenizer(vocab, ustring("##"), ustring("[UNK]"), text, tokens, indices, rows);
+  KernelWordpieceTokenizer_Tokenizer(vocab, ustring("##"), ustring("[UNK]"), text, tokens, indices, rows);
   EXPECT_EQ(tokens, std::vector<ustring>({ustring("un"), ustring("##want"), ustring("##ed"),
                                           ustring("[UNK]"), ustring("runn"), ustring("##ing")}));
   EXPECT_EQ(indices, std::vector<int32_t>({7, 4, 5, -1, 8, 9}));
   EXPECT_EQ(rows, std::vector<int64_t>({0, 6}));
 
   text = std::vector<ustring>({ustring("")});  //
-  KernelWordPieceTokenizer_Tokenizer(vocab, ustring("##"), ustring("[unk]"), text, tokens, indices, rows);
+  KernelWordpieceTokenizer_Tokenizer(vocab, ustring("##"), ustring("[unk]"), text, tokens, indices, rows);
   EXPECT_EQ(tokens, std::vector<ustring>());
   EXPECT_EQ(indices, std::vector<int32_t>());
   EXPECT_EQ(rows, std::vector<int64_t>({0, 0}));
@@ -110,7 +110,7 @@ TEST(tokenizer, bert_wordpiece_tokenizer_rows) {
 
   std::vector<int64_t> existing_indices({0, 2, 3});
   std::vector<ustring> text = {ustring("unwanted"), ustring("running"), ustring("running")};
-  KernelWordPieceTokenizer_Tokenizer(vocab, ustring("##"), ustring("[UNK]"), text, tokens, indices, rows,
+  KernelWordpieceTokenizer_Tokenizer(vocab, ustring("##"), ustring("[UNK]"), text, tokens, indices, rows,
                                 existing_indices.data(), existing_indices.size());
   EXPECT_EQ(tokens, std::vector<ustring>({ustring("un"), ustring("##want"), ustring("##ed"),
                                           ustring("runn"), ustring("##ing"),

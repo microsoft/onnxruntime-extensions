@@ -10,27 +10,18 @@
 #include "string_utils.h"
 #include "string_tensor.h"
 
-class WordPieceTokenizer{
- public:
-  WordPieceTokenizer(std::string vocab, ustring unk_token, int max_input_chars_per_word = 100);
-  std::vector<ustring> Tokenizer(ustring text);
-  std::vector<int64_t> Encode(std::vector<ustring> token);
- private:
-  int64_t max_input_chars_per_word_;
-  ustring suffix_indicator_;
-  ustring unk_token_;
-  std::unordered_map<ustring, int32_t> vocab_;
-};
-
-struct KernelWordPieceTokenizer : BaseKernel {
-  KernelWordPieceTokenizer(OrtApi api, const OrtKernelInfo* info);
+struct KernelWordpieceTokenizer : BaseKernel {
+  KernelWordpieceTokenizer(OrtApi api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
 
  private:
-  std::shared_ptr<WordPieceTokenizer> tokenizer_;
+  int64_t max_input_chars_per_word_;
+  std::u32string suffix_indicator_;
+  ustring unk_token_;
+  std::unordered_map<std::u32string, int32_t> vocab_;
 };
 
-struct CustomOpWordPieceTokenizer : Ort::CustomOpBase<CustomOpWordPieceTokenizer, KernelWordPieceTokenizer> {
+struct CustomOpWordpieceTokenizer : Ort::CustomOpBase<CustomOpWordpieceTokenizer, KernelWordpieceTokenizer> {
   void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
@@ -39,12 +30,12 @@ struct CustomOpWordPieceTokenizer : Ort::CustomOpBase<CustomOpWordPieceTokenizer
   ONNXTensorElementDataType GetOutputType(size_t index) const;
 };
 
-void KernelWordPieceTokenizer_Split(const ustring& suffix_indicator,
-                                    const ustring& text,
-                                    std::vector<ustring>& words);
+void KernelWordpieceTokenizer_Split(const std::u32string& suffix_indicator,
+                                    const std::u32string& text,
+                                    std::vector<std::u32string>& words);
 
-void KernelWordPieceTokenizer_Tokenizer(const std::unordered_map<ustring, int32_t>& vocab,
-                                        const ustring& suffix_indicator,
+void KernelWordpieceTokenizer_Tokenizer(const std::unordered_map<std::u32string, int32_t>& vocab,
+                                        const std::u32string& suffix_indicator,
                                         const ustring& unk_token,
                                         const std::vector<ustring>& texts,
                                         std::vector<ustring>& tokens,
