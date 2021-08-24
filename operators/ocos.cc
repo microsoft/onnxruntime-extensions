@@ -35,7 +35,6 @@ OrtErrorCode BaseKernel::GetErrorCodeAndRelease(OrtStatusPtr status) {
   return error_code;
 }
 
-
 template <>
 bool BaseKernel::TryToGetAttribute(const char* name, std::string& value) {
   if (info_ == nullptr) {
@@ -78,9 +77,17 @@ bool BaseKernel::TryToGetAttribute(const char* name, float& value) {
   return GetErrorCodeAndRelease(api_.KernelInfoGetAttribute_float(info_, name, &value)) == ORT_OK;
 }
 
-template <class T>
-T BaseKernel::TryToGetAttributeWithDefault(const char* name, T default_value) {
-  T& result = default_value;
-  TryToGetAttribute(name, result);
-  return result;
+template <>
+bool BaseKernel::TryToGetAttribute(const char* name, bool& value) {
+  if (info_ == nullptr) {
+    ORT_CXX_API_THROW("Kernel was incorrectly initialized, pointer info_ cannot be null.", ORT_INVALID_ARGUMENT);
+  }
+
+  int64_t origin_value = 0;
+  if (GetErrorCodeAndRelease(api_.KernelInfoGetAttribute_int64(info_, name, &origin_value)) != ORT_OK) {
+    return false;
+  }
+
+  value = origin_value == 1;
+  return true;
 }

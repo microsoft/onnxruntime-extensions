@@ -78,7 +78,14 @@ std::vector<ustring> BasicTokenizer::Tokenize(ustring text) {
   return result;
 }
 
-KernelBasicTokenizer::KernelBasicTokenizer(OrtApi api) : BaseKernel(api) {
+KernelBasicTokenizer::KernelBasicTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api) {
+  bool do_lower_case = TryToGetAttributeWithDefault("do_lower_case", true);
+  bool tokenize_chinese_chars = TryToGetAttributeWithDefault("tokenize_chinese_chars", true);
+  bool strip_accents = TryToGetAttributeWithDefault("strip_accents", false);
+  bool tokenize_punctuation = TryToGetAttributeWithDefault("tokenize_punctuation", false);
+  bool remove_control_chars = TryToGetAttributeWithDefault("strip_accents", true);
+
+  tokenizer_ = std::make_shared<BasicTokenizer>(do_lower_case, tokenize_chinese_chars, strip_accents, tokenize_punctuation, remove_control_chars);
 }
 
 void KernelBasicTokenizer::Compute(OrtKernelContext* context) {
@@ -88,16 +95,18 @@ void KernelBasicTokenizer::Compute(OrtKernelContext* context) {
   GetTensorMutableDataString(api_, ort_, context, input, input_data);
 
   OrtTensorDimensions dimensions(ort_, input);
-  OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
-  auto* output_data = ort_.GetTensorMutableData<int64_t>(output);
-
-  for (int i = 0; i < dimensions.Size(); i++) {
-    output_data[i] = ustring(input_data[i]).size();
+  if (dimensions.size() != 1 && dimensions[0] != 1) {
+    ORT_CXX_API_THROW("[BertTokenizer]: only support string scalar.", ORT_INVALID_GRAPH);
   }
+
+  OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
+  std::vector<ustring> result = tokenizer_->Tokenize(ustring(input_data[0]));
+
+  FillTensorDataString(api_, ort_, context, result, output);
 }
 
-void* CustomOpBasicTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
-  return new KernelBasicTokenizer(api);
+void* CustomOpBasicTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+  return new KernelBasicTokenizer(api, info);
 };
 
 const char* CustomOpBasicTokenizer::GetName() const { return "BasicTokenizer"; };

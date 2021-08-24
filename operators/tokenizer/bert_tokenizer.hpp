@@ -36,8 +36,10 @@ class BertTokenizer {
                      ustring suffix_indicator);
   std::vector<ustring> Tokenize(const ustring& text);
   std::vector<int64_t> Encode(const std::vector<ustring>& tokens);
-  std::vector<int64_t> AddSpecialToken(const std::vector<int64_t>& tokens);
+  std::vector<int64_t> AddSpecialToken(const std::vector<int64_t>& ids);
   std::vector<int64_t> AddSpecialToken(const std::vector<int64_t>& ids1, const std::vector<int64_t>& ids2);
+  std::vector<int64_t> GenerateTypeId(const std::vector<int64_t>& ids);
+  std::vector<int64_t> GenerateTypeId(const std::vector<int64_t>& ids1, const std::vector<int64_t>& ids2);
  private:
   int32_t unk_token_id_;
   int32_t sep_token_id_;
@@ -50,4 +52,20 @@ class BertTokenizer {
   std::shared_ptr<WordpieceTokenizer> wordpiece_tokenizer_;
 
   int32_t FindSpecialToken(ustring token);
+};
+
+struct KernelBertTokenizer : BaseKernel {
+  KernelBertTokenizer(OrtApi api,  const OrtKernelInfo* info);
+  void Compute(OrtKernelContext* context);
+ private:
+  std::shared_ptr<BertTokenizer> tokenizer_;
+};
+
+struct CustomOpBertTokenizer : Ort::CustomOpBase<CustomOpBertTokenizer, KernelBertTokenizer> {
+  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
+  const char* GetName() const;
+  size_t GetInputTypeCount() const;
+  ONNXTensorElementDataType GetInputType(size_t index) const;
+  size_t GetOutputTypeCount() const;
+  ONNXTensorElementDataType GetOutputType(size_t index) const;
 };

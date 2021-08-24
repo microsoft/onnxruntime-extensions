@@ -125,6 +125,38 @@ std::vector<int64_t> BertTokenizer::Encode(const std::vector<ustring>& tokens) {
   return wordpiece_tokenizer_->Encode(tokens);
 }
 
+std::vector<int64_t> BertTokenizer::AddSpecialToken(const std::vector<int64_t>& ids) {
+  std::vector<int64_t> result;
+  result.reserve(ids.size() + 2);
+  result.push_back(cls_token_id_);
+  result.insert(result.end(), ids.begin(), ids.end());
+  result.push_back(sep_token_id_);
+  return result;
+}
+
+std::vector<int64_t> BertTokenizer::AddSpecialToken(const std::vector<int64_t>& ids1, const std::vector<int64_t>& ids2) {
+  std::vector<int64_t> result;
+  result.reserve(ids1.size() + ids2.size() + 3);
+  result.push_back(cls_token_id_);
+  result.insert(result.end(), ids1.begin(), ids1.end());
+  result.push_back(sep_token_id_);
+  result.insert(result.end(), ids2.begin(), ids2.end());
+  result.push_back(sep_token_id_);
+  return result;
+}
+
+std::vector<int64_t> BertTokenizer::GenerateTypeId(const std::vector<int64_t>& ids) {
+  return std::vector<int64_t>(ids.size() + 2, 0);
+}
+
+std::vector<int64_t> BertTokenizer::GenerateTypeId(const std::vector<int64_t>& ids1, const std::vector<int64_t>& ids2) {
+  std::vector<int64_t> result;
+  result.reserve(ids1.size() + ids2.size() + 3);
+  result.insert(result.end(),  ids1.size() + 2, 0);
+  result.insert(result.end(),  ids2.size() + 1, 1);
+  return result;
+}
+
 int32_t BertTokenizer::FindSpecialToken(ustring token) {
   auto it = vocab_->find(token);
   if (it == vocab_->end()) {
@@ -132,4 +164,66 @@ int32_t BertTokenizer::FindSpecialToken(ustring token) {
   }
   return it->second;
 }
+
+KernelBertTokenizer::KernelBertTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api) {
+  std::string vocab = ort_.KernelInfoGetAttribute<std::string>(info, "vocab_file");
+  bool do_lower_case = TryToGetAttributeWithDefault("do_lower_case", true);
+  bool do_basic_tokenize = TryToGetAttributeWithDefault("do_basic_tokenize", true);
+  std::string unk_token = TryToGetAttributeWithDefault("unk_token", std::string("[UNK]"));
+  std::string sep_token = TryToGetAttributeWithDefault("sep_token", std::string("[SEP]"));
+  std::string pad_token = TryToGetAttributeWithDefault("pad_token", std::string("[PAD]"));
+  std::string cls_token = TryToGetAttributeWithDefault("cls_token", std::string("[CLS]"));
+  std::string mask_token = TryToGetAttributeWithDefault("mask_token", std::string("[MASK]"));
+  bool tokenize_chinese_chars = TryToGetAttributeWithDefault("tokenize_chinese_chars", true);
+  bool strip_accents = TryToGetAttributeWithDefault("strip_accents", false);
+  std::string suffix_indicator = TryToGetAttributeWithDefault("suffix_indicator", std::string("##"));
+
+
+//  BertTokenizer(std::string vocab, bool do_lower_case, bool do_basic_tokenize,
+//      ustring unk_token, ustring sep_token, ustring pad_token, ustring  cls_token,
+//      ustring mask_token, bool tokenize_chinese_chars, bool strip_accents,
+//      ustring suffix_indicator);
+  tokenizer_ = std::make_shared<BertTokenizer>(vocab, do_lower_case, do_basic_tokenize, ustring(unk_token),
+                                               ustring(sep_token), ustring(pad_token),ustring(cls_token),
+                                               ustring(mask_token), tokenize_chinese_chars, strip_accents, ustring(suffix_indicator));
+}
+
+void KernelBertTokenizer::Compute(OrtKernelContext* context) {
+  // Setup inputs
+  const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
+  std::vector<std::string> input_data;
+  GetTensorMutableDataString(api_, ort_, context, input, input_data);
+
+  OrtTensorDimensions dimensions(ort_, input);
+  if (dimensions.size() != 1 && dimensions[0] != 1) {
+    ORT_CXX_API_THROW("[BertTokenizer]: only support string scalar.", ORT_INVALID_GRAPH);
+  }
+
+  OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
+  std::vector<ustring> result = tokenizer_->Tokenize(ustring(input_data[0]));
+
+  FillTensorDataString(api_, ort_, context, result, output);
+}
+
+void* CustomOpBertTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+  return new KernelBertTokenizer(api, info);
+};
+
+const char* CustomOpBertTokenizer::GetName() const { return "BertTokenizer"; };
+
+size_t CustomOpBertTokenizer::GetInputTypeCount() const {
+  return 1;
+};
+
+ONNXTensorElementDataType CustomOpBertTokenizer::GetInputType(size_t /*index*/) const {
+  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+};
+
+size_t CustomOpBertTokenizer::GetOutputTypeCount() const {
+  return 1;
+};
+
+ONNXTensorElementDataType CustomOpBertTokenizer::GetOutputType(size_t /*index*/) const {
+  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+};
 

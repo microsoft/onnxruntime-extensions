@@ -31,10 +31,16 @@ struct BaseKernel {
   BaseKernel(OrtApi api, const OrtKernelInfo* info) : api_(api), info_(info), ort_(api_) {}
 
   bool HasAttribute(const char* name) const;
+
   template <class T>
   bool TryToGetAttribute(const char* name, T& value);
+
   template <class T>
-  T TryToGetAttributeWithDefault(const char* name, T default_value);
+  T TryToGetAttributeWithDefault(const char* name, T default_value) {
+    T& result = default_value;
+    TryToGetAttribute(name, result);
+    return result;
+  }
  protected:
   OrtErrorCode GetErrorCodeAndRelease(OrtStatusPtr status);
   OrtApi api_;  // keep a copy of the struct, whose ref is used in the ort_

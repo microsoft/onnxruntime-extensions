@@ -21,8 +21,10 @@ class BasicTokenizer {
 };
 
 struct KernelBasicTokenizer : BaseKernel {
-  KernelBasicTokenizer(OrtApi api);
+  KernelBasicTokenizer(OrtApi api,  const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
+ private:
+  std::shared_ptr<BasicTokenizer> tokenizer_;
 };
 
 struct CustomOpBasicTokenizer : Ort::CustomOpBase<CustomOpBasicTokenizer, KernelBasicTokenizer> {
