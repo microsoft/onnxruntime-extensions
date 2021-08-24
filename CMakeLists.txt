@@ -73,7 +73,7 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals ${PROJECT_SO
 
 if (OCOS_ENABLE_SELECTED_OPLIST)
   # Need to ensure _selectedoplist.cmake file is already generated in folder: ${PROJECT_SOURCE_DIR}/cmake/
-  # You could run cmake_helper.py in folder: ci_build/tools/ to generate _selectedoplist.cmake
+  # You could run gen_selectedops.py in folder: tools/ to generate _selectedoplist.cmake
   message(STATUS "Looking for the _selectedoplist.cmake")
   disable_all_operators()
   include(_selectedoplist)
