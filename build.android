@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# The example file on building the static library for android
+set -e -x -u
+
+OSNAME=android
+if [ -z "$NDK_ROOT" ]; then export NDK_ROOT=`ls -d $HOME/Android/ndk/* 2>/dev/null`; fi 
+if [ -z "$NDK_ROOT" ]
+then
+    echo "ERROR: cannot find where NDK was installed, using NDK_ROOT to specify it"
+    exit 7
+fi
+
+mkdir -p out/$OSNAME/Release && cd out/$OSNAME/Release
+
+cmake "$@" \
+    -DCMAKE_TOOLCHAIN_FILE=${NDK_ROOT}/build/cmake/android.toolchain.cmake  \
+    -DANDROID_NDK=${NDK_ROOT}                                               \
+    -DANDROID_ABI=armeabi-v7a                                               \
+    -DANDROID_PLATFORM=android-19                                           \
+    -DOCOS_ENABLE_STATIC_LIB=ON                                             \
+    ../../.. && cmake --build . --config Release --parallel
