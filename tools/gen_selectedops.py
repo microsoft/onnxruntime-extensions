@@ -54,7 +54,7 @@ def gen_cmake_oplist(opconfig_file, oplist_cmake_file='_selectedoplist.cmake'):
 
 
 if __name__ == '__main__':
-    # command: python cmake_helper.py <path-to-operators-config-file>
+    # command: python gen_selectedops.py <path-to-operators-config-file>
     # will generate the _selectedoplist.cmake file in ${PROJECT_SOURCE_DIR}/cmake/ folder
     print('[onnxruntime-extensions] cmake_helper.py arguments: ', sys.argv)
 
