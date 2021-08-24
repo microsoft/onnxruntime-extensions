@@ -1,33 +1,28 @@
 import os
-import subprocess
-import sys
 import unittest
+from pathlib import Path
+from onnxruntime_extensions import cmake_helper
+
+
+def _get_test_data_file(*sub_dirs):
+    test_dir = Path(__file__).parent
+    return str(test_dir.joinpath(*sub_dirs))
 
 
 class TestCMakeHelper(unittest.TestCase):
     def test_cmake_file_gen(self):
-        previous_dir = os.getcwd()
-
-        current_dir = os.path.dirname(__file__)
-        operator_config_file = os.path.abspath(os.path.join(current_dir, './data/test.op.config'))
-        generated_cmake_file = os.path.abspath(os.path.join(current_dir, '../cmake/_selectedoplist.cmake'))
-
-        cmake_tool_dir = os.path.abspath(os.path.join(current_dir, '../ci_build/tools/'))
-        os.chdir(cmake_tool_dir)
-
-        # run cmake_helper.py
-        subprocess.run([sys.executable, 'cmake_helper.py', operator_config_file], cwd=cmake_tool_dir)
-
+        cfgfile = _get_test_data_file('data', 'test.op.config')
+        cfile = '_selectedoplist.cmake'
+        cmake_helper.gen_cmake_oplist(cfgfile, cfile)
         found = False
-        with open(generated_cmake_file, 'r') as f:
+        with open(cfile, 'r') as f:
             for _ln in f:
                 if _ln.strip() == "set(OCOS_ENABLE_GPT2_TOKENIZER ON CACHE INTERNAL \"\")":
                     found = True
                     break
 
-        os.remove(generated_cmake_file)
+        os.remove(cfile)
         self.assertTrue(found)
-        os.chdir(previous_dir)
 
 
 if __name__ == "__main__":
