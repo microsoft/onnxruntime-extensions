@@ -3,6 +3,7 @@ import sys
 
 OPMAP_TO_CMAKE_FLAGS = {'BlingFireSentenceBreaker': 'OCOS_ENABLE_BLINGFIRE',
                         'GPT2Tokenizer': 'OCOS_ENABLE_GPT2_TOKENIZER',
+                        'WordpieceTokenizer': 'OCOS_ENABLE_BERT_TOKENIZER',
                         # Currently use one option for all string operators because their binary sizes are not large.
                         # Would probably split to more options like tokenizers in the future.
                         'StringConcat': 'OCOS_ENABLE_TF_STRING',
@@ -38,14 +39,16 @@ def gen_cmake_oplist(opconfig_file, oplist_cmake_file='_selectedoplist.cmake'):
                         if not _op:
                             continue  # is None or ""
                         if _op not in OPMAP_TO_CMAKE_FLAGS:
-                            raise RuntimeError("Cannot find the custom operator({})\'s build flags, please update the OPMAP_TO_CMAKE_FLAGS dictionary.".format(_op))
+                            raise RuntimeError("Cannot find the custom operator({})\'s build flags, please update "
+                                               "the OPMAP_TO_CMAKE_FLAGS dictionary.".format(_op))
                         if OPMAP_TO_CMAKE_FLAGS[_op] not in cmake_options:
                             cmake_options.add(OPMAP_TO_CMAKE_FLAGS[_op])
                             print("set({} ON CACHE INTERNAL \"\")".format(OPMAP_TO_CMAKE_FLAGS[_op]), file=f)
         print("# End of Building the Operator CMake variables", file=f)
 
     if ext_domain_cnt == 0:
-        print('[onnxruntime-extensions] warning: lines starting with extension domain (ai.onnx.contrib) in operators config file is 0')
+        print('[onnxruntime-extensions] warning: lines starting with extension domain (ai.onnx.contrib) in operators'
+              ' config file is 0')
 
     print('[onnxruntime-extensions] The cmake tool file has been generated successfully.')
 
@@ -58,7 +61,7 @@ if __name__ == '__main__':
     if len(sys.argv) == 2:
         print('[onnxruntime-extensions] Generating _selectedoplist.cmake file to folder: ${PROJECT_SOURCE_DIR}/cmake/')
         current_dir = os.path.dirname(__file__)
-        target_cmake_path = str(os.path.join(current_dir, '../cmake/_selectedoplist.cmake'))
+        target_cmake_path = os.path.abspath(os.path.join(current_dir, '../../cmake/_selectedoplist.cmake'))
         print('[onnxruntime-extensions] Target cmake file path: ', target_cmake_path)
 
         gen_cmake_oplist(sys.argv[1], target_cmake_path)
