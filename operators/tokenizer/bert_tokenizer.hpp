@@ -14,7 +14,7 @@
 // TODO: merge with the implementation of word piece tokenizer
 class WordpieceTokenizer{
  public:
-  WordpieceTokenizer(const std::string& vocab, ustring unk_token, ustring suffix_indicator, int max_input_chars_per_word = 100);
+  WordpieceTokenizer(std::shared_ptr<std::unordered_map<ustring, int32_t>> vocab, ustring unk_token, ustring suffix_indicator, int max_input_chars_per_word = 100);
   std::vector<ustring> Tokenize(const ustring& text);
   std::vector<ustring> Tokenize(const std::vector<ustring>& tokens);
   std::vector<int64_t> Encode(const std::vector<ustring>& tokens);
@@ -22,7 +22,8 @@ class WordpieceTokenizer{
   int64_t max_input_chars_per_word_;
   ustring suffix_indicator_;
   ustring unk_token_;
-  std::unordered_map<ustring, int32_t> vocab_;
+  int64_t unk_token_id_;
+  std::shared_ptr<std::unordered_map<ustring, int32_t>> vocab_;
 
   void GreedySearch(const ustring& token, std::vector<ustring> tokenized_result);
 };
@@ -32,18 +33,21 @@ class BertTokenizer {
   BertTokenizer(std::string vocab, bool do_lower_case, bool do_basic_tokenize,
                      ustring unk_token, ustring sep_token, ustring pad_token, ustring  cls_token,
                      ustring mask_token, bool tokenize_chinese_chars, bool strip_accents,
-                     ustring suffix_indicator, int64_t max_input_chars_per_word);
+                     ustring suffix_indicator);
   std::vector<ustring> Tokenize(const ustring& text);
   std::vector<int64_t> Encode(const std::vector<ustring>& tokens);
+  std::vector<int64_t> AddSpecialToken(const std::vector<int64_t>& tokens);
+  std::vector<int64_t> AddSpecialToken(const std::vector<int64_t>& ids1, const std::vector<int64_t>& ids2);
  private:
-  std::unordered_map<ustring, int32_t> vocab_;
-
-  ustring unk_token_;
-  ustring sep_token_;
-  ustring pad_token_;
-  ustring cls_token_;
-  ustring mask_token_;
+  int32_t unk_token_id_;
+  int32_t sep_token_id_;
+  int32_t pad_token_id_;
+  int32_t cls_token_id_;
+  int32_t mask_token_id_;
   bool do_basic_tokenize_;
+  std::shared_ptr<std::unordered_map<ustring, int32_t>> vocab_;
   std::shared_ptr<BasicTokenizer> basic_tokenizer_;
   std::shared_ptr<WordpieceTokenizer> wordpiece_tokenizer_;
+
+  int32_t FindSpecialToken(ustring token);
 };

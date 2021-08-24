@@ -5,6 +5,7 @@
 
 #include "ocos.h"
 #include "string_utils.h"
+#include "ustring.h"
 
 class BasicTokenizer {
  public:
