@@ -1,9 +1,17 @@
-#include "nlohmann/json.hpp"
 #include "bert_tokenizer.hpp"
 
 WordpieceTokenizer::WordpieceTokenizer(std::shared_ptr<std::unordered_map<ustring, int32_t>> vocab, ustring unk_token,
                                        ustring suffix_indicator, int max_input_chars_per_word): vocab_(vocab), unk_token_(unk_token),
                                        suffix_indicator_(suffix_indicator), max_input_chars_per_word_(max_input_chars_per_word) {
+  std::cout << std::string(unk_token) << std::endl;
+  for (auto i : *vocab_) {
+    std::cout << std::string(i.first);
+    if (i.first == unk_token) {
+      std::cout << " " << std::string(unk_token) << std::endl;
+    } else {
+      std::cout <<  " " << std::string(unk_token) << std::endll;
+    }
+  }
   auto it = vocab_->find(unk_token);
   if (it == vocab_->end()) {
     ORT_CXX_API_THROW("[WordpieceTokenizer]: can not find unk_token in vocal", ORT_RUNTIME_EXCEPTION);
@@ -94,12 +102,11 @@ void WordpieceTokenizer::GreedySearch(const ustring& token, std::vector<ustring>
 BertTokenizer::BertTokenizer(std::string vocab, bool do_lower_case, bool do_basic_tokenize, ustring unk_token, ustring sep_token,
                              ustring pad_token, ustring cls_token, ustring mask_token, bool tokenize_chinese_chars, bool strip_accents,
                              ustring suffix_indicator) : do_basic_tokenize_(do_basic_tokenize) {
-  std::unordered_map<std::string, int32_t> vocab_map;
-  auto parsed = nlohmann::json::parse(vocab);
-  parsed.get_to(vocab_map);
+  auto tokens = SplitString(vocab, "\n", true);
 
-  for (auto& it : vocab_map) {
-    (*vocab_)[ustring(it.first)] = it.second;
+  vocab_ = std::make_shared<std::unordered_map<ustring, int32_t>>();
+  for (int i = 0; i < tokens.size(); i++) {
+    (*vocab_)[ustring(tokens[i])] = i;
   }
 
   if (do_basic_tokenize) {
@@ -117,11 +124,11 @@ std::vector<ustring> BertTokenizer::Tokenize(const ustring& text) {
   if (do_basic_tokenize_) {
     return wordpiece_tokenizer_->Tokenize(basic_tokenizer_->Tokenize(text));
   }
-
   return wordpiece_tokenizer_->Tokenize(text);
 }
 
 std::vector<int64_t> BertTokenizer::Encode(const std::vector<ustring>& tokens) {
+  std::cout << "Step 2" << std::endl;
   return wordpiece_tokenizer_->Encode(tokens);
 }
 
@@ -165,7 +172,7 @@ int32_t BertTokenizer::FindSpecialToken(ustring token) {
   return it->second;
 }
 
-KernelBertTokenizer::KernelBertTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api) {
+KernelBertTokenizer::KernelBertTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   std::string vocab = ort_.KernelInfoGetAttribute<std::string>(info, "vocab_file");
   bool do_lower_case = TryToGetAttributeWithDefault("do_lower_case", true);
   bool do_basic_tokenize = TryToGetAttributeWithDefault("do_basic_tokenize", true);
@@ -178,11 +185,8 @@ KernelBertTokenizer::KernelBertTokenizer(OrtApi api, const OrtKernelInfo* info) 
   bool strip_accents = TryToGetAttributeWithDefault("strip_accents", false);
   std::string suffix_indicator = TryToGetAttributeWithDefault("suffix_indicator", std::string("##"));
 
+  std::cout << unk_token << sep_token << pad_token << cls_token << mask_token << std::endl;
 
-//  BertTokenizer(std::string vocab, bool do_lower_case, bool do_basic_tokenize,
-//      ustring unk_token, ustring sep_token, ustring pad_token, ustring  cls_token,
-//      ustring mask_token, bool tokenize_chinese_chars, bool strip_accents,
-//      ustring suffix_indicator);
   tokenizer_ = std::make_shared<BertTokenizer>(vocab, do_lower_case, do_basic_tokenize, ustring(unk_token),
                                                ustring(sep_token), ustring(pad_token),ustring(cls_token),
                                                ustring(mask_token), tokenize_chinese_chars, strip_accents, ustring(suffix_indicator));
@@ -194,15 +198,31 @@ void KernelBertTokenizer::Compute(OrtKernelContext* context) {
   std::vector<std::string> input_data;
   GetTensorMutableDataString(api_, ort_, context, input, input_data);
 
-  OrtTensorDimensions dimensions(ort_, input);
-  if (dimensions.size() != 1 && dimensions[0] != 1) {
-    ORT_CXX_API_THROW("[BertTokenizer]: only support string scalar.", ORT_INVALID_GRAPH);
+  if (input_data.size() != 1 && input_data.size() != 2) {
+    ORT_CXX_API_THROW("[BertTokenizer]: only support one or two query.", ORT_INVALID_GRAPH);
+  }
+  std::cout << "Step 1" << std::endl;
+  std::vector<int64_t> input_ids;
+  std::vector<int64_t> token_type_ids;
+
+  if (input_data.size() == 2) {
+    std::vector<int64_t> encode = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[0])));
+    input_ids = tokenizer_->AddSpecialToken(encode);
+    token_type_ids = tokenizer_->GenerateTypeId(encode);
+  } else {
+    std::vector<int64_t> encode1 = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[0])));
+    std::vector<int64_t> encode2 = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[1])));
+    input_ids = tokenizer_->AddSpecialToken(encode1, encode2);
+    token_type_ids = tokenizer_->GenerateTypeId(encode1, encode2);
   }
 
-  OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
-  std::vector<ustring> result = tokenizer_->Tokenize(ustring(input_data[0]));
+  std::vector<int64_t> attention_mask(input_data.size(), 1);
 
-  FillTensorDataString(api_, ort_, context, result, output);
+  std::vector<int64_t> output_dim({1, static_cast<int64_t>(input_ids.size())});
+
+  SetOutput(context, 0, output_dim, input_ids);
+  SetOutput(context, 0, output_dim, token_type_ids);
+  SetOutput(context, 0, output_dim, attention_mask);
 }
 
 void* CustomOpBertTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
@@ -220,10 +240,10 @@ ONNXTensorElementDataType CustomOpBertTokenizer::GetInputType(size_t /*index*/) 
 };
 
 size_t CustomOpBertTokenizer::GetOutputTypeCount() const {
-  return 1;
+  return 3;
 };
 
 ONNXTensorElementDataType CustomOpBertTokenizer::GetOutputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 };
 

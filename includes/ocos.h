@@ -41,6 +41,9 @@ struct BaseKernel {
     TryToGetAttribute(name, result);
     return result;
   }
+
+  void BaseKernel::SetOutput(OrtKernelContext* ctx,  size_t output_idx, const std::vector<int64_t>& dim, const std::vector<int64_t>& data);
+
  protected:
   OrtErrorCode GetErrorCodeAndRelease(OrtStatusPtr status);
   OrtApi api_;  // keep a copy of the struct, whose ref is used in the ort_

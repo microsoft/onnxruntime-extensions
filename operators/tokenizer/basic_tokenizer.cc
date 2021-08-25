@@ -43,7 +43,7 @@ std::vector<ustring> BasicTokenizer::Tokenize(ustring text) {
   }
 
   for (auto c : text) {
-    if (tokenize_chinese_chars_ && IsChineseChar(c)) {
+    if (tokenize_chinese_chars_ && IsCJK(c)) {
       push_current_token_and_clear();
       push_single_char_and_clear(c);
       continue;
@@ -78,7 +78,7 @@ std::vector<ustring> BasicTokenizer::Tokenize(ustring text) {
   return result;
 }
 
-KernelBasicTokenizer::KernelBasicTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api) {
+KernelBasicTokenizer::KernelBasicTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   bool do_lower_case = TryToGetAttributeWithDefault("do_lower_case", true);
   bool tokenize_chinese_chars = TryToGetAttributeWithDefault("tokenize_chinese_chars", true);
   bool strip_accents = TryToGetAttributeWithDefault("strip_accents", false);
@@ -96,7 +96,7 @@ void KernelBasicTokenizer::Compute(OrtKernelContext* context) {
 
   OrtTensorDimensions dimensions(ort_, input);
   if (dimensions.size() != 1 && dimensions[0] != 1) {
-    ORT_CXX_API_THROW("[BertTokenizer]: only support string scalar.", ORT_INVALID_GRAPH);
+    ORT_CXX_API_THROW("[BasicTokenizer]: only support string scalar.", ORT_INVALID_GRAPH);
   }
 
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());

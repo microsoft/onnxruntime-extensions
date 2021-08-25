@@ -108,6 +108,27 @@ class BlingFireSentenceBreaker(CustomOp):
                 attrs_data[k_] = v_
         return attrs_data
 
+class BertTokenizer(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def("text", onnx.TensorProto.STRING, [None])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def('input_ids', onnx_proto.TensorProto.INT64, [None, None]),
+                 cls.io_def('token_type_ids', onnx_proto.TensorProto.INT64, [None, None]),
+                 cls.io_def('attention_mask', onnx_proto.TensorProto.INT64, [None, None])]
+
+    @classmethod
+    def serialize_attr(cls, attrs):
+        attrs_data = {}
+        for k_, v_ in attrs.items():
+            if k_ == 'vocab_file':
+                with open(v_, "rb") as model_file:
+                    attrs_data[k_] = model_file.read()
+            else:
+                attrs_data[k_] = v_
+        return attrs_data
 
 class SentencepieceTokenizer(CustomOp):
     @classmethod

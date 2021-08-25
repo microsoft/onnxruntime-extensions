@@ -35,6 +35,14 @@ OrtErrorCode BaseKernel::GetErrorCodeAndRelease(OrtStatusPtr status) {
   return error_code;
 }
 
+void BaseKernel::SetOutput(OrtKernelContext* ctx,  size_t output_idx, const std::vector<int64_t>& dim, const std::vector<int64_t>& data) {
+    OrtValue* output = ort_.KernelContext_GetOutput(ctx, 0, dim.data(), dim.size());
+    int64_t * data_ptr = ort_.GetTensorMutableData<int64_t>(output);
+    for (int i = 0; i < data.size(); i++) {
+      data_ptr[i] = data[i];
+    }
+}
+
 template <>
 bool BaseKernel::TryToGetAttribute(const char* name, std::string& value) {
   if (info_ == nullptr) {

@@ -8,6 +8,7 @@ std::vector<std::string_view> SplitString(const std::string_view& str, const std
   std::vector<std::string_view> result;
   std::string ::size_type pre_pos = 0;
 
+  //TODO: bug fix
   while (true) {
     auto next_pos = str.find_first_of(seps, pre_pos);
 
@@ -32,7 +33,7 @@ std::vector<std::string_view> SplitString(const std::string_view& str, const std
   return result;
 }
 
-bool IsChineseChar(char32_t c) {
+bool IsCJK(char32_t c) {
   return (c >= 0x4E00 && c <= 0x9FFF)
          || (c >= 0x3400 && c <= 0x4DBF)
          || (c >= 0x20000 && c <= 0x2A6DF)

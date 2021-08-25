@@ -49,7 +49,7 @@ std::string MakeString(const Args&... args) {
 
 std::vector<std::string_view> SplitString(const std::string_view& str, const std::string_view& seps, bool remove_empty_entries = false);
 
-bool IsChineseChar(char32_t c);
+bool IsCJK(char32_t c);
 
 bool IsAccent(char32_t c);
 

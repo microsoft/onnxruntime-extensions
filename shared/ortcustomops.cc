@@ -28,6 +28,11 @@
 #include "wordpiece_tokenizer.hpp"
 #endif
 
+#ifdef ENABLE_BERT_TOKENIZER
+#include "bert_tokenizer.hpp"
+#include "basic_tokenizer.hpp"
+#endif
+
 #ifdef ENABLE_BLINGFIRE
 #include "blingfire_sentencebreaker.hpp"
 #endif
@@ -38,6 +43,11 @@ CustomOpSentencepieceTokenizer c_CustomOpSentencepieceTokenizer;
 
 #ifdef ENABLE_BERT_TOKENIZER
 CustomOpWordpieceTokenizer c_CustomOpWordpieceTokenizer;
+#endif
+
+#ifdef ENABLE_BERT_TOKENIZER
+CustomOpBasicTokenizer c_CustomOpBasicTokenizer;
+CustomOpBertTokenizer c_CustomOpBertTokenizer;
 #endif
 
 #ifdef ENABLE_TF_STRING
@@ -71,6 +81,10 @@ OrtCustomOp* operator_lists[] = {
 
 #ifdef ENABLE_BERT_TOKENIZER
     &c_CustomOpWordpieceTokenizer,
+#endif
+#ifdef ENABLE_BERT_TOKENIZER
+    &c_CustomOpBasicTokenizer,
+    &c_CustomOpBertTokenizer,
 #endif
 
 #ifdef ENABLE_TF_STRING
