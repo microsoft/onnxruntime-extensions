@@ -38,8 +38,8 @@ namespace std {
 template <>
 struct hash<ustring> {
   size_t operator()(const ustring& __str) const noexcept {
-    hash<u32string> hash;
-    return hash(__str);
+    hash<u32string> standard_hash;
+    return standard_hash(static_cast<u32string>(__str));
   }
 };
 }  // namespace std
