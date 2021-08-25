@@ -4,20 +4,11 @@
 #pragma once
 
 #include <vector>
+#include <functional>
+
 #define ORT_API_MANUAL_INIT
 #include "onnxruntime_cxx_api.h"
 #undef ORT_API_MANUAL_INIT
-
-typedef const OrtCustomOp** (*FxLoadCustomOpFactory)();
-
-#if defined(ENABLE_GPT2_TOKENIZER)
-const OrtCustomOp** LoadTokenizerSchemaList();
-#endif  // ENABLE_GPT2_TOKENIZER
-
-#if defined(PYTHON_OP_SUPPORT)
-const OrtCustomOp* FetchPyCustomOps(size_t& count);
-bool EnablePyCustomOps(bool enable = true);
-#endif
 
 
 // A helper API to support test kernels.
@@ -81,8 +72,16 @@ class CuopContainer {
   std::vector<OrtCustomOp*> ocos_list_;
 };
 
+typedef std::function<const OrtCustomOp**()> FxLoadCustomOpFactory;
+
 template <typename... Args>
 const OrtCustomOp** LoadCustomOpClasses() {
   static CuopContainer<Args...> ctr;  // Let C++ runtime take cares of the MP initializing.
   return ctr.GetList();
 }
+
+#if defined(PYTHON_OP_SUPPORT)
+const OrtCustomOp* FetchPyCustomOps(size_t& count);
+OrtStatusPtr RegisterPythonDomainAndOps(OrtSessionOptions*, const OrtApi*);
+bool EnablePyCustomOps(bool enable = true);
+#endif

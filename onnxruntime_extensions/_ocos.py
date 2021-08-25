@@ -8,7 +8,7 @@ import copy
 import onnx
 from onnx import helper
 from ._ortcustomops import (  # noqa
-    PyCustomOpDef, enable_custom_op, add_custom_op, hash_64, default_opset_domain)
+    PyCustomOpDef, enable_py_op, add_custom_op, hash_64, default_opset_domain)
 
 
 def get_library_path():

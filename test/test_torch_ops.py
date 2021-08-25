@@ -32,9 +32,19 @@ def my_all(g, self):
 register_custom_op_symbolic('::all', my_all, 1)
 
 
+class CustomTorchOp(torch.autograd.Function):
+    @staticmethod
+    def symbolic(g, input):
+        return g.op("torchcustom::Add10", input)
+
+    @staticmethod
+    def forward(ctx, x):
+        return x + 10
+
+
 class CustomInverse(torch.nn.Module):
     def forward(self, x, y):
-        ress = torch.inverse(x) + x
+        ress = CustomTorchOp.apply(torch.inverse(x))
         return ress, torch.all(y)
 
 
@@ -53,6 +63,10 @@ class TestPyTorchCustomOp(unittest.TestCase):
         @onnx_op(op_type='All', inputs=[PyOp.dt_bool], outputs=[PyOp.dt_bool])
         def op_all(x):
             return numpy.all(x)
+
+        @onnx_op(op_type='torchcustom::Add10')
+        def op_add10(x):
+            return x + 10
 
     def test_custom_pythonop_pytorch(self):
 

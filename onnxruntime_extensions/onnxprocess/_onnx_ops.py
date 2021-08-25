@@ -954,16 +954,16 @@ class _ONNXOperatorAPI:
         container.add_node('Pow', input_names, output_name, op_version=op_version, **attrs)
         return output_name
 
-    def prelu(self, input_name, output_name, container, operator_name=None, slope=None):
+    def prelu(self, input_name, output_name, container, operator_name=None, slp_rate=None):
         name = _create_name_or_use_existing_one(container, 'PRelu', operator_name)
-        slope_tensor_name = self.get_unique_tensor_name('slope')
-        s_shape = slope.shape
+        slp_rate_tensor_name = self.get_unique_tensor_name('slp_rate')
+        s_shape = slp_rate.shape
         if container.target_opset < 7:
-            s_shape = [len(slope.flatten())]
-        container.add_initializer(slope_tensor_name, onnx_proto.TensorProto.FLOAT, s_shape, slope.flatten())
+            s_shape = [len(slp_rate.flatten())]
+        container.add_initializer(slp_rate_tensor_name, onnx_proto.TensorProto.FLOAT, s_shape, slp_rate.flatten())
     
         if container.target_opset < 6:
-            container.add_node('PRelu', [input_name, slope_tensor_name], output_name, op_version=1, name=name,
+            container.add_node('PRelu', [input_name, slp_rate_tensor_name], output_name, op_version=1, name=name,
                                consumed_inputs=[0, 0])
         else:
             if container.target_opset < 7:
@@ -974,7 +974,7 @@ class _ONNXOperatorAPI:
                 # opset 9 supports unidirectional broadcasting
                 op_version = 9
     
-            container.add_node('PRelu', [input_name, slope_tensor_name], output_name, op_version=op_version, name=name)
+            container.add_node('PRelu', [input_name, slp_rate_tensor_name], output_name, op_version=op_version, name=name)
         return output_name
 
     def range(self, input_name, output_name, container, operator_name=None):
