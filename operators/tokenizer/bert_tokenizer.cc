@@ -7,9 +7,9 @@ WordpieceTokenizer::WordpieceTokenizer(std::shared_ptr<std::unordered_map<ustrin
   for (auto i : *vocab_) {
     std::cout << std::string(i.first);
     if (i.first == unk_token) {
-      std::cout << " " << std::string(unk_token) << std::endl;
+      std::cout << " " << "YES" << std::endl;
     } else {
-      std::cout <<  " " << std::string(unk_token) << std::endll;
+      std::cout <<  " " << "No" << std::endl;
     }
   }
   auto it = vocab_->find(unk_token);
