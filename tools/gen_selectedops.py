@@ -61,7 +61,7 @@ if __name__ == '__main__':
     if len(sys.argv) == 2:
         print('[onnxruntime-extensions] Generating _selectedoplist.cmake file to folder: ${PROJECT_SOURCE_DIR}/cmake/')
         current_dir = os.path.dirname(__file__)
-        target_cmake_path = os.path.abspath(os.path.join(current_dir, '../../cmake/_selectedoplist.cmake'))
+        target_cmake_path = os.path.abspath(os.path.join(current_dir, '../cmake/_selectedoplist.cmake'))
         print('[onnxruntime-extensions] Target cmake file path: ', target_cmake_path)
 
         gen_cmake_oplist(sys.argv[1], target_cmake_path)
