@@ -33,7 +33,6 @@ option(OCOS_ENABLE_BLINGFIRE "Enable the Blingfire building" ON)
 option(OCOS_ENABLE_MATH "Enable the math tensor operators building" ON)
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
-option(OCOS_ENABLE_RE2 "Enable re2 instead of std::regex for regex" ON)
 
 
 function(disable_all_operators)
