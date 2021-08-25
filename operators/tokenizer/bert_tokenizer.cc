@@ -1,17 +1,10 @@
 #include "bert_tokenizer.hpp"
 
+#include <utility>
+
 WordpieceTokenizer::WordpieceTokenizer(std::shared_ptr<std::unordered_map<ustring, int32_t>> vocab, ustring unk_token,
-                                       ustring suffix_indicator, int max_input_chars_per_word): vocab_(vocab), unk_token_(unk_token),
-                                       suffix_indicator_(suffix_indicator), max_input_chars_per_word_(max_input_chars_per_word) {
-  std::cout << std::string(unk_token) << std::endl;
-  for (auto i : *vocab_) {
-    std::cout << std::string(i.first);
-    if (i.first == unk_token) {
-      std::cout << " " << "YES" << std::endl;
-    } else {
-      std::cout <<  " " << "No" << std::endl;
-    }
-  }
+                                       ustring suffix_indicator, int max_input_chars_per_word): vocab_(std::move(vocab)), unk_token_(unk_token),
+                                       suffix_indicator_(std::move(suffix_indicator)), max_input_chars_per_word_(max_input_chars_per_word) {
   auto it = vocab_->find(unk_token);
   if (it == vocab_->end()) {
     ORT_CXX_API_THROW("[WordpieceTokenizer]: can not find unk_token in vocal", ORT_RUNTIME_EXCEPTION);
@@ -62,7 +55,7 @@ std::vector<int64_t> WordpieceTokenizer::Encode(const std::vector<ustring>& toke
   return ids;
 }
 
-void WordpieceTokenizer::GreedySearch(const ustring& token, std::vector<ustring> tokenized_result) {
+void WordpieceTokenizer::GreedySearch(const ustring& token, std::vector<ustring>& tokenized_result) {
   if (token.size() > max_input_chars_per_word_) {
     tokenized_result.push_back(unk_token_);
     return;
@@ -87,7 +80,6 @@ void WordpieceTokenizer::GreedySearch(const ustring& token, std::vector<ustring>
       }
       end -= 1;
     }
-
     // token not found in vocab
     if (!is_found) {
       tokenized_result.push_back(unk_token_);
@@ -128,7 +120,6 @@ std::vector<ustring> BertTokenizer::Tokenize(const ustring& text) {
 }
 
 std::vector<int64_t> BertTokenizer::Encode(const std::vector<ustring>& tokens) {
-  std::cout << "Step 2" << std::endl;
   return wordpiece_tokenizer_->Encode(tokens);
 }
 
@@ -185,8 +176,6 @@ KernelBertTokenizer::KernelBertTokenizer(OrtApi api, const OrtKernelInfo* info) 
   bool strip_accents = TryToGetAttributeWithDefault("strip_accents", false);
   std::string suffix_indicator = TryToGetAttributeWithDefault("suffix_indicator", std::string("##"));
 
-  std::cout << unk_token << sep_token << pad_token << cls_token << mask_token << std::endl;
-
   tokenizer_ = std::make_shared<BertTokenizer>(vocab, do_lower_case, do_basic_tokenize, ustring(unk_token),
                                                ustring(sep_token), ustring(pad_token),ustring(cls_token),
                                                ustring(mask_token), tokenize_chinese_chars, strip_accents, ustring(suffix_indicator));
@@ -201,11 +190,10 @@ void KernelBertTokenizer::Compute(OrtKernelContext* context) {
   if (input_data.size() != 1 && input_data.size() != 2) {
     ORT_CXX_API_THROW("[BertTokenizer]: only support one or two query.", ORT_INVALID_GRAPH);
   }
-  std::cout << "Step 1" << std::endl;
   std::vector<int64_t> input_ids;
   std::vector<int64_t> token_type_ids;
 
-  if (input_data.size() == 2) {
+  if (input_data.size() == 1) {
     std::vector<int64_t> encode = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[0])));
     input_ids = tokenizer_->AddSpecialToken(encode);
     token_type_ids = tokenizer_->GenerateTypeId(encode);
@@ -216,13 +204,13 @@ void KernelBertTokenizer::Compute(OrtKernelContext* context) {
     token_type_ids = tokenizer_->GenerateTypeId(encode1, encode2);
   }
 
-  std::vector<int64_t> attention_mask(input_data.size(), 1);
+  std::vector<int64_t> attention_mask(input_ids.size(), 1);
 
-  std::vector<int64_t> output_dim({1, static_cast<int64_t>(input_ids.size())});
+  std::vector<int64_t> output_dim({static_cast<int64_t>(input_ids.size())});
 
   SetOutput(context, 0, output_dim, input_ids);
-  SetOutput(context, 0, output_dim, token_type_ids);
-  SetOutput(context, 0, output_dim, attention_mask);
+  SetOutput(context, 1, output_dim, token_type_ids);
+  SetOutput(context, 2, output_dim, attention_mask);
 }
 
 void* CustomOpBertTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {

@@ -42,7 +42,7 @@ struct BaseKernel {
     return result;
   }
 
-  void BaseKernel::SetOutput(OrtKernelContext* ctx,  size_t output_idx, const std::vector<int64_t>& dim, const std::vector<int64_t>& data);
+  void SetOutput(OrtKernelContext* ctx,  size_t output_idx, const std::vector<int64_t>& dim, const std::vector<int64_t>& data);
 
  protected:
   OrtErrorCode GetErrorCodeAndRelease(OrtStatusPtr status);

@@ -25,7 +25,7 @@ class WordpieceTokenizer{
   int64_t unk_token_id_;
   std::shared_ptr<std::unordered_map<ustring, int32_t>> vocab_;
 
-  void GreedySearch(const ustring& token, std::vector<ustring> tokenized_result);
+  void GreedySearch(const ustring& token, std::vector<ustring>& tokenized_result);
 };
 
 class BertTokenizer {

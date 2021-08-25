@@ -115,9 +115,9 @@ class BertTokenizer(CustomOp):
 
     @classmethod
     def get_outputs(cls):
-        return [cls.io_def('input_ids', onnx_proto.TensorProto.INT64, [None, None]),
-                 cls.io_def('token_type_ids', onnx_proto.TensorProto.INT64, [None, None]),
-                 cls.io_def('attention_mask', onnx_proto.TensorProto.INT64, [None, None])]
+        return [cls.io_def('input_ids', onnx_proto.TensorProto.INT64, [None]),
+                 cls.io_def('token_type_ids', onnx_proto.TensorProto.INT64, [None]),
+                 cls.io_def('attention_mask', onnx_proto.TensorProto.INT64, [None])]
 
     @classmethod
     def serialize_attr(cls, attrs):
