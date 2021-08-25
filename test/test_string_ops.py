@@ -91,12 +91,12 @@ def _create_test_model_string_replace(prefix, domain='ai.onnx.contrib',
     if global_replace:
         nodes.append(
             helper.make_node(
-                '%sStringRegexReplace' % prefix, ['id1', 'id2', 'id3'],
+                '%sStringECMARegexReplace' % prefix, ['id1', 'id2', 'id3'],
                 ['customout'], domain=domain))
     else:
         nodes.append(
             helper.make_node(
-                '%sStringRegexReplace' % prefix, ['id1', 'id2', 'id3'],
+                '%sStringECMARegexReplace' % prefix, ['id1', 'id2', 'id3'],
                 ['customout'], domain=domain,
                 global_replace=0))
 
@@ -210,7 +210,7 @@ def _create_test_model_string_regex_split(prefix, domain='ai.onnx.contrib'):
     nodes.append(helper.make_node('Identity', ['keep_pattern'], ['id3']))
     nodes.append(
         helper.make_node(
-            '%sStringRegexSplitWithOffsets' % prefix, ['id1', 'id2', 'id3'],
+            '%sStringECMARegexSplitWithOffsets' % prefix, ['id1', 'id2', 'id3'],
             ['tokens', 'begins', 'ends', 'row_indices'], domain=domain))
 
     input0 = helper.make_tensor_value_info(
@@ -246,10 +246,10 @@ def _create_test_model_wordpiece(prefix, domain='ai.onnx.contrib'):
     reg_empty = helper.make_tensor("keep_pattern", onnx_proto.TensorProto.STRING, [0, ], [])
 
     nodes.append(helper.make_node(
-        '%sStringRegexSplitWithOffsets' % prefix,
+        '%sStringECMARegexSplitWithOffsets' % prefix,
         inputs=['text', 'pattern', 'keep_pattern'],
         outputs=['words', 'begin', 'end', 'rows'],
-        name='StringRegexSplitOpName',
+        name='StringECMARegexSplitOpName',
         domain='ai.onnx.contrib'
     ))
     nodes.append(helper.make_node(
@@ -331,7 +331,7 @@ class TestPythonOpString(unittest.TestCase):
                 res[i] = sp.join(x2[i, :])
             return res.reshape(res_shape)
 
-        @onnx_op(op_type="PyStringRegexReplace",
+        @onnx_op(op_type="PyStringECMARegexReplace",
                  inputs=[PyCustomOpDef.dt_string, PyCustomOpDef.dt_string,
                          PyCustomOpDef.dt_string],
                  outputs=[PyCustomOpDef.dt_string])
@@ -645,7 +645,7 @@ class TestPythonOpString(unittest.TestCase):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace('')
-        self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
+        self.assertIn('op_type: "StringECMARegexReplace"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
         rewrite = np.array([r'static PyObject* py_$1(void) {'])
@@ -661,7 +661,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace(
             '', global_replace=False)
-        self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
+        self.assertIn('op_type: "StringECMARegexReplace"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
         rewrite = np.array([r'static PyObject* py_$1(void) {'])
@@ -677,7 +677,7 @@ class TestPythonOpString(unittest.TestCase):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace('')
-        self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
+        self.assertIn('op_type: "StringECMARegexReplace"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
         rewrite = np.array([r'static PyObject* py_$1(void) {'])
@@ -692,7 +692,7 @@ class TestPythonOpString(unittest.TestCase):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace('Py')
-        self.assertIn('op_type: "PyStringRegexReplace"', str(onnx_model))
+        self.assertIn('op_type: "PyStringECMARegexReplace"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
         rewrite = np.array([r'static PyObject*\npy_\1(void)\n{'])
@@ -707,7 +707,7 @@ class TestPythonOpString(unittest.TestCase):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace('Py')
-        self.assertIn('op_type: "PyStringRegexReplace"', str(onnx_model))
+        self.assertIn('op_type: "PyStringECMARegexReplace"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
         rewrite = np.array([r'static PyObject*\npy_\1(void)\n{'])
@@ -1024,7 +1024,7 @@ class TestPythonOpString(unittest.TestCase):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_regex_split('')
-        self.assertIn('op_type: "StringRegexSplitWithOffsets"',
+        self.assertIn('op_type: "StringECMARegexSplitWithOffsets"',
                       str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
         input = np.array(["hello there", "hello  there"])

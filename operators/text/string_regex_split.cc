@@ -37,13 +37,8 @@ void KernelStringRegexSplitWithOffsets::Compute(OrtKernelContext* context) {
   OrtTensorDimensions dimensions(ort_, input);
   bool include_delimiter = (str_keep_pattern.size() == 1) && (!str_keep_pattern[0].empty());
 
-#ifdef ENABLE_RE2
   re2::RE2 reg(str_pattern[0]);
   re2::RE2 keep_reg(include_delimiter ? str_keep_pattern[0] : "");
-#else
-  std::regex reg(str_pattern[0]);
-  std::regex keep_reg(include_delimiter ? str_keep_pattern[0] : "");
-#endif
 
   std::vector<std::string> all_tokens;
   std::vector<int64_t> all_begin_offsets, all_end_offsets;
@@ -55,8 +50,8 @@ void KernelStringRegexSplitWithOffsets::Compute(OrtKernelContext* context) {
     std::vector<int64_t> begin_offsets;
     std::vector<int64_t> end_offsets;
     RegexSplitImpl(str_input[i], reg,
-                   include_delimiter, keep_reg,
-                   tokens, begin_offsets, end_offsets);
+                       include_delimiter, keep_reg,
+                       tokens, begin_offsets, end_offsets);
     all_tokens.insert(all_tokens.end(), tokens.begin(), tokens.end());
     for (size_t j = 0; j < begin_offsets.size(); ++j) {
       all_begin_offsets.push_back(begin_offsets[j]);

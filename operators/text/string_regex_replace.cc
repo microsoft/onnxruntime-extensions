@@ -5,11 +5,7 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
-#ifdef ENABLE_RE2
 #include "re2/re2.h"
-#else
-#include <regex>
-#endif
 #include "string_tensor.h"
 
 KernelStringRegexReplace::KernelStringRegexReplace(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
@@ -49,7 +45,6 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
   int64_t size = ort_.GetTensorShapeElementCount(output_info);
   ort_.ReleaseTensorTypeAndShapeInfo(output_info);
 
-#ifdef ENABLE_RE2
   re2::StringPiece piece(str_rewrite[0]);
   re2::RE2 reg(str_pattern[0]);
 
@@ -63,20 +58,6 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
       re2::RE2::Replace(&(str_input[i]), reg, piece);
     }
   }
-#else
-  std::regex reg(str_pattern[0], std::regex_constants::optimize);
-
-  if (global_replace_) {
-    for (int64_t i = 0; i < size; i++) {
-      str_input[i] = std::regex_replace(str_input[i], reg, str_rewrite[0]);
-    }
-  } else {
-    for (int64_t i = 0; i < size; i++) {
-      str_input[i] = std::regex_replace(str_input[i], reg, str_rewrite[0], std::regex_constants::format_first_only);
-    }
-  }
-
-#endif
 
   FillTensorDataString(api_, ort_, context, str_input, output);
 }

@@ -6,15 +6,15 @@
 #include "kernels.h"
 #include "string_utils.h"
 
-struct KernelStringRegexReplace : BaseKernel {
-  KernelStringRegexReplace(OrtApi api, const OrtKernelInfo* info);
+struct KernelStringECMARegexReplace : BaseKernel {
+  KernelStringECMARegexReplace(OrtApi api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
 
  protected:
   int64_t global_replace_;
 };
 
-struct CustomOpStringRegexReplace : Ort::CustomOpBase<CustomOpStringRegexReplace, KernelStringRegexReplace> {
+struct CustomOpStringECMARegexReplace : Ort::CustomOpBase<CustomOpStringECMARegexReplace, KernelStringECMARegexReplace> {
   void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;

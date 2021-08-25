@@ -2,57 +2,20 @@
 // Licensed under the MIT License.
 
 #pragma once
+
 #include <string>
 #include <algorithm>
 #include <regex>
-
-void RegexSplitImpl(const std::string& input, const std::regex& pattern,
-                    bool include_delimiter, const std::regex& include_delim_regex,
-                    std::vector<std::string_view>& tokens,
-                    std::vector<T>& begin_offsets,
-                    std::vector<T>& end_offsets) {
-  int prev_pos = 0;
-  for (auto it = std::sregex_iterator(input.begin(), input.end(), pattern); it != std::sregex_iterator(); it++) {
-    int cur_pos = it->position();
-    int matched_length = it->length();
-    if (prev_pos != it->position()) {
-      tokens.emplace_back(input.c_str() + prev_pos, cur_pos - prev_pos);
-      begin_offsets.push_back(prev_pos);
-      end_offsets.push_back(cur_pos);
-      // update prev_pos for delimiter
-      prev_pos = cur_pos;
-    }
-
-    if (include_delimiter && std::regex_match(it->str(), include_delim_regex)) {
-      tokens.emplace_back(input.c_str() + prev_pos, matched_length);
-      begin_offsets.push_back(prev_pos);
-      end_offsets.push_back(prev_pos + matched_length);
-    }
-
-    //no mather include the delimiter, we should skip it
-    prev_pos += matched_length;
-  }
-
-  if (prev_pos != input.length()) {
-    tokens.emplace_back(input.c_str() + prev_pos, input.length() - prev_pos);
-    begin_offsets.push_back(prev_pos);
-    end_offsets.push_back(input.length());
-  }
-}
-
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
-
-#include "string_regex_split.hpp"
-#include "string_regex_split_re.hpp"
 #include <vector>
 #include <cmath>
+#include "string_ecmaregex_split.hpp"
 #include "string_tensor.h"
 
-KernelStringRegexSplitWithOffsets::KernelStringRegexSplitWithOffsets(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+
+KernelStringECMARegexSplitWithOffsets::KernelStringECMARegexSplitWithOffsets(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
 }
 
-void KernelStringRegexSplitWithOffsets::Compute(OrtKernelContext* context) {
+void KernelStringECMARegexSplitWithOffsets::Compute(OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
   const OrtValue* pattern = ort_.KernelContext_GetInput(context, 1);
@@ -66,26 +29,17 @@ void KernelStringRegexSplitWithOffsets::Compute(OrtKernelContext* context) {
   // Verifications
   OrtTensorDimensions keep_pattern_dimensions(ort_, keep_pattern);
   if (str_pattern.size() != 1)
-    throw std::runtime_error(MakeString(
-        "pattern (second input) must contain only one element. It has ",
-        str_pattern.size(), " values."));
+    ORT_CXX_API_THROW(MakeString("pattern (second input) must contain only one element. It has ", str_pattern.size(), " values."), ORT_INVALID_GRAPH);
   if (str_keep_pattern.size() > 1)
-    throw std::runtime_error(MakeString(
-        "Third input must contain only one element. It has ",
-        str_keep_pattern.size(), " values."));
+    ORT_CXX_API_THROW(MakeString("Third input must contain only one element. It has ", str_keep_pattern.size(), " values."), ORT_INVALID_GRAPH);
   if (str_pattern[0].empty())
-    throw std::runtime_error("Splitting pattern cannot be empty.");
+    ORT_CXX_API_THROW("Splitting pattern cannot be empty.", ORT_INVALID_GRAPH);
 
   OrtTensorDimensions dimensions(ort_, input);
   bool include_delimiter = (str_keep_pattern.size() == 1) && (!str_keep_pattern[0].empty());
 
-#ifdef ENABLE_RE2
-  re2::RE2 reg(str_pattern[0]);
-  re2::RE2 keep_reg(include_delimiter ? str_keep_pattern[0] : "");
-#else
   std::regex reg(str_pattern[0]);
   std::regex keep_reg(include_delimiter ? str_keep_pattern[0] : "");
-#endif
 
   std::vector<std::string> all_tokens;
   std::vector<int64_t> all_begin_offsets, all_end_offsets;
@@ -96,9 +50,9 @@ void KernelStringRegexSplitWithOffsets::Compute(OrtKernelContext* context) {
     std::vector<std::string_view> tokens;
     std::vector<int64_t> begin_offsets;
     std::vector<int64_t> end_offsets;
-    RegexSplitImpl(str_input[i], reg,
-                   include_delimiter, keep_reg,
-                   tokens, begin_offsets, end_offsets);
+    ECMARegexSplitImpl(str_input[i], reg,
+                       include_delimiter, keep_reg,
+                       tokens, begin_offsets, end_offsets);
     all_tokens.insert(all_tokens.end(), tokens.begin(), tokens.end());
     for (size_t j = 0; j < begin_offsets.size(); ++j) {
       all_begin_offsets.push_back(begin_offsets[j]);
@@ -126,25 +80,25 @@ void KernelStringRegexSplitWithOffsets::Compute(OrtKernelContext* context) {
   memcpy(p_output, row_offsets.data(), row_offsets.size() * sizeof(int64_t));
 }
 
-void* CustomOpStringRegexSplitWithOffsets::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
-  return new KernelStringRegexSplitWithOffsets(api, info);
+void* CustomOpStringECMARegexSplitWithOffsets::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+  return new KernelStringECMARegexSplitWithOffsets(api, info);
 };
 
-const char* CustomOpStringRegexSplitWithOffsets::GetName() const { return "StringRegexSplitWithOffsets"; };
+const char* CustomOpStringECMARegexSplitWithOffsets::GetName() const { return "StringECMARegexSplitWithOffsets"; };
 
-size_t CustomOpStringRegexSplitWithOffsets::GetInputTypeCount() const {
+size_t CustomOpStringECMARegexSplitWithOffsets::GetInputTypeCount() const {
   return 3;
 };
 
-ONNXTensorElementDataType CustomOpStringRegexSplitWithOffsets::GetInputType(size_t /*index*/) const {
+ONNXTensorElementDataType CustomOpStringECMARegexSplitWithOffsets::GetInputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
 };
 
-size_t CustomOpStringRegexSplitWithOffsets::GetOutputTypeCount() const {
+size_t CustomOpStringECMARegexSplitWithOffsets::GetOutputTypeCount() const {
   return 4;
 };
 
-ONNXTensorElementDataType CustomOpStringRegexSplitWithOffsets::GetOutputType(size_t index) const {
+ONNXTensorElementDataType CustomOpStringECMARegexSplitWithOffsets::GetOutputType(size_t index) const {
   switch (index) {
     case 0:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -153,7 +107,8 @@ ONNXTensorElementDataType CustomOpStringRegexSplitWithOffsets::GetOutputType(siz
     case 3:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
     default:
-      throw std::runtime_error(MakeString(
-          "StringRegexSplitWithOffsets has 4 outputs but index is ", index, "."));
+      ORT_CXX_API_THROW(MakeString(
+                            "StringRegexSplitWithOffsets has 4 outputs but index is ", index, "."),
+                        ORT_INVALID_ARGUMENT);
   }
 };
