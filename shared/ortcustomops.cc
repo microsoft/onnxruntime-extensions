@@ -19,6 +19,8 @@
 #include "text/vector_to_string.hpp"
 #include "text/string_length.hpp"
 #include "text/string_concat.hpp"
+#include "text/string_ecmaregex_replace.hpp"
+#include "text/string_ecmaregex_split.hpp"
 
 #ifdef ENABLE_SPM_TOKENIZER
 #include "sentencepiece_tokenizer.hpp"
@@ -50,14 +52,19 @@ CustomOpStringHashFast c_CustomOpStringHashFast;
 CustomOpStringJoin c_CustomOpStringJoin;
 CustomOpStringLower c_CustomOpStringLower;
 CustomOpStringRaggedTensorToDense c_CustomOpStringRaggedTensorToDense;
-CustomOpStringRegexReplace c_CustomOpStringRegexReplace;
-CustomOpStringRegexSplitWithOffsets c_CustomOpStringRegexSplitWithOffsets;
+CustomOpStringECMARegexReplace c_CustomOpStringECMARegexReplace;
+CustomOpStringECMARegexSplitWithOffsets c_CustomOpStringECMARegexSplitWithOffsets;
 CustomOpStringSplit c_CustomOpStringSplit;
 CustomOpStringToVector c_CustomOpStringToVector;
 CustomOpStringUpper c_CustomOpStringUpper;
 CustomOpVectorToString c_CustomOpVectorToString;
 CustomOpStringLength c_CustomOpStringLength;
 CustomOpStringConcat c_CustomOpStringConcat;
+#endif
+
+#ifdef ENABLE_RE2_REGEX
+CustomOpStringRegexReplace c_CustomOpStringRegexReplace;
+CustomOpStringRegexSplitWithOffsets c_CustomOpStringRegexSplitWithOffsets;
 #endif
 
 #ifdef ENABLE_BLINGFIRE
@@ -83,14 +90,19 @@ OrtCustomOp* operator_lists[] = {
     &c_CustomOpStringJoin,
     &c_CustomOpStringLower,
     &c_CustomOpStringRaggedTensorToDense,
-    &c_CustomOpStringRegexReplace,
-    &c_CustomOpStringRegexSplitWithOffsets,
+    &c_CustomOpStringECMARegexReplace,
+    &c_CustomOpStringECMARegexSplitWithOffsets,
     &c_CustomOpStringSplit,
     &c_CustomOpStringToVector,
     &c_CustomOpStringUpper,
     &c_CustomOpVectorToString,
     &c_CustomOpStringLength,
     &c_CustomOpStringConcat,
+#endif
+
+#ifdef ENABLE_RE2_REGEX
+    &c_CustomOpStringRegexReplace,
+    &c_CustomOpStringRegexSplitWithOffsets,
 #endif
 
 #ifdef ENABLE_BLINGFIRE

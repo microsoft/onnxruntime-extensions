@@ -6,7 +6,6 @@
 #include <algorithm>
 #include "re2/re2.h"
 
-
 template <typename T>
 void RegexSplitImpl(const std::string& input, const RE2& pattern,
                     bool include_delimiter, const RE2& include_delim_regex,
