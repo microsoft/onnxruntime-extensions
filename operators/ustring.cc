@@ -3,7 +3,7 @@
 #include <iostream>
 #include "ustring.h"
 
-ustring::ustring(): std::u32string() {
+ustring::ustring() : std::u32string() {
 }
 
 ustring::ustring(char* str) {
@@ -26,17 +26,17 @@ ustring::ustring(const std::string& str) {
   assign(str_cvt.from_bytes(str));
 }
 
-ustring::ustring(char32_t* str):std::u32string(str) {}
+ustring::ustring(char32_t* str) : std::u32string(str) {}
 
-ustring::ustring(const char32_t* str):std::u32string(str) {}
+ustring::ustring(const char32_t* str) : std::u32string(str) {}
 
-ustring::ustring(std::u32string& str):std::u32string(str) {}
+ustring::ustring(std::u32string& str) : std::u32string(str) {}
 
-ustring::ustring(std::u32string&& str):std::u32string(str) {}
+ustring::ustring(std::u32string&& str) : std::u32string(str) {}
 
-ustring::ustring(const std::u32string& str):std::u32string(str) {}
+ustring::ustring(const std::u32string& str) : std::u32string(str) {}
 
-ustring::ustring(const std::u32string&& str):std::u32string(str) {}
+ustring::ustring(const std::u32string&& str) : std::u32string(str) {}
 
 ustring::ustring(std::string_view& str) {
   utf8_converter str_cvt;
