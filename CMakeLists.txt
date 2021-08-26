@@ -26,6 +26,7 @@ option(OCOS_ENABLE_PYTHON "Enable Python component building" OFF)
 option(OCOS_ENABLE_CTEST "Enable C++ test" OFF)
 option(OCOS_ENABLE_CPP_EXCEPTIONS "Enable C++ Exception" ON)
 option(OCOS_ENABLE_TF_STRING "Enable String Operator Set" ON)
+option(OCOS_ENABLE_RE2_REGEX "Enable StringRegexReplace and StringRegexSplit" ON)
 option(OCOS_ENABLE_GPT2_TOKENIZER "Enable the GPT2 tokenizer building" ON)
 option(OCOS_ENABLE_SPM_TOKENIZER "Enable the SentencePiece tokenizer building" ON)
 option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
@@ -91,7 +92,14 @@ if(NOT OCOS_ENABLE_CPP_EXCEPTIONS)
 endif()
 
 include(FetchContent)
-if (OCOS_ENABLE_TF_STRING)
+
+if (NOT TARGET farmhash)
+  message(STATUS "Fetch farmhash")
+  include(farmhash)
+  FetchContent_GetProperties(farmhash)
+endif()
+
+if (OCOS_ENABLE_RE2_REGEX)
   if (NOT TARGET re2::re2)
     set(RE2_BUILD_TESTING OFF CACHE INTERNAL "")
     message(STATUS "Fetch googlere2")
@@ -99,16 +107,12 @@ if (OCOS_ENABLE_TF_STRING)
     FetchContent_GetProperties(googlere2)
   endif()
 
-  if (NOT TARGET farmhash)
-    message(STATUS "Fetch farmhash")
-    include(farmhash)
-    FetchContent_GetProperties(farmhash)
-  endif()
-
   if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-    set_property(TARGET re2 PROPERTY COMPILE_OPTIONS )
+    set_property(TARGET re2 PROPERTY COMPILE_OPTIONS)
   endif()
 endif()
+
+#### scan all source files
 
 file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h")
 if (OCOS_ENABLE_TF_STRING)
@@ -118,23 +122,31 @@ if (OCOS_ENABLE_TF_STRING)
 endif()
 
 if (OCOS_ENABLE_MATH)
+  set(DLIB_ISO_CPP_ONLY ON CACHE INTERNAL "")
   set(DLIB_NO_GUI_SUPPORT ON CACHE INTERNAL "")
   set(DLIB_USE_CUDA OFF CACHE INTERNAL "")
   set(DLIB_USE_LAPACK OFF CACHE INTERNAL "")
   set(DLIB_USE_BLAS OFF CACHE INTERNAL "")
   include(dlib)
   file(GLOB TARGET_SRC_MATH "operators/math/*.cc" "operators/math/*.h*")
-  list(APPEND TARGET_SRC ${TARGET_SRC_MATH})
+  # Ideally, dlib should be included as
+  #   file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/all/source.cpp")
+  # To avoid the unintentional using some unwanted component, only include 
+  file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/test_for_odr_violations.cpp")
+  list(APPEND TARGET_SRC ${TARGET_SRC_MATH} ${TARGET_SRC_DLIB})
 endif()
 
+set(_HAS_TOKENIZER OFF)
 if (OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
+  set(_HAS_TOKENIZER ON)
   file(GLOB tok_TARGET_SRC "operators/tokenizer/gpt*.cc" "operators/tokenizer/unicode*.*")
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
 endif()
 
 if (OCOS_ENABLE_SPM_TOKENIZER)
   # SentencePiece
+  set(_HAS_TOKENIZER ON)
   set(SPM_ENABLE_TCMALLOC OFF CACHE INTERNAL "")
   set(SPM_ENABLE_SHARED OFF CACHE INTERNAL "")
   message(STATUS "Fetch sentencepiece")
@@ -146,8 +158,16 @@ endif()
 
 if (OCOS_ENABLE_BERT_TOKENIZER)
   # Bert
+  set(_HAS_TOKENIZER ON)
   file(GLOB bert_TARGET_SRC "operators/tokenizer/wordpiece*.*" "operators/tokenizer/basic_tokenizer.*" "operators/tokenizer/bert_tokenizer.*")
   list(APPEND TARGET_SRC ${bert_TARGET_SRC})
+endif()
+
+if (OCOS_ENABLE_BLINGFIRE)
+  # blingfire
+  set(_HAS_TOKENIZER ON)
+  file(GLOB blingfire_TARGET_SRC "operators/tokenizer/blingfire*.*")
+  list(APPEND TARGET_SRC ${blingfire_TARGET_SRC})
 endif()
 
 if (OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_BERT_TOKENIZER)
@@ -158,11 +178,13 @@ if (OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_BERT_TOKENIZER)
   endif()
 endif()
 
-if (OCOS_ENABLE_BLINGFIRE)
-  file(GLOB blingfire_TARGET_SRC "operators/tokenizer/blingfire*.*")
-  list(APPEND TARGET_SRC ${blingfire_TARGET_SRC})
+if (_HAS_TOKENIZER)
+  message(STATUS "Tokenizer needed.")
+  file(GLOB tokenizer_TARGET_SRC "operators/tokenizer/tokenizers.*")
+  list(APPEND TARGET_SRC ${tokenizer_TARGET_SRC})
 endif()
 
+#### make all compile options.
 
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
@@ -188,13 +210,18 @@ if (OCOS_ENABLE_TF_STRING)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING)
 endif()
 
+if (OCOS_ENABLE_RE2_REGEX)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_RE2_REGEX)
+endif()
+
 if (OCOS_ENABLE_MATH)
   target_include_directories(ocos_operators PUBLIC ${dlib_SOURCE_DIR})
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_MATH)
   # The dlib matrix implementation is all in the headers, no library compiling needed.
-  if (WIN32)
-    list(APPEND ocos_libraries dlib::dlib)
-  endif()
+endif()
+
+if (_HAS_TOKENIZER)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TOKENIZER)
 endif()
 
 if (OCOS_ENABLE_GPT2_TOKENIZER)
@@ -215,15 +242,15 @@ if (OCOS_ENABLE_SPM_TOKENIZER)
   list(APPEND ocos_libraries sentencepiece-static)
 endif()
 
-if (OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_BERT_TOKENIZER)
-  target_include_directories(ocos_operators PRIVATE ${json_SOURCE_DIR}/single_include)
-  list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
-endif()
-
 if (OCOS_ENABLE_BLINGFIRE)
   include(blingfire)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_BLINGFIRE)
   list(APPEND ocos_libraries bingfirtinydll_static)
+endif()
+
+if (OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_BERT_TOKENIZER)
+  target_include_directories(ocos_operators PRIVATE ${json_SOURCE_DIR}/single_include)
+  list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 
 if (OCOS_ENABLE_TF_STRING)
@@ -232,7 +259,7 @@ if (OCOS_ENABLE_TF_STRING)
       FARMHASH_NO_BUILTIN_EXPECT)
 endif()
 
-
+list(REMOVE_DUPLICATES OCOS_COMPILE_DEFINITIONS)
 target_compile_definitions(ocos_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
 

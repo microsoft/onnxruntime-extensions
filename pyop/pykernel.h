@@ -37,40 +37,7 @@ struct PyCustomOpDef {
 };
 
 struct PyCustomOpKernel {
-  PyCustomOpKernel(OrtApi api, const OrtKernelInfo* info, uint64_t id, const std::vector<std::string>& attrs)
-      : api_(api),
-        ort_(api_),
-        obj_id_(id) {
-    size_t size;
-    for (std::vector<std::string>::const_iterator it = attrs.begin(); it != attrs.end(); ++it) {
-      size = 0;
-      OrtStatus* status = api_.KernelInfoGetAttribute_string(info, it->c_str(), nullptr, &size);
-      if ((status != nullptr) && api_.GetErrorCode(status) != ORT_INVALID_ARGUMENT) {
-        std::string error_message(api_.GetErrorMessage(status));
-        api_.ReleaseStatus(status);
-        throw std::runtime_error(MakeString(
-            "Unable to find attribute '", *it, "' due to '",
-            error_message, "'."));
-      }
-      if (status != nullptr) {
-        api_.ReleaseStatus(status);
-      }
-      attrs_values_[*it] = "";
-      attrs_values_[*it].resize(size);
-      status = api_.KernelInfoGetAttribute_string(info, it->c_str(), &(attrs_values_[*it][0]), &size);
-      if ((status != nullptr) && (api_.GetErrorCode(status) != ORT_OK)) {
-        api_.ReleaseStatus(status);
-        throw std::runtime_error(MakeString(
-            "Unable to retrieve attribute '", *it, "' due to '",
-            api_.GetErrorMessage(status), "'."));
-      }
-      attrs_values_[*it].resize(size - 1);
-      if (status != nullptr) {
-        api_.ReleaseStatus(status);
-      }
-    }
-  }
-
+  PyCustomOpKernel(OrtApi api, const OrtKernelInfo* info, uint64_t id, const std::vector<std::string>& attrs);
   void Compute(OrtKernelContext* context);
 
  private:
@@ -81,10 +48,16 @@ struct PyCustomOpKernel {
 };
 
 struct PyCustomOpFactory : Ort::CustomOpBase<PyCustomOpFactory, PyCustomOpKernel> {
-  PyCustomOpFactory(const PyCustomOpDef* opdef) {
+  PyCustomOpFactory() {
+    // STL vector needs it.  
+  }
+
+  PyCustomOpFactory(const PyCustomOpDef* opdef, const std::string& domain, const std::string& op) {
     if (opdef == nullptr)
       throw std::runtime_error("Python definition is empty.");
     opdef_ = opdef;
+    op_domain_ = domain;
+    op_type_ = op;
   }
 
   void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
@@ -92,7 +65,7 @@ struct PyCustomOpFactory : Ort::CustomOpBase<PyCustomOpFactory, PyCustomOpKernel
   };
 
   const char* GetName() const {
-    return opdef_->op_type.c_str();
+    return op_type_.c_str();
   };
 
   size_t GetInputTypeCount() const {
@@ -116,7 +89,6 @@ struct PyCustomOpFactory : Ort::CustomOpBase<PyCustomOpFactory, PyCustomOpKernel
   }
 
   const PyCustomOpDef* opdef_;
+  std::string op_type_;
+  std::string op_domain_;
 };
-
-std::vector<PyCustomOpFactory>& PyCustomOpDef_python_operator_list();
-const PyCustomOpFactory* PyCustomOpDef_FetchPyCustomOps(size_t count);

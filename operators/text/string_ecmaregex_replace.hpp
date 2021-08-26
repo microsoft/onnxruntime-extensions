@@ -3,15 +3,18 @@
 
 #pragma once
 
-#include "ocos.h"
+#include "kernels.h"
 #include "string_utils.h"
 
-struct KernelStringUpper : BaseKernel {
-  KernelStringUpper(OrtApi api);
+struct KernelStringECMARegexReplace : BaseKernel {
+  KernelStringECMARegexReplace(OrtApi api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
+
+ protected:
+  int64_t global_replace_;
 };
 
-struct CustomOpStringUpper : Ort::CustomOpBase<CustomOpStringUpper, KernelStringUpper> {
+struct CustomOpStringECMARegexReplace : Ort::CustomOpBase<CustomOpStringECMARegexReplace, KernelStringECMARegexReplace> {
   void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
