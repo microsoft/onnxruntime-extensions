@@ -3,7 +3,6 @@
 #include <sstream>
 #include "ocos.h"
 
-
 bool BaseKernel::HasAttribute(const char* name) const {
   if (info_ == nullptr) {
     ORT_CXX_API_THROW("Kernel was incorrectly initialized, pointer info_ cannot be null.", ORT_INVALID_ARGUMENT);
@@ -34,6 +33,14 @@ OrtErrorCode BaseKernel::GetErrorCodeAndRelease(OrtStatusPtr status) {
   auto error_code = api_.GetErrorCode(status);
   api_.ReleaseStatus(status);
   return error_code;
+}
+
+void BaseKernel::SetOutput(OrtKernelContext* ctx,  size_t output_idx, const std::vector<int64_t>& dim, const std::vector<int64_t>& data) {
+    OrtValue* output = ort_.KernelContext_GetOutput(ctx, output_idx, dim.data(), dim.size());
+    int64_t * data_ptr = ort_.GetTensorMutableData<int64_t>(output);
+    for (int i = 0; i < data.size(); i++) {
+      data_ptr[i] = data[i];
+    }
 }
 
 template <>
@@ -76,4 +83,19 @@ bool BaseKernel::TryToGetAttribute(const char* name, float& value) {
   }
 
   return GetErrorCodeAndRelease(api_.KernelInfoGetAttribute_float(info_, name, &value)) == ORT_OK;
+}
+
+template <>
+bool BaseKernel::TryToGetAttribute(const char* name, bool& value) {
+  if (info_ == nullptr) {
+    ORT_CXX_API_THROW("Kernel was incorrectly initialized, pointer info_ cannot be null.", ORT_INVALID_ARGUMENT);
+  }
+
+  int64_t origin_value = 0;
+  if (GetErrorCodeAndRelease(api_.KernelInfoGetAttribute_int64(info_, name, &origin_value)) != ORT_OK) {
+    return false;
+  }
+
+  value = origin_value == 1;
+  return true;
 }

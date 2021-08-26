@@ -49,8 +49,11 @@ std::string MakeString(const Args&... args) {
 
 std::vector<std::string_view> SplitString(const std::string_view& str, const std::string_view& seps, bool remove_empty_entries = false);
 
-void char2unicode(const std::string& src, std::vector<uint32_t>& result);
-void unicode2char(const std::vector<uint32_t>& src, std::string& result);
+bool IsCJK(char32_t c);
+
+bool IsAccent(char32_t c);
+
+char32_t StripAccent(char32_t c);
 
 uint64_t Hash64(const char* data, size_t n, uint64_t seed);
 

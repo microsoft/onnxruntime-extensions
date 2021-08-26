@@ -20,6 +20,8 @@ class ustring : public std::u32string {
   explicit ustring(std::u32string&& str);
   explicit ustring(const std::u32string& str);
   explicit ustring(const std::u32string&& str);
+  explicit ustring(std::string_view& str);
+  explicit ustring(const std::string_view& str);
   explicit ustring(std::u32string_view& str);
   explicit ustring(std::u32string_view&& str);
   explicit ustring(const std::u32string_view& str);
@@ -36,8 +38,8 @@ namespace std {
 template <>
 struct hash<ustring> {
   size_t operator()(const ustring& __str) const noexcept {
-    hash<u32string> hash;
-    return hash(__str);
+    hash<u32string> standard_hash;
+    return standard_hash(static_cast<u32string>(__str));
   }
 };
 }  // namespace std

@@ -4,6 +4,7 @@
 #include "gtest/gtest.h"
 #include "string_utils.h"
 #include "wordpiece_tokenizer.hpp"
+#include "bert_tokenizer.hpp"
 
 TEST(tokenizer, bert_word_split) {
   ustring ind("##");
@@ -41,6 +42,14 @@ std::unordered_map<std::u32string, int32_t> get_vocabulary_basic() {
     vocab[*it] = vocab.size();
   }
   return vocab;
+}
+
+std::vector<ustring> ustring_vector_convertor(std::vector<std::string> input) {
+  std::vector<ustring> result;
+  for (const auto& str : input) {
+    result.emplace_back(str);
+  }
+  return result;
 }
 
 TEST(tokenizer, wordpiece_basic_tokenizer) {
@@ -110,10 +119,26 @@ TEST(tokenizer, bert_wordpiece_tokenizer_rows) {
   std::vector<int64_t> existing_indices({0, 2, 3});
   std::vector<ustring> text = {ustring("unwanted"), ustring("running"), ustring("running")};
   KernelWordpieceTokenizer_Tokenizer(vocab, ustring("##"), ustring("[UNK]"), text, tokens, indices, rows,
-                                existing_indices.data(), existing_indices.size());
+                                     existing_indices.data(), existing_indices.size());
   EXPECT_EQ(tokens, std::vector<ustring>({ustring("un"), ustring("##want"), ustring("##ed"),
                                           ustring("runn"), ustring("##ing"),
                                           ustring("runn"), ustring("##ing")}));
   EXPECT_EQ(indices, std::vector<int32_t>({7, 4, 5, 8, 9, 8, 9}));
   EXPECT_EQ(rows, std::vector<int64_t>({0, 5, 7}));
+}
+
+TEST(tokenizer, basic_tokenizer_chinese) {
+  ustring test_case = ustring("ÀÁÂÃÄÅÇÈÉÊËÌÍÎÑÒÓÔÕÖÚÜ\t䗓𨖷虴𨀐辘𧄋脟𩑢𡗶镇伢𧎼䪱轚榶𢑌㺽𤨡!#$%&(Tom@microsoft.com)*+,-./:;<=>?@[\\]^_`{|}~");
+  std::vector<ustring> expect_result = ustring_vector_convertor({"aaaaaaceeeeiiinooooouu", "䗓", "𨖷", "虴", "𨀐", "辘", "𧄋", "脟", "𩑢", "𡗶", "镇", "伢", "𧎼", "䪱", "轚", "榶", "𢑌", "㺽", "𤨡", "!", "#", "$", "%", "&", "(", "tom", "@", "microsoft", ".", "com", ")", "*", "+", ",", "-", ".", "/", ":", ";", "<", "=", ">", "?", "@", "[", "\\", "]", "^", "_", "`", "{", "|", "}", "~"});
+  BasicTokenizer tokenizer(true, true, true, true, true);
+  auto result = tokenizer.Tokenize(test_case);
+  EXPECT_EQ(result, expect_result);
+}
+
+TEST(tokenizer, basic_tokenizer_russia) {
+  ustring test_case = ustring("A $100,000 price-tag@big>small на русском языке");
+  std::vector<ustring> expect_result = ustring_vector_convertor({"a", "$", "100", ",", "000", "price", "-", "tag", "@", "big", ">", "small", "на", "русском", "языке"});
+  BasicTokenizer tokenizer(true, true, true, true, true);
+  auto result = tokenizer.Tokenize(test_case);
+  EXPECT_EQ(result, expect_result);
 }

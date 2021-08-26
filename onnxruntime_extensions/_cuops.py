@@ -81,7 +81,7 @@ class StringToVector(CustomOp):
         for k_, v_ in attrs.items():
             if k_ == 'map' and isinstance(v_, dict):
                 attr_data[k_] = '\n'.join(k + "\t" + " ".join([str(i) for i in v]) for k, v in v_.items())
-            elif k_ == 'unk' and isinstance(v_, list): 
+            elif k_ == 'unk' and isinstance(v_, list):
                 attr_data[k_] = ' '.join(str(i) for i in v_)
             else:
                 attr_data[k_] = v_
@@ -104,6 +104,30 @@ class BlingFireSentenceBreaker(CustomOp):
             if k_ == 'model':
                 with open(v_, "rb") as model_file:
                     attrs_data[k_] = model_file.read()
+            else:
+                attrs_data[k_] = v_
+        return attrs_data
+
+
+class BertTokenizer(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def("text", onnx.TensorProto.STRING, [None])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def('input_ids', onnx_proto.TensorProto.INT64, [None]),
+                cls.io_def('token_type_ids', onnx_proto.TensorProto.INT64, [None]),
+                cls.io_def('attention_mask', onnx_proto.TensorProto.INT64, [None])]
+
+    @classmethod
+    def serialize_attr(cls, attrs):
+        attrs_data = {}
+        for k_, v_ in attrs.items():
+            if k_ == 'vocab_file':
+                with open(v_, "r", encoding='utf-8') as model_file:
+                    lines = model_file.readlines()
+                    attrs_data[k_] = '\n'.join(lines)
             else:
                 attrs_data[k_] = v_
         return attrs_data

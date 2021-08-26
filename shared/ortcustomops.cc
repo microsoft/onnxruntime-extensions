@@ -22,6 +22,15 @@
 #include "text/string_ecmaregex_replace.hpp"
 #include "text/string_ecmaregex_split.hpp"
 
+#ifdef ENABLE_BERT_TOKENIZER
+#include "bert_tokenizer.hpp"
+#include "basic_tokenizer.hpp"
+#endif
+
+#ifdef ENABLE_BERT_TOKENIZER
+CustomOpBasicTokenizer c_CustomOpBasicTokenizer;
+CustomOpBertTokenizer c_CustomOpBertTokenizer;
+#endif
 
 #ifdef ENABLE_TF_STRING
 CustomOpSegmentSum c_CustomOpSegmentSum;
@@ -49,6 +58,10 @@ CustomOpStringRegexSplitWithOffsets c_CustomOpStringRegexSplitWithOffsets;
 #endif
 
 OrtCustomOp* operator_lists[] = {
+#ifdef ENABLE_BERT_TOKENIZER
+    &c_CustomOpBasicTokenizer,
+    &c_CustomOpBertTokenizer,
+#endif
 #ifdef ENABLE_TF_STRING
     &c_CustomOpRaggedTensorToDense,
     &c_CustomOpRaggedTensorToSparse,

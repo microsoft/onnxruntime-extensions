@@ -22,8 +22,18 @@ struct BaseKernel {
   BaseKernel(OrtApi api, const OrtKernelInfo* info) : api_(api), info_(info), ort_(api_) {}
 
   bool HasAttribute(const char* name) const;
+
   template <class T>
   bool TryToGetAttribute(const char* name, T& value);
+
+  template <class T>
+  T TryToGetAttributeWithDefault(const char* name, T default_value) {
+    T& result = default_value;
+    TryToGetAttribute(name, result);
+    return result;
+  }
+
+  void SetOutput(OrtKernelContext* ctx,  size_t output_idx, const std::vector<int64_t>& dim, const std::vector<int64_t>& data);
 
  protected:
   OrtErrorCode GetErrorCodeAndRelease(OrtStatusPtr status);
