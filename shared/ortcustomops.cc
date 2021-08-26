@@ -22,25 +22,6 @@
 #include "text/string_ecmaregex_replace.hpp"
 #include "text/string_ecmaregex_split.hpp"
 
-#ifdef ENABLE_SPM_TOKENIZER
-#include "sentencepiece_tokenizer.hpp"
-#endif
-
-#ifdef ENABLE_BERT_TOKENIZER
-#include "wordpiece_tokenizer.hpp"
-#endif
-
-#ifdef ENABLE_BLINGFIRE
-#include "blingfire_sentencebreaker.hpp"
-#endif
-
-#ifdef ENABLE_SPM_TOKENIZER
-CustomOpSentencepieceTokenizer c_CustomOpSentencepieceTokenizer;
-#endif
-
-#ifdef ENABLE_BERT_TOKENIZER
-CustomOpWordpieceTokenizer c_CustomOpWordpieceTokenizer;
-#endif
 
 #ifdef ENABLE_TF_STRING
 CustomOpSegmentSum c_CustomOpSegmentSum;
@@ -67,19 +48,7 @@ CustomOpStringRegexReplace c_CustomOpStringRegexReplace;
 CustomOpStringRegexSplitWithOffsets c_CustomOpStringRegexSplitWithOffsets;
 #endif
 
-#ifdef ENABLE_BLINGFIRE
-CustomOpBlingFireSentenceBreaker c_CustomOpTextToSentences;
-#endif
-
 OrtCustomOp* operator_lists[] = {
-#ifdef ENABLE_SPM_TOKENIZER
-    &c_CustomOpSentencepieceTokenizer,
-#endif
-
-#ifdef ENABLE_BERT_TOKENIZER
-    &c_CustomOpWordpieceTokenizer,
-#endif
-
 #ifdef ENABLE_TF_STRING
     &c_CustomOpRaggedTensorToDense,
     &c_CustomOpRaggedTensorToSparse,
@@ -105,14 +74,16 @@ OrtCustomOp* operator_lists[] = {
     &c_CustomOpStringRegexSplitWithOffsets,
 #endif
 
-#ifdef ENABLE_BLINGFIRE
-    &c_CustomOpTextToSentences,
-#endif
-    nullptr};
+    nullptr };
 
-#if ENABLE_MATH
+#ifdef ENABLE_MATH
 extern FxLoadCustomOpFactory LoadCustomOpClasses_Math;
 #endif  // ENABLE_MATH
+
+#ifdef ENABLE_TOKENIZER
+extern FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer;
+#endif // ENABLE_TOKENIZER
+
 
 class ExternalCustomOps {
  public:
@@ -152,8 +123,15 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
   OrtCustomOpDomain* domain = nullptr;
   const OrtApi* ortApi = api->GetApi(ORT_API_VERSION);
   std::set<std::string> pyop_nameset;
+  OrtStatus* status = nullptr;
 
-  if (auto status = ortApi->CreateCustomOpDomain(c_OpDomain, &domain)) {
+#if defined(PYTHON_OP_SUPPORT)
+  if (status = RegisterPythonDomainAndOps(options, ortApi)){
+    return status;
+  }
+#endif // PYTHON_OP_SUPPORT
+
+  if (status = ortApi->CreateCustomOpDomain(c_OpDomain, &domain)) {
     return status;
   }
 
@@ -161,7 +139,7 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
   size_t count = 0;
   const OrtCustomOp* c_ops = FetchPyCustomOps(count);
   while (c_ops != nullptr) {
-    if (auto status = ortApi->CustomOpDomain_Add(domain, c_ops)) {
+    if (status = ortApi->CustomOpDomain_Add(domain, c_ops)) {
       return status;
     } else {
       pyop_nameset.emplace(c_ops->GetName(c_ops));
@@ -174,12 +152,10 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
   static std::vector<FxLoadCustomOpFactory> c_factories = {
     []() { return const_cast<const OrtCustomOp**>(operator_lists); }
 #if defined(ENABLE_MATH)
-    ,
-    LoadCustomOpClasses_Math
+    , LoadCustomOpClasses_Math
 #endif
-#if defined(ENABLE_GPT2_TOKENIZER)
-    ,
-    LoadTokenizerSchemaList
+#if defined(ENABLE_TOKENIZER)
+    , LoadCustomOpClasses_Tokenizer
 #endif
   };
 
@@ -187,7 +163,7 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
     auto ops = fx();
     while (*ops != nullptr) {
       if (pyop_nameset.find((*ops)->GetName(*ops)) == pyop_nameset.end()) {
-        if (auto status = ortApi->CustomOpDomain_Add(domain, *ops)) {
+        if (status = ortApi->CustomOpDomain_Add(domain, *ops)) {
           return status;
         }
       }
@@ -199,7 +175,7 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
   const OrtCustomOp* e_ops = ExternalCustomOps::instance().GetNextOp(idx);
   while (e_ops != nullptr) {
     if (pyop_nameset.find(e_ops->GetName(e_ops)) == pyop_nameset.end()) {
-      if (auto status = ortApi->CustomOpDomain_Add(domain, e_ops)) {
+      if (status = ortApi->CustomOpDomain_Add(domain, e_ops)) {
         return status;
       }
       e_ops = ExternalCustomOps::instance().GetNextOp(idx);

@@ -21,4 +21,3 @@ void FillTensorDataString(const OrtApi& api, Ort::CustomOpApi& ort, OrtKernelCon
 
 void FillTensorDataString(const OrtApi& api, Ort::CustomOpApi& ort, OrtKernelContext* context,
                           const std::vector<ustring>& value, OrtValue* output);
-

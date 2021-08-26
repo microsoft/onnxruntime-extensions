@@ -104,18 +104,6 @@ class BuildCMakeExt(_build_ext):
                            self.get_ext_filename(extension.name))
 
 
-class BuildPy(_build_py):
-    def run(self):
-        self.run_command("build_ext")
-        return super().run()
-
-
-class BuildDevelop(_develop):
-    def run(self):
-        self.run_command("build_ext")
-        return super().run()
-
-
 def read_requirements():
     with open(os.path.join(TOP_DIR, "requirements.txt"), "r") as f:
         requirements = [_ for _ in [_.strip("\r\n ")
@@ -174,8 +162,6 @@ setup(
     ext_modules=ext_modules,
     cmdclass=dict(
         build_ext=BuildCMakeExt,
-        build_py=BuildPy,
-        develop=BuildDevelop
         ),
     include_package_data=True,
     install_requires=read_requirements(),

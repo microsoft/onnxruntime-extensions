@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "kernels.h"
+#include "ocos.h"
 #include "string_utils.h"
 
 struct KernelStringUpper : BaseKernel {

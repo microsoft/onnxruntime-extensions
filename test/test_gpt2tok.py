@@ -8,7 +8,7 @@ from transformers import GPT2Tokenizer
 from onnxruntime_extensions import (
     onnx_op,
     make_onnx_model,
-    enable_custom_op,
+    enable_py_op,
     PyCustomOpDef,
     get_library_path as _get_library_path)
 
@@ -95,7 +95,7 @@ class TestGPT2Tokenizer(unittest.TestCase):
         del so
 
     def test_tokenizer(self):
-        enable_custom_op(False)
+        enable_py_op(False)
 
         self._run_tokenizer(["I can feel the magic, can you?"])
         self._run_tokenizer(["Hey Cortana"])
@@ -108,7 +108,7 @@ class TestGPT2Tokenizer(unittest.TestCase):
         self._run_tokenizer(["I can feel the magic, can you?", "Yes I do."])
         self._run_tokenizer(["I can feel the magic, can you?", "Yes I do."], 100)
 
-        enable_custom_op(True)
+        enable_py_op(True)
 
 
 # def test_tokenizer_pyop(self):
