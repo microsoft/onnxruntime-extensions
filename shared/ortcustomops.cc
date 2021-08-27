@@ -3,6 +3,7 @@
 
 #include <set>
 
+#include "onnxruntime_extensions.h"
 #include "string_utils.h"
 
 #include "text/op_equal.hpp"

@@ -3,4 +3,4 @@
 #include "inverse.hpp"
 
 
-FxLoadCustomOpFactory LoadCustomOpClasses_Math = LoadCustomOpClasses<CustomOpNegPos, CustomOpInverse>;
+FxLoadCustomOpFactory LoadCustomOpClasses_Math = LoadCustomOpClasses<CustomOpClassBegin, CustomOpNegPos, CustomOpInverse>;

@@ -58,7 +58,11 @@ struct OrtTensorDimensions : std::vector<int64_t> {
   }
 };
 
-template <class... Args>
+
+struct CustomOpClassBegin{
+};
+
+template <typename... Args>
 class CuopContainer {
  public:
   CuopContainer() : ocos_list_({[]() { return new Args; }()...}) {
@@ -84,7 +88,7 @@ class CuopContainer {
 
 typedef std::function<const OrtCustomOp**()> FxLoadCustomOpFactory;
 
-template <typename... Args>
+template <typename _Begin_place_holder, typename... Args>
 const OrtCustomOp** LoadCustomOpClasses() {
   static CuopContainer<Args...> ctr;  // Let C++ runtime take cares of the MP initializing.
   return ctr.GetList();
