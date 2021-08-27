@@ -2,7 +2,7 @@
 
 #ifdef ENABLE_GPT2_TOKENIZER
 #include "gpt2_tokenizer.hpp"
-#endif 
+#endif
 
 #ifdef ENABLE_SPM_TOKENIZER
 #include "sentencepiece_tokenizer.hpp"
@@ -16,18 +16,27 @@
 #include "blingfire_sentencebreaker.hpp"
 #endif
 
+#ifdef ENABLE_BERT_TOKENIZER
+#include "bert_tokenizer.hpp"
+#include "basic_tokenizer.hpp"
+#endif
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = &LoadCustomOpClasses<
 #ifdef ENABLE_GPT2_TOKENIZER
     CustomOpBpeTokenizer
 #endif
 #ifdef ENABLE_SPM_TOKENIZER
-    , CustomOpSentencepieceTokenizer
+    ,CustomOpSentencepieceTokenizer
 #endif
-#ifdef ENABLE_BERT_TOKENIZER
-    , CustomOpWordpieceTokenizer
+#ifdef ENABLE_WORDPIECE_TOKENIZER
+    ,CustomOpWordpieceTokenizer
 #endif
 #ifdef ENABLE_BLINGFIRE
-    , CustomOpBlingFireSentenceBreaker
+    ,CustomOpBlingFireSentenceBreaker
+#endif
+#ifdef ENABLE_BERT_TOKENIZER
+    ,CustomOpBasicTokenizer
+    ,CustomOpBertTokenizer
 #endif
 >;
+
