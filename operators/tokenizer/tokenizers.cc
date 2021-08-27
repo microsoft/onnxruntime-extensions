@@ -1,3 +1,4 @@
+
 #include "ocos.h"
 
 #ifdef ENABLE_GPT2_TOKENIZER
@@ -22,23 +23,44 @@
 #include "bert_tokenizer_decoder.hpp"
 #endif
 
+
 FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = &LoadCustomOpClasses<
 #ifdef ENABLE_GPT2_TOKENIZER
     CustomOpBpeTokenizer
 #endif
+
 #ifdef ENABLE_SPM_TOKENIZER
-    ,CustomOpSentencepieceTokenizer
+#if defined ENABLE_GPT2_TOKENIZER
+    // comma required only when previous tokenizer is defined,
+    // otherwise it will throw build error: expected expression.
+    ,
 #endif
+    CustomOpSentencepieceTokenizer
+#endif
+
 #ifdef ENABLE_WORDPIECE_TOKENIZER
-    ,CustomOpWordpieceTokenizer
+#if defined ENABLE_GPT2_TOKENIZER || defined ENABLE_SPM_TOKENIZER
+    // comma required only when previous tokenizer is defined
+    ,
 #endif
-#ifdef ENABLE_BLINGFIRE
-    ,CustomOpBlingFireSentenceBreaker
+    CustomOpWordpieceTokenizer
 #endif
+
 #ifdef ENABLE_BERT_TOKENIZER
-    ,CustomOpBasicTokenizer
+#if defined ENABLE_GPT2_TOKENIZER || defined ENABLE_SPM_TOKENIZER || defined ENABLE_WORDPIECE_TOKENIZER
+    // comma required only when previous tokenizer is defined
+    ,
+#endif
+    CustomOpBasicTokenizer
     ,CustomOpBertTokenizer
     ,CustomOpBertTokenizerDecoder
 #endif
->;
 
+#ifdef ENABLE_BLINGFIRE
+#if defined ENABLE_GPT2_TOKENIZER || defined ENABLE_SPM_TOKENIZER || defined ENABLE_BERT_TOKENIZER || defined ENABLE_WORDPIECE_TOKENIZER
+    // comma required only when previous tokenizer is defined
+    ,
+#endif
+    CustomOpBlingFireSentenceBreaker
+#endif
+>;
