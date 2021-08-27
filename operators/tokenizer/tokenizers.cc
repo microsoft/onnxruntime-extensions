@@ -24,43 +24,27 @@
 #endif
 
 
-FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = &LoadCustomOpClasses<
+FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = LoadCustomOpClasses<
+    CustomOpClassBegin
 #ifdef ENABLE_GPT2_TOKENIZER
-    CustomOpBpeTokenizer
+    , CustomOpBpeTokenizer
 #endif
 
 #ifdef ENABLE_SPM_TOKENIZER
-#if defined ENABLE_GPT2_TOKENIZER
-    // comma required only when previous tokenizer is defined,
-    // otherwise it will throw build error: expected expression.
-    ,
-#endif
-    CustomOpSentencepieceTokenizer
-#endif
-
-#ifdef ENABLE_WORDPIECE_TOKENIZER
-#if defined ENABLE_GPT2_TOKENIZER || defined ENABLE_SPM_TOKENIZER
-    // comma required only when previous tokenizer is defined
-    ,
-#endif
-    CustomOpWordpieceTokenizer
+    , CustomOpSentencepieceTokenizer
 #endif
 
 #ifdef ENABLE_BERT_TOKENIZER
-#if defined ENABLE_GPT2_TOKENIZER || defined ENABLE_SPM_TOKENIZER || defined ENABLE_WORDPIECE_TOKENIZER
-    // comma required only when previous tokenizer is defined
-    ,
+    , CustomOpWordpieceTokenizer
 #endif
-    CustomOpBasicTokenizer
-    ,CustomOpBertTokenizer
-    ,CustomOpBertTokenizerDecoder
+
+#ifdef ENABLE_BERT_TOKENIZER
+    , CustomOpBasicTokenizer
+    , CustomOpBertTokenizer
+    , CustomOpBertTokenizerDecoder
 #endif
 
 #ifdef ENABLE_BLINGFIRE
-#if defined ENABLE_GPT2_TOKENIZER || defined ENABLE_SPM_TOKENIZER || defined ENABLE_BERT_TOKENIZER || defined ENABLE_WORDPIECE_TOKENIZER
-    // comma required only when previous tokenizer is defined
-    ,
-#endif
-    CustomOpBlingFireSentenceBreaker
+    , CustomOpBlingFireSentenceBreaker
 #endif
 >;

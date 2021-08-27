@@ -294,6 +294,7 @@ if(OCOS_ENABLE_PYTHON)
   # building static lib has higher priority
 elseif(OCOS_ENABLE_STATIC_LIB)
   add_library(ortcustomops STATIC ${shared_TARGET_SRC})
+  add_library(onnxruntime_extensions ALIAS ortcustomops)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   add_executable(ortcustomops ${shared_TARGET_SRC})
   set_target_properties(ortcustomops PROPERTIES LINK_FLAGS "                                  \
