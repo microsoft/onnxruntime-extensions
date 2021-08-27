@@ -7,6 +7,7 @@
 
 #include "text/op_equal.hpp"
 #include "text/op_segment_sum.hpp"
+#include "text/op_segment_extraction.hpp"
 #include "text/op_ragged_tensor.hpp"
 #include "text/string_hash.hpp"
 #include "text/string_join.hpp"
@@ -33,6 +34,7 @@ CustomOpBertTokenizer c_CustomOpBertTokenizer;
 #endif
 
 #ifdef ENABLE_TF_STRING
+CustomOpSegmentExtraction c_CustomOpSegmentExtraction;
 CustomOpSegmentSum c_CustomOpSegmentSum;
 CustomOpRaggedTensorToDense c_CustomOpRaggedTensorToDense;
 CustomOpRaggedTensorToSparse c_CustomOpRaggedTensorToSparse;
@@ -66,6 +68,7 @@ OrtCustomOp* operator_lists[] = {
     &c_CustomOpRaggedTensorToDense,
     &c_CustomOpRaggedTensorToSparse,
     &c_CustomOpSegmentSum,
+    &c_CustomOpSegmentExtraction,
     &c_CustomOpStringEqual,
     &c_CustomOpStringHash,
     &c_CustomOpStringHashFast,

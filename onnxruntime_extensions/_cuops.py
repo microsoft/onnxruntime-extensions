@@ -109,6 +109,17 @@ class BlingFireSentenceBreaker(CustomOp):
         return attrs_data
 
 
+class SegmentExtraction(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def("input", onnx.TensorProto.INT64, [None])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def('position', onnx_proto.TensorProto.INT64, [None, 2]),
+                cls.io_def('value', onnx_proto.TensorProto.INT64, [None])]
+
+
 class BertTokenizer(CustomOp):
     @classmethod
     def get_inputs(cls):
