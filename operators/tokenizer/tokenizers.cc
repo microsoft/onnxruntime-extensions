@@ -8,7 +8,7 @@
 #include "sentencepiece_tokenizer.hpp"
 #endif
 
-#ifdef ENABLE_BERT_TOKENIZER
+#ifdef ENABLE_WORDPIECE_TOKENIZER
 #include "wordpiece_tokenizer.hpp"
 #endif
 
@@ -19,6 +19,7 @@
 #ifdef ENABLE_BERT_TOKENIZER
 #include "bert_tokenizer.hpp"
 #include "basic_tokenizer.hpp"
+#include "bert_tokenizer_decoder.hpp"
 #endif
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = &LoadCustomOpClasses<
@@ -37,6 +38,7 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = &LoadCustomOpClasses<
 #ifdef ENABLE_BERT_TOKENIZER
     ,CustomOpBasicTokenizer
     ,CustomOpBertTokenizer
+    ,CustomOpBertTokenizerDecoder
 #endif
 >;
 

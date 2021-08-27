@@ -160,7 +160,7 @@ endif()
 if (OCOS_ENABLE_WORDPIECE_TOKENIZER)
   set(_HAS_TOKENIZER ON)
   file(GLOB wordpiece_TARGET_SRC "operators/tokenizer/wordpiece*.*")
-  list(APPEND TARGET_SRC ${bert_TARGET_SRC})
+  list(APPEND TARGET_SRC ${wordpiece_TARGET_SRC})
 endif()
 
 if (OCOS_ENABLE_BERT_TOKENIZER)

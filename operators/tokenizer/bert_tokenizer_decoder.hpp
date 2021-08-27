@@ -13,19 +13,20 @@
 
 class BertTokenizerDecoder {
  public:
-  BertTokenizerDecoder(std::string vocab, bool do_lower_case, bool do_basic_tokenize,
-                       ustring unk_token, ustring sep_token, ustring pad_token, ustring  cls_token,
-                       ustring mask_token, bool tokenize_chinese_chars, bool strip_accents,
-                       ustring suffix_indicator);
-  std::vector<int64_t> Decode(const std::vector<ustring>& tokens);
+  BertTokenizerDecoder(std::string vocab, ustring unk_token, ustring sep_token, ustring pad_token,
+                       ustring  cls_token,ustring mask_token,ustring suffix_indicator);
+  ustring Decode(const std::vector<int64_t>& ids);
 
  private:
+  ustring unk_token_;
   int32_t unk_token_id_;
   int32_t sep_token_id_;
   int32_t pad_token_id_;
   int32_t cls_token_id_;
   int32_t mask_token_id_;
-  std::shared_ptr<std::unordered_map<int32_t, ustring>> vocab_;
+  ustring suffix_indicator_;
+  std::vector<ustring> vocab_;
+  std::vector<bool> is_substr_;
 };
 
 struct KernelBertTokenizerDecoder : BaseKernel {

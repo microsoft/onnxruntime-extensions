@@ -29,7 +29,7 @@ void KernelSegmentExtraction::Compute(OrtKernelContext* context) {
 
     // push end position
     if (i == input_dim.size() || p_data[i + 1] != p_data[i]) {
-      segment_position.push_back(i);
+      segment_position.push_back(i + 1);
     }
   }
 
