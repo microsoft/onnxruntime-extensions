@@ -109,6 +109,17 @@ class BlingFireSentenceBreaker(CustomOp):
         return attrs_data
 
 
+class SegmentExtraction(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def("input", onnx.TensorProto.INT64, [None])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def('position', onnx_proto.TensorProto.INT64, [None, 2]),
+                cls.io_def('value', onnx_proto.TensorProto.INT64, [None])]
+
+
 class BertTokenizer(CustomOp):
     @classmethod
     def get_inputs(cls):
@@ -132,6 +143,27 @@ class BertTokenizer(CustomOp):
                 attrs_data[k_] = v_
         return attrs_data
 
+class BertTokenizerDecoder(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def("ids", onnx.TensorProto.INT64, [None]),
+                cls.io_def("position", onnx.TensorProto.INT64, [None, None])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def('str', onnx_proto.TensorProto.STRING, [None])]
+
+    @classmethod
+    def serialize_attr(cls, attrs):
+        attrs_data = {}
+        for k_, v_ in attrs.items():
+            if k_ == 'vocab_file':
+                with open(v_, "r", encoding='utf-8') as model_file:
+                    lines = model_file.readlines()
+                    attrs_data[k_] = '\n'.join(lines)
+            else:
+                attrs_data[k_] = v_
+        return attrs_data
 
 class SentencepieceTokenizer(CustomOp):
     @classmethod

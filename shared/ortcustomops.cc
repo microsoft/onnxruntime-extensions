@@ -8,6 +8,7 @@
 
 #include "text/op_equal.hpp"
 #include "text/op_segment_sum.hpp"
+#include "text/op_segment_extraction.hpp"
 #include "text/op_ragged_tensor.hpp"
 #include "text/string_hash.hpp"
 #include "text/string_join.hpp"
@@ -23,17 +24,9 @@
 #include "text/string_ecmaregex_replace.hpp"
 #include "text/string_ecmaregex_split.hpp"
 
-#ifdef ENABLE_BERT_TOKENIZER
-#include "bert_tokenizer.hpp"
-#include "basic_tokenizer.hpp"
-#endif
-
-#ifdef ENABLE_BERT_TOKENIZER
-CustomOpBasicTokenizer c_CustomOpBasicTokenizer;
-CustomOpBertTokenizer c_CustomOpBertTokenizer;
-#endif
 
 #ifdef ENABLE_TF_STRING
+CustomOpSegmentExtraction c_CustomOpSegmentExtraction;
 CustomOpSegmentSum c_CustomOpSegmentSum;
 CustomOpRaggedTensorToDense c_CustomOpRaggedTensorToDense;
 CustomOpRaggedTensorToSparse c_CustomOpRaggedTensorToSparse;
@@ -59,14 +52,11 @@ CustomOpStringRegexSplitWithOffsets c_CustomOpStringRegexSplitWithOffsets;
 #endif
 
 OrtCustomOp* operator_lists[] = {
-#ifdef ENABLE_BERT_TOKENIZER
-    &c_CustomOpBasicTokenizer,
-    &c_CustomOpBertTokenizer,
-#endif
 #ifdef ENABLE_TF_STRING
     &c_CustomOpRaggedTensorToDense,
     &c_CustomOpRaggedTensorToSparse,
     &c_CustomOpSegmentSum,
+    &c_CustomOpSegmentExtraction,
     &c_CustomOpStringEqual,
     &c_CustomOpStringHash,
     &c_CustomOpStringHashFast,
