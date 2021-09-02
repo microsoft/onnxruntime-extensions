@@ -54,6 +54,23 @@ class BertTokenizer {
   int32_t FindSpecialToken(ustring token);
 };
 
+
+
+class TruncateStrategy {
+  TruncateStrategy(std::string strategy);
+  void Truncate(std::vector<int64_t>& ids, int64_t max_len);
+  void Truncate(std::vector<int64_t>& input1, std::vector<int64_t>& input2, int64_t max_len);
+
+ private:
+  enum TruncateStrategyType{
+    LONGEST_FIRST,
+    ONLY_FIRST,
+    ONLY_SECOND,
+    LONGEST_FROM_BACK
+  }strategy_;
+};
+
+
 struct KernelBertTokenizer : BaseKernel {
   KernelBertTokenizer(OrtApi api,  const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
