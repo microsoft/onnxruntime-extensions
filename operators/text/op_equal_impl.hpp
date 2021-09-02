@@ -13,7 +13,7 @@ class BroadcastIteratorRight {
                          const std::vector<int64_t>& shape2,
                          const T1* p1, const T2* p2, T3* p3) : p1_(p1), p2_(p2), p3_(p3), shape1_(shape1) {
     if (shape2.size() > shape1.size())
-      throw std::runtime_error("shape2 must have less dimensions than shape1");
+      ORT_CXX_API_THROW("shape2 must have less dimensions than shape1", ORT_INVALID_ARGUMENT);
     shape2_.resize(shape1_.size());
     cum_shape2_.resize(shape1_.size());
     total_ = 1;
@@ -26,8 +26,8 @@ class BroadcastIteratorRight {
         shape2_[i] = shape2[i];
       }
       if (shape2[i] != 1 && shape1[i] != shape2[i]) {
-        throw std::runtime_error(MakeString(
-            "Cannot broadcast dimension ", i, " left:", shape1[i], " right:", shape2[i]));
+        ORT_CXX_API_THROW(MakeString(
+            "Cannot broadcast dimension ", i, " left:", shape1[i], " right:", shape2[i]), ORT_INVALID_ARGUMENT);
       }
     }
     cum_shape2_[shape2_.size() - 1] = 1;
@@ -84,7 +84,7 @@ class BroadcastIteratorRight {
     template <typename TCMP>
     void loop(TCMP& cmp, BroadcastIteratorRightState& it, int64_t pos = 0) {
       if (pos != 0)
-        throw std::runtime_error("Not implemented yet.");
+        ORT_CXX_API_THROW("Not implemented yet.", ORT_INVALID_ARGUMENT);
       while (!end()) {
         *p3 = cmp(*p1, *p2);
         next();

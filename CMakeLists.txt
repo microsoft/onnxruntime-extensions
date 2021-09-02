@@ -41,6 +41,7 @@ function(disable_all_operators)
   set(OCOS_ENABLE_TF_STRING OFF CACHE INTERNAL "")
   set(OCOS_ENABLE_GPT2_TOKENIZER OFF CACHE INTERNAL "")
   set(OCOS_ENABLE_SPM_TOKENIZER OFF CACHE INTERNAL "")
+  set(OCOS_ENABLE_WORDPIECE_TOKENIZER OFF CACHE INTERNAL "")
   set(OCOS_ENABLE_BERT_TOKENIZER OFF CACHE INTERNAL "")
   set(OCOS_ENABLE_BLINGFIRE OFF CACHE INTERNAL "")
   set(OCOS_ENABLE_MATH OFF CACHE INTERNAL "")
@@ -79,6 +80,27 @@ if (OCOS_ENABLE_SELECTED_OPLIST)
   message(STATUS "Looking for the _selectedoplist.cmake")
   disable_all_operators()
   include(_selectedoplist)
+
+  # Reset exceptions flag for specific operators,
+  # would remove this resetting later when we have supported no-exceptions for these operators.
+  if (OCOS_ENABLE_BLINGFIRE OR OCOS_ENABLE_SPM_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
+    message(STATUS "Reset exceptions flag because BLINGFIRE or SPM_TOKENIZER or WORDPIECE_TOKENIZER operator needs c++ exceptions support")
+
+    # Enable exceptions
+    set(OCOS_ENABLE_CPP_EXCEPTIONS ON CACHE INTERNAL "")
+
+    # Reset CMAKE_FLAGS
+    if(MSVC)
+      string(REGEX REPLACE "/EHs-c-" "/EHsc" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+      string(APPEND CMAKE_CXX_FLAGS " /EHsc")
+      string(APPEND CMAKE_C_FLAGS " /EHsc")
+      add_compile_definitions("_HAS_EXCEPTIONS=1")
+    else()
+      string(REGEX REPLACE "-fno-exceptions" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+      string(REGEX REPLACE "-fno-unwind-tables" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+      string(REGEX REPLACE "-fno-asynchronous-unwind-tables" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    endif()
+  endif()
 endif()
 
 if(NOT OCOS_ENABLE_CPP_EXCEPTIONS)

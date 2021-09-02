@@ -72,8 +72,7 @@ void KernelWordpieceTokenizer_Tokenizer(const std::unordered_map<std::u32string,
       rows.push_back(indices.size());
     } else if (text_index == existing_rows[row_index]) {
       if (row_index >= n_existing_rows)
-        throw std::runtime_error(MakeString(
-            "row_index=", row_index, " is out of range=", n_existing_rows, "."));
+        ORT_CXX_API_THROW(MakeString("row_index=", row_index, " is out of range=", n_existing_rows, "."), ORT_INVALID_ARGUMENT);
       rows.push_back(indices.size());
       ++row_index;
     }
@@ -181,7 +180,7 @@ ONNXTensorElementDataType CustomOpWordpieceTokenizer::GetInputType(size_t index)
     case 1:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
     default:
-      throw std::runtime_error(MakeString("Unexpected input index ", index));
+      ORT_CXX_API_THROW(MakeString("Unexpected input index ", index), ORT_INVALID_ARGUMENT);
   }
 };
 
@@ -198,6 +197,6 @@ ONNXTensorElementDataType CustomOpWordpieceTokenizer::GetOutputType(size_t index
     case 3:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
     default:
-      throw std::runtime_error(MakeString("[WordpieceTokenizer] Unexpected output index ", index));
+      ORT_CXX_API_THROW(MakeString("[WordpieceTokenizer] Unexpected output index ", index), ORT_INVALID_ARGUMENT);
   }
 };

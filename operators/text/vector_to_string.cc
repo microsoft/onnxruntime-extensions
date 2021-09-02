@@ -29,7 +29,7 @@ std::vector<std::string> VectorToStringImpl::Compute(const void* input, const Or
     output_dim = input_dim;
   } else {
     if (input_dim[input_dim.size() - 1] != vector_len_) {
-      throw std::runtime_error(MakeString("Incompatible dimension: required vector length should be ", vector_len_));
+      ORT_CXX_API_THROW(MakeString("Incompatible dimension: required vector length should be ", vector_len_), ORT_INVALID_ARGUMENT);
     }
 
     output_dim = input_dim;
@@ -70,7 +70,7 @@ void VectorToStringImpl::ParseMappingTable(std::string& map) {
     auto kv = SplitString(line, "\t", true);
 
     if (kv.size() != 2) {
-      throw std::runtime_error(MakeString("Failed to parse mapping_table when processing the line: ", line));
+      ORT_CXX_API_THROW(MakeString("Failed to parse mapping_table when processing the line: ", line), ORT_INVALID_ARGUMENT);
     }
 
     ParseValues(kv[1], values);
@@ -83,7 +83,7 @@ size_t VectorToStringImpl::ParseVectorLen(const std::string_view& line) {
   auto kv = SplitString(line, "\t", true);
 
   if (kv.size() != 2) {
-    throw std::runtime_error(MakeString("Failed to parse mapping_table when processing the line: ", line));
+    ORT_CXX_API_THROW(MakeString("Failed to parse mapping_table when processing the line: ", line), ORT_INVALID_ARGUMENT);
   }
 
   auto value_strs = SplitString(kv[1], " ", true);
@@ -97,7 +97,7 @@ void VectorToStringImpl::ParseValues(const std::string_view& v, std::vector<int6
   for (int i = 0; i < value_strs.size(); i++) {
     auto [end, ec] = std::from_chars(value_strs[i].data(), value_strs[i].data() + value_strs[i].size(), value);
     if (end != value_strs[i].data() + value_strs[i].size()) {
-      throw std::runtime_error(MakeString("Failed to parse map when processing the number: ", value_strs[i]));
+      ORT_CXX_API_THROW(MakeString("Failed to parse map when processing the number: ", value_strs[i]), ORT_INVALID_ARGUMENT);
     }
     values[i] = value;
   }

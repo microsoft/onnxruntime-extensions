@@ -3,7 +3,7 @@ import sys
 
 OPMAP_TO_CMAKE_FLAGS = {'BlingFireSentenceBreaker': 'OCOS_ENABLE_BLINGFIRE',
                         'GPT2Tokenizer': 'OCOS_ENABLE_GPT2_TOKENIZER',
-                        'WordpieceTokenizer': 'OCOS_ENABLE_BERT_TOKENIZER',
+                        'WordpieceTokenizer': 'OCOS_ENABLE_WORDPIECE_TOKENIZER',
                         # Currently use one option for all string operators because their binary sizes are not large.
                         # Would probably split to more options like tokenizers in the future.
                         'StringConcat': 'OCOS_ENABLE_TF_STRING',
