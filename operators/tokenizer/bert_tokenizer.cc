@@ -163,14 +163,14 @@ int32_t BertTokenizer::FindSpecialToken(ustring token) {
   return it->second;
 }
 
-TruncateStrategy::TruncateStrategy(std::string strategy) {
-  if (strategy == "longest_first") {
+TruncateStrategy::TruncateStrategy(std::string strategy_name) {
+  if (strategy_name == "longest_first") {
     strategy_ = TruncateStrategyType::LONGEST_FIRST;
-  } else if (strategy == "only_first") {
+  } else if (strategy_name == "only_first") {
     strategy_ = TruncateStrategyType::ONLY_FIRST;
-  } else if (strategy == "only_second") {
+  } else if (strategy_name == "only_second") {
     strategy_ = TruncateStrategyType::ONLY_SECOND;
-  } else if (strategy == "longest_from_back") {
+  } else if (strategy_name == "longest_from_back") {
     strategy_ = TruncateStrategyType::LONGEST_FROM_BACK;
   }
 }
@@ -236,10 +236,15 @@ KernelBertTokenizer::KernelBertTokenizer(OrtApi api, const OrtKernelInfo* info) 
   bool tokenize_chinese_chars = TryToGetAttributeWithDefault("tokenize_chinese_chars", true);
   bool strip_accents = TryToGetAttributeWithDefault("strip_accents", false);
   std::string suffix_indicator = TryToGetAttributeWithDefault("suffix_indicator", std::string("##"));
+  std::string truncation_strategy_name = TryToGetAttributeWithDefault("truncation_strategy_name", std::string("longest_first"));
+  max_length_ = TryToGetAttributeWithDefault("max_length", int64_t(-1));
+
 
   tokenizer_ = std::make_shared<BertTokenizer>(vocab, do_lower_case, do_basic_tokenize, ustring(unk_token),
                                                ustring(sep_token), ustring(pad_token),ustring(cls_token),
                                                ustring(mask_token), tokenize_chinese_chars, strip_accents, ustring(suffix_indicator));
+
+  truncate_ = std::make_shared<TruncateStrategy>(truncation_strategy_name);
 }
 
 void KernelBertTokenizer::Compute(OrtKernelContext* context) {
@@ -256,11 +261,18 @@ void KernelBertTokenizer::Compute(OrtKernelContext* context) {
 
   if (input_data.size() == 1 || input_data[1].empty()) {
     std::vector<int64_t> encode = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[0])));
+    truncate_->Truncate(encode, max_length_);
+    input_ids = tokenizer_->AddSpecialToken(encode);
+    token_type_ids = tokenizer_->GenerateTypeId(encode);
+  } else if (input_data[0].empty()) {
+    std::vector<int64_t> encode = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[1])));
+    truncate_->Truncate(encode, max_length_);
     input_ids = tokenizer_->AddSpecialToken(encode);
     token_type_ids = tokenizer_->GenerateTypeId(encode);
   } else {
     std::vector<int64_t> encode1 = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[0])));
     std::vector<int64_t> encode2 = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[1])));
+    truncate_->Truncate(encode1, encode2, max_length_);
     input_ids = tokenizer_->AddSpecialToken(encode1, encode2);
     token_type_ids = tokenizer_->GenerateTypeId(encode1, encode2);
   }

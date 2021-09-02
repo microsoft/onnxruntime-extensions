@@ -57,7 +57,8 @@ class BertTokenizer {
 
 
 class TruncateStrategy {
-  TruncateStrategy(std::string strategy);
+ public:
+  explicit TruncateStrategy(std::string strategy_name);
   void Truncate(std::vector<int64_t>& ids, int64_t max_len);
   void Truncate(std::vector<int64_t>& input1, std::vector<int64_t>& input2, int64_t max_len);
 
@@ -76,6 +77,8 @@ struct KernelBertTokenizer : BaseKernel {
   void Compute(OrtKernelContext* context);
  private:
   std::shared_ptr<BertTokenizer> tokenizer_;
+  std::shared_ptr<TruncateStrategy> truncate_;
+  int max_length_;
 };
 
 struct CustomOpBertTokenizer : Ort::CustomOpBase<CustomOpBertTokenizer, KernelBertTokenizer> {

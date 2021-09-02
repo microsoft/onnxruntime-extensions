@@ -72,6 +72,7 @@ KernelBertTokenizerDecoder::KernelBertTokenizerDecoder(OrtApi api, const OrtKern
   std::string cls_token = TryToGetAttributeWithDefault("cls_token", std::string("[CLS]"));
   std::string mask_token = TryToGetAttributeWithDefault("mask_token", std::string("[MASK]"));
   std::string suffix_indicator = TryToGetAttributeWithDefault("suffix_indicator", std::string("##"));
+  used_indices_ = TryToGetAttributeWithDefault("suffix_indicator", false);
 
   decoder_ = std::make_shared<BertTokenizerDecoder>(vocab, ustring(unk_token),ustring(sep_token),ustring(pad_token),
                                                     ustring(cls_token),ustring(mask_token),  ustring(suffix_indicator));
@@ -96,18 +97,20 @@ void KernelBertTokenizerDecoder::Compute(OrtKernelContext* context) {
   const int64_t* p_positions = positions_dim.empty() ? nullptr : ort_.GetTensorData<int64_t>(positions);
 
   std::vector<ustring> result;
-  std::vector<int64_t> output_dim(1);
-  if (p_positions == nullptr) {
+  std::vector<int64_t> output_dim;
+  if (!used_indices_) {
     result.push_back(decoder_->Decode(std::vector<int64_t>(p_ids, p_ids + ids_dim.Size())));
-    output_dim[0] = 1;
+    output_dim.push_back(1);
   } else {
-    for (int i = 0; i < positions_dim[0]; i++) {
-      int64_t start = p_positions[2 * i];
-      int64_t end = p_positions[2 * i + 1];
+    if (p_positions != nullptr) {
+      for (int i = 0; i < positions_dim[0]; i++) {
+        int64_t start = p_positions[2 * i];
+        int64_t end = p_positions[2 * i + 1];
 
-      result.push_back(decoder_->Decode(std::vector<int64_t>(p_ids + start, p_ids + end)));
+        result.push_back(decoder_->Decode(std::vector<int64_t>(p_ids + start, p_ids + end)));
+      }
+      output_dim[0] = positions_dim[0];
     }
-    output_dim[0] = positions_dim[0];
   }
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, output_dim.data(), output_dim.size());
 
