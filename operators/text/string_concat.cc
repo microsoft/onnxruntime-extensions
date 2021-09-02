@@ -20,7 +20,7 @@ void KernelStringConcat::Compute(OrtKernelContext* context) {
   OrtTensorDimensions right_dim(ort_, right);
 
   if (left_dim != right_dim) {
-    throw std::runtime_error("Two input tensor should have the same dimension.");
+    ORT_CXX_API_THROW("Two input tensor should have the same dimension.", ORT_INVALID_ARGUMENT);
   }
 
   std::vector<std::string> left_value;

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "kernels.h"
+#include "ocos.h"
 
 struct KernelRaggedTensorToSparse : BaseKernel {
   KernelRaggedTensorToSparse(OrtApi api);

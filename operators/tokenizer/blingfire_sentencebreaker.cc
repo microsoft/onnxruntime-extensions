@@ -11,13 +11,13 @@
 KernelBlingFireSentenceBreaker::KernelBlingFireSentenceBreaker(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info), max_sentence(-1) {
   model_data_ = ort_.KernelInfoGetAttribute<std::string>(info, "model");
   if (model_data_.empty()) {
-    throw std::runtime_error("vocabulary shouldn't be empty.");
+    ORT_CXX_API_THROW("vocabulary shouldn't be empty.", ORT_INVALID_ARGUMENT);
   }
 
   void* model_ptr = SetModel(reinterpret_cast<unsigned char*>(model_data_.data()), model_data_.size());
 
   if (model_ptr == nullptr) {
-    throw std::runtime_error("Invalid model");
+    ORT_CXX_API_THROW("Invalid model", ORT_INVALID_ARGUMENT);
   }
 
   model_ = std::shared_ptr<void>(model_ptr, FreeModel);
@@ -33,7 +33,7 @@ void KernelBlingFireSentenceBreaker::Compute(OrtKernelContext* context) {
   OrtTensorDimensions dimensions(ort_, input);
 
   if (dimensions.Size() != 1 && dimensions[0] != 1) {
-    throw std::runtime_error("We only support string scalar.");
+    ORT_CXX_API_THROW("We only support string scalar.", ORT_INVALID_ARGUMENT);
   }
 
   std::vector<std::string> input_data;
@@ -46,7 +46,7 @@ void KernelBlingFireSentenceBreaker::Compute(OrtKernelContext* context) {
 
   int output_length = TextToSentencesWithOffsetsWithModel(input_string.data(), input_string.size(), output_str.data(), nullptr, nullptr, max_length, model_.get());
   if (output_length < 0) {
-    throw std::runtime_error(MakeString("splitting input:\"", input_string, "\"  failed"));
+    ORT_CXX_API_THROW(MakeString("splitting input:\"", input_string, "\"  failed"), ORT_INVALID_ARGUMENT);
   }
 
   // inline split output_str by newline '\n'
