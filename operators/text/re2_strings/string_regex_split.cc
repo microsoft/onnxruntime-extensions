@@ -3,9 +3,9 @@
 
 #include "string_regex_split.hpp"
 #include "string_regex_split_re.hpp"
+#include "string_tensor.h"
 #include <vector>
 #include <cmath>
-#include "string_tensor.h"
 
 KernelStringRegexSplitWithOffsets::KernelStringRegexSplitWithOffsets(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
 }

@@ -3,7 +3,7 @@
 
 #include "gtest/gtest.h"
 #include "string_utils.h"
-#include "text/string_regex_split_re.hpp"
+#include "text/re2_strings/string_regex_split_re.hpp"
 #include "text/string_ecmaregex_split.hpp"
 
 

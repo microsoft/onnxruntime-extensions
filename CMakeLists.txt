@@ -38,7 +38,9 @@ option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file"
 
 
 function(disable_all_operators)
+  set(OCOS_ENABLE_RE2_REGEX OFF CACHE INTERNAL "")
   set(OCOS_ENABLE_TF_STRING OFF CACHE INTERNAL "")
+  set(OCOS_ENABLE_WORDPIECE_TOKENIZER OFF CACHE INTERNAL "")
   set(OCOS_ENABLE_GPT2_TOKENIZER OFF CACHE INTERNAL "")
   set(OCOS_ENABLE_SPM_TOKENIZER OFF CACHE INTERNAL "")
   set(OCOS_ENABLE_WORDPIECE_TOKENIZER OFF CACHE INTERNAL "")
@@ -142,6 +144,11 @@ if (OCOS_ENABLE_TF_STRING)
   file(GLOB TARGET_SRC_KERNELS "operators/text/*.cc" "operators/text/*.h*")
   file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")
   list(APPEND TARGET_SRC ${TARGET_SRC_KERNELS} ${TARGET_SRC_HASH})
+endif()
+
+if (OCOS_ENABLE_RE2_REGEX)
+  file(GLOB TARGET_SRC_RE2_KERNELS "operators/text/re2_strings/*.cc" "operators/text/re2_strings/*.h*")
+  list(APPEND TARGET_SRC ${TARGET_SRC_RE2_KERNELS})
 endif()
 
 if (OCOS_ENABLE_MATH)

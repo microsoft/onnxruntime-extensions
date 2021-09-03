@@ -84,7 +84,7 @@ class BroadcastIteratorRight {
     template <typename TCMP>
     void loop(TCMP& cmp, BroadcastIteratorRightState& it, int64_t pos = 0) {
       if (pos != 0)
-        ORT_CXX_API_THROW("Not implemented yet.", ORT_INVALID_ARGUMENT);
+        ORT_CXX_API_THROW("Not implemented yet.", ORT_NOT_IMPLEMENTED);
       while (!end()) {
         *p3 = cmp(*p1, *p2);
         next();

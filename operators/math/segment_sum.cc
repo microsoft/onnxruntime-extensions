@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "op_segment_sum.hpp"
+#include "segment_sum.hpp"
 
 template <typename T>
 void KernelSegmentSum_Compute(Ort::CustomOpApi& ort_, OrtKernelContext* context) {

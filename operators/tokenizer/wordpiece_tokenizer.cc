@@ -72,7 +72,8 @@ void KernelWordpieceTokenizer_Tokenizer(const std::unordered_map<std::u32string,
       rows.push_back(indices.size());
     } else if (text_index == existing_rows[row_index]) {
       if (row_index >= n_existing_rows)
-        ORT_CXX_API_THROW(MakeString("row_index=", row_index, " is out of range=", n_existing_rows, "."), ORT_INVALID_ARGUMENT);
+        ORT_CXX_API_THROW(MakeString(
+            "row_index=", row_index, " is out of range=", n_existing_rows, "."), ORT_INVALID_ARGUMENT);
       rows.push_back(indices.size());
       ++row_index;
     }
