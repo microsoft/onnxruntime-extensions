@@ -20,7 +20,7 @@ def _run_basic_case(input, vocab_path):
 
     result = t2stc(ids, position)
     np.testing.assert_array_equal(result[0],
-                                  bert_cased_tokenizer.decode(bert_cased_tokenizer.encode(input), True, False))
+                                  bert_cased_tokenizer.decode(bert_cased_tokenizer.encode(input)))
 
 
 def _run_indices_case(input, indices, vocab_path):
