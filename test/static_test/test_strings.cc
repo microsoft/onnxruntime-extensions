@@ -70,3 +70,4 @@ TEST(strings, regex_split_begin_end_delim) {
   EXPECT_EQ(expected_begin_offsets, begin_offsets);
   EXPECT_EQ(expected_end_offsets, end_offsets);
 }
+

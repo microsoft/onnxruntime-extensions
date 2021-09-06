@@ -176,7 +176,7 @@ TruncateStrategy::TruncateStrategy(std::string strategy_name) {
 }
 
 void TruncateStrategy::Truncate(std::vector<int64_t>& ids, int64_t max_len) {
-  if (max_len < 0) {
+  if (max_len < 0 || max_len <= ids.size()) {
     return;
   }
 
@@ -198,7 +198,7 @@ void TruncateStrategy::Truncate(std::vector<int64_t>& input1, std::vector<int64_
     case TruncateStrategyType::LONGEST_FROM_BACK:
 
       if ((input1_keep_len > half_max_len) && (input2_keep_len > half_max_len)) {
-        input1_keep_len = half_max_len;
+        input1_keep_len = max_len - half_max_len;
         input2_keep_len = half_max_len;
       } else if (input2_keep_len > input1_keep_len) {
         input2_keep_len = max_len - input1_keep_len;
@@ -261,18 +261,18 @@ void KernelBertTokenizer::Compute(OrtKernelContext* context) {
 
   if (input_data.size() == 1 || input_data[1].empty()) {
     std::vector<int64_t> encode = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[0])));
-    truncate_->Truncate(encode, max_length_);
+    truncate_->Truncate(encode, (max_length_ > 0 && max_length_ <= 2) ? 0 : max_length_ - 2);
     input_ids = tokenizer_->AddSpecialToken(encode);
     token_type_ids = tokenizer_->GenerateTypeId(encode);
   } else if (input_data[0].empty()) {
     std::vector<int64_t> encode = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[1])));
-    truncate_->Truncate(encode, max_length_);
+    truncate_->Truncate(encode, (max_length_ > 0 && max_length_ <= 2) ? 0 : max_length_ - 2);
     input_ids = tokenizer_->AddSpecialToken(encode);
     token_type_ids = tokenizer_->GenerateTypeId(encode);
   } else {
     std::vector<int64_t> encode1 = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[0])));
     std::vector<int64_t> encode2 = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[1])));
-    truncate_->Truncate(encode1, encode2, max_length_);
+    truncate_->Truncate(encode1, encode2, (max_length_ > 0 && max_length_ <= 3) ? 0 : max_length_ - 3);
     input_ids = tokenizer_->AddSpecialToken(encode1, encode2);
     token_type_ids = tokenizer_->GenerateTypeId(encode1, encode2);
   }

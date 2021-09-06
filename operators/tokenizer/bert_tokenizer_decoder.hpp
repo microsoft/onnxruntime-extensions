@@ -34,7 +34,7 @@ struct KernelBertTokenizerDecoder : BaseKernel {
   void Compute(OrtKernelContext* context);
  private:
   std::shared_ptr<BertTokenizerDecoder> decoder_;
-  bool used_indices_;
+  bool use_indices_;
 };
 
 struct CustomOpBertTokenizerDecoder : Ort::CustomOpBase<CustomOpBertTokenizerDecoder, KernelBertTokenizerDecoder> {

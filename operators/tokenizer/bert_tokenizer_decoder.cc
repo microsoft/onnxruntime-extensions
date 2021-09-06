@@ -1,7 +1,7 @@
 #include "bert_tokenizer_decoder.hpp"
 
 BertTokenizerDecoder::BertTokenizerDecoder(std::string vocab, ustring unk_token, ustring sep_token, ustring pad_token,
-                                           ustring cls_token, ustring mask_token, ustring suffix_indicator): unk_token_(unk_token), suffix_indicator_(suffix_indicator) {
+                                           ustring cls_token, ustring mask_token, ustring suffix_indicator) : unk_token_(unk_token), suffix_indicator_(suffix_indicator) {
   auto tokens = SplitString(vocab, "\n", true);
   vocab_.reserve(tokens.size());
   for (int i = 0; i < tokens.size(); i++) {
@@ -29,13 +29,12 @@ BertTokenizerDecoder::BertTokenizerDecoder(std::string vocab, ustring unk_token,
       vocab_.push_back(token);
       is_substr_.push_back(false);
     }
-
   }
 }
 
 ustring BertTokenizerDecoder::Decode(const std::vector<int64_t>& ids) {
   ustring result;
-  for (auto id: ids) {
+  for (auto id : ids) {
     if (id == unk_token_id_ || id == sep_token_id_ || id == pad_token_id_ || id == cls_token_id_ || id == mask_token_id_) {
       continue;
     }
@@ -72,10 +71,10 @@ KernelBertTokenizerDecoder::KernelBertTokenizerDecoder(OrtApi api, const OrtKern
   std::string cls_token = TryToGetAttributeWithDefault("cls_token", std::string("[CLS]"));
   std::string mask_token = TryToGetAttributeWithDefault("mask_token", std::string("[MASK]"));
   std::string suffix_indicator = TryToGetAttributeWithDefault("suffix_indicator", std::string("##"));
-  used_indices_ = TryToGetAttributeWithDefault("suffix_indicator", false);
+  use_indices_ = TryToGetAttributeWithDefault("use_indices", false);
 
-  decoder_ = std::make_shared<BertTokenizerDecoder>(vocab, ustring(unk_token),ustring(sep_token),ustring(pad_token),
-                                                    ustring(cls_token),ustring(mask_token),  ustring(suffix_indicator));
+  decoder_ = std::make_shared<BertTokenizerDecoder>(vocab, ustring(unk_token), ustring(sep_token), ustring(pad_token),
+                                                    ustring(cls_token), ustring(mask_token), ustring(suffix_indicator));
 }
 
 void KernelBertTokenizerDecoder::Compute(OrtKernelContext* context) {
@@ -84,23 +83,26 @@ void KernelBertTokenizerDecoder::Compute(OrtKernelContext* context) {
   OrtTensorDimensions ids_dim(ort_, ids);
 
   if (!((ids_dim.size() == 1) || (ids_dim.size() == 2 && ids_dim[0] == 1))) {
-    ORT_CXX_API_THROW("[BertTokenizerDecoder]: Expect ids dimension [n] or [1,n]." , ORT_INVALID_GRAPH);
+    ORT_CXX_API_THROW("[BertTokenizerDecoder]: Expect ids dimension [n] or [1,n].", ORT_INVALID_GRAPH);
   }
 
-//  const int64_t* p_row_indices = ort_row_indices_dim.empty() ? nullptr : ort_.GetTensorData<int64_t>(ort_row_indices);
+  //  const int64_t* p_row_indices = ort_row_indices_dim.empty() ? nullptr : ort_.GetTensorData<int64_t>(ort_row_indices);
   const OrtValue* positions = ort_.KernelContext_GetInput(context, 1);
-  OrtTensorDimensions positions_dim(ort_,positions);
-  if (!(positions_dim.empty() || (positions_dim.size() == 2 && positions_dim[1] == 2))) {
-    ORT_CXX_API_THROW("[BertTokenizerDecoder]: Expect positions empty or a [n, 2] matrix." , ORT_INVALID_GRAPH);
+  OrtTensorDimensions positions_dim(ort_, positions);
+  if (use_indices_ &&
+      (!(positions_dim.empty() ||
+         (positions_dim.Size() == 0) ||
+         (positions_dim.size() == 2 && positions_dim[1] == 2)))) {
+    ORT_CXX_API_THROW("[BertTokenizerDecoder]: Expect positions empty or a [n, 2] matrix when use indices", ORT_INVALID_GRAPH);
   }
 
-  const int64_t* p_positions = positions_dim.empty() ? nullptr : ort_.GetTensorData<int64_t>(positions);
+  const int64_t* p_positions =  positions_dim.Size() == 0 ? nullptr : ort_.GetTensorData<int64_t>(positions);
 
   std::vector<ustring> result;
-  std::vector<int64_t> output_dim;
-  if (!used_indices_) {
+  std::vector<int64_t> output_dim(1);
+  if (!use_indices_) {
     result.push_back(decoder_->Decode(std::vector<int64_t>(p_ids, p_ids + ids_dim.Size())));
-    output_dim.push_back(1);
+    output_dim[0] = 1;
   } else {
     if (p_positions != nullptr) {
       for (int i = 0; i < positions_dim[0]; i++) {
