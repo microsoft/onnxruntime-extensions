@@ -15,7 +15,7 @@ class BertTokenizerDecoder {
  public:
   BertTokenizerDecoder(std::string vocab, ustring unk_token, ustring sep_token, ustring pad_token,
                        ustring  cls_token,ustring mask_token,ustring suffix_indicator);
-  ustring Decode(const std::vector<int64_t>& ids);
+  ustring Decode(const std::vector<int64_t>& ids, bool skip_special_tokens, bool clean_up_tokenization_spaces);
 
  private:
   ustring unk_token_;
@@ -27,6 +27,8 @@ class BertTokenizerDecoder {
   ustring suffix_indicator_;
   std::vector<ustring> vocab_;
   std::vector<bool> is_substr_;
+
+  bool RemoveTokenizeSpace(ustring& text, int64_t new_token_id);
 };
 
 struct KernelBertTokenizerDecoder : BaseKernel {
@@ -34,6 +36,9 @@ struct KernelBertTokenizerDecoder : BaseKernel {
   void Compute(OrtKernelContext* context);
  private:
   std::shared_ptr<BertTokenizerDecoder> decoder_;
+  bool use_indices_;
+  bool skip_special_tokens_;
+  bool clean_up_tokenization_spaces_;
 };
 
 struct CustomOpBertTokenizerDecoder : Ort::CustomOpBase<CustomOpBertTokenizerDecoder, KernelBertTokenizerDecoder> {

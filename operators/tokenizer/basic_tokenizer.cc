@@ -53,21 +53,21 @@ std::vector<ustring> BasicTokenizer::Tokenize(ustring text) {
       continue;
     }
 
-    if (tokenize_punctuation_ && ::ispunct(c)) {
+    if (tokenize_punctuation_ && ::iswpunct(c)) {
       push_current_token_and_clear();
       push_single_char_and_clear(c);
       continue;
     }
 
     // split by space
-    if (::isspace(c)) {
+    if (::iswspace(c)) {
       push_current_token_and_clear();
       continue;
     }
 
     // iscntrl will judge \t\f\n\r as control char
     // but it has been filter by isspace(c)
-    if (remove_control_chars_ && ::iscntrl(c)) {
+    if (remove_control_chars_ && ::iswcntrl(c)) {
       continue;
     }
 
