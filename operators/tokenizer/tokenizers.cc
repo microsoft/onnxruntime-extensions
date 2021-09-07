@@ -34,7 +34,7 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = LoadCustomOpClasses<
     , CustomOpSentencepieceTokenizer
 #endif
 
-#ifdef ENABLE_BERT_TOKENIZER
+#ifdef ENABLE_WORDPIECE_TOKENIZER
     , CustomOpWordpieceTokenizer
 #endif
 
