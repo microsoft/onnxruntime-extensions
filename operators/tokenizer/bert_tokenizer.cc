@@ -176,7 +176,7 @@ TruncateStrategy::TruncateStrategy(std::string strategy_name) {
 }
 
 void TruncateStrategy::Truncate(std::vector<int64_t>& ids, int64_t max_len) {
-  if (max_len < 0 || max_len <= ids.size()) {
+  if (max_len < 0 || max_len >= ids.size()) {
     return;
   }
 
