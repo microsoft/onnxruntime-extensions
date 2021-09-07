@@ -63,9 +63,6 @@ struct OrtTensorDimensions : std::vector<int64_t> {
 };
 
 
-struct CustomOpClassBegin{
-};
-
 template <typename... Args>
 class CuopContainer {
  public:
@@ -90,6 +87,9 @@ class CuopContainer {
   std::vector<OrtCustomOp*> ocos_list_;
 };
 
+struct CustomOpClassBegin{
+};
+
 typedef std::function<const OrtCustomOp**()> FxLoadCustomOpFactory;
 
 template <typename _Begin_place_holder, typename... Args>
@@ -103,3 +103,15 @@ const OrtCustomOp* FetchPyCustomOps(size_t& count);
 OrtStatusPtr RegisterPythonDomainAndOps(OrtSessionOptions*, const OrtApi*);
 bool EnablePyCustomOps(bool enable = true);
 #endif
+
+#ifdef ENABLE_MATH
+extern FxLoadCustomOpFactory LoadCustomOpClasses_Math;
+#endif  // ENABLE_MATH
+
+#ifdef ENABLE_TOKENIZER
+extern FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer;
+#endif // ENABLE_TOKENIZER
+
+#ifdef ENABLE_TF_STRING
+extern FxLoadCustomOpFactory LoadCustomOpClasses_Text;
+#endif  // ENABLE_TF_STRING

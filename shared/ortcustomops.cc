@@ -4,89 +4,7 @@
 #include <set>
 
 #include "onnxruntime_extensions.h"
-#include "string_utils.h"
-
-#include "text/op_equal.hpp"
-#include "text/op_segment_sum.hpp"
-#include "text/op_segment_extraction.hpp"
-#include "text/op_ragged_tensor.hpp"
-#include "text/string_hash.hpp"
-#include "text/string_join.hpp"
-#include "text/string_lower.hpp"
-#include "text/string_regex_replace.hpp"
-#include "text/string_regex_split.hpp"
-#include "text/string_split.hpp"
-#include "text/string_to_vector.hpp"
-#include "text/string_upper.hpp"
-#include "text/vector_to_string.hpp"
-#include "text/string_length.hpp"
-#include "text/string_concat.hpp"
-#include "text/string_ecmaregex_replace.hpp"
-#include "text/string_ecmaregex_split.hpp"
-
-
-#ifdef ENABLE_TF_STRING
-CustomOpSegmentExtraction c_CustomOpSegmentExtraction;
-CustomOpSegmentSum c_CustomOpSegmentSum;
-CustomOpRaggedTensorToDense c_CustomOpRaggedTensorToDense;
-CustomOpRaggedTensorToSparse c_CustomOpRaggedTensorToSparse;
-CustomOpStringEqual c_CustomOpStringEqual;
-CustomOpStringHash c_CustomOpStringHash;
-CustomOpStringHashFast c_CustomOpStringHashFast;
-CustomOpStringJoin c_CustomOpStringJoin;
-CustomOpStringLower c_CustomOpStringLower;
-CustomOpStringRaggedTensorToDense c_CustomOpStringRaggedTensorToDense;
-CustomOpStringECMARegexReplace c_CustomOpStringECMARegexReplace;
-CustomOpStringECMARegexSplitWithOffsets c_CustomOpStringECMARegexSplitWithOffsets;
-CustomOpStringSplit c_CustomOpStringSplit;
-CustomOpStringToVector c_CustomOpStringToVector;
-CustomOpStringUpper c_CustomOpStringUpper;
-CustomOpVectorToString c_CustomOpVectorToString;
-CustomOpStringLength c_CustomOpStringLength;
-CustomOpStringConcat c_CustomOpStringConcat;
-#endif
-
-#ifdef ENABLE_RE2_REGEX
-CustomOpStringRegexReplace c_CustomOpStringRegexReplace;
-CustomOpStringRegexSplitWithOffsets c_CustomOpStringRegexSplitWithOffsets;
-#endif
-
-OrtCustomOp* operator_lists[] = {
-#ifdef ENABLE_TF_STRING
-    &c_CustomOpRaggedTensorToDense,
-    &c_CustomOpRaggedTensorToSparse,
-    &c_CustomOpSegmentSum,
-    &c_CustomOpSegmentExtraction,
-    &c_CustomOpStringEqual,
-    &c_CustomOpStringHash,
-    &c_CustomOpStringHashFast,
-    &c_CustomOpStringJoin,
-    &c_CustomOpStringLower,
-    &c_CustomOpStringRaggedTensorToDense,
-    &c_CustomOpStringECMARegexReplace,
-    &c_CustomOpStringECMARegexSplitWithOffsets,
-    &c_CustomOpStringSplit,
-    &c_CustomOpStringToVector,
-    &c_CustomOpStringUpper,
-    &c_CustomOpVectorToString,
-    &c_CustomOpStringLength,
-    &c_CustomOpStringConcat,
-#endif
-
-#ifdef ENABLE_RE2_REGEX
-    &c_CustomOpStringRegexReplace,
-    &c_CustomOpStringRegexSplitWithOffsets,
-#endif
-
-    nullptr };
-
-#ifdef ENABLE_MATH
-extern FxLoadCustomOpFactory LoadCustomOpClasses_Math;
-#endif  // ENABLE_MATH
-
-#ifdef ENABLE_TOKENIZER
-extern FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer;
-#endif // ENABLE_TOKENIZER
+#include "ocos.h"
 
 
 class ExternalCustomOps {
@@ -154,7 +72,10 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
 #endif
 
   static std::vector<FxLoadCustomOpFactory> c_factories = {
-    []() { return const_cast<const OrtCustomOp**>(operator_lists); }
+    LoadCustomOpClasses<CustomOpClassBegin>
+#if defined(ENABLE_TF_STRING)
+    , LoadCustomOpClasses_Text
+#endif // ENABLE_TF_STRING
 #if defined(ENABLE_MATH)
     , LoadCustomOpClasses_Math
 #endif

@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "op_segment_extraction.hpp"
+#include "segment_extraction.hpp"
 
 KernelSegmentExtraction::KernelSegmentExtraction(OrtApi api) : BaseKernel(api) {
 }

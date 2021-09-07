@@ -4,7 +4,7 @@
 #pragma once
 
 #include <regex>
-#include "kernels.h"
+#include "ocos.h"
 #include "string_utils.h"
 
 // See https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/regex_split_with_offsets.md.

@@ -5,6 +5,7 @@ build_host_protoc
 build_android
 build_ios
 build_*
+_subbuild/
 .build_debug/*
 .build_release/*
 distribute/*

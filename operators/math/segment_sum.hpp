@@ -3,15 +3,15 @@
 
 #pragma once
 
-#include "kernels.h"
+#include "ocos.h"
 #include "string_utils.h"
 
-struct KernelSegmentExtraction : BaseKernel {
-  KernelSegmentExtraction(OrtApi api);
+struct KernelSegmentSum : BaseKernel {
+  KernelSegmentSum(OrtApi api);
   void Compute(OrtKernelContext* context);
 };
 
-struct CustomOpSegmentExtraction : Ort::CustomOpBase<CustomOpSegmentExtraction, KernelSegmentExtraction> {
+struct CustomOpSegmentSum : Ort::CustomOpBase<CustomOpSegmentSum, KernelSegmentSum> {
   size_t GetInputTypeCount() const;
   size_t GetOutputTypeCount() const;
   ONNXTensorElementDataType GetOutputType(size_t index) const;
