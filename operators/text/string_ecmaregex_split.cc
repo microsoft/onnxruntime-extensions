@@ -11,6 +11,7 @@
 
 
 KernelStringECMARegexSplitWithOffsets::KernelStringECMARegexSplitWithOffsets(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+  ignore_case_ = TryToGetAttributeWithDefault("ignore_case", false);
 }
 
 void KernelStringECMARegexSplitWithOffsets::Compute(OrtKernelContext* context) {
@@ -36,8 +37,13 @@ void KernelStringECMARegexSplitWithOffsets::Compute(OrtKernelContext* context) {
   OrtTensorDimensions dimensions(ort_, input);
   bool include_delimiter = (str_keep_pattern.size() == 1) && (!str_keep_pattern[0].empty());
 
-  std::regex reg(str_pattern[0]);
-  std::regex keep_reg(include_delimiter ? str_keep_pattern[0] : "");
+  auto regex_flag = std::regex_constants::ECMAScript;
+  if (ignore_case_) {
+    regex_flag |= std::regex_constants::icase;
+  }
+
+  std::regex reg(str_pattern[0], regex_flag);
+  std::regex keep_reg(include_delimiter ? str_keep_pattern[0] : "", regex_flag);
 
   std::vector<std::string> all_tokens;
   std::vector<int64_t> all_begin_offsets, all_end_offsets;

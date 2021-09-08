@@ -9,7 +9,7 @@ from onnxruntime_extensions import (make_onnx_model,
 
 
 def _create_test_model_string_replace(prefix, domain='ai.onnx.contrib',
-                                      global_replace=True):
+                                      global_replace=True, ignore_case=False):
     nodes = []
     nodes.append(
         helper.make_node('Identity', ['text'], ['id1']))
@@ -17,17 +17,12 @@ def _create_test_model_string_replace(prefix, domain='ai.onnx.contrib',
         helper.make_node('Identity', ['pattern'], ['id2']))
     nodes.append(
         helper.make_node('Identity', ['rewrite'], ['id3']))
-    if global_replace:
-        nodes.append(
-            helper.make_node(
-                '%sStringECMARegexReplace' % prefix, ['id1', 'id2', 'id3'],
-                ['customout'], domain=domain))
-    else:
-        nodes.append(
-            helper.make_node(
-                '%sStringECMARegexReplace' % prefix, ['id1', 'id2', 'id3'],
-                ['customout'], domain=domain,
-                global_replace=0))
+    nodes.append(
+        helper.make_node(
+            '%sStringECMARegexReplace' % prefix, ['id1', 'id2', 'id3'],
+            ['customout'], domain=domain,
+            global_replace=1 if global_replace else 0,
+            ignore_case=1 if ignore_case else 0))
 
     input0 = helper.make_tensor_value_info(
         'text', onnx_proto.TensorProto.STRING, [None, 1])
@@ -121,6 +116,25 @@ class TestStringECMARegex(unittest.TestCase):
             None, {'text': text, 'pattern': pattern, 'rewrite': rewrite})
         exp = [['static PyObject* py_myfunc(void) {'],
                ['static PyObject* py_dummy(void) {' * 2]]
+        self.assertEqual(exp, txout[0].tolist())
+
+    def test_string_replace_uncased(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_replace('', 'ai.onnx.contrib', True, True)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+
+        pattern = np.array(
+            [r"([a-z0-9!#$%&'*+\/=?^_`{|.}~-]+@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)"])
+        rewrite = np.array([r'EMAIL'])
+        text = np.array([['The email is Micro$oft@microsoft.com, G00Gle@google.Internal.com'],
+                         ['The email is wangli@51biz.com 1234556@qq.com']])
+
+        txout = sess.run(
+            None, {'text': text, 'pattern': pattern, 'rewrite': rewrite})
+
+        exp = [['The email is EMAIL, EMAIL'],
+               ['The email is EMAIL EMAIL']]
         self.assertEqual(exp, txout[0].tolist())
 
     def test_string_regex_split_cc(self):

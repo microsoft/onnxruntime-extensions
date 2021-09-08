@@ -11,7 +11,8 @@ struct KernelStringECMARegexReplace : BaseKernel {
   void Compute(OrtKernelContext* context);
 
  protected:
-  int64_t global_replace_;
+  bool global_replace_;
+  bool ignore_case_;
 };
 
 struct CustomOpStringECMARegexReplace : Ort::CustomOpBase<CustomOpStringECMARegexReplace, KernelStringECMARegexReplace> {
