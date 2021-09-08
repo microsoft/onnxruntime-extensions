@@ -3,9 +3,11 @@ import sys
 
 OPMAP_TO_CMAKE_FLAGS = {'BlingFireSentenceBreaker': 'OCOS_ENABLE_BLINGFIRE',
                         'GPT2Tokenizer': 'OCOS_ENABLE_GPT2_TOKENIZER',
-                        'WordpieceTokenizer': 'OCOS_ENABLE_BERT_TOKENIZER',
+                        'WordpieceTokenizer': 'OCOS_ENABLE_WORDPIECE_TOKENIZER',
                         # Currently use one option for all string operators because their binary sizes are not large.
                         # Would probably split to more options like tokenizers in the future.
+                        'StringRegexReplace': 'OCOS_ENABLE_RE2_REGEX',
+                        'StringRegexSplitWithOffsets': 'OCOS_ENABLE_RE2_REGEX',
                         'StringConcat': 'OCOS_ENABLE_TF_STRING',
                         'StringEqual': 'OCOS_ENABLE_TF_STRING',
                         'StringToHashBucket': 'OCOS_ENABLE_TF_STRING',
@@ -13,12 +15,17 @@ OPMAP_TO_CMAKE_FLAGS = {'BlingFireSentenceBreaker': 'OCOS_ENABLE_BLINGFIRE',
                         'StringJoin': 'OCOS_ENABLE_TF_STRING',
                         'StringLength': 'OCOS_ENABLE_TF_STRING',
                         'StringLower': 'OCOS_ENABLE_TF_STRING',
-                        'StringRegexReplace': 'OCOS_ENABLE_TF_STRING',
-                        'StringRegexSplitWithOffsets': 'OCOS_ENABLE_TF_STRING',
+                        'StringECMARegexReplace': 'OCOS_ENABLE_TF_STRING',
+                        'StringECMARegexSplitWithOffsets': 'OCOS_ENABLE_TF_STRING',
                         'StringSplit': 'OCOS_ENABLE_TF_STRING',
                         'StringToVector': 'OCOS_ENABLE_TF_STRING',
                         'StringUpper': 'OCOS_ENABLE_TF_STRING',
-                        'VectorToString': 'OCOS_ENABLE_TF_STRING'
+                        'SegmentExtraction': 'OCOS_ENABLE_TF_STRING',
+                        'StringMapping' : 'OCOS_ENABLE_TF_STRING',
+                        'VectorToString': 'OCOS_ENABLE_TF_STRING',
+                        'BertTokenizer': 'OCOS_ENABLE_BERT_TOKENIZER',
+                        'BasicTokenizer': 'OCOS_ENABLE_BERT_TOKENIZER',
+                        'BertTokenizerDecoder': 'OCOS_ENABLE_BERT_TOKENIZER',
                         }
 
 
