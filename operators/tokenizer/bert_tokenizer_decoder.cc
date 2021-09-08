@@ -1,7 +1,7 @@
 #include "bert_tokenizer_decoder.hpp"
 
 BertTokenizerDecoder::BertTokenizerDecoder(std::string vocab, ustring unk_token, ustring sep_token, ustring pad_token,
-                                           ustring cls_token, ustring mask_token, ustring suffix_indicator): unk_token_(unk_token), suffix_indicator_(suffix_indicator) {
+                                           ustring cls_token, ustring mask_token, ustring suffix_indicator) : unk_token_(unk_token), suffix_indicator_(suffix_indicator) {
   auto tokens = SplitString(vocab, "\n", true);
   vocab_.reserve(tokens.size());
   for (int i = 0; i < tokens.size(); i++) {
@@ -29,14 +29,13 @@ BertTokenizerDecoder::BertTokenizerDecoder(std::string vocab, ustring unk_token,
       vocab_.push_back(token);
       is_substr_.push_back(false);
     }
-
   }
 }
 
-ustring BertTokenizerDecoder::Decode(const std::vector<int64_t>& ids) {
+ustring BertTokenizerDecoder::Decode(const std::vector<int64_t>& ids, bool skip_special_tokens, bool clean_up_tokenization_spaces) {
   ustring result;
-  for (auto id: ids) {
-    if (id == unk_token_id_ || id == sep_token_id_ || id == pad_token_id_ || id == cls_token_id_ || id == mask_token_id_) {
+  for (auto id : ids) {
+    if (skip_special_tokens && (id == unk_token_id_ || id == sep_token_id_ || id == pad_token_id_ || id == cls_token_id_ || id == mask_token_id_)) {
       continue;
     }
 
@@ -54,7 +53,11 @@ ustring BertTokenizerDecoder::Decode(const std::vector<int64_t>& ids) {
       continue;
     }
 
-    if (!result.empty() && !is_substr_[id]) {
+    // At following situations, we needn't add space
+    // we needn't add a space at the beginning of the output
+    // we needn't add a space when the token is a substr (such as ##ing)
+    // we needn't add a space at the left or right of punctuation (such as client-side shouldn't be client - side), when clean_up_tokenization_spaces is true
+    if (!(result.empty() || is_substr_[id] || (clean_up_tokenization_spaces && RemoveTokenizeSpace(result, id)))) {
       result.push_back(U' ');
     }
 
@@ -62,6 +65,47 @@ ustring BertTokenizerDecoder::Decode(const std::vector<int64_t>& ids) {
   }
 
   return result;
+}
+
+bool BertTokenizerDecoder::RemoveTokenizeSpace(ustring& text, int64_t new_token_id) {
+  if (text.empty()) {
+    return true;
+  }
+
+  auto pre_char = text.back();
+  auto cur_char = vocab_[new_token_id][0];
+
+  // normal punctuation
+  if (cur_char == U'!' || cur_char == U'.' || cur_char == U'?' || cur_char == U',' || cur_char == '~' || cur_char == ':') {
+    return true;
+  }
+
+  // only remove left side space
+  if (cur_char == U'}' || cur_char == U']' || cur_char == U'>' || cur_char == ')') {
+    return true;
+  }
+
+  // only remove right side space
+  if (pre_char == U'{' || pre_char == U'[' || pre_char == U'<' || pre_char == '(' || pre_char == '$') {
+    return true;
+  }
+
+  // remove both side space
+  if (pre_char == U'-' || pre_char == U'\'' || pre_char == U'"' || pre_char == U'/' || pre_char == U'@' || pre_char == U'\\' ||
+      cur_char == U'-' || cur_char == U'\'' || cur_char == U'"' || cur_char == U'/' || cur_char == U'@' || cur_char == U'\\') {
+    return true;
+  }
+
+  // remove both space beside unicode punctuation
+  if (pre_char > 128 && iswpunct(pre_char)) {
+    return true;
+  }
+
+  if (cur_char > 128 && iswpunct(cur_char)) {
+    return true;
+  }
+
+  return false;
 }
 
 KernelBertTokenizerDecoder::KernelBertTokenizerDecoder(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
@@ -73,8 +117,12 @@ KernelBertTokenizerDecoder::KernelBertTokenizerDecoder(OrtApi api, const OrtKern
   std::string mask_token = TryToGetAttributeWithDefault("mask_token", std::string("[MASK]"));
   std::string suffix_indicator = TryToGetAttributeWithDefault("suffix_indicator", std::string("##"));
 
-  decoder_ = std::make_shared<BertTokenizerDecoder>(vocab, ustring(unk_token),ustring(sep_token),ustring(pad_token),
-                                                    ustring(cls_token),ustring(mask_token),  ustring(suffix_indicator));
+  use_indices_ = TryToGetAttributeWithDefault("use_indices", false);
+  skip_special_tokens_ = TryToGetAttributeWithDefault("skip_special_tokens", false);
+  clean_up_tokenization_spaces_ = TryToGetAttributeWithDefault("clean_up_tokenization_spaces", true);
+
+  decoder_ = std::make_shared<BertTokenizerDecoder>(vocab, ustring(unk_token), ustring(sep_token), ustring(pad_token),
+                                                    ustring(cls_token), ustring(mask_token), ustring(suffix_indicator));
 }
 
 void KernelBertTokenizerDecoder::Compute(OrtKernelContext* context) {
@@ -83,31 +131,36 @@ void KernelBertTokenizerDecoder::Compute(OrtKernelContext* context) {
   OrtTensorDimensions ids_dim(ort_, ids);
 
   if (!((ids_dim.size() == 1) || (ids_dim.size() == 2 && ids_dim[0] == 1))) {
-    ORT_CXX_API_THROW("[BertTokenizerDecoder]: Expect ids dimension [n] or [1,n]." , ORT_INVALID_GRAPH);
+    ORT_CXX_API_THROW("[BertTokenizerDecoder]: Expect ids dimension [n] or [1,n].", ORT_INVALID_GRAPH);
   }
 
-//  const int64_t* p_row_indices = ort_row_indices_dim.empty() ? nullptr : ort_.GetTensorData<int64_t>(ort_row_indices);
+  //  const int64_t* p_row_indices = ort_row_indices_dim.empty() ? nullptr : ort_.GetTensorData<int64_t>(ort_row_indices);
   const OrtValue* positions = ort_.KernelContext_GetInput(context, 1);
-  OrtTensorDimensions positions_dim(ort_,positions);
-  if (!(positions_dim.empty() || (positions_dim.size() == 2 && positions_dim[1] == 2))) {
-    ORT_CXX_API_THROW("[BertTokenizerDecoder]: Expect positions empty or a [n, 2] matrix." , ORT_INVALID_GRAPH);
+  OrtTensorDimensions positions_dim(ort_, positions);
+  if (use_indices_ &&
+      (!(positions_dim.empty() ||
+         (positions_dim.Size() == 0) ||
+         (positions_dim.size() == 2 && positions_dim[1] == 2)))) {
+    ORT_CXX_API_THROW("[BertTokenizerDecoder]: Expect positions empty or a [n, 2] matrix when use indices", ORT_INVALID_GRAPH);
   }
 
-  const int64_t* p_positions = positions_dim.empty() ? nullptr : ort_.GetTensorData<int64_t>(positions);
+  const int64_t* p_positions = positions_dim.Size() == 0 ? nullptr : ort_.GetTensorData<int64_t>(positions);
 
   std::vector<ustring> result;
   std::vector<int64_t> output_dim(1);
-  if (p_positions == nullptr) {
-    result.push_back(decoder_->Decode(std::vector<int64_t>(p_ids, p_ids + ids_dim.Size())));
+  if (!use_indices_) {
+    result.push_back(decoder_->Decode(std::vector<int64_t>(p_ids, p_ids + ids_dim.Size()), skip_special_tokens_, clean_up_tokenization_spaces_));
     output_dim[0] = 1;
   } else {
-    for (int i = 0; i < positions_dim[0]; i++) {
-      int64_t start = p_positions[2 * i];
-      int64_t end = p_positions[2 * i + 1];
+    if (p_positions != nullptr) {
+      for (int i = 0; i < positions_dim[0]; i++) {
+        int64_t start = p_positions[2 * i];
+        int64_t end = p_positions[2 * i + 1];
 
-      result.push_back(decoder_->Decode(std::vector<int64_t>(p_ids + start, p_ids + end)));
+        result.push_back(decoder_->Decode(std::vector<int64_t>(p_ids + start, p_ids + end), skip_special_tokens_, clean_up_tokenization_spaces_));
+      }
+      output_dim[0] = positions_dim[0];
     }
-    output_dim[0] = positions_dim[0];
   }
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, output_dim.data(), output_dim.size());
 
