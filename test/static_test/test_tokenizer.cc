@@ -142,3 +142,79 @@ TEST(tokenizer, basic_tokenizer_russia) {
   auto result = tokenizer.Tokenize(test_case);
   EXPECT_EQ(result, expect_result);
 }
+
+TEST(tokenizer, basic_tokenizer) {
+  ustring test_case = ustring("I mean, you’ll need something to talk about next Sunday, right?");
+  std::vector<ustring> expect_result = ustring_vector_convertor({"I", "mean", ",", "you", "’", "ll", "need", "something", "to", "talk", "about", "next", "Sunday", ",", "right", "?"});
+  BasicTokenizer tokenizer(false, true, true, true, true);
+  auto result = tokenizer.Tokenize(test_case);
+  EXPECT_EQ(result, expect_result);
+}
+
+TEST(tokenizer, truncation_one_input) {
+  TruncateStrategy truncate("longest_first");
+
+  std::vector<int64_t> init_vector1({1, 2, 3, 4, 5, 6, 7, 9});
+  std::vector<int64_t> init_vector2({1, 2, 3, 4, 5});
+
+  auto test_input = init_vector1;
+  truncate.Truncate(test_input, -1);
+  EXPECT_EQ(test_input, init_vector1);
+
+  test_input = init_vector1;
+  truncate.Truncate(test_input, 5);
+  EXPECT_EQ(test_input, std::vector<int64_t>({1, 2, 3, 4, 5}));
+
+  test_input = init_vector2;
+  truncate.Truncate(test_input, 6);
+  EXPECT_EQ(test_input, init_vector2);
+}
+
+TEST(tokenizer, truncation_longest_first) {
+  TruncateStrategy truncate("longest_first");
+
+  std::vector<int64_t> init_vector1({1, 2, 3, 4, 5, 6, 7, 9});
+  std::vector<int64_t> init_vector2({1, 2, 3, 4, 5});
+
+  auto test_input1 = init_vector1;
+  auto test_input2 = init_vector2;
+  truncate.Truncate(test_input1, test_input2, -1);
+  EXPECT_EQ(test_input1, init_vector1);
+  EXPECT_EQ(test_input2, init_vector2);
+
+  test_input1 = init_vector1;
+  test_input2 = init_vector2;
+  truncate.Truncate(test_input1, test_input2, 15);
+  EXPECT_EQ(test_input1, init_vector1);
+  EXPECT_EQ(test_input2, init_vector2);
+
+  test_input1 = init_vector1;
+  test_input2 = init_vector2;
+  truncate.Truncate(test_input1, test_input2, 14);
+  EXPECT_EQ(test_input1, init_vector1);
+  EXPECT_EQ(test_input2, init_vector2);
+
+  test_input1 = init_vector1;
+  test_input2 = init_vector2;
+  truncate.Truncate(test_input1, test_input2, 8);
+  EXPECT_EQ(test_input1, std::vector<int64_t>({1, 2, 3, 4}));
+  EXPECT_EQ(test_input2, std::vector<int64_t>({1, 2, 3, 4}));
+
+  test_input1 = init_vector1;
+  test_input2 = init_vector2;
+  truncate.Truncate(test_input1, test_input2, 9);
+  EXPECT_EQ(test_input1, std::vector<int64_t>({1, 2, 3, 4, 5}));
+  EXPECT_EQ(test_input2, std::vector<int64_t>({1, 2, 3, 4}));
+
+  test_input1 = init_vector1;
+  test_input2 = init_vector2;
+  truncate.Truncate(test_input1, test_input2, 12);
+  EXPECT_EQ(test_input1, std::vector<int64_t>({1, 2, 3, 4, 5, 6, 7}));
+  EXPECT_EQ(test_input2, std::vector<int64_t>({1, 2, 3, 4, 5}));
+
+  test_input1 = init_vector2;
+  test_input2 = init_vector1;
+  truncate.Truncate(test_input1, test_input2, 12);
+  EXPECT_EQ(test_input1, std::vector<int64_t>({1, 2, 3, 4, 5}));
+  EXPECT_EQ(test_input2, std::vector<int64_t>({1, 2, 3, 4, 5,  6 ,7}));
+}

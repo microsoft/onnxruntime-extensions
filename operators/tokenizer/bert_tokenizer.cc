@@ -163,6 +163,67 @@ int32_t BertTokenizer::FindSpecialToken(ustring token) {
   return it->second;
 }
 
+TruncateStrategy::TruncateStrategy(std::string strategy_name) {
+  if (strategy_name == "longest_first") {
+    strategy_ = TruncateStrategyType::LONGEST_FIRST;
+  } else if (strategy_name == "only_first") {
+    strategy_ = TruncateStrategyType::ONLY_FIRST;
+  } else if (strategy_name == "only_second") {
+    strategy_ = TruncateStrategyType::ONLY_SECOND;
+  } else if (strategy_name == "longest_from_back") {
+    strategy_ = TruncateStrategyType::LONGEST_FROM_BACK;
+  }
+}
+
+void TruncateStrategy::Truncate(std::vector<int64_t>& ids, int64_t max_len) {
+  if (max_len < 0 || max_len >= ids.size()) {
+    return;
+  }
+
+  ids.resize(max_len);
+}
+
+void TruncateStrategy::Truncate(std::vector<int64_t>& input1, std::vector<int64_t>& input2, int64_t max_len) {
+
+  if (max_len < 0 || (input1.size() + input2.size() <= max_len)) {
+    return;
+  }
+
+  auto input1_keep_len = input1.size();
+  auto input2_keep_len = input2.size();
+  auto half_max_len = max_len / 2;
+
+  switch (strategy_) {
+    case TruncateStrategyType::LONGEST_FIRST:
+    case TruncateStrategyType::LONGEST_FROM_BACK:
+
+      if ((input1_keep_len > half_max_len) && (input2_keep_len > half_max_len)) {
+        input1_keep_len = max_len - half_max_len;
+        input2_keep_len = half_max_len;
+      } else if (input2_keep_len > input1_keep_len) {
+        input2_keep_len = max_len - input1_keep_len;
+      } else {
+        input1_keep_len = max_len - input2_keep_len;
+      }
+
+      if (strategy_ == TruncateStrategyType::LONGEST_FIRST) {
+        input1.resize(input1_keep_len);
+        input2.resize(input2_keep_len);
+      } else {
+        input1.erase(input1.begin(), input1.end() - input1_keep_len);
+        input2.erase(input2.begin(), input2.end() - input2_keep_len);
+      }
+
+      return;
+    case TruncateStrategyType::ONLY_FIRST:
+      return;
+    case TruncateStrategyType::ONLY_SECOND:
+      return;
+    default:
+      return;
+  }
+}
+
 KernelBertTokenizer::KernelBertTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   std::string vocab = ort_.KernelInfoGetAttribute<std::string>(info, "vocab_file");
   bool do_lower_case = TryToGetAttributeWithDefault("do_lower_case", true);
@@ -175,10 +236,15 @@ KernelBertTokenizer::KernelBertTokenizer(OrtApi api, const OrtKernelInfo* info) 
   bool tokenize_chinese_chars = TryToGetAttributeWithDefault("tokenize_chinese_chars", true);
   bool strip_accents = TryToGetAttributeWithDefault("strip_accents", false);
   std::string suffix_indicator = TryToGetAttributeWithDefault("suffix_indicator", std::string("##"));
+  std::string truncation_strategy_name = TryToGetAttributeWithDefault("truncation_strategy_name", std::string("longest_first"));
+  max_length_ = TryToGetAttributeWithDefault("max_length", int64_t(-1));
+
 
   tokenizer_ = std::make_shared<BertTokenizer>(vocab, do_lower_case, do_basic_tokenize, ustring(unk_token),
                                                ustring(sep_token), ustring(pad_token),ustring(cls_token),
                                                ustring(mask_token), tokenize_chinese_chars, strip_accents, ustring(suffix_indicator));
+
+  truncate_ = std::make_shared<TruncateStrategy>(truncation_strategy_name);
 }
 
 void KernelBertTokenizer::Compute(OrtKernelContext* context) {
@@ -193,13 +259,20 @@ void KernelBertTokenizer::Compute(OrtKernelContext* context) {
   std::vector<int64_t> input_ids;
   std::vector<int64_t> token_type_ids;
 
-  if (input_data.size() == 1) {
+  if (input_data.size() == 1 || input_data[1].empty()) {
     std::vector<int64_t> encode = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[0])));
+    truncate_->Truncate(encode, (max_length_ > 0 && max_length_ <= 2) ? 0 : max_length_ - 2);
+    input_ids = tokenizer_->AddSpecialToken(encode);
+    token_type_ids = tokenizer_->GenerateTypeId(encode);
+  } else if (input_data[0].empty()) {
+    std::vector<int64_t> encode = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[1])));
+    truncate_->Truncate(encode, (max_length_ > 0 && max_length_ <= 2) ? 0 : max_length_ - 2);
     input_ids = tokenizer_->AddSpecialToken(encode);
     token_type_ids = tokenizer_->GenerateTypeId(encode);
   } else {
     std::vector<int64_t> encode1 = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[0])));
     std::vector<int64_t> encode2 = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[1])));
+    truncate_->Truncate(encode1, encode2, (max_length_ > 0 && max_length_ <= 3) ? 0 : max_length_ - 3);
     input_ids = tokenizer_->AddSpecialToken(encode1, encode2);
     token_type_ids = tokenizer_->GenerateTypeId(encode1, encode2);
   }
@@ -234,4 +307,5 @@ size_t CustomOpBertTokenizer::GetOutputTypeCount() const {
 ONNXTensorElementDataType CustomOpBertTokenizer::GetOutputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 };
+
 
