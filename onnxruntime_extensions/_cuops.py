@@ -61,6 +61,32 @@ class VectorToString(CustomOp):
         for k_, v_ in attrs.items():
             if k_ == 'map' and isinstance(v_, dict):
                 attr_data[k_] = '\n'.join(k + "\t" + " ".join([str(i) for i in v]) for k, v in v_.items())
+            elif k_ == 'map' and isinstance(v_, str):
+                with open(v_) as map_file:
+                    attr_data[k_] = map_file.read()
+            else:
+                attr_data[k_] = v_
+        return attr_data
+
+
+class StringMapping(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def("input", onnx.TensorProto.STRING, [])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def('output', onnx_proto.TensorProto.STRING, [])]
+
+    @classmethod
+    def serialize_attr(cls, attrs):
+        attr_data = {}
+        for k_, v_ in attrs.items():
+            if k_ == 'map' and isinstance(v_, dict):
+                attr_data[k_] = '\n'.join(k + "\t" + v for k, v in v_.items())
+            elif k_ == 'map' and isinstance(v_, str):
+                with open(v_) as map_file:
+                    attr_data[k_] = map_file.read()
             else:
                 attr_data[k_] = v_
         return attr_data
@@ -81,6 +107,9 @@ class StringToVector(CustomOp):
         for k_, v_ in attrs.items():
             if k_ == 'map' and isinstance(v_, dict):
                 attr_data[k_] = '\n'.join(k + "\t" + " ".join([str(i) for i in v]) for k, v in v_.items())
+            elif k_ == 'map' and isinstance(v_, str):
+                with open(v_) as map_file:
+                    attr_data[k_] = map_file.read()
             elif k_ == 'unk' and isinstance(v_, list):
                 attr_data[k_] = ' '.join(str(i) for i in v_)
             else:
@@ -143,6 +172,7 @@ class BertTokenizer(CustomOp):
                 attrs_data[k_] = v_
         return attrs_data
 
+
 class BertTokenizerDecoder(CustomOp):
     @classmethod
     def get_inputs(cls):
@@ -164,6 +194,7 @@ class BertTokenizerDecoder(CustomOp):
             else:
                 attrs_data[k_] = v_
         return attrs_data
+
 
 class SentencepieceTokenizer(CustomOp):
     @classmethod
