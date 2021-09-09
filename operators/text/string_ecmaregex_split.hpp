@@ -11,6 +11,8 @@
 struct KernelStringECMARegexSplitWithOffsets : BaseKernel {
   KernelStringECMARegexSplitWithOffsets(OrtApi api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
+ private:
+  bool ignore_case_;
 };
 
 struct CustomOpStringECMARegexSplitWithOffsets : Ort::CustomOpBase<CustomOpStringECMARegexSplitWithOffsets, KernelStringECMARegexSplitWithOffsets> {

@@ -8,7 +8,9 @@
 #include "string_tensor.h"
 
 KernelStringECMARegexReplace::KernelStringECMARegexReplace(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
-  global_replace_ = HasAttribute("global_replace") ? ort_.KernelInfoGetAttribute<int64_t>(info_, "global_replace") : 1;
+  global_replace_ = TryToGetAttributeWithDefault("global_replace", true);
+  ignore_case_ = TryToGetAttributeWithDefault("ignore_case", false);
+
 }
 
 void KernelStringECMARegexReplace::Compute(OrtKernelContext* context) {
@@ -21,6 +23,7 @@ void KernelStringECMARegexReplace::Compute(OrtKernelContext* context) {
   GetTensorMutableDataString(api_, ort_, context, input, str_input);
   GetTensorMutableDataString(api_, ort_, context, pattern, str_pattern);
   GetTensorMutableDataString(api_, ort_, context, rewrite, str_rewrite);
+
 
   // Verifications
   OrtTensorDimensions pattern_dimensions(ort_, pattern);
@@ -44,7 +47,12 @@ void KernelStringECMARegexReplace::Compute(OrtKernelContext* context) {
   int64_t size = ort_.GetTensorShapeElementCount(output_info);
   ort_.ReleaseTensorTypeAndShapeInfo(output_info);
 
-  std::regex reg(str_pattern[0], std::regex_constants::optimize);
+  auto regex_flag = std::regex_constants::optimize | std::regex_constants::ECMAScript;
+  if (ignore_case_) {
+    regex_flag |= std::regex_constants::icase;
+  }
+
+  std::regex reg(str_pattern[0], regex_flag);
 
   if (global_replace_) {
     for (int64_t i = 0; i < size; i++) {

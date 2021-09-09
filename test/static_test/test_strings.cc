@@ -6,6 +6,17 @@
 #include "text/re2_strings/string_regex_split_re.hpp"
 #include "text/string_ecmaregex_split.hpp"
 
+TEST(strings, std_regex_test) {
+  std::regex regex("[\u2700-\u27bf\U0001f650-\U0001f67f\U0001f600-\U0001f64f\u2600-\u26ff"
+                    "\U0001f300-\U0001f5ff\U0001f900-\U0001f9ff\U0001fa70-\U0001faff"
+                    "\U0001f680-\U0001f6ff]");
+
+  std::string test =u8"abcde😀🔍🦑😁🔍🎉😂🤣";
+  auto result = std::regex_replace(test, regex, "");
+  std::cout << test << std::endl;
+  std::cout << result << std::endl;
+}
+
 
 TEST(strings, regex_split) {
   std::string input = "hello  world";
