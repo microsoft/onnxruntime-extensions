@@ -63,9 +63,6 @@ class VectorToString(CustomOp):
                 attr_data[k_] = '\n'.join(k + "\t" + " ".join([str(i) for i in v]) for k, v in v_.items())
             elif k_ == 'map' and isinstance(v_, str):
                 attr_data[k_] = v_
-            elif k_ == 'map_file':
-                with open(v_) as map_file:
-                    attr_data[map] = map_file.read()
             else:
                 attr_data[k_] = v_
         return attr_data
@@ -88,9 +85,6 @@ class StringMapping(CustomOp):
                     attr_data[k_] = '\n'.join(k + "\t" + v for k, v in v_.items())
             elif k_ == 'map' and isinstance(v_, str):
                 attr_data[k_] = v_
-            elif k_ == 'map_file':
-                with open(v_) as map_file:
-                    attr_data["map"] = map_file.read()
             else:
                 attr_data[k_] = v_
         return attr_data
@@ -113,9 +107,6 @@ class StringToVector(CustomOp):
                 attr_data[k_] = '\n'.join(k + "\t" + " ".join([str(i) for i in v]) for k, v in v_.items())
             elif k_ == 'map' and isinstance(v_, str):
                 attr_data[k_] = v_
-            elif k_ == 'map_file':
-                with open(v_) as map_file:
-                    attr_data['map'] = map_file.read()
             elif k_ == 'unk' and isinstance(v_, list):
                 attr_data[k_] = ' '.join(str(i) for i in v_)
             else:

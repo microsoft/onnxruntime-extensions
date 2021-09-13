@@ -9,14 +9,13 @@ def _get_test_data_file(*sub_dirs):
     return str(test_dir.joinpath(*sub_dirs))
 
 
+def read_file(path):
+    with open(path) as file_content:
+        return file_content.read()
+
+
 def _run_string_mapping(input, output, map):
     v2str = PyOrtFunction.from_customop(StringMapping, map=map)
-    result = v2str(input)
-    np.testing.assert_array_equal(result, output)
-
-
-def _run_string_mapping_file_model(input, output, map_file):
-    v2str = PyOrtFunction.from_customop(StringMapping, map_file=map_file)
     result = v2str(input)
     np.testing.assert_array_equal(result, output)
 
@@ -29,18 +28,18 @@ class TestStringMapping(unittest.TestCase):
                             map={"a": "e", "b": "f", "d": "unknown_word"})
 
     def test_string_mapping_case2(self):
-        _run_string_mapping_file_model(input=np.array(["a", "b", "c", "excel spreadsheet"]),
-                                       output=np.array(["a", "b", "c", "excel"]),
-                                       map_file=_get_test_data_file("data", "string_mapping.txt"))
+        _run_string_mapping(input=np.array(["a", "b", "c", "excel spreadsheet"]),
+                            output=np.array(["a", "b", "c", "excel"]),
+                            map=read_file(_get_test_data_file("data", "string_mapping.txt")))
 
     def test_string_mapping_case3(self):
-        _run_string_mapping_file_model(
+        _run_string_mapping(
             input=np.array(
                 ["a", "b", "c", "excel spreadsheet", "image", "imag", "powerpoint presentations",
                  "powerpointpresentation"]),
             output=np.array(
                 ["a", "b", "c", "excel", "image", "imag", "ppt", "powerpointpresentation"]),
-            map_file=_get_test_data_file("data", "string_mapping.txt"))
+            map=read_file(_get_test_data_file("data", "string_mapping.txt")))
 
 
 if __name__ == "__main__":
