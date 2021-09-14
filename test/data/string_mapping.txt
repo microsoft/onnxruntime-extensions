@@ -1,0 +1,65 @@
+word	word
+word document	word
+word doc	word
+word docs	word
+doc	word
+docs	word
+docx	word
+excel	excel
+sheet	excel
+sheets	excel
+spreadsheet	excel
+spreadsheets	excel
+spread sheet	excel
+spread sheets	excel
+excel sheet	excel
+excel sheets	excel
+excel spreadsheet	excel
+excel spreadsheets	excel
+excel spread sheet	excel
+excel spread sheets	excel
+xls	excel
+xlsx	excel
+worksheet	excel 
+workbook	excel
+powerpoint	ppt
+power point	ppt
+deck	ppt
+decks	ppt
+slide	ppt
+slides	ppt
+presentation	ppt
+presentations	ppt
+powerpoint deck	ppt
+powerpoint decks	ppt
+powerpoint slide	ppt
+powerpoint slides	ppt
+powerpoint presentation	ppt
+powerpoint presentations	ppt
+ppt	ppt
+ppts	ppt
+pptx	ppt
+note	note
+notes	note
+notebook	onenote
+notebooks	onenote
+onenote	onenote
+one note	onenote
+onenotes	onenote
+one notes	onenote
+pdf	pdf
+pdfs	pdf
+pdf doc	pdf
+pdf docs	pdf
+pdf document	pdf
+pdf documents	pdf
+csv	csv
+tsv	tsv
+image	image
+images	image
+picture	image
+pictures	image
+jpg	image
+jpeg	image
+png	image
+gif	image
