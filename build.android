@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # The example file on building the static library for android
-set -e -x
+set -e -x -u
 
 OSNAME=android
-if [ -z "$NDK_ROOT" ]; then NDK_ROOT=`ls -d $HOME/Android/ndk/* 2>/dev/null`; fi
-if [ -z "$NDK_ROOT" ]
+if [[ -z ${NDK_ROOT+x} ]]; then NDK_ROOT=`ls -d $HOME/Android/ndk/* 2>/dev/null`; fi
+if [[ -z "${NDK_ROOT}" ]]
 then
     echo "ERROR: cannot find where NDK was installed, using NDK_ROOT to specify it"
     exit 7
