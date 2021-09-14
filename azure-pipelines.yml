@@ -5,7 +5,7 @@ jobs:
     - task: UsePythonVersion@0
     - bash: |
         set -o errexit
-        python3 -m pip install --upgrade pip numpy==1.16.6
+        python3 -m pip install --upgrade pip
         pip3 install cibuildwheel==2.1.2
       displayName: Install dependencies
     - bash: cibuildwheel --output-dir wheelhouse .
@@ -19,7 +19,7 @@ jobs:
     - task: UsePythonVersion@0
     - bash: |
         set -o errexit
-        python3 -m pip install --upgrade pip numpy==1.16.6
+        python3 -m pip install --upgrade pip
         python3 -m pip install cibuildwheel==2.1.2
       displayName: Install dependencies
     - bash: cibuildwheel --output-dir wheelhouse .
@@ -33,7 +33,7 @@ jobs:
     - task: UsePythonVersion@0
     - bash: |
         set -o errexit
-        python -m pip install --upgrade pip numpy==1.16.6
+        python -m pip install --upgrade pip
         pip install cibuildwheel==2.1.2
       displayName: Install dependencies
     - bash: cibuildwheel --output-dir wheelhouse .
