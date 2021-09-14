@@ -1,9 +1,6 @@
 jobs:
 - job: linux
   pool: {vmImage: 'ubuntu-latest'}
-  variables:
-    CIBW_TEST_REQUIRES: pytest
-    CIBW_TEST_COMMAND: "pytest {project}/test"
   steps:
     - task: UsePythonVersion@0
     - bash: |
@@ -19,8 +16,6 @@ jobs:
 - job: macos
   pool: {vmImage: 'macOS-latest'}
   variables:
-    CIBW_TEST_REQUIRES: pytest
-    CIBW_TEST_COMMAND: "pytest {project}/test"
     # Skip trying to test arm64 builds on Intel Macs
     CIBW_TEST_SKIP: "*-macosx_arm64 *-macosx_universal2:arm64"
     CIBW_ARCHS_MACOS: "universal2"
