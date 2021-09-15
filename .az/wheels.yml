@@ -19,7 +19,6 @@ jobs:
     # Skip trying to test arm64 builds on Intel Macs
     CIBW_TEST_SKIP: "*-macosx_arm64 *-macosx_universal2:arm64"
     CIBW_ARCHS_MACOS: "universal2"
-
   steps:
     - task: UsePythonVersion@0
     - bash: |

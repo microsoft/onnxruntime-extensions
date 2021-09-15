@@ -1,6 +1,6 @@
 [project]
 # since onnxruntime havn't supported Python 3.10 yet
-requires-python = "<=3.9"
+requires-python = "<3.10"
 
 [build-system]
 # Minimum requirements for the build system to execute.
