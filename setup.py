@@ -1,14 +1,11 @@
 # -*- coding: utf-8 -*-
-
-###########################################################################
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 ###########################################################################
 
-from setuptools.command.build_ext import build_ext as _build_ext
 from setuptools import setup, find_packages
-from textwrap import dedent
+from setuptools.command.build_ext import build_ext as _build_ext
 
 import os
 import sys
@@ -16,8 +13,10 @@ import setuptools
 import pathlib
 import subprocess
 
+from textwrap import dedent
 
-TOP_DIR = os.path.dirname(__file__)
+
+TOP_DIR = os.path.dirname(__file__) or os.getcwd()
 PACKAGE_NAME = 'onnxruntime_extensions'
 
 
@@ -38,17 +37,16 @@ def load_msvcvar():
                 "please install one or specify the environement variable VCVARS to the path of VS vcvars64.bat.")
 
 
-def read_git_refs(fname):
-    git_file = pathlib.Path(TOP_DIR) / '.git' / fname
-    ret_line = ''
-    with git_file.open('r') as f:
-        for _ln in f.readlines():
-            _ln = dedent(_ln)
-            if _ln.startswith('ref:'):
-                return dedent(_ln[4:])
-            ret_line = _ln if not ret_line else ret_line
-
-    return ret_line
+def read_git_refs(git_args):
+    stdout, _ = subprocess.Popen(
+            ['git'] + git_args,
+            cwd=TOP_DIR,
+            stdout=subprocess.PIPE, universal_newlines=True).communicate()
+    for _ln in stdout.splitlines():
+        _ln = dedent(_ln).strip('\n\r')
+        if _ln:
+            return _ln
+    return ''
 
 
 class BuildCMakeExt(_build_ext):
@@ -113,11 +111,11 @@ def read_version():
         if len(line) > 0:
             version_str = line[0].split('=')[1].strip('" \n\r')
 
-    # is it a nightly dev build?
+    # is it a nightly or dev build?
     if os.path.isdir('.git') and \
-       not read_git_refs('HEAD').startswith('refs/heads/rel-'):
+       not read_git_refs(['rev-parse', '--abbrev-ref', 'HEAD']).startswith('rel-'):
         # append a git commit id from git remote repo, while the local change ids are skipped.
-        version_str += '+' + read_git_refs('ORIG_HEAD')[:7]
+        version_str += '+' + read_git_refs(['rev-parse', 'HEAD'])[:7]
     return version_str
 
 
