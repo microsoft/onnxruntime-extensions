@@ -1,5 +1,15 @@
+include *.txt
+global-include *.def
+recursive-include cmake *.*
+recursive-include includes *.*
+recursive-include operators *.*
+recursive-include pyop *.*
+recursive-include shared *.*
 prune ci_build
 prune docs
+prune test
+prune _subbuild
+prune out
 exclude *.bat
 exclude *.yaml
 exclude *.git*

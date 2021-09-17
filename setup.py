@@ -7,10 +7,8 @@
 ###########################################################################
 
 from setuptools.command.build_ext import build_ext as _build_ext
-from setuptools.command.develop import develop as _develop
-from setuptools.command.build_py import build_py as _build_py
-from contextlib import contextmanager
 from setuptools import setup, find_packages
+from textwrap import dedent
 
 import os
 import sys
@@ -21,21 +19,6 @@ import subprocess
 
 TOP_DIR = os.path.dirname(__file__)
 PACKAGE_NAME = 'onnxruntime_extensions'
-
-
-if '--nightly_build' in sys.argv:
-    PACKAGE_NAME = 'ortext_nightly'
-    sys.argv.remove('--nightly_build')
-
-
-@contextmanager
-def chdir(path):
-    orig_path = os.getcwd()
-    os.chdir(str(path))
-    try:
-        yield
-    finally:
-        os.chdir(orig_path)
 
 
 def load_msvcvar():
@@ -53,6 +36,19 @@ def load_msvcvar():
             raise SystemExit(
                 "Cannot find cmake in the executable path, " +
                 "please install one or specify the environement variable VCVARS to the path of VS vcvars64.bat.")
+
+
+def read_git_refs(fname):
+    git_file = pathlib.Path(TOP_DIR) / '.git' / fname
+    ret_line = ''
+    with git_file.open('r') as f:
+        for _ln in f.readlines():
+            _ln = dedent(_ln)
+            if _ln.startswith('ref:'):
+                return dedent(_ln[4:])
+            ret_line = _ln if not ret_line else ret_line
+
+    return ret_line
 
 
 class BuildCMakeExt(_build_ext):
@@ -94,10 +90,9 @@ class BuildCMakeExt(_build_ext):
             '--parallel'
         ]
 
-        with chdir(build_temp):
-            self.spawn(['cmake', str(project_dir)] + cmake_args)
-            if not self.dry_run:
-                self.spawn(['cmake', '--build', '.'] + build_args)
+        self.spawn(['cmake', '-S', str(project_dir), '-B', str(build_temp)] + cmake_args)
+        if not self.dry_run:
+            self.spawn(['cmake', '--build', str(build_temp)] + build_args)
 
         if sys.platform == "win32":
             self.copy_file(build_temp / config / 'ortcustomops.dll',
@@ -106,19 +101,23 @@ class BuildCMakeExt(_build_ext):
 
 def read_requirements():
     with open(os.path.join(TOP_DIR, "requirements.txt"), "r") as f:
-        requirements = [_ for _ in [_.strip("\r\n ")
-                                    for _ in f.readlines()] if _ is not None]
+        requirements = [_ for _ in [dedent(_) for _ in f.readlines()] if _ is not None]
     return requirements
 
 
 # read version from the package file.
 def read_version():
     version_str = '1.0.0'
-    with (open(os.path.join(TOP_DIR, 'onnxruntime_extensions/__init__.py'), "r")) as f:
-        line = [_ for _ in [_.strip("\r\n ")
-                            for _ in f.readlines()] if _.startswith("__version__")]
+    with (open(os.path.join(TOP_DIR, 'onnxruntime_extensions/_version.py'), "r")) as f:
+        line = [_ for _ in [dedent(_) for _ in f.readlines()] if _.startswith("__version__")]
         if len(line) > 0:
-            version_str = line[0].split('=')[1].strip('" ')
+            version_str = line[0].split('=')[1].strip('" \n\r')
+
+    # is it a nightly dev build?
+    if os.path.isdir('.git') and \
+       not read_git_refs('HEAD').startswith('refs/heads/rel-'):
+        # append a git commit id from git remote repo, while the local change ids are skipped.
+        version_str += '+' + read_git_refs('ORIG_HEAD')[:7]
     return version_str
 
 
