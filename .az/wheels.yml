@@ -16,9 +16,12 @@ jobs:
 - job: macos
   pool: {vmImage: 'macOS-latest'}
   variables:
+    CIBW_ARCHS_MACOS: "x86_64 universal2 arm64"
     # Skip trying to test arm64 builds on Intel Macs
     # CIBW_TEST_SKIP: "*-macosx_arm64 *-macosx_universal2:arm64"
-    CIBW_ARCHS_MACOS: "x86_64 universal2 arm64"
+    # Disable building PyPy wheels
+    CIBW_SKIP: pp*
+
   steps:
     - task: UsePythonVersion@0
     - bash: |
