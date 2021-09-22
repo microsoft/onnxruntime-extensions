@@ -1,6 +1,7 @@
 FetchContent_Declare(
   spm
   GIT_REPOSITORY https://github.com/google/sentencepiece.git
+  GIT_TAG v0.1.96
 )
 # spm is abbr. of sentencepiece to meet the MAX_PATH compiling requirement on Windows
 FetchContent_GetProperties(spm)
