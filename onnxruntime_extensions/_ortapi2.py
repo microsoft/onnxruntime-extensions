@@ -121,6 +121,6 @@ class EagerOp:
 
 def optimize_model(model_or_file, output_file):
     sess_options = EagerOp.get_ort_session_options()
-    sess_options.graph_optimization_level = _ort.GraphOptimizationLevel.ORT_ENABLE_EXTENDED
+    sess_options.graph_optimization_level = _ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
     sess_options.optimized_model_filepath = output_file
     _ort.InferenceSession(model_or_file if isinstance(model_or_file, str) else model_or_file.SerializeToString(), sess_options)
