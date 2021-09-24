@@ -14,7 +14,8 @@ def _get_opset_version_from_ort():
         "1.5": 11,
         "1.6": 12,
         "1.7": 13,
-        "1.8": 14
+        "1.8": 14,
+        "1.9": 15
     }
 
     ort_ver_string = '.'.join(_ort.__version__.split('.')[0:2])
@@ -123,4 +124,5 @@ def optimize_model(model_or_file, output_file):
     sess_options = EagerOp.get_ort_session_options()
     sess_options.graph_optimization_level = _ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
     sess_options.optimized_model_filepath = output_file
-    _ort.InferenceSession(model_or_file if isinstance(model_or_file, str) else model_or_file.SerializeToString(), sess_options)
+    _ort.InferenceSession(model_or_file if isinstance(model_or_file, str)
+                          else model_or_file.SerializeToString(), sess_options)
