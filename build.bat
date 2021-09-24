@@ -11,12 +11,10 @@ IF NOT EXIST %VCVARS% GOTO :NOT_FOUND
 ECHO Found %VCVARS%
 CALL %VCVARS%
 mkdir .\out\Windows\ 2>NUL
-cd out\Windows
-cmake -G "Visual Studio 16 2019" -A x64 %* ..\..\
+cmake -G "Visual Studio 16 2019" -A x64 %* -B out\Windows -S .
 IF %ERRORLEVEL% NEQ 0 EXIT /B %ERRORLEVEL%
-cmake --build . --config RelWithDebInfo
+cmake --build out\Windows --config RelWithDebInfo
 IF %ERRORLEVEL% NEQ 0 EXIT /B %ERRORLEVEL%
-cd ..\..
 GOTO :EOF
 
 :NOT_FOUND
