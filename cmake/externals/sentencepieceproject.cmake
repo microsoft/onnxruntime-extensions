@@ -1,18 +1,19 @@
 FetchContent_Declare(
-  sentencepieceproject
+  spm
   GIT_REPOSITORY https://github.com/google/sentencepiece.git
+  GIT_TAG v0.1.96
 )
+# spm is abbr. of sentencepiece to meet the MAX_PATH compiling requirement on Windows
+FetchContent_GetProperties(spm)
 
-FetchContent_GetProperties(sentencepieceproject)
-
-if(NOT sentencepieceproject_POPULATED)
-  FetchContent_Populate(sentencepieceproject)
-  add_subdirectory(${sentencepieceproject_SOURCE_DIR} ${sentencepieceproject_BINARY_DIR} EXCLUDE_FROM_ALL)
+if(NOT spm_POPULATED)
+  FetchContent_Populate(spm)
+  add_subdirectory(${spm_SOURCE_DIR} ${spm_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
 
-set(sentencepieceproject_INCLUDE_DIRS
-    ${sentencepieceproject_SOURCE_DIR}/third_party/protobuf-lite
-    ${sentencepieceproject_SOURCE_DIR}/src/builtin_pb
-    ${sentencepieceproject_SOURCE_DIR}/third_party    
-    ${sentencepieceproject_SOURCE_DIR}/src
+set(spm_INCLUDE_DIRS
+    ${spm_SOURCE_DIR}/third_party/protobuf-lite
+    ${spm_SOURCE_DIR}/src/builtin_pb
+    ${spm_SOURCE_DIR}/third_party
+    ${spm_SOURCE_DIR}/src
     )

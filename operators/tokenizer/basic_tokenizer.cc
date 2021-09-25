@@ -53,7 +53,9 @@ std::vector<ustring> BasicTokenizer::Tokenize(ustring text) {
       continue;
     }
 
-    if (tokenize_punctuation_ && ::iswpunct(c)) {
+    // 0x2019 unicode is not punctuation in some Linux platform, 
+    // to be consistent, take it as punctatuation always.
+    if (tokenize_punctuation_ && (::iswpunct(c) || c == wint_t(0x2019))) {
       push_current_token_and_clear();
       push_single_char_and_clear(c);
       continue;

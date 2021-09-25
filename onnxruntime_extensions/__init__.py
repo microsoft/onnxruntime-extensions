@@ -7,10 +7,9 @@
 The entry point to onnxruntime custom op library
 """
 
-__version__ = "0.3.2"
 __author__ = "Microsoft"
 
-
+from ._version import __version__
 from ._ocos import get_library_path  # noqa
 from ._ocos import Opdef, PyCustomOpDef # noqa
 from ._ocos import hash_64 # noqa

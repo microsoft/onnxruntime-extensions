@@ -44,7 +44,7 @@ jobs:
         displayName: build the customop library with onnxruntime
 
       - script: |
-          cd out/Linux
+          cd out/Linux/RelWithDebInfo
           ctest -C RelWithDebInfo
         displayName: Run C++ native tests
 
@@ -119,7 +119,7 @@ jobs:
         displayName: build the customop library with onnxruntime
 
       - script: |
-          cd out/Darwin
+          cd out/Darwin/RelWithDebInfo
           ctest -C RelWithDebInfo
         displayName: Run C++ native tests
 

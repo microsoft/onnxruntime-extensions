@@ -1,7 +1,7 @@
 FetchContent_Declare(
         Blingfire
         GIT_REPOSITORY https://github.com/microsoft/BlingFire.git
-        GIT_TAG master
+        GIT_TAG 0831265c1aca95ca02eca5bf1155e4251e545328
 )
 
 
