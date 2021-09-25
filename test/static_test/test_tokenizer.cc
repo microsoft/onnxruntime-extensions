@@ -13,18 +13,23 @@ class LocaleBaseTest : public testing::Test{
   public:
     // Remember that SetUp() is run immediately before a test starts.
     void SetUp() override {
-      auto deafult_locale_ = std::locale("").name();
-      std::setlocale(LC_ALL, "en_US.UTF-8");
+#if (defined(WIN32) || defined(_WIN32) || defined(__WIN32__) && !defined(__GNUC__))
+      default_locale_ = std::locale().name();
+      std::setlocale(LC_CTYPE, "C");
+#else
+      default_locale_ = std::locale("").name();
+      std::setlocale(LC_CTYPE, "en_US.UTF-8");
+#endif
     }
     // TearDown() is invoked immediately after a test finishes.
     void TearDown() override {
-      if (default_locale_ != nullptr) {
-        std::setlocale(LC_ALL, default_locale_);
+      if (!default_locale_.empty()) {
+        std::setlocale(LC_CTYPE, default_locale_.c_str());
       }
     }
 
   private:
-    const char * default_locale_ = nullptr;
+    std::string default_locale_;
 };
 
 TEST(tokenizer, bert_word_split) {
