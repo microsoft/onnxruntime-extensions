@@ -12,6 +12,7 @@
 #include "text/string_ecmaregex_replace.hpp"
 #include "text/string_ecmaregex_split.hpp"
 #include "text/string_mapping.hpp"
+#include "text/string_contains.hpp"
 
 #if defined(ENABLE_RE2_REGEX)
 #include "text/re2_strings/string_regex_replace.hpp"
@@ -41,5 +42,6 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Text =
                         CustomOpStringLength,
                         CustomOpStringConcat,
                         CustomOpStringECMARegexReplace,
-                        CustomOpStringECMARegexSplitWithOffsets
+                        CustomOpStringECMARegexSplitWithOffsets,
+                        CustomOpStringContains
                         >;
