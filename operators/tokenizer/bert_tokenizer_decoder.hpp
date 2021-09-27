@@ -13,22 +13,23 @@
 
 class BertTokenizerDecoder {
  public:
-  BertTokenizerDecoder(std::string vocab, ustring unk_token, ustring sep_token, ustring pad_token,
-                       ustring  cls_token,ustring mask_token,ustring suffix_indicator);
-  ustring Decode(const std::vector<int64_t>& ids, bool skip_special_tokens, bool clean_up_tokenization_spaces);
+  BertTokenizerDecoder(std::string vocab, std::string unk_token, std::string sep_token, std::string pad_token,
+                       std::string  cls_token,std::string mask_token,std::string suffix_indicator);
+  std::string Decode(const std::vector<int64_t>& ids, bool skip_special_tokens, bool clean_up_tokenization_spaces);
 
  private:
-  ustring unk_token_;
+  std::string unk_token_;
   int32_t unk_token_id_;
   int32_t sep_token_id_;
   int32_t pad_token_id_;
   int32_t cls_token_id_;
   int32_t mask_token_id_;
-  ustring suffix_indicator_;
-  std::vector<ustring> vocab_;
+  std::string suffix_indicator_;
+  std::vector<std::string_view> vocab_;
+  std::string raw_vocab_;
   std::vector<bool> is_substr_;
 
-  bool RemoveTokenizeSpace(ustring& text, int64_t new_token_id);
+  bool RemoveTokenizeSpace(int64_t pre_token_id, int64_t new_token_id);
 };
 
 struct KernelBertTokenizerDecoder : BaseKernel {

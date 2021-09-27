@@ -1,11 +1,11 @@
 #include "bert_tokenizer_decoder.hpp"
 
-BertTokenizerDecoder::BertTokenizerDecoder(std::string vocab, ustring unk_token, ustring sep_token, ustring pad_token,
-                                           ustring cls_token, ustring mask_token, ustring suffix_indicator) : unk_token_(unk_token), suffix_indicator_(suffix_indicator) {
-  auto tokens = SplitString(vocab, "\n", true);
+BertTokenizerDecoder::BertTokenizerDecoder(std::string vocab, std::string unk_token, std::string sep_token, std::string pad_token,
+                                           std::string  cls_token,std::string mask_token,std::string suffix_indicator) : raw_vocab_(vocab), unk_token_(unk_token), suffix_indicator_(suffix_indicator) {
+  auto tokens = SplitString(raw_vocab_, "\n", true);
   vocab_.reserve(tokens.size());
   for (int i = 0; i < tokens.size(); i++) {
-    ustring token(tokens[i]);
+     auto& token = tokens[i];
     if (token == unk_token) {
       unk_token_id_ = i;
     }
@@ -32,8 +32,10 @@ BertTokenizerDecoder::BertTokenizerDecoder(std::string vocab, ustring unk_token,
   }
 }
 
-ustring BertTokenizerDecoder::Decode(const std::vector<int64_t>& ids, bool skip_special_tokens, bool clean_up_tokenization_spaces) {
-  ustring result;
+std::string BertTokenizerDecoder::Decode(const std::vector<int64_t>& ids, bool skip_special_tokens, bool clean_up_tokenization_spaces) {
+  std::string result;
+  int64_t pre_token = -1;
+
   for (auto id : ids) {
     if (skip_special_tokens && (id == unk_token_id_ || id == sep_token_id_ || id == pad_token_id_ || id == cls_token_id_ || id == mask_token_id_)) {
       continue;
@@ -42,7 +44,7 @@ ustring BertTokenizerDecoder::Decode(const std::vector<int64_t>& ids, bool skip_
     // deal with unk ids
     if (id >= vocab_.size() || id < 0) {
       if (result.empty()) {
-        result.push_back(U' ');
+        result.push_back(' ');
       }
       result.append(unk_token_);
       continue;
@@ -57,23 +59,25 @@ ustring BertTokenizerDecoder::Decode(const std::vector<int64_t>& ids, bool skip_
     // we needn't add a space at the beginning of the output
     // we needn't add a space when the token is a substr (such as ##ing)
     // we needn't add a space at the left or right of punctuation (such as client-side shouldn't be client - side), when clean_up_tokenization_spaces is true
-    if (!(result.empty() || is_substr_[id] || (clean_up_tokenization_spaces && RemoveTokenizeSpace(result, id)))) {
-      result.push_back(U' ');
+    if (!(result.empty() || is_substr_[id] || (clean_up_tokenization_spaces && RemoveTokenizeSpace(pre_token, id)))) {
+      result.push_back(' ');
     }
 
     result.append(vocab_[id]);
+    pre_token = id;
   }
 
   return result;
 }
 
-bool BertTokenizerDecoder::RemoveTokenizeSpace(ustring& text, int64_t new_token_id) {
-  if (text.empty()) {
+bool BertTokenizerDecoder::RemoveTokenizeSpace(int64_t pre_token_id, int64_t new_token_id) {
+
+  if (pre_token_id < 0) {
     return true;
   }
 
-  auto pre_char = text.back();
-  auto cur_char = vocab_[new_token_id][0];
+  auto pre_char = ustring(vocab_[pre_token_id]).back();
+  auto cur_char = ustring(vocab_[new_token_id])[0];
 
   // normal punctuation
   if (cur_char == U'!' || cur_char == U'.' || cur_char == U'?' || cur_char == U',' || cur_char == '~' || cur_char == ':') {
@@ -121,8 +125,8 @@ KernelBertTokenizerDecoder::KernelBertTokenizerDecoder(OrtApi api, const OrtKern
   skip_special_tokens_ = TryToGetAttributeWithDefault("skip_special_tokens", false);
   clean_up_tokenization_spaces_ = TryToGetAttributeWithDefault("clean_up_tokenization_spaces", true);
 
-  decoder_ = std::make_shared<BertTokenizerDecoder>(vocab, ustring(unk_token), ustring(sep_token), ustring(pad_token),
-                                                    ustring(cls_token), ustring(mask_token), ustring(suffix_indicator));
+  decoder_ = std::make_shared<BertTokenizerDecoder>(vocab, unk_token, sep_token, pad_token,
+                                                    cls_token, mask_token, suffix_indicator);
 }
 
 void KernelBertTokenizerDecoder::Compute(OrtKernelContext* context) {
@@ -146,7 +150,7 @@ void KernelBertTokenizerDecoder::Compute(OrtKernelContext* context) {
 
   const int64_t* p_positions = positions_dim.Size() == 0 ? nullptr : ort_.GetTensorData<int64_t>(positions);
 
-  std::vector<ustring> result;
+  std::vector<std::string> result;
   std::vector<int64_t> output_dim(1);
   if (!use_indices_) {
     result.push_back(decoder_->Decode(std::vector<int64_t>(p_ids, p_ids + ids_dim.Size()), skip_special_tokens_, clean_up_tokenization_spaces_));
