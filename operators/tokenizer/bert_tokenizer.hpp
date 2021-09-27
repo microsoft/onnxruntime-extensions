@@ -11,10 +11,36 @@
 #include "string_tensor.h"
 #include "basic_tokenizer.hpp"
 
+class BertTokenizerVocab{
+ public:
+  explicit BertTokenizerVocab(std::string vocab);
+  bool FindToken(const ustring& token);
+  bool FindTokenId(const ustring& token, int32_t& token_id);
+  int32_t FindTokenId(const ustring& token);
+ private:
+  std::string raw_vocab_;
+  std::unordered_map<std::string_view, int32_t> vocab_;
+};
+
+class TruncateStrategy {
+ public:
+  explicit TruncateStrategy(std::string strategy_name);
+  void Truncate(std::vector<int64_t>& ids, int64_t max_len);
+  void Truncate(std::vector<int64_t>& input1, std::vector<int64_t>& input2, int64_t max_len);
+
+ private:
+  enum TruncateStrategyType{
+    LONGEST_FIRST,
+    ONLY_FIRST,
+    ONLY_SECOND,
+    LONGEST_FROM_BACK
+  }strategy_;
+};
+
 // TODO: merge with the implementation of word piece tokenizer
 class WordpieceTokenizer{
  public:
-  WordpieceTokenizer(std::shared_ptr<std::unordered_map<ustring, int32_t>> vocab, ustring unk_token, ustring suffix_indicator, int max_input_chars_per_word = 100);
+  WordpieceTokenizer(std::shared_ptr<BertTokenizerVocab> vocab, ustring unk_token, ustring suffix_indicator, int max_input_chars_per_word = 100);
   std::vector<ustring> Tokenize(const ustring& text);
   std::vector<ustring> Tokenize(const std::vector<ustring>& tokens);
   std::vector<int64_t> Encode(const std::vector<ustring>& tokens);
@@ -22,8 +48,8 @@ class WordpieceTokenizer{
   int64_t max_input_chars_per_word_;
   ustring suffix_indicator_;
   ustring unk_token_;
-  int64_t unk_token_id_;
-  std::shared_ptr<std::unordered_map<ustring, int32_t>> vocab_;
+  int32_t unk_token_id_;
+  std::shared_ptr<BertTokenizerVocab> vocab_;
 
   void GreedySearch(const ustring& token, std::vector<ustring>& tokenized_result);
 };
@@ -47,30 +73,12 @@ class BertTokenizer {
   int32_t cls_token_id_;
   int32_t mask_token_id_;
   bool do_basic_tokenize_;
-  std::shared_ptr<std::unordered_map<ustring, int32_t>> vocab_;
+  std::shared_ptr<BertTokenizerVocab> vocab_;
   std::shared_ptr<BasicTokenizer> basic_tokenizer_;
   std::shared_ptr<WordpieceTokenizer> wordpiece_tokenizer_;
 
   int32_t FindSpecialToken(ustring token);
 };
-
-
-
-class TruncateStrategy {
- public:
-  explicit TruncateStrategy(std::string strategy_name);
-  void Truncate(std::vector<int64_t>& ids, int64_t max_len);
-  void Truncate(std::vector<int64_t>& input1, std::vector<int64_t>& input2, int64_t max_len);
-
- private:
-  enum TruncateStrategyType{
-    LONGEST_FIRST,
-    ONLY_FIRST,
-    ONLY_SECOND,
-    LONGEST_FROM_BACK
-  }strategy_;
-};
-
 
 struct KernelBertTokenizer : BaseKernel {
   KernelBertTokenizer(OrtApi api,  const OrtKernelInfo* info);
