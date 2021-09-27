@@ -27,7 +27,7 @@ if not os.path.exists(cache_dir):
 
 def _extract_endict(tokenizer_endict):
     _1, _2 = [tokenizer_endict.get(ky_) for ky_ in ('input_ids', 'attention_mask')]
-    return (_1, _2.astype(numpy.float32))
+    return _1.astype(numpy.int64), _2.astype(numpy.float32)
 
 
 def get_tokenizer(model_name_or_path, enable_tokenizer, cache_dir):
