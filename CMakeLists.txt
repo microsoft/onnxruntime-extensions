@@ -98,12 +98,6 @@ endif()
 
 include(FetchContent)
 
-if (NOT TARGET farmhash)
-  message(STATUS "Fetch farmhash")
-  include(farmhash)
-  FetchContent_GetProperties(farmhash)
-endif()
-
 if (OCOS_ENABLE_RE2_REGEX)
   if (NOT TARGET re2::re2)
     set(RE2_BUILD_TESTING OFF CACHE INTERNAL "")
@@ -121,6 +115,7 @@ endif()
 
 file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h")
 if (OCOS_ENABLE_TF_STRING)
+  set(farmhash_SOURCE_DIR ${PROJECT_SOURCE_DIR}/cmake/externals/farmhash)
   file(GLOB TARGET_SRC_KERNELS "operators/text/*.cc" "operators/text/*.h*")
   file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")
   list(APPEND TARGET_SRC ${TARGET_SRC_KERNELS} ${TARGET_SRC_HASH})
