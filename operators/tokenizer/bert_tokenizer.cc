@@ -3,7 +3,7 @@
 #include <utility>
 
 BertTokenizerVocab::BertTokenizerVocab(std::string vocab) : raw_vocab_(vocab) {
-  auto tokens = SplitString(vocab, "\n", true);
+  auto tokens = SplitString(raw_vocab_, "\n", true);
 
   for (int i = 0; i < tokens.size(); i++) {
     (vocab_)[tokens[i]] = i;
@@ -77,7 +77,6 @@ std::vector<ustring> WordpieceTokenizer::Tokenize(const std::vector<ustring>& to
 std::vector<int64_t> WordpieceTokenizer::Encode(const std::vector<ustring>& tokens) {
   std::vector<int64_t> ids;
   for (const auto& token : tokens) {
-
     int32_t token_id = -1;
     if (!vocab_->FindTokenId(token, token_id)) {
       ids.push_back(unk_token_id_);
@@ -175,7 +174,6 @@ void TruncateStrategy::Truncate(std::vector<int64_t>& input1, std::vector<int64_
 BertTokenizer::BertTokenizer(std::string vocab, bool do_lower_case, bool do_basic_tokenize, ustring unk_token, ustring sep_token,
                              ustring pad_token, ustring cls_token, ustring mask_token, bool tokenize_chinese_chars, bool strip_accents,
                              ustring suffix_indicator) : do_basic_tokenize_(do_basic_tokenize) {
-
   vocab_ = std::make_shared<BertTokenizerVocab>(vocab);
 
   if (do_basic_tokenize) {
@@ -243,8 +241,6 @@ TruncateStrategy::TruncateStrategy(std::string strategy_name) {
     strategy_ = TruncateStrategyType::LONGEST_FROM_BACK;
   }
 }
-
-
 
 KernelBertTokenizer::KernelBertTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   std::string vocab = ort_.KernelInfoGetAttribute<std::string>(info, "vocab_file");

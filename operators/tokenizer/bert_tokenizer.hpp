@@ -11,12 +11,13 @@
 #include "string_tensor.h"
 #include "basic_tokenizer.hpp"
 
-class BertTokenizerVocab{
+class BertTokenizerVocab {
  public:
   explicit BertTokenizerVocab(std::string vocab);
   bool FindToken(const ustring& token);
   bool FindTokenId(const ustring& token, int32_t& token_id);
   int32_t FindTokenId(const ustring& token);
+
  private:
   std::string raw_vocab_;
   std::unordered_map<std::string_view, int32_t> vocab_;
@@ -29,21 +30,22 @@ class TruncateStrategy {
   void Truncate(std::vector<int64_t>& input1, std::vector<int64_t>& input2, int64_t max_len);
 
  private:
-  enum TruncateStrategyType{
+  enum TruncateStrategyType {
     LONGEST_FIRST,
     ONLY_FIRST,
     ONLY_SECOND,
     LONGEST_FROM_BACK
-  }strategy_;
+  } strategy_;
 };
 
 // TODO: merge with the implementation of word piece tokenizer
-class WordpieceTokenizer{
+class WordpieceTokenizer {
  public:
   WordpieceTokenizer(std::shared_ptr<BertTokenizerVocab> vocab, ustring unk_token, ustring suffix_indicator, int max_input_chars_per_word = 100);
   std::vector<ustring> Tokenize(const ustring& text);
   std::vector<ustring> Tokenize(const std::vector<ustring>& tokens);
   std::vector<int64_t> Encode(const std::vector<ustring>& tokens);
+
  private:
   int64_t max_input_chars_per_word_;
   ustring suffix_indicator_;
@@ -57,15 +59,16 @@ class WordpieceTokenizer{
 class BertTokenizer {
  public:
   BertTokenizer(std::string vocab, bool do_lower_case, bool do_basic_tokenize,
-                     ustring unk_token, ustring sep_token, ustring pad_token, ustring  cls_token,
-                     ustring mask_token, bool tokenize_chinese_chars, bool strip_accents,
-                     ustring suffix_indicator);
+                ustring unk_token, ustring sep_token, ustring pad_token, ustring cls_token,
+                ustring mask_token, bool tokenize_chinese_chars, bool strip_accents,
+                ustring suffix_indicator);
   std::vector<ustring> Tokenize(const ustring& text);
   std::vector<int64_t> Encode(const std::vector<ustring>& tokens);
   std::vector<int64_t> AddSpecialToken(const std::vector<int64_t>& ids);
   std::vector<int64_t> AddSpecialToken(const std::vector<int64_t>& ids1, const std::vector<int64_t>& ids2);
   std::vector<int64_t> GenerateTypeId(const std::vector<int64_t>& ids);
   std::vector<int64_t> GenerateTypeId(const std::vector<int64_t>& ids1, const std::vector<int64_t>& ids2);
+
  private:
   int32_t unk_token_id_;
   int32_t sep_token_id_;
@@ -76,13 +79,12 @@ class BertTokenizer {
   std::shared_ptr<BertTokenizerVocab> vocab_;
   std::shared_ptr<BasicTokenizer> basic_tokenizer_;
   std::shared_ptr<WordpieceTokenizer> wordpiece_tokenizer_;
-
-  int32_t FindSpecialToken(ustring token);
 };
 
 struct KernelBertTokenizer : BaseKernel {
-  KernelBertTokenizer(OrtApi api,  const OrtKernelInfo* info);
+  KernelBertTokenizer(OrtApi api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
+
  private:
   std::shared_ptr<BertTokenizer> tokenizer_;
   std::shared_ptr<TruncateStrategy> truncate_;
