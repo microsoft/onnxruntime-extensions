@@ -13,7 +13,7 @@
 
 // A helper API to support test kernels.
 // Must be invoked before RegisterCustomOps.
-extern "C" bool AddExternalCustomOp(const OrtCustomOp* c_op);
+extern "C" bool ORT_API_CALL AddExternalCustomOp(const OrtCustomOp* c_op);
 
 const char c_OpDomain[] = "ai.onnx.contrib";
 
