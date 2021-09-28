@@ -399,7 +399,7 @@ template <typename T> STATIC_INLINE T DebugTweak(T x) {
   return x;
 }
 
-template <> uint128_t DebugTweak(uint128_t x) {
+template <> NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t DebugTweak(NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t x) {
   if (debug_mode) {
     uint64_t y = DebugTweak(Uint128Low64(x));
     uint64_t z = DebugTweak(Uint128High64(x));
@@ -1770,7 +1770,7 @@ STATIC_INLINE pair<uint64_t, uint64_t> WeakHashLen32WithSeeds(
 
 // A subroutine for CityHash128().  Returns a decent 128-bit hash for strings
 // of any length representable in signed long.  Based on City and Murmur.
-STATIC_INLINE uint128_t CityMurmur(const char *s, size_t len, uint128_t seed) {
+STATIC_INLINE NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t CityMurmur(const char *s, size_t len, NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t seed) {
   uint64_t a = Uint128Low64(seed);
   uint64_t b = Uint128High64(seed);
   uint64_t c = 0;
@@ -1800,7 +1800,7 @@ STATIC_INLINE uint128_t CityMurmur(const char *s, size_t len, uint128_t seed) {
   return Uint128(a ^ b, HashLen16(b, a));
 }
 
-uint128_t CityHash128WithSeed(const char *s, size_t len, uint128_t seed) {
+NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t CityHash128WithSeed(const char *s, size_t len, NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t seed) {
   if (len < 128) {
     return CityMurmur(s, len, seed);
   }
@@ -1863,14 +1863,14 @@ uint128_t CityHash128WithSeed(const char *s, size_t len, uint128_t seed) {
                  HashLen16(x + w.second, y + v.second));
 }
 
-STATIC_INLINE uint128_t CityHash128(const char *s, size_t len) {
+STATIC_INLINE NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t CityHash128(const char *s, size_t len) {
   return len >= 16 ?
       CityHash128WithSeed(s + 16, len - 16,
                           Uint128(Fetch(s), Fetch(s + 8) + k0)) :
       CityHash128WithSeed(s, len, Uint128(k0, k1));
 }
 
-uint128_t Fingerprint128(const char* s, size_t len) {
+NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t Fingerprint128(const char* s, size_t len) {
   return CityHash128(s, len);
 }
 }  // namespace farmhashcc
@@ -1938,7 +1938,7 @@ uint64_t Hash64WithSeeds(const char* s, size_t len, uint64_t seed0, uint64_t see
 // Hash function for a byte array.
 // May change from time to time, may differ on different platforms, may differ
 // depending on NDEBUG.
-uint128_t Hash128(const char* s, size_t len) {
+NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t Hash128(const char* s, size_t len) {
   return DebugTweak(farmhashcc::Fingerprint128(s, len));
 }
 
@@ -1946,7 +1946,7 @@ uint128_t Hash128(const char* s, size_t len) {
 // hashed into the result.
 // May change from time to time, may differ on different platforms, may differ
 // depending on NDEBUG.
-uint128_t Hash128WithSeed(const char* s, size_t len, uint128_t seed) {
+NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t Hash128WithSeed(const char* s, size_t len, NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t seed) {
   return DebugTweak(farmhashcc::CityHash128WithSeed(s, len, seed));
 }
 
@@ -1965,7 +1965,7 @@ uint64_t Fingerprint64(const char* s, size_t len) {
 }
 
 // Fingerprint function for a byte array.
-uint128_t Fingerprint128(const char* s, size_t len) {
+NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t Fingerprint128(const char* s, size_t len) {
   return farmhashcc::Fingerprint128(s, len);
 }
 
@@ -2025,7 +2025,7 @@ template <typename T> inline bool IsNonZero(T x) {
   return x != 0;
 }
 
-template <> inline bool IsNonZero<uint128_t>(uint128_t x) {
+template <> inline bool IsNonZero<NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t>(NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t x) {
   return x != Uint128(0, 0);
 }
 
@@ -3531,11 +3531,11 @@ bool Test(int offset, int len = 0) {
 
   // After the following line is where the uses of "Check" and such will go.
   static int index = 0;
-if (offset == -1) { int alive = 0; IsAlive(farmhashcc::Hash32WithSeed(data, len++, SEED)); IsAlive(farmhashcc::Hash32(data, len++)); { uint128_t u = farmhashcc::Fingerprint128(data, len++); uint64_t h = Uint128Low64(u); IsAlive(h >> 32); IsAlive((h << 32) >> 32); h = Uint128High64(u); IsAlive(h >> 32); IsAlive((h << 32) >> 32); } len -= 3; return alive > 0; }
+if (offset == -1) { int alive = 0; IsAlive(farmhashcc::Hash32WithSeed(data, len++, SEED)); IsAlive(farmhashcc::Hash32(data, len++)); { NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t u = farmhashcc::Fingerprint128(data, len++); uint64_t h = Uint128Low64(u); IsAlive(h >> 32); IsAlive((h << 32) >> 32); h = Uint128High64(u); IsAlive(h >> 32); IsAlive((h << 32) >> 32); } len -= 3; return alive > 0; }
 Check(farmhashcc::Hash32WithSeed(data + offset, len, SEED));
 Check(farmhashcc::Hash32(data + offset, len));
-{ uint128_t u = farmhashcc::Fingerprint128(data + offset, len); uint64_t h = Uint128Low64(u); Check(h >> 32); Check((h << 32) >> 32); h = Uint128High64(u); Check(h >> 32); Check((h << 32) >> 32); }
-{ uint128_t u = farmhashcc::CityHash128WithSeed(data + offset, len, Uint128(SEED0, SEED1)); uint64_t h = Uint128Low64(u); Check(h >> 32); Check((h << 32) >> 32); h = Uint128High64(u); Check(h >> 32); Check((h << 32) >> 32); }
+{ NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t u = farmhashcc::Fingerprint128(data + offset, len); uint64_t h = Uint128Low64(u); Check(h >> 32); Check((h << 32) >> 32); h = Uint128High64(u); Check(h >> 32); Check((h << 32) >> 32); }
+{ NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t u = farmhashcc::CityHash128WithSeed(data + offset, len, Uint128(SEED0, SEED1)); uint64_t h = Uint128Low64(u); Check(h >> 32); Check((h << 32) >> 32); h = Uint128High64(u); Check(h >> 32); Check((h << 32) >> 32); }
 
   return true;
 #undef Check
@@ -3569,8 +3569,8 @@ int RunTest() {
 void Dump(int offset, int len) {
 cout << farmhashcc::Hash32WithSeed(data + offset, len, SEED) << "u," << endl;
 cout << farmhashcc::Hash32(data + offset, len) << "u," << endl;
-{ uint128_t u = farmhashcc::Fingerprint128(data + offset, len); uint64_t h = Uint128Low64(u); cout << (h >> 32) << "u, " << ((h << 32) >> 32) << "u, "; h = Uint128High64(u); cout << (h >> 32) << "u, " << ((h << 32) >> 32) << "u," << endl; }
-{ uint128_t u = farmhashcc::CityHash128WithSeed(data + offset, len, Uint128(SEED0, SEED1)); uint64_t h = Uint128Low64(u); cout << (h >> 32) << "u, " << ((h << 32) >> 32) << "u, "; h = Uint128High64(u); cout << (h >> 32) << "u, " << ((h << 32) >> 32) << "u," << endl; }
+{ NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t u = farmhashcc::Fingerprint128(data + offset, len); uint64_t h = Uint128Low64(u); cout << (h >> 32) << "u, " << ((h << 32) >> 32) << "u, "; h = Uint128High64(u); cout << (h >> 32) << "u, " << ((h << 32) >> 32) << "u," << endl; }
+{ NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t u = farmhashcc::CityHash128WithSeed(data + offset, len, Uint128(SEED0, SEED1)); uint64_t h = Uint128Low64(u); cout << (h >> 32) << "u, " << ((h << 32) >> 32) << "u, "; h = Uint128High64(u); cout << (h >> 32) << "u, " << ((h << 32) >> 32) << "u," << endl; }
 }
 
 #endif
@@ -3645,7 +3645,7 @@ template <typename T> inline bool IsNonZero(T x) {
   return x != 0;
 }
 
-template <> inline bool IsNonZero<uint128_t>(uint128_t x) {
+template <> inline bool IsNonZero<NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t>(NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t x) {
   return x != Uint128(0, 0);
 }
 
@@ -4537,7 +4537,7 @@ template <typename T> inline bool IsNonZero(T x) {
   return x != 0;
 }
 
-template <> inline bool IsNonZero<uint128_t>(uint128_t x) {
+template <> inline bool IsNonZero<NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t>(NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t x) {
   return x != Uint128(0, 0);
 }
 
@@ -5793,7 +5793,7 @@ template <typename T> inline bool IsNonZero(T x) {
   return x != 0;
 }
 
-template <> inline bool IsNonZero<uint128_t>(uint128_t x) {
+template <> inline bool IsNonZero<NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t>(NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t x) {
   return x != Uint128(0, 0);
 }
 
@@ -6685,7 +6685,7 @@ template <typename T> inline bool IsNonZero(T x) {
   return x != 0;
 }
 
-template <> inline bool IsNonZero<uint128_t>(uint128_t x) {
+template <> inline bool IsNonZero<NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t>(NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t x) {
   return x != Uint128(0, 0);
 }
 
@@ -7577,7 +7577,7 @@ template <typename T> inline bool IsNonZero(T x) {
   return x != 0;
 }
 
-template <> inline bool IsNonZero<uint128_t>(uint128_t x) {
+template <> inline bool IsNonZero<NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t>(NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t x) {
   return x != Uint128(0, 0);
 }
 
@@ -8469,7 +8469,7 @@ template <typename T> inline bool IsNonZero(T x) {
   return x != 0;
 }
 
-template <> inline bool IsNonZero<uint128_t>(uint128_t x) {
+template <> inline bool IsNonZero<NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t>(NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t x) {
   return x != Uint128(0, 0);
 }
 
@@ -9725,7 +9725,7 @@ template <typename T> inline bool IsNonZero(T x) {
   return x != 0;
 }
 
-template <> inline bool IsNonZero<uint128_t>(uint128_t x) {
+template <> inline bool IsNonZero<NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t>(NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t x) {
   return x != Uint128(0, 0);
 }
 
@@ -10617,7 +10617,7 @@ template <typename T> inline bool IsNonZero(T x) {
   return x != 0;
 }
 
-template <> inline bool IsNonZero<uint128_t>(uint128_t x) {
+template <> inline bool IsNonZero<NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t>(NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t x) {
   return x != Uint128(0, 0);
 }
 

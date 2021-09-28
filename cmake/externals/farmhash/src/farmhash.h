@@ -55,27 +55,10 @@
 
 namespace NAMESPACE_FOR_HASH_FUNCTIONS {
 
-#if defined(FARMHASH_UINT128_T_DEFINED)
-#if defined(__clang__)
-#if !defined(uint128_t)
-#define uint128_t __uint128_t
-#endif
-#endif
-inline uint64_t Uint128Low64(const uint128_t x) {
-  return static_cast<uint64_t>(x);
-}
-inline uint64_t Uint128High64(const uint128_t x) {
-  return static_cast<uint64_t>(x >> 64);
-}
-inline uint128_t Uint128(uint64_t lo, uint64_t hi) {
-  return lo + (((uint128_t)hi) << 64);
-}
-#else
 typedef std::pair<uint64_t, uint64_t> uint128_t;
-inline uint64_t Uint128Low64(const uint128_t x) { return x.first; }
-inline uint64_t Uint128High64(const uint128_t x) { return x.second; }
-inline uint128_t Uint128(uint64_t lo, uint64_t hi) { return uint128_t(lo, hi); }
-#endif
+inline uint64_t Uint128Low64(const NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t x) { return x.first; }
+inline uint64_t Uint128High64(const NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t x) { return x.second; }
+inline NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t Uint128(uint64_t lo, uint64_t hi) { return NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t(lo, hi); }
 
 
 // BASIC STRING HASHING
@@ -117,13 +100,13 @@ uint64_t Hash64WithSeeds(const char* s, size_t len,
 // Hash function for a byte array.
 // May change from time to time, may differ on different platforms, may differ
 // depending on NDEBUG.
-uint128_t Hash128(const char* s, size_t len);
+NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t Hash128(const char* s, size_t len);
 
 // Hash function for a byte array.  For convenience, a 128-bit seed is also
 // hashed into the result.
 // May change from time to time, may differ on different platforms, may differ
 // depending on NDEBUG.
-uint128_t Hash128WithSeed(const char* s, size_t len, uint128_t seed);
+NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t Hash128WithSeed(const char* s, size_t len, NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t seed);
 
 // BASIC NON-STRING HASHING
 
@@ -131,7 +114,7 @@ uint128_t Hash128WithSeed(const char* s, size_t len, uint128_t seed);
 // This is intended to be a reasonably good hash function.
 // May change from time to time, may differ on different platforms, may differ
 // depending on NDEBUG.
-inline uint64_t Hash128to64(uint128_t x) {
+inline uint64_t Hash128to64(NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t x) {
   // Murmur-inspired hashing.
   const uint64_t kMul = 0x9ddfea08eb382d69ULL;
   uint64_t a = (Uint128Low64(x) ^ Uint128High64(x)) * kMul;
@@ -151,11 +134,11 @@ uint32_t Fingerprint32(const char* s, size_t len);
 uint64_t Fingerprint64(const char* s, size_t len);
 
 // Fingerprint function for a byte array.
-uint128_t Fingerprint128(const char* s, size_t len);
+NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t Fingerprint128(const char* s, size_t len);
 
 // This is intended to be a good fingerprinting primitive.
 // See below for more overloads.
-inline uint64_t Fingerprint(uint128_t x) {
+inline uint64_t Fingerprint(NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t x) {
   // Murmur-inspired hashing.
   const uint64_t kMul = 0x9ddfea08eb382d69ULL;
   uint64_t a = (Uint128Low64(x) ^ Uint128High64(x)) * kMul;
@@ -249,7 +232,7 @@ inline uint64_t Hash64WithSeeds(const Str& s, uint64_t seed0, uint64_t seed1) {
 // May change from time to time, may differ on different platforms, may differ
 // depending on NDEBUG.
 template <typename Str>
-inline uint128_t Hash128(const Str& s) {
+inline NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t Hash128(const Str& s) {
   assert(sizeof(s[0]) == 1);
   return Hash128(s.data(), s.length());
 }
@@ -259,7 +242,7 @@ inline uint128_t Hash128(const Str& s) {
 // May change from time to time, may differ on different platforms, may differ
 // depending on NDEBUG.
 template <typename Str>
-inline uint128_t Hash128WithSeed(const Str& s, uint128_t seed) {
+inline NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t Hash128WithSeed(const Str& s, NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t seed) {
   assert(sizeof(s[0]) == 1);
   return Hash128(s.data(), s.length(), seed);
 }
@@ -283,7 +266,7 @@ inline uint64_t Fingerprint64(const Str& s) {
 
 // Fingerprint function for a byte array.
 template <typename Str>
-inline uint128_t Fingerprint128(const Str& s) {
+inline NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t Fingerprint128(const Str& s) {
   assert(sizeof(s[0]) == 1);
   return Fingerprint128(s.data(), s.length());
 }

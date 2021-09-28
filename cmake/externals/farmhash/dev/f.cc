@@ -62,7 +62,7 @@ uint64_t Hash64WithSeeds(const char* s, size_t len, uint64_t seed0, uint64_t see
 // Hash function for a byte array.
 // May change from time to time, may differ on different platforms, may differ
 // depending on NDEBUG.
-uint128_t Hash128(const char* s, size_t len) {
+NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t Hash128(const char* s, size_t len) {
   return DebugTweak(farmhashcc::Fingerprint128(s, len));
 }
 
@@ -70,7 +70,7 @@ uint128_t Hash128(const char* s, size_t len) {
 // hashed into the result.
 // May change from time to time, may differ on different platforms, may differ
 // depending on NDEBUG.
-uint128_t Hash128WithSeed(const char* s, size_t len, uint128_t seed) {
+NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t Hash128WithSeed(const char* s, size_t len, NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t seed) {
   return DebugTweak(farmhashcc::CityHash128WithSeed(s, len, seed));
 }
 
@@ -89,7 +89,7 @@ uint64_t Fingerprint64(const char* s, size_t len) {
 }
 
 // Fingerprint function for a byte array.
-uint128_t Fingerprint128(const char* s, size_t len) {
+NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t Fingerprint128(const char* s, size_t len) {
   return farmhashcc::Fingerprint128(s, len);
 }
 

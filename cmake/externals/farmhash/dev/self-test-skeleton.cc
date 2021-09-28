@@ -47,7 +47,7 @@ template <typename T> inline bool IsNonZero(T x) {
   return x != 0;
 }
 
-template <> inline bool IsNonZero<uint128_t>(uint128_t x) {
+template <> inline bool IsNonZero<NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t>(NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t x) {
   return x != Uint128(0, 0);
 }
 
