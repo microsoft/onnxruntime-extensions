@@ -19,6 +19,7 @@
 |VectorToString| Supported |
 |StringToVector|  Supported|
 |StringSlice | Under development|
+
 ### Tokenizer
 
 |**Operator**|**Support State**|
@@ -790,20 +791,34 @@ BasicTokenizer performs basic tokenization to input string tensor, based on [bas
 
 #### Inputs
 
-***data: tensor(string)*** The string tensor for tokenization
+***text: tensor(string)*** The string tensor for tokenization
 
 #### Attributes
 
-***model: string*** The sentencepiece model serialized proto as stored as a string.
+***do_lower_case: int64_t*** (default is 1, 1 represents True, 0 represents False)
+
+Whether or not to lowercase the input when tokenizing.
+
+***tokenize_chinese_chars: int64_t*** (default is 1, 1 represents True, 0 represents False)
+
+Whether or not to tokenize Chinese characters.
+
+***strip_accents: int64_t*** (default is 1, 1 represents True, 0 represents False)
+
+Whether or not to strip all accents. If this option is not specified, then it will be determined by the
+value for :obj:`lowercase` (as in the original BERT).
+
+***tokenize_punctuation: int64_t*** (default is 0, 1 represents True, 0 represents False)
+
+Splits punctuation on a piece of text.
+
+***remove_control_chars: int64_t*** (default is 0, 1 represents True, 0 represents False)
+
+Remove control chars(such as NUL, BEL) in the text.
 
 #### Outputs
 
-***tokens: tensor(int32)*** Indices of each token.
-
-***indices: tensor(int64)*** Indices of every first token of input sentences.
-`indices[i+1] - indices[i]` is the number of tokens in input `i`.
-
-Tokenized result of the input
+***tokens: tensor(string)*** Tokenized tokens.
 
 #### Examples
 
@@ -811,32 +826,79 @@ Tokenized result of the input
 <summary>example 1</summary>
 
 ```python
+import transformers
 
-url = "https://github.com/microsoft/ort-customops/raw/main/test/data/test_sentencepiece_ops_model__6.txt"
-with urllib.request.urlopen(url) as f:
-    content = f.read()
-model = np.array(list(base64.decodebytes(content.encode())), dtype=np.uint8)
+tokenizer = transformers.BasicTokenizer()
 
 node = onnx.helper.make_node(
     'SentencepieceTokenizer',
-    inputs=['inputs', 'nbest_size', 'alpha', 'add_bos', 'add_eos', 'reverse'],
-    outputs=['indices', 'output'],
-    mapping_file_name='vocabulary.txt',
-    unmapping_value="unknown_word",
-    model=model
+    inputs=['text'],
+    outputs=['tokens'],
 )
 
-inputs = np.array(["Hello world", "Hello world louder"], dtype=np.object),
-nbest_size = np.array([0], dtype=np.float32),
-alpha = np.array([0], dtype=np.float32),
-add_bos = np.array([0], dtype=np.bool_),
-add_eos = np.array([0], dtype=np.bool_),
-reverse = np.array([0], dtype=np.bool_)
+inputs = np.array([ "Hello world louder"], dtype=np.object),
+tokens = array(tokenizer(inputs), dtype=int32)
 
-tokens = array([17486,  1017, 17486,  1017,   155, 21869], dtype=int32)
-indices = array([0, 2, 6], dtype=int64)
+expect(node, inputs=[inputs],
+       outputs=[tokens], name='test_basic_tokenizer')
+```
+</details>
 
-expect(node, inputs=[inputs, nbest_size, alpha, add_bos, add_eos, reverse],
-       outputs=[tokens, indices], name='sp')
+### <a name="BasicTokenizer"></a><a name="BasicTokenizer">**BasicTokenizer**</a>
+
+BasicTokenizer performs basic tokenization to input string tensor, based on [basic tokenizer in BertTokenizer(hugging face version)](https://huggingface.co/transformers/_modules/transformers/models/bert/tokenization_bert.html#BertTokenizer).
+
+#### Inputs
+
+***text: tensor(string)*** The string tensor for tokenization
+
+#### Attributes
+
+***do_lower_case: int64_t*** (default is 1, 1 represents True, 0 represents False)
+
+Whether or not to lowercase the input when tokenizing.
+
+***tokenize_chinese_chars: int64_t*** (default is 1, 1 represents True, 0 represents False)
+
+Whether or not to tokenize Chinese characters.
+
+***strip_accents: int64_t*** (default is 1, 1 represents True, 0 represents False)
+
+Whether or not to strip all accents. If this option is not specified, then it will be determined by the
+value for :obj:`lowercase` (as in the original BERT).
+
+***tokenize_punctuation: int64_t*** (default is 0, 1 represents True, 0 represents False)
+
+Splits punctuation on a piece of text.
+
+***remove_control_chars: int64_t*** (default is 0, 1 represents True, 0 represents False)
+
+Remove control chars(such as NUL, BEL) in the text.
+
+#### Outputs
+
+***tokens: tensor(string)*** Tokenized tokens.
+
+#### Examples
+
+<details>
+<summary>example 1</summary>
+
+```python
+import transformers
+
+tokenizer = transformers.BasicTokenizer()
+
+node = onnx.helper.make_node(
+    'SentencepieceTokenizer',
+    inputs=['text'],
+    outputs=['tokens'],
+)
+
+inputs = np.array([ "Hello world louder"], dtype=np.object),
+tokens = array(tokenizer(inputs), dtype=int32)
+
+expect(node, inputs=[inputs],
+       outputs=[tokens], name='test_basic_tokenizer')
 ```
 </details>
