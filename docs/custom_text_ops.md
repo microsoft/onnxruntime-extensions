@@ -9,12 +9,13 @@
 |StringToHashBucketFast|Supported|
 |StringJoin  | Supported         |
 |StringRegexReplace| Supported  |
-|StringRegexSplit| Supported       |
+|StringECMARegexReplace| Supported|
 |StringSplit | Supported       |
 |StringUpper  | Supported     |
 |StringLength | Supported |
 |StringConcat | Supported |
 |StringRegexSplitWithOffsets| Supported |
+|StringECMARegexSplitWithOffsets| Supported|
 |VectorToString| Supported |
 |StringToVector|  Supported|
 |StringSlice | Under development|
@@ -24,8 +25,11 @@
 |------------|-----------------|
 |GPT2Tokenizer| Supported       |
 |WordpieceTokenizer| Supported       |
-|XLNetTokenizer| Under development |
 |SentencepieceTokenizer| Supported       |
+|BasicTokenizer| Supported      |
+|BertTokenizer| Supported  |
+|BertTokenizerDecoder| Supported  |
+
 
 ## Auxiliary String Operator
 
@@ -33,7 +37,7 @@
 
 ### <a name="StringRegexReplace"></a><a name="StringRegexReplace">**StringRegexReplace**</a>
 
-String replacement based on regular expressions.
+String replacement based on [Re2-format](https://github.com/google/re2/wiki/Syntax) regular expressions.
 
 #### Inputs
 
@@ -86,7 +90,68 @@ expect(node, inputs=[text, pattern, rewrite], outputs=[y],
 
 </details>
 
-### <a name="StringRegexSplit"></a><a name="StringRegexSplit">**StringRegexSplit**</a>
+### <a name="StringECMARegexReplace"></a><a name="StringECMARegexReplace">**StringECMARegexReplace**</a>
+
+String replacement based on [ECMA-format](https://en.cppreference.com/w/cpp/regex/ecmascript) regular expressions.
+
+#### Inputs
+
+***text: tensor(string)***
+
+String tensor to extract slices from.
+
+***pattern: tensor(string)***
+
+Pattern of the regular expression.
+
+***rewrite: tensor(string)***
+
+Replacement.
+
+#### Attributes
+
+***global_replace: int64*** (default is 1)
+
+Replace all strings matching the pattern or the first one.
+
+
+***ignore_case: int64*** (default is 0)
+
+Replace 
+
+#### Outputs
+
+***output: tensor(string)***
+
+String with replacements.
+
+#### Examples
+
+<details>
+<summary>StringRegexReplace</summary>
+
+```python
+
+node = onnx.helper.make_node(
+    'StringRegexReplace',
+    inputs=['text', 'pattern', 'rewrite'],
+    outputs=['y'],
+)
+
+text = np.array([['def myfunc():'], ['def dummy():']])
+pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
+rewrite = np.array([r'static PyObject* py_$1(void) {'])
+y = [['static PyObject* py_myfunc(void) {'],
+     ['static PyObject* py_dummy(void) {']]
+
+expect(node, inputs=[text, pattern, rewrite], outputs=[y],
+       name='test_string_regex_replace')
+```
+
+</details>
+
+
+### <a name="StringRegexSplitWithOffsets"></a><a name="StringRegexSplitWithOffsets">**StringRegexSplitWithOffsets**</a>
 
 Splits string based on regular expressions.
 
@@ -719,27 +784,59 @@ expect(node, inputs=[inputs, nbest_size, alpha, add_bos, add_eos, reverse],
 ```
 </details>
 
-### <a name="XLNetTokenizer"></a><a name="XLNetTokenizer">**XLNetTokenizer**</a>
+### <a name="BasicTokenizer"></a><a name="BasicTokenizer">**BasicTokenizer**</a>
 
-GPT2Tokenizer that performs SentencePiece tokenization to the input tensor, based on the [hugging face version](https://huggingface.co/transformers/model_doc/xlnet.html#xlnettokenizer).
+BasicTokenizer performs basic tokenization to input string tensor, based on [basic tokenizer in BertTokenizer(hugging face version)](https://huggingface.co/transformers/_modules/transformers/models/bert/tokenization_bert.html#BertTokenizer).
 
 #### Inputs
 
-***data: tensor(string)***
-The string tensor for tokenization
+***data: tensor(string)*** The string tensor for tokenization
+
+#### Attributes
+
+***model: string*** The sentencepiece model serialized proto as stored as a string.
 
 #### Outputs
 
-***output: tensor(int64)***
+***tokens: tensor(int32)*** Indices of each token.
+
+***indices: tensor(int64)*** Indices of every first token of input sentences.
+`indices[i+1] - indices[i]` is the number of tokens in input `i`.
 
 Tokenized result of the input
 
 #### Examples
 
 <details>
-<summary>word_piece_tokenizer</summary>
+<summary>example 1</summary>
 
 ```python
 
+url = "https://github.com/microsoft/ort-customops/raw/main/test/data/test_sentencepiece_ops_model__6.txt"
+with urllib.request.urlopen(url) as f:
+    content = f.read()
+model = np.array(list(base64.decodebytes(content.encode())), dtype=np.uint8)
+
+node = onnx.helper.make_node(
+    'SentencepieceTokenizer',
+    inputs=['inputs', 'nbest_size', 'alpha', 'add_bos', 'add_eos', 'reverse'],
+    outputs=['indices', 'output'],
+    mapping_file_name='vocabulary.txt',
+    unmapping_value="unknown_word",
+    model=model
+)
+
+inputs = np.array(["Hello world", "Hello world louder"], dtype=np.object),
+nbest_size = np.array([0], dtype=np.float32),
+alpha = np.array([0], dtype=np.float32),
+add_bos = np.array([0], dtype=np.bool_),
+add_eos = np.array([0], dtype=np.bool_),
+reverse = np.array([0], dtype=np.bool_)
+
+tokens = array([17486,  1017, 17486,  1017,   155, 21869], dtype=int32)
+indices = array([0, 2, 6], dtype=int64)
+
+expect(node, inputs=[inputs, nbest_size, alpha, add_bos, add_eos, reverse],
+       outputs=[tokens, indices], name='sp')
 ```
 </details>
