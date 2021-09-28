@@ -140,7 +140,7 @@ ext_modules = [
 packages = find_packages()
 package_dir = {k: os.path.join('.', k.replace(".", "/")) for k in packages}
 package_data = {
-    "onnxruntime_extensions": ["*.dll", "*.so", "*.pyd"],
+    "onnxruntime_extensions": ["*.so", "*.pyd"],
 }
 
 long_description = ''
@@ -169,6 +169,7 @@ setup(
         build_ext=BuildCMakeExt,
         ),
     include_package_data=True,
+    has_ext_modules=lambda: True,
     install_requires=read_requirements(),
     classifiers=[
         'Development Status :: 4 - Beta',
