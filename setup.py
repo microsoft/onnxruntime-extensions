@@ -5,7 +5,10 @@
 ###########################################################################
 
 from setuptools import setup, find_packages
+from setuptools.dist import Distribution
 from setuptools.command.build_ext import build_ext as _build_ext
+from setuptools.command.develop import develop as _develop
+from setuptools.command.build_py import build_py as _build_py
 
 import os
 import sys
@@ -81,7 +84,7 @@ class BuildCMakeExt(_build_ext):
             '-DOCOS_EXTENTION_NAME=' + pathlib.Path(self.get_ext_filename(extension.name)).name,
             '-DCMAKE_BUILD_TYPE=' + config
         ]
-        # Uses to overwrite 
+        # overwrite the Python module info if the auto-detection doesn't work.
         # export Python3_INCLUDE_DIRS=/opt/python/cp38-cp38
         # export Python3_LIBRARIES=/opt/python/cp38-cp38
         for env in ['Python3_INCLUDE_DIRS', 'Python3_LIBRARIES']:
@@ -103,6 +106,23 @@ class BuildCMakeExt(_build_ext):
         if sys.platform == "win32":
             self.copy_file(build_temp / config / 'ortcustomops.dll',
                            self.get_ext_filename(extension.name))
+
+
+class BuildPy(_build_py):
+    def run(self):
+        self.run_command("build_ext")
+        return super().run()
+
+
+class BuildDevelop(_develop):
+    def run(self):
+        self.run_command("build_ext")
+        return super().run()
+
+
+class BinaryDistribution(Distribution):
+    def has_ext_modules(self):
+        return True
 
 
 def read_requirements():
@@ -129,7 +149,6 @@ def read_version():
 
 if sys.platform == "win32":
     load_msvcvar()
-
 
 ext_modules = [
     setuptools.extension.Extension(
@@ -167,9 +186,11 @@ setup(
     ext_modules=ext_modules,
     cmdclass=dict(
         build_ext=BuildCMakeExt,
+        build_py=BuildPy,
+        develop=BuildDevelop
         ),
     include_package_data=True,
-    has_ext_modules=lambda: True,
+    distclass=BinaryDistribution,
     install_requires=read_requirements(),
     classifiers=[
         'Development Status :: 4 - Beta',
