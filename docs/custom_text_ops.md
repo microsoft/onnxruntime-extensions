@@ -831,32 +831,62 @@ import transformers
 tokenizer = transformers.BasicTokenizer()
 
 node = onnx.helper.make_node(
-    'SentencepieceTokenizer',
+    'BasicTokenizer',
     inputs=['text'],
     outputs=['tokens'],
 )
 
 inputs = np.array([ "Hello world louder"], dtype=np.object),
-tokens = array(tokenizer(inputs), dtype=int32)
+tokens = np.array(tokenizer(inputs), dtype=int32)
 
 expect(node, inputs=[inputs],
        outputs=[tokens], name='test_basic_tokenizer')
 ```
 </details>
 
-### <a name="BasicTokenizer"></a><a name="BasicTokenizer">**BasicTokenizer**</a>
+### <a name="BertTokenizer"></a><a name="BertTokenizer">**BertTokenizer**</a>
 
-BasicTokenizer performs basic tokenization to input string tensor, based on [basic tokenizer in BertTokenizer(hugging face version)](https://huggingface.co/transformers/_modules/transformers/models/bert/tokenization_bert.html#BertTokenizer).
-
+BertTokenizer replicates `encode_plus` function of [BertTokenizer (huggingface version )](https://huggingface.co/transformers/_modules/transformers/models/bert/tokenization_bert.html#BertTokenizer).
 #### Inputs
 
 ***text: tensor(string)*** The string tensor for tokenization
 
 #### Attributes
 
+***vocab_file: string***
+
+The content of vocab which has same with huggingface.
+
 ***do_lower_case: int64_t*** (default is 1, 1 represents True, 0 represents False)
 
 Whether or not to lowercase the input when tokenizing.
+
+***do_basic_tokenize: int64_t*** (default is 1, 1 represents True, 0 represents False)
+
+Whether or not to do basic tokenization before WordPiece.
+
+***unk_token: string***
+
+The unknown token. A token that is not in the vocabulary cannot be converted to an ID and is set to be this
+token instead.
+
+***sep_token: string***
+
+The separator token, which is used when building a sequence from multiple sequences, e.g. two sequences for
+sequence classification or for a text and a question for question answering. It is also used as the last
+token of a sequence built with special tokens.
+
+***pad_token: string***
+
+The token used for padding, for example when batching sequences of different lengths.
+
+***cls_token: string***
+
+The classifier token which is used when doing sequence classification (classification of the whole sequence instead of per-token classification). It is the first token of the sequence when built with special tokens.
+
+***mask_token: string***
+
+The token used for masking values. This is the token used when training this model with masked language modeling. This is the token which the model will try to predict.
 
 ***tokenize_chinese_chars: int64_t*** (default is 1, 1 represents True, 0 represents False)
 
@@ -875,9 +905,25 @@ Splits punctuation on a piece of text.
 
 Remove control chars(such as NUL, BEL) in the text.
 
+***truncation_strategy_name: string***
+
+The name of truncation strategy, it could be `longest_first`, `only_first`, `only_second`, `longest_from_back`.
+
 #### Outputs
 
-***tokens: tensor(string)*** Tokenized tokens.
+***input_ids: tensor(int64_t)***
+
+List of token ids.
+
+***token_type_ids: tensor(64_t)***
+
+List of token type ids
+
+***attention_mask: tensor(64_t)***
+
+List of indices specifying which tokens should b
+e attended to by the model
+
 
 #### Examples
 
@@ -887,18 +933,124 @@ Remove control chars(such as NUL, BEL) in the text.
 ```python
 import transformers
 
-tokenizer = transformers.BasicTokenizer()
+bert_cased_tokenizer = transformers.BertTokenizer.from_pretrained('bert-base-cased')
 
 node = onnx.helper.make_node(
-    'SentencepieceTokenizer',
+    'BertTokenizer',
     inputs=['text'],
     outputs=['tokens'],
 )
 
-inputs = np.array([ "Hello world louder"], dtype=np.object),
-tokens = array(tokenizer(inputs), dtype=int32)
+text = "Hello world louder"
+inputs = np.array([text], dtype=np.object),
+
+bert_tokenize_result = bert_cased_tokenizer.tokenize(text)
+
+input_ids = np.array(bert_tokenize_result[0])
+token_type_ids = np.array(bert_tokenize_result[1])
+attention_mask = np.array(bert_tokenize_result[2])
 
 expect(node, inputs=[inputs],
-       outputs=[tokens], name='test_basic_tokenizer')
+       outputs=[input_ids, token_type_ids, attention_mask], name='test_bert_tokenizer')
+```
+</details>
+
+
+### <a name="BertTokenizerDecoder"></a><a name="BertTokenizerDecoder">**BertTokenizerDecoder**</a>
+
+BertTokenizer replicates `decode` function of [BertTokenizer (huggingface version )](https://huggingface.co/transformers/_modules/transformers/models/bert/tokenization_bert.html#BertTokenizer).
+#### Inputs
+
+***token_ids: tensor(int64)***
+
+List of tokenized input ids.
+
+***indices: tensor(int64)***
+
+List of `[start_position, end_position]` to indicate what segments of input ids should be decoded. This input only enabled when attribute `use_indices`=1.
+
+Usually, it is used to decode the slot in the text.
+
+#### Attributes
+
+***vocab_file: string***
+
+The content of vocab which has same with huggingface.
+
+***unk_token: string***
+
+The unknown token. A token that is not in the vocabulary cannot be converted to an ID and is set to be this
+token instead.
+
+***sep_token: string***
+
+The separator token, which is used when building a sequence from multiple sequences, e.g. two sequences for
+sequence classification or for a text and a question for question answering. It is also used as the last
+token of a sequence built with special tokens.
+
+***pad_token: string***
+
+The token used for padding, for example when batching sequences of different lengths.
+
+***cls_token: string***
+
+The classifier token which is used when doing sequence classification (classification of the whole sequence instead of per-token classification). It is the first token of the sequence when built with special tokens.
+
+***mask_token: string***
+
+The token used for masking values. This is the token used when training this model with masked language modeling. This is the token which the model will try to predict.
+
+***suffix_indicator: string***
+
+The suffix indicator.
+
+***use_indices: int64_t***
+
+Whether use second input.
+
+***skip_special_tokens: int64_t***
+
+Whether or not to remove special tokens in the decoding.
+
+***clean_up_tokenization_spaces: int64_t***
+
+Whether or not to clean up the tokenization spaces.
+
+#### Outputs
+
+***sentences: tensor(int64_t)***
+
+The decoded sentences.
+
+#### Examples
+
+<details>
+<summary>example 1</summary>
+
+```python
+import transformers
+
+def get_file_content(path):
+  with open(path, "rb") as file:
+    return file.read()
+  
+bert_cased_tokenizer = transformers.BertTokenizer.from_pretrained('bert-base-cased')
+bert_cased_tokenizer.save('.', 'bert')
+
+
+node = onnx.helper.make_node(
+    'BertTokenizerDecoder',
+    inputs=['token_ids'],
+    outputs=['sentences'],
+    vocab_file=get_file_content("bert-vocab.txt")
+)
+
+text = "Hello world louder"
+token_ids = np.array([bert_cased_tokenizer.tokenize(text)], dtype=np.object),
+sentences = np.array(text)
+
+
+expect(node, inputs=[token_ids],
+       outputs=[sentences], name='test_bert_tokenizer')
 ```
 </details>
