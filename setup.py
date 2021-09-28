@@ -37,16 +37,24 @@ def load_msvcvar():
                 "please install one or specify the environement variable VCVARS to the path of VS vcvars64.bat.")
 
 
-def read_git_refs(git_args):
+def read_git_refs():
+    release_branch = False
     stdout, _ = subprocess.Popen(
-            ['git'] + git_args,
+            ['git'] + ['log', '-1', '--format=%H'],
+            cwd=TOP_DIR,
+            stdout=subprocess.PIPE, universal_newlines=True).communicate()
+    HEAD = dedent(stdout.splitlines()[0]).strip('\n\r')
+    stdout, _ = subprocess.Popen(
+            ['git'] + ['show-ref', '--head'],
             cwd=TOP_DIR,
             stdout=subprocess.PIPE, universal_newlines=True).communicate()
     for _ln in stdout.splitlines():
         _ln = dedent(_ln).strip('\n\r')
-        if _ln:
-            return _ln
-    return ''
+        if _ln.startswith(HEAD):
+            _, _2 = _ln.split(' ')
+            if (_2.startswith('refs/remotes/origin/rel-')):
+                release_branch = True
+    return release_branch, HEAD
 
 
 class BuildCMakeExt(_build_ext):
@@ -111,11 +119,11 @@ def read_version():
         if len(line) > 0:
             version_str = line[0].split('=')[1].strip('" \n\r')
 
-    # is it a nightly or dev build?
-    if os.path.isdir('.git') and \
-       not read_git_refs(['rev-parse', '--abbrev-ref', 'HEAD']).startswith('rel-'):
-        # append a git commit id from git remote repo, while the local change ids are skipped.
-        version_str += '+' + read_git_refs(['rev-parse', 'HEAD'])[:7]
+    # is it a dev build or release?
+    if os.path.isdir(os.path.join(TOP_DIR, '.git')):
+        rel_br, cid = read_git_refs()
+        if not rel_br:
+            version_str += '+' + cid[:7]
     return version_str
 
 
