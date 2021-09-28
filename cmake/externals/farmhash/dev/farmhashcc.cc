@@ -201,7 +201,7 @@ STATIC_INLINE pair<uint64_t, uint64_t> WeakHashLen32WithSeeds(
 
 // A subroutine for CityHash128().  Returns a decent 128-bit hash for strings
 // of any length representable in signed long.  Based on City and Murmur.
-STATIC_INLINE uint128_t CityMurmur(const char *s, size_t len, uint128_t seed) {
+STATIC_INLINE NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t CityMurmur(const char *s, size_t len, NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t seed) {
   uint64_t a = Uint128Low64(seed);
   uint64_t b = Uint128High64(seed);
   uint64_t c = 0;
@@ -231,7 +231,7 @@ STATIC_INLINE uint128_t CityMurmur(const char *s, size_t len, uint128_t seed) {
   return Uint128(a ^ b, HashLen16(b, a));
 }
 
-uint128_t CityHash128WithSeed(const char *s, size_t len, uint128_t seed) {
+NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t CityHash128WithSeed(const char *s, size_t len, NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t seed) {
   if (len < 128) {
     return CityMurmur(s, len, seed);
   }
@@ -294,13 +294,13 @@ uint128_t CityHash128WithSeed(const char *s, size_t len, uint128_t seed) {
                  HashLen16(x + w.second, y + v.second));
 }
 
-STATIC_INLINE uint128_t CityHash128(const char *s, size_t len) {
+STATIC_INLINE NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t CityHash128(const char *s, size_t len) {
   return len >= 16 ?
       CityHash128WithSeed(s + 16, len - 16,
                           Uint128(Fetch(s), Fetch(s + 8) + k0)) :
       CityHash128WithSeed(s, len, Uint128(k0, k1));
 }
 
-uint128_t Fingerprint128(const char* s, size_t len) {
+NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t Fingerprint128(const char* s, size_t len) {
   return CityHash128(s, len);
 }

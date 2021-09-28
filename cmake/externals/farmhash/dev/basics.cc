@@ -51,7 +51,7 @@ template <typename T> STATIC_INLINE T DebugTweak(T x) {
   return x;
 }
 
-template <> uint128_t DebugTweak(uint128_t x) {
+template <> NAMESPACE_FOR_HASH_FUNCTIONS::NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t DebugTweak(uint128_t x) {
   if (debug_mode) {
     uint64_t y = DebugTweak(Uint128Low64(x));
     uint64_t z = DebugTweak(Uint128High64(x));
