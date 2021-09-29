@@ -5,7 +5,10 @@
 ###########################################################################
 
 from setuptools import setup, find_packages
+from setuptools.dist import Distribution
 from setuptools.command.build_ext import build_ext as _build_ext
+from setuptools.command.develop import develop as _develop
+from setuptools.command.build_py import build_py as _build_py
 
 import os
 import sys
@@ -37,16 +40,24 @@ def load_msvcvar():
                 "please install one or specify the environement variable VCVARS to the path of VS vcvars64.bat.")
 
 
-def read_git_refs(git_args):
+def read_git_refs():
+    release_branch = False
     stdout, _ = subprocess.Popen(
-            ['git'] + git_args,
+            ['git'] + ['log', '-1', '--format=%H'],
+            cwd=TOP_DIR,
+            stdout=subprocess.PIPE, universal_newlines=True).communicate()
+    HEAD = dedent(stdout.splitlines()[0]).strip('\n\r')
+    stdout, _ = subprocess.Popen(
+            ['git'] + ['show-ref', '--head'],
             cwd=TOP_DIR,
             stdout=subprocess.PIPE, universal_newlines=True).communicate()
     for _ln in stdout.splitlines():
         _ln = dedent(_ln).strip('\n\r')
-        if _ln:
-            return _ln
-    return ''
+        if _ln.startswith(HEAD):
+            _, _2 = _ln.split(' ')
+            if (_2.startswith('refs/remotes/origin/rel-')):
+                release_branch = True
+    return release_branch, HEAD
 
 
 class BuildCMakeExt(_build_ext):
@@ -73,7 +84,7 @@ class BuildCMakeExt(_build_ext):
             '-DOCOS_EXTENTION_NAME=' + pathlib.Path(self.get_ext_filename(extension.name)).name,
             '-DCMAKE_BUILD_TYPE=' + config
         ]
-        # Uses to overwrite 
+        # overwrite the Python module info if the auto-detection doesn't work.
         # export Python3_INCLUDE_DIRS=/opt/python/cp38-cp38
         # export Python3_LIBRARIES=/opt/python/cp38-cp38
         for env in ['Python3_INCLUDE_DIRS', 'Python3_LIBRARIES']:
@@ -97,6 +108,23 @@ class BuildCMakeExt(_build_ext):
                            self.get_ext_filename(extension.name))
 
 
+class BuildPy(_build_py):
+    def run(self):
+        self.run_command("build_ext")
+        return super().run()
+
+
+class BuildDevelop(_develop):
+    def run(self):
+        self.run_command("build_ext")
+        return super().run()
+
+
+class BinaryDistribution(Distribution):
+    def has_ext_modules(self):
+        return True
+
+
 def read_requirements():
     with open(os.path.join(TOP_DIR, "requirements.txt"), "r") as f:
         requirements = [_ for _ in [dedent(_) for _ in f.readlines()] if _ is not None]
@@ -111,17 +139,16 @@ def read_version():
         if len(line) > 0:
             version_str = line[0].split('=')[1].strip('" \n\r')
 
-    # is it a nightly or dev build?
-    if os.path.isdir('.git') and \
-       not read_git_refs(['rev-parse', '--abbrev-ref', 'HEAD']).startswith('rel-'):
-        # append a git commit id from git remote repo, while the local change ids are skipped.
-        version_str += '+' + read_git_refs(['rev-parse', 'HEAD'])[:7]
+    # is it a dev build or release?
+    if os.path.isdir(os.path.join(TOP_DIR, '.git')):
+        rel_br, cid = read_git_refs()
+        if not rel_br:
+            version_str += '+' + cid[:7]
     return version_str
 
 
 if sys.platform == "win32":
     load_msvcvar()
-
 
 ext_modules = [
     setuptools.extension.Extension(
@@ -132,7 +159,7 @@ ext_modules = [
 packages = find_packages()
 package_dir = {k: os.path.join('.', k.replace(".", "/")) for k in packages}
 package_data = {
-    "onnxruntime_extensions": ["*.dll", "*.so", "*.pyd"],
+    "onnxruntime_extensions": ["*.so", "*.pyd"],
 }
 
 long_description = ''
@@ -159,8 +186,11 @@ setup(
     ext_modules=ext_modules,
     cmdclass=dict(
         build_ext=BuildCMakeExt,
+        build_py=BuildPy,
+        develop=BuildDevelop
         ),
     include_package_data=True,
+    distclass=BinaryDistribution,
     install_requires=read_requirements(),
     classifiers=[
         'Development Status :: 4 - Beta',
