@@ -7,6 +7,7 @@
 #include <locale>
 #include <codecvt>
 #include <algorithm>
+#include <memory>
 
 KernelBlingFireSentenceBreaker::KernelBlingFireSentenceBreaker(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info), max_sentence(-1) {
   model_data_ = ort_.KernelInfoGetAttribute<std::string>(info, "model");
@@ -41,10 +42,9 @@ void KernelBlingFireSentenceBreaker::Compute(OrtKernelContext* context) {
 
   std::string& input_string = input_data[0];
   int max_length = 2 * input_string.size() + 1;
-  std::string output_str;
-  output_str.reserve(max_length);
+  std::unique_ptr<char[]> output_str = std::make_unique<char[]>(max_length);
 
-  int output_length = TextToSentencesWithOffsetsWithModel(input_string.data(), input_string.size(), output_str.data(), nullptr, nullptr, max_length, model_.get());
+  int output_length = TextToSentencesWithOffsetsWithModel(input_string.data(), input_string.size(), output_str.get(), nullptr, nullptr, max_length, model_.get());
   if (output_length < 0) {
     ORT_CXX_API_THROW(MakeString("splitting input:\"", input_string, "\"  failed"), ORT_INVALID_ARGUMENT);
   }
