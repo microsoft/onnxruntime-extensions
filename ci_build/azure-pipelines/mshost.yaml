@@ -129,7 +129,7 @@ jobs:
 
   - job: MacOSWheel
     pool:
-      vmImage: 'macOS-latest'
+      vmImage: 'macOS-10.15'
 
     strategy:
       matrix:
