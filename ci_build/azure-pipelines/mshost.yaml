@@ -45,7 +45,7 @@ jobs:
 
       - script: |
           cd out/Linux/RelWithDebInfo
-          ctest -C RelWithDebInfo
+          ctest -C RelWithDebInfo --output-on-failure
         displayName: Run C++ native tests
 
       - task: UsePythonVersion@0
@@ -120,7 +120,7 @@ jobs:
 
       - script: |
           cd out/Darwin/RelWithDebInfo
-          ctest -C RelWithDebInfo
+          ctest -C RelWithDebInfo --output-on-failure
         displayName: Run C++ native tests
 
   #############
@@ -229,7 +229,7 @@ jobs:
 
       - script: |
           cd out/Windows
-          ctest -C RelWithDebInfo
+          ctest -C RelWithDebInfo --output-on-failure
         displayName: Run C++ native tests
 
   ################
