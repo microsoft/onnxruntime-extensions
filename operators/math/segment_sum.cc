@@ -20,8 +20,8 @@ void KernelSegmentSum_Compute(Ort::CustomOpApi& ort_, OrtKernelContext* context)
     ORT_CXX_API_THROW("segment_ids must a single tensor", ORT_INVALID_GRAPH);
   if (dim_data[0] != dim_seg[0])
     ORT_CXX_API_THROW(MakeString(
-        "First dimensions of data and segment_ids should be the same, data shape: ", dim_data.GetDims(),
-        " segment_ids shape: ", dim_seg.GetDims()), ORT_INVALID_GRAPH);
+        "First dimensions of data and segment_ids should be the same, data shape: ", dim_data,
+        " segment_ids shape: ", dim_seg), ORT_INVALID_GRAPH);
 
   int64_t last_seg = p_segment_ids[dim_seg[0] - 1];
   OrtTensorDimensions dim_out = dim_data;

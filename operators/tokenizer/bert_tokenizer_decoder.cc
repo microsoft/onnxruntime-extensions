@@ -143,12 +143,13 @@ void KernelBertTokenizerDecoder::Compute(OrtKernelContext* context) {
   OrtTensorDimensions positions_dim(ort_, positions);
   if (use_indices_ &&
       (!(positions_dim.empty() ||
-         (positions_dim.Size() == 0) ||
-         (positions_dim.size() == 2 && positions_dim[1] == 2)))) {
+      (positions_dim.Size() == 0) ||
+      (positions_dim.size() == 2 && positions_dim[1] == 2)))) {
     ORT_CXX_API_THROW("[BertTokenizerDecoder]: Expect positions empty or a [n, 2] matrix when use indices", ORT_INVALID_GRAPH);
   }
 
-  const int64_t* p_positions = positions_dim.Size() == 0 ? nullptr : ort_.GetTensorData<int64_t>(positions);
+  const int64_t* p_positions =
+    positions_dim.empty() || positions_dim.Size() == 0? nullptr : ort_.GetTensorData<int64_t>(positions);
 
   std::vector<std::string> result;
   std::vector<int64_t> output_dim(1);
