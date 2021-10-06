@@ -13,6 +13,7 @@ struct TestValue {
   std::vector<int64_t> dims;
   std::vector<float> values_float;
   std::vector<int32_t> values_int32;
+  std::vector<int64_t> values_int64;
   std::vector<std::string> values_string;
 };
 

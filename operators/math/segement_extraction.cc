@@ -16,7 +16,7 @@ void KernelSegmentExtraction::Compute(OrtKernelContext* context) {
 
   std::vector<std::int64_t> segment_value;
   std::vector<std::int64_t> segment_position;
-  for (int i = 0; i < input_dim.Size(); i++) {
+  for (std::int64_t i = 0; i < input_dim.Size(); i++) {
     if (!p_data[i]) {
       continue;
     }

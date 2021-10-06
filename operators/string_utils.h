@@ -4,6 +4,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include "ocos.h"
 
 template <typename T>
 inline void MakeStringInternal(std::ostringstream& ss, const T& t) noexcept {
@@ -20,6 +21,11 @@ inline void MakeStringInternal(std::ostringstream& ss, const std::vector<int64_t
     ss << t[i];
   }
   ss << "]";
+}
+
+template <>
+inline void MakeStringInternal(std::ostringstream& ss, const OrtTensorDimensions& t) noexcept {
+  MakeStringInternal(ss, static_cast<const std::vector<int64_t>&>(t));
 }
 
 template <>
