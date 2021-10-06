@@ -116,7 +116,6 @@ class BuildPy(_build_py):
 
 class BuildDevelop(_develop):
     def run(self):
-        self.run_command("build_ext")
         return super().run()
 
 
