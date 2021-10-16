@@ -33,6 +33,7 @@ void KernelBlingFireSentenceBreaker::Compute(OrtKernelContext* context) {
   const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
   OrtTensorDimensions dimensions(ort_, input);
 
+  // TODO: fix this scalar check.
   if (dimensions.Size() != 1 && dimensions[0] != 1) {
     ORT_CXX_API_THROW("We only support string scalar.", ORT_INVALID_ARGUMENT);
   }
