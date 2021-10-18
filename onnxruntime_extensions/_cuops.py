@@ -20,7 +20,7 @@ class CustomOp:
     def get_inputs(cls): return None
 
     @classmethod
-    def get_output(cls): return None
+    def get_outputs(cls): return None
 
     @classmethod
     def serialize_attr(cls, attrs):
