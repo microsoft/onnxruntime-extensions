@@ -10,7 +10,9 @@ def _get_test_data_file(*sub_dirs):
     return str(test_dir.joinpath(*sub_dirs))
 
 
-bert_cased_tokenizer = transformers.BertTokenizer(_get_test_data_file('data', 'bert_basic_cased_vocab.txt'), False, strip_accents=True)
+bert_cased_tokenizer = transformers.BertTokenizer(_get_test_data_file('data', 'bert_basic_cased_vocab.txt'), False,
+                                                  strip_accents=True)
+
 
 def _run_basic_case(input, vocab_path):
     t2stc = PyOrtFunction.from_customop(BertTokenizer, vocab_file=vocab_path, do_lower_case=0, strip_accents=1)
@@ -40,11 +42,10 @@ class TestBertTokenizer(unittest.TestCase):
             input="ÀÁÂÃÄÅÇÈÉÊËÌÍÎÑÒÓÔÕÖÚÜ\t䗓𨖷虴𨀐辘𧄋脟𩑢𡗶镇伢𧎼䪱轚榶𢑌㺽𤨡!#$%&(Tom@microsoft.com)*+,-./:;<=>?@[\\]^_`{|}~",
             vocab_path=_get_test_data_file('data', 'bert_basic_cased_vocab.txt'))
         _run_basic_case(input="网易云音乐", vocab_path=_get_test_data_file('data', 'bert_basic_cased_vocab.txt'))
+        _run_basic_case(input="本想好好的伤感　想放任　但是没泪痕", vocab_path=_get_test_data_file('data', 'bert_basic_cased_vocab.txt'))
         _run_basic_case(input="网 易 云 音 乐",
                         vocab_path=_get_test_data_file('data', 'bert_basic_cased_vocab.txt'))
         _run_basic_case(input="cat is playing toys",
-                        vocab_path=_get_test_data_file('data', 'bert_basic_cased_vocab.txt'))
-        _run_basic_case(input="cat isnot playing toyssss",
                         vocab_path=_get_test_data_file('data', 'bert_basic_cased_vocab.txt'))
         _run_basic_case(input="cat isnot playing toyssss",
                         vocab_path=_get_test_data_file('data', 'bert_basic_cased_vocab.txt'))
