@@ -18,7 +18,6 @@ def _run_basic_case(input, vocab_path):
     t2stc = PyOrtFunction.from_customop(BertTokenizer, vocab_file=vocab_path, do_lower_case=0, strip_accents=1)
     result = t2stc([input])
     expect_result = bert_cased_tokenizer.encode_plus(input)
-    print(expect_result)
     np.testing.assert_array_equal(result[0], expect_result['input_ids'])
     np.testing.assert_array_equal(result[1], expect_result['token_type_ids'])
     np.testing.assert_array_equal(result[2], expect_result['attention_mask'])

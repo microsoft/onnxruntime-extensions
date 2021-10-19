@@ -59,6 +59,12 @@ bool IsCJK(char32_t c);
 
 bool IsAccent(char32_t c);
 
+bool IsSpace(char32_t c);
+
+bool IsPunct(char32_t c);
+
+bool IsControl(char32_t c);
+
 char32_t StripAccent(char32_t c);
 
 uint64_t Hash64(const char* data, size_t n, uint64_t seed);
