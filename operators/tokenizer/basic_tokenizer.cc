@@ -54,22 +54,20 @@ std::vector<ustring> BasicTokenizer::Tokenize(ustring text) {
     }
 
     // 0x2019 unicode is not punctuation in some Linux platform, 
-    // to be consistent, take it as punctatuation always.
-    if (tokenize_punctuation_ && (::iswpunct(c) || c == wint_t(0x2019))) {
+    // to be consistent, take it as punctuation.
+    if (tokenize_punctuation_ && IsPunct(c)) {
       push_current_token_and_clear();
       push_single_char_and_clear(c);
       continue;
     }
 
     // split by space
-    if (::iswspace(c)) {
+    if (IsSpace(c)) {
       push_current_token_and_clear();
       continue;
     }
 
-    // iscntrl will judge \t\f\n\r as control char
-    // but it has been filter by isspace(c)
-    if (remove_control_chars_ && ::iswcntrl(c)) {
+    if (remove_control_chars_ && IsControl(c)) {
       continue;
     }
 

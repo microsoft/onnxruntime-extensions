@@ -35,6 +35,7 @@ out/
 .setuptools-cmake-build/
 onnxruntime-*-*-*/
 temp_*.onnx
+test/data/*.py
 
 # Compiled Dynamic libraries
 *.so
