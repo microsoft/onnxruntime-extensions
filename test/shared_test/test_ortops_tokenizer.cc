@@ -2,11 +2,12 @@
 // Licensed under the MIT License.
 
 #include <filesystem>
+#include <locale>
 #include "gtest/gtest.h"
 #include "ocos.h"
 #include "test_kernel.hpp"
 
-TEST(utils, test_bert_tokenizer) {
+TEST(tokenizer_opertors, test_bert_tokenizer) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
 
   std::vector<TestValue> inputs(1);
@@ -35,9 +36,8 @@ TEST(utils, test_bert_tokenizer) {
   model_path = model_path.parent_path();
   model_path /= "..";
   model_path /= "data";
-  model_path /= "test_bert_tokenizer1.onnx";
+  model_path /= "test_bert_tokenizer.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
-
 
   inputs[0].name = "text";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -79,5 +79,193 @@ TEST(utils, test_bert_tokenizer) {
   outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   outputs[2].dims = {71};
   outputs[2].values_int64 = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].name = "text";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {1};
+  inputs[0].values_string = {""};
+
+  outputs[0].name = "input_ids";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[0].dims = {2};
+  outputs[0].values_int64 = {101, 102};
+
+  outputs[1].name = "token_type_ids";
+  outputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[1].dims = {2};
+  outputs[1].values_int64 = {0, 0};
+
+  outputs[2].name = "attention_mask";
+  outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[2].dims = {2};
+  outputs[2].values_int64 = {1, 1};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].name = "text";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {2};
+  inputs[0].values_string = {"M1 Pro and M1 Max scale the amazing M1 architecture to new heights — and for the first time, they bring a system on a chip (SoC) architecture to a pro notebook.",
+                             "Both have more CPU cores, more GPU cores, and more unified memory than M1. Along with a powerful Neural Engine for supercharged machine learning and upgraded media engines with ProRes support, M1 Pro and M1 Max allow pros to do things they never could before."};
+
+  outputs[0].name = "input_ids";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[0].dims = {99};
+  outputs[0].values_int64 = {101, 26528, 5096, 1105, 26528, 3405, 3418, 1103, 6929, 26528, 4220, 1106, 1207, 16291, 100, 1105, 1111, 1103, 1148, 1159, 117, 1152, 2498, 170, 1449, 1113, 170, 11451, 113, 1573, 1658, 114, 4220, 1106, 170, 5250, 17189, 119, 102, 2695, 1138, 1167, 18701, 4160, 1116, 117, 1167, 15175, 2591, 4160, 1116, 117, 1105, 1167, 13943, 2962, 1190, 26528, 119, 6364, 1114, 170, 3110, 151, 8816, 1348, 13451, 1111, 7688, 23131, 3395, 3776, 1105, 9554, 2394, 4540, 1114, 5096, 2069, 1279, 1619, 117, 26528, 5096, 1105, 26528, 3405, 2621, 5250, 1116, 1106, 1202, 1614, 1152, 1309, 1180, 1196, 119, 102};
+
+  outputs[1].name = "token_type_ids";
+  outputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[1].dims = {99};
+  outputs[1].values_int64 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+
+  outputs[2].name = "attention_mask";
+  outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[2].dims = {99};
+  outputs[2].values_int64 = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].name = "text";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {2};
+  inputs[0].values_string = {"a", ""};
+
+  outputs[0].name = "input_ids";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[0].dims = {4};
+  outputs[0].values_int64 = {101, 170, 102, 102};
+
+  outputs[1].name = "token_type_ids";
+  outputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[1].dims = {4};
+  outputs[1].values_int64 = {0, 0, 0, 1};
+
+  outputs[2].name = "attention_mask";
+  outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[2].dims = {4};
+  outputs[2].values_int64 = {1, 1, 1, 1};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].name = "text";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {1};
+  inputs[0].values_string = {""};
+
+  outputs[0].name = "input_ids";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[0].dims = {2};
+  outputs[0].values_int64 = {101, 102};
+
+  outputs[1].name = "token_type_ids";
+  outputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[1].dims = {2};
+  outputs[1].values_int64 = {0, 0};
+
+  outputs[2].name = "attention_mask";
+  outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[2].dims = {2};
+  outputs[2].values_int64 = {1, 1};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].name = "text";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {2};
+  inputs[0].values_string = {"M1 Pro and M1 Max scale the amazing M1 architecture to new heights — and for the first time, they bring a system on a chip (SoC) architecture to a pro notebook.",
+                             "Both have more CPU cores, more GPU cores, and more unified memory than M1. Along with a powerful Neural Engine for supercharged machine learning and upgraded media engines with ProRes support, M1 Pro and M1 Max allow pros to do things they never could before."};
+
+  outputs[0].name = "input_ids";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[0].dims = {99};
+  outputs[0].values_int64 = {101, 26528, 5096, 1105, 26528, 3405, 3418, 1103, 6929, 26528, 4220, 1106, 1207, 16291, 100, 1105, 1111, 1103, 1148, 1159, 117, 1152, 2498, 170, 1449, 1113, 170, 11451, 113, 1573, 1658, 114, 4220, 1106, 170, 5250, 17189, 119, 102, 2695, 1138, 1167, 18701, 4160, 1116, 117, 1167, 15175, 2591, 4160, 1116, 117, 1105, 1167, 13943, 2962, 1190, 26528, 119, 6364, 1114, 170, 3110, 151, 8816, 1348, 13451, 1111, 7688, 23131, 3395, 3776, 1105, 9554, 2394, 4540, 1114, 5096, 2069, 1279, 1619, 117, 26528, 5096, 1105, 26528, 3405, 2621, 5250, 1116, 1106, 1202, 1614, 1152, 1309, 1180, 1196, 119, 102};
+
+  outputs[1].name = "token_type_ids";
+  outputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[1].dims = {99};
+  outputs[1].values_int64 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+
+  outputs[2].name = "attention_mask";
+  outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[2].dims = {99};
+  outputs[2].values_int64 = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].name = "text";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {2};
+  inputs[0].values_string = {"", "a"};
+
+  outputs[0].name = "input_ids";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[0].dims = {4};
+  outputs[0].values_int64 = {101, 102, 170, 102};
+
+  outputs[1].name = "token_type_ids";
+  outputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[1].dims = {4};
+  outputs[1].values_int64 = {0, 0, 1, 1};
+
+  outputs[2].name = "attention_mask";
+  outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[2].dims = {4};
+  outputs[2].values_int64 = {1, 1, 1, 1};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+}
+
+TEST(tokenizer_opertors, test_bert_tokenizer_scalar) {
+  auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
+
+  std::vector<TestValue> inputs(1);
+  inputs[0].name = "text";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {};
+  inputs[0].values_string = {"We look forward to welcoming you to our stores. Whether you shop in a store or shop online, our Specialists can help you buy the products you love."};
+
+  std::vector<TestValue> outputs(3);
+  outputs[0].name = "input_ids";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[0].dims = {33};
+  outputs[0].values_int64 = {101, 1195, 1440, 1977, 1106, 20028, 1128, 1106, 1412, 4822, 119, 2480, 1128, 4130, 1107, 170, 2984, 1137, 4130, 3294, 117, 1412, 18137, 1169, 1494, 1128, 4417, 1103, 2982, 1128, 1567, 119, 102};
+
+  outputs[1].name = "token_type_ids";
+  outputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[1].dims = {33};
+  outputs[1].values_int64 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+  outputs[2].name = "attention_mask";
+  outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[2].dims = {33};
+  outputs[2].values_int64 = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+
+  std::filesystem::path model_path = __FILE__;
+  model_path = model_path.parent_path();
+  model_path /= "..";
+  model_path /= "data";
+  model_path /= "test_bert_tokenizer_scalar.onnx";
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  std::locale("en-US");
+
+  inputs[0].name = "text";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {};
+  inputs[0].values_string = {
+      "再见我的爱\n"
+      "I wanna say goodbye\n"
+      "再见我的过去\n"
+      "I want a new life"};
+
+  outputs[0].name = "input_ids";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[0].dims = {22};
+  outputs[0].values_int64 = {101, 100, 100, 100, 100, 100, 178, 16445, 1474, 12903, 100, 100, 100, 100, 100, 100, 178, 1328, 170, 1207, 1297, 102};
+
+  outputs[1].name = "token_type_ids";
+  outputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[1].dims = {22};
+  outputs[1].values_int64 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+  outputs[2].name = "attention_mask";
+  outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[2].dims = {22};
+  outputs[2].values_int64 = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }
