@@ -242,7 +242,8 @@ TEST(tokenizer_opertors, test_bert_tokenizer_scalar) {
   model_path /= "test_bert_tokenizer_scalar.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 
-  std::locale("en_US.UTF-8");
+  // change locale to system locale
+  std::locale();
 
   inputs[0].name = "text";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
