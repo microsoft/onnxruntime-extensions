@@ -16,6 +16,8 @@ void KernelStringJoin::Compute(OrtKernelContext* context) {
   std::vector<std::string> X, sep;
   GetTensorMutableDataString(api_, ort_, context, input_X, X);
   GetTensorMutableDataString(api_, ort_, context, input_sep, sep);
+  if (X.size() == 0)
+    ORT_CXX_API_THROW("Input 1 is the strings to join, it should have at least 1 element but 0 now.", ORT_INVALID_ARGUMENT);
 
   // Setup output
   OrtTensorDimensions dimensions_sep(ort_, input_sep);
