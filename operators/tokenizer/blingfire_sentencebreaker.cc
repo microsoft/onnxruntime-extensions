@@ -52,16 +52,23 @@ void KernelBlingFireSentenceBreaker::Compute(OrtKernelContext* context) {
 
   // inline split output_str by newline '\n'
   std::vector<char*> output_sentences;
-  bool head_flag = true;
-  for (int i = 0; i < output_length; i++) {
-    if (head_flag) {
-      output_sentences.push_back(&output_str[i]);
-      head_flag = false;
-    }
 
-    if (output_str[i] == '\n') {
-      head_flag = true;
-      output_str[i] = '\0';
+  if (output_length == 0) {
+    // put one empty string if output_length is 0
+    output_sentences.push_back("");
+  }
+  else {
+    bool head_flag = true;
+    for (int i = 0; i < output_length; i++) {
+      if (head_flag) {
+        output_sentences.push_back(&output_str[i]);
+        head_flag = false;
+      }
+
+      if (output_str[i] == '\n') {
+        head_flag = true;
+        output_str[i] = '\0';
+      }
     }
   }
 
