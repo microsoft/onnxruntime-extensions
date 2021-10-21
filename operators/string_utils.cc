@@ -98,10 +98,23 @@ bool IsAccent(char32_t c)
   return c >= 0x300 && c <= 0x36F;
 }
 
+// only support latin now
+char32_t ToLower(char32_t c) {
+  if ((c >= 'A') && (c <= 'Z')) {
+    return c + 'a' - 'A';
+  }
+
+  if ((c >= U'À' && (c <= U'Þ'))) {
+    return c + U'à' - U'À';
+  }
+
+  return c;
+}
+
 char32_t StripAccent(char32_t c)
 {
   //   "ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ"
-  const char* tr = "AAAAAAÆCEEEEIIIIÐNOOOOO×ØUUUUYÞßaaaaaaæceeeeiiiiðnooooo÷øuuuuyþy";
+  const char32_t * tr = U"AAAAAAÆCEEEEIIIIÐNOOOOO×ØUUUUYÞßaaaaaaæceeeeiiiiðnooooo÷øuuuuyþy";
   if (c < 192 || c > 255) {
     return c;
 }
@@ -176,5 +189,6 @@ uint64_t Hash64(const char* data, size_t n, uint64_t seed) {
 uint64_t Hash64Fast(const char* data, size_t n) {
   return static_cast<int64_t>(util::Fingerprint64(data, n));
 }
+
 
 #endif  // ENABLE_TF_STRING
