@@ -8,7 +8,7 @@
 #include "text/string_lower.hpp"
 
 
-TEST(utils, test_string_lower) {
+TEST(string_operator, test_string_lower) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
 
   std::vector<TestValue> inputs(1);
@@ -32,7 +32,7 @@ TEST(utils, test_string_lower) {
 }
 
 
-TEST(utils, test_regex_split_with_offsets) {
+TEST(string_operator, test_regex_split_with_offsets) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
 
   std::vector<TestValue> inputs(1);

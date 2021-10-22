@@ -40,6 +40,14 @@ def _is_punctuation(char):
     return False
 
 
+def _is_upper_case(char):
+    cp = ord(char)
+    cat = unicodedata.category(char)
+    if cat.startswith("Lu") and char.lower() != char:
+        return True
+    return False
+
+
 def find_expect_char_in_range(judge_fun, start, end):
     result = []
     for c in range(start, end):

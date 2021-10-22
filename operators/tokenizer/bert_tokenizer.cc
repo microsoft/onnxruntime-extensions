@@ -276,13 +276,8 @@ void KernelBertTokenizer::Compute(OrtKernelContext* context) {
   std::vector<int64_t> input_ids;
   std::vector<int64_t> token_type_ids;
 
-  if (input_data.size() == 1 || input_data[1].empty()) {
+  if (input_data.size() == 1) {
     std::vector<int64_t> encode = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[0])));
-    truncate_->Truncate(encode, (max_length_ > 0 && max_length_ <= 2) ? 0 : max_length_ - 2);
-    input_ids = tokenizer_->AddSpecialToken(encode);
-    token_type_ids = tokenizer_->GenerateTypeId(encode);
-  } else if (input_data[0].empty()) {
-    std::vector<int64_t> encode = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[1])));
     truncate_->Truncate(encode, (max_length_ > 0 && max_length_ <= 2) ? 0 : max_length_ - 2);
     input_ids = tokenizer_->AddSpecialToken(encode);
     token_type_ids = tokenizer_->GenerateTypeId(encode);

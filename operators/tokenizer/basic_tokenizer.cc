@@ -38,7 +38,7 @@ std::vector<ustring> BasicTokenizer::Tokenize(ustring text) {
 
   if (do_lower_case_) {
     for (auto& c : text) {
-        c = ::tolower(c);
+        c = ToLower(c);
     }
   }
 
