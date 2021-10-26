@@ -629,6 +629,19 @@ class TestPythonOpString(unittest.TestCase):
         self.assertEqual(
             txout[0].tolist(), np.array([""]).tolist())
 
+    def test_string_join_scalar(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_join('')
+        self.assertIn('op_type: "StringJoin"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        text = np.array("a scalar string")
+        sep = np.array([" "])
+        axis = np.array([0], dtype=np.int64)
+        txt_out = sess.run(None, {'text': text, 'sep': sep, 'axis': axis})
+        self.assertEqual(
+            txt_out[0].tolist(), np.array(["a scalar string"]).tolist())
+
     def test_string_join_cc_3d(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
