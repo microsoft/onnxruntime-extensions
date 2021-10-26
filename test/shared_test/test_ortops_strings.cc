@@ -69,3 +69,199 @@ TEST(string_operator, test_regex_split_with_offsets) {
   model_path /= "test_regex_split_with_offsets.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }
+
+
+TEST(string_operator, test_string_ecmaregex_replace) {
+  auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
+
+  std::vector<TestValue> inputs(3);
+  inputs[0].name = "input";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {1};
+  inputs[0].values_string = {"a Test 1 2 3 ♠♣"};
+
+  inputs[1].name = "pattern";
+  inputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[1].dims = {1};
+  inputs[1].values_string = {"(\\d)"};
+
+  inputs[2].name = "rewrite";
+  inputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[2].dims = {1};
+  inputs[2].values_string = {"$010"};
+
+
+  std::vector<TestValue> outputs(1);
+  outputs[0].name = "output";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  outputs[0].dims = {1};
+  outputs[0].values_string = {"a Test 10 20 30 ♠♣"};
+
+
+  std::filesystem::path model_path = __FILE__;
+  model_path = model_path.parent_path();
+  model_path /= "..";
+  model_path /= "data";
+  model_path /= "test_string_ecmaregex_replace.onnx";
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].name = "input";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {1};
+  inputs[0].values_string = {"a Test 10 20 30 ♠♣"};
+
+  inputs[1].name = "pattern";
+  inputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[1].dims = {1};
+  inputs[1].values_string = {"(\\d)"};
+
+  inputs[2].name = "rewrite";
+  inputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[2].dims = {1};
+  inputs[2].values_string = {"$010"};
+
+
+  outputs[0].name = "output";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  outputs[0].dims = {1};
+  outputs[0].values_string = {"a Test 1000 2000 3000 ♠♣"};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+
+  inputs[0].name = "input";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {1};
+  inputs[0].values_string = {"a Test 10 20 30 ♠♣"};
+
+  inputs[1].name = "pattern";
+  inputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[1].dims = {1};
+  inputs[1].values_string = {"(\\d+)"};
+
+  inputs[2].name = "rewrite";
+  inputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[2].dims = {1};
+  inputs[2].values_string = {"$010"};
+
+
+  outputs[0].name = "output";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  outputs[0].dims = {1};
+  outputs[0].values_string = {"a Test 100 200 300 ♠♣"};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].name = "input";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {1};
+  inputs[0].values_string = {"a Test 10 20 30 ♠♣"};
+
+  inputs[1].name = "pattern";
+  inputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[1].dims = {1};
+  inputs[1].values_string = {"(\\w+)"};
+
+  inputs[2].name = "rewrite";
+  inputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[2].dims = {1};
+  inputs[2].values_string = {"$1+"};
+
+
+  outputs[0].name = "output";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  outputs[0].dims = {1};
+  outputs[0].values_string = {"a+ Test+ 10+ 20+ 30+ ♠♣"};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].name = "input";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {1};
+  inputs[0].values_string = {"a Test 10 20 30 ♠♣"};
+
+  inputs[1].name = "pattern";
+  inputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[1].dims = {1};
+  inputs[1].values_string = {"♠♣"};
+
+  inputs[2].name = "rewrite";
+  inputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[2].dims = {1};
+  inputs[2].values_string = {"♣♠"};
+
+  outputs[0].name = "output";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  outputs[0].dims = {1};
+  outputs[0].values_string = {"a Test 10 20 30 ♣♠"};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].name = "input";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {3};
+  inputs[0].values_string = {"Test 10 20 30 ♠♣", "Test 40 50 60 🌂☂", " Test 70 80 90 🍏🍎"};
+
+  inputs[1].name = "pattern";
+  inputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[1].dims = {1};
+  inputs[1].values_string = {"[✀-➿🙐-🙿😀-🙏☀-⛿🌀-🗿🤀-🧿]"};
+
+  inputs[2].name = "rewrite";
+  inputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[2].dims = {1};
+  inputs[2].values_string = {""};
+
+  outputs[0].name = "output";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  outputs[0].dims = {3};
+  outputs[0].values_string = {"Test 10 20 30 ", "Test 40 50 60 ", " Test 70 80 90 "};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+
+  inputs[0].name = "input";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {1};
+  inputs[0].values_string = {""};
+
+  inputs[1].name = "pattern";
+  inputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[1].dims = {1};
+  inputs[1].values_string = {"[✀-➿🙐-🙿😀-🙏☀-⛿🌀-🗿🤀-🧿]"};
+
+  inputs[2].name = "rewrite";
+  inputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[2].dims = {1};
+  inputs[2].values_string = {"aa"};
+
+
+  outputs[0].name = "output";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  outputs[0].dims = {1};
+  outputs[0].values_string = {""};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  // Test case-insensitive and non-global matching case
+  model_path = model_path.parent_path();
+  model_path /= "..";
+  model_path /= "data";
+  model_path /= "test_string_ecmaregex_replace_ignore_case_and_except_global_replace.onnx";
+
+  inputs[0].name = "input";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {3};
+  inputs[0].values_string = {"Test test", "tEsT Test", " TEST test"};
+
+  inputs[1].name = "pattern";
+  inputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[1].dims = {1};
+  inputs[1].values_string = {"(test)"};
+
+  inputs[2].name = "rewrite";
+  inputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[2].dims = {1};
+  inputs[2].values_string = {"$1+"};
+
+
+  outputs[0].name = "output";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  outputs[0].dims = {3};
+  outputs[0].values_string = {"Test+ test", "tEsT+ Test", " TEST+ test"};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+}

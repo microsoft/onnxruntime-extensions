@@ -82,7 +82,7 @@ class StringMapping(CustomOp):
         attr_data = {}
         for k_, v_ in attrs.items():
             if k_ == 'map' and isinstance(v_, dict):
-                    attr_data[k_] = '\n'.join(k + "\t" + v for k, v in v_.items())
+                attr_data[k_] = '\n'.join(k + "\t" + v for k, v in v_.items())
             elif k_ == 'map' and isinstance(v_, str):
                 attr_data[k_] = v_
             else:
@@ -168,6 +168,18 @@ class BertTokenizer(CustomOp):
             else:
                 attrs_data[k_] = v_
         return attrs_data
+
+
+class StringECMARegexReplace(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def("input", onnx.TensorProto.STRING, [None]),
+                cls.io_def("pattern", onnx.TensorProto.STRING, [None]),
+                cls.io_def("rewrite", onnx.TensorProto.STRING, [None])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def('output', onnx_proto.TensorProto.STRING, [None])]
 
 
 class BertTokenizerDecoder(CustomOp):
