@@ -56,8 +56,7 @@ void KernelBlingFireSentenceBreaker::Compute(OrtKernelContext* context) {
   if (output_length == 0) {
     // put one empty string if output_length is 0
     output_sentences.push_back("");
-  }
-  else {
+  } else {
     bool head_flag = true;
     for (int i = 0; i < output_length; i++) {
       if (head_flag) {

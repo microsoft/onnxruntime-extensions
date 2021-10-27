@@ -28,9 +28,8 @@ void KernelStringJoin::Compute(OrtKernelContext* context) {
   if (dimensions.size() == 0) {
     // dimensions size 0 means input 1 is scalar, input 1 must have 1 element. See issue: https://github.com/onnx/onnx/issues/3724
     if (X.size() != 1)
-      ORT_CXX_API_THROW(MakeString("Input 1's dimensions size is 0 (scalar), it must has 1 element but it is ", X.size()), ORT_INVALID_ARGUMENT);
-  }
-  else {
+      ORT_CXX_API_THROW(MakeString("Input 1's dimensions size is 0 (scalar), it must has 1 element but it has ", X.size()), ORT_INVALID_ARGUMENT);
+  } else {
     if (*axis < 0 || *axis >= dimensions.size())
       ORT_CXX_API_THROW(MakeString("axis must be positive and smaller than the number of dimension but it is ", *axis), ORT_INVALID_ARGUMENT);
   }
@@ -75,11 +74,11 @@ void KernelStringJoin::Compute(OrtKernelContext* context) {
           out[pos] = st.str();
         }
       }
-    } else if (X.size() == 0) {
+    } else {
       // for input 1 contains 0 elements, output joined string is empty string
       out[0] = "";
     }
-  } else if (dimensions.size() == 0) {
+  } else {
     // for input 1 (scalar) which has 1 element, output joined string is input string itself. See issue: https://github.com/onnx/onnx/issues/3724
     out[0] = X[0];
   }
