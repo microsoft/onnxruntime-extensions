@@ -102,7 +102,7 @@ TEST(math_operator, segment_extraction) {
 
   inputs[0].name = "input";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-  inputs[0].dims = {1, 1};
+  inputs[0].dims = {1, 0};
   inputs[0].values_int64 = {0};
 
   outputs[0].name = "position";
