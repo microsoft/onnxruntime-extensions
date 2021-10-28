@@ -24,7 +24,7 @@ std::vector<std::string> VectorToStringImpl::Compute(const void* input, const Or
 
   const int64_t* ptr = static_cast<const int64_t*>(input);
 
-  if (vector_len_ == 1 && input_dim.size() == 1) {
+  if (vector_len_ == 1 && (input_dim.size() == 1 || input_dim.empty())) {
     // only hit when the key is a scalar and the input is a vector
     output_dim = input_dim;
   } else {

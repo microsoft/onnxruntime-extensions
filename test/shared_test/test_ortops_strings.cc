@@ -415,14 +415,46 @@ TEST(string_operator, test_string_to_vector) {
   std::vector<TestValue> outputs(1);
   outputs[0].name = "text";
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-  outputs[0].dims = {1};
-  outputs[0].values_string = {"a", "b", "c", "unk", "unk"};
-
+  outputs[0].dims = {5};
+  outputs[0].values_string = {"a", "unk", "b", "c", "unk"};
 
   std::filesystem::path model_path = __FILE__;
   model_path = model_path.parent_path();
   model_path /= "..";
   model_path /= "data";
-  model_path /= "test_vector_to_string.onnx";
+  model_path /= "test_vector_to_string_scalar.onnx";
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].dims = {5};
+  inputs[0].values_int64 = {1000, 111, 2323, 444, 555};
+
+  outputs[0].dims = {5};
+  outputs[0].values_string = {"unk", "unk", "unk", "unk", "unk"};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].dims = {0};
+  inputs[0].values_int64 = {};
+
+  outputs[0].dims = {0};
+  outputs[0].values_string = {};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].dims = {5, 3};
+  inputs[0].values_int64 = {0, 0, 0, 0, 0, 1, 3, 0, 1, 100, 0, 1, 43, 23, 11};
+
+  outputs[0].dims = {5};
+  outputs[0].values_string = {"a", "b", "c", "unk", "unk"};
+
+  model_path = model_path.parent_path();
+  model_path /= "..";
+  model_path /= "data";
+  model_path /= "test_vector_to_string_vector.onnx";
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].dims = {0, 3};
+  inputs[0].values_int64 = {};
+
+  outputs[0].dims = {0};
+  outputs[0].values_string = {};
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }
