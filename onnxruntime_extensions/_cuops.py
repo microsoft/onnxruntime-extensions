@@ -53,7 +53,7 @@ class VectorToString(CustomOp):
 
     @classmethod
     def get_outputs(cls):
-        return [cls.io_def('text', onnx_proto.TensorProto.STRING, [])]
+        return [cls.io_def('text', onnx_proto.TensorProto.STRING, [None])]
 
     @classmethod
     def serialize_attr(cls, attrs):
