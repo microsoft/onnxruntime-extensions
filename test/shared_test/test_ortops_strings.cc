@@ -558,3 +558,82 @@ TEST(string_operator, test_string_mapping) {
   outputs[0].values_string = {""};
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }
+
+TEST(string_operator, test_string_remove) {
+  auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
+
+  std::vector<TestValue> inputs(2);
+  inputs[0].name = "strings";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {5};
+  inputs[0].values_string = {"Orange and Yellow", "不知道啥颜色", "No color", "black", "white"};
+
+  inputs[1].name = "conditions";
+  inputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  inputs[1].dims = {5};
+  inputs[1].values_int64 = {1, 0, 1, 0, 1};
+
+  std::vector<TestValue> outputs(1);
+  outputs[0].name = "output";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  outputs[0].dims = {3};
+  outputs[0].values_string = {"Orange and Yellow", "No color", "white"};
+
+
+  std::filesystem::path model_path = __FILE__;
+  model_path = model_path.parent_path();
+  model_path /= "..";
+  model_path /= "data";
+  model_path /= "test_string_remove.onnx";
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].dims = {5};
+  inputs[0].values_string = {"Orange and Yellow", "不知道啥颜色", "No color", "black", "white"};
+
+  inputs[1].dims = {5};
+  inputs[1].values_int64 = {0, 0, 0, 0, 0};
+
+  outputs[0].dims = {0};
+  outputs[0].values_string = {};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].dims = {5};
+  inputs[0].values_string = {"Orange and Yellow", "不知道啥颜色", "No color", "black", "white"};
+
+  inputs[1].dims = {5};
+  inputs[1].values_int64 = {1, 1, 1, 1, 1};
+
+  outputs[0].dims = {5};
+  outputs[0].values_string = {"Orange and Yellow", "不知道啥颜色", "No color", "black", "white"};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].dims = {1};
+  inputs[0].values_string = {"a"};
+
+  inputs[1].dims = {1};
+  inputs[1].values_int64 = {0};
+
+  outputs[0].dims = {0};
+  outputs[0].values_string = {};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].dims = {1};
+  inputs[0].values_string = {"a"};
+
+  inputs[1].dims = {1};
+  inputs[1].values_int64 = {1};
+
+  outputs[0].dims = {1};
+  outputs[0].values_string = {"a"};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].dims = {0};
+  inputs[0].values_string = {};
+
+  inputs[1].dims = {0};
+  inputs[1].values_int64 = {};
+
+  outputs[0].dims = {0};
+  outputs[0].values_string = {};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+}

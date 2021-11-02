@@ -90,6 +90,17 @@ class StringMapping(CustomOp):
         return attr_data
 
 
+class StringRemove(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def("strings", onnx.TensorProto.STRING, [None]),
+                 cls.io_def("conditions", onnx.TensorProto.INT64, [None])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def('output', onnx_proto.TensorProto.STRING, [None])]
+
+
 class StringToVector(CustomOp):
     @classmethod
     def get_inputs(cls):

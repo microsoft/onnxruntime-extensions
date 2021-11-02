@@ -208,6 +208,27 @@ TEST(tokenizer_opertors, test_bert_tokenizer) {
   outputs[2].dims = {4};
   outputs[2].values_int64 = {1, 1, 1, 1};
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  inputs[0].name = "text";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {2};
+  inputs[0].values_string = {"Very good point! I do want the gym to be separated from the house, so like a barn would be ideal. Also looking into buying land so I think you’re right!", "hello, we forwarded oldest file by garcía"};
+
+  outputs[0].name = "input_ids";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[0].dims = {51};
+  outputs[0].values_int64 = {101, 6424, 1363, 1553, 106, 146, 1202, 1328, 1103, 10759, 1106, 1129, 4757, 1121, 1103, 1402, 117, 1177, 1176, 170, 9328, 1156, 1129, 7891, 119, 2907, 1702, 1154, 9241, 1657, 1177, 146, 1341, 1128, 100, 1231, 1268, 106, 102, 19082, 117, 1195, 1977, 1174, 3778, 4956, 1118, 176, 1813, 6052, 102};
+
+  outputs[1].name = "token_type_ids";
+  outputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[1].dims = {51};
+  outputs[1].values_int64 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+
+  outputs[2].name = "attention_mask";
+  outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[2].dims = {51};
+  outputs[2].values_int64 = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }
 
 TEST(tokenizer_opertors, test_bert_tokenizer_scalar) {
