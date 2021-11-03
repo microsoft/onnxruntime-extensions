@@ -12,7 +12,7 @@
 #include "text/string_ecmaregex_replace.hpp"
 #include "text/string_ecmaregex_split.hpp"
 #include "text/string_mapping.hpp"
-#include "text/string_remove.hpp"
+#include "text/masked_fill.hpp"
 
 #if defined(ENABLE_RE2_REGEX)
 #include "text/re2_strings/string_regex_replace.hpp"
@@ -36,7 +36,7 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Text =
                         CustomOpStringLower,
                         CustomOpStringUpper,
                         CustomOpStringMapping,
-                        CustomOpStringRemove,
+                        CustomOpMaskedFill,
                         CustomOpStringSplit,
                         CustomOpStringToVector,
                         CustomOpVectorToString,

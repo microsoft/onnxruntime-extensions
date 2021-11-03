@@ -7,14 +7,14 @@
 #include "string_utils.h"
 #include <unordered_map>
 
-struct KernelStringRemove : BaseKernel {
-  KernelStringRemove(OrtApi api, const OrtKernelInfo* info);
+struct KernelMaskedFill : BaseKernel {
+  KernelMaskedFill(OrtApi api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
  private:
   std::unordered_map<std::string, std::string> map_;
 };
 
-struct CustomOpStringRemove : Ort::CustomOpBase<CustomOpStringRemove, KernelStringRemove> {
+struct CustomOpMaskedFill : Ort::CustomOpBase<CustomOpMaskedFill, KernelMaskedFill> {
   void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;

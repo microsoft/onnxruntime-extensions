@@ -90,11 +90,11 @@ class StringMapping(CustomOp):
         return attr_data
 
 
-class StringRemove(CustomOp):
+class MaskedFill(CustomOp):
     @classmethod
     def get_inputs(cls):
-        return [cls.io_def("strings", onnx.TensorProto.STRING, [None]),
-                 cls.io_def("conditions", onnx.TensorProto.INT64, [None])]
+        return [cls.io_def("value", onnx.TensorProto.STRING, [None]),
+                 cls.io_def("mask", onnx.TensorProto.BOOL, [None])]
 
     @classmethod
     def get_outputs(cls):

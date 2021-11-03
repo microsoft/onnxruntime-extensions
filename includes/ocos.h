@@ -62,15 +62,7 @@ struct OrtTensorDimensions : std::vector<int64_t> {
   }
 
   bool IsVector() const{
-    if (size() == 1) {
-      return true;
-    }
-
-    if ((size() == 2) && (*begin() == 1)) {
-      return true;
-    }
-
-    return false;
+    return size() == 1;
   }
 };
 
