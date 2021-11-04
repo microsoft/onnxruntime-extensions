@@ -360,6 +360,7 @@ endif()
 # test section
 if (OCOS_ENABLE_CTEST)
   # Enable CTest
+  SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
   find_library(ONNXRUNTIME onnxruntime HINTS "${ONNXRUNTIME_LIB_DIR}")
   if (NOT ONNXRUNTIME)
     message(FATAL_ERROR "The ctest needs the prebuilt onnxruntime libraries directory, please specify it by ONNXRUNTIME_LIB_DIR.")
@@ -378,7 +379,7 @@ if (OCOS_ENABLE_CTEST)
   add_test(NAME operators_test COMMAND $<TARGET_FILE:operators_test>)
 
   # needs to link with stdc++fs in Linux
-  if(UNIX AND NOT APPLE)
+  if(UNIX AND NOT APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
     set(FS_STDLIB stdc++fs)
   endif()
 

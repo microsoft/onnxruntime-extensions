@@ -23,10 +23,7 @@ TEST(string_operator, test_string_lower) {
   outputs[0].dims = inputs[0].dims;
   outputs[0].values_string = {"abc", "abcé", "中文"};
 
-  std::filesystem::path model_path = __FILE__;
-  model_path = model_path.parent_path();
-  model_path /= "..";
-  model_path /= "data";
+  std::filesystem::path model_path = "data";
   model_path /= "custom_op_string_lower.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }
@@ -62,10 +59,7 @@ TEST(string_operator, test_regex_split_with_offsets) {
   outputs[3].dims = {3};
   outputs[3].values_int64 = {0, 6, 11};
 
-  std::filesystem::path model_path = __FILE__;
-  model_path = model_path.parent_path();
-  model_path /= "..";
-  model_path /= "data";
+  std::filesystem::path model_path = "data";
   model_path /= "test_regex_split_with_offsets.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }
@@ -98,10 +92,7 @@ TEST(string_operator, test_string_ecmaregex_replace) {
   outputs[0].values_string = {"a Test 10 20 30 ♠♣"};
 
 
-  std::filesystem::path model_path = __FILE__;
-  model_path = model_path.parent_path();
-  model_path /= "..";
-  model_path /= "data";
+  std::filesystem::path model_path = "data";
   model_path /= "test_string_ecmaregex_replace.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 
@@ -292,10 +283,7 @@ TEST(utils, test_string_join) {
   outputs[0].dims = {1};
   outputs[0].values_string = {"abc-zzz-efg"};
 
-  std::filesystem::path model_path = __FILE__;
-  model_path = model_path.parent_path();
-  model_path /= "..";
-  model_path /= "data";
+  std::filesystem::path model_path = "data";
   model_path /= "custom_op_string_join.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }
@@ -325,10 +313,7 @@ TEST(utils, test_string_join_values_empty_string) {
   outputs[0].dims = {1};
   outputs[0].values_string = {""};
 
-  std::filesystem::path model_path = __FILE__;
-  model_path = model_path.parent_path();
-  model_path /= "..";
-  model_path /= "data";
+  std::filesystem::path model_path = "data";
   model_path /= "custom_op_string_join.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }
@@ -359,10 +344,7 @@ TEST(utils, test_string_join_dims_zero_values_empty) {
   outputs[0].dims = {1};
   outputs[0].values_string = {""};
 
-  std::filesystem::path model_path = __FILE__;
-  model_path = model_path.parent_path();
-  model_path /= "..";
-  model_path /= "data";
+  std::filesystem::path model_path = "data";
   model_path /= "custom_op_string_join.onnx";
 
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
@@ -394,10 +376,7 @@ TEST(utils, test_string_join_dims_empty_values_scalar) {
   outputs[0].dims = {1};
   outputs[0].values_string = {"abc"};
 
-  std::filesystem::path model_path = __FILE__;
-  model_path = model_path.parent_path();
-  model_path /= "..";
-  model_path /= "data";
+  std::filesystem::path model_path = "data";
   model_path /= "custom_op_string_join.onnx";
 
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
@@ -418,10 +397,7 @@ TEST(string_operator, test_vector_to_string) {
   outputs[0].dims = {5};
   outputs[0].values_string = {"a", "unk", "b", "c", "unk"};
 
-  std::filesystem::path model_path = __FILE__;
-  model_path = model_path.parent_path();
-  model_path /= "..";
-  model_path /= "data";
+  std::filesystem::path model_path = "data";
   model_path /= "test_vector_to_string_scalar_map.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 
@@ -487,10 +463,7 @@ TEST(string_operator, test_string_to_vector) {
   outputs[0].values_int64 = {0, 1, 2, 2, 3, 4, 0, 1, 2, 3, 4, 4, -1, -1, -1};
 
 
-  std::filesystem::path model_path = __FILE__;
-  model_path = model_path.parent_path();
-  model_path /= "..";
-  model_path /= "data";
+  std::filesystem::path model_path = "data";
   model_path /= "test_string_to_vector.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 
@@ -537,10 +510,7 @@ TEST(string_operator, test_string_mapping) {
   outputs[0].values_string = {"Maybe", "也不知道可不可以", "No color", "OK", "Not OK"};
 
 
-  std::filesystem::path model_path = __FILE__;
-  model_path = model_path.parent_path();
-  model_path /= "..";
-  model_path /= "data";
+  std::filesystem::path model_path = "data";
   model_path /= "test_string_mapping.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 

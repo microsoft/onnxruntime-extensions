@@ -315,3 +315,14 @@ jobs:
           sh ./build.sh -DCMAKE_TOOLCHAIN_FILE=$(Build.BinariesDirectory)/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DOCOS_ENABLE_SPM_TOKENIZER=OFF -DOCOS_ENABLE_PYTHON=OFF
         displayName: build the customop library with onnxruntime
     # TODO add unittest for webassembly
+
+  #############
+  # Android
+  #############
+  - job: AndroidC
+    pool:
+      vmImage: 'macOS-11'
+    timeoutInMinutes: 180
+    steps:
+      - script: brew install coreutils ninja
+        displayName: Install coreutils and ninja
