@@ -60,6 +60,10 @@ struct OrtTensorDimensions : std::vector<int64_t> {
   bool IsScalar() const{
     return empty();
   }
+
+  bool IsVector() const{
+    return size() == 1;
+  }
 };
 
 

@@ -19,6 +19,7 @@
 |VectorToString| Supported |
 |StringToVector|  Supported|
 |StringSlice | Under development|
+|MaskedFill | Supported|
 
 ### Tokenizer
 
@@ -534,6 +535,52 @@ y = ["a", "d", "unknown_word"]
 
 expect(node, inputs=[x], outputs=[y],
        name='test_vector_to_string')
+```
+</details>
+
+### <a name="MaskedFill"></a><a name="MaskedFill">**MaskedFill**</a>
+
+Fills elements of self tensor with value where mask is True. The operator is similar with [`Tensor.masked_fill_`](https://pytorch.org/docs/stable/generated/torch.Tensor.masked_fill_.html#torch.Tensor.masked_fill_) in pytorch.
+
+
+#### Inputs
+
+***value: tensor(string)***
+
+The value to fill in with, currently we only support string type and vector&scalar dimension.
+
+***mask: tensor(bool)***
+
+The boolean mask, the dimension of mask tensor should be same with value.
+
+#### Outputs
+
+***output: tensor(string)***
+
+The filled output of input tensor.
+
+
+#### Examples
+
+<details>
+<summary>vector_to_string</summary>
+
+```python
+
+node = onnx.helper.make_node(
+    'MaskedFill',
+    inputs=['value', 'mask'],
+    outputs=['output']
+)
+
+
+value = np.array(["a", "b", "c", "d"])
+mask = np.array([True, False, True, False], dtype=bool)
+output = np.array(["a", "c"])
+
+
+expect(node, inputs=[value, mask], outputs=[output],
+       name='test_masked_fill')
 ```
 </details>
 
