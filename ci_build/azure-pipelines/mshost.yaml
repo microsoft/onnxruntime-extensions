@@ -340,7 +340,7 @@ jobs:
           mkdir cmake/external
           cd cmake/external
           git clone --recursive https://github.com/microsoft/onnxruntime.git
-          cd $(OnnxruntimeDirectory)
+          cd onnxruntime
           git checkout v1.9.0
         displayName: Download Onnxruntime
         workingDirectory: $(Build.sourcesdirectory)
