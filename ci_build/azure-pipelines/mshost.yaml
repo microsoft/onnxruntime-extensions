@@ -360,23 +360,23 @@ jobs:
         workingDirectory: $(OnnxruntimeDirectory)
         displayName: Build Onnxruntime library
 
-    - script: |
-        sh ./build.sh \
-          -DCMAKE_TOOLCHAIN_FILE=$$ANDROID_NDK_HOME\build\cmake\android.toolchain.cmake \
-          -DANDROID_ABI=x86_64 \
-          -DANDROID_NATIVE_API_LEVEL=android-21 \
-          -DOCOS_ENABLE_BLINGFIRE=OFF \
-          -DOCOS_ENABLE_SPM_TOKENIZER=OFF \
-          -DOCOS_ENABLE_CTEST=ON \
-          -DONNXRUNTIME_LIB_DIR= $(OnnxruntimeDirectory)/Android/Release
-      workingDirectory: $(Build.sourcesdirectory)
+      - script: |
+          sh ./build.sh \
+            -DCMAKE_TOOLCHAIN_FILE=$$ANDROID_NDK_HOME\build\cmake\android.toolchain.cmake \
+            -DANDROID_ABI=x86_64 \
+            -DANDROID_NATIVE_API_LEVEL=android-21 \
+            -DOCOS_ENABLE_BLINGFIRE=OFF \
+            -DOCOS_ENABLE_SPM_TOKENIZER=OFF \
+            -DOCOS_ENABLE_CTEST=ON \
+            -DONNXRUNTIME_LIB_DIR= $(OnnxruntimeDirectory)/Android/Release
+        workingDirectory: $(Build.sourcesdirectory)
 
 
-    - script: |
-        python3 tools/python/run_android_emulator.py \
-          --android-sdk-root ${ANDROID_SDK_ROOT} \
-          --create-avd --system-image "system-images;android-30;google_apis;x86_64" \
-          --start --emulator-extra-args="-partition-size 4096" \
-          --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
-      displayName: Start Android emulator
-      workingDirectory: $(OnnxruntimeDirectory)
+      - script: |
+          python3 tools/python/run_android_emulator.py \
+            --android-sdk-root ${ANDROID_SDK_ROOT} \
+            --create-avd --system-image "system-images;android-30;google_apis;x86_64" \
+            --start --emulator-extra-args="-partition-size 4096" \
+            --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
+        displayName: Start Android emulator
+        workingDirectory: $(OnnxruntimeDirectory)
