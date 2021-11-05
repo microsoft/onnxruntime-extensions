@@ -382,5 +382,12 @@ jobs:
         displayName: Start Android emulator
         workingDirectory: $(OnnxruntimeDirectory)
 
-#      - script: |
-#          adb push out/
+      - script: |
+          adb push out/Darwin/RelWithDebInfo/libortcustomops.so /data/local/tmp
+          adb push out/Darwin/RelWithDebInfo/data /data/local/tmp
+          adb push out/Darwin/RelWithDebInfo/operators_test /data/local/tmp
+          adb push out/Darwin/RelWithDebInfo/ortcustomops_test /data/local/tmp
+          adb push $(OnnxruntimeDirectory)/Android/Release/libonnxruntime.so /data/local/tmp
+          adb shell 'cd /data/local/tmp/ && chmod a+x operators_test'
+          adb shell 'cd /data/local/tmp/ && chmod a+x ortcustomops_test'
+          adb shell 'cd /data/local/tmp/ && export LD_LIBRARY_PATH=$(pwd) && ./operators_test' && adb shell 'cd /data/local/tmp/ && export LD_LIBRARY_PATH=$(pwd) && ./ortcustomops_test'
