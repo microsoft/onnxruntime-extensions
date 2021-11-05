@@ -550,10 +550,7 @@ TEST(string_operator, test_masked_fill) {
   outputs[0].values_string = {"Orange and Yellow", "No color", "white"};
 
 
-  std::filesystem::path model_path = __FILE__;
-  model_path = model_path.parent_path();
-  model_path /= "..";
-  model_path /= "data";
+  std::filesystem::path model_path = "data";
   model_path /= "test_masked_fill.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 
