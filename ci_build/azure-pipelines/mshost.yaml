@@ -358,6 +358,7 @@ jobs:
             --android_abi=x86_64 \
             --android_api=21 \
             --cmake_generator Ninja
+          tree build
         workingDirectory: $(OnnxruntimeDirectory)
         displayName: Build Onnxruntime library
 
@@ -369,7 +370,7 @@ jobs:
             -DOCOS_ENABLE_BLINGFIRE=OFF \
             -DOCOS_ENABLE_SPM_TOKENIZER=OFF \
             -DOCOS_ENABLE_CTEST=ON \
-            -DONNXRUNTIME_LIB_DIR=$(OnnxruntimeDirectory)/Android/Release
+            -DONNXRUNTIME_LIB_DIR=$(OnnxruntimeDirectory)/build/Release
         workingDirectory: $(Build.sourcesdirectory)
         displayName: Build the customop library with onnxruntime
 
