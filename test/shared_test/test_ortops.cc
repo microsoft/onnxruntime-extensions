@@ -290,10 +290,7 @@ TEST(utils, test_ort_case) {
                              17, 18, 18, 18, 17,
                              17, 17, 17, 17, 17};
 
-  std::filesystem::path model_path = __FILE__;
-  model_path = model_path.parent_path();
-  model_path /= "..";
-  model_path /= "data";
+  std::filesystem::path model_path = "data";
   model_path /= "custom_op_test.onnx";
   AddExternalCustomOp(&op_1st);
   AddExternalCustomOp(&op_2nd);

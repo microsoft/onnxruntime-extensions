@@ -345,21 +345,21 @@ jobs:
         displayName: Download Onnxruntime
         workingDirectory: $(Build.sourcesdirectory)
 
-      - script: |
-          python3 tools/ci_build/build.py \
-            --config Release \
-            --build_shared_lib \
-            --parallel \
-            --build_dir build \
-            --skip_tests \
-            --android \
-            --android_sdk_path $ANDROID_HOME \
-            --android_ndk_path $ANDROID_NDK_HOME \
-            --android_abi=x86_64 \
-            --android_api=21 \
-            --cmake_generator Ninja
-        workingDirectory: $(OnnxruntimeDirectory)
-        displayName: Build Onnxruntime library
+#      - script: |
+#          python3 tools/ci_build/build.py \
+#            --config Release \
+#            --build_shared_lib \
+#            --parallel \
+#            --build_dir build \
+#            --skip_tests \
+#            --android \
+#            --android_sdk_path $ANDROID_HOME \
+#            --android_ndk_path $ANDROID_NDK_HOME \
+#            --android_abi=x86_64 \
+#            --android_api=21 \
+#            --cmake_generator Ninja
+#        workingDirectory: $(OnnxruntimeDirectory)
+#        displayName: Build Onnxruntime library
 
       - script: |
           sh ./build.sh \
