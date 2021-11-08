@@ -338,33 +338,33 @@ jobs:
         displayName: Download Onnxruntime
         workingDirectory: $(Build.sourcesdirectory)
 
-#      - script: |
-#          python3 tools/ci_build/build.py \
-#            --config Release \
-#            --build_shared_lib \
-#            --parallel \
-#            --build_dir build \
-#            --skip_tests \
-#            --android \
-#            --android_sdk_path $ANDROID_HOME \
-#            --android_ndk_path $ANDROID_NDK_LATEST_HOME \
-#            --android_abi=x86_64 \
-#            --android_api=21 \
-#            --cmake_generator Ninja
-#        workingDirectory: $(OnnxruntimeDirectory)
-#        displayName: Build Onnxruntime library
-#
-#      - script: |
-#          sh ./build.sh \
-#            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake \
-#            -DANDROID_ABI=x86_64 \
-#            -DANDROID_NATIVE_API_LEVEL=android-21 \
-#            -DOCOS_ENABLE_BLINGFIRE=OFF \
-#            -DOCOS_ENABLE_SPM_TOKENIZER=OFF \
-#            -DOCOS_ENABLE_CTEST=ON \
-#            -DONNXRUNTIME_LIB_DIR=$(OnnxruntimeDirectory)/build/Release
-#        workingDirectory: $(Build.sourcesdirectory)
-#        displayName: Build the customop library with onnxruntime
+      - script: |
+          python3 tools/ci_build/build.py \
+            --config Release \
+            --build_shared_lib \
+            --parallel \
+            --build_dir build \
+            --skip_tests \
+            --android \
+            --android_sdk_path $ANDROID_HOME \
+            --android_ndk_path $ANDROID_NDK_LATEST_HOME \
+            --android_abi=x86_64 \
+            --android_api=21 \
+            --cmake_generator Ninja
+        workingDirectory: $(OnnxruntimeDirectory)
+        displayName: Build Onnxruntime library
+
+      - script: |
+          sh ./build.sh \
+            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=x86_64 \
+            -DANDROID_NATIVE_API_LEVEL=android-21 \
+            -DOCOS_ENABLE_BLINGFIRE=OFF \
+            -DOCOS_ENABLE_SPM_TOKENIZER=OFF \
+            -DOCOS_ENABLE_CTEST=ON \
+            -DONNXRUNTIME_LIB_DIR=$(OnnxruntimeDirectory)/build/Release
+        workingDirectory: $(Build.sourcesdirectory)
+        displayName: Build the customop library with onnxruntime
 
       - script: |
           python3 tools/python/run_android_emulator.py \
@@ -384,3 +384,5 @@ jobs:
           adb shell 'cd /data/local/tmp/ && chmod a+x operators_test'
           adb shell 'cd /data/local/tmp/ && chmod a+x ortcustomops_test'
           adb shell 'cd /data/local/tmp/ && export LD_LIBRARY_PATH=$(pwd) && ./operators_test' && adb shell 'cd /data/local/tmp/ && export LD_LIBRARY_PATH=$(pwd) && ./ortcustomops_test'
+        displayName: Run Android test
+        workingDirectory: $(Build.sourcesdirectory)
