@@ -358,7 +358,6 @@ jobs:
             --android_abi=x86_64 \
             --android_api=21 \
             --cmake_generator Ninja
-          tree build
         workingDirectory: $(OnnxruntimeDirectory)
         displayName: Build Onnxruntime library
 
