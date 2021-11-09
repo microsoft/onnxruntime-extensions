@@ -32,10 +32,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer) {
   outputs[2].dims = {34};
   outputs[2].values_int64 = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
-  std::filesystem::path model_path = __FILE__;
-  model_path = model_path.parent_path();
-  model_path /= "..";
-  model_path /= "data";
+  std::filesystem::path model_path = "data";
   model_path /= "test_bert_tokenizer.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 
@@ -256,10 +253,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer_scalar) {
   outputs[2].dims = {33};
   outputs[2].values_int64 = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
-  std::filesystem::path model_path = __FILE__;
-  model_path = model_path.parent_path();
-  model_path /= "..";
-  model_path /= "data";
+  std::filesystem::path model_path = "data";
   model_path /= "test_bert_tokenizer_scalar.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 
@@ -313,10 +307,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer_decoder) {
   outputs[0].dims = {1};
   outputs[0].values_string = {"[unused11]"};
 
-  std::filesystem::path model_path = __FILE__;
-  model_path = model_path.parent_path();
-  model_path /= "..";
-  model_path /= "data";
+  std::filesystem::path model_path = "data";
   model_path /= "test_bert_tokenizer_decoder_without_indices.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 
@@ -391,10 +382,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer_decoder_with_idices) {
   outputs[0].dims = {1};
   outputs[0].values_string = {"[unused11]"};
 
-  std::filesystem::path model_path = __FILE__;
-  model_path = model_path.parent_path();
-  model_path /= "..";
-  model_path /= "data";
+  std::filesystem::path model_path = "data";
   model_path /= "test_bert_tokenizer_decoder_with_indices.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 

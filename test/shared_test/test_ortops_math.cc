@@ -27,10 +27,7 @@ TEST(math_operator, segment_extraction) {
   outputs[1].dims = {3};
   outputs[1].values_int64 = {1, 2, 3};
 
-  std::filesystem::path model_path = __FILE__;
-  model_path = model_path.parent_path();
-  model_path /= "..";
-  model_path /= "data";
+  std::filesystem::path model_path = "data";
   model_path /= "test_segment_extraction.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 
