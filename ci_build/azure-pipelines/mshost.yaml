@@ -72,7 +72,10 @@ jobs:
       - script: python -m pytest test --verbose
         displayName: Run python test
 
-      - script: cd tutorials && python gpt2bs.py
+      - script: |
+          python -m pip install coloredlogs
+          cd tutorials
+          python gpt2bs.py
         displayName: Run GPT-2 beam search
 
   ###########
