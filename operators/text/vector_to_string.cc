@@ -24,11 +24,11 @@ std::vector<std::string> VectorToStringImpl::Compute(const void* input, const Or
 
   const int64_t* ptr = static_cast<const int64_t*>(input);
 
-  if (vector_len_ == 1 && input_dim.size() == 1) {
+  if (vector_len_ == 1 && (input_dim.size() == 1 || input_dim.IsScalar())) {
     // only hit when the key is a scalar and the input is a vector
     output_dim = input_dim;
   } else {
-    if (input_dim[input_dim.size() - 1] != vector_len_) {
+    if (input_dim.IsScalar() || input_dim[input_dim.size() - 1] != vector_len_) {
       ORT_CXX_API_THROW(MakeString("Incompatible dimension: required vector length should be ", vector_len_), ORT_INVALID_ARGUMENT);
     }
 

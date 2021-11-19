@@ -122,6 +122,19 @@ void _emplace_back(Ort::MemoryInfo& memory_info, std::vector<Ort::Value>& ort_in
       memory_info, const_cast<T*>(values.data()), values.size(), dims.data(), dims.size()));
 }
 
+// std::vector<bool> doesn't have data(), so we need to covert it to uint8_t and reinterpret to bool
+template <>
+void _emplace_back(Ort::MemoryInfo& memory_info, std::vector<Ort::Value>& ort_inputs, const std::vector<bool>& values, const std::vector<int64_t>& dims) {
+  static std::vector<uint8_t> convertor;
+  convertor.resize(values.size());
+  for (int i = 0; i < values.size(); i++) {
+    convertor[i] = values[i];
+  }
+
+  ort_inputs.emplace_back(Ort::Value::CreateTensor<>(
+      memory_info, reinterpret_cast<bool*>(convertor.data()) , values.size(), dims.data(), dims.size()));
+}
+
 template <typename T>
 void _assert_eq(Ort::Value& output_tensor, const std::vector<T>& expected, size_t total_len) {
   ASSERT_EQ(expected.size(), total_len);
@@ -162,6 +175,9 @@ void RunSession(Ort::Session& session_object,
   for (size_t i = 0; i < inputs.size(); i++) {
     input_names.emplace_back(inputs[i].name);
     switch (inputs[i].element_type) {
+      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL:
+        _emplace_back(memory_info, ort_inputs, inputs[i].value_bool, inputs[i].dims);
+        break;
       case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
         _emplace_back(memory_info, ort_inputs, inputs[i].values_float, inputs[i].dims);
         break;
@@ -274,10 +290,7 @@ TEST(utils, test_ort_case) {
                              17, 18, 18, 18, 17,
                              17, 17, 17, 17, 17};
 
-  std::filesystem::path model_path = __FILE__;
-  model_path = model_path.parent_path();
-  model_path /= "..";
-  model_path /= "data";
+  std::filesystem::path model_path = "data";
   model_path /= "custom_op_test.onnx";
   AddExternalCustomOp(&op_1st);
   AddExternalCustomOp(&op_2nd);

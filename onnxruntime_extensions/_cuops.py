@@ -54,7 +54,7 @@ class VectorToString(CustomOp):
 
     @classmethod
     def get_outputs(cls):
-        return [cls.io_def('text', onnx_proto.TensorProto.STRING, [])]
+        return [cls.io_def('text', onnx_proto.TensorProto.STRING, [None])]
 
     @classmethod
     def serialize_attr(cls, attrs):
@@ -83,12 +83,23 @@ class StringMapping(CustomOp):
         attr_data = {}
         for k_, v_ in attrs.items():
             if k_ == 'map' and isinstance(v_, dict):
-                    attr_data[k_] = '\n'.join(k + "\t" + v for k, v in v_.items())
+                attr_data[k_] = '\n'.join(k + "\t" + v for k, v in v_.items())
             elif k_ == 'map' and isinstance(v_, str):
                 attr_data[k_] = v_
             else:
                 attr_data[k_] = v_
         return attr_data
+
+
+class MaskedFill(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def("value", onnx.TensorProto.STRING, [None]),
+                 cls.io_def("mask", onnx.TensorProto.BOOL, [None])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def('output', onnx_proto.TensorProto.STRING, [None])]
 
 
 class StringToVector(CustomOp):
@@ -169,6 +180,18 @@ class BertTokenizer(CustomOp):
             else:
                 attrs_data[k_] = v_
         return attrs_data
+
+
+class StringECMARegexReplace(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def("input", onnx.TensorProto.STRING, [None]),
+                cls.io_def("pattern", onnx.TensorProto.STRING, [None]),
+                cls.io_def("rewrite", onnx.TensorProto.STRING, [None])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def('output', onnx_proto.TensorProto.STRING, [None])]
 
 
 class BertTokenizerDecoder(CustomOp):
