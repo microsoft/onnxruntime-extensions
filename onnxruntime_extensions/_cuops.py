@@ -4,8 +4,9 @@
 ###############################################################################
 
 import onnx
+import numpy
 from onnx import onnx_pb as onnx_proto
-from ._ocos import default_opset_domain
+from ._ocos import default_opset_domain, Opdef, PyCustomOpDef
 
 
 class CustomOp:
@@ -246,3 +247,14 @@ class SingleOpGraph:
     @staticmethod
     def get_op_class(op_type):
         return globals()[op_type]
+
+
+# TODO: have a C++ impl.
+def _argsort_op(x, dim):
+    d = numpy.argsort(x, dim)
+    return d[:, ::-1]
+
+
+Opdef.create(_argsort_op, op_type='ArgSort',
+             inputs=[PyCustomOpDef.dt_float, PyCustomOpDef.dt_int64],
+             outputs=[PyCustomOpDef.dt_int64])

@@ -8,7 +8,7 @@ from torch.types import _int, _float, _bool, Number, _dtype, _device, _qscheme, 
 from torch import strided, memory_format, contiguous_format, StringType  # noqa
 
 from ._onnx_ops import ox as _ox
-from .._ortapi2 import EagerOp
+from .._ortapi2 import OrtPyFunction
 
 
 class _EagerTensor:
@@ -592,7 +592,7 @@ def control_flow():
     return _ControlFlowContext()
 
 
-class _TracingEagerOp(EagerOp):
+class _TracingEagerOp(OrtPyFunction):
     def __call__(self, *args, **kwargs):
         np_args = [ts_.numpy() if isinstance(ts_, _EagerTensor) else ts_ for ts_ in args]
         outseq = super().__call__(*np_args, **kwargs)

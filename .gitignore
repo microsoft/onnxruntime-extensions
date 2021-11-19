@@ -20,6 +20,7 @@ gen
 .DS_Store
 *~
 .vs
+*-checkpoint.ipynb
 .ipynb_checkpoints/
 tutorials/*.onnx
 Testing/
