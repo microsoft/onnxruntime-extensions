@@ -12,12 +12,12 @@ jobs:
       matrix:
         py39-170:
           python.version: '3.9'
-          torch.version: torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html
+          torch.version: 'torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.7.0'
           ortlib.version: '38443267'
         py37-160:
           python.version: '3.7'
-          torch.version: torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
+          torch.version: 'torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html'
           ort.version: '1.6.0'
           ortlib.version: '34858191'
       maxParallel: 2
