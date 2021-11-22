@@ -26,6 +26,10 @@ def gpt2_tokenize(ctx, input_names, output_names, container, operator_name=None,
             merges=kwargs['merges'])
     else:
         raise RuntimeError("Need hf_tok/vocab parameter to build the tokenizer")
+    padding_len = -1
+    if 'padding_length' in kwargs:
+        padding_len = kwargs['padding_length']
+    attrs['padding_length'] = padding_len
 
     return make_custom_op(ctx, 'GPT2Tokenizer', input_names,
                           output_names, container, operator_name=operator_name, **attrs)
