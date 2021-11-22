@@ -41,6 +41,12 @@ def _export_f(model, args=None,
 
 
 class ONNXCompose:
+    """
+    Merge the pre/post processing Pytorch subclassing modules with the core model.
+    :arg models the core model, can be an ONNX model or a PyTorch ONNX-exportable models
+    :arg preprocessors the preprocessing module
+    :arg postprocessors the postprocessing module
+    """
     def __init__(self, models=None, preprocessors=None, postprocessors=None):
         self.models = models
         self.preprocessors = preprocessors
@@ -61,7 +67,9 @@ class ONNXCompose:
                keep_initializers_as_inputs=None,
                custom_opsets=None,
                io_mapping=None):
-
+        """
+        export all models and modules into a merged ONNX model.
+        """
         post_m = None
         pre_m = _export_f(self.preprocessors, tuple(self.pre_args),
                           export_params=export_params, verbose=verbose, opset_version=opset_version)
@@ -93,6 +101,13 @@ class ONNXCompose:
         return full_m
 
     def predict(self, *args, **kwargs):
+        """
+        Predict the result through all modules/models
+        :param args: the input arguments for the first preprocessing module.
+        :param kwargs: ignored
+        :return: the result from the last postprocessing module or
+                 from the core model if there is no postprocessing module.
+        """
         # convert the raw value, and special handling for string.
         n_args = [numpy.array(_arg) if not isinstance(_arg, torch.Tensor) else _arg for _arg in args]
         n_args = [torch.from_numpy(_arg) if

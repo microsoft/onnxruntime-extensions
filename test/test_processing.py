@@ -3,7 +3,7 @@ import numpy
 import torch
 import unittest
 from PIL import Image
-from distutils.version import StrictVersion
+from distutils.version import LooseVersion
 from onnxruntime_extensions import PyOrtFunction, ONNXCompose
 from onnxruntime_extensions import pnp, get_test_data_file
 from transformers import GPT2Config, GPT2LMHeadModel
@@ -24,7 +24,7 @@ class _GPT2LMHeadModel(GPT2LMHeadModel):
         return result[0]
 
 
-@unittest.skip(StrictVersion(torch.__version__) < StrictVersion("1.10"))
+@unittest.skip(LooseVersion(torch.__version__) < LooseVersion("1.10"))
 class TestPreprocessing(unittest.TestCase):
     def test_imagenet_preprocessing(self):
         mnv2 = onnx.load_model(get_test_data_file(__file__, 'data', 'mobilev2.onnx'))
