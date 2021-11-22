@@ -24,7 +24,7 @@ class _GPT2LMHeadModel(GPT2LMHeadModel):
         return result[0]
 
 
-@unittest.skip(LooseVersion(torch.__version__) < LooseVersion("1.10"))
+@unittest.skipIf(LooseVersion(torch.__version__) < LooseVersion("1.10"), 'Only tested the lastest PyTorch')
 class TestPreprocessing(unittest.TestCase):
     def test_imagenet_preprocessing(self):
         mnv2 = onnx.load_model(get_test_data_file(__file__, 'data', 'mobilev2.onnx'))
