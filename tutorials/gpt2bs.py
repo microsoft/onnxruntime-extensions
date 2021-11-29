@@ -1,4 +1,5 @@
 import os
+import onnx
 import numpy
 import argparse
 import onnxruntime as _ort
@@ -61,12 +62,17 @@ def convert_gpt2():
 def inference_and_dump_full_model(tokenizer, func_tokenizer, input_text, num_tokens_to_produce=30):
     from onnxruntime_extensions.onnxprocess import trace_for_onnx, pyfunc_from_model
 
-    func_one_step = pyfunc_from_model(onnx_model_path)
+    # a hot fix for the dynamic axes of the converted model
+    gpt2_core = onnx.load_model(onnx_model_path)
+    for _vi in gpt2_core.graph.output:
+        if _vi.name == 'last_state':
+            _vi.type.tensor_type.shape.dim[1].dim_param = 'seq_len'
+
+    func_one_step = pyfunc_from_model(gpt2_core)
     config = AutoConfig.from_pretrained(model_name_or_path, cache_dir=cache_dir)
     num_attention_heads = config.n_head
     hidden_size = config.n_embd
     num_layer = config.n_layer
-    full_model = None
     if func_tokenizer is None:
         input_ids, attention_mask = _extract_endict(tokenizer(input_text, padding=True, return_tensors='np'))
         with trace_for_onnx(input_ids, attention_mask,
