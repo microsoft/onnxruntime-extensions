@@ -18,7 +18,6 @@ class ProcessingModule(torch.nn.Module):
         cls.loaded = True
         return True
 
-    @classmethod
     def export(self, opset_version, *args):
         return None
 
