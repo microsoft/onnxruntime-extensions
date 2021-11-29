@@ -9,7 +9,7 @@ from ._ocos import default_opset_domain, get_library_path  # noqa
 from ._cuops import *  # noqa
 
 
-def _get_opset_version_from_ort():
+def get_opset_version_from_ort():
     _ORT_OPSET_SUPPORT_TABLE = {
         "1.5": 11,
         "1.6": 12,
@@ -24,16 +24,16 @@ def _get_opset_version_from_ort():
 
 def make_onnx_model(graph, opset_version=0, extra_domain=default_opset_domain(), extra_opset_version=1):
     if opset_version == 0:
-        opset_version = _get_opset_version_from_ort()
+        opset_version = get_opset_version_from_ort()
     fn_mm = onnx.helper.make_model_gen_version if hasattr(onnx.helper, 'make_model_gen_version'
-                                                            ) else onnx.helper.make_model
+                                                          ) else onnx.helper.make_model
     model = fn_mm(graph, opset_imports=[
         onnx.helper.make_operatorsetid('ai.onnx', opset_version)])
     model.opset_import.extend([onnx.helper.make_operatorsetid(extra_domain, extra_opset_version)])
     return model
 
 
-class EagerOp:
+class OrtPyFunction:
 
     @classmethod
     def get_ort_session_options(cls):
@@ -117,11 +117,11 @@ class EagerOp:
     def __call__(self, *args, **kwargs):
         self._ensure_ort_session()
         outputs = self.ort_session.run(None, self._argument_map(*args, **kwargs))
-        return outputs[0] if len(outputs) == 1 else outputs
+        return outputs[0] if len(outputs) == 1 else tuple(outputs)
 
 
 def optimize_model(model_or_file, output_file):
-    sess_options = EagerOp.get_ort_session_options()
+    sess_options = OrtPyFunction.get_ort_session_options()
     sess_options.graph_optimization_level = _ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
     sess_options.optimized_model_filepath = output_file
     _ort.InferenceSession(model_or_file if isinstance(model_or_file, str)

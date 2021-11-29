@@ -4,7 +4,7 @@ import onnx
 import numpy
 
 from onnx import onnx_pb, save_tensor, numpy_helper
-from ._ortapi2 import EagerOp
+from ._ortapi2 import OrtPyFunction
 
 
 class ORTExtCommands:
@@ -16,7 +16,7 @@ class ORTExtCommands:
         """
         Run an onnx model with the arguments as its inputs
         """
-        op_func = EagerOp.from_model(self._model)
+        op_func = OrtPyFunction.from_model(self._model)
         np_args = [numpy.asarray(_x) for _x in args]
         for _idx, _sch in enumerate(op_func.inputs):
             if _sch.type.tensor_type.elem_type == onnx_pb.TensorProto.FLOAT:
