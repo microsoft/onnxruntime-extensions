@@ -51,7 +51,7 @@ void KernelBlingFireSentenceBreaker::Compute(OrtKernelContext* context) {
   }
 
   // inline split output_str by newline '\n'
-  std::vector<char*> output_sentences;
+  std::vector<const char*> output_sentences;
 
   if (output_length == 0) {
     // put one empty string if output_length is 0
