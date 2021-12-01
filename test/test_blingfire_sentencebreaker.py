@@ -24,6 +24,19 @@ class TestBlingFireSentenceBreaker(unittest.TestCase):
                             "Я увидел девушку с телескопом."])
         _run_blingfire_sentencebreaker(input=inputs, output=outputs, model_path=_get_test_data_file('data', 'default_sentence_break_model.bin'))
 
+    def test_text_to_case2(self):
+        # input is empty
+        inputs = np.array([""])
+        outputs = np.array([""])
+        _run_blingfire_sentencebreaker(input=inputs, output=outputs, model_path=_get_test_data_file('data', 'default_sentence_break_model.bin'))
+
+    def test_text_to_case3(self):
+        # input is whitespace
+        inputs = np.array([" "])
+        # output of blingfire sbd.bin model
+        outputs = np.array([""])
+        _run_blingfire_sentencebreaker(input=inputs, output=outputs, model_path=_get_test_data_file('data', 'default_sentence_break_model.bin'))
+
 
 if __name__ == "__main__":
     unittest.main()

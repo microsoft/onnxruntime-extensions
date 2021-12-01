@@ -28,16 +28,19 @@ void KernelStringECMARegexReplace::Compute(OrtKernelContext* context) {
   // Verifications
   OrtTensorDimensions pattern_dimensions(ort_, pattern);
   OrtTensorDimensions rewrite_dimensions(ort_, rewrite);
-  if (pattern_dimensions.size() != 1 || pattern_dimensions[0] != 1)
+  if (pattern_dimensions.Size() != 1) {
     ORT_CXX_API_THROW(MakeString(
         "pattern (second input) must contain only one element. It has ",
         pattern_dimensions.size(), " dimensions."), ORT_INVALID_GRAPH);
-  if (rewrite_dimensions.size() != 1 || rewrite_dimensions[0] != 1)
+  }
+  if (rewrite_dimensions.Size() != 1) {
     ORT_CXX_API_THROW(MakeString(
         "rewrite (third input) must contain only one element. It has ",
         rewrite_dimensions.size(), " dimensions."), ORT_INVALID_GRAPH);
-  if (str_pattern[0].empty())
+  }
+  if (str_pattern[0].empty()) {
     ORT_CXX_API_THROW("pattern (second input) cannot be empty.", ORT_INVALID_GRAPH);
+  }
 
   // Setup output
   OrtTensorDimensions dimensions(ort_, input);

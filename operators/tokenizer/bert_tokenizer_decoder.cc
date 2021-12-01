@@ -37,13 +37,13 @@ std::string BertTokenizerDecoder::Decode(const std::vector<int64_t>& ids, bool s
   int64_t pre_token = -1;
 
   for (auto id : ids) {
-    if (skip_special_tokens && (id == unk_token_id_ || id == sep_token_id_ || id == pad_token_id_ || id == cls_token_id_ || id == mask_token_id_)) {
+    if (skip_special_tokens && (id == sep_token_id_ || id == pad_token_id_ || id == cls_token_id_ || id == mask_token_id_)) {
       continue;
     }
 
     // deal with unk ids
     if (id >= vocab_.size() || id < 0) {
-      if (result.empty()) {
+      if (!result.empty()) {
         result.push_back(' ');
       }
       result.append(unk_token_);
@@ -101,11 +101,11 @@ bool BertTokenizerDecoder::RemoveTokenizeSpace(int64_t pre_token_id, int64_t new
   }
 
   // remove both space beside unicode punctuation
-  if (pre_char > 128 && iswpunct(pre_char)) {
+  if (pre_char > 128 && IsPunct(pre_char)) {
     return true;
   }
 
-  if (cur_char > 128 && iswpunct(cur_char)) {
+  if (cur_char > 128 && IsPunct(cur_char)) {
     return true;
   }
 
@@ -142,14 +142,12 @@ void KernelBertTokenizerDecoder::Compute(OrtKernelContext* context) {
   const OrtValue* positions = ort_.KernelContext_GetInput(context, 1);
   OrtTensorDimensions positions_dim(ort_, positions);
   if (use_indices_ &&
-      (!(positions_dim.empty() ||
-      (positions_dim.Size() == 0) ||
+      (!((positions_dim.Size() == 0) ||
       (positions_dim.size() == 2 && positions_dim[1] == 2)))) {
     ORT_CXX_API_THROW("[BertTokenizerDecoder]: Expect positions empty or a [n, 2] matrix when use indices", ORT_INVALID_GRAPH);
   }
 
-  const int64_t* p_positions =
-    positions_dim.empty() || positions_dim.Size() == 0? nullptr : ort_.GetTensorData<int64_t>(positions);
+  const int64_t* p_positions = positions_dim.Size() == 0 ? nullptr : ort_.GetTensorData<int64_t>(positions);
 
   std::vector<std::string> result;
   std::vector<int64_t> output_dim(1);

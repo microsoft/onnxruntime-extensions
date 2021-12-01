@@ -4,8 +4,9 @@
 ###############################################################################
 
 import onnx
+import numpy
 from onnx import onnx_pb as onnx_proto
-from ._ocos import default_opset_domain
+from ._ocos import default_opset_domain, Opdef, PyCustomOpDef
 
 
 class CustomOp:
@@ -53,7 +54,7 @@ class VectorToString(CustomOp):
 
     @classmethod
     def get_outputs(cls):
-        return [cls.io_def('text', onnx_proto.TensorProto.STRING, [])]
+        return [cls.io_def('text', onnx_proto.TensorProto.STRING, [None])]
 
     @classmethod
     def serialize_attr(cls, attrs):
@@ -82,12 +83,23 @@ class StringMapping(CustomOp):
         attr_data = {}
         for k_, v_ in attrs.items():
             if k_ == 'map' and isinstance(v_, dict):
-                    attr_data[k_] = '\n'.join(k + "\t" + v for k, v in v_.items())
+                attr_data[k_] = '\n'.join(k + "\t" + v for k, v in v_.items())
             elif k_ == 'map' and isinstance(v_, str):
                 attr_data[k_] = v_
             else:
                 attr_data[k_] = v_
         return attr_data
+
+
+class MaskedFill(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def("value", onnx.TensorProto.STRING, [None]),
+                 cls.io_def("mask", onnx.TensorProto.BOOL, [None])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def('output', onnx_proto.TensorProto.STRING, [None])]
 
 
 class StringToVector(CustomOp):
@@ -170,6 +182,18 @@ class BertTokenizer(CustomOp):
         return attrs_data
 
 
+class StringECMARegexReplace(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def("input", onnx.TensorProto.STRING, [None]),
+                cls.io_def("pattern", onnx.TensorProto.STRING, [None]),
+                cls.io_def("rewrite", onnx.TensorProto.STRING, [None])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def('output', onnx_proto.TensorProto.STRING, [None])]
+
+
 class BertTokenizerDecoder(CustomOp):
     @classmethod
     def get_inputs(cls):
@@ -246,3 +270,14 @@ class SingleOpGraph:
     @staticmethod
     def get_op_class(op_type):
         return globals()[op_type]
+
+
+# TODO: have a C++ impl.
+def _argsort_op(x, dim):
+    d = numpy.argsort(x, dim)
+    return d[:, ::-1]
+
+
+Opdef.create(_argsort_op, op_type='ArgSort',
+             inputs=[PyCustomOpDef.dt_float, PyCustomOpDef.dt_int64],
+             outputs=[PyCustomOpDef.dt_int64])

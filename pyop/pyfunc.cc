@@ -492,4 +492,8 @@ PYBIND11_MODULE(_ortcustomops, m) {
   init_numpy();
   AddGlobalMethods(m);
   AddObjectMethods(m);
+  auto atexit = py::module_::import("atexit");
+  atexit.attr("register")(py::cpp_function([]() {
+      PyCustomOpDefImpl::op_invoker.reset();
+  }));
 }

@@ -5,7 +5,7 @@ import warnings
 import numpy as np
 from onnx import helper, mapping
 from collections import namedtuple
-from .._ortapi2 import EagerOp
+from .._ortapi2 import OrtPyFunction
 from ._builder import is_path as _is_path
 from ._onnx_ops import ONNXElementContainer, make_model_ex
 from ._tensor import tensor_from_onnx, tensor_from_torch, tensor_set_session
@@ -264,7 +264,7 @@ class ONNXTraceSession:
                                              vi_output)
         result = None
         try:
-            oxfunc = EagerOp.from_model(oxml)
+            oxfunc = OrtPyFunction.from_model(oxml)
             result = oxfunc(*[ts_.numpy() for ts_ in ts_from])
         finally:
             if result is None:

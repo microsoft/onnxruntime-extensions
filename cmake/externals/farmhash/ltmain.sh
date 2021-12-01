@@ -1196,7 +1196,7 @@ func_enable_tag "$optarg"
       func_fatal_configuration "not configured to build any kind of library"
     fi
 
-    # Darwin sucks
+    # Darwin
     eval std_shrext=\"$shrext_cmds\"
 
     # Only execute mode is allowed to have -dlopen flags.
