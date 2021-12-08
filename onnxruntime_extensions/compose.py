@@ -100,18 +100,28 @@ class ONNXCompose:
             onnx.save_model(full_m, output_file)
         return full_m
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args, extra_args_post=None):
         """
         Predict the result through all modules/models
         :param args: the input arguments for the first preprocessing module.
-        :param kwargs: ignored
+        :param extra_args_post: extra args for post-processors.
         :return: the result from the last postprocessing module or
                  from the core model if there is no postprocessing module.
         """
+        def _is_tensor(x):
+            if isinstance(x, list):
+                return all(_is_tensor(_x) for _x in x)
+            return isinstance(x, torch.Tensor)
+
+        def _is_array(x):
+            if isinstance(x, list):
+                return all(_is_array(_x) for _x in x)
+            return _is_numpy_object(x) and (not _is_numpy_string_type(x))
+
         # convert the raw value, and special handling for string.
-        n_args = [numpy.array(_arg) if not isinstance(_arg, torch.Tensor) else _arg for _arg in args]
+        n_args = [numpy.array(_arg) if not _is_tensor(_arg) else _arg for _arg in args]
         n_args = [torch.from_numpy(_arg) if
-                  _is_numpy_object(_arg) and (not _is_numpy_string_type(_arg)) else _arg for _arg in n_args]
+                  _is_array(_arg) else _arg for _arg in n_args]
 
         self.pre_args = n_args
         inputs = [self.preprocessors.forward(*n_args)]
@@ -125,7 +135,14 @@ class ONNXCompose:
             f = ONNXPyFunction.from_model(self.models)
             outputs = [torch.from_numpy(f(*[_i.numpy() for _i in flatten_inputs]))]
         self.post_args = outputs
+        if extra_args_post:
+            if extra_args_post[0]:
+                extra_args = n_args[extra_args_post[0][0]:extra_args_post[0][1]]
+            if len(extra_args_post) > 1:
+                extra_args += flatten_inputs[extra_args_post[1][0]:extra_args_post[1][1]]
+            self.post_args = extra_args + self.post_args
+
         if self.postprocessors is None:
             return outputs
 
-        return self.postprocessors.forward(*outputs)
+        return self.postprocessors.forward(*self.post_args)

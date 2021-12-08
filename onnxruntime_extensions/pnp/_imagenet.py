@@ -30,8 +30,8 @@ class ImageNetPreProcessing(ProcessingModule):
         if self.resize_image:
             scale = _resize_param(img, torch.tensor(256))
             img = interpolate(img, scale_factor=scale,
-                            recompute_scale_factor=True,
-                            mode="bilinear", align_corners=False)
+                              recompute_scale_factor=True,
+                              mode="bilinear", align_corners=False)
         # T.CenterCrop(224),
         width, height = self.target_size, self.target_size
         img_h, img_w = img.shape[-2:]
