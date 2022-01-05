@@ -45,7 +45,6 @@ class TestPreprocessing(unittest.TestCase):
         numpy.testing.assert_allclose(probabilities.numpy(), actual_result, rtol=1e-3)
         self.assertEqual(ids[0, 0].item(), 953)  # 953 is pineapple class id in the imagenet dataset
 
-    @unittest.skip("TODO, fix it on the CI environment.")
     def test_gpt2_preprocessing(self):
         cfg = GPT2Config(n_layer=3)
         gpt2_m = _GPT2LMHeadModel(cfg)
