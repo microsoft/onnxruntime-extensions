@@ -4,7 +4,7 @@ import numpy as np
 from onnx import helper
 from onnx import onnx_pb as onnx_proto
 from typing import Any
-from torch.autograd import Function as _Function
+from ._base import CustomFunction
 from ._onnx_ops import ox as _ox, schema as _schema
 from ._onnx_ops import ONNXElementContainer, make_model_ex
 from .._ortapi2 import OrtPyFunction, get_opset_version_from_ort
@@ -34,7 +34,7 @@ def _to_onnx_type(dtype):
     return ty_dict.get(dtype, onnx_proto.TensorProto.STRING)
 
 
-class ONNXOpFunction(_Function):
+class ONNXOpFunction(CustomFunction):
     @classmethod
     def get_next_id_name(cls, name_base):
         name = 'cls' if name_base is None else name_base

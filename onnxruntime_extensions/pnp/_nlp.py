@@ -58,5 +58,5 @@ class PreHuggingFaceGPT2(ProcessingModule):
     def forward(self, text):
         return self.onnx_gpt2_tokenize(text)
 
-    def export(self, opset_version, *args):
+    def export(self, opset_version, *args, **kwargs):
         return _get_bound_object(self.onnx_gpt2_tokenize).build_model(opset_version, *args)

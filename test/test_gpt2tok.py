@@ -6,10 +6,8 @@ from pathlib import Path
 from onnx import helper, onnx_pb as onnx_proto
 from transformers import GPT2Tokenizer
 from onnxruntime_extensions import (
-    onnx_op,
     make_onnx_model,
     enable_py_op,
-    PyCustomOpDef,
     get_library_path as _get_library_path)
 
 
@@ -71,14 +69,14 @@ class TestGPT2Tokenizer(unittest.TestCase):
         cls.merges = _get_test_data_file('data', 'gpt2.merges.txt')
         cls.tokenizer = MyGPT2Tokenizer(cls.tokjson, cls.merges)
 
-        @onnx_op(op_type="GPT2Tokenizer",
-                 inputs=[PyCustomOpDef.dt_string],
-                 outputs=[PyCustomOpDef.dt_int64, PyCustomOpDef.dt_int64],
-                 attrs=["padding_length"])
-        def bpe_tokenizer(s, **kwargs):
-            padding_length = kwargs["padding_length"]
-            input_ids, attention_mask = cls.tokenizer.tokenizer_sentence(s, padding_length)
-            return input_ids, attention_mask
+        # @onnx_op(op_type="GPT2Tokenizer",
+        #          inputs=[PyCustomOpDef.dt_string],
+        #          outputs=[PyCustomOpDef.dt_int64, PyCustomOpDef.dt_int64],
+        #          attrs=["padding_length"])
+        # def bpe_tokenizer(s, **kwargs):
+        #     padding_length = kwargs["padding_length"]
+        #     input_ids, attention_mask = cls.tokenizer.tokenizer_sentence(s, padding_length)
+        #     return input_ids, attention_mask
 
     def _run_tokenizer(self, test_sentence, padding_length=-1):
         model = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges, max_length=padding_length)

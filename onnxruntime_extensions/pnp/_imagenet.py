@@ -1,8 +1,5 @@
-import io
-import onnx
 import torch
 from torch.nn.functional import interpolate
-from torch.onnx import TrainingMode, export as _export
 from ._base import ProcessingModule
 from ._functions import onnx_where, onnx_greater
 
@@ -30,8 +27,8 @@ class ImageNetPreProcessing(ProcessingModule):
         if self.resize_image:
             scale = _resize_param(img, torch.tensor(256))
             img = interpolate(img, scale_factor=scale,
-                            recompute_scale_factor=True,
-                            mode="bilinear", align_corners=False)
+                              recompute_scale_factor=True,
+                              mode="bilinear", align_corners=False)
         # T.CenterCrop(224),
         width, height = self.target_size, self.target_size
         img_h, img_w = img.shape[-2:]
@@ -50,15 +47,12 @@ class ImageNetPreProcessing(ProcessingModule):
         x /= torch.reshape(torch.tensor(std), (3, 1, 1))
         return x
 
-    def export(self, opset_version, *args):
-        with io.BytesIO() as f:
-            name_i = 'image'
-            _export(self, args, f,
-                    training=TrainingMode.EVAL,
-                    opset_version=opset_version,
-                    input_names=[name_i],
-                    dynamic_axes={name_i: [0, 1]})
-            return onnx.load_model(io.BytesIO(f.getvalue()))
+    def export(self, opset_version, *args, **kwargs):
+        name_i = 'image'
+        return super().export(opset_version, *args,
+                              input_names=[name_i],
+                              dynamic_axes={name_i: [0, 1]},
+                              **kwargs)
 
 
 class ImageNetPostProcessing(ProcessingModule):
