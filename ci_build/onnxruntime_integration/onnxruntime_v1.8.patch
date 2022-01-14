@@ -2,7 +2,7 @@ diff --git a/cmake/CMakeLists.txt b/cmake/CMakeLists.txt
 index 95bd1416c4..8c736bd69f 100644
 --- a/cmake/CMakeLists.txt
 +++ b/cmake/CMakeLists.txt
-@@ -1195,6 +1195,15 @@ if (onnxruntime_USE_TVM)
+@@ -1195,6 +1195,15 @@ if (onnxruntime_NUPHAR_USE_TVM)
    list(APPEND onnxruntime_EXTERNAL_DEPENDENCIES tvm nnvm_compiler)
  endif()
  
