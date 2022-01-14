@@ -154,14 +154,21 @@ class ONNXModelUtils:
         outputs = cls._rename_iter(models[-1].graph.output, mdl_prefix[-1])
 
         port_mapping = {}
+        if io_mapping is not None:
+            assert callable(io_mapping), "io_mapping is a custom function to build the linkage of the models"
+            ModelPort = namedtuple('ModelPort', "input output")
+            ports = []
+            for _idx in range(len(models)):
+                mio = ModelPort([cls.merge_name(mdl_prefix[_idx], _x.name) for _x in models[_idx].graph.input],
+                                [cls.merge_name(mdl_prefix[_idx], _y.name) for _y in models[_idx].graph.output])
+                ports.append(mio)
+            port_mapping = io_mapping(ports)
         for _idx in range(len(models) - 1):
             for _i, _x in enumerate(models[_idx + 1].graph.input):
                 iname = cls.merge_name(mdl_prefix[_idx + 1], _x.name)
-                oname = cls.merge_name(mdl_prefix[_idx], models[_idx].graph.output[_i].name)
-                port_mapping[iname] = oname
-        if io_mapping:
-            # TODO: support the prefix of in the argument.
-            port_mapping.update(io_mapping)
+                if iname not in port_mapping:
+                    oname = cls.merge_name(mdl_prefix[_idx], models[_idx].graph.output[_i].name)
+                    port_mapping[iname] = oname
 
         nodes = []
         Container = namedtuple('Container', ['initializer', 'value_info'])
