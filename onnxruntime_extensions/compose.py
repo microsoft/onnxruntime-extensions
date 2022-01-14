@@ -100,10 +100,10 @@ class ONNXCompose:
     def predict(self, *args, extra_args_post=None):
         """
         Predict the result through all modules/models
-        :param args: the input arguments for the first preprocessing module.
-        :param extra_args_post: extra args for post-processors.
+        :param args: the input arguments for the first preprocessing module
+        :param extra_args_post: extra args for post-processors, a tuple of begin:end pairs
         :return: the result from the last postprocessing module or
-                 from the core model if there is no postprocessing module.
+                 from the core model if there is no postprocessing module
         """
         def _is_tensor(x):
             if isinstance(x, list):

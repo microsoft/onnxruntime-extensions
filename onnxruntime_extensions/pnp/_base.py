@@ -23,9 +23,9 @@ class ProcessingModule(torch.nn.Module):
 
     def export(self, opset_version, *args, **kwargs):
         mod = self
-        if kwargs.get('script_mode', False):
+        script_model = kwargs.pop('script_mode', False)
+        if script_model:
             mod = torch.jit.script(mod)
-            kwargs.pop('script_mode')
 
         ofname = kwargs.pop('ofname', None)
 
