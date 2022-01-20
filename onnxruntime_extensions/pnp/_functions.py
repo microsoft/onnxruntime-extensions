@@ -1,9 +1,10 @@
 import onnx
 import torch
 import numpy as np
+from typing import Any
 from onnx import helper
 from onnx import onnx_pb as onnx_proto
-from typing import Any
+
 from ._base import CustomFunction
 from ._onnx_ops import ox as _ox, schema as _schema
 from ._onnx_ops import ONNXElementContainer, make_model_ex
@@ -82,7 +83,7 @@ class ONNXOpFunction(CustomFunction):
             f = OrtPyFunction.from_model(m)
             result = f(*list(_i.numpy() if isinstance(_i, torch.Tensor) else _i for _i in args))
         except Exception as e:
-            onnx.save_model(m, 'smoking.onnx')
+            onnx.save_model(m, '_temp_debugging.onnx')
             raise e
 
         results = result if isinstance(result, tuple) else [result]
@@ -112,3 +113,37 @@ def create_op_function(op_type: str, func, **attrs):
 onnx_pad = create_op_function('Pad', _ox.pad)
 onnx_where = create_op_function('Where', _ox.where)
 onnx_greater = create_op_function('Greater', _ox.greater)
+
+
+class PythonOpFunction:
+    """
+    PythonOpFunction wraps a generic Python function which skips forward operation on torch.onnx.exporter
+    converting in the script mode, which cannot support the API from external package, like Numpy.
+    Autograd.Function cannot be used torch.jit.script.
+    """
+    id_func_map = {}
+    current_func_id = 0
+
+    @staticmethod
+    def get_next_id():
+        PythonOpFunction.current_func_id += 1
+        return PythonOpFunction.current_func_id
+
+    @staticmethod
+    @torch.jit.ignore(drop_on_export=False)
+    def _pass_through_call(*args, **kwargs):
+        func_id = args[0]
+        func = PythonOpFunction.id_func_map[func_id]
+        return torch.from_numpy(func.forward(*args[1:], **kwargs))
+
+    @classmethod
+    def apply(cls, *args, **kwargs):
+        return PythonOpFunction._pass_through_call(cls.get_id(), *args, **kwargs)
+
+    @classmethod
+    def get_id(cls):
+        if not hasattr(cls, 'func_id'):
+            _id = PythonOpFunction.get_next_id()
+            setattr(cls, 'func_id', _id)
+            PythonOpFunction.id_func_map[_id] = cls
+        return cls.func_id
