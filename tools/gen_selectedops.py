@@ -25,6 +25,7 @@ OPMAP_TO_CMAKE_FLAGS = {'BlingFireSentenceBreaker': 'OCOS_ENABLE_BLINGFIRE',
                         'BertTokenizer': 'OCOS_ENABLE_BERT_TOKENIZER',
                         'BasicTokenizer': 'OCOS_ENABLE_BERT_TOKENIZER',
                         'BertTokenizerDecoder': 'OCOS_ENABLE_BERT_TOKENIZER',
+                        'SentencepieceTokenizer': 'OCOS_ENABLE_SPM_TOKENIZER'
                         }
 
 
