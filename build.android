@@ -18,5 +18,5 @@ cmake "$@" \
     -DANDROID_NDK=${NDK_ROOT}                                               \
     -DANDROID_ABI=armeabi-v7a                                               \
     -DANDROID_PLATFORM=android-19                                           \
-    -DOCOS_ENABLE_STATIC_LIB=ON                                             \
+    -DOCOS_ENABLE_SPM_TOKENIZER=ON                                          \
     ../../.. && cmake --build . --config Release --parallel
