@@ -258,9 +258,9 @@ jobs:
         py37-170:
           python.version: '3.7'
           ort.version: '1.7.0'
-        py36-160:
-          python.version: '3.6'
-          ort.version: '1.6.0'
+        # py36-160:
+        #   python.version: '3.6'
+        #   ort.version: '1.6.0'
       maxParallel: 1
 
     steps:
