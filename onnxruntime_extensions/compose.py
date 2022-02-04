@@ -4,7 +4,7 @@ import torch
 import numpy
 from torch.onnx import TrainingMode, export as _export
 from ._ortapi2 import OrtPyFunction
-from .pnp import ONNXModelUtils, ProcessingModule
+from .pnp import ONNXModelUtils, ProcessingModule, ProcessingScriptModule
 
 
 def _is_numpy_object(x):
@@ -92,6 +92,15 @@ class ONNXCompose:
         if post_m is not None:
             model_l.append(post_m)
 
+        if output_file is not None:
+            # also output the pre/post-processing model for debugging
+            idx = 0
+            for _mdl in model_l:
+                if _mdl is self.models and isinstance(_mdl, onnx.ModelProto):
+                    continue
+                onnx.save_model(_mdl, "{}_sub{}.onnx".format(output_file[:-5], idx))
+                idx += 1
+
         full_m = ONNXModelUtils.join_models(*model_l, io_mapping=io_mapping)
         if output_file is not None:
             onnx.save_model(full_m, output_file)
@@ -115,16 +124,26 @@ class ONNXCompose:
                 return all(_is_array(_x) for _x in x)
             return _is_numpy_object(x) and (not _is_numpy_string_type(x))
 
+        def _from_numpy(x):
+            if isinstance(x, list):
+                return [torch.from_numpy(_x) for _x in x]
+            return torch.from_numpy(x)
+
         # convert the raw value, and special handling for string.
-        n_args = [numpy.array(_arg) if not _is_tensor(_arg) else _arg for _arg in args]
-        n_args = [torch.from_numpy(_arg) if
+        n_args = [numpy.array(_arg) if
+                  not (_is_tensor(_arg) or _is_array(_arg)) else _arg for _arg in args]
+        n_args = [_from_numpy(_arg) if
                   _is_array(_arg) else _arg for _arg in n_args]
 
         self.pre_args = n_args
         inputs = [self.preprocessors.forward(*n_args)]
-        flatten_inputs = []
-        for _i in inputs:
-            flatten_inputs += list(_i) if isinstance(_i, tuple) else [_i]
+        if isinstance(self.preprocessors, ProcessingScriptModule):
+            flatten_inputs = inputs
+        else:
+            flatten_inputs = []
+            for _i in inputs:
+                flatten_inputs += list(_i) if isinstance(_i, tuple) else [_i]
+
         self.models_args = flatten_inputs
         if isinstance(self.models, torch.nn.Module):
             outputs = self.models.forward(*flatten_inputs)
