@@ -42,6 +42,11 @@ class ProcessingModule(torch.nn.Module):
             return mdl
 
 
+class ProcessingScriptModule(ProcessingModule):
+    def export(self, opset_version, *args, **kwargs):
+        return super().export(opset_version, *args, script_mode=True, **kwargs)
+
+
 class CustomFunction(torch.autograd.Function):
     @staticmethod
     def jvp(ctx: Any, *grad_inputs: Any) -> Any:
