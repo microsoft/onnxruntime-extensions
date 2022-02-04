@@ -77,7 +77,7 @@ class TestPreprocessing(unittest.TestCase):
         test_input = [numpy.array([1]), numpy.array([3, 4]), numpy.array([5, 6])]
         res = seq_m.predict(test_input)
         numpy.testing.assert_allclose(res, numpy.array([4, 5]))
-        if LooseVersion(torch.__version__) > LooseVersion("1.10"):
+        if LooseVersion(torch.__version__) >= LooseVersion("1.11"):
             # The ONNX exporter fixing for sequence tensor only released in 1.11 and the above.
             oxml = seq_m.export(12, output_file='temp_seqtest.onnx')
             # TODO: ORT doesn't accept the default empty element type of a sequence type.
