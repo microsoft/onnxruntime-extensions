@@ -1,11 +1,20 @@
 import json
 import pathlib
 from ._onnx_ops import make_model_ex
-from .._ortapi2 import SingleOpGraph, default_opset_domain, GPT2Tokenizer, VectorToString
+from .._ortapi2 import SingleOpGraph, default_opset_domain, BertTokenizer, GPT2Tokenizer, VectorToString
 
 
 def is_path(name_or_buffer):
     return isinstance(name_or_buffer, str) or isinstance(name_or_buffer, pathlib.Path)
+
+class _BertTokenizer(BertTokenizer):
+    @classmethod
+    def serialize_attr(cls, kwargs):
+        assert 'model' in kwargs, "Need model parameter to build the BERT tokenizer"
+        hf_bert_tokenizer = kwargs['model']
+        print(f'{hf_bert_tokenizer}')
+        attrs = {'vocab': json.dumps(hf_bert_tokenizer.encoder)}
+        return attrs
 
 
 class _GPT2Tokenizer(GPT2Tokenizer):
@@ -31,6 +40,7 @@ class _VectorToString(VectorToString):
 
 customop_mbuilder = {
     c_.op_type(): c_ for c_ in (
+        _BertTokenizer,
         _GPT2Tokenizer,
         _VectorToString
     )

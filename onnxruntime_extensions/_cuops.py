@@ -35,7 +35,6 @@ class CustomOp:
 
     io_def = onnx.helper.make_tensor_value_info
 
-
 class GPT2Tokenizer(CustomOp):
     @classmethod
     def get_inputs(cls):

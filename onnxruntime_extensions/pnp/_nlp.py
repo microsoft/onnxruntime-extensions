@@ -13,6 +13,26 @@ def make_custom_op(ctx, op_type, input_names, output_names, container, operator_
 
 
 @schema(inputs=((_dt.STRING, []),),
+        outputs=((_dt.INT64, []), (_dt.INT64, []), (_dt.INT64, [])))
+def bert_tokenize(ctx, input_names, output_names, container, operator_name=None, **kwargs):
+    if 'hf_tok' in kwargs:
+        hf_bert_tokenizer = kwargs['hf_tok']
+        attrs = {'vocab': json.dumps(hf_bert_tokenizer.encoder, separators=(',', ':'))}
+    elif 'vocab' in kwargs:
+        attrs = dict(
+            vocab=kwargs['vocab'])
+    else:
+        raise RuntimeError("Need hf_tok/vocab parameter to build the tokenizer")
+    padding_len = -1
+    if 'padding_length' in kwargs:
+        padding_len = kwargs['padding_length']
+    attrs['padding_length'] = padding_len
+
+    return make_custom_op(ctx, 'BertTokenizer', input_names,
+                          output_names, container, operator_name=operator_name, **attrs)
+
+
+@schema(inputs=((_dt.STRING, []),),
         outputs=((_dt.INT64, []), (_dt.INT64, [])))
 def gpt2_tokenize(ctx, input_names, output_names, container, operator_name=None, **kwargs):
     if 'hf_tok' in kwargs:
@@ -43,6 +63,22 @@ def _get_file_content(path):
 def _get_bound_object(func):
     return func.__self__
 
+
+class PreHuggingFaceBert(ProcessingModule):
+    def __init__(self, hf_tok=None, vocab_file=None, padding_length=-1):
+        super(PreHuggingFaceBert, self).__init__()
+        if hf_tok is None:
+            self.onnx_bert_tokenize = create_op_function('BertTokenizer', bert_tokenize,
+                                                         vocab=_get_file_content(vocab_file),
+                                                         padding_length=padding_length)
+        else:
+            self.onnx_bert_tokenize = create_op_function('BertTokenizer', bert_tokenize, hf_tok=self.hf_tok)
+
+    def forward(self, text):
+        return self.onnx_bert_tokenize(text)
+
+    def export(self, opset_version, *args, **kwargs):
+        return _get_bound_object(self.onnx_bert_tokenize).build_model(opset_version, *args)
 
 class PreHuggingFaceGPT2(ProcessingModule):
     def __init__(self, hf_tok=None, vocab_file=None, merges_file=None, padding_length=-1):

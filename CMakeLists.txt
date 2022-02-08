@@ -291,7 +291,8 @@ if(OCOS_ENABLE_PYTHON)
   if(NOT "${Python3_FIND_REGISTRY}" STREQUAL "NEVER")
     message(FATAL_ERROR "Python3_FIND_REGISTRY is not NEVER")
   endif()
-  find_package(Python3 COMPONENTS Interpreter Development.Module NumPy)
+  #find_package(Python3 COMPONENTS Interpreter Development.Module NumPy)
+  find_package(Python3 COMPONENTS Interpreter NumPy)
   if (NOT Python3_FOUND)
     message(FATAL_ERROR "Python3 or NumPy not found!")
   endif()
@@ -351,10 +352,10 @@ if(OCOS_ENABLE_PYTHON)
 
   target_link_libraries(ortcustomops PRIVATE Python3::Module)
 
-  if(NOT "${OCOS_EXTENTION_NAME}" STREQUAL "")
+  if(NOT "${OCOS_EXTENSION_NAME}" STREQUAL "")
     if(NOT WIN32)
       set_target_properties(ortcustomops PROPERTIES
-        LIBRARY_OUTPUT_NAME ${OCOS_EXTENTION_NAME}
+        LIBRARY_OUTPUT_NAME ${OCOS_EXTENSION_NAME}
         PREFIX ""
         SUFFIX "")
     endif()

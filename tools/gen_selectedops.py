@@ -2,6 +2,7 @@ import os
 import sys
 
 OPMAP_TO_CMAKE_FLAGS = {'BlingFireSentenceBreaker': 'OCOS_ENABLE_BLINGFIRE',
+                        'BertTokenizer': 'OCOS_ENABLE_BERT_TOKENIZER',
                         'GPT2Tokenizer': 'OCOS_ENABLE_GPT2_TOKENIZER',
                         'WordpieceTokenizer': 'OCOS_ENABLE_WORDPIECE_TOKENIZER',
                         'StringConcat': 'OCOS_ENABLE_TF_STRING',

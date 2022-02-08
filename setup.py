@@ -81,7 +81,7 @@ class BuildCMakeExt(_build_ext):
             '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + str(ext_fullpath.parent.absolute()),
             '-DOCOS_ENABLE_PYTHON=ON',
             '-DOCOS_ENABLE_CTEST=OFF',
-            '-DOCOS_EXTENTION_NAME=' + pathlib.Path(self.get_ext_filename(extension.name)).name,
+            '-DOCOS_EXTENSION_NAME=' + pathlib.Path(self.get_ext_filename(extension.name)).name,
             '-DCMAKE_BUILD_TYPE=' + config
         ]
         # overwrite the Python module info if the auto-detection doesn't work.

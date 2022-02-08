@@ -1,6 +1,10 @@
 
 #include "ocos.h"
 
+#ifdef ENABLE_BERT_TOKENIZER
+#include "bert_tokenizer.hpp"
+#endif
+
 #ifdef ENABLE_GPT2_TOKENIZER
 #include "gpt2_tokenizer.hpp"
 #endif
