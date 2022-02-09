@@ -10,6 +10,12 @@ ONNXRuntime Extensions is a comprehensive package to extend the capability of th
 5. Support Python per operator debugging, checking ```hook_model_op``` in onnxruntime_extensions Python package.
 
 # Quick Start
+### **Installation**
+The package can be installed by standard pythonic way, ```pip install onnxruntim-extensions```.
+
+To try the latest features in the source repo which haven't been released (cmake and the compiler like gcc required), the package can be installed as:
+```python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git```
+
 ### **ImageNet Pre/Post Processing**
 Build a full ONNX model with ImageNet pre/post processing
 ```Python
@@ -52,7 +58,7 @@ output, *_ = gpt2_core(input_ids)
 next_id = numpy.argmax(output[:, :, -1, :], axis=-1)
 print(input_text[0] + decode(next_id).item())
 ```
-This is a simplified version of GPT-2 inference for the demonstration only, The comprehensive solution on the GPT-2 model and its deviants are under development, and here is the [link](tutorials/gpt2bs.py) to the experimental.
+This is a simplified version of GPT-2 inference for the demonstration only. The full solution of post-process can be checked [here](https://github.com/microsoft/onnxruntime/blob/ad9d2e2e891714e0911ccc3fa8b70f42025b4d56/docs/ContribOperators.md#commicrosoftbeamsearch)
 
 
 
