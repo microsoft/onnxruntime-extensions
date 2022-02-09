@@ -1,0 +1,395 @@
+jobs:
+
+  #######
+  # Linux
+  #######
+
+  - job: Linux
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    strategy:
+      matrix:
+        py39-170:
+          python.version: '3.9'
+          torch.version: 'torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
+          ort.version: '1.7.0'
+          ortlib.version: '38443267'
+        py37-160:
+          python.version: '3.7'
+          torch.version: 'torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html'
+          ort.version: '1.6.0'
+          ortlib.version: '34858191'
+      maxParallel: 2
+
+    steps:
+      - task: DownloadGitHubRelease@0
+        inputs:
+          connection: 'microsoft'
+          userRepository: 'microsoft/onnxruntime'
+          defaultVersionType: 'specificVersion'
+          version: '$(ortlib.version)'
+          itemPattern: '*-linux-x64-$(ort.version)*'
+          downloadPath: '$(Build.sourcesdirectory)'
+        displayName: Download the ONNXRuntime prebuilt package.
+
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '**/*.tgz'
+          destinationFolder: '$(Build.sourcesdirectory)'
+          cleanDestinationFolder: false
+          overwriteExistingFiles: true
+        displayName: Unpack ONNXRuntime package.
+
+      - script: |
+          sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-linux-x64-$(ort.version)/lib -DOCOS_ENABLE_CTEST=ON
+        displayName: build the customop library with onnxruntime
+
+      - script: |
+          cd out/Linux/RelWithDebInfo
+          ctest -C RelWithDebInfo --output-on-failure
+        displayName: Run C++ native tests
+
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '$(python.version)'
+          addToPath: true
+
+      - script: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade setuptools
+          python -m pip install -r requirements.txt
+        displayName: Install requirements.txt
+
+      - script: |
+          python setup.py develop
+        displayName: Build the library and tests
+
+      - script: python -m pip install $(torch.version)
+        displayName: Install pytorch
+
+      - script: python -m pip install -r requirements-dev.txt
+        displayName: Install requirements-dev.txt
+
+      - script: python -m pytest test --verbose
+        displayName: Run python test
+
+      - script: |
+          python -m pip install coloredlogs
+          cd tutorials
+          python gpt2bs.py
+        displayName: Run GPT-2 beam search
+
+  ###########
+  # macOS C++
+  ###########
+
+  - job: MacOSC
+    pool:
+      vmImage: 'macOS-latest'
+
+    strategy:
+      matrix:
+        ort-170:
+          ort.version: '1.7.0'
+          ortlib.version: '38443267'
+        ort-160:
+          ort.version: '1.6.0'
+          ortlib.version: '34858191'
+      maxParallel: 2
+
+    steps:
+      # needed for onnxruntime
+      - script: brew install libomp
+        displayName: 'Install omp'
+
+      - task: DownloadGitHubRelease@0
+        inputs:
+          connection: 'microsoft'
+          userRepository: 'microsoft/onnxruntime'
+          defaultVersionType: 'specificVersion'
+          version: '$(ortlib.version)'
+          itemPattern: '*-osx-x64-$(ort.version)*'
+          downloadPath: '$(Build.sourcesdirectory)'
+        displayName: Download the ONNXRuntime prebuilt package.
+
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '**/*.tgz'
+          destinationFolder: '$(Build.sourcesdirectory)'
+          cleanDestinationFolder: false
+          overwriteExistingFiles: true
+        displayName: Unpack ONNXRuntime package.
+
+      - script: |
+          sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-osx-x64-$(ort.version)/lib -DOCOS_ENABLE_CTEST=ON
+        displayName: build the customop library with onnxruntime
+
+      - script: |
+          cd out/Darwin/RelWithDebInfo
+          ctest -C RelWithDebInfo --output-on-failure
+        displayName: Run C++ native tests
+
+  #############
+  # macOS Wheel
+  #############
+
+  - job: MacOSWheel
+    pool:
+      vmImage: 'macOS-10.15'
+
+    strategy:
+      matrix:
+        py39-170:
+          python.version: '3.9'
+          ort.version: '1.7.0'
+        py38-170:
+          python.version: '3.8'
+          ort.version: '1.7.0'
+        py37-170:
+          python.version: '3.7'
+          ort.version: '1.7.0'
+        py36-170:
+          python.version: '3.6'
+          ort.version: '1.7.0'
+      maxParallel: 1
+
+    steps:
+      # needed for onnxruntime
+      - script: brew install libomp
+        displayName: 'Install omp'
+
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '$(python.version)'
+          addToPath: true
+
+      - script: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade setuptools
+          python -m pip install --upgrade wheel
+          python -m pip install -r requirements.txt
+        displayName: Install requirements.txt
+
+      - script: python -c "import onnxruntime;print(onnxruntime.__version__)"
+        displayName: Check installation
+
+      - script: |
+          python setup.py bdist_wheel
+          for file in dist/*.whl; do python -m pip install --upgrade $file; done
+        displayName: Build and install the wheel
+
+      - script: python -m pip install -r requirements-dev.txt
+        displayName: Install requirements-dev.txt
+
+      - script: python -m pip install torch torchvision torchaudio
+        displayName: Install pytorch
+
+      - script: cd test && python -m pytest . --verbose
+        displayName: Run python test
+
+      - task: PublishPipelineArtifact@0
+        inputs:
+          artifactName: 'wheel-macos-$(python.version)'
+          targetPath: 'dist'
+
+  #########
+  # Windows C++
+  #########
+
+  - job: WindowsC
+    pool:
+      vmImage: 'windows-latest'
+
+    strategy:
+      matrix:
+        ort-170:
+          ort.version: '1.7.0'
+          ortlib.version: '38443267'
+        ort-160:
+          ort.version: '1.6.0'
+          ortlib.version: '34858191'
+      maxParallel: 2
+
+    steps:
+      - task: DownloadGitHubRelease@0
+        inputs:
+          connection: 'microsoft'
+          userRepository: 'microsoft/onnxruntime'
+          defaultVersionType: 'specificVersion'
+          version: '$(ortlib.version)'
+          itemPattern: '*-win-x64-$(ort.version)*'
+          downloadPath: '$(Build.sourcesdirectory)'
+        displayName: Download the ONNXRuntime prebuilt package.
+
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '**/*.zip'
+          destinationFolder: '$(Build.sourcesdirectory)'
+          cleanDestinationFolder: false
+          overwriteExistingFiles: true
+        displayName: Unpack ONNXRuntime package.
+
+      - script: |
+          call .\build.bat -DONNXRUNTIME_LIB_DIR=.\onnxruntime-win-x64-$(ort.version)\lib -DOCOS_ENABLE_CTEST=ON
+        displayName: build the customop library with onnxruntime
+
+      - script: |
+          cd out/Windows
+          ctest -C RelWithDebInfo --output-on-failure
+        displayName: Run C++ native tests
+
+  ################
+  # Windows wheels
+  ################
+
+  - job: WindowsWheel
+    pool:
+      vmImage: 'windows-latest'
+
+    strategy:
+      matrix:
+        py39-170:
+          python.version: '3.9'
+          ort.version: '1.7.0'
+        py38-170:
+          python.version: '3.8'
+          ort.version: '1.7.0'
+        py37-170:
+          python.version: '3.7'
+          ort.version: '1.7.0'
+        # py36-160:
+        #   python.version: '3.6'
+        #   ort.version: '1.6.0'
+      maxParallel: 1
+
+    steps:
+      - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+        displayName: Add conda to PATH
+
+      - script: conda create --yes --quiet --name pyenv -c conda-forge python=$(python.version) numpy
+        displayName: Create Anaconda environment
+
+      - script: |
+          call activate pyenv
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements-dev.txt
+        displayName: Install requirements.txt
+
+      - script: |
+          call activate pyenv
+          python setup.py bdist_wheel
+        displayName: Build the wheel
+
+      - script: |
+          call activate pyenv
+          python -m pip install --find-links=dist\ onnxruntime-extensions
+        displayName: Install the wheel
+
+      - script: |
+          call activate pyenv
+          python -m pip install torch==1.8.2+cpu torchvision==0.9.2+cpu torchaudio===0.8.2 -f https://download.pytorch.org/whl/lts/1.8/torch_lts.html
+        displayName: Install pytorch
+
+      - script: |
+          call activate pyenv
+          python -m pytest test
+        displayName: Run python test
+
+      - task: PublishPipelineArtifact@0
+        inputs:
+          artifactName: 'wheel-window-$(python.version)'
+          targetPath: 'dist'
+
+  #############
+  # WebAssembly
+  #############
+
+  - job: WebAssembly
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    steps:
+      - script: |
+          cd $(Build.BinariesDirectory)
+          git clone https://github.com/emscripten-core/emsdk
+          emsdk/emsdk install latest
+          emsdk/emsdk activate latest
+        displayName: Setup emscripten pipeline
+
+      - script: |
+          sh ./build.sh -DCMAKE_TOOLCHAIN_FILE=$(Build.BinariesDirectory)/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DOCOS_ENABLE_SPM_TOKENIZER=ON -DOCOS_ENABLE_PYTHON=OFF
+        displayName: build the customop library with onnxruntime
+    # TODO add unittest for webassembly
+
+  #############
+  # Android
+  #############
+  - job: AndroidC
+    pool:
+      vmImage: 'macOS-11'
+    timeoutInMinutes: 180
+    variables:
+      OnnxruntimeDirectory: cmake/external/onnxruntime
+    steps:
+      - script: brew install coreutils ninja
+        displayName: Install coreutils and ninja
+
+      - script: |
+          mkdir cmake/external
+          cd cmake/external
+          git clone --recursive https://github.com/microsoft/onnxruntime.git
+          cd onnxruntime
+          git checkout v1.9.0
+        displayName: Download Onnxruntime
+        workingDirectory: $(Build.sourcesdirectory)
+
+      - script: |
+          python3 tools/ci_build/build.py \
+            --config Release \
+            --build_shared_lib \
+            --parallel \
+            --build_dir build \
+            --skip_tests \
+            --android \
+            --android_sdk_path $ANDROID_HOME \
+            --android_ndk_path $ANDROID_NDK_LATEST_HOME \
+            --android_abi=x86_64 \
+            --android_api=21 \
+            --cmake_generator Ninja
+        workingDirectory: $(OnnxruntimeDirectory)
+        displayName: Build Onnxruntime library
+
+      - script: |
+          sh ./build.sh \
+            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=x86_64 \
+            -DANDROID_NATIVE_API_LEVEL=android-21 \
+            -DOCOS_ENABLE_BLINGFIRE=OFF \
+            -DOCOS_ENABLE_SPM_TOKENIZER=ON \
+            -DOCOS_ENABLE_CTEST=ON \
+            -DONNXRUNTIME_LIB_DIR=$(OnnxruntimeDirectory)/build/Release
+        workingDirectory: $(Build.sourcesdirectory)
+        displayName: Build the customop library with onnxruntime
+
+      - script: |
+          python3 tools/python/run_android_emulator.py \
+            --android-sdk-root ${ANDROID_SDK_ROOT} \
+            --create-avd --system-image "system-images;android-30;google_apis;x86_64" \
+            --start --emulator-extra-args="-partition-size 4096" \
+            --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
+        displayName: Start Android emulator
+        workingDirectory: $(OnnxruntimeDirectory)
+
+      - script: |
+          adb push out/Darwin/RelWithDebInfo/libortcustomops.so /data/local/tmp
+          adb push out/Darwin/RelWithDebInfo/data /data/local/tmp
+          adb push out/Darwin/RelWithDebInfo/operators_test /data/local/tmp
+          adb push out/Darwin/RelWithDebInfo/ortcustomops_test /data/local/tmp
+          adb push $(OnnxruntimeDirectory)/build/Release/libonnxruntime.so /data/local/tmp
+          adb shell 'cd /data/local/tmp/ && chmod a+x operators_test'
+          adb shell 'cd /data/local/tmp/ && chmod a+x ortcustomops_test'
+          adb shell 'cd /data/local/tmp/ && export LD_LIBRARY_PATH=$(pwd) && ./operators_test' && adb shell 'cd /data/local/tmp/ && export LD_LIBRARY_PATH=$(pwd) && ./ortcustomops_test'
+        displayName: Run Android test
+        workingDirectory: $(Build.sourcesdirectory)
