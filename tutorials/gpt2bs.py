@@ -1,3 +1,10 @@
+####################################################################################
+###
+### !!! This script is replaced by the latest onnxruntime contrib op solution, which is
+### https://github.com/microsoft/onnxruntime/blob/ad9d2e2e891714e0911ccc3fa8b70f42025b4d56/onnxruntime/python/tools/transformers/convert_beam_search.py
+###
+###################################################################################
+
 import os
 import onnx
 import numpy
