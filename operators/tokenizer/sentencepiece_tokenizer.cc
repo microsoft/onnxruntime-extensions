@@ -58,8 +58,8 @@ void KernelSentencepieceTokenizer::Compute(OrtKernelContext* context) {
   std::vector<int64_t> indices;
   std::vector<int> content;
   indices.reserve(str_input.size() + 1);
-  std::vector<int> inloop;
   for (size_t i = 0; i < str_input.size(); ++i) {
+    std::vector<int> inloop;
     if (!tokenizer_.Encode(str_input[i].c_str(), &inloop).ok())
       throw std::runtime_error(MakeString(
           "Unable to encode string '", str_input[i], "'."));
