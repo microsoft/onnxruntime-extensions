@@ -1,6 +1,13 @@
-from ._utils import ONNXModelUtils
+# onnxruntime-extensions pre&post processing frontend depends on the PyTorch
+try:
+    import torch
+except ImportError as e:
+    print("No torch installation found, which is required by the pre&post scripting!")
+    raise e
+
 from ._base import ProcessingModule, ProcessingScriptModule, CustomFunction
 from ._functions import *  # noqa
+from ._unifier import export
 
-from ._imagenet import PreMobileNet, PostMobileNet
+from ._imagenet import * # noqa
 from ._nlp import PreHuggingFaceGPT2

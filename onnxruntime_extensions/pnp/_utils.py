@@ -58,7 +58,7 @@ class ONNXModelUtils:
         return node
 
     @classmethod
-    def unfold_model_node(cls, container):
+    def unfold_model_node(cls, container, io_mapping=None):
         top_containter = container
         while top_containter.parent is not None:  # only one opset_import in the model.
             top_containter = top_containter.parent

@@ -93,7 +93,7 @@ class ONNXCompose:
             model_l.append(post_m)
 
         if output_file is not None:
-            # also output the pre/post-processing model for debugging
+            # also output the pre- / post-processing model for debugging
             idx = 0
             for _mdl in model_l:
                 if _mdl is self.models and isinstance(_mdl, onnx.ModelProto):
