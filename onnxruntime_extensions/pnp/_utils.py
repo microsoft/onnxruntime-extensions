@@ -3,6 +3,20 @@ import onnx
 from collections import namedtuple
 
 
+class _Container:
+    def __init__(self):
+        self.parent = None
+        self.initializer=[]
+        self.value_info=[]
+        self.nodes = []
+
+    def add_model(self, oxml):
+        self.initializer.extend(oxml.graph.initializer)
+        self.value_info.extend(oxml.graph.value_info)
+        self.nodes.extend(oxml.graph.node)
+        return self
+
+
 class ONNXModelUtils:
     @staticmethod
     def merge_name(prefix, name):
@@ -58,22 +72,34 @@ class ONNXModelUtils:
         return node
 
     @classmethod
-    def unfold_model_node(cls, container, io_mapping=None):
-        top_containter = container
-        while top_containter.parent is not None:  # only one opset_import in the model.
-            top_containter = top_containter.parent
+    def _unfold_model_node(cls, container, model_nodes, io_mapping=None):
+        top_container = container
+        while top_container.parent is not None:  # only one opset_import in the model.
+            top_container = top_container.parent
 
         nodes = container.nodes
-        model_nodes = {node.name: node for node in nodes if hasattr(node, 'model')}
         onnx_nodes = [nd_ for nd_ in nodes if nd_.name not in model_nodes]
 
         for node in model_nodes.values():
             renamed_nodes = cls._rename_graph(node.model.graph, node.name, container)
             onnx_nodes.extend(cls._process_node_body(nd_, node.name) for nd_ in renamed_nodes)
 
-            top_containter.node_domain_version_pair_sets.update(
+            top_container.node_domain_version_pair_sets.update(
                 [(opset_.domain, opset_.version) for opset_ in node.model.opset_import])
         return onnx_nodes
+
+    @classmethod
+    def unfold_model(cls, oxml, id_to_model, io_mapping=None):
+        container = _Container().add_model(oxml)
+        nodes = cls._unfold_model_node(container,
+                                       {'m_' + str(_id): _m for _id, _m in id_to_model.items() },
+                                       io_mapping)
+        inits = cls._remove_unused_initializers(nodes, container.initializer, set())
+        del oxml.graph.node[:]
+        oxml.graph.node.extend(nodes)
+        del oxml.graph.initializer[:]
+        oxml.graph.initializer.extend(inits)
+        return oxml
 
     @classmethod
     def topological_sort(cls, container, nodes, inputs, outputs):
@@ -171,11 +197,9 @@ class ONNXModelUtils:
                     port_mapping[iname] = oname
 
         nodes = []
-        Container = namedtuple('Container', ['initializer', 'value_info'])
-        container = Container(initializer=[], value_info=[])
+        container = _Container()
         for _idx, _m in enumerate(models):
-            container.initializer.extend(_m.graph.initializer)
-            container.value_info.extend(_m.graph.value_info)
+            container.initializer.add_model(_m)
             nodes += cls._rename_graph(_m.graph, mdl_prefix[_idx], container)
 
         for _n in nodes:

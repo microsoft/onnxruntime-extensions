@@ -261,6 +261,10 @@ def create_model_function(model_or_path):
     return _id
 
 
+def get_id_models():
+    return _OnnxModelFunction.id_object_map
+
+
 class SequenceProcessingModule(ProcessingModule):
     def __init__(self, mod1, mod2):
         super(SequenceProcessingModule, self).__init__()
@@ -288,20 +292,8 @@ class SequenceProcessingModule(ProcessingModule):
 
 
 def _symbolic_pythonop(g: torch._C.Graph, n: torch._C.Node, *args, **kwargs):
-    # print("original node: ", n)
-    # for i, out in enumerate(n.outputs()):
-    #     print("original output {}: {}, requires grad: {}".format(i, out, out.requiresGrad()))
-    # import torch.onnx.symbolic_helper as sym_helper
-    # for i, arg in enumerate(args):
-    #     requires_grad = arg.requiresGrad() if sym_helper._is_value(arg) else False
-    #     print("arg {}: {}, requires grad: {}".format(i, arg, requires_grad))
-
     name = kwargs["name"]
-    if name == "_jit_ResizeNormImage":
-        ret = g.op("ai.onnx.contrib::ResizeNormImage", args[0])
-    elif name == "MyRelu":
-        ret = g.op("Relu", args[0])
-    elif name == invoke_onnx_model.__name__:
+    if name == invoke_onnx_model.__name__:
         # id = torch.onnx.symbolic_helper._maybe_get_scalar(args[0]).item()
         ret = g.op("ai.onnx.contrib::_ModelFunctionCall", *args)
     else:
@@ -314,5 +306,3 @@ def _symbolic_pythonop(g: torch._C.Graph, n: torch._C.Node, *args, **kwargs):
 
 
 register_custom_op_symbolic("prim::PythonOp", _symbolic_pythonop, 1)
-# register_custom_op_symbolic("::prim_PythonOp", symbolic_pythonop, 1)
-# torch._jit_internal.copy_torchscript_modifier(_pass_through_call, OrtPyFunction)

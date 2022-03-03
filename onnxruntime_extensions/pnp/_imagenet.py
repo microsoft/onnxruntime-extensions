@@ -1,7 +1,7 @@
 import torch
 from torch.nn.functional import interpolate
 from ._base import ProcessingModule
-from ._functions import onnx_where, onnx_greater
+from ._torchext import onnx_where, onnx_greater
 
 
 def _resize_param(img, size):

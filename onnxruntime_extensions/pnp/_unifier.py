@@ -1,4 +1,5 @@
 from ._utils import ONNXModelUtils
+from ._torchext import get_id_models
 
 
 def export(m, *args,
@@ -29,4 +30,4 @@ def export(m, *args,
                      keep_initializers_as_inputs=keep_initializers_as_inputs,
                      custom_opsets=custom_opsets)
 
-    return ONNXModelUtils.unfold_model_node(model, io_mapping)
+    return ONNXModelUtils.unfold_model(model, get_id_models(), io_mapping)

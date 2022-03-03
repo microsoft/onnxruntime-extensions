@@ -6,7 +6,7 @@ except ImportError as e:
     raise e
 
 from ._base import ProcessingModule, ProcessingScriptModule, CustomFunction
-from ._functions import *  # noqa
+from ._torchext import *  # noqa
 from ._unifier import export
 
 from ._imagenet import * # noqa

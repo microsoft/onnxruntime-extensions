@@ -1,7 +1,7 @@
 import json
 
 from ._base import ProcessingModule, tensor_data_type as _dt
-from ._functions import create_op_function
+from ._torchext import create_op_function
 from ._onnx_ops import schema
 from .._ocos import default_opset_domain
 
