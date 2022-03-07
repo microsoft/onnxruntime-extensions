@@ -199,7 +199,7 @@ jobs:
 
   - job: WindowsC
     pool:
-      vmImage: 'windows-latest'
+      vmImage: 'windows-2019'
 
     strategy:
       matrix:
@@ -245,7 +245,7 @@ jobs:
 
   - job: WindowsWheel
     pool:
-      vmImage: 'windows-latest'
+      vmImage: 'windows-2019'
 
     strategy:
       matrix:
