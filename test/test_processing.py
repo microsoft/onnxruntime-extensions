@@ -5,7 +5,7 @@ import unittest
 from typing import List
 from PIL import Image
 from distutils.version import LooseVersion
-from onnxruntime_extensions import PyOrtFunction
+from onnxruntime_extensions import OrtPyFunction
 from onnxruntime_extensions import pnp, get_test_data_file
 from transformers import GPT2Config, GPT2LMHeadModel
 
@@ -61,7 +61,7 @@ class TestPreprocessing(unittest.TestCase):
                 mnv2), pnp.PostMobileNet())
 
         ids, probabilities = full_models.forward(img)
-        full_model_func = PyOrtFunction.from_model(
+        full_model_func = OrtPyFunction.from_model(
             pnp.export(full_models, img, opset_version=11, output_path='temp_imagenet.onnx'))
         actual_ids, actual_result = full_model_func(img)
         numpy.testing.assert_allclose(probabilities.numpy(), actual_result, rtol=1e-3)
@@ -79,7 +79,7 @@ class TestPreprocessing(unittest.TestCase):
         test_sentence = ["Test a sentence"]
         expected = full_model.forward(test_sentence)
         model = pnp.export(full_model, test_sentence, opset_version=12, do_constant_folding=False)
-        mfunc = PyOrtFunction.from_model(model)
+        mfunc = OrtPyFunction.from_model(model)
         actuals = mfunc(test_sentence)
         # the random weight may generate a large diff in result, test the shape only.
         self.assertTrue(numpy.allclose(expected.size(), actuals.shape))
@@ -100,7 +100,7 @@ class TestPreprocessing(unittest.TestCase):
             # TODO: ORT doesn't accept the default empty element type of a sequence type.
             oxml.graph.input[0].type.sequence_type.elem_type.CopyFrom(
                 onnx.helper.make_tensor_type_proto(onnx.onnx_pb.TensorProto.INT32, []))
-            mfunc = PyOrtFunction.from_model(oxml)
+            mfunc = OrtPyFunction.from_model(oxml)
             o_res = mfunc(test_input)
             numpy.testing.assert_allclose(res, o_res)
 
@@ -113,7 +113,7 @@ class TestPreprocessing(unittest.TestCase):
         pipeline = _MobileNetProcessingModule(onnx.load_model(get_test_data_file('data', 'mobilev2.onnx')))
         ids, probabilities = pipeline.forward(img)
 
-        full_model_func = PyOrtFunction.from_model(
+        full_model_func = OrtPyFunction.from_model(
             pnp.export(pipeline, img, opset_version=11, output_path='temp_func.onnx'))
         actual_ids, actual_result = full_model_func(img)
         numpy.testing.assert_allclose(probabilities.numpy(), actual_result, rtol=1e-3)

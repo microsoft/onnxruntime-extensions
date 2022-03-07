@@ -94,7 +94,7 @@ class ONNXModelUtils:
         nodes = cls._unfold_model_node(container,
                                        {'m_' + str(_id): _m for _id, _m in id_to_model.items() },
                                        io_mapping)
-        inits = cls._remove_unused_initializers(nodes, container.initializer, set())
+        inits = cls._remove_unused_initializers(nodes, container.initializer)
         del oxml.graph.node[:]
         oxml.graph.node.extend(nodes)
         del oxml.graph.initializer[:]
@@ -162,12 +162,14 @@ class ONNXModelUtils:
         return sorted_nodes
 
     @staticmethod
-    def _remove_unused_initializers(nodes, initializers, reversed_names):
+    def _remove_unused_initializers(nodes, initializers, reserved_names=None):
+        if reserved_names is None:
+            reserved_names = set()
         nodes_input_set = set()
         for nd_ in nodes:
             nodes_input_set.update(n_ for n_ in nd_.input)
 
-        return [intlz_ for intlz_ in initializers if intlz_.name in nodes_input_set or intlz_.name in reversed_names]
+        return [intlz_ for intlz_ in initializers if intlz_.name in nodes_input_set or intlz_.name in reserved_names]
 
     @classmethod
     def join_models(cls, *models, io_mapping=None):
@@ -223,7 +225,7 @@ class ONNXModelUtils:
                     _opset.append(_ops)
             name = name + '_' + _mdl.graph.name if name else _mdl.graph.name
 
-        inits = cls._remove_unused_initializers(nodes, container.initializer, set())
+        inits = cls._remove_unused_initializers(nodes, container.initializer)
         helper = onnx.helper
         g = helper.make_graph(nodes, name, inputs, outputs,
                               initializer=inits,
