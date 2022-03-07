@@ -39,7 +39,7 @@ class _MobileNetProcessingModule(pnp.ProcessingScriptModule):
         super(_MobileNetProcessingModule, self).__init__()
         self.model_function_id = pnp.create_model_function(oxml)
         self.pre_proc = torch.jit.trace(pnp.PreMobileNet(224), torch.zeros(224, 224, 3, dtype=torch.float32))
-        self.post_proc = pnp.ImageNetPostProcessing()
+        self.post_proc = torch.jit.trace(pnp.ImageNetPostProcessing(), torch.zeros(1, 1000, dtype=torch.float32))
 
     def forward(self, img: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         proc_input = self.pre_proc(img)
@@ -48,7 +48,6 @@ class _MobileNetProcessingModule(pnp.ProcessingScriptModule):
 
 @unittest.skipIf(LooseVersion(torch.__version__) < LooseVersion("1.9"), 'Only tested the latest PyTorch')
 class TestPreprocessing(unittest.TestCase):
-    @unittest.skip
     def test_imagenet_preprocessing(self):
         mnv2 = onnx.load_model(get_test_data_file('data', 'mobilev2.onnx'))
 
@@ -64,7 +63,7 @@ class TestPreprocessing(unittest.TestCase):
         ids, probabilities = full_models.forward(img)
         full_model_func = OrtPyFunction.from_model(
             pnp.export(full_models, img, opset_version=11, output_path='temp_imagenet.onnx'))
-        actual_ids, actual_result = full_model_func(img)
+        actual_ids, actual_result = full_model_func(img.numpy())
         numpy.testing.assert_allclose(probabilities.numpy(), actual_result, rtol=1e-3)
         self.assertEqual(ids[0, 0].item(), 953)  # 953 is pineapple class id in the imagenet dataset
 
@@ -105,16 +104,14 @@ class TestPreprocessing(unittest.TestCase):
             o_res = mfunc(test_input)
             numpy.testing.assert_allclose(res, o_res)
 
+    @unittest.skip
     def test_functional_processing(self):
         # load an image
         img = Image.open(get_test_data_file('data', 'pineapple.jpg')).convert('RGB')
         img = torch.from_numpy(numpy.asarray(img))
 
         pipeline = _MobileNetProcessingModule(onnx.load_model(get_test_data_file('data', 'mobilev2.onnx')))
-        sp = torch.jit.script(pipeline)
-        # ids, probabilities = pipeline.forward(img)
-        ids = []
-        probabilities = pipeline.forward(img)
+        ids, probabilities = pipeline.forward(img)
 
         full_model_func = OrtPyFunction.from_model(
             pnp.export(pipeline, img, opset_version=11, output_path='temp_func.onnx'))

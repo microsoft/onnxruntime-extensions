@@ -1,3 +1,5 @@
+import onnx
+
 from ._utils import ONNXModelUtils
 from ._torchext import get_id_models
 
@@ -29,5 +31,7 @@ def export(m, *args,
                      dynamic_axes=dynamic_axes,
                      keep_initializers_as_inputs=keep_initializers_as_inputs,
                      custom_opsets=custom_opsets)
-
-    return ONNXModelUtils.unfold_model(model, get_id_models(), io_mapping)
+    full_m = ONNXModelUtils.unfold_model(model, get_id_models(), io_mapping)
+    if output_path is not None:
+        onnx.save_model(full_m, output_path)
+    return full_m
