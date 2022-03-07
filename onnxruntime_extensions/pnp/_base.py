@@ -46,10 +46,12 @@ class ProcessingModule(torch.nn.Module):
         ProcessingModule.register_customops()
 
     @staticmethod
+    @torch.jit.unused
     def _argsort(g, x, dim, descending):
         return g.op('ai.onnx.contrib::ArgSort', x, dim)
 
     @classmethod
+    @torch.jit.unused
     def register_customops(cls):
         if hasattr(cls, 'loaded'):
             return True
@@ -60,6 +62,7 @@ class ProcessingModule(torch.nn.Module):
         cls.loaded = True
         return True
 
+    @torch.jit.unused
     def export(self, *args, opset_version=None, script_mode=False, output_path=None, output_seq=0, **kwargs):
         if opset_version is None:
             raise RuntimeError('No opset_version found in the kwargs.')
@@ -78,6 +81,7 @@ class ProcessingScriptModule(ProcessingModule):
     def __init__(self):
         super(ProcessingScriptModule, self).__init__()
 
+    @torch.jit.unused
     def export(self, *args, opset_version=None, **kwargs):
         return super().export(*args, opset_version=opset_version, script_mode=True, **kwargs)
 

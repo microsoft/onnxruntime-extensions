@@ -2,7 +2,7 @@ import onnx
 import numpy
 import torch
 import unittest
-from typing import List
+from typing import List, Tuple
 from PIL import Image
 from distutils.version import LooseVersion
 from onnxruntime_extensions import OrtPyFunction
@@ -41,13 +41,14 @@ class _MobileNetProcessingModule(pnp.ProcessingScriptModule):
         self.pre_proc = torch.jit.trace(pnp.PreMobileNet(224), torch.zeros(224, 224, 3, dtype=torch.float32))
         self.post_proc = pnp.ImageNetPostProcessing()
 
-    def forward(self, img):
+    def forward(self, img: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         proc_input = self.pre_proc(img)
-        return self.post_proc.forward(pnp.invoke_onnx_model(self.model_function_id, proc_input))
+        return self.post_proc.forward(pnp.invoke_onnx_model1(self.model_function_id, proc_input))
 
 
 @unittest.skipIf(LooseVersion(torch.__version__) < LooseVersion("1.9"), 'Only tested the latest PyTorch')
 class TestPreprocessing(unittest.TestCase):
+    @unittest.skip
     def test_imagenet_preprocessing(self):
         mnv2 = onnx.load_model(get_test_data_file('data', 'mobilev2.onnx'))
 
@@ -104,14 +105,16 @@ class TestPreprocessing(unittest.TestCase):
             o_res = mfunc(test_input)
             numpy.testing.assert_allclose(res, o_res)
 
-    @unittest.skip
     def test_functional_processing(self):
         # load an image
         img = Image.open(get_test_data_file('data', 'pineapple.jpg')).convert('RGB')
         img = torch.from_numpy(numpy.asarray(img))
 
         pipeline = _MobileNetProcessingModule(onnx.load_model(get_test_data_file('data', 'mobilev2.onnx')))
-        ids, probabilities = pipeline.forward(img)
+        sp = torch.jit.script(pipeline)
+        # ids, probabilities = pipeline.forward(img)
+        ids = []
+        probabilities = pipeline.forward(img)
 
         full_model_func = OrtPyFunction.from_model(
             pnp.export(pipeline, img, opset_version=11, output_path='temp_func.onnx'))

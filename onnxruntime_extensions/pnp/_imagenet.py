@@ -1,4 +1,5 @@
 import torch
+from typing import Tuple
 from torch.nn.functional import interpolate
 from ._base import ProcessingModule
 from ._torchext import onnx_where, onnx_greater
@@ -56,7 +57,7 @@ class ImageNetPreProcessing(ProcessingModule):
 
 
 class ImageNetPostProcessing(ProcessingModule):
-    def forward(self, scores):
+    def forward(self, scores: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         probabilities = torch.softmax(scores, dim=1)
         top10_prob, top10_ids = probabilities.topk(k=10, dim=1, largest=True, sorted=True)
         return top10_ids, top10_prob

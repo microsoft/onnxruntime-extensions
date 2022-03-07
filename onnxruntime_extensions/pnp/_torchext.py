@@ -235,7 +235,7 @@ class _OnnxModelFunction:
 
 
 @torch.jit.ignore
-def invoke_onnx_model(model_id: int, *args, **kwargs):
+def _invoke_onnx_model(model_id: int, *args, **kwargs):
     model_or_path = _OnnxModelFunction.id_object_map.get(model_id)
     if model_or_path is None:
         raise ValueError("cannot find id={} registered!".format(model_id))
@@ -244,10 +244,25 @@ def invoke_onnx_model(model_id: int, *args, **kwargs):
         func(*list(_i.numpy() if isinstance(_i, torch.Tensor) else _i for _i in args), **kwargs))
 
 
+@torch.jit.ignore
+def invoke_onnx_model1(model_id: int, arg0):
+    return _invoke_onnx_model(model_id, arg0)
+
+
+@torch.jit.ignore
+def invoke_onnx_model2(model_id: int, arg0, arg1):
+    return _invoke_onnx_model(model_id, arg0, arg1)
+
+
+@torch.jit.ignore
+def invoke_onnx_model3(model_id: int, arg0, arg1, arg2):
+    return _invoke_onnx_model(model_id, arg0, arg1, arg2)
+
+
 class _OnnxTracedFunction(CustomFunction):
     @classmethod
     def forward(cls, ctx: Any, *args: Any, **kwargs: Any) -> Any:
-        return invoke_onnx_model(args[0].item(), *args[1:], **kwargs)
+        return _invoke_onnx_model(args[0].item(), *args[1:], **kwargs)
 
     @classmethod
     def symbolic(cls, g, *args):
@@ -293,7 +308,7 @@ class SequenceProcessingModule(ProcessingModule):
 
 def _symbolic_pythonop(g: torch._C.Graph, n: torch._C.Node, *args, **kwargs):
     name = kwargs["name"]
-    if name == invoke_onnx_model.__name__:
+    if name.startswith(invoke_onnx_model1.__name__[:-1]):
         # id = torch.onnx.symbolic_helper._maybe_get_scalar(args[0]).item()
         ret = g.op("ai.onnx.contrib::_ModelFunctionCall", *args)
     else:
