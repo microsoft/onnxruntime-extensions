@@ -244,5 +244,5 @@ def _symbolic_pythonop(g: torch._C.Graph, n: torch._C.Node, *args, **kwargs):
     return ret
 
 
-if LooseVersion(torch.__version__) > LooseVersion("1.10"):
+if LooseVersion(torch.__version__) >= LooseVersion("1.11"):
     register_custom_op_symbolic("prim::PythonOp", _symbolic_pythonop, 1)
