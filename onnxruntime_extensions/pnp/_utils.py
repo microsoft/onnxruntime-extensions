@@ -90,24 +90,6 @@ class ONNXModelUtils:
         tensor_value = onnx.helper.get_attribute_value(c_node.attribute[0])
         _id = numpy_helper.to_array(tensor_value).item()
         return _id
-        # return [n_.value for n_ in nodes if n_.op_type == 'Constant' and n_.output[0] == arg0_name][0]
-
-    # @classmethod
-    # def _unfold_model_node_(cls, container, model_nodes, io_mapping=None):
-    #     top_container = container
-    #     while top_container.parent is not None:  # only one opset_import in the model.
-    #         top_container = top_container.parent
-    #
-    #     nodes = container.nodes
-    #     onnx_nodes = [nd_ for nd_ in nodes if nd_.name not in model_nodes]
-    #
-    #     for node in model_nodes.values():
-    #         renamed_nodes = cls._rename_graph(node.model.graph, node.name, container)
-    #         onnx_nodes.extend(cls._process_node_body(nd_, node.name) for nd_ in renamed_nodes)
-    #
-    #         top_container.node_domain_version_pair_sets.update(
-    #             [(opset_.domain, opset_.version) for opset_ in node.model.opset_import])
-    #     return onnx_nodes
 
     @classmethod
     def _unfold_model_node(cls, container, name, model, io_mapping=None):

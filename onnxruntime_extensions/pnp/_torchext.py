@@ -1,12 +1,13 @@
 import onnx
 import torch
 import numpy as np
-from typing import Any, List
+from typing import Any
 from onnx import helper
 from onnx import onnx_pb as onnx_proto
+from distutils.version import LooseVersion
 from torch.onnx import register_custom_op_symbolic
 
-from ._base import CustomFunction, ProcessingModule, ProcessingScriptModule
+from ._base import CustomFunction, ProcessingModule
 from ._onnx_ops import ox as _ox, schema as _schema
 from ._onnx_ops import ONNXElementContainer, make_model_ex
 from .._ortapi2 import OrtPyFunction, get_opset_version_from_ort
@@ -150,83 +151,6 @@ class PythonOpFunction:
         return cls.func_id
 
 
-# @torch.jit.ignore(drop=True)
-# def _pass_through_call(*args, **kwargs):
-#     model_id = args[0]
-#     path_or_model = OnnxModelFunction._id_path_map[model_id]
-#     func = OrtPyFunction.from_model(path_or_model)
-#     return torch.from_numpy(
-#         func(*list(_i.numpy() if isinstance(_i, torch.Tensor) else _i for _i in args[1:]), **kwargs))
-#
-#
-# @torch.jit.ignore
-# class OnnxModelFunction:
-#     """
-#     This class turns an ONNX model to be Python function, which can be used in jit.script
-#     """
-#     _id_path_map = {}    # cannot use the string directly since jit.script doesn't support the data type
-#     _model_id_counter = 0
-#     str_model_function_id = '_model_function_id'
-#     str_model_id = '_model_id'
-#     str_model_attached = '_model_attached'
-#
-#     @classmethod
-#     def symbolic(cls, g, *inputs):
-#         return g.op(
-#             "ai.onnx.contrib::{}{}".format(
-#                 OnnxModelFunction.str_model_function_id, cls.get_id()), *inputs)
-#
-#     @classmethod
-#     def apply(cls: Any, *args: List[torch.Tensor], **kwargs: Any) -> List[torch.Tensor]:
-#         return _pass_through_call(cls.get_id(), *args, **kwargs)
-#
-#     @classmethod
-#     def get_id(cls):
-#         if not hasattr(cls, OnnxModelFunction.str_model_id):
-#             model_or_path = getattr(cls, OnnxModelFunction.str_model_attached)
-#             _id = id(model_or_path)
-#             setattr(cls, OnnxModelFunction.str_model_id, _id)
-#             OnnxModelFunction._id_path_map[_id] = model_or_path
-#         return getattr(cls, OnnxModelFunction.str_model_id)
-#
-
-# class _OnnxModelModule(torch.nn.Module):
-#     def __init__(self, model_or_path):
-#         super(_OnnxModelModule, self).__init__()
-#         # self.fn_model = type("_Mfunc_{}".format(id(model_or_path)), (OnnxModelFunction,), {
-#         #     OnnxModelFunction.str_model_attached: model_or_path}).apply
-#         _OnnxModelModule.fn_model = OrtPyFunction.from_model(model_or_path)
-#
-#     def symbolic(cls, g, *inputs):
-#         return g.op(
-#             "ai.onnx.contrib::{}{}".format(
-#                 OnnxModelFunction.str_model_function_id, cls.get_id()), *inputs)
-#
-#     @staticmethod
-#     @torch.jit.ignore
-#     def _pass_through_call(*args, **kwargs):
-#         func = _OnnxModelModule.fn_model
-#         return torch.from_numpy(
-#             func(*list(_i.numpy() if isinstance(_i, torch.Tensor) else _i for _i in args[0:]), **kwargs))
-#
-#     def forward(self, args):
-#         # if args[0].nelement() == 0:
-#         #     return args
-#         arg1 = args + torch.tensor(1.0) - torch.tensor(1.0)
-#         # return _OnnxModelModule._pass_through_call(arg1)
-#         return  self.fn_model(arg1)
-
-#
-# def create_model_function(model_or_path):
-#     _M = type("_Mfunc_{}".format(id(model_or_path)), (OnnxModelFunction, ), {
-#          OnnxModelFunction.str_model_attached: model_or_path})
-#     return _M
-
-# def create_model_function(model_or_path, example_inputs=None):
-#     model = _OnnxModelModule(model_or_path)
-#     return model
-#     # return torch.jit.trace_module(model, {'forward': torch.rand(1, 3, 224, 224)}, check_trace=False, check_tolerance=1e-7)
-
 class _OnnxModelFunction:
     id_object_map = {}    # cannot use the string directly since jit.script doesn't support the data type
     str_model_function_id = '_model_function_id'
@@ -320,4 +244,5 @@ def _symbolic_pythonop(g: torch._C.Graph, n: torch._C.Node, *args, **kwargs):
     return ret
 
 
-register_custom_op_symbolic("prim::PythonOp", _symbolic_pythonop, 1)
+if LooseVersion(torch.__version__) > LooseVersion("1.10"):
+    register_custom_op_symbolic("prim::PythonOp", _symbolic_pythonop, 1)
