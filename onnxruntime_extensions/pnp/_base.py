@@ -39,11 +39,11 @@ def _export_f(model, args=None,
         return mdl
 
 
-class ProcessingModule(torch.nn.Module):
+class _ProcessingModule(torch.nn.Module):
 
     def __init__(self):
-        super(ProcessingModule, self).__init__()
-        ProcessingModule.register_customops()
+        super(_ProcessingModule, self).__init__()
+        _ProcessingModule.register_customops()
 
     @staticmethod
     @torch.jit.unused
@@ -77,7 +77,11 @@ class ProcessingModule(torch.nn.Module):
                          output_seq=output_seq, **kwargs)
 
 
-class ProcessingScriptModule(ProcessingModule):
+class ProcessingTracedModule(_ProcessingModule):
+    pass
+
+
+class ProcessingScriptModule(_ProcessingModule):
     def __init__(self):
         super(ProcessingScriptModule, self).__init__()
 

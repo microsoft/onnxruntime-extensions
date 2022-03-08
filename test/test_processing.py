@@ -46,7 +46,7 @@ class _MobileNetProcessingModule(pnp.ProcessingScriptModule):
         return self.post_proc.forward(pnp.invoke_onnx_model1(self.model_function_id, proc_input))
 
 
-@unittest.skipIf(LooseVersion(torch.__version__) < LooseVersion("1.9"), 'Only tested the latest PyTorch')
+@unittest.skipIf(LooseVersion(torch.__version__) < LooseVersion("1.9"), 'Not works with older PyTorch')
 class TestPreprocessing(unittest.TestCase):
     def test_imagenet_preprocessing(self):
         mnv2 = onnx.load_model(get_test_data_file('data', 'mobilev2.onnx'))
@@ -55,36 +55,44 @@ class TestPreprocessing(unittest.TestCase):
         img = Image.open(get_test_data_file('data', 'pineapple.jpg'))
         img = torch.from_numpy(numpy.asarray(img.convert('RGB')))
 
-        full_models = pnp.SequenceProcessingModule(
-            pnp.SequenceProcessingModule(
-                pnp.PreMobileNet(224),
-                mnv2), pnp.PostMobileNet())
-
+        full_models = pnp.SequenceProcessingModule(pnp.PreMobileNet(224),
+                                                   mnv2,
+                                                   pnp.PostMobileNet())
         ids, probabilities = full_models.forward(img)
+        name_i = 'image'
         full_model_func = OrtPyFunction.from_model(
-            pnp.export(full_models, img, opset_version=11, output_path='temp_imagenet.onnx'))
+            pnp.export(full_models,
+                       img,
+                       opset_version=11,
+                       output_path='temp_imagenet.onnx',
+                       input_names=[name_i],
+                       dynamic_axes={name_i: [0, 1]}))
         actual_ids, actual_result = full_model_func(img.numpy())
         numpy.testing.assert_allclose(probabilities.numpy(), actual_result, rtol=1e-3)
         self.assertEqual(ids[0, 0].item(), 953)  # 953 is pineapple class id in the imagenet dataset
 
-    @unittest.skip
     def test_gpt2_preprocessing(self):
         cfg = GPT2Config(n_layer=3)
         gpt2_m = _GPT2LMHeadModel(cfg)
         gpt2_m.eval().to('cpu')
-        full_model = pnp.SequenceProcessingModule(
-            pnp.PreHuggingFaceGPT2(vocab_file=get_test_data_file('data', 'gpt2.vocab'),
-                                   merges_file=get_test_data_file('data', 'gpt2.merges.txt')),
-            gpt2_m)
-        test_sentence = ["Test a sentence"]
-        expected = full_model.forward(test_sentence)
-        model = pnp.export(full_model, test_sentence, opset_version=12, do_constant_folding=False)
-        mfunc = OrtPyFunction.from_model(model)
-        actuals = mfunc(test_sentence)
-        # the random weight may generate a large diff in result, test the shape only.
-        self.assertTrue(numpy.allclose(expected.size(), actuals.shape))
 
-    @unittest.skip
+        test_sentence = ["Test a sentence"]
+        tok = pnp.PreHuggingFaceGPT2(vocab_file=get_test_data_file('data', 'gpt2.vocab'),
+                                     merges_file=get_test_data_file('data', 'gpt2.merges.txt'))
+        inputs = tok.forward(test_sentence)
+        pnp.export(tok, [test_sentence], opset_version=12, output_path='temp_tok2.onnx')
+        # TODO: the following test doesn't work due to GPT-2 exporting error.
+        # pnp.export(pnp.SequenceProcessingModule(gpt2_m), inputs, opset_version=12, do_constant_folding=False)
+        # full_model = pnp.SequenceProcessingModule(
+        #     tok,
+        #     gpt2_m)
+        # expected = full_model.forward(test_sentence)
+        # model = pnp.export(full_model, test_sentence, opset_version=12, do_constant_folding=False)
+        # mfunc = OrtPyFunction.from_model(model)
+        # actuals = mfunc(test_sentence)
+        # # the random weight may generate a large diff in result, test the shape only.
+        # self.assertTrue(numpy.allclose(expected.size(), actuals.shape))
+
     def test_sequence_tensor(self):
         seq_m = _SequenceTensorModel()
         test_input = [torch.from_numpy(_i) for _i in [
@@ -92,11 +100,11 @@ class TestPreprocessing(unittest.TestCase):
         res = seq_m.forward(test_input)
         numpy.testing.assert_allclose(res, numpy.array([4, 5]))
         if LooseVersion(torch.__version__) >= LooseVersion("1.11"):
-            # The ONNX exporter fixing for sequence tensor support only released in 1.11 and the above.
+            # The fixing for the sequence tensor support is only released in 1.11 and the above.
             oxml = pnp.export(seq_m,
                               test_input,
-                              oppset_version=12,
-                              output_file='temp_seqtest.onnx')
+                              opset_version=12,
+                              output_path='temp_seqtest.onnx')
             # TODO: ORT doesn't accept the default empty element type of a sequence type.
             oxml.graph.input[0].type.sequence_type.elem_type.CopyFrom(
                 onnx.helper.make_tensor_type_proto(onnx.onnx_pb.TensorProto.INT32, []))
@@ -104,7 +112,8 @@ class TestPreprocessing(unittest.TestCase):
             o_res = mfunc(test_input)
             numpy.testing.assert_allclose(res, o_res)
 
-    @unittest.skip
+    @unittest.skipIf(LooseVersion(torch.__version__) < LooseVersion("1.11"),
+                     'PythonOp bug fixing on Pytorch 1.11')
     def test_functional_processing(self):
         # load an image
         img = Image.open(get_test_data_file('data', 'pineapple.jpg')).convert('RGB')

@@ -7,7 +7,7 @@ from onnx import onnx_pb as onnx_proto
 from distutils.version import LooseVersion
 from torch.onnx import register_custom_op_symbolic
 
-from ._base import CustomFunction, ProcessingModule
+from ._base import CustomFunction, ProcessingTracedModule
 from ._onnx_ops import ox as _ox, schema as _schema
 from ._onnx_ops import ONNXElementContainer, make_model_ex
 from .._ortapi2 import OrtPyFunction, get_opset_version_from_ort
@@ -56,6 +56,8 @@ class OnnxOpFunction(CustomFunction):
     @classmethod
     def build_model(cls, opset_version, *args):
         # build the one node graph
+        if isinstance(args[0], list):
+            args = [np.asarray(_i) for _i in args]
         ec = ONNXElementContainer(get_opset_version_from_ort() if opset_version is None else opset_version)
         attrs = cls.attrs
         vi_inputs = [helper.make_tensor_value_info(
@@ -204,28 +206,26 @@ def get_id_models():
     return _OnnxModelFunction.id_object_map
 
 
-class SequenceProcessingModule(ProcessingModule):
-    def __init__(self, mod1, mod2):
+class SequenceProcessingModule(ProcessingTracedModule):
+    def __init__(self, *models):
         super(SequenceProcessingModule, self).__init__()
-        self.model1 = mod1
-        self.model2 = mod2
-        self.model1_function_id = 0
-        self.model2_function_id = 0
-        if isinstance(mod1, onnx.ModelProto):
-            self.model1_function_id = create_model_function(self.model1)
-        if isinstance(mod2, onnx.ModelProto):
-            self.model2_function_id = create_model_function(self.model2)
+        self.model_list = models
+        self.model_function_ids = []
+        for mdl_ in models:
+            if isinstance(mdl_, onnx.ModelProto):
+                self.model_function_ids.append(create_model_function(mdl_))
+            else:
+                self.model_function_ids.append(0)
 
     def forward(self, *args):
-        if self.model1_function_id != 0:
-            step1 = _OnnxTracedFunction.apply(torch.tensor(self.model1_function_id), *args)
-        else:
-            step1 = self.model1.forward(*args)
-
-        if self.model2_function_id != 0:
-            outputs = _OnnxTracedFunction.apply(torch.tensor(self.model2_function_id), step1)
-        else:
-            outputs = self.model2.forward(step1)
+        outputs = args
+        for idx_, mdl_ in enumerate(self.model_list):
+            if not isinstance(outputs, tuple):
+                outputs = (outputs, )
+            if self.model_function_ids[idx_] != 0:
+                outputs = _OnnxTracedFunction.apply(torch.tensor(self.model_function_ids[idx_]), *outputs)
+            else:
+                outputs = self.model_list[idx_].forward(*outputs)
 
         return outputs
 

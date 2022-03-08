@@ -1,11 +1,12 @@
 import onnx
 
+from .._ortapi2 import get_opset_version_from_ort
 from ._utils import ONNXModelUtils
 from ._torchext import get_id_models
 
 
 def export(m, *args,
-           opset_version,
+           opset_version=0,
            output_path=None,
            export_params=True,
            verbose=False,
@@ -20,6 +21,8 @@ def export(m, *args,
     """
     export all models and modules into a merged ONNX model.
     """
+    if opset_version == 0:
+        opset_version = get_opset_version_from_ort()
     model = m.export(*args, opset_version=opset_version,
                      output_path=output_path,
                      export_params=export_params,

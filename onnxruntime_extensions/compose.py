@@ -4,7 +4,7 @@ import torch
 import numpy
 from torch.onnx import TrainingMode, export as _export
 from ._ortapi2 import OrtPyFunction
-from .pnp import ONNXModelUtils, ProcessingModule, ProcessingScriptModule
+from .pnp import ONNXModelUtils, _ProcessingModule, ProcessingScriptModule
 
 
 def _is_numpy_object(x):
@@ -44,9 +44,9 @@ class ONNXCompose:
     """
     def __init__(self, models=None, preprocessors=None, postprocessors=None):
 
-        assert isinstance(preprocessors, ProcessingModule),\
+        assert isinstance(preprocessors, _ProcessingModule),\
             'preprocessors must be subclassing from ProcessingModule'
-        assert postprocessors is None or isinstance(postprocessors, ProcessingModule),\
+        assert postprocessors is None or isinstance(postprocessors, _ProcessingModule),\
             'postprocessors must be subclassing from ProcessingModule'
         self.models = models
         self.preprocessors = preprocessors
