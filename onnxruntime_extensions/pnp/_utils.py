@@ -1,6 +1,24 @@
 import copy
 import onnx
+from onnx import numpy_helper
 from collections import namedtuple
+
+
+class _Container:
+    def __init__(self):
+        self.parent = None
+        self.initializer=[]
+        self.value_info=[]
+        self.nodes = []
+        self.node_domain_version_pair_sets = {}
+
+    def add_model(self, oxml):
+        self.initializer.extend(oxml.graph.initializer)
+        self.value_info.extend(oxml.graph.value_info)
+        self.nodes.extend(oxml.graph.node)
+        self.node_domain_version_pair_sets.update(
+            [(opset_.domain, opset_.version) for opset_ in oxml.opset_import])
+        return self
 
 
 class ONNXModelUtils:
@@ -57,23 +75,85 @@ class ONNXModelUtils:
         node.attribute.extend(attr_list)
         return node
 
+    @staticmethod
+    def get_model_name_abbr(node):
+        no = node.name.split('_')[-1]
+        return 'm_' + no
+
+    @staticmethod
+    def get_model_id_from_arg0(nodes, node):
+        arg0_name = node.input[0]
+        c_node = [n_ for n_ in nodes if
+                  n_.op_type == 'Constant' and n_.output[0] == arg0_name]
+        assert len(c_node) == 1, 'internal error, multiple nodes with the same output.'
+        c_node = c_node[0]
+        tensor_value = onnx.helper.get_attribute_value(c_node.attribute[0])
+        _id = numpy_helper.to_array(tensor_value).item()
+        return _id
+
     @classmethod
-    def unfold_model_node(cls, container):
-        top_containter = container
-        while top_containter.parent is not None:  # only one opset_import in the model.
-            top_containter = top_containter.parent
+    def _unfold_model_node(cls, container, name, model, io_mapping=None):
+        top_container = container
+        while top_container.parent is not None:  # only one opset_import in the model.
+            top_container = top_container.parent
 
-        nodes = container.nodes
-        model_nodes = {node.name: node for node in nodes if hasattr(node, 'model')}
-        onnx_nodes = [nd_ for nd_ in nodes if nd_.name not in model_nodes]
+        renamed_nodes = cls._rename_graph(model.graph, name, container)
+        onnx_nodes = [cls._process_node_body(nd_, name) for nd_ in renamed_nodes]
 
-        for node in model_nodes.values():
-            renamed_nodes = cls._rename_graph(node.model.graph, node.name, container)
-            onnx_nodes.extend(cls._process_node_body(nd_, node.name) for nd_ in renamed_nodes)
-
-            top_containter.node_domain_version_pair_sets.update(
-                [(opset_.domain, opset_.version) for opset_ in node.model.opset_import])
+        top_container.node_domain_version_pair_sets.update(
+            [(opset_.domain, opset_.version) for opset_ in model.opset_import])
         return onnx_nodes
+
+    @classmethod
+    def unfold_model(cls, oxml, id_to_model, io_mapping=None):
+        container = _Container().add_model(oxml)
+        nodes = []
+        for _nid, _node in enumerate(oxml.graph.node):
+            if _node.op_type != '_ModelFunctionCall':
+                nodes.append(_node)
+            else:
+                model_id = cls.get_model_id_from_arg0(list(oxml.graph.node), _node)
+                if model_id not in id_to_model:
+                    raise RuntimeError("Cannot find the model id({}) in the table".format(model_id))
+
+                prefix = cls.get_model_name_abbr(_node)
+                nest_model = id_to_model[model_id]
+
+                input_mapping = []
+                output_mapping = []
+                for idx_, in_ in enumerate(nest_model.graph.input):
+                    _renamed_in = "{}_{}".format(prefix, in_.name)
+                    _nd = onnx.helper.make_node('Identity',
+                                                [_node.input[idx_ + 1]],  # the first arg is model id, skip it.
+                                                [_renamed_in],
+                                                name='i_' + _renamed_in)
+                    input_mapping.append(_nd)
+                nds = cls._unfold_model_node(container,
+                                             prefix,
+                                             nest_model,
+                                             io_mapping)
+                for idx_, out_ in enumerate(nest_model.graph.output):
+                    _renamed_out = "{}_{}".format(prefix, out_.name)
+                    _nd = onnx.helper.make_node('Identity',
+                                                [_renamed_out],
+                                                [_node.output[idx_]],
+                                                name='o_' + _renamed_out)
+                    output_mapping.append(_nd)
+                if io_mapping is not None:
+                    assert callable(io_mapping), "io_mapping is a custom function to build the linkage of the models"
+                    input_mapping, output_mapping = io_mapping(input_mapping, output_mapping)
+                # attention: the order of the list operations is important, which avoids the topological sort.
+                nodes.extend(input_mapping)
+                nodes.extend(nds)
+                nodes.extend(output_mapping)
+
+        intlzs = cls._remove_unused_initializers(nodes, container.initializer)
+        oxml = copy.deepcopy(oxml)
+        del oxml.graph.node[:]
+        oxml.graph.node.extend(nodes)
+        del oxml.graph.initializer[:]
+        oxml.graph.initializer.extend(intlzs)
+        return oxml
 
     @classmethod
     def topological_sort(cls, container, nodes, inputs, outputs):
@@ -136,12 +216,14 @@ class ONNXModelUtils:
         return sorted_nodes
 
     @staticmethod
-    def _remove_unused_initializers(nodes, initializers, reversed_names):
+    def _remove_unused_initializers(nodes, initializers, reserved_names=None):
+        if reserved_names is None:
+            reserved_names = set()
         nodes_input_set = set()
         for nd_ in nodes:
             nodes_input_set.update(n_ for n_ in nd_.input)
 
-        return [intlz_ for intlz_ in initializers if intlz_.name in nodes_input_set or intlz_.name in reversed_names]
+        return [intlz_ for intlz_ in initializers if intlz_.name in nodes_input_set or intlz_.name in reserved_names]
 
     @classmethod
     def join_models(cls, *models, io_mapping=None):
@@ -171,11 +253,9 @@ class ONNXModelUtils:
                     port_mapping[iname] = oname
 
         nodes = []
-        Container = namedtuple('Container', ['initializer', 'value_info'])
-        container = Container(initializer=[], value_info=[])
+        container = _Container()
         for _idx, _m in enumerate(models):
-            container.initializer.extend(_m.graph.initializer)
-            container.value_info.extend(_m.graph.value_info)
+            container.initializer.add_model(_m)
             nodes += cls._rename_graph(_m.graph, mdl_prefix[_idx], container)
 
         for _n in nodes:
@@ -199,7 +279,7 @@ class ONNXModelUtils:
                     _opset.append(_ops)
             name = name + '_' + _mdl.graph.name if name else _mdl.graph.name
 
-        inits = cls._remove_unused_initializers(nodes, container.initializer, set())
+        inits = cls._remove_unused_initializers(nodes, container.initializer)
         helper = onnx.helper
         g = helper.make_graph(nodes, name, inputs, outputs,
                               initializer=inits,

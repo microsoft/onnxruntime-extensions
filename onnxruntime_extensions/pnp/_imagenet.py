@@ -1,7 +1,8 @@
 import torch
+from typing import Tuple
 from torch.nn.functional import interpolate
-from ._base import ProcessingModule
-from ._functions import onnx_where, onnx_greater
+from ._base import ProcessingTracedModule
+from ._torchext import onnx_where, onnx_greater
 
 
 def _resize_param(img, size):
@@ -11,7 +12,7 @@ def _resize_param(img, size):
     return onnx_where(onnx_greater(scale_x, scale_y), scale_x, scale_y)
 
 
-class ImageNetPreProcessing(ProcessingModule):
+class ImageNetPreProcessing(ProcessingTracedModule):
     def __init__(self, size, resize_image=True):
         super(ImageNetPreProcessing, self).__init__()
         self.target_size = size
@@ -47,17 +48,9 @@ class ImageNetPreProcessing(ProcessingModule):
         x /= torch.reshape(torch.tensor(std), (3, 1, 1))
         return x
 
-    def export(self, opset_version, *args, **kwargs):
-        name_i = 'image'
-        return super().export(opset_version, *args,
-                              input_names=[name_i],
-                              dynamic_axes={name_i: [0, 1]},
-                              **kwargs)
 
-
-class ImageNetPostProcessing(ProcessingModule):
-    def forward(self, scores):
-        ProcessingModule.register_customops()
+class ImageNetPostProcessing(ProcessingTracedModule):
+    def forward(self, scores: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         probabilities = torch.softmax(scores, dim=1)
         top10_prob, top10_ids = probabilities.topk(k=10, dim=1, largest=True, sorted=True)
         return top10_ids, top10_prob

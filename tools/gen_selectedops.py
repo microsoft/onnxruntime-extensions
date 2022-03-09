@@ -1,32 +1,33 @@
 import os
 import sys
 
-OPMAP_TO_CMAKE_FLAGS = {'BlingFireSentenceBreaker': 'OCOS_ENABLE_BLINGFIRE',
-                        'GPT2Tokenizer': 'OCOS_ENABLE_GPT2_TOKENIZER',
-                        'WordpieceTokenizer': 'OCOS_ENABLE_WORDPIECE_TOKENIZER',
-                        'StringConcat': 'OCOS_ENABLE_TF_STRING',
-                        'StringECMARegexReplace': 'OCOS_ENABLE_TF_STRING',
-                        'StringECMARegexSplitWithOffsets': 'OCOS_ENABLE_TF_STRING',
-                        'StringEqual': 'OCOS_ENABLE_TF_STRING',
-                        'StringToHashBucket': 'OCOS_ENABLE_TF_STRING',
-                        'StringToHashBucketFast': 'OCOS_ENABLE_TF_STRING',
-                        'StringJoin': 'OCOS_ENABLE_TF_STRING',
-                        'StringLength': 'OCOS_ENABLE_TF_STRING',
-                        'StringLower': 'OCOS_ENABLE_TF_STRING',
-                        'StringRegexReplace': 'OCOS_ENABLE_RE2_REGEX',
-                        'StringRegexSplitWithOffsets': 'OCOS_ENABLE_RE2_REGEX',
-                        'StringSplit': 'OCOS_ENABLE_TF_STRING',
-                        'StringToVector': 'OCOS_ENABLE_TF_STRING',
-                        'StringUpper': 'OCOS_ENABLE_TF_STRING',
-                        'SegmentExtraction': 'OCOS_ENABLE_MATH',
-                        'StringMapping' : 'OCOS_ENABLE_TF_STRING',
-                        'VectorToString': 'OCOS_ENABLE_TF_STRING',
-                        'MaskedFill': 'OCOS_ENABLE_TF_STRING',
-                        'BertTokenizer': 'OCOS_ENABLE_BERT_TOKENIZER',
-                        'BasicTokenizer': 'OCOS_ENABLE_BERT_TOKENIZER',
-                        'BertTokenizerDecoder': 'OCOS_ENABLE_BERT_TOKENIZER',
-                        'SentencepieceTokenizer': 'OCOS_ENABLE_SPM_TOKENIZER'
-                        }
+OPMAP_TO_CMAKE_FLAGS = {
+    'BlingFireSentenceBreaker': 'OCOS_ENABLE_BLINGFIRE',
+    'GPT2Tokenizer': 'OCOS_ENABLE_GPT2_TOKENIZER',
+    'WordpieceTokenizer': 'OCOS_ENABLE_WORDPIECE_TOKENIZER',
+    'StringConcat': 'OCOS_ENABLE_TF_STRING',
+    'StringECMARegexReplace': 'OCOS_ENABLE_TF_STRING',
+    'StringECMARegexSplitWithOffsets': 'OCOS_ENABLE_TF_STRING',
+    'StringEqual': 'OCOS_ENABLE_TF_STRING',
+    'StringToHashBucket': 'OCOS_ENABLE_TF_STRING',
+    'StringToHashBucketFast': 'OCOS_ENABLE_TF_STRING',
+    'StringJoin': 'OCOS_ENABLE_TF_STRING',
+    'StringLength': 'OCOS_ENABLE_TF_STRING',
+    'StringLower': 'OCOS_ENABLE_TF_STRING',
+    'StringRegexReplace': 'OCOS_ENABLE_RE2_REGEX',
+    'StringRegexSplitWithOffsets': 'OCOS_ENABLE_RE2_REGEX',
+    'StringSplit': 'OCOS_ENABLE_TF_STRING',
+    'StringToVector': 'OCOS_ENABLE_TF_STRING',
+    'StringUpper': 'OCOS_ENABLE_TF_STRING',
+    'SegmentExtraction': 'OCOS_ENABLE_MATH',
+    'StringMapping': 'OCOS_ENABLE_TF_STRING',
+    'VectorToString': 'OCOS_ENABLE_TF_STRING',
+    'MaskedFill': 'OCOS_ENABLE_TF_STRING',
+    'BertTokenizer': 'OCOS_ENABLE_BERT_TOKENIZER',
+    'BasicTokenizer': 'OCOS_ENABLE_BERT_TOKENIZER',
+    'BertTokenizerDecoder': 'OCOS_ENABLE_BERT_TOKENIZER',
+    'SentencepieceTokenizer': 'OCOS_ENABLE_SPM_TOKENIZER'
+}
 
 
 def gen_cmake_oplist(opconfig_file, oplist_cmake_file='_selectedoplist.cmake'):
@@ -41,7 +42,7 @@ def gen_cmake_oplist(opconfig_file, oplist_cmake_file='_selectedoplist.cmake'):
                     ext_domain_cnt += 1
                     items = _ln.strip().split(';')
                     if len(items) < 3:
-                        raise RuntimeError("The malformated operator config file.")
+                        raise RuntimeError("The malformed operator config file.")
                     for _op in items[2].split(','):
                         if not _op:
                             continue  # is None or ""

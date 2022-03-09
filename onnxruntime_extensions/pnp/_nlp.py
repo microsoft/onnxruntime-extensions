@@ -1,7 +1,7 @@
 import json
 
-from ._base import ProcessingModule, tensor_data_type as _dt
-from ._functions import create_op_function
+from ._base import ProcessingTracedModule, tensor_data_type as _dt
+from ._torchext import create_op_function
 from ._onnx_ops import schema
 from .._ocos import default_opset_domain
 
@@ -44,7 +44,7 @@ def _get_bound_object(func):
     return func.__self__
 
 
-class PreHuggingFaceGPT2(ProcessingModule):
+class PreHuggingFaceGPT2(ProcessingTracedModule):
     def __init__(self, hf_tok=None, vocab_file=None, merges_file=None, padding_length=-1):
         super(PreHuggingFaceGPT2, self).__init__()
         if hf_tok is None:
@@ -58,5 +58,5 @@ class PreHuggingFaceGPT2(ProcessingModule):
     def forward(self, text):
         return self.onnx_gpt2_tokenize(text)
 
-    def export(self, opset_version, *args, **kwargs):
+    def export(self, *args, opset_version=0, **kwargs):
         return _get_bound_object(self.onnx_gpt2_tokenize).build_model(opset_version, *args)

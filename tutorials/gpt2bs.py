@@ -1,8 +1,8 @@
 ####################################################################################
-###
-### !!! This script is replaced by the latest onnxruntime contrib op solution, which is
-### https://github.com/microsoft/onnxruntime/blob/ad9d2e2e891714e0911ccc3fa8b70f42025b4d56/onnxruntime/python/tools/transformers/convert_beam_search.py
-###
+#
+# !!! This script is replaced by the latest onnxruntime contrib op solution, which is
+# https://github.com/microsoft/onnxruntime/blob/ad9d2e2e891714e0911ccc3fa8b70f42025b4d56/onnxruntime/python/tools/transformers/convert_beam_search.py
+#
 ###################################################################################
 
 import os
@@ -13,7 +13,6 @@ import onnxruntime as _ort
 import onnxruntime_extensions as _ortex
 from transformers import AutoConfig
 from distutils.version import StrictVersion
-
 
 if StrictVersion(_ort.__version__) < StrictVersion('1.8.1'):
     raise RuntimeError('Full GPT-2 model is only available on onxruntime 1.8.1 and higher version.')
@@ -154,12 +153,12 @@ def _beam_search(tokenizer, func_one_step,
         factor = (~step.type(torch.bool)).type(torch.int64)
         prev_attention_mask = prev_attention_mask.repeat(factor * (batch_size * beam_size - 1) + 1, 1).to(device)
         attention_mask = torch.cat(
-                [
-                    prev_attention_mask,
-                    torch.ones([batch_size * beam_size, 1], dtype=torch.float),
-                ],
-                1,
-            ).to(device)
+            [
+                prev_attention_mask,
+                torch.ones([batch_size * beam_size, 1], dtype=torch.float),
+            ],
+            1,
+        ).to(device)
 
         beam_select_idx = outputs[input_unfinished_sents_id - 2].clone().detach().to(device)
         input_log_probs = outputs[input_unfinished_sents_id - 1].clone().detach().to(device)

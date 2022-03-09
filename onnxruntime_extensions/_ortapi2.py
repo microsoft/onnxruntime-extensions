@@ -35,6 +35,8 @@ def make_onnx_model(graph, opset_version=0, extra_domain=default_opset_domain(),
 
 class OrtPyFunction:
 
+    __name__ = 'OrtPyFunction'
+
     @classmethod
     def get_ort_session_options(cls):
         # ONNXRuntime has an issue to support reusing the SessionOptions object.
