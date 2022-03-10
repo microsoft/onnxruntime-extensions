@@ -30,11 +30,16 @@ full_model = pnp.SequenceProcessingModule(
     pnp.PostMobileNet())
 
 
-# need a prediction to get some data info for exporting
-# the image size can be arbitrary, which is 400x500 in this example
+# the image size is dynamic, the 400x500 here is to get a fake input to enable export
 fake_image_input = torch.ones(500, 400, 3).to(torch.uint8)
 full_model.forward(fake_image_input)
-pnp.export(full_model, fake_image_input, opset_version=11, output_path='temp_exmobilev2.onnx')
+name_i = 'image'
+pnp.export(full_model,
+           fake_image_input,
+           opset_version=11,
+           output_path='temp_exmobilev2.onnx',
+           input_names=[name_i],
+           dynamic_axes={name_i: [0, 1]})
 ```
 The above python code will translate the ImageNet pre/post processing functions into an all-in-one model which can do inference on all platforms that ONNNXRuntime supports, like Android/iOS, without any Python runtime and the 3rd-party libraries dependency.
 
