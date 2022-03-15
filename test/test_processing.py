@@ -96,7 +96,9 @@ class TestPreprocessing(unittest.TestCase):
     def test_sequence_tensor(self):
         seq_m = _SequenceTensorModel()
         test_input = [torch.from_numpy(_i) for _i in [
-            numpy.array([1]), numpy.array([3, 4]), numpy.array([5, 6])]]
+            numpy.array([1]).astype(numpy.int64),
+            numpy.array([3, 4]).astype(numpy.int64),
+            numpy.array([5, 6]).astype(numpy.int64)]]
         res = seq_m.forward(test_input)
         numpy.testing.assert_allclose(res, numpy.array([4, 5]))
         if LooseVersion(torch.__version__) >= LooseVersion("1.11"):
@@ -107,7 +109,7 @@ class TestPreprocessing(unittest.TestCase):
                               output_path='temp_seqtest.onnx')
             # TODO: ORT doesn't accept the default empty element type of a sequence type.
             oxml.graph.input[0].type.sequence_type.elem_type.CopyFrom(
-                onnx.helper.make_tensor_type_proto(onnx.onnx_pb.TensorProto.INT32, []))
+                onnx.helper.make_tensor_type_proto(onnx.onnx_pb.TensorProto.INT64, []))
             mfunc = OrtPyFunction.from_model(oxml)
             o_res = mfunc([_i.numpy() for _i in test_input])
             numpy.testing.assert_allclose(res, o_res)
