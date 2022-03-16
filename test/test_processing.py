@@ -80,7 +80,7 @@ class TestPreprocessing(unittest.TestCase):
         tok = pnp.PreHuggingFaceGPT2(vocab_file=get_test_data_file('data', 'gpt2.vocab'),
                                      merges_file=get_test_data_file('data', 'gpt2.merges.txt'))
         inputs = tok.forward(test_sentence)
-        pnp.export(tok, [test_sentence], opset_version=12, output_path='temp_tok2.onnx')
+        pnp.export(tok, test_sentence, opset_version=12, output_path='temp_tok2.onnx')
         # TODO: the following test doesn't work due to GPT-2 exporting error.
         # pnp.export(pnp.SequenceProcessingModule(gpt2_m), inputs, opset_version=12, do_constant_folding=False)
         # full_model = pnp.SequenceProcessingModule(
@@ -96,20 +96,22 @@ class TestPreprocessing(unittest.TestCase):
     def test_sequence_tensor(self):
         seq_m = _SequenceTensorModel()
         test_input = [torch.from_numpy(_i) for _i in [
-            numpy.array([1]), numpy.array([3, 4]), numpy.array([5, 6])]]
+            numpy.array([1]).astype(numpy.int64),
+            numpy.array([3, 4]).astype(numpy.int64),
+            numpy.array([5, 6]).astype(numpy.int64)]]
         res = seq_m.forward(test_input)
         numpy.testing.assert_allclose(res, numpy.array([4, 5]))
         if LooseVersion(torch.__version__) >= LooseVersion("1.11"):
             # The fixing for the sequence tensor support is only released in 1.11 and the above.
             oxml = pnp.export(seq_m,
-                              test_input,
+                              [test_input],
                               opset_version=12,
                               output_path='temp_seqtest.onnx')
             # TODO: ORT doesn't accept the default empty element type of a sequence type.
             oxml.graph.input[0].type.sequence_type.elem_type.CopyFrom(
-                onnx.helper.make_tensor_type_proto(onnx.onnx_pb.TensorProto.INT32, []))
+                onnx.helper.make_tensor_type_proto(onnx.onnx_pb.TensorProto.INT64, []))
             mfunc = OrtPyFunction.from_model(oxml)
-            o_res = mfunc(test_input)
+            o_res = mfunc([_i.numpy() for _i in test_input])
             numpy.testing.assert_allclose(res, o_res)
 
     @unittest.skipIf(LooseVersion(torch.__version__) < LooseVersion("1.11"),
@@ -124,7 +126,7 @@ class TestPreprocessing(unittest.TestCase):
 
         full_model_func = OrtPyFunction.from_model(
             pnp.export(pipeline, img, opset_version=11, output_path='temp_func.onnx'))
-        actual_ids, actual_result = full_model_func(img)
+        actual_ids, actual_result = full_model_func(img.numpy())
         numpy.testing.assert_allclose(probabilities.numpy(), actual_result, rtol=1e-3)
         self.assertEqual(ids[0, 0].item(), 953)  # 953 is pineapple class id in the imagenet dataset
 

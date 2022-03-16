@@ -240,7 +240,7 @@ def _symbolic_pythonop(g: torch._C.Graph, n: torch._C.Node, *args, **kwargs):
         import warnings
         return warnings.warn("prim::PythonOp", "unknown node kind: " + name)
     # Copy type and shape from original node.
-    ret.setType(args[-1].type())
+    ret.setType(n.output().type())
     return ret
 
 
