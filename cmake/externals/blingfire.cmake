@@ -12,4 +12,12 @@ if (NOT blingfire_POPULATED)
 
     # enable size optimization build
     add_subdirectory(${blingfire_SOURCE_DIR} ${blingfire_BINARY_DIR} EXCLUDE_FROM_ALL)
-endif ()
+    # we don't use any Python code from Blingfire codebase
+    set(NO_USE_FILE ${blingfire_SOURCE_DIR}/scripts/requirements.txt)
+    file(TO_NATIVE_PATH ${NO_USE_FILE} NO_USE_FILE)
+    if (CMAKE_SYSTEM_NAME MATCHES "Windows")
+        execute_process(COMMAND cmd /c "del ${NO_USE_FILE}")
+    else()
+        execute_process(COMMAND bash -c "rm ${NO_USE_FILE}")
+    endif()
+endif()
