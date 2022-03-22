@@ -11,13 +11,10 @@ from onnxruntime_extensions import (
 
 
 def _create_test_model_test():
-    nodes = []
-    nodes.append(helper.make_node(
-        'CustomOpOne', ['input_1', 'input_2'], ['output_1'],
-        domain='ai.onnx.contrib'))
-    nodes.append(helper.make_node(
-        'CustomOpTwo', ['output_1'], ['output'],
-        domain='ai.onnx.contrib'))
+    nodes = [helper.make_node('CustomOpOne', ['input_1', 'input_2'], ['output_1'],
+                              domain='ai.onnx.contrib'),
+             helper.make_node('CustomOpTwo', ['output_1'], ['output'],
+                              domain='ai.onnx.contrib')]
 
     input0 = helper.make_tensor_value_info(
         'input_1', onnx_proto.TensorProto.FLOAT, [3, 5])
