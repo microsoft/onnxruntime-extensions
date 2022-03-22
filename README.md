@@ -10,7 +10,7 @@ ONNXRuntime Extensions is a comprehensive package to extend the capability of th
 
 # Quick Start
 ### **Installation**
-The package can be installed by standard pythonic way, ```pip install onnxruntim-extensions```.
+The package can be installed by standard pythonic way, ```pip install onnxruntime-extensions```.
 
 To try the latest features in the source repo which haven't been released (cmake and the compiler like gcc required), the package can be installed as:
 ```python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git```
