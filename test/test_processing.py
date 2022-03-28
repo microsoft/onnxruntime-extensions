@@ -104,7 +104,7 @@ class TestPreprocessing(unittest.TestCase):
         if LooseVersion(torch.__version__) >= LooseVersion("1.11"):
             # The fixing for the sequence tensor support is only released in 1.11 and the above.
             oxml = pnp.export(seq_m,
-                              [test_input],
+                              test_input,
                               opset_version=12,
                               output_path='temp_seqtest.onnx')
             # TODO: ORT doesn't accept the default empty element type of a sequence type.

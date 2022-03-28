@@ -210,10 +210,10 @@ def get_id_models():
 class _OnnxModelModule(torch.nn.Module):
     def __init__(self, mdl):
         super(_OnnxModelModule, self).__init__()
-        self.model_function_id = create_model_function(mdl)
+        self.model_function_id = torch.tensor(create_model_function(mdl))
 
     def forward(self, *args):
-        return _OnnxTracedFunction.apply(self.model_function_ids[self.model_function_id], *args)
+        return _OnnxTracedFunction.apply(self.model_function_id, *args)
 
 
 def _symbolic_pythonop(g: torch._C.Graph, n: torch._C.Node, *args, **kwargs):
@@ -244,12 +244,6 @@ class SequentialProcessingModule(ProcessingTracedModule):
                 self.model_list.append(_OnnxModelModule(mdl_))
             else:
                 self.model_list.append(mdl_)
-
-    def split(self, index):
-        m0 = self.model_list[: index+1]
-        m = self.model_list[index+1:]
-        return SequentialProcessingModule(*list(m_ for m_ in m0)), \
-            SequentialProcessingModule(*list(m_ for m_ in m))
 
     def forward(self, *args):
         outputs = args
