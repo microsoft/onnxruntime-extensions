@@ -68,17 +68,12 @@ jobs:
       - script: python -m pip install $(torch.version)
         displayName: Install pytorch
 
-      - script: python -m pip install -r requirements-dev.txt
+      - script: |
+          python -m pip install -r requirements-dev.txt
         displayName: Install requirements-dev.txt
 
       - script: python -m pytest test --verbose
         displayName: Run python test
-
-      - script: |
-          python -m pip install coloredlogs
-          cd tutorials
-          python gpt2bs.py
-        displayName: Run GPT-2 beam search
 
   ###########
   # macOS C++

@@ -17,18 +17,17 @@ To try the latest features in the source repo which haven't been released (cmake
 
 ### **ImageNet Pre/Post Processing**
 Build a full ONNX model with ImageNet pre/post processing
+
 ```Python
 import onnx
 import torch
 from onnxruntime_extensions import pnp
 
-
 mnv2 = onnx.load_model('test/data/mobilev2.onnx')
-full_model = pnp.SequenceProcessingModule(
+full_model = pnp.SequentialProcessingModule(
     pnp.PreMobileNet(224),
     mnv2,
     pnp.PostMobileNet())
-
 
 # the image size is dynamic, the 400x500 here is to get a fake input to enable export
 fake_image_input = torch.ones(500, 400, 3).to(torch.uint8)

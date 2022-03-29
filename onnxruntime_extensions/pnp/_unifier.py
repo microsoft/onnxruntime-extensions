@@ -2,7 +2,8 @@ import onnx
 
 from .._ortapi2 import get_opset_version_from_ort
 from ._utils import ONNXModelUtils
-from ._torchext import get_id_models
+from ._base import is_processing_module
+from ._torchext import get_id_models, SequentialProcessingModule
 
 
 def export(m, *args,
@@ -23,6 +24,10 @@ def export(m, *args,
     """
     if opset_version == 0:
         opset_version = get_opset_version_from_ort()
+
+    if not is_processing_module(m):
+        m = SequentialProcessingModule(m)
+
     model = m.export(*args, opset_version=opset_version,
                      output_path=output_path,
                      export_params=export_params,

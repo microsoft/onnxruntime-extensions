@@ -1,4 +1,5 @@
 [project]
+name = "onnxruntime_extensions"
 # since onnxruntime havn't supported Python 3.10 yet
 requires-python = "<3.10"
 

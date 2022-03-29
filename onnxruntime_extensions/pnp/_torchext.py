@@ -7,6 +7,7 @@ from onnx import onnx_pb as onnx_proto
 from distutils.version import LooseVersion
 from torch.onnx import register_custom_op_symbolic
 
+from ._utils import ONNXModelUtils
 from ._base import CustomFunction, ProcessingTracedModule
 from ._onnx_ops import ox as _ox, schema as _schema
 from ._onnx_ops import ONNXElementContainer, make_model_ex
@@ -105,7 +106,7 @@ class OnnxOpFunction(CustomFunction):
 def create_op_function(op_type: str, func, **attrs):
     if _ox.is_raw(func):
         func = _schema(func.__func__)
-    cls = type(_ox.get_unique_operator_type_name(op_type), (OnnxOpFunction, ),
+    cls = type(_ox.get_unique_operator_type_name(op_type), (OnnxOpFunction,),
                dict(
                    op_type=op_type,
                    opb_func=func,
@@ -154,7 +155,7 @@ class PythonOpFunction:
 
 
 class _OnnxModelFunction:
-    id_object_map = {}    # cannot use the string directly since jit.script doesn't support the data type
+    id_object_map = {}  # cannot use the string directly since jit.script doesn't support the data type
     str_model_function_id = '_model_function_id'
     str_model_id = '_model_id'
     str_model_attached = '_model_attached'
@@ -206,34 +207,20 @@ def get_id_models():
     return _OnnxModelFunction.id_object_map
 
 
-class SequenceProcessingModule(ProcessingTracedModule):
-    def __init__(self, *models):
-        super(SequenceProcessingModule, self).__init__()
-        self.model_list = models
-        self.model_function_ids = []
-        for mdl_ in models:
-            if isinstance(mdl_, onnx.ModelProto):
-                self.model_function_ids.append(create_model_function(mdl_))
-            else:
-                self.model_function_ids.append(0)
+class _OnnxModelModule(torch.nn.Module):
+    def __init__(self, mdl):
+        super(_OnnxModelModule, self).__init__()
+        self.model_function_id = torch.tensor(create_model_function(mdl))
 
     def forward(self, *args):
-        outputs = args
-        for idx_, mdl_ in enumerate(self.model_list):
-            if not isinstance(outputs, tuple):
-                outputs = (outputs, )
-            if self.model_function_ids[idx_] != 0:
-                outputs = _OnnxTracedFunction.apply(torch.tensor(self.model_function_ids[idx_]), *outputs)
-            else:
-                outputs = self.model_list[idx_].forward(*outputs)
-
-        return outputs
+        return _OnnxTracedFunction.apply(self.model_function_id, *args)
 
 
 def _symbolic_pythonop(g: torch._C.Graph, n: torch._C.Node, *args, **kwargs):
     name = kwargs["name"]
     if name.startswith(invoke_onnx_model1.__name__[:-1]):
-        # id = torch.onnx.symbolic_helper._maybe_get_scalar(args[0]).item()
+        # NB: if you want to get the value of the first argument, i.e. the model id,
+        # you can get it by torch.onnx.symbolic_helper._maybe_get_scalar(args[0]).item()
         ret = g.op("ai.onnx.contrib::_ModelFunctionCall", *args)
     else:
         # Logs a warning and returns None
@@ -246,3 +233,44 @@ def _symbolic_pythonop(g: torch._C.Graph, n: torch._C.Node, *args, **kwargs):
 
 if LooseVersion(torch.__version__) >= LooseVersion("1.11"):
     register_custom_op_symbolic("prim::PythonOp", _symbolic_pythonop, 1)
+
+
+class SequentialProcessingModule(ProcessingTracedModule):
+    def __init__(self, *models):
+        super(SequentialProcessingModule, self).__init__()
+        self.model_list = torch.nn.ModuleList()
+        for mdl_ in models:
+            if isinstance(mdl_, onnx.ModelProto):
+                self.model_list.append(_OnnxModelModule(mdl_))
+            else:
+                self.model_list.append(mdl_)
+
+    def forward(self, *args):
+        outputs = args
+        with torch.no_grad():
+            for idx_, mdl_ in enumerate(self.model_list):
+                if not isinstance(outputs, tuple):
+                    outputs = (outputs,)
+                outputs = self.model_list[idx_](*outputs)
+
+        return outputs
+
+    def export(self, *args, **kwargs):
+        prefix_m = None
+        core_m = self
+        raw_input_flag = any(_is_string_type(x_) for x_ in args)
+        if raw_input_flag:
+            # NB: torch.onnx.export doesn't support exporting a module accepting string type input,
+            # So, in this case, the module will be separated into two parts to use the customized export.
+            m0 = self.model_list[0]
+            new_args = m0(*args)
+            if not isinstance(new_args, tuple):
+                new_args = (new_args, )
+            prefix_m = m0.export(*args, **kwargs)
+            args = new_args
+            core_m = SequentialProcessingModule(*self.model_list[1:])
+        if prefix_m is None:
+            return super().export(*args, **kwargs)
+        else:
+            oxml = core_m.export(*args, **kwargs)
+            return ONNXModelUtils.join_models(prefix_m, oxml)
