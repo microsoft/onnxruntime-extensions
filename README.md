@@ -1,5 +1,5 @@
 # ONNXRuntime Extensions
-[![Build Status](https://dev.azure.com/ms/onnxruntime-extensions/_apis/build/status/microsoft.ort-customops?branchName=main)](https://dev.azure.com/ms/onnxruntime-extensions/_build/latest?definitionId=512&branchName=main)
+[![Build Status](https://aiinfra.visualstudio.com/Lotus/_apis/build/status/onnxruntime-extensions/extensions.wheel?branchName=main)](https://aiinfra.visualstudio.com/Lotus/_build/latest?definitionId=1085&branchName=main)
 
 # Introduction
 ONNXRuntime Extensions is a comprehensive package to extend the capability of the ONNX conversion and inference.
