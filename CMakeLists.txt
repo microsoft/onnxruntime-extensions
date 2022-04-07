@@ -34,6 +34,7 @@ option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
 option(OCOS_ENABLE_BLINGFIRE "Enable the Blingfire building" ON)
 option(OCOS_ENABLE_DLIB "Enable the Inverse building" ON)
 option(OCOS_ENABLE_MATH "Enable the math tensor operators building" ON)
+option(OCOS_ENABLE_OPENCV "Enable building the operators depending on opencv" ON)
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
 
@@ -48,6 +49,7 @@ function(disable_all_operators)
   set(OCOS_ENABLE_BLINGFIRE OFF CACHE INTERNAL "")
   set(OCOS_ENABLE_MATH OFF CACHE INTERNAL "")
   set(OCOS_ENABLE_DLIB OFF CACHE INTERNAL "")
+  set(OCOS_ENABLE_OPENCV OFF CACHE INTERNAL "")
 endfunction()
 
 if(NOT CC_OPTIMIZE)
@@ -103,7 +105,6 @@ if (OCOS_ENABLE_RE2_REGEX)
     set(RE2_BUILD_TESTING OFF CACHE INTERNAL "")
     message(STATUS "Fetch googlere2")
     include(googlere2)
-    FetchContent_GetProperties(googlere2)
   endif()
 
   if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
@@ -142,6 +143,11 @@ if (OCOS_ENABLE_MATH)
   endif()
   file(GLOB TARGET_SRC_MATH "operators/math/*.cc" "operators/math/*.h*")
   list(APPEND TARGET_SRC ${TARGET_SRC_MATH} ${TARGET_SRC_DLIB} ${TARGET_SRC_INVERSE})
+endif()
+
+if (OCOS_ENABLE_OPENCV)
+  message(STATUS "Fetch opencv")
+  include(opencv)
 endif()
 
 set(_HAS_TOKENIZER OFF)
@@ -203,25 +209,28 @@ endif()
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_library(ocos_operators STATIC ${TARGET_SRC})
-target_include_directories(ocos_operators PUBLIC operators/tokenizer)
-
-set(ocos_libraries "")
-if (OCOS_ENABLE_TF_STRING)
-  list(APPEND ocos_libraries re2)
-endif()
-
 target_include_directories(ocos_operators PUBLIC
   ${PROJECT_SOURCE_DIR}/includes
   ${PROJECT_SOURCE_DIR}/includes/onnxruntime
-  ${PROJECT_SOURCE_DIR}/operators)
-
+  ${PROJECT_SOURCE_DIR}/operators
+  ${PROJECT_SOURCE_DIR}/operators/tokenizer)
+set(ocos_libraries "")
 set(OCOS_COMPILE_DEFINITIONS "")
+
+if (OCOS_ENABLE_DLIB)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_DLIB)
+endif()
+
+if (_HAS_TOKENIZER)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TOKENIZER)
+endif()
 
 if (OCOS_ENABLE_TF_STRING)
   target_include_directories(ocos_operators PUBLIC
     ${googlere2_SOURCE_DIR}
     ${farmhash_SOURCE_DIR}/src)
-  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING NOMINMAX FARMHASH_NO_BUILTIN_EXPECT)
+  list(APPEND ocos_libraries re2)
 endif()
 
 if (OCOS_ENABLE_RE2_REGEX)
@@ -234,12 +243,10 @@ if (OCOS_ENABLE_MATH)
   # The dlib matrix implementation is all in the headers, no library compiling needed.
 endif()
 
-if (OCOS_ENABLE_DLIB)
-  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_DLIB)
-endif()
-
-if (_HAS_TOKENIZER)
-  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TOKENIZER)
+if (OCOS_ENABLE_OPENCV)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_OPENCV)
+  list(APPEND ocos_libraries ${OpenCV_LIBS})
+  target_include_directories(ocos_operators PRIVATE ${opencv_INCLUDE_DIRS})
 endif()
 
 if (OCOS_ENABLE_GPT2_TOKENIZER)
@@ -273,12 +280,6 @@ endif()
 if (OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
   target_include_directories(ocos_operators PRIVATE ${json_SOURCE_DIR}/single_include)
   list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
-endif()
-
-if (OCOS_ENABLE_TF_STRING)
-  target_compile_definitions(ocos_operators PRIVATE
-      NOMINMAX
-      FARMHASH_NO_BUILTIN_EXPECT)
 endif()
 
 list(REMOVE_DUPLICATES OCOS_COMPILE_DEFINITIONS)
