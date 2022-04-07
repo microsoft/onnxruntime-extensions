@@ -93,5 +93,8 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(opencv)
-# set(opencv_INCLUDE_DIRS ${opencv_SOURCE_DIR}/include))
-# list(APPEND $(opencv_BINARY_DIR))
+set(opencv_INCLUDE_DIRS "")
+list(APPEND opencv_INCLUDE_DIRS ${OPENCV_CONFIG_FILE_INCLUDE_DIR})
+list(APPEND opencv_INCLUDE_DIRS ${OPENCV_MODULE_opencv_core_LOCATION}/include ${OPENCV_MODULE_opencv_imgproc_LOCATION}/include)
+set(opencv_LIBS "")
+list(APPEND opencv_LIBS opencv_core opencv_imgproc)

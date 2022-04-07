@@ -245,7 +245,7 @@ endif()
 
 if (OCOS_ENABLE_OPENCV)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_OPENCV)
-  list(APPEND ocos_libraries ${OpenCV_LIBS})
+  list(APPEND ocos_libraries ${opencv_LIBS})
   target_include_directories(ocos_operators PRIVATE ${opencv_INCLUDE_DIRS})
 endif()
 
