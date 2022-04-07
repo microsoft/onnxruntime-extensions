@@ -37,7 +37,9 @@ extern "C" {
 #define _Outptr_result_buffer_maybenull_(X)
 #define ORT_ALL_ARGS_NONNULL __attribute__((nonnull))
 #else
+#if defined(__MINGW32__)
 #define _Frees_ptr_opt_
+#endif
 #include <specstrings.h>
 #define ORT_ALL_ARGS_NONNULL
 #endif
