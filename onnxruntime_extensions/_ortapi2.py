@@ -15,7 +15,9 @@ def get_opset_version_from_ort():
         "1.6": 12,
         "1.7": 13,
         "1.8": 14,
-        "1.9": 15
+        "1.9": 15,
+        "1.10": 15,
+        "1.11": 16
     }
 
     ort_ver_string = '.'.join(_ort.__version__.split('.')[0:2])
