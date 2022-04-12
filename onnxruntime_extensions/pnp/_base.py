@@ -6,7 +6,7 @@ from onnx.onnx_pb import TensorProto
 from torch.onnx import TrainingMode, export as _export
 
 
-def _export_f(model, args=None,
+def _export_f(model, *args,
               opset_version=None,
               output_path=None,
               output_seq=0,
@@ -39,7 +39,7 @@ def _export_f(model, args=None,
         return mdl
 
 
-class _ProcessingModule(torch.nn.Module):
+class _ProcessingModule:
 
     def __init__(self):
         super(_ProcessingModule, self).__init__()
@@ -77,17 +77,17 @@ class _ProcessingModule(torch.nn.Module):
                          output_seq=output_seq, **kwargs)
 
 
-class ProcessingTracedModule(_ProcessingModule):
+class ProcessingTracedModule(torch.nn.Module, _ProcessingModule):
     pass
 
 
-class ProcessingScriptModule(_ProcessingModule):
+class ProcessingScriptModule(torch.nn.Module, _ProcessingModule):
     def __init__(self):
         super(ProcessingScriptModule, self).__init__()
 
     @torch.jit.unused
-    def export(self, *args, opset_version=None, **kwargs):
-        return super().export(*args, opset_version=opset_version, script_mode=True, **kwargs)
+    def export(self, *args, **kwargs):
+        return super().export(*args, script_mode=True, **kwargs)
 
 
 class CustomFunction(torch.autograd.Function):
@@ -109,3 +109,7 @@ class CustomFunction(torch.autograd.Function):
 
 
 tensor_data_type = TensorProto
+
+
+def is_processing_module(m):
+    return isinstance(m, _ProcessingModule)

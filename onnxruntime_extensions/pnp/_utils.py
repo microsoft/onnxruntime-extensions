@@ -255,7 +255,7 @@ class ONNXModelUtils:
         nodes = []
         container = _Container()
         for _idx, _m in enumerate(models):
-            container.initializer.add_model(_m)
+            container.add_model(_m)
             nodes += cls._rename_graph(_m.graph, mdl_prefix[_idx], container)
 
         for _n in nodes:
