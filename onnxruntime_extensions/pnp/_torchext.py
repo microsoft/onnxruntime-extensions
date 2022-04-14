@@ -8,7 +8,7 @@ from distutils.version import LooseVersion
 from torch.onnx import register_custom_op_symbolic
 
 from ._utils import ONNXModelUtils
-from ._base import CustomFunction, ProcessingTracedModule
+from ._base import CustomFunction, ProcessingTracedModule, is_processing_module
 from ._onnx_ops import ox as _ox, schema as _schema
 from ._onnx_ops import ONNXElementContainer, make_model_ex
 from .._ortapi2 import OrtPyFunction, get_opset_version_from_ort
@@ -167,8 +167,10 @@ def _invoke_onnx_model(model_id: int, *args, **kwargs):
     if model_or_path is None:
         raise ValueError("cannot find id={} registered!".format(model_id))
     func = OrtPyFunction.from_model(model_or_path)
-    return torch.from_numpy(
-        func(*list(_i.numpy() if isinstance(_i, torch.Tensor) else _i for _i in args), **kwargs))
+    results = func(*list(_i.numpy() if isinstance(_i, torch.Tensor) else _i for _i in args), **kwargs)
+    # return tuple(
+    #     [torch.from_numpy(_o) for _o in results]) if isinstance(results, tuple) else torch.from_numpy(results)
+    return torch.from_numpy(results[0]) if isinstance(results, tuple) else torch.from_numpy(results)
 
 
 @torch.jit.ignore
@@ -242,8 +244,11 @@ class SequentialProcessingModule(ProcessingTracedModule):
         for mdl_ in models:
             if isinstance(mdl_, onnx.ModelProto):
                 self.model_list.append(_OnnxModelModule(mdl_))
-            else:
+            elif is_processing_module(mdl_):
                 self.model_list.append(mdl_)
+            else:
+                assert callable(mdl_), "the model type is not recognizable."
+                self.model_list.append(ProcessingTracedModule(mdl_))
 
     def forward(self, *args):
         outputs = args
@@ -251,7 +256,7 @@ class SequentialProcessingModule(ProcessingTracedModule):
             for idx_, mdl_ in enumerate(self.model_list):
                 if not isinstance(outputs, tuple):
                     outputs = (outputs,)
-                outputs = self.model_list[idx_](*outputs)
+                outputs = mdl_(*outputs)
 
         return outputs
 

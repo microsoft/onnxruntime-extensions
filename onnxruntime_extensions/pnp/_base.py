@@ -1,4 +1,5 @@
 import io
+from turtle import forward
 import onnx
 import torch
 from typing import Any
@@ -78,12 +79,16 @@ class _ProcessingModule:
 
 
 class ProcessingTracedModule(torch.nn.Module, _ProcessingModule):
-    pass
+    def __init__(self, func_obj=None):
+        super().__init__()
+        self.func_obj = func_obj
+
+    def forward(self, *args):
+        assert self.func_obj != None, "No forward method found."
+        return self.func_obj(*args)
 
 
 class ProcessingScriptModule(torch.nn.Module, _ProcessingModule):
-    def __init__(self):
-        super(ProcessingScriptModule, self).__init__()
 
     @torch.jit.unused
     def export(self, *args, **kwargs):
