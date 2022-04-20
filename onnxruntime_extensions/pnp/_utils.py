@@ -133,6 +133,8 @@ class ONNXModelUtils:
                                              nest_model,
                                              io_mapping)
                 for idx_, out_ in enumerate(nest_model.graph.output):
+                    if idx_ >= len(_node.output):
+                        continue
                     _renamed_out = "{}_{}".format(prefix, out_.name)
                     _nd = onnx.helper.make_node('Identity',
                                                 [_renamed_out],
