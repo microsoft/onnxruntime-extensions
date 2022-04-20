@@ -67,8 +67,14 @@ class PreHuggingFaceBert(ProcessingTracedModule):
     def __init__(self, hf_tok=None, vocab_file=None, do_lower_case=0, strip_accents=1):
         super(PreHuggingFaceBert, self).__init__()
         if hf_tok is None:
+            _vocab = None
+            with open(vocab_file, "r", encoding='utf-8') as vf:
+                lines = vf.readlines()
+                _vocab = '\n'.join(lines)
+            if _vocab is None:
+                raise RuntimeError("Cannot load vocabulary file {}!".format(vocab_file))
             self.onnx_bert_tokenize = create_op_function('BertTokenizer', bert_tokenize,
-                                                         vocab_file=_get_file_content(vocab_file),
+                                                         vocab_file=_vocab,
                                                          do_lower_case=do_lower_case,
                                                          strip_accents=strip_accents)
         else:
