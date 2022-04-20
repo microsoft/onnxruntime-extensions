@@ -165,7 +165,7 @@ class _OnnxTracedFunction(CustomFunction):
     @classmethod
     def symbolic(cls, g, *args):
         ret = g.op('ai.onnx.contrib::_ModelFunctionCall', *args)
-        model_id = torch.onnx.symbolic_helper._maybe_get_scalar(args[0])
+        model_id = torch.onnx.symbolic_helper._maybe_get_scalar(args[0])  # noqa
         if not model_id:
             return ret
 

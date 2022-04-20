@@ -1,5 +1,4 @@
 import io
-from turtle import forward
 import onnx
 import torch
 from typing import Any
@@ -84,7 +83,7 @@ class ProcessingTracedModule(torch.nn.Module, _ProcessingModule):
         self.func_obj = func_obj
 
     def forward(self, *args):
-        assert self.func_obj != None, "No forward method found."
+        assert self.func_obj is not None, "No forward method found."
         return self.func_obj(*args)
 
 

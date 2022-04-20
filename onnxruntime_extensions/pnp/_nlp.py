@@ -97,5 +97,3 @@ class PreHuggingFaceGPT2(ProcessingTracedModule):
 
     def export(self, *args, **kwargs):
         return _get_bound_object(self.onnx_gpt2_tokenize).build_model(kwargs.get('opset_version', 0), *args)
-
-
