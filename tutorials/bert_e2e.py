@@ -4,15 +4,29 @@ import onnxruntime_extensions
 
 from pathlib import Path
 from onnxruntime_extensions import pnp, OrtPyFunction
-from transformers.convert_graph_to_onnx import convert
+from transformers import AutoTokenizer
+from transformers.onnx import export, FeaturesManager
 
 
-model_path = Path("onnx/bert-base-cased.onnx")
-convert(framework="pt", model="bert-base-cased", output=model_path, opset=12)
+# get a onnx model by converting HuggingFace pretrained model
+model_name = "bert-base-cased"
+model_path = Path("onnx-model/bert-base-cased.onnx")
+if not model_path.exists():
+    if not model_path.parent.exists():
+        model_path.parent.mkdir(parents=True, exist_ok=True)
+    model = FeaturesManager.get_model_from_feature("default", model_name)
+    model_kind, model_onnx_config = FeaturesManager.check_supported_model_or_raise(model, feature="default")
+    onnx_config = model_onnx_config(model.config)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    export(tokenizer,
+           model=model,
+           config=onnx_config,
+           opset=12,
+           output=model_path)
 
-# post-processing example function
+# a silly post-processing example function, demo-purpose only
 def post_processing_forward(*pred):
-    return torch.softmax(pred[0], axis=2)
+    return torch.softmax(pred[1], axis=1)
 
 # mapping the BertTokenizer outputs into the onnx model inputs
 def mapping_token_output(_1, _2, _3):
@@ -27,7 +41,7 @@ onnx_model = onnx.load_model(str(model_path))
 # create the final onnx model which includes pre- and post- processing.
 augmented_model = pnp.export(pnp.SequentialProcessingModule(ort_tok,
                              mapping_token_output, onnx_model, post_processing_forward),
-                             ["this is a test sentence."],
+                             test_sentence,
                              opset_version=12,
                              output_path='bert_tok_all.onnx')
 

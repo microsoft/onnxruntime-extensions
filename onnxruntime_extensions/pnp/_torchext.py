@@ -120,42 +120,9 @@ onnx_where = create_op_function('Where', _ox.where)
 onnx_greater = create_op_function('Greater', _ox.greater)
 
 
-class PythonOpFunction:
-    """
-    PythonOpFunction wraps a generic Python function which skips forward operation on torch.onnx.exporter
-    converting in the script mode, since the exporter cannot support the APIs from external package, like Numpy.
-    BTW, Autograd.Function cannot be used torch.jit.script.
-    """
-    id_func_map = {}
-    current_func_id = 0
-
-    @staticmethod
-    def _get_next_id():
-        PythonOpFunction.current_func_id += 1
-        return PythonOpFunction.current_func_id
-
-    @staticmethod
-    @torch.jit.ignore
-    def _pass_through_call(*args, **kwargs):
-        func_id = args[0]
-        func = PythonOpFunction.id_func_map[func_id]
-        return torch.from_numpy(func.forward(*args[1:], **kwargs))
-
-    @classmethod
-    def apply(cls, *args, **kwargs):
-        return PythonOpFunction._pass_through_call(cls.get_id(), *args, **kwargs)
-
-    @classmethod
-    def get_id(cls):
-        if not hasattr(cls, 'func_id'):
-            _id = PythonOpFunction._get_next_id()
-            setattr(cls, 'func_id', _id)
-            PythonOpFunction.id_func_map[_id] = cls
-        return cls.func_id
-
-
 class _OnnxModelFunction:
     id_object_map = {}  # cannot use the string directly since jit.script doesn't support the data type
+    id_function_map = {}
     str_model_function_id = '_model_function_id'
     str_model_id = '_model_id'
     str_model_attached = '_model_attached'
@@ -163,14 +130,16 @@ class _OnnxModelFunction:
 
 @torch.jit.ignore
 def _invoke_onnx_model(model_id: int, *args, **kwargs):
-    model_or_path = _OnnxModelFunction.id_object_map.get(model_id)
-    if model_or_path is None:
-        raise ValueError("cannot find id={} registered!".format(model_id))
-    func = OrtPyFunction.from_model(model_or_path)
+    func = _OnnxModelFunction.id_function_map.get(model_id, None)
+    if not func:
+        model_or_path = _OnnxModelFunction.id_object_map.get(model_id)
+        if model_or_path is None:
+            raise ValueError("cannot find id={} registered!".format(model_id))
+        func = OrtPyFunction.from_model(model_or_path)
+        _OnnxModelFunction.id_function_map[model_id] = func
     results = func(*list(_i.numpy() if isinstance(_i, torch.Tensor) else _i for _i in args), **kwargs)
-    # return tuple(
-    #     [torch.from_numpy(_o) for _o in results]) if isinstance(results, tuple) else torch.from_numpy(results)
-    return torch.from_numpy(results[0]) if isinstance(results, tuple) else torch.from_numpy(results)
+    return tuple(
+        [torch.from_numpy(_o) for _o in results]) if isinstance(results, tuple) else torch.from_numpy(results)
 
 
 @torch.jit.ignore
@@ -195,7 +164,20 @@ class _OnnxTracedFunction(CustomFunction):
 
     @classmethod
     def symbolic(cls, g, *args):
-        return g.op('ai.onnx.contrib::_ModelFunctionCall', *args)
+        ret = g.op('ai.onnx.contrib::_ModelFunctionCall', *args)
+        model_id = torch.onnx.symbolic_helper._maybe_get_scalar(args[0])
+        if not model_id:
+            return ret
+
+        func = _OnnxModelFunction.id_function_map.get(model_id.item(), None)
+        if not func or len(func.outputs) <= 1:
+            return ret
+
+        outputs = [ret]
+        for _ in range(len(func.outputs) - 1):
+            outputs.append(ret.node().addOutput())
+
+        return tuple(outputs)
 
 
 def create_model_function(model_or_path):
