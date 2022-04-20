@@ -80,7 +80,7 @@ class OrtPyFunction:
 
     def _bind(self, oxml):
         self.inputs = list(oxml.graph.input)
-        self.output = list(oxml.graph.output)
+        self.outputs = list(oxml.graph.output)
         self._oxml = oxml
         return self
 

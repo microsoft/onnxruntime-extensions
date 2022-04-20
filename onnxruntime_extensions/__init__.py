@@ -32,4 +32,4 @@ PyOp = PyCustomOpDef
 def get_test_data_file(*sub_dirs):
     case_file = inspect.currentframe().f_back.f_code.co_filename
     test_dir = pathlib.Path(case_file).parent
-    return str(test_dir.joinpath(*sub_dirs))
+    return str(test_dir.joinpath(*sub_dirs).resolve())

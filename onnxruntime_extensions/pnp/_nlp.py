@@ -13,6 +13,25 @@ def make_custom_op(ctx, op_type, input_names, output_names, container, operator_
 
 
 @schema(inputs=((_dt.STRING, []),),
+        outputs=((_dt.INT64, []), (_dt.INT64, []), (_dt.INT64, [])))
+def bert_tokenize(ctx, input_names, output_names, container, operator_name=None, **kwargs):
+    if 'hf_tok' in kwargs:
+        # TODO: need bert-tokenizer support JSON format
+        hf_bert_tokenizer = kwargs['hf_tok']
+        attrs = {'vocab_file': json.dumps(hf_bert_tokenizer.vocab, separators=(',', ':'))}
+    elif 'vocab_file' in kwargs:
+        attrs = dict(vocab_file=kwargs['vocab_file'])
+    else:
+        raise RuntimeError("Need hf_tok/vocab_file parameter to build the tokenizer")
+    if 'strip_accents' in kwargs:
+        strip_accents = kwargs['strip_accents']
+        attrs['strip_accents'] = strip_accents
+
+    return make_custom_op(ctx, 'BertTokenizer', input_names,
+                          output_names, container, operator_name=operator_name, **attrs)
+
+
+@schema(inputs=((_dt.STRING, []),),
         outputs=((_dt.INT64, []), (_dt.INT64, [])))
 def gpt2_tokenize(ctx, input_names, output_names, container, operator_name=None, **kwargs):
     if 'hf_tok' in kwargs:
@@ -42,6 +61,30 @@ def _get_file_content(path):
 
 def _get_bound_object(func):
     return func.__self__
+
+
+class PreHuggingFaceBert(ProcessingTracedModule):
+    def __init__(self, hf_tok=None, vocab_file=None, do_lower_case=0, strip_accents=1):
+        super(PreHuggingFaceBert, self).__init__()
+        if hf_tok is None:
+            _vocab = None
+            with open(vocab_file, "r", encoding='utf-8') as vf:
+                lines = vf.readlines()
+                _vocab = '\n'.join(lines)
+            if _vocab is None:
+                raise RuntimeError("Cannot load vocabulary file {}!".format(vocab_file))
+            self.onnx_bert_tokenize = create_op_function('BertTokenizer', bert_tokenize,
+                                                         vocab_file=_vocab,
+                                                         do_lower_case=do_lower_case,
+                                                         strip_accents=strip_accents)
+        else:
+            self.onnx_bert_tokenize = create_op_function('BertTokenizer', bert_tokenize, hf_tok=self.hf_tok)
+
+    def forward(self, text):
+        return self.onnx_bert_tokenize(text)
+
+    def export(self, *args, **kwargs):
+        return _get_bound_object(self.onnx_bert_tokenize).build_model(kwargs.get('opset_version', 0), *args)
 
 
 class PreHuggingFaceGPT2(ProcessingTracedModule):

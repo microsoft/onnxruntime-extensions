@@ -10,4 +10,4 @@ from ._torchext import *  # noqa
 from ._unifier import export
 
 from ._imagenet import * # noqa
-from ._nlp import PreHuggingFaceGPT2
+from ._nlp import PreHuggingFaceGPT2, PreHuggingFaceBert # noqa
