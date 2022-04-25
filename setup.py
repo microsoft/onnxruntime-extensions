@@ -107,7 +107,7 @@ class BuildCMakeExt(_build_ext):
             config_dir = '.'
             if not (build_temp / 'build.ninja').exists():
                 config_dir = config
-            self.copy_file(build_temp / config_dir / 'ortcustomops.dll',
+            self.copy_file(build_temp /'bin' / config_dir / 'ortcustomops.dll',
                            self.get_ext_filename(extension.name))
 
 
