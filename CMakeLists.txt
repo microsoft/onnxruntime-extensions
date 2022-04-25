@@ -112,6 +112,16 @@ if (OCOS_ENABLE_RE2_REGEX)
   endif()
 endif()
 
+macro(standardize_output_folder bin_target)
+set_target_properties(${bin_target}
+  PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+  LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+  ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+  PDB_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+endmacro()
+
+
 #### scan all source files
 
 file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h")
@@ -209,6 +219,8 @@ endif()
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_library(ocos_operators STATIC ${TARGET_SRC})
+standardize_output_folder(ocos_operators)
+
 target_include_directories(ocos_operators PUBLIC
   ${PROJECT_SOURCE_DIR}/includes
   ${PROJECT_SOURCE_DIR}/includes/onnxruntime
@@ -302,6 +314,7 @@ if(OCOS_ENABLE_PYTHON)
 
   file(GLOB TARGET_SRC_PYOPS "pyop/*.cc" "pyop/*.h")
   add_library(ortcustomops SHARED ${TARGET_SRC_PYOPS} ${shared_TARGET_SRC})
+  standardize_output_folder(ortcustomops)
   list(APPEND OCOS_COMPILE_DEFINITIONS PYTHON_OP_SUPPORT)
   # building static lib has higher priority
 elseif(OCOS_ENABLE_STATIC_LIB)
@@ -333,6 +346,7 @@ else()
       target_link_libraries(ortcustomops PUBLIC log)
     endif()
   endif()
+  standardize_output_folder(ortcustomops)
 endif()
 
 target_compile_definitions(ortcustomops PRIVATE  ${OCOS_COMPILE_DEFINITIONS} ${GTEST_CXX_FLAGS})
@@ -381,6 +395,7 @@ if (OCOS_ENABLE_CTEST)
   include(googletest)
   file(GLOB static_TEST_SRC "${TEST_SRC_DIR}/static_test/*.cc")
   add_executable(operators_test ${static_TEST_SRC})
+  standardize_output_folder(operators_test)
   target_link_libraries(operators_test PRIVATE gtest_main ocos_operators ${ocos_libraries})
   add_test(NAME operators_test COMMAND $<TARGET_FILE:operators_test>)
 
@@ -392,6 +407,7 @@ if (OCOS_ENABLE_CTEST)
 
   file(GLOB shared_TEST_SRC "${TEST_SRC_DIR}/shared_test/*.cc")
   add_executable(ortcustomops_test ${shared_TEST_SRC})
+  standardize_output_folder(ortcustomops_test)
   if (ONNXRUNTIME_LIB_DIR)
     target_link_directories(ortcustomops_test PRIVATE ${ONNXRUNTIME_LIB_DIR})
   endif()
