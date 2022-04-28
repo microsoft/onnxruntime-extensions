@@ -7,8 +7,6 @@
 from setuptools import setup, find_packages
 from setuptools.dist import Distribution
 from setuptools.command.build_ext import build_ext as _build_ext
-from setuptools.command.develop import develop as _develop
-from setuptools.command.build_py import build_py as _build_py
 
 import os
 import sys
@@ -107,20 +105,8 @@ class BuildCMakeExt(_build_ext):
             config_dir = '.'
             if not (build_temp / 'build.ninja').exists():
                 config_dir = config
-            self.copy_file(build_temp /'bin' / config_dir / 'ortcustomops.dll',
+            self.copy_file(build_temp / 'bin' / config_dir / 'ortcustomops.dll',
                            self.get_ext_filename(extension.name))
-
-
-class BuildPy(_build_py):
-    def run(self):
-        self.run_command("build_ext")
-        return super().run()
-
-
-class BuildDevelop(_develop):
-    def run(self):
-        self.run_command("build_ext")
-        return super().run()
 
 
 class BinaryDistribution(Distribution):
@@ -187,11 +173,7 @@ setup(
     author_email='onnx@microsoft.com',
     url='https://github.com/microsoft/onnxruntime-extensions',
     ext_modules=ext_modules,
-    cmdclass=dict(
-        build_ext=BuildCMakeExt,
-        build_py=BuildPy,
-        develop=BuildDevelop
-        ),
+    cmdclass=dict(buildext=BuildCMakeExt),
     include_package_data=True,
     distclass=BinaryDistribution,
     install_requires=read_requirements(),
@@ -210,5 +192,5 @@ setup(
         'Programming Language :: Python :: 3.9',
         "Programming Language :: Python :: Implementation :: CPython",
         'License :: OSI Approved :: MIT License'
-    ],
+    ]
 )
