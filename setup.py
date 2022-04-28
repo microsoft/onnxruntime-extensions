@@ -109,11 +109,6 @@ class BuildCMakeExt(_build_ext):
                            self.get_ext_filename(extension.name))
 
 
-class BinaryDistribution(Distribution):
-    def has_ext_modules(self):
-        return True
-
-
 def read_requirements():
     with open(os.path.join(TOP_DIR, "requirements.txt"), "r") as f:
         requirements = [_ for _ in [dedent(_) for _ in f.readlines()] if _ is not None]
@@ -173,9 +168,8 @@ setup(
     author_email='onnx@microsoft.com',
     url='https://github.com/microsoft/onnxruntime-extensions',
     ext_modules=ext_modules,
-    cmdclass=dict(buildext=BuildCMakeExt),
+    cmdclass=dict(build_ext=BuildCMakeExt),
     include_package_data=True,
-    distclass=BinaryDistribution,
     install_requires=read_requirements(),
     classifiers=[
         'Development Status :: 4 - Beta',
@@ -186,7 +180,6 @@ setup(
         'Operating System :: POSIX :: Linux',
         "Programming Language :: C++",
         'Programming Language :: Python',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',

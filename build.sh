@@ -8,4 +8,4 @@ BUILD_FLAVOR=RelWithDebInfo
 target_dir=out/$OSNAME/$BUILD_FLAVOR
 mkdir -p $target_dir && cd $target_dir
 
-cmake "$@" ../../.. && cmake --build . --config $BUILD_FLAVOR --parallel
+cmake "$@" ../../.. && cmake --build . --config $BUILD_FLAVOR
