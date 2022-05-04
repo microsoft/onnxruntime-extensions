@@ -129,7 +129,7 @@ If only DLL/shared library is needed without any Python dependencies, please run
 By default the DLL or the library will be generated in the directory `out/<OS>/<FLAVOR>`. There is a unit test to help verify the build.
 
 ## The static library and link with ONNXRuntime
-For sake of the binary size, the project can be built as a static library and link into ONNXRuntime. Here is [the script](https://github.com/microsoft/onnxruntime-extensions/blob/main/ci_build/onnxruntime_integration/build_with_onnxruntime.sh) to this, which is especially usefully on building the mobile release.
+For sake of the binary size, the project can be built as a static library and link into ONNXRuntime. Here are two additional arguments [–-use_extensions and --extensions_overridden_path](https://github.com/microsoft/onnxruntime/blob/860ba8820b72d13a61f0d08b915cd433b738ffdc/tools/ci_build/build.py#L416) on building onnxruntime.
 
 # Contributing
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
