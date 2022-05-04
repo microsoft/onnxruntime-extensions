@@ -4,6 +4,10 @@
 set -e -x -u
 
 OSNAME=$(uname -s)
+if [[ "$OSNAME" == "Darwin" ]]; then
+  alias nproc="sysctl -n hw.logicalcpu"
+fi
+
 BUILD_FLAVOR=RelWithDebInfo
 target_dir=out/$OSNAME/$BUILD_FLAVOR
 mkdir -p "$target_dir" && cd "$target_dir"
