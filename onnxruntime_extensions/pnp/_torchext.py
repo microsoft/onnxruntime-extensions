@@ -191,13 +191,21 @@ def get_id_models():
     return _OnnxModelFunction.id_object_map
 
 
+class OnnxTracedModelFunction:
+    def __init__(self, onnx_model):
+        self.func_id = create_model_function(onnx_model)
+
+    def __call__(self, *args, **kwargs):
+        return _OnnxTracedFunction.apply(torch.tensor(self.func_id), *args, **kwargs)
+
+
 class _OnnxModelModule(torch.nn.Module):
     def __init__(self, mdl):
         super(_OnnxModelModule, self).__init__()
-        self.model_function_id = torch.tensor(create_model_function(mdl))
+        self.function = OnnxTracedModelFunction(mdl)
 
     def forward(self, *args):
-        return _OnnxTracedFunction.apply(self.model_function_id, *args)
+        return self.function(*args)
 
 
 def _symbolic_pythonop(g: torch._C.Graph, n: torch._C.Node, *args, **kwargs):
