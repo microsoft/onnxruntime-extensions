@@ -95,7 +95,7 @@ class BuildCMakeExt(_build_ext):
         cpu_number = os.environ.get('CPU_NUMBER')
         build_args = [
             '--config', config,
-            '--parallel' + '' if cpu_number is None else ' ' + cpu_number
+            '--parallel' + ('' if cpu_number is None else ' ' + cpu_number)
         ]
 
         self.spawn(['cmake', '-S', str(project_dir), '-B', str(build_temp)] + cmake_args)
