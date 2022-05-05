@@ -78,7 +78,7 @@ class BuildCMakeExt(_build_ext):
             '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + str(ext_fullpath.parent.absolute()),
             '-DOCOS_ENABLE_PYTHON=ON',
             '-DOCOS_ENABLE_CTEST=OFF',
-            '-DOCOS_EXTENTION_NAME=' + pathlib.Path(self.get_ext_filename(extension.name)).name,
+            '-DOCOS_EXTENTION_NAME=' + ext_fullpath.name,
             '-DCMAKE_BUILD_TYPE=' + config
         ]
         # overwrite the Python module info if the auto-detection doesn't work.
@@ -106,8 +106,9 @@ class BuildCMakeExt(_build_ext):
             config_dir = '.'
             if not (build_temp / 'build.ninja').exists():
                 config_dir = config
-            self.copy_file(build_temp / 'bin' / config_dir / 'ortcustomops.dll',
-                           self.get_ext_filename(extension.name))
+            self.copy_file(build_temp / 'bin' / config_dir / 'ortcustomops.dll', ext_fullpath)
+        else:
+            self.copy_file(build_temp / 'lib' / ext_fullpath.name, ext_fullpath)
 
 
 def read_requirements():
