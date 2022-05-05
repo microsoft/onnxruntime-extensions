@@ -16,7 +16,9 @@ const char* GetLibraryPath() {
   return "ortcustomops.dll";
 #elif defined(__APPLE__)
   return "libortcustomops.dylib";
-#else
+#elif defined(ANDROID) || defined(__ANDROID__)
+  return "libortcustomops.so";
+else
   return "lib/libortcustomops.so";
 #endif
 }

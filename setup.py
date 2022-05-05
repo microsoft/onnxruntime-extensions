@@ -5,7 +5,6 @@
 ###########################################################################
 
 from setuptools import setup, find_packages
-from setuptools.dist import Distribution
 from setuptools.command.build_ext import build_ext as _build_ext
 
 import os
@@ -35,7 +34,7 @@ def load_msvcvar():
         if shutil.which('cmake') is None:
             raise SystemExit(
                 "Cannot find cmake in the executable path, " +
-                "please install one or specify the environement variable VCVARS to the path of VS vcvars64.bat.")
+                "please install one or specify the environment variable VCVARS to the path of VS vcvars64.bat.")
 
 
 def read_git_refs():
@@ -53,7 +52,7 @@ def read_git_refs():
         _ln = dedent(_ln).strip('\n\r')
         if _ln.startswith(HEAD):
             _, _2 = _ln.split(' ')
-            if (_2.startswith('refs/remotes/origin/rel-')):
+            if _2.startswith('refs/remotes/origin/rel-'):
                 release_branch = True
     return release_branch, HEAD
 
@@ -92,9 +91,11 @@ class BuildCMakeExt(_build_ext):
         if self.debug:
             cmake_args += ['-DCC_OPTIMIZE=OFF']
 
+        # the parallel build has to be limited on some Linux VM machine.
+        cpu_number = os.environ.get('CPU_NUMBER')
         build_args = [
             '--config', config,
-            '--parallel'
+            '--parallel' + '' if cpu_number is None else ' ' + cpu_number
         ]
 
         self.spawn(['cmake', '-S', str(project_dir), '-B', str(build_temp)] + cmake_args)
@@ -147,8 +148,8 @@ package_data = {
 }
 
 long_description = ''
-with open(os.path.join(TOP_DIR, "README.md"), 'r') as f:
-    long_description = f.read()
+with open(os.path.join(TOP_DIR, "README.md"), 'r') as _f:
+    long_description = _f.read()
     start_pos = long_description.find('# Introduction')
     start_pos = 0 if start_pos < 0 else start_pos
     end_pos = long_description.find('# Contributing')
