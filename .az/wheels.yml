@@ -8,7 +8,7 @@ jobs:
         python3 -m pip install --upgrade pip
         pip3 install cibuildwheel==2.1.2
       displayName: Install dependencies
-    - bash: cibuildwheel --output-dir wheelhouse .
+    - bash: CPU_NUMBER=2 cibuildwheel --output-dir wheelhouse .
       displayName: Build wheels
     - task: PublishBuildArtifacts@1
       inputs: {pathtoPublish: 'wheelhouse'}
@@ -29,7 +29,7 @@ jobs:
         python3 -m pip install --upgrade pip
         python3 -m pip install cibuildwheel==2.1.2
       displayName: Install dependencies
-    - bash: cibuildwheel --output-dir wheelhouse .
+    - bash: CPU_NUMBER=2 cibuildwheel --output-dir wheelhouse .
       displayName: Build wheels
     - task: PublishBuildArtifacts@1
       inputs: {pathtoPublish: wheelhouse}
