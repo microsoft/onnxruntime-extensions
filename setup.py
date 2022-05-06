@@ -106,7 +106,7 @@ class BuildCMakeExt(_build_ext):
             config_dir = '.'
             if not (build_temp / 'build.ninja').exists():
                 config_dir = config
-            self.copy_file(build_temp / 'bin' / config_dir / 'ortcustomops.dll', ext_fullpath.name)
+            self.copy_file(build_temp / 'bin' / config_dir / 'ortcustomops.dll', ext_fullpath)
         else:
             self.copy_file(build_temp / 'lib' / ext_fullpath.name, ext_fullpath)
 
@@ -150,7 +150,7 @@ package_data = {
 
 long_description = ''
 with open(os.path.join(TOP_DIR, "README.md"), 'r') as _f:
-    long_description = _f.read()
+    long_description += _f.read()
     start_pos = long_description.find('# Introduction')
     start_pos = 0 if start_pos < 0 else start_pos
     end_pos = long_description.find('# Contributing')
