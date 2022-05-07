@@ -1,5 +1,6 @@
 jobs:
 - job: linux
+  timeoutInMinutes: 120
   pool: {vmImage: 'ubuntu-latest'}
   steps:
     - task: UsePythonVersion@0
@@ -14,6 +15,7 @@ jobs:
       inputs: {pathtoPublish: 'wheelhouse'}
 
 - job: macos
+  timeoutInMinutes: 120
   pool: {vmImage: 'macOS-latest'}
   variables:
     CIBW_ARCHS_MACOS: "x86_64 universal2 arm64"
@@ -34,16 +36,16 @@ jobs:
     - task: PublishBuildArtifacts@1
       inputs: {pathtoPublish: wheelhouse}
 
-# - job: windows
-#   pool: {vmImage: 'windows-latest'}
-#   steps:
-#     - task: UsePythonVersion@0
-#     - bash: |
-#         set -o errexit
-#         python -m pip install --upgrade pip
-#         pip install cibuildwheel==2.1.2
-#       displayName: Install dependencies
-#     - bash: cibuildwheel --output-dir wheelhouse .
-#       displayName: Build wheels
-#     - task: PublishBuildArtifacts@1
-#       inputs: {pathtoPublish: 'wheelhouse'}
+- job: windows
+  timeoutInMinutes: 120
+  pool: {vmImage: 'windows-latest'}
+  steps:
+    - task: UsePythonVersion@0
+    - bash: |
+        python -m pip install --upgrade pip
+        pip install cibuildwheel==2.1.2
+      displayName: Install dependencies
+    - bash: cibuildwheel --platform windows --output-dir wheelhouse .
+      displayName: Build wheels
+    - task: PublishBuildArtifacts@1
+      inputs: {pathtoPublish: 'wheelhouse'}
