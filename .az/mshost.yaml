@@ -290,7 +290,7 @@ jobs:
       - script: |
           call activate pyenv
           pytest test
-       displayName: Run python test
+        displayName: Run python test
 
       - task: PublishPipelineArtifact@0
         inputs:
