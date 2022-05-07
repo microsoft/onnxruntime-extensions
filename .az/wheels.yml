@@ -41,7 +41,7 @@ jobs:
   pool: {vmImage: 'windows-latest'}
   steps:
     - task: UsePythonVersion@0
-    - bash: |
+    - script: |
         python -m pip install --upgrade pip
         pip install cibuildwheel==2.1.2
       displayName: Install dependencies
