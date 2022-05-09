@@ -7,7 +7,7 @@ jobs:
     - bash: |
         set -o errexit
         python3 -m pip install --upgrade pip
-        pip3 install cibuildwheel==2.1.2
+        pip3 install cibuildwheel
       displayName: Install dependencies
     - bash: CPU_NUMBER=1 cibuildwheel --output-dir wheelhouse .
       displayName: Build wheels
@@ -29,7 +29,7 @@ jobs:
     - bash: |
         set -o errexit
         python3 -m pip install --upgrade pip
-        python3 -m pip install cibuildwheel==2.1.2
+        python3 -m pip install cibuildwheel
       displayName: Install dependencies
     - bash: CPU_NUMBER=2 cibuildwheel --output-dir wheelhouse .
       displayName: Build wheels
@@ -43,7 +43,7 @@ jobs:
 #     - task: UsePythonVersion@0
 #     - script: |
 #         python -m pip install --upgrade pip
-#         pip install cibuildwheel==2.1.2
+#         pip install cibuildwheel
 #       displayName: Install dependencies
 #     - bash: cibuildwheel --platform windows --output-dir wheelhouse .
 #       displayName: Build wheels
