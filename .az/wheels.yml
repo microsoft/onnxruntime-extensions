@@ -9,7 +9,7 @@ jobs:
         python3 -m pip install --upgrade pip
         pip3 install cibuildwheel==2.1.2
       displayName: Install dependencies
-    - bash: CPU_NUMBER=2 cibuildwheel --output-dir wheelhouse .
+    - bash: CPU_NUMBER=1 cibuildwheel --output-dir wheelhouse .
       displayName: Build wheels
     - task: PublishBuildArtifacts@1
       inputs: {pathtoPublish: 'wheelhouse'}
@@ -36,16 +36,16 @@ jobs:
     - task: PublishBuildArtifacts@1
       inputs: {pathtoPublish: wheelhouse}
 
-- job: windows
-  timeoutInMinutes: 120
-  pool: {vmImage: 'windows-latest'}
-  steps:
-    - task: UsePythonVersion@0
-    - script: |
-        python -m pip install --upgrade pip
-        pip install cibuildwheel==2.1.2
-      displayName: Install dependencies
-    - bash: cibuildwheel --platform windows --output-dir wheelhouse .
-      displayName: Build wheels
-    - task: PublishBuildArtifacts@1
-      inputs: {pathtoPublish: 'wheelhouse'}
+# - job: windows
+#   timeoutInMinutes: 120
+#   pool: {vmImage: 'windows-latest'}
+#   steps:
+#     - task: UsePythonVersion@0
+#     - script: |
+#         python -m pip install --upgrade pip
+#         pip install cibuildwheel==2.1.2
+#       displayName: Install dependencies
+#     - bash: cibuildwheel --platform windows --output-dir wheelhouse .
+#       displayName: Build wheels
+#     - task: PublishBuildArtifacts@1
+#       inputs: {pathtoPublish: 'wheelhouse'}
