@@ -2,6 +2,9 @@ jobs:
 - job: linux
   timeoutInMinutes: 120
   pool: {vmImage: 'ubuntu-latest'}
+  variables:
+    CIBW_BUILD: "cp3{8,9}-*"
+
   steps:
     - task: UsePythonVersion@0
     - bash: |
@@ -18,6 +21,7 @@ jobs:
   timeoutInMinutes: 120
   pool: {vmImage: 'macOS-latest'}
   variables:
+    CIBW_BUILD: "cp3{8,9}-*"
     CIBW_ARCHS_MACOS: "x86_64 universal2 arm64"
     # Skip trying to test arm64 builds on Intel Macs
     # CIBW_TEST_SKIP: "*-macosx_arm64 *-macosx_universal2:arm64"
