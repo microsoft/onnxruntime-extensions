@@ -1,6 +1,3 @@
 [build-system]
 # Minimum requirements for the build system to execute.
 requires = ["setuptools", "wheel", "numpy>=1.18.5"]  # PEP 508 specifications.
-
-[[tool.cibuildwheel.overrides]]
-select = "cp3{8,9}-*"
