@@ -1,7 +1,7 @@
 jobs:
 - job: linux
   timeoutInMinutes: 120
-  pool: {vmImage: 'ubuntu-latest'}
+  pool: {vmImage: 'ubuntu-latest', name: 'Linux-CPU'}
   variables:
     CIBW_BUILD: "cp3{8,9}-*"
 
@@ -12,7 +12,7 @@ jobs:
         python3 -m pip install --upgrade pip
         pip3 install cibuildwheel
       displayName: Install dependencies
-    - bash: CPU_NUMBER=1 cibuildwheel --output-dir wheelhouse .
+    - bash: CPU_NUMBER=2 cibuildwheel --output-dir wheelhouse .
       displayName: Build wheels
     - task: PublishBuildArtifacts@1
       inputs: {pathtoPublish: 'wheelhouse'}
