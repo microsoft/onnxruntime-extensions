@@ -37,6 +37,9 @@ extern "C" {
 #define _Outptr_result_buffer_maybenull_(X)
 #define ORT_ALL_ARGS_NONNULL __attribute__((nonnull))
 #else
+#if defined(__MINGW32__)
+#define _Frees_ptr_opt_
+#endif
 #include <specstrings.h>
 #define ORT_ALL_ARGS_NONNULL
 #endif
@@ -49,7 +52,11 @@ extern "C" {
 #else
 #define ORT_EXPORT
 #endif
+#if defined(__MINGW32__)
+#define ORT_API_CALL __stdcall
+#else
 #define ORT_API_CALL _stdcall
+#endif
 #define ORT_MUST_USE_RESULT
 #define ORTCHAR_T wchar_t
 #else
