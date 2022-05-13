@@ -67,6 +67,7 @@ extends:
             python -m pip install --upgrade pip
             python -m pip install cibuildwheel
           displayName: Install python dependencies
-        - bash: cibuildwheel --platform windows --output-dir $(REPOROOT)\out .
+        - script: |
+            python -m cibuildwheel --platform windows --output-dir $(REPOROOT)\out .
           displayName: Build wheels
         
