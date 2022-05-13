@@ -63,7 +63,6 @@ extends:
           ob_outputDirectory: '$(REPOROOT)\out'
           ob_sdl_binskim_break: true 
         steps:
-        - task: UsePythonVersion@0
         - script: |
             python -m pip install --upgrade pip
             pip install cibuildwheel
