@@ -42,7 +42,7 @@ pnp.export(full_model,
 ```
 The above python code will translate the ImageNet pre/post processing functions into an all-in-one model which can do inference on all platforms that ONNNXRuntime supports, like Android/iOS, without any Python runtime and the 3rd-party libraries dependency.
 
-Note: On mobile platform, the ONNXRuntime package may not support all kernels required by the model, to ensure all the ONNX operator kernels were built into ONNXRuntime binraries, please use [ONNX Runtime Mobile Custom Build](https://onnxruntime.ai/docs/tutorials/mobile/custom-build.html).
+Note: On mobile platform, the ONNXRuntime package may not support all kernels required by the model, to ensure all the ONNX operator kernels were built into ONNXRuntime binraries, please use [ONNX Runtime Custom Build]https://onnxruntime.ai/docs/build/custom.html).
 
 Here is a [tutorial](tutorials/imagenet_processing.ipynb) for pre/post processing details.
 
