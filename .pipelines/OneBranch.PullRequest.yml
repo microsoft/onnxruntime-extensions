@@ -1,0 +1,86 @@
+#################################################################################
+#                         OneBranch Pipelines - Official                        #
+# This pipeline was created by EasyStart from a sample located at:              #
+#   https://aka.ms/obpipelines/easystart/samples                                #
+# Documentation:  https://aka.ms/obpipelines                                    #
+# Yaml Schema:    https://aka.ms/obpipelines/yaml/schema                        #
+# Retail Tasks:   https://aka.ms/obpipelines/tasks                              #
+# Support:        https://aka.ms/onebranchsup                                   #
+#################################################################################
+
+trigger: none 
+
+parameters: # parameters are shown up in ADO UI in a build queue time
+- name: 'debug'
+  displayName: 'Enable debug output'
+  type: boolean
+  default: false
+
+variables:
+  CDP_DEFINITION_BUILD_COUNT: $[counter('', 0)] 
+  system.debug: ${{ parameters.debug }}
+  ENABLE_PRS_DELAYSIGN: 1
+  ROOT: $(Build.SourcesDirectory)
+  REPOROOT: $(Build.SourcesDirectory)
+  OUTPUTROOT: $(REPOROOT)\out
+  NUGET_XMLDOC_MODE: none
+  DEBIAN_FRONTEND: noninteractive
+
+resources:
+  repositories: 
+    - repository: templates
+      type: git
+      name: OneBranch.Pipelines/GovernedTemplates
+      ref: refs/heads/main
+
+extends:
+  template: v2/OneBranch.NonOfficial.CrossPlat.yml@templates 
+  parameters:
+    cloudvault:
+      enabled: false
+    globalSdl:
+      tsa:
+        enabled: false
+      prefast:
+        enabled: true
+      binskim:
+        break: true # always break the build on binskim issues in addition to TSA upload
+      codeql:
+        python:
+          enabled: true
+      policheck:
+        break: true # always break the build on policheck issues. You can disable it by setting to 'false'
+        exclusionsFile: '$(REPOROOT)\ci_build\policheck_exclusions.xml'
+
+    stages:    
+    - stage: Windows_Build
+      jobs:
+      - job: main
+        pool:
+          type: windows  
+        
+        variables:
+          ob_outputDirectory: '$(REPOROOT)\out'
+          ob_sdl_binskim_break: true 
+        steps:
+        - script: |
+            @echo off
+            set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+            for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
+              set vslatest="%%i"
+              if exist "%%i\Common7\Tools\vsdevcmd.bat" (
+                set vsdevcmd="%%i\Common7\Tools\vsdevcmd.bat"
+              )
+            )
+            
+            @echo vslatest %vslatest%
+            @echo vsdevcmd %vsdevcmd%
+            
+            @echo ##vso[task.setvariable variable=vslatest]%vslatest%
+            @echo ##vso[task.setvariable variable=vsdevcmd]%vsdevcmd%
+          displayName: 'locate vsdevcmd via vswhere'
+        - script: |
+            echo "hello"
+          workingDirectory: '$(Build.BinariesDirectory)'
+          displayName: 'Download onnxruntime binary' 
+        
