@@ -1,0 +1,58 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index d95e5db1..db185453 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -617,11 +617,6 @@ endif()
+ 
+ ocv_cmake_hook(POST_CMAKE_BUILD_OPTIONS)
+ 
+-# --- Python Support ---
+-if(NOT IOS)
+-  include(cmake/OpenCVDetectPython.cmake)
+-endif()
+-
+ include(cmake/OpenCVCompilerOptions.cmake)
+ 
+ ocv_cmake_hook(POST_COMPILER_OPTIONS)
+diff --git a/modules/core/include/opencv2/core/ocl.hpp b/modules/core/include/opencv2/core/ocl.hpp
+index 4503fa00..642b0508 100644
+--- a/modules/core/include/opencv2/core/ocl.hpp
++++ b/modules/core/include/opencv2/core/ocl.hpp
+@@ -302,21 +302,6 @@ public:
+ 
+     void release();
+ 
+-    class CV_EXPORTS UserContext {
+-    public:
+-        virtual ~UserContext();
+-    };
+-    template <typename T>
+-    inline void setUserContext(const std::shared_ptr<T>& userContext) {
+-        setUserContext(typeid(T), userContext);
+-    }
+-    template <typename T>
+-    inline std::shared_ptr<T> getUserContext() {
+-        return std::dynamic_pointer_cast<T>(getUserContext(typeid(T)));
+-    }
+-    void setUserContext(std::type_index typeId, const std::shared_ptr<UserContext>& userContext);
+-    std::shared_ptr<UserContext> getUserContext(std::type_index typeId);
+-
+     struct Impl;
+     inline Impl* getImpl() const { return (Impl*)p; }
+     inline bool empty() const { return !p; }
+diff --git a/modules/core/src/ocl_disabled.impl.hpp b/modules/core/src/ocl_disabled.impl.hpp
+index a217979a..0ba30d02 100644
+--- a/modules/core/src/ocl_disabled.impl.hpp
++++ b/modules/core/src/ocl_disabled.impl.hpp
+@@ -177,11 +177,6 @@ void* Context::getOpenCLContextProperty(int /*propertyId*/) const { OCL_NOT_AVAI
+ bool Context::useSVM() const { return false; }
+ void Context::setUseSVM(bool enabled) { }
+ 
+-Context::UserContext::~UserContext() { }
+-
+-void Context::setUserContext(std::type_index /*typeId*/, const std::shared_ptr<Context::UserContext>& /*userContext*/) { OCL_NOT_AVAILABLE(); }
+-std::shared_ptr<Context::UserContext> Context::getUserContext(std::type_index /*typeId*/) { OCL_NOT_AVAILABLE(); }
+-
+ /* static */ Context Context::fromHandle(void* context) { OCL_NOT_AVAILABLE(); }
+ /* static */ Context Context::fromDevice(const ocl::Device& device) { OCL_NOT_AVAILABLE(); }
+ /* static */ Context Context::create(const std::string& configuration) { OCL_NOT_AVAILABLE(); }
