@@ -4,6 +4,7 @@ import numpy as np
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
 from onnxruntime_extensions import (
+    OrtPyFunction,
     onnx_op, PyCustomOpDef, make_onnx_model,
     get_library_path as _get_library_path)
 
@@ -82,6 +83,13 @@ class TestMathOpString(unittest.TestCase):
             tfres = SegmentSum(data=data, segment_ids=segment_ids)
             self.assertEqual(tfres.shape, txout[0].shape)
             self.assertEqual(tfres.numpy().tolist(), txout[0].tolist())
+
+    def test_inverse(self):
+        mat = np.random.rand(5, 5).astype(np.float32)
+        inv_mat = np.linalg.inv(mat)
+        ort_inv = OrtPyFunction.from_customop('Inverse')
+        act_mat = ort_inv(mat)
+        np.testing.assert_almost_equal(inv_mat, act_mat, decimal=5)
 
 
 if __name__ == "__main__":

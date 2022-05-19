@@ -1,9 +1,9 @@
 set(BUILD_ZLIB OFF CACHE INTERNAL "")
 set(BUILD_TIFF OFF CACHE INTERNAL "")
-set(BUILD_OPENJPEG OFF CACHE INTERNAL "")
+# set(BUILD_OPENJPEG OFF CACHE INTERNAL "")
 set(BUILD_JASPER OFF CACHE INTERNAL "")
-set(BUILD_JPEG OFF CACHE INTERNAL "")
-set(BUILD_PNG OFF CACHE INTERNAL "")
+# set(BUILD_JPEG OFF CACHE INTERNAL "")
+# set(BUILD_PNG OFF CACHE INTERNAL "")
 set(BUILD_OPENEXR OFF CACHE INTERNAL "")
 set(BUILD_WEBP OFF CACHE INTERNAL "")
 set(BUILD_TBB OFF CACHE INTERNAL "")
@@ -23,11 +23,11 @@ set(WITH_VULKAN OFF CACHE INTERNAL "")
 set(WITH_INF_ENGINE OFF CACHE INTERNAL "")
 set(WITH_NGRAPH OFF CACHE INTERNAL "")
 set(WITH_JASPER OFF CACHE INTERNAL "")
-set(WITH_OPENJPEG OFF CACHE INTERNAL "")
-set(WITH_JPEG OFF CACHE INTERNAL "")
+# set(WITH_OPENJPEG OFF CACHE INTERNAL "")
+# set(WITH_JPEG OFF CACHE INTERNAL "")
 set(WITH_WEBP OFF CACHE INTERNAL "")
 set(WITH_OPENEXR OFF CACHE INTERNAL "")
-set(WITH_PNG OFF CACHE INTERNAL "")
+# set(WITH_PNG OFF CACHE INTERNAL "")
 set(WITH_TIFF OFF CACHE INTERNAL "")
 set(WITH_OPENVX OFF CACHE INTERNAL "")
 set(WITH_GDCM OFF CACHE INTERNAL "")
@@ -71,7 +71,7 @@ set(BUILD_opencv_video OFF CACHE INTERNAL "")
 set(BUILD_opencv_python2 OFF CACHE INTERNAL "")
 set(BUILD_opencv_python3 OFF CACHE INTERNAL "")
 set(BUILD_opencv_dnn OFF CACHE INTERNAL "")
-set(BUILD_opencv_imgcodecs OFF CACHE INTERNAL "")
+# set(BUILD_opencv_imgcodecs OFF CACHE INTERNAL "")
 set(BUILD_opencv_videoio OFF CACHE INTERNAL "")
 set(BUILD_opencv_calib3d OFF CACHE INTERNAL "")
 set(BUILD_opencv_highgui OFF CACHE INTERNAL "")
@@ -93,12 +93,15 @@ FetchContent_Declare(
         -DBUILD_SHARED_LIBS:BOOL=FALSE
         -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_CURRENT_BINARY_DIR}/opencv
         -DCV_TRACE:BOOL=FALSE
-        PATCH_COMMAND  git apply --whitespace=fix ${CMAKE_CURRENT_SOURCE_DIR}/cmake/externals/opencv-no-rtti.patch
+        PATCH_COMMAND git checkout . && git apply --whitespace=fix --reject --allow-empty ${CMAKE_CURRENT_SOURCE_DIR}/cmake/externals/opencv-no-rtti.patch
 )
 
 FetchContent_MakeAvailable(opencv)
 set(opencv_INCLUDE_DIRS "")
 list(APPEND opencv_INCLUDE_DIRS ${OPENCV_CONFIG_FILE_INCLUDE_DIR})
-list(APPEND opencv_INCLUDE_DIRS ${OPENCV_MODULE_opencv_core_LOCATION}/include ${OPENCV_MODULE_opencv_imgproc_LOCATION}/include)
+list(APPEND opencv_INCLUDE_DIRS
+    ${OPENCV_MODULE_opencv_core_LOCATION}/include
+    ${OPENCV_MODULE_opencv_imgproc_LOCATION}/include
+    ${OPENCV_MODULE_opencv_imgcodecs_LOCATION}/include)
 set(opencv_LIBS "")
-list(APPEND opencv_LIBS opencv_core opencv_imgproc)
+list(APPEND opencv_LIBS opencv_core opencv_imgproc opencv_imgcodecs)

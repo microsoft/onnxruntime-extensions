@@ -158,6 +158,8 @@ endif()
 if (OCOS_ENABLE_OPENCV)
   message(STATUS "Fetch opencv")
   include(opencv)
+  file(GLOB TARGET_SRC_CV "operators/cv2/*.cc" "operators/cv2/*.h*")
+  list(APPEND TARGET_SRC ${TARGET_SRC_CV})
 endif()
 
 set(_HAS_TOKENIZER OFF)
