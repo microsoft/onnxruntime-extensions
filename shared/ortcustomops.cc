@@ -1,11 +1,32 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include <mutex>
 #include <set>
 
 #include "onnxruntime_extensions.h"
 #include "ocos.h"
 
+struct OrtCustomOpDomainDeleter {
+  explicit OrtCustomOpDomainDeleter(const OrtApi* ort_api) {
+    ort_api_ = ort_api;
+  }
+  void operator()(OrtCustomOpDomain* domain) const {
+    ort_api_->ReleaseCustomOpDomain(domain);
+  }
+
+  const OrtApi* ort_api_;
+};
+
+using OrtCustomOpDomainUniquePtr = std::unique_ptr<OrtCustomOpDomain, OrtCustomOpDomainDeleter>;
+static std::vector<OrtCustomOpDomainUniquePtr> ort_custom_op_domain_container;
+static std::mutex ort_custom_op_domain_mutex;
+
+static void AddOrtCustomOpDomainToContainer(OrtCustomOpDomain* domain, const OrtApi* ort_api) {
+  std::lock_guard<std::mutex> lock(ort_custom_op_domain_mutex);
+  auto ptr = std::unique_ptr<OrtCustomOpDomain, OrtCustomOpDomainDeleter>(domain, OrtCustomOpDomainDeleter(ort_api));
+  ort_custom_op_domain_container.push_back(std::move(ptr));
+}
 
 class ExternalCustomOps {
  public:
@@ -56,6 +77,8 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
   if (status = ortApi->CreateCustomOpDomain(c_OpDomain, &domain)) {
     return status;
   }
+
+  AddOrtCustomOpDomainToContainer(domain, ortApi);
 
 #if defined(PYTHON_OP_SUPPORT)
   size_t count = 0;
