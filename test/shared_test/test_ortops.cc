@@ -306,19 +306,22 @@ TEST(ustring, tensor_operator) {
   const auto* api_base = OrtGetApiBase();
   const auto* api = api_base->GetApi(ORT_API_VERSION);
   auto status = api->GetAllocatorWithDefaultOptions(&allocator);
-  ASSERT_TRUE(status == nullptr || api->GetErrorCode(status) == ORT_OK);
+  auto err_code = ORT_OK;
   if (status != nullptr) {
+    err_code = api->GetErrorCode(status);
     api->ReleaseStatus(status);
   }
+  EXPECT_EQ(err_code, ORT_OK);
 
   Ort::CustomOpApi custom_api(*api);
 
   std::vector<int64_t> dim{2, 2};
   status = api->CreateTensorAsOrtValue(allocator, dim.data(), dim.size(), ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING, &tensor);
-  ASSERT_TRUE(status == nullptr || api->GetErrorCode(status) == ORT_OK);
   if (status != nullptr) {
+    err_code = api->GetErrorCode(status);
     api->ReleaseStatus(status);
   }
+  EXPECT_EQ(err_code, ORT_OK);
 
   std::vector<ustring> input_value{ustring("test"), ustring("测试"), ustring("Test de"), ustring("🧐")};
   FillTensorDataString(*api, custom_api, nullptr, input_value, tensor);
