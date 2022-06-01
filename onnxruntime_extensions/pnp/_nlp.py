@@ -1,4 +1,5 @@
 import json
+from collections import OrderedDict
 
 from ._base import ProcessingTracedModule, tensor_data_type as _dt
 from ._torchext import create_op_function
@@ -17,7 +18,9 @@ def make_custom_op(ctx, op_type, input_names, output_names, container, operator_
 def bert_tokenize(ctx, input_names, output_names, container, operator_name=None, **kwargs):
     if 'hf_tok' in kwargs:
         hf_bert_tokenizer = kwargs['hf_tok']
-        attrs = {'vocab_file': hf_bert_tokenizer.vocab}
+        ordered_vocab = OrderedDict(sorted(hf_bert_tokenizer.vocab.items(), key=lambda item: int(item[1])))
+        vocab = '\n'.join(ordered_vocab.keys())
+        attrs = dict(vocab_file=vocab)
     elif 'vocab_file' in kwargs:
         vocab = None
         vocab_file = kwargs['vocab_file']
