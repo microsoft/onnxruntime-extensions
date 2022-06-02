@@ -1,21 +1,52 @@
-# ONNXRuntime Extensions
+# ONNX Runtime Extensions
+
 [![Build Status](https://aiinfra.visualstudio.com/Lotus/_apis/build/status/onnxruntime-extensions/extensions.wheel?branchName=main)](https://aiinfra.visualstudio.com/Lotus/_build/latest?definitionId=1085&branchName=main)
 
-# Introduction
-ONNXRuntime Extensions is a comprehensive package to extend the capability of the ONNX conversion and inference.
-1. The CustomOp C++ library for [ONNX Runtime](http://onnxruntime.ai) on ONNXRuntime CustomOp API.
-2. Integrate the pre/post processing steps into ONNX model which can be executed on all platforms that ONNXRuntime supported. check [pnp.export](onnxruntime_extensions/pnp/_unifier.py) for more details
-3. Support PyOp feature to implement the custom op with a Python function.
-4. Support Python per operator debugging, checking ```hook_model_op``` in onnxruntime_extensions Python package.
+## Introduction
 
-# Quick Start
-### **Installation**
-The package can be installed by standard pythonic way, ```pip install onnxruntime-extensions```.
+ONNX Runtime Extensions is library that extends the capability of the ONNX conversion and inference with ONNX Runtime.
 
-To try the latest features in the source repo which haven't been released (cmake and the compiler like gcc required), the package can be installed as:
-```python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git```
+1. A model augmentation API to integrate the pre and post processing steps into an ONNX model, which can be executed on all platforms that ONNX Runtime supports.
 
-### **ImageNet Pre/Post Processing**
+2. A custom operator C++ library for [ONNX Runtime](http://onnxruntime.ai) built using the ONNX Runtime CustomOp API.
+
+3. The python operator feature that implements a custom operator with a Python function and can be used for testing and verification
+
+4. A debugging tool called `hook_model_op`, which can be used for Python per operator debugging.
+
+## Quick Start
+
+### Installation
+
+#### Install from PyPI
+
+The latest release of onnxruntime-extensions is: 0.4.2.
+
+```bash
+pip install onnxruntime-extensions
+```
+
+#### Install from nightly builds
+
+
+#### Install from source
+
+1. Install the following pre-requisites
+
+   * A C/C++ compiler for your operating system (gcc on Linux, Visual Studio on Windows, CLang on Mac)
+   * [Cmake](https://cmake.org/)
+   * [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+
+2. If running on Windows, ensure that long file names are enabled, both for the [operating system](https://docs.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation?tabs=cmd) and for git: ``git config --system core.longpaths true`
+
+3. Install the package from source
+
+   ```bash
+   python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git
+   ```
+
+### Computer vision pre and post processing
+
 Build a full ONNX model with ImageNet pre/post processing
 
 ```Python
@@ -24,30 +55,30 @@ import torch
 from onnxruntime_extensions import pnp
 
 mnv2 = onnx.load_model('test/data/mobilev2.onnx')
-full_model = pnp.SequentialProcessingModule(
+augmented_model = pnp.SequentialProcessingModule(
     pnp.PreMobileNet(224),
     mnv2,
     pnp.PostMobileNet())
 
 # the image size is dynamic, the 400x500 here is to get a fake input to enable export
 fake_image_input = torch.ones(500, 400, 3).to(torch.uint8)
-full_model.forward(fake_image_input)
 name_i = 'image'
-pnp.export(full_model,
+pnp.export(augmented_model,
            fake_image_input,
            opset_version=11,
-           output_path='temp_exmobilev2.onnx',
+           output_path='mobilev2-aug.onnx',
            input_names=[name_i],
            dynamic_axes={name_i: [0, 1]})
 ```
-The above python code will translate the ImageNet pre/post processing functions into an all-in-one model which can do inference on all platforms that ONNNXRuntime supports, like Android/iOS, without any Python runtime and the 3rd-party libraries dependency.
+
+The above python code will translate the ImageNet pre/post processing functions into an augmented model which can do inference on all platforms that ONNNXRuntime supports, like Android/iOS, without any Python runtime and the 3rd-party libraries dependency.
 
 Note: On mobile platform, the ONNXRuntime package may not support all kernels required by the model, to ensure all the ONNX operator kernels were built into ONNXRuntime binraries, please use [ONNX Runtime Custom Build]https://onnxruntime.ai/docs/build/custom.html).
 
 Here is a [tutorial](tutorials/imagenet_processing.ipynb) for pre/post processing details.
 
-### **GPT-2 Pre/Post Processing**
-The following code shows how to run ONNX model and ONNXRuntime customop more straightforwardly.
+### Text pre and post processing
+
 ```python
 import numpy
 from onnxruntime_extensions import PyOrtFunction, VectorToString
@@ -63,11 +94,13 @@ output, *_ = gpt2_core(input_ids)
 next_id = numpy.argmax(output[:, :, -1, :], axis=-1)
 print(input_text[0] + decode(next_id).item())
 ```
+
 This is a simplified version of GPT-2 inference for the demonstration only. The full solution of post-process can be checked [here](https://github.com/microsoft/onnxruntime/blob/ad9d2e2e891714e0911ccc3fa8b70f42025b4d56/docs/ContribOperators.md#commicrosoftbeamsearch)
 
 
 
-## CustomOp Conversion
+### CustomOp Conversion
+
 The mainstream ONNX converters support the custom op generation if the operation from the original framework cannot be interpreted as ONNX standard operators. Check the following two examples on how to do this.
 1. [CustomOp conversion by pytorch.onnx.exporter](https://github.com/microsoft/onnxruntime-extensions/blob/main/tutorials/pytorch_custom_ops_tutorial.ipynb)
 2. [CustomOp conversion by tf2onnx](https://github.com/microsoft/onnxruntime-extensions/blob/main/tutorials/tf2onnx_custom_ops_tutorial.ipynb)
