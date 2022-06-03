@@ -133,6 +133,9 @@ def read_version():
     return version_str
 
 
+if sys.platform == "win32":
+    load_msvcvar()
+
 ext_modules = [
     setuptools.extension.Extension(
         name=str('onnxruntime_extensions._ortcustomops'),
