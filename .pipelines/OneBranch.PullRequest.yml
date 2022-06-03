@@ -42,8 +42,6 @@ extends:
     globalSdl:
       tsa:
         enabled: false
-      prefast:
-        enabled: true
       binskim:
         break: true # always break the build on binskim issues in addition to TSA upload
       codeql:
