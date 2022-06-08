@@ -93,7 +93,7 @@ FetchContent_Declare(
         -DBUILD_SHARED_LIBS:BOOL=FALSE
         -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_CURRENT_BINARY_DIR}/opencv
         -DCV_TRACE:BOOL=FALSE
-        PATCH_COMMAND git checkout . && git apply --whitespace=fix --reject --allow-empty ${CMAKE_CURRENT_SOURCE_DIR}/cmake/externals/opencv-no-rtti.patch
+        PATCH_COMMAND git checkout . && git apply --whitespace=fix --ignore-space-change --ignore-whitespace ${CMAKE_CURRENT_SOURCE_DIR}/cmake/externals/opencv-no-rtti.patch
 )
 
 FetchContent_MakeAvailable(opencv)
