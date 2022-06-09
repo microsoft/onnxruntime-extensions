@@ -1,43 +1,13 @@
-## Operator Schemas
+# Operators
 
-### Auxiliary String Operator
+## String operators
 
-|**Operator**|**Support State**|
-|------------|-----------------|
-|StringEqual |  Supported        |
-|StringHash  |  Supported        |
-|StringToHashBucketFast|Supported|
-|StringJoin  | Supported         |
-|StringRegexReplace| Supported  |
-|StringECMARegexReplace| Supported|
-|StringSplit | Supported       |
-|StringUpper  | Supported     |
-|StringLength | Supported |
-|StringConcat | Supported |
-|StringRegexSplitWithOffsets| Supported |
-|StringECMARegexSplitWithOffsets| Supported|
-|VectorToString| Supported |
-|StringToVector|  Supported|
-|StringSlice | Under development|
-|MaskedFill | Supported|
-
-### Tokenizer
-
-|**Operator**|**Support State**|
-|------------|-----------------|
-|GPT2Tokenizer| Supported       |
-|WordpieceTokenizer| Supported       |
-|SentencepieceTokenizer| Supported       |
-|BasicTokenizer| Supported      |
-|BertTokenizer| Supported  |
-|BertTokenizerDecoder| Supported  |
-
-
-## Auxiliary String Operator
-
-[TODO: Add existing operators]
-
-### <a name="StringRegexReplace"></a><a name="StringRegexReplace">**StringRegexReplace**</a>
+### StringEqual
+### StringHash
+### StringHashFast
+### StringToHashBucketFast
+### StringJoin  
+### StringRegexReplace
 
 String replacement based on [Re2-format](https://github.com/google/re2/wiki/Syntax) regular expressions.
 
@@ -91,6 +61,8 @@ expect(node, inputs=[text, pattern, rewrite], outputs=[y],
 ```
 
 </details>
+
+### StringECMARegexReplace
 
 ### <a name="StringECMARegexReplace"></a><a name="StringECMARegexReplace">**StringECMARegexReplace**</a>
 
@@ -153,6 +125,104 @@ expect(node, inputs=[text, pattern, rewrite], outputs=[y],
 </details>
 
 
+
+### StringSplit 
+### StringUpper  
+### StringLower
+### StringLength
+
+Get the length of each string element in input tensor. Similar to the function `len("abcde"")` in python.
+
+#### Inputs 
+
+***data: tensor(string)***
+
+String tensor to get length of its each string element.
+
+#### Outputs
+
+***output: tensor(int64)***
+
+Data length tensor.
+
+#### Examples
+
+<details>
+<summary>string_length</summary>
+
+```python
+
+node = onnx.helper.make_node(
+    'StringLength',
+    inputs=['x'],
+    outputs=['y']
+)
+
+x = ["abcdef", "hijkl"]
+y = np.array([len(x[0]), len(x[1])], dtype=np.int64)
+
+
+expect(node, inputs=[x], outputs=[y],
+       name='test_string_length')
+```
+</details>
+ 
+### StringConcat 
+
+Concat the corresponding string in the two string tensor. Two input tensors should have the same dimension.
+
+```python
+  output = []
+  shape = input1.shape
+  input1 = input1.flatten()
+  input2 = input2.flatten()
+  for i in range(len(input1)):
+      output.append(input1[i] + input2[i])
+  output = np.array(output).reshape(shape)
+```
+
+#### Inputs
+
+***input_1: tensor(string)***
+
+The first string tensor.
+
+***input_2: tensor(string)***
+
+The second string tensor.
+
+
+#### Outputs
+
+***output: tensor(string)***
+
+The result.
+
+#### Examples
+
+<details>
+<summary>StringConcat</summary>
+
+```python
+
+node = onnx.helper.make_node(
+    'StringConcat',
+    inputs=['x', 'y'],
+    outputs=['result'],
+)
+
+x = np.array(["abcd", "efgh"])
+y = np.array(["wxyz", "stuv"])
+result = np.array([x[0] + y[0], x[1] + y[1]])
+
+expect(node, inputs=[x, y], outputs=[result],
+       name='test_string_concat')
+```
+
+</details>
+
+### StringRegexSplitWithOffsets
+
 ### <a name="StringRegexSplitWithOffsets"></a><a name="StringRegexSplitWithOffsets">**StringRegexSplitWithOffsets**</a>
 
 Splits string based on regular expressions.
@@ -211,160 +281,96 @@ expect(node, inputs=[text, pattern, rewrite], outputs=[y, z1, z2],
 
 </details>
 
-### <a name="StringConcat"></a><a name="StringConcat">**StringConcat**</a>
 
-Concat the corresponding string in the two string tensor. Two input tensors should have the same dimension.
+### StringECMARegexSplitWithOffsets
+### VectorToString
 
-```python
-  output = []
-  shape = input1.shape
-  input1 = input1.flatten()
-  input2 = input2.flatten()
-  for i in range(len(input1)):
-      output.append(input1[i] + input2[i])
-  output = np.array(output).reshape(shape)
-```
+VectorToString is the contrary operation to the `StringToVector` , they share same format of mapping table:
+
+    <string>\t<scalar_1>\s<scalar_2>\s<scalar_3>...<scalar_n>
+
+Unmapped vector will output the value of the attribute `unk`.
+
+Example:
+
+*Attributes:*
+
+- `map`: 
+  ```
+  a   0 0 1 2
+  b   0 1 2 3
+  d   0 1 3 4
+  ```
+
+- `unk`: "unknown_word"
+
+*Inputs:*
+- data: [[0,0,1,2],[0,1,3,4],[0,0,0,0]]
+
+*Ouputs:*
+- output: ["a", "d", "unknown_word" ]
+
+#### Attributes
+
+***mapping_file_name***
+
+the formative mapping table
+
+***unmapping_value***
+
+the result returned when a vector aren't found in the map
 
 #### Inputs
 
-***input_1: tensor(string)***
+***data: tensor(T)***
 
-The first string tensor.
-
-***input_2: tensor(string)***
-
-The second string tensor.
-
+Input tensor
 
 #### Outputs
 
 ***output: tensor(string)***
 
-The result.
+The mapping result of the input
+
+#### Type Constraints
+***T:tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64), tensor(bfloat16), tensor(float16), tensor(float), tensor(double), tensor(bool)***
+
+Constrain input and output types to numerical tensors.
+
 
 #### Examples
 
 <details>
-<summary>StringConcat</summary>
+<summary>vector_to_string</summary>
 
 ```python
+mapping_table = \
+  """
+  a   0 0 1 2
+  b   0 1 2 3
+  d   0 1 3 4
+  """
 
 node = onnx.helper.make_node(
-    'StringConcat',
-    inputs=['x', 'y'],
-    outputs=['result'],
-)
-
-x = np.array(["abcd", "efgh"])
-y = np.array(["wxyz", "stuv"])
-result = np.array([x[0] + y[0], x[1] + y[1]])
-
-expect(node, inputs=[x, y], outputs=[result],
-       name='test_string_concat')
-```
-
-</details>
-
-### <a name="StringSlice"></a><a name="StringSlice">**StringSlice**</a>
-
-Do the slice operation to each string element in input tensor. Similar to string slice in python
-
-```python
-a = "abcdef"
-b = a[1:2]
-c = a[3:1:-1]
-```
-
-#### Inputs
-
-***data: tensor(string)***
-
-String tensor to extract slices from.
-
-***starts: tensor(int64/int32)***
-
-The tensor of starting indices of corresponding string in data, which has same dimension of data.
-
-***ends: tensor(int64/int32)***
-
-The tensor of ending indices of corresponding string in data, which has same dimension of data.
-
-***steps(optional): tensor(int64/int32)***
-
-The tensor of slice step of corresponding string in data, which has same dimension of data.If steps is empty tensor, we will use default value 1 for each string
-
-#### Outputs
-
-***output: tensor(string)***
-
-Sliced data tensor.
-
-#### Examples
-
-<details>
-<summary>string_slice</summary>
-
-```python
-
-node = onnx.helper.make_node(
-    'StringSlice',
-    inputs=['x', 'starts', 'ends', 'steps'],
-    outputs=['y'],
-)
-
-x = np.array(["abcdef", "hijkl"])
-y = np.array([x[0][1:3:1], x[1][3:1:-1]])
-starts = np.array([1, 3], dtype=np.int64)
-ends = np.array([3, 1], dtype=np.int64)
-axes = np.array([0, 1], dtype=np.int64)
-steps = np.array([1, 1], dtype=np.int64)
-
-expect(node, inputs=[x, starts, ends, axes, steps], outputs=[y],
-       name='test_string_slice')
-```
-
-</details>
-
-### <a name="StringLength"></a><a name="StringLength">**StringLength**</a>
-
-Get the length of each string element in input tensor. Similar to the function `len("abcde"")` in python.
-
-#### Inputs 
-
-***data: tensor(string)***
-
-String tensor to get length of its each string element.
-
-#### Outputs
-
-***output: tensor(int64)***
-
-Data length tensor.
-
-#### Examples
-
-<details>
-<summary>string_length</summary>
-
-```python
-
-node = onnx.helper.make_node(
-    'StringLength',
+    'VectorToString',
     inputs=['x'],
-    outputs=['y']
+    outputs=['y'],
+    map=mapping_table,
+    unk="unknown_word"
 )
 
-x = ["abcdef", "hijkl"]
-y = np.array([len(x[0]), len(x[1])], dtype=np.int64)
+
+x = np.array([[0,0,1,2],[0,1,3,4],[0,0,0,0]], type=np.int64)
+y = ["a", "d", "unknown_word"]
 
 
 expect(node, inputs=[x], outputs=[y],
-       name='test_string_length')
+       name='test_vector_to_string')
 ```
 </details>
 
 
-### <a name="StringToVector"></a><a name="StringToVector">**StringToVector**</a>
+### StringToVector
 
 StringToVector will map each string element in the input to the corresponding vector according to the mapping file. The mapping file is a utf-8 encoding text file in tsv format:
 
@@ -452,93 +458,71 @@ expect(node, inputs=[x], outputs=[y],
 
 </details>
 
-### <a name="VectorToString"></a><a name="VectorToString">**VectorToString**</a>
 
-VectorToString is the contrary operation to the `StringToVector` , they share same format of mapping table:
 
-    <string>\t<scalar_1>\s<scalar_2>\s<scalar_3>...<scalar_n>
+### StringSlice 
 
-Unmapped vector will output the value of the attribute `unk`.
+Do the slice operation to each string element in input tensor. Similar to string slice in python
 
-Example:
-
-*Attributes:*
-
-- `map`: 
-  ```
-  a   0 0 1 2
-  b   0 1 2 3
-  d   0 1 3 4
-  ```
-
-- `unk`: "unknown_word"
-
-*Inputs:*
-- data: [[0,0,1,2],[0,1,3,4],[0,0,0,0]]
-
-*Ouputs:*
-- output: ["a", "d", "unknown_word" ]
-
-#### Attributes
-
-***mapping_file_name***
-
-the formative mapping table
-
-***unmapping_value***
-
-the result returned when a vector aren't found in the map
+```python
+a = "abcdef"
+b = a[1:2]
+c = a[3:1:-1]
+```
 
 #### Inputs
 
-***data: tensor(T)***
+***data: tensor(string)***
 
-Input tensor
+String tensor to extract slices from.
+
+***starts: tensor(int64/int32)***
+
+The tensor of starting indices of corresponding string in data, which has same dimension of data.
+
+***ends: tensor(int64/int32)***
+
+The tensor of ending indices of corresponding string in data, which has same dimension of data.
+
+***steps(optional): tensor(int64/int32)***
+
+The tensor of slice step of corresponding string in data, which has same dimension of data.If steps is empty tensor, we will use default value 1 for each string
 
 #### Outputs
 
 ***output: tensor(string)***
 
-The mapping result of the input
-
-#### Type Constraints
-***T:tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64), tensor(bfloat16), tensor(float16), tensor(float), tensor(double), tensor(bool)***
-
-Constrain input and output types to numerical tensors.
-
+Sliced data tensor.
 
 #### Examples
 
 <details>
-<summary>vector_to_string</summary>
+<summary>string_slice</summary>
 
 ```python
-mapping_table = \
-  """
-  a   0 0 1 2
-  b   0 1 2 3
-  d   0 1 3 4
-  """
 
 node = onnx.helper.make_node(
-    'VectorToString',
-    inputs=['x'],
+    'StringSlice',
+    inputs=['x', 'starts', 'ends', 'steps'],
     outputs=['y'],
-    map=mapping_table,
-    unk="unknown_word"
 )
 
+x = np.array(["abcdef", "hijkl"])
+y = np.array([x[0][1:3:1], x[1][3:1:-1]])
+starts = np.array([1, 3], dtype=np.int64)
+ends = np.array([3, 1], dtype=np.int64)
+axes = np.array([0, 1], dtype=np.int64)
+steps = np.array([1, 1], dtype=np.int64)
 
-x = np.array([[0,0,1,2],[0,1,3,4],[0,0,0,0]], type=np.int64)
-y = ["a", "d", "unknown_word"]
-
-
-expect(node, inputs=[x], outputs=[y],
-       name='test_vector_to_string')
+expect(node, inputs=[x, starts, ends, axes, steps], outputs=[y],
+       name='test_string_slice')
 ```
+
 </details>
 
-### <a name="MaskedFill"></a><a name="MaskedFill">**MaskedFill**</a>
+
+### MaskedFill
+
 
 Fills elements of self tensor with value where mask is True. The operator is similar with [`Tensor.masked_fill_`](https://pytorch.org/docs/stable/generated/torch.Tensor.masked_fill_.html#torch.Tensor.masked_fill_) in pytorch.
 
@@ -584,9 +568,13 @@ expect(node, inputs=[value, mask], outputs=[output],
 ```
 </details>
 
-## Tokenizer
+### StringRaggedTensorToDense
+### StringMapping
 
-### <a name="GPT2Tokenizer"></a><a name="GPT2Tokenizer">**GPT2Tokenizer**</a>
+
+## Natural language operators
+
+### GPT2Tokenizer
 
 GPT2Tokenizer that performs byte-level bpe tokenization to the input tensor, based on the [hugging face version](https://huggingface.co/transformers/_modules/transformers/tokenization_gpt2.html).
 
@@ -648,8 +636,7 @@ expect(node, inputs=[x], outputs=[y],
 ```
 </details>
 
-
-### <a name="WordpieceTokenizer"></a><a name="WordpieceTokenizer">**WordpieceTokenizer**</a>
+### WordpieceTokenizer
 
 WordpieceTokenizer that performs WordPiece tokenization to the input tensor,
 based on the [hugging face version](https://huggingface.co/transformers/model_doc/bert.html#WordpieceTokenizer).
@@ -761,7 +748,7 @@ expect(model, inputs=[text], outputs=[tokens, indices, row_indices],
 
 </details>
 
-### <a name="SentencepieceTokenizer"></a><a name="SentencepieceTokenizer">**SentencepieceTokenizer**</a>
+### SentencepieceTokenizer
 
 SentencepieceTokenizer replicates [SentencepieceTokenizer](https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/SentencepieceTokenizer.md).
 
@@ -832,7 +819,8 @@ expect(node, inputs=[inputs, nbest_size, alpha, add_bos, add_eos, reverse],
 ```
 </details>
 
-### <a name="BasicTokenizer"></a><a name="BasicTokenizer">**BasicTokenizer**</a>
+
+### BasicTokenizer
 
 BasicTokenizer performs basic tokenization to input string tensor, based on [basic tokenizer in BertTokenizer(hugging face version)](https://huggingface.co/transformers/_modules/transformers/models/bert/tokenization_bert.html#BertTokenizer).
 
@@ -1003,7 +991,8 @@ expect(node, inputs=[inputs],
 </details>
 
 
-### <a name="BertTokenizerDecoder"></a><a name="BertTokenizerDecoder">**BertTokenizerDecoder**</a>
+### BertTokenizer
+### BertTokenizerDecoder
 
 BertTokenizer replicates `decode` function of [BertTokenizer (huggingface version )](https://huggingface.co/transformers/_modules/transformers/models/bert/tokenization_bert.html#BertTokenizer).
 #### Inputs
@@ -1101,3 +1090,50 @@ expect(node, inputs=[token_ids],
        outputs=[sentences], name='test_bert_tokenizer')
 ```
 </details>
+
+### BlingFireSentenceBreaker
+### BpeTokenizer
+
+## Math operators
+
+
+### Inverse
+### NegPos
+### SegmentExtraction
+### SegmentSum
+
+## Tensor operators
+
+### RaggedTensorToSparse
+### RaggedTensorToDense
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

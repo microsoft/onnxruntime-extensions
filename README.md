@@ -6,9 +6,9 @@
 
 ONNX Runtime Extensions is library that extends the capability of the ONNX conversion and inference with ONNX Runtime.
 
-1. A model augmentation API to integrate the pre and post processing steps into an ONNX model, which can be executed on all platforms that ONNX Runtime supports.
+1. A library of common pre and post processing operators for vision, text, and nlp models for [ONNX Runtime](http://onnxruntime.ai) built using the ONNX Runtime CustomOp API.
 
-2. A custom operator C++ library for [ONNX Runtime](http://onnxruntime.ai) built using the ONNX Runtime CustomOp API.
+2. A model augmentation API to integrate the pre and post processing steps into an ONNX model
 
 3. The python operator feature that implements a custom operator with a Python function and can be used for testing and verification
 
@@ -37,7 +37,7 @@ pip install onnxruntime-extensions
    * [Cmake](https://cmake.org/)
    * [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
 
-2. If running on Windows, ensure that long file names are enabled, both for the [operating system](https://docs.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation?tabs=cmd) and for git: ``git config --system core.longpaths true`
+2. If running on Windows, ensure that long file names are enabled, both for the [operating system](https://docs.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation?tabs=cmd) and for git: `git config --system core.longpaths true`
 
 3. Install the package from source
 
@@ -45,9 +45,9 @@ pip install onnxruntime-extensions
    python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git
    ```
 
-### Computer vision pre and post processing
+### Computer vision quick start
 
-Build a full ONNX model with ImageNet pre/post processing
+Build an augmented ONNX model with ImageNet pre and post processing.
 
 ```Python
 import onnx
@@ -62,40 +62,27 @@ augmented_model = pnp.SequentialProcessingModule(
 
 # the image size is dynamic, the 400x500 here is to get a fake input to enable export
 fake_image_input = torch.ones(500, 400, 3).to(torch.uint8)
-name_i = 'image'
+model_input_name = 'image'
 pnp.export(augmented_model,
            fake_image_input,
            opset_version=11,
            output_path='mobilev2-aug.onnx',
-           input_names=[name_i],
-           dynamic_axes={name_i: [0, 1]})
+           input_names=[model_input_name],
+           dynamic_axes={model_input_name: [0, 1]})
 ```
 
 The above python code will translate the ImageNet pre/post processing functions into an augmented model which can do inference on all platforms that ONNNXRuntime supports, like Android/iOS, without any Python runtime and the 3rd-party libraries dependency.
 
-Note: On mobile platform, the ONNXRuntime package may not support all kernels required by the model, to ensure all the ONNX operator kernels were built into ONNXRuntime binraries, please use [ONNX Runtime Custom Build]https://onnxruntime.ai/docs/build/custom.html).
+Note: On mobile platform, the ONNXRuntime package may not support all kernels required by the model, to ensure all the ONNX operator kernels were built into ONNXRuntime binaries, please use [ONNX Runtime Custom Build](https://onnxruntime.ai/docs/build/custom.html).
 
-Here is a [tutorial](tutorials/imagenet_processing.ipynb) for pre/post processing details.
 
 ### Text pre and post processing
 
+Build an augmented ONNX model with BERT pre and processing.
+
 ```python
-import numpy
-from onnxruntime_extensions import PyOrtFunction, VectorToString
-# <ProjectDir>/tutorials/data/gpt-2/gpt2_tok.onnx
-encode = PyOrtFunction.from_model('gpt2_tok.onnx')
-# https://github.com/onnx/models/blob/master/text/machine_comprehension/gpt-2/model/gpt2-lm-head-10.onnx
-gpt2_core = PyOrtFunction.from_model('gpt2-lm-head-10.onnx')
-decode = PyOrtFunction.from_customop(VectorToString, map={' a': [257]}, unk='<unknown>')
 
-input_text = ['It is very cool to have']
-input_ids, *_ = encode(input_text)
-output, *_ = gpt2_core(input_ids)
-next_id = numpy.argmax(output[:, :, -1, :], axis=-1)
-print(input_text[0] + decode(next_id).item())
-```
 
-This is a simplified version of GPT-2 inference for the demonstration only. The full solution of post-process can be checked [here](https://github.com/microsoft/onnxruntime/blob/ad9d2e2e891714e0911ccc3fa8b70f42025b4d56/docs/ContribOperators.md#commicrosoftbeamsearch)
 
 
 
