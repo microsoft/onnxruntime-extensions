@@ -26,9 +26,6 @@ The latest release of onnxruntime-extensions is: 0.4.2.
 pip install onnxruntime-extensions
 ```
 
-#### Install from nightly builds
-
-
 #### Install from source
 
 1. Install the following pre-requisites
@@ -54,19 +51,22 @@ import onnx
 import torch
 from onnxruntime_extensions import pnp
 
-mnv2 = onnx.load_model('test/data/mobilev2.onnx')
+# Download the MobileNet V2 model from the ONNX model zoo
+# https://github.com/onnx/models/blob/main/vision/classification/mobilenet/model/mobilenetv2-12.onnx
+
+mnv2 = onnx.load_model('mobilenetv2-12.onnx')
 augmented_model = pnp.SequentialProcessingModule(
     pnp.PreMobileNet(224),
     mnv2,
     pnp.PostMobileNet())
 
-# the image size is dynamic, the 400x500 here is to get a fake input to enable export
+# The image size is dynamic, the 400x500 here is to get a fake input to enable export
 fake_image_input = torch.ones(500, 400, 3).to(torch.uint8)
 model_input_name = 'image'
 pnp.export(augmented_model,
            fake_image_input,
            opset_version=11,
-           output_path='mobilev2-aug.onnx',
+           output_path='mobilenetv2-aug.onnx',
            input_names=[model_input_name],
            dynamic_axes={model_input_name: [0, 1]})
 ```
@@ -76,23 +76,59 @@ The above python code will translate the ImageNet pre/post processing functions 
 Note: On mobile platform, the ONNXRuntime package may not support all kernels required by the model, to ensure all the ONNX operator kernels were built into ONNXRuntime binaries, please use [ONNX Runtime Custom Build](https://onnxruntime.ai/docs/build/custom.html).
 
 
-### Text pre and post processing
+### Text pre and post processing quick start
 
 Build an augmented ONNX model with BERT pre and processing.
 
 ```python
+from pathlib import Path
+import torch
+from transformers import AutoTokenizer
+import onnx
+from onnxruntime_extensions import pnp
 
+# get an onnx model by converting HuggingFace pretrained model
+bert_model_name = "distilbert-base-uncased-finetuned-sst-2-english"
+model_name = bert_model_name
+model_path = Path(model_name + ".onnx")
 
+# mapping the BertTokenizer outputs into the onnx model inputs
+def map_token_output(input_ids, attention_mask, token_type_ids):
+    return input_ids.unsqueeze(0), token_type_ids.unsqueeze(0), attention_mask.unsqueeze(0)
 
+# Post process the start and end logits
+def post_process(*pred):
+    output = torch.argmax(pred[0])
+    return output
 
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+bert_tokenizer = pnp.PreHuggingFaceBert(hf_tok=tokenizer)
+bert_model = onnx.load_model(str(model_path))
 
-### CustomOp Conversion
+augmented_model = pnp.SequentialProcessingModule(bert_tokenizer, map_token_output,
+                                                 bert_model, post_process)
 
-The mainstream ONNX converters support the custom op generation if the operation from the original framework cannot be interpreted as ONNX standard operators. Check the following two examples on how to do this.
+test_input = ["This is s test sentence"]
+
+# create the final onnx model which includes pre- and post- processing.
+augmented_model = pnp.export(augmented_model,
+                             test_input,
+                             opset_version=12,
+                             input_names=['input'],
+                             output_names=['output'],
+                             output_path=model_name + '-aug.onnx',
+                             dynamic_axes={'input': [0], 'output': [0]})
+```
+
+### Custom operator
+
+The PyTorch and TensorFlow converters support custom operator generation if the operation from the original framework cannot be interpreted as a standard ONNX operators. Check the following two examples on how to do this.
+
 1. [CustomOp conversion by pytorch.onnx.exporter](https://github.com/microsoft/onnxruntime-extensions/blob/main/tutorials/pytorch_custom_ops_tutorial.ipynb)
 2. [CustomOp conversion by tf2onnx](https://github.com/microsoft/onnxruntime-extensions/blob/main/tutorials/tf2onnx_custom_ops_tutorial.ipynb)
 
 ## Inference with CustomOp library
+
 The CustomOp library was written with C++, so that it supports run the model in the native binaries. The following is the example of C++ version.
 ```C++
   // The line loads the customop library into ONNXRuntime engine to load the ONNX model with the custom op
