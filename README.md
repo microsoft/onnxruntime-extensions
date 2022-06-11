@@ -73,8 +73,9 @@ pnp.export(augmented_model,
 
 The above python code will translate the ImageNet pre/post processing functions into an augmented model which can do inference on all platforms that ONNNXRuntime supports, like Android/iOS, without any Python runtime and the 3rd-party libraries dependency.
 
-Note: On mobile platform, the ONNXRuntime package may not support all kernels required by the model, to ensure all the ONNX operator kernels were built into ONNXRuntime binaries, please use [ONNX Runtime Custom Build](https://onnxruntime.ai/docs/build/custom.html).
+You can see a sample of the model augmentation code as well as a C# console app that runs the augmented model with ONNX Runtime [here](https://github.com/microsoft/onnxruntime-inference-examples/tree/main/c_sharp/image_classification)
 
+Note: On mobile platform, the ONNXRuntime package may not support all kernels required by the model, to ensure all the ONNX operator kernels were built into ONNXRuntime binaries, please use [ONNX Runtime Custom Build](https://onnxruntime.ai/docs/build/custom.html).
 
 ### Text pre and post processing quick start
 
@@ -120,17 +121,33 @@ augmented_model = pnp.export(augmented_model,
                              dynamic_axes={'input': [0], 'output': [0]})
 ```
 
-### Custom operator
+To run the augmented model with ONNX Runtime, you need to register the operators in the onnxruntime-extensions custom ops (including the BertTokenizer) library with ONNX Runtime.
 
-The PyTorch and TensorFlow converters support custom operator generation if the operation from the original framework cannot be interpreted as a standard ONNX operators. Check the following two examples on how to do this.
+```python
+import onnxruntime
+import onnxruntime_extensions
 
-1. [CustomOp conversion by pytorch.onnx.exporter](https://github.com/microsoft/onnxruntime-extensions/blob/main/tutorials/pytorch_custom_ops_tutorial.ipynb)
-2. [CustomOp conversion by tf2onnx](https://github.com/microsoft/onnxruntime-extensions/blob/main/tutorials/tf2onnx_custom_ops_tutorial.ipynb)
+test_input = ["I don't really like tomatoes. They are too bitter"]
 
-## Inference with CustomOp library
+# Load the model
+session_options = onnxruntime.SessionOptions()
+session_options.register_custom_ops_library(onnxruntime_extensions.get_library_path())
+session = onnxruntime.InferenceSession('distilbert-base-uncased-finetuned-sst-2-english-aug.onnx', session_options)
 
-The CustomOp library was written with C++, so that it supports run the model in the native binaries. The following is the example of C++ version.
-```C++
+# Run the model
+results = session.run(["g2_output"], {"g1_it_2589433893008": test_input})
+
+print(results[0])
+```
+
+The result is 0 when the sentiment is negative and 1 when the sentiment is positive.
+
+
+## Register the custom operators in onnxruntime-extensions with ONNX Runtime
+
+### C++
+
+```c++
   // The line loads the customop library into ONNXRuntime engine to load the ONNX model with the custom op
   Ort::ThrowOnError(Ort::GetApi().RegisterCustomOpsLibrary((OrtSessionOptions*)session_options, custom_op_library_filename, &handle));
 
@@ -138,7 +155,9 @@ The CustomOp library was written with C++, so that it supports run the model in 
   Ort::Session session(env, model_uri, session_options);
   RunSession(session, inputs, outputs);
 ```
-Of course, with Python language, the thing becomes much easier since PyOrtFunction will directly translate the ONNX model into a python function. But if the ONNXRuntime Custom Python API want to be used, the inference process will be
+
+### Python
+
 ```python
 import onnxruntime as _ort
 from onnxruntime_extensions import get_library_path as _lib_path
@@ -151,8 +170,18 @@ so.register_custom_ops_library(_lib_path())
 # sess.run (...)
 ```
 
-## More CustomOp
+## Use exporters to generate graphs with custom operators
+
+The PyTorch and TensorFlow converters support custom operator generation if the operation from the original framework cannot be interpreted as a standard ONNX operators. Check the following two examples on how to do this.
+
+1. [CustomOp conversion by pytorch.onnx.exporter](https://github.com/microsoft/onnxruntime-extensions/blob/main/tutorials/pytorch_custom_ops_tutorial.ipynb)
+2. [CustomOp conversion by tf2onnx](https://github.com/microsoft/onnxruntime-extensions/blob/main/tutorials/tf2onnx_custom_ops_tutorial.ipynb)
+
+
+## Contribute a new operator to onnxruntime-extensions
+
 Welcome to contribute the customop C++ implementation directly in this repository, which will widely benefit other users. Besides C++, if you want to quickly verify the ONNX model with some custom operators with Python language, PyOp will help with that
+
 ```python
 import numpy
 from onnxruntime_extensions import PyOp, onnx_op
@@ -169,9 +198,11 @@ def inverse(x):
 # ...
 ```
 
-# Build and Development
+## Build and Development
+
 This project supports Python and can be built from source easily, or a simple cmake build without Python dependency.
-## Python package
+### Python package
+
 - Install Visual Studio with C++ development tools on Windows, or gcc for Linux or xcode for MacOS, and cmake on the unix-like platform. (**hints**: in Windows platform, if cmake bundled in Visual Studio was used, please specify the set _VCVARS=%ProgramFiles(x86)%\Microsoft Visual Studio\2019\<Edition>\VC\Auxiliary\Build\vcvars64.bat_)
 - Prepare Python env and install the pip packages in the requirements.txt.
 - `python setup.py install` to build and install the package.
@@ -180,14 +211,17 @@ This project supports Python and can be built from source easily, or a simple cm
 Test:
 - run `pytest test` in the project root directory.
 
-## The share library for non-Python
+### The share library for non-Python
+
 If only DLL/shared library is needed without any Python dependencies, please run `build.bat` or `bash ./build.sh` to build the library.
 By default the DLL or the library will be generated in the directory `out/<OS>/<FLAVOR>`. There is a unit test to help verify the build.
 
-## The static library and link with ONNXRuntime
+### The static library and link with ONNXRuntime
+
 For sake of the binary size, the project can be built as a static library and link into ONNXRuntime. Here are two additional arguments [–-use_extensions and --extensions_overridden_path](https://github.com/microsoft/onnxruntime/blob/860ba8820b72d13a61f0d08b915cd433b738ffdc/tools/ci_build/build.py#L416) on building onnxruntime.
 
-# Contributing
+## Contributing
+
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
 the rights to use your contribution. For details, visit https://cla.microsoft.com.
@@ -200,5 +234,6 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
-# License
+## License
+
 [MIT License](LICENSE)
