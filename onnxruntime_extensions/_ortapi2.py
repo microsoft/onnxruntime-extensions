@@ -130,3 +130,6 @@ def optimize_model(model_or_file, output_file):
     sess_options.optimized_model_filepath = output_file
     _ort.InferenceSession(model_or_file if isinstance(model_or_file, str)
                           else model_or_file.SerializeToString(), sess_options)
+
+
+ONNXRuntimeError = _ort.capi.onnxruntime_pybind11_state.Fail

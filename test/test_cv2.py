@@ -1,7 +1,8 @@
 import unittest
 import numpy as np
 from PIL import Image
-from onnxruntime_extensions import get_test_data_file, OrtPyFunction
+from onnxruntime_extensions import get_test_data_file, OrtPyFunction, ONNXRuntimeError
+
 
 class TestOpenCV(unittest.TestCase):
     @classmethod
@@ -10,18 +11,27 @@ class TestOpenCV(unittest.TestCase):
 
     def test_image_reader(self):
         img_file = get_test_data_file('data', 'pineapple.jpg')
-        rdr = OrtPyFunction.from_customop("ImageReader")
-        nhwc_y = rdr([img_file])
-        self.assertEqual(nhwc_y.shape[0], 1)
-        self.assertEqual(nhwc_y.shape[3], 3)
-        actual = nhwc_y.squeeze().transpose((2, 0, 1))
-        actual = np.stack((actual[2], actual[1], actual[0]))
-        actual = actual.transpose((1, 2, 0))
 
-        # crossing check with pillow image API.
-        pyimg = Image.open(img_file).convert('RGB')
-        expected = np.asarray(pyimg)
-        np.testing.assert_array_equal(actual, expected)
+        img_nhwc = None
+        # since the ImageReader is not included the offical release due to code compliance issue,
+        # it will be test optionally in this case.
+        try:
+            rdr = OrtPyFunction.from_customop("ImageReader")
+            img_nhwc = rdr([img_file])
+        except ONNXRuntimeError as e:
+            pass
+
+        if img_nhwc is not None:
+            self.assertEqual(img_nhwc.shape[0], 1)
+            self.assertEqual(img_nhwc.shape[3], 3)
+            actual = img_nhwc.squeeze().transpose((2, 0, 1))
+            actual = np.stack((actual[2], actual[1], actual[0]))
+            actual = actual.transpose((1, 2, 0))
+
+            # crossing check with pillow image API.
+            pyimg = Image.open(img_file).convert('RGB')
+            expected = np.asarray(pyimg)
+            np.testing.assert_array_equal(actual, expected)
 
     def test_gaussian_blur(self):
         img_file = get_test_data_file('data', 'pineapple.jpg')
