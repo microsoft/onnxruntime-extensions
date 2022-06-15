@@ -7,15 +7,13 @@ import torch
 import torchvision
 import onnxruntime as _ort
 
-from onnx import load
 from torch.onnx import register_custom_op_symbolic
 from onnxruntime_extensions import (
     PyOp,
     onnx_op,
+    PyOrtFunction,
     hook_model_op,
     get_library_path as _get_library_path)
-
-from onnxruntime_extensions import PyOrtFunction
 
 
 def my_inverse(g, self):
@@ -78,7 +76,7 @@ class TestPyTorchCustomOp(unittest.TestCase):
         # Export model to ONNX
         f = io.BytesIO()
         torch.onnx.export(CustomInverse(), (x0, x1), f, opset_version=12)
-        onnx_model = load(io.BytesIO(f.getvalue()))
+        onnx_model = onnx.load(io.BytesIO(f.getvalue()))
         self.assertIn('domain: "ai.onnx.contrib"', str(onnx_model))
 
         model = CustomInverse()
