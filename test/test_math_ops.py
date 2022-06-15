@@ -89,7 +89,7 @@ class TestMathOpString(unittest.TestCase):
         inv_mat = np.linalg.inv(mat)
         ort_inv = OrtPyFunction.from_customop('Inverse')
         act_mat = ort_inv(mat)
-        np.testing.assert_almost_equal(inv_mat, act_mat, decimal=3)
+        self.assertTrue(np.allclose(inv_mat, act_mat, rtol=1.e-3))
 
 
 if __name__ == "__main__":
