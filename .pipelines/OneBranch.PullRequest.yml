@@ -43,7 +43,7 @@ extends:
       tsa:
         enabled: false
       binskim:
-        break: true # always break the build on binskim issues in addition to TSA upload
+        break: false # always break the build on binskim issues in addition to TSA upload
       codeql:
         python:
           enabled: true

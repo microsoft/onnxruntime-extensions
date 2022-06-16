@@ -81,6 +81,16 @@ set(BUILD_opencv_stitching OFF CACHE INTERNAL "")
 set(BUILD_opencv_ml OFF CACHE INTERNAL "")
 set(BUILD_opencv_world OFF CACHE INTERNAL "")
 
+if (OCOS_ENABLE_OPENCV_CODECS)
+    set(BUILD_OPENJPEG ON CACHE INTERNAL "")
+    set(BUILD_JPEG ON CACHE INTERNAL "")
+    set(BUILD_PNG ON CACHE INTERNAL "")
+    set(WITH_OPENJPEG ON CACHE INTERNAL "")
+    set(WITH_JPEG ON CACHE INTERNAL "")
+    set(WITH_PNG ON CACHE INTERNAL "")
+    set(BUILD_opencv_imgcodecs ON CACHE INTERNAL "")
+endif()
+
 
 FetchContent_Declare(
         opencv
@@ -93,12 +103,19 @@ FetchContent_Declare(
         -DBUILD_SHARED_LIBS:BOOL=FALSE
         -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_CURRENT_BINARY_DIR}/opencv
         -DCV_TRACE:BOOL=FALSE
-        PATCH_COMMAND  git apply --whitespace=fix ${CMAKE_CURRENT_SOURCE_DIR}/cmake/externals/opencv-no-rtti.patch
+        PATCH_COMMAND git checkout . && git apply --whitespace=fix --ignore-space-change --ignore-whitespace ${CMAKE_CURRENT_SOURCE_DIR}/cmake/externals/opencv-no-rtti.patch
 )
 
 FetchContent_MakeAvailable(opencv)
 set(opencv_INCLUDE_DIRS "")
 list(APPEND opencv_INCLUDE_DIRS ${OPENCV_CONFIG_FILE_INCLUDE_DIR})
-list(APPEND opencv_INCLUDE_DIRS ${OPENCV_MODULE_opencv_core_LOCATION}/include ${OPENCV_MODULE_opencv_imgproc_LOCATION}/include)
+list(APPEND opencv_INCLUDE_DIRS
+    ${OPENCV_MODULE_opencv_core_LOCATION}/include
+    ${OPENCV_MODULE_opencv_imgproc_LOCATION}/include)
+
 set(opencv_LIBS "")
 list(APPEND opencv_LIBS opencv_core opencv_imgproc)
+if (OCOS_ENABLE_OPENCV_CODECS)
+    list(APPEND opencv_INCLUDE_DIRS ${OPENCV_MODULE_opencv_imgcodecs_LOCATION}/include)
+    list(APPEND opencv_LIBS opencv_imgcodecs)
+endif()
