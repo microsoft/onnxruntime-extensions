@@ -83,6 +83,13 @@ class TestMathOpString(unittest.TestCase):
             self.assertEqual(tfres.shape, txout[0].shape)
             self.assertEqual(tfres.numpy().tolist(), txout[0].tolist())
 
+    def test_inverse(self):
+        mat = np.random.rand(5, 5).astype(np.float32)
+        inv_mat = np.linalg.inv(mat)
+        ort_inv = OrtPyFunction.from_customop('Inverse')
+        act_mat = ort_inv(mat)
+        self.assertTrue(np.allclose(inv_mat, act_mat, rtol=1.e-3))
+
 
 if __name__ == "__main__":
     unittest.main()

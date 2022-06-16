@@ -22,18 +22,14 @@ struct KernelInverse : BaseKernel {
       throw std::runtime_error("Only 2-d matrix supported.");
     }
 
-    OrtValue* output0 = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
+    OrtValue* output0 = ort_.KernelContext_GetOutput(
+      context, 0, dimensions.data(), dimensions.size());
     float* out0 = ort_.GetTensorMutableData<float>(output0);
 
-    OrtTensorTypeAndShapeInfo* output_info = ort_.GetTensorTypeAndShape(output0);
-    int64_t size = ort_.GetTensorShapeElementCount(output_info);
-    ort_.ReleaseTensorTypeAndShapeInfo(output_info);
-
-    dlib::matrix<float> dm(dimensions[0], dimensions[1]);
-    // Do computation
-    for (int64_t i = 0; i < size; i++) {
-      out0[i] = dm(i / dimensions[1], i % dimensions[1]);
-    }
+    dlib::matrix<float> dm_x(dimensions[0], dimensions[1]);
+    std::copy(X, X + dm_x.size(), dm_x.begin());
+    dlib::matrix<float> dm = dlib::inv(dm_x);
+    memcpy(out0, dm.steal_memory().get(), dm_x.size() * sizeof(float));
   }
 };
 

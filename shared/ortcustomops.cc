@@ -105,6 +105,9 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
 #if defined(ENABLE_TOKENIZER)
     , LoadCustomOpClasses_Tokenizer
 #endif
+#if defined(ENABLE_OPENCV)
+    , LoadCustomOpClasses_OpenCV
+#endif
   };
 
   for (auto fx : c_factories) {

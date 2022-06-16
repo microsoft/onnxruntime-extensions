@@ -268,6 +268,48 @@ class SentencepieceTokenizer(CustomOp):
             cls.io_def('indices', onnx_proto.TensorProto.INT64, [None])
         ]
 
+class Inverse(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [
+            cls.io_def('input', onnx_proto.TensorProto.FLOAT, [None, None])
+        ]
+
+    @classmethod
+    def get_outputs(cls):
+        return [
+            cls.io_def('output', onnx_proto.TensorProto.FLOAT, [None, None])
+        ]
+
+
+class ImageReader(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [
+            cls.io_def('image_paths', onnx_proto.TensorProto.STRING, [None])
+        ]
+
+    @classmethod
+    def get_outputs(cls):
+        return [
+            cls.io_def('nchw_bytes', onnx_proto.TensorProto.UINT8, [None, None, None, None])
+        ]
+
+
+class GaussianBlur(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [
+            cls.io_def('nhwc', onnx_proto.TensorProto.FLOAT, [None, None, None, None]),
+            cls.io_def('kernel_size', onnx_proto.TensorProto.INT64, [None]),
+            cls.io_def('sigma_xy', onnx_proto.TensorProto.DOUBLE, [None])
+        ]
+
+    @classmethod
+    def get_outputs(cls):
+        return [
+            cls.io_def('gb_nhwc', onnx_proto.TensorProto.FLOAT, [None, None, None, None])
+        ]
 
 class SingleOpGraph:
 
