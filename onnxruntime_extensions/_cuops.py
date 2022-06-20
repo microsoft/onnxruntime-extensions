@@ -268,6 +268,7 @@ class SentencepieceTokenizer(CustomOp):
             cls.io_def('indices', onnx_proto.TensorProto.INT64, [None])
         ]
 
+
 class Inverse(CustomOp):
     @classmethod
     def get_inputs(cls):
@@ -310,6 +311,7 @@ class GaussianBlur(CustomOp):
         return [
             cls.io_def('gb_nhwc', onnx_proto.TensorProto.FLOAT, [None, None, None, None])
         ]
+
 
 class SingleOpGraph:
 
