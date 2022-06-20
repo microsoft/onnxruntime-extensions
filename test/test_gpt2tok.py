@@ -6,6 +6,7 @@ from pathlib import Path
 from onnx import helper, onnx_pb as onnx_proto
 from transformers import GPT2Tokenizer
 from onnxruntime_extensions import (
+    util,
     make_onnx_model,
     enable_py_op,
     get_library_path as _get_library_path)
@@ -65,8 +66,8 @@ class MyGPT2Tokenizer:
 class TestGPT2Tokenizer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.tokjson = _get_test_data_file('data', 'gpt2.vocab')
-        cls.merges = _get_test_data_file('data', 'gpt2.merges.txt')
+        cls.tokjson = util.get_test_data_file('data', 'gpt2.vocab')
+        cls.merges = util.get_test_data_file('data', 'gpt2.merges.txt')
         cls.tokenizer = MyGPT2Tokenizer(cls.tokjson, cls.merges)
 
         # @onnx_op(op_type="GPT2Tokenizer",
