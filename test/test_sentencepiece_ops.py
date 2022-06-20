@@ -47,7 +47,7 @@ def _create_test_model_sentencepiece(
             ],
             outputs=['out0', 'out1'],
             name='SentencepieceTokenizeOpName',
-            domain='ai.onnx.contrib',
+            domain=domain,
         ))
         inputs = [
             mkv('model', onnx_proto.TensorProto.UINT8, [None]),
@@ -91,6 +91,7 @@ def _create_test_model_sentencepiece(
     model = make_onnx_model(graph)
     return model
 
+
 def _create_test_model_ragged_to_sparse(
         prefix, model_b64, domain='ai.onnx.contrib'):
     nodes = []
@@ -109,7 +110,7 @@ def _create_test_model_ragged_to_sparse(
             ],
             outputs=['tokout0', 'tokout1'],
             name='SentencepieceTokenizeOpName',
-            domain='ai.onnx.contrib',
+            domain=domain,
         ))
         inputs = [
             mkv('model', onnx_proto.TensorProto.UINT8, [None]),
@@ -194,7 +195,7 @@ def _create_test_model_ragged_to_dense(
         outputs=['tokout0', 'tokout1'],
         model=model_b64,
         name='SentencepieceTokenizeOpName',
-        domain='ai.onnx.contrib',
+        domain=domain,
     ))
     inputs = [
         mkv('inputs', onnx_proto.TensorProto.STRING, [None]),
