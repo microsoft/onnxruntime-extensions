@@ -43,13 +43,13 @@ extends:
       tsa:
         enabled: false
       binskim:
-        break: false # always break the build on binskim issues in addition to TSA upload
+        break: true # always break the build on binskim issues in addition to TSA upload
       codeql:
         python:
           enabled: true
       policheck:
         break: true # always break the build on policheck issues. You can disable it by setting to 'false'
-        exclusionsFile: '$(REPOROOT)\ci_build\policheck_exclusions.xml'
+        exclusionsFile: '$(REPOROOT)\.config\policheck_exclusions.xml'
 
     stages:    
     - stage: Windows_Build
