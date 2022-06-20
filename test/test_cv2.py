@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from PIL import Image
-from onnxruntime_extensions import get_test_data_file, OrtPyFunction, ONNXRuntimeError
+from onnxruntime_extensions import OrtPyFunction, ONNXRuntimeError, util
 
 
 class TestOpenCV(unittest.TestCase):
@@ -10,7 +10,7 @@ class TestOpenCV(unittest.TestCase):
         pass
 
     def test_image_reader(self):
-        img_file = get_test_data_file('data', 'pineapple.jpg')
+        img_file = util.get_test_data_file('data', 'pineapple.jpg')
 
         img_nhwc = None
         # since the ImageReader is not included the offical release due to code compliance issue,
@@ -34,7 +34,7 @@ class TestOpenCV(unittest.TestCase):
             np.testing.assert_array_equal(actual, expected)
 
     def test_gaussian_blur(self):
-        img_file = get_test_data_file('data', 'pineapple.jpg')
+        img_file = util.get_test_data_file('data', 'pineapple.jpg')
         img = Image.open(img_file).convert('RGB')
         img_arr = np.asarray(img, dtype=np.float32) / 255.
         img_arr = np.expand_dims(img_arr, 0)

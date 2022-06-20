@@ -1,12 +1,8 @@
-from pathlib import Path
+# coding: utf-8
 import unittest
 import numpy as np
+from onnxruntime_extensions import util
 from onnxruntime_extensions import PyOrtFunction, BlingFireSentenceBreaker
-
-
-def _get_test_data_file(*sub_dirs):
-    test_dir = Path(__file__).parent
-    return str(test_dir.joinpath(*sub_dirs))
 
 
 def _run_blingfire_sentencebreaker(input, output, model_path):
@@ -16,28 +12,51 @@ def _run_blingfire_sentencebreaker(input, output, model_path):
 
 
 class TestBlingFireSentenceBreaker(unittest.TestCase):
-
     def test_text_to_case1(self):
-        inputs = np.array([
-                              "This is the Bling-Fire tokenizer. Autophobia, also called monophobia, isolophobia, or eremophobia, is the specific phobia of isolation. 2007年9月日历表_2007年9月农历阳历一览表-万年历. I saw a girl with a telescope. Я увидел девушку с телескопом."])
-        outputs = np.array(["This is the Bling-Fire tokenizer.",
-                            "Autophobia, also called monophobia, isolophobia, or eremophobia, is the specific phobia of isolation. 2007年9月日历表_2007年9月农历阳历一览表-万年历.",
-                            "I saw a girl with a telescope.",
-                            "Я увидел девушку с телескопом."])
-        _run_blingfire_sentencebreaker(input=inputs, output=outputs, model_path=_get_test_data_file('data', 'default_sentence_break_model.bin'))
+        inputs = np.array(
+            [
+                "This is the Bling-Fire tokenizer. Autophobia, also called monophobia, isolophobia, "
+                + "or eremophobia, is the specific phobia of isolation."
+                + " 2007年9月日历表_2007年9月农历阳历一览表-万年历. "
+                + "I saw a girl with a telescope. Я увидел девушку с телескопом."
+            ]
+        )
+        outputs = np.array(
+            [
+                "This is the Bling-Fire tokenizer.",
+                "Autophobia, also called monophobia, isolophobia, or eremophobia, "
+                + "is the specific phobia of isolation."
+                + " 2007年9月日历表_2007年9月农历阳历一览表-万年历.",
+                "I saw a girl with a telescope.",
+                "Я увидел девушку с телескопом.",
+            ]
+        )
+        _run_blingfire_sentencebreaker(
+            input=inputs,
+            output=outputs,
+            model_path=util.get_test_data_file("data", "default_sentence_break_model.bin"),
+        )
 
     def test_text_to_case2(self):
         # input is empty
         inputs = np.array([""])
         outputs = np.array([""])
-        _run_blingfire_sentencebreaker(input=inputs, output=outputs, model_path=_get_test_data_file('data', 'default_sentence_break_model.bin'))
+        _run_blingfire_sentencebreaker(
+            input=inputs,
+            output=outputs,
+            model_path=util.get_test_data_file("data", "default_sentence_break_model.bin"),
+        )
 
     def test_text_to_case3(self):
         # input is whitespace
         inputs = np.array([" "])
         # output of blingfire sbd.bin model
         outputs = np.array([""])
-        _run_blingfire_sentencebreaker(input=inputs, output=outputs, model_path=_get_test_data_file('data', 'default_sentence_break_model.bin'))
+        _run_blingfire_sentencebreaker(
+            input=inputs,
+            output=outputs,
+            model_path=util.get_test_data_file("data", "default_sentence_break_model.bin"),
+        )
 
 
 if __name__ == "__main__":

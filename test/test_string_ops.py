@@ -1,5 +1,4 @@
 # coding: utf-8
-import io
 import json
 import sys
 import unittest
@@ -1168,6 +1167,7 @@ class TestPythonOpString(unittest.TestCase):
                               split_unknown_characters=False))
 
                 ltk = [s.decode('utf-8') for s in tf_tokens.numpy()]
+                txout = cc_txout
                 check(ltk, txout[0])
                 check(tf_rows.numpy(), txout[1])
                 check(tf_begins.numpy(), txout[2])
