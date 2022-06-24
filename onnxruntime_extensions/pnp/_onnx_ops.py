@@ -801,15 +801,6 @@ class _ONNXOperatorAPI:
         container.add_node('InstanceNormalization', input_names, output_name, op_version=op_version, **attrs)
         return output_name
 
-    def inverse(self, input_name, output_name, container, operator_name=None):
-        if container.target_opset < 12:
-            raise ValueError("tf op MatrixInverse is not supported for opset < 12")
-        else:
-            op_version = 12
-        name = _create_name_or_use_existing_one(container, 'Inverse', operator_name)
-        container.add_node('Inverse', input_name, output_name, name=name, op_version=op_version)
-        return output_name
-
     def leaky_relu(self, input_name, output_name, container, operator_name=None, alpha=0.01):
         self._apply_unary_operation('LeakyRelu', input_name, output_name, container, operator_name, alpha=alpha)
         return output_name

@@ -270,6 +270,7 @@ class SentencepieceTokenizer(CustomOp):
 
 
 class Inverse(CustomOp):
+
     @classmethod
     def get_inputs(cls):
         return [
@@ -284,6 +285,7 @@ class Inverse(CustomOp):
 
 
 class ImageReader(CustomOp):
+
     @classmethod
     def get_inputs(cls):
         return [
@@ -298,6 +300,7 @@ class ImageReader(CustomOp):
 
 
 class GaussianBlur(CustomOp):
+
     @classmethod
     def get_inputs(cls):
         return [

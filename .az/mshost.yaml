@@ -131,21 +131,21 @@ jobs:
 
   - job: MacOSWheel
     pool:
-      vmImage: 'macOS-10.15'
+      vmImage: 'macOS-11'
 
     strategy:
       matrix:
+        py311-170:
+          python.version: '3.10'
+          ort.version: '1.11.0'
         py39-170:
           python.version: '3.9'
-          ort.version: '1.7.0'
-        py38-170:
+          ort.version: '1.9.0'
+        py38-180:
           python.version: '3.8'
-          ort.version: '1.7.0'
+          ort.version: '1.8.0'
         py37-170:
           python.version: '3.7'
-          ort.version: '1.7.0'
-        py36-170:
-          python.version: '3.6'
           ort.version: '1.7.0'
       maxParallel: 1
 
