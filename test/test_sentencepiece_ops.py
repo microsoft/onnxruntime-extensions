@@ -7,9 +7,10 @@ from numpy.testing import assert_almost_equal
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
 from onnxruntime_extensions import (
+    util,
     onnx_op,
     PyCustomOpDef,
-    PyOrtFunction,
+    OrtPyFunction,
     make_onnx_model,
     get_library_path as _get_library_path)
 import tensorflow as tf
@@ -430,9 +431,8 @@ class TestPythonOpSentencePiece(unittest.TestCase):
             assert_almost_equal(exp[i], cc_txout[i])
 
     def test_external_pretrained_model(self):
-        fullname = os.path.join(
-            os.path.dirname(__file__), 'data', 'en.wiki.bpe.vs100000.model')
-        ofunc = PyOrtFunction.from_customop("SentencepieceTokenizer", model=open(fullname, 'rb').read())
+        fullname = util.get_test_data_file('data', 'en.wiki.bpe.vs100000.model')
+        ofunc = OrtPyFunction.from_customop("SentencepieceTokenizer", model=open(fullname, 'rb').read())
 
         alpha = 0
         nbest_size = 0
