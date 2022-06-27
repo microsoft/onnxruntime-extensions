@@ -10,6 +10,7 @@ from ._ocos import default_opset_domain, Opdef, PyCustomOpDef
 
 
 class CustomOp:
+
     @classmethod
     def op_type(cls):
         rcls = cls
@@ -18,10 +19,12 @@ class CustomOp:
         return rcls.__name__
 
     @classmethod
-    def get_inputs(cls): return None
+    def get_inputs(cls):
+        return None
 
     @classmethod
-    def get_outputs(cls): return None
+    def get_outputs(cls):
+        return None
 
     @classmethod
     def serialize_attr(cls, attrs):
@@ -37,17 +40,23 @@ class CustomOp:
 
 
 class GPT2Tokenizer(CustomOp):
+
     @classmethod
     def get_inputs(cls):
-        return [cls.io_def('input_text', onnx_proto.TensorProto.STRING, [None])]
+        return [
+            cls.io_def('input_text', onnx_proto.TensorProto.STRING, [None])
+        ]
 
     @classmethod
     def get_outputs(cls):
-        return [cls.io_def("input_ids", onnx.TensorProto.INT64, [None, None]),
-                cls.io_def('attention_mask', onnx.TensorProto.INT64, [None, None])]
+        return [
+            cls.io_def("input_ids", onnx.TensorProto.INT64, [None, None]),
+            cls.io_def('attention_mask', onnx.TensorProto.INT64, [None, None])
+        ]
 
 
 class VectorToString(CustomOp):
+
     @classmethod
     def get_inputs(cls):
         return [cls.io_def("token_ids", onnx.TensorProto.INT64, [])]
@@ -61,7 +70,9 @@ class VectorToString(CustomOp):
         attr_data = {}
         for k_, v_ in attrs.items():
             if k_ == 'map' and isinstance(v_, dict):
-                attr_data[k_] = '\n'.join(k + "\t" + " ".join([str(i) for i in v]) for k, v in v_.items())
+                attr_data[k_] = '\n'.join(k + "\t" +
+                                          " ".join([str(i) for i in v])
+                                          for k, v in v_.items())
             elif k_ == 'map' and isinstance(v_, str):
                 attr_data[k_] = v_
             else:
@@ -70,6 +81,7 @@ class VectorToString(CustomOp):
 
 
 class StringMapping(CustomOp):
+
     @classmethod
     def get_inputs(cls):
         return [cls.io_def("input", onnx.TensorProto.STRING, [])]
@@ -92,10 +104,13 @@ class StringMapping(CustomOp):
 
 
 class MaskedFill(CustomOp):
+
     @classmethod
     def get_inputs(cls):
-        return [cls.io_def("value", onnx.TensorProto.STRING, [None]),
-                 cls.io_def("mask", onnx.TensorProto.BOOL, [None])]
+        return [
+            cls.io_def("value", onnx.TensorProto.STRING, [None]),
+            cls.io_def("mask", onnx.TensorProto.BOOL, [None])
+        ]
 
     @classmethod
     def get_outputs(cls):
@@ -103,6 +118,7 @@ class MaskedFill(CustomOp):
 
 
 class StringToVector(CustomOp):
+
     @classmethod
     def get_inputs(cls):
         return [cls.io_def("text", onnx.TensorProto.STRING, [None])]
@@ -116,7 +132,9 @@ class StringToVector(CustomOp):
         attr_data = {}
         for k_, v_ in attrs.items():
             if k_ == 'map' and isinstance(v_, dict):
-                attr_data[k_] = '\n'.join(k + "\t" + " ".join([str(i) for i in v]) for k, v in v_.items())
+                attr_data[k_] = '\n'.join(k + "\t" +
+                                          " ".join([str(i) for i in v])
+                                          for k, v in v_.items())
             elif k_ == 'map' and isinstance(v_, str):
                 attr_data[k_] = v_
             elif k_ == 'unk' and isinstance(v_, list):
@@ -127,6 +145,7 @@ class StringToVector(CustomOp):
 
 
 class BlingFireSentenceBreaker(CustomOp):
+
     @classmethod
     def get_inputs(cls):
         return [cls.io_def("text", onnx.TensorProto.STRING, [None])]
@@ -148,26 +167,32 @@ class BlingFireSentenceBreaker(CustomOp):
 
 
 class SegmentExtraction(CustomOp):
+
     @classmethod
     def get_inputs(cls):
         return [cls.io_def("input", onnx.TensorProto.INT64, [None, None])]
 
     @classmethod
     def get_outputs(cls):
-        return [cls.io_def('position', onnx_proto.TensorProto.INT64, [None, 2]),
-                cls.io_def('value', onnx_proto.TensorProto.INT64, [None])]
+        return [
+            cls.io_def('position', onnx_proto.TensorProto.INT64, [None, 2]),
+            cls.io_def('value', onnx_proto.TensorProto.INT64, [None])
+        ]
 
 
 class BertTokenizer(CustomOp):
+
     @classmethod
     def get_inputs(cls):
         return [cls.io_def("text", onnx.TensorProto.STRING, [None])]
 
     @classmethod
     def get_outputs(cls):
-        return [cls.io_def('input_ids', onnx_proto.TensorProto.INT64, [None]),
-                cls.io_def('token_type_ids', onnx_proto.TensorProto.INT64, [None]),
-                cls.io_def('attention_mask', onnx_proto.TensorProto.INT64, [None])]
+        return [
+            cls.io_def('input_ids', onnx_proto.TensorProto.INT64, [None]),
+            cls.io_def('token_type_ids', onnx_proto.TensorProto.INT64, [None]),
+            cls.io_def('attention_mask', onnx_proto.TensorProto.INT64, [None])
+        ]
 
     @classmethod
     def serialize_attr(cls, attrs):
@@ -183,11 +208,14 @@ class BertTokenizer(CustomOp):
 
 
 class StringECMARegexReplace(CustomOp):
+
     @classmethod
     def get_inputs(cls):
-        return [cls.io_def("input", onnx.TensorProto.STRING, [None]),
-                cls.io_def("pattern", onnx.TensorProto.STRING, [None]),
-                cls.io_def("rewrite", onnx.TensorProto.STRING, [None])]
+        return [
+            cls.io_def("input", onnx.TensorProto.STRING, [None]),
+            cls.io_def("pattern", onnx.TensorProto.STRING, [None]),
+            cls.io_def("rewrite", onnx.TensorProto.STRING, [None])
+        ]
 
     @classmethod
     def get_outputs(cls):
@@ -195,10 +223,13 @@ class StringECMARegexReplace(CustomOp):
 
 
 class BertTokenizerDecoder(CustomOp):
+
     @classmethod
     def get_inputs(cls):
-        return [cls.io_def("ids", onnx.TensorProto.INT64, [None]),
-                cls.io_def("position", onnx.TensorProto.INT64, [None, None])]
+        return [
+            cls.io_def("ids", onnx.TensorProto.INT64, [None]),
+            cls.io_def("position", onnx.TensorProto.INT64, [None, None])
+        ]
 
     @classmethod
     def get_outputs(cls):
@@ -218,6 +249,7 @@ class BertTokenizerDecoder(CustomOp):
 
 
 class SentencepieceTokenizer(CustomOp):
+
     @classmethod
     def get_inputs(cls):
         return [
@@ -234,11 +266,58 @@ class SentencepieceTokenizer(CustomOp):
         return [
             cls.io_def('tokens', onnx_proto.TensorProto.INT32, [None]),
             cls.io_def('indices', onnx_proto.TensorProto.INT64, [None])
+        ]
 
+
+class Inverse(CustomOp):
+
+    @classmethod
+    def get_inputs(cls):
+        return [
+            cls.io_def('input', onnx_proto.TensorProto.FLOAT, [None, None])
+        ]
+
+    @classmethod
+    def get_outputs(cls):
+        return [
+            cls.io_def('output', onnx_proto.TensorProto.FLOAT, [None, None])
+        ]
+
+
+class ImageReader(CustomOp):
+
+    @classmethod
+    def get_inputs(cls):
+        return [
+            cls.io_def('image_paths', onnx_proto.TensorProto.STRING, [None])
+        ]
+
+    @classmethod
+    def get_outputs(cls):
+        return [
+            cls.io_def('nchw_bytes', onnx_proto.TensorProto.UINT8, [None, None, None, None])
+        ]
+
+
+class GaussianBlur(CustomOp):
+
+    @classmethod
+    def get_inputs(cls):
+        return [
+            cls.io_def('nhwc', onnx_proto.TensorProto.FLOAT, [None, None, None, None]),
+            cls.io_def('kernel_size', onnx_proto.TensorProto.INT64, [None]),
+            cls.io_def('sigma_xy', onnx_proto.TensorProto.DOUBLE, [None])
+        ]
+
+    @classmethod
+    def get_outputs(cls):
+        return [
+            cls.io_def('gb_nhwc', onnx_proto.TensorProto.FLOAT, [None, None, None, None])
         ]
 
 
 class SingleOpGraph:
+
     @classmethod
     def get_next_id(cls):
         if not hasattr(cls, '_id_counter'):
@@ -255,16 +334,14 @@ class SingleOpGraph:
         inputs = op_class.get_inputs()
         outputs = op_class.get_outputs()
         attrs = op_class.serialize_attr(kwargs)
-        cuop = onnx.helper.make_node(op_type,
-                                     [i_.name for i_ in inputs],
+        cuop = onnx.helper.make_node(op_type, [i_.name for i_ in inputs],
                                      [o_.name for o_ in outputs],
-                                     "{}_{}".format(op_type, cls.get_next_id()),
+                                     "{}_{}".format(op_type,
+                                                    cls.get_next_id()),
                                      **attrs,
                                      domain=default_opset_domain())
-        graph = onnx.helper.make_graph([cuop],
-                                       "og_{}_{}".format(op_type, cls.get_next_id()),
-                                       inputs,
-                                       outputs)
+        graph = onnx.helper.make_graph([cuop], "og_{}_{}".format(
+            op_type, cls.get_next_id()), inputs, outputs)
         return graph
 
     @staticmethod
@@ -278,6 +355,7 @@ def _argsort_op(x, dim):
     return d[:, ::-1]
 
 
-Opdef.create(_argsort_op, op_type='ArgSort',
+Opdef.create(_argsort_op,
+             op_type='ArgSort',
              inputs=[PyCustomOpDef.dt_float, PyCustomOpDef.dt_int64],
              outputs=[PyCustomOpDef.dt_int64])

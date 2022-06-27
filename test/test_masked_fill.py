@@ -1,12 +1,6 @@
-from pathlib import Path
 import unittest
 import numpy as np
 from onnxruntime_extensions import PyOrtFunction, MaskedFill
-
-
-def _get_test_data_file(*sub_dirs):
-    test_dir = Path(__file__).parent
-    return str(test_dir.joinpath(*sub_dirs))
 
 
 def read_file(path):

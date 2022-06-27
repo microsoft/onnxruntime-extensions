@@ -7,9 +7,10 @@ from numpy.testing import assert_almost_equal
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
 from onnxruntime_extensions import (
+    util,
     onnx_op,
     PyCustomOpDef,
-    PyOrtFunction,
+    OrtPyFunction,
     make_onnx_model,
     get_library_path as _get_library_path)
 import tensorflow as tf
@@ -47,7 +48,7 @@ def _create_test_model_sentencepiece(
             ],
             outputs=['out0', 'out1'],
             name='SentencepieceTokenizeOpName',
-            domain='ai.onnx.contrib',
+            domain=domain,
         ))
         inputs = [
             mkv('model', onnx_proto.TensorProto.UINT8, [None]),
@@ -91,6 +92,7 @@ def _create_test_model_sentencepiece(
     model = make_onnx_model(graph)
     return model
 
+
 def _create_test_model_ragged_to_sparse(
         prefix, model_b64, domain='ai.onnx.contrib'):
     nodes = []
@@ -109,7 +111,7 @@ def _create_test_model_ragged_to_sparse(
             ],
             outputs=['tokout0', 'tokout1'],
             name='SentencepieceTokenizeOpName',
-            domain='ai.onnx.contrib',
+            domain=domain,
         ))
         inputs = [
             mkv('model', onnx_proto.TensorProto.UINT8, [None]),
@@ -194,7 +196,7 @@ def _create_test_model_ragged_to_dense(
         outputs=['tokout0', 'tokout1'],
         model=model_b64,
         name='SentencepieceTokenizeOpName',
-        domain='ai.onnx.contrib',
+        domain=domain,
     ))
     inputs = [
         mkv('inputs', onnx_proto.TensorProto.STRING, [None]),
@@ -429,9 +431,8 @@ class TestPythonOpSentencePiece(unittest.TestCase):
             assert_almost_equal(exp[i], cc_txout[i])
 
     def test_external_pretrained_model(self):
-        fullname = os.path.join(
-            os.path.dirname(__file__), 'data', 'en.wiki.bpe.vs100000.model')
-        ofunc = PyOrtFunction.from_customop("SentencepieceTokenizer", model=open(fullname, 'rb').read())
+        fullname = util.get_test_data_file('data', 'en.wiki.bpe.vs100000.model')
+        ofunc = OrtPyFunction.from_customop("SentencepieceTokenizer", model=open(fullname, 'rb').read())
 
         alpha = 0
         nbest_size = 0
