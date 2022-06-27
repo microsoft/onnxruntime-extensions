@@ -79,6 +79,41 @@ Note: On mobile platform, the ONNXRuntime package may not support all kernels re
 
 ### Text pre and post processing quick start
 
+Obtain or export the base model.
+
+```python
+import torch
+
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+
+model_name = "distilbert-base-uncased-finetuned-sst-2-english"
+model_path = "./" + model_name + ".onnx"
+model = AutoModelForSequenceClassification.from_pretrained(model_name)
+
+# set the model to inference mode
+model.eval()
+
+# Generate dummy inputs to the model. Adjust if neccessary
+inputs = {
+        'input_ids':   torch.randint(32, [1, 32], dtype=torch.long), # list of numerical ids for the tokenized text
+        'attention_mask': torch.ones([1, 32], dtype=torch.long)      # dummy list of ones
+    }
+
+symbolic_names = {0: 'batch_size', 1: 'max_seq_llsen'}
+torch.onnx.export(model,                                         # model being run
+                  (inputs['input_ids'],
+                   inputs['attention_mask']), 
+                  model_path,                                    # where to save the model (can be a file or file-like object)
+                  opset_version=11,                              # the ONNX version to export the model to
+                  do_constant_folding=True,                      # whether to execute constant folding for optimization
+                  input_names=['input_ids',
+                               'input_mask'],                    # the model's input names
+                  output_names=['output_logits'],                # the model's output names
+                  dynamic_axes={'input_ids': symbolic_names,
+                                'input_mask' : symbolic_names,
+                                'output_logits' : symbolic_names}) # variable length axes
+```
+
 Build an augmented ONNX model with BERT pre and processing.
 
 ```python
@@ -88,9 +123,8 @@ from transformers import AutoTokenizer
 import onnx
 from onnxruntime_extensions import pnp
 
-# get an onnx model by converting HuggingFace pretrained model
-bert_model_name = "distilbert-base-uncased-finetuned-sst-2-english"
-model_name = bert_model_name
+# The fine-tuned HuggingFace model is exported to ONNX in the code snippet above
+model_name = "distilbert-base-uncased-finetuned-sst-2-english"
 model_path = Path(model_name + ".onnx")
 
 # mapping the BertTokenizer outputs into the onnx model inputs
