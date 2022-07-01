@@ -20,8 +20,6 @@ ONNX Runtime Extensions is library that extends the capability of the ONNX conve
 
 #### Install from PyPI
 
-The latest release of onnxruntime-extensions is: 0.4.2.
-
 ```bash
 pip install onnxruntime-extensions
 ```
