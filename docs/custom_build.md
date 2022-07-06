@@ -20,7 +20,6 @@ Launch **Developer PowerShell for VS 2022** in Windows Tereminal
 	conda activate base 
 	conda create -n pyort python=3.9
 	conda activate pyort
-	pip install flatbuffers==2.0
 
 	$env:JAVA_HOME="C:\Program Files\Microsoft\jdk-11.0.15.10-hotspot"
 	# clone ONNXRuntime
