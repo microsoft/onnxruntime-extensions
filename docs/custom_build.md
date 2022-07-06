@@ -16,7 +16,7 @@
 ## Commands
 Launch **Developer PowerShell for VS 2022** in Windows Tereminal
 ```
-    . $home\miniconda3\shell\condabin\conda-hook.ps1
+	. $home\miniconda3\shell\condabin\conda-hook.ps1
 	conda activate base 
 	conda create -n pyort python=3.9
 	conda activate pyort
@@ -29,8 +29,8 @@ Launch **Developer PowerShell for VS 2022** in Windows Tereminal
 	# clone onnxruntime-extensions
 	git clone <URL> onnxruntime_extensions
 
-    # build JAR package in this folder
-    mkdir ortall.build
+	# build JAR package in this folder
+	mkdir ortall.build
 	cd ortall.build
 	python ..\onnxruntime\tools\ci_build\build.py --config Release --cmake_generator "Visual Studio 7 2022" --build_java --build_dir .  --build_dir . --use_extensions --extensions_overridden_path "..\onnxruntime-extensions"
 ```
