@@ -1,80 +1,185 @@
-# ONNXRuntime Extensions
+# ONNX Runtime Extensions
+
 [![Build Status](https://aiinfra.visualstudio.com/Lotus/_apis/build/status/onnxruntime-extensions/extensions.wheel?branchName=main)](https://aiinfra.visualstudio.com/Lotus/_build/latest?definitionId=1085&branchName=main)
 
-# Introduction
-ONNXRuntime Extensions is a comprehensive package to extend the capability of the ONNX conversion and inference.
-1. The CustomOp C++ library for [ONNX Runtime](http://onnxruntime.ai) on ONNXRuntime CustomOp API.
-2. Integrate the pre/post processing steps into ONNX model which can be executed on all platforms that ONNXRuntime supported. check [pnp.export](onnxruntime_extensions/pnp/_unifier.py) for more details
-3. Support PyOp feature to implement the custom op with a Python function.
-4. Support Python per operator debugging, checking ```hook_model_op``` in onnxruntime_extensions Python package.
+## Introduction
 
-# Quick Start
-### **Installation**
-The package can be installed by standard pythonic way, ```pip install onnxruntime-extensions```.
+ONNX Runtime Extensions is library that extends the capability of the ONNX conversion and inference with ONNX Runtime.
 
-To try the latest features in the source repo which haven't been released (cmake and the compiler like gcc required), the package can be installed as:
-```python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git```
+1. A library of common pre and post processing operators for vision, text, and nlp models for [ONNX Runtime](http://onnxruntime.ai) built using the ONNX Runtime CustomOp API.
 
-### **ImageNet Pre/Post Processing**
-Build a full ONNX model with ImageNet pre/post processing
+2. A model augmentation API to integrate the pre and post processing steps into an ONNX model
+
+3. The python operator feature that implements a custom operator with a Python function and can be used for testing and verification
+
+4. A debugging tool called `hook_model_op`, which can be used for Python per operator debugging.
+
+## Quick Start
+
+### Installation
+
+#### Install from PyPI
+
+```bash
+pip install onnxruntime-extensions
+```
+
+#### Install from source
+
+1. Install the following pre-requisites
+
+   * A C/C++ compiler for your operating system (gcc on Linux, Visual Studio on Windows, CLang on Mac)
+   * [Cmake](https://cmake.org/)
+   * [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+
+2. If running on Windows, ensure that long file names are enabled, both for the [operating system](https://docs.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation?tabs=cmd) and for git: `git config --system core.longpaths true`
+
+3. Install the package from source
+
+   ```bash
+   python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git
+   ```
+
+### Computer vision quick start
+
+Build an augmented ONNX model with ImageNet pre and post processing.
 
 ```Python
 import onnx
 import torch
 from onnxruntime_extensions import pnp
 
-mnv2 = onnx.load_model('test/data/mobilev2.onnx')
-full_model = pnp.SequentialProcessingModule(
+# Download the MobileNet V2 model from the ONNX model zoo
+# https://github.com/onnx/models/blob/main/vision/classification/mobilenet/model/mobilenetv2-12.onnx
+
+mnv2 = onnx.load_model('mobilenetv2-12.onnx')
+augmented_model = pnp.SequentialProcessingModule(
     pnp.PreMobileNet(224),
     mnv2,
     pnp.PostMobileNet())
 
-# the image size is dynamic, the 400x500 here is to get a fake input to enable export
+# The image size is dynamic, the 400x500 here is to get a fake input to enable export
 fake_image_input = torch.ones(500, 400, 3).to(torch.uint8)
-full_model.forward(fake_image_input)
-name_i = 'image'
-pnp.export(full_model,
+model_input_name = 'image'
+pnp.export(augmented_model,
            fake_image_input,
            opset_version=11,
-           output_path='temp_exmobilev2.onnx',
-           input_names=[name_i],
-           dynamic_axes={name_i: [0, 1]})
+           output_path='mobilenetv2-aug.onnx',
+           input_names=[model_input_name],
+           dynamic_axes={model_input_name: [0, 1]})
 ```
-The above python code will translate the ImageNet pre/post processing functions into an all-in-one model which can do inference on all platforms that ONNNXRuntime supports, like Android/iOS, without any Python runtime and the 3rd-party libraries dependency.
 
-Note: On mobile platform, the ONNXRuntime package may not support all kernels required by the model, to ensure all the ONNX operator kernels were built into ONNXRuntime binraries, please use [ONNX Runtime Custom Build]https://onnxruntime.ai/docs/build/custom.html).
+The above python code will translate the ImageNet pre/post processing functions into an augmented model which can do inference on all platforms that ONNNXRuntime supports, like Android/iOS, without any Python runtime and the 3rd-party libraries dependency.
 
-Here is a [tutorial](tutorials/imagenet_processing.ipynb) for pre/post processing details.
+You can see a sample of the model augmentation code as well as a C# console app that runs the augmented model with ONNX Runtime [here](https://github.com/microsoft/onnxruntime-inference-examples/tree/main/c_sharp/image_classification)
 
-### **GPT-2 Pre/Post Processing**
-The following code shows how to run ONNX model and ONNXRuntime customop more straightforwardly.
+Note: On mobile platform, the ONNXRuntime package may not support all kernels required by the model, to ensure all the ONNX operator kernels were built into ONNXRuntime binaries, please use [ONNX Runtime Custom Build](https://onnxruntime.ai/docs/build/custom.html).
+
+### Text pre and post processing quick start
+
+Obtain or export the base model.
+
 ```python
-import numpy
-from onnxruntime_extensions import PyOrtFunction, VectorToString
-# <ProjectDir>/tutorials/data/gpt-2/gpt2_tok.onnx
-encode = PyOrtFunction.from_model('gpt2_tok.onnx')
-# https://github.com/onnx/models/blob/master/text/machine_comprehension/gpt-2/model/gpt2-lm-head-10.onnx
-gpt2_core = PyOrtFunction.from_model('gpt2-lm-head-10.onnx')
-decode = PyOrtFunction.from_customop(VectorToString, map={' a': [257]}, unk='<unknown>')
+import torch
 
-input_text = ['It is very cool to have']
-input_ids, *_ = encode(input_text)
-output, *_ = gpt2_core(input_ids)
-next_id = numpy.argmax(output[:, :, -1, :], axis=-1)
-print(input_text[0] + decode(next_id).item())
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+
+model_name = "distilbert-base-uncased-finetuned-sst-2-english"
+model_path = "./" + model_name + ".onnx"
+model = AutoModelForSequenceClassification.from_pretrained(model_name)
+
+# set the model to inference mode
+model.eval()
+
+# Generate dummy inputs to the model. Adjust if neccessary
+inputs = {
+        'input_ids':   torch.randint(32, [1, 32], dtype=torch.long), # list of numerical ids for the tokenized text
+        'attention_mask': torch.ones([1, 32], dtype=torch.long)      # dummy list of ones
+    }
+
+symbolic_names = {0: 'batch_size', 1: 'max_seq_llsen'}
+torch.onnx.export(model,                                         # model being run
+                  (inputs['input_ids'],
+                   inputs['attention_mask']), 
+                  model_path,                                    # where to save the model (can be a file or file-like object)
+                  opset_version=11,                              # the ONNX version to export the model to
+                  do_constant_folding=True,                      # whether to execute constant folding for optimization
+                  input_names=['input_ids',
+                               'input_mask'],                    # the model's input names
+                  output_names=['output_logits'],                # the model's output names
+                  dynamic_axes={'input_ids': symbolic_names,
+                                'input_mask' : symbolic_names,
+                                'output_logits' : symbolic_names}) # variable length axes
 ```
-This is a simplified version of GPT-2 inference for the demonstration only. The full solution of post-process can be checked [here](https://github.com/microsoft/onnxruntime/blob/ad9d2e2e891714e0911ccc3fa8b70f42025b4d56/docs/ContribOperators.md#commicrosoftbeamsearch)
+
+Build an augmented ONNX model with BERT pre and processing.
+
+```python
+from pathlib import Path
+import torch
+from transformers import AutoTokenizer
+import onnx
+from onnxruntime_extensions import pnp
+
+# The fine-tuned HuggingFace model is exported to ONNX in the code snippet above
+model_name = "distilbert-base-uncased-finetuned-sst-2-english"
+model_path = Path(model_name + ".onnx")
+
+# mapping the BertTokenizer outputs into the onnx model inputs
+def map_token_output(input_ids, attention_mask, token_type_ids):
+    return input_ids.unsqueeze(0), token_type_ids.unsqueeze(0), attention_mask.unsqueeze(0)
+
+# Post process the start and end logits
+def post_process(*pred):
+    output = torch.argmax(pred[0])
+    return output
+
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+bert_tokenizer = pnp.PreHuggingFaceBert(hf_tok=tokenizer)
+bert_model = onnx.load_model(str(model_path))
+
+augmented_model = pnp.SequentialProcessingModule(bert_tokenizer, map_token_output,
+                                                 bert_model, post_process)
+
+test_input = ["This is s test sentence"]
+
+# create the final onnx model which includes pre- and post- processing.
+augmented_model = pnp.export(augmented_model,
+                             test_input,
+                             opset_version=12,
+                             input_names=['input'],
+                             output_names=['output'],
+                             output_path=model_name + '-aug.onnx',
+                             dynamic_axes={'input': [0], 'output': [0]})
+```
+
+To run the augmented model with ONNX Runtime, you need to register the operators in the onnxruntime-extensions custom ops (including the BertTokenizer) library with ONNX Runtime.
+
+```python
+import onnxruntime
+import onnxruntime_extensions
+
+test_input = ["I don't really like tomatoes. They are too bitter"]
+
+# Load the model
+session_options = onnxruntime.SessionOptions()
+session_options.register_custom_ops_library(onnxruntime_extensions.get_library_path())
+session = onnxruntime.InferenceSession('distilbert-base-uncased-finetuned-sst-2-english-aug.onnx', session_options)
+
+# Run the model
+results = session.run(["g2_output"], {"g1_it_2589433893008": test_input})
+
+print(results[0])
+```
+
+The result is 0 when the sentiment is negative and 1 when the sentiment is positive.
 
 
+## Register the custom operators in onnxruntime-extensions with ONNX Runtime
 
-## CustomOp Conversion
-The mainstream ONNX converters support the custom op generation if the operation from the original framework cannot be interpreted as ONNX standard operators. Check the following two examples on how to do this.
-1. [CustomOp conversion by pytorch.onnx.exporter](https://github.com/microsoft/onnxruntime-extensions/blob/main/tutorials/pytorch_custom_ops_tutorial.ipynb)
-2. [CustomOp conversion by tf2onnx](https://github.com/microsoft/onnxruntime-extensions/blob/main/tutorials/tf2onnx_custom_ops_tutorial.ipynb)
+### C++
 
-## Inference with CustomOp library
-The CustomOp library was written with C++, so that it supports run the model in the native binaries. The following is the example of C++ version.
-```C++
+```c++
   // The line loads the customop library into ONNXRuntime engine to load the ONNX model with the custom op
   Ort::ThrowOnError(Ort::GetApi().RegisterCustomOpsLibrary((OrtSessionOptions*)session_options, custom_op_library_filename, &handle));
 
@@ -82,7 +187,9 @@ The CustomOp library was written with C++, so that it supports run the model in 
   Ort::Session session(env, model_uri, session_options);
   RunSession(session, inputs, outputs);
 ```
-Of course, with Python language, the thing becomes much easier since PyOrtFunction will directly translate the ONNX model into a python function. But if the ONNXRuntime Custom Python API want to be used, the inference process will be
+
+### Python
+
 ```python
 import onnxruntime as _ort
 from onnxruntime_extensions import get_library_path as _lib_path
@@ -95,8 +202,18 @@ so.register_custom_ops_library(_lib_path())
 # sess.run (...)
 ```
 
-## More CustomOp
+## Use exporters to generate graphs with custom operators
+
+The PyTorch and TensorFlow converters support custom operator generation if the operation from the original framework cannot be interpreted as a standard ONNX operators. Check the following two examples on how to do this.
+
+1. [CustomOp conversion by pytorch.onnx.exporter](https://github.com/microsoft/onnxruntime-extensions/blob/main/tutorials/pytorch_custom_ops_tutorial.ipynb)
+2. [CustomOp conversion by tf2onnx](https://github.com/microsoft/onnxruntime-extensions/blob/main/tutorials/tf2onnx_custom_ops_tutorial.ipynb)
+
+
+## Contribute a new operator to onnxruntime-extensions
+
 Welcome to contribute the customop C++ implementation directly in this repository, which will widely benefit other users. Besides C++, if you want to quickly verify the ONNX model with some custom operators with Python language, PyOp will help with that
+
 ```python
 import numpy
 from onnxruntime_extensions import PyOp, onnx_op
@@ -113,9 +230,11 @@ def inverse(x):
 # ...
 ```
 
-# Build and Development
+## Build and Development
+
 This project supports Python and can be built from source easily, or a simple cmake build without Python dependency.
-## Python package
+### Python package
+
 - Install Visual Studio with C++ development tools on Windows, or gcc for Linux or xcode for MacOS, and cmake on the unix-like platform. (**hints**: in Windows platform, if cmake bundled in Visual Studio was used, please specify the set _VCVARS=%ProgramFiles(x86)%\Microsoft Visual Studio\2019\<Edition>\VC\Auxiliary\Build\vcvars64.bat_)
 - Prepare Python env and install the pip packages in the requirements.txt.
 - `python setup.py install` to build and install the package.
@@ -124,14 +243,17 @@ This project supports Python and can be built from source easily, or a simple cm
 Test:
 - run `pytest test` in the project root directory.
 
-## The share library for non-Python
+### The share library for non-Python
+
 If only DLL/shared library is needed without any Python dependencies, please run `build.bat` or `bash ./build.sh` to build the library.
 By default the DLL or the library will be generated in the directory `out/<OS>/<FLAVOR>`. There is a unit test to help verify the build.
 
-## The static library and link with ONNXRuntime
+### The static library and link with ONNXRuntime
+
 For sake of the binary size, the project can be built as a static library and link into ONNXRuntime. Here are two additional arguments [–-use_extensions and --extensions_overridden_path](https://github.com/microsoft/onnxruntime/blob/860ba8820b72d13a61f0d08b915cd433b738ffdc/tools/ci_build/build.py#L416) on building onnxruntime.
 
-# Contributing
+## Contributing
+
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
 the rights to use your contribution. For details, visit https://cla.microsoft.com.
@@ -144,5 +266,6 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
-# License
+## License
+
 [MIT License](LICENSE)
