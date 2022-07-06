@@ -1,4 +1,3 @@
-set(BUILD_ZLIB OFF CACHE INTERNAL "")
 set(BUILD_TIFF OFF CACHE INTERNAL "")
 set(BUILD_OPENJPEG OFF CACHE INTERNAL "")
 set(BUILD_JASPER OFF CACHE INTERNAL "")
@@ -119,3 +118,6 @@ if (OCOS_ENABLE_OPENCV_CODECS)
     list(APPEND opencv_INCLUDE_DIRS ${OPENCV_MODULE_opencv_imgcodecs_LOCATION}/include)
     list(APPEND opencv_LIBS opencv_imgcodecs)
 endif()
+
+# unset it to avoid affecting other projects.
+unset(EXECUTABLE_OUTPUT_PATH CACHE)
