@@ -6,30 +6,27 @@
 
 ## Tools required
 1. install visual studio 2022 (with cmake, git, desktop C++)
-2. install android studio (https://developer.android.com/studio), and NDK
-3. install miniconda to have Python support (for onnxruntime build)
-4. OpenJDK: https://docs.microsoft.com/en-us/java/openjdk/download
+2. install miniconda to have Python support (for onnxruntime build)
+3. OpenJDK: https://docs.microsoft.com/en-us/java/openjdk/download
 		(OpenJDK 11.0.15 LTS)
-5. Gradle: https://gradle.org/releases/
+4. Gradle: https://gradle.org/releases/
 		(v6.9.2)
 
 ## Commands
 Launch **Developer PowerShell for VS 2022** in Windows Tereminal
 ```
 	. $home\miniconda3\shell\condabin\conda-hook.ps1
-	conda activate base 
-	conda create -n pyort python=3.9
-	conda activate pyort
+	conda activate base
 
 	$env:JAVA_HOME="C:\Program Files\Microsoft\jdk-11.0.15.10-hotspot"
 	# clone ONNXRuntime
-	git clone -b rel-1.12.0 <GIT-REPO-URL> onnxruntime
+	git clone -b rel-1.12.0 https://github.com/microsoft/onnxruntime.git onnxruntime
 
 	# clone onnxruntime-extensions
-	git clone <URL> onnxruntime_extensions
+	git clone https://github.com/microsoft/onnxruntime-extensions.git onnxruntime_extensions
 
 	# build JAR package in this folder
 	mkdir ortall.build
 	cd ortall.build
-	python ..\onnxruntime\tools\ci_build\build.py --config Release --cmake_generator "Visual Studio 7 2022" --build_java --build_dir .  --build_dir . --use_extensions --extensions_overridden_path "..\onnxruntime-extensions"
+	python ..\onnxruntime\tools\ci_build\build.py --config Release --cmake_generator "Visual Studio 17 2022" --build_java --build_dir .  --use_extensions --extensions_overridden_path "..\onnxruntime-extensions"
 ```
