@@ -9,6 +9,7 @@ from setuptools.command.build_ext import build_ext as _build_ext
 
 import os
 import sys
+import glob
 import setuptools
 import pathlib
 import subprocess
@@ -68,10 +69,13 @@ class BuildCMakeExt(_build_ext):
                 self.build_cmake(extension)
 
     def build_cmake(self, extension):
+        ext_fullpath = pathlib.Path(self.get_ext_fullpath(extension.name))
+        if self.force == 0 and ext_fullpath.exists():
+            return
+
         project_dir = pathlib.Path().absolute()
         build_temp = pathlib.Path(self.build_temp)
         build_temp.mkdir(parents=True, exist_ok=True)
-        ext_fullpath = pathlib.Path(self.get_ext_fullpath(extension.name))
 
         config = 'RelWithDebInfo' if self.debug else 'Release'
         cmake_args = [
@@ -98,7 +102,16 @@ class BuildCMakeExt(_build_ext):
             '--parallel' + ('' if cpu_number is None else ' ' + cpu_number)
         ]
 
-        self.spawn(['cmake', '-S', str(project_dir), '-B', str(build_temp)] + cmake_args)
+        update_needed = True
+        if (build_temp / 'CMakeCache.txt').exists():
+            cmake_files = glob.glob(str(project_dir / 'cmake' / 'externals' / '*'))
+            cmake_files += [str(project_dir / 'CMakeLists.txt'), str(build_temp / 'CMakeCache.txt')]
+            latest_file = max(cmake_files, key=os.path.getctime)
+            if latest_file.endswith('CMakeCache.txt'):
+                update_needed = False
+        if update_needed:
+            self.spawn(['cmake', '-S', str(project_dir), '-B', str(build_temp)] + cmake_args)
+
         if not self.dry_run:
             self.spawn(['cmake', '--build', str(build_temp)] + build_args)
 
