@@ -11,9 +11,9 @@
 #include "string_tensor.h"
 #include "basic_tokenizer.hpp"
 
-class BertTokenizerVocab {
+class BertTokenizerVocab final {
  public:
-  explicit BertTokenizerVocab(std::string vocab);
+  explicit BertTokenizerVocab(std::string_view vocab);
   bool FindToken(const ustring& token);
   bool FindTokenId(const ustring& token, int32_t& token_id);
   int32_t FindTokenId(const ustring& token);
@@ -23,11 +23,11 @@ class BertTokenizerVocab {
   std::unordered_map<std::string_view, int32_t> vocab_;
 };
 
-class TruncateStrategy {
+class TruncateStrategy final {
  public:
-  explicit TruncateStrategy(std::string strategy_name);
-  void Truncate(std::vector<int64_t>& ids, int64_t max_len);
-  void Truncate(std::vector<int64_t>& input1, std::vector<int64_t>& input2, int64_t max_len);
+  explicit TruncateStrategy(std::string_view strategy_name);
+  void Truncate(std::vector<int64_t>& ids, int32_t max_len);
+  void Truncate(std::vector<int64_t>& ids1, std::vector<int64_t>& ids2, int32_t max_len);
 
  private:
   enum TruncateStrategyType {
@@ -39,9 +39,11 @@ class TruncateStrategy {
 };
 
 // TODO: merge with the implementation of word piece tokenizer
-class WordpieceTokenizer {
+class WordpieceTokenizer final {
  public:
-  WordpieceTokenizer(std::shared_ptr<BertTokenizerVocab> vocab, ustring unk_token, ustring suffix_indicator, int max_input_chars_per_word = 100);
+  WordpieceTokenizer(
+    std::shared_ptr<BertTokenizerVocab> vocab, ustring unk_token,
+    ustring suffix_indicator, int max_input_chars_per_word = 100);
   std::vector<ustring> Tokenize(const ustring& text);
   std::vector<ustring> Tokenize(const std::vector<ustring>& tokens);
   std::vector<int64_t> Encode(const std::vector<ustring>& tokens);
@@ -56,39 +58,43 @@ class WordpieceTokenizer {
   void GreedySearch(const ustring& token, std::vector<ustring>& tokenized_result);
 };
 
-class BertTokenizer {
+class BertTokenizer final {
  public:
-  BertTokenizer(std::string vocab, bool do_lower_case, bool do_basic_tokenize,
+  BertTokenizer(const std::string& vocab, bool do_lower_case, bool do_basic_tokenize,
                 ustring unk_token, ustring sep_token, ustring pad_token, ustring cls_token,
                 ustring mask_token, bool tokenize_chinese_chars, bool strip_accents,
-                ustring suffix_indicator);
+                ustring suffix_indicator, int32_t max_len, const std::string& truncation_strategy);
   std::vector<ustring> Tokenize(const ustring& text);
   std::vector<int64_t> Encode(const std::vector<ustring>& tokens);
+
+  void Truncate(std::vector<int64_t>& ids);
+  void Truncate(std::vector<int64_t>& ids1, std::vector<int64_t>& ids2);
+
   std::vector<int64_t> AddSpecialToken(const std::vector<int64_t>& ids);
   std::vector<int64_t> AddSpecialToken(const std::vector<int64_t>& ids1, const std::vector<int64_t>& ids2);
   std::vector<int64_t> GenerateTypeId(const std::vector<int64_t>& ids);
   std::vector<int64_t> GenerateTypeId(const std::vector<int64_t>& ids1, const std::vector<int64_t>& ids2);
 
  private:
-  int32_t unk_token_id_;
-  int32_t sep_token_id_;
-  int32_t pad_token_id_;
-  int32_t cls_token_id_;
-  int32_t mask_token_id_;
-  bool do_basic_tokenize_;
+  int32_t unk_token_id_ = 0;
+  int32_t sep_token_id_ = 0;
+  int32_t pad_token_id_ = 0;
+  int32_t cls_token_id_ = 0;
+  int32_t mask_token_id_ = 0;
+  int32_t max_length_ = 0;
+  bool do_basic_tokenize_ = false;
+  std::unique_ptr<TruncateStrategy> truncate_;
   std::shared_ptr<BertTokenizerVocab> vocab_;
-  std::shared_ptr<BasicTokenizer> basic_tokenizer_;
-  std::shared_ptr<WordpieceTokenizer> wordpiece_tokenizer_;
+  std::unique_ptr<BasicTokenizer> basic_tokenizer_;
+  std::unique_ptr<WordpieceTokenizer> wordpiece_tokenizer_;
 };
 
 struct KernelBertTokenizer : BaseKernel {
   KernelBertTokenizer(OrtApi api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
 
- private:
-  std::shared_ptr<BertTokenizer> tokenizer_;
-  std::shared_ptr<TruncateStrategy> truncate_;
-  int max_length_;
+ protected:
+  std::unique_ptr<BertTokenizer> tokenizer_;
 };
 
 struct CustomOpBertTokenizer : Ort::CustomOpBase<CustomOpBertTokenizer, KernelBertTokenizer> {
