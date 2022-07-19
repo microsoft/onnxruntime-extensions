@@ -97,5 +97,5 @@ extends:
             search_root: '$(REPOROOT)\out'
           displayName: 'Sign runtime DLLs'
         - script: |
-              for /D %%i in ("$(REPOROOT)\out\onnxruntime_extensions*-win32") do (7z u %%i.whl .\%%i\*)
-            displayName: zip package
+            for /D %%i in ("$(REPOROOT)\out\onnxruntime_extensions*-win32") do (7z u %%i.whl .\%%i\*)
+          displayName: zip package
