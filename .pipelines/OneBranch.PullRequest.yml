@@ -93,9 +93,10 @@ extends:
           inputs:
             command: 'sign'
             signing_profile: 'external_distribution'
-            files_to_sign: '**/*.exe;**/*.dll;**/*.so'
+            files_to_sign: '**/**/*.pyd;**/**/*.dll;**/**/*.so'
             search_root: '$(REPOROOT)\out'
           displayName: 'Sign runtime DLLs'
         - script: |
-            for /D %%i in ("$(REPOROOT)\out\onnxruntime_extensions*-win32") do (7z u %%i.whl .\%%i\*)
+            for /D %%i in ("out\onnxruntime_extensions*-win32") do (7z u %%i.whl .\%%i\*)
+            workingDirectory: '$(REPOROOT)'
           displayName: zip package
