@@ -21,6 +21,10 @@ def bert_tokenize(ctx, input_names, output_names, container, operator_name=None,
         ordered_vocab = OrderedDict(sorted(hf_bert_tokenizer.vocab.items(), key=lambda item: int(item[1])))
         vocab = '\n'.join(ordered_vocab.keys())
         attrs = dict(vocab_file=vocab)
+        # Unfortunately, there's no specific accessor function on
+        # transformers.BertTokenizer to query for strip_accents.
+        attrs['strip_accents'] = 1 if hf_bert_tokenizer.init_kwargs.get('strip_accents') else 0
+        attrs['do_lower_case'] = 1 if hf_bert_tokenizer.do_lower_case else 0
     elif 'vocab_file' in kwargs:
         vocab = None
         vocab_file = kwargs['vocab_file']
@@ -30,10 +34,12 @@ def bert_tokenize(ctx, input_names, output_names, container, operator_name=None,
         if vocab is None:
             raise RuntimeError("Cannot load vocabulary file {}!".format(vocab_file))
         attrs = dict(vocab_file=vocab)
+        if 'strip_accents' in kwargs:
+            attrs['strip_accents'] = kwargs['strip_accents']
+        if 'do_lower_case' in kwargs:
+            attrs['do_lower_case'] = kwargs['do_lower_case']
     else:
         raise RuntimeError("Need hf_tok/vocab_file parameter to build the tokenizer")
-    if 'strip_accents' in kwargs:
-        attrs['strip_accents'] = kwargs['strip_accents']
 
     return make_custom_op(ctx, 'BertTokenizer', input_names,
                           output_names, container, operator_name=operator_name, **attrs)
