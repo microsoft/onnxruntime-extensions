@@ -42,6 +42,7 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = LoadCustomOpClasses<
     , CustomOpBasicTokenizer
     , CustomOpBertTokenizer
     , CustomOpBertTokenizerDecoder
+    , CustomOpHfBertTokenizer
 #endif
 
 #ifdef ENABLE_BLINGFIRE

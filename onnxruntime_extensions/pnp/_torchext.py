@@ -23,7 +23,11 @@ def _is_numpy_string_type(arr):
 
 
 def _is_string_type(x):
-    if not _is_numpy_object(x):
+    if isinstance(x, list):
+        return any(_is_string_type(e) for e in x)
+    elif isinstance(x, torch.Tensor):
+        return False
+    elif not _is_numpy_object(x):
         x = np.array(x)
     return _is_numpy_string_type(x)
 

@@ -326,7 +326,7 @@ size_t CustomOpBertTokenizer::GetInputTypeCount() const {
   return 1;
 }
 
-ONNXTensorElementDataType CustomOpBertTokenizer::GetInputType(size_t /*index*/) const {
+ONNXTensorElementDataType CustomOpBertTokenizer::GetInputType(size_t /* index */) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
 }
 
@@ -334,6 +334,62 @@ size_t CustomOpBertTokenizer::GetOutputTypeCount() const {
   return 3;
 }
 
-ONNXTensorElementDataType CustomOpBertTokenizer::GetOutputType(size_t /*index*/) const {
+ONNXTensorElementDataType CustomOpBertTokenizer::GetOutputType(size_t /* index */) const {
+  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+}
+
+KernelHfBertTokenizer::KernelHfBertTokenizer(OrtApi api, const OrtKernelInfo* info) : KernelBertTokenizer(api, info) {}
+
+void KernelHfBertTokenizer::Compute(OrtKernelContext* context) {
+  // Setup inputs
+  const OrtValue *const input = ort_.KernelContext_GetInput(context, 0);
+  std::vector<std::string> input_data;
+  GetTensorMutableDataString(api_, ort_, context, input, input_data);
+
+  if (input_data.size() != 2) {
+    ORT_CXX_API_THROW("[HfBertTokenizer]: Support only two input strings.", ORT_INVALID_GRAPH);
+  }
+
+  std::vector<ustring> tokens1 = tokenizer_->Tokenize(ustring(input_data[0]));
+  std::vector<ustring> tokens2 = tokenizer_->Tokenize(ustring(input_data[1]));
+  std::vector<int64_t> encoded1 = tokenizer_->Encode(tokens1);
+  std::vector<int64_t> encoded2 = tokenizer_->Encode(tokens2);
+  std::vector<int64_t> input_ids = tokenizer_->AddSpecialToken(encoded1, encoded2);
+  std::vector<int64_t> token_type_ids = tokenizer_->GenerateTypeId(encoded1, encoded2);
+  std::vector<int64_t> attention_mask(input_ids.size(), 1LL);
+
+  const std::vector<int64_t> outer_dims{1LL, static_cast<int64_t>(input_ids.size())};
+  const std::vector<int64_t> inner_dims{1LL};
+  for (int32_t i = 0; i < 3; ++i) {
+    OrtValue* const value = ort_.KernelContext_GetOutput(context, i, outer_dims.data(), outer_dims.size());
+    OrtTensorTypeAndShapeInfo *const info = ort_.GetTensorTypeAndShape(value);
+    ort_.SetDimensions(info, inner_dims.data(), inner_dims.size());
+    ort_.ReleaseTensorTypeAndShapeInfo(info);
+  }
+
+  SetOutput(context, 0, outer_dims, input_ids);
+  SetOutput(context, 1, outer_dims, attention_mask);
+  SetOutput(context, 2, outer_dims, token_type_ids);
+}
+
+void* CustomOpHfBertTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+  return new KernelHfBertTokenizer(api, info);
+}
+
+const char* CustomOpHfBertTokenizer::GetName() const { return "HfBertTokenizer"; }
+
+size_t CustomOpHfBertTokenizer::GetInputTypeCount() const {
+  return 1;
+}
+
+ONNXTensorElementDataType CustomOpHfBertTokenizer::GetInputType(size_t /* index */) const {
+  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+}
+
+size_t CustomOpHfBertTokenizer::GetOutputTypeCount() const {
+  return 3;
+}
+
+ONNXTensorElementDataType CustomOpHfBertTokenizer::GetOutputType(size_t /* index */) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 }
