@@ -105,3 +105,17 @@ struct CustomOpBertTokenizer : Ort::CustomOpBase<CustomOpBertTokenizer, KernelBe
   size_t GetOutputTypeCount() const;
   ONNXTensorElementDataType GetOutputType(size_t index) const;
 };
+
+struct KernelHfBertTokenizer : KernelBertTokenizer {
+  KernelHfBertTokenizer(OrtApi api, const OrtKernelInfo* info);
+  void Compute(OrtKernelContext* context);
+};
+
+struct CustomOpHfBertTokenizer : Ort::CustomOpBase<CustomOpHfBertTokenizer, KernelHfBertTokenizer> {
+  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
+  const char* GetName() const;
+  size_t GetInputTypeCount() const;
+  ONNXTensorElementDataType GetInputType(size_t index) const;
+  size_t GetOutputTypeCount() const;
+  ONNXTensorElementDataType GetOutputType(size_t index) const;
+};
