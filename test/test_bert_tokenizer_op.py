@@ -22,7 +22,7 @@ def _run_basic_case(t2stc, input):
 class TestBertTokenizerOp(unittest.TestCase):
     def test_text_to_case1_with_vocab_file(self):
         ort_tok = pnp.PreHuggingFaceBert(vocab_file=_vocab_file, do_lower_case=0, strip_accents=1)
-        model = pnp.export(pnp.SequentialProcessingModule(ort_tok), ["whatever"])
+        model = pnp.export(pnp.SequentialProcessingModule(ort_tok), ["whatever"], opset_version=12)
         t2stc = OrtPyFunction.from_model(model)
 
         _run_basic_case(
@@ -58,7 +58,7 @@ class TestBertTokenizerOp(unittest.TestCase):
 
     def test_text_to_case1_with_hf_tok(self):
         ort_tok = pnp.PreHuggingFaceBert(hf_tok=_bert_cased_tokenizer)
-        model = pnp.export(pnp.SequentialProcessingModule(ort_tok), ["whatever"])
+        model = pnp.export(pnp.SequentialProcessingModule(ort_tok), ["whatever"], opset_version=12)
         t2stc = OrtPyFunction.from_model(model)
 
         _run_basic_case(
