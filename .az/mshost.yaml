@@ -85,10 +85,10 @@ jobs:
 
     strategy:
       matrix:
-        ort-170:
+        ort-1110:
           ort.version: '1.11.0'
           ortlib.version: '62042906'
-        ort-160:
+        ort-1100:
           ort.version: '1.10.0'
           ortlib.version: '54834451'
       maxParallel: 2
@@ -104,7 +104,7 @@ jobs:
           userRepository: 'microsoft/onnxruntime'
           defaultVersionType: 'specificVersion'
           version: '$(ortlib.version)'
-          itemPattern: '*-osx-x64-$(ort.version)*'
+          itemPattern: '*-osx-x86_x64-$(ort.version)*'
           downloadPath: '$(Build.sourcesdirectory)'
         displayName: Download the ONNXRuntime prebuilt package.
 
@@ -117,7 +117,7 @@ jobs:
         displayName: Unpack ONNXRuntime package.
 
       - script: |
-          sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-osx-x64-$(ort.version)/lib -DOCOS_ENABLE_CTEST=ON
+          sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-osx-x86_x64-$(ort.version)/lib -DOCOS_ENABLE_CTEST=ON
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -276,7 +276,7 @@ jobs:
 
       - script: |
           call activate pyenv
-          python -m pip install ${torch.version}
+          python -m pip install $(torch.version)
         displayName: Install pytorch
 
       - script: |
