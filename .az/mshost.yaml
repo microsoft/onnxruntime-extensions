@@ -10,16 +10,16 @@ jobs:
 
     strategy:
       matrix:
-        py39-170:
+        py39-1110:
           python.version: '3.9'
-          torch.version: 'torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
-          ort.version: '1.7.0'
-          ortlib.version: '38443267'
-        py37-160:
-          python.version: '3.7'
-          torch.version: 'torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html'
-          ort.version: '1.6.0'
-          ortlib.version: '34858191'
+          torch.version: 'torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
+          ort.version: '1.11.0'
+          ortlib.version: '62042906'
+        py38-1100:
+          python.version: '3.8'
+          torch.version: 'torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0 -f https://download.pytorch.org/whl/torch_stable.html'
+          ort.version: '1.10.0'
+          ortlib.version: '54834451'
       maxParallel: 2
 
     steps:
@@ -86,11 +86,11 @@ jobs:
     strategy:
       matrix:
         ort-170:
-          ort.version: '1.7.0'
-          ortlib.version: '38443267'
+          ort.version: '1.11.0'
+          ortlib.version: '62042906'
         ort-160:
-          ort.version: '1.6.0'
-          ortlib.version: '34858191'
+          ort.version: '1.10.0'
+          ortlib.version: '54834451'
       maxParallel: 2
 
     steps:
@@ -137,13 +137,12 @@ jobs:
       matrix:
         py39-1110:
           python.version: '3.9'
+          torch.version: 'torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.11.0'
-        py38-180:
+        py38-1100:
           python.version: '3.8'
-          ort.version: '1.8.0'
-        py37-170:
-          python.version: '3.7'
-          ort.version: '1.7.0'
+          torch.version: 'torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0 -f https://download.pytorch.org/whl/torch_stable.html'
+          ort.version: '1.10.0'
       maxParallel: 1
 
     steps:
@@ -174,7 +173,7 @@ jobs:
       - script: python -m pip install -r requirements-dev.txt
         displayName: Install requirements-dev.txt
 
-      - script: python -m pip install torch torchvision torchaudio
+      - script: python -m pip install ${torch.version}
         displayName: Install pytorch
 
       - script: cd test && python -m pytest . --verbose
@@ -195,12 +194,12 @@ jobs:
 
     strategy:
       matrix:
-        ort-170:
-          ort.version: '1.7.0'
-          ortlib.version: '38443267'
-        ort-160:
-          ort.version: '1.6.0'
-          ortlib.version: '34858191'
+        ort-1110:
+          ort.version: '1.11.0'
+          ortlib.version: '62042906'
+        ort-1100:
+          ort.version: '1.10.0'
+          ortlib.version: '54834451'
       maxParallel: 2
 
     steps:
@@ -243,13 +242,12 @@ jobs:
       matrix:
         py39-1110:
           python.version: '3.9'
+          torch.version: 'torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.11.0'
-        py38-170:
+        py38-1100:
           python.version: '3.8'
-          ort.version: '1.8.0'
-        py37-170:
-          python.version: '3.7'
-          ort.version: '1.7.0'
+          torch.version: 'torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0 -f https://download.pytorch.org/whl/torch_stable.html'
+          ort.version: '1.10.0'
       maxParallel: 1
 
     steps:
@@ -278,7 +276,7 @@ jobs:
 
       - script: |
           call activate pyenv
-          python -m pip install torch==1.8.2+cpu torchvision==0.9.2+cpu torchaudio===0.8.2 -f https://download.pytorch.org/whl/lts/1.8/torch_lts.html
+          python -m pip install ${torch.version}
         displayName: Install pytorch
 
       - script: |
