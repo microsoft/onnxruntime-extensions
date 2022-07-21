@@ -137,11 +137,11 @@ jobs:
       matrix:
         py39-1110:
           python.version: '3.9'
-          torch.version: 'torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
+          torch.version: 'torch==1.11.0 torchvision==0.12.0+cpu torchaudio==0.11.0 -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.11.0'
         py38-1100:
           python.version: '3.8'
-          torch.version: 'torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0 -f https://download.pytorch.org/whl/torch_stable.html'
+          torch.version: 'torch==1.10.0 torchvision==0.11.1 torchaudio==0.10.0 -f https://download.pytorch.org/whl/torch_stable.html'
           ort.version: '1.10.0'
       maxParallel: 1
 
