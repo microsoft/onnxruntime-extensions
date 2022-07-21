@@ -14,12 +14,10 @@ jobs:
           python.version: '3.9'
           torch.version: 'torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.11.0'
-          ortlib.version: '62042906'
         py38-1100:
           python.version: '3.8'
-          torch.version: 'torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0 -f https://download.pytorch.org/whl/torch_stable.html'
+          torch.version: 'torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.10.0'
-          ortlib.version: '54834451'
       maxParallel: 2
 
     steps:
@@ -27,8 +25,8 @@ jobs:
         inputs:
           connection: 'microsoft'
           userRepository: 'microsoft/onnxruntime'
-          defaultVersionType: 'specificVersion'
-          version: '$(ortlib.version)'
+          defaultVersionType: 'specificTag'
+          version: '$(ort.version)'
           itemPattern: '*-linux-x64-$(ort.version)*'
           downloadPath: '$(Build.sourcesdirectory)'
         displayName: Download the ONNXRuntime prebuilt package.
@@ -87,10 +85,8 @@ jobs:
       matrix:
         ort-1110:
           ort.version: '1.11.0'
-          ortlib.version: '62042906'
         ort-1100:
           ort.version: '1.10.0'
-          ortlib.version: '54834451'
       maxParallel: 2
 
     steps:
@@ -102,8 +98,8 @@ jobs:
         inputs:
           connection: 'microsoft'
           userRepository: 'microsoft/onnxruntime'
-          defaultVersionType: 'specificVersion'
-          version: '$(ortlib.version)'
+          defaultVersionType: 'specificTag'
+          version: '$(ort.version)'
           itemPattern: '*-osx-x86_64-$(ort.version)*'
           downloadPath: '$(Build.sourcesdirectory)'
         displayName: Download the ONNXRuntime prebuilt package.
@@ -143,7 +139,7 @@ jobs:
           python.version: '3.8'
           torch.version: 'torch==1.10.0 torchvision==0.11.1 torchaudio==0.10.0 -f https://download.pytorch.org/whl/torch_stable.html'
           ort.version: '1.10.0'
-      maxParallel: 1
+      maxParallel: 2
 
     steps:
       # needed for onnxruntime
@@ -196,10 +192,8 @@ jobs:
       matrix:
         ort-1110:
           ort.version: '1.11.0'
-          ortlib.version: '62042906'
         ort-1100:
           ort.version: '1.10.0'
-          ortlib.version: '54834451'
       maxParallel: 2
 
     steps:
@@ -207,8 +201,8 @@ jobs:
         inputs:
           connection: 'microsoft'
           userRepository: 'microsoft/onnxruntime'
-          defaultVersionType: 'specificVersion'
-          version: '$(ortlib.version)'
+          defaultVersionType: 'specificTag'
+          version: '$(ort.version)'
           itemPattern: '*-win-x64-$(ort.version)*'
           downloadPath: '$(Build.sourcesdirectory)'
         displayName: Download the ONNXRuntime prebuilt package.
@@ -246,9 +240,9 @@ jobs:
           ort.version: '1.11.0'
         py38-1100:
           python.version: '3.8'
-          torch.version: 'torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0 -f https://download.pytorch.org/whl/torch_stable.html'
+          torch.version: 'torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.10.0'
-      maxParallel: 1
+      maxParallel: 2
 
     steps:
       - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
