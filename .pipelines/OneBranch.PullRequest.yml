@@ -93,7 +93,7 @@ extends:
           inputs:
             command: 'sign'
             signing_profile: 'external_distribution'
-            files_to_sign: '**/**/*.pyd;**/**/*.dll;**/**/*.so'
+            files_to_sign: '**/**/*.pyd;**/**/*.dll'
             search_root: '$(REPOROOT)\out'
           displayName: 'Sign runtime DLLs'
         - script: |
