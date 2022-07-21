@@ -86,4 +86,21 @@ extends:
             python -m pip install cibuildwheel
             python -m cibuildwheel --platform windows --output-dir $(REPOROOT)\out
           displayName: Build wheels
+        - script: |
+            7z x $(REPOROOT)\out\*.whl -o$(REPOROOT)\out\*
+          displayName: unzip the package
+        - task: onebranch.pipeline.signing@1
+          inputs:
+            command: 'sign'
+            signing_profile: 'external_distribution'
+            files_to_sign: '**/**/*.pyd;**/**/*.dll;**/**/*.so'
+            search_root: '$(REPOROOT)\out'
+          displayName: 'Sign runtime DLLs'
+        - script: |
+            for /D %%i in ("out\onnxruntime_extensions*-win32") do (
+              7z u %%i.whl .\%%i\*
+              rmdir /s /q %%i
+              )
+          workingDirectory: '$(REPOROOT)'
+          displayName: zip package
         
