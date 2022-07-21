@@ -26,7 +26,7 @@ jobs:
           connection: 'microsoft'
           userRepository: 'microsoft/onnxruntime'
           defaultVersionType: 'specificTag'
-          version: '$(ort.version)'
+          version: 'v$(ort.version)'
           itemPattern: '*-linux-x64-$(ort.version)*'
           downloadPath: '$(Build.sourcesdirectory)'
         displayName: Download the ONNXRuntime prebuilt package.
@@ -99,7 +99,7 @@ jobs:
           connection: 'microsoft'
           userRepository: 'microsoft/onnxruntime'
           defaultVersionType: 'specificTag'
-          version: '$(ort.version)'
+          version: 'v$(ort.version)'
           itemPattern: '*-osx-x86_64-$(ort.version)*'
           downloadPath: '$(Build.sourcesdirectory)'
         displayName: Download the ONNXRuntime prebuilt package.
@@ -202,7 +202,7 @@ jobs:
           connection: 'microsoft'
           userRepository: 'microsoft/onnxruntime'
           defaultVersionType: 'specificTag'
-          version: '$(ort.version)'
+          version: 'v$(ort.version)'
           itemPattern: '*-win-x64-$(ort.version)*'
           downloadPath: '$(Build.sourcesdirectory)'
         displayName: Download the ONNXRuntime prebuilt package.
