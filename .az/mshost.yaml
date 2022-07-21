@@ -104,7 +104,7 @@ jobs:
           userRepository: 'microsoft/onnxruntime'
           defaultVersionType: 'specificVersion'
           version: '$(ortlib.version)'
-          itemPattern: '*-osx-x86_x64-$(ort.version)*'
+          itemPattern: '*-osx-x86_64-$(ort.version)*'
           downloadPath: '$(Build.sourcesdirectory)'
         displayName: Download the ONNXRuntime prebuilt package.
 
@@ -117,7 +117,7 @@ jobs:
         displayName: Unpack ONNXRuntime package.
 
       - script: |
-          sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-osx-x86_x64-$(ort.version)/lib -DOCOS_ENABLE_CTEST=ON
+          sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-osx-x86_64-$(ort.version)/lib -DOCOS_ENABLE_CTEST=ON
         displayName: build the customop library with onnxruntime
 
       - script: |
