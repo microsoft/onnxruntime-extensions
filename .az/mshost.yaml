@@ -173,7 +173,7 @@ jobs:
       - script: python -m pip install -r requirements-dev.txt
         displayName: Install requirements-dev.txt
 
-      - script: python -m pip install ${torch.version}
+      - script: python -m pip install $(torch.version)
         displayName: Install pytorch
 
       - script: cd test && python -m pytest . --verbose
