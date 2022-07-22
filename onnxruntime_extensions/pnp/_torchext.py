@@ -268,4 +268,39 @@ class SequentialProcessingModule(ProcessingTracedModule):
             return super().export(*args, **kwargs)
         else:
             oxml = core_m.export(*args, **kwargs)
-            return ONNXModelUtils.join_models(prefix_m, oxml)
+            model = ONNXModelUtils.join_models(prefix_m, oxml)
+
+            # Rename the input/output node names if the user has provided any substitutions!
+            # Ref: https://github.com/onnx/onnx/issues/2052
+            # Known issue: This logic doesn't deal with subgraphs.
+            if (('input_names' in kwargs) or ('output_names' in kwargs)) and \
+              (kwargs['input_names'] or kwargs['output_names']):
+                swaps = {}
+                if 'input_names' in kwargs and kwargs['input_names']:
+                    assert len(model.graph.input) == len(kwargs['input_names']), \
+                      "Expecting {} input names but got {}".format(
+                        len(model.graph.input), len(kwargs['input_names']))
+                    for n, new_name in zip(model.graph.input, kwargs['input_names']):
+                        swaps[n.name] = new_name
+                        n.name = new_name
+
+                if 'output_names' in kwargs and kwargs['output_names']:
+                    assert len(model.graph.output) == len(kwargs['output_names']), \
+                      "Expecting {} output names but got {}".format(
+                        len(model.graph.output), len(kwargs['output_names']))
+                    for n, new_name in zip(model.graph.output, kwargs['output_names']):
+                        swaps[n.name] = new_name
+                        n.name = new_name
+
+                if swaps:
+                    for n in model.graph.node:
+                        for j in range(len(n.input)):
+                            n.input[j] = swaps.get(n.input[j], n.input[j])
+
+                        for j in range(len(n.output)):
+                            n.output[j] = swaps.get(n.output[j], n.output[j])
+
+                    for n in model.graph.initializer:
+                        n.name = swaps.get(n.name, n.name)
+
+            return model
