@@ -2,8 +2,8 @@
 
 #include <utility>
 
-BertTokenizerVocab::BertTokenizerVocab(std::string vocab) : raw_vocab_(vocab) {
-  auto tokens = SplitString(raw_vocab_, "\n", true);
+BertTokenizerVocab::BertTokenizerVocab(std::string_view vocab) : raw_vocab_(vocab) {
+  auto tokens = SplitString(raw_vocab_, "\r\n", true);
 
   for (int i = 0; i < tokens.size(); i++) {
     (vocab_)[tokens[i]] = i;
@@ -39,9 +39,12 @@ int32_t BertTokenizerVocab::FindTokenId(const ustring& token) {
   return it->second;
 }
 
-WordpieceTokenizer::WordpieceTokenizer(std::shared_ptr<BertTokenizerVocab> vocab, ustring unk_token,
-                                       ustring suffix_indicator, int max_input_chars_per_word): vocab_(std::move(vocab)), unk_token_(std::move(unk_token)),
-                                       suffix_indicator_(std::move(suffix_indicator)), max_input_chars_per_word_(max_input_chars_per_word) {
+WordpieceTokenizer::WordpieceTokenizer(
+    std::shared_ptr<BertTokenizerVocab> vocab, ustring unk_token,
+    ustring suffix_indicator, int max_input_chars_per_word)
+    : vocab_(std::move(vocab)), unk_token_(std::move(unk_token))
+    , suffix_indicator_(std::move(suffix_indicator))
+    , max_input_chars_per_word_(max_input_chars_per_word) {
   unk_token_id_ = vocab_->FindTokenId(unk_token_);
 }
 
@@ -123,42 +126,40 @@ void WordpieceTokenizer::GreedySearch(const ustring& token, std::vector<ustring>
   }
 }
 
-void TruncateStrategy::Truncate(std::vector<int64_t>& ids, int64_t max_len) {
-  if (max_len < 0 || max_len >= ids.size()) {
-    return;
+void TruncateStrategy::Truncate(std::vector<int64_t>& ids, int32_t max_len) {
+  if ((max_len > 0) && (max_len < ids.size())) {
+    ids.resize(max_len);
   }
-
-  ids.resize(max_len);
 }
 
-void TruncateStrategy::Truncate(std::vector<int64_t>& input1, std::vector<int64_t>& input2, int64_t max_len) {
-  if (max_len < 0 || (input1.size() + input2.size() <= max_len)) {
+void TruncateStrategy::Truncate(std::vector<int64_t>& ids1, std::vector<int64_t>& ids2, int32_t max_len) {
+  if (max_len < 0 || (ids1.size() + ids2.size() <= max_len)) {
     return;
   }
 
-  auto input1_keep_len = input1.size();
-  auto input2_keep_len = input2.size();
+  auto ids1_keep_len = ids1.size();
+  auto ids2_keep_len = ids2.size();
   auto half_max_len = max_len / 2;
 
   switch (strategy_) {
     case TruncateStrategyType::LONGEST_FIRST:
     case TruncateStrategyType::LONGEST_FROM_BACK:
 
-      if ((input1_keep_len > half_max_len) && (input2_keep_len > half_max_len)) {
-        input1_keep_len = max_len - half_max_len;
-        input2_keep_len = half_max_len;
-      } else if (input2_keep_len > input1_keep_len) {
-        input2_keep_len = max_len - input1_keep_len;
+      if ((ids1_keep_len > half_max_len) && (ids2_keep_len > half_max_len)) {
+        ids1_keep_len = max_len - half_max_len;
+        ids2_keep_len = half_max_len;
+      } else if (ids2_keep_len > ids1_keep_len) {
+        ids2_keep_len = max_len - ids1_keep_len;
       } else {
-        input1_keep_len = max_len - input2_keep_len;
+        ids1_keep_len = max_len - ids2_keep_len;
       }
 
       if (strategy_ == TruncateStrategyType::LONGEST_FIRST) {
-        input1.resize(input1_keep_len);
-        input2.resize(input2_keep_len);
+        ids1.resize(ids1_keep_len);
+        ids2.resize(ids2_keep_len);
       } else {
-        input1.erase(input1.begin(), input1.end() - input1_keep_len);
-        input2.erase(input2.begin(), input2.end() - input2_keep_len);
+        ids1.erase(ids1.begin(), ids1.end() - ids1_keep_len);
+        ids2.erase(ids2.begin(), ids2.end() - ids2_keep_len);
       }
 
       return;
@@ -171,15 +172,21 @@ void TruncateStrategy::Truncate(std::vector<int64_t>& input1, std::vector<int64_
   }
 }
 
-BertTokenizer::BertTokenizer(std::string vocab, bool do_lower_case, bool do_basic_tokenize, ustring unk_token, ustring sep_token,
-                             ustring pad_token, ustring cls_token, ustring mask_token, bool tokenize_chinese_chars, bool strip_accents,
-                             ustring suffix_indicator) : do_basic_tokenize_(do_basic_tokenize) {
+BertTokenizer::BertTokenizer(
+    const std::string& vocab, bool do_lower_case, bool do_basic_tokenize, ustring unk_token,
+    ustring sep_token, ustring pad_token, ustring cls_token, ustring mask_token,
+    bool tokenize_chinese_chars, bool strip_accents, ustring suffix_indicator, int32_t max_len,
+    const std::string& truncation_strategy)
+    : do_basic_tokenize_(do_basic_tokenize), max_length_(max_len)
+    , truncate_(std::make_unique<TruncateStrategy>(truncation_strategy)) {
   vocab_ = std::make_shared<BertTokenizerVocab>(vocab);
 
   if (do_basic_tokenize) {
-    basic_tokenizer_ = std::make_shared<BasicTokenizer>(do_lower_case, tokenize_chinese_chars, strip_accents, true, true);
+    basic_tokenizer_ = std::make_unique<BasicTokenizer>(
+      do_lower_case, tokenize_chinese_chars, strip_accents, true, true);
   }
-  wordpiece_tokenizer_ = std::make_shared<WordpieceTokenizer>(vocab_, unk_token, suffix_indicator);
+  wordpiece_tokenizer_ = std::make_unique<WordpieceTokenizer>(
+    vocab_, unk_token, suffix_indicator);
 
   unk_token_id_ = vocab_->FindTokenId(unk_token);
   sep_token_id_ = vocab_->FindTokenId(sep_token);
@@ -187,6 +194,7 @@ BertTokenizer::BertTokenizer(std::string vocab, bool do_lower_case, bool do_basi
   cls_token_id_ = vocab_->FindTokenId(cls_token);
   mask_token_id_ = vocab_->FindTokenId(mask_token);
 }
+
 std::vector<ustring> BertTokenizer::Tokenize(const ustring& text) {
   if (do_basic_tokenize_) {
     return wordpiece_tokenizer_->Tokenize(basic_tokenizer_->Tokenize(text));
@@ -196,6 +204,14 @@ std::vector<ustring> BertTokenizer::Tokenize(const ustring& text) {
 
 std::vector<int64_t> BertTokenizer::Encode(const std::vector<ustring>& tokens) {
   return wordpiece_tokenizer_->Encode(tokens);
+}
+
+void BertTokenizer::Truncate(std::vector<int64_t>& ids) {
+  truncate_->Truncate(ids, (max_length_ > 0 && max_length_ <= 2) ? 0 : max_length_ - 2);
+}
+
+void BertTokenizer::Truncate(std::vector<int64_t>& ids1, std::vector<int64_t>& ids2) {
+  truncate_->Truncate(ids1, ids2, (max_length_ > 0 && max_length_ <= 3) ? 0 : max_length_ - 3);
 }
 
 std::vector<int64_t> BertTokenizer::AddSpecialToken(const std::vector<int64_t>& ids) {
@@ -230,7 +246,7 @@ std::vector<int64_t> BertTokenizer::GenerateTypeId(const std::vector<int64_t>& i
   return result;
 }
 
-TruncateStrategy::TruncateStrategy(std::string strategy_name) {
+TruncateStrategy::TruncateStrategy(std::string_view strategy_name) : strategy_(TruncateStrategyType::LONGEST_FIRST) {
   if (strategy_name == "longest_first") {
     strategy_ = TruncateStrategyType::LONGEST_FIRST;
   } else if (strategy_name == "only_first") {
@@ -255,13 +271,13 @@ KernelBertTokenizer::KernelBertTokenizer(OrtApi api, const OrtKernelInfo* info) 
   bool strip_accents = TryToGetAttributeWithDefault("strip_accents", false);
   std::string suffix_indicator = TryToGetAttributeWithDefault("suffix_indicator", std::string("##"));
   std::string truncation_strategy_name = TryToGetAttributeWithDefault("truncation_strategy_name", std::string("longest_first"));
-  max_length_ = TryToGetAttributeWithDefault("max_length", int64_t(-1));
+  int32_t max_len = static_cast<int32_t>(TryToGetAttributeWithDefault("max_length", int64_t(-1)));
 
-  tokenizer_ = std::make_shared<BertTokenizer>(vocab, do_lower_case, do_basic_tokenize, ustring(unk_token),
-                                               ustring(sep_token), ustring(pad_token), ustring(cls_token),
-                                               ustring(mask_token), tokenize_chinese_chars, strip_accents, ustring(suffix_indicator));
-
-  truncate_ = std::make_shared<TruncateStrategy>(truncation_strategy_name);
+  tokenizer_ = std::make_unique<BertTokenizer>(
+    vocab, do_lower_case, do_basic_tokenize, ustring(unk_token),
+    ustring(sep_token), ustring(pad_token), ustring(cls_token),
+    ustring(mask_token), tokenize_chinese_chars, strip_accents,
+    ustring(suffix_indicator), max_len, truncation_strategy_name);
 }
 
 void KernelBertTokenizer::Compute(OrtKernelContext* context) {
@@ -277,21 +293,23 @@ void KernelBertTokenizer::Compute(OrtKernelContext* context) {
   std::vector<int64_t> token_type_ids;
 
   if (input_data.size() == 1) {
-    std::vector<int64_t> encode = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[0])));
-    truncate_->Truncate(encode, (max_length_ > 0 && max_length_ <= 2) ? 0 : max_length_ - 2);
-    input_ids = tokenizer_->AddSpecialToken(encode);
-    token_type_ids = tokenizer_->GenerateTypeId(encode);
+    std::vector<ustring> tokens = tokenizer_->Tokenize(ustring(input_data[0]));
+    std::vector<int64_t> encoded = tokenizer_->Encode(tokens);
+    tokenizer_->Truncate(encoded);
+    input_ids = tokenizer_->AddSpecialToken(encoded);
+    token_type_ids = tokenizer_->GenerateTypeId(encoded);
   } else {
-    std::vector<int64_t> encode1 = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[0])));
-    std::vector<int64_t> encode2 = tokenizer_->Encode(tokenizer_->Tokenize(ustring(input_data[1])));
-    truncate_->Truncate(encode1, encode2, (max_length_ > 0 && max_length_ <= 3) ? 0 : max_length_ - 3);
-    input_ids = tokenizer_->AddSpecialToken(encode1, encode2);
-    token_type_ids = tokenizer_->GenerateTypeId(encode1, encode2);
+    std::vector<ustring> tokens1 = tokenizer_->Tokenize(ustring(input_data[0]));
+    std::vector<ustring> tokens2 = tokenizer_->Tokenize(ustring(input_data[1]));
+    std::vector<int64_t> encoded1 = tokenizer_->Encode(tokens1);
+    std::vector<int64_t> encoded2 = tokenizer_->Encode(tokens2);
+    input_ids = tokenizer_->AddSpecialToken(encoded1, encoded2);
+    token_type_ids = tokenizer_->GenerateTypeId(encoded1, encoded2);
   }
 
   std::vector<int64_t> attention_mask(input_ids.size(), 1);
 
-  std::vector<int64_t> output_dim({static_cast<int64_t>(input_ids.size())});
+  std::vector<int64_t> output_dim{static_cast<int64_t>(input_ids.size())};
 
   SetOutput(context, 0, output_dim, input_ids);
   SetOutput(context, 1, output_dim, token_type_ids);
@@ -300,22 +318,78 @@ void KernelBertTokenizer::Compute(OrtKernelContext* context) {
 
 void* CustomOpBertTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
   return new KernelBertTokenizer(api, info);
-};
+}
 
-const char* CustomOpBertTokenizer::GetName() const { return "BertTokenizer"; };
+const char* CustomOpBertTokenizer::GetName() const { return "BertTokenizer"; }
 
 size_t CustomOpBertTokenizer::GetInputTypeCount() const {
   return 1;
-};
+}
 
-ONNXTensorElementDataType CustomOpBertTokenizer::GetInputType(size_t /*index*/) const {
+ONNXTensorElementDataType CustomOpBertTokenizer::GetInputType(size_t /* index */) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-};
+}
 
 size_t CustomOpBertTokenizer::GetOutputTypeCount() const {
   return 3;
-};
+}
 
-ONNXTensorElementDataType CustomOpBertTokenizer::GetOutputType(size_t /*index*/) const {
+ONNXTensorElementDataType CustomOpBertTokenizer::GetOutputType(size_t /* index */) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-};
+}
+
+KernelHfBertTokenizer::KernelHfBertTokenizer(OrtApi api, const OrtKernelInfo* info) : KernelBertTokenizer(api, info) {}
+
+void KernelHfBertTokenizer::Compute(OrtKernelContext* context) {
+  // Setup inputs
+  const OrtValue *const input = ort_.KernelContext_GetInput(context, 0);
+  std::vector<std::string> input_data;
+  GetTensorMutableDataString(api_, ort_, context, input, input_data);
+
+  if (input_data.size() != 2) {
+    ORT_CXX_API_THROW("[HfBertTokenizer]: Support only two input strings.", ORT_INVALID_GRAPH);
+  }
+
+  std::vector<ustring> tokens1 = tokenizer_->Tokenize(ustring(input_data[0]));
+  std::vector<ustring> tokens2 = tokenizer_->Tokenize(ustring(input_data[1]));
+  std::vector<int64_t> encoded1 = tokenizer_->Encode(tokens1);
+  std::vector<int64_t> encoded2 = tokenizer_->Encode(tokens2);
+  std::vector<int64_t> input_ids = tokenizer_->AddSpecialToken(encoded1, encoded2);
+  std::vector<int64_t> token_type_ids = tokenizer_->GenerateTypeId(encoded1, encoded2);
+  std::vector<int64_t> attention_mask(input_ids.size(), 1LL);
+
+  const std::vector<int64_t> outer_dims{1LL, static_cast<int64_t>(input_ids.size())};
+  const std::vector<int64_t> inner_dims{1LL};
+  for (int32_t i = 0; i < 3; ++i) {
+    OrtValue* const value = ort_.KernelContext_GetOutput(context, i, outer_dims.data(), outer_dims.size());
+    OrtTensorTypeAndShapeInfo *const info = ort_.GetTensorTypeAndShape(value);
+    ort_.SetDimensions(info, inner_dims.data(), inner_dims.size());
+    ort_.ReleaseTensorTypeAndShapeInfo(info);
+  }
+
+  SetOutput(context, 0, outer_dims, input_ids);
+  SetOutput(context, 1, outer_dims, attention_mask);
+  SetOutput(context, 2, outer_dims, token_type_ids);
+}
+
+void* CustomOpHfBertTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+  return new KernelHfBertTokenizer(api, info);
+}
+
+const char* CustomOpHfBertTokenizer::GetName() const { return "HfBertTokenizer"; }
+
+size_t CustomOpHfBertTokenizer::GetInputTypeCount() const {
+  return 1;
+}
+
+ONNXTensorElementDataType CustomOpHfBertTokenizer::GetInputType(size_t /* index */) const {
+  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+}
+
+size_t CustomOpHfBertTokenizer::GetOutputTypeCount() const {
+  return 3;
+}
+
+ONNXTensorElementDataType CustomOpHfBertTokenizer::GetOutputType(size_t /* index */) const {
+  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+}
