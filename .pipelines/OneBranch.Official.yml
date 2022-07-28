@@ -83,9 +83,16 @@ extends:
             set PYTHONPATH=
             set PYTHONHOME=
             python -m pip install --upgrade pip
-            python -m pip install cibuildwheel
+            python -m pip install cibuildwheel numpy
             python -m cibuildwheel --platform windows --output-dir $(REPOROOT)\out
           displayName: Build wheels
+        - task: SDLNativeRules@3
+          inputs:
+            msBuildArchitecture: amd64
+            setupCommandlines: '"C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.EXE" $(REPOROOT) -A x64 -B $(REPOROOT)\windows_out -DOCOS_ENABLE_PYTHON=ON -DOCOS_ENABLE_CTEST=OFF -DCMAKE_BUILD_TYPE=Release'
+            msBuildCommandline: '"C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin\amd64\msbuild.exe" "$(REPOROOT)\windows_out\onnxruntime_extensions.sln" /p:RunCodeAnalysis=true /p:platform=x64 /p:configuration=Release /p:VisualStudioVersion="16.0" /m /p:PreferredToolArchitecture=x64'
+            excludedPaths: '$(Build.BinariesDirectory)#$(Build.SourcesDirectory)\cmake#C:\program files (x86)'
+          displayName: 'Run the PREfast SDL Native Rules for MSBuild'
         - script: |
             7z x $(REPOROOT)\out\*.whl -o$(REPOROOT)\out\*
           displayName: unzip the package
