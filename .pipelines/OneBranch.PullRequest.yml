@@ -106,7 +106,10 @@ extends:
         - task: SdtReport@2
           inputs:
             SDLNativeRules: true
-            displayName: 'Create Security Analysis Report'
+          displayName: 'Create Security Analysis Report'
+        - task: PublishSecurityAnalysisLogs@3
+          continueOnError: False
+          displayName: 'Publish Security Analysis Logs'
         - task: PostAnalysis@2
           inputs:
             GdnBreakGdnToolSDLNativeRulesSeverity: Warning
