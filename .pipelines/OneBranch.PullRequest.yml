@@ -103,6 +103,10 @@ extends:
             msBuildCommandline: '"$(vsmsbuild)" "$(REPOROOT)\windows_out\onnxruntime_extensions.sln" /p:RunCodeAnalysis=true /p:platform=x64 /p:configuration=Release /p:VisualStudioVersion="16.0" /m /p:PreferredToolArchitecture=x64'
             excludedPaths: '$(REPOROOT)\windows_out#$(Build.SourcesDirectory)\cmake#C:\program files (x86)'
           displayName: 'Run the PREfast SDL Native Rules for MSBuild'
+        - task: SdtReport@2
+          inputs:
+            SDLNativeRules: true
+            displayName: 'Create Security Analysis Report'
         - task: PostAnalysis@2
           inputs:
             GdnBreakGdnToolSDLNativeRulesSeverity: Warning
