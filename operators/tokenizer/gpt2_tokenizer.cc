@@ -535,7 +535,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(const ustring& input, int64_t 
     }
   }
 
-  return std::move(res);
+  return res;
 }
 
 void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
