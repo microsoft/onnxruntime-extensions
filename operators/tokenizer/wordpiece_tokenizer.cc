@@ -28,8 +28,8 @@ void KernelWordpieceTokenizer_Split(const std::u32string& suffix_indicator,
                                     const std::u32string& text,
                                     std::vector<std::u32string>& words) {
   ustring space(" ");
-  int pos = 0;
-  int last = 0;
+  size_t pos = 0;
+  size_t last = 0;
   words.clear();
   for (; pos < text.size(); ++pos) {
     if (text[pos] == space[0]) {
@@ -57,7 +57,7 @@ void KernelWordpieceTokenizer_Tokenizer(const std::unordered_map<std::u32string,
   std::vector<std::u32string> words;
   bool is_bad;
   bool no_existing_rows = n_existing_rows == 0;
-  int start, end;
+  size_t start = 0, end = 0;
   std::u32string substr;
   int64_t cur_substr;
   tokens.clear();
