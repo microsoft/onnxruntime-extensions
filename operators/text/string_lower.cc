@@ -17,7 +17,7 @@ void KernelStringLower::Compute(OrtKernelContext* context) {
   GetTensorMutableDataString(api_, ort_, context, input_X, X);
 
   for (int64_t i = 0; i < (int64_t)X.size(); ++i) {
-    std::transform(X[i].begin(), X[i].end(), X[i].begin(), ToLower);
+    std::transform(X[i].begin(), X[i].end(), X[i].begin(), [](char c) {return static_cast<char>(ToLower(c));});
   }
 
   OrtTensorDimensions dimensions(ort_, input_X);

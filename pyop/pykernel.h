@@ -9,7 +9,7 @@
 
 struct PyCustomOpDef {
   std::string op_type;
-  uint64_t obj_id;
+  uint64_t obj_id = 0;
   std::vector<int> input_types;
   std::vector<int> output_types;
   std::vector<std::string> attrs;
@@ -88,7 +88,7 @@ struct PyCustomOpFactory : Ort::CustomOpBase<PyCustomOpFactory, PyCustomOpKernel
     return static_cast<ONNXTensorElementDataType>(opdef_->output_types[idx]);
   }
 
-  const PyCustomOpDef* opdef_;
+  const PyCustomOpDef* opdef_ = nullptr;
   std::string op_type_;
   std::string op_domain_;
 };

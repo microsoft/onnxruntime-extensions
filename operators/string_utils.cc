@@ -174,7 +174,7 @@ uint64_t Hash64(const char* data, size_t n, uint64_t seed) {
       h ^= ByteAs64(data[2]) << 16;
     case 2:
       h ^= ByteAs64(data[1]) << 8;
-    case 1:
+    default: // case 1: make some code analyzer be happier.
       h ^= ByteAs64(data[0]);
       h *= m;
   }

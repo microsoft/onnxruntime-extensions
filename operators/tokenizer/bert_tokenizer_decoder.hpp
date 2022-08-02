@@ -19,11 +19,11 @@ class BertTokenizerDecoder {
 
  private:
   std::string unk_token_;
-  int32_t unk_token_id_;
-  int32_t sep_token_id_;
-  int32_t pad_token_id_;
-  int32_t cls_token_id_;
-  int32_t mask_token_id_;
+  int32_t unk_token_id_ = -1;
+  int32_t sep_token_id_ = -1;
+  int32_t pad_token_id_ = -1;
+  int32_t cls_token_id_ = -1;
+  int32_t mask_token_id_ = -1;
   std::string suffix_indicator_;
   std::vector<std::string_view> vocab_;
   std::string raw_vocab_;
