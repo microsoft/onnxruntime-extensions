@@ -70,22 +70,44 @@ extends:
               if exist "%%i\Common7\Tools\vsdevcmd.bat" (
                 set vsdevcmd="%%i\Common7\Tools\vsdevcmd.bat"
               )
+              if exist "%%i\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" (
+                set vscmake="%%i\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+              )
+              if exist "%%i\MSBuild\Current\Bin\amd64\msbuild.exe" (
+                set vsmsbuild="%%i\MSBuild\Current\Bin\amd64\msbuild.exe"
+              )
             )
             
             @echo vslatest %vslatest%
             @echo vsdevcmd %vsdevcmd%
+            @echo vscmake %vscmake%
+            @echo vsmsbuild %vsmsbuild%
             
             @echo ##vso[task.setvariable variable=vslatest]%vslatest%
             @echo ##vso[task.setvariable variable=vsdevcmd]%vsdevcmd%
+            @echo ##vso[task.setvariable variable=vscmake]%vscmake%
+            @echo ##vso[task.setvariable variable=vsmsbuild]%vsmsbuild%            
           displayName: 'locate vsdevcmd via vswhere'        
         - script: |
             call $(vsdevcmd)
             set PYTHONPATH=
             set PYTHONHOME=
             python -m pip install --upgrade pip
-            python -m pip install cibuildwheel
+            python -m pip install cibuildwheel numpy
             python -m cibuildwheel --platform windows --output-dir $(REPOROOT)\out
           displayName: Build wheels
+        - task: SDLNativeRules@3
+          inputs:
+            msBuildArchitecture: amd64
+            setupCommandlines: '"$(vscmake)" $(REPOROOT) -A x64 -B $(REPOROOT)\windows_out -DOCOS_ENABLE_PYTHON=ON -DOCOS_ENABLE_CTEST=OFF -DCMAKE_BUILD_TYPE=Release'
+            msBuildCommandline: '"$(vsmsbuild)" "$(REPOROOT)\windows_out\onnxruntime_extensions.sln" /p:RunCodeAnalysis=true /p:platform=x64 /p:configuration=Release /p:VisualStudioVersion="16.0" /m /p:PreferredToolArchitecture=x64'
+            excludedPaths: '$(REPOROOT)\windows_out#$(Build.SourcesDirectory)\cmake#C:\program files (x86)'
+          displayName: 'Run the PREfast SDL Native Rules for MSBuild'
+        - task: PostAnalysis@2
+          inputs:
+            GdnBreakGdnToolSDLNativeRulesSeverity: Warning
+            GdnBreakGdnToolSDLNativeRules: true
+          displayName: 'Guardian Break'
         - script: |
             7z x $(REPOROOT)\out\*.whl -o$(REPOROOT)\out\*
           displayName: unzip the package
