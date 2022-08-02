@@ -97,8 +97,8 @@ void WordpieceTokenizer::GreedySearch(const ustring& token, std::vector<ustring>
     return;
   }
 
-  int start = 0;
-  int end = -1;
+  size_t start = 0;
+  size_t end = 0;
   ustring substr;
   for (; start < token.size();) {
     end = token.size();
@@ -146,12 +146,12 @@ void TruncateStrategy::Truncate(std::vector<int64_t>& ids1, std::vector<int64_t>
     case TruncateStrategyType::LONGEST_FROM_BACK:
 
       if ((ids1_keep_len > half_max_len) && (ids2_keep_len > half_max_len)) {
-        ids1_keep_len = max_len - half_max_len;
+        ids1_keep_len = static_cast<size_t>(max_len) - half_max_len;
         ids2_keep_len = half_max_len;
       } else if (ids2_keep_len > ids1_keep_len) {
-        ids2_keep_len = max_len - ids1_keep_len;
+        ids2_keep_len = static_cast<size_t>(max_len) - ids1_keep_len;
       } else {
-        ids1_keep_len = max_len - ids2_keep_len;
+        ids1_keep_len = static_cast<size_t>(max_len) - ids2_keep_len;
       }
 
       if (strategy_ == TruncateStrategyType::LONGEST_FIRST) {
@@ -179,6 +179,7 @@ BertTokenizer::BertTokenizer(
     const std::string& truncation_strategy)
     : do_basic_tokenize_(do_basic_tokenize), max_length_(max_len)
     , truncate_(std::make_unique<TruncateStrategy>(truncation_strategy)) {
+
   vocab_ = std::make_shared<BertTokenizerVocab>(vocab);
 
   if (do_basic_tokenize) {
