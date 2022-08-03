@@ -9,7 +9,7 @@ const char* GetLibraryPath();
 
 struct TestValue {
   const char* name = nullptr;
-  ONNXTensorElementDataType element_type;
+  ONNXTensorElementDataType element_type = ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED;
   std::vector<int64_t> dims;
   std::vector<float> values_float;
   std::vector<int32_t> values_int32;

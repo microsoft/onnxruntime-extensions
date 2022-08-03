@@ -72,6 +72,8 @@ endif()
 # Build the libraries with -fPIC
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
 set(CMAKE_FIND_FRAMEWORK NEVER CACHE STRING "...")
 if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
   message(FATAL_ERROR "CMAKE_FIND_FRAMEWORK is not NEVER")
@@ -114,8 +116,7 @@ if (OCOS_ENABLE_RE2_REGEX)
 endif()
 
 macro(standardize_output_folder bin_target)
-set_target_properties(${bin_target}
-  PROPERTIES
+set_target_properties(${bin_target} PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
   ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
@@ -382,6 +383,17 @@ if(OCOS_ENABLE_PYTHON)
   endif()
 endif()
 
+# clean up the requirements.txt files from 3rd party project folder to suppress the code security false alarms
+file(GLOB_RECURSE NO_USE_FILES ${CMAKE_BINARY_DIR}/_deps/*requirements.txt)
+message("Found the follow requirements.txt: ${NO_USE_FILES}")
+foreach(nf ${NO_USE_FILES})
+    file(TO_NATIVE_PATH ${nf} nf_native)
+    if (CMAKE_SYSTEM_NAME MATCHES "Windows")
+        execute_process(COMMAND cmd /c "del ${nf_native}")
+    else()
+        execute_process(COMMAND bash -c "rm ${nf_native}")
+    endif()
+endforeach()
 
 # test section
 if (OCOS_ENABLE_CTEST)

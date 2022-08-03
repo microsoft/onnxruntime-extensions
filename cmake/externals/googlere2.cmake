@@ -11,5 +11,6 @@ if(NOT ${lcName}_POPULATED)
   add_subdirectory(${googlere2_SOURCE_DIR} ${googlere2_BINARY_DIR} EXCLUDE_FROM_ALL)
   set_target_properties(re2
     PROPERTIES
-        POSITION_INDEPENDENT_CODE ON)
+        POSITION_INDEPENDENT_CODE ON
+        FOLDER externals/google/re2)
 endif()
