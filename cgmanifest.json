@@ -1,0 +1,145 @@
+{
+  "Registrations": [
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "v1.6.0",
+          "repositoryUrl": "https://github.com/microsoft/onnxruntime.git"
+        }
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "0dab03ba7bc438d7ba3eac2b2c1eb39ed520f928",
+          "repositoryUrl": "https://github.com/protocolbuffers/protobuf.git"
+        }
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "0831265c1aca95ca02eca5bf1155e4251e545328",
+          "repositoryUrl": "https://github.com/microsoft/BlingFire.git"
+        }
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "v19.22",
+          "repositoryUrl": "https://github.com/davisking/dlib.git"
+        }
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "2020-11-01",
+          "repositoryUrl": "https://github.com/google/re2.git"
+        }
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "release-1.11.0",
+          "repositoryUrl": "https://github.com/google/googletest.git"
+        }
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "v3.7.3",
+          "repositoryUrl": "https://github.com/nlohmann/json.git"
+        }
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "4.5.4",
+          "repositoryUrl": "https://github.com/opencv/opencv.git"
+        }
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "9d  12-Jan-2020",
+          "repositoryUrl": "https://github.com/opencv/3rdparty/libjpeg"
+        },
+        "comments": "Used by OpenCV"
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "2.4.0",
+          "repositoryUrl": "https://github.com/opencv/3rdparty/openjpeg"
+        },
+        "comments": "Used by OpenCV"
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "1.6.37",
+          "repositoryUrl": "https://github.com/opencv/3rdparty/libpng"
+        },
+        "comments": "Used by OpenCV"
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "v2.6.0",
+          "repositoryUrl": "https://github.com/pybind/pybind11.git"
+        }
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "v0.1.96",
+          "repositoryUrl": "https://github.com/google/sentencepiece.git"
+        }
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "v1.2.11",
+          "repositoryUrl": "https://github.com/madler/zlib.git"
+        },
+        "comments": "Used by OpenCV"
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "aaa5eab410c2e3fe41ebf7a2316be9c51572dbd2",
+          "repositoryUrl": "https://gitlab.kitware.com/cmake/cmake"
+        },
+        "comments": "CMake for building our CI build"
+      }
+    }
+  ],
+  "Version": 1
+}
