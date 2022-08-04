@@ -9,6 +9,8 @@ FetchContent_GetProperties(spm)
 if(NOT spm_POPULATED)
   FetchContent_Populate(spm)
   add_subdirectory(${spm_SOURCE_DIR} ${spm_BINARY_DIR} EXCLUDE_FROM_ALL)
+  set_target_properties(sentencepiece-static PROPERTIES
+    FOLDER externals/google/sentencepiece)
 endif()
 
 set(spm_INCLUDE_DIRS

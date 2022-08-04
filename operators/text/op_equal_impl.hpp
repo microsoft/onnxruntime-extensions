@@ -39,12 +39,12 @@ class BroadcastIteratorRight {
   struct BroadcastIteratorRightState {
     const BroadcastIteratorRight<T1, T2, T3>* parent = nullptr;
     std::vector<int64_t> index1;
-    const T1* p1;
-    const T1* end_;
-    const T2* p2;
-    T3* p3;
-    size_t last;
-    int dim;
+    const T1* p1 = nullptr;
+    const T1* end_ = nullptr;
+    const T2* p2 = nullptr;
+    T3* p3 = nullptr;
+    size_t last = 0;
+    int dim = -1;
 
     void init(const BroadcastIteratorRight<T1, T2, T3>& p) {
       parent = &p;
