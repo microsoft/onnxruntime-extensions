@@ -126,10 +126,14 @@ def read_version():
             version_str = line[0].split('=')[1].strip('" \n\r')
 
     # is it a dev build or release?
-    if os.path.isdir(os.path.join(TOP_DIR, '.git')):
-        rel_br, cid = read_git_refs()
-        if not rel_br:
-            version_str += '+' + cid[:7]
+    build_id = os.getenv('BUILD_BUILDID', None)
+    if build_id is not None:
+        version_str += '.{}'.format(build_id)
+    else:
+        if os.path.isdir(os.path.join(TOP_DIR, '.git')):
+            rel_br, cid = read_git_refs()
+            if not rel_br:
+                version_str += '+' + cid[:7]
     return version_str
 
 
