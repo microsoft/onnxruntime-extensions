@@ -1,5 +1,5 @@
-#!/bin/sh
-# the script should be run with sh, bash on MacOS doesn't expand the alias
+#!/bin/bash
+
 # The example build script to build the source in Linux-like platform
 set -e -x -u
 
