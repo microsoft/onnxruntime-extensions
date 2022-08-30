@@ -76,7 +76,7 @@ class BuildCMakeExt(_build_ext):
         config = 'RelWithDebInfo' if self.debug else 'Release'
         cmake_args = [
             '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + str(ext_fullpath.parent.absolute()),
-            '-DOCOS_ENABLE_PYTHON=ON',
+            '-DOCOS_BUILD_PYTHON=ON',
             '-DOCOS_ENABLE_CTEST=OFF',
             '-DOCOS_EXTENTION_NAME=' + ext_fullpath.name,
             '-DCMAKE_BUILD_TYPE=' + config

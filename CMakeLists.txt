@@ -14,6 +14,8 @@ set(CPACK_PACKAGE_VERSION_MINOR "5")
 set(CPACK_PACKAGE_VERSION_PATCH "0")
 set(VERSION ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH})
 
+# Needed for Java
+set(CMAKE_C_STANDARD 99)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -22,7 +24,7 @@ include(CheckCXXCompilerFlag)
 include(CheckLanguage)
 
 option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
-option(OCOS_ENABLE_PYTHON "Enable Python component building" OFF)
+option(OCOS_ENABLE_PYTHON "Enable Python component building, (deprecated)" OFF)
 option(OCOS_ENABLE_CTEST "Enable C++ test" OFF)
 option(OCOS_ENABLE_CPP_EXCEPTIONS "Enable C++ Exception" ON)
 option(OCOS_ENABLE_TF_STRING "Enable String Operator Set" ON)
@@ -38,7 +40,9 @@ option(OCOS_ENABLE_OPENCV "Enable operators depending on opencv" ON)
 option(OCOS_ENABLE_OPENCV_CODECS "Enable operators depending on opencv imgcodecs" OFF)
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
-
+option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
+option(OCOS_BUILD_JAVA "Enable building the Java package" OFF)
+option(OCOS_BUILD_ANDROID "Enable building the Android package" OFF)
 
 function(disable_all_operators)
   set(OCOS_ENABLE_RE2_REGEX OFF CACHE INTERNAL "")
@@ -67,6 +71,11 @@ if(NOT CC_OPTIMIZE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Od")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Od")
   endif()
+endif()
+
+if (OCOS_ENABLE_PYTHON)
+  message("OCOS_ENABLE_PYTHON IS DEPRECATED, USE OCOS_BUILD_PYTHON INSTEAD")
+  set(OCOS_BUILD_PYTHON ON CACHE INTERNAL "")
 endif()
 
 # Build the libraries with -fPIC
@@ -305,30 +314,9 @@ list(REMOVE_DUPLICATES OCOS_COMPILE_DEFINITIONS)
 target_compile_definitions(ocos_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
 
-file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h")
-if(OCOS_ENABLE_PYTHON)
-  set(Python3_FIND_REGISTRY NEVER CACHE STRING "...")
-  if(NOT "${Python3_FIND_REGISTRY}" STREQUAL "NEVER")
-    message(FATAL_ERROR "Python3_FIND_REGISTRY is not NEVER")
-  endif()
-  find_package(Python3 COMPONENTS Interpreter Development.Module NumPy)
-  if (NOT Python3_FOUND)
-    message(FATAL_ERROR "Python3 or NumPy not found!")
-  endif()
-  if (WIN32)
-    list(APPEND shared_TARGET_SRC "${PROJECT_SOURCE_DIR}/onnxruntime_extensions/ortcustomops.def")
-  endif()
-
-  file(GLOB TARGET_SRC_PYOPS "pyop/*.cc" "pyop/*.h")
-  add_library(ortcustomops SHARED ${TARGET_SRC_PYOPS} ${shared_TARGET_SRC})
-  standardize_output_folder(ortcustomops)
-  list(APPEND OCOS_COMPILE_DEFINITIONS PYTHON_OP_SUPPORT)
-  # building static lib has higher priority
-elseif(OCOS_ENABLE_STATIC_LIB)
-  add_library(ortcustomops STATIC ${shared_TARGET_SRC})
-  add_library(onnxruntime_extensions ALIAS ortcustomops)
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-  add_executable(ortcustomops ${shared_TARGET_SRC})
+file(GLOB shared_TARGET_LIB_SRC "shared/lib/*.cc" "shared/lib/*.h")
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  add_executable(ortcustomops ${shared_TARGET_LIB_SRC})
   set_target_properties(ortcustomops PROPERTIES LINK_FLAGS "                                  \
                       -s WASM=1                                                               \
                       -s NO_EXIT_RUNTIME=0                                                    \
@@ -346,42 +334,71 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     set_property(TARGET ortcustomops APPEND_STRING PROPERTY LINK_FLAGS " -s ASSERTIONS=0 -s DEMANGLE_SUPPORT=0")
   endif()
 else()
-  list(APPEND shared_TARGET_SRC "${PROJECT_SOURCE_DIR}/shared/ortcustomops.def")
-  add_library(ortcustomops SHARED ${shared_TARGET_SRC})
+  add_library(ortcustomops STATIC ${shared_TARGET_LIB_SRC})
+  add_library(onnxruntime_extensions ALIAS ortcustomops)
+  file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h" "shared/*.def")
+  add_library(extensions_shared SHARED ${shared_TARGET_SRC})
   if (CMAKE_SYSTEM_NAME STREQUAL "Android")
     if (OCOS_ENABLE_SPM_TOKENIZER)
       target_link_libraries(ortcustomops PUBLIC log)
-      set_property(TARGET ortcustomops APPEND_STRING PROPERTY LINK_FLAGS "-Wl,-s -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
     endif()
+    set_property(TARGET ortcustomops APPEND_STRING PROPERTY LINK_FLAGS "-Wl,-s -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
   endif()
-  standardize_output_folder(ortcustomops)
+  standardize_output_folder(extensions_shared)
+  target_link_libraries(extensions_shared PUBLIC ortcustomops)
+  set_target_properties(extensions_shared PROPERTIES
+    OUTPUT_NAME "ortextensions")
 endif()
 
-target_compile_definitions(ortcustomops PRIVATE  ${OCOS_COMPILE_DEFINITIONS} ${GTEST_CXX_FLAGS})
+target_compile_definitions(ortcustomops PUBLIC ${OCOS_COMPILE_DEFINITIONS} ${GTEST_CXX_FLAGS})
 target_link_libraries(ortcustomops PUBLIC ocos_operators)
 
-if(OCOS_ENABLE_PYTHON)
+if(OCOS_BUILD_PYTHON)
+  message(STATUS "Python Build is enabled")
+  set(Python3_FIND_REGISTRY NEVER CACHE STRING "...")
+  if(NOT "${Python3_FIND_REGISTRY}" STREQUAL "NEVER")
+    message(FATAL_ERROR "Python3_FIND_REGISTRY is not NEVER")
+  endif()
+  find_package(Python3 COMPONENTS Interpreter Development.Module NumPy)
+  if (NOT Python3_FOUND)
+    message(FATAL_ERROR "Python3 or NumPy not found!")
+  endif()
+  if (WIN32)
+    list(APPEND shared_TARGET_SRC "${PROJECT_SOURCE_DIR}/onnxruntime_extensions/ortcustomops.def")
+  endif()
+
+  file(GLOB TARGET_SRC_PYOPS "pyop/*.cc" "pyop/*.h")
+  add_library(extensions_pydll SHARED ${TARGET_SRC_PYOPS} ${shared_TARGET_SRC})
+  standardize_output_folder(extensions_pydll)
+  list(APPEND OCOS_COMPILE_DEFINITIONS PYTHON_OP_SUPPORT)
+  target_compile_definitions(extensions_pydll PRIVATE ${OCOS_COMPILE_DEFINITIONS} ${GTEST_CXX_FLAGS})
+  
   message(STATUS "Fetch pybind11")
   include(pybind11)
-  target_include_directories(ortcustomops PRIVATE
+  target_include_directories(extensions_pydll PRIVATE
     $<TARGET_PROPERTY:Python3::Module,INTERFACE_INCLUDE_DIRECTORIES>
     $<TARGET_PROPERTY:Python3::NumPy,INTERFACE_INCLUDE_DIRECTORIES>
     ${pybind11_INCLUDE_DIRS}
   )
 
-  target_compile_definitions(ortcustomops PRIVATE
+  target_compile_definitions(extensions_pydll PRIVATE
     $<TARGET_PROPERTY:Python3::Module,INTERFACE_COMPILE_DEFINITIONS>)
 
-  target_link_libraries(ortcustomops PRIVATE Python3::Module)
+  target_link_libraries(extensions_pydll PRIVATE Python3::Module ortcustomops)
 
   if(NOT "${OCOS_EXTENTION_NAME}" STREQUAL "")
     if(NOT WIN32)
-      set_target_properties(ortcustomops PROPERTIES
+      set_target_properties(extensions_pydll PROPERTIES
         LIBRARY_OUTPUT_NAME ${OCOS_EXTENTION_NAME}
         PREFIX ""
         SUFFIX "")
     endif()
   endif()
+endif()
+
+if(OCOS_BUILD_JAVA)
+  message(STATUS "Java Build is enabled")
+  include(ext_java)
 endif()
 
 # clean up the requirements.txt files from 3rd party project folder to suppress the code security false alarms
@@ -399,12 +416,6 @@ endforeach()
 # test section
 if (OCOS_ENABLE_CTEST)
   # Enable CTest
-  SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
-  find_library(ONNXRUNTIME onnxruntime HINTS "${ONNXRUNTIME_LIB_DIR}")
-  if (NOT ONNXRUNTIME)
-    message(FATAL_ERROR "The ctest needs the prebuilt onnxruntime libraries directory, please specify it by ONNXRUNTIME_LIB_DIR.")
-  endif()
-
   enable_testing()
   message(STATUS "Fetch CTest")
   include(CTest)
@@ -413,40 +424,50 @@ if (OCOS_ENABLE_CTEST)
   message(STATUS "Fetch googletest")
   include(googletest)
   file(GLOB static_TEST_SRC "${TEST_SRC_DIR}/static_test/*.cc")
-  add_executable(operators_test ${static_TEST_SRC})
-  standardize_output_folder(operators_test)
-  target_link_libraries(operators_test PRIVATE gtest_main ocos_operators ${ocos_libraries})
-  add_test(NAME operators_test COMMAND $<TARGET_FILE:operators_test>)
+  add_executable(ocos_test ${static_TEST_SRC})
+  standardize_output_folder(ocos_test)
+  target_link_libraries(ocos_test PRIVATE gtest_main ocos_operators ${ocos_libraries})
+  add_test(NAME ocos_test COMMAND $<TARGET_FILE:ocos_test>)
 
-  set(LINUX_CC_FLAGS "")
-  # needs to link with stdc++fs in Linux
-  if(UNIX AND NOT APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
-    list(APPEND LINUX_CC_FLAGS stdc++fs -pthread)
-  endif()
 
-  file(GLOB shared_TEST_SRC "${TEST_SRC_DIR}/shared_test/*.cc")
-  add_executable(ortcustomops_test ${shared_TEST_SRC})
-  standardize_output_folder(ortcustomops_test)
-  if (ONNXRUNTIME_LIB_DIR)
-    target_link_directories(ortcustomops_test PRIVATE ${ONNXRUNTIME_LIB_DIR})
-  endif()
-  target_link_libraries(ortcustomops_test PRIVATE ortcustomops onnxruntime gtest_main ${ocos_libraries} ${LINUX_CC_FLAGS})
-  if (WIN32)
-    file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
-    file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
+  SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
+  find_library(ONNXRUNTIME onnxruntime HINTS "${ONNXRUNTIME_LIB_DIR}")
+  if (ONNXRUNTIME-NOTFOUND)
+    message(WARNING "The prebuilt onnxruntime libraries directory cannot found (via ONNXRUNTIME_LIB_DIR), the extensions_test will be skipped.")
+  else()
+    set(LINUX_CC_FLAGS "")
+    # needs to link with stdc++fs in Linux
+    if(UNIX AND NOT APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
+      list(APPEND LINUX_CC_FLAGS stdc++fs -pthread)
+    endif()
+
+    file(GLOB shared_TEST_SRC "${TEST_SRC_DIR}/shared_test/*.cc")
+    add_executable(extensions_test ${shared_TEST_SRC})
+    standardize_output_folder(extensions_test)
+    target_include_directories(extensions_test PRIVATE
+      "${TEST_SRC_DIR}/ortlite"
+      ${spm_INCLUDE_DIRS})
+    if (ONNXRUNTIME_LIB_DIR)
+      target_link_directories(extensions_test PRIVATE ${ONNXRUNTIME_LIB_DIR})
+    endif()
+    target_link_libraries(extensions_test PRIVATE extensions_shared onnxruntime gtest_main ${ocos_libraries} ${LINUX_CC_FLAGS})
+    if (WIN32)
+      file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
+      file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
+      add_custom_command(
+        TARGET extensions_test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy ${ONNXRUNTIME_LIB_FILES} $<TARGET_FILE_DIR:extensions_test>)
+    endif()
+
+    set(TEST_DATA_SRC ${TEST_SRC_DIR}/data)
+    set(TEST_DATA_DES ${onnxruntime_extensions_BINARY_DIR}/data)
+
+    # Copy test data from source to destination.
     add_custom_command(
-      TARGET ortcustomops_test POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy ${ONNXRUNTIME_LIB_FILES} $<TARGET_FILE_DIR:ortcustomops_test>)
+      TARGET extensions_test POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_directory
+      ${TEST_DATA_SRC}
+      ${TEST_DATA_DES})
+    add_test(NAME extensions_test COMMAND $<TARGET_FILE:extensions_test>)
   endif()
-
-  set(TEST_DATA_SRC ${TEST_SRC_DIR}/data)
-  set(TEST_DATA_DES ${onnxruntime_extensions_BINARY_DIR}/data)
-
-  # Copy test data from source to destination.
-  add_custom_command(
-    TARGET ortcustomops_test POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${TEST_DATA_SRC}
-    ${TEST_DATA_DES})
-  add_test(NAME ortcustomops_test COMMAND $<TARGET_FILE:ortcustomops_test>)
 endif()
