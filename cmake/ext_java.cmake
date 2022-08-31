@@ -1,7 +1,3 @@
-# Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
-# Licensed under the MIT License.
-
-# Setup Java compilation
 include(FindJava)
 find_package(Java REQUIRED)
 include(UseJava)
@@ -9,13 +5,8 @@ if (NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
     find_package(JNI REQUIRED)
 endif()
 
-set(JAVA_ROOT ${REPO_ROOT}/java)
+set(JAVA_ROOT ${PROJECT_SOURCE_DIR}/java)
 set(JAVA_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/java)
-if (onnxruntime_extensions_RUN_ONNX_TESTS)
-  set(JAVA_DEPENDS onnxruntime_extensions ${test_data_target})
-else()
-  set(JAVA_DEPENDS onnxruntime_extensions)
-endif()
 
 # use the gradle wrapper if it exists
 if(EXISTS "${JAVA_ROOT}/gradlew")
@@ -31,7 +22,7 @@ message(STATUS "Using gradle: ${GRADLE_EXECUTABLE}")
 
 # Specify the Java source files
 file(GLOB_RECURSE onnxruntime_extensions4j_gradle_files "${JAVA_ROOT}/*.gradle")
-file(GLOB_RECURSE onnxruntime_extensions4j_src "${JAVA_ROOT}/src/main/java/ai/onnxruntime_extensions/*.java")
+file(GLOB_RECURSE onnxruntime_extensions4j_src "${JAVA_ROOT}/src/main/java/ai/onnxruntime/extensions/*.java")
 set(JAVA_OUTPUT_JAR ${JAVA_ROOT}/build/libs/onnxruntime_extensions.jar)
 # this jar is solely used to signaling mechanism for dependency management in CMake
 # if any of the Java sources change, the jar (and generated headers) will be regenerated and the onnxruntime_extensions4j_jni target will be rebuilt
@@ -54,18 +45,18 @@ set_property(TARGET onnxruntime_extensions4j APPEND PROPERTY ADDITIONAL_CLEAN_FI
 file(GLOB onnxruntime_extensions4j_native_src
     "${JAVA_ROOT}/src/main/native/*.c"
     "${JAVA_ROOT}/src/main/native/*.h"
-    "${REPO_ROOT}/include/onnxruntime_extensions/core/session/*.h"
+    "${PROJECT_SOURCE_DIR}/include/*.h"
     )
 # Build the JNI library
-onnxruntime_extensions_add_shared_library_module(onnxruntime_extensions4j_jni ${onnxruntime_extensions4j_native_src})
+add_library(onnxruntime_extensions4j_jni SHARED ${onnxruntime_extensions4j_native_src})
 set_property(TARGET onnxruntime_extensions4j_jni PROPERTY CXX_STANDARD 11)
 
 # depend on java sources. if they change, the JNI should recompile
 add_dependencies(onnxruntime_extensions4j_jni onnxruntime_extensions4j)
-onnxruntime_extensions_add_include_to_target(onnxruntime_extensions4j_jni onnxruntime_extensions_session)
+target_include_directories(onnxruntime_extensions4j_jni PRIVATE ortcustomops)
 # the JNI headers are generated in the onnxruntime_extensions4j target
-target_include_directories(onnxruntime_extensions4j_jni PRIVATE ${REPO_ROOT}/include ${JAVA_ROOT}/build/headers ${JNI_INCLUDE_DIRS})
-target_link_libraries(onnxruntime_extensions4j_jni PUBLIC onnxruntime_extensions)
+target_include_directories(onnxruntime_extensions4j_jni PRIVATE ${JAVA_ROOT}/build/headers ${JNI_INCLUDE_DIRS})
+target_link_libraries(onnxruntime_extensions4j_jni PRIVATE ortcustomops)
 
 set(JAVA_PACKAGE_OUTPUT_DIR ${JAVA_OUTPUT_DIR}/build)
 file(MAKE_DIRECTORY ${JAVA_PACKAGE_OUTPUT_DIR})
@@ -106,9 +97,9 @@ elseif (POWER)
 else()
   # Now mirror the checks used with MSVC
   if(MSVC)
-    if(onnxruntime_extensions_target_platform STREQUAL "ARM64")
+    if(CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64")
       set(JNI_ARCH aarch64)
-    elseif(onnxruntime_extensions_target_platform STREQUAL "x64")
+    elseif(CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
       set(JNI_ARCH x64)
     else()
       # if everything else failed then we're on a 32-bit arch and Java isn't supported
@@ -136,7 +127,7 @@ endif()
 set(JAVA_OS_ARCH ${JAVA_PLAT}-${JNI_ARCH})
 
 # expose native libraries to the gradle build process
-set(JAVA_PACKAGE_DIR ai/onnxruntime_extensions/native/${JAVA_OS_ARCH})
+set(JAVA_PACKAGE_DIR ai/onnxruntime/extensions/native/${JAVA_OS_ARCH})
 set(JAVA_NATIVE_LIB_DIR ${JAVA_OUTPUT_DIR}/native-lib)
 set(JAVA_NATIVE_JNI_DIR ${JAVA_OUTPUT_DIR}/native-jni)
 set(JAVA_PACKAGE_LIB_DIR ${JAVA_NATIVE_LIB_DIR}/${JAVA_PACKAGE_DIR})
@@ -150,40 +141,10 @@ if (WIN32)
   if(NOT onnxruntime_extensions_ENABLE_STATIC_ANALYSIS)
     add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions> ${JAVA_PACKAGE_LIB_DIR}/$<TARGET_FILE_NAME:onnxruntime_extensions>)
     add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions4j_jni> ${JAVA_PACKAGE_JNI_DIR}/$<TARGET_FILE_NAME:onnxruntime_extensions4j_jni>)
-    if (onnxruntime_extensions_USE_CUDA OR onnxruntime_extensions_USE_DNNL OR onnxruntime_extensions_USE_OPENVINO OR onnxruntime_extensions_USE_TENSORRT)
-      add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions_providers_shared> ${JAVA_PACKAGE_LIB_DIR}/$<TARGET_FILE_NAME:onnxruntime_extensions_providers_shared>)
-    endif()
-    if (onnxruntime_extensions_USE_CUDA)
-      add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions_providers_cuda> ${JAVA_PACKAGE_LIB_DIR}/$<TARGET_FILE_NAME:onnxruntime_extensions_providers_cuda>)
-    endif()
-    if (onnxruntime_extensions_USE_DNNL)
-      add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions_providers_dnnl> ${JAVA_PACKAGE_LIB_DIR}/$<TARGET_FILE_NAME:onnxruntime_extensions_providers_dnnl>)
-    endif()
-    if (onnxruntime_extensions_USE_OPENVINO)
-      add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions_providers_openvino> ${JAVA_PACKAGE_LIB_DIR}/$<TARGET_FILE_NAME:onnxruntime_extensions_providers_openvino>)
-    endif()
-    if (onnxruntime_extensions_USE_TENSORRT)
-      add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions_providers_tensorrt> ${JAVA_PACKAGE_LIB_DIR}/$<TARGET_FILE_NAME:onnxruntime_extensions_providers_tensorrt>)
-    endif()
   endif()
 else()
   add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions> ${JAVA_PACKAGE_LIB_DIR}/$<TARGET_LINKER_FILE_NAME:onnxruntime_extensions>)
   add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions4j_jni> ${JAVA_PACKAGE_JNI_DIR}/$<TARGET_LINKER_FILE_NAME:onnxruntime_extensions4j_jni>)
-  if (onnxruntime_extensions_USE_CUDA OR onnxruntime_extensions_USE_DNNL OR onnxruntime_extensions_USE_OPENVINO OR onnxruntime_extensions_USE_TENSORRT)
-    add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions_providers_shared> ${JAVA_PACKAGE_LIB_DIR}/$<TARGET_LINKER_FILE_NAME:onnxruntime_extensions_providers_shared>)
-  endif()
-  if (onnxruntime_extensions_USE_CUDA)
-    add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions_providers_cuda> ${JAVA_PACKAGE_LIB_DIR}/$<TARGET_LINKER_FILE_NAME:onnxruntime_extensions_providers_cuda>)
-  endif()
-  if (onnxruntime_extensions_USE_DNNL)
-    add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions_providers_dnnl> ${JAVA_PACKAGE_LIB_DIR}/$<TARGET_LINKER_FILE_NAME:onnxruntime_extensions_providers_dnnl>)
-  endif()
-  if (onnxruntime_extensions_USE_OPENVINO)
-    add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions_providers_openvino> ${JAVA_PACKAGE_LIB_DIR}/$<TARGET_LINKER_FILE_NAME:onnxruntime_extensions_providers_openvino>)
-  endif()
-  if (onnxruntime_extensions_USE_TENSORRT)
-    add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions_providers_tensorrt> ${JAVA_PACKAGE_LIB_DIR}/$<TARGET_LINKER_FILE_NAME:onnxruntime_extensions_providers_tensorrt>)
-  endif()
 endif()
 
 # run the build process (this copies the results back into CMAKE_CURRENT_BINARY_DIR)

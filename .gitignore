@@ -5,6 +5,7 @@ build_host_protoc
 build_android
 build_ios
 build_*
+.version.txt
 .venv/
 _subbuild/
 .build_debug/*
@@ -38,7 +39,12 @@ out/
 onnxruntime-*-*-*/
 temp_*.onnx
 test/data/*.py
-
+# Java specific ignores
+java/gradlew
+java/gradlew.bat
+java/gradle
+java/.gradle
+java/hs_*.log
 # Compiled Dynamic libraries
 *.so
 *.dylib
