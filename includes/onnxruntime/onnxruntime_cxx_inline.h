@@ -385,6 +385,11 @@ inline const char* RunOptions::GetRunTag() const {
   return out;
 }
 
+inline RunOptions& RunOptions::AddConfigEntry(const char* config_key, const char* config_value) {
+  ThrowOnError(GetApi().AddRunConfigEntry(p_, config_key, config_value));
+  return *this;
+}
+
 inline RunOptions& RunOptions::SetTerminate() {
   ThrowOnError(GetApi().RunOptionsSetTerminate(p_));
   return *this;
@@ -432,6 +437,11 @@ inline SessionOptions& SessionOptions::EnableProfiling(const ORTCHAR_T* profile_
 
 inline SessionOptions& SessionOptions::DisableProfiling() {
   ThrowOnError(GetApi().DisableProfiling(p_));
+  return *this;
+}
+
+inline SessionOptions& SessionOptions::EnableOrtCustomOps() {
+  ThrowOnError(GetApi().EnableOrtCustomOps(p_));
   return *this;
 }
 
@@ -490,6 +500,16 @@ inline SessionOptions& SessionOptions::AppendExecutionProvider_CUDA(const OrtCUD
   return *this;
 }
 
+inline SessionOptions& SessionOptions::AppendExecutionProvider_ROCM(const OrtROCMProviderOptions& provider_options) {
+  ThrowOnError(GetApi().SessionOptionsAppendExecutionProvider_ROCM(p_, &provider_options));
+  return *this;
+}
+
+inline SessionOptions& SessionOptions::AppendExecutionProvider_TensorRT(const OrtTensorRTProviderOptions& provider_options) {
+  ThrowOnError(GetApi().SessionOptionsAppendExecutionProvider_TensorRT(p_, &provider_options));
+  return *this;
+}
+
 inline SessionOptions& SessionOptions::AppendExecutionProvider_OpenVINO(const OrtOpenVINOProviderOptions& provider_options) {
   ThrowOnError(GetApi().SessionOptionsAppendExecutionProvider_OpenVINO(p_, &provider_options));
   return *this;
@@ -497,6 +517,11 @@ inline SessionOptions& SessionOptions::AppendExecutionProvider_OpenVINO(const Or
 
 inline Session::Session(Env& env, const ORTCHAR_T* model_path, const SessionOptions& options) {
   ThrowOnError(GetApi().CreateSession(env, model_path, options, &p_));
+}
+
+inline Session::Session(Env& env, const ORTCHAR_T* model_path, const SessionOptions& options,
+                        OrtPrepackedWeightsContainer* prepacked_weights_container) {
+  ThrowOnError(GetApi().CreateSessionWithPrepackedWeightsContainer(env, model_path, options, prepacked_weights_container, &p_));
 }
 
 inline Session::Session(Env& env, const void* model_data, size_t model_data_length, const SessionOptions& options) {
@@ -599,6 +624,12 @@ inline char* ModelMetadata::GetDomain(OrtAllocator* allocator) const {
 inline char* ModelMetadata::GetDescription(OrtAllocator* allocator) const {
   char* out;
   ThrowOnError(GetApi().ModelMetadataGetDescription(p_, allocator, &out));
+  return out;
+}
+
+inline char* ModelMetadata::GetGraphDescription(OrtAllocator* allocator) const {
+  char* out;
+  ThrowOnError(GetApi().ModelMetadataGetGraphDescription(p_, allocator, &out));
   return out;
 }
 
@@ -724,6 +755,84 @@ inline Value Value::CreateTensor(const OrtMemoryInfo* info, void* p_data, size_t
   return Value{out};
 }
 
+#if !defined(DISABLE_SPARSE_TENSORS)
+template <typename T>
+inline Value Value::CreateSparseTensor(const OrtMemoryInfo* info, T* p_data, const Shape& dense_shape,
+                                       const Shape& values_shape) {
+  return CreateSparseTensor(info, p_data, dense_shape, values_shape, TypeToTensorType<T>::type);
+}
+
+inline Value Value::CreateSparseTensor(const OrtMemoryInfo* info, void* p_data, const Shape& dense_shape,
+                                       const Shape& values_shape, ONNXTensorElementDataType type) {
+  OrtValue* out;
+  ThrowOnError(GetApi().CreateSparseTensorWithValuesAsOrtValue(info, p_data, dense_shape.shape, dense_shape.shape_len,
+                                                               values_shape.shape, values_shape.shape_len, type, &out));
+  return Value{out};
+}
+
+inline void Value::FillSparseTensorCoo(const OrtMemoryInfo* mem_info, const OrtSparseValuesParam& values_param,
+                                       const int64_t* indices_data, size_t indices_num) {
+  ThrowOnError(GetApi().FillSparseTensorCoo(p_, mem_info, values_param.values_shape,
+                                            values_param.values_shape_len, values_param.data.p_data,
+                                            indices_data, indices_num));
+}
+
+inline void Value::FillSparseTensorCsr(const OrtMemoryInfo* data_mem_info,
+                                       const OrtSparseValuesParam& values,
+                                       const int64_t* inner_indices_data, size_t inner_indices_num,
+                                       const int64_t* outer_indices_data, size_t outer_indices_num) {
+  ThrowOnError(GetApi().FillSparseTensorCsr(p_, data_mem_info, values.values_shape, values.values_shape_len, values.data.p_data,
+                                            inner_indices_data, inner_indices_num,
+                                            outer_indices_data, outer_indices_num));
+}
+
+inline void Value::FillSparseTensorBlockSparse(const OrtMemoryInfo* data_mem_info,
+                                               const OrtSparseValuesParam& values,
+                                               const Shape& indices_shape,
+                                               const int32_t* indices_data) {
+  ThrowOnError(GetApi().FillSparseTensorBlockSparse(p_, data_mem_info, values.values_shape, values.values_shape_len, values.data.p_data,
+                                                    indices_shape.shape, indices_shape.shape_len,
+                                                    indices_data));
+}
+
+inline void Value::UseCooIndices(int64_t* indices_data, size_t indices_num) {
+  ThrowOnError(GetApi().UseCooIndices(p_, indices_data, indices_num));
+}
+
+inline void Value::UseCsrIndices(int64_t* inner_data, size_t inner_num, int64_t* outer_data, size_t outer_num) {
+  ThrowOnError(GetApi().UseCsrIndices(p_, inner_data, inner_num, outer_data, outer_num));
+}
+
+inline void Value::UseBlockSparseIndices(const Shape& indices_shape, int32_t* indices_data) {
+  ThrowOnError(GetApi().UseBlockSparseIndices(p_, indices_shape.shape, indices_shape.shape_len, indices_data));
+}
+
+inline OrtSparseFormat Value::GetSparseFormat() const {
+  OrtSparseFormat format;
+  ThrowOnError(GetApi().GetSparseTensorFormat(p_, &format));
+  return format;
+}
+
+inline TensorTypeAndShapeInfo Value::GetSparseTensorValuesTypeAndShapeInfo() const {
+  OrtTensorTypeAndShapeInfo* output;
+  ThrowOnError(GetApi().GetSparseTensorValuesTypeAndShape(p_, &output));
+  return TensorTypeAndShapeInfo{output};
+}
+
+inline TensorTypeAndShapeInfo Value::GetSparseTensorIndicesTypeShapeInfo(OrtSparseIndicesFormat indices_format) const {
+  OrtTensorTypeAndShapeInfo* output;
+  ThrowOnError(GetApi().GetSparseTensorIndicesTypeShape(p_, indices_format, &output));
+  return TensorTypeAndShapeInfo{output};
+}
+
+template <typename T>
+inline const T* Value::GetSparseTensorIndicesData(OrtSparseIndicesFormat indices_format, size_t& num_indices) const {
+  const void* out;
+  ThrowOnError(GetApi().GetSparseTensorIndices(p_, indices_format, &num_indices, &out));
+  return reinterpret_cast<const T*>(out);
+}
+#endif  // !defined(DISABLE_SPARSE_TENSORS)
+
 template <typename T>
 inline Value Value::CreateTensor(OrtAllocator* allocator, const int64_t* shape, size_t shape_len) {
   return CreateTensor(allocator, shape, shape_len, TypeToTensorType<T>::type);
@@ -734,6 +843,20 @@ inline Value Value::CreateTensor(OrtAllocator* allocator, const int64_t* shape, 
   ThrowOnError(GetApi().CreateTensorAsOrtValue(allocator, shape, shape_len, type, &out));
   return Value{out};
 }
+
+#if !defined(DISABLE_SPARSE_TENSORS)
+template <typename T>
+inline Value Value::CreateSparseTensor(OrtAllocator* allocator, const Shape& dense_shape) {
+  return CreateSparseTensor(allocator, dense_shape, TypeToTensorType<T>::type);
+}
+
+inline Value Value::CreateSparseTensor(OrtAllocator* allocator, const Shape& dense_shape,
+                                       ONNXTensorElementDataType type) {
+  OrtValue* out;
+  ThrowOnError(GetApi().CreateSparseTensorAsOrtValue(allocator, dense_shape.shape, dense_shape.shape_len, type, &out));
+  return Value{out};
+}
+#endif  // !defined(DISABLE_SPARSE_TENSORS)
 
 inline Value Value::CreateMap(Value& keys, Value& values) {
   OrtValue* out;
@@ -766,6 +889,14 @@ inline bool Value::IsTensor() const {
   ThrowOnError(GetApi().IsTensor(p_, &out));
   return out != 0;
 }
+
+#if !defined(DISABLE_SPARSE_TENSORS)
+inline bool Value::IsSparseTensor() const {
+  int out;
+  ThrowOnError(GetApi().IsSparseTensor(p_, &out));
+  return out != 0;
+}
+#endif
 
 inline size_t Value::GetCount() const {
   size_t out;
@@ -821,6 +952,15 @@ const T* Value::GetTensorData() const {
   return out;
 }
 
+#if !defined(DISABLE_SPARSE_TENSORS)
+template <typename T>
+inline const T* Value::GetSparseTensorValues() const {
+  const void* out;
+  ThrowOnError(GetApi().GetSparseTensorValues(p_, &out));
+  return reinterpret_cast<const T*>(out);
+}
+#endif  // !defined(DISABLE_SPARSE_TENSORS)
+
 template <typename T>
 inline T& Value::At(const std::vector<int64_t>& location) {
   static_assert(!std::is_same<T, std::string>::value, "this api does not support std::string");
@@ -866,13 +1006,11 @@ template <>
 inline std::string CustomOpApi::KernelInfoGetAttribute<std::string>(_In_ const OrtKernelInfo* info, _In_ const char* name) {
   size_t size = 0;
   std::string out;
+
+  // Feed nullptr for the data buffer to query the true size of the string attribute
   OrtStatus* status = api_.KernelInfoGetAttribute_string(info, name, nullptr, &size);
 
-  // The status should be ORT_INVALID_ARGUMENT because the size is insufficient to hold the string
-  if (status == nullptr || api_.GetErrorCode(status) == ORT_INVALID_ARGUMENT) {
-    if (status != nullptr) {
-      api_.ReleaseStatus(status);
-    }
+  if (status == nullptr) {
     out.resize(size);
     ThrowOnError(api_.KernelInfoGetAttribute_string(info, name, &out[0], &size));
     out.resize(size - 1);  // remove the terminating character '\0'
@@ -882,6 +1020,39 @@ inline std::string CustomOpApi::KernelInfoGetAttribute<std::string>(_In_ const O
   return out;
 }
 
+template <>
+inline std::vector<float> CustomOpApi::KernelInfoGetAttribute(_In_ const OrtKernelInfo* info, _In_ const char* name) {
+  size_t size = 0;
+  std::vector<float> out;
+
+  // Feed nullptr for the data buffer to query the true size of the attribute
+  OrtStatus* status = api_.KernelInfoGetAttributeArray_float(info, name, nullptr, &size);
+
+  if (status == nullptr) {
+    out.resize(size);
+    ThrowOnError(api_.KernelInfoGetAttributeArray_float(info, name, out.data(), &size));
+  } else {
+    ThrowOnError(status);
+  }
+  return out;
+}
+
+template <>
+inline std::vector<int64_t> CustomOpApi::KernelInfoGetAttribute(_In_ const OrtKernelInfo* info, _In_ const char* name) {
+  size_t size = 0;
+  std::vector<int64_t> out;
+
+  // Feed nullptr for the data buffer to query the true size of the attribute
+  OrtStatus* status = api_.KernelInfoGetAttributeArray_int64(info, name, nullptr, &size);
+
+  if (status == nullptr) {
+    out.resize(size);
+    ThrowOnError(api_.KernelInfoGetAttributeArray_int64(info, name, out.data(), &size));
+  } else {
+    ThrowOnError(status);
+  }
+  return out;
+}
 inline OrtTensorTypeAndShapeInfo* CustomOpApi::GetTensorTypeAndShape(_In_ const OrtValue* value) {
   OrtTensorTypeAndShapeInfo* out;
   ThrowOnError(api_.GetTensorTypeAndShape(value, &out));
