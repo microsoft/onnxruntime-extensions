@@ -6,7 +6,7 @@
 #include "ocos.h"
 
 struct KernelNegPos : BaseKernel {
-  KernelNegPos(OrtApi api) : BaseKernel(api) {
+  KernelNegPos(const OrtApi& api) : BaseKernel(api) {
   }
 
   void Compute(OrtKernelContext* context){
@@ -40,7 +40,7 @@ struct KernelNegPos : BaseKernel {
 };
 
 struct CustomOpNegPos : Ort::CustomOpBase<CustomOpNegPos, KernelNegPos> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const{
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
     return new KernelNegPos(api);  
   }
 

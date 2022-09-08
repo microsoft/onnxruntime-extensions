@@ -9,7 +9,7 @@
 #include "string_hash.hpp"
 
 
-KernelStringHash::KernelStringHash(OrtApi api) : BaseKernel(api) {
+KernelStringHash::KernelStringHash(const OrtApi& api) : BaseKernel(api) {
 }
 
 void KernelStringHash::Compute(OrtKernelContext* context) {
@@ -43,7 +43,7 @@ void KernelStringHash::Compute(OrtKernelContext* context) {
   }
 }
 
-void* CustomOpStringHash::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
+void* CustomOpStringHash::CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const {
   return new KernelStringHash(api);
 };
 
@@ -72,7 +72,7 @@ ONNXTensorElementDataType CustomOpStringHash::GetOutputType(size_t /*index*/) co
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 };
 
-KernelStringHashFast::KernelStringHashFast(OrtApi api) : BaseKernel(api) {
+KernelStringHashFast::KernelStringHashFast(const OrtApi& api) : BaseKernel(api) {
 }
 
 void KernelStringHashFast::Compute(OrtKernelContext* context) {
@@ -106,7 +106,7 @@ void KernelStringHashFast::Compute(OrtKernelContext* context) {
   }
 }
 
-void* CustomOpStringHashFast::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
+void* CustomOpStringHashFast::CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const {
   return new KernelStringHashFast(api);
 };
 

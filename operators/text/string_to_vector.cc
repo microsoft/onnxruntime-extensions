@@ -100,7 +100,7 @@ void StringToVectorImpl::ParseValues(const std::string_view& v, std::vector<int6
   }
 }
 
-KernelStringToVector::KernelStringToVector(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+KernelStringToVector::KernelStringToVector(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   std::string map = ort_.KernelInfoGetAttribute<std::string>(info, "map");
   // unk_value is string here because KernelInfoGetAttribute doesn't support returning vector
   std::string unk = ort_.KernelInfoGetAttribute<std::string>(info, "unk");
@@ -132,7 +132,7 @@ void KernelStringToVector::Compute(OrtKernelContext* context) {
   }
 }
 
-void* CustomOpStringToVector::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+void* CustomOpStringToVector::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
   return new KernelStringToVector(api, info);
 };
 

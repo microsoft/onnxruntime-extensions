@@ -10,7 +10,7 @@
 #include "string_tensor.h"
 
 
-KernelStringECMARegexSplitWithOffsets::KernelStringECMARegexSplitWithOffsets(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+KernelStringECMARegexSplitWithOffsets::KernelStringECMARegexSplitWithOffsets(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   ignore_case_ = TryToGetAttributeWithDefault("ignore_case", false);
 }
 
@@ -84,7 +84,7 @@ void KernelStringECMARegexSplitWithOffsets::Compute(OrtKernelContext* context) {
   memcpy(p_output, row_offsets.data(), row_offsets.size() * sizeof(int64_t));
 }
 
-void* CustomOpStringECMARegexSplitWithOffsets::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+void* CustomOpStringECMARegexSplitWithOffsets::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
   return new KernelStringECMARegexSplitWithOffsets(api, info);
 };
 

@@ -3,7 +3,7 @@
 
 #include "segment_extraction.hpp"
 
-KernelSegmentExtraction::KernelSegmentExtraction(OrtApi api) : BaseKernel(api) {
+KernelSegmentExtraction::KernelSegmentExtraction(const OrtApi& api) : BaseKernel(api) {
 }
 
 void KernelSegmentExtraction::Compute(OrtKernelContext* context) {
@@ -51,7 +51,7 @@ ONNXTensorElementDataType CustomOpSegmentExtraction::GetOutputType(size_t /*inde
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 };
 
-void* CustomOpSegmentExtraction::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
+void* CustomOpSegmentExtraction::CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const {
   return new KernelSegmentExtraction(api);
 };
 

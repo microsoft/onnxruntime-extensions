@@ -52,7 +52,7 @@ void KernelSegmentSum_Compute(Ort::CustomOpApi& ort_, OrtKernelContext* context)
   }
 }
 
-KernelSegmentSum::KernelSegmentSum(OrtApi api) : BaseKernel(api) {
+KernelSegmentSum::KernelSegmentSum(const OrtApi& api) : BaseKernel(api) {
 }
 
 void KernelSegmentSum::Compute(OrtKernelContext* context) {
@@ -71,7 +71,7 @@ ONNXTensorElementDataType CustomOpSegmentSum::GetOutputType(size_t /*index*/) co
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
 };
 
-void* CustomOpSegmentSum::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
+void* CustomOpSegmentSum::CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const {
   return new KernelSegmentSum(api);
 };
 

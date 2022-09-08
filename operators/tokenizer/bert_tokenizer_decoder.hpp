@@ -33,7 +33,7 @@ class BertTokenizerDecoder {
 };
 
 struct KernelBertTokenizerDecoder : BaseKernel {
-  KernelBertTokenizerDecoder(OrtApi api,  const OrtKernelInfo* info);
+  KernelBertTokenizerDecoder(const OrtApi& api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
  private:
   std::shared_ptr<BertTokenizerDecoder> decoder_;
@@ -43,7 +43,7 @@ struct KernelBertTokenizerDecoder : BaseKernel {
 };
 
 struct CustomOpBertTokenizerDecoder : Ort::CustomOpBase<CustomOpBertTokenizerDecoder, KernelBertTokenizerDecoder> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

@@ -9,7 +9,7 @@
 #include <algorithm>
 
 
-KernelMaskedFill::KernelMaskedFill(OrtApi api, const OrtKernelInfo* /*info*/) : BaseKernel(api) {
+KernelMaskedFill::KernelMaskedFill(const OrtApi& api, const OrtKernelInfo* /*info*/) : BaseKernel(api) {
 }
 
 void KernelMaskedFill::Compute(OrtKernelContext* context) {
@@ -51,7 +51,7 @@ void KernelMaskedFill::Compute(OrtKernelContext* context) {
   FillTensorDataString(api_, ort_, context, result, output);
 }
 
-void* CustomOpMaskedFill::CreateKernel(OrtApi api, const OrtKernelInfo*  info) const {
+void* CustomOpMaskedFill::CreateKernel(const OrtApi& api, const OrtKernelInfo*  info) const {
   return new KernelMaskedFill(api, info);
 };
 

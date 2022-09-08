@@ -33,7 +33,7 @@ class VectorToStringImpl {
   };
 
 struct KernelVectorToString : BaseKernel {
-  KernelVectorToString(OrtApi api, const OrtKernelInfo* info);
+  KernelVectorToString(const OrtApi& api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
 
  private:
@@ -41,7 +41,7 @@ struct KernelVectorToString : BaseKernel {
 };
 
 struct CustomOpVectorToString : Ort::CustomOpBase<CustomOpVectorToString, KernelVectorToString> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

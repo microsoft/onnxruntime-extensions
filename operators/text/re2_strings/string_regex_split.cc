@@ -7,7 +7,7 @@
 #include <vector>
 #include <cmath>
 
-KernelStringRegexSplitWithOffsets::KernelStringRegexSplitWithOffsets(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+KernelStringRegexSplitWithOffsets::KernelStringRegexSplitWithOffsets(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
 }
 
 void KernelStringRegexSplitWithOffsets::Compute(OrtKernelContext* context) {
@@ -79,7 +79,7 @@ void KernelStringRegexSplitWithOffsets::Compute(OrtKernelContext* context) {
   memcpy(p_output, row_offsets.data(), row_offsets.size() * sizeof(int64_t));
 }
 
-void* CustomOpStringRegexSplitWithOffsets::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+void* CustomOpStringRegexSplitWithOffsets::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
   return new KernelStringRegexSplitWithOffsets(api, info);
 };
 

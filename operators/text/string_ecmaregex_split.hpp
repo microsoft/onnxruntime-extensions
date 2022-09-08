@@ -9,14 +9,14 @@
 
 // See https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/regex_split_with_offsets.md.
 struct KernelStringECMARegexSplitWithOffsets : BaseKernel {
-  KernelStringECMARegexSplitWithOffsets(OrtApi api, const OrtKernelInfo* info);
+  KernelStringECMARegexSplitWithOffsets(const OrtApi& api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
  private:
   bool ignore_case_;
 };
 
 struct CustomOpStringECMARegexSplitWithOffsets : Ort::CustomOpBase<CustomOpStringECMARegexSplitWithOffsets, KernelStringECMARegexSplitWithOffsets> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;
