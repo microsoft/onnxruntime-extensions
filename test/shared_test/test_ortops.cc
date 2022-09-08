@@ -137,7 +137,7 @@ struct KernelThree : BaseKernel {
 
     // Record substring locations in output
     for (int64_t i = 0; i < dimensions.Size(); i++) {
-      out[i] = static_cast<int64_t>(input_strs[i].find(substr_));
+      out[i] = input_strs[i].find(substr_);
     }
   }
  private:
