@@ -99,8 +99,6 @@ compileTestJava {
 sourceSets.test {
 	// add test resource files
 	resources.srcDirs += [
-		"${rootProject.projectDir}/../csharp/testdata",
-		"${rootProject.projectDir}/../onnxruntime/test/testdata",
 		"${rootProject.projectDir}/../java/testdata"
 	]
 	if (cmakeBuildDir != null) {
