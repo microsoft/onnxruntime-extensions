@@ -45,6 +45,7 @@ java/gradlew.bat
 java/gradle
 java/.gradle
 java/hs_*.log
+*.class
 # Compiled Dynamic libraries
 *.so
 *.dylib

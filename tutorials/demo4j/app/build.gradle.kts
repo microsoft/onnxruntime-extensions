@@ -20,15 +20,17 @@ dependencies {
     // Use JUnit Jupiter for testing.
     testImplementation("org.junit.jupiter:junit-jupiter:5.7.2")
 
+    // onnxruntime and its extensions package
     implementation("com.microsoft.onnxruntime:onnxruntime:1.12.1")
-    implementation(files("libs/onnxruntime.extensions-0.5.0.jar"))
+    implementation(files("libs/onnxruntime-extensions-0.5.0.jar"))
+
     // This dependency is used by the application.
     implementation("com.google.guava:guava:30.1.1-jre")
 }
 
 application {
     // Define the main class for the application.
-    mainClass.set("ortx4j.App")
+    mainClass.set("demo4j.App")
 }
 
 tasks.named<Test>("test") {

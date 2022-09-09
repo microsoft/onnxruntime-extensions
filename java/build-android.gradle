@@ -27,8 +27,8 @@ project.version = rootProject.file('../.version.txt').text.trim()
 project.group = "com.microsoft.onnxruntime.extensions"
 
 def mavenArtifactId = isMobileBuild ? project.name + '-mobile' : project.name + '-android'
-def mobileDescription = 'The ONNXRuntime-Extensions Mobile is a library for Android for pre- and post-processing on inference.'
-def defaultDescription = 'The ONNXRuntime-Extensions is a library for Android for pre- and post-processing on inference.'
+def mobileDescription = 'ONNXRuntime-Extensions Mobile is a library for Android for pre- and post-processing on inference.'
+def defaultDescription = 'ONNXRuntime-Extensions is a library for Android for pre- and post-processing on inference.'
 
 buildscript {
 	repositories {

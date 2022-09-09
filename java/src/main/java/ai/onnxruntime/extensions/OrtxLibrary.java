@@ -1,15 +1,14 @@
 package ai.onnxruntime.extensions;
 
-import java.io.IOException;
 import java.io.*;
-import java.nio.file.FileSystemNotFoundException;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
-import java.nio.file.ProviderNotFoundException;
 import java.nio.file.StandardCopyOption;
 
 
-public class Utils {
+public class OrtxLibrary {
+
+    private static File tempLibraryFile;
+
     static{
         try{
             String path = "/ai/onnxruntime/extensions/native/linux-x64/" + System.mapLibraryName("onnxruntime_extensions4j_jni");
@@ -21,48 +20,30 @@ public class Utils {
             File temporaryDir = createTempDirectory("ortx4j");
             temporaryDir.deleteOnExit();
 
-            File temp = new File(temporaryDir, filename);
+            tempLibraryFile = new File(temporaryDir, filename);
 
-            try (InputStream is = Utils.class.getResourceAsStream(path)) {
-                Files.copy(is, temp.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            try (InputStream is = OrtxLibrary.class.getResourceAsStream(path)) {
+                Files.copy(is, tempLibraryFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
-                temp.delete();
+                tempLibraryFile.delete();
                 throw e;
             } catch (NullPointerException e) {
-                temp.delete();
+                tempLibraryFile.delete();
                 throw new FileNotFoundException("File " + path + " was not found inside JAR.");
             }
 
             try {
-                System.load(temp.getAbsolutePath());
+                System.load(tempLibraryFile.getAbsolutePath());
             } finally {
-                if (isPosixCompliant()) {
-                    // Assume POSIX compliant file system, can be deleted after loading
-                    temp.delete();
-                } else {
-                    // Assume non-POSIX, and don't delete until last file descriptor closed
-                    temp.deleteOnExit();
-                }
+                tempLibraryFile.deleteOnExit();
             }
         } catch(IOException e1){
             throw new RuntimeException(e1);
         }
     }
 
-    public static String getExtensionVersion() {
-        return "1.0.0";
-    }
-
-    private static boolean isPosixCompliant() {
-        try {
-            return FileSystems.getDefault()
-                    .supportedFileAttributeViews()
-                    .contains("posix");
-        } catch (FileSystemNotFoundException
-                | ProviderNotFoundException
-                | SecurityException e) {
-            return false;
-        }
+    public static String getExtractedLibraryPath() {
+        return tempLibraryFile.getAbsolutePath();
     }
 
     private static File createTempDirectory(String prefix) throws IOException {

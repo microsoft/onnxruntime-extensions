@@ -4,10 +4,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 
-public class UtilsTest {
+public class OrtxTest {
     @Test
     void getRegisterTest() {
-        long handle = Utils.getNativeExtensionOperatorRegister();
+        long handle = OrtxLibrary.getNativeExtensionOperatorRegister();
         Assertions.assertNotEquals(handle, Long.valueOf(0));
     }
 }

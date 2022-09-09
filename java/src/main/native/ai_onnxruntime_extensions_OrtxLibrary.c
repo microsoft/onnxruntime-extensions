@@ -1,8 +1,8 @@
-#include "ai_onnxruntime_extensions_Utils.h"
+#include "ai_onnxruntime_extensions_OrtxLibrary.h"
 #include "onnxruntime_extensions.h"
 
 /*
- * Class:     ai_onnxruntime_extensions_Utils
+ * Class:     ai_onnxruntime_extensions_OrtxLibrary
  * Method:    getNativeExtensionOperatorRegister
  * Signature: ()J
  */
