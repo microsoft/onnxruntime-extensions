@@ -37,7 +37,7 @@ struct BaseKernel {
 
  protected:
   OrtErrorCode GetErrorCodeAndRelease(OrtStatusPtr status);
-  const OrtApi& api_;  // keep a copy of the struct, whose ref is used in the ort_
+  const OrtApi& api_;
   Ort::CustomOpApi ort_;
   const OrtKernelInfo* info_;
 };
