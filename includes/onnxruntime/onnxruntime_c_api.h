@@ -1777,6 +1777,10 @@ struct OrtApi {
    * \param[out] indices out param where the pointer to the internal buffer is returned. Do not free this buffer.
    */
   ORT_API2_STATUS(GetSparseTensorIndices, _In_ const OrtValue* ort_value, enum OrtSparseIndicesFormat indices_format, _Out_ size_t* num_indices, _Outptr_ const void** indices);
+
+#ifdef __cplusplus
+  OrtApi(const OrtApi&) = delete;  // Prevent users from accidentally copying the API structure, it should always be passed as a pointer
+#endif
 };
 
 /*

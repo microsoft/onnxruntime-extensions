@@ -119,7 +119,7 @@ struct CustomOpTwo : Ort::CustomOpBase<CustomOpTwo, KernelTwo> {
 };
 
 struct KernelThree : BaseKernel {
-  KernelThree(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+  KernelThree(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
     if (!TryToGetAttribute("substr", substr_)) {
       substr_ = "";
     }
@@ -145,7 +145,7 @@ struct KernelThree : BaseKernel {
 };
 
 struct CustomOpThree : Ort::CustomOpBase<CustomOpThree, KernelThree> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
     return new KernelThree(api, info);
   };
   const char* GetName() const {
