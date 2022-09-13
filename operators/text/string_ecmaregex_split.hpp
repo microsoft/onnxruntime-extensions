@@ -32,8 +32,8 @@ void ECMARegexSplitImpl(const std::string& input, const std::regex& pattern,
                         std::vector<T>& end_offsets) {
   size_t prev_pos = 0;
   for (auto it = std::sregex_iterator(input.begin(), input.end(), pattern); it != std::sregex_iterator(); it++) {
-    int cur_pos = it->position();
-    int matched_length = it->length();
+    size_t cur_pos = it->position();
+    size_t matched_length = it->length();
     if (prev_pos != it->position()) {
       tokens.emplace_back(input.c_str() + prev_pos, cur_pos - prev_pos);
       begin_offsets.push_back(prev_pos);
