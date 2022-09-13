@@ -377,7 +377,7 @@ void PyCustomOpDef::AddOp(const PyCustomOpDef* cod) {
   // No need to protect against concurrent access, GIL is doing that.
   auto val = std::make_pair(op_domain, std::vector<PyCustomOpFactory>());
   const auto [it_domain_op, success]  = PyOp_container().insert(val);
-  assert(success || it_domain_op->second.length() > 0);
+  assert(success || it_domain_op->first.length() > 0);
   it_domain_op->second.emplace_back(PyCustomOpFactory(cod, op_domain, op));
 }
 
