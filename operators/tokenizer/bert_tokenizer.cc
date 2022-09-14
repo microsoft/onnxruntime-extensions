@@ -259,7 +259,7 @@ TruncateStrategy::TruncateStrategy(std::string_view strategy_name) : strategy_(T
   }
 }
 
-KernelBertTokenizer::KernelBertTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+KernelBertTokenizer::KernelBertTokenizer(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   std::string vocab = ort_.KernelInfoGetAttribute<std::string>(info, "vocab_file");
   bool do_lower_case = TryToGetAttributeWithDefault("do_lower_case", true);
   bool do_basic_tokenize = TryToGetAttributeWithDefault("do_basic_tokenize", true);
@@ -317,7 +317,7 @@ void KernelBertTokenizer::Compute(OrtKernelContext* context) {
   SetOutput(context, 2, output_dim, attention_mask);
 }
 
-void* CustomOpBertTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+void* CustomOpBertTokenizer::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
   return new KernelBertTokenizer(api, info);
 }
 
@@ -339,7 +339,7 @@ ONNXTensorElementDataType CustomOpBertTokenizer::GetOutputType(size_t /* index *
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 }
 
-KernelHfBertTokenizer::KernelHfBertTokenizer(OrtApi api, const OrtKernelInfo* info) : KernelBertTokenizer(api, info) {}
+KernelHfBertTokenizer::KernelHfBertTokenizer(const OrtApi& api, const OrtKernelInfo* info) : KernelBertTokenizer(api, info) {}
 
 void KernelHfBertTokenizer::Compute(OrtKernelContext* context) {
   // Setup inputs
@@ -373,7 +373,7 @@ void KernelHfBertTokenizer::Compute(OrtKernelContext* context) {
   SetOutput(context, 2, outer_dims, token_type_ids);
 }
 
-void* CustomOpHfBertTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+void* CustomOpHfBertTokenizer::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
   return new KernelHfBertTokenizer(api, info);
 }
 
