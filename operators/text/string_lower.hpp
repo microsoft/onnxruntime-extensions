@@ -7,12 +7,12 @@
 #include "string_utils.h"
 
 struct KernelStringLower : BaseKernel {
-  KernelStringLower(OrtApi api);
+  KernelStringLower(const OrtApi& api);
   void Compute(OrtKernelContext* context);
 };
 
 struct CustomOpStringLower : Ort::CustomOpBase<CustomOpStringLower, KernelStringLower> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

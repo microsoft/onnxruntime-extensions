@@ -9,7 +9,7 @@
 #include <algorithm>
 
 
-KernelStringConcat::KernelStringConcat(OrtApi api) : BaseKernel(api) {
+KernelStringConcat::KernelStringConcat(const OrtApi& api) : BaseKernel(api) {
 }
 
 void KernelStringConcat::Compute(OrtKernelContext* context) {
@@ -37,7 +37,7 @@ void KernelStringConcat::Compute(OrtKernelContext* context) {
   FillTensorDataString(api_, ort_, context, left_value, output);
 }
 
-void* CustomOpStringConcat::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
+void* CustomOpStringConcat::CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const {
   return new KernelStringConcat(api);
 };
 

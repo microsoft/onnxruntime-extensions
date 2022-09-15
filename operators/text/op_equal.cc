@@ -5,7 +5,7 @@
 #include "op_equal_impl.hpp"
 #include <string>
 
-KernelStringEqual::KernelStringEqual(OrtApi api) : BaseKernel(api) {
+KernelStringEqual::KernelStringEqual(const OrtApi& api) : BaseKernel(api) {
 }
 
 void KernelStringEqual::Compute(OrtKernelContext* context) {
@@ -24,7 +24,7 @@ ONNXTensorElementDataType CustomOpStringEqual::GetOutputType(size_t /*index*/) c
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL;
 };
 
-void* CustomOpStringEqual::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const{
+void* CustomOpStringEqual::CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const{
   return new KernelStringEqual(api);
 };
 

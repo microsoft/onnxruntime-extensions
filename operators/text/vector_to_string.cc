@@ -103,7 +103,7 @@ void VectorToStringImpl::ParseValues(const std::string_view& v, std::vector<int6
   }
 }
 
-KernelVectorToString::KernelVectorToString(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+KernelVectorToString::KernelVectorToString(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   std::string map = ort_.KernelInfoGetAttribute<std::string>(info, "map");
   std::string unk = ort_.KernelInfoGetAttribute<std::string>(info, "unk");
 
@@ -124,7 +124,7 @@ void KernelVectorToString::Compute(OrtKernelContext* context) {
   FillTensorDataString(api_, ort_, context, mapping_result, output);
 }
 
-void* CustomOpVectorToString::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+void* CustomOpVectorToString::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
   return new KernelVectorToString(api, info);
 };
 

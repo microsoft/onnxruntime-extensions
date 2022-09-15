@@ -90,7 +90,7 @@ class BertTokenizer final {
 };
 
 struct KernelBertTokenizer : BaseKernel {
-  KernelBertTokenizer(OrtApi api, const OrtKernelInfo* info);
+  KernelBertTokenizer(const OrtApi& api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
 
  protected:
@@ -98,7 +98,7 @@ struct KernelBertTokenizer : BaseKernel {
 };
 
 struct CustomOpBertTokenizer : Ort::CustomOpBase<CustomOpBertTokenizer, KernelBertTokenizer> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;
@@ -107,12 +107,12 @@ struct CustomOpBertTokenizer : Ort::CustomOpBase<CustomOpBertTokenizer, KernelBe
 };
 
 struct KernelHfBertTokenizer : KernelBertTokenizer {
-  KernelHfBertTokenizer(OrtApi api, const OrtKernelInfo* info);
+  KernelHfBertTokenizer(const OrtApi& api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
 };
 
 struct CustomOpHfBertTokenizer : Ort::CustomOpBase<CustomOpHfBertTokenizer, KernelHfBertTokenizer> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

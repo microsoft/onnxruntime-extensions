@@ -7,12 +7,12 @@
 #include "string_utils.h"
 
 struct KernelStringConcat : BaseKernel {
-  KernelStringConcat(OrtApi api);
+  KernelStringConcat(const OrtApi& api);
   void Compute(OrtKernelContext* context);
 };
 
 struct CustomOpStringConcat : Ort::CustomOpBase<CustomOpStringConcat, KernelStringConcat> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

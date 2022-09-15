@@ -463,7 +463,7 @@ bool IsEmptyUString(const ustring& str) {
 
 
 
-KernelBpeTokenizer::KernelBpeTokenizer(OrtApi api, const OrtKernelInfo* info)
+KernelBpeTokenizer::KernelBpeTokenizer(const OrtApi& api, const OrtKernelInfo* info)
     : BaseKernel(api, info) {
   std::string vocab = ort_.KernelInfoGetAttribute<std::string>(info, "vocab");
   if (vocab.empty()) {
@@ -582,7 +582,7 @@ void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
   }
 }
 
-void* CustomOpBpeTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+void* CustomOpBpeTokenizer::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
   return new KernelBpeTokenizer(api, info);
 }
 

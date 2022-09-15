@@ -7,7 +7,7 @@
 #include <regex>
 #include "string_tensor.h"
 
-KernelStringECMARegexReplace::KernelStringECMARegexReplace(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+KernelStringECMARegexReplace::KernelStringECMARegexReplace(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   global_replace_ = TryToGetAttributeWithDefault("global_replace", true);
   ignore_case_ = TryToGetAttributeWithDefault("ignore_case", false);
 
@@ -70,7 +70,7 @@ void KernelStringECMARegexReplace::Compute(OrtKernelContext* context) {
   FillTensorDataString(api_, ort_, context, str_input, output);
 }
 
-void* CustomOpStringECMARegexReplace::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+void* CustomOpStringECMARegexReplace::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
   return new KernelStringECMARegexReplace(api, info);
 };
 

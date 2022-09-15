@@ -18,6 +18,8 @@ ONNX Runtime Extensions is library that extends the capability of the ONNX conve
 
 ### Installation
 
+For a complete list of verified build configurations see [here](<./build_matrix.md>)
+
 #### Install from PyPI
 
 ```bash

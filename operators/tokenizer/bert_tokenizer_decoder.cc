@@ -112,7 +112,7 @@ bool BertTokenizerDecoder::RemoveTokenizeSpace(int64_t pre_token_id, int64_t new
   return false;
 }
 
-KernelBertTokenizerDecoder::KernelBertTokenizerDecoder(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+KernelBertTokenizerDecoder::KernelBertTokenizerDecoder(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   std::string vocab = ort_.KernelInfoGetAttribute<std::string>(info, "vocab_file");
   std::string unk_token = TryToGetAttributeWithDefault("unk_token", std::string("[UNK]"));
   std::string sep_token = TryToGetAttributeWithDefault("sep_token", std::string("[SEP]"));
@@ -170,7 +170,7 @@ void KernelBertTokenizerDecoder::Compute(OrtKernelContext* context) {
   FillTensorDataString(api_, ort_, context, result, output);
 }
 
-void* CustomOpBertTokenizerDecoder::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+void* CustomOpBertTokenizerDecoder::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
   return new KernelBertTokenizerDecoder(api, info);
 };
 

@@ -5,7 +5,7 @@
 
 
 struct KernelImageReader : BaseKernel {
-  KernelImageReader(OrtApi api) : BaseKernel(api) {
+  KernelImageReader(const OrtApi& api) : BaseKernel(api) {
   }
 
   void Compute(OrtKernelContext* context) {
@@ -49,7 +49,7 @@ struct CustomOpImageReader : Ort::CustomOpBase<CustomOpImageReader, KernelImageR
     return "ImageReader";
   }
 
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
     return new KernelImageReader(api);
   }
 };

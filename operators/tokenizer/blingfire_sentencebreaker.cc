@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <memory>
 
-KernelBlingFireSentenceBreaker::KernelBlingFireSentenceBreaker(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info), max_sentence(-1) {
+KernelBlingFireSentenceBreaker::KernelBlingFireSentenceBreaker(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info), max_sentence(-1) {
   model_data_ = ort_.KernelInfoGetAttribute<std::string>(info, "model");
   if (model_data_.empty()) {
     ORT_CXX_API_THROW("vocabulary shouldn't be empty.", ORT_INVALID_ARGUMENT);
@@ -78,7 +78,7 @@ void KernelBlingFireSentenceBreaker::Compute(OrtKernelContext* context) {
   Ort::ThrowOnError(api_, api_.FillStringTensor(output, output_sentences.data(), output_sentences.size()));
 }
 
-void* CustomOpBlingFireSentenceBreaker::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+void* CustomOpBlingFireSentenceBreaker::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
   return new KernelBlingFireSentenceBreaker(api, info);
 };
 

@@ -37,11 +37,11 @@ struct PyCustomOpDef {
 };
 
 struct PyCustomOpKernel {
-  PyCustomOpKernel(OrtApi api, const OrtKernelInfo* info, uint64_t id, const std::vector<std::string>& attrs);
+  PyCustomOpKernel(const OrtApi& api, const OrtKernelInfo* info, uint64_t id, const std::vector<std::string>& attrs);
   void Compute(OrtKernelContext* context);
 
  private:
-  OrtApi api_;  // keep a copy of the struct, whose ref is used in the ort_
+  const OrtApi& api_;
   Ort::CustomOpApi ort_;
   uint64_t obj_id_;
   std::map<std::string, std::string> attrs_values_;
@@ -60,7 +60,7 @@ struct PyCustomOpFactory : Ort::CustomOpBase<PyCustomOpFactory, PyCustomOpKernel
     op_type_ = op;
   }
 
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
     return new PyCustomOpKernel(api, info, opdef_->obj_id, opdef_->attrs);
   };
 

@@ -7,7 +7,7 @@
 #include "string_utils.h"
 
 struct KernelSegmentExtraction : BaseKernel {
-  KernelSegmentExtraction(OrtApi api);
+  KernelSegmentExtraction(const OrtApi& api);
   void Compute(OrtKernelContext* context);
 };
 
@@ -16,6 +16,6 @@ struct CustomOpSegmentExtraction : Ort::CustomOpBase<CustomOpSegmentExtraction, 
   size_t GetOutputTypeCount() const;
   ONNXTensorElementDataType GetOutputType(size_t index) const;
   const char* GetName() const;
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   ONNXTensorElementDataType GetInputType(size_t index) const;
 };

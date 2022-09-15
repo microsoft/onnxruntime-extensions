@@ -7,12 +7,12 @@
 #include "string_utils.h"
 
 struct KernelStringHash : BaseKernel {
-  KernelStringHash(OrtApi api);
+  KernelStringHash(const OrtApi& api);
   void Compute(OrtKernelContext* context);
 };
 
 struct CustomOpStringHash : Ort::CustomOpBase<CustomOpStringHash, KernelStringHash> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;
@@ -21,12 +21,12 @@ struct CustomOpStringHash : Ort::CustomOpBase<CustomOpStringHash, KernelStringHa
 };
 
 struct KernelStringHashFast : BaseKernel {
-  KernelStringHashFast(OrtApi api);
+  KernelStringHashFast(const OrtApi& api);
   void Compute(OrtKernelContext* context);
 };
 
 struct CustomOpStringHashFast : Ort::CustomOpBase<CustomOpStringHashFast, KernelStringHashFast> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

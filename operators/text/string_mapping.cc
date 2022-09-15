@@ -9,7 +9,7 @@
 #include <algorithm>
 
 
-KernelStringMapping::KernelStringMapping(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api) {
+KernelStringMapping::KernelStringMapping(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api) {
   std::string map = ort_.KernelInfoGetAttribute<std::string>(info, "map");
   auto lines = SplitString(map, "\n", true);
   for (const auto& line: lines) {
@@ -41,7 +41,7 @@ void KernelStringMapping::Compute(OrtKernelContext* context) {
   FillTensorDataString(api_, ort_, context, input_data, output);
 }
 
-void* CustomOpStringMapping::CreateKernel(OrtApi api, const OrtKernelInfo*  info) const {
+void* CustomOpStringMapping::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
   return new KernelStringMapping(api, info);
 };
 
