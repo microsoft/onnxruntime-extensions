@@ -7,7 +7,7 @@ import java.util.Locale;
 import java.nio.file.StandardCopyOption;
 
 
-public class OrtxLibrary {
+public final class OrtxLibrary {
 
     private static File tempLibraryFile;
     private static final String OS_ARCH_STR = getOsArch();

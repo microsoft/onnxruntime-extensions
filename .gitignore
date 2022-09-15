@@ -46,6 +46,8 @@ java/gradle
 java/.gradle
 java/hs_*.log
 *.class
+tutorials/demo4j/app/bin/
+tutorials/demo4j/app/libs
 # Compiled Dynamic libraries
 *.so
 *.dylib

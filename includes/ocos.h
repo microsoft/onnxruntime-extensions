@@ -51,7 +51,7 @@ struct OrtTensorDimensions : std::vector<int64_t> {
   }
 
   int64_t Size() const {
-    int64_t s = 1.;
+    int64_t s = 1;
     for (auto it = begin(); it != end(); ++it)
       s *= *it;
     return s;

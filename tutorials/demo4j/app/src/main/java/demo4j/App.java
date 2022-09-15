@@ -3,6 +3,9 @@
  */
 package demo4j;
 
+import java.util.Arrays;
+import java.util.Map;
+import java.nio.file.Paths;
 import ai.onnxruntime.*;
 import ai.onnxruntime.extensions.OrtxPackage;
 
@@ -11,17 +14,23 @@ public class App {
         try {
             var env = OrtEnvironment.getEnvironment();
             var sess_opt = new OrtSession.SessionOptions();
-            var pkg = new OrtxPackage();
-            sess_opt.registerCustomOpLibrary(pkg.getLibraryPath());
-            var session = env.createSession("model.onnx", sess_opt);
 
-            sess_opt.close();
-            pkg.close();
+            /* Register the custom ops from onnxruntime-extensions */
+            sess_opt.registerCustomOpLibrary(OrtxPackage.getPackage().getLibraryPath());
+
+            /* do a quick inference on Bert Tokenizer custom ops with Ort */
+            var modelPath = Paths.get(this.getClass().getClassLoader().getResource("test_bert_tokenizer.onnx").getPath());
+            var session = env.createSession(modelPath.toString(), sess_opt);
+            var t1 = OnnxTensor.createTensor(env, new String[]{"This is a test"});
+            var inputs = Map.of("text", t1);
+            try (var r = session.run(inputs)) {
+                long[] tokenIds = (long[])r.get("input_ids").get().getValue();
+                return Arrays.toString(tokenIds);
+            }
+
         } catch(OrtException e1) {
             return e1.getMessage();
         }
-
-        return "OK.";
     }
 
     public static void main(String[] args) {
