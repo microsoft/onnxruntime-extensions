@@ -7,7 +7,7 @@
 #include "string_utils.h"
 
 struct KernelStringEqual : BaseKernel {
-  KernelStringEqual(OrtApi api);
+  KernelStringEqual(const OrtApi& api);
   void Compute(OrtKernelContext* context);
 };
 
@@ -16,6 +16,6 @@ struct CustomOpStringEqual : Ort::CustomOpBase<CustomOpStringEqual, KernelString
   size_t GetOutputTypeCount() const;
   ONNXTensorElementDataType GetOutputType(size_t index) const;
   const char* GetName() const;
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const;
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const;
   ONNXTensorElementDataType GetInputType(size_t index) const;
 };

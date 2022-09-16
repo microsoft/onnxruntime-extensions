@@ -6,7 +6,7 @@
 #include "ocos.h"
 
 struct KernelRaggedTensorToSparse : BaseKernel {
-  KernelRaggedTensorToSparse(OrtApi api);
+  KernelRaggedTensorToSparse(const OrtApi& api);
   void Compute(OrtKernelContext* context);
 };
 
@@ -15,12 +15,12 @@ struct CustomOpRaggedTensorToSparse : Ort::CustomOpBase<CustomOpRaggedTensorToSp
   size_t GetOutputTypeCount() const;
   ONNXTensorElementDataType GetOutputType(size_t index) const;
   const char* GetName() const;
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const;
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const;
   ONNXTensorElementDataType GetInputType(size_t index) const;
 };
 
 struct CommonRaggedTensorToDense : BaseKernel {
-  CommonRaggedTensorToDense(OrtApi api, const OrtKernelInfo* info);
+  CommonRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo* info);
 
  protected:
   void GetInputDims(OrtKernelContext* context, const OrtValue** inputs, OrtTensorDimensions* dims);
@@ -28,7 +28,7 @@ struct CommonRaggedTensorToDense : BaseKernel {
 };
 
 struct KernelRaggedTensorToDense : CommonRaggedTensorToDense {
-  KernelRaggedTensorToDense(OrtApi api, const OrtKernelInfo* info);
+  KernelRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
 
  private:
@@ -40,12 +40,12 @@ struct CustomOpRaggedTensorToDense : Ort::CustomOpBase<CustomOpRaggedTensorToDen
   size_t GetOutputTypeCount() const;
   ONNXTensorElementDataType GetOutputType(size_t index) const;
   const char* GetName() const;
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const;
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const;
   ONNXTensorElementDataType GetInputType(size_t index) const;
 };
 
 struct KernelStringRaggedTensorToDense : CommonRaggedTensorToDense {
-  KernelStringRaggedTensorToDense(OrtApi api, const OrtKernelInfo* info);
+  KernelStringRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
 };
 
@@ -54,6 +54,6 @@ struct CustomOpStringRaggedTensorToDense : Ort::CustomOpBase<CustomOpStringRagge
   size_t GetOutputTypeCount() const;
   ONNXTensorElementDataType GetOutputType(size_t index) const;
   const char* GetName() const;
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const;
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const;
   ONNXTensorElementDataType GetInputType(size_t index) const;
 };

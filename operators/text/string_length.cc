@@ -9,7 +9,7 @@
 #include <algorithm>
 
 
-KernelStringLength::KernelStringLength(OrtApi api) : BaseKernel(api) {
+KernelStringLength::KernelStringLength(const OrtApi& api) : BaseKernel(api) {
 }
 
 void KernelStringLength::Compute(OrtKernelContext* context) {
@@ -27,7 +27,7 @@ void KernelStringLength::Compute(OrtKernelContext* context) {
   }
 }
 
-void* CustomOpStringLength::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
+void* CustomOpStringLength::CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const {
   return new KernelStringLength(api);
 };
 

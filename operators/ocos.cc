@@ -52,8 +52,9 @@ bool BaseKernel::TryToGetAttribute(const char* name, std::string& value) {
   size_t size = 0;
   OrtStatus* status = api_.KernelInfoGetAttribute_string(info_, name, nullptr, &size);
 
-  // The status should be ORT_INVALID_ARGUMENT because the size is insufficient to hold the string
-  if (GetErrorCodeAndRelease(status) != ORT_INVALID_ARGUMENT) {
+  // The status should be a nullptr when querying for the size.
+  if (status != nullptr) {
+    api_.ReleaseStatus(status);
     return false;
   }
 

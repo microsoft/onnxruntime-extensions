@@ -8,7 +8,7 @@
 #include "re2/re2.h"
 #include "string_tensor.h"
 
-KernelStringRegexReplace::KernelStringRegexReplace(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+KernelStringRegexReplace::KernelStringRegexReplace(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   global_replace_ = HasAttribute("global_replace") ? ort_.KernelInfoGetAttribute<int64_t>(info_, "global_replace") : 1;
 }
 
@@ -62,7 +62,7 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
   FillTensorDataString(api_, ort_, context, str_input, output);
 }
 
-void* CustomOpStringRegexReplace::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+void* CustomOpStringRegexReplace::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
   return new KernelStringRegexReplace(api, info);
 };
 

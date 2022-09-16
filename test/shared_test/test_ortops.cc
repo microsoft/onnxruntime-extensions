@@ -24,7 +24,7 @@ const char* GetLibraryPath() {
 }
 
 struct KernelOne : BaseKernel {
-  KernelOne(OrtApi api) : BaseKernel(api) {
+  KernelOne(const OrtApi& api) : BaseKernel(api) {
   }
 
   void Compute(OrtKernelContext* context) {
@@ -52,7 +52,7 @@ struct KernelOne : BaseKernel {
 };
 
 struct CustomOpOne : Ort::CustomOpBase<CustomOpOne, KernelOne> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
     return new KernelOne(api);
   };
   const char* GetName() const {
@@ -73,7 +73,7 @@ struct CustomOpOne : Ort::CustomOpBase<CustomOpOne, KernelOne> {
 };
 
 struct KernelTwo : BaseKernel {
-  KernelTwo(OrtApi api) : BaseKernel(api) {
+  KernelTwo(const OrtApi& api) : BaseKernel(api) {
   }
   void Compute(OrtKernelContext* context) {
     // Setup inputs
@@ -98,7 +98,7 @@ struct KernelTwo : BaseKernel {
 };
 
 struct CustomOpTwo : Ort::CustomOpBase<CustomOpTwo, KernelTwo> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
     return new KernelTwo(api);
   };
   const char* GetName() const {
@@ -115,6 +115,53 @@ struct CustomOpTwo : Ort::CustomOpBase<CustomOpTwo, KernelTwo> {
   };
   ONNXTensorElementDataType GetOutputType(size_t index) const {
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32;
+  };
+};
+
+struct KernelThree : BaseKernel {
+  KernelThree(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+    if (!TryToGetAttribute("substr", substr_)) {
+      substr_ = "";
+    }
+  }
+  void Compute(OrtKernelContext* context) {
+    // Setup inputs
+    const OrtValue* input_val = ort_.KernelContext_GetInput(context, 0);
+    std::vector<std::string> input_strs;
+    GetTensorMutableDataString(api_, ort_, context, input_val, input_strs);
+
+    // Setup output
+    OrtTensorDimensions dimensions(ort_, input_val);
+    OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
+    int64_t* out = ort_.GetTensorMutableData<int64_t>(output);
+
+    // Record substring locations in output
+    for (int64_t i = 0; i < dimensions.Size(); i++) {
+      out[i] = input_strs[i].find(substr_);
+    }
+  }
+ private:
+  std::string substr_;
+};
+
+struct CustomOpThree : Ort::CustomOpBase<CustomOpThree, KernelThree> {
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
+    return new KernelThree(api, info);
+  };
+  const char* GetName() const {
+    return "CustomOpThree";
+  };
+  size_t GetInputTypeCount() const {
+    return 1;
+  };
+  ONNXTensorElementDataType GetInputType(size_t index) const {
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  };
+  size_t GetOutputTypeCount() const {
+    return 1;
+  };
+  ONNXTensorElementDataType GetOutputType(size_t index) const {
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   };
 };
 
@@ -297,6 +344,42 @@ TEST(utils, test_ort_case) {
   AddExternalCustomOp(&op_1st);
   AddExternalCustomOp(&op_2nd);
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+}
+
+static CustomOpThree op_3rd;
+
+TEST(utils, test_get_str_attr) {
+  auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
+
+  // Input: list of strings
+  std::vector<TestValue> inputs(1);
+  inputs[0].name = "input_1";
+  inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  inputs[0].dims = {3};
+  inputs[0].values_string = {"look for abc", "abc is first", "not found here"};
+
+  // Expected output: location of the substring "abc" in each input string.
+  std::vector<TestValue> outputs(1);
+  outputs[0].name = "output_1";
+  outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs[0].dims = {3};
+  outputs[0].values_int64 = {9, 0, -1};
+
+  std::filesystem::path model_path = "data";
+  model_path /= "custom_op_str_attr_test.onnx";
+  AddExternalCustomOp(&op_3rd);
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+
+  // Expected output when the attribute is missing from the node.
+  std::vector<TestValue> outputs_missing(1);
+  outputs_missing[0].name = "output_1";
+  outputs_missing[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  outputs_missing[0].dims = {3};
+  outputs_missing[0].values_int64 = {0, 0, 0};
+
+  std::filesystem::path model_missing_attr_path = "data";
+  model_missing_attr_path /= "custom_op_str_attr_missing_test.onnx";
+  TestInference(*ort_env, model_missing_attr_path.c_str(), inputs, outputs_missing, GetLibraryPath());
 }
 
 TEST(ustring, tensor_operator) {

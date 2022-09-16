@@ -16,7 +16,7 @@ extern "C" int FreeModel(void* ModelPtr);
 extern "C" void* SetModel(const unsigned char* pImgBytes, int ModelByteCount);
 
 struct KernelBlingFireSentenceBreaker : BaseKernel {
-  KernelBlingFireSentenceBreaker(OrtApi api, const OrtKernelInfo* info);
+  KernelBlingFireSentenceBreaker(const OrtApi& api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
  private:
   using ModelPtr = std::shared_ptr<void>;
@@ -26,7 +26,7 @@ struct KernelBlingFireSentenceBreaker : BaseKernel {
 };
 
 struct CustomOpBlingFireSentenceBreaker : Ort::CustomOpBase<CustomOpBlingFireSentenceBreaker, KernelBlingFireSentenceBreaker> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

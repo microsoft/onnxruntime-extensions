@@ -167,7 +167,7 @@ struct PyCustomOpDefImpl : public PyCustomOpDef {
   }
 
   static py::object BuildPyObjFromTensor(
-      OrtApi& api, Ort::CustomOpApi& ort, OrtKernelContext* context, const OrtValue* value,
+      const OrtApi& api, Ort::CustomOpApi& ort, OrtKernelContext* context, const OrtValue* value,
       const shape_t& shape, ONNXTensorElementDataType dtype) {
     std::vector<npy_intp> npy_dims;
     for (auto n : shape) {
@@ -210,7 +210,7 @@ typedef struct {
   std::vector<int64_t> dimensions;
 } InputInformation;
 
-PyCustomOpKernel::PyCustomOpKernel(OrtApi api, const OrtKernelInfo* info,
+PyCustomOpKernel::PyCustomOpKernel(const OrtApi& api, const OrtKernelInfo* info,
                                    uint64_t id, const std::vector<std::string>& attrs)
     : api_(api),
       ort_(api_),
@@ -377,7 +377,7 @@ void PyCustomOpDef::AddOp(const PyCustomOpDef* cod) {
   // No need to protect against concurrent access, GIL is doing that.
   auto val = std::make_pair(op_domain, std::vector<PyCustomOpFactory>());
   const auto [it_domain_op, success]  = PyOp_container().insert(val);
-  assert(success || it_domain_op->second.length() > 0);
+  assert(success || !it_domain_op->second.empty());
   it_domain_op->second.emplace_back(PyCustomOpFactory(cod, op_domain, op));
 }
 

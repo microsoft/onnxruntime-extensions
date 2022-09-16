@@ -7,7 +7,7 @@
 #include <cmath>
 #include <algorithm>
 
-KernelStringUpper::KernelStringUpper(OrtApi api) : BaseKernel(api) {
+KernelStringUpper::KernelStringUpper(const OrtApi& api) : BaseKernel(api) {
 }
 
 void KernelStringUpper::Compute(OrtKernelContext* context) {
@@ -26,7 +26,7 @@ void KernelStringUpper::Compute(OrtKernelContext* context) {
   FillTensorDataString(api_, ort_, context, X, output);
 }
 
-void* CustomOpStringUpper::CreateKernel(OrtApi api, const OrtKernelInfo* /* info */) const {
+void* CustomOpStringUpper::CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const {
   return new KernelStringUpper(api);
 };
 

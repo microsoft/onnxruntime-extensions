@@ -4,7 +4,7 @@
 #include "wordpiece_tokenizer.hpp"
 #include "nlohmann/json.hpp"
 
-KernelWordpieceTokenizer::KernelWordpieceTokenizer(OrtApi api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+KernelWordpieceTokenizer::KernelWordpieceTokenizer(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
   // https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/WordpieceTokenizer.md
   // https://github.com/tensorflow/text/blob/master/tensorflow_text/python/ops/bert_tokenizer.py
   std::string vocab_as_string = ort_.KernelInfoGetAttribute<std::string>(info, "vocab");
@@ -162,7 +162,7 @@ void KernelWordpieceTokenizer::Compute(OrtKernelContext* context) {
   ptr_row_lengths[i] = row_begins[i];
 }
 
-void* CustomOpWordpieceTokenizer::CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+void* CustomOpWordpieceTokenizer::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
   return new KernelWordpieceTokenizer(api, info);
 };
 

@@ -8,14 +8,14 @@
 #include <unordered_map>
 
 struct KernelMaskedFill : BaseKernel {
-  KernelMaskedFill(OrtApi api, const OrtKernelInfo* info);
+  KernelMaskedFill(const OrtApi& api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);
  private:
   std::unordered_map<std::string, std::string> map_;
 };
 
 struct CustomOpMaskedFill : Ort::CustomOpBase<CustomOpMaskedFill, KernelMaskedFill> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const;
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

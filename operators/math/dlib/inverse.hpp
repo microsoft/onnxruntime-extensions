@@ -8,7 +8,7 @@
 
 
 struct KernelInverse : BaseKernel {
-  KernelInverse(OrtApi api) : BaseKernel(api) {
+  KernelInverse(const OrtApi& api) : BaseKernel(api) {
   }
 
   void Compute(OrtKernelContext* context) {
@@ -34,7 +34,7 @@ struct KernelInverse : BaseKernel {
 };
 
 struct CustomOpInverse : Ort::CustomOpBase<CustomOpInverse, KernelInverse> {
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
     return new KernelInverse(api);
   }
 

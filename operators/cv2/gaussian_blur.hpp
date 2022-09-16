@@ -3,7 +3,7 @@
 
 
 struct KernelGaussianBlur : BaseKernel {
-  KernelGaussianBlur(OrtApi api) : BaseKernel(api) {
+  KernelGaussianBlur(const OrtApi& api) : BaseKernel(api) {
   }
 
   void Compute(OrtKernelContext* context) {
@@ -78,7 +78,7 @@ struct CustomOpGaussianBlur : Ort::CustomOpBase<CustomOpGaussianBlur, KernelGaus
     return "GaussianBlur";
   }
 
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
     return new KernelGaussianBlur(api);
   }
 };
