@@ -51,7 +51,6 @@ file(GLOB onnxruntime_extensions4j_native_src
     )
 # Build the JNI library
 add_library(onnxruntime_extensions4j_jni SHARED ${onnxruntime_extensions4j_native_src})
-set_property(TARGET onnxruntime_extensions4j_jni PROPERTY CXX_STANDARD 11)
 
 # depend on java sources. if they change, the JNI should recompile
 add_dependencies(onnxruntime_extensions4j_jni onnxruntime_extensions4j)
@@ -59,6 +58,7 @@ target_include_directories(onnxruntime_extensions4j_jni PRIVATE ortcustomops)
 # the JNI headers are generated in the onnxruntime_extensions4j target
 target_include_directories(onnxruntime_extensions4j_jni PRIVATE ${JAVA_ROOT}/build/headers ${JNI_INCLUDE_DIRS})
 target_link_libraries(onnxruntime_extensions4j_jni PRIVATE ortcustomops)
+standardize_output_folder(onnxruntime_extensions4j_jni)
 
 set(JAVA_PACKAGE_OUTPUT_DIR ${JAVA_OUTPUT_DIR}/build)
 file(MAKE_DIRECTORY ${JAVA_PACKAGE_OUTPUT_DIR})

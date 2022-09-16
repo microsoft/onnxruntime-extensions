@@ -1,4 +1,6 @@
-{ global:
-RegisterCustomOps;
-AddExternalCustomOp;
-local: *; };
+{
+global:
+    RegisterCustomOps;
+    AddExternalCustomOp;
+local: *;
+};
