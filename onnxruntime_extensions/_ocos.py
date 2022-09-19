@@ -7,7 +7,7 @@ import sys
 import copy
 import onnx
 from onnx import helper
-from ._ortcustomops import (  # noqa
+from ._extensions_pydll import (  # noqa
     PyCustomOpDef, enable_py_op, add_custom_op, hash_64, default_opset_domain)
 
 

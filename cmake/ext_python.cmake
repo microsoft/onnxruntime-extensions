@@ -7,7 +7,7 @@ if (NOT Python3_FOUND)
   message(FATAL_ERROR "Python3 or NumPy not found!")
 endif()
 if (WIN32)
-  list(APPEND shared_TARGET_SRC "${PROJECT_SOURCE_DIR}/onnxruntime_extensions/ortcustomops.def")
+  list(APPEND shared_TARGET_SRC "${PROJECT_SOURCE_DIR}/pyop/extensions_pydll.def")
 endif()
 
 file(GLOB TARGET_SRC_PYOPS "pyop/*.cc" "pyop/*.h" "shared/*.cc")
