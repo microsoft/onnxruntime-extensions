@@ -427,11 +427,11 @@ jobs:
       - script: |
           adb push out/Darwin/RelWithDebInfo/lib/libortcustomops.so /data/local/tmp
           adb push out/Darwin/RelWithDebInfo/data /data/local/tmp
-          adb push out/Darwin/RelWithDebInfo/bin/operators_test /data/local/tmp
-          adb push out/Darwin/RelWithDebInfo/bin/ortcustomops_test /data/local/tmp
+          adb push out/Darwin/RelWithDebInfo/bin/ocos_test /data/local/tmp
+          adb push out/Darwin/RelWithDebInfo/bin/extensions_test /data/local/tmp
           adb push $(OnnxruntimeDirectory)/build/Release/libonnxruntime.so /data/local/tmp
-          adb shell 'cd /data/local/tmp/ && chmod a+x operators_test'
-          adb shell 'cd /data/local/tmp/ && chmod a+x ortcustomops_test'
-          adb shell 'cd /data/local/tmp/ && export LD_LIBRARY_PATH=$(pwd) && ./operators_test' && adb shell 'cd /data/local/tmp/ && export LD_LIBRARY_PATH=$(pwd) && ./ortcustomops_test'
+          adb shell 'cd /data/local/tmp/ && chmod a+x ocos_test'
+          adb shell 'cd /data/local/tmp/ && chmod a+x extensions_test'
+          adb shell 'cd /data/local/tmp/ && export LD_LIBRARY_PATH=$(pwd) && ./ocos_test' && adb shell 'cd /data/local/tmp/ && export LD_LIBRARY_PATH=$(pwd) && ./extensions_test'
         displayName: Run Android test
         workingDirectory: $(Build.sourcesdirectory)
