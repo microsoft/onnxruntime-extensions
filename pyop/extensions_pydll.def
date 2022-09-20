@@ -1,4 +1,4 @@
 LIBRARY "extensions_pydll"
 EXPORTS
  RegisterCustomOps @1
- PyInit__ortcustomops @2
+ PyInit__extensions_pydll @2

@@ -11,23 +11,23 @@ if (WIN32)
 endif()
 
 file(GLOB TARGET_SRC_PYOPS "pyop/*.cc" "pyop/*.h" "shared/*.cc")
-add_library(extensions_pydll SHARED ${TARGET_SRC_PYOPS})
+add_library(extensions_pydll SHARED ${TARGET_SRC_PYOPS} ${shared_TARGET_LIB_SRC})
 standardize_output_folder(extensions_pydll)
 list(APPEND OCOS_COMPILE_DEFINITIONS PYTHON_OP_SUPPORT)
-target_compile_definitions(extensions_pydll PRIVATE ${OCOS_COMPILE_DEFINITIONS} ${GTEST_CXX_FLAGS})
+target_compile_definitions(extensions_pydll PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 
 message(STATUS "Fetch pybind11")
 include(pybind11)
 target_include_directories(extensions_pydll PRIVATE
+  ${pybind11_INCLUDE_DIRS}
   $<TARGET_PROPERTY:Python3::Module,INTERFACE_INCLUDE_DIRECTORIES>
   $<TARGET_PROPERTY:Python3::NumPy,INTERFACE_INCLUDE_DIRECTORIES>
-  ${pybind11_INCLUDE_DIRS}
-)
+  $<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>)
 
 target_compile_definitions(extensions_pydll PRIVATE
   $<TARGET_PROPERTY:Python3::Module,INTERFACE_COMPILE_DEFINITIONS>)
 
-target_link_libraries(extensions_pydll PRIVATE Python3::Module ortcustomops)
+target_link_libraries(extensions_pydll PRIVATE Python3::Module ocos_operators)
 
 if(NOT "${OCOS_EXTENTION_NAME}" STREQUAL "")
   if(NOT WIN32)
