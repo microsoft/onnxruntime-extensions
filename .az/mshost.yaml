@@ -425,7 +425,7 @@ jobs:
         workingDirectory: $(OnnxruntimeDirectory)
 
       - script: |
-          adb push out/Darwin/RelWithDebInfo/lib/libortcustomops.so /data/local/tmp
+          adb push out/Darwin/RelWithDebInfo/lib/libortextensions.so /data/local/tmp
           adb push out/Darwin/RelWithDebInfo/data /data/local/tmp
           adb push out/Darwin/RelWithDebInfo/bin/ocos_test /data/local/tmp
           adb push out/Darwin/RelWithDebInfo/bin/extensions_test /data/local/tmp
