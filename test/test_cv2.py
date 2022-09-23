@@ -44,6 +44,31 @@ class TestOpenCV(unittest.TestCase):
         # convimg.save('temp_pineapple.jpg')
         self.assertFalse(np.allclose(np.asarray(img), np.asarray(convimg)))
 
+    def test_image_decoder(self):
+        input_image_file = util.get_test_data_file("data", "test_colors.jpg")
+
+        model = OrtPyFunction.from_customop("ImageDecoder")
+        input_data = open(input_image_file, 'rb').read()
+        raw_input_image = np.frombuffer(input_data, dtype=np.uint8)
+
+        actual = model(raw_input_image)
+        actual = np.asarray(actual, dtype=np.uint8)
+        self.assertEqual(actual.shape[2], 3)
+
+        expected = Image.open(input_image_file).convert('RGB')
+        expected = np.asarray(expected, dtype=np.uint8).copy()
+
+        # Convert the image to BGR format since cv2 is default BGR format.
+        red = expected[:,:,0].copy()
+        expected[:,:,0] = expected[:,:,2].copy()
+        expected[:,:,2] = red
+
+        self.assertEqual(actual.shape[0], expected.shape[0])
+        self.assertEqual(actual.shape[1], expected.shape[1])
+        self.assertEqual(actual.shape[2], expected.shape[2])
+
+        self.assertTrue(np.allclose(actual, expected, atol=1))
+
 
 if __name__ == "__main__":
     unittest.main()
