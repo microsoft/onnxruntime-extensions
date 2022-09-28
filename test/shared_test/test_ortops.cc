@@ -52,9 +52,6 @@ struct KernelOne : BaseKernel {
 };
 
 struct CustomOpOne : Ort::CustomOpBase<CustomOpOne, KernelOne> {
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-    return new KernelOne(api);
-  };
   const char* GetName() const {
     return "CustomOpOne";
   };
@@ -98,9 +95,6 @@ struct KernelTwo : BaseKernel {
 };
 
 struct CustomOpTwo : Ort::CustomOpBase<CustomOpTwo, KernelTwo> {
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-    return new KernelTwo(api);
-  };
   const char* GetName() const {
     return "CustomOpTwo";
   };
@@ -146,8 +140,8 @@ struct KernelThree : BaseKernel {
 
 struct CustomOpThree : Ort::CustomOpBase<CustomOpThree, KernelThree> {
   void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-    return new KernelThree(api, info);
-  };
+    return CreateKernelImpl(api, info);
+  };  
   const char* GetName() const {
     return "CustomOpThree";
   };

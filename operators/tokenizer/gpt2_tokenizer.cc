@@ -583,7 +583,7 @@ void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
 }
 
 void* CustomOpBpeTokenizer::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return new KernelBpeTokenizer(api, info);
+  return CreateKernelImpl(api, info);
 }
 
 const char* CustomOpBpeTokenizer::GetName() const {

@@ -52,7 +52,7 @@ void KernelMaskedFill::Compute(OrtKernelContext* context) {
 }
 
 void* CustomOpMaskedFill::CreateKernel(const OrtApi& api, const OrtKernelInfo*  info) const {
-  return new KernelMaskedFill(api, info);
+  return CreateKernelImpl(api, info);
 };
 
 const char* CustomOpMaskedFill::GetName() const { return "MaskedFill"; };

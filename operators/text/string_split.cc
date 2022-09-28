@@ -96,10 +96,6 @@ void KernelStringSplit::Compute(OrtKernelContext* context) {
   FillTensorDataString(api_, ort_, context, words, out_text);
 }
 
-void* CustomOpStringSplit::CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const {
-  return new KernelStringSplit(api);
-};
-
 const char* CustomOpStringSplit::GetName() const {
   return "StringSplit";
 };

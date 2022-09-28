@@ -37,10 +37,6 @@ void KernelStringConcat::Compute(OrtKernelContext* context) {
   FillTensorDataString(api_, ort_, context, left_value, output);
 }
 
-void* CustomOpStringConcat::CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const {
-  return new KernelStringConcat(api);
-};
-
 const char* CustomOpStringConcat::GetName() const { return "StringConcat"; };
 
 size_t CustomOpStringConcat::GetInputTypeCount() const {

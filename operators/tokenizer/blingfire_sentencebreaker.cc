@@ -79,7 +79,7 @@ void KernelBlingFireSentenceBreaker::Compute(OrtKernelContext* context) {
 }
 
 void* CustomOpBlingFireSentenceBreaker::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return new KernelBlingFireSentenceBreaker(api, info);
+  return CreateKernelImpl(api, info);
 };
 
 const char* CustomOpBlingFireSentenceBreaker::GetName() const { return "BlingFireSentenceBreaker"; };

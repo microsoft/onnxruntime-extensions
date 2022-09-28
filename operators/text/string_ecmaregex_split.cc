@@ -85,7 +85,7 @@ void KernelStringECMARegexSplitWithOffsets::Compute(OrtKernelContext* context) {
 }
 
 void* CustomOpStringECMARegexSplitWithOffsets::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return new KernelStringECMARegexSplitWithOffsets(api, info);
+  return CreateKernelImpl(api, info);
 };
 
 const char* CustomOpStringECMARegexSplitWithOffsets::GetName() const { return "StringECMARegexSplitWithOffsets"; };

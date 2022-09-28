@@ -4,9 +4,6 @@
 #include "string_tensor.h"
 #include "op_ragged_tensor.hpp"
 
-KernelRaggedTensorToSparse::KernelRaggedTensorToSparse(const OrtApi& api) : BaseKernel(api) {
-}
-
 void KernelRaggedTensorToSparse::Compute(OrtKernelContext* context) {
   const OrtValue* n_elements = ort_.KernelContext_GetInput(context, 0);
   const int64_t* p_n_elements = ort_.GetTensorData<int64_t>(n_elements);
@@ -51,10 +48,6 @@ size_t CustomOpRaggedTensorToSparse::GetOutputTypeCount() const {
 
 ONNXTensorElementDataType CustomOpRaggedTensorToSparse::GetOutputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-};
-
-void* CustomOpRaggedTensorToSparse::CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const {
-  return new KernelRaggedTensorToSparse(api);
 };
 
 const char* CustomOpRaggedTensorToSparse::GetName() const {
@@ -135,7 +128,7 @@ ONNXTensorElementDataType CustomOpRaggedTensorToDense::GetOutputType(size_t /*in
 };
 
 void* CustomOpRaggedTensorToDense::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return new KernelRaggedTensorToDense(api, info);
+  return CreateKernelImpl(api, info);
 };
 
 const char* CustomOpRaggedTensorToDense::GetName() const {
@@ -194,7 +187,7 @@ ONNXTensorElementDataType CustomOpStringRaggedTensorToDense::GetOutputType(size_
 };
 
 void* CustomOpStringRaggedTensorToDense::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return new KernelStringRaggedTensorToDense(api, info);
+  return CreateKernelImpl(api, info);
 };
 
 const char* CustomOpStringRaggedTensorToDense::GetName() const {
