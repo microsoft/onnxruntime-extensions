@@ -80,7 +80,7 @@ void KernelStringRegexSplitWithOffsets::Compute(OrtKernelContext* context) {
 }
 
 void* CustomOpStringRegexSplitWithOffsets::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return new KernelStringRegexSplitWithOffsets(api, info);
+  return CreateKernelImpl(api, info);
 };
 
 const char* CustomOpStringRegexSplitWithOffsets::GetName() const { return "StringRegexSplitWithOffsets"; };

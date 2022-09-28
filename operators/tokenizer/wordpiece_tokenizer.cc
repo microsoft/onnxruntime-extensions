@@ -163,7 +163,7 @@ void KernelWordpieceTokenizer::Compute(OrtKernelContext* context) {
 }
 
 void* CustomOpWordpieceTokenizer::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return new KernelWordpieceTokenizer(api, info);
+  return CreateKernelImpl(api, info);
 };
 
 const char* CustomOpWordpieceTokenizer::GetName() const {

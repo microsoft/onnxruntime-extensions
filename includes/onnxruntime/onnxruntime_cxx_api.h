@@ -896,11 +896,34 @@ struct CustomOpBase : OrtCustomOp {
     OrtCustomOp::GetOutputTypeCount = [](const OrtCustomOp* this_) { return static_cast<const TOp*>(this_)->GetOutputTypeCount(); };
     OrtCustomOp::GetOutputType = [](const OrtCustomOp* this_, size_t index) { return static_cast<const TOp*>(this_)->GetOutputType(index); };
 
-    OrtCustomOp::KernelCompute = [](void* op_kernel, OrtKernelContext* context) { static_cast<TKernel*>(op_kernel)->Compute(context); };
-    OrtCustomOp::KernelDestroy = [](void* op_kernel) { delete static_cast<TKernel*>(op_kernel); };
 
+    OrtCustomOp::KernelCompute = [](void* op_kernel, OrtKernelContext* context) { static_cast<TKernel*>(op_kernel)->Compute(context); };
+#if defined(_MSC_VER) && !defined(__clang__)
+#pragma warning(push)
+#pragma warning(disable : 26409)
+#endif
+    OrtCustomOp::KernelDestroy = [](void* op_kernel) { delete static_cast<TKernel*>(op_kernel); };
+#if defined(_MSC_VER) && !defined(__clang__)
+#pragma warning(pop)
+#endif
     OrtCustomOp::GetInputCharacteristic = [](const OrtCustomOp* this_, size_t index) { return static_cast<const TOp*>(this_)->GetInputCharacteristic(index); };
     OrtCustomOp::GetOutputCharacteristic = [](const OrtCustomOp* this_, size_t index) { return static_cast<const TOp*>(this_)->GetOutputCharacteristic(index); };
+  }
+
+  template <typename... Args>
+    TKernel* CreateKernelImpl(Args&&... args) const {
+#if defined(_MSC_VER) && !defined(__clang__)
+#pragma warning(push)
+#pragma warning(disable : 26409)
+#endif
+    return new TKernel(std::forward<Args>(args)...);
+#if defined(_MSC_VER) && !defined(__clang__)
+#pragma warning(pop)
+#endif
+    }
+
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
+    return CreateKernelImpl(api);
   }
 
   // Default implementation of GetExecutionProviderType that returns nullptr to default to the CPU provider

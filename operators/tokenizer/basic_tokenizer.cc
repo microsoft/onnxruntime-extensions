@@ -106,7 +106,7 @@ void KernelBasicTokenizer::Compute(OrtKernelContext* context) {
 }
 
 void* CustomOpBasicTokenizer::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return new KernelBasicTokenizer(api, info);
+  return CreateKernelImpl(api, info);
 };
 
 const char* CustomOpBasicTokenizer::GetName() const { return "BasicTokenizer"; };

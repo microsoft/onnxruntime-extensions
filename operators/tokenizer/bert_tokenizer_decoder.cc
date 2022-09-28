@@ -171,7 +171,7 @@ void KernelBertTokenizerDecoder::Compute(OrtKernelContext* context) {
 }
 
 void* CustomOpBertTokenizerDecoder::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return new KernelBertTokenizerDecoder(api, info);
+  return CreateKernelImpl(api, info);
 };
 
 const char* CustomOpBertTokenizerDecoder::GetName() const { return "BertTokenizerDecoder"; };

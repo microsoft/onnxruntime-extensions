@@ -77,8 +77,4 @@ struct CustomOpGaussianBlur : Ort::CustomOpBase<CustomOpGaussianBlur, KernelGaus
   const char* GetName() const{
     return "GaussianBlur";
   }
-
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-    return new KernelGaussianBlur(api);
-  }
 };
