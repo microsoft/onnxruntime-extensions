@@ -43,10 +43,6 @@ void KernelStringHash::Compute(OrtKernelContext* context) {
   }
 }
 
-void* CustomOpStringHash::CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const {
-  return new KernelStringHash(api);
-};
-
 const char* CustomOpStringHash::GetName() const { return "StringToHashBucket"; };
 
 size_t CustomOpStringHash::GetInputTypeCount() const {
@@ -105,10 +101,6 @@ void KernelStringHashFast::Compute(OrtKernelContext* context) {
     out[i] = static_cast<int64_t>(util::Fingerprint64(str_input[i].c_str(), str_input[i].size()) % nb);
   }
 }
-
-void* CustomOpStringHashFast::CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const {
-  return new KernelStringHashFast(api);
-};
 
 const char* CustomOpStringHashFast::GetName() const { return "StringToHashBucketFast"; };
 

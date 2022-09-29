@@ -86,10 +86,6 @@ void KernelStringJoin::Compute(OrtKernelContext* context) {
   FillTensorDataString(api_, ort_, context, out, output);
 }
 
-void* CustomOpStringJoin::CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const {
-  return new KernelStringJoin(api);
-};
-
 const char* CustomOpStringJoin::GetName() const {
   return "StringJoin";
 };

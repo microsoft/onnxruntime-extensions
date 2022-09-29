@@ -48,8 +48,4 @@ struct CustomOpImageReader : Ort::CustomOpBase<CustomOpImageReader, KernelImageR
   const char* GetName() const{
     return "ImageReader";
   }
-
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-    return new KernelImageReader(api);
-  }
 };

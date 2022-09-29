@@ -71,7 +71,7 @@ void KernelStringECMARegexReplace::Compute(OrtKernelContext* context) {
 }
 
 void* CustomOpStringECMARegexReplace::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return new KernelStringECMARegexReplace(api, info);
+  return CreateKernelImpl(api, info);
 };
 
 const char* CustomOpStringECMARegexReplace::GetName() const { return "StringECMARegexReplace"; };

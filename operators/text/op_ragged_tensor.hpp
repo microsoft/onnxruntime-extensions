@@ -6,7 +6,9 @@
 #include "ocos.h"
 
 struct KernelRaggedTensorToSparse : BaseKernel {
-  KernelRaggedTensorToSparse(const OrtApi& api);
+  KernelRaggedTensorToSparse(const OrtApi& api)
+    : BaseKernel(api) {}
+
   void Compute(OrtKernelContext* context);
 };
 
@@ -15,7 +17,6 @@ struct CustomOpRaggedTensorToSparse : Ort::CustomOpBase<CustomOpRaggedTensorToSp
   size_t GetOutputTypeCount() const;
   ONNXTensorElementDataType GetOutputType(size_t index) const;
   const char* GetName() const;
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const;
   ONNXTensorElementDataType GetInputType(size_t index) const;
 };
 

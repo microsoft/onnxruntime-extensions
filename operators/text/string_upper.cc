@@ -26,10 +26,6 @@ void KernelStringUpper::Compute(OrtKernelContext* context) {
   FillTensorDataString(api_, ort_, context, X, output);
 }
 
-void* CustomOpStringUpper::CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const {
-  return new KernelStringUpper(api);
-};
-
 const char* CustomOpStringUpper::GetName() const { return "StringUpper"; };
 
 size_t CustomOpStringUpper::GetInputTypeCount() const {

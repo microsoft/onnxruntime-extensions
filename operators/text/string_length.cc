@@ -27,10 +27,6 @@ void KernelStringLength::Compute(OrtKernelContext* context) {
   }
 }
 
-void* CustomOpStringLength::CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const {
-  return new KernelStringLength(api);
-};
-
 const char* CustomOpStringLength::GetName() const { return "StringLength"; };
 
 size_t CustomOpStringLength::GetInputTypeCount() const {

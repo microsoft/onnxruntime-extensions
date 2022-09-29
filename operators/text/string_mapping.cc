@@ -42,7 +42,7 @@ void KernelStringMapping::Compute(OrtKernelContext* context) {
 }
 
 void* CustomOpStringMapping::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return new KernelStringMapping(api, info);
+  return CreateKernelImpl(api, info);
 };
 
 const char* CustomOpStringMapping::GetName() const { return "StringMapping"; };
