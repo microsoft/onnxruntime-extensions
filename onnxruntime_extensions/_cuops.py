@@ -316,6 +316,21 @@ class GaussianBlur(CustomOp):
         ]
 
 
+class ImageDecoder(CustomOp):
+
+    @classmethod
+    def get_inputs(cls):
+        return [
+            cls.io_def('raw_input_image', onnx_proto.TensorProto.UINT8, [])
+        ]
+
+    @classmethod
+    def get_outputs(cls):
+        return [
+            cls.io_def('decoded_image', onnx_proto.TensorProto.UINT8, [None, None, 3])
+        ]
+
+
 class SingleOpGraph:
 
     @classmethod
