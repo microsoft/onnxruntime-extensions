@@ -125,7 +125,7 @@ void KernelVectorToString::Compute(OrtKernelContext* context) {
 }
 
 void* CustomOpVectorToString::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return new KernelVectorToString(api, info);
+  return CreateKernelImpl(api, info);
 };
 
 const char* CustomOpVectorToString::GetName() const { return "VectorToString"; };

@@ -318,7 +318,7 @@ void KernelBertTokenizer::Compute(OrtKernelContext* context) {
 }
 
 void* CustomOpBertTokenizer::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return new KernelBertTokenizer(api, info);
+  return CreateKernelImpl(api, info);
 }
 
 const char* CustomOpBertTokenizer::GetName() const { return "BertTokenizer"; }
@@ -374,7 +374,7 @@ void KernelHfBertTokenizer::Compute(OrtKernelContext* context) {
 }
 
 void* CustomOpHfBertTokenizer::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return new KernelHfBertTokenizer(api, info);
+  return CreateKernelImpl(api, info);
 }
 
 const char* CustomOpHfBertTokenizer::GetName() const { return "HfBertTokenizer"; }

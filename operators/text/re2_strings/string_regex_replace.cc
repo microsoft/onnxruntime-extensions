@@ -63,7 +63,7 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
 }
 
 void* CustomOpStringRegexReplace::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return new KernelStringRegexReplace(api, info);
+  return CreateKernelImpl(api, info);
 };
 
 const char* CustomOpStringRegexReplace::GetName() const { return "StringRegexReplace"; };

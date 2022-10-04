@@ -101,7 +101,7 @@ void KernelSentencepieceTokenizer::Compute(OrtKernelContext* context) {
 }
 
 void* CustomOpSentencepieceTokenizer::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return new KernelSentencepieceTokenizer(api, info);
+  return CreateKernelImpl(api, info);
 };
 
 const char* CustomOpSentencepieceTokenizer::GetName() const {

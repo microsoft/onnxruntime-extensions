@@ -34,10 +34,6 @@ struct KernelInverse : BaseKernel {
 };
 
 struct CustomOpInverse : Ort::CustomOpBase<CustomOpInverse, KernelInverse> {
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-    return new KernelInverse(api);
-  }
-
   const char* GetName() const {
     return "Inverse";
   }

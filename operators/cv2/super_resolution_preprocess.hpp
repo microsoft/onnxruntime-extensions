@@ -4,14 +4,13 @@
 #pragma once
 
 #include "ocos.h"
-#include "string_utils.h"
 
-struct KernelStringUpper : BaseKernel {
-  KernelStringUpper(const OrtApi& api);
+struct KernelSuperResolutionPreProcess : BaseKernel {
+  KernelSuperResolutionPreProcess(const OrtApi& api);
   void Compute(OrtKernelContext* context);
 };
 
-struct CustomOpStringUpper : Ort::CustomOpBase<CustomOpStringUpper, KernelStringUpper> {
+struct CustomOpSuperResolutionPreProcess : Ort::CustomOpBase<CustomOpSuperResolutionPreProcess, KernelSuperResolutionPreProcess> {
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

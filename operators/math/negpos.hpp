@@ -40,10 +40,6 @@ struct KernelNegPos : BaseKernel {
 };
 
 struct CustomOpNegPos : Ort::CustomOpBase<CustomOpNegPos, KernelNegPos> {
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-    return new KernelNegPos(api);  
-  }
-
   const char* GetName() const{
     return "NegPos";
   }

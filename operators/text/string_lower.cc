@@ -25,10 +25,6 @@ void KernelStringLower::Compute(OrtKernelContext* context) {
   FillTensorDataString(api_, ort_, context, X, output);
 }
 
-void* CustomOpStringLower::CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const {
-  return new KernelStringLower(api);
-};
-
 const char* CustomOpStringLower::GetName() const { return "StringLower"; };
 
 size_t CustomOpStringLower::GetInputTypeCount() const {
