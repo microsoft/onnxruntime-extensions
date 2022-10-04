@@ -486,7 +486,7 @@ void AddObjectMethods(pybind11::module& m) {
       .def_readonly_static("dt_bfloat16", &PyCustomOpDef::dt_bfloat16);
 }
 
-PYBIND11_MODULE(_ortcustomops, m) {
+PYBIND11_MODULE(_extensions_pydll, m) {
   m.doc() = "pybind11 stateful interface to ONNXRuntime-Extensions";
 
   init_numpy();

@@ -13,13 +13,13 @@
 
 const char* GetLibraryPath() {
 #if defined(_WIN32)
-  return "ortcustomops.dll";
+  return "ortextensions.dll";
 #elif defined(__APPLE__)
-  return "libortcustomops.dylib";
+  return "libortextensions.dylib";
 #elif defined(ANDROID) || defined(__ANDROID__)
-  return "libortcustomops.so";
+  return "libortextensions.so";
 #else
-  return "lib/libortcustomops.so";
+  return "lib/libortextensions.so";
 #endif
 }
 

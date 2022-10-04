@@ -64,7 +64,7 @@ class BuildCMakeExt(_build_ext):
         Perform build_cmake before doing the 'normal' stuff
         """
         for extension in self.extensions:
-            if extension.name == 'onnxruntime_extensions._ortcustomops':
+            if extension.name == 'onnxruntime_extensions._extensions_pydll':
                 self.build_cmake(extension)
 
     def build_cmake(self, extension):
@@ -76,7 +76,7 @@ class BuildCMakeExt(_build_ext):
         config = 'RelWithDebInfo' if self.debug else 'Release'
         cmake_args = [
             '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + str(ext_fullpath.parent.absolute()),
-            '-DOCOS_ENABLE_PYTHON=ON',
+            '-DOCOS_BUILD_PYTHON=ON',
             '-DOCOS_ENABLE_CTEST=OFF',
             '-DOCOS_EXTENTION_NAME=' + ext_fullpath.name,
             '-DCMAKE_BUILD_TYPE=' + config
@@ -106,7 +106,7 @@ class BuildCMakeExt(_build_ext):
             config_dir = '.'
             if not (build_temp / 'build.ninja').exists():
                 config_dir = config
-            self.copy_file(build_temp / 'bin' / config_dir / 'ortcustomops.dll', ext_fullpath)
+            self.copy_file(build_temp / 'bin' / config_dir / 'extensions_pydll.dll', ext_fullpath)
         else:
             self.copy_file(build_temp / 'lib' / ext_fullpath.name, ext_fullpath)
 
@@ -142,7 +142,7 @@ if sys.platform == "win32":
 
 ext_modules = [
     setuptools.extension.Extension(
-        name=str('onnxruntime_extensions._ortcustomops'),
+        name=str('onnxruntime_extensions._extensions_pydll'),
         sources=[])
 ]
 
@@ -186,9 +186,6 @@ setup(
         'Operating System :: POSIX :: Linux',
         "Programming Language :: C++",
         'Programming Language :: Python',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
         "Programming Language :: Python :: Implementation :: CPython",
         'License :: OSI Approved :: MIT License'
     ]

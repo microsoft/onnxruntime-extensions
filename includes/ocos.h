@@ -105,7 +105,6 @@ const OrtCustomOp** LoadCustomOpClasses() {
 #if defined(PYTHON_OP_SUPPORT)
 const OrtCustomOp* FetchPyCustomOps(size_t& count);
 OrtStatusPtr RegisterPythonDomainAndOps(OrtSessionOptions*, const OrtApi*);
-bool EnablePyCustomOps(bool enable = true);
 #endif
 
 #ifdef ENABLE_MATH

@@ -92,3 +92,6 @@ struct PyCustomOpFactory : Ort::CustomOpBase<PyCustomOpFactory, PyCustomOpKernel
   std::string op_type_;
   std::string op_domain_;
 };
+
+
+bool EnablePyCustomOps(bool enable = true);

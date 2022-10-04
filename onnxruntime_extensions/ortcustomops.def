@@ -1,4 +1,0 @@
-LIBRARY "ortcustomops.dll"
-EXPORTS
- RegisterCustomOps @1
- PyInit__ortcustomops @2
