@@ -67,6 +67,11 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Android")
   file(MAKE_DIRECTORY ${ANDROID_PACKAGE_OUTPUT_DIR})
 endif()
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Android")
+  if (OCOS_ENABLE_SPM_TOKENIZER)
+    target_link_libraries(onnxruntime_extensions4j_jni PUBLIC log)
+  endif()
+endif()
 # Set platform and arch for packaging
 # Checks the names set by MLAS on non-Windows platforms first
 if(APPLE)

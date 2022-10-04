@@ -9,7 +9,8 @@ import java.nio.file.StandardCopyOption;
 
 public final class OrtxLibrary {
 
-    private static File tempLibraryFile;
+    // the default name in Android could be simple.
+    private static String libraryFileName = "onnxruntime_extensions4j_jni";
     private static final String OS_ARCH_STR = getOsArch();
     /**
      * Check if we're running on Android.
@@ -54,34 +55,50 @@ public final class OrtxLibrary {
         return detectedOS + '-' + detectedArch;
     }
 
+
+    private static String getLibraryResourceName(){
+        return "/ai/onnxruntime/extensions/native/" + OS_ARCH_STR +
+            "/" + System.mapLibraryName("onnxruntime_extensions4j_jni");
+    }
+
     static{
         try{
-            String path = "/ai/onnxruntime/extensions/native/" + OS_ARCH_STR
-             +"/" + System.mapLibraryName("onnxruntime_extensions4j_jni");
-            // Obtain filename from path
-            String[] parts = path.split("/");
-            String filename = parts[parts.length - 1];
-    
-            // Prepare temporary file
-            File temporaryDir = createTempDirectory("ortx4j");
-            temporaryDir.deleteOnExit();
+            File tempLibraryFile = null;
+            if (!isAndroid()) {
+                libraryFileName = getLibraryResourceName();
+                // Obtain filename from path
+                String[] parts = libraryFileName.split("/");
+                String filename = parts[parts.length - 1];
 
-            tempLibraryFile = new File(temporaryDir, filename);
+                // Prepare temporary file
+                File temporaryDir = createTempDirectory("ortx4j");
+                temporaryDir.deleteOnExit();
 
-            try (InputStream is = OrtxLibrary.class.getResourceAsStream(path)) {
-                Files.copy(is, tempLibraryFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException e) {
-                tempLibraryFile.delete();
-                throw e;
-            } catch (NullPointerException e) {
-                tempLibraryFile.delete();
-                throw new FileNotFoundException("File " + path + " was not found inside JAR.");
+                tempLibraryFile = new File(temporaryDir, filename);
+
+                try (InputStream is = OrtxLibrary.class.getResourceAsStream(libraryFileName)) {
+                    Files.copy(is, tempLibraryFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                } catch (IOException e) {
+                    tempLibraryFile.delete();
+                    throw e;
+                } catch (NullPointerException e) {
+                    tempLibraryFile.delete();
+                    throw new FileNotFoundException("File " + libraryFileName + " was not found inside JAR.");
+                }
+                libraryFileName = tempLibraryFile.getAbsolutePath();
             }
 
             try {
-                System.load(tempLibraryFile.getAbsolutePath());
+                if (isAndroid()) {
+                    System.loadLibrary(libraryFileName);
+                }
+                else {
+                    System.load(libraryFileName);
+                }
             } finally {
-                tempLibraryFile.deleteOnExit();
+                if (tempLibraryFile != null) {
+                    tempLibraryFile.deleteOnExit();
+                }
             }
         } catch(IOException e1){
             throw new RuntimeException(e1);
@@ -89,7 +106,12 @@ public final class OrtxLibrary {
     }
 
     public static String getExtractedLibraryPath() {
-        return tempLibraryFile.getAbsolutePath();
+        if (isAndroid()) {
+            return "lib" + libraryFileName + ".so";
+        }
+        else {
+            return libraryFileName;
+        }
     }
 
     private static File createTempDirectory(String prefix) throws IOException {

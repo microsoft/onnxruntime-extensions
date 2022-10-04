@@ -79,6 +79,13 @@ if (NOT OCOS_BUILD_PYTHON AND OCOS_ENABLE_PYTHON)
   set(OCOS_BUILD_PYTHON ON CACHE INTERNAL "")
 endif()
 
+if (OCOS_BUILD_ANDROID)
+  if (NOT ANDROID_SDK_ROOT OR NOT CMAKE_ANDROID_NDK)
+    message("Cannot the find Android SDK/NDK")
+  endif()
+  set(OCOS_BUILD_JAVA ON CACHE INTERNAL "")
+endif()
+
 # Build the libraries with -fPIC
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
