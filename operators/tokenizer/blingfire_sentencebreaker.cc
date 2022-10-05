@@ -15,7 +15,7 @@ KernelBlingFireSentenceBreaker::KernelBlingFireSentenceBreaker(const OrtApi& api
     ORT_CXX_API_THROW("vocabulary shouldn't be empty.", ORT_INVALID_ARGUMENT);
   }
 
-  void* model_ptr = SetModel(reinterpret_cast<unsigned char*>(model_data_.data()), model_data_.size());
+  void* model_ptr = SetModel(reinterpret_cast<unsigned char*>(model_data_.data()), static_cast<int>(model_data_.size()));
 
   if (model_ptr == nullptr) {
     ORT_CXX_API_THROW("Invalid model", ORT_INVALID_ARGUMENT);
@@ -24,7 +24,7 @@ KernelBlingFireSentenceBreaker::KernelBlingFireSentenceBreaker(const OrtApi& api
   model_ = std::shared_ptr<void>(model_ptr, FreeModel);
 
   if (HasAttribute("max_sentence")) {
-    max_sentence = ort_.KernelInfoGetAttribute<int64_t>(info, "max_sentence");
+    max_sentence = static_cast<int>(ort_.KernelInfoGetAttribute<int64_t>(info, "max_sentence"));
   }
 }
 
@@ -42,10 +42,10 @@ void KernelBlingFireSentenceBreaker::Compute(OrtKernelContext* context) {
   GetTensorMutableDataString(api_, ort_, context, input, input_data);
 
   std::string& input_string = input_data[0];
-  int max_length = 2 * input_string.size() + 1;
+  int max_length = static_cast<int>(2 * input_string.size() + 1);
   std::unique_ptr<char[]> output_str = std::make_unique<char[]>(max_length);
 
-  int output_length = TextToSentencesWithOffsetsWithModel(input_string.data(), input_string.size(), output_str.get(), nullptr, nullptr, max_length, model_.get());
+  int output_length = TextToSentencesWithOffsetsWithModel(input_string.data(), static_cast<int>(input_string.size()), output_str.get(), nullptr, nullptr, max_length, model_.get());
   if (output_length < 0) {
     ORT_CXX_API_THROW(MakeString("splitting input:\"", input_string, "\"  failed"), ORT_INVALID_ARGUMENT);
   }

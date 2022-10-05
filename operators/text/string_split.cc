@@ -36,10 +36,10 @@ void KernelStringSplit::Compute(OrtKernelContext* context) {
   if (delimiter.size() == 0) {
     char word[2] = "a";
     for (int64_t row = 0; row < dimensions[0]; ++row) {
-      const std::string& str = X[row];
+      const std::string& str = X[static_cast<size_t>(row)];
       if (str.empty())
         continue;
-      maxc = str.size() > maxc ? str.size() : maxc;
+      maxc = static_cast<int64_t>(static_cast<int64_t>(str.size()) > maxc ? str.size() : maxc);
       for (auto it = str.begin(); it != str.end(); ++it) {
         word[0] = *it;
         words.push_back(word);
@@ -51,7 +51,7 @@ void KernelStringSplit::Compute(OrtKernelContext* context) {
     bool keep = !(*skip_empty);
     std::size_t current, previous = 0;
     for (int64_t row = 0; row < dimensions[0]; ++row) {
-      const std::string& str = X[row];
+      const std::string& str = X[static_cast<size_t>(row)];
       if (str.empty())
         continue;
       previous = 0;

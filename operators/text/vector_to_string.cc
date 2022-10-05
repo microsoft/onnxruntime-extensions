@@ -28,7 +28,7 @@ std::vector<std::string> VectorToStringImpl::Compute(const void* input, const Or
     // only hit when the key is a scalar and the input is a vector
     output_dim = input_dim;
   } else {
-    if (input_dim.IsScalar() || input_dim[input_dim.size() - 1] != vector_len_) {
+    if (input_dim.IsScalar() || input_dim[input_dim.size() - 1] != static_cast<int64_t>(vector_len_)) {
       ORT_CXX_API_THROW(MakeString("Incompatible dimension: required vector length should be ", vector_len_), ORT_INVALID_ARGUMENT);
     }
 
@@ -37,9 +37,9 @@ std::vector<std::string> VectorToStringImpl::Compute(const void* input, const Or
   }
 
   std::vector<int64_t> key(vector_len_);
-  for (int i = 0; i < input_dim.Size(); i += vector_len_) {
+  for (int64_t i = 0; i < input_dim.Size(); i = static_cast<int64_t>(i + vector_len_)) {
     //construct key
-    for (int j = 0; j < vector_len_; j++) {
+    for (size_t j = 0; j < vector_len_; j++) {
       key[j] = ptr[j];
     }
 
@@ -94,7 +94,7 @@ void VectorToStringImpl::ParseValues(const std::string_view& v, std::vector<int6
   std::vector<std::string_view> value_strs = SplitString(v, " ", true);
 
   int64_t value;
-  for (int i = 0; i < value_strs.size(); i++) {
+  for (size_t i = 0; i < value_strs.size(); i++) {
     auto [end, ec] = std::from_chars(value_strs[i].data(), value_strs[i].data() + value_strs[i].size(), value);
     if (end != value_strs[i].data() + value_strs[i].size()) {
       ORT_CXX_API_THROW(MakeString("Failed to parse map when processing the number: ", value_strs[i]), ORT_INVALID_ARGUMENT);

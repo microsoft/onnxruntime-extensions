@@ -69,12 +69,12 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
   OrtStatus* status = nullptr;
 
 #if defined(PYTHON_OP_SUPPORT)
-  if (status = RegisterPythonDomainAndOps(options, ortApi)){
+  if (status = RegisterPythonDomainAndOps(options, ortApi); status) {
     return status;
   }
 #endif // PYTHON_OP_SUPPORT
 
-  if (status = ortApi->CreateCustomOpDomain(c_OpDomain, &domain)) {
+  if (status = ortApi->CreateCustomOpDomain(c_OpDomain, &domain); status) {
     return status;
   }
 
@@ -84,7 +84,7 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
   size_t count = 0;
   const OrtCustomOp* c_ops = FetchPyCustomOps(count);
   while (c_ops != nullptr) {
-    if (status = ortApi->CustomOpDomain_Add(domain, c_ops)) {
+    if (status = ortApi->CustomOpDomain_Add(domain, c_ops); status) {
       return status;
     } else {
       pyop_nameset.emplace(c_ops->GetName(c_ops));
@@ -114,7 +114,7 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
     auto ops = fx();
     while (*ops != nullptr) {
       if (pyop_nameset.find((*ops)->GetName(*ops)) == pyop_nameset.end()) {
-        if (status = ortApi->CustomOpDomain_Add(domain, *ops)) {
+        if (status = ortApi->CustomOpDomain_Add(domain, *ops); status) {
           return status;
         }
       }
@@ -126,7 +126,7 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
   const OrtCustomOp* e_ops = ExternalCustomOps::instance().GetNextOp(idx);
   while (e_ops != nullptr) {
     if (pyop_nameset.find(e_ops->GetName(e_ops)) == pyop_nameset.end()) {
-      if (status = ortApi->CustomOpDomain_Add(domain, e_ops)) {
+      if (status = ortApi->CustomOpDomain_Add(domain, e_ops); status) {
         return status;
       }
       e_ops = ExternalCustomOps::instance().GetNextOp(idx);

@@ -16,8 +16,8 @@ void KernelStringUpper::Compute(OrtKernelContext* context) {
   std::vector<std::string> X;
   GetTensorMutableDataString(api_, ort_, context, input_X, X);
 
-  for (int64_t i = 0; i < (int64_t)X.size(); ++i) {
-    std::transform(X[i].begin(), X[i].end(), X[i].begin(), ::toupper);
+  for (size_t i = 0; i < X.size(); ++i) {
+    std::transform(X[i].begin(), X[i].end(), X[i].begin(), [](char c){ return static_cast<char>(::toupper(c)); });
   }
 
   // Fills the output

@@ -24,7 +24,7 @@ KernelWordpieceTokenizer::KernelWordpieceTokenizer(const OrtApi& api, const OrtK
   }
 }
 
-void KernelWordpieceTokenizer_Split(const std::u32string& suffix_indicator,
+void KernelWordpieceTokenizer_Split(const std::u32string& /*suffix_indicator*/,
                                     const std::u32string& text,
                                     std::vector<std::u32string>& words) {
   ustring space(" ");
@@ -81,7 +81,7 @@ void KernelWordpieceTokenizer_Tokenizer(const std::unordered_map<std::u32string,
     KernelWordpieceTokenizer_Split(suffix_indicator, *it, words);
 
     for (auto itk = words.begin(); itk != words.end(); ++itk) {
-      if (itk->size() > max_input_chars_per_word) {
+      if (static_cast<int64_t>(itk->size()) > max_input_chars_per_word) {
         indices.push_back(-1);
         tokens.push_back(unk_token);
         continue;
@@ -107,7 +107,7 @@ void KernelWordpieceTokenizer_Tokenizer(const std::unordered_map<std::u32string,
           is_bad = true;
           break;
         }
-        indices.push_back(cur_substr);
+        indices.push_back(static_cast<int32_t>(cur_substr));
         tokens.push_back(ustring(token));
         start = end;
       }
@@ -153,13 +153,13 @@ void KernelWordpieceTokenizer::Compute(OrtKernelContext* context) {
 
   int64_t i;
   for (i = 0; i < size_row_lengths[0]; ++i) {
-    ptr_row_lengths[i] = row_begins[i];
-    ptr_row_begins[i] = row_begins[i];
-    ptr_limit_values[i] = row_begins[i + 1];
+    ptr_row_lengths[i] = row_begins[static_cast<size_t>(i)];
+    ptr_row_begins[i] = row_begins[static_cast<size_t>(i)];
+    ptr_limit_values[i] = row_begins[static_cast<size_t>(i + 1)];
   }
 
   i = size_row_lengths[0];
-  ptr_row_lengths[i] = row_begins[i];
+  ptr_row_lengths[i] = row_begins[static_cast<size_t>(i)];
 }
 
 void* CustomOpWordpieceTokenizer::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {

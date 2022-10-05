@@ -47,7 +47,7 @@ void KernelStringECMARegexReplace::Compute(OrtKernelContext* context) {
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
 
   OrtTensorTypeAndShapeInfo* output_info = ort_.GetTensorTypeAndShape(output);
-  int64_t size = ort_.GetTensorShapeElementCount(output_info);
+  size_t size = ort_.GetTensorShapeElementCount(output_info);
   ort_.ReleaseTensorTypeAndShapeInfo(output_info);
 
   auto regex_flag = std::regex_constants::optimize | std::regex_constants::ECMAScript;
@@ -58,11 +58,11 @@ void KernelStringECMARegexReplace::Compute(OrtKernelContext* context) {
   std::regex reg(str_pattern[0], regex_flag);
 
   if (global_replace_) {
-    for (int64_t i = 0; i < size; i++) {
+    for (size_t i = 0; i < size; i++) {
       str_input[i] = std::regex_replace(str_input[i], reg, str_rewrite[0]);
     }
   } else {
-    for (int64_t i = 0; i < size; i++) {
+    for (size_t i = 0; i < size; i++) {
       str_input[i] = std::regex_replace(str_input[i], reg, str_rewrite[0], std::regex_constants::format_first_only);
     }
   }
