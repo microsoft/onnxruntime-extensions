@@ -48,7 +48,7 @@ struct CustomOpNegPos : Ort::CustomOpBase<CustomOpNegPos, KernelNegPos> {
     return 1;
   }
 
-  ONNXTensorElementDataType GetInputType(size_t index) const {
+  ONNXTensorElementDataType GetInputType(size_t /*index*/) const {
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
   }
   
@@ -56,7 +56,7 @@ struct CustomOpNegPos : Ort::CustomOpBase<CustomOpNegPos, KernelNegPos> {
     return 2;
   }
   
-  ONNXTensorElementDataType GetOutputType(size_t index) const {
+  ONNXTensorElementDataType GetOutputType(size_t /*index*/) const {
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
   }
 };

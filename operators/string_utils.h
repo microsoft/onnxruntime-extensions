@@ -14,7 +14,7 @@ inline void MakeStringInternal(std::ostringstream& ss, const T& t) noexcept {
 template <>
 inline void MakeStringInternal(std::ostringstream& ss, const std::vector<int64_t>& t) noexcept {
   ss << "[";
-  for (int i = 0; i < t.size(); i++) {
+  for (size_t i = 0; i < t.size(); i++) {
     if (i != 0) {
       ss << ", ";
     }
@@ -31,7 +31,7 @@ inline void MakeStringInternal(std::ostringstream& ss, const OrtTensorDimensions
 template <>
 inline void MakeStringInternal(std::ostringstream& ss, const std::vector<std::string>& t) noexcept {
   ss << "[";
-  for (int i = 0; i < t.size(); i++) {
+  for (size_t i = 0; i < t.size(); i++) {
     if (i != 0) {
       ss << ", ";
     }

@@ -55,6 +55,6 @@ const char* CustomOpSegmentExtraction::GetName() const {
   return "SegmentExtraction";
 };
 
-ONNXTensorElementDataType CustomOpSegmentExtraction::GetInputType(size_t index) const {
+ONNXTensorElementDataType CustomOpSegmentExtraction::GetInputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 };

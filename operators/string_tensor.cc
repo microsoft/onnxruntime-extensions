@@ -5,6 +5,7 @@
 
 void GetTensorMutableDataString(const OrtApi& api, Ort::CustomOpApi& ort, OrtKernelContext* context,
                                 const OrtValue* value, std::vector<std::string>& output) {
+  (void)context;
   OrtTensorDimensions dimensions(ort, value);
   size_t len = static_cast<size_t>(dimensions.Size());
   size_t data_len;
@@ -15,14 +16,16 @@ void GetTensorMutableDataString(const OrtApi& api, Ort::CustomOpApi& ort, OrtKer
   Ort::ThrowOnError(api, api.GetStringTensorContent(value, (void*)result.data(), data_len, offsets.data(), offsets.size()));
   output.resize(len);
   for (int64_t i = (int64_t)len - 1; i >= 0; --i) {
-    if (i < len - 1)
-      result[offsets[i + (int64_t)1]] = '\0';
-    output[i] = result.data() + offsets[i];
+    if (i < static_cast<int64_t>(len) - 1)
+      result[offsets[static_cast<size_t>(i + (int64_t)1)]] = '\0';
+    output[static_cast<size_t>(i)] = result.data() + offsets[static_cast<size_t>(i)];
   }
 }
 
 void FillTensorDataString(const OrtApi& api, Ort::CustomOpApi& ort, OrtKernelContext* context,
                           const std::vector<std::string>& value, OrtValue* output) {
+  (void)ort;
+  (void)context;
   std::vector<const char*> temp(value.size());
   for (size_t i = 0; i < value.size(); ++i) {
     temp[i] = value[i].c_str();

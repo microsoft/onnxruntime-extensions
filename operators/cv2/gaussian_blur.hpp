@@ -32,16 +32,18 @@ struct KernelGaussianBlur : BaseKernel {
 
     OrtTensorDimensions input_data_dimensions(ort_, input_data);
 
-    int n = input_data_dimensions[0];
-    int h = input_data_dimensions[1];
-    int w = input_data_dimensions[2];
-    int c = input_data_dimensions[3];
+    int n = static_cast<int>(input_data_dimensions[0]);
+    int h = static_cast<int>(input_data_dimensions[1]);
+    int w = static_cast<int>(input_data_dimensions[2]);
+    int c = static_cast<int>(input_data_dimensions[3]);
+    (void)n;
+    (void)c;
 
     cv::Mat input_image(cv::Size(w, h), CV_32FC3, (void*)p_input_data);
     cv::Mat output_image;
     cv::GaussianBlur(input_image,
                      output_image,
-                     cv::Size(ksize[1], ksize[0]),
+                     cv::Size(static_cast<int>(ksize[1]), static_cast<int>(ksize[0])),
                      sigma[0], sigma[1], cv::BORDER_DEFAULT);
 
     OrtValue* image_y = ort_.KernelContext_GetOutput(context,
@@ -70,7 +72,7 @@ struct CustomOpGaussianBlur : Ort::CustomOpBase<CustomOpGaussianBlur, KernelGaus
     }
   }
 
-  ONNXTensorElementDataType GetOutputType(size_t index) const {
+  ONNXTensorElementDataType GetOutputType(size_t /*index*/) const {
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
   }
 

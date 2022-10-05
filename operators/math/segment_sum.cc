@@ -30,7 +30,7 @@ void KernelSegmentSum_Compute(Ort::CustomOpApi& ort_, OrtKernelContext* context)
   OrtValue* v = ort_.KernelContext_GetOutput(context, 0, dim_out.data(), dim_out.size());
   T* p_output = ort_.GetTensorMutableData<T>(v);
   int64_t out_size = dim_out.Size();
-  memset(p_output, 0, out_size * sizeof(T));
+  memset(p_output, 0, static_cast<size_t>(out_size * sizeof(T)));
 
   // The implementation is naive. It could be parallelized and
   // use SIMD instructions to be faster.

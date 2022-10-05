@@ -42,7 +42,7 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
 
   OrtTensorTypeAndShapeInfo* output_info = ort_.GetTensorTypeAndShape(output);
-  int64_t size = ort_.GetTensorShapeElementCount(output_info);
+  size_t size = ort_.GetTensorShapeElementCount(output_info);
   ort_.ReleaseTensorTypeAndShapeInfo(output_info);
 
   re2::StringPiece piece(str_rewrite[0]);
@@ -50,11 +50,11 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
 
   // Do computation
   if (global_replace_) {
-    for (int64_t i = 0; i < size; i++) {
+    for (size_t i = 0; i < size; i++) {
       re2::RE2::GlobalReplace(&(str_input[i]), reg, piece);
     }
   } else {
-    for (int64_t i = 0; i < size; i++) {
+    for (size_t i = 0; i < size; i++) {
       re2::RE2::Replace(&(str_input[i]), reg, piece);
     }
   }

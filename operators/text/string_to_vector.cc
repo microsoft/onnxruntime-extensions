@@ -91,7 +91,7 @@ void StringToVectorImpl::ParseValues(const std::string_view& v, std::vector<int6
   std::vector<std::string_view> value_strs = SplitString(v, " ", true);
 
   int64_t value;
-  for (int i = 0; i < value_strs.size(); i++) {
+  for (size_t i = 0; i < value_strs.size(); i++) {
     auto [end, ec] = std::from_chars(value_strs[i].data(), value_strs[i].data() + value_strs[i].size(), value);
     if (end != value_strs[i].data() + value_strs[i].size()) {
       ORT_CXX_API_THROW(MakeString("Failed to parse map when processing the number: ", value_strs[i]), ORT_INVALID_ARGUMENT);

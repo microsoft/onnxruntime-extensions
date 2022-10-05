@@ -30,7 +30,7 @@ void KernelStringJoin::Compute(OrtKernelContext* context) {
     if (X.size() != 1)
       ORT_CXX_API_THROW(MakeString("Input 1's dimensions size is 0 (scalar), it must has 1 element but it has ", X.size()), ORT_INVALID_ARGUMENT);
   } else {
-    if (*axis < 0 || *axis >= dimensions.size())
+    if (*axis < 0 || *axis >= static_cast<int64_t>(dimensions.size()))
       ORT_CXX_API_THROW(MakeString("axis must be positive and smaller than the number of dimension but it is ", *axis), ORT_INVALID_ARGUMENT);
   }
 
@@ -49,18 +49,18 @@ void KernelStringJoin::Compute(OrtKernelContext* context) {
   OrtTensorTypeAndShapeInfo* output_info = ort_.GetTensorTypeAndShape(output);
   int64_t size = ort_.GetTensorShapeElementCount(output_info);
   ort_.ReleaseTensorTypeAndShapeInfo(output_info);
-  std::vector<std::string> out(size);
+  std::vector<std::string> out(static_cast<size_t>(size));
 
   if (dimensions.size() > 0) {
     if (X.size() > 0) {
       // Do computation
       int64_t h = 1;
-      for (size_t i = *axis + 1; i < dimensions.size(); ++i) {
+      for (size_t i = static_cast<size_t>(*axis + 1); i < dimensions.size(); ++i) {
         h *= dimensions[i];
       }
       int64_t left_part = size / h;
       int64_t right_part = size / left_part;
-      int64_t n_red = dimensions[*axis] - 1;
+      int64_t n_red = dimensions[static_cast<size_t>(*axis)] - 1;
       int64_t inc = right_part * (n_red + 1);
       int64_t pos = 0;
       for (int64_t li = 0; li < left_part; ++li) {
@@ -68,10 +68,10 @@ void KernelStringJoin::Compute(OrtKernelContext* context) {
           std::ostringstream st;
           int64_t index = ri + li * inc;
           for (int64_t j = 0; j < n_red; ++j, index += h) {
-            st << X[index] << sep[0];
+            st << X[static_cast<size_t>(index)] << sep[0];
           }
-          st << X[index];
-          out[pos] = st.str();
+          st << X[static_cast<size_t>(index)];
+          out[static_cast<size_t>(pos)] = st.str();
         }
       }
     } else {

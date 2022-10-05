@@ -155,7 +155,7 @@ void KernelStringRaggedTensorToDense::Compute(OrtKernelContext* context) {
   std::vector<int64_t> shape_out{size - 1, max_col};
 
   int64_t shape_out_size = shape_out[0] * shape_out[1];
-  std::vector<std::string> dense(max_col * (size - 1));
+  std::vector<std::string> dense(static_cast<size_t>(max_col * (size - 1)));
   int64_t pos = 0;
   int64_t j, pos_end;
   for (int64_t i = 0; i < size - 1; ++i) {
@@ -165,7 +165,7 @@ void KernelStringRaggedTensorToDense::Compute(OrtKernelContext* context) {
           "Unexpected index ", pos_end, " greather than ", shape_out[0], "x", shape_out[1],
           " - i=", i, " size=", size, "."), ORT_INVALID_ARGUMENT);
     for (j = p_indices[i]; j < p_indices[i + 1]; ++j, ++pos) {
-      dense[pos] = input[j];
+      dense[static_cast<size_t>(pos)] = input[static_cast<size_t>(j)];
     }
     pos = pos_end;
   }

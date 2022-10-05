@@ -33,12 +33,12 @@ void KernelStringHash::Compute(OrtKernelContext* context) {
   int64_t* out = ort_.GetTensorMutableData<int64_t>(output);
 
   OrtTensorTypeAndShapeInfo* output_info = ort_.GetTensorTypeAndShape(output);
-  int64_t size = ort_.GetTensorShapeElementCount(output_info);
+  size_t size = ort_.GetTensorShapeElementCount(output_info);
   ort_.ReleaseTensorTypeAndShapeInfo(output_info);
 
   // Do computation
   size_t nb = static_cast<size_t>(*p_num_buckets);
-  for (int64_t i = 0; i < size; i++) {
+  for (size_t i = 0; i < size; i++) {
     out[i] = static_cast<int64_t>(Hash64(str_input[i].c_str(), str_input[i].size()) % nb);
   }
 }
@@ -92,12 +92,12 @@ void KernelStringHashFast::Compute(OrtKernelContext* context) {
   int64_t* out = ort_.GetTensorMutableData<int64_t>(output);
 
   OrtTensorTypeAndShapeInfo* output_info = ort_.GetTensorTypeAndShape(output);
-  int64_t size = ort_.GetTensorShapeElementCount(output_info);
+  size_t size = ort_.GetTensorShapeElementCount(output_info);
   ort_.ReleaseTensorTypeAndShapeInfo(output_info);
 
   // Do computation
   size_t nb = static_cast<size_t>(*p_num_buckets);
-  for (int64_t i = 0; i < size; i++) {
+  for (size_t i = 0; i < size; i++) {
     out[i] = static_cast<int64_t>(util::Fingerprint64(str_input[i].c_str(), str_input[i].size()) % nb);
   }
 }
