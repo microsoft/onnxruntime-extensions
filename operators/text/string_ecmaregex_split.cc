@@ -54,7 +54,7 @@ void KernelStringECMARegexSplitWithOffsets::Compute(OrtKernelContext* context) {
     std::vector<std::string_view> tokens;
     std::vector<int64_t> begin_offsets;
     std::vector<int64_t> end_offsets;
-    ECMARegexSplitImpl(str_input[i], reg,
+    ECMARegexSplitImpl(str_input[static_cast<size_t>(i)], reg,
                        include_delimiter, keep_reg,
                        tokens, begin_offsets, end_offsets);
     all_tokens.insert(all_tokens.end(), tokens.begin(), tokens.end());

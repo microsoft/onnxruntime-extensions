@@ -70,19 +70,25 @@ struct OrtTensorDimensions : std::vector<int64_t> {
 template <typename... Args>
 class CuopContainer {
  public:
+#if defined(_MSC_VER) && !defined(__clang__)
+#pragma warning(push)
+#pragma warning(disable : 26409)
+#endif
   CuopContainer() : ocos_list_({[]() { return new Args; }()...}) {
     ocos_list_.push_back(nullptr);
   }
 
   ~CuopContainer() {
-    // skip the last null pointer.
-    for (auto i = 0; i < ocos_list_.size() - 1; i++) {
-      delete ocos_list_[i];
+    if (0 < ocos_list_.size()) {
+      for (size_t i = 0; i < ocos_list_.size() - 1; i++) {
+          delete ocos_list_[i];
+      }
     }
-
     ocos_list_.clear();
   }
-
+#if defined(_MSC_VER) && !defined(__clang__)
+#pragma warning(pop)
+#endif
   const OrtCustomOp** GetList() {
     return &const_cast<const OrtCustomOp*&>(ocos_list_.front());
   }

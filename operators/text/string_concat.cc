@@ -29,7 +29,7 @@ void KernelStringConcat::Compute(OrtKernelContext* context) {
   GetTensorMutableDataString(api_, ort_, context, right, right_value);
 
   // reuse left_value as output to save memory
-  for (int i = 0; i < left_value.size(); i++) {
+  for (size_t i = 0; i < left_value.size(); i++) {
     left_value[i].append(right_value[i]);
   }
 

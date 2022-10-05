@@ -5,8 +5,8 @@
 BertTokenizerVocab::BertTokenizerVocab(std::string_view vocab) : raw_vocab_(vocab) {
   auto tokens = SplitString(raw_vocab_, "\r\n", true);
 
-  for (int i = 0; i < tokens.size(); i++) {
-    (vocab_)[tokens[i]] = i;
+  for (size_t i = 0; i < tokens.size(); i++) {
+    (vocab_)[tokens[i]] = static_cast<int32_t>(i);
   }
 }
 
@@ -40,11 +40,16 @@ int32_t BertTokenizerVocab::FindTokenId(const ustring& token) {
 }
 
 WordpieceTokenizer::WordpieceTokenizer(
-    std::shared_ptr<BertTokenizerVocab> vocab, ustring unk_token,
-    ustring suffix_indicator, int max_input_chars_per_word)
-    : vocab_(std::move(vocab)), unk_token_(std::move(unk_token))
-    , suffix_indicator_(std::move(suffix_indicator))
-    , max_input_chars_per_word_(max_input_chars_per_word) {
+    std::shared_ptr<BertTokenizerVocab> vocab,
+    ustring unk_token,
+    ustring suffix_indicator,
+    int max_input_chars_per_word
+) :
+    max_input_chars_per_word_(max_input_chars_per_word),
+    suffix_indicator_(std::move(suffix_indicator)),
+    unk_token_(std::move(unk_token)),
+    vocab_(std::move(vocab))
+{
   unk_token_id_ = vocab_->FindTokenId(unk_token_);
 }
 
@@ -92,7 +97,7 @@ std::vector<int64_t> WordpieceTokenizer::Encode(const std::vector<ustring>& toke
 }
 
 void WordpieceTokenizer::GreedySearch(const ustring& token, std::vector<ustring>& tokenized_result) {
-  if (token.size() > max_input_chars_per_word_) {
+  if (static_cast<int64_t>(token.size()) > max_input_chars_per_word_) {
     tokenized_result.push_back(unk_token_);
     return;
   }
@@ -127,13 +132,13 @@ void WordpieceTokenizer::GreedySearch(const ustring& token, std::vector<ustring>
 }
 
 void TruncateStrategy::Truncate(std::vector<int64_t>& ids, int32_t max_len) {
-  if ((max_len > 0) && (max_len < ids.size())) {
+  if ((max_len > 0) && (static_cast<size_t>(max_len) < ids.size())) {
     ids.resize(max_len);
   }
 }
 
 void TruncateStrategy::Truncate(std::vector<int64_t>& ids1, std::vector<int64_t>& ids2, int32_t max_len) {
-  if (max_len < 0 || (ids1.size() + ids2.size() <= max_len)) {
+  if (max_len < 0 || (ids1.size() + ids2.size() <= static_cast<size_t>(max_len))) {
     return;
   }
 
@@ -145,7 +150,7 @@ void TruncateStrategy::Truncate(std::vector<int64_t>& ids1, std::vector<int64_t>
     case TruncateStrategyType::LONGEST_FIRST:
     case TruncateStrategyType::LONGEST_FROM_BACK:
 
-      if ((ids1_keep_len > half_max_len) && (ids2_keep_len > half_max_len)) {
+      if ((ids1_keep_len > static_cast<size_t>(half_max_len)) && (ids2_keep_len > static_cast<size_t>(half_max_len))) {
         ids1_keep_len = static_cast<size_t>(max_len) - half_max_len;
         ids2_keep_len = half_max_len;
       } else if (ids2_keep_len > ids1_keep_len) {
@@ -173,12 +178,24 @@ void TruncateStrategy::Truncate(std::vector<int64_t>& ids1, std::vector<int64_t>
 }
 
 BertTokenizer::BertTokenizer(
-    const std::string& vocab, bool do_lower_case, bool do_basic_tokenize, ustring unk_token,
-    ustring sep_token, ustring pad_token, ustring cls_token, ustring mask_token,
-    bool tokenize_chinese_chars, bool strip_accents, ustring suffix_indicator, int32_t max_len,
-    const std::string& truncation_strategy)
-    : do_basic_tokenize_(do_basic_tokenize), max_length_(max_len)
-    , truncate_(std::make_unique<TruncateStrategy>(truncation_strategy)) {
+    const std::string& vocab,
+    bool do_lower_case,
+    bool do_basic_tokenize,
+    ustring unk_token,
+    ustring sep_token,
+    ustring pad_token,
+    ustring cls_token,
+    ustring mask_token,
+    bool tokenize_chinese_chars,
+    bool strip_accents,
+    ustring suffix_indicator,
+    int32_t max_len,
+    const std::string& truncation_strategy
+) :
+    max_length_(max_len),
+    do_basic_tokenize_(do_basic_tokenize),
+    truncate_(std::make_unique<TruncateStrategy>(truncation_strategy))
+{
 
   vocab_ = std::make_shared<BertTokenizerVocab>(vocab);
 

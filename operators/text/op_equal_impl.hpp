@@ -11,7 +11,7 @@ class BroadcastIteratorRight {
  public:
   BroadcastIteratorRight(const std::vector<int64_t>& shape1,
                          const std::vector<int64_t>& shape2,
-                         const T1* p1, const T2* p2, T3* p3) : p1_(p1), p2_(p2), p3_(p3), shape1_(shape1) {
+                         const T1* p1, const T2* p2, T3* p3) : shape1_(shape1), p1_(p1), p2_(p2), p3_(p3) {
     if (shape2.size() > shape1.size())
       ORT_CXX_API_THROW("shape2 must have less dimensions than shape1", ORT_INVALID_ARGUMENT);
     shape2_.resize(shape1_.size());
@@ -82,7 +82,7 @@ class BroadcastIteratorRight {
     }
 
     template <typename TCMP>
-    void loop(TCMP& cmp, BroadcastIteratorRightState& it, int64_t pos = 0) {
+    void loop(TCMP& cmp, BroadcastIteratorRightState& /*it*/, int64_t pos = 0) {
       if (pos != 0)
         ORT_CXX_API_THROW("Not implemented yet.", ORT_NOT_IMPLEMENTED);
       while (!end()) {

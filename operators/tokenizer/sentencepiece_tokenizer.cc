@@ -12,9 +12,9 @@ KernelSentencepieceTokenizer::KernelSentencepieceTokenizer(const OrtApi& api, co
   sentencepiece::ModelProto model_proto;
   std::vector<uint8_t> model_as_bytes;
   if (base64_decode(model_as_string, model_as_bytes)) {
-    model_proto.ParseFromArray(model_as_bytes.data(), model_as_bytes.size());
+    model_proto.ParseFromArray(model_as_bytes.data(), static_cast<int>(model_as_bytes.size()));
   } else {
-    model_proto.ParseFromArray(model_as_string.c_str(), model_as_string.size());
+    model_proto.ParseFromArray(model_as_string.c_str(), static_cast<int>(model_as_string.size()));
   }
   sentencepiece::util::Status status = tokenizer_.Load(model_proto);
   if (!status.ok())
@@ -45,6 +45,9 @@ void KernelSentencepieceTokenizer::Compute(OrtKernelContext* context) {
   const bool* p_add_eos = ort_.GetTensorData<bool>(ort_add_eos);
   const OrtValue* ort_add_rev = ort_.KernelContext_GetInput(context, 5);
   const bool* p_add_rev = ort_.GetTensorData<bool>(ort_add_rev);
+
+  (void)p_nbest_size;
+  (void)p_alpha;
 
   // Verifications
   _check_dimension_constant(ort_, ort_nbest_size, "nbest_size");

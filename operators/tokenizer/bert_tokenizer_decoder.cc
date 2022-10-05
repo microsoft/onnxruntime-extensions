@@ -1,25 +1,36 @@
 #include "bert_tokenizer_decoder.hpp"
 
-BertTokenizerDecoder::BertTokenizerDecoder(std::string vocab, std::string unk_token, std::string sep_token, std::string pad_token,
-                                           std::string  cls_token,std::string mask_token,std::string suffix_indicator) : raw_vocab_(vocab), unk_token_(unk_token), suffix_indicator_(suffix_indicator) {
+BertTokenizerDecoder::BertTokenizerDecoder(
+    std::string vocab,
+    std::string unk_token,
+    std::string sep_token,
+    std::string pad_token,
+    std::string cls_token,
+    std::string mask_token,
+    std::string suffix_indicator
+) :
+    unk_token_(unk_token),
+    suffix_indicator_(suffix_indicator),
+    raw_vocab_(vocab)
+{
   auto tokens = SplitString(raw_vocab_, "\n", true);
   vocab_.reserve(tokens.size());
-  for (int i = 0; i < tokens.size(); i++) {
+  for (size_t i = 0; i < tokens.size(); i++) {
      auto& token = tokens[i];
     if (token == unk_token) {
-      unk_token_id_ = i;
+      unk_token_id_ = static_cast<int32_t>(i);
     }
     if (token == sep_token) {
-      sep_token_id_ = i;
+      sep_token_id_ = static_cast<int32_t>(i);
     }
     if (token == pad_token) {
-      sep_token_id_ = i;
+      sep_token_id_ = static_cast<int32_t>(i);
     }
     if (token == cls_token) {
-      cls_token_id_ = i;
+      cls_token_id_ = static_cast<int32_t>(i);
     }
     if (token == mask_token) {
-      mask_token_id_ = i;
+      mask_token_id_ = static_cast<int32_t>(i);
     }
 
     if (token.rfind(suffix_indicator_, 0) == 0) {
@@ -42,7 +53,7 @@ std::string BertTokenizerDecoder::Decode(const std::vector<int64_t>& ids, bool s
     }
 
     // deal with unk ids
-    if (id >= vocab_.size() || id < 0) {
+    if (id < 0 || static_cast<size_t>(id) >= vocab_.size()) {
       if (!result.empty()) {
         result.push_back(' ');
       }
@@ -51,7 +62,7 @@ std::string BertTokenizerDecoder::Decode(const std::vector<int64_t>& ids, bool s
     }
 
     // skip first substr
-    if (result.empty() && is_substr_[id]) {
+    if (result.empty() && is_substr_[static_cast<size_t>(id)]) {
       continue;
     }
 
@@ -59,11 +70,11 @@ std::string BertTokenizerDecoder::Decode(const std::vector<int64_t>& ids, bool s
     // we needn't add a space at the beginning of the output
     // we needn't add a space when the token is a substr (such as ##ing)
     // we needn't add a space at the left or right of punctuation (such as client-side shouldn't be client - side), when clean_up_tokenization_spaces is true
-    if (!(result.empty() || is_substr_[id] || (clean_up_tokenization_spaces && RemoveTokenizeSpace(pre_token, id)))) {
+    if (!(result.empty() || is_substr_[static_cast<size_t>(id)] || (clean_up_tokenization_spaces && RemoveTokenizeSpace(pre_token, id)))) {
       result.push_back(' ');
     }
 
-    result.append(vocab_[id]);
+    result.append(vocab_[static_cast<size_t>(id)]);
     pre_token = id;
   }
 
@@ -76,8 +87,8 @@ bool BertTokenizerDecoder::RemoveTokenizeSpace(int64_t pre_token_id, int64_t new
     return true;
   }
 
-  auto pre_char = ustring(vocab_[pre_token_id]).back();
-  auto cur_char = ustring(vocab_[new_token_id])[0];
+  auto pre_char = ustring(vocab_[static_cast<size_t>(pre_token_id)]).back();
+  auto cur_char = ustring(vocab_[static_cast<size_t>(new_token_id)])[0];
 
   // normal punctuation
   if (cur_char == U'!' || cur_char == U'.' || cur_char == U'?' || cur_char == U',' || cur_char == '~' || cur_char == ':') {

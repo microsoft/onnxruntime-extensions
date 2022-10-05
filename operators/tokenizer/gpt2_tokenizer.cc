@@ -167,8 +167,8 @@ class VocabData {
         line = std::regex_replace(line, std::regex("\r"), "");
         ustring line_32(line);
         int id = static_cast<int>(vocab_map_.size());
-        if (auto it = vocab_map_.find(line); it != vocab_map_.end()) {
-          id = it->second;
+        if (auto nestedIt = vocab_map_.find(line); nestedIt != vocab_map_.end()) {
+          id = nestedIt->second;
         } else {
           vocab_map_[line] = id;
         }
@@ -237,7 +237,7 @@ class VocabData {
   }
 
   const std::string& IdToToken(int id) const {
-    if ((id < 0) || (id >= id2token_map_.size())) {
+    if ((id < 0) || (static_cast<size_t>(id) >= id2token_map_.size())) {
       ORT_CXX_API_THROW("Invalid ID: " + std::to_string(id), ORT_INVALID_ARGUMENT);
     }
     return id2token_map_[id];
@@ -500,7 +500,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(const ustring& input, int64_t 
   TokenWithRegularExp regcmp;
 
   for (auto& seg_id : special_token_split_res) {
-    if (res.size() >= max_length) break;
+    if (static_cast<int64_t>(res.size()) >= max_length) break;
 
     if (seg_id.second != -1) {
       res.push_back(seg_id.second);
@@ -512,7 +512,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(const ustring& input, int64_t 
     const char32_t* ptr = cur_input.c_str();
     regcmp.Set(ptr);
 
-    while (res.size() < max_length) {
+    while (static_cast<int64_t>(res.size()) < max_length) {
       auto [b, tok] = regcmp.GetNextToken();
       if (!b) break;
 
@@ -526,7 +526,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(const ustring& input, int64_t 
       bbpe_tokenizer_->bpe(byte_list_);
 
       for (auto p : byte_list_) {
-        if (res.size() >= max_length) {
+        if (static_cast<int64_t>(res.size()) >= max_length) {
           break;
         }
 
@@ -556,7 +556,7 @@ void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
       max_length = std::max(max_length, res.size());
     }
   } else {
-    max_length = padding_length_;
+    max_length = static_cast<size_t>(padding_length_);
   }
 
   OrtTensorDimensions output_dim = input_dim;
@@ -574,7 +574,7 @@ void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
       idx++;
     }
 
-    for (int i = res.size(); i < max_length; i++) {
+    for (size_t i = res.size(); i < max_length; i++) {
       token[idx] = 0;
       mask[idx] = 0;
       idx++;
@@ -594,14 +594,14 @@ size_t CustomOpBpeTokenizer::GetInputTypeCount() const {
   return 1;
 }
 
-ONNXTensorElementDataType CustomOpBpeTokenizer::GetInputType(size_t index) const {
+ONNXTensorElementDataType CustomOpBpeTokenizer::GetInputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
 }
 size_t CustomOpBpeTokenizer::GetOutputTypeCount() const {
   return 2;
 }
 
-ONNXTensorElementDataType CustomOpBpeTokenizer::GetOutputType(size_t index) const {
+ONNXTensorElementDataType CustomOpBpeTokenizer::GetOutputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 }
 
