@@ -142,11 +142,9 @@ file(MAKE_DIRECTORY ${JAVA_PACKAGE_JNI_DIR})
 if (WIN32)
   #Our static analysis plugin set /p:LinkCompiled=false
   if(NOT onnxruntime_extensions_ENABLE_STATIC_ANALYSIS)
-    add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions> ${JAVA_PACKAGE_LIB_DIR}/$<TARGET_FILE_NAME:onnxruntime_extensions>)
     add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions4j_jni> ${JAVA_PACKAGE_JNI_DIR}/$<TARGET_FILE_NAME:onnxruntime_extensions4j_jni>)
   endif()
 else()
-  add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions> ${JAVA_PACKAGE_LIB_DIR}/$<TARGET_LINKER_FILE_NAME:onnxruntime_extensions>)
   add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions4j_jni> ${JAVA_PACKAGE_JNI_DIR}/$<TARGET_LINKER_FILE_NAME:onnxruntime_extensions4j_jni>)
 endif()
 
@@ -170,8 +168,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Android")
   file(MAKE_DIRECTORY ${ANDROID_PACKAGE_JNILIBS_DIR})
   file(MAKE_DIRECTORY ${ANDROID_PACKAGE_ABI_DIR})
 
-  # Copy onnxruntime_extensions.so and onnxruntime_extensions4j_jni.so for building Android AAR package
-  add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions> ${ANDROID_PACKAGE_ABI_DIR}/$<TARGET_LINKER_FILE_NAME:onnxruntime_extensions>)
+  # Copy onnxruntime_extensions4j_jni.so for building Android AAR package
   add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions4j_jni> ${ANDROID_PACKAGE_ABI_DIR}/$<TARGET_LINKER_FILE_NAME:onnxruntime_extensions4j_jni>)
   # Generate the Android AAR package
   add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${GRADLE_EXECUTABLE} -b build-android.gradle -c settings-android.gradle build -DjniLibsDir=${ANDROID_PACKAGE_JNILIBS_DIR} -DbuildDir=${ANDROID_PACKAGE_OUTPUT_DIR} -DminSdkVer=${ANDROID_MIN_SDK} -DheadersDir=${ANDROID_HEADERS_DIR} WORKING_DIRECTORY ${JAVA_ROOT})

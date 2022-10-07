@@ -38,16 +38,12 @@ out/
 .setuptools-cmake-build/
 onnxruntime-*-*-*/
 temp_*.onnx
-test/data/*.py
 # Java specific ignores
-java/gradlew
-java/gradlew.bat
-java/gradle
-java/.gradle
+*/.gradle
 java/hs_*.log
 *.class
-tutorials/demo4j/app/bin/
-tutorials/demo4j/app/libs
+tutorials/*/app/bin/
+tutorials/*/app/libs
 # Compiled Dynamic libraries
 *.so
 *.dylib
