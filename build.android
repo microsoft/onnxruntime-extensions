@@ -12,19 +12,26 @@ fi
 if [[ -z ${ANDROID_SDK_ROOT+x} ]]; then
     export ANDROID_SDK_ROOT=$(dirname $(dirname  ${NDK_ROOT}))
 fi
+if [[ -z ${ANDROID_NDK_VERSION+x} ]]; then
+    CURRENT_NDK_VERSION=$(basename ${NDK_ROOT})
+else
+    CURRENT_NDK_VERSION=${ANDROID_NDK_VERSION}
+fi
 
 # ANDROID_PLATFORM, the minimum level is 24, i.e., due to
 #       the great change of file system permission in Android 7
 ABIS=('x86' 'arm64-v8a'  'x86_64' 'armeabi-v7a')
+# something like ABIS=('x86') is to make one ABI fast build.
 for abi_name in "${ABIS[@]}";
 do
     mkdir -p out/$OSNAME/Release_${abi_name} && pushd out/$OSNAME/Release_${abi_name}
     cmake "$@" \
         -DCMAKE_TOOLCHAIN_FILE=${NDK_ROOT}/build/cmake/android.toolchain.cmake  \
-        -DCMAKE_ANDROID_NDK=${NDK_ROOT}                                         \
+        -DANDROID_NDK=${NDK_ROOT}                                               \
         -DANDROID_ABI=${abi_name}                                               \
         -DANDROID_PLATFORM=android-24                                           \
         -DOCOS_BUILD_ANDROID=ON                                                 \
+        -DANDROID_NDK_VERSION=${CURRENT_NDK_VERSION}                            \
         ../../.. && cmake --build . --config Release --parallel
     popd
 done

@@ -22,7 +22,7 @@ def getVersionCode(String version){
 
 project.buildDir = buildDir
 project.version = rootProject.file('../.version.txt').text.trim()
-project.group = "com.microsoft.onnxruntime.extensions"
+project.group = "com.microsoft.onnxruntime-extensions"
 
 def mavenArtifactId = project.name + '-android'
 def defaultDescription = 'ONNXRuntime-Extensions is a library for Android for pre- and post-processing on inference.'
