@@ -171,7 +171,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Android")
   # Copy onnxruntime_extensions4j_jni.so for building Android AAR package
   add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions4j_jni> ${ANDROID_PACKAGE_ABI_DIR}/$<TARGET_LINKER_FILE_NAME:onnxruntime_extensions4j_jni>)
   # Generate the Android AAR package
-  add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${GRADLE_EXECUTABLE} -b build-android.gradle -c settings-android.gradle build -DjniLibsDir=${ANDROID_PACKAGE_JNILIBS_DIR} -DbuildDir=${ANDROID_PACKAGE_OUTPUT_DIR} -DminSdkVer=${ANDROID_MIN_SDK} -DheadersDir=${ANDROID_HEADERS_DIR} WORKING_DIRECTORY ${JAVA_ROOT})
+  add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${GRADLE_EXECUTABLE} -b build-android.gradle -c settings-android.gradle build -DjniLibsDir=${ANDROID_PACKAGE_JNILIBS_DIR} -DbuildDir=${ANDROID_PACKAGE_OUTPUT_DIR} -DminSdkVer=${ANDROID_MIN_SDK} WORKING_DIRECTORY ${JAVA_ROOT})
 
   if (onnxruntime_extensions_BUILD_UNIT_TESTS)
     set(ANDROID_TEST_PACKAGE_ROOT ${JAVA_ROOT}/src/test/android)

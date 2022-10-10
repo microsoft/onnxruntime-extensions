@@ -4,10 +4,9 @@ apply plugin: 'maven-publish'
 def jniLibsDir = System.properties['jniLibsDir']
 def buildDir = System.properties['buildDir']
 def publishDir = System.properties['publishDir']
-def minSdkVer = System.properties['minSdkVer']
-def targetSdkVer = System.properties['targetSdkVer']
-def buildVariant = System.properties['buildVariant'] ?: "Full"
-boolean isMobileBuild = (buildVariant == "Mobile")
+def minSdkVer = System.properties['minSdkVer']?:24
+def targetSdkVer = System.properties['targetSdkVer']?:32
+def ndkVer = System.properties['ndkVer']?:"25.1.8937393"
 
 // Since Android requires a higher numbers indicating more recent versions
 // This function assume ORT version number will be in formart of A.B.C such as 1.7.0
@@ -25,8 +24,7 @@ project.buildDir = buildDir
 project.version = rootProject.file('../.version.txt').text.trim()
 project.group = "com.microsoft.onnxruntime.extensions"
 
-def mavenArtifactId = isMobileBuild ? project.name + '-mobile' : project.name + '-android'
-def mobileDescription = 'ONNXRuntime-Extensions Mobile is a library for Android for pre- and post-processing on inference.'
+def mavenArtifactId = project.name + '-android'
 def defaultDescription = 'ONNXRuntime-Extensions is a library for Android for pre- and post-processing on inference.'
 
 buildscript {
@@ -50,9 +48,8 @@ allprojects {
 }
 
 android {
-	compileSdkVersion 29
-	buildToolsVersion "29.0.2"
-
+	compileSdkVersion 32
+	ndkVersion ndkVer
 	defaultConfig {
 		minSdkVersion minSdkVer
 		targetSdkVersion targetSdkVer
@@ -129,7 +126,7 @@ publishing {
 
 			pom {
 				name = 'onnxruntime-extensions'
-				description = isMobileBuild ? mobileDescription : defaultDescription
+				description = defaultDescription
 				url = 'https://microsoft.github.io/onnxruntime/'
 				licenses {
 					license {

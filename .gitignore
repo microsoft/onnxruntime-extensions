@@ -19,6 +19,7 @@ cmake_build
 cmake-build*
 _selectedoplist.cmake
 gen
+local.properties
 .DS_Store
 *~
 .vs
