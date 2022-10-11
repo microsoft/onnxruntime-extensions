@@ -5,23 +5,46 @@ set -e -x -u
 
 OSNAME=android
 if [[ -z ${NDK_ROOT+x} ]]; then NDK_ROOT=`ls -Ad $HOME/Android/Sdk/ndk/* 2>/dev/null | head -1`; fi
-if [[ -z "${NDK_ROOT}" ]]
-then
+if [[ -z "${NDK_ROOT}" ]]; then
     echo "ERROR: cannot find where NDK was installed, using NDK_ROOT to specify it"
     exit 7
 fi
 if [[ -z ${ANDROID_SDK_ROOT+x} ]]; then
     export ANDROID_SDK_ROOT=$(dirname $(dirname  ${NDK_ROOT}))
 fi
-mkdir -p out/$OSNAME/Release && cd out/$OSNAME/Release
+if [[ -z ${ANDROID_NDK_VERSION+x} ]]; then
+    CURRENT_NDK_VERSION=$(basename ${NDK_ROOT})
+else
+    CURRENT_NDK_VERSION=${ANDROID_NDK_VERSION}
+fi
 
-# ANDROID_ABI would be armeabi-v7a arm64-v8a x86 x86_64
 # ANDROID_PLATFORM, the minimum level is 24, i.e., due to
 #       the great change of file system permission in Android 7
-cmake "$@" \
-    -DCMAKE_TOOLCHAIN_FILE=${NDK_ROOT}/build/cmake/android.toolchain.cmake  \
-    -DANDROID_NDK=${NDK_ROOT}                                               \
-    -DANDROID_ABI=armeabi-v7a                                               \
-    -DANDROID_PLATFORM=android-24                                           \
-    -DOCOS_BUILD_ANDROID=ON                                                 \
-    ../../.. && cmake --build . --config Release --parallel
+ABIS=('x86' 'arm64-v8a'  'x86_64' 'armeabi-v7a')
+# something like ABIS=('x86') is to make one ABI fast build.
+for abi_name in "${ABIS[@]}";
+do
+    mkdir -p out/$OSNAME/Release_${abi_name} && pushd out/$OSNAME/Release_${abi_name}
+    cmake "$@" \
+        -DCMAKE_TOOLCHAIN_FILE=${NDK_ROOT}/build/cmake/android.toolchain.cmake  \
+        -DANDROID_NDK=${NDK_ROOT}                                               \
+        -DANDROID_ABI=${abi_name}                                               \
+        -DANDROID_PLATFORM=android-24                                           \
+        -DOCOS_BUILD_ANDROID=ON                                                 \
+        -DANDROID_NDK_VERSION=${CURRENT_NDK_VERSION}                            \
+        ../../.. && cmake --build . --config Release --parallel
+    popd
+done
+
+if [[ ${#ABIS[@]} -gt 1 ]]; then
+    for abi_name in "${ABIS[@]:1}";
+    do
+        cp -R out/$OSNAME/Release_${abi_name}/java/android/${abi_name} out/$OSNAME/Release_${ABIS[0]}/java/android/
+    done
+
+    pushd out/$OSNAME/Release_${ABIS[0]} && cmake --build . --config Release --parallel && popd
+fi
+
+if [[ ${#ABIS[@]} -gt 0 ]]; then
+    echo "The final android AAR package is located at: out/$OSNAME/Release_${ABIS[0]}/java/build/android/outputs/aar"
+fi
