@@ -42,8 +42,9 @@ if [[ ${#ABIS[@]} -gt 1 ]]; then
         cp -R out/$OSNAME/Release_${abi_name}/java/android/${abi_name} out/$OSNAME/Release_${ABIS[0]}/java/android/
     done
 
-    # The final ABI merged package is in out/Release_${ABIS[0]}\java\build\android\outputs\aar
     pushd out/$OSNAME/Release_${ABIS[0]} && cmake --build . --config Release --parallel && popd
 fi
 
-echo "The final android AAR package is located at: out/Release_${ABIS[0]}/java/build/android/outputs/aar"
+if [[ ${#ABIS[@]} -gt 0 ]]; then
+    echo "The final android AAR package is located at: out/$OSNAME/Release_${ABIS[0]}/java/build/android/outputs/aar"
+fi
