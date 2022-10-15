@@ -1,7 +1,7 @@
 FetchContent_Declare(
   googlere2
   GIT_REPOSITORY https://github.com/google/re2.git
-  GIT_TAG        2020-11-01
+  GIT_TAG        2021-06-01
 )
 
 FetchContent_GetProperties(googlere2)
