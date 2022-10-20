@@ -435,3 +435,10 @@ jobs:
           adb shell 'cd /data/local/tmp/ && export LD_LIBRARY_PATH=$(pwd) && ./ocos_test' && adb shell 'cd /data/local/tmp/ && export LD_LIBRARY_PATH=$(pwd) && ./extensions_test'
         displayName: Run Android test
         workingDirectory: $(Build.sourcesdirectory)
+
+      - script: |
+          bash ./build.android
+          cd out/android/Release_x86/java/androidtest/android
+          ./gradlew --no-daemon clean connectedDebugAndroidTest
+        displayName: Run extensions package test on AAR package with Android Emulator
+        workingDirectory: $(Build.sourcesdirectory)
