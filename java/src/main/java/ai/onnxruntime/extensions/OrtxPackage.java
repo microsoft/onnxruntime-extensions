@@ -5,7 +5,7 @@ public final class OrtxPackage implements AutoCloseable {
 
     private static volatile OrtxPackage INSTANCE;
 
-    public String getLibraryPath() {
+    public static String getLibraryPath() {
         return OrtxLibrary.getExtractedLibraryPath();
     }
 
