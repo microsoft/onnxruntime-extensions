@@ -3,8 +3,13 @@
 # The example build file on building Android package.
 set -e -x -u
 
-OSNAME=android
-if [[ -z ${NDK_ROOT+x} ]]; then NDK_ROOT=`ls -Ad $HOME/Android/Sdk/ndk/* 2>/dev/null | head -1`; fi
+if [[ -z ${NDK_ROOT+x} ]]; then
+    if [[ $OSTYPE == 'darwin'* ]]; then
+        NDK_ROOT=`ls -d $HOME/Library/Android/sdk/ndk/* 2>/dev/null`
+    else
+        NDK_ROOT=`ls -d $HOME/Android/Sdk/ndk/* 2>/dev/null`
+    fi
+fi
 if [[ -z "${NDK_ROOT}" ]]; then
     echo "ERROR: cannot find where NDK was installed, using NDK_ROOT to specify it"
     exit 7
@@ -18,6 +23,7 @@ else
     CURRENT_NDK_VERSION=${ANDROID_NDK_VERSION}
 fi
 
+OSNAME=android
 # ANDROID_PLATFORM, the minimum level is 24, i.e., due to
 #       the great change of file system permission in Android 7
 ABIS=('x86' 'arm64-v8a'  'x86_64' 'armeabi-v7a')

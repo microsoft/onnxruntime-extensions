@@ -371,7 +371,7 @@ jobs:
   - job: AndroidC
     pool:
       vmImage: 'macOS-11'
-    timeoutInMinutes: 180
+    timeoutInMinutes: 120
     variables:
       OnnxruntimeDirectory: cmake/external/onnxruntime
     steps:
@@ -395,13 +395,6 @@ jobs:
             --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
         displayName: Start Android emulator
         workingDirectory: $(OnnxruntimeDirectory)
-
-      - script: |
-          bash ./build.android
-          cd out/android/Release_x86/java/androidtest/android
-          ./gradlew --no-daemon clean connectedDebugAndroidTest
-        displayName: Run extensions package test on AAR package with Android Emulator
-        workingDirectory: $(Build.sourcesdirectory)
 
       - script: |
           bash ./build.android
