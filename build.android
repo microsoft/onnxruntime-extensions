@@ -5,9 +5,9 @@ set -e -x -u
 
 if [[ -z ${NDK_ROOT+x} ]]; then
     if [[ $OSTYPE == 'darwin'* ]]; then
-        NDK_ROOT=`ls -d $HOME/Library/Android/sdk/ndk/* 2>/dev/null`
+        NDK_ROOT=`ls -Ad $HOME/Library/Android/sdk/ndk/* 2>/dev/null | tail -1`
     else
-        NDK_ROOT=`ls -d $HOME/Android/Sdk/ndk/* 2>/dev/null`
+        NDK_ROOT=`ls -Ad $HOME/Android/Sdk/ndk/* 2>/dev/null | tail -1`
     fi
 fi
 if [[ -z "${NDK_ROOT}" ]]; then

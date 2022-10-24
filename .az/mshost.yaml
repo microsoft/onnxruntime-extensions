@@ -368,7 +368,7 @@ jobs:
   #############
   # Android
   #############
-  - job: AndroidC
+  - job: Android Package
     pool:
       vmImage: 'macOS-11'
     timeoutInMinutes: 120
