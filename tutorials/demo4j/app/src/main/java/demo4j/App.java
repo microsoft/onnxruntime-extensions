@@ -16,7 +16,7 @@ public class App {
             var sess_opt = new OrtSession.SessionOptions();
 
             /* Register the custom ops from onnxruntime-extensions */
-            sess_opt.registerCustomOpLibrary(OrtxPackage.getPackage().getLibraryPath());
+            sess_opt.registerCustomOpLibrary(OrtxPackage.getLibraryPath());
 
             /* do a quick inference on Bert Tokenizer custom ops with Ort */
             var modelPath = Paths.get(this.getClass().getClassLoader().getResource("test_bert_tokenizer.onnx").getPath());
