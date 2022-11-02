@@ -21,8 +21,8 @@ def create_bert_tokenizer(ctx, name, input_names, output_names, container, opera
         attrs = dict(vocab_file=vocab)
         # Unfortunately, there's no specific accessor function on
         # transformers.BertTokenizer to query for strip_accents.
-        attrs['strip_accents'] = 1 if hf_bert_tokenizer.init_kwargs.get('strip_accents') else 0
-        attrs['do_lower_case'] = 1 if hf_bert_tokenizer.do_lower_case else 0
+        attrs['strip_accents'] = 1 if 'strip_accents' in hf_bert_tokenizer.init_kwargs and hf_bert_tokenizer.init_kwargs.get('strip_accents') else 0
+        attrs['do_lower_case'] = 1 if hasattr(hf_bert_tokenizer, 'do_lower_case') and hf_bert_tokenizer.do_lower_case else 0
     elif 'vocab_file' in kwargs:
         vocab = None
         vocab_file = kwargs['vocab_file']
