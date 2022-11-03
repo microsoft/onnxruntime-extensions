@@ -404,8 +404,8 @@ jobs:
           jdkSourceOption: 'PreInstalled'
 
       - script: |
-          bash ./build.android
-          cd out/android/Release_x86/java/androidtest/android
+          bash ./tools/android.package.sh
+          cd out/android/Release/java/androidtest/android
           ./gradlew --no-daemon clean connectedDebugAndroidTest
         displayName: Run extensions package test on AAR package with Android Emulator
         workingDirectory: $(Build.sourcesdirectory)
