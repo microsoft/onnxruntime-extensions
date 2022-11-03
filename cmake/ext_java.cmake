@@ -194,9 +194,10 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Android")
     POST_BUILD COMMAND ${CMAKE_COMMAND}
     -E copy_if_different ${ANDROID_PACKAGE_OUTPUT_DIR}/outputs/aar/onnxruntime-extensions-debug.aar ${ANDROID_TEST_PACKAGE_LIB_DIR})
   # Build Android test apk for java package
+  file(TO_NATIVE_PATH ./gradlew GRADLEW)
   add_custom_command(TARGET onnxruntime_extensions4j_jni
-    POST_BUILD COMMAND gradlew clean WORKING_DIRECTORY ${ANDROID_TEST_PACKAGE_DIR})
+    POST_BUILD COMMAND ${GRADLEW} clean WORKING_DIRECTORY ${ANDROID_TEST_PACKAGE_DIR})
   add_custom_command(TARGET onnxruntime_extensions4j_jni
-    POST_BUILD COMMAND gradlew assembleDebug assembleDebugAndroidTest
+    POST_BUILD COMMAND ${GRADLEW} assembleDebug assembleDebugAndroidTest
     WORKING_DIRECTORY ${ANDROID_TEST_PACKAGE_DIR})
 endif()
