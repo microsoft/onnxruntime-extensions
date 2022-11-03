@@ -405,7 +405,11 @@ jobs:
 
       - script: |
           bash ./tools/android.package.sh
+        displayName: Build onnxruntime-extensions package
+        workingDirectory: $(Build.sourcesdirectory)
+
+      - script: |
           cd out/android/Release/java/androidtest/android
           ./gradlew --no-daemon clean connectedDebugAndroidTest
-        displayName: Run extensions package test on AAR package with Android Emulator
+        displayName: Run extensions unit test with Android Emulator
         workingDirectory: $(Build.sourcesdirectory)
