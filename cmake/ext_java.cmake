@@ -182,19 +182,22 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Android")
     -DjniLibsDir=${ANDROID_PACKAGE_JNILIBS_DIR} -DbuildDir=${ANDROID_PACKAGE_OUTPUT_DIR} -DminSdkVer=${ANDROID_MIN_SDK} -DndkVer=${ANDROID_NDK_VERSION}
     WORKING_DIRECTORY ${JAVA_ROOT})
 
-  if (onnxruntime_extensions_BUILD_UNIT_TESTS)
-    set(ANDROID_TEST_PACKAGE_ROOT ${JAVA_ROOT}/src/test/android)
-    set(ANDROID_TEST_PACKAGE_DIR ${JAVA_OUTPUT_DIR}/androidtest/android)
-    #copy the androidtest project into cmake binary directory
-    file(MAKE_DIRECTORY ${JAVA_OUTPUT_DIR}/androidtest)
-    file(COPY ${ANDROID_TEST_PACKAGE_ROOT} DESTINATION ${JAVA_OUTPUT_DIR}/androidtest)
-    set(ANDROID_TEST_PACKAGE_LIB_DIR ${ANDROID_TEST_PACKAGE_DIR}/app/libs)
-    file(MAKE_DIRECTORY ${ANDROID_TEST_PACKAGE_LIB_DIR})
-    # Build Android test apk for java package
-    add_custom_command(TARGET onnxruntime_extensions4j_jni
-      POST_BUILD COMMAND ${GRADLE_EXECUTABLE} clean WORKING_DIRECTORY ${ANDROID_TEST_PACKAGE_DIR})
-    add_custom_command(TARGET onnxruntime_extensions4j_jni
-      POST_BUILD COMMAND ${GRADLE_EXECUTABLE} assembleDebug assembleDebugAndroidTest -DminSdkVer=${ANDROID_MIN_SDK} -DndkVer=${ANDROID_NDK_VERSION}
-      WORKING_DIRECTORY ${ANDROID_TEST_PACKAGE_DIR})
-  endif()
+  set(ANDROID_TEST_PACKAGE_ROOT ${JAVA_ROOT}/src/test/android)
+  set(ANDROID_TEST_PACKAGE_DIR ${JAVA_OUTPUT_DIR}/androidtest/android)
+  #copy the androidtest project into cmake binary directory
+  file(MAKE_DIRECTORY ${JAVA_OUTPUT_DIR}/androidtest)
+  file(COPY ${ANDROID_TEST_PACKAGE_ROOT} DESTINATION ${JAVA_OUTPUT_DIR}/androidtest)
+  set(ANDROID_TEST_PACKAGE_LIB_DIR ${ANDROID_TEST_PACKAGE_DIR}/app/libs)
+  file(MAKE_DIRECTORY ${ANDROID_TEST_PACKAGE_LIB_DIR})
+  # Copy the built Android AAR package to libs folder of our test app
+  add_custom_command(TARGET onnxruntime_extensions4j_jni
+    POST_BUILD COMMAND ${CMAKE_COMMAND}
+    -E copy_if_different ${ANDROID_PACKAGE_OUTPUT_DIR}/outputs/aar/onnxruntime-extensions-debug.aar ${ANDROID_TEST_PACKAGE_LIB_DIR})
+  # Build Android test apk for java package
+  file(TO_NATIVE_PATH ./gradlew GRADLEW)
+  add_custom_command(TARGET onnxruntime_extensions4j_jni
+    POST_BUILD COMMAND ${GRADLEW} clean WORKING_DIRECTORY ${ANDROID_TEST_PACKAGE_DIR})
+  add_custom_command(TARGET onnxruntime_extensions4j_jni
+    POST_BUILD COMMAND ${GRADLEW} assembleDebug assembleDebugAndroidTest
+    WORKING_DIRECTORY ${ANDROID_TEST_PACKAGE_DIR})
 endif()
