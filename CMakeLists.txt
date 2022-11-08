@@ -1,12 +1,11 @@
 cmake_minimum_required(VERSION 3.16.0)
 project(onnxruntime_extensions LANGUAGES C CXX)
-# set(CMAKE_VERBOSE_MAKEFILE ON)
 
+# set(CMAKE_VERBOSE_MAKEFILE ON)
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Build type not set - using RelWithDebInfo")
   set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Choose build type: Debug Release RelWithDebInfo." FORCE)
 endif()
-
 
 set(CPACK_PACKAGE_NAME "onnxruntime_extensions")
 set(CPACK_PACKAGE_VERSION_MAJOR "0")
@@ -45,6 +44,11 @@ option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
 option(OCOS_BUILD_JAVA "Enable building the Java package" OFF)
 option(OCOS_BUILD_ANDROID "Enable building the Android package" OFF)
 
+# Pre/post processing operator collections.
+option(OCOS_ENABLE_PPP_VISION "Enable operators for adding pre/post processing to vision models" ON)
+option(OCOS_ENABLE_PPP_TEXT "Enable operators for adding pre/post processing to text models" OFF)
+option(OCOS_ENABLE_PPP_AUDIO "Enable operators for adding pre/post processing to audio models" OFF)
+
 function(disable_all_operators)
   set(OCOS_ENABLE_RE2_REGEX OFF CACHE INTERNAL "")
   set(OCOS_ENABLE_TF_STRING OFF CACHE INTERNAL "")
@@ -65,7 +69,7 @@ if(NOT CC_OPTIMIZE)
   string(REGEX REPLACE "([\-\/]O[123])" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
   string(REGEX REPLACE "([\-\/]O[123])" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 
-  if (NOT WIN32)
+  if(NOT WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
   else()
@@ -74,15 +78,16 @@ if(NOT CC_OPTIMIZE)
   endif()
 endif()
 
-if (NOT OCOS_BUILD_PYTHON AND OCOS_ENABLE_PYTHON)
+if(NOT OCOS_BUILD_PYTHON AND OCOS_ENABLE_PYTHON)
   message("OCOS_ENABLE_PYTHON IS DEPRECATED, USE OCOS_BUILD_PYTHON INSTEAD")
   set(OCOS_BUILD_PYTHON ON CACHE INTERNAL "")
 endif()
 
-if (OCOS_BUILD_ANDROID)
-  if (NOT ANDROID_SDK_ROOT OR NOT ANDROID_NDK)
+if(OCOS_BUILD_ANDROID)
+  if(NOT ANDROID_SDK_ROOT OR NOT ANDROID_NDK)
     message("Cannot the find Android SDK/NDK")
   endif()
+
   set(OCOS_BUILD_JAVA ON CACHE INTERNAL "")
 endif()
 
@@ -92,6 +97,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 set(CMAKE_FIND_FRAMEWORK NEVER CACHE STRING "...")
+
 if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
   message(FATAL_ERROR "CMAKE_FIND_FRAMEWORK is not NEVER")
 endif()
@@ -99,7 +105,7 @@ endif()
 # External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals ${PROJECT_SOURCE_DIR}/cmake)
 
-if (OCOS_ENABLE_SELECTED_OPLIST)
+if(OCOS_ENABLE_SELECTED_OPLIST)
   # Need to ensure _selectedoplist.cmake file is already generated in folder: ${PROJECT_SOURCE_DIR}/cmake/
   # You could run gen_selectedops.py in folder: tools/ to generate _selectedoplist.cmake
   message(STATUS "Looking for the _selectedoplist.cmake")
@@ -110,6 +116,7 @@ endif()
 if(NOT OCOS_ENABLE_CPP_EXCEPTIONS)
   include(noexcep_ops)
   add_compile_definitions(OCOS_NO_EXCEPTIONS ORT_NO_EXCEPTIONS)
+
   if(MSVC)
     string(REGEX REPLACE "/EHsc" "/EHs-c-" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     add_compile_definitions("_HAS_EXCEPTIONS=0")
@@ -120,8 +127,8 @@ endif()
 
 include(FetchContent)
 
-if (OCOS_ENABLE_RE2_REGEX)
-  if (NOT TARGET re2::re2)
+if(OCOS_ENABLE_RE2_REGEX)
+  if(NOT TARGET re2::re2)
     set(RE2_BUILD_TESTING OFF CACHE INTERNAL "")
     message(STATUS "Fetch googlere2")
     include(googlere2)
@@ -133,30 +140,29 @@ if (OCOS_ENABLE_RE2_REGEX)
 endif()
 
 macro(standardize_output_folder bin_target)
-set_target_properties(${bin_target} PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-  LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-  ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-  PDB_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+  set_target_properties(${bin_target} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+    PDB_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 endmacro()
 
-
-#### scan all source files
-
+# ### scan all source files
 file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h")
-if (OCOS_ENABLE_TF_STRING)
+
+if(OCOS_ENABLE_TF_STRING)
   set(farmhash_SOURCE_DIR ${PROJECT_SOURCE_DIR}/cmake/externals/farmhash)
   file(GLOB TARGET_SRC_KERNELS "operators/text/*.cc" "operators/text/*.h*")
   file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")
   list(APPEND TARGET_SRC ${TARGET_SRC_KERNELS} ${TARGET_SRC_HASH})
 endif()
 
-if (OCOS_ENABLE_RE2_REGEX)
+if(OCOS_ENABLE_RE2_REGEX)
   file(GLOB TARGET_SRC_RE2_KERNELS "operators/text/re2_strings/*.cc" "operators/text/re2_strings/*.h*")
   list(APPEND TARGET_SRC ${TARGET_SRC_RE2_KERNELS})
 endif()
 
-if (OCOS_ENABLE_MATH)
+if(OCOS_ENABLE_MATH)
   if(OCOS_ENABLE_DLIB)
     set(DLIB_ISO_CPP_ONLY ON CACHE INTERNAL "")
     set(DLIB_NO_GUI_SUPPORT ON CACHE INTERNAL "")
@@ -164,32 +170,47 @@ if (OCOS_ENABLE_MATH)
     set(DLIB_USE_LAPACK OFF CACHE INTERNAL "")
     set(DLIB_USE_BLAS OFF CACHE INTERNAL "")
     include(dlib)
+
     # Ideally, dlib should be included as
-    #   file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/all/source.cpp")
+    # file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/all/source.cpp")
     # To avoid the unintentional using some unwanted component, only include
     file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/test_for_odr_violations.cpp")
     file(GLOB TARGET_SRC_INVERSE "operators/math/dlib/*.cc" "operators/math/dlib/*.h*")
   endif()
+
   file(GLOB TARGET_SRC_MATH "operators/math/*.cc" "operators/math/*.h*")
   list(APPEND TARGET_SRC ${TARGET_SRC_MATH} ${TARGET_SRC_DLIB} ${TARGET_SRC_INVERSE})
 endif()
 
-if (OCOS_ENABLE_OPENCV)
+if(OCOS_ENABLE_OPENCV OR OCOS_ENABLE_PPP_VISION)
   message(STATUS "Fetch opencv")
   include(opencv)
+endif()
+
+if(OCOS_ENABLE_OPENCV)
   file(GLOB TARGET_SRC_CV "operators/cv2/*.cc" "operators/cv2/*.h*")
   list(APPEND TARGET_SRC ${TARGET_SRC_CV})
 endif()
 
+if(OCOS_ENABLE_PPP_VISION)
+  file(GLOB TARGET_SRC_PPP_VISION "operators/vision/*.cc" "operators/vision/*.h*")
+  list(APPEND TARGET_SRC ${TARGET_SRC_PPP_VISION})
+
+  # we want the rest of the opencv infrastructure that is included later in this file
+  set(OCOS_ENABLE_OPENCV ON)
+  set(OCOS_ENABLE_OPENCV_CODECS ON)
+endif()
+
 set(_HAS_TOKENIZER OFF)
-if (OCOS_ENABLE_GPT2_TOKENIZER)
+
+if(OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
   set(_HAS_TOKENIZER ON)
   file(GLOB tok_TARGET_SRC "operators/tokenizer/gpt*.cc" "operators/tokenizer/unicode*.*")
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
 endif()
 
-if (OCOS_ENABLE_SPM_TOKENIZER)
+if(OCOS_ENABLE_SPM_TOKENIZER)
   # SentencePiece
   set(_HAS_TOKENIZER ON)
   set(SPM_ENABLE_TCMALLOC OFF CACHE INTERNAL "")
@@ -201,45 +222,50 @@ if (OCOS_ENABLE_SPM_TOKENIZER)
   list(APPEND TARGET_SRC ${stpiece_TARGET_SRC})
 endif()
 
-if (OCOS_ENABLE_WORDPIECE_TOKENIZER)
+if(OCOS_ENABLE_WORDPIECE_TOKENIZER)
   set(_HAS_TOKENIZER ON)
   file(GLOB wordpiece_TARGET_SRC "operators/tokenizer/wordpiece*.*")
   list(APPEND TARGET_SRC ${wordpiece_TARGET_SRC})
 endif()
 
-if (OCOS_ENABLE_BERT_TOKENIZER)
+if(OCOS_ENABLE_BERT_TOKENIZER)
   # Bert
   set(_HAS_TOKENIZER ON)
-  file(GLOB bert_TARGET_SRC  "operators/tokenizer/basic_tokenizer.*" "operators/tokenizer/bert_tokenizer.*" "operators/tokenizer/bert_tokenizer_decoder.*")
+  file(GLOB bert_TARGET_SRC "operators/tokenizer/basic_tokenizer.*" "operators/tokenizer/bert_tokenizer.*" "operators/tokenizer/bert_tokenizer_decoder.*")
   list(APPEND TARGET_SRC ${bert_TARGET_SRC})
 endif()
 
-if (OCOS_ENABLE_BLINGFIRE)
+if(OCOS_ENABLE_BLINGFIRE)
   # blingfire
   set(_HAS_TOKENIZER ON)
   file(GLOB blingfire_TARGET_SRC "operators/tokenizer/blingfire*.*")
   list(APPEND TARGET_SRC ${blingfire_TARGET_SRC})
 endif()
 
-if (OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
-  if (NOT TARGET nlohmann_json)
+if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
+  if(NOT TARGET nlohmann_json)
     set(JSON_BuildTests OFF CACHE INTERNAL "")
     message(STATUS "Fetch json")
     include(json)
   endif()
 endif()
 
-if (_HAS_TOKENIZER)
+if(_HAS_TOKENIZER)
   message(STATUS "Tokenizer needed.")
   file(GLOB tokenizer_TARGET_SRC "operators/tokenizer/tokenizers.*")
   list(APPEND TARGET_SRC ${tokenizer_TARGET_SRC})
 endif()
 
-#### make all compile options.
+file(GLOB ocos_includes "includes/*.h")
+list(APPEND TARGET_SRC ${ocos_includes})
 
+# ### make all compile options.
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_library(ocos_operators STATIC ${TARGET_SRC})
+set_target_properties(ocos_operators PROPERTIES FOLDER "operators")
+source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${TARGET_SRC})
+
 standardize_output_folder(ocos_operators)
 
 target_include_directories(ocos_operators PUBLIC
@@ -250,15 +276,15 @@ target_include_directories(ocos_operators PUBLIC
 set(ocos_libraries "")
 set(OCOS_COMPILE_DEFINITIONS "")
 
-if (OCOS_ENABLE_DLIB)
+if(OCOS_ENABLE_DLIB)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_DLIB)
 endif()
 
-if (_HAS_TOKENIZER)
+if(_HAS_TOKENIZER)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TOKENIZER)
 endif()
 
-if (OCOS_ENABLE_TF_STRING)
+if(OCOS_ENABLE_TF_STRING)
   target_include_directories(ocos_operators PUBLIC
     ${googlere2_SOURCE_DIR}
     ${farmhash_SOURCE_DIR}/src)
@@ -266,54 +292,61 @@ if (OCOS_ENABLE_TF_STRING)
   list(APPEND ocos_libraries re2)
 endif()
 
-if (OCOS_ENABLE_RE2_REGEX)
+if(OCOS_ENABLE_RE2_REGEX)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_RE2_REGEX)
 endif()
 
-if (OCOS_ENABLE_MATH)
+if(OCOS_ENABLE_MATH)
   target_include_directories(ocos_operators PUBLIC ${dlib_SOURCE_DIR})
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_MATH)
+
   # The dlib matrix implementation is all in the headers, no library compiling needed.
 endif()
 
-if (OCOS_ENABLE_OPENCV)
+if(OCOS_ENABLE_OPENCV)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_OPENCV)
-  if (OCOS_ENABLE_OPENCV_CODECS)
+
+  if(OCOS_ENABLE_OPENCV_CODECS)
     list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_OPENCV ENABLE_OPENCV_CODEC)
   endif()
+
   list(APPEND ocos_libraries ${opencv_LIBS})
   target_include_directories(ocos_operators PUBLIC ${opencv_INCLUDE_DIRS})
 endif()
 
-if (OCOS_ENABLE_GPT2_TOKENIZER)
+if(OCOS_ENABLE_PPP_VISION)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_PPP_VISION)
+endif()
+
+if(OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
   target_include_directories(ocos_operators PRIVATE ${json_SOURCE_DIR}/single_include)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_GPT2_TOKENIZER)
   list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 
-if (OCOS_ENABLE_WORDPIECE_TOKENIZER)
+if(OCOS_ENABLE_WORDPIECE_TOKENIZER)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_WORDPIECE_TOKENIZER)
 endif()
 
-if (OCOS_ENABLE_BERT_TOKENIZER)
+if(OCOS_ENABLE_BERT_TOKENIZER)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_BERT_TOKENIZER)
 endif()
 
-if (OCOS_ENABLE_SPM_TOKENIZER)
+if(OCOS_ENABLE_SPM_TOKENIZER)
   # SentencePiece
   target_include_directories(ocos_operators PUBLIC ${spm_INCLUDE_DIRS})
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_SPM_TOKENIZER)
   list(APPEND ocos_libraries sentencepiece-static)
 endif()
 
-if (OCOS_ENABLE_BLINGFIRE)
+if(OCOS_ENABLE_BLINGFIRE)
   include(blingfire)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_BLINGFIRE)
   list(APPEND ocos_libraries bingfirtinydll_static)
 endif()
 
-if (OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
+if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
   target_include_directories(ocos_operators PRIVATE ${json_SOURCE_DIR}/single_include)
   list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
@@ -323,6 +356,7 @@ target_compile_definitions(ocos_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
 
 file(GLOB shared_TARGET_LIB_SRC "shared/lib/*.cc" "shared/lib/*.h")
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   add_executable(ortcustomops ${shared_TARGET_LIB_SRC})
   set_target_properties(ortcustomops PROPERTIES LINK_FLAGS "                                  \
@@ -336,7 +370,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
                       -s EXPORT_ALL=0                                                         \
                       -s VERBOSE=0                                                            \
                       --no-entry")
-  if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set_property(TARGET ortcustomops APPEND_STRING PROPERTY LINK_FLAGS " -s ASSERTIONS=1 -s DEMANGLE_SUPPORT=1")
   else()
     set_property(TARGET ortcustomops APPEND_STRING PROPERTY LINK_FLAGS " -s ASSERTIONS=0 -s DEMANGLE_SUPPORT=0")
@@ -351,20 +386,25 @@ endif()
 target_compile_definitions(ortcustomops PUBLIC ${OCOS_COMPILE_DEFINITIONS} ${GTEST_CXX_FLAGS})
 target_include_directories(ortcustomops PUBLIC
   "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
+
 target_link_libraries(ortcustomops PUBLIC ocos_operators)
 
-if (_BUILD_SHARED_LIBRARY)
+if(_BUILD_SHARED_LIBRARY)
   file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h" "shared/*.def")
   add_library(extensions_shared SHARED ${shared_TARGET_SRC})
+  source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${shared_TARGET_SRC})
   standardize_output_folder(extensions_shared)
-  if (CMAKE_SYSTEM_NAME STREQUAL "Android")
-    if (OCOS_ENABLE_SPM_TOKENIZER)
+
+  if(CMAKE_SYSTEM_NAME STREQUAL "Android")
+    if(OCOS_ENABLE_SPM_TOKENIZER)
       target_link_libraries(extensions_shared PUBLIC log)
     endif()
   endif()
-  if (LINUX OR CMAKE_SYSTEM_NAME STREQUAL "Android")
+
+  if(LINUX OR CMAKE_SYSTEM_NAME STREQUAL "Android")
     set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS "-Wl,-s -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
   endif()
+
   target_include_directories(extensions_shared PUBLIC
     "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>")
   target_link_libraries(extensions_shared PRIVATE ortcustomops)
@@ -384,17 +424,19 @@ endif()
 # clean up the requirements.txt files from 3rd party project folder to suppress the code security false alarms
 file(GLOB_RECURSE NO_USE_FILES ${CMAKE_BINARY_DIR}/_deps/*requirements.txt)
 message("Found the follow requirements.txt: ${NO_USE_FILES}")
+
 foreach(nf ${NO_USE_FILES})
-    file(TO_NATIVE_PATH ${nf} nf_native)
-    if (CMAKE_SYSTEM_NAME MATCHES "Windows")
-        execute_process(COMMAND cmd /c "del ${nf_native}")
-    else()
-        execute_process(COMMAND bash -c "rm ${nf_native}")
-    endif()
+  file(TO_NATIVE_PATH ${nf} nf_native)
+
+  if(CMAKE_SYSTEM_NAME MATCHES "Windows")
+    execute_process(COMMAND cmd /c "del ${nf_native}")
+  else()
+    execute_process(COMMAND bash -c "rm ${nf_native}")
+  endif()
 endforeach()
 
 # test section
-if (OCOS_ENABLE_CTEST)
+if(OCOS_ENABLE_CTEST)
   # Enable CTest
   enable_testing()
   message(STATUS "Fetch CTest")
@@ -409,13 +451,14 @@ if (OCOS_ENABLE_CTEST)
   target_link_libraries(ocos_test PRIVATE gtest_main ocos_operators ${ocos_libraries})
   add_test(NAME ocos_test COMMAND $<TARGET_FILE:ocos_test>)
 
-
   SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
   find_library(ONNXRUNTIME onnxruntime HINTS "${ONNXRUNTIME_LIB_DIR}")
-  if (ONNXRUNTIME-NOTFOUND)
+
+  if(ONNXRUNTIME-NOTFOUND)
     message(WARNING "The prebuilt onnxruntime libraries directory cannot found (via ONNXRUNTIME_LIB_DIR), the extensions_test will be skipped.")
   else()
     set(LINUX_CC_FLAGS "")
+
     # needs to link with stdc++fs in Linux
     if(UNIX AND NOT APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
       list(APPEND LINUX_CC_FLAGS stdc++fs -pthread)
@@ -426,11 +469,14 @@ if (OCOS_ENABLE_CTEST)
     standardize_output_folder(extensions_test)
     target_include_directories(extensions_test PRIVATE ${spm_INCLUDE_DIRS}
       "$<TARGET_PROPERTY:extensions_shared,INTERFACE_INCLUDE_DIRECTORIES>")
-    if (ONNXRUNTIME_LIB_DIR)
+
+    if(ONNXRUNTIME_LIB_DIR)
       target_link_directories(extensions_test PRIVATE ${ONNXRUNTIME_LIB_DIR})
     endif()
+
     target_link_libraries(extensions_test PRIVATE ocos_operators extensions_shared onnxruntime gtest_main ${ocos_libraries} ${LINUX_CC_FLAGS})
-    if (WIN32)
+
+    if(WIN32)
       file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
       file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
       add_custom_command(

@@ -6,6 +6,7 @@
 
 #include "onnxruntime_extensions.h"
 #include "ocos.h"
+#include "vision/vision.hpp"
 
 struct OrtCustomOpDomainDeleter {
   explicit OrtCustomOpDomainDeleter(const OrtApi* ort_api) {
@@ -72,7 +73,7 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
   if (status = RegisterPythonDomainAndOps(options, ortApi); status) {
     return status;
   }
-#endif // PYTHON_OP_SUPPORT
+#endif  // PYTHON_OP_SUPPORT
 
   if (status = ortApi->CreateCustomOpDomain(c_OpDomain, &domain); status) {
     return status;
@@ -97,16 +98,24 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
   static std::vector<FxLoadCustomOpFactory> c_factories = {
     LoadCustomOpClasses<CustomOpClassBegin>
 #if defined(ENABLE_TF_STRING)
-    , LoadCustomOpClasses_Text
-#endif // ENABLE_TF_STRING
+    ,
+    LoadCustomOpClasses_Text
+#endif  // ENABLE_TF_STRING
 #if defined(ENABLE_MATH)
-    , LoadCustomOpClasses_Math
+    ,
+    LoadCustomOpClasses_Math
 #endif
 #if defined(ENABLE_TOKENIZER)
-    , LoadCustomOpClasses_Tokenizer
+    ,
+    LoadCustomOpClasses_Tokenizer
 #endif
 #if defined(ENABLE_OPENCV)
-    , LoadCustomOpClasses_OpenCV
+    ,
+    LoadCustomOpClasses_OpenCV
+#endif
+#if defined(ENABLE_PPP_VISION)
+    ,
+    LoadCustomOpClasses_PPP_Vision
 #endif
   };
 
