@@ -1,0 +1,46 @@
+Module pre_post_processing.utils
+================================
+
+Functions
+---------
+
+    
+`create_custom_op_checker_context()`
+:   Create an ONNX checker context that includes the ort-extensions custom op domains so that custom ops don't
+    cause failure when each step
+    Returns:
+
+    
+`create_named_value(name: str, data_type: int, shape: List[Union[str, int]])`
+:   Helper to create a new model input.
+    
+    Args:
+        name: Name for input. Must not already be in use in the model being updated.
+        data_type: onnx.TensorProto data type. e.g. onnx.TensorProto.FLOAT, onnx.TensorProto.UINT8
+        shape: Input shape. Use int for dimensions with known values and strings for symbolic dimensions.
+               e.g. ['batch_size', 256, 256] would be a rank 3 tensor with a symbolic first dimension named 'batch_size'
+    
+    
+    Returns:
+        An onnx.ValueInfoProto that can be used as a new model input.
+
+    
+`get_opset_imports()`
+:   Get the opset imports for a model updated by the PrePostProcessor.
+
+Classes
+-------
+
+`IoMapEntry(producer: Union[ForwardRef('Step'), str] = None, producer_idx: int = 0, consumer_idx: int = 0)`
+:   Entry to map the output index from a producer step to the input index of a consumer step.
+
+    ### Class variables
+
+    `consumer_idx: int`
+    :
+
+    `producer: Union[Step, str]`
+    :
+
+    `producer_idx: int`
+    :
