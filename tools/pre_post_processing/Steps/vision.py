@@ -38,7 +38,7 @@ class ConvertImageToBGR(Step):
             image_to_bgr (uint8[{input_shape_str}] {self.input_names[0]}) 
                 => (uint8[{output_shape_str}] {self.output_names[0]})  
             {{
-                {self.output_names[0]} =  com.microsoft.ext.DecodeImage({self.input_names[0]})
+                {self.output_names[0]} =  com.microsoft.extensions.DecodeImage({self.input_names[0]})
             }}
             ''')
 
@@ -72,7 +72,7 @@ class ConvertBGRToImage(Step):
             bgr_to_image (uint8[{input_shape_str}] {self.input_names[0]}) 
                 => (uint8[{output_shape_str}] {self.output_names[0]})  
             {{
-                {self.output_names[0]} = com.microsoft.ext.EncodeImage ({self.input_names[0]})
+                {self.output_names[0]} = com.microsoft.extensions.EncodeImage ({self.input_names[0]})
             }}
             ''')
 

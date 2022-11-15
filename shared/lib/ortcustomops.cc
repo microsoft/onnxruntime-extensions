@@ -113,21 +113,16 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
     ,
     LoadCustomOpClasses_OpenCV
 #endif
-#if defined(ENABLE_PPP_VISION)
-    ,
-    LoadCustomOpClasses_PPP_Vision
-#endif
   };
 
-  for (auto fx : c_factories) {
-    auto ops = fx();
-    while (*ops != nullptr) {
-      if (pyop_nameset.find((*ops)->GetName(*ops)) == pyop_nameset.end()) {
-        if (status = ortApi->CustomOpDomain_Add(domain, *ops); status) {
+  for (const auto& fx : c_factories) {
+    const auto& ops = fx();
+    for (const OrtCustomOp* op : ops) {
+      if (pyop_nameset.find(op->GetName(op)) == pyop_nameset.end()) {
+        if (status = ortApi->CustomOpDomain_Add(domain, op); status) {
           return status;
         }
       }
-      ++ops;
     }
   }
 
@@ -139,6 +134,34 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
         return status;
       }
       e_ops = ExternalCustomOps::instance().GetNextOp(idx);
+    }
+  }
+
+  if (status = ortApi->AddCustomOpDomain(options, domain); status) {
+    return status;
+  }
+
+  // Create domain for ops using the new domain name.
+  if (status = ortApi->CreateCustomOpDomain(c_ComMsExtOpDomain, &domain); status) {
+    return status;
+  }
+
+  AddOrtCustomOpDomainToContainer(domain, ortApi);
+
+  static std::vector<FxLoadCustomOpFactory> new_domain_factories = {
+    LoadCustomOpClasses<CustomOpClassBegin>
+#if defined(ENABLE_PPP_VISION)
+    ,
+    LoadCustomOpClasses_PPP_Vision
+#endif
+  };
+
+  for (const auto& fx : new_domain_factories) {
+    const auto& ops = fx();
+    for (const OrtCustomOp* op : ops) {
+      if (status = ortApi->CustomOpDomain_Add(domain, op); status) {
+        return status;
+      }
     }
   }
 

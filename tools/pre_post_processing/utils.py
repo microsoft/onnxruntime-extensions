@@ -4,7 +4,7 @@
 import onnx
 
 from dataclasses import dataclass
-from typing import List, Union
+from typing import Dict, List, Union
 
 
 def create_named_value(name: str, data_type: int, shape: List[Union[str, int]]):
@@ -37,8 +37,7 @@ def get_opset_imports():
     """Get the opset imports for a model updated by the PrePostProcessor."""
     return {
         "": PRE_POST_PROCESSING_ONNX_OPSET,
-        "com.microsoft.ext": 1,
-        "ai.onnx.contrib": 1,
+        "com.microsoft.extensions": 1
     }
 
 
@@ -92,3 +91,34 @@ class IoMapEntry:
     producer_idx: int = 0
     # input index of the consumer step
     consumer_idx: int = 0
+
+
+def sanitize_output_names(graph: onnx.GraphProto):
+    """
+    Convert any usage of invalid characters like '/' and ';' in value names to '_'
+    This is common in models exported from TensorFlow [Lite].
+
+    ONNX parse_graph does not allow for that in a value name, and technically it's a violation of the ONNX spec as per
+    https://github.com/onnx/onnx/blob/main/docs/IR.md#names-within-a-graph
+
+    We do this for the original graph outputs only. The invalid naming has not been seen in model inputs, and we can
+    leave the internals of the graph intact to minimize changes.
+
+    Args:
+        graph: Graph to check and update any invalid names
+    """
+
+    bad_output_names = [o.name for o in graph.output if '/' in o.name or ';' in o.name]
+    if not bad_output_names:
+        return graph
+
+    renames = {}
+    for n in bad_output_names:
+        renames[n] = n.replace('/', '_').replace(';','_')
+
+    for o in graph.output:
+        if o.name in bad_output_names:
+            # Add Identity node to rename the output, and update the name in graph.output
+            rename = onnx.helper.make_node("Identity", [o.name], [renames[o.name]], f"Rename {o.name}")
+            graph.node.append(rename)
+            o.name = renames[o.name]

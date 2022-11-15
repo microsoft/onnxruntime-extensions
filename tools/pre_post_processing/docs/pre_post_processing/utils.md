@@ -28,6 +28,20 @@ Functions
 `get_opset_imports()`
 :   Get the opset imports for a model updated by the PrePostProcessor.
 
+    
+`sanitize_output_names(graph: onnx.onnx_ml_pb2.GraphProto)`
+:   Convert any usage of invalid characters like '/' and ';' in value names to '_'
+    This is common in models exported from TensorFlow [Lite].
+    
+    ONNX parse_graph does not allow for that in a value name, and technically it's a violation of the ONNX spec as per
+    https://github.com/onnx/onnx/blob/main/docs/IR.md#names-within-a-graph
+    
+    We do this for the original graph outputs only. The invalid naming has not been seen in model inputs, and we can
+    leave the internals of the graph intact to minimize changes.
+    
+    Args:
+        graph: Graph to check and update any invalid names
+
 Classes
 -------
 

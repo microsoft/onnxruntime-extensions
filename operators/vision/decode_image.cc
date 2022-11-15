@@ -25,7 +25,7 @@ void KernelDecodeImage::Compute(OrtKernelContext* context) {
   const cv::Mat encoded_image(encoded_image_sizes, CV_8UC1, const_cast<void*>(encoded_image_data));
   const cv::Mat decoded_image = cv::imdecode(encoded_image, cv::IMREAD_COLOR);
 
-  if (decoded_image == nullptr) {
+  if (decoded_image.data == nullptr) {
     ORT_CXX_API_THROW("[DecodeImage] Invalid input. Failed to decode image.", ORT_INVALID_ARGUMENT);
   };
 

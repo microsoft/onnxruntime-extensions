@@ -15,7 +15,7 @@ from typing import List, Union
 
 from pre_post_processing import PrePostProcessor
 from pre_post_processing.Steps import *
-from pre_post_processing.utils import create_named_value
+from pre_post_processing.utils import create_named_value, IoMapEntry
 
 
 class ModelSource(enum.Enum):
@@ -30,8 +30,8 @@ def imagenet_preprocessing(model_source: ModelSource = ModelSource.PYTORCH):
 
     - Resize so smallest side is 256
     - Centered crop to 244 x 244
-    - Channels last to channels first (convert to ONNX layout)
     - Convert image bytes to floating point values in range 0..1
+    - [Channels last to channels first (convert to ONNX layout) if model came from pytorch and has NCHW layout]
     - Normalize
       - (value - mean) / stddev
       - for a pytorch model, this applies per-channel normalization parameters
@@ -41,29 +41,31 @@ def imagenet_preprocessing(model_source: ModelSource = ModelSource.PYTORCH):
 
     # These utils cover both cases of typical pytorch/tensorflow pre-processing for an imagenet trained model
     # https://github.com/keras-team/keras/blob/b80dd12da9c0bc3f569eca3455e77762cf2ee8ef/keras/applications/imagenet_utils.py#L177
-    if model_source == ModelSource.PYTORCH:
-        normalization_params = [(0.485, 0.229), (0.456, 0.224), (0.406, 0.225)]
-    else:
-        # TF processing involves moving the data into the range -1..1 instead of 0..1.
-        # ImageBytesToFloat converts to range 0..1 so we use 0.5 for the stddev to expand to 0..2.
-        # We use 0.5 for the mean to move into the range -1..1 as this is subtracted prior to dividing by stddev.
-        #   i.e. (x - 0.5) / 0.5 == (x / 0.5) - 1.0
-        normalization_params = [(0, 0.5)]
 
-    return [
+    steps = [
         Resize(256),
         CenterCrop(224, 224),
-        # convert to CHW and then to float. these two steps are done by torchvision.transforms.ToTensor
-        ChannelsLastToChannelsFirst(),
-        ImageBytesToFloat(),
-        Normalize(normalization_params),
-        Unsqueeze([0]),  # add batch dim
+        ImageBytesToFloat()
     ]
 
+    if model_source == ModelSource.PYTORCH:
+        # pytorch model has NCHW layout
+        steps.extend([
+            ChannelsLastToChannelsFirst(),
+            Normalize([(0.485, 0.229), (0.456, 0.224), (0.406, 0.225)], layout="CHW")
+        ])
+    else:
+        # TF processing involves moving the data into the range -1..1 instead of 0..1.
+        # ImageBytesToFloat converts to range 0..1, so we use 0.5 for the mean to move into the range -0.5..0.5
+        # and 0.5 for the stddev to expand to -1..1
+        steps.append(Normalize([(0.5, 0.5)], layout="HWC"))
 
-def mobilenet(
-    model_file: Path, output_file: Path, model_source: ModelSource = ModelSource.PYTORCH
-):
+    steps.append(Unsqueeze([0]))  # add batch dim
+
+    return steps
+
+
+def mobilenet(model_file: Path, output_file: Path, model_source: ModelSource = ModelSource.PYTORCH):
     model = onnx.load(str(model_file.resolve(strict=True)))
     inputs = [create_named_value("image", onnx.TensorProto.UINT8, ["num_bytes"])]
 
@@ -79,8 +81,9 @@ def mobilenet(
 
     pipeline.add_pre_processing(preprocessing)
 
-    # for mobilenet we convert the score to probabilities with softmax
-    pipeline.add_post_processing([Softmax()])
+    # for mobilenet we convert the score to probabilities with softmax if necessary. the TF model includes Softmax
+    if model.graph.node[-1].op_type != "Softmax":
+        pipeline.add_post_processing([Softmax()])
 
     new_model = pipeline.run(model)
 
@@ -157,7 +160,7 @@ def superresolution(model_file: Path, output_file: Path):
                     IoMapEntry("Resized_Cr", 0, 2),
                 ],
             ),  # uint8 Cr'
-            ConvertBGRToImage(image_format="png"),  # jpg or png are supported
+            ConvertBGRToImage(image_format="jpg"),  # jpg or png are supported
         ]
     )
 

@@ -6,8 +6,10 @@ import onnx
 from onnx import version_converter
 from typing import List, Tuple, Union
 
-from .utils import IoMapEntry, get_opset_imports, PRE_POST_PROCESSING_ONNX_OPSET, TENSOR_TYPE_TO_ONNX_TYPE
+from .utils import IoMapEntry, get_opset_imports, sanitize_output_names, \
+    PRE_POST_PROCESSING_ONNX_OPSET, TENSOR_TYPE_TO_ONNX_TYPE
 from .step import Step
+
 
 class PrePostProcessor:
     """
@@ -106,6 +108,10 @@ class PrePostProcessor:
                 self._add_connection(processor, connection)
 
             return processor.apply(graph)
+
+        # fix any invalid output names now if we're adding post-processing as the onnx parse_graph can't handle them
+        if self.post_processors:
+            sanitize_output_names(model.graph)
 
         graph = model.graph
         # add pre-processing
@@ -269,6 +275,11 @@ class PrePostProcessor:
         conflicts = 0
 
         for o in graph.output:
+            if not o.name.startswith(Step.prefix):
+                continue
+
+            # we will create a small graph to do the renames so the output of the original graph will be an input
+            # to that 'fixer' graph
             io_map.append((o.name, o.name))
             clean_name = o.name
             while clean_name.startswith(Step.prefix):
@@ -299,5 +310,8 @@ class PrePostProcessor:
             new_output.name = clean_name
             new_output.type.CopyFrom(o.type)
 
-        fixed_graph = onnx.compose.merge_graphs(graph, fixes, io_map)
-        return fixed_graph
+        # merge if we have any renaming to do
+        if io_map:
+            graph = onnx.compose.merge_graphs(graph, fixes, io_map)
+
+        return graph
