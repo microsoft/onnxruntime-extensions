@@ -4,6 +4,7 @@
 import argparse
 import enum
 import os
+
 #
 # from dataclasses import dataclass
 from pathlib import Path
@@ -120,9 +121,7 @@ def superresolution(model_file: Path, output_file: Path):
             # if you inserted this Debug step here the 3 outputs from PixelsToYCbCr would also be model outputs
             # Debug(num_inputs=3),
             ImageBytesToFloat(),  # Convert Y to float in range 0..1
-            Unsqueeze(
-                [0, 1]
-            ),  # add batch and channels dim to Y so shape is {1, 1, h_in, w_in}
+            Unsqueeze([0, 1]),  # add batch and channels dim to Y so shape is {1, 1, h_in, w_in}
         ]
     )
 
@@ -133,9 +132,7 @@ def superresolution(model_file: Path, output_file: Path):
     pipeline.add_post_processing(
         [
             Squeeze([0, 1]),  # remove batch and channels dims from Y'
-            FloatToImageBytes(
-                name="Yout_to_bytes"
-            ),  # convert Y' to uint8 in range 0..255
+            FloatToImageBytes(name="Yout_to_bytes"),  # convert Y' to uint8 in range 0..255
             # Resize the Cb values (output 1 from PixelsToYCbCr)
             (
                 Resize((h_out, w_out), "HW"),
@@ -203,9 +200,7 @@ def main():
         """,
     )
 
-    parser.add_argument(
-        "model", type=Path, help="Provide path to ONNX model to update."
-    )
+    parser.add_argument("model", type=Path, help="Provide path to ONNX model to update.")
 
     args = parser.parse_args()
 

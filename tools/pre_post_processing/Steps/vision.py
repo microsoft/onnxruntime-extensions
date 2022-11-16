@@ -116,16 +116,10 @@ class PixelsToYCbCr(Step):
         # input should be uint8 data HWC
         input_dims = input_shape_str.split(",")
         assert input_type_str == "uint8" and len(input_dims) == 3 and input_dims[2] == "3"
-
-        # https://en.wikipedia.org/wiki/YCbCr - note there are different 'RGB' types and YCbCr conversions
-        # This is the JPEG conversion and gives accuracy that is equivalent to opencv2 (when compared to PIL).
-        # Both are 'better than PIL'
-        #   'better' being smaller differences between original and result of converting to YCbCr and back
-        # Exact weights from https://www.itu.int/rec/T-REC-T.871-201105-I/en
         rgb_weights = np.array([[0.299, 0.587, 0.114],
-                                [-0.299/1.772, -0.587/1.772, 0.500],
-                                [0.500, -0.587/1.402, -0.114/1.402]], 
-                                dtype=np.float32)
+                                [-0.299 / 1.772, -0.587 / 1.772, 0.500],
+                                [0.500, -0.587 / 1.402, -0.114 / 1.402]],
+                               dtype=np.float32)  # fmt: skip
 
         bias = [0.0, 128.0, 128.0]
 
@@ -222,12 +216,14 @@ class YCbCrToPixels(Step):
         # exact weights from https://www.itu.int/rec/T-REC-T.871-201105-I/en
         ycbcr_to_rbg_weights = np.array([[1, 0, 1.402],
                                          [1, -0.114*1.772/0.587, -0.299*1.402/0.587],
-                                         [1, 1.772, 0]])
+                                         [1, 1.772, 0]],
+                                        dtype=np.float32)
 
         # reverse 2nd and 3rd entry in each row (YCbCr to YCrCb so blue and red are flipped)
         ycbcr_to_bgr_weights = np.array([[1, 1.402, 0],
                                          [1, -0.299*1.402/0.587, -0.114*1.772/0.587],
-                                         [1, 0, 1.772]])
+                                         [1, 0, 1.772]],
+                                        dtype=np.float32)
         # fmt: on
 
         weights = ycbcr_to_bgr_weights if self._layout == "BGR" else ycbcr_to_rbg_weights
