@@ -1,8 +1,9 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include <opencv2/imgcodecs.hpp>
 #include "encode_image.hpp"
+
+#include <opencv2/imgcodecs.hpp>
 
 namespace ort_extensions {
 
@@ -14,7 +15,7 @@ void KernelEncodeImage ::Compute(OrtKernelContext* context) {
   if (dimensions_bgr.size() != 3 || dimensions_bgr[2] != 3) {
     // expect {H, W, C} as that's the inverse of what decode_image produces.
     // we have no way to check if it's BGR or RGB though
-    throw std::runtime_error("[EncodeImage] requires rank 3 BGR input in channels last format.");
+    ORT_CXX_API_THROW("[EncodeImage] requires rank 3 BGR input in channels last format.", ORT_INVALID_ARGUMENT);
   }
 
   // Get data & the length
@@ -23,7 +24,7 @@ void KernelEncodeImage ::Compute(OrtKernelContext* context) {
 
   // data is const uint8_t but opencv2 wants void*.
   const void* bgr_data = ort_.GetTensorData<uint8_t>(input_bgr);
-  cv::Mat bgr_image(height_x_width, CV_8UC3, const_cast<void*>(bgr_data));
+  const cv::Mat bgr_image(height_x_width, CV_8UC3, const_cast<void*>(bgr_data));
 
   // don't know output size ahead of time so need to encode and then copy to output
   std::vector<uint8_t> encoded_image;

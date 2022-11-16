@@ -35,7 +35,7 @@ new_input = create_named_value('image', onnx.TensorProto.UINT8, ['num_bytes'])
 
 ### Create PrePostProcessor
 
-Create out PrePostProcessor instance with the new input/s.
+Create our PrePostProcessor instance with the new input/s.
 
 ```py
 pipeline = PrePostProcessor([new_input])

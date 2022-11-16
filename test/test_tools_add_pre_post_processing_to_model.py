@@ -7,7 +7,6 @@ import io
 import numpy as np
 import onnxruntime as ort
 import os
-import subprocess
 import sys
 
 from PIL import Image
@@ -25,19 +24,20 @@ sys.path.append(tools_dir)
 import add_pre_post_processing_to_model as add_ppp
 
 
-def _get_labels(is_pytorch: bool = True):
-    labels_file = os.path.join(test_data_dir, "TF.ImageNetLabels.txt")
-    labels = []
-    with open(labels_file, 'r') as infile:
-        # skip first 'background' entry if pytorch as that model was not trained with it
-        if is_pytorch:
-            _ = infile.readline()
-
-        for line in infile:
-            labels.append(line.strip())
-
-    assert(len(labels) == 1000 if is_pytorch else 1001)
-    return labels
+# Function to read the mobilenet labels and adjust for PT vs TF training if needed
+# def _get_labels(is_pytorch: bool = True):
+#     labels_file = os.path.join(test_data_dir, "TF.ImageNetLabels.txt")
+#     labels = []
+#     with open(labels_file, 'r') as infile:
+#         # skip first 'background' entry if pytorch as that model was not trained with it
+#         if is_pytorch:
+#             _ = infile.readline()
+#
+#         for line in infile:
+#             labels.append(line.strip())
+#
+#     assert(len(labels) == 1000 if is_pytorch else 1001)
+#     return labels
 
 
 class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
@@ -75,7 +75,6 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         def new_output():
             input_bytes = np.fromfile(input_image_path, dtype=np.uint8)
             so = ort.SessionOptions()
-            # so.register_custom_ops_library(r'D:/src/github/ort-extensions-clean/out/Windows/Debug/bin/Debug/ortextensions.dll')
             so.register_custom_ops_library(get_library_path())
 
             s = ort.InferenceSession(output_model, so)
@@ -137,7 +136,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         new_idx = np.argmax(new_results)
         self.assertEqual(orig_idx, new_idx)
         # check within 1%. probability values are in range 0..1
-        assert (abs(orig_results[orig_idx] - new_results[new_idx]) < 0.01)
+        self.assertTrue(abs(orig_results[orig_idx] - new_results[new_idx]) < 0.01)
 
     def test_pytorch_superresolution(self):
         input_model = os.path.join(test_data_dir, "pytorch_super_resolution.onnx")
@@ -153,14 +152,23 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         add_ppp.superresolution(Path(input_model), Path(output_model))
 
         input_bytes = np.fromfile(input_image_path, dtype=np.uint8)
-        expected_bytes = np.fromfile(expected_output_image_path, dtype=np.uint8)
 
         so = ort.SessionOptions()
         so.register_custom_ops_library(get_library_path())
         s = ort.InferenceSession(output_model, so)
 
-        result = s.run(None, {'image': np.array(input_bytes)})[0]
-        self.assertTrue(np.all(result == expected_bytes))
+        result_bytes = s.run(None, {'image': np.array(input_bytes)})[0]
+
+        # convert from jpg to RGB to remove any jpg encoding diffs
+        result = np.array(Image.open(io.BytesIO(result_bytes)).convert('RGB'))
+        expected = np.array(Image.open(expected_output_image_path).convert('RGB'))
+
+        # check all pixel values are within 1.
+        #
+        # we expect some variance from the floating point operations involved during Resize and conversion of the
+        # original image to/from YCbCr. the different instructions used on different hardware can cause diffs, such as
+        # whether avx512 is used or not.
+        self.assertTrue(np.allclose(expected, result, atol=1, rtol=0))
 
 
 if __name__ == "__main__":

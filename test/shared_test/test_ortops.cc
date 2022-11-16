@@ -300,7 +300,8 @@ void TestInference(Ort::Env& env, const ORTCHAR_T* model_uri,
   Ort::SessionOptions session_options;
   void* handle = nullptr;
   if (custom_op_library_filename) {
-    Ort::ThrowOnError(Ort::GetApi().RegisterCustomOpsLibrary((OrtSessionOptions*)session_options, custom_op_library_filename, &handle));
+    Ort::ThrowOnError(Ort::GetApi().RegisterCustomOpsLibrary((OrtSessionOptions*)session_options,
+                                                             custom_op_library_filename, &handle));
   }
 
   // if session creation passes, model loads fine

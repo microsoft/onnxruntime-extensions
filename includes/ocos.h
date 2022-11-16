@@ -16,8 +16,8 @@
 // Must be invoked before RegisterCustomOps.
 extern "C" bool ORT_API_CALL AddExternalCustomOp(const OrtCustomOp* c_op);
 
-const char c_OpDomain[] = "ai.onnx.contrib";
-const char c_ComMsExtOpDomain[] = "com.microsoft.extensions";
+constexpr const char* c_OpDomain = "ai.onnx.contrib";
+constexpr const char* c_ComMsExtOpDomain = "com.microsoft.extensions";
 
 struct BaseKernel {
   BaseKernel(const OrtApi& api) : api_(api), info_(nullptr), ort_(api_) {}

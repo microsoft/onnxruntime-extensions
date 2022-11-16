@@ -4,10 +4,14 @@
 import abc
 import onnx
 
-from onnx import parser, version_converter
-from typing import List, Tuple, Union
+from onnx import parser
+from typing import List, Optional, Tuple
 
-from .utils import IoMapEntry, create_custom_op_checker_context, get_opset_imports, TENSOR_TYPE_TO_ONNX_TYPE
+from .utils import (
+    IoMapEntry,
+    create_custom_op_checker_context,
+    TENSOR_TYPE_TO_ONNX_TYPE,
+)
 
 
 class Step(object):
@@ -17,7 +21,7 @@ class Step(object):
     _step_num = 0  # unique step number so we can prefix the naming in the graph created for the step
     _custom_op_checker_context = create_custom_op_checker_context()
 
-    def __init__(self, inputs: List[str], outputs: List[str], name: str = None):
+    def __init__(self, inputs: List[str], outputs: List[str], name: Optional[str] = None):
         """
         Initialize the step.
 

@@ -51,6 +51,16 @@ void FixCurrentDir() {
 TEST(VisionOps, image_decode_encode) {
   FixCurrentDir();
 
+  std::string ort_version{OrtGetApiBase()->GetVersionString()};
+
+  // the test model requires ONNX opset 16, which requires ORT version 1.11 or later.
+  // skip test if the CI doesn't have that ORT version.
+  // the CI only has a few ORT versions so we don't worry about versions <= 1.2
+  if (ort_version.compare(0, 3, "1.1") != 0 ||   // earlier than 1.10
+      ort_version.compare(0, 4, "1.10") == 0) {  // earlier than 1.11
+    return;
+  }
+
   auto data_dir = std::filesystem::current_path() / "data";
   auto model_path = data_dir / "ppp_vision" / "decode_encode_decode_test.onnx";
   auto image_path = data_dir / "test_colors.jpg";
