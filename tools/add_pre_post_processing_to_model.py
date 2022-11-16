@@ -1,20 +1,15 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-# import abc
 import argparse
 import enum
-# import numpy as np
-import onnx
 import os
 #
 # from dataclasses import dataclass
-# from onnx import parser, version_converter
 from pathlib import Path
-from typing import List, Union
 
 from pre_post_processing import PrePostProcessor
-from pre_post_processing.Steps import *
+from pre_post_processing.steps import *
 from pre_post_processing.utils import create_named_value, IoMapEntry
 
 
@@ -172,15 +167,15 @@ def main():
     parser = argparse.ArgumentParser(
         os.path.basename(__file__),
         description="""Add pre and post processing to a model.
-        
+
         Currently supports updating:
           - super resolution with YCbCr input
           - imagenet trained mobilenet   
-          
+
         To customize, the logic in the `mobilenet` and `superresolution` functions can be used as a guide.
         Create a pipeline and add the required pre/post processing 'Steps' in the order required. Configure 
         individual steps as needed. 
-        
+
         The updated model will be written in the same location as the original model, with '.onnx' updated to 
         '.with_pre_post_processing.onnx'
         """,

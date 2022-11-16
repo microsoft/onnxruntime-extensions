@@ -13,7 +13,7 @@ from .utils import IoMapEntry, create_custom_op_checker_context, get_opset_impor
 class Step(object):
     """Base class for a pre or post processing step."""
 
-    prefix = '_ppp'
+    prefix = "_ppp"
     _step_num = 0  # unique step number so we can prefix the naming in the graph created for the step
     _custom_op_checker_context = create_custom_op_checker_context()
 
@@ -29,8 +29,8 @@ class Step(object):
         self.step_num = Step._step_num
         self.input_names = inputs
         self.output_names = outputs
-        self.name = name if name else f'{self.__class__.__name__}'
-        self._prefix = f'{Step.prefix}{self.step_num}_'
+        self.name = name if name else f"{self.__class__.__name__}"
+        self._prefix = f"{Step.prefix}{self.step_num}_"
 
         Step._step_num += 1
 
@@ -39,9 +39,9 @@ class Step(object):
         Connect the value name from a previous step to an input of this step so they match.
         This makes joining the GraphProto created by each step trivial.
         """
-        assert(len(entry.producer.output_names) >= entry.producer_idx)
-        assert(len(self.input_names) >= entry.consumer_idx)
-        assert(isinstance(entry.producer, Step))
+        assert len(entry.producer.output_names) >= entry.producer_idx
+        assert len(self.input_names) >= entry.consumer_idx
+        assert isinstance(entry.producer, Step)
 
         self.input_names[entry.consumer_idx] = entry.producer.output_names[entry.producer_idx]
 
@@ -61,7 +61,7 @@ class Step(object):
 
         # sanity check that all of our outputs are in the merged graph
         for o in new_outputs:
-            assert(o in result_outputs)
+            assert o in result_outputs
 
         self.output_names = new_outputs
 
@@ -110,6 +110,7 @@ class Step(object):
     @staticmethod
     def _shape_to_str(shape: onnx.TensorShapeProto):
         """Returns the values from the shape as a comma separated string."""
+
         def dim_to_str(dim):
             if dim.HasField("dim_value"):
                 return str(dim.dim_value)
@@ -118,7 +119,7 @@ class Step(object):
             else:
                 return ""
 
-        shape_str = ','.join([dim_to_str(dim) for dim in shape.dim])
+        shape_str = ",".join([dim_to_str(dim) for dim in shape.dim])
         return shape_str
 
     def _input_tensor_type(self, graph: onnx.GraphProto, input_num: int) -> onnx.TensorProto:
@@ -151,6 +152,7 @@ class Debug(Step):
           TODO: PrePostProcessor __cleanup_graph_output_names could also hide the _debug by inserting an Identity node
                 to rename so it's more consistent.
     """
+
     def __init__(self, num_inputs: int = 1, name: str = None):
         """
         Initialize Debug step
@@ -159,19 +161,19 @@ class Debug(Step):
             name: Optional name for Step. Defaults to 'Debug'
         """
         self._num_inputs = num_inputs
-        input_names = [f'input{i}' for i in range(0, num_inputs)]
-        output_names = [f'debug{i}' for i in range(0, num_inputs)]
+        input_names = [f"input{i}" for i in range(0, num_inputs)]
+        output_names = [f"debug{i}" for i in range(0, num_inputs)]
 
         super().__init__(input_names, output_names, name)
 
     def _create_graph_for_step(self, graph: onnx.GraphProto):
-        input_str = ''
-        output_str = ''
-        output_debug_str = ''
-        nodes_str = ''
+        input_str = ""
+        output_str = ""
+        output_debug_str = ""
+        nodes_str = ""
 
         # update output names so we preserve info from the latest input names
-        self.output_names = [f'{name}_debug' for name in self.input_names]
+        self.output_names = [f"{name}_debug" for name in self.input_names]
 
         for i in range(0, self._num_inputs):
             input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, i)
@@ -179,19 +181,21 @@ class Debug(Step):
                 input_str += ", "
                 output_str += ", "
                 output_debug_str += ", "
-                nodes_str += '\n'
+                nodes_str += "\n"
 
             input_str += f"{input_type_str}[{input_shape_str}] {self.input_names[i]}"
             output_str += f"{input_type_str}[{input_shape_str}] {self.output_names[i]}"
             nodes_str += f"{self.output_names[i]} = Identity({self.input_names[i]})\n"
 
-        debug_graph = onnx.parser.parse_graph(f'''\
+        debug_graph = onnx.parser.parse_graph(
+            f"""\
             debug ({input_str}) 
                 => ({output_str})
             {{
                 {nodes_str}
             }}
-            ''')
+            """
+        )
 
         onnx.checker.check_graph(debug_graph)
         return debug_graph
