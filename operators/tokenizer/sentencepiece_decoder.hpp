@@ -36,7 +36,6 @@ struct KernelSentencepieceDecoder : BaseKernel {
     result.reserve(count);
     std::vector<int64_t> output_dim(count);
     for (int64_t idx = 0; idx < count; ++idx) {
-        // Unknown check?
         auto id = *(p_ids + idx);
         if (id < tokenizer_.GetPieceSize()) {
             result.push_back(tokenizer_.IdToPiece(id));
@@ -64,7 +63,7 @@ struct CustomOpSentencepieceDecoder : Ort::CustomOpBase<CustomOpSentencepieceDec
   }
 
   size_t GetInputTypeCount() const {
-    1;
+    return 1;
   }
 
   ONNXTensorElementDataType GetInputType(size_t index) const {
