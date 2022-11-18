@@ -35,14 +35,17 @@ PRE_POST_PROCESSING_ONNX_OPSET = 16
 
 def get_opset_imports():
     """Get the opset imports for a model updated by the PrePostProcessor."""
-    return {"": PRE_POST_PROCESSING_ONNX_OPSET, "com.microsoft.extensions": 1}
+    return {
+        "": PRE_POST_PROCESSING_ONNX_OPSET,
+        "com.microsoft.extensions": 1
+    }  # fmt: skip
 
 
 # Create an onnx checker context that includes the ort-ext domain so that custom ops don't cause failure
 def create_custom_op_checker_context():
     """
     Create an ONNX checker context that includes the ort-extensions custom op domains so that custom ops don't
-    cause failure when each step
+    cause failure when running onnx.checker.check_graph.
     Returns:
 
     """

@@ -4,7 +4,7 @@ Module pre_post_processing.step
 Classes
 -------
 
-`Debug(num_inputs: int = 1, name: str = None)`
+`Debug(num_inputs: int = 1, name: Optional[str] = None)`
 :   Step that can be arbitrarily inserted in the pre or post processing pipeline.
     It will make the outputs of the previous Step also become graph outputs so their value can be more easily debugged.
     
@@ -22,7 +22,7 @@ Classes
 
     * pre_post_processing.step.Step
 
-`Step(inputs: List[str], outputs: List[str], name: str = None)`
+`Step(inputs: List[str], outputs: List[str], name: Optional[str] = None)`
 :   Base class for a pre or post processing step.
     
     Initialize the step.
@@ -34,21 +34,21 @@ Classes
 
     ### Descendants
 
-    * pre_post_processing.Steps.general.ReverseAxis
-    * pre_post_processing.Steps.general.Softmax
-    * pre_post_processing.Steps.general.Squeeze
-    * pre_post_processing.Steps.general.Transpose
-    * pre_post_processing.Steps.general.Unsqueeze
-    * pre_post_processing.Steps.vision.CenterCrop
-    * pre_post_processing.Steps.vision.ConvertBGRToImage
-    * pre_post_processing.Steps.vision.ConvertImageToBGR
-    * pre_post_processing.Steps.vision.FloatToImageBytes
-    * pre_post_processing.Steps.vision.ImageBytesToFloat
-    * pre_post_processing.Steps.vision.Normalize
-    * pre_post_processing.Steps.vision.PixelsToYCbCr
-    * pre_post_processing.Steps.vision.Resize
-    * pre_post_processing.Steps.vision.YCbCrToPixels
     * pre_post_processing.step.Debug
+    * pre_post_processing.steps.general.ReverseAxis
+    * pre_post_processing.steps.general.Softmax
+    * pre_post_processing.steps.general.Squeeze
+    * pre_post_processing.steps.general.Transpose
+    * pre_post_processing.steps.general.Unsqueeze
+    * pre_post_processing.steps.vision.CenterCrop
+    * pre_post_processing.steps.vision.ConvertBGRToImage
+    * pre_post_processing.steps.vision.ConvertImageToBGR
+    * pre_post_processing.steps.vision.FloatToImageBytes
+    * pre_post_processing.steps.vision.ImageBytesToFloat
+    * pre_post_processing.steps.vision.Normalize
+    * pre_post_processing.steps.vision.PixelsToYCbCr
+    * pre_post_processing.steps.vision.Resize
+    * pre_post_processing.steps.vision.YCbCrToPixels
 
     ### Class variables
 

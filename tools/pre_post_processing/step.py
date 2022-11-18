@@ -157,7 +157,7 @@ class Debug(Step):
                 to rename so it's more consistent.
     """
 
-    def __init__(self, num_inputs: int = 1, name: str = None):
+    def __init__(self, num_inputs: int = 1, name: Optional[str] = None):
         """
         Initialize Debug step
         Args:

@@ -10,14 +10,24 @@ Classes
     ### Methods
 
     `add_post_processing(self, items: List[Union[pre_post_processing.step.Step, Tuple[pre_post_processing.step.Step, List[pre_post_processing.utils.IoMapEntry]]]])`
-    :
-
-    `add_pre_processing(self, items: List[Union[pre_post_processing.step.Step, Tuple[pre_post_processing.step.Step, List[pre_post_processing.utils.IoMapEntry]]]])`
-    :   Add the pre-processing steps.
+    :   Add the post-processing steps. The first step is automatically joined to the original model outputs.
+        
         Options are:
           Add Step with default connection of outputs from the previous step (if available) to inputs of this step.
-          Add tuple of Step or step name and io_map for connections between two steps.
-            If IoMapEntry.producer is not specified it is inferred to be the previous Step.
+          Add tuple of Step and list of IoMapEntry instances for connections to previous steps. This will be
+          used to override any automatic connections.
+            If IoMapEntry.producer is None it is inferred to be the immediately previous Step.
+            If IoMapEntry.producer is a step name it must match the name of a previous step.
+
+    `add_pre_processing(self, items: List[Union[pre_post_processing.step.Step, Tuple[pre_post_processing.step.Step, List[pre_post_processing.utils.IoMapEntry]]]])`
+    :   Add the pre-processing steps. The last step is automatically joined to the original model inputs.
+        
+        Options are:
+          Add Step with default connection of outputs from the previous step (if available) to inputs of this step.
+          Add tuple of Step and list of IoMapEntry instances for manual connections to previous steps. This will be
+          used to override any automatic connections.
+            If IoMapEntry.producer is None it is inferred to be the immediately previous Step.
+            If IoMapEntry.producer is a step name it must match the name of a previous step.
 
     `run(self, model: onnx.onnx_ml_pb2.ModelProto)`
     :   Update the model with the graph from each step in the pre and post processing pipelines.

@@ -7,7 +7,7 @@ Functions
     
 `create_custom_op_checker_context()`
 :   Create an ONNX checker context that includes the ort-extensions custom op domains so that custom ops don't
-    cause failure when each step
+    cause failure when running onnx.checker.check_graph.
     Returns:
 
     

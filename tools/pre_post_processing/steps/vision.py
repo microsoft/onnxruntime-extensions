@@ -4,7 +4,7 @@
 import onnx
 import numpy as np
 
-from typing import List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 from ..step import Step
 from .general import Transpose
 
@@ -20,9 +20,8 @@ class ConvertImageToBGR(Step):
     Output shape: {input_image_height, input_image_width, 3}
     """
 
-    def __init__(self, name: str = None):
+    def __init__(self, name: Optional[str] = None):
         """
-        Initialize step.
         Args:
             name: Optional name of step. Defaults to 'ConvertImageToBGR'
 
@@ -56,9 +55,8 @@ class ConvertBGRToImage(Step):
     Output shape: {num_encoded_bytes}
     """
 
-    def __init__(self, image_format: str = "jpg", name: str = None):
+    def __init__(self, image_format: str = "jpg", name: Optional[str] = None):
         """
-        Initialize step.
         Args:
             image_format: Format to encode to. jpg and png are supported.
             name: Optional step name. Defaults to 'ConvertBGRToImage'
@@ -100,9 +98,8 @@ class PixelsToYCbCr(Step):
     Output data is float, but rounded and clipped to the range 0..255 as per the spec for YCbCr conversion.
     """
 
-    def __init__(self, layout: str = "BGR", name: str = None):
+    def __init__(self, layout: str = "BGR", name: Optional[str] = None):
         """
-        Initialize the step.
         Args:
             layout: Input data layout. Can be 'BGR' or 'RGB'
             name: Optional step name. Defaults to 'PixelsToYCbCr'
@@ -184,9 +181,8 @@ class YCbCrToPixels(Step):
     Output shape is the same.
     """
 
-    def __init__(self, layout: str = "BGR", name: str = None):
+    def __init__(self, layout: str = "BGR", name: Optional[str] = None):
         """
-        Initialize step.
         Args:
             layout: Output layout. Can be 'BGR' or 'RGB'
             name: Optional step name. Defaults to 'YCbCrToPixels'
@@ -214,7 +210,7 @@ class YCbCrToPixels(Step):
         # fmt: off
         # https://en.wikipedia.org/wiki/YCbCr
         # exact weights from https://www.itu.int/rec/T-REC-T.871-201105-I/en
-        ycbcr_to_rbg_weights = np.array([[1, 0, 1.402],
+        ycbcr_to_rgb_weights = np.array([[1, 0, 1.402],
                                          [1, -0.114*1.772/0.587, -0.299*1.402/0.587],
                                          [1, 1.772, 0]],
                                         dtype=np.float32)
@@ -226,7 +222,7 @@ class YCbCrToPixels(Step):
                                         dtype=np.float32)
         # fmt: on
 
-        weights = ycbcr_to_bgr_weights if self._layout == "BGR" else ycbcr_to_rbg_weights
+        weights = ycbcr_to_bgr_weights if self._layout == "BGR" else ycbcr_to_rgb_weights
         bias = [0.0, 128.0, 128.0]
 
         weights_shape = "3, 3"
@@ -258,14 +254,14 @@ class YCbCrToPixels(Step):
 
                 Y1 = Unsqueeze({self.input_names[0]}, i64_neg1)
                 Cb1 = Unsqueeze({self.input_names[1]}, i64_neg1)
-                Cr1 = Unsqueeze({self.input_names[2]}, i64_neg1)                
+                Cr1 = Unsqueeze({self.input_names[2]}, i64_neg1)
                 YCbCr = Concat <axis = -1> (Y1, Cb1, Cr1)
                 f_YCbCr = Cast <to = 1> (YCbCr)
                 f_unbiased = Sub (f_YCbCr, kBias)
                 f_pixels = MatMul (f_unbiased, kWeights)
                 f_rounded = Round (f_pixels)
-                clipped = Clip (f_rounded, f_0, f_255)                                
-                {self.output_names[0]} = Cast <to = {onnx.TensorProto.UINT8}> (clipped)                  
+                clipped = Clip (f_rounded, f_0, f_255)
+                {self.output_names[0]} = Cast <to = {onnx.TensorProto.UINT8}> (clipped)
             }}
             """
         )
@@ -282,14 +278,13 @@ class Resize(Step):
     e.g. if image is 1200 x 600 and 300 x 300 is requested the result will be 600 x 300
     """
 
-    def __init__(self, resize_to: Union[int, Tuple[int, int]], layout: str = "HWC", name: str = None):
+    def __init__(self, resize_to: Union[int, Tuple[int, int]], layout: str = "HWC", name: Optional[str] = None):
         """
-        Initialize step.
         Args:
             resize_to: Target size. Can be a single value or a tuple with (target_height, target_width).
                        The aspect ratio will be maintained and neither height or width in the result will be smaller
                        than the requested value.
-            layout: Input layout. 'CHW', 'HWC', 'HW' and 'HW' are supported.
+            layout: Input layout. 'CHW', 'HWC' and 'HW' are supported.
             name: Optional name. Defaults to 'Resize'
         """
         super().__init__(["image"], ["resized_image"], name)
@@ -306,7 +301,7 @@ class Resize(Step):
         dims = input_shape_str.split(",")
 
         # adjust for layout
-        # resize will use the largest ratio so both sides won't necessary match the requested height and width.
+        # resize will use the largest ratio so both sides won't necessarily match the requested height and width.
         # use symbolic names for the output dims as we have to provide values. prefix the names to try and
         # avoid any clashes
         scales_constant_str = "f_1 = Constant <value = float[1] {1.0}> ()"
@@ -360,9 +355,8 @@ class CenterCrop(Step):
     Crop the input to the requested dimensions, with the crop being centered.
     """
 
-    def __init__(self, height: int, width: int, name: str = None):
+    def __init__(self, height: int, width: int, name: Optional[str] = None):
         """
-        Initialize step.
         Args:
             height: Height of area to crop.
             width: Width of area to crop.
@@ -406,9 +400,8 @@ class Normalize(Step):
     Output is float with same shape as input.
     """
 
-    def __init__(self, normalization_values: List[Tuple[float, float]], layout: str = "CHW", name: str = None):
+    def __init__(self, normalization_values: List[Tuple[float, float]], layout: str = "CHW", name: Optional[str] = None):
         """
-        Initialize step.
         Args:
             normalization_values: Tuple with (mean, stddev). One entry per channel.
                                   If single entry is provided it will be used for all channels.
@@ -443,7 +436,7 @@ class Normalize(Step):
                 => (float[{input_shape_str}] {self.output_names[0]})
             {{
                 kMean = Constant <value = float[{values_shape}] {{{mean0}, {mean1}, {mean2}}}> ()
-                kStddev = Constant <value = float[{values_shape}] {{{stddev0}, {stddev1}, {stddev2}}}> ()                
+                kStddev = Constant <value = float[{values_shape}] {{{stddev0}, {stddev1}, {stddev2}}}> ()
                 f_input = Cast <to = 1> ({self.input_names[0]})
                 f_sub_mean = Sub (f_input, kMean)
                 {self.output_names[0]} = Div (f_sub_mean, kStddev)
@@ -463,7 +456,11 @@ class ImageBytesToFloat(Step):
     Convert uint8 or float values in range 0..255 to floating point values in range 0..1
     """
 
-    def __init__(self, name: str = None):
+    def __init__(self, name: Optional[str] = None):
+        """
+        Args:
+            name: Optional step name. Defaults to 'ImageBytesToFloat'
+        """
         super().__init__(["data"], ["float_data"], name)
 
     def _create_graph_for_step(self, graph: onnx.GraphProto):
@@ -478,7 +475,7 @@ class ImageBytesToFloat(Step):
 
         byte_to_float_graph = onnx.parser.parse_graph(
             f"""\
-            byte_to_float (uint8[{input_shape_str}] {self.input_names[0]}) 
+            byte_to_float ({input_type_str}[{input_shape_str}] {self.input_names[0]}) 
                 => (float[{input_shape_str}] {self.output_names[0]})
             {{
                 f_255 = Constant <value = float[1] {{255.0}}>()
@@ -501,11 +498,11 @@ class FloatToImageBytes(Step):
     Values will be rounded prior to clipping and conversion to uint8.
     """
 
-    def __init__(self, multiplier: float = 255.0, name: str = None):
+    def __init__(self, multiplier: float = 255.0, name: Optional[str] = None):
         """
-        Initialize step.
         Args:
-            multiplier: Optional multiplier. Specify if input data is not in the range 0..1
+            multiplier: Optional multiplier. Currently, the expected values are 255 (input data is in range 0..1), or
+                        1 (input data is in range 0..255).
             name: Optional step name. Defaults to 'FloatToImageBytes'
         """
         super().__init__(["float_data"], ["pixel_data"], name)
@@ -542,9 +539,8 @@ class ChannelsLastToChannelsFirst(Transpose):
     Input can be NHWC or HWC.
     """
 
-    def __init__(self, has_batch_dim: bool = False, name: str = None):
+    def __init__(self, has_batch_dim: bool = False, name: Optional[str] = None):
         """
-        Initialize step.
         Args:
             has_batch_dim: Set to True if the input has a batch dimension (i.e. is NHWC)
             name: Optional step name. Defaults to 'ChannelsLastToChannelsFirst'

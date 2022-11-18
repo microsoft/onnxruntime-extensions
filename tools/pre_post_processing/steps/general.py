@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 
 import onnx
-from typing import List
+from typing import List, Optional
 from ..step import Step
 
 
@@ -13,9 +13,8 @@ class ReverseAxis(Step):
     Output data type and shape is the same as the input.
     """
 
-    def __init__(self, axis: int = -1, dim_value: int = -1, name: str = None):
+    def __init__(self, axis: int = -1, dim_value: int = -1, name: Optional[str] = None):
         """
-        Initialize ReverseAxis step.
         Args:
             axis: Axis to reverse. Default is last axis.
             dim_value: Explicit value for size of dimension being reversed.
@@ -56,7 +55,6 @@ class ReverseAxis(Step):
             """
         )
 
-        onnx.checker.check_graph(reverse_graph)
         return reverse_graph
 
 
@@ -65,31 +63,43 @@ class Squeeze(Step):
     ONNX Squeeze
     """
 
-    def __init__(self, axes: List[int] = None, name: str = None):
+    def __init__(self, axes: List[int] = None, name: Optional[str] = None):
+        """
+        Args:
+            axes: Axes to remove.
+                  If None, remove all axes with size of 1. Requires all dimensions to have explicit values.
+            name: Optional Step name. Defaults to 'Squeeze'
+        """
         super().__init__(["data"], ["squeezed"], name)
         self._axes = axes
 
     def _create_graph_for_step(self, graph: onnx.GraphProto):
         input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
         dims = input_shape_str.split(",")
-        output_dims = [dim for idx, dim in enumerate(dims) if idx not in self._axes]
+
+        axes = self._axes
+        if not axes:
+            axes = []
+            for idx, dim in enumerate(dims):
+                if not dim.isnumeric():
+                    # we can't infer the output shape if there are symbolic dims
+                    raise ValueError("Axes must be specified if there are symbolic dimensions.")
+
+                if dim == '1':
+                    axes.append(int(idx))
+
+        output_dims = [dim for idx, dim in enumerate(dims) if idx not in axes]
         output_shape_str = ",".join(output_dims)
 
-        if self._axes:
-            axes_strs = [str(axis) for axis in self._axes]
-            graph_str = f"""\
-            axes = Constant <value = int64[{len(self._axes)}] {{{','.join(axes_strs)}}}> ()
-            {self.output_names[0]} = Squeeze({self.input_names[0]}, axes)
-            """
-        else:
-            graph_str = f"{self.output_names[0]} = Squeeze({self.input_names[0]})"
+        axes_strs = [str(axis) for axis in axes]
 
         squeeze_graph = onnx.parser.parse_graph(
             f"""\
             squeeze ({input_type_str}[{input_shape_str}] {self.input_names[0]}) 
                 => ({input_type_str}[{output_shape_str}] {self.output_names[0]})  
             {{
-                {graph_str}
+                axes = Constant <value = int64[{len(axes)}] {{{','.join(axes_strs)}}}> ()
+                {self.output_names[0]} = Squeeze({self.input_names[0]}, axes)
             }}
             """
         )
@@ -102,7 +112,12 @@ class Transpose(Step):
     ONNX Transpose.
     """
 
-    def __init__(self, perms: List[int], name: str = None):
+    def __init__(self, perms: List[int], name: Optional[str] = None):
+        """
+        Args:
+            perms: List of integers with permutations to apply.
+            name: Optional Step name. Defaults to 'Transpose'
+        """
         super().__init__(["X"], ["transposed"], name)
         self.perms = perms
 
@@ -131,7 +146,11 @@ class Softmax(Step):
     ONNX Softmax
     """
 
-    def __init__(self, name: str = None):
+    def __init__(self, name: Optional[str] = None):
+        """
+        Args:
+            name: Optional Step name. Defaults to 'Softmax'
+        """
         super().__init__(["data"], ["probabilities"], name)
 
     def _create_graph_for_step(self, graph: onnx.GraphProto):
@@ -155,7 +174,12 @@ class Unsqueeze(Step):
     ONNX Unsqueeze
     """
 
-    def __init__(self, axes: List[int], name: str = None):
+    def __init__(self, axes: List[int], name: Optional[str] = None):
+        """
+        Args:
+            axes: List of integers indicating the dimensions to be inserted.
+            name: Optional Step name. Defaults to 'Unsqueeze'
+        """
         super().__init__(["data"], ["expanded"], name)
         self._axes = axes
 

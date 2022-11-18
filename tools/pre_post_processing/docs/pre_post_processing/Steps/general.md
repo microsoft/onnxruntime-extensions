@@ -1,15 +1,14 @@
-Module pre_post_processing.Steps.general
+Module pre_post_processing.steps.general
 ========================================
 
 Classes
 -------
 
-`ReverseAxis(axis: int = -1, dim_value: int = -1, name: str = None)`
-:   Reverses the data in an axis by splitting and concatenating in reverse order.    
-      e.g. convert RGB ordered data to BGR. 
-    Output data type and shape is the same as the input. 
+`ReverseAxis(axis: int = -1, dim_value: int = -1, name: Optional[str] = None)`
+:   Reverses the data in an axis by splitting and concatenating in reverse order.
+      e.g. convert RGB ordered data to BGR.
+    Output data type and shape is the same as the input.
     
-    Initialize ReverseAxis step.
     Args:
         axis: Axis to reverse. Default is last axis.
         dim_value: Explicit value for size of dimension being reversed.
@@ -22,43 +21,34 @@ Classes
 
     * pre_post_processing.step.Step
 
-`Softmax(name: str = None)`
+`Softmax(name: Optional[str] = None)`
 :   ONNX Softmax
     
-    Initialize the step.
-    
     Args:
-        inputs: List of default input names.
-        outputs: List of default output names.
-        name: Step name. Defaults to the derived class name.
+        name: Optional Step name. Defaults to 'Softmax'
 
     ### Ancestors (in MRO)
 
     * pre_post_processing.step.Step
 
-`Squeeze(axes: List[int] = None, name: str = None)`
+`Squeeze(axes: List[int] = None, name: Optional[str] = None)`
 :   ONNX Squeeze
     
-    Initialize the step.
-    
     Args:
-        inputs: List of default input names.
-        outputs: List of default output names.
-        name: Step name. Defaults to the derived class name.
+        axes: Axes to remove.
+              If None, remove all axes with size of 1. Requires all dimensions to have explicit values.
+        name: Optional Step name. Defaults to 'Squeeze'
 
     ### Ancestors (in MRO)
 
     * pre_post_processing.step.Step
 
-`Transpose(perms: List[int], name: str = None)`
+`Transpose(perms: List[int], name: Optional[str] = None)`
 :   ONNX Transpose.
     
-    Initialize the step.
-    
     Args:
-        inputs: List of default input names.
-        outputs: List of default output names.
-        name: Step name. Defaults to the derived class name.
+        perms: List of integers with permutations to apply.
+        name: Optional Step name. Defaults to 'Transpose'
 
     ### Ancestors (in MRO)
 
@@ -66,17 +56,14 @@ Classes
 
     ### Descendants
 
-    * pre_post_processing.Steps.vision.ChannelsLastToChannelsFirst
+    * pre_post_processing.steps.vision.ChannelsLastToChannelsFirst
 
-`Unsqueeze(axes: List[int], name: str = None)`
+`Unsqueeze(axes: List[int], name: Optional[str] = None)`
 :   ONNX Unsqueeze
     
-    Initialize the step.
-    
     Args:
-        inputs: List of default input names.
-        outputs: List of default output names.
-        name: Step name. Defaults to the derived class name.
+        axes: List of integers indicating the dimensions to be inserted.
+        name: Optional Step name. Defaults to 'Unsqueeze'
 
     ### Ancestors (in MRO)
 

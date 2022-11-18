@@ -5,8 +5,6 @@ import argparse
 import enum
 import os
 
-#
-# from dataclasses import dataclass
 from pathlib import Path
 
 from pre_post_processing import PrePostProcessor
@@ -25,7 +23,7 @@ def imagenet_preprocessing(model_source: ModelSource = ModelSource.PYTORCH):
     Common pre-processing for an imagenet trained model.
 
     - Resize so smallest side is 256
-    - Centered crop to 244 x 244
+    - Centered crop to 224 x 224
     - Convert image bytes to floating point values in range 0..1
     - [Channels last to channels first (convert to ONNX layout) if model came from pytorch and has NCHW layout]
     - Normalize
@@ -149,9 +147,9 @@ def superresolution(model_file: Path, output_file: Path):
                 [
                     IoMapEntry("Yout_to_bytes", 0, 0),  # uint8 Y' with shape {h, w}
                     IoMapEntry("Resized_Cb", 0, 1),  # uint8 Cb'
-                    IoMapEntry("Resized_Cr", 0, 2),
+                    IoMapEntry("Resized_Cr", 0, 2),  # uint8 Cr'
                 ],
-            ),  # uint8 Cr'
+            ),
             ConvertBGRToImage(image_format="jpg"),  # jpg or png are supported
         ]
     )
@@ -208,7 +206,7 @@ def main():
     new_model_path = model_path.with_suffix(".with_pre_post_processing.onnx")
 
     if args.model_type == "mobilenet":
-        source = ModelSource.PYTORCH if args.model_source == "pytorch" else "tensorflow"
+        source = ModelSource.PYTORCH if args.model_source == "pytorch" else ModelSource.TENSORFLOW
         mobilenet(model_path, new_model_path, source)
     else:
         superresolution(model_path, new_model_path)

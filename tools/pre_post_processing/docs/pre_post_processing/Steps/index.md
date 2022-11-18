@@ -1,7 +1,7 @@
-Module pre_post_processing.Steps
+Module pre_post_processing.steps
 ================================
 
 Sub-modules
 -----------
-* pre_post_processing.Steps.general
-* pre_post_processing.Steps.vision
+* pre_post_processing.steps.general
+* pre_post_processing.steps.vision

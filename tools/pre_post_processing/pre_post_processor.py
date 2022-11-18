@@ -45,28 +45,39 @@ class PrePostProcessor:
 
     def add_pre_processing(self, items: List[Union[Step, Tuple[Step, List[IoMapEntry]]]]):
         """
-        Add the pre-processing steps.
+        Add the pre-processing steps. The last step is automatically joined to the original model inputs.
+
         Options are:
           Add Step with default connection of outputs from the previous step (if available) to inputs of this step.
-          Add tuple of Step or step name and io_map for connections between two steps.
-            If IoMapEntry.producer is not specified it is inferred to be the previous Step.
+          Add tuple of Step and list of IoMapEntry instances for manual connections to previous steps. This will be
+          used to override any automatic connections.
+            If IoMapEntry.producer is None it is inferred to be the immediately previous Step.
+            If IoMapEntry.producer is a step name it must match the name of a previous step.
         """
         self.__add_processing(self.pre_processors, self._pre_processor_connections, items)
 
     def add_post_processing(self, items: List[Union[Step, Tuple[Step, List[IoMapEntry]]]]):
+        """
+        Add the post-processing steps. The first step is automatically joined to the original model outputs.
+
+        Options are:
+          Add Step with default connection of outputs from the previous step (if available) to inputs of this step.
+          Add tuple of Step and list of IoMapEntry instances for connections to previous steps. This will be
+          used to override any automatic connections.
+            If IoMapEntry.producer is None it is inferred to be the immediately previous Step.
+            If IoMapEntry.producer is a step name it must match the name of a previous step.
+        """
         self.__add_processing(self.post_processors, self._post_processor_connections, items)
 
     def _add_connection(self, consumer: Step, entry: IoMapEntry):
         producer = self.__producer_from_step_or_str(entry.producer)
 
-        if not (
-            (producer in self.pre_processors or producer in self.post_processors)
-            or (consumer in self.pre_processors or consumer in self.post_processors)
-        ):
+        # Black does annoying things with the multi-line 'if' conditions making the code far less readable
+        # fmt: off
+        if not ((producer in self.pre_processors or producer in self.post_processors) and
+                (consumer in self.pre_processors or consumer in self.post_processors)):
             raise ValueError("Producer and Consumer processors must both be registered")
 
-        # Black does stupid things with the multi-line 'if' conditions making the code far less readable
-        # fmt: off
         if producer in self.pre_processors:
             if (consumer in self.pre_processors and
                     self.pre_processors.index(producer) > self.pre_processors.index(consumer)):
@@ -199,21 +210,23 @@ class PrePostProcessor:
         self,
         processors: List[Step],
         processor_connections: List[List[IoMapEntry]],
-        items: List[Union[Step, Tuple[Union[Step, str], List[IoMapEntry]]]],
+        items: List[Union[Step, Tuple[Step, List[IoMapEntry]]]],
     ):
         """
         Add the pre/post processing steps and join with existing steps.
 
         Args:
             processors: List of processors to add items to.
-            processor_connections: Manual connections to create between the pre/post processing graph and the model.
+            processor_connections: Populated with connections between each step. 1:1 with entries in processors.
             items: Items to add to processors.
                    Can be:
                      A Step instance. This will be implicitly joined to the immediately previous Step if one exists.
-                     A tuple of (Step or step name, list of IoMapEntry)
-                      If a step name is provided the Step will be looked for in the predecessor steps.
-                        It is valid for a post-processor step to consume output from a pre-processor step.
-                      The IoMapEntry values are used to join outputs from a producer Step to inputs of the current Step.
+                     A tuple of (Step instance, list of IoMapEntry)
+                      The IoMapEntry values are used to manually join an output from a producer Step to an input 
+                      of the current Step.
+                        In each IoMapEntry, if a step name is provided the producer Step will be searched for in all
+                        predecessor steps. It is valid for a post-processor step to consume output from a
+                        pre-processor step.
         """
 
         for item in items:
@@ -223,8 +236,7 @@ class PrePostProcessor:
             if isinstance(item, Step):
                 step = item
             elif isinstance(item, tuple):
-                step_or_str, explicit_io_map_entries = item
-                step = self.__producer_from_step_or_str(step_or_str)  # throws if not found
+                step, explicit_io_map_entries = item
             else:
                 raise ValueError("Unexpected type " + str(type(item)))
 
@@ -243,7 +255,7 @@ class PrePostProcessor:
                     if not entry.producer:
                         producer = prev_step
                     else:
-                        producer = self.__producer_from_step_or_str(entry.producer)
+                        producer = self.__producer_from_step_or_str(entry.producer)  # throws if not found
 
                     io_map_entries[entry.consumer_idx] = IoMapEntry(producer, entry.producer_idx, entry.consumer_idx)
 
