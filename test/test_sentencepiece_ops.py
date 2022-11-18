@@ -432,7 +432,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
 
     def test_external_pretrained_model(self):
         fullname = util.get_test_data_file('data', 'en.wiki.bpe.vs100000.model')
-        ofunc = OrtPyFunction.from_customop("SentencepieceTokenizer", model=open(fullname, 'rb').read())
+        ofunc = OrtPyFunction.from_customop('SentencepieceTokenizer', model=open(fullname, 'rb').read())
 
         alpha = 0
         nbest_size = 0
@@ -446,6 +446,14 @@ class TestPythonOpSentencePiece(unittest.TestCase):
             np.array([flags & 2], dtype=np.bool_),
             np.array([flags & 4], dtype=np.bool_))
         self.assertEqual(tokens.tolist(), [1095, 4054, 26, 2022, 755, 99935])
+
+
+    def test_spm_decoder(self):
+        fullname = util.get_test_data_file('data', 'en.wiki.bpe.vs100000.model')
+        ofunc = OrtPyFunction.from_customop('SentencepieceDecoder', model=open(fullname, 'rb').read())
+
+        result = ofunc(np.array([1095, 4054, 26, 2022, 755, 99935], dtype=np.int64))
+        self.assertEqual(' '.join(result), 'best hotel in bay area.')
 
 
 if __name__ == "__main__":
