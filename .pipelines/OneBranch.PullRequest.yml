@@ -51,7 +51,25 @@ extends:
         break: true # always break the build on policheck issues. You can disable it by setting to 'false'
         exclusionsFile: '$(REPOROOT)\.config\policheck_exclusions.xml'
 
-    stages:    
+    stages:
+    - stage: linux_stage
+      jobs:
+      - job: linux_job
+        pool:
+          type: linux
+
+      steps:
+        - task: UsePythonVersion@0
+        - bash: |
+            set -o errexit
+            python3 -m pip install --upgrade pip
+            pip3 install cibuildwheel
+          displayName: Install dependencies
+        - bash: cibuildwheel --output-dir wheelhouse .
+          displayName: Build wheels
+        - task: PublishBuildArtifacts@1
+          inputs: {pathtoPublish: 'wheelhouse'}
+
     - stage: Windows_Build
       jobs:
       - job: main
