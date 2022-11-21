@@ -58,7 +58,7 @@ extends:
         pool:
           type: linux
 
-      steps:
+        steps:
         - task: UsePythonVersion@0
         - bash: |
             set -o errexit
