@@ -7,6 +7,7 @@
 #include "string_utils.h"
 #include "sentencepiece_processor.h"
 
+
 struct KernelSentencepieceTokenizer : BaseKernel {
   KernelSentencepieceTokenizer(const OrtApi& api, const OrtKernelInfo* info);
   void Compute(OrtKernelContext* context);

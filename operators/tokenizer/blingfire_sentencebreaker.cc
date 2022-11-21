@@ -15,7 +15,7 @@ KernelBlingFireSentenceBreaker::KernelBlingFireSentenceBreaker(const OrtApi& api
     ORT_CXX_API_THROW("vocabulary shouldn't be empty.", ORT_INVALID_ARGUMENT);
   }
 
-  void* model_ptr = SetModel(reinterpret_cast<unsigned char*>(model_data_.data()), static_cast<int>(model_data_.size()));
+  void* model_ptr = SetModel(reinterpret_cast<const unsigned char*>(model_data_.data()), static_cast<int>(model_data_.size()));
 
   if (model_ptr == nullptr) {
     ORT_CXX_API_THROW("Invalid model", ORT_INVALID_ARGUMENT);
