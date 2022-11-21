@@ -58,6 +58,9 @@ extends:
         pool:
           type: linux
 
+        variables:
+          ob_outputDirectory: '$(REPOROOT)\wheelhouse'
+          ob_sdl_binskim_break: false
         steps:
         - task: UsePythonVersion@0
         - bash: |
