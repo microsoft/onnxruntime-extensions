@@ -44,6 +44,7 @@ option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file"
 option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
 option(OCOS_BUILD_JAVA "Enable building the Java package" OFF)
 option(OCOS_BUILD_ANDROID "Enable building the Android package" OFF)
+option(OCOS_BUILD_APPLE_FRAMEWORK "Enable building of the MacOS/iOS framework" OFF)
 
 function(disable_all_operators)
   set(OCOS_ENABLE_RE2_REGEX OFF CACHE INTERNAL "")
@@ -379,6 +380,10 @@ endif()
 if(OCOS_BUILD_JAVA)
   message(STATUS "Java Build is enabled")
   include(ext_java)
+endif()
+
+if(OCOS_BUILD_APPLE_FRAMEWORK)
+  include(ext_apple_framework)
 endif()
 
 # clean up the requirements.txt files from 3rd party project folder to suppress the code security false alarms
