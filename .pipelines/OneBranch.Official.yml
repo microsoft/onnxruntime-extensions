@@ -62,11 +62,10 @@ extends:
           ob_outputDirectory: '$(REPOROOT)\wheelhouse'
           ob_sdl_binskim_break: false
         steps:
-        - task: UsePythonVersion@0
         - bash: |
             set -o errexit
             python3 -m pip install --upgrade pip
-            pip3 install cibuildwheel
+            pip3 install cibuildwheel numpy=1.22.4
           displayName: Install dependencies
         - bash: cibuildwheel --output-dir wheelhouse .
           displayName: Build wheels
@@ -114,7 +113,7 @@ extends:
             set PYTHONPATH=
             set PYTHONHOME=
             python -m pip install --upgrade pip
-            python -m pip install cibuildwheel numpy
+            python -m pip install cibuildwheel numpy=1.22.4
             python -m cibuildwheel --platform windows --output-dir $(REPOROOT)\out
           displayName: Build wheels
         - task: SDLNativeRules@3
