@@ -114,6 +114,6 @@ extern FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer;
 extern FxLoadCustomOpFactory LoadCustomOpClasses_Text;
 #endif  // ENABLE_TF_STRING
 
-#ifdef ENABLE_OPENCV
-extern FxLoadCustomOpFactory LoadCustomOpClasses_OpenCV;
+#ifdef ENABLE_CV2
+extern FxLoadCustomOpFactory LoadCustomOpClasses_CV2;
 #endif  // ENABLE_OPENCV

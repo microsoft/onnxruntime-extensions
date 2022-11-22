@@ -109,9 +109,9 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
     ,
     LoadCustomOpClasses_Tokenizer
 #endif
-#if defined(ENABLE_OPENCV)
+#if defined(ENABLE_CV2)
     ,
-    LoadCustomOpClasses_OpenCV
+    LoadCustomOpClasses_CV2
 #endif
   };
 
@@ -150,7 +150,7 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
 
   static std::vector<FxLoadCustomOpFactory> new_domain_factories = {
     LoadCustomOpClasses<CustomOpClassBegin>
-#if defined(ENABLE_PPP_VISION)
+#if defined(ENABLE_VISION)
     ,
     LoadCustomOpClasses_PPP_Vision
 #endif

@@ -36,9 +36,8 @@ option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
 option(OCOS_ENABLE_BLINGFIRE "Enable operators depending on the Blingfire library" ON)
 option(OCOS_ENABLE_MATH "Enable math tensor operators building" ON)
 option(OCOS_ENABLE_DLIB "Enable operators like Inverse depending on DLIB" ON)
-option(OCOS_ENABLE_OPENCV "Enable operators depending on opencv" ON)
-option(OCOS_ENABLE_OPENCV_CODECS "Enable operators depending on opencv imgcodecs" ON)
-option(OCOS_ENABLE_PPP_VISION "Enable the pre and post processing operators in `operators/vision`" ON)
+option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
+option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
 option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
@@ -55,7 +54,8 @@ function(disable_all_operators)
   set(OCOS_ENABLE_BLINGFIRE OFF CACHE INTERNAL "")
   set(OCOS_ENABLE_MATH OFF CACHE INTERNAL "")
   set(OCOS_ENABLE_DLIB OFF CACHE INTERNAL "")
-  set(OCOS_ENABLE_OPENCV OFF CACHE INTERNAL "")
+  set(OCOS_ENABLE_CV2 OFF CACHE INTERNAL "")
+  set(OCOS_ENABLE_VISION OFF CACHE INTERNAL "")
 endfunction()
 
 if(NOT CC_OPTIMIZE)
@@ -178,23 +178,23 @@ if(OCOS_ENABLE_MATH)
   list(APPEND TARGET_SRC ${TARGET_SRC_MATH} ${TARGET_SRC_DLIB} ${TARGET_SRC_INVERSE})
 endif()
 
-if(OCOS_ENABLE_OPENCV OR OCOS_ENABLE_PPP_VISION)
+# enable the opencv dependency if we have ops that require it
+if(OCOS_ENABLE_CV2 OR OCOS_ENABLE_VISION)
+  set(_ENABLE_OPENCV ON)
+  set(_ENABLE_OPENCV_CODECS ON)  # TODO: Do we have any real use cases where we need to disable codecs?
+
   message(STATUS "Fetch opencv")
   include(opencv)
 endif()
 
-if(OCOS_ENABLE_OPENCV)
-  file(GLOB TARGET_SRC_CV "operators/cv2/*.cc" "operators/cv2/*.h*")
-  list(APPEND TARGET_SRC ${TARGET_SRC_CV})
+if(OCOS_ENABLE_CV2)
+  file(GLOB TARGET_SRC_CV2 "operators/cv2/*.cc" "operators/cv2/*.h*")
+  list(APPEND TARGET_SRC ${TARGET_SRC_CV2})
 endif()
 
-if(OCOS_ENABLE_PPP_VISION)
-  file(GLOB TARGET_SRC_PPP_VISION "operators/vision/*.cc" "operators/vision/*.h*")
-  list(APPEND TARGET_SRC ${TARGET_SRC_PPP_VISION})
-
-  # we want the rest of the opencv infrastructure that is included later in this file
-  set(OCOS_ENABLE_OPENCV ON)
-  set(OCOS_ENABLE_OPENCV_CODECS ON)
+if(OCOS_ENABLE_VISION)
+  file(GLOB TARGET_SRC_VISION "operators/vision/*.cc" "operators/vision/*.h*")
+  list(APPEND TARGET_SRC ${TARGET_SRC_VISION})
 endif()
 
 set(_HAS_TOKENIZER OFF)
@@ -299,19 +299,17 @@ if(OCOS_ENABLE_MATH)
   # The dlib matrix implementation is all in the headers, no library compiling needed.
 endif()
 
-if(OCOS_ENABLE_OPENCV)
-  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_OPENCV)
-
-  if(OCOS_ENABLE_OPENCV_CODECS)
-    list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_OPENCV ENABLE_OPENCV_CODEC)
-  endif()
-
+if(_ENABLE_OPENCV)
   list(APPEND ocos_libraries ${opencv_LIBS})
   target_include_directories(ocos_operators PUBLIC ${opencv_INCLUDE_DIRS})
 endif()
 
-if(OCOS_ENABLE_PPP_VISION)
-  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_PPP_VISION)
+if(OCOS_ENABLE_CV2)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_CV2)
+endif()
+
+if(OCOS_ENABLE_VISION)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_VISION)
 endif()
 
 if(OCOS_ENABLE_GPT2_TOKENIZER)
@@ -432,7 +430,7 @@ foreach(nf ${NO_USE_FILES})
 endforeach()
 
 # test section
-if(OCOS_ENABLE_CTEST)
+if(OCOS_ENABLE_CTEST AND NOT OCOS_ENABLE_SELECTED_OPLIST)
   # Enable CTest
   enable_testing()
   message(STATUS "Fetch CTest")
