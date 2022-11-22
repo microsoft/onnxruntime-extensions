@@ -63,7 +63,7 @@ class Squeeze(Step):
     ONNX Squeeze
     """
 
-    def __init__(self, axes: List[int] = None, name: Optional[str] = None):
+    def __init__(self, axes: Optional[List[int]] = None, name: Optional[str] = None):
         """
         Args:
             axes: Axes to remove.

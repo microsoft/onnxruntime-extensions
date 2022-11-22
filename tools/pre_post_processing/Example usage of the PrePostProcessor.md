@@ -13,7 +13,7 @@ Import the PrePostProcessor, the steps and a utility to simplify creating new mo
 ```py
 import onnx
 from pre_post_processing import PrePostProcessor
-from pre_post_processing.Steps import *
+from pre_post_processing.steps import *
 from pre_post_processing.utils import create_named_value
 ```
 
