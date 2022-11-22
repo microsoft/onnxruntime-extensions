@@ -7,6 +7,7 @@
 
 #ifdef ENABLE_SPM_TOKENIZER
 #include "sentencepiece_tokenizer.hpp"
+#include "sentencepiece_decoder.hpp"
 #endif
 
 #ifdef ENABLE_WORDPIECE_TOKENIZER
@@ -32,6 +33,7 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = LoadCustomOpClasses<
 
 #ifdef ENABLE_SPM_TOKENIZER
     , CustomOpSentencepieceTokenizer
+    , CustomOpSentencepieceDecoder
 #endif
 
 #ifdef ENABLE_WORDPIECE_TOKENIZER
