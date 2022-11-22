@@ -38,16 +38,12 @@ option(OCOS_ENABLE_MATH "Enable math tensor operators building" ON)
 option(OCOS_ENABLE_DLIB "Enable operators like Inverse depending on DLIB" ON)
 option(OCOS_ENABLE_OPENCV "Enable operators depending on opencv" ON)
 option(OCOS_ENABLE_OPENCV_CODECS "Enable operators depending on opencv imgcodecs" ON)
+option(OCOS_ENABLE_PPP_VISION "Enable the pre and post processing operators in `operators/vision`" ON)
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
 option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
 option(OCOS_BUILD_JAVA "Enable building the Java package" OFF)
 option(OCOS_BUILD_ANDROID "Enable building the Android package" OFF)
-
-# Pre/post processing operator collections.
-option(OCOS_ENABLE_PPP_VISION "Enable operators for adding pre/post processing to vision models" ON)
-option(OCOS_ENABLE_PPP_TEXT "Enable operators for adding pre/post processing to text models" OFF)
-option(OCOS_ENABLE_PPP_AUDIO "Enable operators for adding pre/post processing to audio models" OFF)
 
 function(disable_all_operators)
   set(OCOS_ENABLE_RE2_REGEX OFF CACHE INTERNAL "")
