@@ -54,8 +54,7 @@ extends:
     - stage: linux_stage
       jobs:
       - job: linux_job
-        pool:
-          type: linux
+        pool: {vmImage: 'ubuntu-latest', name: 'Linux-CPU'}
 
         variables:
           ob_outputDirectory: '$(REPOROOT)\wheelhouse'
