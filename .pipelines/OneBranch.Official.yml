@@ -24,7 +24,6 @@ variables:
   REPOROOT: $(Build.SourcesDirectory)
   OUTPUTROOT: $(REPOROOT)\out
   NUGET_XMLDOC_MODE: none
-  CIBW_BUILD: "cp3{7,8,9,10}-*amd64"
   DEBIAN_FRONTEND: noninteractive
 
 resources:
@@ -61,6 +60,8 @@ extends:
         variables:
           ob_outputDirectory: '$(REPOROOT)\wheelhouse'
           ob_sdl_binskim_break: false
+          CIBW_BUILD: "cp3{8,9,10}-*"
+
         steps:
         - bash: |
             set -o errexit
@@ -76,11 +77,13 @@ extends:
       jobs:
       - job: main
         pool:
-          type: windows  
+          type: windows
         
         variables:
           ob_outputDirectory: '$(REPOROOT)\out'
-          ob_sdl_binskim_break: true 
+          ob_sdl_binskim_break: true
+          CIBW_BUILD: "cp3{7,8,9,10}-*amd64"
+
         steps:
         - script: |
             @echo off
