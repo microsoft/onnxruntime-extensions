@@ -299,6 +299,10 @@ if (_ENABLE_OPENCV)
   target_include_directories(ocos_operators PUBLIC ${opencv_INCLUDE_DIRS})
 endif()
 
+if (OCOS_ENABLE_OPENCV_CODECS)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_OPENCV_CODECS)
+endif()
+
 if (OCOS_ENABLE_CV2)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_CV2)
 endif()
