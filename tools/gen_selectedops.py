@@ -26,19 +26,22 @@ OPMAP_TO_CMAKE_FLAGS = {
     'BertTokenizer': 'OCOS_ENABLE_BERT_TOKENIZER',
     'BasicTokenizer': 'OCOS_ENABLE_BERT_TOKENIZER',
     'BertTokenizerDecoder': 'OCOS_ENABLE_BERT_TOKENIZER',
-    'SentencepieceTokenizer': 'OCOS_ENABLE_SPM_TOKENIZER'
+    'SentencepieceTokenizer': 'OCOS_ENABLE_SPM_TOKENIZER',
+    'ImageDecode': 'OCOS_ENABLE_VISION',
+    'ImageEncode': 'OCOS_ENABLE_VISION',
 }
 
 
 def gen_cmake_oplist(opconfig_file, oplist_cmake_file='_selectedoplist.cmake'):
     ext_domain = "ai.onnx.contrib"  # default_opset_domain()
+    new_ext_domain = "com.microsoft.extensions"
     ext_domain_cnt = 0
     cmake_options = set()
     with open(oplist_cmake_file, 'w') as f:
         print("# Auto-Generated File, please do not edit!!!", file=f)
         with open(opconfig_file, 'r') as opfile:
             for _ln in opfile:
-                if _ln.startswith(ext_domain):
+                if _ln.startswith(ext_domain) or _ln.startswith(new_ext_domain):
                     ext_domain_cnt += 1
                     items = _ln.strip().split(';')
                     if len(items) < 3:
@@ -55,8 +58,8 @@ def gen_cmake_oplist(opconfig_file, oplist_cmake_file='_selectedoplist.cmake'):
         print("# End of Building the Operator CMake variables", file=f)
 
     if ext_domain_cnt == 0:
-        print('[onnxruntime-extensions] warning: lines starting with extension domain (ai.onnx.contrib) in operators'
-              ' config file is 0')
+        print('[onnxruntime-extensions] warning: lines starting with extension domains of ai.onnx.contrib or '
+              'com.microsoft.extensions in operators config file is 0')
 
     print('[onnxruntime-extensions] The cmake tool file has been generated successfully.')
 

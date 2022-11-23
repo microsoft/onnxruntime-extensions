@@ -3,19 +3,21 @@
 
 #pragma once
 
-#include <vector>
+#include <algorithm>
 #include <functional>
+#include <iterator>
+#include <vector>
 
 #define ORT_API_MANUAL_INIT
 #include "onnxruntime_cxx_api.h"
 #undef ORT_API_MANUAL_INIT
 
-
 // A helper API to support test kernels.
 // Must be invoked before RegisterCustomOps.
 extern "C" bool ORT_API_CALL AddExternalCustomOp(const OrtCustomOp* c_op);
 
-const char c_OpDomain[] = "ai.onnx.contrib";
+constexpr const char* c_OpDomain = "ai.onnx.contrib";
+constexpr const char* c_ComMsExtOpDomain = "com.microsoft.extensions";
 
 struct BaseKernel {
   BaseKernel(const OrtApi& api) : api_(api), info_(nullptr), ort_(api_) {}
@@ -33,7 +35,7 @@ struct BaseKernel {
     return result;
   }
 
-  void SetOutput(OrtKernelContext* ctx,  size_t output_idx, const std::vector<int64_t>& dim, const std::vector<int64_t>& data);
+  void SetOutput(OrtKernelContext* ctx, size_t output_idx, const std::vector<int64_t>& dim, const std::vector<int64_t>& data);
 
  protected:
   OrtErrorCode GetErrorCodeAndRelease(OrtStatusPtr status);
@@ -57,55 +59,42 @@ struct OrtTensorDimensions : std::vector<int64_t> {
     return s;
   }
 
-  bool IsScalar() const{
+  bool IsScalar() const {
     return empty();
   }
 
-  bool IsVector() const{
+  bool IsVector() const {
     return size() == 1;
   }
 };
 
-
 template <typename... Args>
 class CuopContainer {
  public:
-#if defined(_MSC_VER) && !defined(__clang__)
-#pragma warning(push)
-#pragma warning(disable : 26409)
-#endif
-  CuopContainer() : ocos_list_({[]() { return new Args; }()...}) {
-    ocos_list_.push_back(nullptr);
+  CuopContainer() : op_instances_({[]() { return std::make_shared<Args>(); }()...}) {
+    ocos_list_.reserve(op_instances_.size());
+    std::transform(op_instances_.begin(), op_instances_.end(), std::back_inserter(ocos_list_),
+                   [](const std::shared_ptr<OrtCustomOp>& custom_op) { return custom_op.get(); });
   }
 
-  ~CuopContainer() {
-    if (0 < ocos_list_.size()) {
-      for (size_t i = 0; i < ocos_list_.size() - 1; i++) {
-          delete ocos_list_[i];
-      }
-    }
-    ocos_list_.clear();
-  }
-#if defined(_MSC_VER) && !defined(__clang__)
-#pragma warning(pop)
-#endif
-  const OrtCustomOp** GetList() {
-    return &const_cast<const OrtCustomOp*&>(ocos_list_.front());
+  const std::vector<const OrtCustomOp*>& GetCustomOps() const {
+    return ocos_list_;
   }
 
  private:
-  std::vector<OrtCustomOp*> ocos_list_;
+  std::vector<const OrtCustomOp*> ocos_list_;
+  std::vector<std::shared_ptr<OrtCustomOp>> op_instances_;  // use shared_ptr to capture type specific deleter
 };
 
-struct CustomOpClassBegin{
+struct CustomOpClassBegin {
 };
 
-typedef std::function<const OrtCustomOp**()> FxLoadCustomOpFactory;
+using FxLoadCustomOpFactory = std::function<const std::vector<const OrtCustomOp*>&()>;
 
 template <typename _Begin_place_holder, typename... Args>
-const OrtCustomOp** LoadCustomOpClasses() {
+const std::vector<const OrtCustomOp*>& LoadCustomOpClasses() {
   static CuopContainer<Args...> ctr;  // Let C++ runtime take cares of the MP initializing.
-  return ctr.GetList();
+  return ctr.GetCustomOps();
 }
 
 #if defined(PYTHON_OP_SUPPORT)
@@ -119,12 +108,16 @@ extern FxLoadCustomOpFactory LoadCustomOpClasses_Math;
 
 #ifdef ENABLE_TOKENIZER
 extern FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer;
-#endif // ENABLE_TOKENIZER
+#endif  // ENABLE_TOKENIZER
 
 #ifdef ENABLE_TF_STRING
 extern FxLoadCustomOpFactory LoadCustomOpClasses_Text;
 #endif  // ENABLE_TF_STRING
 
-#ifdef ENABLE_OPENCV
-extern FxLoadCustomOpFactory LoadCustomOpClasses_OpenCV;
+#ifdef ENABLE_CV2
+extern FxLoadCustomOpFactory LoadCustomOpClasses_CV2;
 #endif  // ENABLE_OPENCV
+
+#ifdef ENABLE_VISION
+extern FxLoadCustomOpFactory LoadCustomOpClasses_Vision;
+#endif

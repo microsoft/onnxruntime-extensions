@@ -361,7 +361,8 @@ jobs:
           -DCMAKE_TOOLCHAIN_FILE=$(Build.BinariesDirectory)/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
           -DOCOS_ENABLE_SPM_TOKENIZER=ON \
           -DOCOS_BUILD_PYTHON=OFF \
-          -DOCOS_ENABLE_OPENCV=OFF
+          -DOCOS_ENABLE_CV2=OFF \
+          -DOCOS_ENABLE_VISION=OFF
         displayName: build the customop library with onnxruntime
     # TODO add unittest for webassembly
 
