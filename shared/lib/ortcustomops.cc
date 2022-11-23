@@ -6,7 +6,6 @@
 
 #include "onnxruntime_extensions.h"
 #include "ocos.h"
-#include "vision/vision.hpp"
 
 struct OrtCustomOpDomainDeleter {
   explicit OrtCustomOpDomainDeleter(const OrtApi* ort_api) {
@@ -152,7 +151,7 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
     LoadCustomOpClasses<CustomOpClassBegin>
 #if defined(ENABLE_VISION)
     ,
-    LoadCustomOpClasses_PPP_Vision
+    LoadCustomOpClasses_Vision
 #endif
   };
 

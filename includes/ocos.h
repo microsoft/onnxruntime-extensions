@@ -117,3 +117,7 @@ extern FxLoadCustomOpFactory LoadCustomOpClasses_Text;
 #ifdef ENABLE_CV2
 extern FxLoadCustomOpFactory LoadCustomOpClasses_CV2;
 #endif  // ENABLE_OPENCV
+
+#ifdef ENABLE_VISION
+extern FxLoadCustomOpFactory LoadCustomOpClasses_Vision;
+#endif

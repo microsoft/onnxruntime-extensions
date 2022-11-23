@@ -84,7 +84,7 @@ set(WITH_VULKAN                 OFF CACHE INTERNAL "")
 set(WITH_WEBP                   OFF CACHE INTERNAL "")
 set(WITH_WIN32UI                OFF CACHE INTERNAL "")
 
-if (_ENABLE_OPENCV_CODECS)
+if (OCOS_ENABLE_OPENCV_CODECS)
   set(BUILD_opencv_imgcodecs  ON CACHE INTERNAL "")
 
   set(BUILD_JPEG              ON CACHE INTERNAL "")
@@ -125,7 +125,7 @@ list(APPEND opencv_INCLUDE_DIRS
 set(opencv_LIBS "")
 list(APPEND opencv_LIBS opencv_core opencv_imgproc)
 
-if (_ENABLE_OPENCV_CODECS)
+if (OCOS_ENABLE_OPENCV_CODECS)
     list(APPEND opencv_INCLUDE_DIRS ${OPENCV_MODULE_opencv_imgcodecs_LOCATION}/include)
     list(APPEND opencv_LIBS opencv_imgcodecs)
 endif()

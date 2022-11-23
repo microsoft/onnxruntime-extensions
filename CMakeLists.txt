@@ -37,6 +37,7 @@ option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
 option(OCOS_ENABLE_BLINGFIRE "Enable operators depending on the Blingfire library" ON)
 option(OCOS_ENABLE_MATH "Enable math tensor operators building" ON)
 option(OCOS_ENABLE_DLIB "Enable operators like Inverse depending on DLIB" ON)
+option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require opencv imgcodecs." ON)
 option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
 option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
@@ -178,8 +179,6 @@ endif()
 # enable the opencv dependency if we have ops that require it
 if (OCOS_ENABLE_CV2 OR OCOS_ENABLE_VISION)
   set(_ENABLE_OPENCV ON)
-  set(_ENABLE_OPENCV_CODECS ON)  # TODO: Do we have any real use cases where we need to disable codecs?
-
   message(STATUS "Fetch opencv")
   include(opencv)
 endif()
@@ -190,6 +189,10 @@ if (OCOS_ENABLE_CV2)
 endif()
 
 if (OCOS_ENABLE_VISION)
+  if (NOT OCOS_ENABLE_OPENCV_CODECS)
+    message(FATAL_ERROR  "OCOS_ENABLE_VISION requires OCOS_ENABLE_OPENCV_CODECS to be ON")
+  endif()
+
   file(GLOB TARGET_SRC_VISION "operators/vision/*.cc" "operators/vision/*.h*")
   list(APPEND TARGET_SRC ${TARGET_SRC_VISION})
 endif()
@@ -253,6 +256,8 @@ endif()
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_library(ocos_operators STATIC ${TARGET_SRC})
+set_target_properties(ocos_operators PROPERTIES FOLDER "operators")
+source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${TARGET_SRC})
 standardize_output_folder(ocos_operators)
 
 target_include_directories(ocos_operators PUBLIC
@@ -414,7 +419,10 @@ foreach(nf ${NO_USE_FILES})
 endforeach()
 
 # test section
-if(OCOS_ENABLE_CTEST AND NOT OCOS_ENABLE_SELECTED_OPLIST)
+if(OCOS_ENABLE_CTEST AND OCOS_ENABLE_SELECTED_OPLIST)
+  # currently the tests don't handle operator exclusion cleanly.
+  message(WARNING "Due to usage of OCOS_ENABLE_SELECTED_OPLIST excluding operators the tests are unable to be built and run")
+elseif(OCOS_ENABLE_CTEST AND NOT OCOS_ENABLE_SELECTED_OPLIST)
   # Enable CTest
   enable_testing()
   message(STATUS "Fetch CTest")
