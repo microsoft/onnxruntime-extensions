@@ -60,26 +60,6 @@ function(disable_all_operators)
   set(OCOS_ENABLE_VISION OFF CACHE INTERNAL "")
 endfunction()
 
-function(set_msvc_c_cpp_compiler_warning_level warning_level)
-  if(NOT "${warning_level}" MATCHES "^[0-4]$")
-    message(FATAL_ERROR "Expected warning_level value of 0-4, got '${warning_level}'.")
-  endif()
-
-  if(MSVC)
-    set(warning_flag "/W${warning_level}")
-    get_property(opts DIRECTORY PROPERTY COMPILE_OPTIONS)
-
-    # only match the generator expression added by this function
-    list(FILTER opts
-      EXCLUDE REGEX "^\\$<\\$<OR:\\$<COMPILE_LANGUAGE:C>,\\$<COMPILE_LANGUAGE:CXX>>:/W[0-4]>$")
-    list(APPEND opts "$<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:${warning_flag}>")
-    set_property(DIRECTORY PROPERTY COMPILE_OPTIONS "${opts}")
-  endif()
-endfunction()
-
-# test out 3. can call function multiple times as we include things to change level back and forth as needed
-set_msvc_c_cpp_compiler_warning_level(3)
-
 if(NOT CC_OPTIMIZE)
   message("!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
   string(REGEX REPLACE "([\-\/]O[123])" "" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
@@ -207,6 +187,7 @@ if (OCOS_ENABLE_CV2)
   file(GLOB TARGET_SRC_CV2 "operators/cv2/*.cc" "operators/cv2/*.h*")
   file(GLOB TARGET_SRC_CV2_NO_CODECS_OPS "operators/cv2/no_codecs/*.cc" "operators/cv2/no_codecs/*.h*")
   file(GLOB TARGET_SRC_CV2_CODEC_OPS "operators/cv2/codecs/*.cc" "operators/cv2/codecs/*.h*")
+  
   list(APPEND TARGET_SRC ${TARGET_SRC_CV2})
   list(APPEND TARGET_SRC ${TARGET_SRC_CV2_NO_CODECS_OPS})
   if (OCOS_ENABLE_OPENCV_CODECS)
@@ -405,8 +386,6 @@ target_include_directories(ortcustomops PUBLIC
   "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
 target_link_libraries(ortcustomops PUBLIC ocos_operators)
 
-# set_msvc_c_cpp_compiler_warning_level(4)
-
 if (_BUILD_SHARED_LIBRARY)
   file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h" "shared/*.def")
   add_library(extensions_shared SHARED ${shared_TARGET_SRC})
@@ -420,9 +399,6 @@ if (_BUILD_SHARED_LIBRARY)
 
   if (LINUX OR CMAKE_SYSTEM_NAME STREQUAL "Android")
     set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS "-Wl,-s -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
-  endif()
-  if (MSVC)
-    target_link_options(extensions_shared PRIVATE "/LTCG")
   endif()
 
   target_include_directories(extensions_shared PUBLIC
