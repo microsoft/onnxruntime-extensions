@@ -317,6 +317,7 @@ jobs:
 
       - script: |
           call activate pyenv
+          $env:vcvars="$env:VCINSTALLDIR\Auxiliary\Build\vcvars64.bat"
           python setup.py bdist_wheel
         displayName: Build the wheel
 

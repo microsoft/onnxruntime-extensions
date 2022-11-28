@@ -22,9 +22,10 @@ PACKAGE_NAME = 'onnxruntime_extensions'
 
 def load_msvcvar():
     if os.environ.get('vcvars'):
+        os.environ['__vcvars'] = '"{}"'.format(os.environ['vcvars'])
         stdout, _ = subprocess.Popen([
-            'cmd', '/q', '/c', '(%vcvars% & set)'],
-            stdout=subprocess.PIPE, shell=True, universal_newlines=True).communicate()
+            'cmd', '/q', '/c', 'call %__vcvars% && set'],
+            stdout=subprocess.PIPE, shell=False, universal_newlines=True).communicate()
         for line in stdout.splitlines():
             kv_pair = line.split('=')
             if len(kv_pair) == 2:
@@ -112,7 +113,7 @@ class BuildCMakeExt(_build_ext):
 
 
 def read_requirements():
-    with open(os.path.join(TOP_DIR, "requirements.txt"), "r") as f:
+    with open(os.path.join(TOP_DIR, "requirements.txt"), "r", encoding="utf-8") as f:
         requirements = [_ for _ in [dedent(_) for _ in f.readlines()] if _ is not None]
     return requirements
 
@@ -153,7 +154,7 @@ package_data = {
 }
 
 long_description = ''
-with open(os.path.join(TOP_DIR, "README.md"), 'r') as _f:
+with open(os.path.join(TOP_DIR, "README.md"), 'r', encoding="utf-8") as _f:
     long_description += _f.read()
     start_pos = long_description.find('# Introduction')
     start_pos = 0 if start_pos < 0 else start_pos
