@@ -7,6 +7,7 @@
 
 # message(STATUS "src:${zlib_SOURCE_DIR} ")
 
+
 FetchContent_Declare(
     zlib
     GIT_REPOSITORY  "https://github.com/madler/zlib.git"
@@ -32,4 +33,6 @@ FetchContent_Declare(
 # endif()
 
 FetchContent_MakeAvailable(zlib)
-message("zlib values inc:${ZLIB_INCLUDE_DIRS} libs:${ZLIB_LIBRARIES} a:${ZLIB_BINARY_DIR} b:${ZLIB_SOURCE_DIR}")
+
+set(zlib_INCLUDE_DIRS ${zlib_SOURCE_DIR} ${zlib_BINARY_DIR})
+set(zlib_LIB_NAME zlibstatic)

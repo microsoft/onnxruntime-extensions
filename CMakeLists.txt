@@ -186,10 +186,10 @@ if (OCOS_ENABLE_VISION)
   # doesn't support that nicely so you get an error like:
   #     CMake Error: install(EXPORT "libpng" ...) includes target "png" which requires target "zlib"
   #     that is not in any export set.
-  # TODO: Might be better to use vcpkg and install zlib via that.
   macro(install)
   endmacro()
 
+  # TODO: Might be better to use vcpkg and install zlib via that. IIRC vcpkg is a preferred source.
   message(STATUS "Fetch zlib")
   include(zlib)
 
@@ -335,33 +335,15 @@ if (OCOS_ENABLE_CV2)
 endif()
 
 if (OCOS_ENABLE_VISION)
-  message(STATUS "VISION includes png:${libpng_SOURCE_DIR},${libpng_BINARY_DIR}
-                  jpeg:${libjpeg-turbo_SOURCE_DIR},${libjpeg-turbo_BINARY_DIR}
-                  zlib:${zlib_SOURCE_DIR},${zlib_BINARY_DIR}")
+list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_VISION)
 
-  target_include_directories(ocos_operators PRIVATE
-                              ${libpng_SOURCE_DIR}
-                              ${libpng_BINARY_DIR}
-                              ${libjpeg-turbo_SOURCE_DIR}
-                              ${libjpeg-turbo_BINARY_DIR}
-                              ${zlib_SOURCE_DIR}
-                              ${zlib_BINARY_DIR}
-                              )
-
-  target_include_directories(png_static PRIVATE ${zlib_SOURCE_DIR} ${zlib_BINARY_DIR})
-  target_link_libraries(png_static zlibstatic)
-  add_dependencies(png_static zlibstatic)
-
-  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_VISION)
-
-  list(APPEND ocos_libraries png_static zlibstatic)
-  if (MSVC)
-    list(APPEND ocos_libraries jpeg-static)
-  else()
-    list(APPEND ocos_libraries jpeg)
-  endif()
-
-  message(STATUS ${ocos_libraries})
+target_include_directories(ocos_operators PRIVATE ${libpng_INCLUDE_DIRS}
+                                                    ${libjpeg-turbo_INCLUDE_DIRS}
+                                                    ${zlib_INCLUDE_DIRS}
+                            )
+  list(APPEND ocos_libraries ${libjpeg-turbo_LIB_NAME}
+                             ${libpng_LIB_NAME}
+                             ${zlib_LIB_NAME})
 endif()
 
 if (OCOS_ENABLE_GPT2_TOKENIZER)

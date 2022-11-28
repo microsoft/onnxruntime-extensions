@@ -1,15 +1,6 @@
 
-# set(ENABLE_SHARED OFF CACHE INTERNAL "")
 
-# FetchContent_Declare(
-#   libjpeg-turbo
-#   GIT_REPOSITORY https://github.com/libjpeg-turbo/libjpeg-turbo.git
-#   GIT_TAG        2.1.4
-#   # GIT_SHALLOW    TRUE
-#   PATCH_COMMAND git checkout . && git apply --whitespace=fix --ignore-space-change --ignore-whitespace ${CMAKE_CURRENT_SOURCE_DIR}/cmake/externals/libjpeg-turbo.patch
-# )
-
-# FetchContent_MakeAvailable(libjpeg-turbo)
+# The libjpeg-turbo owner says ExternalProject is supported and FetchContent will never be.
 
 if (NOT OCOS_BUILD_ANDROID)
     ExternalProject_Add(libjpeg-turbo
@@ -39,9 +30,13 @@ endif()
 
 set (libjpeg-turbo_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/libjpeg-turbo/src/libjpeg-turbo)
 set (libjpeg-turbo_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/libjpeg-turbo/src/libjpeg-turbo-build)
+set (libjpeg-turbo_INCLUDE_DIRS ${libjpeg-turbo_SOURCE_DIR} ${libjpeg-turbo_BINARY_DIR})
 
+# adjust for diffs in output name and location
 if (MSVC)
     link_directories(${libjpeg-turbo_BINARY_DIR}/${CMAKE_BUILD_TYPE})
+    set(libjpeg-turbo_LIB_NAME jpeg-static)
 else()
     link_directories(${libjpeg-turbo_BINARY_DIR})
+    set(libjpeg-turbo_LIB_NAME jpeg)
 endif()
