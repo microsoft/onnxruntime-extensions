@@ -192,7 +192,6 @@ if (OCOS_ENABLE_VISION)
 
   message(STATUS "Fetch zlib")
   include(zlib)
-  set(ZLIB_LIBRARY zlib)
 
   message(STATUS "Fetch libpng")
   include(libpng)
@@ -336,9 +335,33 @@ if (OCOS_ENABLE_CV2)
 endif()
 
 if (OCOS_ENABLE_VISION)
-  target_include_directories(ocos_operators PUBLIC ${libpng_SOURCE_DIR} ${libjpeg-turbo_SOURCE_DIR})
-  message(STATUS "VISION includes png:${libpng_SOURCE_DIR} jpeg:${libjpeg-turbo_SOURCE_DIR}")
+  message(STATUS "VISION includes png:${libpng_SOURCE_DIR},${libpng_BINARY_DIR}
+                  jpeg:${libjpeg-turbo_SOURCE_DIR},${libjpeg-turbo_BINARY_DIR}
+                  zlib:${zlib_SOURCE_DIR},${zlib_BINARY_DIR}")
+
+  target_include_directories(ocos_operators PRIVATE
+                              ${libpng_SOURCE_DIR}
+                              ${libpng_BINARY_DIR}
+                              ${libjpeg-turbo_SOURCE_DIR}
+                              ${libjpeg-turbo_BINARY_DIR}
+                              ${zlib_SOURCE_DIR}
+                              ${zlib_BINARY_DIR}
+                              )
+
+  target_include_directories(png_static PRIVATE ${zlib_SOURCE_DIR} ${zlib_BINARY_DIR})
+  target_link_libraries(png_static zlibstatic)
+  add_dependencies(png_static zlibstatic)
+
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_VISION)
+
+  list(APPEND ocos_libraries png_static zlibstatic)
+  if (MSVC)
+    list(APPEND ocos_libraries jpeg-static)
+  else()
+    list(APPEND ocos_libraries jpeg)
+  endif()
+
+  message(STATUS ${ocos_libraries})
 endif()
 
 if (OCOS_ENABLE_GPT2_TOKENIZER)
@@ -377,6 +400,10 @@ endif()
 list(REMOVE_DUPLICATES OCOS_COMPILE_DEFINITIONS)
 target_compile_definitions(ocos_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
+
+if (OCOS_ENABLE_VISION)
+  add_dependencies(ocos_operators png_static libjpeg-turbo)
+endif()
 
 file(GLOB shared_TARGET_LIB_SRC "shared/lib/*.cc" "shared/lib/*.h")
 if(NOT OCOS_ENABLE_STATIC_LIB AND CMAKE_SYSTEM_NAME STREQUAL "Emscripten")

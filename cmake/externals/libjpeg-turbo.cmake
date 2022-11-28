@@ -11,14 +11,37 @@
 
 # FetchContent_MakeAvailable(libjpeg-turbo)
 
-ExternalProject_Add(libjpeg-turbo
-    GIT_REPOSITORY  https://github.com/libjpeg-turbo/libjpeg-turbo.git
-    GIT_TAG         2.1.4
-    GIT_SHALLOW     TRUE
-    PREFIX          _deps/libjpeg-turbo
-    INSTALL_COMMAND cmake -E echo "Skipping install step for dependency libjpeg-turbo"
-    INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}
-)
+if (NOT OCOS_BUILD_ANDROID)
+    ExternalProject_Add(libjpeg-turbo
+        GIT_REPOSITORY  https://github.com/libjpeg-turbo/libjpeg-turbo.git
+        GIT_TAG         2.1.4
+        GIT_SHALLOW     TRUE
+        PREFIX          ${CMAKE_CURRENT_BINARY_DIR}/_deps/libjpeg-turbo
+        INSTALL_COMMAND cmake -E echo "Skipping install step for dependency libjpeg-turbo"
+        INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}
+    )
+else()
+    message(STATUS "Toolchain: ${CMAKE_TOOLCHAIN_FILE}")
 
-set (libjpeg-turbo_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/libjpeg-turbo/src)
-# D:\src\github\ort-extensions\build\Windows\Debug\_deps\libjpeg-turbo\src\libjpeg-turbo
+    ExternalProject_Add(libjpeg-turbo
+        GIT_REPOSITORY  https://github.com/libjpeg-turbo/libjpeg-turbo.git
+        GIT_TAG         2.1.4
+        GIT_SHALLOW     TRUE
+        PREFIX          ${CMAKE_CURRENT_BINARY_DIR}/_deps/libjpeg-turbo
+        INSTALL_COMMAND cmake -E echo "Skipping install step for dependency libjpeg-turbo"
+        INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}
+        CMAKE_ARGS
+            -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
+            -DANDROID_ABI=${ANDROID_ABI}
+            -DANDROID_PLATFORM=${ANDROID_PLATFORM}
+    )
+endif()
+
+set (libjpeg-turbo_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/libjpeg-turbo/src/libjpeg-turbo)
+set (libjpeg-turbo_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/libjpeg-turbo/src/libjpeg-turbo-build)
+
+if (MSVC)
+    link_directories(${libjpeg-turbo_BINARY_DIR}/${CMAKE_BUILD_TYPE})
+else()
+    link_directories(${libjpeg-turbo_BINARY_DIR})
+endif()

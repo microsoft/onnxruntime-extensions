@@ -1,3 +1,8 @@
+set(PNG_SHARED      OFF CACHE INTERNAL "")
+set(PNG_TESTS       OFF CACHE INTERNAL "")
+set(PNG_EXECUTABLES OFF CACHE INTERNAL "")
+set(PNG_BUILD_ZLIB  ON  CACHE INTERNAL "")
+
 FetchContent_Declare(
   libpng
   GIT_REPOSITORY https://github.com/glennrp/libpng.git

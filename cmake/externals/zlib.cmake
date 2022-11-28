@@ -14,19 +14,22 @@ FetchContent_Declare(
     GIT_SHALLOW     TRUE
 )
 
-FetchContent_GetProperties(zlib)
-if(NOT zlib_POPULATED)
-    FetchContent_Populate(zlib)
+# FetchContent_GetProperties(zlib)
+# if(NOT zlib_POPULATED)
+#     FetchContent_Populate(zlib)
 
-    add_subdirectory(${zlib_SOURCE_DIR} ${zlib_BINARY_DIR})
+#     add_subdirectory(${zlib_SOURCE_DIR} ${zlib_BINARY_DIR})
 
-    target_include_directories(zlib PUBLIC
-        $<BUILD_INTERFACE:${zlib_BINARY_DIR}>
-        $<INSTALL_INTERFACE:include>
-    )
+#     target_include_directories(zlib PUBLIC
+#         $<BUILD_INTERFACE:${zlib_BINARY_DIR}>
+#         $<INSTALL_INTERFACE:include>
+#     )
 
-    target_include_directories(zlibstatic PUBLIC
-        $<BUILD_INTERFACE:${zlib_BINARY_DIR}>
-        $<INSTALL_INTERFACE:include>
-    )
-endif()
+#     target_include_directories(zlibstatic PUBLIC
+#         $<BUILD_INTERFACE:${zlib_BINARY_DIR}>
+#         $<INSTALL_INTERFACE:include>
+#     )
+# endif()
+
+FetchContent_MakeAvailable(zlib)
+message("zlib values inc:${ZLIB_INCLUDE_DIRS} libs:${ZLIB_LIBRARIES} a:${ZLIB_BINARY_DIR} b:${ZLIB_SOURCE_DIR}")
