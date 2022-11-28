@@ -180,6 +180,9 @@ if (OCOS_ENABLE_MATH)
 endif()
 
 if (OCOS_ENABLE_VISION)
+  message(STATUS "Fetch libpng")
+  include(libpng)
+
   message(STATUS "Fetch libjpeg-turbo")
   include(libjpeg-turbo)
 endif()
