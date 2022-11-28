@@ -124,6 +124,7 @@ if(NOT OCOS_ENABLE_CPP_EXCEPTIONS)
 endif()
 
 include(FetchContent)
+include(ExternalProject)
 
 if (OCOS_ENABLE_RE2_REGEX)
   if (NOT TARGET re2::re2)
@@ -179,7 +180,20 @@ if (OCOS_ENABLE_MATH)
   list(APPEND TARGET_SRC ${TARGET_SRC_MATH} ${TARGET_SRC_DLIB} ${TARGET_SRC_INVERSE})
 endif()
 
+
 if (OCOS_ENABLE_VISION)
+  # Replace install() to do-nothing macro. the libpng install step depends on zlib and the setup with FetchContent
+  # doesn't support that nicely so you get an error like:
+  #     CMake Error: install(EXPORT "libpng" ...) includes target "png" which requires target "zlib"
+  #     that is not in any export set.
+  # TODO: Might be better to use vcpkg and install zlib via that.
+  macro(install)
+  endmacro()
+
+  message(STATUS "Fetch zlib")
+  include(zlib)
+  set(ZLIB_LIBRARY zlib)
+
   message(STATUS "Fetch libpng")
   include(libpng)
 
@@ -188,7 +202,7 @@ if (OCOS_ENABLE_VISION)
 endif()
 
 # enable the opencv dependency if we have ops that require it
-if (OCOS_ENABLE_CV2 OR OCOS_ENABLE_VISION)
+if (OCOS_ENABLE_CV2) # OR OCOS_ENABLE_VISION)
   set(_ENABLE_OPENCV ON)
   message(STATUS "Fetch opencv")
   include(opencv)
@@ -322,6 +336,8 @@ if (OCOS_ENABLE_CV2)
 endif()
 
 if (OCOS_ENABLE_VISION)
+  target_include_directories(ocos_operators PUBLIC ${libpng_SOURCE_DIR} ${libjpeg-turbo_SOURCE_DIR})
+  message(STATUS "VISION includes png:${libpng_SOURCE_DIR} jpeg:${libjpeg-turbo_SOURCE_DIR}")
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_VISION)
 endif()
 
