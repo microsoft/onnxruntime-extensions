@@ -179,6 +179,11 @@ if (OCOS_ENABLE_MATH)
   list(APPEND TARGET_SRC ${TARGET_SRC_MATH} ${TARGET_SRC_DLIB} ${TARGET_SRC_INVERSE})
 endif()
 
+if (OCOS_ENABLE_VISION)
+  message(STATUS "Fetch libjpeg-turbo")
+  include(libjpeg-turbo)
+endif()
+
 # enable the opencv dependency if we have ops that require it
 if (OCOS_ENABLE_CV2 OR OCOS_ENABLE_VISION)
   set(_ENABLE_OPENCV ON)
@@ -195,6 +200,9 @@ if (OCOS_ENABLE_VISION)
   if (NOT OCOS_ENABLE_OPENCV_CODECS)
     message(FATAL_ERROR  "OCOS_ENABLE_VISION requires OCOS_ENABLE_OPENCV_CODECS to be ON")
   endif()
+
+  # message(STATUS "Fetch libjpeg-turbo")
+  # include(libjpeg-turbo)
 
   file(GLOB TARGET_SRC_VISION "operators/vision/*.cc" "operators/vision/*.h*")
   list(APPEND TARGET_SRC ${TARGET_SRC_VISION})
