@@ -39,7 +39,7 @@ pushd ${target_dir}
 #       the great change of file system permission in Android 7
 cmake "$@" \
     -DCMAKE_TOOLCHAIN_FILE=${NDK_ROOT}/build/cmake/android.toolchain.cmake  \
-    -DANDROID_NDK=${NDK_ROOT}                                               \
+    -DANDROID_NDK_HOME=${NDK_ROOT}                                               \
     -DANDROID_ABI=${abi_name}                                               \
     -DANDROID_PLATFORM=android-24                                           \
     -DOCOS_BUILD_ANDROID=ON                                                 \
