@@ -21,10 +21,10 @@ PACKAGE_NAME = 'onnxruntime_extensions'
 
 
 def load_msvcvar():
-    if os.environ.get('vcvars'):
-        os.environ['__vcvars'] = '"{}"'.format(os.environ['vcvars'])
+    if os.environ.get('vsdevcmd'):
+        os.environ['__vsdevcmd'] = '"{}"'.format(os.environ['vsdevcmd'])
         stdout, _ = subprocess.Popen([
-            'cmd', '/q', '/c', 'call %__vcvars% && set'],
+            'cmd', '/q', '/c', 'call %__vsdevcmd% && set'],
             stdout=subprocess.PIPE, shell=False, universal_newlines=True).communicate()
         for line in stdout.splitlines():
             kv_pair = line.split('=')
