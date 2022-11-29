@@ -18,13 +18,15 @@ from textwrap import dedent
 
 TOP_DIR = os.path.dirname(__file__) or os.getcwd()
 PACKAGE_NAME = 'onnxruntime_extensions'
+VSINSTALLDIR_NAME = 'VSINSTALLDIR'
 
 
 def load_msvcvar():
     if os.environ.get('vsdevcmd'):
+        # need put the quotation marks around the path to avoid popen massing with it.
         os.environ['__vsdevcmd'] = '"{}"'.format(os.environ['vsdevcmd'])
         stdout, _ = subprocess.Popen([
-            'cmd', '/q', '/c', 'call %__vsdevcmd% && set'],
+            'cmd', '/q', '/c', 'call %__vsdevcmd% && set {}'.format(VSINSTALLDIR_NAME)],
             stdout=subprocess.PIPE, shell=False, universal_newlines=True).communicate()
         for line in stdout.splitlines():
             kv_pair = line.split('=')
@@ -98,10 +100,13 @@ class BuildCMakeExt(_build_ext):
             '--config', config,
             '--parallel' + ('' if cpu_number is None else ' ' + cpu_number)
         ]
+        cmake_exe = 'cmake'
+        if os.environ.get(VSINSTALLDIR_NAME):
+            cmake_exe = os.environ[VSINSTALLDIR_NAME] + 'Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe'
 
-        self.spawn(['cmake', '-S', str(project_dir), '-B', str(build_temp)] + cmake_args)
+        self.spawn([cmake_exe, '-S', str(project_dir), '-B', str(build_temp)] + cmake_args)
         if not self.dry_run:
-            self.spawn(['cmake', '--build', str(build_temp)] + build_args)
+            self.spawn([cmake_exe, '--build', str(build_temp)] + build_args)
 
         if sys.platform == "win32":
             config_dir = '.'
