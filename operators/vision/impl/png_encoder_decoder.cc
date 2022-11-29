@@ -139,7 +139,6 @@ bool PngDecoder::DecodeImpl(uint8_t* output, uint64_t out_bytes) {
       png_set_expand_gray_1_2_4_to_8(png_ptr);
     }
 
-    // NOTE: NOT calling png_set_bgr so that output is RGB instead of the slightly weird BGR.
     if (!(color_type_ & PNG_COLOR_MASK_COLOR)) {
       png_set_gray_to_rgb(png_ptr);  // Gray->RGB
     }
@@ -223,7 +222,6 @@ bool PngEncoder::EncodeImpl() {
                  PNG_FILTER_TYPE_DEFAULT);
 
     png_write_info(png_ptr, info_ptr);
-    png_set_bgr(png_ptr);
 
     std::vector<uint8_t*> row_pointers(height, nullptr);
     auto row_size = png_get_rowbytes(png_ptr, info_ptr);

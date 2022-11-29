@@ -25,6 +25,16 @@ std::vector<uint8_t> LoadBytesFromFile(const std::filesystem::path& filename) {
 
   return input_bytes;
 }
+
+void WriteBytesToFile(std::vector<uint8_t>& input_bytes, const std::filesystem::path& filename) {
+  using namespace std;
+  ofstream ofs(filename, ios::binary | ios::trunc);
+  assert(ofs.good());
+  ofs.write(reinterpret_cast<char*>(input_bytes.data()), input_bytes.size());
+  assert(ofs.good());
+  ofs.close();
+}
+
 }  // namespace
 
 // Test DecodeImage and EncodeImage by providing a jpg image. Model will decode to BGR, encode to PNG and decode
@@ -53,6 +63,21 @@ TEST(VisionOps, image_decode_encode) {
   ort_extensions::PngDecoder decoder(image_data.data(), image_data.size());
   std::vector<uint8_t> decoded_image(decoder.NumDecodedBytes(), 0);
   assert(decoder.Decode(decoded_image.data(), decoded_image.size()));
+
+  ort_extensions::PngEncoder encoder(decoded_image.data(), decoder.Shape());
+  std::vector<uint8_t> encoded_image = encoder.Encode();
+
+  auto round_trip_filename = data_dir / "test_colors.rt.png";
+  WriteBytesToFile(encoded_image, round_trip_filename);
+
+  ort_extensions::PngDecoder decoder2(encoded_image.data(), encoded_image.size());
+  std::vector<uint8_t> decoded_image2(decoder2.NumDecodedBytes(), 0);
+  assert(decoder2.Decode(decoded_image2.data(), decoded_image2.size()));
+
+  EXPECT_EQ(decoder.NumDecodedBytes(), decoder2.NumDecodedBytes());
+  for (size_t i = 0; i < decoder.NumDecodedBytes(); ++i) {
+    EXPECT_EQ(decoded_image[i], decoded_image2[i]) << "mismatch at " << i;
+  }
 
   std::vector<TestValue> inputs{TestValue("image", image_data, {static_cast<int64_t>(image_data.size())})};
   std::vector<TestValue> outputs{TestValue("bgr_data", decoded_image, decoder.Shape())};
