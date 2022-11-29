@@ -152,13 +152,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--opencv-dir",
-        type=pathlib.Path,
-        required=True,
-        help="Path to OpenCV repo.",
-    )
-
-    parser.add_argument(
         "--config",
         choices=["Debug", "Release", "RelWithDebInfo", "MinSizeRel"],
         default="Debug",
@@ -178,13 +171,12 @@ def main():
     args = parse_args()
 
     output_dir = args.output_dir.resolve()
-    opencv_dir = args.opencv_dir.resolve(strict=True)
 
     build_xcframework(
         output_dir=output_dir,
         platform_archs=default_platform_archs,
         config=args.config,
-        opencv_dir=opencv_dir,
+        opencv_dir=repo_dir / "cmake/externals/opencv",
         ios_deployment_target=args.ios_deployment_target,
     )
 
