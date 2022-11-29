@@ -181,9 +181,9 @@ void _emplace_back(Ort::MemoryInfo& memory_info, std::vector<Ort::Value>& ort_in
 template <typename T>
 void _assert_eq(Ort::Value& output_tensor, const std::vector<T>& expected, size_t total_len) {
   ASSERT_EQ(expected.size(), total_len);
-  T* f = output_tensor.GetTensorMutableData<T>();
+  const T* f = output_tensor.GetTensorData<T>();
   for (size_t i = 0; i != total_len; ++i) {
-    ASSERT_EQ(expected[i], f[i]);
+    EXPECT_EQ(expected[i], f[i]) << "Mismatch at index " << i;
   }
 }
 

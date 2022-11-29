@@ -20,7 +20,7 @@
 namespace ort_extensions {
 
 bool PngDecoder::IsPng(const uint8_t* bytes, uint64_t num_bytes) {
-    // '\0x89PGN\r\n<sub>\n'
+  // '\0x89PGN\r\n<sub>\n'
   constexpr const uint8_t signature[] = {0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a};  // check start of file for this
   constexpr int signature_len = 8;
 
@@ -171,124 +171,82 @@ bool PngDecoder::DecodeImpl(uint8_t* output, uint64_t out_bytes) {
 
 /////////////////////// PngEncoder ///////////////////
 
-// PngEncoder::PngEncoder() {
-//   m_description = "Portable Network Graphics files (*.png)";
-//   m_buf_supported = true;
-// }
-//
-// PngEncoder::~PngEncoder() {
-// }
-//
-// bool PngEncoder::isFormatSupported(int depth) const {
-//   return depth == CV_8U || depth == CV_16U;
-// }
-//
-// ImageEncoder PngEncoder::newEncoder() const {
-//   return makePtr<PngEncoder>();
-// }
-//
-// void PngEncoder::writeDataToBuf(void* _png_ptr, uchar* src, size_t size) {
-//   if (size == 0)
-//     return;
-//   png_structp png_ptr = (png_structp)_png_ptr;
-//   PngEncoder* encoder = (PngEncoder*)(png_get_io_ptr(png_ptr));
-//   assert(encoder && encoder->m_buf);
-//   size_t cursz = encoder->m_buf->size();
-//   encoder->m_buf->resize(cursz + size);
-//   memcpy(&(*encoder->m_buf)[cursz], src, size);
-// }
-//
-// void PngEncoder::flushBuf(void*) {
-// }
-//
-// bool PngEncoder::write(const Mat& img, const std::vector<int>& params) {
-//   png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, 0, 0, 0);
-//   png_infop info_ptr = 0;
-//   FILE* volatile f = 0;
-//   int y, width = img.cols, height = img.rows;
-//   int depth = img.depth(), channels = img.channels();
-//   volatile bool result = false;
-//   AutoBuffer<uchar*> buffer;
-//
-//   if (depth != CV_8U && depth != CV_16U)
-//     return false;
-//
-//   if (png_ptr) {
-//     info_ptr = png_create_info_struct(png_ptr);
-//
-//     if (info_ptr) {
-//       if (setjmp(png_jmpbuf(png_ptr)) == 0) {
-//         if (m_buf) {
-//           png_set_write_fn(png_ptr, this,
-//                            (png_rw_ptr)writeDataToBuf, (png_flush_ptr)flushBuf);
-//         } else {
-//           f = fopen(m_filename.c_str(), "wb");
-//           if (f)
-//             png_init_io(png_ptr, (png_FILE_p)f);
-//         }
-//
-//         int compression_level = -1;                           // Invalid value to allow setting 0-9 as valid
-//         int compression_strategy = IMWRITE_PNG_STRATEGY_RLE;  // Default strategy
-//         bool isBilevel = false;
-//
-//         for (size_t i = 0; i < params.size(); i += 2) {
-//           if (params[i] == IMWRITE_PNG_COMPRESSION) {
-//             compression_strategy = IMWRITE_PNG_STRATEGY_DEFAULT;  // Default strategy
-//             compression_level = params[i + 1];
-//             compression_level = MIN(MAX(compression_level, 0), Z_BEST_COMPRESSION);
-//           }
-//           if (params[i] == IMWRITE_PNG_STRATEGY) {
-//             compression_strategy = params[i + 1];
-//             compression_strategy = MIN(MAX(compression_strategy, 0), Z_FIXED);
-//           }
-//           if (params[i] == IMWRITE_PNG_BILEVEL) {
-//             isBilevel = params[i + 1] != 0;
-//           }
-//         }
-//
-//         if (m_buf || f) {
-//           if (compression_level >= 0) {
-//             png_set_compression_level(png_ptr, compression_level);
-//           } else {
-//             // tune parameters for speed
-//             // (see http://wiki.linuxquestions.org/wiki/Libpng)
-//             png_set_filter(png_ptr, PNG_FILTER_TYPE_BASE, PNG_FILTER_SUB);
-//             png_set_compression_level(png_ptr, Z_BEST_SPEED);
-//           }
-//           png_set_compression_strategy(png_ptr, compression_strategy);
-//
-//           png_set_IHDR(png_ptr, info_ptr, width, height, depth == CV_8U ? isBilevel ? 1 : 8 : 16,
-//                        channels == 1 ? PNG_COLOR_TYPE_GRAY : channels == 3 ? PNG_COLOR_TYPE_RGB
-//                                                                            : PNG_COLOR_TYPE_RGBA,
-//                        PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
-//                        PNG_FILTER_TYPE_DEFAULT);
-//
-//           png_write_info(png_ptr, info_ptr);
-//
-//           if (isBilevel)
-//             png_set_packing(png_ptr);
-//
-//           png_set_bgr(png_ptr);
-//           if (!isBigEndian())
-//             png_set_swap(png_ptr);
-//
-//           buffer.allocate(height);
-//           for (y = 0; y < height; y++)
-//             buffer[y] = img.data + y * img.step;
-//
-//           png_write_image(png_ptr, buffer.data());
-//           png_write_end(png_ptr, info_ptr);
-//
-//           result = true;
-//         }
-//       }
-//     }
-//   }
-//
-//   png_destroy_write_struct(&png_ptr, &info_ptr);
-//   if (f) fclose((FILE*)f);
-//
-//   return result;
-// }
+void PngEncoder::WriteDataToBuf(void* _png_ptr, uint8_t* src, size_t size) {
+  if (size == 0)
+    return;
+
+  png_structp png_ptr = (png_structp)_png_ptr;
+  PngEncoder* encoder = (PngEncoder*)(png_get_io_ptr(png_ptr));
+  assert(encoder);
+
+  auto& buffer = encoder->Buffer();
+
+  if (encoder->cur_offset_ + size > buffer.size()) {
+    assert(false);  // unexpected - this means no compression is occurring when writing
+  }
+
+  memcpy(buffer.data() + encoder->cur_offset_, src, size);
+
+  encoder->cur_offset_ += size;
+}
+
+void PngEncoder::FlushBuf(void* png_ptr) {
+  // we're writing to memory so this is a no-op
+}
+
+bool PngEncoder::EncodeImpl() {
+  bool result = false;
+
+  png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, 0, 0, 0);
+  assert(png_ptr);
+
+  png_infop info_ptr = png_create_info_struct(png_ptr);
+  assert(info_ptr);
+
+  const auto& shape = Shape();
+  const int height = static_cast<int>(shape[0]);
+  const int width = static_cast<int>(shape[1]);
+  const int channels = static_cast<int>(shape[2]);
+  const int depth = 8;
+
+  if (setjmp(png_jmpbuf(png_ptr)) == 0) {
+    png_set_write_fn(png_ptr, this, (png_rw_ptr)WriteDataToBuf, (png_flush_ptr)FlushBuf);
+
+    // tune parameters for speed
+    // (see http://wiki.linuxquestions.org/wiki/Libpng)
+    png_set_filter(png_ptr, PNG_FILTER_TYPE_BASE, PNG_FILTER_SUB);
+    png_set_compression_level(png_ptr, Z_BEST_SPEED);
+    png_set_compression_strategy(png_ptr, Z_DEFAULT_STRATEGY);
+
+    png_set_IHDR(png_ptr, info_ptr, width, height, depth, PNG_COLOR_TYPE_RGB,
+                 PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
+                 PNG_FILTER_TYPE_DEFAULT);
+
+    png_write_info(png_ptr, info_ptr);
+    png_set_bgr(png_ptr);
+
+    std::vector<uint8_t*> row_pointers(height, nullptr);
+    auto row_size = png_get_rowbytes(png_ptr, info_ptr);
+    assert(row_size == width * channels);  // check assumption
+
+    // need non-const to make png lib happy
+    uint8_t* orig_image_bytes = const_cast<uint8_t*>(Bytes());
+
+    for (int row = 0; row < height; ++row) {
+      row_pointers[row] = orig_image_bytes + (row * row_size);
+    }
+
+    png_write_image(png_ptr, row_pointers.data());
+    png_write_end(png_ptr, info_ptr);
+
+    Buffer().resize(cur_offset_);  // remove unused bytes so size() is correct
+
+    result = true;
+  }
+
+  png_destroy_write_struct(&png_ptr, &info_ptr);
+
+  return result;
+}
 
 }  // namespace ort_extensions

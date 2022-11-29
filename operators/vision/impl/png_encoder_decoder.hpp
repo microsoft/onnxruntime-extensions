@@ -85,19 +85,19 @@ class PngDecoder : public BaseImageDecoder {
   void* end_info_{nullptr};  // pointer to one more image information structure
 };
 
-// class PngEncoder : public BaseImageEncoder {
-//  public:
-//   PngEncoder();
-//   virtual ~PngEncoder();
-//
-//   bool isFormatSupported(int depth) const CV_OVERRIDE;
-//   bool write(const Mat& img, const std::vector<int>& params) CV_OVERRIDE;
-//
-//   ImageEncoder newEncoder() const CV_OVERRIDE;
-//
-//  protected:
-//   static void writeDataToBuf(void* png_ptr, uchar* src, size_t size);
-//   static void flushBuf(void* png_ptr);
-// };
+class PngEncoder : public BaseImageEncoder {
+ public:
+  PngEncoder(const uint8_t* bytes, const std::vector<int64_t>& shape)
+      : BaseImageEncoder(bytes, shape) {
+  }
+
+ private:
+  bool EncodeImpl() override;
+
+  static void WriteDataToBuf(void* png_ptr, uint8_t* src, size_t size);
+  static void FlushBuf(void* png_ptr);
+
+  uint64_t cur_offset_{0};  // current read offset from bytes_
+};
 
 }  // namespace ort_extensions

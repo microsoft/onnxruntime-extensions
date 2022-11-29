@@ -43,31 +43,43 @@ class BaseImageDecoder {
   int64_t decoded_bytes_{0};
 };
 
-// class BaseImageEncoder {
-//  public:
-//   BaseImageEncoder();
-//   virtual ~BaseImageEncoder() {}
-//   // virtual bool isFormatSupported(int depth) const;
-//
-//   // virtual bool setDestination(const String& filename);
-//   virtual bool Write(uint64_t height, uint64_t width);  // asssuming 3 channels for now
-//
-//   // virtual bool SetDestination(std::vector<uint8_t>& buf);
-//   // virtual bool write(const Mat& img, const std::vector<int>& params) = 0;
-//   // virtual bool writemulti(const std::vector<Mat>& img_vec, const std::vector<int>& params);
-//
-//   // virtual String getDescription() const;
-//   // virtual ImageEncoder newEncoder() const;
-//
-//   // virtual void throwOnEror() const;
-//
-//  private:
-//   // String m_description;
-//
-//   // String m_filename;
-//   // std::vector<uchar>* m_buf;
-//   // bool m_buf_supported;
-//
-//   // String m_last_error;
-// };
+class BaseImageEncoder {
+ public:
+  BaseImageEncoder(const uint8_t* bytes, const std::vector<int64_t>& shape)
+      : bytes_{bytes}, shape_{shape} {
+    num_bytes_ = 1;
+    for (auto dim : shape) {
+      num_bytes_ *= dim;
+    }
+
+    // avoid re-allocs by assuming worst case of no compression when encoding.
+    // use resize so we can memcpy to buffer.
+    encoded_image_.resize(num_bytes_, 0);
+  }
+
+  const std::vector<int64_t>& Shape() const { return shape_; }
+
+  const std::vector<uint8_t>& Encode() {
+    bool encoded = EncodeImpl();
+    assert(encoded);
+    return encoded_image_;
+  }
+
+  virtual ~BaseImageEncoder() {}
+
+ protected:
+  const uint8_t* Bytes() const { return bytes_; }
+  uint64_t NumBytes() const { return num_bytes_; }
+
+  std::vector<uint8_t>& Buffer() { return encoded_image_; }
+
+ private:
+  virtual bool EncodeImpl() = 0;
+
+  const uint8_t* bytes_;
+  uint64_t num_bytes_;
+  const std::vector<int64_t> shape_;
+
+  std::vector<uint8_t> encoded_image_;
+};
 }  // namespace ort_extensions

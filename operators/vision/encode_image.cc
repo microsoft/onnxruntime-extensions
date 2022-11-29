@@ -7,35 +7,11 @@
 #include "png.h"
 #include "jpeglib.h"
 
+#include "vision/impl/png_encoder_decoder.hpp"
+
 namespace ort_extensions {
 
 namespace {
-void EncodePng() {
-  int x, y;
-
-  int width, height;
-  png_byte color_type;
-  png_byte bit_depth;
-
-  png_structp png_ptr;
-  png_infop info_ptr;
-  int number_of_passes;
-  png_bytep* row_pointers;
-
-  /* initialize stuff */
-  png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-
-  info_ptr = png_create_info_struct(png_ptr);
-
-  png_init_io(png_ptr, 0);
-  png_set_IHDR(png_ptr, info_ptr, width, height,
-               bit_depth, color_type, PNG_INTERLACE_NONE,
-               PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
-  png_write_info(png_ptr, info_ptr);
-  png_write_image(png_ptr, row_pointers);
-  png_write_end(png_ptr, NULL);
-}
-
 void EncodeJpg(uint8_t*& buffer, unsigned long& num_bytes) {
   struct jpeg_compress_struct cinfo;
   struct jpeg_error_mgr jerr;
@@ -75,6 +51,7 @@ void EncodeJpg(uint8_t*& buffer, unsigned long& num_bytes) {
 
 void KernelEncodeImage ::Compute(OrtKernelContext* context) {
   // Setup inputs
+  // TODO: RGB is probably better if we're not using opencv
   const OrtValue* input_bgr = ort_.KernelContext_GetInput(context, 0ULL);
   const OrtTensorDimensions dimensions_bgr(ort_, input_bgr);
 
@@ -84,27 +61,22 @@ void KernelEncodeImage ::Compute(OrtKernelContext* context) {
     ORT_CXX_API_THROW("[EncodeImage] requires rank 3 BGR input in channels last format.", ORT_INVALID_ARGUMENT);
   }
 
-  // Get data & the length
-  std::vector<int32_t> height_x_width{static_cast<int32_t>(dimensions_bgr[0]),   // H
-                                      static_cast<int32_t>(dimensions_bgr[1])};  // W
+  if (extension_ == ".png") {
+    PngEncoder encoder(ort_.GetTensorData<uint8_t>(input_bgr), dimensions_bgr);
+    const auto& encoded_image = encoder.Encode();
 
-  //// data is const uint8_t but opencv2 wants void*.
-  // const void* bgr_data = ort_.GetTensorData<uint8_t>(input_bgr);
-  // const cv::Mat bgr_image(height_x_width, CV_8UC3, const_cast<void*>(bgr_data));
+    std::vector<int64_t> output_dimensions{static_cast<int64_t>(encoded_image.size())};
+    OrtValue* output_value = ort_.KernelContext_GetOutput(context, 0,
+                                                          output_dimensions.data(),
+                                                          output_dimensions.size());
 
-  //// don't know output size ahead of time so need to encode and then copy to output
-  std::vector<uint8_t> encoded_image;
-  // if (!cv::imencode(extension_, bgr_image, encoded_image)) {
-  //   ORT_CXX_API_THROW("[EncodeImage] Image encoding failed.", ORT_INVALID_ARGUMENT);
-  // }
+    uint8_t* data = ort_.GetTensorMutableData<uint8_t>(output_value);
+    memcpy(data, encoded_image.data(), encoded_image.size());
 
-  // Setup output & copy to destination
-  std::vector<int64_t> output_dimensions{static_cast<int64_t>(1234)};  // encoded_image.size())};
-  OrtValue* output_value = ort_.KernelContext_GetOutput(context, 0,
-                                                        output_dimensions.data(),
-                                                        output_dimensions.size());
-
-  uint8_t* data = ort_.GetTensorMutableData<uint8_t>(output_value);
-  memcpy(data, encoded_image.data(), encoded_image.size());
+  } else {
+    uint8_t* missing_buffer = nullptr;
+    unsigned long num_encoded_bytes = 0;
+    EncodeJpg(missing_buffer, num_encoded_bytes);
+  }
 }
 }  // namespace ort_extensions
