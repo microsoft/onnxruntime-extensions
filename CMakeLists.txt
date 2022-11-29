@@ -201,26 +201,18 @@ if (OCOS_ENABLE_VISION)
 endif()
 
 # enable the opencv dependency if we have ops that require it
-if (OCOS_ENABLE_CV2) # OR OCOS_ENABLE_VISION)
+if (OCOS_ENABLE_CV2)
   set(_ENABLE_OPENCV ON)
   message(STATUS "Fetch opencv")
   include(opencv)
-endif()
 
-if (OCOS_ENABLE_CV2)
   file(GLOB TARGET_SRC_CV2 "operators/cv2/*.cc" "operators/cv2/*.h*")
   list(APPEND TARGET_SRC ${TARGET_SRC_CV2})
 endif()
 
 if (OCOS_ENABLE_VISION)
-  if (NOT OCOS_ENABLE_OPENCV_CODECS)
-    message(FATAL_ERROR  "OCOS_ENABLE_VISION requires OCOS_ENABLE_OPENCV_CODECS to be ON")
-  endif()
-
-  # message(STATUS "Fetch libjpeg-turbo")
-  # include(libjpeg-turbo)
-
-  file(GLOB TARGET_SRC_VISION "operators/vision/*.cc" "operators/vision/*.h*")
+  file(GLOB TARGET_SRC_VISION "operators/vision/*.cc" "operators/vision/*.h*"
+                              "operators/vision/impl/*.cc" "operators/vision/impl/*.h*")
   list(APPEND TARGET_SRC ${TARGET_SRC_VISION})
 endif()
 
@@ -335,9 +327,9 @@ if (OCOS_ENABLE_CV2)
 endif()
 
 if (OCOS_ENABLE_VISION)
-list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_VISION)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_VISION)
 
-target_include_directories(ocos_operators PRIVATE ${libpng_INCLUDE_DIRS}
+  target_include_directories(ocos_operators PRIVATE ${libpng_INCLUDE_DIRS}
                                                     ${libjpeg-turbo_INCLUDE_DIRS}
                                                     ${zlib_INCLUDE_DIRS}
                             )

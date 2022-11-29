@@ -6,7 +6,8 @@
 #include <vector>
 
 #include "gtest/gtest.h"
-#include "opencv2/imgcodecs.hpp"
+// #include "opencv2/imgcodecs.hpp"
+#include "vision/impl/png_encoder_decoder.hpp"
 
 #include "ocos.h"
 #include "test_kernel.hpp"
@@ -41,27 +42,20 @@ TEST(VisionOps, image_decode_encode) {
 
   auto data_dir = std::filesystem::current_path() / "data";
   auto model_path = data_dir / "ppp_vision" / "decode_encode_decode_test.onnx";
-  auto image_path = data_dir / "test_colors.jpg";
+  auto image_path = data_dir / "test_colors.png";  // TEMP: Using PNG input until we have jpeg decoder implemented.
 
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
   std::vector<uint8_t> image_data = LoadBytesFromFile(image_path);
 
   // decode image to get expected output
   const std::vector<int32_t> encoded_image_sizes{1, static_cast<int32_t>(image_data.size())};
-  const cv::Mat encoded_image(encoded_image_sizes, CV_8UC1, static_cast<void*>(image_data.data()));
-  const cv::Mat decoded_image = cv::imdecode(encoded_image, cv::IMREAD_COLOR);
-  ASSERT_NE(decoded_image.data, nullptr) << "imdecode failed";
 
-  const cv::Size decoded_image_size = decoded_image.size();
-  const int64_t colors = 3;
-  const std::vector<int64_t> output_dimensions{decoded_image_size.height, decoded_image_size.width, colors};
-  // decoded_image.total() is num pixels. elemSize is 3 (BGR value per pixel)
-  const auto num_output_bytes = decoded_image.total() * decoded_image.elemSize();
-  std::vector<uint8_t> expected_output(num_output_bytes, 0);
-  memcpy(expected_output.data(), decoded_image.data, num_output_bytes);
+  ort_extensions::PngDecoder decoder(image_data.data(), image_data.size());
+  std::vector<uint8_t> decoded_image(decoder.NumDecodedBytes(), 0);
+  assert(decoder.Decode(decoded_image.data(), decoded_image.size()));
 
   std::vector<TestValue> inputs{TestValue("image", image_data, {static_cast<int64_t>(image_data.size())})};
-  std::vector<TestValue> outputs{TestValue("bgr_data", expected_output, output_dimensions)};
+  std::vector<TestValue> outputs{TestValue("bgr_data", decoded_image, decoder.Shape())};
 
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }

@@ -6,6 +6,8 @@
 #include "jpeglib.h"
 #include "png.h"
 
+#include "impl/png_encoder_decoder.hpp"
+
 namespace ort_extensions {
 
 namespace {
@@ -181,8 +183,19 @@ void KernelDecodeImage::Compute(OrtKernelContext* context) {
   const int64_t encoded_image_data_len = ort_.GetTensorShapeElementCount(input_info);
   ort_.ReleaseTensorTypeAndShapeInfo(input_info);
 
-  png_decode();
-  jpeg_decode(ort_.GetTensorData<uint8_t>(inputs), encoded_image_data_len);
+  const uint8_t* encoded_image_data = ort_.GetTensorData<uint8_t>(inputs);  // uint8 data
+
+  if (PngDecoder::IsPng(encoded_image_data, encoded_image_data_len)) {
+    auto decoder = PngDecoder(encoded_image_data, encoded_image_data_len);
+    const auto& shape = decoder.Shape();
+    OrtValue* output_value = ort_.KernelContext_GetOutput(context, 0, shape.data(), shape.size());
+    uint8_t* decoded_image_data = ort_.GetTensorMutableData<uint8_t>(output_value);
+
+    decoder.Decode(decoded_image_data, decoder.NumDecodedBytes());
+  } else {
+    png_decode();
+    jpeg_decode(ort_.GetTensorData<uint8_t>(inputs), encoded_image_data_len);
+  }
 
   // Decode the image
   // const std::vector<int32_t> encoded_image_sizes{1, static_cast<int32_t>(encoded_image_data_len)};
