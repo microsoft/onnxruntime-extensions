@@ -76,7 +76,7 @@ The PyTorch and TensorFlow converters support custom operator generation if the 
 
 ## Add a new custom operator to onnxruntime-extensions
 
-Welcome to contribute the customop C++ implementation directly in this repository, which will widely benefit other users. Besides C++, if you want to quickly verify the ONNX model with some custom operators with Python language, PyOp will help with that
+You can contribute customop C++ implementations directly in this repository if they have general applicability to other users. In addition, if you want to quickly verify the ONNX model with Python, you can wrap the custom operator with PyOp.
 
 ```python
 import numpy
