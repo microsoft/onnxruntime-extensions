@@ -428,7 +428,7 @@ jobs:
   #############
   # iOS
   #############
-  - job: AndroidPackage
+  - job: IosPackage
     pool:
       vmImage: 'macOS-11'
     timeoutInMinutes: 120
