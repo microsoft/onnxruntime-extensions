@@ -317,6 +317,16 @@ jobs:
 
       - script: |
           call activate pyenv
+          @echo find where Visual Studio was installed and use the bundled cmake
+          set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+          for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
+            set vslatest=%%i
+            if exist "%%i\Common7\Tools\vsdevcmd.bat" (
+              set vsdevcmd=%%i\Common7\Tools\vsdevcmd.bat
+            )
+          )
+          @echo vslatest (%vslatest%)
+          @echo vsdevcmd (%vsdevcmd%)
           python setup.py bdist_wheel
         displayName: Build the wheel
 
@@ -361,7 +371,8 @@ jobs:
           -DCMAKE_TOOLCHAIN_FILE=$(Build.BinariesDirectory)/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
           -DOCOS_ENABLE_SPM_TOKENIZER=ON \
           -DOCOS_BUILD_PYTHON=OFF \
-          -DOCOS_ENABLE_OPENCV=OFF
+          -DOCOS_ENABLE_CV2=OFF \
+          -DOCOS_ENABLE_VISION=OFF
         displayName: build the customop library with onnxruntime
     # TODO add unittest for webassembly
 

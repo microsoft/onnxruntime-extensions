@@ -49,3 +49,4 @@ tutorials/*/app/libs
 *.so
 *.dylib
 *.pyd
+/test/data/ppp_vision/*.updated.onnx

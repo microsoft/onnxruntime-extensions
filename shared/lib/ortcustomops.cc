@@ -72,7 +72,7 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
   if (status = RegisterPythonDomainAndOps(options, ortApi); status) {
     return status;
   }
-#endif // PYTHON_OP_SUPPORT
+#endif  // PYTHON_OP_SUPPORT
 
   if (status = ortApi->CreateCustomOpDomain(c_OpDomain, &domain); status) {
     return status;
@@ -97,28 +97,31 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
   static std::vector<FxLoadCustomOpFactory> c_factories = {
     LoadCustomOpClasses<CustomOpClassBegin>
 #if defined(ENABLE_TF_STRING)
-    , LoadCustomOpClasses_Text
-#endif // ENABLE_TF_STRING
+    ,
+    LoadCustomOpClasses_Text
+#endif  // ENABLE_TF_STRING
 #if defined(ENABLE_MATH)
-    , LoadCustomOpClasses_Math
+    ,
+    LoadCustomOpClasses_Math
 #endif
 #if defined(ENABLE_TOKENIZER)
-    , LoadCustomOpClasses_Tokenizer
+    ,
+    LoadCustomOpClasses_Tokenizer
 #endif
-#if defined(ENABLE_OPENCV)
-    , LoadCustomOpClasses_OpenCV
+#if defined(ENABLE_CV2)
+    ,
+    LoadCustomOpClasses_CV2
 #endif
   };
 
-  for (auto fx : c_factories) {
-    auto ops = fx();
-    while (*ops != nullptr) {
-      if (pyop_nameset.find((*ops)->GetName(*ops)) == pyop_nameset.end()) {
-        if (status = ortApi->CustomOpDomain_Add(domain, *ops); status) {
+  for (const auto& fx : c_factories) {
+    const auto& ops = fx();
+    for (const OrtCustomOp* op : ops) {
+      if (pyop_nameset.find(op->GetName(op)) == pyop_nameset.end()) {
+        if (status = ortApi->CustomOpDomain_Add(domain, op); status) {
           return status;
         }
       }
-      ++ops;
     }
   }
 
@@ -130,6 +133,34 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
         return status;
       }
       e_ops = ExternalCustomOps::instance().GetNextOp(idx);
+    }
+  }
+
+  if (status = ortApi->AddCustomOpDomain(options, domain); status) {
+    return status;
+  }
+
+  // Create domain for ops using the new domain name.
+  if (status = ortApi->CreateCustomOpDomain(c_ComMsExtOpDomain, &domain); status) {
+    return status;
+  }
+
+  AddOrtCustomOpDomainToContainer(domain, ortApi);
+
+  static std::vector<FxLoadCustomOpFactory> new_domain_factories = {
+    LoadCustomOpClasses<CustomOpClassBegin>
+#if defined(ENABLE_VISION)
+    ,
+    LoadCustomOpClasses_Vision
+#endif
+  };
+
+  for (const auto& fx : new_domain_factories) {
+    const auto& ops = fx();
+    for (const OrtCustomOp* op : ops) {
+      if (status = ortApi->CustomOpDomain_Add(domain, op); status) {
+        return status;
+      }
     }
   }
 

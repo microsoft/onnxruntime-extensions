@@ -37,8 +37,9 @@ option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
 option(OCOS_ENABLE_BLINGFIRE "Enable operators depending on the Blingfire library" ON)
 option(OCOS_ENABLE_MATH "Enable math tensor operators building" ON)
 option(OCOS_ENABLE_DLIB "Enable operators like Inverse depending on DLIB" ON)
-option(OCOS_ENABLE_OPENCV "Enable operators depending on opencv" ON)
-option(OCOS_ENABLE_OPENCV_CODECS "Enable operators depending on opencv imgcodecs" ON)
+option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require opencv imgcodecs." ON)
+option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
+option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
 option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
@@ -56,7 +57,8 @@ function(disable_all_operators)
   set(OCOS_ENABLE_BLINGFIRE OFF CACHE INTERNAL "")
   set(OCOS_ENABLE_MATH OFF CACHE INTERNAL "")
   set(OCOS_ENABLE_DLIB OFF CACHE INTERNAL "")
-  set(OCOS_ENABLE_OPENCV OFF CACHE INTERNAL "")
+  set(OCOS_ENABLE_CV2 OFF CACHE INTERNAL "")
+  set(OCOS_ENABLE_VISION OFF CACHE INTERNAL "")
 endfunction()
 
 if(NOT CC_OPTIMIZE)
@@ -175,11 +177,25 @@ if (OCOS_ENABLE_MATH)
   list(APPEND TARGET_SRC ${TARGET_SRC_MATH} ${TARGET_SRC_DLIB} ${TARGET_SRC_INVERSE})
 endif()
 
-if (OCOS_ENABLE_OPENCV)
+# enable the opencv dependency if we have ops that require it
+if (OCOS_ENABLE_CV2 OR OCOS_ENABLE_VISION)
+  set(_ENABLE_OPENCV ON)
   message(STATUS "Fetch opencv")
   include(opencv)
-  file(GLOB TARGET_SRC_CV "operators/cv2/*.cc" "operators/cv2/*.h*")
-  list(APPEND TARGET_SRC ${TARGET_SRC_CV})
+endif()
+
+if (OCOS_ENABLE_CV2)
+  file(GLOB TARGET_SRC_CV2 "operators/cv2/*.cc" "operators/cv2/*.h*")
+  list(APPEND TARGET_SRC ${TARGET_SRC_CV2})
+endif()
+
+if (OCOS_ENABLE_VISION)
+  if (NOT OCOS_ENABLE_OPENCV_CODECS)
+    message(FATAL_ERROR  "OCOS_ENABLE_VISION requires OCOS_ENABLE_OPENCV_CODECS to be ON")
+  endif()
+
+  file(GLOB TARGET_SRC_VISION "operators/vision/*.cc" "operators/vision/*.h*")
+  list(APPEND TARGET_SRC ${TARGET_SRC_VISION})
 endif()
 
 set(_HAS_TOKENIZER OFF)
@@ -241,6 +257,8 @@ endif()
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_library(ocos_operators STATIC ${TARGET_SRC})
+set_target_properties(ocos_operators PROPERTIES FOLDER "operators")
+source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${TARGET_SRC})
 standardize_output_folder(ocos_operators)
 
 target_include_directories(ocos_operators PUBLIC
@@ -277,13 +295,21 @@ if (OCOS_ENABLE_MATH)
   # The dlib matrix implementation is all in the headers, no library compiling needed.
 endif()
 
-if (OCOS_ENABLE_OPENCV)
-  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_OPENCV)
-  if (OCOS_ENABLE_OPENCV_CODECS)
-    list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_OPENCV ENABLE_OPENCV_CODEC)
-  endif()
+if (_ENABLE_OPENCV)
   list(APPEND ocos_libraries ${opencv_LIBS})
   target_include_directories(ocos_operators PUBLIC ${opencv_INCLUDE_DIRS})
+endif()
+
+if (OCOS_ENABLE_OPENCV_CODECS)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_OPENCV_CODECS)
+endif()
+
+if (OCOS_ENABLE_CV2)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_CV2)
+endif()
+
+if (OCOS_ENABLE_VISION)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_VISION)
 endif()
 
 if (OCOS_ENABLE_GPT2_TOKENIZER)
@@ -324,7 +350,7 @@ target_compile_definitions(ocos_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
 
 file(GLOB shared_TARGET_LIB_SRC "shared/lib/*.cc" "shared/lib/*.h")
-if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+if(NOT OCOS_ENABLE_STATIC_LIB AND CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   add_executable(ortcustomops ${shared_TARGET_LIB_SRC})
   set_target_properties(ortcustomops PROPERTIES LINK_FLAGS "                                  \
                       -s WASM=1                                                               \
@@ -357,15 +383,18 @@ target_link_libraries(ortcustomops PUBLIC ocos_operators)
 if (_BUILD_SHARED_LIBRARY)
   file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h" "shared/*.def")
   add_library(extensions_shared SHARED ${shared_TARGET_SRC})
+  source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${shared_TARGET_SRC})
   standardize_output_folder(extensions_shared)
   if (CMAKE_SYSTEM_NAME STREQUAL "Android")
     if (OCOS_ENABLE_SPM_TOKENIZER)
       target_link_libraries(extensions_shared PUBLIC log)
     endif()
   endif()
+
   if (LINUX OR CMAKE_SYSTEM_NAME STREQUAL "Android")
     set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS "-Wl,-s -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
   endif()
+
   target_include_directories(extensions_shared PUBLIC
     "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>")
   target_link_libraries(extensions_shared PRIVATE ortcustomops)
@@ -399,7 +428,10 @@ foreach(nf ${NO_USE_FILES})
 endforeach()
 
 # test section
-if (OCOS_ENABLE_CTEST)
+if(OCOS_ENABLE_CTEST AND OCOS_ENABLE_SELECTED_OPLIST)
+  # currently the tests don't handle operator exclusion cleanly.
+  message(WARNING "Due to usage of OCOS_ENABLE_SELECTED_OPLIST excluding operators the tests are unable to be built and run")
+elseif(OCOS_ENABLE_CTEST AND NOT OCOS_ENABLE_SELECTED_OPLIST)
   # Enable CTest
   enable_testing()
   message(STATUS "Fetch CTest")
@@ -413,7 +445,6 @@ if (OCOS_ENABLE_CTEST)
   standardize_output_folder(ocos_test)
   target_link_libraries(ocos_test PRIVATE gtest_main ocos_operators ${ocos_libraries})
   add_test(NAME ocos_test COMMAND $<TARGET_FILE:ocos_test>)
-
 
   SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
   find_library(ONNXRUNTIME onnxruntime HINTS "${ONNXRUNTIME_LIB_DIR}")

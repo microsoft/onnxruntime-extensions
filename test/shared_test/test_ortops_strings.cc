@@ -7,7 +7,6 @@
 #include "test_kernel.hpp"
 #include "text/string_lower.hpp"
 
-
 TEST(string_operator, test_string_lower) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
 
@@ -27,7 +26,6 @@ TEST(string_operator, test_string_lower) {
   model_path /= "custom_op_string_lower.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }
-
 
 TEST(string_operator, test_regex_split_with_offsets) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
@@ -64,7 +62,6 @@ TEST(string_operator, test_regex_split_with_offsets) {
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }
 
-
 TEST(string_operator, test_string_ecmaregex_replace) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
 
@@ -84,13 +81,11 @@ TEST(string_operator, test_string_ecmaregex_replace) {
   inputs[2].dims = {1};
   inputs[2].values_string = {"$010"};
 
-
   std::vector<TestValue> outputs(1);
   outputs[0].name = "output";
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
   outputs[0].dims = {1};
   outputs[0].values_string = {"a Test 10 20 30 ♠♣"};
-
 
   std::filesystem::path model_path = "data";
   model_path /= "test_string_ecmaregex_replace.onnx";
@@ -111,13 +106,11 @@ TEST(string_operator, test_string_ecmaregex_replace) {
   inputs[2].dims = {1};
   inputs[2].values_string = {"$010"};
 
-
   outputs[0].name = "output";
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
   outputs[0].dims = {1};
   outputs[0].values_string = {"a Test 1000 2000 3000 ♠♣"};
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
-
 
   inputs[0].name = "input";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -133,7 +126,6 @@ TEST(string_operator, test_string_ecmaregex_replace) {
   inputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
   inputs[2].dims = {1};
   inputs[2].values_string = {"$010"};
-
 
   outputs[0].name = "output";
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -155,7 +147,6 @@ TEST(string_operator, test_string_ecmaregex_replace) {
   inputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
   inputs[2].dims = {1};
   inputs[2].values_string = {"$1+"};
-
 
   outputs[0].name = "output";
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -205,7 +196,6 @@ TEST(string_operator, test_string_ecmaregex_replace) {
   outputs[0].values_string = {"Test 10 20 30 ", "Test 40 50 60 ", " Test 70 80 90 "};
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 
-
   inputs[0].name = "input";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
   inputs[0].dims = {1};
@@ -220,7 +210,6 @@ TEST(string_operator, test_string_ecmaregex_replace) {
   inputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
   inputs[2].dims = {1};
   inputs[2].values_string = {"aa"};
-
 
   outputs[0].name = "output";
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -249,7 +238,6 @@ TEST(string_operator, test_string_ecmaregex_replace) {
   inputs[2].dims = {1};
   inputs[2].values_string = {"$1+"};
 
-
   outputs[0].name = "output";
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
   outputs[0].dims = {3};
@@ -257,15 +245,14 @@ TEST(string_operator, test_string_ecmaregex_replace) {
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }
 
-
 TEST(utils, test_string_join) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
 
   std::vector<TestValue> inputs(3);
   inputs[0].name = "text";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-  inputs[0].dims = {1,3};
-  inputs[0].values_string = {"abc","zzz","efg"};
+  inputs[0].dims = {1, 3};
+  inputs[0].values_string = {"abc", "zzz", "efg"};
 
   inputs[1].name = "sep";
   inputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -459,9 +446,8 @@ TEST(string_operator, test_string_to_vector) {
   std::vector<TestValue> outputs(1);
   outputs[0].name = "token_ids";
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-  outputs[0].dims = {5,3};
+  outputs[0].dims = {5, 3};
   outputs[0].values_int64 = {0, 1, 2, 2, 3, 4, 0, 1, 2, 3, 4, 4, -1, -1, -1};
-
 
   std::filesystem::path model_path = "data";
   model_path /= "test_string_to_vector.onnx";
@@ -509,7 +495,6 @@ TEST(string_operator, test_string_mapping) {
   outputs[0].dims = {5};
   outputs[0].values_string = {"Maybe", "也不知道可不可以", "No color", "OK", "Not OK"};
 
-
   std::filesystem::path model_path = "data";
   model_path /= "test_string_mapping.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
@@ -541,14 +526,13 @@ TEST(string_operator, test_masked_fill) {
   inputs[1].name = "mask";
   inputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL;
   inputs[1].dims = {5};
-  inputs[1].value_bool = {true, false, true, false, true};
+  inputs[1].values_bool = {true, false, true, false, true};
 
   std::vector<TestValue> outputs(1);
   outputs[0].name = "output";
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
   outputs[0].dims = {3};
   outputs[0].values_string = {"Orange and Yellow", "No color", "white"};
-
 
   std::filesystem::path model_path = "data";
   model_path /= "test_masked_fill.onnx";
@@ -558,7 +542,7 @@ TEST(string_operator, test_masked_fill) {
   inputs[0].values_string = {"Orange and Yellow", "不知道啥颜色", "No color", "black", "white"};
 
   inputs[1].dims = {5};
-  inputs[1].value_bool = {false, false, false, false, false};
+  inputs[1].values_bool = {false, false, false, false, false};
 
   outputs[0].dims = {0};
   outputs[0].values_string = {};
@@ -568,7 +552,7 @@ TEST(string_operator, test_masked_fill) {
   inputs[0].values_string = {"Orange and Yellow", "不知道啥颜色", "No color", "black", "white"};
 
   inputs[1].dims = {5};
-  inputs[1].value_bool = {true, true, true, true, true};
+  inputs[1].values_bool = {true, true, true, true, true};
 
   outputs[0].dims = {5};
   outputs[0].values_string = {"Orange and Yellow", "不知道啥颜色", "No color", "black", "white"};
@@ -578,7 +562,7 @@ TEST(string_operator, test_masked_fill) {
   inputs[0].values_string = {"a"};
 
   inputs[1].dims = {1};
-  inputs[1].value_bool = {false};
+  inputs[1].values_bool = {false};
 
   outputs[0].dims = {0};
   outputs[0].values_string = {};
@@ -588,7 +572,7 @@ TEST(string_operator, test_masked_fill) {
   inputs[0].values_string = {"a"};
 
   inputs[1].dims = {1};
-  inputs[1].value_bool = {true};
+  inputs[1].values_bool = {true};
 
   outputs[0].dims = {1};
   outputs[0].values_string = {"a"};
@@ -598,7 +582,7 @@ TEST(string_operator, test_masked_fill) {
   inputs[0].values_string = {};
 
   inputs[1].dims = {0};
-  inputs[1].value_bool = {};
+  inputs[1].values_bool = {};
 
   outputs[0].dims = {0};
   outputs[0].values_string = {};

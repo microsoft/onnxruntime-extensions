@@ -10,7 +10,6 @@
 #include "string_tensor.h"
 #include "test_kernel.hpp"
 
-
 const char* GetLibraryPath() {
 #if defined(_WIN32)
   return "ortextensions.dll";
@@ -58,13 +57,13 @@ struct CustomOpOne : Ort::CustomOpBase<CustomOpOne, KernelOne> {
   size_t GetInputTypeCount() const {
     return 2;
   };
-  ONNXTensorElementDataType GetInputType(size_t index) const {
+  ONNXTensorElementDataType GetInputType(size_t /*index*/) const {
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
   };
   size_t GetOutputTypeCount() const {
     return 1;
   };
-  ONNXTensorElementDataType GetOutputType(size_t index) const {
+  ONNXTensorElementDataType GetOutputType(size_t /*index*/) const {
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
   };
 };
@@ -101,13 +100,13 @@ struct CustomOpTwo : Ort::CustomOpBase<CustomOpTwo, KernelTwo> {
   size_t GetInputTypeCount() const {
     return 1;
   };
-  ONNXTensorElementDataType GetInputType(size_t index) const {
+  ONNXTensorElementDataType GetInputType(size_t /*index*/) const {
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
   };
   size_t GetOutputTypeCount() const {
     return 1;
   };
-  ONNXTensorElementDataType GetOutputType(size_t index) const {
+  ONNXTensorElementDataType GetOutputType(size_t /*index*/) const {
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32;
   };
 };
@@ -134,6 +133,7 @@ struct KernelThree : BaseKernel {
       out[i] = input_strs[i].find(substr_);
     }
   }
+
  private:
   std::string substr_;
 };
@@ -141,20 +141,20 @@ struct KernelThree : BaseKernel {
 struct CustomOpThree : Ort::CustomOpBase<CustomOpThree, KernelThree> {
   void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
     return CreateKernelImpl(api, info);
-  };  
+  };
   const char* GetName() const {
     return "CustomOpThree";
   };
   size_t GetInputTypeCount() const {
     return 1;
   };
-  ONNXTensorElementDataType GetInputType(size_t index) const {
+  ONNXTensorElementDataType GetInputType(size_t /*index*/) const {
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
   };
   size_t GetOutputTypeCount() const {
     return 1;
   };
-  ONNXTensorElementDataType GetOutputType(size_t index) const {
+  ONNXTensorElementDataType GetOutputType(size_t /*index*/) const {
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   };
 };
@@ -175,7 +175,7 @@ void _emplace_back(Ort::MemoryInfo& memory_info, std::vector<Ort::Value>& ort_in
   }
 
   ort_inputs.emplace_back(Ort::Value::CreateTensor<>(
-      memory_info, reinterpret_cast<bool*>(convertor.data()) , values.size(), dims.data(), dims.size()));
+      memory_info, reinterpret_cast<bool*>(convertor.data()), values.size(), dims.data(), dims.size()));
 }
 
 template <typename T>
@@ -219,10 +219,13 @@ void RunSession(Ort::Session& session_object,
     input_names.emplace_back(inputs[i].name);
     switch (inputs[i].element_type) {
       case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL:
-        _emplace_back(memory_info, ort_inputs, inputs[i].value_bool, inputs[i].dims);
+        _emplace_back(memory_info, ort_inputs, inputs[i].values_bool, inputs[i].dims);
         break;
       case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
         _emplace_back(memory_info, ort_inputs, inputs[i].values_float, inputs[i].dims);
+        break;
+      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
+        _emplace_back(memory_info, ort_inputs, inputs[i].values_uint8, inputs[i].dims);
         break;
       case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
         _emplace_back(memory_info, ort_inputs, inputs[i].values_int32, inputs[i].dims);
@@ -267,6 +270,9 @@ void RunSession(Ort::Session& session_object,
       case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
         _assert_eq(*output_tensor, expected.values_float, total_len);
         break;
+      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
+        _assert_eq(*output_tensor, expected.values_uint8, total_len);
+        break;
       case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
         _assert_eq(*output_tensor, expected.values_int32, total_len);
         break;
@@ -294,7 +300,8 @@ void TestInference(Ort::Env& env, const ORTCHAR_T* model_uri,
   Ort::SessionOptions session_options;
   void* handle = nullptr;
   if (custom_op_library_filename) {
-    Ort::ThrowOnError(Ort::GetApi().RegisterCustomOpsLibrary((OrtSessionOptions*)session_options, custom_op_library_filename, &handle));
+    Ort::ThrowOnError(Ort::GetApi().RegisterCustomOpsLibrary((OrtSessionOptions*)session_options,
+                                                             custom_op_library_filename, &handle));
   }
 
   // if session creation passes, model loads fine
@@ -377,7 +384,7 @@ TEST(utils, test_get_str_attr) {
 }
 
 TEST(ustring, tensor_operator) {
-  OrtValue *tensor;
+  OrtValue* tensor;
   OrtAllocator* allocator;
 
   const auto* api_base = OrtGetApiBase();
