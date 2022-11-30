@@ -258,7 +258,19 @@ add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_library(ocos_operators STATIC ${TARGET_SRC})
 set_target_properties(ocos_operators PROPERTIES FOLDER "operators")
-source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${TARGET_SRC})
+
+# filter out any files in ${TARGET_SRC} which don't have prefix of ${PROJECT_SOURCE_DIR} before calling source_group
+set(_TARGET_SRC_FOR_SOURCE_GROUP)
+foreach(_TARGET_SRC_FILE IN LISTS TARGET_SRC)
+  cmake_path(IS_PREFIX PROJECT_SOURCE_DIR ${_TARGET_SRC_FILE}
+             NORMALIZE
+             _is_prefix_result)
+  if(_is_prefix_result)
+    list(APPEND _TARGET_SRC_FOR_SOURCE_GROUP ${_TARGET_SRC_FILE})
+  endif()
+endforeach()
+source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${_TARGET_SRC_FOR_SOURCE_GROUP})
+
 standardize_output_folder(ocos_operators)
 
 target_include_directories(ocos_operators PUBLIC
