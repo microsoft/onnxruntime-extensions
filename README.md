@@ -4,24 +4,24 @@
 
 ## What's ONNXRuntime-Extensions
 
-Introduction: ONNXRuntime-Extensions is a library that extends the capability of the ONNX models and inference with ONNX Runtime, via ONNXRuntime Custom Operator ABIs. It includes a set of [ONNXRuntime Custom Operator](https://onnxruntime.ai/docs/reference/operators/add-custom-op.html) to support the common pre and post processing operators for vision, text, and nlp models. And it supports multiple languages and platforms, like Python on Windows/Linux/MacOS, some mobile platforms like Android and iOS, and Web-Assembly etc. The basic workflow is to enhance a ONNX model firstly and then do the model inference with ONNXRuntime and ONNXRuntime-Extensions package.
+Introduction: ONNXRuntime-Extensions is a library that extends the capability of the ONNX models and inference with ONNX Runtime, via ONNXRuntime Custom Operator ABIs. It includes a set of [ONNXRuntime Custom Operator](https://onnxruntime.ai/docs/reference/operators/add-custom-op.html) to support the common pre- and post-processing operators for vision, text, and nlp models. And it supports multiple languages and platforms, like Python on Windows/Linux/macOS, some mobile platforms like Android and iOS, and Web-Assembly etc. The basic workflow is to enhance a ONNX model firstly and then do the model inference with ONNXRuntime and ONNXRuntime-Extensions package.
 
 <table>
 <tr>
 <td>⚠️</td>
 <td>
-<strong>NOTE:</strong> most ONNXRuntime-Extensions packages are in <strong><em>active development</em></strong> and most of package requies [building from source](./docs/development.md). the package information will be updated here if it is published.
+<strong>NOTE:</strong> most ONNXRuntime-Extensions packages are in <strong><em>active development</em></strong> and most packages require building from source. The package information will be updated here if it is published.
 </td>
 </tr>
 </table>
 
 ## Quickstart with the experimental Python package
 
-#### <strong>Windows users</strong>
+#### <strong>on Windows</strong>
 ```bash
 pip install --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ onnxruntime-extensions
 ```
-#### <strong>Linux and MacOS users</strong>
+#### <strong>on Linux/macOS</strong>
 the packages are not ready yet, so it could be installed from source. Please make sure the compiler toolkit like gcc(later than g++ 8.0) or clang, and the tool <strong>cmake</strong> are installed before the following command
 ```bash
 python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git
@@ -30,8 +30,8 @@ python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.gi
 
 ## Usage
 
-## 1. Augment an ONNX model with a pre- and post processing pipeline
-check [tutorial](./tutorials/) for a couple of examples on how to do it.
+## 1. Augment an ONNX model with a pre- and post-processing pipeline
+check [tutorial](./tutorials) for a couple of examples on how to do it.
 ## 2. Using Extensions for ONNX Runtime inference
 
 ### Python
@@ -43,7 +43,7 @@ from onnxruntime_extensions import get_library_path as _lib_path
 so = _ort.SessionOptions()
 so.register_custom_ops_library(_lib_path())
 
-# Run the ONNXRuntime Session, as ONNXRutime docs suggested.
+# Run the ONNXRuntime Session, as ONNXRuntime docs suggested.
 # sess = _ort.InferenceSession(model, so)
 # sess.run (...)
 ```
@@ -74,7 +74,7 @@ The PyTorch and TensorFlow converters support custom operator generation if the 
 2. [CustomOp conversion by tf2onnx](https://github.com/microsoft/onnxruntime-extensions/blob/main/tutorials/tf2onnx_custom_ops_tutorial.ipynb)
 
 
-## Contribute a new operator to onnxruntime-extensions
+## Add a new custom operator to onnxruntime-extensions
 
 Welcome to contribute the customop C++ implementation directly in this repository, which will widely benefit other users. Besides C++, if you want to quickly verify the ONNX model with some custom operators with Python language, PyOp will help with that
 
