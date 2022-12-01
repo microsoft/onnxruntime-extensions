@@ -1,0 +1,19 @@
+Pod::Spec.new do |spec|
+    spec.name                   = "@NAME@"
+    spec.version                = "@VERSION@"
+    spec.summary                = "@SUMMARY@"
+    spec.description            = "@DESCRIPTION@"
+    spec.authors                = { "ONNX Runtime Extensions Authors" => "onnxruntime@microsoft.com" }
+    spec.license                = { :type => "MIT", :file => "@LICENSE_FILE@" }
+    spec.homepage               = "https://github.com/microsoft/onnxruntime-extensions"
+    spec.source                 = { :http => "file:///http_source_placeholder" }
+    spec.platform               = :ios, "@IOS_DEPLOYMENT_TARGET@"
+    spec.vendored_frameworks    = "@XCFRAMEWORK_DIR@"
+    spec.static_framework       = true
+    spec.source_files           = "@PUBLIC_HEADERS_DIR@/*.h"
+    spec.preserve_paths         = [ "@LICENSE_FILE@" ]
+    spec.library                = "c++"
+    spec.pod_target_xcconfig    = {
+        "OTHER_CPLUSPLUSFLAGS" => "-fvisibility=hidden -fvisibility-inlines-hidden",
+    }
+end
