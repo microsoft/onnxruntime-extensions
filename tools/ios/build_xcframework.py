@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
 # build an xcframework from individual per-platform/arch static frameworks
 
 import argparse
@@ -8,17 +11,17 @@ import shutil
 import subprocess
 import typing
 
-script_dir = pathlib.Path(__file__).resolve()
-repo_dir = script_dir.parents[2]
+_script_dir = pathlib.Path(__file__).resolve().parent
+_repo_dir = _script_dir.parents[1]
 
-default_platform_archs = {
+_default_platform_archs = {
     "iphoneos": ["arm64"],
     "iphonesimulator": ["x86_64", "arm64"],
 }
 
-cmake = "cmake"
-lipo = "lipo"
-xcrun = "xcrun"
+_cmake = "cmake"
+_lipo = "lipo"
+_xcrun = "xcrun"
 
 
 def _get_opencv_toolchain_file(platform: str, opencv_dir: pathlib.Path):
@@ -50,9 +53,9 @@ def build_framework_for_platform_and_arch(
 
     # generate build files
     generate_args = [
-        cmake,
+        _cmake,
         "-G=Xcode",
-        f"-S={repo_dir}",
+        f"-S={_repo_dir}",
         f"-B={build_dir}",
         "-DCMAKE_SYSTEM_NAME=iOS",
         f"-DCMAKE_OSX_DEPLOYMENT_TARGET={ios_deployment_target}",
@@ -77,7 +80,7 @@ def build_framework_for_platform_and_arch(
     _run(generate_args)
 
     # build
-    _run([cmake, f"--build", f"{build_dir}", f"--config={config}", "--parallel"])
+    _run([_cmake, f"--build", f"{build_dir}", f"--config={config}", "--parallel"])
 
     return build_dir / "static_framework/onnxruntime_extensions.framework"
 
@@ -100,7 +103,12 @@ def build_xcframework(
         arch_framework_dirs = []
         for arch in archs:
             arch_framework_dir = build_framework_for_platform_and_arch(
-                intermediate_build_dir / f"{platform}/{arch}", platform, arch, config, opencv_dir, ios_deployment_target
+                intermediate_build_dir / f"{platform}/{arch}/{config}",
+                platform,
+                arch,
+                config,
+                opencv_dir,
+                ios_deployment_target,
             )
 
             arch_framework_dirs.append(arch_framework_dir)
@@ -120,7 +128,7 @@ def build_xcframework(
 
         # combine arch-specific framework libraries
         arch_libs = [str(framework_dir / "onnxruntime_extensions") for framework_dir in arch_framework_dirs]
-        _run([lipo, "-create", "-output", str(platform_fat_framework_dir / "onnxruntime_extensions")] + arch_libs)
+        _run([_lipo, "-create", "-output", str(platform_fat_framework_dir / "onnxruntime_extensions")] + arch_libs)
 
         platform_fat_framework_dirs.append(platform_fat_framework_dir)
 
@@ -128,7 +136,7 @@ def build_xcframework(
     xcframework_dir = output_dir / "onnxruntime_extensions.xcframework"
     _rmtree_if_existing(xcframework_dir)
 
-    create_xcframework_args = [xcrun, "xcodebuild", "-create-xcframework", "-output", str(xcframework_dir)]
+    create_xcframework_args = [_xcrun, "xcodebuild", "-create-xcframework", "-output", str(xcframework_dir)]
     for platform_fat_framework_dir in platform_fat_framework_dirs:
         create_xcframework_args += ["-framework", str(platform_fat_framework_dir)]
     _run(create_xcframework_args)
@@ -174,9 +182,9 @@ def main():
 
     build_xcframework(
         output_dir=output_dir,
-        platform_archs=default_platform_archs,
+        platform_archs=_default_platform_archs,
         config=args.config,
-        opencv_dir=repo_dir / "cmake/externals/opencv",
+        opencv_dir=_repo_dir / "cmake/externals/opencv",
         ios_deployment_target=args.ios_deployment_target,
     )
 
