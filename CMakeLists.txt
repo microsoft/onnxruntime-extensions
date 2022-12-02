@@ -121,14 +121,6 @@ if(NOT OCOS_ENABLE_CPP_EXCEPTIONS)
   endif()
 endif()
 
-# Make symbols hidden by default, for macOS/iOS only
-# Due to dependencies with different symbol visibility settings, set global compile flags here
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin|iOS")
-  foreach(flags CMAKE_CXX_FLAGS CMAKE_OBJC_FLAGS CMAKE_OBJCXX_FLAGS)
-    string(APPEND ${flags} " -fvisibility=hidden -fvisibility-inlines-hidden")
-  endforeach()
-endif()
-
 include(FetchContent)
 
 if (OCOS_ENABLE_RE2_REGEX)
