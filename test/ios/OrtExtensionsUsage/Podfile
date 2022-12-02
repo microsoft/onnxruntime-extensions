@@ -1,0 +1,21 @@
+# Uncomment the next line to define a global platform for your project
+platform :ios, '11.0'
+
+target 'OrtExtensionsUsage' do
+  # Comment the next line if you don't want to use dynamic frameworks
+  use_frameworks!
+
+  # Pods for OrtExtensionsUsage
+  pod 'onnxruntime-c'
+  pod 'onnxruntime-extensions-c', :path => "/Users/edch2/source/onnxruntime-extensions/out/pod/staging"
+
+  target 'OrtExtensionsUsageTests' do
+    inherit! :search_paths
+    # Pods for testing
+  end
+
+  target 'OrtExtensionsUsageUITests' do
+    # Pods for testing
+  end
+
+end
