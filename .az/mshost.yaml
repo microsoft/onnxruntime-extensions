@@ -367,7 +367,7 @@ jobs:
         displayName: Setup emscripten pipeline
 
       - script: |
-          sh ./build.sh \
+          bash ./build.sh \
           -DCMAKE_TOOLCHAIN_FILE=$(Build.BinariesDirectory)/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
           -DOCOS_ENABLE_SPM_TOKENIZER=ON \
           -DOCOS_BUILD_PYTHON=OFF \
