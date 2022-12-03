@@ -10,7 +10,7 @@ struct KernelSuperResolutionPreProcess : BaseKernel {
   void Compute(OrtKernelContext* context);
 };
 
-struct CustomOpSuperResolutionPreProcess : Ort::CustomOpBase<CustomOpSuperResolutionPreProcess, KernelSuperResolutionPreProcess> {
+struct CustomOpSuperResolutionPreProcess : OrtW::CustomOpBase<CustomOpSuperResolutionPreProcess, KernelSuperResolutionPreProcess> {
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

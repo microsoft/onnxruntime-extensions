@@ -20,7 +20,7 @@ struct KernelImageDecoder : BaseKernel {
     const OrtValue* const inputs = ort_.KernelContext_GetInput(context, 0ULL);
     OrtTensorDimensions dimensions(ort_, inputs);
     if (dimensions.size() != 1ULL) {
-      ORT_CXX_API_THROW("[ImageDecoder]: Only raw image formats are supported.", ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW("[ImageDecoder]: Only raw image formats are supported.", ORT_INVALID_ARGUMENT);
     }
 
     // Get data & the length
@@ -48,7 +48,7 @@ struct KernelImageDecoder : BaseKernel {
   }
 };
 
-struct CustomOpImageDecoder : Ort::CustomOpBase<CustomOpImageDecoder, KernelImageDecoder> {
+struct CustomOpImageDecoder : OrtW::CustomOpBase<CustomOpImageDecoder, KernelImageDecoder> {
   void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
     return new KernelImageDecoder(api);
   }
@@ -66,7 +66,7 @@ struct CustomOpImageDecoder : Ort::CustomOpBase<CustomOpImageDecoder, KernelImag
       case 0:
         return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
       default:
-        ORT_CXX_API_THROW(MakeString("Unexpected input index ", index), ORT_INVALID_ARGUMENT);
+        ORTX_CXX_API_THROW(MakeString("Unexpected input index ", index), ORT_INVALID_ARGUMENT);
     }
   }
 
@@ -79,7 +79,7 @@ struct CustomOpImageDecoder : Ort::CustomOpBase<CustomOpImageDecoder, KernelImag
       case 0:
         return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
       default:
-        ORT_CXX_API_THROW(MakeString("Unexpected output index ", index), ORT_INVALID_ARGUMENT);
+        ORTX_CXX_API_THROW(MakeString("Unexpected output index ", index), ORT_INVALID_ARGUMENT);
     }
   }
 };

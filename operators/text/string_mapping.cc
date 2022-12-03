@@ -16,7 +16,7 @@ KernelStringMapping::KernelStringMapping(const OrtApi& api, const OrtKernelInfo*
     auto items = SplitString(line, "\t", true);
 
     if (items.size() != 2) {
-      ORT_CXX_API_THROW(std::string("[StringMapping]: Should only exist two items in one line, find error in line: ") + std::string(line), ORT_INVALID_GRAPH);
+      ORTX_CXX_API_THROW(std::string("[StringMapping]: Should only exist two items in one line, find error in line: ") + std::string(line), ORT_INVALID_GRAPH);
     }
     map_[std::string(items[0])] = std::string(items[1]);
   }

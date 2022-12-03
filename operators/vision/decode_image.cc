@@ -12,7 +12,7 @@ void KernelDecodeImage::Compute(OrtKernelContext* context) {
   const OrtValue* const inputs = ort_.KernelContext_GetInput(context, 0ULL);
   OrtTensorDimensions dimensions(ort_, inputs);
   if (dimensions.size() != 1ULL) {
-    ORT_CXX_API_THROW("[DecodeImage]: Raw image bytes with 1D shape expected.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("[DecodeImage]: Raw image bytes with 1D shape expected.", ORT_INVALID_ARGUMENT);
   }
 
   OrtTensorTypeAndShapeInfo* input_info = ort_.GetTensorTypeAndShape(inputs);
@@ -26,7 +26,7 @@ void KernelDecodeImage::Compute(OrtKernelContext* context) {
   const cv::Mat decoded_image = cv::imdecode(encoded_image, cv::IMREAD_COLOR);
 
   if (decoded_image.data == nullptr) {
-    ORT_CXX_API_THROW("[DecodeImage] Invalid input. Failed to decode image.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("[DecodeImage] Invalid input. Failed to decode image.", ORT_INVALID_ARGUMENT);
   };
 
   // Setup output & copy to destination

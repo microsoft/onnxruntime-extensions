@@ -39,7 +39,7 @@ struct KernelNegPos : BaseKernel {
   }
 };
 
-struct CustomOpNegPos : Ort::CustomOpBase<CustomOpNegPos, KernelNegPos> {
+struct CustomOpNegPos : OrtW::CustomOpBase<CustomOpNegPos, KernelNegPos> {
   const char* GetName() const{
     return "NegPos";
   }

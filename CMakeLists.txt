@@ -7,7 +7,6 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Choose build type: Debug Release RelWithDebInfo." FORCE)
 endif()
 
-
 set(CPACK_PACKAGE_NAME "onnxruntime_extensions")
 set(CPACK_PACKAGE_VERSION_MAJOR "0")
 set(CPACK_PACKAGE_VERSION_MINOR "5")
@@ -121,6 +120,7 @@ if(NOT OCOS_ENABLE_CPP_EXCEPTIONS)
 endif()
 
 include(FetchContent)
+include(ext_ortlib)
 
 if (OCOS_ENABLE_RE2_REGEX)
   if (NOT TARGET re2::re2)
@@ -261,8 +261,8 @@ source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${TARGET_SRC})
 standardize_output_folder(ocos_operators)
 
 target_include_directories(ocos_operators PUBLIC
+  ${ONNXRUNTIME_INCLUDE_DIR}
   ${PROJECT_SOURCE_DIR}/includes
-  ${PROJECT_SOURCE_DIR}/includes/onnxruntime
   ${PROJECT_SOURCE_DIR}/operators
   ${PROJECT_SOURCE_DIR}/operators/tokenizer)
 set(ocos_libraries "")
