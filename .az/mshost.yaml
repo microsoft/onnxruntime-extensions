@@ -98,7 +98,7 @@ jobs:
 
   - job: MacOSX
     pool:
-      vmImage: 'macOS-latest'
+      vmImage: 'macOS-12'
 
     strategy:
       matrix:
@@ -153,7 +153,7 @@ jobs:
 
   - job: MacOSWheel
     pool:
-      vmImage: 'macOS-11'
+      vmImage: 'macOS-12'
 
     strategy:
       matrix:
@@ -381,7 +381,7 @@ jobs:
   #############
   - job: AndroidPackage
     pool:
-      vmImage: 'macOS-11'
+      vmImage: 'macOS-12'
     timeoutInMinutes: 120
     variables:
       OnnxruntimeDirectory: cmake/external/onnxruntime
@@ -430,7 +430,7 @@ jobs:
   #############
   - job: IosPackage
     pool:
-      vmImage: 'macOS-11'
+      vmImage: 'macOS-12'
     timeoutInMinutes: 120
     steps:
       - task: UsePythonVersion@0
