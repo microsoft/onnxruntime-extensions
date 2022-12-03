@@ -161,7 +161,9 @@ def build_xcframework(
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Helper script to build an iOS xcframework.")
+    parser = argparse.ArgumentParser(
+        description="Builds an iOS xcframework.",
+    )
 
     parser.add_argument(
         "--output-dir",
@@ -169,20 +171,17 @@ def parse_args():
         required=True,
         help="Path to output directory.",
     )
-
     parser.add_argument(
         "--config",
         choices=["Debug", "Release", "RelWithDebInfo", "MinSizeRel"],
         default="Debug",
         help="CMake build configuration.",
     )
-
     parser.add_argument(
         "--ios-deployment-target",
         default="11.0",
         help="iOS deployment target.",
     )
-
     parser.add_argument(
         "--platform-arch",
         nargs=2,
