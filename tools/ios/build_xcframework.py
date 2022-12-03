@@ -6,15 +6,15 @@
 # build an xcframework from individual per-platform/arch static frameworks
 
 import argparse
-import pathlib
+from pathlib import Path
 import shutil
 import subprocess
-import typing
+from typing import Dict, List, Optional
 
-_script_dir = pathlib.Path(__file__).resolve().parent
+_script_dir = Path(__file__).resolve().parent
 _repo_dir = _script_dir.parents[1]
 
-_default_platform_archs = {
+_supported_platform_archs = {
     "iphoneos": ["arm64"],
     "iphonesimulator": ["x86_64", "arm64"],
 }
@@ -24,7 +24,7 @@ _lipo = "lipo"
 _xcrun = "xcrun"
 
 
-def _get_opencv_toolchain_file(platform: str, opencv_dir: pathlib.Path):
+def _get_opencv_toolchain_file(platform: str, opencv_dir: Path):
     return (
         opencv_dir
         / "platforms/ios/cmake/Toolchains"
@@ -32,14 +32,14 @@ def _get_opencv_toolchain_file(platform: str, opencv_dir: pathlib.Path):
     )
 
 
-def _run(cmd_args: typing.List[str], **kwargs):
+def _run(cmd_args: List[str], **kwargs):
     import shlex
 
     print(f"Running command:\n  {shlex.join(cmd_args)}")
     subprocess.run(cmd_args, check=True, **kwargs)
 
 
-def _rmtree_if_existing(dir: pathlib.Path):
+def _rmtree_if_existing(dir: Path):
     try:
         shutil.rmtree(dir)
     except FileNotFoundError:
@@ -47,8 +47,8 @@ def _rmtree_if_existing(dir: pathlib.Path):
 
 
 def build_framework_for_platform_and_arch(
-    build_dir: pathlib.Path, platform: str, arch: str, config: str, opencv_dir: pathlib.Path, ios_deployment_target: str
-) -> pathlib.Path:
+    build_dir: Path, platform: str, arch: str, config: str, opencv_dir: Path, ios_deployment_target: str
+) -> Path:
     build_dir.mkdir(parents=True, exist_ok=True)
 
     # generate build files
@@ -86,16 +86,22 @@ def build_framework_for_platform_and_arch(
 
 
 def build_xcframework(
-    output_dir: pathlib.Path,
-    platform_archs: typing.Dict[str, typing.List[str]],
+    output_dir: Path,
+    platform_archs: Dict[str, List[str]],
     config: str,
-    opencv_dir: pathlib.Path,
+    opencv_dir: Path,
     ios_deployment_target: str,
 ):
+    output_dir = output_dir.resolve()
     intermediate_build_dir = output_dir / "intermediates"
     intermediate_build_dir.mkdir(parents=True, exist_ok=True)
 
     assert len(platform_archs) > 0, "no platforms specified"
+
+    # the public headers and framework_info.json should be the same across platform/arch builds
+    # select them from one of the platform/arch build directories to copy to the output directory
+    headers_dir = None
+    framework_info_file = None
 
     platform_fat_framework_dirs = []
     for platform, archs in platform_archs.items():
@@ -113,12 +119,16 @@ def build_xcframework(
 
             arch_framework_dirs.append(arch_framework_dir)
 
+            if headers_dir is None:
+                headers_dir = arch_framework_dir / "Headers"
+                framework_info_file = arch_framework_dir.parents[1] / "framework_info.json"
+
         platform_fat_framework_dir = intermediate_build_dir / f"{platform}/onnxruntime_extensions.framework"
         _rmtree_if_existing(platform_fat_framework_dir)
         platform_fat_framework_dir.mkdir()
 
         # copy over files from arch-specific framework
-        for framework_file_relative_path in [pathlib.Path("Headers"), pathlib.Path("Info.plist")]:
+        for framework_file_relative_path in [Path("Headers"), Path("Info.plist")]:
             src = arch_framework_dirs[0] / framework_file_relative_path
             dst = platform_fat_framework_dir / framework_file_relative_path
             if src.is_dir():
@@ -141,12 +151,13 @@ def build_xcframework(
         create_xcframework_args += ["-framework", str(platform_fat_framework_dir)]
     _run(create_xcframework_args)
 
-    # copy headers
-    # framework header dirs are all the same, pick one
-    framework_header_dir = platform_fat_framework_dirs[0] / "Headers"
-    output_header_dir = output_dir / "Headers"
-    _rmtree_if_existing(output_header_dir)
-    shutil.copytree(framework_header_dir, output_header_dir)
+    # copy public headers
+    output_headers_dir = output_dir / "Headers"
+    _rmtree_if_existing(output_headers_dir)
+    shutil.copytree(headers_dir, output_headers_dir)
+
+    # copy framework_info.json
+    shutil.copyfile(framework_info_file, output_dir / "framework_info.json")
 
 
 def parse_args():
@@ -154,7 +165,7 @@ def parse_args():
 
     parser.add_argument(
         "--output-dir",
-        type=pathlib.Path,
+        type=Path,
         required=True,
         help="Path to output directory.",
     )
@@ -172,17 +183,50 @@ def parse_args():
         help="iOS deployment target.",
     )
 
-    return parser.parse_args()
+    parser.add_argument(
+        "--platform-arch",
+        nargs=2,
+        action="append",
+        metavar=("PLATFORM", "ARCH"),
+        dest="platform_archs",
+        help="Specify a platform/arch pair to build. Repeat to specify multiple pairs. "
+        "If no pairs are specified, all supported pairs will be built.",
+    )
+
+    args = parser.parse_args()
+
+    # convert from [[platform1, arch1], [platform1, arch2], ...] to {platform1: [arch1, arch2, ...], ...}
+    def platform_archs_from_args(platform_archs_arg: Optional[List[List[str]]]) -> Dict[str, List[str]]:
+        if not platform_archs_arg:
+            return _supported_platform_archs.copy()
+
+        platform_archs = {}
+        for (platform, arch) in platform_archs_arg:
+            assert (
+                platform in _supported_platform_archs.keys()
+            ), f"Unsupported platform: '{platform}'. Valid values are {list(_supported_platform_archs.keys())}"
+            assert arch in _supported_platform_archs[platform], (
+                f"Unsupported arch for platform '{platform}': '{arch}'. "
+                f"Valid values are {_supported_platform_archs[platform]}"
+            )
+
+            archs = platform_archs.setdefault(platform, [])
+            if arch not in archs:
+                archs.append(arch)
+
+        return platform_archs
+
+    args.platform_archs = platform_archs_from_args(args.platform_archs)
+
+    return args
 
 
 def main():
     args = parse_args()
 
-    output_dir = args.output_dir.resolve()
-
     build_xcframework(
-        output_dir=output_dir,
-        platform_archs=_default_platform_archs,
+        output_dir=args.output_dir,
+        platform_archs=args.platform_archs,
         config=args.config,
         opencv_dir=_repo_dir / "cmake/externals/opencv",
         ios_deployment_target=args.ios_deployment_target,

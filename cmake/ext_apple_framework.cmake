@@ -21,8 +21,9 @@ set(APPLE_FRAMEWORK_HEADERS
 set(APPLE_FRAMEWORK_DIRECTORY
     "${PROJECT_BINARY_DIR}/static_framework/${APPLE_FRAMEWORK_NAME}.framework")
 
-# generate Info.plist
-configure_file(${PROJECT_SOURCE_DIR}/cmake/Info.plist.in ${PROJECT_BINARY_DIR}/Info.plist)
+# generate Info.plist and framework_info.json
+configure_file(${PROJECT_SOURCE_DIR}/cmake/apple/Info.plist.in ${PROJECT_BINARY_DIR}/Info.plist)
+configure_file(${PROJECT_SOURCE_DIR}/cmake/apple/framework_info.json.in ${PROJECT_BINARY_DIR}/framework_info.json)
 
 # gets transitive static library dependencies of targets in ${target_names}
 # ${target_names} - root target names

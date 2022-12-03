@@ -443,7 +443,28 @@ jobs:
       - script: |
           python ./tools/ios/build_xcframework.py \
             --output-dir $(Build.BinariesDirectory)/xcframework_out \
+            --platform-arch iphonesimulator x86_64 \
             --config Release
-        displayName: Build onnxruntime-extensions package
+        displayName: Build xcframework
 
-      # TODO test the iOS package
+      - script: |
+          set -e -x
+          POD_VERSION=$(cat ./.version.txt)-dev
+          python ./tools/ios/assemble_pod_package.py \
+            --staging-dir $(Build.BinariesDirectory)/pod_staging \
+            --xcframework-dir $(Build.BinariesDirectory)/xcframework_out/onnxruntime_extensions.xcframework \
+            --public-headers-dir $(Build.BinariesDirectory)/xcframework_out/Headers \
+            --framework-info-file $(Build.BinariesDirectory)/xcframework_out/framework_info.json \
+            --pod-version ${POD_VERSION}
+        displayName: Assemble pod
+
+      - script: |
+          ORT_EXTENSIONS_LOCAL_POD_PATH=$(Build.BinariesDirectory)/pod_staging \
+            pod install
+        displayName: Install pods for OrtExtensionsUsage
+        workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage
+
+      - template: templates/xcode-build-and-test-step.yml
+        parameters:
+          xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
+          scheme: 'OrtExtensionsUsage'
