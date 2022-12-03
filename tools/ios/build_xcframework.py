@@ -68,13 +68,13 @@ def build_framework_for_platform_and_arch(
         #     install TARGETS given no BUNDLE DESTINATION for MACOSX_BUNDLE executable
         #     target "spm_encode".
         "-DOCOS_ENABLE_SPM_TOKENIZER=OFF",
-        # OpenCV CMake config
-        # tell OpenCV to build zlib so we can link to the static library
-        "-DBUILD_ZLIB=ON",
-        # use OpenCV's CMake toolchain files
+        # use OpenCV's CMake toolchain file
         f"-DCMAKE_TOOLCHAIN_FILE={_get_opencv_toolchain_file(platform, opencv_dir)}",
-        "-DCPU_BASELINE=DETECT",
+        # required by OpenCV CMake toolchain file
+        # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L64-L66
         f"-DIOS_ARCH={arch}",
+        # required by OpenCV CMake toolchain file
+        # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L96-L101
         f"-DIPHONEOS_DEPLOYMENT_TARGET={ios_deployment_target}",
     ]
     _run(generate_args)
