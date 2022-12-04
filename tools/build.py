@@ -27,11 +27,9 @@ class UsageError(Exception):
 
 
 def _check_python_version():
-    # Require python 3.6+
-    if sys.version_info[0] != 3:
-        raise UsageError("Bad python major version: expecting python 3, found version " "'{}'".format(sys.version))
-    if sys.version_info[1] < 6:
-        raise UsageError("Bad python minor version: expecting python 3.6+, found version " "'{}'".format(sys.version))
+    if (sys.version_info.major, sys.version_info.minor) < (3, 7):
+        raise UsageError("Invalid Python version. At least Python 3.7 is required. "
+                         f"Actual Python version: {sys.version}")
 
 
 _check_python_version()
@@ -48,14 +46,14 @@ def _parse_arguments():
         usage="""
         There are 3 phases which can be individually selected.
 
-        The Update (--update) phase will update git submodules and run cmake to generate makefiles.
+        The Update (--update) phase will run CMake to generate makefiles.
         The Build (--build) phase will build all projects.
         The Test (--test) phase will run all unit tests.
 
         Default behavior is --update --build --test for native architecture builds.
         Default behavior is --update --build for cross-compiled builds.
 
-        If phases are explicitly specified only those phases will be run. 
+        If phases are explicitly specified only those phases will be run.
           e.g. run with `--build` to rebuild without running the update or test phases
         """,
 
@@ -73,16 +71,19 @@ def _parse_arguments():
     parser.add_argument("--config", nargs="+", default=["Debug"],
                         choices=["Debug", "MinSizeRel", "Release", "RelWithDebInfo"],
                         help="Configuration(s) to build.")
-    parser.add_argument("--update", action="store_true", help="Update submodules and makefiles.")
+
+
+    # Build phases
+    parser.add_argument("--update", action="store_true", help="Update makefiles.")
+
     parser.add_argument("--build", action="store_true", help="Build.")
-    parser.add_argument("--test", action="store_true", help="Run unit tests.")
+
+    parser.add_argument("--test", action="store_true", help="Run tests.")
+    parser.add_argument("--skip_tests", action="store_true", help="Skip all tests. Overrides --test.")
 
     parser.add_argument("--clean", action="store_true",
                         help="Run 'cmake --build --target clean' for the selected config/s.")
-
-    parser.add_argument("--skip_submodule_sync", action="store_true",
-                        help="Don't run 'git submodule update'. Makes the Update phase faster on Windows machines.")
-    parser.add_argument("--skip_tests", action="store_true", help="Skip all tests.")
+    # Build phases end
 
     parser.add_argument("--parallel", nargs="?", const="0", default="1", type=int,
                         help="Use parallel build. The optional value specifies the maximum number of parallel jobs. "
@@ -261,11 +262,6 @@ def _run_subprocess(args: List[str], cwd: Path = None, capture_stdout=False, she
     my_env.update(env)
 
     return run(*args, cwd=cwd, capture_stdout=capture_stdout, shell=shell, env=my_env)
-
-
-def _update_submodules(source_dir: Path):
-    _run_subprocess(["git", "submodule", "sync", "--recursive"], cwd=source_dir)
-    _run_subprocess(["git", "submodule", "update", "--init", "--recursive"], cwd=source_dir)
 
 
 def _flatten_arg_list(nested_list: List[List[str]]):
@@ -592,8 +588,6 @@ def main():
             _generate_selected_ops_config(args.include_ops_by_config)
 
         cmake_extra_args = []
-        if not args.skip_submodule_sync:
-            _update_submodules(REPO_DIR)
 
         if is_windows():
             cpu_arch = platform.architecture()[0]
