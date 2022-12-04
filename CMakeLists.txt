@@ -418,11 +418,7 @@ file(GLOB_RECURSE NO_USE_FILES ${CMAKE_BINARY_DIR}/_deps/*requirements.txt)
 message("Found the following requirements.txt: ${NO_USE_FILES}")
 foreach(nf ${NO_USE_FILES})
     file(TO_NATIVE_PATH ${nf} nf_native)
-    if (CMAKE_HOST_SYSTEM_NAME MATCHES "Windows")
-        execute_process(COMMAND cmd /c del ${nf_native})
-    else()
-        execute_process(COMMAND bash -c "rm ${nf_native}")
-    endif()
+    execute_process(COMMAND ${CMAKE_COMMAND} -E remove ${nf_native})
 endforeach()
 
 # test section
