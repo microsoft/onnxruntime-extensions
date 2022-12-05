@@ -67,28 +67,28 @@ struct CustomOpApi {
   CustomOpApi(const OrtApi& api) : api_(api) {}
 
   template <typename T>  // T is only implemented for std::vector<float>, std::vector<int64_t>, float, int64_t, and string
-  T KernelInfoGetAttribute(_In_ const OrtKernelInfo* info, _In_ const char* name);
+  T KernelInfoGetAttribute(_In_ const OrtKernelInfo* info, _In_ const char* name) const;
 
-  OrtTensorTypeAndShapeInfo* GetTensorTypeAndShape(_In_ const OrtValue* value);
-  size_t GetTensorShapeElementCount(_In_ const OrtTensorTypeAndShapeInfo* info);
-  ONNXTensorElementDataType GetTensorElementType(const OrtTensorTypeAndShapeInfo* info);
-  size_t GetDimensionsCount(_In_ const OrtTensorTypeAndShapeInfo* info);
-  void GetDimensions(_In_ const OrtTensorTypeAndShapeInfo* info, _Out_ int64_t* dim_values, size_t dim_values_length);
-  void SetDimensions(OrtTensorTypeAndShapeInfo* info, _In_ const int64_t* dim_values, size_t dim_count);
+  OrtTensorTypeAndShapeInfo* GetTensorTypeAndShape(_In_ const OrtValue* value) const;
+  size_t GetTensorShapeElementCount(_In_ const OrtTensorTypeAndShapeInfo* info) const;
+  ONNXTensorElementDataType GetTensorElementType(const OrtTensorTypeAndShapeInfo* info) const;
+  size_t GetDimensionsCount(_In_ const OrtTensorTypeAndShapeInfo* info) const;
+  void GetDimensions(_In_ const OrtTensorTypeAndShapeInfo* info, _Out_ int64_t* dim_values, size_t dim_values_length) const;
+  void SetDimensions(OrtTensorTypeAndShapeInfo* info, _In_ const int64_t* dim_values, size_t dim_count) const;
 
   template <typename T>
-  T* GetTensorMutableData(_Inout_ OrtValue* value);
+  T* GetTensorMutableData(_Inout_ OrtValue* value) const;
   template <typename T>
-  const T* GetTensorData(_Inout_ const OrtValue* value);
+  const T* GetTensorData(_Inout_ const OrtValue* value) const;
 
-  std::vector<int64_t> GetTensorShape(const OrtTensorTypeAndShapeInfo* info);
-  void ReleaseTensorTypeAndShapeInfo(OrtTensorTypeAndShapeInfo* input);
-  size_t KernelContext_GetInputCount(const OrtKernelContext* context);
-  const OrtValue* KernelContext_GetInput(const OrtKernelContext* context, _In_ size_t index);
-  size_t KernelContext_GetOutputCount(const OrtKernelContext* context);
-  OrtValue* KernelContext_GetOutput(OrtKernelContext* context, _In_ size_t index, _In_ const int64_t* dim_values, size_t dim_count);
+  std::vector<int64_t> GetTensorShape(const OrtTensorTypeAndShapeInfo* info) const;
+  void ReleaseTensorTypeAndShapeInfo(OrtTensorTypeAndShapeInfo* input) const;
+  size_t KernelContext_GetInputCount(const OrtKernelContext* context) const;
+  const OrtValue* KernelContext_GetInput(const OrtKernelContext* context, _In_ size_t index) const;
+  size_t KernelContext_GetOutputCount(const OrtKernelContext* context) const;
+  OrtValue* KernelContext_GetOutput(OrtKernelContext* context, _In_ size_t index, _In_ const int64_t* dim_values, size_t dim_count) const;
 
-  void ThrowOnError(OrtStatus* status) {
+  void ThrowOnError(OrtStatus* status) const {
     OrtW::ThrowOnError(api_, status);
   }
 
@@ -159,21 +159,21 @@ struct CustomOpBase : OrtCustomOp {
 //
 
 template <>
-inline float CustomOpApi::KernelInfoGetAttribute<float>(_In_ const OrtKernelInfo* info, _In_ const char* name) {
+inline float CustomOpApi::KernelInfoGetAttribute<float>(_In_ const OrtKernelInfo* info, _In_ const char* name) const {
   float out;
   ThrowOnError(api_.KernelInfoGetAttribute_float(info, name, &out));
   return out;
 }
 
 template <>
-inline int64_t CustomOpApi::KernelInfoGetAttribute<int64_t>(_In_ const OrtKernelInfo* info, _In_ const char* name) {
+inline int64_t CustomOpApi::KernelInfoGetAttribute<int64_t>(_In_ const OrtKernelInfo* info, _In_ const char* name) const {
   int64_t out;
   ThrowOnError(api_.KernelInfoGetAttribute_int64(info, name, &out));
   return out;
 }
 
 template <>
-inline std::string CustomOpApi::KernelInfoGetAttribute<std::string>(_In_ const OrtKernelInfo* info, _In_ const char* name) {
+inline std::string CustomOpApi::KernelInfoGetAttribute<std::string>(_In_ const OrtKernelInfo* info, _In_ const char* name) const {
   size_t size = 0;
   std::string out;
 
@@ -191,7 +191,7 @@ inline std::string CustomOpApi::KernelInfoGetAttribute<std::string>(_In_ const O
 }
 
 template <>
-inline std::vector<float> CustomOpApi::KernelInfoGetAttribute(_In_ const OrtKernelInfo* info, _In_ const char* name) {
+inline std::vector<float> CustomOpApi::KernelInfoGetAttribute(_In_ const OrtKernelInfo* info, _In_ const char* name) const {
   size_t size = 0;
   std::vector<float> out;
 
@@ -208,7 +208,7 @@ inline std::vector<float> CustomOpApi::KernelInfoGetAttribute(_In_ const OrtKern
 }
 
 template <>
-inline std::vector<int64_t> CustomOpApi::KernelInfoGetAttribute(_In_ const OrtKernelInfo* info, _In_ const char* name) {
+inline std::vector<int64_t> CustomOpApi::KernelInfoGetAttribute(_In_ const OrtKernelInfo* info, _In_ const char* name) const {
   size_t size = 0;
   std::vector<int64_t> out;
 
@@ -224,80 +224,80 @@ inline std::vector<int64_t> CustomOpApi::KernelInfoGetAttribute(_In_ const OrtKe
   return out;
 }
 
-inline OrtTensorTypeAndShapeInfo* CustomOpApi::GetTensorTypeAndShape(_In_ const OrtValue* value) {
+inline OrtTensorTypeAndShapeInfo* CustomOpApi::GetTensorTypeAndShape(_In_ const OrtValue* value) const {
   OrtTensorTypeAndShapeInfo* out;
   ThrowOnError(api_.GetTensorTypeAndShape(value, &out));
   return out;
 }
 
-inline size_t CustomOpApi::GetTensorShapeElementCount(_In_ const OrtTensorTypeAndShapeInfo* info) {
+inline size_t CustomOpApi::GetTensorShapeElementCount(_In_ const OrtTensorTypeAndShapeInfo* info) const {
   size_t out;
   ThrowOnError(api_.GetTensorShapeElementCount(info, &out));
   return out;
 }
 
-inline ONNXTensorElementDataType CustomOpApi::GetTensorElementType(const OrtTensorTypeAndShapeInfo* info) {
+inline ONNXTensorElementDataType CustomOpApi::GetTensorElementType(const OrtTensorTypeAndShapeInfo* info) const {
   ONNXTensorElementDataType out;
   ThrowOnError(api_.GetTensorElementType(info, &out));
   return out;
 }
 
-inline size_t CustomOpApi::GetDimensionsCount(_In_ const OrtTensorTypeAndShapeInfo* info) {
+inline size_t CustomOpApi::GetDimensionsCount(_In_ const OrtTensorTypeAndShapeInfo* info) const {
   size_t out;
   ThrowOnError(api_.GetDimensionsCount(info, &out));
   return out;
 }
 
-inline void CustomOpApi::GetDimensions(_In_ const OrtTensorTypeAndShapeInfo* info, _Out_ int64_t* dim_values, size_t dim_values_length) {
+inline void CustomOpApi::GetDimensions(_In_ const OrtTensorTypeAndShapeInfo* info, _Out_ int64_t* dim_values, size_t dim_values_length) const {
   ThrowOnError(api_.GetDimensions(info, dim_values, dim_values_length));
 }
 
-inline void CustomOpApi::SetDimensions(OrtTensorTypeAndShapeInfo* info, _In_ const int64_t* dim_values, size_t dim_count) {
+inline void CustomOpApi::SetDimensions(OrtTensorTypeAndShapeInfo* info, _In_ const int64_t* dim_values, size_t dim_count) const {
   ThrowOnError(api_.SetDimensions(info, dim_values, dim_count));
 }
 
 template <typename T>
-inline T* CustomOpApi::GetTensorMutableData(_Inout_ OrtValue* value) {
+inline T* CustomOpApi::GetTensorMutableData(_Inout_ OrtValue* value) const {
   T* data;
   ThrowOnError(api_.GetTensorMutableData(value, reinterpret_cast<void**>(&data)));
   return data;
 }
 
 template <typename T>
-inline const T* CustomOpApi::GetTensorData(_Inout_ const OrtValue* value) {
+inline const T* CustomOpApi::GetTensorData(_Inout_ const OrtValue* value) const {
   return GetTensorMutableData<T>(const_cast<OrtValue*>(value));
 }
 
-inline std::vector<int64_t> CustomOpApi::GetTensorShape(const OrtTensorTypeAndShapeInfo* info) {
+inline std::vector<int64_t> CustomOpApi::GetTensorShape(const OrtTensorTypeAndShapeInfo* info) const {
   std::vector<int64_t> output(GetDimensionsCount(info));
   GetDimensions(info, output.data(), output.size());
   return output;
 }
 
-inline void CustomOpApi::ReleaseTensorTypeAndShapeInfo(OrtTensorTypeAndShapeInfo* input) {
+inline void CustomOpApi::ReleaseTensorTypeAndShapeInfo(OrtTensorTypeAndShapeInfo* input) const {
   api_.ReleaseTensorTypeAndShapeInfo(input);
 }
 
-inline size_t CustomOpApi::KernelContext_GetInputCount(const OrtKernelContext* context) {
+inline size_t CustomOpApi::KernelContext_GetInputCount(const OrtKernelContext* context) const {
   size_t out;
   ThrowOnError(api_.KernelContext_GetInputCount(context, &out));
   return out;
 }
 
-inline const OrtValue* CustomOpApi::KernelContext_GetInput(const OrtKernelContext* context, _In_ size_t index) {
+inline const OrtValue* CustomOpApi::KernelContext_GetInput(const OrtKernelContext* context, _In_ size_t index) const {
   const OrtValue* out;
   ThrowOnError(api_.KernelContext_GetInput(context, index, &out));
   return out;
 }
 
-inline size_t CustomOpApi::KernelContext_GetOutputCount(const OrtKernelContext* context) {
+inline size_t CustomOpApi::KernelContext_GetOutputCount(const OrtKernelContext* context) const {
   size_t out;
   ThrowOnError(api_.KernelContext_GetOutputCount(context, &out));
   return out;
 }
 
 inline OrtValue* CustomOpApi::KernelContext_GetOutput(OrtKernelContext* context, _In_ size_t index,
-                                                      _In_ const int64_t* dim_values, size_t dim_count) {
+                                                      _In_ const int64_t* dim_values, size_t dim_count) const {
   OrtValue* out;
   ThrowOnError(api_.KernelContext_GetOutput(context, index, dim_values, dim_count, &out));
   return out;

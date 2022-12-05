@@ -30,3 +30,7 @@ else()
   set(ONNXRUNTIME_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include/onnxruntime/core/session)
   set(ONNXRUNTIME_LIB_DIR "")
 endif()
+
+if (NOT EXISTS ${ONNXRUNTIME_INCLUDE_DIR})
+  message(FATAL_ERROR "ONNX Runtime headers not found at ${ONNXRUNTIME_INCLUDE_DIR}")
+endif()
