@@ -1,4 +1,7 @@
-if(PROJECT_IS_TOP_LEVEL)
+if(_ONNXRUNTIME_EMBEDDED)
+  set(ONNXRUNTIME_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include/onnxruntime/core/session)
+  set(ONNXRUNTIME_LIB_DIR "")
+else()
   set(ONNXRUNTIME_VER "1.11.1" CACHE STRING "ONNX Runtime version")
 
   if(CMAKE_HOST_APPLE)
@@ -26,9 +29,6 @@ if(PROJECT_IS_TOP_LEVEL)
   FetchContent_makeAvailable(onnxruntime)
   set(ONNXRUNTIME_INCLUDE_DIR ${onnxruntime_SOURCE_DIR}/include)
   set(ONNXRUNTIME_LIB_DIR ${onnxruntime_SOURCE_DIR}/lib)
-else()
-  set(ONNXRUNTIME_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include/onnxruntime/core/session)
-  set(ONNXRUNTIME_LIB_DIR "")
 endif()
 
 if (NOT EXISTS ${ONNXRUNTIME_INCLUDE_DIR})
