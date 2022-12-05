@@ -40,7 +40,7 @@ struct Exception : std::exception {
 #ifdef ORT_NO_EXCEPTIONS
 #define ORTX_CXX_API_THROW(string, code)       \
   do {                                        \
-    std::cerr << Ort::Exception(string, code) \
+    std::cerr << OrtW::Exception(string, code) \
                      .what()                  \
               << std::endl;                   \
     abort();                                  \
