@@ -124,10 +124,11 @@ endif()
 
 include(FetchContent)
 
-if(NOT PROJECT_IS_TOP_LEVEL)
-  set(_ONNXRUNTIME_EMBEDDED ON)
+# PROJECT_IS_TOP_LEVEL is available until 3.21
+get_property(not_top DIRECTORY PROPERTY PARENT_DIRECTORY)
+if(not_top)
+  set(_ONNXRUNTIME_EMBEDDED TRUE)
 endif()
-
 include(ext_ortlib)
 
 if(OCOS_ENABLE_RE2_REGEX)
