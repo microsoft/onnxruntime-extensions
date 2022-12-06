@@ -153,7 +153,7 @@ jobs:
 
   - job: MacOSWheel
     pool:
-      vmImage: 'macOS-11'
+      vmImage: 'macOS-latest'
 
     strategy:
       matrix:
@@ -219,7 +219,7 @@ jobs:
 
   - job: WindowsC
     pool:
-      vmImage: 'windows-2019'
+      vmImage: 'windows-latest'
 
     strategy:
       matrix:
@@ -280,7 +280,7 @@ jobs:
 
   - job: WindowsWheel
     pool:
-      vmImage: 'windows-2019'
+      vmImage: 'windows-latest'
 
     strategy:
       matrix:
@@ -381,7 +381,7 @@ jobs:
   #############
   - job: AndroidPackage
     pool:
-      vmImage: 'macOS-11'
+      vmImage: 'macOS-latest'
     timeoutInMinutes: 120
     variables:
       OnnxruntimeDirectory: cmake/external/onnxruntime
