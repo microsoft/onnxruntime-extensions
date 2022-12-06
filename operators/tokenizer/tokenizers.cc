@@ -5,6 +5,10 @@
 #include "gpt2_tokenizer.hpp"
 #endif
 
+#ifdef ENABLE_CLIP_TOKENIZER
+#include "clip_tokenizer.hpp"
+#endif
+
 #ifdef ENABLE_SPM_TOKENIZER
 #include "sentencepiece_tokenizer.hpp"
 #include "sentencepiece_decoder.hpp"
@@ -29,6 +33,10 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = LoadCustomOpClasses<
     CustomOpClassBegin
 #ifdef ENABLE_GPT2_TOKENIZER
     , CustomOpBpeTokenizer
+#endif
+
+#ifdef ENABLE_CLIP_TOKENIZER
+    , CustomOpClipBpeTokenizer
 #endif
 
 #ifdef ENABLE_SPM_TOKENIZER
