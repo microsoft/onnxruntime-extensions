@@ -2,7 +2,7 @@ if(_ONNXRUNTIME_EMBEDDED)
   set(ONNXRUNTIME_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include/onnxruntime/core/session)
   set(ONNXRUNTIME_LIB_DIR "")
 else()
-  set(ONNXRUNTIME_VER "1.9.0" CACHE STRING "ONNX Runtime version")
+  set(ONNXRUNTIME_VER "1.10.0" CACHE STRING "ONNX Runtime version")
 
   if(CMAKE_HOST_APPLE)
     set(ONNXRUNTIME_URL "v${ONNXRUNTIME_VER}/onnxruntime-osx-universal2-${ONNXRUNTIME_VER}.tgz")
