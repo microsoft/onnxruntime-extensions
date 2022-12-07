@@ -21,17 +21,21 @@ else()
     endif()
   endif()
 
+  # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
+  if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
+    cmake_policy(SET CMP0135 NEW)
+  endif()
+
   message(STATUS "ONNX Runtime URL suffix: ${ONNXRUNTIME_URL}")
   FetchContent_Declare(
     onnxruntime
     URL https://github.com/microsoft/onnxruntime/releases/download/${ONNXRUNTIME_URL}
-    DOWNLOAD_EXTRACT_TIMESTAMP 0
   )
   FetchContent_makeAvailable(onnxruntime)
   set(ONNXRUNTIME_INCLUDE_DIR ${onnxruntime_SOURCE_DIR}/include)
   set(ONNXRUNTIME_LIB_DIR ${onnxruntime_SOURCE_DIR}/lib)
 endif()
 
-if (NOT EXISTS ${ONNXRUNTIME_INCLUDE_DIR})
+if(NOT EXISTS ${ONNXRUNTIME_INCLUDE_DIR})
   message(FATAL_ERROR "ONNX Runtime headers not found at ${ONNXRUNTIME_INCLUDE_DIR}")
 endif()
