@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16.0)
+cmake_minimum_required(VERSION 3.20)
 project(onnxruntime_extensions LANGUAGES C CXX)
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 
@@ -45,6 +45,7 @@ option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file"
 option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
 option(OCOS_BUILD_JAVA "Enable building the Java package" OFF)
 option(OCOS_BUILD_ANDROID "Enable building the Android package" OFF)
+option(OCOS_BUILD_APPLE_FRAMEWORK "Enable building of the MacOS/iOS framework" OFF)
 
 function(disable_all_operators)
   set(OCOS_ENABLE_RE2_REGEX OFF CACHE INTERNAL "")
@@ -257,7 +258,19 @@ add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_library(ocos_operators STATIC ${TARGET_SRC})
 set_target_properties(ocos_operators PROPERTIES FOLDER "operators")
-source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${TARGET_SRC})
+
+# filter out any files in ${TARGET_SRC} which don't have prefix of ${PROJECT_SOURCE_DIR} before calling source_group
+set(_TARGET_SRC_FOR_SOURCE_GROUP)
+foreach(_TARGET_SRC_FILE IN LISTS TARGET_SRC)
+  cmake_path(IS_PREFIX PROJECT_SOURCE_DIR ${_TARGET_SRC_FILE}
+             NORMALIZE
+             _is_prefix_result)
+  if(_is_prefix_result)
+    list(APPEND _TARGET_SRC_FOR_SOURCE_GROUP ${_TARGET_SRC_FILE})
+  endif()
+endforeach()
+source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${_TARGET_SRC_FOR_SOURCE_GROUP})
+
 standardize_output_folder(ocos_operators)
 
 target_include_directories(ocos_operators PUBLIC
@@ -408,6 +421,10 @@ endif()
 if(OCOS_BUILD_JAVA)
   message(STATUS "Java Build is enabled")
   include(ext_java)
+endif()
+
+if(OCOS_BUILD_APPLE_FRAMEWORK)
+  include(ext_apple_framework)
 endif()
 
 # clean up the requirements.txt files from 3rd party project folder to suppress the code security false alarms
