@@ -37,7 +37,12 @@ set(BUILD_TBB                   OFF CACHE INTERNAL "")
 set(BUILD_TIFF                  OFF CACHE INTERNAL "")
 set(BUILD_WEBP                  OFF CACHE INTERNAL "")
 set(BUILD_WITH_STATIC_CRT       OFF CACHE INTERNAL "")
-set(BUILD_ZLIB                  OFF CACHE INTERNAL "")
+if(IOS)
+  # tell OpenCV to build zlib so we can link to the static library
+  set(BUILD_ZLIB                ON  CACHE INTERNAL "")
+else()
+  set(BUILD_ZLIB                OFF CACHE INTERNAL "")
+endif()
 set(ENABLE_FAST_MATH            OFF CACHE INTERNAL "")
 set(ENABLE_PRECOMPILED_HEADERS  OFF CACHE INTERNAL "")
 set(WITH_ANDROID_MEDIANDK       OFF CACHE INTERNAL "")
@@ -100,6 +105,12 @@ set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "")
 set(BUILD_DOCS        OFF CACHE INTERNAL "")
 set(BUILD_EXAMPLES    OFF CACHE INTERNAL "")
 set(BUILD_TESTS       OFF CACHE INTERNAL "")
+
+if(IOS)
+  # copy what OpenCV's platforms/ios/build_framework.py does and set CPU_BASELINE=DETECT
+  # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/build_framework.py#L253
+  set(CPU_BASELINE DETECT)
+endif()
 
 FetchContent_Declare(
     opencv
