@@ -24,7 +24,7 @@ else()
   message(STATUS "ONNX Runtime URL suffix: ${ONNXRUNTIME_URL}")
   FetchContent_Declare(
     onnxruntime
-    URL "https://github.com/microsoft/onnxruntime/releases/download/${ONNXRUNTIME_URL}"
+    URL https://github.com/microsoft/onnxruntime/releases/download/${ONNXRUNTIME_URL}
     DOWNLOAD_EXTRACT_TIMESTAMP 0
   )
   FetchContent_makeAvailable(onnxruntime)
