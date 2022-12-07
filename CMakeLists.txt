@@ -201,7 +201,7 @@ set(_HAS_TOKENIZER OFF)
 if (OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
   set(_HAS_TOKENIZER ON)
-  file(GLOB tok_TARGET_SRC "operators/tokenizer/gpt*.cc" "operators/tokenizer/unicode*.*")
+  file(GLOB tok_TARGET_SRC "operators/tokenizer/gpt*.cc" "operators/tokenizer/unicode*.*" "operators/tokenizer/clip*.cc")
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
 endif()
 
