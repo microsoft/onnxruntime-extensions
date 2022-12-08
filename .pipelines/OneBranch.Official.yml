@@ -44,7 +44,7 @@ extends:
         enabled: true
       binskim:
         break: true # always break the build on binskim issues in addition to TSA upload
-        analyzeTargetGlob '**\bin\*'  # only scan the DLLs in extensions bin folder.
+        analyzeTargetGlob: '**\bin\*'  # only scan the DLLs in extensions bin folder.
       codeql:
         python:
           enabled: true
