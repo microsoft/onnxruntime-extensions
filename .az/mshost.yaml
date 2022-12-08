@@ -427,6 +427,7 @@ jobs:
 
   #############
   # iOS
+  # Only cmake==3.25.0 works OpenCV compiling now.
   #############
   - job: IosPackage
     pool:
@@ -441,6 +442,7 @@ jobs:
         displayName: "Use Python 3.9"
 
       - script: |
+          python -m pip install cmake==3.25.0
           python ./tools/ios/build_xcframework.py \
             --output-dir $(Build.BinariesDirectory)/xcframework_out \
             --platform-arch iphonesimulator x86_64 \
