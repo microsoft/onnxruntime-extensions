@@ -32,10 +32,6 @@ else()
     URL https://github.com/microsoft/onnxruntime/releases/download/${ONNXRUNTIME_URL}
   )
   FetchContent_makeAvailable(onnxruntime)
-  if(NOT OCOS_ENABLE_CTEST) # ugly patch for binSkim
-    file(REMOVE_RECURSE ${onnxruntime_SOURCE_DIR}/lib/*.dll)
-    message(STATUS "Clean the unnecessary files for binSkim")
-  endif()
   set(ONNXRUNTIME_INCLUDE_DIR ${onnxruntime_SOURCE_DIR}/include)
   set(ONNXRUNTIME_LIB_DIR ${onnxruntime_SOURCE_DIR}/lib)
 endif()
