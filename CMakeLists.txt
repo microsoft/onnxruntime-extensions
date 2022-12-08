@@ -443,7 +443,7 @@ endif()
 
 # clean up the requirements.txt files from 3rd party project folder to suppress the code security false alarms
 file(GLOB_RECURSE NO_USE_FILES ${CMAKE_BINARY_DIR}/_deps/*requirements.txt)
-message("Found the follow requirements.txt: ${NO_USE_FILES}")
+message(STATUS "Found the follow requirements.txt: ${NO_USE_FILES}")
 
 foreach(nf ${NO_USE_FILES})
   file(TO_NATIVE_PATH ${nf} nf_native)

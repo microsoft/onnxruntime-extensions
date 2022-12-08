@@ -102,7 +102,7 @@ extends:
             msBuildArchitecture: amd64
             setupCommandlines: '"$(vscmake)" $(REPOROOT) -A x64 -B $(REPOROOT)\windows_out -DOCOS_BUILD_PYTHON=ON -DOCOS_ENABLE_CTEST=OFF -DCMAKE_BUILD_TYPE=Release'
             msBuildCommandline: '"$(vsmsbuild)" "$(REPOROOT)\windows_out\onnxruntime_extensions.sln" /p:RunCodeAnalysis=true /p:platform=x64 /p:configuration=Release /p:VisualStudioVersion="16.0" /m /p:PreferredToolArchitecture=x64'
-            excludedPaths: '$(REPOROOT)\windows_out#$(REPOROOT)\windows_out\_deps\onnxruntime-src\lib#$(Build.SourcesDirectory)\cmake#C:\program files (x86)'
+            excludedPaths: '$(REPOROOT)\windows_out#$(REPOROOT)\windows_out\_deps\onnxruntime-src\lib\onnxruntime.dll#$(Build.SourcesDirectory)\cmake#C:\program files (x86)'
           displayName: 'Run the PREfast SDL Native Rules for MSBuild'
         - task: PostAnalysis@2
           inputs:
