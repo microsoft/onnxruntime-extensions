@@ -166,7 +166,8 @@ void KernelClipBpeTokenizer::Compute(OrtKernelContext* context) {
 
   std::vector<std::vector<int64_t>> tokenize_results;
   for (auto& str : str_input) {
-    tokenize_results.emplace_back(Tokenize(ustring(str), padding_length_ < 0 ? INT64_MAX : padding_length_));
+    ustring ustr = ustring(str);
+    tokenize_results.emplace_back(Tokenize(ustr, padding_length_ < 0 ? INT64_MAX : padding_length_));
   }
 
   size_t max_length = 0;
