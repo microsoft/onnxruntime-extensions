@@ -21,11 +21,11 @@ void KernelMaskedFill::Compute(OrtKernelContext* context) {
   OrtTensorDimensions mask_dimensions(ort_, input_mask);
 
   if (!(value_dimensions.IsScalar() || value_dimensions.IsVector())) {
-    ORT_CXX_API_THROW("[MaskedFill]: the dimension of input value should be vector or scalar.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("[MaskedFill]: the dimension of input value should be vector or scalar.", ORT_INVALID_ARGUMENT);
   }
 
   if (value_dimensions != mask_dimensions) {
-    ORT_CXX_API_THROW("[MaskedFill]: the dimension of input value and mask should be same.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("[MaskedFill]: the dimension of input value and mask should be same.", ORT_INVALID_ARGUMENT);
   }
 
   std::vector<std::string> value;
@@ -68,7 +68,7 @@ ONNXTensorElementDataType CustomOpMaskedFill::GetInputType(size_t index) const {
     case 1:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL;
     default:
-      ORT_CXX_API_THROW(MakeString("Unexpected input index ", index), ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW(MakeString("Unexpected input index ", index), ORT_INVALID_ARGUMENT);
   }};
 
 size_t CustomOpMaskedFill::GetOutputTypeCount() const {

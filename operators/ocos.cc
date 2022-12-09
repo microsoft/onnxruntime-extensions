@@ -5,7 +5,7 @@
 
 bool BaseKernel::HasAttribute(const char* name) const {
   if (info_ == nullptr) {
-    ORT_CXX_API_THROW("Kernel was incorrectly initialized, pointer info_ cannot be null.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("Kernel was incorrectly initialized, pointer info_ cannot be null.", ORT_INVALID_ARGUMENT);
   }
   size_t size;
   std::string out;
@@ -46,7 +46,7 @@ void BaseKernel::SetOutput(OrtKernelContext* ctx,  size_t output_idx, const std:
 template <>
 bool BaseKernel::TryToGetAttribute(const char* name, std::string& value) {
   if (info_ == nullptr) {
-    ORT_CXX_API_THROW("Kernel was incorrectly initialized, pointer info_ cannot be null.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("Kernel was incorrectly initialized, pointer info_ cannot be null.", ORT_INVALID_ARGUMENT);
   }
 
   size_t size = 0;
@@ -71,7 +71,7 @@ bool BaseKernel::TryToGetAttribute(const char* name, std::string& value) {
 template <>
 bool BaseKernel::TryToGetAttribute(const char* name, int64_t& value) {
   if (info_ == nullptr) {
-    ORT_CXX_API_THROW("Kernel was incorrectly initialized, pointer info_ cannot be null.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("Kernel was incorrectly initialized, pointer info_ cannot be null.", ORT_INVALID_ARGUMENT);
   }
 
   return GetErrorCodeAndRelease(api_.KernelInfoGetAttribute_int64(info_, name, &value)) == ORT_OK;
@@ -80,7 +80,7 @@ bool BaseKernel::TryToGetAttribute(const char* name, int64_t& value) {
 template <>
 bool BaseKernel::TryToGetAttribute(const char* name, float& value) {
   if (info_ == nullptr) {
-    ORT_CXX_API_THROW("Kernel was incorrectly initialized, pointer info_ cannot be null.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("Kernel was incorrectly initialized, pointer info_ cannot be null.", ORT_INVALID_ARGUMENT);
   }
 
   return GetErrorCodeAndRelease(api_.KernelInfoGetAttribute_float(info_, name, &value)) == ORT_OK;
@@ -89,7 +89,7 @@ bool BaseKernel::TryToGetAttribute(const char* name, float& value) {
 template <>
 bool BaseKernel::TryToGetAttribute(const char* name, bool& value) {
   if (info_ == nullptr) {
-    ORT_CXX_API_THROW("Kernel was incorrectly initialized, pointer info_ cannot be null.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("Kernel was incorrectly initialized, pointer info_ cannot be null.", ORT_INVALID_ARGUMENT);
   }
 
   int64_t origin_value = 0;

@@ -20,13 +20,13 @@ void KernelStringSplit::Compute(OrtKernelContext* context) {
   // Setup output
   OrtTensorDimensions dimensions_sep(ort_, input_sep);
   if (dimensions_sep.size() != 1 || dimensions_sep[0] != 1)
-    ORT_CXX_API_THROW("Input 2 is the delimiter, it has 1 element.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("Input 2 is the delimiter, it has 1 element.", ORT_INVALID_ARGUMENT);
   OrtTensorDimensions dimensions_skip_empty(ort_, input_skip_empty);
   if (dimensions_skip_empty.size() != 1 || dimensions_skip_empty[0] != 1)
-    ORT_CXX_API_THROW("Input 3 is skip_empty, it has 1 element.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("Input 3 is skip_empty, it has 1 element.", ORT_INVALID_ARGUMENT);
   OrtTensorDimensions dimensions(ort_, input_X);
   if (dimensions.size() != 1)
-    ORT_CXX_API_THROW("Only 1D tensor are supported as input.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("Only 1D tensor are supported as input.", ORT_INVALID_ARGUMENT);
 
   std::vector<std::string> words;
   std::vector<int64_t> indices;
@@ -112,7 +112,7 @@ ONNXTensorElementDataType CustomOpStringSplit::GetInputType(size_t index) const 
     case 2:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL;
     default:
-      ORT_CXX_API_THROW(MakeString("Unexpected input index ", index), ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW(MakeString("Unexpected input index ", index), ORT_INVALID_ARGUMENT);
   }
 };
 
@@ -128,6 +128,6 @@ ONNXTensorElementDataType CustomOpStringSplit::GetOutputType(size_t index) const
     case 1:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
     default:
-      ORT_CXX_API_THROW(MakeString("[StringSplit] Unexpected output index ", index), ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW(MakeString("[StringSplit] Unexpected output index ", index), ORT_INVALID_ARGUMENT);
   }
 };

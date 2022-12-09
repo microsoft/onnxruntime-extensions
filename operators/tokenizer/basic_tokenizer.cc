@@ -100,7 +100,7 @@ void KernelBasicTokenizer::Compute(OrtKernelContext* context) {
 
   OrtTensorDimensions dimensions(ort_, input);
   if (dimensions.size() != 1 && dimensions[0] != 1) {
-    ORT_CXX_API_THROW("[BasicTokenizer]: only support string scalar.", ORT_INVALID_GRAPH);
+    ORTX_CXX_API_THROW("[BasicTokenizer]: only support string scalar.", ORT_INVALID_GRAPH);
   }
 
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());

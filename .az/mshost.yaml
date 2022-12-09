@@ -59,7 +59,7 @@ jobs:
         displayName: Unpack ONNXRuntime package.
 
       - script: |
-          CPU_NUMBER=2 sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-linux-x64-$(ort.version)/lib -DOCOS_ENABLE_CTEST=ON
+          CPU_NUMBER=2 sh ./build.sh -DOCOS_ENABLE_CTEST=ON
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -139,7 +139,7 @@ jobs:
         displayName: Unpack ONNXRuntime package.
 
       - script: |
-          sh ./build.sh -DONNXRUNTIME_LIB_DIR=$(ort.dirname)/lib -DOCOS_ENABLE_CTEST=ON
+          sh ./build.sh -DOCOS_ENABLE_CTEST=ON
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -266,7 +266,7 @@ jobs:
 
       - script: |
           call $(vsdevcmd)
-          call .\build.bat -DONNXRUNTIME_LIB_DIR=.\onnxruntime-win-x64-$(ort.version)\lib -DOCOS_ENABLE_CTEST=ON
+          call .\build.bat -DOCOS_ENABLE_CTEST=ON
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -427,6 +427,7 @@ jobs:
 
   #############
   # iOS
+  # Only cmake==3.25.0 works OpenCV compiling now.
   #############
   - job: IosPackage
     pool:
@@ -441,6 +442,7 @@ jobs:
         displayName: "Use Python 3.9"
 
       - script: |
+          python -m pip install cmake==3.25.0
           python ./tools/ios/build_xcframework.py \
             --output-dir $(Build.BinariesDirectory)/xcframework_out \
             --platform-arch iphonesimulator x86_64 \

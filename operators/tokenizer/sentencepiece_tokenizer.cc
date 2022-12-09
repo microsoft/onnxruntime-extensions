@@ -23,7 +23,7 @@ KernelSentencepieceTokenizer::KernelSentencepieceTokenizer(const OrtApi& api, co
         (int)status.code(), ". Message is '", status.error_message(), "'."));
 }
 
-static void _check_dimension_constant(Ort::CustomOpApi ort, const OrtValue* ort_value, const char* name) {
+static void _check_dimension_constant(OrtW::CustomOpApi ort, const OrtValue* ort_value, const char* name) {
   OrtTensorDimensions dimensions(ort, ort_value);
   if (dimensions.size() != 1 || dimensions[0] != 1)
     throw std::runtime_error(MakeString(

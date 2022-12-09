@@ -81,7 +81,7 @@ ONNXTensorElementDataType CustomOpSuperResolutionPostProcess::GetInputType(size_
     case 2:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
     default:
-      ORT_CXX_API_THROW(MakeString("Unexpected input index ", index), ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW(MakeString("Unexpected input index ", index), ORT_INVALID_ARGUMENT);
   }
 }
 
@@ -94,6 +94,6 @@ ONNXTensorElementDataType CustomOpSuperResolutionPostProcess::GetOutputType(size
     case 0:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
     default:
-      ORT_CXX_API_THROW(MakeString("Unexpected output index ", index), ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW(MakeString("Unexpected output index ", index), ORT_INVALID_ARGUMENT);
   }
 }

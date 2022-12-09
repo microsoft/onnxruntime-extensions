@@ -44,6 +44,7 @@ extends:
         enabled: false
       binskim:
         break: true # always break the build on binskim issues in addition to TSA upload
+        analyzeTargetGlob: '**\bin\*'  # only scan the DLLs in extensions bin folder.
       codeql:
         python:
           enabled: true
@@ -86,8 +87,8 @@ extends:
             @echo ##vso[task.setvariable variable=vslatest]%vslatest%
             @echo ##vso[task.setvariable variable=vsdevcmd]%vsdevcmd%
             @echo ##vso[task.setvariable variable=vscmake]%vscmake%
-            @echo ##vso[task.setvariable variable=vsmsbuild]%vsmsbuild% 
-          displayName: 'locate vsdevcmd via vswhere'        
+            @echo ##vso[task.setvariable variable=vsmsbuild]%vsmsbuild%
+          displayName: 'locate vsdevcmd via vswhere'
         - script: |
             call $(vsdevcmd)
             set PYTHONPATH=
@@ -95,6 +96,7 @@ extends:
             python -m pip install --upgrade pip
             python -m pip install cibuildwheel numpy
             python -m cibuildwheel --platform windows --output-dir $(REPOROOT)\out
+            del /s /q /f .setuptools-cmake-build\*onnxruntime.dll
           displayName: Build wheels
         - task: SDLNativeRules@3
           inputs:
