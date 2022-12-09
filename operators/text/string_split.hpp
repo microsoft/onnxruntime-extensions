@@ -11,7 +11,7 @@ struct KernelStringSplit : BaseKernel {
   void Compute(OrtKernelContext* context);
 };
 
-struct CustomOpStringSplit : Ort::CustomOpBase<CustomOpStringSplit, KernelStringSplit> {
+struct CustomOpStringSplit : OrtW::CustomOpBase<CustomOpStringSplit, KernelStringSplit> {
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

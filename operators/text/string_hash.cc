@@ -23,7 +23,7 @@ void KernelStringHash::Compute(OrtKernelContext* context) {
   // Verifications
   OrtTensorDimensions num_buckets_dimensions(ort_, num_buckets);
   if (num_buckets_dimensions.size() != 1 || num_buckets_dimensions[0] != 1)
-    ORT_CXX_API_THROW(MakeString(
+    ORTX_CXX_API_THROW(MakeString(
         "num_buckets must contain only one element. It has ",
         num_buckets_dimensions.size(), " dimensions."), ORT_INVALID_ARGUMENT);
 
@@ -56,7 +56,7 @@ ONNXTensorElementDataType CustomOpStringHash::GetInputType(size_t index) const {
     case 1:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
     default:
-      ORT_CXX_API_THROW(MakeString("Unexpected input index ", index), ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW(MakeString("Unexpected input index ", index), ORT_INVALID_ARGUMENT);
   }
 };
 
@@ -82,7 +82,7 @@ void KernelStringHashFast::Compute(OrtKernelContext* context) {
   // Verifications
   OrtTensorDimensions num_buckets_dimensions(ort_, num_buckets);
   if (num_buckets_dimensions.size() != 1 || num_buckets_dimensions[0] != 1)
-    ORT_CXX_API_THROW(MakeString(
+    ORTX_CXX_API_THROW(MakeString(
         "num_buckets must contain only one element. It has ",
         num_buckets_dimensions.size(), " dimensions."), ORT_INVALID_ARGUMENT);
 
@@ -115,7 +115,7 @@ ONNXTensorElementDataType CustomOpStringHashFast::GetInputType(size_t index) con
     case 1:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
     default:
-      ORT_CXX_API_THROW(MakeString("Unexpected input index ", index), ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW(MakeString("Unexpected input index ", index), ORT_INVALID_ARGUMENT);
   }
 };
 

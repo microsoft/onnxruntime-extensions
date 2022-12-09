@@ -11,7 +11,7 @@ struct KernelSegmentSum : BaseKernel {
   void Compute(OrtKernelContext* context);
 };
 
-struct CustomOpSegmentSum : Ort::CustomOpBase<CustomOpSegmentSum, KernelSegmentSum> {
+struct CustomOpSegmentSum : OrtW::CustomOpBase<CustomOpSegmentSum, KernelSegmentSum> {
   size_t GetInputTypeCount() const;
   size_t GetOutputTypeCount() const;
   ONNXTensorElementDataType GetOutputType(size_t index) const;

@@ -15,7 +15,7 @@ struct KernelStringECMARegexSplitWithOffsets : BaseKernel {
   bool ignore_case_;
 };
 
-struct CustomOpStringECMARegexSplitWithOffsets : Ort::CustomOpBase<CustomOpStringECMARegexSplitWithOffsets, KernelStringECMARegexSplitWithOffsets> {
+struct CustomOpStringECMARegexSplitWithOffsets : OrtW::CustomOpBase<CustomOpStringECMARegexSplitWithOffsets, KernelStringECMARegexSplitWithOffsets> {
   void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;

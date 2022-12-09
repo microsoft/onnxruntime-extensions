@@ -146,7 +146,7 @@ void KernelBertTokenizerDecoder::Compute(OrtKernelContext* context) {
   OrtTensorDimensions ids_dim(ort_, ids);
 
   if (!((ids_dim.size() == 1) || (ids_dim.size() == 2 && ids_dim[0] == 1))) {
-    ORT_CXX_API_THROW("[BertTokenizerDecoder]: Expect ids dimension [n] or [1,n].", ORT_INVALID_GRAPH);
+    ORTX_CXX_API_THROW("[BertTokenizerDecoder]: Expect ids dimension [n] or [1,n].", ORT_INVALID_GRAPH);
   }
 
   //  const int64_t* p_row_indices = ort_row_indices_dim.empty() ? nullptr : ort_.GetTensorData<int64_t>(ort_row_indices);
@@ -155,7 +155,7 @@ void KernelBertTokenizerDecoder::Compute(OrtKernelContext* context) {
   if (use_indices_ &&
       (!((positions_dim.Size() == 0) ||
       (positions_dim.size() == 2 && positions_dim[1] == 2)))) {
-    ORT_CXX_API_THROW("[BertTokenizerDecoder]: Expect positions empty or a [n, 2] matrix when use indices", ORT_INVALID_GRAPH);
+    ORTX_CXX_API_THROW("[BertTokenizerDecoder]: Expect positions empty or a [n, 2] matrix when use indices", ORT_INVALID_GRAPH);
   }
 
   const int64_t* p_positions = positions_dim.Size() == 0 ? nullptr : ort_.GetTensorData<int64_t>(positions);

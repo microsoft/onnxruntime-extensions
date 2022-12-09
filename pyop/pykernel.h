@@ -42,12 +42,12 @@ struct PyCustomOpKernel {
 
  private:
   const OrtApi& api_;
-  Ort::CustomOpApi ort_;
+  OrtW::CustomOpApi ort_;
   uint64_t obj_id_;
   std::map<std::string, std::string> attrs_values_;
 };
 
-struct PyCustomOpFactory : Ort::CustomOpBase<PyCustomOpFactory, PyCustomOpKernel> {
+struct PyCustomOpFactory : OrtW::CustomOpBase<PyCustomOpFactory, PyCustomOpKernel> {
   PyCustomOpFactory() {
     // STL vector needs it.  
   }

@@ -8,9 +8,7 @@
 #include <iterator>
 #include <vector>
 
-#define ORT_API_MANUAL_INIT
-#include "onnxruntime_cxx_api.h"
-#undef ORT_API_MANUAL_INIT
+#include "onnxruntime_customop.hpp"
 
 // A helper API to support test kernels.
 // Must be invoked before RegisterCustomOps.
@@ -40,13 +38,13 @@ struct BaseKernel {
  protected:
   OrtErrorCode GetErrorCodeAndRelease(OrtStatusPtr status);
   const OrtApi& api_;
-  Ort::CustomOpApi ort_;
+  OrtW::CustomOpApi ort_;
   const OrtKernelInfo* info_;
 };
 
 struct OrtTensorDimensions : std::vector<int64_t> {
   OrtTensorDimensions() = default;
-  OrtTensorDimensions(Ort::CustomOpApi& ort, const OrtValue* value) {
+  OrtTensorDimensions(const OrtW::CustomOpApi& ort, const OrtValue* value) {
     OrtTensorTypeAndShapeInfo* info = ort.GetTensorTypeAndShape(value);
     std::vector<int64_t>::operator=(ort.GetTensorShape(info));
     ort.ReleaseTensorTypeAndShapeInfo(info);
