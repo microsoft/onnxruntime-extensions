@@ -1,0 +1,18 @@
+#!/bin/bash
+set -e -x -u
+
+OSNAME=android
+target_dir=out/$OSNAME/Release
+mkdir -p ${target_dir}
+
+python ./tools/ios/build_xcframework.py \
+    --output-dir ${target_dir}/xcframework_out \
+    --platform-arch iphonesimulator x86_64 \
+    --config Release
+POD_VERSION=$(cat ./.version.txt)-dev
+python ./tools/ios/assemble_pod_package.py \
+    --staging-dir ${target_dir}/pod_staging \
+    --xcframework-dir ${target_dir}/xcframework_out/onnxruntime_extensions.xcframework \
+    --public-headers-dir ${target_dir}/xcframework_out/Headers \
+    --framework-info-file ${target_dir}/xcframework_out/framework_info.json \
+    --pod-version ${POD_VERSION}
