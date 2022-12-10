@@ -427,7 +427,6 @@ jobs:
 
   #############
   # iOS
-  # Only cmake==3.25.0 works OpenCV compiling now.
   #############
   - job: IosPackage
     pool:
@@ -441,13 +440,17 @@ jobs:
           architecture: 'x64'
         displayName: "Use Python 3.9"
 
+      # iOS xcframework build doesn't work with CMake 3.25.1, pin to 3.25.0
       - script: |
           python -m pip install cmake==3.25.0
+        displayName: "Install CMake 3.25.0"
+
+      - script: |
           python ./tools/ios/build_xcframework.py \
             --output-dir $(Build.BinariesDirectory)/xcframework_out \
             --platform-arch iphonesimulator x86_64 \
             --config Release
-        displayName: Build xcframework
+        displayName: Build xcframework for iphonesimulator x86_64
 
       - script: |
           set -e -x
