@@ -428,8 +428,8 @@ jobs:
       - script: |
           cd out/android/Release/java/androidtest/android
           appcenter test run espresso \
-          --app "guorachel-microsoft.com/ort-extensions-lib-testapp" \
-          --devices "guorachel-microsoft.com/ort-test-device-1" \
+          --app "AI-Frameworks/Ort-Ext-Mobile-Android-Testapp" \
+          --devices "AI-Frameworks/android-pixel-5-galaxy-m10" \
           --app-path ./app/build/outputs/apk/debug/app-debug.apk \
           --test-series "master" \
           --locale "en_US" \
