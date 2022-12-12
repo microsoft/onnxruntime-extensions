@@ -424,15 +424,7 @@ jobs:
           ./gradlew --no-daemon clean connectedDebugAndroidTest
         displayName: Run extensions unit test with Android Emulator
         workingDirectory: $(Build.sourcesdirectory)
-
-      - script: |
-          brew install npm
-        displayName: install npm
-
-      - script: |
-          npm install -g appcenter-cli
-        displayName: install app center cli
-      
+           
       - script: |
           cd out/android/Release/java/androidtest/android
           appcenter test run espresso \
