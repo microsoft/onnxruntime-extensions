@@ -1,3 +1,4 @@
 pytest
 transformers     >= 4.9.2,<=4.24.0
 tensorflow_text  >=2.5.0
+protobuf         >=3.20, <4
