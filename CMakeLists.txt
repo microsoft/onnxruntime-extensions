@@ -196,13 +196,13 @@ endif()
 
 if(OCOS_ENABLE_CV2)
   file(GLOB TARGET_SRC_CV2 "operators/cv2/*.cc" "operators/cv2/*.h*")
-  file(GLOB TARGET_SRC_CV2_NO_CODECS_OPS "operators/cv2/no_codecs/*.cc" "operators/cv2/no_codecs/*.h*")
-  file(GLOB TARGET_SRC_CV2_CODEC_OPS "operators/cv2/codecs/*.cc" "operators/cv2/codecs/*.h*")
-  
+  file(GLOB TARGET_SRC_CV2_IMGPROC_OPS "operators/cv2/imgproc/*.cc" "operators/cv2/imgproc/*.h*")
+  file(GLOB TARGET_SRC_CV2_IMGCODECS_OPS "operators/cv2/imgcodecs/*.cc" "operators/cv2/imgcodecs/*.h*")
+
   list(APPEND TARGET_SRC ${TARGET_SRC_CV2})
-  list(APPEND TARGET_SRC ${TARGET_SRC_CV2_NO_CODECS_OPS})
+  list(APPEND TARGET_SRC ${TARGET_SRC_CV2_IMGPROC_OPS})
   if (OCOS_ENABLE_OPENCV_CODECS)
-    list(APPEND TARGET_SRC ${TARGET_SRC_CV2_CODEC_OPS})
+    list(APPEND TARGET_SRC ${TARGET_SRC_CV2_IMGCODECS_OPS})
   endif()
 endif()
 
