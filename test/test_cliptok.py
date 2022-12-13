@@ -6,19 +6,12 @@ from pathlib import Path
 from onnx import helper, onnx_pb as onnx_proto
 from transformers import CLIPTokenizer
 from onnxruntime_extensions import (
-    util,
     make_onnx_model,
-    enable_py_op,
     get_library_path as _get_library_path)
 
 def _get_file_content(path):
     with open(path, "rb") as file:
         return file.read()
-
-
-def _get_test_data_file(*sub_dirs):
-    test_dir = Path(__file__).parent
-    return str(test_dir.joinpath(*sub_dirs))
 
 
 def _create_test_model(**kwargs):
@@ -72,8 +65,6 @@ class TestCLIPTokenizer(unittest.TestCase):
         del so
 
     def test_tokenizer(self):
-        enable_py_op(False)
-        
         self._run_tokenizer(["I can feel the magic, can you?"])
         self._run_tokenizer(["Hey Cortana"])
         self._run_tokenizer(["lower newer"])
@@ -85,7 +76,6 @@ class TestCLIPTokenizer(unittest.TestCase):
         self._run_tokenizer(["9 8 7 - 6 5 4 - 3 2 1 0"])
         self._run_tokenizer(["One Microsoft Way, Redmond, WA"])
 
-        enable_py_op(True) 
 
 if __name__ == "__main__":
     unittest.main()
