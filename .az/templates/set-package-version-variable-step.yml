@@ -37,4 +37,4 @@ steps:
     }
 
     set_var "${{ parameters.PackageVersionVariableName }}" "${VERSION}"
-  displayName: "Set \"${{ parameters.PackageVersionVariableName }}\" variable"
+  displayName: "Set \"${{ parameters.PackageVersionVariableName }}\" variable to package version"
