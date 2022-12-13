@@ -29,7 +29,7 @@ class SpecialTokenMap {
     auto it = token_map_.find(p_str);
     if (it != token_map_.end()) {
       if (it->second != p_id) {
-        ORT_CXX_API_THROW("Duplicate special tokens.", ORT_INVALID_ARGUMENT);
+        ORTX_CXX_API_THROW("Duplicate special tokens.", ORT_INVALID_ARGUMENT);
       }
     } else {
       token_map_[p_str] = p_id;
@@ -84,7 +84,7 @@ class SpecialTokenMap {
     SpecialTokenInfo(ustring p_str, int p_id)
         : str(std::move(p_str)), id(p_id) {
       if (str.empty()) {
-        ORT_CXX_API_THROW("Empty special token.", ORT_INVALID_ARGUMENT);
+        ORTX_CXX_API_THROW("Empty special token.", ORT_INVALID_ARGUMENT);
       }
     }
   };
@@ -147,7 +147,7 @@ class VocabData {
       if ((line[0] == '#') && (index == 0)) continue;
       auto pos = line.find(' ');
       if (pos == std::string::npos) {
-        ORT_CXX_API_THROW("Cannot know how to parse line: " + line, ORT_INVALID_ARGUMENT);
+        ORTX_CXX_API_THROW("Cannot know how to parse line: " + line, ORT_INVALID_ARGUMENT);
       }
       std::string w1 = line.substr(0, pos);
       std::string w2 = line.substr(pos + 1);
@@ -236,14 +236,14 @@ class VocabData {
   int TokenToID(const std::string& input) const {
     auto it = vocab_map_.find(input);
     if (it == vocab_map_.end()) {
-      ORT_CXX_API_THROW("Token not found: " + input, ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW("Token not found: " + input, ORT_INVALID_ARGUMENT);
     }
     return it->second;
   }
 
   const std::string& IdToToken(int id) const {
     if ((id < 0) || (static_cast<size_t>(id) >= id2token_map_.size())) {
-      ORT_CXX_API_THROW("Invalid ID: " + std::to_string(id), ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW("Invalid ID: " + std::to_string(id), ORT_INVALID_ARGUMENT);
     }
     return id2token_map_[id];
   }
@@ -252,7 +252,7 @@ class VocabData {
   int GetVocabIndex(const std::string& str) {
     auto it = vocab_map_.find(str);
     if (it == vocab_map_.end()) {
-      ORT_CXX_API_THROW("Cannot find word in vocabulary: " + str, ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW("Cannot find word in vocabulary: " + str, ORT_INVALID_ARGUMENT);
     }
     return it->second;
   }

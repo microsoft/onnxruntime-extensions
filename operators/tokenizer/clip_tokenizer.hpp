@@ -17,7 +17,7 @@ struct KernelClipBpeTokenizer : BaseKernel {
   std::shared_ptr<VocabData> bbpe_tokenizer_;
 };
 
-struct CustomOpClipBpeTokenizer : Ort::CustomOpBase<CustomOpClipBpeTokenizer, KernelClipBpeTokenizer> {
+struct CustomOpClipBpeTokenizer : OrtW::CustomOpBase<CustomOpClipBpeTokenizer, KernelClipBpeTokenizer> {
   void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
