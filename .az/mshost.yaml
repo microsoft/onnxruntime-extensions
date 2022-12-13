@@ -317,6 +317,16 @@ jobs:
 
       - script: |
           call activate pyenv
+          @echo find where Visual Studio was installed and use the bundled cmake
+          set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+          for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
+            set vslatest=%%i
+            if exist "%%i\Common7\Tools\vsdevcmd.bat" (
+              set vsdevcmd=%%i\Common7\Tools\vsdevcmd.bat
+            )
+          )
+          @echo vslatest (%vslatest%)
+          @echo vsdevcmd (%vsdevcmd%)
           python setup.py bdist_wheel
         displayName: Build the wheel
 
