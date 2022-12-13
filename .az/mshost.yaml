@@ -426,6 +426,7 @@ jobs:
         workingDirectory: $(Build.sourcesdirectory)
            
       - script: |
+          set -e -x
           cd out/android/Release/java/androidtest/android
           appcenter test run espresso \
           --app "AI-Frameworks/Ort-Ext-Mobile-Android-Testapp" \
@@ -434,7 +435,7 @@ jobs:
           --test-series "master" \
           --locale "en_US" \
           --build-dir ./app/build/outputs/apk/androidTest/debug \
-          --token ${app_center_api_token_2}
+          --token $(app_center_api_token_2)
         displayName:  Run extensions Android unit test using App Center
         workingDirectory: $(Build.sourcesdirectory)
 
