@@ -1,3 +1,4 @@
+# include requirements.txt so pip has context to avoid installing incompatible dependencies
 -r requirements.txt
 pytest
 transformers     >= 4.9.2,<=4.24.0
