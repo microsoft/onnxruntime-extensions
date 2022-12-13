@@ -13,7 +13,7 @@ class BroadcastIteratorRight {
                          const std::vector<int64_t>& shape2,
                          const T1* p1, const T2* p2, T3* p3) : shape1_(shape1), p1_(p1), p2_(p2), p3_(p3) {
     if (shape2.size() > shape1.size())
-      ORT_CXX_API_THROW("shape2 must have less dimensions than shape1", ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW("shape2 must have less dimensions than shape1", ORT_INVALID_ARGUMENT);
     shape2_.resize(shape1_.size());
     cum_shape2_.resize(shape1_.size());
     total_ = 1;
@@ -26,7 +26,7 @@ class BroadcastIteratorRight {
         shape2_[i] = shape2[i];
       }
       if (shape2[i] != 1 && shape1[i] != shape2[i]) {
-        ORT_CXX_API_THROW(MakeString(
+        ORTX_CXX_API_THROW(MakeString(
             "Cannot broadcast dimension ", i, " left:", shape1[i], " right:", shape2[i]), ORT_INVALID_ARGUMENT);
       }
     }
@@ -84,7 +84,7 @@ class BroadcastIteratorRight {
     template <typename TCMP>
     void loop(TCMP& cmp, BroadcastIteratorRightState& /*it*/, int64_t pos = 0) {
       if (pos != 0)
-        ORT_CXX_API_THROW("Not implemented yet.", ORT_NOT_IMPLEMENTED);
+        ORTX_CXX_API_THROW("Not implemented yet.", ORT_NOT_IMPLEMENTED);
       while (!end()) {
         *p3 = cmp(*p1, *p2);
         next();
@@ -114,7 +114,7 @@ inline bool Compare<std::string>::operator()(const std::string& s1, const std::s
 }
 
 template <typename T>
-void KernelEqual_Compute(const OrtApi& api, Ort::CustomOpApi& ort_, OrtKernelContext* context) {
+void KernelEqual_Compute(const OrtApi& api, OrtW::CustomOpApi& ort_, OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input_X = ort_.KernelContext_GetInput(context, 0);
   const T* X = ort_.GetTensorData<T>(input_X);
@@ -144,7 +144,7 @@ void KernelEqual_Compute(const OrtApi& api, Ort::CustomOpApi& ort_, OrtKernelCon
 }
 
 template <>
-void KernelEqual_Compute<std::string>(const OrtApi& api, Ort::CustomOpApi& ort_, OrtKernelContext* context) {
+void KernelEqual_Compute<std::string>(const OrtApi& api, OrtW::CustomOpApi& ort_, OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input_X = ort_.KernelContext_GetInput(context, 0);
   const OrtValue* input_Y = ort_.KernelContext_GetInput(context, 1);

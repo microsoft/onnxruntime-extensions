@@ -28,11 +28,11 @@ void KernelStringECMARegexSplitWithOffsets::Compute(OrtKernelContext* context) {
   // Verifications
   OrtTensorDimensions keep_pattern_dimensions(ort_, keep_pattern);
   if (str_pattern.size() != 1)
-    ORT_CXX_API_THROW(MakeString("pattern (second input) must contain only one element. It has ", str_pattern.size(), " values."), ORT_INVALID_GRAPH);
+    ORTX_CXX_API_THROW(MakeString("pattern (second input) must contain only one element. It has ", str_pattern.size(), " values."), ORT_INVALID_GRAPH);
   if (str_keep_pattern.size() > 1)
-    ORT_CXX_API_THROW(MakeString("Third input must contain only one element. It has ", str_keep_pattern.size(), " values."), ORT_INVALID_GRAPH);
+    ORTX_CXX_API_THROW(MakeString("Third input must contain only one element. It has ", str_keep_pattern.size(), " values."), ORT_INVALID_GRAPH);
   if (str_pattern[0].empty())
-    ORT_CXX_API_THROW("Splitting pattern cannot be empty.", ORT_INVALID_GRAPH);
+    ORTX_CXX_API_THROW("Splitting pattern cannot be empty.", ORT_INVALID_GRAPH);
 
   OrtTensorDimensions dimensions(ort_, input);
   bool include_delimiter = (str_keep_pattern.size() == 1) && (!str_keep_pattern[0].empty());
@@ -111,7 +111,7 @@ ONNXTensorElementDataType CustomOpStringECMARegexSplitWithOffsets::GetOutputType
     case 3:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
     default:
-      ORT_CXX_API_THROW(MakeString(
+      ORTX_CXX_API_THROW(MakeString(
                             "StringRegexSplitWithOffsets has 4 outputs but index is ", index, "."),
                         ORT_INVALID_ARGUMENT);
   }

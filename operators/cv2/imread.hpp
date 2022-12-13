@@ -14,7 +14,7 @@ struct KernelImageReader : BaseKernel {
 
     int n = input_data_dimensions[0];
     if (n != 1) {
-      ORT_CXX_API_THROW("[ImageReader]: the dimension of input value can only be 1 now.", ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW("[ImageReader]: the dimension of input value can only be 1 now.", ORT_INVALID_ARGUMENT);
     }
 
     std::vector<std::string> image_paths;
@@ -28,7 +28,7 @@ struct KernelImageReader : BaseKernel {
   }
 };
 
-struct CustomOpImageReader : Ort::CustomOpBase<CustomOpImageReader, KernelImageReader> {
+struct CustomOpImageReader : OrtW::CustomOpBase<CustomOpImageReader, KernelImageReader> {
   size_t GetInputTypeCount() const {
     return 1;
   }

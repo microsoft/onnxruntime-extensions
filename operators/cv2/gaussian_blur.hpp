@@ -16,7 +16,7 @@ struct KernelGaussianBlur : BaseKernel {
       const OrtValue* input_ksize = ort_.KernelContext_GetInput(context, 1);
       OrtTensorDimensions dim_ksize(ort_, input_ksize);
       if (dim_ksize.size() != 1 || dim_ksize[0] != 2) {
-        ORT_CXX_API_THROW("[GaussianBlur]: ksize shape is (2,)", ORT_INVALID_ARGUMENT);
+        ORTX_CXX_API_THROW("[GaussianBlur]: ksize shape is (2,)", ORT_INVALID_ARGUMENT);
       }
       std::copy_n(ort_.GetTensorData<std::int64_t>(input_ksize), 2, ksize);
     }
@@ -25,7 +25,7 @@ struct KernelGaussianBlur : BaseKernel {
       const OrtValue* input_sigma = ort_.KernelContext_GetInput(context, 2);
       OrtTensorDimensions dim_sigma(ort_, input_sigma);
       if (dim_sigma.size() != 1 || dim_sigma[0] != 2) {
-        ORT_CXX_API_THROW("[GaussianBlur]: sigma shape is (2,)", ORT_INVALID_ARGUMENT);
+        ORTX_CXX_API_THROW("[GaussianBlur]: sigma shape is (2,)", ORT_INVALID_ARGUMENT);
       }
       std::copy_n(ort_.GetTensorData<double>(input_sigma), 2, sigma);
     }
@@ -53,7 +53,7 @@ struct KernelGaussianBlur : BaseKernel {
   }
 };
 
-struct CustomOpGaussianBlur : Ort::CustomOpBase<CustomOpGaussianBlur, KernelGaussianBlur> {
+struct CustomOpGaussianBlur : OrtW::CustomOpBase<CustomOpGaussianBlur, KernelGaussianBlur> {
   size_t GetInputTypeCount() const {
     return 3;
   }

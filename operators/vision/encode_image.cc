@@ -15,7 +15,7 @@ void KernelEncodeImage ::Compute(OrtKernelContext* context) {
   if (dimensions_bgr.size() != 3 || dimensions_bgr[2] != 3) {
     // expect {H, W, C} as that's the inverse of what decode_image produces.
     // we have no way to check if it's BGR or RGB though
-    ORT_CXX_API_THROW("[EncodeImage] requires rank 3 BGR input in channels last format.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("[EncodeImage] requires rank 3 BGR input in channels last format.", ORT_INVALID_ARGUMENT);
   }
 
   // Get data & the length
@@ -29,7 +29,7 @@ void KernelEncodeImage ::Compute(OrtKernelContext* context) {
   // don't know output size ahead of time so need to encode and then copy to output
   std::vector<uint8_t> encoded_image;
   if (!cv::imencode(extension_, bgr_image, encoded_image)) {
-    ORT_CXX_API_THROW("[EncodeImage] Image encoding failed.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("[EncodeImage] Image encoding failed.", ORT_INVALID_ARGUMENT);
   }
 
   // Setup output & copy to destination

@@ -1,8 +1,5 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-
-#include "onnxruntime_cxx_api.h"
-
 #include <filesystem>
 #include "gtest/gtest.h"
 #include "ocos.h"
@@ -50,7 +47,7 @@ struct KernelOne : BaseKernel {
   }
 };
 
-struct CustomOpOne : Ort::CustomOpBase<CustomOpOne, KernelOne> {
+struct CustomOpOne : OrtW::CustomOpBase<CustomOpOne, KernelOne> {
   const char* GetName() const {
     return "CustomOpOne";
   };
@@ -93,7 +90,7 @@ struct KernelTwo : BaseKernel {
   }
 };
 
-struct CustomOpTwo : Ort::CustomOpBase<CustomOpTwo, KernelTwo> {
+struct CustomOpTwo : OrtW::CustomOpBase<CustomOpTwo, KernelTwo> {
   const char* GetName() const {
     return "CustomOpTwo";
   };
@@ -138,7 +135,7 @@ struct KernelThree : BaseKernel {
   std::string substr_;
 };
 
-struct CustomOpThree : Ort::CustomOpBase<CustomOpThree, KernelThree> {
+struct CustomOpThree : OrtW::CustomOpBase<CustomOpThree, KernelThree> {
   void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
     return CreateKernelImpl(api, info);
   };
@@ -188,8 +185,7 @@ void _assert_eq(Ort::Value& output_tensor, const std::vector<T>& expected, size_
 }
 
 void GetTensorMutableDataString(const OrtApi& api, const OrtValue* value, std::vector<std::string>& output) {
-  Ort::CustomOpApi ort(api);
-  OrtTensorDimensions dimensions(ort, value);
+  OrtTensorDimensions dimensions(OrtW::CustomOpApi(api), value);
   size_t len = static_cast<size_t>(dimensions.Size());
   size_t data_len;
   Ort::ThrowOnError(api, api.GetStringTensorDataLength(value, &data_len));
@@ -397,7 +393,7 @@ TEST(ustring, tensor_operator) {
   }
   EXPECT_EQ(err_code, ORT_OK);
 
-  Ort::CustomOpApi custom_api(*api);
+  OrtW::CustomOpApi custom_api(*api);
 
   std::vector<int64_t> dim{2, 2};
   status = api->CreateTensorAsOrtValue(allocator, dim.data(), dim.size(), ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING, &tensor);

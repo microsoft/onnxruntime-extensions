@@ -167,7 +167,7 @@ struct PyCustomOpDefImpl : public PyCustomOpDef {
   }
 
   static py::object BuildPyObjFromTensor(
-      const OrtApi& api, Ort::CustomOpApi& ort, OrtKernelContext* context, const OrtValue* value,
+      const OrtApi& api, OrtW::CustomOpApi& ort, OrtKernelContext* context, const OrtValue* value,
       const shape_t& shape, ONNXTensorElementDataType dtype) {
     std::vector<npy_intp> npy_dims;
     for (auto n : shape) {

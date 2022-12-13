@@ -67,12 +67,12 @@ KernelBpeTokenizer::KernelBpeTokenizer(const OrtApi& api, const OrtKernelInfo* i
     : BaseKernel(api, info) {
   std::string vocab = ort_.KernelInfoGetAttribute<std::string>(info, "vocab");
   if (vocab.empty()) {
-    ORT_CXX_API_THROW("vocabulary shouldn't be empty.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("vocabulary shouldn't be empty.", ORT_INVALID_ARGUMENT);
   }
 
   std::string merges = ort_.KernelInfoGetAttribute<std::string>(info, "merges");
   if (merges.empty()) {
-    ORT_CXX_API_THROW("merges shouldn't be empty.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("merges shouldn't be empty.", ORT_INVALID_ARGUMENT);
   }
 
   if (!TryToGetAttribute<int64_t>("padding_length", padding_length_)) {
@@ -80,7 +80,7 @@ KernelBpeTokenizer::KernelBpeTokenizer(const OrtApi& api, const OrtKernelInfo* i
   }
 
   if (padding_length_ != -1 && padding_length_ <= 0) {
-    ORT_CXX_API_THROW("padding_length should be more than 0 or equal -1", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("padding_length should be more than 0 or equal -1", ORT_INVALID_ARGUMENT);
   }
 
   std::stringstream vocabu_stream(vocab);
