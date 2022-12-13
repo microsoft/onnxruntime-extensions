@@ -97,10 +97,10 @@ std::vector<int64_t> KernelClipBpeTokenizer::Tokenize(ustring& input, int64_t ma
     return res;
   }
   // Add <|startoftext|> token to result
-  res.push_back(49406);
+  res.push_back(bbpe_tokenizer_->GetEncoding("<|startoftext|>"));
 
   // Convert to lowercase
-  std::transform(input.begin(), input.end(), input.begin(), [](char c) { return static_cast<char>(ToLower(c)); });
+  std::transform(input.begin(), input.end(), input.begin(), [](char32_t c) { return static_cast<char32_t>(ToLower(c)); });
 
   // Parse input
   auto special_token_split_res = bbpe_tokenizer_->SplitBySpecialTokens(input);
@@ -153,7 +153,7 @@ std::vector<int64_t> KernelClipBpeTokenizer::Tokenize(ustring& input, int64_t ma
     }
   }
   // Add <|endoftext|> token to result
-  res.push_back(49407);
+  res.push_back(bbpe_tokenizer_->GetEncoding("<|endoftext|>"));
   return res;
 }
 
