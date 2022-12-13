@@ -1,10 +1,10 @@
 #include "ocos.h"
-#include "no_codecs/gaussian_blur.hpp"
+#include "imgproc/gaussian_blur.hpp"
 #ifdef ENABLE_OPENCV_CODECS
-#include "codecs/imread.hpp"
-#include "codecs/imdecode.hpp"
-#include "codecs/super_resolution_preprocess.hpp"
-#include "codecs/super_resolution_postprocess.hpp"
+#include "imgcodecs/imread.hpp"
+#include "imgcodecs/imdecode.hpp"
+#include "imgcodecs/super_resolution_preprocess.hpp"
+#include "imgcodecs/super_resolution_postprocess.hpp"
 #endif // ENABLE_OPENCV_CODECS
 
 
