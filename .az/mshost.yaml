@@ -452,15 +452,17 @@ jobs:
             --config Release
         displayName: Build xcframework for iphonesimulator x86_64
 
+      - template: templates/set-package-version-variable-step.yml
+        parameters:
+          PackageVersionVariableName: ORT_EXTENSIONS_POD_VERSION
+
       - script: |
-          set -e -x
-          POD_VERSION=$(cat ./.version.txt)-dev
           python ./tools/ios/assemble_pod_package.py \
             --staging-dir $(Build.BinariesDirectory)/pod_staging \
             --xcframework-dir $(Build.BinariesDirectory)/xcframework_out/onnxruntime_extensions.xcframework \
             --public-headers-dir $(Build.BinariesDirectory)/xcframework_out/Headers \
             --framework-info-file $(Build.BinariesDirectory)/xcframework_out/framework_info.json \
-            --pod-version ${POD_VERSION}
+            --pod-version ${ORT_EXTENSIONS_POD_VERSION}
         displayName: Assemble pod
 
       - script: |
