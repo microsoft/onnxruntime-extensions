@@ -20,18 +20,18 @@ void KernelStringJoin::Compute(OrtKernelContext* context) {
   // Check input
   OrtTensorDimensions dimensions_sep(ort_, input_sep);
   if (dimensions_sep.size() != 1 || dimensions_sep[0] != 1)
-    ORT_CXX_API_THROW("Input 2 is the separator, it should have 1 element.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("Input 2 is the separator, it should have 1 element.", ORT_INVALID_ARGUMENT);
   OrtTensorDimensions dimensions_axis(ort_, input_axis);
   if (dimensions_axis.size() != 1 || dimensions_axis[0] != 1)
-    ORT_CXX_API_THROW("Input 3 is the axis, it should have 1 element.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("Input 3 is the axis, it should have 1 element.", ORT_INVALID_ARGUMENT);
   OrtTensorDimensions dimensions(ort_, input_X);
   if (dimensions.size() == 0) {
     // dimensions size 0 means input 1 is scalar, input 1 must have 1 element. See issue: https://github.com/onnx/onnx/issues/3724
     if (X.size() != 1)
-      ORT_CXX_API_THROW(MakeString("Input 1's dimensions size is 0 (scalar), it must has 1 element but it has ", X.size()), ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW(MakeString("Input 1's dimensions size is 0 (scalar), it must has 1 element but it has ", X.size()), ORT_INVALID_ARGUMENT);
   } else {
     if (*axis < 0 || *axis >= static_cast<int64_t>(dimensions.size()))
-      ORT_CXX_API_THROW(MakeString("axis must be positive and smaller than the number of dimension but it is ", *axis), ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW(MakeString("axis must be positive and smaller than the number of dimension but it is ", *axis), ORT_INVALID_ARGUMENT);
   }
 
   std::vector<int64_t> dimensions_out(dimensions.size() > 1 ? dimensions.size() - 1 : 1);
@@ -102,7 +102,7 @@ ONNXTensorElementDataType CustomOpStringJoin::GetInputType(size_t index) const {
     case 2:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
     default:
-      ORT_CXX_API_THROW(MakeString("Unexpected input index ", index), ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW(MakeString("Unexpected input index ", index), ORT_INVALID_ARGUMENT);
   }
 };
 

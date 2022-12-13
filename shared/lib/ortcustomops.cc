@@ -7,6 +7,8 @@
 #include "onnxruntime_extensions.h"
 #include "ocos.h"
 
+using namespace OrtW;
+
 struct OrtCustomOpDomainDeleter {
   explicit OrtCustomOpDomainDeleter(const OrtApi* ort_api) {
     ort_api_ = ort_api;

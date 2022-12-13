@@ -4,7 +4,7 @@
 #include "segment_sum.hpp"
 
 template <typename T>
-void KernelSegmentSum_Compute(Ort::CustomOpApi& ort_, OrtKernelContext* context) {
+void KernelSegmentSum_Compute(OrtW::CustomOpApi& ort_, OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* data = ort_.KernelContext_GetInput(context, 0);
   const T* p_data = ort_.GetTensorData<T>(data);
@@ -15,11 +15,11 @@ void KernelSegmentSum_Compute(Ort::CustomOpApi& ort_, OrtKernelContext* context)
   OrtTensorDimensions dim_data(ort_, data);
   OrtTensorDimensions dim_seg(ort_, segment_ids);
   if (dim_data.size() == 0 || dim_seg.size() == 0)
-    ORT_CXX_API_THROW("Both inputs cannot be empty.", ORT_INVALID_GRAPH);
+    ORTX_CXX_API_THROW("Both inputs cannot be empty.", ORT_INVALID_GRAPH);
   if (dim_seg.size() != 1)
-    ORT_CXX_API_THROW("segment_ids must a single tensor", ORT_INVALID_GRAPH);
+    ORTX_CXX_API_THROW("segment_ids must a single tensor", ORT_INVALID_GRAPH);
   if (dim_data[0] != dim_seg[0])
-    ORT_CXX_API_THROW(MakeString(
+    ORTX_CXX_API_THROW(MakeString(
         "First dimensions of data and segment_ids should be the same, data shape: ", dim_data,
         " segment_ids shape: ", dim_seg), ORT_INVALID_GRAPH);
 
@@ -42,7 +42,7 @@ void KernelSegmentSum_Compute(Ort::CustomOpApi& ort_, OrtKernelContext* context)
   const int64_t* p_seg = p_segment_ids;
   for (; begin != end; ++p_seg) {
     if ((p_seg != p_segment_ids) && (*p_seg != *(p_seg - 1)) && (*p_seg != *(p_seg - 1) + 1))
-      ORT_CXX_API_THROW(MakeString("segment_ids must be increasing but found ",
+      ORTX_CXX_API_THROW(MakeString("segment_ids must be increasing but found ",
                                           *(p_seg - 1), " and ", *p_seg, " at position ",
                                           std::distance(p_segment_ids, p_seg), "."), ORT_RUNTIME_EXCEPTION);
     p_out = p_output + *p_seg * in_stride;
@@ -82,6 +82,6 @@ ONNXTensorElementDataType CustomOpSegmentSum::GetInputType(size_t index) const {
     case 1:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
     default:
-      ORT_CXX_API_THROW("Operator SegmentSum has 2 inputs.", ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW("Operator SegmentSum has 2 inputs.", ORT_INVALID_ARGUMENT);
   }
 };

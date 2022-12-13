@@ -27,15 +27,15 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
   OrtTensorDimensions pattern_dimensions(ort_, pattern);
   OrtTensorDimensions rewrite_dimensions(ort_, rewrite);
   if (pattern_dimensions.size() != 1 || pattern_dimensions[0] != 1)
-    ORT_CXX_API_THROW(MakeString(
+    ORTX_CXX_API_THROW(MakeString(
         "pattern (second input) must contain only one element. It has ",
         pattern_dimensions.size(), " dimensions."), ORT_INVALID_ARGUMENT);
   if (rewrite_dimensions.size() != 1 || rewrite_dimensions[0] != 1)
-    ORT_CXX_API_THROW(MakeString(
+    ORTX_CXX_API_THROW(MakeString(
         "rewrite (third input) must contain only one element. It has ",
         rewrite_dimensions.size(), " dimensions."), ORT_INVALID_ARGUMENT);
   if (str_pattern[0].empty())
-    ORT_CXX_API_THROW("pattern (second input) cannot be empty.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("pattern (second input) cannot be empty.", ORT_INVALID_ARGUMENT);
 
   // Setup output
   OrtTensorDimensions dimensions(ort_, input);

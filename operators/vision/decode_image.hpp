@@ -15,7 +15,7 @@ struct KernelDecodeImage : BaseKernel {
   void Compute(OrtKernelContext* context);
 };
 
-struct CustomOpDecodeImage : Ort::CustomOpBase<CustomOpDecodeImage, KernelDecodeImage> {
+struct CustomOpDecodeImage : OrtW::CustomOpBase<CustomOpDecodeImage, KernelDecodeImage> {
   void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
     return new KernelDecodeImage(api);
   }
@@ -37,7 +37,7 @@ struct CustomOpDecodeImage : Ort::CustomOpBase<CustomOpDecodeImage, KernelDecode
       case 0:
         return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
       default:
-        ORT_CXX_API_THROW(MakeString("Invalid input index ", index), ORT_INVALID_ARGUMENT);
+        ORTX_CXX_API_THROW(MakeString("Invalid input index ", index), ORT_INVALID_ARGUMENT);
     }
   }
 
@@ -50,7 +50,7 @@ struct CustomOpDecodeImage : Ort::CustomOpBase<CustomOpDecodeImage, KernelDecode
       case 0:
         return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
       default:
-        ORT_CXX_API_THROW(MakeString("Invalid output index ", index), ORT_INVALID_ARGUMENT);
+        ORTX_CXX_API_THROW(MakeString("Invalid output index ", index), ORT_INVALID_ARGUMENT);
     }
   }
 };
