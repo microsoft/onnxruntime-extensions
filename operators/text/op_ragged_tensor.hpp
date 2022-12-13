@@ -12,7 +12,7 @@ struct KernelRaggedTensorToSparse : BaseKernel {
   void Compute(OrtKernelContext* context);
 };
 
-struct CustomOpRaggedTensorToSparse : Ort::CustomOpBase<CustomOpRaggedTensorToSparse, KernelRaggedTensorToSparse> {
+struct CustomOpRaggedTensorToSparse : OrtW::CustomOpBase<CustomOpRaggedTensorToSparse, KernelRaggedTensorToSparse> {
   size_t GetInputTypeCount() const;
   size_t GetOutputTypeCount() const;
   ONNXTensorElementDataType GetOutputType(size_t index) const;
@@ -36,7 +36,7 @@ struct KernelRaggedTensorToDense : CommonRaggedTensorToDense {
   int64_t missing_value_;
 };
 
-struct CustomOpRaggedTensorToDense : Ort::CustomOpBase<CustomOpRaggedTensorToDense, KernelRaggedTensorToDense> {
+struct CustomOpRaggedTensorToDense : OrtW::CustomOpBase<CustomOpRaggedTensorToDense, KernelRaggedTensorToDense> {
   size_t GetInputTypeCount() const;
   size_t GetOutputTypeCount() const;
   ONNXTensorElementDataType GetOutputType(size_t index) const;
@@ -50,7 +50,7 @@ struct KernelStringRaggedTensorToDense : CommonRaggedTensorToDense {
   void Compute(OrtKernelContext* context);
 };
 
-struct CustomOpStringRaggedTensorToDense : Ort::CustomOpBase<CustomOpStringRaggedTensorToDense, KernelStringRaggedTensorToDense> {
+struct CustomOpStringRaggedTensorToDense : OrtW::CustomOpBase<CustomOpStringRaggedTensorToDense, KernelStringRaggedTensorToDense> {
   size_t GetInputTypeCount() const;
   size_t GetOutputTypeCount() const;
   ONNXTensorElementDataType GetOutputType(size_t index) const;

@@ -1,0 +1,3 @@
+{
+    "apple_deployment_target": "@CMAKE_OSX_DEPLOYMENT_TARGET@"
+}

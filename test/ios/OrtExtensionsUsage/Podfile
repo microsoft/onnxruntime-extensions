@@ -1,0 +1,23 @@
+platform :ios, '11.0'
+
+target 'OrtExtensionsUsage' do
+  # Comment the next line if you don't want to use dynamic frameworks
+  use_frameworks!
+
+  # Pods for OrtExtensionsUsage
+  pod 'onnxruntime-c'
+
+  # environment variable ORT_EXTENSIONS_LOCAL_POD_PATH can be used to specify a local onnxruntime-extensions-c pod path
+  ort_extensions_local_pod_path = ENV['ORT_EXTENSIONS_LOCAL_POD_PATH']
+  if ort_extensions_local_pod_path != nil
+    print 'Using onnxruntime-extensions-c pod at ', ort_extensions_local_pod_path, "\n"
+    pod 'onnxruntime-extensions-c', :path => ort_extensions_local_pod_path
+  else
+    pod 'onnxruntime-extensions-c'
+  end
+
+  target 'OrtExtensionsUsageTests' do
+    inherit! :search_paths
+    # Pods for testing
+  end
+end

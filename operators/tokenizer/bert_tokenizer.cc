@@ -33,7 +33,7 @@ int32_t BertTokenizerVocab::FindTokenId(const ustring& token) {
 
   auto it = vocab_.find(utf8_token);
   if (it == vocab_.end()) {
-    ORT_CXX_API_THROW("[BertTokenizerVocab]: can not find tokens: " + std::string(token), ORT_RUNTIME_EXCEPTION);
+    ORTX_CXX_API_THROW("[BertTokenizerVocab]: can not find tokens: " + std::string(token), ORT_RUNTIME_EXCEPTION);
   }
 
   return it->second;
@@ -305,7 +305,7 @@ void KernelBertTokenizer::Compute(OrtKernelContext* context) {
   GetTensorMutableDataString(api_, ort_, context, input, input_data);
 
   if (input_data.size() != 1 && input_data.size() != 2) {
-    ORT_CXX_API_THROW("[BertTokenizer]: only support one or two query.", ORT_INVALID_GRAPH);
+    ORTX_CXX_API_THROW("[BertTokenizer]: only support one or two query.", ORT_INVALID_GRAPH);
   }
   std::vector<int64_t> input_ids;
   std::vector<int64_t> token_type_ids;
@@ -365,7 +365,7 @@ void KernelHfBertTokenizer::Compute(OrtKernelContext* context) {
   GetTensorMutableDataString(api_, ort_, context, input, input_data);
 
   if (input_data.size() != 2) {
-    ORT_CXX_API_THROW("[HfBertTokenizer]: Support only two input strings.", ORT_INVALID_GRAPH);
+    ORTX_CXX_API_THROW("[HfBertTokenizer]: Support only two input strings.", ORT_INVALID_GRAPH);
   }
 
   std::vector<ustring> tokens1 = tokenizer_->Tokenize(ustring(input_data[0]));
