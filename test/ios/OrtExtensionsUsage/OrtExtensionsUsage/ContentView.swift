@@ -19,6 +19,7 @@ struct ContentView: View {
                 .imageScale(.large)
                 .foregroundColor(.accentColor)
             Text("Decode image result: \(runOrtDecodeAndCheckImage())")
+                .accessibilityIdentifier("decodeImageResult")
         }
         .padding()
     }
