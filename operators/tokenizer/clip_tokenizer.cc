@@ -7,6 +7,7 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <algorithm>
 #include <list>
 #include <memory>
 #include <regex>
@@ -22,8 +23,8 @@
 #include "string_tensor.h"
 #include "unicode.h"
 
-//Note: the following logic comes from CPython: unicodetype_db.h (_PyUnicode_IsWhitespace)
-bool IsUnicodeSpace(char32_t ch) {
+// Note: the following logic comes from CPython: unicodetype_db.h (_PyUnicode_IsWhitespace)
+bool IsInUnicodeSpace(char32_t ch) {
   switch (ch) {
     case 0x0009:
     case 0x000A:
@@ -59,11 +60,11 @@ bool IsUnicodeSpace(char32_t ch) {
   return false;
 }
 
-bool IsEmptyUString(const ustring& str) {
-  return std::all_of(str.begin(), str.end(), [](char32_t ch) { return IsUnicodeSpace(ch); });
+bool IsEmptyUstring(const ustring& str) {
+  return std::all_of(str.begin(), str.end(), [](char32_t ch) { return IsInUnicodeSpace(ch); });
 }
 
-KernelBpeTokenizer::KernelBpeTokenizer(const OrtApi& api, const OrtKernelInfo* info)
+KernelClipBpeTokenizer::KernelClipBpeTokenizer(const OrtApi& api, const OrtKernelInfo* info)
     : BaseKernel(api, info) {
   std::string vocab = ort_.KernelInfoGetAttribute<std::string>(info, "vocab");
   if (vocab.empty()) {
@@ -89,13 +90,19 @@ KernelBpeTokenizer::KernelBpeTokenizer(const OrtApi& api, const OrtKernelInfo* i
   bbpe_tokenizer_->Load(vocabu_stream, merges_stream, "<|endoftext|>", "<|endoftext|>");
 }
 
-std::vector<int64_t> KernelBpeTokenizer::Tokenize(const ustring& input, int64_t max_length) {
+std::vector<int64_t> KernelClipBpeTokenizer::Tokenize(ustring& input, int64_t max_length) {
   std::vector<int64_t> res;
 
-  if (IsEmptyUString(input)) {
+  if (IsEmptyUstring(input)) {
     return res;
   }
+  // Add <|startoftext|> token to result
+  res.push_back(bbpe_tokenizer_->GetEncoding("<|startoftext|>"));
 
+  // Convert to lowercase
+  std::transform(input.begin(), input.end(), input.begin(), [](char32_t c) { return static_cast<char32_t>(ToLower(c)); });
+
+  // Parse input
   auto special_token_split_res = bbpe_tokenizer_->SplitBySpecialTokens(input);
   TokenWithRegularExp regcmp;
 
@@ -118,13 +125,24 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(const ustring& input, int64_t 
 
       std::string utf8_token = std::string(ustring(tok));
 
+      // Whitespace clean
+      utf8_token.erase(std::remove(utf8_token.begin(), utf8_token.end(), ' '), utf8_token.end());
+
+      // Get byte encodings prior to performing BPE
       byte_list_.clear();
-      for (char& cp : utf8_token) {
-        byte_list_.push_back(bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(cp)]);
+      for (int i = 0; i < utf8_token.length(); i++) {
+        if (i == utf8_token.length() - 1) {
+          std::string boundary(1, utf8_token[i]);
+          byte_list_.push_back(bbpe_tokenizer_->GetEncoding(boundary + "</w>"));
+        } else {
+          byte_list_.push_back(bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(utf8_token[i])]);
+        }
       }
 
+      // Perform BPE
       bbpe_tokenizer_->bpe(byte_list_);
 
+      // Add output to result
       for (auto p : byte_list_) {
         if (static_cast<int64_t>(res.size()) >= max_length) {
           break;
@@ -134,11 +152,12 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(const ustring& input, int64_t 
       }
     }
   }
-
+  // Add <|endoftext|> token to result
+  res.push_back(bbpe_tokenizer_->GetEncoding("<|endoftext|>"));
   return res;
 }
 
-void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
+void KernelClipBpeTokenizer::Compute(OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
   std::vector<std::string> str_input;
@@ -147,7 +166,8 @@ void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
 
   std::vector<std::vector<int64_t>> tokenize_results;
   for (auto& str : str_input) {
-    tokenize_results.emplace_back(Tokenize(ustring(str), padding_length_ < 0 ? INT64_MAX : padding_length_));
+    ustring ustr = ustring(str);
+    tokenize_results.emplace_back(Tokenize(ustr, padding_length_ < 0 ? INT64_MAX : padding_length_));
   }
 
   size_t max_length = 0;
@@ -182,39 +202,25 @@ void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
   }
 }
 
-void* CustomOpBpeTokenizer::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
+void* CustomOpClipBpeTokenizer::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
   return CreateKernelImpl(api, info);
 }
 
-const char* CustomOpBpeTokenizer::GetName() const {
-  return "GPT2Tokenizer";
+const char* CustomOpClipBpeTokenizer::GetName() const {
+  return "CLIPTokenizer";
 }
 
-size_t CustomOpBpeTokenizer::GetInputTypeCount() const {
+size_t CustomOpClipBpeTokenizer::GetInputTypeCount() const {
   return 1;
 }
 
-ONNXTensorElementDataType CustomOpBpeTokenizer::GetInputType(size_t /*index*/) const {
+ONNXTensorElementDataType CustomOpClipBpeTokenizer::GetInputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
 }
-size_t CustomOpBpeTokenizer::GetOutputTypeCount() const {
+size_t CustomOpClipBpeTokenizer::GetOutputTypeCount() const {
   return 2;
 }
 
-ONNXTensorElementDataType CustomOpBpeTokenizer::GetOutputType(size_t /*index*/) const {
+ONNXTensorElementDataType CustomOpClipBpeTokenizer::GetOutputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-}
-
-const OrtCustomOp** LoadTokenizerSchemaList() {
-  // create the global objects here to let the ORT catch the expection if any
-  static std::unique_ptr<CustomOpBpeTokenizer> p_CoBpeTokenizer;
-  static const OrtCustomOp* c_CustomOpList[2] = {nullptr};  // {&c_CoBpeTokenizer, nullptr};
-  static std::mutex mtx_loaded;
-  std::lock_guard<std::mutex> lck(mtx_loaded);
-  if (p_CoBpeTokenizer.get() == nullptr) {
-    p_CoBpeTokenizer = std::make_unique<CustomOpBpeTokenizer>();
-    c_CustomOpList[0] = p_CoBpeTokenizer.get();
-  }
-
-  return c_CustomOpList;
 }
