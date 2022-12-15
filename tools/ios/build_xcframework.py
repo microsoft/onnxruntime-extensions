@@ -206,11 +206,12 @@ def parse_args():
     )
     parser.add_argument(
         "--cmake-extra-define",
+        "-D",
         action="append",
+        default=[],
         metavar="CMAKE_EXTRA_DEFINE",
         dest="cmake_extra_defines",
-        help="Extra definition to pass to CMake during build system generation. "
-        "This is just a CMake -D option without the leading -D.",
+        help="Extra definition to pass to CMake (with the CMake -D option) during build system generation.",
     )
 
     args = parser.parse_args()
