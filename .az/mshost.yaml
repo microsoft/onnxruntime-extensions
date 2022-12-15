@@ -459,9 +459,7 @@ jobs:
       - script: |
           python ./tools/ios/assemble_pod_package.py \
             --staging-dir $(Build.BinariesDirectory)/pod_staging \
-            --xcframework-dir $(Build.BinariesDirectory)/xcframework_out/onnxruntime_extensions.xcframework \
-            --public-headers-dir $(Build.BinariesDirectory)/xcframework_out/Headers \
-            --framework-info-file $(Build.BinariesDirectory)/xcframework_out/framework_info.json \
+            --xcframework-output-dir $(Build.BinariesDirectory)/xcframework_out \
             --pod-version ${ORT_EXTENSIONS_POD_VERSION}
         displayName: Assemble pod
 
