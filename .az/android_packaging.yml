@@ -1,0 +1,80 @@
+# packaging pipeline for Android Maven AAR package
+
+parameters:
+  - name: IsReleaseBuild
+    displayName: "Is this is a release build?"
+    type: boolean
+    default: false
+
+name: "$(Date:yyyyMMdd)$(Rev:rrr)" # build number format
+
+jobs:
+  - job: AndroidPackaging
+    pool:
+      vmImage: "macOS-12"
+    timeoutInMinutes: 120
+    variables:
+      OnnxruntimeDirectory: cmake/external/onnxruntime
+    steps:
+      - script: brew install coreutils ninja
+        displayName: Install coreutils and ninja
+
+      - script: |
+          mkdir cmake/external
+          cd cmake/external
+          git clone https://github.com/microsoft/onnxruntime.git
+          cd onnxruntime
+          git checkout v1.12.1
+        displayName: Download Onnxruntime
+        workingDirectory: $(Build.sourcesdirectory)
+
+      - script: |
+          python3 tools/python/run_android_emulator.py \
+            --android-sdk-root ${ANDROID_SDK_ROOT} \
+            --create-avd --system-image "system-images;android-30;google_apis;x86_64" \
+            --start --emulator-extra-args="-partition-size 4096" \
+            --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
+        displayName: Start Android emulator
+        workingDirectory: $(OnnxruntimeDirectory)
+
+      - task: JavaToolInstaller@0
+        displayName: Use jdk 11
+        inputs:
+          versionSpec: "11"
+          jdkArchitectureOption: "x64"
+          jdkSourceOption: "PreInstalled"
+
+      # set package version number here
+
+      - script: |
+          bash ./tools/android.package.sh
+        displayName: Build onnxruntime-extensions aar package
+        workingDirectory: $(Build.sourcesdirectory)
+
+      - script: |
+          cd out/android/Release/java/androidtest/android
+          ./gradlew --no-daemon clean connectedDebugAndroidTest
+        displayName: Run extensions unit test with Android Emulator
+        workingDirectory: $(Build.sourcesdirectory)
+
+      # TODO: move the app center test here
+
+      - script: |
+          set -e -x
+
+          ANDROID_AAR_OUTPUT_DIR="$(Build.sourcesdirectory)/out/android/Release/java/build/android"
+          AAR_STAGING_DIR = "{ANDROID_AAR_OUTPUT_DIR}/outputs/aar"
+          LIBS_STAGING_DIR = "{ANDROID_AAR_OUTPUT_DIR}/libs"
+          ARTIFACTS_STAGING_DIR="$(Build.ArtifactStagingDirectory)"
+
+          PACKAGE_NAME="onnxruntime-extensions-release"
+          cp ${LIBS_STAGING_DIR}/${PACKAGE_NAME}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}
+          cp ${LIBS_STAGING_DIR}/${PACKAGE_NAME}-sources.jar  ${ARTIFACTS_STAGING_DIR}
+          cp ${AAR_STAGING_DIR}/${PACKAGE_NAME}.aar          ${ARTIFACTS_STAGING_DIR}
+
+          popd
+        displayName: "Assemble artifacts"
+
+      - publish: "$(Build.ArtifactStagingDirectory)"
+        artifact: android_packaging_artifacts
+        displayName: "Publish artifacts"
