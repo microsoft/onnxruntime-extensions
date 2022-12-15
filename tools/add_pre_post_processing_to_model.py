@@ -84,7 +84,7 @@ def mobilenet(model_file: Path, output_file: Path, model_source: ModelSource = M
     onnx.save_model(new_model, str(output_file.resolve()))
 
 
-def superresolution(model_file: Path, output_file: Path):
+def superresolution(model_file: Path, output_file: Path, output_format: str):
     # TODO: There seems to be a split with some super resolution models processing RGB input and some processing
     # the Y channel after converting to YCbCr.
     # For the sake of this example implementation we do the trickier YCbCr processing as that involves joining the
@@ -152,7 +152,7 @@ def superresolution(model_file: Path, output_file: Path):
                     IoMapEntry("Cr1_uint8", 0, 2),
                 ],
             ),
-            ConvertBGRToImage(image_format="png"),  # jpg or png are supported
+            ConvertBGRToImage(image_format=output_format),  # jpg or png are supported
         ]
     )
 
@@ -188,6 +188,7 @@ def main():
     )
 
     parser.add_argument(
+        "-s",
         "--model_source",
         type=str,
         required=False,
@@ -198,6 +199,15 @@ def main():
         adding the pre/post processing to the model. Currently this equates to choosing different normalization 
         behavior for mobilenet models.
         """,
+    )
+
+    parser.add_argument(
+        "--output_format",
+        type=str,
+        required=False,
+        choices=["jpg", "png"],
+        default="png",
+        help="Image output format for superresolution model to produce.",
     )
 
     parser.add_argument("model", type=Path, help="Provide path to ONNX model to update.")
@@ -211,7 +221,7 @@ def main():
         source = ModelSource.PYTORCH if args.model_source == "pytorch" else ModelSource.TENSORFLOW
         mobilenet(model_path, new_model_path, source)
     else:
-        superresolution(model_path, new_model_path)
+        superresolution(model_path, new_model_path, args.output_format)
 
 
 if __name__ == "__main__":

@@ -113,22 +113,20 @@ class PixelsToYCbCr(Step):
         # input should be uint8 data HWC
         input_dims = input_shape_str.split(",")
         assert input_type_str == "uint8" and len(input_dims) == 3 and input_dims[2] == "3"
+
+        # https://en.wikipedia.org/wiki/YCbCr
+        # exact weights from https://www.itu.int/rec/T-REC-T.871-201105-I/en
         rgb_weights = np.array([[0.299, 0.587, 0.114],
                                 [-0.299 / 1.772, -0.587 / 1.772, 0.500],
                                 [0.500, -0.587 / 1.402, -0.114 / 1.402]],
                                dtype=np.float32)  # fmt: skip
-
-        # https://github.com/python-pillow/Pillow/blob/63f64de8b5cc6d065f19cc73c865633ab4940a52/src/libImaging/ConvertYCbCr.c#L17
-        # rgb_weights = np.array([[0.299, 0.587, 0.114],
-        #                         [-0.16874, -0.33126, 0.500],
-        #                         [0.500, -0.41869, -0.08131]], dtype=np.float32)
 
         bias = [0.0, 128.0, 128.0]
 
         if self._layout == "RGB":
             weights = rgb_weights
         else:
-            weights = rgb_weights[:, ::-1]  # reverse the order of the last dim to match
+            weights = rgb_weights[:, ::-1]  # reverse the order of the last dim for BGR input
 
         # Weights are transposed for usage in matmul.
         weights_shape = "3, 3"
@@ -342,14 +340,12 @@ class Resize(Step):
         # TODO: Make this configurable. Matching PIL resize for now.
         resize_attributes = 'mode = "linear", nearest_mode = "floor"'
         if PRE_POST_PROCESSING_ONNX_OPSET >= 18:
-            # Resize matches PIL better if antialiasing is used, but that isn't available until ONNX opset 18
+            # Resize matches PIL better if antialiasing is used, but that isn't available until ONNX opset 18.
             # Allow this to be used with older opsets as well.
             resize_attributes += ', antialias = 1'
 
-        # resize_attributes = 'mode = "linear", nearest_mode = "floor"'
-
-        # if input is HWC or CHW we need to add a 'N' dim so Resize infers works correctly. 3D input is inferred to
-        # be trilinear interpolation.
+        # Rank 3 input uses trilinear interpolation, so if input is HWC or CHW we need to add a temporary batch dim
+        # to make it rank 4, which will result in Resize using the desired bilinear interpolation.
         if add_batch_dim:
             scales_str = "f_1, " + scales_str
             resize_str = \
