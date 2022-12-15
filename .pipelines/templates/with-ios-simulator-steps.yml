@@ -3,17 +3,21 @@ parameters:
   type: stepList
 
 steps:
-- task: CmdLine@2
-  inputs:
-    script: |
-      xcrun simctl create iPhoneSimulatorForPipeline com.apple.CoreSimulator.SimDeviceType.iPhone-8
+- bash: |
+    set -e -x
+
+    ORT_EXTENSIONS_BUILD_SIMULATOR_ID=$(xcrun simctl create iPhoneSimulatorForPipeline com.apple.CoreSimulator.SimDeviceType.iPhone-8)
+
+    echo "##vso[task.setvariable variable=ORT_EXTENSIONS_BUILD_SIMULATOR_ID]${ORT_EXTENSIONS_BUILD_SIMULATOR_ID}"
   displayName: "Create iPhone simulator"
 
 - ${{ parameters.steps }}
 
-- task: CmdLine@2
-  inputs:
-    script: |
-      xcrun simctl delete iPhoneSimulatorForPipeline
+- bash: |
+    set -e -x
+
+    if [[ -v ORT_EXTENSIONS_BUILD_SIMULATOR_ID ]]; then
+      xcrun simctl delete ${ORT_EXTENSIONS_BUILD_SIMULATOR_ID}
+    fi
   displayName: "Delete iPhone simulator"
   condition: always()
