@@ -1,4 +1,4 @@
-# packaging pipeline for Android Maven AAR package
+# packaging pipeline for onnxruntime-extensions Android AAR package
 
 parameters:
   - name: IsReleaseBuild
@@ -44,7 +44,7 @@ jobs:
           jdkArchitectureOption: "x64"
           jdkSourceOption: "PreInstalled"
 
-      # set package version number here
+      # TODO: set package version number here
 
       - script: |
           bash ./tools/android.package.sh
