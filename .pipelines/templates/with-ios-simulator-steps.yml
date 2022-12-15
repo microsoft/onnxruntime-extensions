@@ -6,7 +6,7 @@ steps:
 - task: CmdLine@2
   inputs:
     script: |
-      xcrun simctl create iPhoneSimulatorForPipeline com.apple.CoreSimulator.SimDeviceType.iPhone-12
+      xcrun simctl create iPhoneSimulatorForPipeline com.apple.CoreSimulator.SimDeviceType.iPhone-8
   displayName: "Create iPhone simulator"
 
 - ${{ parameters.steps }}
