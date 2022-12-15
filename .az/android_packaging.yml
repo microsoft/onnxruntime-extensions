@@ -62,9 +62,8 @@ jobs:
       - script: |
           set -e -x
 
-          ANDROID_AAR_OUTPUT_DIR="$(Build.sourcesdirectory)/out/android/Release/java/build/android"
-          AAR_STAGING_DIR = "${ANDROID_AAR_OUTPUT_DIR}/outputs/aar"
-          LIBS_STAGING_DIR = "${ANDROID_AAR_OUTPUT_DIR}/libs"
+          AAR_STAGING_DIR="$(Build.sourcesdirectory)/out/android/Release/java/build/android/outputs/aar"
+          LIBS_STAGING_DIR="$(Build.sourcesdirectory)/out/android/Release/java/build/android/outputs/aar/libs"
           ARTIFACTS_STAGING_DIR="$(Build.ArtifactStagingDirectory)"
 
           PACKAGE_NAME="onnxruntime-extensions-release"
