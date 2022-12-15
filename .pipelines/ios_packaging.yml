@@ -6,8 +6,6 @@ parameters:
   type: boolean
   default: false
 
-name: "$(Date:yyyyMMdd)$(Rev:rrr)"  # build number format
-
 jobs:
 - job: IosPackaging
   displayName: "iOS Packaging"
