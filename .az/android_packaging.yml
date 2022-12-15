@@ -71,7 +71,6 @@ jobs:
           cp ${LIBS_STAGING_DIR}/${PACKAGE_NAME}-0.5.0-sources.jar  ${ARTIFACTS_STAGING_DIR}
           cp ${AAR_STAGING_DIR}/${PACKAGE_NAME}-release.aar         ${ARTIFACTS_STAGING_DIR}
 
-          popd
         displayName: "Assemble artifacts"
 
       - publish: "$(Build.ArtifactStagingDirectory)"
