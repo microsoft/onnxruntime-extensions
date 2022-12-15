@@ -66,10 +66,10 @@ jobs:
           LIBS_STAGING_DIR="$(Build.sourcesdirectory)/out/android/Release/java/build/android/outputs/aar/libs"
           ARTIFACTS_STAGING_DIR="$(Build.ArtifactStagingDirectory)"
 
-          PACKAGE_NAME="onnxruntime-extensions-release"
-          cp ${LIBS_STAGING_DIR}/${PACKAGE_NAME}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}
-          cp ${LIBS_STAGING_DIR}/${PACKAGE_NAME}-sources.jar  ${ARTIFACTS_STAGING_DIR}
-          cp ${AAR_STAGING_DIR}/${PACKAGE_NAME}.aar          ${ARTIFACTS_STAGING_DIR}
+          PACKAGE_NAME="onnxruntime-extensions"
+          cp ${LIBS_STAGING_DIR}/${PACKAGE_NAME}-0.5.0-javadoc.jar  ${ARTIFACTS_STAGING_DIR}
+          cp ${LIBS_STAGING_DIR}/${PACKAGE_NAME}-0.5.0-sources.jar  ${ARTIFACTS_STAGING_DIR}
+          cp ${AAR_STAGING_DIR}/${PACKAGE_NAME}-release.aar          ${ARTIFACTS_STAGING_DIR}
 
           popd
         displayName: "Assemble artifacts"
