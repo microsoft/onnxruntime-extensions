@@ -1,0 +1,19 @@
+parameters:
+- name: steps
+  type: stepList
+
+steps:
+- task: CmdLine@2
+  inputs:
+    script: |
+      xcrun simctl create iPhoneSimulatorForPipeline com.apple.CoreSimulator.SimDeviceType.iPhone-12
+  displayName: "Create iPhone simulator"
+
+- ${{ parameters.steps }}
+
+- task: CmdLine@2
+  inputs:
+    script: |
+      xcrun simctl delete iPhoneSimulatorForPipeline
+  displayName: "Delete iPhone simulator"
+  condition: always()

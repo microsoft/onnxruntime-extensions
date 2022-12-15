@@ -62,10 +62,13 @@ jobs:
     displayName: "Install pods for OrtExtensionsUsage"
     workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage
 
-  - template: templates/xcode-build-and-test-step.yml
+  - template: templates/with-ios-simulator-steps.yml
     parameters:
-      xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
-      scheme: 'OrtExtensionsUsage'
+      steps:
+      - template: templates/xcode-build-and-test-step.yml
+        parameters:
+          xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
+          scheme: 'OrtExtensionsUsage'
 
   # TODO run test on app center
 
