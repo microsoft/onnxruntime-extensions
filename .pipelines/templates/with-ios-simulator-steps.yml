@@ -16,7 +16,7 @@ steps:
 - bash: |
     set -e -x
 
-    if [[ -v ORT_EXTENSIONS_BUILD_SIMULATOR_ID ]]; then
+    if [[ -n "${ORT_EXTENSIONS_BUILD_SIMULATOR_ID}" ]]; then
       xcrun simctl delete ${ORT_EXTENSIONS_BUILD_SIMULATOR_ID}
     fi
   displayName: "Delete iPhone simulator"
