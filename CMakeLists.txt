@@ -8,7 +8,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 function(read_version_file major_var minor_var patch_var)
-  set(version_file ${PROJECT_SOURCE_DIR}/.version.txt)
+  set(version_file ${PROJECT_SOURCE_DIR}/version.txt)
   file(READ ${version_file} version_file_content)
   if(version_file_content MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+)$")
     set(${major_var} ${CMAKE_MATCH_1} PARENT_SCOPE)

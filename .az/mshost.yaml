@@ -451,7 +451,7 @@ jobs:
 
       - script: |
           set -e -x
-          POD_VERSION=$(cat ./.version.txt)-dev
+          POD_VERSION=$(cat ./version.txt)-dev
           python ./tools/ios/assemble_pod_package.py \
             --staging-dir $(Build.BinariesDirectory)/pod_staging \
             --xcframework-dir $(Build.BinariesDirectory)/xcframework_out/onnxruntime_extensions.xcframework \
