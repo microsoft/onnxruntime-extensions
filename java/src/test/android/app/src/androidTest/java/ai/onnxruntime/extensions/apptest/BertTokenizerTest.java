@@ -4,6 +4,7 @@ import android.content.Context;
 import android.util.Log;
 
 import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import org.junit.Test;
@@ -21,6 +22,11 @@ import ai.onnxruntime.OrtEnvironment;
 import ai.onnxruntime.OrtSession;
 import ai.onnxruntime.extensions.OrtxPackage;
 
+import org.junit.Rule;
+import org.junit.After;
+import com.microsoft.appcenter.espresso.Factory;
+import com.microsoft.appcenter.espresso.ReportHelper;
+
 /**
  * Instrumented test, which will execute on an Android device.
  *
@@ -28,11 +34,24 @@ import ai.onnxruntime.extensions.OrtxPackage;
  */
 @RunWith(AndroidJUnit4.class)
 public class BertTokenizerTest {
+
+    @Rule
+    public ActivityScenarioRule<MainActivity> activityScenarioRule = new ActivityScenarioRule<>(MainActivity.class);
+
+    @Rule
+    public ReportHelper reportHelper = Factory.getReportHelper();
+
+    @After
+    public void TearDown(){
+        reportHelper.label("Stopping App");
+    }
+
     @Test
     public void useAppContext() {
         // Context of the app under test.
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
         assertEquals("ai.onnxruntime.extensions.apptest", appContext.getPackageName());
+        // TODO: enable verbose logging level here
         OrtEnvironment env = OrtEnvironment.getEnvironment();
         try {
             OrtSession.SessionOptions sess_opt = new OrtSession.SessionOptions();
