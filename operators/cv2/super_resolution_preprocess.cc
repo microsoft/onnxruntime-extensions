@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#ifdef ENABLE_OPENCV_CODECS
+
 #include "super_resolution_preprocess.hpp"
 #include "string_utils.h"
 
@@ -89,3 +91,5 @@ ONNXTensorElementDataType CustomOpSuperResolutionPreProcess::GetOutputType(size_
       ORTX_CXX_API_THROW(MakeString("Unexpected output index ", index), ORT_INVALID_ARGUMENT);
   }
 }
+
+#endif  // ENABLE_OPENCV_CODECS

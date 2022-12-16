@@ -1,5 +1,5 @@
 if(_ONNXRUNTIME_EMBEDDED)
-  set(ONNXRUNTIME_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include/onnxruntime/core/session)
+  set(ONNXRUNTIME_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/../include/onnxruntime/core/session)
   set(ONNXRUNTIME_LIB_DIR "")
 else()
   set(ONNXRUNTIME_VER "1.10.0" CACHE STRING "ONNX Runtime version")
