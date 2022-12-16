@@ -5,7 +5,6 @@ build_host_protoc
 build_android
 build_ios
 build_*
-.version.txt
 .venv/
 _subbuild/
 .build_debug/*
