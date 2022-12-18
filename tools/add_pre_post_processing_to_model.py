@@ -7,7 +7,7 @@ import os
 
 from pathlib import Path
 
-from pre_post_processing import PrePostProcessor
+from pre_post_processing import PrePostProcessor, Debug
 from pre_post_processing.steps import *
 from pre_post_processing.utils import create_named_value, IoMapEntry
 
@@ -84,7 +84,7 @@ def mobilenet(model_file: Path, output_file: Path, model_source: ModelSource = M
     onnx.save_model(new_model, str(output_file.resolve()))
 
 
-def superresolution(model_file: Path, output_file: Path):
+def superresolution(model_file: Path, output_file: Path, output_format: str):
     # TODO: There seems to be a split with some super resolution models processing RGB input and some processing
     # the Y channel after converting to YCbCr.
     # For the sake of this example implementation we do the trickier YCbCr processing as that involves joining the
@@ -130,27 +130,29 @@ def superresolution(model_file: Path, output_file: Path):
     pipeline.add_post_processing(
         [
             Squeeze([0, 1]),  # remove batch and channels dims from Y'
-            FloatToImageBytes(name="Yout_to_bytes"),  # convert Y' to uint8 in range 0..255
+            FloatToImageBytes(name="Y1_uint8"),  # convert Y' to uint8 in range 0..255
+
             # Resize the Cb values (output 1 from PixelsToYCbCr)
-            (
-                Resize((h_out, w_out), "HW"),
-                [IoMapEntry(producer="PixelsToYCbCr", producer_idx=1, consumer_idx=0)],
-            ),
+            (Resize((h_out, w_out), "HW"),
+             [IoMapEntry(producer="PixelsToYCbCr", producer_idx=1, consumer_idx=0)]),
+
             # the Cb and Cr values are already in the range 0..255 so multiplier is 1. we're using the step to round
             # for accuracy (a direct Cast would just truncate) and clip (to ensure range 0..255) the values post-Resize
-            FloatToImageBytes(multiplier=1.0, name="Resized_Cb"),
+            FloatToImageBytes(multiplier=1.0, name="Cb1_uint8"),
+
             (Resize((h_out, w_out), "HW"), [IoMapEntry("PixelsToYCbCr", 2, 0)]),
-            FloatToImageBytes(multiplier=1.0, name="Resized_Cr"),
+            FloatToImageBytes(multiplier=1.0, name="Cr1_uint8"),
+
             # as we're selecting outputs from multiple previous steps we need to map them to the inputs using step names
             (
                 YCbCrToPixels(layout="BGR"),
                 [
-                    IoMapEntry("Yout_to_bytes", 0, 0),  # uint8 Y' with shape {h, w}
-                    IoMapEntry("Resized_Cb", 0, 1),  # uint8 Cb'
-                    IoMapEntry("Resized_Cr", 0, 2),  # uint8 Cr'
+                    IoMapEntry("Y1_uint8", 0, 0),  # uint8 Y' with shape {h, w}
+                    IoMapEntry("Cb1_uint8", 0, 1),
+                    IoMapEntry("Cr1_uint8", 0, 2),
                 ],
             ),
-            ConvertBGRToImage(image_format="jpg"),  # jpg or png are supported
+            ConvertBGRToImage(image_format=output_format),  # jpg or png are supported
         ]
     )
 
@@ -186,6 +188,7 @@ def main():
     )
 
     parser.add_argument(
+        "-s",
         "--model_source",
         type=str,
         required=False,
@@ -196,6 +199,15 @@ def main():
         adding the pre/post processing to the model. Currently this equates to choosing different normalization 
         behavior for mobilenet models.
         """,
+    )
+
+    parser.add_argument(
+        "--output_format",
+        type=str,
+        required=False,
+        choices=["jpg", "png"],
+        default="png",
+        help="Image output format for superresolution model to produce.",
     )
 
     parser.add_argument("model", type=Path, help="Provide path to ONNX model to update.")
@@ -209,7 +221,7 @@ def main():
         source = ModelSource.PYTORCH if args.model_source == "pytorch" else ModelSource.TENSORFLOW
         mobilenet(model_path, new_model_path, source)
     else:
-        superresolution(model_path, new_model_path)
+        superresolution(model_path, new_model_path, args.output_format)
 
 
 if __name__ == "__main__":

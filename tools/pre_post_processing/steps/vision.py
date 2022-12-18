@@ -7,7 +7,7 @@ import numpy as np
 from typing import List, Optional, Tuple, Union
 from ..step import Step
 from .general import Transpose
-
+from ..utils import PRE_POST_PROCESSING_ONNX_OPSET
 
 #
 # Image conversion
@@ -113,6 +113,9 @@ class PixelsToYCbCr(Step):
         # input should be uint8 data HWC
         input_dims = input_shape_str.split(",")
         assert input_type_str == "uint8" and len(input_dims) == 3 and input_dims[2] == "3"
+
+        # https://en.wikipedia.org/wiki/YCbCr
+        # exact weights from https://www.itu.int/rec/T-REC-T.871-201105-I/en
         rgb_weights = np.array([[0.299, 0.587, 0.114],
                                 [-0.299 / 1.772, -0.587 / 1.772, 0.500],
                                 [0.500, -0.587 / 1.402, -0.114 / 1.402]],
@@ -123,7 +126,7 @@ class PixelsToYCbCr(Step):
         if self._layout == "RGB":
             weights = rgb_weights
         else:
-            weights = rgb_weights[:, ::-1]  # reverse the order of the last dim to match
+            weights = rgb_weights[:, ::-1]  # reverse the order of the last dim for BGR input
 
         # Weights are transposed for usage in matmul.
         weights_shape = "3, 3"
@@ -140,7 +143,6 @@ class PixelsToYCbCr(Step):
         # convert to float for MatMul
         # apply weights and bias
         # round and clip so it's in the range 0..255
-        # convert back to uint8
         # split into channels. shape will be {h, w, 1}
         # remove the trailing '1' so output is {h, w}
         converter_graph = onnx.parser.parse_graph(
@@ -214,13 +216,10 @@ class YCbCrToPixels(Step):
                                          [1, -0.114*1.772/0.587, -0.299*1.402/0.587],
                                          [1, 1.772, 0]],
                                         dtype=np.float32)
-
-        # reverse 2nd and 3rd entry in each row (YCbCr to YCrCb so blue and red are flipped)
-        ycbcr_to_bgr_weights = np.array([[1, 1.402, 0],
-                                         [1, -0.299*1.402/0.587, -0.114*1.772/0.587],
-                                         [1, 0, 1.772]],
-                                        dtype=np.float32)
         # fmt: on
+
+        # reverse first dim of weights for output to be bgr
+        ycbcr_to_bgr_weights = ycbcr_to_rgb_weights[::-1, :]
 
         weights = ycbcr_to_bgr_weights if self._layout == "BGR" else ycbcr_to_rgb_weights
         bias = [0.0, 128.0, 128.0]
@@ -284,7 +283,7 @@ class Resize(Step):
             resize_to: Target size. Can be a single value or a tuple with (target_height, target_width).
                        The aspect ratio will be maintained and neither height or width in the result will be smaller
                        than the requested value.
-            layout: Input layout. 'CHW', 'HWC' and 'HW' are supported.
+            layout: Input layout. 'NCHW', 'NHWC', 'CHW', 'HWC' and 'HW' are supported.
             name: Optional name. Defaults to 'Resize'
         """
         super().__init__(["image"], ["resized_image"], name)
@@ -303,15 +302,29 @@ class Resize(Step):
         # adjust for layout
         # resize will use the largest ratio so both sides won't necessarily match the requested height and width.
         # use symbolic names for the output dims as we have to provide values. prefix the names to try and
-        # avoid any clashes
+        # avoid any clashes.
         scales_constant_str = "f_1 = Constant <value = float[1] {1.0}> ()"
-        if self._layout == "HWC":
+        add_batch_dim = False
+
+        if self._layout == "NHWC":
+            assert len(dims) == 4
+            split_str = "n, h, w, c"
+            scales_str = "f_1, ratio_resize, ratio_resize, f_1"
+            output_shape_str = f"{dims[0]}, resize_ppp_{self.step_num}_h, resize_ppp_{self.step_num}_w, {dims[-1]}"
+        elif self._layout == "NCHW":
+            assert len(dims) == 4
+            split_str = "n, c, h, w"
+            scales_str = "f_1, f_1, ratio_resize, ratio_resize"
+            output_shape_str = f"{dims[0]}, {dims[1]}, resize_ppp_{self.step_num}_h, resize_ppp_{self.step_num}_w"
+        elif self._layout == "HWC":
             assert len(dims) == 3
+            add_batch_dim = True
             split_str = "h, w, c"
             scales_str = "ratio_resize, ratio_resize, f_1"
             output_shape_str = f"resize_ppp_{self.step_num}_h, resize_ppp_{self.step_num}_w, {dims[-1]}"
         elif self._layout == "CHW":
             assert len(dims) == 3
+            add_batch_dim = True
             split_str = "c, h, w"
             scales_str = "f_1, ratio_resize, ratio_resize"
             output_shape_str = f"{dims[0]}, resize_ppp_{self.step_num}_h, resize_ppp_{self.step_num}_w"
@@ -324,17 +337,36 @@ class Resize(Step):
         else:
             raise ValueError(f"Unsupported layout of {self._layout}")
 
-        # TODO: Make this configurable. Matching PIL resize for now
+        # TODO: Make this configurable. Matching PIL resize for now.
         resize_attributes = 'mode = "linear", nearest_mode = "floor"'
+        if PRE_POST_PROCESSING_ONNX_OPSET >= 18:
+            # Resize matches PIL better if antialiasing is used, but that isn't available until ONNX opset 18.
+            # Allow this to be used with older opsets as well.
+            resize_attributes += ', antialias = 1'
+
+        # Rank 3 input uses trilinear interpolation, so if input is HWC or CHW we need to add a temporary batch dim
+        # to make it rank 4, which will result in Resize using the desired bilinear interpolation.
+        if add_batch_dim:
+            scales_str = "f_1, " + scales_str
+            resize_str = \
+                f"""\
+                axes = Constant <value = int64[1] {{{0}}}> ()
+                unsqueezed = Unsqueeze ({self.input_names[0]}, axes)
+                resized =  Resize <{resize_attributes}> (unsqueezed, , scales_resize)
+                {self.output_names[0]} = Squeeze (resized, axes)
+                """
+        else:
+            resize_str = \
+                f"{self.output_names[0]} = Resize <{resize_attributes}> ({self.input_names[0]}, , scales_resize)"
 
         resize_graph = onnx.parser.parse_graph(
             f"""\
             resize ({input_type_str}[{input_shape_str}] {self.input_names[0]}) => 
                 ({input_type_str}[{output_shape_str}] {self.output_names[0]})
             {{
-                target_size = Constant <value=float[2] {{{float(self._height)}, {float(self._width)}}}> ()
+                target_size = Constant <value = float[2] {{{float(self._height)}, {float(self._width)}}}> ()
                 image_shape = Shape ({self.input_names[0]})
-                {split_str} = Split <axis=0> (image_shape)
+                {split_str} = Split <axis = 0> (image_shape)
                 hw = Concat <axis = 0> (h, w)
                 f_hw = Cast <to = 1> (hw)
                 ratios = Div (target_size, f_hw)
@@ -342,7 +374,7 @@ class Resize(Step):
 
                 {scales_constant_str}
                 scales_resize = Concat <axis = 0> ({scales_str})
-                {self.output_names[0]} = Resize <{resize_attributes}> ({self.input_names[0]}, , scales_resize)
+                {resize_str}
             }}
             """
         )
@@ -512,6 +544,17 @@ class FloatToImageBytes(Step):
         input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
         assert input_type_str == "float"
 
+        if self._multiplier == 1.0:
+            scale_input = ''
+            scaled_input_name = self.input_names[0]
+        else:
+            scale_input = \
+                f"""\
+                f_multiplier = Constant <value = float[1] {{{self._multiplier}}}> ()
+                scaled_input = Mul ({self.input_names[0]}, f_multiplier)
+                """
+            scaled_input_name = 'scaled_input'
+
         float_to_byte_graphs = onnx.parser.parse_graph(
             f"""\
             float_to_type (float[{input_shape_str}] {self.input_names[0]}) 
@@ -519,10 +562,9 @@ class FloatToImageBytes(Step):
             {{
                 f_0 = Constant <value = float[1] {{0.0}}> ()
                 f_255 = Constant <value = float[1] {{255.0}}>()
-                f_multiplier = Constant <value = float[1] {{{self._multiplier}}}> ()
-
-                scaled_input = Mul ({self.input_names[0]}, f_multiplier)
-                rounded = Round (scaled_input)
+                
+                {scale_input}
+                rounded = Round ({scaled_input_name})
                 clipped = Clip (rounded, f_0, f_255)
                 {self.output_names[0]} = Cast <to = {onnx.TensorProto.UINT8}> (clipped)
             }}

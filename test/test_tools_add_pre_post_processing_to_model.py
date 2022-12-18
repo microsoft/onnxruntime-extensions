@@ -14,7 +14,6 @@ from pathlib import Path
 from onnxruntime_extensions import get_library_path
 
 # add tools dir where pre_post_processing folder is to sys path
-# TODO: Move this script to test folder so this is needed
 script_dir = os.path.dirname(os.path.realpath(__file__))
 ort_ext_root = os.path.abspath(os.path.join(script_dir, ".."))
 tools_dir = os.path.join(ort_ext_root, "tools")
@@ -141,15 +140,17 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
     def test_pytorch_superresolution(self):
         input_model = os.path.join(test_data_dir, "pytorch_super_resolution.onnx")
         output_model = os.path.join(test_data_dir, "pytorch_super_resolution.updated.onnx")
-        input_image_path = os.path.join(test_data_dir, "..", "test_supres.jpg")
+        input_image_path = os.path.join(test_data_dir, "test_superresolution.png")
 
-        # expected output is manually inspected result of running the model.
-        # there are still some diffs in the resized Cb and Cr values that get merged in during post-processing due to
-        # the ONNX Resize not supporting anti-aliasing. That _should_ be added in the next ORT release as the ONNX spec
-        # has added anti-aliasing.
-        expected_output_image_path = os.path.join(test_data_dir, "..", "test_supres_expected.jpg")
+        # expected output is result of running the model that was manually compared to output from the
+        # original pytorch model using torchvision and PIL for pre/post processing. the difference currently is due
+        # to ONNX Resize not supporting antialiasing.
+        # TODO: When we update to an ORT version with ONNX opset 18 support and enable antialiasing in the Resize
+        # (update tools/pre_post_processing/utils.py to set PRE_POST_PROCESSING_ONNX_OPSET to 18) the expected output
+        # is in test_superresolution.expected.opset18.png.
+        expected_output_image_path = os.path.join(test_data_dir, "test_superresolution.expected.png")
 
-        add_ppp.superresolution(Path(input_model), Path(output_model))
+        add_ppp.superresolution(Path(input_model), Path(output_model), "png")
 
         input_bytes = np.fromfile(input_image_path, dtype=np.uint8)
 
@@ -159,17 +160,20 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
         result_bytes = s.run(None, {'image': np.array(input_bytes)})[0]
 
-        # convert from jpg to RGB to remove any jpg encoding diffs
-        result = np.array(Image.open(io.BytesIO(result_bytes)).convert('RGB'))
+        # convert from png to RGB to remove any png encoding diffs
+        result_img = Image.open(io.BytesIO(result_bytes))
+        result = np.array(result_img.convert('RGB'))
         expected = np.array(Image.open(expected_output_image_path).convert('RGB'))
 
-        # check all pixel values are within 1.
+        # check all pixel values are close. allowing for 0.1% of pixels to differ by 2 at the most.
         #
         # we expect some variance from the floating point operations involved during Resize and conversion of the
         # original image to/from YCbCr. the different instructions used on different hardware can cause diffs, such as
-        # whether avx512 is used or not.
-        self.assertTrue(np.allclose(expected, result, atol=1, rtol=0))
-
+        # whether avx512 is used or not. MacOS seems to be slightly worse though (max of 2)
+        diffs = np.absolute(expected.astype(np.int32) - result.astype(np.int32))
+        total = np.sum(diffs)
+        print(f'Max diff:{diffs.max()} Total diffs:{total}')
+        self.assertTrue(diffs.max() < 3 and total < (result.size / 1000))
 
 if __name__ == "__main__":
     unittest.main()
