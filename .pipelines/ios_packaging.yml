@@ -40,7 +40,7 @@ jobs:
       python ./tools/ios/build_xcframework.py \
         --output-dir $(Build.BinariesDirectory)/xcframework_out \
         --config Release \
-        --cmake-extra-define OCOS_ENABLE_SELECTED_OPLIST=ON
+        --cmake-extra-defines OCOS_ENABLE_SELECTED_OPLIST=ON
     displayName: "Build xcframework"
 
   - script: |

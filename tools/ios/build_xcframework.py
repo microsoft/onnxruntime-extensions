@@ -35,7 +35,7 @@ def _get_opencv_toolchain_file(platform: str, opencv_dir: Path):
 def _run(cmd_args: List[str], **kwargs):
     import shlex
 
-    print(f"Running command:\n  {shlex.join(cmd_args)}")
+    print(f"Running command:\n  {shlex.join(cmd_args)}", flush=True)
     subprocess.run(cmd_args, check=True, **kwargs)
 
 
@@ -205,13 +205,12 @@ def parse_args():
         "If no pairs are specified, all supported pairs will be built.",
     )
     parser.add_argument(
-        "--cmake-extra-define",
-        "-D",
+        "--cmake-extra-defines",
         action="append",
+        nargs="+",
         default=[],
-        metavar="CMAKE_EXTRA_DEFINE",
-        dest="cmake_extra_defines",
-        help="Extra definition to pass to CMake (with the CMake -D option) during build system generation.",
+        help="Extra definition(s) to pass to CMake (with the CMake -D option) during build system generation. "
+        "E.g., `--cmake-extra-defines OPTION1=ON OPTION2=OFF --cmake-extra-defines OPTION3=ON`.",
     )
 
     args = parser.parse_args()
@@ -238,6 +237,9 @@ def parse_args():
         return platform_archs
 
     args.platform_archs = platform_archs_from_args(args.platform_archs)
+
+    # convert from List[List[str]] to List[str]
+    args.cmake_extra_defines = [element for inner_list in args.cmake_extra_defines for element in inner_list]
 
     return args
 
