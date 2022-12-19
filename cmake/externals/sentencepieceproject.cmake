@@ -1,23 +1,22 @@
+# spm is abbreviation of sentencepiece to meet the path length limits on Windows
+
+set(spm_patches
+    # use protobuf provided by ORT
+    "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.protobuf.patch"
+    # fix for iOS build
+    "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.ios.patch"
+    )
+
 FetchContent_Declare(
   spm
   GIT_REPOSITORY https://github.com/google/sentencepiece.git
   GIT_TAG v0.1.96
+  PATCH_COMMAND git checkout . && git apply --ignore-space-change --ignore-whitespace ${spm_patches}
 )
-# spm is abbr. of sentencepiece to meet the MAX_PATH compiling requirement on Windows
 FetchContent_GetProperties(spm)
 
 if(NOT spm_POPULATED)
   FetchContent_Populate(spm)
-  # 'git apply' should be in FetchContent_Declare() but that creates issues in sucessive builds so for now it is using execute_process().
-  foreach(SPM_PATCH IN ITEMS
-          # use protobuf provided by ORT
-          "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.protobuf.patch"
-          # fix for iOS build
-          "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.ios.patch"
-          )
-    message("-- sentencepiece: patching with ${SPM_PATCH}")
-    execute_process(COMMAND git apply --ignore-space-change --ignore-whitespace ${SPM_PATCH} WORKING_DIRECTORY ${spm_SOURCE_DIR})
-  endforeach()
   add_subdirectory(${spm_SOURCE_DIR} ${spm_BINARY_DIR} EXCLUDE_FROM_ALL)
   set_target_properties(sentencepiece-static PROPERTIES
     FOLDER externals/google/sentencepiece)
