@@ -1,11 +1,16 @@
 # spm is abbreviation of sentencepiece to meet the path length limits on Windows
 
-set(spm_patches
-    # use protobuf provided by ORT
-    "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.protobuf.patch"
-    # fix for iOS build
-    "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.ios.patch"
-    )
+set(spm_patches)
+
+if(_ONNXRUNTIME_EMBEDDED)
+  # use protobuf provided by ORT
+  list(APPEND spm_patches "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.protobuf.patch")
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+  # fix for iOS build
+  list(APPEND spm_patches "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.ios.patch")
+endif()
 
 FetchContent_Declare(
   spm
@@ -22,7 +27,7 @@ if(NOT spm_POPULATED)
     FOLDER externals/google/sentencepiece)
 endif()
 
-if (onnxruntime_BUILD_WEBASSEMBLY)
+if(_ONNXRUNTIME_EMBEDDED)
   set(SPM_USE_BUILTIN_PROTOBUF OFF)
   set(spm_INCLUDE_DIRS
     ${REPO_ROOT}/cmake/external/protobuf/src
