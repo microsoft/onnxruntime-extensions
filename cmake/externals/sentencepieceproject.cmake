@@ -7,7 +7,7 @@ if(_ONNXRUNTIME_EMBEDDED)
   list(APPEND spm_patches "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.protobuf.patch")
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+if(IOS)
   # fix for iOS build
   list(APPEND spm_patches "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.ios.patch")
 endif()
