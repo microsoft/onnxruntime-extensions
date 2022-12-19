@@ -830,19 +830,19 @@ class TestPythonOpString(unittest.TestCase):
     def enumerate_matrix_couples(self):
         for i in range(1, 5):
             shape = (3,) * i
-            a = (np.random.rand(*shape) * 10).astype(np.int32).astype(np.str_)
+            a = (np.random.rand(*shape) * 10).astype(np.int32).astype(str)
             yield a, a
             for j in range(i):
                 shape2 = list(shape)
                 shape2[j] = 1
                 b = (np.random.rand(*shape2) * 10).astype(
-                    np.int32).astype(np.str_)
+                    np.int32).astype(str)
                 yield a, b
                 for k in range(j+1, i):
                     shape3 = list(shape2)
                     shape3[k] = 1
                     b = (np.random.rand(*shape3) * 10).astype(
-                        np.int32).astype(np.str_)
+                        np.int32).astype(str)
                     yield a, b
 
     def test_string_equal_python(self):
