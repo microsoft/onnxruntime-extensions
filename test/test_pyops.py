@@ -147,7 +147,7 @@ class TestPythonOp(unittest.TestCase):
             res = []
             for x in xs:
                 res.append(sep.join(x))
-            return np.array(res, dtype=np.object_)
+            return np.array(res, dtype=object)
 
     def test_python_operator(self):
         so = _ort.SessionOptions()
@@ -222,9 +222,9 @@ class TestPythonOp(unittest.TestCase):
         onnx_model = _create_test_join()
         self.assertIn('op_type: "PyOpJoin"', str(onnx_model))
         sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
-        arr = np.array([["a", "b"]], dtype=np.object_)
+        arr = np.array([["a", "b"]], dtype=object)
         txout = sess.run(None, {'input_1': arr})
-        exp = np.array(["a;b"], dtype=np.object_)
+        exp = np.array(["a;b"], dtype=object)
         assert txout[0][0] == exp[0]
 
 

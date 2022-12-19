@@ -1117,7 +1117,7 @@ class TestPythonOpString(unittest.TestCase):
         cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so)
 
         inputs = dict(text=np.array(["unwanted running",
-                                     "unwantedX running"], dtype=np.object_))
+                                     "unwantedX running"], dtype=object))
         cc_txout = cc_sess.run(None, inputs)
         exp = [np.array(['un', '##want', '##ed', 'runn', '##ing',
                          'un', '##want', '##ed', '[UNK]', 'runn', '##ing']),

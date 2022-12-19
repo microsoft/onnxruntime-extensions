@@ -298,7 +298,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         inputs = dict(
             model=model,
             inputs=np.array(
-                ["Hello world", "Hello world louder"], dtype=np.object_),
+                ["Hello world", "Hello world louder"], dtype=object),
             nbest_size=np.array([0], dtype=np.int64),
             alpha=np.array([0], dtype=np.float32),
             add_bos=np.array([0], dtype=np.bool_),
@@ -321,7 +321,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         inputs = dict(
             model=model,
             inputs=np.array(
-                ["Hello world", "Hello world louder"], dtype=np.object_),
+                ["Hello world", "Hello world louder"], dtype=object),
             nbest_size=np.array([0], dtype=np.int64),
             alpha=np.array([0], dtype=np.float32),
             add_bos=np.array([0], dtype=np.bool_),
@@ -346,7 +346,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         inputs = dict(
             model=model,
             inputs=np.array(
-                ["Hello world", "Hello world louder"], dtype=np.object_),
+                ["Hello world", "Hello world louder"], dtype=object),
             nbest_size=np.array([0], dtype=np.int64),
             alpha=np.array([0], dtype=np.float32),
             add_bos=np.array([0], dtype=np.bool_),
@@ -380,7 +380,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
                             model=model,
                             inputs=np.array(
                                 ["Hello world", "Hello world louder"],
-                                dtype=np.object_),
+                                dtype=object),
                             nbest_size=np.array(
                                 [nbest_size], dtype=np.int64),
                             alpha=np.array([alpha], dtype=np.float32),
@@ -415,7 +415,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
             model=model,
             inputs=np.array(
                 ["Hello world", "Hello world louder"],
-                dtype=np.object_),
+                dtype=object),
             nbest_size=np.array(
                 [nbest_size], dtype=np.int64),
             alpha=np.array([alpha], dtype=np.float32),
