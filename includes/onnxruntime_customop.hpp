@@ -99,7 +99,7 @@ struct CustomOpApi {
 template <typename TOp, typename TKernel>
 struct CustomOpBase : OrtCustomOp {
   CustomOpBase() {
-    OrtCustomOp::version = ORT_API_VERSION;
+    OrtCustomOp::version = 10;  // The minimum ORT version supported
     OrtCustomOp::CreateKernel = [](const OrtCustomOp* this_, const OrtApi* api, const OrtKernelInfo* info) { return static_cast<const TOp*>(this_)->CreateKernel(*api, info); };
     OrtCustomOp::GetName = [](const OrtCustomOp* this_) { return static_cast<const TOp*>(this_)->GetName(); };
 
