@@ -830,19 +830,19 @@ class TestPythonOpString(unittest.TestCase):
     def enumerate_matrix_couples(self):
         for i in range(1, 5):
             shape = (3,) * i
-            a = (np.random.rand(*shape) * 10).astype(np.int32).astype(np.str)
+            a = (np.random.rand(*shape) * 10).astype(np.int32).astype(np.str_)
             yield a, a
             for j in range(i):
                 shape2 = list(shape)
                 shape2[j] = 1
                 b = (np.random.rand(*shape2) * 10).astype(
-                    np.int32).astype(np.str)
+                    np.int32).astype(np.str_)
                 yield a, b
                 for k in range(j+1, i):
                     shape3 = list(shape2)
                     shape3[k] = 1
                     b = (np.random.rand(*shape3) * 10).astype(
-                        np.int32).astype(np.str)
+                        np.int32).astype(np.str_)
                     yield a, b
 
     def test_string_equal_python(self):
@@ -1117,7 +1117,7 @@ class TestPythonOpString(unittest.TestCase):
         cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so)
 
         inputs = dict(text=np.array(["unwanted running",
-                                     "unwantedX running"], dtype=np.object))
+                                     "unwantedX running"], dtype=np.object_))
         cc_txout = cc_sess.run(None, inputs)
         exp = [np.array(['un', '##want', '##ed', 'runn', '##ing',
                          'un', '##want', '##ed', '[UNK]', 'runn', '##ing']),
