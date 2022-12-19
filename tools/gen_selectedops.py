@@ -2,6 +2,7 @@
 
 import argparse
 import pathlib
+import sys
 
 OPMAP_TO_CMAKE_FLAGS = {
     "BlingFireSentenceBreaker": "OCOS_ENABLE_BLINGFIRE",
@@ -29,17 +30,26 @@ OPMAP_TO_CMAKE_FLAGS = {
     "BasicTokenizer": "OCOS_ENABLE_BERT_TOKENIZER",
     "BertTokenizerDecoder": "OCOS_ENABLE_BERT_TOKENIZER",
     "SentencepieceTokenizer": "OCOS_ENABLE_SPM_TOKENIZER",
-    "ImageDecode": "OCOS_ENABLE_VISION",
-    "ImageEncode": "OCOS_ENABLE_VISION",
+    "DecodeImage": "OCOS_ENABLE_VISION",
+    "EncodeImage": "OCOS_ENABLE_VISION",
 }
 
+SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()
+GENERATED_CMAKE_CONFIG_FILE = SCRIPT_DIR.parent / "cmake/_selectedoplist.cmake"
 
-def gen_cmake_oplist(opconfig_file, oplist_cmake_file):
+
+def gen_cmake_oplist(opconfig_file):
+    print(
+        "[onnxruntime-extensions] Generating CMake config file '{}' from op config file '{}'".format(
+            GENERATED_CMAKE_CONFIG_FILE, args.selected_op_config_file
+        )
+    )
+
     ext_domain = "ai.onnx.contrib"  # default_opset_domain()
     new_ext_domain = "com.microsoft.extensions"
     ext_domain_cnt = 0
     cmake_options = set()
-    with open(oplist_cmake_file, "w") as f:
+    with open(GENERATED_CMAKE_CONFIG_FILE, "w") as f:
         print("# Auto-Generated File, please do not edit!!!", file=f)
         with open(opconfig_file, "r") as opfile:
             for _ln in opfile:
@@ -64,7 +74,8 @@ def gen_cmake_oplist(opconfig_file, oplist_cmake_file):
     if ext_domain_cnt == 0:
         print(
             "[onnxruntime-extensions] warning: lines starting with extension domains of ai.onnx.contrib or "
-            "com.microsoft.extensions in operators config file is 0"
+            "com.microsoft.extensions in operators config file is 0",
+            file=sys.stderr,
         )
 
     print("[onnxruntime-extensions] The cmake tool file has been generated successfully.")
@@ -89,11 +100,4 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    script_dir = pathlib.Path(__file__).parent.resolve()
-    target_cmake_path = script_dir.parent / "cmake/_selectedoplist.cmake"
-    print(
-        "[onnxruntime-extensions] Generating '{}' from config file '{}'".format(
-            target_cmake_path, args.selected_op_config_file
-        )
-    )
-    gen_cmake_oplist(args.selected_op_config_file, target_cmake_path)
+    gen_cmake_oplist(args.selected_op_config_file)
