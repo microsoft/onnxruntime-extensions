@@ -2,7 +2,9 @@ if(_ONNXRUNTIME_EMBEDDED)
   set(ONNXRUNTIME_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/../include/onnxruntime/core/session)
   set(ONNXRUNTIME_LIB_DIR "")
 else()
-  set(ONNXRUNTIME_VER "1.10.0" CACHE STRING "ONNX Runtime version")
+  if (NOT ONNXRUNTIME_VER)
+    set(ONNXRUNTIME_VER "1.10.0" CACHE STRING "ONNX Runtime version")
+  endif()
 
   if(CMAKE_HOST_APPLE)
     set(ONNXRUNTIME_URL "v${ONNXRUNTIME_VER}/onnxruntime-osx-universal2-${ONNXRUNTIME_VER}.tgz")
@@ -31,6 +33,7 @@ else()
     onnxruntime
     URL https://github.com/microsoft/onnxruntime/releases/download/${ONNXRUNTIME_URL}
   )
+
   FetchContent_makeAvailable(onnxruntime)
   set(ONNXRUNTIME_INCLUDE_DIR ${onnxruntime_SOURCE_DIR}/include)
   set(ONNXRUNTIME_LIB_DIR ${onnxruntime_SOURCE_DIR}/lib)

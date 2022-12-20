@@ -98,11 +98,12 @@ def _parse_arguments():
                              "  e.g. --cmake_extra_defines \"Name1=the value\" Name2=value2")
 
     # Test options
-    parser.add_argument("--enable_unit_tests", action="store_true",
-                        help="Enable the C++ unit tests. onnxruntime_lib_dir must also be provided.")
+    parser.add_argument("--enable_cxx_tests", action="store_true", help="Enable the C++ unit tests.")
+    parser.add_argument("--onnxruntime_version", type=str,
+                        help="ONNX Runtime version to fetch for headers and library. Default is 1.10.0.")
     parser.add_argument("--onnxruntime_lib_dir", type=Path,
-                        help="Path to directory containing the pre-built ONNX Runtime library. "
-                             "Required if enable_unit_tests is True.")
+                        help="Path to directory containing the pre-built ONNX Runtime library if you do not want to "
+                             "use the library from the ONNX Runtime release package that is fetched by default.")
     # ARM options
     parser.add_argument("--arm", action="store_true",
                         help="[cross-compiling] Create ARM makefiles. Requires --update and no existing cache "
@@ -114,8 +115,6 @@ def _parse_arguments():
                         help="[cross-compiling] Create ARM64EC makefiles. Requires --update and no existing cache "
                              "CMake setup. Delete CMakeCache.txt if needed")
 
-    # parser.add_argument("--msvc_toolset", help="MSVC toolset to use. e.g. 14.11")
-
     # Android options
     parser.add_argument("--android", action="store_true", help="Build for Android")
     parser.add_argument("--android_abi", default="arm64-v8a", choices=["armeabi-v7a", "arm64-v8a", "x86", "x86_64"],
@@ -126,11 +125,10 @@ def _parse_arguments():
     parser.add_argument("--android_ndk_path", type=Path, default=os.environ.get("ANDROID_NDK_HOME"),
                         help="Path to the Android NDK. Typically `<Android SDK>/ndk/<ndk_version>")
 
-    # iOS options
+    # macOS/iOS options
     parser.add_argument("--build_apple_framework", action="store_true",
                         help="Build a macOS/iOS framework for the ONNXRuntime.")
-
-    parser.add_argument("--ios", action="store_true", help="build for ios")
+    parser.add_argument("--ios", action="store_true", help="build for iOS")
     parser.add_argument("--ios_sysroot", default="",
                         help="Specify the name of the platform SDK to be used. e.g. iphoneos, iphonesimulator")
     parser.add_argument("--ios_toolchain_file", default=f"{REPO_DIR}/cmake/ortext_ios.toolchain.cmake", type=Path,
@@ -139,59 +137,45 @@ def _parse_arguments():
                         help="The development team ID used for code signing in Xcode")
     parser.add_argument("--xcode_code_signing_identity", default="",
                         help="The development identity used for code signing in Xcode")
-    parser.add_argument("--use_xcode", action="store_true",
-                        help="Use Xcode as cmake generator, this is only supported on MacOS.")
     parser.add_argument("--osx_arch", default="arm64" if platform.machine() == "arm64" else "x86_64",
                         choices=["arm64", "arm64e", "x86_64"],
                         help="Specify the Target specific architectures for macOS and iOS. "
-                             "This is only supported on MacOS")
+                             "This is only supported on macOS")
     parser.add_argument("--apple_deploy_target", type=str,
                         help="Specify the minimum version of the target platform (e.g. macOS or iOS). "
-                             "This is only supported on MacOS")
+                             "This is only supported on macOS")
 
     # WebAssembly options
-    parser.add_argument("--build_wasm", action="store_true", help="Build for WebAssembly")
-    parser.add_argument("--build_wasm_static_lib", action="store_true", help="Build for WebAssembly static library")
-
-    parser.add_argument("--enable_wasm_simd", action="store_true", help="Enable WebAssembly SIMD")
-    parser.add_argument("--enable_wasm_threads", action="store_true", help="Enable WebAssembly multi-threads support")
-
-    parser.add_argument("--disable_wasm_exception_catching", action="store_true",
-                        help="Disable exception catching in WebAssembly.")
-    parser.add_argument("--enable_wasm_exception_throwing_override", action="store_true",
-                        help="Enable exception throwing in WebAssembly, this will override default disabling exception "
-                             "throwing behavior when disable exceptions.")
-
-    parser.add_argument("--enable_wasm_debug_info", action="store_true",
-                        help="Build WebAssembly with DWARF format debug info")
-
-    parser.add_argument("--emsdk_version", default="3.1.19", help="Specify version of emsdk")
-    parser.add_argument("--emscripten_settings", nargs="+", action="append",
-                        help="Extra emscripten settings to pass to emcc using '-s <key>=<value>' during build.")
+    parser.add_argument("--wasm", action="store_true", help="Build for WebAssembly")
+    parser.add_argument("--emsdk_path", type=Path,
+                        help="Specify path to emscripten SDK. Setup manually with: "                         
+                             "  git clone https://github.com/emscripten-core/emsdk")
+    parser.add_argument("--emsdk_version", default="3.1.26", help="Specify version of emsdk")
 
     # x86 args
-    # TODO: Are these needed?
     parser.add_argument("--x86", action="store_true",
                         help="[cross-compiling] Create Windows x86 makefiles. Requires --update and no existing cache "
                              "CMake setup. Delete CMakeCache.txt if needed")
 
     # Arguments needed by CI
     parser.add_argument("--cmake_path", default="cmake", type=Path, help="Path to the CMake program.")
-
     parser.add_argument("--ctest_path", default="ctest",
                         help="Optional path to the CTest program. If not provided the test programs will be run "
                              "directly.",
     )
     parser.add_argument("--cmake_generator",
-                        choices=["Visual Studio 16 2019", "Visual Studio 17 2022", "Ninja"],
-                        default="Visual Studio 17 2022" if is_windows() else None,
-                        help="Specify the generator that CMake invokes. This is only supported on Windows")
+                        choices=["Visual Studio 16 2019", "Visual Studio 17 2022", "Ninja", "Unix Makefiles", "Xcode"],
+                        default="Visual Studio 17 2022" if is_windows() else "Xcode" if is_macOS() else None,
+                        help="Specify the generator that CMake invokes to override the default.")
 
     # Binary size reduction options
     parser.add_argument("--include_ops_by_config", type=Path,
                         help="Only include ops specified in the build that are listed in this config file. "
                              "Format of config file is `domain;opset;op1,op2,... "
                              "  e.g. com.microsoft.extensions;1;ImageDecode,ImageEncode")
+
+    parser.add_argument("--disable_exceptions", action="store_true",
+                        help="Disable exceptions to reduce binary size.")
 
     args = parser.parse_args()
 
@@ -211,7 +195,9 @@ def _parse_arguments():
             target_sys = "arm64ec"
         elif platform.system() == "Darwin":
             # also tweak name for mac builds
-            target_sys = "MacOS"
+            target_sys = "macOS"
+        elif args.wasm:
+            target_sys = "wasm"
 
         args.build_dir = Path("build/" + target_sys)
 
@@ -275,13 +261,12 @@ def _is_cross_compiling_on_apple(args):
     return False
 
 
-def _validate_unit_test_args(args):
-    if not args.onnxruntime_lib_dir:
-        raise UsageError("onnxruntime_lib_dir must be specified if enable_unit_tests is True")
-
-    ort_lib_dir = args.onnxruntime_lib_dir.resolve(strict=True)
-    if not ort_lib_dir.is_dir():
-        raise UsageError("onnxruntime_lib_dir must be a directory")
+def _validate_cxx_test_args(args):
+    ort_lib_dir = None
+    if args.onnxruntime_lib_dir:
+        ort_lib_dir = args.onnxruntime_lib_dir.resolve(strict=True)
+        if not ort_lib_dir.is_dir():
+            raise UsageError("onnxruntime_lib_dir must be a directory")
 
     return ort_lib_dir
 
@@ -290,6 +275,18 @@ def _generate_selected_ops_config(config_file: Path):
     config_file.resolve(strict=True)
     script = REPO_DIR / "tools" / "gen_selectedops.py"
     _run_subprocess([sys.executable, str(script), str(config_file)])
+
+
+def _setup_emscripten(args):
+    if not args.emsdk_path:
+        raise UsageError("emsdk_path must be specified for wasm build")
+
+    emsdk_file = str((args.emsdk_path / ("emsdk.bat" if is_windows() else "emsdk")).resolve(strict=True))
+
+    log.info("Installing emsdk...")
+    _run_subprocess([emsdk_file, "install", args.emsdk_version], cwd=args.emsdk_path)
+    log.info("Activating emsdk...")
+    _run_subprocess([emsdk_file, "activate", args.emsdk_version], cwd=args.emsdk_path)
 
 
 def _generate_build_tree(cmake_path: Path,
@@ -305,38 +302,20 @@ def _generate_build_tree(cmake_path: Path,
     cmake_args = [
         str(cmake_path),
         str(source_dir),
-        # There are two ways of locating python C API header file. "find_package(PythonLibs 3.5 REQUIRED)"
-        # and "find_package(Python 3.5 COMPONENTS Development.Module)". The first one is deprecated and it
-        # depends on the "PYTHON_EXECUTABLE" variable. The second needs "Python_EXECUTABLE". Here we set both
-        # of them to get the best compatibility.
+        # Define Python_EXECUTABLE so find_package(python3 ...) will use the same version of python being used to
+        # run this script
         "-DPython_EXECUTABLE=" + sys.executable,
-        "-DPYTHON_EXECUTABLE=" + sys.executable,
-        "-DOCOS_BUILD_APPLE_FRAMEWORK=" + ("ON" if args.build_apple_framework else "OFF"),
-        # By default - we currently support only cross compiling for ARM/ARM64
-        # (no native compilation supported through this script).
-        "-DOCOS_CROSS_COMPILING=" + ("ON" if args.arm64 or args.arm64ec or args.arm else "OFF"),
         "-DOCOS_ENABLE_SELECTED_OPLIST=" + ("ON" if _is_reduced_ops_build(args) else "OFF"),
     ]
 
-    if args.enable_unit_tests:
-        ort_lib_dir = _validate_unit_test_args(args)
-        cmake_args += [
-            "-DOCOS_ENABLE_CTEST=ON",
-            "-DONNXRUNTIME_LIB_DIR=" + str(ort_lib_dir)
-        ]
+    if args.enable_cxx_tests:
+        cmake_args.append("-DOCOS_ENABLE_CTEST=ON")
+        ort_lib_dir = _validate_cxx_test_args(args)
+        if ort_lib_dir:
+            cmake_args.append(f"-DONNXRUNTIME_LIB_DIR={str(ort_lib_dir)}")
 
-    if args.build_wasm:
-        cmake_args += [
-            "-DOCOS_BUILD_WEBASSEMBLY=" + ("ON" if args.build_wasm else "OFF"),
-            "-DOCOS_BUILD_WEBASSEMBLY_STATIC_LIB=" + ("ON" if args.build_wasm_static_lib else "OFF"),
-            "-DOCOS_ENABLE_WEBASSEMBLY_EXCEPTION_CATCHING="
-            + ("OFF" if args.disable_wasm_exception_catching else "ON"),
-            "-DOCOS_ENABLE_WEBASSEMBLY_EXCEPTION_THROWING="
-            + ("ON" if args.enable_wasm_exception_throwing_override else "OFF"),
-            "-DOCOS_ENABLE_WEBASSEMBLY_THREADS=" + ("ON" if args.enable_wasm_threads else "OFF"),
-            "-DOCOS_ENABLE_WEBASSEMBLY_DEBUG_INFO=" + ("ON" if args.enable_wasm_debug_info else "OFF"),
-            "-DOCOS_ENABLE_WEBASSEMBLY_SIMD=" + ("ON" if args.enable_wasm_simd else "OFF")
-        ]
+        if args.onnxruntime_version:
+            cmake_args.append(f"-DONNXRUNTIME_VER={args.onnxruntime_version}")
 
     if args.android:
         if not args.android_ndk_path:
@@ -361,15 +340,16 @@ def _generate_build_tree(cmake_path: Path,
             "-DANDROID_ABI=" + str(args.android_abi)
         ]
 
+    if is_macOS():
+        cmake_args.append("-DOCOS_BUILD_APPLE_FRAMEWORK=" + ("ON" if args.build_apple_framework else "OFF"))
+
     if args.ios:
         required_args = [
-            args.use_xcode,
             args.ios_sysroot,
             args.apple_deploy_target,
         ]
 
         arg_names = [
-            "--use_xcode            " + "<need use xcode to cross build iOS on MacOS>",
             "--ios_sysroot          " + "<the location or name of the macOS platform SDK>",
             "--apple_deploy_target  " + "<the minimum version of the target platform>",
         ]
@@ -385,27 +365,31 @@ def _generate_build_tree(cmake_path: Path,
             "-DCMAKE_TOOLCHAIN_FILE=" + str(args.ios_toolchain_file.resolve(strict=True)),
         ]
 
-    if args.build_wasm:
-        emsdk_dir = source_dir / "cmake" / "external" / "emsdk"
-        emscripten_cmake_toolchain_file = \
-            emsdk_dir / "upstream" / "emscripten" / "cmake" / "Modules" / "Platform" / "Emscripten.cmake"
+    if args.wasm:
+        emsdk_toolchain = (args.emsdk_path / "upstream" / "emscripten" / "cmake" / "Modules" / "Platform" /
+                          "Emscripten.cmake").resolve()
+        if not emsdk_toolchain.exists():
+            raise UsageError(f"Emscripten toolchain file was not found at {str(emsdk_toolchain)}")
 
-        cmake_args += ["-DCMAKE_TOOLCHAIN_FILE=" + str(emscripten_cmake_toolchain_file)]
+        # some things aren't currently supported with wasm so disable
+        # TODO: Might be cleaner to do a selected ops build and enable/disable things via that.
+        #       For now replicating the config from .az/mshost.yaml for the WebAssembly job.
+        cmake_args += [
+            "-DCMAKE_TOOLCHAIN_FILE=" + str(emsdk_toolchain),
+            "-DOCOS_ENABLE_SPM_TOKENIZER=ON",
+            "-DOCOS_BUILD_PYTHON=OFF",
+            "-DOCOS_ENABLE_CV2=OFF",
+            "-DOCOS_ENABLE_VISION=OFF"
+        ]
 
-        # add default emscripten settings
-        emscripten_settings = _flatten_arg_list(args.emscripten_settings)
-
-        if emscripten_settings:
-            cmake_args += [f"-DOCOS_EMSCRIPTEN_SETTINGS={';'.join(emscripten_settings)}"]
+    if args.disable_exceptions:
+        cmake_args.append("-DOCOS_ENABLE_CPP_EXCEPTIONS=OFF")
 
     cmake_args += ["-D{}".format(define) for define in cmake_extra_defines]
-
     cmake_args += cmake_extra_args
 
     for config in configs:
         config_build_dir = _get_build_config_dir(build_dir, config)
-        os.makedirs(config_build_dir, exist_ok=True)
-
         _run_subprocess(cmake_args + [f"-DCMAKE_BUILD_TYPE={config}"], cwd=config_build_dir)
 
 
@@ -419,7 +403,6 @@ def clean_targets(cmake_path, build_dir: Path, configs: Set[str]):
 
 
 def build_targets(args, cmake_path: Path, build_dir: Path, configs: Set[str], num_parallel_jobs: int):
-
     env = {}
     if args.android:
         env["ANDROID_HOME"] = str(args.android_home)
@@ -432,7 +415,7 @@ def build_targets(args, cmake_path: Path, build_dir: Path, configs: Set[str], nu
 
         build_tool_args = []
         if num_parallel_jobs != 1:
-            if is_windows() and args.cmake_generator != "Ninja" and not args.build_wasm:
+            if is_windows() and args.cmake_generator != "Ninja" and not args.wasm:
                 build_tool_args += [
                     "/maxcpucount:{}".format(num_parallel_jobs),
                     # if nodeReuse is true, msbuild processes will stay around for a bit after the build completes
@@ -486,7 +469,6 @@ def _run_cxx_tests(args, build_dir: Path, configs: Set[str]):
         if ctest_path:
             ctest_cmd = [str(ctest_path), "--build-config", config, "--verbose", "--timeout", "10800"]
             _run_subprocess(ctest_cmd, cwd=cwd)
-
         else:
             if is_windows():
                 # Get the "Google Test Adapter" for vstest.
@@ -513,9 +495,11 @@ def _run_cxx_tests(args, build_dir: Path, configs: Set[str]):
                     str(test_dir / "ocos_test.exe")
                 ]
 
+                # run this script from a VS dev shell so vstest.console.exe is found via PATH
+                vstest_exe = _resolve_executable_path("vstest.console.exe")
                 _run_subprocess(
                     [
-                        "vstest.console.exe",  # must be in the PATH. run this script from a VS dev shell.
+                        vstest_exe,
                         "--parallel",
                         f"--TestAdapterPath:{str(adapter)}",
                         "/Logger:trx",
@@ -538,7 +522,7 @@ def main():
 
     args = _parse_arguments()
     cmake_extra_defines = _flatten_arg_list(args.cmake_extra_defines)
-    cross_compiling = args.arm or args.arm64 or args.arm64ec or args.android
+    cross_compiling = args.arm or args.arm64 or args.arm64ec or args.android or args.wasm
 
     # If there was no explicit argument saying what to do, default
     # to update, build and test (for native builds).
@@ -553,16 +537,6 @@ def main():
 
     if args.skip_tests:
         args.test = False
-
-    if args.build_wasm_static_lib:
-        args.build_wasm = True
-
-    if args.build_wasm:
-        if not args.disable_wasm_exception_catching and args.disable_exceptions:
-            # When '--disable_exceptions' is set, we set '--disable_wasm_exception_catching' as well
-            args.disable_wasm_exception_catching = True
-        if args.test and args.disable_wasm_exception_catching and not args.minimal_build:
-            raise UsageError("WebAssembly tests need exception catching enabled to run if it's not minimal build")
 
     if args.android and is_windows():
         if args.cmake_generator != "Ninja":
@@ -580,6 +554,9 @@ def main():
         for config in configs:
             os.makedirs(_get_build_config_dir(build_dir, config), exist_ok=True)
 
+    if args.wasm:
+        _setup_emscripten(args)
+
     log.info("Build started")
 
     if args.update:
@@ -591,7 +568,7 @@ def main():
 
         if is_windows():
             cpu_arch = platform.architecture()[0]
-            if args.build_wasm:
+            if args.wasm:
                 cmake_extra_args = ["-G", "Ninja"]
             elif args.cmake_generator == "Ninja":
                 if cpu_arch == "32bit" or args.arm or args.arm64 or args.arm64ec:
@@ -607,6 +584,7 @@ def main():
                     cmake_extra_args = ["-A", "ARM64"]
                 elif args.arm64ec:
                     cmake_extra_args = ["-A", "ARM64EC"]
+
                 cmake_extra_args += ["-G", args.cmake_generator]
 
                 # Cannot test on host build machine for cross-compiled
@@ -619,31 +597,18 @@ def main():
                 cmake_extra_args = ["-A", "Win32", "-T", "host=x64", "-G", args.cmake_generator]
             else:
                 toolset = "host=x64"
-
-                # TODO: Do we need the ability to specify the toolset?
+                # TODO: Do we need the ability to specify the toolset? If so need to add the msvc_toolset arg back in
                 # if args.msvc_toolset:
                 #     toolset += f",version={args.msvc_toolset}"
-
                 cmake_extra_args = ["-A", "x64", "-T", toolset, "-G", args.cmake_generator]
-        elif args.cmake_generator is not None and not (is_macOS() and args.use_xcode):
+        elif args.cmake_generator is not None:
             cmake_extra_args += ["-G", args.cmake_generator]
-        elif is_macOS():
-            if args.use_xcode:
-                cmake_extra_args += ["-G", "Xcode"]
+
+        if is_macOS():
             if not args.ios and not args.android and args.osx_arch == "arm64" and platform.machine() == "x86_64":
                 if args.test:
                     log.warning("Cannot test ARM64 build on X86_64. Will skip test running after build.")
                     args.test = False
-
-        if args.build_wasm:
-            emsdk_version = args.emsdk_version
-            emsdk_dir = REPO_DIR / "cmake" / "external" / "emsdk"
-            emsdk_file = emsdk_dir / "emsdk.bat" if is_windows() else emsdk_dir / "emsdk"
-
-            log.info("Installing emsdk...")
-            _run_subprocess([emsdk_file, "install", emsdk_version], cwd=emsdk_dir)
-            log.info("Activating emsdk...")
-            _run_subprocess([emsdk_file, "activate", emsdk_version], cwd=emsdk_dir)
 
         _generate_build_tree(
             cmake_path,
@@ -665,9 +630,8 @@ def main():
 
     if args.test:
         _run_python_tests()
-
-        if args.enable_unit_tests:
-            _validate_unit_test_args(args)
+        if args.enable_cxx_tests:
+            _validate_cxx_test_args(args)
             _run_cxx_tests(args, build_dir, configs)
 
     log.info("Build complete")
