@@ -29,6 +29,7 @@ OPMAP_TO_CMAKE_FLAGS = {
     'SentencepieceTokenizer': 'OCOS_ENABLE_SPM_TOKENIZER',
     'ImageDecode': 'OCOS_ENABLE_VISION',
     'ImageEncode': 'OCOS_ENABLE_VISION',
+    'GaussianBlur': 'OCOS_ENABLE_CV2'
 }
 
 
