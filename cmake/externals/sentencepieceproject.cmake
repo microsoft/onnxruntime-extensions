@@ -1,22 +1,25 @@
 # spm is abbreviation of sentencepiece to meet the path length limits on Windows
 
 set(spm_patches)
-
 if(_ONNXRUNTIME_EMBEDDED)
   # use protobuf provided by ORT
   list(APPEND spm_patches "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.protobuf.patch")
 endif()
-
 if(IOS)
   # fix for iOS build
   list(APPEND spm_patches "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.ios.patch")
+endif()
+
+set(spm_patch_command)
+if(spm_patches)
+  set(spm_patch_command git checkout . && git apply --ignore-space-change --ignore-whitespace ${spm_patches})
 endif()
 
 FetchContent_Declare(
   spm
   GIT_REPOSITORY https://github.com/google/sentencepiece.git
   GIT_TAG v0.1.96
-  PATCH_COMMAND git checkout . && git apply --ignore-space-change --ignore-whitespace ${spm_patches}
+  PATCH_COMMAND ${spm_patch_command}
 )
 FetchContent_GetProperties(spm)
 
