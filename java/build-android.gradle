@@ -21,7 +21,7 @@ def getVersionCode(String version){
 }
 
 project.buildDir = buildDir
-project.version = rootProject.file('../.version.txt').text.trim()
+project.version = rootProject.file('../version.txt').text.trim()
 project.group = "com.microsoft.onnxruntime"
 
 def mavenArtifactId = project.name + '-android'

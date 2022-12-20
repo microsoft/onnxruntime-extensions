@@ -11,7 +11,7 @@ struct KernelStringHash : BaseKernel {
   void Compute(OrtKernelContext* context);
 };
 
-struct CustomOpStringHash : Ort::CustomOpBase<CustomOpStringHash, KernelStringHash> {
+struct CustomOpStringHash : OrtW::CustomOpBase<CustomOpStringHash, KernelStringHash> {
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;
@@ -24,7 +24,7 @@ struct KernelStringHashFast : BaseKernel {
   void Compute(OrtKernelContext* context);
 };
 
-struct CustomOpStringHashFast : Ort::CustomOpBase<CustomOpStringHashFast, KernelStringHashFast> {
+struct CustomOpStringHashFast : OrtW::CustomOpBase<CustomOpStringHashFast, KernelStringHashFast> {
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

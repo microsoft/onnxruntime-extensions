@@ -1,4 +1,5 @@
+# include requirements.txt so pip has context to avoid installing incompatible dependencies
+-r requirements.txt
 pytest
-transformers  >= 4.9.2
+transformers     >= 4.9.2,<=4.24.0
 tensorflow_text  >=2.5.0
-protobuf>=3.12.2,<=3.20.1

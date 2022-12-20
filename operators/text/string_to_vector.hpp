@@ -36,7 +36,7 @@ struct KernelStringToVector : BaseKernel {
   std::shared_ptr<StringToVectorImpl> impl_;
 };
 
-struct CustomOpStringToVector : Ort::CustomOpBase<CustomOpStringToVector, KernelStringToVector> {
+struct CustomOpStringToVector : OrtW::CustomOpBase<CustomOpStringToVector, KernelStringToVector> {
   void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;

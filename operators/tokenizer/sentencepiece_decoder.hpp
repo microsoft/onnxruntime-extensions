@@ -16,7 +16,7 @@ struct KernelSentencepieceDecoder : BaseKernel {
     model_proto.ParseFromArray(model_blob.data(), static_cast<int>(model_blob.size()));
     sentencepiece::util::Status status = tokenizer_.Load(model_proto);
     if (!status.ok()){
-      ORT_CXX_API_THROW(MakeString(
+      ORTX_CXX_API_THROW(MakeString(
                             "Failed to create SentencePieceProcessor instance. Error code is ",
                             (int)status.code(), ". Message is '", status.error_message(), "'."),
                         ORT_INVALID_PROTOBUF);
@@ -29,7 +29,7 @@ struct KernelSentencepieceDecoder : BaseKernel {
     OrtTensorDimensions ids_dim(ort_, ids);
 
     if (!((ids_dim.size() == 1) || (ids_dim.size() == 2 && ids_dim[0] == 1))) {
-      ORT_CXX_API_THROW("[SentencePieceDecoder]: Expect ids dimension [n] or [1,n].", ORT_INVALID_GRAPH);
+      ORTX_CXX_API_THROW("[SentencePieceDecoder]: Expect ids dimension [n] or [1,n].", ORT_INVALID_GRAPH);
     }
 
     auto count = ids_dim[0];
@@ -41,7 +41,7 @@ struct KernelSentencepieceDecoder : BaseKernel {
                    [](auto _id) { return static_cast<int>(_id); });
     auto status = tokenizer_.Decode(tids, &decoded_string);
     if (!status.ok()){
-      ORT_CXX_API_THROW("[SentencePieceDecoder] model decoding failed.", ORT_RUNTIME_EXCEPTION);
+      ORTX_CXX_API_THROW("[SentencePieceDecoder] model decoding failed.", ORT_RUNTIME_EXCEPTION);
     }
 
     std::vector<std::string> result = {decoded_string};
@@ -53,7 +53,7 @@ struct KernelSentencepieceDecoder : BaseKernel {
   sentencepiece::SentencePieceProcessor tokenizer_;
 };
 
-struct CustomOpSentencepieceDecoder : Ort::CustomOpBase<CustomOpSentencepieceDecoder, KernelSentencepieceDecoder> {
+struct CustomOpSentencepieceDecoder : OrtW::CustomOpBase<CustomOpSentencepieceDecoder, KernelSentencepieceDecoder> {
   void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
     return CreateKernelImpl(api, info);
   }

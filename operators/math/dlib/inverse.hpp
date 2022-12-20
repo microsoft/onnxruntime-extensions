@@ -33,7 +33,7 @@ struct KernelInverse : BaseKernel {
   }
 };
 
-struct CustomOpInverse : Ort::CustomOpBase<CustomOpInverse, KernelInverse> {
+struct CustomOpInverse : OrtW::CustomOpBase<CustomOpInverse, KernelInverse> {
   const char* GetName() const {
     return "Inverse";
   }

@@ -11,7 +11,7 @@ struct KernelStringLower : BaseKernel {
   void Compute(OrtKernelContext* context);
 };
 
-struct CustomOpStringLower : Ort::CustomOpBase<CustomOpStringLower, KernelStringLower> {
+struct CustomOpStringLower : OrtW::CustomOpBase<CustomOpStringLower, KernelStringLower> {
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

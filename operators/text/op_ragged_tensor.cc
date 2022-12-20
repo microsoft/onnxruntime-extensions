@@ -11,7 +11,7 @@ void KernelRaggedTensorToSparse::Compute(OrtKernelContext* context) {
   OrtTensorDimensions d_length(ort_, n_elements);
 
   if (d_length.size() != 1)
-    ORT_CXX_API_THROW(MakeString(
+    ORTX_CXX_API_THROW(MakeString(
         "First input must have one dimension not ", d_length.size(), "."), ORT_INVALID_ARGUMENT);
   int64_t n_els = d_length[0] - 1;
   int64_t n_values = p_n_elements[n_els];
@@ -103,7 +103,7 @@ void KernelRaggedTensorToDense::Compute(OrtKernelContext* context) {
   for (int64_t i = 0; i < size - 1; ++i) {
     pos_end = pos + max_col;
     if (pos_end > shape_out_size)
-      ORT_CXX_API_THROW(MakeString(
+      ORTX_CXX_API_THROW(MakeString(
           "Unexpected index ", pos_end, " greather than ", shape_out[0], "x", shape_out[1],
           " - i=", i, " size=", size, "."), ORT_INVALID_ARGUMENT);
     for (j = p_indices[i]; j < p_indices[i + 1]; ++j, ++pos) {
@@ -161,7 +161,7 @@ void KernelStringRaggedTensorToDense::Compute(OrtKernelContext* context) {
   for (int64_t i = 0; i < size - 1; ++i) {
     pos_end = pos + max_col;
     if (pos_end > shape_out_size)
-      ORT_CXX_API_THROW(MakeString(
+      ORTX_CXX_API_THROW(MakeString(
           "Unexpected index ", pos_end, " greather than ", shape_out[0], "x", shape_out[1],
           " - i=", i, " size=", size, "."), ORT_INVALID_ARGUMENT);
     for (j = p_indices[i]; j < p_indices[i + 1]; ++j, ++pos) {
@@ -203,6 +203,6 @@ ONNXTensorElementDataType CustomOpStringRaggedTensorToDense::GetInputType(size_t
     case 3:
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
     default:
-      ORT_CXX_API_THROW(MakeString("[StringRaggedTensorToDense] Unexpected output index ", index, "."), ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW(MakeString("[StringRaggedTensorToDense] Unexpected output index ", index, "."), ORT_INVALID_ARGUMENT);
   }
 };

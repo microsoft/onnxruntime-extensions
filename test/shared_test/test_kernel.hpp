@@ -4,6 +4,7 @@
 #pragma once
 
 #include <math.h>
+#include "onnxruntime_cxx_api.h"
 
 const char* GetLibraryPath();
 

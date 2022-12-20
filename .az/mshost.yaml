@@ -59,7 +59,7 @@ jobs:
         displayName: Unpack ONNXRuntime package.
 
       - script: |
-          CPU_NUMBER=2 sh ./build.sh -DONNXRUNTIME_LIB_DIR=onnxruntime-linux-x64-$(ort.version)/lib -DOCOS_ENABLE_CTEST=ON
+          CPU_NUMBER=2 sh ./build.sh -DOCOS_ENABLE_CTEST=ON
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -98,7 +98,7 @@ jobs:
 
   - job: MacOSX
     pool:
-      vmImage: 'macOS-latest'
+      vmImage: 'macOS-12'
 
     strategy:
       matrix:
@@ -139,7 +139,7 @@ jobs:
         displayName: Unpack ONNXRuntime package.
 
       - script: |
-          sh ./build.sh -DONNXRUNTIME_LIB_DIR=$(ort.dirname)/lib -DOCOS_ENABLE_CTEST=ON
+          sh ./build.sh -DOCOS_ENABLE_CTEST=ON
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -153,7 +153,7 @@ jobs:
 
   - job: MacOSWheel
     pool:
-      vmImage: 'macOS-11'
+      vmImage: 'macOS-12'
 
     strategy:
       matrix:
@@ -266,7 +266,7 @@ jobs:
 
       - script: |
           call $(vsdevcmd)
-          call .\build.bat -DONNXRUNTIME_LIB_DIR=.\onnxruntime-win-x64-$(ort.version)\lib -DOCOS_ENABLE_CTEST=ON
+          call .\build.bat -DOCOS_ENABLE_CTEST=ON
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -381,7 +381,7 @@ jobs:
   #############
   - job: AndroidPackage
     pool:
-      vmImage: 'macOS-11'
+      vmImage: 'macOS-12'
     timeoutInMinutes: 120
     variables:
       OnnxruntimeDirectory: cmake/external/onnxruntime
@@ -424,3 +424,64 @@ jobs:
           ./gradlew --no-daemon clean connectedDebugAndroidTest
         displayName: Run extensions unit test with Android Emulator
         workingDirectory: $(Build.sourcesdirectory)
+           
+    #  - script: |
+    #      set -e -x
+    #      cd out/android/Release/java/androidtest/android
+          
+    #      appcenter test run espresso \
+    #      --app "AI-Frameworks/Ort-Ext-Mobile-Android-Testapp" \
+    #      --devices "AI-Frameworks/android-pixel-5-galaxy-m10" \
+    #      --app-path ./app/build/outputs/apk/debug/app-debug.apk \
+    #      --test-series "master" \
+    #      --locale "en_US" \
+    #      --build-dir ./app/build/outputs/apk/androidTest/debug \
+    #      --token $(app_center_api_token)
+    #    displayName:  Run extensions Android unit test using App Center
+    #    workingDirectory: $(Build.sourcesdirectory)
+
+  #############
+  # iOS
+  # Only cmake==3.25.0 works OpenCV compiling now.
+  #############
+  - job: IosPackage
+    pool:
+      vmImage: 'macOS-12'
+    timeoutInMinutes: 120
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.9'
+          addToPath: true
+          architecture: 'x64'
+        displayName: "Use Python 3.9"
+
+      - script: |
+          python -m pip install cmake==3.25.0
+          python ./tools/ios/build_xcframework.py \
+            --output-dir $(Build.BinariesDirectory)/xcframework_out \
+            --platform-arch iphonesimulator x86_64 \
+            --config Release
+        displayName: Build xcframework
+
+      - script: |
+          set -e -x
+          POD_VERSION=$(cat ./version.txt)-dev
+          python ./tools/ios/assemble_pod_package.py \
+            --staging-dir $(Build.BinariesDirectory)/pod_staging \
+            --xcframework-dir $(Build.BinariesDirectory)/xcframework_out/onnxruntime_extensions.xcframework \
+            --public-headers-dir $(Build.BinariesDirectory)/xcframework_out/Headers \
+            --framework-info-file $(Build.BinariesDirectory)/xcframework_out/framework_info.json \
+            --pod-version ${POD_VERSION}
+        displayName: Assemble pod
+
+      - script: |
+          ORT_EXTENSIONS_LOCAL_POD_PATH=$(Build.BinariesDirectory)/pod_staging \
+            pod install
+        displayName: Install pods for OrtExtensionsUsage
+        workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage
+
+      - template: templates/xcode-build-and-test-step.yml
+        parameters:
+          xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
+          scheme: 'OrtExtensionsUsage'

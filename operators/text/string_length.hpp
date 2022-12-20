@@ -11,7 +11,7 @@ struct KernelStringLength : BaseKernel {
   void Compute(OrtKernelContext* context);
 };
 
-struct CustomOpStringLength : Ort::CustomOpBase<CustomOpStringLength, KernelStringLength> {
+struct CustomOpStringLength : OrtW::CustomOpBase<CustomOpStringLength, KernelStringLength> {
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

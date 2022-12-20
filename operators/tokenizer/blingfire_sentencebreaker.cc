@@ -12,13 +12,13 @@
 KernelBlingFireSentenceBreaker::KernelBlingFireSentenceBreaker(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info), max_sentence(-1) {
   model_data_ = ort_.KernelInfoGetAttribute<std::string>(info, "model");
   if (model_data_.empty()) {
-    ORT_CXX_API_THROW("vocabulary shouldn't be empty.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("vocabulary shouldn't be empty.", ORT_INVALID_ARGUMENT);
   }
 
   void* model_ptr = SetModel(reinterpret_cast<const unsigned char*>(model_data_.data()), static_cast<int>(model_data_.size()));
 
   if (model_ptr == nullptr) {
-    ORT_CXX_API_THROW("Invalid model", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("Invalid model", ORT_INVALID_ARGUMENT);
   }
 
   model_ = std::shared_ptr<void>(model_ptr, FreeModel);
@@ -35,7 +35,7 @@ void KernelBlingFireSentenceBreaker::Compute(OrtKernelContext* context) {
 
   // TODO: fix this scalar check.
   if (dimensions.Size() != 1 && dimensions[0] != 1) {
-    ORT_CXX_API_THROW("We only support string scalar.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("We only support string scalar.", ORT_INVALID_ARGUMENT);
   }
 
   std::vector<std::string> input_data;
@@ -47,7 +47,7 @@ void KernelBlingFireSentenceBreaker::Compute(OrtKernelContext* context) {
 
   int output_length = TextToSentencesWithOffsetsWithModel(input_string.data(), static_cast<int>(input_string.size()), output_str.get(), nullptr, nullptr, max_length, model_.get());
   if (output_length < 0) {
-    ORT_CXX_API_THROW(MakeString("splitting input:\"", input_string, "\"  failed"), ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW(MakeString("splitting input:\"", input_string, "\"  failed"), ORT_INVALID_ARGUMENT);
   }
 
   // inline split output_str by newline '\n'
@@ -75,7 +75,7 @@ void KernelBlingFireSentenceBreaker::Compute(OrtKernelContext* context) {
   output_dimensions[0] = output_sentences.size();
 
   OrtValue* output = ort_.KernelContext_GetOutput(context, 0, output_dimensions.data(), output_dimensions.size());
-  Ort::ThrowOnError(api_, api_.FillStringTensor(output, output_sentences.data(), output_sentences.size()));
+  OrtW::ThrowOnError(api_, api_.FillStringTensor(output, output_sentences.data(), output_sentences.size()));
 }
 
 void* CustomOpBlingFireSentenceBreaker::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {

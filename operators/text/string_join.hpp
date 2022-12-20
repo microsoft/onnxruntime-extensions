@@ -11,7 +11,7 @@ struct KernelStringJoin : BaseKernel {
   void Compute(OrtKernelContext* context);
 };
 
-struct CustomOpStringJoin : Ort::CustomOpBase<CustomOpStringJoin, KernelStringJoin> {
+struct CustomOpStringJoin : OrtW::CustomOpBase<CustomOpStringJoin, KernelStringJoin> {
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;
