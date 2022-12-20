@@ -102,7 +102,7 @@ node = onnx.helper.make_node(
 )
 
 text = "Hello world louder"
-inputs = np.array([text], dtype=np.object),
+inputs = np.array([text], dtype=object),
 
 bert_tokenize_result = bert_cased_tokenizer.tokenize(text)
 
@@ -207,7 +207,7 @@ node = onnx.helper.make_node(
 )
 
 text = "Hello world louder"
-token_ids = np.array([bert_cased_tokenizer.tokenize(text)], dtype=np.object),
+token_ids = np.array([bert_cased_tokenizer.tokenize(text)], dtype=object),
 sentences = np.array(text)
 
 
@@ -383,7 +383,7 @@ graph = helper.make_graph(
 model = helper.make_model(
     graph, opset_imports=[helper.make_operatorsetid(domain, 1)])
 
-text = np.array(["unwanted running", "unwantedX running"], dtype=np.object)
+text = np.array(["unwanted running", "unwantedX running"], dtype=object)
 tokens = np.array(['un', '##want', '##ed', 'runn', '##ing', 'un', '##want', '##ed',
                   '[UNK]', 'runn', '##ing'], dtype=object),
 indices = np.array([14, 11, 12, 15, 16, 14, 11, 12, -1, 15, 16], dtype=int32)
@@ -452,7 +452,7 @@ node = onnx.helper.make_node(
     model=model
 )
 
-inputs = np.array(["Hello world", "Hello world louder"], dtype=np.object),
+inputs = np.array(["Hello world", "Hello world louder"], dtype=object),
 nbest_size = np.array([0], dtype=np.float32),
 alpha = np.array([0], dtype=np.float32),
 add_bos = np.array([0], dtype=np.bool_),
@@ -521,7 +521,7 @@ node = onnx.helper.make_node(
     outputs=['tokens'],
 )
 
-inputs = np.array([ "Hello world louder"], dtype=np.object),
+inputs = np.array([ "Hello world louder"], dtype=object),
 tokens = np.array(tokenizer(inputs), dtype=int32)
 
 expect(node, inputs=[inputs],
