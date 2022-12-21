@@ -4,7 +4,7 @@ parameters:
   - name: IsReleaseBuild
     displayName: "Is this is a release build?"
     type: boolean
-    default: true
+    default: false
 
 jobs:
   - job: AndroidPackaging
@@ -52,7 +52,7 @@ jobs:
       - template: templates/set-package-version-variable-step.yml
         parameters:
           IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
-          PackageVersionVariableName: ORT_EXTENSIONS_VERSION
+          PackageVersionVariableName: ORT_EXTENSIONS_AAR_VERSION
 
       - script: |
           python ./tools/gen_selectedops.py ./tools/android/package_ops.config
@@ -95,14 +95,16 @@ jobs:
 
           PROJECT_NAME="onnxruntime-extensions"
           PACKAGE_NAME="onnxruntime-mobile-extensions"
-          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_VERSION}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}
-          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_VERSION}-sources.jar  ${ARTIFACTS_STAGING_DIR}
-          cp ${AAR_STAGING_DIR}/${PROJECT_NAME}-release.aar                             ${ARTIFACTS_STAGING_DIR}
-          cp ${POM_FILE_STAGING_DIR}/pom-default.xml                                    ${ARTIFACTS_STAGING_DIR}
-          mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_VERSION}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_VERSION}-javadoc.jar
-          mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_VERSION}-sources.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_VERSION}-sources.jar
-          mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-release.aar ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_VERSION}.aar
-          mv ${ARTIFACTS_STAGING_DIR}/pom-default.xml             ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_VERSION}.pom
+          VERSION_FILE="$(Build.SourcesDirectory)/version.txt"
+          PROJECT_VERSION="$(cat "${VERSION_FILE}")"
+          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${PROJECT_VERSION}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}
+          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${PROJECT_VERSION}-sources.jar  ${ARTIFACTS_STAGING_DIR}
+          cp ${AAR_STAGING_DIR}/${PROJECT_NAME}-release.aar                      ${ARTIFACTS_STAGING_DIR}
+          cp ${POM_FILE_STAGING_DIR}/pom-default.xml                             ${ARTIFACTS_STAGING_DIR}
+          mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-${PROJECT_VERSION}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-javadoc.jar
+          mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-${PROJECT_VERSION}-sources.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-sources.jar
+          mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-release.aar ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}.aar
+          mv ${ARTIFACTS_STAGING_DIR}/pom-default.xml             ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}.pom
 
         displayName: "Assemble artifacts"
 
