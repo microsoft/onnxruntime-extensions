@@ -6,8 +6,6 @@ parameters:
     type: boolean
     default: false
 
-name: "$(Date:yyyyMMdd)$(Rev:rrr)" # build number format
-
 jobs:
   - job: AndroidPackaging
     pool:
@@ -44,7 +42,10 @@ jobs:
           jdkArchitectureOption: "x64"
           jdkSourceOption: "PreInstalled"
 
-      # TODO: set package version number here
+      - template: templates/set-package-version-variable-step.yml
+        parameters:
+        IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+        PackageVersionVariableName: ORT_EXTENSIONS_AAR_VERSION
 
       - script: |
           bash ./tools/android.package.sh
@@ -79,10 +80,14 @@ jobs:
           LIBS_STAGING_DIR="$(Build.sourcesdirectory)/out/android/Release/java/build/android/libs"
           ARTIFACTS_STAGING_DIR="$(Build.ArtifactStagingDirectory)"
 
-          PACKAGE_NAME="onnxruntime-extensions"
-          cp ${LIBS_STAGING_DIR}/${PACKAGE_NAME}-0.5.0-javadoc.jar  ${ARTIFACTS_STAGING_DIR}
-          cp ${LIBS_STAGING_DIR}/${PACKAGE_NAME}-0.5.0-sources.jar  ${ARTIFACTS_STAGING_DIR}
-          cp ${AAR_STAGING_DIR}/${PACKAGE_NAME}-release.aar         ${ARTIFACTS_STAGING_DIR}
+          PROJECT_NAME="onnxruntime-extensions"
+          PACKAGE_NAME="onnxruntime-mobile-extensions"
+          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}
+          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-sources.jar  ${ARTIFACTS_STAGING_DIR}
+          cp ${AAR_STAGING_DIR}/${PROJECT_NAME}-release.aar                                 ${ARTIFACTS_STAGING_DIR}
+          mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-javadoc.jar
+          mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-sources.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-sources.jar
+          mv ${ARTIFACTS_STAGING_DIR}/{PROJECT_NAME}-release.aar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}.aar
 
         displayName: "Assemble artifacts"
 
