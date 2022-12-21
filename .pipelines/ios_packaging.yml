@@ -85,7 +85,8 @@ jobs:
         --devices "AI-Frameworks/apple-test-device-set" \
         --test-series "master" \
         --locale "en_US" \
-        --build-dir $(Build.BinariesDirectory)/appcenter_test_derived_data/Build/Products/Debug-iphoneos
+        --build-dir $(Build.BinariesDirectory)/appcenter_test_derived_data/Build/Products/Debug-iphoneos \
+        --token $(app_center_api_token)
     displayName:
       "Run appcenter test"
 
