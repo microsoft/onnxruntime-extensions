@@ -44,8 +44,8 @@ jobs:
 
       - template: templates/set-package-version-variable-step.yml
         parameters:
-      IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
-      PackageVersionVariableName: ORT_EXTENSIONS_VERSION
+          IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+          PackageVersionVariableName: ORT_EXTENSIONS_VERSION
 
       - script: |
           python ./tools/gen_selectedops.py ./tools/android/package_ops.config
