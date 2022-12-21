@@ -44,8 +44,8 @@ jobs:
 
       - template: templates/set-package-version-variable-step.yml
         parameters:
-        IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
-        PackageVersionVariableName: ORT_EXTENSIONS_AAR_VERSION
+          IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+          PackageVersionVariableName: ORT_EXTENSIONS_AAR_VERSION
 
       - script: |
           bash ./tools/android.package.sh
