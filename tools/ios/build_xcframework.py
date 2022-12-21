@@ -73,11 +73,6 @@ def build_framework_for_platform_and_arch(
             f"-DCMAKE_OSX_ARCHITECTURES={arch}",
             f"-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO",
             "-DOCOS_BUILD_APPLE_FRAMEWORK=ON",
-            # our version of sentencepiece doesn't support iOS build
-            #   CMake Error at out/ios/RelWithDebInfo/_deps/spm-src/src/CMakeLists.txt:288 (install):
-            #     install TARGETS given no BUNDLE DESTINATION for MACOSX_BUNDLE executable
-            #     target "spm_encode".
-            "-DOCOS_ENABLE_SPM_TOKENIZER=OFF",
             # use OpenCV's CMake toolchain file
             f"-DCMAKE_TOOLCHAIN_FILE={_get_opencv_toolchain_file(platform, opencv_dir)}",
             # required by OpenCV CMake toolchain file

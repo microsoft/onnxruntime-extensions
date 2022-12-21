@@ -32,6 +32,7 @@ OPMAP_TO_CMAKE_FLAGS = {
     "SentencepieceTokenizer": "OCOS_ENABLE_SPM_TOKENIZER",
     "DecodeImage": "OCOS_ENABLE_VISION",
     "EncodeImage": "OCOS_ENABLE_VISION",
+    "GaussianBlur": "OCOS_ENABLE_CV2",
 }
 
 SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()

@@ -1,27 +1,36 @@
+# spm is abbreviation of sentencepiece to meet the path length limits on Windows
+
+set(spm_patches)
+if(_ONNXRUNTIME_EMBEDDED)
+  # use protobuf provided by ORT
+  list(APPEND spm_patches "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.protobuf.patch")
+endif()
+if(IOS)
+  # fix for iOS build
+  list(APPEND spm_patches "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.ios.patch")
+endif()
+
+set(spm_patch_command)
+if(spm_patches)
+  set(spm_patch_command git checkout . && git apply --ignore-space-change --ignore-whitespace ${spm_patches})
+endif()
+
 FetchContent_Declare(
   spm
   GIT_REPOSITORY https://github.com/google/sentencepiece.git
   GIT_TAG v0.1.96
+  PATCH_COMMAND ${spm_patch_command}
 )
-# spm is abbr. of sentencepiece to meet the MAX_PATH compiling requirement on Windows
 FetchContent_GetProperties(spm)
 
 if(NOT spm_POPULATED)
   FetchContent_Populate(spm)
-  # need to patch sentencepiece to use protobuf provided by ort. This is ifdef onnxruntime_BUILD_WEBASSEMBLY
-  # for now but there is no real reason to not use it for all builds.
-  # 'git apply' should be in FetchContent_Declare() but that creates issues in sucessive builds so for now it is using execute_process().
-  if(onnxruntime_BUILD_WEBASSEMBLY)
-    set(SPM_PATCH "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.patch")
-    message("-- sentencepiece: patching with ${SPM_PATCH}")
-    execute_process(COMMAND git apply --ignore-space-change --ignore-whitespace ${SPM_PATCH} WORKING_DIRECTORY ${spm_SOURCE_DIR})
-  endif()
   add_subdirectory(${spm_SOURCE_DIR} ${spm_BINARY_DIR} EXCLUDE_FROM_ALL)
   set_target_properties(sentencepiece-static PROPERTIES
     FOLDER externals/google/sentencepiece)
 endif()
 
-if (onnxruntime_BUILD_WEBASSEMBLY)
+if(_ONNXRUNTIME_EMBEDDED)
   set(SPM_USE_BUILTIN_PROTOBUF OFF)
   set(spm_INCLUDE_DIRS
     ${REPO_ROOT}/cmake/external/protobuf/src
