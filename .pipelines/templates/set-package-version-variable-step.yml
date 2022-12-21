@@ -3,7 +3,7 @@ parameters:
   displayName: |
     If true, the version is a release version. Otherwise, the version has a development suffix.
   type: boolean
-  default: false
+  default: true
 
 - name: PackageVersionVariableName
   displayName: |
