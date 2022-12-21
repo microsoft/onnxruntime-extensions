@@ -43,9 +43,9 @@ jobs:
           jdkSourceOption: "PreInstalled"
 
       #- template: templates/set-package-version-variable-step.yml
-        #parameters:
-          #IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
-          #PackageVersionVariableName: ORT_EXTENSIONS_AAR_VERSION
+      #parameters:
+      #IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+      #PackageVersionVariableName: ORT_EXTENSIONS_VERSION
 
       - script: |
           bash ./tools/android.package.sh
@@ -78,20 +78,23 @@ jobs:
 
           AAR_STAGING_DIR="$(Build.sourcesdirectory)/out/android/Release/java/build/android/outputs/aar"
           LIBS_STAGING_DIR="$(Build.sourcesdirectory)/out/android/Release/java/build/android/libs"
+          POM_FILE_STAGING_DIR="$(Build.sourcesdirectory)/java/build/publications/maven"
           ARTIFACTS_STAGING_DIR="$(Build.ArtifactStagingDirectory)"
 
           PROJECT_NAME="onnxruntime-extensions"
           PACKAGE_NAME="onnxruntime-mobile-extensions"
-          ORT_EXTENSIONS_AAR_VERSION="0.5.0"
-          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}
-          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-sources.jar  ${ARTIFACTS_STAGING_DIR}
+          ORT_EXTENSIONS_VERSION="0.5.0"
+          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_VERSION}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}
+          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_VERSION}-sources.jar  ${ARTIFACTS_STAGING_DIR}
           cp ${AAR_STAGING_DIR}/${PROJECT_NAME}-release.aar                                 ${ARTIFACTS_STAGING_DIR}
-          mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-javadoc.jar
-          mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-sources.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-sources.jar
-          mv ${ARTIFACTS_STAGING_DIR}/{PROJECT_NAME}-release.aar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}.aar
+          cp ${POM_FILE_STAGING_DIR}/pom-default.xml                                        ${ARTIFACTS_STAGING_DIR}
+          mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_VERSION}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_VERSION}-javadoc.jar
+          mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_VERSION}-sources.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_VERSION}-sources.jar
+          mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-release.aar ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_VERSION}.aar
+          mv ${ARTIFACTS_STAGING_DIR}/pom-default.xml ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_VERSION}.pom
 
         displayName: "Assemble artifacts"
 
       - publish: "$(Build.ArtifactStagingDirectory)"
-        artifact: android_packaging_artifacts
+        artifact: onnxruntime-mobile-extensions-aar
         displayName: "Publish artifacts"
