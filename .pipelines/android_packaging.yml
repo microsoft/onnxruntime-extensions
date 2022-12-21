@@ -4,7 +4,7 @@ parameters:
   - name: IsReleaseBuild
     displayName: "Is this is a release build?"
     type: boolean
-    default: false
+    default: true
 
 jobs:
   - job: AndroidPackaging
@@ -102,7 +102,7 @@ jobs:
           mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_VERSION}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_VERSION}-javadoc.jar
           mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_VERSION}-sources.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_VERSION}-sources.jar
           mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-release.aar ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_VERSION}.aar
-          mv ${ARTIFACTS_STAGING_DIR}/pom-default.xml ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_VERSION}.pom
+          mv ${ARTIFACTS_STAGING_DIR}/pom-default.xml             ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_VERSION}.pom
 
         displayName: "Assemble artifacts"
 
