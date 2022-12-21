@@ -4,36 +4,68 @@ import argparse
 import pathlib
 import sys
 
-OPMAP_TO_CMAKE_FLAGS = {
-    "BasicTokenizer": "OCOS_ENABLE_BERT_TOKENIZER",
-    "BertTokenizer": "OCOS_ENABLE_BERT_TOKENIZER",
-    "BertTokenizerDecoder": "OCOS_ENABLE_BERT_TOKENIZER",
-    "BlingFireSentenceBreaker": "OCOS_ENABLE_BLINGFIRE",
-    "DecodeImage": "OCOS_ENABLE_VISION",
-    "EncodeImage": "OCOS_ENABLE_VISION",
-    "GaussianBlur": "OCOS_ENABLE_CV2",
-    "GPT2Tokenizer": "OCOS_ENABLE_GPT2_TOKENIZER",
-    "MaskedFill": "OCOS_ENABLE_TF_STRING",
-    "SegmentExtraction": "OCOS_ENABLE_MATH",
-    "SentencepieceTokenizer": "OCOS_ENABLE_SPM_TOKENIZER",
-    "StringConcat": "OCOS_ENABLE_TF_STRING",
-    "StringECMARegexReplace": "OCOS_ENABLE_TF_STRING",
-    "StringECMARegexSplitWithOffsets": "OCOS_ENABLE_TF_STRING",
-    "StringEqual": "OCOS_ENABLE_TF_STRING",
-    "StringJoin": "OCOS_ENABLE_TF_STRING",
-    "StringLength": "OCOS_ENABLE_TF_STRING",
-    "StringLower": "OCOS_ENABLE_TF_STRING",
-    "StringMapping": "OCOS_ENABLE_TF_STRING",
-    "StringRegexReplace": "OCOS_ENABLE_RE2_REGEX",
-    "StringRegexSplitWithOffsets": "OCOS_ENABLE_RE2_REGEX",
-    "StringSplit": "OCOS_ENABLE_TF_STRING",
-    "StringToHashBucket": "OCOS_ENABLE_TF_STRING",
-    "StringToHashBucketFast": "OCOS_ENABLE_TF_STRING",
-    "StringToVector": "OCOS_ENABLE_TF_STRING",
-    "StringUpper": "OCOS_ENABLE_TF_STRING",
-    "VectorToString": "OCOS_ENABLE_TF_STRING",
-    "WordpieceTokenizer": "OCOS_ENABLE_WORDPIECE_TOKENIZER",
+CMAKE_FLAG_TO_OPS = {
+    "OCOS_ENABLE_BERT_TOKENIZER": [
+        "BasicTokenizer",
+        "BertTokenizer",
+        "BertTokenizerDecoder",
+    ],
+    "OCOS_ENABLE_BLINGFIRE": [
+        "BlingFireSentenceBreaker",
+    ],
+    "OCOS_ENABLE_CV2": [
+        "GaussianBlur",
+    ],
+    "OCOS_ENABLE_GPT2_TOKENIZER": [
+        "GPT2Tokenizer",
+    ],
+    "OCOS_ENABLE_MATH": [
+        "SegmentExtraction",
+    ],
+    "OCOS_ENABLE_RE2_REGEX": [
+        "StringRegexReplace",
+        "StringRegexSplitWithOffsets",
+    ],
+    "OCOS_ENABLE_SPM_TOKENIZER": [
+        "SentencepieceTokenizer",
+    ],
+    "OCOS_ENABLE_TF_STRING": [
+        "MaskedFill",
+        "StringConcat",
+        "StringECMARegexReplace",
+        "StringECMARegexSplitWithOffsets",
+        "StringEqual",
+        "StringJoin",
+        "StringLength",
+        "StringLower",
+        "StringMapping",
+        "StringSplit",
+        "StringToHashBucket",
+        "StringToHashBucketFast",
+        "StringToVector",
+        "StringUpper",
+        "VectorToString",
+    ],
+    "OCOS_ENABLE_VISION": [
+        "DecodeImage",
+        "EncodeImage",
+    ],
+    "OCOS_ENABLE_WORDPIECE_TOKENIZER": [
+        "WordpieceTokenizer",
+    ],
 }
+
+
+def _gen_op_to_cmake_flag():
+    op_to_cmake_flag = dict()
+    for cmake_flag, op_list in CMAKE_FLAG_TO_OPS.items():
+        for op in op_list:
+            assert op not in op_to_cmake_flag, f"Duplicate op in CMAKE_FLAG_TO_OPS: {op}"
+            op_to_cmake_flag[op] = cmake_flag
+    return op_to_cmake_flag
+
+
+OP_TO_CMAKE_FLAG = _gen_op_to_cmake_flag()
 
 SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()
 GENERATED_CMAKE_CONFIG_FILE = SCRIPT_DIR.parent / "cmake/_selectedoplist.cmake"
@@ -62,14 +94,14 @@ def gen_cmake_oplist(opconfig_file):
                     for _op in items[2].split(","):
                         if not _op:
                             continue  # is None or ""
-                        if _op not in OPMAP_TO_CMAKE_FLAGS:
+                        if _op not in OP_TO_CMAKE_FLAG:
                             raise RuntimeError(
                                 "Cannot find the custom operator({})'s build flags, please update "
-                                "the OPMAP_TO_CMAKE_FLAGS dictionary.".format(_op)
+                                "the CMAKE_FLAG_TO_OPS dictionary.".format(_op)
                             )
-                        if OPMAP_TO_CMAKE_FLAGS[_op] not in cmake_options:
-                            cmake_options.add(OPMAP_TO_CMAKE_FLAGS[_op])
-                            print('set({} ON CACHE INTERNAL "")'.format(OPMAP_TO_CMAKE_FLAGS[_op]), file=f)
+                        if OP_TO_CMAKE_FLAG[_op] not in cmake_options:
+                            cmake_options.add(OP_TO_CMAKE_FLAG[_op])
+                            print('set({} ON CACHE INTERNAL "")'.format(OP_TO_CMAKE_FLAG[_op]), file=f)
         print("# End of Building the Operator CMake variables", file=f)
 
     if ext_domain_cnt == 0:
