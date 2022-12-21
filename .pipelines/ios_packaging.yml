@@ -69,15 +69,31 @@ jobs:
           xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
           scheme: 'OrtExtensionsUsage'
 
-  - script: |
-      xcrun xcodebuild build-for-testing \
-        -configuration Debug \
-        -workspace $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace \
-        -sdk iphoneos \
-        -scheme OrtExtensionsUsage \
-        -derivedDataPath $(Build.BinariesDirectory)/appcenter_test_derived_data
-    displayName:
-      "Build appcenter test"
+  - task: InstallAppleCertificate@2
+    inputs:
+      certSecureFile: '$(ios_signing_certificate_name)'
+      certPwd: '$(ios_signing_certificate_password)'
+      keychain: 'temp'
+    displayName: "Install ORT Mobile Test Signing Certificate"
+
+  - task: InstallAppleProvisioningProfile@1
+    inputs:
+      provProfileSecureFile: '$(ios_provision_profile_name)'
+      removeProfile: true
+    displayName: "Install ORT Mobile Test Provisioning Profile"
+
+  - task: Xcode@5
+    inputs:
+      actions: 'build-for-testing'
+      configuration: 'Debug'
+      xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
+      sdk: 'iphoneos'
+      scheme: 'OrtExtensionsUsage'
+      signingOption: 'manual'
+      signingIdentity: '$(APPLE_CERTIFICATE_SIGNING_IDENTITY)'
+      provisioningProfileName: 'iOS Team Provisioning Profile'
+      args: '-derivedDataPath $(Build.BinariesDirectory)/appcenter_test_derived_data'
+    displayName: "Build appcenter test"
 
   - script: |
       appcenter test run xcuitest \
@@ -87,8 +103,7 @@ jobs:
         --locale "en_US" \
         --build-dir $(Build.BinariesDirectory)/appcenter_test_derived_data/Build/Products/Debug-iphoneos \
         --token $(app_center_api_token)
-    displayName:
-      "Run appcenter test"
+    displayName: "Run appcenter test"
 
   - script: |
       set -e -x
