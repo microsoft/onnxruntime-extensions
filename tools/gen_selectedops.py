@@ -68,7 +68,7 @@ def _gen_op_to_cmake_flag():
 OP_TO_CMAKE_FLAG = _gen_op_to_cmake_flag()
 
 SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()
-GENERATED_CMAKE_CONFIG_FILE = SCRIPT_DIR.parent / "cmake/_selectedoplist.cmake"
+GENERATED_CMAKE_CONFIG_FILE = SCRIPT_DIR.parent / "cmake" / "_selectedoplist.cmake"
 
 
 def gen_cmake_oplist(opconfig_file):
