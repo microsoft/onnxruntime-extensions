@@ -42,10 +42,10 @@ jobs:
           jdkArchitectureOption: "x64"
           jdkSourceOption: "PreInstalled"
 
-      - template: templates/set-package-version-variable-step.yml
-        parameters:
-          IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
-          PackageVersionVariableName: ORT_EXTENSIONS_AAR_VERSION
+      #- template: templates/set-package-version-variable-step.yml
+        #parameters:
+          #IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+          #PackageVersionVariableName: ORT_EXTENSIONS_AAR_VERSION
 
       - script: |
           bash ./tools/android.package.sh
@@ -82,6 +82,7 @@ jobs:
 
           PROJECT_NAME="onnxruntime-extensions"
           PACKAGE_NAME="onnxruntime-mobile-extensions"
+          ORT_EXTENSIONS_AAR_VERSION="0.5.0"
           cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}
           cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-sources.jar  ${ARTIFACTS_STAGING_DIR}
           cp ${AAR_STAGING_DIR}/${PROJECT_NAME}-release.aar                                 ${ARTIFACTS_STAGING_DIR}
