@@ -52,8 +52,7 @@ jobs:
         displayName: "Generate selected ops CMake file"
 
       - script: |
-          bash ./tools/android.package.sh \
-          --cmake-extra-defines OCOS_ENABLE_SELECTED_OPLIST=ON
+          bash ./tools/android.package.sh
         displayName: Build onnxruntime-extensions aar package
         workingDirectory: $(Build.sourcesdirectory)
 
