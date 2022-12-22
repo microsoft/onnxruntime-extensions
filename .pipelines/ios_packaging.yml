@@ -98,7 +98,6 @@ jobs:
       signingIdentity: '$(APPLE_CERTIFICATE_SIGNING_IDENTITY)'
       provisioningProfileName: 'iOS Team Provisioning Profile'
       args: '-derivedDataPath $(Build.BinariesDirectory)/appcenter_test_derived_data -verbose'
-      useXcpretty: false
     displayName: "Build appcenter test"
 
   - script: |
