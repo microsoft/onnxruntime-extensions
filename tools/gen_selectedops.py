@@ -29,7 +29,6 @@ OPMAP_TO_CMAKE_FLAGS = {
     'SentencepieceTokenizer': 'OCOS_ENABLE_SPM_TOKENIZER',
     'ImageDecode': 'OCOS_ENABLE_VISION',
     'ImageEncode': 'OCOS_ENABLE_VISION',
-    'GaussianBlur': 'OCOS_ENABLE_CV2'
 }
 
 
@@ -79,3 +78,4 @@ if __name__ == '__main__':
         gen_cmake_oplist(sys.argv[1], target_cmake_path)
     else:
         print('[onnxruntime-extensions] gen_selectedops.py arguments error!')
+        
