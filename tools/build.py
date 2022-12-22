@@ -72,7 +72,6 @@ def _parse_arguments():
                         choices=["Debug", "MinSizeRel", "Release", "RelWithDebInfo"],
                         help="Configuration(s) to build.")
 
-
     # Build phases
     parser.add_argument("--update", action="store_true", help="Update makefiles.")
 
@@ -99,12 +98,15 @@ def _parse_arguments():
 
     # Test options
     parser.add_argument("--enable_cxx_tests", action="store_true", help="Enable the C++ unit tests.")
+    parser.add_argument("--cxx_code_coverage", action="store_true",
+                        help="Run C++ unit tests using vstest.exe to produce code coverage output. Windows only.")
+
     parser.add_argument("--onnxruntime_version", type=str,
                         help="ONNX Runtime version to fetch for headers and library. Default is 1.10.0.")
     parser.add_argument("--onnxruntime_lib_dir", type=Path,
                         help="Path to directory containing the pre-built ONNX Runtime library if you do not want to "
                              "use the library from the ONNX Runtime release package that is fetched by default.")
-    # ARM options
+    # Build for ARM
     parser.add_argument("--arm", action="store_true",
                         help="[cross-compiling] Create ARM makefiles. Requires --update and no existing cache "
                              "CMake setup. Delete CMakeCache.txt if needed")
@@ -160,9 +162,8 @@ def _parse_arguments():
     # Arguments needed by CI
     parser.add_argument("--cmake_path", default="cmake", type=Path, help="Path to the CMake program.")
     parser.add_argument("--ctest_path", default="ctest",
-                        help="Optional path to the CTest program. If not provided the test programs will be run "
-                             "directly.",
-    )
+                        help="Optional path to the CTest program if not found in the environment's path.")
+
     parser.add_argument("--cmake_generator",
                         choices=["Visual Studio 16 2019", "Visual Studio 17 2022", "Ninja", "Unix Makefiles", "Xcode"],
                         default="Visual Studio 17 2022" if is_windows() else "Xcode" if is_macOS() else None,
@@ -176,6 +177,9 @@ def _parse_arguments():
 
     parser.add_argument("--disable_exceptions", action="store_true",
                         help="Disable exceptions to reduce binary size.")
+
+    # Language bindings
+    parser.add_argument("--build_java", action="store_true", help="Build Java bindings.")
 
     args = parser.parse_args()
 
@@ -308,14 +312,14 @@ def _generate_build_tree(cmake_path: Path,
         "-DOCOS_ENABLE_SELECTED_OPLIST=" + ("ON" if _is_reduced_ops_build(args) else "OFF"),
     ]
 
+    if args.onnxruntime_version:
+        cmake_args.append(f"-DONNXRUNTIME_VER={args.onnxruntime_version}")
+
     if args.enable_cxx_tests:
         cmake_args.append("-DOCOS_ENABLE_CTEST=ON")
         ort_lib_dir = _validate_cxx_test_args(args)
         if ort_lib_dir:
             cmake_args.append(f"-DONNXRUNTIME_LIB_DIR={str(ort_lib_dir)}")
-
-        if args.onnxruntime_version:
-            cmake_args.append(f"-DONNXRUNTIME_VER={args.onnxruntime_version}")
 
     if args.android:
         if not args.android_ndk_path:
@@ -385,6 +389,9 @@ def _generate_build_tree(cmake_path: Path,
     if args.disable_exceptions:
         cmake_args.append("-DOCOS_ENABLE_CPP_EXCEPTIONS=OFF")
 
+    if args.build_java:
+        cmake_args.append("-DOCOS_BUILD_JAVA=ON")
+
     cmake_args += ["-D{}".format(define) for define in cmake_extra_defines]
     cmake_args += cmake_extra_args
 
@@ -452,7 +459,14 @@ def _run_ios_tests(args, config: str, cwd: Path):
 
 
 def _run_cxx_tests(args, build_dir: Path, configs: Set[str]):
-    ctest_path = None if not args.ctest_path else _resolve_executable_path(args.ctest_path)
+    ctest_path = args.ctest_path
+    code_coverage_using_vstest = is_windows() and args.cxx_code_coverage
+
+    if not code_coverage_using_vstest:
+        ctest_path = _resolve_executable_path(ctest_path)
+        if not ctest_path:
+            raise UsageError(f"ctest was not found. Looked for '{args.ctest_path}'. "
+                             "Specify using `--ctest_path` if necessary.")
 
     for config in configs:
         log.info("Running tests for %s configuration", config)
@@ -466,55 +480,49 @@ def _run_cxx_tests(args, build_dir: Path, configs: Set[str]):
             _run_ios_tests(args, config, cwd)
             continue
 
-        if ctest_path:
-            ctest_cmd = [str(ctest_path), "--build-config", config, "--verbose", "--timeout", "10800"]
-            _run_subprocess(ctest_cmd, cwd=cwd)
-        else:
-            if is_windows():
-                # Get the "Google Test Adapter" for vstest.
-                if not (cwd / "GoogleTestAdapter.0.18.0").is_dir():
-                    _run_subprocess(
-                        [
-                            "nuget.exe",
-                            "restore",
-                            str(REPO_DIR / "test" / "packages.config"),
-                            "-ConfigFile",
-                            str(REPO_DIR / "test" / "NuGet.config"),
-                            "-PackagesDirectory",
-                            str(cwd),
-                        ]
-                    )
-
-                # test exes are in the bin/<config> subdirectory of the build output dir
-                # call resolve() to get the full path as we're going to execute in build_dir not cwd
-                test_dir = (cwd / "bin" / config).resolve()
-                adapter = (cwd / 'GoogleTestAdapter.0.18.0' / 'build' / '_common').resolve()
-
-                executables = [
-                    str(test_dir / "extensions_test.exe"),
-                    str(test_dir / "ocos_test.exe")
-                ]
-
-                # run this script from a VS dev shell so vstest.console.exe is found via PATH
-                vstest_exe = _resolve_executable_path("vstest.console.exe")
+        if code_coverage_using_vstest:
+            # Get the "Google Test Adapter" for vstest.
+            if not (cwd / "GoogleTestAdapter.0.18.0").is_dir():
                 _run_subprocess(
                     [
-                        vstest_exe,
-                        "--parallel",
-                        f"--TestAdapterPath:{str(adapter)}",
-                        "/Logger:trx",
-                        "/Enablecodecoverage",
-                        "/Platform:x64",
-                        f"/Settings:{str(REPO_DIR / 'test' / 'codeconv.runsettings')}",
+                        "nuget.exe",
+                        "restore",
+                        str(REPO_DIR / "test" / "packages.config"),
+                        "-ConfigFile",
+                        str(REPO_DIR / "test" / "NuGet.config"),
+                        "-PackagesDirectory",
+                        str(cwd),
                     ]
-                    + executables,
-                    cwd=build_dir,
                 )
 
-            else:
-                executables = ["extensions_test", "ocos_test"]
-                for exe in executables:
-                    _run_subprocess([str(cwd / exe)], cwd=cwd)
+            # test exes are in the bin/<config> subdirectory of the build output dir
+            # call resolve() to get the full path as we're going to execute in build_dir not cwd
+            test_dir = (cwd / "bin" / config).resolve()
+            adapter = (cwd / 'GoogleTestAdapter.0.18.0' / 'build' / '_common').resolve()
+
+            executables = [
+                str(test_dir / "extensions_test.exe"),
+                str(test_dir / "ocos_test.exe")
+            ]
+
+            # run this script from a VS dev shell so vstest.console.exe is found via PATH
+            vstest_exe = _resolve_executable_path("vstest.console.exe")
+            _run_subprocess(
+                [
+                    vstest_exe,
+                    "--parallel",
+                    f"--TestAdapterPath:{str(adapter)}",
+                    "/Logger:trx",
+                    "/Enablecodecoverage",
+                    "/Platform:x64",
+                    f"/Settings:{str(REPO_DIR / 'test' / 'codeconv.runsettings')}",
+                ]
+                + executables,
+                cwd=build_dir,
+            )
+        else:
+            ctest_cmd = [str(ctest_path), "--build-config", config, "--verbose", "--timeout", "10800"]
+            _run_subprocess(ctest_cmd, cwd=cwd)
 
 
 def main():

@@ -465,8 +465,7 @@ file(GLOB_RECURSE NO_USE_FILES ${CMAKE_BINARY_DIR}/_deps/*requirements.txt)
 message(STATUS "Found the following requirements.txt: ${NO_USE_FILES}")
 
 foreach(nf ${NO_USE_FILES})
-    file(TO_NATIVE_PATH ${nf} nf_native)
-    execute_process(COMMAND ${CMAKE_COMMAND} -E remove ${nf_native})
+  execute_process(COMMAND ${CMAKE_COMMAND} -E remove ${nf})
 endforeach()
 
 # test section
