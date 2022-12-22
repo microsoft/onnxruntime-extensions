@@ -161,8 +161,7 @@ def _parse_arguments():
 
     # Arguments needed by CI
     parser.add_argument("--cmake_path", default="cmake", type=Path, help="Path to the CMake program.")
-    parser.add_argument("--ctest_path", default="ctest",
-                        help="Optional path to the CTest program if not found in the environment's path.")
+    parser.add_argument("--ctest_path", default="ctest", type=Path, help="Path to the CTest program.")
 
     parser.add_argument("--cmake_generator",
                         choices=["Visual Studio 16 2019", "Visual Studio 17 2022", "Ninja", "Unix Makefiles", "Xcode"],
