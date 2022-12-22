@@ -325,7 +325,6 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.3;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LD_RUNPATH_SEARCH_PATHS_SHALLOW_BUNDLE_$(SHALLOW_BUNDLE))",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
@@ -347,7 +346,6 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.3;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LD_RUNPATH_SEARCH_PATHS_SHALLOW_BUNDLE_$(SHALLOW_BUNDLE))",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
