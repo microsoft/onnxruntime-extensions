@@ -92,10 +92,8 @@ jobs:
 
           PROJECT_NAME="onnxruntime-extensions"
           PACKAGE_NAME="onnxruntime-mobile-extensions"
-          VERSION_FILE="$(Build.SourcesDirectory)/version.txt"
-          PROJECT_VERSION="$(cat "${VERSION_FILE}")"
-          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${PROJECT_VERSION}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-javadoc.jar
-          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${PROJECT_VERSION}-sources.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-sources.jar
+          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-javadoc.jar
+          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-sources.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-sources.jar
           cp ${AAR_STAGING_DIR}/${PROJECT_NAME}-release.aar                      ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}.aar
           cp ${POM_FILE_STAGING_DIR}/pom-default.xml                             ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}.pom
 
