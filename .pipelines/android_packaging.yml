@@ -16,14 +16,14 @@ jobs:
     steps:
       - task: UsePythonVersion@0
         inputs:
-          versionSpec: '3.9'
+          versionSpec: "3.9"
           addToPath: true
-          architecture: 'x64'
+          architecture: "x64"
         displayName: "Use Python 3.9"
 
       - script: brew install coreutils ninja
         displayName: Install coreutils and ninja
- 
+
       - script: |
           mkdir cmake/external
           cd cmake/external
@@ -59,31 +59,28 @@ jobs:
         displayName: "Generate selected ops CMake file"
 
       - script: |
-          bash ./tools/android.package.sh
+          bash ./tools/android.package.sh -DOCOS_ENABLE_SELECTED_OPLIST=ON
         displayName: Build onnxruntime-extensions aar package
         workingDirectory: $(Build.sourcesdirectory)
 
       - script: |
-          cd out/android/Release/java/androidtest/android
-
           ./gradlew --no-daemon clean connectedDebugAndroidTest
         displayName: Run extensions unit test with Android Emulator
-        workingDirectory: $(Build.sourcesdirectory)
+        workingDirectory: $(Build.sourcesdirectory)/out/android/Release/java/androidtest/android
 
       - script: |
           set -e -x
-          cd out/android/Release/java/androidtest/android
 
           appcenter test run espresso \
-          --app "AI-Frameworks/Ort-Ext-Mobile-Android-Testapp" \
-          --devices $(app_center_android_test_devices) \
-          --app-path ./app/build/outputs/apk/debug/app-debug.apk \
-          --test-series "master" \
-          --locale "en_US" \
-          --build-dir ./app/build/outputs/apk/androidTest/debug \
-          --token $(app_center_api_token)
+            --app "AI-Frameworks/Ort-Ext-Mobile-Android-Testapp" \
+            --devices $(app_center_android_test_devices) \
+            --app-path ./app/build/outputs/apk/debug/app-debug.apk \
+            --test-series "master" \
+            --locale "en_US" \
+            --build-dir ./app/build/outputs/apk/androidTest/debug \
+            --token $(app_center_api_token)
         displayName: Run extensions Android unit test using App Center
-        workingDirectory: $(Build.sourcesdirectory)
+        workingDirectory: $(Build.sourcesdirectory)/out/android/Release/java/androidtest/android
 
       - script: |
           set -e -x
@@ -97,14 +94,10 @@ jobs:
           PACKAGE_NAME="onnxruntime-mobile-extensions"
           VERSION_FILE="$(Build.SourcesDirectory)/version.txt"
           PROJECT_VERSION="$(cat "${VERSION_FILE}")"
-          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${PROJECT_VERSION}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}
-          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${PROJECT_VERSION}-sources.jar  ${ARTIFACTS_STAGING_DIR}
-          cp ${AAR_STAGING_DIR}/${PROJECT_NAME}-release.aar                      ${ARTIFACTS_STAGING_DIR}
-          cp ${POM_FILE_STAGING_DIR}/pom-default.xml                             ${ARTIFACTS_STAGING_DIR}
-          mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-${PROJECT_VERSION}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-javadoc.jar
-          mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-${PROJECT_VERSION}-sources.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-sources.jar
-          mv ${ARTIFACTS_STAGING_DIR}/${PROJECT_NAME}-release.aar ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}.aar
-          mv ${ARTIFACTS_STAGING_DIR}/pom-default.xml             ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}.pom
+          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${PROJECT_VERSION}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-javadoc.jar
+          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${PROJECT_VERSION}-sources.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-sources.jar
+          cp ${AAR_STAGING_DIR}/${PROJECT_NAME}-release.aar                      ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}.aar
+          cp ${POM_FILE_STAGING_DIR}/pom-default.xml                             ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}.pom
 
         displayName: "Assemble artifacts"
 

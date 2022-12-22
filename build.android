@@ -44,6 +44,5 @@ cmake "$@" \
     -DANDROID_PLATFORM=android-24                                           \
     -DANDROID_NDK_VERSION=${CURRENT_NDK_VERSION}                            \
     -DOCOS_BUILD_ANDROID=ON                                                 \
-    -DOCOS_ENABLE_SELECTED_OPLIST=ON                                        \
     ../../.. && cmake --build . --config Release --parallel 
 popd
