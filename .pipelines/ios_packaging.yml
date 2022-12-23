@@ -1,0 +1,128 @@
+# packaging pipeline for iOS CocoaPods package
+
+parameters:
+- name: IsReleaseBuild
+  displayName: "Is this is a release build?"
+  type: boolean
+  default: false
+
+jobs:
+- job: IosPackaging
+  displayName: "iOS Packaging"
+
+  pool:
+    vmImage: "macOS-12"
+
+  timeoutInMinutes: 120
+
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.9"
+      addToPath: true
+      architecture: "x64"
+
+  # iOS xcframework build doesn't work with CMake 3.25.1, pin to 3.25.0
+  - script: |
+      python -m pip install cmake==3.25.0
+    displayName: "Install CMake 3.25.0"
+
+  - template: templates/set-package-version-variable-step.yml
+    parameters:
+      IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+      PackageVersionVariableName: ORT_EXTENSIONS_POD_VERSION
+
+  - script: |
+      python ./tools/gen_selectedops.py ./tools/ios/package_ops.config
+    displayName: "Generate selected ops CMake file"
+
+  - script: |
+      python ./tools/ios/build_xcframework.py \
+        --output-dir $(Build.BinariesDirectory)/xcframework_out \
+        --config Release \
+        --cmake-extra-defines OCOS_ENABLE_SELECTED_OPLIST=ON
+    displayName: "Build xcframework"
+
+  - script: |
+      python ./tools/ios/assemble_pod_package.py \
+        --staging-dir $(Build.BinariesDirectory)/pod_staging \
+        --xcframework-output-dir $(Build.BinariesDirectory)/xcframework_out \
+        --pod-version ${ORT_EXTENSIONS_POD_VERSION}
+    displayName: "Assemble pod"
+
+  - script: |
+      pod lib lint
+    displayName: "Lint pod"
+    workingDirectory: $(Build.BinariesDirectory)/pod_staging
+
+  - script: |
+      ORT_EXTENSIONS_LOCAL_POD_PATH=$(Build.BinariesDirectory)/pod_staging \
+        pod install
+    displayName: "Install pods for OrtExtensionsUsage"
+    workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage
+
+  - template: templates/with-ios-simulator-steps.yml
+    parameters:
+      steps:
+      - template: templates/xcode-build-and-test-step.yml
+        parameters:
+          xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
+          scheme: 'OrtExtensionsUsage'
+
+  - task: InstallAppleCertificate@2
+    inputs:
+      certSecureFile: '$(ios_signing_certificate_name)'
+      certPwd: '$(ios_signing_certificate_password)'
+      keychain: 'temp'
+    displayName: "Install ORT Mobile Test Signing Certificate"
+
+  - task: InstallAppleProvisioningProfile@1
+    inputs:
+      provProfileSecureFile: '$(ios_provision_profile_name)'
+      removeProfile: true
+    displayName: "Install ORT Mobile Test Provisioning Profile"
+
+  - task: Xcode@5
+    inputs:
+      actions: 'build-for-testing'
+      configuration: 'Debug'
+      xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
+      sdk: 'iphoneos'
+      scheme: 'OrtExtensionsUsage'
+      signingOption: 'manual'
+      signingIdentity: '$(APPLE_CERTIFICATE_SIGNING_IDENTITY)'
+      provisioningProfileName: 'iOS Team Provisioning Profile'
+      args: '-derivedDataPath $(Build.BinariesDirectory)/appcenter_test_derived_data'
+    displayName: "Build appcenter test"
+
+  - script: |
+      appcenter test run xcuitest \
+        --app "AI-Frameworks/ORT-Ext-Mobile-iOS-Testapp" \
+        --devices "AI-Frameworks/apple-test-device-set" \
+        --test-series "master" \
+        --locale "en_US" \
+        --build-dir $(Build.BinariesDirectory)/appcenter_test_derived_data/Build/Products/Debug-iphoneos \
+        --token $(app_center_api_token)
+    displayName: "Run appcenter test"
+
+  - script: |
+      set -e -x
+
+      POD_STAGING_DIR="$(Build.BinariesDirectory)/pod_staging"
+      ARTIFACTS_STAGING_DIR="$(Build.ArtifactStagingDirectory)"
+      POD_NAME="onnxruntime-extensions-c"
+      POD_ARCHIVE_BASENAME="pod-archive-${POD_NAME}-${ORT_EXTENSIONS_POD_VERSION}.zip"
+      PODSPEC_BASENAME="${POD_NAME}.podspec"
+
+      pushd ${POD_STAGING_DIR}
+
+      # assemble the files in the artifacts staging directory
+      zip -r ${ARTIFACTS_STAGING_DIR}/${POD_ARCHIVE_BASENAME} * --exclude ${PODSPEC_BASENAME}
+      cp ${PODSPEC_BASENAME} ${ARTIFACTS_STAGING_DIR}/${PODSPEC_BASENAME}
+
+      popd
+    displayName: "Assemble artifacts"
+
+  - publish: "$(Build.ArtifactStagingDirectory)"
+    artifact: ios_packaging_artifacts
+    displayName: "Publish artifacts"
