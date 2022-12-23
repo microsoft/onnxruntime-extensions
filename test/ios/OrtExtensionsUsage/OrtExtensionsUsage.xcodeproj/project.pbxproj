@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2E95FB6B2948166D00AA2CA7 /* OrtExtensionsUsageUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E95FB6A2948166D00AA2CA7 /* OrtExtensionsUsageUITests.swift */; };
 		2ECE95DE293A742700039409 /* OrtExtensionsUsageApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECE95DD293A742700039409 /* OrtExtensionsUsageApp.swift */; };
 		2ECE95E0293A742700039409 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECE95DF293A742700039409 /* ContentView.swift */; };
 		2ECE95E2293A742800039409 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2ECE95E1293A742800039409 /* Assets.xcassets */; };
@@ -18,6 +19,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		2E95FB6E2948166D00AA2CA7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2ECE95D2293A742700039409 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2ECE95D9293A742700039409;
+			remoteInfo = OrtExtensionsUsage;
+		};
 		2ECE95EB293A742800039409 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 2ECE95D2293A742700039409 /* Project object */;
@@ -28,6 +36,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		2E95FB682948166D00AA2CA7 /* OrtExtensionsUsageUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OrtExtensionsUsageUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		2E95FB6A2948166D00AA2CA7 /* OrtExtensionsUsageUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrtExtensionsUsageUITests.swift; sourceTree = "<group>"; };
 		2ECE95DA293A742700039409 /* OrtExtensionsUsage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OrtExtensionsUsage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2ECE95DD293A742700039409 /* OrtExtensionsUsageApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrtExtensionsUsageApp.swift; sourceTree = "<group>"; };
 		2ECE95DF293A742700039409 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -43,6 +53,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		2E95FB652948166D00AA2CA7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2ECE95D7293A742700039409 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -60,11 +77,20 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2E95FB692948166D00AA2CA7 /* OrtExtensionsUsageUITests */ = {
+			isa = PBXGroup;
+			children = (
+				2E95FB6A2948166D00AA2CA7 /* OrtExtensionsUsageUITests.swift */,
+			);
+			path = OrtExtensionsUsageUITests;
+			sourceTree = "<group>";
+		};
 		2ECE95D1293A742700039409 = {
 			isa = PBXGroup;
 			children = (
 				2ECE95DC293A742700039409 /* OrtExtensionsUsage */,
 				2ECE95ED293A742800039409 /* OrtExtensionsUsageTests */,
+				2E95FB692948166D00AA2CA7 /* OrtExtensionsUsageUITests */,
 				2ECE95DB293A742700039409 /* Products */,
 				614CBC9BE6DEBAEABF4B9145 /* Pods */,
 			);
@@ -75,6 +101,7 @@
 			children = (
 				2ECE95DA293A742700039409 /* OrtExtensionsUsage.app */,
 				2ECE95EA293A742800039409 /* OrtExtensionsUsageTests.xctest */,
+				2E95FB682948166D00AA2CA7 /* OrtExtensionsUsageUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -121,6 +148,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		2E95FB672948166D00AA2CA7 /* OrtExtensionsUsageUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2E95FB722948166D00AA2CA7 /* Build configuration list for PBXNativeTarget "OrtExtensionsUsageUITests" */;
+			buildPhases = (
+				2E95FB642948166D00AA2CA7 /* Sources */,
+				2E95FB652948166D00AA2CA7 /* Frameworks */,
+				2E95FB662948166D00AA2CA7 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2E95FB6F2948166D00AA2CA7 /* PBXTargetDependency */,
+			);
+			name = OrtExtensionsUsageUITests;
+			productName = OrtExtensionsUsageUITests;
+			productReference = 2E95FB682948166D00AA2CA7 /* OrtExtensionsUsageUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		2ECE95D9293A742700039409 /* OrtExtensionsUsage */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 2ECE95FE293A742900039409 /* Build configuration list for PBXNativeTarget "OrtExtensionsUsage" */;
@@ -166,6 +211,10 @@
 				LastSwiftUpdateCheck = 1410;
 				LastUpgradeCheck = 1410;
 				TargetAttributes = {
+					2E95FB672948166D00AA2CA7 = {
+						CreatedOnToolsVersion = 14.1;
+						TestTargetID = 2ECE95D9293A742700039409;
+					};
 					2ECE95D9293A742700039409 = {
 						CreatedOnToolsVersion = 14.1;
 						LastSwiftMigration = 1410;
@@ -191,11 +240,19 @@
 			targets = (
 				2ECE95D9293A742700039409 /* OrtExtensionsUsage */,
 				2ECE95E9293A742800039409 /* OrtExtensionsUsageTests */,
+				2E95FB672948166D00AA2CA7 /* OrtExtensionsUsageUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		2E95FB662948166D00AA2CA7 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2ECE95D8293A742700039409 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -217,6 +274,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		2E95FB642948166D00AA2CA7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2E95FB6B2948166D00AA2CA7 /* OrtExtensionsUsageUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2ECE95D6293A742700039409 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -238,6 +303,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		2E95FB6F2948166D00AA2CA7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2ECE95D9293A742700039409 /* OrtExtensionsUsage */;
+			targetProxy = 2E95FB6E2948166D00AA2CA7 /* PBXContainerItemProxy */;
+		};
 		2ECE95EC293A742800039409 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 2ECE95D9293A742700039409 /* OrtExtensionsUsage */;
@@ -246,6 +316,48 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		2E95FB702948166D00AA2CA7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.3;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.onnxruntime-extensions.OrtExtensionsUsageUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = OrtExtensionsUsage;
+			};
+			name = Debug;
+		};
+		2E95FB712948166D00AA2CA7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.3;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.onnxruntime-extensions.OrtExtensionsUsageUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = OrtExtensionsUsage;
+			};
+			name = Release;
+		};
 		2ECE95FC293A742900039409 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -370,7 +482,6 @@
 				COMPRESS_PNG_FILES = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"OrtExtensionsUsage/Preview Content\"";
-				DEVELOPMENT_TEAM = UBF8T346G9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -405,7 +516,6 @@
 				COMPRESS_PNG_FILES = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"OrtExtensionsUsage/Preview Content\"";
-				DEVELOPMENT_TEAM = UBF8T346G9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -436,7 +546,6 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = UBF8T346G9;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.3;
 				MARKETING_VERSION = 1.0;
@@ -456,7 +565,6 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = UBF8T346G9;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.3;
 				MARKETING_VERSION = 1.0;
@@ -472,6 +580,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		2E95FB722948166D00AA2CA7 /* Build configuration list for PBXNativeTarget "OrtExtensionsUsageUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2E95FB702948166D00AA2CA7 /* Debug */,
+				2E95FB712948166D00AA2CA7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		2ECE95D5293A742700039409 /* Build configuration list for PBXProject "OrtExtensionsUsage" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
