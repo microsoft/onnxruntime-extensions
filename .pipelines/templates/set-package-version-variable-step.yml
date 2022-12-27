@@ -23,6 +23,6 @@ steps:
       SHORT_COMMIT_HASH="$(git rev-parse --short HEAD)"
       VERSION="${BASE_VERSION}-dev+$(Build.BuildId).${SHORT_COMMIT_HASH}"
     fi
-    
+
     echo "##vso[task.setvariable variable=${{ parameters.PackageVersionVariableName }}]${VERSION}"
   displayName: "Set \"${{ parameters.PackageVersionVariableName }}\" variable to package version"
