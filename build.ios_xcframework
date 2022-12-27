@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# builds an iOS xcframework
+# see tools/ios/build_xcframework.py for details
+
+# Get directory this script is in
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+python ${DIR}/tools/ios/build_xcframework.py "$@"

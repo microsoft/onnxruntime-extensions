@@ -13,8 +13,10 @@ parameters:
 steps:
 - bash: |
     set -e -x
+
     VERSION_FILE="$(Build.SourcesDirectory)/version.txt"
     BASE_VERSION="$(cat "${VERSION_FILE}")"
+
     if [[ "${{ parameters.IsReleaseBuild }}" == "true" ]]; then
       VERSION="${BASE_VERSION}"
     else

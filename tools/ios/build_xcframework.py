@@ -35,7 +35,7 @@ def _get_opencv_toolchain_file(platform: str, opencv_dir: Path):
 def _run(cmd_args: List[str], **kwargs):
     import shlex
 
-    print(f"Running command:\n  {shlex.join(cmd_args)}")
+    print(f"Running command:\n  {shlex.join(cmd_args)}", flush=True)
     subprocess.run(cmd_args, check=True, **kwargs)
 
 
@@ -47,36 +47,42 @@ def _rmtree_if_existing(dir: Path):
 
 
 def build_framework_for_platform_and_arch(
-    build_dir: Path, platform: str, arch: str, config: str, opencv_dir: Path, ios_deployment_target: str
+    build_dir: Path,
+    platform: str,
+    arch: str,
+    config: str,
+    opencv_dir: Path,
+    ios_deployment_target: str,
+    cmake_extra_defines: List[str],
 ) -> Path:
     build_dir.mkdir(parents=True, exist_ok=True)
 
     # generate build files
-    generate_args = [
-        _cmake,
-        "-G=Xcode",
-        f"-S={_repo_dir}",
-        f"-B={build_dir}",
-        "-DCMAKE_SYSTEM_NAME=iOS",
-        f"-DCMAKE_OSX_DEPLOYMENT_TARGET={ios_deployment_target}",
-        f"-DCMAKE_OSX_SYSROOT={platform}",
-        f"-DCMAKE_OSX_ARCHITECTURES={arch}",
-        f"-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO",
-        "-DOCOS_BUILD_APPLE_FRAMEWORK=ON",
-        # our version of sentencepiece doesn't support iOS build
-        #   CMake Error at out/ios/RelWithDebInfo/_deps/spm-src/src/CMakeLists.txt:288 (install):
-        #     install TARGETS given no BUNDLE DESTINATION for MACOSX_BUNDLE executable
-        #     target "spm_encode".
-        "-DOCOS_ENABLE_SPM_TOKENIZER=OFF",
-        # use OpenCV's CMake toolchain file
-        f"-DCMAKE_TOOLCHAIN_FILE={_get_opencv_toolchain_file(platform, opencv_dir)}",
-        # required by OpenCV CMake toolchain file
-        # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L64-L66
-        f"-DIOS_ARCH={arch}",
-        # required by OpenCV CMake toolchain file
-        # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L96-L101
-        f"-DIPHONEOS_DEPLOYMENT_TARGET={ios_deployment_target}",
-    ]
+    generate_args = (
+        [
+            _cmake,
+            "-G=Xcode",
+            f"-S={_repo_dir}",
+            f"-B={build_dir}",
+        ]
+        + [f"-D{cmake_extra_define}" for cmake_extra_define in cmake_extra_defines]
+        + [
+            "-DCMAKE_SYSTEM_NAME=iOS",
+            f"-DCMAKE_OSX_DEPLOYMENT_TARGET={ios_deployment_target}",
+            f"-DCMAKE_OSX_SYSROOT={platform}",
+            f"-DCMAKE_OSX_ARCHITECTURES={arch}",
+            f"-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO",
+            "-DOCOS_BUILD_APPLE_FRAMEWORK=ON",
+            # use OpenCV's CMake toolchain file
+            f"-DCMAKE_TOOLCHAIN_FILE={_get_opencv_toolchain_file(platform, opencv_dir)}",
+            # required by OpenCV CMake toolchain file
+            # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L64-L66
+            f"-DIOS_ARCH={arch}",
+            # required by OpenCV CMake toolchain file
+            # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L96-L101
+            f"-DIPHONEOS_DEPLOYMENT_TARGET={ios_deployment_target}",
+        ]
+    )
     _run(generate_args)
 
     # build
@@ -91,6 +97,7 @@ def build_xcframework(
     config: str,
     opencv_dir: Path,
     ios_deployment_target: str,
+    cmake_extra_defines: List[str],
 ):
     output_dir = output_dir.resolve()
     intermediate_build_dir = output_dir / "intermediates"
@@ -115,6 +122,7 @@ def build_xcframework(
                 config,
                 opencv_dir,
                 ios_deployment_target,
+                cmake_extra_defines,
             )
 
             arch_framework_dirs.append(arch_framework_dir)
@@ -191,6 +199,14 @@ def parse_args():
         help="Specify a platform/arch pair to build. Repeat to specify multiple pairs. "
         "If no pairs are specified, all supported pairs will be built.",
     )
+    parser.add_argument(
+        "--cmake-extra-defines",
+        action="append",
+        nargs="+",
+        default=[],
+        help="Extra definition(s) to pass to CMake (with the CMake -D option) during build system generation. "
+        "E.g., `--cmake-extra-defines OPTION1=ON OPTION2=OFF --cmake-extra-defines OPTION3=ON`.",
+    )
 
     args = parser.parse_args()
 
@@ -217,6 +233,9 @@ def parse_args():
 
     args.platform_archs = platform_archs_from_args(args.platform_archs)
 
+    # convert from List[List[str]] to List[str]
+    args.cmake_extra_defines = [element for inner_list in args.cmake_extra_defines for element in inner_list]
+
     return args
 
 
@@ -229,6 +248,7 @@ def main():
         config=args.config,
         opencv_dir=_repo_dir / "cmake/externals/opencv",
         ios_deployment_target=args.ios_deployment_target,
+        cmake_extra_defines=args.cmake_extra_defines,
     )
 
 
