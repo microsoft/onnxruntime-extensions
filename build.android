@@ -42,7 +42,7 @@ cmake "$@" \
     -DANDROID_NDK=${NDK_ROOT}                                               \
     -DANDROID_ABI=${abi_name}                                               \
     -DANDROID_PLATFORM=android-24                                           \
-    -DOCOS_BUILD_ANDROID=ON                                                 \
     -DANDROID_NDK_VERSION=${CURRENT_NDK_VERSION}                            \
-    ../../.. && cmake --build . --config Release --parallel
+    -DOCOS_BUILD_ANDROID=ON                                                 \
+    ../../.. && cmake --build . --config Release --parallel 
 popd
