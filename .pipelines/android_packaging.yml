@@ -1,0 +1,104 @@
+# packaging pipeline for onnxruntime-extensions Android AAR package
+
+parameters:
+  - name: IsReleaseBuild
+    displayName: "Is this is a release build?"
+    type: boolean
+    default: false
+
+jobs:
+  - job: AndroidPackaging
+    pool:
+      vmImage: "macOS-12"
+    timeoutInMinutes: 120
+    variables:
+      OnnxruntimeDirectory: cmake/external/onnxruntime
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: "3.9"
+          addToPath: true
+          architecture: "x64"
+        displayName: "Use Python 3.9"
+
+      - script: brew install coreutils ninja
+        displayName: Install coreutils and ninja
+
+      - script: |
+          mkdir cmake/external
+          cd cmake/external
+          git clone https://github.com/microsoft/onnxruntime.git
+          cd onnxruntime
+          git checkout v1.12.1
+        displayName: Download Onnxruntime
+        workingDirectory: $(Build.sourcesdirectory)
+
+      - script: |
+          python tools/python/run_android_emulator.py \
+            --android-sdk-root ${ANDROID_SDK_ROOT} \
+            --create-avd --system-image "system-images;android-30;google_apis;x86_64" \
+            --start --emulator-extra-args="-partition-size 4096" \
+            --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
+        displayName: Start Android emulator
+        workingDirectory: $(OnnxruntimeDirectory)
+
+      - task: JavaToolInstaller@0
+        displayName: Use jdk 11
+        inputs:
+          versionSpec: "11"
+          jdkArchitectureOption: "x64"
+          jdkSourceOption: "PreInstalled"
+
+      - template: templates/set-package-version-variable-step.yml
+        parameters:
+          IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+          PackageVersionVariableName: ORT_EXTENSIONS_AAR_VERSION
+
+      - script: |
+          python ./tools/gen_selectedops.py ./tools/android/package_ops.config
+        displayName: "Generate selected ops CMake file"
+
+      - script: |
+          bash ./tools/android.package.sh -DOCOS_ENABLE_SELECTED_OPLIST=ON
+        displayName: Build onnxruntime-extensions aar package
+        workingDirectory: $(Build.sourcesdirectory)
+
+      - script: |
+          ./gradlew --no-daemon clean connectedDebugAndroidTest
+        displayName: Run extensions unit test with Android Emulator
+        workingDirectory: $(Build.sourcesdirectory)/out/android/Release/java/androidtest/android
+
+      - script: |
+          set -e -x
+
+          appcenter test run espresso \
+            --app "AI-Frameworks/Ort-Ext-Mobile-Android-Testapp" \
+            --devices $(app_center_android_test_devices) \
+            --app-path ./app/build/outputs/apk/debug/app-debug.apk \
+            --test-series "master" \
+            --locale "en_US" \
+            --build-dir ./app/build/outputs/apk/androidTest/debug \
+            --token $(app_center_api_token)
+        displayName: Run extensions Android unit test using App Center
+        workingDirectory: $(Build.sourcesdirectory)/out/android/Release/java/androidtest/android
+
+      - script: |
+          set -e -x
+
+          AAR_STAGING_DIR="$(Build.sourcesdirectory)/out/android/Release/java/build/android/outputs/aar"
+          LIBS_STAGING_DIR="$(Build.sourcesdirectory)/out/android/Release/java/build/android/libs"
+          POM_FILE_STAGING_DIR="$(Build.sourcesdirectory)/java/build/publications/maven"
+          ARTIFACTS_STAGING_DIR="$(Build.ArtifactStagingDirectory)"
+
+          PROJECT_NAME="onnxruntime-extensions"
+          PACKAGE_NAME="onnxruntime-mobile-extensions"
+          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-javadoc.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-javadoc.jar
+          cp ${LIBS_STAGING_DIR}/${PROJECT_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-sources.jar  ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}-sources.jar
+          cp ${AAR_STAGING_DIR}/${PROJECT_NAME}-release.aar                      ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}.aar
+          cp ${POM_FILE_STAGING_DIR}/pom-default.xml                             ${ARTIFACTS_STAGING_DIR}/${PACKAGE_NAME}-${ORT_EXTENSIONS_AAR_VERSION}.pom
+
+        displayName: "Assemble artifacts"
+
+      - publish: "$(Build.ArtifactStagingDirectory)"
+        artifact: onnxruntime-mobile-extensions-aar
+        displayName: "Publish artifacts"
