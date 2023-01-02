@@ -2,6 +2,7 @@ if(_ONNXRUNTIME_EMBEDDED)
   set(ONNXRUNTIME_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/../include/onnxruntime/core/session)
   set(ONNXRUNTIME_LIB_DIR "")
 else()
+  # default to 1.10.0 if not specified
   set(ONNXRUNTIME_VER "1.10.0" CACHE STRING "ONNX Runtime version")
 
   if(CMAKE_HOST_APPLE)
@@ -31,6 +32,7 @@ else()
     onnxruntime
     URL https://github.com/microsoft/onnxruntime/releases/download/${ONNXRUNTIME_URL}
   )
+
   FetchContent_makeAvailable(onnxruntime)
   set(ONNXRUNTIME_INCLUDE_DIR ${onnxruntime_SOURCE_DIR}/include)
   set(ONNXRUNTIME_LIB_DIR ${onnxruntime_SOURCE_DIR}/lib)

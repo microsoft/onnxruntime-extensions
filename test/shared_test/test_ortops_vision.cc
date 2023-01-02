@@ -4,11 +4,12 @@
 #include <filesystem>
 #include <fstream>
 #include <vector>
+
 #include "gtest/gtest.h"
+#include "opencv2/imgcodecs.hpp"
+
 #include "ocos.h"
 #include "test_kernel.hpp"
-
-#include <opencv2/imgcodecs.hpp>
 
 namespace {
 std::vector<uint8_t> LoadBytesFromFile(const std::filesystem::path& filename) {
@@ -23,34 +24,11 @@ std::vector<uint8_t> LoadBytesFromFile(const std::filesystem::path& filename) {
 
   return input_bytes;
 }
-
-void FixCurrentDir() {
-  // adjust for the Google Test Adapter in Visual Studio not setting the current path to $(ProjectDir),
-  // which results in us being 2 levels below where the `data` folder is copied to and where the extensions
-  // library is
-  auto cur = std::filesystem::current_path();
-
-  do {
-    auto data_dir = cur / "data";
-
-    if (std::filesystem::exists(data_dir) && std::filesystem::is_directory(data_dir)) {
-      break;
-    }
-
-    cur = cur.parent_path();
-    ASSERT_NE(cur, cur.root_path()) << "Reached root directory without finding 'data' directory.";
-  } while (true);
-
-  // set current path as the extensions library is also loaded from that directory by TestInference
-  std::filesystem::current_path(cur);
-}
 }  // namespace
 
 // Test DecodeImage and EncodeImage by providing a jpg image. Model will decode to BGR, encode to PNG and decode
 // again to BGR. We validate that the BGR output from that matches the original image.
 TEST(VisionOps, image_decode_encode) {
-  FixCurrentDir();
-
   std::string ort_version{OrtGetApiBase()->GetVersionString()};
 
   // the test model requires ONNX opset 16, which requires ORT version 1.11 or later.
