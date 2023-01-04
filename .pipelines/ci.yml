@@ -8,7 +8,7 @@
 #
 # The rationale is that the onnxruntime release process would have verified the
 # last available version of its dependencies (including the three listed above)
-# and so it's'likely to be be _better_ supported relative to any older versions.
+# and so it's likely to be _better_ supported relative to any older versions.
 
 jobs:
 
@@ -445,7 +445,7 @@ jobs:
           python -m pip install cmake==3.25.0
         displayName: "Install CMake 3.25.0"
 
-      - template: ../.pipelines/templates/set-package-version-variable-step.yml
+      - template: templates/set-package-version-variable-step.yml
         parameters:
           PackageVersionVariableName: ORT_EXTENSIONS_POD_VERSION
 
@@ -469,10 +469,10 @@ jobs:
         displayName: Install pods for OrtExtensionsUsage
         workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage
 
-      - template: ../.pipelines/templates/with-ios-simulator-steps.yml
+      - template: templates/with-ios-simulator-steps.yml
         parameters:
           steps:
-          - template: ../.pipelines/templates/xcode-build-and-test-step.yml
+          - template: templates/xcode-build-and-test-step.yml
             parameters:
               xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
               scheme: 'OrtExtensionsUsage'
