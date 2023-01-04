@@ -1,0 +1,17 @@
+jobs:
+- job: windows
+  timeoutInMinutes: 120
+  pool: {vmImage: 'windows-latest', name: 'Win-CPU-2021'}
+  variables:
+    CIBW_BUILD: "cp3{7,8,9}-*amd64"
+
+  steps:
+    - task: UsePythonVersion@0
+    - script: |
+        python -m pip install --upgrade pip
+        pip install cibuildwheel
+      displayName: Install dependencies
+    - bash: cibuildwheel --platform windows --output-dir wheelhouse .
+      displayName: Build wheels
+    - task: PublishBuildArtifacts@1
+      inputs: {pathtoPublish: 'wheelhouse'}

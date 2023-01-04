@@ -1,0 +1,23 @@
+jobs:
+- job: macos
+  timeoutInMinutes: 120
+  pool: {vmImage: 'macOS-12'}
+  variables:
+    CIBW_BUILD: "cp3{8,9}-*"
+    CIBW_ARCHS_MACOS: "x86_64 universal2 arm64"
+    # Skip trying to test arm64 builds on Intel Macs
+    # CIBW_TEST_SKIP: "*-macosx_arm64 *-macosx_universal2:arm64"
+    # Disable building PyPy wheels
+    CIBW_SKIP: pp*
+
+  steps:
+    - task: UsePythonVersion@0
+    - bash: |
+        set -o errexit
+        python3 -m pip install --upgrade pip
+        python3 -m pip install cibuildwheel
+      displayName: Install dependencies
+    - bash: CPU_NUMBER=2 cibuildwheel --output-dir wheelhouse .
+      displayName: Build wheels
+    - task: PublishBuildArtifacts@1
+      inputs: {pathtoPublish: wheelhouse}

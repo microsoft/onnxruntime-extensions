@@ -1,0 +1,478 @@
+# IMPORTANT: READ ME BEFORE MAKING ANY CHANGES
+#
+# Supported matrix should follow these conventions strictly and
+# for any exceptions to the rules, please document them in comments.
+#
+#  * When adding new configurations to the matrix, update all platforms simultaneously.
+#  * Onnxruntime version should be one release ahead of torch, torchvision, and torchaudio.
+#
+# The rationale is that the onnxruntime release process would have verified the
+# last available version of its dependencies (including the three listed above)
+# and so it's'likely to be be _better_ supported relative to any older versions.
+
+jobs:
+
+  #######
+  # Linux
+  #######
+
+  - job: Linux
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    strategy:
+      matrix:
+        py310-1121:
+          python.version: '3.10'
+          torch.version: 'torch==1.12.1+cpu torchvision==0.13.1+cpu torchaudio==0.12.1+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
+          ort.version: '1.12.0'
+        py39-1110:
+          python.version: '3.9'
+          torch.version: 'torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
+          ort.version: '1.11.0'
+        py38-1100:
+          python.version: '3.8'
+          torch.version: 'torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
+          ort.version: '1.10.0'
+        py37-190:
+          python.version: '3.7'
+          torch.version: 'torch==1.9.0+cpu torchvision==0.10.0+cpu torchaudio==0.9.0 -f https://download.pytorch.org/whl/cpu/torch_stable.html'
+          ort.version: '1.9.0'
+
+    steps:
+      - task: DownloadGitHubRelease@0
+        inputs:
+          connection: 'microsoft'
+          userRepository: 'microsoft/onnxruntime'
+          defaultVersionType: 'specificTag'
+          version: 'v$(ort.version)'
+          itemPattern: '*-linux-x64-$(ort.version)*'
+          downloadPath: '$(Build.sourcesdirectory)'
+        displayName: Download the ONNXRuntime prebuilt package.
+
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '**/*.tgz'
+          destinationFolder: '$(Build.sourcesdirectory)'
+          cleanDestinationFolder: false
+          overwriteExistingFiles: true
+        displayName: Unpack ONNXRuntime package.
+
+      - script: |
+          CPU_NUMBER=2 sh ./build.sh -DOCOS_ENABLE_CTEST=ON
+        displayName: build the customop library with onnxruntime
+
+      - script: |
+          cd out/Linux/RelWithDebInfo
+          ctest -C RelWithDebInfo --output-on-failure
+        displayName: Run C++ native tests
+
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '$(python.version)'
+          addToPath: true
+
+      - script: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade setuptools
+          python -m pip install -r requirements.txt
+        displayName: Install requirements.txt
+
+      - script: |
+          CPU_NUMBER=2 python setup.py develop
+        displayName: Build the library and tests
+
+      - script: python -m pip install $(torch.version)
+        displayName: Install pytorch
+
+      - script: |
+          python -m pip install -r requirements-dev.txt
+        displayName: Install requirements-dev.txt
+
+      - script: python -m pytest test --verbose
+        displayName: Run python test
+
+  ###########
+  # macOS C++
+  ###########
+
+  - job: MacOSX
+    pool:
+      vmImage: 'macOS-12'
+
+    strategy:
+      matrix:
+        ort-1121:
+          ort.version: '1.12.1'
+          ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
+        ort-1110:
+          ort.version: '1.11.0'
+          ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
+        ort-1100:
+          ort.version: '1.10.0'
+          ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
+        ort-190:
+          ort.version: '1.9.0'
+          ort.dirname: 'onnxruntime-osx-x64-$(ort.version)'
+
+    steps:
+      # needed for onnxruntime
+      - script: brew install libomp
+        displayName: 'Install omp'
+
+      - task: DownloadGitHubRelease@0
+        inputs:
+          connection: 'microsoft'
+          userRepository: 'microsoft/onnxruntime'
+          defaultVersionType: 'specificTag'
+          version: 'v$(ort.version)'
+          itemPattern: '$(ort.dirname)*'
+          downloadPath: '$(Build.sourcesdirectory)'
+        displayName: Download the ONNXRuntime prebuilt package.
+
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '**/*.tgz'
+          destinationFolder: '$(Build.sourcesdirectory)'
+          cleanDestinationFolder: false
+          overwriteExistingFiles: true
+        displayName: Unpack ONNXRuntime package.
+
+      - script: |
+          sh ./build.sh -DOCOS_ENABLE_CTEST=ON
+        displayName: build the customop library with onnxruntime
+
+      - script: |
+          cd out/Darwin/RelWithDebInfo
+          ctest -C RelWithDebInfo --output-on-failure
+        displayName: Run C++ native tests
+
+  #############
+  # macOS Wheel
+  #############
+
+  - job: MacOSWheel
+    pool:
+      vmImage: 'macOS-12'
+
+    strategy:
+      matrix:
+        py310-1121:
+          python.version: '3.10'
+          torch.version: 'torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -f https://download.pytorch.org/whl/torch_stable.html'
+          ort.version: '1.12.1'
+        py39-1110:
+          python.version: '3.9'
+          torch.version: 'torch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 -f https://download.pytorch.org/whl/torch_stable.html'
+          ort.version: '1.11.0'
+        py38-1100:
+          python.version: '3.8'
+          torch.version: 'torch==1.10.0 torchvision==0.11.1 torchaudio==0.10.0 -f https://download.pytorch.org/whl/torch_stable.html'
+          ort.version: '1.10.0'
+        py37-190:
+          python.version: '3.7'
+          torch.version: 'torch==1.9.0 torchvision==0.10.0 torchaudio==0.9.0 -f https://download.pytorch.org/whl/torch_stable.html'
+          ort.version: '1.9.0'
+
+    steps:
+      # needed for onnxruntime
+      - script: brew install libomp
+        displayName: 'Install omp'
+
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '$(python.version)'
+          addToPath: true
+
+      - script: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade setuptools
+          python -m pip install --upgrade wheel
+          python -m pip install -r requirements.txt
+        displayName: Install requirements.txt
+
+      - script: python -c "import onnxruntime;print(onnxruntime.__version__)"
+        displayName: Check installation
+
+      - script: |
+          python setup.py bdist_wheel
+          for file in dist/*.whl; do python -m pip install --upgrade $file; done
+        displayName: Build and install the wheel
+
+      - script: python -m pip install -r requirements-dev.txt
+        displayName: Install requirements-dev.txt
+
+      - script: python -m pip install $(torch.version)
+        displayName: Install pytorch
+
+      - script: cd test && python -m pytest . --verbose
+        displayName: Run python test
+
+      - task: PublishPipelineArtifact@0
+        inputs:
+          artifactName: 'wheel-macos-$(python.version)'
+          targetPath: 'dist'
+
+  #########
+  # Windows C++
+  #########
+
+  - job: WindowsC
+    pool:
+      vmImage: 'windows-2019'
+
+    strategy:
+      matrix:
+        ort-1121:
+          ort.version: '1.12.1'
+        ort-1110:
+          ort.version: '1.11.0'
+        ort-1100:
+          ort.version: '1.10.0'
+        ort-190:
+          ort.version: '1.9.0'
+
+    steps:
+      - task: DownloadGitHubRelease@0
+        inputs:
+          connection: 'microsoft'
+          userRepository: 'microsoft/onnxruntime'
+          defaultVersionType: 'specificTag'
+          version: 'v$(ort.version)'
+          itemPattern: '*-win-x64-$(ort.version)*'
+          downloadPath: '$(Build.sourcesdirectory)'
+        displayName: Download the ONNXRuntime prebuilt package.
+
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '**/*.zip'
+          destinationFolder: '$(Build.sourcesdirectory)'
+          cleanDestinationFolder: false
+          overwriteExistingFiles: true
+        displayName: Unpack ONNXRuntime package.
+
+      - script: |
+          @echo off
+          set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+          for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
+            if exist "%%i\Common7\Tools\vsdevcmd.bat" (
+              set vsdevcmd="%%i\Common7\Tools\vsdevcmd.bat"
+            )
+          )
+
+          @echo %vsdevcmd% will be used as the VC compiler
+          @echo ##vso[task.setvariable variable=vsdevcmd]%vsdevcmd%
+        displayName: 'locate vsdevcmd via vswhere'
+
+      - script: |
+          call $(vsdevcmd)
+          call .\build.bat -DOCOS_ENABLE_CTEST=ON
+        displayName: build the customop library with onnxruntime
+
+      - script: |
+          cd out/Windows
+          ctest -C RelWithDebInfo --output-on-failure
+        displayName: Run C++ native tests
+
+  ################
+  # Windows wheels
+  ################
+
+  - job: WindowsWheel
+    pool:
+      vmImage: 'windows-2019'
+
+    strategy:
+      matrix:
+        py310-1121:
+          python.version: '3.10'
+          torch.version: 'torch==1.12.1+cpu torchvision==0.13.1+cpu torchaudio==0.12.1+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
+          ort.version: '1.12.1'
+        py39-1110:
+          python.version: '3.9'
+          torch.version: 'torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
+          ort.version: '1.11.0'
+        py38-1100:
+          python.version: '3.8'
+          torch.version: 'torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
+          ort.version: '1.10.0'
+        py37-190:
+          python.version: '3.7'
+          torch.version: 'torch==1.9.0+cpu torchvision==0.10.0+cpu torchaudio==0.9.0 -f https://download.pytorch.org/whl/cpu/torch_stable.html'
+          ort.version: '1.9.0'
+
+    steps:
+      - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+        displayName: Add conda to PATH
+
+      - script: conda create --yes --quiet --name pyenv -c conda-forge python=$(python.version) numpy
+        displayName: Create Anaconda environment
+
+      - script: |
+          call activate pyenv
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements-dev.txt
+        displayName: Install requirements.txt
+
+      - script: |
+          call activate pyenv
+          @echo find where Visual Studio was installed and use the bundled cmake
+          set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+          for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
+            set vslatest=%%i
+            if exist "%%i\Common7\Tools\vsdevcmd.bat" (
+              set vsdevcmd=%%i\Common7\Tools\vsdevcmd.bat
+            )
+          )
+          @echo vslatest (%vslatest%)
+          @echo vsdevcmd (%vsdevcmd%)
+          python setup.py bdist_wheel
+        displayName: Build the wheel
+
+      - script: |
+          call activate pyenv
+          python -m pip install --find-links=dist\ onnxruntime-extensions
+        displayName: Install the wheel
+
+      - script: |
+          call activate pyenv
+          python -m pip install $(torch.version)
+        displayName: Install pytorch
+
+      - script: |
+          call activate pyenv
+          pytest test
+        displayName: Run python test
+
+      - task: PublishPipelineArtifact@0
+        inputs:
+          artifactName: 'wheel-window-$(python.version)'
+          targetPath: 'dist'
+
+  #############
+  # WebAssembly
+  #############
+
+  - job: WebAssembly
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    steps:
+      - script: |
+          cd $(Build.BinariesDirectory)
+          git clone https://github.com/emscripten-core/emsdk
+          emsdk/emsdk install latest
+          emsdk/emsdk activate latest
+        displayName: Setup emscripten pipeline
+
+      - script: |
+          bash ./build.sh \
+          -DCMAKE_TOOLCHAIN_FILE=$(Build.BinariesDirectory)/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
+          -DOCOS_ENABLE_SPM_TOKENIZER=ON \
+          -DOCOS_BUILD_PYTHON=OFF \
+          -DOCOS_ENABLE_CV2=OFF \
+          -DOCOS_ENABLE_VISION=OFF
+        displayName: build the customop library with onnxruntime
+    # TODO add unittest for webassembly
+
+  #############
+  # Android
+  #############
+  - job: AndroidPackage
+    pool:
+      vmImage: 'macOS-12'
+    timeoutInMinutes: 120
+    variables:
+      OnnxruntimeDirectory: cmake/external/onnxruntime
+    steps:
+      - script: brew install coreutils ninja
+        displayName: Install coreutils and ninja
+
+      - script: |
+          mkdir cmake/external
+          cd cmake/external
+          git clone https://github.com/microsoft/onnxruntime.git
+          cd onnxruntime
+          git checkout v1.12.1
+        displayName: Download Onnxruntime
+        workingDirectory: $(Build.sourcesdirectory)
+
+      - script: |
+          python3 tools/python/run_android_emulator.py \
+            --android-sdk-root ${ANDROID_SDK_ROOT} \
+            --create-avd --system-image "system-images;android-30;google_apis;x86_64" \
+            --start --emulator-extra-args="-partition-size 4096" \
+            --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
+        displayName: Start Android emulator
+        workingDirectory: $(OnnxruntimeDirectory)
+
+      - task: JavaToolInstaller@0
+        displayName: Use jdk 11
+        inputs:
+          versionSpec: '11'
+          jdkArchitectureOption: 'x64'
+          jdkSourceOption: 'PreInstalled'
+
+      - script: |
+          bash ./tools/android.package.sh
+        displayName: Build onnxruntime-extensions package
+        workingDirectory: $(Build.sourcesdirectory)
+
+      - script: |
+          cd out/android/Release/java/androidtest/android
+          ./gradlew --no-daemon clean connectedDebugAndroidTest
+        displayName: Run extensions unit test with Android Emulator
+        workingDirectory: $(Build.sourcesdirectory)
+           
+  #############
+  # iOS
+  #############
+  - job: IosPackage
+    pool:
+      vmImage: 'macOS-12'
+    timeoutInMinutes: 120
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.9'
+          addToPath: true
+          architecture: 'x64'
+        displayName: "Use Python 3.9"
+
+      # iOS xcframework build doesn't work with CMake 3.25.1, pin to 3.25.0
+      - script: |
+          python -m pip install cmake==3.25.0
+        displayName: "Install CMake 3.25.0"
+
+      - template: ../.pipelines/templates/set-package-version-variable-step.yml
+        parameters:
+          PackageVersionVariableName: ORT_EXTENSIONS_POD_VERSION
+
+      - script: |
+          python ./tools/ios/build_xcframework.py \
+            --output-dir $(Build.BinariesDirectory)/xcframework_out \
+            --platform-arch iphonesimulator x86_64 \
+            --config Release
+        displayName: Build xcframework for iphonesimulator x86_64
+
+      - script: |
+          python ./tools/ios/assemble_pod_package.py \
+            --staging-dir $(Build.BinariesDirectory)/pod_staging \
+            --xcframework-output-dir $(Build.BinariesDirectory)/xcframework_out \
+            --pod-version ${ORT_EXTENSIONS_POD_VERSION}
+        displayName: Assemble pod
+
+      - script: |
+          ORT_EXTENSIONS_LOCAL_POD_PATH=$(Build.BinariesDirectory)/pod_staging \
+            pod install
+        displayName: Install pods for OrtExtensionsUsage
+        workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage
+
+      - template: ../.pipelines/templates/with-ios-simulator-steps.yml
+        parameters:
+          steps:
+          - template: ../.pipelines/templates/xcode-build-and-test-step.yml
+            parameters:
+              xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
+              scheme: 'OrtExtensionsUsage'
