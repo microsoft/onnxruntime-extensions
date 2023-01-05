@@ -17,7 +17,8 @@ steps:
     VERSION_FILE="$(Build.SourcesDirectory)/version.txt"
     BASE_VERSION="$(cat "${VERSION_FILE}")"
 
-    if [[ "${{ parameters.IsReleaseBuild }}" == "true" ]]; then
+    IS_RELEASE_BUILD="${{ parameters.IsReleaseBuild }}"
+    if [[ "${IS_RELEASE_BUILD,,}" == "true" ]]; then
       VERSION="${BASE_VERSION}"
     else
       SHORT_COMMIT_HASH="$(git rev-parse --short HEAD)"
