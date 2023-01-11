@@ -4,7 +4,7 @@
 import onnx
 
 from dataclasses import dataclass
-from typing import Dict, List, Union
+from typing import List, Union
 
 
 def create_named_value(name: str, data_type: int, shape: List[Union[str, int]]):
@@ -25,18 +25,21 @@ def create_named_value(name: str, data_type: int, shape: List[Union[str, int]]):
     return onnx.helper.make_value_info(name, tensor_type)
 
 
-# We need to use an opset that's valid for the pre/post processing operators we add.
-# Could alternatively use onnx.defs.onnx_opset_version to match the onnx version installed, but that's not deterministic
-# For now it's an arbitrary default of ONNX v16.
-# NOTE: If we update this value we need to make sure the operators used in all steps are also updated if their spec
-#       has changed.
-PRE_POST_PROCESSING_ONNX_OPSET = 16
+class Settings:
+    # We need to use an opset that's valid for the pre/post processing operators we add.
+    # Initial default is ONNX v16 which is supported by currently released ORT packages (as of 01/2023).
+    # Preferred is ONNX v18 as Resize supports the 'antialias' attribute from that opset on, which is required to match
+    # the Pillow image resize behavior.
+    #
+    # NOTE: If we update this value we need to make sure the operators used in all steps are also updated if their spec
+    #       has changed.
+    pre_post_processing_onnx_opset = 16
 
 
 def get_opset_imports():
     """Get the opset imports for a model updated by the PrePostProcessor."""
     return {
-        "": PRE_POST_PROCESSING_ONNX_OPSET,
+        "": Settings.pre_post_processing_onnx_opset,
         "com.microsoft.extensions": 1
     }  # fmt: skip
 

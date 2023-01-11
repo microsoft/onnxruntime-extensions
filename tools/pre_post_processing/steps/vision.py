@@ -7,7 +7,7 @@ import numpy as np
 from typing import List, Optional, Tuple, Union
 from ..step import Step
 from .general import Transpose
-from ..utils import PRE_POST_PROCESSING_ONNX_OPSET
+from ..utils import Settings
 
 #
 # Image conversion
@@ -339,7 +339,7 @@ class Resize(Step):
 
         # TODO: Make this configurable. Matching PIL resize for now.
         resize_attributes = 'mode = "linear", nearest_mode = "floor"'
-        if PRE_POST_PROCESSING_ONNX_OPSET >= 18:
+        if Settings.pre_post_processing_onnx_opset >= 18:
             # Resize matches PIL better if antialiasing is used, but that isn't available until ONNX opset 18.
             # Allow this to be used with older opsets as well.
             resize_attributes += ', antialias = 1'
