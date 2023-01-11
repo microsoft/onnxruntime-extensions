@@ -65,7 +65,7 @@ jobs:
           AAR_PATH="$(Build.BinariesDirectory)/android_aar/aar_out/$(buildConfig)/com/microsoft/onnxruntime/onnxruntime-extensions-android/${VERSION}/onnxruntime-extensions-android-${VERSION}.aar"
 
           echo "##vso[task.setvariable variable=ORT_EXTENSIONS_AAR_PATH]${AAR_PATH}"
-        displayName: Build onnxruntime-extensions aar package
+        displayName: Build onnxruntime-extensions AAR package
 
       - bash: |
           set -e -x
