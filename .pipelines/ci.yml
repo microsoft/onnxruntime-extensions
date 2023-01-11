@@ -385,6 +385,7 @@ jobs:
     timeoutInMinutes: 120
     variables:
       OnnxruntimeDirectory: cmake/external/onnxruntime
+      buildConfig: Release
     steps:
       - script: brew install coreutils ninja
         displayName: Install coreutils and ninja
