@@ -9,21 +9,18 @@ import argparse
 import os
 from pathlib import Path
 import shutil
-import subprocess
 import sys
 from typing import List
 
 _script_dir = Path(__file__).resolve().parent
 _repo_dir = _script_dir.parents[1]
 
+sys.path.insert(0, str(_repo_dir / "tools"))
+
+from utils import get_logger, is_windows, run
+
 _supported_abis = ["armeabi-v7a", "arm64-v8a", "x86", "x86_64"]
-
-
-def _run(cmd_args: List[str], **kwargs):
-    import shlex
-
-    print(f"Running command:\n  {shlex.join(cmd_args)}", flush=True)
-    subprocess.run(cmd_args, check=True, **kwargs)
+_log = get_logger("build_aar")
 
 
 def build_for_abi(
@@ -37,7 +34,7 @@ def build_for_abi(
 ):
     build_cmd = [
         sys.executable,
-        str(_repo_dir / "tools/build.py"),
+        str(_repo_dir / "tools" / "build.py"),
         f"--build_dir={build_dir}",
         f"--config={config}",
         "--update",
@@ -52,7 +49,7 @@ def build_for_abi(
         f"--android_ndk_path={ndk_path}",
     ] + ((["--cmake_extra_defines"] + cmake_extra_defines) if cmake_extra_defines else [])
 
-    _run(build_cmd)
+    run(*build_cmd)
 
 
 def build_aar(
@@ -82,7 +79,7 @@ def build_aar(
         # copy JNI library files to jnilibs_dir
         jnilibs_dir = base_jnilibs_dir / abi
         jnilibs_dir.mkdir(parents=True, exist_ok=True)
-        
+
         jnilib_names = ["libonnxruntime_extensions4j_jni.so"]
         for jnilib_name in jnilib_names:
             shutil.copyfile(build_dir / config / "java" / "android" / abi / jnilib_name, jnilibs_dir / jnilib_name)
@@ -94,8 +91,9 @@ def build_aar(
     aar_publish_dir = output_dir / "aar_out" / config
     ndk_version = ndk_path.name  # infer NDK version from NDK path
 
+    gradle_path = java_root / ("gradlew.bat" if is_windows() else "gradlew")
     aar_build_cmd = [
-        str(java_root / "gradlew"),
+        str(gradle_path),
         "clean",
         "build",
         "publish",
@@ -110,9 +108,9 @@ def build_aar(
     ]
 
     env = os.environ.copy()
-    env.update({"ANDROID_HOME": sdk_path, "ANDROID_NDK_HOME": ndk_path})
+    env.update({"ANDROID_HOME": str(sdk_path), "ANDROID_NDK_HOME": str(ndk_path)})
 
-    _run(aar_build_cmd, env=env, cwd=java_root)
+    run(*aar_build_cmd, env=env, cwd=java_root)
 
 
 def parse_args():
@@ -153,12 +151,14 @@ def parse_args():
 
     parser.add_argument(
         "--sdk-path",
+        type=Path,
         default=path_from_env_var("ANDROID_HOME"),
         help="Path to the Android SDK.",
     )
 
     parser.add_argument(
         "--ndk-path",
+        type=Path,
         default=path_from_env_var("ANDROID_NDK_HOME"),
         help="Path to the Android NDK. Typically `<Android SDK>/ndk/<ndk_version>`.",
     )
@@ -193,6 +193,8 @@ def parse_args():
 def main():
     args = parse_args()
 
+    _log.info(f"Building AAR for ABIs: {args.abis}")
+
     build_aar(
         output_dir=args.output_dir,
         config=args.config,
@@ -202,6 +204,8 @@ def main():
         ndk_path=args.ndk_path,
         cmake_extra_defines=args.cmake_extra_defines,
     )
+
+    _log.info("AAR build complete.")
 
 
 if __name__ == "__main__":
