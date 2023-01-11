@@ -10,7 +10,7 @@ from .utils import (
     IoMapEntry,
     get_opset_imports,
     sanitize_output_names,
-    PRE_POST_PROCESSING_ONNX_OPSET,
+    Settings,
     TENSOR_TYPE_TO_ONNX_TYPE,
 )
 from .step import Step
@@ -109,13 +109,13 @@ class PrePostProcessor:
             entry.version for entry in model.opset_import if entry.domain == "" or entry.domain == "ai.onnx"
         ][0]
 
-        if model_opset > PRE_POST_PROCESSING_ONNX_OPSET:
+        if model_opset > Settings.pre_post_processing_onnx_opset:
             # It will probably work if the user updates PRE_POST_PROCESSING_ONNX_OPSET to match the model
             # but there are no guarantees.
             # Would only break if ONNX operators used in the pre/post processing graphs have had spec changes.
             raise ValueError(f"Model opset is {model_opset} which is newer than the opset used by this script.")
-        elif model_opset < PRE_POST_PROCESSING_ONNX_OPSET:
-            model = onnx.version_converter.convert_version(model, PRE_POST_PROCESSING_ONNX_OPSET)
+        elif model_opset < Settings.pre_post_processing_onnx_opset:
+            model = onnx.version_converter.convert_version(model, Settings.pre_post_processing_onnx_opset)
 
         def name_nodes(new_graph: onnx.GraphProto, prefix: str):
             # simple helper so all nodes are named. this makes it far easier to debug any issues.
