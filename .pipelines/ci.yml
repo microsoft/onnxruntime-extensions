@@ -396,7 +396,6 @@ jobs:
           cd onnxruntime
           git checkout v1.12.1
         displayName: Download Onnxruntime
-        workingDirectory: $(Build.sourcesdirectory)
 
       - script: |
           python3 tools/python/run_android_emulator.py \
@@ -414,16 +413,29 @@ jobs:
           jdkArchitectureOption: 'x64'
           jdkSourceOption: 'PreInstalled'
 
-      - script: |
-          bash ./tools/android.package.sh
-        displayName: Build onnxruntime-extensions package
-        workingDirectory: $(Build.sourcesdirectory)
+      - bash: |
+          set -e -x
 
-      - script: |
-          cd out/android/Release/java/androidtest/android
-          ./gradlew --no-daemon clean connectedDebugAndroidTest
-        displayName: Run extensions unit test with Android Emulator
-        workingDirectory: $(Build.sourcesdirectory)
+          python ./tools/android/build_aar.py \
+            --output-dir $(Build.BinariesDirectory)/android_aar \
+            --config $(buildConfig) \
+            --abi x86_64
+
+          VERSION=$(cat ./version.txt)
+          AAR_PATH="$(Build.BinariesDirectory)/android_aar/aar_out/$(buildConfig)/com/microsoft/onnxruntime/onnxruntime-extensions-android/${VERSION}/onnxruntime-extensions-android-${VERSION}.aar"
+
+          echo "##vso[task.setvariable variable=ORT_EXTENSIONS_AAR_PATH]${AAR_PATH}"
+        displayName: Build onnxruntime-extensions AAR package
+
+      - bash: |
+          set -e -x
+
+          cp -r $(Build.SourcesDirectory)/java/src/test/android $(Build.BinariesDirectory)/android_test
+
+          cd $(Build.BinariesDirectory)/android_test
+
+          ./gradlew --no-daemon -DortExtensionsAarLocalPath="${ORT_EXTENSIONS_AAR_PATH}" connectedDebugAndroidTest
+        displayName: Build and run onnxruntime-extensions Android test with Android Emulator
            
   #############
   # iOS
