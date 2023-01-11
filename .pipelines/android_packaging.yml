@@ -74,7 +74,7 @@ jobs:
 
           cd $(Build.BinariesDirectory)/android_test
 
-          ./gradlew --no-daemon -DortExtensionsAarLocalPath="${ORT_EXTENSIONS_AAR_PATH}" connectedDebugAndroidTest
+          ./gradlew connectedDebugAndroidTest --no-daemon -DortExtensionsAarLocalPath="${ORT_EXTENSIONS_AAR_PATH}"
         displayName: Build and run onnxruntime-extensions Android test with Android Emulator
 
       - script: |
@@ -83,10 +83,10 @@ jobs:
           appcenter test run espresso \
             --app "AI-Frameworks/Ort-Ext-Mobile-Android-Testapp" \
             --devices $(app_center_android_test_devices) \
-            --app-path $(Build.BinariesDirectory)/android_test/android/app/build/outputs/apk/debug/app-debug.apk \
+            --app-path $(Build.BinariesDirectory)/android_test/app/build/outputs/apk/debug/app-debug.apk \
             --test-series "master" \
             --locale "en_US" \
-            --build-dir $(Build.BinariesDirectory)/android_test/android/app/build/outputs/apk/androidTest/debug \
+            --build-dir $(Build.BinariesDirectory)/android_test/app/build/outputs/apk/androidTest/debug \
             --token $(app_center_api_token)
         displayName: Run onnxruntime-extensions Android test using App Center
 
