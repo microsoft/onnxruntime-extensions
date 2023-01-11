@@ -47,13 +47,13 @@ jobs:
           defaultVersionType: 'specificTag'
           version: 'v$(ort.version)'
           itemPattern: '*-linux-x64-$(ort.version)*'
-          downloadPath: '$(Build.sourcesdirectory)'
+          downloadPath: '$(Build.SourcesDirectory)'
         displayName: Download the ONNXRuntime prebuilt package.
 
       - task: ExtractFiles@1
         inputs:
           archiveFilePatterns: '**/*.tgz'
-          destinationFolder: '$(Build.sourcesdirectory)'
+          destinationFolder: '$(Build.SourcesDirectory)'
           cleanDestinationFolder: false
           overwriteExistingFiles: true
         displayName: Unpack ONNXRuntime package.
@@ -127,13 +127,13 @@ jobs:
           defaultVersionType: 'specificTag'
           version: 'v$(ort.version)'
           itemPattern: '$(ort.dirname)*'
-          downloadPath: '$(Build.sourcesdirectory)'
+          downloadPath: '$(Build.SourcesDirectory)'
         displayName: Download the ONNXRuntime prebuilt package.
 
       - task: ExtractFiles@1
         inputs:
           archiveFilePatterns: '**/*.tgz'
-          destinationFolder: '$(Build.sourcesdirectory)'
+          destinationFolder: '$(Build.SourcesDirectory)'
           cleanDestinationFolder: false
           overwriteExistingFiles: true
         displayName: Unpack ONNXRuntime package.
@@ -240,13 +240,13 @@ jobs:
           defaultVersionType: 'specificTag'
           version: 'v$(ort.version)'
           itemPattern: '*-win-x64-$(ort.version)*'
-          downloadPath: '$(Build.sourcesdirectory)'
+          downloadPath: '$(Build.SourcesDirectory)'
         displayName: Download the ONNXRuntime prebuilt package.
 
       - task: ExtractFiles@1
         inputs:
           archiveFilePatterns: '**/*.zip'
-          destinationFolder: '$(Build.sourcesdirectory)'
+          destinationFolder: '$(Build.SourcesDirectory)'
           cleanDestinationFolder: false
           overwriteExistingFiles: true
         displayName: Unpack ONNXRuntime package.
