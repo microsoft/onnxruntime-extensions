@@ -128,7 +128,6 @@ def read_version():
     version_str = '1.0.0'
     with (open(os.path.join(TOP_DIR, 'version.txt'), "r")) as f:
         version_str = f.readline().strip()
-        version_str = line[0].strip('\n\r')
 
     # is it a dev build or release?
     build_id = os.getenv('BUILD_BUILDID', None)
