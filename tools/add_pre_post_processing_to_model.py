@@ -9,7 +9,7 @@ from pathlib import Path
 
 from pre_post_processing import PrePostProcessor, Debug
 from pre_post_processing.steps import *
-from pre_post_processing.utils import create_named_value, IoMapEntry
+from pre_post_processing.utils import create_named_value, IoMapEntry, Settings
 
 
 class ModelSource(enum.Enum):
@@ -210,12 +210,20 @@ def main():
         help="Image output format for superresolution model to produce.",
     )
 
+    parser.add_argument(
+        "--opset", type=int, required=False, default=16,
+        help="ONNX opset to use. Opset 18 is required for Resize with anti-aliasing."
+    )
+
     parser.add_argument("model", type=Path, help="Provide path to ONNX model to update.")
 
     args = parser.parse_args()
 
     model_path = args.model.resolve(strict=True)
     new_model_path = model_path.with_suffix(".with_pre_post_processing.onnx")
+
+    if args.opset:
+        Settings.pre_post_processing_onnx_opset = args.opset
 
     if args.model_type == "mobilenet":
         source = ModelSource.PYTORCH if args.model_source == "pytorch" else ModelSource.TENSORFLOW
