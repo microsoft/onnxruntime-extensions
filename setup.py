@@ -127,7 +127,7 @@ def read_requirements():
 def read_version():
     version_str = '1.0.0'
     with (open(os.path.join(TOP_DIR, 'version.txt'), "r")) as f:
-        line = [_ for _ in [dedent(_) for _ in f.readlines()]]
+        version_str = f.readline().strip()
         version_str = line[0].strip('\n\r')
 
     # is it a dev build or release?
