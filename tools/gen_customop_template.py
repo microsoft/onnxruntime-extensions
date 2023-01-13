@@ -1,13 +1,12 @@
 '''
 Generates the C++ template code for a new custom operator.
 
-Usage: $ python tools\gen_customop_template.py onnx_model_filepath
+Usage: $ python tools\gen_customop_template.py onnx_model_filepath customop_template_filepath
 '''
 
 import argparse
 import onnx
 import pathlib
-import sys
 
 # Load and check ONNX model
 def load_onnx_model(model_path):
@@ -21,6 +20,7 @@ def get_io_count(model):
     output_count = 0
     custom_op_node_exists = False
 
+    print("Note: This C++ CustomOp template generator currently only supports models with one custom op node.\n________\n")
     for node in model.graph.node:
         # Find CustomOp node using domain
         if node.domain == "ai.onnx.contrib" or node.domain == "com.microsoft.extensions":
@@ -34,7 +34,7 @@ def get_io_count(model):
     return input_count, output_count
 
 # Add initial CustomOp code to C++ header file for CustomOp template
-def create_hpp(op, op_name, input_type_count, output_type_count):
+def create_hpp(customop_template_filepath, op, op_name, input_type_count, output_type_count):
     customop_template = r'''
     #include <stdio.h>
     #include "ocos.h"
@@ -72,12 +72,12 @@ def create_hpp(op, op_name, input_type_count, output_type_count):
 
     hpp_file = customop_template.format(custom_op = op, op_name = op_name, input_type_count = input_type_count, output_type_count = output_type_count)
 
-    # Write code to C++ temmplate file
-    new_op = "tools/custom_op_template.hpp"
-    with open(new_op,'wt') as file:
+    # Write code to C++ template file
+    with open(customop_template_filepath,'wt') as file:
+        print("Added C++ CustomOp template code to output filepath: " + str(customop_template_filepath) + "\n")
         file.write(hpp_file)
 
-def parse_args():
+def parse_args(args):
     parser = argparse.ArgumentParser(
         description="Generate C++ template code for a new custom operator.",
     )
@@ -88,11 +88,22 @@ def parse_args():
         help="Path to ONNX model with CustomOp node.",
     )
 
-    args = parser.parse_args()
-    return args
+    parser.add_argument(
+        "customop_template_filepath",
+        type=pathlib.Path,
+        help="Output file path to add C++ template code file.",
+    )
 
-if __name__ == "__main__":
-    args = parse_args()
+    parsed_args = parser.parse_args(args)
+    return parsed_args
+
+def main(args):
+    args = parse_args(args)
     model = load_onnx_model(args.onnx_model_filepath)
     input_count, output_count = get_io_count(model)
-    create_hpp(op = "CustomOp", op_name = "CustomOpName", input_type_count = input_count, output_type_count = output_count)
+    create_hpp(customop_template_filepath = args.customop_template_filepath, op = "CustomOp", op_name = "CustomOpName", input_type_count = input_count, output_type_count = output_count)
+    return input_count, output_count
+
+if __name__ == "__main__":
+    import sys
+    main(sys.argv[1:])
