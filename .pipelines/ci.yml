@@ -385,7 +385,6 @@ jobs:
     timeoutInMinutes: 120
     variables:
       OnnxruntimeDirectory: cmake/external/onnxruntime
-      buildConfig: Release
     steps:
       - task: UsePythonVersion@0
         inputs:
@@ -424,13 +423,10 @@ jobs:
       - bash: |
           set -e -x
 
-          python ./tools/android/build_aar.py \
-            --output-dir $(Build.BinariesDirectory)/android_aar \
-            --config $(buildConfig) \
-            --abi x86_64
+          _BUILD_CFG="x86_64 $(Build.BinariesDirectory)/android_aar" ./build.android
 
           VERSION=$(cat ./version.txt)
-          AAR_PATH="$(Build.BinariesDirectory)/android_aar/aar_out/$(buildConfig)/com/microsoft/onnxruntime/onnxruntime-extensions-android/${VERSION}/onnxruntime-extensions-android-${VERSION}.aar"
+          AAR_PATH="$(Build.BinariesDirectory)/android_aar/aar_out/com/microsoft/onnxruntime/onnxruntime-extensions-android/${VERSION}/onnxruntime-extensions-android-${VERSION}.aar"
 
           echo "##vso[task.setvariable variable=ORT_EXTENSIONS_AAR_PATH]${AAR_PATH}"
         displayName: Build onnxruntime-extensions AAR package
