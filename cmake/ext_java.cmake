@@ -61,13 +61,6 @@ target_include_directories(onnxruntime_extensions4j_jni PRIVATE ${JAVA_ROOT}/bui
 target_link_libraries(onnxruntime_extensions4j_jni PRIVATE ortcustomops)
 standardize_output_folder(onnxruntime_extensions4j_jni)
 
-set(JAVA_PACKAGE_OUTPUT_DIR ${JAVA_OUTPUT_DIR}/build)
-file(MAKE_DIRECTORY ${JAVA_PACKAGE_OUTPUT_DIR})
-if (CMAKE_SYSTEM_NAME STREQUAL "Android")
-  set(ANDROID_PACKAGE_OUTPUT_DIR ${JAVA_PACKAGE_OUTPUT_DIR}/android)
-  file(MAKE_DIRECTORY ${ANDROID_PACKAGE_OUTPUT_DIR})
-endif()
-
 if (CMAKE_SYSTEM_NAME STREQUAL "Android")
   if (OCOS_ENABLE_SPM_TOKENIZER)
     target_link_libraries(onnxruntime_extensions4j_jni PUBLIC log)
@@ -168,36 +161,12 @@ add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${GRAD
 if (CMAKE_SYSTEM_NAME STREQUAL "Android")
   set(ANDROID_PACKAGE_JNILIBS_DIR ${JAVA_OUTPUT_DIR}/android)
   set(ANDROID_PACKAGE_ABI_DIR ${ANDROID_PACKAGE_JNILIBS_DIR}/${ANDROID_ABI})
-  file(MAKE_DIRECTORY ${ANDROID_PACKAGE_JNILIBS_DIR})
-  file(MAKE_DIRECTORY ${ANDROID_PACKAGE_ABI_DIR})
 
   # Copy onnxruntime_extensions4j_jni.so for building Android AAR package
   add_custom_command(TARGET onnxruntime_extensions4j_jni
-    POST_BUILD COMMAND ${CMAKE_COMMAND}
-      -E copy_if_different $<TARGET_FILE:onnxruntime_extensions4j_jni> ${ANDROID_PACKAGE_ABI_DIR}/$<TARGET_LINKER_FILE_NAME:onnxruntime_extensions4j_jni>)
-  # Generate the Android AAR package
-  add_custom_command(TARGET onnxruntime_extensions4j_jni
-    POST_BUILD COMMAND ${GRADLE_EXECUTABLE}
-    -b build-android.gradle -c settings-android.gradle build
-    -DjniLibsDir=${ANDROID_PACKAGE_JNILIBS_DIR} -DbuildDir=${ANDROID_PACKAGE_OUTPUT_DIR} -DminSdkVer=${ANDROID_MIN_SDK} -DndkVer=${ANDROID_NDK_VERSION}
-    WORKING_DIRECTORY ${JAVA_ROOT})
-
-  set(ANDROID_TEST_PACKAGE_ROOT ${JAVA_ROOT}/src/test/android)
-  set(ANDROID_TEST_PACKAGE_DIR ${JAVA_OUTPUT_DIR}/androidtest/android)
-  #copy the androidtest project into cmake binary directory
-  file(MAKE_DIRECTORY ${JAVA_OUTPUT_DIR}/androidtest)
-  file(COPY ${ANDROID_TEST_PACKAGE_ROOT} DESTINATION ${JAVA_OUTPUT_DIR}/androidtest)
-  set(ANDROID_TEST_PACKAGE_LIB_DIR ${ANDROID_TEST_PACKAGE_DIR}/app/libs)
-  file(MAKE_DIRECTORY ${ANDROID_TEST_PACKAGE_LIB_DIR})
-  # Copy the built Android AAR package to libs folder of our test app
-  add_custom_command(TARGET onnxruntime_extensions4j_jni
-    POST_BUILD COMMAND ${CMAKE_COMMAND}
-    -E copy_if_different ${ANDROID_PACKAGE_OUTPUT_DIR}/outputs/aar/onnxruntime-extensions-debug.aar ${ANDROID_TEST_PACKAGE_LIB_DIR})
-  # Build Android test apk for java package
-  file(TO_NATIVE_PATH ./gradlew GRADLEW)
-  add_custom_command(TARGET onnxruntime_extensions4j_jni
-    POST_BUILD COMMAND ${GRADLEW} clean WORKING_DIRECTORY ${ANDROID_TEST_PACKAGE_DIR})
-  add_custom_command(TARGET onnxruntime_extensions4j_jni
-    POST_BUILD COMMAND ${GRADLEW} assembleDebug assembleDebugAndroidTest
-    WORKING_DIRECTORY ${ANDROID_TEST_PACKAGE_DIR})
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${ANDROID_PACKAGE_ABI_DIR}
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      $<TARGET_FILE:onnxruntime_extensions4j_jni>
+      ${ANDROID_PACKAGE_ABI_DIR}/$<TARGET_LINKER_FILE_NAME:onnxruntime_extensions4j_jni>)
 endif()
