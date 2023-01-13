@@ -1,11 +1,5 @@
 # packaging pipeline for onnxruntime-extensions Android AAR package
 
-parameters:
-  - name: IsReleaseBuild
-    displayName: "Is this is a release build?"
-    type: boolean
-    default: false
-
 jobs:
   - job: AndroidPackaging
     pool:
