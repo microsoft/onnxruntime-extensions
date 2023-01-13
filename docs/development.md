@@ -20,10 +20,10 @@ For a complete list of verified build configurations see [here](<./ci_matrix.md>
 ## Android package
 - pre-requisites: [Android Studio](https://developer.android.com/studio)
 
-`bash ./tools/android.package.sh` to build the full AAR package or `bash ./build.android` to build a quick Android emulator package.
+Use `./tools/android/build_aar.py` to build an Android AAR package.
 
 ## iOS package
-- bash ./build.ios to build the iOS framework.
+Use `./tools/ios/build_xcframework.py` to build an iOS xcframework package.
 
 ## Web-Assembly
 ONNXRuntime-Extensions will be built as a static library and linked with ONNXRuntime due to the lack of a good dynamic linking mechanism in WASM. Here are two additional arguments [–-use_extensions and --extensions_overridden_path](https://github.com/microsoft/onnxruntime/blob/860ba8820b72d13a61f0d08b915cd433b738ffdc/tools/ci_build/build.py#L416) on building onnxruntime to include ONNXRuntime-Extensions footprint in the ONNXRuntime package.

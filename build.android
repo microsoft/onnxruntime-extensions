@@ -1,16 +1,19 @@
 #!/bin/bash
 set -e -x -u
 
+# Get directory this script is in
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 OSNAME=android
-abi_name=x86
+BUILD_CONFIG=Release
+abi_name=x86_64
 target_dir=''
 if [[ -n ${_BUILD_CFG-} ]]; then
     IFS=' ' read -r abi_name target_dir <<< ${_BUILD_CFG}
 fi
 
 if [[ -z "${target_dir}" ]]; then
-    target_dir=out/$OSNAME/Release
+    target_dir="${SCRIPT_DIR}/out/$OSNAME/${BUILD_CONFIG}"
 fi
 
 if [[ -z ${NDK_ROOT+x} ]]; then
@@ -25,23 +28,38 @@ if [[ -z "${NDK_ROOT}" ]]; then
     exit 7
 fi
 if [[ -z ${ANDROID_SDK_ROOT+x} ]]; then
-    export ANDROID_SDK_ROOT=$(dirname $(dirname  ${NDK_ROOT}))
+    export ANDROID_SDK_ROOT="$(dirname $(dirname "${NDK_ROOT}"))"
 fi
 if [[ -z ${ANDROID_NDK_VERSION+x} ]]; then
-    CURRENT_NDK_VERSION=$(basename ${NDK_ROOT})
+    CURRENT_NDK_VERSION=$(basename "${NDK_ROOT}")
 else
     CURRENT_NDK_VERSION=${ANDROID_NDK_VERSION}
 fi
 
-mkdir -p ${target_dir}
-pushd ${target_dir}
-# ANDROID_PLATFORM, the minimum level is 24, i.e., due to
-#       the great change of file system permission in Android 7
+# the minimum API level is 24, i.e., due to the great change of file system permission in Android 7
+ANDROID_API_LEVEL=24
+
+mkdir -p "${target_dir}"
+pushd "${target_dir}"
 cmake "$@" \
-    -DCMAKE_TOOLCHAIN_FILE=${NDK_ROOT}/build/cmake/android.toolchain.cmake  \
-    -DANDROID_ABI=${abi_name}                                               \
-    -DANDROID_PLATFORM=android-24                                           \
-    -DANDROID_NDK_VERSION=${CURRENT_NDK_VERSION}                            \
-    -DOCOS_BUILD_ANDROID=ON                                                 \
-    ../../.. && cmake --build . --config Release --parallel 
+    -DCMAKE_TOOLCHAIN_FILE="${NDK_ROOT}/build/cmake/android.toolchain.cmake"    \
+    -DANDROID_ABI=${abi_name}                                                   \
+    -DANDROID_PLATFORM=android-${ANDROID_API_LEVEL}                             \
+    -DANDROID_NDK_VERSION=${CURRENT_NDK_VERSION}                                \
+    -DOCOS_BUILD_ANDROID=ON                                                     \
+    "${SCRIPT_DIR}" && cmake --build . --config ${BUILD_CONFIG} --parallel
+popd
+
+JAVA_ROOT="${SCRIPT_DIR}/java"
+pushd "${JAVA_ROOT}"
+"${JAVA_ROOT}/gradlew"                              \
+    clean build publish                             \
+    --no-daemon                                     \
+    -b "${JAVA_ROOT}/build-android.gradle"          \
+    -c "${JAVA_ROOT}/settings-android.gradle"       \
+    -DjniLibsDir="${target_dir}/java/android"       \
+    -DbuildDir="${target_dir}/java/build/android"   \
+    -DpublishDir="${target_dir}/aar_out"            \
+    -DminSdkVer=${ANDROID_API_LEVEL}                \
+    -DndkVer=${CURRENT_NDK_VERSION}
 popd
