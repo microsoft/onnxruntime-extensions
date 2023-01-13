@@ -52,7 +52,7 @@ popd
 
 JAVA_ROOT="${SCRIPT_DIR}/java"
 pushd "${JAVA_ROOT}"
-"${JAVA_ROOT}/gradlew"                                \
+"${JAVA_ROOT}/gradlew"                              \
     clean build publish                             \
     --no-daemon                                     \
     -b "${JAVA_ROOT}/build-android.gradle"          \

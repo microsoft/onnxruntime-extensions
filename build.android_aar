@@ -1,9 +1,0 @@
-#!/bin/bash
-
-# builds an Android AAR
-# see tools/android/build_aar.py for details
-
-# Get directory this script is in
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
-python ${DIR}/tools/android/build_aar.py "$@"
