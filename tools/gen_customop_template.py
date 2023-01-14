@@ -24,6 +24,7 @@ def get_io_count(model):
     for node in model.graph.node:
         # Find CustomOp node using domain
         if node.domain == "ai.onnx.contrib" or node.domain == "com.microsoft.extensions":
+            assert not custom_op_node_exists, "Error: Found more than one custom op node. Exactly one is expected."
             custom_op_node_exists = True
             input_count = len(node.input)
             output_count = len(node.output)
@@ -74,7 +75,7 @@ def create_hpp(customop_template_filepath, op, op_name, input_type_count, output
 
     # Write code to C++ template file
     with open(customop_template_filepath,'wt') as file:
-        print("Added C++ CustomOp template code to output filepath: " + str(customop_template_filepath) + "\n")
+        print(f"Added C++ CustomOp template code to output filepath: {customop_template_filepath}\n")
         file.write(hpp_file)
 
 def parse_args(args):

@@ -24,10 +24,13 @@ class TestCustomOpTemplate(unittest.TestCase):
         self.assertEqual(output_count, expected_output_count)
 
     def test_template(self):
-        gpt2tok_template_output_path = os.path.join(tools_dir, "custom_op_template_gpt2tok.hpp")
+        template_output_path = os.path.join(test_data_dir, "generated")
+        os.mkdir(template_output_path)
+
+        gpt2tok_template_output_path = os.path.join(template_output_path, "custom_op_template_gpt2tok.hpp")
         self.check_io_count(model_name = "custom_op_gpt2tok.onnx", output_path = gpt2tok_template_output_path, expected_input_count = 1, expected_output_count = 2)
         
-        cliptok_template_output_path = os.path.join(tools_dir, "custom_op_template_cliptok.hpp")
+        cliptok_template_output_path = os.path.join(template_output_path, "custom_op_template_cliptok.hpp")
         self.check_io_count(model_name = "custom_op_cliptok.onnx", output_path = cliptok_template_output_path, expected_input_count = 1, expected_output_count = 2)
 
 if __name__ == "__main__":
