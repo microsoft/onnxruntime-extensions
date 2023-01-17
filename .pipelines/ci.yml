@@ -391,21 +391,19 @@ jobs:
           architecture: "x64"
         displayName: "Use Python 3.9"
 
+      - task: JavaToolInstaller@0
+            displayName: Use jdk 11
+            inputs:
+              versionSpec: '11'
+              jdkArchitectureOption: 'x64'
+              jdkSourceOption: 'PreInstalled'
+
       - script: brew install coreutils ninja
         displayName: Install coreutils and ninja
 
       - template: templates/run-with-android-emulator-steps.yml
         parameters:
           steps:
-
-          # Start switching to jdk 11 after the Android Emulator is started
-          # since Android SDK manager requires java 8
-          - task: JavaToolInstaller@0
-            displayName: Use jdk 11
-            inputs:
-              versionSpec: '11'
-              jdkArchitectureOption: 'x64'
-              jdkSourceOption: 'PreInstalled'
 
           - bash: |
               set -e -x
