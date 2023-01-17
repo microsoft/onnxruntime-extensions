@@ -394,7 +394,7 @@ jobs:
       - script: brew install coreutils ninja
         displayName: Install coreutils and ninja
 
-      - template: templates/with-running-android-emulator-steps.yml
+      - template: templates/run-with-android-emulator-steps.yml
         parameters:
           steps:
 
@@ -427,7 +427,7 @@ jobs:
 
               ./gradlew connectedDebugAndroidTest --no-daemon -DortExtensionsAarLocalPath="${ORT_EXTENSIONS_AAR_PATH}"
             displayName: Build and run onnxruntime-extensions Android test with Android Emulator
-           
+
   #############
   # iOS
   #############
@@ -472,7 +472,7 @@ jobs:
         displayName: Install pods for OrtExtensionsUsage
         workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage
 
-      - template: templates/with-ios-simulator-steps.yml
+      - template: templates/run-with-ios-simulator-steps.yml
         parameters:
           steps:
           - template: templates/xcode-build-and-test-step.yml
