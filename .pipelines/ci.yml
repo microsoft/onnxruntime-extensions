@@ -392,11 +392,11 @@ jobs:
         displayName: "Use Python 3.9"
 
       - task: JavaToolInstaller@0
-            displayName: Use jdk 11
-            inputs:
-              versionSpec: '11'
-              jdkArchitectureOption: 'x64'
-              jdkSourceOption: 'PreInstalled'
+        displayName: Use jdk 11
+        inputs:
+          versionSpec: '11'
+          jdkArchitectureOption: 'x64'
+          jdkSourceOption: 'PreInstalled'
 
       - script: brew install coreutils ninja
         displayName: Install coreutils and ninja
