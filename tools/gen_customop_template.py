@@ -7,11 +7,11 @@ Usage: $ python tools\gen_customop_template.py onnx_model_filepath customop_temp
 import argparse
 import onnx
 import pathlib
+import sys
 
-# Load and check ONNX model
+# Load ONNX model
 def load_onnx_model(model_path):
     model = onnx.load(model_path)
-    onnx.checker.check_model(model)
     return model
 
 # Get input and output type count from the ONNX model using protobuf information
@@ -106,5 +106,4 @@ def main(args):
     return input_count, output_count
 
 if __name__ == "__main__":
-    import sys
     main(sys.argv[1:])
