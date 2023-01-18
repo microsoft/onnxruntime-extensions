@@ -36,6 +36,7 @@ __pycache__
 out/
 *.egg-info/
 .setuptools-cmake-build/
+onnxruntime_extensions/_version.py
 onnxruntime-*-*-*/
 temp_*.onnx
 # Java specific ignores
@@ -49,3 +50,4 @@ tutorials/*/app/libs
 *.dylib
 *.pyd
 /test/data/ppp_vision/*.updated.onnx
+/test/data/generated/

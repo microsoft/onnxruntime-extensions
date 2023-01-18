@@ -63,6 +63,10 @@ def _parse_arguments():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
+    def path_from_env_var(env_var: str):
+        env_var_value = os.environ.get(env_var)
+        return Path(env_var_value) if env_var_value is not None else None
+
     # Main arguments
     parser.add_argument("--build_dir", type=Path,
                         # We set the default programmatically as it needs to take into account whether we're
@@ -122,10 +126,10 @@ def _parse_arguments():
     parser.add_argument("--android_abi", default="arm64-v8a", choices=["armeabi-v7a", "arm64-v8a", "x86", "x86_64"],
                         help="Specify the target Android Application Binary Interface (ABI)")
     parser.add_argument("--android_api", type=int, default=27, help="Android API Level, e.g. 21")
-    parser.add_argument("--android_home", type=Path, default=os.environ.get("ANDROID_HOME"),
+    parser.add_argument("--android_home", type=Path, default=path_from_env_var("ANDROID_HOME"),
                         help="Path to the Android SDK.")
-    parser.add_argument("--android_ndk_path", type=Path, default=os.environ.get("ANDROID_NDK_HOME"),
-                        help="Path to the Android NDK. Typically `<Android SDK>/ndk/<ndk_version>")
+    parser.add_argument("--android_ndk_path", type=Path, default=path_from_env_var("ANDROID_NDK_HOME"),
+                        help="Path to the Android NDK. Typically `<Android SDK>/ndk/<ndk_version>`.")
 
     # macOS/iOS options
     parser.add_argument("--build_apple_framework", action="store_true",
@@ -165,8 +169,8 @@ def _parse_arguments():
 
     parser.add_argument("--cmake_generator",
                         choices=["Visual Studio 16 2019", "Visual Studio 17 2022", "Ninja", "Unix Makefiles", "Xcode"],
-                        default="Visual Studio 17 2022" if is_windows() else "Xcode" if is_macOS() else None,
-                        help="Specify the generator that CMake invokes to override the default.")
+                        default="Visual Studio 17 2022" if is_windows() else "Unix Makefiles",
+                        help="Specify the generator that CMake invokes.")
 
     # Binary size reduction options
     parser.add_argument("--include_ops_by_config", type=Path,
@@ -211,18 +215,19 @@ def _is_reduced_ops_build(args):
     return args.include_ops_by_config is not None
 
 
-def _resolve_executable_path(command_or_path: Path):
-    """Returns the absolute path of an executable."""
+def _resolve_executable_path(command_or_path: Path, resolution_failure_allowed: bool = False):
+    """
+    Returns the absolute path of an executable.
+    If `resolution_failure_allowed` is True, returns None if the executable path cannot be found.
+    """
+    executable_path = shutil.which(str(command_or_path))
+    if executable_path is None:
+        if resolution_failure_allowed:
+            return None
+        else:
+            raise ValueError(f"Failed to resolve executable path for '{command_or_path}'.")
 
-    exe_path = None
-    if command_or_path:
-        executable_path = shutil.which(str(command_or_path))
-        if executable_path is None:
-            raise UsageError(f"Failed to resolve executable path for '{command_or_path}'.")
-
-        exe_path = Path(executable_path)
-
-    return exe_path
+    return Path(executable_path)
 
 
 def _get_build_config_dir(build_dir: Path, config: str):
@@ -332,13 +337,10 @@ def _generate_build_tree(cmake_path: Path,
         if not android_home.is_dir() or not android_ndk_path.is_dir():
             raise UsageError("Android home and NDK paths must be directories.")
 
-        ndk_version = android_ndk_path.name  # NDK version is inferred from the folder name
-
         cmake_args += [
             "-DOCOS_BUILD_ANDROID=ON",
             "-DCMAKE_TOOLCHAIN_FILE="
             + str((args.android_ndk_path / "build" / "cmake" / "android.toolchain.cmake").resolve(strict=True)),
-            "-DANDROID_NDK_VERSION=" + str(ndk_version),
             "-DANDROID_PLATFORM=android-" + str(args.android_api),
             "-DANDROID_ABI=" + str(args.android_abi)
         ]
@@ -421,13 +423,13 @@ def build_targets(args, cmake_path: Path, build_dir: Path, configs: Set[str], nu
 
         build_tool_args = []
         if num_parallel_jobs != 1:
-            if is_windows() and args.cmake_generator != "Ninja" and not args.wasm:
+            if args.cmake_generator.startswith("Visual Studio"):
                 build_tool_args += [
                     "/maxcpucount:{}".format(num_parallel_jobs),
                     # if nodeReuse is true, msbuild processes will stay around for a bit after the build completes
                     "/nodeReuse:False",
                 ]
-            elif is_macOS() and args.use_xcode:
+            elif args.cmake_generator == "Xcode":
                 # CMake will generate correct build tool args for Xcode
                 cmd_args += ["--parallel", str(num_parallel_jobs)]
             else:
@@ -458,14 +460,8 @@ def _run_ios_tests(args, config: str, cwd: Path):
 
 
 def _run_cxx_tests(args, build_dir: Path, configs: Set[str]):
-    ctest_path = args.ctest_path
     code_coverage_using_vstest = is_windows() and args.cxx_code_coverage
-
-    if not code_coverage_using_vstest:
-        ctest_path = _resolve_executable_path(ctest_path)
-        if not ctest_path:
-            raise UsageError(f"ctest was not found. Looked for '{args.ctest_path}'. "
-                             "Specify using `--ctest_path` if necessary.")
+    ctest_path = _resolve_executable_path(args.ctest_path, resolution_failure_allowed=code_coverage_using_vstest)
 
     for config in configs:
         log.info("Running tests for %s configuration", config)
@@ -545,16 +541,26 @@ def main():
     if args.skip_tests:
         args.test = False
 
-    if args.android and is_windows():
-        if args.cmake_generator != "Ninja":
-            log.info("Setting cmake_generator to Ninja, which is required when cross-compiling Android on Windows.")
-            args.cmake_generator = "Ninja"
+    if args.android:
+        original_cmake_generator = args.cmake_generator
+        if original_cmake_generator not in ["Ninja", "Unix Makefiles"]:
+            if _resolve_executable_path("ninja", resolution_failure_allowed=True) is not None:
+                args.cmake_generator = "Ninja"
+            elif _resolve_executable_path("make", resolution_failure_allowed=True) is not None:
+                args.cmake_generator = "Unix Makefiles"
+            else:
+                raise UsageError("Unable to find appropriate CMake generator for cross-compiling Android. "
+                                 "Valid generators are 'Ninja' or 'Unix Makefiles'.")
+
+        if args.cmake_generator != original_cmake_generator:
+            log.info(f"Setting CMake generator to '{args.cmake_generator}' for cross-compiling Android.")
 
     configs = set(args.config)
 
     # setup paths and directories
-    # cmake_path can be None. For example, if a person only wants to run the tests, they don't need cmake.
-    cmake_path = _resolve_executable_path(args.cmake_path)
+    cmake_path = _resolve_executable_path(
+        args.cmake_path,
+        resolution_failure_allowed=(not (args.update or args.clean or args.build)))
     build_dir = args.build_dir
 
     if args.update or args.build:
@@ -608,7 +614,7 @@ def main():
                 # if args.msvc_toolset:
                 #     toolset += f",version={args.msvc_toolset}"
                 cmake_extra_args = ["-A", "x64", "-T", toolset, "-G", args.cmake_generator]
-        elif args.cmake_generator is not None:
+        else:
             cmake_extra_args += ["-G", args.cmake_generator]
 
         if is_macOS():

@@ -47,13 +47,13 @@ jobs:
           defaultVersionType: 'specificTag'
           version: 'v$(ort.version)'
           itemPattern: '*-linux-x64-$(ort.version)*'
-          downloadPath: '$(Build.sourcesdirectory)'
+          downloadPath: '$(Build.SourcesDirectory)'
         displayName: Download the ONNXRuntime prebuilt package.
 
       - task: ExtractFiles@1
         inputs:
           archiveFilePatterns: '**/*.tgz'
-          destinationFolder: '$(Build.sourcesdirectory)'
+          destinationFolder: '$(Build.SourcesDirectory)'
           cleanDestinationFolder: false
           overwriteExistingFiles: true
         displayName: Unpack ONNXRuntime package.
@@ -127,13 +127,13 @@ jobs:
           defaultVersionType: 'specificTag'
           version: 'v$(ort.version)'
           itemPattern: '$(ort.dirname)*'
-          downloadPath: '$(Build.sourcesdirectory)'
+          downloadPath: '$(Build.SourcesDirectory)'
         displayName: Download the ONNXRuntime prebuilt package.
 
       - task: ExtractFiles@1
         inputs:
           archiveFilePatterns: '**/*.tgz'
-          destinationFolder: '$(Build.sourcesdirectory)'
+          destinationFolder: '$(Build.SourcesDirectory)'
           cleanDestinationFolder: false
           overwriteExistingFiles: true
         displayName: Unpack ONNXRuntime package.
@@ -240,13 +240,13 @@ jobs:
           defaultVersionType: 'specificTag'
           version: 'v$(ort.version)'
           itemPattern: '*-win-x64-$(ort.version)*'
-          downloadPath: '$(Build.sourcesdirectory)'
+          downloadPath: '$(Build.SourcesDirectory)'
         displayName: Download the ONNXRuntime prebuilt package.
 
       - task: ExtractFiles@1
         inputs:
           archiveFilePatterns: '**/*.zip'
-          destinationFolder: '$(Build.sourcesdirectory)'
+          destinationFolder: '$(Build.SourcesDirectory)'
           cleanDestinationFolder: false
           overwriteExistingFiles: true
         displayName: Unpack ONNXRuntime package.
@@ -383,29 +383,13 @@ jobs:
     pool:
       vmImage: 'macOS-12'
     timeoutInMinutes: 120
-    variables:
-      OnnxruntimeDirectory: cmake/external/onnxruntime
     steps:
-      - script: brew install coreutils ninja
-        displayName: Install coreutils and ninja
-
-      - script: |
-          mkdir cmake/external
-          cd cmake/external
-          git clone https://github.com/microsoft/onnxruntime.git
-          cd onnxruntime
-          git checkout v1.12.1
-        displayName: Download Onnxruntime
-        workingDirectory: $(Build.sourcesdirectory)
-
-      - script: |
-          python3 tools/python/run_android_emulator.py \
-            --android-sdk-root ${ANDROID_SDK_ROOT} \
-            --create-avd --system-image "system-images;android-30;google_apis;x86_64" \
-            --start --emulator-extra-args="-partition-size 4096" \
-            --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
-        displayName: Start Android emulator
-        workingDirectory: $(OnnxruntimeDirectory)
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: "3.9"
+          addToPath: true
+          architecture: "x64"
+        displayName: "Use Python 3.9"
 
       - task: JavaToolInstaller@0
         displayName: Use jdk 11
@@ -414,17 +398,34 @@ jobs:
           jdkArchitectureOption: 'x64'
           jdkSourceOption: 'PreInstalled'
 
-      - script: |
-          bash ./tools/android.package.sh
-        displayName: Build onnxruntime-extensions package
-        workingDirectory: $(Build.sourcesdirectory)
+      - script: brew install coreutils ninja
+        displayName: Install coreutils and ninja
 
-      - script: |
-          cd out/android/Release/java/androidtest/android
-          ./gradlew --no-daemon clean connectedDebugAndroidTest
-        displayName: Run extensions unit test with Android Emulator
-        workingDirectory: $(Build.sourcesdirectory)
-           
+      - template: templates/run-with-android-emulator-steps.yml
+        parameters:
+          steps:
+
+          - bash: |
+              set -e -x
+
+              _BUILD_CFG="x86_64 $(Build.BinariesDirectory)/android_aar" ./build.android
+
+              VERSION=$(cat ./version.txt)
+              AAR_PATH="$(Build.BinariesDirectory)/android_aar/aar_out/com/microsoft/onnxruntime/onnxruntime-extensions-android/${VERSION}/onnxruntime-extensions-android-${VERSION}.aar"
+
+              echo "##vso[task.setvariable variable=ORT_EXTENSIONS_AAR_PATH]${AAR_PATH}"
+            displayName: Build onnxruntime-extensions AAR package
+
+          - bash: |
+              set -e -x
+
+              cp -r $(Build.SourcesDirectory)/java/src/test/android $(Build.BinariesDirectory)/android_test
+
+              cd $(Build.BinariesDirectory)/android_test
+
+              ./gradlew connectedDebugAndroidTest --no-daemon -DortExtensionsAarLocalPath="${ORT_EXTENSIONS_AAR_PATH}"
+            displayName: Build and run onnxruntime-extensions Android test with Android Emulator
+
   #############
   # iOS
   #############
@@ -469,7 +470,7 @@ jobs:
         displayName: Install pods for OrtExtensionsUsage
         workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage
 
-      - template: templates/with-ios-simulator-steps.yml
+      - template: templates/run-with-ios-simulator-steps.yml
         parameters:
           steps:
           - template: templates/xcode-build-and-test-step.yml
