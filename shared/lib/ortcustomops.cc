@@ -155,6 +155,10 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
     ,
     LoadCustomOpClasses_Vision
 #endif
+#if defined(ENABLE_TOKENIZER)
+    ,
+    LoadCustomOpClasses_Tokenizer
+#endif
   };
 
   for (const auto& fx : new_domain_factories) {
