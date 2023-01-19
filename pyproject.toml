@@ -5,5 +5,5 @@ requires = ["setuptools", "wheel", "numpy>=1.18.5"]  # PEP 508 specifications.
 [tool.black]
 line-length = 120
 
-[tool.cibuildwheel.windows]
-archs = ["AMD64"]
+[tool.cibuildwheel]
+archs = ["auto64"]
