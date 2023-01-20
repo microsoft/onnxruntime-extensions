@@ -25,6 +25,7 @@ variables:
   OUTPUTROOT: $(REPOROOT)\out
   NUGET_XMLDOC_MODE: none
   CIBW_BUILD: "cp3{7,8,9,10}-*amd64"
+  CIBW_ARCHS: "auto64"
   DEBIAN_FRONTEND: noninteractive
 
 resources:
