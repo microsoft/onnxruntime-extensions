@@ -5,6 +5,7 @@
 ###########################################################################
 
 from setuptools import setup, find_packages
+from setuptools.command.build import build as _build
 from setuptools.command.build_ext import build_ext as _build_ext
 
 import os
@@ -81,6 +82,10 @@ class BuildCMakeExt(_build_ext):
             '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + str(ext_fullpath.parent.absolute()),
             '-DOCOS_BUILD_PYTHON=ON',
             '-DOCOS_ENABLE_CTEST=OFF',
+# Disabling openCV can dramsitically reduce the build time.
+#            '-DOCOS_ENABLE_OPENCV_CODECS=OFF',
+#            '-DOCOS_ENABLE_CV2=OFF',
+#            '-DOCOS_ENABLE_VISION=OFF',
             '-DOCOS_EXTENTION_NAME=' + ext_fullpath.name,
             '-DCMAKE_BUILD_TYPE=' + config
         ]
@@ -116,6 +121,14 @@ class BuildCMakeExt(_build_ext):
         else:
             self.copy_file(build_temp / 'lib' / ext_fullpath.name, ext_fullpath)
 
+
+class Build(_build):
+    def finalize_options(self) -> None:
+        # There is a bug in setuptools that prevents the build get the right platform name from arguments.
+        # Force it to be win_amd64 in Windows since extensions cmake is only available on x64 for Windows now
+        if sys.platform == "win32" and not 'arm' in sys.version.lower():
+            self.plat_name = "win-amd64"
+        return super().finalize_options()
 
 def read_requirements():
     with open(os.path.join(TOP_DIR, "requirements.txt"), "r", encoding="utf-8") as f:
@@ -185,7 +198,7 @@ setup(
     author_email='onnx@microsoft.com',
     url='https://github.com/microsoft/onnxruntime-extensions',
     ext_modules=ext_modules,
-    cmdclass=dict(build_ext=BuildCMakeExt),
+    cmdclass=dict(build_ext=BuildCMakeExt, build=Build),
     include_package_data=True,
     install_requires=read_requirements(),
     classifiers=[
