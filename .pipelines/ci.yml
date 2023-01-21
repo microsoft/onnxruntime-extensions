@@ -278,7 +278,7 @@ jobs:
   # ARM64EC
   #############
 
-  - job: ARM64EC Build
+  - job: ARM64ECBuild
     pool:
       vmImage: 'windows-2019'
 
