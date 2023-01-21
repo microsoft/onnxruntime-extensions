@@ -45,7 +45,7 @@ extends:
         enabled: true
       binskim:
         break: true # always break the build on binskim issues in addition to TSA upload
-        analyzeTargetGlob: '**\*extensions*.dll'  # only scan the DLLs in extensions bin folder.
+        analyzeTargetGlob: '**\RelWithDebInfo\ortextensions.dll'  # avoid scanning the 3rd party DLLs.
       codeql:
         python:
           enabled: true
