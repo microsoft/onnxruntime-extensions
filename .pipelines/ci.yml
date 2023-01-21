@@ -281,11 +281,57 @@ jobs:
   - job: ARM64ECBuild
     pool:
       vmImage: 'windows-2019'
+    strategy:
+      matrix:
+        ort-1121:
+          ort.version: '1.12.1'
+        ort-1110:
+          ort.version: '1.11.0'
+        ort-1100:
+          ort.version: '1.10.0'
+        ort-190:
+          ort.version: '1.9.0'
 
     steps:
+      - task: DownloadGitHubRelease@0
+        inputs:
+          connection: 'microsoft'
+          userRepository: 'microsoft/onnxruntime'
+          defaultVersionType: 'specificTag'
+          version: 'v$(ort.version)'
+          itemPattern: '*-win-x64-$(ort.version)*'
+          downloadPath: '$(Build.SourcesDirectory)'
+        displayName: Download the ONNXRuntime prebuilt package.
+
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '**/*.zip'
+          destinationFolder: '$(Build.SourcesDirectory)'
+          cleanDestinationFolder: false
+          overwriteExistingFiles: true
+        displayName: Unpack ONNXRuntime package.
+
       - script: |
-          bash ./build.sh -A 'arm64EC'
-        displayName: build with ARM64ec arch
+          @echo off
+          set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+          for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
+            if exist "%%i\Common7\Tools\vsdevcmd.bat" (
+              set vsdevcmd="%%i\Common7\Tools\vsdevcmd.bat"
+            )
+          )
+
+          @echo %vsdevcmd% will be used as the VC compiler
+          @echo ##vso[task.setvariable variable=vsdevcmd]%vsdevcmd%
+        displayName: 'locate vsdevcmd via vswhere'
+
+      - script: |
+          sh ./build.sh -A 'arm64EC'
+        displayName: Build with ARM64ec arch
+
+      - script: |
+          cd out/Windows
+          ctest -C RelWithDebInfo --output-on-failure
+        displayName: Run C++ native tests
 
   ################
   # Windows wheels
