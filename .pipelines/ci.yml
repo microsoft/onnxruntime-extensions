@@ -274,6 +274,19 @@ jobs:
           ctest -C RelWithDebInfo --output-on-failure
         displayName: Run C++ native tests
 
+  #############
+  # ARM64EC
+  #############
+
+  - job: ARM64EC Build
+    pool:
+      vmImage: 'windows-2019'
+
+    steps:
+      - script: |
+          bash ./build.sh -A 'arm64EC'
+        displayName: build with ARM64ec arch
+
   ################
   # Windows wheels
   ################
