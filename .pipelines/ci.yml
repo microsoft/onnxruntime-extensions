@@ -326,7 +326,7 @@ jobs:
 
       - script: |
           call $(vsdevcmd)
-          call .\build.bat -A 'arm64EC' -DOCOS_ENABLE_CTEST=ON
+          call .\build-hardware-agnostic.bat -A 'arm64EC' -DOCOS_ENABLE_CTEST=ON
         displayName: Build with ARM64ec arch
 
       - script: |
