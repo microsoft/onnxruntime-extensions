@@ -19,7 +19,6 @@ class Step(object):
 
     prefix = "_ppp"
     _step_num = 0  # unique step number so we can prefix the naming in the graph created for the step
-    _custom_op_checker_context = create_custom_op_checker_context()
 
     def __init__(self, inputs: List[str], outputs: List[str], name: Optional[str] = None):
         """
@@ -35,6 +34,9 @@ class Step(object):
         self.output_names = outputs
         self.name = name if name else f"{self.__class__.__name__}"
         self._prefix = f"{Step.prefix}{self.step_num}_"
+
+        # we need to delay creation of this until the Step is instantiated so the opset to use can be set.
+        self._custom_op_checker_context = create_custom_op_checker_context()
 
         Step._step_num += 1
 
@@ -53,7 +55,7 @@ class Step(object):
         """Append the nodes that implement this step to the provided graph."""
 
         graph_for_step = self._create_graph_for_step(graph)
-        onnx.checker.check_graph(graph_for_step, Step._custom_op_checker_context)
+        onnx.checker.check_graph(graph_for_step, self._custom_op_checker_context)
 
         # prefix the graph for this step to guarantee no clashes of value names with the existing graph
         onnx.compose.add_prefix_graph(graph_for_step, self._prefix, inplace=True)

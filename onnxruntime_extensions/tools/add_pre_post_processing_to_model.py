@@ -3,13 +3,15 @@
 
 import argparse
 import enum
+import onnx
 import os
 
 from pathlib import Path
 
-from pre_post_processing import PrePostProcessor, Debug
-from pre_post_processing.steps import *
-from pre_post_processing.utils import create_named_value, IoMapEntry, Settings
+# NOTE: If you're working on this script install onnxruntime_extensions using `pip install -e .` from the repo root
+# and run with `python -m onnxruntime_extensions.tools.add_pre_post_processing_to_model`
+# Running directly will result in an error from a relative import.
+from .pre_post_processing import *
 
 
 class ModelSource(enum.Enum):
