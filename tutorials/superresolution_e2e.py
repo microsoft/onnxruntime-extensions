@@ -86,8 +86,8 @@ def add_pre_post_processing(output_format: str = "png"):
 
     # ORT 1.14 and later support ONNX opset 18, which added antialiasing to the Resize operator.
     # Results are much better when that can be used.
-    ort_version = ort.__version__
-    if int(ort_version.split('.')[1]) > 13:
+    from packaging import version
+    if version.parse(ort.__version__) >= version.parse("1.14.0"):
         add_ppp.Settings.pre_post_processing_onnx_opset = 18
 
     # add the processing to the model and output a PNG format image. JPG is also valid.
