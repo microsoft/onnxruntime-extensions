@@ -325,7 +325,8 @@ jobs:
         displayName: 'locate vsdevcmd via vswhere'
 
       - script: |
-          sh ./build.sh -A 'arm64EC'
+          call $(vsdevcmd)
+          call sh ./build.sh -A 'arm64EC' -DOCOS_ENABLE_CTEST=ON
         displayName: Build with ARM64ec arch
 
       - script: |
