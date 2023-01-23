@@ -4,6 +4,7 @@
 #include "decode_image.hpp"
 
 #include <opencv2/imgcodecs.hpp>
+#include "narrow.h"
 
 namespace ort_extensions {
 
@@ -38,6 +39,6 @@ void KernelDecodeImage::Compute(OrtKernelContext* context) {
   const std::vector<int64_t> output_dims{height, width, colors};
   OrtValue* output_value = ort_.KernelContext_GetOutput(context, 0, output_dims.data(), output_dims.size());
   uint8_t* decoded_image_data = ort_.GetTensorMutableData<uint8_t>(output_value);
-  memcpy(decoded_image_data, decoded_image.data, height * width * colors);
+  memcpy(decoded_image_data, decoded_image.data, narrow<size_t>(height * width * colors));
 }
 }  // namespace ort_extensions
