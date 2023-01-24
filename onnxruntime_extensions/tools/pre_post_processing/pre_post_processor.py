@@ -21,7 +21,22 @@ class PrePostProcessor:
     Class to handle running all the pre/post processing steps and updating the model.
     """
 
-    def __init__(self, inputs: List[onnx.ValueInfoProto] = None, outputs: List[onnx.ValueInfoProto] = None):
+    def __init__(self, inputs: List[onnx.ValueInfoProto] = None, onnx_opset: int = 16):
+        """
+        Create a PrePostProcessor instance.
+
+        Args:
+            inputs: The inputs the model will use if pre-processing is added.
+            onnx_opset:  The ONNX opset to use.
+                         Minimum is 16. 18 or higher is strongly preferred if image resizing is involved due to its
+                         anti-aliasing ability.
+        """
+
+        if onnx_opset < 16:
+            raise ValueError("ONNX opset must be 16 or later.")
+
+        Settings.pre_post_processing_onnx_opset = onnx_opset
+
         self.pre_processors = []
         self.post_processors = []
 
@@ -41,7 +56,6 @@ class PrePostProcessor:
         self._post_processing_joins = None  # type: Union[None,List[Tuple[Union[Step, str], int, str]]]
 
         self._inputs = inputs if inputs else []
-        self._outputs = outputs if outputs else []
 
     def add_pre_processing(self, items: List[Union[Step, Tuple[Step, List[IoMapEntry]]]]):
         """
@@ -91,6 +105,7 @@ class PrePostProcessor:
 
         assert isinstance(producer, Step)
         consumer.connect(entry)
+
 
     def run(self, model: onnx.ModelProto):
         """

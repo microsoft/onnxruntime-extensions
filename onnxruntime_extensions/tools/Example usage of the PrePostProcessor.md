@@ -30,10 +30,11 @@ new_input = create_named_value('image', onnx.TensorProto.UINT8, ['num_bytes'])
 
 ### Create PrePostProcessor
 
-Create our PrePostProcessor instance with the new input/s.
+Create our PrePostProcessor instance with the new input/s and the ONNX opset to use. 
+Minimum allowed is opset 16. Opset 18 or higher is preferred as the Resize operator has anti-aliasing support.
 
 ```py
-pipeline = PrePostProcessor([new_input])
+pipeline = PrePostProcessor([new_input], onnx_opset=18)
 ```
 
 ### Add pre-processing steps

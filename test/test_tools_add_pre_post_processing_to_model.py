@@ -11,16 +11,14 @@ import sys
 
 from PIL import Image
 from pathlib import Path
+# NOTE: This assumes you have created an editable pip install for onnxruntime_extensions by running
+# `pip install -e .` from the repo root.
 from onnxruntime_extensions import get_library_path
+from onnxruntime_extensions.tools import add_pre_post_processing_to_model as add_ppp
 
-# add tools dir where pre_post_processing folder is to sys path
 script_dir = os.path.dirname(os.path.realpath(__file__))
 ort_ext_root = os.path.abspath(os.path.join(script_dir, ".."))
-tools_dir = os.path.join(ort_ext_root, "tools")
 test_data_dir = os.path.join(ort_ext_root, "test", "data", "ppp_vision")
-sys.path.append(tools_dir)
-
-import add_pre_post_processing_to_model as add_ppp
 
 
 # Function to read the mobilenet labels and adjust for PT vs TF training if needed
@@ -45,7 +43,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         output_model = os.path.join(test_data_dir, "pytorch_mobilenet_v2.updated.onnx")
         input_image_path = os.path.join(test_data_dir, "wolves.jpg")
 
-        add_ppp.mobilenet(Path(input_model), Path(output_model))
+        add_ppp.mobilenet(Path(input_model), Path(output_model), add_ppp.ModelSource.PYTORCH)
 
         def orig_output():
             from torchvision import transforms

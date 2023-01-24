@@ -2,7 +2,6 @@ import io
 import numpy as np
 import onnxruntime as ort
 import os
-import sys
 
 from pathlib import Path
 from PIL import Image
@@ -85,13 +84,14 @@ def add_pre_post_processing(output_format: str = "png"):
     from onnxruntime_extensions.tools import add_pre_post_processing_to_model as add_ppp
 
     # ORT 1.14 and later support ONNX opset 18, which added antialiasing to the Resize operator.
-    # Results are much better when that can be used.
+    # Results are much better when that can be used. Minimum opset is 16.
+    onnx_opset = 16
     from packaging import version
     if version.parse(ort.__version__) >= version.parse("1.14.0"):
-        add_ppp.Settings.pre_post_processing_onnx_opset = 18
+        onnx_opset = 18
 
     # add the processing to the model and output a PNG format image. JPG is also valid.
-    add_ppp.superresolution(Path(ONNX_MODEL), Path(ONNX_MODEL_WITH_PRE_POST_PROCESSING), output_format)
+    add_ppp.superresolution(Path(ONNX_MODEL), Path(ONNX_MODEL_WITH_PRE_POST_PROCESSING), output_format, onnx_opset)
 
 
 def run_updated_onnx_model():

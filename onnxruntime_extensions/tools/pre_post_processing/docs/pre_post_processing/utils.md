@@ -58,3 +58,11 @@ Classes
 
     `producer_idx: int`
     :
+
+`Settings()`
+:   
+
+    ### Class variables
+
+    `pre_post_processing_onnx_opset`
+    :
