@@ -311,6 +311,43 @@ jobs:
           overwriteExistingFiles: true
         displayName: Unpack ONNXRuntime package.
 
+      # Update to latest version of VS 2022
+      - script: |
+           echo "$(Build.SourcesDirectory)\vs2022"
+           echo "$(Build.SourcesDirectory)\vs2022\vs_enterprise.exe"
+           echo "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise"
+           echo.
+           mkdir "$(Build.SourcesDirectory)\vs2022"
+           echo Before Download:
+           time /T
+           powershell -command "& { iwr \"https://aka.ms/vs/17/release/vs_enterprise.exe\" -OutFile \"$(Build.SourcesDirectory)\vs2022\vs_enterprise.exe\" }"
+           echo After Download:
+           time /T
+           echo.
+           echo Before Step1:
+           time /T
+           start /wait "Step1" "$(Build.SourcesDirectory)\vs2022\vs_enterprise.exe" --update --quiet --wait > nul
+           echo Update VS 2022 Installer: %errorlevel%
+           echo After Step1:
+           time /T
+           echo.
+           echo Before Step2:
+           time /T
+           start /wait "Step2" "$(Build.SourcesDirectory)\vs2022\vs_enterprise.exe" update --wait --passive --norestart --installPath "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise" > nul
+           echo Update VS 2022: %errorlevel%
+           echo After Step2:
+           time /T
+           echo.
+           echo Before Step3:
+           time /T
+           start /wait "Step3" "$(Build.SourcesDirectory)\vs2022\vs_enterprise.exe" modify --wait --passive --norestart --installPath "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise" --add Microsoft.VisualStudio.Workload.CoreEditor --add Microsoft.VisualStudio.Workload.ManagedDesktop --add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Workload.VisualStudioExtension --add Microsoft.VisualStudio.Component.VC.Tools.ARM --add Microsoft.VisualStudio.Component.VC.Tools.ARM64 --add Microsoft.VisualStudio.Component.VC.Tools.ARM64EC --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.VC.Runtimes.ARM.Spectre --add Microsoft.VisualStudio.Component.VC.Runtimes.ARM64.Spectre --add Microsoft.VisualStudio.Component.VC.Runtimes.ARM64EC.Spectre --add Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre --add Microsoft.VisualStudio.Component.Windows11SDK.22621 > nul
+           echo Modify VS 2022: %errorlevel%
+           echo After Step3:
+           time /T
+           echo.
+           rmdir /S /Q "$(Build.SourcesDirectory)\vs2022"
+           "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+
       - script: |
           @echo off
           set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
