@@ -25,36 +25,21 @@ def create_named_value(name: str, data_type: int, shape: List[Union[str, int]]):
     return onnx.helper.make_value_info(name, tensor_type)
 
 
-class Settings:
-    # We need to use an opset that's valid for the pre/post processing operators we add.
-    # Initial default is ONNX v16 which is supported by currently released ORT packages (as of 01/2023).
-    # Preferred is ONNX v18 as Resize supports the 'antialias' attribute from that opset on, which is required to match
-    # the Pillow image resize behavior.
-    #
-    # NOTE: If we update this value we need to make sure the operators used in all steps are also updated if their spec
-    #       has changed.
-    pre_post_processing_onnx_opset = 16
-
-
-def get_opset_imports():
-    """Get the opset imports for a model updated by the PrePostProcessor."""
-    return {
-        "": Settings.pre_post_processing_onnx_opset,
-        "com.microsoft.extensions": 1
-    }  # fmt: skip
-
-
 # Create an onnx checker context that includes the ort-ext domain so that custom ops don't cause failure
-def create_custom_op_checker_context():
+def create_custom_op_checker_context(onnx_opset: int):
     """
     Create an ONNX checker context that includes the ort-extensions custom op domains so that custom ops don't
     cause failure when running onnx.checker.check_graph.
-    Returns:
 
+    Args:
+        onnx_opset: ONNX opset to use in the checker context.
+
+    Returns:
+        ONNX checker context.
     """
     context = onnx.checker.C.CheckerContext()
     context.ir_version = onnx.checker.DEFAULT_CONTEXT.ir_version
-    context.opset_imports = get_opset_imports()
+    context.opset_imports = {"": onnx_opset, "com.microsoft.extensions": 1}
 
     return context
 

@@ -5,10 +5,15 @@ Functions
 ---------
 
     
-`create_custom_op_checker_context()`
+`create_custom_op_checker_context(onnx_opset: int)`
 :   Create an ONNX checker context that includes the ort-extensions custom op domains so that custom ops don't
     cause failure when running onnx.checker.check_graph.
+    
+    Args:
+        onnx_opset: ONNX opset to use in the checker context.
+    
     Returns:
+        ONNX checker context.
 
     
 `create_named_value(name: str, data_type: int, shape: List[Union[str, int]])`
@@ -23,10 +28,6 @@ Functions
     
     Returns:
         An onnx.ValueInfoProto that can be used as a new model input.
-
-    
-`get_opset_imports()`
-:   Get the opset imports for a model updated by the PrePostProcessor.
 
     
 `sanitize_output_names(graph: onnx.onnx_ml_pb2.GraphProto)`
@@ -57,12 +58,4 @@ Classes
     :
 
     `producer_idx: int`
-    :
-
-`Settings()`
-:   
-
-    ### Class variables
-
-    `pre_post_processing_onnx_opset`
     :
