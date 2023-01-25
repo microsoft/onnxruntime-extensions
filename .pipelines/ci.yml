@@ -280,17 +280,11 @@ jobs:
 
   - job: ARM64ECBuild
     pool:
-      vmImage: 'windows-2019'
+      vmImage: 'windows-latest'
     strategy:
       matrix:
-        ort-1121:
-          ort.version: '1.12.1'
-        ort-1110:
-          ort.version: '1.11.0'
-        ort-1100:
-          ort.version: '1.10.0'
-        ort-190:
-          ort.version: '1.9.0'
+        ort-1131:
+          ort.version: '1.13.1'
 
     steps:
       - task: DownloadGitHubRelease@0
@@ -310,6 +304,19 @@ jobs:
           cleanDestinationFolder: false
           overwriteExistingFiles: true
         displayName: Unpack ONNXRuntime package.
+
+      - script: |
+          @echo off
+          set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+          for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
+            if exist "%%i\VC\Auxiliary\Build\vcvars64.bat" (
+              set vcvarspath="%%i\VC\Auxiliary\Build\vcvars64.bat"
+            )
+          )
+
+          @echo %vcvarspath% is the vcvars64 batch file location
+
+        displayName: 'locate vcvars64 via vswhere'
 
       # Update to latest version of VS 2022
       - script: |
@@ -346,7 +353,7 @@ jobs:
            time /T
            echo.
            rmdir /S /Q "$(Build.SourcesDirectory)\vs2022"
-           "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+           "$(vcvarspath)"
 
       - script: |
           @echo off
