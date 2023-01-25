@@ -27,7 +27,7 @@ class ReverseAxis(Step):
         self._axis = axis
         self._dim_value = dim_value
 
-    def _create_graph_for_step(self, graph: onnx.GraphProto):
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
         input_dims = input_shape_str.split(",")
         split_dim = input_dims[self._axis]
@@ -73,7 +73,7 @@ class Squeeze(Step):
         super().__init__(["data"], ["squeezed"], name)
         self._axes = axes
 
-    def _create_graph_for_step(self, graph: onnx.GraphProto):
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
         dims = input_shape_str.split(",")
 
@@ -121,7 +121,7 @@ class Transpose(Step):
         super().__init__(["X"], ["transposed"], name)
         self.perms = perms
 
-    def _create_graph_for_step(self, graph: onnx.GraphProto):
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
         perms_str = ",".join([str(idx) for idx in self.perms])
         dims = input_shape_str.split(",")
@@ -153,7 +153,7 @@ class Softmax(Step):
         """
         super().__init__(["data"], ["probabilities"], name)
 
-    def _create_graph_for_step(self, graph: onnx.GraphProto):
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
 
         softmax_graph = onnx.parser.parse_graph(
@@ -183,7 +183,7 @@ class Unsqueeze(Step):
         super().__init__(["data"], ["expanded"], name)
         self._axes = axes
 
-    def _create_graph_for_step(self, graph: onnx.GraphProto):
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
         dims = input_shape_str.split(",")
 

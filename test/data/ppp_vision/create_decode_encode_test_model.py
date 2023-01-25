@@ -1,21 +1,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-import enum
-import onnx
-import os
-import sys
 from pathlib import Path
 
-# add tools dir where pre_post_processing folder is to sys path
-script_dir = os.path.dirname(os.path.realpath(__file__))
-ort_ext_root = os.path.abspath(os.path.join(script_dir, "..", "..", ".."))
-tools_dir = os.path.join(ort_ext_root, "tools")
-sys.path.append(tools_dir)
-
-from pre_post_processing import PrePostProcessor
-from pre_post_processing.Steps import *
-from pre_post_processing.utils import create_named_value, PRE_POST_PROCESSING_ONNX_OPSET
+# NOTE: This assumes you have created an editable pip install for onnxruntime_extensions by running
+# `pip install -e .` from the repo root.
+from onnxruntime_extensions.tools.pre_post_processing import *
 
 
 def create_model(output_file: Path):
@@ -29,7 +19,8 @@ def create_model(output_file: Path):
     """
     inputs = [create_named_value("image", onnx.TensorProto.UINT8, ["num_bytes"])]
 
-    pipeline = PrePostProcessor(inputs)
+    onnx_opset = 16
+    pipeline = PrePostProcessor(inputs, onnx_opset)
     pipeline.add_pre_processing(
         [
             ConvertImageToBGR(),  # jpg/png image to BGR in HWC layout
@@ -56,7 +47,7 @@ def create_model(output_file: Path):
         ]
     )
 
-    onnx_import = onnx.helper.make_operatorsetid('', PRE_POST_PROCESSING_ONNX_OPSET)
+    onnx_import = onnx.helper.make_operatorsetid('', onnx_opset)
     model = onnx.helper.make_model(g, opset_imports=[onnx_import])
     new_model = pipeline.run(model)
     new_model.doc_string = "Model for testing DecodeImage and EncodeImage."

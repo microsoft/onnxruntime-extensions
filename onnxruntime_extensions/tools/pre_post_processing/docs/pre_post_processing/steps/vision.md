@@ -120,7 +120,7 @@ Classes
         resize_to: Target size. Can be a single value or a tuple with (target_height, target_width).
                    The aspect ratio will be maintained and neither height or width in the result will be smaller
                    than the requested value.
-        layout: Input layout. 'CHW', 'HWC' and 'HW' are supported.
+        layout: Input layout. 'NCHW', 'NHWC', 'CHW', 'HWC' and 'HW' are supported.
         name: Optional name. Defaults to 'Resize'
 
     ### Ancestors (in MRO)

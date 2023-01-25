@@ -19,7 +19,6 @@ class Step(object):
 
     prefix = "_ppp"
     _step_num = 0  # unique step number so we can prefix the naming in the graph created for the step
-    _custom_op_checker_context = create_custom_op_checker_context()
 
     def __init__(self, inputs: List[str], outputs: List[str], name: Optional[str] = None):
         """
@@ -49,11 +48,15 @@ class Step(object):
 
         self.input_names[entry.consumer_idx] = entry.producer.output_names[entry.producer_idx]
 
-    def apply(self, graph: onnx.GraphProto):
-        """Append the nodes that implement this step to the provided graph."""
+    def apply(self, graph: onnx.GraphProto, checker_context: onnx.checker.C.CheckerContext):
+        """
+        Create a graph for this step that can be appended to the provided graph.
+        The PrePostProcessor will handle merging the two.
+        """
 
-        graph_for_step = self._create_graph_for_step(graph)
-        onnx.checker.check_graph(graph_for_step, Step._custom_op_checker_context)
+        onnx_opset = checker_context.opset_imports[""]
+        graph_for_step = self._create_graph_for_step(graph, onnx_opset)
+        onnx.checker.check_graph(graph_for_step, checker_context)
 
         # prefix the graph for this step to guarantee no clashes of value names with the existing graph
         onnx.compose.add_prefix_graph(graph_for_step, self._prefix, inplace=True)
@@ -72,9 +75,15 @@ class Step(object):
         return result
 
     @abc.abstractmethod
-    def _create_graph_for_step(self, graph: onnx.GraphProto):
-        """Derived class should implement this and return the GraphProto containing the nodes required to
-        implement the step."""
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
+        """
+        Derived class should implement this and return the GraphProto containing the nodes required to
+        implement the step.
+
+        Args:
+            graph: Graph the step will be appended to. Use to determine the types and shapes of values to connect.
+            onnx_opset: The ONNX opset being targeted.
+        """
         pass
 
     def __merge(self, first: onnx.GraphProto, second: onnx.GraphProto):
@@ -170,7 +179,7 @@ class Debug(Step):
 
         super().__init__(input_names, output_names, name)
 
-    def _create_graph_for_step(self, graph: onnx.GraphProto):
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input_str = ""
         output_str = ""
         output_debug_str = ""

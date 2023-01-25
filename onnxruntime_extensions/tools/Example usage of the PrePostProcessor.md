@@ -2,19 +2,14 @@
 
 The PrePostProcessor can be used to add pre and post processing operations to an existing model.
 
-Currently the easiest way to use it is to download this folder and import PrePostProcessor and the Steps into your python script.
-We will provide a python package that includes it in the next release.
-
-
 ## Initial imports
 
-Import the PrePostProcessor, the steps and a utility to simplify creating new model inputs.
+Import the pre/post processing infrastructure. This includes the PrePostProcessor class, the available pre and post
+processing steps, and utilities to simplify creating new model inputs.
 
 ```py
 import onnx
-from pre_post_processing import PrePostProcessor
-from pre_post_processing.steps import *
-from pre_post_processing.utils import create_named_value
+from onnxruntime_extensions.tools.pre_post_processing import *
 ```
 
 ## Example of creating the pre and post processing pipelines
@@ -35,10 +30,11 @@ new_input = create_named_value('image', onnx.TensorProto.UINT8, ['num_bytes'])
 
 ### Create PrePostProcessor
 
-Create our PrePostProcessor instance with the new input/s.
+Create our PrePostProcessor instance with the new input/s and the ONNX opset to use. 
+Minimum allowed is opset 16. Opset 18 or higher is preferred as the Resize operator has anti-aliasing support.
 
 ```py
-pipeline = PrePostProcessor([new_input])
+pipeline = PrePostProcessor([new_input], onnx_opset=18)
 ```
 
 ### Add pre-processing steps
