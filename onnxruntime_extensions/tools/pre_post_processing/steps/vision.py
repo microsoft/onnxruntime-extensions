@@ -7,7 +7,6 @@ import numpy as np
 from typing import List, Optional, Tuple, Union
 from ..step import Step
 from .general import Transpose
-from ..utils import Settings
 
 #
 # Image conversion
@@ -29,7 +28,7 @@ class ConvertImageToBGR(Step):
         """
         super().__init__(["image"], ["bgr_data"], name)
 
-    def _create_graph_for_step(self, graph: onnx.GraphProto):
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
         assert input_type_str == "uint8"
         output_shape_str = f"to_bgr_ppp_{self.step_num}_h, to_bgr_ppp_{self.step_num}_w, 3"
@@ -65,7 +64,7 @@ class ConvertBGRToImage(Step):
         assert image_format == "jpg" or image_format == "png"
         self._format = image_format
 
-    def _create_graph_for_step(self, graph: onnx.GraphProto):
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
         assert input_type_str == "uint8"
         output_shape_str = f"to_image_ppp_{self.step_num}_num_bytes"
@@ -108,7 +107,7 @@ class PixelsToYCbCr(Step):
         assert layout == "RGB" or layout == "BGR"
         self._layout = layout
 
-    def _create_graph_for_step(self, graph: onnx.GraphProto):
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
         # input should be uint8 data HWC
         input_dims = input_shape_str.split(",")
@@ -193,7 +192,7 @@ class YCbCrToPixels(Step):
         assert layout == "RGB" or layout == "BGR"
         self._layout = layout
 
-    def _create_graph_for_step(self, graph: onnx.GraphProto):
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input_type_str0, input_shape_str0 = self._get_input_type_and_shape_strs(graph, 0)
         input_type_str1, input_shape_str1 = self._get_input_type_and_shape_strs(graph, 1)
         input_type_str2, input_shape_str2 = self._get_input_type_and_shape_strs(graph, 2)
@@ -295,7 +294,7 @@ class Resize(Step):
 
         self._layout = layout
 
-    def _create_graph_for_step(self, graph: onnx.GraphProto):
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
         dims = input_shape_str.split(",")
 
@@ -339,7 +338,7 @@ class Resize(Step):
 
         # TODO: Make this configurable. Matching PIL resize for now.
         resize_attributes = 'mode = "linear", nearest_mode = "floor"'
-        if Settings.pre_post_processing_onnx_opset >= 18:
+        if onnx_opset >= 18:
             # Resize matches PIL better if antialiasing is used, but that isn't available until ONNX opset 18.
             # Allow this to be used with older opsets as well.
             resize_attributes += ', antialias = 1'
@@ -398,7 +397,7 @@ class CenterCrop(Step):
         self._height = height
         self._width = width
 
-    def _create_graph_for_step(self, graph: onnx.GraphProto):
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
         dims = input_shape_str.split(",")
         output_shape_str = f"{self._height}, {self._width}, {dims[-1]}"
@@ -451,7 +450,7 @@ class Normalize(Step):
         assert layout == "HWC" or layout == "CHW"
         self._hwc_layout = True if layout == "HWC" else False
 
-    def _create_graph_for_step(self, graph: onnx.GraphProto):
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         mean0 = self._normalization_values[0][0]
         mean1 = self._normalization_values[1][0]
         mean2 = self._normalization_values[2][0]
@@ -495,7 +494,7 @@ class ImageBytesToFloat(Step):
         """
         super().__init__(["data"], ["float_data"], name)
 
-    def _create_graph_for_step(self, graph: onnx.GraphProto):
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
         if input_type_str == "uint8":
             optional_cast = f"""\
@@ -540,7 +539,7 @@ class FloatToImageBytes(Step):
         super().__init__(["float_data"], ["pixel_data"], name)
         self._multiplier = multiplier
 
-    def _create_graph_for_step(self, graph: onnx.GraphProto):
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
         assert input_type_str == "float"
 

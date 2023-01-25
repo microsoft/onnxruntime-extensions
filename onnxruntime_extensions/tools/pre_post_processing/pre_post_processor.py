@@ -8,9 +8,8 @@ from typing import List, Tuple, Union
 
 from .utils import (
     IoMapEntry,
-    get_opset_imports,
+    create_custom_op_checker_context,
     sanitize_output_names,
-    Settings,
     TENSOR_TYPE_TO_ONNX_TYPE,
 )
 from .step import Step
@@ -21,7 +20,23 @@ class PrePostProcessor:
     Class to handle running all the pre/post processing steps and updating the model.
     """
 
-    def __init__(self, inputs: List[onnx.ValueInfoProto] = None, outputs: List[onnx.ValueInfoProto] = None):
+    def __init__(self, inputs: List[onnx.ValueInfoProto] = None, onnx_opset: int = 16):
+        """
+        Create a PrePostProcessor instance.
+
+        Args:
+            inputs: The inputs the model will use if pre-processing is added.
+            onnx_opset:  The ONNX opset to use.
+                         Minimum is 16. 18 or higher is strongly preferred if image resizing is involved due to its
+                         anti-aliasing ability.
+        """
+
+        if onnx_opset < 16:
+            raise ValueError("ONNX opset must be 16 or later.")
+
+        self._onnx_opset = onnx_opset
+        self._custom_op_checker_context = create_custom_op_checker_context(onnx_opset)
+
         self.pre_processors = []
         self.post_processors = []
 
@@ -41,7 +56,6 @@ class PrePostProcessor:
         self._post_processing_joins = None  # type: Union[None,List[Tuple[Union[Step, str], int, str]]]
 
         self._inputs = inputs if inputs else []
-        self._outputs = outputs if outputs else []
 
     def add_pre_processing(self, items: List[Union[Step, Tuple[Step, List[IoMapEntry]]]]):
         """
@@ -92,6 +106,7 @@ class PrePostProcessor:
         assert isinstance(producer, Step)
         consumer.connect(entry)
 
+
     def run(self, model: onnx.ModelProto):
         """
         Update the model with the graph from each step in the pre and post processing pipelines.
@@ -109,13 +124,13 @@ class PrePostProcessor:
             entry.version for entry in model.opset_import if entry.domain == "" or entry.domain == "ai.onnx"
         ][0]
 
-        if model_opset > Settings.pre_post_processing_onnx_opset:
+        if model_opset > self._onnx_opset:
             # It will probably work if the user updates PRE_POST_PROCESSING_ONNX_OPSET to match the model
             # but there are no guarantees.
             # Would only break if ONNX operators used in the pre/post processing graphs have had spec changes.
             raise ValueError(f"Model opset is {model_opset} which is newer than the opset used by this script.")
-        elif model_opset < Settings.pre_post_processing_onnx_opset:
-            model = onnx.version_converter.convert_version(model, Settings.pre_post_processing_onnx_opset)
+        elif model_opset < self._onnx_opset:
+            model = onnx.version_converter.convert_version(model, self._onnx_opset)
 
         def name_nodes(new_graph: onnx.GraphProto, prefix: str):
             # simple helper so all nodes are named. this makes it far easier to debug any issues.
@@ -130,7 +145,7 @@ class PrePostProcessor:
                 assert connection.producer
                 self._add_connection(processor, connection)
 
-            return processor.apply(graph)
+            return processor.apply(graph, self._custom_op_checker_context)
 
         # fix any invalid output names now if we're adding post-processing as the onnx parse_graph can't handle them
         if self.post_processors:
@@ -199,7 +214,8 @@ class PrePostProcessor:
         # Make the output names nicer by removing prefixing from naming that occurred when applying the steps
         graph = PrePostProcessor.__cleanup_graph_output_names(graph)
 
-        opset_imports = [onnx.helper.make_operatorsetid(domain, opset) for domain, opset in get_opset_imports().items()]
+        opset_imports = [onnx.helper.make_operatorsetid(domain, opset)
+                         for domain, opset in self._custom_op_checker_context.opset_imports.items()]
         new_model = onnx.helper.make_model(graph, opset_imports=opset_imports)
 
         onnx.checker.check_model(new_model)

@@ -57,8 +57,9 @@ Classes
 
     ### Methods
 
-    `apply(self, graph: onnx.onnx_ml_pb2.GraphProto)`
-    :   Append the nodes that implement this step to the provided graph.
+    `apply(self, graph: onnx.onnx_ml_pb2.GraphProto, checker_context: onnx.onnx_cpp2py_export.checker.CheckerContext)`
+    :   Create a graph for this step that can be appended to the provided graph.
+        The PrePostProcessor will handle merging the two.
 
     `connect(self, entry: pre_post_processing.utils.IoMapEntry)`
     :   Connect the value name from a previous step to an input of this step so they match.

@@ -1,16 +1,12 @@
 import io
 import numpy as np
+import onnxruntime as ort
 import os
-import sys
 
 from pathlib import Path
 from PIL import Image
 
 _this_dirpath = Path(os.path.dirname(os.path.abspath(__file__)))
-_ppp_script_dirpath = _this_dirpath / '..' / 'tools'
-
-# add the path with the scripts to sys.path so we can import them
-sys.path.append(str(_ppp_script_dirpath.resolve()))
 
 ONNX_MODEL = 'pytorch_superresolution.onnx'
 ONNX_MODEL_WITH_PRE_POST_PROCESSING = 'pytorch_superresolution.with_pre_post_processing.onnx'
@@ -81,17 +77,24 @@ def convert_pytorch_superresolution_to_onnx():
 
 
 def add_pre_post_processing(output_format: str = "png"):
-    # expected usage would be to run tools/add_pre_post_processing_to_model.py.
-    # `python ./tools/add_pre_post_processing_to_model.py --help`
-    #
-    # we import the super resolution helper func directly do it programmatically here for convenience
-    import add_pre_post_processing_to_model as add_ppp
+    # Use the pre-defined helper to add pre/post processing to a super resolution model based on YCbCr input.
+    # Note: if you're creating a custom pre/post processing pipeline, use
+    # `from onnxruntime_extensions.tools.pre_post_processing import *` to pull in the pre/post processing infrastructure
+    # and Step definitions.
+    from onnxruntime_extensions.tools import add_pre_post_processing_to_model as add_ppp
+
+    # ORT 1.14 and later support ONNX opset 18, which added antialiasing to the Resize operator.
+    # Results are much better when that can be used. Minimum opset is 16.
+    onnx_opset = 16
+    from packaging import version
+    if version.parse(ort.__version__) >= version.parse("1.14.0"):
+        onnx_opset = 18
+
     # add the processing to the model and output a PNG format image. JPG is also valid.
-    add_ppp.superresolution(Path(ONNX_MODEL), Path(ONNX_MODEL_WITH_PRE_POST_PROCESSING), output_format)
+    add_ppp.superresolution(Path(ONNX_MODEL), Path(ONNX_MODEL_WITH_PRE_POST_PROCESSING), output_format, onnx_opset)
 
 
 def run_updated_onnx_model():
-    import onnxruntime as ort
     from onnxruntime_extensions import get_library_path
 
     so = ort.SessionOptions()

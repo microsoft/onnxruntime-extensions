@@ -3,13 +3,15 @@
 
 import argparse
 import enum
+import onnx
 import os
 
 from pathlib import Path
 
-from pre_post_processing import PrePostProcessor, Debug
-from pre_post_processing.steps import *
-from pre_post_processing.utils import create_named_value, IoMapEntry, Settings
+# NOTE: If you're working on this script install onnxruntime_extensions using `pip install -e .` from the repo root
+# and run with `python -m onnxruntime_extensions.tools.add_pre_post_processing_to_model`
+# Running directly will result in an error from a relative import.
+from .pre_post_processing import *
 
 
 class ModelSource(enum.Enum):
@@ -59,11 +61,11 @@ def imagenet_preprocessing(model_source: ModelSource = ModelSource.PYTORCH):
     return steps
 
 
-def mobilenet(model_file: Path, output_file: Path, model_source: ModelSource = ModelSource.PYTORCH):
+def mobilenet(model_file: Path, output_file: Path, model_source: ModelSource, onnx_opset: int = 16):
     model = onnx.load(str(model_file.resolve(strict=True)))
     inputs = [create_named_value("image", onnx.TensorProto.UINT8, ["num_bytes"])]
 
-    pipeline = PrePostProcessor(inputs)
+    pipeline = PrePostProcessor(inputs, onnx_opset)
 
     # support user providing encoded image bytes
     preprocessing = [
@@ -84,7 +86,7 @@ def mobilenet(model_file: Path, output_file: Path, model_source: ModelSource = M
     onnx.save_model(new_model, str(output_file.resolve()))
 
 
-def superresolution(model_file: Path, output_file: Path, output_format: str):
+def superresolution(model_file: Path, output_file: Path, output_format: str, onnx_opset: int = 16):
     # TODO: There seems to be a split with some super resolution models processing RGB input and some processing
     # the Y channel after converting to YCbCr.
     # For the sake of this example implementation we do the trickier YCbCr processing as that involves joining the
@@ -108,7 +110,7 @@ def superresolution(model_file: Path, output_file: Path, output_format: str):
     w_out = model_output_shape.dim[-1].dim_value
 
     # pre/post processing for https://pytorch.org/tutorials/advanced/super_resolution_with_onnxruntime.html
-    pipeline = PrePostProcessor(inputs)
+    pipeline = PrePostProcessor(inputs, onnx_opset)
     pipeline.add_pre_processing(
         [
             ConvertImageToBGR(),  # jpg/png image to BGR in HWC layout
@@ -212,7 +214,7 @@ def main():
 
     parser.add_argument(
         "--opset", type=int, required=False, default=16,
-        help="ONNX opset to use. Opset 18 is required for Resize with anti-aliasing."
+        help="ONNX opset to use. Minimum allowed is 16. Opset 18 is required for Resize with anti-aliasing."
     )
 
     parser.add_argument("model", type=Path, help="Provide path to ONNX model to update.")
@@ -222,14 +224,11 @@ def main():
     model_path = args.model.resolve(strict=True)
     new_model_path = model_path.with_suffix(".with_pre_post_processing.onnx")
 
-    if args.opset:
-        Settings.pre_post_processing_onnx_opset = args.opset
-
     if args.model_type == "mobilenet":
         source = ModelSource.PYTORCH if args.model_source == "pytorch" else ModelSource.TENSORFLOW
-        mobilenet(model_path, new_model_path, source)
+        mobilenet(model_path, new_model_path, source, args.opset)
     else:
-        superresolution(model_path, new_model_path, args.output_format)
+        superresolution(model_path, new_model_path, args.output_format, args.opset)
 
 
 if __name__ == "__main__":
