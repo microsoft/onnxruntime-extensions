@@ -4,8 +4,16 @@ Module pre_post_processing.pre_post_processor
 Classes
 -------
 
-`PrePostProcessor(inputs: List[onnx.onnx_ml_pb2.ValueInfoProto] = None, outputs: List[onnx.onnx_ml_pb2.ValueInfoProto] = None)`
+`PrePostProcessor(inputs: List[onnx.onnx_ml_pb2.ValueInfoProto] = None, onnx_opset: int = 16)`
 :   Class to handle running all the pre/post processing steps and updating the model.
+    
+    Create a PrePostProcessor instance.
+    
+    Args:
+        inputs: The inputs the model will use if pre-processing is added.
+        onnx_opset:  The ONNX opset to use.
+                     Minimum is 16. 18 or higher is strongly preferred if image resizing is involved due to its
+                     anti-aliasing ability.
 
     ### Methods
 
