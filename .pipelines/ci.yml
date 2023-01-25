@@ -353,7 +353,7 @@ jobs:
            time /T
            echo.
            rmdir /S /Q "$(Build.SourcesDirectory)\vs2022"
-           call $(vcvarspath)
+           #call $(vcvarspath)
 
       - script: |
           @echo off
