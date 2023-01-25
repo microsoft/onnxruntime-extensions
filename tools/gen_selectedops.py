@@ -67,6 +67,11 @@ def _gen_op_to_cmake_flag():
 
 OP_TO_CMAKE_FLAG = _gen_op_to_cmake_flag()
 
+# if key flag is set, flags in value should also be set
+CMAKE_FLAG_DEPENDENCIES = {
+    "OCOS_ENABLE_VISION": ["OCOS_ENABLE_OPENCV_CODECS"],
+}
+
 SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()
 GENERATED_CMAKE_CONFIG_FILE = SCRIPT_DIR.parent / "cmake" / "_selectedoplist.cmake"
 
@@ -82,8 +87,15 @@ def gen_cmake_oplist(opconfig_file):
     new_ext_domain = "com.microsoft.extensions"
     ext_domain_cnt = 0
     cmake_options = set()
+
     with open(GENERATED_CMAKE_CONFIG_FILE, "w") as f:
         print("# Auto-Generated File, please do not edit!!!", file=f)
+
+        def add_cmake_flag(cmake_flag):
+            if cmake_flag not in cmake_options:
+                cmake_options.add(cmake_flag)
+                print('set({} ON CACHE INTERNAL "")'.format(cmake_flag), file=f)
+
         with open(opconfig_file, "r") as opfile:
             for _ln in opfile:
                 if _ln.startswith(ext_domain) or _ln.startswith(new_ext_domain):
@@ -99,10 +111,11 @@ def gen_cmake_oplist(opconfig_file):
                                 "Cannot find the custom operator({})'s build flags, please update "
                                 "the CMAKE_FLAG_TO_OPS dictionary.".format(_op)
                             )
-                        if OP_TO_CMAKE_FLAG[_op] not in cmake_options:
-                            cmake_options.add(OP_TO_CMAKE_FLAG[_op])
-                            print('set({} ON CACHE INTERNAL "")'.format(OP_TO_CMAKE_FLAG[_op]), file=f)
-        print("# End of Building the Operator CMake variables", file=f)
+
+                        cmake_flags_for_op = [OP_TO_CMAKE_FLAG[_op]]
+                        cmake_flags_for_op += CMAKE_FLAG_DEPENDENCIES.get(cmake_flags_for_op[0], [])
+                        for cmake_flag in cmake_flags_for_op:
+                            add_cmake_flag(cmake_flag)
 
     if ext_domain_cnt == 0:
         print(
