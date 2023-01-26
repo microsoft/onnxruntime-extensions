@@ -3,7 +3,7 @@ jobs:
   timeoutInMinutes: 120
   pool: {vmImage: 'ubuntu-latest', name: 'Linux-CPU'}
   variables:
-    CIBW_BUILD: "cp3{7,8,9}-*"
+    CIBW_BUILD: "cp3{7,8,9,10}-*"
 
   steps:
     - task: UsePythonVersion@0
