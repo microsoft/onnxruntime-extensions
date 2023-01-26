@@ -80,6 +80,7 @@ jobs:
 
       - script: |
           CPU_NUMBER=2 python -m pip install .
+          python -m onnxruntime_extensions.cmd selfcheck
         displayName: Build the library and tests
 
       - script: python -m pip install $(torch.version)
@@ -196,6 +197,7 @@ jobs:
 
       - script: |
           python -m pip install .
+          python -m onnxruntime_extensions.cmd selfcheck
         displayName: Build and install the wheel
 
       - script: python -m pip install -r requirements-dev.txt
@@ -331,11 +333,6 @@ jobs:
 
       - script: |
           call activate pyenv
-          python -m pip install --find-links=dist\ onnxruntime-extensions
-        displayName: Install the wheel
-
-      - script: |
-          call activate pyenv
           python -m pip install $(torch.version)
         displayName: Install pytorch
 
@@ -343,11 +340,6 @@ jobs:
           call activate pyenv
           pytest test
         displayName: Run python test
-
-      - task: PublishPipelineArtifact@0
-        inputs:
-          artifactName: 'wheel-window-$(python.version)'
-          targetPath: 'dist'
 
   #############
   # WebAssembly

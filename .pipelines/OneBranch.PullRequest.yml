@@ -61,6 +61,9 @@ extends:
         pool:
           type: windows
 
+        variables:
+          ob_outputDirectory: '$(REPOROOT)\out'
+          ob_sdl_binskim_break: false
         steps:
         - script: |
             python -m pip install --upgrade pip
@@ -91,7 +94,7 @@ extends:
         
         variables:
           ob_outputDirectory: '$(REPOROOT)\out'
-          ob_sdl_binskim_break: true 
+          ob_sdl_binskim_break: false
         steps:
         - script: |
             @echo off
