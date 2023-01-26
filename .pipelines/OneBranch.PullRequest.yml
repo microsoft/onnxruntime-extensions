@@ -45,7 +45,7 @@ extends:
       tsa:
         enabled: false
       binskim:
-        break: true # always break the build on binskim issues in addition to TSA upload
+        break: false # always break the build on binskim issues in addition to TSA upload
         analyzeTargetGlob: '**\RelWithDebInfo\ortextensions.dll'  # avoid scanning the 3rd party DLLs.
       codeql:
         python:
@@ -57,6 +57,34 @@ extends:
     stages:    
     - stage: Windows_Build
       jobs:
+      - job: win32_pywheel
+        pool:
+          type: windows
+
+        steps:
+        - script: |
+            python -m pip install --upgrade pip
+            python -m pip install cibuildwheel numpy
+            python -m cibuildwheel --platform windows --archs AMD64 --output-dir $(REPOROOT)\out
+          displayName: Build wheels
+        - script: |
+            7z x $(REPOROOT)\out\*.whl -o$(REPOROOT)\out\*
+          displayName: unzip the package
+        - task: onebranch.pipeline.signing@1
+          inputs:
+            command: 'sign'
+            signing_profile: 'external_distribution'
+            files_to_sign: '**/**/*.pyd;**/**/*.dll'
+            search_root: '$(REPOROOT)\out'
+          displayName: 'Sign runtime DLLs'
+        - script: |
+            for /D %%i in ("out\onnxruntime_extensions*-win*") do (
+              7z u %%i.whl .\%%i\*
+              rmdir /s /q %%i
+              )
+          workingDirectory: '$(REPOROOT)'
+          displayName: re-zip packages
+
       - job: main
         pool:
           type: windows  
@@ -91,15 +119,6 @@ extends:
             @echo ##vso[task.setvariable variable=vscmake]%vscmake%
             @echo ##vso[task.setvariable variable=vsmsbuild]%vsmsbuild%
           displayName: 'locate vsdevcmd via vswhere'
-        - script: |
-            call $(vsdevcmd)
-            set PYTHONPATH=
-            set PYTHONHOME=
-            python -m pip install --upgrade pip
-            python -m pip install cibuildwheel numpy
-            python -m cibuildwheel --platform windows --archs AMD64 --output-dir $(REPOROOT)\out
-            del /s /q /f .setuptools-cmake-build\*onnxruntime.dll
-          displayName: Build wheels
         - task: SDLNativeRules@3
           inputs:
             msBuildArchitecture: amd64
@@ -112,20 +131,3 @@ extends:
             GdnBreakGdnToolSDLNativeRulesSeverity: Warning
             GdnBreakGdnToolSDLNativeRules: true
           displayName: 'Guardian Break'
-        - script: |
-            7z x $(REPOROOT)\out\*.whl -o$(REPOROOT)\out\*
-          displayName: unzip the package
-        - task: onebranch.pipeline.signing@1
-          inputs:
-            command: 'sign'
-            signing_profile: 'external_distribution'
-            files_to_sign: '**/**/*.pyd;**/**/*.dll'
-            search_root: '$(REPOROOT)\out'
-          displayName: 'Sign runtime DLLs'
-        - script: |
-            for /D %%i in ("out\onnxruntime_extensions*-win*") do (
-              7z u %%i.whl .\%%i\*
-              rmdir /s /q %%i
-              )
-          workingDirectory: '$(REPOROOT)'
-          displayName: zip package

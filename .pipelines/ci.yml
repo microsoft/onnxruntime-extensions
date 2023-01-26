@@ -79,7 +79,7 @@ jobs:
         displayName: Install requirements.txt
 
       - script: |
-          CPU_NUMBER=2 python setup.py develop
+          CPU_NUMBER=2 python -m pip install .
         displayName: Build the library and tests
 
       - script: python -m pip install $(torch.version)
@@ -195,8 +195,7 @@ jobs:
         displayName: Check installation
 
       - script: |
-          python setup.py bdist_wheel
-          for file in dist/*.whl; do python -m pip install --upgrade $file; done
+          python -m pip install .
         displayName: Build and install the wheel
 
       - script: python -m pip install -r requirements-dev.txt
@@ -327,7 +326,7 @@ jobs:
           )
           @echo vslatest (%vslatest%)
           @echo vsdevcmd (%vsdevcmd%)
-          python setup.py bdist_wheel
+          python -m pip install .
         displayName: Build the wheel
 
       - script: |

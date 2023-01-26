@@ -420,17 +420,17 @@ OrtStatusPtr RegisterPythonDomainAndOps(OrtSessionOptions* options, const OrtApi
       continue; // Register this domain in the second iteration.
     }
 
-    if (status = ortApi->CreateCustomOpDomain(val_pair.first.c_str(), &domain)) {
+    if (status = ortApi->CreateCustomOpDomain(val_pair.first.c_str(), &domain); status) {
       return status;
     }
 
     for (auto const& cop: val_pair.second) {
-      if (status = ortApi->CustomOpDomain_Add(domain, &cop)) {
+      if (status = ortApi->CustomOpDomain_Add(domain, &cop); status) {
         return status;
       }
     }
 
-    if (status = ortApi->AddCustomOpDomain(options, domain)) {
+    if (status = ortApi->AddCustomOpDomain(options, domain); status) {
       return status;
     }
   }

@@ -3,7 +3,7 @@ jobs:
   timeoutInMinutes: 120
   pool: {vmImage: 'windows-latest', name: 'Win-CPU-2021'}
   variables:
-    CIBW_BUILD: "cp3{7,9,10}-*amd64"
+    CIBW_BUILD: "cp3{8,9,10}-*amd64"
 
   steps:
     - task: UsePythonVersion@0

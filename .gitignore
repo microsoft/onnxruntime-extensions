@@ -35,6 +35,7 @@ nuget_root/
 __pycache__
 out/
 *.egg-info/
+.scb/
 .setuptools-cmake-build/
 onnxruntime_extensions/_version.py
 onnxruntime-*-*-*/
