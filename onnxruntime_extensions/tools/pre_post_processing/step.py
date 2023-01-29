@@ -99,7 +99,7 @@ class Step(object):
         outputs_to_preserve = None
 
         # special handling of Debug class.
-        if isinstance(self, Debug):
+        #if isinstance(self, Debug):
             # preserve outputs of the first graph so they're available downstream. otherwise they are consumed by
             # the Debug node and disappear during the ONNX graph_merge as it considers consumed values to be
             # internal - which is entirely reasonable when merging graphs.
@@ -109,7 +109,7 @@ class Step(object):
             # doesn't change the number of outputs from the previous step, so it can be transparently inserted in the
             # pre/post processing pipeline.
             # need to also list the second graph's outputs when manually specifying outputs.
-            outputs_to_preserve = [o.name for o in first.output] + [o.name for o in second.output]
+        #    outputs_to_preserve = [o.name for o in first.output] + [o.name for o in second.output]
 
         # merge with existing graph
         merged_graph = onnx.compose.merge_graphs(first, second, io_map, outputs=outputs_to_preserve)
@@ -166,7 +166,7 @@ class Debug(Step):
                 to rename so it's more consistent.
     """
 
-    def __init__(self, num_inputs: int = 1, name: Optional[str] = None):
+    def __init__(self, num_inputs: int = 4, name: Optional[str] = None, custom_func: Optional[callable] = None):
         """
         Initialize Debug step
         Args:
@@ -174,19 +174,29 @@ class Debug(Step):
             name: Optional name for Step. Defaults to 'Debug'
         """
         self._num_inputs = num_inputs
+        self._custom_func = custom_func
         input_names = [f"input{i}" for i in range(0, num_inputs)]
         output_names = [f"debug{i}" for i in range(0, num_inputs)]
 
         super().__init__(input_names, output_names, name)
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
+        if self._custom_func:
+            self._custom_func(graph)
         input_str = ""
         output_str = ""
         output_debug_str = ""
         nodes_str = ""
 
+        # handle case where we requests more inputs than the graph has
+        non_debug_input_names = [inp.name for inp in graph.output if not inp.name.endswith("_debug")]
+        if self._num_inputs >= len(non_debug_input_names):
+            self._num_inputs = len(non_debug_input_names)
+            self.input_names = non_debug_input_names
+
         # update output names so we preserve info from the latest input names
-        self.output_names = [f"{name}_debug" for name in self.input_names]
+        self.output_names = [f"{name}_next" for name in self.input_names]
+        self.output_names += [f"{name}_debug" for name in self.input_names]
 
         for i in range(0, self._num_inputs):
             input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, i)
@@ -197,8 +207,10 @@ class Debug(Step):
                 nodes_str += "\n"
 
             input_str += f"{input_type_str}[{input_shape_str}] {self.input_names[i]}"
-            output_str += f"{input_type_str}[{input_shape_str}] {self.output_names[i]}"
+            output_str += f"{input_type_str}[{input_shape_str}] {self.output_names[i]},"
+            output_str += f"{input_type_str}[{input_shape_str}] {self.output_names[self._num_inputs+i]}"
             nodes_str += f"{self.output_names[i]} = Identity({self.input_names[i]})\n"
+            nodes_str += f"{self.output_names[self._num_inputs+i]} = Identity({self.input_names[i]})\n"
 
         debug_graph = onnx.parser.parse_graph(
             f"""\
