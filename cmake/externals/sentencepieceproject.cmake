@@ -24,7 +24,7 @@ FetchContent_Declare(
 FetchContent_GetProperties(spm)
 
 if(_ONNXRUNTIME_EMBEDDED)
-  set(SPM_USE_BUILTIN_PROTOBUF OFF)
+  set(SPM_USE_BUILTIN_PROTOBUF OFF CACHE INTERNAL "")
 endif()
 
 if(NOT spm_POPULATED)
