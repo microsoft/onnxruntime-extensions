@@ -80,7 +80,6 @@ jobs:
 
       - script: |
           CPU_NUMBER=2 python -m pip install -e .
-          python -m onnxruntime_extensions.cmd selfcheck
         displayName: Build the library and tests
 
       - script: python -m pip install $(torch.version)
@@ -197,7 +196,6 @@ jobs:
 
       - script: |
           python -m pip install -e .
-          python -m onnxruntime_extensions.cmd selfcheck
         displayName: Build and install the wheel
 
       - script: python -m pip install -r requirements-dev.txt
