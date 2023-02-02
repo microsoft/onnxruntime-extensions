@@ -79,7 +79,7 @@ jobs:
         displayName: Install requirements.txt
 
       - script: |
-          CPU_NUMBER=2 python -m pip install .
+          CPU_NUMBER=2 python -m pip install -e .
           python -m onnxruntime_extensions.cmd selfcheck
         displayName: Build the library and tests
 
@@ -196,7 +196,7 @@ jobs:
         displayName: Check installation
 
       - script: |
-          python -m pip install .
+          python -m pip install -e .
           python -m onnxruntime_extensions.cmd selfcheck
         displayName: Build and install the wheel
 

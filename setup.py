@@ -22,12 +22,12 @@ PACKAGE_NAME = 'onnxruntime_extensions'
 VSINSTALLDIR_NAME = 'VSINSTALLDIR'
 
 
-def load_msvcvar():
-    if os.environ.get('vsdevcmd'):
-        # need put the quotation marks around the path to avoid popen massing with it.
-        os.environ['__vsdevcmd'] = '"{}"'.format(os.environ['vsdevcmd'])
+def load_vsdevcmd():
+    if os.environ.get(VSINSTALLDIR_NAME) is None:
+        
         stdout, _ = subprocess.Popen([
-            'cmd', '/q', '/c', 'call %__vsdevcmd% && set {}'.format(VSINSTALLDIR_NAME)],
+            'powershell', ' -noprofile', '-executionpolicy', 
+            'bypass', '-f',  TOP_DIR+'/tools/get_vsdevcmd.ps1', '-outputEnv' '1'],
             stdout=subprocess.PIPE, shell=False, universal_newlines=True).communicate()
         for line in stdout.splitlines():
             kv_pair = line.split('=')
@@ -84,7 +84,7 @@ class BuildCMakeExt(_build_ext):
             '-DOCOS_EXTENTION_NAME=' + ext_fullpath.name,
             '-DCMAKE_BUILD_TYPE=' + config
         ]
-        if os.environ.get('OCOS_NO_VISION') == '1':
+        if os.environ.get('OCOS_NO_OPENCV') == '1':
             # Disabling openCV can drastically reduce the build time.
             cmake_args += [
                 '-DOCOS_ENABLE_CTEST=OFF',
@@ -169,7 +169,7 @@ def write_py_version(ortx_version):
 
 
 if sys.platform == "win32":
-    load_msvcvar()
+    load_vsdevcmd()
 
 ext_modules = [
     setuptools.extension.Extension(
