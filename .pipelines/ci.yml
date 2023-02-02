@@ -21,22 +21,22 @@ jobs:
 
     strategy:
       matrix:
-        py310-1121:
+        py310-1131:
           python.version: '3.10'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.13.1'
+        py39-1121:
+          python.version: '3.9'
           torch.version: 'torch==1.12.1+cpu torchvision==0.13.1+cpu torchaudio==0.12.1+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.12.0'
-        py39-1110:
-          python.version: '3.9'
+        py38-1110:
+          python.version: '3.8'
           torch.version: 'torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.11.0'
-        py38-1100:
-          python.version: '3.8'
+        py37-1100:
+          python.version: '3.7'
           torch.version: 'torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.10.0'
-        py37-190:
-          python.version: '3.7'
-          torch.version: 'torch==1.9.0+cpu torchvision==0.10.0+cpu torchaudio==0.9.0 -f https://download.pytorch.org/whl/cpu/torch_stable.html'
-          ort.version: '1.9.0'
 
     steps:
       - task: DownloadGitHubRelease@0
@@ -100,6 +100,9 @@ jobs:
 
     strategy:
       matrix:
+        ort-1131:
+          ort.version: '1.13.1'
+          ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
         ort-1121:
           ort.version: '1.12.1'
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
@@ -109,9 +112,6 @@ jobs:
         ort-1100:
           ort.version: '1.10.0'
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
-        ort-190:
-          ort.version: '1.9.0'
-          ort.dirname: 'onnxruntime-osx-x64-$(ort.version)'
 
     steps:
       # needed for onnxruntime
@@ -154,6 +154,10 @@ jobs:
 
     strategy:
       matrix:
+        py310-1131:
+          python.version: '3.10'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.13.1'
         py310-1121:
           python.version: '3.10'
           torch.version: 'torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -f https://download.pytorch.org/whl/torch_stable.html'
@@ -166,10 +170,6 @@ jobs:
           python.version: '3.8'
           torch.version: 'torch==1.10.0 torchvision==0.11.1 torchaudio==0.10.0 -f https://download.pytorch.org/whl/torch_stable.html'
           ort.version: '1.10.0'
-        py37-190:
-          python.version: '3.7'
-          torch.version: 'torch==1.9.0 torchvision==0.10.0 torchaudio==0.9.0 -f https://download.pytorch.org/whl/torch_stable.html'
-          ort.version: '1.9.0'
 
     steps:
       # needed for onnxruntime
@@ -213,14 +213,14 @@ jobs:
 
     strategy:
       matrix:
+        ort-1131:
+          ort.version: '1.13.1'
         ort-1121:
           ort.version: '1.12.1'
         ort-1110:
           ort.version: '1.11.0'
         ort-1100:
           ort.version: '1.10.0'
-        ort-190:
-          ort.version: '1.9.0'
 
     steps:
       - task: DownloadGitHubRelease@0
@@ -269,26 +269,26 @@ jobs:
   ################
   - job: WindowsPython
     pool:
-      vmImage: 'windows-2019'
+      vmImage: 'windows-latest'
 
     strategy:
       matrix:
-        py310-1121:
+        py310-1131:
           python.version: '3.10'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.13.1'
+        py39-1121:
+          python.version: '3.9'
           torch.version: 'torch==1.12.1+cpu torchvision==0.13.1+cpu torchaudio==0.12.1+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.12.1'
-        py39-1110:
-          python.version: '3.9'
+        py38-1110:
+          python.version: '3.8'
           torch.version: 'torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.11.0'
-        py38-1100:
-          python.version: '3.8'
+        py37-1100:
+          python.version: '3.7'
           torch.version: 'torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.10.0'
-        py37-190:
-          python.version: '3.7'
-          torch.version: 'torch==1.9.0+cpu torchvision==0.10.0+cpu torchaudio==0.9.0 -f https://download.pytorch.org/whl/cpu/torch_stable.html'
-          ort.version: '1.9.0'
 
     steps:
       - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
@@ -306,16 +306,6 @@ jobs:
 
       - script: |
           call activate pyenv
-          @echo find where Visual Studio was installed and use the bundled cmake
-          set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
-          for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
-            set vslatest=%%i
-            if exist "%%i\Common7\Tools\vsdevcmd.bat" (
-              set vsdevcmd=%%i\Common7\Tools\vsdevcmd.bat
-            )
-          )
-          @echo vslatest (%vslatest%)
-          @echo vsdevcmd (%vsdevcmd%)
           python -m pip install .
         displayName: Build the wheel
 
