@@ -15,7 +15,6 @@ jobs:
   #######
   # Linux
   #######
-
   - job: Linux
     pool:
       vmImage: 'ubuntu-latest'
@@ -59,7 +58,7 @@ jobs:
         displayName: Unpack ONNXRuntime package.
 
       - script: |
-          CPU_NUMBER=2 sh ./build.sh -DOCOS_ENABLE_CTEST=ON
+          CPU_NUMBER=2 sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=onnxruntime-linux-x64-$(ort.version)
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -95,7 +94,6 @@ jobs:
   ###########
   # macOS C++
   ###########
-
   - job: MacOSX
     pool:
       vmImage: 'macOS-12'
@@ -139,7 +137,7 @@ jobs:
         displayName: Unpack ONNXRuntime package.
 
       - script: |
-          sh ./build.sh -DOCOS_ENABLE_CTEST=ON
+          sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=onnxruntime-osx-x64-$(ort.version)
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -148,10 +146,9 @@ jobs:
         displayName: Run C++ native tests
 
   #############
-  # macOS Wheel
+  # macOS Python
   #############
-
-  - job: MacOSWheel
+  - job: MacOSPython
     pool:
       vmImage: 'macOS-12'
 
@@ -207,15 +204,9 @@ jobs:
       - script: cd test && python -m pytest . --verbose
         displayName: Run python test
 
-      - task: PublishPipelineArtifact@0
-        inputs:
-          artifactName: 'wheel-macos-$(python.version)'
-          targetPath: 'dist'
-
   #########
   # Windows C++
   #########
-
   - job: WindowsC
     pool:
       vmImage: 'windows-2019'
@@ -265,7 +256,7 @@ jobs:
 
       - script: |
           call $(vsdevcmd)
-          call .\build.bat -DOCOS_ENABLE_CTEST=ON
+          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -274,10 +265,9 @@ jobs:
         displayName: Run C++ native tests
 
   ################
-  # Windows wheels
+  # Windows Python
   ################
-
-  - job: WindowsWheel
+  - job: WindowsPython
     pool:
       vmImage: 'windows-2019'
 
@@ -342,7 +332,6 @@ jobs:
   #############
   # WebAssembly
   #############
-
   - job: WebAssembly
     pool:
       vmImage: 'ubuntu-latest'

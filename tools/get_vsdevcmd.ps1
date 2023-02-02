@@ -11,11 +11,11 @@ function choose_latter_vs {
     }
 }
 
-$vswherepath=[Environment]::GetEnvironmentVariable("ProgramFiles(x86)") + "\Microsoft Visual Studio\Installer\vswhere.exe"
+$vswherepath=[Environment]::GetEnvironmentVariable(
+    "ProgramFiles(x86)") + "\Microsoft Visual Studio\Installer\vswhere.exe"
 $vs_installed = & "$vswherepath" -latest -property installationPath
 
-FOREACH ($line in $vs_installed)
-{
+FOREACH ($line in $vs_installed) {
     choose_latter_vs($line.Trim())
 }
 

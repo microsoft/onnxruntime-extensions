@@ -24,7 +24,6 @@ VSINSTALLDIR_NAME = 'VSINSTALLDIR'
 
 def load_vsdevcmd():
     if os.environ.get(VSINSTALLDIR_NAME) is None:
-        
         stdout, _ = subprocess.Popen([
             'powershell', ' -noprofile', '-executionpolicy', 
             'bypass', '-f',  TOP_DIR+'/tools/get_vsdevcmd.ps1', '-outputEnv' '1'],
