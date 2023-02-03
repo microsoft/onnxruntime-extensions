@@ -67,11 +67,6 @@ def _gen_op_to_cmake_flag():
 
 OP_TO_CMAKE_FLAG = _gen_op_to_cmake_flag()
 
-# if key flag is set, flags in value should also be set
-CMAKE_FLAG_DEPENDENCIES = {
-    "OCOS_ENABLE_VISION": ["OCOS_ENABLE_OPENCV_CODECS"],
-}
-
 SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()
 GENERATED_CMAKE_CONFIG_FILE = SCRIPT_DIR.parent / "cmake" / "_selectedoplist.cmake"
 
@@ -113,7 +108,6 @@ def gen_cmake_oplist(opconfig_file):
                             )
 
                         cmake_flags_for_op = [OP_TO_CMAKE_FLAG[_op]]
-                        cmake_flags_for_op += CMAKE_FLAG_DEPENDENCIES.get(cmake_flags_for_op[0], [])
                         for cmake_flag in cmake_flags_for_op:
                             add_cmake_flag(cmake_flag)
 
