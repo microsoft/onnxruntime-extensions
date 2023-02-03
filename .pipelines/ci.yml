@@ -58,7 +58,7 @@ jobs:
         displayName: Unpack ONNXRuntime package.
 
       - script: |
-          CPU_NUMBER=2 sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=onnxruntime-linux-x64-$(ort.version)
+          CPU_NUMBER=2 sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=$(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ort.version)
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -74,6 +74,7 @@ jobs:
       - script: |
           python -m pip install --upgrade pip
           python -m pip install --upgrade setuptools
+          python -m pip install onnxruntime=${ort.version}
           python -m pip install -r requirements.txt
         displayName: Install requirements.txt
 
@@ -137,7 +138,7 @@ jobs:
         displayName: Unpack ONNXRuntime package.
 
       - script: |
-          sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=onnxruntime-osx-x64-$(ort.version)
+          sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=$(Build.SourcesDirectory)/onnxruntime-osx-x64-$(ort.version)
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -185,10 +186,12 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --upgrade setuptools
           python -m pip install --upgrade wheel
+          python -m pip install onnxruntime=${ort.version}
           python -m pip install -r requirements.txt
         displayName: Install requirements.txt
 
-      - script: python -c "import onnxruntime;print(onnxruntime.__version__)"
+      - script: |
+          python -c "import onnxruntime;print(onnxruntime.__version__)"
         displayName: Check installation
 
       - script: |
@@ -300,6 +303,7 @@ jobs:
       - script: |
           call activate pyenv
           python -m pip install --upgrade pip
+          python -m pip install onnxruntime=${ort.version}
           python -m pip install -r requirements.txt
           python -m pip install -r requirements-dev.txt
         displayName: Install requirements.txt

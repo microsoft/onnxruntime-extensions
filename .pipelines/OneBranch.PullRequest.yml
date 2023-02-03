@@ -56,6 +56,10 @@ extends:
 
     stages:    
     - stage: sdl_build
+      parameters:
+        globalSdl:
+          binskim:
+            enabled: false
       jobs:
       - job: pywheel
         pool:
@@ -88,10 +92,16 @@ extends:
           workingDirectory: '$(REPOROOT)'
           displayName: re-zip packages
 
-      - job: sdlcheck
+    - stage: sdl_check
+      parameters:
+        globalSdl:
+          binskim:
+            break: false # always break the build on binskim issues in addition to TSA upload
+            analyzeTargetGlob: '**\RelWithDebInfo\ortextensions.dll'  # avoid scanning the 3rd party DLLs.
+      jobs:
+      - job: sdl_analyze
         pool:
           type: windows  
-        
         variables:
           ob_outputDirectory: '$(REPOROOT)\windows_out'
           ob_sdl_binskim_break: false
