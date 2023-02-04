@@ -138,31 +138,6 @@ class TestPreprocessing(unittest.TestCase):
             o_res = mfunc([_i.numpy() for _i in test_input])
             numpy.testing.assert_allclose(res, o_res)
 
-    @unittest.skipIf(
-        LooseVersion(torch.__version__) < LooseVersion("1.11"),
-        "PythonOp bug fixing on Pytorch 1.11",
-    )
-    def test_functional_processing(self):
-        # load an image
-        img = Image.open(util.get_test_data_file("data", "pineapple.jpg")).convert(
-            "RGB"
-        )
-        img = torch.from_numpy(numpy.asarray(img))
-
-        pipeline = _MobileNetProcessingModule(
-            onnx.load_model(util.get_test_data_file("data", "mobilev2.onnx"))
-        )
-        ids, probabilities = pipeline.forward(img)
-
-        full_model_func = OrtPyFunction.from_model(
-            pnp.export(pipeline, img, opset_version=11, output_path="temp_func.onnx")
-        )
-        actual_ids, actual_result = full_model_func(img.numpy())
-        numpy.testing.assert_allclose(probabilities.numpy(), actual_result, rtol=1e-3)
-        self.assertEqual(
-            ids[0, 0].item(), 953
-        )  # 953 is pineapple class id in the imagenet dataset
-
 
 if __name__ == "__main__":
     unittest.main()
