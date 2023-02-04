@@ -22,7 +22,7 @@ def my_inverse(g, self):
 
 
 if LooseVersion(torch.__version__) > LooseVersion("1.12.0"):
-    register_custom_op_symbolic('aten::linalg_inv', my_inverse, 1)
+    register_custom_op_symbolic('::linalg_inv', my_inverse, 1)
 else:
     register_custom_op_symbolic('::inverse', my_inverse, 1)
 

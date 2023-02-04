@@ -108,6 +108,8 @@ class BuildCMakeExt(_build_ext):
             '--parallel' + ('' if cpu_number is None else ' ' + cpu_number)
         ]
         cmake_exe = 'cmake'
+        # unlike Linux/MacOS, cmake python package on Windows fails to build some 3rd party dependencies.
+        # so we have to use the cmake installed with Visual Studio.
         if os.environ.get(VSINSTALLDIR_NAME):
             cmake_exe = os.environ[VSINSTALLDIR_NAME] +\
                 'Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe'
