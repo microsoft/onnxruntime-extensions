@@ -23,6 +23,10 @@ FetchContent_Declare(
 )
 FetchContent_GetProperties(spm)
 
+if(_ONNXRUNTIME_EMBEDDED)
+  set(SPM_USE_BUILTIN_PROTOBUF OFF CACHE INTERNAL "")
+endif()
+
 if(NOT spm_POPULATED)
   FetchContent_Populate(spm)
   add_subdirectory(${spm_SOURCE_DIR} ${spm_BINARY_DIR} EXCLUDE_FROM_ALL)
@@ -31,7 +35,6 @@ if(NOT spm_POPULATED)
 endif()
 
 if(_ONNXRUNTIME_EMBEDDED)
-  set(SPM_USE_BUILTIN_PROTOBUF OFF)
   set(spm_INCLUDE_DIRS
     ${REPO_ROOT}/cmake/external/protobuf/src
     ${spm_SOURCE_DIR}/src/builtin_pb
