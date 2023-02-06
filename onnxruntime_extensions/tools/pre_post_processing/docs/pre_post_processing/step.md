@@ -4,19 +4,31 @@ Module pre_post_processing.step
 Classes
 -------
 
-`Debug(num_inputs: int = 1, name: Optional[str] = None)`
+`Debug(num_inputs: int = 4, name: Optional[str] = None, custom_func: Optional[<built-in function callable>] = None)`
 :   Step that can be arbitrarily inserted in the pre or post processing pipeline.
     It will make the outputs of the previous Step also become graph outputs so their value can be more easily debugged.
     
-    NOTE: Depending on when the previous Step's outputs are consumed in the pipeline the graph output for it
-          may or may not have '_debug' as a suffix.
-          TODO: PrePostProcessor __cleanup_graph_output_names could also hide the _debug by inserting an Identity node
-                to rename so it's more consistent.
+    We will duplicate the outputs of graph, the original outputs will be duplicated, one will be renamed with a suffix "_next",
+    another will be renamed with a suffix "_debug".the "_next" outputs will feed into the next step,  
+    the "_debug" outputs will become graph outputs.
     
     Initialize Debug step
     Args:
-        num_inputs: Number of inputs from previous Step to make graph outputs.
+        num_inputs: Number of inputs from previous Step to make graph outputs. Devs can set any number of inputs to be debugged.
+            (named inputs are not supported though). This class will handle it if the number of inputs is less than the number.
         name: Optional name for Step. Defaults to 'Debug'
+        custom_func: Optional custom function to visit the graph, A very simple example is to save the graph to a file.
+            For example:
+                ```
+                def save_onnx(graph):
+                    opset_imports = [
+                        onnx.helper.make_operatorsetid(domain, opset)
+                        for domain, opset in pipeline._custom_op_checker_context.opset_imports.items()
+                    ]
+                    new_model = onnx.helper.make_model(graph, opset_imports=opset_imports)
+                    onnx.save_model(new_model, "debug.onnx")
+                Debug(custom_func=save_onnx)
+                ```
 
     ### Ancestors (in MRO)
 
@@ -40,6 +52,11 @@ Classes
     * pre_post_processing.steps.general.Squeeze
     * pre_post_processing.steps.general.Transpose
     * pre_post_processing.steps.general.Unsqueeze
+    * pre_post_processing.steps.nlp.BertTokenizer
+    * pre_post_processing.steps.nlp.BertTokenizerQATask
+    * pre_post_processing.steps.nlp.BertTokenizerQATaskDecoder
+    * pre_post_processing.steps.nlp.SentencePieceTokenizer
+    * pre_post_processing.steps.nlp.SequenceClassify
     * pre_post_processing.steps.vision.CenterCrop
     * pre_post_processing.steps.vision.ConvertBGRToImage
     * pre_post_processing.steps.vision.ConvertImageToBGR

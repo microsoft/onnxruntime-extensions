@@ -39,7 +39,7 @@ def create_custom_op_checker_context(onnx_opset: int):
     """
     context = onnx.checker.C.CheckerContext()
     context.ir_version = onnx.checker.DEFAULT_CONTEXT.ir_version
-    context.opset_imports = {"": onnx_opset, "com.microsoft.extensions": 1, "ai.onnx.contrib": 1}
+    context.opset_imports = {"": onnx_opset, "com.microsoft.extensions": 1}
 
     return context
 

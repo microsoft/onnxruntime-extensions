@@ -97,20 +97,7 @@ class Step(object):
                     io_map.append((o.name, i.name))
 
         outputs_to_preserve = None
-
-        # special handling of Debug class.
-        #if isinstance(self, Debug):
-            # preserve outputs of the first graph so they're available downstream. otherwise they are consumed by
-            # the Debug node and disappear during the ONNX graph_merge as it considers consumed values to be
-            # internal - which is entirely reasonable when merging graphs.
-            # the issue we have is that we don't know what future steps might want things to remain as outputs.
-            # the current approach is to insert a Debug step which simply duplicates the values so that they are
-            # guaranteed not be consumed (only one of the two copies will be used).
-            # doesn't change the number of outputs from the previous step, so it can be transparently inserted in the
-            # pre/post processing pipeline.
-            # need to also list the second graph's outputs when manually specifying outputs.
-        #    outputs_to_preserve = [o.name for o in first.output] + [o.name for o in second.output]
-
+        
         # merge with existing graph
         merged_graph = onnx.compose.merge_graphs(first, second, io_map, outputs=outputs_to_preserve)
 
@@ -154,24 +141,35 @@ class Step(object):
         return Step._elem_type_str(input_type.elem_type), Step._shape_to_str(input_type.shape)
 
 
-# special case. we include the helper Debug step here as logic in the base class is conditional on it.
 class Debug(Step):
     """
     Step that can be arbitrarily inserted in the pre or post processing pipeline.
     It will make the outputs of the previous Step also become graph outputs so their value can be more easily debugged.
 
-    NOTE: Depending on when the previous Step's outputs are consumed in the pipeline the graph output for it
-          may or may not have '_debug' as a suffix.
-          TODO: PrePostProcessor __cleanup_graph_output_names could also hide the _debug by inserting an Identity node
-                to rename so it's more consistent.
+    We will duplicate the outputs of graph, the original outputs will be duplicated, one will be renamed with a suffix "_next",
+    another will be renamed with a suffix "_debug".the "_next" outputs will feed into the next step,  
+    the "_debug" outputs will become graph outputs.
     """
 
     def __init__(self, num_inputs: int = 4, name: Optional[str] = None, custom_func: Optional[callable] = None):
         """
         Initialize Debug step
         Args:
-            num_inputs: Number of inputs from previous Step to make graph outputs.
+            num_inputs: Number of inputs from previous Step to make graph outputs. Devs can set any number of inputs to be debugged.
+                (named inputs are not supported though). This class will handle it if the number of inputs is less than the number.
             name: Optional name for Step. Defaults to 'Debug'
+            custom_func: Optional custom function to visit the graph, A very simple example is to save the graph to a file.
+                For example:
+                    ```
+                    def save_onnx(graph):
+                        opset_imports = [
+                            onnx.helper.make_operatorsetid(domain, opset)
+                            for domain, opset in pipeline._custom_op_checker_context.opset_imports.items()
+                        ]
+                        new_model = onnx.helper.make_model(graph, opset_imports=opset_imports)
+                        onnx.save_model(new_model, "debug.onnx")
+                    Debug(custom_func=save_onnx)
+                    ```
         """
         self._num_inputs = num_inputs
         self._custom_func = custom_func
@@ -188,8 +186,10 @@ class Debug(Step):
         output_debug_str = ""
         nodes_str = ""
 
-        # handle case where we requests more inputs than the graph has
+        # don't have to handle the debug node again
         non_debug_input_names = [inp.name for inp in graph.output if not inp.name.endswith("_debug")]
+
+        # handle case where we requests more inputs than the graph has
         if self._num_inputs >= len(non_debug_input_names):
             self._num_inputs = len(non_debug_input_names)
             self.input_names = non_debug_input_names

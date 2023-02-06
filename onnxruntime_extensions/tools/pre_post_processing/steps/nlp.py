@@ -8,33 +8,52 @@ from typing import List, Optional, Tuple, Union
 from ..step import Step
 
 
+# A wrapper for dict, make its key as members of the class
+class AttributeDict(dict):
+    def __getattr__(self, name):
+        return self[name]
+
+    def __hasattr__(self, name):
+        return name in self
+
+
 class SentencePieceTokenizer(Step):
-    def __init__(self, tokenizer, domain: str = "ai.onnx.contrib", name: Optional[str] = None):
+    def __init__(self, tokenizer_map: dict, name: Optional[str] = None):
         """
+        Brief:
+            SentencePieceTokenizer is a bit special here. Most likely, users only want to use it like Bert-Tokenizer which has one "Text" input,
+            we support taking the other parameter as optional and use the default value such as the same usage in Hugging-Face.
+
         Args:
-            tokenizer: SentencePiece tokenizer from huggingface,
-                usually, we can get it by "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
-            domain: Optional domain of step. ["ai.onnx.contrib" or "com.microsoft.extensions"] Defaults to 'ai.onnx.contrib'
+            tokenizer_map: some essential infos, If you export tokenizer from hugging-face,
+            such as "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
+            You may need to provide the following:
+                tokenizer_map = dict(vocab_size=tokenizer.vocab_size,
+                                    bos_token_id=tokenizer.bos_token_id,
+                                    eos_token_id = tokenizer.eos_token_id,)
             name: Optional name of step. Defaults to 'SentencePieceTokenizer'
 
         """
         super().__init__(
             ["inputs", "nbest_size", "alpha", "add_bos", "add_eos", "reverse"], ["input_ids", "attention_mask"], name
         )
-        self.domain = domain
-        assert domain in [
-            "ai.onnx.contrib",
-            "com.microsoft.extensions",
-        ], f"invalid domain:`{domain}` for SentencePieceTokenizer"
-        self.tokenizer = tokenizer
+        self._domain = "com.microsoft.extensions"
+        self._tokenizer_instance = AttributeDict(tokenizer_map)
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
+        """
+        the first input is required, the other four are optional. we don't expect user to provide all of them.
+        """
         graph_input_names = [inp.name for inp in graph.output]
         assert self.input_names[0] in graph_input_names
 
         # input text
         input_type_str0, input_shape_str0 = self._get_input_type_and_shape_strs(graph, 0)
-
+        """
+        SentencePieceTokenizer has actually 5 inputs in definition, so this complexity checks are make the other four args 
+        "nbest_size", "alpha", "add_bos", "add_eos", "reverse" as optional. 
+        We will create a Constant Value in the graph if User didn't provide one.
+        """
         input_type_str1, input_shape_str1 = (
             self._get_input_type_and_shape_strs(graph, 1)
             if self.input_names[1] in graph_input_names
@@ -61,6 +80,7 @@ class SentencePieceTokenizer(Step):
         assert (len(input_shape_str0.split(",")) == 1) and len(input_shape_str1) == 1 and len(input_shape_str2) == 1
 
         def build_input_declare():
+            # graph's inputs are depends on how user provide it.
             input_base = [f"{input_type_str0}[{input_shape_str0}] {self.input_names[0]}"]
             if self.input_names[1] in graph_input_names:
                 input_base.append(f"{input_type_str1}[{input_shape_str1}] {self.input_names[1]}")
@@ -109,6 +129,7 @@ class SentencePieceTokenizer(Step):
             return ",".join(para_base)
 
         def build_forward_declare():
+            # default values for nbest_size, alpha, add_bos, add_eos, reverse
             declare_base = [
                 f"i64_0 = Constant <value = int64[1] {{0}}> ()",
                 f"f32_0 = Constant <value = float[1] {{0.0}}> ()",
@@ -130,16 +151,17 @@ class SentencePieceTokenizer(Step):
 
             return "\n".join(declare)
 
-        # Tokenizer does not ideally match with the sentencePiece Model file, so we need to cat the bos_token_id to token. bos_id in model is 1 while 0 in tokenizer
+        # Tokenizer does not ideally match with the sentencePiece Model file,
+        # so we need to cat the bos_token_id to token. bos_id in model is 1 while 0 in tokenizer
         converter_graph = onnx.parser.parse_graph(
             f"""\
-            tokenizer ({build_input_declare()}) 
+            SentencePiecetokenizer ({build_input_declare()}) 
                 => (int64[{output_shape_str}] {self.output_names[0]},int64[{output_shape_str}] {self.output_names[1]})  
             {{
                 {build_forward_declare()}
                 i64_neg1 = Constant <value = int64[1] {{-1}}> ()
-                token,idx =  {self.domain}.SentencepieceTokenizer ({build_call_para()})
-                k_start = Constant <value = int32[1] {{{self.tokenizer.bos_token_id}}}> ()
+                token,idx =  {self._domain}.SentencepieceTokenizer ({build_call_para()})
+                k_start = Constant <value = int32[1] {{{self._tokenizer_instance.bos_token_id}}}> ()
                 input_ids_concat02 = Concat <axis = 0> (k_start, token)
                 input_ids_bdim = Unsqueeze(input_ids_concat02, i64_0)
                 {self.output_names[0]} = Cast <to = 7> (input_ids_bdim)
@@ -149,7 +171,7 @@ class SentencePieceTokenizer(Step):
             """
         )
 
-        with open(self.tokenizer.vocab_file, "rb") as f:
+        with open(self._tokenizer_instance.vocab_file, "rb") as f:
             content = f.read()
 
         token_model_attr = onnx.helper.make_attribute("model", content)
@@ -160,25 +182,26 @@ class SentencePieceTokenizer(Step):
 
 
 class BertTokenizer(Step):
-    def __init__(self, tokenizer, domain: str = "ai.onnx.contrib", name: Optional[str] = None):
+    def __init__(self, tokenizer_map: dict, name: Optional[str] = None):
         """
-        Brief: This step is used to convert the input text into the input_ids, attention_mask, token_type_ids
-            support BertTokenizer and HfBertTokenizer, the latter is used for Qa TASK
+        Brief: This step is used to convert the input text into the input_ids, attention_mask, token_type_ids.
+            It support BertTokenizer and HfBertTokenizer, the former can only has one queries, the latter have two
         Args:
-            tokenizer: tokenizer from huggingface,
-                usually, we can get it by "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
-            domain: Optional domain of step. ["ai.onnx.contrib" or "com.microsoft.extensions"] Defaults to 'ai.onnx.contrib'
+            tokenizer_map: some essential infos, If you export tokenizer from hugging-face,
+            such as "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
+            You may need to provide the following:
+                tokenizer_map = dict(vocab=tokenizer.vocab, #vocab is dict,
+                                    strip_accents = 1 or 0 (Optional),
+                                    do_lower_case = 1 or 0 (Optional),
+                                    )
 
             name: Optional name of step. Defaults to 'BertTokenizer'
 
         """
         super().__init__(["inputs"], ["input_ids", "attention_mask", "token_type_ids"], name)
-        self.domain = domain
-        assert domain in [
-            "ai.onnx.contrib",
-            "com.microsoft.extensions",
-        ], f"invalid domain:`{domain}` for BertTokenizer or HfBertTokenizer"
-        self.tokenizer = tokenizer
+        self._domain = "com.microsoft.extensions"
+        
+        self._tokenizer_instance = AttributeDict(tokenizer_map)
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         graph_input_names = [inp.name for inp in graph.output]
@@ -202,13 +225,14 @@ class BertTokenizer(Step):
         def get_tokenizer_ret():
             if onnx_tokenizer_impl == "HfBertTokenizer":
                 return ",".join(self.output_names)
-
+            # different output orders for BertTokenizer and HfBertTokenizer
             return f"ids,types,mask"
 
         def build_output_imp():
             if onnx_tokenizer_impl == "HfBertTokenizer":
                 return ""
 
+            # BertTokenizer has different output dimensions
             ret_vars = get_tokenizer_ret().split(",")
             ret_vars[1], ret_vars[2] = ret_vars[2], ret_vars[1]
             output_str = [f"i64_0 = Constant <value = int64[1] {{0}}> ()"]
@@ -228,27 +252,26 @@ class BertTokenizer(Step):
 
         converter_graph = onnx.parser.parse_graph(
             f"""\
-            tokenizer ({build_input_declare()}) 
+            {onnx_tokenizer_impl} ({build_input_declare()}) 
                 => ({build_output_declare()})
             {{
-                {get_tokenizer_ret()} =  {self.domain}.{onnx_tokenizer_impl} ({build_tokenizer_call_arg()})
+                {get_tokenizer_ret()} =  {self._domain}.{onnx_tokenizer_impl} ({build_tokenizer_call_arg()})
                 {build_output_imp()}
             }}
             """
         )
 
         token_model_attr = []
-        bert_tokenizer = self.tokenizer
-        ordered_vocab = OrderedDict(sorted(bert_tokenizer.vocab.items(), key=lambda item: int(item[1])))
+        ordered_vocab = OrderedDict(sorted(self._tokenizer_instance.vocab.items(), key=lambda item: int(item[1])))
         vocab = "\n".join(ordered_vocab.keys())
         attrs = dict(vocab_file=vocab)
 
         attrs["strip_accents"] = (
-            1
-            if "strip_accents" in bert_tokenizer.init_kwargs and bert_tokenizer.init_kwargs.get("strip_accents")
-            else 0
+            1 if "strip_accents" in self._tokenizer_instance and self._tokenizer_instance.strip_accents else 0
         )
-        attrs["do_lower_case"] = 1 if hasattr(bert_tokenizer, "do_lower_case") and bert_tokenizer.do_lower_case else 0
+        attrs["do_lower_case"] = (
+            1 if "do_lower_case" in self._tokenizer_instance and self._tokenizer_instance.do_lower_case else 0
+        )
 
         for attr in attrs:
             attr_value = onnx.helper.make_attribute(attr, attrs[attr])
@@ -264,7 +287,9 @@ class BertTokenizerQATask(Step):
     def __init__(self, name: Optional[str] = None):
         """
         Brief:
-            Just copy input_ids for decoder
+            Just duplicate input_ids for decoder. For tasks like 'BertTokenizerQATaskDecoder' which need to use the same input_ids for decoder.
+            However, input_ids has its consumers, it will merged and removed in the next step. So we need to duplicate one.
+            The new output 'input_ids_1' will be kept as a new output in graph.
         Args:
             name: Optional name of step. Defaults to 'BertTokenizerQATask'
 
@@ -286,39 +311,24 @@ class BertTokenizerQATask(Step):
         def build_output_declare():
             output_base = []
             for out in self.output_names:
-                # used for MaskLM task
-                if "predicted_token_id" in out:
-                    shape_str = "1"
-                else:
-                    shape_str = input_shape_str0
-                output_base.append(f"{input_type_str0}[{shape_str}] {out}")
+                output_base.append(f"{input_type_str0}[{input_shape_str0}] {out}")
 
             return ",".join(output_base)
 
         def build_output_imp():
             output_str = []
-            for i in range(0, len(self.output_names) - 1):
-                output_str.append(f"{self.output_names[i]} = Identity({self.input_names[i]})")
+            for idx, out in enumerate(self.output_names):
+                output_str.append(f"{out} = Identity({self.input_names[idx % len(self.input_names)]})")
 
-            output_str.append(f"{self.output_names[3]} = Identity({self.input_names[0]})")
             output_str = "\n".join(output_str)
-
-            if len(self.output_names) == 5:
-                output_str += f"""\
-                mask_id = Constant <value = int64[1] {{{bert_tokenizer.mask_token_id}}}> ()
-                zero_or_one = Equal(dim_input_ids, mask_id)
-                zero_or_one_c = Cast <to = 2> (zero_or_one)
-                {self.output_names[4]} = ArgMax<axis = -1>(zero_or_one_c)
-                """
-
             return output_str
 
         def build_input_declare():
             inputs = []
 
-            for i in range(0, len(self.input_names)):
-                input_type_str_x, input_shape_str_x = self._get_input_type_and_shape_strs(graph, i)
-                inputs.append(f"{input_type_str_x}[{input_shape_str_x}] {self.input_names[i]}")
+            for idx, inp in enumerate(self.input_names):
+                input_type_str_x, input_shape_str_x = self._get_input_type_and_shape_strs(graph, idx)
+                inputs.append(f"{input_type_str_x}[{input_shape_str_x}] {inp}")
 
             return ",".join(inputs)
 
@@ -340,24 +350,22 @@ class BertTokenizerQATask(Step):
 
 
 class BertTokenizerQATaskDecoder(Step):
-    def __init__(self, tokenizer, domain: str = "ai.onnx.contrib", name: Optional[str] = None):
+    def __init__(self, tokenizer_map, name: Optional[str] = None):
         """
         Brief:
             Decode the input_ids to text
         Args:
-            tokenizer: tokenizer from huggingface,
-                usually, we can get it by "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
-            domain: Optional domain of step. ["ai.onnx.contrib" or "com.microsoft.extensions"] Defaults to 'ai.onnx.contrib'
+            tokenizer_map: some essential infos, If you export tokenizer from hugging-face,
+            such as "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
+            You may need to provide the following:
+                tokenizer_map = dict(vocab=tokenizer.vocab, #vocab is dict,
+                                    )
             name: Optional name of step. Defaults to 'BertTokenizerQATaskDecoder'
 
         """
         super().__init__(["start_logits", "end_logits", "input_ids_1"], ["text"], name)
-        self.domain = domain
-        assert domain in [
-            "ai.onnx.contrib",
-            "com.microsoft.extensions",
-        ], f"invalid domain:`{domain}` for BertTokenizerQATaskDecoder"
-        self.tokenizer = tokenizer
+        self._domain = "com.microsoft.extensions"
+        self._tokenizer_instance = AttributeDict(tokenizer_map)
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         graph_input_names = [inp.name for inp in graph.output]
@@ -390,12 +398,11 @@ class BertTokenizerQATaskDecoder(Step):
                 ee_position = Add(e_position,i64_1)
                 u_i64_neg1 = Unsqueeze(i64_neg1, i64_0)
                 slice_ids= Slice({self.input_names[0]}, s_position, ee_position, i64_neg1)
-                {self.output_names[0]} = {self.domain}.BertTokenizerDecoder (slice_ids, i64_em)
+                {self.output_names[0]} = {self._domain}.BertTokenizerDecoder (slice_ids, i64_em)
             }}
             """
         )
-
-        bert_tokenizer = self.tokenizer
+        bert_tokenizer = self._tokenizer_instance
         ordered_vocab = OrderedDict(sorted(bert_tokenizer.vocab.items(), key=lambda item: int(item[1])))
         vocab = "\n".join(ordered_vocab.keys())
         attrs = dict(vocab_file=vocab)
@@ -413,10 +420,8 @@ class SequenceClassify(Step):
     def __init__(self, name: Optional[str] = None):
         """
         Brief:
-            Decode the input_ids to text
+            Convert max logit in logits array to index of classes, which used in classify task.
         Args:
-            tokenizer: tokenizer from huggingface,
-                usually, we can get it by "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
             name: Optional name of step. Defaults to 'SequenceClassify'
 
         """
