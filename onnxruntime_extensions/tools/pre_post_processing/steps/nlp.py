@@ -9,17 +9,23 @@ from ..step import Step
 
 
 class SentencePieceTokenizer(Step):
-    def __init__(self, tokenizer, name: Optional[str] = None):
+    def __init__(self, tokenizer, domain: str = "ai.onnx.contrib", name: Optional[str] = None):
         """
         Args:
             tokenizer: SentencePiece tokenizer from huggingface,
                 usually, we can get it by "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
+            domain: Optional domain of step. ["ai.onnx.contrib" or "com.microsoft.extensions"] Defaults to 'ai.onnx.contrib'
             name: Optional name of step. Defaults to 'SentencePieceTokenizer'
 
         """
         super().__init__(
             ["inputs", "nbest_size", "alpha", "add_bos", "add_eos", "reverse"], ["input_ids", "attention_mask"], name
         )
+        self.domain = domain
+        assert domain in [
+            "ai.onnx.contrib",
+            "com.microsoft.extensions",
+        ], f"invalid domain:`{domain}` for SentencePieceTokenizer"
         self.tokenizer = tokenizer
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
@@ -132,7 +138,7 @@ class SentencePieceTokenizer(Step):
             {{
                 {build_forward_declare()}
                 i64_neg1 = Constant <value = int64[1] {{-1}}> ()
-                token,idx = ai.onnx.contrib.SentencepieceTokenizer ({build_call_para()})
+                token,idx =  {self.domain}.SentencepieceTokenizer ({build_call_para()})
                 k_start = Constant <value = int32[1] {{{self.tokenizer.bos_token_id}}}> ()
                 input_ids_concat02 = Concat <axis = 0> (k_start, token)
                 input_ids_bdim = Unsqueeze(input_ids_concat02, i64_0)
@@ -154,17 +160,24 @@ class SentencePieceTokenizer(Step):
 
 
 class BertTokenizer(Step):
-    def __init__(self, tokenizer, name: Optional[str] = None):
+    def __init__(self, tokenizer, domain: str = "ai.onnx.contrib", name: Optional[str] = None):
         """
         Brief: This step is used to convert the input text into the input_ids, attention_mask, token_type_ids
             support BertTokenizer and HfBertTokenizer, the latter is used for Qa TASK
         Args:
             tokenizer: SentencePiece tokenizer from huggingface,
                 usually, we can get it by "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
+            domain: Optional domain of step. ["ai.onnx.contrib" or "com.microsoft.extensions"] Defaults to 'ai.onnx.contrib'
+
             name: Optional name of step. Defaults to 'BertTokenizer'
 
         """
         super().__init__(["inputs"], ["input_ids", "attention_mask", "token_type_ids"], name)
+        self.domain = domain
+        assert domain in [
+            "ai.onnx.contrib",
+            "com.microsoft.extensions",
+        ], f"invalid domain:`{domain}` for SentencePieceTokenizer"
         self.tokenizer = tokenizer
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
@@ -218,7 +231,7 @@ class BertTokenizer(Step):
             tokenizer ({build_input_declare()}) 
                 => ({build_output_declare()})
             {{
-                {get_tokenizer_ret()} = ai.onnx.contrib.{onnx_tokenizer_impl} ({build_tokenizer_call_arg()})
+                {get_tokenizer_ret()} =  {self.domain}.{onnx_tokenizer_impl} ({build_tokenizer_call_arg()})
                 {build_output_imp()}
             }}
             """
@@ -327,17 +340,23 @@ class BertTokenizerQATask(Step):
 
 
 class BertTokenizerQATaskDecoder(Step):
-    def __init__(self, tokenizer, name: Optional[str] = None):
+    def __init__(self, tokenizer, domain: str = "ai.onnx.contrib", name: Optional[str] = None):
         """
         Brief:
             Decode the input_ids to text
         Args:
             tokenizer: SentencePiece tokenizer from huggingface,
                 usually, we can get it by "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
+            domain: Optional domain of step. ["ai.onnx.contrib" or "com.microsoft.extensions"] Defaults to 'ai.onnx.contrib'
             name: Optional name of step. Defaults to 'BertTokenizerQATaskDecoder'
 
         """
         super().__init__(["start_logits", "end_logits", "input_ids_1"], ["text"], name)
+        self.domain = domain
+        assert domain in [
+            "ai.onnx.contrib",
+            "com.microsoft.extensions",
+        ], f"invalid domain:`{domain}` for SentencePieceTokenizer"
         self.tokenizer = tokenizer
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
@@ -371,7 +390,7 @@ class BertTokenizerQATaskDecoder(Step):
                 ee_position = Add(e_position,i64_1)
                 u_i64_neg1 = Unsqueeze(i64_neg1, i64_0)
                 slice_ids= Slice({self.input_names[0]}, s_position, ee_position, i64_neg1)
-                {self.output_names[0]} = ai.onnx.contrib.BertTokenizerDecoder (slice_ids, i64_em)
+                {self.output_names[0]} = {self.domain}.BertTokenizerDecoder (slice_ids, i64_em)
             }}
             """
         )
@@ -426,5 +445,5 @@ class SequenceClassify(Step):
             }}
             """
         )
-        
+
         return converter_graph

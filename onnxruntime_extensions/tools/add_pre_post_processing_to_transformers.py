@@ -14,6 +14,7 @@ from pre_post_processing import PrePostProcessor, Debug
 from pre_post_processing.steps import *
 from pre_post_processing.utils import create_named_value
 
+# for verify results
 import transformers
 import torch
 import onnxruntime
@@ -26,6 +27,7 @@ import onnxruntime_extensions
 def get_tokenizer_and_huggingface_model(model_name):
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
     config = transformers.AutoConfig.from_pretrained(model_name)
+
     if model_name == "xlm-roberta-base":
         model = transformers.AutoModelForSequenceClassification.from_pretrained(model_name)
         onnx_config = transformers.models.xlm_roberta.XLMRobertaOnnxConfig(config, "sequence-classification")
@@ -43,13 +45,13 @@ def get_tokenizer_and_huggingface_model(model_name):
         onnx_config = transformers.models.mobilebert.MobileBertOnnxConfig(config, "sequence-classification")
         text = ("Hello, my dog is cute",)
     else:
-        raise ValueError(f"{model_name} is not supported")
+        raise ValueError(f"{model_name} is not supported yet.")
     return tokenizer, model, onnx_config, text
 
 
-def export_backbone_or_use_provided(model_name: str, save_bert_onnx: bool, bert_onnx_model: Path):
+def export_backbone(model_name: str, save_bert_onnx: bool, bert_onnx_model: Path):
     """
-    To export onnx model from huggingface if user didn't provide one.
+    To export onnx model from huggingface.
     """
 
     # fix the seed so we can reproduce the results
@@ -58,7 +60,7 @@ def export_backbone_or_use_provided(model_name: str, save_bert_onnx: bool, bert_
     inputs = tokenizer(*text, return_tensors="pt")
 
     if bert_onnx_model and bert_onnx_model.exists():
-        print("User provided a customized onnx Model, skip regenerating.")
+        print("Use cached onnx Model, skip re-exporting.")
         return tokenizer, onnx.load(str(bert_onnx_model.resolve(True)))
 
     # tempfile will be removed automatically
@@ -71,20 +73,20 @@ def export_backbone_or_use_provided(model_name: str, save_bert_onnx: bool, bert_
         return tokenizer, onnx.load(onnx_model_path)
 
 
-def add_pre_post_to_bert(model_file: Path, save_bert_onnx: bool, model_name: str, output_file: Path):
-    """construct the pipeline for a end2end model  with pre and post processing. The final model can take in text as inputs
-    and output the result in text format.
+def add_pre_post_to_bert(model_name: str, model_file: Path, save_bert_onnx: bool, output_file: Path):
+    """construct the pipeline for a end2end model with pre and post processing. The final model can take text as inputs
+    and output the result in text format for model like QA.
 
     Args:
-        model_file (Path): The onnx model needed to be updated, if not provided, will export from huggingface.
-        save_bert_onnx (bool): To save the transformer model to onnx file if True.
-        model_name (str): Which model to use in huggingface, it determinate tokenizer and onnx model backbone.
+        model_name (str): Which model to export in huggingface, it determinate tokenizer and onnx model backbone.
+        model_file (Path): The onnx model needed to be saved/cached, if not provided, will export from huggingface.
+        save_bert_onnx (bool): To save the backbone transformer model to onnx file if True.
         output_file (Path): where to save the final onnx model.
     """
     # tokenizer and onnx model
-    tokenizer, onnx_model = export_backbone_or_use_provided(model_name, save_bert_onnx, model_file)
+    tokenizer, onnx_model = export_backbone(model_name, save_bert_onnx, model_file)
 
-    # construct graph input for different task
+    # construct graph input for different task, if two quries required
     if model_name in ["google/mobilebert-uncased", "csarron/mobilebert-uncased-squad-v2"]:
         inputs = [create_named_value("inputs", onnx.TensorProto.STRING, [2, "sentence_length"])]
     else:
@@ -92,7 +94,7 @@ def add_pre_post_to_bert(model_file: Path, save_bert_onnx: bool, model_name: str
 
     pipeline = PrePostProcessor(inputs)
 
-    # Can save tokenizer model separately
+    # Can save tokenizer model separately for debugging
     def save_onnx(graph):
         opset_imports = [
             onnx.helper.make_operatorsetid(domain, opset)
@@ -103,7 +105,10 @@ def add_pre_post_to_bert(model_file: Path, save_bert_onnx: bool, model_name: str
         onnx.save_model(new_model, "debug.onnx")
 
     preprocessing = [
-        SentencePieceTokenizer(tokenizer) if model_name == "xlm-roberta-base" else BertTokenizer(tokenizer),
+        # support "com.microsoft.extensions" or "ai.onnx.contrib"
+        SentencePieceTokenizer(tokenizer, "com.microsoft.extensions")
+        if model_name == "xlm-roberta-base"
+        else BertTokenizer(tokenizer, "com.microsoft.extensions"),
         # uncomment this line to save the tokenizer model
         # Debug(custom_func=save_onnx),
     ]
@@ -111,7 +116,7 @@ def add_pre_post_to_bert(model_file: Path, save_bert_onnx: bool, model_name: str
     # For verify results with out postprocessing
     postprocessing = [Debug()]
     if model_name == "csarron/mobilebert-uncased-squad-v2":
-        preprocessing.append(BertTokenizerQATask())
+        preprocessing.append(BertTokenizerQATask(""))
         postprocessing.append(BertTokenizerQATaskDecoder(tokenizer))
     elif model_name in ["lordtt13/emo-mobilebert", "xlm-roberta-base"]:
         postprocessing.append(SequenceClassify())
@@ -124,12 +129,12 @@ def add_pre_post_to_bert(model_file: Path, save_bert_onnx: bool, model_name: str
     onnx.save_model(new_model, str(output_file.resolve()))
 
 
-def verify_results(model_file: Path, model_name: str, onnx_bert_model: Path = None):
+def verify_results(output_model_file: Path, model_name: str, input_bert_model: Path = None):
     """
     Args:
-        model_file: the onnx model which finalized and needs to be verified
+        output_model_file: the onnx model which finalized and needs to be verified
         model_name: the huggingface model name
-        onnx_bert_model: the onnx model which is generated by huggingface or user provide
+        input_bert_model: the onnx model which is generated by huggingface or user provide
     """
     tokenizer, hg_model, _, text = get_tokenizer_and_huggingface_model(model_name)
     encoded_input = tokenizer(*text, return_tensors="pt")
@@ -137,8 +142,10 @@ def verify_results(model_file: Path, model_name: str, onnx_bert_model: Path = No
 
     session_options = onnxruntime.SessionOptions()
 
-    if onnx_bert_model.exists():
-        session = onnxruntime.InferenceSession(str(onnx_bert_model.resolve(strict=True)))
+    if input_bert_model.exists():
+        session = onnxruntime.InferenceSession(
+            str(input_bert_model.resolve(strict=True)), providers=["CPUExecutionProvider"]
+        )
         inputs = {key: value.detach().numpy() for key, value in encoded_input.items()}
 
         ref_outputs = session.run([i.name for i in session.get_outputs()], inputs)
@@ -151,7 +158,9 @@ def verify_results(model_file: Path, model_name: str, onnx_bert_model: Path = No
     # Load tokenizer op
     session_options.register_custom_ops_library(onnxruntime_extensions.get_library_path())
 
-    session = onnxruntime.InferenceSession(str(model_file.resolve(strict=True)), session_options)
+    session = onnxruntime.InferenceSession(
+        str(output_model_file.resolve(strict=True)), session_options, providers=["CPUExecutionProvider"]
+    )
 
     # build input, QA task has 2 inputs
     if len(text) == 2:
@@ -184,13 +193,13 @@ def main():
         Usually pre-processing includes tokenizer and basic conversion of input_ids after tokenizer.
         Post-processing includes conversion of output_ids to text.
         
-        A pipeline is created for organizing the required pre/post processing 'Steps' in the order required. Configure 
-        individual steps as needed. 
+        A pipeline is created for organizing the required pre/post processing 'Steps' in the order required. 
+        Configure individual steps as needed. 
 
-        The updated model will be written in the same location as the original model, with '.onnx' updated to 
-        '.with_pre_post_processing.onnx'
+        The updated model will be written in the output_path, with '.onnx' updated to 
+        '.with_pre_post_processing.onnx' from the original model name.
         
-        Export models from huggingface is supported if there is not a onnx model provided.
+        Export models from huggingface by default if there is not a onnx model cached.
         """,
     )
 
@@ -216,7 +225,7 @@ def main():
         help="to save the hugging face model which only has transformer part",
     )
     parser.add_argument(
-        "model",
+        "output_path",
         type=Path,
         help="""The onnx model path which needs pre-or-post processing update 
                         or a dir-path where to save updated-model.
@@ -226,16 +235,17 @@ def main():
 
     args = parser.parse_args()
 
-    model_path = args.model.resolve(strict=True)
-
-    if model_path.is_dir():
-        canonized_name = re.sub(r"[^a-zA-Z0-9]", "_", args.model_type) + ".onnx"
-        model_path = model_path / canonized_name
-
+    output_path = args.output_path.resolve(strict=True)
+    canonized_name = re.sub(r"[^a-zA-Z0-9]", "_", args.model_type) + ".onnx"
+    if not output_path.is_dir():
+        print("Please provide a path to a directory to save the end2end model.")
+        return
+    model_path = output_path / canonized_name
     new_model_path = model_path.with_suffix(".with_pre_post_processing.onnx")
 
-    add_pre_post_to_bert(model_path, args.save_bert_onnx, args.model_type, new_model_path)
+    add_pre_post_to_bert(args.model_type, model_path, args.save_bert_onnx, new_model_path)
     verify_results(new_model_path, args.model_type, model_path)
+    print(f'model saved to {new_model_path}')
 
 
 if __name__ == "__main__":
