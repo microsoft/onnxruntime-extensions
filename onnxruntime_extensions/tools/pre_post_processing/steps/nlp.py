@@ -165,7 +165,7 @@ class BertTokenizer(Step):
         Brief: This step is used to convert the input text into the input_ids, attention_mask, token_type_ids
             support BertTokenizer and HfBertTokenizer, the latter is used for Qa TASK
         Args:
-            tokenizer: SentencePiece tokenizer from huggingface,
+            tokenizer: tokenizer from huggingface,
                 usually, we can get it by "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
             domain: Optional domain of step. ["ai.onnx.contrib" or "com.microsoft.extensions"] Defaults to 'ai.onnx.contrib'
 
@@ -177,7 +177,7 @@ class BertTokenizer(Step):
         assert domain in [
             "ai.onnx.contrib",
             "com.microsoft.extensions",
-        ], f"invalid domain:`{domain}` for SentencePieceTokenizer"
+        ], f"invalid domain:`{domain}` for BertTokenizer or HfBertTokenizer"
         self.tokenizer = tokenizer
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
@@ -345,7 +345,7 @@ class BertTokenizerQATaskDecoder(Step):
         Brief:
             Decode the input_ids to text
         Args:
-            tokenizer: SentencePiece tokenizer from huggingface,
+            tokenizer: tokenizer from huggingface,
                 usually, we can get it by "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
             domain: Optional domain of step. ["ai.onnx.contrib" or "com.microsoft.extensions"] Defaults to 'ai.onnx.contrib'
             name: Optional name of step. Defaults to 'BertTokenizerQATaskDecoder'
@@ -356,7 +356,7 @@ class BertTokenizerQATaskDecoder(Step):
         assert domain in [
             "ai.onnx.contrib",
             "com.microsoft.extensions",
-        ], f"invalid domain:`{domain}` for SentencePieceTokenizer"
+        ], f"invalid domain:`{domain}` for BertTokenizerQATaskDecoder"
         self.tokenizer = tokenizer
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
@@ -415,9 +415,9 @@ class SequenceClassify(Step):
         Brief:
             Decode the input_ids to text
         Args:
-            tokenizer: SentencePiece tokenizer from huggingface,
+            tokenizer: tokenizer from huggingface,
                 usually, we can get it by "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
-            name: Optional name of step. Defaults to 'BertTokenizerQATaskDecoder'
+            name: Optional name of step. Defaults to 'SequenceClassify'
 
         """
         super().__init__(["logits"], ["index"], name)
