@@ -19,7 +19,7 @@ Classes
 
     * builtins.dict
 
-`BertTokenizer(tokenizer_map: dict, name: Optional[str] = None)`
+`BertTokenizer(tokenizer_param: pre_post_processing.steps.nlp.TokenizerParam, name: Optional[str] = None)`
 :   Base class for a pre or post processing step.
     
     Brief: This step is used to convert the input text into the input_ids, attention_mask, token_type_ids.
@@ -28,9 +28,9 @@ Classes
         tokenizer_map: some essential infos, If you export tokenizer from hugging-face,
         such as "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
         You may need to provide the following:
-            tokenizer_map = dict(vocab=tokenizer.vocab, #vocab is dict,
-                                strip_accents = 1 or 0 (Optional),
-                                do_lower_case = 1 or 0 (Optional),
+            tokenizer_param = TokenizerParam(vocab=tokenizer.vocab, #vocab is dict or file_path,
+                                strip_accents = True or False (Optional),
+                                do_lower_case = True or False (Optional),
                                 )
     
         name: Optional name of step. Defaults to 'BertTokenizer'
@@ -53,7 +53,7 @@ Classes
 
     * pre_post_processing.step.Step
 
-`BertTokenizerQATaskDecoder(tokenizer_map, name: Optional[str] = None)`
+`BertTokenizerQATaskDecoder(tokenizer_param: pre_post_processing.steps.nlp.TokenizerParam, name: Optional[str] = None)`
 :   Base class for a pre or post processing step.
     
     Brief:
@@ -62,15 +62,14 @@ Classes
         tokenizer_map: some essential infos, If you export tokenizer from hugging-face,
         such as "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
         You may need to provide the following:
-            tokenizer_map = dict(vocab=tokenizer.vocab, #vocab is dict,
-                                )
+            tokenizer_param = TokenizerParam(vocab=tokenizer.vocab, #vocab is dict or file_path)
         name: Optional name of step. Defaults to 'BertTokenizerQATaskDecoder'
 
     ### Ancestors (in MRO)
 
     * pre_post_processing.step.Step
 
-`SentencePieceTokenizer(tokenizer_map: dict, name: Optional[str] = None)`
+`SentencePieceTokenizer(tokenizer_param: pre_post_processing.steps.nlp.TokenizerParam, name: Optional[str] = None)`
 :   Base class for a pre or post processing step.
     
     Brief:
@@ -81,7 +80,7 @@ Classes
         tokenizer_map: some essential infos, If you export tokenizer from hugging-face,
         such as "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
         You may need to provide the following:
-            tokenizer_map = dict(vocab_size=tokenizer.vocab_size,
+            tokenizer_param = TokenizerParam(vocab_size=tokenizer.vocab_size,
                                 bos_token_id=tokenizer.bos_token_id,
                                 eos_token_id = tokenizer.eos_token_id,)
         name: Optional name of step. Defaults to 'SentencePieceTokenizer'
@@ -101,3 +100,11 @@ Classes
     ### Ancestors (in MRO)
 
     * pre_post_processing.step.Step
+
+`TokenizerParam(vocab_or_file: Union[pathlib.Path, dict], **kwargs)`
+:   
+
+    ### Methods
+
+    `parse_kwargs(self, **kwargs)`
+    :

@@ -4,7 +4,7 @@ Module pre_post_processing.step
 Classes
 -------
 
-`Debug(num_inputs: int = 4, name: Optional[str] = None, custom_func: Optional[<built-in function callable>] = None)`
+`Debug(num_inputs: int = 1, name: Optional[str] = None)`
 :   Step that can be arbitrarily inserted in the pre or post processing pipeline.
     It will make the outputs of the previous Step also become graph outputs so their value can be more easily debugged.
     
@@ -13,22 +13,13 @@ Classes
     the "_debug" outputs will become graph outputs.
     
     Initialize Debug step
+    How it works when a string of DebugSteps are added,
+        [_next,_debug1,_debug2]---->[_next_next,_debug1_debug,_debug2_debug]---->[_next_next_next,_debug1_debug_debug,_debug2_debug_debug]
+    
     Args:
         num_inputs: Number of inputs from previous Step to make graph outputs. Devs can set any number of inputs to be debugged.
             (named inputs are not supported though). This class will handle it if the number of inputs is less than the number.
         name: Optional name for Step. Defaults to 'Debug'
-        custom_func: Optional custom function to visit the graph, A very simple example is to save the graph to a file.
-            For example:
-                ```
-                def save_onnx(graph):
-                    opset_imports = [
-                        onnx.helper.make_operatorsetid(domain, opset)
-                        for domain, opset in pipeline._custom_op_checker_context.opset_imports.items()
-                    ]
-                    new_model = onnx.helper.make_model(graph, opset_imports=opset_imports)
-                    onnx.save_model(new_model, "debug.onnx")
-                Debug(custom_func=save_onnx)
-                ```
 
     ### Ancestors (in MRO)
 

@@ -192,6 +192,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
         create_named_value = pre_post_processing.utils.create_named_value
         SentencePieceTokenizer = pre_post_processing.steps.SentencePieceTokenizer
+        TokenizerParam = pre_post_processing.steps.TokenizerParam
         BertTokenizer = pre_post_processing.steps.BertTokenizer
         tokenizer_step = BertTokenizer
         input_text = ("This is a test sentence",)
@@ -200,10 +201,10 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         if tokenizer_type == "sentencePiece":
             ref_output = [np.array([[0, 3293, 83, 10, 3034, 149357, 2]]), np.array([[1, 1, 1, 1, 1, 1, 1]])]
             # tokenizer = transformers.AutoTokenizer.from_pretrained("xlm-roberta-base")
-            tokenizer_args = {
-                "vocab_file": os.path.join(test_data_dir, "../sentencepiece.bpe.model"),
-                "bos_token_id": 0,
-            }
+            tokenizer_args = TokenizerParam(
+                vocab_or_file=os.path.join(test_data_dir, "../sentencepiece.bpe.model"),
+                bos_token_id=0,
+            )
             tokenizer_step = SentencePieceTokenizer
         elif tokenizer_type == "BertTokenizer":
             ref_output = [
@@ -212,7 +213,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
                 np.array([[1, 1, 1, 1, 1, 1, 1, 1]]),
             ]
             # tokenizer = transformers.AutoTokenizer.from_pretrained("lordtt13/emo-mobilebert")
-            tokenizer_args = {"vocab": os.path.join(test_data_dir, "../bert.vocab"), "do_lower_case": True}
+            tokenizer_args = TokenizerParam(vocab_or_file=os.path.join(test_data_dir, "../bert.vocab"), do_lower_case=True)
         elif tokenizer_type in ["hfBertTokenizer", "hfBertTokenizer_with_decoder"]:
             ref_output = (
                 [
@@ -224,7 +225,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
                 else [np.array(["[CLS]"])]
             )
             # tokenizer = transformers.AutoTokenizer.from_pretrained("lordtt13/emo-mobilebert")
-            tokenizer_args = {"vocab": os.path.join(test_data_dir, "../hfbert.vocab"), "do_lower_case": True}
+            tokenizer_args = TokenizerParam(vocab_or_file=os.path.join(test_data_dir, "../hfbert.vocab"), do_lower_case=True)
             input_text = ("This is a test sentence", "This is another test sentence")
             inputs = [create_named_value("inputs", onnx.TensorProto.STRING, [2, "sentence_length"])]
         else:
@@ -300,7 +301,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         result = s.run(None, {s.get_inputs()[0].name: np.array([[input_text[0]], [input_text[1]]])})
 
         self.assertEqual(result[0][0], ref_output[0][0])
-        
+
     # Corner Case
     def test_debug_step(self):
         from onnxruntime_extensions.tools import pre_post_processing
@@ -312,9 +313,11 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         input_model = os.path.join(test_data_dir, "pytorch_super_resolution.onnx")
         inputs = [create_named_value("image", onnx.TensorProto.UINT8, ["num_bytes"])]
         pipeline = pre_post_processing.PrePostProcessor(inputs)
-        pipeline.add_post_processing([pre_post_processing.Debug(1), pre_post_processing.Debug()])
+        pipeline.add_post_processing(
+            [pre_post_processing.Debug(), pre_post_processing.Debug(3), pre_post_processing.Debug(4)]
+        )
         new_model = pipeline.run(onnx.load(input_model))
-        self.assertEqual(len(new_model.graph.output), 3)
+        self.assertEqual(len(new_model.graph.output), 4)
 
 
 if __name__ == "__main__":

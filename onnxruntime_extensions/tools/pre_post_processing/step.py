@@ -151,36 +151,24 @@ class Debug(Step):
     the "_debug" outputs will become graph outputs.
     """
 
-    def __init__(self, num_inputs: int = 4, name: Optional[str] = None, custom_func: Optional[callable] = None):
+    def __init__(self, num_inputs: int = 1, name: Optional[str] = None):
         """
         Initialize Debug step
+        How it works when a string of DebugSteps are added,
+            [_next,_debug1,_debug2]---->[_next_next,_debug1_debug,_debug2_debug]---->[_next_next_next,_debug1_debug_debug,_debug2_debug_debug]
+        
         Args:
             num_inputs: Number of inputs from previous Step to make graph outputs. Devs can set any number of inputs to be debugged.
                 (named inputs are not supported though). This class will handle it if the number of inputs is less than the number.
             name: Optional name for Step. Defaults to 'Debug'
-            custom_func: Optional custom function to visit the graph, A very simple example is to save the graph to a file.
-                For example:
-                    ```
-                    def save_onnx(graph):
-                        opset_imports = [
-                            onnx.helper.make_operatorsetid(domain, opset)
-                            for domain, opset in pipeline._custom_op_checker_context.opset_imports.items()
-                        ]
-                        new_model = onnx.helper.make_model(graph, opset_imports=opset_imports)
-                        onnx.save_model(new_model, "debug.onnx")
-                    Debug(custom_func=save_onnx)
-                    ```
         """
         self._num_inputs = num_inputs
-        self._custom_func = custom_func
         input_names = [f"input{i}" for i in range(0, num_inputs)]
         output_names = [f"debug{i}" for i in range(0, num_inputs)]
 
         super().__init__(input_names, output_names, name)
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
-        if self._custom_func:
-            self._custom_func(graph)
         input_str = ""
         output_str = ""
         output_debug_str = ""
@@ -190,20 +178,20 @@ class Debug(Step):
         non_debug_input_names = [inp.name for inp in graph.output if not inp.name.endswith("_debug")]
         tag_debug_input_names = [inp.name for inp in graph.output if inp.name.endswith("_debug")]
 
-        # when a string of DebugSteps are added, the input_names will be updated to the latest input_names
         # handle case where we requests more inputs than the graph has
         if self._num_inputs >= len(non_debug_input_names):
             self._num_inputs = len(non_debug_input_names)
             self.input_names = non_debug_input_names
-            
+        
+        # jsut forward pre-debug output but not duplicated
         debug_offset = len(self.input_names)
         if tag_debug_input_names:
             self._num_inputs += len(tag_debug_input_names)
             self.input_names.extend(tag_debug_input_names)
             
         # update output names so we preserve info from the latest input names
-        self.output_names = [f"{name}_next" for name in self.input_names]
-        self.output_names += [f"{name}_debug" for name in self.input_names if name not in tag_debug_input_names]
+        self.output_names = [f"{name}_next" for name in self.input_names if name not in tag_debug_input_names]
+        self.output_names += [f"{name}_debug" for name in self.input_names]
 
         for i in range(0, self._num_inputs):
             input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, i)
