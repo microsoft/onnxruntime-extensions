@@ -15,12 +15,18 @@ CMAKE_FLAG_TO_OPS = {
     ],
     "OCOS_ENABLE_CV2": [
         "GaussianBlur",
+        "ImageReader"
     ],
     "OCOS_ENABLE_GPT2_TOKENIZER": [
         "GPT2Tokenizer",
     ],
     "OCOS_ENABLE_MATH": [
         "SegmentExtraction",
+    ],
+    "OCOS_ENABLE_OPENCV_CODECS": [
+        "DecodeImage",
+        "EncodeImage",
+        "ImageReader"
     ],
     "OCOS_ENABLE_RE2_REGEX": [
         "StringRegexReplace",
@@ -56,16 +62,22 @@ CMAKE_FLAG_TO_OPS = {
 }
 
 
-def _gen_op_to_cmake_flag():
-    op_to_cmake_flag = dict()
+def _gen_op_to_cmake_flags():
+    """Reverse the CMAKE_FLAG_TO_OPS mapping. An operator can be associated with multiple flags.
+    Returns:
+        {op_name: set(cmake_flag)}
+    """
+    op_to_cmake_flags = dict()
     for cmake_flag, op_list in CMAKE_FLAG_TO_OPS.items():
         for op in op_list:
-            assert op not in op_to_cmake_flag, f"Duplicate op in CMAKE_FLAG_TO_OPS: {op}"
-            op_to_cmake_flag[op] = cmake_flag
-    return op_to_cmake_flag
+            if op not in op_to_cmake_flags:
+                op_to_cmake_flags[op] = set()
+            op_to_cmake_flags[op].add(cmake_flag)
+
+    return op_to_cmake_flags
 
 
-OP_TO_CMAKE_FLAG = _gen_op_to_cmake_flag()
+OP_TO_CMAKE_FLAGS = _gen_op_to_cmake_flags()
 
 SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()
 GENERATED_CMAKE_CONFIG_FILE = SCRIPT_DIR.parent / "cmake" / "_selectedoplist.cmake"
@@ -82,8 +94,16 @@ def gen_cmake_oplist(opconfig_file):
     new_ext_domain = "com.microsoft.extensions"
     ext_domain_cnt = 0
     cmake_options = set()
+
     with open(GENERATED_CMAKE_CONFIG_FILE, "w") as f:
         print("# Auto-Generated File, please do not edit!!!", file=f)
+
+        def add_cmake_flag(cmake_flag):
+            if cmake_flag not in cmake_options:
+                cmake_options.add(cmake_flag)
+                print(f"Adding {cmake_flag}")
+                print('set({} ON CACHE INTERNAL "")'.format(cmake_flag), file=f)
+
         with open(opconfig_file, "r") as opfile:
             for _ln in opfile:
                 if _ln.startswith(ext_domain) or _ln.startswith(new_ext_domain):
@@ -94,15 +114,15 @@ def gen_cmake_oplist(opconfig_file):
                     for _op in items[2].split(","):
                         if not _op:
                             continue  # is None or ""
-                        if _op not in OP_TO_CMAKE_FLAG:
+                        if _op not in OP_TO_CMAKE_FLAGS:
                             raise RuntimeError(
                                 "Cannot find the custom operator({})'s build flags, please update "
                                 "the CMAKE_FLAG_TO_OPS dictionary.".format(_op)
                             )
-                        if OP_TO_CMAKE_FLAG[_op] not in cmake_options:
-                            cmake_options.add(OP_TO_CMAKE_FLAG[_op])
-                            print('set({} ON CACHE INTERNAL "")'.format(OP_TO_CMAKE_FLAG[_op]), file=f)
-        print("# End of Building the Operator CMake variables", file=f)
+
+                        cmake_flags_for_op = OP_TO_CMAKE_FLAGS[_op]
+                        for cmake_flag in cmake_flags_for_op:
+                            add_cmake_flag(cmake_flag)
 
     if ext_domain_cnt == 0:
         print(

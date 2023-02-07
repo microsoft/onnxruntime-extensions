@@ -1,9 +1,11 @@
 @ECHO OFF
 SETLOCAL ENABLEDELAYEDEXPANSION
 IF DEFINED VSINSTALLDIR GOTO :VSDEV_CMD
-IF NOT DEFINED VSDEVCMD GOTO :NOT_FOUND
+set _VSFINDER=%~dp0tools\get_vsdevcmd.ps1
+for /f "tokens=* USEBACKQ" %%i in (
+    `powershell -NoProfile -ExecutionPolicy Bypass -File "%_VSFINDER%"`) do call "%%i"
 
-CALL "%VSDEVCMD%"
+IF NOT DEFINED VSINSTALLDIR GOTO :NOT_FOUND
 
 :VSDEV_CMD
 set GENERATOR="Visual Studio 16 2019"

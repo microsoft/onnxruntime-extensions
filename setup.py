@@ -22,12 +22,11 @@ PACKAGE_NAME = 'onnxruntime_extensions'
 VSINSTALLDIR_NAME = 'VSINSTALLDIR'
 
 
-def load_msvcvar():
-    if os.environ.get('vsdevcmd'):
-        # need put the quotation marks around the path to avoid popen massing with it.
-        os.environ['__vsdevcmd'] = '"{}"'.format(os.environ['vsdevcmd'])
+def load_vsdevcmd():
+    if os.environ.get(VSINSTALLDIR_NAME) is None:
         stdout, _ = subprocess.Popen([
-            'cmd', '/q', '/c', 'call %__vsdevcmd% && set {}'.format(VSINSTALLDIR_NAME)],
+            'powershell', ' -noprofile', '-executionpolicy', 
+            'bypass', '-f',  TOP_DIR+'/tools/get_vsdevcmd.ps1', '-outputEnv' '1'],
             stdout=subprocess.PIPE, shell=False, universal_newlines=True).communicate()
         for line in stdout.splitlines():
             kv_pair = line.split('=')
@@ -81,14 +80,17 @@ class BuildCMakeExt(_build_ext):
         cmake_args = [
             '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + str(ext_fullpath.parent.absolute()),
             '-DOCOS_BUILD_PYTHON=ON',
-            '-DOCOS_ENABLE_CTEST=OFF',
-            # Disabling openCV can drastically reduce the build time.
-            # '-DOCOS_ENABLE_OPENCV_CODECS=OFF',
-            # '-DOCOS_ENABLE_CV2=OFF',
-            # '-DOCOS_ENABLE_VISION=OFF',
             '-DOCOS_EXTENTION_NAME=' + ext_fullpath.name,
             '-DCMAKE_BUILD_TYPE=' + config
         ]
+        if os.environ.get('OCOS_NO_OPENCV') == '1':
+            # Disabling openCV can drastically reduce the build time.
+            cmake_args += [
+                '-DOCOS_ENABLE_CTEST=OFF',
+                '-DOCOS_ENABLE_OPENCV_CODECS=OFF',
+                '-DOCOS_ENABLE_CV2=OFF',
+                '-DOCOS_ENABLE_VISION=OFF']
+
         # overwrite the Python module info if the auto-detection doesn't work.
         # export Python3_INCLUDE_DIRS=/opt/python/cp38-cp38
         # export Python3_LIBRARIES=/opt/python/cp38-cp38
@@ -106,6 +108,8 @@ class BuildCMakeExt(_build_ext):
             '--parallel' + ('' if cpu_number is None else ' ' + cpu_number)
         ]
         cmake_exe = 'cmake'
+        # unlike Linux/MacOS, cmake python package on Windows fails to build some 3rd party dependencies.
+        # so we have to use the cmake installed with Visual Studio.
         if os.environ.get(VSINSTALLDIR_NAME):
             cmake_exe = os.environ[VSINSTALLDIR_NAME] +\
                 'Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe'
@@ -166,7 +170,7 @@ def write_py_version(ortx_version):
 
 
 if sys.platform == "win32":
-    load_msvcvar()
+    load_vsdevcmd()
 
 ext_modules = [
     setuptools.extension.Extension(
