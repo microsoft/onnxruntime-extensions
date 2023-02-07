@@ -194,6 +194,10 @@ class Debug(Step):
             self._num_inputs = len(non_debug_input_names)
             self.input_names = non_debug_input_names
 
+        # handle case where we have no inputs,such as two or more Debug steps are chained together
+        if self._num_inputs == 0:
+            empty_model = onnx.ModelProto()
+            return empty_model.graph
         # update output names so we preserve info from the latest input names
         self.output_names = [f"{name}_next" for name in self.input_names]
         self.output_names += [f"{name}_debug" for name in self.input_names]
