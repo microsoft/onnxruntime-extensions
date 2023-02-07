@@ -200,7 +200,7 @@ class BertTokenizer(Step):
         """
         super().__init__(["inputs"], ["input_ids", "attention_mask", "token_type_ids"], name)
         self._domain = "com.microsoft.extensions"
-        
+
         self._tokenizer_instance = AttributeDict(tokenizer_map)
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
@@ -261,16 +261,25 @@ class BertTokenizer(Step):
             """
         )
 
+        bert_tokenizer= self._tokenizer_instance
         token_model_attr = []
-        ordered_vocab = OrderedDict(sorted(self._tokenizer_instance.vocab.items(), key=lambda item: int(item[1])))
+        if isinstance(bert_tokenizer.vocab, str):
+            # read from file
+            import json
+
+            with open(bert_tokenizer.vocab, "r") as f:
+                vocab = json.load(f) 
+        else:
+            vocab = bert_tokenizer.vocab
+        ordered_vocab = OrderedDict(sorted(vocab.items(), key=lambda item: int(item[1])))
         vocab = "\n".join(ordered_vocab.keys())
         attrs = dict(vocab_file=vocab)
 
         attrs["strip_accents"] = (
-            1 if "strip_accents" in self._tokenizer_instance and self._tokenizer_instance.strip_accents else 0
+            1 if "strip_accents" in bert_tokenizer and bert_tokenizer.strip_accents else 0
         )
         attrs["do_lower_case"] = (
-            1 if "do_lower_case" in self._tokenizer_instance and self._tokenizer_instance.do_lower_case else 0
+            1 if "do_lower_case" in bert_tokenizer and bert_tokenizer.do_lower_case else 0
         )
 
         for attr in attrs:
@@ -363,17 +372,31 @@ class BertTokenizerQATaskDecoder(Step):
             name: Optional name of step. Defaults to 'BertTokenizerQATaskDecoder'
 
         """
-        super().__init__(["start_logits", "end_logits", "input_ids_1"], ["text"], name)
+        # Bugs for default joins in onnxruntime_extensions/tools/pre_post_processing/pre_post_processor.py:187
+        # we have to put "input_ids_1" in the last to avoid failure connected
+        super().__init__(["start_logits", "end_logits","input_ids_1"], ["text"], name)
         self._domain = "com.microsoft.extensions"
         self._tokenizer_instance = AttributeDict(tokenizer_map)
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         graph_input_names = [inp.name for inp in graph.output]
+
+        # need to reorder input_names by similar to  "input_ids_1", "start_logits", "end_logits"
+        o_inputs = graph_input_names.copy()
+        for inp in o_inputs:
+            if "input_ids_1" in inp:
+                self.input_names[0] = inp
+            elif "start_logits" in inp:
+                self.input_names[1] = inp
+            else:
+                self.input_names[2] = inp
         for inp in graph_input_names:
             if self.input_names[2] in inp:
                 self.input_names[2] = inp
         is_input_names_in_graph = [inp in graph_input_names for inp in self.input_names]
         assert all(is_input_names_in_graph), f"Input names {self.input_names} not in graph inputs {graph_input_names}"
+
+
 
         def build_input_declare():
             inputs = []
@@ -403,7 +426,15 @@ class BertTokenizerQATaskDecoder(Step):
             """
         )
         bert_tokenizer = self._tokenizer_instance
-        ordered_vocab = OrderedDict(sorted(bert_tokenizer.vocab.items(), key=lambda item: int(item[1])))
+
+        if isinstance(bert_tokenizer.vocab, str):
+            # read from file
+            import json
+            with open(bert_tokenizer.vocab, "r") as f:
+                vocab = json.load(f)
+        else:
+            vocab = bert_tokenizer.vocab
+        ordered_vocab = OrderedDict(sorted(vocab.items(), key=lambda item: int(item[1])))
         vocab = "\n".join(ordered_vocab.keys())
         attrs = dict(vocab_file=vocab)
         token_model_attr = []

@@ -97,7 +97,7 @@ class Step(object):
                     io_map.append((o.name, i.name))
 
         outputs_to_preserve = None
-        
+
         # merge with existing graph
         merged_graph = onnx.compose.merge_graphs(first, second, io_map, outputs=outputs_to_preserve)
 
@@ -147,7 +147,7 @@ class Debug(Step):
     It will make the outputs of the previous Step also become graph outputs so their value can be more easily debugged.
 
     We will duplicate the outputs of graph, the original outputs will be duplicated, one will be renamed with a suffix "_next",
-    another will be renamed with a suffix "_debug".the "_next" outputs will feed into the next step,  
+    another will be renamed with a suffix "_debug".the "_next" outputs will feed into the next step,
     the "_debug" outputs will become graph outputs.
     """
 
@@ -188,19 +188,22 @@ class Debug(Step):
 
         # don't have to handle the debug node again
         non_debug_input_names = [inp.name for inp in graph.output if not inp.name.endswith("_debug")]
+        tag_debug_input_names = [inp.name for inp in graph.output if inp.name.endswith("_debug")]
 
+        # when a string of DebugSteps are added, the input_names will be updated to the latest input_names
         # handle case where we requests more inputs than the graph has
         if self._num_inputs >= len(non_debug_input_names):
             self._num_inputs = len(non_debug_input_names)
             self.input_names = non_debug_input_names
-
-        # handle case where we have no inputs,such as two or more Debug steps are chained together
-        if self._num_inputs == 0:
-            empty_model = onnx.ModelProto()
-            return empty_model.graph
+            
+        debug_offset = len(self.input_names)
+        if tag_debug_input_names:
+            self._num_inputs += len(tag_debug_input_names)
+            self.input_names.extend(tag_debug_input_names)
+            
         # update output names so we preserve info from the latest input names
         self.output_names = [f"{name}_next" for name in self.input_names]
-        self.output_names += [f"{name}_debug" for name in self.input_names]
+        self.output_names += [f"{name}_debug" for name in self.input_names if name not in tag_debug_input_names]
 
         for i in range(0, self._num_inputs):
             input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, i)
@@ -211,10 +214,15 @@ class Debug(Step):
                 nodes_str += "\n"
 
             input_str += f"{input_type_str}[{input_shape_str}] {self.input_names[i]}"
-            output_str += f"{input_type_str}[{input_shape_str}] {self.output_names[i]},"
-            output_str += f"{input_type_str}[{input_shape_str}] {self.output_names[self._num_inputs+i]}"
-            nodes_str += f"{self.output_names[i]} = Identity({self.input_names[i]})\n"
-            nodes_str += f"{self.output_names[self._num_inputs+i]} = Identity({self.input_names[i]})\n"
+            
+            if i < debug_offset:
+                output_str += f"{input_type_str}[{input_shape_str}] {self.output_names[i]}"
+                output_str += f",{input_type_str}[{input_shape_str}] {self.output_names[debug_offset+i]}"
+                nodes_str += f"{self.output_names[i]} = Identity({self.input_names[i]})\n"
+                nodes_str += f"{self.output_names[debug_offset+i]} = Identity({self.input_names[i]})\n"
+            else:
+                output_str += f"{input_type_str}[{input_shape_str}] {self.output_names[debug_offset+i]}"
+                nodes_str += f"{self.output_names[debug_offset+i]} = Identity({self.input_names[i]})\n"
 
         debug_graph = onnx.parser.parse_graph(
             f"""\

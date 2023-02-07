@@ -120,7 +120,7 @@ def add_pre_post_to_bert(model_name: str, input_model_file: Path, save_bert_onnx
     # For verify results with out postprocessing
     postprocessing = [Debug()]
     if model_name == "csarron/mobilebert-uncased-squad-v2":
-        preprocessing.append(BertTokenizerQATask(""))
+        preprocessing.append(BertTokenizerQATask())
         postprocessing.append(BertTokenizerQATaskDecoder(tokenizer_args))
     elif model_name in ["lordtt13/emo-mobilebert", "xlm-roberta-base"]:
         postprocessing.append(SequenceClassify())
@@ -199,6 +199,7 @@ def main():
 
     add_pre_post_to_bert(args.model_type, model_path, args.save_bert_onnx, new_model_path)
     print(f"model saved to {new_model_path}")
+    return new_model_path
 
 
 if __name__ == "__main__":

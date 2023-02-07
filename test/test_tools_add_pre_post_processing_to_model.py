@@ -8,6 +8,7 @@ import numpy as np
 import onnxruntime as ort
 import os
 import sys
+from typing import List
 
 from PIL import Image
 from pathlib import Path
@@ -16,6 +17,7 @@ from pathlib import Path
 # `pip install -e .` from the repo root.
 from onnxruntime_extensions import get_library_path
 from onnxruntime_extensions.tools import add_pre_post_processing_to_model as add_ppp
+from onnxruntime_extensions.tools import pre_post_processing
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 ort_ext_root = os.path.abspath(os.path.join(script_dir, ".."))
@@ -182,9 +184,11 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         print(f"Max diff:{diffs.max()} Total diffs:{total}")
         self.assertTrue(diffs.max() < 3 and total < (result.size / 1000))
 
-    def build_testModel_and_get_ref_output_for_tokenizer(self, tokenizer_type: str, output_model: Path):
-        import transformers, onnx
-        from onnxruntime_extensions.tools import pre_post_processing
+    def build_testModel_and_get_ref_output_for_tokenizer(
+        self, tokenizer_type: str, output_model: Path, pre_steps: List[pre_post_processing.steps.Step] = []
+    ):
+        # import transformers
+        import onnx
 
         create_named_value = pre_post_processing.utils.create_named_value
         SentencePieceTokenizer = pre_post_processing.steps.SentencePieceTokenizer
@@ -192,29 +196,51 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         tokenizer_step = BertTokenizer
         input_text = ("This is a test sentence",)
         inputs = [create_named_value("inputs", onnx.TensorProto.STRING, ["sentence_length"])]
-        
+
         if tokenizer_type == "sentencePiece":
-            tokenizer = transformers.AutoTokenizer.from_pretrained("xlm-roberta-base")
-            tokenizer_args = {"vocab_file": tokenizer.vocab_file, "bos_token_id": 0}
+            ref_output = [np.array([[0, 3293, 83, 10, 3034, 149357, 2]]), np.array([[1, 1, 1, 1, 1, 1, 1]])]
+            # tokenizer = transformers.AutoTokenizer.from_pretrained("xlm-roberta-base")
+            tokenizer_args = {
+                "vocab_file": os.path.join(test_data_dir, "../sentencepiece.bpe.model"),
+                "bos_token_id": 0,
+            }
             tokenizer_step = SentencePieceTokenizer
         elif tokenizer_type == "BertTokenizer":
-            tokenizer = transformers.AutoTokenizer.from_pretrained("lordtt13/emo-mobilebert")
-            tokenizer_args = {"vocab": tokenizer.vocab, "do_lower_case": tokenizer.do_lower_case}     
-        elif tokenizer_type == "hfBertTokenizer":
-            tokenizer = transformers.AutoTokenizer.from_pretrained("lordtt13/emo-mobilebert")
-            tokenizer_args = {"vocab": tokenizer.vocab, "do_lower_case": tokenizer.do_lower_case}
+            ref_output = [
+                np.array([[2, 236, 118, 16, 1566, 875, 643, 3]]),
+                np.array([[0, 0, 0, 0, 0, 0, 0, 0]]),
+                np.array([[1, 1, 1, 1, 1, 1, 1, 1]]),
+            ]
+            # tokenizer = transformers.AutoTokenizer.from_pretrained("lordtt13/emo-mobilebert")
+            tokenizer_args = {"vocab": os.path.join(test_data_dir, "../bert.vocab"), "do_lower_case": True}
+        elif tokenizer_type in ["hfBertTokenizer", "hfBertTokenizer_with_decoder"]:
+            ref_output = (
+                [
+                    np.array([[2, 236, 118, 16, 1566, 875, 643, 3, 236, 118, 978, 1566, 875, 643, 3]]),
+                    np.array([[0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1]]),
+                    np.array([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]),
+                ]
+                if tokenizer_type == "hfBertTokenizer"
+                else [np.array(["[CLS]"])]
+            )
+            # tokenizer = transformers.AutoTokenizer.from_pretrained("lordtt13/emo-mobilebert")
+            tokenizer_args = {"vocab": os.path.join(test_data_dir, "../hfbert.vocab"), "do_lower_case": True}
             input_text = ("This is a test sentence", "This is another test sentence")
             inputs = [create_named_value("inputs", onnx.TensorProto.STRING, [2, "sentence_length"])]
         else:
             raise Exception("Unknown tokenizer")
 
         pipeline = pre_post_processing.PrePostProcessor(inputs)
-        ref_output = list(tokenizer(*input_text, return_tensors="np").values())
+        # ref_output = list(tokenizer(*input_text, return_tensors="np").values())
 
-        pipeline.add_pre_processing([tokenizer_step(tokenizer_args)])
-        empty_model = onnx.ModelProto()
-        empty_model.opset_import.extend([onnx.helper.make_operatorsetid("", 16)])
-        new_model = pipeline.run(empty_model)
+        pipeline.add_pre_processing([tokenizer_step(tokenizer_args)] + pre_steps)
+        if tokenizer_type == "hfBertTokenizer_with_decoder":
+            pipeline.add_post_processing([pre_post_processing.steps.BertTokenizerQATaskDecoder(tokenizer_args)])
+            input_model = onnx.load(os.path.join(test_data_dir, "../bert_qa_decoder_base.onnx"))
+        else:
+            input_model = onnx.ModelProto()
+            input_model.opset_import.extend([onnx.helper.make_operatorsetid("", 16)])
+        new_model = pipeline.run(input_model)
         onnx.save_model(new_model, output_model)
         return input_text, ref_output
 
@@ -260,6 +286,35 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         self.assertEqual(np.allclose(result[0], ref_output[0]), True)
         self.assertEqual(np.allclose(result[1], ref_output[2]), True)
         self.assertEqual(np.allclose(result[2], ref_output[1]), True)
+
+    def test_qatask_with_tokenizer(self):
+        output_model = (Path(test_data_dir) / "../hfbert_tokenizer.onnx").resolve()
+        input_text, ref_output = self.build_testModel_and_get_ref_output_for_tokenizer(
+            "hfBertTokenizer_with_decoder", output_model, [pre_post_processing.steps.BertTokenizerQATask()]
+        )
+
+        so = ort.SessionOptions()
+        so.register_custom_ops_library(get_library_path())
+        s = ort.InferenceSession(str(output_model), so, providers=["CPUExecutionProvider"])
+
+        result = s.run(None, {s.get_inputs()[0].name: np.array([[input_text[0]], [input_text[1]]])})
+
+        self.assertEqual(result[0][0], ref_output[0][0])
+        
+    # Corner Case
+    def test_debug_step(self):
+        from onnxruntime_extensions.tools import pre_post_processing
+        import onnx
+
+        create_named_value = pre_post_processing.utils.create_named_value
+
+        # multiple DebugSteps are stringed together
+        input_model = os.path.join(test_data_dir, "pytorch_super_resolution.onnx")
+        inputs = [create_named_value("image", onnx.TensorProto.UINT8, ["num_bytes"])]
+        pipeline = pre_post_processing.PrePostProcessor(inputs)
+        pipeline.add_post_processing([pre_post_processing.Debug(1), pre_post_processing.Debug()])
+        new_model = pipeline.run(onnx.load(input_model))
+        self.assertEqual(len(new_model.graph.output), 3)
 
 
 if __name__ == "__main__":
