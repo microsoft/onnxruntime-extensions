@@ -43,7 +43,7 @@ Classes
 :   Base class for a pre or post processing step.
     
     Brief:
-        Just duplicate input_ids for decoder. For tasks like 'BertTokenizerQATaskDecoder' which need to use the same input_ids for decoder.
+        Just duplicate input_ids for decoder(TokenizerDecoder). For tasks like 'BertTokenizerQATaskDecoder' which need to use the same input_ids for decoder.
         However, input_ids has its consumers, it will merged and removed in the next step. So we need to duplicate one.
         The new output 'input_ids_1' will be kept as a new output in graph.
     Args:
@@ -106,5 +106,5 @@ Classes
 
     ### Methods
 
-    `parse_kwargs(self, **kwargs)`
+    `assigned_with_kwargs(self, **kwargs)`
     :

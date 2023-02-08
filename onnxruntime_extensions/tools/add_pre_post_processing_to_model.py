@@ -223,8 +223,8 @@ def main():
         
         For NLP Tasks:
            transformers_and_bert does only server as a example of how to add pre/post processing to a transformer model.
-        Usually pre-processing includes tokenizer and basic conversion of input_ids after tokenizer.
-        Post-processing includes conversion of output_ids to text.
+        Usually pre-processing includes tokenizer and basic conversion of input_ids after tokenizer. Post-processing includes conversion of output_ids to text.
+        You might need to pass the tokenizer model file (vocab file or SentencePieceTokenizer model) to the function.
 
         The updated model will be written in the same location as the original model, with '.onnx' updated to 
         '.with_pre_post_processing.onnx'

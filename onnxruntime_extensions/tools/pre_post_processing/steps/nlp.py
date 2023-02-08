@@ -25,9 +25,9 @@ class TokenizerParam(object):
         self.eos_token_id = 2
         self.strip_accents = 0
         self.do_lower_case = 0
-        self.parse_kwargs(**kwargs)
+        self.assigned_with_kwargs(**kwargs)
 
-    def parse_kwargs(self, **kwargs):
+    def assigned_with_kwargs(self, **kwargs):
         for key in self.__dict__.keys():
             if key in kwargs and kwargs.get(key) is not None:
                 setattr(self, key, kwargs[key])
@@ -59,6 +59,8 @@ class SentencePieceTokenizer(Step):
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         """
         the first input is required, the other four are optional. we don't expect user to provide all of them.
+        When created inputs, every input has a name which corresponds to the name in the graph's input.
+        So, If you want to take the default value, just don't provide it.
         """
         graph_input_names = [inp.name for inp in graph.output]
         assert self.input_names[0] in graph_input_names
@@ -308,7 +310,7 @@ class BertTokenizerQATask(Step):
     def __init__(self, name: Optional[str] = None):
         """
         Brief:
-            Just duplicate input_ids for decoder. For tasks like 'BertTokenizerQATaskDecoder' which need to use the same input_ids for decoder.
+            Just duplicate input_ids for decoder(TokenizerDecoder). For tasks like 'BertTokenizerQATaskDecoder' which need to use the same input_ids for decoder.
             However, input_ids has its consumers, it will merged and removed in the next step. So we need to duplicate one.
             The new output 'input_ids_1' will be kept as a new output in graph.
         Args:
