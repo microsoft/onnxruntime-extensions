@@ -9,14 +9,14 @@ if(NOT _ONNXRUNTIME_EMBEDDED)
     FIND_PACKAGE_ARGS 3.18.0 NAMES Protobuf
     PATCH_COMMAND git checkout . && git apply --ignore-space-change --ignore-whitespace ${PROJECT_SOURCE_DIR}/cmake/externals/protobuf.patch
   )
-  set(protobuf_BUILD_TESTS OFF)
-  set(protobuf_WITH_ZLIB OFF)
+  set(protobuf_BUILD_TESTS OFF CACHE BOOL "Build tests" FORCE)
+  set(protobuf_WITH_ZLIB OFF CACHE BOOL "Use zlib" FORCE)
 
   if(CMAKE_SYSTEM_NAME STREQUAL "Android")
-    set(protobuf_BUILD_PROTOC_BINARIES OFF)
+    set(protobuf_BUILD_PROTOC_BINARIES OFF CACHE "" FORCE)
   endif()
   
-  set(protobuf_DISABLE_RTTI ON)
+  set(protobuf_DISABLE_RTTI ON CACHE BOOL "Disable RTTI" FORCE)
   FetchContent_MakeAvailable(Protobuf)
   set_target_properties(libprotobuf PROPERTIES
     FOLDER externals/google/protobuf)
