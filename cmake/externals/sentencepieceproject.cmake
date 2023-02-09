@@ -1,29 +1,29 @@
 if(NOT _ONNXRUNTIME_EMBEDDED)
   # TOOD: migrate to external abseil library
   # include(abseil-cpp)
-
-  find_package(Patch)
-  if(Patch_FOUND)
-    message("Patch found: ${Patch_EXECUTABLE}")
-  endif()
-
+  message(STATUS "Fetch protobuf")
   FetchContent_Declare(
-    Protobuf
-    URL https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.18.3.zip
-    URL_HASH SHA1=b95bf7e9de9c2249b6c1f2ca556ace49999e90bd
-    SOURCE_SUBDIR cmake
-    FIND_PACKAGE_ARGS 3.18.0 NAMES Protobuf
-    PATCH_COMMAND ${Patch_EXECUTABLE} --binary -l -s -p1 -i ${PROJECT_SOURCE_DIR}/cmake/externals/protobuf_cmake.patch
+    protobuf
+    GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
+    GIT_TAG v3.20.2
+    PATCH_COMMAND git checkout . && git apply --ignore-space-change --ignore-whitespace ${PROJECT_SOURCE_DIR}/cmake/externals/protobuf_cmake.patch
   )
-  set(protobuf_BUILD_TESTS OFF CACHE BOOL "Build tests" FORCE)
-  set(protobuf_WITH_ZLIB OFF CACHE BOOL "Use zlib" FORCE)
+  set(protobuf_BUILD_TESTS OFF CACHE BOOL "Build tests")
+  set(protobuf_WITH_ZLIB OFF CACHE BOOL "Use zlib")
 
   if(CMAKE_SYSTEM_NAME STREQUAL "Android")
-    set(protobuf_BUILD_PROTOC_BINARIES OFF CACHE "" FORCE)
+    set(protobuf_BUILD_PROTOC_BINARIES OFF CACHE "")
   endif()
-  
-  set(protobuf_DISABLE_RTTI ON CACHE BOOL "Disable RTTI" FORCE)
-  FetchContent_MakeAvailable(Protobuf)
+  set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "")
+  set(protobuf_MSVC_STATIC_RUNTIME OFF CACHE BOOL "")
+  set(protobuf_DISABLE_RTTI ON CACHE BOOL "Disable RTTI")
+  FetchContent_GetProperties(protobuf)
+  if(NOT protobuf_POPULATED)
+    FetchContent_Populate(protobuf)
+    add_subdirectory(${protobuf_SOURCE_DIR}/cmake ${protobuf_BINARY_DIR} EXCLUDE_FROM_ALL)  
+  endif()
+
+  FetchContent_MakeAvailable(protobuf)
   set_target_properties(libprotobuf PROPERTIES
     FOLDER externals/google/protobuf)
   set_target_properties(libprotobuf-lite PROPERTIES
@@ -40,7 +40,7 @@ set(spm_patch "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.protob
 
 set(spm_patch_command)
 if(spm_patch)
-  set(spm_patch_command ${Patch_EXECUTABLE} --binary -s -l -p1 -i ${spm_patch})
+  set(spm_patch_command git checkout . && git apply --ignore-space-change --ignore-whitespace ${spm_patch})
 endif()
 
 if (NOT DEFINED CMAKE_INSTALL_INCDIR)
