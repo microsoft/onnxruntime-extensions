@@ -47,7 +47,7 @@ def get_tokenizer_and_model_from_huggingface(model_name):
 
 def export_backbone(model_name: str, bert_onnx_model: Path):
     """
-    To export onnx model from huggingface. This model usally has inputs "input_ids", "attention_mask", "token_type_ids",
+    To export onnx model from huggingface. This model usually has inputs "input_ids", "attention_mask", "token_type_ids",
     and has tensor outputs.
     """
 
