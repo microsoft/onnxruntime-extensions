@@ -36,11 +36,13 @@ if(NOT _ONNXRUNTIME_EMBEDDED)
   endif()
 endif()
 
-set(spm_patch "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.protobuf.patch")
+set(spm_patches
+  "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject_cmake.patch"
+  "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject_pb.patch")
 
 set(spm_patch_command)
-if(spm_patch)
-  set(spm_patch_command git checkout . && git apply --ignore-space-change --ignore-whitespace ${spm_patch})
+if(spm_patches)
+  set(spm_patch_command git checkout . && git apply --ignore-space-change --ignore-whitespace ${spm_patches})
 endif()
 
 if (NOT DEFINED CMAKE_INSTALL_INCDIR)
