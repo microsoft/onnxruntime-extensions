@@ -1,5 +1,11 @@
 if(NOT _ONNXRUNTIME_EMBEDDED)
-  include(abseil-cpp)
+  # TOOD: migrate to external abseil library
+  # include(abseil-cpp)
+
+  find_package(Patch)
+  if(Patch_FOUND)
+    message("Patch found: ${Patch_EXECUTABLE}")
+  endif()
 
   FetchContent_Declare(
     Protobuf
@@ -7,7 +13,7 @@ if(NOT _ONNXRUNTIME_EMBEDDED)
     URL_HASH SHA1=b95bf7e9de9c2249b6c1f2ca556ace49999e90bd
     SOURCE_SUBDIR cmake
     FIND_PACKAGE_ARGS 3.18.0 NAMES Protobuf
-    PATCH_COMMAND git checkout . && git apply --ignore-space-change --ignore-whitespace ${PROJECT_SOURCE_DIR}/cmake/externals/protobuf.patch
+    PATCH_COMMAND ${Patch_EXECUTABLE} --binary -l -s -p1 -i ${PROJECT_SOURCE_DIR}/cmake/externals/protobuf.patch
   )
   set(protobuf_BUILD_TESTS OFF CACHE BOOL "Build tests" FORCE)
   set(protobuf_WITH_ZLIB OFF CACHE BOOL "Use zlib" FORCE)
@@ -30,17 +36,11 @@ if(NOT _ONNXRUNTIME_EMBEDDED)
   endif()
 endif()
 
-set(spm_patches)
-# use protobuf provided by ORT
-list(APPEND spm_patches "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.protobuf.patch")
-if(IOS)
-  # fix for iOS build
-  list(APPEND spm_patches "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.ios.patch")
-endif()
+set(spm_patch "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject.protobuf.patch")
 
 set(spm_patch_command)
-if(spm_patches)
-  set(spm_patch_command git checkout . && git apply --ignore-space-change --ignore-whitespace ${spm_patches})
+if(spm_patch)
+  set(spm_patch_command ${Patch_EXECUTABLE} --binary -s -l -p1 -i ${spm_patch})
 endif()
 
 if (NOT DEFINED CMAKE_INSTALL_INCDIR)
@@ -56,8 +56,8 @@ FetchContent_Declare(
 )
 FetchContent_GetProperties(spm)
 
-set(SPM_USE_EXTERNAL_ABSL OFF)
-set(SPM_USE_BUILTIN_PROTOBUF OFF)
+set(SPM_USE_EXTERNAL_ABSL OFF CACHE BOOL "Use external absl" FORCE)
+set(SPM_USE_BUILTIN_PROTOBUF OFF CACHE BOOL "Use built-in protobuf" FORCE)
 
 if(NOT protobuf_SOURCE_DIR)
   message(FATAL_ERROR "Cannot find the protobuf library in ORT")

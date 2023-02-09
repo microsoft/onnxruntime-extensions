@@ -1,5 +1,5 @@
 ﻿diff --git a/CMakeLists.txt b/CMakeLists.txt
-index a3870cb..f2992da 100644
+index a3870cb..159cd84 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -63,7 +63,7 @@ if (MSVC)
@@ -11,6 +11,15 @@ index a3870cb..f2992da 100644
  endif()
  
  if (APPLE)
+@@ -108,7 +108,7 @@ if (SPM_USE_EXTERNAL_ABSL)
+ endif()
+ 
+ add_subdirectory(src)
+-add_subdirectory(third_party)
++# add_subdirectory(third_party)
+ 
+ set(CPACK_SOURCE_GENERATOR "TXZ")
+ set(CPACK_GENERATOR "7Z")
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
 index 8b7fb76..820e622 100644
 --- a/src/CMakeLists.txt
@@ -7159,13 +7168,3 @@ index f527aa7..95cec46 100644
      if (message_arena != submessage_arena) {
        denormalizer_spec = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
            message_arena, denormalizer_spec, submessage_arena);
-diff --git a/third_party/CMakeLists.txt b/third_party/CMakeLists.txt
-index d00ecba..f54b3bb 100644
---- a/third_party/CMakeLists.txt
-+++ b/third_party/CMakeLists.txt
-@@ -1,4 +1,4 @@
--include_directories(absl/strings darts_clone esaxx protobuf-lite)
-+# include_directories(${ABSEIL_SOURCE_DIR}/absl/strings darts_clone esaxx)
- 
- 
- 
