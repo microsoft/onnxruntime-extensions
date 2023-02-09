@@ -140,6 +140,10 @@ endif()
 
 if(NOT OCOS_ENABLE_CPP_EXCEPTIONS)
   include(noexcep_ops)
+  TryReEnableExceptionsIfNeed(OCOS_ENABLE_CPP_EXCEPTIONS)
+endif()
+
+if(NOT OCOS_ENABLE_CPP_EXCEPTIONS)
   add_compile_definitions(OCOS_NO_EXCEPTIONS ORT_NO_EXCEPTIONS)
 
   if(MSVC)
