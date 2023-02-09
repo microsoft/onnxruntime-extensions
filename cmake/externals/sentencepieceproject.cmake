@@ -13,7 +13,7 @@ if(NOT _ONNXRUNTIME_EMBEDDED)
     URL_HASH SHA1=b95bf7e9de9c2249b6c1f2ca556ace49999e90bd
     SOURCE_SUBDIR cmake
     FIND_PACKAGE_ARGS 3.18.0 NAMES Protobuf
-    PATCH_COMMAND ${Patch_EXECUTABLE} --binary -l -s -p1 -i ${PROJECT_SOURCE_DIR}/cmake/externals/protobuf.patch
+    PATCH_COMMAND ${Patch_EXECUTABLE} --binary -l -s -p1 -i ${PROJECT_SOURCE_DIR}/cmake/externals/protobuf_cmake.patch
   )
   set(protobuf_BUILD_TESTS OFF CACHE BOOL "Build tests" FORCE)
   set(protobuf_WITH_ZLIB OFF CACHE BOOL "Use zlib" FORCE)
