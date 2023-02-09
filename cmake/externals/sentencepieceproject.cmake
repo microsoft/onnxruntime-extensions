@@ -12,7 +12,7 @@ if(NOT _ONNXRUNTIME_EMBEDDED)
   set(protobuf_WITH_ZLIB OFF CACHE BOOL "Use zlib")
 
   if(CMAKE_SYSTEM_NAME STREQUAL "Android")
-    set(protobuf_BUILD_PROTOC_BINARIES OFF CACHE "")
+    set(protobuf_BUILD_PROTOC_BINARIES OFF CACHE BOOL "")
   endif()
   set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "")
   set(protobuf_MSVC_STATIC_RUNTIME OFF CACHE BOOL "")
