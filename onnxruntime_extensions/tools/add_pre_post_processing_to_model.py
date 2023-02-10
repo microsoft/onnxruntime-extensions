@@ -179,22 +179,18 @@ def transformers_and_bert(
         onnx_opset (int): default 16. the opset version to use for the final model.
     """
     onnx_model = onnx.load(str(input_model_file.resolve(strict=True)))
-    # construct graph input for different tasks
-    if model_name in ["google/mobilebert-uncased", "csarron/mobilebert-uncased-squad-v2"]:
-        # if two queries required
-        inputs = [create_named_value("inputs", onnx.TensorProto.STRING, [
-                                     2, "sentence_length"])]
-    else:
-        inputs = [create_named_value(
-            "inputs", onnx.TensorProto.STRING, ["batch", "sentence_length"])]
+    inputs = [create_named_value("inputs", onnx.TensorProto.STRING, [
+                                    "batch_size", "num_sentences"])]
 
     pipeline = PrePostProcessor(inputs)
     tokenizer_args = TokenizerParam(
         vocab_or_file=vocab_file,
         do_lower_case=True,
+        tweaked_bos_id = 0,
     )
-    if model_name == "xlm-roberta-base":
-        tokenizer_args.tweaked_bos_id = 0
+    if model_name == "csarron/mobilebert-uncased-squad-v2":
+        tokenizer_args.pair_mode = True
+        
     preprocessing = [
         SentencePieceTokenizer(
             tokenizer_args) if model_name == "xlm-roberta-base" else BertTokenizer(tokenizer_args),
@@ -205,8 +201,8 @@ def transformers_and_bert(
     # For verify results with out postprocessing
     postprocessing = [Debug()] if add_debug_before_postprocessing else []
     if model_name == "csarron/mobilebert-uncased-squad-v2":
-        preprocessing.append(BertTokenizerQATask())
-        postprocessing.append(BertTokenizerQADecoder(tokenizer_args))
+        postprocessing.append((BertTokenizerQADecoder(tokenizer_args), [
+                 utils.IoMapEntry("BertTokenizer", producer_idx=0, consumer_idx=2)]))
     elif model_name in ["lordtt13/emo-mobilebert", "xlm-roberta-base"]:
         postprocessing.append(SequenceClassify())
 
