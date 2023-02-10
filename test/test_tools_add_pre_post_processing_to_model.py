@@ -245,7 +245,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         onnx.save_model(new_model, output_model)
         return input_text, ref_output
 
-    def test_sentencePiece_tokenizer(self):
+    def test_sentencepiece_tokenizer(self):
         output_model = (Path(test_data_dir) / "../sentencePiece.onnx").resolve()
 
         input_text, ref_output = self.build_testModel_and_get_ref_output_for_tokenizer("sentencePiece", output_model)
