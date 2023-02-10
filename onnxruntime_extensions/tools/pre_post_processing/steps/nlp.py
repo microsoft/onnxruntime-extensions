@@ -268,81 +268,7 @@ class BertTokenizer(Step):
         converter_graph.node[node_idx].attribute.extend(token_model_attr)
 
         return converter_graph
-
-
-class BertTokenizerQATask(Step):
-    def __init__(self, name: Optional[str] = None):
-        """
-        Brief:
-            Duplicate input_ids for decoder(TokenizerDecoder). For tasks like 'BertTokenizerQADecoder' 
-            which needs to use the same input_ids for decoder.
-            However, input_ids has its consumers, it will merged and removed in the next step. So we need to duplicate one.
-            The new output 'input_ids_1' will be kept as a new output in graph.
-        Args:
-            name: Optional name of step. Defaults to 'BertTokenizerQATask'
-
-        """
-        super().__init__(
-            ["input_ids", "attention_mask", "token_type_ids"],
-            ["input_ids", "attention_mask", "token_type_ids", "input_ids_1"],
-            name,
-        )
-
-    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
-        graph_input_names = [inp.name for inp in graph.output]
-        for inp in self.input_names:
-            assert inp in graph_input_names
-
-        # reorder inputs as we assumed input_names[0] is input_ids
-        if "input_ids" not in self.input_names[0]:
-            o_inputs = graph_input_names.copy()
-            for inp in o_inputs:
-                if "input_ids_1" in inp:
-                    self.input_names[0] = inp
-                elif "attention_mask" in inp:
-                    self.input_names[1] = inp
-                else:
-                    self.input_names[2] = inp
-
-        output_declares = []
-        output_nodes = []
-        for idx, out in enumerate(self.output_names):
-            input_type_str_x, input_shape_str_x = self._get_input_type_and_shape_strs(
-                graph, idx % len(self.input_names))
-            output_declares.append(
-                f"{input_type_str_x}[{input_shape_str_x}] {out}")
-            output_nodes.append(
-                f"{out} = Identity({self.input_names[idx % len(self.input_names)]})")
-
-        output_declares_str = ",".join(output_declares)
-        output_nodes_str = "\n".join(output_nodes)
-
-        def build_input_declare():
-            inputs = []
-            for idx, inp in enumerate(self.input_names):
-                input_type_str_x, input_shape_str_x = self._get_input_type_and_shape_strs(
-                    graph, idx)
-                inputs.append(f"{input_type_str_x}[{input_shape_str_x}] {inp}")
-
-            return ",".join(inputs)
-
-        def build_tokenizer_call_arg():
-            call_args = self.input_names[0]
-            return call_args
-
-        converter_graph = onnx.parser.parse_graph(
-            f"""\
-            qa_task ({build_input_declare()}) 
-                => ({output_declares_str})
-            {{
-                {output_nodes_str}
-            }}
-            """
-        )
-
-        return converter_graph
-
-
+    
 class BertTokenizerQADecoder(Step):
     def __init__(self, tokenizer_param: TokenizerParam, name: Optional[str] = None):
         """
@@ -361,17 +287,6 @@ class BertTokenizerQADecoder(Step):
         self._tokenizer_param = tokenizer_param
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
-        # graph_input_names = [inp.name for inp in graph.output]
-        # need to reorder input_names by similar to  "input_ids_1", "start_logits", "end_logits"
-        # o_inputs = graph_input_names.copy()
-        # for inp in o_inputs:
-        #    if "input_ids" in inp:
-        #        self.input_names[0] = inp
-        #    elif "start_logits" in inp:
-        #        self.input_names[1] = inp
-        #    else:
-        #        self.input_names[2] = inp
-
         def build_input_declare():
             inputs = []
             for idx, inp in enumerate(self.input_names):
