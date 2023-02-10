@@ -203,7 +203,7 @@ class BertTokenizer(Step):
     def __init__(self, tokenizer_param: TokenizerParam, name: Optional[str] = None):
         """
         Brief: This step is used to convert the input text into the input_ids, attention_mask, token_type_ids.
-            It support BertTokenizer and HfBertTokenizer, the former can only has one queries, the latter have two
+            It supports an input of a single string for classification models, or two strings for QA models.
         Args:
             tokenizer_map: some essential infos, If you export tokenizer from hugging-face,
             such as "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
