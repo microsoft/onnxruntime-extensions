@@ -13,12 +13,8 @@ Classes
     the "_debug" outputs will become graph outputs.
     
     Initialize Debug step
-    How it works when a string of DebugSteps are added,
-        [_next,_debug1,_debug2]---->[_next_next,_debug1_debug,_debug2_debug]---->[_next_next_next,_debug1_debug_debug,_debug2_debug_debug]
-    
     Args:
-        num_inputs: Number of inputs from previous Step to make graph outputs. Devs can set any number of inputs to be debugged.
-            (named inputs are not supported though). This class will handle it if the number of inputs is less than the number.
+        num_inputs: Number of inputs from previous Step to make graph outputs.
         name: Optional name for Step. Defaults to 'Debug'
 
     ### Ancestors (in MRO)
@@ -44,7 +40,6 @@ Classes
     * pre_post_processing.steps.general.Transpose
     * pre_post_processing.steps.general.Unsqueeze
     * pre_post_processing.steps.nlp.BertTokenizer
-    * pre_post_processing.steps.nlp.BertTokenizerQATask
     * pre_post_processing.steps.nlp.BertTokenizerQADecoder
     * pre_post_processing.steps.nlp.SentencePieceTokenizer
     * pre_post_processing.steps.nlp.SequenceClassify
@@ -65,7 +60,7 @@ Classes
 
     ### Methods
 
-    `apply(self, graph: onnx.onnx_ml_pb2.GraphProto, checker_context: onnx.onnx_cpp2py_export.checker.CheckerContext)`
+    `apply(self, graph: onnx.onnx_ml_pb2.GraphProto, checker_context: onnx.onnx_cpp2py_export.checker.CheckerContext, preserved_outputs: List[pre_post_processing.utils.PreservedOutputs])`
     :   Create a graph for this step that can be appended to the provided graph.
         The PrePostProcessor will handle merging the two.
 

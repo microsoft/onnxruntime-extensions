@@ -141,6 +141,7 @@ def superresolution(model_file: Path, output_file: Path, output_format: str, onn
             # the Cb and Cr values are already in the range 0..255 so multiplier is 1. we're using the step to round
             # for accuracy (a direct Cast would just truncate) and clip (to ensure range 0..255) the values post-Resize
             FloatToImageBytes(multiplier=1.0, name="Cb1_uint8"),
+
             (Resize((h_out, w_out), "HW"), [IoMapEntry("PixelsToYCbCr", 2, 0)]),
             FloatToImageBytes(multiplier=1.0, name="Cr1_uint8"),
 
