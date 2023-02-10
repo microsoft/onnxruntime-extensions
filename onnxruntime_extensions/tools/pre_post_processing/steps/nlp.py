@@ -244,7 +244,7 @@ class BertTokenizer(Step):
             if onnx_tokenizer_impl == "HfBertTokenizer":
                 return ",".join(self.output_names)
             # different output orders for BertTokenizer and HfBertTokenizer
-            return f"ids,types,mask"
+            return "ids,types,mask"
 
         def build_output_imp():
             if onnx_tokenizer_impl == "HfBertTokenizer":
