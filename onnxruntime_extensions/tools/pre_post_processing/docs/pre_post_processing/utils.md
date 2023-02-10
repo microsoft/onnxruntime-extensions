@@ -60,7 +60,7 @@ Classes
     `producer_idx: int`
     :
 
-`PreservedOutputs(producer: Union[ForwardRef('Step'), str] = None, consumer: Union[ForwardRef('Step'), str] = None, producer_idx: int = 0, IsActive: bool = False, output: str = None)`
+`ConnectionGuard(producer: Union[ForwardRef('Step'), str] = None, consumer: Union[ForwardRef('Step'), str] = None, producer_idx: int = 0, IsActive: bool = False, output: str = None)`
 :   work together with IoMapEntry, assure the connect output from producer is always exists.
 
     ### Class variables

@@ -9,7 +9,7 @@ from typing import List, Optional, Tuple
 
 from .utils import (
     IoMapEntry,
-    PreservedOutputs,
+    ConnectionGuard,
     create_custom_op_checker_context,
     TENSOR_TYPE_TO_ONNX_TYPE,
 )
@@ -51,7 +51,7 @@ class Step(object):
 
     def apply(self, graph: onnx.GraphProto, 
               checker_context: onnx.checker.C.CheckerContext, 
-              preserved_outputs: List[PreservedOutputs]):
+              preserved_outputs: List[ConnectionGuard]):
         """
         Create a graph for this step that can be appended to the provided graph.
         The PrePostProcessor will handle merging the two.
