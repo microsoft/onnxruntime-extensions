@@ -9,6 +9,7 @@ from typing import List, Optional, Tuple
 
 from .utils import (
     IoMapEntry,
+    PreservedOutputs,
     create_custom_op_checker_context,
     TENSOR_TYPE_TO_ONNX_TYPE,
 )
@@ -48,7 +49,9 @@ class Step(object):
 
         self.input_names[entry.consumer_idx] = entry.producer.output_names[entry.producer_idx]
 
-    def apply(self, graph: onnx.GraphProto, checker_context: onnx.checker.C.CheckerContext):
+    def apply(self, graph: onnx.GraphProto, 
+              checker_context: onnx.checker.C.CheckerContext, 
+              preserved_outputs: List[PreservedOutputs]):
         """
         Create a graph for this step that can be appended to the provided graph.
         The PrePostProcessor will handle merging the two.
@@ -59,8 +62,24 @@ class Step(object):
         onnx.checker.check_graph(graph_for_step, checker_context)
 
         # prefix the graph for this step to guarantee no clashes of value names with the existing graph
-        onnx.compose.add_prefix_graph(graph_for_step, self._prefix, inplace=True)
+        onnx.compose.add_prefix_graph(
+            graph_for_step, self._prefix, inplace=True)
+
+        for preserves in preserved_outputs:
+            if preserves.producer == self:
+                preserves.IsActive = True
+                idx = preserves.producer_idx
+                preserves.output = graph_for_step.output[idx].name
+            elif preserves.consumer == self:
+                preserves.IsActive = False
+
+        # the first merge for getting outputs
         result = self.__merge(graph, graph_for_step)
+        step_graph_outputs = [o.name for o in result.output]
+        external_outputs = [
+            i.output for i in preserved_outputs if i.IsActive and i.output not in step_graph_outputs]
+        step_graph_outputs.extend(external_outputs)
+        result = self.__merge(graph, graph_for_step, step_graph_outputs)
 
         # update self.output_names to the prefixed names so that when we connect later Steps the values match
         new_outputs = [self._prefix + o for o in self.output_names]
@@ -86,7 +105,8 @@ class Step(object):
         """
         pass
 
-    def __merge(self, first: onnx.GraphProto, second: onnx.GraphProto):
+    def __merge(self, first: onnx.GraphProto, second: onnx.GraphProto,
+                outputs_to_preserve: Optional[List[str]] = None):
         # We prefixed all the value names in `second`, so allow for that when connecting the two graphs
         io_map = []
         for o in first.output:
@@ -95,8 +115,6 @@ class Step(object):
             for i in second.input:
                 if i.name == prefixed_output:
                     io_map.append((o.name, i.name))
-
-        outputs_to_preserve = None
 
         # merge with existing graph
         merged_graph = onnx.compose.merge_graphs(first, second, io_map, outputs=outputs_to_preserve)
@@ -154,12 +172,8 @@ class Debug(Step):
     def __init__(self, num_inputs: int = 1, name: Optional[str] = None):
         """
         Initialize Debug step
-        How it works when a string of DebugSteps are added,
-            [_next,_debug1,_debug2]---->[_next_next,_debug1_debug,_debug2_debug]---->[_next_next_next,_debug1_debug_debug,_debug2_debug_debug]
-        
         Args:
-            num_inputs: Number of inputs from previous Step to make graph outputs. Devs can set any number of inputs to be debugged.
-                (named inputs are not supported though). This class will handle it if the number of inputs is less than the number.
+            num_inputs: Number of inputs from previous Step to make graph outputs.
             name: Optional name for Step. Defaults to 'Debug'
         """
         self._num_inputs = num_inputs
@@ -169,55 +183,46 @@ class Debug(Step):
         super().__init__(input_names, output_names, name)
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
-        input_str = ""
-        output_str = ""
-        output_debug_str = ""
-        nodes_str = ""
+        non_debug_input_names = [
+            name for name in self.input_names if not name.endswith("_debug")]
 
-        # don't have to handle the debug node again
-        non_debug_input_names = [inp.name for inp in graph.output if not inp.name.endswith("_debug")]
-        tag_debug_input_names = [inp.name for inp in graph.output if inp.name.endswith("_debug")]
+        if self._num_inputs > len(non_debug_input_names):
+            raise ValueError(
+                f"Debug step requested {self._num_inputs} inputs, but graph only has {len(non_debug_input_names)}.")
 
-        # handle case where we requests more inputs than the graph has
-        if self._num_inputs >= len(non_debug_input_names):
-            self._num_inputs = len(non_debug_input_names)
-            self.input_names = non_debug_input_names
-        
-        # jsut forward pre-debug output but not duplicated
         debug_offset = len(self.input_names)
-        if tag_debug_input_names:
-            self._num_inputs += len(tag_debug_input_names)
-            self.input_names.extend(tag_debug_input_names)
-            
         # update output names so we preserve info from the latest input names
-        self.output_names = [f"{name}_next" for name in self.input_names if name not in tag_debug_input_names]
+        self.output_names = [f"{name}_next" for name in self.input_names]
         self.output_names += [f"{name}_debug" for name in self.input_names]
 
+        input_str_list = []
+        output_str_list = []
+        nodes_str_list = []
         for i in range(0, self._num_inputs):
-            input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, i)
-            if i > 0:
-                input_str += ", "
-                output_str += ", "
-                output_debug_str += ", "
-                nodes_str += "\n"
+            input_type_str, input_shape_str = self._get_input_type_and_shape_strs(
+                graph, i)
 
-            input_str += f"{input_type_str}[{input_shape_str}] {self.input_names[i]}"
-            
-            if i < debug_offset:
-                output_str += f"{input_type_str}[{input_shape_str}] {self.output_names[i]}"
-                output_str += f",{input_type_str}[{input_shape_str}] {self.output_names[debug_offset+i]}"
-                nodes_str += f"{self.output_names[i]} = Identity({self.input_names[i]})\n"
-                nodes_str += f"{self.output_names[debug_offset+i]} = Identity({self.input_names[i]})\n"
-            else:
-                output_str += f"{input_type_str}[{input_shape_str}] {self.output_names[debug_offset+i]}"
-                nodes_str += f"{self.output_names[debug_offset+i]} = Identity({self.input_names[i]})\n"
+            input_str_list.append(
+                f"{input_type_str}[{input_shape_str}] {self.input_names[i]}")
 
+            output_str_list.append(
+                f"{input_type_str}[{input_shape_str}] {self.output_names[i]}")
+            output_str_list.append(
+                f"{input_type_str}[{input_shape_str}] {self.output_names[debug_offset+i]}")
+
+            nodes_str_list.append(
+                f"{self.output_names[i]} = Identity({self.input_names[i]})\n")
+            nodes_str_list.append(
+                f"{self.output_names[debug_offset+i]} = Identity({self.input_names[i]})\n")
+
+        # f-string can't have back-slash
+        node_str = '\n'.join(nodes_str_list)
         debug_graph = onnx.parser.parse_graph(
             f"""\
-            debug ({input_str}) 
-                => ({output_str})
+            debug ({','.join(input_str_list)}) 
+                => ({','.join(output_str_list)})
             {{
-                {nodes_str}
+                {node_str}
             }}
             """
         )

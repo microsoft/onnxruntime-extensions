@@ -38,13 +38,19 @@ def imagenet_preprocessing(model_source: ModelSource = ModelSource.PYTORCH):
     # These utils cover both cases of typical pytorch/tensorflow pre-processing for an imagenet trained model
     # https://github.com/keras-team/keras/blob/b80dd12da9c0bc3f569eca3455e77762cf2ee8ef/keras/applications/imagenet_utils.py#L177
 
-    steps = [Resize(256), CenterCrop(224, 224), ImageBytesToFloat()]
+    steps = [
+        Resize(256),
+        CenterCrop(224, 224),
+        ImageBytesToFloat()
+    ]
 
     if model_source == ModelSource.PYTORCH:
         # pytorch model has NCHW layout
-        steps.extend(
-            [ChannelsLastToChannelsFirst(), Normalize([(0.485, 0.229), (0.456, 0.224), (0.406, 0.225)], layout="CHW")]
-        )
+        steps.extend([
+            ChannelsLastToChannelsFirst(),
+            Normalize([(0.485, 0.229), (0.456, 0.224),
+                      (0.406, 0.225)], layout="CHW")
+        ])
     else:
         # TF processing involves moving the data into the range -1..1 instead of 0..1.
         # ImageBytesToFloat converts to range 0..1, so we use 0.5 for the mean to move into the range -0.5..0.5
@@ -58,7 +64,8 @@ def imagenet_preprocessing(model_source: ModelSource = ModelSource.PYTORCH):
 
 def mobilenet(model_file: Path, output_file: Path, model_source: ModelSource, onnx_opset: int = 16):
     model = onnx.load(str(model_file.resolve(strict=True)))
-    inputs = [create_named_value("image", onnx.TensorProto.UINT8, ["num_bytes"])]
+    inputs = [create_named_value(
+        "image", onnx.TensorProto.UINT8, ["num_bytes"])]
 
     pipeline = PrePostProcessor(inputs, onnx_opset)
 
@@ -88,7 +95,8 @@ def superresolution(model_file: Path, output_file: Path, output_format: str, onn
     # Cb and Cr channels with the model output to create the resized image.
     # Model is from https://pytorch.org/tutorials/advanced/super_resolution_with_onnxruntime.html
     model = onnx.load(str(model_file.resolve(strict=True)))
-    inputs = [create_named_value("image", onnx.TensorProto.UINT8, ["num_bytes"])]
+    inputs = [create_named_value(
+        "image", onnx.TensorProto.UINT8, ["num_bytes"])]
 
     # assuming input is *CHW, infer the input sizes from the model.
     # requires the model input and output has a fixed size for the input and output height and width.
@@ -116,7 +124,8 @@ def superresolution(model_file: Path, output_file: Path, output_format: str, onn
             # if you inserted this Debug step here the 3 outputs from PixelsToYCbCr would also be model outputs
             # Debug(num_inputs=3),
             ImageBytesToFloat(),  # Convert Y to float in range 0..1
-            Unsqueeze([0, 1]),  # add batch and channels dim to Y so shape is {1, 1, h_in, w_in}
+            # add batch and channels dim to Y so shape is {1, 1, h_in, w_in}
+            Unsqueeze([0, 1]),
         ]
     )
 
@@ -127,14 +136,21 @@ def superresolution(model_file: Path, output_file: Path, output_format: str, onn
     pipeline.add_post_processing(
         [
             Squeeze([0, 1]),  # remove batch and channels dims from Y'
-            FloatToImageBytes(name="Y1_uint8"),  # convert Y' to uint8 in range 0..255
+            # convert Y' to uint8 in range 0..255
+            FloatToImageBytes(name="Y1_uint8"),
+
             # Resize the Cb values (output 1 from PixelsToYCbCr)
-            (Resize((h_out, w_out), "HW"), [IoMapEntry(producer="PixelsToYCbCr", producer_idx=1, consumer_idx=0)]),
+            (Resize((h_out, w_out), "HW"),
+
+             [IoMapEntry(producer="PixelsToYCbCr", producer_idx=1, consumer_idx=0)]),
+
             # the Cb and Cr values are already in the range 0..255 so multiplier is 1. we're using the step to round
             # for accuracy (a direct Cast would just truncate) and clip (to ensure range 0..255) the values post-Resize
             FloatToImageBytes(multiplier=1.0, name="Cb1_uint8"),
-            (Resize((h_out, w_out), "HW"), [IoMapEntry("PixelsToYCbCr", 2, 0)]),
+            (Resize((h_out, w_out), "HW"), [
+             IoMapEntry("PixelsToYCbCr", 2, 0)]),
             FloatToImageBytes(multiplier=1.0, name="Cr1_uint8"),
+
             # as we're selecting outputs from multiple previous steps we need to map them to the inputs using step names
             (
                 YCbCrToPixels(layout="BGR"),
@@ -144,7 +160,8 @@ def superresolution(model_file: Path, output_file: Path, output_format: str, onn
                     IoMapEntry("Cr1_uint8", 0, 2),
                 ],
             ),
-            ConvertBGRToImage(image_format=output_format),  # jpg or png are supported
+            # jpg or png are supported
+            ConvertBGRToImage(image_format=output_format),
         ]
     )
 
@@ -172,18 +189,22 @@ def transformers_and_bert(
     # construct graph input for different tasks
     if model_name in ["google/mobilebert-uncased", "csarron/mobilebert-uncased-squad-v2"]:
         # if two queries required
-        inputs = [create_named_value("inputs", onnx.TensorProto.STRING, [2, "sentence_length"])]
+        inputs = [create_named_value("inputs", onnx.TensorProto.STRING, [
+                                     2, "sentence_length"])]
     else:
-        inputs = [create_named_value("inputs", onnx.TensorProto.STRING, ["sentence_length"])]
+        inputs = [create_named_value(
+            "inputs", onnx.TensorProto.STRING, ["batch", "sentence_length"])]
 
     pipeline = PrePostProcessor(inputs)
     tokenizer_args = TokenizerParam(
         vocab_or_file=vocab_file,
         do_lower_case=True,
     )
-
+    if model_name == "xlm-roberta-base":
+        tokenizer_args.tweaked_bos_id = 0
     preprocessing = [
-        SentencePieceTokenizer(tokenizer_args) if model_name == "xlm-roberta-base" else BertTokenizer(tokenizer_args),
+        SentencePieceTokenizer(
+            tokenizer_args) if model_name == "xlm-roberta-base" else BertTokenizer(tokenizer_args),
         # uncomment this line to debug
         # Debug(),
     ]
@@ -192,7 +213,7 @@ def transformers_and_bert(
     postprocessing = [Debug()] if add_debug_before_postprocessing else []
     if model_name == "csarron/mobilebert-uncased-squad-v2":
         preprocessing.append(BertTokenizerQATask())
-        postprocessing.append(BertTokenizerQATaskDecoder(tokenizer_args))
+        postprocessing.append(BertTokenizerQADecoder(tokenizer_args))
     elif model_name in ["lordtt13/emo-mobilebert", "xlm-roberta-base"]:
         postprocessing.append(SequenceClassify())
 
@@ -209,25 +230,29 @@ def main():
         description="""Add pre and post processing to a model.
 
         Currently supports updating:
-        CV Tasks:
+        Vision models:
             - super resolution with YCbCr input
-            - imagenet trained mobilenet   
-        NLP Tasks:
+            - imagenet trained mobilenet
+        NLP models:
+        
             - MobileBert with different tasks
-            - XLM-Roberta with classification task   
+            - XLM-Roberta with classification task
 
-        For CV Tasks:
+        For Vision models:
             To customize, the logic in the `mobilenet` and `superresolution` functions can be used as a guide.
         Create a pipeline and add the required pre/post processing 'Steps' in the order required. Configure 
-        individual steps as needed. 
+        individual steps as needed.
         
-        For NLP Tasks:
-           transformers_and_bert does only server as a example of how to add pre/post processing to a transformer model.
-        Usually pre-processing includes tokenizer and basic conversion of input_ids after tokenizer. Post-processing includes conversion of output_ids to text.
-        You might need to pass the tokenizer model file (vocab file or SentencePieceTokenizer model) to the function.
+        For NLP models:
+           `transformers_and_bert` does only server as a example of how to add pre/post processing to 
+        a transformer model. Because we can't cover all the variations of the transformer tasks.
+        Usually pre-processing includes tokenizer and basic conversion of input_ids after tokenizer. Post-processing 
+        includes conversion of output_ids to text.
+        You might need to pass the tokenizer model file (bert vocab file or SentencePieceTokenizer model) to 
+        the function.
 
-        The updated model will be written in the same location as the original model, with '.onnx' updated to 
-        '.with_pre_post_processing.onnx'
+        The updated model will be written in the same location as the original model, 
+        with '.onnx' updated to '.with_pre_post_processing.onnx'
         """,
     )
 
@@ -252,7 +277,7 @@ def main():
         "--model_source",
         type=str,
         required=False,
-        choices=["pytorch", "tensorflow","huggingface"],
+        choices=["pytorch", "tensorflow"],
         default="pytorch",
         help="""
         Framework that model came from. In some cases there are known differences that can be taken into account when
@@ -269,7 +294,7 @@ def main():
         default="png",
         help="Image output format for superresolution model to produce.",
     )
-    
+
     parser.add_argument(
         "--vocab_file",
         type=Path,
@@ -285,7 +310,8 @@ def main():
         help="ONNX opset to use. Minimum allowed is 16. Opset 18 is required for Resize with anti-aliasing.",
     )
 
-    parser.add_argument("model", type=Path, help="Provide path to ONNX model to update.")
+    parser.add_argument("model", type=Path,
+                        help="Provide path to ONNX model to update.")
 
     args = parser.parse_args()
 
@@ -296,12 +322,14 @@ def main():
         source = ModelSource.PYTORCH if args.model_source == "pytorch" else ModelSource.TENSORFLOW
         mobilenet(model_path, new_model_path, source, args.opset)
     elif args.model_type == "superresolution":
-        superresolution(model_path, new_model_path, args.output_format, args.opset)
+        superresolution(model_path, new_model_path,
+                        args.output_format, args.opset)
     else:
         if args.vocab_file is None:
             print("Please provide vocab file for tokenizer.")
             return
-        transformers_and_bert(model_path, new_model_path, args.model_type, args.vocab_file)
+        transformers_and_bert(model_path, new_model_path,
+                              args.model_type, args.vocab_file)
 
 
 if __name__ == "__main__":

@@ -21,7 +21,8 @@ def create_named_value(name: str, data_type: int, shape: List[Union[str, int]]):
     Returns:
         An onnx.ValueInfoProto that can be used as a new model input.
     """
-    tensor_type = onnx.helper.make_tensor_type_proto(elem_type=data_type, shape=shape)
+    tensor_type = onnx.helper.make_tensor_type_proto(
+        elem_type=data_type, shape=shape)
     return onnx.helper.make_value_info(name, tensor_type)
 
 
@@ -79,6 +80,21 @@ class IoMapEntry:
     producer_idx: int = 0
     # input index of the consumer step
     consumer_idx: int = 0
+
+
+@dataclass
+class PreservedOutputs:
+    """work together with IoMapEntry, assure the connect output from producer is always exists."""
+
+    #   Uses Step if provided.
+    #   If a str with a previous Step name is provided the PrePostProcessor will find the relevant Step
+    #   If neither are provided the producer is inferred to be the immediately previous Step in the pipeline
+    producer: Union["Step", str] = None
+    consumer: Union["Step", str] = None
+    # output index from the producer step
+    producer_idx: int = 0
+    IsActive: bool = False
+    output: str = None
 
 
 def sanitize_output_names(graph: onnx.GraphProto):

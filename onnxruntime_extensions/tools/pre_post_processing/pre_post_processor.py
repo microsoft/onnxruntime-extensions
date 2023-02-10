@@ -8,6 +8,7 @@ from typing import List, Tuple, Union
 
 from .utils import (
     IoMapEntry,
+    PreservedOutputs,
     create_custom_op_checker_context,
     sanitize_output_names,
     TENSOR_TYPE_TO_ONNX_TYPE,
@@ -56,6 +57,9 @@ class PrePostProcessor:
         self._post_processing_joins = None  # type: Union[None,List[Tuple[Union[Step, str], int, str]]]
 
         self._inputs = inputs if inputs else []
+        
+        # preserve input from IOMapEntry, avoid it's consumed by the Follow-up steps
+        self._preserved_outputs = []  # type: List[PreservedOutputs]
 
     def add_pre_processing(self, items: List[Union[Step, Tuple[Step, List[IoMapEntry]]]]):
         """
@@ -145,7 +149,7 @@ class PrePostProcessor:
                 assert connection.producer
                 self._add_connection(processor, connection)
 
-            return processor.apply(graph, self._custom_op_checker_context)
+            return processor.apply(graph, self._custom_op_checker_context, self._preserved_outputs)
 
         # fix any invalid output names now if we're adding post-processing as the onnx parse_graph can't handle them
         if self.post_processors:
@@ -177,7 +181,12 @@ class PrePostProcessor:
             for step, step_idx, graph_input in self._pre_processing_joins:
                 io_map.append((step.output_names[step_idx], graph_input))
 
-            graph = onnx.compose.merge_graphs(pre_process_graph, graph, io_map)
+            graph_first = onnx.compose.merge_graphs(pre_process_graph, graph, io_map)
+            step_graph_outputs = [o.name for o in graph_first.output]
+            external_outputs = [
+                i.output for i in self._preserved_outputs if i.IsActive and i.output not in step_graph_outputs]
+            step_graph_outputs.extend(external_outputs)
+            graph = onnx.compose.merge_graphs(pre_process_graph, graph, io_map, outputs=step_graph_outputs)
 
         # add post-processing
         if self.post_processors:
@@ -274,6 +283,7 @@ class PrePostProcessor:
                         producer = self.__producer_from_step_or_str(entry.producer)  # throws if not found
 
                     io_map_entries[entry.consumer_idx] = IoMapEntry(producer, entry.producer_idx, entry.consumer_idx)
+                    self._preserved_outputs.append(PreservedOutputs(producer, step, entry.producer_idx))
 
             processors.append(step)
             processor_connections.append([entry for entry in io_map_entries if entry is not None])

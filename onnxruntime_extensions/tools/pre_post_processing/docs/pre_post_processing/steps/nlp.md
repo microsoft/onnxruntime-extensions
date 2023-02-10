@@ -43,7 +43,7 @@ Classes
 :   Base class for a pre or post processing step.
     
     Brief:
-        Just duplicate input_ids for decoder(TokenizerDecoder). For tasks like 'BertTokenizerQATaskDecoder' which need to use the same input_ids for decoder.
+        Just duplicate input_ids for decoder(TokenizerDecoder). For tasks like 'BertTokenizerQADecoder' which need to use the same input_ids for decoder.
         However, input_ids has its consumers, it will merged and removed in the next step. So we need to duplicate one.
         The new output 'input_ids_1' will be kept as a new output in graph.
     Args:
@@ -53,7 +53,7 @@ Classes
 
     * pre_post_processing.step.Step
 
-`BertTokenizerQATaskDecoder(tokenizer_param: pre_post_processing.steps.nlp.TokenizerParam, name: Optional[str] = None)`
+`BertTokenizerQADecoder(tokenizer_param: pre_post_processing.steps.nlp.TokenizerParam, name: Optional[str] = None)`
 :   Base class for a pre or post processing step.
     
     Brief:
@@ -63,7 +63,7 @@ Classes
         such as "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
         You may need to provide the following:
             tokenizer_param = TokenizerParam(vocab=tokenizer.vocab, #vocab is dict or file_path)
-        name: Optional name of step. Defaults to 'BertTokenizerQATaskDecoder'
+        name: Optional name of step. Defaults to 'BertTokenizerQADecoder'
 
     ### Ancestors (in MRO)
 

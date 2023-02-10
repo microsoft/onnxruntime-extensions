@@ -45,7 +45,7 @@ Classes
     * pre_post_processing.steps.general.Unsqueeze
     * pre_post_processing.steps.nlp.BertTokenizer
     * pre_post_processing.steps.nlp.BertTokenizerQATask
-    * pre_post_processing.steps.nlp.BertTokenizerQATaskDecoder
+    * pre_post_processing.steps.nlp.BertTokenizerQADecoder
     * pre_post_processing.steps.nlp.SentencePieceTokenizer
     * pre_post_processing.steps.nlp.SequenceClassify
     * pre_post_processing.steps.vision.CenterCrop
