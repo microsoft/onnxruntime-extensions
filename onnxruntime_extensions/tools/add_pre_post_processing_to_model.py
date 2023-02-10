@@ -48,8 +48,7 @@ def imagenet_preprocessing(model_source: ModelSource = ModelSource.PYTORCH):
         # pytorch model has NCHW layout
         steps.extend([
             ChannelsLastToChannelsFirst(),
-            Normalize([(0.485, 0.229), (0.456, 0.224),
-                      (0.406, 0.225)], layout="CHW")
+            Normalize([(0.485, 0.229), (0.456, 0.224), (0.406, 0.225)], layout="CHW")
         ])
     else:
         # TF processing involves moving the data into the range -1..1 instead of 0..1.
@@ -64,8 +63,7 @@ def imagenet_preprocessing(model_source: ModelSource = ModelSource.PYTORCH):
 
 def mobilenet(model_file: Path, output_file: Path, model_source: ModelSource, onnx_opset: int = 16):
     model = onnx.load(str(model_file.resolve(strict=True)))
-    inputs = [create_named_value(
-        "image", onnx.TensorProto.UINT8, ["num_bytes"])]
+    inputs = [create_named_value("image", onnx.TensorProto.UINT8, ["num_bytes"])]
 
     pipeline = PrePostProcessor(inputs, onnx_opset)
 
@@ -95,8 +93,7 @@ def superresolution(model_file: Path, output_file: Path, output_format: str, onn
     # Cb and Cr channels with the model output to create the resized image.
     # Model is from https://pytorch.org/tutorials/advanced/super_resolution_with_onnxruntime.html
     model = onnx.load(str(model_file.resolve(strict=True)))
-    inputs = [create_named_value(
-        "image", onnx.TensorProto.UINT8, ["num_bytes"])]
+    inputs = [create_named_value("image", onnx.TensorProto.UINT8, ["num_bytes"])]
 
     # assuming input is *CHW, infer the input sizes from the model.
     # requires the model input and output has a fixed size for the input and output height and width.
@@ -124,8 +121,7 @@ def superresolution(model_file: Path, output_file: Path, output_format: str, onn
             # if you inserted this Debug step here the 3 outputs from PixelsToYCbCr would also be model outputs
             # Debug(num_inputs=3),
             ImageBytesToFloat(),  # Convert Y to float in range 0..1
-            # add batch and channels dim to Y so shape is {1, 1, h_in, w_in}
-            Unsqueeze([0, 1]),
+            Unsqueeze([0, 1]),  # add batch and channels dim to Y so shape is {1, 1, h_in, w_in}
         ]
     )
 
@@ -136,19 +132,16 @@ def superresolution(model_file: Path, output_file: Path, output_format: str, onn
     pipeline.add_post_processing(
         [
             Squeeze([0, 1]),  # remove batch and channels dims from Y'
-            # convert Y' to uint8 in range 0..255
-            FloatToImageBytes(name="Y1_uint8"),
+            FloatToImageBytes(name="Y1_uint8"),  # convert Y' to uint8 in range 0..255
 
             # Resize the Cb values (output 1 from PixelsToYCbCr)
             (Resize((h_out, w_out), "HW"),
-
              [IoMapEntry(producer="PixelsToYCbCr", producer_idx=1, consumer_idx=0)]),
 
             # the Cb and Cr values are already in the range 0..255 so multiplier is 1. we're using the step to round
             # for accuracy (a direct Cast would just truncate) and clip (to ensure range 0..255) the values post-Resize
             FloatToImageBytes(multiplier=1.0, name="Cb1_uint8"),
-            (Resize((h_out, w_out), "HW"), [
-             IoMapEntry("PixelsToYCbCr", 2, 0)]),
+            (Resize((h_out, w_out), "HW"), [IoMapEntry("PixelsToYCbCr", 2, 0)]),
             FloatToImageBytes(multiplier=1.0, name="Cr1_uint8"),
 
             # as we're selecting outputs from multiple previous steps we need to map them to the inputs using step names
@@ -160,8 +153,7 @@ def superresolution(model_file: Path, output_file: Path, output_format: str, onn
                     IoMapEntry("Cr1_uint8", 0, 2),
                 ],
             ),
-            # jpg or png are supported
-            ConvertBGRToImage(image_format=output_format),
+            ConvertBGRToImage(image_format=output_format),  # jpg or png are supported
         ]
     )
 
