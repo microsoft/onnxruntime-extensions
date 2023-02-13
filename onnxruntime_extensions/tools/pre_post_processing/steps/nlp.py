@@ -191,12 +191,7 @@ class BertTokenizer(Step):
         self._tokenizer_param = tokenizer_param
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
-        graph_input_names = [inp.name for inp in graph.output]
-        for inp in self.input_names:
-            assert inp in graph_input_names
-
-        input_type_str0, input_shape_str0 = self._get_input_type_and_shape_strs(
-            graph, 0)
+        input_type_str0, input_shape_str0 = self._get_input_type_and_shape_strs(graph, 0)
 
         input_shape_0 = input_shape_str0.split(",")
         prefix_ = f'step_{self.step_num}'
@@ -237,16 +232,12 @@ class BertTokenizer(Step):
             inputs = f"{input_type_str0}[{input_shape_str0}] {self.input_names[0]}"
             return inputs
 
-        def build_tokenizer_call_arg():
-            call_args = self.input_names[0]
-            return call_args
-
         converter_graph = onnx.parser.parse_graph(
             f"""\
             {onnx_tokenizer_impl} ({build_input_declare()}) 
                 => ({build_output_declare()})
             {{
-                {get_tokenizer_ret()} = com.microsoft.extensions.{onnx_tokenizer_impl} ({build_tokenizer_call_arg()})
+                {get_tokenizer_ret()} = com.microsoft.extensions.{onnx_tokenizer_impl} ({self.input_names[0]})
                 {build_output_imp()}
             }}
             """
@@ -268,6 +259,7 @@ class BertTokenizer(Step):
         converter_graph.node[node_idx].attribute.extend(token_model_attr)
 
         return converter_graph
+    
     
 class BertTokenizerQADecoder(Step):
     def __init__(self, tokenizer_param: TokenizerParam, name: Optional[str] = None):

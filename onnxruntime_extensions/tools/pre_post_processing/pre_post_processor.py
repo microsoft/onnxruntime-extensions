@@ -183,7 +183,8 @@ class PrePostProcessor:
                 io_map.append((step.output_names[step_idx], graph_input))
                 step_graph_outputs.remove((step.output_names[step_idx]))
 
-            # add any additional outputs from the IoMapEntry when outputs are eliminated
+            # add any additional outputs from previous IoMapEntry producers to avoid these
+            # outputs are disappeared in graph.
             step_graph_outputs += [
                 o.name for o in graph.output if o.name not in step_graph_outputs]
             external_outputs = [

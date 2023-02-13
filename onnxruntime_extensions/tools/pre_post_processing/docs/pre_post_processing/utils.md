@@ -46,20 +46,6 @@ Functions
 Classes
 -------
 
-`IoMapEntry(producer: Union[ForwardRef('Step'), str] = None, producer_idx: int = 0, consumer_idx: int = 0)`
-:   Entry to map the output index from a producer step to the input index of a consumer step.
-
-    ### Class variables
-
-    `consumer_idx: int`
-    :
-
-    `producer: Union[Step, str]`
-    :
-
-    `producer_idx: int`
-    :
-
 `ConnectionGuard(producer: Union[ForwardRef('Step'), str] = None, consumer: Union[ForwardRef('Step'), str] = None, producer_idx: int = 0, IsActive: bool = False, output: str = None)`
 :   work together with IoMapEntry, assure the connect output from producer is always exists.
 
@@ -72,6 +58,20 @@ Classes
     :
 
     `output: str`
+    :
+
+    `producer: Union[Step, str]`
+    :
+
+    `producer_idx: int`
+    :
+
+`IoMapEntry(producer: Union[ForwardRef('Step'), str] = None, producer_idx: int = 0, consumer_idx: int = 0)`
+:   Entry to map the output index from a producer step to the input index of a consumer step.
+
+    ### Class variables
+
+    `consumer_idx: int`
     :
 
     `producer: Union[Step, str]`

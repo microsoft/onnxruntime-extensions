@@ -190,15 +190,20 @@ def transformers_and_bert(
     Args:
         input_model_file (Path): the model file need to be updated.
         output_model_file (Path): where to save the final onnx model.
-        onnx_opset (int): default 16. the opset version to use for the final model.
+        vocab_file (Path): the vocab file for the tokenizer.
+        task_type (Union[NLPTaskType, str]): the task type of the model.
+        onnx_opset (int, optional): the opset version to use. Defaults to 16.
+        add_debug_before_postprocessing (bool, optional): whether to add a debug step before post processing. 
+            Defaults to False.
     """
     if isinstance(task_type, str):
         task_type = NLPTaskType[task_type]
+        
     onnx_model = onnx.load(str(input_model_file.resolve(strict=True)))
     inputs = [create_named_value("inputs", onnx.TensorProto.STRING, [
                                     "batch_size", "num_sentences"])]
 
-    pipeline = PrePostProcessor(inputs)
+    pipeline = PrePostProcessor(inputs, onnx_opset)
     tokenizer_args = TokenizerParam(
         vocab_or_file=vocab_file,
         do_lower_case=True,
@@ -206,9 +211,9 @@ def transformers_and_bert(
         pair_mode=True if task_type in [NLPTaskType.QuestionAnswering, NLPTaskType.NextSentencePrediction] else False,
     )
     
-    # The reason we can use it to decide if it is sentence piece tokenizer is that
+    # The reason we can use it to decide if it's sentence-piece tokenizer or not is that
     # SentencePieceTokenizer model is a ProtoBuf model, which serialized as a binary file.
-    # its header has a few characters, which is not printable.
+    # its header has a few un-printable characters.
     def is_sentence_piece_tokenizer(vocab_file: Path):
         with open(vocab_file, "rb") as f:
             vocab_header = f.read(4)
@@ -227,9 +232,11 @@ def transformers_and_bert(
     postprocessing = [Debug()] if add_debug_before_postprocessing else []
     if task_type == NLPTaskType.QuestionAnswering:
         postprocessing.append((BertTokenizerQADecoder(tokenizer_args), [
+                # input_ids
                  utils.IoMapEntry("BertTokenizer", producer_idx=0, consumer_idx=2)]))
     elif task_type == NLPTaskType.SequenceClassification:
         postprocessing.append(SequenceClassify())
+    # the other task don't need postprocessing or we don't support it yet.
 
     pipeline.add_pre_processing(preprocessing)
     pipeline.add_post_processing(postprocessing)
@@ -258,12 +265,14 @@ def main():
         individual steps as needed.
         
         For NLP models:
-           `transformers_and_bert` does only server as a example of how to add pre/post processing to 
-        a transformer model. Because we can't cover all the variations of the transformer tasks.
-        Usually pre-processing includes tokenizer and basic conversion of input_ids after tokenizer. Post-processing 
-        includes conversion of output_ids to text.
-        You might need to pass the tokenizer model file (bert vocab file or SentencePieceTokenizer model) to 
-        the function.
+           `transformers_and_bert` can server for MobileBert in QuestionAnswering/Classification task
+        or be used as a example of how to add pre/post processing to a transformer model for satisfying
+        your own down-stream task. Because we can't cover all the variations of the transformer tasks. 
+        Usually pre-processing includes tokenizer and basic conversion of input_ids after tokenizer. 
+        Post-processing includes conversion of output_ids to text.
+        
+        You might need to pass the tokenizer model file (bert vocab file or SentencePieceTokenizer model) 
+        and task_type to the function.
 
         The updated model will be written in the same location as the original model, 
         with '.onnx' updated to '.with_pre_post_processing.onnx'
@@ -309,11 +318,9 @@ def main():
     parser.add_argument(
         "--nlp_task_type",
         type=str,
-        choices=["TokenClassification",
-                 "token-classification", 
-                 "QuestionAnswering",
+        choices=["QuestionAnswering",
                  "question-answering",
-                 "SequenceClassification", 
+                 "SequenceClassification",
                  "sequence-classification",
                  "NextSentencePrediction"],
         required=False,
@@ -350,8 +357,8 @@ def main():
         superresolution(model_path, new_model_path,
                         args.output_format, args.opset)
     else:
-        if args.vocab_file is None:
-            print("Please provide vocab file for tokenizer.")
+        if args.vocab_file is None or args.nlp_task_type is None:
+            print("Please provide vocab file/nlp_task_type.")
             return
         transformers_and_bert(model_path, new_model_path,
                               args.vocab_file, args.nlp_task_type)

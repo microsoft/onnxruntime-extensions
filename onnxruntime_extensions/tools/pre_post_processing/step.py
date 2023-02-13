@@ -62,9 +62,10 @@ class Step(object):
         onnx.checker.check_graph(graph_for_step, checker_context)
 
         # prefix the graph for this step to guarantee no clashes of value names with the existing graph
-        onnx.compose.add_prefix_graph(
-            graph_for_step, self._prefix, inplace=True)
+        onnx.compose.add_prefix_graph(graph_for_step, self._prefix, inplace=True)
 
+        # activate the outputs that are preserved
+        # and deactivate the outputs when the current graph consumed them
         for preserves in preserved_outputs:
             if preserves.producer == self:
                 preserves.IsActive = True
@@ -73,7 +74,7 @@ class Step(object):
             elif preserves.consumer == self:
                 preserves.IsActive = False
 
-        # ConnectionGuard, connect the output to the next step even it's consumed by current graph
+        # ConnectionGuard, connect the output to the next step, So we explicitly add the output to the graph
         additional_outputs = [i.output for i in preserved_outputs if i.IsActive]
         result = self.__merge(graph, graph_for_step, additional_outputs)
 
