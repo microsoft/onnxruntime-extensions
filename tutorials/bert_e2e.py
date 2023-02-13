@@ -67,7 +67,7 @@ def export_backbone(model_name: str, bert_onnx_model: Path):
 
     if bert_onnx_model and bert_onnx_model.exists():
         print("Use cached onnx Model, skip re-exporting the backbone model.")
-        return tokenizer, bert_onnx_model
+        return tokenizer, bert_onnx_model, onnx_config
 
     # tempfile will be removed automatically
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -76,7 +76,7 @@ def export_backbone(model_name: str, bert_onnx_model: Path):
         onnx_inputs, onnx_outputs = transformers.onnx.export(
             tokenizer, model, onnx_config, 16, tmp_model_path)
         shutil.copy(tmp_model_path, bert_onnx_model)
-        return tokenizer, bert_onnx_model
+        return tokenizer, bert_onnx_model, onnx_config
 
 
 def add_pre_post_processing_to_transformers(model_name: str, input_model_file: Path, output_model_file: Path):
@@ -88,7 +88,8 @@ def add_pre_post_processing_to_transformers(model_name: str, input_model_file: P
         input_model_file (Path): The onnx model needed to be saved/cached, if not provided, will export from hugging-face.
         output_model_file (Path): where to save the final onnx model.
     """
-    tokenizer, bert_onnx_model = export_backbone(model_name, input_model_file)
+    tokenizer, bert_onnx_model, onnx_config = export_backbone(
+        model_name, input_model_file)
     if not hasattr(tokenizer, "vocab_file"):
         vocab_file = bert_onnx_model.parent / "vocab.txt"
         import json
@@ -97,7 +98,7 @@ def add_pre_post_processing_to_transformers(model_name: str, input_model_file: P
     else:
         vocab_file = tokenizer.vocab_file
     add_ppp.transformers_and_bert(bert_onnx_model, output_model_file,
-                                  model_name, vocab_file, add_debug_before_postprocessing=True)
+                                  vocab_file, onnx_config.task, add_debug_before_postprocessing=True)
 
 
 def verify_results_for_e2e_model(model_name: str, input_bert_model: Path, output_model_file: Path):
@@ -131,16 +132,10 @@ def verify_results_for_e2e_model(model_name: str, input_bert_model: Path, output
         str(output_model_file.resolve(strict=True)), session_options, providers=["CPUExecutionProvider"]
     )
 
-    # build input, QA task has 2 inputs
-    if len(text) == 2:
-        inputs = dict(
-            inputs=np.array([[i] for i in text]),
-        )
-    else:
-        inputs = dict(
-            inputs=np.array([i for i in text]),
-        )
-    real_outputs = session.run([output_name_for_verify], inputs)
+    inputs = dict(
+        inputs=np.array([[i] for i in text]),
+    )
+    real_outputs = session.run([output_name_for_verify+"_debug"], inputs)
     assert np.allclose(
         real_outputs[0], ref_outputs[0], atol=1e-2, rtol=1e-6
     ), f"Results do not match, expected:{ref_outputs[0]}, but got {real_outputs[0] }"

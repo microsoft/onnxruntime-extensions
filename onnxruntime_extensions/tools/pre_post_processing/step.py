@@ -73,13 +73,9 @@ class Step(object):
             elif preserves.consumer == self:
                 preserves.IsActive = False
 
-        # the first merge for getting outputs
-        result = self.__merge(graph, graph_for_step)
-        step_graph_outputs = [o.name for o in result.output]
-        external_outputs = [
-            i.output for i in preserved_outputs if i.IsActive and i.output not in step_graph_outputs]
-        step_graph_outputs.extend(external_outputs)
-        result = self.__merge(graph, graph_for_step, step_graph_outputs)
+        # ConnectionGuard, connect the output to the next step even it's consumed by current graph
+        additional_outputs = [i.output for i in preserved_outputs if i.IsActive]
+        result = self.__merge(graph, graph_for_step, additional_outputs)
 
         # update self.output_names to the prefixed names so that when we connect later Steps the values match
         new_outputs = [self._prefix + o for o in self.output_names]
@@ -106,8 +102,9 @@ class Step(object):
         pass
 
     def __merge(self, first: onnx.GraphProto, second: onnx.GraphProto,
-                outputs_to_preserve: Optional[List[str]] = None):
+                additional_outputs: Optional[List[str]] = None):
         # We prefixed all the value names in `second`, so allow for that when connecting the two graphs
+        first_output = [o.name for o in first.output]
         io_map = []
         for o in first.output:
             # apply the same prefix to the output from the previous step to match the prefixed graph from this step
@@ -115,7 +112,13 @@ class Step(object):
             for i in second.input:
                 if i.name == prefixed_output:
                     io_map.append((o.name, i.name))
-
+                    first_output.remove(o.name)
+                    
+        outputs_to_preserve = first_output + [o.name for o in second.output if o.name not in first_output]
+        assert len(outputs_to_preserve) == len(set(outputs_to_preserve))
+        for o in additional_outputs:
+            if o not in outputs_to_preserve:
+                outputs_to_preserve.append(o)
         # merge with existing graph
         merged_graph = onnx.compose.merge_graphs(first, second, io_map, outputs=outputs_to_preserve)
 

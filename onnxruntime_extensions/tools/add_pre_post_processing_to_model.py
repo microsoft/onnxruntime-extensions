@@ -7,7 +7,7 @@ import onnx
 import os
 
 from pathlib import Path
-
+from typing import Union
 # NOTE: If you're working on this script install onnxruntime_extensions using `pip install -e .` from the repo root
 # and run with `python -m onnxruntime_extensions.tools.add_pre_post_processing_to_model`
 # Running directly will result in an error from a relative import.
@@ -162,11 +162,25 @@ def superresolution(model_file: Path, output_file: Path, output_format: str, onn
     onnx.save_model(new_model, str(output_file.resolve()))
 
 
+NLPTaskType = enum.Enum(
+    value="NLPTaskType",
+    names=[
+        ("TokenClassification", 1),
+        ("token-classification", 1),  # alias name
+        ("QuestionAnswering", 2),
+        ("question-answering", 2),
+        ("SequenceClassification", 3),
+        ("sequence-classification", 3),
+        ("NextSentencePrediction", 4)
+        ]
+    )
+
+        
 def transformers_and_bert(
     input_model_file: Path,
     output_model_file: Path,
-    model_name: str,
     vocab_file: Path,
+    task_type: Union[NLPTaskType, str],
     onnx_opset: int = 16,
     add_debug_before_postprocessing=False,
 ):
@@ -178,6 +192,8 @@ def transformers_and_bert(
         output_model_file (Path): where to save the final onnx model.
         onnx_opset (int): default 16. the opset version to use for the final model.
     """
+    if isinstance(task_type, str):
+        task_type = NLPTaskType[task_type]
     onnx_model = onnx.load(str(input_model_file.resolve(strict=True)))
     inputs = [create_named_value("inputs", onnx.TensorProto.STRING, [
                                     "batch_size", "num_sentences"])]
@@ -186,24 +202,33 @@ def transformers_and_bert(
     tokenizer_args = TokenizerParam(
         vocab_or_file=vocab_file,
         do_lower_case=True,
-        tweaked_bos_id = 0,
+        tweaked_bos_id=0,
+        pair_mode=True if task_type in [NLPTaskType.QuestionAnswering, NLPTaskType.NextSentencePrediction] else False,
     )
-    if model_name == "csarron/mobilebert-uncased-squad-v2":
-        tokenizer_args.pair_mode = True
-        
+    
+    # The reason we can use it to decide if it is sentence piece tokenizer is that
+    # SentencePieceTokenizer model is a ProtoBuf model, which serialized as a binary file.
+    # its header has a few characters, which is not printable.
+    def is_sentence_piece_tokenizer(vocab_file: Path):
+        with open(vocab_file, "rb") as f:
+            vocab_header = f.read(4)
+            for bv in vocab_header:
+                if bv < 32:
+                    return True
+        return False
     preprocessing = [
         SentencePieceTokenizer(
-            tokenizer_args) if model_name == "xlm-roberta-base" else BertTokenizer(tokenizer_args),
+            tokenizer_args) if is_sentence_piece_tokenizer(vocab_file) else BertTokenizer(tokenizer_args),
         # uncomment this line to debug
-        # Debug(),
+        # Debug(2),
     ]
 
     # For verify results with out postprocessing
     postprocessing = [Debug()] if add_debug_before_postprocessing else []
-    if model_name == "csarron/mobilebert-uncased-squad-v2":
+    if task_type == NLPTaskType.QuestionAnswering:
         postprocessing.append((BertTokenizerQADecoder(tokenizer_args), [
                  utils.IoMapEntry("BertTokenizer", producer_idx=0, consumer_idx=2)]))
-    elif model_name in ["lordtt13/emo-mobilebert", "xlm-roberta-base"]:
+    elif task_type == NLPTaskType.SequenceClassification:
         postprocessing.append(SequenceClassify())
 
     pipeline.add_pre_processing(preprocessing)
@@ -253,10 +278,7 @@ def main():
         choices=[
             "superresolution",
             "mobilenet",
-            "xlm-roberta-base",
-            "google/mobilebert-uncased",
-            "csarron/mobilebert-uncased-squad-v2",
-            "lordtt13/emo-mobilebert",
+            "transformers",
         ],
         help="Model type.",
     )
@@ -282,6 +304,13 @@ def main():
         choices=["jpg", "png"],
         default="png",
         help="Image output format for superresolution model to produce.",
+    )
+    
+    parser.add_argument(
+        "--nlp_task_type",
+        type=NLPTaskType,
+        required=False,
+        help="The downstream task for NLP model.",
     )
 
     parser.add_argument(
@@ -318,7 +347,7 @@ def main():
             print("Please provide vocab file for tokenizer.")
             return
         transformers_and_bert(model_path, new_model_path,
-                              args.model_type, args.vocab_file)
+                              args.vocab_file, args.nlp_task_type)
 
 
 if __name__ == "__main__":

@@ -177,15 +177,19 @@ class PrePostProcessor:
                 self._pre_processing_joins = [(last_step, i, graph.input[i].name) for i in range(0, num_entries)]
 
             # map the pre-processing outputs to graph inputs
+            step_graph_outputs = [o.name for o in pre_process_graph.output]
             io_map = []  # type: List[Tuple[str, str]]
             for step, step_idx, graph_input in self._pre_processing_joins:
                 io_map.append((step.output_names[step_idx], graph_input))
+                step_graph_outputs.remove((step.output_names[step_idx]))
 
-            graph_first = onnx.compose.merge_graphs(pre_process_graph, graph, io_map)
-            step_graph_outputs = [o.name for o in graph_first.output]
+            # add any additional outputs from the IoMapEntry when outputs are eliminated
+            step_graph_outputs += [
+                o.name for o in graph.output if o.name not in step_graph_outputs]
             external_outputs = [
                 i.output for i in self._preserved_outputs if i.IsActive and i.output not in step_graph_outputs]
-            step_graph_outputs.extend(external_outputs)
+            if external_outputs:
+                step_graph_outputs.extend(external_outputs)
             graph = onnx.compose.merge_graphs(pre_process_graph, graph, io_map, outputs=step_graph_outputs)
 
         # add post-processing
