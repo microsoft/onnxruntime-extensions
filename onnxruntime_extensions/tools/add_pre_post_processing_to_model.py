@@ -308,7 +308,14 @@ def main():
     
     parser.add_argument(
         "--nlp_task_type",
-        type=NLPTaskType,
+        type=str,
+        choices=["TokenClassification",
+                 "token-classification", 
+                 "QuestionAnswering",
+                 "question-answering",
+                 "SequenceClassification", 
+                 "sequence-classification",
+                 "NextSentencePrediction"],
         required=False,
         help="The downstream task for NLP model.",
     )
