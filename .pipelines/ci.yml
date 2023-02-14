@@ -72,8 +72,9 @@ jobs:
           addToPath: true
 
       - script: |
+          set -e -x
           python -m pip install --upgrade pip setuptools
-          python -m pip install onnxruntime=${ort.version} $(torch.version) -r requirements-dev.txt
+          python -m pip install onnxruntime=$(ort.version) $(torch.version) -r requirements-dev.txt
         displayName: Install Python dependencies
 
       - script: |
@@ -174,8 +175,9 @@ jobs:
           addToPath: true
 
       - script: |
+          set -e -x
           python -m pip install --upgrade pip setuptools wheel
-          python -m pip install onnxruntime=${ort.version} $(torch.version) -r requirements-dev.txt
+          python -m pip install onnxruntime=$(ort.version) $(torch.version) -r requirements-dev.txt
         displayName: Install Python dependencies
 
       - script: |
@@ -285,7 +287,7 @@ jobs:
       - script: |
           call activate pyenv
           python -m pip install --upgrade pip
-          python -m pip install onnxruntime=${ort.version} -r requirements-dev.txt
+          python -m pip install onnxruntime=$(ort.version) -r requirements-dev.txt
         displayName: Install Python dependencies
 
       - script: |
