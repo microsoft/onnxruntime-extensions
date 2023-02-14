@@ -10,11 +10,14 @@
 # last available version of its dependencies (including the three listed above)
 # and so it's likely to be _better_ supported relative to any older versions.
 
-jobs:
+stages:
 
-  #######
-  # Linux
-  #######
+#######
+# Linux
+#######
+- stage: Linux
+  dependsOn: []
+  jobs:
   - job: Linux
     pool:
       vmImage: 'ubuntu-latest'
@@ -39,54 +42,57 @@ jobs:
           ort.version: '1.10.0'
 
     steps:
-      - task: DownloadGitHubRelease@0
-        inputs:
-          connection: 'microsoft'
-          userRepository: 'microsoft/onnxruntime'
-          defaultVersionType: 'specificTag'
-          version: 'v$(ort.version)'
-          itemPattern: '*-linux-x64-$(ort.version)*'
-          downloadPath: '$(Build.SourcesDirectory)'
-        displayName: Download the ONNXRuntime prebuilt package.
+    - task: DownloadGitHubRelease@0
+      inputs:
+        connection: 'microsoft'
+        userRepository: 'microsoft/onnxruntime'
+        defaultVersionType: 'specificTag'
+        version: 'v$(ort.version)'
+        itemPattern: '*-linux-x64-$(ort.version)*'
+        downloadPath: '$(Build.SourcesDirectory)'
+      displayName: Download the ONNXRuntime prebuilt package.
 
-      - task: ExtractFiles@1
-        inputs:
-          archiveFilePatterns: '**/*.tgz'
-          destinationFolder: '$(Build.SourcesDirectory)'
-          cleanDestinationFolder: false
-          overwriteExistingFiles: true
-        displayName: Unpack ONNXRuntime package.
+    - task: ExtractFiles@1
+      inputs:
+        archiveFilePatterns: '**/*.tgz'
+        destinationFolder: '$(Build.SourcesDirectory)'
+        cleanDestinationFolder: false
+        overwriteExistingFiles: true
+      displayName: Unpack ONNXRuntime package.
 
-      - script: |
-          CPU_NUMBER=2 sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=$(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ort.version)
-        displayName: build the customop library with onnxruntime
+    - script: |
+        CPU_NUMBER=2 sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=$(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ort.version)
+      displayName: build the customop library with onnxruntime
 
-      - script: |
-          cd out/Linux/RelWithDebInfo
-          ctest -C RelWithDebInfo --output-on-failure
-        displayName: Run C++ native tests
+    - script: |
+        cd out/Linux/RelWithDebInfo
+        ctest -C RelWithDebInfo --output-on-failure
+      displayName: Run C++ native tests
 
-      - task: UsePythonVersion@0
-        inputs:
-          versionSpec: '$(python.version)'
-          addToPath: true
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '$(python.version)'
+        addToPath: true
 
-      - script: |
-          set -e -x
-          python -m pip install --upgrade pip setuptools
-          python -m pip install onnxruntime==$(ort.version) $(torch.version) -r requirements-dev.txt
-        displayName: Install Python dependencies
+    - script: |
+        set -e -x
+        python -m pip install --upgrade pip setuptools
+        python -m pip install onnxruntime==$(ort.version) $(torch.version) -r requirements-dev.txt
+      displayName: Install Python dependencies
 
-      - script: |
-          CPU_NUMBER=2 python -m pip install -e .
-        displayName: Build the library and tests
+    - script: |
+        CPU_NUMBER=2 python -m pip install -e .
+      displayName: Build the library and tests
 
-      - script: python -m pytest test --verbose
-        displayName: Run python test
+    - script: python -m pytest test --verbose
+      displayName: Run python test
 
-  ###########
-  # macOS C++
-  ###########
+###########
+# macOS C++
+###########
+- stage: MacOSX
+  dependsOn: []
+  jobs:
   - job: MacOSX
     pool:
       vmImage: 'macOS-12'
@@ -107,40 +113,43 @@ jobs:
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
 
     steps:
-      # needed for onnxruntime
-      - script: brew install libomp
-        displayName: 'Install omp'
+    # needed for onnxruntime
+    - script: brew install libomp
+      displayName: 'Install omp'
 
-      - task: DownloadGitHubRelease@0
-        inputs:
-          connection: 'microsoft'
-          userRepository: 'microsoft/onnxruntime'
-          defaultVersionType: 'specificTag'
-          version: 'v$(ort.version)'
-          itemPattern: '$(ort.dirname)*'
-          downloadPath: '$(Build.SourcesDirectory)'
-        displayName: Download the ONNXRuntime prebuilt package.
+    - task: DownloadGitHubRelease@0
+      inputs:
+        connection: 'microsoft'
+        userRepository: 'microsoft/onnxruntime'
+        defaultVersionType: 'specificTag'
+        version: 'v$(ort.version)'
+        itemPattern: '$(ort.dirname)*'
+        downloadPath: '$(Build.SourcesDirectory)'
+      displayName: Download the ONNXRuntime prebuilt package.
 
-      - task: ExtractFiles@1
-        inputs:
-          archiveFilePatterns: '**/*.tgz'
-          destinationFolder: '$(Build.SourcesDirectory)'
-          cleanDestinationFolder: false
-          overwriteExistingFiles: true
-        displayName: Unpack ONNXRuntime package.
+    - task: ExtractFiles@1
+      inputs:
+        archiveFilePatterns: '**/*.tgz'
+        destinationFolder: '$(Build.SourcesDirectory)'
+        cleanDestinationFolder: false
+        overwriteExistingFiles: true
+      displayName: Unpack ONNXRuntime package.
 
-      - script: |
-          sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=$(Build.SourcesDirectory)/$(ort.dirname)
-        displayName: build the customop library with onnxruntime
+    - script: |
+        sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=$(Build.SourcesDirectory)/$(ort.dirname)
+      displayName: build the customop library with onnxruntime
 
-      - script: |
-          cd out/Darwin/RelWithDebInfo
-          ctest -C RelWithDebInfo --output-on-failure
-        displayName: Run C++ native tests
+    - script: |
+        cd out/Darwin/RelWithDebInfo
+        ctest -C RelWithDebInfo --output-on-failure
+      displayName: Run C++ native tests
 
-  #############
-  # macOS Python
-  #############
+#############
+# macOS Python
+#############
+- stage: MacOSPython
+  dependsOn: []
+  jobs:
   - job: MacOSPython
     pool:
       vmImage: 'macOS-12'
@@ -165,35 +174,38 @@ jobs:
           ort.version: '1.10.0'
 
     steps:
-      # needed for onnxruntime
-      - script: brew install libomp
-        displayName: 'Install omp'
+    # needed for onnxruntime
+    - script: brew install libomp
+      displayName: 'Install omp'
 
-      - task: UsePythonVersion@0
-        inputs:
-          versionSpec: '$(python.version)'
-          addToPath: true
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '$(python.version)'
+        addToPath: true
 
-      - script: |
-          set -e -x
-          python -m pip install --upgrade pip setuptools wheel
-          python -m pip install onnxruntime==$(ort.version) $(torch.version) -r requirements-dev.txt
-        displayName: Install Python dependencies
+    - script: |
+        set -e -x
+        python -m pip install --upgrade pip setuptools wheel
+        python -m pip install onnxruntime==$(ort.version) $(torch.version) -r requirements-dev.txt
+      displayName: Install Python dependencies
 
-      - script: |
-          python -c "import onnxruntime;print(onnxruntime.__version__)"
-        displayName: Check installation
+    - script: |
+        python -c "import onnxruntime;print(onnxruntime.__version__)"
+      displayName: Check installation
 
-      - script: |
-          python -m pip install -e .
-        displayName: Build and install the wheel
+    - script: |
+        python -m pip install -e .
+      displayName: Build and install the wheel
 
-      - script: cd test && python -m pytest . --verbose
-        displayName: Run python test
+    - script: cd test && python -m pytest . --verbose
+      displayName: Run python test
 
-  #########
-  # Windows C++
-  #########
+#########
+# Windows C++
+#########
+- stage: WindowsC
+  dependsOn: []
+  jobs:
   - job: WindowsC
     pool:
       vmImage: 'windows-2019'
@@ -210,50 +222,53 @@ jobs:
           ort.version: '1.10.0'
 
     steps:
-      - task: DownloadGitHubRelease@0
-        inputs:
-          connection: 'microsoft'
-          userRepository: 'microsoft/onnxruntime'
-          defaultVersionType: 'specificTag'
-          version: 'v$(ort.version)'
-          itemPattern: '*-win-x64-$(ort.version)*'
-          downloadPath: '$(Build.SourcesDirectory)'
-        displayName: Download the ONNXRuntime prebuilt package.
+    - task: DownloadGitHubRelease@0
+      inputs:
+        connection: 'microsoft'
+        userRepository: 'microsoft/onnxruntime'
+        defaultVersionType: 'specificTag'
+        version: 'v$(ort.version)'
+        itemPattern: '*-win-x64-$(ort.version)*'
+        downloadPath: '$(Build.SourcesDirectory)'
+      displayName: Download the ONNXRuntime prebuilt package.
 
-      - task: ExtractFiles@1
-        inputs:
-          archiveFilePatterns: '**/*.zip'
-          destinationFolder: '$(Build.SourcesDirectory)'
-          cleanDestinationFolder: false
-          overwriteExistingFiles: true
-        displayName: Unpack ONNXRuntime package.
+    - task: ExtractFiles@1
+      inputs:
+        archiveFilePatterns: '**/*.zip'
+        destinationFolder: '$(Build.SourcesDirectory)'
+        cleanDestinationFolder: false
+        overwriteExistingFiles: true
+      displayName: Unpack ONNXRuntime package.
 
-      - script: |
-          @echo off
-          set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
-          for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
-            if exist "%%i\Common7\Tools\vsdevcmd.bat" (
-              set vsdevcmd="%%i\Common7\Tools\vsdevcmd.bat"
-            )
+    - script: |
+        @echo off
+        set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+        for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
+          if exist "%%i\Common7\Tools\vsdevcmd.bat" (
+            set vsdevcmd="%%i\Common7\Tools\vsdevcmd.bat"
           )
+        )
 
-          @echo %vsdevcmd% will be used as the VC compiler
-          @echo ##vso[task.setvariable variable=vsdevcmd]%vsdevcmd%
-        displayName: 'locate vsdevcmd via vswhere'
+        @echo %vsdevcmd% will be used as the VC compiler
+        @echo ##vso[task.setvariable variable=vsdevcmd]%vsdevcmd%
+      displayName: 'locate vsdevcmd via vswhere'
 
-      - script: |
-          call $(vsdevcmd)
-          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
-        displayName: build the customop library with onnxruntime
+    - script: |
+        call $(vsdevcmd)
+        call .\build.bat -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
+      displayName: build the customop library with onnxruntime
 
-      - script: |
-          cd out/Windows
-          ctest -C RelWithDebInfo --output-on-failure
-        displayName: Run C++ native tests
+    - script: |
+        cd out/Windows
+        ctest -C RelWithDebInfo --output-on-failure
+      displayName: Run C++ native tests
 
-  ################
-  # Windows Python
-  ################
+################
+# Windows Python
+################
+- stage: WindowsPython
+  dependsOn: []
+  jobs:
   - job: WindowsPython
     pool:
       vmImage: 'windows-latest'
@@ -278,156 +293,165 @@ jobs:
           ort.version: '1.10.0'
 
     steps:
-      - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
-        displayName: Add conda to PATH
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
 
-      - script: conda create --yes --quiet --name pyenv -c conda-forge python=$(python.version) numpy
-        displayName: Create Anaconda environment
+    - script: conda create --yes --quiet --name pyenv -c conda-forge python=$(python.version) numpy
+      displayName: Create Anaconda environment
 
-      - script: |
-          call activate pyenv
-          python -m pip install --upgrade pip
-          python -m pip install onnxruntime==$(ort.version) -r requirements-dev.txt
-        displayName: Install Python dependencies
+    - script: |
+        call activate pyenv
+        python -m pip install --upgrade pip
+        python -m pip install onnxruntime==$(ort.version) -r requirements-dev.txt
+      displayName: Install Python dependencies
 
-      - script: |
-          call activate pyenv
-          python -m pip install .
-        displayName: Build the wheel
+    - script: |
+        call activate pyenv
+        python -m pip install .
+      displayName: Build the wheel
 
-      - script: |
-          call activate pyenv
-          python -m pip install $(torch.version)
-        displayName: Install pytorch
+    - script: |
+        call activate pyenv
+        python -m pip install $(torch.version)
+      displayName: Install pytorch
 
-      - script: |
-          call activate pyenv
-          pytest test
-        displayName: Run python test
+    - script: |
+        call activate pyenv
+        pytest test
+      displayName: Run python test
 
-  #############
-  # WebAssembly
-  #############
+#############
+# WebAssembly
+#############
+- stage: WebAssembly
+  dependsOn: []
+  jobs:
   - job: WebAssembly
     pool:
       vmImage: 'ubuntu-latest'
 
     steps:
-      - script: |
-          cd $(Build.BinariesDirectory)
-          git clone https://github.com/emscripten-core/emsdk
-          emsdk/emsdk install latest
-          emsdk/emsdk activate latest
-        displayName: Setup emscripten pipeline
+    - script: |
+        cd $(Build.BinariesDirectory)
+        git clone https://github.com/emscripten-core/emsdk
+        emsdk/emsdk install latest
+        emsdk/emsdk activate latest
+      displayName: Setup emscripten pipeline
 
-      - script: |
-          bash ./build.sh \
-          -DCMAKE_TOOLCHAIN_FILE=$(Build.BinariesDirectory)/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
-          -DOCOS_ENABLE_SPM_TOKENIZER=ON \
-          -DOCOS_BUILD_PYTHON=OFF \
-          -DOCOS_ENABLE_CV2=OFF \
-          -DOCOS_ENABLE_VISION=OFF
-        displayName: build the customop library with onnxruntime
+    - script: |
+        bash ./build.sh \
+        -DCMAKE_TOOLCHAIN_FILE=$(Build.BinariesDirectory)/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
+        -DOCOS_ENABLE_SPM_TOKENIZER=ON \
+        -DOCOS_BUILD_PYTHON=OFF \
+        -DOCOS_ENABLE_CV2=OFF \
+        -DOCOS_ENABLE_VISION=OFF
+      displayName: build the customop library with onnxruntime
     # TODO add unittest for webassembly
 
-  #############
-  # Android
-  #############
+#############
+# Android
+#############
+- stage: AndroidPackage
+  dependsOn: []
+  jobs:
   - job: AndroidPackage
     pool:
       vmImage: 'macOS-12'
     timeoutInMinutes: 120
     steps:
-      - task: UsePythonVersion@0
-        inputs:
-          versionSpec: "3.9"
-          addToPath: true
-          architecture: "x64"
-        displayName: "Use Python 3.9"
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: "3.9"
+        addToPath: true
+        architecture: "x64"
+      displayName: "Use Python 3.9"
 
-      - task: JavaToolInstaller@0
-        displayName: Use jdk 11
-        inputs:
-          versionSpec: '11'
-          jdkArchitectureOption: 'x64'
-          jdkSourceOption: 'PreInstalled'
+    - task: JavaToolInstaller@0
+      displayName: Use jdk 11
+      inputs:
+        versionSpec: '11'
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'PreInstalled'
 
-      - script: brew install coreutils ninja
-        displayName: Install coreutils and ninja
+    - script: brew install coreutils ninja
+      displayName: Install coreutils and ninja
 
-      - template: templates/run-with-android-emulator-steps.yml
-        parameters:
-          steps:
+    - template: templates/run-with-android-emulator-steps.yml
+      parameters:
+        steps:
 
-          - bash: |
-              set -e -x
+        - bash: |
+            set -e -x
 
-              _BUILD_CFG="x86_64 $(Build.BinariesDirectory)/android_aar" ./build.android
+            _BUILD_CFG="x86_64 $(Build.BinariesDirectory)/android_aar" ./build.android
 
-              VERSION=$(cat ./version.txt)
-              AAR_PATH="$(Build.BinariesDirectory)/android_aar/aar_out/com/microsoft/onnxruntime/onnxruntime-extensions-android/${VERSION}/onnxruntime-extensions-android-${VERSION}.aar"
+            VERSION=$(cat ./version.txt)
+            AAR_PATH="$(Build.BinariesDirectory)/android_aar/aar_out/com/microsoft/onnxruntime/onnxruntime-extensions-android/${VERSION}/onnxruntime-extensions-android-${VERSION}.aar"
 
-              echo "##vso[task.setvariable variable=ORT_EXTENSIONS_AAR_PATH]${AAR_PATH}"
-            displayName: Build onnxruntime-extensions AAR package
+            echo "##vso[task.setvariable variable=ORT_EXTENSIONS_AAR_PATH]${AAR_PATH}"
+          displayName: Build onnxruntime-extensions AAR package
 
-          - bash: |
-              set -e -x
+        - bash: |
+            set -e -x
 
-              cp -r $(Build.SourcesDirectory)/java/src/test/android $(Build.BinariesDirectory)/android_test
+            cp -r $(Build.SourcesDirectory)/java/src/test/android $(Build.BinariesDirectory)/android_test
 
-              cd $(Build.BinariesDirectory)/android_test
+            cd $(Build.BinariesDirectory)/android_test
 
-              ./gradlew connectedDebugAndroidTest --no-daemon -DortExtensionsAarLocalPath="${ORT_EXTENSIONS_AAR_PATH}"
-            displayName: Build and run onnxruntime-extensions Android test with Android Emulator
+            ./gradlew connectedDebugAndroidTest --no-daemon -DortExtensionsAarLocalPath="${ORT_EXTENSIONS_AAR_PATH}"
+          displayName: Build and run onnxruntime-extensions Android test with Android Emulator
 
-  #############
-  # iOS
-  #############
+#############
+# iOS
+#############
+- stage: IosPackage
+  dependsOn: []
+  jobs:
   - job: IosPackage
     pool:
       vmImage: 'macOS-12'
     timeoutInMinutes: 120
     steps:
-      - task: UsePythonVersion@0
-        inputs:
-          versionSpec: '3.9'
-          addToPath: true
-          architecture: 'x64'
-        displayName: "Use Python 3.9"
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.9'
+        addToPath: true
+        architecture: 'x64'
+      displayName: "Use Python 3.9"
 
-      # iOS xcframework build doesn't work with CMake 3.25.1, pin to 3.25.0
-      - script: |
-          python -m pip install cmake==3.25.0
-        displayName: "Install CMake 3.25.0"
+    # iOS xcframework build doesn't work with CMake 3.25.1, pin to 3.25.0
+    - script: |
+        python -m pip install cmake==3.25.0
+      displayName: "Install CMake 3.25.0"
 
-      - template: templates/set-package-version-variable-step.yml
-        parameters:
-          PackageVersionVariableName: ORT_EXTENSIONS_POD_VERSION
+    - template: templates/set-package-version-variable-step.yml
+      parameters:
+        PackageVersionVariableName: ORT_EXTENSIONS_POD_VERSION
 
-      - script: |
-          python ./tools/ios/build_xcframework.py \
-            --output-dir $(Build.BinariesDirectory)/xcframework_out \
-            --platform-arch iphonesimulator x86_64 \
-            --config Release
-        displayName: Build xcframework for iphonesimulator x86_64
+    - script: |
+        python ./tools/ios/build_xcframework.py \
+          --output-dir $(Build.BinariesDirectory)/xcframework_out \
+          --platform-arch iphonesimulator x86_64 \
+          --config Release
+      displayName: Build xcframework for iphonesimulator x86_64
 
-      - script: |
-          python ./tools/ios/assemble_pod_package.py \
-            --staging-dir $(Build.BinariesDirectory)/pod_staging \
-            --xcframework-output-dir $(Build.BinariesDirectory)/xcframework_out \
-            --pod-version ${ORT_EXTENSIONS_POD_VERSION}
-        displayName: Assemble pod
+    - script: |
+        python ./tools/ios/assemble_pod_package.py \
+          --staging-dir $(Build.BinariesDirectory)/pod_staging \
+          --xcframework-output-dir $(Build.BinariesDirectory)/xcframework_out \
+          --pod-version ${ORT_EXTENSIONS_POD_VERSION}
+      displayName: Assemble pod
 
-      - script: |
-          ORT_EXTENSIONS_LOCAL_POD_PATH=$(Build.BinariesDirectory)/pod_staging \
-            pod install
-        displayName: Install pods for OrtExtensionsUsage
-        workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage
+    - script: |
+        ORT_EXTENSIONS_LOCAL_POD_PATH=$(Build.BinariesDirectory)/pod_staging \
+          pod install
+      displayName: Install pods for OrtExtensionsUsage
+      workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage
 
-      - template: templates/run-with-ios-simulator-steps.yml
-        parameters:
-          steps:
-          - template: templates/xcode-build-and-test-step.yml
-            parameters:
-              xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
-              scheme: 'OrtExtensionsUsage'
+    - template: templates/run-with-ios-simulator-steps.yml
+      parameters:
+        steps:
+        - template: templates/xcode-build-and-test-step.yml
+          parameters:
+            xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
+            scheme: 'OrtExtensionsUsage'
