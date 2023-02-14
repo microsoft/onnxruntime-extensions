@@ -455,3 +455,4 @@ stages:
           parameters:
             xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
             scheme: 'OrtExtensionsUsage'
+            args: '-verbose'
