@@ -96,7 +96,8 @@ class IOEntryValuePreserver:
         1. when the IoMapEntry is created, this class will be created simultaneously.
         2. It records the producer and consumer steps, and the output index of the producer step.
     when producer step is running, this IOEntryValuePreserver will be activated and start to preserve the output.
-        3. when graph merge happens, this class will check if the output is still in the graph, if not, it will add the output
+        3. when graph merge happens, this class will check if the output is still in the graph, if not, 
+    it will add the output
         4. when consumer step is running, this class will be deactivated and remove output from preserved_list.
     """
 
@@ -104,7 +105,7 @@ class IOEntryValuePreserver:
     consumer: Union["Step", str] = None
     # output index from the producer step
     producer_idx: int = 0
-    IsActive: bool = False
+    is_active: bool = False
     output: str = None
 
 

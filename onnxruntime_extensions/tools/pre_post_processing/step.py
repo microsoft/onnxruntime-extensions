@@ -64,18 +64,18 @@ class Step(object):
         # prefix the graph for this step to guarantee no clashes of value names with the existing graph
         onnx.compose.add_prefix_graph(graph_for_step, self._prefix, inplace=True)
 
-        # activate the outputs that are preserved
+        # Trying to activate the IOEntryValuePreserver and preserve outputs.
         # and deactivate the outputs when the current graph consumed them
-        for preserves in preserved_outputs:
-            if preserves.producer == self:
-                preserves.IsActive = True
-                idx = preserves.producer_idx
-                preserves.output = graph_for_step.output[idx].name
-            elif preserves.consumer == self:
-                preserves.IsActive = False
+        for preserver in preserved_outputs:
+            if preserver.producer == self:
+                preserver.is_active = True
+                idx = preserver.producer_idx
+                preserver.output = graph_for_step.output[idx].name
+            elif preserver.consumer == self:
+                preserver.is_active = False
 
         # IOEntryValuePreserver, connect the output to the next step, So we explicitly add the output to the graph
-        additional_outputs = [i.output for i in preserved_outputs if i.IsActive]
+        additional_outputs = [i.output for i in preserved_outputs if i.is_active]
         result = self.__merge(graph, graph_for_step, additional_outputs)
 
         # update self.output_names to the prefixed names so that when we connect later Steps the values match
@@ -115,13 +115,12 @@ class Step(object):
                     io_map.append((o.name, i.name))
                     first_output.remove(o.name)
                     
-        outputs_to_preserve = first_output + [o.name for o in second.output if o.name not in first_output]
-        assert len(outputs_to_preserve) == len(set(outputs_to_preserve))
-        for o in additional_outputs:
-            if o not in outputs_to_preserve:
-                outputs_to_preserve.append(o)
+        graph_outputs = first_output + [o.name for o in second.output if o.name not in first_output]
+        graph_outputs += [o for o in additional_outputs if o not in graph_outputs]
+                
         # merge with existing graph
-        merged_graph = onnx.compose.merge_graphs(first, second, io_map, outputs=outputs_to_preserve)
+        merged_graph = onnx.compose.merge_graphs(
+            first, second, io_map, outputs=graph_outputs)
 
         return merged_graph
 
@@ -168,7 +167,7 @@ class Debug(Step):
     Step that can be arbitrarily inserted in the pre or post processing pipeline.
     It will make the outputs of the previous Step also become graph outputs so their value can be more easily debugged.
 
-    We will make the non_debug node visible in the graph outputs, the original outputs will be duplicated, one will be renamed with a suffix "_next",
+    The output will be duplicated into two outputs, one will be renamed with a suffix "_next",
     another will be renamed with a suffix "_debug". The "_next" outputs will feed into the next step,
     the "_debug" outputs will become graph outputs.
     """

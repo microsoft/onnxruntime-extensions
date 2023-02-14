@@ -58,7 +58,9 @@ class PrePostProcessor:
 
         self._inputs = inputs if inputs else []
         
-        # preserve input from IOMapEntry, avoid it's consumed by the Follow-up steps
+        # preserve output from IOMapEntry, avoid it's consumed by the Follow-up steps
+        # the basic assumption is a output has only one consumer, But IOEntryMap will add more.
+        # so we need to preserve the output value, and use it in the Follow-up steps.
         self._preserved_outputs = []  # type: List[IOEntryValuePreserver]
 
     def add_pre_processing(self, items: List[Union[Step, Tuple[Step, List[IoMapEntry]]]]):
@@ -177,6 +179,7 @@ class PrePostProcessor:
                 self._pre_processing_joins = [(last_step, i, graph.input[i].name) for i in range(0, num_entries)]
 
             # map the pre-processing outputs to graph inputs
+            # we may need a natty way to get possible outputs after merge_graphs
             step_graph_outputs = [o.name for o in pre_process_graph.output]
             io_map = []  # type: List[Tuple[str, str]]
             for step, step_idx, graph_input in self._pre_processing_joins:
@@ -184,11 +187,11 @@ class PrePostProcessor:
                 step_graph_outputs.remove((step.output_names[step_idx]))
 
             # add any additional outputs from previous IoMapEntry producers to avoid these
-            # outputs are disappeared in graph.
+            # outputs are consumed.
             step_graph_outputs += [
                 o.name for o in graph.output if o.name not in step_graph_outputs]
             external_outputs = [
-                i.output for i in self._preserved_outputs if i.IsActive and i.output not in step_graph_outputs]
+                i.output for i in self._preserved_outputs if i.is_active and i.output not in step_graph_outputs]
             if external_outputs:
                 step_graph_outputs.extend(external_outputs)
             graph = onnx.compose.merge_graphs(pre_process_graph, graph, io_map, outputs=step_graph_outputs)

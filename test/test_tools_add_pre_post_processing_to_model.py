@@ -249,7 +249,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
             )
             # tokenizer = transformers.AutoTokenizer.from_pretrained("lordtt13/emo-mobilebert")
             tokenizer_parameters = TokenizerParam(vocab_or_file=os.path.join(test_data_dir, "../hfbert.vocab"),
-                                                  do_lower_case=True, pair_mode=True)
+                                                  do_lower_case=True, is_sentence_pair=True)
             input_text = ("This is a test sentence",
                           "This is another test sentence")
             tokenizer_impl = BertTokenizer(tokenizer_parameters)

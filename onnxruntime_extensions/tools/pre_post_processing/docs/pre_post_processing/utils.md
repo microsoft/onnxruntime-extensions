@@ -46,15 +46,28 @@ Functions
 Classes
 -------
 
-`IOEntryValuePreserver(producer: Union[ForwardRef('Step'), str] = None, consumer: Union[ForwardRef('Step'), str] = None, producer_idx: int = 0, IsActive: bool = False, output: str = None)`
+`IOEntryValuePreserver(producer: Union[ForwardRef('Step'), str] = None, consumer: Union[ForwardRef('Step'), str] = None, producer_idx: int = 0, is_active: bool = False, output: str = None)`
 :   work together with IoMapEntry, assure the connect output from producer is always exists.
+    It mainly used for the case: 
+        user defined a IoMapEntry, but the producer output is consumed 
+    by other steps, so the output is removed by onnx.compose.merge_graphs.
+        The solution in this class is to preserve the output in PrePostProcessor and manually 
+        add output to the graph during graph merges.
+    
+    How this class works:
+        1. when the IoMapEntry is created, this class will be created simultaneously.
+        2. It records the producer and consumer steps, and the output index of the producer step.
+    when producer step is running, this IOEntryValuePreserver will be activated and start to preserve the output.
+        3. when graph merge happens, this class will check if the output is still in the graph, if not, 
+    it will add the output
+        4. when consumer step is running, this class will be deactivated and remove output from preserved_list.
 
     ### Class variables
 
-    `IsActive: bool`
+    `consumer: Union[Step, str]`
     :
 
-    `consumer: Union[Step, str]`
+    `is_active: bool`
     :
 
     `output: str`

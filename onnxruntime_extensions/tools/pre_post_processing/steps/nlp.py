@@ -15,7 +15,7 @@ class TokenizerParam(object):
         self.tweaked_bos_id = 1
         self.strip_accents = 0
         self.do_lower_case = 0
-        self.pair_mode = 0
+        self.is_sentence_pair = 0
         self.__assigned_with_kwargs(**kwargs)
 
     def __assigned_with_kwargs(self, **kwargs):
@@ -198,7 +198,7 @@ class BertTokenizer(Step):
         output_shape_str = f"{input_shape_0[0]},_{prefix_}_{input_shape_0[1]}"
         assert input_type_str0 == "string"
 
-        onnx_tokenizer_impl = "HfBertTokenizer" if self._tokenizer_param.pair_mode else "BertTokenizer"
+        onnx_tokenizer_impl = "HfBertTokenizer" if self._tokenizer_param.is_sentence_pair else "BertTokenizer"
 
         def build_output_declare():
             output_base = []
@@ -268,7 +268,6 @@ class BertTokenizerQADecoder(Step):
             Decode the input_ids to text
         Args:
             tokenizer_param: some essential infos to build a tokenizer.
-            such as "tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)"
             you can create a TokenizerParam object like:
                 tokenizer_param = TokenizerParam(vocab=tokenizer.vocab, #vocab is dict or file_path)
             name: Optional name of step. Defaults to 'BertTokenizerQADecoder'
@@ -288,6 +287,7 @@ class BertTokenizerQADecoder(Step):
                     f"{input_type_str_x}[{input_shape_str_x}] {inp}")
             return ",".join(inputs)
 
+        # A unique name for output shape
         prefix_ = f'step_{self.step_num}'
         output_shape_str = f"_{prefix_}_any_len"
         converter_graph = onnx.parser.parse_graph(
@@ -327,7 +327,7 @@ class SequenceClassify(Step):
     def __init__(self, name: Optional[str] = None):
         """
         Brief:
-            Convert max logit in logits array to index of classes, which used in classify task.
+            Get max logit index in logits array  and convert to index of classes, which used in classify task.
         Args:
             name: Optional name of step. Defaults to 'SequenceClassify'
 

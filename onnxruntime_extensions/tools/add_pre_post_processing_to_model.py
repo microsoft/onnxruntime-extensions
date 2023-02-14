@@ -188,7 +188,7 @@ def transformers_and_bert(
     and output the result in text format for model like QA.
 
     Args:
-        input_model_file (Path): the model file need to be updated.
+        input_model_file (Path): the model file needed to be updated.
         output_model_file (Path): where to save the final onnx model.
         vocab_file (Path): the vocab file for the tokenizer.
         task_type (Union[NLPTaskType, str]): the task type of the model.
@@ -208,7 +208,7 @@ def transformers_and_bert(
         vocab_or_file=vocab_file,
         do_lower_case=True,
         tweaked_bos_id=0,
-        pair_mode=True if task_type in [NLPTaskType.QuestionAnswering, NLPTaskType.NextSentencePrediction] else False,
+        is_sentence_pair=True if task_type in [NLPTaskType.QuestionAnswering, NLPTaskType.NextSentencePrediction] else False,
     )
     
     # The reason we can use it to decide if it's sentence-piece tokenizer or not is that
@@ -266,10 +266,9 @@ def main():
         
         For NLP models:
            `transformers_and_bert` can server for MobileBert in QuestionAnswering/Classification task
-        or be used as a example of how to add pre/post processing to a transformer model for satisfying
-        your own down-stream task. Because we can't cover all the variations of the transformer tasks. 
-        Usually pre-processing includes tokenizer and basic conversion of input_ids after tokenizer. 
-        Post-processing includes conversion of output_ids to text.
+        or be used as a guide of how to add pre/post processing to a transformer model for satisfying
+        your own down-stream task.
+        Usually pre-processing includes tokenizer. Post-processing includes conversion of output_ids to text.
         
         You might need to pass the tokenizer model file (bert vocab file or SentencePieceTokenizer model) 
         and task_type to the function.
@@ -335,15 +334,11 @@ def main():
     )
 
     parser.add_argument(
-        "--opset",
-        type=int,
-        required=False,
-        default=16,
+        "--opset",type=int,required=False,default=16,
         help="ONNX opset to use. Minimum allowed is 16. Opset 18 is required for Resize with anti-aliasing.",
     )
 
-    parser.add_argument("model", type=Path,
-                        help="Provide path to ONNX model to update.")
+    parser.add_argument("model", type=Path,help="Provide path to ONNX model to update.")
 
     args = parser.parse_args()
 

@@ -8,7 +8,7 @@ Classes
 :   Step that can be arbitrarily inserted in the pre or post processing pipeline.
     It will make the outputs of the previous Step also become graph outputs so their value can be more easily debugged.
     
-    We will make the non_debug node visible in the graph outputs, the original outputs will be duplicated, one will be renamed with a suffix "_next",
+    The output will be duplicated into two outputs, one will be renamed with a suffix "_next",
     another will be renamed with a suffix "_debug". The "_next" outputs will feed into the next step,
     the "_debug" outputs will become graph outputs.
     
