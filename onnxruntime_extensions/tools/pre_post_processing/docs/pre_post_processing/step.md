@@ -60,7 +60,7 @@ Classes
 
     ### Methods
 
-    `apply(self, graph: onnx.onnx_ml_pb2.GraphProto, checker_context: onnx.onnx_cpp2py_export.checker.CheckerContext, preserved_outputs: List[pre_post_processing.utils.ConnectionGuard])`
+    `apply(self, graph: onnx.onnx_ml_pb2.GraphProto, checker_context: onnx.onnx_cpp2py_export.checker.CheckerContext, preserved_outputs: List[pre_post_processing.utils.IOEntryValuePreserver])`
     :   Create a graph for this step that can be appended to the provided graph.
         The PrePostProcessor will handle merging the two.
 

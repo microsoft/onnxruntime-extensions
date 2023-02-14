@@ -8,7 +8,7 @@ from typing import List, Tuple, Union
 
 from .utils import (
     IoMapEntry,
-    ConnectionGuard,
+    IOEntryValuePreserver,
     create_custom_op_checker_context,
     sanitize_output_names,
     TENSOR_TYPE_TO_ONNX_TYPE,
@@ -59,7 +59,7 @@ class PrePostProcessor:
         self._inputs = inputs if inputs else []
         
         # preserve input from IOMapEntry, avoid it's consumed by the Follow-up steps
-        self._preserved_outputs = []  # type: List[ConnectionGuard]
+        self._preserved_outputs = []  # type: List[IOEntryValuePreserver]
 
     def add_pre_processing(self, items: List[Union[Step, Tuple[Step, List[IoMapEntry]]]]):
         """
@@ -288,7 +288,7 @@ class PrePostProcessor:
                         producer = self.__producer_from_step_or_str(entry.producer)  # throws if not found
 
                     io_map_entries[entry.consumer_idx] = IoMapEntry(producer, entry.producer_idx, entry.consumer_idx)
-                    self._preserved_outputs.append(ConnectionGuard(producer, step, entry.producer_idx))
+                    self._preserved_outputs.append(IOEntryValuePreserver(producer, step, entry.producer_idx))
 
             processors.append(step)
             processor_connections.append([entry for entry in io_map_entries if entry is not None])

@@ -83,7 +83,7 @@ class IoMapEntry:
 
 
 @dataclass
-class ConnectionGuard:
+class IOEntryValuePreserver:
     """work together with IoMapEntry, assure the connect output from producer is always exists."""
 
     #   Uses Step if provided.
