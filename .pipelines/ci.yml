@@ -72,22 +72,13 @@ jobs:
           addToPath: true
 
       - script: |
-          python -m pip install --upgrade pip
-          python -m pip install --upgrade setuptools
-          python -m pip install onnxruntime=${ort.version}
-          python -m pip install -r requirements.txt
-        displayName: Install requirements.txt
+          python -m pip install --upgrade pip setuptools
+          python -m pip install onnxruntime=${ort.version} $(torch.version) -r requirements-dev.txt
+        displayName: Install Python dependencies
 
       - script: |
           CPU_NUMBER=2 python -m pip install -e .
         displayName: Build the library and tests
-
-      - script: python -m pip install $(torch.version)
-        displayName: Install pytorch
-
-      - script: |
-          python -m pip install -r requirements-dev.txt
-        displayName: Install requirements-dev.txt
 
       - script: python -m pytest test --verbose
         displayName: Run python test
@@ -183,12 +174,9 @@ jobs:
           addToPath: true
 
       - script: |
-          python -m pip install --upgrade pip
-          python -m pip install --upgrade setuptools
-          python -m pip install --upgrade wheel
-          python -m pip install onnxruntime=${ort.version}
-          python -m pip install -r requirements.txt
-        displayName: Install requirements.txt
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install onnxruntime=${ort.version} $(torch.version) -r requirements-dev.txt
+        displayName: Install Python dependencies
 
       - script: |
           python -c "import onnxruntime;print(onnxruntime.__version__)"
@@ -197,12 +185,6 @@ jobs:
       - script: |
           python -m pip install -e .
         displayName: Build and install the wheel
-
-      - script: python -m pip install -r requirements-dev.txt
-        displayName: Install requirements-dev.txt
-
-      - script: python -m pip install $(torch.version)
-        displayName: Install pytorch
 
       - script: cd test && python -m pytest . --verbose
         displayName: Run python test
@@ -303,10 +285,8 @@ jobs:
       - script: |
           call activate pyenv
           python -m pip install --upgrade pip
-          python -m pip install onnxruntime=${ort.version}
-          python -m pip install -r requirements.txt
-          python -m pip install -r requirements-dev.txt
-        displayName: Install requirements.txt
+          python -m pip install onnxruntime=${ort.version} -r requirements-dev.txt
+        displayName: Install Python dependencies
 
       - script: |
           call activate pyenv
