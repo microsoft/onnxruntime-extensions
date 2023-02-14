@@ -1,4 +1,8 @@
+# spm is abbreviation of sentencepiece to meet the path length limits on Windows
 if(NOT _ONNXRUNTIME_EMBEDDED)
+  # If extensions wasn't built in ORT, we create fetchcontent the same 3rd party library as ORT
+  # So extensions is always consitent on the 3rd party libraries whether its build in ORT or not
+
   # TOOD: migrate to external abseil library
   # include(abseil-cpp)
   message(STATUS "Fetch protobuf")
@@ -36,6 +40,10 @@ if(NOT _ONNXRUNTIME_EMBEDDED)
   endif()
 endif()
 
+# To avoid create a complicated logic to build protoc, especailly for mobile platforms, we use the pre-generated pb files
+# Uses the following command line in _deps/spm-src folder to generate the PB patch file if protobuf version is updated
+# git diff -- src/builtin_pb/* | out-file -Encoding utf8 <REPO-ROOT>\cmake\externals\sentencepieceproject.pb.patch
+# PB files was seperated as another patch file to avoid the patch file too large to be reviewed.
 set(spm_patches
   "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject_cmake.patch"
   "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject_pb.patch")
