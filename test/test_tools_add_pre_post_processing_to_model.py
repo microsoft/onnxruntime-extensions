@@ -20,6 +20,8 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 ort_ext_root = os.path.abspath(os.path.join(script_dir, ".."))
 test_data_dir = os.path.join(ort_ext_root, "test", "data", "ppp_vision")
 
+ort_version = LooseVersion(ort.__version__)
+
 
 # Function to read the mobilenet labels and adjust for PT vs TF training if needed
 # def _get_labels(is_pytorch: bool = True):
@@ -37,7 +39,7 @@ test_data_dir = os.path.join(ort_ext_root, "test", "data", "ppp_vision")
 #     return labels
 
 
-@unittest.skipIf(LooseVersion(ort.__version__) < LooseVersion("1.11"),
+@unittest.skipIf(ort_version < LooseVersion("1.11"),
                  "Only supported in ORT 1.11 and above due to minimum requirement of ONNX opset 16.")
 class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
     def test_pytorch_mobilenet(self):
@@ -165,15 +167,24 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         result = np.array(result_img.convert('RGB'))
         expected = np.array(Image.open(expected_output_image_path).convert('RGB'))
 
-        # check all pixel values are close. allowing for 0.1% of pixels to differ by 2 at the most.
+        is_ort_1_13_or_later = ort_version >= LooseVersion("1.13")
+        max_expected_diff, max_expected_percentage_differing_pixels = (2, 0.1) if is_ort_1_13_or_later else (5, 8.0)
+
+        # check all pixel values are close.
+        # allowing for max_expected_percentage_differing_pixels % of pixels to differ by max_expected_diff at the most.
         #
         # we expect some variance from the floating point operations involved during Resize and conversion of the
         # original image to/from YCbCr. the different instructions used on different hardware can cause diffs, such as
-        # whether avx512 is used or not. MacOS seems to be slightly worse though (max of 2)
+        # whether avx512 is used or not. MacOS seems to be slightly worse though (e.g., max of 2 for ORT 1.13+).
         diffs = np.absolute(expected.astype(np.int32) - result.astype(np.int32))
-        total = np.sum(diffs)
-        print(f'Max diff:{diffs.max()} Total diffs:{total}')
-        self.assertTrue(diffs.max() < 3 and total < (result.size / 1000))
+        num_differing_pixels = np.count_nonzero(diffs)
+        percentage_differing_pixels = num_differing_pixels / result.size * 100.0
+
+        print(f'Max pixel value diff: {diffs.max()}')
+        print(f'Number of differing pixels: {num_differing_pixels} ({percentage_differing_pixels}%)')
+
+        self.assertLessEqual(diffs.max(), max_expected_diff)
+        self.assertLessEqual(percentage_differing_pixels, max_expected_percentage_differing_pixels)
 
 if __name__ == "__main__":
     unittest.main()
