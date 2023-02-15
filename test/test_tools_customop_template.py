@@ -62,7 +62,10 @@ class TestCustomOpTemplate(unittest.TestCase):
 
     def test_template(self):
         template_output_path = os.path.join(test_data_dir, "generated")
-        os.mkdir(template_output_path)
+        try:
+            os.mkdir(template_output_path)
+        except FileExistsError:
+            pass
         
         onnx.save(_create_test_model_1(), os.path.join(template_output_path, "test_model_1.onnx"))
         test1_template_output_path = os.path.join(template_output_path, "custom_op_template_test1.hpp")
