@@ -460,8 +460,10 @@ stages:
     - script: |
         cp -r ~/Library/Developer/Xcode/DerivedData/OrtExtensionsUsage-*/**/Test-OrtExtensionsUsage-*.xcresult $(Build.ArtifactStagingDirectory)
       displayName: Copy xcresult files
+      condition: succeededOrFailed()
 
     - task: PublishBuildArtifacts@1
       inputs:
         PathtoPublish: '$(Build.ArtifactStagingDirectory)'
         ArtifactName: 'xcresult'
+      condition: succeededOrFailed()
