@@ -7,8 +7,8 @@ import io
 import numpy as np
 import onnxruntime as ort
 import os
-import sys
 
+from distutils.version import LooseVersion
 from PIL import Image
 from pathlib import Path
 # NOTE: This assumes you have created an editable pip install for onnxruntime_extensions by running
@@ -37,6 +37,8 @@ test_data_dir = os.path.join(ort_ext_root, "test", "data", "ppp_vision")
 #     return labels
 
 
+@unittest.skipIf(LooseVersion(ort.__version__) < LooseVersion("1.11"),
+                 "Only supported in ORT 1.11 and above due to minimum requirement of ONNX opset 16.")
 class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
     def test_pytorch_mobilenet(self):
         input_model = os.path.join(test_data_dir, "pytorch_mobilenet_v2.onnx")
