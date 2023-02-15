@@ -456,3 +456,12 @@ stages:
             xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
             scheme: 'OrtExtensionsUsage'
             args: '-verbose'
+
+    - script: |
+        cp -r ~/Library/Developer/Xcode/DerivedData/OrtExtensionsUsage-*/**/Test-OrtExtensionsUsage-*.xcresult $(Build.ArtifactStagingDirectory)
+      displayName: Copy xcresult files
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'xcresult'
