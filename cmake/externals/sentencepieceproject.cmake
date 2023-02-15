@@ -40,7 +40,7 @@ if(NOT _ONNXRUNTIME_EMBEDDED)
   endif()
 endif()
 
-# To avoid create a complicated logic to build protoc, especailly for mobile platforms, we use the pre-generated pb files
+# To avoid creating complicated logic to build protoc, especially for mobile platforms, we use the pre-generated pb files
 # Uses the following command line in _deps/spm-src folder to generate the PB patch file if protobuf version is updated
 # git diff -- src/builtin_pb/* | out-file -Encoding utf8 <REPO-ROOT>\cmake\externals\sentencepieceproject_pb.patch
 # PB files was seperated as another patch file to avoid the patch file too large to be reviewed.
