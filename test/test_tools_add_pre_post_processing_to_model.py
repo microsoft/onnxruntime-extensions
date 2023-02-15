@@ -11,6 +11,7 @@ import sys
 
 from PIL import Image
 from pathlib import Path
+from distutils.version import LooseVersion
 # NOTE: This assumes you have created an editable pip install for onnxruntime_extensions by running
 # `pip install -e .` from the repo root.
 from onnxruntime_extensions import get_library_path
@@ -36,7 +37,7 @@ test_data_dir = os.path.join(ort_ext_root, "test", "data", "ppp_vision")
 #     assert(len(labels) == 1000 if is_pytorch else 1001)
 #     return labels
 
-
+@unittest.skipIf(LooseVersion(ort.__version__) < LooseVersion("1.13"), "only supported in ort 1.13 and above")
 class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
     def test_pytorch_mobilenet(self):
         input_model = os.path.join(test_data_dir, "pytorch_mobilenet_v2.onnx")
