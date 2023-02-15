@@ -1,7 +1,7 @@
 # spm is abbreviation of sentencepiece to meet the path length limits on Windows
 if(NOT _ONNXRUNTIME_EMBEDDED)
   # If extensions wasn't built in ORT, we create fetchcontent the same 3rd party library as ORT
-  # So extensions is always consitent on the 3rd party libraries whether its build in ORT or not
+  # So extensions is always consistent on the 3rd party libraries whether its build in ORT or not
 
   # TOOD: migrate to external abseil library
   # include(abseil-cpp)
