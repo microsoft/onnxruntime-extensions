@@ -458,7 +458,7 @@ stages:
             args: '-verbose'
 
     - script: |
-        cp -r ~/Library/Developer/Xcode/DerivedData/OrtExtensionsUsage-*/**/Test-OrtExtensionsUsage-*.xcresult $(Build.ArtifactStagingDirectory)
+        find ~/Library/Developer/Xcode/DerivedData -name "Test-OrtExtensionsUsage-*.xcresult" -exec cp -r {} $(Build.ArtifactStagingDirectory) \;
       displayName: Copy xcresult files
       condition: succeededOrFailed()
 
