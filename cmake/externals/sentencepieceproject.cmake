@@ -54,7 +54,6 @@ if (NOT DEFINED CMAKE_INSTALL_INCDIR)
   set(CMAKE_INSTALL_INCDIR include)
 endif()
 
-# spm is abbr. of sentencepiece to meet the MAX_PATH compiling requirement on Windows
 FetchContent_Declare(
   spm
   GIT_REPOSITORY https://github.com/google/sentencepiece.git
