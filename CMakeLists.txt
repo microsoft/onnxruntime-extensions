@@ -161,7 +161,7 @@ include(FetchContent)
 
 # PROJECT_IS_TOP_LEVEL is available until 3.21
 get_property(not_top DIRECTORY PROPERTY PARENT_DIRECTORY)
-if(not_top)
+if(not_top AND ONNXRUNTIME_ROOT)
   set(_ONNXRUNTIME_EMBEDDED TRUE)
 endif()
 include(ext_ortlib)
