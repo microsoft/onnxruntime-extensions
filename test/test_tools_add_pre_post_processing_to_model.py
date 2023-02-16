@@ -40,7 +40,7 @@ ort_version = LooseVersion(ort.__version__)
 
 
 @unittest.skipIf(ort_version < LooseVersion("1.11"),
-                 "Only supported in ORT 1.11 and above due to minimum requirement of ONNX opset 16.")
+                 "Unsupported before ORT 1.11 due to minimum requirement of ONNX opset 16.")
 class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
     def test_pytorch_mobilenet(self):
         input_model = os.path.join(test_data_dir, "pytorch_mobilenet_v2.onnx")
@@ -139,6 +139,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         # check within 1%. probability values are in range 0..1
         self.assertTrue(abs(orig_results[orig_idx] - new_results[new_idx]) < 0.01)
 
+    @unittest.skipIf(LooseVersion("1.11") <= ort_version and ort_version < LooseVersion("1.12"),
+                     "Avoid segmentation fault in Upsample in ORT 1.11.")
     def test_pytorch_superresolution(self):
         input_model = os.path.join(test_data_dir, "pytorch_super_resolution.onnx")
         output_model = os.path.join(test_data_dir, "pytorch_super_resolution.updated.onnx")
