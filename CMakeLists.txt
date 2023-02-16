@@ -159,6 +159,25 @@ endif()
 
 include(FetchContent)
 
+function(set_msvc_c_cpp_compiler_warning_level warning_level)
+  if (NOT "${warning_level}" MATCHES "^[0-4]$")
+    message(FATAL_ERROR "Expected warning_level value of 0-4, got '${warning_level}'.")
+  endif()
+
+  if (MSVC)
+    set(warning_flag "/W${warning_level}")
+    get_property(opts DIRECTORY PROPERTY COMPILE_OPTIONS)
+    # only match the generator expression added by this function
+    list(FILTER opts
+         EXCLUDE REGEX "^\\$<\\$<OR:\\$<COMPILE_LANGUAGE:C>,\\$<COMPILE_LANGUAGE:CXX>>:/W[0-4]>$")
+    list(APPEND opts "$<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:${warning_flag}>")
+    set_property(DIRECTORY PROPERTY COMPILE_OPTIONS "${opts}")
+  endif()
+endfunction()
+
+# set default MSVC warning level to 3 for external dependencies
+set_msvc_c_cpp_compiler_warning_level(3)
+
 # PROJECT_IS_TOP_LEVEL is available until 3.21
 get_property(not_top DIRECTORY PROPERTY PARENT_DIRECTORY)
 if(not_top AND ONNXRUNTIME_ROOT)
