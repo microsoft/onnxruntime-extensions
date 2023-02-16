@@ -300,9 +300,6 @@ class Resize(Step):
         self._layout = layout
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
-        return self._create_graph_for_step_using_sizes(graph, onnx_opset)
-
-    def _create_graph_for_step_using_sizes(self, graph: onnx.GraphProto, onnx_opset: int):
         input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
         dims = input_shape_str.split(",")
 
@@ -399,104 +396,11 @@ class Resize(Step):
 
         return resize_graph
 
-    # NOTE: The ORT Resize implementation is broken (versions up to 1.14) and does not round correctly when
-    # using `scales` as input. Due to that we have to apply the scale to the H and W and provide a `sizes` input
-    # instead. Will be fixedin 1.15 at which point we can revert to using this implementation
-    def _create_graph_for_step_using_scales(self, graph: onnx.GraphProto, onnx_opset: int):
-        input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
-        dims = input_shape_str.split(",")
-
-        # adjust for layout
-        # resize will use the largest ratio so both sides won't necessarily match the requested height and width.
-        # use symbolic names for the output dims as we have to provide values. prefix the names to try and
-        # avoid any clashes.
-        scales_constant_str = "f_1 = Constant <value = float[1] {1.0}> ()"
-        add_batch_dim = False
-
-        if self._layout == "NHWC":
-            assert len(dims) == 4
-            split_str = "n, h, w, c"
-            scales_str = "f_1, ratio_resize, ratio_resize, f_1"
-            output_shape_str = f"{dims[0]}, resize_ppp_{self.step_num}_h, resize_ppp_{self.step_num}_w, {dims[-1]}"
-        elif self._layout == "NCHW":
-            assert len(dims) == 4
-            split_str = "n, c, h, w"
-            scales_str = "f_1, f_1, ratio_resize, ratio_resize"
-            output_shape_str = f"{dims[0]}, {dims[1]}, resize_ppp_{self.step_num}_h, resize_ppp_{self.step_num}_w"
-        elif self._layout == "HWC":
-            assert len(dims) == 3
-            add_batch_dim = True
-            split_str = "h, w, c"
-            scales_str = "ratio_resize, ratio_resize, f_1"
-            output_shape_str = f"resize_ppp_{self.step_num}_h, resize_ppp_{self.step_num}_w, {dims[-1]}"
-        elif self._layout == "CHW":
-            assert len(dims) == 3
-            add_batch_dim = True
-            split_str = "c, h, w"
-            scales_str = "f_1, ratio_resize, ratio_resize"
-            output_shape_str = f"{dims[0]}, resize_ppp_{self.step_num}_h, resize_ppp_{self.step_num}_w"
-        elif self._layout == "HW":
-            assert len(dims) == 2
-            split_str = "h, w"
-            scales_str = "ratio_resize, ratio_resize"
-            scales_constant_str = ""
-            output_shape_str = f"resize_ppp_{self.step_num}_h, resize_ppp_{self.step_num}_w"
-        else:
-            raise ValueError(f"Unsupported layout of {self._layout}")
-
-        # TODO: Make this configurable. Matching PIL resize for now.
-        resize_attributes = 'mode = "linear", nearest_mode = "floor"'
-        if onnx_opset >= 18:
-            # Resize matches PIL better if antialiasing is used, but that isn't available until ONNX opset 18.
-            # Allow this to be used with older opsets as well.
-            resize_attributes += ', antialias = 1'
-
-        # Rank 3 input uses trilinear interpolation, so if input is HWC or CHW we need to add a temporary batch dim
-        # to make it rank 4, which will result in Resize using the desired bilinear interpolation.
-        if add_batch_dim:
-            scales_str = "f_1, " + scales_str
-            resize_str = \
-                f"""\
-                axes = Constant <value = int64[1] {{{0}}}> ()
-                unsqueezed = Unsqueeze ({self.input_names[0]}, axes)
-                resized =  Resize <{resize_attributes}> (unsqueezed, , scales_resize)
-                {self.output_names[0]} = Squeeze (resized, axes)
-                """
-        else:
-            resize_str = \
-                f"{self.output_names[0]} = Resize <{resize_attributes}> ({self.input_names[0]}, , scales_resize)"
-
-        split_attr = "axis = 0"
-        if onnx_opset >= 18:
-            # Split now requires the number of outputs to be specified even though that can be easily inferred...
-            split_attr += f", num_outputs = {len(dims)}"
-
-        resize_graph = onnx.parser.parse_graph(
-            f"""\
-            resize ({input_type_str}[{input_shape_str}] {self.input_names[0]}) => 
-                ({input_type_str}[{output_shape_str}] {self.output_names[0]})
-            {{
-                target_size = Constant <value = float[2] {{{float(self._height)}, {float(self._width)}}}> ()
-                image_shape = Shape ({self.input_names[0]})
-                {split_str} = Split <{split_attr}> (image_shape)
-                hw = Concat <axis = 0> (h, w)
-                f_hw = Cast <to = 1> (hw)
-                ratios = Div (target_size, f_hw)
-                ratio_resize = ReduceMax (ratios)
-
-                {scales_constant_str}
-                scales_resize = Concat <axis = 0> ({scales_str})
-                {resize_str}
-            }}
-            """
-        )
-
-        return resize_graph
-
 
 class CenterCrop(Step):
     """
     Crop the input to the requested dimensions, with the crop being centered.
+    Currently only HWC input is handled.
     """
 
     def __init__(self, height: int, width: int, name: Optional[str] = None):
@@ -521,15 +425,12 @@ class CenterCrop(Step):
                 => ({input_type_str}[{output_shape_str}] {self.output_names[0]})
             {{
                 target_crop = Constant <value = int64[2] {{{self._height}, {self._width}}}> ()
-                f32_2 = Constant <value = float[1] {{2.0}}> ()
+                i64_2 = Constant <value = int64[1] {{2}}> ()
                 axes = Constant <value = int64[2] {{0, 1}}> ()
                 x_shape = Shape ({self.input_names[0]})
                 hw = Gather (x_shape, axes)
                 hw_diff = Sub (hw, target_crop)
-                hw_diff_f = Cast <to = 1> (hw_diff)
-                start_xy_in = Div (hw_diff_f, f32_2)
-                start_xy_f = Floor (start_xy_in)
-                start_xy = Cast <to = 7> (start_xy_f)
+                start_xy = Div (hw_diff, i64_2)
                 end_xy = Add (start_xy, target_crop)
                 {self.output_names[0]} = Slice ({self.input_names[0]}, start_xy, end_xy, axes)
             }}

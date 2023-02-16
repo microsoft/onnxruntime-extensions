@@ -6,6 +6,7 @@ Classes
 
 `CenterCrop(height: int, width: int, name: Optional[str] = None)`
 :   Crop the input to the requested dimensions, with the crop being centered.
+    Currently only HWC input is handled.
     
     Args:
         height: Height of area to crop.

@@ -94,7 +94,7 @@ def add_pre_post_processing(output_format: str = "png"):
     add_ppp.superresolution(Path(ONNX_MODEL), Path(ONNX_MODEL_WITH_PRE_POST_PROCESSING), output_format, onnx_opset)
 
 
-def _center_crop(img: Image):
+def _center_crop_to_square(img: Image):
     if img.height != img.width:
         target_size = img.width if img.width < img.height else img.height
         w_start = int(np.floor((img.width - target_size) / 2))
@@ -126,7 +126,7 @@ def run_updated_onnx_model():
     updated = Image.open(io.BytesIO(upsized_image_bytes))
 
     # centered crop of original to match the area processed
-    original_cropped = _center_crop(original)
+    original_cropped = _center_crop_to_square(original)
 
     return original_cropped, updated
 
