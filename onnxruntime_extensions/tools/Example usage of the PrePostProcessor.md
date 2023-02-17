@@ -2,6 +2,12 @@
 
 The PrePostProcessor can be used to add pre and post processing operations to an existing model.
 
+## Installation
+
+Please install the latest onnxruntime_extensions package using
+`pip install --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ onnxruntime-extensions`.
+The official release will be available on pypi soon.
+
 ## Initial imports
 
 Import the pre/post processing infrastructure. This includes the PrePostProcessor class, the available pre and post
@@ -30,7 +36,7 @@ new_input = create_named_value('image', onnx.TensorProto.UINT8, ['num_bytes'])
 
 ### Create PrePostProcessor
 
-Create our PrePostProcessor instance with the new input/s and the ONNX opset to use. 
+Create our PrePostProcessor instance with the new input/s and the ONNX opset to use.
 Minimum allowed is opset 16. Opset 18 or higher is preferred as the Resize operator has anti-aliasing support.
 
 ```py
@@ -132,9 +138,10 @@ We want to consume the `Cr` and `Cr` outputs in the post-processing by joining t
 ```
 
 In order to do that, the post-processing entry can be specified as a tuple of the Step and a list of IoMapEntries.
-Each IoMapEntry has a simple structure of `IoMapEntry(producer, producer_idx, consumer_idx)`. The `producer` is the
-name of the Step that produces the output. The `producer_idx` is the index of the output from that step. The `consumer_idx`
-is the input number of the Step that we want to connect to.
+Each IoMapEntry has a simple structure of `IoMapEntry(producer, producer_idx, consumer_idx)`.
+- The `producer` is the name of the Step that produces the output.
+- The `producer_idx` is the index of the output from that step.
+- The `consumer_idx` is the input number of the Step that we want to connect to.
 
 
 ```py

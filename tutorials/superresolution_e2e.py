@@ -132,6 +132,16 @@ def run_updated_onnx_model():
 
 
 if __name__ == '__main__':
+    # check onnxruntime-extensions version
+    import onnxruntime_extensions
+    from packaging import version
+    if version.parse(onnxruntime_extensions.__version__) < version.parse("0.6.0"):
+        # temporarily install using nightly until we have official release on pypi.
+        raise ImportError(
+            f"onnxruntime_extensions version 0.6 or later is required. {onnxruntime_extensions.__version__} is installed. "
+            "Please install the latest version using "
+            "`pip install --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ onnxruntime-extensions`")  # noqa
+
     convert_pytorch_superresolution_to_onnx()
     add_pre_post_processing('png')
     original_img, updated_img = run_updated_onnx_model()
