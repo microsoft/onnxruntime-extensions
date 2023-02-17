@@ -300,7 +300,6 @@ class PrePostProcessor:
         # for each output create identity node to remove prefixing
         io_map = []
         fixes = onnx.GraphProto()
-        fixes.input.extend(graph.output)
 
         # manually handle naming clashes
         input_names = set([i.name for i in graph.input])
@@ -338,6 +337,7 @@ class PrePostProcessor:
 
             renamer = onnx.helper.make_node("Identity", [o.name], [clean_name], f"Rename {o.name}")
             fixes.node.append(renamer)
+            fixes.input.append(o)
 
             new_output = fixes.output.add()
             new_output.name = clean_name

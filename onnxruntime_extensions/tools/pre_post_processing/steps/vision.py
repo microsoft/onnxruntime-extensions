@@ -139,6 +139,11 @@ class PixelsToYCbCr(Step):
         output_shape_str = f"YCbCr_ppp_{self.step_num}_h, YCbCr_ppp_{self.step_num}_w"
         assert input_type_str == "uint8"
 
+        split_attr = "axis = -1"
+        if onnx_opset >= 18:
+            # Split now requires the number of outputs to be specified even though that can be easily inferred...
+            split_attr += ", num_outputs = 3"
+
         # convert to float for MatMul
         # apply weights and bias
         # round and clip so it's in the range 0..255
@@ -162,7 +167,7 @@ class PixelsToYCbCr(Step):
                 f_biased = Add(f_weighted, kBias)
                 f_rounded = Round(f_biased)
                 f_clipped = Clip (f_rounded, f_0, f_255)                                
-                split_Y, split_Cb, split_Cr = Split <axis = -1>(f_clipped)
+                split_Y, split_Cb, split_Cr = Split <{split_attr}>(f_clipped)
                 {self.output_names[0]} = Squeeze (split_Y, i64_neg1)
                 {self.output_names[1]} = Squeeze (split_Cb, i64_neg1)
                 {self.output_names[2]} = Squeeze (split_Cr, i64_neg1)
@@ -302,36 +307,34 @@ class Resize(Step):
         # resize will use the largest ratio so both sides won't necessarily match the requested height and width.
         # use symbolic names for the output dims as we have to provide values. prefix the names to try and
         # avoid any clashes.
-        scales_constant_str = "f_1 = Constant <value = float[1] {1.0}> ()"
         add_batch_dim = False
 
         if self._layout == "NHWC":
             assert len(dims) == 4
             split_str = "n, h, w, c"
-            scales_str = "f_1, ratio_resize, ratio_resize, f_1"
+            sizes_str = "n, h2, w2, c"
             output_shape_str = f"{dims[0]}, resize_ppp_{self.step_num}_h, resize_ppp_{self.step_num}_w, {dims[-1]}"
         elif self._layout == "NCHW":
             assert len(dims) == 4
             split_str = "n, c, h, w"
-            scales_str = "f_1, f_1, ratio_resize, ratio_resize"
+            sizes_str = "n, c, h2, w2"
             output_shape_str = f"{dims[0]}, {dims[1]}, resize_ppp_{self.step_num}_h, resize_ppp_{self.step_num}_w"
         elif self._layout == "HWC":
             assert len(dims) == 3
             add_batch_dim = True
             split_str = "h, w, c"
-            scales_str = "ratio_resize, ratio_resize, f_1"
+            sizes_str = "h2, w2, c"
             output_shape_str = f"resize_ppp_{self.step_num}_h, resize_ppp_{self.step_num}_w, {dims[-1]}"
         elif self._layout == "CHW":
             assert len(dims) == 3
             add_batch_dim = True
             split_str = "c, h, w"
-            scales_str = "f_1, ratio_resize, ratio_resize"
+            sizes_str = "c, h2, w2"
             output_shape_str = f"{dims[0]}, resize_ppp_{self.step_num}_h, resize_ppp_{self.step_num}_w"
         elif self._layout == "HW":
             assert len(dims) == 2
             split_str = "h, w"
-            scales_str = "ratio_resize, ratio_resize"
-            scales_constant_str = ""
+            sizes_str = "h2, w2"
             output_shape_str = f"resize_ppp_{self.step_num}_h, resize_ppp_{self.step_num}_w"
         else:
             raise ValueError(f"Unsupported layout of {self._layout}")
@@ -343,20 +346,30 @@ class Resize(Step):
             # Allow this to be used with older opsets as well.
             resize_attributes += ', antialias = 1'
 
+        u64_1_str = ""
+
         # Rank 3 input uses trilinear interpolation, so if input is HWC or CHW we need to add a temporary batch dim
         # to make it rank 4, which will result in Resize using the desired bilinear interpolation.
         if add_batch_dim:
-            scales_str = "f_1, " + scales_str
+            u64_1_str = "u64_1 = Constant <value = int64[1] {1}> ()"
+            sizes_str = "u64_1, " + sizes_str
             resize_str = \
                 f"""\
                 axes = Constant <value = int64[1] {{{0}}}> ()
                 unsqueezed = Unsqueeze ({self.input_names[0]}, axes)
-                resized =  Resize <{resize_attributes}> (unsqueezed, , scales_resize)
+                resized =  Resize <{resize_attributes}> (unsqueezed, , , sizes_resize)
                 {self.output_names[0]} = Squeeze (resized, axes)
                 """
         else:
             resize_str = \
-                f"{self.output_names[0]} = Resize <{resize_attributes}> ({self.input_names[0]}, , scales_resize)"
+                f"{self.output_names[0]} = Resize <{resize_attributes}> ({self.input_names[0]}, , , sizes_resize)"
+
+        split_input_shape_attr = "axis = 0"
+        split_new_sizes_attr = "axis = 0"
+        if onnx_opset >= 18:
+            # Split now requires the number of outputs to be specified even though that can be easily inferred...
+            split_input_shape_attr += f", num_outputs = {len(dims)}"
+            split_new_sizes_attr += ", num_outputs = 2"
 
         resize_graph = onnx.parser.parse_graph(
             f"""\
@@ -365,14 +378,17 @@ class Resize(Step):
             {{
                 target_size = Constant <value = float[2] {{{float(self._height)}, {float(self._width)}}}> ()
                 image_shape = Shape ({self.input_names[0]})
-                {split_str} = Split <axis = 0> (image_shape)
+                {split_str} = Split <{split_input_shape_attr}> (image_shape)
                 hw = Concat <axis = 0> (h, w)
                 f_hw = Cast <to = 1> (hw)
                 ratios = Div (target_size, f_hw)
                 ratio_resize = ReduceMax (ratios)
-
-                {scales_constant_str}
-                scales_resize = Concat <axis = 0> ({scales_str})
+                f_hw2_exact = Mul (f_hw, ratio_resize)
+                f_hw2_round = Round (f_hw2_exact)
+                hw2 = Cast <to = 7> (f_hw2_round)
+                h2, w2 = Split <{split_new_sizes_attr}> (hw2)
+                {u64_1_str}
+                sizes_resize = Concat <axis = 0> ({sizes_str})
                 {resize_str}
             }}
             """
@@ -384,6 +400,7 @@ class Resize(Step):
 class CenterCrop(Step):
     """
     Crop the input to the requested dimensions, with the crop being centered.
+    Currently only HWC input is handled.
     """
 
     def __init__(self, height: int, width: int, name: Optional[str] = None):
@@ -411,8 +428,7 @@ class CenterCrop(Step):
                 i64_2 = Constant <value = int64[1] {{2}}> ()
                 axes = Constant <value = int64[2] {{0, 1}}> ()
                 x_shape = Shape ({self.input_names[0]})
-                h, w, c = Split <axis = 0> (x_shape)
-                hw = Concat <axis = 0> (h, w)
+                hw = Gather (x_shape, axes)
                 hw_diff = Sub (hw, target_crop)
                 start_xy = Div (hw_diff, i64_2)
                 end_xy = Add (start_xy, target_crop)
