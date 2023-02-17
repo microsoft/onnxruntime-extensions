@@ -144,12 +144,15 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         # expected output is result of running the model that was manually compared to output from the
         # original pytorch model using torchvision and PIL for pre/post processing. the difference currently is due
         # to ONNX Resize not supporting antialiasing.
-        # TODO: When we update to an ORT version with ONNX opset 18 support and enable antialiasing in the Resize
-        # (update tools/pre_post_processing/utils.py to set PRE_POST_PROCESSING_ONNX_OPSET to 18) the expected output
-        # is in test_superresolution.expected.opset18.png.
-        expected_output_image_path = os.path.join(test_data_dir, "test_superresolution.expected.png")
+        from packaging import version
+        if version.parse(ort.__version__) >= version.parse("1.14.0"):
+            onnx_opset = 18
+            expected_output_image_path = os.path.join(test_data_dir, "test_superresolution.expected.opset18.png")
+        else:
+            onnx_opset = 16
+            expected_output_image_path = os.path.join(test_data_dir, "test_superresolution.expected.png")
 
-        add_ppp.superresolution(Path(input_model), Path(output_model), "png")
+        add_ppp.superresolution(Path(input_model), Path(output_model), "png", onnx_opset)
 
         input_bytes = np.fromfile(input_image_path, dtype=np.uint8)
 

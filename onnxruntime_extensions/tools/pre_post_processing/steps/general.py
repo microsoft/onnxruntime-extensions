@@ -44,12 +44,17 @@ class ReverseAxis(Step):
         for i in range(0, self._dim_value):
             split_outs.append(f"split_out_{i}")
 
+        split_attr = f"axis = {self._axis}"
+        if onnx_opset >= 18:
+            # Split now requires the number of outputs to be specified even though that can be easily inferred...
+            split_attr += f", num_outputs = {len(split_outs)}"
+
         reverse_graph = onnx.parser.parse_graph(
             f"""\
             reverse_axis ({input_type_str}[{input_shape_str}] {self.input_names[0]})
                 => ({input_type_str}[{input_shape_str}] {self.output_names[0]})  
             {{
-                {','.join(split_outs)} = Split <axis = {self._axis}> ({self.input_names[0]})
+                {','.join(split_outs)} = Split <{split_attr}> ({self.input_names[0]})
                 {self.output_names[0]} = Concat <axis = {self._axis}> ({','.join(reversed(split_outs))})
             }}
             """
