@@ -74,7 +74,7 @@ jobs:
       - script: |
           python -m pip install --upgrade pip
           python -m pip install --upgrade setuptools
-          python -m pip install onnxruntime=${ort.version}
+          python -m pip install onnxruntime==$(ort.version)
           python -m pip install -r requirements.txt
         displayName: Install requirements.txt
 
@@ -186,7 +186,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --upgrade setuptools
           python -m pip install --upgrade wheel
-          python -m pip install onnxruntime=${ort.version}
+          python -m pip install onnxruntime==$(ort.version)
           python -m pip install -r requirements.txt
         displayName: Install requirements.txt
 
@@ -303,7 +303,7 @@ jobs:
       - script: |
           call activate pyenv
           python -m pip install --upgrade pip
-          python -m pip install onnxruntime=${ort.version}
+          python -m pip install onnxruntime==$(ort.version)
           python -m pip install -r requirements.txt
           python -m pip install -r requirements-dev.txt
         displayName: Install requirements.txt

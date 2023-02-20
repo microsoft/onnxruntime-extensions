@@ -1,0 +1,85 @@
+﻿diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a3870cb..159cd84 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -63,7 +63,7 @@ if (MSVC)
+   string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_MINSIZEREL     ${CMAKE_CXX_FLAGS_MINSIZEREL})
+   string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELEASE        ${CMAKE_CXX_FLAGS_RELEASE})
+   string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_RELWITHDEBINFO})
+-  add_definitions("/wd4267 /wd4244 /wd4305 /Zc:strictStrings /utf-8")
++  add_definitions("/wd4305 /Zc:strictStrings /utf-8")
+ endif()
+ 
+ if (APPLE)
+@@ -108,7 +108,7 @@ if (SPM_USE_EXTERNAL_ABSL)
+ endif()
+ 
+ add_subdirectory(src)
+-add_subdirectory(third_party)
++# add_subdirectory(third_party)
+ 
+ set(CPACK_SOURCE_GENERATOR "TXZ")
+ set(CPACK_GENERATOR "7Z")
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 8b7fb76..f7fffe7 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -62,19 +62,31 @@ if (SPM_USE_BUILTIN_PROTOBUF)
+     ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/protobuf-lite/zero_copy_stream_impl.cc
+     ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/protobuf-lite/zero_copy_stream_impl_lite.cc)
+   if (MSVC)
+-    add_definitions("/DHAVE_PTHREAD /wd4018 /wd4514")
++    add_definitions("/DHAVE_PTHREAD /wd4514")
+   else()
+     add_definitions("-pthread -DHAVE_PTHREAD=1 -Wno-sign-compare")
+   endif()
+   include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../third_party/protobuf-lite)
+   include_directories(builtin_pb)
+ else()
+-  find_package(Protobuf REQUIRED)
++  include_directories(${protobuf_SOURCE_DIR}/src)
++  if(EXISTS "${ONNX_CUSTOM_PROTOC_EXECUTABLE}")
++    set(PROTOC_EXECUTABLE ${ONNX_CUSTOM_PROTOC_EXECUTABLE})
++  else()
++    set(PROTOC_EXECUTABLE ${protobuf_BINARY_DIR}/${CMAKE_BUILD_TYPE}/protoc)
++  endif()
++  message(STATUS "Using protobuf compiler ${PROTOC_EXECUTABLE}")
++  execute_process(COMMAND ${PROTOC_EXECUTABLE} --cpp_out=${CMAKE_CURRENT_SOURCE_DIR}/builtin_pb --proto_path=${CMAKE_CURRENT_SOURCE_DIR} sentencepiece_model.proto)
++  execute_process(COMMAND ${PROTOC_EXECUTABLE} --cpp_out=${CMAKE_CURRENT_SOURCE_DIR}/builtin_pb --proto_path=${CMAKE_CURRENT_SOURCE_DIR} sentencepiece.proto)
+   include_directories(${Protobuf_INCLUDE_DIRS})
+-  protobuf_generate_cpp(SPM_PROTO_SRCS SPM_PROTO_HDRS sentencepiece.proto)
+-  protobuf_generate_cpp(SPM_MODEL_PROTO_SRCS SPM_MODEL_PROTO_HDRS sentencepiece_model.proto)
+   set(PROTOBUF_LITE_SRCS "")
++  set(PROTOBUF_LITE_LIBRARY "")
+   include_directories(${PROTOBUF_INCLUDE_DIR})
++  include_directories(builtin_pb)
++  set(SPM_PROTO_HDRS builtin_pb/sentencepiece.pb.h)
++  set(SPM_PROTO_SRCS builtin_pb/sentencepiece.pb.cc)
++  set(SPM_MODEL_PROTO_HDRS builtin_pb/sentencepiece_model.pb.h)
++  set(SPM_MODEL_PROTO_SRCS builtin_pb/sentencepiece_model.pb.cc)
+ endif()
+ 
+ include_directories(${CMAKE_CURRENT_BINARY_DIR})
+@@ -285,10 +297,18 @@ endif()
+ list(APPEND SPM_INSTALLTARGETS
+   spm_encode spm_decode spm_normalize spm_train spm_export_vocab)
+ 
+-install(TARGETS ${SPM_INSTALLTARGETS}
+-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+-  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
++if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
++  install(TARGETS ${SPM_INSTALLTARGETS}
++    BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR}
++    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
++    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
++    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
++else()
++  install(TARGETS ${SPM_INSTALLTARGETS}
++    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
++    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
++    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
++endif()
+ install(FILES sentencepiece_trainer.h sentencepiece_processor.h
+   DESTINATION ${CMAKE_INSTALL_INCDIR})
+ if (NOT SPM_USE_BUILTIN_PROTOBUF)
