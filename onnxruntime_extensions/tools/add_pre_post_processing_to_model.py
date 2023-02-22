@@ -353,8 +353,7 @@ def main():
                         args.output_format, args.opset)
     else:
         if args.vocab_file is None or args.nlp_task_type is None:
-            print("Please provide vocab file/nlp_task_type.")
-            return
+            parser.error("Please provide vocab file/nlp_task_type.")
         transformers_and_bert(model_path, new_model_path,
                               args.vocab_file, args.nlp_task_type)
 
