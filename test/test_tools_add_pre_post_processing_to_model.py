@@ -207,7 +207,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         print(f"Max diff:{diffs.max()} Total diffs:{total}")
         self.assertTrue(diffs.max() < 3 and total < (result.size / 1000))
 
-    def build_testModel_and_get_ref_output_for_tokenizer(self, tokenizer_type: str, output_model: Path):
+    def build_test_model_and_get_ref_output_for_tokenizer(self, tokenizer_type: str, output_model: Path):
         import onnx
 
         create_named_value = pre_post_processing.utils.create_named_value
