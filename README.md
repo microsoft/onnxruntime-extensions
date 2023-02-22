@@ -19,7 +19,7 @@ Introduction: ONNXRuntime-Extensions is a library that extends the capability of
 
 #### <strong>on Windows</strong>
 ```bash
-pip install --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ onnxruntime-extensions
+pip install --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ onnxruntime-extensions
 ```
 #### <strong>on Linux/macOS</strong>
 the packages are not ready yet, so it could be installed from source. Please make sure the compiler toolkit like gcc(later than g++ 8.0) or clang, and the tool <strong>cmake</strong> are installed before the following command
