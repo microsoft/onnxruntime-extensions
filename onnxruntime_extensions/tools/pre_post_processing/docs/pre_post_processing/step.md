@@ -39,10 +39,10 @@ Classes
     * pre_post_processing.steps.general.Squeeze
     * pre_post_processing.steps.general.Transpose
     * pre_post_processing.steps.general.Unsqueeze
+    * pre_post_processing.steps.nlp.ArgMax
     * pre_post_processing.steps.nlp.BertTokenizer
     * pre_post_processing.steps.nlp.BertTokenizerQADecoder
     * pre_post_processing.steps.nlp.SentencePieceTokenizer
-    * pre_post_processing.steps.nlp.SequenceClassify
     * pre_post_processing.steps.vision.CenterCrop
     * pre_post_processing.steps.vision.ConvertBGRToImage
     * pre_post_processing.steps.vision.ConvertImageToBGR
@@ -60,7 +60,7 @@ Classes
 
     ### Methods
 
-    `apply(self, graph: onnx.onnx_ml_pb2.GraphProto, checker_context: onnx.onnx_cpp2py_export.checker.CheckerContext, preserved_outputs: List[pre_post_processing.utils.IOEntryValuePreserver])`
+    `apply(self, graph: onnx.onnx_ml_pb2.GraphProto, checker_context: onnx.onnx_cpp2py_export.checker.CheckerContext, additional_outputs: List[str])`
     :   Create a graph for this step that can be appended to the provided graph.
         The PrePostProcessor will handle merging the two.
 

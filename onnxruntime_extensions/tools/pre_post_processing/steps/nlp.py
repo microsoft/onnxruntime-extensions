@@ -57,18 +57,17 @@ class SentencePieceTokenizer(Step):
 
         """
         super().__init__(
-            ["inputs", "nbest_size", "alpha", "add_bos", "add_eos",
-                "reverse"], ["input_ids", "attention_mask"], name
+            ["inputs", "nbest_size", "alpha", "add_bos", "add_eos", "reverse"], ["input_ids", "attention_mask"], name
         )
         self._tokenizer_param = tokenizer_param
         # python bool value (True/False) is not supported in c++, so we use 0/1 to represent bool
-        self._optional_args = [nbest_size, alpha,
-                               int(add_bos), int(add_eos), int(reverse)]
+        self._optional_kwargs = dict(
+            nbest_size=nbest_size, alpha=alpha, add_bos=int(add_bos), add_eos=int(add_eos), reverse=int(reverse)
+        )
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         # input text
-        input_type_str0, input_shape_str0 = self._get_input_type_and_shape_strs(
-            graph, 0)
+        input_type_str0, input_shape_str0 = self._get_input_type_and_shape_strs(graph, 0)
         input_shape_0 = input_shape_str0.split(",")
         # ideally, we should support batch input, each batch has different length and output a token
         # !!! But, the implementation of SentencePieceTokenizer is not batch supported, inputs will be flatten to 1D
@@ -79,12 +78,12 @@ class SentencePieceTokenizer(Step):
         # as default value in model file.
         # it is only a temporary solution, we will remove it in the future.
         tweak_bos_id = False
-        if self._tokenizer_param.tweaked_bos_id != 1 and self._optional_args[2]:
-            self._optional_args[2] = 0
+        if self._tokenizer_param.tweaked_bos_id != 1 and self._optional_kwargs["add_bos"]:
+            self._optional_kwargs["add_bos"] = 0
             tweak_bos_id = True
 
         prefix_ = f'step_{self.step_num}'
-        output_shape_str = f"{input_shape_0[0]}, {prefix_}_{input_shape_0[1]}"
+        output_shape_str = f"{input_shape_0[0]}, {prefix_}__num_ids"
 
         def build_input_declare():
             input_base = f"{input_type_str0}[{input_shape_str0}] {self.input_names[0]}"
@@ -102,11 +101,11 @@ class SentencePieceTokenizer(Step):
         def build_forward_declare():
             # default values for nbest_size, alpha, add_bos, add_eos, reverse
             declare_base = [
-                f"i64_nbest_size = Constant <value = int64[1] {{{self._optional_args[0]}}}> ()",
-                f"f32_alpha = Constant <value = float[1] {{ {self._optional_args[1]} }}> ()",
-                f"bool_add_bos = Constant <value = bool[1] {{{self._optional_args[2]}}}> ()",
-                f"bool_add_eos = Constant <value = bool[1] {{{self._optional_args[3]}}}> ()",
-                f"bool_reverse = Constant <value = bool[1] {{{self._optional_args[4]}}}> ()",
+                f"i64_nbest_size = Constant <value = int64[1] {{{self._optional_kwargs['nbest_size']}}}> ()",
+                f"f32_alpha = Constant <value = float[1] {{ {self._optional_kwargs['alpha']} }}> ()",
+                f"bool_add_bos = Constant <value = bool[1] {{{self._optional_kwargs['add_bos']}}}> ()",
+                f"bool_add_eos = Constant <value = bool[1] {{{self._optional_kwargs['add_eos']}}}> ()",
+                f"bool_reverse = Constant <value = bool[1] {{{self._optional_kwargs['reverse']}}}> ()",
             ]
 
             return "\n".join(declare_base)
@@ -147,8 +146,7 @@ class SentencePieceTokenizer(Step):
             content = f.read()
 
         token_model_attr = onnx.helper.make_attribute("model", content)
-        node_idx = next(i for i, v in enumerate(
-            converter_graph.node) if v.op_type == "SentencepieceTokenizer")
+        node_idx = next(i for i, v in enumerate(converter_graph.node) if v.op_type == "SentencepieceTokenizer")
         converter_graph.node[node_idx].attribute.append(token_model_attr)
 
         return converter_graph
@@ -163,8 +161,7 @@ def _vocab_to_dict(vocab_or_file: Union[Dict[str, int], Path, str]):
     else:
         vocab = vocab_or_file
 
-    ordered_vocab = OrderedDict(
-        sorted(vocab.items(), key=lambda item: int(item[1])))
+    ordered_vocab = OrderedDict(sorted(vocab.items(), key=lambda item: int(item[1])))
 
     vocab = "\n".join(ordered_vocab.keys())
     return dict(vocab_file=vocab)
@@ -195,7 +192,7 @@ class BertTokenizer(Step):
 
         input_shape_0 = input_shape_str0.split(",")
         prefix_ = f'step_{self.step_num}'
-        output_shape_str = f"{input_shape_0[0]},_{prefix_}_{input_shape_0[1]}"
+        output_shape_str = f"{input_shape_0[0]},_{prefix_}__num_ids"
         assert input_type_str0 == "string"
 
         onnx_tokenizer_impl = "HfBertTokenizer" if self._tokenizer_param.is_sentence_pair else "BertTokenizer"
@@ -223,8 +220,7 @@ class BertTokenizer(Step):
             output_str = ["i64_0 = Constant <value = int64[1] {0}> ()"]
 
             for idx, out in enumerate(self.output_names):
-                output_str.append(
-                    f"{out} = Unsqueeze({ret_vars[idx]}, i64_0)")
+                output_str.append(f"{out} = Unsqueeze({ret_vars[idx]}, i64_0)")
 
             return "\n".join(output_str)
 
@@ -251,16 +247,14 @@ class BertTokenizer(Step):
         attrs["do_lower_case"] = bert_tokenizer_param.do_lower_case
 
         for attr in attrs:
-            token_model_attr.append(
-                onnx.helper.make_attribute(attr, attrs[attr]))
+            token_model_attr.append(onnx.helper.make_attribute(attr, attrs[attr]))
 
-        node_idx = next(i for i, v in enumerate(
-            converter_graph.node) if v.op_type == onnx_tokenizer_impl)
+        node_idx = next(i for i, v in enumerate(converter_graph.node) if v.op_type == onnx_tokenizer_impl)
         converter_graph.node[node_idx].attribute.extend(token_model_attr)
 
         return converter_graph
-    
-    
+
+
 class BertTokenizerQADecoder(Step):
     def __init__(self, tokenizer_param: TokenizerParam, name: Optional[str] = None):
         """
@@ -281,10 +275,8 @@ class BertTokenizerQADecoder(Step):
         def build_input_declare():
             inputs = []
             for idx, inp in enumerate(self.input_names):
-                input_type_str_x, input_shape_str_x = self._get_input_type_and_shape_strs(
-                    graph, idx)
-                inputs.append(
-                    f"{input_type_str_x}[{input_shape_str_x}] {inp}")
+                input_type_str_x, input_shape_str_x = self._get_input_type_and_shape_strs(graph, idx)
+                inputs.append(f"{input_type_str_x}[{input_shape_str_x}] {inp}")
             return ",".join(inputs)
 
         # A unique name for output shape
@@ -310,33 +302,32 @@ class BertTokenizerQADecoder(Step):
             """
         )
 
-        attrs = attrs = _vocab_to_dict(self._tokenizer_param.vocab_or_file)
+        attrs = _vocab_to_dict(self._tokenizer_param.vocab_or_file)
         token_model_attr = []
         for attr in attrs:
-            token_model_attr.append(
-                onnx.helper.make_attribute(attr, attrs[attr]))
+            token_model_attr.append(onnx.helper.make_attribute(attr, attrs[attr]))
 
-        node_idx = next(i for i, v in enumerate(
-            converter_graph.node) if v.op_type == "BertTokenizerDecoder")
+        node_idx = next(i for i, v in enumerate(converter_graph.node) if v.op_type == "BertTokenizerDecoder")
         converter_graph.node[node_idx].attribute.extend(token_model_attr)
 
         return converter_graph
 
 
-class SequenceClassify(Step):
-    def __init__(self, name: Optional[str] = None):
+class ArgMax(Step):
+    def __init__(self, name: Optional[str] = None, axis: int = -1, keepdims: int = 0):
         """
         Brief:
-            Get max logit index in logits array  and convert to index of classes, which used in classify task.
+            Same as ArgMax op.
         Args:
-            name: Optional name of step. Defaults to 'SequenceClassify'
+            name: Optional name of step. Defaults to 'ArgMax'
 
         """
         super().__init__(["logits"], ["index"], name)
+        self._axis = axis
+        self._keepdims = keepdims
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
-        input_type_str_0, input_shape_str_0 = self._get_input_type_and_shape_strs(
-            graph, 0)
+        input_type_str_0, input_shape_str_0 = self._get_input_type_and_shape_strs(graph, 0)
         input_shape_0 = input_shape_str_0.split(",")
 
         def build_input_declare():
@@ -349,7 +340,7 @@ class SequenceClassify(Step):
             classify ({build_input_declare()}) 
                 => (int64[{output_shape_str}] {self.output_names[0]})
             {{
-                {self.output_names[0]} = ArgMax<axis = -1, keepdims=0>({self.input_names[0]})
+                {self.output_names[0]} = ArgMax<axis = {self._axis}, keepdims={self._keepdims}>({self.input_names[0]})
             }}
             """
         )

@@ -146,12 +146,32 @@ class PrePostProcessor:
                     n.name = prefix + str(idx)
                     idx += 1
 
+        def preserved_apply(processor: Step, *args):
+            # Trying to activate the IOEntryValuePreserver and preserve outputs.
+            # and deactivate the outputs when the current graph consumed them
+
+            for preserver in self._preserved_outputs:
+                if preserver.consumer == processor:
+                    preserver.is_active = False
+
+            # IOEntryValuePreserver, preserve those outputs which has multiple consumers.
+            # we so explicitly add the output to the graph avoid it's eliminated.
+            additional_outputs = [i.output for i in self._preserved_outputs if i.is_active]
+            graph_for_step = processor.apply(*args, additional_outputs)
+
+            for preserver in self._preserved_outputs:
+                if preserver.producer == processor:
+                    preserver.is_active = True
+                    idx = preserver.producer_idx
+                    preserver.output = graph_for_step.output[idx].name
+            return graph_for_step
+
         def connect_and_run(graph: onnx.GraphProto, processor: Step, connections: List[IoMapEntry]):
             for connection in connections:
                 assert connection.producer
                 self._add_connection(processor, connection)
 
-            return processor.apply(graph, self._custom_op_checker_context, self._preserved_outputs)
+            return preserved_apply(processor, graph, self._custom_op_checker_context)
 
         # fix any invalid output names now if we're adding post-processing as the onnx parse_graph can't handle them
         if self.post_processors:

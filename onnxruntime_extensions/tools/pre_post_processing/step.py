@@ -9,7 +9,6 @@ from typing import List, Optional, Tuple
 
 from .utils import (
     IoMapEntry,
-    IOEntryValuePreserver,
     create_custom_op_checker_context,
     TENSOR_TYPE_TO_ONNX_TYPE,
 )
@@ -51,7 +50,7 @@ class Step(object):
 
     def apply(self, graph: onnx.GraphProto, 
               checker_context: onnx.checker.C.CheckerContext, 
-              preserved_outputs: List[IOEntryValuePreserver]):
+              additional_outputs: List[str]):
         """
         Create a graph for this step that can be appended to the provided graph.
         The PrePostProcessor will handle merging the two.
@@ -64,18 +63,6 @@ class Step(object):
         # prefix the graph for this step to guarantee no clashes of value names with the existing graph
         onnx.compose.add_prefix_graph(graph_for_step, self._prefix, inplace=True)
 
-        # Trying to activate the IOEntryValuePreserver and preserve outputs.
-        # and deactivate the outputs when the current graph consumed them
-        for preserver in preserved_outputs:
-            if preserver.producer == self:
-                preserver.is_active = True
-                idx = preserver.producer_idx
-                preserver.output = graph_for_step.output[idx].name
-            elif preserver.consumer == self:
-                preserver.is_active = False
-
-        # IOEntryValuePreserver, connect the output to the next step, So we explicitly add the output to the graph
-        additional_outputs = [i.output for i in preserved_outputs if i.is_active]
         result = self.__merge(graph, graph_for_step, additional_outputs)
 
         # update self.output_names to the prefixed names so that when we connect later Steps the values match
@@ -186,12 +173,9 @@ class Debug(Step):
         super().__init__(input_names, output_names, name)
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
-        non_debug_input_names = [
-            name for name in self.input_names if not name.endswith("_debug")]
-
-        if self._num_inputs > len(non_debug_input_names):
+        if self._num_inputs > len(self.input_names):
             raise ValueError(
-                f"Debug step requested {self._num_inputs} inputs, but graph only has {len(non_debug_input_names)}.")
+                f"Debug step requested {self._num_inputs} inputs, but graph only has {len(self.input_names)}.")
 
         debug_offset = len(self.input_names)
         # update output names so we preserve info from the latest input names

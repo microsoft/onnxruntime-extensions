@@ -4,6 +4,18 @@ Module pre_post_processing.steps.nlp
 Classes
 -------
 
+`ArgMax(name: Optional[str] = None, axis: int = -1, keepdims: int = 0)`
+:   Base class for a pre or post processing step.
+    
+    Brief:
+        Same as ArgMax op.
+    Args:
+        name: Optional name of step. Defaults to 'ArgMax'
+
+    ### Ancestors (in MRO)
+
+    * pre_post_processing.step.Step
+
 `BertTokenizer(tokenizer_param: pre_post_processing.steps.nlp.TokenizerParam, name: Optional[str] = None)`
 :   Base class for a pre or post processing step.
     
@@ -59,18 +71,6 @@ Classes
               https://www.tensorflow.org/text/api_docs/python/text/SentencepieceTokenizer#args
     
         name: Optional name of step. Defaults to 'SentencePieceTokenizer'
-
-    ### Ancestors (in MRO)
-
-    * pre_post_processing.step.Step
-
-`SequenceClassify(name: Optional[str] = None)`
-:   Base class for a pre or post processing step.
-    
-    Brief:
-        Get max logit index in logits array  and convert to index of classes, which used in classify task.
-    Args:
-        name: Optional name of step. Defaults to 'SequenceClassify'
 
     ### Ancestors (in MRO)
 
