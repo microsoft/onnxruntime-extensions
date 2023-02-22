@@ -314,7 +314,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         self.assertEqual(np.allclose(result[1], ref_output[2]), True)
         self.assertEqual(np.allclose(result[2], ref_output[1]), True)
 
-    def test_hfBert_tokenizer(self):
+    def test_hfbert_tokenizer(self):
         output_model = (Path(test_data_dir) /
                         "../hfbert_tokenizer.onnx").resolve()
         input_text, ref_output = self.build_testModel_and_get_ref_output_for_tokenizer(
