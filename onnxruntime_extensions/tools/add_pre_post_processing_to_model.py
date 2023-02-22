@@ -178,7 +178,7 @@ def transformers_and_bert(
     input_model_file: Path,
     output_model_file: Path,
     vocab_file: Path,
-    tokenizer_type: TokenizerType,
+    tokenizer_type: Union[TokenizerType, str],
     task_type: Union[NLPTaskType, str],
     onnx_opset: int = 16,
     add_debug_before_postprocessing=False,
@@ -197,6 +197,8 @@ def transformers_and_bert(
     """
     if isinstance(task_type, str):
         task_type = NLPTaskType[task_type]
+    if isinstance(tokenizer_type, str):
+        tokenizer_type = TokenizerType[tokenizer_type]
 
     onnx_model = onnx.load(str(input_model_file.resolve(strict=True)))
     # hardcode batch size to 1

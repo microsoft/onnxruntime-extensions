@@ -57,7 +57,7 @@ class SentencePieceTokenizer(Step):
 
         """
         super().__init__(
-            ["inputs", "nbest_size", "alpha", "add_bos", "add_eos", "reverse"], ["input_ids", "attention_mask"], name
+            ["input_text", "nbest_size", "alpha", "add_bos", "add_eos", "reverse"], ["input_ids", "attention_mask"], name
         )
         self._tokenizer_param = tokenizer_param
         # python bool value (True/False) is not supported in c++, so we use 0/1 to represent bool
@@ -82,8 +82,9 @@ class SentencePieceTokenizer(Step):
             self._optional_kwargs["add_bos"] = 0
             tweak_bos_id = True
 
+        batch_dim = input_shape_0[0] if len(input_shape_0) > 1 else "1"
         prefix_ = f'step_{self.step_num}'
-        output_shape_str = f"1, {prefix_}__num_ids"
+        output_shape_str = f"{batch_dim}, {prefix_}__num_ids"
 
         def build_input_declare():
             input_base = f"{input_type_str0}[{input_shape_str0}] {self.input_names[0]}"
@@ -194,8 +195,7 @@ class BertTokenizer(Step):
             name: Optional name of step. Defaults to 'BertTokenizer'
 
         """
-        super().__init__(["inputs"], ["input_ids",
-                                      "attention_mask", "token_type_ids"], name)
+        super().__init__(["input_text"], ["input_ids", "attention_mask", "token_type_ids"], name)
         self._tokenizer_param = tokenizer_param
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
@@ -204,7 +204,8 @@ class BertTokenizer(Step):
         input_shape_0 = input_shape_str0.split(",")
         prefix_ = f'step_{self.step_num}'
         # only support bath size 1 until tokenizer op supports batch size > 1
-        output_shape_str = f"1, _{prefix_}__num_ids"
+        batch_dim = input_shape_0[0] if len(input_shape_0) > 1 else "1"
+        output_shape_str = f"{batch_dim}, _{prefix_}__num_ids"
         assert input_type_str0 == "string"
 
         onnx_tokenizer_impl = "HfBertTokenizer" if self._tokenizer_param.is_sentence_pair else "BertTokenizer"

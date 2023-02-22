@@ -34,9 +34,8 @@ def get_tokenizer_and_model_from_huggingface(model_name):
         model = transformers.MobileBertForNextSentencePrediction.from_pretrained(
             model_name)
         onnx_config = transformers.models.mobilebert.MobileBertOnnxConfig(
-            config, "masked-lm")
-        text = ("where is Jim Henson?",
-                "he is at school from where two blocks away")
+            config, "default")
+        text = ("where is Jim Henson?","he is at school from where two blocks away")
     elif model_name == "csarron/mobilebert-uncased-squad-v2":
         model = transformers.MobileBertForQuestionAnswering.from_pretrained(
             model_name)
@@ -97,8 +96,13 @@ def add_pre_post_processing_to_transformers(model_name: str, input_model_file: P
             f.write(json.dumps(tokenizer.vocab))
     else:
         vocab_file = tokenizer.vocab_file
+    tokenizer_type = 'BertTokenizer' if model_name != 'xlm-roberta-base' else 'SentencePieceTokenizer'
+    task_type = 'NextSentencePrediction' if model_name == 'google/mobilebert-uncased' else ''.join(
+        [i.capitalize() for i in onnx_config.task.split('-')])
     add_ppp.transformers_and_bert(bert_onnx_model, output_model_file,
-                                  vocab_file, onnx_config.task, add_debug_before_postprocessing=True)
+                                  vocab_file, tokenizer_type, 
+                                  task_type,
+                                  add_debug_before_postprocessing=True)
 
 
 def verify_results_for_e2e_model(model_name: str, input_bert_model: Path, output_model_file: Path):
@@ -133,7 +137,7 @@ def verify_results_for_e2e_model(model_name: str, input_bert_model: Path, output
     )
 
     inputs = dict(
-        inputs=np.array([[i] for i in text]),
+        input_text=np.array([[*text]]),
     )
     real_outputs = session.run([output_name_for_verify+"_debug"], inputs)
     assert np.allclose(
