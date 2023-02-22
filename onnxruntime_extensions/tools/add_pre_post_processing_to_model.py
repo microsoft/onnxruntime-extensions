@@ -199,7 +199,8 @@ def transformers_and_bert(
         task_type = NLPTaskType[task_type]
 
     onnx_model = onnx.load(str(input_model_file.resolve(strict=True)))
-    inputs = [create_named_value("input_text", onnx.TensorProto.STRING, ["batch_size", "num_sentences"])]
+    # hardcode batch size to 1
+    inputs = [create_named_value("input_text", onnx.TensorProto.STRING, [1, "num_sentences"])]
 
     pipeline = PrePostProcessor(inputs, onnx_opset)
     tokenizer_args = TokenizerParam(

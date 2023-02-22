@@ -83,14 +83,14 @@ class SentencePieceTokenizer(Step):
             tweak_bos_id = True
 
         prefix_ = f'step_{self.step_num}'
-        output_shape_str = f"{input_shape_0[0]}, {prefix_}__num_ids"
+        output_shape_str = f"1, {prefix_}__num_ids"
 
         def build_input_declare():
             input_base = f"{input_type_str0}[{input_shape_str0}] {self.input_names[0]}"
             return input_base
 
         def build_call_para():
-            para_base = [self.input_names[0]]
+            para_base = ["input_with_batch"]
             para_base.append("i64_nbest_size")
             para_base.append("f32_alpha")
             para_base.append("bool_add_bos")
@@ -125,6 +125,16 @@ class SentencePieceTokenizer(Step):
                 input_ids_bdim = Unsqueeze(token, i64_0)
                 '''
 
+        def build_unsqueeze():
+            if len(input_shape_0) == 1:
+                return f"""
+            input_with_batch = Unsqueeze({self.input_names[0]}, i64_0)
+            """
+            else:
+                return f"""
+            input_with_batch = Identity({self.input_names[0]})
+            """
+
         converter_graph = onnx.parser.parse_graph(
             f"""\
             SentencePiecetokenizer ({build_input_declare()}) 
@@ -133,6 +143,7 @@ class SentencePieceTokenizer(Step):
                 {build_forward_declare()}
                 i64_neg1 = Constant <value = int64[1] {{-1}}> ()
                 i64_0 = Constant <value = int64[1] {{0}}> ()
+                {build_unsqueeze()}
                 token,idx =  com.microsoft.extensions.SentencepieceTokenizer ({build_call_para()})
                 {hack_bos_id()}
                 {self.output_names[0]} = Cast <to = 7> (input_ids_bdim)
@@ -192,7 +203,8 @@ class BertTokenizer(Step):
 
         input_shape_0 = input_shape_str0.split(",")
         prefix_ = f'step_{self.step_num}'
-        output_shape_str = f"{input_shape_0[0]},_{prefix_}__num_ids"
+        # only support bath size 1 until tokenizer op supports batch size > 1
+        output_shape_str = f"1, _{prefix_}__num_ids"
         assert input_type_str0 == "string"
 
         onnx_tokenizer_impl = "HfBertTokenizer" if self._tokenizer_param.is_sentence_pair else "BertTokenizer"
@@ -228,12 +240,24 @@ class BertTokenizer(Step):
             inputs = f"{input_type_str0}[{input_shape_str0}] {self.input_names[0]}"
             return inputs
 
+        def build_unsqueeze():
+            if len(input_shape_0) == 1:
+                return f"""
+            i64_0 = Constant <value = int64[1] {{0}}> ()
+            input_with_batch = Unsqueeze({self.input_names[0]}, i64_0)
+            """
+            else:
+                return f"""
+            input_with_batch = Identity({self.input_names[0]})
+            """
+
         converter_graph = onnx.parser.parse_graph(
             f"""\
             {onnx_tokenizer_impl} ({build_input_declare()}) 
                 => ({build_output_declare()})
             {{
-                {get_tokenizer_ret()} = com.microsoft.extensions.{onnx_tokenizer_impl} ({self.input_names[0]})
+                {build_unsqueeze()}
+                {get_tokenizer_ret()} = com.microsoft.extensions.{onnx_tokenizer_impl} (input_with_batch)
                 {build_output_imp()}
             }}
             """

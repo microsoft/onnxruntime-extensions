@@ -58,9 +58,10 @@ class PrePostProcessor:
 
         self._inputs = inputs if inputs else []
         
-        # preserve output from IOMapEntry, avoid it's consumed by the Follow-up steps
-        # the basic assumption is a output has only one consumer, But IOEntryMap will add more.
-        # so we need to preserve the output value, and use it in the Follow-up steps.
+        # preserve outputs from IOMapEntry, avoid it's consumed by the Follow-up steps.
+        # we now can support a output value has more than one consumers with IOEntryValuePreserver.
+        # IOEntryValuePreserver will preserve the output value and add it to the graph output 
+        # until consumer step is done.
         self._preserved_outputs = []  # type: List[IOEntryValuePreserver]
 
     def add_pre_processing(self, items: List[Union[Step, Tuple[Step, List[IoMapEntry]]]]):

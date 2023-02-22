@@ -182,8 +182,13 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         print(f"Max diff:{diffs.max()} Total diffs:{total}")
         self.assertTrue(diffs.max() < 3 and total < (result.size / 1000))
 
-    def create_pipeline_and_run_for_tokenizer(self, inputs, tokenizer_impl, tokenizer_type,
+    def create_pipeline_and_run_for_tokenizer(self, tokenizer_impl, tokenizer_type,
                                               tokenizer_parameters, output_model: Path):
+        import onnx
+        create_named_value = pre_post_processing.utils.create_named_value
+
+        inputs = [create_named_value("inputs", onnx.TensorProto.STRING, [1, "num_sentences"])]
+
         pipeline = pre_post_processing.PrePostProcessor(inputs)
         # ref_output = list(tokenizer(*input_text, return_tensors="np").values())
 
@@ -201,63 +206,20 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         onnx.save_model(new_model, output_model)
         return
 
-    def build_test_model_and_get_ref_output_for_tokenizer(self, tokenizer_type: str, output_model: Path):
-        import onnx
-
-        create_named_value = pre_post_processing.utils.create_named_value
-        input_text = ("This is a test sentence",)
-
-        inputs = [create_named_value("inputs", onnx.TensorProto.STRING, [1, "num_sentences"])]
-
-        tokenizer_impl = None
-        if tokenizer_type == "SentencePieceTokenizer":
-            ref_output = [np.array([[0, 3293, 83, 10, 3034, 149357, 2]]), np.array(
-                [[1, 1, 1, 1, 1, 1, 1]])]
-            # tokenizer = transformers.AutoTokenizer.from_pretrained("xlm-roberta-base")
-            tokenizer_parameters = TokenizerParam(
-                vocab_or_file=os.path.join(test_data_dir, "../sentencepiece.bpe.model"),
-                tweaked_bos_id=0,
-            )
-            tokenizer_impl = SentencePieceTokenizer(
-                tokenizer_parameters, add_eos=True, add_bos=True)
-        elif tokenizer_type == "BertTokenizer":
-            ref_output = [
-                np.array([[2, 236, 118, 16, 1566, 875, 643, 3]]),
-                np.array([[0, 0, 0, 0, 0, 0, 0, 0]]),
-                np.array([[1, 1, 1, 1, 1, 1, 1, 1]]),
-            ]
-            # tokenizer = transformers.AutoTokenizer.from_pretrained("lordtt13/emo-mobilebert")
-            tokenizer_parameters = TokenizerParam(vocab_or_file=os.path.join(
-                test_data_dir, "../bert.vocab"), do_lower_case=True)
-            tokenizer_impl = BertTokenizer(tokenizer_parameters)
-        elif tokenizer_type in ["HfBertTokenizer", "HfBertTokenizer_with_decoder"]:
-            ref_output = ([
-                np.array([[2, 236, 118, 16, 1566, 875, 643, 3,
-                           236, 118, 978, 1566, 875, 643, 3]]),
-                np.array([[0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1]]),
-                np.array([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]),
-            ]
-                if tokenizer_type == "HfBertTokenizer"
-                else [np.array(["[CLS]"])]
-            )
-            # tokenizer = transformers.AutoTokenizer.from_pretrained("lordtt13/emo-mobilebert")
-            tokenizer_parameters = TokenizerParam(vocab_or_file=os.path.join(test_data_dir, "../hfbert.vocab"),
-                                                  do_lower_case=True, is_sentence_pair=True)
-            input_text = ("This is a test sentence", "This is another test sentence")
-            tokenizer_impl = BertTokenizer(tokenizer_parameters)
-        else:
-            raise Exception("Unknown tokenizer")
-
-        self.create_pipeline_and_run_for_tokenizer(
-            inputs, tokenizer_impl, tokenizer_type, tokenizer_parameters, output_model)
-
-        return input_text, ref_output
-
     def test_sentencepiece_tokenizer(self):
         output_model = (Path(test_data_dir) / "../sentencePiece.onnx").resolve()
 
-        input_text, ref_output = self.build_test_model_and_get_ref_output_for_tokenizer(
-            "SentencePieceTokenizer", output_model)
+        input_text = ("This is a test sentence",)
+        ref_output = [np.array([[0, 3293, 83, 10, 3034, 149357, 2]]), np.array(
+            [[1, 1, 1, 1, 1, 1, 1]])]
+        # tokenizer = transformers.AutoTokenizer.from_pretrained("xlm-roberta-base")
+        tokenizer_parameters = TokenizerParam(
+            vocab_or_file=os.path.join(test_data_dir, "../sentencepiece.bpe.model"),
+            tweaked_bos_id=0,
+        )
+        tokenizer_impl = SentencePieceTokenizer(tokenizer_parameters, add_eos=True, add_bos=True)
+        self.create_pipeline_and_run_for_tokenizer(
+            tokenizer_impl, "SentecePieceTokenizer", tokenizer_parameters, output_model)
 
         so = ort.SessionOptions()
         so.register_custom_ops_library(get_library_path())
@@ -271,8 +233,18 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
     def test_bert_tokenizer(self):
         output_model = (Path(test_data_dir) / "../bert_tokenizer.onnx").resolve()
-        input_text, ref_output = self.build_test_model_and_get_ref_output_for_tokenizer(
-            "BertTokenizer", output_model)
+        input_text = ("This is a test sentence",)
+        ref_output = [
+            np.array([[2, 236, 118, 16, 1566, 875, 643, 3]]),
+            np.array([[0, 0, 0, 0, 0, 0, 0, 0]]),
+            np.array([[1, 1, 1, 1, 1, 1, 1, 1]]),
+        ]
+        # tokenizer = transformers.AutoTokenizer.from_pretrained("lordtt13/emo-mobilebert")
+        tokenizer_parameters = TokenizerParam(vocab_or_file=os.path.join(
+            test_data_dir, "../bert.vocab"), do_lower_case=True)
+        tokenizer_impl = BertTokenizer(tokenizer_parameters)
+        self.create_pipeline_and_run_for_tokenizer(
+            tokenizer_impl, "BertTokenizer", tokenizer_parameters, output_model)
 
         so = ort.SessionOptions()
         so.register_custom_ops_library(get_library_path())
@@ -286,8 +258,19 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
     def test_hfbert_tokenizer(self):
         output_model = (Path(test_data_dir) / "../hfbert_tokenizer.onnx").resolve()
-        input_text, ref_output = self.build_test_model_and_get_ref_output_for_tokenizer(
-            "HfBertTokenizer", output_model)
+        ref_output = ([
+            np.array([[2, 236, 118, 16, 1566, 875, 643, 3, 236, 118, 978, 1566, 875, 643, 3]]),
+            np.array([[0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1]]),
+            np.array([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]),
+        ]
+        )
+        # tokenizer = transformers.AutoTokenizer.from_pretrained("lordtt13/emo-mobilebert")
+        tokenizer_parameters = TokenizerParam(vocab_or_file=os.path.join(test_data_dir, "../hfbert.vocab"),
+                                              do_lower_case=True, is_sentence_pair=True)
+        input_text = ("This is a test sentence", "This is another test sentence")
+        tokenizer_impl = BertTokenizer(tokenizer_parameters)
+        self.create_pipeline_and_run_for_tokenizer(
+            tokenizer_impl, "HfBertTokenizer", tokenizer_parameters, output_model)
 
         so = ort.SessionOptions()
         so.register_custom_ops_library(get_library_path())
@@ -301,9 +284,14 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
     def test_qatask_with_tokenizer(self):
         output_model = (Path(test_data_dir) / "../hfbert_tokenizer.onnx").resolve()
-        input_text, ref_output = self.build_test_model_and_get_ref_output_for_tokenizer(
-            "HfBertTokenizer_with_decoder", output_model
-        )
+        ref_output = [np.array(["[CLS]"])]
+        # tokenizer = transformers.AutoTokenizer.from_pretrained("lordtt13/emo-mobilebert")
+        tokenizer_parameters = TokenizerParam(vocab_or_file=os.path.join(test_data_dir, "../hfbert.vocab"),
+                                              do_lower_case=True, is_sentence_pair=True)
+        input_text = ("This is a test sentence", "This is another test sentence")
+        tokenizer_impl = BertTokenizer(tokenizer_parameters)
+        self.create_pipeline_and_run_for_tokenizer(
+            tokenizer_impl, "HfBertTokenizer_with_decoder", tokenizer_parameters, output_model)
 
         so = ort.SessionOptions()
         so.register_custom_ops_library(get_library_path())
