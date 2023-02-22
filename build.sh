@@ -12,7 +12,7 @@ if [ -z ${CPU_NUMBER+x} ]; then
   fi
 fi
 
-BUILD_FLAVOR=Release
+BUILD_FLAVOR=RelWithDebInfo
 target_dir=out/$OSNAME/$BUILD_FLAVOR
 mkdir -p "$target_dir" && cd "$target_dir"
 # it looks the parallel build on CI pipeline machine causes crashes.
