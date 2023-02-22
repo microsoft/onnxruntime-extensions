@@ -4,6 +4,7 @@
 #ifdef ENABLE_GPT2_TOKENIZER
 #include "gpt2_tokenizer.hpp"
 #include "clip_tokenizer.hpp"
+#include "roberta_tokenizer.hpp"
 #endif
 
 #ifdef ENABLE_SPM_TOKENIZER
@@ -31,6 +32,7 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = LoadCustomOpClasses<
 #ifdef ENABLE_GPT2_TOKENIZER
     , CustomOpBpeTokenizer
     , CustomOpClipBpeTokenizer
+    , CustomOpRobertaBpeTokenizer
 #endif
 
 #ifdef ENABLE_SPM_TOKENIZER
