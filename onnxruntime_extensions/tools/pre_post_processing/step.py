@@ -62,7 +62,6 @@ class Step(object):
 
         # prefix the graph for this step to guarantee no clashes of value names with the existing graph
         onnx.compose.add_prefix_graph(graph_for_step, self._prefix, inplace=True)
-
         result = self.__merge(graph, graph_for_step, additional_outputs)
 
         # update self.output_names to the prefixed names so that when we connect later Steps the values match
@@ -106,8 +105,7 @@ class Step(object):
         graph_outputs += [o for o in additional_outputs if o not in graph_outputs]
                 
         # merge with existing graph
-        merged_graph = onnx.compose.merge_graphs(
-            first, second, io_map, outputs=graph_outputs)
+        merged_graph = onnx.compose.merge_graphs(first, second, io_map, outputs=graph_outputs)
 
         return merged_graph
 

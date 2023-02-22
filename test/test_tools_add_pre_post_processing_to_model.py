@@ -320,14 +320,15 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         create_named_value = pre_post_processing.utils.create_named_value
 
         # multiple DebugSteps are stringed together
-        input_model = os.path.join(test_data_dir, "pytorch_super_resolution.onnx")
+        input_model_path = os.path.join(test_data_dir, "pytorch_super_resolution.onnx")
         inputs = [create_named_value("image", onnx.TensorProto.UINT8, ["num_bytes"])]
         pipeline = pre_post_processing.PrePostProcessor(inputs)
         # each Debug step adds a new model output
         post_processing = [pre_post_processing.Debug(1), pre_post_processing.Debug(1), pre_post_processing.Debug(1)]
 
         pipeline.add_post_processing(post_processing)
-        new_model = pipeline.run(onnx.load(input_model))
+        input_model = onnx.load(input_model_path)
+        new_model = pipeline.run(input_model)
 
         self.assertEqual(len(new_model.graph.output), len(input_model.graph.output) + len(post_processing))
 

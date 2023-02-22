@@ -163,7 +163,7 @@ class PrePostProcessor:
                 if preserver.producer == processor:
                     preserver.is_active = True
                     idx = preserver.producer_idx
-                    preserver.output = graph_for_step.output[idx].name
+                    preserver.output = processor.output_names[idx]
             return graph_for_step
 
         def connect_and_run(graph: onnx.GraphProto, processor: Step, connections: List[IoMapEntry]):
