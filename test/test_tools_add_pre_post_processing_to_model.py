@@ -187,7 +187,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         import onnx
         create_named_value = pre_post_processing.utils.create_named_value
 
-        inputs = [create_named_value("inputs", onnx.TensorProto.STRING, [1, "num_sentences"])]
+        inputs = [create_named_value("input_text", onnx.TensorProto.STRING, [1, "num_sentences"])]
 
         pipeline = pre_post_processing.PrePostProcessor(inputs)
         # ref_output = list(tokenizer(*input_text, return_tensors="np").values())

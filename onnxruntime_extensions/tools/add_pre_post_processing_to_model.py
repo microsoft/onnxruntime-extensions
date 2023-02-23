@@ -228,7 +228,7 @@ def transformers_and_bert(
             utils.IoMapEntry("BertTokenizer", producer_idx=0, consumer_idx=2)]))
     elif task_type == NLPTaskType.SequenceClassification:
         postprocessing.append(ArgMax())
-    # the other task don't need postprocessing or we don't support it yet.
+    # the other tasks don't need postprocessing or we don't support it yet.
 
     pipeline.add_pre_processing(preprocessing)
     pipeline.add_post_processing(postprocessing)

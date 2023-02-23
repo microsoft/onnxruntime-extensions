@@ -156,15 +156,14 @@ class PrePostProcessor:
                     preserver.is_active = False
 
             # IOEntryValuePreserver, preserve those outputs which has multiple consumers.
-            # we so explicitly add the output to the graph avoid it's eliminated.
+            # we explicitly add the output to the graph output.
             additional_outputs = [i.output for i in self._preserved_outputs if i.is_active]
-            graph_for_step = processor.apply(*args, additional_outputs)
+            graph_for_step = processor.apply(*args, additional_outputs=additional_outputs)
 
             for preserver in self._preserved_outputs:
                 if preserver.producer == processor:
                     preserver.is_active = True
-                    idx = preserver.producer_idx
-                    preserver.output = processor.output_names[idx]
+                    preserver.output = processor.output_names[preserver.producer_idx]
             return graph_for_step
 
         def connect_and_run(graph: onnx.GraphProto, processor: Step, connections: List[IoMapEntry]):
