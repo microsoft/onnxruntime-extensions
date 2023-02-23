@@ -7,17 +7,16 @@
 #include "string_utils.h"
 #include "sentencepiece_processor.h"
 
-
 struct KernelSentencepieceTokenizer : BaseKernel {
-  KernelSentencepieceTokenizer(const OrtApi& api, const OrtKernelInfo* info);
+  KernelSentencepieceTokenizer(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 
  private:
   sentencepiece::SentencePieceProcessor tokenizer_;
 };
 
-struct CustomOpSentencepieceTokenizer : OrtW::CustomOpBase<CustomOpSentencepieceTokenizer, KernelSentencepieceTokenizer> {
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
+struct CustomOpSentencepieceTokenizer : OrtW::CustomOpBase<CustomOpSentencepieceTokenizer,
+                                                           KernelSentencepieceTokenizer> {
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

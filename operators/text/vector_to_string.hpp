@@ -30,10 +30,10 @@ class VectorToStringImpl {
   std::unordered_map<std::vector<int64_t>, std::string> map_;
   std::string unk_value_;
   size_t vector_len_;
-  };
+};
 
 struct KernelVectorToString : BaseKernel {
-  KernelVectorToString(const OrtApi& api, const OrtKernelInfo* info);
+  KernelVectorToString(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 
  private:
@@ -41,7 +41,6 @@ struct KernelVectorToString : BaseKernel {
 };
 
 struct CustomOpVectorToString : OrtW::CustomOpBase<CustomOpVectorToString, KernelVectorToString> {
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

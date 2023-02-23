@@ -7,7 +7,7 @@
 #include "string_utils.h"
 
 struct KernelStringConcat : BaseKernel {
-  KernelStringConcat(const OrtApi& api);
+  KernelStringConcat(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 };
 

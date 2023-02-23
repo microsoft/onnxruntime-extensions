@@ -7,7 +7,7 @@
 #include "string_utils.h"
 
 struct KernelSegmentExtraction : BaseKernel {
-  KernelSegmentExtraction(const OrtApi& api);
+  KernelSegmentExtraction(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 };
 

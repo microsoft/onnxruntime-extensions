@@ -7,7 +7,7 @@
 #include "string_utils.h"
 
 struct KernelStringHash : BaseKernel {
-  KernelStringHash(const OrtApi& api);
+  KernelStringHash(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 };
 
@@ -20,7 +20,7 @@ struct CustomOpStringHash : OrtW::CustomOpBase<CustomOpStringHash, KernelStringH
 };
 
 struct KernelStringHashFast : BaseKernel {
-  KernelStringHashFast(const OrtApi& api);
+  KernelStringHashFast(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 };
 

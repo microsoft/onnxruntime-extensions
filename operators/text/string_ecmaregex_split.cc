@@ -9,8 +9,9 @@
 #include "string_ecmaregex_split.hpp"
 #include "string_tensor.h"
 
-
-KernelStringECMARegexSplitWithOffsets::KernelStringECMARegexSplitWithOffsets(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+KernelStringECMARegexSplitWithOffsets::KernelStringECMARegexSplitWithOffsets(const OrtApi& api,
+                                                                             const OrtKernelInfo& info)
+    : BaseKernel(api, info) {
   ignore_case_ = TryToGetAttributeWithDefault("ignore_case", false);
 }
 
@@ -28,9 +29,13 @@ void KernelStringECMARegexSplitWithOffsets::Compute(OrtKernelContext* context) {
   // Verifications
   OrtTensorDimensions keep_pattern_dimensions(ort_, keep_pattern);
   if (str_pattern.size() != 1)
-    ORTX_CXX_API_THROW(MakeString("pattern (second input) must contain only one element. It has ", str_pattern.size(), " values."), ORT_INVALID_GRAPH);
+    ORTX_CXX_API_THROW(MakeString("pattern (second input) must contain only one element. It has ", str_pattern.size(),
+                                  " values."),
+                       ORT_INVALID_GRAPH);
   if (str_keep_pattern.size() > 1)
-    ORTX_CXX_API_THROW(MakeString("Third input must contain only one element. It has ", str_keep_pattern.size(), " values."), ORT_INVALID_GRAPH);
+    ORTX_CXX_API_THROW(MakeString("Third input must contain only one element. It has ", str_keep_pattern.size(),
+                                  " values."),
+                       ORT_INVALID_GRAPH);
   if (str_pattern[0].empty())
     ORTX_CXX_API_THROW("Splitting pattern cannot be empty.", ORT_INVALID_GRAPH);
 
@@ -84,10 +89,6 @@ void KernelStringECMARegexSplitWithOffsets::Compute(OrtKernelContext* context) {
   memcpy(p_output, row_offsets.data(), row_offsets.size() * sizeof(int64_t));
 }
 
-void* CustomOpStringECMARegexSplitWithOffsets::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return CreateKernelImpl(api, info);
-};
-
 const char* CustomOpStringECMARegexSplitWithOffsets::GetName() const { return "StringECMARegexSplitWithOffsets"; };
 
 size_t CustomOpStringECMARegexSplitWithOffsets::GetInputTypeCount() const {
@@ -112,7 +113,7 @@ ONNXTensorElementDataType CustomOpStringECMARegexSplitWithOffsets::GetOutputType
       return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
     default:
       ORTX_CXX_API_THROW(MakeString(
-                            "StringRegexSplitWithOffsets has 4 outputs but index is ", index, "."),
-                        ORT_INVALID_ARGUMENT);
+                             "StringRegexSplitWithOffsets has 4 outputs but index is ", index, "."),
+                         ORT_INVALID_ARGUMENT);
   }
 };

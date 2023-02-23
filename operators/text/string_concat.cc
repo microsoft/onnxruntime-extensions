@@ -8,8 +8,7 @@
 #include <codecvt>
 #include <algorithm>
 
-
-KernelStringConcat::KernelStringConcat(const OrtApi& api) : BaseKernel(api) {
+KernelStringConcat::KernelStringConcat(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
 }
 
 void KernelStringConcat::Compute(OrtKernelContext* context) {

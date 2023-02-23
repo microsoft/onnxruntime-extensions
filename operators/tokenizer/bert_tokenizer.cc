@@ -43,13 +43,10 @@ WordpieceTokenizer::WordpieceTokenizer(
     std::shared_ptr<BertTokenizerVocab> vocab,
     ustring unk_token,
     ustring suffix_indicator,
-    int max_input_chars_per_word
-) :
-    max_input_chars_per_word_(max_input_chars_per_word),
-    suffix_indicator_(std::move(suffix_indicator)),
-    unk_token_(std::move(unk_token)),
-    vocab_(std::move(vocab))
-{
+    int max_input_chars_per_word) : max_input_chars_per_word_(max_input_chars_per_word),
+                                    suffix_indicator_(std::move(suffix_indicator)),
+                                    unk_token_(std::move(unk_token)),
+                                    vocab_(std::move(vocab)) {
   unk_token_id_ = vocab_->FindTokenId(unk_token_);
 }
 
@@ -190,21 +187,17 @@ BertTokenizer::BertTokenizer(
     bool strip_accents,
     ustring suffix_indicator,
     int32_t max_len,
-    const std::string& truncation_strategy
-) :
-    max_length_(max_len),
-    do_basic_tokenize_(do_basic_tokenize),
-    truncate_(std::make_unique<TruncateStrategy>(truncation_strategy))
-{
-
+    const std::string& truncation_strategy) : max_length_(max_len),
+                                              do_basic_tokenize_(do_basic_tokenize),
+                                              truncate_(std::make_unique<TruncateStrategy>(truncation_strategy)) {
   vocab_ = std::make_shared<BertTokenizerVocab>(vocab);
 
   if (do_basic_tokenize) {
     basic_tokenizer_ = std::make_unique<BasicTokenizer>(
-      do_lower_case, tokenize_chinese_chars, strip_accents, true, true);
+        do_lower_case, tokenize_chinese_chars, strip_accents, true, true);
   }
   wordpiece_tokenizer_ = std::make_unique<WordpieceTokenizer>(
-    vocab_, unk_token, suffix_indicator);
+      vocab_, unk_token, suffix_indicator);
 
   unk_token_id_ = vocab_->FindTokenId(unk_token);
   sep_token_id_ = vocab_->FindTokenId(sep_token);
@@ -276,8 +269,8 @@ TruncateStrategy::TruncateStrategy(std::string_view strategy_name) : strategy_(T
   }
 }
 
-KernelBertTokenizer::KernelBertTokenizer(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
-  std::string vocab = ort_.KernelInfoGetAttribute<std::string>(info, "vocab_file");
+KernelBertTokenizer::KernelBertTokenizer(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
+  std::string vocab = ort_.KernelInfoGetAttribute<std::string>(&info, "vocab_file");
   bool do_lower_case = TryToGetAttributeWithDefault("do_lower_case", true);
   bool do_basic_tokenize = TryToGetAttributeWithDefault("do_basic_tokenize", true);
   std::string unk_token = TryToGetAttributeWithDefault("unk_token", std::string("[UNK]"));
@@ -288,14 +281,15 @@ KernelBertTokenizer::KernelBertTokenizer(const OrtApi& api, const OrtKernelInfo*
   bool tokenize_chinese_chars = TryToGetAttributeWithDefault("tokenize_chinese_chars", true);
   bool strip_accents = TryToGetAttributeWithDefault("strip_accents", false);
   std::string suffix_indicator = TryToGetAttributeWithDefault("suffix_indicator", std::string("##"));
-  std::string truncation_strategy_name = TryToGetAttributeWithDefault("truncation_strategy_name", std::string("longest_first"));
+  std::string truncation_strategy_name = TryToGetAttributeWithDefault("truncation_strategy_name",
+                                                                      std::string("longest_first"));
   int32_t max_len = static_cast<int32_t>(TryToGetAttributeWithDefault("max_length", int64_t(-1)));
 
   tokenizer_ = std::make_unique<BertTokenizer>(
-    vocab, do_lower_case, do_basic_tokenize, ustring(unk_token),
-    ustring(sep_token), ustring(pad_token), ustring(cls_token),
-    ustring(mask_token), tokenize_chinese_chars, strip_accents,
-    ustring(suffix_indicator), max_len, truncation_strategy_name);
+      vocab, do_lower_case, do_basic_tokenize, ustring(unk_token),
+      ustring(sep_token), ustring(pad_token), ustring(cls_token),
+      ustring(mask_token), tokenize_chinese_chars, strip_accents,
+      ustring(suffix_indicator), max_len, truncation_strategy_name);
 }
 
 void KernelBertTokenizer::Compute(OrtKernelContext* context) {
@@ -334,10 +328,6 @@ void KernelBertTokenizer::Compute(OrtKernelContext* context) {
   SetOutput(context, 2, output_dim, attention_mask);
 }
 
-void* CustomOpBertTokenizer::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return CreateKernelImpl(api, info);
-}
-
 const char* CustomOpBertTokenizer::GetName() const { return "BertTokenizer"; }
 
 size_t CustomOpBertTokenizer::GetInputTypeCount() const {
@@ -356,11 +346,12 @@ ONNXTensorElementDataType CustomOpBertTokenizer::GetOutputType(size_t /* index *
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 }
 
-KernelHfBertTokenizer::KernelHfBertTokenizer(const OrtApi& api, const OrtKernelInfo* info) : KernelBertTokenizer(api, info) {}
+KernelHfBertTokenizer::KernelHfBertTokenizer(const OrtApi& api, const OrtKernelInfo& info)
+    : KernelBertTokenizer(api, info) {}
 
 void KernelHfBertTokenizer::Compute(OrtKernelContext* context) {
   // Setup inputs
-  const OrtValue *const input = ort_.KernelContext_GetInput(context, 0);
+  const OrtValue* const input = ort_.KernelContext_GetInput(context, 0);
   std::vector<std::string> input_data;
   GetTensorMutableDataString(api_, ort_, context, input, input_data);
 
@@ -380,7 +371,7 @@ void KernelHfBertTokenizer::Compute(OrtKernelContext* context) {
   const std::vector<int64_t> inner_dims{1LL};
   for (int32_t i = 0; i < 3; ++i) {
     OrtValue* const value = ort_.KernelContext_GetOutput(context, i, outer_dims.data(), outer_dims.size());
-    OrtTensorTypeAndShapeInfo *const info = ort_.GetTensorTypeAndShape(value);
+    OrtTensorTypeAndShapeInfo* const info = ort_.GetTensorTypeAndShape(value);
     ort_.SetDimensions(info, inner_dims.data(), inner_dims.size());
     ort_.ReleaseTensorTypeAndShapeInfo(info);
   }
@@ -388,10 +379,6 @@ void KernelHfBertTokenizer::Compute(OrtKernelContext* context) {
   SetOutput(context, 0, outer_dims, input_ids);
   SetOutput(context, 1, outer_dims, attention_mask);
   SetOutput(context, 2, outer_dims, token_type_ids);
-}
-
-void* CustomOpHfBertTokenizer::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return CreateKernelImpl(api, info);
 }
 
 const char* CustomOpHfBertTokenizer::GetName() const { return "HfBertTokenizer"; }

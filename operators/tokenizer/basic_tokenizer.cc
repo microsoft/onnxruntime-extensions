@@ -9,13 +9,11 @@
 #include <codecvt>
 #include <algorithm>
 
-BasicTokenizer::BasicTokenizer(bool do_lower_case, bool tokenize_chinese_chars, bool strip_accents, bool tokenize_punctuation, bool remove_control_chars):
-    do_lower_case_(do_lower_case),
-    strip_accents_(strip_accents),
-    tokenize_chinese_chars_(tokenize_chinese_chars),
-    tokenize_punctuation_(tokenize_punctuation),
-    remove_control_chars_(remove_control_chars)
-{}
+BasicTokenizer::BasicTokenizer(bool do_lower_case, bool tokenize_chinese_chars, bool strip_accents, bool tokenize_punctuation, bool remove_control_chars) : do_lower_case_(do_lower_case),
+                                                                                                                                                            strip_accents_(strip_accents),
+                                                                                                                                                            tokenize_chinese_chars_(tokenize_chinese_chars),
+                                                                                                                                                            tokenize_punctuation_(tokenize_punctuation),
+                                                                                                                                                            remove_control_chars_(remove_control_chars) {}
 
 std::vector<ustring> BasicTokenizer::Tokenize(ustring text) {
   std::vector<ustring> result;
@@ -42,7 +40,7 @@ std::vector<ustring> BasicTokenizer::Tokenize(ustring text) {
 
   if (do_lower_case_) {
     for (auto& c : text) {
-        c = ToLower(c);
+      c = ToLower(c);
     }
   }
 
@@ -57,7 +55,7 @@ std::vector<ustring> BasicTokenizer::Tokenize(ustring text) {
       continue;
     }
 
-    // 0x2019 unicode is not punctuation in some Linux platform, 
+    // 0x2019 unicode is not punctuation in some Linux platform,
     // to be consistent, take it as punctuation.
     if (tokenize_punctuation_ && IsPunct(c)) {
       push_current_token_and_clear();
@@ -82,7 +80,7 @@ std::vector<ustring> BasicTokenizer::Tokenize(ustring text) {
   return result;
 }
 
-KernelBasicTokenizer::KernelBasicTokenizer(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+KernelBasicTokenizer::KernelBasicTokenizer(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
   bool do_lower_case = TryToGetAttributeWithDefault("do_lower_case", true);
   bool tokenize_chinese_chars = TryToGetAttributeWithDefault("tokenize_chinese_chars", true);
   bool strip_accents = TryToGetAttributeWithDefault("strip_accents", false);
@@ -108,10 +106,6 @@ void KernelBasicTokenizer::Compute(OrtKernelContext* context) {
 
   FillTensorDataString(api_, ort_, context, result, output);
 }
-
-void* CustomOpBasicTokenizer::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return CreateKernelImpl(api, info);
-};
 
 const char* CustomOpBasicTokenizer::GetName() const { return "BasicTokenizer"; };
 
