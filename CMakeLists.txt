@@ -159,15 +159,7 @@ if(OCOS_ENABLE_SELECTED_OPLIST)
 endif()
 
 if(NOT OCOS_ENABLE_CPP_EXCEPTIONS)
-  include(noexcep_ops)
   add_compile_definitions(OCOS_NO_EXCEPTIONS ORT_NO_EXCEPTIONS)
-
-  if(MSVC)
-    string(REGEX REPLACE "/EHsc" "/EHs-c-" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    add_compile_definitions("_HAS_EXCEPTIONS=0")
-  else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables")
-  endif()
 endif()
 
 include(FetchContent)
@@ -200,6 +192,14 @@ include(ext_ortlib)
 
 include(gsl)
 
+macro(standardize_output_folder bin_target)
+  set_target_properties(${bin_target} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+    PDB_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+endmacro()
+
 if(OCOS_ENABLE_RE2_REGEX)
   if(NOT TARGET re2::re2)
     set(RE2_BUILD_TESTING OFF CACHE INTERNAL "")
@@ -212,27 +212,20 @@ if(OCOS_ENABLE_RE2_REGEX)
   endif()
 endif()
 
-macro(standardize_output_folder bin_target)
-  set_target_properties(${bin_target} PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-    PDB_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-endmacro()
-
 # ### scan all source files
+set(TARGET_SRC_NOEXCEPTION)
 file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h")
 
 if(OCOS_ENABLE_TF_STRING)
   set(farmhash_SOURCE_DIR ${PROJECT_SOURCE_DIR}/cmake/externals/farmhash)
   file(GLOB TARGET_SRC_KERNELS "operators/text/*.cc" "operators/text/*.h*")
   file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")
-  list(APPEND TARGET_SRC ${TARGET_SRC_KERNELS} ${TARGET_SRC_HASH})
+  list(APPEND TARGET_SRC_NOEXCEPTION ${TARGET_SRC_KERNELS} ${TARGET_SRC_HASH})
 endif()
 
 if(OCOS_ENABLE_RE2_REGEX)
   file(GLOB TARGET_SRC_RE2_KERNELS "operators/text/re2_strings/*.cc" "operators/text/re2_strings/*.h*")
-  list(APPEND TARGET_SRC ${TARGET_SRC_RE2_KERNELS})
+  list(APPEND TARGET_SRC_NOEXCEPTION ${TARGET_SRC_RE2_KERNELS})
 endif()
 
 if(OCOS_ENABLE_MATH)
@@ -341,11 +334,13 @@ endif()
 # ### make all compile options.
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+add_library(noexcep_operators STATIC ${TARGET_SRC_NOEXCEPTION})
 add_library(ocos_operators STATIC ${TARGET_SRC})
 # TODO: need to address the SDL warnings happens on custom operator code.
 # if (HAS_SDL)
 #   target_compile_options(ocos_operators PRIVATE "/sdl")
 # endif()
+set_target_properties(noexcep_operators PROPERTIES FOLDER "operators")
 set_target_properties(ocos_operators PROPERTIES FOLDER "operators")
 
 # filter out any files in ${TARGET_SRC} which don't have prefix of ${PROJECT_SOURCE_DIR} before calling source_group
@@ -360,15 +355,22 @@ foreach(_TARGET_SRC_FILE IN LISTS TARGET_SRC)
 endforeach()
 source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${_TARGET_SRC_FOR_SOURCE_GROUP})
 
+standardize_output_folder(noexcep_operators)
 standardize_output_folder(ocos_operators)
+
+target_include_directories(noexcep_operators PUBLIC
+  ${ONNXRUNTIME_INCLUDE_DIR}
+  ${PROJECT_SOURCE_DIR}/includes
+  ${PROJECT_SOURCE_DIR}/operators)
 
 target_include_directories(ocos_operators PUBLIC
   ${ONNXRUNTIME_INCLUDE_DIR}
   ${PROJECT_SOURCE_DIR}/includes
   ${PROJECT_SOURCE_DIR}/operators
   ${PROJECT_SOURCE_DIR}/operators/tokenizer)
-set(ocos_libraries "")
-set(OCOS_COMPILE_DEFINITIONS "")
+
+set(ocos_libraries)
+set(OCOS_COMPILE_DEFINITIONS)
 
 if(OCOS_ENABLE_DLIB)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_DLIB)
@@ -379,7 +381,7 @@ if(_HAS_TOKENIZER)
 endif()
 
 if(OCOS_ENABLE_TF_STRING)
-  target_include_directories(ocos_operators PUBLIC
+  target_include_directories(noexcep_operators PUBLIC
     ${googlere2_SOURCE_DIR}
     ${farmhash_SOURCE_DIR}/src)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING NOMINMAX FARMHASH_NO_BUILTIN_EXPECT FARMHASH_DEBUG=0)
@@ -393,8 +395,6 @@ endif()
 if(OCOS_ENABLE_MATH)
   target_include_directories(ocos_operators PUBLIC ${dlib_SOURCE_DIR})
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_MATH)
-
-  # The dlib matrix implementation is all in the headers, no library compiling needed.
 endif()
 
 if(_ENABLE_OPENCV)
@@ -416,9 +416,7 @@ endif()
 
 if(OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
-  target_include_directories(ocos_operators PRIVATE ${json_SOURCE_DIR}/single_include)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_GPT2_TOKENIZER)
-  list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 
 if(OCOS_ENABLE_WORDPIECE_TOKENIZER)
@@ -451,6 +449,19 @@ target_include_directories(ocos_operators PRIVATE ${GSL_INCLUDE_DIR})
 list(APPEND ocos_libraries Microsoft.GSL::GSL)
 
 list(REMOVE_DUPLICATES OCOS_COMPILE_DEFINITIONS)
+target_compile_definitions(noexcep_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
+if(NOT OCOS_ENABLE_CPP_EXCEPTIONS)
+  if(MSVC)
+    get_target_property(_target_cxx_flags noexcep_operators COMPILE_OPTIONS)
+    list(REMOVE_ITEM _target_cxx_flags "/EHsc")
+    list(APPEND _target_cxx_flags "/EHs-c-")
+    set_target_properties(noexcep_operators PROPERTIES COMPILE_OPTIONS "${_target_cxx_flags}")
+  else()
+    target_compile_definitions(noexcep_operators PRIVATE "-fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables")
+  endif()
+endif()
+
+list(APPEND ocos_libraries noexcep_operators)
 target_compile_definitions(ocos_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
 
@@ -485,7 +496,7 @@ else()
   set(_BUILD_SHARED_LIBRARY TRUE)
 endif()
 
-target_compile_definitions(ortcustomops PUBLIC ${OCOS_COMPILE_DEFINITIONS} ${GTEST_CXX_FLAGS})
+target_compile_definitions(ortcustomops PUBLIC ${OCOS_COMPILE_DEFINITIONS})
 target_include_directories(ortcustomops PUBLIC
   "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
 target_link_libraries(ortcustomops PUBLIC ocos_operators)
@@ -539,10 +550,12 @@ foreach(nf ${NO_USE_FILES})
 endforeach()
 
 # test section
-if(OCOS_ENABLE_CTEST AND OCOS_ENABLE_SELECTED_OPLIST)
-  # currently the tests don't handle operator exclusion cleanly.
-  message(WARNING "Due to usage of OCOS_ENABLE_SELECTED_OPLIST excluding operators the tests are unable to be built and run")
-elseif(OCOS_ENABLE_CTEST AND NOT OCOS_ENABLE_SELECTED_OPLIST)
+if(OCOS_ENABLE_CTEST)
+  if (OCOS_ENABLE_SELECTED_OPLIST)
+    # currently the tests don't handle operator exclusion cleanly.
+    message(FATAL "Due to usage of OCOS_ENABLE_SELECTED_OPLIST excluding operators the tests are unable to be built and run")
+  endif()
+
   # Enable CTest
   enable_testing()
   message(STATUS "Fetch CTest")
@@ -582,6 +595,7 @@ elseif(OCOS_ENABLE_CTEST AND NOT OCOS_ENABLE_SELECTED_OPLIST)
 
     target_link_libraries(extensions_test PRIVATE ocos_operators extensions_shared onnxruntime gtest_main ${ocos_libraries} ${LINUX_CC_FLAGS})
 
+    # Copy ONNXRuntime DLLs into bin folder for testing on Windows platform
     if(WIN32)
       file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
       file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
