@@ -385,7 +385,7 @@ if(OCOS_ENABLE_TF_STRING)
     ${googlere2_SOURCE_DIR}
     ${farmhash_SOURCE_DIR}/src)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING NOMINMAX FARMHASH_NO_BUILTIN_EXPECT FARMHASH_DEBUG=0)
-  list(APPEND ocos_libraries re2)
+  target_link_libraries(noexcep_operators PRIVATE re2)
 endif()
 
 if(OCOS_ENABLE_RE2_REGEX)
