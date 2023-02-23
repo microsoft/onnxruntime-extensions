@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
-# set(CMAKE_VERBOSE_MAKEFILE ON)
+set(CMAKE_VERBOSE_MAKEFILE ON)
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Build type not set - using RelWithDebInfo")
   set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Choose build type: Debug Release RelWithDebInfo." FORCE)
@@ -457,7 +457,7 @@ if(NOT OCOS_ENABLE_CPP_EXCEPTIONS)
     list(APPEND _target_cxx_flags "/EHs-c-")
     set_target_properties(noexcep_operators PROPERTIES COMPILE_OPTIONS "${_target_cxx_flags}")
   else()
-    target_compile_definitions(noexcep_operators PRIVATE "-fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables")
+    target_compile_options(noexcep_operators PRIVATE -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables)
   endif()
 endif()
 
