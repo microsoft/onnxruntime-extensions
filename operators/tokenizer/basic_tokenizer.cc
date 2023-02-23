@@ -9,11 +9,13 @@
 #include <codecvt>
 #include <algorithm>
 
-BasicTokenizer::BasicTokenizer(bool do_lower_case, bool tokenize_chinese_chars, bool strip_accents, bool tokenize_punctuation, bool remove_control_chars) : do_lower_case_(do_lower_case),
-                                                                                                                                                            strip_accents_(strip_accents),
-                                                                                                                                                            tokenize_chinese_chars_(tokenize_chinese_chars),
-                                                                                                                                                            tokenize_punctuation_(tokenize_punctuation),
-                                                                                                                                                            remove_control_chars_(remove_control_chars) {}
+BasicTokenizer::BasicTokenizer(bool do_lower_case, bool tokenize_chinese_chars, bool strip_accents,
+                               bool tokenize_punctuation, bool remove_control_chars)
+    : do_lower_case_(do_lower_case),
+      strip_accents_(strip_accents),
+      tokenize_chinese_chars_(tokenize_chinese_chars),
+      tokenize_punctuation_(tokenize_punctuation),
+      remove_control_chars_(remove_control_chars) {}
 
 std::vector<ustring> BasicTokenizer::Tokenize(ustring text) {
   std::vector<ustring> result;
