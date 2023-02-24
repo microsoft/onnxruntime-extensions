@@ -230,7 +230,7 @@ class BertTokenizer(Step):
             # BertTokenizer has different output dimensions
             ret_vars = get_tokenizer_ret().split(",")
             ret_vars[1], ret_vars[2] = ret_vars[2], ret_vars[1]
-            output_str = ["i64_0 = Constant <value = int64[1] {0}> ()"]
+            output_str = []
 
             for idx, out in enumerate(self.output_names):
                 output_str.append(f"{out} = Unsqueeze({ret_vars[idx]}, i64_0)")
@@ -243,8 +243,7 @@ class BertTokenizer(Step):
 
         def build_unsqueeze():
             if len(input_shape_0) == 1:
-                return f"""
-            i64_0 = Constant <value = int64[1] {{0}}> ()
+                return f"""            
             input_with_batch = Unsqueeze({self.input_names[0]}, i64_0)
             """
             else:
@@ -257,6 +256,7 @@ class BertTokenizer(Step):
             {onnx_tokenizer_impl} ({build_input_declare()}) 
                 => ({build_output_declare()})
             {{
+                i64_0 = Constant <value = int64[1] {{0}}> ()
                 {build_unsqueeze()}
                 {get_tokenizer_ret()} = com.microsoft.extensions.{onnx_tokenizer_impl} (input_with_batch)
                 {build_output_imp()}
