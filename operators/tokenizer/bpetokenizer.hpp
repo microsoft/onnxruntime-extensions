@@ -16,6 +16,7 @@
 #include <functional>
 #include <codecvt>
 #include <mutex>
+#include <utility>
 
 #include "nlohmann/json.hpp"
 #include "clip_tokenizer.hpp"
@@ -226,9 +227,17 @@ class VocabData {
     return special_tokens_.SplitBySpecialTokens(input);
   }
 
-  int GetEncoding(const std::string& key) {
+  //! returns {true, token} if key was found in vocab,
+  //! returns {false, _} otherwise
+  std::pair<bool, int> GetEncoding(const std::string& key) {
     auto it = vocab_map_.find(key);
-    return it->second;
+
+    if (it != end(vocab_map_))
+    {
+      return {true, it->second};
+    }
+    
+    return {false, -1};
   }
 
   size_t VocabSize() const { return vocab_map_.size(); }
