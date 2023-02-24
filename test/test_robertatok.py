@@ -1,5 +1,6 @@
 import unittest
 import numpy as np
+import numpy.lib.recfunctions as nlr
 import onnxruntime as _ort
 
 from pathlib import Path
@@ -26,11 +27,11 @@ def _create_test_model(**kwargs):
     input1 = helper.make_tensor_value_info(
         'string_input', onnx_proto.TensorProto.STRING, [None])
     output1 = helper.make_tensor_value_info(
-        'input_ids', onnx_proto.TensorProto.INT64, [None, None])
+        'input_ids', onnx_proto.TensorProto.INT64, ["batch_size", "num_input_ids"])
     output2 = helper.make_tensor_value_info(
-        'attention_mask', onnx_proto.TensorProto.INT64, [None, None])
+        'attention_mask', onnx_proto.TensorProto.INT64, ["batch_size", "num_attention_masks"])
     output3 = helper.make_tensor_value_info(
-        'offset_mapping', onnx_proto.TensorProto.INT64, [None, None])
+        'offset_mapping', onnx_proto.TensorProto.INT64, ["batch_size", "num_offsets", 2])
 
     graph = helper.make_graph(node, 'test0', [input1], [output1, output2, output3])
     model = make_onnx_model(graph)
@@ -55,8 +56,9 @@ class TestRobertaTokenizer(unittest.TestCase):
         print("\nTest Sentence: " + str(test_sentence))
         print("\nInput IDs: " + str(input_ids))
         print("Attention Mask: " + str(attention_mask))
-        # TODO: Uncomment following line when offset mapping output formatting is complete
-        # print("Offset Mapping: " + str(offset_mapping))
+        # Reformat offset mapping from 3d array to 2d array of tuples before printing for readability
+        reformatted_offset_mapping = nlr.unstructured_to_structured(np.array(offset_mapping)).astype('O')
+        print("Offset Mapping: " + str(reformatted_offset_mapping))
         roberta_out = self.tokenizer(test_sentence, return_offsets_mapping=True)
         expect_input_ids = roberta_out['input_ids']
         expect_attention_mask = roberta_out['attention_mask']
@@ -66,6 +68,7 @@ class TestRobertaTokenizer(unittest.TestCase):
         print("Expected Offset Mapping: " + str(expect_offset_mapping) + "\n")
         np.testing.assert_array_equal(expect_input_ids, input_ids)
         np.testing.assert_array_equal(expect_attention_mask, attention_mask)
+        np.testing.assert_array_equal(expect_offset_mapping, offset_mapping)
 
         del sess
         del so

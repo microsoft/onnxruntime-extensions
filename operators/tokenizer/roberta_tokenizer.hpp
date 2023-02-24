@@ -10,7 +10,7 @@ struct KernelRobertaBpeTokenizer : BaseKernel {
   void Compute(OrtKernelContext* context);
 
  private:
-  std::vector<int64_t> Tokenize(ustring& input, int64_t max_length);
+  std::vector<int64_t> Tokenize(ustring& input, int64_t max_length, std::list<std::list<std::pair<int, int>>>& offset_map);
 
   int64_t padding_length_;
   std::list<int> byte_list_;
