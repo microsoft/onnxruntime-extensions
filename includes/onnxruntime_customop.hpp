@@ -108,11 +108,11 @@ struct CustomOpBase : OrtCustomOp {
 #if defined(_MSC_VER) && !defined(__clang__)
 #pragma warning(pop)
 #endif
-    OrtCustomOp::GetInputCharacteristic = [](const OrtCustomOp* this_, size_t index) {
+    OrtCustomOp::GetInputCharacteristic = [](const OrtCustomOp* this_, size_t index) noexcept {
       return static_cast<const TOp*>(this_)->GetInputCharacteristic(index);
     };
 
-    OrtCustomOp::GetOutputCharacteristic = [](const OrtCustomOp* this_, size_t index) {
+    OrtCustomOp::GetOutputCharacteristic = [](const OrtCustomOp* this_, size_t index) noexcept {
       return static_cast<const TOp*>(this_)->GetOutputCharacteristic(index);
     };
   }
