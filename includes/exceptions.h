@@ -42,7 +42,7 @@ inline void PrintFinalMessage(const char* file, int line, const char* msg) {
 #ifdef OCOS_NO_EXCEPTIONS
 #define ORTX_CXX_API_THROW(string, code)                                         \
   do {                                                                           \
-    PrintFinalMessage(__FILE__, __LINE__, OrtW::Exception(string, code).what()); \
+    OrtW::PrintFinalMessage(__FILE__, __LINE__, OrtW::Exception(string, code).what()); \
     abort();                                                                     \
   } while (false)
 
