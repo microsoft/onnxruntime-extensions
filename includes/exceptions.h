@@ -3,7 +3,7 @@
 
 #pragma once
 
-#if defined(OCOS_NO_EXCEPTIONS) || defined(OCOS_CONTAIN_EXCEPTIONS)
+#if defined(OCOS_NO_EXCEPTIONS) || defined(OCOS_PREVENT_EXCEPTION_PROPAGATION)
 #if defined(__ANDROID__)
 #include <android/log.h>
 #else
@@ -29,7 +29,7 @@ struct Exception : std::exception {
   OrtErrorCode code_;
 };
 
-#if defined(OCOS_NO_EXCEPTIONS) || defined(OCOS_CONTAIN_EXCEPTIONS)
+#if defined(OCOS_NO_EXCEPTIONS) || defined(OCOS_PREVENT_EXCEPTION_PROPAGATION)
 inline void PrintFinalMessage(const char* file, int line, const char* msg) {
 #if defined(__ANDROID__)
   __android_log_print(ANDROID_LOG_ERROR, "onnxruntime-extensions", "Exception in %s line %d: %s", file, line, msg);
@@ -40,10 +40,10 @@ inline void PrintFinalMessage(const char* file, int line, const char* msg) {
 #endif
 
 #ifdef OCOS_NO_EXCEPTIONS
-#define ORTX_CXX_API_THROW(string, code)                                         \
-  do {                                                                           \
+#define ORTX_CXX_API_THROW(string, code)                                               \
+  do {                                                                                 \
     OrtW::PrintFinalMessage(__FILE__, __LINE__, OrtW::Exception(string, code).what()); \
-    abort();                                                                     \
+    abort();                                                                           \
   } while (false)
 
 #define OCOS_TRY if (true)
@@ -74,21 +74,21 @@ inline void ThrowOnError(const OrtApi& ort, OrtStatus* status) {
 }  // namespace OrtW
 
 // macros to wrap entry points that ORT calls where we may need to prevent exceptions propagating upwards to ORT
-#define API_IMPL_BEGIN \
+#define OCOS_API_IMPL_BEGIN \
   OCOS_TRY {
 // if we have to contain exceptions, log and abort().
-#if defined(OCOS_CONTAIN_EXCEPTIONS)
-#define API_IMPL_END                                    \
-  }                                                     \
-  OCOS_CATCH(const std::exception& ex) {                \
-    OCOS_HANDLE_EXCEPTION([&]() {                       \
-      PrintFinalMessage(__FILE__, __LINE__, ex.what()); \
-      abort();                                          \
-    });                                                 \
+#if defined(OCOS_PREVENT_EXCEPTION_PROPAGATION)
+#define OCOS_API_IMPL_END                                     \
+  }                                                           \
+  OCOS_CATCH(const std::exception& ex) {                      \
+    OCOS_HANDLE_EXCEPTION([&]() {                             \
+      OrtW::PrintFinalMessage(__FILE__, __LINE__, ex.what()); \
+      abort();                                                \
+    });                                                       \
   }
 #else
 // rethrow.
-#define API_IMPL_END                  \
+#define OCOS_API_IMPL_END             \
   }                                   \
   OCOS_CATCH(const std::exception&) { \
     OCOS_HANDLE_EXCEPTION([&]() {     \

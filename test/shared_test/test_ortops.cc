@@ -3,6 +3,7 @@
 #include <filesystem>
 #include "gtest/gtest.h"
 #include "ocos.h"
+#include "ustring.h"
 #include "string_utils.h"
 #include "string_tensor.h"
 #include "test_kernel.hpp"

@@ -47,7 +47,7 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
 static ExceptionalCustomOp1 custom_op1;
 static ExceptionalCustomOp2 custom_op2;
 
-// test a call to an entry point wrapped with API_IMPL_BEGIN/API_IMPL_END behaves as expected.
+// test a call to an entry point wrapped with OCOS_API_IMPL_BEGIN/OCOS_API_IMPL_END behaves as expected.
 // the throw in the ctor of ExceptionalCustomOp1 should be triggered during model loading.
 TEST(Exceptions, TestApiTryCatch_ThrowInModelLoad) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
@@ -61,7 +61,9 @@ TEST(Exceptions, TestApiTryCatch_ThrowInModelLoad) {
     Ort::Session session(*ort_env, model.c_str(), session_options);
   };
 
-#if defined(OCOS_CONTAIN_EXCEPTIONS)
+// if no exceptions, the ORTX_CXX_API_THROW will trigger the log+abort
+// if no exception propagation, the OCOS_API_IMPL_END will trigger the log+abort
+#if defined(OCOS_NO_EXCEPTIONS) || defined(OCOS_PREVENT_EXCEPTION_PROPAGATION)
   // the exception should be caught and logged, and the process should abort so the exception is not propagated up.
   // log output needs to be manually checked
   // can test on Linux but not Windows.
@@ -74,7 +76,7 @@ TEST(Exceptions, TestApiTryCatch_ThrowInModelLoad) {
 #endif
 }
 
-// test a call to an entry point wrapped with API_IMPL_BEGIN/API_IMPL_END behaves as expected.
+// test a call to an entry point wrapped with OCOS_API_IMPL_BEGIN/OCOS_API_IMPL_END behaves as expected.
 // the throw in the Compute of ExceptionalCustomOp2 should be triggered during model execution.
 TEST(Exceptions, TestApiTryCatch_ThrowInModelExecution) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
@@ -104,13 +106,13 @@ TEST(Exceptions, TestApiTryCatch_ThrowInModelExecution) {
                               output_names, 1);
   };
 
-#if defined(OCOS_NO_EXCEPTIONS)
+// if no exceptions, the ORTX_CXX_API_THROW will trigger the log+abort
+// if no exception propagation, the OCOS_API_IMPL_END will trigger the log+abort
+#if defined(OCOS_NO_EXCEPTIONS) || defined(OCOS_PREVENT_EXCEPTION_PROPAGATION)
   // can test on Linux but not Windows
 #if !defined(_WIN32)
   EXPECT_EXIT(fail_fn(), ::testing::KilledBySignal(SIGABRT), ".*");
 #endif
-#elif defined(OCOS_CONTAIN_EXCEPTIONS)
-
 #else
   // ORT catches the exceptions thrown by the custom op and rethrows them as Ort::Exception
   EXPECT_THROW(fail_fn(), Ort::Exception);

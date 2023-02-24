@@ -60,15 +60,15 @@ class ExternalCustomOps {
 };
 
 extern "C" bool ORT_API_CALL AddExternalCustomOp(const OrtCustomOp* c_op) {
-  API_IMPL_BEGIN
+  OCOS_API_IMPL_BEGIN
   ExternalCustomOps::instance().Add(c_op);
-  API_IMPL_END
+  OCOS_API_IMPL_END
   return true;
 }
 
 extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api) {
   OrtStatus* status = nullptr;
-  API_IMPL_BEGIN
+  OCOS_API_IMPL_BEGIN
 
   OrtCustomOpDomain* domain = nullptr;
   const OrtApi* ortApi = api->GetApi(ORT_API_VERSION);
@@ -176,7 +176,7 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
 
   status = ortApi->AddCustomOpDomain(options, domain);
 
-  API_IMPL_END
+  OCOS_API_IMPL_END
 
   return status;
 }

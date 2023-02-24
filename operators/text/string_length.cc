@@ -7,7 +7,7 @@
 #include <locale>
 #include <codecvt>
 #include <algorithm>
-
+#include "ustring.h"
 
 KernelStringLength::KernelStringLength(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
 }

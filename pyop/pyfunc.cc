@@ -210,7 +210,7 @@ typedef struct {
   std::vector<int64_t> dimensions;
 } InputInformation;
 
-PyCustomOpKernel::PyCustomOpKernel(const OrtApi& api, const OrtKernelInfo* info,
+PyCustomOpKernel::PyCustomOpKernel(const OrtApi& api, const OrtKernelInfo& info,
                                    uint64_t id, const std::vector<std::string>& attrs)
     : api_(api),
       ort_(api_),
@@ -218,7 +218,7 @@ PyCustomOpKernel::PyCustomOpKernel(const OrtApi& api, const OrtKernelInfo* info,
   size_t size;
   for (std::vector<std::string>::const_iterator it = attrs.begin(); it != attrs.end(); ++it) {
     size = 0;
-    OrtStatus* status = api_.KernelInfoGetAttribute_string(info, it->c_str(), nullptr, &size);
+    OrtStatus* status = api_.KernelInfoGetAttribute_string(&info, it->c_str(), nullptr, &size);
     if ((status != nullptr) && api_.GetErrorCode(status) != ORT_INVALID_ARGUMENT) {
       std::string error_message(api_.GetErrorMessage(status));
       api_.ReleaseStatus(status);
@@ -373,7 +373,7 @@ void PyCustomOpDef::AddOp(const PyCustomOpDef* cod) {
     op_domain = cod->op_type.substr(0, dm_pos);
     op = cod->op_type.substr(dm_pos + 2, -1);
   }
-  
+
   // No need to protect against concurrent access, GIL is doing that.
   auto val = std::make_pair(op_domain, std::vector<PyCustomOpFactory>());
   const auto [it_domain_op, success]  = PyOp_container().insert(val);
@@ -386,7 +386,7 @@ const PyCustomOpFactory* PyCustomOpDef_FetchPyCustomOps(size_t num) {
     EnablePyCustomOps(false);
     return nullptr;
   }
-  
+
   auto it = PyOp_container().find(c_OpDomain);
   if (it != PyOp_container().end()) {
     const std::vector<PyCustomOpFactory>& ref = it->second;
@@ -414,7 +414,7 @@ bool EnablePyCustomOps(bool enabled) {
 OrtStatusPtr RegisterPythonDomainAndOps(OrtSessionOptions* options, const OrtApi* ortApi){
   OrtCustomOpDomain* domain = nullptr;
   OrtStatus* status = nullptr;
-  
+
   for (auto const& val_pair: PyOp_container()) {
     if (val_pair.first == c_OpDomain) {
       continue; // Register this domain in the second iteration.
