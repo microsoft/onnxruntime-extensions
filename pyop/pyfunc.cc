@@ -231,7 +231,7 @@ PyCustomOpKernel::PyCustomOpKernel(const OrtApi& api, const OrtKernelInfo& info,
     }
     attrs_values_[*it] = "";
     attrs_values_[*it].resize(size);
-    status = api_.KernelInfoGetAttribute_string(info, it->c_str(), &(attrs_values_[*it][0]), &size);
+    status = api_.KernelInfoGetAttribute_string(&info, it->c_str(), &(attrs_values_[*it][0]), &size);
     if ((status != nullptr) && (api_.GetErrorCode(status) != ORT_OK)) {
       api_.ReleaseStatus(status);
       throw std::runtime_error(MakeString(
