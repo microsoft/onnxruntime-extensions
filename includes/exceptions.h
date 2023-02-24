@@ -19,7 +19,7 @@ namespace OrtW {
 
 // All C++ methods that can fail will throw an exception of this type
 struct Exception : std::exception {
-  Exception(std::string&& string, OrtErrorCode code) : message_{std::move(string)}, code_{code} {}
+  Exception(std::string message, OrtErrorCode code) : message_{std::move(message)}, code_{code} {}
 
   OrtErrorCode GetOrtErrorCode() const { return code_; }
   const char* what() const noexcept override { return message_.c_str(); }
