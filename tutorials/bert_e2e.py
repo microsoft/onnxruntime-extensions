@@ -129,8 +129,7 @@ def verify_results_for_e2e_model(model_name: str, input_bert_model: Path, output
     ref_outputs = session.run([output_name_for_verify], inputs)
 
     # Load tokenizer op
-    session_options.register_custom_ops_library(
-        onnxruntime_extensions.get_library_path())
+    session_options.register_custom_ops_library(onnxruntime_extensions.get_library_path())
 
     session = onnxruntime.InferenceSession(
         str(output_model_file.resolve(strict=True)), session_options, providers=["CPUExecutionProvider"]
