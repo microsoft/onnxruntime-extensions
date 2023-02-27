@@ -65,7 +65,7 @@ def export_backbone(model_name: str, bert_onnx_model: Path):
         model_name)
 
     if bert_onnx_model and bert_onnx_model.exists():
-        print("Use cached onnx Model, skip re-exporting the backbone model.")
+        print("Using cached ONNX model, skipping re-exporting the backbone model.")
         return tokenizer, bert_onnx_model, onnx_config
 
     # tempfile will be removed automatically
