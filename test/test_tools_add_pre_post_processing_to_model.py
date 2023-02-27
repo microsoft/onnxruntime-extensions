@@ -112,8 +112,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
                 transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
             ])
             input_tensor = preprocess(input_image)
-            input_batch = (input_tensor.unsqueeze(
-                0).detach().cpu().numpy())  # create a mini-batch as expected by the model
+            # create a mini-batch as expected by the model
+            input_batch = (input_tensor.unsqueeze(0).detach().cpu().numpy())  
             # to NHWC format for TF input
             input_batch = np.transpose(input_batch, (0, 2, 3, 1))
 
