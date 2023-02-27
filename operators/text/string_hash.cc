@@ -9,7 +9,7 @@
 #include "string_hash.hpp"
 
 
-KernelStringHash::KernelStringHash(const OrtApi& api) : BaseKernel(api) {
+KernelStringHash::KernelStringHash(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
 }
 
 void KernelStringHash::Compute(OrtKernelContext* context) {
@@ -68,7 +68,7 @@ ONNXTensorElementDataType CustomOpStringHash::GetOutputType(size_t /*index*/) co
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 };
 
-KernelStringHashFast::KernelStringHashFast(const OrtApi& api) : BaseKernel(api) {
+KernelStringHashFast::KernelStringHashFast(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
 }
 
 void KernelStringHashFast::Compute(OrtKernelContext* context) {

@@ -6,10 +6,10 @@
 #include "ocos.h"
 
 struct KernelNegPos : BaseKernel {
-  KernelNegPos(const OrtApi& api) : BaseKernel(api) {
+  KernelNegPos(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
   }
 
-  void Compute(OrtKernelContext* context){
+  void Compute(OrtKernelContext* context) {
     // Setup inputs
     const OrtValue* input_X = ort_.KernelContext_GetInput(context, 0);
     const float* X = ort_.GetTensorData<float>(input_X);
@@ -40,22 +40,22 @@ struct KernelNegPos : BaseKernel {
 };
 
 struct CustomOpNegPos : OrtW::CustomOpBase<CustomOpNegPos, KernelNegPos> {
-  const char* GetName() const{
+  const char* GetName() const {
     return "NegPos";
   }
 
-  size_t GetInputTypeCount() const{
+  size_t GetInputTypeCount() const {
     return 1;
   }
 
   ONNXTensorElementDataType GetInputType(size_t /*index*/) const {
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
   }
-  
-  size_t GetOutputTypeCount() const{
+
+  size_t GetOutputTypeCount() const {
     return 2;
   }
-  
+
   ONNXTensorElementDataType GetOutputType(size_t /*index*/) const {
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
   }

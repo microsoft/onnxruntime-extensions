@@ -12,7 +12,8 @@ void KernelRaggedTensorToSparse::Compute(OrtKernelContext* context) {
 
   if (d_length.size() != 1)
     ORTX_CXX_API_THROW(MakeString(
-        "First input must have one dimension not ", d_length.size(), "."), ORT_INVALID_ARGUMENT);
+                           "First input must have one dimension not ", d_length.size(), "."),
+                       ORT_INVALID_ARGUMENT);
   int64_t n_els = d_length[0] - 1;
   int64_t n_values = p_n_elements[n_els];
   std::vector<int64_t> shape{n_values, 2};
@@ -58,7 +59,8 @@ ONNXTensorElementDataType CustomOpRaggedTensorToSparse::GetInputType(size_t /*in
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 };
 
-CommonRaggedTensorToDense::CommonRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+CommonRaggedTensorToDense::CommonRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo& info)
+    : BaseKernel(api, info) {
 }
 
 void CommonRaggedTensorToDense::GetInputDims(OrtKernelContext* context, const OrtValue** inputs, OrtTensorDimensions* dims) {
@@ -77,8 +79,9 @@ int64_t CommonRaggedTensorToDense::GetMaxCol(int64_t n, const int64_t* p_indices
   return max_col;
 }
 
-KernelRaggedTensorToDense::KernelRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo* info) : CommonRaggedTensorToDense(api, info) {
-  missing_value_ = HasAttribute("missing_value") ? ort_.KernelInfoGetAttribute<int64_t>(info, "missing_value") : -1;
+KernelRaggedTensorToDense::KernelRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo& info)
+    : CommonRaggedTensorToDense(api, info) {
+  missing_value_ = HasAttribute("missing_value") ? ort_.KernelInfoGetAttribute<int64_t>(&info, "missing_value") : -1;
 }
 
 void KernelRaggedTensorToDense::Compute(OrtKernelContext* context) {
@@ -104,8 +107,9 @@ void KernelRaggedTensorToDense::Compute(OrtKernelContext* context) {
     pos_end = pos + max_col;
     if (pos_end > shape_out_size)
       ORTX_CXX_API_THROW(MakeString(
-          "Unexpected index ", pos_end, " greather than ", shape_out[0], "x", shape_out[1],
-          " - i=", i, " size=", size, "."), ORT_INVALID_ARGUMENT);
+                             "Unexpected index ", pos_end, " greather than ", shape_out[0], "x", shape_out[1],
+                             " - i=", i, " size=", size, "."),
+                         ORT_INVALID_ARGUMENT);
     for (j = p_indices[i]; j < p_indices[i + 1]; ++j, ++pos) {
       dense[pos] = p_values[j];
     }
@@ -127,10 +131,6 @@ ONNXTensorElementDataType CustomOpRaggedTensorToDense::GetOutputType(size_t /*in
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 };
 
-void* CustomOpRaggedTensorToDense::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return CreateKernelImpl(api, info);
-};
-
 const char* CustomOpRaggedTensorToDense::GetName() const {
   return "RaggedTensorToDense";
 };
@@ -139,7 +139,7 @@ ONNXTensorElementDataType CustomOpRaggedTensorToDense::GetInputType(size_t /*ind
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 };
 
-KernelStringRaggedTensorToDense::KernelStringRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo* info) : CommonRaggedTensorToDense(api, info) {
+KernelStringRaggedTensorToDense::KernelStringRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo& info) : CommonRaggedTensorToDense(api, info) {
 }
 
 void KernelStringRaggedTensorToDense::Compute(OrtKernelContext* context) {
@@ -162,8 +162,9 @@ void KernelStringRaggedTensorToDense::Compute(OrtKernelContext* context) {
     pos_end = pos + max_col;
     if (pos_end > shape_out_size)
       ORTX_CXX_API_THROW(MakeString(
-          "Unexpected index ", pos_end, " greather than ", shape_out[0], "x", shape_out[1],
-          " - i=", i, " size=", size, "."), ORT_INVALID_ARGUMENT);
+                             "Unexpected index ", pos_end, " greather than ", shape_out[0], "x", shape_out[1],
+                             " - i=", i, " size=", size, "."),
+                         ORT_INVALID_ARGUMENT);
     for (j = p_indices[i]; j < p_indices[i + 1]; ++j, ++pos) {
       dense[static_cast<size_t>(pos)] = input[static_cast<size_t>(j)];
     }
@@ -184,10 +185,6 @@ size_t CustomOpStringRaggedTensorToDense::GetOutputTypeCount() const {
 
 ONNXTensorElementDataType CustomOpStringRaggedTensorToDense::GetOutputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-};
-
-void* CustomOpStringRaggedTensorToDense::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return CreateKernelImpl(api, info);
 };
 
 const char* CustomOpStringRaggedTensorToDense::GetName() const {

@@ -9,14 +9,14 @@
 
 // See https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/regex_split_with_offsets.md.
 struct KernelStringECMARegexSplitWithOffsets : BaseKernel {
-  KernelStringECMARegexSplitWithOffsets(const OrtApi& api, const OrtKernelInfo* info);
+  KernelStringECMARegexSplitWithOffsets(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
+
  private:
   bool ignore_case_;
 };
 
 struct CustomOpStringECMARegexSplitWithOffsets : OrtW::CustomOpBase<CustomOpStringECMARegexSplitWithOffsets, KernelStringECMARegexSplitWithOffsets> {
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;
@@ -48,7 +48,7 @@ void ECMARegexSplitImpl(const std::string& input, const std::regex& pattern,
       end_offsets.push_back(prev_pos + matched_length);
     }
 
-    //no mather include the delimiter, we should skip it
+    // no mather include the delimiter, we should skip it
     prev_pos += matched_length;
   }
 

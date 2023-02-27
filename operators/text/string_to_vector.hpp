@@ -9,7 +9,6 @@
 #include "ocos.h"
 #include "string_utils.h"
 
-
 class StringToVectorImpl {
  public:
   StringToVectorImpl(std::string& map, std::string& unk);
@@ -29,7 +28,7 @@ class StringToVectorImpl {
 };
 
 struct KernelStringToVector : BaseKernel {
-  KernelStringToVector(const OrtApi& api, const OrtKernelInfo* info);
+  KernelStringToVector(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 
  private:
@@ -37,7 +36,6 @@ struct KernelStringToVector : BaseKernel {
 };
 
 struct CustomOpStringToVector : OrtW::CustomOpBase<CustomOpStringToVector, KernelStringToVector> {
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

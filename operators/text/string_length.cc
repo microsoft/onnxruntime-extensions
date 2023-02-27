@@ -9,7 +9,7 @@
 #include <algorithm>
 #include "ustring.h"
 
-KernelStringLength::KernelStringLength(const OrtApi& api) : BaseKernel(api) {
+KernelStringLength::KernelStringLength(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
 }
 
 void KernelStringLength::Compute(OrtKernelContext* context) {

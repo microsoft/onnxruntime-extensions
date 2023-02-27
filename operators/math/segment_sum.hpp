@@ -7,7 +7,7 @@
 #include "string_utils.h"
 
 struct KernelSegmentSum : BaseKernel {
-  KernelSegmentSum(const OrtApi& api);
+  KernelSegmentSum(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 };
 

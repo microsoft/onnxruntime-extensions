@@ -4,12 +4,11 @@
 #include "vector_to_string.hpp"
 #include "string_tensor.h"
 
-
 namespace std {
 
 template <class T>
 size_t hash<std::vector<T>>::operator()(const vector<T>& __vector) const noexcept {
-  return util::Hash(reinterpret_cast<const char *>(__vector.data()), __vector.size() * sizeof(T));
+  return util::Hash(reinterpret_cast<const char*>(__vector.data()), __vector.size() * sizeof(T));
 }
 
 template struct hash<std::vector<std::string>>;
@@ -38,7 +37,7 @@ std::vector<std::string> VectorToStringImpl::Compute(const void* input, const Or
 
   std::vector<int64_t> key(vector_len_);
   for (int64_t i = 0; i < input_dim.Size(); i = static_cast<int64_t>(i + vector_len_)) {
-    //construct key
+    // construct key
     for (size_t j = 0; j < vector_len_; j++) {
       key[j] = ptr[j];
     }
@@ -103,9 +102,9 @@ void VectorToStringImpl::ParseValues(const std::string_view& v, std::vector<int6
   }
 }
 
-KernelVectorToString::KernelVectorToString(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
-  std::string map = ort_.KernelInfoGetAttribute<std::string>(info, "map");
-  std::string unk = ort_.KernelInfoGetAttribute<std::string>(info, "unk");
+KernelVectorToString::KernelVectorToString(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
+  std::string map = ort_.KernelInfoGetAttribute<std::string>(&info, "map");
+  std::string unk = ort_.KernelInfoGetAttribute<std::string>(&info, "unk");
 
   // TODO: support more type when we can get input type from OrtKernelInfo
   impl_ = std::make_shared<VectorToStringImpl>(map, unk);
@@ -123,10 +122,6 @@ void KernelVectorToString::Compute(OrtKernelContext* context) {
 
   FillTensorDataString(api_, ort_, context, mapping_result, output);
 }
-
-void* CustomOpVectorToString::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return CreateKernelImpl(api, info);
-};
 
 const char* CustomOpVectorToString::GetName() const { return "VectorToString"; };
 

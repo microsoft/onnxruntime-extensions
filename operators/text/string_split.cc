@@ -4,7 +4,7 @@
 #include "string_split.hpp"
 #include "string_tensor.h"
 
-KernelStringSplit::KernelStringSplit(const OrtApi& api) : BaseKernel(api) {
+KernelStringSplit::KernelStringSplit(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
 }
 
 void KernelStringSplit::Compute(OrtKernelContext* context) {

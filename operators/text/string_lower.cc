@@ -7,7 +7,7 @@
 #include <cmath>
 #include <algorithm>
 
-KernelStringLower::KernelStringLower(const OrtApi& api) : BaseKernel(api) {
+KernelStringLower::KernelStringLower(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
 }
 
 void KernelStringLower::Compute(OrtKernelContext* context) {

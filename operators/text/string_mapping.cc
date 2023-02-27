@@ -8,11 +8,10 @@
 #include <codecvt>
 #include <algorithm>
 
-
-KernelStringMapping::KernelStringMapping(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api) {
-  std::string map = ort_.KernelInfoGetAttribute<std::string>(info, "map");
+KernelStringMapping::KernelStringMapping(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
+  std::string map = ort_.KernelInfoGetAttribute<std::string>(&info, "map");
   auto lines = SplitString(map, "\n", true);
-  for (const auto& line: lines) {
+  for (const auto& line : lines) {
     auto items = SplitString(line, "\t", true);
 
     if (items.size() != 2) {
@@ -30,7 +29,7 @@ void KernelStringMapping::Compute(OrtKernelContext* context) {
 
   OrtTensorDimensions dimensions(ort_, input);
 
-  for (auto& str: input_data) {
+  for (auto& str : input_data) {
     if (map_.find(str) != map_.end()) {
       str = map_[str];
     }
@@ -40,10 +39,6 @@ void KernelStringMapping::Compute(OrtKernelContext* context) {
 
   FillTensorDataString(api_, ort_, context, input_data, output);
 }
-
-void* CustomOpStringMapping::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return CreateKernelImpl(api, info);
-};
 
 const char* CustomOpStringMapping::GetName() const { return "StringMapping"; };
 

@@ -150,12 +150,60 @@ endif()
 # External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals ${PROJECT_SOURCE_DIR}/cmake)
 
+# PROJECT_IS_TOP_LEVEL is available since 3.21
+get_property(not_top DIRECTORY PROPERTY PARENT_DIRECTORY)
+if(not_top AND ONNXRUNTIME_ROOT)
+  set(_ONNXRUNTIME_EMBEDDED TRUE)
+endif()
+
 if(OCOS_ENABLE_SELECTED_OPLIST)
   # Need to ensure _selectedoplist.cmake file is already generated in folder: ${PROJECT_SOURCE_DIR}/cmake/
   # You could run gen_selectedops.py in folder: tools/ to generate _selectedoplist.cmake
   message(STATUS "Looking for the _selectedoplist.cmake")
   disable_all_operators()
   include(_selectedoplist)
+endif()
+
+set(_OCOS_EXCEPTIONS_REQUIRED OFF)
+if (OCOS_ENABLE_GPT2_TOKENIZER OR
+    OCOS_ENABLE_WORDPIECE_TOKENIZER OR
+    OCOS_ENABLE_BLINGFIRE OR
+    OCOS_ENABLE_SPM_TOKENIZER OR
+    (OCOS_ENABLE_CV2 OR OCOS_ENABLE_OPENCV_CODECS OR OCOS_ENABLE_VISION))
+    set(_OCOS_EXCEPTIONS_REQUIRED ON)
+endif()
+
+# Special case an embedded build with ORT exceptions disabled but custom ops that require exceptions.
+# Allow using an override so we can do a direct build of ort-ext in a CI without having to embed it in an ORT build.
+set(_OCOS_PREVENT_EXCEPTION_PROPAGATION OFF)
+if (_OCOS_PREVENT_EXCEPTION_PROPAGATION_OVERRIDE)
+  set(_OCOS_PREVENT_EXCEPTION_PROPAGATION ${_OCOS_PREVENT_EXCEPTION_PROPAGATION_OVERRIDE})
+elseif(_ONNXRUNTIME_EMBEDDED AND onnxruntime_DISABLE_EXCEPTIONS AND _OCOS_EXCEPTIONS_REQUIRED)
+  set(_OCOS_PREVENT_EXCEPTION_PROPAGATION ON)
+endif()
+
+if (_OCOS_PREVENT_EXCEPTION_PROPAGATION)
+  message(STATUS "Embedded build as part of ONNX Runtime with exceptions disabled. "
+                 "Extensions will be built with exceptions enabled due to included custom ops "
+                 "using 3rd party libraries that require exceptions.")
+
+  if (NOT OCOS_ENABLE_CPP_EXCEPTIONS)
+    message(WARNING "Enabling C++ exception support as custom ops included in the build require them to be enabled.")
+    set(OCOS_ENABLE_CPP_EXCEPTIONS ON)
+  endif()
+
+  # undo the flags that ORT has set to disable exceptions.
+  # see https://github.com/microsoft/onnxruntime/blob/b1abb8c656c597bf221bd85682ae3d9e350d9aba/cmake/adjust_global_compile_flags.cmake#L160-L169
+  if(MSVC)
+    string(REPLACE "/EHs-c-" "/EHsc" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  else()
+    string(REPLACE "-fno-exceptions" "-fexceptions" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+    string(REPLACE "-fno-unwind-tables" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+    string(REPLACE "-fno-asynchronous-unwind-tables" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+  endif()
+
+  # the ort-ext code has to provide a barrier between the exception enabled custom op code and ORT.
+  add_compile_definitions(OCOS_PREVENT_EXCEPTION_PROPAGATION)
 endif()
 
 if(NOT OCOS_ENABLE_CPP_EXCEPTIONS)
@@ -182,14 +230,7 @@ endfunction()
 
 # set default MSVC warning level to 3 for external dependencies
 set_msvc_c_cpp_compiler_warning_level(3)
-
-# PROJECT_IS_TOP_LEVEL is available until 3.21
-get_property(not_top DIRECTORY PROPERTY PARENT_DIRECTORY)
-if(not_top AND ONNXRUNTIME_ROOT)
-  set(_ONNXRUNTIME_EMBEDDED TRUE)
-endif()
 include(ext_ortlib)
-
 include(gsl)
 
 macro(standardize_output_folder bin_target)
@@ -214,7 +255,7 @@ endif()
 
 # ### scan all source files
 set(TARGET_SRC_NOEXCEPTION)
-file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h")
+file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h" "includes/*.h*")
 
 if(OCOS_ENABLE_TF_STRING)
   set(farmhash_SOURCE_DIR ${PROJECT_SOURCE_DIR}/cmake/externals/farmhash)
@@ -553,7 +594,7 @@ endforeach()
 if(OCOS_ENABLE_CTEST)
   if (OCOS_ENABLE_SELECTED_OPLIST)
     # currently the tests don't handle operator exclusion cleanly.
-    message(FATAL "Due to usage of OCOS_ENABLE_SELECTED_OPLIST excluding operators the tests are unable to be built and run")
+    message(FATAL_ERROR "Due to usage of OCOS_ENABLE_SELECTED_OPLIST excluding operators the tests are unable to be built and run")
   endif()
 
   # Enable CTest
@@ -593,7 +634,8 @@ if(OCOS_ENABLE_CTEST)
       target_link_directories(extensions_test PRIVATE ${ONNXRUNTIME_LIB_DIR})
     endif()
 
-    target_link_libraries(extensions_test PRIVATE ocos_operators extensions_shared onnxruntime gtest_main ${ocos_libraries} ${LINUX_CC_FLAGS})
+    target_link_libraries(extensions_test PRIVATE ocos_operators extensions_shared onnxruntime gtest_main gmock_main
+                          ${ocos_libraries} ${LINUX_CC_FLAGS})
 
     # Copy ONNXRuntime DLLs into bin folder for testing on Windows platform
     if(WIN32)
