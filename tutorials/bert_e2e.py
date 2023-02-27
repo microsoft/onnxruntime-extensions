@@ -157,13 +157,12 @@ def main():
           - MobileBert with different tasks
           - XLM-Roberta with classification task   
           
-        This tutorial does only server as a example of how to add pre/post processing to a transformer model.
-        It adds tokenizer( sentencePiece/Berttokenizer/HfbertTokenizer in pre-processing) 
-        and classify/Decoder (in postprocessing, serves for different downstream tasks) to the model.
+        This tutorial provides an example of how to add pre/post processing to a transformer model.
+        It can add a tokenizer (SentencePiece/Berttokenizer/HfbertTokenizer) for pre-processing,
+        and a classifier/decoder for post-processing.
         
-        Export models from huggingface by default if there is not a onnx model provided.
-        NOTE: if provided a onnx model, you have to make sure your model is matched with the model_type in hugging-face.
-        As we are using the hugging-face tokenizer to do the pre-processing.
+        Exports models from huggingface by default if an existing onnx model is not provided.
+        NOTE: if providing a onnx model, you have to make sure your model is matched with the model_type in hugging-face as we are using the hugging-face tokenizer to do the pre-processing.
         """,
     )
 
