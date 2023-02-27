@@ -31,7 +31,7 @@ def get_tokenizer_and_model_from_huggingface(model_name):
     elif model_name == "google/mobilebert-uncased":
         model = transformers.MobileBertForNextSentencePrediction.from_pretrained(model_name)
         onnx_config = transformers.models.mobilebert.MobileBertOnnxConfig(config, "default")
-        text = ("where is Jim Henson?","he is at school from where two blocks away")
+        text = ("where is Jim Henson?", "he is at school from where two blocks away")
     elif model_name == "csarron/mobilebert-uncased-squad-v2":
         model = transformers.MobileBertForQuestionAnswering.from_pretrained(model_name)
         onnx_config = transformers.models.mobilebert.MobileBertOnnxConfig(config, "question-answering")
@@ -86,10 +86,10 @@ def add_pre_post_processing_to_transformers(model_name: str, input_model_file: P
     else:
         vocab_file = tokenizer.vocab_file
     tokenizer_type = 'BertTokenizer' if model_name != 'xlm-roberta-base' else 'SentencePieceTokenizer'
-    task_type = ('NextSentencePrediction' if model_name == 'google/mobilebert-uncased' 
+    task_type = ('NextSentencePrediction' if model_name == 'google/mobilebert-uncased'
                  else ''.join([i.capitalize() for i in onnx_config.task.split('-')]))
     add_ppp.transformers_and_bert(bert_onnx_model, output_model_file,
-                                  vocab_file, tokenizer_type, 
+                                  vocab_file, tokenizer_type,
                                   task_type,
                                   add_debug_before_postprocessing=True)
 

@@ -221,7 +221,7 @@ class ArgMax(Step):
             name: Optional name of step. Defaults to 'ArgMax'
 
         """
-        super().__init__(["logits"], ["index"], name)
+        super().__init__(["data"], ["index"], name)
         self._axis = axis
         self._keepdims = keepdims
 
@@ -232,12 +232,19 @@ class ArgMax(Step):
         def build_input_declare():
             return f"{input_type_str_0}[{input_shape_str_0}] {self.input_names[0]}"
 
-        output_shape_str = input_shape_0[0]
+        axis = self._axis + len(input_shape_0) if self._axis < 0 else self._axis
+        if axis >= len(input_shape_0):
+            raise ValueError("axis should be in range [-rank, rank-1].")
+        
+        output_shape_str = input_shape_0.copy()
+        output_shape_str[axis] = "1"
+        if self._keepdims == 0:
+            output_shape_str.pop(axis)
 
         converter_graph = onnx.parser.parse_graph(
             f"""\
             classify ({build_input_declare()}) 
-                => (int64[{output_shape_str}] {self.output_names[0]})
+                => (int64[{','.join(output_shape_str)}] {self.output_names[0]})
             {{
                 {self.output_names[0]} = ArgMax<axis = {self._axis}, keepdims={self._keepdims}>({self.input_names[0]})
             }}
