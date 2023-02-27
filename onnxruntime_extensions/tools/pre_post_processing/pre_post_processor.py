@@ -157,8 +157,8 @@ class PrePostProcessor:
 
             # IOEntryValuePreserver, preserve those outputs which has multiple consumers.
             # we explicitly add the output to the graph output.
-            additional_outputs = [i.output for i in self.outputs_preserver if i.is_active]
-            graph_for_step = processor.apply(*args, additional_outputs=additional_outputs)
+            graph_outputs_to_maintain = [i.output for i in self.outputs_preserver if i.is_active]
+            graph_for_step = processor.apply(*args, graph_outputs_to_maintain=graph_outputs_to_maintain)
 
             for preserver in self.outputs_preserver:
                 if preserver.producer == processor:

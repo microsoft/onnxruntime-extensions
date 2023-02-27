@@ -335,38 +335,3 @@ class BertTokenizerQADecoder(Step):
         converter_graph.node[node_idx].attribute.extend(token_model_attr)
 
         return converter_graph
-
-
-class ArgMax(Step):
-    def __init__(self, name: Optional[str] = None, axis: int = -1, keepdims: int = 0):
-        """
-        Brief:
-            Same as ArgMax op.
-        Args:
-            name: Optional name of step. Defaults to 'ArgMax'
-
-        """
-        super().__init__(["logits"], ["index"], name)
-        self._axis = axis
-        self._keepdims = keepdims
-
-    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
-        input_type_str_0, input_shape_str_0 = self._get_input_type_and_shape_strs(graph, 0)
-        input_shape_0 = input_shape_str_0.split(",")
-
-        def build_input_declare():
-            return f"{input_type_str_0}[{input_shape_str_0}] {self.input_names[0]}"
-
-        output_shape_str = input_shape_0[0]
-
-        converter_graph = onnx.parser.parse_graph(
-            f"""\
-            classify ({build_input_declare()}) 
-                => (int64[{output_shape_str}] {self.output_names[0]})
-            {{
-                {self.output_names[0]} = ArgMax<axis = {self._axis}, keepdims={self._keepdims}>({self.input_names[0]})
-            }}
-            """
-        )
-
-        return converter_graph

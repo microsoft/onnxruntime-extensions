@@ -4,18 +4,6 @@ Module pre_post_processing.steps.nlp
 Classes
 -------
 
-`ArgMax(name: Optional[str] = None, axis: int = -1, keepdims: int = 0)`
-:   Base class for a pre or post processing step.
-    
-    Brief:
-        Same as ArgMax op.
-    Args:
-        name: Optional name of step. Defaults to 'ArgMax'
-
-    ### Ancestors (in MRO)
-
-    * pre_post_processing.step.Step
-
 `BertTokenizer(tokenizer_param: pre_post_processing.steps.nlp.TokenizerParam, name: Optional[str] = None)`
 :   Base class for a pre or post processing step.
     
@@ -24,10 +12,10 @@ Classes
     Args:
         tokenizer_param: some essential infos to build a tokenizer,
         You can create a TokenizerParam like this:
-            tokenizer_param = TokenizerParam(vocab=tokenizer.vocab, #vocab is dict or file_path,
-                                strip_accents = True or False (Optional),
-                                do_lower_case = True or False (Optional),
-                                )
+            tokenizer_param = TokenizerParam(vocab=tokenizer.vocab, # vocab is dict or file_path
+                                             strip_accents = True or False (Optional),
+                                             do_lower_case = True or False (Optional)
+                                             )
     
         name: Optional name of step. Defaults to 'BertTokenizer'
 
@@ -41,9 +29,9 @@ Classes
     Brief:
         Decode the input_ids to text
     Args:
-        tokenizer_param: some essential infos to build a tokenizer.
-        you can create a TokenizerParam object like:
-            tokenizer_param = TokenizerParam(vocab=tokenizer.vocab, #vocab is dict or file_path)
+        tokenizer_param: some essential info to build a tokenizer.
+            you can create a TokenizerParam object like:
+                tokenizer_param = TokenizerParam(vocab=tokenizer.vocab, #vocab is dict or file_path)
         name: Optional name of step. Defaults to 'BertTokenizerQADecoder'
 
     ### Ancestors (in MRO)
@@ -55,12 +43,12 @@ Classes
     
     Brief:
         SentencePieceTokenizer has actually 6 inputs in definition, but we allow user to provide only text input,
-        and make the others,"nbest_size", "alpha", "add_bos", "add_eos", "reverse"  optional.
+        and make the others, "nbest_size", "alpha", "add_bos", "add_eos", "reverse" optional.
     Args:
         tokenizer_param: some essential infos to build a tokenizer
         you can create a TokenizerParam object like:
             tokenizer_param = TokenizerParam(vocab_size=tokenizer.vocab_size,
-                                tweaked_bos_id=tokenizer.tweaked_bos_id)
+                                             tweaked_bos_id=tokenizer.tweaked_bos_id)
     
         nbest_size: int, optional (default = 0)
         alpha: float, optional (default = 1.0)
