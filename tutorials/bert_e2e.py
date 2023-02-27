@@ -200,8 +200,7 @@ def main():
 
     new_model_path = model_path.with_suffix(".with_pre_post_processing.onnx")
 
-    add_pre_post_processing_to_transformers(
-        args.model_type, model_path, new_model_path)
+    add_pre_post_processing_to_transformers(args.model_type, model_path, new_model_path)
     verify_results_for_e2e_model(args.model_type, model_path, new_model_path)
     return new_model_path
 
