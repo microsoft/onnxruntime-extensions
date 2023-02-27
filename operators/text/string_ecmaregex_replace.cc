@@ -7,10 +7,10 @@
 #include <regex>
 #include "string_tensor.h"
 
-KernelStringECMARegexReplace::KernelStringECMARegexReplace(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+KernelStringECMARegexReplace::KernelStringECMARegexReplace(const OrtApi& api, const OrtKernelInfo& info)
+    : BaseKernel(api, info) {
   global_replace_ = TryToGetAttributeWithDefault("global_replace", true);
   ignore_case_ = TryToGetAttributeWithDefault("ignore_case", false);
-
 }
 
 void KernelStringECMARegexReplace::Compute(OrtKernelContext* context) {
@@ -24,19 +24,18 @@ void KernelStringECMARegexReplace::Compute(OrtKernelContext* context) {
   GetTensorMutableDataString(api_, ort_, context, pattern, str_pattern);
   GetTensorMutableDataString(api_, ort_, context, rewrite, str_rewrite);
 
-
   // Verifications
   OrtTensorDimensions pattern_dimensions(ort_, pattern);
   OrtTensorDimensions rewrite_dimensions(ort_, rewrite);
   if (pattern_dimensions.Size() != 1) {
-    ORTX_CXX_API_THROW(MakeString(
-        "pattern (second input) must contain only one element. It has ",
-        pattern_dimensions.size(), " dimensions."), ORT_INVALID_GRAPH);
+    ORTX_CXX_API_THROW(MakeString("pattern (second input) must contain only one element. It has ",
+                                  pattern_dimensions.size(), " dimensions."),
+                       ORT_INVALID_GRAPH);
   }
   if (rewrite_dimensions.Size() != 1) {
-    ORTX_CXX_API_THROW(MakeString(
-        "rewrite (third input) must contain only one element. It has ",
-        rewrite_dimensions.size(), " dimensions."), ORT_INVALID_GRAPH);
+    ORTX_CXX_API_THROW(MakeString("rewrite (third input) must contain only one element. It has ",
+                                  rewrite_dimensions.size(), " dimensions."),
+                       ORT_INVALID_GRAPH);
   }
   if (str_pattern[0].empty()) {
     ORTX_CXX_API_THROW("pattern (second input) cannot be empty.", ORT_INVALID_GRAPH);
@@ -69,10 +68,6 @@ void KernelStringECMARegexReplace::Compute(OrtKernelContext* context) {
 
   FillTensorDataString(api_, ort_, context, str_input, output);
 }
-
-void* CustomOpStringECMARegexReplace::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return CreateKernelImpl(api, info);
-};
 
 const char* CustomOpStringECMARegexReplace::GetName() const { return "StringECMARegexReplace"; };
 

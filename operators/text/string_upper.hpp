@@ -7,7 +7,7 @@
 #include "string_utils.h"
 
 struct KernelStringUpper : BaseKernel {
-  KernelStringUpper(const OrtApi& api);
+  KernelStringUpper(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 };
 

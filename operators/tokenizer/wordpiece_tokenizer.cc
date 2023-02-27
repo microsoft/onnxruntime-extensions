@@ -4,13 +4,16 @@
 #include "wordpiece_tokenizer.hpp"
 #include "nlohmann/json.hpp"
 
-KernelWordpieceTokenizer::KernelWordpieceTokenizer(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+KernelWordpieceTokenizer::KernelWordpieceTokenizer(const OrtApi& api, const OrtKernelInfo& info)
+    : BaseKernel(api, info) {
   // https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/WordpieceTokenizer.md
   // https://github.com/tensorflow/text/blob/master/tensorflow_text/python/ops/bert_tokenizer.py
-  std::string vocab_as_string = ort_.KernelInfoGetAttribute<std::string>(info, "vocab");
-  std::string suffix_indicator = ort_.KernelInfoGetAttribute<std::string>(info, "suffix_indicator");
-  std::string unk = ort_.KernelInfoGetAttribute<std::string>(info, "unknown_token");
-  max_input_chars_per_word_ = HasAttribute("max_input_chars_per_word") ? ort_.KernelInfoGetAttribute<int64_t>(info, "max_input_chars_per_word") : 200;
+  std::string vocab_as_string = ort_.KernelInfoGetAttribute<std::string>(&info, "vocab");
+  std::string suffix_indicator = ort_.KernelInfoGetAttribute<std::string>(&info, "suffix_indicator");
+  std::string unk = ort_.KernelInfoGetAttribute<std::string>(&info, "unknown_token");
+  max_input_chars_per_word_ = HasAttribute("max_input_chars_per_word")
+                                  ? ort_.KernelInfoGetAttribute<int64_t>(&info, "max_input_chars_per_word")
+                                  : 200;
   suffix_indicator_ = ustring(suffix_indicator);
   unk_token_ = ustring(unk);
 
@@ -73,7 +76,8 @@ void KernelWordpieceTokenizer_Tokenizer(const std::unordered_map<std::u32string,
     } else if (text_index == existing_rows[row_index]) {
       if (row_index >= n_existing_rows)
         ORTX_CXX_API_THROW(MakeString(
-            "row_index=", row_index, " is out of range=", n_existing_rows, "."), ORT_INVALID_ARGUMENT);
+                               "row_index=", row_index, " is out of range=", n_existing_rows, "."),
+                           ORT_INVALID_ARGUMENT);
       rows.push_back(indices.size());
       ++row_index;
     }
@@ -161,10 +165,6 @@ void KernelWordpieceTokenizer::Compute(OrtKernelContext* context) {
   i = size_row_lengths[0];
   ptr_row_lengths[i] = row_begins[static_cast<size_t>(i)];
 }
-
-void* CustomOpWordpieceTokenizer::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return CreateKernelImpl(api, info);
-};
 
 const char* CustomOpWordpieceTokenizer::GetName() const {
   return "WordpieceTokenizer";

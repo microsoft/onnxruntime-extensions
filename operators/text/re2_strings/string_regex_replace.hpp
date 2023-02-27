@@ -7,7 +7,7 @@
 #include "string_utils.h"
 
 struct KernelStringRegexReplace : BaseKernel {
-  KernelStringRegexReplace(const OrtApi& api, const OrtKernelInfo* info);
+  KernelStringRegexReplace(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 
  protected:
@@ -15,7 +15,6 @@ struct KernelStringRegexReplace : BaseKernel {
 };
 
 struct CustomOpStringRegexReplace : OrtW::CustomOpBase<CustomOpStringRegexReplace, KernelStringRegexReplace> {
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

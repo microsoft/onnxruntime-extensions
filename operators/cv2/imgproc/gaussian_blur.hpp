@@ -1,9 +1,8 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 
-
 struct KernelGaussianBlur : BaseKernel {
-  KernelGaussianBlur(const OrtApi& api) : BaseKernel(api) {
+  KernelGaussianBlur(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
   }
 
   void Compute(OrtKernelContext* context) {
@@ -47,7 +46,7 @@ struct KernelGaussianBlur : BaseKernel {
                      sigma[0], sigma[1], cv::BORDER_DEFAULT);
 
     OrtValue* image_y = ort_.KernelContext_GetOutput(context,
-      0, input_data_dimensions.data(), input_data_dimensions.size());
+                                                     0, input_data_dimensions.data(), input_data_dimensions.size());
     float* p_output_image = ort_.GetTensorMutableData<float>(image_y);
     memcpy(p_output_image, output_image.data, output_image.total() * output_image.elemSize());
   }
@@ -76,7 +75,7 @@ struct CustomOpGaussianBlur : OrtW::CustomOpBase<CustomOpGaussianBlur, KernelGau
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
   }
 
-  const char* GetName() const{
+  const char* GetName() const {
     return "GaussianBlur";
   }
 };

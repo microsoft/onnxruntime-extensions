@@ -10,16 +10,12 @@
 
 namespace ort_extensions {
 struct KernelDecodeImage : BaseKernel {
-  KernelDecodeImage(const OrtApi& api) : BaseKernel(api) {}
+  KernelDecodeImage(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {}
 
   void Compute(OrtKernelContext* context);
 };
 
 struct CustomOpDecodeImage : OrtW::CustomOpBase<CustomOpDecodeImage, KernelDecodeImage> {
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-    return new KernelDecodeImage(api);
-  }
-
   void KernelDestroy(void* op_kernel) {
     delete static_cast<KernelDecodeImage*>(op_kernel);
   }

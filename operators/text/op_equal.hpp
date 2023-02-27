@@ -7,7 +7,7 @@
 #include "string_utils.h"
 
 struct KernelStringEqual : BaseKernel {
-  KernelStringEqual(const OrtApi& api);
+  KernelStringEqual(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 };
 

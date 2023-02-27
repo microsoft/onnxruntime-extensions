@@ -7,7 +7,7 @@
 #include <cmath>
 #include <algorithm>
 
-KernelStringUpper::KernelStringUpper(const OrtApi& api) : BaseKernel(api) {
+KernelStringUpper::KernelStringUpper(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
 }
 
 void KernelStringUpper::Compute(OrtKernelContext* context) {
@@ -17,7 +17,7 @@ void KernelStringUpper::Compute(OrtKernelContext* context) {
   GetTensorMutableDataString(api_, ort_, context, input_X, X);
 
   for (size_t i = 0; i < X.size(); ++i) {
-    std::transform(X[i].begin(), X[i].end(), X[i].begin(), [](char c){ return static_cast<char>(::toupper(c)); });
+    std::transform(X[i].begin(), X[i].end(), X[i].begin(), [](char c) { return static_cast<char>(::toupper(c)); });
   }
 
   // Fills the output

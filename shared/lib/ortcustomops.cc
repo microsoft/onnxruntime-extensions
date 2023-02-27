@@ -60,15 +60,19 @@ class ExternalCustomOps {
 };
 
 extern "C" bool ORT_API_CALL AddExternalCustomOp(const OrtCustomOp* c_op) {
+  OCOS_API_IMPL_BEGIN
   ExternalCustomOps::instance().Add(c_op);
+  OCOS_API_IMPL_END
   return true;
 }
 
 extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api) {
+  OrtStatus* status = nullptr;
+  OCOS_API_IMPL_BEGIN
+
   OrtCustomOpDomain* domain = nullptr;
   const OrtApi* ortApi = api->GetApi(ORT_API_VERSION);
   std::set<std::string> pyop_nameset;
-  OrtStatus* status = nullptr;
 
 #if defined(PYTHON_OP_SUPPORT)
   if (status = RegisterPythonDomainAndOps(options, ortApi); status) {
@@ -170,5 +174,9 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
     }
   }
 
-  return ortApi->AddCustomOpDomain(options, domain);
+  status = ortApi->AddCustomOpDomain(options, domain);
+
+  OCOS_API_IMPL_END
+
+  return status;
 }

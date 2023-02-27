@@ -3,7 +3,8 @@
 
 #include "segment_extraction.hpp"
 
-KernelSegmentExtraction::KernelSegmentExtraction(const OrtApi& api) : BaseKernel(api) {
+KernelSegmentExtraction::KernelSegmentExtraction(const OrtApi& api, const OrtKernelInfo& info)
+    : BaseKernel(api, info) {
 }
 
 void KernelSegmentExtraction::Compute(OrtKernelContext* context) {
@@ -11,7 +12,7 @@ void KernelSegmentExtraction::Compute(OrtKernelContext* context) {
   const int64_t* p_data = ort_.GetTensorData<int64_t>(input);
   OrtTensorDimensions input_dim(ort_, input);
   if (!((input_dim.size() == 1) || (input_dim.size() == 2 && input_dim[0] == 1))) {
-    ORTX_CXX_API_THROW("[SegmentExtraction]: Expect input dimension [n] or [1,n]." , ORT_INVALID_GRAPH);
+    ORTX_CXX_API_THROW("[SegmentExtraction]: Expect input dimension [n] or [1,n].", ORT_INVALID_GRAPH);
   }
 
   std::vector<std::int64_t> segment_value;
@@ -35,8 +36,8 @@ void KernelSegmentExtraction::Compute(OrtKernelContext* context) {
 
   std::vector<int64_t> segment_value_dim({static_cast<int64_t>(segment_value.size())});
   std::vector<int64_t> segment_position_dim({static_cast<int64_t>(segment_value.size()), 2});
-  SetOutput(context, 0, segment_position_dim,  segment_position);
-  SetOutput(context, 1, segment_value_dim,  segment_value);
+  SetOutput(context, 0, segment_position_dim, segment_position);
+  SetOutput(context, 1, segment_value_dim, segment_value);
 }
 
 size_t CustomOpSegmentExtraction::GetInputTypeCount() const {

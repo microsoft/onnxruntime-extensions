@@ -10,15 +10,20 @@
 
 namespace ort_extensions {
 struct KernelEncodeImage : BaseKernel {
-  KernelEncodeImage(const OrtApi& api, const std::string& format)
-      : BaseKernel{api},
-        extension_{std::string(".") + format} {
+  KernelEncodeImage(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel{api, info} {
+    OrtW::CustomOpApi op_api{api};
+    std::string format = op_api.KernelInfoGetAttribute<std::string>(&info, "format");
+    if (format != "jpg" && format != "png") {
+      ORTX_CXX_API_THROW("[EncodeImage] 'format' attribute value must be 'jpg' or 'png'.", ORT_RUNTIME_EXCEPTION);
+    }
+
+    extension_ = std::string(".") + format;
   }
 
   void Compute(OrtKernelContext* context);
 
  private:
-  const std::string extension_;
+  std::string extension_;
 };
 
 /// <summary>
@@ -28,16 +33,6 @@ struct KernelEncodeImage : BaseKernel {
 /// Default is 'jpg'
 /// </summary>
 struct CustomOpEncodeImage : OrtW::CustomOpBase<CustomOpEncodeImage, KernelEncodeImage> {
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-    OrtW::CustomOpApi op_api{api};
-    std::string format = op_api.KernelInfoGetAttribute<std::string>(info, "format");
-    if (format != "jpg" && format != "png") {
-      ORTX_CXX_API_THROW("[EncodeImage] 'format' attribute value must be 'jpg' or 'png'.", ORT_RUNTIME_EXCEPTION);
-    }
-
-    return new KernelEncodeImage(api, format);
-  }
-
   const char* GetName() const {
     return "EncodeImage";
   }

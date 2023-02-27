@@ -1,39 +1,23 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-
 #include <filesystem>
 #include <fstream>
 #include <vector>
 
 #include "gtest/gtest.h"
 
+#include "exceptions.h"
+
 #define TEST_MAIN main
 
 #if defined(__APPLE__)
-  #include <TargetConditionals.h>
-  #if TARGET_OS_SIMULATOR || TARGET_OS_IOS
-    #undef TEST_MAIN
-    #define TEST_MAIN main_no_link_  // there is a UI test app for iOS.
-  #endif
+#include <TargetConditionals.h>
+#if TARGET_OS_SIMULATOR || TARGET_OS_IOS
+#undef TEST_MAIN
+#define TEST_MAIN main_no_link_  // there is a UI test app for iOS.
 #endif
-
-// currently this is the only place with a try/catch. Move the macros to common code if that changes.
-#ifdef OCOS_NO_EXCEPTIONS
-#define OCOS_TRY if (true)
-#define OCOS_CATCH(x) else if (false)
-#define OCOS_RETHROW
-// In order to ignore the catch statement when a specific exception (not ... ) is caught and referred
-// in the body of the catch statements, it is necessary to wrap the body of the catch statement into
-// a lambda function. otherwise the exception referred will be undefined and cause build break
-#define OCOS_HANDLE_EXCEPTION(func)
-#else
-#define OCOS_TRY try
-#define OCOS_CATCH(x) catch (x)
-#define OCOS_RETHROW throw;
-#define OCOS_HANDLE_EXCEPTION(func) func()
 #endif
-
 
 namespace {
 void FixCurrentDir() {

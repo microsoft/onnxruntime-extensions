@@ -18,28 +18,29 @@ constexpr const char* c_OpDomain = "ai.onnx.contrib";
 constexpr const char* c_ComMsExtOpDomain = "com.microsoft.extensions";
 
 struct BaseKernel {
-  BaseKernel(const OrtApi& api) : api_(api), info_(nullptr), ort_(api_) {}
-  BaseKernel(const OrtApi& api, const OrtKernelInfo* info) : api_(api), info_(info), ort_(api_) {}
+  BaseKernel(const OrtApi& api, const OrtKernelInfo& info) noexcept : api_(api), info_(info), ort_(api_) {
+  }
 
-  bool HasAttribute(const char* name) const;
-
-  template <class T>
-  bool TryToGetAttribute(const char* name, T& value);
+  bool HasAttribute(const char* name) const noexcept;
 
   template <class T>
-  T TryToGetAttributeWithDefault(const char* name, T default_value) {
+  bool TryToGetAttribute(const char* name, T& value) const noexcept;
+
+  template <class T>
+  T TryToGetAttributeWithDefault(const char* name, T default_value) const noexcept {
     T& result = default_value;
     TryToGetAttribute(name, result);
     return result;
   }
 
-  void SetOutput(OrtKernelContext* ctx, size_t output_idx, const std::vector<int64_t>& dim, const std::vector<int64_t>& data);
+  void SetOutput(OrtKernelContext* ctx, size_t output_idx, const std::vector<int64_t>& dim,
+                 const std::vector<int64_t>& data);
 
  protected:
-  OrtErrorCode GetErrorCodeAndRelease(OrtStatusPtr status);
+  OrtErrorCode GetErrorCodeAndRelease(OrtStatusPtr status) const noexcept;
   const OrtApi& api_;
   OrtW::CustomOpApi ort_;
-  const OrtKernelInfo* info_;
+  const OrtKernelInfo& info_;
 };
 
 struct OrtTensorDimensions : std::vector<int64_t> {

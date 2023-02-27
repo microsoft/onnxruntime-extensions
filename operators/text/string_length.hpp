@@ -7,7 +7,7 @@
 #include "string_utils.h"
 
 struct KernelStringLength : BaseKernel {
-  KernelStringLength(const OrtApi& api);
+  KernelStringLength(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 };
 

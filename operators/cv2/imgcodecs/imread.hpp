@@ -3,9 +3,8 @@
 
 #include "string_tensor.h"
 
-
 struct KernelImageReader : BaseKernel {
-  KernelImageReader(const OrtApi& api) : BaseKernel(api) {
+  KernelImageReader(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
   }
 
   void Compute(OrtKernelContext* context) {
@@ -45,7 +44,7 @@ struct CustomOpImageReader : OrtW::CustomOpBase<CustomOpImageReader, KernelImage
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
   }
 
-  const char* GetName() const{
+  const char* GetName() const {
     return "ImageReader";
   }
 };
