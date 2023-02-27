@@ -128,8 +128,7 @@ def verify_results_for_e2e_model(model_name: str, input_bert_model: Path, output
         real_outputs[0], ref_outputs[0], atol=1e-2, rtol=1e-6
     ), f"Results do not match, expected:{ref_outputs[0]}, but got {real_outputs[0] }"
 
-    print("Results matches:",
-          real_outputs[0], "\ndiff:", real_outputs[0] - ref_outputs[0])
+    print("Results matches:", real_outputs[0], "\ndiff:", real_outputs[0] - ref_outputs[0])
 
 
 def main():
