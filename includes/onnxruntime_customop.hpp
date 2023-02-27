@@ -16,7 +16,7 @@
 #include <type_traits>
 
 #ifdef ORT_NO_EXCEPTIONS
-#include <iostream>
+#include <cstdio>
 #endif
 
 #include "onnxruntime_c_api.h"
@@ -38,11 +38,10 @@ struct Exception : std::exception {
 };
 
 #ifdef ORT_NO_EXCEPTIONS
-#define ORTX_CXX_API_THROW(string, code)       \
-  do {                                        \
-    std::cerr << OrtW::Exception(string, code) \
-                     .what()                  \
-              << std::endl;                   \
+#define ORTX_CXX_API_THROW(string, code)              \
+  do {                                                \
+    fprintf(stderr, "%s\n",                           \
+            OrtW::Exception(string, code).what());    \
     abort();                                  \
   } while (false)
 #else
