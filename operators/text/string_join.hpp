@@ -7,7 +7,7 @@
 #include "string_utils.h"
 
 struct KernelStringJoin : BaseKernel {
-  KernelStringJoin(const OrtApi& api);
+  KernelStringJoin(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 };
 

@@ -4,7 +4,7 @@
 #include "string_join.hpp"
 #include "string_tensor.h"
 
-KernelStringJoin::KernelStringJoin(const OrtApi& api) : BaseKernel(api) {
+KernelStringJoin::KernelStringJoin(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
 }
 
 void KernelStringJoin::Compute(OrtKernelContext* context) {

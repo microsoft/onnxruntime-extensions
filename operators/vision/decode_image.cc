@@ -4,6 +4,7 @@
 #include "decode_image.hpp"
 
 #include <opencv2/imgcodecs.hpp>
+#include "narrow.h"
 
 namespace ort_extensions {
 
@@ -31,11 +32,13 @@ void KernelDecodeImage::Compute(OrtKernelContext* context) {
 
   // Setup output & copy to destination
   const cv::Size decoded_image_size = decoded_image.size();
+  const int64_t height = decoded_image_size.height;
+  const int64_t width = decoded_image_size.width;
   const int64_t colors = decoded_image.elemSize();  //  == 3 as it's BGR
 
-  const std::vector<int64_t> output_dims{decoded_image_size.height, decoded_image_size.width, colors};
+  const std::vector<int64_t> output_dims{height, width, colors};
   OrtValue* output_value = ort_.KernelContext_GetOutput(context, 0, output_dims.data(), output_dims.size());
   uint8_t* decoded_image_data = ort_.GetTensorMutableData<uint8_t>(output_value);
-  memcpy(decoded_image_data, decoded_image.data, decoded_image_size.height * decoded_image_size.width * colors);
+  memcpy(decoded_image_data, decoded_image.data, narrow<size_t>(height * width * colors));
 }
 }  // namespace ort_extensions

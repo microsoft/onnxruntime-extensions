@@ -7,16 +7,13 @@ BertTokenizerDecoder::BertTokenizerDecoder(
     std::string pad_token,
     std::string cls_token,
     std::string mask_token,
-    std::string suffix_indicator
-) :
-    unk_token_(unk_token),
-    suffix_indicator_(suffix_indicator),
-    raw_vocab_(vocab)
-{
+    std::string suffix_indicator) : unk_token_(unk_token),
+                                    suffix_indicator_(suffix_indicator),
+                                    raw_vocab_(vocab) {
   auto tokens = SplitString(raw_vocab_, "\n", true);
   vocab_.reserve(tokens.size());
   for (size_t i = 0; i < tokens.size(); i++) {
-     auto& token = tokens[i];
+    auto& token = tokens[i];
     if (token == unk_token) {
       unk_token_id_ = static_cast<int32_t>(i);
     }
@@ -82,7 +79,6 @@ std::string BertTokenizerDecoder::Decode(const std::vector<int64_t>& ids, bool s
 }
 
 bool BertTokenizerDecoder::RemoveTokenizeSpace(int64_t pre_token_id, int64_t new_token_id) {
-
   if (pre_token_id < 0) {
     return true;
   }
@@ -123,8 +119,8 @@ bool BertTokenizerDecoder::RemoveTokenizeSpace(int64_t pre_token_id, int64_t new
   return false;
 }
 
-KernelBertTokenizerDecoder::KernelBertTokenizerDecoder(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
-  std::string vocab = ort_.KernelInfoGetAttribute<std::string>(info, "vocab_file");
+KernelBertTokenizerDecoder::KernelBertTokenizerDecoder(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
+  std::string vocab = ort_.KernelInfoGetAttribute<std::string>(&info, "vocab_file");
   std::string unk_token = TryToGetAttributeWithDefault("unk_token", std::string("[UNK]"));
   std::string sep_token = TryToGetAttributeWithDefault("sep_token", std::string("[SEP]"));
   std::string pad_token = TryToGetAttributeWithDefault("pad_token", std::string("[PAD]"));
@@ -154,7 +150,7 @@ void KernelBertTokenizerDecoder::Compute(OrtKernelContext* context) {
   OrtTensorDimensions positions_dim(ort_, positions);
   if (use_indices_ &&
       (!((positions_dim.Size() == 0) ||
-      (positions_dim.size() == 2 && positions_dim[1] == 2)))) {
+         (positions_dim.size() == 2 && positions_dim[1] == 2)))) {
     ORTX_CXX_API_THROW("[BertTokenizerDecoder]: Expect positions empty or a [n, 2] matrix when use indices", ORT_INVALID_GRAPH);
   }
 
@@ -180,10 +176,6 @@ void KernelBertTokenizerDecoder::Compute(OrtKernelContext* context) {
 
   FillTensorDataString(api_, ort_, context, result, output);
 }
-
-void* CustomOpBertTokenizerDecoder::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return CreateKernelImpl(api, info);
-};
 
 const char* CustomOpBertTokenizerDecoder::GetName() const { return "BertTokenizerDecoder"; };
 

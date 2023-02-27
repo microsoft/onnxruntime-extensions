@@ -24,7 +24,9 @@ variables:
   REPOROOT: $(Build.SourcesDirectory)
   OUTPUTROOT: $(REPOROOT)\out
   NUGET_XMLDOC_MODE: none
-  CIBW_BUILD: "cp3{7,8,9,10}-*amd64"
+  CIBW_BUILD: cp3{7,8,9,10}-*amd64
+  CIBW_ARCHS: AMD64
+  CIBW_BUILD_VERBOSITY: 1
   DEBIAN_FRONTEND: noninteractive
 
 resources:
@@ -35,7 +37,7 @@ resources:
       ref: refs/heads/main
 
 extends:
-  template: v2/OneBranch.NonOfficial.CrossPlat.yml@templates 
+  template: v2/OneBranch.NonOfficial.CrossPlat.yml@templates
   parameters:
     cloudvault:
       enabled: false
@@ -44,7 +46,7 @@ extends:
         enabled: false
       binskim:
         break: true # always break the build on binskim issues in addition to TSA upload
-        analyzeTargetGlob: '**\bin\*'  # only scan the DLLs in extensions bin folder.
+        analyzeTargetGlob: '**\RelWithDebInfo\ortextensions.dll'  # avoid scanning the 3rd party DLLs.
       codeql:
         python:
           enabled: true
@@ -57,11 +59,11 @@ extends:
       jobs:
       - job: main
         pool:
-          type: windows  
-        
+          type: windows
+
         variables:
           ob_outputDirectory: '$(REPOROOT)\out'
-          ob_sdl_binskim_break: true 
+          ob_sdl_binskim_break: true
         steps:
         - script: |
             @echo off
@@ -95,14 +97,13 @@ extends:
             set PYTHONHOME=
             python -m pip install --upgrade pip
             python -m pip install cibuildwheel numpy
-            python -m cibuildwheel --platform windows --output-dir $(REPOROOT)\out
-            del /s /q /f .setuptools-cmake-build\*onnxruntime.dll
+            python -m cibuildwheel --platform windows --archs AMD64 --output-dir $(REPOROOT)\out
           displayName: Build wheels
         - task: SDLNativeRules@3
           inputs:
             msBuildArchitecture: amd64
-            setupCommandlines: '"$(vscmake)" $(REPOROOT) -A x64 -B $(REPOROOT)\windows_out -DOCOS_BUILD_PYTHON=ON -DOCOS_ENABLE_CTEST=OFF -DCMAKE_BUILD_TYPE=Release'
-            msBuildCommandline: '"$(vsmsbuild)" "$(REPOROOT)\windows_out\onnxruntime_extensions.sln" /p:RunCodeAnalysis=true /p:platform=x64 /p:configuration=Release /p:VisualStudioVersion="16.0" /m /p:PreferredToolArchitecture=x64'
+            setupCommandlines: '"$(vscmake)" $(REPOROOT) -A x64 -B $(REPOROOT)\windows_out -DOCOS_BUILD_PYTHON=ON -DOCOS_ENABLE_CTEST=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo'
+            msBuildCommandline: '"$(vsmsbuild)" "$(REPOROOT)\windows_out\onnxruntime_extensions.sln" /p:RunCodeAnalysis=true /p:platform=x64 /p:configuration=RelWithDebInfo /p:VisualStudioVersion="16.0" /m /p:PreferredToolArchitecture=x64'
             excludedPaths: '$(REPOROOT)\windows_out#$(Build.SourcesDirectory)\cmake#C:\program files (x86)'
           displayName: 'Run the PREfast SDL Native Rules for MSBuild'
         - task: PostAnalysis@2
@@ -121,7 +122,7 @@ extends:
             search_root: '$(REPOROOT)\out'
           displayName: 'Sign runtime DLLs'
         - script: |
-            for /D %%i in ("out\onnxruntime_extensions*-win32") do (
+            for /D %%i in ("out\onnxruntime_extensions*-win*") do (
               7z u %%i.whl .\%%i\*
               rmdir /s /q %%i
               )

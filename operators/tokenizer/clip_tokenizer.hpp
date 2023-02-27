@@ -6,7 +6,7 @@
 class VocabData;
 
 struct KernelClipBpeTokenizer : BaseKernel {
-  KernelClipBpeTokenizer(const OrtApi& api, const OrtKernelInfo* info);
+  KernelClipBpeTokenizer(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 
  private:
@@ -18,7 +18,6 @@ struct KernelClipBpeTokenizer : BaseKernel {
 };
 
 struct CustomOpClipBpeTokenizer : OrtW::CustomOpBase<CustomOpClipBpeTokenizer, KernelClipBpeTokenizer> {
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

@@ -5,7 +5,7 @@
 #include "op_equal_impl.hpp"
 #include <string>
 
-KernelStringEqual::KernelStringEqual(const OrtApi& api) : BaseKernel(api) {
+KernelStringEqual::KernelStringEqual(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
 }
 
 void KernelStringEqual::Compute(OrtKernelContext* context) {

@@ -10,7 +10,7 @@ endif()
 function(read_version_file major_var minor_var patch_var)
   set(version_file ${PROJECT_SOURCE_DIR}/version.txt)
   file(READ ${version_file} version_file_content)
-  if(version_file_content MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+)$")
+  if(version_file_content MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+)[\n]?$")
     set(${major_var} ${CMAKE_MATCH_1} PARENT_SCOPE)
     set(${minor_var} ${CMAKE_MATCH_2} PARENT_SCOPE)
     set(${patch_var} ${CMAKE_MATCH_3} PARENT_SCOPE)
@@ -22,6 +22,12 @@ endfunction()
 set(CPACK_PACKAGE_NAME "onnxruntime_extensions")
 read_version_file(CPACK_PACKAGE_VERSION_MAJOR CPACK_PACKAGE_VERSION_MINOR CPACK_PACKAGE_VERSION_PATCH)
 set(VERSION ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH})
+
+# Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
+  cmake_policy(SET CMP0135 NEW)
+  cmake_policy(SET CMP0077 NEW)
+endif()
 
 # Needed for Java
 set(CMAKE_C_STANDARD 99)
@@ -48,6 +54,7 @@ option(OCOS_ENABLE_DLIB "Enable operators like Inverse depending on DLIB" ON)
 option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require opencv imgcodecs." ON)
 option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
 option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
+
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
 option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
@@ -56,18 +63,26 @@ option(OCOS_BUILD_ANDROID "Enable building the Android package" OFF)
 option(OCOS_BUILD_APPLE_FRAMEWORK "Enable building of the MacOS/iOS framework" OFF)
 
 function(disable_all_operators)
-  set(OCOS_ENABLE_RE2_REGEX OFF CACHE INTERNAL "")
-  set(OCOS_ENABLE_TF_STRING OFF CACHE INTERNAL "")
-  set(OCOS_ENABLE_WORDPIECE_TOKENIZER OFF CACHE INTERNAL "")
-  set(OCOS_ENABLE_GPT2_TOKENIZER OFF CACHE INTERNAL "")
-  set(OCOS_ENABLE_SPM_TOKENIZER OFF CACHE INTERNAL "")
-  set(OCOS_ENABLE_BERT_TOKENIZER OFF CACHE INTERNAL "")
-  set(OCOS_ENABLE_BLINGFIRE OFF CACHE INTERNAL "")
-  set(OCOS_ENABLE_MATH OFF CACHE INTERNAL "")
-  set(OCOS_ENABLE_DLIB OFF CACHE INTERNAL "")
-  set(OCOS_ENABLE_CV2 OFF CACHE INTERNAL "")
-  set(OCOS_ENABLE_VISION OFF CACHE INTERNAL "")
+  set(OCOS_ENABLE_RE2_REGEX OFF CACHE INTERNAL "" FORCE)
+  set(OCOS_ENABLE_TF_STRING OFF CACHE INTERNAL "" FORCE)
+  set(OCOS_ENABLE_WORDPIECE_TOKENIZER OFF CACHE INTERNAL "" FORCE)
+  set(OCOS_ENABLE_GPT2_TOKENIZER OFF CACHE INTERNAL "" FORCE)
+  set(OCOS_ENABLE_SPM_TOKENIZER OFF CACHE INTERNAL "" FORCE)
+  set(OCOS_ENABLE_BERT_TOKENIZER OFF CACHE INTERNAL "" FORCE)
+  set(OCOS_ENABLE_BLINGFIRE OFF CACHE INTERNAL "" FORCE)
+  set(OCOS_ENABLE_MATH OFF CACHE INTERNAL "" FORCE)
+  set(OCOS_ENABLE_DLIB OFF CACHE INTERNAL "" FORCE)
+  set(OCOS_ENABLE_OPENCV_CODECS OFF CACHE INTERNAL "" FORCE)
+  set(OCOS_ENABLE_CV2 OFF CACHE INTERNAL "" FORCE)
+  set(OCOS_ENABLE_VISION OFF CACHE INTERNAL "" FORCE)
 endfunction()
+
+if (CMAKE_GENERATOR_PLATFORM)
+  # Multi-platform generator
+  set(ocos_target_platform ${CMAKE_GENERATOR_PLATFORM})
+else()
+  set(ocos_target_platform ${CMAKE_SYSTEM_PROCESSOR})
+endif()
 
 if(NOT CC_OPTIMIZE)
   message("!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
@@ -82,6 +97,26 @@ if(NOT CC_OPTIMIZE)
   else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Od")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Od")
+  endif()
+endif()
+
+if (MSVC)
+  check_cxx_compiler_flag(-sdl HAS_SDL)
+  check_cxx_compiler_flag(-Qspectre HAS_QSPECTRE)
+  if (HAS_QSPECTRE)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Qspectre")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Qspectre")
+  endif()
+  set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} /DYNAMICBASE")
+  check_cxx_compiler_flag(-guard:cf HAS_GUARD_CF)
+  if (HAS_GUARD_CF)
+    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /guard:cf")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /guard:cf")
+    set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} /guard:cf")
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /guard:cf")
+    set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} /guard:cf")
+    set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} /guard:cf")
+    set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} /guard:cf")
   endif()
 endif()
 
@@ -115,6 +150,12 @@ endif()
 # External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals ${PROJECT_SOURCE_DIR}/cmake)
 
+# PROJECT_IS_TOP_LEVEL is available since 3.21
+get_property(not_top DIRECTORY PROPERTY PARENT_DIRECTORY)
+if(not_top AND ONNXRUNTIME_ROOT)
+  set(_ONNXRUNTIME_EMBEDDED TRUE)
+endif()
+
 if(OCOS_ENABLE_SELECTED_OPLIST)
   # Need to ensure _selectedoplist.cmake file is already generated in folder: ${PROJECT_SOURCE_DIR}/cmake/
   # You could run gen_selectedops.py in folder: tools/ to generate _selectedoplist.cmake
@@ -123,26 +164,82 @@ if(OCOS_ENABLE_SELECTED_OPLIST)
   include(_selectedoplist)
 endif()
 
-if(NOT OCOS_ENABLE_CPP_EXCEPTIONS)
-  include(noexcep_ops)
-  add_compile_definitions(OCOS_NO_EXCEPTIONS ORT_NO_EXCEPTIONS)
+set(_OCOS_EXCEPTIONS_REQUIRED OFF)
+if (OCOS_ENABLE_GPT2_TOKENIZER OR
+    OCOS_ENABLE_WORDPIECE_TOKENIZER OR
+    OCOS_ENABLE_BLINGFIRE OR
+    OCOS_ENABLE_SPM_TOKENIZER OR
+    (OCOS_ENABLE_CV2 OR OCOS_ENABLE_OPENCV_CODECS OR OCOS_ENABLE_VISION))
+    set(_OCOS_EXCEPTIONS_REQUIRED ON)
+endif()
 
-  if(MSVC)
-    string(REGEX REPLACE "/EHsc" "/EHs-c-" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    add_compile_definitions("_HAS_EXCEPTIONS=0")
-  else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables")
+# Special case an embedded build with ORT exceptions disabled but custom ops that require exceptions.
+# Allow using an override so we can do a direct build of ort-ext in a CI without having to embed it in an ORT build.
+set(_OCOS_PREVENT_EXCEPTION_PROPAGATION OFF)
+if (_OCOS_PREVENT_EXCEPTION_PROPAGATION_OVERRIDE)
+  set(_OCOS_PREVENT_EXCEPTION_PROPAGATION ${_OCOS_PREVENT_EXCEPTION_PROPAGATION_OVERRIDE})
+elseif(_ONNXRUNTIME_EMBEDDED AND onnxruntime_DISABLE_EXCEPTIONS AND _OCOS_EXCEPTIONS_REQUIRED)
+  set(_OCOS_PREVENT_EXCEPTION_PROPAGATION ON)
+endif()
+
+if (_OCOS_PREVENT_EXCEPTION_PROPAGATION)
+  message(STATUS "Embedded build as part of ONNX Runtime with exceptions disabled. "
+                 "Extensions will be built with exceptions enabled due to included custom ops "
+                 "using 3rd party libraries that require exceptions.")
+
+  if (NOT OCOS_ENABLE_CPP_EXCEPTIONS)
+    message(WARNING "Enabling C++ exception support as custom ops included in the build require them to be enabled.")
+    set(OCOS_ENABLE_CPP_EXCEPTIONS ON)
   endif()
+
+  # undo the flags that ORT has set to disable exceptions.
+  # see https://github.com/microsoft/onnxruntime/blob/b1abb8c656c597bf221bd85682ae3d9e350d9aba/cmake/adjust_global_compile_flags.cmake#L160-L169
+  if(MSVC)
+    string(REPLACE "/EHs-c-" "/EHsc" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  else()
+    string(REPLACE "-fno-exceptions" "-fexceptions" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+    string(REPLACE "-fno-unwind-tables" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+    string(REPLACE "-fno-asynchronous-unwind-tables" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+  endif()
+
+  # the ort-ext code has to provide a barrier between the exception enabled custom op code and ORT.
+  add_compile_definitions(OCOS_PREVENT_EXCEPTION_PROPAGATION)
+endif()
+
+if(NOT OCOS_ENABLE_CPP_EXCEPTIONS)
+  add_compile_definitions(OCOS_NO_EXCEPTIONS ORT_NO_EXCEPTIONS)
 endif()
 
 include(FetchContent)
 
-# PROJECT_IS_TOP_LEVEL is available until 3.21
-get_property(not_top DIRECTORY PROPERTY PARENT_DIRECTORY)
-if(not_top)
-  set(_ONNXRUNTIME_EMBEDDED TRUE)
-endif()
+function(set_msvc_c_cpp_compiler_warning_level warning_level)
+  if (NOT "${warning_level}" MATCHES "^[0-4]$")
+    message(FATAL_ERROR "Expected warning_level value of 0-4, got '${warning_level}'.")
+  endif()
+
+  if (MSVC)
+    set(warning_flag "/W${warning_level}")
+    get_property(opts DIRECTORY PROPERTY COMPILE_OPTIONS)
+    # only match the generator expression added by this function
+    list(FILTER opts
+         EXCLUDE REGEX "^\\$<\\$<OR:\\$<COMPILE_LANGUAGE:C>,\\$<COMPILE_LANGUAGE:CXX>>:/W[0-4]>$")
+    list(APPEND opts "$<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:${warning_flag}>")
+    set_property(DIRECTORY PROPERTY COMPILE_OPTIONS "${opts}")
+  endif()
+endfunction()
+
+# set default MSVC warning level to 3 for external dependencies
+set_msvc_c_cpp_compiler_warning_level(3)
 include(ext_ortlib)
+include(gsl)
+
+macro(standardize_output_folder bin_target)
+  set_target_properties(${bin_target} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+    PDB_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+endmacro()
 
 if(OCOS_ENABLE_RE2_REGEX)
   if(NOT TARGET re2::re2)
@@ -156,27 +253,20 @@ if(OCOS_ENABLE_RE2_REGEX)
   endif()
 endif()
 
-macro(standardize_output_folder bin_target)
-  set_target_properties(${bin_target} PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-    PDB_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-endmacro()
-
 # ### scan all source files
-file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h")
+set(TARGET_SRC_NOEXCEPTION)
+file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h" "includes/*.h*")
 
 if(OCOS_ENABLE_TF_STRING)
   set(farmhash_SOURCE_DIR ${PROJECT_SOURCE_DIR}/cmake/externals/farmhash)
   file(GLOB TARGET_SRC_KERNELS "operators/text/*.cc" "operators/text/*.h*")
   file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")
-  list(APPEND TARGET_SRC ${TARGET_SRC_KERNELS} ${TARGET_SRC_HASH})
+  list(APPEND TARGET_SRC_NOEXCEPTION ${TARGET_SRC_KERNELS} ${TARGET_SRC_HASH})
 endif()
 
 if(OCOS_ENABLE_RE2_REGEX)
   file(GLOB TARGET_SRC_RE2_KERNELS "operators/text/re2_strings/*.cc" "operators/text/re2_strings/*.h*")
-  list(APPEND TARGET_SRC ${TARGET_SRC_RE2_KERNELS})
+  list(APPEND TARGET_SRC_NOEXCEPTION ${TARGET_SRC_RE2_KERNELS})
 endif()
 
 if(OCOS_ENABLE_MATH)
@@ -285,7 +375,13 @@ endif()
 # ### make all compile options.
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+add_library(noexcep_operators STATIC ${TARGET_SRC_NOEXCEPTION})
 add_library(ocos_operators STATIC ${TARGET_SRC})
+# TODO: need to address the SDL warnings happens on custom operator code.
+# if (HAS_SDL)
+#   target_compile_options(ocos_operators PRIVATE "/sdl")
+# endif()
+set_target_properties(noexcep_operators PROPERTIES FOLDER "operators")
 set_target_properties(ocos_operators PROPERTIES FOLDER "operators")
 
 # filter out any files in ${TARGET_SRC} which don't have prefix of ${PROJECT_SOURCE_DIR} before calling source_group
@@ -300,15 +396,22 @@ foreach(_TARGET_SRC_FILE IN LISTS TARGET_SRC)
 endforeach()
 source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${_TARGET_SRC_FOR_SOURCE_GROUP})
 
+standardize_output_folder(noexcep_operators)
 standardize_output_folder(ocos_operators)
+
+target_include_directories(noexcep_operators PUBLIC
+  ${ONNXRUNTIME_INCLUDE_DIR}
+  ${PROJECT_SOURCE_DIR}/includes
+  ${PROJECT_SOURCE_DIR}/operators)
 
 target_include_directories(ocos_operators PUBLIC
   ${ONNXRUNTIME_INCLUDE_DIR}
   ${PROJECT_SOURCE_DIR}/includes
   ${PROJECT_SOURCE_DIR}/operators
   ${PROJECT_SOURCE_DIR}/operators/tokenizer)
-set(ocos_libraries "")
-set(OCOS_COMPILE_DEFINITIONS "")
+
+set(ocos_libraries)
+set(OCOS_COMPILE_DEFINITIONS)
 
 if(OCOS_ENABLE_DLIB)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_DLIB)
@@ -319,11 +422,11 @@ if(_HAS_TOKENIZER)
 endif()
 
 if(OCOS_ENABLE_TF_STRING)
-  target_include_directories(ocos_operators PUBLIC
+  target_include_directories(noexcep_operators PUBLIC
     ${googlere2_SOURCE_DIR}
     ${farmhash_SOURCE_DIR}/src)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING NOMINMAX FARMHASH_NO_BUILTIN_EXPECT FARMHASH_DEBUG=0)
-  list(APPEND ocos_libraries re2)
+  target_link_libraries(noexcep_operators PRIVATE re2)
 endif()
 
 if(OCOS_ENABLE_RE2_REGEX)
@@ -333,8 +436,6 @@ endif()
 if(OCOS_ENABLE_MATH)
   target_include_directories(ocos_operators PUBLIC ${dlib_SOURCE_DIR})
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_MATH)
-
-  # The dlib matrix implementation is all in the headers, no library compiling needed.
 endif()
 
 if(_ENABLE_OPENCV)
@@ -356,9 +457,7 @@ endif()
 
 if(OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
-  target_include_directories(ocos_operators PRIVATE ${json_SOURCE_DIR}/single_include)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_GPT2_TOKENIZER)
-  list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 
 if(OCOS_ENABLE_WORDPIECE_TOKENIZER)
@@ -387,7 +486,23 @@ if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
   list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 
+target_include_directories(ocos_operators PRIVATE ${GSL_INCLUDE_DIR})
+list(APPEND ocos_libraries Microsoft.GSL::GSL)
+
 list(REMOVE_DUPLICATES OCOS_COMPILE_DEFINITIONS)
+target_compile_definitions(noexcep_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
+if(NOT OCOS_ENABLE_CPP_EXCEPTIONS)
+  if(MSVC)
+    get_target_property(_target_cxx_flags noexcep_operators COMPILE_OPTIONS)
+    list(REMOVE_ITEM _target_cxx_flags "/EHsc")
+    list(APPEND _target_cxx_flags "/EHs-c-")
+    set_target_properties(noexcep_operators PROPERTIES COMPILE_OPTIONS "${_target_cxx_flags}")
+  else()
+    target_compile_options(noexcep_operators PRIVATE -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables)
+  endif()
+endif()
+
+list(APPEND ocos_libraries noexcep_operators)
 target_compile_definitions(ocos_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
 
@@ -414,12 +529,15 @@ if(NOT OCOS_ENABLE_STATIC_LIB AND CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   endif()
 else()
   add_library(ortcustomops STATIC ${shared_TARGET_LIB_SRC})
+  if (HAS_SDL)
+    target_compile_options(ortcustomops PRIVATE "/sdl")
+  endif()
   add_library(onnxruntime_extensions ALIAS ortcustomops)
   standardize_output_folder(ortcustomops)
   set(_BUILD_SHARED_LIBRARY TRUE)
 endif()
 
-target_compile_definitions(ortcustomops PUBLIC ${OCOS_COMPILE_DEFINITIONS} ${GTEST_CXX_FLAGS})
+target_compile_definitions(ortcustomops PUBLIC ${OCOS_COMPILE_DEFINITIONS})
 target_include_directories(ortcustomops PUBLIC
   "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
 target_link_libraries(ortcustomops PUBLIC ocos_operators)
@@ -444,6 +562,10 @@ if(_BUILD_SHARED_LIBRARY)
     "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>")
   target_link_libraries(extensions_shared PRIVATE ortcustomops)
   set_target_properties(extensions_shared PROPERTIES OUTPUT_NAME "ortextensions")
+  if(MSVC AND ocos_target_platform MATCHES "x86|x64")
+    target_link_options(extensions_shared PRIVATE "/CETCOMPAT")
+  endif()
+
 endif()
 
 if(OCOS_BUILD_PYTHON)
@@ -469,10 +591,12 @@ foreach(nf ${NO_USE_FILES})
 endforeach()
 
 # test section
-if(OCOS_ENABLE_CTEST AND OCOS_ENABLE_SELECTED_OPLIST)
-  # currently the tests don't handle operator exclusion cleanly.
-  message(WARNING "Due to usage of OCOS_ENABLE_SELECTED_OPLIST excluding operators the tests are unable to be built and run")
-elseif(OCOS_ENABLE_CTEST AND NOT OCOS_ENABLE_SELECTED_OPLIST)
+if(OCOS_ENABLE_CTEST)
+  if (OCOS_ENABLE_SELECTED_OPLIST)
+    # currently the tests don't handle operator exclusion cleanly.
+    message(FATAL_ERROR "Due to usage of OCOS_ENABLE_SELECTED_OPLIST excluding operators the tests are unable to be built and run")
+  endif()
+
   # Enable CTest
   enable_testing()
   message(STATUS "Fetch CTest")
@@ -510,8 +634,10 @@ elseif(OCOS_ENABLE_CTEST AND NOT OCOS_ENABLE_SELECTED_OPLIST)
       target_link_directories(extensions_test PRIVATE ${ONNXRUNTIME_LIB_DIR})
     endif()
 
-    target_link_libraries(extensions_test PRIVATE ocos_operators extensions_shared onnxruntime gtest_main ${ocos_libraries} ${LINUX_CC_FLAGS})
+    target_link_libraries(extensions_test PRIVATE ocos_operators extensions_shared onnxruntime gtest_main gmock_main
+                          ${ocos_libraries} ${LINUX_CC_FLAGS})
 
+    # Copy ONNXRuntime DLLs into bin folder for testing on Windows platform
     if(WIN32)
       file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
       file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")

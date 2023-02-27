@@ -22,7 +22,7 @@
 #include "string_tensor.h"
 #include "unicode.h"
 
-//Note: the following logic comes from CPython: unicodetype_db.h (_PyUnicode_IsWhitespace)
+// Note: the following logic comes from CPython: unicodetype_db.h (_PyUnicode_IsWhitespace)
 bool IsUnicodeSpace(char32_t ch) {
   switch (ch) {
     case 0x0009:
@@ -63,14 +63,14 @@ bool IsEmptyUString(const ustring& str) {
   return std::all_of(str.begin(), str.end(), [](char32_t ch) { return IsUnicodeSpace(ch); });
 }
 
-KernelBpeTokenizer::KernelBpeTokenizer(const OrtApi& api, const OrtKernelInfo* info)
+KernelBpeTokenizer::KernelBpeTokenizer(const OrtApi& api, const OrtKernelInfo& info)
     : BaseKernel(api, info) {
-  std::string vocab = ort_.KernelInfoGetAttribute<std::string>(info, "vocab");
+  std::string vocab = ort_.KernelInfoGetAttribute<std::string>(&info, "vocab");
   if (vocab.empty()) {
     ORTX_CXX_API_THROW("vocabulary shouldn't be empty.", ORT_INVALID_ARGUMENT);
   }
 
-  std::string merges = ort_.KernelInfoGetAttribute<std::string>(info, "merges");
+  std::string merges = ort_.KernelInfoGetAttribute<std::string>(&info, "merges");
   if (merges.empty()) {
     ORTX_CXX_API_THROW("merges shouldn't be empty.", ORT_INVALID_ARGUMENT);
   }
@@ -180,10 +180,6 @@ void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
       idx++;
     }
   }
-}
-
-void* CustomOpBpeTokenizer::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return CreateKernelImpl(api, info);
 }
 
 const char* CustomOpBpeTokenizer::GetName() const {

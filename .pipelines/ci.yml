@@ -15,29 +15,28 @@ jobs:
   #######
   # Linux
   #######
-
   - job: Linux
     pool:
       vmImage: 'ubuntu-latest'
 
     strategy:
       matrix:
-        py310-1121:
+        py310-1131:
           python.version: '3.10'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.13.1'
+        py39-1121:
+          python.version: '3.9'
           torch.version: 'torch==1.12.1+cpu torchvision==0.13.1+cpu torchaudio==0.12.1+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.12.0'
-        py39-1110:
-          python.version: '3.9'
+        py38-1110:
+          python.version: '3.8'
           torch.version: 'torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.11.0'
-        py38-1100:
-          python.version: '3.8'
+        py37-1100:
+          python.version: '3.7'
           torch.version: 'torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.10.0'
-        py37-190:
-          python.version: '3.7'
-          torch.version: 'torch==1.9.0+cpu torchvision==0.10.0+cpu torchaudio==0.9.0 -f https://download.pytorch.org/whl/cpu/torch_stable.html'
-          ort.version: '1.9.0'
 
     steps:
       - task: DownloadGitHubRelease@0
@@ -59,7 +58,7 @@ jobs:
         displayName: Unpack ONNXRuntime package.
 
       - script: |
-          CPU_NUMBER=2 sh ./build.sh -DOCOS_ENABLE_CTEST=ON
+          CPU_NUMBER=2 sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=$(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ort.version)
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -75,11 +74,12 @@ jobs:
       - script: |
           python -m pip install --upgrade pip
           python -m pip install --upgrade setuptools
+          python -m pip install onnxruntime==$(ort.version)
           python -m pip install -r requirements.txt
         displayName: Install requirements.txt
 
       - script: |
-          CPU_NUMBER=2 python setup.py develop
+          CPU_NUMBER=2 python -m pip install -e .
         displayName: Build the library and tests
 
       - script: python -m pip install $(torch.version)
@@ -95,13 +95,15 @@ jobs:
   ###########
   # macOS C++
   ###########
-
   - job: MacOSX
     pool:
       vmImage: 'macOS-12'
 
     strategy:
       matrix:
+        ort-1131:
+          ort.version: '1.13.1'
+          ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
         ort-1121:
           ort.version: '1.12.1'
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
@@ -111,9 +113,6 @@ jobs:
         ort-1100:
           ort.version: '1.10.0'
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
-        ort-190:
-          ort.version: '1.9.0'
-          ort.dirname: 'onnxruntime-osx-x64-$(ort.version)'
 
     steps:
       # needed for onnxruntime
@@ -139,7 +138,7 @@ jobs:
         displayName: Unpack ONNXRuntime package.
 
       - script: |
-          sh ./build.sh -DOCOS_ENABLE_CTEST=ON
+          sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=$(Build.SourcesDirectory)/$(ort.dirname)
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -148,15 +147,18 @@ jobs:
         displayName: Run C++ native tests
 
   #############
-  # macOS Wheel
+  # macOS Python
   #############
-
-  - job: MacOSWheel
+  - job: MacOSPython
     pool:
       vmImage: 'macOS-12'
 
     strategy:
       matrix:
+        py310-1131:
+          python.version: '3.10'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.13.1'
         py310-1121:
           python.version: '3.10'
           torch.version: 'torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -f https://download.pytorch.org/whl/torch_stable.html'
@@ -169,10 +171,6 @@ jobs:
           python.version: '3.8'
           torch.version: 'torch==1.10.0 torchvision==0.11.1 torchaudio==0.10.0 -f https://download.pytorch.org/whl/torch_stable.html'
           ort.version: '1.10.0'
-        py37-190:
-          python.version: '3.7'
-          torch.version: 'torch==1.9.0 torchvision==0.10.0 torchaudio==0.9.0 -f https://download.pytorch.org/whl/torch_stable.html'
-          ort.version: '1.9.0'
 
     steps:
       # needed for onnxruntime
@@ -188,15 +186,16 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --upgrade setuptools
           python -m pip install --upgrade wheel
+          python -m pip install onnxruntime==$(ort.version)
           python -m pip install -r requirements.txt
         displayName: Install requirements.txt
 
-      - script: python -c "import onnxruntime;print(onnxruntime.__version__)"
+      - script: |
+          python -c "import onnxruntime;print(onnxruntime.__version__)"
         displayName: Check installation
 
       - script: |
-          python setup.py bdist_wheel
-          for file in dist/*.whl; do python -m pip install --upgrade $file; done
+          python -m pip install -e .
         displayName: Build and install the wheel
 
       - script: python -m pip install -r requirements-dev.txt
@@ -208,29 +207,23 @@ jobs:
       - script: cd test && python -m pytest . --verbose
         displayName: Run python test
 
-      - task: PublishPipelineArtifact@0
-        inputs:
-          artifactName: 'wheel-macos-$(python.version)'
-          targetPath: 'dist'
-
   #########
   # Windows C++
   #########
-
   - job: WindowsC
     pool:
       vmImage: 'windows-2019'
 
     strategy:
       matrix:
+        ort-1131:
+          ort.version: '1.13.1'
         ort-1121:
           ort.version: '1.12.1'
         ort-1110:
           ort.version: '1.11.0'
         ort-1100:
           ort.version: '1.10.0'
-        ort-190:
-          ort.version: '1.9.0'
 
     steps:
       - task: DownloadGitHubRelease@0
@@ -266,7 +259,7 @@ jobs:
 
       - script: |
           call $(vsdevcmd)
-          call .\build.bat -DOCOS_ENABLE_CTEST=ON
+          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -275,31 +268,30 @@ jobs:
         displayName: Run C++ native tests
 
   ################
-  # Windows wheels
+  # Windows Python
   ################
-
-  - job: WindowsWheel
+  - job: WindowsPython
     pool:
-      vmImage: 'windows-2019'
+      vmImage: 'windows-latest'
 
     strategy:
       matrix:
-        py310-1121:
+        py310-1131:
           python.version: '3.10'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.13.1'
+        py39-1121:
+          python.version: '3.9'
           torch.version: 'torch==1.12.1+cpu torchvision==0.13.1+cpu torchaudio==0.12.1+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.12.1'
-        py39-1110:
-          python.version: '3.9'
+        py38-1110:
+          python.version: '3.8'
           torch.version: 'torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.11.0'
-        py38-1100:
-          python.version: '3.8'
+        py37-1100:
+          python.version: '3.7'
           torch.version: 'torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.10.0'
-        py37-190:
-          python.version: '3.7'
-          torch.version: 'torch==1.9.0+cpu torchvision==0.10.0+cpu torchaudio==0.9.0 -f https://download.pytorch.org/whl/cpu/torch_stable.html'
-          ort.version: '1.9.0'
 
     steps:
       - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
@@ -311,29 +303,15 @@ jobs:
       - script: |
           call activate pyenv
           python -m pip install --upgrade pip
+          python -m pip install onnxruntime==$(ort.version)
           python -m pip install -r requirements.txt
           python -m pip install -r requirements-dev.txt
         displayName: Install requirements.txt
 
       - script: |
           call activate pyenv
-          @echo find where Visual Studio was installed and use the bundled cmake
-          set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
-          for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
-            set vslatest=%%i
-            if exist "%%i\Common7\Tools\vsdevcmd.bat" (
-              set vsdevcmd=%%i\Common7\Tools\vsdevcmd.bat
-            )
-          )
-          @echo vslatest (%vslatest%)
-          @echo vsdevcmd (%vsdevcmd%)
-          python setup.py bdist_wheel
+          python -m pip install .
         displayName: Build the wheel
-
-      - script: |
-          call activate pyenv
-          python -m pip install --find-links=dist\ onnxruntime-extensions
-        displayName: Install the wheel
 
       - script: |
           call activate pyenv
@@ -345,15 +323,9 @@ jobs:
           pytest test
         displayName: Run python test
 
-      - task: PublishPipelineArtifact@0
-        inputs:
-          artifactName: 'wheel-window-$(python.version)'
-          targetPath: 'dist'
-
   #############
   # WebAssembly
   #############
-
   - job: WebAssembly
     pool:
       vmImage: 'ubuntu-latest'
@@ -477,3 +449,32 @@ jobs:
             parameters:
               xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
               scheme: 'OrtExtensionsUsage'
+
+
+  #####################################
+  # Linux prevent exception propagation
+  #####################################
+  - job: Linux_Prevent_Exception_Propagation
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    steps:
+      # Simulate an embedded build as part of ORT with exceptions disabled by manually setting CMAKE_CXX_FLAGS and
+      # using _OCOS_PREVENT_EXCEPTION_PROPAGATION_OVERRIDE. The build should re-enable exceptions within ort-ext
+      # but prevent them from propagating. Unit tests are run to validate this.
+      - script: '
+          ./build_lib.sh --enable_cxx_tests --onnxruntime_version 1.14.0 --config RelWithDebInfo
+          --cmake_extra_defines
+            _OCOS_PREVENT_EXCEPTION_PROPAGATION_OVERRIDE=ON OCOS_ENABLE_CPP_EXCEPTIONS=OFF
+            CMAKE_CXX_FLAGS="-fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables"
+          '
+
+        displayName: Build ort-ext with exception propagation disabled
+
+      # As an extra validation check CMakeCache.txt as well
+      - script: |
+          grep "^_OCOS_PREVENT_EXCEPTION_PROPAGATION.*ON$" build/Linux/RelWithDebInfo/CMakeCache.txt
+          if [ $? -ne 0 ]; then
+            echo "Exception propogation was not enabled correctly."
+            exit 1
+          fi

@@ -10,16 +10,15 @@
 #include "sentencepiece_model.pb.h"
 
 struct KernelSentencepieceDecoder : BaseKernel {
-  KernelSentencepieceDecoder(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
-    std::string model_blob = ort_.KernelInfoGetAttribute<std::string>(info, "model");
+  KernelSentencepieceDecoder(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
+    std::string model_blob = ort_.KernelInfoGetAttribute<std::string>(&info, "model");
     sentencepiece::ModelProto model_proto;
     model_proto.ParseFromArray(model_blob.data(), static_cast<int>(model_blob.size()));
     sentencepiece::util::Status status = tokenizer_.Load(model_proto);
-    if (!status.ok()){
-      ORTX_CXX_API_THROW(MakeString(
-                            "Failed to create SentencePieceProcessor instance. Error code is ",
-                            (int)status.code(), ". Message is '", status.error_message(), "'."),
-                        ORT_INVALID_PROTOBUF);
+    if (!status.ok()) {
+      ORTX_CXX_API_THROW(MakeString("Failed to create SentencePieceProcessor instance. Error code is ",
+                                    (int)status.code(), ". Message is '", status.error_message(), "'."),
+                         ORT_INVALID_PROTOBUF);
     }
   }
 
@@ -40,7 +39,7 @@ struct KernelSentencepieceDecoder : BaseKernel {
                    std::back_inserter(tids),
                    [](auto _id) { return static_cast<int>(_id); });
     auto status = tokenizer_.Decode(tids, &decoded_string);
-    if (!status.ok()){
+    if (!status.ok()) {
       ORTX_CXX_API_THROW("[SentencePieceDecoder] model decoding failed.", ORT_RUNTIME_EXCEPTION);
     }
 
@@ -54,10 +53,6 @@ struct KernelSentencepieceDecoder : BaseKernel {
 };
 
 struct CustomOpSentencepieceDecoder : OrtW::CustomOpBase<CustomOpSentencepieceDecoder, KernelSentencepieceDecoder> {
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-    return CreateKernelImpl(api, info);
-  }
-
   const char* GetName() const {
     return "SentencepieceDecoder";
   }

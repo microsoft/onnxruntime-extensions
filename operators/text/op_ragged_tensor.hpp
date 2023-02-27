@@ -6,8 +6,8 @@
 #include "ocos.h"
 
 struct KernelRaggedTensorToSparse : BaseKernel {
-  KernelRaggedTensorToSparse(const OrtApi& api)
-    : BaseKernel(api) {}
+  KernelRaggedTensorToSparse(const OrtApi& api, const OrtKernelInfo& info)
+      : BaseKernel(api, info) {}
 
   void Compute(OrtKernelContext* context);
 };
@@ -21,7 +21,7 @@ struct CustomOpRaggedTensorToSparse : OrtW::CustomOpBase<CustomOpRaggedTensorToS
 };
 
 struct CommonRaggedTensorToDense : BaseKernel {
-  CommonRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo* info);
+  CommonRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo& info);
 
  protected:
   void GetInputDims(OrtKernelContext* context, const OrtValue** inputs, OrtTensorDimensions* dims);
@@ -29,7 +29,7 @@ struct CommonRaggedTensorToDense : BaseKernel {
 };
 
 struct KernelRaggedTensorToDense : CommonRaggedTensorToDense {
-  KernelRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo* info);
+  KernelRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 
  private:
@@ -41,20 +41,19 @@ struct CustomOpRaggedTensorToDense : OrtW::CustomOpBase<CustomOpRaggedTensorToDe
   size_t GetOutputTypeCount() const;
   ONNXTensorElementDataType GetOutputType(size_t index) const;
   const char* GetName() const;
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const;
   ONNXTensorElementDataType GetInputType(size_t index) const;
 };
 
 struct KernelStringRaggedTensorToDense : CommonRaggedTensorToDense {
-  KernelStringRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo* info);
+  KernelStringRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 };
 
-struct CustomOpStringRaggedTensorToDense : OrtW::CustomOpBase<CustomOpStringRaggedTensorToDense, KernelStringRaggedTensorToDense> {
+struct CustomOpStringRaggedTensorToDense : OrtW::CustomOpBase<CustomOpStringRaggedTensorToDense,
+                                                              KernelStringRaggedTensorToDense> {
   size_t GetInputTypeCount() const;
   size_t GetOutputTypeCount() const;
   ONNXTensorElementDataType GetOutputType(size_t index) const;
   const char* GetName() const;
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* /* info */) const;
   ONNXTensorElementDataType GetInputType(size_t index) const;
 };

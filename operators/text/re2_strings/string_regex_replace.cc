@@ -8,8 +8,9 @@
 #include "re2/re2.h"
 #include "string_tensor.h"
 
-KernelStringRegexReplace::KernelStringRegexReplace(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
-  global_replace_ = HasAttribute("global_replace") ? ort_.KernelInfoGetAttribute<int64_t>(info_, "global_replace") : 1;
+KernelStringRegexReplace::KernelStringRegexReplace(const OrtApi& api, const OrtKernelInfo& info)
+    : BaseKernel(api, info) {
+  global_replace_ = HasAttribute("global_replace") ? ort_.KernelInfoGetAttribute<int64_t>(&info_, "global_replace") : 1;
 }
 
 void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
@@ -28,12 +29,14 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
   OrtTensorDimensions rewrite_dimensions(ort_, rewrite);
   if (pattern_dimensions.size() != 1 || pattern_dimensions[0] != 1)
     ORTX_CXX_API_THROW(MakeString(
-        "pattern (second input) must contain only one element. It has ",
-        pattern_dimensions.size(), " dimensions."), ORT_INVALID_ARGUMENT);
+                           "pattern (second input) must contain only one element. It has ",
+                           pattern_dimensions.size(), " dimensions."),
+                       ORT_INVALID_ARGUMENT);
   if (rewrite_dimensions.size() != 1 || rewrite_dimensions[0] != 1)
     ORTX_CXX_API_THROW(MakeString(
-        "rewrite (third input) must contain only one element. It has ",
-        rewrite_dimensions.size(), " dimensions."), ORT_INVALID_ARGUMENT);
+                           "rewrite (third input) must contain only one element. It has ",
+                           rewrite_dimensions.size(), " dimensions."),
+                       ORT_INVALID_ARGUMENT);
   if (str_pattern[0].empty())
     ORTX_CXX_API_THROW("pattern (second input) cannot be empty.", ORT_INVALID_ARGUMENT);
 
@@ -61,10 +64,6 @@ void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
 
   FillTensorDataString(api_, ort_, context, str_input, output);
 }
-
-void* CustomOpStringRegexReplace::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return CreateKernelImpl(api, info);
-};
 
 const char* CustomOpStringRegexReplace::GetName() const { return "StringRegexReplace"; };
 

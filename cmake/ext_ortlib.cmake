@@ -1,6 +1,9 @@
 if(_ONNXRUNTIME_EMBEDDED)
   set(ONNXRUNTIME_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/../include/onnxruntime/core/session)
   set(ONNXRUNTIME_LIB_DIR "")
+elseif(ONNXRUNTIME_PKG_DIR)
+  set(ONNXRUNTIME_INCLUDE_DIR ${ONNXRUNTIME_PKG_DIR}/include)
+  set(ONNXRUNTIME_LIB_DIR ${ONNXRUNTIME_PKG_DIR}/lib)
 else()
   # default to 1.10.0 if not specified
   set(ONNXRUNTIME_VER "1.10.0" CACHE STRING "ONNX Runtime version")
@@ -20,11 +23,6 @@ else()
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
       set(ONNXRUNTIME_URL "v${ONNXRUNTIME_VER}/onnxruntime-linux-aarch64-${ONNXRUNTIME_VER}.tgz")
     endif()
-  endif()
-
-  # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
-  if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
-    cmake_policy(SET CMP0135 NEW)
   endif()
 
   message(STATUS "ONNX Runtime URL suffix: ${ONNXRUNTIME_URL}")

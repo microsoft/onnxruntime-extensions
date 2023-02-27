@@ -7,7 +7,7 @@
 #include "string_utils.h"
 
 struct KernelStringLower : BaseKernel {
-  KernelStringLower(const OrtApi& api);
+  KernelStringLower(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 };
 

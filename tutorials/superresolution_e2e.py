@@ -1,16 +1,12 @@
 import io
 import numpy as np
+import onnxruntime as ort
 import os
-import sys
 
 from pathlib import Path
 from PIL import Image
 
 _this_dirpath = Path(os.path.dirname(os.path.abspath(__file__)))
-_ppp_script_dirpath = _this_dirpath / '..' / 'tools'
-
-# add the path with the scripts to sys.path so we can import them
-sys.path.append(str(_ppp_script_dirpath.resolve()))
 
 ONNX_MODEL = 'pytorch_superresolution.onnx'
 ONNX_MODEL_WITH_PRE_POST_PROCESSING = 'pytorch_superresolution.with_pre_post_processing.onnx'
@@ -81,17 +77,37 @@ def convert_pytorch_superresolution_to_onnx():
 
 
 def add_pre_post_processing(output_format: str = "png"):
-    # expected usage would be to run tools/add_pre_post_processing_to_model.py.
-    # `python ./tools/add_pre_post_processing_to_model.py --help`
-    #
-    # we import the super resolution helper func directly do it programmatically here for convenience
-    import add_pre_post_processing_to_model as add_ppp
+    # Use the pre-defined helper to add pre/post processing to a super resolution model based on YCbCr input.
+    # Note: if you're creating a custom pre/post processing pipeline, use
+    # `from onnxruntime_extensions.tools.pre_post_processing import *` to pull in the pre/post processing infrastructure
+    # and Step definitions.
+    from onnxruntime_extensions.tools import add_pre_post_processing_to_model as add_ppp
+
+    # ORT 1.14 and later support ONNX opset 18, which added antialiasing to the Resize operator.
+    # Results are much better when that can be used. Minimum opset is 16.
+    onnx_opset = 16
+    from packaging import version
+    if version.parse(ort.__version__) >= version.parse("1.14.0"):
+        onnx_opset = 18
+
     # add the processing to the model and output a PNG format image. JPG is also valid.
-    add_ppp.superresolution(Path(ONNX_MODEL), Path(ONNX_MODEL_WITH_PRE_POST_PROCESSING), output_format)
+    add_ppp.superresolution(Path(ONNX_MODEL), Path(ONNX_MODEL_WITH_PRE_POST_PROCESSING), output_format, onnx_opset)
+
+
+def _center_crop_to_square(img: Image):
+    if img.height != img.width:
+        target_size = img.width if img.width < img.height else img.height
+        w_start = int(np.floor((img.width - target_size) / 2))
+        w_end = w_start + target_size
+        h_start = int(np.floor((img.height - target_size) / 2))
+        h_end = h_start + target_size
+
+        return img.crop((w_start, h_start, w_end, h_end))
+    else:
+        return img
 
 
 def run_updated_onnx_model():
-    import onnxruntime as ort
     from onnxruntime_extensions import get_library_path
 
     so = ort.SessionOptions()
@@ -101,7 +117,6 @@ def run_updated_onnx_model():
     so.register_custom_ops_library(ortext_lib_path)
     inference_session = ort.InferenceSession(ONNX_MODEL_WITH_PRE_POST_PROCESSING, so)
 
-    #
     test_image_path = _this_dirpath / 'data' / 'super_res_input.png'
     test_image_bytes = np.fromfile(test_image_path, dtype=np.uint8)
     outputs = inference_session.run(['image_out'], {'image': test_image_bytes})
@@ -110,18 +125,33 @@ def run_updated_onnx_model():
     original = Image.open(io.BytesIO(test_image_bytes))
     updated = Image.open(io.BytesIO(upsized_image_bytes))
 
-    return original, updated
+    # centered crop of original to match the area processed
+    original_cropped = _center_crop_to_square(original)
+
+    return original_cropped, updated
 
 
 if __name__ == '__main__':
+    # check onnxruntime-extensions version
+    import onnxruntime_extensions
+    from packaging import version
+    if version.parse(onnxruntime_extensions.__version__) < version.parse("0.6.0"):
+        # temporarily install using nightly until we have official release on pypi.
+        raise ImportError(
+            f"onnxruntime_extensions version 0.6 or later is required. {onnxruntime_extensions.__version__} is installed. "
+            "Please install the latest version using "
+            "`pip install --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ onnxruntime-extensions`")  # noqa
+
     convert_pytorch_superresolution_to_onnx()
     add_pre_post_processing('png')
     original_img, updated_img = run_updated_onnx_model()
     new_width, new_height = updated_img.size
 
     # create a side-by-side image with both.
-    # do a plain resize of original so side-by-side is an easier comparison
-    resized_orig_img = original_img.resize((new_width, new_height))
+    # do a plain resize of original to model input size followed by model output size
+    # so side-by-side is an easier comparison
+    resized_orig_img = original_img.resize((224, 224))
+    resized_orig_img = resized_orig_img.resize((new_width, new_height))
     combined = Image.new('RGB', (new_width * 2, new_height))
 
     combined.paste(resized_orig_img, (0, 0))
