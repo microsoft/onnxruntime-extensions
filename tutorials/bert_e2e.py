@@ -79,8 +79,8 @@ def export_backbone(model_name: str, bert_onnx_model: Path):
 
 
 def add_pre_post_processing_to_transformers(model_name: str, input_model_file: Path, output_model_file: Path):
-    """construct the pipeline for a end2end model with pre and post processing. The final model can take text as inputs
-    and output the result in text format for model like QA.
+    """Construct the pipeline for an end2end model with pre and post processing. 
+    The final model can take text as inputs and output the result in text format for models like Q & A.
 
     Args:
         model_name (str): Which model to export in hugging-face, it determinate tokenizer and onnx model backbone.
