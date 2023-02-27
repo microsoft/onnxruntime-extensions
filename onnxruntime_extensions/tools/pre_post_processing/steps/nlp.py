@@ -43,7 +43,7 @@ class SentencePieceTokenizer(Step):
             tokenizer_param: some essential infos to build a tokenizer
             you can create a TokenizerParam object like:
                 tokenizer_param = TokenizerParam(vocab_size=tokenizer.vocab_size,
-                                    tweaked_bos_id=tokenizer.tweaked_bos_id)
+                                                 tweaked_bos_id=tokenizer.tweaked_bos_id)
 
             nbest_size: int, optional (default = 0)
             alpha: float, optional (default = 1.0)
