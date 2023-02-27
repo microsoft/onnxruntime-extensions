@@ -8,12 +8,11 @@
 
 // See https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/regex_split_with_offsets.md.
 struct KernelStringRegexSplitWithOffsets : BaseKernel {
-  KernelStringRegexSplitWithOffsets(const OrtApi& api, const OrtKernelInfo* info);
+  KernelStringRegexSplitWithOffsets(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 };
 
 struct CustomOpStringRegexSplitWithOffsets : OrtW::CustomOpBase<CustomOpStringRegexSplitWithOffsets, KernelStringRegexSplitWithOffsets> {
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

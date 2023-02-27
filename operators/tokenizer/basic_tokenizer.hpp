@@ -9,7 +9,8 @@
 
 class BasicTokenizer {
  public:
-  BasicTokenizer(bool do_lower_case, bool tokenize_chinese_chars, bool strip_accents, bool tokenize_punctuation, bool remove_control_chars);
+  BasicTokenizer(bool do_lower_case, bool tokenize_chinese_chars, bool strip_accents, bool tokenize_punctuation,
+                 bool remove_control_chars);
   std::vector<ustring> Tokenize(ustring text);
 
  private:
@@ -21,14 +22,14 @@ class BasicTokenizer {
 };
 
 struct KernelBasicTokenizer : BaseKernel {
-  KernelBasicTokenizer(const OrtApi& api, const OrtKernelInfo* info);
+  KernelBasicTokenizer(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
+
  private:
   std::shared_ptr<BasicTokenizer> tokenizer_;
 };
 
 struct CustomOpBasicTokenizer : OrtW::CustomOpBase<CustomOpBasicTokenizer, KernelBasicTokenizer> {
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

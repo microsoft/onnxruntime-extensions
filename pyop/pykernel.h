@@ -37,7 +37,7 @@ struct PyCustomOpDef {
 };
 
 struct PyCustomOpKernel {
-  PyCustomOpKernel(const OrtApi& api, const OrtKernelInfo* info, uint64_t id, const std::vector<std::string>& attrs);
+  PyCustomOpKernel(const OrtApi& api, const OrtKernelInfo& info, uint64_t id, const std::vector<std::string>& attrs);
   void Compute(OrtKernelContext* context);
 
  private:
@@ -49,7 +49,7 @@ struct PyCustomOpKernel {
 
 struct PyCustomOpFactory : OrtW::CustomOpBase<PyCustomOpFactory, PyCustomOpKernel> {
   PyCustomOpFactory() {
-    // STL vector needs it.  
+    // STL vector needs it.
   }
 
   PyCustomOpFactory(const PyCustomOpDef* opdef, const std::string& domain, const std::string& op) {
@@ -60,8 +60,8 @@ struct PyCustomOpFactory : OrtW::CustomOpBase<PyCustomOpFactory, PyCustomOpKerne
     op_type_ = op;
   }
 
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-    return CreateKernelImpl(api, info, opdef_->obj_id, opdef_->attrs);
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo& info) const {
+    return new PyCustomOpKernel(api, info, opdef_->obj_id, opdef_->attrs);
   };
 
   const char* GetName() const {

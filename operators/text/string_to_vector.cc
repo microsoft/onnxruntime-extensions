@@ -4,7 +4,6 @@
 #include "string_to_vector.hpp"
 #include "string_tensor.h"
 
-
 StringToVectorImpl::StringToVectorImpl(std::string& map, std::string& unk) {
   ParseMappingTable(map);
   ParseUnkownValue(unk);
@@ -12,7 +11,7 @@ StringToVectorImpl::StringToVectorImpl(std::string& map, std::string& unk) {
 
 std::vector<std::vector<int64_t>> StringToVectorImpl::Compute(std::vector<std::string>& str_input, const OrtTensorDimensions& input_dim, OrtTensorDimensions& output_dim) {
   std::vector<std::vector<int64_t>> result;
-  
+
   // Set output dimension
   output_dim = input_dim;
   output_dim.push_back(vector_len_);
@@ -100,10 +99,10 @@ void StringToVectorImpl::ParseValues(const std::string_view& v, std::vector<int6
   }
 }
 
-KernelStringToVector::KernelStringToVector(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
-  std::string map = ort_.KernelInfoGetAttribute<std::string>(info, "map");
+KernelStringToVector::KernelStringToVector(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
+  std::string map = ort_.KernelInfoGetAttribute<std::string>(&info, "map");
   // unk_value is string here because KernelInfoGetAttribute doesn't support returning vector
-  std::string unk = ort_.KernelInfoGetAttribute<std::string>(info, "unk");
+  std::string unk = ort_.KernelInfoGetAttribute<std::string>(&info, "unk");
 
   impl_ = std::make_shared<StringToVectorImpl>(map, unk);
 }
@@ -131,10 +130,6 @@ void KernelStringToVector::Compute(OrtKernelContext* context) {
     }
   }
 }
-
-void* CustomOpStringToVector::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return CreateKernelImpl(api, info);
-};
 
 const char* CustomOpStringToVector::GetName() const { return "StringToVector"; };
 

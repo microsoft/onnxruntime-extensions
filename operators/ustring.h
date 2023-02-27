@@ -3,8 +3,12 @@
 #pragma once
 #include <string>
 #include <locale>
-#include <codecvt>
 #include <functional>
+
+#define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING 1
+#include <codecvt>
+
+#include "ocos.h"
 
 // Wrap u32string with ustring, in case we will use other implementation in the future
 class ustring : public std::u32string {
@@ -43,3 +47,10 @@ struct hash<ustring> {
   }
 };
 }  // namespace std
+
+
+void GetTensorMutableDataString(const OrtApi& api, OrtW::CustomOpApi& ort, OrtKernelContext* context,
+                                const OrtValue* value, std::vector<ustring>& output);
+
+void FillTensorDataString(const OrtApi& api, OrtW::CustomOpApi& ort, OrtKernelContext* context,
+                          const std::vector<ustring>& value, OrtValue* output);

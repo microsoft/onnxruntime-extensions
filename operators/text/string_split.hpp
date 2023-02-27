@@ -7,7 +7,7 @@
 #include "string_utils.h"
 
 struct KernelStringSplit : BaseKernel {
-  KernelStringSplit(const OrtApi& api);
+  KernelStringSplit(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
 };
 

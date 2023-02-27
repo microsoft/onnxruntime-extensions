@@ -10,11 +10,10 @@
 #include "string_utils.h"
 #include "string_tensor.h"
 
-
 class BertTokenizerDecoder {
  public:
   BertTokenizerDecoder(std::string vocab, std::string unk_token, std::string sep_token, std::string pad_token,
-                       std::string  cls_token,std::string mask_token,std::string suffix_indicator);
+                       std::string cls_token, std::string mask_token, std::string suffix_indicator);
   std::string Decode(const std::vector<int64_t>& ids, bool skip_special_tokens, bool clean_up_tokenization_spaces);
 
  private:
@@ -33,8 +32,9 @@ class BertTokenizerDecoder {
 };
 
 struct KernelBertTokenizerDecoder : BaseKernel {
-  KernelBertTokenizerDecoder(const OrtApi& api, const OrtKernelInfo* info);
+  KernelBertTokenizerDecoder(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
+
  private:
   std::shared_ptr<BertTokenizerDecoder> decoder_;
   bool use_indices_;
@@ -43,7 +43,6 @@ struct KernelBertTokenizerDecoder : BaseKernel {
 };
 
 struct CustomOpBertTokenizerDecoder : OrtW::CustomOpBase<CustomOpBertTokenizerDecoder, KernelBertTokenizerDecoder> {
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

@@ -6,9 +6,8 @@
 #include <dlib/matrix.h>
 #include "ocos.h"
 
-
 struct KernelInverse : BaseKernel {
-  KernelInverse(const OrtApi& api) : BaseKernel(api) {
+  KernelInverse(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
   }
 
   void Compute(OrtKernelContext* context) {
@@ -23,7 +22,7 @@ struct KernelInverse : BaseKernel {
     }
 
     OrtValue* output0 = ort_.KernelContext_GetOutput(
-      context, 0, dimensions.data(), dimensions.size());
+        context, 0, dimensions.data(), dimensions.size());
     float* out0 = ort_.GetTensorMutableData<float>(output0);
 
     dlib::matrix<float> dm_x(dimensions[0], dimensions[1]);

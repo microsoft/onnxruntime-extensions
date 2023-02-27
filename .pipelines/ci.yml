@@ -449,3 +449,32 @@ jobs:
             parameters:
               xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
               scheme: 'OrtExtensionsUsage'
+
+
+  #####################################
+  # Linux prevent exception propagation
+  #####################################
+  - job: Linux_Prevent_Exception_Propagation
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    steps:
+      # Simulate an embedded build as part of ORT with exceptions disabled by manually setting CMAKE_CXX_FLAGS and
+      # using _OCOS_PREVENT_EXCEPTION_PROPAGATION_OVERRIDE. The build should re-enable exceptions within ort-ext
+      # but prevent them from propagating. Unit tests are run to validate this.
+      - script: '
+          ./build_lib.sh --enable_cxx_tests --onnxruntime_version 1.14.0 --config RelWithDebInfo
+          --cmake_extra_defines
+            _OCOS_PREVENT_EXCEPTION_PROPAGATION_OVERRIDE=ON OCOS_ENABLE_CPP_EXCEPTIONS=OFF
+            CMAKE_CXX_FLAGS="-fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables"
+          '
+
+        displayName: Build ort-ext with exception propagation disabled
+
+      # As an extra validation check CMakeCache.txt as well
+      - script: |
+          grep "^_OCOS_PREVENT_EXCEPTION_PROPAGATION.*ON$" build/Linux/RelWithDebInfo/CMakeCache.txt
+          if [ $? -ne 0 ]; then
+            echo "Exception propogation was not enabled correctly."
+            exit 1
+          fi

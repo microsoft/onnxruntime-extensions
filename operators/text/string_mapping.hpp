@@ -8,14 +8,14 @@
 #include <unordered_map>
 
 struct KernelStringMapping : BaseKernel {
-  KernelStringMapping(const OrtApi& api, const OrtKernelInfo* info);
+  KernelStringMapping(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context);
+
  private:
   std::unordered_map<std::string, std::string> map_;
 };
 
 struct CustomOpStringMapping : OrtW::CustomOpBase<CustomOpStringMapping, KernelStringMapping> {
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
   const char* GetName() const;
   size_t GetInputTypeCount() const;
   ONNXTensorElementDataType GetInputType(size_t index) const;

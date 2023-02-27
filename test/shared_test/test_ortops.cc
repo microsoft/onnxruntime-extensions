@@ -3,6 +3,7 @@
 #include <filesystem>
 #include "gtest/gtest.h"
 #include "ocos.h"
+#include "ustring.h"
 #include "string_utils.h"
 #include "string_tensor.h"
 #include "test_kernel.hpp"
@@ -20,7 +21,7 @@ const char* GetLibraryPath() {
 }
 
 struct KernelOne : BaseKernel {
-  KernelOne(const OrtApi& api) : BaseKernel(api) {
+  KernelOne(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
   }
 
   void Compute(OrtKernelContext* context) {
@@ -66,7 +67,7 @@ struct CustomOpOne : OrtW::CustomOpBase<CustomOpOne, KernelOne> {
 };
 
 struct KernelTwo : BaseKernel {
-  KernelTwo(const OrtApi& api) : BaseKernel(api) {
+  KernelTwo(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
   }
   void Compute(OrtKernelContext* context) {
     // Setup inputs
@@ -109,7 +110,7 @@ struct CustomOpTwo : OrtW::CustomOpBase<CustomOpTwo, KernelTwo> {
 };
 
 struct KernelThree : BaseKernel {
-  KernelThree(const OrtApi& api, const OrtKernelInfo* info) : BaseKernel(api, info) {
+  KernelThree(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
     if (!TryToGetAttribute("substr", substr_)) {
       substr_ = "";
     }
@@ -136,8 +137,12 @@ struct KernelThree : BaseKernel {
 };
 
 struct CustomOpThree : OrtW::CustomOpBase<CustomOpThree, KernelThree> {
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-    return CreateKernelImpl(api, info);
+  // This is  example code to show how to override the CustomOpBase::CreateKernel method even though it is not virtual.
+  // The CustomOpBase implementation will call the CreateKernel of the first class specified in the template,
+  // and from there it's also possible to call the base CreateKernel as per below.
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo& info) const {
+    std::cout << "Called CreateKernel override" << std::endl;
+    return OrtW::CustomOpBase<CustomOpThree, KernelThree>::CreateKernel(api, info);
   };
   const char* GetName() const {
     return "CustomOpThree";
@@ -188,11 +193,11 @@ void GetTensorMutableDataString(const OrtApi& api, const OrtValue* value, std::v
   OrtTensorDimensions dimensions(OrtW::CustomOpApi(api), value);
   size_t len = static_cast<size_t>(dimensions.Size());
   size_t data_len;
-  Ort::ThrowOnError(api, api.GetStringTensorDataLength(value, &data_len));
+  OrtW::ThrowOnError(api, api.GetStringTensorDataLength(value, &data_len));
   output.resize(len);
   std::vector<char> result(data_len + len + 1, '\0');
   std::vector<size_t> offsets(len);
-  Ort::ThrowOnError(api, api.GetStringTensorContent(value, (void*)result.data(), data_len, offsets.data(), offsets.size()));
+  OrtW::ThrowOnError(api, api.GetStringTensorContent(value, (void*)result.data(), data_len, offsets.data(), offsets.size()));
   output.resize(len);
   for (int64_t i = (int64_t)len - 1; i >= 0; --i) {
     if (i < len - 1)
