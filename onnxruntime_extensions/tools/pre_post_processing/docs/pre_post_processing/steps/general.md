@@ -4,6 +4,18 @@ Module pre_post_processing.steps.general
 Classes
 -------
 
+`ArgMax(name: Optional[str] = None, axis: int = -1, keepdims: int = 0)`
+:   Base class for a pre or post processing step.
+    
+    Brief:
+        Same as ArgMax op.
+    Args:
+        name: Optional name of step. Defaults to 'ArgMax'
+
+    ### Ancestors (in MRO)
+
+    * pre_post_processing.step.Step
+
 `ReverseAxis(axis: int = -1, dim_value: int = -1, name: Optional[str] = None)`
 :   Reverses the data in an axis by splitting and concatenating in reverse order.
       e.g. convert RGB ordered data to BGR.

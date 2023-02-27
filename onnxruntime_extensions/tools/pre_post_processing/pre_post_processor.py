@@ -8,6 +8,7 @@ from typing import List, Tuple, Union
 
 from .utils import (
     IoMapEntry,
+    IOEntryValuePreserver,
     create_custom_op_checker_context,
     sanitize_output_names,
     TENSOR_TYPE_TO_ONNX_TYPE,
@@ -56,6 +57,12 @@ class PrePostProcessor:
         self._post_processing_joins = None  # type: Union[None,List[Tuple[Union[Step, str], int, str]]]
 
         self._inputs = inputs if inputs else []
+        
+        # preserve outputs from IOMapEntry, avoid it's consumed by the Follow-up steps.
+        # we now can support a output value has more than one consumers with IOEntryValuePreserver.
+        # IOEntryValuePreserver will preserve the output value and add it to the graph output 
+        # until consumer step is done.
+        self.outputs_preserver = []  # type: List[IOEntryValuePreserver]
 
     def add_pre_processing(self, items: List[Union[Step, Tuple[Step, List[IoMapEntry]]]]):
         """
@@ -140,12 +147,31 @@ class PrePostProcessor:
                     n.name = prefix + str(idx)
                     idx += 1
 
+        def preserved_apply(processor: Step, *args):
+            # Trying to activate the IOEntryValuePreserver and preserve outputs.
+            # and deactivate the outputs when the current graph consumed them
+
+            for preserver in self.outputs_preserver:
+                if preserver.consumer == processor:
+                    preserver.is_active = False
+
+            # IOEntryValuePreserver, preserve those outputs which has multiple consumers.
+            # we explicitly add the output to the graph output.
+            graph_outputs_to_maintain = [i.output for i in self.outputs_preserver if i.is_active]
+            graph_for_step = processor.apply(*args, graph_outputs_to_maintain=graph_outputs_to_maintain)
+
+            for preserver in self.outputs_preserver:
+                if preserver.producer == processor:
+                    preserver.is_active = True
+                    preserver.output = processor.output_names[preserver.producer_idx]
+            return graph_for_step
+
         def connect_and_run(graph: onnx.GraphProto, processor: Step, connections: List[IoMapEntry]):
             for connection in connections:
                 assert connection.producer
                 self._add_connection(processor, connection)
 
-            return processor.apply(graph, self._custom_op_checker_context)
+            return preserved_apply(processor, graph, self._custom_op_checker_context)
 
         # fix any invalid output names now if we're adding post-processing as the onnx parse_graph can't handle them
         if self.post_processors:
@@ -173,11 +199,22 @@ class PrePostProcessor:
                 self._pre_processing_joins = [(last_step, i, graph.input[i].name) for i in range(0, num_entries)]
 
             # map the pre-processing outputs to graph inputs
+            # we may need a natty way to get possible outputs after merge_graphs
+            step_graph_outputs = [o.name for o in pre_process_graph.output]
             io_map = []  # type: List[Tuple[str, str]]
             for step, step_idx, graph_input in self._pre_processing_joins:
                 io_map.append((step.output_names[step_idx], graph_input))
+                step_graph_outputs.remove((step.output_names[step_idx]))
 
-            graph = onnx.compose.merge_graphs(pre_process_graph, graph, io_map)
+            # add outputs from previous IoMapEntry producers to maintain them as graph outputs 
+            # until consumed by the final Step that requires them.
+            step_graph_outputs += [
+                o.name for o in graph.output if o.name not in step_graph_outputs]
+            external_outputs = [
+                i.output for i in self.outputs_preserver if i.is_active and i.output not in step_graph_outputs]
+            if external_outputs:
+                step_graph_outputs.extend(external_outputs)
+            graph = onnx.compose.merge_graphs(pre_process_graph, graph, io_map, outputs=step_graph_outputs)
 
         # add post-processing
         if self.post_processors:
@@ -274,6 +311,7 @@ class PrePostProcessor:
                         producer = self.__producer_from_step_or_str(entry.producer)  # throws if not found
 
                     io_map_entries[entry.consumer_idx] = IoMapEntry(producer, entry.producer_idx, entry.consumer_idx)
+                    self.outputs_preserver.append(IOEntryValuePreserver(producer, step, entry.producer_idx))
 
             processors.append(step)
             processor_connections.append([entry for entry in io_map_entries if entry is not None])

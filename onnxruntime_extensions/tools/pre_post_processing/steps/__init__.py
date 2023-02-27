@@ -3,3 +3,4 @@
 
 from .general import *
 from .vision import *
+from .nlp import *
