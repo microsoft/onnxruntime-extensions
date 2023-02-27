@@ -97,8 +97,8 @@ def add_pre_post_processing_to_transformers(model_name: str, input_model_file: P
     else:
         vocab_file = tokenizer.vocab_file
     tokenizer_type = 'BertTokenizer' if model_name != 'xlm-roberta-base' else 'SentencePieceTokenizer'
-    task_type = 'NextSentencePrediction' if model_name == 'google/mobilebert-uncased' else ''.join(
-        [i.capitalize() for i in onnx_config.task.split('-')])
+    task_type = ('NextSentencePrediction' if model_name == 'google/mobilebert-uncased' 
+                 else ''.join([i.capitalize() for i in onnx_config.task.split('-')]))
     add_ppp.transformers_and_bert(bert_onnx_model, output_model_file,
                                   vocab_file, tokenizer_type, 
                                   task_type,
