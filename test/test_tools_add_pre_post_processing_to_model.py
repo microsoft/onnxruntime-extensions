@@ -210,8 +210,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         output_model = (Path(test_data_dir) / "../sentencePiece.onnx").resolve()
 
         input_text = ("This is a test sentence",)
-        ref_output = [np.array([[0, 3293, 83, 10, 3034, 149357, 2]]), np.array(
-            [[1, 1, 1, 1, 1, 1, 1]])]
+        ref_output = [np.array([[0, 3293, 83, 10, 3034, 149357, 2]]), 
+                      np.array([[1, 1, 1, 1, 1, 1, 1]])]
         # tokenizer = transformers.AutoTokenizer.from_pretrained("xlm-roberta-base")
         tokenizer_parameters = TokenizerParam(
             vocab_or_file=os.path.join(test_data_dir, "../sentencepiece.bpe.model"),
