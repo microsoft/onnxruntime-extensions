@@ -76,8 +76,9 @@ inline void ThrowOnError(const OrtApi& ort, OrtStatus* status) {
 // macros to wrap entry points that ORT calls where we may need to prevent exceptions propagating upwards to ORT
 #define OCOS_API_IMPL_BEGIN \
   OCOS_TRY {
-// if we have to contain exceptions, log and abort().
-#if defined(OCOS_PREVENT_EXCEPTION_PROPAGATION)
+// if exceptions are disabled (a 3rd party library could throw so we need to handle that)
+// or we're preventing exception propagation, log and abort().
+#if defined(OCOS_NO_EXCEPTIONS) || defined(OCOS_PREVENT_EXCEPTION_PROPAGATION)
 #define OCOS_API_IMPL_END                                     \
   }                                                           \
   OCOS_CATCH(const std::exception& ex) {                      \

@@ -188,7 +188,7 @@ if (_OCOS_PREVENT_EXCEPTION_PROPAGATION)
                  "using 3rd party libraries that require exceptions.")
 
   if (NOT OCOS_ENABLE_CPP_EXCEPTIONS)
-    message(WARNING "Enabling C++ exception support as custom ops included in the build require.")
+    message(WARNING "Enabling C++ exception support as custom ops included in the build require them to be enabled.")
     set(OCOS_ENABLE_CPP_EXCEPTIONS ON)
   endif()
 
@@ -207,37 +207,7 @@ if (_OCOS_PREVENT_EXCEPTION_PROPAGATION)
 endif()
 
 if(NOT OCOS_ENABLE_CPP_EXCEPTIONS)
-  # make sure we're not building with a 3rd party library that requires exceptions
-  if (NOT OCOS_ENABLE_CPP_EXCEPTIONS)
-      if (OCOS_ENABLE_GPT2_TOKENIZER)
-          # gpt2 tokenizer depends on nlohmann_json in onnxruntime, which is old and cannot disable exceptions.
-          # could remove this limit when the nlohmann_json is updated in onnxruntime.
-          message(FATAL_ERROR "GPT2_TOKENIZER operator needs C++ exceptions support")
-      endif()
-      if (OCOS_ENABLE_WORDPIECE_TOKENIZER)
-          # wordpiece tokenizer depends on nlohmann_json in onnxruntime, which is old and cannot disable exceptions.
-          # could remove this limit when the nlohmann_json is updated in onnxruntime.
-          message(FATAL_ERROR "WORDPIECE_TOKENIZER operator needs C++ exceptions support")
-      endif()
-      if (OCOS_ENABLE_BLINGFIRE)
-          message(FATAL_ERROR "BLINGFIRE operator needs C++ exceptions support")
-      endif()
-      if (OCOS_ENABLE_SPM_TOKENIZER)
-          message(FATAL_ERROR "SPM_TOKENIZER operator needs C++ exceptions support")
-      endif()
-      if (OCOS_ENABLE_CV2 OR OCOS_ENABLE_OPENCV_CODECS OR OCOS_ENABLE_VISION)
-          message(FATAL_ERROR "The operators depending on OpenCV need C++ exceptions support")
-      endif()
-  endif()
-
   add_compile_definitions(OCOS_NO_EXCEPTIONS ORT_NO_EXCEPTIONS)
-
-  if(MSVC)
-    string(REPLACE "/EHsc" "/EHs-c-" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    add_compile_definitions("_HAS_EXCEPTIONS=0")
-  else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables")
-  endif()
 endif()
 
 include(FetchContent)
