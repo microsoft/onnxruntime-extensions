@@ -328,7 +328,7 @@ def main():
         choices=["BertTokenizer",
                  "SentencePieceTokenizer"],
         required=False,
-        help="Tokenizer model file for BertTokenizer or sentencePieceTokenizer.",
+        help="Tokenizer model file for BertTokenizer or SentencePieceTokenizer.",
     )
 
     parser.add_argument(
