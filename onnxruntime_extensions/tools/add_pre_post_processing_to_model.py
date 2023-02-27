@@ -7,7 +7,7 @@ import onnx
 import os
 
 from pathlib import Path
-
+from typing import Union
 # NOTE: If you're working on this script install onnxruntime_extensions using `pip install -e .` from the repo root
 # and run with `python -m onnxruntime_extensions.tools.add_pre_post_processing_to_model`
 # Running directly will result in an error from a relative import.
@@ -162,21 +162,110 @@ def superresolution(model_file: Path, output_file: Path, output_format: str, onn
     onnx.save_model(new_model, str(output_file.resolve()))
 
 
+class NLPTaskType(enum.Enum):
+    TokenClassification = enum.auto()
+    QuestionAnswering = enum.auto()
+    SequenceClassification = enum.auto()
+    NextSentencePrediction = enum.auto()
+
+
+class TokenizerType(enum.Enum):
+    BertTokenizer = enum.auto()
+    SentencePieceTokenizer = enum.auto()
+
+
+def transformers_and_bert(
+    input_model_file: Path,
+    output_model_file: Path,
+    vocab_file: Path,
+    tokenizer_type: Union[TokenizerType, str],
+    task_type: Union[NLPTaskType, str],
+    onnx_opset: int = 16,
+    add_debug_before_postprocessing=False,
+):
+    """construct the pipeline for a end2end model with pre and post processing. The final model can take text as inputs
+    and output the result in text format for model like QA.
+
+    Args:
+        input_model_file (Path): the model file needed to be updated.
+        output_model_file (Path): where to save the final onnx model.
+        vocab_file (Path): the vocab file for the tokenizer.
+        task_type (Union[NLPTaskType, str]): the task type of the model.
+        onnx_opset (int, optional): the opset version to use. Defaults to 16.
+        add_debug_before_postprocessing (bool, optional): whether to add a debug step before post processing. 
+            Defaults to False.
+    """
+    if isinstance(task_type, str):
+        task_type = NLPTaskType[task_type]
+    if isinstance(tokenizer_type, str):
+        tokenizer_type = TokenizerType[tokenizer_type]
+
+    onnx_model = onnx.load(str(input_model_file.resolve(strict=True)))
+    # hardcode batch size to 1
+    inputs = [create_named_value("input_text", onnx.TensorProto.STRING, [1, "num_sentences"])]
+
+    pipeline = PrePostProcessor(inputs, onnx_opset)
+    tokenizer_args = TokenizerParam(
+        vocab_or_file=vocab_file,
+        do_lower_case=True,
+        tweaked_bos_id=0,
+        is_sentence_pair=True if task_type in [NLPTaskType.QuestionAnswering,
+                                               NLPTaskType.NextSentencePrediction] else False,
+    )
+
+    preprocessing = [
+        SentencePieceTokenizer(tokenizer_args)
+        if tokenizer_type == TokenizerType.SentencePieceTokenizer else BertTokenizer(tokenizer_args),
+        # uncomment this line to debug
+        # Debug(2),
+    ]
+
+    # For verify results with out postprocessing
+    postprocessing = [Debug()] if add_debug_before_postprocessing else []
+    if task_type == NLPTaskType.QuestionAnswering:
+        postprocessing.append((BertTokenizerQADecoder(tokenizer_args), [
+            # input_ids
+            utils.IoMapEntry("BertTokenizer", producer_idx=0, consumer_idx=2)]))
+    elif task_type == NLPTaskType.SequenceClassification:
+        postprocessing.append(ArgMax())
+    # the other tasks don't need postprocessing or we don't support it yet.
+
+    pipeline.add_pre_processing(preprocessing)
+    pipeline.add_post_processing(postprocessing)
+
+    new_model = pipeline.run(onnx_model)
+    onnx.save_model(new_model, str(output_model_file.resolve()))
+
+
 def main():
     parser = argparse.ArgumentParser(
         os.path.basename(__file__),
         description="""Add pre and post processing to a model.
 
         Currently supports updating:
-          - super resolution with YCbCr input
-          - imagenet trained mobilenet   
+        Vision models:
+            - super resolution with YCbCr input
+            - imagenet trained mobilenet
+        NLP models:
+        
+            - MobileBert with different tasks
+            - XLM-Roberta with classification task
 
-        To customize, the logic in the `mobilenet` and `superresolution` functions can be used as a guide.
+        For Vision models:
+            To customize, the logic in the `mobilenet` and `superresolution` functions can be used as a guide.
         Create a pipeline and add the required pre/post processing 'Steps' in the order required. Configure 
-        individual steps as needed. 
+        individual steps as needed.
+        
+        For NLP models:
+           `transformers_and_bert` can be used for MobileBert QuestionAnswering/Classification tasks,
+        or serve as a guide of how to add pre/post processing to a transformer model.
+        Usually pre-processing includes adding a tokenizer. Post-processing includes conversion of output_ids to text.
+        
+        You might need to pass the tokenizer model file (bert vocab file or SentencePieceTokenizer model) 
+        and task_type to the function.
 
-        The updated model will be written in the same location as the original model, with '.onnx' updated to 
-        '.with_pre_post_processing.onnx'
+        The updated model will be written in the same location as the original model, 
+        with '.onnx' updated to '.with_pre_post_processing.onnx'
         """,
     )
 
@@ -185,7 +274,11 @@ def main():
         "--model_type",
         type=str,
         required=True,
-        choices=["superresolution", "mobilenet"],
+        choices=[
+            "superresolution",
+            "mobilenet",
+            "transformers",
+        ],
         help="Model type.",
     )
 
@@ -213,8 +306,34 @@ def main():
     )
 
     parser.add_argument(
+        "--nlp_task_type",
+        type=str,
+        choices=["QuestionAnswering",
+                 "SequenceClassification",
+                 "NextSentencePrediction"],
+        required=False,
+        help="The downstream task for NLP model.",
+    )
+
+    parser.add_argument(
+        "--vocab_file",
+        type=Path,
+        required=False,
+        help="Tokenizer model file for BertTokenizer or SentencePieceTokenizer.",
+    )
+
+    parser.add_argument(
+        "--tokenizer_type",
+        type=str,
+        choices=["BertTokenizer",
+                 "SentencePieceTokenizer"],
+        required=False,
+        help="Tokenizer model file for BertTokenizer or SentencePieceTokenizer.",
+    )
+
+    parser.add_argument(
         "--opset", type=int, required=False, default=16,
-        help="ONNX opset to use. Minimum allowed is 16. Opset 18 is required for Resize with anti-aliasing."
+        help="ONNX opset to use. Minimum allowed is 16. Opset 18 is required for Resize with anti-aliasing.",
     )
 
     parser.add_argument("model", type=Path, help="Provide path to ONNX model to update.")
@@ -227,8 +346,13 @@ def main():
     if args.model_type == "mobilenet":
         source = ModelSource.PYTORCH if args.model_source == "pytorch" else ModelSource.TENSORFLOW
         mobilenet(model_path, new_model_path, source, args.opset)
+    elif args.model_type == "superresolution":
+        superresolution(model_path, new_model_path,
+                        args.output_format, args.opset)
     else:
-        superresolution(model_path, new_model_path, args.output_format, args.opset)
+        if args.vocab_file is None or args.nlp_task_type is None or args.tokenizer_type is None:
+            parser.error("Please provide vocab file/nlp_task_type/tokenizer_type.")
+        transformers_and_bert(model_path, new_model_path, args.tokenizer_type, args.vocab_file, args.nlp_task_type)
 
 
 if __name__ == "__main__":
