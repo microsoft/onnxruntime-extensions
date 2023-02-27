@@ -187,10 +187,10 @@ class BertTokenizer(Step):
         Args:
             tokenizer_param: some essential infos to build a tokenizer,
             You can create a TokenizerParam like this:
-                tokenizer_param = TokenizerParam(vocab=tokenizer.vocab, #vocab is dict or file_path,
-                                    strip_accents = True or False (Optional),
-                                    do_lower_case = True or False (Optional),
-                                    )
+                tokenizer_param = TokenizerParam(vocab=tokenizer.vocab, # vocab is dict or file_path
+                                                 strip_accents = True or False (Optional),
+                                                 do_lower_case = True or False (Optional)
+                                                 )
 
             name: Optional name of step. Defaults to 'BertTokenizer'
 
