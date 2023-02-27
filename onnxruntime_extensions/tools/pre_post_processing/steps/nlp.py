@@ -286,11 +286,10 @@ class BertTokenizerQADecoder(Step):
         Brief:
             Decode the input_ids to text
         Args:
-            tokenizer_param: some essential infos to build a tokenizer.
-            you can create a TokenizerParam object like:
-                tokenizer_param = TokenizerParam(vocab=tokenizer.vocab, #vocab is dict or file_path)
+            tokenizer_param: some essential info to build a tokenizer.
+                you can create a TokenizerParam object like:
+                    tokenizer_param = TokenizerParam(vocab=tokenizer.vocab, #vocab is dict or file_path)
             name: Optional name of step. Defaults to 'BertTokenizerQADecoder'
-
         """
         super().__init__(
             ["start_logits", "end_logits", "input_ids"], ["text"], name)
