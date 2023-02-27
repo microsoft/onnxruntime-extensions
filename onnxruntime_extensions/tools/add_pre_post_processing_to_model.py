@@ -257,10 +257,9 @@ def main():
         individual steps as needed.
         
         For NLP models:
-           `transformers_and_bert` can server for MobileBert in QuestionAnswering/Classification task
-        or be used as a guide of how to add pre/post processing to a transformer model for satisfying
-        your own down-stream task.
-        Usually pre-processing includes tokenizer. Post-processing includes conversion of output_ids to text.
+           `transformers_and_bert` can be used for MobileBert QuestionAnswering/Classification tasks,
+        or serve as a guide of how to add pre/post processing to a transformer model.
+        Usually pre-processing includes adding a tokenizer. Post-processing includes conversion of output_ids to text.
         
         You might need to pass the tokenizer model file (bert vocab file or SentencePieceTokenizer model) 
         and task_type to the function.
