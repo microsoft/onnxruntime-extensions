@@ -240,8 +240,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
             np.array([[1, 1, 1, 1, 1, 1, 1, 1]]),
         ]
         # tokenizer = transformers.AutoTokenizer.from_pretrained("lordtt13/emo-mobilebert")
-        tokenizer_parameters = TokenizerParam(vocab_or_file=os.path.join(
-            test_data_dir, "../bert.vocab"), do_lower_case=True)
+        tokenizer_parameters = TokenizerParam(vocab_or_file=os.path.join(test_data_dir, "../bert.vocab"), 
+                                              do_lower_case=True)
         tokenizer_impl = BertTokenizer(tokenizer_parameters)
         self.create_pipeline_and_run_for_tokenizer(
             tokenizer_impl, "BertTokenizer", tokenizer_parameters, output_model)
