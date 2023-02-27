@@ -184,10 +184,9 @@ def main():
     parser.add_argument(
         "model_path",
         type=Path,
-        help="""The onnx model path which needs pre-or-post processing update 
-                        or a dir-path where to save updated-model.
-                        If a onnx model path is provided, the updated model will be written in the sane directory
-                        with a suffix '.with_pre_post_processing.onnx'""",
+        help="""The path to an existing ONNX model or directory name to save a model exported from HuggingFace in.
+                This model will be updated to add pre/post processing, and saved in the same location with the suffix 
+                '.with_pre_post_processing.onnx'""",
     )
 
     args = parser.parse_args()
