@@ -62,7 +62,7 @@ class PrePostProcessor:
         # we now can support a output value has more than one consumers with IOEntryValuePreserver.
         # IOEntryValuePreserver will preserve the output value and add it to the graph output 
         # until consumer step is done.
-        self._preserved_outputs = []  # type: List[IOEntryValuePreserver]
+        self.outputs_preserver = []  # type: List[IOEntryValuePreserver]
 
     def add_pre_processing(self, items: List[Union[Step, Tuple[Step, List[IoMapEntry]]]]):
         """
@@ -151,16 +151,16 @@ class PrePostProcessor:
             # Trying to activate the IOEntryValuePreserver and preserve outputs.
             # and deactivate the outputs when the current graph consumed them
 
-            for preserver in self._preserved_outputs:
+            for preserver in self.outputs_preserver:
                 if preserver.consumer == processor:
                     preserver.is_active = False
 
             # IOEntryValuePreserver, preserve those outputs which has multiple consumers.
             # we explicitly add the output to the graph output.
-            additional_outputs = [i.output for i in self._preserved_outputs if i.is_active]
+            additional_outputs = [i.output for i in self.outputs_preserver if i.is_active]
             graph_for_step = processor.apply(*args, additional_outputs=additional_outputs)
 
-            for preserver in self._preserved_outputs:
+            for preserver in self.outputs_preserver:
                 if preserver.producer == processor:
                     preserver.is_active = True
                     preserver.output = processor.output_names[preserver.producer_idx]
@@ -211,7 +211,7 @@ class PrePostProcessor:
             step_graph_outputs += [
                 o.name for o in graph.output if o.name not in step_graph_outputs]
             external_outputs = [
-                i.output for i in self._preserved_outputs if i.is_active and i.output not in step_graph_outputs]
+                i.output for i in self.outputs_preserver if i.is_active and i.output not in step_graph_outputs]
             if external_outputs:
                 step_graph_outputs.extend(external_outputs)
             graph = onnx.compose.merge_graphs(pre_process_graph, graph, io_map, outputs=step_graph_outputs)
@@ -311,7 +311,7 @@ class PrePostProcessor:
                         producer = self.__producer_from_step_or_str(entry.producer)  # throws if not found
 
                     io_map_entries[entry.consumer_idx] = IoMapEntry(producer, entry.producer_idx, entry.consumer_idx)
-                    self._preserved_outputs.append(IOEntryValuePreserver(producer, step, entry.producer_idx))
+                    self.outputs_preserver.append(IOEntryValuePreserver(producer, step, entry.producer_idx))
 
             processors.append(step)
             processor_connections.append([entry for entry in io_map_entries if entry is not None])

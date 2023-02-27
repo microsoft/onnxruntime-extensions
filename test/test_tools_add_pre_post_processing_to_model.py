@@ -59,8 +59,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ])
             input_tensor = preprocess(input_image)
-            input_batch = (input_tensor.unsqueeze(
-                0).detach().cpu().numpy())  # create a mini-batch as expected by the model
+            input_batch = input_tensor.unsqueeze(
+                0).detach().cpu().numpy()  # create a mini-batch as expected by the model
 
             s = ort.InferenceSession(input_model, providers=['CPUExecutionProvider'])
             scores = s.run(None, {"x": np.array(input_batch)})
