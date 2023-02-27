@@ -38,7 +38,7 @@ class SentencePieceTokenizer(Step):
         """
         Brief:
             SentencePieceTokenizer has actually 6 inputs in definition, but we allow user to provide only text input,
-            and make the others,"nbest_size", "alpha", "add_bos", "add_eos", "reverse"  optional.
+            and make the others, "nbest_size", "alpha", "add_bos", "add_eos", "reverse" optional.
         Args:
             tokenizer_param: some essential infos to build a tokenizer
             you can create a TokenizerParam object like:
