@@ -1,7 +1,7 @@
-#include <list>
-#include "ocos.h"
-#include "ustring.h"
-#include "string_utils.h"
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+#pragma once
 #include "bpetokenizer.hpp"
 
 struct KernelRobertaBpeTokenizer : BaseKernel {
@@ -9,7 +9,8 @@ struct KernelRobertaBpeTokenizer : BaseKernel {
   void Compute(OrtKernelContext* context);
 
  private:
-  std::vector<int64_t> Tokenize(ustring& input, int64_t max_length, std::list<std::list<std::pair<int, int>>>& offset_map);
+  using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
+  std::vector<int64_t> Tokenize(ustring& input, int64_t max_length, std::list<OffsetMappingType>& offset_map);
 
   int64_t padding_length_;
   std::list<int> byte_list_;

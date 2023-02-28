@@ -2,23 +2,9 @@
 // Licensed under the MIT License.
 // Partial code comes from other Microsoft employee.
 
-#include <string>
-#include <vector>
-#include <fstream>
-#include <sstream>
-#include <iostream>
-#include <algorithm>
-#include <list>
-#include <memory>
-#include <regex>
-#include <sstream>
-#include <stdexcept>
-#include <unordered_map>
-#include <functional>
-#include <codecvt>
-#include <mutex>
-
 #include "roberta_tokenizer.hpp"
+#include "narrow.h"
+
 
 KernelRobertaBpeTokenizer::KernelRobertaBpeTokenizer(const OrtApi& api, const OrtKernelInfo& info)
     : BaseKernel(api, info) {
@@ -46,7 +32,7 @@ KernelRobertaBpeTokenizer::KernelRobertaBpeTokenizer(const OrtApi& api, const Or
   bbpe_tokenizer_->Load(vocabu_stream, merges_stream, "<|endoftext|>", "<|endoftext|>");
 }
 
-std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t max_length, std::list<std::list<std::pair<int, int>>>& offset_map) {
+std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t max_length, std::list<OffsetMappingType>& offset_map) {
   std::vector<int64_t> res;
 
   if (IsEmptyUString(input)) {
@@ -72,8 +58,8 @@ std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t
     const char32_t* ptr = cur_input.c_str();
     regcmp.Set(ptr);
 
-    int offset = 0;
-    std::list<std::pair<int, int>> offset_mapping;
+    size_t offset = 0;
+    OffsetMappingType offset_mapping;
 
     // Add offset mapping for BOS token
     offset_mapping.push_back(std::make_pair(0, 0));
@@ -86,16 +72,16 @@ std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t
 
       // Handle offset mapping and special cases
       if (utf8_token.at(0) == ' ') {
-        offset_mapping.push_back(std::make_pair(offset + 1, offset + utf8_token.size()));
+        offset_mapping.emplace_back(std::make_pair(offset + 1, ort_extensions::narrow<size_t>(offset + utf8_token.size())));
       } else {
-        offset_mapping.push_back(std::make_pair(offset, offset + utf8_token.size()));
+        offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + utf8_token.size())));
       }
       offset += utf8_token.size();
 
       // Get byte encodings prior to performing BPE
       byte_list_.clear();
       for (char& cp : utf8_token) {
-        byte_list_.push_back(bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(cp)]);
+        byte_list_.emplace_back(bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(cp)]);
       }
 
       // Perform BPE
@@ -111,13 +97,13 @@ std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t
       }
     }
     // Add offset mapping for EOS token
-    offset_mapping.push_back(std::make_pair(0, 0));
+    offset_mapping.emplace_back(std::make_pair(0, 0));
 
     // Add offset mappings for input in this instance to list of offset mappings for all inputs
-    offset_map.push_back(offset_mapping);
+    offset_map.emplace_back(offset_mapping);
   }
   // Add EOS token to result
-  res.push_back(bbpe_tokenizer_->GetEncoding("</s>"));
+  res.emplace_back(bbpe_tokenizer_->GetEncoding("</s>"));
   return res;
 }
 
@@ -125,7 +111,7 @@ void KernelRobertaBpeTokenizer::Compute(OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
   std::vector<std::string> str_input;
-  std::list<std::list<std::pair<int, int>>> offset_map;
+  std::list<OffsetMappingType> offset_map;
   GetTensorMutableDataString(api_, ort_, context, input, str_input);
   OrtTensorDimensions input_dim(ort_, input);
 

@@ -478,3 +478,18 @@ jobs:
             echo "Exception propogation was not enabled correctly."
             exit 1
           fi
+
+
+  ##############################
+  # Linux for selected_ops build
+  ##############################
+  - job: Linux
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    steps:
+      # compiled as only one operator selected.
+      - script: |
+        set -e -x -u
+        echo 'set (OCOS_ENABLE_BERT_TOKENIZER ON CACHE BOOL "" FORCE)' > cmake/_selectedoplist.cmake
+        ./build.sh -DOCOS_ENABLE_CPP_EXCEPTIONS=OFF -DOCOS_ENABLE_SELECTED_OPLIST=ON

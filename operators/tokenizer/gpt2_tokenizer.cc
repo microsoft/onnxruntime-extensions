@@ -2,21 +2,6 @@
 // Licensed under the MIT License.
 // Partial code comes from other Microsoft employee.
 
-#include <string>
-#include <vector>
-#include <fstream>
-#include <sstream>
-#include <iostream>
-#include <list>
-#include <memory>
-#include <regex>
-#include <sstream>
-#include <stdexcept>
-#include <unordered_map>
-#include <functional>
-#include <codecvt>
-#include <mutex>
-
 #include "gpt2_tokenizer.hpp"
 
 
@@ -156,18 +141,4 @@ size_t CustomOpBpeTokenizer::GetOutputTypeCount() const {
 
 ONNXTensorElementDataType CustomOpBpeTokenizer::GetOutputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-}
-
-const OrtCustomOp** LoadTokenizerSchemaList() {
-  // create the global objects here to let the ORT catch the expection if any
-  static std::unique_ptr<CustomOpBpeTokenizer> p_CoBpeTokenizer;
-  static const OrtCustomOp* c_CustomOpList[2] = {nullptr};  // {&c_CoBpeTokenizer, nullptr};
-  static std::mutex mtx_loaded;
-  std::lock_guard<std::mutex> lck(mtx_loaded);
-  if (p_CoBpeTokenizer.get() == nullptr) {
-    p_CoBpeTokenizer = std::make_unique<CustomOpBpeTokenizer>();
-    c_CustomOpList[0] = p_CoBpeTokenizer.get();
-  }
-
-  return c_CustomOpList;
 }

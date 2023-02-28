@@ -1,12 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "string_utils.h"
 #include "basic_tokenizer.hpp"
+#include "string_utils.h"
 #include "string_tensor.h"
 #include <vector>
 #include <locale>
-#include <codecvt>
 #include <algorithm>
 
 BasicTokenizer::BasicTokenizer(bool do_lower_case, bool tokenize_chinese_chars, bool strip_accents,

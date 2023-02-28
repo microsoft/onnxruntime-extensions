@@ -1,24 +1,15 @@
 // Licensed under the MIT License.
 // Partial code comes from other Microsoft employee.
 #pragma once
-#include <string>
-#include <vector>
-#include <fstream>
-#include <sstream>
-#include <iostream>
-#include <algorithm>
-#include <list>
-#include <memory>
+#include "ustring.h"
+
 #include <regex>
-#include <sstream>
-#include <stdexcept>
 #include <unordered_map>
 #include <functional>
-#include <codecvt>
-#include <mutex>
 
 #include "unicode.h"
 #include "nlohmann/json.hpp"
+#include "string_utils.h"
 #include "string_tensor.h"
 
 // Note: the following logic comes from CPython: unicodetype_db.h (_PyUnicode_IsWhitespace)
@@ -155,7 +146,6 @@ class VocabData {
     } else {
       int id = static_cast<int>(vocab_map_.size());
       vocab_map_[unk_token] = id;
-      std::cerr << "Special token (" << unk_token << ") have been added in the vocabulary." << std::endl;
     }
 
     std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> str_convert;

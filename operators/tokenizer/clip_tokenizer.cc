@@ -1,24 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 // Partial code comes from other Microsoft employee.
-
-#include <string>
-#include <vector>
-#include <fstream>
-#include <sstream>
-#include <iostream>
-#include <algorithm>
-#include <list>
-#include <memory>
-#include <regex>
-#include <sstream>
-#include <stdexcept>
-#include <unordered_map>
-#include <functional>
-#include <codecvt>
-#include <mutex>
-
 #include "clip_tokenizer.hpp"
+#include "string_utils.h"
 
 KernelClipBpeTokenizer::KernelClipBpeTokenizer(const OrtApi& api, const OrtKernelInfo& info)
     : BaseKernel(api, info) {

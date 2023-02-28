@@ -2,7 +2,6 @@ import unittest
 import numpy as np
 import onnxruntime as _ort
 
-from pathlib import Path
 from onnx import helper, onnx_pb as onnx_proto
 from transformers import GPT2Tokenizer
 from onnxruntime_extensions import (
@@ -15,11 +14,6 @@ from onnxruntime_extensions import (
 def _get_file_content(path):
     with open(path, "rb") as file:
         return file.read()
-
-
-def _get_test_data_file(*sub_dirs):
-    test_dir = Path(__file__).parent
-    return str(test_dir.joinpath(*sub_dirs))
 
 
 def _create_test_model(**kwargs):
