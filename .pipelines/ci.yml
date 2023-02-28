@@ -483,7 +483,7 @@ jobs:
   ##############################
   # Linux for selected_ops build
   ##############################
-  - job: Linux
+  - job: Linux_SelectedOpsBuild
     pool:
       vmImage: 'ubuntu-latest'
 
