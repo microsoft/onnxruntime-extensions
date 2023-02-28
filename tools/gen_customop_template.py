@@ -42,10 +42,6 @@ def create_hpp(customop_template_filepath, op, op_name, input_type_count, output
     #include "string_utils.h"
     #include "ustring.h"
 
-    void* {custom_op}::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {{
-      return CreateKernelImpl(api, info);
-    }};
-
     const char* {custom_op}::GetName() const {{ return "{op_name}"; }};
 
     size_t {custom_op}::GetInputTypeCount() const {{
