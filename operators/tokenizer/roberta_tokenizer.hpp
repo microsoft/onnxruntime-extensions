@@ -2,8 +2,7 @@
 #include "ocos.h"
 #include "ustring.h"
 #include "string_utils.h"
-
-class VocabData;
+#include "bpetokenizer.hpp"
 
 struct KernelRobertaBpeTokenizer : BaseKernel {
   KernelRobertaBpeTokenizer(const OrtApi& api, const OrtKernelInfo& info);

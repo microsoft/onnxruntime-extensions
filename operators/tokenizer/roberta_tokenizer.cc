@@ -18,51 +18,7 @@
 #include <codecvt>
 #include <mutex>
 
-#include "nlohmann/json.hpp"
-#include "bpetokenizer.hpp"
-#include "string_tensor.h"
-#include "unicode.h"
-
-// Note: the following logic comes from CPython: unicodetype_db.h (_PyUnicode_IsWhitespace)
-bool IsWithinUnicodeSpace(char32_t ch) {
-  switch (ch) {
-    case 0x0009:
-    case 0x000A:
-    case 0x000B:
-    case 0x000C:
-    case 0x000D:
-    case 0x001C:
-    case 0x001D:
-    case 0x001E:
-    case 0x001F:
-    case 0x0020:
-    case 0x0085:
-    case 0x00A0:
-    case 0x1680:
-    case 0x2000:
-    case 0x2001:
-    case 0x2002:
-    case 0x2003:
-    case 0x2004:
-    case 0x2005:
-    case 0x2006:
-    case 0x2007:
-    case 0x2008:
-    case 0x2009:
-    case 0x200A:
-    case 0x2028:
-    case 0x2029:
-    case 0x202F:
-    case 0x205F:
-    case 0x3000:
-      return true;
-  }
-  return false;
-}
-
-bool IsEmptyuString(const ustring& str) {
-  return std::all_of(str.begin(), str.end(), [](char32_t ch) { return IsWithinUnicodeSpace(ch); });
-}
+#include "roberta_tokenizer.hpp"
 
 KernelRobertaBpeTokenizer::KernelRobertaBpeTokenizer(const OrtApi& api, const OrtKernelInfo& info)
     : BaseKernel(api, info) {
@@ -93,7 +49,7 @@ KernelRobertaBpeTokenizer::KernelRobertaBpeTokenizer(const OrtApi& api, const Or
 std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t max_length, std::list<std::list<std::pair<int, int>>>& offset_map) {
   std::vector<int64_t> res;
 
-  if (IsEmptyuString(input)) {
+  if (IsEmptyUString(input)) {
     return res;
   }
   // Add BOS token to result

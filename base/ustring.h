@@ -10,6 +10,7 @@
 
 #include "ocos.h"
 
+// ustring needs a new implementation, due to the std::codecvt deprecation.
 // Wrap u32string with ustring, in case we will use other implementation in the future
 class ustring : public std::u32string {
  public:

@@ -1,8 +1,7 @@
 #include <list>
 #include "ocos.h"
 #include "ustring.h"
-
-class VocabData;
+#include "bpetokenizer.hpp"
 
 struct KernelBpeTokenizer : BaseKernel {
   KernelBpeTokenizer(const OrtApi& api, const OrtKernelInfo& info);

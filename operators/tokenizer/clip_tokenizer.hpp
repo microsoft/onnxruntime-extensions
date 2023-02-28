@@ -3,7 +3,7 @@
 #include "ustring.h"
 #include "string_utils.h"
 
-class VocabData;
+#include "bpetokenizer.hpp"
 
 struct KernelClipBpeTokenizer : BaseKernel {
   KernelClipBpeTokenizer(const OrtApi& api, const OrtKernelInfo& info);
