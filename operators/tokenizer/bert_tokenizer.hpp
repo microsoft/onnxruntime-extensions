@@ -9,6 +9,9 @@
 #include "string_tensor.h"
 #include "basic_tokenizer.hpp"
 
+#include <unordered_map>
+
+
 class BertTokenizerVocab final {
  public:
   explicit BertTokenizerVocab(std::string_view vocab);
