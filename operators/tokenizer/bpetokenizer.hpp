@@ -1,11 +1,12 @@
 // Licensed under the MIT License.
 // Partial code comes from other Microsoft employee.
 #pragma once
+#include "ocos.h"
 #include "ustring.h"
 
 #include <regex>
+#include <list>
 #include <unordered_map>
-#include <functional>
 
 #include "unicode.h"
 #include "nlohmann/json.hpp"
