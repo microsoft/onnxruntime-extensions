@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include <string>
 #include "ocos.h"
+#include <string>
 
 
 // Retrieves a vector of strings if the input type is std::string.

@@ -2,66 +2,8 @@
 // Licensed under the MIT License.
 // Partial code comes from other Microsoft employee.
 
-#include <string>
-#include <vector>
-#include <fstream>
-#include <sstream>
-#include <iostream>
-#include <list>
-#include <memory>
-#include <regex>
-#include <sstream>
-#include <stdexcept>
-#include <unordered_map>
-#include <functional>
-#include <codecvt>
-#include <mutex>
+#include "gpt2_tokenizer.hpp"
 
-#include "nlohmann/json.hpp"
-#include "bpetokenizer.hpp"
-#include "string_tensor.h"
-#include "unicode.h"
-
-// Note: the following logic comes from CPython: unicodetype_db.h (_PyUnicode_IsWhitespace)
-bool IsUnicodeSpace(char32_t ch) {
-  switch (ch) {
-    case 0x0009:
-    case 0x000A:
-    case 0x000B:
-    case 0x000C:
-    case 0x000D:
-    case 0x001C:
-    case 0x001D:
-    case 0x001E:
-    case 0x001F:
-    case 0x0020:
-    case 0x0085:
-    case 0x00A0:
-    case 0x1680:
-    case 0x2000:
-    case 0x2001:
-    case 0x2002:
-    case 0x2003:
-    case 0x2004:
-    case 0x2005:
-    case 0x2006:
-    case 0x2007:
-    case 0x2008:
-    case 0x2009:
-    case 0x200A:
-    case 0x2028:
-    case 0x2029:
-    case 0x202F:
-    case 0x205F:
-    case 0x3000:
-      return true;
-  }
-  return false;
-}
-
-bool IsEmptyUString(const ustring& str) {
-  return std::all_of(str.begin(), str.end(), [](char32_t ch) { return IsUnicodeSpace(ch); });
-}
 
 KernelBpeTokenizer::KernelBpeTokenizer(const OrtApi& api, const OrtKernelInfo& info)
     : BaseKernel(api, info) {
@@ -199,18 +141,4 @@ size_t CustomOpBpeTokenizer::GetOutputTypeCount() const {
 
 ONNXTensorElementDataType CustomOpBpeTokenizer::GetOutputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-}
-
-const OrtCustomOp** LoadTokenizerSchemaList() {
-  // create the global objects here to let the ORT catch the expection if any
-  static std::unique_ptr<CustomOpBpeTokenizer> p_CoBpeTokenizer;
-  static const OrtCustomOp* c_CustomOpList[2] = {nullptr};  // {&c_CoBpeTokenizer, nullptr};
-  static std::mutex mtx_loaded;
-  std::lock_guard<std::mutex> lck(mtx_loaded);
-  if (p_CoBpeTokenizer.get() == nullptr) {
-    p_CoBpeTokenizer = std::make_unique<CustomOpBpeTokenizer>();
-    c_CustomOpList[0] = p_CoBpeTokenizer.get();
-  }
-
-  return c_CustomOpList;
 }

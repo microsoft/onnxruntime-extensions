@@ -3,12 +3,13 @@
 
 #pragma once
 
-#include <unordered_map>
-#include <vector>
 #include "ocos.h"
 #include "ustring.h"
 #include "string_utils.h"
 #include "string_tensor.h"
+
+#include <unordered_map>
+
 
 struct KernelWordpieceTokenizer : BaseKernel {
   KernelWordpieceTokenizer(const OrtApi& api, const OrtKernelInfo& info);
