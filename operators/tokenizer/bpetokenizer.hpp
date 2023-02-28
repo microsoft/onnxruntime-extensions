@@ -20,6 +20,7 @@
 #include "nlohmann/json.hpp"
 #include "clip_tokenizer.hpp"
 #include "gpt2_tokenizer.hpp"
+#include "roberta_tokenizer.hpp"
 #include "string_tensor.h"
 #include "unicode.h"
 
