@@ -3,13 +3,14 @@
 
 #pragma once
 
-#include <unordered_map>
-#include <vector>
 #include "ocos.h"
 #include "ustring.h"
 #include "string_utils.h"
 #include "string_tensor.h"
 #include "basic_tokenizer.hpp"
+
+#include <unordered_map>
+
 
 class BertTokenizerVocab final {
  public:

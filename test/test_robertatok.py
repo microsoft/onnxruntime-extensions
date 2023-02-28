@@ -42,7 +42,9 @@ class TestRobertaTokenizer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tokenizer = RobertaTokenizerFast.from_pretrained("roberta-base")
-        files = cls.tokenizer.save_vocabulary(".")
+        temp_dir = Path('./temp_onnxroberta')
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        files = cls.tokenizer.save_vocabulary(str(temp_dir))
         cls.tokjson = files[0]
         cls.merges = files[1]
 

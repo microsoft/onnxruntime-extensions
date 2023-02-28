@@ -1,9 +1,8 @@
-#include <list>
-#include "ocos.h"
-#include "ustring.h"
-#include "string_utils.h"
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
 
-class VocabData;
+#pragma once
+#include "bpetokenizer.hpp"
 
 struct KernelClipBpeTokenizer : BaseKernel {
   KernelClipBpeTokenizer(const OrtApi& api, const OrtKernelInfo& info);

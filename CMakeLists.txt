@@ -208,6 +208,9 @@ endif()
 
 if(NOT OCOS_ENABLE_CPP_EXCEPTIONS)
   add_compile_definitions(OCOS_NO_EXCEPTIONS ORT_NO_EXCEPTIONS)
+  if (NOT _ONNXRUNTIME_EMBEDDED)
+    add_compile_definitions(_HAS_EXCEPTIONS=0)
+  endif()
 endif()
 
 include(FetchContent)
@@ -254,7 +257,7 @@ if(OCOS_ENABLE_RE2_REGEX)
 endif()
 
 # ### scan all source files
-set(TARGET_SRC_NOEXCEPTION)
+file(GLOB TARGET_SRC_NOEXCEPTION "base/*.h" "base/*.cc")
 file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h" "includes/*.h*")
 
 if(OCOS_ENABLE_TF_STRING)
@@ -402,11 +405,13 @@ standardize_output_folder(ocos_operators)
 target_include_directories(noexcep_operators PUBLIC
   ${ONNXRUNTIME_INCLUDE_DIR}
   ${PROJECT_SOURCE_DIR}/includes
+  ${PROJECT_SOURCE_DIR}/base
   ${PROJECT_SOURCE_DIR}/operators)
 
 target_include_directories(ocos_operators PUBLIC
   ${ONNXRUNTIME_INCLUDE_DIR}
   ${PROJECT_SOURCE_DIR}/includes
+  ${PROJECT_SOURCE_DIR}/base
   ${PROJECT_SOURCE_DIR}/operators
   ${PROJECT_SOURCE_DIR}/operators/tokenizer)
 

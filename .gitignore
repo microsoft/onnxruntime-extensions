@@ -38,7 +38,7 @@ out/
 .scb/
 onnxruntime_extensions/_version.py
 onnxruntime-*-*-*/
-temp_*.onnx
+temp_*onnx*
 # Java specific ignores
 */.gradle
 java/hs_*.log

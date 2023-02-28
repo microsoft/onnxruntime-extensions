@@ -1,28 +1,58 @@
 // Licensed under the MIT License.
 // Partial code comes from other Microsoft employee.
 #pragma once
-#include <string>
-#include <vector>
-#include <fstream>
-#include <sstream>
-#include <iostream>
-#include <algorithm>
-#include <list>
-#include <memory>
-#include <regex>
-#include <sstream>
-#include <stdexcept>
-#include <unordered_map>
-#include <functional>
-#include <codecvt>
-#include <mutex>
+#include "ocos.h"
+#include "ustring.h"
 
-#include "nlohmann/json.hpp"
-#include "clip_tokenizer.hpp"
-#include "gpt2_tokenizer.hpp"
-#include "roberta_tokenizer.hpp"
-#include "string_tensor.h"
+#include <regex>
+#include <list>
+#include <unordered_map>
+
 #include "unicode.h"
+#include "nlohmann/json.hpp"
+#include "string_utils.h"
+#include "string_tensor.h"
+
+// Note: the following logic comes from CPython: unicodetype_db.h (_PyUnicode_IsWhitespace)
+inline bool IsUnicodeSpace(char32_t ch) {
+  switch (ch) {
+    case 0x0009:
+    case 0x000A:
+    case 0x000B:
+    case 0x000C:
+    case 0x000D:
+    case 0x001C:
+    case 0x001D:
+    case 0x001E:
+    case 0x001F:
+    case 0x0020:
+    case 0x0085:
+    case 0x00A0:
+    case 0x1680:
+    case 0x2000:
+    case 0x2001:
+    case 0x2002:
+    case 0x2003:
+    case 0x2004:
+    case 0x2005:
+    case 0x2006:
+    case 0x2007:
+    case 0x2008:
+    case 0x2009:
+    case 0x200A:
+    case 0x2028:
+    case 0x2029:
+    case 0x202F:
+    case 0x205F:
+    case 0x3000:
+      return true;
+  }
+  return false;
+}
+
+inline bool IsEmptyUString(const ustring& str) {
+  return std::all_of(str.begin(), str.end(), [](char32_t ch) { return IsUnicodeSpace(ch); });
+}
 
 class SpecialTokenMap {
  public:
@@ -117,7 +147,6 @@ class VocabData {
     } else {
       int id = static_cast<int>(vocab_map_.size());
       vocab_map_[unk_token] = id;
-      std::cerr << "Special token (" << unk_token << ") have been added in the vocabulary." << std::endl;
     }
 
     std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> str_convert;
