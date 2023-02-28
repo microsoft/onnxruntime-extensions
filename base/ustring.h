@@ -3,6 +3,7 @@
 #pragma once
 
 #include "ocos.h"
+#include <locale>
 #include <codecvt>
 
 // ustring needs a new implementation, due to the std::codecvt deprecation.
