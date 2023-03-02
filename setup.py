@@ -26,7 +26,7 @@ def load_vsdevcmd():
     if os.environ.get(VSINSTALLDIR_NAME) is None:
         stdout, _ = subprocess.Popen([
             'powershell', ' -noprofile', '-executionpolicy', 
-            'bypass', '-f',  TOP_DIR+'/tools/get_vsdevcmd.ps1', '-outputEnv' '1'],
+            'bypass', '-f',  TOP_DIR+'/tools/get_vsdevcmd.ps1', '-outputEnv', '1'],
             stdout=subprocess.PIPE, shell=False, universal_newlines=True).communicate()
         for line in stdout.splitlines():
             kv_pair = line.split('=')
@@ -151,14 +151,17 @@ def read_version():
         version_str = f.readline().strip()
 
     # is it a dev build or release?
+    rel_br, cid = read_git_refs() if os.path.isdir(
+        os.path.join(TOP_DIR, '.git')) else (False, None)
+
+    if rel_br:
+        return version_str
+
     build_id = os.getenv('BUILD_BUILDID', None)
     if build_id is not None:
         version_str += '.{}'.format(build_id)
     else:
-        if os.path.isdir(os.path.join(TOP_DIR, '.git')):
-            rel_br, cid = read_git_refs()
-            if not rel_br:
-                version_str += '+' + cid[:7]
+        version_str += '+' + cid[:7]
     return version_str
 
 
