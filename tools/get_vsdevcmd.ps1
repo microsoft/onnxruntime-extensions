@@ -25,7 +25,7 @@ if ($latest_valid_vs.Length -eq 0) {
 
 $pathDevCmd = $latest_valid_vs + "\Common7\Tools\vsdevcmd.bat"
 if ($outputEnv) {
-    cmd /q /c "$pathDevCmd & set"
+    cmd /q /c "`"$pathDevCmd`" & set"
 }
 else {
     $pathDevCmd
