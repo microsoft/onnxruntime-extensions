@@ -152,7 +152,7 @@ def read_version():
 
     # is it a dev build or release?
     rel_br, cid = read_git_refs() if os.path.isdir(
-        os.path.join(TOP_DIR, '.git')) else (False, None)
+        os.path.join(TOP_DIR, '.git')) else (True, None)
 
     if rel_br:
         return version_str
