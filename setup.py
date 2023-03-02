@@ -150,11 +150,15 @@ def read_version():
     with (open(os.path.join(TOP_DIR, 'version.txt'), "r")) as f:
         version_str = f.readline().strip()
 
+    # special handling for Onebranch building
+    if os.getenv('BUILD_SOURCEBRANCHNAME', "").startswith('rel-'):
+        return version_str
+
     # is it a dev build or release?
     rel_br, cid = read_git_refs() if os.path.isdir(
         os.path.join(TOP_DIR, '.git')) else (True, None)
 
-    if rel_br or sys.platform == "win32": # Onebranch git checkout a commit id.
+    if rel_br:
         return version_str
 
     build_id = os.getenv('BUILD_BUILDID', None)
