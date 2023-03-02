@@ -154,7 +154,7 @@ def read_version():
     rel_br, cid = read_git_refs() if os.path.isdir(
         os.path.join(TOP_DIR, '.git')) else (True, None)
 
-    if rel_br:
+    if rel_br or sys.platform == "win32": # Onebranch git checkout a commit id.
         return version_str
 
     build_id = os.getenv('BUILD_BUILDID', None)
