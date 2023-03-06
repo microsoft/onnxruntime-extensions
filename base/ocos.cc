@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 #include <sstream>
 #include "ocos.h"
-
+#include "narrow.h"
 
 OrtErrorCode BaseKernel::GetErrorCodeAndRelease(OrtStatusPtr status) const noexcept {
   if (status == nullptr) {
@@ -51,6 +51,17 @@ bool BaseKernel::TryToGetAttribute(const char* name, int64_t& value) const noexc
 template <>
 bool BaseKernel::TryToGetAttribute(const char* name, float& value) const noexcept {
   return GetErrorCodeAndRelease(api_.KernelInfoGetAttribute_float(&info_, name, &value)) == ORT_OK;
+}
+
+template <>
+bool BaseKernel::TryToGetAttribute(const char* name, int& value) const noexcept {
+  int64_t origin_value = 0;
+  if (GetErrorCodeAndRelease(api_.KernelInfoGetAttribute_int64(&info_, name, &origin_value)) != ORT_OK) {
+    return false;
+  }
+
+  value = ort_extensions::narrow<int>(origin_value);
+  return true;
 }
 
 template <>

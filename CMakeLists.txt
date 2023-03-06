@@ -489,7 +489,7 @@ if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
   list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 
-target_include_directories(ocos_operators PRIVATE ${GSL_INCLUDE_DIR})
+target_include_directories(noexcep_operators PUBLIC ${GSL_INCLUDE_DIR})
 list(APPEND ocos_libraries Microsoft.GSL::GSL)
 
 list(REMOVE_DUPLICATES OCOS_COMPILE_DEFINITIONS)
