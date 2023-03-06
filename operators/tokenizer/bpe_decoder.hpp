@@ -11,6 +11,7 @@
 #include <codecvt>
 #include <set>
 #include <map>
+#include <unordered_map>
 
 
 struct KernelBpeDecoder : public BaseKernel {
@@ -18,28 +19,63 @@ struct KernelBpeDecoder : public BaseKernel {
   KernelBpeDecoder(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
     std::string vocab = ort_.KernelInfoGetAttribute<std::string>(&info, "id_vocab");
     if (vocab.empty()) {
-      ORTX_CXX_API_THROW("id vocab text cannot be empty.", ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW("[BPEDecoder]id vocab text cannot be empty.", ORT_INVALID_ARGUMENT);
     }
+    BuildIdVocab(vocab);
 
     std::string byte_decoder = ort_.KernelInfoGetAttribute<std::string>(&info, "byte_decoder");
     if (byte_decoder.empty()) {
-      ORTX_CXX_API_THROW("vocabulary shouldn't be empty.", ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW("[BPEDecoder]byte_decoder cannot be empty.", ORT_INVALID_ARGUMENT);
+    } else {
+      auto um = ParseId2String(byte_decoder);
+      std::transform(um.begin(), um.end(),
+        std::inserter(byte_decoder_, byte_decoder_.end()),
+                     [](const auto& p) { return std::make_pair(static_cast<char32_t>(p.first), p.second[0]); });
     }
 
-    std::string added_tokens = ort_.KernelInfoGetAttribute<std::string>(&info, "added_tokens");
-    if (added_tokens.empty()) {
-      ORTX_CXX_API_THROW("merges shouldn't be empty.", ORT_INVALID_ARGUMENT);
+    std::string added_tokens = TryToGetAttributeWithDefault<std::string>("added_tokens", "");
+    if (!added_tokens.empty()) {
+      auto um = ParseId2String(added_tokens);
+      added_tokens_ = std::map<int64_t, std::string>(um.begin(), um.end());
+    }
+
+    std::string all_special_ids = TryToGetAttributeWithDefault<std::string>("all_special_ids", "");
+    if (!all_special_ids.empty()) {
+      auto um = ParseId2String(all_special_ids);
+      std::transform(um.begin(), um.end(),
+        std::inserter(all_special_ids_, all_special_ids_.end()), [](const auto& p) { return p.first; });
     }
 
     en_normalization_ = TryToGetAttributeWithDefault<int64_t>("en_normalization", 0);
-    BuildIdVocab(vocab);
+    skip_special_tokens_ = TryToGetAttributeWithDefault<int64_t>("skip_special_tokens", 0);
   }
+
+  std::unordered_map<int64_t, std::string> ParseId2String(std::string s_attr) {
+    std::unordered_map<int64_t, std::string> result;
+    result.reserve(s_attr.size() / 4);
+    std::stringstream ss(s_attr);
+
+    std::string line;
+    std::string token;
+    while (std::getline(ss, line, '\n')) {
+      size_t pos_end = 0;
+      int64_t v = std::stoll(line, &pos_end);
+      if (pos_end >= line.size() || line[pos_end] != '\t') {
+        token.clear();
+      } else {
+        token = line.substr(pos_end + 1);
+      }
+      result.emplace(v, token);
+    }
+
+    return result;
+  }
+
 
   void BuildIdVocab(const std::string& vocab) {
     arr_vocab_.reserve(vocab.size() / 2 ); // give a rough estimation.
 
-    ustring u_vocab(vocab);
-    std::u32string_view uv_vocab;
+    std::u32string_view uv_vocab(static_cast<std::u32string>(ustring(vocab)));
     size_t last_pos = 0;
 
     arr_vocab_.emplace_back(ustring("")); // Id starts from 1
@@ -85,9 +121,7 @@ struct KernelBpeDecoder : public BaseKernel {
       }
       else {
         const auto str = arr_vocab_[token];
-        // string is a regular token from known vocab
         for (auto wchr : str) {
-          // get output character from byte decoder for each wide character
           unsigned char uchr = byte_decoder_.at(wchr);
           decoded_token.push_back(uchr);
         }
@@ -124,20 +158,11 @@ struct CustomOpBpeDecoder : OrtW::CustomOpBase<CustomOpBpeDecoder, KernelBpeDeco
   }
 
   size_t GetInputTypeCount() const {
-    return 3;
+    return 1;
   }
 
   ONNXTensorElementDataType GetInputType(size_t index) const {
-    ONNXTensorElementDataType input_types[] = {
-      ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64,
-      ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64,
-      ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64 };
-
-    if (index >= sizeof(input_types) / sizeof(ONNXTensorElementDataType)) {
-      return ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED;
-    }
-
-    return input_types[index];
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   }
 
   size_t GetOutputTypeCount() const {
