@@ -24,9 +24,7 @@ KernelBlingFireSentenceBreaker::KernelBlingFireSentenceBreaker(const OrtApi& api
 
   model_ = std::shared_ptr<void>(model_ptr, FreeModel);
 
-  if (HasAttribute("max_sentence")) {
-    max_sentence = static_cast<int>(ort_.KernelInfoGetAttribute<int64_t>(&info, "max_sentence"));
-  }
+  max_sentence = TryToGetAttributeWithDefault("max_sentence", -1);
 }
 
 void KernelBlingFireSentenceBreaker::Compute(OrtKernelContext* context) {

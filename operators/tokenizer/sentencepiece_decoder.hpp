@@ -31,11 +31,10 @@ struct KernelSentencepieceDecoder : BaseKernel {
       ORTX_CXX_API_THROW("[SentencePieceDecoder]: Expect ids dimension [n] or [1,n].", ORT_INVALID_GRAPH);
     }
 
-    auto count = ids_dim[0];
     std::string decoded_string;
     std::vector<int64_t> output_dim = {1};
     std::vector<int> tids;
-    std::transform(p_ids, p_ids + count,
+    std::transform(p_ids, p_ids + ids_dim.Size(),
                    std::back_inserter(tids),
                    [](auto _id) { return static_cast<int>(_id); });
     auto status = tokenizer_.Decode(tids, &decoded_string);

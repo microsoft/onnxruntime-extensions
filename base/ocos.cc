@@ -3,25 +3,6 @@
 #include <sstream>
 #include "ocos.h"
 
-bool BaseKernel::HasAttribute(const char* name) const noexcept {
-  size_t size;
-  std::string out;
-  // Crashes here.
-  OrtStatus* status = api_.KernelInfoGetAttribute_string(&info_, name, nullptr, &size);
-  auto r = api_.GetErrorCode(status);
-  bool has = (r == ORT_INVALID_ARGUMENT) || (r == ORT_OK);
-  if (has) {
-    api_.ReleaseStatus(status);
-    return has;
-  }
-  const char* error = api_.GetErrorMessage(status);
-  if (strstr(error, "No attribute") == error) {
-    api_.ReleaseStatus(status);
-    return false;
-  }
-  api_.ReleaseStatus(status);
-  return true;
-}
 
 OrtErrorCode BaseKernel::GetErrorCodeAndRelease(OrtStatusPtr status) const noexcept {
   if (status == nullptr) {
