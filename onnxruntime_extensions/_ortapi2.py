@@ -18,7 +18,9 @@ def get_opset_version_from_ort():
         "1.9": 15,
         "1.10": 15,
         "1.11": 16,
-        "1.12": 17
+        "1.12": 17,
+        "1.13": 17,
+        "1.14": 18,
     }
 
     ort_ver_string = '.'.join(_ort.__version__.split('.')[0:2])
@@ -54,7 +56,15 @@ class OrtPyFunction:
         self.default_inputs = {}
 
     def create_from_customop(self, op_type, *args, **kwargs):
-        graph = SingleOpGraph.build_my_graph(op_type, *args, **kwargs)
+        cvt = kwargs.get('cvt', None)
+        if cvt is None:
+            cvt = args[0] if len(args) > 0 and isinstance(args[0], CustomOpConverter) else None
+            args = args[1:]
+        else:
+            del kwargs['cvt']
+
+        new_kwargs = kwargs if cvt is None else cvt(**kwargs)
+        graph = SingleOpGraph.build_my_graph(op_type, *args, **new_kwargs)
         self._bind(make_onnx_model(graph))
         return self
 

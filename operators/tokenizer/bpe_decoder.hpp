@@ -92,9 +92,6 @@ struct KernelBpeDecoder : public BaseKernel {
 
   void Compute(OrtKernelContext* context) {
     const OrtValue* ids = ort_.KernelContext_GetInput(context, 0);
-
-    const OrtValue* byte_decoder = ort_.KernelContext_GetInput(context, 1);
-    const OrtValue* added_tokens = ort_.KernelContext_GetInput(context, 2);
     const int64_t* p_ids = ort_.GetTensorData<int64_t>(ids);
     OrtTensorDimensions ids_dim(ort_, ids);
 
