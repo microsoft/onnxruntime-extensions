@@ -5,6 +5,7 @@
 
 #include "ocos.h"
 #include "ustring.h"
+#include "narrow.h"
 #include <string>
 #include <vector>
 #include <locale>
@@ -12,7 +13,6 @@
 #include <set>
 #include <map>
 #include <unordered_map>
-
 
 struct KernelBpeDecoder : public BaseKernel {
  public:
@@ -29,8 +29,9 @@ struct KernelBpeDecoder : public BaseKernel {
     } else {
       auto um = ParseId2String(byte_decoder);
       std::transform(um.begin(), um.end(),
-        std::inserter(byte_decoder_, byte_decoder_.end()),
-                     [](const auto& p) { return std::make_pair(static_cast<char32_t>(p.first), p.second[0]); });
+                     std::inserter(byte_decoder_, byte_decoder_.end()),
+                     [](const auto& p) { return std::make_pair(static_cast<char32_t>(p.first),
+                                                               ort_extensions::narrow<unsigned char>(std::stoul(p.second))); });
     }
 
     std::string added_tokens = TryToGetAttributeWithDefault<std::string>("added_tokens", "");
@@ -43,14 +44,15 @@ struct KernelBpeDecoder : public BaseKernel {
     if (!all_special_ids.empty()) {
       auto um = ParseId2String(all_special_ids);
       std::transform(um.begin(), um.end(),
-        std::inserter(all_special_ids_, all_special_ids_.end()), [](const auto& p) { return p.first; });
+                     std::inserter(all_special_ids_, all_special_ids_.end()),
+                     [](const auto& p) { return p.first; });
     }
 
     en_normalization_ = TryToGetAttributeWithDefault<int64_t>("en_normalization", 0);
     skip_special_tokens_ = TryToGetAttributeWithDefault<int64_t>("skip_special_tokens", 0);
   }
 
-  std::unordered_map<int64_t, std::string> ParseId2String(std::string s_attr) {
+  std::unordered_map<int64_t, std::string> ParseId2String(const std::string& s_attr) {
     std::unordered_map<int64_t, std::string> result;
     result.reserve(s_attr.size() / 4);
     std::stringstream ss(s_attr);
@@ -71,14 +73,13 @@ struct KernelBpeDecoder : public BaseKernel {
     return result;
   }
 
-
   void BuildIdVocab(const std::string& vocab) {
-    arr_vocab_.reserve(vocab.size() / 2 ); // give a rough estimation.
+    arr_vocab_.reserve(vocab.size() / 2);  // give a rough estimation.
 
-    std::u32string_view uv_vocab(static_cast<std::u32string>(ustring(vocab)));
+    std::u32string u_vocab = ustring(vocab);
+    std::u32string_view uv_vocab(u_vocab);
     size_t last_pos = 0;
 
-    arr_vocab_.emplace_back(ustring("")); // Id starts from 1
     for (size_t n = 0; n < uv_vocab.size(); ++n) {
       if (uv_vocab[n] == char32_t('\n')) {
         std::u32string_view s_tok = uv_vocab.substr(last_pos, n - last_pos);
@@ -107,16 +108,16 @@ struct KernelBpeDecoder : public BaseKernel {
     for (size_t tok_idx = 0; tok_idx < count; ++tok_idx) {
       const auto token = *(p_ids + tok_idx);
       std::string decoded_token;
-      f_special = all_special_ids_.count(token)? true : false;
-      if (skip_special_tokens_){
+      f_special = all_special_ids_.count(token) ? true : false;
+      if (skip_special_tokens_ && f_special) {
+        f_special_last = f_special;
         continue;
       }
 
       if (added_tokens_.count(token)) {
         const std::string ws = added_tokens_.at(token);
         decoded_token = (std::string)ws;
-      }
-      else {
+      } else {
         const auto str = arr_vocab_[token];
         for (auto wchr : str) {
           unsigned char uchr = byte_decoder_.at(wchr);
@@ -135,9 +136,18 @@ struct KernelBpeDecoder : public BaseKernel {
 
       f_special_last = f_special;
     }
+
+    std::vector<int64_t> output_dim = {1};
+    std::vector<std::string> result = {text};
+    OrtValue* output = ort_.KernelContext_GetOutput(context, 0, output_dim.data(), output_dim.size());
+    FillTensorDataString(api_, ort_, context, result, output);
   }
 
  private:
+  std::string bos_token_ = "<|endoftext|>";
+  std::string eos_token_ = "<|endoftext|>";
+  std::string unk_token_ = "<|endoftext|>";
+
   // Since ORT API doesn't support boolean type in ONNX node attribute,
   // all flag attributes here are defined as int64 type to be more explicit.
   int64_t en_normalization_ = 0;
@@ -147,7 +157,6 @@ struct KernelBpeDecoder : public BaseKernel {
   std::map<int64_t, std::string> added_tokens_;
   std::set<int64_t> all_special_ids_;
 };
-
 
 struct CustomOpBpeDecoder : OrtW::CustomOpBase<CustomOpBpeDecoder, KernelBpeDecoder> {
   const char* GetName() const {
