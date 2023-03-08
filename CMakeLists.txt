@@ -362,16 +362,13 @@ if(OCOS_ENABLE_BLINGFIRE)
 endif()
 
 if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
-  if(NOT TARGET nlohmann_json)
-    set(JSON_BuildTests OFF CACHE INTERNAL "")
-    message(STATUS "Fetch json")
-    include(json)
-  endif()
+  message(STATUS "Fetch json")
+  include(json)
 endif()
 
 if(_HAS_TOKENIZER)
   message(STATUS "Tokenizer needed.")
-  file(GLOB tokenizer_TARGET_SRC "operators/tokenizer/tokenizers.*")
+  file(GLOB tokenizer_TARGET_SRC "operators/tokenizer/tokenizers.*" "operators/tokenizer/*.hpp")
   list(APPEND TARGET_SRC ${tokenizer_TARGET_SRC})
 endif()
 
@@ -412,8 +409,7 @@ target_include_directories(ocos_operators PUBLIC
   ${ONNXRUNTIME_INCLUDE_DIR}
   ${PROJECT_SOURCE_DIR}/includes
   ${PROJECT_SOURCE_DIR}/base
-  ${PROJECT_SOURCE_DIR}/operators
-  ${PROJECT_SOURCE_DIR}/operators/tokenizer)
+  ${PROJECT_SOURCE_DIR}/operators)
 
 set(ocos_libraries)
 set(OCOS_COMPILE_DEFINITIONS)
@@ -424,6 +420,8 @@ endif()
 
 if(_HAS_TOKENIZER)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TOKENIZER)
+  target_include_directories(ocos_operators PUBLIC
+    ${PROJECT_SOURCE_DIR}/operators/tokenizer)
 endif()
 
 if(OCOS_ENABLE_TF_STRING)
@@ -491,7 +489,7 @@ if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
   list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 
-target_include_directories(ocos_operators PRIVATE ${GSL_INCLUDE_DIR})
+target_include_directories(noexcep_operators PUBLIC ${GSL_INCLUDE_DIR})
 list(APPEND ocos_libraries Microsoft.GSL::GSL)
 
 list(REMOVE_DUPLICATES OCOS_COMPILE_DEFINITIONS)

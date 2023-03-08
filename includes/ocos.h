@@ -23,14 +23,12 @@ struct BaseKernel {
   BaseKernel(const OrtApi& api, const OrtKernelInfo& info) noexcept : api_(api), info_(info), ort_(api_) {
   }
 
-  bool HasAttribute(const char* name) const noexcept;
-
   template <class T>
   bool TryToGetAttribute(const char* name, T& value) const noexcept;
 
   template <class T>
-  T TryToGetAttributeWithDefault(const char* name, T default_value) const noexcept {
-    T& result = default_value;
+  T TryToGetAttributeWithDefault(const char* name, const T& default_value) const noexcept {
+    T result = default_value;
     TryToGetAttribute(name, result);
     return result;
   }

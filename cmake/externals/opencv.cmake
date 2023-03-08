@@ -111,6 +111,13 @@ if(IOS)
   set(CPU_BASELINE DETECT)
 endif()
 
+if (MSVC AND CMAKE_GENERATOR_PLATFORM)
+  string(TOLOWER ${CMAKE_GENERATOR_PLATFORM} _GEN_PLATFORM)
+  if (${_GEN_PLATFORM} MATCHES "arm|arm64")
+    set(OPENCV_SKIP_SYSTEM_PROCESSOR_DETECTION ON)
+  endif()
+endif()
+
 FetchContent_Declare(
     opencv
     GIT_REPOSITORY https://github.com/opencv/opencv.git
@@ -150,4 +157,3 @@ if (CMAKE_SYSTEM_NAME MATCHES "Windows")
         set_target_properties(${p} PROPERTIES FOLDER "externals/opencv")
     endforeach()
 endif()
-

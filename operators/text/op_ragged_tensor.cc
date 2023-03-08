@@ -81,7 +81,7 @@ int64_t CommonRaggedTensorToDense::GetMaxCol(int64_t n, const int64_t* p_indices
 
 KernelRaggedTensorToDense::KernelRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo& info)
     : CommonRaggedTensorToDense(api, info) {
-  missing_value_ = HasAttribute("missing_value") ? ort_.KernelInfoGetAttribute<int64_t>(&info, "missing_value") : -1;
+  missing_value_ = TryToGetAttributeWithDefault("missing_value", -1) ;
 }
 
 void KernelRaggedTensorToDense::Compute(OrtKernelContext* context) {

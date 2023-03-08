@@ -55,6 +55,18 @@ class GPT2Tokenizer(CustomOp):
         ]
 
 
+class BpeDecoder(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [
+            cls.io_def("ids", onnx.TensorProto.INT64, [None])
+        ]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def('str', onnx_proto.TensorProto.STRING, [None])]
+
+
 class VectorToString(CustomOp):
 
     @classmethod
@@ -387,3 +399,7 @@ Opdef.create(_argsort_op,
              op_type='ArgSort',
              inputs=[PyCustomOpDef.dt_float, PyCustomOpDef.dt_int64],
              outputs=[PyCustomOpDef.dt_int64])
+
+
+class CustomOpConverter:
+    pass

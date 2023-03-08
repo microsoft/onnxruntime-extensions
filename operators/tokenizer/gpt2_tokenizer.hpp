@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 #pragma once
-#include "bpetokenizer.hpp"
+#include "bpe_tokenizer.hpp"
 
 struct KernelBpeTokenizer : BaseKernel {
   KernelBpeTokenizer(const OrtApi& api, const OrtKernelInfo& info);

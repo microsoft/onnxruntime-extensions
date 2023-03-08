@@ -2,26 +2,7 @@
 // Licensed under the MIT License.
 #include <sstream>
 #include "ocos.h"
-
-bool BaseKernel::HasAttribute(const char* name) const noexcept {
-  size_t size;
-  std::string out;
-  // Crashes here.
-  OrtStatus* status = api_.KernelInfoGetAttribute_string(&info_, name, nullptr, &size);
-  auto r = api_.GetErrorCode(status);
-  bool has = (r == ORT_INVALID_ARGUMENT) || (r == ORT_OK);
-  if (has) {
-    api_.ReleaseStatus(status);
-    return has;
-  }
-  const char* error = api_.GetErrorMessage(status);
-  if (strstr(error, "No attribute") == error) {
-    api_.ReleaseStatus(status);
-    return false;
-  }
-  api_.ReleaseStatus(status);
-  return true;
-}
+#include "narrow.h"
 
 OrtErrorCode BaseKernel::GetErrorCodeAndRelease(OrtStatusPtr status) const noexcept {
   if (status == nullptr) {
@@ -70,6 +51,17 @@ bool BaseKernel::TryToGetAttribute(const char* name, int64_t& value) const noexc
 template <>
 bool BaseKernel::TryToGetAttribute(const char* name, float& value) const noexcept {
   return GetErrorCodeAndRelease(api_.KernelInfoGetAttribute_float(&info_, name, &value)) == ORT_OK;
+}
+
+template <>
+bool BaseKernel::TryToGetAttribute(const char* name, int& value) const noexcept {
+  int64_t origin_value = 0;
+  if (GetErrorCodeAndRelease(api_.KernelInfoGetAttribute_int64(&info_, name, &origin_value)) != ORT_OK) {
+    return false;
+  }
+
+  value = ort_extensions::narrow<int>(origin_value);
+  return true;
 }
 
 template <>

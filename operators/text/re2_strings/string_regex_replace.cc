@@ -10,7 +10,7 @@
 
 KernelStringRegexReplace::KernelStringRegexReplace(const OrtApi& api, const OrtKernelInfo& info)
     : BaseKernel(api, info) {
-  global_replace_ = HasAttribute("global_replace") ? ort_.KernelInfoGetAttribute<int64_t>(&info_, "global_replace") : 1;
+  global_replace_ = TryToGetAttributeWithDefault("global_replace",1);
 }
 
 void KernelStringRegexReplace::Compute(OrtKernelContext* context) {

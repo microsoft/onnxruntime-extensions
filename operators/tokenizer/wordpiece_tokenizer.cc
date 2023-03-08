@@ -11,9 +11,7 @@ KernelWordpieceTokenizer::KernelWordpieceTokenizer(const OrtApi& api, const OrtK
   std::string vocab_as_string = ort_.KernelInfoGetAttribute<std::string>(&info, "vocab");
   std::string suffix_indicator = ort_.KernelInfoGetAttribute<std::string>(&info, "suffix_indicator");
   std::string unk = ort_.KernelInfoGetAttribute<std::string>(&info, "unknown_token");
-  max_input_chars_per_word_ = HasAttribute("max_input_chars_per_word")
-                                  ? ort_.KernelInfoGetAttribute<int64_t>(&info, "max_input_chars_per_word")
-                                  : 200;
+  max_input_chars_per_word_ = TryToGetAttributeWithDefault("max_input_chars_per_word", 200);
   suffix_indicator_ = ustring(suffix_indicator);
   unk_token_ = ustring(unk);
 
