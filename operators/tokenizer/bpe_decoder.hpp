@@ -50,6 +50,10 @@ struct KernelBpeDecoder : public BaseKernel {
 
     en_normalization_ = TryToGetAttributeWithDefault<int64_t>("en_normalization", 0);
     skip_special_tokens_ = TryToGetAttributeWithDefault<int64_t>("skip_special_tokens", 0);
+    whitespace_token_ = TryToGetAttributeWithDefault<int64_t>("whitespace_token", 0);
+    bos_token_ = TryToGetAttributeWithDefault("bos_token", std::string("<|endoftext|>"));
+    eos_token_ = TryToGetAttributeWithDefault("eos_token", std::string("<|endoftext|>"));
+    unk_token_ = TryToGetAttributeWithDefault("unk_token", std::string("<|endoftext|>"));
   }
 
   std::unordered_map<int64_t, std::string> ParseId2String(const std::string& s_attr) {
@@ -80,11 +84,15 @@ struct KernelBpeDecoder : public BaseKernel {
     std::u32string_view uv_vocab(u_vocab);
     size_t last_pos = 0;
 
-    for (size_t n = 0; n < uv_vocab.size(); ++n) {
+    auto ccount = uv_vocab.size();
+    for (size_t n = 0; n < ccount; ++n) {
       if (uv_vocab[n] == char32_t('\n')) {
         std::u32string_view s_tok = uv_vocab.substr(last_pos, n - last_pos);
         arr_vocab_.emplace_back(ustring(s_tok));
         last_pos = n + 1;
+      } else if (n == ccount - 1) {
+        std::u32string_view s_tok = uv_vocab.substr(last_pos, n - last_pos + 1);
+        arr_vocab_.emplace_back(ustring(s_tok));
       }
     }
 
@@ -125,12 +133,15 @@ struct KernelBpeDecoder : public BaseKernel {
         }
       }
 
-      if (f_special && (tok_idx > 0 && !f_special_last)) {
+      if (whitespace_token_ &&
+        f_special && (tok_idx > 0 && !f_special_last)) {
         text.push_back(' ');
       }
 
       text.append(decoded_token);
-      if (f_special && tok_idx + 1 != count) {
+
+      if (whitespace_token_ &&
+        f_special && tok_idx != count - 1) {
         text.push_back(' ');
       }
 
@@ -144,14 +155,15 @@ struct KernelBpeDecoder : public BaseKernel {
   }
 
  private:
-  std::string bos_token_ = "<|endoftext|>";
-  std::string eos_token_ = "<|endoftext|>";
-  std::string unk_token_ = "<|endoftext|>";
+  std::string bos_token_;
+  std::string eos_token_;
+  std::string unk_token_;
 
   // Since ORT API doesn't support boolean type in ONNX node attribute,
   // all flag attributes here are defined as int64 type to be more explicit.
   int64_t en_normalization_ = 0;
   int64_t skip_special_tokens_ = 0;
+  int64_t whitespace_token_ = 0;
   std::vector<ustring> arr_vocab_;
   std::map<char32_t, unsigned char> byte_decoder_;
   std::map<int64_t, std::string> added_tokens_;
