@@ -34,7 +34,8 @@ def make_onnx_model(graph, opset_version=0, extra_domain=default_opset_domain(),
                                                           ) else onnx.helper.make_model
     model = fn_mm(graph, opset_imports=[
         onnx.helper.make_operatorsetid('ai.onnx', opset_version)])
-    model.opset_import.extend([onnx.helper.make_operatorsetid(extra_domain, extra_opset_version)])
+    model.opset_import.extend(
+        [onnx.helper.make_operatorsetid(extra_domain, extra_opset_version)])
     return model
 
 
@@ -58,7 +59,8 @@ class OrtPyFunction:
     def create_from_customop(self, op_type, *args, **kwargs):
         cvt = kwargs.get('cvt', None)
         if cvt is None:
-            cvt = args[0] if len(args) > 0 and isinstance(args[0], CustomOpConverter) else None
+            cvt = args[0] if len(args) > 0 and isinstance(
+                args[0], CustomOpConverter) else None
             args = args[1:]
         else:
             del kwargs['cvt']
@@ -70,8 +72,8 @@ class OrtPyFunction:
 
     def add_default_input(self, **kwargs):
         inputs = {
-            ky_: val_ if isinstance(val_, (np.ndarray, np.generic)) else \
-                np.asarray(list(val_), dtype=np.uint8) for ky_, val_ in kwargs.items()
+            ky_: val_ if isinstance(val_, (np.ndarray, np.generic)) else
+            np.asarray(list(val_), dtype=np.uint8) for ky_, val_ in kwargs.items()
         }
 
         self.default_inputs.update(inputs)
@@ -97,7 +99,8 @@ class OrtPyFunction:
 
     def _ensure_ort_session(self):
         if self.ort_session is None:
-            sess = _ort.InferenceSession(self.onnx_model.SerializeToString(), self.get_ort_session_options())
+            sess = _ort.InferenceSession(
+                self.onnx_model.SerializeToString(), self.get_ort_session_options())
             self.ort_session = sess
 
         return self.ort_session
@@ -123,7 +126,8 @@ class OrtPyFunction:
             # an annoying bug is numpy by default is int32, while pytorch is int64.
             # so cast the input here automatically.
             feed[i_.name] = \
-                ts_x.astype(np.int64) if i_.type.tensor_type.elem_type == onnx_proto.TensorProto.INT64 else ts_x
+                ts_x.astype(
+                    np.int64) if i_.type.tensor_type.elem_type == onnx_proto.TensorProto.INT64 else ts_x
             idx += 1
 
         # feed.update(kwargs)
@@ -131,7 +135,8 @@ class OrtPyFunction:
 
     def __call__(self, *args, **kwargs):
         self._ensure_ort_session()
-        outputs = self.ort_session.run(None, self._argument_map(*args, **kwargs))
+        outputs = self.ort_session.run(
+            None, self._argument_map(*args, **kwargs))
         return outputs[0] if len(outputs) == 1 else tuple(outputs)
 
 
