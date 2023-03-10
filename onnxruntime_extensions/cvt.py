@@ -41,3 +41,14 @@ class HFTokenizerConverter(CustomOpConverter):
         })
 
         return kwargs
+
+    def roberta_tokenizer(self, **kwargs):
+        hf_roberta_tokenizer = self.tokenizer
+        attrs = {'vocab': json.dumps(
+            hf_roberta_tokenizer.encoder, separators=(',', ':'))}
+        sorted_merges = {v_: k_ for k_,
+                         v_ in hf_roberta_tokenizer.bpe_ranks.items()}
+        attrs['merges'] = '\n'.join("{} {}".format(
+            *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
+        attrs.update(**kwargs)
+        return attrs
