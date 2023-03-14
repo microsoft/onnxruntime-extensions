@@ -5,10 +5,12 @@ import onnxruntime as _ort
 
 from pathlib import Path
 from onnx import helper, onnx_pb as onnx_proto
-from transformers import RobertaTokenizerFast
+from transformers import RobertaTokenizer, RobertaTokenizerFast
 from onnxruntime_extensions import (
     make_onnx_model,
-    get_library_path as _get_library_path)
+    get_library_path as _get_library_path,
+    PyOrtFunction)
+from onnxruntime_extensions.cvt import HFTokenizerConverter
 
 def _get_file_content(path):
     with open(path, "rb") as file:
@@ -47,6 +49,8 @@ class TestRobertaTokenizer(unittest.TestCase):
         files = cls.tokenizer.save_vocabulary(str(temp_dir))
         cls.tokjson = files[0]
         cls.merges = files[1]
+        cls.slow_tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
+        cls.tokenizer_cvt = HFTokenizerConverter(cls.slow_tokenizer)
 
     def _run_tokenizer(self, test_sentence, padding_length=-1):
         model = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges, max_length=padding_length)
@@ -86,6 +90,17 @@ class TestRobertaTokenizer(unittest.TestCase):
         self._run_tokenizer(["9 8 7 - 6 5 4 - 3 2 1 0"])
         self._run_tokenizer(["One Microsoft Way, Redmond, WA"])
 
+    def test_converter(self):
+        fn_tokenizer = PyOrtFunction.from_customop("RobertaTokenizer", cvt=(self.tokenizer_cvt).roberta_tokenizer)
+        test_str = "I can feel the magic, can you?"
+        fn_out = fn_tokenizer([test_str])
+        roberta_out = self.tokenizer(test_str, return_offsets_mapping=True)
+        expect_input_ids = roberta_out['input_ids']
+        expect_attention_mask = roberta_out['attention_mask']
+        expect_offset_mapping = roberta_out['offset_mapping']
+        np.testing.assert_array_equal(fn_out[0].reshape((fn_out[0].size,)), expect_input_ids)
+        np.testing.assert_array_equal(fn_out[1].reshape((fn_out[1].size,)), expect_attention_mask)
+        np.testing.assert_array_equal(fn_out[2].reshape((fn_out[2].shape[1], fn_out[2].shape[2])), expect_offset_mapping)
 
 if __name__ == "__main__":
     unittest.main()
