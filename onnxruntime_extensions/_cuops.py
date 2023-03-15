@@ -54,6 +54,22 @@ class GPT2Tokenizer(CustomOp):
             cls.io_def('attention_mask', onnx.TensorProto.INT64, [None, None])
         ]
 
+class RobertaTokenizer(CustomOp):
+
+    @classmethod
+    def get_inputs(cls):
+        return [
+            cls.io_def('input_text', onnx_proto.TensorProto.STRING, [None])
+        ]
+
+    @classmethod
+    def get_outputs(cls):
+        return [
+            cls.io_def("input_ids", onnx.TensorProto.INT64, [None, None]),
+            cls.io_def('attention_mask', onnx.TensorProto.INT64, [None, None]),
+            cls.io_def('offset_mapping', onnx.TensorProto.INT64, [None, None, 2])
+        ]
+
 
 class BpeDecoder(CustomOp):
     @classmethod
