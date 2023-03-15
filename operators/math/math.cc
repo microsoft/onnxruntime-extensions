@@ -2,6 +2,7 @@
 #include "negpos.hpp"
 #ifdef ENABLE_DLIB
 #include "dlib/inverse.hpp"
+#include "dlib/stft_norm.hpp"
 #endif
 #include "segment_extraction.hpp"
 #include "segment_sum.hpp"
@@ -12,6 +13,7 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Math =
                         CustomOpNegPos,
 #ifdef ENABLE_DLIB
                         CustomOpInverse,
+                        CustomOpStftNorm,
 #endif
                         CustomOpSegmentExtraction,
                         CustomOpSegmentSum>;

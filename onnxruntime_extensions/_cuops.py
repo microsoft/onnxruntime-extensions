@@ -356,6 +356,24 @@ class ImageDecoder(CustomOp):
         ]
 
 
+class StftNorm(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [
+            cls.io_def('pcm_wave', onnx_proto.TensorProto.FLOAT, [None]),
+            cls.io_def('n_fft', onnx_proto.TensorProto.INT64, []),
+            cls.io_def('hop_length', onnx_proto.TensorProto.INT64, []),
+            cls.io_def('win_length', onnx_proto.TensorProto.INT64, []),
+            cls.io_def('window', onnx_proto.TensorProto.FLOAT, [None]),
+        ]
+
+    @classmethod
+    def get_outputs(cls):
+        return [
+            cls.io_def('stft_norm', onnx_proto.TensorProto.FLOAT, [None, None])
+        ]
+
+
 class SingleOpGraph:
 
     @classmethod
