@@ -60,11 +60,12 @@ struct KernelStft : BaseKernel {
       memcpy(out0, result.steal_memory().get(), result_size * sizeof(float));
     } else {
       auto result = m_stft;
-      int64_t outdim[] = {1, result.nr(), result.nc(), 2};
+      // No transpose here since it is done on copying data,
+      // switch nr and nc, so the output dim willbe tranposed one.
+      int64_t outdim[] = {1, result.nc(), result.nr(), 2};
       OrtValue* output0 = ort_.KernelContext_GetOutput(
           context, 0, outdim, 4);
       float* out0 = ort_.GetTensorMutableData<float>(output0);
-      // No transpose here since it is done on copying data
       for (size_t c = 0; c < result.nc(); ++c) {
         for (size_t r = 0; r < result.nr(); ++r) {
           *out0 = result(r, c).real();
