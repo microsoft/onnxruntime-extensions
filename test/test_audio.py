@@ -63,19 +63,24 @@ class TestAudio(unittest.TestCase):
         expected = self.stft(audio_pcm, 400, 160, np.hanning(400).astype(np.float32))
 
         ortx_stft = PyOrtFunction.from_customop("StftNorm")
-        actual = ortx_stft(audio_pcm, 400, 160, 400, np.hanning(400).astype(np.float32))
+        actual = ortx_stft(np.expand_dims(audio_pcm, axis=0), 400, 160, np.hanning(400).astype(np.float32), 400)
+        actual = actual[0]
         np.testing.assert_allclose(expected[:, 1:], actual[:, 1:], rtol=1e-3, atol=1e-3)
 
     @unittest.skipIf(not _is_torch_available, "PyTorch is not available")
     def test_stft_norm_torch(self):
         audio_pcm = self.test_pcm
         wlen = 400
+        # intesting bug in torch.stft, if there is 2-D input with batch size 1, it will generate a different
+        # result with some spark points in the spectrogram.
         expected = torch.stft(torch.from_numpy(audio_pcm),
                               400, 160, wlen, torch.from_numpy(np.hanning(wlen).astype(np.float32)),
                               center=True,
                               return_complex=True).abs().pow(2).numpy()
+        audio_pcm = np.expand_dims(self.test_pcm, axis=0)
         ortx_stft = PyOrtFunction.from_customop("StftNorm")
-        actual = ortx_stft(audio_pcm, 400, 160, wlen, np.hanning(wlen).astype(np.float32))
+        actual = ortx_stft(audio_pcm, 400, 160, np.hanning(wlen).astype(np.float32), 400)
+        actual = actual[0]
         np.testing.assert_allclose(expected[:, 1:], actual[:, 1:], rtol=1e-3, atol=1e-3)
 
 

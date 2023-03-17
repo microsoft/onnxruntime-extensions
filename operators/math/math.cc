@@ -13,6 +13,7 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Math =
                         CustomOpNegPos,
 #ifdef ENABLE_DLIB
                         CustomOpInverse,
+                        CustomOpStft,
                         CustomOpStftNorm,
 #endif
                         CustomOpSegmentExtraction,
