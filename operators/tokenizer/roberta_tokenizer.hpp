@@ -13,7 +13,7 @@ struct KernelRobertaBpeTokenizer : BaseKernel {
   std::vector<int64_t> Tokenize(ustring& input, int64_t max_length, std::list<OffsetMappingType>& offset_map);
 
   int64_t padding_length_;
-  std::list<int> byte_list_;
+  std::list<std::pair<int, int>> byte_list_;
   std::shared_ptr<VocabData> bbpe_tokenizer_;
 };
 
