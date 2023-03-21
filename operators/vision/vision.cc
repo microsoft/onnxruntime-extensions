@@ -4,8 +4,12 @@
 #include "ocos.h"
 #include "decode_image.hpp"
 #include "encode_image.hpp"
+#include "draw_bounding_box.hpp"
+#include "make_border.hpp"
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Vision =
-    LoadCustomOpClasses<CustomOpClassBegin,
-                        ort_extensions::CustomOpDecodeImage,
-                        ort_extensions::CustomOpEncodeImage>;
+                          LoadCustomOpClasses < CustomOpClassBegin,
+                      ort_extensions::CustomOpDecodeImage,
+                      ort_extensions::CustomOpEncodeImage,
+                      ort_extensions::CustomOpDrawBoundingBox,
+                      ort_extensions::CustomOpMakeBorder>;

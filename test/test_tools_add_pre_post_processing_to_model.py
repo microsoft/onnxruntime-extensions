@@ -320,6 +320,24 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
         self.assertEqual(len(new_model.graph.output), len(input_model.graph.output) + len(post_processing))
 
+    def test_make_border_and_draw_box(self):
+        import sys
+        sys.path.append(test_data_dir)
+        import create_boxdrawing_model
+
+        output_model = (Path(test_data_dir) / "../draw_bounding_box.onnx").resolve()
+        output_img = (Path(test_data_dir) / "../wolves_with_box.jpg").resolve()
+        create_boxdrawing_model.create_model(output_model)
+        so = ort.SessionOptions()
+        so.register_custom_ops_library(get_library_path())
+        ort_sess = ort.InferenceSession(str(output_model), providers=['CPUExecutionProvider'], sess_options=so)
+
+        image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
+        image = np.frombuffer(open(Path(test_data_dir)/'wolves.jpg', 'rb').read(), dtype=np.uint8)
+        boxes = np.array([[210.0, 70.0, 310.0, 220.0, 0.5, 0.0]], dtype=np.float32)
+        output = ort_sess.run(None, {'image': image, "boxes_in": boxes})[0]
+        self.assertEqual((image_ref == output).all(), True)
+
 
 if __name__ == "__main__":
     unittest.main()

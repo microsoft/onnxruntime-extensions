@@ -604,3 +604,124 @@ class ChannelsLastToChannelsFirst(Transpose):
         """
         perms = [0, 3, 1, 2] if has_batch_dim else [2, 0, 1]
         super().__init__(perms, name)
+
+
+class DrawBoundingBox(Step):
+    """
+    Draw boxes on BGR image at given position.
+    Input shape: {height, width, 3<BGR>}
+    Output shape: {height, width, 3<BGR>}
+    """
+
+    def __init__(self, thickness: int = 4, num_classes: int = 10, sort_by_score=False, colour_by_classes=False, name: Optional[str] = None):
+        """
+        Args:
+            thickness: Thickness of the box edge
+            num_classes: Number of classes
+            sort_by_score: Sort boxes by score
+            colour_by_classes: Colour boxes by classes or by score
+            name: Optional name of step. Defaults to 'DrawBoundingBox'
+        """
+        super().__init__(["image", "boxes"], ["image_out"], name)
+        self.thickness_ = thickness
+        self.num_classes_ = num_classes
+        self.sort_by_score_ = sort_by_score
+        self.colour_by_classes_ = colour_by_classes
+
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
+        input0_type_str, input0_shape_str = self._get_input_type_and_shape_strs(graph, 0)
+        input1_type_str, input1_shape_str = self._get_input_type_and_shape_strs(graph, 1)
+        assert input0_type_str == "uint8" and input1_type_str == "float"
+        # xmin,ymin,xmax,ymax,score,class
+        assert str(input1_shape_str.split(",")[-1]) == "6"
+
+        # Don't uncomment it until we supported batch
+        # batch_shape_str = "1"
+        # input0_shape_list = input0_shape_str.split(",")
+        # if len(input0_shape_list) == 3:
+        #    input1_shape_str = f"{batch_shape_str},{input1_shape_str}"
+        #    input0_shape_str = f"{batch_shape_str},{input0_shape_str}"
+        # elif len(input0_shape_list) == 4:
+        #    batch_shape_str = input0_shape_list[0]
+        # else:
+        #    raise ValueError(f"Input shape {input0_shape_str} is not supported.")
+
+        output_shape_str = input0_shape_str
+        converter_graph = onnx.parser.parse_graph(
+            f"""\
+            bounding_box (uint8[{input0_shape_str}] {self.input_names[0]}, float[{input1_shape_str}] {self.input_names[1]}) 
+                => (uint8[{output_shape_str}] {self.output_names[0]})  
+            {{
+                {self.output_names[0]} = com.microsoft.extensions.DrawBoundingBox({self.input_names[0]}, {self.input_names[1]})
+            }}
+            """
+        )
+        op_attr = ["thickness", "num_classes", "sort_by_score", "colour_by_classes"]
+        token_model_attr = []
+        token_model_attr.append(onnx.helper.make_attribute(op_attr[0], self.thickness_))
+        token_model_attr.append(onnx.helper.make_attribute(op_attr[1], self.num_classes_))
+        token_model_attr.append(onnx.helper.make_attribute(op_attr[2], int(self.sort_by_score_)))
+        token_model_attr.append(onnx.helper.make_attribute(op_attr[3], int(self.colour_by_classes_)))
+        converter_graph.node[0].attribute.extend(token_model_attr)
+
+        return converter_graph
+
+
+class MakeBorder(Step):
+    """
+    Similar to cv2.copyMakeBorder, add border from four direction for image, but only support constant value. 
+    -----          bbbbbbbbb
+    |img|    --- > bb-----bb  
+    -----          bb|img|bb
+                   bb-----bb
+                   bbbbbbbbb
+    Input shape: {height, width, 3<BGR>}
+    Output shape: {out_height, out_width, 3<BGR>}
+    """
+
+    def __init__(self, mode="output_shape", target_shape: Union[int, Tuple[int, int]] = None, fill_value=0, name: Optional[str] = None):
+        """
+        Args:
+            mode: defined how to copy the border, can be "output_shape" or "border_size"
+                if mode is border_size, there should be one more input "border_size" which is a list of 4 int, [top, bottom, left, right], we don't support make border for channel yet.
+            target_shape: if mode is 'output_shape', target_shape is the size of the output image
+            fill_value:  a constant value used to fill the border
+            name: Optional name of step. Defaults to 'MakeBorder'
+        """
+        inputs = ["image"]
+        if mode == "border_size":
+            inputs.append("border_size")
+
+        super().__init__(inputs, ["image_out"], name)
+        if mode == "output_shape":
+            assert target_shape is not None, "you must specify target_shape when mode is 'output_shape'"
+        self.mode_ = mode
+        self.target_shape_ = target_shape
+        self.fill_value_ = fill_value
+
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
+        input0_type_str, input0_shape_str = self._get_input_type_and_shape_strs(graph, 0)
+
+        target_shape_str = f"_with_border_{self.step_num}_height, _with_border_{self.step_num}_width, 3"
+
+        g_input_arg = [f'uint8[{input0_shape_str}] {self.input_names[0]}']
+        func_args = [self.input_names[0], 'target_shape']
+        if self.mode_ == "border_size":
+            input1_type_str, input1_shape_str = self._get_input_type_and_shape_strs(graph, 1)
+            g_input_arg.append(f'int64[{input1_shape_str}] {self.input_names[1]}')
+            func_args[-1] = self.input_names[1]
+        func_args = ', '.join(func_args)
+        g_input_arg = ', '.join(g_input_arg)
+
+        converter_graph = onnx.parser.parse_graph(
+            f"""\
+            make_border ({g_input_arg}) 
+                => (uint8[{target_shape_str}] {self.output_names[0]})  
+            {{
+                target_shape = Constant <value = int64[2] {{{','.join([str(i) for i in (self.target_shape_)])}}}> ()
+                {self.output_names[0]} =  com.microsoft.extensions.MakeBorder<mode="{self.mode_}", fill_value={self.fill_value_}>({func_args})
+            }}
+            """
+        )
+
+        return converter_graph
