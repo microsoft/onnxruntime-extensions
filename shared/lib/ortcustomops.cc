@@ -6,8 +6,6 @@
 
 #include "onnxruntime_extensions.h"
 #include "ocos.h"
-#include "../../operators/math/dlib/stft_norm.hpp"
-
 
 using namespace OrtW;
 
@@ -81,10 +79,6 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
     return status;
   }
 #endif  // PYTHON_OP_SUPPORT
-
-  static CustomOpStft stftNorm;
-  status = ortApi->CreateCustomOpDomain("ai.onnx", &domain);
-  status = ortApi->CustomOpDomain_Add(domain, &stftNorm);
 
   if (status = ortApi->CreateCustomOpDomain(c_OpDomain, &domain); status) {
     return status;
