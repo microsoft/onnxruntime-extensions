@@ -81,7 +81,7 @@ std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t
       // Get byte encodings prior to performing BPE
       byte_list_.clear();
       for (char& cp : utf8_token) {
-        byte_list_.emplace_back(bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(cp)]);
+        byte_list_.emplace_back(std::make_pair(bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(cp)], 1));
       }
 
       // Perform BPE
@@ -93,7 +93,7 @@ std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t
           break;
         }
 
-        res.push_back(p);
+        res.push_back(p.first);
       }
     }
     // Add offset mapping for EOS token

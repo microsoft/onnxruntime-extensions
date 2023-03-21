@@ -13,6 +13,8 @@
 #include "string_utils.h"
 #include "string_tensor.h"
 
+#include <iostream>
+
 // Note: the following logic comes from CPython: unicodetype_db.h (_PyUnicode_IsWhitespace)
 inline bool IsUnicodeSpace(char32_t ch) {
   switch (ch) {
@@ -134,6 +136,7 @@ class VocabData {
   struct BpeNode {
     int id;
     int value;
+    int length;
   };
 
   void Load(std::istream& vocab_stream, std::istream& merges_stream, const char* unk_token, const char* special_tokens) {
@@ -181,11 +184,15 @@ class VocabData {
       }
       std::string w1 = line.substr(0, pos);
       std::string w2 = line.substr(pos + 1);
+      int token_length = w1.length() + w2.length();
+      if (w2.find("</w>") != std::string::npos || w1.find("</w>") != std::string::npos) {
+        token_length -= 4;
+      }
       int iw1 = GetVocabIndex(w1);
       int iw2 = GetVocabIndex(w2);
       int iww = GetVocabIndex(w1 + w2);
       std::pair<int, int> key{iw1, iw2};
-      BpeNode value{iww, index++};
+      BpeNode value{iww, index++, token_length};
       bpe_map_[key] = value;
     }
 
@@ -212,21 +219,22 @@ class VocabData {
     }
   }
 
-  void bpe(std::list<int>& vals) const {
+  void bpe(std::list<std::pair<int, int>>& vals) const {
     while (vals.size() >= 2) {
       auto pos_it = vals.end();
       int minval = std::numeric_limits<int>::max();
       int ori_id1 = 0, ori_id2 = 0;
       int aim_id = 0;
+      int token_length = 0;
       for (auto it = vals.begin(); it != vals.end(); ++it) {
         auto it2 = it;
         ++it2;
         if (it2 == vals.end()) break;
-        auto map_it = bpe_map_.find({*it, *it2});
+        auto map_it = bpe_map_.find({it->first, it2->first});
         if (map_it == bpe_map_.end()) continue;
         if (minval > map_it->second.value) {
-          ori_id1 = *it;
-          ori_id2 = *it2;
+          ori_id1 = it->first;
+          ori_id2 = it2->first;
           minval = map_it->second.value;
           pos_it = it;
           aim_id = map_it->second.id;
@@ -234,16 +242,20 @@ class VocabData {
       }
       if (pos_it == vals.end()) break;
 
+      token_length = pos_it->second;
       pos_it = vals.erase(pos_it);
-      *pos_it = aim_id;
+      pos_it->first = aim_id;
+      pos_it->second = pos_it->second + token_length;
       for (++pos_it; pos_it != vals.end(); ++pos_it) {
-        if (*pos_it != ori_id1) continue;
+        if (pos_it->first != ori_id1) continue;
         auto it2 = pos_it;
         ++it2;
         if (it2 == vals.end()) break;
-        if (*it2 != ori_id2) continue;
+        if (it2->first != ori_id2) continue;
+        token_length = pos_it->second;
         pos_it = vals.erase(pos_it);
-        *pos_it = aim_id;
+        pos_it->first = aim_id;
+        pos_it->second = pos_it->second + token_length;
       }
     }
   }
