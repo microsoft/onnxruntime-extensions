@@ -90,5 +90,17 @@ class TestCLIPTokenizer(unittest.TestCase):
         self._run_tokenizer(["9 8 7 - 6 5 4 - 3 2 1 0"])
         self._run_tokenizer(["One Microsoft Way, Redmond, WA"])
 
+    def test_converter(self):
+        fn_tokenizer = PyOrtFunction.from_customop("CLIPTokenizer", cvt=(self.tokenizer_cvt).clip_tokenizer)
+        test_str = "I can feel the magic, can you?"
+        fn_out = fn_tokenizer([test_str])
+        clip_out = self.tokenizer(test_str, return_offsets_mapping=True)
+        expect_input_ids = clip_out['input_ids']
+        expect_attention_mask = clip_out['attention_mask']
+        expect_offset_mapping = clip_out['offset_mapping']
+        np.testing.assert_array_equal(fn_out[0].reshape((fn_out[0].size,)), expect_input_ids)
+        np.testing.assert_array_equal(fn_out[1].reshape((fn_out[1].size,)), expect_attention_mask)
+        np.testing.assert_array_equal(fn_out[2].reshape((fn_out[2].shape[1], fn_out[2].shape[2])), expect_offset_mapping)
+
 if __name__ == "__main__":
     unittest.main()
