@@ -40,6 +40,22 @@ class CustomOpStftNorm(torch.autograd.Function):
         return stft.abs() ** 2
 
 
+class CustomOpStft(torch.autograd.Function):
+    @staticmethod
+    def symbolic(g, self, n_fft, hop_length, window):
+        t_frame_step = g.op('Constant', value_t=torch.tensor(hop_length, dtype=torch.int64))
+        t_frame_size = g.op('Constant', value_t=torch.tensor(n_fft, dtype=torch.int64))
+        return g.op("STFT", self, t_frame_step, window, t_frame_size)
+
+    @staticmethod
+    def forward(ctx, audio, n_fft, hop_length, window):
+        win_length = window.shape[0]
+        stft = torch.stft(audio, n_fft, hop_length, win_length, window,
+                          center=True, pad_mode="reflect", normalized=False, onesided=True, return_complex=True)
+        stft = torch.permute(stft, (0, 2, 1))
+        return torch.view_as_real(stft)
+
+
 class WhisperPrePipeline(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -50,7 +66,16 @@ class WhisperPrePipeline(torch.nn.Module):
         pad_len = N_SAMPLES - audio_pcm.shape[0]
         audio_pcm = torch.nn.functional.pad(audio_pcm, (0, pad_len), mode='constant', value=0)
         audio_pcm = audio_pcm.unsqueeze(0)
-        stft_norm = CustomOpStftNorm.apply(audio_pcm, N_FFT, HOP_LENGTH, self.window)
+
+        USE_ONNX_STFT = True
+
+        if USE_ONNX_STFT:
+            stft = CustomOpStft.apply(audio_pcm, N_FFT, HOP_LENGTH, self.window)
+            stft_norm = stft[..., 0] ** 2 + stft[..., 1] ** 2
+            stft_norm = torch.permute(stft_norm, (0, 2, 1))
+        else:
+            stft_norm = CustomOpStftNorm.apply(audio_pcm, N_FFT, HOP_LENGTH, self.window)
+
         stft_norm.squeeze_(0)
         magnitudes = stft_norm[:, :-1]
         mel_spec = self.mel_filters @ magnitudes
@@ -62,24 +87,23 @@ class WhisperPrePipeline(torch.nn.Module):
 
 def preprocessing(audio_pcm):
     prep_model_name = Path('whisper_pre.onnx')
-    if not Path.exists(prep_model_name):
-        WhisperProcessing = WhisperPrePipeline()
-        audio_pcm = torch.randn(N_SAMPLES).type(torch.float32)
+    WhisperProcessing = WhisperPrePipeline()
+    audio_pcm = torch.randn(N_SAMPLES).type(torch.float32)
 
-        model_args = (audio_pcm,)
-        torch.onnx.export(
-            WhisperProcessing,
-            model_args,
-            f=str(prep_model_name),
-            input_names=["audio_pcm"],
-            output_names=["log_mel"],
-            do_constant_folding=True,
-            export_params=True,
-            opset_version=17,
-            dynamic_axes={
-                "audio_pcm": {0: "samp_len"},
-            }
-        )
+    model_args = (audio_pcm,)
+    torch.onnx.export(
+        WhisperProcessing,
+        model_args,
+        f=str(prep_model_name),
+        input_names=["audio_pcm"],
+        output_names=["log_mel"],
+        do_constant_folding=True,
+        export_params=True,
+        opset_version=17,
+        dynamic_axes={
+            "audio_pcm": {0: "samp_len"},
+        }
+    )
 
     pre_f = PyOrtFunction.from_model(str(prep_model_name))
     return pre_f(audio_pcm.numpy())
