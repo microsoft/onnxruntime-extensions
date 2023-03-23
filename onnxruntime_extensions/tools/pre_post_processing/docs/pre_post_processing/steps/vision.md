@@ -59,6 +59,34 @@ Classes
 
     * pre_post_processing.step.Step
 
+`DrawBoundingBoxes(mode: str = 'xyxy', thickness: int = 4, num_classes: int = 10, colour_by_classes=False, name: Optional[str] = None)`
+:   Draw boxes on BGR image at given position.
+    Input shape: <uint8_t>{height, width, 3<BGR>}
+    boxes: <float>{num_boxes, 6<xmin, ymin, xmax, ymax, score, class>}
+        The coordinates should have been scaled back to the original image size 
+        and are the left-up point and the right-bottom one. 
+        **score** is the confidence of the box(object score * class probability) and **class** is the class of the box.
+    
+    Output shape: <uint8_t>{height, width, 3<BGR>}
+    
+    Args:
+        mode: The mode of the boxes, "xyxy"(xmin ymin xmax ymax) or "xywh"(xmin, ymin, width, height) 
+        thickness: Thickness of the box edge
+        num_colours: Number of colours to use
+                     We have 10 of predefined colours, if `num_colours` is greater than 10, we will use 
+                     the loop-around strategy to get the colours.
+                     colors are [red, green, blue, Cyan, magenta, Maroon, Lime, Navy, Black]
+        colour_by_classes: Colour boxes by classes or by score. 
+                           If `True` we use a colour for each unique class, with all results from the top 
+                           `num_colours` classes displayed. A colour is only used for a single class. 
+                           If `False`, we draw boxes for the top `num_colours` results. A colour is used 
+                           for a single result, regardless of class.
+        name: Optional name of step. Defaults to 'DrawBoundingBoxes'
+
+    ### Ancestors (in MRO)
+
+    * pre_post_processing.step.Step
+
 `FloatToImageBytes(multiplier: float = 255.0, name: Optional[str] = None)`
 :   Converting floating point values to uint8 values in range 0..255.
     Typically this reverses ImageBytesToFloat by converting input data in the range 0..1, but an optional multiplier
@@ -79,6 +107,32 @@ Classes
     
     Args:
         name: Optional step name. Defaults to 'ImageBytesToFloat'
+
+    ### Ancestors (in MRO)
+
+    * pre_post_processing.step.Step
+
+`LetterBox(target_shape: Union[int, Tuple[int, int]], mode='pad', fill_value=0, name: Optional[str] = None)`
+:   mainly used in object detection, it mostly follows resize operation. 
+    This step either add border or crop the image to satisfy network input.
+    If it's pad mode, its behavior is similar to cv2.copyMakeBorder, 
+    -----          bbbbbbbbb
+    |img|    --- > bb-----bb  
+    -----          bb|img|bb
+                   bb-----bb
+                   bbbbbbbbb
+    or if it's crop mode, we will delegate to Step `CenterCrop`,
+    Input shape: {height, width, 3<BGR>}
+    target_shape: {out_height, out_width}
+    Output shape: same as target_shape
+    
+    Args:
+        mode: 'pad' or 'crop', 
+            if mode is pad, we are gonna padding the image to target_shape
+            if mode is crop, we are gonna crop the image to target_shape
+        target_shape: the size of the output image
+        fill_value:  a constant value used to fill the border
+        name: Optional name of step. Defaults to 'LetterBox'
 
     ### Ancestors (in MRO)
 
@@ -113,7 +167,7 @@ Classes
 
     * pre_post_processing.step.Step
 
-`Resize(resize_to: Union[int, Tuple[int, int]], layout: str = 'HWC', name: Optional[str] = None)`
+`Resize(resize_to: Union[int, Tuple[int, int]], layout: str = 'HWC', strategy: str = 'not_smaller', name: Optional[str] = None)`
 :   Resize input data. Aspect ratio is maintained.
     e.g. if image is 1200 x 600 and 300 x 300 is requested the result will be 600 x 300
     
@@ -122,6 +176,8 @@ Classes
                    The aspect ratio will be maintained and neither height or width in the result will be smaller
                    than the requested value.
         layout: Input layout. 'NCHW', 'NHWC', 'CHW', 'HWC' and 'HW' are supported.
+        strategy: not_smaller(by default), The aspect ratio will the bigger value of width and height
+                  not_larger, The aspect ratio will the smaller value of width and height
         name: Optional name. Defaults to 'Resize'
 
     ### Ancestors (in MRO)

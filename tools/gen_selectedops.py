@@ -55,8 +55,7 @@ CMAKE_FLAG_TO_OPS = {
     "OCOS_ENABLE_VISION": [
         "DecodeImage",
         "EncodeImage",
-        "DrawBoundingBox",
-        "MakeBorder",
+        "DrawBoundingBoxes",
     ],
     "OCOS_ENABLE_WORDPIECE_TOKENIZER": [
         "WordpieceTokenizer",

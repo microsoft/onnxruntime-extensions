@@ -9,13 +9,13 @@ from onnxruntime_extensions import get_library_path
 
 import onnxruntime
 
-def create_model(output_file: Path):
+def create_model(output_file: Path, is_crop: bool = False):
     """
     Create unit test model. If input is bytes from a jpg we do the following
       - DecodeImage: jpg to BGR
       - Resize: for simulate fixed input size, 
-      - MakeBorder: for simulate fixed input size, copy border to fill the rest
-      - DrawBoundingBox: draw bounding box on the image
+      - LetterBox: for simulate fixed input size, copy border to fill the rest
+      - DrawBoundingBoxes: draw bounding boxes on the image
       - EncodeImage: BGR to png (output format is set in the node)
 
     This is slightly easier to test as we can set the expected output by decoding the original image in the unit test.
@@ -27,14 +27,14 @@ def create_model(output_file: Path):
     pipeline.add_pre_processing(
         [
             ConvertImageToBGR(),  # jpg/png image to BGR in HWC layout
-            Resize((260, 101)),
-            MakeBorder(target_shape=(480, 480)),
+            Resize((480, 480), strategy="not_smaller" if is_crop else "not_larger"),
+            LetterBox(target_shape=(480, 480), mode="crop" if is_crop else "pad"),
         ]
     )
 
     pipeline.add_post_processing(
         [
-            DrawBoundingBox(),
+            DrawBoundingBoxes(),
             ConvertBGRToImage(image_format="png"),  # jpg or png are supported
         ]
     )

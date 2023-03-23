@@ -1,94 +1,141 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-// Note make sure the input image has the format BGR
+// Note: make sure the input image has the format BGR
 
 #include "draw_bounding_box.hpp"
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <gsl/narrow>
 #include <gsl/span>
+#include <unordered_map>
 #include <vector>
 
 namespace ort_extensions {
 namespace {
-constexpr uint8_t KColorMap[10][3] = {
-    {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {255, 255, 0}, {255, 0, 255}, {128, 0, 0}, {0, 128, 0}, {0, 0, 128}, {128, 128, 128}, {0, 0, 0}};
+constexpr std::array<std::array<uint8_t, 3>, 10> KBGRColorMap = {{
+    {{0, 0, 255}},      // Red
+    {{0, 255, 0}},      // Green
+    {{255, 0, 0}},      // Blue
+    {{255, 255, 0}},    // Cyan
+    {{255, 0, 255}},    // Magenta
+    {{0, 0, 128}},      // Dark Red/Maroon
+    {{0, 128, 0}},      // Dark Green/Lime
+    {{128, 0, 0}},      // Dark Blue/Navy
+    {{0, 0, 0}},        // Black
+    {{128, 128, 128}},  // Gray
+}};
 
 // Used to store image data, width, height, and number of channels
 struct ImageView {
-  uint8_t* data;
+  gsl::span<uint8_t> data;
   int64_t height;
   int64_t width;
   int64_t channels;
 };
 
 // To represent Boxes, [num of boxes, box_info]
-class RankTwoVector {
- public:
-  RankTwoVector(const std::vector<int64_t>& shape, const float* data) : shape_(shape), data_(data) {
-  }
+class BoxArray {
+ private:
+  void SortBoxesByScore(const float* data) {
+    boxes_by_score_.resize(NumBoxes());
+    for (size_t i = 0; i < boxes_by_score_.size(); ++i) {
+      boxes_by_score_[i] = gsl::make_span(data + i * ShapeAtDim(1), ShapeAtDim(1));
+    }
 
-  [[nodiscard]] const float* GetFirstDimDataPtr(size_t index) const {
-    return data_ + index * shape_.back();
+    std::sort(boxes_by_score_.begin(), boxes_by_score_.end(),
+              [](const gsl::span<const float>& first, const gsl::span<const float>& second) {
+                return first[4] > second[4];
+              });
   }
 
   [[nodiscard]] int64_t ShapeAtDim(int64_t dim) const {
     return shape_[dim];
   }
 
+ public:
+  BoxArray(const std::vector<int64_t>& shape, const float* data, bool is_xyxy) : shape_(shape), _is_xyxy(is_xyxy) {
+    SortBoxesByScore(data);
+  }
+
+  [[nodiscard]] gsl::span<const float> GetBox(size_t index) const {
+    return boxes_by_score_[index];
+  }
+
+  [[nodiscard]] int64_t NumBoxes() const {
+    return shape_[0];
+  }
+
+  bool is_xyxy() const {
+    return _is_xyxy;
+  }
+
  private:
-  gsl::span<const int64_t> shape_;
-  const float* data_;
+  const std::vector<int64_t>& shape_;
+  std::vector<gsl::span<const float>> boxes_by_score_;
+  bool _is_xyxy;
 };
 
 // Draw a line on the image
-void draw_line_horizon(ImageView& image, int64_t point_start, int64_t line_length, const uint8_t* color,
-                       int64_t thickness) {
+void DrawLineInHorizon(ImageView& image, int64_t x_start, int64_t y_start, int64_t line_length,
+                       gsl::span<const uint8_t> color, int64_t thickness) {
+  // boundary check
+  thickness = std::clamp<int64_t>(thickness, 0, image.height - x_start);
   auto stride = image.width * image.channels;
-  for (int64_t i = 0; i < thickness; ++i) {
-    auto* end = image.data + point_start + i * stride + line_length * image.channels;
-    for (auto* start = image.data + point_start + i * stride; start < end; start += image.channels) {
-      std::copy_n(color, image.channels, start);
-    }
+  auto point_start = image.data.begin() + x_start * stride + y_start * image.channels;
+  for (auto start = point_start; start < point_start + line_length * image.channels; start += image.channels) {
+    std::copy_n(color.begin(), color.size(), start);
+  }
+
+  for (int64_t i = 1; i < thickness; ++i) {
+    auto xy_point_start = point_start + i * stride;
+    auto end = xy_point_start + line_length * image.channels;
+    std::copy_n(point_start, line_length * image.channels, xy_point_start);
   }
 }
 
-void draw_line_vertical(ImageView& image, int64_t point_offset, int64_t line_length, const uint8_t* color,
-                        int64_t thickness) {
-  auto* point_start = image.data + point_offset;
-  auto* point_end = point_start + line_length * image.width * image.channels;
-  for (; point_start < point_end; point_start += image.width * image.channels) {
-    for (int64_t i = 0; i < thickness; ++i) {
-      // no boundary check
-      std::copy_n(color, image.channels, point_start + i * image.channels);
-    }
+void DrawLineInVertical(ImageView& image, int64_t x_start, int64_t y_start, int64_t line_length,
+                        gsl::span<const uint8_t> color, int64_t thickness) {
+  // boundary check
+  thickness = std::clamp<int64_t>(thickness, 0, image.width - y_start);
+  auto stride = image.width * image.channels;
+  auto point_start = image.data.begin() + x_start * stride + y_start * image.channels;
+  auto point_end = point_start + line_length * stride;
+
+  for (int64_t i = 0; i < thickness; ++i) {
+    std::copy_n(color.begin(), color.size(), point_start + i * image.channels);
+  }
+  for (auto xy_point_start = point_start + stride; xy_point_start < point_end; xy_point_start += stride) {
+    std::copy_n(point_start, thickness * image.channels, xy_point_start);
   }
 }
 
 // Draw a box on the image with given thickness and color
-void draw_box(ImageView& image, const float* box,
-              const uint8_t* color, int64_t thickness) {
+void DrawBox(ImageView& image, gsl::span<const float> box, bool is_xyxy,
+             gsl::span<const uint8_t> color, int64_t thickness) {
   // -------(1)------
   // |              |
   //(2)            (4)
   // |              |
   // -------(3)------
-  int64_t x_start = static_cast<int64_t>(box[0]);
-  int64_t y_start = static_cast<int64_t>(box[1]);
-  int64_t x_end = static_cast<int64_t>(box[2]);
-  int64_t y_end = static_cast<int64_t>(box[3]);
+  int64_t x_start = static_cast<int64_t>(std::rintf(box[0]));
+  int64_t y_start = static_cast<int64_t>(std::rintf(box[1]));
+  int64_t x_end = static_cast<int64_t>((is_xyxy ? std::rintf(box[2]) : std::rintf(box[0] + box[2])));
+  int64_t y_end = static_cast<int64_t>(is_xyxy ? std::rintf(box[3]) : std::rintf(box[1] + box[3]));
 
-  auto half_thickness = (thickness - 1) / 2;
-  x_start -= half_thickness;
-  y_start -= half_thickness;
-  x_end += half_thickness;
-  y_end += half_thickness;
+  auto offset = thickness / 2;
+  x_start -= offset;
+  y_start -= offset;
+  x_end += offset;
+  y_end += offset;
 
   x_start = std::max(x_start, 0L);
   y_start = std::max(y_start, 0L);
   x_end = std::min(x_end, image.height - 1);
   y_end = std::min(y_end, image.width - 1);
 
+  thickness = std::clamp<int64_t>(thickness, 1, std::min(x_end - x_start, y_end - y_start));
   if (x_end - x_start < thickness || y_end - y_start < thickness) {
     // "invalid thickness, The box is too small to draw.";
     return;
@@ -99,54 +146,42 @@ void draw_box(ImageView& image, const float* box,
     return;
   }
 
-  // BGR image, channel last
-  int64_t x_start_offset = x_start * image.channels;
-  int64_t x_end_offset = (x_end - thickness) * image.channels;
-  int64_t y_start_offset = y_start * image.channels;
-  int64_t y_end_offset = (y_end - thickness) * image.channels;
-
   // line  (1) --
-  int64_t point_start = x_start_offset * image.width + y_start_offset;
-  draw_line_horizon(image, point_start, y_end - y_start, color, thickness);
+  DrawLineInHorizon(image, x_start, y_start, y_end - y_start, color, thickness);
 
   // line  (2) |--
-  draw_line_vertical(image, point_start, x_end - x_start, color, thickness);
+  DrawLineInVertical(image, x_start, y_start, x_end - x_start, color, thickness);
 
   // line  (3) __
-  point_start = x_end_offset * image.width + y_start_offset;
-  draw_line_horizon(image, point_start, y_end - y_start, color, thickness);
+  DrawLineInHorizon(image, x_end, y_start, y_end - y_start, color, thickness);
 
   // line  (4) --|
-  point_start = x_start_offset * image.width + y_end_offset;
-  draw_line_vertical(image, point_start, x_end - x_start, color, thickness);
+  DrawLineInVertical(image, x_start, y_end, x_end - x_start, color, thickness);
 }
 
-void draw_box_for_num_classes(ImageView& image, const RankTwoVector& boxes, int64_t thickness) {
-  for (size_t i = 0; i < boxes.ShapeAtDim(0); ++i) {
-    const auto* box = boxes.GetFirstDimDataPtr(i);
-    const auto* color = KColorMap[(static_cast<int64_t>(box[5]) % 10)];
-    draw_box(image, box, color, thickness);
+void DrawBoxesForNumClasses(ImageView& image, const BoxArray& boxes, int64_t thickness) {
+  std::unordered_map<float, size_t> color_used;
+
+  for (size_t i = 0; i < boxes.NumBoxes(); ++i) {
+    const auto box = boxes.GetBox(i);
+    if (color_used.find(box[5]) == color_used.end()) {
+      color_used.emplace(box[5], color_used.size());
+    }
+    const auto color = KBGRColorMap[(static_cast<int64_t>(color_used[box[5]]))];
+    DrawBox(image, box, boxes.is_xyxy(), color, thickness);
   }
 }
 
-void draw_box_by_score(ImageView& image, const RankTwoVector& boxes, int64_t thickness) {
-  std::vector<const float*> boxes_by_score(boxes.ShapeAtDim(0));
-  for (size_t i = 0; i < boxes.ShapeAtDim(0); ++i) {
-    boxes_by_score[i] = boxes.GetFirstDimDataPtr(i);
-  }
-  std::sort(boxes_by_score.begin(), boxes_by_score.end(), [](const float* a, const float* b) {
-    return a[4] > b[4];
-  });
-  for (size_t i = 0; i < boxes_by_score.size(); ++i) {
-    const auto* box = boxes_by_score[i];
-    const auto* color = KColorMap[(static_cast<int64_t>(box[5]) % 10)];
-    draw_box(image, box, color, thickness);
+void DrawBoxesByScore(ImageView& image, const BoxArray& boxes, int64_t thickness) {
+  for (size_t i = 0; i < std::min<size_t>(KBGRColorMap.size(), boxes.NumBoxes()); ++i) {
+    const auto color = KBGRColorMap[(static_cast<int64_t>(i))];
+    DrawBox(image, boxes.GetBox(i), boxes.is_xyxy(), color, thickness);
   }
 }
 
 }  // namespace
 
-void DrawBoundingBox::Compute(OrtKernelContext* context) {
+void DrawBoundingBoxes::Compute(OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input_bgr = ort_.KernelContext_GetInput(context, 0ULL);
   const OrtTensorDimensions dimensions_bgr(ort_, input_bgr);
@@ -154,37 +189,41 @@ void DrawBoundingBox::Compute(OrtKernelContext* context) {
   if (dimensions_bgr.size() != 3 || dimensions_bgr[2] != 3) {
     // expect {H, W, C} as that's the inverse of what decode_image produces.
     // we have no way to check if it's BGR or RGB though
-    ORTX_CXX_API_THROW("[DrawBoundingBox] requires rank 3 BGR input in channels last format.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("[DrawBoundingBoxes] requires rank 3 BGR input in channels last format.", ORT_INVALID_ARGUMENT);
   }
 
   const OrtValue* input_box = ort_.KernelContext_GetInput(context, 1ULL);
   const OrtTensorDimensions dimensions_box(ort_, input_box);
-  // xmin, ymin, xmax, ymax, score, class
+  // if xxyy xmin, ymin, xmax, ymax, score, class
+  // or xywh xmin, ymin, width, height, score, class
   if (dimensions_box.size() != 2 || dimensions_box[1] != 6) {
-    ORTX_CXX_API_THROW("[DrawBoundingBox] requires rank 2 input and the last dim should be 6.", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("[DrawBoundingBoxes] requires rank 2 input and the last dim should be 6.", ORT_INVALID_ARGUMENT);
   }
-  RankTwoVector boxes(dimensions_box, ort_.GetTensorData<float>(input_box));
+  BoxArray boxes(dimensions_box, ort_.GetTensorData<float>(input_box), is_xyxy_);
+  int64_t image_size = dimensions_bgr[0] * dimensions_bgr[1] * dimensions_bgr[2];
 
   // Setup output & copy to destination
   // How can we reuse the input buffer?
-  const std::vector<int64_t> output_dims(dimensions_bgr.begin(), dimensions_bgr.end());
+  const std::vector<int64_t> output_dims(dimensions_bgr);
   OrtValue* output_value = ort_.KernelContext_GetOutput(context, 0,
                                                         output_dims.data(),
                                                         output_dims.size());
 
-  auto* data = ort_.GetTensorMutableData<uint8_t>(output_value);
+  auto* output_data = ort_.GetTensorMutableData<uint8_t>(output_value);
   const auto* input_data = ort_.GetTensorData<uint8_t>(input_bgr);
-  std::copy(input_data, input_data + output_dims[0] * output_dims[1] * output_dims[2], data);
-  int64_t image_size = output_dims[0] * output_dims[1] * output_dims[2];
   // TODO: support batch in python side.
-  // So we are hard coding batch size to 1 for now.
+  // So we are hard-coding batch size to 1 for now.
   for (size_t batch_idx = 0; batch_idx < 1; ++batch_idx) {
-    ImageView image_view{data + batch_idx * image_size, dimensions_bgr[0], dimensions_bgr[1], dimensions_bgr[2]};
+    std::copy(input_data, input_data + image_size, output_data);
+    auto data_span = gsl::make_span(output_data, image_size);
+    ImageView image_view{data_span, dimensions_bgr[0], dimensions_bgr[1], dimensions_bgr[2]};
     if (colour_by_classes_) {
-      draw_box_for_num_classes(image_view, boxes, gsl::narrow<int64_t>(thickness_));
+      DrawBoxesForNumClasses(image_view, boxes, gsl::narrow<int64_t>(thickness_));
     } else {
-      draw_box_by_score(image_view, boxes, gsl::narrow<int64_t>(thickness_));
+      DrawBoxesByScore(image_view, boxes, gsl::narrow<int64_t>(thickness_));
     }
+    input_data += image_size;
+    output_data += image_size;
   }
 }
 

@@ -8,14 +8,17 @@
 
 
 namespace ort_extensions {
-struct DrawBoundingBox : BaseKernel {
-  DrawBoundingBox(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
+struct DrawBoundingBoxes : BaseKernel {
+  DrawBoundingBoxes(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
     thickness_ = TryToGetAttributeWithDefault<int64_t>("thickness", 4);
     num_classes_ = static_cast<int32_t>(TryToGetAttributeWithDefault<int64_t>("num_classes", 10));
-    auto need_sort = TryToGetAttributeWithDefault<int64_t>("sort_by_score", 0);
-    need_sort_ = need_sort > 0;
-    auto colour_by_classes = TryToGetAttributeWithDefault<int64_t>("colour_by_classes", 0);
+    auto mode = TryToGetAttributeWithDefault<std::string>("mode", "xyxy");
+    is_xyxy_= mode == "xyxy";
+    auto colour_by_classes = TryToGetAttributeWithDefault<int64_t>("colour_by_classes", 1);
     colour_by_classes_ = colour_by_classes > 0;
+    if (thickness_<=0){
+      ORTX_CXX_API_THROW("[DrawBoundingBoxes] thickness of box should >= 1.", ORT_INVALID_ARGUMENT);
+    }
   }
 
   void Compute(OrtKernelContext* context);
@@ -23,17 +26,17 @@ struct DrawBoundingBox : BaseKernel {
 private:
   int64_t thickness_;
   int64_t num_classes_;
-  bool need_sort_;
   bool colour_by_classes_;
+  bool is_xyxy_;
 };
 
-struct CustomOpDrawBoundingBox : OrtW::CustomOpBase<CustomOpDrawBoundingBox, DrawBoundingBox> {
+struct CustomOpDrawBoundingBoxes : OrtW::CustomOpBase<CustomOpDrawBoundingBoxes, DrawBoundingBoxes> {
   void KernelDestroy(void* op_kernel) {
-    delete static_cast<DrawBoundingBox*>(op_kernel);
+    delete static_cast<DrawBoundingBoxes*>(op_kernel);
   }
 
   const char* GetName() const {
-    return "DrawBoundingBox";
+    return "DrawBoundingBoxes";
   }
 
   size_t GetInputTypeCount() const {

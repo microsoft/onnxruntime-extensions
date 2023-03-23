@@ -326,17 +326,21 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         import create_boxdrawing_model
 
         output_model = (Path(test_data_dir) / "../draw_bounding_box.onnx").resolve()
-        output_img = (Path(test_data_dir) / "../wolves_with_box.jpg").resolve()
-        create_boxdrawing_model.create_model(output_model)
-        so = ort.SessionOptions()
-        so.register_custom_ops_library(get_library_path())
-        ort_sess = ort.InferenceSession(str(output_model), providers=['CPUExecutionProvider'], sess_options=so)
+        test_boxes = [np.array([[180.0, 220.0, 380.0, 450.0, 0.5, 0.0]], dtype=np.float32),
+                      np.array([[200.0, 35.0, 340.0, 220.0, 0.5, 0.0]], dtype=np.float32)]
+        ref_img = ['wolves_with_box_crop.jpg', 'wolves_with_box_pad.jpg']
+        for idx,is_crop in enumerate([True, False]):
+            output_img = (Path(test_data_dir) / f"../{ref_img[idx]}").resolve()
+            create_boxdrawing_model.create_model(output_model, is_crop=is_crop)
+            so = ort.SessionOptions()
+            so.register_custom_ops_library(get_library_path())
+            ort_sess = ort.InferenceSession(str(output_model), providers=['CPUExecutionProvider'], sess_options=so)
 
-        image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
-        image = np.frombuffer(open(Path(test_data_dir)/'wolves.jpg', 'rb').read(), dtype=np.uint8)
-        boxes = np.array([[210.0, 70.0, 310.0, 220.0, 0.5, 0.0]], dtype=np.float32)
-        output = ort_sess.run(None, {'image': image, "boxes_in": boxes})[0]
-        self.assertEqual((image_ref == output).all(), True)
+            image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
+            image = np.frombuffer(open(Path(test_data_dir)/'wolves.jpg', 'rb').read(), dtype=np.uint8)
+
+            output = ort_sess.run(None, {'image': image, "boxes_in": test_boxes[idx]})[0]
+            self.assertEqual((image_ref == output).all(), True)
 
 
 if __name__ == "__main__":
