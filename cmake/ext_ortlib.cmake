@@ -5,8 +5,8 @@ elseif(ONNXRUNTIME_PKG_DIR)
   set(ONNXRUNTIME_INCLUDE_DIR ${ONNXRUNTIME_PKG_DIR}/include)
   set(ONNXRUNTIME_LIB_DIR ${ONNXRUNTIME_PKG_DIR}/lib)
 else()
-  # default to 1.10.0 if not specified
-  set(ONNXRUNTIME_VER "1.10.0" CACHE STRING "ONNX Runtime version")
+  # default to 1.11.1 if not specified
+  set(ONNXRUNTIME_VER "1.11.1" CACHE STRING "ONNX Runtime version")
 
   if(CMAKE_HOST_APPLE)
     set(ONNXRUNTIME_URL "v${ONNXRUNTIME_VER}/onnxruntime-osx-universal2-${ONNXRUNTIME_VER}.tgz")
