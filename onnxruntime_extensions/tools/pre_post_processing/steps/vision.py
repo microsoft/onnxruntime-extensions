@@ -617,9 +617,12 @@ class DrawBoundingBox(Step):
         """
         Args:
             thickness: Thickness of the box edge
-            num_classes: Number of classes
-            sort_by_score: Sort boxes by score
-            colour_by_classes: Colour boxes by classes or by score
+            num_colours: Number of colours to use
+            colour_by_classes: Colour boxes by classes or by score. 
+                               If `True` we use a colour for each unique class, with all results from the top 
+                               `num_colours` classes displayed. A colour is only used for a single class. 
+                               If `False`, we draw boxes for the top `num_colours` results. A colour is used 
+                               for a single result, regardless of class.
             name: Optional name of step. Defaults to 'DrawBoundingBox'
         """
         super().__init__(["image", "boxes"], ["image_out"], name)
