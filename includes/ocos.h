@@ -85,6 +85,49 @@ class CuopContainer {
   std::vector<std::shared_ptr<OrtCustomOp>> op_instances_;  // use shared_ptr to capture type specific deleter
 };
 
+template <typename T, typename S>
+void AppendCustomOp(std::vector<std::shared_ptr<OrtCustomOp>>& ops,
+                    T arg, S arg1) {
+  std::shared_ptr<OrtCustomOp> ort_op{ortc::CreateCustomOpT2(arg, arg1)};
+  ops.emplace_back(std::move(ort_op));
+}
+
+template <typename T, typename S, typename... Args>
+void AppendCustomOp(std::vector<std::shared_ptr<OrtCustomOp>>& ops,
+                    T arg, S arg1, Args... args) {
+  AppendCustomOp(ops, arg, arg1);
+  AppendCustomOp(ops, args...);
+}
+
+class OrtOpLoader {
+ public:
+  template <typename... Args>
+  OrtOpLoader(Args... args) {
+    LoadOps(args...);
+    std::transform(op_instances_.begin(), op_instances_.end(), std::back_inserter(ocos_list_),
+                   [](const std::shared_ptr<OrtCustomOp>& custom_op) { return custom_op.get(); });
+  }
+
+  const std::vector<const OrtCustomOp*>& GetCustomOps() const {
+    return ocos_list_;
+  }
+
+ private:
+  template <typename T, typename S>
+  void LoadOps(T op_type, S compute_fn) {
+    AppendCustomOp(op_instances_, op_type, compute_fn);
+  }
+
+  template <typename T, typename S, typename... Args>
+  void LoadOps(T op_type, S compute_fn, Args... args) {
+    AppendCustomOp(op_instances_, op_type, compute_fn);
+    AppendCustomOp(op_instances_, args...);
+  }
+
+  std::vector<const OrtCustomOp*> ocos_list_;
+  std::vector<std::shared_ptr<OrtCustomOp>> op_instances_;
+};
+
 struct CustomOpClassBegin {
 };
 
