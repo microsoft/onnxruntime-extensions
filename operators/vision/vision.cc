@@ -5,7 +5,10 @@
 #include "decode_image.hpp"
 #include "encode_image.hpp"
 
-FxLoadCustomOpFactory LoadCustomOpClasses_Vision =
-    LoadCustomOpClasses<CustomOpClassBegin,
-                        ort_extensions::CustomOpDecodeImage,
-                        ort_extensions::CustomOpEncodeImage>;
+const std::vector<const OrtCustomOp*>& VisionLoader() {
+  static OrtOpLoader op_loader(LiteCustomOp("DecodeImage", ort_extensions::decode_image),
+                               BuildCustomOp(ort_extensions::CustomOpEncodeImage));
+  return op_loader.GetCustomOps();
+}
+
+FxLoadCustomOpFactory LoadCustomOpClasses_Vision = VisionLoader;

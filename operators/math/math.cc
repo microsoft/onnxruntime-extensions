@@ -7,12 +7,12 @@
 #include "segment_sum.hpp"
 
 const std::vector<const OrtCustomOp*>& MathLoader() {
-  static OrtOpLoader op_loader("NegPos", neg_pos,
+  static OrtOpLoader op_loader(LiteCustomOp("NegPos", neg_pos),
 #ifdef ENABLE_DLIB
-                               "Inverse", inverse,
+                               LiteCustomOp("Inverse", inverse),
 #endif
-                               "SegmentExtraction", segment_extraction,
-                               "SegmentSum", segment_sum);
+                               LiteCustomOp("SegmentExtraction", segment_extraction),
+                               LiteCustomOp("SegmentSum", segment_sum));
   return op_loader.GetCustomOps();
 }
 
