@@ -6,8 +6,9 @@
 #include "encode_image.hpp"
 
 const std::vector<const OrtCustomOp*>& VisionLoader() {
-  static OrtOpLoader op_loader(LiteCustomOp("DecodeImage", ort_extensions::decode_image),
-                               BuildCustomOp(ort_extensions::CustomOpEncodeImage));
+  using namespace ort_extensions;
+  static OrtOpLoader op_loader(LiteCustomOp("DecodeImage", decode_image),
+                               LiteCustomOpStruct("EncodeImage", KernelEncodeImage));
   return op_loader.GetCustomOps();
 }
 

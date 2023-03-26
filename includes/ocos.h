@@ -86,6 +86,8 @@ class CuopContainer {
 };
 
 #define LiteCustomOp(name, f) []() { return std::shared_ptr<OrtCustomOp>(ortc::CreateCustomOpT2(name, f)); }
+#define LiteCustomOpStructFunc(name, s_type, f) []() { return std::shared_ptr<OrtCustomOp>(ortc::CreateCustomOpT2<s_type>(name, f)); }
+#define LiteCustomOpStruct(name, s_type) LiteCustomOpStructFunc(name, s_type, &s_type::Compute)
 #define BuildCustomOp(X) []() { return std::make_shared<X>(); }
 
 template <typename F>

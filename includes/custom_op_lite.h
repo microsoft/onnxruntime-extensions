@@ -84,44 +84,26 @@ class TensorT : public Tensor {
 
 using TensorPtr = std::unique_ptr<Custom2::Tensor>;
 
-template <typename CustomType, typename... Args>
-struct OrtCustomOpT2 : public OrtCustomOp {
-  using InitFn = CustomType* (*)(const OrtKernelInfo*);
-  using ComputeFn = void (*)(Args...);
-  using ExitFn = void (*)(CustomType*);
-  using MyType = OrtCustomOpT2<CustomType, Args...>;
+template <typename... Args>
+struct OrtCustomOpT2Base : public OrtCustomOp {
+  using CreateFn = void* (*)(const OrtCustomOp*, const OrtApi*, const OrtKernelInfo*);
+  using KernelFn = void (*)(void*, OrtKernelContext*);
+  using DestroyFn = void (*)(void*);
+  using MyType = OrtCustomOpT2Base<Args...>;
 
-  OrtCustomOpT2(const char* op_name,
-                const char* execution_provider,
-                InitFn init_fn,
-                ComputeFn compute_fn,
-                ExitFn exit_fn) : op_name_(op_name),
-                                  execution_provider_(execution_provider),
-                                  init_fn_(init_fn),
-                                  compute_fn_(compute_fn),
-                                  exit_fn_(exit_fn) {
+  OrtCustomOpT2Base(const char* op_name,
+                    const char* execution_provider,
+                    CreateFn create_fn,
+                    KernelFn compute_fn,
+                    DestroyFn destroy_fn) : op_name_(op_name),
+                                            execution_provider_(execution_provider) {
     ParseArgs<Args...>();
 
-    OrtCustomOp::KernelCompute = [](void* op_kernel, OrtKernelContext* context) {
-      auto self = reinterpret_cast<MyType*>(op_kernel);
-      if (!self->ort_api_) {
-        ORTX_CXX_API_THROW("ort api is not set.", ORT_FAIL);
-      }
-      OrtW::CustomOpApi ort_api(*self->ort_api_);
-      auto t = self->CreateInputTupleInvoker(ort_api, context);
-      std::apply([self](Args const&... t_args) { self->compute_fn_(t_args...); }, t);
-    };
+    OrtCustomOp::KernelCompute = compute_fn;
 
     OrtCustomOp::version = ORT_API_VERSION;
 
-    OrtCustomOp::CreateKernel = [](const OrtCustomOp* this_, const OrtApi* ort, const OrtKernelInfo* info) {
-      auto self = const_cast<MyType*>(reinterpret_cast<const MyType*>(this_));
-      if (self->init_fn_) {
-        self->custom_handle_ = self->init_fn_(info);
-      }
-      self->ort_api_ = ort;
-      return (void*)this_;
-    };
+    OrtCustomOp::CreateKernel = create_fn;
 
     OrtCustomOp::GetName = [](const OrtCustomOp* this_) { return static_cast<const MyType*>(this_)->op_name_.c_str(); };
     OrtCustomOp::GetExecutionProviderType = [](const OrtCustomOp* this_) { return ((MyType*)this_)->execution_provider_; };
@@ -146,12 +128,7 @@ struct OrtCustomOpT2 : public OrtCustomOp {
       return self->output_types_[indice];
     };
 
-    OrtCustomOp::KernelDestroy = [](void* op_kernel) {
-      auto self = reinterpret_cast<MyType*>(op_kernel);
-      if (self->exit_fn_) {
-        self->exit_fn_(self->custom_handle_);
-      }
-    };
+    OrtCustomOp::KernelDestroy = destroy_fn;
 
     OrtCustomOp::GetInputCharacteristic = [](const OrtCustomOp*, size_t) { return INPUT_OUTPUT_REQUIRED; };
     OrtCustomOp::GetOutputCharacteristic = [](const OrtCustomOp*, size_t) { return INPUT_OUTPUT_REQUIRED; };
@@ -167,14 +144,6 @@ struct OrtCustomOpT2 : public OrtCustomOp {
   typename std::enable_if<sizeof...(Ts) == 0, std::tuple<>>::type
   CreateInputTuple(const OrtW::CustomOpApi& ort_api, OrtKernelContext* context) {
     return std::make_tuple();
-  }
-
-  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
-  typename std::enable_if<std::is_same<T, CustomType*>::value, std::tuple<T, Ts...>>::type
-  CreateInputTuple(const OrtW::CustomOpApi& ort_api, OrtKernelContext* context) {
-    std::tuple<T> current = std::tuple<T>{custom_handle_};
-    auto next = CreateInputTuple<ith_input, ith_output, Ts...>(ort_api, context);
-    return std::tuple_cat(current, next);
   }
 
   template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
@@ -377,12 +346,6 @@ struct OrtCustomOpT2 : public OrtCustomOp {
   }
 
   template <typename T, typename... Ts>
-  typename std::enable_if<0 <= sizeof...(Ts) && std::is_same<T, CustomType*>::value>::type
-  ParseArgs() {
-    ParseArgs<Ts...>();
-  }
-
-  template <typename T, typename... Ts>
   typename std::enable_if<0 <= sizeof...(Ts) && std::is_same<T, OrtKernelContext*>::value>::type
   ParseArgs() {
     ParseArgs<Ts...>();
@@ -537,12 +500,6 @@ struct OrtCustomOpT2 : public OrtCustomOp {
   const std::string op_name_;
   const char* execution_provider_;
 
-  const InitFn init_fn_;
-  const ComputeFn compute_fn_;
-  const ExitFn exit_fn_;
-
-  CustomType* custom_handle_ = {};
-
   std::vector<TensorPtr> tensors_;
   std::vector<ONNXTensorElementDataType> input_types_;
   std::vector<ONNXTensorElementDataType> output_types_;
@@ -551,28 +508,112 @@ struct OrtCustomOpT2 : public OrtCustomOp {
 };  // class OrtCustomOpLite
 
 template <typename... Args>
+struct OrtCustomOpT2 : public OrtCustomOpT2Base<Args...> {
+  using ComputeFn = void (*)(Args...);
+  using MyType = OrtCustomOpT2<Args...>;
+
+  struct ComputeState {
+    const OrtApi* ort_api_;
+    ComputeFn compute_fn_;
+    const OrtCustomOp* this_;
+  };
+
+  OrtCustomOpT2(const char* op_name,
+                const char* execution_provider,
+                ComputeFn compute_fn) : OrtCustomOpT2Base<Args...>(
+                                            op_name,
+                                            execution_provider,
+                                            [](const OrtCustomOp* this_, const OrtApi* ort, const OrtKernelInfo* info) {
+                                              auto self = const_cast<MyType*>(reinterpret_cast<const MyType*>(this_));
+                                              return static_cast<void*>(new ComputeState{ort, self->compute_fn_, self});
+                                            },
+                                            [](void* op_kernel, OrtKernelContext* context) {
+                                              auto state = reinterpret_cast<ComputeState*>(op_kernel);
+                                              if (!state->ort_api_) {
+                                                ORTX_CXX_API_THROW("ort api is not set.", ORT_FAIL);
+                                              }
+                                              OrtW::CustomOpApi ort_api(*state->ort_api_);
+                                              auto self = const_cast<MyType*>(reinterpret_cast<const MyType*>(state->this_));
+                                              auto t = self->CreateInputTupleInvoker(ort_api, context);
+                                              std::apply([state](Args const&... t_args) { state->compute_fn_(t_args...); }, t);
+                                            },
+                                            [](void* op_kernel) { delete reinterpret_cast<ComputeState*>(op_kernel); }),
+                                        compute_fn_(compute_fn) {
+  }
+  //////// members ////
+  ComputeFn compute_fn_;
+};
+
+template <typename T, typename... Args>
+struct OrtCustomOpT2Struct : public OrtCustomOpT2Base<Args...> {
+  using StructComputeFn = void (T::*)(Args...);
+  using MyType = OrtCustomOpT2Struct<T, Args...>;
+
+  struct KernelState {
+    ~KernelState() {
+      if (kernel_)
+        delete kernel_;
+    }
+
+    T* kernel_;
+    const OrtApi* ort_api_;
+    StructComputeFn struct_compute_fn_;
+    const OrtCustomOp* this_;
+  };
+
+  OrtCustomOpT2Struct(const char* op_name,
+                      const char* execution_provider,
+                      StructComputeFn compute_fn) : OrtCustomOpT2Base<Args...>(
+                                                        op_name,
+                                                        execution_provider,
+                                                        [](const OrtCustomOp* this_, const OrtApi* ort, const OrtKernelInfo* info) {
+                                                          auto self = const_cast<MyType*>(reinterpret_cast<const MyType*>(this_));
+                                                          return static_cast<void*>(new KernelState{
+                                                              new T(*ort, *info),
+                                                              ort,
+                                                              self->struct_compute_fn_,
+                                                              this_});
+                                                        },
+                                                        [](void* op_kernel, OrtKernelContext* context) {
+                                                          auto* state = reinterpret_cast<KernelState*>(op_kernel);
+                                                          if (!state->ort_api_) {
+                                                            ORTX_CXX_API_THROW("ort api is not set.", ORT_FAIL);
+                                                          }
+                                                          OrtW::CustomOpApi ort_api(*state->ort_api_);
+                                                          auto self = const_cast<MyType*>(reinterpret_cast<const MyType*>(state->this_));
+                                                          auto t = self->CreateInputTupleInvoker(ort_api, context);
+                                                          std::apply([state](Args const&... t_args) { (state->kernel_->*(state->struct_compute_fn_))(t_args...); }, t);
+                                                        },
+                                                        [](void* op_kernel) {
+                                                          auto state = reinterpret_cast<KernelState*>(op_kernel);
+                                                          delete state;
+                                                        }),
+                                                    struct_compute_fn_(compute_fn) {
+  }
+  ///// members ///
+  StructComputeFn struct_compute_fn_;
+};
+
+template <typename... Args>
 OrtCustomOp* CreateCustomOpT2(const char* op_name,
                               const char* execution_provider,
                               void (*custom_compute_fn)(Args...)) {
-  using OrtCustomOpTPtr = OrtCustomOpT2<void, Args...>;
-  return std::make_unique<OrtCustomOpTPtr>(op_name, execution_provider, nullptr, custom_compute_fn, nullptr).release();
+  using OrtCustomOpTPtr = OrtCustomOpT2<Args...>;
+  return std::make_unique<OrtCustomOpTPtr>(op_name, execution_provider, custom_compute_fn).release();
 }
 
 template <typename... Args>
 OrtCustomOp* CreateCustomOpT2(const char* op_name,
                               void (*custom_compute_fn)(Args...)) {
-  using OrtCustomOpTPtr = OrtCustomOpT2<void, Args...>;
-  return std::make_unique<OrtCustomOpTPtr>(op_name, nullptr, nullptr, custom_compute_fn, nullptr).release();
+  using OrtCustomOpTPtr = OrtCustomOpT2<Args...>;
+  return std::make_unique<OrtCustomOpTPtr>(op_name, nullptr, custom_compute_fn).release();
 }
 
 template <typename T, typename... Args>
 OrtCustomOp* CreateCustomOpT2(const char* op_name,
-                              const char* execution_provider,
-                              T* (*custom_init_fn)(const OrtKernelInfo*),
-                              void (*custom_compute_fn)(Args...),
-                              void (*custom_exit_fn)(T*)) {
-  using OrtCustomOpTPtr = OrtCustomOpT2<T, Args...>;
-  return std::make_unique<OrtCustomOpTPtr>(op_name, execution_provider, custom_init_fn, custom_compute_fn, custom_exit_fn).release();
+                              void (T::*custom_compute_fn)(Args...)) {
+  using OrtCustomOpTStructPtr = OrtCustomOpT2Struct<T, Args...>;
+  return std::make_unique<OrtCustomOpTStructPtr>(op_name, nullptr, custom_compute_fn).release();
 }
 
 }  // namespace Custom2
