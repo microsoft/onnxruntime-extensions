@@ -376,7 +376,9 @@ class Resize(Step):
             # Split now requires the number of outputs to be specified even though that can be easily inferred...
             split_input_shape_attr += f", num_outputs = {len(dims)}"
             split_new_sizes_attr += ", num_outputs = 2"
-
+        
+        # Resize-18 has the attribute "not_larger/not_smaller" to specify the resize strategy, however
+        # we want to support older opsets as well. 
         ratio_resize_func = "ReduceMax"
         if self.strategy_ == "not_larger":
             ratio_resize_func = "ReduceMin"
@@ -628,11 +630,17 @@ class DrawBoundingBoxes(Step):
     Output shape: <uint8_t>{height, width, 3<BGR>}
     """
 
-    def __init__(self, mode: str = "xyxy", thickness: int = 4, num_classes: int = 10,
+    def __init__(self, mode: str = "XYXY", thickness: int = 4, num_classes: int = 10,
                  colour_by_classes=False, name: Optional[str] = None):
         """
         Args:
-            mode: The mode of the boxes, "xyxy"(xmin ymin xmax ymax) or "xywh"(x_center, y_center, width, height) 
+            mode: The mode of the boxes, 
+                    "XYXY" (xmin ymin xmax ymax)  All values in the XYXY format should be absolute pixel values.
+                    "XYWH" (xmin ymin width height) 
+                    "CENTER_XYWH" (x_center, y_center, width, height) 
+                                  All values in the CENTER_XYWH format should be absolute pixel values.
+
+
             thickness: Thickness of the box edge
             num_colours: Number of colours to use
                          We have 10 of predefined colours, if `num_colours` is greater than 10, we will use 
@@ -692,26 +700,24 @@ class DrawBoundingBoxes(Step):
 
 class LetterBox(Step):
     """
-    mainly used in object detection, it mostly follows resize operation. 
+    mainly used in object detection, it mostly follows behind resize operation. 
     This step either add border or crop the image to satisfy network input.
-    If it's pad mode, its behavior is similar to cv2.copyMakeBorder, 
     -----          bbbbbbbbb
     |img|    --- > bb-----bb  
     -----          bb|img|bb
                    bb-----bb
                    bbbbbbbbb
-    or if it's crop mode, we will have negative padding, almost same as CenterCrop,
-    Input shape: {height, width, 3<BGR>}
-    target_shape: {out_height, out_width}
-    Output shape: same as target_shape
+    If target_shape is less than the original image, it will crop the image in a center mode.
+    And the padding values will be negative and the Pad op performs cropping.
+
+    Input shape: <uint8_t>{height, width, 3<BGR>}
+    target_shape: <uint8_t>{out_height, out_width, 3<BGR>}
+    Output shape: specified by target_shape
     """
 
-    def __init__(self, target_shape: Union[int, Tuple[int, int]], mode="pad", fill_value=0, name: Optional[str] = None):
+    def __init__(self, target_shape: Union[int, Tuple[int, int]], fill_value=0, name: Optional[str] = None):
         """
         Args:
-            mode: 'pad' or 'crop', 
-                if mode is pad, we are gonna padding the image to target_shape
-                if mode is crop, we are gonna crop the image to target_shape
             target_shape: the size of the output image
             fill_value:  a constant value used to fill the border
             name: Optional name of step. Defaults to 'LetterBox'

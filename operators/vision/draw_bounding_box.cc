@@ -55,7 +55,7 @@ class BoxArray {
   }
 
  public:
-  BoxArray(const std::vector<int64_t>& shape, const float* data, bool is_xyxy) : shape_(shape), _is_xyxy(is_xyxy) {
+  BoxArray(const std::vector<int64_t>& shape, const float* data, BoundingBoxFormat bbox_mode) : shape_(shape), bbox_mode_(bbox_mode) {
     SortBoxesByScore(data);
   }
 
@@ -67,14 +67,14 @@ class BoxArray {
     return shape_[0];
   }
 
-  bool is_xyxy() const {
-    return _is_xyxy;
+  auto BBoxMode() const {
+    return bbox_mode_;
   }
 
  private:
   const std::vector<int64_t>& shape_;
   std::vector<gsl::span<const float>> boxes_by_score_;
-  bool _is_xyxy;
+  BoundingBoxFormat bbox_mode_;
 };
 
 // Draw a line on the image
@@ -112,7 +112,7 @@ void DrawLineInVertical(ImageView& image, int64_t x_start, int64_t y_start, int6
 }
 
 // Draw a box on the image with given thickness and color
-void DrawBox(ImageView& image, gsl::span<const float> box, bool is_xyxy,
+void DrawBox(ImageView& image, gsl::span<const float> box, BoundingBoxFormat bbox_mode,
              gsl::span<const uint8_t> color, int64_t thickness) {
   // -------(1)------
   // |              |
@@ -123,11 +123,16 @@ void DrawBox(ImageView& image, gsl::span<const float> box, bool is_xyxy,
   float point_x2 = box[1];
   float point_x3 = box[2];
   float point_x4 = box[3];
-  if (!is_xyxy) {
+  if (bbox_mode == BoundingBoxFormat::Center_XYWH) {
     point_x1 = box[0] - point_x3 / 2;
     point_x2 = box[1] - point_x4 / 2;
     point_x3 = box[0] + point_x3 / 2;
     point_x4 = box[1] + point_x4 / 2;
+  } else if (bbox_mode == BoundingBoxFormat::XYWH) {
+    point_x1 = box[0];
+    point_x2 = box[1];
+    point_x3 = box[0] + box[2];
+    point_x4 = box[1] + box[3];
   }
   int64_t x_start = static_cast<int64_t>(std::rintf(point_x1));
   int64_t y_start = static_cast<int64_t>(std::rintf(point_x2));
@@ -137,8 +142,8 @@ void DrawBox(ImageView& image, gsl::span<const float> box, bool is_xyxy,
   auto offset = thickness / 2;
   x_start -= offset;
   y_start -= offset;
-  x_end += offset;
-  y_end += offset;
+  x_end += (thickness - offset);
+  y_end += (thickness - offset);
 
   x_start = std::max<int64_t>(x_start, 0L);
   y_start = std::max<int64_t>(y_start, 0L);
@@ -147,12 +152,12 @@ void DrawBox(ImageView& image, gsl::span<const float> box, bool is_xyxy,
 
   thickness = std::clamp<int64_t>(thickness, 1, std::min(x_end - x_start, y_end - y_start));
   if (x_end - x_start < thickness || y_end - y_start < thickness) {
-    // "invalid thickness, The box is too small to draw.";
+    // "invalid box, It's invalid to draw a point to represent a box.";
     return;
   }
 
   if (x_start + thickness >= image.height || y_start + thickness >= image.width) {
-    // "invalid thickness, The box is too small to draw.";
+    // "invalid box, It's invalid to draw a point to represent a box.";
     return;
   }
 
@@ -163,10 +168,10 @@ void DrawBox(ImageView& image, gsl::span<const float> box, bool is_xyxy,
   DrawLineInVertical(image, x_start, y_start, x_end - x_start, color, thickness);
 
   // line  (3) __
-  DrawLineInHorizon(image, x_end, y_start, y_end - y_start, color, thickness);
+  DrawLineInHorizon(image, x_end - thickness, y_start, y_end - y_start, color, thickness);
 
   // line  (4) --|
-  DrawLineInVertical(image, x_start, y_end, x_end - x_start, color, thickness);
+  DrawLineInVertical(image, x_start, y_end - thickness, x_end - x_start, color, thickness);
 }
 
 void DrawBoxesForNumClasses(ImageView& image, const BoxArray& boxes, int64_t thickness) {
@@ -175,17 +180,21 @@ void DrawBoxesForNumClasses(ImageView& image, const BoxArray& boxes, int64_t thi
   for (size_t i = 0; i < boxes.NumBoxes(); ++i) {
     const auto box = boxes.GetBox(i);
     if (color_used.find(box[5]) == color_used.end()) {
+      if (color_used.size() >= KBGRColorMap.size()) {
+        // "The number of classes is larger than the number of colors in the color map.";
+        continue;
+      }
       color_used.emplace(box[5], color_used.size());
     }
     const auto color = KBGRColorMap[(static_cast<int64_t>(color_used[box[5]]))];
-    DrawBox(image, box, boxes.is_xyxy(), color, thickness);
+    DrawBox(image, box, boxes.BBoxMode(), color, thickness);
   }
 }
 
 void DrawBoxesByScore(ImageView& image, const BoxArray& boxes, int64_t thickness) {
   for (size_t i = 0; i < std::min<size_t>(KBGRColorMap.size(), boxes.NumBoxes()); ++i) {
     const auto color = KBGRColorMap[(static_cast<int64_t>(i))];
-    DrawBox(image, boxes.GetBox(i), boxes.is_xyxy(), color, thickness);
+    DrawBox(image, boxes.GetBox(i), boxes.BBoxMode(), color, thickness);
   }
 }
 
@@ -204,16 +213,15 @@ void DrawBoundingBoxes::Compute(OrtKernelContext* context) {
 
   const OrtValue* input_box = ort_.KernelContext_GetInput(context, 1ULL);
   const OrtTensorDimensions dimensions_box(ort_, input_box);
-  // if xxyy xmin, ymin, xmax, ymax, score, class
-  // or xywh xmin, ymin, width, height, score, class
+  // x,y, x/w y/h, score, class
   if (dimensions_box.size() != 2 || dimensions_box[1] != 6) {
     ORTX_CXX_API_THROW("[DrawBoundingBoxes] requires rank 2 input and the last dim should be 6.", ORT_INVALID_ARGUMENT);
   }
-  BoxArray boxes(dimensions_box, ort_.GetTensorData<float>(input_box), is_xyxy_);
+  BoxArray boxes(dimensions_box, ort_.GetTensorData<float>(input_box), bbox_mode_);
   int64_t image_size = dimensions_bgr[0] * dimensions_bgr[1] * dimensions_bgr[2];
 
   // Setup output & copy to destination
-  // How can we reuse the input buffer?
+  // can we reuse the input buffer?
   const std::vector<int64_t> output_dims(dimensions_bgr);
   OrtValue* output_value = ort_.KernelContext_GetOutput(context, 0,
                                                         output_dims.data(),
