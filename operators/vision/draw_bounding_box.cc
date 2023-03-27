@@ -119,10 +119,20 @@ void DrawBox(ImageView& image, gsl::span<const float> box, bool is_xyxy,
   //(2)            (4)
   // |              |
   // -------(3)------
-  int64_t x_start = static_cast<int64_t>(std::rintf(box[0]));
-  int64_t y_start = static_cast<int64_t>(std::rintf(box[1]));
-  int64_t x_end = static_cast<int64_t>((is_xyxy ? std::rintf(box[2]) : std::rintf(box[0] + box[2])));
-  int64_t y_end = static_cast<int64_t>(is_xyxy ? std::rintf(box[3]) : std::rintf(box[1] + box[3]));
+  float point_x1 = box[0];
+  float point_x2 = box[1];
+  float point_x3 = box[2];
+  float point_x4 = box[3];
+  if (!is_xyxy) {
+    point_x1 = box[0] - point_x3 / 2;
+    point_x2 = box[1] - point_x4 / 2;
+    point_x3 = box[0] + point_x3 / 2;
+    point_x4 = box[1] + point_x4 / 2;
+  }
+  int64_t x_start = static_cast<int64_t>(std::rintf(point_x1));
+  int64_t y_start = static_cast<int64_t>(std::rintf(point_x2));
+  int64_t x_end = static_cast<int64_t>(std::rintf(point_x3));
+  int64_t y_end = static_cast<int64_t>(std::rintf(point_x4));
 
   auto offset = thickness / 2;
   x_start -= offset;
@@ -130,10 +140,10 @@ void DrawBox(ImageView& image, gsl::span<const float> box, bool is_xyxy,
   x_end += offset;
   y_end += offset;
 
-  x_start = std::max(x_start, 0L);
-  y_start = std::max(y_start, 0L);
-  x_end = std::min(x_end, image.height - 1);
-  y_end = std::min(y_end, image.width - 1);
+  x_start = std::max<int64_t>(x_start, 0L);
+  y_start = std::max<int64_t>(y_start, 0L);
+  x_end = std::min<int64_t>(x_end, image.height - 1);
+  y_end = std::min<int64_t>(y_end, image.width - 1);
 
   thickness = std::clamp<int64_t>(thickness, 1, std::min(x_end - x_start, y_end - y_start));
   if (x_end - x_start < thickness || y_end - y_start < thickness) {

@@ -70,7 +70,7 @@ Classes
     Output shape: <uint8_t>{height, width, 3<BGR>}
     
     Args:
-        mode: The mode of the boxes, "xyxy"(xmin ymin xmax ymax) or "xywh"(xmin, ymin, width, height) 
+        mode: The mode of the boxes, "xyxy"(xmin ymin xmax ymax) or "xywh"(x_center, y_center, width, height) 
         thickness: Thickness of the box edge
         num_colours: Number of colours to use
                      We have 10 of predefined colours, if `num_colours` is greater than 10, we will use 
@@ -121,7 +121,7 @@ Classes
     -----          bb|img|bb
                    bb-----bb
                    bbbbbbbbb
-    or if it's crop mode, we will delegate to Step `CenterCrop`,
+    or if it's crop mode, we will have negative padding, almost same as CenterCrop,
     Input shape: {height, width, 3<BGR>}
     target_shape: {out_height, out_width}
     Output shape: same as target_shape

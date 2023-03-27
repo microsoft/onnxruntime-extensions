@@ -28,7 +28,7 @@ def create_model(output_file: Path, is_crop: bool = False):
         [
             ConvertImageToBGR(),  # jpg/png image to BGR in HWC layout
             Resize((480, 480), strategy="not_smaller" if is_crop else "not_larger"),
-            LetterBox(target_shape=(480, 480), mode="crop" if is_crop else "pad"),
+            LetterBox(target_shape=(480, 480)),
         ]
     )
 

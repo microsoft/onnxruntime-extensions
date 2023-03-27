@@ -632,7 +632,7 @@ class DrawBoundingBoxes(Step):
                  colour_by_classes=False, name: Optional[str] = None):
         """
         Args:
-            mode: The mode of the boxes, "xyxy"(xmin ymin xmax ymax) or "xywh"(xmin, ymin, width, height) 
+            mode: The mode of the boxes, "xyxy"(xmin ymin xmax ymax) or "xywh"(x_center, y_center, width, height) 
             thickness: Thickness of the box edge
             num_colours: Number of colours to use
                          We have 10 of predefined colours, if `num_colours` is greater than 10, we will use 
@@ -690,7 +690,7 @@ class DrawBoundingBoxes(Step):
         return converter_graph
 
 
-class LetterBox(CenterCrop):
+class LetterBox(Step):
     """
     mainly used in object detection, it mostly follows resize operation. 
     This step either add border or crop the image to satisfy network input.
@@ -700,7 +700,7 @@ class LetterBox(CenterCrop):
     -----          bb|img|bb
                    bb-----bb
                    bbbbbbbbb
-    or if it's crop mode, we will delegate to Step `CenterCrop`,
+    or if it's crop mode, we will have negative padding, almost same as CenterCrop,
     Input shape: {height, width, 3<BGR>}
     target_shape: {out_height, out_width}
     Output shape: same as target_shape
@@ -715,19 +715,13 @@ class LetterBox(CenterCrop):
             target_shape: the size of the output image
             fill_value:  a constant value used to fill the border
             name: Optional name of step. Defaults to 'LetterBox'
-        """
-        self.delegate_ = None
-        if mode == "crop":
-            self.delegate_ = super()
-            
-        super().__init__(target_shape[0], target_shape[1], name)
+        """            
+        super().__init__(["image"], ["image_pad"], name)
 
         self.target_shape_ = target_shape
         self.fill_value_ = fill_value
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
-        if self.delegate_:
-            return self.delegate_._create_graph_for_step(graph, onnx_opset)
         input0_type_str, input0_shape_str = self._get_input_type_and_shape_strs(graph, 0)
 
         assert len(input0_shape_str.split(',')) == 3, " expected BGR image"
