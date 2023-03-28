@@ -284,15 +284,18 @@ class Resize(Step):
     """
 
     def __init__(self, resize_to: Union[int, Tuple[int, int]], layout: str = "HWC",
-                 strategy: str = "not_smaller", name: Optional[str] = None):
+                 policy: str = "not_smaller", name: Optional[str] = None):
         """
         Args:
             resize_to: Target size. Can be a single value or a tuple with (target_height, target_width).
                        The aspect ratio will be maintained and neither height or width in the result will be smaller
                        than the requested value.
             layout: Input layout. 'NCHW', 'NHWC', 'CHW', 'HWC' and 'HW' are supported.
-            strategy: not_smaller(by default), The aspect ratio will the bigger value of width and height
-                      not_larger, The aspect ratio will the smaller value of width and height
+            policy: not_smaller(by default), the sizes are adjusted so that no extent of the output is 
+                        larger than the specified size, while keeping the original aspect ratio
+                      not_larger, the sizes are adjusted so that no extent of the output is 
+                      smaller than the specified size, while keeping the original aspect ratio.
+                      Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#Resize for more details.
             name: Optional name. Defaults to 'Resize'
         """
         super().__init__(["image"], ["resized_image"], name)
@@ -303,7 +306,7 @@ class Resize(Step):
             self._height, self._width = resize_to
 
         self._layout = layout
-        self.strategy_ = strategy
+        self.policy_ = policy
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
@@ -377,10 +380,10 @@ class Resize(Step):
             split_input_shape_attr += f", num_outputs = {len(dims)}"
             split_new_sizes_attr += ", num_outputs = 2"
         
-        # Resize-18 has the attribute "not_larger/not_smaller" to specify the resize strategy, however
+        # Resize-18 has the attribute "not_larger/not_smaller" to specify the resize policy, however
         # we want to support older opsets as well. 
         ratio_resize_func = "ReduceMax"
-        if self.strategy_ == "not_larger":
+        if self.policy_ == "not_larger":
             ratio_resize_func = "ReduceMin"
 
         resize_graph = onnx.parser.parse_graph(
@@ -622,9 +625,10 @@ class DrawBoundingBoxes(Step):
     """
     Draw boxes on BGR image at given position.
     Input shape: <uint8_t>{height, width, 3<BGR>}
-    boxes: <float>{num_boxes, 6<xmin, ymin, xmax, ymax, score, class>}
-        The coordinates should have been scaled back to the original image size 
-        and are the left-up point and the right-bottom one. 
+    boxes: <float>{num_boxes, 6<x, y, x/w, y/h, score, class>}
+        The coordinates is the absolute pixel values in the picture. 
+        we have different modes to represent the coordinates of the box.[XYXY, XYWH, CENTER_XYWH].
+        Please refer to the following link for more details. https://keras.io/api/keras_cv/bounding_box/formats/
         **score** is the confidence of the box(object score * class probability) and **class** is the class of the box.
 
     Output shape: <uint8_t>{height, width, 3<BGR>}
@@ -643,8 +647,7 @@ class DrawBoundingBoxes(Step):
 
             thickness: Thickness of the box edge
             num_colours: Number of colours to use
-                         We have 10 of predefined colours, if `num_colours` is greater than 10, we will use 
-                         the loop-around strategy to get the colours.
+                         We support 10 predefined colours.
                          colors are [red, green, blue, cyan, magenta, maroon, lime, navy, black]
                          and are used in that order. i.e. result with best score will use red. 
             colour_by_classes: Colour boxes by classes or by score. 
@@ -754,8 +757,8 @@ class LetterBox(Step):
                 hw = Concat <axis = 0> (h, w)
                 pad_hw = Sub (target_size, hw)
                 half_pad_hw = Div (pad_hw, i64_2)
-                another_half_pad_hw = Sub (pad_hw, half_pad_hw)
-                pad_value = Concat <axis = 0> (half_pad_hw, i64_0,another_half_pad_hw,i64_0)
+                remainder_pad_hw = Sub (pad_hw, half_pad_hw)
+                pad_value = Concat <axis = 0> (half_pad_hw, i64_0,remainder_pad_hw,i64_0)
                 {self.output_names[0]} = Pad({self.input_names[0]}, pad_value, const_val)
             }}
             """

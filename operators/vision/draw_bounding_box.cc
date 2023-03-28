@@ -9,8 +9,10 @@
 #include <cmath>
 #include <gsl/narrow>
 #include <gsl/span>
+#include <gsl/span_ext>
 #include <unordered_map>
 #include <vector>
+#include "exceptions.h"
 
 namespace ort_extensions {
 namespace {
@@ -35,27 +37,29 @@ struct ImageView {
   int64_t channels;
 };
 
+static constexpr size_t sClassIndex = 5;
+static constexpr size_t sScoreIndex = 4;
+
 // To represent Boxes, [num of boxes, box_info]
+// box_info = [x1, y1, x2, y2, score, class]
 class BoxArray {
  private:
-  void SortBoxesByScore(const float* data) {
-    boxes_by_score_.resize(NumBoxes());
+  void SortBoxesByScore(gsl::span<const float> data) {
+    boxes_by_score_.reserve(NumBoxes());
     for (size_t i = 0; i < boxes_by_score_.size(); ++i) {
-      boxes_by_score_[i] = gsl::make_span(data + i * ShapeAtDim(1), ShapeAtDim(1));
+      boxes_by_score_.push_back(data.subspan(i * shape_[1], shape_[1]));
     }
 
     std::sort(boxes_by_score_.begin(), boxes_by_score_.end(),
               [](const gsl::span<const float>& first, const gsl::span<const float>& second) {
-                return first[4] > second[4];
+                return first[sScoreIndex] > second[sScoreIndex];
               });
   }
 
-  [[nodiscard]] int64_t ShapeAtDim(int64_t dim) const {
-    return shape_[dim];
-  }
 
  public:
-  BoxArray(const std::vector<int64_t>& shape, const float* data, BoundingBoxFormat bbox_mode) : shape_(shape), bbox_mode_(bbox_mode) {
+  BoxArray(const std::vector<int64_t>& shape, gsl::span<const float> data, BoundingBoxFormat bbox_mode)
+      : shape_(shape), bbox_mode_(bbox_mode) {
     SortBoxesByScore(data);
   }
 
@@ -134,10 +138,10 @@ void DrawBox(ImageView& image, gsl::span<const float> box, BoundingBoxFormat bbo
     point_x3 = box[0] + box[2];
     point_x4 = box[1] + box[3];
   }
-  int64_t x_start = static_cast<int64_t>(std::rintf(point_x1));
-  int64_t y_start = static_cast<int64_t>(std::rintf(point_x2));
-  int64_t x_end = static_cast<int64_t>(std::rintf(point_x3));
-  int64_t y_end = static_cast<int64_t>(std::rintf(point_x4));
+  int64_t x_start = static_cast<int64_t>(std::round(point_x1));
+  int64_t y_start = static_cast<int64_t>(std::round(point_x2));
+  int64_t x_end = static_cast<int64_t>(std::round(point_x3));
+  int64_t y_end = static_cast<int64_t>(std::round(point_x4));
 
   auto offset = thickness / 2;
   x_start -= offset;
@@ -152,12 +156,12 @@ void DrawBox(ImageView& image, gsl::span<const float> box, BoundingBoxFormat bbo
 
   thickness = std::clamp<int64_t>(thickness, 1, std::min(x_end - x_start, y_end - y_start));
   if (x_end - x_start < thickness || y_end - y_start < thickness) {
-    // "invalid box, It's invalid to draw a point to represent a box.";
+    ORTX_CXX_API_THROW("box is too small to draw", ORT_INVALID_ARGUMENT);
     return;
   }
 
   if (x_start + thickness >= image.height || y_start + thickness >= image.width) {
-    // "invalid box, It's invalid to draw a point to represent a box.";
+    ORTX_CXX_API_THROW("box is too small to draw", ORT_INVALID_ARGUMENT);
     return;
   }
 
@@ -179,14 +183,14 @@ void DrawBoxesForNumClasses(ImageView& image, const BoxArray& boxes, int64_t thi
 
   for (size_t i = 0; i < boxes.NumBoxes(); ++i) {
     const auto box = boxes.GetBox(i);
-    if (color_used.find(box[5]) == color_used.end()) {
+    if (color_used.find(box[sClassIndex]) == color_used.end()) {
       if (color_used.size() >= KBGRColorMap.size()) {
         // "The number of classes is larger than the number of colors in the color map.";
         continue;
       }
-      color_used.emplace(box[5], color_used.size());
+      color_used.emplace(box[sClassIndex], color_used.size());
     }
-    const auto color = KBGRColorMap[(static_cast<int64_t>(color_used[box[5]]))];
+    const auto color = KBGRColorMap[(static_cast<int64_t>(color_used[box[sClassIndex]]))];
     DrawBox(image, box, boxes.BBoxMode(), color, thickness);
   }
 }
@@ -217,12 +221,14 @@ void DrawBoundingBoxes::Compute(OrtKernelContext* context) {
   if (dimensions_box.size() != 2 || dimensions_box[1] != 6) {
     ORTX_CXX_API_THROW("[DrawBoundingBoxes] requires rank 2 input and the last dim should be 6.", ORT_INVALID_ARGUMENT);
   }
-  BoxArray boxes(dimensions_box, ort_.GetTensorData<float>(input_box), bbox_mode_);
+
+  auto box_span = gsl::make_span(ort_.GetTensorData<float>(input_box), dimensions_box[0] * dimensions_box[1]);
+  BoxArray boxes(dimensions_box, box_span, bbox_mode_);
   int64_t image_size = dimensions_bgr[0] * dimensions_bgr[1] * dimensions_bgr[2];
 
   // Setup output & copy to destination
   // can we reuse the input buffer?
-  const std::vector<int64_t> output_dims(dimensions_bgr);
+  const std::vector<int64_t>& output_dims = dimensions_bgr;
   OrtValue* output_value = ort_.KernelContext_GetOutput(context, 0,
                                                         output_dims.data(),
                                                         output_dims.size());

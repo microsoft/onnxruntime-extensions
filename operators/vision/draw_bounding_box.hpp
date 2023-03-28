@@ -8,6 +8,8 @@
 
 namespace ort_extensions {
 
+// https://keras.io/api/keras_cv/bounding_box/formats/
+// Regarding how the coordinates are stored in the bounding box array
 enum class BoundingBoxFormat {
   XYWH,
   XYXY,

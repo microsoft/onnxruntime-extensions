@@ -62,9 +62,10 @@ Classes
 `DrawBoundingBoxes(mode: str = 'XYXY', thickness: int = 4, num_classes: int = 10, colour_by_classes=False, name: Optional[str] = None)`
 :   Draw boxes on BGR image at given position.
     Input shape: <uint8_t>{height, width, 3<BGR>}
-    boxes: <float>{num_boxes, 6<xmin, ymin, xmax, ymax, score, class>}
-        The coordinates should have been scaled back to the original image size 
-        and are the left-up point and the right-bottom one. 
+    boxes: <float>{num_boxes, 6<x, y, x/w, y/h, score, class>}
+        The coordinates is the absolute pixel values in the picture. 
+        we have different modes to represent the coordinates of the box.[XYXY, XYWH, CENTER_XYWH].
+        Please refer to the following link for more details. https://keras.io/api/keras_cv/bounding_box/formats/
         **score** is the confidence of the box(object score * class probability) and **class** is the class of the box.
     
     Output shape: <uint8_t>{height, width, 3<BGR>}
@@ -79,9 +80,9 @@ Classes
     
         thickness: Thickness of the box edge
         num_colours: Number of colours to use
-                     We have 10 of predefined colours, if `num_colours` is greater than 10, we will use 
-                     the loop-around strategy to get the colours.
-                     colors are [red, green, blue, Cyan, magenta, Maroon, Lime, Navy, Black]
+                     We support 10 predefined colours.
+                     colors are [red, green, blue, cyan, magenta, maroon, lime, navy, black]
+                     and are used in that order. i.e. result with best score will use red. 
         colour_by_classes: Colour boxes by classes or by score. 
                            If `True` we use a colour for each unique class, with all results from the top 
                            `num_colours` classes displayed. A colour is only used for a single class. 
@@ -171,7 +172,7 @@ Classes
 
     * pre_post_processing.step.Step
 
-`Resize(resize_to: Union[int, Tuple[int, int]], layout: str = 'HWC', strategy: str = 'not_smaller', name: Optional[str] = None)`
+`Resize(resize_to: Union[int, Tuple[int, int]], layout: str = 'HWC', policy: str = 'not_smaller', name: Optional[str] = None)`
 :   Resize input data. Aspect ratio is maintained.
     e.g. if image is 1200 x 600 and 300 x 300 is requested the result will be 600 x 300
     
@@ -180,8 +181,11 @@ Classes
                    The aspect ratio will be maintained and neither height or width in the result will be smaller
                    than the requested value.
         layout: Input layout. 'NCHW', 'NHWC', 'CHW', 'HWC' and 'HW' are supported.
-        strategy: not_smaller(by default), The aspect ratio will the bigger value of width and height
-                  not_larger, The aspect ratio will the smaller value of width and height
+        policy: not_smaller(by default), the sizes are adjusted so that no extent of the output is 
+                    larger than the specified size, while keeping the original aspect ratio
+                  not_larger, the sizes are adjusted so that no extent of the output is 
+                  smaller than the specified size, while keeping the original aspect ratio.
+                  Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#Resize for more details.
         name: Optional name. Defaults to 'Resize'
 
     ### Ancestors (in MRO)
