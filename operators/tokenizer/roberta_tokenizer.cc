@@ -71,7 +71,7 @@ std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t
       std::string utf8_token = std::string(ustring(tok));
 
       // Handle special case for offset mapping
-      int space_dif = 0;
+      size_t space_dif = 0;
       if (utf8_token.at(0) == ' ') {
         offset++;
         space_dif = -1; // account for spaces used in offset map algorithm in bpe(byte_list_)
@@ -93,8 +93,8 @@ std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t
         }
 
         res.push_back(p.first);
-        offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + p.second + space_dif)));
-        offset += (p.second + space_dif);
+        offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + (size_t)p.second + space_dif)));
+        offset += ((size_t)p.second + space_dif);
       }
     }
     // Add offset mapping for EOS token
