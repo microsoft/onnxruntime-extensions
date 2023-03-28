@@ -645,7 +645,8 @@ class DrawBoundingBoxes(Step):
             num_colours: Number of colours to use
                          We have 10 of predefined colours, if `num_colours` is greater than 10, we will use 
                          the loop-around strategy to get the colours.
-                         colors are [red, green, blue, Cyan, magenta, Maroon, Lime, Navy, Black]
+                         colors are [red, green, blue, cyan, magenta, maroon, lime, navy, black]
+                         and are used in that order. i.e. result with best score will use red. 
             colour_by_classes: Colour boxes by classes or by score. 
                                If `True` we use a colour for each unique class, with all results from the top 
                                `num_colours` classes displayed. A colour is only used for a single class. 
