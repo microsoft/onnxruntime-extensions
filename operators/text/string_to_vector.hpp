@@ -12,7 +12,9 @@
 class StringToVectorImpl {
  public:
   StringToVectorImpl(std::string& map, std::string& unk);
-  std::vector<std::vector<int64_t>> Compute(std::vector<std::string>& str_input, const OrtTensorDimensions& input_dim, OrtTensorDimensions& output_dim);
+  std::vector<std::vector<int64_t>> Compute(const std::vector<std::string>& str_input,
+                                            const std::vector<int64_t>& input_dim,
+                                            std::vector<int64_t>& output_dim);
 
  private:
   void ParseMappingTable(std::string& map);
@@ -29,16 +31,9 @@ class StringToVectorImpl {
 
 struct KernelStringToVector : BaseKernel {
   KernelStringToVector(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(OrtKernelContext* context);
+  void Compute(const ortc::TensorT<std::string>& input,
+               ortc::TensorT<int64_t>& out);
 
  private:
   std::shared_ptr<StringToVectorImpl> impl_;
-};
-
-struct CustomOpStringToVector : OrtW::CustomOpBase<CustomOpStringToVector, KernelStringToVector> {
-  const char* GetName() const;
-  size_t GetInputTypeCount() const;
-  ONNXTensorElementDataType GetInputType(size_t index) const;
-  size_t GetOutputTypeCount() const;
-  ONNXTensorElementDataType GetOutputType(size_t index) const;
 };

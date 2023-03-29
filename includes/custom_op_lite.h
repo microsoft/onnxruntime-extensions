@@ -49,6 +49,7 @@ class TensorT : public Tensor {
   TT* Allocate(const std::vector<int64_t>& shape) {
     if (!data_) {
       OrtValue* out = ort_api_.KernelContext_GetOutput(ctx_, indice_, shape.data(), shape.size());
+      shape_ = shape;
       data_ = ort_api_.GetTensorMutableData<TT>(out);
     }
     return data_;
@@ -126,7 +127,7 @@ class TensorT<std::string> : public Tensor {
   }
   int64_t NumberOfElement() const {
     if (shape_.empty()) {
-      return 0;
+      return 1;
     } else {
       return std::accumulate(shape_.begin(), shape_.end(), 1ULL, std::multiplies<int64_t>());
     }

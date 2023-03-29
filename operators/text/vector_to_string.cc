@@ -18,16 +18,18 @@ VectorToStringImpl::VectorToStringImpl(std::string& map, std::string& unk) : unk
   ParseMappingTable(map);
 }
 
-std::vector<std::string> VectorToStringImpl::Compute(const void* input, const OrtTensorDimensions& input_dim, OrtTensorDimensions& output_dim) {
+std::vector<std::string> VectorToStringImpl::Compute(const void* input,
+                                                     const std::vector<int64_t>& input_dim,
+                                                     std::vector<int64_t>& output_dim) {
   std::vector<std::string> result;
 
   const int64_t* ptr = static_cast<const int64_t*>(input);
 
-  if (vector_len_ == 1 && (input_dim.size() == 1 || input_dim.IsScalar())) {
+  if (vector_len_ == 1 && (input_dim.size() == 1 || input_dim.empty())) {
     // only hit when the key is a scalar and the input is a vector
     output_dim = input_dim;
   } else {
-    if (input_dim.IsScalar() || input_dim[input_dim.size() - 1] != static_cast<int64_t>(vector_len_)) {
+    if (input_dim.empty() || input_dim[input_dim.size() - 1] != static_cast<int64_t>(vector_len_)) {
       ORTX_CXX_API_THROW(MakeString("Incompatible dimension: required vector length should be ", vector_len_), ORT_INVALID_ARGUMENT);
     }
 
@@ -36,7 +38,8 @@ std::vector<std::string> VectorToStringImpl::Compute(const void* input, const Or
   }
 
   std::vector<int64_t> key(vector_len_);
-  for (int64_t i = 0; i < input_dim.Size(); i = static_cast<int64_t>(i + vector_len_)) {
+  int64_t input_element_size = std::accumulate(input_dim.begin(), input_dim.end(), 1ULL, std::multiplies<int64_t>());
+  for (int64_t i = 0; i < input_element_size; i = static_cast<int64_t>(i + vector_len_)) {
     // construct key
     for (size_t j = 0; j < vector_len_; j++) {
       key[j] = ptr[j];
@@ -110,33 +113,11 @@ KernelVectorToString::KernelVectorToString(const OrtApi& api, const OrtKernelInf
   impl_ = std::make_shared<VectorToStringImpl>(map, unk);
 }
 
-void KernelVectorToString::Compute(OrtKernelContext* context) {
-  const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
-  const void* input_data = ort_.GetTensorData<int64_t>(input);
+void KernelVectorToString::Compute(const ortc::TensorT<int64_t>& input,
+                                   ortc::TensorT<std::string>& out) {
+  const void* input_data = input.Data();
 
-  OrtTensorDimensions input_dim(ort_, input);
-  OrtTensorDimensions output_dim;
-  std::vector<std::string> mapping_result = impl_->Compute(input_data, input_dim, output_dim);
-
-  OrtValue* output = ort_.KernelContext_GetOutput(context, 0, output_dim.data(), output_dim.size());
-
-  FillTensorDataString(api_, ort_, context, mapping_result, output);
+  std::vector<int64_t> output_dim;
+  std::vector<std::string> mapping_result = impl_->Compute(input_data, input.Shape(), output_dim);
+  out.SetStringOutput(0, mapping_result, output_dim);
 }
-
-const char* CustomOpVectorToString::GetName() const { return "VectorToString"; };
-
-size_t CustomOpVectorToString::GetInputTypeCount() const {
-  return 1;
-};
-
-ONNXTensorElementDataType CustomOpVectorToString::GetInputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-};
-
-size_t CustomOpVectorToString::GetOutputTypeCount() const {
-  return 1;
-};
-
-ONNXTensorElementDataType CustomOpVectorToString::GetOutputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-};

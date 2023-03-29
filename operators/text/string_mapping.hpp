@@ -9,16 +9,9 @@
 
 struct KernelStringMapping : BaseKernel {
   KernelStringMapping(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(OrtKernelContext* context);
+  void Compute(const ortc::TensorT<std::string>& input,
+               ortc::TensorT<std::string>& output);
 
  private:
   std::unordered_map<std::string, std::string> map_;
-};
-
-struct CustomOpStringMapping : OrtW::CustomOpBase<CustomOpStringMapping, KernelStringMapping> {
-  const char* GetName() const;
-  size_t GetInputTypeCount() const;
-  ONNXTensorElementDataType GetInputType(size_t index) const;
-  size_t GetOutputTypeCount() const;
-  ONNXTensorElementDataType GetOutputType(size_t index) const;
 };

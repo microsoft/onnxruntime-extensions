@@ -21,39 +21,15 @@ KernelStringMapping::KernelStringMapping(const OrtApi& api, const OrtKernelInfo&
   }
 }
 
-void KernelStringMapping::Compute(OrtKernelContext* context) {
-  // Setup inputs
-  const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
-  std::vector<std::string> input_data;
-  GetTensorMutableDataString(api_, ort_, context, input, input_data);
-
-  OrtTensorDimensions dimensions(ort_, input);
+void KernelStringMapping::Compute(const ortc::TensorT<std::string>& input,
+                                  ortc::TensorT<std::string>& output) {
+  // make a copy as input is constant
+  std::vector<std::string> input_data = input.Data();
 
   for (auto& str : input_data) {
     if (map_.find(str) != map_.end()) {
       str = map_[str];
     }
   }
-
-  OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
-
-  FillTensorDataString(api_, ort_, context, input_data, output);
+  output.SetStringOutput(0, input_data, input.Shape());
 }
-
-const char* CustomOpStringMapping::GetName() const { return "StringMapping"; };
-
-size_t CustomOpStringMapping::GetInputTypeCount() const {
-  return 1;
-};
-
-ONNXTensorElementDataType CustomOpStringMapping::GetInputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-};
-
-size_t CustomOpStringMapping::GetOutputTypeCount() const {
-  return 1;
-};
-
-ONNXTensorElementDataType CustomOpStringMapping::GetOutputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-};

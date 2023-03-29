@@ -9,38 +9,15 @@
 #include <algorithm>
 #include "ustring.h"
 
-KernelStringLength::KernelStringLength(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
-}
-
-void KernelStringLength::Compute(OrtKernelContext* context) {
+void string_length(const ortc::TensorT<std::string>& input,
+                   ortc::TensorT<int64_t>& output) {
   // Setup inputs
-  const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
-  std::vector<std::string> input_data;
-  GetTensorMutableDataString(api_, ort_, context, input, input_data);
+  auto& input_data = input.Data();
 
-  OrtTensorDimensions dimensions(ort_, input);
-  OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
-  auto* output_data = ort_.GetTensorMutableData<int64_t>(output);
+  auto& dimensions = input.Shape();
+  auto* output_data = output.Allocate(dimensions);
 
-  for (int i = 0; i < dimensions.Size(); i++) {
+  for (int i = 0; i < input.NumberOfElement(); i++) {
     output_data[i] = ustring(input_data[i]).size();
   }
 }
-
-const char* CustomOpStringLength::GetName() const { return "StringLength"; };
-
-size_t CustomOpStringLength::GetInputTypeCount() const {
-  return 1;
-};
-
-ONNXTensorElementDataType CustomOpStringLength::GetInputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-};
-
-size_t CustomOpStringLength::GetOutputTypeCount() const {
-  return 1;
-};
-
-ONNXTensorElementDataType CustomOpStringLength::GetOutputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-};

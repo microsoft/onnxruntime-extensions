@@ -20,7 +20,9 @@ struct hash<std::vector<T>> {
 class VectorToStringImpl {
  public:
   VectorToStringImpl(std::string& map, std::string& unk);
-  std::vector<std::string> Compute(const void* input, const OrtTensorDimensions& input_dim, OrtTensorDimensions& output_dim);
+  std::vector<std::string> Compute(const void* input,
+                                   const std::vector<int64_t>& input_dim,
+                                   std::vector<int64_t>& output_dim);
 
  private:
   void ParseMappingTable(std::string& map);
@@ -34,16 +36,9 @@ class VectorToStringImpl {
 
 struct KernelVectorToString : BaseKernel {
   KernelVectorToString(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(OrtKernelContext* context);
+  void Compute(const ortc::TensorT<int64_t>& input,
+               ortc::TensorT<std::string>& out);
 
  private:
   std::shared_ptr<VectorToStringImpl> impl_;
-};
-
-struct CustomOpVectorToString : OrtW::CustomOpBase<CustomOpVectorToString, KernelVectorToString> {
-  const char* GetName() const;
-  size_t GetInputTypeCount() const;
-  ONNXTensorElementDataType GetInputType(size_t index) const;
-  size_t GetOutputTypeCount() const;
-  ONNXTensorElementDataType GetOutputType(size_t index) const;
 };

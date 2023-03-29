@@ -6,15 +6,5 @@
 #include "ocos.h"
 #include "string_utils.h"
 
-struct KernelStringLength : BaseKernel {
-  KernelStringLength(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(OrtKernelContext* context);
-};
-
-struct CustomOpStringLength : OrtW::CustomOpBase<CustomOpStringLength, KernelStringLength> {
-  const char* GetName() const;
-  size_t GetInputTypeCount() const;
-  ONNXTensorElementDataType GetInputType(size_t index) const;
-  size_t GetOutputTypeCount() const;
-  ONNXTensorElementDataType GetOutputType(size_t index) const;
-};
+void string_length(const ortc::TensorT<std::string>& input,
+                   ortc::TensorT<int64_t>& output);
