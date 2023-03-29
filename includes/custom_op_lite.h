@@ -404,6 +404,15 @@ struct OrtCustomOpT2Base : public OrtCustomOp {
     return std::tuple_cat(current, next);
   }
 
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
+  typename std::enable_if<std::is_same<T, const std::string&>::value, std::tuple<T, Ts...>>::type
+  CreateInputTuple(const OrtW::CustomOpApi& ort_api, OrtKernelContext* context) {
+    tensors_.push_back(std::make_unique<Custom2::TensorT<std::string>>(ort_api, context, ith_input, true));
+    std::tuple<T> current = std::tuple<T>{reinterpret_cast<Custom2::TensorT<std::string>*>(tensors_.back().get())->AsScalar()};
+    auto next = CreateInputTuple<ith_input + 1, ith_output, Ts...>(ort_api, context);
+    return std::tuple_cat(current, next);
+  }
+
   // tensor outputs
   template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
   typename std::enable_if<std::is_same<T, Custom2::TensorT<float>&>::value, std::tuple<T, Ts...>>::type
@@ -611,7 +620,7 @@ struct OrtCustomOpT2Base : public OrtCustomOp {
   }
 
   template <typename T, typename... Ts>
-  typename std::enable_if<0 <= sizeof...(Ts) && std::is_same<T, std::string>::value>::type
+  typename std::enable_if<0 <= sizeof...(Ts) && std::is_same<T, const std::string&>::value>::type
   ParseArgs() {
     input_types_.push_back(ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING);
     ParseArgs<Ts...>();

@@ -41,8 +41,8 @@ const std::vector<const OrtCustomOp*>& TextLoader() {
       BuildCustomOp(CustomOpVectorToString),
       BuildCustomOp(CustomOpStringLength),
       LiteCustomOp("StringConcat", string_concat),
-      BuildCustomOp(CustomOpStringECMARegexReplace),
-      BuildCustomOp(CustomOpStringECMARegexSplitWithOffsets));
+      LiteCustomOpStruct("StringECMARegexReplace", KernelStringECMARegexReplace),
+      LiteCustomOpStruct("StringECMARegexSplitWithOffsets", KernelStringECMARegexSplitWithOffsets));
   return op_loader.GetCustomOps();
 }
 

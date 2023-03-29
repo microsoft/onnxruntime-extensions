@@ -8,36 +8,23 @@
 #include "string_tensor.h"
 #include "string_hash.hpp"
 
-
 KernelStringHash::KernelStringHash(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
 }
 
-void KernelStringHash::Compute(OrtKernelContext* context) {
+void KernelStringHash::Compute(const ortc::TensorT<std::string>& input,
+                               int64_t num_buckets,
+                               ortc::TensorT<int64_t>& output) {
   // Setup inputs
-  const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
-  const OrtValue* num_buckets = ort_.KernelContext_GetInput(context, 1);
-  const int64_t* p_num_buckets = ort_.GetTensorData<int64_t>(num_buckets);
-  std::vector<std::string> str_input;
-  GetTensorMutableDataString(api_, ort_, context, input, str_input);
-
-  // Verifications
-  OrtTensorDimensions num_buckets_dimensions(ort_, num_buckets);
-  if (num_buckets_dimensions.size() != 1 || num_buckets_dimensions[0] != 1)
-    ORTX_CXX_API_THROW(MakeString(
-        "num_buckets must contain only one element. It has ",
-        num_buckets_dimensions.size(), " dimensions."), ORT_INVALID_ARGUMENT);
+  auto& str_input = input.Data();
 
   // Setup output
-  OrtTensorDimensions dimensions(ort_, input);
-  OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
-  int64_t* out = ort_.GetTensorMutableData<int64_t>(output);
+  auto& dimensions = input.Shape();
+  int64_t* out = output.Allocate(dimensions);
 
-  OrtTensorTypeAndShapeInfo* output_info = ort_.GetTensorTypeAndShape(output);
-  size_t size = ort_.GetTensorShapeElementCount(output_info);
-  ort_.ReleaseTensorTypeAndShapeInfo(output_info);
+  size_t size = output.NumerOfElement();
 
   // Do computation
-  size_t nb = static_cast<size_t>(*p_num_buckets);
+  size_t nb = static_cast<size_t>(num_buckets);
   for (size_t i = 0; i < size; i++) {
     out[i] = static_cast<int64_t>(Hash64(str_input[i].c_str(), str_input[i].size()) % nb);
   }
@@ -83,8 +70,9 @@ void KernelStringHashFast::Compute(OrtKernelContext* context) {
   OrtTensorDimensions num_buckets_dimensions(ort_, num_buckets);
   if (num_buckets_dimensions.size() != 1 || num_buckets_dimensions[0] != 1)
     ORTX_CXX_API_THROW(MakeString(
-        "num_buckets must contain only one element. It has ",
-        num_buckets_dimensions.size(), " dimensions."), ORT_INVALID_ARGUMENT);
+                           "num_buckets must contain only one element. It has ",
+                           num_buckets_dimensions.size(), " dimensions."),
+                       ORT_INVALID_ARGUMENT);
 
   // Setup output
   OrtTensorDimensions dimensions(ort_, input);
