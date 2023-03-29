@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cassert>
 #include <gsl/narrow>
 #include <gsl/span>
 #include <gsl/span_ext>
@@ -37,8 +38,8 @@ struct ImageView {
   int64_t channels;
 };
 
-static constexpr size_t sClassIndex = 5;
-static constexpr size_t sScoreIndex = 4;
+static constexpr size_t kBoxClassIndex = 5;
+static constexpr size_t kBoxScoreIndex = 4;
 
 // To represent Boxes, [num of boxes, box_info]
 // box_info = [x1, y1, x2, y2, score, class]
@@ -46,16 +47,15 @@ class BoxArray {
  private:
   void SortBoxesByScore(gsl::span<const float> data) {
     boxes_by_score_.reserve(NumBoxes());
-    for (size_t i = 0; i < boxes_by_score_.size(); ++i) {
+    for (size_t i = 0; i < NumBoxes(); ++i) {
       boxes_by_score_.push_back(data.subspan(i * shape_[1], shape_[1]));
     }
 
     std::sort(boxes_by_score_.begin(), boxes_by_score_.end(),
               [](const gsl::span<const float>& first, const gsl::span<const float>& second) {
-                return first[sScoreIndex] > second[sScoreIndex];
+                return first[kBoxScoreIndex] > second[kBoxScoreIndex];
               });
   }
-
 
  public:
   BoxArray(const std::vector<int64_t>& shape, gsl::span<const float> data, BoundingBoxFormat bbox_mode)
@@ -64,6 +64,7 @@ class BoxArray {
   }
 
   [[nodiscard]] gsl::span<const float> GetBox(size_t index) const {
+    assert(index < boxes_by_score_.size());
     return boxes_by_score_[index];
   }
 
@@ -180,23 +181,35 @@ void DrawBox(ImageView& image, gsl::span<const float> box, BoundingBoxFormat bbo
 
 void DrawBoxesForNumClasses(ImageView& image, const BoxArray& boxes, int64_t thickness) {
   std::unordered_map<float, size_t> color_used;
-
+  std::vector<std::pair<size_t, int64_t>> box_reverse;
+  box_reverse.reserve(boxes.NumBoxes());
   for (size_t i = 0; i < boxes.NumBoxes(); ++i) {
     const auto box = boxes.GetBox(i);
-    if (color_used.find(box[sClassIndex]) == color_used.end()) {
+    if (color_used.find(box[kBoxClassIndex]) == color_used.end()) {
       if (color_used.size() >= KBGRColorMap.size()) {
         // "The number of classes is larger than the number of colors in the color map.";
         continue;
       }
-      color_used.emplace(box[sClassIndex], color_used.size());
+      color_used.emplace(box[kBoxClassIndex], color_used.size());
     }
-    const auto color = KBGRColorMap[(static_cast<int64_t>(color_used[box[sClassIndex]]))];
+    box_reverse.emplace_back(i, static_cast<int64_t>(color_used[box[kBoxClassIndex]]));
+  }
+
+  // A class which has higher score will be drawn on the top of the image.
+  std::sort(box_reverse.begin(), box_reverse.end(),
+            [](const std::pair<size_t, int64_t>& first_, const std::pair<size_t, int64_t>& second_) {
+              return first_.second < second_.second;
+            });
+  for (int64_t i = static_cast<int64_t>(box_reverse.size() - 1); i >= 0; --i) {
+    auto [box_index, color_index] = box_reverse[i];
+    const auto box = boxes.GetBox(box_index);
+    const auto color = KBGRColorMap[color_index];
     DrawBox(image, box, boxes.BBoxMode(), color, thickness);
   }
 }
 
 void DrawBoxesByScore(ImageView& image, const BoxArray& boxes, int64_t thickness) {
-  for (size_t i = 0; i < std::min<size_t>(KBGRColorMap.size(), boxes.NumBoxes()); ++i) {
+  for (int64_t i = std::min<int64_t>(KBGRColorMap.size(), boxes.NumBoxes()) - 1; i >= 0; --i) {
     const auto color = KBGRColorMap[(static_cast<int64_t>(i))];
     DrawBox(image, boxes.GetBox(i), boxes.BBoxMode(), color, thickness);
   }

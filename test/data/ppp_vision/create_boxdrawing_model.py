@@ -9,7 +9,8 @@ from onnxruntime_extensions import get_library_path
 
 import onnxruntime
 
-def create_model(output_file: Path, is_crop: bool = False):
+
+def create_model(output_file: Path, **kwargs):
     """
     Create unit test model. If input is bytes from a jpg we do the following
       - DecodeImage: jpg to BGR
@@ -24,17 +25,20 @@ def create_model(output_file: Path, is_crop: bool = False):
 
     onnx_opset = 16
     pipeline = PrePostProcessor(inputs, onnx_opset)
+    is_crop = kwargs.get("is_crop", False)
     pipeline.add_pre_processing(
         [
             ConvertImageToBGR(),  # jpg/png image to BGR in HWC layout
-            Resize((480, 480), strategy="not_smaller" if is_crop else "not_larger"),
+            Resize((480, 480), policy="not_smaller" if is_crop else "not_larger"),
             LetterBox(target_shape=(480, 480)),
         ]
     )
 
+    mode = kwargs.get("mode", "XYXY")
+    colour_by_classes = kwargs.get("colour_by_classes", False)
     pipeline.add_post_processing(
         [
-            DrawBoundingBoxes(),
+            DrawBoundingBoxes(mode=mode,colour_by_classes=colour_by_classes),
             ConvertBGRToImage(image_format="png"),  # jpg or png are supported
         ]
     )

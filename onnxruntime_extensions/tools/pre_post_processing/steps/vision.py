@@ -626,7 +626,7 @@ class DrawBoundingBoxes(Step):
     Draw boxes on BGR image at given position.
     Input shape: <uint8_t>{height, width, 3<BGR>}
     boxes: <float>{num_boxes, 6<x, y, x/w, y/h, score, class>}
-        The coordinates is the absolute pixel values in the picture. 
+        The coordinates is the absolute pixel values in the picture. Its value is determined by `mode`.
         we have different modes to represent the coordinates of the box.[XYXY, XYWH, CENTER_XYWH].
         Please refer to the following link for more details. https://keras.io/api/keras_cv/bounding_box/formats/
         **score** is the confidence of the box(object score * class probability) and **class** is the class of the box.
@@ -647,7 +647,7 @@ class DrawBoundingBoxes(Step):
 
             thickness: Thickness of the box edge
             num_colours: Number of colours to use
-                         We support 10 predefined colours.
+                         We support 10 predefined colours and the other classes more than 10 wouldn't be drawn.
                          colors are [red, green, blue, cyan, magenta, maroon, lime, navy, black]
                          and are used in that order. i.e. result with best score will use red. 
             colour_by_classes: Colour boxes by classes or by score. 

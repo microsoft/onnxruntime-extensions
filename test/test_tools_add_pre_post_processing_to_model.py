@@ -320,7 +320,15 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
         self.assertEqual(len(new_model.graph.output), len(input_model.graph.output) + len(post_processing))
 
-    def test_make_border_and_draw_box(self):
+    def draw_boxes_on_image(self, output_model, test_boxes):
+        so = ort.SessionOptions()
+        so.register_custom_ops_library(get_library_path())
+        ort_sess = ort.InferenceSession(str(output_model), providers=['CPUExecutionProvider'], sess_options=so)
+        image = np.frombuffer(open(Path(test_data_dir)/'wolves.jpg', 'rb').read(), dtype=np.uint8)
+
+        return ort_sess.run(None, {'image': image, "boxes_in": test_boxes})[0]
+
+    def test_make_border_and_draw_box_crop_pad(self):
         import sys
         sys.path.append(test_data_dir)
         import create_boxdrawing_model
@@ -329,18 +337,136 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         test_boxes = [np.array([[180.0, 220.0, 380.0, 450.0, 0.5, 0.0]], dtype=np.float32),
                       np.array([[200.0, 35.0, 340.0, 220.0, 0.5, 0.0]], dtype=np.float32)]
         ref_img = ['wolves_with_box_crop.jpg', 'wolves_with_box_pad.jpg']
-        for idx,is_crop in enumerate([True, False]):
+        for idx, is_crop in enumerate([True, False]):
             output_img = (Path(test_data_dir) / f"../{ref_img[idx]}").resolve()
             create_boxdrawing_model.create_model(output_model, is_crop=is_crop)
-            so = ort.SessionOptions()
-            so.register_custom_ops_library(get_library_path())
-            ort_sess = ort.InferenceSession(str(output_model), providers=['CPUExecutionProvider'], sess_options=so)
-
             image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
-            image = np.frombuffer(open(Path(test_data_dir)/'wolves.jpg', 'rb').read(), dtype=np.uint8)
-
-            output = ort_sess.run(None, {'image': image, "boxes_in": test_boxes[idx]})[0]
+            output = self.draw_boxes_on_image(output_model, test_boxes[idx])
             self.assertEqual((image_ref == output).all(), True)
+
+    def test_make_border_and_draw_box_share_border(self):
+        import sys
+        sys.path.append(test_data_dir)
+        import create_boxdrawing_model
+
+        output_model = (Path(test_data_dir) / "../draw_bounding_box.onnx").resolve()
+        test_boxes = np.array([
+            [0, 0, 180.0, 150.0, 0.5, 0.0],
+            [240, 0, 240.0, 150.0, 0.5, 0.0],
+            [0, 240, 140.0, 240.0, 0.5, 0.0],
+            [240, 240, 240.0, 240.0, 0.5, 0.0],
+        ], dtype=np.float32)
+
+        create_boxdrawing_model.create_model(output_model, mode="XYWH")
+        output = self.draw_boxes_on_image(output_model, test_boxes)
+
+        output_img = (Path(test_data_dir) / f"../wolves_with_box_share_borders.jpg").resolve()
+        image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
+        self.assertEqual((image_ref == output).all(), True)
+
+    def test_make_border_and_draw_box_off_boundary_box(self):
+        import sys
+        sys.path.append(test_data_dir)
+        import create_boxdrawing_model
+
+        output_model = (Path(test_data_dir) / "../draw_bounding_box.onnx").resolve()
+        test_boxes = np.array([
+            [20, 20, 180.0, 150.0, 0.5, 0.0],
+            [340, 0, 240.0, 150.0, 0.5, 0.0],
+            [0, 340, 140.0, 240.0, 0.5, 0.0],
+            [340, 340, 240.0, 240.0, 0.5, 0.0],
+        ], dtype=np.float32)
+
+        create_boxdrawing_model.create_model(output_model, mode="Center_XYWH")
+        output = self.draw_boxes_on_image(output_model, test_boxes)
+
+        output_img = (Path(test_data_dir) / f"../wolves_with_box_off_boundary_box.jpg").resolve()
+        image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
+        self.assertEqual((image_ref == output).all(), True)
+
+    def test_make_border_and_draw_box_more_box_by_class_than_colors(self):
+        import sys
+        sys.path.append(test_data_dir)
+        import create_boxdrawing_model
+
+        output_model = (Path(test_data_dir) / "../draw_bounding_box.onnx").resolve()
+        test_boxes = np.array([
+            [0, 0, 180.0, 150.0, 0.15, 10.0],
+            [240, 0, 140.0, 150.0, 0.25, 1.0],
+            [0, 240, 140.0, 240.0, 0.35, 2.0],
+            [12, 41, 140.0, 140.0, 0.45, 3.0],
+            [234, 23, 140.0, 140.0, 0.55, 4.0],
+            [64, 355, 140.0, 140.0, 0.65, 5.0],
+            [412, 140, 140.0, 140.0, 0.75, 6.0],
+            [99, 300, 140.0, 140.0, 0.85, 7.0],
+            [199, 200, 140.0, 40.0, 0.95, 8.0],
+            [319, 90, 140.0, 40.0, 0.5, 9.0],
+            [129, 130, 140.0, 40.0, 0.5, 10.0],
+            [239, 190, 140.0, 40.0, 0.5, 11.0],
+            [49, 240, 140.0, 40.0, 0.5, 12.0],
+            [259, 290, 140.0, 40.0, 0.99, 10.0],
+        ], dtype=np.float32)
+
+        create_boxdrawing_model.create_model(output_model, mode="XYWH", colour_by_classes=True)
+        output = self.draw_boxes_on_image(output_model, test_boxes)
+
+        output_img = (Path(test_data_dir) / f"../wolves_with_box_more_box_than_colors.jpg").resolve()
+        image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
+        self.assertEqual((image_ref == output).all(), True)
+
+
+    def test_make_border_and_draw_box_more_box_by_score_than_colors(self):
+        import sys
+        sys.path.append(test_data_dir)
+        import create_boxdrawing_model
+
+        output_model = (Path(test_data_dir) / "../draw_bounding_box.onnx").resolve()
+        test_boxes = np.array([
+            [0, 0, 180.0, 150.0, 0.15, 0.0],
+            [240, 0, 140.0, 150.0, 0.25, 0.0],
+            [0, 240, 140.0, 240.0, 0.35, 0.0],
+            [12, 41, 140.0, 140.0, 0.45, 0.0],
+            [234, 23, 140.0, 140.0, 0.55, 0.0],
+            [64, 355, 140.0, 140.0, 0.65, 0.0],
+            [412, 140, 140.0, 140.0, 0.75, 0.0],
+            [99, 300, 140.0, 140.0, 0.85, 0.0],
+            [199, 200, 140.0, 140.0, 0.95, 0.0],
+            [319, 90, 140.0, 140.0, 0.5, 0.0],
+            [129, 130, 140.0, 140.0, 0.5, 0.0],
+            [239, 190, 140.0, 140.0, 0.5, 0.0],
+            [49, 240, 140.0, 140.0, 0.5, 0.0],
+            [259, 290, 140.0, 140.0, 0.98, 0.0],
+            [10, 10, 340.0, 340.0, 0.99, 0.0],
+        ], dtype=np.float32)
+
+        create_boxdrawing_model.create_model(output_model, mode="XYWH", colour_by_classes=False)
+        output = self.draw_boxes_on_image(output_model, test_boxes)
+
+        output_img = (Path(test_data_dir) / f"../wolves_with_box_more_box_than_colors_score.jpg").resolve()
+        image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
+        self.assertEqual((image_ref == output).all(), True)
+
+
+    # a box with higher score should be drawn over a box with lower score
+    def test_make_border_and_draw_box_overlapping_with_priority(self):
+        import sys
+        sys.path.append(test_data_dir)
+        import create_boxdrawing_model
+
+        output_model = (Path(test_data_dir) / "../draw_bounding_box.onnx").resolve()
+        test_boxes = np.array([
+            [0, 0, 240,240, 0.5, 0.0],
+            [40, 40, 240,240, 0.5, 0.0],
+            [100, 100, 240.0, 240.0, 0.5, 0.0],
+            [140, 140, 240.0, 240.0, 0.5, 0.0],
+        ], dtype=np.float32)
+
+        create_boxdrawing_model.create_model(output_model, mode="XYWH")
+        output = self.draw_boxes_on_image(output_model, test_boxes)
+
+        output_img = (Path(test_data_dir) / f"../wolves_with_box_overlapping.jpg").resolve()
+        image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
+        self.assertEqual((image_ref == output).all(), True)
 
 
 if __name__ == "__main__":
