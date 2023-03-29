@@ -54,6 +54,8 @@ struct CustomOpApi {
     OrtW::ThrowOnError(api_, status);
   }
 
+  const OrtApi& GetOrtApi() const { return api_; }
+
  private:
   const OrtApi& api_;
 };

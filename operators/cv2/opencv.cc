@@ -10,7 +10,7 @@ const std::vector<const OrtCustomOp*>& Cv2Loader() {
 #ifdef ENABLE_OPENCV_CODECS
                                    ,
                                LiteCustomOp("ImageDecoder", image_decoder),
-                               BuildCustomOp(CustomOpImageReader)
+                               LiteCustomOp("ImageReader", image_reader)
 #endif  // ENABLE_OPENCV_CODECS
   );
   return op_loader.GetCustomOps();

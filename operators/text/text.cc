@@ -17,31 +17,33 @@
 #if defined(ENABLE_RE2_REGEX)
 #include "text/re2_strings/string_regex_replace.hpp"
 #include "text/re2_strings/string_regex_split.hpp"
-#endif // ENABLE_RE2_REGEX
+#endif  // ENABLE_RE2_REGEX
 
-
-FxLoadCustomOpFactory LoadCustomOpClasses_Text = 
-    LoadCustomOpClasses<CustomOpClassBegin, 
+const std::vector<const OrtCustomOp*>& TextLoader() {
+  static OrtOpLoader op_loader(
 #if defined(ENABLE_RE2_REGEX)
-                        CustomOpStringRegexReplace,
-                        CustomOpStringRegexSplitWithOffsets,
-#endif // ENABLE_RE2_REGEX
-                        CustomOpRaggedTensorToDense,
-                        CustomOpRaggedTensorToSparse,
-                        CustomOpStringRaggedTensorToDense,
-                        CustomOpStringEqual,
-                        CustomOpStringHash,
-                        CustomOpStringHashFast,
-                        CustomOpStringJoin,
-                        CustomOpStringLower,
-                        CustomOpStringUpper,
-                        CustomOpStringMapping,
-                        CustomOpMaskedFill,
-                        CustomOpStringSplit,
-                        CustomOpStringToVector,
-                        CustomOpVectorToString,
-                        CustomOpStringLength,
-                        CustomOpStringConcat,
-                        CustomOpStringECMARegexReplace,
-                        CustomOpStringECMARegexSplitWithOffsets
-                        >;
+      BuildCustomOp(CustomOpStringRegexReplace),
+      BuildCustomOp(CustomOpStringRegexSplitWithOffsets),
+#endif  // ENABLE_RE2_REGEX
+      BuildCustomOp(CustomOpRaggedTensorToDense),
+      BuildCustomOp(CustomOpRaggedTensorToSparse),
+      BuildCustomOp(CustomOpStringRaggedTensorToDense),
+      BuildCustomOp(CustomOpStringEqual),
+      BuildCustomOp(CustomOpStringHash),
+      BuildCustomOp(CustomOpStringHashFast),
+      BuildCustomOp(CustomOpStringJoin),
+      BuildCustomOp(CustomOpStringLower),
+      BuildCustomOp(CustomOpStringUpper),
+      BuildCustomOp(CustomOpStringMapping),
+      BuildCustomOp(CustomOpMaskedFill),
+      BuildCustomOp(CustomOpStringSplit),
+      BuildCustomOp(CustomOpStringToVector),
+      BuildCustomOp(CustomOpVectorToString),
+      BuildCustomOp(CustomOpStringLength),
+      LiteCustomOp("StringConcat", string_concat),
+      BuildCustomOp(CustomOpStringECMARegexReplace),
+      BuildCustomOp(CustomOpStringECMARegexSplitWithOffsets));
+  return op_loader.GetCustomOps();
+}
+
+FxLoadCustomOpFactory LoadCustomOpClasses_Text = TextLoader;
