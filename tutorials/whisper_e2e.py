@@ -2,7 +2,7 @@ import onnx
 import numpy
 import torch
 import librosa
-from transformers import WhisperProcessor
+from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
 
 from pathlib import Path
@@ -124,7 +124,7 @@ def postprocessing(token_ids):
     fn_decoder = PyOrtFunction.from_customop(
         "BpeDecoder",
         cvt=HFTokenizerConverter(_processor.tokenizer).bpe_decoder,
-        skip_special_tokens=False)
+        skip_special_tokens=True)
 
     onnx.save_model(fn_decoder.onnx_model, "whisper_post.onnx")
     return fn_decoder(token_ids)
@@ -144,9 +144,19 @@ if __name__ == '__main__':
     log_mel = preprocessing(audio_data)
     print(log_mel.shape)
 
+    # use whisper model from Huggingface to transcribe
+    # from datasets import load_dataset
+    # ds = load_dataset("hf-internal-testing/librispeech_asr_dummy", "clean", split="validation")
+    # inputs = _processor(ds[0]["audio"]["array"], return_tensors="pt")
+    # input_features = inputs.input_features
+    model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-tiny.en")
+    # generated_ids = model.generate(inputs=(torch.from_numpy(log_mel)))
+    generated_ids = model.generate(torch.from_numpy(log_mel).unsqueeze(dim=0))
+
     # TODO: temporarily create a fixed output to demo the post-process, will be removed later if
     # onnx model with beam search model is ready.
-    tokens = _processor.tokenizer.tokenize("I was born in 92000, and this is falsé.")
-    ids = _processor.tokenizer.convert_tokens_to_ids(tokens)
-    text = postprocessing(numpy.asarray(ids, dtype=numpy.int64))
+    # tokens = _processor.tokenizer.tokenize("I was born in 92000, and this is falsé.")
+    # ids = _processor.tokenizer.convert_tokens_to_ids(tokens)
+    # text = postprocessing(numpy.asarray(ids, dtype=numpy.int64))
+    text = postprocessing(generated_ids.numpy()[0])
     print(text)
