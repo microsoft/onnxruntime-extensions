@@ -108,8 +108,10 @@ class OrtOpLoader {
   template <typename... Args>
   OrtOpLoader(Args... args) {
     LoadOps(args...);
-    std::transform(op_instances_.begin(), op_instances_.end(), std::back_inserter(ocos_list_),
-                   [](const std::shared_ptr<OrtCustomOp>& custom_op) { return custom_op.get(); });
+    for (auto& ptr : op_instances_) {
+      if (ptr)
+        ocos_list_.push_back(ptr.get());
+    }
   }
 
   const std::vector<const OrtCustomOp*>& GetCustomOps() const {

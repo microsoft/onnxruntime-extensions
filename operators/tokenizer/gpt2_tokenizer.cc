@@ -4,7 +4,6 @@
 
 #include "gpt2_tokenizer.hpp"
 
-
 KernelBpeTokenizer::KernelBpeTokenizer(const OrtApi& api, const OrtKernelInfo& info)
     : BaseKernel(api, info) {
   std::string vocab = ort_.KernelInfoGetAttribute<std::string>(&info, "vocab");
@@ -80,12 +79,11 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(const ustring& input, int64_t 
   return res;
 }
 
-void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
+void KernelBpeTokenizer::Compute(const ortc::TensorT<std::string>& input,
+                                 ortc::TensorT<int64_t>& tokenize_output,
+                                 ortc::TensorT<int64_t>& attention_mask) {
   // Setup inputs
-  const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
-  std::vector<std::string> str_input;
-  GetTensorMutableDataString(api_, ort_, context, input, str_input);
-  OrtTensorDimensions input_dim(ort_, input);
+  auto& str_input = input.Data();
 
   std::vector<std::vector<int64_t>> tokenize_results;
   for (auto& str : str_input) {
@@ -101,12 +99,10 @@ void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
     max_length = static_cast<size_t>(padding_length_);
   }
 
-  OrtTensorDimensions output_dim = input_dim;
+  std::vector<int64_t> output_dim = input.Shape();
   output_dim.push_back(max_length);
-  OrtValue* tokenize_output = ort_.KernelContext_GetOutput(context, 0, output_dim.data(), output_dim.size());
-  OrtValue* attention_mask = ort_.KernelContext_GetOutput(context, 1, output_dim.data(), output_dim.size());
-  auto* token = ort_.GetTensorMutableData<int64_t>(tokenize_output);
-  auto* mask = ort_.GetTensorMutableData<int64_t>(attention_mask);
+  auto* token = tokenize_output.Allocate(output_dim);
+  auto* mask = attention_mask.Allocate(output_dim);
 
   int idx = 0;
   for (auto& res : tokenize_results) {
@@ -122,23 +118,4 @@ void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
       idx++;
     }
   }
-}
-
-const char* CustomOpBpeTokenizer::GetName() const {
-  return "GPT2Tokenizer";
-}
-
-size_t CustomOpBpeTokenizer::GetInputTypeCount() const {
-  return 1;
-}
-
-ONNXTensorElementDataType CustomOpBpeTokenizer::GetInputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-}
-size_t CustomOpBpeTokenizer::GetOutputTypeCount() const {
-  return 2;
-}
-
-ONNXTensorElementDataType CustomOpBpeTokenizer::GetOutputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 }

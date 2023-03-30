@@ -115,13 +115,13 @@ std::vector<int64_t> KernelClipBpeTokenizer::Tokenize(ustring& input, int64_t ma
   return res;
 }
 
-void KernelClipBpeTokenizer::Compute(OrtKernelContext* context) {
+void KernelClipBpeTokenizer::Compute(const ortc::TensorT<std::string>& input,
+                                     ortc::TensorT<int64_t>& tokenize_output,
+                                     ortc::TensorT<int64_t>& attention_mask,
+                                     ortc::TensorT<int64_t>& offset_mapping) {
   // Setup inputs
-  const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
-  std::vector<std::string> str_input;
+  auto& str_input = input.Data();
   std::list<OffsetMappingType> offset_map;
-  GetTensorMutableDataString(api_, ort_, context, input, str_input);
-  OrtTensorDimensions input_dim(ort_, input);
 
   std::vector<std::vector<int64_t>> tokenize_results;
   for (auto& str : str_input) {
@@ -138,18 +138,15 @@ void KernelClipBpeTokenizer::Compute(OrtKernelContext* context) {
     max_length = static_cast<size_t>(padding_length_);
   }
 
-  OrtTensorDimensions output_dim = input_dim;
+  std::vector<int64_t> output_dim = input.Shape();
   output_dim.push_back(max_length);
 
-  OrtTensorDimensions offset_dim = output_dim;
+  std::vector<int64_t> offset_dim = output_dim;
   offset_dim.push_back(2);  // tuple of offsets for each input id
 
-  OrtValue* tokenize_output = ort_.KernelContext_GetOutput(context, 0, output_dim.data(), output_dim.size());
-  OrtValue* attention_mask = ort_.KernelContext_GetOutput(context, 1, output_dim.data(), output_dim.size());
-  OrtValue* offset_mapping = ort_.KernelContext_GetOutput(context, 2, offset_dim.data(), offset_dim.size());
-  auto* token = ort_.GetTensorMutableData<int64_t>(tokenize_output);
-  auto* mask = ort_.GetTensorMutableData<int64_t>(attention_mask);
-  auto* offset = ort_.GetTensorMutableData<int64_t>(offset_mapping);
+  auto* token = tokenize_output.Allocate(output_dim);
+  auto* mask = attention_mask.Allocate(output_dim);
+  auto* offset = offset_mapping.Allocate(offset_dim);
 
   int idx = 0;
   for (auto& res : tokenize_results) {
@@ -175,23 +172,4 @@ void KernelClipBpeTokenizer::Compute(OrtKernelContext* context) {
       idx2++;
     }
   }
-}
-
-const char* CustomOpClipBpeTokenizer::GetName() const {
-  return "CLIPTokenizer";
-}
-
-size_t CustomOpClipBpeTokenizer::GetInputTypeCount() const {
-  return 1;
-}
-
-ONNXTensorElementDataType CustomOpClipBpeTokenizer::GetInputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-}
-size_t CustomOpClipBpeTokenizer::GetOutputTypeCount() const {
-  return 3;
-}
-
-ONNXTensorElementDataType CustomOpClipBpeTokenizer::GetOutputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 }

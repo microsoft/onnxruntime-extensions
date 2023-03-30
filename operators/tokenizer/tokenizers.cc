@@ -27,33 +27,42 @@
 #include "bert_tokenizer_decoder.hpp"
 #endif
 
-
-FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = LoadCustomOpClasses<
-    CustomOpClassBegin
+const std::vector<const OrtCustomOp*>& TokenizerLoader() {
+  static OrtOpLoader op_loader(
+      []() { return nullptr; }
 #ifdef ENABLE_GPT2_TOKENIZER
-    , CustomOpBpeTokenizer
-    , CustomOpClipBpeTokenizer
-    , CustomOpRobertaBpeTokenizer
-    , CustomOpBpeDecoder
+      ,
+      LiteCustomOpStruct("GPT2Tokenizer", KernelBpeTokenizer),
+      LiteCustomOpStruct("CLIPTokenizer", KernelClipBpeTokenizer),
+      BuildCustomOp(CustomOpRobertaBpeTokenizer),
+      BuildCustomOp(CustomOpBpeDecoder)
 #endif
 
 #ifdef ENABLE_SPM_TOKENIZER
-    , CustomOpSentencepieceTokenizer
-    , CustomOpSentencepieceDecoder
+          ,
+      BuildCustomOp(CustomOpSentencepieceTokenizer),
+      BuildCustomOp(CustomOpSentencepieceDecoder)
 #endif
 
 #ifdef ENABLE_WORDPIECE_TOKENIZER
-    , CustomOpWordpieceTokenizer
+          ,
+      BuildCustomOp(CustomOpWordpieceTokenizer)
 #endif
 
 #ifdef ENABLE_BERT_TOKENIZER
-    , CustomOpBasicTokenizer
-    , CustomOpBertTokenizer
-    , CustomOpBertTokenizerDecoder
-    , CustomOpHfBertTokenizer
+          ,
+      BuildCustomOp(CustomOpBasicTokenizer),
+      BuildCustomOp(CustomOpBertTokenizer),
+      BuildCustomOp(CustomOpBertTokenizerDecoder),
+      BuildCustomOp(CustomOpHfBertTokenizer)
 #endif
 
 #ifdef ENABLE_BLINGFIRE
-    , CustomOpBlingFireSentenceBreaker
+          ,
+      BuildCustomOp(CustomOpBlingFireSentenceBreaker)
 #endif
->;
+  );
+  return op_loader.GetCustomOps();
+}
+
+FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = TokenizerLoader;
