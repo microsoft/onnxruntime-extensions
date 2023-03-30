@@ -145,6 +145,11 @@ class TensorT<std::string> : public Tensor {
     // note - there will be copy ...
     OrtW::ThrowOnError(ort_api_.GetOrtApi(), ort_api_.GetOrtApi().FillStringTensor(output, raw.data(), raw.size()));
   }
+  void SetStringOutput(size_t output_indice, const std::vector<const char*>& ss, const std::vector<int64_t>& dims) {
+    auto* output = ort_api_.KernelContext_GetOutput(ctx_, output_indice, dims.data(), dims.size());
+    // note - there will be copy ...
+    OrtW::ThrowOnError(ort_api_.GetOrtApi(), ort_api_.GetOrtApi().FillStringTensor(output, ss.data(), ss.size()));
+  }
   const std::string& AsScalar() {
     // assert shape_ is {1}
     return input_strings_[0];

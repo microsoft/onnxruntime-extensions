@@ -99,10 +99,10 @@ struct KernelBpeDecoder : public BaseKernel {
     arr_vocab_.shrink_to_fit();
   }
 
-  void Compute(OrtKernelContext* context) {
-    const OrtValue* ids = ort_.KernelContext_GetInput(context, 0);
-    const int64_t* p_ids = ort_.GetTensorData<int64_t>(ids);
-    OrtTensorDimensions ids_dim(ort_, ids);
+  void Compute(const ortc::TensorT<int64_t>& ids,
+               ortc::TensorT<std::string>& output) {
+    const int64_t* p_ids = ids.Data();
+    auto& ids_dim = ids.Shape();
 
     if (!((ids_dim.size() == 1) || (ids_dim.size() == 2 && ids_dim[0] == 1))) {
       ORTX_CXX_API_THROW("[BpeDecoder]: Expect ids dimension [n] or [1,n].", ORT_INVALID_GRAPH);
@@ -111,7 +111,7 @@ struct KernelBpeDecoder : public BaseKernel {
     std::string text;
     bool f_special_last = false;
     bool f_special = false;
-    auto count = static_cast<size_t>(ids_dim.Size());
+    auto count = static_cast<size_t>(ids.NumerOfElement());
 
     for (size_t tok_idx = 0; tok_idx < count; ++tok_idx) {
       const auto token = *(p_ids + tok_idx);
@@ -134,14 +134,14 @@ struct KernelBpeDecoder : public BaseKernel {
       }
 
       if (whitespace_token_ &&
-        f_special && (tok_idx > 0 && !f_special_last)) {
+          f_special && (tok_idx > 0 && !f_special_last)) {
         text.push_back(' ');
       }
 
       text.append(decoded_token);
 
       if (whitespace_token_ &&
-        f_special && tok_idx != count - 1) {
+          f_special && tok_idx != count - 1) {
         text.push_back(' ');
       }
 
@@ -150,8 +150,7 @@ struct KernelBpeDecoder : public BaseKernel {
 
     std::vector<int64_t> output_dim = {1};
     std::vector<std::string> result = {text};
-    OrtValue* output = ort_.KernelContext_GetOutput(context, 0, output_dim.data(), output_dim.size());
-    FillTensorDataString(api_, ort_, context, result, output);
+    output.SetStringOutput(0, result, output_dim);
   }
 
  private:
@@ -168,26 +167,4 @@ struct KernelBpeDecoder : public BaseKernel {
   std::map<char32_t, unsigned char> byte_decoder_;
   std::map<int64_t, std::string> added_tokens_;
   std::set<int64_t> all_special_ids_;
-};
-
-struct CustomOpBpeDecoder : OrtW::CustomOpBase<CustomOpBpeDecoder, KernelBpeDecoder> {
-  const char* GetName() const {
-    return "BpeDecoder";
-  }
-
-  size_t GetInputTypeCount() const {
-    return 1;
-  }
-
-  ONNXTensorElementDataType GetInputType(size_t index) const {
-    return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-  }
-
-  size_t GetOutputTypeCount() const {
-    return 1;
-  }
-
-  ONNXTensorElementDataType GetOutputType(size_t index) const {
-    return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-  }
 };

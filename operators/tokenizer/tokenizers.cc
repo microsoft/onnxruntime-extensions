@@ -34,32 +34,32 @@ const std::vector<const OrtCustomOp*>& TokenizerLoader() {
       ,
       LiteCustomOpStruct("GPT2Tokenizer", KernelBpeTokenizer),
       LiteCustomOpStruct("CLIPTokenizer", KernelClipBpeTokenizer),
-      BuildCustomOp(CustomOpRobertaBpeTokenizer),
-      BuildCustomOp(CustomOpBpeDecoder)
+      LiteCustomOpStruct("RobertaTokenizer", KernelRobertaBpeTokenizer),
+      LiteCustomOpStruct("BpeDecoder", KernelBpeDecoder)
 #endif
 
 #ifdef ENABLE_SPM_TOKENIZER
           ,
-      BuildCustomOp(CustomOpSentencepieceTokenizer),
-      BuildCustomOp(CustomOpSentencepieceDecoder)
+      LiteCustomOpStruct("SentencepieceTokenizer", KernelSentencepieceTokenizer),
+      LiteCustomOpStruct("SentencepieceDecoder", KernelSentencepieceDecoder)
 #endif
 
 #ifdef ENABLE_WORDPIECE_TOKENIZER
           ,
-      BuildCustomOp(CustomOpWordpieceTokenizer)
+      LiteCustomOpStruct("WordpieceTokenizer", KernelWordpieceTokenizer)
 #endif
 
 #ifdef ENABLE_BERT_TOKENIZER
           ,
-      BuildCustomOp(CustomOpBasicTokenizer),
-      BuildCustomOp(CustomOpBertTokenizer),
-      BuildCustomOp(CustomOpBertTokenizerDecoder),
-      BuildCustomOp(CustomOpHfBertTokenizer)
+      LiteCustomOpStruct("BasicTokenizer", KernelBasicTokenizer),
+      LiteCustomOpStruct("BertTokenizer", KernelBertTokenizer),
+      LiteCustomOpStruct("BertTokenizerDecoder", KernelBertTokenizerDecoder),
+      LiteCustomOpStruct("HfBertTokenizer", KernelHfBertTokenizer)
 #endif
 
 #ifdef ENABLE_BLINGFIRE
           ,
-      BuildCustomOp(CustomOpBlingFireSentenceBreaker)
+      LiteCustomOpStruct("BlingFireSentenceBreaker", KernelBlingFireSentenceBreaker)
 #endif
   );
   return op_loader.GetCustomOps();

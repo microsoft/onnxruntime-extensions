@@ -17,20 +17,12 @@ extern "C" void* SetModel(const unsigned char* pImgBytes, int ModelByteCount);
 
 struct KernelBlingFireSentenceBreaker : BaseKernel {
   KernelBlingFireSentenceBreaker(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(OrtKernelContext* context);
+  void Compute(const std::string& input,
+               ortc::TensorT<std::string>& output);
 
  private:
   using ModelPtr = std::shared_ptr<void>;
   ModelPtr model_;
   std::string model_data_;
   int max_sentence;
-};
-
-struct CustomOpBlingFireSentenceBreaker : OrtW::CustomOpBase<CustomOpBlingFireSentenceBreaker,
-                                                             KernelBlingFireSentenceBreaker> {
-  const char* GetName() const;
-  size_t GetInputTypeCount() const;
-  ONNXTensorElementDataType GetInputType(size_t index) const;
-  size_t GetOutputTypeCount() const;
-  ONNXTensorElementDataType GetOutputType(size_t index) const;
 };

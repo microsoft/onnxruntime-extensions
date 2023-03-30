@@ -23,16 +23,9 @@ class BasicTokenizer {
 
 struct KernelBasicTokenizer : BaseKernel {
   KernelBasicTokenizer(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(OrtKernelContext* context);
+  void Compute(const std::string& input,
+               ortc::TensorT<std::string>& output);
 
  private:
   std::shared_ptr<BasicTokenizer> tokenizer_;
-};
-
-struct CustomOpBasicTokenizer : OrtW::CustomOpBase<CustomOpBasicTokenizer, KernelBasicTokenizer> {
-  const char* GetName() const;
-  size_t GetInputTypeCount() const;
-  ONNXTensorElementDataType GetInputType(size_t index) const;
-  size_t GetOutputTypeCount() const;
-  ONNXTensorElementDataType GetOutputType(size_t index) const;
 };

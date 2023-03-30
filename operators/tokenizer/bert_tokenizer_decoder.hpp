@@ -31,19 +31,13 @@ class BertTokenizerDecoder {
 
 struct KernelBertTokenizerDecoder : BaseKernel {
   KernelBertTokenizerDecoder(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(OrtKernelContext* context);
+  void Compute(const ortc::TensorT<int64_t>& ids,
+               const ortc::TensorT<int64_t>& positions,
+               ortc::TensorT<std::string>& output);
 
  private:
   std::shared_ptr<BertTokenizerDecoder> decoder_;
   bool use_indices_;
   bool skip_special_tokens_;
   bool clean_up_tokenization_spaces_;
-};
-
-struct CustomOpBertTokenizerDecoder : OrtW::CustomOpBase<CustomOpBertTokenizerDecoder, KernelBertTokenizerDecoder> {
-  const char* GetName() const;
-  size_t GetInputTypeCount() const;
-  ONNXTensorElementDataType GetInputType(size_t index) const;
-  size_t GetOutputTypeCount() const;
-  ONNXTensorElementDataType GetOutputType(size_t index) const;
 };

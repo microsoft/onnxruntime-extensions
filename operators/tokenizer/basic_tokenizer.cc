@@ -91,37 +91,9 @@ KernelBasicTokenizer::KernelBasicTokenizer(const OrtApi& api, const OrtKernelInf
   tokenizer_ = std::make_shared<BasicTokenizer>(do_lower_case, tokenize_chinese_chars, strip_accents, tokenize_punctuation, remove_control_chars);
 }
 
-void KernelBasicTokenizer::Compute(OrtKernelContext* context) {
+void KernelBasicTokenizer::Compute(const std::string& input,
+                                   ortc::TensorT<std::string>& output) {
   // Setup inputs
-  const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
-  std::vector<std::string> input_data;
-  GetTensorMutableDataString(api_, ort_, context, input, input_data);
-
-  OrtTensorDimensions dimensions(ort_, input);
-  if (dimensions.size() != 1 && dimensions[0] != 1) {
-    ORTX_CXX_API_THROW("[BasicTokenizer]: only support string scalar.", ORT_INVALID_GRAPH);
-  }
-
-  OrtValue* output = ort_.KernelContext_GetOutput(context, 0, dimensions.data(), dimensions.size());
-  std::vector<ustring> result = tokenizer_->Tokenize(ustring(input_data[0]));
-
-  FillTensorDataString(api_, ort_, context, result, output);
+  std::vector<ustring> result = tokenizer_->Tokenize(ustring(input));
+  output.SetStringOutput(0, {result[0].operator std::string()}, {1});
 }
-
-const char* CustomOpBasicTokenizer::GetName() const { return "BasicTokenizer"; };
-
-size_t CustomOpBasicTokenizer::GetInputTypeCount() const {
-  return 1;
-};
-
-ONNXTensorElementDataType CustomOpBasicTokenizer::GetInputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-};
-
-size_t CustomOpBasicTokenizer::GetOutputTypeCount() const {
-  return 1;
-};
-
-ONNXTensorElementDataType CustomOpBasicTokenizer::GetOutputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-};

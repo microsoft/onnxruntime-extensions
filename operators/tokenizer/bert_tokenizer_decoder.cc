@@ -136,30 +136,30 @@ KernelBertTokenizerDecoder::KernelBertTokenizerDecoder(const OrtApi& api, const 
                                                     cls_token, mask_token, suffix_indicator);
 }
 
-void KernelBertTokenizerDecoder::Compute(OrtKernelContext* context) {
-  const OrtValue* ids = ort_.KernelContext_GetInput(context, 0);
-  const int64_t* p_ids = ort_.GetTensorData<int64_t>(ids);
-  OrtTensorDimensions ids_dim(ort_, ids);
+void KernelBertTokenizerDecoder::Compute(const ortc::TensorT<int64_t>& ids,
+                                         const ortc::TensorT<int64_t>& positions,
+                                         ortc::TensorT<std::string>& output) {
+  const int64_t* p_ids = ids.Data();
+  auto& ids_dim = ids.Shape();
 
   if (!((ids_dim.size() == 1) || (ids_dim.size() == 2 && ids_dim[0] == 1))) {
     ORTX_CXX_API_THROW("[BertTokenizerDecoder]: Expect ids dimension [n] or [1,n].", ORT_INVALID_GRAPH);
   }
 
   //  const int64_t* p_row_indices = ort_row_indices_dim.empty() ? nullptr : ort_.GetTensorData<int64_t>(ort_row_indices);
-  const OrtValue* positions = ort_.KernelContext_GetInput(context, 1);
-  OrtTensorDimensions positions_dim(ort_, positions);
+  auto& positions_dim = positions.Shape();
   if (use_indices_ &&
-      (!((positions_dim.Size() == 0) ||
+      (!((positions.NumerOfElement() == 0) ||
          (positions_dim.size() == 2 && positions_dim[1] == 2)))) {
     ORTX_CXX_API_THROW("[BertTokenizerDecoder]: Expect positions empty or a [n, 2] matrix when use indices", ORT_INVALID_GRAPH);
   }
 
-  const int64_t* p_positions = positions_dim.Size() == 0 ? nullptr : ort_.GetTensorData<int64_t>(positions);
+  const int64_t* p_positions = positions.NumerOfElement() == 0 ? nullptr : positions.Data();
 
   std::vector<std::string> result;
   std::vector<int64_t> output_dim(1);
   if (!use_indices_) {
-    result.push_back(decoder_->Decode(std::vector<int64_t>(p_ids, p_ids + ids_dim.Size()), skip_special_tokens_, clean_up_tokenization_spaces_));
+    result.push_back(decoder_->Decode(std::vector<int64_t>(p_ids, p_ids + ids.NumerOfElement()), skip_special_tokens_, clean_up_tokenization_spaces_));
     output_dim[0] = 1;
   } else {
     if (p_positions != nullptr) {
@@ -172,25 +172,5 @@ void KernelBertTokenizerDecoder::Compute(OrtKernelContext* context) {
       output_dim[0] = positions_dim[0];
     }
   }
-  OrtValue* output = ort_.KernelContext_GetOutput(context, 0, output_dim.data(), output_dim.size());
-
-  FillTensorDataString(api_, ort_, context, result, output);
+  output.SetStringOutput(0, result, output_dim);
 }
-
-const char* CustomOpBertTokenizerDecoder::GetName() const { return "BertTokenizerDecoder"; };
-
-size_t CustomOpBertTokenizerDecoder::GetInputTypeCount() const {
-  return 2;
-};
-
-ONNXTensorElementDataType CustomOpBertTokenizerDecoder::GetInputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-};
-
-size_t CustomOpBertTokenizerDecoder::GetOutputTypeCount() const {
-  return 1;
-};
-
-ONNXTensorElementDataType CustomOpBertTokenizerDecoder::GetOutputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-};

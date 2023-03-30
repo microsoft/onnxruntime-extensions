@@ -10,24 +10,20 @@
 
 #include <unordered_map>
 
-
 struct KernelWordpieceTokenizer : BaseKernel {
   KernelWordpieceTokenizer(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(OrtKernelContext* context);
+  void Compute(const ortc::TensorT<std::string>& input,
+               const ortc::TensorT<int64_t>& row_indices,
+               ortc::TensorT<std::string>& output,
+               ortc::TensorT<int64_t>& row_lengths,
+               ortc::TensorT<int64_t>& out_row_begin,
+               ortc::TensorT<int64_t>& output_limit_values);
 
  private:
   int64_t max_input_chars_per_word_;
   std::u32string suffix_indicator_;
   ustring unk_token_;
   std::unordered_map<std::u32string, int32_t> vocab_;
-};
-
-struct CustomOpWordpieceTokenizer : OrtW::CustomOpBase<CustomOpWordpieceTokenizer, KernelWordpieceTokenizer> {
-  const char* GetName() const;
-  size_t GetInputTypeCount() const;
-  ONNXTensorElementDataType GetInputType(size_t index) const;
-  size_t GetOutputTypeCount() const;
-  ONNXTensorElementDataType GetOutputType(size_t index) const;
 };
 
 void KernelWordpieceTokenizer_Split(const std::u32string& suffix_indicator,

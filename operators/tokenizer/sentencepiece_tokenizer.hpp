@@ -9,17 +9,15 @@
 
 struct KernelSentencepieceTokenizer : BaseKernel {
   KernelSentencepieceTokenizer(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(OrtKernelContext* context);
+  void Compute(const ortc::TensorT<std::string>& input,
+               int64_t /*nbest_size*/,
+               float /*alpha*/,
+               bool add_bos,
+               bool add_eos,
+               bool add_rev,
+               ortc::TensorT<int32_t>& output,
+               ortc::TensorT<int64_t>& output1);
 
  private:
   sentencepiece::SentencePieceProcessor tokenizer_;
-};
-
-struct CustomOpSentencepieceTokenizer : OrtW::CustomOpBase<CustomOpSentencepieceTokenizer,
-                                                           KernelSentencepieceTokenizer> {
-  const char* GetName() const;
-  size_t GetInputTypeCount() const;
-  ONNXTensorElementDataType GetInputType(size_t index) const;
-  size_t GetOutputTypeCount() const;
-  ONNXTensorElementDataType GetOutputType(size_t index) const;
 };
