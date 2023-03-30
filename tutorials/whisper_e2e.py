@@ -6,8 +6,14 @@ from transformers import WhisperProcessor
 
 
 from pathlib import Path
-from onnxruntime_extensions import PyOrtFunction
+from onnxruntime_extensions import PyOrtFunction, util
 from onnxruntime_extensions.cvt import HFTokenizerConverter
+
+
+# the flags for pre-processing
+USE_ONNX_STFT = True
+USE_AUDIO_DECODER = True
+
 
 # hard-coded audio hyperparameters
 # copied from https://github.com/openai/whisper/blob/main/whisper/audio.py#L12
@@ -67,8 +73,6 @@ class WhisperPrePipeline(torch.nn.Module):
         audio_pcm = torch.nn.functional.pad(audio_pcm, (0, pad_len), mode='constant', value=0)
         audio_pcm = audio_pcm.unsqueeze(0)
 
-        USE_ONNX_STFT = True
-
         if USE_ONNX_STFT:
             stft = CustomOpStft.apply(audio_pcm, N_FFT, HOP_LENGTH, self.window)
             stft_norm = stft[..., 0] ** 2 + stft[..., 1] ** 2
@@ -85,10 +89,17 @@ class WhisperPrePipeline(torch.nn.Module):
         return log_spec
 
 
-def preprocessing(audio_pcm):
+def preprocessing(audio_data):
+    if USE_AUDIO_DECODER:
+        decoder = PyOrtFunction.from_customop("AudioDecoder")
+        t_ = numpy.expand_dims(audio_data.numpy(), axis=0)
+        audio_pcm = torch.from_numpy(decoder(t_))
+        audio_pcm.squeeze_(dim=0)
+    else:
+        audio_pcm = audio_data
+
     prep_model_name = Path('whisper_pre.onnx')
     WhisperProcessing = WhisperPrePipeline()
-    audio_pcm = torch.randn(N_SAMPLES).type(torch.float32)
 
     model_args = (audio_pcm,)
     torch.onnx.export(
@@ -124,11 +135,13 @@ if __name__ == '__main__':
     print("preparing the model...")
     _processor = WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
     # create a fake tensor to create the model.
-    audio_pcm = torch.rand(16000, dtype=torch.float32)
+    audio_data = torch.rand(16000, dtype=torch.float32)
 
-    # TODO: Add a audio recording here.
+    if USE_AUDIO_DECODER:
+        with open(util.get_test_data_file("../test/data", "speech16k.mp3"), "rb") as _f:
+            audio_data = torch.asarray(_f.read(), dtype=torch.uint8)
 
-    log_mel = preprocessing(audio_pcm)
+    log_mel = preprocessing(audio_data)
     print(log_mel.shape)
 
     # TODO: temporarily create a fixed output to demo the post-process, will be removed later if
