@@ -66,7 +66,8 @@ class CLIPTokenizer(CustomOp):
     def get_outputs(cls):
         return [
             cls.io_def("input_ids", onnx.TensorProto.INT64, [None, None]),
-            cls.io_def('attention_mask', onnx.TensorProto.INT64, [None, None])
+            cls.io_def('attention_mask', onnx.TensorProto.INT64, [None, None]),
+            cls.io_def('offset_mapping', onnx.TensorProto.INT64, [None, None, 2])
         ]
 
 class RobertaTokenizer(CustomOp):
