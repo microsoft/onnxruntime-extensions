@@ -389,21 +389,33 @@ class ImageDecoder(CustomOp):
 
 
 class AudioDecoder(CustomOp):
-
     @classmethod
     def get_inputs(cls):
         return [
             cls.io_def('inputMP3', onnx_proto.TensorProto.UINT8, [1, None])
-        ]
 
     @classmethod
     def get_outputs(cls):
         return [
             cls.io_def('floatPCM', onnx_proto.TensorProto.FLOAT, [1, None])
         ]
-    
 
-    
+class StftNorm(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [
+            cls.io_def('pcm_wave', onnx_proto.TensorProto.FLOAT, [1, None]),
+            cls.io_def('n_fft', onnx_proto.TensorProto.INT64, []),
+            cls.io_def('hop_length', onnx_proto.TensorProto.INT64, []),
+            cls.io_def('window', onnx_proto.TensorProto.FLOAT, [None]),
+            cls.io_def('frame_size', onnx_proto.TensorProto.INT64, []),
+        ]
+
+    @classmethod
+    def get_outputs(cls):
+        return [
+            cls.io_def('stft_norm', onnx_proto.TensorProto.FLOAT, [1, None, None])
+        ]
 
 
 class SingleOpGraph:
