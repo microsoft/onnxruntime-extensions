@@ -1,5 +1,6 @@
 #include "ocos.h"
 
+#include <list>
 #include "dr_flac.h"
 #define DR_MP3_IMPLEMENTATION 1
 #define DR_MP3_FLOAT_OUTPUT 1
