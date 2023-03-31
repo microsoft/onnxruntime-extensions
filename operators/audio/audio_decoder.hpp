@@ -45,9 +45,9 @@ struct KernelAudioDecoder : public BaseKernel {
     OrtValue* v = ort_.KernelContext_GetOutput(context, 0, dim_out.data(), dim_out.size());
     float* p_output = ort_.GetTensorMutableData<float>(v);
     int64_t offset = 0;
-    for (auto _b : lst_frames) {
-      memcpy(p_output + offset, _b.data(), _b.size() * sizeof(float));
-      offset += _b.size() * sizeof(float);
+    for (auto& _b : lst_frames) {
+      std::copy(_b.begin(), _b.end(), p_output + offset);
+      offset += _b.size();
     }
   }
 

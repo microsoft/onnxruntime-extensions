@@ -11,7 +11,7 @@ from onnxruntime_extensions.cvt import HFTokenizerConverter
 
 
 # the flags for pre-processing
-USE_ONNX_STFT = True
+USE_ONNX_STFT = False
 USE_AUDIO_DECODER = True
 
 
@@ -124,39 +124,30 @@ def postprocessing(token_ids):
     fn_decoder = PyOrtFunction.from_customop(
         "BpeDecoder",
         cvt=HFTokenizerConverter(_processor.tokenizer).bpe_decoder,
-        skip_special_tokens=True)
+        skip_special_tokens=False)
 
     onnx.save_model(fn_decoder.onnx_model, "whisper_post.onnx")
     return fn_decoder(token_ids)
 
 
 if __name__ == '__main__':
-
     print("preparing the model...")
-    _processor = WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
-    # create a fake tensor to create the model.
-    audio_data = torch.rand(16000, dtype=torch.float32)
+    model_name = "openai/whisper-base.en"
+    _processor = WhisperProcessor.from_pretrained(model_name)
+    # TODO: temporary using the HF model to generate for inference before the ONNX model is ready.
+    model = WhisperForConditionalGeneration.from_pretrained(model_name)
 
+    test_file = util.get_test_data_file("../test/data", "1272-141231-0002.mp3")
     if USE_AUDIO_DECODER:
-        with open(util.get_test_data_file("../test/data", "speech16k.mp3"), "rb") as _f:
-            audio_data = torch.asarray(_f.read(), dtype=torch.uint8)
+        with open(test_file, "rb") as _f:
+            audio_data = torch.asarray(list(_f.read()), dtype=torch.uint8)
+    else:
+        audio_data, _ = librosa.load(test_file)
 
     log_mel = preprocessing(audio_data)
     print(log_mel.shape)
 
-    # use whisper model from Huggingface to transcribe
-    # from datasets import load_dataset
-    # ds = load_dataset("hf-internal-testing/librispeech_asr_dummy", "clean", split="validation")
-    # inputs = _processor(ds[0]["audio"]["array"], return_tensors="pt")
-    # input_features = inputs.input_features
-    model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-tiny.en")
-    # generated_ids = model.generate(inputs=(torch.from_numpy(log_mel)))
     generated_ids = model.generate(torch.from_numpy(log_mel).unsqueeze(dim=0))
 
-    # TODO: temporarily create a fixed output to demo the post-process, will be removed later if
-    # onnx model with beam search model is ready.
-    # tokens = _processor.tokenizer.tokenize("I was born in 92000, and this is falsé.")
-    # ids = _processor.tokenizer.convert_tokens_to_ids(tokens)
-    # text = postprocessing(numpy.asarray(ids, dtype=numpy.int64))
     text = postprocessing(generated_ids.numpy()[0])
     print(text)
