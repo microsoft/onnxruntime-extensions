@@ -182,8 +182,7 @@ ONNXTensorElementDataType CustomOpRobertaBpeTokenizer::GetInputType(size_t /*ind
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
 }
 
-// Input is always required as we need input text to tokenize
-OrtCustomOpInputOutputCharacteristic GetInputCharacteristic(size_t /*index*/) {
+OrtCustomOpInputOutputCharacteristic CustomOpRobertaBpeTokenizer::GetInputCharacteristic(size_t /*index*/) const {
   return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
 }
 
@@ -195,11 +194,10 @@ ONNXTensorElementDataType CustomOpRobertaBpeTokenizer::GetOutputType(size_t /*in
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
 }
 
-// Output is optional if we are dealing with optional outputs such as attention mask or offset mapping
-OrtCustomOpInputOutputCharacteristic GetOutputCharacteristic(size_t index) {
+OrtCustomOpInputOutputCharacteristic CustomOpRobertaBpeTokenizer::GetOutputCharacteristic(size_t index) const {
   if (index == 0) {
-      return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
+    return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
   } else {
-      return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_OPTIONAL;
+    return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_OPTIONAL;
   }
 }
