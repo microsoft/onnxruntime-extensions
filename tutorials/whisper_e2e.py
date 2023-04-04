@@ -12,6 +12,7 @@ from onnxruntime_extensions.cvt import HFTokenizerConverter
 
 # the flags for pre-processing
 USE_ONNX_STFT = False
+USE_ONNX_COREMODEL = True
 USE_AUDIO_DECODER = True
 
 
@@ -124,7 +125,7 @@ def postprocessing(token_ids):
     fn_decoder = PyOrtFunction.from_customop(
         "BpeDecoder",
         cvt=HFTokenizerConverter(_processor.tokenizer).bpe_decoder,
-        skip_special_tokens=False)
+        skip_special_tokens=True)
 
     onnx.save_model(fn_decoder.onnx_model, "whisper_post.onnx")
     return fn_decoder(token_ids)
@@ -134,8 +135,14 @@ if __name__ == '__main__':
     print("preparing the model...")
     model_name = "openai/whisper-base.en"
     _processor = WhisperProcessor.from_pretrained(model_name)
-    # TODO: temporary using the HF model to generate for inference before the ONNX model is ready.
-    model = WhisperForConditionalGeneration.from_pretrained(model_name)
+    if USE_ONNX_COREMODEL:
+        # The onnx model can be gereated by the following command:
+        #   python <ONNXRUNTIME_DIR>\onnxruntime\python\tools\transformers\models\whisper\convert_to_onnx.py
+        #       -m "openai/whisper-base.en" -e
+        # !only be valid after 04/04/2023
+        model = PyOrtFunction.from_model("whisper-base.en_beamsearch.onnx")
+    else:
+        model = WhisperForConditionalGeneration.from_pretrained(model_name)
 
     test_file = util.get_test_data_file("../test/data", "1272-141231-0002.mp3")
     if USE_AUDIO_DECODER:
@@ -147,7 +154,15 @@ if __name__ == '__main__':
     log_mel = preprocessing(audio_data)
     print(log_mel.shape)
 
-    generated_ids = model.generate(torch.from_numpy(log_mel).unsqueeze(dim=0))
+    input_features = numpy.expand_dims(log_mel, axis=0)
+    if USE_ONNX_COREMODEL:
+        ort_outputs = model(input_features, numpy.asarray([200]),
+                            numpy.asarray([0]), numpy.asarray([2]), numpy.asarray([1]),
+                            numpy.asarray([1.0], dtype=numpy.float32), numpy.asarray([1.0], dtype=numpy.float32),
+                            numpy.zeros(input_features.shape).astype(numpy.int32))
+        generated_ids = ort_outputs[0]
+    else:
+        generated_ids = model.generate(torch.from_numpy(input_features)).numpy()
 
-    text = postprocessing(generated_ids.numpy()[0])
+    text = postprocessing(generated_ids[0])
     print(text)
