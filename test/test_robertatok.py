@@ -123,6 +123,7 @@ class TestRobertaTokenizer(unittest.TestCase):
         np.testing.assert_array_equal(fn_out[2].reshape((fn_out[2].shape[1], fn_out[2].shape[2])), expect_offset_mapping)
 
     def test_optional_outputs(self):
+        # Test for models without offset mapping and without both attention mask and offset mapping (input id output is always required)
         model1 = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges, max_length=-1, attention_mask=True, offset_map=False)
         model2 = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges, max_length=-1, attention_mask=False, offset_map=False)
         so = _ort.SessionOptions()
