@@ -22,10 +22,6 @@ def _create_test_model(**kwargs):
     merges_file = kwargs["merges_file"]
     max_length = kwargs["max_length"]
 
-    node = [helper.make_node(
-        'RobertaTokenizer', ['string_input'], ['input_ids', 'attention_mask', 'offset_mapping'], vocab=_get_file_content(vocab_file),
-        merges=_get_file_content(merges_file), name='bpetok', padding_length=max_length,
-        domain='ai.onnx.contrib')]
     input1 = helper.make_tensor_value_info(
         'string_input', onnx_proto.TensorProto.STRING, [None])
     output1 = helper.make_tensor_value_info(
@@ -35,8 +31,32 @@ def _create_test_model(**kwargs):
     output3 = helper.make_tensor_value_info(
         'offset_mapping', onnx_proto.TensorProto.INT64, ["batch_size", "num_offsets", 2])
 
-    graph = helper.make_graph(node, 'test0', [input1], [output1, output2, output3])
-    model = make_onnx_model(graph)
+    if kwargs["attention_mask"]:
+        if kwargs["offset_map"]:
+            node = [helper.make_node(
+                'RobertaTokenizer', ['string_input'], ['input_ids', 'attention_mask', 'offset_mapping'], vocab=_get_file_content(vocab_file),
+                merges=_get_file_content(merges_file), name='bpetok', padding_length=max_length,
+                domain='ai.onnx.contrib')]
+
+            graph = helper.make_graph(node, 'test0', [input1], [output1, output2, output3])
+            model = make_onnx_model(graph)
+        else:
+            node = [helper.make_node(
+                'RobertaTokenizer', ['string_input'], ['input_ids', 'attention_mask'], vocab=_get_file_content(vocab_file),
+                merges=_get_file_content(merges_file), name='bpetok', padding_length=max_length,
+                domain='ai.onnx.contrib')]
+
+            graph = helper.make_graph(node, 'test0', [input1], [output1, output2])
+            model = make_onnx_model(graph)
+    else:
+        node = [helper.make_node(
+            'RobertaTokenizer', ['string_input'], ['input_ids'], vocab=_get_file_content(vocab_file),
+            merges=_get_file_content(merges_file), name='bpetok', padding_length=max_length,
+            domain='ai.onnx.contrib')]
+
+        graph = helper.make_graph(node, 'test0', [input1], [output1])
+        model = make_onnx_model(graph)
+
     return model
 
 
@@ -53,7 +73,7 @@ class TestRobertaTokenizer(unittest.TestCase):
         cls.tokenizer_cvt = HFTokenizerConverter(cls.slow_tokenizer)
 
     def _run_tokenizer(self, test_sentence, padding_length=-1):
-        model = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges, max_length=padding_length)
+        model = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges, max_length=padding_length, attention_mask=True, offset_map=True)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         sess = _ort.InferenceSession(model.SerializeToString(), so)
@@ -101,6 +121,30 @@ class TestRobertaTokenizer(unittest.TestCase):
         np.testing.assert_array_equal(fn_out[0].reshape((fn_out[0].size,)), expect_input_ids)
         np.testing.assert_array_equal(fn_out[1].reshape((fn_out[1].size,)), expect_attention_mask)
         np.testing.assert_array_equal(fn_out[2].reshape((fn_out[2].shape[1], fn_out[2].shape[2])), expect_offset_mapping)
+
+    def test_optional_outputs(self):
+        model1 = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges, max_length=-1, attention_mask=True, offset_map=False)
+        model2 = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges, max_length=-1, attention_mask=False, offset_map=False)
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        sess1 = _ort.InferenceSession(model1.SerializeToString(), so)
+        sess2 = _ort.InferenceSession(model2.SerializeToString(), so)
+        input_text = np.array(["Hello World"])
+        outputs1 = sess1.run(None, {'string_input': input_text})
+        outputs2 = sess2.run(None, {'string_input': input_text})
+
+        # Test output size
+        np.testing.assert_array_equal(len(outputs1), 2)
+        np.testing.assert_array_equal(len(outputs2), 1)
+
+        # Test output values
+        roberta_out = self.tokenizer(["Hello World"], return_offsets_mapping=True)
+        expect_input_ids = roberta_out['input_ids']
+        expect_attention_mask = roberta_out['attention_mask']
+        expect_offset_mapping = roberta_out['offset_mapping']
+        np.testing.assert_array_equal(expect_input_ids, outputs1[0])
+        np.testing.assert_array_equal(expect_attention_mask, outputs1[1])
+        np.testing.assert_array_equal(expect_input_ids, outputs2[0])
 
 if __name__ == "__main__":
     unittest.main()
