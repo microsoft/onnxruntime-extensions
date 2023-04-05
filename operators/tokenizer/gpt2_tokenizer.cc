@@ -106,19 +106,30 @@ void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
   OrtValue* tokenize_output = ort_.KernelContext_GetOutput(context, 0, output_dim.data(), output_dim.size());
   OrtValue* attention_mask = ort_.KernelContext_GetOutput(context, 1, output_dim.data(), output_dim.size());
   auto* token = ort_.GetTensorMutableData<int64_t>(tokenize_output);
-  auto* mask = ort_.GetTensorMutableData<int64_t>(attention_mask);
+  if (attention_mask != nullptr) {
+    auto* mask = ort_.GetTensorMutableData<int64_t>(attention_mask);
+    int idx = 0;
+    for (auto& res : tokenize_results) {
+      for (int64_t id : res) {
+        mask[idx] = 1;
+        idx++;
+      }
 
+      for (size_t i = res.size(); i < max_length; i++) {
+        mask[idx] = 0;
+        idx++;
+      }
+    }
+  }
   int idx = 0;
   for (auto& res : tokenize_results) {
     for (int64_t id : res) {
       token[idx] = id;
-      mask[idx] = 1;
       idx++;
     }
 
     for (size_t i = res.size(); i < max_length; i++) {
       token[idx] = 0;
-      mask[idx] = 0;
       idx++;
     }
   }
@@ -135,10 +146,23 @@ size_t CustomOpBpeTokenizer::GetInputTypeCount() const {
 ONNXTensorElementDataType CustomOpBpeTokenizer::GetInputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
 }
+
+OrtCustomOpInputOutputCharacteristic CustomOpBpeTokenizer::GetInputCharacteristic(size_t /*index*/) const {
+  return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
+}
+
 size_t CustomOpBpeTokenizer::GetOutputTypeCount() const {
   return 2;
 }
 
 ONNXTensorElementDataType CustomOpBpeTokenizer::GetOutputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+}
+
+OrtCustomOpInputOutputCharacteristic CustomOpBpeTokenizer::GetOutputCharacteristic(size_t index) const {
+  if (index == 0) {
+    return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
+  } else {
+    return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_OPTIONAL;
+  }
 }
