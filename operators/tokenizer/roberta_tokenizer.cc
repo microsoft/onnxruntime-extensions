@@ -207,9 +207,6 @@ ONNXTensorElementDataType CustomOpRobertaBpeTokenizer::GetOutputType(size_t /*in
 }
 
 OrtCustomOpInputOutputCharacteristic CustomOpRobertaBpeTokenizer::GetOutputCharacteristic(size_t index) const {
-  if (index == 0) {
-    return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
-  } else {
-    return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_OPTIONAL;
-  }
+  return index == 0 ? OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED
+                    : OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_OPTIONAL;
 }
