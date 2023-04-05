@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
 import pathlib
 import inspect
 
@@ -10,6 +12,6 @@ def get_test_data_file(*sub_dirs):
     return str(test_dir.joinpath(*sub_dirs).resolve())
 
 
-def read_file(path):
-    with open(str(path)) as file_content:
+def read_file(path, mode='r'):
+    with open(str(path), mode) as file_content:
         return file_content.read()

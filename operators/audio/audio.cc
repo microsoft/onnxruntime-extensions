@@ -1,3 +1,5 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
 #include "ocos.h"
 #ifdef ENABLE_DR_LIBS
 #include "audio_decoder.hpp"

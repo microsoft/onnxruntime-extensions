@@ -1,7 +1,8 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
 import onnx
 import numpy
 import torch
-import librosa
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
 
@@ -16,6 +17,13 @@ USE_ONNX_COREMODEL = True
 USE_AUDIO_DECODER = True
 
 
+if not USE_AUDIO_DECODER:
+    try:
+        import librosa
+    except ImportError:
+        raise ImportError("Please pip3 install librosa without ort-extensions audio codec support.")
+
+
 # hard-coded audio hyperparameters
 # copied from https://github.com/openai/whisper/blob/main/whisper/audio.py#L12
 SAMPLE_RATE = 16000
@@ -25,10 +33,6 @@ HOP_LENGTH = 160
 CHUNK_LENGTH = 30
 N_SAMPLES = CHUNK_LENGTH * SAMPLE_RATE  # 480000 samples in a 30-second chunk
 N_FRAMES = N_SAMPLES // HOP_LENGTH
-
-
-# torch tokenizer and models
-_processor = None
 
 
 class CustomOpStftNorm(torch.autograd.Function):
@@ -90,6 +94,10 @@ class WhisperPrePipeline(torch.nn.Module):
         return log_spec
 
 
+# torch tokenizer and models
+_processor = None
+
+
 def preprocessing(audio_data):
     if USE_AUDIO_DECODER:
         decoder = PyOrtFunction.from_customop("AudioDecoder")
@@ -139,7 +147,7 @@ if __name__ == '__main__':
         # The onnx model can be gereated by the following command:
         #   python <ONNXRUNTIME_DIR>\onnxruntime\python\tools\transformers\models\whisper\convert_to_onnx.py
         #       -m "openai/whisper-base.en" -e
-        # !only be valid after 04/04/2023
+        # !only be valid after onnxruntime 1.15 or main branch of 04/04/2023
         model = PyOrtFunction.from_model("whisper-base.en_beamsearch.onnx")
     else:
         model = WhisperForConditionalGeneration.from_pretrained(model_name)

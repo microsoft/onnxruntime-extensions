@@ -392,7 +392,7 @@ class AudioDecoder(CustomOp):
     @classmethod
     def get_inputs(cls):
         return [
-            cls.io_def('inputMP3', onnx_proto.TensorProto.UINT8, [1, None])
+            cls.io_def('audio_stream', onnx_proto.TensorProto.UINT8, [1, None])
         ]
 
     @classmethod

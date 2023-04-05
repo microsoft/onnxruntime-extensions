@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
 import unittest
 import numpy as np
 
@@ -8,17 +10,29 @@ class TestBpeTokenizer(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.test_mp3_file = util.get_test_data_file('data', '1272-141231-0002.mp3')
+        cls.test_wav_file = util.get_test_data_file('data', '1272-141231-0002.wav')
+        cls.test_flac_file = util.get_test_data_file('data', '1272-141231-0002.flac')
+        cls.raw_data = np.load(util.get_test_data_file('data', '1272-141231-0002.npy'))
+        cls.decoder = PyOrtFunction.from_customop('AudioDecoder')
         return super().setUpClass()
 
-    def test_mp3_decoder(self):
-        decoder = PyOrtFunction.from_customop('AudioDecoder')
-        blob = []
-        with open(self.test_mp3_file, 'rb') as _f:
-            blob = bytearray(_f.read())
+    def test_wav_decoder(self):
+        blob = bytearray(util.read_file(self.test_wav_file, mode='rb'))
+        pcm_tensor = self.decoder(np.expand_dims(np.asarray(blob), axis=(0,)))
+        np.testing.assert_allclose(pcm_tensor, self.raw_data, rtol=1e-05, atol=1e-08)
 
-        pcm_tensor = decoder(np.expand_dims(np.asarray(blob), axis=(0,)))
-        self.assertEqual(pcm_tensor.shape[0], 1)
+    def test_flac_decoder(self):
+        blob = bytearray(util.read_file(self.test_flac_file, mode='rb'))
+        pcm_tensor = self.decoder(np.expand_dims(np.asarray(blob), axis=(0,)))
+        np.testing.assert_allclose(pcm_tensor, self.raw_data, atol=1e-03)
+
+    def test_mp3_decoder(self):
+        blob = bytearray(util.read_file(self.test_mp3_file, mode='rb'))
+        pcm_tensor = self.decoder(np.expand_dims(np.asarray(blob), axis=(0,)))
         self.assertTrue(pcm_tensor.shape[1] > len(blob))
+        # lossy compression, so we can only check the range
+        np.testing.assert_allclose(np.asarray([np.max(pcm_tensor), np.average(pcm_tensor), np.min(pcm_tensor)]),
+                                   np.asarray([np.max(self.raw_data), np.average(self.raw_data), np.min(self.raw_data)]), atol=1e-01)
 
 
 if __name__ == "__main__":
