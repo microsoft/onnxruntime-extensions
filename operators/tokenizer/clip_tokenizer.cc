@@ -148,31 +148,43 @@ void KernelClipBpeTokenizer::Compute(OrtKernelContext* context) {
   OrtValue* attention_mask = ort_.KernelContext_GetOutput(context, 1, output_dim.data(), output_dim.size());
   OrtValue* offset_mapping = ort_.KernelContext_GetOutput(context, 2, offset_dim.data(), offset_dim.size());
   auto* token = ort_.GetTensorMutableData<int64_t>(tokenize_output);
-  auto* mask = ort_.GetTensorMutableData<int64_t>(attention_mask);
-  auto* offset = ort_.GetTensorMutableData<int64_t>(offset_mapping);
+  if (attention_mask != nullptr) {
+    auto* mask = ort_.GetTensorMutableData<int64_t>(attention_mask);
+    int idx = 0;
+    for (auto& res : tokenize_results) {
+      for (int64_t id : res) {
+        mask[idx] = 1;
+        idx++;
+      }
 
+      for (size_t i = res.size(); i < max_length; i++) {
+        mask[idx] = 0;
+        idx++;
+      }
+    }
+  }
+  if (offset_mapping != nullptr) {
+    auto* offset = ort_.GetTensorMutableData<int64_t>(offset_mapping);
+    int idx2 = 0;
+    for (auto& res : offset_map) {
+      for (auto& mapping : res) {
+        offset[idx2] = mapping.first;
+        idx2++;
+        offset[idx2] = mapping.second;
+        idx2++;
+      }
+    }
+  }
   int idx = 0;
   for (auto& res : tokenize_results) {
     for (int64_t id : res) {
       token[idx] = id;
-      mask[idx] = 1;
       idx++;
     }
 
     for (size_t i = res.size(); i < max_length; i++) {
       token[idx] = 0;
-      mask[idx] = 0;
       idx++;
-    }
-  }
-
-  int idx2 = 0;
-  for (auto& res : offset_map) {
-    for (auto& mapping : res) {
-      offset[idx2] = mapping.first;
-      idx2++;
-      offset[idx2] = mapping.second;
-      idx2++;
     }
   }
 }
@@ -188,10 +200,20 @@ size_t CustomOpClipBpeTokenizer::GetInputTypeCount() const {
 ONNXTensorElementDataType CustomOpClipBpeTokenizer::GetInputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
 }
+
+OrtCustomOpInputOutputCharacteristic CustomOpClipBpeTokenizer::GetInputCharacteristic(size_t /*index*/) const {
+  return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
+}
+
 size_t CustomOpClipBpeTokenizer::GetOutputTypeCount() const {
   return 3;
 }
 
 ONNXTensorElementDataType CustomOpClipBpeTokenizer::GetOutputType(size_t /*index*/) const {
   return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+}
+
+OrtCustomOpInputOutputCharacteristic CustomOpClipBpeTokenizer::GetOutputCharacteristic(size_t index) const {
+  return index == 0 ? OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED
+                    : OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_OPTIONAL;
 }
