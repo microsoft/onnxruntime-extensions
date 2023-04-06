@@ -18,16 +18,16 @@
 namespace ort_extensions {
 namespace {
 constexpr std::array<std::array<uint8_t, 3>, 10> KBGRColorMap = {{
-    {{0, 0, 255}},      // Red
-    {{0, 255, 0}},      // Green
-    {{255, 0, 0}},      // Blue
-    {{255, 255, 0}},    // Cyan
-    {{255, 0, 255}},    // Magenta
-    {{0, 0, 128}},      // Dark Red/Maroon
-    {{0, 128, 0}},      // Dark Green/Lime
-    {{128, 0, 0}},      // Dark Blue/Navy
-    {{0, 0, 0}},        // Black
-    {{128, 128, 128}},  // Gray
+    {{0, 0, 255}},    // Red
+    {{0, 255, 255}},  // Yellow
+    {{0, 255, 0}},    // Lime
+    {{255, 0, 0}},    // Blue
+    {{255, 255, 0}},  // Cyan
+    {{255, 0, 255}},  // Magenta
+    {{0, 128, 255}},  // Orange
+    {{0, 0, 128}},    // Maroon
+    {{0, 128, 0}},    // Green
+    {{128, 0, 0}},    // Navy
 }};
 
 // Used to store image data, width, height, and number of channels
@@ -63,16 +63,16 @@ class BoxArray {
     SortBoxesByScore(data);
   }
 
-  [[nodiscard]] gsl::span<const float> GetBox(size_t index) const {
+  gsl::span<const float> GetBox(size_t index) const {
     assert(index < boxes_by_score_.size());
     return boxes_by_score_[index];
   }
 
-  [[nodiscard]] int64_t NumBoxes() const {
+  int64_t NumBoxes() const {
     return shape_[0];
   }
 
-  auto BBoxMode() const {
+  BoundingBoxFormat BBoxMode() const {
     return bbox_mode_;
   }
 
@@ -248,20 +248,16 @@ void DrawBoundingBoxes::Compute(OrtKernelContext* context) {
 
   auto* output_data = ort_.GetTensorMutableData<uint8_t>(output_value);
   const auto* input_data = ort_.GetTensorData<uint8_t>(input_bgr);
-  // TODO: support batch in python side.
-  // So we are hard-coding batch size to 1 for now.
-  for (size_t batch_idx = 0; batch_idx < 1; ++batch_idx) {
-    std::copy(input_data, input_data + image_size, output_data);
-    auto data_span = gsl::make_span(output_data, image_size);
-    ImageView image_view{data_span, dimensions_bgr[0], dimensions_bgr[1], dimensions_bgr[2]};
-    if (colour_by_classes_) {
-      DrawBoxesForNumClasses(image_view, boxes, gsl::narrow<int64_t>(thickness_));
-    } else {
-      DrawBoxesByScore(image_view, boxes, gsl::narrow<int64_t>(thickness_));
-    }
-    input_data += image_size;
-    output_data += image_size;
+
+  std::copy(input_data, input_data + image_size, output_data);
+  auto data_span = gsl::make_span(output_data, image_size);
+  ImageView image_view{data_span, dimensions_bgr[0], dimensions_bgr[1], dimensions_bgr[2]};
+  if (colour_by_classes_) {
+    DrawBoxesForNumClasses(image_view, boxes, gsl::narrow<int64_t>(thickness_));
+  } else {
+    DrawBoxesByScore(image_view, boxes, gsl::narrow<int64_t>(thickness_));
   }
+
 }
 
 }  // namespace ort_extensions

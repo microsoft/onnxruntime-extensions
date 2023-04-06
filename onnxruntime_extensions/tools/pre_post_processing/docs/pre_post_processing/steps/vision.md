@@ -60,7 +60,7 @@ Classes
     * pre_post_processing.step.Step
 
 `DrawBoundingBoxes(mode: str = 'XYXY', thickness: int = 4, num_classes: int = 10, colour_by_classes=False, name: Optional[str] = None)`
-:   Draw boxes on BGR image at given position.
+:   Draw boxes on BGR image at given position, image is channel last and ordered by BGR.
     Input shape: <uint8_t>{height, width, 3<BGR>}
     boxes: <float>{num_boxes, 6<x, y, x/w, y/h, score, class>}
         The coordinates is the absolute pixel values in the picture. Its value is determined by `mode`.
@@ -81,7 +81,7 @@ Classes
         thickness: Thickness of the box edge
         num_colours: Number of colours to use
                      We support 10 predefined colours and the other classes more than 10 wouldn't be drawn.
-                     colors are [red, green, blue, cyan, magenta, maroon, lime, navy, black]
+                     colors are [red, Yellow, Lime, cyan, blue, magenta, Orange, Maroon, Green, Navy]
                      and are used in that order. i.e. result with best score will use red. 
         colour_by_classes: Colour boxes by classes or by score. 
                            If `True` we use a colour for each unique class, with all results from the top 
@@ -120,7 +120,8 @@ Classes
     * pre_post_processing.step.Step
 
 `LetterBox(target_shape: Union[int, Tuple[int, int]], fill_value=0, name: Optional[str] = None)`
-:   mainly used in object detection, it mostly follows behind resize operation. 
+:   Image is channel last and ordered by BGR.
+    mainly used in object detection, it mostly follows behind resize operation. 
     This step either add border or crop the image to satisfy network input.
     -----          bbbbbbbbb
     |img|    --- > bb-----bb  
@@ -181,11 +182,13 @@ Classes
                    The aspect ratio will be maintained and neither height or width in the result will be smaller
                    than the requested value.
         layout: Input layout. 'NCHW', 'NHWC', 'CHW', 'HWC' and 'HW' are supported.
-        policy: not_smaller(by default), the sizes are adjusted so that no extent of the output is 
-                    larger than the specified size, while keeping the original aspect ratio
-                  not_larger, the sizes are adjusted so that no extent of the output is 
-                  smaller than the specified size, while keeping the original aspect ratio.
-                  Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#Resize for more details.
+        policy: not_smaller (default) 
+                    the sizes are adjusted so that no extent of the output is larger than the specified size, 
+                    while keeping the original aspect ratio
+                not_larger
+                    the sizes are adjusted so that no extent of the output is smaller than the specified size, 
+                    while keeping the original aspect ratio.
+                Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#Resize for more details.
         name: Optional name. Defaults to 'Resize'
 
     ### Ancestors (in MRO)

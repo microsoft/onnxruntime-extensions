@@ -625,7 +625,7 @@ class ChannelsLastToChannelsFirst(Transpose):
 
 class DrawBoundingBoxes(Step):
     """
-    Draw boxes on BGR image at given position.
+    Draw boxes on BGR image at given position, image is channel last and ordered by BGR.
     Input shape: <uint8_t>{height, width, 3<BGR>}
     boxes: <float>{num_boxes, 6<x, y, x/w, y/h, score, class>}
         The coordinates is the absolute pixel values in the picture. Its value is determined by `mode`.
@@ -650,7 +650,7 @@ class DrawBoundingBoxes(Step):
             thickness: Thickness of the box edge
             num_colours: Number of colours to use
                          We support 10 predefined colours and the other classes more than 10 wouldn't be drawn.
-                         colors are [red, green, blue, cyan, magenta, maroon, lime, navy, black]
+                         colors are [red, Yellow, Lime, cyan, blue, magenta, Orange, Maroon, Green, Navy]
                          and are used in that order. i.e. result with best score will use red. 
             colour_by_classes: Colour boxes by classes or by score. 
                                If `True` we use a colour for each unique class, with all results from the top 
@@ -669,19 +669,9 @@ class DrawBoundingBoxes(Step):
         input0_type_str, input0_shape_str = self._get_input_type_and_shape_strs(graph, 0)
         input1_type_str, input1_shape_str = self._get_input_type_and_shape_strs(graph, 1)
         assert input0_type_str == "uint8" and input1_type_str == "float"
-        # xmin,ymin,xmax,ymax,score,class
+
         assert str(input1_shape_str.split(",")[-1]) == "6"
 
-        # Don't uncomment it until we supported batch
-        # batch_shape_str = "1"
-        # input0_shape_list = input0_shape_str.split(",")
-        # if len(input0_shape_list) == 3:
-        #    input1_shape_str = f"{batch_shape_str},{input1_shape_str}"
-        #    input0_shape_str = f"{batch_shape_str},{input0_shape_str}"
-        # elif len(input0_shape_list) == 4:
-        #    batch_shape_str = input0_shape_list[0]
-        # else:
-        #    raise ValueError(f"Input shape {input0_shape_str} is not supported.")
 
         output_shape_str = input0_shape_str
         converter_graph = onnx.parser.parse_graph(
@@ -706,6 +696,7 @@ class DrawBoundingBoxes(Step):
 
 class LetterBox(Step):
     """
+    Image is channel last and ordered by BGR.
     mainly used in object detection, it mostly follows behind resize operation. 
     This step either add border or crop the image to satisfy network input.
     -----          bbbbbbbbb
