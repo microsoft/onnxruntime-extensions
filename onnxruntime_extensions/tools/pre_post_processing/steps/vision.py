@@ -291,11 +291,13 @@ class Resize(Step):
                        The aspect ratio will be maintained and neither height or width in the result will be smaller
                        than the requested value.
             layout: Input layout. 'NCHW', 'NHWC', 'CHW', 'HWC' and 'HW' are supported.
-            policy: not_smaller(by default), the sizes are adjusted so that no extent of the output is 
-                        larger than the specified size, while keeping the original aspect ratio
-                      not_larger, the sizes are adjusted so that no extent of the output is 
-                      smaller than the specified size, while keeping the original aspect ratio.
-                      Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#Resize for more details.
+            policy: not_smaller (default) 
+                        the sizes are adjusted so that no extent of the output is larger than the specified size, 
+                        while keeping the original aspect ratio
+                    not_larger
+                        the sizes are adjusted so that no extent of the output is smaller than the specified size, 
+                        while keeping the original aspect ratio.
+                    Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#Resize for more details.
             name: Optional name. Defaults to 'Resize'
         """
         super().__init__(["image"], ["resized_image"], name)
