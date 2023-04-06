@@ -18,6 +18,7 @@ jobs:
   - job: Linux
     pool:
       vmImage: 'ubuntu-latest'
+    timeoutInMinutes: 120
 
     strategy:
       matrix:
@@ -98,6 +99,7 @@ jobs:
   - job: MacOSX
     pool:
       vmImage: 'macOS-12'
+    timeoutInMinutes: 120
 
     strategy:
       matrix:
@@ -152,6 +154,7 @@ jobs:
   - job: MacOSPython
     pool:
       vmImage: 'macOS-12'
+    timeoutInMinutes: 120
 
     strategy:
       matrix:
@@ -213,6 +216,7 @@ jobs:
   - job: WindowsC
     pool:
       vmImage: 'windows-latest'
+    timeoutInMinutes: 120
 
     strategy:
       matrix:
@@ -273,6 +277,7 @@ jobs:
   - job: WindowsPython
     pool:
       vmImage: 'windows-latest'
+    timeoutInMinutes: 120
 
     strategy:
       matrix:
@@ -329,7 +334,7 @@ jobs:
   - job: WebAssembly
     pool:
       vmImage: 'ubuntu-latest'
-
+    timeoutInMinutes: 120
     steps:
       - script: |
           cd $(Build.BinariesDirectory)
@@ -457,7 +462,7 @@ jobs:
   - job: Linux_Prevent_Exception_Propagation
     pool:
       vmImage: 'ubuntu-latest'
-
+    timeoutInMinutes: 120
     steps:
       # Simulate an embedded build as part of ORT with exceptions disabled by manually setting CMAKE_CXX_FLAGS and
       # using _OCOS_PREVENT_EXCEPTION_PROPAGATION_OVERRIDE. The build should re-enable exceptions within ort-ext
@@ -486,7 +491,7 @@ jobs:
   - job: Linux_SelectedOpsBuild
     pool:
       vmImage: 'ubuntu-latest'
-
+    timeoutInMinutes: 120
     steps:
       # compiled as only one operator selected.
       - bash: |
