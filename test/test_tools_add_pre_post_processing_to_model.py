@@ -373,8 +373,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         test_boxes = np.array([
             [20, 20, 180.0, 150.0, 0.5, 0.0],
             [340, 0, 240.0, 150.0, 0.5, 0.0],
-            [0, 340, 140.0, 240.0, 0.5, 0.0],
-            [340, 340, 240.0, 240.0, 0.5, 0.0],
+            [0, 440, 140.0, 440.0, 0.5, 0.0],
+            [440, 440, 240.0, 440.0, 0.5, 0.0],
         ], dtype=np.float32)
 
         create_boxdrawing_model.create_model(output_model, mode="Center_XYWH")
