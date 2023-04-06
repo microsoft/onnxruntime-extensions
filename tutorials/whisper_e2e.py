@@ -5,7 +5,7 @@ import numpy
 import torch
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
-
+# from onnx import compose
 from pathlib import Path
 from onnxruntime_extensions import PyOrtFunction, util
 from onnxruntime_extensions.cvt import HFTokenizerConverter
@@ -71,9 +71,12 @@ class WhisperPrePipeline(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.window = torch.hann_window(N_FFT)
-        self.mel_filters = torch.from_numpy(librosa.filters.mel(sr=SAMPLE_RATE, n_fft=N_FFT, n_mels=N_MELS))
+        self.mel_filters = torch.from_numpy(util.mel_filterbank(sr=SAMPLE_RATE, n_fft=N_FFT, n_mels=N_MELS))
 
     def forward(self, audio_pcm: torch.Tensor):
+        if USE_AUDIO_DECODER:
+            audio_pcm = audio_pcm.squeeze(0)
+
         pad_len = N_SAMPLES - audio_pcm.shape[0]
         audio_pcm = torch.nn.functional.pad(audio_pcm, (0, pad_len), mode='constant', value=0)
         audio_pcm = audio_pcm.unsqueeze(0)
@@ -94,18 +97,12 @@ class WhisperPrePipeline(torch.nn.Module):
         return log_spec
 
 
-# torch tokenizer and models
-_processor = None
-
-
 def preprocessing(audio_data):
     if USE_AUDIO_DECODER:
         decoder = PyOrtFunction.from_customop("AudioDecoder")
-        t_ = numpy.expand_dims(audio_data.numpy(), axis=0)
-        audio_pcm = torch.from_numpy(decoder(t_))
-        audio_pcm.squeeze_(dim=0)
+        audio_pcm = torch.from_numpy(decoder(audio_data.unsqueeze_(0).numpy()))
     else:
-        audio_pcm = audio_data
+        audio_pcm = torch.from_numpy(audio_data)
 
     prep_model_name = Path('whisper_pre.onnx')
     WhisperProcessing = WhisperPrePipeline()
@@ -126,13 +123,32 @@ def preprocessing(audio_data):
     )
 
     pre_f = PyOrtFunction.from_model(str(prep_model_name))
-    return pre_f(audio_pcm.numpy())
+    if not USE_AUDIO_DECODER:
+        return pre_f(audio_pcm.numpy())
+    else:
+        # pre_full = compose.merge_models(decoder.onnx_model, 
+        #                                 onnx.load_model("whisper_pre.onnx"),
+        #                                 io_map=[("floatPCM", "audio_pcm")])
+        # pre_f = PyOrtFunction.from_model(pre_full)
+
+        # onnx.compose has some bugs above, so we use the following workaround
+        import copy
+        new_graph_node = copy.deepcopy(pre_f.onnx_model.graph.node)
+        del pre_f.onnx_model.graph.input[:]
+        pre_f.onnx_model.graph.input.extend(decoder.onnx_model.graph.input)
+        decoder.onnx_model.graph.node[0].output[0] = "audio_pcm"
+        del pre_f.onnx_model.graph.node[:]
+        pre_f.onnx_model.graph.node.extend(decoder.onnx_model.graph.node)
+        pre_f.onnx_model.graph.node.extend(new_graph_node)
+        onnx.save_model(pre_f.onnx_model, "whisper_aud_pre.onnx")
+        pre_f = PyOrtFunction.from_model("whisper_aud_pre.onnx")
+        return pre_f(audio_data.numpy())
 
 
-def postprocessing(token_ids):
+def postprocessing(token_ids, hf_processor):
     fn_decoder = PyOrtFunction.from_customop(
         "BpeDecoder",
-        cvt=HFTokenizerConverter(_processor.tokenizer).bpe_decoder,
+        cvt=HFTokenizerConverter(hf_processor.tokenizer).bpe_decoder,
         skip_special_tokens=True)
 
     onnx.save_model(fn_decoder.onnx_model, "whisper_post.onnx")
@@ -140,15 +156,19 @@ def postprocessing(token_ids):
 
 
 if __name__ == '__main__':
-    print("preparing the model...")
+    print("checking the model...")
     model_name = "openai/whisper-base.en"
+    onnx_model_name = "whisper-base.en_beamsearch.onnx"
+    if not Path(onnx_model_name).is_file():
+        raise RuntimeError("Please run the script from where Whisper ONNX model was exported. like */onnx_models/openai")
+    
     _processor = WhisperProcessor.from_pretrained(model_name)
     if USE_ONNX_COREMODEL:
         # The onnx model can be gereated by the following command:
         #   python <ONNXRUNTIME_DIR>\onnxruntime\python\tools\transformers\models\whisper\convert_to_onnx.py
         #       -m "openai/whisper-base.en" -e
         # !only be valid after onnxruntime 1.15 or main branch of 04/04/2023
-        model = PyOrtFunction.from_model("whisper-base.en_beamsearch.onnx")
+        model = PyOrtFunction.from_model(onnx_model_name)
     else:
         model = WhisperForConditionalGeneration.from_pretrained(model_name)
 
@@ -172,5 +192,5 @@ if __name__ == '__main__':
     else:
         generated_ids = model.generate(torch.from_numpy(input_features)).numpy()
 
-    text = postprocessing(generated_ids[0])
+    text = postprocessing(generated_ids[0], _processor)
     print(text)
