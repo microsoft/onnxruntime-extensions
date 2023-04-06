@@ -3,8 +3,9 @@
 
 #pragma once
 
-#include <dlib/matrix.h>
 #include "ocos.h"
+#include <dlib/matrix.h>
+
 
 struct KernelInverse : BaseKernel {
   KernelInverse(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
@@ -28,6 +29,7 @@ struct KernelInverse : BaseKernel {
     dlib::matrix<float> dm_x(dimensions[0], dimensions[1]);
     std::copy(X, X + dm_x.size(), dm_x.begin());
     dlib::matrix<float> dm = dlib::inv(dm_x);
+
     memcpy(out0, dm.steal_memory().get(), dm_x.size() * sizeof(float));
   }
 };
