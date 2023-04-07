@@ -125,12 +125,16 @@ struct KernelBpeDecoder : public BaseKernel {
       if (added_tokens_.count(token)) {
         const std::string ws = added_tokens_.at(token);
         decoded_token = (std::string)ws;
-      } else {
+      } else if (token < arr_vocab_.size()){
         const auto str = arr_vocab_[token];
         for (auto wchr : str) {
           unsigned char uchr = byte_decoder_.at(wchr);
           decoded_token.push_back(uchr);
         }
+      }
+      else {
+        // Just ignore the unknown token for safety.
+        continue;
       }
 
       if (whitespace_token_ &&
