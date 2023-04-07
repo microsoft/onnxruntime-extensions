@@ -110,8 +110,8 @@ struct KernelAudioDecoder : public BaseKernel {
       if (flac_obj == nullptr) {
         ORTX_CXX_API_THROW("[AudioDecoder]: unexpected error on FLAC stream.", ORT_RUNTIME_EXCEPTION);
       }
+      auto flac_obj_closer = gsl::finally([flac_obj]() { drflac_close(flac_obj); });
       total_frames = DrReadFrames(lst_frames, drflac_read_pcm_frames_f32, *flac_obj);
-      drflac_close(flac_obj);
 
     } else {
       drwav wav_obj;
