@@ -3,6 +3,7 @@
 import unittest
 import numpy as np
 
+from onnx import checker, helper, onnx_pb as onnx_proto
 from onnxruntime_extensions import PyOrtFunction, util
 
 
@@ -19,6 +20,17 @@ class TestBpeTokenizer(unittest.TestCase):
     def test_wav_decoder(self):
         blob = bytearray(util.read_file(self.test_wav_file, mode='rb'))
         pcm_tensor = self.decoder(np.expand_dims(np.asarray(blob), axis=(0,)))
+        np.testing.assert_allclose(pcm_tensor, self.raw_data, rtol=1e-05, atol=1e-08)
+
+    def test_wav_format_decoder(self):
+        blob = bytearray(util.read_file(self.test_wav_file, mode='rb'))
+        fmt_onnx_model = self.decoder.onnx_model
+        fmt_onnx_model.graph.input.extend([
+            helper.make_tensor_value_info('format', onnx_proto.TensorProto.STRING, [])])
+        fmt_onnx_model.graph.node[0].input.extend(['format'])
+        checker.check_model(fmt_onnx_model)
+        new_decoder = PyOrtFunction.from_model(fmt_onnx_model)
+        pcm_tensor = new_decoder(np.expand_dims(np.asarray(blob), axis=(0,)), ["wav"])
         np.testing.assert_allclose(pcm_tensor, self.raw_data, rtol=1e-05, atol=1e-08)
 
     def test_flac_decoder(self):

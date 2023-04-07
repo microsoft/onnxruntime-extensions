@@ -21,7 +21,7 @@ def mel_filterbank(
     n_fft:int, n_mels: int=80, sr=16000, min_mel=0, max_mel=45.245640471924965, dtype=np.float32):
     """
     Compute a Mel-filterbank. The filters are stored in the rows, the columns
-    and it is Slaney-style triangular mel-scale filterbank.
+    and it is Slaney normalized mel-scale filterbank.
     """
     fbank = np.zeros((n_mels, n_fft // 2 + 1), dtype=dtype)
 
@@ -49,7 +49,7 @@ def mel_filterbank(
     for i in range(n_mels):
         left = -ramps[i] / mel_spacing[i]
         right = ramps[i + 2] / mel_spacing[i + 1]
-        
+
         # intersect them with each other and zero
         fbank[i] = np.maximum(0, np.minimum(left, right))
 

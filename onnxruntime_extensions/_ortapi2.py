@@ -122,8 +122,6 @@ class OrtPyFunction:
                 continue
 
             x = args[idx]
-            if x is None:
-                continue
             ts_x = np.array(x) if isinstance(x, (int, float, bool)) else x
             # an annoying bug is numpy by default is int32, while pytorch is int64.
             # so cast the input here automatically.

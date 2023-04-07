@@ -14,6 +14,7 @@
 #define DR_WAV_IMPLEMENTATION
 #include "dr_wav.h"
 
+#include <gsl/util>
 #include "string_utils.h"
 #include "string_tensor.h"
 
@@ -54,7 +55,7 @@ struct KernelAudioDecoder : public BaseKernel {
         stream_format = FLAC_STREAM;
       } else if (marker == "RIFF") {
         stream_format = WAV_STREAM;
-      } else if (marker[0] == char(-1) && marker[1] == char(-13)) {
+      } else if (marker[0] == char(0xFF) && (marker[1] | 0x07) == 0xFF) {
         stream_format = MP3_STREAM;
       } else {
         ORTX_CXX_API_THROW("[AudioDecoder]: Unknown audio stream format", ORT_INVALID_ARGUMENT);
