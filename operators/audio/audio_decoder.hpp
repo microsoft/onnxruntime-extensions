@@ -78,7 +78,7 @@ struct KernelAudioDecoder : public BaseKernel {
       auto n_samples = n_frames * obj.channels;
       total_frames += n_samples;
       buf.resize(n_samples);
-      frames.emplace_back(buf);
+      frames.emplace_back(std::move(buf));
     }
 
     return total_frames;
