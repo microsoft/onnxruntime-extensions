@@ -55,7 +55,9 @@ struct KernelAudioDecoder : public BaseKernel {
         stream_format = FLAC_STREAM;
       } else if (marker == "RIFF") {
         stream_format = WAV_STREAM;
-      } else if (marker[0] == char(0xFF) && (marker[1] | 0x07) == 0xFF) {
+      } else if (marker[0] == char(0xFF) && (marker[1] | 0x17) == 0xFF) {
+        // http://www.mp3-tech.org/programmer/frame_header.html
+        // only detect the 8 + 3 bits sync word
         stream_format = MP3_STREAM;
       } else {
         ORTX_CXX_API_THROW("[AudioDecoder]: Unknown audio stream format", ORT_INVALID_ARGUMENT);
@@ -64,10 +66,10 @@ struct KernelAudioDecoder : public BaseKernel {
     return stream_format;
   }
 
-  template<typename _CLS_AUDIO, typename _FN_DECODER>
-  static size_t DrReadFrames(std::list<std::vector<float>>& frames, _FN_DECODER fx, _CLS_AUDIO& obj) {
-    const size_t default_chunk_size = 4096;
-    int64_t total_frames = 0;
+  template<typename TY_AUDIO, typename FX_DECODER>
+  static size_t DrReadFrames(std::list<std::vector<float>>& frames, FX_DECODER fx, TY_AUDIO& obj) {
+    const size_t default_chunk_size = 1024 * 256;
+    int64_t total_buf_size = 0;
 
     for (;;) {
       std::vector<float> buf;
@@ -76,13 +78,13 @@ struct KernelAudioDecoder : public BaseKernel {
       if (n_frames <= 0) {
         break;
       }
-      auto n_samples = n_frames * obj.channels;
-      total_frames += n_samples;
-      buf.resize(n_samples);
+      auto data_size = n_frames * obj.channels;
+      total_buf_size += data_size;
+      buf.resize(data_size);
       frames.emplace_back(std::move(buf));
     }
 
-    return total_frames;
+    return total_buf_size;
   }
 
   void Compute(OrtKernelContext* context) {
@@ -96,7 +98,7 @@ struct KernelAudioDecoder : public BaseKernel {
 
     auto stream_format = ReadStreamFormat(context, p_data);
 
-    int64_t total_frames = 0;
+    int64_t total_buf_size = 0;
     std::list<std::vector<float>> lst_frames;
 
     if (stream_format == MP3_STREAM) {
@@ -104,7 +106,7 @@ struct KernelAudioDecoder : public BaseKernel {
       if (!drmp3_init_memory(&mp3_obj, p_data, input_dim.Size(), nullptr)) {
         ORTX_CXX_API_THROW("[AudioDecoder]: unexpected error on MP3 stream.", ORT_RUNTIME_EXCEPTION);
       }
-      total_frames = DrReadFrames(lst_frames, drmp3_read_pcm_frames_f32, mp3_obj);
+      total_buf_size = DrReadFrames(lst_frames, drmp3_read_pcm_frames_f32, mp3_obj);
 
     } else if (stream_format == FLAC_STREAM) {
       drflac* flac_obj = drflac_open_memory(p_data, input_dim.Size(), nullptr);
@@ -112,17 +114,17 @@ struct KernelAudioDecoder : public BaseKernel {
         ORTX_CXX_API_THROW("[AudioDecoder]: unexpected error on FLAC stream.", ORT_RUNTIME_EXCEPTION);
       }
       auto flac_obj_closer = gsl::finally([flac_obj]() { drflac_close(flac_obj); });
-      total_frames = DrReadFrames(lst_frames, drflac_read_pcm_frames_f32, *flac_obj);
+      total_buf_size = DrReadFrames(lst_frames, drflac_read_pcm_frames_f32, *flac_obj);
 
     } else {
       drwav wav_obj;
       if (!drwav_init_memory(&wav_obj, p_data, input_dim.Size(), nullptr)) {
         ORTX_CXX_API_THROW("[AudioDecoder]: unexpected error on Wav stream.", ORT_RUNTIME_EXCEPTION);
       }
-      total_frames = DrReadFrames(lst_frames, drwav_read_pcm_frames_f32, wav_obj);
+      total_buf_size = DrReadFrames(lst_frames, drwav_read_pcm_frames_f32, wav_obj);
     }
 
-    std::vector<int64_t> dim_out = {1, total_frames};
+    std::vector<int64_t> dim_out = {1, total_buf_size};
     OrtValue* v = ort_.KernelContext_GetOutput(context, 0, dim_out.data(), dim_out.size());
     float* p_output = ort_.GetTensorMutableData<float>(v);
     int64_t offset = 0;
