@@ -55,7 +55,7 @@ struct KernelAudioDecoder : public BaseKernel {
         stream_format = FLAC_STREAM;
       } else if (marker == "RIFF") {
         stream_format = WAV_STREAM;
-      } else if (marker[0] == char(0xFF) && (marker[1] | 0x17) == 0xFF) {
+      } else if (marker[0] == char(0xFF) && (marker[1] | 0x1F) == 0xFF) {
         // http://www.mp3-tech.org/programmer/frame_header.html
         // only detect the 8 + 3 bits sync word
         stream_format = MP3_STREAM;
