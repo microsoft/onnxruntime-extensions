@@ -128,7 +128,7 @@ void DrawBox(ImageView& image, gsl::span<const float> box, BoundingBoxFormat bbo
   float point_x2 = box[1];
   float point_x3 = box[2];
   float point_x4 = box[3];
-  if (bbox_mode == BoundingBoxFormat::Center_XYWH) {
+  if (bbox_mode == BoundingBoxFormat::CENTER_XYWH) {
     point_x1 = box[0] - point_x3 / 2;
     point_x2 = box[1] - point_x4 / 2;
     point_x3 = box[0] + point_x3 / 2;

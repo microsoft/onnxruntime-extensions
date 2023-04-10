@@ -377,7 +377,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
             [440, 440, 240.0, 440.0, 0.5, 0.0],
         ], dtype=np.float32)
 
-        create_boxdrawing_model.create_model(output_model, mode="Center_XYWH")
+        create_boxdrawing_model.create_model(output_model, mode="CENTER_XYWH")
         output = self.draw_boxes_on_image(output_model, test_boxes)
 
         output_img = (Path(test_data_dir) / f"../wolves_with_box_off_boundary_box.jpg").resolve()

@@ -13,7 +13,7 @@ namespace ort_extensions {
 enum class BoundingBoxFormat {
   XYWH,
   XYXY,
-  Center_XYWH,
+  CENTER_XYWH,
 };
 
 struct DrawBoundingBoxes : BaseKernel {
@@ -25,10 +25,10 @@ struct DrawBoundingBoxes : BaseKernel {
       bbox_mode_ = BoundingBoxFormat::XYXY;
     } else if (mode == "XYWH") {
       bbox_mode_ = BoundingBoxFormat::XYWH;
-    } else if (mode == "Center_XYWH") {
-      bbox_mode_ = BoundingBoxFormat::Center_XYWH;
+    } else if (mode == "CENTER_XYWH") {
+      bbox_mode_ = BoundingBoxFormat::CENTER_XYWH;
     } else {
-      ORTX_CXX_API_THROW("[DrawBoundingBoxes] mode should be one of [XYXY, XYWH, Center_XYWH].", ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW("[DrawBoundingBoxes] mode should be one of [XYXY, XYWH, CENTER_XYWH].", ORT_INVALID_ARGUMENT);
     }
     auto colour_by_classes = TryToGetAttributeWithDefault<int64_t>("colour_by_classes", 1);
     colour_by_classes_ = colour_by_classes > 0;
