@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
 import wave
 import unittest
 import numpy as np
@@ -11,6 +13,13 @@ _is_torch_available = False
 try:
     import torch
     _is_torch_available = True
+except ImportError:
+    pass
+
+_is_librosa_avaliable = False
+try:
+    import librosa
+    _is_librosa_avaliable = True
 except ImportError:
     pass
 
@@ -120,6 +129,12 @@ class TestAudio(unittest.TestCase):
         actual = ortx_stft(audio_pcm, 400, 160, np.hanning(wlen).astype(np.float32), 400)
         actual = actual[0]
         np.testing.assert_allclose(expected[:, 1:], actual[:, 1:], rtol=1e-3, atol=1e-3)
+
+    @unittest.skipIf(not _is_librosa_avaliable, "librosa is not available")
+    def test_mel_filter_bank(self):
+        expected = librosa.filters.mel(n_fft=400, n_mels=80, sr=16000)
+        actual = util.mel_filterbank(400, 80, 16000)
+        np.testing.assert_allclose(expected, actual, rtol=1e-3, atol=1e-3)
 
 
 if __name__ == "__main__":
