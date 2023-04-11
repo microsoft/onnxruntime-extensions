@@ -32,7 +32,7 @@ struct KernelAudioDecoder : public BaseKernel {
   };
 
   AudioStreamType ReadStreamFormat(OrtKernelContext* context, const uint8_t* p_data) {
-    const std::map<std::string, AudioStreamType> format_mapping = {
+    static const std::map<std::string, AudioStreamType> format_mapping = {
         {"default", AudioStreamType::kDefault},
         {"wav", AudioStreamType::kWAV},
         {"mp3", AudioStreamType::kMP3},
