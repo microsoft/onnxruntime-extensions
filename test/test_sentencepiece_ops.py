@@ -439,7 +439,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
             assert_almost_equal(exp[i], cc_txout[i])
 
 
-class TestOrtXSentencePiece:
+class TestOrtXSentencePiece(unittest.TestCase):
     def test_external_pretrained_model(self):
         fullname = util.get_test_data_file('data', 'en.wiki.bpe.vs100000.model')
         ofunc = OrtPyFunction.from_customop('SentencepieceTokenizer', model=open(fullname, 'rb').read())
