@@ -6,6 +6,7 @@
 #include "ocos.h"
 
 #include <list>
+#include <map>
 #define DR_FLAC_IMPLEMENTATION
 #include "dr_flac.h"
 #define DR_MP3_IMPLEMENTATION 1
@@ -23,50 +24,54 @@ struct KernelAudioDecoder : public BaseKernel {
   KernelAudioDecoder(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
   }
 
-  enum {
-    DEFAULT_STREAM = 0,
-    WAV_STREAM,
-    MP3_STREAM,
-    FLAC_STREAM
+  enum class AudioStreamType {
+    kDefault = 0,
+    kWAV,
+    kMP3,
+    kFLAC
   };
 
-  int ReadStreamFormat(OrtKernelContext* context, const int64_t* p_data) {
-    int stream_format = DEFAULT_STREAM;
+  AudioStreamType ReadStreamFormat(OrtKernelContext* context, const uint8_t* p_data) {
+    const std::map<std::string, AudioStreamType> format_mapping = {
+        {"default", AudioStreamType::kDefault},
+        {"wav", AudioStreamType::kWAV},
+        {"mp3", AudioStreamType::kMP3},
+        {"flac", AudioStreamType::kFLAC}};
+
+    AudioStreamType stream_format = AudioStreamType::kDefault;
     const OrtValue* ov_format = ort_.KernelContext_GetInput(context, 1);
     if (ov_format != nullptr) {
       std::vector<std::string> str_format;
       GetTensorMutableDataString(api_, ort_, context, ov_format, str_format);
-      const char* formats[] = {"default",
-                               "wav",
-                               "mp3",
-                               "flac"};
-      for (auto fmt : formats) {
-        if (str_format[0] == fmt) {
-          break;
-        }
-        stream_format++;
+      auto pos = format_mapping.find(str_format[0]);
+      if (pos == format_mapping.end()) {
+        ORTX_CXX_API_THROW(MakeString(
+                               "[AudioDecoder]: Unknown audio stream format: ", str_format),
+                           ORT_INVALID_ARGUMENT);
       }
+      stream_format = pos->second;
     }
 
-    if (stream_format == DEFAULT_STREAM){
+    if (stream_format == AudioStreamType::kDefault) {
       auto p_stream = reinterpret_cast<char const*>(p_data);
       std::string_view marker(p_stream, 4);
       if (marker == "fLaC") {
-        stream_format = FLAC_STREAM;
+        stream_format = AudioStreamType::kFLAC;
       } else if (marker == "RIFF") {
-        stream_format = WAV_STREAM;
+        stream_format = AudioStreamType::kWAV;
       } else if (marker[0] == char(0xFF) && (marker[1] | 0x1F) == char(0xFF)) {
         // http://www.mp3-tech.org/programmer/frame_header.html
         // only detect the 8 + 3 bits sync word
-        stream_format = MP3_STREAM;
+        stream_format = AudioStreamType::kMP3;
       } else {
-        ORTX_CXX_API_THROW("[AudioDecoder]: Unknown audio stream format", ORT_INVALID_ARGUMENT);
+        ORTX_CXX_API_THROW("[AudioDecoder]: Cannot detect audio stream format", ORT_INVALID_ARGUMENT);
       }
     }
+
     return stream_format;
   }
 
-  template<typename TY_AUDIO, typename FX_DECODER>
+  template <typename TY_AUDIO, typename FX_DECODER>
   static size_t DrReadFrames(std::list<std::vector<float>>& frames, FX_DECODER fx, TY_AUDIO& obj) {
     const size_t default_chunk_size = 1024 * 256;
     int64_t total_buf_size = 0;
@@ -89,7 +94,7 @@ struct KernelAudioDecoder : public BaseKernel {
 
   void Compute(OrtKernelContext* context) {
     const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
-    const int64_t* p_data = ort_.GetTensorData<int64_t>(input);
+    const uint8_t* p_data = ort_.GetTensorData<uint8_t>(input);
 
     OrtTensorDimensions input_dim(ort_, input);
     if (!((input_dim.size() == 1) || (input_dim.size() == 2 && input_dim[0] == 1))) {
@@ -101,25 +106,25 @@ struct KernelAudioDecoder : public BaseKernel {
     int64_t total_buf_size = 0;
     std::list<std::vector<float>> lst_frames;
 
-    if (stream_format == MP3_STREAM) {
+    if (stream_format == AudioStreamType::kMP3) {
       drmp3 mp3_obj;
       if (!drmp3_init_memory(&mp3_obj, p_data, input_dim.Size(), nullptr)) {
         ORTX_CXX_API_THROW("[AudioDecoder]: unexpected error on MP3 stream.", ORT_RUNTIME_EXCEPTION);
       }
       total_buf_size = DrReadFrames(lst_frames, drmp3_read_pcm_frames_f32, mp3_obj);
 
-    } else if (stream_format == FLAC_STREAM) {
+    } else if (stream_format == AudioStreamType::kFLAC) {
       drflac* flac_obj = drflac_open_memory(p_data, input_dim.Size(), nullptr);
+      auto flac_obj_closer = gsl::finally([flac_obj]() { drflac_close(flac_obj); });
       if (flac_obj == nullptr) {
         ORTX_CXX_API_THROW("[AudioDecoder]: unexpected error on FLAC stream.", ORT_RUNTIME_EXCEPTION);
       }
-      auto flac_obj_closer = gsl::finally([flac_obj]() { drflac_close(flac_obj); });
       total_buf_size = DrReadFrames(lst_frames, drflac_read_pcm_frames_f32, *flac_obj);
 
     } else {
       drwav wav_obj;
       if (!drwav_init_memory(&wav_obj, p_data, input_dim.Size(), nullptr)) {
-        ORTX_CXX_API_THROW("[AudioDecoder]: unexpected error on Wav stream.", ORT_RUNTIME_EXCEPTION);
+        ORTX_CXX_API_THROW("[AudioDecoder]: unexpected error on WAV stream.", ORT_RUNTIME_EXCEPTION);
       }
       total_buf_size = DrReadFrames(lst_frames, drwav_read_pcm_frames_f32, wav_obj);
     }
@@ -150,7 +155,7 @@ struct CustomOpAudioDecoder : OrtW::CustomOpBase<CustomOpAudioDecoder, KernelAud
 
   OrtCustomOpInputOutputCharacteristic GetInputCharacteristic(size_t index) const {
     return index == 0 ? OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED
-      : OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_OPTIONAL;
+                      : OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_OPTIONAL;
   }
 
   size_t GetOutputTypeCount() const {
