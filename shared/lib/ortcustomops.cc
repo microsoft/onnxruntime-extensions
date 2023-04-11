@@ -118,6 +118,10 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
     ,
     LoadCustomOpClasses_CV2
 #endif
+#if defined(ENABLE_DR_LIBS)
+    ,
+    LoadCustomOpClasses_Audio
+#endif
   };
 
   for (const auto& fx : c_factories) {

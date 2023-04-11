@@ -54,6 +54,7 @@ option(OCOS_ENABLE_DLIB "Enable operators like Inverse depending on DLIB" ON)
 option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require opencv imgcodecs." ON)
 option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
 option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
+option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
 
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
@@ -267,6 +268,12 @@ if(OCOS_ENABLE_TF_STRING)
   list(APPEND TARGET_SRC_NOEXCEPTION ${TARGET_SRC_KERNELS} ${TARGET_SRC_HASH})
 endif()
 
+if(OCOS_ENABLE_AUDIO)
+  include(dr_libs)
+  file(GLOB TARGET_SRC_AUDIO "operators/audio/*.*")
+  list(APPEND TARGET_SRC_NOEXCEPTION ${TARGET_SRC_AUDIO})
+endif()
+
 if(OCOS_ENABLE_RE2_REGEX)
   file(GLOB TARGET_SRC_RE2_KERNELS "operators/text/re2_strings/*.cc" "operators/text/re2_strings/*.h*")
   list(APPEND TARGET_SRC_NOEXCEPTION ${TARGET_SRC_RE2_KERNELS})
@@ -418,6 +425,11 @@ if(OCOS_ENABLE_DLIB)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_DLIB)
 endif()
 
+if (OCOS_ENABLE_AUDIO)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_DR_LIBS)
+  target_include_directories(noexcep_operators PUBLIC ${dr_libs_SOURCE_DIR})
+endif()
+
 if(_HAS_TOKENIZER)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TOKENIZER)
   target_include_directories(ocos_operators PUBLIC
@@ -485,7 +497,7 @@ if(OCOS_ENABLE_BLINGFIRE)
 endif()
 
 if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
-  target_include_directories(ocos_operators PRIVATE ${json_SOURCE_DIR}/single_include)
+  target_include_directories(ocos_operators PRIVATE ${nlohmann_json_SOURCE_DIR}/single_include)
   list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 
