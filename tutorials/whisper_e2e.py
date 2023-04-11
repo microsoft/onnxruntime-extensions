@@ -160,7 +160,8 @@ if __name__ == '__main__':
     model_name = "openai/whisper-base.en"
     onnx_model_name = "whisper-base.en_beamsearch.onnx"
     if not Path(onnx_model_name).is_file():
-        raise RuntimeError("Please run the script from where Whisper ONNX model was exported. like */onnx_models/openai")
+        raise RuntimeError(
+            "Please run the script from where Whisper ONNX model was exported. like */onnx_models/openai")
     
     _processor = WhisperProcessor.from_pretrained(model_name)
     if USE_ONNX_COREMODEL:

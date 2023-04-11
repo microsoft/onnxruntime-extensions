@@ -13,8 +13,15 @@ from onnxruntime_extensions import (
     OrtPyFunction,
     make_onnx_model,
     get_library_path as _get_library_path)
-import tensorflow as tf
-from tensorflow_text import SentencepieceTokenizer
+
+
+_is_tensorflow_avaliable = False
+try:
+    import tensorflow as tf
+    from tensorflow_text import SentencepieceTokenizer
+    _is_tensorflow_avaliable = True
+except ImportError:
+    pass
 
 
 def load_piece(name):
@@ -235,6 +242,7 @@ def _create_test_model_ragged_to_dense(
     return model
 
 
+@unittest.skipIf(not _is_tensorflow_avaliable, "tensorflow/tensorflow-text is unavailable")
 class TestPythonOpSentencePiece(unittest.TestCase):
 
     @classmethod
@@ -430,6 +438,8 @@ class TestPythonOpSentencePiece(unittest.TestCase):
             assert_almost_equal(exp[i], py_txout[i])
             assert_almost_equal(exp[i], cc_txout[i])
 
+
+class TestOrtXSentencePiece:
     def test_external_pretrained_model(self):
         fullname = util.get_test_data_file('data', 'en.wiki.bpe.vs100000.model')
         ofunc = OrtPyFunction.from_customop('SentencepieceTokenizer', model=open(fullname, 'rb').read())
