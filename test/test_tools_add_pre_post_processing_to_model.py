@@ -334,8 +334,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         import create_boxdrawing_model
 
         output_model = (Path(test_data_dir) / "../draw_bounding_box.onnx").resolve()
-        test_boxes = [np.array([[180.0, 220.0, 380.0, 450.0, 0.5, 0.0]], dtype=np.float32),
-                      np.array([[200.0, 35.0, 340.0, 220.0, 0.5, 0.0]], dtype=np.float32)]
+        test_boxes = [np.array([[220.0, 180.0, 450.0, 380.0, 0.5, 0.0]], dtype=np.float32),
+                      np.array([[35.0, 200.0, 220.0, 340.0, 0.5, 0.0]], dtype=np.float32)]
         ref_img = ['wolves_with_box_crop.jpg', 'wolves_with_box_pad.jpg']
         for idx, is_crop in enumerate([True, False]):
             output_img = (Path(test_data_dir) / f"../{ref_img[idx]}").resolve()
