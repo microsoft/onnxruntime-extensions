@@ -87,9 +87,9 @@ class BoxArray {
 void DrawLineInHorizon(ImageView& image, int64_t x_start, int64_t y_start, int64_t line_length,
                        gsl::span<const uint8_t> color, int64_t thickness) {
   // boundary check
-  thickness = std::clamp<int64_t>(thickness, 0, image.height - x_start);
+  thickness = std::clamp<int64_t>(thickness, 0, image.height - y_start);
   auto stride = image.width * image.channels;
-  auto point_start = image.data.begin() + x_start * stride + y_start * image.channels;
+  auto point_start = image.data.begin() + y_start * stride + x_start * image.channels;
   for (auto start = point_start; start < point_start + line_length * image.channels; start += image.channels) {
     std::copy_n(color.begin(), color.size(), start);
   }
@@ -104,9 +104,9 @@ void DrawLineInHorizon(ImageView& image, int64_t x_start, int64_t y_start, int64
 void DrawLineInVertical(ImageView& image, int64_t x_start, int64_t y_start, int64_t line_length,
                         gsl::span<const uint8_t> color, int64_t thickness) {
   // boundary check
-  thickness = std::clamp<int64_t>(thickness, 0, image.width - y_start);
+  thickness = std::clamp<int64_t>(thickness, 0, image.width - x_start);
   auto stride = image.width * image.channels;
-  auto point_start = image.data.begin() + x_start * stride + y_start * image.channels;
+  auto point_start = image.data.begin() + y_start * stride + x_start * image.channels;
   auto point_end = point_start + line_length * stride;
 
   for (int64_t i = 0; i < thickness; ++i) {
@@ -142,13 +142,13 @@ void DrawBox(ImageView& image, gsl::span<const float> box, BoundingBoxFormat bbo
   }
 
   // handle the case when the box is out of the image
-  int64_t x_end = static_cast<int64_t>(std::clamp(std::round(point_x3), 0.F, static_cast<float>(image.height - 1)));
-  int64_t y_end = static_cast<int64_t>(std::clamp(std::round(point_x4), 0.F, static_cast<float>(image.width - 1)));
+  int64_t x_end = static_cast<int64_t>(std::clamp(std::round(point_x3), 0.F, static_cast<float>(image.width - 1)));
+  int64_t y_end = static_cast<int64_t>(std::clamp(std::round(point_x4), 0.F, static_cast<float>(image.height - 1)));
   int64_t x_start = static_cast<int64_t>(std::clamp(std::round(point_x1), 0.F, static_cast<float>(x_end)));
   int64_t y_start = static_cast<int64_t>(std::clamp(std::round(point_x2), 0.F, static_cast<float>(y_end)));
 
   thickness = std::min<int64_t>(thickness, (std::min(x_end - x_start, y_end - y_start)));
-  // skip invalid box, e.g. x_start >= image.height or y_start >= image.width
+  // skip invalid box, e.g. x_start >= image.width or y_start >= image.height
   // or x_end==x_start or y_end==y_start
   if (thickness < 1) {
     return;
@@ -164,22 +164,24 @@ void DrawBox(ImageView& image, gsl::span<const float> box, BoundingBoxFormat bbo
   }
 
   // Clamp again to avoid out of bound with thickness
-  x_end = std::clamp<int64_t>(x_end, 0, image.height - 1);
-  y_end = std::clamp<int64_t>(y_end, 0, image.width - 1);
+  x_end = std::clamp<int64_t>(x_end, 0, image.width - 1);
+  y_end = std::clamp<int64_t>(y_end, 0, image.height - 1);
   x_start = std::clamp<int64_t>(x_start, 0, x_end);
   y_start = std::clamp<int64_t>(y_start, 0, y_end);
 
+  auto box_width = x_end - x_start;
+  auto box_height = y_end - y_start;
   // line  (1) --
-  DrawLineInHorizon(image, x_start, y_start, y_end - y_start, color, thickness);
+  DrawLineInHorizon(image, x_start, y_start, box_width, color, thickness);
 
   // line  (2) |--
-  DrawLineInVertical(image, x_start, y_start, x_end - x_start, color, thickness);
+  DrawLineInVertical(image, x_start, y_start, box_height, color, thickness);
 
   // line  (3) __
-  DrawLineInHorizon(image, x_end - thickness, y_start, y_end - y_start, color, thickness);
+  DrawLineInHorizon(image, x_start, y_end - thickness, box_width, color, thickness);
 
   // line  (4) --|
-  DrawLineInVertical(image, x_start, y_end - thickness, x_end - x_start, color, thickness);
+  DrawLineInVertical(image, x_end - thickness, y_start, box_height, color, thickness);
 }
 
 void DrawBoxesForNumClasses(ImageView& image, const BoxArray& boxes, int64_t thickness) {

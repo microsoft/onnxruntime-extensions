@@ -36,9 +36,10 @@ def create_model(output_file: Path, **kwargs):
 
     mode = kwargs.get("mode", "XYXY")
     colour_by_classes = kwargs.get("colour_by_classes", False)
+    thickness = kwargs.get("thickness", 4)
     pipeline.add_post_processing(
         [
-            DrawBoundingBoxes(mode=mode,colour_by_classes=colour_by_classes),
+            DrawBoundingBoxes(mode=mode, thickness=thickness, colour_by_classes=colour_by_classes),
             ConvertBGRToImage(image_format="png"),  # jpg or png are supported
         ]
     )
