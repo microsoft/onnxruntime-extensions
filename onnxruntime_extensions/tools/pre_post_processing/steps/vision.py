@@ -384,6 +384,8 @@ class Resize(Step):
         
         # Resize-18 has the attribute "not_larger/not_smaller" to specify the resize policy, however
         # we want to support older opsets as well. 
+        assert (self.policy_ in ["not_smaller", "not_larger"], 
+                f"Unsupported resize policy of {self.policy_}, must be 'not_smaller' or 'not_larger'")
         ratio_resize_func = "ReduceMax"
         if self.policy_ == "not_larger":
             ratio_resize_func = "ReduceMin"
