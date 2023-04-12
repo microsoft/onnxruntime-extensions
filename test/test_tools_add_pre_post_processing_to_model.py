@@ -328,7 +328,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
         return ort_sess.run(None, {'image': image, "boxes_in": test_boxes})[0]
 
-    def test_make_border_and_draw_box_crop_pad(self):
+    def test_draw_box_crop_pad(self):
         import sys
         sys.path.append(test_data_dir)
         import create_boxdrawing_model
@@ -344,7 +344,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
             output = self.draw_boxes_on_image(output_model, test_boxes[idx])
             self.assertEqual((image_ref == output).all(), True)
 
-    def test_make_border_and_draw_box_share_border(self):
+    def test_draw_box_share_border(self):
         import sys
         sys.path.append(test_data_dir)
         import create_boxdrawing_model
@@ -364,7 +364,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
         self.assertEqual((image_ref == output).all(), True)
 
-    def test_make_border_and_draw_box_off_boundary_box(self):
+    def test_draw_box_off_boundary_box(self):
         import sys
         sys.path.append(test_data_dir)
         import create_boxdrawing_model
@@ -384,7 +384,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
         self.assertEqual((image_ref == output).all(), True)
 
-    def test_make_border_and_draw_box_more_box_by_class_than_colors(self):
+    def test_draw_box_more_box_by_class_than_colors(self):
         import sys
         sys.path.append(test_data_dir)
         import create_boxdrawing_model
@@ -415,7 +415,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         self.assertEqual((image_ref == output).all(), True)
 
 
-    def test_make_border_and_draw_box_more_box_by_score_than_colors(self):
+    def test_draw_box_more_box_by_score_than_colors(self):
         import sys
         sys.path.append(test_data_dir)
         import create_boxdrawing_model
@@ -448,7 +448,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
 
     # a box with higher score should be drawn over a box with lower score
-    def test_make_border_and_draw_box_overlapping_with_priority(self):
+    def test_draw_box_overlapping_with_priority(self):
         import sys
         sys.path.append(test_data_dir)
         import create_boxdrawing_model
@@ -468,6 +468,25 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
         self.assertEqual((image_ref == output).all(), True)
 
+    def test_draw_box_with_large_thickness(self):
+        import sys
+        sys.path.append(test_data_dir)
+        import create_boxdrawing_model
+
+        output_model = (Path(test_data_dir) / "../draw_bounding_box.onnx").resolve()
+        test_boxes = np.array([
+            [0, 0, 40, 40, 0.5, 0.0],
+            [40, 40, 40, 40, 0.5, 0.0],
+            [478, 478, 480.0, 480.0, 0.5, 0.0],
+            [140, 140, 40.0, 40.0, 0.5, 0.0],
+        ], dtype=np.float32)
+
+        create_boxdrawing_model.create_model(output_model, mode="XYXY", thickness=1000)
+        output = self.draw_boxes_on_image(output_model, test_boxes)
+
+        output_img = (Path(test_data_dir) / f"../wolves_with_solid_box.jpg").resolve()
+        image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
+        self.assertEqual((image_ref == output).all(), True)
 
 if __name__ == "__main__":
     unittest.main()

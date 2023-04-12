@@ -8,6 +8,7 @@
 #include <array>
 #include <cmath>
 #include <cassert>
+#include <cstdint>
 #include <gsl/narrow>
 #include <gsl/span>
 #include <gsl/span_ext>
@@ -139,32 +140,34 @@ void DrawBox(ImageView& image, gsl::span<const float> box, BoundingBoxFormat bbo
     point_x3 = box[0] + box[2];
     point_x4 = box[1] + box[3];
   }
-  int64_t x_start = static_cast<int64_t>(std::round(point_x1));
-  int64_t y_start = static_cast<int64_t>(std::round(point_x2));
-  int64_t x_end = static_cast<int64_t>(std::round(point_x3));
-  int64_t y_end = static_cast<int64_t>(std::round(point_x4));
 
-  auto offset = thickness / 2;
-  x_start -= offset;
-  y_start -= offset;
-  x_end += (thickness - offset);
-  y_end += (thickness - offset);
+  // handle the case when the box is out of the image
+  int64_t x_end = static_cast<int64_t>(std::clamp(std::round(point_x3), 0.F, static_cast<float>(image.height - 1)));
+  int64_t y_end = static_cast<int64_t>(std::clamp(std::round(point_x4), 0.F, static_cast<float>(image.width - 1)));
+  int64_t x_start = static_cast<int64_t>(std::clamp(std::round(point_x1), 0.F, static_cast<float>(x_end)));
+  int64_t y_start = static_cast<int64_t>(std::clamp(std::round(point_x2), 0.F, static_cast<float>(y_end)));
 
-  x_start = std::max<int64_t>(x_start, 0L);
-  y_start = std::max<int64_t>(y_start, 0L);
-  x_end = std::min<int64_t>(x_end, image.height - 1);
-  y_end = std::min<int64_t>(y_end, image.width - 1);
-
-  thickness = std::clamp<int64_t>(thickness, 1, std::min(x_end - x_start, y_end - y_start));
-  if (x_end - x_start < thickness || y_end - y_start < thickness) {
-    ORTX_CXX_API_THROW("box is too small to draw", ORT_INVALID_ARGUMENT);
+  thickness = std::min<int64_t>(thickness, (std::min(x_end - x_start, y_end - y_start)));
+  // skip invalid box, e.g. x_start >= image.height or y_start >= image.width
+  // or x_end==x_start or y_end==y_start
+  if (thickness < 1) {
     return;
   }
-
-  if (x_start + thickness >= image.height || y_start + thickness >= image.width) {
-    ORTX_CXX_API_THROW("box is too small to draw", ORT_INVALID_ARGUMENT);
-    return;
+  
+  // If not all filled
+  if (thickness != (std::min(x_end - x_start, y_end - y_start))) {
+    auto offset = thickness / 2;
+    x_start -= offset;
+    y_start -= offset;
+    x_end += (thickness - offset);
+    y_end += (thickness - offset);
   }
+
+  // Clamp again to avoid out of bound with thickness
+  x_end = std::clamp<int64_t>(x_end, 0, image.height - 1);
+  y_end = std::clamp<int64_t>(y_end, 0, image.width - 1);
+  x_start = std::clamp<int64_t>(x_start, 0, x_end);
+  y_start = std::clamp<int64_t>(y_start, 0, y_end);
 
   // line  (1) --
   DrawLineInHorizon(image, x_start, y_start, y_end - y_start, color, thickness);
@@ -257,7 +260,6 @@ void DrawBoundingBoxes::Compute(OrtKernelContext* context) {
   } else {
     DrawBoxesByScore(image_view, boxes, gsl::narrow<int64_t>(thickness_));
   }
-
 }
 
 }  // namespace ort_extensions
