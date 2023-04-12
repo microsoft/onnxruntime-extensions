@@ -30,3 +30,6 @@ ONNXRuntime-Extensions will be built as a static library and linked with ONNXRun
 
 ## The C++ share library
 for any other cases, please run `build.bat` or `bash ./build.sh` to build the library. By default, the DLL or the library will be generated in the directory `out/<OS>/<FLAVOR>`. There is a unit test to help verify the build.
+
+## Copyright guidance
+check this link https://docs.opensource.microsoft.com/releasing/general-guidance/copyright-headers/ for source file copyright header.

@@ -1,13 +1,28 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
 import onnx
 import numpy
 import torch
-import librosa
-from transformers import WhisperProcessor
+from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
-
+# from onnx import compose
 from pathlib import Path
-from onnxruntime_extensions import PyOrtFunction
+from onnxruntime_extensions import PyOrtFunction, util
 from onnxruntime_extensions.cvt import HFTokenizerConverter
+
+
+# the flags for pre-processing
+USE_ONNX_STFT = False
+USE_ONNX_COREMODEL = True
+USE_AUDIO_DECODER = True
+
+
+if not USE_AUDIO_DECODER:
+    try:
+        import librosa
+    except ImportError:
+        raise ImportError("Please pip3 install librosa without ort-extensions audio codec support.")
+
 
 # hard-coded audio hyperparameters
 # copied from https://github.com/openai/whisper/blob/main/whisper/audio.py#L12
@@ -18,10 +33,6 @@ HOP_LENGTH = 160
 CHUNK_LENGTH = 30
 N_SAMPLES = CHUNK_LENGTH * SAMPLE_RATE  # 480000 samples in a 30-second chunk
 N_FRAMES = N_SAMPLES // HOP_LENGTH
-
-
-# torch tokenizer and models
-_processor = None
 
 
 class CustomOpStftNorm(torch.autograd.Function):
@@ -60,14 +71,15 @@ class WhisperPrePipeline(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.window = torch.hann_window(N_FFT)
-        self.mel_filters = torch.from_numpy(librosa.filters.mel(sr=SAMPLE_RATE, n_fft=N_FFT, n_mels=N_MELS))
+        self.mel_filters = torch.from_numpy(util.mel_filterbank(sr=SAMPLE_RATE, n_fft=N_FFT, n_mels=N_MELS))
 
     def forward(self, audio_pcm: torch.Tensor):
+        if USE_AUDIO_DECODER:
+            audio_pcm = audio_pcm.squeeze(0)
+
         pad_len = N_SAMPLES - audio_pcm.shape[0]
         audio_pcm = torch.nn.functional.pad(audio_pcm, (0, pad_len), mode='constant', value=0)
         audio_pcm = audio_pcm.unsqueeze(0)
-
-        USE_ONNX_STFT = True
 
         if USE_ONNX_STFT:
             stft = CustomOpStft.apply(audio_pcm, N_FFT, HOP_LENGTH, self.window)
@@ -85,10 +97,15 @@ class WhisperPrePipeline(torch.nn.Module):
         return log_spec
 
 
-def preprocessing(audio_pcm):
+def preprocessing(audio_data):
+    if USE_AUDIO_DECODER:
+        decoder = PyOrtFunction.from_customop("AudioDecoder")
+        audio_pcm = torch.from_numpy(decoder(audio_data.unsqueeze_(0).numpy()))
+    else:
+        audio_pcm = torch.from_numpy(audio_data)
+
     prep_model_name = Path('whisper_pre.onnx')
     WhisperProcessing = WhisperPrePipeline()
-    audio_pcm = torch.randn(N_SAMPLES).type(torch.float32)
 
     model_args = (audio_pcm,)
     torch.onnx.export(
@@ -106,34 +123,74 @@ def preprocessing(audio_pcm):
     )
 
     pre_f = PyOrtFunction.from_model(str(prep_model_name))
-    return pre_f(audio_pcm.numpy())
+    if not USE_AUDIO_DECODER:
+        return pre_f(audio_pcm.numpy())
+    else:
+        # pre_full = compose.merge_models(decoder.onnx_model, 
+        #                                 onnx.load_model("whisper_pre.onnx"),
+        #                                 io_map=[("floatPCM", "audio_pcm")])
+        # pre_f = PyOrtFunction.from_model(pre_full)
+
+        # onnx.compose has some bugs above, so we use the following workaround
+        import copy
+        new_graph_node = copy.deepcopy(pre_f.onnx_model.graph.node)
+        del pre_f.onnx_model.graph.input[:]
+        pre_f.onnx_model.graph.input.extend(decoder.onnx_model.graph.input)
+        decoder.onnx_model.graph.node[0].output[0] = "audio_pcm"
+        del pre_f.onnx_model.graph.node[:]
+        pre_f.onnx_model.graph.node.extend(decoder.onnx_model.graph.node)
+        pre_f.onnx_model.graph.node.extend(new_graph_node)
+        onnx.save_model(pre_f.onnx_model, "whisper_aud_pre.onnx")
+        pre_f = PyOrtFunction.from_model("whisper_aud_pre.onnx")
+        return pre_f(audio_data.numpy())
 
 
-def postprocessing(token_ids):
+def postprocessing(token_ids, hf_processor):
     fn_decoder = PyOrtFunction.from_customop(
         "BpeDecoder",
-        cvt=HFTokenizerConverter(_processor.tokenizer).bpe_decoder,
-        skip_special_tokens=False)
+        cvt=HFTokenizerConverter(hf_processor.tokenizer).bpe_decoder,
+        skip_special_tokens=True)
 
     onnx.save_model(fn_decoder.onnx_model, "whisper_post.onnx")
     return fn_decoder(token_ids)
 
 
 if __name__ == '__main__':
+    print("checking the model...")
+    model_name = "openai/whisper-base.en"
+    onnx_model_name = "whisper-base.en_beamsearch.onnx"
+    if not Path(onnx_model_name).is_file():
+        raise RuntimeError("Please run the script from where Whisper ONNX model was exported. like */onnx_models/openai")
+    
+    _processor = WhisperProcessor.from_pretrained(model_name)
+    if USE_ONNX_COREMODEL:
+        # The onnx model can be gereated by the following command:
+        #   python <ONNXRUNTIME_DIR>\onnxruntime\python\tools\transformers\models\whisper\convert_to_onnx.py
+        #       -m "openai/whisper-base.en" -e
+        # !only be valid after onnxruntime 1.15 or main branch of 04/04/2023
+        model = PyOrtFunction.from_model(onnx_model_name)
+    else:
+        model = WhisperForConditionalGeneration.from_pretrained(model_name)
 
-    print("preparing the model...")
-    _processor = WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
-    # create a fake tensor to create the model.
-    audio_pcm = torch.rand(16000, dtype=torch.float32)
+    test_file = util.get_test_data_file("../test/data", "1272-141231-0002.mp3")
+    if USE_AUDIO_DECODER:
+        with open(test_file, "rb") as _f:
+            audio_data = torch.asarray(list(_f.read()), dtype=torch.uint8)
+    else:
+        audio_data, _ = librosa.load(test_file)
 
-    # TODO: Add a audio recording here.
-
-    log_mel = preprocessing(audio_pcm)
+    log_mel = preprocessing(audio_data)
     print(log_mel.shape)
 
-    # TODO: temporarily create a fixed output to demo the post-process, will be removed later if
-    # onnx model with beam search model is ready.
-    tokens = _processor.tokenizer.tokenize("I was born in 92000, and this is falsé.")
-    ids = _processor.tokenizer.convert_tokens_to_ids(tokens)
-    text = postprocessing(numpy.asarray(ids, dtype=numpy.int64))
+    input_features = numpy.expand_dims(log_mel, axis=0)
+    if USE_ONNX_COREMODEL:
+        ort_outputs = model(input_features, numpy.asarray([200]),
+                            numpy.asarray([0]), numpy.asarray([2]), numpy.asarray([1]),
+                            numpy.asarray([1.0], dtype=numpy.float32), numpy.asarray([1.0], dtype=numpy.float32),
+                            numpy.zeros(input_features.shape).astype(numpy.int32))
+        generated_ids = ort_outputs[0]
+    else:
+        generated_ids = model.generate(torch.from_numpy(input_features)).numpy()
+
+    text = postprocessing(generated_ids[0], _processor)
     print(text)

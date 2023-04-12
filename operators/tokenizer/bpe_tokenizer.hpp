@@ -2,6 +2,7 @@
 // Partial code comes from other Microsoft employee.
 #pragma once
 #include "ocos.h"
+#include "narrow.h"
 #include "ustring.h"
 
 #include <regex>
@@ -184,7 +185,7 @@ class VocabData {
       }
       std::string w1 = line.substr(0, pos);
       std::string w2 = line.substr(pos + 1);
-      int token_length = w1.length() + w2.length();
+      int token_length = ort_extensions::narrow<int>(w1.length() + w2.length());
       if (w2.find("</w>") != std::string::npos || w1.find("</w>") != std::string::npos) {
         token_length -= 4;
       }
