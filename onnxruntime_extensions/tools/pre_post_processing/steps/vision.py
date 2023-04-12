@@ -650,7 +650,7 @@ class DrawBoundingBoxes(Step):
             thickness: Thickness of the box edge
             num_colours: Number of colours to use
                          We support 10 predefined colours and the other classes more than 10 wouldn't be drawn.
-                         colors are [red, Yellow, Lime, cyan, blue, magenta, Orange, Maroon, Green, Navy]
+                         colors are [Red, Yellow, Lime, Cyan, Blue, Magenta, Orange, Maroon, Green, Navy]
                          and are used in that order. i.e. result with best score will use red. 
             colour_by_classes: Colour boxes by classes or by score. 
                                If `True` we use a colour for each unique class, with all results from the top 
