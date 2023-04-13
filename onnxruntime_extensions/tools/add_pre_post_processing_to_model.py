@@ -162,6 +162,90 @@ def superresolution(model_file: Path, output_file: Path, output_format: str, onn
     onnx.save_model(new_model, str(output_file.resolve()))
 
 
+def yolo_detection(model_file: Path, output_file: Path, output_format: str,
+                   onnx_opset: int = 16, num_classes: int = 80):
+    """
+    SSD-like model and Faster-RCNN-like model are including NMS inside already, You can find it from onnx model zoo.
+
+    This function target for Yolo detection model. It support YOLOv3-yolov8 models theoretically.
+    You should assure this model has only one input, and the input shape is [1, 3, h, w].
+    The model has either one or more outputs. 
+        If the model has one output, the output shape is [1,num_boxes, coor+(obj)+cls] 
+            or [1, coor+(obj)+cls, num_boxes].
+        If the model has more than one outputs, you should assure the first output shape is 
+            [1, num_boxes, coor+(obj)+cls] or [1, coor+(obj)+cls, num_boxes].
+    Note: (obj) means it's optional.
+
+    :param model_file: The model file path.
+    :param output_file: The output file path.
+    """
+    model = onnx.load(str(model_file.resolve(strict=True)))
+    inputs = [create_named_value("image", onnx.TensorProto.UINT8, ["num_bytes"])]
+
+    model_input_shape = model.graph.input[0].type.tensor_type.shape
+    model_output_shape = model.graph.output[0].type.tensor_type.shape
+
+    # Should we use 640*640 as default input shape if no specific shape provided?
+    w_in = model_input_shape.dim[-1].dim_value if model_input_shape.dim[-1].HasField("dim_value") else 640
+    h_in = model_input_shape.dim[-2].dim_value if model_input_shape.dim[-1].HasField("dim_value") else 640
+
+    # We have no idea if we need to transpose the output or not.
+    # To run the model and get the real shape is the only way to know the concrete shape.
+    # Steps are taking [1, num_boxes, coor+(obj)+cls] as the default output shape.
+    # Yolov8 yield [1, coor+cls, num_boxes] so we need to transpose the output.
+    need_transpose = False
+    if len(model.graph.input) == 1:
+        try:
+            import onnxruntime
+            import numpy as np
+            session = onnxruntime.InferenceSession(str(model_file), providers=["CPUExecutionProvider"])
+            input_name = session.get_inputs()[0].name
+            inp = {input_name: np.random.rand(1, 3, w_in, h_in).astype(dtype=np.float32)}
+            outputs = session.run(None,  inp)[0]
+            assert len(outputs.shape) == 3 and outputs.shape[0] == 1, "model output shape is not (1, n, m)"
+            if outputs.shape[1] < outputs.shape[2]:
+                need_transpose = True
+        except:
+            pass
+
+    pipeline = PrePostProcessor(inputs, onnx_opset)
+    pipeline.add_pre_processing(
+        [
+            ConvertImageToBGR(),  # jpg/png image to BGR in HWC layout
+            Resize((h_in, w_in), policy='not_larger'),
+            LetterBox(target_shape=(h_in, w_in)),
+            ChannelsLastToChannelsFirst(),
+            ImageBytesToFloat(),  # Convert to float in range 0..1
+            Unsqueeze([0]),  # add batch to fit the model input
+        ]
+    )
+    post_processing_steps = [
+        Squeeze([0]),
+        SplitOutBoxAndScore(num_classes=num_classes),
+        NMS(),
+        (LinearMapBox(),
+         [
+            utils.IoMapEntry("ConvertImageToBGR", producer_idx=0, consumer_idx=1),
+            utils.IoMapEntry("Resize", producer_idx=0, consumer_idx=2),
+            utils.IoMapEntry("LetterBox", producer_idx=0, consumer_idx=3),
+        ]),
+        (DrawBoundingBoxes(mode='CENTER_XYWH', num_classes=num_classes),
+         [
+            utils.IoMapEntry("ConvertImageToBGR", producer_idx=0, consumer_idx=0),
+            utils.IoMapEntry("LinearMapBox", producer_idx=0, consumer_idx=1),
+        ]),
+        ConvertBGRToImage(image_format=output_format),
+    ]
+    if need_transpose:
+        post_processing_steps.insert(1, Transpose([1, 0]))
+
+    pipeline.add_post_processing(post_processing_steps)
+
+    new_model = pipeline.run(model)
+    new_mode = onnx.shape_inference.infer_shapes(new_model)
+    onnx.save_model(new_model, str(output_file.resolve()))
+
+
 class NLPTaskType(enum.Enum):
     TokenClassification = enum.auto()
     QuestionAnswering = enum.auto()
@@ -246,13 +330,14 @@ def main():
         Vision models:
             - super resolution with YCbCr input
             - imagenet trained mobilenet
+            - object detection with YOLOv3-YOLOV8
+
         NLP models:
-        
             - MobileBert with different tasks
             - XLM-Roberta with classification task
 
         For Vision models:
-            To customize, the logic in the `mobilenet` and `superresolution` functions can be used as a guide.
+            To customize, the logic in the `mobilenet`, `superresolution` and `yolo_detection` functions can be used as a guide.
         Create a pipeline and add the required pre/post processing 'Steps' in the order required. Configure 
         individual steps as needed.
         
@@ -266,6 +351,10 @@ def main():
 
         The updated model will be written in the same location as the original model, 
         with '.onnx' updated to '.with_pre_post_processing.onnx'
+
+        Example usage:
+            object detection:
+            - python -m onnxruntime_extensions.tools.add_pre_post_processing_to_model -t yolo -num_classes 80  yolov8n.onnx  
         """,
     )
 
@@ -277,6 +366,7 @@ def main():
         choices=[
             "superresolution",
             "mobilenet",
+            "yolo",
             "transformers",
         ],
         help="Model type.",
@@ -303,6 +393,13 @@ def main():
         choices=["jpg", "png"],
         default="png",
         help="Image output format for superresolution model to produce.",
+    )
+
+    parser.add_argument(
+        "--num_classes",
+        type=int,
+        default=80,
+        help="number of classes in object detection model.",
     )
 
     parser.add_argument(
@@ -347,8 +444,9 @@ def main():
         source = ModelSource.PYTORCH if args.model_source == "pytorch" else ModelSource.TENSORFLOW
         mobilenet(model_path, new_model_path, source, args.opset)
     elif args.model_type == "superresolution":
-        superresolution(model_path, new_model_path,
-                        args.output_format, args.opset)
+        superresolution(model_path, new_model_path, args.output_format, args.opset)
+    elif args.model_type == "yolo":
+        yolo_detection(model_path, new_model_path, args.output_format, args.opset, args.num_classes)
     else:
         if args.vocab_file is None or args.nlp_task_type is None or args.tokenizer_type is None:
             parser.error("Please provide vocab file/nlp_task_type/tokenizer_type.")
