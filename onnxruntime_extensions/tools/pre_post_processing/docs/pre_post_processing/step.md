@@ -50,11 +50,11 @@ Classes
     * pre_post_processing.steps.vision.FloatToImageBytes
     * pre_post_processing.steps.vision.ImageBytesToFloat
     * pre_post_processing.steps.vision.LetterBox
-    * pre_post_processing.steps.vision.LinearMapBox
-    * pre_post_processing.steps.vision.NMS
     * pre_post_processing.steps.vision.Normalize
     * pre_post_processing.steps.vision.PixelsToYCbCr
     * pre_post_processing.steps.vision.Resize
+    * pre_post_processing.steps.vision.ScaleBoundingBoxes
+    * pre_post_processing.steps.vision.SelectBestBoundingBoxesByNMS
     * pre_post_processing.steps.vision.SplitOutBoxAndScore
     * pre_post_processing.steps.vision.YCbCrToPixels
 

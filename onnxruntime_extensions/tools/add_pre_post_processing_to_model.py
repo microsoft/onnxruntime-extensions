@@ -162,10 +162,13 @@ def superresolution(model_file: Path, output_file: Path, output_format: str, onn
     onnx.save_model(new_model, str(output_file.resolve()))
 
 
-def yolo_detection(model_file: Path, output_file: Path, output_format: str,
-                   onnx_opset: int = 16, num_classes: int = 80):
+def yolo_detection(model_file: Path, output_file: Path, output_format: str = 'jpg',
+                   onnx_opset: int = 16, num_classes: int = 80, input_shape: List[int] = None):
     """
     SSD-like model and Faster-RCNN-like model are including NMS inside already, You can find it from onnx model zoo.
+
+    A pure detection model accept fix-sized(say 1,3,640,640) image as input, and output a list of bounding boxes, which
+    the numbers are determinate by anchors.
 
     This function target for Yolo detection model. It support YOLOv3-yolov8 models theoretically.
     You should assure this model has only one input, and the input shape is [1, 3, h, w].
@@ -185,16 +188,31 @@ def yolo_detection(model_file: Path, output_file: Path, output_format: str,
     model_input_shape = model.graph.input[0].type.tensor_type.shape
     model_output_shape = model.graph.output[0].type.tensor_type.shape
 
-    # Should we use 640*640 as default input shape if no specific shape provided?
-    w_in = model_input_shape.dim[-1].dim_value if model_input_shape.dim[-1].HasField("dim_value") else 640
-    h_in = model_input_shape.dim[-2].dim_value if model_input_shape.dim[-1].HasField("dim_value") else 640
+    # If there is no dim_value of shape in model, we will use the input_shape to create the model.
+    # Please make sure the input_shape is provided.
+    if model_input_shape.dim[-1].HasField("dim_value"):
+        w_in = model_input_shape.dim[-1].dim_value
+    else:
+        assert len(input_shape) == 4, "The input_shape should be [1, 3, h, w]."
+        input_shape[-1]
+    if model_input_shape.dim[-1].HasField("dim_value"):
+        h_in = model_input_shape.dim[-2].dim_value
+    else:
+        assert len(input_shape) == 4, "The input_shape should be [1, 3, h, w]."
+        h_in = input_shape[-2]
 
-    # We have no idea if we need to transpose the output or not.
-    # To run the model and get the real shape is the only way to know the concrete shape.
-    # Steps are taking [1, num_boxes, coor+(obj)+cls] as the default output shape.
-    # Yolov8 yield [1, coor+cls, num_boxes] so we need to transpose the output.
+    # yolov5(v3,v7) has an output of shape (batchSize, 25200, 85) (Num classes + box[x,y,w,h] + confidence[c])
+    # yolov8 has an output of shape (batchSize, 84,  8400) (Num classes + box[x,y,w,h])
+    # https://github.com/ultralytics/ultralytics/blob/e5cb35edfc3bbc9d7d7db8a6042778a751f0e39e/examples/YOLOv8-CPP-Inference/inference.cpp#L31-L33
+    # We always want the box info to be the last dim for each of iteration.
+    # An transpose needed to transform output to satisfy the requirement for YoloV8.
     need_transpose = False
-    if len(model.graph.input) == 1:
+
+    output_shape = [model_output_shape.dim[i].dim_value if model_output_shape.dim[i].HasField(
+        "dim_value") else -1 for i in [-2, -1]]
+    if output_shape[0] != -1  and  output_shape[1] != -1:
+        need_transpose = output_shape[0] < output_shape[1]
+    elif len(model.graph.input) == 1:
         try:
             import onnxruntime
             import numpy as np
@@ -209,33 +227,48 @@ def yolo_detection(model_file: Path, output_file: Path, output_format: str,
             pass
 
     pipeline = PrePostProcessor(inputs, onnx_opset)
+    # precess steps are responsible for converting any jpg/png image to CHW BGR float32 tensor
+    # jpg-->BGR(Image Tensor)-->Resize (scaled Image)-->LetterBox (Fix sized Image)-->(from HWC to)CHW-->float32-->1CHW
     pipeline.add_pre_processing(
         [
             ConvertImageToBGR(),  # jpg/png image to BGR in HWC layout
+            # Resize an arbitrary sized image to a fixed size in not_larger policy
             Resize((h_in, w_in), policy='not_larger'),
-            LetterBox(target_shape=(h_in, w_in)),
-            ChannelsLastToChannelsFirst(),
+            LetterBox(target_shape=(h_in, w_in)),  # padding or cropping the image to (h_in, w_in)
+            ChannelsLastToChannelsFirst(),  # HWC to CHW
             ImageBytesToFloat(),  # Convert to float in range 0..1
-            Unsqueeze([0]),  # add batch to fit the model input
+            Unsqueeze([0]),  # add batch, CHW --> 1CHW
         ]
     )
+    # NMS and drawing boxes
     post_processing_steps = [
         Squeeze([0]),
         SplitOutBoxAndScore(num_classes=num_classes),
-        NMS(),
-        (LinearMapBox(),
+        SelectBestBoundingBoxesByNMS(),
+        (ScaleBoundingBoxes(),
          [
+            # A connection from original image to ScaleBoundingBoxes
+            # A connection from the resized image to ScaleBoundingBoxes
+            # A connection from the LetterBoxed image to ScaleBoundingBoxes
+            # We can use the three image to calculate the scale factor and offset.
+            #With scale and offset, we can scale the bounding box back to the original image.
             utils.IoMapEntry("ConvertImageToBGR", producer_idx=0, consumer_idx=1),
             utils.IoMapEntry("Resize", producer_idx=0, consumer_idx=2),
             utils.IoMapEntry("LetterBox", producer_idx=0, consumer_idx=3),
         ]),
-        (DrawBoundingBoxes(mode='CENTER_XYWH', num_classes=num_classes),
+        # DrawBoundingBoxes on the original image
+        # Model imported from pytorch has CENTER_XYWH format
+        # two mode for how to color box, 
+        #   1. colour_by_classes=True, (colour_by_classes), 2. colour_by_classes=False,(colour_by_confidence)
+        (DrawBoundingBoxes(mode='CENTER_XYWH', num_classes=num_classes, colour_by_classes=True),
          [
             utils.IoMapEntry("ConvertImageToBGR", producer_idx=0, consumer_idx=0),
-            utils.IoMapEntry("LinearMapBox", producer_idx=0, consumer_idx=1),
+            utils.IoMapEntry("ScaleBoundingBoxes", producer_idx=0, consumer_idx=1),
         ]),
+        # Encode to jpg/png
         ConvertBGRToImage(image_format=output_format),
     ]
+    # transpose to (num_boxes, coor+conf) if needed
     if need_transpose:
         post_processing_steps.insert(1, Transpose([1, 0]))
 
@@ -354,7 +387,7 @@ def main():
 
         Example usage:
             object detection:
-            - python -m onnxruntime_extensions.tools.add_pre_post_processing_to_model -t yolo -num_classes 80  yolov8n.onnx  
+            - python -m onnxruntime_extensions.tools.add_pre_post_processing_to_model -t yolo -num_classes 80 --input_shape 1,3,640,640 yolov8n.onnx  
         """,
     )
 
@@ -399,7 +432,15 @@ def main():
         "--num_classes",
         type=int,
         default=80,
-        help="number of classes in object detection model.",
+        help="Number of classes in object detection model.",
+    )
+
+    parser.add_argument(
+        "--input_shape",
+        type=str,
+        default="",
+        help="To specify input shape for the model. Such as \"1,3,224,224\", \
+              If model has concrete shape, this would be ignored.",
     )
 
     parser.add_argument(
@@ -446,7 +487,10 @@ def main():
     elif args.model_type == "superresolution":
         superresolution(model_path, new_model_path, args.output_format, args.opset)
     elif args.model_type == "yolo":
-        yolo_detection(model_path, new_model_path, args.output_format, args.opset, args.num_classes)
+        input_shape = None
+        if args.input_shape != "":
+            input_shape = [int(x) for x in args.input_shape.split(",")]
+        yolo_detection(model_path, new_model_path, args.output_format, args.opset, args.num_classes, input_shape)
     else:
         if args.vocab_file is None or args.nlp_task_type is None or args.tokenizer_type is None:
             parser.error("Please provide vocab file/nlp_task_type/tokenizer_type.")

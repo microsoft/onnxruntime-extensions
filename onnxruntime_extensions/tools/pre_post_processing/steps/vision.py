@@ -781,7 +781,7 @@ class SplitOutBoxAndScore(Step):
             name: Optional name of step. Defaults to 'SplitOutBoxAndScore'
         """
             
-        super().__init__(["output"], ["_pre_boxes", "_pre_scores"], name)
+        super().__init__(["box_and_score"], ["_pre_boxes", "_pre_scores"], name)
         self.num_classes_ = num_classes
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
@@ -825,26 +825,28 @@ class SplitOutBoxAndScore(Step):
         return converter_graph
 
 
-class NMS(Step):
+class SelectBestBoundingBoxesByNMS(Step):
     """
     Non-maximum suppression (NMS) is to filter out redundant bounding boxes.
-    This step is used to warp the boxes and scores into onnx NMS op.
-    Input boxes has shape float[num_boxes, 4]
-    Input scores has shape float[num_boxes, num_classes]
+    This step is used to warp the boxes and scores into onnx SelectBestBoundingBoxesByNMS op.
+    Input:
+        boxes:  float[num_boxes, 4]
+        scores:  shape float[num_boxes, num_classes]
 
-    Output tensor has shape float[_few_num_boxes, 6<coordinate+score+class>]
+    Output:
+        nms_out: float[_few_num_boxes, 6<coordinate+score+class>]
     """
 
     def __init__(self, iou_threshold:float = 0.5, score_threshold:float = 0.67, 
                  max_detections:int = 300, name: Optional[str] = None):
         """
         Args:
-        Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#NonMaxSuppression
+        Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#SelectBestBoundingBoxesByNMS
         for more details about the parameters.
-            iou_threshold:  same as NMS op, intersection /union of boxes 
+            iou_threshold:  same as SelectBestBoundingBoxesByNMS op, intersection /union of boxes 
             score_threshold:  If this box's score is lower than score_threshold, it will be removed.
             max_detections:  max number of boxes to be selected
-            name: Optional name of step. Defaults to 'NMS'
+            name: Optional name of step. Defaults to 'SelectBestBoundingBoxesByNMS'
         """
         super().__init__(["boxes", "scores"], ["nms_out"], name)
         self.iou_threshold_ = iou_threshold
@@ -865,7 +867,7 @@ class NMS(Step):
 
         converter_graph = onnx.parser.parse_graph(
             f"""\
-            NMS (float[{input0_shape_str}] {self.input_names[0]},float[{input1_shape_str}] {self.input_names[1]}) 
+            SelectBestBoundingBoxesByNMS (float[{input0_shape_str}] {self.input_names[0]},float[{input1_shape_str}] {self.input_names[1]}) 
                 => (float[{target_shape_str}] {self.output_names[0]})  
             {{
                 i64_2 = Constant <value = int64[1] {{2}}>()
@@ -900,27 +902,28 @@ class NMS(Step):
         return converter_graph
 
 
-class LinearMapBox(Step):
+class ScaleBoundingBoxes(Step):
     """
     Mapping boxes coordinate to scale in original image.
     The coordinate of boxes from detection model is relative to the input image of network, 
     image is scaled and padded/cropped. So we need to do a linear mapping to get the real coordinate of original image.
     input:
-        ori_img: original image decoded from jpg/png<uint8_t>[H, W, 3<BGR>]
-        scaled_img: scaled image, but without padding/crop[<uint8_t>[H1, W1, 3<BGR>]
-        net_in_img: scaled image and with padding/crop[<uint8_t>[H2, W3, 3<BGR>]
-        nms_out: output of NMS, shape [num_boxes, 6]
+        box_of_nms_out: output of NMS, shape [num_boxes, 6]
+        original_image: original image decoded from jpg/png<uint8_t>[H, W, 3<BGR>]
+        scaled_image: scaled image, but without padding/crop[<uint8_t>[H1, W1, 3<BGR>]
+        letter_boxed_image: scaled image and with padding/crop[<uint8_t>[H2, W3, 3<BGR>]
     
     output:
-        scaled_nms_out: output of NMS, shape [num_boxes, 6], but the coordinate is mapped to original image.
+        scaled_box_out: shape [num_boxes, 6] with coordinate mapped to original image.
     """
 
     def __init__(self, name: Optional[str] = None):
         """
         Args:
-            name: Optional name of step. Defaults to 'LinearMapBox'
+            name: Optional name of step. Defaults to 'ScaleBoundingBoxes'
         """
-        super().__init__(["nms_out", "ori_img", "scaled_img", "net_in_img"], ["scaled_nms_out"], name)
+        super().__init__(["box_of_nms_out", "original_image", "scaled_image",
+                          "letter_boxed_image"], ["scaled_box_out"], name)
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         graph_input_param = []
@@ -945,7 +948,7 @@ class LinearMapBox(Step):
 
         converter_graph = onnx.parser.parse_graph(
             f"""\
-            LinearMapBox ({graph_input_param}) 
+            ScaleBoundingBoxes ({graph_input_param}) 
                 => ({graph_output_param})  
             {{
                 i64_2 = Constant <value = int64[1] {{2}}>()

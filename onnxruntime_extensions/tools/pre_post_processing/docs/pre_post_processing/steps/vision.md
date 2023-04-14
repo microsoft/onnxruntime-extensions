@@ -144,46 +144,6 @@ Classes
 
     * pre_post_processing.step.Step
 
-`LinearMapBox(name: Optional[str] = None)`
-:   Mapping boxes coordinate to scale in original image.
-    The coordinate of boxes from detection model is relative to the input image of network, 
-    image is scaled and padded/cropped. So we need to do a linear mapping to get the real coordinate of original image.
-    input:
-        ori_img: original image decoded from jpg/png<uint8_t>[H, W, 3<BGR>]
-        scaled_img: scaled image, but without padding/crop[<uint8_t>[H1, W1, 3<BGR>]
-        net_in_img: scaled image and with padding/crop[<uint8_t>[H2, W3, 3<BGR>]
-        nms_out: output of NMS, shape [num_boxes, 6]
-    
-    output:
-        scaled_nms_out: output of NMS, shape [num_boxes, 6], but the coordinate is mapped to original image.
-    
-    Args:
-        name: Optional name of step. Defaults to 'LinearMapBox'
-
-    ### Ancestors (in MRO)
-
-    * pre_post_processing.step.Step
-
-`NMS(iou_threshold: float = 0.5, score_threshold: float = 0.67, max_detections: int = 300, name: Optional[str] = None)`
-:   Non-maximum suppression (NMS) is to filter out redundant bounding boxes.
-    This step is used to warp the boxes and scores into onnx NMS op.
-    Input boxes has shape float[num_boxes, 4]
-    Input scores has shape float[num_boxes, num_classes]
-    
-    Output tensor has shape float[_few_num_boxes, 6<coordinate+score+class>]
-    
-    Args:
-    Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#NonMaxSuppression
-    for more details about the parameters.
-        iou_threshold:  same as NMS op, intersection /union of boxes 
-        score_threshold:  If this box's score is lower than score_threshold, it will be removed.
-        max_detections:  max number of boxes to be selected
-        name: Optional name of step. Defaults to 'NMS'
-
-    ### Ancestors (in MRO)
-
-    * pre_post_processing.step.Step
-
 `Normalize(normalization_values: List[Tuple[float, float]], layout: str = 'CHW', name: Optional[str] = None)`
 :   Normalize input data on a per-channel basis.
         `x -> (x - mean) / stddev`
@@ -230,6 +190,48 @@ Classes
                     while keeping the original aspect ratio.
                 Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#Resize for more details.
         name: Optional name. Defaults to 'Resize'
+
+    ### Ancestors (in MRO)
+
+    * pre_post_processing.step.Step
+
+`ScaleBoundingBoxes(name: Optional[str] = None)`
+:   Mapping boxes coordinate to scale in original image.
+    The coordinate of boxes from detection model is relative to the input image of network, 
+    image is scaled and padded/cropped. So we need to do a linear mapping to get the real coordinate of original image.
+    input:
+        box_of_nms_out: output of NMS, shape [num_boxes, 6]
+        original_image: original image decoded from jpg/png<uint8_t>[H, W, 3<BGR>]
+        scaled_image: scaled image, but without padding/crop[<uint8_t>[H1, W1, 3<BGR>]
+        letter_boxed_image: scaled image and with padding/crop[<uint8_t>[H2, W3, 3<BGR>]
+    
+    output:
+        scaled_box_out: shape [num_boxes, 6] with coordinate mapped to original image.
+    
+    Args:
+        name: Optional name of step. Defaults to 'ScaleBoundingBoxes'
+
+    ### Ancestors (in MRO)
+
+    * pre_post_processing.step.Step
+
+`SelectBestBoundingBoxesByNMS(iou_threshold: float = 0.5, score_threshold: float = 0.67, max_detections: int = 300, name: Optional[str] = None)`
+:   Non-maximum suppression (NMS) is to filter out redundant bounding boxes.
+    This step is used to warp the boxes and scores into onnx SelectBestBoundingBoxesByNMS op.
+    Input:
+        boxes:  float[num_boxes, 4]
+        scores:  shape float[num_boxes, num_classes]
+    
+    Output:
+        nms_out: float[_few_num_boxes, 6<coordinate+score+class>]
+    
+    Args:
+    Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#SelectBestBoundingBoxesByNMS
+    for more details about the parameters.
+        iou_threshold:  same as SelectBestBoundingBoxesByNMS op, intersection /union of boxes 
+        score_threshold:  If this box's score is lower than score_threshold, it will be removed.
+        max_detections:  max number of boxes to be selected
+        name: Optional name of step. Defaults to 'SelectBestBoundingBoxesByNMS'
 
     ### Ancestors (in MRO)
 
