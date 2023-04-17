@@ -4,7 +4,6 @@
 ###############################################################################
 import warnings
 import numpy as np
-import onnx.numpy_helper
 from onnx import helper, defs as onnx_defs, onnx_pb as onnx_proto
 from onnx.mapping import NP_TYPE_TO_TENSOR_TYPE
 
@@ -32,6 +31,10 @@ def onnx_builtin_opset_version():
     return onnx_defs.onnx_opset_version()
 
 
+def get_maximum_opset_supported():
+    return min(DEFAULT_OPSET_NUMBER, onnx_builtin_opset_version())
+
+
 def make_model_ex(graph, imported_opset_pairs, target_default_opset, **kwargs):
     onnx_model = helper.make_model(graph, **kwargs)
 
@@ -42,7 +45,7 @@ def make_model_ex(graph, imported_opset_pairs, target_default_opset, **kwargs):
             if op_domain == '' or op_domain == 'ai.onnx':
                 # Initializers are a subset of graph inputs for IR_VERSION <= 3 (target opset < 8).
                 # Need upgrade opv since initializers are separate for IR_VERSION >= 4 to pass onnx.checker.
-                if op_version < 8 <= target_default_opset and target_default_opset is not None:
+                if op_version < 8 and target_default_opset is not None and target_default_opset >= 8:
                     op_version = 8
             purified_operator_set[op_domain] = op_version
         else:
@@ -209,10 +212,6 @@ class ONNXElementContainer:
         nn = cls.opdict_counter.get(name, 0)
         cls.opdict_counter[name] = nn + 1
         return name if nn == 0 else "{}_{}".format(name, nn+1)
-
-    @staticmethod
-    def get_api():
-        return ox
 
 
 def _create_name_or_use_existing_one(container, op_type, name):
@@ -560,13 +559,7 @@ class _ONNXOperatorAPI:
             elif isinstance(value, str):
                 attrs = {'name': name, 'value_string': value}
             else:
-                if isinstance(value, (list, tuple)):
-                    ts_value = onnx.numpy_helper.from_array(np.array(value), name)
-                elif isinstance(value, np.ndarray):
-                    ts_value = onnx.numpy_helper.from_array(value, name)
-                else:
-                    ts_value = value
-                attrs = {'name': name, 'value': ts_value}
+                attrs = {'name': name, 'value': value}
     
         container.add_node('Constant', [], output_name, op_version=op_version, **attrs)
         return output_name
@@ -1494,11 +1487,6 @@ class _ONNXOperatorAPI:
     def where(self, input_names, output_names, container, operator_name=None):
         name = _create_name_or_use_existing_one(container, 'where', operator_name)
         container.add_node('Where', input_names, output_names, op_version=9, name=name)
-        return output_names
-
-    def stft(self, input_names, output_names, container, operator_name=None, onesided=1):
-        name = _create_name_or_use_existing_one(container, 'STFT', operator_name)
-        container.add_node('STFT', input_names, output_names, op_version=17, name=name, onesided=onesided)
         return output_names
 
     def loop(self, input_names, output_names, container, operator_name=None, body=None):

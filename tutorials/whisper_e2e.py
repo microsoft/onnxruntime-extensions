@@ -147,7 +147,7 @@ def _torch_export(*arg, **kwargs):
 def preprocessing(audio_data):
     if USE_AUDIO_DECODER:
         decoder = PyOrtFunction.from_customop("AudioDecoder")
-        audio_pcm = torch.from_numpy(decoder(audio_data.unsqueeze_(0).numpy()))
+        audio_pcm = torch.from_numpy(decoder(audio_data))
     else:
         audio_pcm = torch.from_numpy(audio_data)
 
@@ -173,7 +173,7 @@ def preprocessing(audio_data):
 
     pre_f = PyOrtFunction.from_model(pre_model)
     if not USE_AUDIO_DECODER:
-        return pre_f(audio_pcm.numpy())
+        return pre_f(audio_data)
     else:
         pre_full = onnx.compose.merge_models(
             decoder.onnx_model, 
@@ -182,11 +182,11 @@ def preprocessing(audio_data):
         pre_f = PyOrtFunction.from_model(pre_full)
 
         onnx.save_model(pre_f.onnx_model, "whisper_codec_pre.onnx")
-        return pre_f(audio_data.numpy())
+        return pre_f(audio_data)
 
 
-def merge_models(core: str, output_model:str):
-    m_pre = onnx.load_model("whisper_codec_pre.onnx" if USE_AUDIO_DECODER else "whisper_codec_pre.onnx")
+def merge_models(core: str, output_model:str, audio_data):
+    m_pre = onnx.load_model("whisper_codec_pre.onnx" if USE_AUDIO_DECODER else "whisper_pre.onnx")
     m_core = onnx.load_model(core)
     m1 = onnx.compose.merge_models(m_pre, m_core, io_map=[("log_mel", "input_features")])
     m2 = onnx.load_model("whisper_post.onnx")
@@ -197,13 +197,23 @@ def merge_models(core: str, output_model:str):
     bpe_decoder_node.input.pop(0)
     bpe_decoder_node.input.extend(["generated_ids"])
     m_all.graph.node.extend([
-        make_node('Constant', [], ['squeeze0_axes_0'], value_int=1),
+        make_node('Constant', [], ['squeeze0_axes_0'], value_ints=[1]),
         make_node('Squeeze', ['sequences', 'squeeze0_axes_0'], ['squeeze0_output_0']),
         make_node('Cast', ['squeeze0_output_0'], ["generated_ids"], to=onnx.TensorProto.INT64),
         bpe_decoder_node
         ])
     onnx.save_model(m_all, output_model.replace(".onnx", "_.onnx"))
     optimize_model(m_all, output_model)
+    print(f"The final merged model was saved as: {output_model}")
+
+    print("Verify the final model...")
+    m_final = PyOrtFunction.from_model(output_model)
+    output_text = m_final(audio_data,
+                          np.asarray([200]),
+                          np.asarray([0]), np.asarray([2]), np.asarray([1]),
+                          np.asarray([1.0], dtype=np.float32), np.asarray([1.0], dtype=np.float32),
+                          np.zeros((1, N_MELS, N_FRAMES)).astype(np.int32))
+    print(output_text)
 
 
 def postprocessing(token_ids, hf_processor):
@@ -237,9 +247,10 @@ if __name__ == '__main__':
     test_file = util.get_test_data_file("../test/data", "1272-141231-0002.mp3")
     if USE_AUDIO_DECODER:
         with open(test_file, "rb") as _f:
-            audio_blob = torch.asarray(list(_f.read()), dtype=torch.uint8)
+            audio_blob = np.asarray(list(_f.read()), dtype=np.uint8)
     else:
         audio_blob, _ = librosa.load(test_file)
+    audio_blob = np.expand_dims(audio_blob, axis=0) # add a batch_size dimension
 
     log_mel = preprocessing(audio_blob)
     print(log_mel.shape)
@@ -258,4 +269,4 @@ if __name__ == '__main__':
     print(text)
 
     print("build the final model...")
-    merge_models(onnx_model_name, onnx_model_name.replace("beamsearch", "all"))
+    merge_models(onnx_model_name, onnx_model_name.replace("beamsearch", "all"), audio_blob)
