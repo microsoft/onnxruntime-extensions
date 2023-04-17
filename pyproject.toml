@@ -4,3 +4,6 @@ requires = ["setuptools", "wheel", "numpy>=1.18.5", "cmake"]  # PEP 508 specific
 
 [tool.black]
 line-length = 120
+
+[tool.ruff]
+line-length = 120

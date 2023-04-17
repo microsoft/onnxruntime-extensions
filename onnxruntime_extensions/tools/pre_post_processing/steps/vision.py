@@ -11,6 +11,8 @@ from .general import Transpose
 #
 # Image conversion
 #
+
+
 class ConvertImageToBGR(Step):
     """
     Convert the bytes of an image by decoding to BGR ordered uint8 values.
@@ -281,13 +283,21 @@ class Resize(Step):
     e.g. if image is 1200 x 600 and 300 x 300 is requested the result will be 600 x 300
     """
 
-    def __init__(self, resize_to: Union[int, Tuple[int, int]], layout: str = "HWC", name: Optional[str] = None):
+    def __init__(self, resize_to: Union[int, Tuple[int, int]], layout: str = "HWC",
+                 policy: str = "not_smaller", name: Optional[str] = None):
         """
         Args:
             resize_to: Target size. Can be a single value or a tuple with (target_height, target_width).
                        The aspect ratio will be maintained and neither height or width in the result will be smaller
                        than the requested value.
             layout: Input layout. 'NCHW', 'NHWC', 'CHW', 'HWC' and 'HW' are supported.
+            policy: not_smaller (default) 
+                        the sizes are adjusted so that no extent of the output is larger than the specified size, 
+                        while keeping the original aspect ratio
+                    not_larger
+                        the sizes are adjusted so that no extent of the output is smaller than the specified size, 
+                        while keeping the original aspect ratio.
+                    Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#Resize for more details.
             name: Optional name. Defaults to 'Resize'
         """
         super().__init__(["image"], ["resized_image"], name)
@@ -298,6 +308,7 @@ class Resize(Step):
             self._height, self._width = resize_to
 
         self._layout = layout
+        self.policy_ = policy
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
@@ -370,6 +381,14 @@ class Resize(Step):
             # Split now requires the number of outputs to be specified even though that can be easily inferred...
             split_input_shape_attr += f", num_outputs = {len(dims)}"
             split_new_sizes_attr += ", num_outputs = 2"
+        
+        # Resize-18 has the attribute "not_larger/not_smaller" to specify the resize policy, however
+        # we want to support older opsets as well. 
+        assert (self.policy_ in ["not_smaller", "not_larger"], 
+                f"Unsupported resize policy of {self.policy_}, must be 'not_smaller' or 'not_larger'")
+        ratio_resize_func = "ReduceMax"
+        if self.policy_ == "not_larger":
+            ratio_resize_func = "ReduceMin"
 
         resize_graph = onnx.parser.parse_graph(
             f"""\
@@ -382,7 +401,7 @@ class Resize(Step):
                 hw = Concat <axis = 0> (h, w)
                 f_hw = Cast <to = 1> (hw)
                 ratios = Div (target_size, f_hw)
-                ratio_resize = ReduceMax (ratios)
+                ratio_resize = {ratio_resize_func} (ratios)
                 f_hw2_exact = Mul (f_hw, ratio_resize)
                 f_hw2_round = Round (f_hw2_exact)
                 hw2 = Cast <to = 7> (f_hw2_round)
@@ -604,3 +623,140 @@ class ChannelsLastToChannelsFirst(Transpose):
         """
         perms = [0, 3, 1, 2] if has_batch_dim else [2, 0, 1]
         super().__init__(perms, name)
+
+
+class DrawBoundingBoxes(Step):
+    """
+    Draw boxes on BGR image at given position, image is channel last and ordered by BGR.
+    Input shape: <uint8_t>{height, width, 3<BGR>}
+    boxes: <float>{num_boxes, 6<x, y, x/w, y/h, score, class>}
+        The coordinates is the absolute pixel values in the picture. Its value is determined by `mode`.
+        we have different modes to represent the coordinates of the box.[XYXY, XYWH, CENTER_XYWH].
+        Please refer to the following link for more details. https://keras.io/api/keras_cv/bounding_box/formats/
+        **score** is the confidence of the box(object score * class probability) and **class** is the class of the box.
+
+    Output shape: <uint8_t>{height, width, 3<BGR>}
+    """
+
+    def __init__(self, mode: str = "XYXY", thickness: int = 4, num_classes: int = 10,
+                 colour_by_classes=False, name: Optional[str] = None):
+        """
+        Args:
+            mode: The mode of the boxes, 
+                    "XYXY" (xmin ymin xmax ymax)  All values in the XYXY format should be absolute pixel values.
+                    "XYWH" (xmin ymin width height) 
+                    "CENTER_XYWH" (x_center, y_center, width, height) 
+                                  All values in the CENTER_XYWH format should be absolute pixel values.
+
+
+            thickness: Thickness of the box edge
+            num_colours: Number of colours to use
+                         We support 10 predefined colours and the other classes more than 10 wouldn't be drawn.
+                         colors are [Red, Yellow, Lime, Cyan, Blue, Magenta, Orange, Maroon, Green, Navy]
+                         and are used in that order. i.e. result with best score will use red. 
+            colour_by_classes: Colour boxes by classes or by score. 
+                               If `True` we use a colour for each unique class, with all results from the top 
+                               `num_colours` classes displayed. A colour is only used for a single class. 
+                               If `False`, we draw boxes for the top `num_colours` results. A colour is used 
+                               for a single result, regardless of class.
+            name: Optional name of step. Defaults to 'DrawBoundingBoxes'
+        """
+        super().__init__(["image", "boxes"], ["image_out"], name)
+        self.thickness_ = thickness
+        self.num_classes_ = num_classes
+        self.colour_by_classes_ = colour_by_classes
+        self.mode_ = mode
+
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
+        input0_type_str, input0_shape_str = self._get_input_type_and_shape_strs(graph, 0)
+        input1_type_str, input1_shape_str = self._get_input_type_and_shape_strs(graph, 1)
+        assert input0_type_str == "uint8" and input1_type_str == "float"
+
+        assert str(input1_shape_str.split(",")[-1]) == "6"
+
+
+        output_shape_str = input0_shape_str
+        converter_graph = onnx.parser.parse_graph(
+            f"""\
+            bounding_box (uint8[{input0_shape_str}] {self.input_names[0]}, float[{input1_shape_str}] {self.input_names[1]}) 
+                => (uint8[{output_shape_str}] {self.output_names[0]})  
+            {{
+                {self.output_names[0]} = com.microsoft.extensions.DrawBoundingBoxes({self.input_names[0]}, {self.input_names[1]})
+            }}
+            """
+        )
+        op_attr = ["thickness", "num_classes", "colour_by_classes","mode"]
+        token_model_attr = []
+        token_model_attr.append(onnx.helper.make_attribute(op_attr[0], self.thickness_))
+        token_model_attr.append(onnx.helper.make_attribute(op_attr[1], self.num_classes_))
+        token_model_attr.append(onnx.helper.make_attribute(op_attr[2], int(self.colour_by_classes_)))
+        token_model_attr.append(onnx.helper.make_attribute(op_attr[3], self.mode_))
+        converter_graph.node[0].attribute.extend(token_model_attr)
+
+        return converter_graph
+
+
+class LetterBox(Step):
+    """
+    Image is channel last and ordered by BGR.
+    mainly used in object detection, it mostly follows behind resize operation. 
+    This step either add border or crop the image to satisfy network input.
+    -----          bbbbbbbbb
+    |img|    --- > bb-----bb  
+    -----          bb|img|bb
+                   bb-----bb
+                   bbbbbbbbb
+    If target_shape is less than the original image, it will crop the image in a center mode.
+    And the padding values will be negative and the Pad op performs cropping.
+
+    Input shape: <uint8_t>{height, width, 3<BGR>}
+    target_shape: <uint8_t>{out_height, out_width, 3<BGR>}
+    Output shape: specified by target_shape
+    """
+
+    def __init__(self, target_shape: Union[int, Tuple[int, int]], fill_value=0, name: Optional[str] = None):
+        """
+        Args:
+            target_shape: the size of the output image
+            fill_value:  a constant value used to fill the border
+            name: Optional name of step. Defaults to 'LetterBox'
+        """            
+        super().__init__(["image"], ["image_pad"], name)
+
+        self.target_shape_ = target_shape
+        self.fill_value_ = fill_value
+
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
+        input0_type_str, input0_shape_str = self._get_input_type_and_shape_strs(graph, 0)
+
+        assert len(input0_shape_str.split(',')) == 3, " expected BGR image"
+
+        target_shape_str = f"{self.target_shape_[0]}, {self.target_shape_[1]}, 3"
+
+        split_input_shape_attr = "axis = 0"
+        if onnx_opset >= 18:
+            # Split now requires the number of outputs to be specified even though that can be easily inferred...
+            split_input_shape_attr += f", num_outputs = 3"
+
+        converter_graph = onnx.parser.parse_graph(
+            f"""\
+            LetterBox (uint8[{input0_shape_str}] {self.input_names[0]}) 
+                => (uint8[{target_shape_str}] {self.output_names[0]})  
+            {{
+                target_size = Constant <value = int64[2] {{{(self.target_shape_[0])}, {(self.target_shape_[1])}}}> ()
+                i64_2 = Constant <value = int64[1] {{2}}>()
+                i64_0 = Constant <value = int64[1] {{0}}>()
+                const_val = Constant <value = uint8[1] {{{self.fill_value_}}}> ()
+                image_shape = Shape ({self.input_names[0]})
+                h,w,c = Split <{split_input_shape_attr}> (image_shape)
+                hw = Concat <axis = 0> (h, w)
+                pad_hw = Sub (target_size, hw)
+                half_pad_hw = Div (pad_hw, i64_2)
+                remainder_pad_hw = Sub (pad_hw, half_pad_hw)
+                pad_value = Concat <axis = 0> (half_pad_hw, i64_0,remainder_pad_hw,i64_0)
+                {self.output_names[0]} = Pad({self.input_names[0]}, pad_value, const_val)
+            }}
+            """
+        )
+
+        return converter_graph

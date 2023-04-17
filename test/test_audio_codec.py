@@ -43,8 +43,9 @@ class TestBpeTokenizer(unittest.TestCase):
         pcm_tensor = self.decoder(np.expand_dims(np.asarray(blob), axis=(0,)))
         self.assertTrue(pcm_tensor.shape[1] > len(blob))
         # lossy compression, so we can only check the range
-        np.testing.assert_allclose(np.asarray([np.max(pcm_tensor), np.average(pcm_tensor), np.min(pcm_tensor)]),
-                                   np.asarray([np.max(self.raw_data), np.average(self.raw_data), np.min(self.raw_data)]), atol=1e-01)
+        np.testing.assert_allclose(
+            np.asarray([np.max(pcm_tensor), np.average(pcm_tensor), np.min(pcm_tensor)]),
+            np.asarray([np.max(self.raw_data), np.average(self.raw_data), np.min(self.raw_data)]), atol=1e-01)
 
 
 if __name__ == "__main__":

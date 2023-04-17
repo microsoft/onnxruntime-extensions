@@ -20,6 +20,9 @@ function(read_version_file major_var minor_var patch_var)
 endfunction()
 
 set(CPACK_PACKAGE_NAME "onnxruntime_extensions")
+# Configure CPack to generate a NuGet package
+set(CPACK_GENERATOR "NuGet")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "onnxruntime-extensions: a pre-/post-processing library for ONNX Runtime")
 read_version_file(CPACK_PACKAGE_VERSION_MAJOR CPACK_PACKAGE_VERSION_MINOR CPACK_PACKAGE_VERSION_PATCH)
 set(VERSION ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH})
 
@@ -581,6 +584,17 @@ if(_BUILD_SHARED_LIBRARY)
     target_link_options(extensions_shared PRIVATE "/CETCOMPAT")
   endif()
 
+  # Set some properties of your target
+  set_target_properties(extensions_shared PROPERTIES
+    VERSION ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}
+    SOVERSION ${CPACK_PACKAGE_VERSION_MAJOR}
+  )
+
+  # Install your target
+  install(TARGETS extensions_shared
+    RUNTIME DESTINATION bin
+  )
+
 endif()
 
 if(OCOS_BUILD_PYTHON)
@@ -604,6 +618,9 @@ message(STATUS "Found the following requirements.txt: ${NO_USE_FILES}")
 foreach(nf ${NO_USE_FILES})
   execute_process(COMMAND ${CMAKE_COMMAND} -E remove ${nf})
 endforeach()
+
+# Run CPack to generate the NuGet package
+include(CPack)
 
 # test section
 if(OCOS_ENABLE_CTEST)
