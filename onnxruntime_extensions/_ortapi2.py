@@ -24,6 +24,9 @@ def get_opset_version_from_ort():
     }
 
     ort_ver_string = '.'.join(_ort.__version__.split('.')[0:2])
+    max_ver = max(_ORT_OPSET_SUPPORT_TABLE, key=_ORT_OPSET_SUPPORT_TABLE.get)
+    if ort_ver_string > max_ver:
+        ort_ver_string = max_ver
     return _ORT_OPSET_SUPPORT_TABLE.get(ort_ver_string, 11)
 
 
@@ -40,8 +43,6 @@ def make_onnx_model(graph, opset_version=0, extra_domain=default_opset_domain(),
 
 
 class OrtPyFunction:
-
-    __name__ = 'OrtPyFunction'
 
     @classmethod
     def get_ort_session_options(cls):
