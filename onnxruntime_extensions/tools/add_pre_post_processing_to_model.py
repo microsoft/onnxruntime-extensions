@@ -208,8 +208,8 @@ def yolo_detection(model_file: Path, output_file: Path, output_format: str = 'jp
     # An transpose needed to transform output to satisfy the requirement for YoloV8.
     need_transpose = False
 
-    output_shape = [model_output_shape.dim[i].dim_value if model_output_shape.dim[i].HasField(
-        "dim_value") else -1 for i in [-2, -1]]
+    output_shape = [model_output_shape.dim[i].dim_value if model_output_shape.dim[i].HasField("dim_value") else -1 
+                    for i in [-2, -1]]
     if output_shape[0] != -1  and  output_shape[1] != -1:
         need_transpose = output_shape[0] < output_shape[1]
     elif len(model.graph.input) == 1:
