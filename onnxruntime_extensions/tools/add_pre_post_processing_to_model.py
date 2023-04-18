@@ -188,43 +188,54 @@ def yolo_detection(model_file: Path, output_file: Path, output_format: str = 'jp
     model_input_shape = model.graph.input[0].type.tensor_type.shape
     model_output_shape = model.graph.output[0].type.tensor_type.shape
 
-    # If there is no dim_value of shape in model, we will use the input_shape to create the model.
-    # Please make sure the input_shape is provided.
-    if model_input_shape.dim[-1].HasField("dim_value"):
-        w_in = model_input_shape.dim[-1].dim_value
+    # We will use the input_shape to create the model if provided by user.
+    if input_shape is not None:
+        assert len(input_shape) == 2, "The input_shape should be [h, w]."
+        w_in = input_shape[1]
+        h_in = input_shape[0]
     else:
-        assert len(input_shape) == 4, "The input_shape should be [1, 3, h, w]."
-        input_shape[-1]
-    if model_input_shape.dim[-1].HasField("dim_value"):
-        h_in = model_input_shape.dim[-2].dim_value
-    else:
-        assert len(input_shape) == 4, "The input_shape should be [1, 3, h, w]."
-        h_in = input_shape[-2]
+        assert (model_input_shape.dim[-1].HasField("dim_value") and
+                model_input_shape.dim[-2].HasField("dim_value")), "please provide input_shape in the command args."
 
-    # yolov5(v3,v7) has an output of shape (batchSize, 25200, 85) (Num classes + box[x,y,w,h] + confidence[c])
-    # yolov8 has an output of shape (batchSize, 84,  8400) (Num classes + box[x,y,w,h])
+        w_in = model_input_shape.dim[-1].dim_value
+        h_in = model_input_shape.dim[-2].dim_value
+
+    # Yolov5(v3,v7) has an output of shape (batchSize, 25200, 85) (Num classes + box[x,y,w,h] + confidence[c])
+    # Yolov8 has an output of shape (batchSize, 84,  8400) (Num classes + box[x,y,w,h])
     # https://github.com/ultralytics/ultralytics/blob/e5cb35edfc3bbc9d7d7db8a6042778a751f0e39e/examples/YOLOv8-CPP-Inference/inference.cpp#L31-L33
     # We always want the box info to be the last dim for each of iteration.
-    # An transpose needed to transform output to satisfy the requirement for YoloV8.
+    # For new variants like YoloV8, we need to add an transpose op to permute output back.
     need_transpose = False
 
-    output_shape = [model_output_shape.dim[i].dim_value if model_output_shape.dim[i].HasField("dim_value") else -1 
+    output_shape = [model_output_shape.dim[i].dim_value if model_output_shape.dim[i].HasField("dim_value") else -1
                     for i in [-2, -1]]
-    if output_shape[0] != -1  and  output_shape[1] != -1:
+    if output_shape[0] != -1 and output_shape[1] != -1:
         need_transpose = output_shape[0] < output_shape[1]
-    elif len(model.graph.input) == 1:
+    elif len(model.graph.input) > 1:
+        print(""" warning!!
+            The model has more than one inputs and the output shape is not fixed.
+            Output shape would be assumed to be [num_boxes, num_classes+4(reg)].
+            If this behavior is not expected, please run the onnx shape inference first to \
+            infer the output shape then run this script again.""")
+    else:
         try:
-            import onnxruntime
             import numpy as np
-            session = onnxruntime.InferenceSession(str(model_file), providers=["CPUExecutionProvider"])
-            input_name = session.get_inputs()[0].name
-            inp = {input_name: np.random.rand(1, 3, w_in, h_in).astype(dtype=np.float32)}
-            outputs = session.run(None,  inp)[0]
-            assert len(outputs.shape) == 3 and outputs.shape[0] == 1, "model output shape is not (1, n, m)"
-            if outputs.shape[1] < outputs.shape[2]:
-                need_transpose = True
-        except:
-            pass
+            import onnxruntime
+        except ImportError:
+            raise ImportError(
+                "Please install onnxruntime and numpy to run this script. eg 'pip install onnxruntime numpy'")
+
+        # Generate a random input to run the model and infer the output shape.
+        session = onnxruntime.InferenceSession(str(model_file), providers=["CPUExecutionProvider"])
+        input_name = session.get_inputs()[0].name
+        input_type = onnx.mapping.TENSOR_TYPE_TO_NP_TYPE[model.graph.input[0].type.tensor_type.elem_type]
+        inp = {input_name: np.random.rand(1, 3, w_in, h_in).astype(dtype=input_type)}
+        outputs = session.run(None,  inp)[0]
+        assert len(outputs.shape) == 3 and outputs.shape[0] == 1, "shape of the first model output is not (1, n, m)"
+        if outputs.shape[1] < outputs.shape[2]:
+            need_transpose = True
+        assert num_classes+4 == outputs.shape[2] or num_classes+5 == outputs.shape[2], \
+            "The output shape is neither (1, num_boxes, num_classes+4(reg)) nor (1, num_boxes, num_classes+5(reg+obj))"
 
     pipeline = PrePostProcessor(inputs, onnx_opset)
     # precess steps are responsible for converting any jpg/png image to CHW BGR float32 tensor
@@ -251,14 +262,14 @@ def yolo_detection(model_file: Path, output_file: Path, output_format: str = 'jp
             # A connection from the resized image to ScaleBoundingBoxes
             # A connection from the LetterBoxed image to ScaleBoundingBoxes
             # We can use the three image to calculate the scale factor and offset.
-            #With scale and offset, we can scale the bounding box back to the original image.
+            # With scale and offset, we can scale the bounding box back to the original image.
             utils.IoMapEntry("ConvertImageToBGR", producer_idx=0, consumer_idx=1),
             utils.IoMapEntry("Resize", producer_idx=0, consumer_idx=2),
             utils.IoMapEntry("LetterBox", producer_idx=0, consumer_idx=3),
         ]),
         # DrawBoundingBoxes on the original image
         # Model imported from pytorch has CENTER_XYWH format
-        # two mode for how to color box, 
+        # two mode for how to color box,
         #   1. colour_by_classes=True, (colour_by_classes), 2. colour_by_classes=False,(colour_by_confidence)
         (DrawBoundingBoxes(mode='CENTER_XYWH', num_classes=num_classes, colour_by_classes=True),
          [
@@ -387,7 +398,7 @@ def main():
 
         Example usage:
             object detection:
-            - python -m onnxruntime_extensions.tools.add_pre_post_processing_to_model -t yolo -num_classes 80 --input_shape 1,3,640,640 yolov8n.onnx  
+            - python -m onnxruntime_extensions.tools.add_pre_post_processing_to_model -t yolo -num_classes 80 --input_shape 640,640 yolov8n.onnx  
         """,
     )
 
@@ -439,8 +450,8 @@ def main():
         "--input_shape",
         type=str,
         default="",
-        help="To specify input shape for the model. Such as \"1,3,224,224\", \
-              If model has concrete shape, this would be ignored.",
+        help="To specify input image shape(height,width) for the model. Such as \"224,224\", \
+              Tools will ask onnx model for input shape if input_shape is not specified.",
     )
 
     parser.add_argument(
