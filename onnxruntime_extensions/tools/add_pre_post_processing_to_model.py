@@ -179,8 +179,12 @@ def yolo_detection(model_file: Path, output_file: Path, output_format: str = 'jp
             [1, num_boxes, coor+(obj)+cls] or [1, coor+(obj)+cls, num_boxes].
     Note: (obj) means it's optional.
 
-    :param model_file: The model file path.
-    :param output_file: The output file path.
+    :param model_file: The input model file path.
+    :param output_file: The output file path, where the finalized model saved to.
+    :param output_format: The output image format, jpg or png.
+    :param onnx_opset: The opset version of onnx model, default(16).
+    :param num_classes: The number of classes, default(80).
+    :param input_shape: The shape of input image (height,width), default will be asked from model input.
     """
     model = onnx.load(str(model_file.resolve(strict=True)))
     inputs = [create_named_value("image", onnx.TensorProto.UINT8, ["num_bytes"])]
@@ -213,17 +217,19 @@ def yolo_detection(model_file: Path, output_file: Path, output_format: str = 'jp
         need_transpose = output_shape[0] < output_shape[1]
     elif len(model.graph.input) > 1:
         print(""" warning!!
-            The model has more than one inputs and the output shape is not fixed.
-            Output shape would be assumed to be [num_boxes, num_classes+4(reg)].
+            The model possesses more than one inputs, indicating we can't generate the input 
+ data and map to model inputs to execute model by onnx-runtime and we can't get concrete output shape.
+            Output shape will be assumed to be [num_boxes, num_classes+4(reg)].
             If this behavior is not expected, please run the onnx shape inference first to \
-            infer the output shape then run this script again.""")
+            infer the output shape out then run this script again.""")
     else:
         try:
             import numpy as np
             import onnxruntime
         except ImportError:
             raise ImportError(
-                "Please install onnxruntime and numpy to run this script. eg 'pip install onnxruntime numpy'")
+                """Please install onnxruntime and numpy to run this script. eg 'pip install onnxruntime numpy'.
+Because we need to execute the model to determine the output shape in order to add the correct post-processing""")
 
         # Generate a random input to run the model and infer the output shape.
         session = onnxruntime.InferenceSession(str(model_file), providers=["CPUExecutionProvider"])
@@ -253,10 +259,10 @@ def yolo_detection(model_file: Path, output_file: Path, output_format: str = 'jp
     )
     # NMS and drawing boxes
     post_processing_steps = [
-        Squeeze([0]),
-        SplitOutBoxAndScore(num_classes=num_classes),
-        SelectBestBoundingBoxesByNMS(),
-        (ScaleBoundingBoxes(),
+        Squeeze([0]), # - Squeeze to remove batch dimension
+        SplitOutBoxAndScore(num_classes=num_classes), # Separate bounding box and confidence outputs
+        SelectBestBoundingBoxesByNMS(), # Apply NMS to suppress bounding boxes
+        (ScaleBoundingBoxes(),  # Scale bounding box coords back to original image
          [
             # A connection from original image to ScaleBoundingBoxes
             # A connection from the resized image to ScaleBoundingBoxes

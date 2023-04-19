@@ -590,7 +590,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         
     def test_FastestDet(self):
         # https://github.com/dog-qiuqiu/FastestDet
-        # a minor fix is to adapt output with yolo output format, including bounding box regression inside.
+        # a minor fix is to acommodate output with yolo output format, including bounding box regression inside.
         input_model = os.path.join(test_data_dir, "FastestDet.onnx")
         output_model = os.path.join(test_data_dir, "FastestDet.updated.onnx")
         input_image_path = os.path.join(test_data_dir, "wolves.jpg")
