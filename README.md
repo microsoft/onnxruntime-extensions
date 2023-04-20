@@ -6,21 +6,22 @@
 
 Introduction: ONNXRuntime-Extensions is a library that extends the capability of the ONNX models and inference with ONNX Runtime, via ONNX Runtime Custom Operator ABIs. It includes a set of [ONNX Runtime Custom Operator](https://onnxruntime.ai/docs/reference/operators/add-custom-op.html) to support the common pre- and post-processing operators for vision, text, and nlp models. And it supports multiple languages and platforms, like Python on Windows/Linux/macOS, some mobile platforms like Android and iOS, and Web-Assembly etc. The basic workflow is to enhance a ONNX model firstly and then do the model inference with ONNX Runtime and ONNXRuntime-Extensions package.
 
-<table>
-<tr>
-<td>⚠️</td>
-<td>
-<strong>NOTE:</strong> most ONNXRuntime-Extensions packages are in <strong><em>active development</em></strong> and most packages require building from source. The package information will be updated here if it is published.
-</td>
-</tr>
-</table>
 
-## Quickstart with the experimental Python package
+## Quickstart
+
+### **Python installation**
+```bash
+pip install onnxruntime-extensions
+````
+
+
+### **nightly build**
 
 #### <strong>on Windows</strong>
-```bash
+```cmd
 pip install --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ onnxruntime-extensions
 ```
+Please ensure that you have met the prerequisites of onnxruntime-extensions (e.g., onnx and onnxruntime) in your Python environment.
 #### <strong>on Linux/macOS</strong>
 the packages are not ready yet, so it could be installed from source. Please make sure the compiler toolkit like gcc(later than g++ 8.0) or clang, and the tool <strong>cmake</strong> are installed before the following command
 ```bash
