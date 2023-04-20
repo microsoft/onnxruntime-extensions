@@ -94,6 +94,7 @@ def build_framework_for_platform_and_arch(
 def build_xcframework(
     output_dir: Path,
     platform_archs: Dict[str, List[str]],
+    build_target: str,
     config: str,
     opencv_dir: Path,
     ios_deployment_target: str,
@@ -112,43 +113,62 @@ def build_xcframework(
 
     platform_fat_framework_dirs = []
     for platform, archs in platform_archs.items():
-        assert len(archs) > 0, f"no arch specified for platform {platform}"
-        arch_framework_dirs = []
-        for arch in archs:
-            arch_framework_dir = build_framework_for_platform_and_arch(
-                intermediate_build_dir / f"{platform}/{arch}/{config}",
-                platform,
-                arch,
-                config,
-                opencv_dir,
-                ios_deployment_target,
-                cmake_extra_defines,
-            )
-
-            arch_framework_dirs.append(arch_framework_dir)
-
-            if headers_dir is None:
-                headers_dir = arch_framework_dir / "Headers"
-                framework_info_file = arch_framework_dir.parents[1] / "framework_info.json"
-
         platform_fat_framework_dir = intermediate_build_dir / f"{platform}/onnxruntime_extensions.framework"
-        _rmtree_if_existing(platform_fat_framework_dir)
-        platform_fat_framework_dir.mkdir()
-
-        # copy over files from arch-specific framework
-        for framework_file_relative_path in [Path("Headers"), Path("Info.plist")]:
-            src = arch_framework_dirs[0] / framework_file_relative_path
-            dst = platform_fat_framework_dir / framework_file_relative_path
-            if src.is_dir():
-                shutil.copytree(src, dst)
-            else:
-                shutil.copy(src, dst)
-
-        # combine arch-specific framework libraries
-        arch_libs = [str(framework_dir / "onnxruntime_extensions") for framework_dir in arch_framework_dirs]
-        _run([_lipo, "-create", "-output", str(platform_fat_framework_dir / "onnxruntime_extensions")] + arch_libs)
-
         platform_fat_framework_dirs.append(platform_fat_framework_dir)
+    
+    if build_target in ["lib", "xcframework"]:
+        for idx, (platform, archs) in enumerate(platform_archs.items()):
+            assert len(archs) > 0, f"no arch specified for platform {platform}"
+            arch_framework_dirs = []
+            for arch in archs:
+                arch_framework_dir = build_framework_for_platform_and_arch(
+                    intermediate_build_dir / f"{platform}/{arch}/{config}",
+                    platform,
+                    arch,
+                    config,
+                    opencv_dir,
+                    ios_deployment_target,
+                    cmake_extra_defines,
+                )
+
+                arch_framework_dirs.append(arch_framework_dir)
+
+                if headers_dir is None:
+                    headers_dir = arch_framework_dir / "Headers"
+                    framework_info_file = arch_framework_dir.parents[1] / "framework_info.json"
+
+            platform_fat_framework_dir = intermediate_build_dir / f"{platform}/onnxruntime_extensions.framework"
+            _rmtree_if_existing(platform_fat_framework_dir)
+            platform_fat_framework_dir.mkdir()
+
+            # copy over files from arch-specific framework
+            for framework_file_relative_path in [Path("Headers"), Path("Info.plist")]:
+                src = arch_framework_dirs[0] / framework_file_relative_path
+                dst = platform_fat_framework_dir / framework_file_relative_path
+                if src.is_dir():
+                    shutil.copytree(src, dst)
+                else:
+                    shutil.copy(src, dst)
+
+            # combine arch-specific framework libraries
+            arch_libs = [str(framework_dir / "onnxruntime_extensions") for framework_dir in arch_framework_dirs]
+            _run([_lipo, "-create", "-output", str(platform_fat_framework_dir / "onnxruntime_extensions")] + arch_libs)
+
+            assert platform_fat_framework_dirs[idx] == platform_fat_framework_dir
+    
+    if headers_dir:
+        # copy public headers
+        output_headers_dir = output_dir / "Headers"
+        _rmtree_if_existing(output_headers_dir)
+        shutil.copytree(headers_dir, output_headers_dir)
+
+    if framework_info_file:
+        # copy framework_info.json
+        shutil.copyfile(framework_info_file, output_dir / "framework_info.json")
+
+    # if build lib only, we're done
+    if build_target == "lib":
+        return
 
     # create xcframework
     xcframework_dir = output_dir / "onnxruntime_extensions.xcframework"
@@ -158,14 +178,6 @@ def build_xcframework(
     for platform_fat_framework_dir in platform_fat_framework_dirs:
         create_xcframework_args += ["-framework", str(platform_fat_framework_dir)]
     _run(create_xcframework_args)
-
-    # copy public headers
-    output_headers_dir = output_dir / "Headers"
-    _rmtree_if_existing(output_headers_dir)
-    shutil.copytree(headers_dir, output_headers_dir)
-
-    # copy framework_info.json
-    shutil.copyfile(framework_info_file, output_dir / "framework_info.json")
 
 
 def parse_args():
@@ -180,6 +192,12 @@ def parse_args():
         help="Path to output directory.",
     )
     parser.add_argument(
+        "--build_target",
+        default="xcframework",
+        choices=["lib", "xcframework","pack_xcframework"],
+        help="iOS deployment target.",
+    )
+    parser.add_argument(
         "--config",
         choices=["Debug", "Release", "RelWithDebInfo", "MinSizeRel"],
         default="Debug",
@@ -190,6 +208,7 @@ def parse_args():
         default="11.0",
         help="iOS deployment target.",
     )
+    
     parser.add_argument(
         "--platform-arch",
         nargs=2,
@@ -245,6 +264,7 @@ def main():
     build_xcframework(
         output_dir=args.output_dir,
         platform_archs=args.platform_archs,
+        build_target=args.build_target,
         config=args.config,
         opencv_dir=_repo_dir / "cmake/externals/opencv",
         ios_deployment_target=args.ios_deployment_target,

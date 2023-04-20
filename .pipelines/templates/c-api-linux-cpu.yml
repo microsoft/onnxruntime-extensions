@@ -1,0 +1,72 @@
+# This file contains the ADO job that build so-file on Linux
+parameters:
+- name: IsReleaseBuild
+  displayName: "Is this is a release build?"
+  type: boolean
+  default: false
+
+- name: AdditionalBuildFlags
+  displayName: Additional build flags for build.sh
+  type: string
+  default: ''
+
+- name: OrtExtensionsArch  
+  type: string
+
+- name: PoolName
+  type: string
+  default: 'aiinfra-Linux-CPU'
+  
+jobs:
+- job: Linux_C_API_Packaging_CPU_${{parameters.OrtExtensionsArch}}
+  
+  workspace:
+    clean: all
+  timeoutInMinutes:  210
+  pool: ${{parameters.PoolName}}
+  steps:
+    - checkout: self
+      clean: true
+      submodules: none
+
+    - task: ShellScript@2
+      displayName: 'build onnxruntime-extensions for Linux'
+      inputs:
+        scriptPath: 'build.sh'
+        args: 'RelWithDebInfo'
+        workingDirectory: '$(Build.SourcesDirectory)'
+
+    - template: set-package-version-variable-step.yml
+      parameters:
+        IsReleaseBuild: true
+        PackageVersionVariableName: ORT_EXTENSIONS_VERSION
+
+    - bash: |
+       cd $(Build.SourcesDirectory)
+
+       lib_target=$(Build.BinariesDirectory)/onnxruntime-extensions-linux-${{parameters.OrtExtensionsArch}}-$(ORT_EXTENSIONS_VERSION)/lib
+       mkdir -p $lib_target
+       BUILD_FLAVOR=RelWithDebInfo
+       OSNAME=$(uname -s)
+       cp out/${OSNAME}/$BUILD_FLAVOR/lib/libortextensions.so $lib_target
+
+      displayName: create and copy artifacts
+
+
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: '$(Build.BinariesDirectory)/onnxruntime-extensions-linux-${{parameters.OrtExtensionsArch}}-$(ORT_EXTENSIONS_VERSION)'
+        includeRootFolder: true
+        archiveType: 'tar' # Options: zip, 7z, tar, wim
+        tarCompression: 'gz'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/onnxruntime-extensions-linux-${{parameters.OrtExtensionsArch}}.tgz'
+        replaceExistingArchive: true
+       
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)'
+        artifactName: 'onnxruntime-extensions-linux-${{parameters.OrtExtensionsArch}}'
+
+    - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
+      displayName: 'Clean Agent Directories'
+      condition: always()

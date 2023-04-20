@@ -1,0 +1,105 @@
+parameters:
+- name: DoCompliance
+  displayName: Run Compliance Tasks?
+  type: boolean
+  default: true
+
+- name: DoEsrp
+  displayName: Run code sign tasks? Must be true if you are doing an OnnxRuntime extensions release.
+  type: boolean
+  default: false
+
+- name: buildArch
+  type: string
+
+- name: msbuildPlatform
+  type: string
+
+- name: packageName
+  displayName: Package name for nuget
+  type: string
+
+
+- name: stage_name_suffix
+  displayName: job name for nuget
+  type: string
+  default: ''
+
+- name: ort_build_pool_name
+  type: string
+  default: 'Win-CPU-2021'
+
+- name: UseIncreasedTimeoutForTests
+  displayName: Increase timeout for tests? Set it to false if you are doing an Onnx Runtime release.
+  type: boolean
+  default: false
+
+jobs:
+- job: Windows_Packaging_${{ parameters.stage_name_suffix }}
+  workspace:
+    clean: all
+  pool: ${{ parameters.ort_build_pool_name }}
+  ${{ if eq(parameters['UseIncreasedTimeoutForTests'], 'true') }}:
+    timeoutInMinutes: 1200
+  ${{ else }}:
+    timeoutInMinutes: 300
+
+  steps:
+    - checkout: self
+      clean: true
+      submodules: none
+
+    - task: BatchScript@1
+      displayName: 'build onnxruntime-extensions'
+      inputs:
+        filename: '.\build.bat'
+        args: "-A ${{parameters.msbuildPlatform}}"
+        modifyEnvironment: true
+        workingFolder: '$(Build.SourcesDirectory)'
+
+    - script: |
+        dir
+      workingDirectory: '$(Build.SourcesDirectory)/out/Windows/'
+      displayName: 'List built DLLs'
+
+    - script: |
+        cd out/Windows
+        ctest -C RelWithDebInfo --output-on-failure
+      displayName: Run C++ native tests
+      workingDirectory: '$(Build.SourcesDirectory)'
+
+    - task: PowerShell@2
+      displayName: 'Copy and Create artifacts'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $_OrtExtVersion=(cat version.txt)
+          echo "##vso[task.setvariable variable=OrtExtVersion;]$_OrtExtVersion"
+
+          cd ./out/Windows
+          $target_lib_path="$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.packageName}}-$_OrtExtVersion/lib"
+          New-Item $target_lib_path -ItemType Directory
+          cp bin\RelWithDebInfo\ortextensions.* $target_lib_path
+          cp lib/RelWithDebInfo/ortextensions.* $target_lib_path
+
+        workingDirectory: '$(Build.SourcesDirectory)'
+
+    - template: win-esrp-dll.yml
+      parameters:
+        FolderPath: '$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.packageName}}-$(OrtExtVersion)'
+        DisplayName: 'Sign DLL'
+        DoEsrp: 'true'
+
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: '$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.packageName}}-$(OrtExtVersion)'
+        includeRootFolder: true
+        archiveType: 'tar' # Options: zip, 7z, tar, wim
+        tarCompression: 'gz'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/onnxruntime-extensions-win-${{parameters.packageName}}.tgz'
+        replaceExistingArchive: true
+
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)'
+        artifactName: 'onnxruntime-extensions-win-${{parameters.packageName}}'

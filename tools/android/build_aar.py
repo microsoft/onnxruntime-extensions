@@ -55,6 +55,7 @@ def build_for_abi(
 def build_aar(
     output_dir: Path,
     config: str,
+    build_target: str,
     abis: List[str],
     api_level: int,
     sdk_path: Path,
@@ -72,17 +73,24 @@ def build_aar(
     intermediates_dir = output_dir / "intermediates"
     base_jnilibs_dir = intermediates_dir / "jnilibs" / config
 
-    for abi in abis:
-        build_dir = intermediates_dir / abi
-        build_for_abi(build_dir, config, abi, api_level, sdk_path, ndk_path, cmake_extra_defines)
+    if build_target in ["so", "aar"]:
+        for abi in abis:
+            build_dir = intermediates_dir / abi
+            build_for_abi(build_dir, config, abi, api_level, sdk_path, ndk_path, cmake_extra_defines)
 
-        # copy JNI library files to jnilibs_dir
-        jnilibs_dir = base_jnilibs_dir / abi
-        jnilibs_dir.mkdir(parents=True, exist_ok=True)
+            # copy JNI library files to jnilibs_dir
+            jnilibs_dir = base_jnilibs_dir / abi
+            jnilibs_dir.mkdir(parents=True, exist_ok=True)
 
-        jnilib_names = ["libonnxruntime_extensions4j_jni.so"]
-        for jnilib_name in jnilib_names:
-            shutil.copyfile(build_dir / config / "java" / "android" / abi / jnilib_name, jnilibs_dir / jnilib_name)
+            jnilib_names = ["libonnxruntime_extensions4j_jni.so"]
+            for jnilib_name in jnilib_names:
+                shutil.copyfile(build_dir / config / "java" / "android" / abi / jnilib_name, jnilibs_dir / jnilib_name)
+
+    # early return if only building JNI libraries
+    # To accerlate the build pipeline, we can build the JNI libraries first in parallel for different abi, 
+    # and then build the AAR package.
+    if build_target == "so":
+        return
 
     java_root = _repo_dir / "java"
     gradle_build_file = java_root / "build-android.gradle"
@@ -131,6 +139,14 @@ def parse_args():
         choices=["Debug", "Release", "RelWithDebInfo", "MinSizeRel"],
         default="Debug",
         help="CMake build configuration.",
+    )
+
+    parser.add_argument(
+        "--build_target",
+        type=str,
+        choices=["aar", "so", "pack_aar"],
+        default="aar",
+        help="Path to the Android NDK. Typically `<Android SDK>/ndk/<ndk_version>`.",
     )
 
     parser.add_argument(
@@ -198,6 +214,7 @@ def main():
     build_aar(
         output_dir=args.output_dir,
         config=args.config,
+        build_target=args.build_target,
         abis=args.abis,
         api_level=args.api_level,
         sdk_path=args.sdk_path,

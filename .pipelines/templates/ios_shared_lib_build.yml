@@ -1,0 +1,71 @@
+# packaging pipeline for onnxruntime-extensions Android AAR package
+parameters:
+- name: Platform
+  displayName: ios Platform
+  type: string
+- name: ios_arch
+  displayName: ios_arch
+  type: string
+- name: IsReleaseBuild
+  displayName: "Is this is a release build?"
+  type: boolean
+- name: UseDistributedBuild
+  displayName: UseDistributedBuild or not 
+  type: boolean
+
+  
+jobs:
+  - job: IOS_C_API_Packaging_${{ parameters.Platform }}_${{ parameters.ios_arch }}
+    condition: and(succeeded(), eq(true, ${{ parameters.UseDistributedBuild}}) )
+    pool:
+      vmImage: "macOS-12"
+    timeoutInMinutes: 120
+    variables:
+      buildConfig: Release
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: "3.9"
+          addToPath: true
+          architecture: "x64"
+
+      # iOS xcframework build doesn't work with CMake 3.25.1, pin to 3.25.0
+      - script: |
+          python -m pip install cmake==3.25.0
+        displayName: "Install CMake 3.25.0"
+
+      - template: set-package-version-variable-step.yml
+        parameters:
+          IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+          PackageVersionVariableName: ORT_EXTENSIONS_POD_VERSION
+
+      - script: |
+          python ./tools/gen_selectedops.py ./tools/ios/package_ops.config
+        displayName: "Generate selected ops CMake file"
+
+      - script: |
+          python ./tools/ios/build_xcframework.py \
+            --output-dir $(Build.BinariesDirectory)/xcframework_out \
+            --config $(buildConfig) \
+            --platform-arch  ${{ parameters.Platform }} ${{ parameters.ios_arch }} \
+            --build_target lib \
+            --cmake-extra-defines OCOS_ENABLE_SELECTED_OPLIST=ON
+        displayName: "Build xcframework"
+
+      - bash: |
+          set -e -x
+
+          lib_path_fix=intermediates/${{ parameters.Platform }}/${{ parameters.ios_arch }}/$(buildConfig)
+
+          mv $(Build.BinariesDirectory)/xcframework_out/$lib_path_fix $(Build.BinariesDirectory)/xcframework_out/${lib_path_fix}_tmp
+          mkdir $(Build.BinariesDirectory)/xcframework_out/$lib_path_fix
+          cp -r $(Build.BinariesDirectory)/xcframework_out/${lib_path_fix}_tmp/lib $(Build.BinariesDirectory)/xcframework_out/$lib_path_fix/
+          rm -rf $(Build.BinariesDirectory)/xcframework_out/${lib_path_fix}_tmp
+
+          tar -cvzf $(Build.ArtifactStagingDirectory)/onnxruntime-extensions-ios-${{ parameters.Platform }}-${{ parameters.ios_arch }}-lib.tar -C $(Build.BinariesDirectory)/ xcframework_out
+
+        displayName: "Assemble artifacts"
+
+      - publish: "$(Build.ArtifactStagingDirectory)"
+        artifact: onnxruntime-extensions-ios-${{ parameters.Platform }}-${{ parameters.ios_arch }}-lib
+        displayName: "Publish artifacts"

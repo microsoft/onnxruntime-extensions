@@ -1,0 +1,79 @@
+parameters:
+- name: MacosArch
+  type: string
+  values:
+  - 'x86_64'
+  - 'arm64'
+  - 'universal2'
+  default: 'x86_64'
+
+- name: WithCache
+  displayName: Build with Cache
+  type: boolean
+  default: false
+
+- name: AdditionalBuildFlags
+  displayName: Additional build flags for build.py
+  type: string
+  default: ''
+
+# Must be 1 or 0
+- name: AllowReleasedOpsetOnly
+  displayName: Whether unreleased onnx opsets are allowed
+  type: number
+  default: 1
+  values:
+  - 1
+  - 0
+
+jobs:
+- job: MacOS_C_API_Packaging_CPU_${{ parameters.MacosArch }}
+  workspace:
+    clean: all
+  variables:
+    MACOSX_DEPLOYMENT_TARGET: '10.14'
+    ALLOW_RELEASED_ONNX_OPSET_ONLY: ${{ parameters.AllowReleasedOpsetOnly }}
+    TODAY: $[format('{0:dd}{0:MM}{0:yyyy}', pipeline.startTime)]
+  pool:
+    vmImage: 'macOS-12'
+  timeoutInMinutes: 300
+  steps:
+  - checkout: self
+    clean: true
+    submodules: none
+
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '16.x'
+
+  #- template: set-version-number-variables-step.yml
+
+  - ${{ if eq(parameters.MacosArch, 'universal2') }}:
+    - template: mac-cpu-packaging-steps.yml
+      parameters:
+        MacosArch: ${{ parameters.MacosArch }}
+        AdditionalBuildFlags: ${{ parameters.AdditionalBuildFlags }} --cmake_extra_defines CMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+        WithCache: ${{ parameters.WithCache }}
+        ${{ if eq(parameters.WithCache, true) }}:
+          Today: $(TODAY)
+          CacheDir: $(ORT_CACHE_DIR)
+
+  - ${{ if eq(parameters.MacosArch, 'arm64') }}:
+    - template: mac-cpu-packaging-steps.yml
+      parameters:
+        MacosArch: ${{ parameters.MacosArch }}
+        AdditionalBuildFlags: ${{ parameters.AdditionalBuildFlags }} --cmake_extra_defines CMAKE_OSX_ARCHITECTURES=arm64
+        WithCache: ${{ parameters.WithCache }}
+        ${{ if eq(parameters.WithCache, true) }}:
+          Today: $(TODAY)
+          CacheDir: $(ORT_CACHE_DIR)
+
+  - ${{ if eq(parameters.MacosArch, 'x86_64') }}:
+    - template: mac-cpu-packaging-steps.yml
+      parameters:
+        MacosArch: ${{ parameters.MacosArch }}
+        AdditionalBuildFlags: ${{ parameters.AdditionalBuildFlags }}
+        WithCache: ${{ parameters.WithCache }}
+        ${{ if eq(parameters.WithCache, true) }}:
+          Today: $(TODAY)
+          CacheDir: $(ORT_CACHE_DIR)
