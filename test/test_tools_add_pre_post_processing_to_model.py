@@ -414,7 +414,6 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
         self.assertEqual((image_ref == output).all(), True)
 
-
     def test_draw_box_more_box_by_score_than_colors(self):
         import sys
         sys.path.append(test_data_dir)
@@ -446,8 +445,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
         self.assertEqual((image_ref == output).all(), True)
 
-
     # a box with higher score should be drawn over a box with lower score
+
     def test_draw_box_overlapping_with_priority(self):
         import sys
         sys.path.append(test_data_dir)
@@ -455,8 +454,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
         output_model = (Path(test_data_dir) / "../draw_bounding_box.onnx").resolve()
         test_boxes = np.array([
-            [0, 0, 240,240, 0.5, 0.0],
-            [40, 40, 240,240, 0.5, 0.0],
+            [0, 0, 240, 240, 0.5, 0.0],
+            [40, 40, 240, 240, 0.5, 0.0],
             [100, 100, 240.0, 240.0, 0.5, 0.0],
             [140, 140, 240.0, 240.0, 0.5, 0.0],
         ], dtype=np.float32)
@@ -485,6 +484,126 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         output = self.draw_boxes_on_image(output_model, test_boxes)
 
         output_img = (Path(test_data_dir) / f"../wolves_with_solid_box.jpg").resolve()
+        image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
+        self.assertEqual((image_ref == output).all(), True)
+
+    def create_pipeline_and_run_for_nms(self, output_model: Path, length: int,
+                                        iou_threshold: float = 0.5,
+                                        score_threshold: float = 0.7,
+                                        max_detections: int = 10):
+        import onnx
+        create_named_value = pre_post_processing.utils.create_named_value
+
+        inputs = [create_named_value("box_and_score", onnx.TensorProto.FLOAT, ["num_boxes", length])]
+
+        pipeline = pre_post_processing.PrePostProcessor(inputs)
+
+        pipeline.add_post_processing([
+            SplitOutBoxAndScore(num_classes=1),
+            SelectBestBoundingBoxesByNMS(iou_threshold=iou_threshold, score_threshold=score_threshold,
+                                         max_detections=max_detections),
+        ])
+
+        graph_def = onnx.parser.parse_graph(
+            f"""\
+            identity (float[num_boxes,{length}] _input)
+                => (float[num_boxes,{length}] _output)  
+            {{
+                _output = Identity(_input)
+            }}
+        """)
+        input_model = onnx.helper.make_model(graph_def, producer_name="onnx-1")
+        input_model.opset_import.pop()
+        input_model.opset_import.extend([onnx.helper.make_operatorsetid("", 16)])
+
+        new_model = pipeline.run(input_model)
+        onnx.save_model(new_model, output_model)
+
+    def test_NMS_and_drawing_box_without_confOfObj(self):
+        output_model = (Path(test_data_dir) / "../nms.onnx").resolve()
+        self.create_pipeline_and_run_for_nms(output_model, iou_threshold=0.9, length=5)
+        input_data = [
+            [0, 0, 240, 240, 0.75],
+            [10, 10, 240, 240, 0.75],
+            [50, 50, 240, 240, 0.75],
+            [150, 150, 240, 240, 0.75],
+        ]
+        input_data = np.array(input_data, dtype=np.float32)
+        output_data_ref = np.concatenate([input_data, np.zeros((4, 1))], axis=-1)
+
+        so = ort.SessionOptions()
+        so.register_custom_ops_library(get_library_path())
+        ort_sess = ort.InferenceSession(str(output_model), providers=['CPUExecutionProvider'], sess_options=so)
+
+        out = ort_sess.run(None, {'_input': input_data})[0]
+
+        self.assertEqual((out == output_data_ref).all(), True)
+
+    def test_NMS_and_drawing_box_with_confOfObj(self):
+        output_model = (Path(test_data_dir) / "../nms.onnx").resolve()
+        self.create_pipeline_and_run_for_nms(output_model, iou_threshold=0.9, score_threshold=0.5, length=6)
+        input_data = [
+            [0, 0, 240, 240, 0.75, 0.9],
+            [10, 10, 240, 240, 0.75, 0.9],
+            [50, 50, 240, 240, 0.75, 0.9],
+            [150, 150, 240, 240, 0.75, 0.9],
+        ]
+        input_data = np.array(input_data, dtype=np.float32)
+        output_data_ref = np.concatenate([input_data[:,0:-1], np.zeros((4, 1))], axis=-1)
+        output_data_ref[:, -2] = 0.67499
+
+        so = ort.SessionOptions()
+        so.register_custom_ops_library(get_library_path())
+        ort_sess = ort.InferenceSession(str(output_model), providers=['CPUExecutionProvider'], sess_options=so)
+
+        out = ort_sess.run(None, {'_input': input_data})[0]
+        self.assertEqual(np.abs(out-output_data_ref).max() < 10e-6, True)
+
+    def test_NMS_and_drawing_box_iou_and_score_threshold(self):
+        output_model = (Path(test_data_dir) / "../nms.onnx").resolve()
+        
+        def get_model_output():
+            input_data = [
+                [0, 0, 240, 240, 0.75, 0.9],
+                [10, 10, 240, 240, 0.85, 0.9],
+                [50, 50, 240, 240, 0.95, 0.9],
+                [150, 150, 240, 240, 0.99, 0.99],
+            ]
+            input_data = np.array(input_data, dtype=np.float32)
+
+            so = ort.SessionOptions()
+            so.register_custom_ops_library(get_library_path())
+            ort_sess = ort.InferenceSession(str(output_model), providers=['CPUExecutionProvider'], sess_options=so)
+
+            out = ort_sess.run(None, {'_input': input_data})[0]
+            return out
+            
+        expected_size = [24,12,6,18,12,6,18,12,6,]
+        idx = 0
+        for iou_threshold in [0.9, 0.75, 0.5]:
+            for score_threshold in [0.5, 0.8, 0.9]:
+                self.create_pipeline_and_run_for_nms(
+                    output_model, iou_threshold=iou_threshold, score_threshold=score_threshold, length=6)
+                out = get_model_output()
+                self.assertEqual(out.size, expected_size[idx])
+                idx += 1
+        
+    def test_FastestDet(self):
+        # https://github.com/dog-qiuqiu/FastestDet
+        # a minor fix is to accommodate output with yolo output format, including bounding box regression inside.
+        input_model = os.path.join(test_data_dir, "FastestDet.onnx")
+        output_model = os.path.join(test_data_dir, "FastestDet.updated.onnx")
+        input_image_path = os.path.join(test_data_dir, "wolves.jpg")
+
+        add_ppp.yolo_detection(Path(input_model), Path(output_model),input_shape=(352,352))
+
+        so = ort.SessionOptions()
+        so.register_custom_ops_library(get_library_path())
+        ort_sess = ort.InferenceSession(str(output_model), providers=['CPUExecutionProvider'], sess_options=so)
+        image = np.frombuffer(open(Path(test_data_dir)/'wolves.jpg', 'rb').read(), dtype=np.uint8)
+
+        output = ort_sess.run(None, {'image': image})[0]
+        output_img = (Path(test_data_dir) / f"../wolves_with_fastestDet.jpg").resolve()
         image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
         self.assertEqual((image_ref == output).all(), True)
 

@@ -81,7 +81,7 @@ Classes
         thickness: Thickness of the box edge
         num_colours: Number of colours to use
                      We support 10 predefined colours and the other classes more than 10 wouldn't be drawn.
-                     colors are [red, Yellow, Lime, cyan, blue, magenta, Orange, Maroon, Green, Navy]
+                     colors are [Red, Yellow, Lime, Cyan, Blue, Magenta, Orange, Maroon, Green, Navy]
                      and are used in that order. i.e. result with best score will use red. 
         colour_by_classes: Colour boxes by classes or by score. 
                            If `True` we use a colour for each unique class, with all results from the top 
@@ -190,6 +190,67 @@ Classes
                     while keeping the original aspect ratio.
                 Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#Resize for more details.
         name: Optional name. Defaults to 'Resize'
+
+    ### Ancestors (in MRO)
+
+    * pre_post_processing.step.Step
+
+`ScaleBoundingBoxes(name: Optional[str] = None)`
+:   Mapping boxes coordinate to scale in original image.
+    The coordinate of boxes from detection model is relative to the input image of network, 
+    image is scaled and padded/cropped. So we need to do a linear mapping to get the real coordinate of original image.
+    input:
+        box_of_nms_out: output of NMS, shape [num_boxes, 6]
+        original_image: original image decoded from jpg/png<uint8_t>[H, W, 3<BGR>]
+        scaled_image: scaled image, but without padding/crop[<uint8_t>[H1, W1, 3<BGR>]
+        letter_boxed_image: scaled image and with padding/crop[<uint8_t>[H2, W3, 3<BGR>]
+    
+    output:
+        scaled_box_out: shape [num_boxes, 6] with coordinate mapped to original image.
+    
+    Args:
+        name: Optional name of step. Defaults to 'ScaleBoundingBoxes'
+
+    ### Ancestors (in MRO)
+
+    * pre_post_processing.step.Step
+
+`SelectBestBoundingBoxesByNMS(iou_threshold: float = 0.5, score_threshold: float = 0.67, max_detections: int = 300, name: Optional[str] = None)`
+:   Non-maximum suppression (NMS) is to filter out redundant bounding boxes.
+    This step is used to warp the boxes and scores into onnx SelectBestBoundingBoxesByNMS op.
+    Input:
+        boxes:  float[num_boxes, 4]
+        scores:  shape float[num_boxes, num_classes]
+    
+    Output:
+        nms_out: float[_few_num_boxes, 6<coordinate+score+class>]
+    
+    Args:
+    Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#SelectBestBoundingBoxesByNMS
+    for more details about the parameters.
+        iou_threshold:  same as SelectBestBoundingBoxesByNMS op, intersection /union of boxes 
+        score_threshold:  If this box's score is lower than score_threshold, it will be removed.
+        max_detections:  max number of boxes to be selected
+        name: Optional name of step. Defaults to 'SelectBestBoundingBoxesByNMS'
+
+    ### Ancestors (in MRO)
+
+    * pre_post_processing.step.Step
+
+`SplitOutBoxAndScore(num_classes: int = 80, name: Optional[str] = None)`
+:   Split the output of the model into boxes and scores. This step will also handle the optional object score.
+    Input shape: <float>{num_boxes, 4/5+num_classes}
+    Output shape: <float>{num_boxes, 4}, <float>{num_boxes, num_classes}
+    |x1,x2,x3,x4, (obj), cls_1, ... cls_num|
+            /\
+           /  \
+    |x1,x2,x3,x4|  |cls_1, ... clx_num|*(obj)
+    obj is optional, if it is not present, it will be set to 1.0
+    This is where 4/5 comes from, '4' represent coordinates and the fifth object probability.
+    
+    Args:
+        num_classes: number of classes
+        name: Optional name of step. Defaults to 'SplitOutBoxAndScore'
 
     ### Ancestors (in MRO)
 
