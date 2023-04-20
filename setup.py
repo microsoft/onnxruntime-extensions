@@ -16,7 +16,6 @@ import subprocess
 
 from textwrap import dedent
 
-
 TOP_DIR = os.path.dirname(__file__) or os.getcwd()
 PACKAGE_NAME = 'onnxruntime_extensions'
 VSINSTALLDIR_NAME = 'VSINSTALLDIR'
@@ -25,8 +24,8 @@ VSINSTALLDIR_NAME = 'VSINSTALLDIR'
 def load_vsdevcmd():
     if os.environ.get(VSINSTALLDIR_NAME) is None:
         stdout, _ = subprocess.Popen([
-            'powershell', ' -noprofile', '-executionpolicy', 
-            'bypass', '-f',  TOP_DIR+'/tools/get_vsdevcmd.ps1', '-outputEnv', '1'],
+            'powershell', ' -noprofile', '-executionpolicy',
+            'bypass', '-f', TOP_DIR + '/tools/get_vsdevcmd.ps1', '-outputEnv', '1'],
             stdout=subprocess.PIPE, shell=False, universal_newlines=True).communicate()
         for line in stdout.splitlines():
             kv_pair = line.split('=')
@@ -36,21 +35,21 @@ def load_vsdevcmd():
         import shutil
         if shutil.which('cmake') is None:
             raise SystemExit(
-                "Cannot find cmake in the executable path, " +
-                "please install one or specify the environment variable VCVARS to the path of VS vcvars64.bat.")
+                "Cannot find cmake in the executable path, "
+                "please run this script under Developer Command Prompt for VS.")
 
 
 def read_git_refs():
     release_branch = False
     stdout, _ = subprocess.Popen(
-            ['git'] + ['log', '-1', '--format=%H'],
-            cwd=TOP_DIR,
-            stdout=subprocess.PIPE, universal_newlines=True).communicate()
+        ['git'] + ['log', '-1', '--format=%H'],
+        cwd=TOP_DIR,
+        stdout=subprocess.PIPE, universal_newlines=True).communicate()
     HEAD = dedent(stdout.splitlines()[0]).strip('\n\r')
     stdout, _ = subprocess.Popen(
-            ['git'] + ['show-ref', '--head'],
-            cwd=TOP_DIR,
-            stdout=subprocess.PIPE, universal_newlines=True).communicate()
+        ['git'] + ['show-ref', '--head'],
+        cwd=TOP_DIR,
+        stdout=subprocess.PIPE, universal_newlines=True).communicate()
     for _ln in stdout.splitlines():
         _ln = dedent(_ln).strip('\n\r')
         if _ln.startswith(HEAD):
@@ -108,11 +107,11 @@ class BuildCMakeExt(_build_ext):
             '--parallel' + ('' if cpu_number is None else ' ' + cpu_number)
         ]
         cmake_exe = 'cmake'
-        # unlike Linux/MacOS, cmake python package on Windows fails to build some 3rd party dependencies.
-        # so we have to use the cmake installed with Visual Studio.
+        # unlike Linux/macOS, cmake pip package on Windows fails to build some 3rd party dependencies.
+        # so we have to use the cmake installed from Visual Studio.
         if os.environ.get(VSINSTALLDIR_NAME):
-            cmake_exe = os.environ[VSINSTALLDIR_NAME] +\
-                'Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe'
+            cmake_exe = os.environ[VSINSTALLDIR_NAME] + \
+                        'Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe'
 
         self.spawn([cmake_exe, '-S', str(project_dir), '-B', str(build_temp)] + cmake_args)
         if not self.dry_run:
@@ -122,12 +121,19 @@ class BuildCMakeExt(_build_ext):
             config_dir = '.'
             if not (build_temp / 'build.ninja').exists():
                 config_dir = config
-            self.copy_file(build_temp / 'bin' / config_dir / 'extensions_pydll.dll', ext_fullpath)
+            self.copy_file(build_temp / 'bin' / config_dir / 'extensions_pydll.dll', ext_fullpath,
+                           link='hard' if self.debug else None)
         else:
-            self.copy_file(build_temp / 'lib' / ext_fullpath.name, ext_fullpath)
+            self.copy_file(build_temp / 'lib' / ext_fullpath.name, ext_fullpath,
+                           link='sym' if self.debug else None)
 
 
 class Build(_build):
+    def initialize_options(self) -> None:
+        super().initialize_options()
+        if os.environ.get('OCOS_SCB_DEBUG', None) == '1':
+            self.debug = True
+
     def finalize_options(self) -> None:
         # There is a bug in setuptools that prevents the build get the right platform name from arguments.
         # So, it cannot generate the correct wheel with the right arch in Official release pipeline.
@@ -135,7 +141,7 @@ class Build(_build):
         # Since extensions cmake is only available on x64 for Windows now, it is not a problem to hardcode it.
         if sys.platform == "win32" and "arm" not in sys.version.lower():
             self.plat_name = "win-amd64"
-        return super().finalize_options()
+        super().finalize_options()
 
 
 def read_requirements():

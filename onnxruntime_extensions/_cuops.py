@@ -54,6 +54,7 @@ class GPT2Tokenizer(CustomOp):
             cls.io_def('attention_mask', onnx.TensorProto.INT64, [None, None])
         ]
 
+
 class CLIPTokenizer(CustomOp):
 
     @classmethod
@@ -69,6 +70,7 @@ class CLIPTokenizer(CustomOp):
             cls.io_def('attention_mask', onnx.TensorProto.INT64, [None, None]),
             cls.io_def('offset_mapping', onnx.TensorProto.INT64, [None, None, 2])
         ]
+
 
 class RobertaTokenizer(CustomOp):
 
@@ -91,12 +93,12 @@ class BpeDecoder(CustomOp):
     @classmethod
     def get_inputs(cls):
         return [
-            cls.io_def("ids", onnx.TensorProto.INT64, [None])
+            cls.io_def("ids", onnx.TensorProto.INT64, [])
         ]
 
     @classmethod
     def get_outputs(cls):
-        return [cls.io_def('str', onnx_proto.TensorProto.STRING, [None])]
+        return [cls.io_def('str', onnx_proto.TensorProto.STRING, [])]
 
 
 class VectorToString(CustomOp):
