@@ -201,8 +201,10 @@ def merge_models(core: str, output_model:str, audio_data):
     print("Verify the final model...")
     m_final = PyOrtFunction.from_model(output_model)
     output_text = m_final(audio_data,
-                          np.asarray([200]),
-                          np.asarray([0]), np.asarray([2]), np.asarray([1]),
+                          np.asarray([200], dtype=np.int32),
+                          np.asarray([0], dtype=np.int32),
+                          np.asarray([2], dtype=np.int32),
+                          np.asarray([1], dtype=np.int32),
                           np.asarray([1.0], dtype=np.float32), np.asarray([1.0], dtype=np.float32),
                           np.zeros((1, N_MELS, N_FRAMES)).astype(np.int32))
     print(output_text)
@@ -257,9 +259,13 @@ if __name__ == '__main__':
     input_features = log_mel
     # similar to:
     # generated_ids = model.generate(torch.from_numpy(input_features)).numpy()
-    ort_outputs = model(input_features, np.asarray([200]),
-                        np.asarray([0]), np.asarray([2]), np.asarray([1]),
-                        np.asarray([1.0], dtype=np.float32), np.asarray([1.0], dtype=np.float32),
+    ort_outputs = model(input_features,
+                        np.asarray([200], dtype=np.int32),
+                        np.asarray([0], dtype=np.int32),
+                        np.asarray([2], dtype=np.int32),
+                        np.asarray([1], dtype=np.int32),
+                        np.asarray([1.0], dtype=np.float32),
+                        np.asarray([1.0], dtype=np.float32),
                         np.zeros(input_features.shape).astype(np.int32))
     generated_ids = ort_outputs[0]
 
