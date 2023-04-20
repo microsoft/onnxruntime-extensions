@@ -214,15 +214,9 @@ def yolo_detection(model_file: Path, output_file: Path, output_format: str = 'jp
     output_shape = [model_output_shape.dim[i].dim_value if model_output_shape.dim[i].HasField("dim_value") else -1
                     for i in [-2, -1]]
     if output_shape[0] != -1 and output_shape[1] != -1:
-        need_transpose = output_shape[0] < output_shape[1]
-    elif len(model.graph.input) > 1:
-        print(""" warning!!
-            The model possesses more than one inputs, indicating we can't generate the input 
- data and map to model inputs to execute model by onnx-runtime and we can't get concrete output shape.
-            Output shape will be assumed to be [num_boxes, num_classes+4(reg)].
-            If this behavior is not expected, please run the onnx shape inference first to \
-            infer the output shape out then run this script again.""")
+        need_transpose = output_shape[0] < output_shape[1] 
     else:
+        assert len(model.graph.input) == 1, "Doesn't support adding pre and post-processing for multi-inputs model."
         try:
             import numpy as np
             import onnxruntime
@@ -235,7 +229,7 @@ Because we need to execute the model to determine the output shape in order to a
         session = onnxruntime.InferenceSession(str(model_file), providers=["CPUExecutionProvider"])
         input_name = session.get_inputs()[0].name
         input_type = onnx.mapping.TENSOR_TYPE_TO_NP_TYPE[model.graph.input[0].type.tensor_type.elem_type]
-        inp = {input_name: np.random.rand(1, 3, w_in, h_in).astype(dtype=input_type)}
+        inp = {input_name: np.random.rand(1, 3, h_in, w_in).astype(dtype=input_type)}
         outputs = session.run(None,  inp)[0]
         assert len(outputs.shape) == 3 and outputs.shape[0] == 1, "shape of the first model output is not (1, n, m)"
         if outputs.shape[1] < outputs.shape[2]:
