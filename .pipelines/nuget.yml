@@ -1,37 +1,3 @@
-- name: DoCompliance
-  displayName: Run Compliance Tasks?
-  type: boolean
-  default: true
-
-- name: DoEsrp
-  displayName: Run code sign tasks? Must be true if you are doing an Onnx Runtime release.
-  type: boolean
-  default: false
-
-- name: IsReleaseBuild
-  displayName: Is a release build? Set it to true if you are doing an Onnx Runtime release.
-  type: boolean
-  default: false
-
-- name: AdditionalBuildFlags
-  displayName: Additional build flags for build.py
-  type: string
-  default: ''
-
-- name: AdditionalWinBuildFlags
-  displayName: Additional build flags that just for Windows Builds
-  type: string
-  default: ''
-
-- name: OrtExtNugetPackageId
-  displayName: Package name for nuget
-  type: string
-  default: 'Microsoft.ML.OnnxRuntime.Extensions'
-
-- name: BuildVariant
-  type: string
-  default: 'default'
-
 stages:
 - stage: Windows_Packings_X64
   dependsOn: []
@@ -42,7 +8,6 @@ stages:
     # we need to use the 2022 pool to create the nuget package with both pre-net6+Xamarin and net6 targets.
     # VS2019 has no support for net6 and we need to use msbuild (from the VS install) to do the packing
     pool: 'Azure-Pipelines-EO-Windows2022-aiinfra'
-     timeoutInMinutes: 120
     variables:
       ort.version: '1.14.1'
 
@@ -100,7 +65,7 @@ stages:
     # VS2019 has no support for net6 and we need to use msbuild (from the VS install) to do the packing
     pool: 'Azure-Pipelines-EO-Windows2022-aiinfra'
     variables:
-      OrtPackageId: ${{ parameters.OrtExtNugetPackageId }}
+      OrtPackageId: 'Microsoft.ML.OnnxRuntime.Extensions'
       breakCodesignValidationInjection: ${{ parameters.DoEsrp }}
 
     steps:
