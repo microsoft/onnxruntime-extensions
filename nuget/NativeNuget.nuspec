@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<!-- ORT Extensions nuspec -->
+<package>
+	<metadata>
+	<id>Microsoft.ML.OnnxRuntime.Extensions</id>
+	<version>0.8.0</version>
+	<authors>Microsoft</authors>
+	<owners>Microsoft</owners>
+	<description>ONNX Runtime Extensions NuGet Package</description>
+	<!-- TODO: Update release notes prior to 0.8.0 release with new features here -->
+	<releaseNotes>
+		General
+		1. New custom operators: RobertaTokenizer, ClipTokenizer, EncodeImage, DecodeImage
+		2. ORT custom operator C++ stub generation tool
+		3. Operator implementation and documentation improved.
+		4. Python (3.7 - 3.10) and ORT (1.10 above) compatible.
+
+		Mobile
+		1. Android package: Maven
+		2. iOS package: CocoaPods
+		3. PrePostProcessor tool for mobile model
+		4. Super-resolution model pre- / post- processing end-to-end examples
+	</releaseNotes>
+	<copyright>© Microsoft Corporation. All rights reserved.</copyright>
+	<tags>ONNX ONNXRuntime AI Machine Learning</tags>
+	<icon>ORT_icon_for_light_bg.png</icon>
+	<license type="file">LICENSE.txt</license>
+	<projectUrl>https://github.com/Microsoft/onnxruntime-extensions</projectUrl>
+	<repository type="git" url="https://github.com/Microsoft/onnxruntime-extensions.git"/>
+	</metadata>
+	<!-- assemble files in the /nuget directory and run nuget pack from -->
+	<files>
+		<file src="LICENSE.txt" target="LICENSE.txt" />
+		<!-- Windows, Linux, macOS via netstandard -->
+		<file src="..\out\Windows\bin\Release\ortextensions.dll" target="runtimes\win-x64\native" />
+		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.props" target="build\native" />
+		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.props" target="build\netstandard1.1" />
+		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.props" target="build\netstandard2.0" />
+		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.targets" target="build\native" />
+		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.targets" target="build\netstandard1.1" />
+		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.targets" target="build\netstandard2.0" />
+		<file src="..\ThirdPartyNotices.txt" target="ThirdPartyNotices.txt" />
+		<file src="ORT_icon_for_light_bg.png" target="ORT_icon_for_light_bg.png" />
+	</files>
+</package>
