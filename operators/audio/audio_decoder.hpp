@@ -47,8 +47,7 @@ struct KernelAudioDecoder : public BaseKernel {
       if (pos == format_mapping.end()) {
         ORTX_CXX_API_THROW(MakeString(
                                "[AudioDecoder]: Unknown audio stream format: ", str_format),
-                           ORT_INVALID_ARGUMENT);
-      }
+                           ORT_INVALID_ARGUMENT); }
       stream_format = pos->second;
     }
 
@@ -107,11 +106,11 @@ struct KernelAudioDecoder : public BaseKernel {
     std::list<std::vector<float>> lst_frames;
 
     if (stream_format == AudioStreamType::kMP3) {
-      drmp3 mp3_obj;
-      if (!drmp3_init_memory(&mp3_obj, p_data, input_dim.Size(), nullptr)) {
+      auto mp3_obj_ptr = std::make_unique<drmp3>();
+      if (!drmp3_init_memory(mp3_obj_ptr.get(), p_data, input_dim.Size(), nullptr)) {
         ORTX_CXX_API_THROW("[AudioDecoder]: unexpected error on MP3 stream.", ORT_RUNTIME_EXCEPTION);
       }
-      total_buf_size = DrReadFrames(lst_frames, drmp3_read_pcm_frames_f32, mp3_obj);
+      total_buf_size = DrReadFrames(lst_frames, drmp3_read_pcm_frames_f32, *mp3_obj_ptr);
 
     } else if (stream_format == AudioStreamType::kFLAC) {
       drflac* flac_obj = drflac_open_memory(p_data, input_dim.Size(), nullptr);
