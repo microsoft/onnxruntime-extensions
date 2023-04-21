@@ -21,7 +21,8 @@ mkdir .\out\Windows\ 2>NUL
 %cmake_exe% -G %GENERATOR% %GEN_PLATFORM% %* -B out\Windows -S .
 IF %ERRORLEVEL% NEQ 0 EXIT /B %ERRORLEVEL%
 %cmake_exe% --build out\Windows --config Release
-nuget pack \nuget\NativeNuget.nuspec
+set nuget_exe="nuget\nuget.exe"
+%nuget_exe% pack nuget\NativeNuget.nuspec
 IF %ERRORLEVEL% NEQ 0 EXIT /B %ERRORLEVEL%
 GOTO :EOF
 
