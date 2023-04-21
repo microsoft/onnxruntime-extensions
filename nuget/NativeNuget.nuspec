@@ -32,7 +32,7 @@
 	<files>
 		<file src="LICENSE.txt" target="LICENSE.txt" />
 		<!-- Windows, Linux, macOS via netstandard -->
-		<file src="..\out\Windows\bin\RelWithDebInfo\ortextensions.dll" target="runtimes\win-x64\native" />
+		<file src="..\out\Windows\bin\Release\ortextensions.dll" target="runtimes\win-x64\native" />
 		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.props" target="build\native" />
 		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.props" target="build\netstandard1.1" />
 		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.props" target="build\netstandard2.0" />
