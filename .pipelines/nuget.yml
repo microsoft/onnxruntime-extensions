@@ -66,7 +66,7 @@ stages:
     pool: 'Azure-Pipelines-EO-Windows2022-aiinfra'
     variables:
       OrtPackageId: 'Microsoft.ML.OnnxRuntime.Extensions'
-      breakCodesignValidationInjection: ${{ parameters.DoEsrp }}
+      breakCodesignValidationInjection: true
 
     steps:
     - checkout: self
@@ -76,48 +76,16 @@ stages:
       inputs:
         versionSpec: 6.2.1
 
-    - task: PowerShell@2
-      displayName: Install .NET 6 workloads
+    - task: NuGetCommand@2
+      displayName: Pack nuget package with nuspec
       inputs:
-        targetType: 'inline'
-        script: |
-          dotnet workload install android ios macos
-        workingDirectory: '$(Build.SourcesDirectory)\csharp'
-
-    - ${{ if eq(parameters.DoEsrp, true) }}:
-      - template: win-esrp-dll.yml
-        parameters:
-          FolderPath: '$(Build.SourcesDirectory)\csharp\src\Microsoft.ML.OnnxRuntime\bin\RelWithDebInfo'
-          DisplayName: 'ESRP - Sign C# dlls'
-          DoEsrp: ${{ parameters.DoEsrp }}
-
-    - task: MSBuild@1
-      displayName: 'Build Nuget Packages'
-      inputs:
-        solution: '$(Build.SourcesDirectory)\csharp\OnnxRuntime.CSharp.proj'
-        platform: 'Any CPU'
-        configuration: RelWithDebInfo
-        msbuildArguments: '-t:CreatePackage -p:OnnxRuntimeBuildDirectory="$(Build.BinariesDirectory)" -p:OrtPackageId=$(OrtPackageId) -p:IsReleaseBuild=${{ parameters.IsReleaseBuild }}'
-        workingDirectory: '$(Build.SourcesDirectory)\csharp'
+        command: 'pack'
+        packagesToPack: 'nuget\NativeNuget.spec'
 
     - task: CopyFiles@2
       displayName: 'Copy native nuget package to: $(Build.ArtifactStagingDirectory)'
       inputs:
-        SourceFolder: '$(Build.BinariesDirectory)\RelWithDebInfo\RelWithDebInfo'
-        Contents: '*.nupkg'
-        TargetFolder: '$(Build.ArtifactStagingDirectory)'
-
-    - task: CopyFiles@2
-      displayName: 'Copy native nuget symbols package to: $(Build.ArtifactStagingDirectory)'
-      inputs:
-        SourceFolder: '$(Build.BinariesDirectory)\RelWithDebInfo\RelWithDebInfo'
-        Contents: '*.snupkg'
-        TargetFolder: '$(Build.ArtifactStagingDirectory)'
-
-    - task: CopyFiles@2
-      displayName: 'Copy managed nuget package to: $(Build.ArtifactStagingDirectory)'
-      inputs:
-        SourceFolder: '$(Build.SourcesDirectory)\csharp\src\Microsoft.ML.OnnxRuntime\bin\RelWithDebInfo'
+        SourceFolder: '$(Build.BinariesDirectory)'
         Contents: '*.nupkg'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
@@ -125,15 +93,7 @@ stages:
       parameters:
         DisplayName: 'ESRP - sign NuGet package'
         FolderPath: '$(Build.ArtifactStagingDirectory)'
-        DoEsrp: ${{ parameters.DoEsrp }}
-
-    - template: validate-package.yml
-      parameters:
-        PackageType: 'nuget'
-        PackagePath: '$(Build.ArtifactStagingDirectory)'
-        PackageName: 'Microsoft.ML.OnnxRuntime.*nupkg'
-        PlatformsSupported: 'win-x64,win-x86,linux-x64,linux-arm64,osx.10.14-x64'
-        VerifyNugetSigning: false
+        DoEsrp: true
 
     - task: PublishPipelineArtifact@0
       displayName: 'Publish Pipeline NuGet Artifact'
