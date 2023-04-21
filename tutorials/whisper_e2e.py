@@ -7,9 +7,9 @@ import numpy as np
 
 from pathlib import Path
 from onnx import numpy_helper
-from transformers import WhisperProcessor, WhisperForConditionalGeneration
+from transformers import WhisperProcessor
 
-from onnxruntime_extensions import PyOrtFunction, util, optimize_model
+from onnxruntime_extensions import PyOrtFunction, util
 from onnxruntime_extensions.cvt import HFTokenizerConverter
 
 
@@ -194,8 +194,10 @@ def merge_models(core: str, output_model:str, audio_data):
         make_node('Cast', ['sequences'], ["generated_ids"], to=onnx.TensorProto.INT64),
         bpe_decoder_node
         ])
-    onnx.save_model(m_all, output_model.replace(".onnx", "_.onnx"))
-    optimize_model(m_all, output_model)
+    onnx.save_model(m_all, output_model,
+                    save_as_external_data=True,
+                    all_tensors_to_one_file=True,
+                    convert_attribute=True)
     print(f"The final merged model was saved as: {output_model}")
 
     print("Verify the final model...")

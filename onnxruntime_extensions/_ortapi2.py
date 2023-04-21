@@ -92,10 +92,13 @@ class OrtPyFunction:
     def output_names(self):
         return [vi_.name for vi_ in self.onnx_model.graph.output]
 
-    def _bind(self, oxml):
+    def _bind(self, oxml, model_path=None):
         self.inputs = list(oxml.graph.input)
         self.outputs = list(oxml.graph.output)
         self._oxml = oxml
+        if model_path is not None:
+            self.ort_session = _ort.InferenceSession(
+                model_path, self.get_ort_session_options())
         return self
 
     def _ensure_ort_session(self):
@@ -112,7 +115,13 @@ class OrtPyFunction:
 
     @classmethod
     def from_model(cls, path_or_model, *args, **kwargs):
-        return cls()._bind(onnx.load_model(path_or_model) if isinstance(path_or_model, str) else path_or_model)
+        mpath = None
+        if isinstance(path_or_model, str):
+            oxml = onnx.load_model(path_or_model)
+            mpath = path_or_model
+        else:
+            oxml = path_or_model
+        return cls()._bind(oxml, mpath)
 
     def _argument_map(self, *args, **kwargs):
         idx = 0
