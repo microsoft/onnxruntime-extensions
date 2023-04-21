@@ -20,7 +20,8 @@ set cmake_exe="%VSINSTALLDIR%Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\
 mkdir .\out\Windows\ 2>NUL
 %cmake_exe% -G %GENERATOR% %GEN_PLATFORM% %* -B out\Windows -S .
 IF %ERRORLEVEL% NEQ 0 EXIT /B %ERRORLEVEL%
-%cmake_exe% --build out\Windows --config RelWithDebInfo
+%cmake_exe% --build out\Windows --config Release
+nuget pack \nuget\NativeNuget.nuspec
 IF %ERRORLEVEL% NEQ 0 EXIT /B %ERRORLEVEL%
 GOTO :EOF
 

@@ -3,14 +3,14 @@
 <package>
 	<metadata>
 	<id>Microsoft.ML.OnnxRuntime.Extensions</id>
-	<version>0.8.0</version>
+	<version>0.8.0-alpha</version>
 	<authors>Microsoft</authors>
 	<owners>Microsoft</owners>
 	<description>ONNX Runtime Extensions NuGet Package</description>
 	<!-- TODO: Update release notes prior to 0.8.0 release with new features here -->
 	<releaseNotes>
 		General
-		1. New custom operators: RobertaTokenizer, ClipTokenizer, EncodeImage, DecodeImage
+		1. New custom operators: Whisper, YOLO, RobertaTokenizer, ClipTokenizer, EncodeImage, DecodeImage
 		2. ORT custom operator C++ stub generation tool
 		3. Operator implementation and documentation improved.
 		4. Python (3.7 - 3.10) and ORT (1.10 above) compatible.
