@@ -1,0 +1,194 @@
+- name: DoCompliance
+  displayName: Run Compliance Tasks?
+  type: boolean
+  default: true
+
+- name: DoEsrp
+  displayName: Run code sign tasks? Must be true if you are doing an Onnx Runtime release.
+  type: boolean
+  default: false
+
+- name: IsReleaseBuild
+  displayName: Is a release build? Set it to true if you are doing an Onnx Runtime release.
+  type: boolean
+  default: false
+
+- name: AdditionalBuildFlags
+  displayName: Additional build flags for build.py
+  type: string
+  default: ''
+
+- name: AdditionalWinBuildFlags
+  displayName: Additional build flags that just for Windows Builds
+  type: string
+  default: ''
+
+- name: OrtExtNugetPackageId
+  displayName: Package name for nuget
+  type: string
+  default: 'Microsoft.ML.OnnxRuntime.Extensions'
+
+- name: BuildVariant
+  type: string
+  default: 'default'
+
+stages:
+- stage: Windows_Packings_X64
+  dependsOn: []
+  jobs:
+  - job:
+    workspace:
+      clean: all
+    # we need to use the 2022 pool to create the nuget package with both pre-net6+Xamarin and net6 targets.
+    # VS2019 has no support for net6 and we need to use msbuild (from the VS install) to do the packing
+    pool: 'Azure-Pipelines-EO-Windows2022-aiinfra'
+     timeoutInMinutes: 120
+    variables:
+      ort.version: '1.14.1'
+
+    steps:
+      - task: DownloadGitHubRelease@0
+        inputs:
+          connection: 'microsoft'
+          userRepository: 'microsoft/onnxruntime'
+          defaultVersionType: 'specificTag'
+          version: 'v$(ort.version)'
+          itemPattern: '*-win-x64-$(ort.version)*'
+          downloadPath: '$(Build.SourcesDirectory)'
+        displayName: Download the ONNXRuntime prebuilt package.
+
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '**/*.zip'
+          destinationFolder: '$(Build.SourcesDirectory)'
+          cleanDestinationFolder: false
+          overwriteExistingFiles: true
+        displayName: Unpack ONNXRuntime package.
+
+      - script: |
+          @echo off
+          set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+          for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
+            if exist "%%i\Common7\Tools\vsdevcmd.bat" (
+              set vsdevcmd="%%i\Common7\Tools\vsdevcmd.bat"
+            )
+          )
+
+          @echo %vsdevcmd% will be used as the VC compiler
+          @echo ##vso[task.setvariable variable=vsdevcmd]%vsdevcmd%
+        displayName: 'locate vsdevcmd via vswhere'
+
+      - script: |
+          call $(vsdevcmd)
+          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
+        displayName: build the customop library with onnxruntime
+
+      - script: |
+          cd out/Windows
+          ctest -C RelWithDebInfo --output-on-failure
+        displayName: Run C++ native tests
+
+- stage: NuGet_Packaging_CPU
+  dependsOn:
+  - Windows_Packings_X64
+  condition: succeeded()
+  jobs:
+  - job:
+    workspace:
+      clean: all
+    # we need to use the 2022 pool to create the nuget package with both pre-net6+Xamarin and net6 targets.
+    # VS2019 has no support for net6 and we need to use msbuild (from the VS install) to do the packing
+    pool: 'Azure-Pipelines-EO-Windows2022-aiinfra'
+    variables:
+      OrtPackageId: ${{ parameters.OrtExtNugetPackageId }}
+      breakCodesignValidationInjection: ${{ parameters.DoEsrp }}
+
+    steps:
+    - checkout: self
+      submodules: true
+    - task: NuGetToolInstaller@0
+      displayName: Use Nuget 6.2.1
+      inputs:
+        versionSpec: 6.2.1
+
+    - task: PowerShell@2
+      displayName: Install .NET 6 workloads
+      inputs:
+        targetType: 'inline'
+        script: |
+          dotnet workload install android ios macos
+        workingDirectory: '$(Build.SourcesDirectory)\csharp'
+
+    - ${{ if eq(parameters.DoEsrp, true) }}:
+      - template: win-esrp-dll.yml
+        parameters:
+          FolderPath: '$(Build.SourcesDirectory)\csharp\src\Microsoft.ML.OnnxRuntime\bin\RelWithDebInfo'
+          DisplayName: 'ESRP - Sign C# dlls'
+          DoEsrp: ${{ parameters.DoEsrp }}
+
+    - task: MSBuild@1
+      displayName: 'Build Nuget Packages'
+      inputs:
+        solution: '$(Build.SourcesDirectory)\csharp\OnnxRuntime.CSharp.proj'
+        platform: 'Any CPU'
+        configuration: RelWithDebInfo
+        msbuildArguments: '-t:CreatePackage -p:OnnxRuntimeBuildDirectory="$(Build.BinariesDirectory)" -p:OrtPackageId=$(OrtPackageId) -p:IsReleaseBuild=${{ parameters.IsReleaseBuild }}'
+        workingDirectory: '$(Build.SourcesDirectory)\csharp'
+
+    - task: CopyFiles@2
+      displayName: 'Copy native nuget package to: $(Build.ArtifactStagingDirectory)'
+      inputs:
+        SourceFolder: '$(Build.BinariesDirectory)\RelWithDebInfo\RelWithDebInfo'
+        Contents: '*.nupkg'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+    - task: CopyFiles@2
+      displayName: 'Copy native nuget symbols package to: $(Build.ArtifactStagingDirectory)'
+      inputs:
+        SourceFolder: '$(Build.BinariesDirectory)\RelWithDebInfo\RelWithDebInfo'
+        Contents: '*.snupkg'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+    - task: CopyFiles@2
+      displayName: 'Copy managed nuget package to: $(Build.ArtifactStagingDirectory)'
+      inputs:
+        SourceFolder: '$(Build.SourcesDirectory)\csharp\src\Microsoft.ML.OnnxRuntime\bin\RelWithDebInfo'
+        Contents: '*.nupkg'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+    - template: esrp_nuget.yml
+      parameters:
+        DisplayName: 'ESRP - sign NuGet package'
+        FolderPath: '$(Build.ArtifactStagingDirectory)'
+        DoEsrp: ${{ parameters.DoEsrp }}
+
+    - template: validate-package.yml
+      parameters:
+        PackageType: 'nuget'
+        PackagePath: '$(Build.ArtifactStagingDirectory)'
+        PackageName: 'Microsoft.ML.OnnxRuntime.*nupkg'
+        PlatformsSupported: 'win-x64,win-x86,linux-x64,linux-arm64,osx.10.14-x64'
+        VerifyNugetSigning: false
+
+    - task: PublishPipelineArtifact@0
+      displayName: 'Publish Pipeline NuGet Artifact'
+      inputs:
+        artifactName: 'drop-signed-nuget-CPU'
+        targetPath: '$(Build.ArtifactStagingDirectory)'
+
+    - task: RoslynAnalyzers@2
+      displayName: 'Run Roslyn Analyzers'
+      inputs:
+        userProvideBuildInfo: msBuildInfo
+        msBuildCommandline: '"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\msbuild.exe" $(Build.SourcesDirectory)\csharp\OnnxRuntime.CSharp.sln -p:configuration="RelWithDebInfo" -p:Platform="Any CPU" -p:OnnxRuntimeBuildDirectory="$(Build.BinariesDirectory)" -p:OrtPackageId=$(OrtPackageId)'
+      condition: and(succeeded(), eq('${{ parameters.DoCompliance }}', true))
+
+    - template: component-governance-component-detection-steps.yml
+      parameters :
+        condition : 'succeeded'
+
+    - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
+      displayName: 'Clean Agent Directories'
+      condition: always()
+
+# - template: templates/publish-nuget.yml
