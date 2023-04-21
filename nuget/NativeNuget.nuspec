@@ -26,16 +26,13 @@
 	<icon>ORT_icon_for_light_bg.png</icon>
 	<license type="file">LICENSE.txt</license>
 	<projectUrl>https://github.com/Microsoft/onnxruntime-extensions</projectUrl>
-	<repository type="git" url="https://github.com/Microsoft/onnxruntime-extensions.git" commit="98a303e639abff092f77295d39a31b5411d4f110" />
+	<repository type="git" url="https://github.com/Microsoft/onnxruntime-extensions.git"/>
 	</metadata>
 	<!-- assemble files in the /nuget directory and run nuget pack from -->
 	<files>
-		<file src="..\LICENSE.txt" target="LICENSE.txt" />
-		<file src="..\includes\*.h" target="build\native\include" />
-		<file src="..\includes\*.hpp" target="build\native\include" />
+		<file src="LICENSE.txt" target="LICENSE.txt" />
 		<!-- Windows, Linux, macOS via netstandard -->
-		<file src="..\build\Windows\Debug\bin\Debug\ortextensions.dll" target="runtimes\win-x64\native" />
-		<file src="..\build\Windows\Debug\lib\Debug\ortextensions.lib" target="runtimes\win-x64\native" />
+		<file src="..\out\Windows\bin\Release\ortextensions.dll" target="runtimes\win-x64\native" />
 		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.props" target="build\native" />
 		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.props" target="build\netstandard1.1" />
 		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.props" target="build\netstandard2.0" />
@@ -43,6 +40,6 @@
 		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.targets" target="build\netstandard1.1" />
 		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.targets" target="build\netstandard2.0" />
 		<file src="..\ThirdPartyNotices.txt" target="ThirdPartyNotices.txt" />
-		<file src="..\ORT_icon_for_light_bg.png" target="ORT_icon_for_light_bg.png" />
+		<file src="ORT_icon_for_light_bg.png" target="ORT_icon_for_light_bg.png" />
 	</files>
 </package>
