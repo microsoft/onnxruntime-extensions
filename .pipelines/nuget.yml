@@ -89,7 +89,7 @@ stages:
         Contents: '*.nupkg'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
-    - template: esrp_nuget.yml
+    - template: templates/esrp_nuget.yml
       parameters:
         DisplayName: 'ESRP - sign NuGet package'
         FolderPath: '$(Build.ArtifactStagingDirectory)'
@@ -108,7 +108,7 @@ stages:
         msBuildCommandline: '"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\msbuild.exe" $(Build.SourcesDirectory)\csharp\OnnxRuntime.CSharp.sln -p:configuration="RelWithDebInfo" -p:Platform="Any CPU" -p:OnnxRuntimeBuildDirectory="$(Build.BinariesDirectory)" -p:OrtPackageId=$(OrtPackageId)'
       condition: and(succeeded(), eq('${{ parameters.DoCompliance }}', true))
 
-    - template: component-governance-component-detection-steps.yml
+    - template: templates/component-governance-component-detection-steps.yml
       parameters :
         condition : 'succeeded'
 
