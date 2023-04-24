@@ -76,20 +76,13 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-          # Tree /F $(Build.SourcesDirectory)
-          # Tree /F $(Build.ArtifactStagingDirectory)
-
-          $pwd
-          nuget pack $(Build.SourcesDirectory)/nuget/NativeNuget.spec
+          Write-Host "current directory is $pwd"
+          Write-Host "run: nuget pack $(Build.SourcesDirectory)\nuget\NativeNuget.spec"
+          nuget
+          Write-Host "print nuget info above"
+          nuget pack $(Build.SourcesDirectory)\nuget\NativeNuget.spec
           Tree /F $(Build.SourcesDirectory)
       displayName: Run pack locally
-    - task: PowerShell@2
-      inputs:
-        targetType: 'inline'
-        script: |
-          # Write your PowerShell commands here.
-          
-          Write-Host "Hello World"
 
     - template: templates/esrp_nuget.yml
       parameters:
