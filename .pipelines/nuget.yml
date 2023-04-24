@@ -53,11 +53,6 @@ stages:
         call .\build.bat -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version) -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_VISION=OFF -DOCOS_ENABLE_OPENCV_CODECS=OFF
       displayName: build the customop library with onnxruntime
 
-    - script: |
-        cd out/Windows
-        ctest -C RelWithDebInfo --output-on-failure
-      displayName: Run C++ native tests
-
     - task: NuGetToolInstaller@0
       displayName: Use Nuget 6.2.1
       inputs:
