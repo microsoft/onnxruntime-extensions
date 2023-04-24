@@ -80,15 +80,8 @@ stages:
       displayName: Pack nuget package with nuspec
       inputs:
         command: 'pack'
-        packagesToPack: 'nuget\NativeNuget.spec'
-        packDestination: '$(Build.BinariesDirectory)'
-
-    - task: CopyFiles@2
-      displayName: 'Copy native nuget package to: $(Build.ArtifactStagingDirectory)'
-      inputs:
-        SourceFolder: '$(Build.BinariesDirectory)'
-        Contents: '*.nupkg'
-        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+        packagesToPack: '$(Build.SourcesDirectory)\nuget/NativeNuget.spec'
+        packDestination: '$(Build.ArtifactStagingDirectory)'
 
     - template: templates/esrp_nuget.yml
       parameters:
