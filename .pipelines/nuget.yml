@@ -65,17 +65,19 @@ stages:
         packagesToPack: '$(Build.SourcesDirectory)/nuget/NativeNuget.spec'
         packDestination: '$(Build.ArtifactStagingDirectory)'
         basePath: '$(Build.SourcesDirectory)/nuget'
+
     - task: PowerShell@2
       inputs:
         targetType: 'inline'
         script: |
           Tree /F $(Build.SourcesDirectory)
           Tree /F $(Build.ArtifactStagingDirectory)
+
     - template: templates/esrp_nuget.yml
       parameters:
         DisplayName: 'ESRP - sign NuGet package'
         FolderPath: '$(Build.ArtifactStagingDirectory)'
-        DoEsrp: true
+        DoEsrp: 'true'
 
     - task: PublishPipelineArtifact@0
       displayName: 'Publish Pipeline NuGet Artifact'
