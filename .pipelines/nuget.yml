@@ -1,6 +1,7 @@
 stages:
-- stage: Windows_Packings_X64
-  dependsOn: []
+- stage: NuGet_Packaging_CPU
+  dependsOn:
+  condition: succeeded()
   jobs:
   - job:
     workspace:
@@ -9,9 +10,13 @@ stages:
     # VS2019 has no support for net6 and we need to use msbuild (from the VS install) to do the packing
     pool: 'Azure-Pipelines-EO-Windows2022-aiinfra'
     variables:
+      OrtPackageId: 'Microsoft.ML.OnnxRuntime.Extensions'
+      breakCodesignValidationInjection: true
       ort.version: '1.14.1'
 
     steps:
+    - checkout: self
+      submodules: true
       - task: DownloadGitHubRelease@0
         inputs:
           connection: 'microsoft'
@@ -53,24 +58,6 @@ stages:
           ctest -C RelWithDebInfo --output-on-failure
         displayName: Run C++ native tests
 
-- stage: NuGet_Packaging_CPU
-  dependsOn:
-  - Windows_Packings_X64
-  condition: succeeded()
-  jobs:
-  - job:
-    workspace:
-      clean: all
-    # we need to use the 2022 pool to create the nuget package with both pre-net6+Xamarin and net6 targets.
-    # VS2019 has no support for net6 and we need to use msbuild (from the VS install) to do the packing
-    pool: 'Azure-Pipelines-EO-Windows2022-aiinfra'
-    variables:
-      OrtPackageId: 'Microsoft.ML.OnnxRuntime.Extensions'
-      breakCodesignValidationInjection: true
-
-    steps:
-    - checkout: self
-      submodules: true
     - task: NuGetToolInstaller@0
       displayName: Use Nuget 6.2.1
       inputs:
