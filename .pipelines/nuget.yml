@@ -80,7 +80,7 @@ stages:
       displayName: Pack nuget package with nuspec
       inputs:
         command: 'pack'
-        packagesToPack: '$(Build.SourcesDirectory)\nuget/NativeNuget.spec'
+        packagesToPack: '$(Build.SourcesDirectory)/nuget/NativeNuget.spec'
         packDestination: '$(Build.ArtifactStagingDirectory)'
 
     - template: templates/esrp_nuget.yml
