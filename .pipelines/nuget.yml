@@ -70,8 +70,10 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-          Tree /F $(Build.SourcesDirectory)
+          # Tree /F $(Build.SourcesDirectory)
           Tree /F $(Build.ArtifactStagingDirectory)
+          nuget pack nuget/NativeNuget.spec
+      displayName: Run pack locally
 
     - template: templates/esrp_nuget.yml
       parameters:
