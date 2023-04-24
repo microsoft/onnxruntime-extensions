@@ -54,10 +54,10 @@ stages:
       displayName: build the customop library with onnxruntime
 
     - template: templates/win-esrp-dll.yml
-        parameters:
-          FolderPath: '$(Build.SourcesDirectory)\out\Windows\bin\RelWithDebInfo'
-          DisplayName: 'Sign DLL'
-          DoEsrp: 'true'
+      parameters:
+        FolderPath: '$(Build.SourcesDirectory)\out\Windows\bin\RelWithDebInfo'
+        DisplayName: 'Sign DLL'
+        DoEsrp: 'true'
 
     - task: NuGetToolInstaller@0
       displayName: Use Nuget 6.2.1
