@@ -68,7 +68,7 @@ stages:
       displayName: Pack nuget package with nuspec
       inputs:
         command: 'pack'
-        packagesToPack: '$(Build.SourcesDirectory)/nuget/NativeNuget.spec'
+        packagesToPack: '$(Build.SourcesDirectory)/nuget/NativeNuget.nuspec'
         packDestination: '$(Build.SourcesDirectory)'
         basePath: '$(Build.SourcesDirectory)/nuget'
 
@@ -77,10 +77,10 @@ stages:
         targetType: 'inline'
         script: |
           Write-Host "current directory is $pwd"
-          Write-Host "run: nuget pack $(Build.SourcesDirectory)\nuget\NativeNuget.spec"
+          Write-Host "run: nuget pack $(Build.SourcesDirectory)\nuget\NativeNuget.nuspec"
           nuget
           Write-Host "print nuget info above"
-          nuget pack $(Build.SourcesDirectory)\nuget\NativeNuget.spec
+          nuget pack $(Build.SourcesDirectory)\nuget\NativeNuget.nuspec
           Tree /F $(Build.SourcesDirectory)
       displayName: Run pack locally
 
