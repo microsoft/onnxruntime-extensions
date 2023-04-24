@@ -69,20 +69,7 @@ stages:
       inputs:
         command: 'pack'
         packagesToPack: '$(Build.SourcesDirectory)/nuget/NativeNuget.nuspec'
-        packDestination: '$(Build.SourcesDirectory)'
-        basePath: '$(Build.SourcesDirectory)/nuget'
-
-    - task: PowerShell@2
-      inputs:
-        targetType: 'inline'
-        script: |
-          Write-Host "current directory is $pwd"
-          Write-Host "run: nuget pack $(Build.SourcesDirectory)\nuget\NativeNuget.nuspec"
-          nuget
-          Write-Host "print nuget info above"
-          nuget pack $(Build.SourcesDirectory)\nuget\NativeNuget.nuspec
-          Tree /F $(Build.SourcesDirectory)
-      displayName: Run pack locally
+        packDestination: '$(Build.ArtifactStagingDirectory)'
 
     - template: templates/esrp_nuget.yml
       parameters:
