@@ -17,46 +17,46 @@ stages:
     steps:
     - checkout: self
       submodules: true
-      - task: DownloadGitHubRelease@0
-        inputs:
-          connection: 'microsoft'
-          userRepository: 'microsoft/onnxruntime'
-          defaultVersionType: 'specificTag'
-          version: 'v$(ort.version)'
-          itemPattern: '*-win-x64-$(ort.version)*'
-          downloadPath: '$(Build.SourcesDirectory)'
-        displayName: Download the ONNXRuntime prebuilt package.
+    - task: DownloadGitHubRelease@0
+      inputs:
+        connection: 'microsoft'
+        userRepository: 'microsoft/onnxruntime'
+        defaultVersionType: 'specificTag'
+        version: 'v$(ort.version)'
+        itemPattern: '*-win-x64-$(ort.version)*'
+        downloadPath: '$(Build.SourcesDirectory)'
+      displayName: Download the ONNXRuntime prebuilt package.
 
-      - task: ExtractFiles@1
-        inputs:
-          archiveFilePatterns: '**/*.zip'
-          destinationFolder: '$(Build.SourcesDirectory)'
-          cleanDestinationFolder: false
-          overwriteExistingFiles: true
-        displayName: Unpack ONNXRuntime package.
+    - task: ExtractFiles@1
+      inputs:
+        archiveFilePatterns: '**/*.zip'
+        destinationFolder: '$(Build.SourcesDirectory)'
+        cleanDestinationFolder: false
+        overwriteExistingFiles: true
+      displayName: Unpack ONNXRuntime package.
 
-      - script: |
-          @echo off
-          set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
-          for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
-            if exist "%%i\Common7\Tools\vsdevcmd.bat" (
-              set vsdevcmd="%%i\Common7\Tools\vsdevcmd.bat"
-            )
+    - script: |
+        @echo off
+        set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+        for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
+          if exist "%%i\Common7\Tools\vsdevcmd.bat" (
+            set vsdevcmd="%%i\Common7\Tools\vsdevcmd.bat"
           )
+        )
 
-          @echo %vsdevcmd% will be used as the VC compiler
-          @echo ##vso[task.setvariable variable=vsdevcmd]%vsdevcmd%
-        displayName: 'locate vsdevcmd via vswhere'
+        @echo %vsdevcmd% will be used as the VC compiler
+        @echo ##vso[task.setvariable variable=vsdevcmd]%vsdevcmd%
+      displayName: 'locate vsdevcmd via vswhere'
 
-      - script: |
-          call $(vsdevcmd)
-          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
-        displayName: build the customop library with onnxruntime
+    - script: |
+        call $(vsdevcmd)
+        call .\build.bat -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
+      displayName: build the customop library with onnxruntime
 
-      - script: |
-          cd out/Windows
-          ctest -C RelWithDebInfo --output-on-failure
-        displayName: Run C++ native tests
+    - script: |
+        cd out/Windows
+        ctest -C RelWithDebInfo --output-on-failure
+      displayName: Run C++ native tests
 
     - task: NuGetToolInstaller@0
       displayName: Use Nuget 6.2.1
