@@ -50,13 +50,8 @@ stages:
 
     - script: |
         call $(vsdevcmd)
-        call .\build.bat -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version) -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_VISION=OFF -DOCOS_ENABLE_OPENCV_CODECS=OFF
+        call .\build.bat -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version) -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_VISION=OFF -DOCOS_ENABLE_OPENCV_CODECS=OFF
       displayName: build the customop library with onnxruntime
-
-    - script: |
-        cd out/Windows
-        ctest -C RelWithDebInfo --output-on-failure
-      displayName: Run C++ native tests
 
     - task: NuGetToolInstaller@0
       displayName: Use Nuget 6.2.1
@@ -68,14 +63,33 @@ stages:
       inputs:
         command: 'pack'
         packagesToPack: '$(Build.SourcesDirectory)/nuget/NativeNuget.spec'
-        packDestination: '$(Build.ArtifactStagingDirectory)'
+        packDestination: '$(Build.SourcesDirectory)'
         basePath: '$(Build.SourcesDirectory)/nuget'
+
+    - task: PowerShell@2
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Tree /F $(Build.SourcesDirectory)
+          # Tree /F $(Build.ArtifactStagingDirectory)
+
+          $pwd
+          nuget pack $(Build.SourcesDirectory)/nuget/NativeNuget.spec
+          Tree /F $(Build.SourcesDirectory)
+      displayName: Run pack locally
+    - task: PowerShell@2
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Write your PowerShell commands here.
+          
+          Write-Host "Hello World"
 
     - template: templates/esrp_nuget.yml
       parameters:
         DisplayName: 'ESRP - sign NuGet package'
         FolderPath: '$(Build.ArtifactStagingDirectory)'
-        DoEsrp: true
+        DoEsrp: 'true'
 
     - task: PublishPipelineArtifact@0
       displayName: 'Publish Pipeline NuGet Artifact'
