@@ -50,7 +50,7 @@ stages:
 
     - script: |
         call $(vsdevcmd)
-        call .\build.bat -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
+        call .\build.bat -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version) -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_VISION=OFF -DOCOS_ENABLE_OPENCV_CODECS=OFF
       displayName: build the customop library with onnxruntime
 
     - script: |
@@ -69,6 +69,7 @@ stages:
         command: 'pack'
         packagesToPack: '$(Build.SourcesDirectory)/nuget/NativeNuget.spec'
         packDestination: '$(Build.ArtifactStagingDirectory)'
+        basePath: '$(Build.SourcesDirectory)/nuget'
 
     - template: templates/esrp_nuget.yml
       parameters:
