@@ -1,7 +1,6 @@
 stages:
 - stage: NuGet_Packaging_CPU
   dependsOn:
-  condition: succeeded()
   jobs:
   - job:
     workspace:
