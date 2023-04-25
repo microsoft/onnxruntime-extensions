@@ -10,11 +10,10 @@
 	<!-- TODO: Update release notes prior to 0.8.0 release with new features here -->
 	<releaseNotes>
 		General
-		1. New custom operators: Whisper, Bounding Box Drawing, RobertaTokenizer, ClipTokenizer, EncodeImage, DecodeImage
+		1. New custom operators: Whisper, DrawBoundingBoxes, RobertaTokenizer, ClipTokenizer, EncodeImage, DecodeImage
 		2. Optional input/output support
 		3. ORT custom operator C++ stub generation tool
 		4. Operator implementation and documentation improved.
-		5. Python (3.7 - 3.10) and ORT (1.10 above) compatible.
 
 		Mobile
 		1. Android package: Maven
@@ -27,7 +26,7 @@
 	<icon>ORT_icon_for_light_bg.png</icon>
 	<license type="file">LICENSE.txt</license>
 	<projectUrl>https://github.com/Microsoft/onnxruntime-extensions</projectUrl>
-	<repository type="git" url="https://github.com/Microsoft/onnxruntime-extensions.git"/>
+	<repository type="git" url="https://github.com/Microsoft/onnxruntime-extensions.git" commit="94142d8391c9791ec71c38336436319a2d4ac7a0"/>
 	</metadata>
 	<!-- assemble files in the /nuget directory and run nuget pack from -->
 	<files>
