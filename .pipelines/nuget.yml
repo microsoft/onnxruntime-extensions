@@ -50,8 +50,13 @@ stages:
 
     - script: |
         call $(vsdevcmd)
-        call .\build.bat -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version) -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_VISION=OFF -DOCOS_ENABLE_OPENCV_CODECS=OFF
+        call .\build.bat -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version) -DOCOS_ENABLE_BLINGFIRE=OFF
       displayName: build the customop library with onnxruntime
+
+    - script: |
+        cd out/Windows
+        ctest -C RelWithDebInfo --output-on-failure
+      displayName: Run C++ native tests
 
     - template: templates/win-esrp-dll.yml
       parameters:
