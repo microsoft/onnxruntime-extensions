@@ -48,6 +48,7 @@ stages:
         @echo ##vso[task.setvariable variable=vsdevcmd]%vsdevcmd%
       displayName: 'locate vsdevcmd via vswhere'
 
+    # Build Extensions for Windows x64 - we will add more builds to the nuget pipeline in the future
     - script: |
         call $(vsdevcmd)
         call .\build.bat -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version) -DOCOS_ENABLE_BLINGFIRE=OFF
@@ -58,6 +59,8 @@ stages:
         ctest -C RelWithDebInfo --output-on-failure
       displayName: Run C++ native tests
 
+    # We need to sign twice: the first one happens before making the package, where we sign the DLLs.
+    # The second one is after making the package, where we sign the nuget package itself.
     - template: templates/win-esrp-dll.yml
       parameters:
         FolderPath: '$(Build.SourcesDirectory)\out\Windows\bin\RelWithDebInfo'
@@ -95,5 +98,3 @@ stages:
     - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
       displayName: 'Clean Agent Directories'
       condition: always()
-
-# - template: templates/publish-nuget.yml
