@@ -27,7 +27,7 @@
 	<license type="file">LICENSE.txt</license>
 	<readme>README.md</readme>
 	<projectUrl>https://github.com/Microsoft/onnxruntime-extensions</projectUrl>
-	<repository type="git" url="https://github.com/Microsoft/onnxruntime-extensions.git" commit="$COMMIT_ID$"/>
+	<repository type="git" url="https://github.com/Microsoft/onnxruntime-extensions.git" commit="COMMIT_ID"/>
 	</metadata>
 	<!-- assemble files in the /nuget directory and run nuget pack from -->
 	<files>

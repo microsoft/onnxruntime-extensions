@@ -71,7 +71,7 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-          (Get-Content NativeNuget.nuspec) -replace '$COMMIT_ID$', '$(Build.SourceVersion)' | Set-Content NativeNuget.nuspec
+          (Get-Content NativeNuget.nuspec) -replace 'COMMIT_ID', '$(Build.SourceVersion)' | Set-Content NativeNuget.nuspec
         workingDirectory: '$(Build.SourcesDirectory)/nuget'
 
     - task: NuGetToolInstaller@0
