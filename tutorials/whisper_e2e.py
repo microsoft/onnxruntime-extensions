@@ -135,7 +135,7 @@ def _torch_export(*arg, **kwargs):
     with io.BytesIO() as f:
         torch.onnx.export(*arg, f, **kwargs)
         return onnx.load_from_string(f.getvalue())
-    
+
 
 def preprocessing(audio_data):
     if USE_AUDIO_DECODER:
@@ -179,7 +179,7 @@ def preprocessing(audio_data):
         return result
 
 
-def merge_models(core: str, output_model:str, audio_data):
+def merge_models(core: str, output_model: str, audio_data):
     m_pre = onnx.load_model("whisper_codec_pre.onnx" if USE_AUDIO_DECODER else "whisper_pre.onnx")
     m_core = onnx.load_model(core)
     m1 = onnx.compose.merge_models(m_pre, m_core, io_map=[("log_mel", "input_features")])
@@ -236,7 +236,7 @@ if __name__ == '__main__':
         print(f"{onnx_model_name}")
 
     model_name = "openai/" + onnx_model_name[:-len("_beamsearch.onnx")]
-    
+
     _processor = WhisperProcessor.from_pretrained(model_name)
     # The model similar to Huggingface model like:
     # model = WhisperForConditionalGeneration.from_pretrained(model_name)
@@ -253,7 +253,7 @@ if __name__ == '__main__':
             audio_blob = np.asarray(list(_f.read()), dtype=np.uint8)
     else:
         audio_blob, _ = librosa.load(test_file)
-    audio_blob = np.expand_dims(audio_blob, axis=0) # add a batch_size dimension
+    audio_blob = np.expand_dims(audio_blob, axis=0)  # add a batch_size dimension
 
     log_mel = preprocessing(audio_blob)
     print(log_mel.shape)
