@@ -1,0 +1,99 @@
+stages:
+- stage: NuGet_Packaging_CPU
+  dependsOn:
+  jobs:
+  - job:
+    workspace:
+      clean: all
+    # we need to use the 2022 pool to create the nuget package with both pre-net6+Xamarin and net6 targets.
+    # VS2019 has no support for net6 and we need to use msbuild (from the VS install) to do the packing
+    pool: 'Azure-Pipelines-EO-Windows2022-aiinfra'
+    variables:
+      OrtPackageId: 'Microsoft.ML.OnnxRuntime.Extensions'
+      breakCodesignValidationInjection: true
+      ort.version: '1.14.1'
+
+    steps:
+    - checkout: self
+      submodules: true
+    - task: DownloadGitHubRelease@0
+      inputs:
+        connection: 'microsoft'
+        userRepository: 'microsoft/onnxruntime'
+        defaultVersionType: 'specificTag'
+        version: 'v$(ort.version)'
+        itemPattern: '*-win-x64-$(ort.version)*'
+        downloadPath: '$(Build.SourcesDirectory)'
+      displayName: Download the ONNXRuntime prebuilt package.
+
+    - task: ExtractFiles@1
+      inputs:
+        archiveFilePatterns: '**/*.zip'
+        destinationFolder: '$(Build.SourcesDirectory)'
+        cleanDestinationFolder: false
+        overwriteExistingFiles: true
+      displayName: Unpack ONNXRuntime package.
+
+    - script: |
+        @echo off
+        set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+        for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
+          if exist "%%i\Common7\Tools\vsdevcmd.bat" (
+            set vsdevcmd="%%i\Common7\Tools\vsdevcmd.bat"
+          )
+        )
+
+        @echo %vsdevcmd% will be used as the VC compiler
+        @echo ##vso[task.setvariable variable=vsdevcmd]%vsdevcmd%
+      displayName: 'locate vsdevcmd via vswhere'
+
+    # Build Extensions for Windows x64 - we will add more builds to the nuget pipeline in the future
+    - script: |
+        call $(vsdevcmd)
+        call .\build.bat -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version) -DOCOS_ENABLE_BLINGFIRE=OFF
+      displayName: build the customop library with onnxruntime
+
+    - script: |
+        cd out/Windows
+        ctest -C RelWithDebInfo --output-on-failure
+      displayName: Run C++ native tests
+
+    # We need to sign twice: the first one happens before making the package, where we sign the DLLs.
+    # The second one is after making the package, where we sign the nuget package itself.
+    - template: templates/win-esrp-dll.yml
+      parameters:
+        FolderPath: '$(Build.SourcesDirectory)\out\Windows\bin\RelWithDebInfo'
+        DisplayName: 'Sign DLL'
+        DoEsrp: 'true'
+
+    - task: NuGetToolInstaller@0
+      displayName: Use Nuget 6.2.1
+      inputs:
+        versionSpec: 6.2.1
+
+    - task: NuGetCommand@2
+      displayName: Pack nuget package with nuspec
+      inputs:
+        command: 'pack'
+        packagesToPack: '$(Build.SourcesDirectory)/nuget/NativeNuget.nuspec'
+        packDestination: '$(Build.ArtifactStagingDirectory)'
+
+    - template: templates/esrp_nuget.yml
+      parameters:
+        DisplayName: 'ESRP - sign NuGet package'
+        FolderPath: '$(Build.ArtifactStagingDirectory)'
+        DoEsrp: 'true'
+
+    - task: PublishPipelineArtifact@0
+      displayName: 'Publish Pipeline NuGet Artifact'
+      inputs:
+        artifactName: 'drop-signed-nuget-CPU'
+        targetPath: '$(Build.ArtifactStagingDirectory)'
+
+    - template: templates/component-governance-component-detection-steps.yml
+      parameters :
+        condition : 'succeeded'
+
+    - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
+      displayName: 'Clean Agent Directories'
+      condition: always()
