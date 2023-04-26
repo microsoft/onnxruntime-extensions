@@ -51,3 +51,5 @@ tutorials/*/app/libs
 *.pyd
 /test/data/ppp_vision/*.updated.onnx
 /test/data/generated/
+/test/**/bin/
+/test/**/obj/
