@@ -68,7 +68,7 @@ class OrtPyFunction:
         self.ort_session = None
         self.default_inputs = {}
         self.execution_providers = ['CPUExecutionProvider']
-        if cpu_only is None:
+        if not cpu_only:
             if _ort.get_device() == 'GPU':
                 self.execution_providers = ['CUDAExecutionProvider']
 
