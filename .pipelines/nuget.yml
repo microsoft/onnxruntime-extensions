@@ -66,6 +66,14 @@ stages:
         DisplayName: 'Sign DLL'
         DoEsrp: 'true'
 
+    - task: PowerShell@2
+      displayName: Replace commit id token in nuspec
+      inputs:
+        targetType: 'inline'
+        script: |
+          (Get-Content NativeNuget.nuspec) -replace '$COMMIT_ID$', '$(Build.SourceVersion)' | Set-Content NativeNuget.nuspec
+        workingDirectory: '$(Build.SourcesDirectory)/nuget'
+
     - task: NuGetToolInstaller@0
       displayName: Use Nuget 6.2.1
       inputs:
