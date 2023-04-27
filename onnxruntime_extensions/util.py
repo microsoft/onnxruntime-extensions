@@ -5,6 +5,7 @@ import inspect
 
 import numpy as np
 
+
 # some util function for testing and tools
 def get_test_data_file(*sub_dirs):
     case_file = inspect.currentframe().f_back.f_code.co_filename
@@ -18,7 +19,7 @@ def read_file(path, mode='r'):
 
 
 def mel_filterbank(
-    n_fft:int, n_mels: int=80, sr=16000, min_mel=0, max_mel=45.245640471924965, dtype=np.float32):
+        n_fft: int, n_mels: int = 80, sr=16000, min_mel=0, max_mel=45.245640471924965, dtype=np.float32):
     """
     Compute a Mel-filterbank. The filters are stored in the rows, the columns
     and it is Slaney normalized mel-scale filterbank.

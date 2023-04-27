@@ -1,5 +1,7 @@
 # include requirements.txt so pip has context to avoid installing incompatible dependencies
 -r requirements.txt
 pytest
+# multiple versions of onnxruntime are supported, but only one can be installed at a time
+onnxruntime      >=1.10.0
 transformers     >= 4.9.2,<=4.24.0
 tensorflow_text  >=2.5.0
