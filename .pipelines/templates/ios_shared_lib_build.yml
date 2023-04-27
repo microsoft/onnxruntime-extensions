@@ -40,16 +40,12 @@ jobs:
           PackageVersionVariableName: ORT_EXTENSIONS_POD_VERSION
 
       - script: |
-          python ./tools/gen_selectedops.py ./tools/ios/package_ops.config
-        displayName: "Generate selected ops CMake file"
-
-      - script: |
           python ./tools/ios/build_xcframework.py \
             --output-dir $(Build.BinariesDirectory)/xcframework_out \
             --config $(buildConfig) \
             --platform-arch  ${{ parameters.Platform }} ${{ parameters.ios_arch }} \
             --build_target lib \
-            --cmake-extra-defines OCOS_ENABLE_SELECTED_OPLIST=ON
+            --cmake-extra-defines OCOS_ENABLE_SELECTED_OPLIST=OFF
         displayName: "Build xcframework"
 
       - bash: |

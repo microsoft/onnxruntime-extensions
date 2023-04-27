@@ -8,12 +8,12 @@ parameters:
   - 'arm64-v8a'
   - 'armeabi-v7a'
   type: string
-- name: Android_arch
-  displayName: same android abi, but in valid var
+- name: JobSuffix
+  displayName: android abi has dash `-`, which can be a job name.
   type: string
 
 jobs:
-  - job: Android_C_API_Packaging_${{ parameters.Android_arch }}
+  - job: Android_C_API_Packaging_${{ parameters.JobSuffix }}
     pool:
       vmImage: "macOS-12"
     timeoutInMinutes: 120
@@ -37,10 +37,6 @@ jobs:
       - script: brew install coreutils ninja
         displayName: Install coreutils and ninja
 
-      - script: |
-          python ./tools/gen_selectedops.py ./tools/android/package_ops.config
-        displayName: "Generate selected ops CMake file"
-
       - task: Bash@3
         displayName: 'Build android shared library'
         inputs:
@@ -52,7 +48,7 @@ jobs:
                 --build_target so       \
                 --abi ${{ parameters.AndroidABI }}       \
                 --config $(buildConfig) \
-                --cmake-extra-defines OCOS_ENABLE_SELECTED_OPLIST=ON
+                --cmake-extra-defines OCOS_ENABLE_SELECTED_OPLIST=OFF
           workingDirectory: '$(Build.SourcesDirectory)'
 
       - bash: |

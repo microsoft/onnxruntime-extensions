@@ -38,7 +38,9 @@ steps:
       - script: |
           cd $(Build.SourcesDirectory)
           rm -rf out/
-          ./build.sh
+          export CFLAGS="-Wl,--strip-all"
+          export CXXFLAGS="-Wl,--strip-all"
+          ./build.sh -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_BLINGFIRE=OFF
           ls out/*
         displayName: 'Build ${{ parameters.MacosArch }}'
         env:

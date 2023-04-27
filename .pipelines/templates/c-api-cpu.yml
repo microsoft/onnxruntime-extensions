@@ -46,6 +46,7 @@ stages:
     AllowReleasedOpsetOnly: 1
     BuildForAllArchs: true
 
+
 - stage: Linux_C_API_Packaging_CPU
   dependsOn: []
   jobs:
@@ -55,12 +56,16 @@ stages:
       OrtExtensionsArch: 'x64'
       PoolName: 'aiinfra-Linux-CPU'
       IsReleaseBuild: ${{parameters.IsReleaseBuild}}
+      OrtExtensionsCFlags: '-Wp,-D_FORTIFY_SOURCE=2 -Wp,-D_GLIBCXX_ASSERTIONS -fstack-protector-strong -fstack-clash-protection -fcf-protection -O3 -Wl,--strip-all'
+      OrtExtensionsCXXFlags: '-Wp,-D_FORTIFY_SOURCE=2 -Wp,-D_GLIBCXX_ASSERTIONS -fstack-protector-strong -fstack-clash-protection -fcf-protection -O3 -Wl,--strip-all'
   - template: c-api-linux-cpu.yml
     parameters:
       AdditionalBuildFlags: ${{ parameters.AdditionalBuildFlags }}
       OrtExtensionsArch: 'aarch64'
       PoolName: 'aiinfra-linux-ARM64-CPU-2019'
       IsReleaseBuild: ${{parameters.IsReleaseBuild}}
+      OrtExtensionsCFlags: '-O3 -Wl,--strip-all'
+      OrtExtensionsCXXFlags: '-O3 -Wl,--strip-all'
 
 - stage: Windows_C_API_Packaging_CPU
   dependsOn: []
@@ -70,7 +75,6 @@ stages:
       DoCompliance: ${{ parameters.DoCompliance }}
       DoEsrp: ${{ parameters.DoEsrp }}
       stage_name_suffix: CPU_x86_${{ parameters.BuildVariant }}
-      buildArch: x86
       msbuildPlatform: Win32
       packageName: x86
 
@@ -79,7 +83,6 @@ stages:
       DoCompliance: ${{ parameters.DoCompliance }}
       DoEsrp: ${{ parameters.DoEsrp }}
       stage_name_suffix: CPU_arm_${{ parameters.BuildVariant }}
-      buildArch: x64
       msbuildPlatform: arm
       packageName: arm
 
@@ -88,7 +91,6 @@ stages:
       DoCompliance: ${{ parameters.DoCompliance }}
       DoEsrp: ${{ parameters.DoEsrp }}
       stage_name_suffix: CPU_arm64_${{ parameters.BuildVariant }}
-      buildArch: x64
       msbuildPlatform: arm64
       packageName: arm64
 
@@ -97,7 +99,6 @@ stages:
       DoCompliance: ${{ parameters.DoCompliance }}
       DoEsrp: ${{ parameters.DoEsrp }}
       stage_name_suffix: CPU_x64_${{ parameters.BuildVariant }}
-      buildArch: x64
       msbuildPlatform: x64
       packageName: x64
 #Android_Java_API_AAR_Packaging_Full
@@ -111,16 +112,6 @@ stages:
     - template: c-api-ios-cpu.yml
       parameters:
         IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
-
-#- stage: Android_Java_API_AAR_Packaging_Full
-#  dependsOn: []
-#  jobs:
-#  - template: ../android_packaging.yml
-#
-#- stage: iOS_Full_xcframework
-#  dependsOn: []
-#  jobs:
-#    - template: ../ios_packaging.yml
 
 
 - stage: NuGet_Packaging_CPU
@@ -237,7 +228,7 @@ stages:
             --target_architecture x64  --build_config Release --packages_path $(Build.ArtifactStagingDirectory) `
             --sources_path $(Build.SourcesDirectory) --commit_id $(Build.SourceVersion) `
             --is_release_build ${{ parameters.IsReleaseBuild }}
-          cat $(Build.BinariesDirectory)\RelWithDebInfo\RelWithDebInfo/NativeNuget.nuspec
+          cat $(Build.BinariesDirectory)\RelWithDebInfo\RelWithDebInfo\NativeNuget.nuspec
 
         workingDirectory: '$(Build.SourcesDirectory)'
         
@@ -246,7 +237,7 @@ stages:
       displayName: Packing onnxruntime extensions NuGet-package
       inputs:
         command: 'pack'
-        packagesToPack: '$(Build.BinariesDirectory)\RelWithDebInfo\RelWithDebInfo/NativeNuget.nuspec'
+        packagesToPack: '$(Build.BinariesDirectory)\NativeNuget.nuspec'
         packDestination: $(Build.ArtifactStagingDirectory)
 
     - template: esrp_nuget.yml

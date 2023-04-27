@@ -11,19 +11,19 @@ stages:
   - template: android_shared_lib_build.yml
     parameters:
       AndroidABI: 'x86_64'
-      Android_arch: 'x86_64'
+      JobSuffix: 'x86_64'
   - template: android_shared_lib_build.yml
     parameters:
       AndroidABI: 'x86'
-      Android_arch: 'x86'
+      JobSuffix: 'x86'
   - template: android_shared_lib_build.yml
     parameters:
       AndroidABI: 'armeabi-v7a'
-      Android_arch: 'armeabi_v7a'
+      JobSuffix: 'armeabi_v7a'
   - template: android_shared_lib_build.yml
     parameters:
       AndroidABI: 'arm64-v8a'
-      Android_arch: 'arm64_v8a'
+      JobSuffix: 'arm64_v8a'
   - job: Android_Java_API_AAR_Package_Publish_All
     dependsOn:
     - Android_C_API_Packaging_x86_64

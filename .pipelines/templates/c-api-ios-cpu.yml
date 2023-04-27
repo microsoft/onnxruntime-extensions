@@ -99,14 +99,10 @@ jobs:
       displayName: "Pack xcframework for distributed building"
   - ${{ if eq(parameters.UseDistributedBuild, false) }}:
     - script: |
-        python ./tools/gen_selectedops.py ./tools/ios/package_ops.config
-      displayName: "Generate selected ops CMake file"
-
-    - script: |
         python ./tools/ios/build_xcframework.py \
           --output-dir $(Build.BinariesDirectory)/xcframework_out \
           --config Release \
-          --cmake-extra-defines OCOS_ENABLE_SELECTED_OPLIST=ON
+          --cmake-extra-defines OCOS_ENABLE_SELECTED_OPLIST=OFF
       displayName: "Build xcframework"
 
   - script: |

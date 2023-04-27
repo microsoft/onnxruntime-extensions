@@ -16,6 +16,12 @@ parameters:
 - name: PoolName
   type: string
   default: 'aiinfra-Linux-CPU'
+
+- name: OrtExtensionsCFlags
+  type: string
+
+- name: OrtExtensionsCXXFlags
+  type: string
   
 jobs:
 - job: Linux_C_API_Packaging_CPU_${{parameters.OrtExtensionsArch}}
@@ -29,12 +35,12 @@ jobs:
       clean: true
       submodules: none
 
-    - task: ShellScript@2
+    - bash: |
+        export CFLAGS="${{parameters.OrtExtensionsCFlags}}"
+        export CXXFLAGS="${{parameters.OrtExtensionsCXXFlags}}"
+        ./build.sh -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_BLINGFIRE=OFF
+      workingDirectory: '$(Build.SourcesDirectory)'
       displayName: 'build onnxruntime-extensions for Linux'
-      inputs:
-        scriptPath: 'build.sh'
-        args: 'RelWithDebInfo'
-        workingDirectory: '$(Build.SourcesDirectory)'
 
     - template: set-package-version-variable-step.yml
       parameters:

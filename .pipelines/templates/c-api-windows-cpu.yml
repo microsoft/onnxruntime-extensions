@@ -9,9 +9,6 @@ parameters:
   type: boolean
   default: false
 
-- name: buildArch
-  type: string
-
 - name: msbuildPlatform
   type: string
 
@@ -25,24 +22,16 @@ parameters:
   type: string
   default: ''
 
-- name: ort_build_pool_name
+- name: ortext_build_pool_name
   type: string
   default: 'Win-CPU-2021'
-
-- name: UseIncreasedTimeoutForTests
-  displayName: Increase timeout for tests? Set it to false if you are doing an Onnx Runtime release.
-  type: boolean
-  default: false
 
 jobs:
 - job: Windows_Packaging_${{ parameters.stage_name_suffix }}
   workspace:
     clean: all
-  pool: ${{ parameters.ort_build_pool_name }}
-  ${{ if eq(parameters['UseIncreasedTimeoutForTests'], 'true') }}:
-    timeoutInMinutes: 1200
-  ${{ else }}:
-    timeoutInMinutes: 300
+  pool: ${{ parameters.ortext_build_pool_name }}
+  timeoutInMinutes: 300
 
   steps:
     - checkout: self
@@ -53,7 +42,7 @@ jobs:
       displayName: 'build onnxruntime-extensions'
       inputs:
         filename: '.\build.bat'
-        args: "-A ${{parameters.msbuildPlatform}}"
+        args: "-A ${{parameters.msbuildPlatform}} -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_BLINGFIRE=OFF"
         modifyEnvironment: true
         workingFolder: '$(Build.SourcesDirectory)'
 

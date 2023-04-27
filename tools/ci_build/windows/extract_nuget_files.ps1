@@ -1,11 +1,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-# This file is used by Zip-Nuget Packaging NoContribOps Pipeline,Zip-Nuget-Java Packaging Pipeline
+# This file is used by cpu-Nuget Packaging Pipeline
 
-# Re-construct a build directory that contains binaries from all the different platforms we're including
 # in the native ORT nuget package
-$nuget_artifacts_dir = "$Env:BUILD_BINARIESDIRECTORY\RelWithDebInfo\RelWithDebInfo\nuget-artifacts"
+$nuget_artifacts_dir = "$Env:BUILD_BINARIESDIRECTORY\nuget-artifacts"
 New-Item -Path $nuget_artifacts_dir -ItemType directory
 
 ## .zip files
@@ -26,7 +25,7 @@ Foreach-Object {
  Invoke-Expression -Command $cmd
 }
 
-# now extract the actual folder structure from the tar file to the build dir
+## .tar files
 Get-ChildItem $Env:BUILD_BINARIESDIRECTORY\nuget-artifact -Filter *.tar |
 Foreach-Object {
  $cmd = "7z.exe x $($_.FullName) -y -o$nuget_artifacts_dir"
@@ -35,10 +34,12 @@ Foreach-Object {
 }
 
 # copy android AAR.
-# for full build of onnxruntime-extensions Android AAR, there should only be one .aar file
-# called onnxruntime-extensions-android-x.y.z.aar but sanity check that
 $aars = Get-ChildItem $Env:BUILD_BINARIESDIRECTORY\nuget-artifact -Filter onnxruntime-extensions-android-*.aar
-
+# file structure:
+# nuget-artifact
+#   onnxruntime-extensions-android
+#     onnxruntime-extensions-android-x.y.z.aar  <-- this is the file we want      
+#     
 if ($aars.Count -eq 1) {
   $aar = $aars[0]
   $target_dir = "$nuget_artifacts_dir\onnxruntime-extensions-android-aar"
@@ -53,7 +54,7 @@ elseif ($aars.Count -gt 1) {
 }
 
 
-"Get-ChildItem -Directory -Path $nuget_artifacts_dir\onnxruntime-extensions-*"
+Write-Output "Get-ChildItem -Directory -Path $nuget_artifacts_dir\onnxruntime-extensions-*"
 $ort_dirs = Get-ChildItem -Directory -Path $nuget_artifacts_dir\onnxruntime-extensions-*
 foreach ($ort_dir in $ort_dirs)
 {
