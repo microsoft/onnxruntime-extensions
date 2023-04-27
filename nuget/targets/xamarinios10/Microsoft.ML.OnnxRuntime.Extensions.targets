@@ -9,7 +9,7 @@
       <LinkerFlags>-lc++</LinkerFlags>
       <WeakFrameworks>CoreML</WeakFrameworks>
     </NativeReference>
-    <NativeReference Condition="'$(Platform)' == 'iPhone'" Include="$(MSBuildThisFileDirectory)..\runtimes\ios\native\onnxruntime_extensions.xcframework\ios-arm64\onnxruntime_extensions.framework">
+    <NativeReference Condition="'$(Platform)' == 'iPhone'" Include="$(MSBuildThisFileDirectory)..\..\runtimes\ios\native\onnxruntime_extensions.xcframework\ios-arm64\onnxruntime_extensions.framework">
       <Kind>Framework</Kind>
       <IsCxx>True</IsCxx>
       <SmartLink>True</SmartLink>
