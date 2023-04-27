@@ -24,7 +24,10 @@ local.properties
 .vs
 *-checkpoint.ipynb
 .ipynb_checkpoints/
-tutorials/*.onnx
+/tutorials/*.onnx
+/tutorials/**/bin/
+/tutorials/**/obj/
+/tutorials/**/libs/
 Testing/
 TestResults/
 .idea/
@@ -43,13 +46,9 @@ temp_*onnx*
 */.gradle
 java/hs_*.log
 *.class
-tutorials/*/app/bin/
-tutorials/*/app/libs
 # Compiled Dynamic libraries
 *.so
 *.dylib
 *.pyd
 /test/data/ppp_vision/*.updated.onnx
 /test/data/generated/
-/test/**/bin/
-/test/**/obj/
