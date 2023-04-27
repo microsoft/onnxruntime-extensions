@@ -63,6 +63,7 @@ jobs:
             set -e -x
             cd $(Build.SourcesDirectory)
             rm -rf out/
+
             ./build.sh -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_BLINGFIRE=OFF ${{parameters.AdditionalBuildFlags}}
             ls out/*
           displayName: 'Build ${{ parameters.MacosArch }}'

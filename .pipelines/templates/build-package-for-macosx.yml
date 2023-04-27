@@ -22,21 +22,24 @@ stages:
       MacosArch: 'x86_64'
       AdditionalBuildFlags: ${{ parameters.AdditionalBuildFlags }} 
       WithCache: ${{ parameters.WithCache }}
-  - template: mac-cpu-packing-jobs.yml
-    parameters:
-      MacosArch: 'arm64'
-      AdditionalBuildFlags: "${{ parameters.AdditionalBuildFlags }} -DCMAKE_OSX_ARCHITECTURES=arm64"
-      WithCache: ${{ parameters.WithCache }}
-  - template: mac-cpu-packing-jobs.yml
-    parameters:
-      MacosArch: 'universal2'
-      AdditionalBuildFlags: "${{ parameters.AdditionalBuildFlags }} -DCMAKE_OSX_ARCHITECTURES=\"arm64;x86_64\""
-      WithCache: ${{ parameters.WithCache }}
+  # error   _png_do_read_transformations in liblibpng.a(pngrtran.c.o) not found for architecture arm64
+  # solution https://github.com/davisking/dlib/pull/2664/files
+
+  #- template: mac-cpu-packing-jobs.yml
+  #  parameters:
+  #    MacosArch: 'arm64'
+  #    AdditionalBuildFlags: "${{ parameters.AdditionalBuildFlags }} -DCMAKE_OSX_ARCHITECTURES=arm64"
+  #    WithCache: ${{ parameters.WithCache }}
+  #- template: mac-cpu-packing-jobs.yml
+  #  parameters:
+  #    MacosArch: 'universal2'
+  #    AdditionalBuildFlags: "${{ parameters.AdditionalBuildFlags }} -DCMAKE_OSX_ARCHITECTURES=\"arm64;x86_64\""
+  #    WithCache: ${{ parameters.WithCache }}
   - job: MacOS_C_API_Package_Publish_All
     dependsOn:
     - MacOS_C_API_Packaging_CPU_x86_64
-    - MacOS_C_API_Packaging_CPU_arm64
-    - MacOS_C_API_Packaging_CPU_universal2
+    #- MacOS_C_API_Packaging_CPU_arm64
+    #- MacOS_C_API_Packaging_CPU_universal2
     pool:
       vmImage: 'macOS-12'
     steps:
@@ -44,14 +47,14 @@ stages:
       inputs:
         artifact: 'onnxruntime-extensions-osx-x86_64'
         targetPath: '$(Build.ArtifactStagingDirectory)'
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifact: 'onnxruntime-extensions-osx-arm64'
-        targetPath: '$(Build.ArtifactStagingDirectory)'
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifact: 'onnxruntime-extensions-osx-universal2'
-        targetPath: '$(Build.ArtifactStagingDirectory)'
+    #- task: DownloadPipelineArtifact@2
+    #  inputs:
+    #    artifact: 'onnxruntime-extensions-osx-arm64'
+    #    targetPath: '$(Build.ArtifactStagingDirectory)'
+    #- task: DownloadPipelineArtifact@2
+    #  inputs:
+    #    artifact: 'onnxruntime-extensions-osx-universal2'
+    #    targetPath: '$(Build.ArtifactStagingDirectory)'
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)'
