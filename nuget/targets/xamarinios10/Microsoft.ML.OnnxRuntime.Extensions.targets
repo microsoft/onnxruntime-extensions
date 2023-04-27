@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Condition="('$(OutputType)'!='Library' OR '$(IsAppExtension)'=='True')">
-    <NativeReference Condition="'$(Platform)' == 'iPhoneSimulator'" Include="$(MSBuildThisFileDirectory)..\runtimes\ios\native\onnxruntime_extensions.xcframework\ios-arm64_x86_64-simulator\onnxruntime_extensions.framework">
+    <NativeReference Condition="'$(Platform)' == 'iPhoneSimulator'" Include="$(MSBuildThisFileDirectory)..\..\runtimes\ios\native\onnxruntime_extensions.xcframework\ios-arm64_x86_64-simulator\onnxruntime_extensions.framework">
       <Kind>Framework</Kind>
       <IsCxx>True</IsCxx>
       <SmartLink>True</SmartLink>
