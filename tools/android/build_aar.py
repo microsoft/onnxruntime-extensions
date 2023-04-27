@@ -80,7 +80,7 @@ def build_aar(
         jnilibs_dir = base_jnilibs_dir / abi
         jnilibs_dir.mkdir(parents=True, exist_ok=True)
 
-        jnilib_names = ["libonnxruntime_extensions4j_jni.so"]
+        jnilib_names = ["libortextensions.so", "libonnxruntime_extensions4j_jni.so"]
         for jnilib_name in jnilib_names:
             shutil.copyfile(build_dir / config / "java" / "android" / abi / jnilib_name, jnilibs_dir / jnilib_name)
 
@@ -145,7 +145,7 @@ def parse_args():
     parser.add_argument(
         "--api-level",
         type=int,
-        default=24,
+        default=21,
         help="Android API Level. E.g., 24.",
     )
 
