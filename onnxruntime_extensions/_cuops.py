@@ -403,6 +403,7 @@ class AudioDecoder(CustomOp):
             cls.io_def('floatPCM', onnx_proto.TensorProto.FLOAT, [1, None])
         ]
 
+
 class StftNorm(CustomOp):
     @classmethod
     def get_inputs(cls):
