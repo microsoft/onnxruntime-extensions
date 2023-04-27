@@ -88,6 +88,41 @@ def validate_platform():
         raise Exception("Native Nuget generation is currently supported only on Windows, Linux, and MacOS")
 
 
+def generate_by_existed_nuspec(args):
+    template_nuspec_path = args.source_path/"nuget"/"NativeNuget.nuspec"
+    output_nuspec_path = Path(args.native_build_path)/"NativeNuget.nuspec"
+    tree = ElementTree.parse(template_nuspec_path)
+    root = tree.getroot()
+
+    # update version and commit id
+    packages_node = root.findall('metadata')[0]
+    for package_item in list(packages_node):
+        if package_item.tag == "version" and args.package_version:
+            package_item.text = args.package_version
+        elif package_item.tag == "repository" and args.commit_id:
+            package_item.attrib['commit'] = args.commit_id
+
+    # remove file in local build
+    files_node = root.findall('files')[0]
+    for file_item in list(files_node):
+        if 'runtimes' in file_item.attrib['target']:
+            files_node.remove(file_item)
+
+    # add files dynamically
+    nuget_artifacts_dir = args.native_build_path/"nuget-artifacts-ort-ext"
+    for file_item in generate_file_list(nuget_artifacts_dir):
+        file_node = ElementTree.SubElement(files_node, 'file')
+        file_node.attrib = file_item
+
+    # align indent
+    py_version = sys.version_info
+    if py_version > (3, 9):
+        ElementTree.indent(root)
+
+    tree.write(output_nuspec_path, encoding='utf-8', xml_declaration=True)
+    return
+
+
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description="ONNXRuntime extensions create nuget spec script (for hosting native shared library artifacts)",
@@ -95,7 +130,7 @@ def parse_arguments():
     )
     # Main arguments
     parser.add_argument("--package_version", default='', help="ORT package version. Eg: 1.0.0")
-    parser.add_argument("--source_nuspec_path", required=True, type=Path, help="the local nuspec template file path.")
+    parser.add_argument("--sources_path", required=True, type=Path, help="sources repo path.")
     parser.add_argument("--native_build_path", default='./nuget-artifacts',
                         type=Path, help="Native build output directory.")
     parser.add_argument("--packages_path", default='./', type=Path, help="Nuget packages output directory.")
@@ -108,40 +143,9 @@ def parse_arguments():
     )
     args = parser.parse_args()
     args.native_build_path = args.native_build_path.resolve()
+    args.sources_path = args.sources_path.resolve()
     args.packages_path = args.packages_path.resolve()
     return args
-
-def generate_by_existed_nuspec(args):
-    template_nuspec_path = args.source_nuspec_path
-    output_nuspec_path = Path(args.native_build_path)/"NativeNuget.nuspec"
-    nuget_artifacts_dir = args.native_build_path
-    tree = ElementTree.parse(template_nuspec_path)
-    root = tree.getroot()
-
-    packages_node = root.findall('metadata')[0]
-    for package_item in list(packages_node):
-        if package_item.tag == "version" and args.package_version:
-            package_item.text = args.package_version
-        elif package_item.tag == "repository" and args.commit_id:
-            package_item.attrib['commit'] = args.commit_id
-
-    files_node = root.findall('files')[0]
-    for file_item in list(files_node):
-        if 'runtimes' in file_item.attrib['target']:
-            files_node.remove(file_item)
-    
-    nuget_artifacts_dir = Path(nuget_artifacts_dir)
-    for file_item in generate_file_list(nuget_artifacts_dir):
-        file_node = ElementTree.SubElement(files_node, 'file')
-        file_node.attrib = file_item
-    
-    py_version = sys.version_info
-    if py_version > (3, 9):
-        ElementTree.indent(root)
-
-    tree.write(output_nuspec_path, encoding='utf-8', xml_declaration=True)
-    return
-
 
 def main():
     # Parse arguments

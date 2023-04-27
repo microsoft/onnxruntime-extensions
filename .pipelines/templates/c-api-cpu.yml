@@ -222,13 +222,12 @@ stages:
         script: |
           $OrtExtVersion=(cat ./version.txt)
           python $(Build.SourcesDirectory)\tools\ci_build\generate_nuspec_for_native_nuget.py `
-            --package_name ${{ parameters.OrtNugetPackageId }} `
             --package_version $OrtExtVersion `
-            --native_build_path $(Build.BinariesDirectory)\RelWithDebInfo\RelWithDebInfo `
-            --target_architecture x64  --build_config Release --packages_path $(Build.ArtifactStagingDirectory) `
+            --native_build_path $(Build.BinariesDirectory) `
+            --packages_path $(Build.ArtifactStagingDirectory) `
             --sources_path $(Build.SourcesDirectory) --commit_id $(Build.SourceVersion) `
-            --is_release_build ${{ parameters.IsReleaseBuild }}
-          cat $(Build.BinariesDirectory)\RelWithDebInfo\RelWithDebInfo\NativeNuget.nuspec
+
+          cat $(Build.BinariesDirectory)\NativeNuget.nuspec
 
         workingDirectory: '$(Build.SourcesDirectory)'
         

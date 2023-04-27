@@ -36,10 +36,11 @@ steps:
     ChangeEveryCommit: true
     BuildStep:
       - script: |
+          set -e -x
           cd $(Build.SourcesDirectory)
           rm -rf out/
-          export CFLAGS="-Wl,--strip-all"
-          export CXXFLAGS="-Wl,--strip-all"
+          export CFLAGS="-Wl,-s"
+          export CXXFLAGS="-Wl,-s"
           ./build.sh -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_BLINGFIRE=OFF
           ls out/*
         displayName: 'Build ${{ parameters.MacosArch }}'
@@ -55,6 +56,7 @@ steps:
   inputs:
     targetType: 'inline'
     script: |
+      set -e -x
       target_lib_path=onnxruntime-extensions-osx-${{ parameters.MacosArch }}-$(ORT_EXTENSIONS_VERSION)/lib
       mkdir -p $target_lib_path
       cp $(Build.SourcesDirectory)/out/Darwin/RelWithDebInfo/lib/libortextensions.dylib  ${target_lib_path}/

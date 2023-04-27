@@ -4,7 +4,7 @@
 # This file is used by cpu-Nuget Packaging Pipeline
 
 # in the native ORT nuget package
-$nuget_artifacts_dir = "$Env:BUILD_BINARIESDIRECTORY\nuget-artifacts"
+$nuget_artifacts_dir = "$Env:BUILD_BINARIESDIRECTORY\nuget-artifacts-ort-ext"
 New-Item -Path $nuget_artifacts_dir -ItemType directory
 
 ## .zip files
