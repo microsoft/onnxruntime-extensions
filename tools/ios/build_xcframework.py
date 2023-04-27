@@ -91,7 +91,7 @@ def build_framework_for_platform_and_arch(
     return build_dir / "static_framework/onnxruntime_extensions.framework"
 
 
-def build_xcframework(
+def build_artifact_by_target(
     output_dir: Path,
     platform_archs: Dict[str, List[str]],
     build_target: str,
@@ -261,7 +261,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    build_xcframework(
+    build_artifact_by_target(
         output_dir=args.output_dir,
         platform_archs=args.platform_archs,
         build_target=args.build_target,

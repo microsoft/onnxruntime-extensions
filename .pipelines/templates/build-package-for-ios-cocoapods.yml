@@ -75,6 +75,7 @@ jobs:
         artifact: 'onnxruntime-extensions-ios-iphonesimulator-x86_64-lib'
         targetPath: '$(Build.BinariesDirectory)/'
     - script: |
+        set -e -x
         ls
         if ! ls onnxruntime-extensions-ios*.tar &> /dev/null; then
           echo "no tar files found. It's not distributed building, skip!"

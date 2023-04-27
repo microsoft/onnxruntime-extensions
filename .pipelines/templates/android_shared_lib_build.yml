@@ -9,7 +9,7 @@ parameters:
   - 'armeabi-v7a'
   type: string
 - name: JobSuffix
-  displayName: android abi has dash `-`, which can be a job name.
+  displayName: android abi has dash `-`, which can't be part of job name.
   type: string
 
 jobs:

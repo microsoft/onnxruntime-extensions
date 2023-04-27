@@ -4,7 +4,7 @@
 # This file is used by cpu-Nuget Packaging Pipeline
 
 # in the native ORT nuget package
-$nuget_artifacts_dir = "$Env:BUILD_BINARIESDIRECTORY\nuget-artifacts-ort-ext"
+$nuget_artifacts_dir = "$Env:BUILD_BINARIESDIRECTORY\nuget-ort-ext"
 New-Item -Path $nuget_artifacts_dir -ItemType directory
 
 ## .zip files
@@ -34,23 +34,21 @@ Foreach-Object {
 }
 
 # copy android AAR.
-$aars = Get-ChildItem $Env:BUILD_BINARIESDIRECTORY\nuget-artifact -Filter onnxruntime-extensions-android-*.aar
-# file structure:
+
+# target file structure:
 # nuget-artifact
 #   onnxruntime-extensions-android
 #     onnxruntime-extensions-android-x.y.z.aar  <-- this is the file we want      
-#     
+#  to match any {version}
+$aars = Get-ChildItem $Env:BUILD_BINARIESDIRECTORY\nuget-artifact -Filter onnxruntime-extensions-android-*.aar
+# could be empty if no android build
 if ($aars.Count -eq 1) {
   $aar = $aars[0]
   $target_dir = "$nuget_artifacts_dir\onnxruntime-extensions-android-aar"
-  $target_file = "$target_dir\onnxruntime-extensions.aar"  # remove '-mobile' and version info from filename
+  $target_file = "$target_dir\onnxruntime-extensions.aar"  # remove -version info from filename
   New-Item -Path $target_dir -ItemType directory
-
   Write-Output "Copy-Item $($aar.FullName) $target_file"
   Copy-Item $aar.FullName $target_file
-}
-elseif ($aars.Count -gt 1) {
-  Write-Error "Expected at most one Android .aar file but got: [$aars]"
 }
 
 

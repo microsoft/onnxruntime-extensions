@@ -1,6 +1,6 @@
 parameters:
 - name: RunOrtExtensionsTests
-  displayName: Run Tests?. There is no test exist for now
+  displayName: Run Tests?
   type: boolean
   default: false
 
@@ -15,52 +15,34 @@ parameters:
   default: false
 
 - name: IsReleaseBuild
-  displayName: Is a release build? Set it to true if you are doing an OnnxRuntime extensions release.
+  displayName: Is a release build?
   type: boolean
   default: false
-
-- name: AdditionalBuildFlags
-  displayName: Additional build flags for build.py
-  type: string
-  default: ''
-
-- name: AdditionalWinBuildFlags
-  displayName: Additional build flags that just for Windows Builds
-  type: string
-  default: ''
 
 - name: OrtNugetPackageId
   displayName: Package name for nuget
   type: string
   default: 'Microsoft.ML.OnnxRuntime.Extensions'
 
-- name: BuildVariant
-  type: string
-  default: 'default'
-
 stages:
 # MacOS_C_API_Packaging_CPU
-- template: c-api-osx-cpu.yml
+- template: build-package-for-macosx.yml
   parameters:
     IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
-    AllowReleasedOpsetOnly: 1
-    BuildForAllArchs: true
 
 
 - stage: Linux_C_API_Packaging_CPU
   dependsOn: []
   jobs:
-  - template: c-api-linux-cpu.yml
+  - template: build-package-for-linux.yml
     parameters:
-      AdditionalBuildFlags: ${{ parameters.AdditionalBuildFlags }}
       OrtExtensionsArch: 'x64'
       PoolName: 'aiinfra-Linux-CPU'
       IsReleaseBuild: ${{parameters.IsReleaseBuild}}
       OrtExtensionsCFlags: '-Wp,-D_FORTIFY_SOURCE=2 -Wp,-D_GLIBCXX_ASSERTIONS -fstack-protector-strong -fstack-clash-protection -fcf-protection -O3 -Wl,--strip-all'
       OrtExtensionsCXXFlags: '-Wp,-D_FORTIFY_SOURCE=2 -Wp,-D_GLIBCXX_ASSERTIONS -fstack-protector-strong -fstack-clash-protection -fcf-protection -O3 -Wl,--strip-all'
-  - template: c-api-linux-cpu.yml
+  - template: build-package-for-linux.yml
     parameters:
-      AdditionalBuildFlags: ${{ parameters.AdditionalBuildFlags }}
       OrtExtensionsArch: 'aarch64'
       PoolName: 'aiinfra-linux-ARM64-CPU-2019'
       IsReleaseBuild: ${{parameters.IsReleaseBuild}}
@@ -70,46 +52,46 @@ stages:
 - stage: Windows_C_API_Packaging_CPU
   dependsOn: []
   jobs:
-  - template: c-api-windows-cpu.yml
+  - template: build-package-for-windows.yml
     parameters:
       DoCompliance: ${{ parameters.DoCompliance }}
       DoEsrp: ${{ parameters.DoEsrp }}
-      stage_name_suffix: CPU_x86_${{ parameters.BuildVariant }}
+      stage_name_suffix: CPU_x86
       msbuildPlatform: Win32
       packageName: x86
 
-  - template: c-api-windows-cpu.yml
+  - template: build-package-for-windows.yml
     parameters:
       DoCompliance: ${{ parameters.DoCompliance }}
       DoEsrp: ${{ parameters.DoEsrp }}
-      stage_name_suffix: CPU_arm_${{ parameters.BuildVariant }}
+      stage_name_suffix: CPU_arm
       msbuildPlatform: arm
       packageName: arm
 
-  - template: c-api-windows-cpu.yml
+  - template: build-package-for-windows.yml
     parameters:
       DoCompliance: ${{ parameters.DoCompliance }}
       DoEsrp: ${{ parameters.DoEsrp }}
-      stage_name_suffix: CPU_arm64_${{ parameters.BuildVariant }}
+      stage_name_suffix: CPU_arm64
       msbuildPlatform: arm64
       packageName: arm64
 
-  - template: c-api-windows-cpu.yml
+  - template: build-package-for-windows.yml
     parameters:
       DoCompliance: ${{ parameters.DoCompliance }}
       DoEsrp: ${{ parameters.DoEsrp }}
-      stage_name_suffix: CPU_x64_${{ parameters.BuildVariant }}
+      stage_name_suffix: CPU_x64
       msbuildPlatform: x64
       packageName: x64
 #Android_Java_API_AAR_Packaging_Full
-- template: c-api-android-cpu.yml
+- template: build-package-for-android-aar.yml
   parameters:
     IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
 
 - stage: iOS_Full_xcframework
   dependsOn: []
   jobs:
-    - template: c-api-ios-cpu.yml
+    - template: build-package-for-ios-cocoapods.yml
       parameters:
         IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
 
@@ -173,18 +155,6 @@ stages:
         artifactName: 'onnxruntime-extensions-osx'
         targetPath: '$(Build.BinariesDirectory)/nuget-artifact'
 
-    - task: DownloadPipelineArtifact@0
-      displayName: 'Download linux-x64 Pipeline Artifact'
-      inputs:
-        artifactName: 'onnxruntime-extensions-linux-x64'
-        targetPath: '$(Build.BinariesDirectory)/nuget-artifact'
-
-    - task: DownloadPipelineArtifact@0
-      displayName: 'Download linux-aarch64 Pipeline Artifact'
-      inputs:
-        artifactName: 'onnxruntime-extensions-linux-aarch64'
-        targetPath: '$(Build.BinariesDirectory)/nuget-artifact'
-
     - task: DownloadPipelineArtifact@2
       displayName: 'Download iOS Pipeline Artifact'
       inputs:
@@ -198,6 +168,17 @@ stages:
         patterns: '**/*.aar'
         targetPath: '$(Build.BinariesDirectory)/nuget-artifact'
 
+    - task: DownloadPipelineArtifact@0
+      displayName: 'Download linux-x64 Pipeline Artifact'
+      inputs:
+        artifactName: 'onnxruntime-extensions-linux-x64'
+        targetPath: '$(Build.BinariesDirectory)/nuget-artifact'
+
+    - task: DownloadPipelineArtifact@0
+      displayName: 'Download linux-aarch64 Pipeline Artifact'
+      inputs:
+        artifactName: 'onnxruntime-extensions-linux-aarch64'
+        targetPath: '$(Build.BinariesDirectory)/nuget-artifact'
     - script: |
        dir
       workingDirectory: '$(Build.BinariesDirectory)/nuget-artifact'
@@ -216,18 +197,17 @@ stages:
         versionSpec: 6.2.1
 
     - task: PowerShell@2
-      displayName: 'Generating NuSpec'
+      displayName: 'Updating NuSpec'
       inputs:
         targetType: 'inline'
         script: |
+          mv $(Build.BinariesDirectory)/nuget-ort-ext  $(Build.SourcesDirectory)/nuget-artifacts-ext
           $OrtExtVersion=(cat ./version.txt)
-          python $(Build.SourcesDirectory)\tools\ci_build\generate_nuspec_for_native_nuget.py `
+          python $(Build.SourcesDirectory)\tools\ci_build\update_nuspec_for_native_nuget.py `
             --package_version $OrtExtVersion `
-            --native_build_path $(Build.BinariesDirectory) `
-            --packages_path $(Build.ArtifactStagingDirectory) `
             --sources_path $(Build.SourcesDirectory) --commit_id $(Build.SourceVersion) `
 
-          cat $(Build.BinariesDirectory)\NativeNuget.nuspec
+          cat $(Build.SourcesDirectory)\nuget\NativeNuget.nuspec
 
         workingDirectory: '$(Build.SourcesDirectory)'
         
@@ -236,7 +216,7 @@ stages:
       displayName: Packing onnxruntime extensions NuGet-package
       inputs:
         command: 'pack'
-        packagesToPack: '$(Build.BinariesDirectory)\NativeNuget.nuspec'
+        packagesToPack: '$(Build.SourcesDirectory)\nuget\NativeNuget.nuspec'
         packDestination: $(Build.ArtifactStagingDirectory)
 
     - template: esrp_nuget.yml

@@ -5,11 +5,6 @@ parameters:
   type: boolean
   default: false
 
-- name: AdditionalBuildFlags
-  displayName: Additional build flags for build.sh
-  type: string
-  default: ''
-
 - name: OrtExtensionsArch  
   type: string
 
@@ -48,6 +43,7 @@ jobs:
         PackageVersionVariableName: ORT_EXTENSIONS_VERSION
 
     - bash: |
+       set -e -x
        cd $(Build.SourcesDirectory)
 
        lib_target=$(Build.BinariesDirectory)/onnxruntime-extensions-linux-${{parameters.OrtExtensionsArch}}-$(ORT_EXTENSIONS_VERSION)/lib

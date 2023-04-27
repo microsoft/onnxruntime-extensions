@@ -52,7 +52,7 @@ def build_for_abi(
     run(*build_cmd)
 
 
-def build_aar(
+def build_artifact_by_target(
     output_dir: Path,
     config: str,
     build_target: str,
@@ -211,7 +211,7 @@ def main():
 
     _log.info(f"Building AAR for ABIs: {args.abis}")
 
-    build_aar(
+    build_artifact_by_target(
         output_dir=args.output_dir,
         config=args.config,
         build_target=args.build_target,
