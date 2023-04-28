@@ -1,6 +1,6 @@
 jobs:
 - job: macos
-  timeoutInMinutes: 120
+  timeoutInMinutes: 180
   pool: {vmImage: 'macOS-12'}
   variables:
     CIBW_BUILD: "cp3{8,9,10}-*"
