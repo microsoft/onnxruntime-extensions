@@ -1,4 +1,4 @@
-# packaging pipeline for onnxruntime-extensions Android AAR package
+# packaging pipeline for onnxruntime-extensions ios cocoapods package
 parameters:
 - name: Platform
   displayName: ios Platform
