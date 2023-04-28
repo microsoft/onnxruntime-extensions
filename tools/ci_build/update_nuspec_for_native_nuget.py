@@ -23,17 +23,6 @@ def update_nuspec_from_local_inplace(args):
         elif package_item.tag == "repository" and args.commit_id:
             package_item.attrib['commit'] = args.commit_id
 
-    # remove files if not existed 
-    files_node = root.findall('files')[0]
-    for file_item in list(files_node):
-        if 'runtimes' in file_item.attrib['target']:
-            file_src = template_nuspec_path.parent/file_item.attrib['src']
-            if not file_src.exists() or ('*' in file_item.attrib['src'] and not file_src.parent.exists()):
-                print(" remove item ", file_item.attrib, ' as source file is not exist.')
-                files_node.remove(file_item)
-            else:
-                file_item.attrib['src'] = str(file_src.resolve())
-
     # format of indent
     py_version = sys.version_info
     if py_version > (3, 9):

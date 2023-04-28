@@ -41,7 +41,7 @@
 		<file src="..\nuget-artifacts-ext\onnxruntime-extensions-android\onnxruntime-extensions.aar" target="runtimes/android/native"/>
 		<file src="..\nuget-artifacts-ext\onnxruntime-extensions-linux-aarch64\lib\libortextensions.so" target="runtimes/linux-arm64/native"/>
 		<file src="..\nuget-artifacts-ext\onnxruntime-extensions-linux-x64\lib\libortextensions.so" target="runtimes/linux-x64/native"/>
-		<file src="..\nuget-artifacts-ext\onnxruntime-extensions-osx-arm64\lib\libortextensions.dylib" target="runtimes/osx.10.14-arm64/native"/>
+		<!--<file src="..\nuget-artifacts-ext\onnxruntime-extensions-osx-arm64\lib\libortextensions.dylib" target="runtimes/osx.10.14-arm64/native"/>-->
 		<file src="..\nuget-artifacts-ext\onnxruntime-extensions-osx-x86_64\lib\libortextensions.dylib" target="runtimes/osx.10.14-x64/native"/>
 		<file src="..\nuget-artifacts-ext\onnxruntime-extensions-win-arm\lib\ortextensions.dll" target="runtimes/win-arm/native"/>
 		<file src="..\nuget-artifacts-ext\onnxruntime-extensions-win-arm\lib\ortextensions.lib" target="runtimes/win-arm/native"/>
