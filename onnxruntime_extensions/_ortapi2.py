@@ -4,9 +4,20 @@
 ###############################################################################
 
 import numpy as np
-import onnxruntime as _ort
 from ._ocos import default_opset_domain, get_library_path  # noqa
-from ._cuops import *  # noqa
+from ._cuops import onnx, onnx_proto, CustomOpConverter, SingleOpGraph
+
+_ort_check_passed = False
+try:
+    from packaging import version as _ver
+    import onnxruntime as _ort
+    if _ver.parse(_ort.__version__) >= _ver.parse("1.10.0"):
+        _ort_check_passed = True
+except ImportError:
+    pass
+
+if not _ort_check_passed:
+    raise RuntimeError("please install ONNXRuntime/ONNXRuntime-GPU >= 1.10.0")
 
 
 def get_opset_version_from_ort():
@@ -24,6 +35,9 @@ def get_opset_version_from_ort():
     }
 
     ort_ver_string = '.'.join(_ort.__version__.split('.')[0:2])
+    max_ver = max(_ORT_OPSET_SUPPORT_TABLE, key=_ORT_OPSET_SUPPORT_TABLE.get)
+    if ort_ver_string > max_ver:
+        ort_ver_string = max_ver
     return _ORT_OPSET_SUPPORT_TABLE.get(ort_ver_string, 11)
 
 
@@ -41,8 +55,6 @@ def make_onnx_model(graph, opset_version=0, extra_domain=default_opset_domain(),
 
 class OrtPyFunction:
 
-    __name__ = 'OrtPyFunction'
-
     @classmethod
     def get_ort_session_options(cls):
         # ONNXRuntime has an issue to support reusing the SessionOptions object.
@@ -51,10 +63,14 @@ class OrtPyFunction:
         so.register_custom_ops_library(get_library_path())
         return so
 
-    def __init__(self):
+    def __init__(self, cpu_only=None):
         self._onnx_model = None
         self.ort_session = None
         self.default_inputs = {}
+        self.execution_providers = ['CPUExecutionProvider']
+        if not cpu_only:
+            if _ort.get_device() == 'GPU':
+                self.execution_providers = ['CUDAExecutionProvider']
 
     def create_from_customop(self, op_type, *args, **kwargs):
         cvt = kwargs.get('cvt', None)
@@ -91,27 +107,45 @@ class OrtPyFunction:
     def output_names(self):
         return [vi_.name for vi_ in self.onnx_model.graph.output]
 
-    def _bind(self, oxml):
+    def _bind(self, oxml, model_path=None):
         self.inputs = list(oxml.graph.input)
         self.outputs = list(oxml.graph.output)
         self._oxml = oxml
+        if model_path is not None:
+            self.ort_session = _ort.InferenceSession(
+                model_path, self.get_ort_session_options(),
+                self.execution_providers)
         return self
 
     def _ensure_ort_session(self):
         if self.ort_session is None:
             sess = _ort.InferenceSession(
-                self.onnx_model.SerializeToString(), self.get_ort_session_options())
+                self.onnx_model.SerializeToString(), self.get_ort_session_options(),
+                self.execution_providers)
             self.ort_session = sess
 
         return self.ort_session
 
+    @staticmethod
+    def _get_kwarg_device(kwargs):
+        cpuonly = kwargs.get('cpu_only', None)
+        if cpuonly is not None:
+            del kwargs['cpu_only']
+        return cpuonly
+
     @classmethod
     def from_customop(cls, op_type, *args, **kwargs):
-        return cls().create_from_customop(op_type, *args, **kwargs)
+        return cls(cls._get_kwarg_device(kwargs)).create_from_customop(op_type, *args, **kwargs)
 
     @classmethod
     def from_model(cls, path_or_model, *args, **kwargs):
-        return cls()._bind(onnx.load_model(path_or_model) if isinstance(path_or_model, str) else path_or_model)
+        mpath = None
+        if isinstance(path_or_model, str):
+            oxml = onnx.load_model(path_or_model)
+            mpath = path_or_model
+        else:
+            oxml = path_or_model
+        return cls(cls._get_kwarg_device(kwargs))._bind(oxml, mpath)
 
     def _argument_map(self, *args, **kwargs):
         idx = 0
