@@ -34,7 +34,7 @@
 		<file src="LICENSE.txt" target="LICENSE.txt" />
 		<file src="README.md" target="README.md" />
 		<!-- Windows, Linux, macOS via netstandard -->
-		<file src="..\out\Windows\bin\RelWithDebInfo\ortextensions.dll" target="runtimes\win-x64\native" />
+		<!--<file src="..\out\Windows\bin\RelWithDebInfo\ortextensions.dll" target="runtimes\win-x64\native" /> -->
 		
 		<!-- It's safe to add more packages here, even it's not existed in CI pipeline. Those files would be removed autumaticlly -->
 		<file src="..\includes\*.h" target="build\native\include" />
