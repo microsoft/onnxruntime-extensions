@@ -194,7 +194,7 @@ def parse_args():
     parser.add_argument(
         "--build_target",
         default="xcframework",
-        choices=["lib", "xcframework","pack_xcframework"],
+        choices=["lib", "xcframework", "pack_xcframework"],
         help="iOS deployment target.",
     )
     parser.add_argument(
