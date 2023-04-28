@@ -1,11 +1,4 @@
 parameters:
-- name: RunOrtExtensionsTests
-  # this is only nuget packing pipeline, we don't want to run test again for that
-  # we should have run the test somewhere already.
-  displayName: Run Tests?
-  type: boolean
-  default: false
-
 - name: DoCompliance
   displayName: Run Compliance Tasks?
   type: boolean
@@ -34,7 +27,6 @@ pr:
 stages:
 - template: templates/build-package-for-nuget.yml
   parameters:
-    RunOrtExtensionsTests: ${{ parameters.RunOrtExtensionsTests }}
     DoCompliance: ${{ parameters.DoCompliance }}
     DoEsrp: ${{ parameters.DoEsrp }}
     IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
