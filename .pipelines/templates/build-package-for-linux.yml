@@ -17,6 +17,9 @@ parameters:
 
 - name: OrtExtensionsCXXFlags
   type: string
+- name: AdditionalBuildFlags
+  displayName: set OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE
+  type: string
   
 jobs:
 - job: Linux_C_API_Packaging_CPU_${{parameters.OrtExtensionsArch}}
@@ -33,7 +36,7 @@ jobs:
     - bash: |
         export CFLAGS="${{parameters.OrtExtensionsCFlags}}"
         export CXXFLAGS="${{parameters.OrtExtensionsCXXFlags}}"
-        ./build.sh -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_BLINGFIRE=OFF
+        ./build.sh ${{parameters.AdditionalBuildFlags}}
       workingDirectory: '$(Build.SourcesDirectory)'
       displayName: 'build onnxruntime-extensions for Linux'
 

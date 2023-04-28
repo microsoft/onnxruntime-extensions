@@ -191,11 +191,19 @@ def parse_args():
         required=True,
         help="Path to output directory.",
     )
+    # Same as how android works
+    # This one is used in the ci pipeline for accelerating the build process,
+    # We have 4 archs to be build. It's in sequence by default, but we can build them in parallel.
+    # The parallel build works as:
+    #   1. build the lib files for each arch in different ci jobs
+    #   2. download all the lib files in tasks
+    #   2. pack the xcframework package in ci task
     parser.add_argument(
         "--build_target",
         default="xcframework",
         choices=["lib", "xcframework", "pack_xcframework"],
-        help="iOS deployment target.",
+        help="Build target. 'xcframework' builds the whole package. 'lib' builds the libraries only. \
+            'pack_xcframework' only does pack xcframework from existing lib files.",
     )
     parser.add_argument(
         "--config",

@@ -25,6 +25,10 @@ parameters:
 - name: ortext_build_pool_name
   type: string
   default: 'Win-CPU-2021'
+- name: AdditionalBuildFlags
+  displayName: set OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE
+  type: string
+  
 
 jobs:
 - job: Windows_Packaging_${{ parameters.stage_name_suffix }}
@@ -42,7 +46,7 @@ jobs:
       displayName: 'build onnxruntime-extensions'
       inputs:
         filename: '.\build.bat'
-        args: "-A ${{parameters.msbuildPlatform}} -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_BLINGFIRE=OFF"
+        args: "-A ${{parameters.msbuildPlatform}} ${{parameters.AdditionalBuildFlags}}"
         modifyEnvironment: true
         workingFolder: '$(Build.SourcesDirectory)'
 

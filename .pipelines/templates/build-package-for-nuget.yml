@@ -18,12 +18,18 @@ parameters:
   displayName: Package name for nuget
   type: string
   default: 'Microsoft.ML.OnnxRuntime.Extensions'
-
+  
+- name: AdditionalBuildFlags
+  displayName: set OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE
+  type: string
+  default: -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_BLINGFIRE=OFF
+  
 stages:
 # MacOS_C_API_Packaging_CPU
 - template: build-package-for-macosx.yml
   parameters:
     IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+    AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
 
 - stage: Linux_C_API_Packaging_CPU
@@ -36,6 +42,7 @@ stages:
       IsReleaseBuild: ${{parameters.IsReleaseBuild}}
       OrtExtensionsCFlags: '-Wp,-D_FORTIFY_SOURCE=2 -Wp,-D_GLIBCXX_ASSERTIONS -fstack-protector-strong -fstack-clash-protection -fcf-protection -O3 -Wl,--strip-all'
       OrtExtensionsCXXFlags: '-Wp,-D_FORTIFY_SOURCE=2 -Wp,-D_GLIBCXX_ASSERTIONS -fstack-protector-strong -fstack-clash-protection -fcf-protection -O3 -Wl,--strip-all'
+      AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
   - template: build-package-for-linux.yml
     parameters:
       OrtExtensionsArch: 'aarch64'
@@ -43,6 +50,7 @@ stages:
       IsReleaseBuild: ${{parameters.IsReleaseBuild}}
       OrtExtensionsCFlags: '-O3 -Wl,--strip-all'
       OrtExtensionsCXXFlags: '-O3 -Wl,--strip-all'
+      AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
 - stage: Windows_C_API_Packaging_CPU
   dependsOn: []
@@ -54,6 +62,7 @@ stages:
       stage_name_suffix: CPU_x86
       msbuildPlatform: Win32
       packageName: x86
+      AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
   - template: build-package-for-windows.yml
     parameters:
@@ -62,6 +71,7 @@ stages:
       stage_name_suffix: CPU_arm
       msbuildPlatform: arm
       packageName: arm
+      AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
   - template: build-package-for-windows.yml
     parameters:
@@ -70,6 +80,7 @@ stages:
       stage_name_suffix: CPU_arm64
       msbuildPlatform: arm64
       packageName: arm64
+      AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
   - template: build-package-for-windows.yml
     parameters:
@@ -78,10 +89,12 @@ stages:
       stage_name_suffix: CPU_x64
       msbuildPlatform: x64
       packageName: x64
+      AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 #Android_Java_API_AAR_Packaging_Full
 - template: build-package-for-android-aar.yml
   parameters:
     IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+    AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
 - stage: iOS_Full_xcframework
   dependsOn: []
@@ -89,6 +102,7 @@ stages:
     - template: build-package-for-ios-cocoapods.yml
       parameters:
         IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+        AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
 
 - stage: NuGet_Packaging_CPU

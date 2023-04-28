@@ -4,6 +4,11 @@ parameters:
   displayName: "Is this is a release build?"
   type: boolean
   default: false
+    
+- name: AdditionalBuildFlags
+  displayName: set OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE
+  type: string
+
 stages:
 - stage: Android_Java_API_AAR_Packaging_Full
   dependsOn: []
@@ -12,18 +17,22 @@ stages:
     parameters:
       AndroidABI: 'x86_64'
       JobSuffix: 'x86_64'
+      AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
   - template: android_shared_lib_build.yml
     parameters:
       AndroidABI: 'x86'
       JobSuffix: 'x86'
+      AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
   - template: android_shared_lib_build.yml
     parameters:
       AndroidABI: 'armeabi-v7a'
       JobSuffix: 'armeabi_v7a'
+      AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
   - template: android_shared_lib_build.yml
     parameters:
       AndroidABI: 'arm64-v8a'
       JobSuffix: 'arm64_v8a'
+      AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
   - job: Android_Java_API_AAR_Package_Publish_All
     dependsOn:
     - Android_C_API_Packaging_x86_64
@@ -74,8 +83,7 @@ stages:
           python ./tools/android/build_aar.py \
               --output-dir $(Build.BinariesDirectory)/android_aar \
               --build_target pack_aar       \
-              --config $(buildConfig) \
-              --cmake-extra-defines OCOS_ENABLE_SELECTED_OPLIST=ON
+              --config $(buildConfig) 
           VERSION=$(cat ./version.txt)
           AAR_PATH="$(Build.BinariesDirectory)/android_aar/aar_out/$(buildConfig)/com/microsoft/onnxruntime/onnxruntime-extensions-android/${VERSION}/onnxruntime-extensions-android-${VERSION}.aar"
 

@@ -12,7 +12,9 @@ parameters:
 - name: UseDistributedBuild
   displayName: UseDistributedBuild or not 
   type: boolean
-
+- name: AdditionalBuildFlags
+  displayName: set OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE
+  type: string
   
 jobs:
   - job: IOS_C_API_Packaging_${{ parameters.Platform }}_${{ parameters.ios_arch }}
@@ -45,7 +47,7 @@ jobs:
             --config $(buildConfig) \
             --platform-arch  ${{ parameters.Platform }} ${{ parameters.ios_arch }} \
             --build_target lib \
-            --cmake-extra-defines OCOS_ENABLE_SELECTED_OPLIST=OFF
+            --cmake-extra-defines ${{parameters.AdditionalBuildFlags}}
         displayName: "Build xcframework"
 
       - bash: |

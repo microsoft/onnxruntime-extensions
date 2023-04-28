@@ -15,17 +15,6 @@ parameters:
 - name: AdditionalBuildFlags
   displayName: Additional build flags for build.py
   type: string
-  default: ''
-
-- name: CacheDir
-  displayName: Cache Directory
-  type: string
-  default: ''
-
-- name: Today
-  type: string
-  default: ""
-
 
 jobs:
 - job: MacOS_C_API_Packaging_CPU_${{ parameters.MacosArch }}
@@ -51,24 +40,14 @@ jobs:
       IsReleaseBuild: true
       PackageVersionVariableName: ORT_EXTENSIONS_VERSION
 
-  - template: mac-build-step-with-cache.yml
-    parameters:
-      WithCache: ${{ parameters.WithCache }}
-      Today: ${{ parameters.Today }}
-      AdditionalKey: onnxruntime-extensions_${{ parameters.MacosArch }}
-      CacheDir: ${{ parameters.CacheDir }}
-      ChangeEveryCommit: true
-      BuildStep:
-        - script: |
-            set -e -x
-            cd $(Build.SourcesDirectory)
-            rm -rf out/
+  - script: |
+      set -e -x
+      cd $(Build.SourcesDirectory)
+      rm -rf out/
 
-            ./build.sh -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_BLINGFIRE=OFF ${{parameters.AdditionalBuildFlags}}
-            ls out/*
-          displayName: 'Build ${{ parameters.MacosArch }}'
-          env:
-            CCACHE_DIR: ${{ parameters.CacheDir }}
+      ./build.sh ${{parameters.AdditionalBuildFlags}}
+      ls out/*
+    displayName: 'Build ${{ parameters.MacosArch }}'
 
   - task: Bash@3
     displayName: 'Copy build artifacts for zipping'

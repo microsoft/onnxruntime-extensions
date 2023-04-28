@@ -10,7 +10,10 @@ parameters:
   displayName: "UseDistributedBuild or not "
   type: boolean
   default: false
-
+- name: AdditionalBuildFlags
+  displayName: set OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE
+  type: string
+  
 jobs:
 - template: ios_shared_lib_build.yml
   parameters:
@@ -18,18 +21,21 @@ jobs:
     ios_arch: 'arm64'
     IsReleaseBuild: ${{parameters.IsReleaseBuild}}
     UseDistributedBuild: ${{parameters.UseDistributedBuild}}
+    AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 - template: ios_shared_lib_build.yml
   parameters:
     Platform: 'iphonesimulator'
     ios_arch: 'x86_64'
     IsReleaseBuild: ${{parameters.IsReleaseBuild}}
     UseDistributedBuild: ${{parameters.UseDistributedBuild}}
+    AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 - template: ios_shared_lib_build.yml
   parameters:
     Platform: 'iphonesimulator'
     ios_arch: 'arm64'
     IsReleaseBuild: ${{parameters.IsReleaseBuild}}
     UseDistributedBuild: ${{parameters.UseDistributedBuild}}
+    AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
 - job: IosPackaging
   condition: not(or(failed(), canceled()))
@@ -96,14 +102,14 @@ jobs:
           --output-dir $(Build.BinariesDirectory)/xcframework_out \
           --config Release \
           --build_target pack_xcframework \
-          --cmake-extra-defines OCOS_ENABLE_SELECTED_OPLIST=ON
       displayName: "Pack xcframework for distributed building"
+  # typical build xcframework
   - ${{ if eq(parameters.UseDistributedBuild, false) }}:
     - script: |
         python ./tools/ios/build_xcframework.py \
           --output-dir $(Build.BinariesDirectory)/xcframework_out \
           --config Release \
-          --cmake-extra-defines OCOS_ENABLE_SELECTED_OPLIST=OFF
+          --cmake-extra-defines ${{parameters.AdditionalBuildFlags}}
       displayName: "Build xcframework"
 
   - script: |

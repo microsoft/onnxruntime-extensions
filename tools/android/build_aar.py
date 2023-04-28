@@ -141,12 +141,19 @@ def parse_args():
         help="CMake build configuration.",
     )
 
+    # this one is used in the ci pipeline for accelerating the build process,
+    # we have 4 archs to be build. It's in sequence by default, but we can build them in parallel.
+    # The parallel build works as:
+    #   1. build the so files for each arch in different ci jobs
+    #   2. download all the so files in tasks
+    #   2. pack the aar package in ci task
     parser.add_argument(
         "--build_target",
         type=str,
         choices=["aar", "so", "pack_aar"],
         default="aar",
-        help="Path to the Android NDK. Typically `<Android SDK>/ndk/<ndk_version>`.",
+        help="Build target. 'aar' builds the AAR package. 'so' builds the so libraries. \
+            'pack_aar' only pack aar from existing so files.",
     )
 
     parser.add_argument(
