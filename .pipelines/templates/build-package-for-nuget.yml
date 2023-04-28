@@ -88,8 +88,7 @@ stages:
       DoCompliance: ${{ parameters.DoCompliance }}
       DoEsrp: ${{ parameters.DoEsrp }}
       stage_name_suffix: CPU_x64
-      # x64 is by default
-      msbuildPlatform: ''
+      msbuildPlatform: 'x64'
       packageName: x64
       AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 #Android_Java_API_AAR_Packaging_Full
