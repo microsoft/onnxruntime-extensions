@@ -1,9 +1,3 @@
-parameters:
-- name: RunOrtExtensionsTests
-  displayName: Run Tests?
-  type: boolean
-  default: false
-
 - name: DoCompliance
   displayName: Run Compliance Tasks?
   type: boolean
