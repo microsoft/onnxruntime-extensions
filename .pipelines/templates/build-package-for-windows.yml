@@ -11,6 +11,11 @@ parameters:
 
 - name: msbuildPlatform
   type: string
+  values:
+  - 'x86'
+  - '' # x64 
+  - 'arm64'
+  - 'arm'
 
 - name: packageName
   displayName: Package name for nuget
@@ -45,8 +50,8 @@ jobs:
     - task: BatchScript@1
       displayName: 'build onnxruntime-extensions'
       inputs:
-        filename: '.\build.bat'
-        args: "-A ${{parameters.msbuildPlatform}} ${{parameters.AdditionalBuildFlags}}"
+        filename: '.\build_lib.bat'
+        args: "--${{parameters.msbuildPlatform}} --cmake_extra_defines ${{parameters.AdditionalBuildFlags}}"
         modifyEnvironment: true
         workingFolder: '$(Build.SourcesDirectory)'
 

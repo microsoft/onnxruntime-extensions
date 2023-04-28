@@ -22,7 +22,7 @@ parameters:
 - name: AdditionalBuildFlags
   displayName: set OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE
   type: string
-  default: -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_BLINGFIRE=OFF
+  default: OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE=OFF
   
 stages:
 # MacOS_C_API_Packaging_CPU
@@ -60,7 +60,8 @@ stages:
       DoCompliance: ${{ parameters.DoCompliance }}
       DoEsrp: ${{ parameters.DoEsrp }}
       stage_name_suffix: CPU_x86
-      msbuildPlatform: Win32
+      # Win32 
+      msbuildPlatform: x86
       packageName: x86
       AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
@@ -87,7 +88,8 @@ stages:
       DoCompliance: ${{ parameters.DoCompliance }}
       DoEsrp: ${{ parameters.DoEsrp }}
       stage_name_suffix: CPU_x64
-      msbuildPlatform: x64
+      # x64 is by default
+      msbuildPlatform: ''
       packageName: x64
       AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 #Android_Java_API_AAR_Packaging_Full

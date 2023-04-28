@@ -28,12 +28,12 @@ stages:
   #- template: mac-cpu-packing-jobs.yml
   #  parameters:
   #    MacosArch: 'arm64'
-  #    AdditionalBuildFlags: "${{ parameters.AdditionalBuildFlags }} -DCMAKE_OSX_ARCHITECTURES=arm64"
+  #    AdditionalBuildFlags: "${{ parameters.AdditionalBuildFlags }} CMAKE_OSX_ARCHITECTURES=arm64"
   #    WithCache: ${{ parameters.WithCache }}
   #- template: mac-cpu-packing-jobs.yml
   #  parameters:
   #    MacosArch: 'universal2'
-  #    AdditionalBuildFlags: "${{ parameters.AdditionalBuildFlags }} -DCMAKE_OSX_ARCHITECTURES=\"arm64;x86_64\""
+  #    AdditionalBuildFlags: "${{ parameters.AdditionalBuildFlags }} CMAKE_OSX_ARCHITECTURES=\"arm64;x86_64\""
   #    WithCache: ${{ parameters.WithCache }}
   - job: MacOS_C_API_Package_Publish_All
     dependsOn:

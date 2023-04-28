@@ -45,7 +45,7 @@ jobs:
       cd $(Build.SourcesDirectory)
       rm -rf out/
 
-      ./build.sh ${{parameters.AdditionalBuildFlags}}
+      ./build_lib.sh --cmake_extra_defines ${{parameters.AdditionalBuildFlags}}
       ls out/*
     displayName: 'Build ${{ parameters.MacosArch }}'
 

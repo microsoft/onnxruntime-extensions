@@ -36,7 +36,7 @@ jobs:
     - bash: |
         export CFLAGS="${{parameters.OrtExtensionsCFlags}}"
         export CXXFLAGS="${{parameters.OrtExtensionsCXXFlags}}"
-        ./build.sh ${{parameters.AdditionalBuildFlags}}
+        ./build_lib.sh --cmake_extra_defines ${{parameters.AdditionalBuildFlags}}
       workingDirectory: '$(Build.SourcesDirectory)'
       displayName: 'build onnxruntime-extensions for Linux'
 
