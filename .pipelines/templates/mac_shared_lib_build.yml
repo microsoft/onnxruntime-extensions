@@ -45,7 +45,7 @@ jobs:
       cd $(Build.SourcesDirectory)
       rm -rf out/
 
-      ./build_lib.sh --cmake_extra_defines ${{parameters.AdditionalBuildFlags}}
+      ./build_lib.sh --cmake_extra_defines ${{parameters.AdditionalBuildFlags}} --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo
       ls out/*
     displayName: 'Build ${{ parameters.MacosArch }}'
 
@@ -57,7 +57,7 @@ jobs:
         set -e -x
         target_lib_path=onnxruntime-extensions-osx-${{ parameters.MacosArch }}-$(ORT_EXTENSIONS_VERSION)/lib
         mkdir -p $target_lib_path
-        cp $(Build.SourcesDirectory)/out/Darwin/RelWithDebInfo/lib/libortextensions.dylib  ${target_lib_path}/
+        cp out/RelWithDebInfo/lib/libortextensions.dylib  ${target_lib_path}/
         strip -S ${target_lib_path}/libortextensions.dylib
       workingDirectory: '$(Build.BinariesDirectory)'
 

@@ -51,20 +51,20 @@ jobs:
       displayName: 'build onnxruntime-extensions'
       inputs:
         filename: '.\build_lib.bat'
-        args: "--${{parameters.msbuildPlatform}} --cmake_extra_defines ${{parameters.AdditionalBuildFlags}}"
+        args: "--${{parameters.msbuildPlatform}} --cmake_extra_defines ${{parameters.AdditionalBuildFlags}} --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo"
         modifyEnvironment: true
         workingFolder: '$(Build.SourcesDirectory)'
 
     - script: |
         dir
-      workingDirectory: '$(Build.SourcesDirectory)/out/Windows/'
+      workingDirectory: '$(Build.BinariesDirectory)/out/Windows/'
       displayName: 'List built DLLs'
 
     - script: |
         cd out/Windows
         ctest -C RelWithDebInfo --output-on-failure
       displayName: Run C++ native tests
-      workingDirectory: '$(Build.SourcesDirectory)'
+      workingDirectory: '$(Build.BinariesDirectory)'
 
     - task: PowerShell@2
       displayName: 'Copy and Create artifacts'
@@ -74,7 +74,7 @@ jobs:
           $_OrtExtVersion=(cat version.txt)
           echo "##vso[task.setvariable variable=OrtExtVersion;]$_OrtExtVersion"
 
-          cd ./out/Windows
+          cd ./out
           $target_lib_path="$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.packageName}}-$_OrtExtVersion/lib"
           New-Item $target_lib_path -ItemType Directory
           cp bin\RelWithDebInfo\ortextensions.* $target_lib_path

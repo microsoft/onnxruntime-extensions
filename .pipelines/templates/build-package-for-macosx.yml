@@ -17,7 +17,7 @@ stages:
 - stage: MacOS_C_API_Packaging_CPU
   dependsOn: []
   jobs:
-  - template: mac-cpu-packing-jobs.yml
+  - template: mac_shared_lib_build.yml
     parameters:
       MacosArch: 'x86_64'
       AdditionalBuildFlags: ${{ parameters.AdditionalBuildFlags }} 
@@ -25,12 +25,12 @@ stages:
   # error   _png_do_read_transformations in liblibpng.a(pngrtran.c.o) not found for architecture arm64
   # solution https://github.com/davisking/dlib/pull/2664/files
 
-  #- template: mac-cpu-packing-jobs.yml
+  #- template: mac_shared_lib_build.yml
   #  parameters:
   #    MacosArch: 'arm64'
   #    AdditionalBuildFlags: "${{ parameters.AdditionalBuildFlags }} CMAKE_OSX_ARCHITECTURES=arm64"
   #    WithCache: ${{ parameters.WithCache }}
-  #- template: mac-cpu-packing-jobs.yml
+  #- template: mac_shared_lib_build.yml
   #  parameters:
   #    MacosArch: 'universal2'
   #    AdditionalBuildFlags: "${{ parameters.AdditionalBuildFlags }} CMAKE_OSX_ARCHITECTURES=\"arm64;x86_64\""
