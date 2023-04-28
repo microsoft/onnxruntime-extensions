@@ -1,7 +1,10 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
+import argparse
 import io
+import os
 import onnx
+import re
 import torch
 import numpy as np
 
@@ -139,7 +142,7 @@ def _torch_export(*arg, **kwargs):
 
 def preprocessing(audio_data):
     if USE_AUDIO_DECODER:
-        decoder = PyOrtFunction.from_customop("AudioDecoder")
+        decoder = PyOrtFunction.from_customop("AudioDecoder", cpu_only=True)
         audio_pcm = torch.from_numpy(decoder(audio_data))
     else:
         audio_pcm = torch.from_numpy(audio_data)
@@ -160,11 +163,11 @@ def preprocessing(audio_data):
             "audio_pcm": {1: "sample_len"},
         }
     )
-    onnx.save_model(pre_model, prep_model_name)
+    onnx.save_model(pre_model, os.path.join(root_dir, prep_model_name))
     if USE_ONNX_STFT:
         pre_model = _to_onnx_stft(pre_model)
 
-    pre_f = PyOrtFunction.from_model(pre_model)
+    pre_f = PyOrtFunction.from_model(pre_model, cpu_only=True)
     if not USE_AUDIO_DECODER:
         return pre_f(audio_data)
     else:
@@ -172,18 +175,19 @@ def preprocessing(audio_data):
             decoder.onnx_model, 
             pre_model,
             io_map=[("floatPCM", "audio_pcm")])
-        pre_f = PyOrtFunction.from_model(pre_full)
+        pre_f = PyOrtFunction.from_model(pre_full, cpu_only=True)
 
-        onnx.save_model(pre_f.onnx_model, "whisper_codec_pre.onnx")
+        onnx.save_model(pre_f.onnx_model, os.path.join(root_dir, "whisper_codec_pre.onnx"))
         result = pre_f(audio_data)
         return result
 
 
 def merge_models(core: str, output_model: str, audio_data):
-    m_pre = onnx.load_model("whisper_codec_pre.onnx" if USE_AUDIO_DECODER else "whisper_pre.onnx")
+    m_pre_path = os.path.join(root_dir, "whisper_codec_pre.onnx" if USE_AUDIO_DECODER else "whisper_pre.onnx")
+    m_pre = onnx.load_model(m_pre_path)
     m_core = onnx.load_model(core)
     m1 = onnx.compose.merge_models(m_pre, m_core, io_map=[("log_mel", "input_features")])
-    m2 = onnx.load_model("whisper_post.onnx")
+    m2 = onnx.load_model(os.path.join(root_dir, "whisper_post.onnx"))
 
     m_all = onnx.compose.merge_models(m1, m2, io_map=[("sequences", "ids")])
     bpe_decoder_node = m_all.graph.node.pop(-1)
@@ -197,11 +201,12 @@ def merge_models(core: str, output_model: str, audio_data):
     onnx.save_model(m_all, output_model,
                     save_as_external_data=True,
                     all_tensors_to_one_file=True,
+                    location=f"{os.path.basename(output_model)}.data",
                     convert_attribute=True)
     print(f"The final merged model was saved as: {output_model}")
 
     print("Verify the final model...")
-    m_final = PyOrtFunction.from_model(output_model)
+    m_final = PyOrtFunction.from_model(output_model, cpu_only=True)
     output_text = m_final(audio_data,
                           np.asarray([200], dtype=np.int32),
                           np.asarray([0], dtype=np.int32),
@@ -216,26 +221,31 @@ def postprocessing(token_ids, hf_processor):
     fn_decoder = PyOrtFunction.from_customop(
         "BpeDecoder",
         cvt=HFTokenizerConverter(hf_processor.tokenizer).bpe_decoder,
-        skip_special_tokens=True)
+        skip_special_tokens=True,
+        cpu_only=True)
 
-    onnx.save_model(fn_decoder.onnx_model, "whisper_post.onnx")
+    onnx.save_model(fn_decoder.onnx_model, os.path.join(root_dir, "whisper_post.onnx"))
     return fn_decoder(token_ids)
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-a", "--audio", required=True, help="Path to audio file")
+    parser.add_argument("-m", "--model", required=True, help="Path to custom export of Whisper with beam search")
+    args = parser.parse_args()
+
     print("Looking for the exported model...", end='')
-    onnx_model_name = ""
-    list_models = list(Path('.').glob('whisper-*_beamsearch.onnx'))
-    if len(list_models) == 0:
+    onnx_model_name = os.path.basename(args.model)
+    if not re.search("whisper-.*_beamsearch\.onnx", onnx_model_name):
         print("None")
-        print("Cannot find the whisper beamsearch ONNX models"
+        print("Cannot find the whisper beamsearch ONNX models. "
               "Please run this script from where Whisper ONNX model was exported. like */onnx_models/openai")
         exit(-1)
     else:
-        onnx_model_name = str(list_models[0])
         print(f"{onnx_model_name}")
 
     model_name = "openai/" + onnx_model_name[:-len("_beamsearch.onnx")]
+    root_dir = os.path.dirname(args.model)
 
     _processor = WhisperProcessor.from_pretrained(model_name)
     # The model similar to Huggingface model like:
@@ -245,9 +255,9 @@ if __name__ == '__main__':
     #   python <ONNXRUNTIME_DIR>\onnxruntime\python\tools\transformers\models\whisper\convert_to_onnx.py
     #       -m "openai/whisper-base.en" -e
     # !only be valid after onnxruntime 1.15 or main branch of 04/04/2023
-    model = PyOrtFunction.from_model(onnx_model_name)
+    model = PyOrtFunction.from_model(args.model, cpu_only=True)
 
-    test_file = util.get_test_data_file("../test/data", "1272-141231-0002.mp3")
+    test_file = util.get_test_data_file(args.audio)
     if USE_AUDIO_DECODER:
         with open(test_file, "rb") as _f:
             audio_blob = np.asarray(list(_f.read()), dtype=np.uint8)
@@ -275,4 +285,4 @@ if __name__ == '__main__':
     print(text)
 
     print("build the final model...")
-    merge_models(onnx_model_name, onnx_model_name.replace("beamsearch", "all"), audio_blob)
+    merge_models(args.model, args.model.replace("beamsearch", "all"), audio_blob)
