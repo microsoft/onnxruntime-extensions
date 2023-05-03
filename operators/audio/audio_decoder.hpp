@@ -7,6 +7,7 @@
 
 #include <list>
 #include <map>
+#include <memory>
 #define DR_FLAC_IMPLEMENTATION
 #include "dr_flac.h"
 #define DR_MP3_IMPLEMENTATION 1
@@ -16,8 +17,10 @@
 #include "dr_wav.h"
 
 #include <gsl/util>
+#include "narrow.h"
 #include "string_utils.h"
 #include "string_tensor.h"
+#include "sampling.h"
 
 struct KernelAudioDecoder : public BaseKernel {
  public:
@@ -47,7 +50,8 @@ struct KernelAudioDecoder : public BaseKernel {
       if (pos == format_mapping.end()) {
         ORTX_CXX_API_THROW(MakeString(
                                "[AudioDecoder]: Unknown audio stream format: ", str_format),
-                           ORT_INVALID_ARGUMENT); }
+                           ORT_INVALID_ARGUMENT);
+      }
       stream_format = pos->second;
     }
 
@@ -104,6 +108,8 @@ struct KernelAudioDecoder : public BaseKernel {
 
     int64_t total_buf_size = 0;
     std::list<std::vector<float>> lst_frames;
+    int64_t org_sample_rate = 16000;
+    int64_t org_channels = 1;
 
     if (stream_format == AudioStreamType::kMP3) {
       auto mp3_obj_ptr = std::make_unique<drmp3>();
@@ -128,15 +134,53 @@ struct KernelAudioDecoder : public BaseKernel {
       total_buf_size = DrReadFrames(lst_frames, drwav_read_pcm_frames_f32, wav_obj);
     }
 
-    std::vector<int64_t> dim_out = {1, total_buf_size};
-    OrtValue* v = ort_.KernelContext_GetOutput(context, 0, dim_out.data(), dim_out.size());
-    float* p_output = ort_.GetTensorMutableData<float>(v);
+    // mix all frames into one buffer
+    std::vector<float> buf;
+    buf.resize(total_buf_size);
     int64_t offset = 0;
     for (auto& _b : lst_frames) {
-      std::copy(_b.begin(), _b.end(), p_output + offset);
+      std::copy(_b.begin(), _b.end(), buf.begin() + offset);
       offset += _b.size();
     }
+
+    // mix the stereo channels into mono channel
+    if (stereo_mixer_ && org_channels > 1) {
+      if (buf.size() > 1) {
+        for (size_t i = 0; i < buf.size() / 2; ++i) {
+          buf[i] = (buf[i * 2] + buf[i * 2 + 1]) / 2;
+        }
+        buf.resize(buf.size() / 2);
+      }
+    }
+
+    if (downsample_rate_ != 0) {
+      // A lowpass filter on buf audio data to remove high frequency noise
+      std::vector<double> filtered_buf = lp_filter_->process(buf);
+
+      // downsample the audio data
+      std::vector<double> output_audio;
+      auto sr_rate = 1.0 * downsample_rate_;  // turn it into double
+      double downsample_ratio = org_sample_rate / sr_rate;
+      output_audio.reserve(static_cast<size_t>(filtered_buf.size() / downsample_ratio) + 1);
+      for (size_t i = 0; i < filtered_buf.size(); ++i) {
+        double t = i / downsample_ratio;
+        output_audio.push_back(SincInterpolator::process(filtered_buf, t, sr_rate));
+      }
+
+      std::transform(output_audio.begin(), output_audio.end(), buf.begin(),
+                     [](double d) { return ort_extensions::narrow<float>(d); });
+    }
+
+    std::vector<int64_t> dim_out = {1, ort_extensions::narrow<int64_t>(buf.size())};
+    OrtValue* v = ort_.KernelContext_GetOutput(context, 0, dim_out.data(), dim_out.size());
+    float* p_output = ort_.GetTensorMutableData<float>(v);
+    std::copy(buf.begin(), buf.end(), p_output);
   }
+
+ private:
+  std::unique_ptr<ButterworthLowpassFilter> lp_filter_;
+  int64_t downsample_rate_ = 16000;
+  int64_t stereo_mixer_ = 1;
 };
 
 struct CustomOpAudioDecoder : OrtW::CustomOpBase<CustomOpAudioDecoder, KernelAudioDecoder> {
