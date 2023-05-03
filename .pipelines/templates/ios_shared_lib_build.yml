@@ -9,16 +9,13 @@ parameters:
 - name: IsReleaseBuild
   displayName: "Is this is a release build?"
   type: boolean
-- name: UseDistributedBuild
-  displayName: UseDistributedBuild or not 
-  type: boolean
 - name: AdditionalBuildFlags
   displayName: set OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE
   type: string
   
 jobs:
   - job: IOS_C_API_Packaging_${{ parameters.Platform }}_${{ parameters.ios_arch }}
-    condition: and(succeeded(), eq(true, ${{ parameters.UseDistributedBuild}}) )
+    condition: succeeded()
     pool:
       vmImage: "macOS-12"
     timeoutInMinutes: 120
@@ -46,21 +43,14 @@ jobs:
             --output-dir $(Build.BinariesDirectory)/xcframework_out \
             --config $(buildConfig) \
             --platform-arch  ${{ parameters.Platform }} ${{ parameters.ios_arch }} \
-            --build_target lib \
+            --mode build_platform_arch_frameworks_only \
             --cmake-extra-defines ${{parameters.AdditionalBuildFlags}}
         displayName: "Build xcframework"
 
       - bash: |
           set -e -x
 
-          lib_path_fix=intermediates/${{ parameters.Platform }}/${{ parameters.ios_arch }}/$(buildConfig)
-
-          mv $(Build.BinariesDirectory)/xcframework_out/$lib_path_fix $(Build.BinariesDirectory)/xcframework_out/${lib_path_fix}_tmp
-          mkdir $(Build.BinariesDirectory)/xcframework_out/$lib_path_fix
-          cp -r $(Build.BinariesDirectory)/xcframework_out/${lib_path_fix}_tmp/lib $(Build.BinariesDirectory)/xcframework_out/$lib_path_fix/
-          rm -rf $(Build.BinariesDirectory)/xcframework_out/${lib_path_fix}_tmp
-
-          tar -cvzf $(Build.ArtifactStagingDirectory)/onnxruntime-extensions-ios-${{ parameters.Platform }}-${{ parameters.ios_arch }}-lib.tar -C $(Build.BinariesDirectory)/ xcframework_out
+          tar -cvzf $(Build.ArtifactStagingDirectory)/onnxruntime-extensions-ios-${{ parameters.Platform }}-${{ parameters.ios_arch }}-lib.tgz -C $(Build.BinariesDirectory)/ xcframework_out
 
         displayName: "Assemble artifacts"
 
