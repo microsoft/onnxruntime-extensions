@@ -44,39 +44,37 @@ jobs:
       submodules: none
 
     - task: BatchScript@1
-      displayName: 'build onnxruntime-extensions'
+      displayName: 'build onnxruntime-extensions and run tests'
       inputs:
         filename: '.\build_lib.bat'
-        arguments: '--${{parameters.BuildPlatform}} --cmake_generator "Visual Studio 16 2019" --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo ${{parameters.AdditionalBuildFlags}}'
+        arguments: '--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out --cmake_generator "Visual Studio 16 2019" --config RelWithDebInfo --enable_cxx_tests ${{parameters.AdditionalBuildFlags}}'
         modifyEnvironment: true
         workingFolder: $(Build.SourcesDirectory)
 
     - script: |
-        dir
-      workingDirectory: '$(Build.BinariesDirectory)/out/Windows/'
+        dir $(Build.BinariesDirectory)/out/RelWithDebInfo/lib/RelWithDebInfo
+        dir $(Build.BinariesDirectory)/out/RelWithDebInfo/bin/RelWithDebInfo
       displayName: 'List built DLLs'
 
-    - script: |
-        cd out/Windows
-        ctest -C RelWithDebInfo --output-on-failure
-      displayName: Run C++ native tests
-      workingDirectory: '$(Build.BinariesDirectory)'
+    - task: PowerShell@2
+      displayName: 'Set version'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $_OrtExtVersion=(cat version.txt)
+          echo "##vso[task.setvariable variable=OrtExtVersion;]$_OrtExtVersion"
+        workingDirectory: '$(Build.SourcesDirectory)'
 
     - task: PowerShell@2
       displayName: 'Copy and Create artifacts'
       inputs:
         targetType: 'inline'
         script: |
-          $_OrtExtVersion=(cat version.txt)
-          echo "##vso[task.setvariable variable=OrtExtVersion;]$_OrtExtVersion"
-
-          cd ./out
-          $target_lib_path="$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.BuildPlatform}}-$_OrtExtVersion/lib"
+          $target_lib_path="$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.BuildPlatform}}-$(OrtExtVersion)/lib"
           New-Item $target_lib_path -ItemType Directory
-          cp bin\RelWithDebInfo\ortextensions.* $target_lib_path
+          cp bin/RelWithDebInfo/ortextensions.* $target_lib_path
           cp lib/RelWithDebInfo/ortextensions.* $target_lib_path
-
-        workingDirectory: '$(Build.SourcesDirectory)'
+        workingDirectory: '$(Build.BinariesDirectory)/out/RelWithDebInfo'
 
     - template: win-esrp-dll.yml
       parameters:

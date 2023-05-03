@@ -60,6 +60,7 @@ jobs:
        objcopy --add-gnu-debuglink=libortextensions.so.dbg libortextensions.so
 
       displayName: create and copy artifacts.
+      workingDirectory: $(Build.BinariesDirectory)
 
 
     - task: ArchiveFiles@2

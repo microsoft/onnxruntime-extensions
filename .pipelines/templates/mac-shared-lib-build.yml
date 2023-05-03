@@ -57,6 +57,7 @@ jobs:
         mkdir -p $target_lib_path
         cp out/RelWithDebInfo/lib/libortextensions.dylib  ${target_lib_path}/
         strip -S ${target_lib_path}/libortextensions.dylib
+      workingDirectory: $(Build.BinariesDirectory)
 
   - task: ArchiveFiles@2
     inputs:
