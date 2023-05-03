@@ -47,7 +47,7 @@ jobs:
       displayName: 'build onnxruntime-extensions'
       inputs:
         filename: '.\build_lib.bat'
-        args: "--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo ${{parameters.AdditionalBuildFlags}}"
+        arguments: '--${{parameters.BuildPlatform}} --cmake_generator "Visual Studio 16 2019" --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo ${{parameters.AdditionalBuildFlags}}'
         modifyEnvironment: true
         workingFolder: $(Build.SourcesDirectory)
 
@@ -71,7 +71,7 @@ jobs:
           echo "##vso[task.setvariable variable=OrtExtVersion;]$_OrtExtVersion"
 
           cd ./out
-          $target_lib_path="$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.packageName}}-$_OrtExtVersion/lib"
+          $target_lib_path="$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.BuildPlatform}}-$_OrtExtVersion/lib"
           New-Item $target_lib_path -ItemType Directory
           cp bin\RelWithDebInfo\ortextensions.* $target_lib_path
           cp lib/RelWithDebInfo/ortextensions.* $target_lib_path
@@ -80,20 +80,20 @@ jobs:
 
     - template: win-esrp-dll.yml
       parameters:
-        FolderPath: '$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.packageName}}-$(OrtExtVersion)'
+        FolderPath: '$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.BuildPlatform}}-$(OrtExtVersion)'
         DisplayName: 'Sign DLL'
         DoEsrp: 'true'
 
     - task: ArchiveFiles@2
       inputs:
-        rootFolderOrFile: '$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.packageName}}-$(OrtExtVersion)'
+        rootFolderOrFile: '$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.BuildPlatform}}-$(OrtExtVersion)'
         includeRootFolder: true
         archiveType: 'tar' # Options: zip, 7z, tar, wim
         tarCompression: 'gz'
-        archiveFile: '$(Build.ArtifactStagingDirectory)/onnxruntime-extensions-win-${{parameters.packageName}}.tgz'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/onnxruntime-extensions-win-${{parameters.BuildPlatform}}.tgz'
         replaceExistingArchive: true
 
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)'
-        artifactName: 'onnxruntime-extensions-win-${{parameters.packageName}}'
+        artifactName: 'onnxruntime-extensions-win-${{parameters.BuildPlatform}}'

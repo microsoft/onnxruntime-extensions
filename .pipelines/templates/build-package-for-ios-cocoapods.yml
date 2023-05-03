@@ -108,7 +108,7 @@ jobs:
 
     - script: |
         python ./tools/ios/build_xcframework.py \
-          --output-dir $(Build.BinariesDirectory)/xcframework_out \
+          --output_dir $(Build.BinariesDirectory)/xcframework_out \
           --config Release \
           --build_target pack_xcframework \
       displayName: "Pack xcframework for distributed building"
@@ -117,7 +117,7 @@ jobs:
   - ${{ if eq(parameters.UseDistributedBuild, false) }}:
     - script: |
         python ./tools/ios/build_xcframework.py \
-          --output-dir $(Build.BinariesDirectory)/xcframework_out \
+          --output_dir $(Build.BinariesDirectory)/xcframework_out \
           --config Release \
           ${{parameters.AdditionalBuildFlags}}
       displayName: "Build xcframework"

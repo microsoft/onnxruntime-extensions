@@ -424,8 +424,8 @@ jobs:
 
       - script: |
           python ./tools/ios/build_xcframework.py \
-            --output-dir $(Build.BinariesDirectory)/xcframework_out \
-            --platform-arch iphonesimulator x86_64 \
+            --output_dir $(Build.BinariesDirectory)/xcframework_out \
+            --platform_arch iphonesimulator x86_64 \
             --config Release
         displayName: Build xcframework for iphonesimulator x86_64
 

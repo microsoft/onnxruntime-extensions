@@ -47,9 +47,9 @@ jobs:
 
       - script: |
           python ./tools/ios/build_xcframework.py \
-            --output-dir $(Build.BinariesDirectory)/xcframework_out \
+            --output_dir $(Build.BinariesDirectory)/xcframework_out \
             --config $(buildConfig) \
-            --platform-arch  ${{ parameters.Platform }} ${{ parameters.IosArch }} \
+            --platform_arch  ${{ parameters.Platform }} ${{ parameters.IosArch }} \
             --build_target lib \
             ${{parameters.AdditionalBuildFlags}}
         displayName: "Build xcframework"

@@ -184,7 +184,7 @@ def parse_args():
         help="Path to the Android NDK. Typically `<Android SDK>/ndk/<ndk_version>`.",
     )
 
-    args, unknown_args = parser.parse_known_args(sys.argv)
+    args, unknown_args = parser.parse_known_args()
     args.other_args = unknown_args
 
     args.abis = args.abis or _supported_abis.copy()

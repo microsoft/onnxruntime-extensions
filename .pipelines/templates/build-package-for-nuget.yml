@@ -22,11 +22,12 @@ parameters:
 - name: OperatorSelectionFlags
   displayName: Flags to select operators included. Default is to disable OCOS_ENABLE_CV2 and OCOS_ENABLE_BLINGFIRE
   type: string
-  default: --cmake-extra-defines OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE=OFF
+  default: '--cmake_extra_defines OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE=OFF'
 
 - name: AdditionalBuildFlags
   displayName: Additional build flags.
   type: string
+  default: ''
 
 stages:
 # MacOS_C_API_Packaging_CPU
@@ -63,7 +64,7 @@ stages:
     parameters:
       DoCompliance: ${{ parameters.DoCompliance }}
       DoEsrp: ${{ parameters.DoEsrp }}
-      stage_name_suffix: CPU_x86
+      StageNameSuffix: CPU_x86
       # Win32
       BuildPlatform: x86
       AdditionalBuildFlags: ${{parameters.OperatorSelectionFlags}} ${{parameters.AdditionalBuildFlags}}
@@ -72,7 +73,7 @@ stages:
     parameters:
       DoCompliance: ${{ parameters.DoCompliance }}
       DoEsrp: ${{ parameters.DoEsrp }}
-      stage_name_suffix: CPU_arm
+      StageNameSuffix: CPU_arm
       BuildPlatform: arm
       AdditionalBuildFlags: ${{parameters.OperatorSelectionFlags}} ${{parameters.AdditionalBuildFlags}}
 
@@ -80,7 +81,7 @@ stages:
     parameters:
       DoCompliance: ${{ parameters.DoCompliance }}
       DoEsrp: ${{ parameters.DoEsrp }}
-      stage_name_suffix: CPU_arm64
+      StageNameSuffix: CPU_arm64
       BuildPlatform: arm64
       AdditionalBuildFlags: ${{parameters.OperatorSelectionFlags}} ${{parameters.AdditionalBuildFlags}}
 
@@ -88,7 +89,7 @@ stages:
     parameters:
       DoCompliance: ${{ parameters.DoCompliance }}
       DoEsrp: ${{ parameters.DoEsrp }}
-      stage_name_suffix: CPU_x64
+      StageNameSuffix: CPU_x64
       BuildPlatform: 'x64'
       AdditionalBuildFlags: ${{parameters.OperatorSelectionFlags}} ${{parameters.AdditionalBuildFlags}}
 
@@ -198,7 +199,7 @@ stages:
 
     # Reconstruct the build dir
     - task: PowerShell@2
-      displayName: 'Extract libraries for addition to nuget native package'
+      displayName: 'Extract native libraries to artifact-downloadss for addition to nuget native package'
       inputs:
         targetType: filePath
         filePath: $(Build.SourcesDirectory)\tools\ci_build\extract_nuget_files.ps1
