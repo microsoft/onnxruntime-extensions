@@ -5,7 +5,7 @@ parameters:
   type: boolean
   default: false
 
-- name: OrtExtensionsArch  
+- name: OrtExtensionsArch
   type: string
 
 - name: PoolName
@@ -17,13 +17,14 @@ parameters:
 
 - name: OrtExtensionsCXXFlags
   type: string
+
 - name: AdditionalBuildFlags
-  displayName: set OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE
+  displayName: Additional build flags for build_lib.sh
   type: string
-  
+
 jobs:
 - job: Linux_C_API_Packaging_CPU_${{parameters.OrtExtensionsArch}}
-  
+
   workspace:
     clean: all
   timeoutInMinutes:  210
@@ -36,7 +37,7 @@ jobs:
     - bash: |
         export CFLAGS="${{parameters.OrtExtensionsCFlags}}"
         export CXXFLAGS="${{parameters.OrtExtensionsCXXFlags}}"
-        ./build_lib.sh --cmake_extra_defines ${{parameters.AdditionalBuildFlags}} --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo
+        ./build_lib.sh --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo ${{parameters.AdditionalBuildFlags}}
       workingDirectory: '$(Build.SourcesDirectory)'
       displayName: 'build onnxruntime-extensions for Linux'
 
@@ -51,9 +52,15 @@ jobs:
        lib_target=$(Build.BinariesDirectory)/onnxruntime-extensions-linux-${{parameters.OrtExtensionsArch}}-$(ORT_EXTENSIONS_VERSION)/lib
        mkdir -p $lib_target
        BUILD_FLAVOR=RelWithDebInfo
-       cp out//$BUILD_FLAVOR/lib/libortextensions.so $lib_target
 
-      displayName: create and copy artifacts
+       cp out/$BUILD_FLAVOR/lib/libortextensions.so $lib_target
+
+       cd $lib_target
+       objcopy --only-keep-debug libortextensions.so libortextensions.so.dbg
+       objcopy --strip-debug libortextensions.so
+       objcopy --add-gnu-debuglink=libortextensions.so.dbg libortextensions.so
+
+      displayName: create and copy artifacts.
 
 
     - task: ArchiveFiles@2
@@ -64,7 +71,7 @@ jobs:
         tarCompression: 'gz'
         archiveFile: '$(Build.ArtifactStagingDirectory)/onnxruntime-extensions-linux-${{parameters.OrtExtensionsArch}}.tgz'
         replaceExistingArchive: true
-       
+
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)'

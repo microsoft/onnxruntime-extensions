@@ -3,16 +3,16 @@
 
 import xml.etree.ElementTree as ElementTree
 import argparse
-import os
-import re
 import sys
 from pathlib import Path
 
 
-def update_nuspec_from_local_inplace(args):
-    template_nuspec_path = args.sources_path/"nuget"/"NativeNuget.nuspec"
-    output_nuspec_path = template_nuspec_path
-    tree = ElementTree.parse(template_nuspec_path)
+def update_nuspec(args):
+    print(f"Updating {args.nuspec_path}")
+
+    # preserve comments
+    tree = ElementTree.parse(args.nuspec_path,
+                             parser = ElementTree.XMLParser(target=ElementTree.TreeBuilder(insert_comments=True)))
     root = tree.getroot()
 
     # update version and commit id
@@ -28,37 +28,33 @@ def update_nuspec_from_local_inplace(args):
     if py_version > (3, 9):
         ElementTree.indent(root)
 
-    tree.write(output_nuspec_path, encoding='utf-8', xml_declaration=True)
+    tree.write(args.nuspec_path, encoding='utf-8', xml_declaration=True)
     return
 
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description="ONNXRuntime extensions create nuget spec script (for hosting native shared library artifacts)",
-        usage="",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
+
+    default_nuspec = Path(__file__).resolve().parents[2] / "nuget" / "NativeNuget.nuspec"
+
     # Main arguments
-    parser.add_argument("--package_version", default='', help="ORT package version. Eg: 1.0.0")
-    parser.add_argument("--sources_path", required=True, type=Path, help="the onnxruntime-extensions repo path.")
-    parser.add_argument("--commit_id", default='', help="The last commit id included in this package.")
-    parser.add_argument(
-        "--is_release_build",
-        default='false',
-        type=str,
-        help="Flag indicating if the build is a release build. Accepted values: true/false.",
-    )
+    parser.add_argument("--package_version", default='', help="ORT extensions package version. e.g.: 1.0.0")
+    parser.add_argument("--nuspec_path", type=Path, default=default_nuspec,
+                        help="Path to nuspec file to update.")
+    parser.add_argument("--commit_id", required=True, help="The last commit id included in this package.")
+
     args = parser.parse_args()
-    args.sources_path = args.sources_path.resolve()
+    args.nuspec_path = args.nuspec_path.resolve(strict=True)
+
     return args
 
+
 def main():
-    # Parse arguments
     args = parse_arguments()
-
-    if args.is_release_build.lower() != "true" and args.is_release_build.lower() != "false":
-        raise Exception("Only valid options for IsReleaseBuild are: true and false")
-
-    update_nuspec_from_local_inplace(args)
+    update_nuspec(args)
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ parameters:
   default: false
 
 - name: AdditionalBuildFlags
-  displayName: Additional build flags for build.py
+  displayName: Additional build flags for build_lib.sh
   type: string
 
 jobs:
@@ -26,6 +26,7 @@ jobs:
   pool:
     vmImage: 'macOS-12'
   timeoutInMinutes: 300
+
   steps:
   - checkout: self
     clean: true
@@ -45,7 +46,7 @@ jobs:
       cd $(Build.SourcesDirectory)
       rm -rf out/
 
-      ./build_lib.sh --cmake_extra_defines ${{parameters.AdditionalBuildFlags}} --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo
+      ./build_lib.sh --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo ${{parameters.AdditionalBuildFlags}}
       ls out/*
     displayName: 'Build ${{ parameters.MacosArch }}'
 

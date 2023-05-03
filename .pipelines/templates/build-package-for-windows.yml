@@ -9,7 +9,7 @@ parameters:
   type: boolean
   default: false
 
-- name: msbuildPlatform
+- name: BuildPlatform
   type: string
   values:
   - 'x86'
@@ -17,29 +17,25 @@ parameters:
   - 'arm64'
   - 'arm'
 
-- name: packageName
-  displayName: Package name for nuget
-  type: string
-
-
-- name: stage_name_suffix
+- name: StageNameSuffix
   displayName: job name for nuget
   type: string
   default: ''
 
-- name: ortext_build_pool_name
+- name: BuildPool
   type: string
   default: 'Win-CPU-2021'
+
 - name: AdditionalBuildFlags
-  displayName: set OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE
+  displayName: Additional build flags for build_lib.bat
   type: string
-  
+
 
 jobs:
-- job: Windows_Packaging_${{ parameters.stage_name_suffix }}
+- job: Windows_Packaging_${{ parameters.StageNameSuffix }}
   workspace:
     clean: all
-  pool: ${{ parameters.ortext_build_pool_name }}
+  pool: ${{ parameters.BuildPool }}
   timeoutInMinutes: 300
 
   steps:
@@ -51,9 +47,9 @@ jobs:
       displayName: 'build onnxruntime-extensions'
       inputs:
         filename: '.\build_lib.bat'
-        args: "--${{parameters.msbuildPlatform}} --cmake_extra_defines ${{parameters.AdditionalBuildFlags}} --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo"
+        args: "--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo ${{parameters.AdditionalBuildFlags}}"
         modifyEnvironment: true
-        workingFolder: '$(Build.SourcesDirectory)'
+        workingFolder: $(Build.SourcesDirectory)
 
     - script: |
         dir
