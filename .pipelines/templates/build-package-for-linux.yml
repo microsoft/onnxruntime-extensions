@@ -51,9 +51,8 @@ jobs:
 
        lib_target=$(Build.BinariesDirectory)/onnxruntime-extensions-linux-${{parameters.OrtExtensionsArch}}-$(ORT_EXTENSIONS_VERSION)/lib
        mkdir -p $lib_target
-       BUILD_FLAVOR=RelWithDebInfo
-
-       cp out/$BUILD_FLAVOR/lib/libortextensions.so $lib_target
+       ls -lR out/
+       cp out/RelWithDebInfo/lib/libortextensions.so $lib_target
 
        cd $lib_target
        objcopy --only-keep-debug libortextensions.so libortextensions.so.dbg
