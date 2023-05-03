@@ -18,6 +18,8 @@ CMAKE_FLAG_TO_OPS = {
         "ImageReader"
     ],
     "OCOS_ENABLE_GPT2_TOKENIZER": [
+        "BpeDecoder",
+        "ClipTokenizer",
         "GPT2Tokenizer",
     ],
     "OCOS_ENABLE_MATH": [
