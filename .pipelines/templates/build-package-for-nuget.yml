@@ -44,8 +44,8 @@ stages:
       OrtExtensionsArch: 'x64'
       PoolName: 'aiinfra-Linux-CPU'
       IsReleaseBuild: ${{parameters.IsReleaseBuild}}
-      OrtExtensionsCFlags: '-Wp,-D_FORTIFY_SOURCE=2 -Wp,-D_GLIBCXX_ASSERTIONS -fstack-protector-strong -fstack-clash-protection -fcf-protection -O3'
-      OrtExtensionsCXXFlags: '-Wp,-D_FORTIFY_SOURCE=2 -Wp,-D_GLIBCXX_ASSERTIONS -fstack-protector-strong -fstack-clash-protection -fcf-protection -O3'
+      OrtExtensionsCFlags: '-Wp,-D_FORTIFY_SOURCE=2 -Wp,-D_GLIBCXX_ASSERTIONS -fstack-protector-strong -fstack-clash-protection -fcf-protection'
+      OrtExtensionsCXXFlags: '-Wp,-D_FORTIFY_SOURCE=2 -Wp,-D_GLIBCXX_ASSERTIONS -fstack-protector-strong -fstack-clash-protection -fcf-protection'
       AdditionalBuildFlags: ${{parameters.OperatorSelectionFlags}} ${{parameters.AdditionalBuildFlags}}
 
   - template: build-package-for-linux.yml
@@ -53,8 +53,8 @@ stages:
       OrtExtensionsArch: 'aarch64'
       PoolName: 'aiinfra-linux-ARM64-CPU-2019'
       IsReleaseBuild: ${{parameters.IsReleaseBuild}}
-      OrtExtensionsCFlags: '-O3'
-      OrtExtensionsCXXFlags: '-O3'
+      OrtExtensionsCFlags: ''
+      OrtExtensionsCXXFlags: ''
       AdditionalBuildFlags: ${{parameters.OperatorSelectionFlags}} ${{parameters.AdditionalBuildFlags}}
 
 - stage: Windows_C_API_Packaging_CPU

@@ -19,7 +19,9 @@ def update_nuspec(args):
     packages_node = root.findall('metadata')[0]
     for package_item in list(packages_node):
         if package_item.tag == "version" and args.package_version:
-            package_item.text = args.package_version
+            import datetime
+            now = datetime.datetime.now().strftime('%Y-%m-%d_%H_%M_%S')
+            package_item.text = args.package_version+f"-dev-{now}-{args.commit_id}"
         elif package_item.tag == "repository" and args.commit_id:
             package_item.attrib['commit'] = args.commit_id
 
