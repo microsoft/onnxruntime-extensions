@@ -12,9 +12,6 @@ parameters:
   displayName: "Is this is a release build?"
   type: boolean
 
-- name: UseDistributedBuild
-  displayName: UseDistributedBuild or not
-  type: boolean
 
 - name: AdditionalBuildFlags
   displayName: Additional build flags for /tools/ios/build_xcframework.py
@@ -22,7 +19,7 @@ parameters:
 
 jobs:
   - job: IOS_C_API_Packaging_${{ parameters.Platform }}_${{ parameters.IosArch }}
-    condition: and(succeeded(), eq(true, ${{ parameters.UseDistributedBuild}}) )
+    condition: succeeded()
     pool:
       vmImage: "macOS-12"
     timeoutInMinutes: 120
@@ -50,21 +47,15 @@ jobs:
             --output_dir $(Build.BinariesDirectory)/xcframework_out \
             --config $(buildConfig) \
             --platform_arch  ${{ parameters.Platform }} ${{ parameters.IosArch }} \
-            --build_target lib \
+            --mode build_platform_arch_frameworks_only \
             ${{parameters.AdditionalBuildFlags}}
         displayName: "Build xcframework"
 
       - bash: |
           set -e -x
 
-          lib_path_fix=intermediates/${{ parameters.Platform }}/${{ parameters.IosArch }}/$(buildConfig)
+          tar -cvzf $(Build.ArtifactStagingDirectory)/onnxruntime-extensions-ios-${{ parameters.Platform }}-${{ parameters.IosArch }}-lib.tgz -C $(Build.BinariesDirectory)/ xcframework_out
 
-          mv $(Build.BinariesDirectory)/xcframework_out/$lib_path_fix $(Build.BinariesDirectory)/xcframework_out/${lib_path_fix}_tmp
-          mkdir $(Build.BinariesDirectory)/xcframework_out/$lib_path_fix
-          cp -r $(Build.BinariesDirectory)/xcframework_out/${lib_path_fix}_tmp/lib $(Build.BinariesDirectory)/xcframework_out/$lib_path_fix/
-          rm -rf $(Build.BinariesDirectory)/xcframework_out/${lib_path_fix}_tmp
-
-          tar -cvzf $(Build.ArtifactStagingDirectory)/onnxruntime-extensions-ios-${{ parameters.Platform }}-${{ parameters.IosArch }}-lib.tar -C $(Build.BinariesDirectory)/ xcframework_out
         displayName: "Assemble artifacts"
 
       - publish: "$(Build.ArtifactStagingDirectory)"
