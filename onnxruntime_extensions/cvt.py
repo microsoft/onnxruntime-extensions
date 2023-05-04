@@ -52,7 +52,7 @@ class HFTokenizerConverter(CustomOpConverter):
             *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
         attrs.update(**kwargs)
         return attrs
-    
+
     def roberta_tokenizer(self, **kwargs):
         hf_roberta_tokenizer = self.tokenizer
         attrs = {'vocab': json.dumps(

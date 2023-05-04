@@ -157,8 +157,7 @@ class OrtPyFunction:
 
             x = args[idx]
             ts_x = np.array(x) if isinstance(x, (int, float, bool)) else x
-            # an annoying bug is numpy by default is int32, while pytorch is int64.
-            # so cast the input here automatically.
+            # numpy by default is int32 in some platforms, sometimes it is int64.
             feed[i_.name] = \
                 ts_x.astype(
                     np.int64) if i_.type.tensor_type.elem_type == onnx_proto.TensorProto.INT64 else ts_x
