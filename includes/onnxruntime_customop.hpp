@@ -249,7 +249,7 @@ inline void CustomOpApi::SetDimensions(OrtTensorTypeAndShapeInfo* info, _In_ con
 
 template <typename T>
 inline T* CustomOpApi::GetTensorMutableData(_Inout_ OrtValue* value) const {
-  T* data;
+  T* data = nullptr;
   ThrowOnError(api_.GetTensorMutableData(value, reinterpret_cast<void**>(&data)));
   return data;
 }
