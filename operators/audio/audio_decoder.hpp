@@ -24,7 +24,10 @@
 
 struct KernelAudioDecoder : public BaseKernel {
  public:
-  KernelAudioDecoder(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
+  KernelAudioDecoder(const OrtApi& api, const OrtKernelInfo& info)
+      : BaseKernel(api, info),
+        downsample_rate_(TryToGetAttributeWithDefault<int64_t>("downsample_rate", 0)),
+        stereo_mixer_(TryToGetAttributeWithDefault<int64_t>("stereo_to_mono", 0)) {
   }
 
   enum class AudioStreamType {
@@ -108,14 +111,16 @@ struct KernelAudioDecoder : public BaseKernel {
 
     int64_t total_buf_size = 0;
     std::list<std::vector<float>> lst_frames;
-    int64_t org_sample_rate = 16000;
-    int64_t org_channels = 1;
+    int64_t orig_sample_rate = 0;
+    int64_t orig_channels = 0;
 
     if (stream_format == AudioStreamType::kMP3) {
       auto mp3_obj_ptr = std::make_unique<drmp3>();
       if (!drmp3_init_memory(mp3_obj_ptr.get(), p_data, input_dim.Size(), nullptr)) {
         ORTX_CXX_API_THROW("[AudioDecoder]: unexpected error on MP3 stream.", ORT_RUNTIME_EXCEPTION);
       }
+      orig_sample_rate = mp3_obj_ptr->sampleRate;
+      orig_channels = mp3_obj_ptr->channels;
       total_buf_size = DrReadFrames(lst_frames, drmp3_read_pcm_frames_f32, *mp3_obj_ptr);
 
     } else if (stream_format == AudioStreamType::kFLAC) {
@@ -124,6 +129,8 @@ struct KernelAudioDecoder : public BaseKernel {
       if (flac_obj == nullptr) {
         ORTX_CXX_API_THROW("[AudioDecoder]: unexpected error on FLAC stream.", ORT_RUNTIME_EXCEPTION);
       }
+      orig_sample_rate = flac_obj->sampleRate;
+      orig_channels = flac_obj->channels;
       total_buf_size = DrReadFrames(lst_frames, drflac_read_pcm_frames_f32, *flac_obj);
 
     } else {
@@ -131,10 +138,17 @@ struct KernelAudioDecoder : public BaseKernel {
       if (!drwav_init_memory(&wav_obj, p_data, input_dim.Size(), nullptr)) {
         ORTX_CXX_API_THROW("[AudioDecoder]: unexpected error on WAV stream.", ORT_RUNTIME_EXCEPTION);
       }
+      orig_sample_rate = wav_obj.sampleRate;
+      orig_channels = wav_obj.channels;
       total_buf_size = DrReadFrames(lst_frames, drwav_read_pcm_frames_f32, wav_obj);
     }
 
-    // mix all frames into one buffer
+    if (downsample_rate_ != 0 &&
+      orig_sample_rate < downsample_rate_) {
+      ORTX_CXX_API_THROW("[AudioDecoder]: only down sampling supported.", ORT_INVALID_ARGUMENT);
+    }
+
+    // join all frames
     std::vector<float> buf;
     buf.resize(total_buf_size);
     int64_t offset = 0;
@@ -144,7 +158,7 @@ struct KernelAudioDecoder : public BaseKernel {
     }
 
     // mix the stereo channels into mono channel
-    if (stereo_mixer_ && org_channels > 1) {
+    if (stereo_mixer_ && orig_channels > 1) {
       if (buf.size() > 1) {
         for (size_t i = 0; i < buf.size() / 2; ++i) {
           buf[i] = (buf[i * 2] + buf[i * 2 + 1]) / 2;
@@ -153,22 +167,19 @@ struct KernelAudioDecoder : public BaseKernel {
       }
     }
 
-    if (downsample_rate_ != 0) {
+    if (downsample_rate_ != 0 &&
+        downsample_rate_ != orig_sample_rate) {
       // A lowpass filter on buf audio data to remove high frequency noise
-      std::vector<double> filtered_buf = lp_filter_->process(buf);
-
+      std::vector<float> filtered_buf = lp_filter_.filter(buf, 1.0f);
       // downsample the audio data
-      std::vector<double> output_audio;
-      auto sr_rate = 1.0 * downsample_rate_;  // turn it into double
-      double downsample_ratio = org_sample_rate / sr_rate;
-      output_audio.reserve(static_cast<size_t>(filtered_buf.size() / downsample_ratio) + 1);
-      for (size_t i = 0; i < filtered_buf.size(); ++i) {
-        double t = i / downsample_ratio;
-        output_audio.push_back(SincInterpolator::process(filtered_buf, t, sr_rate));
-      }
-
-      std::transform(output_audio.begin(), output_audio.end(), buf.begin(),
-                     [](double d) { return ort_extensions::narrow<float>(d); });
+      KaiserWindowInterpolation::Process(filtered_buf, buf,
+                                         1.0f * orig_sample_rate, 1.0f * downsample_rate_);
+      // FILE* f;
+      // if (fopen_s(&f, "wavedump.raw", "wb") == 11)
+      //{
+      //   fwrite(buf.data(), sizeof(float), buf.size(), f);
+      //   fclose(f);
+      // }
     }
 
     std::vector<int64_t> dim_out = {1, ort_extensions::narrow<int64_t>(buf.size())};
@@ -178,9 +189,9 @@ struct KernelAudioDecoder : public BaseKernel {
   }
 
  private:
-  std::unique_ptr<ButterworthLowpassFilter> lp_filter_;
-  int64_t downsample_rate_ = 16000;
-  int64_t stereo_mixer_ = 1;
+  ButterworthLowpassFilter lp_filter_;
+  int64_t downsample_rate_ = 0;
+  int64_t stereo_mixer_ = 0;
 };
 
 struct CustomOpAudioDecoder : OrtW::CustomOpBase<CustomOpAudioDecoder, KernelAudioDecoder> {
