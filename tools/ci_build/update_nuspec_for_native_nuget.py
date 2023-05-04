@@ -50,10 +50,11 @@ def parse_arguments():
     parser.add_argument("--nuspec_path", type=Path, default=default_nuspec,
                         help="Path to nuspec file to update.")
     parser.add_argument("--commit_id", required=True, help="The last commit id included in this package.")
-    parser.add_argument("--is_release_build", default=False, type=bool, help="If it's a release build.")
+    parser.add_argument("--is_release_build", default="False", type=str, help="If it's a release build.")
 
     args = parser.parse_args()
     args.nuspec_path = args.nuspec_path.resolve(strict=True)
+    args.is_release_build = args.is_release_build.lower() == "true"
     print("used args:", args)
 
     return args
