@@ -51,7 +51,7 @@ class KaiserWindowInterpolation {
   static void Process(const std::vector<float>& input, std::vector<float>& output, float inputSampleRate, float outputSampleRate) {
     // Downsampling factor
     float factor = outputSampleRate / inputSampleRate;
-    const double M_PI = 3.14159265359;
+    const double MY_PI = 3.14159265359;
 
     // Calculate the number of output samples
     int outputSize = static_cast<int>(std::ceil(static_cast<float>(input.size()) * factor));
@@ -73,7 +73,7 @@ class KaiserWindowInterpolation {
       std::vector<double> weights = KaiserWin(static_cast<size_t>(endSample - startSample + 1));
       for (int j = startSample; j <= endSample; j++) {
         double distance = std::abs(j - index);
-        double sincValue = (distance < 1e-6f) ? 1.0f : std::sin(M_PI * distance) / (M_PI * distance);
+        double sincValue = (distance < 1e-6f) ? 1.0f : std::sin(MY_PI * distance) / (MY_PI * distance);
         weights[j - startSample] *= sincValue;
       }
 
