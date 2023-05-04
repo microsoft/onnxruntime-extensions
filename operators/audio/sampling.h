@@ -88,14 +88,31 @@ class KaiserWindowInterpolation {
   }
 
  private:
+  // std::cyl_bessel_i is not available for every platform.
+  static double cyl_bessel_i0(double x) {
+    double sum = 0.0;
+    double term = 1.0;
+    double x_squared = x * x / 4.0;
+    int n = 0;
+    double tolerance = 1e-8;
+
+    while (term > tolerance * sum) {
+      sum += term;
+      n += 1;
+      term *= x_squared / (n * n);
+    }
+
+    return sum;
+  }
+
   // Kaiser Window function
   static std::vector<double> KaiserWin(size_t window_length) {
     std::vector<double> window(window_length);
-    static const double i0_beta = std::cyl_bessel_i(0, kBeta);
+    static const double i0_beta = cyl_bessel_i0(kBeta);
 
     for (size_t i = 0; i < window_length; i++) {
       double x = 2.0 * i / (window_length - 1.0) - 1.0;
-      double bessel_value = std::cyl_bessel_i(0, kBeta * std::sqrt(1 - x * x));
+      double bessel_value = cyl_bessel_i0(kBeta * std::sqrt(1 - x * x));
       window[i] = bessel_value / i0_beta;
     }
 

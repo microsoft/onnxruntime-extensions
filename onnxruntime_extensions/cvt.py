@@ -63,7 +63,3 @@ class HFTokenizerConverter(CustomOpConverter):
             *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
         attrs.update(**kwargs)
         return attrs
-
-
-class HFWhisperFEXConverter(CustomOpConverter):
-    pass
