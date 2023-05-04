@@ -7,7 +7,7 @@ from onnx import checker, helper, onnx_pb as onnx_proto
 from onnxruntime_extensions import PyOrtFunction, util
 
 
-class TestBpeTokenizer(unittest.TestCase):
+class TestAudioCodec(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.test_mp3_file = util.get_test_data_file('data', '1272-141231-0002.mp3')
