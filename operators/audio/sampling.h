@@ -8,7 +8,6 @@
 #include <complex>
 #include "narrow.h"
 
-
 // https://en.wikipedia.org/wiki/Butterworth_filter
 class ButterworthLowpass {
  public:
@@ -42,12 +41,11 @@ class ButterworthLowpass {
   float a0_, a1_, b1_;
 };
 
-
 // https://en.wikipedia.org/wiki/Kaiser_window
 class KaiserWindowInterpolation {
  private:
   // Kaiser window parameters, empirically
-  constexpr static double kBeta = 6.0;
+  constexpr static double kBeta = 6.0; // Beta controls the width of the transition band
 
  public:
   static void Process(const std::vector<float>& input, std::vector<float>& output, float inputSampleRate, float outputSampleRate) {
@@ -59,9 +57,6 @@ class KaiserWindowInterpolation {
     int outputSize = static_cast<int>(std::ceil(static_cast<float>(input.size()) * factor));
     output.resize(outputSize);
 
-    float beta = 6.0f;  // Beta controls the width of the transition band
-
-    // Interpolation loop
     for (int i = 0; i < outputSize; i++) {
       float index = i / factor;  // Fractional index for interpolation
 
@@ -70,7 +65,7 @@ class KaiserWindowInterpolation {
       float fractionalPart = index - integerPart;
 
       // Calculate the range of input samples for interpolation
-      int range = static_cast<int>(std::ceil(beta / (2.0f * factor)));
+      int range = static_cast<int>(std::ceil(kBeta / (2.0f * factor)));
       int startSample = std::max(0, integerPart - range);
       int endSample = std::min(static_cast<int>(input.size()) - 1, integerPart + range);
 
@@ -96,7 +91,7 @@ class KaiserWindowInterpolation {
   // Kaiser Window function
   static std::vector<double> KaiserWin(size_t window_length) {
     std::vector<double> window(window_length);
-    static double i0_beta = std::cyl_bessel_i(0, kBeta);
+    static const double i0_beta = std::cyl_bessel_i(0, kBeta);
 
     for (size_t i = 0; i < window_length; i++) {
       double x = 2.0 * i / (window_length - 1.0) - 1.0;
