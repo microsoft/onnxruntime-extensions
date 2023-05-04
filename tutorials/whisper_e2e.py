@@ -142,7 +142,7 @@ def _torch_export(*arg, **kwargs):
 def preprocessing(audio_data):
     if USE_AUDIO_DECODER:
         decoder = PyOrtFunction.from_customop(
-            "AudioDecoder", cpu_only=True, downsample_rate=SAMPLE_RATE, stereo_to_mono=1)
+            "AudioDecoder", cpu_only=True, downsampling_rate=SAMPLE_RATE, stereo_to_mono=1)
         audio_pcm = torch.from_numpy(decoder(audio_data))
     else:
         audio_pcm = torch.from_numpy(audio_data)

@@ -41,7 +41,7 @@ class ButterworthLowpass {
   float a0_, a1_, b1_;
 };
 
-// https://en.wikipedia.org/wiki/Kaiser_window
+// https://ccrma.stanford.edu/~jos/sasp/Kaiser_Window.html
 class KaiserWindowInterpolation {
  private:
   // Kaiser window parameters, empirically

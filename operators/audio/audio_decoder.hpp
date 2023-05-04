@@ -26,7 +26,7 @@ struct KernelAudioDecoder : public BaseKernel {
  public:
   KernelAudioDecoder(const OrtApi& api, const OrtKernelInfo& info)
       : BaseKernel(api, info),
-        downsample_rate_(TryToGetAttributeWithDefault<int64_t>("downsample_rate", 0)),
+        downsample_rate_(TryToGetAttributeWithDefault<int64_t>("downsampling_rate", 0)),
         stereo_mixer_(TryToGetAttributeWithDefault<int64_t>("stereo_to_mono", 0)) {
   }
 

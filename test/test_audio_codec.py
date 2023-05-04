@@ -47,6 +47,13 @@ class TestBpeTokenizer(unittest.TestCase):
             np.asarray([np.max(pcm_tensor), np.average(pcm_tensor), np.min(pcm_tensor)]),
             np.asarray([np.max(self.raw_data), np.average(self.raw_data), np.min(self.raw_data)]), atol=1e-01)
 
+    def test_decoder_resampling(self):
+        test_file = util.get_test_data_file('data', 'jfk.flac')
+        blob = bytearray(util.read_file(test_file, mode='rb'))
+        decoder = PyOrtFunction.from_customop('AudioDecoder', cpu_only=True, downsampling_rate=16000, stereo_to_mono=1)
+        pcm_tensor = decoder(np.expand_dims(np.asarray(blob), axis=(0,)))
+        self.assertEqual(pcm_tensor.shape, (1, 176000))
+
 
 if __name__ == "__main__":
     unittest.main()
