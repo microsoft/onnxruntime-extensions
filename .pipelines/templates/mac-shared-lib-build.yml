@@ -41,6 +41,9 @@ jobs:
       IsReleaseBuild: true
       PackageVersionVariableName: ORT_EXTENSIONS_VERSION
 
+  # Can't run tests on macos due to build error
+  # https://github.com/microsoft/onnxruntime-extensions/issues/418
+  # Add --enable_cxx_tests to the build_lib.sh command line when fixed
   - script: |
       set -e -x
       ./build_lib.sh --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo ${{parameters.AdditionalBuildFlags}}

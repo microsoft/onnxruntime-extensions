@@ -34,12 +34,22 @@ jobs:
       clean: true
       submodules: none
 
-    - bash: |
-        export CFLAGS="${{parameters.OrtExtensionsCFlags}}"
-        export CXXFLAGS="${{parameters.OrtExtensionsCXXFlags}}"
-        ./build_lib.sh --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo ${{parameters.AdditionalBuildFlags}}
-      workingDirectory: '$(Build.SourcesDirectory)'
-      displayName: 'build onnxruntime-extensions for Linux'
+    # Currently we can only run tests on x64 as the arm64 tests have a failure
+    # https://github.com/microsoft/onnxruntime-extensions/issues/417
+    - ${{ if eq(parameters.OrtExtensionsArch, 'x64') }}:
+      - bash: |
+          export CFLAGS="${{parameters.OrtExtensionsCFlags}}"
+          export CXXFLAGS="${{parameters.OrtExtensionsCXXFlags}}"
+          ./build_lib.sh --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo --enable_cxx_tests ${{parameters.AdditionalBuildFlags}}
+        workingDirectory: '$(Build.SourcesDirectory)'
+        displayName: 'build onnxruntime-extensions and run tests'
+    - ${{ else }}:
+      - bash: |
+          export CFLAGS="${{parameters.OrtExtensionsCFlags}}"
+          export CXXFLAGS="${{parameters.OrtExtensionsCXXFlags}}"
+          ./build_lib.sh --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo ${{parameters.AdditionalBuildFlags}}
+        workingDirectory: '$(Build.SourcesDirectory)'
+        displayName: 'build onnxruntime-extensions'
 
     - template: set-package-version-variable-step.yml
       parameters:
