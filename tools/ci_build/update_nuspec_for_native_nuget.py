@@ -23,7 +23,7 @@ def update_nuspec(args):
                 package_item.text = args.package_version
             else:
                 import datetime
-                now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+                now = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
                 package_item.text = f"{args.package_version}-dev-{now}-{args.commit_id}"
         elif package_item.tag == "repository" and args.commit_id:
             package_item.attrib['commit'] = args.commit_id

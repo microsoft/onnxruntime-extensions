@@ -111,10 +111,10 @@ stages:
 - stage: NuGet_Packaging_CPU
   dependsOn:
   - Linux_C_API_Packaging_CPU
-  - Windows_C_API_Packaging_CPU
-  - MacOS_C_API_Packaging_CPU
-  - Android_Java_API_AAR_Packaging_Full
-  - iOS_Full_xcframework
+  #- Windows_C_API_Packaging_CPU
+  #- MacOS_C_API_Packaging_CPU
+  #- Android_Java_API_AAR_Packaging_Full
+  #- iOS_Full_xcframework
   condition: succeeded()
   jobs:
   - job: Nuget_Packaging
@@ -138,53 +138,53 @@ stages:
         architecture: "x64"
       displayName: "Use Python 3.9"
 
-    - task: DownloadPipelineArtifact@0
-      displayName: 'Download win-x64 Pipeline Artifact'
-      inputs:
-        artifactName: 'onnxruntime-extensions-win-x64'
-        targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
-
-    - task: DownloadPipelineArtifact@0
-      displayName: 'Download win-x86 Pipeline Artifact'
-      inputs:
-        artifactName: 'onnxruntime-extensions-win-x86'
-        targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
-
-    - task: DownloadPipelineArtifact@0
-      displayName: 'Download win-arm64 Pipeline Artifact'
-      inputs:
-        artifactName: 'onnxruntime-extensions-win-arm64'
-        targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
-
-    - task: DownloadPipelineArtifact@0
-      displayName: 'Download win-arm Pipeline Artifact'
-      inputs:
-        artifactName: 'onnxruntime-extensions-win-arm'
-        targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
-    - task: DownloadPipelineArtifact@0
-      displayName: 'Download osx-all Pipeline Artifact'
-      inputs:
-        artifactName: 'onnxruntime-extensions-osx'
-        targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
-
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download iOS Pipeline Artifact'
-      inputs:
-        artifactName: 'onnxruntime-extensions-ios_package'
-        targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
-
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download android-full-aar Pipeline Artifact'
-      inputs:
-        artifactName: 'onnxruntime-extensions-android-aar'
-        patterns: '**/*.aar'
-        targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
-
-    - task: DownloadPipelineArtifact@0
-      displayName: 'Download linux-x64 Pipeline Artifact'
-      inputs:
-        artifactName: 'onnxruntime-extensions-linux-x64'
-        targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
+    #- task: DownloadPipelineArtifact@0
+    #  displayName: 'Download win-x64 Pipeline Artifact'
+    #  inputs:
+    #    artifactName: 'onnxruntime-extensions-win-x64'
+    #    targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
+#
+    #- task: DownloadPipelineArtifact@0
+    #  displayName: 'Download win-x86 Pipeline Artifact'
+    #  inputs:
+    #    artifactName: 'onnxruntime-extensions-win-x86'
+    #    targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
+#
+    #- task: DownloadPipelineArtifact@0
+    #  displayName: 'Download win-arm64 Pipeline Artifact'
+    #  inputs:
+    #    artifactName: 'onnxruntime-extensions-win-arm64'
+    #    targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
+#
+    #- task: DownloadPipelineArtifact@0
+    #  displayName: 'Download win-arm Pipeline Artifact'
+    #  inputs:
+    #    artifactName: 'onnxruntime-extensions-win-arm'
+    #    targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
+    #- task: DownloadPipelineArtifact@0
+    #  displayName: 'Download osx-all Pipeline Artifact'
+    #  inputs:
+    #    artifactName: 'onnxruntime-extensions-osx'
+    #    targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
+#
+    #- task: DownloadPipelineArtifact@2
+    #  displayName: 'Download iOS Pipeline Artifact'
+    #  inputs:
+    #    artifactName: 'onnxruntime-extensions-ios_package'
+    #    targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
+#
+    #- task: DownloadPipelineArtifact@2
+    #  displayName: 'Download android-full-aar Pipeline Artifact'
+    #  inputs:
+    #    artifactName: 'onnxruntime-extensions-android-aar'
+    #    patterns: '**/*.aar'
+    #    targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
+#
+    #- task: DownloadPipelineArtifact@0
+    #  displayName: 'Download linux-x64 Pipeline Artifact'
+    #  inputs:
+    #    artifactName: 'onnxruntime-extensions-linux-x64'
+    #    targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
 
     - task: DownloadPipelineArtifact@0
       displayName: 'Download linux-aarch64 Pipeline Artifact'
