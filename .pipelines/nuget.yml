@@ -10,7 +10,7 @@ parameters:
   default: true
 
 - name: IsReleaseBuild
-  displayName: Is a release build? Set it to true if you are doing an OnnxRuntime extensions release.
+  displayName: Is this a release build? Set it to true if you are doing an OnnxRuntime extensions release.
   type: boolean
   default: false
 

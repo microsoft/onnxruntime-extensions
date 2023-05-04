@@ -111,10 +111,10 @@ stages:
 - stage: NuGet_Packaging_CPU
   dependsOn:
   - Linux_C_API_Packaging_CPU
-  - Windows_C_API_Packaging_CPU
-  - MacOS_C_API_Packaging_CPU
-  - Android_Java_API_AAR_Packaging_Full
-  - iOS_Full_xcframework
+  #- Windows_C_API_Packaging_CPU
+  #- MacOS_C_API_Packaging_CPU
+  #- Android_Java_API_AAR_Packaging_Full
+  #- iOS_Full_xcframework
   condition: succeeded()
   jobs:
   - job: Nuget_Packaging
@@ -138,47 +138,47 @@ stages:
         architecture: "x64"
       displayName: "Use Python 3.9"
 
-    - task: DownloadPipelineArtifact@0
-      displayName: 'Download win-x64 Pipeline Artifact'
-      inputs:
-        artifactName: 'onnxruntime-extensions-win-x64'
-        targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
-
-    - task: DownloadPipelineArtifact@0
-      displayName: 'Download win-x86 Pipeline Artifact'
-      inputs:
-        artifactName: 'onnxruntime-extensions-win-x86'
-        targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
-
-    - task: DownloadPipelineArtifact@0
-      displayName: 'Download win-arm64 Pipeline Artifact'
-      inputs:
-        artifactName: 'onnxruntime-extensions-win-arm64'
-        targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
-
-    - task: DownloadPipelineArtifact@0
-      displayName: 'Download win-arm Pipeline Artifact'
-      inputs:
-        artifactName: 'onnxruntime-extensions-win-arm'
-        targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
-    - task: DownloadPipelineArtifact@0
-      displayName: 'Download osx-all Pipeline Artifact'
-      inputs:
-        artifactName: 'onnxruntime-extensions-osx'
-        targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
-
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download iOS Pipeline Artifact'
-      inputs:
-        artifactName: 'onnxruntime-extensions-ios_package'
-        targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
-
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download android-full-aar Pipeline Artifact'
-      inputs:
-        artifactName: 'onnxruntime-extensions-android-aar'
-        patterns: '**/*.aar'
-        targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
+    #- task: DownloadPipelineArtifact@0
+    #  displayName: 'Download win-x64 Pipeline Artifact'
+    #  inputs:
+    #    artifactName: 'onnxruntime-extensions-win-x64'
+    #    targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
+#
+    #- task: DownloadPipelineArtifact@0
+    #  displayName: 'Download win-x86 Pipeline Artifact'
+    #  inputs:
+    #    artifactName: 'onnxruntime-extensions-win-x86'
+    #    targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
+#
+    #- task: DownloadPipelineArtifact@0
+    #  displayName: 'Download win-arm64 Pipeline Artifact'
+    #  inputs:
+    #    artifactName: 'onnxruntime-extensions-win-arm64'
+    #    targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
+#
+    #- task: DownloadPipelineArtifact@0
+    #  displayName: 'Download win-arm Pipeline Artifact'
+    #  inputs:
+    #    artifactName: 'onnxruntime-extensions-win-arm'
+    #    targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
+    #- task: DownloadPipelineArtifact@0
+    #  displayName: 'Download osx-all Pipeline Artifact'
+    #  inputs:
+    #    artifactName: 'onnxruntime-extensions-osx'
+    #    targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
+#
+    #- task: DownloadPipelineArtifact@2
+    #  displayName: 'Download iOS Pipeline Artifact'
+    #  inputs:
+    #    artifactName: 'onnxruntime-extensions-ios_package'
+    #    targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
+#
+    #- task: DownloadPipelineArtifact@2
+    #  displayName: 'Download android-full-aar Pipeline Artifact'
+    #  inputs:
+    #    artifactName: 'onnxruntime-extensions-android-aar'
+    #    patterns: '**/*.aar'
+    #    targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
 
     - task: DownloadPipelineArtifact@0
       displayName: 'Download linux-x64 Pipeline Artifact'
@@ -199,7 +199,7 @@ stages:
 
     # Reconstruct the build dir
     - task: PowerShell@2
-      displayName: 'Extract native libraries to artifact-downloadss for addition to nuget native package'
+      displayName: 'Extract native libraries to artifact-downloads for addition to nuget native package'
       inputs:
         targetType: filePath
         filePath: $(Build.SourcesDirectory)\tools\ci_build\extract_nuget_files.ps1
@@ -215,6 +215,7 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
+          echo "IsReleaseBuild: ${{ parameters.IsReleaseBuild }}"
           $OrtExtVersion=(cat ./version.txt)
           python $(Build.SourcesDirectory)\tools\ci_build\update_nuspec_for_native_nuget.py `
             --package_version $OrtExtVersion `
