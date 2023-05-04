@@ -17,7 +17,7 @@ def update_nuspec(args):
 
     # update version and commit id
     packages_node = root.findall('metadata')[0]
-    for package_item in list(packages_node):
+    for package_item in packages_node:
         if package_item.tag == "version" and args.package_version:
             if args.is_release_build:
                 package_item.text = args.package_version
@@ -54,6 +54,7 @@ def parse_arguments():
 
     args = parser.parse_args()
     args.nuspec_path = args.nuspec_path.resolve(strict=True)
+    print("used args:", args)
 
     return args
 

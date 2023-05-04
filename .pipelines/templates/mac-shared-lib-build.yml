@@ -46,7 +46,7 @@ jobs:
   # Add --enable_cxx_tests to the build_lib.sh command line when fixed
   - script: |
       set -e -x
-      ./build_lib.sh --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo ${{parameters.AdditionalBuildFlags}}
+      ./build_lib.sh --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo --parallel ${{parameters.AdditionalBuildFlags}}
     displayName: 'Build ${{ parameters.MacosArch }}'
 
   - task: Bash@3
