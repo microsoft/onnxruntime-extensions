@@ -19,9 +19,12 @@ def update_nuspec(args):
     packages_node = root.findall('metadata')[0]
     for package_item in list(packages_node):
         if package_item.tag == "version" and args.package_version:
-            import datetime
-            now = datetime.datetime.now().strftime('%Y-%m-%d_%H_%M_%S')
-            package_item.text = args.package_version+f"-dev-{now}-{args.commit_id}"
+            if args.is_release_build:
+                package_item.text = args.package_version
+            else:
+                import datetime
+                now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+                package_item.text = f"{args.package_version}-dev-{now}-{args.commit_id}"
         elif package_item.tag == "repository" and args.commit_id:
             package_item.attrib['commit'] = args.commit_id
 
@@ -47,6 +50,7 @@ def parse_arguments():
     parser.add_argument("--nuspec_path", type=Path, default=default_nuspec,
                         help="Path to nuspec file to update.")
     parser.add_argument("--commit_id", required=True, help="The last commit id included in this package.")
+    parser.add_argument("--is_release_build", default=False, type=bool, help="If it's a release build.")
 
     args = parser.parse_args()
     args.nuspec_path = args.nuspec_path.resolve(strict=True)

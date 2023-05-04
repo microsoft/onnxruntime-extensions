@@ -48,9 +48,9 @@ def build_for_abi(build_dir: Path,
     run(*build_cmd)
 
 
-def build_artifact_by_target(output_dir: Path,
+def do_build_by_mode(output_dir: Path,
                              config: str,
-                             build_target: str,
+                             mode: str,
                              abis: List[str],
                              api_level: int,
                              sdk_path: Path,
@@ -67,7 +67,7 @@ def build_artifact_by_target(output_dir: Path,
     intermediates_dir = output_dir / "intermediates"
     base_jnilibs_dir = intermediates_dir / "jnilibs" / config
 
-    if build_target in ["so", "aar"]:
+    if mode in ["build_so_only", "build_aar"]:
         for abi in abis:
             build_dir = intermediates_dir / abi
             build_for_abi(build_dir, config, abi, api_level, sdk_path, ndk_path, other_args)
@@ -83,7 +83,7 @@ def build_artifact_by_target(output_dir: Path,
     # early return if only building JNI libraries
     # To accelerate the build pipeline, we can build the JNI libraries first in parallel for different abi,
     # and then build the AAR package.
-    if build_target == "so":
+    if mode == "build_so_only":
         return
 
     java_root = _repo_dir / "java"
@@ -140,18 +140,21 @@ def parse_args():
     )
 
     # this one is used in the ci pipeline for accelerating the build process,
-    # we have 4 archs to be build. It's in sequence by default, but we can build them in parallel.
+    # we have 4 archs to be built. It's in sequence by default, but we can build them in parallel.
     # The parallel build works as:
     #   1. build the so files for each arch in different ci jobs
     #   2. download all the so files in tasks
-    #   2. pack the aar package in ci task
+    #   3. pack the aar package
     parser.add_argument(
-        "--build_target",
+        "--mode",
         type=str,
-        choices=["aar", "so", "pack_aar"],
-        default="aar",
-        help="Build target. 'aar' builds the AAR package. 'so' builds the so libraries. \
-            'pack_aar' only pack aar from existing so files.",
+        choices=["build_aar", "build_so_only", "pack_aar_only"],
+        default="build_aar",
+        help="""Build mode: 
+                'build_aar' builds the AAR package. 
+                'build_so_only' builds the so libraries.
+                'pack_aar_only' only pack aar from existing so files.
+            """,
     )
 
     parser.add_argument(
@@ -205,10 +208,10 @@ def main():
 
     _log.info(f"Building AAR for ABIs: {args.abis}")
 
-    build_artifact_by_target(
+    do_build_by_mode(
         output_dir=args.output_dir,
         config=args.config,
-        build_target=args.build_target,
+        mode=args.mode,
         abis=args.abis,
         api_level=args.api_level,
         sdk_path=args.sdk_path,

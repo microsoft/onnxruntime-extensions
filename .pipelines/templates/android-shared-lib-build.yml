@@ -51,7 +51,7 @@ jobs:
             set -e -x
             python ./tools/android/build_aar.py \
                 --output-dir $(Build.BinariesDirectory)/android_so \
-                --build_target so       \
+                --mode build_so_only       \
                 --abi ${{ parameters.AndroidABI }}       \
                 --config $(buildConfig) \
                 ${{parameters.AdditionalBuildFlags}}

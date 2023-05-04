@@ -219,6 +219,7 @@ stages:
           python $(Build.SourcesDirectory)\tools\ci_build\update_nuspec_for_native_nuget.py `
             --package_version $OrtExtVersion `
             --commit_id $(Build.SourceVersion) `
+            --is_release_build ${{ parameters.IsReleaseBuild }} 
 
           cat $(Build.SourcesDirectory)\nuget\NativeNuget.nuspec
         workingDirectory: '$(Build.SourcesDirectory)'

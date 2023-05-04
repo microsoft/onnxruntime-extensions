@@ -82,7 +82,7 @@ stages:
           set -e -x
           python ./tools/android/build_aar.py \
               --output-dir $(Build.BinariesDirectory)/android_aar \
-              --build_target pack_aar \
+              --mode pack_aar_only \
               --config $(buildConfig)
           VERSION=$(cat ./version.txt)
           AAR_PATH="$(Build.BinariesDirectory)/android_aar/aar_out/$(buildConfig)/com/microsoft/onnxruntime/onnxruntime-extensions-android/${VERSION}/onnxruntime-extensions-android-${VERSION}.aar"

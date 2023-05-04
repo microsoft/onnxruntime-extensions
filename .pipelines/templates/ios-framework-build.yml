@@ -54,7 +54,9 @@ jobs:
       - bash: |
           set -e -x
 
-          tar -cvzf $(Build.ArtifactStagingDirectory)/onnxruntime-extensions-ios-${{ parameters.Platform }}-${{ parameters.IosArch }}-lib.tgz -C $(Build.BinariesDirectory)/ xcframework_out/intermediates/iphoneos/arm64/static_framework
+          package_name=onnxruntime-extensions-ios-${{ parameters.Platform }}-${{ parameters.IosArch }}-lib.tgz
+          target_folder=xcframework_out/intermediates/${{ parameters.Platform }}/${{ parameters.IosArch }}/static_framework
+          tar -cvzf $(Build.ArtifactStagingDirectory)/${package_name} -C $(Build.BinariesDirectory)/ ${target_folder}
 
         displayName: "Assemble artifacts"
 
