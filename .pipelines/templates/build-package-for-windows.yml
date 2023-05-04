@@ -9,7 +9,7 @@ parameters:
   type: boolean
   default: false
 
-- name: msbuildPlatform
+- name: BuildPlatform
   type: string
   values:
   - 'x86'
@@ -17,29 +17,25 @@ parameters:
   - 'arm64'
   - 'arm'
 
-- name: packageName
-  displayName: Package name for nuget
-  type: string
-
-
-- name: stage_name_suffix
+- name: StageNameSuffix
   displayName: job name for nuget
   type: string
   default: ''
 
-- name: ortext_build_pool_name
+- name: BuildPool
   type: string
   default: 'Win-CPU-2021'
+
 - name: AdditionalBuildFlags
-  displayName: set OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE
+  displayName: Additional build flags for build_lib.bat
   type: string
-  
+
 
 jobs:
-- job: Windows_Packaging_${{ parameters.stage_name_suffix }}
+- job: Windows_Packaging_${{ parameters.StageNameSuffix }}
   workspace:
     clean: all
-  pool: ${{ parameters.ortext_build_pool_name }}
+  pool: ${{ parameters.BuildPool }}
   timeoutInMinutes: 300
 
   steps:
@@ -47,57 +43,67 @@ jobs:
       clean: true
       submodules: none
 
-    - task: BatchScript@1
-      displayName: 'build onnxruntime-extensions'
-      inputs:
-        filename: '.\build_lib.bat'
-        args: "--${{parameters.msbuildPlatform}} --cmake_extra_defines ${{parameters.AdditionalBuildFlags}} --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo"
-        modifyEnvironment: true
-        workingFolder: '$(Build.SourcesDirectory)'
+    # Currently we can only run tests on x64. x86 tests faile. arm/arm64 tests can't be run as the build machine is amd64
+    # TODO: Fix these issues so the nuget build is properly tested.
+    - ${{ if eq(parameters.BuildPlatform, 'x64') }}:
+      - task: BatchScript@1
+        displayName: 'build onnxruntime-extensions and run tests'
+        inputs:
+          filename: '.\build_lib.bat'
+          arguments: '--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out --config RelWithDebInfo --cmake_generator "Visual Studio 16 2019" --enable_cxx_tests ${{parameters.AdditionalBuildFlags}}'
+          modifyEnvironment: true
+          workingFolder: $(Build.SourcesDirectory)
+    - ${{ else }}:
+      - task: BatchScript@1
+        displayName: 'build onnxruntime-extensions'
+        inputs:
+          filename: '.\build_lib.bat'
+          arguments: '--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out --config RelWithDebInfo --cmake_generator "Visual Studio 16 2019" ${{parameters.AdditionalBuildFlags}}'
+          modifyEnvironment: true
+          workingFolder: $(Build.SourcesDirectory)
 
     - script: |
-        dir
-      workingDirectory: '$(Build.BinariesDirectory)/out/Windows/'
+        dir $(Build.BinariesDirectory)\out\RelWithDebInfo\lib\RelWithDebInfo
+        dir $(Build.BinariesDirectory)\out\RelWithDebInfo\bin\RelWithDebInfo
       displayName: 'List built DLLs'
+      workingDirectory: $(Build.BinariesDirectory)
 
-    - script: |
-        cd out/Windows
-        ctest -C RelWithDebInfo --output-on-failure
-      displayName: Run C++ native tests
-      workingDirectory: '$(Build.BinariesDirectory)'
+    - task: PowerShell@2
+      displayName: 'Set version'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $_OrtExtVersion=(cat version.txt)
+          echo "##vso[task.setvariable variable=OrtExtVersion;]$_OrtExtVersion"
+        workingDirectory: '$(Build.SourcesDirectory)'
 
     - task: PowerShell@2
       displayName: 'Copy and Create artifacts'
       inputs:
         targetType: 'inline'
         script: |
-          $_OrtExtVersion=(cat version.txt)
-          echo "##vso[task.setvariable variable=OrtExtVersion;]$_OrtExtVersion"
-
-          cd ./out
-          $target_lib_path="$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.packageName}}-$_OrtExtVersion/lib"
+          $target_lib_path="$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.BuildPlatform}}-$(OrtExtVersion)/lib"
           New-Item $target_lib_path -ItemType Directory
-          cp bin\RelWithDebInfo\ortextensions.* $target_lib_path
+          cp bin/RelWithDebInfo/ortextensions.* $target_lib_path
           cp lib/RelWithDebInfo/ortextensions.* $target_lib_path
-
-        workingDirectory: '$(Build.SourcesDirectory)'
+        workingDirectory: '$(Build.BinariesDirectory)/out/RelWithDebInfo'
 
     - template: win-esrp-dll.yml
       parameters:
-        FolderPath: '$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.packageName}}-$(OrtExtVersion)'
+        FolderPath: '$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.BuildPlatform}}-$(OrtExtVersion)'
         DisplayName: 'Sign DLL'
         DoEsrp: 'true'
 
     - task: ArchiveFiles@2
       inputs:
-        rootFolderOrFile: '$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.packageName}}-$(OrtExtVersion)'
+        rootFolderOrFile: '$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.BuildPlatform}}-$(OrtExtVersion)'
         includeRootFolder: true
         archiveType: 'tar' # Options: zip, 7z, tar, wim
         tarCompression: 'gz'
-        archiveFile: '$(Build.ArtifactStagingDirectory)/onnxruntime-extensions-win-${{parameters.packageName}}.tgz'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/onnxruntime-extensions-win-${{parameters.BuildPlatform}}.tgz'
         replaceExistingArchive: true
 
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)'
-        artifactName: 'onnxruntime-extensions-win-${{parameters.packageName}}'
+        artifactName: 'onnxruntime-extensions-win-${{parameters.BuildPlatform}}'

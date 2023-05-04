@@ -197,11 +197,12 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--output-dir",
+        "--output_dir",
         type=Path,
         required=True,
         help="Path to output directory.",
     )
+
     # This option is used in CI pipelines to accelerate the build process,
     # We have multiple platform/archs to build for. We can build them in parallel.
     # The parallel build works like this:
@@ -217,8 +218,9 @@ def parse_args():
         "'pack_xcframework_only' packs the xcframework from existing lib files only. "
         "Note: 'pack_xcframework_only' assumes previous invocation(s) with mode 'build_platform_arch_frameworks_only'.",
     )
+	
     parser.add_argument(
-        "--platform-arch",
+        "--platform_arch",
         nargs=2,
         action="append",
         metavar=("PLATFORM", "ARCH"),
@@ -235,20 +237,23 @@ def parse_args():
         help="CMake build configuration.",
     )
     parser.add_argument(
-        "--ios-deployment-target",
+        "--ios_deployment_target",
         default="11.0",
         help="iOS deployment target.",
     )
+
     parser.add_argument(
-        "--cmake-extra-defines",
+        "--cmake_extra_defines",
         action="append",
         nargs="+",
         default=[],
         help="Extra definition(s) to pass to CMake (with the CMake -D option) during build system generation. "
-        "E.g., `--cmake-extra-defines OPTION1=ON OPTION2=OFF --cmake-extra-defines OPTION3=ON`.",
+             "e.g., `--cmake_extra_defines OPTION1=ON OPTION2=OFF --cmake_extra_defines OPTION3=ON`.",
     )
 
-    args = parser.parse_args()
+    # ignore unknown args which may be present in a CI build for the nuget package as we pass through
+    # all additional build flags
+    args, unknown_args = parser.parse_known_args()
 
     # convert from [[platform1, arch1], [platform1, arch2], ...] to {platform1: [arch1, arch2, ...], ...}
     def platform_archs_from_args(platform_archs_arg: Optional[List[List[str]]]) -> Dict[str, List[str]]:

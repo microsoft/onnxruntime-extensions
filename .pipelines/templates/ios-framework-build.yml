@@ -3,18 +3,22 @@ parameters:
 - name: Platform
   displayName: ios Platform
   type: string
-- name: ios_arch
-  displayName: ios_arch
+
+- name: IosArch
+  displayName: IosArch
   type: string
+
 - name: IsReleaseBuild
   displayName: "Is this is a release build?"
   type: boolean
+
+
 - name: AdditionalBuildFlags
-  displayName: set OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE
+  displayName: Additional build flags for /tools/ios/build_xcframework.py
   type: string
-  
+
 jobs:
-  - job: IOS_C_API_Packaging_${{ parameters.Platform }}_${{ parameters.ios_arch }}
+  - job: IOS_C_API_Packaging_${{ parameters.Platform }}_${{ parameters.IosArch }}
     condition: succeeded()
     pool:
       vmImage: "macOS-12"
@@ -40,20 +44,20 @@ jobs:
 
       - script: |
           python ./tools/ios/build_xcframework.py \
-            --output-dir $(Build.BinariesDirectory)/xcframework_out \
+            --output_dir $(Build.BinariesDirectory)/xcframework_out \
             --config $(buildConfig) \
-            --platform-arch  ${{ parameters.Platform }} ${{ parameters.ios_arch }} \
+            --platform_arch  ${{ parameters.Platform }} ${{ parameters.IosArch }} \
             --mode build_platform_arch_frameworks_only \
-            --cmake-extra-defines ${{parameters.AdditionalBuildFlags}}
+            ${{parameters.AdditionalBuildFlags}}
         displayName: "Build xcframework"
 
       - bash: |
           set -e -x
 
-          tar -cvzf $(Build.ArtifactStagingDirectory)/onnxruntime-extensions-ios-${{ parameters.Platform }}-${{ parameters.ios_arch }}-lib.tgz -C $(Build.BinariesDirectory)/ xcframework_out
+          tar -cvzf $(Build.ArtifactStagingDirectory)/onnxruntime-extensions-ios-${{ parameters.Platform }}-${{ parameters.IosArch }}-lib.tgz -C $(Build.BinariesDirectory)/ xcframework_out
 
         displayName: "Assemble artifacts"
 
       - publish: "$(Build.ArtifactStagingDirectory)"
-        artifact: onnxruntime-extensions-ios-${{ parameters.Platform }}-${{ parameters.ios_arch }}-lib
+        artifact: onnxruntime-extensions-ios-${{ parameters.Platform }}-${{ parameters.IosArch }}-lib
         displayName: "Publish artifacts"

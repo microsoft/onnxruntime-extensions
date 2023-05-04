@@ -5,7 +5,7 @@ parameters:
   type: boolean
   default: false
 
-- name: OrtExtensionsArch  
+- name: OrtExtensionsArch
   type: string
 
 - name: PoolName
@@ -17,13 +17,14 @@ parameters:
 
 - name: OrtExtensionsCXXFlags
   type: string
+
 - name: AdditionalBuildFlags
-  displayName: set OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE
+  displayName: Additional build flags for build_lib.sh
   type: string
-  
+
 jobs:
 - job: Linux_C_API_Packaging_CPU_${{parameters.OrtExtensionsArch}}
-  
+
   workspace:
     clean: all
   timeoutInMinutes:  210
@@ -33,12 +34,22 @@ jobs:
       clean: true
       submodules: none
 
-    - bash: |
-        export CFLAGS="${{parameters.OrtExtensionsCFlags}}"
-        export CXXFLAGS="${{parameters.OrtExtensionsCXXFlags}}"
-        ./build_lib.sh --cmake_extra_defines ${{parameters.AdditionalBuildFlags}} --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo
-      workingDirectory: '$(Build.SourcesDirectory)'
-      displayName: 'build onnxruntime-extensions for Linux'
+    # Currently we can only run tests on x64 as the arm64 tests have a failure
+    # https://github.com/microsoft/onnxruntime-extensions/issues/417
+    - ${{ if eq(parameters.OrtExtensionsArch, 'x64') }}:
+      - bash: |
+          export CFLAGS="${{parameters.OrtExtensionsCFlags}}"
+          export CXXFLAGS="${{parameters.OrtExtensionsCXXFlags}}"
+          ./build_lib.sh --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo --enable_cxx_tests ${{parameters.AdditionalBuildFlags}}
+        workingDirectory: '$(Build.SourcesDirectory)'
+        displayName: 'build onnxruntime-extensions and run tests'
+    - ${{ else }}:
+      - bash: |
+          export CFLAGS="${{parameters.OrtExtensionsCFlags}}"
+          export CXXFLAGS="${{parameters.OrtExtensionsCXXFlags}}"
+          ./build_lib.sh --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo ${{parameters.AdditionalBuildFlags}}
+        workingDirectory: '$(Build.SourcesDirectory)'
+        displayName: 'build onnxruntime-extensions'
 
     - template: set-package-version-variable-step.yml
       parameters:
@@ -50,10 +61,17 @@ jobs:
 
        lib_target=$(Build.BinariesDirectory)/onnxruntime-extensions-linux-${{parameters.OrtExtensionsArch}}-$(ORT_EXTENSIONS_VERSION)/lib
        mkdir -p $lib_target
-       BUILD_FLAVOR=RelWithDebInfo
-       cp out//$BUILD_FLAVOR/lib/libortextensions.so $lib_target
 
-      displayName: create and copy artifacts
+       ls -l out/RelWithDebInfo/lib
+       cp out/RelWithDebInfo/lib/libortextensions.so $lib_target
+
+       cd $lib_target
+       objcopy --only-keep-debug libortextensions.so libortextensions.so.dbg
+       objcopy --strip-debug libortextensions.so
+       objcopy --add-gnu-debuglink=libortextensions.so.dbg libortextensions.so
+
+      displayName: create and copy artifacts.
+      workingDirectory: $(Build.BinariesDirectory)
 
 
     - task: ArchiveFiles@2
@@ -64,7 +82,7 @@ jobs:
         tarCompression: 'gz'
         archiveFile: '$(Build.ArtifactStagingDirectory)/onnxruntime-extensions-linux-${{parameters.OrtExtensionsArch}}.tgz'
         replaceExistingArchive: true
-       
+
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)'

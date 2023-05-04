@@ -2,7 +2,7 @@ parameters:
 - name: AdditionalBuildFlags
   displayName: Additional build flags for build.sh
   type: string
-  default: ''
+
 - name: IsReleaseBuild
   displayName: "Is this is a release build?"
   type: boolean
@@ -17,10 +17,10 @@ stages:
 - stage: MacOS_C_API_Packaging_CPU
   dependsOn: []
   jobs:
-  - template: mac_shared_lib_build.yml
+  - template: mac-shared-lib-build.yml
     parameters:
       MacosArch: 'x86_64'
-      AdditionalBuildFlags: ${{ parameters.AdditionalBuildFlags }} 
+      AdditionalBuildFlags: ${{ parameters.AdditionalBuildFlags }}
       WithCache: ${{ parameters.WithCache }}
   # error   _png_do_read_transformations in liblibpng.a(pngrtran.c.o) not found for architecture arm64
   # solution https://github.com/davisking/dlib/pull/2664/files

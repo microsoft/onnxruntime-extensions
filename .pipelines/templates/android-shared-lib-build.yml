@@ -8,11 +8,13 @@ parameters:
   - 'arm64-v8a'
   - 'armeabi-v7a'
   type: string
+
 - name: JobSuffix
   displayName: android abi has dash `-`, which can't be part of job name.
   type: string
+
 - name: AdditionalBuildFlags
-  displayName: set OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE
+  displayName: Additional build flags for /tools/android/build_aar.py
   type: string
 
 
@@ -52,7 +54,7 @@ jobs:
                 --build_target so       \
                 --abi ${{ parameters.AndroidABI }}       \
                 --config $(buildConfig) \
-                --cmake-extra-defines ${{parameters.AdditionalBuildFlags}}
+                ${{parameters.AdditionalBuildFlags}}
           workingDirectory: '$(Build.SourcesDirectory)'
 
       - bash: |

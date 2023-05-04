@@ -13,7 +13,7 @@ parameters:
   default: false
 
 - name: AdditionalBuildFlags
-  displayName: Additional build flags for build.py
+  displayName: Additional build flags for build_lib.sh
   type: string
 
 jobs:
@@ -26,6 +26,7 @@ jobs:
   pool:
     vmImage: 'macOS-12'
   timeoutInMinutes: 300
+
   steps:
   - checkout: self
     clean: true
@@ -40,26 +41,26 @@ jobs:
       IsReleaseBuild: true
       PackageVersionVariableName: ORT_EXTENSIONS_VERSION
 
+  # Can't run tests on macos due to build error
+  # https://github.com/microsoft/onnxruntime-extensions/issues/418
+  # Add --enable_cxx_tests to the build_lib.sh command line when fixed
   - script: |
       set -e -x
-      cd $(Build.SourcesDirectory)
-      rm -rf out/
-
-      ./build_lib.sh --cmake_extra_defines ${{parameters.AdditionalBuildFlags}} --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo
-      ls out/*
+      ./build_lib.sh --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo ${{parameters.AdditionalBuildFlags}}
     displayName: 'Build ${{ parameters.MacosArch }}'
 
   - task: Bash@3
     displayName: 'Copy build artifacts for zipping'
     inputs:
       targetType: 'inline'
+      # TODO: Save debug symbols instead of just stripping
       script: |
         set -e -x
         target_lib_path=onnxruntime-extensions-osx-${{ parameters.MacosArch }}-$(ORT_EXTENSIONS_VERSION)/lib
         mkdir -p $target_lib_path
         cp out/RelWithDebInfo/lib/libortextensions.dylib  ${target_lib_path}/
         strip -S ${target_lib_path}/libortextensions.dylib
-      workingDirectory: '$(Build.BinariesDirectory)'
+      workingDirectory: $(Build.BinariesDirectory)
 
   - task: ArchiveFiles@2
     inputs:
@@ -69,7 +70,6 @@ jobs:
       tarCompression: 'gz'
       archiveFile: '$(Build.ArtifactStagingDirectory)/onnxruntime-extensions-osx-${{ parameters.MacosArch }}.tgz'
       replaceExistingArchive: true
-
 
   - publish: '$(Build.ArtifactStagingDirectory)'
     artifact: 'onnxruntime-extensions-osx-${{ parameters.MacosArch }}'

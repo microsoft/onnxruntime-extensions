@@ -5,27 +5,31 @@ parameters:
   displayName: "Is this is a release build?"
   type: boolean
   default: false
+
+
 - name: AdditionalBuildFlags
-  displayName: set OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE
+  displayName: Additional build flags for /tools/ios/build_xcframework.py
   type: string
-  
+
 jobs:
-- template: ios_shared_lib_build.yml
+- template: ios-framework-build.yml
   parameters:
     Platform: 'iphoneos'
-    ios_arch: 'arm64'
+    IosArch: 'arm64'
     IsReleaseBuild: ${{parameters.IsReleaseBuild}}
     AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
-- template: ios_shared_lib_build.yml
+
+- template: ios-framework-build.yml
   parameters:
     Platform: 'iphonesimulator'
-    ios_arch: 'x86_64'
+    IosArch: 'x86_64'
     IsReleaseBuild: ${{parameters.IsReleaseBuild}}
     AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
-- template: ios_shared_lib_build.yml
+
+- template: ios-framework-build.yml
   parameters:
     Platform: 'iphonesimulator'
-    ios_arch: 'arm64'
+    IosArch: 'arm64'
     IsReleaseBuild: ${{parameters.IsReleaseBuild}}
     AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
@@ -59,18 +63,22 @@ jobs:
     parameters:
       IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
       PackageVersionVariableName: ORT_EXTENSIONS_POD_VERSION
+
   - task: DownloadPipelineArtifact@2
     inputs:
       artifact: 'onnxruntime-extensions-ios-iphoneos-arm64-lib'
       targetPath: '$(Build.BinariesDirectory)/'
+
   - task: DownloadPipelineArtifact@2
     inputs:
       artifact: 'onnxruntime-extensions-ios-iphonesimulator-arm64-lib'
       targetPath: '$(Build.BinariesDirectory)/'
+
   - task: DownloadPipelineArtifact@2
     inputs:
       artifact: 'onnxruntime-extensions-ios-iphonesimulator-x86_64-lib'
       targetPath: '$(Build.BinariesDirectory)/'
+
   - script: |
       set -e -x
       ls
@@ -84,13 +92,14 @@ jobs:
         tar -xvzf $tgz_lib
       done
 
-      ls
+        ls 
       ls xcframework_out/intermediates/*
     workingDirectory: $(Build.BinariesDirectory)
     displayName: "Extract file from distributed build"
+
   - script: |
       python ./tools/ios/build_xcframework.py \
-        --output-dir $(Build.BinariesDirectory)/xcframework_out \
+        --output_dir $(Build.BinariesDirectory)/xcframework_out \
         --config Release \
         --mode pack_xcframework_only
     displayName: "Pack xcframework for distributed building"
