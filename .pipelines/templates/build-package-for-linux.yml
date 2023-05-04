@@ -61,7 +61,8 @@ jobs:
 
        lib_target=$(Build.BinariesDirectory)/onnxruntime-extensions-linux-${{parameters.OrtExtensionsArch}}-$(ORT_EXTENSIONS_VERSION)/lib
        mkdir -p $lib_target
-       ls -lR out/
+
+       ls -l out/RelWithDebugInfo/lib
        cp out/RelWithDebInfo/lib/libortextensions.so $lib_target
 
        cd $lib_target

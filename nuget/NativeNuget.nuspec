@@ -45,10 +45,8 @@
     <file src="..\nuget-artifacts\onnxruntime-extensions-win-arm\lib\ortextensions.dll" target="runtimes\win-arm\native" />
     <file src="..\nuget-artifacts\onnxruntime-extensions-linux-aarch64\lib\libortextensions.so" target="runtimes\linux-arm64\native" />
     <file src="..\nuget-artifacts\onnxruntime-extensions-linux-x64\lib\libortextensions.so" target="runtimes\linux-x64\native" />
-    <file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.props" target="build\native" />
     <file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.props" target="build\netstandard1.1" />
     <file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.props" target="build\netstandard2.0" />
-    <file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.targets" target="build\native" />
     <file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.targets" target="build\netstandard1.1" />
     <file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.targets" target="build\netstandard2.0" />
     <!-- Android via Xamarin/MAUI -->
@@ -57,8 +55,8 @@
     <file src="targets\monoandroid11.0\Microsoft.ML.OnnxRuntime.Extensions.targets" target="buildTransitive\monoandroid11.0" />
     <file src="targets\net6.0-android\Microsoft.ML.OnnxRuntime.Extensions.targets" target="build\net6.0-android31.0" />
     <file src="targets\net6.0-android\Microsoft.ML.OnnxRuntime.Extensions.targets" target="buildTransitive\net6.0-android31.0" />
-    <!-- iOS via Xamarin/MAUI. Contents of src directory should be onnxruntime_extensions.xcframework folder -->
-    <file src="..\nuget-artifacts\onnxruntime_extensions.xcframework\**" target="runtimes\ios\native" />
+    <!-- iOS via Xamarin/MAUI. -->
+    <file src="..\nuget-artifacts\onnxruntime_extensions.xcframework\**" target="runtimes\ios\native\onnxruntime_extensions.xcframework" />
     <file src="targets\xamarinios10\Microsoft.ML.OnnxRuntime.Extensions.targets" target="build\xamarinios10" />
     <file src="targets\xamarinios10\Microsoft.ML.OnnxRuntime.Extensions.targets" target="buildTransitive\xamarinios10" />
     <file src="targets\net6.0-ios\Microsoft.ML.OnnxRuntime.Extensions.targets" target="build\net6.0-ios15.4" />
