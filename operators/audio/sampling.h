@@ -8,68 +8,40 @@
 #include <complex>
 #include "narrow.h"
 
-namespace OrtX {
-constexpr float M_PI = 3.14159265f;  // std::numbers is ready until C+ 20
-}  // namespace OrtX
 
 // https://en.wikipedia.org/wiki/Butterworth_filter
-class ButterworthLowpassFilter {
- private:
-  int order;                        // Filter order
-  float cutoffFreq;                 // Cutoff frequency
-  std::vector<float> coefficients;  // Filter coefficients
-
+class ButterworthLowpass {
  public:
-  ButterworthLowpassFilter(int filterOrder = 4, float cutoffFrequency = 0.2f)
-      : order(filterOrder), cutoffFreq(cutoffFrequency) {
-    calculateCoefficients();
+  ButterworthLowpass(float sample_rate, float cutoff_frequency)
+      : x_prev_(0.0f), y_prev_(0.0f) {
+    float RC = 1.0f / (2.0f * 3.14159265359f * cutoff_frequency);
+    float dt = 1.0f / sample_rate;
+    float alpha = dt / (RC + dt);
+    a0_ = alpha;
+    a1_ = alpha;
+    b1_ = 1 - alpha;
   }
 
-  // Apply the filter to the input signal with gain adjustment
-  std::vector<float> Process(const std::vector<float>& inputSignal, float gain) {
+  float Process(float input) {
+    float output = a0_ * input + a1_ * x_prev_ - b1_ * y_prev_;
+    x_prev_ = input;
+    y_prev_ = output;
+    return output;
+  }
+
+  std::vector<float> Process(const std::vector<float>& inputSignal) {
     std::vector<float> outputSignal(inputSignal.size());
-
-    for (int i = 0; i < inputSignal.size(); i++) {
-      float output = 0.0f;
-      for (int j = 0; j <= order; j++) {
-        if (i - j >= 0) {
-          output += coefficients[j] * inputSignal[i - j];
-        }
-      }
-      outputSignal[i] = output * gain;  // Apply gain adjustment
+    for (size_t i = 0; i < inputSignal.size(); ++i) {
+      outputSignal[i] = Process(inputSignal[i]);
     }
-
     return outputSignal;
   }
 
  private:
-  // Calculate the filter coefficients using Butterworth filter design
-  void calculateCoefficients() {
-    coefficients.resize(order + 1);
-
-    // Pre-warp the cutoff frequency
-    float wc = 2.0f * OrtX::M_PI * cutoffFreq;
-
-    // Calculate analog prototype filter poles
-    std::vector<std::complex<float>> poles(order);
-    for (int i = 0; i < order; i++) {
-      float theta = OrtX::M_PI * (0.5f + (2.0f * i + 1.0f) / (2.0f * order));
-      float realPart = -sinh(logf(2.0f) / (2.0f * order) * sinh(theta));
-      float imagPart = cosh(logf(2.0f) / (2.0f * order) * sinh(theta));
-      poles[i] = std::complex<float>(realPart, imagPart);
-    }
-
-    // Apply bilinear transform to get digital filter coefficients
-    for (int i = 0; i <= order; i++) {
-      std::complex<float> s = poles[i];
-      std::complex<float> z = (2.0f + s) / (2.0f - s);
-      coefficients[i] = z.real();
-    }
-  }
-
- private:
-  std::vector<std::complex<float>> poles_;
+  float x_prev_, y_prev_;
+  float a0_, a1_, b1_;
 };
+
 
 // https://en.wikipedia.org/wiki/Kaiser_window
 class KaiserWindowInterpolation {
@@ -81,6 +53,7 @@ class KaiserWindowInterpolation {
   static void Process(const std::vector<float>& input, std::vector<float>& output, float inputSampleRate, float outputSampleRate) {
     // Downsampling factor
     float factor = outputSampleRate / inputSampleRate;
+    const double M_PI = 3.14159265359;
 
     // Calculate the number of output samples
     int outputSize = static_cast<int>(std::ceil(static_cast<float>(input.size()) * factor));
@@ -105,7 +78,7 @@ class KaiserWindowInterpolation {
       std::vector<double> weights = KaiserWin(static_cast<size_t>(endSample - startSample + 1));
       for (int j = startSample; j <= endSample; j++) {
         double distance = std::abs(j - index);
-        double sincValue = (distance < 1e-6f) ? 1.0f : std::sin(OrtX::M_PI * distance) / (OrtX::M_PI * distance);
+        double sincValue = (distance < 1e-6f) ? 1.0f : std::sin(M_PI * distance) / (M_PI * distance);
         weights[j - startSample] *= sincValue;
       }
 

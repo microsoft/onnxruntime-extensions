@@ -8,7 +8,6 @@ import re
 import torch
 import numpy as np
 
-from pathlib import Path
 from onnx import numpy_helper
 from transformers import WhisperProcessor
 
@@ -142,7 +141,8 @@ def _torch_export(*arg, **kwargs):
 
 def preprocessing(audio_data):
     if USE_AUDIO_DECODER:
-        decoder = PyOrtFunction.from_customop("AudioDecoder", cpu_only=True)
+        decoder = PyOrtFunction.from_customop(
+            "AudioDecoder", cpu_only=True, downsample_rate=SAMPLE_RATE, stereo_to_mono=1)
         audio_pcm = torch.from_numpy(decoder(audio_data))
     else:
         audio_pcm = torch.from_numpy(audio_data)
@@ -200,7 +200,7 @@ def merge_models(core: str, output_model: str, audio_data):
         ])
     try:
         onnx.save_model(m_all, output_model)
-    except:
+    except ValueError:
         onnx.save_model(m_all, output_model,
                         save_as_external_data=True,
                         all_tensors_to_one_file=True,

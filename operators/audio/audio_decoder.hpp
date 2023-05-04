@@ -170,16 +170,11 @@ struct KernelAudioDecoder : public BaseKernel {
     if (downsample_rate_ != 0 &&
         downsample_rate_ != orig_sample_rate) {
       // A lowpass filter on buf audio data to remove high frequency noise
-      std::vector<float> filtered_buf = lp_filter_.filter(buf, 1.0f);
+      ButterworthLowpass filter(1.0f * orig_sample_rate, 0.5f * downsample_rate_);
+      std::vector<float> filtered_buf = filter.Process(buf);
       // downsample the audio data
       KaiserWindowInterpolation::Process(filtered_buf, buf,
                                          1.0f * orig_sample_rate, 1.0f * downsample_rate_);
-      // FILE* f;
-      // if (fopen_s(&f, "wavedump.raw", "wb") == 11)
-      //{
-      //   fwrite(buf.data(), sizeof(float), buf.size(), f);
-      //   fclose(f);
-      // }
     }
 
     std::vector<int64_t> dim_out = {1, ort_extensions::narrow<int64_t>(buf.size())};
@@ -189,7 +184,6 @@ struct KernelAudioDecoder : public BaseKernel {
   }
 
  private:
-  ButterworthLowpassFilter lp_filter_;
   int64_t downsample_rate_ = 0;
   int64_t stereo_mixer_ = 0;
 };
