@@ -1,1 +1,2 @@
-onnx==1.13.1
+# 1.14 hasn't be supported yet.
+onnx>=1.9.0,<1.14
