@@ -8,7 +8,6 @@ import re
 import torch
 import numpy as np
 
-from pathlib import Path
 from onnx import numpy_helper
 from transformers import WhisperProcessor
 
@@ -142,7 +141,8 @@ def _torch_export(*arg, **kwargs):
 
 def preprocessing(audio_data):
     if USE_AUDIO_DECODER:
-        decoder = PyOrtFunction.from_customop("AudioDecoder", cpu_only=True)
+        decoder = PyOrtFunction.from_customop(
+            "AudioDecoder", cpu_only=True, downsampling_rate=SAMPLE_RATE, stereo_to_mono=1)
         audio_pcm = torch.from_numpy(decoder(audio_data))
     else:
         audio_pcm = torch.from_numpy(audio_data)
@@ -172,7 +172,7 @@ def preprocessing(audio_data):
         return pre_f(audio_data)
     else:
         pre_full = onnx.compose.merge_models(
-            decoder.onnx_model, 
+            decoder.onnx_model,
             pre_model,
             io_map=[("floatPCM", "audio_pcm")])
         pre_f = PyOrtFunction.from_model(pre_full, cpu_only=True)
@@ -198,11 +198,14 @@ def merge_models(core: str, output_model: str, audio_data):
         make_node('Cast', ['sequences'], ["generated_ids"], to=onnx.TensorProto.INT64),
         bpe_decoder_node
         ])
-    onnx.save_model(m_all, output_model,
-                    save_as_external_data=True,
-                    all_tensors_to_one_file=True,
-                    location=f"{os.path.basename(output_model)}.data",
-                    convert_attribute=True)
+    try:
+        onnx.save_model(m_all, output_model)
+    except ValueError:
+        onnx.save_model(m_all, output_model,
+                        save_as_external_data=True,
+                        all_tensors_to_one_file=True,
+                        location=f"{os.path.basename(output_model)}.data",
+                        convert_attribute=True)
     print(f"The final merged model was saved as: {output_model}")
 
     print("Verify the final model...")
