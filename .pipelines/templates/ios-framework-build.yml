@@ -9,7 +9,7 @@ parameters:
   type: string
 
 - name: IsReleaseBuild
-  displayName: "Is this is a release build?"
+  displayName: "Is this a release build?"
   type: boolean
 
 

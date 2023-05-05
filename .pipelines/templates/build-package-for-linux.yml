@@ -1,7 +1,7 @@
 # This file contains the ADO job that build so-file on Linux
 parameters:
 - name: IsReleaseBuild
-  displayName: "Is this is a release build?"
+  displayName: "Is this a release build?"
   type: boolean
   default: false
 
