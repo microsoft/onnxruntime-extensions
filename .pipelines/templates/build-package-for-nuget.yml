@@ -220,6 +220,7 @@ stages:
             --package_version $OrtExtVersion `
             --commit_id $(Build.SourceVersion) `
             --is_release_build ${{ parameters.IsReleaseBuild }} 
+            --is_for_nuget_publish ${{ parameters.IsForNugetPublish }} 
 
           cat $(Build.SourcesDirectory)\nuget\NativeNuget.nuspec
         workingDirectory: '$(Build.SourcesDirectory)'
