@@ -17,7 +17,7 @@ parameters:
 - name: IsForNugetPublish
   displayName: Is this for publishing to nuget.org? If so, set to true, and update version info.
   type: boolean
-  default: true
+  default: false
 
 trigger:
   branches:
