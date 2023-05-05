@@ -14,6 +14,11 @@ parameters:
   type: boolean
   default: false
 
+- name: IsForNugetPublish
+  displayName: Is for publish to nuget.org?
+  type: boolean
+  default: false
+
 - name: OrtNugetPackageId
   displayName: Package name for nuget
   type: string
