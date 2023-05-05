@@ -7,11 +7,6 @@ parameters:
   - 'universal2'
   default: 'x86_64'
 
-- name: WithCache
-  displayName: Build with Cache
-  type: boolean
-  default: false
-
 - name: AdditionalBuildFlags
   displayName: Additional build flags for build_lib.sh
   type: string

@@ -14,15 +14,8 @@ parameters:
   type: boolean
   default: false
 
-trigger:
-  branches:
-    exclude:
-      - "*"
-
-pr:
-  branches:
-    include:
-      - "*"
+# Trigger manually
+trigger: none
       
 stages:
 - template: templates/build-package-for-nuget.yml

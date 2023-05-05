@@ -169,8 +169,8 @@ def parse_args():
     parser.add_argument(
         "--api-level",
         type=int,
-        default=24,
-        help="Android API Level. E.g., 24.",
+        default=21,
+        help="Android API Level. E.g., 21.",
     )
 
     parser.add_argument(

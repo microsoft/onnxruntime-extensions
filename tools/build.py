@@ -162,7 +162,7 @@ def _parse_arguments():
     parser.add_argument("--x86", action="store_true",
                         help="[cross-compiling] Create Windows x86 makefiles. Requires --update and no existing cache "
                              "CMake setup. Delete CMakeCache.txt if needed")
-    # x86 args
+    # x64 args
     parser.add_argument("--x64", action="store_true",
                         help="doing nothing, just for compatibility")
 
