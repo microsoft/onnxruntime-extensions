@@ -1,5 +1,6 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
+import onnx
 import pathlib
 import inspect
 
@@ -57,3 +58,35 @@ def mel_filterbank(
     energy_norm = 2.0 / (mel_bins[2 : n_mels + 2] - mel_bins[:n_mels])
     fbank *= energy_norm[:, np.newaxis]
     return fbank
+
+
+def remove_unused_initializers(subgraph, top_level_initializers=None):
+    if top_level_initializers is None:
+        top_level_initializers = []
+    initializers = subgraph.initializer
+    nodes = subgraph.node
+
+    # Find the names of all input tensors for all nodes in the subgraph
+    input_tensors = set()
+    for node in nodes:
+        for input_name in node.input:
+            input_tensors.add(input_name)
+
+    # Combine top-level and current subgraph initializers
+    all_initializers = initializers + top_level_initializers
+
+    # Filter the initializers by checking if their names are in the list of used input tensors
+    used_initializers = [init for init in all_initializers if init.name in input_tensors]
+
+    # Update the subgraph's initializers
+    del subgraph.initializer[:]
+    subgraph.initializer.extend([init for init in used_initializers if init in initializers])
+
+    # Recursively process subgraphs within this subgraph
+    for node in nodes:
+        for attr in node.attribute:
+            if attr.type == onnx.AttributeProto.GRAPH:
+                remove_unused_initializers(attr.g, top_level_initializers)
+            elif attr.type == onnx.AttributeProto.GRAPHS:
+                for subgraph in attr.graphs:
+                    remove_unused_initializers(subgraph, top_level_initializers)
