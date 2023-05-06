@@ -60,10 +60,41 @@ def mel_filterbank(
     return fbank
 
 
+def remove_unused_constants(subgraph):
+    nodes = [_n for _n in subgraph.node]
+
+    # Find the names of all input tensors for all nodes in the subgraph
+    input_tensors = set()
+    for node in nodes:
+        for input_name in node.input:
+            input_tensors.add(input_name)
+
+    # Remove Constant nodes whose output is not used by any other nodes
+    nodes_to_remove = []
+    for node in nodes:
+        if node.op_type == 'Constant':
+            output_name = node.output[0]
+            if output_name not in input_tensors:
+                nodes_to_remove.append(node)
+
+    for node in nodes_to_remove:
+        subgraph.node.remove(node)
+
+    # Recursively process subgraphs within this subgraph
+    for node in nodes:
+        for attr in node.attribute:
+            if attr.type == onnx.AttributeProto.GRAPH:
+                remove_unused_constants(attr.g)
+            elif attr.type == onnx.AttributeProto.GRAPHS:
+                for subgraph in attr.graphs:
+                    remove_unused_constants(subgraph)
+
+
 def remove_unused_initializers(subgraph, top_level_initializers=None):
     if top_level_initializers is None:
         top_level_initializers = []
-    initializers = subgraph.initializer
+        remove_unused_constants(subgraph)
+    initializers = [_i for _i in subgraph.initializer]
     nodes = subgraph.node
 
     # Find the names of all input tensors for all nodes in the subgraph
