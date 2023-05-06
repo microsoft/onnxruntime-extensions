@@ -7,6 +7,8 @@ elseif(ONNXRUNTIME_PKG_DIR)
 else()
   message(STATUS "CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}")
   message(STATUS "CMAKE_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}")
+  message(STATUS "CMAKE_HOST_SYSTEM_PROCESSOR=${CMAKE_HOST_SYSTEM_PROCESSOR}")
+  message(STATUS "CMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}")
 
   # default to 1.11.1 if not specified
   set(ONNXRUNTIME_VER "1.11.1" CACHE STRING "ONNX Runtime version")
@@ -14,6 +16,7 @@ else()
   if(CMAKE_HOST_APPLE)
     set(ONNXRUNTIME_URL "v${ONNXRUNTIME_VER}/onnxruntime-osx-universal2-${ONNXRUNTIME_VER}.tgz")
   elseif(CMAKE_HOST_WIN32)
+    # TODO: Set platform
     if(CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64")
       if (CMAKE_GENERATOR_PLATFORM STREQUAL "Win32")
         set(ONNXRUNTIME_URL "v${ONNXRUNTIME_VER}/onnxruntime-win-x86-${ONNXRUNTIME_VER}.zip")
@@ -27,7 +30,18 @@ else()
         set(ONNXRUNTIME_URL "v${ONNXRUNTIME_VER}/onnxruntime-win-arm64-${ONNXRUNTIME_VER}.zip")
       endif()
     else()
-      message(FATAL_ERROR "Unexpected CMAKE_SYSTEM_PROCESSOR of ${CMAKE_SYSTEM_PROCESSOR}.")
+      # if we're cross-compiling we won't actually use the ORT
+      if (OCOS_BUILD_ANDROID)
+        # default to most common for now.
+        set(ONNXRUNTIME_URL "v${ONNXRUNTIME_VER}/onnxruntime-win-x64-${ONNXRUNTIME_VER}.zip")
+        if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "ARM64")
+          set(ONNXRUNTIME_URL "v${ONNXRUNTIME_VER}/onnxruntime-win-x64-${ONNXRUNTIME_VER}.zip")
+        endif()
+      endif()
+
+      if (NOT ONNXRUNTIME_URL)
+        message(FATAL_ERROR "Unexpected CMAKE_SYSTEM_PROCESSOR of ${CMAKE_SYSTEM_PROCESSOR}.")
+      endif()
     endif()
   else()
     # Linux or other, using Linux package to retrieve the headers
