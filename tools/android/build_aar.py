@@ -21,13 +21,8 @@ _supported_abis = ["armeabi-v7a", "arm64-v8a", "x86", "x86_64"]
 _log = get_logger("build_aar")
 
 
-def build_for_abi(build_dir: Path,
-                  config: str,
-                  abi: str,
-                  api_level: int,
-                  sdk_path: Path,
-                  ndk_path: Path,
-                  other_args: List[str]):
+def build_for_abi(
+    build_dir: Path, config: str, abi: str, api_level: int, sdk_path: Path, ndk_path: Path, other_args: List[str]):
     build_cmd = [
         sys.executable,
         str(_repo_dir / "tools" / "build.py"),
@@ -49,13 +44,13 @@ def build_for_abi(build_dir: Path,
 
 
 def do_build_by_mode(output_dir: Path,
-                             config: str,
-                             mode: str,
-                             abis: List[str],
-                             api_level: int,
-                             sdk_path: Path,
-                             ndk_path: Path,
-                             other_args: List[str]):
+                     config: str,
+                     mode: str,
+                     abis: List[str],
+                     api_level: int,
+                     sdk_path: Path,
+                     ndk_path: Path,
+                     other_args: List[str]):
     output_dir = output_dir.resolve()
 
     sdk_path = sdk_path.resolve(strict=True)
@@ -76,7 +71,7 @@ def do_build_by_mode(output_dir: Path,
             jnilibs_dir = base_jnilibs_dir / abi
             jnilibs_dir.mkdir(parents=True, exist_ok=True)
 
-            jnilib_names = ["libonnxruntime_extensions4j_jni.so"]
+            jnilib_names = ["libortextensions.so", "libonnxruntime_extensions4j_jni.so"]
             for jnilib_name in jnilib_names:
                 shutil.copyfile(build_dir / config / "java" / "android" / abi / jnilib_name, jnilibs_dir / jnilib_name)
 
@@ -150,8 +145,8 @@ def parse_args():
         type=str,
         choices=["build_aar", "build_so_only", "pack_aar_only"],
         default="build_aar",
-        help="""Build mode: 
-                'build_aar' builds the AAR package. 
+        help="""Build mode:
+                'build_aar' builds the AAR package.
                 'build_so_only' builds the so libraries.
                 'pack_aar_only' only pack aar from existing so files.
             """,
