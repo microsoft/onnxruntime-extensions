@@ -1,5 +1,5 @@
 import os
-import fire
+import argparse
 import onnx
 import numpy
 
@@ -36,5 +36,22 @@ class ORTExtCommands:
         print("The extensions loaded, status: OK.")
 
 
+def main():
+    parser = argparse.ArgumentParser(description="ORT Extension commands")
+    parser.add_argument("command", choices=["run", "selfcheck"])
+    parser.add_argument("--model", default="model.onnx", help="Path to the ONNX model file")
+    parser.add_argument("--testdata-dir", help="Path to the test data directory")
+    parser.add_argument("args", nargs=argparse.REMAINDER, help="Additional arguments")
+
+    args = parser.parse_args()
+
+    ort_commands = ORTExtCommands(model=args.model, testdata_dir=args.testdata_dir)
+
+    if args.command == "run":
+        ort_commands.run(*args.args)
+    elif args.command == "selfcheck":
+        ort_commands.selfcheck(*args.args)
+
+
 if __name__ == '__main__':
-    fire.Fire(ORTExtCommands)
+    main()

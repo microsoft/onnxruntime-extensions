@@ -15,6 +15,8 @@ OPSET_TO_IR_VERSION = {
     7: 3, 8: 3, 9: 4, 10: 5, 11: 6, 12: 7,
     13: 7, 14: 7, 15: 8, 16: 8, 17: 8
 }
+if hasattr(helper, 'VERSION_TABLE'):
+    OPSET_TO_IR_VERSION = {row[2]: row[1] for row in helper.VERSION_TABLE}
 
 
 def _get_main_opset_version(model):
