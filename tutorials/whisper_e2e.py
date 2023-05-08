@@ -287,5 +287,5 @@ if __name__ == '__main__':
     text = postprocessing(generated_ids[0], _processor)
     print(text)
 
-    # print("build the final model...")
-    # merge_models(args.model, args.model.replace("beamsearch", "all"), audio_blob)
+    print("build the final model...")
+    merge_models(args.model, args.model.replace("beamsearch", "all"), audio_blob)
