@@ -60,13 +60,29 @@ class Opdef:
         opdef._nativedef.output_types = outputs
         attrs = kwargs.get('attrs', None)
         if attrs is None:
-            attrs = []
+            attrs = {}
+        elif isinstance(attrs, (list, tuple)):
+                attrs = {k: PyCustomOpDef.dt_string for k in attrs}
         opdef._nativedef.attrs = attrs
         add_custom_op(opdef._nativedef)
         return opdef
 
     def __call__(self, *args, **kwargs):
         return self.body(*args, **kwargs)
+
+    def cast_attributes(self, attributes):
+        res = {}
+        for k, v in attributes.items():
+            if self._nativedef.attrs[k] == PyCustomOpDef.dt_int64:
+                res[k] = int(v)
+            elif self._nativedef.attrs[k] == PyCustomOpDef.dt_float:
+                res[k] = float(v)
+            elif self._nativedef.attrs[k] == PyCustomOpDef.dt_string:
+                res[k] = v
+            else:
+                raise RuntimeError("Unsupported attribute type {}.".format(
+                    self._nativedef.attrs[k]))
+        return res
 
 
 def _on_pyop_invocation(k_id, feed, attributes):
@@ -75,7 +91,7 @@ def _on_pyop_invocation(k_id, feed, attributes):
             "Unable to find function id={}. "
             "Did you decorate the operator with @onnx_op?.".format(k_id))
     op_ = Opdef._odlist[k_id]
-    rv = op_.body(*feed, **attributes)
+    rv = op_.body(*feed, **op_.cast_attributes(attributes))
     if isinstance(rv, tuple):
         # Multiple outputs.
         res = []

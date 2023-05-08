@@ -3,16 +3,17 @@
 
 #pragma once
 
+#include "ocos.h"
+
 #include <vector>
 #include <map>
-#include "ocos.h"
 
 struct PyCustomOpDef {
   std::string op_type;
   uint64_t obj_id = 0;
   std::vector<int> input_types;
   std::vector<int> output_types;
-  std::vector<std::string> attrs;
+  std::map<std::string, int> attrs;
 
   static void AddOp(const PyCustomOpDef* cod);
 
@@ -37,7 +38,7 @@ struct PyCustomOpDef {
 };
 
 struct PyCustomOpKernel {
-  PyCustomOpKernel(const OrtApi& api, const OrtKernelInfo& info, uint64_t id, const std::vector<std::string>& attrs);
+  PyCustomOpKernel(const OrtApi& api, const OrtKernelInfo& info, uint64_t id, const std::map<std::string, int>& attrs);
   void Compute(OrtKernelContext* context);
 
  private:
@@ -76,10 +77,6 @@ struct PyCustomOpFactory : OrtW::CustomOpBase<PyCustomOpFactory, PyCustomOpKerne
     return static_cast<ONNXTensorElementDataType>(opdef_->input_types[idx]);
   };
 
-  const std::vector<std::string>& GetAttributesNames() const {
-    return opdef_->attrs;
-  }
-
   size_t GetOutputTypeCount() const {
     return opdef_->output_types.size();
   };
@@ -92,6 +89,5 @@ struct PyCustomOpFactory : OrtW::CustomOpBase<PyCustomOpFactory, PyCustomOpKerne
   std::string op_type_;
   std::string op_domain_;
 };
-
 
 bool EnablePyCustomOps(bool enable = true);

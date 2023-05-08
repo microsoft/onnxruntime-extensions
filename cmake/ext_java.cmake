@@ -1,7 +1,7 @@
 include(FindJava)
 find_package(Java REQUIRED)
 include(UseJava)
-if (NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
+if (NOT ANDROID)
     find_package(JNI REQUIRED)
 endif()
 
@@ -30,7 +30,7 @@ set(JAVA_OUTPUT_JAR ${JAVA_OUTPUT_TEMP}/build/libs/onnxruntime_extensions.jar)
 set(GRADLE_ARGS --console=plain clean jar -p ${JAVA_ROOT} -x test )
 if(WIN32)
   set(GRADLE_ARGS ${GRADLE_ARGS} -Dorg.gradle.daemon=false)
-elseif (CMAKE_SYSTEM_NAME STREQUAL "Android")
+elseif (ANDROID)
   # For Android build, we may run gradle multiple times in same build,
   # sometimes gradle JVM will run out of memory if we keep the daemon running
   # it is better to not keep a daemon running
@@ -58,14 +58,16 @@ add_dependencies(onnxruntime_extensions4j_jni onnxruntime_extensions4j)
 target_include_directories(onnxruntime_extensions4j_jni PRIVATE ortcustomops)
 # the JNI headers are generated in the onnxruntime_extensions4j target
 target_include_directories(onnxruntime_extensions4j_jni PRIVATE ${JAVA_ROOT}/build/headers ${JNI_INCLUDE_DIRS})
-target_link_libraries(onnxruntime_extensions4j_jni PRIVATE ortcustomops)
+
+# use shared lib for extensions on Android as NuGet requires the extensions .so
+if (ANDROID AND _BUILD_SHARED_LIBRARY)
+  target_link_libraries(onnxruntime_extensions4j_jni PRIVATE extensions_shared)
+else()
+  target_link_libraries(onnxruntime_extensions4j_jni PRIVATE ortcustomops)
+endif()
+
 standardize_output_folder(onnxruntime_extensions4j_jni)
 
-if (CMAKE_SYSTEM_NAME STREQUAL "Android")
-  if (OCOS_ENABLE_SPM_TOKENIZER)
-    target_link_libraries(onnxruntime_extensions4j_jni PUBLIC log)
-  endif()
-endif()
 # Set platform and arch for packaging
 # Checks the names set by MLAS on non-Windows platforms first
 if(APPLE)
@@ -87,7 +89,7 @@ if(APPLE)
    elseif(JNI_ARCH STREQUAL "arm64")
        set(JNI_ARCH aarch64)
    endif()
-elseif (CMAKE_SYSTEM_NAME STREQUAL "Android")
+elseif (ANDROID)
   set(JNI_ARCH ${ANDROID_ABI})
 elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
   set(JNI_ARCH x64)
@@ -148,7 +150,7 @@ endif()
 set(GRADLE_ARGS --console=plain cmakeBuild -p ${JAVA_ROOT} -DcmakeBuildDir=${CMAKE_CURRENT_BINARY_DIR})
 if(WIN32)
   set(GRADLE_ARGS ${GRADLE_ARGS} -Dorg.gradle.daemon=false)
-elseif (CMAKE_SYSTEM_NAME STREQUAL "Android")
+elseif (ANDROID)
   # For Android build, we may run gradle multiple times in same build,
   # sometimes gradle JVM will run out of memory if we keep the daemon running
   # it is better to not keep a daemon running
@@ -158,15 +160,23 @@ endif()
 message(STATUS "GRADLE_ARGS: ${GRADLE_ARGS}")
 add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${GRADLE_EXECUTABLE} ${GRADLE_ARGS} WORKING_DIRECTORY ${JAVA_OUTPUT_TEMP})
 
-if (CMAKE_SYSTEM_NAME STREQUAL "Android")
+if (ANDROID)
   set(ANDROID_PACKAGE_JNILIBS_DIR ${JAVA_OUTPUT_DIR}/android)
   set(ANDROID_PACKAGE_ABI_DIR ${ANDROID_PACKAGE_JNILIBS_DIR}/${ANDROID_ABI})
 
-  # Copy onnxruntime_extensions4j_jni.so for building Android AAR package
+  # Copy onnxruntime_extensions4j_jni.so and ortextensions.so for building Android AAR package and use in NuGet
   add_custom_command(TARGET onnxruntime_extensions4j_jni
     POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory ${ANDROID_PACKAGE_ABI_DIR}
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
       $<TARGET_FILE:onnxruntime_extensions4j_jni>
       ${ANDROID_PACKAGE_ABI_DIR}/$<TARGET_LINKER_FILE_NAME:onnxruntime_extensions4j_jni>)
+
+  if (_BUILD_SHARED_LIBRARY)
+    add_custom_command(TARGET onnxruntime_extensions4j_jni
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:extensions_shared>
+        ${ANDROID_PACKAGE_ABI_DIR}/$<TARGET_LINKER_FILE_NAME:extensions_shared>)
+  endif()
 endif()

@@ -491,6 +491,10 @@ if(OCOS_ENABLE_SPM_TOKENIZER)
   target_include_directories(ocos_operators PUBLIC ${spm_INCLUDE_DIRS})
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_SPM_TOKENIZER)
   list(APPEND ocos_libraries sentencepiece-static)
+
+  if(ANDROID)
+    list(APPEND ocos_libraries log)
+  endif()
 endif()
 
 if(OCOS_ENABLE_BLINGFIRE)
@@ -566,13 +570,7 @@ if(_BUILD_SHARED_LIBRARY)
   source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${shared_TARGET_SRC})
   standardize_output_folder(extensions_shared)
 
-  if(CMAKE_SYSTEM_NAME STREQUAL "Android")
-    if(OCOS_ENABLE_SPM_TOKENIZER)
-      target_link_libraries(extensions_shared PUBLIC log)
-    endif()
-  endif()
-
-  if(LINUX OR CMAKE_SYSTEM_NAME STREQUAL "Android")
+  if(LINUX OR ANDROID)
     set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS "-Wl,-s -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
   endif()
 
@@ -652,7 +650,7 @@ if(OCOS_ENABLE_CTEST)
     set(LINUX_CC_FLAGS "")
 
     # needs to link with stdc++fs in Linux
-    if(UNIX AND NOT APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
+    if(UNIX AND NOT APPLE AND NOT ANDROID)
       list(APPEND LINUX_CC_FLAGS stdc++fs -pthread)
     endif()
 
