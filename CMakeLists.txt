@@ -7,6 +7,13 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Choose build type: Debug Release RelWithDebInfo." FORCE)
 endif()
 
+# LINUX variable is set from 3.25 on
+if (CMAKE_VERSION VERSION_LESS "3.25")
+  if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(LINUX 1)
+  endif()
+endif()
+
 function(read_version_file major_var minor_var patch_var)
   set(version_file ${PROJECT_SOURCE_DIR}/version.txt)
   file(READ ${version_file} version_file_content)
