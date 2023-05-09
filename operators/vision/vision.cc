@@ -4,12 +4,10 @@
 #include "ocos.h"
 #include "decode_image.hpp"
 #include "encode_image.hpp"
+#include "draw_bounding_box.hpp"
 
-const std::vector<const OrtCustomOp*>& VisionLoader() {
-  using namespace ort_extensions;
-  static OrtOpLoader op_loader(LiteCustomOp("DecodeImage", decode_image),
-                               LiteCustomOpStruct("EncodeImage", KernelEncodeImage));
-  return op_loader.GetCustomOps();
-}
-
-FxLoadCustomOpFactory LoadCustomOpClasses_Vision = VisionLoader;
+FxLoadCustomOpFactory LoadCustomOpClasses_Vision =
+    LoadCustomOpClasses<CustomOpClassBegin,
+                        ort_extensions::CustomOpDecodeImage,
+                        ort_extensions::CustomOpEncodeImage,
+                        ort_extensions::CustomOpDrawBoundingBoxes>;

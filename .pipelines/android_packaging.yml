@@ -39,7 +39,7 @@ jobs:
               python ./tools/android/build_aar.py \
                 --output-dir $(Build.BinariesDirectory)/android_aar \
                 --config $(buildConfig) \
-                --cmake-extra-defines OCOS_ENABLE_SELECTED_OPLIST=ON
+                --cmake_extra_defines OCOS_ENABLE_SELECTED_OPLIST=ON
 
               VERSION=$(cat ./version.txt)
               AAR_PATH="$(Build.BinariesDirectory)/android_aar/aar_out/$(buildConfig)/com/microsoft/onnxruntime/onnxruntime-extensions-android/${VERSION}/onnxruntime-extensions-android-${VERSION}.aar"

@@ -20,6 +20,9 @@ function(read_version_file major_var minor_var patch_var)
 endfunction()
 
 set(CPACK_PACKAGE_NAME "onnxruntime_extensions")
+# Configure CPack to generate a NuGet package
+set(CPACK_GENERATOR "NuGet")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "onnxruntime-extensions: a pre-/post-processing library for ONNX Runtime")
 read_version_file(CPACK_PACKAGE_VERSION_MAJOR CPACK_PACKAGE_VERSION_MINOR CPACK_PACKAGE_VERSION_PATCH)
 set(VERSION ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH})
 
@@ -54,6 +57,7 @@ option(OCOS_ENABLE_DLIB "Enable operators like Inverse depending on DLIB" ON)
 option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require opencv imgcodecs." ON)
 option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
 option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
+option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
 
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
@@ -267,6 +271,12 @@ if(OCOS_ENABLE_TF_STRING)
   list(APPEND TARGET_SRC_NOEXCEPTION ${TARGET_SRC_KERNELS} ${TARGET_SRC_HASH})
 endif()
 
+if(OCOS_ENABLE_AUDIO)
+  include(dr_libs)
+  file(GLOB TARGET_SRC_AUDIO "operators/audio/*.*")
+  list(APPEND TARGET_SRC_NOEXCEPTION ${TARGET_SRC_AUDIO})
+endif()
+
 if(OCOS_ENABLE_RE2_REGEX)
   file(GLOB TARGET_SRC_RE2_KERNELS "operators/text/re2_strings/*.cc" "operators/text/re2_strings/*.h*")
   list(APPEND TARGET_SRC_NOEXCEPTION ${TARGET_SRC_RE2_KERNELS})
@@ -418,6 +428,11 @@ if(OCOS_ENABLE_DLIB)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_DLIB)
 endif()
 
+if (OCOS_ENABLE_AUDIO)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_DR_LIBS)
+  target_include_directories(noexcep_operators PUBLIC ${dr_libs_SOURCE_DIR})
+endif()
+
 if(_HAS_TOKENIZER)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TOKENIZER)
   target_include_directories(ocos_operators PUBLIC
@@ -476,6 +491,10 @@ if(OCOS_ENABLE_SPM_TOKENIZER)
   target_include_directories(ocos_operators PUBLIC ${spm_INCLUDE_DIRS})
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_SPM_TOKENIZER)
   list(APPEND ocos_libraries sentencepiece-static)
+
+  if(ANDROID)
+    list(APPEND ocos_libraries log)
+  endif()
 endif()
 
 if(OCOS_ENABLE_BLINGFIRE)
@@ -485,7 +504,7 @@ if(OCOS_ENABLE_BLINGFIRE)
 endif()
 
 if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
-  target_include_directories(ocos_operators PRIVATE ${json_SOURCE_DIR}/single_include)
+  target_include_directories(ocos_operators PRIVATE ${nlohmann_json_SOURCE_DIR}/single_include)
   list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 
@@ -551,13 +570,7 @@ if(_BUILD_SHARED_LIBRARY)
   source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${shared_TARGET_SRC})
   standardize_output_folder(extensions_shared)
 
-  if(CMAKE_SYSTEM_NAME STREQUAL "Android")
-    if(OCOS_ENABLE_SPM_TOKENIZER)
-      target_link_libraries(extensions_shared PUBLIC log)
-    endif()
-  endif()
-
-  if(LINUX OR CMAKE_SYSTEM_NAME STREQUAL "Android")
+  if(LINUX OR ANDROID)
     set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS "-Wl,-s -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
   endif()
 
@@ -568,6 +581,17 @@ if(_BUILD_SHARED_LIBRARY)
   if(MSVC AND ocos_target_platform MATCHES "x86|x64")
     target_link_options(extensions_shared PRIVATE "/CETCOMPAT")
   endif()
+
+  # Set some properties of your target
+  set_target_properties(extensions_shared PROPERTIES
+    VERSION ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}
+    SOVERSION ${CPACK_PACKAGE_VERSION_MAJOR}
+  )
+
+  # Install your target
+  install(TARGETS extensions_shared
+    RUNTIME DESTINATION bin
+  )
 
 endif()
 
@@ -592,6 +616,9 @@ message(STATUS "Found the following requirements.txt: ${NO_USE_FILES}")
 foreach(nf ${NO_USE_FILES})
   execute_process(COMMAND ${CMAKE_COMMAND} -E remove ${nf})
 endforeach()
+
+# Run CPack to generate the NuGet package
+include(CPack)
 
 # test section
 if(OCOS_ENABLE_CTEST)
@@ -623,7 +650,7 @@ if(OCOS_ENABLE_CTEST)
     set(LINUX_CC_FLAGS "")
 
     # needs to link with stdc++fs in Linux
-    if(UNIX AND NOT APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
+    if(UNIX AND NOT APPLE AND NOT ANDROID)
       list(APPEND LINUX_CC_FLAGS stdc++fs -pthread)
     endif()
 

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <!-- x64 -->
+    <None Include="$(MSBuildThisFileDirectory)..\..\runtimes\win-x64\native\ortextensions.dll"
+          Condition="'$(PlatformTarget)' == 'x64' OR ('$(PlatformTarget)' == 'AnyCPU' AND '$(Prefer32Bit)' != 'true')">
+      <Link>ortextensions.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>false</Visible>
+    </None>
+
+    <!-- x86 -->
+    <None Include="$(MSBuildThisFileDirectory)..\..\runtimes\win-x86\native\ortextensions.dll"
+          Condition="('$(PlatformTarget)' == 'x86' OR ('$(PlatformTarget)' == 'AnyCPU' AND '$(Prefer32Bit)' == 'true'))">
+      <Link>ortextensions.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>false</Visible>
+    </None>
+
+    <!-- arm64 -->
+    <None Include="$(MSBuildThisFileDirectory)..\..\runtimes\win-arm64\native\ortextensions.dll"
+          Condition="'$(PlatformTarget)' == 'ARM64'">
+      <Link>ortextensions.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>false</Visible>
+    </None>
+
+    <!-- arm -->
+    <None Include="$(MSBuildThisFileDirectory)..\..\runtimes\win-arm\native\ortextensions.dll"
+          Condition="'$(PlatformTarget)' == 'ARM'">
+      <Link>ortextensions.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>false</Visible>
+    </None>
+  </ItemGroup>
+</Project>
