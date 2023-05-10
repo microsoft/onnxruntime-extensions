@@ -5,6 +5,7 @@
 #include "roberta_tokenizer.hpp"
 #include "narrow.h"
 
+
 KernelRobertaBpeTokenizer::KernelRobertaBpeTokenizer(const OrtApi& api, const OrtKernelInfo& info)
     : BaseKernel(api, info) {
   std::string vocab = ort_.KernelInfoGetAttribute<std::string>(&info, "vocab");
@@ -70,10 +71,10 @@ std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t
       std::string utf8_token = std::string(ustring(tok));
 
       // Handle special case for offset mapping
-      int space_dif = 0;
+      size_t space_dif = 0;
       if (utf8_token.at(0) == ' ') {
         offset++;
-        space_dif = -1;  // account for spaces used in offset map algorithm in bpe(byte_list_)
+        space_dif = -1; // account for spaces used in offset map algorithm in bpe(byte_list_)
       }
 
       // Get byte encodings prior to performing BPE
@@ -92,8 +93,8 @@ std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t
         }
 
         res.push_back(p.first);
-        offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + p.second + space_dif)));
-        offset += (p.second + space_dif);
+        offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + (size_t)p.second + space_dif)));
+        offset += ((size_t)p.second + space_dif);
       }
     }
     // Add offset mapping for EOS token
@@ -107,13 +108,13 @@ std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t
   return res;
 }
 
-void KernelRobertaBpeTokenizer::Compute(const ortc::TensorT<std::string>& input,
-                                        ortc::TensorT<int64_t>& tokenize_output,
-                                        ortc::TensorT<int64_t>& attention_mask,
-                                        ortc::TensorT<int64_t>& offset_mapping) {
+void KernelRobertaBpeTokenizer::Compute(OrtKernelContext* context) {
   // Setup inputs
-  auto& str_input = input.Data();
+  const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
+  std::vector<std::string> str_input;
   std::list<OffsetMappingType> offset_map;
+  GetTensorMutableDataString(api_, ort_, context, input, str_input);
+  OrtTensorDimensions input_dim(ort_, input);
 
   std::vector<std::vector<int64_t>> tokenize_results;
   for (auto& str : str_input) {
@@ -130,38 +131,82 @@ void KernelRobertaBpeTokenizer::Compute(const ortc::TensorT<std::string>& input,
     max_length = static_cast<size_t>(padding_length_);
   }
 
-  std::vector<int64_t> output_dim = input.Shape();
+  OrtTensorDimensions output_dim = input_dim;
   output_dim.push_back(max_length);
 
-  std::vector<int64_t> offset_dim = output_dim;
-  offset_dim.push_back(2);  // tuple of offsets for each input id
+  OrtTensorDimensions offset_dim = output_dim;
+  offset_dim.push_back(2); // tuple of offsets for each input id
 
-  auto* token = tokenize_output.Allocate(output_dim);
-  auto* mask = attention_mask.Allocate(output_dim);
-  auto* offset = offset_mapping.Allocate(offset_dim);
+  OrtValue* tokenize_output = ort_.KernelContext_GetOutput(context, 0, output_dim.data(), output_dim.size());
+  OrtValue* attention_mask = ort_.KernelContext_GetOutput(context, 1, output_dim.data(), output_dim.size());
+  OrtValue* offset_mapping = ort_.KernelContext_GetOutput(context, 2, offset_dim.data(), offset_dim.size());
+  auto* token = ort_.GetTensorMutableData<int64_t>(tokenize_output);
+  if (attention_mask != nullptr) {
+    auto* mask = ort_.GetTensorMutableData<int64_t>(attention_mask);
+    int idx = 0;
+    for (auto& res : tokenize_results) {
+      for (int64_t id : res) {
+        mask[idx] = 1;
+        idx++;
+      }
 
+      for (size_t i = res.size(); i < max_length; i++) {
+        mask[idx] = 0;
+        idx++;
+      }
+    }
+  }
+  if (offset_mapping != nullptr) {
+    auto* offset = ort_.GetTensorMutableData<int64_t>(offset_mapping);
+    int idx2 = 0;
+    for (auto& res : offset_map) {
+      for (auto& mapping : res) {
+        offset[idx2] = mapping.first;
+        idx2++;
+        offset[idx2] = mapping.second;
+        idx2++;
+      }
+    }
+  }
   int idx = 0;
   for (auto& res : tokenize_results) {
     for (int64_t id : res) {
       token[idx] = id;
-      mask[idx] = 1;
       idx++;
     }
 
     for (size_t i = res.size(); i < max_length; i++) {
       token[idx] = 0;
-      mask[idx] = 0;
       idx++;
     }
   }
+}
 
-  int idx2 = 0;
-  for (auto& res : offset_map) {
-    for (auto& mapping : res) {
-      offset[idx2] = mapping.first;
-      idx2++;
-      offset[idx2] = mapping.second;
-      idx2++;
-    }
-  }
+const char* CustomOpRobertaBpeTokenizer::GetName() const {
+  return "RobertaTokenizer";
+}
+
+size_t CustomOpRobertaBpeTokenizer::GetInputTypeCount() const {
+  return 1;
+}
+
+ONNXTensorElementDataType CustomOpRobertaBpeTokenizer::GetInputType(size_t /*index*/) const {
+  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+}
+
+OrtCustomOpInputOutputCharacteristic CustomOpRobertaBpeTokenizer::GetInputCharacteristic(size_t /*index*/) const {
+  return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
+}
+
+size_t CustomOpRobertaBpeTokenizer::GetOutputTypeCount() const {
+  return 3;
+}
+
+ONNXTensorElementDataType CustomOpRobertaBpeTokenizer::GetOutputType(size_t /*index*/) const {
+  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+}
+
+OrtCustomOpInputOutputCharacteristic CustomOpRobertaBpeTokenizer::GetOutputCharacteristic(size_t index) const {
+  return index == 0 ? OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED
+                    : OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_OPTIONAL;
 }

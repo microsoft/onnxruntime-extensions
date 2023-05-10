@@ -2,7 +2,7 @@
 
 parameters:
 - name: IsReleaseBuild
-  displayName: "Is this is a release build?"
+  displayName: "Is this a release build?"
   type: boolean
   default: false
 
@@ -38,9 +38,9 @@ jobs:
 
   - script: |
       python ./tools/ios/build_xcframework.py \
-        --output-dir $(Build.BinariesDirectory)/xcframework_out \
+        --output_dir $(Build.BinariesDirectory)/xcframework_out \
         --config Release \
-        --cmake-extra-defines OCOS_ENABLE_SELECTED_OPLIST=ON
+        --cmake_extra_defines OCOS_ENABLE_SELECTED_OPLIST=ON
     displayName: "Build xcframework"
 
   - script: |

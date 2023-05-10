@@ -12,26 +12,17 @@ import shutil
 import sys
 from typing import List
 
-_script_dir = Path(__file__).resolve().parent
-_repo_dir = _script_dir.parents[1]
-
+_repo_dir = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_repo_dir / "tools"))
 
-from utils import get_logger, is_windows, run
+from utils import get_logger, is_windows, run  # noqa
 
 _supported_abis = ["armeabi-v7a", "arm64-v8a", "x86", "x86_64"]
 _log = get_logger("build_aar")
 
 
 def build_for_abi(
-    build_dir: Path,
-    config: str,
-    abi: str,
-    api_level: int,
-    sdk_path: Path,
-    ndk_path: Path,
-    cmake_extra_defines: List[str],
-):
+    build_dir: Path, config: str, abi: str, api_level: int, sdk_path: Path, ndk_path: Path, other_args: List[str]):
     build_cmd = [
         sys.executable,
         str(_repo_dir / "tools" / "build.py"),
@@ -47,20 +38,19 @@ def build_for_abi(
         f"--android_api={api_level}",
         f"--android_home={sdk_path}",
         f"--android_ndk_path={ndk_path}",
-    ] + ((["--cmake_extra_defines"] + cmake_extra_defines) if cmake_extra_defines else [])
+    ] + other_args
 
     run(*build_cmd)
 
 
-def build_aar(
-    output_dir: Path,
-    config: str,
-    abis: List[str],
-    api_level: int,
-    sdk_path: Path,
-    ndk_path: Path,
-    cmake_extra_defines: List[str],
-):
+def do_build_by_mode(output_dir: Path,
+                     config: str,
+                     mode: str,
+                     abis: List[str],
+                     api_level: int,
+                     sdk_path: Path,
+                     ndk_path: Path,
+                     other_args: List[str]):
     output_dir = output_dir.resolve()
 
     sdk_path = sdk_path.resolve(strict=True)
@@ -72,17 +62,24 @@ def build_aar(
     intermediates_dir = output_dir / "intermediates"
     base_jnilibs_dir = intermediates_dir / "jnilibs" / config
 
-    for abi in abis:
-        build_dir = intermediates_dir / abi
-        build_for_abi(build_dir, config, abi, api_level, sdk_path, ndk_path, cmake_extra_defines)
+    if mode in ["build_so_only", "build_aar"]:
+        for abi in abis:
+            build_dir = intermediates_dir / abi
+            build_for_abi(build_dir, config, abi, api_level, sdk_path, ndk_path, other_args)
 
-        # copy JNI library files to jnilibs_dir
-        jnilibs_dir = base_jnilibs_dir / abi
-        jnilibs_dir.mkdir(parents=True, exist_ok=True)
+            # copy JNI library files to jnilibs_dir
+            jnilibs_dir = base_jnilibs_dir / abi
+            jnilibs_dir.mkdir(parents=True, exist_ok=True)
 
-        jnilib_names = ["libonnxruntime_extensions4j_jni.so"]
-        for jnilib_name in jnilib_names:
-            shutil.copyfile(build_dir / config / "java" / "android" / abi / jnilib_name, jnilibs_dir / jnilib_name)
+            jnilib_names = ["libortextensions.so", "libonnxruntime_extensions4j_jni.so"]
+            for jnilib_name in jnilib_names:
+                shutil.copyfile(build_dir / config / "java" / "android" / abi / jnilib_name, jnilibs_dir / jnilib_name)
+
+    # early return if only building JNI libraries
+    # To accelerate the build pipeline, we can build the JNI libraries first in parallel for different abi,
+    # and then build the AAR package.
+    if mode == "build_so_only":
+        return
 
     java_root = _repo_dir / "java"
     gradle_build_file = java_root / "build-android.gradle"
@@ -114,7 +111,10 @@ def build_aar(
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Builds the Android AAR package for onnxruntime-extensions.")
+    parser = argparse.ArgumentParser(
+        description="""Builds the Android AAR package for onnxruntime-extensions.
+                       Any additional arguments provided will be passed through to build.py.
+                    """)
 
     def path_from_env_var(env_var: str):
         env_var_value = os.environ.get(env_var)
@@ -126,11 +126,30 @@ def parse_args():
         required=True,
         help="Path to output directory.",
     )
+
     parser.add_argument(
         "--config",
         choices=["Debug", "Release", "RelWithDebInfo", "MinSizeRel"],
         default="Debug",
         help="CMake build configuration.",
+    )
+
+    # this one is used in the ci pipeline for accelerating the build process,
+    # we have 4 archs to be built. It's in sequence by default, but we can build them in parallel.
+    # The parallel build works as:
+    #   1. build the so files for each arch in different ci jobs
+    #   2. download all the so files in tasks
+    #   3. pack the aar package
+    parser.add_argument(
+        "--mode",
+        type=str,
+        choices=["build_aar", "build_so_only", "pack_aar_only"],
+        default="build_aar",
+        help="""Build mode:
+                'build_aar' builds the AAR package.
+                'build_so_only' builds the so libraries.
+                'pack_aar_only' only pack aar from existing so files.
+            """,
     )
 
     parser.add_argument(
@@ -145,8 +164,8 @@ def parse_args():
     parser.add_argument(
         "--api-level",
         type=int,
-        default=24,
-        help="Android API Level. E.g., 24.",
+        default=21,
+        help="Android API Level. E.g., 21.",
     )
 
     parser.add_argument(
@@ -163,16 +182,8 @@ def parse_args():
         help="Path to the Android NDK. Typically `<Android SDK>/ndk/<ndk_version>`.",
     )
 
-    parser.add_argument(
-        "--cmake-extra-defines",
-        action="append",
-        nargs="+",
-        default=[],
-        help="Extra definition(s) to pass to CMake (with the CMake -D option) during build system generation. "
-        "E.g., `--cmake-extra-defines OPTION1=ON OPTION2=OFF --cmake-extra-defines OPTION3=ON`.",
-    )
-
-    args = parser.parse_args()
+    args, unknown_args = parser.parse_known_args()
+    args.other_args = unknown_args
 
     args.abis = args.abis or _supported_abis.copy()
 
@@ -184,9 +195,6 @@ def parse_args():
         args.ndk_path is not None
     ), "Android NDK path must be provided with --ndk-path or environment variable ANDROID_NDK_HOME."
 
-    # convert from List[List[str]] to List[str]
-    args.cmake_extra_defines = [element for inner_list in args.cmake_extra_defines for element in inner_list]
-
     return args
 
 
@@ -195,14 +203,15 @@ def main():
 
     _log.info(f"Building AAR for ABIs: {args.abis}")
 
-    build_aar(
+    do_build_by_mode(
         output_dir=args.output_dir,
         config=args.config,
+        mode=args.mode,
         abis=args.abis,
         api_level=args.api_level,
         sdk_path=args.sdk_path,
         ndk_path=args.ndk_path,
-        cmake_extra_defines=args.cmake_extra_defines,
+        other_args=args.other_args,
     )
 
     _log.info("AAR build complete.")

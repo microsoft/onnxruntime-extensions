@@ -1,0 +1,39 @@
+parameters:
+- name: DoCompliance
+  displayName: Run Compliance Tasks?
+  type: boolean
+  default: true
+
+- name: DoEsrp
+  displayName: Run code sign tasks? Must be true if you are doing an OnnxRuntime extensions release.
+  type: boolean
+  default: true
+
+- name: IsReleaseBuild
+  displayName: Is this a release build? Set it to true if you are doing an OnnxRuntime extensions release.
+  type: boolean
+  default: false
+
+- name: IsForNugetPublish
+  displayName: Is this for publishing to nuget.org? If so, set to true, and update version info.
+  type: boolean
+  default: false
+
+trigger:
+  branches:
+    exclude:
+      - "*"
+
+pr:
+  branches:
+    include:
+      - "*"
+      
+stages:
+- template: templates/build-package-for-nuget.yml
+  parameters:
+    DoCompliance: ${{ parameters.DoCompliance }}
+    DoEsrp: ${{ parameters.DoEsrp }}
+    IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+    IsForNugetPublish: ${{ parameters.IsForNugetPublish }}
+    OrtNugetPackageId: 'Microsoft.ML.OnnxRuntime.Extensions'

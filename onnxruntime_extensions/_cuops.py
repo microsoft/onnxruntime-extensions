@@ -54,6 +54,7 @@ class GPT2Tokenizer(CustomOp):
             cls.io_def('attention_mask', onnx.TensorProto.INT64, [None, None])
         ]
 
+
 class CLIPTokenizer(CustomOp):
 
     @classmethod
@@ -69,6 +70,7 @@ class CLIPTokenizer(CustomOp):
             cls.io_def('attention_mask', onnx.TensorProto.INT64, [None, None]),
             cls.io_def('offset_mapping', onnx.TensorProto.INT64, [None, None, 2])
         ]
+
 
 class RobertaTokenizer(CustomOp):
 
@@ -91,12 +93,12 @@ class BpeDecoder(CustomOp):
     @classmethod
     def get_inputs(cls):
         return [
-            cls.io_def("ids", onnx.TensorProto.INT64, [None])
+            cls.io_def("ids", onnx.TensorProto.INT64, [])
         ]
 
     @classmethod
     def get_outputs(cls):
-        return [cls.io_def('str', onnx_proto.TensorProto.STRING, [None])]
+        return [cls.io_def('str', onnx_proto.TensorProto.STRING, [])]
 
 
 class VectorToString(CustomOp):
@@ -385,6 +387,38 @@ class ImageDecoder(CustomOp):
     def get_outputs(cls):
         return [
             cls.io_def('decoded_image', onnx_proto.TensorProto.UINT8, [None, None, 3])
+        ]
+
+
+class AudioDecoder(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [
+            cls.io_def('audio_stream', onnx_proto.TensorProto.UINT8, [1, None])
+        ]
+
+    @classmethod
+    def get_outputs(cls):
+        return [
+            cls.io_def('floatPCM', onnx_proto.TensorProto.FLOAT, [1, None])
+        ]
+
+
+class StftNorm(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [
+            cls.io_def('pcm_wave', onnx_proto.TensorProto.FLOAT, [1, None]),
+            cls.io_def('n_fft', onnx_proto.TensorProto.INT64, []),
+            cls.io_def('hop_length', onnx_proto.TensorProto.INT64, []),
+            cls.io_def('window', onnx_proto.TensorProto.FLOAT, [None]),
+            cls.io_def('frame_size', onnx_proto.TensorProto.INT64, []),
+        ]
+
+    @classmethod
+    def get_outputs(cls):
+        return [
+            cls.io_def('stft_norm', onnx_proto.TensorProto.FLOAT, [1, None, None])
         ]
 
 

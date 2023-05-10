@@ -2,6 +2,7 @@
 #include "negpos.hpp"
 #ifdef ENABLE_DLIB
 #include "dlib/inverse.hpp"
+#include "dlib/stft_norm.hpp"
 #endif
 #include "segment_extraction.hpp"
 #include "segment_sum.hpp"
@@ -10,6 +11,8 @@ const std::vector<const OrtCustomOp*>& MathLoader() {
   static OrtOpLoader op_loader(LiteCustomOp("NegPos", neg_pos),
 #ifdef ENABLE_DLIB
                                LiteCustomOp("Inverse", inverse),
+                               LiteCustomOpStruct("STFT", STFT<false>),
+                               LiteCustomOpStruct("StftNorm", STFT<true>),
 #endif
                                LiteCustomOp("SegmentExtraction", segment_extraction),
                                LiteCustomOp("SegmentSum", segment_sum));

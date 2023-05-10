@@ -169,3 +169,7 @@ extern FxLoadCustomOpFactory LoadCustomOpClasses_CV2;
 #ifdef ENABLE_VISION
 extern FxLoadCustomOpFactory LoadCustomOpClasses_Vision;
 #endif
+
+#ifdef ENABLE_DR_LIBS
+extern FxLoadCustomOpFactory LoadCustomOpClasses_Audio;
+#endif

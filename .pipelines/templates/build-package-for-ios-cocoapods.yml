@@ -1,0 +1,146 @@
+# packaging pipeline for iOS CocoaPods package
+
+parameters:
+- name: IsReleaseBuild
+  displayName: "Is this a release build?"
+  type: boolean
+  default: false
+
+
+- name: AdditionalBuildFlags
+  displayName: Additional build flags for /tools/ios/build_xcframework.py
+  type: string
+
+jobs:
+- template: ios-framework-build.yml
+  parameters:
+    Platform: 'iphoneos'
+    IosArch: 'arm64'
+    IsReleaseBuild: ${{parameters.IsReleaseBuild}}
+    AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
+
+- template: ios-framework-build.yml
+  parameters:
+    Platform: 'iphonesimulator'
+    IosArch: 'x86_64'
+    IsReleaseBuild: ${{parameters.IsReleaseBuild}}
+    AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
+
+- template: ios-framework-build.yml
+  parameters:
+    Platform: 'iphonesimulator'
+    IosArch: 'arm64'
+    IsReleaseBuild: ${{parameters.IsReleaseBuild}}
+    AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
+
+- job: IosPackaging
+  condition: not(or(failed(), canceled()))
+  displayName: "iOS Packaging"
+  dependsOn:
+  - IOS_C_API_Packaging_iphoneos_arm64
+  - IOS_C_API_Packaging_iphonesimulator_arm64
+  - IOS_C_API_Packaging_iphonesimulator_x86_64
+  pool:
+    vmImage: "macOS-12"
+
+  timeoutInMinutes: 120
+
+  steps:
+  - checkout: self
+    submodules: true
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.9"
+      addToPath: true
+      architecture: "x64"
+
+  # iOS xcframework build doesn't work with CMake 3.25.1, pin to 3.25.0
+  - script: |
+      python -m pip install cmake==3.25.0
+    displayName: "Install CMake 3.25.0"
+
+  - template: set-package-version-variable-step.yml
+    parameters:
+      IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+      PackageVersionVariableName: ORT_EXTENSIONS_POD_VERSION
+
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      artifact: 'onnxruntime-extensions-ios-iphoneos-arm64-lib'
+      targetPath: '$(Build.BinariesDirectory)/'
+
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      artifact: 'onnxruntime-extensions-ios-iphonesimulator-arm64-lib'
+      targetPath: '$(Build.BinariesDirectory)/'
+
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      artifact: 'onnxruntime-extensions-ios-iphonesimulator-x86_64-lib'
+      targetPath: '$(Build.BinariesDirectory)/'
+
+  - script: |
+      set -e -x
+      ls
+      if ! ls onnxruntime-extensions-ios*.tgz &> /dev/null; then
+        echo "no tgz files found. It's not distributed building, skip!"
+        exit 0
+      fi
+      for tgz_lib in `ls onnxruntime-extensions-ios*.tgz`
+      do
+        echo "decompress $tgz_lib"
+        tar -xvzf $tgz_lib
+      done
+
+        ls 
+      ls xcframework_out/intermediates/*
+    workingDirectory: $(Build.BinariesDirectory)
+    displayName: "Extract file from distributed build"
+
+  - script: |
+      python ./tools/ios/build_xcframework.py \
+        --output_dir $(Build.BinariesDirectory)/xcframework_out \
+        --config Release \
+        --mode pack_xcframework_only
+    displayName: "Pack xcframework for distributed building"
+
+  - script: |
+      python ./tools/ios/assemble_pod_package.py \
+        --staging-dir $(Build.BinariesDirectory)/pod_staging \
+        --xcframework-output-dir $(Build.BinariesDirectory)/xcframework_out \
+        --pod-version ${ORT_EXTENSIONS_POD_VERSION}
+    displayName: "Assemble pod"
+
+  - script: |
+      ls -lR $(Build.BinariesDirectory)/pod_staging
+      pod lib lint
+    displayName: "Lint pod"
+    workingDirectory: $(Build.BinariesDirectory)/pod_staging
+
+  - script: |
+      ORT_EXTENSIONS_LOCAL_POD_PATH=$(Build.BinariesDirectory)/pod_staging \
+        pod install
+    displayName: "Install pods for OrtExtensionsUsage"
+    workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage
+
+  - script: |
+      set -e -x
+
+      POD_STAGING_DIR="$(Build.BinariesDirectory)/pod_staging"
+      ARTIFACTS_STAGING_DIR="$(Build.ArtifactStagingDirectory)"
+      POD_NAME="onnxruntime-extensions-c"
+      POD_ARCHIVE_BASENAME="pod-archive-${POD_NAME}-${ORT_EXTENSIONS_POD_VERSION}.zip"
+      PODSPEC_BASENAME="${POD_NAME}.podspec"
+
+      pushd ${POD_STAGING_DIR}
+
+      # assemble the files in the artifacts staging directory
+      zip -r ${ARTIFACTS_STAGING_DIR}/${POD_ARCHIVE_BASENAME} * --exclude ${PODSPEC_BASENAME}
+      cp ${PODSPEC_BASENAME} ${ARTIFACTS_STAGING_DIR}/${PODSPEC_BASENAME}
+
+      popd
+    displayName: "Assemble artifacts"
+
+  - publish: "$(Build.ArtifactStagingDirectory)"
+    artifact: onnxruntime-extensions-ios_package
+    displayName: "Publish artifacts"

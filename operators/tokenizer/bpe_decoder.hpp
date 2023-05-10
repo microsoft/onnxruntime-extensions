@@ -99,58 +99,71 @@ struct KernelBpeDecoder : public BaseKernel {
     arr_vocab_.shrink_to_fit();
   }
 
-  void Compute(const ortc::TensorT<int64_t>& ids,
-               ortc::TensorT<std::string>& output) {
+  void Compute(const ortc::TensorT<int64_t>& ids, ortc::TensorT<std::string>& output) {
     const int64_t* p_ids = ids.Data();
-    auto& ids_dim = ids.Shape();
-
-    if (!((ids_dim.size() == 1) || (ids_dim.size() == 2 && ids_dim[0] == 1))) {
-      ORTX_CXX_API_THROW("[BpeDecoder]: Expect ids dimension [n] or [1,n].", ORT_INVALID_GRAPH);
-    }
-
-    std::string text;
-    bool f_special_last = false;
-    bool f_special = false;
-    auto count = static_cast<size_t>(ids.NumerOfElement());
-
-    for (size_t tok_idx = 0; tok_idx < count; ++tok_idx) {
-      const auto token = *(p_ids + tok_idx);
-      std::string decoded_token;
-      f_special = all_special_ids_.count(token) ? true : false;
-      if (skip_special_tokens_ && f_special) {
-        f_special_last = f_special;
-        continue;
-      }
-
-      if (added_tokens_.count(token)) {
-        const std::string ws = added_tokens_.at(token);
-        decoded_token = (std::string)ws;
-      } else {
-        const auto str = arr_vocab_[token];
-        for (auto wchr : str) {
-          unsigned char uchr = byte_decoder_.at(wchr);
-          decoded_token.push_back(uchr);
-        }
-      }
-
-      if (whitespace_token_ &&
-          f_special && (tok_idx > 0 && !f_special_last)) {
-        text.push_back(' ');
-      }
-
-      text.append(decoded_token);
-
-      if (whitespace_token_ &&
-          f_special && tok_idx != count - 1) {
-        text.push_back(' ');
-      }
-
-      f_special_last = f_special;
-    }
-
+    const auto& ids_dim = ids.Shape();
     std::vector<int64_t> output_dim = {1};
-    std::vector<std::string> result = {text};
-    output.SetStringOutput(0, result, output_dim);
+    if (ids_dim.size() > 1) {
+      output_dim.resize(ids_dim.size() - 1);
+      std::copy(ids_dim.begin(), ids_dim.begin() + ids_dim.size() - 1, output_dim.begin());
+    }
+
+    size_t seq_len = ids_dim.back();
+    size_t string_batch = ids_dim.size() / seq_len;
+    std::vector<std::string> decoded_strings;
+    decoded_strings.reserve(string_batch);
+    for (auto n = string_batch; n > 0; n--) {
+      std::string text;
+      bool f_special_last = false;
+      bool f_special = false;
+      auto count = static_cast<size_t>(ids_dim.size());
+
+      for (size_t tok_idx = 0; tok_idx < count; ++tok_idx) {
+        const auto token = *(p_ids + tok_idx);
+        std::string decoded_token;
+        f_special = all_special_ids_.count(token) ? true : false;
+        if (skip_special_tokens_ && f_special) {
+          f_special_last = f_special;
+          continue;
+        }
+
+        if (added_tokens_.count(token)) {
+          const std::string ws = added_tokens_.at(token);
+          decoded_token = (std::string)ws;
+        } else if (static_cast<size_t>(token) < arr_vocab_.size()) {
+          const auto str = arr_vocab_[token];
+          for (auto wchr : str) {
+            unsigned char uchr = byte_decoder_.at(wchr);
+            decoded_token.push_back(uchr);
+          }
+        } else {
+          if (skip_special_tokens_) {
+            continue;
+          } else {
+            decoded_token = unk_token_;
+          }
+        }
+
+        if (whitespace_token_ &&
+            f_special && (tok_idx > 0 && !f_special_last)) {
+          text.push_back(' ');
+        }
+
+        text.append(decoded_token);
+
+        if (whitespace_token_ &&
+            f_special && tok_idx != count - 1) {
+          text.push_back(' ');
+        }
+
+        f_special_last = f_special;
+      }
+
+      decoded_strings.emplace_back(std::move(text));
+      p_ids += seq_len;
+    }
+
+    output.SetStringOutput(0, decoded_strings, {static_cast<int64_t>(decoded_strings.size())});
   }
 
  private:

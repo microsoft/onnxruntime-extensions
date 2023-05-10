@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include <dlib/matrix.h>
 #include "ocos.h"
+#include <dlib/matrix.h>
 
 void inverse(const ortc::TensorT<float>& input,
              ortc::TensorT<float>& output) {

@@ -5,6 +5,8 @@ from typing import Any
 from onnx.onnx_pb import TensorProto
 from torch.onnx import TrainingMode, export as _export
 
+from ._onnx_ops import OPSET_TO_IR_VERSION
+
 
 def _export_f(model, *args,
               opset_version=None,
@@ -32,6 +34,9 @@ def _export_f(model, *args,
                 custom_opsets=custom_opsets)
 
         mdl = onnx.load_model(io.BytesIO(f.getvalue()))
+        for ops in mdl.opset_import:
+            if ops.domain in ('', 'ai.onnx'):
+                mdl.ir_version = OPSET_TO_IR_VERSION[ops.version]
         if output_path is not None:
             if output_seq > 0:
                 output_path.replace('.onnx', '.{}.onnx'.format(output_seq))
