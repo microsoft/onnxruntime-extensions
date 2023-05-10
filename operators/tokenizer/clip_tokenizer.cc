@@ -3,6 +3,7 @@
 // Partial code comes from other Microsoft employee.
 #include "clip_tokenizer.hpp"
 #include "narrow.h"
+#include <optional>
 
 KernelClipBpeTokenizer::KernelClipBpeTokenizer(const OrtApi& api, const OrtKernelInfo& info)
     : BaseKernel(api, info) {
@@ -107,7 +108,7 @@ std::vector<int64_t> KernelClipBpeTokenizer::Tokenize(ustring& input, int64_t ma
     // Add offset mapping for EOS token
     offset_mapping.emplace_back(std::make_pair(0, 0));
 
-    // Add offset mappings for input in this instance to list of offset mappings for all inputs
+    // Add offset mappings for input in this instance to list of offset mappings for all inputsclip_tokenizer.cc
     offset_map.emplace_back(offset_mapping);
   }
   // Add EOS token to result
