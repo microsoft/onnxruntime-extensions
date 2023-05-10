@@ -20,3 +20,4 @@ void inverse(const ortc::TensorT<float>& input,
   dlib::matrix<float> dm = dlib::inv(dm_x);
   memcpy(out, dm.steal_memory().get(), dm_x.size() * sizeof(float));
 }
+

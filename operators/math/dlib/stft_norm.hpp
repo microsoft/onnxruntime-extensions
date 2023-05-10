@@ -30,6 +30,7 @@ struct STFT : public BaseKernel {
     if (frame_length != n_fft) {
       ORTX_CXX_API_THROW("[Stft] Only support size of FFT equals the frame length.", ORT_INVALID_ARGUMENT);
     }
+
     auto win_length = win_dim[0];
     dlib::matrix<float> dm_x = dlib::mat(X, 1, dimensions[1]);
     dlib::matrix<float> hann_win = dlib::mat(window, 1, win_length);
@@ -41,12 +42,14 @@ struct STFT : public BaseKernel {
     if (onesided_) {
       m_stft = dlib::subm(m_stft, 0, 0, m_stft.nr(), (m_stft.nc() >> 1) + 1);
     }
+
     if (with_norm) {
       dlib::matrix<float> result = dlib::norm(m_stft);
       result = dlib::trans(result);
       std::vector<int64_t> outdim = {1, result.nr(), result.nc()};
       auto result_size = result.size();
       float* out0 = output0.Allocate(outdim);
+
       memcpy(out0, result.steal_memory().get(), result_size * sizeof(float));
     } else {
       auto result = m_stft;
@@ -54,6 +57,7 @@ struct STFT : public BaseKernel {
       // switch nr and nc, so the output dim willbe tranposed one.
       std::vector<int64_t> outdim = {1, result.nc(), result.nr(), 2};
       float* out0 = output0.Allocate(outdim);
+
       for (size_t c = 0; c < result.nc(); ++c) {
         for (size_t r = 0; r < result.nr(); ++r) {
           *out0 = result(r, c).real();
