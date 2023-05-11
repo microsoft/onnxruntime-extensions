@@ -48,7 +48,9 @@ def create_model(output_file: Path):
     )
 
     onnx_import = onnx.helper.make_operatorsetid('', onnx_opset)
-    model = onnx.helper.make_model(g, opset_imports=[onnx_import])
+    ir_version = onnx.helper.find_min_ir_version_for([onnx_import])
+    model = onnx.helper.make_model_gen_version(g, opset_imports=[onnx_import], ir_version=ir_version)
+
     new_model = pipeline.run(model)
     new_model.doc_string = "Model for testing DecodeImage and EncodeImage."
     new_model.graph.doc_string = ""  # clear out all the messages from graph merges
