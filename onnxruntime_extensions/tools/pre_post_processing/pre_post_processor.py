@@ -253,7 +253,10 @@ class PrePostProcessor:
 
         opset_imports = [onnx.helper.make_operatorsetid(domain, opset)
                          for domain, opset in self._custom_op_checker_context.opset_imports.items()]
-        ir_version = onnx.helper.find_min_ir_version_for(opset_imports, ignore_unknown=True)
+        # find_min_ir_version_for doesn't support custom domains until ONNX 1.14 so extract the ONNX opset from the
+        # imports and only pass that in.
+        ir_version = onnx.helper.find_min_ir_version_for([entry for entry in opset_imports
+                                                          if entry.domain == "" or entry.domain == "ai.onnx"])
         new_model = onnx.helper.make_model(graph, opset_imports=opset_imports, ir_version=ir_version)
 
         onnx.checker.check_model(new_model)
