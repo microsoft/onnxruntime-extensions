@@ -496,7 +496,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
         inputs = [create_named_value("box_and_score", onnx.TensorProto.FLOAT, ["num_boxes", length])]
 
-        pipeline = pre_post_processing.PrePostProcessor(inputs)
+        onnx_opset = 16
+        pipeline = pre_post_processing.PrePostProcessor(inputs, onnx_opset)
 
         pipeline.add_post_processing([
             SplitOutBoxAndScore(num_classes=1),
@@ -512,9 +513,10 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
                 _output = Identity(_input)
             }}
         """)
-        input_model = onnx.helper.make_model(graph_def, producer_name="onnx-1")
-        input_model.opset_import.pop()
-        input_model.opset_import.extend([onnx.helper.make_operatorsetid("", 16)])
+
+        onnx_import = onnx.helper.make_operatorsetid('', onnx_opset)
+        ir_version = onnx.helper.find_min_ir_version_for([onnx_import])
+        input_model = onnx.helper.make_model_gen_version(graph_def, opset_imports=[onnx_import], ir_version=ir_version)
 
         new_model = pipeline.run(input_model)
         onnx.save_model(new_model, output_model)
