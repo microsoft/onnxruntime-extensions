@@ -21,8 +21,8 @@ KernelStringMapping::KernelStringMapping(const OrtApi& api, const OrtKernelInfo&
   }
 }
 
-void KernelStringMapping::Compute(const ortc::TensorT<std::string>& input,
-                                  ortc::TensorT<std::string>& output) {
+void KernelStringMapping::Compute(const ortc::Tensor<std::string>& input,
+                                  ortc::Tensor<std::string>& output) {
   // make a copy as input is constant
   std::vector<std::string> input_data = input.Data();
 

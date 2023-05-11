@@ -31,9 +31,9 @@ class BertTokenizerDecoder {
 
 struct KernelBertTokenizerDecoder : BaseKernel {
   KernelBertTokenizerDecoder(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::TensorT<int64_t>& ids,
-               const ortc::TensorT<int64_t>& positions,
-               ortc::TensorT<std::string>& output);
+  void Compute(const ortc::Tensor<int64_t>& ids,
+               const ortc::Tensor<int64_t>& positions,
+               ortc::Tensor<std::string>& output);
 
  private:
   std::shared_ptr<BertTokenizerDecoder> decoder_;

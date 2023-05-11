@@ -4,10 +4,10 @@
 #include "string_join.hpp"
 #include "string_tensor.h"
 
-void string_join(const ortc::TensorT<std::string>& input_X,
+void string_join(const ortc::Tensor<std::string>& input_X,
                  const std::string& input_sep,
                  int64_t axis,
-                 ortc::TensorT<std::string>& output) {
+                 ortc::Tensor<std::string>& output) {
   // Setup inputs
   auto& X = input_X.Data();
   auto& dimensions = input_X.Shape();

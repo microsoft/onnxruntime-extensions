@@ -1,10 +1,10 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 
-void gaussian_blur(const ortc::TensorT<float>& input_data,
+void gaussian_blur(const ortc::Tensor<float>& input_data,
                    const ortc::Span<int64_t>& input_ksize,
                    const ortc::Span<double>& input_sigma,
-                   ortc::TensorT<float>& output) {
+                   ortc::Tensor<float>& output) {
   const float* p_input_data = input_data.Data();
   std::int64_t ksize[] = {3, 3};
   double sigma[] = {0., 0.};

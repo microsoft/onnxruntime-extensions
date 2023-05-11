@@ -6,8 +6,8 @@
 #include "ocos.h"
 #include <dlib/matrix.h>
 
-void inverse(const ortc::TensorT<float>& input,
-             ortc::TensorT<float>& output) {
+void inverse(const ortc::Tensor<float>& input,
+             ortc::Tensor<float>& output) {
   auto& dimensions = input.Shape();
   if (dimensions.size() != 2) {
     throw std::runtime_error("Only 2-d matrix supported.");

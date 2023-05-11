@@ -8,10 +8,10 @@
 
 struct KernelStringECMARegexReplace : BaseKernel {
   KernelStringECMARegexReplace(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::TensorT<std::string>& input,
+  void Compute(const ortc::Tensor<std::string>& input,
                const std::string& pattern,
                const std::string& rewrite,
-               ortc::TensorT<std::string>& output);
+               ortc::Tensor<std::string>& output);
 
  protected:
   bool global_replace_;

@@ -12,8 +12,8 @@
 
 #include <cstdint>
 
-void image_decoder(const ortc::TensorT<uint8_t>& input,
-                   ortc::TensorT<uint8_t>& output) {
+void image_decoder(const ortc::Tensor<uint8_t>& input,
+                   ortc::Tensor<uint8_t>& output) {
   auto& dimensions = input.Shape();
   if (dimensions.size() != 1ULL) {
     ORTX_CXX_API_THROW("[ImageDecoder]: Only raw image formats are supported.", ORT_INVALID_ARGUMENT);
@@ -21,7 +21,7 @@ void image_decoder(const ortc::TensorT<uint8_t>& input,
 
   // Get data & the length
   const uint8_t* const encoded_image_data = input.Data();
-  const int64_t encoded_image_data_len = input.NumerOfElement();
+  const int64_t encoded_image_data_len = input.NumberOfElement();
 
   // Decode the image
   const std::vector<int32_t> encoded_image_sizes{1, static_cast<int32_t>(encoded_image_data_len)};

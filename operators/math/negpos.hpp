@@ -5,10 +5,10 @@
 
 #include "ocos.h"
 
-void neg_pos(const ortc::TensorT<float>& input,
-             ortc::TensorT<float>& out0_tensor,
-             ortc::TensorT<float>& out1_tensor) {
-  int64_t size = input.NumerOfElement();
+void neg_pos(const ortc::Tensor<float>& input,
+             ortc::Tensor<float>& out0_tensor,
+             ortc::Tensor<float>& out1_tensor) {
+  int64_t size = input.NumberOfElement();
   float* out0 = out0_tensor.Allocate(input.Shape());
   float* out1 = out1_tensor.Allocate(input.Shape());
   const float* X = input.Data();

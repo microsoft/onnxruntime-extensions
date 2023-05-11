@@ -300,4 +300,4 @@ inline OrtValue* CustomOpApi::KernelContext_GetOutput(OrtKernelContext* context,
 
 // !! TODO: only do it for legecy ort build
 #include "custom_op_lite.h"
-namespace ortc = Ort::Custom2;
+namespace ortc = Ort::Custom;

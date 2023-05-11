@@ -4,12 +4,12 @@
 #include "string_split.hpp"
 #include "string_tensor.h"
 
-void string_split(const ortc::TensorT<std::string>& input_X,
+void string_split(const ortc::Tensor<std::string>& input_X,
                   const std::string& sep,
                   bool skip_empty,
-                  ortc::TensorT<int64_t>& out_indices,
-                  ortc::TensorT<std::string>& out_text,
-                  ortc::TensorT<int64_t>& out_shape) {
+                  ortc::Tensor<int64_t>& out_indices,
+                  ortc::Tensor<std::string>& out_text,
+                  ortc::Tensor<int64_t>& out_shape) {
   // Setup inputs
   auto& X = input_X.Data();
 

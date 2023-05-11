@@ -10,8 +10,8 @@
 
 namespace ort_extensions {
 
-void decode_image(const ortc::TensorT<uint8_t>& input,
-                  ortc::TensorT<uint8_t>& output);
+void decode_image(const ortc::Tensor<uint8_t>& input,
+                  ortc::Tensor<uint8_t>& output);
 
 struct KernelDecodeImage : BaseKernel {
   KernelDecodeImage(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {}

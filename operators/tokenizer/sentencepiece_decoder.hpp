@@ -22,8 +22,8 @@ struct KernelSentencepieceDecoder : BaseKernel {
     }
   }
 
-  void Compute(const ortc::TensorT<int64_t>& ids,
-               ortc::TensorT<std::string>& output) {
+  void Compute(const ortc::Tensor<int64_t>& ids,
+               ortc::Tensor<std::string>& output) {
     const int64_t* p_ids = ids.Data();
     auto& ids_dim = ids.Shape();
 
@@ -34,7 +34,7 @@ struct KernelSentencepieceDecoder : BaseKernel {
     std::string decoded_string;
     std::vector<int64_t> output_dim = {1};
     std::vector<int> tids;
-    std::transform(p_ids, p_ids + ids.NumerOfElement(),
+    std::transform(p_ids, p_ids + ids.NumberOfElement(),
                    std::back_inserter(tids),
                    [](auto _id) { return static_cast<int>(_id); });
     auto status = tokenizer_.Decode(tids, &decoded_string);

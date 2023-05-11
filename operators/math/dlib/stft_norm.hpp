@@ -11,12 +11,12 @@ struct STFT : public BaseKernel {
   STFT(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
     onesided_ = TryToGetAttributeWithDefault<int64_t>("onesided", 0LL);
   }
-  void Compute(const ortc::TensorT<float>& x1,
+  void Compute(const ortc::Tensor<float>& x1,
             int64_t n_fft,
             int64_t hop_length,
-            const ortc::TensorT<float>& x4,
+            const ortc::Tensor<float>& x4,
             int64_t frame_length,
-            ortc::TensorT<float>& output0) {
+            ortc::Tensor<float>& output0) {
     const float* X = x1.Data();
     const float* window = x4.Data();
     const auto& dimensions = x1.Shape();

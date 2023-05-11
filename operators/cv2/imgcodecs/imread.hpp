@@ -27,8 +27,8 @@ struct KernelImageReader : BaseKernel {
   }
 };
 
-void image_reader(const ortc::TensorT<std::string>& input,
-                  ortc::TensorT<uint8_t>& output) {
+void image_reader(const ortc::Tensor<std::string>& input,
+                  ortc::Tensor<uint8_t>& output) {
   auto& input_data_dimensions = input.Shape();
   int n = input_data_dimensions[0];
   if (n != 1) {

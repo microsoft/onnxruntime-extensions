@@ -99,7 +99,7 @@ struct KernelBpeDecoder : public BaseKernel {
     arr_vocab_.shrink_to_fit();
   }
 
-  void Compute(const ortc::TensorT<int64_t>& ids, ortc::TensorT<std::string>& output) {
+  void Compute(const ortc::Tensor<int64_t>& ids, ortc::Tensor<std::string>& output) {
     const int64_t* p_ids = ids.Data();
     const auto& ids_dim = ids.Shape();
     std::vector<int64_t> output_dim = {1};

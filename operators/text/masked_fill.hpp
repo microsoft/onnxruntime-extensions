@@ -7,6 +7,6 @@
 #include "string_utils.h"
 #include <unordered_map>
 
-void masked_fill(const ortc::TensorT<std::string>& input,
-                 const ortc::TensorT<bool>& input_mask,
-                 ortc::TensorT<std::string>& output);
+void masked_fill(const ortc::Tensor<std::string>& input,
+                 const ortc::Tensor<bool>& input_mask,
+                 ortc::Tensor<std::string>& output);

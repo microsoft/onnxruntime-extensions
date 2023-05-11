@@ -92,7 +92,7 @@ KernelBasicTokenizer::KernelBasicTokenizer(const OrtApi& api, const OrtKernelInf
 }
 
 void KernelBasicTokenizer::Compute(const std::string& input,
-                                   ortc::TensorT<std::string>& output) {
+                                   ortc::Tensor<std::string>& output) {
   // Setup inputs
   std::vector<ustring> result = tokenizer_->Tokenize(ustring(input));
   output.SetStringOutput(0, {result[0].operator std::string()}, {1});

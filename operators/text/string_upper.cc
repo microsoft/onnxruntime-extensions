@@ -7,8 +7,8 @@
 #include <cmath>
 #include <algorithm>
 
-void string_upper(const ortc::TensorT<std::string>& input,
-                  ortc::TensorT<std::string>& output) {
+void string_upper(const ortc::Tensor<std::string>& input,
+                  ortc::Tensor<std::string>& output) {
   // Setup inputs
   std::vector<std::string> X = input.Data();
 

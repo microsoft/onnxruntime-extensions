@@ -13,10 +13,10 @@ KernelStringECMARegexReplace::KernelStringECMARegexReplace(const OrtApi& api, co
   ignore_case_ = TryToGetAttributeWithDefault("ignore_case", false);
 }
 
-void KernelStringECMARegexReplace::Compute(const ortc::TensorT<std::string>& input,
+void KernelStringECMARegexReplace::Compute(const ortc::Tensor<std::string>& input,
                                            const std::string& pattern,
                                            const std::string& rewrite,
-                                           ortc::TensorT<std::string>& output) {
+                                           ortc::Tensor<std::string>& output) {
   // make a copy as input is constant;
   std::vector<std::string> str_input = input.Data();
   if (pattern.empty()) {

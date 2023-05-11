@@ -122,12 +122,12 @@ void KernelWordpieceTokenizer_Tokenizer(const std::unordered_map<std::u32string,
   rows.push_back(indices.size());
 }
 
-void KernelWordpieceTokenizer::Compute(const ortc::TensorT<std::string>& input,
-                                       const ortc::TensorT<int64_t>& row_indices,
-                                       ortc::TensorT<std::string>& output,
-                                       ortc::TensorT<int64_t>& row_lengths,
-                                       ortc::TensorT<int64_t>& out_row_begin,
-                                       ortc::TensorT<int64_t>& output_limit_values) {
+void KernelWordpieceTokenizer::Compute(const ortc::Tensor<std::string>& input,
+                                       const ortc::Tensor<int64_t>& row_indices,
+                                       ortc::Tensor<std::string>& output,
+                                       ortc::Tensor<int64_t>& row_lengths,
+                                       ortc::Tensor<int64_t>& out_row_begin,
+                                       ortc::Tensor<int64_t>& output_limit_values) {
   // Update with the new API
   // make a copy as we need ustring
   std::vector<ustring> str_input;
@@ -143,7 +143,7 @@ void KernelWordpieceTokenizer::Compute(const ortc::TensorT<std::string>& input,
 
   KernelWordpieceTokenizer_Tokenizer(vocab_, suffix_indicator_, unk_token_, str_input,
                                      tokens, indices, row_begins,
-                                     p_row_indices, row_indices.NumerOfElement(),
+                                     p_row_indices, row_indices.NumberOfElement(),
                                      max_input_chars_per_word_);
 
   std::vector<int64_t> size_content{(int64_t)indices.size()};

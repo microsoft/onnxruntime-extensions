@@ -28,7 +28,7 @@ KernelBlingFireSentenceBreaker::KernelBlingFireSentenceBreaker(const OrtApi& api
 }
 
 void KernelBlingFireSentenceBreaker::Compute(const std::string& input,
-                                             ortc::TensorT<std::string>& output) {
+                                             ortc::Tensor<std::string>& output) {
   int max_length = static_cast<int>(2 * input.size() + 1);
   std::unique_ptr<char[]> output_str = std::make_unique<char[]>(max_length);
 

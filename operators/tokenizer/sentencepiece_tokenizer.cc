@@ -31,14 +31,14 @@ static void _check_dimension_constant(OrtW::CustomOpApi ort, const OrtValue* ort
                        ORT_INVALID_ARGUMENT);
 }
 
-void KernelSentencepieceTokenizer::Compute(const ortc::TensorT<std::string>& input,
+void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& input,
                                            int64_t /*nbest_size*/,
                                            float /*alpha*/,
                                            bool add_bos,
                                            bool add_eos,
                                            bool add_rev,
-                                           ortc::TensorT<int32_t>& output,
-                                           ortc::TensorT<int64_t>& output1) {
+                                           ortc::Tensor<int32_t>& output,
+                                           ortc::Tensor<int64_t>& output1) {
   // Update with the new API
   auto& str_input = input.Data();
   // computation

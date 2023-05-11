@@ -25,9 +25,9 @@ const std::vector<const OrtCustomOp*>& TextLoader() {
       BuildCustomOp(CustomOpStringRegexReplace),
       BuildCustomOp(CustomOpStringRegexSplitWithOffsets),
 #endif  // ENABLE_RE2_REGEX
-      LiteCustomOpStruct("RaggedTensorToSparse", KernelRaggedTensorToSparse),
+      /*LiteCustomOpStruct("RaggedTensorToSparse", KernelRaggedTensorToSparse),
       LiteCustomOpStruct("RaggedTensorToDense", KernelRaggedTensorToDense),
-      LiteCustomOpStruct("StringRaggedTensorToDense", KernelStringRaggedTensorToDense),
+      LiteCustomOpStruct("StringRaggedTensorToDense", KernelStringRaggedTensorToDense),*/
       LiteCustomOpStruct("StringEqual", KernelStringEqual),
       LiteCustomOp("StringToHashBucket", string_hash),
       LiteCustomOp("StringToHashBucketFast", string_hash_fast),

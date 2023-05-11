@@ -7,8 +7,8 @@
 #include <cmath>
 #include <algorithm>
 
-void string_lower(const ortc::TensorT<std::string>& input,
-                  ortc::TensorT<std::string>& output) {
+void string_lower(const ortc::Tensor<std::string>& input,
+                  ortc::Tensor<std::string>& output) {
   // make a copy as input is constant
   std::vector<std::string> X = input.Data();
 
