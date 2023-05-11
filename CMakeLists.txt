@@ -1,17 +1,10 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.25)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Build type not set - using RelWithDebInfo")
   set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Choose build type: Debug Release RelWithDebInfo." FORCE)
-endif()
-
-# LINUX variable is set from 3.25 on
-if (CMAKE_VERSION VERSION_LESS "3.25")
-  if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    set(LINUX 1)
-  endif()
 endif()
 
 function(read_version_file major_var minor_var patch_var)
