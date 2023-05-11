@@ -14,6 +14,11 @@ parameters:
   type: boolean
   default: false
 
+- name: IsForNugetPublish
+  displayName: Is for publish to nuget.org?
+  type: boolean
+  default: false
+
 - name: OrtNugetPackageId
   displayName: Package name for nuget
   type: string
@@ -219,7 +224,8 @@ stages:
           python $(Build.SourcesDirectory)\tools\ci_build\update_nuspec_for_native_nuget.py `
             --package_version $OrtExtVersion `
             --commit_id $(Build.SourceVersion) `
-            --is_release_build ${{ parameters.IsReleaseBuild }} 
+            --is_release_build ${{ parameters.IsReleaseBuild }} `
+            --is_for_nuget_publish ${{ parameters.IsForNugetPublish }}
 
           cat $(Build.SourcesDirectory)\nuget\NativeNuget.nuspec
         workingDirectory: '$(Build.SourcesDirectory)'

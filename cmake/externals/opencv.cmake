@@ -111,6 +111,13 @@ if(IOS)
   set(CPU_BASELINE DETECT)
 endif()
 
+if (CMAKE_SYSTEM_NAME MATCHES "Darwin")
+  # error   _png_do_read_transformations in liblibpng.a(pngrtran.c.o) not found for architecture arm64
+  # workaround to disable NEON optimizations
+  add_definitions(-DPNG_ARM_NEON_IMPLEMENTATION=0)
+  add_definitions(-DPNG_ARM_NEON_OPT=0)
+endif()
+
 if (MSVC AND CMAKE_GENERATOR_PLATFORM)
   string(TOLOWER ${CMAKE_GENERATOR_PLATFORM} _GEN_PLATFORM)
   if (${_GEN_PLATFORM} MATCHES "arm|arm64")
