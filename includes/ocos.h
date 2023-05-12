@@ -90,6 +90,9 @@ class CuopContainer {
 #define LiteCustomOpStruct(name, s_type) LiteCustomOpStructFunc(name, s_type, &s_type::Compute)
 #define BuildCustomOp(X) []() { return std::make_shared<X>(); }
 
+#define CustomCpuFunc(name, f) []() { return std::shared_ptr<ortc::OrtLiteCustomOp>(ortc::CreateLiteCustomOp(name, "CPUExecutionProvider", f)); }
+#define CustomCpuStruct(name, s) []() { return std::shared_ptr<ortc::OrtLiteCustomOp>(ortc::CreateLiteCustomOp<s>(name, "CPUExecutionProvider")); }
+
 template <typename F>
 void AppendCustomOp(std::vector<std::shared_ptr<OrtCustomOp>>& ops,
                     F arg) {
