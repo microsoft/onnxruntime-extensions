@@ -119,5 +119,5 @@ void KernelVectorToString::Compute(const ortc::Tensor<int64_t>& input,
 
   std::vector<int64_t> output_dim;
   std::vector<std::string> mapping_result = impl_->Compute(input_data, input.Shape(), output_dim);
-  out.SetStringOutput(0, mapping_result, output_dim);
+  out.SetStringOutput(mapping_result, output_dim);
 }

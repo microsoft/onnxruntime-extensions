@@ -42,5 +42,5 @@ void KernelStringECMARegexReplace::Compute(const ortc::Tensor<std::string>& inpu
   }
 
   auto& dimensions = input.Shape();
-  output.SetStringOutput(0, str_input, dimensions);
+  output.SetStringOutput(str_input, dimensions);
 }

@@ -35,5 +35,5 @@ void masked_fill(const ortc::Tensor<std::string>& input,
     result.push_back(value[i]);
   }
   result_dimension.push_back(result.size());
-  output.SetStringOutput(0, result, result_dimension);
+  output.SetStringOutput(result, result_dimension);
 }

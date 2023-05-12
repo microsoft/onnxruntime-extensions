@@ -163,7 +163,7 @@ struct KernelBpeDecoder : public BaseKernel {
       p_ids += seq_len;
     }
 
-    output.SetStringOutput(0, decoded_strings, {static_cast<int64_t>(decoded_strings.size())});
+    output.SetStringOutput(decoded_strings, {static_cast<int64_t>(decoded_strings.size())});
   }
 
  private:

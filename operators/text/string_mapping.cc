@@ -31,5 +31,5 @@ void KernelStringMapping::Compute(const ortc::Tensor<std::string>& input,
       str = map_[str];
     }
   }
-  output.SetStringOutput(0, input_data, input.Shape());
+  output.SetStringOutput(input_data, input.Shape());
 }

@@ -151,7 +151,7 @@ void KernelWordpieceTokenizer::Compute(const ortc::Tensor<std::string>& input,
   std::vector<std::string> out_content;
   for (auto& s : tokens)
     out_content.emplace_back(s);
-  output.SetStringOutput(0, out_content, size_content);
+  output.SetStringOutput(out_content, size_content);
 
   std::vector<int64_t> size_row_lengths{(int64_t)row_begins.size()};
   int64_t* ptr_row_lengths = row_lengths.Allocate(size_row_lengths);

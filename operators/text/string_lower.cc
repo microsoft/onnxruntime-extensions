@@ -16,5 +16,5 @@ void string_lower(const ortc::Tensor<std::string>& input,
     std::transform(X[i].begin(), X[i].end(), X[i].begin(), [](char c) { return static_cast<char>(ToLower(c)); });
   }
 
-  output.SetStringOutput(0, X, input.Shape());
+  output.SetStringOutput(X, input.Shape());
 }

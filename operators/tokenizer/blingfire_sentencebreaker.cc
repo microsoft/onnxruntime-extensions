@@ -60,5 +60,5 @@ void KernelBlingFireSentenceBreaker::Compute(const std::string& input,
 
   std::vector<int64_t> output_dimensions(1);
   output_dimensions[0] = output_sentences.size();
-  output.SetStringOutput(0, output_sentences, output_dimensions);
+  output.SetStringOutput(output_sentences, output_dimensions);
 }

@@ -66,5 +66,5 @@ void string_join(const ortc::Tensor<std::string>& input_X,
     out[0] = X[0];
   }
 
-  output.SetStringOutput(0, out, dimensions_out);
+  output.SetStringOutput(out, dimensions_out);
 }

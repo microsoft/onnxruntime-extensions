@@ -172,5 +172,5 @@ void KernelBertTokenizerDecoder::Compute(const ortc::Tensor<int64_t>& ids,
       output_dim[0] = positions_dim[0];
     }
   }
-  output.SetStringOutput(0, result, output_dim);
+  output.SetStringOutput(result, output_dim);
 }

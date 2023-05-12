@@ -43,7 +43,7 @@ struct KernelSentencepieceDecoder : BaseKernel {
     }
 
     std::vector<std::string> result = {decoded_string};
-    output.SetStringOutput(0, result, output_dim);
+    output.SetStringOutput(result, output_dim);
   }
 
  private:

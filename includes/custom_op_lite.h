@@ -9,8 +9,13 @@ namespace Custom {
 class TensorBase {
  public:
   TensorBase(const OrtW::CustomOpApi& ort_api,
-             OrtKernelContext* ctx) : ort_api_(ort_api),
-                                      ctx_(ctx) {}
+             OrtKernelContext* ctx,
+             size_t indice,
+             bool is_input) : ort_api_(ort_api),
+                              ctx_(ctx),
+                              indice_(indice),
+                              is_input_(is_input) {}
+
   virtual ~TensorBase() = default;
   operator bool() const {
     return shape_.has_value();
@@ -33,6 +38,8 @@ class TensorBase {
  protected:
   const OrtW::CustomOpApi& ort_api_;
   OrtKernelContext* ctx_;
+  size_t indice_;
+  bool is_input_;
   std::optional<std::vector<int64_t>> shape_;
 };
 
@@ -58,9 +65,10 @@ class Tensor : public TensorBase {
   Tensor(const OrtW::CustomOpApi& ort_api,
          OrtKernelContext* ctx,
          size_t indice,
-         bool is_input) : TensorBase(ort_api, ctx),
-                          indice_(indice),
-                          is_input_(is_input) {
+         bool is_input) : TensorBase(ort_api,
+                                     ctx,
+                                     indice,
+                                     is_input) {
     if (is_input) {
       auto input_count = ort_api.KernelContext_GetInputCount(ctx_);
       if (indice >= input_count) {
@@ -96,9 +104,8 @@ class Tensor : public TensorBase {
     }
     return *Data();
   }
+
  private:
-  size_t indice_;
-  bool is_input_;
   const OrtValue* const_value_;  // for input
   TT* data_{};                   // for output
   Span<T> span_;
@@ -112,11 +119,16 @@ class Tensor<std::string> : public TensorBase {
   Tensor(const OrtW::CustomOpApi& ort_api,
          OrtKernelContext* ctx,
          size_t indice,
-         bool is_input) : TensorBase(ort_api, ctx),
-                          indice_(indice),
-                          is_input_(is_input),
-                          ort_api_(ort_api) {
+         bool is_input) : TensorBase(ort_api,
+                                     ctx,
+                                     indice,
+                                     is_input) {
     if (is_input) {
+      auto input_count = ort_api.KernelContext_GetInputCount(ctx_);
+      if (indice >= input_count) {
+        ORTX_CXX_API_THROW("invalid indice", ORT_RUNTIME_EXCEPTION);
+      }
+
       auto* const_value = ort_api.KernelContext_GetInput(ctx_, indice);
       auto* info = ort_api.GetTensorTypeAndShape(const_value);
       shape_ = ort_api.GetTensorShape(info);
@@ -124,7 +136,6 @@ class Tensor<std::string> : public TensorBase {
 
       size_t num_chars;
       OrtW::ThrowOnError(ort_api.GetOrtApi(), ort_api.GetOrtApi().GetStringTensorDataLength(const_value, &num_chars));
-      // todo - too much copies here ...
       std::vector<char> chars(num_chars + 1, '\0');
       auto num_strings = NumberOfElement();
       std::vector<size_t> offsets(NumberOfElement());
@@ -146,33 +157,28 @@ class Tensor<std::string> : public TensorBase {
   const strings& Data() const {
     return input_strings_;
   }
-  void SetStringOutput(size_t output_indice, const strings& ss, const std::vector<int64_t>& dims) {
+  void SetStringOutput(const strings& ss, const std::vector<int64_t>& dims) {
     std::vector<const char*> raw;
     for (const auto& s : ss) {
       raw.push_back(s.data());
     }
 
-    auto* output = ort_api_.KernelContext_GetOutput(ctx_, output_indice, dims.data(), dims.size());
-    // note - there will be copy ...
+    auto* output = ort_api_.KernelContext_GetOutput(ctx_, indice_, dims.data(), dims.size());
     OrtW::ThrowOnError(ort_api_.GetOrtApi(), ort_api_.GetOrtApi().FillStringTensor(output, raw.data(), raw.size()));
   }
-  void SetStringOutput(size_t output_indice, const std::vector<const char*>& ss, const std::vector<int64_t>& dims) {
-    auto* output = ort_api_.KernelContext_GetOutput(ctx_, output_indice, dims.data(), dims.size());
-    // note - there will be copy ...
+  void SetStringOutput(const std::vector<const char*>& ss, const std::vector<int64_t>& dims) {
+    auto* output = ort_api_.KernelContext_GetOutput(ctx_, indice_, dims.data(), dims.size());
     OrtW::ThrowOnError(ort_api_.GetOrtApi(), ort_api_.GetOrtApi().FillStringTensor(output, ss.data(), ss.size()));
   }
   const std::string& AsScalar() {
-    // assert shape_ is {1}
+    if (!shape_.has_value() || shape_->size() != 1 || (*shape_)[0] != 1) {
+      ORTX_CXX_API_THROW("to get a scalar, shape must be {1}", ORT_RUNTIME_EXCEPTION);
+    }
     return input_strings_[0];
   }
 
  private:
-  size_t indice_;
-  bool is_input_;
   std::vector<std::string> input_strings_;  // for input
-  // TT* data_{};              // for output
-  std::vector<int64_t> shape_;
-  const OrtW::CustomOpApi& ort_api_;
 };
 
 using TensorPtr = std::unique_ptr<Custom::TensorBase>;

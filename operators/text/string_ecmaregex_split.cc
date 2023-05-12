@@ -58,7 +58,7 @@ void KernelStringECMARegexSplitWithOffsets::Compute(const ortc::Tensor<std::stri
 
   // Setup output
   std::vector<int64_t> dim_out{(int64_t)all_tokens.size()};
-  output_text.SetStringOutput(0, all_tokens, dim_out);
+  output_text.SetStringOutput(all_tokens, dim_out);
 
   int64_t* p_output = output1.Allocate(dim_out);
   memcpy(p_output, all_begin_offsets.data(), all_begin_offsets.size() * sizeof(int64_t));

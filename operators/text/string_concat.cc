@@ -22,5 +22,5 @@ void string_concat(const ortc::Tensor<std::string>& left,
     left_value[i].append(right_value[i]);
   }
 
-  output.SetStringOutput(0, left_value, left.Shape());
+  output.SetStringOutput(left_value, left.Shape());
 }

@@ -130,5 +130,5 @@ void KernelStringRaggedTensoroDense::Compute(const ortc::Tensor<int64_t>& input0
     }
     pos = pos_end;
   }
-  output.SetStringOutput(0, dense, shape_out);
+  output.SetStringOutput(dense, shape_out);
 }
