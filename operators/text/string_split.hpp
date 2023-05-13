@@ -7,7 +7,7 @@
 #include "string_utils.h"
 
 void string_split(const ortc::Tensor<std::string>& input_X,
-                  const std::string& sep,
+                  std::string_view sep,
                   bool skip_empty,
                   ortc::Tensor<int64_t>& out_indices,
                   ortc::Tensor<std::string>& out_text,

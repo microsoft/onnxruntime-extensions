@@ -7,6 +7,6 @@
 #include "string_utils.h"
 
 void string_join(const ortc::Tensor<std::string>& input_X,
-                 const std::string& input_sep,
+                 std::string_view input_sep,
                  int64_t axis,
                  ortc::Tensor<std::string>& output);

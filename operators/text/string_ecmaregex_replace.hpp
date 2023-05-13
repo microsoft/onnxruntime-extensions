@@ -9,8 +9,8 @@
 struct KernelStringECMARegexReplace : BaseKernel {
   KernelStringECMARegexReplace(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(const ortc::Tensor<std::string>& input,
-               const std::string& pattern,
-               const std::string& rewrite,
+               std::string_view pattern,
+               std::string_view rewrite,
                ortc::Tensor<std::string>& output);
 
  protected:

@@ -91,7 +91,7 @@ KernelBasicTokenizer::KernelBasicTokenizer(const OrtApi& api, const OrtKernelInf
   tokenizer_ = std::make_shared<BasicTokenizer>(do_lower_case, tokenize_chinese_chars, strip_accents, tokenize_punctuation, remove_control_chars);
 }
 
-void KernelBasicTokenizer::Compute(const std::string& input,
+void KernelBasicTokenizer::Compute(std::string_view input,
                                    ortc::Tensor<std::string>& output) {
   // Setup inputs
   std::vector<ustring> result = tokenizer_->Tokenize(ustring(input));

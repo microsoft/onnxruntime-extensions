@@ -27,7 +27,7 @@ KernelBlingFireSentenceBreaker::KernelBlingFireSentenceBreaker(const OrtApi& api
   max_sentence = TryToGetAttributeWithDefault("max_sentence", -1);
 }
 
-void KernelBlingFireSentenceBreaker::Compute(const std::string& input,
+void KernelBlingFireSentenceBreaker::Compute(std::string_view input,
                                              ortc::Tensor<std::string>& output) {
   int max_length = static_cast<int>(2 * input.size() + 1);
   std::unique_ptr<char[]> output_str = std::make_unique<char[]>(max_length);

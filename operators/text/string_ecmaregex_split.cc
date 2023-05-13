@@ -16,8 +16,8 @@ KernelStringECMARegexSplitWithOffsets::KernelStringECMARegexSplitWithOffsets(con
 }
 
 void KernelStringECMARegexSplitWithOffsets::Compute(const ortc::Tensor<std::string>& input,
-                                                    const std::string& pattern,
-                                                    const std::string& keep_pattern,
+                                                    std::string_view pattern,
+                                                    std::string_view keep_pattern,
                                                     ortc::Tensor<std::string>& output_text,
                                                     ortc::Tensor<int64_t>& output1,
                                                     ortc::Tensor<int64_t>& output2,
@@ -33,8 +33,8 @@ void KernelStringECMARegexSplitWithOffsets::Compute(const ortc::Tensor<std::stri
     regex_flag |= std::regex_constants::icase;
   }
 
-  std::regex reg(pattern, regex_flag);
-  std::regex keep_reg(include_delimiter ? keep_pattern : "", regex_flag);
+  std::regex reg(pattern.data(), regex_flag);
+  std::regex keep_reg(include_delimiter ? keep_pattern.data() : "", regex_flag);
 
   std::vector<std::string> all_tokens;
   std::vector<int64_t> all_begin_offsets, all_end_offsets;
