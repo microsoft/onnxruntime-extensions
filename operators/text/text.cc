@@ -22,12 +22,9 @@
 const std::vector<const OrtCustomOp*>& TextLoader() {
   static OrtOpLoader op_loader(
 #if defined(ENABLE_RE2_REGEX)
-      BuildCustomOp(CustomOpStringRegexReplace),
-      BuildCustomOp(CustomOpStringRegexSplitWithOffsets),
+      CustomCpuStruct("StringRegexReplace", KernelStringRegexReplace),
+      CustomCpuFunc("StringRegexSplitWithOffsets", KernelStringRegexSplitWithOffsets),
 #endif  // ENABLE_RE2_REGEX
-      /* CustomCpuFuncStruct("RaggedTensorToSparse", KernelRaggedTensorToSparse),
-      CustomCpuFuncStruct("RaggedTensorToDense", KernelRaggedTensorToDense),
-      CustomCpuFuncStruct("StringRaggedTensorToDense", KernelStringRaggedTensorToDense),*/
       CustomCpuStruct("StringEqual", KernelStringEqual),
       CustomCpuFunc("StringToHashBucket", string_hash),
       CustomCpuFunc("StringToHashBucketFast", string_hash_fast),

@@ -13,6 +13,7 @@ KernelStringRegexReplace::KernelStringRegexReplace(const OrtApi& api, const OrtK
   global_replace_ = TryToGetAttributeWithDefault("global_replace",1);
 }
 
+/*
 void KernelStringRegexReplace::Compute(OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
@@ -70,15 +71,43 @@ const char* CustomOpStringRegexReplace::GetName() const { return "StringRegexRep
 size_t CustomOpStringRegexReplace::GetInputTypeCount() const {
   return 3;
 };
+*/
 
-ONNXTensorElementDataType CustomOpStringRegexReplace::GetInputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-};
+//ONNXTensorElementDataType CustomOpStringRegexReplace::GetInputType(size_t /*index*/) const {
+//  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+//};
+//
+//size_t CustomOpStringRegexReplace::GetOutputTypeCount() const {
+//  return 1;
+//};
+//
+//ONNXTensorElementDataType CustomOpStringRegexReplace::GetOutputType(size_t /*index*/) const {
+//  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+//};
 
-size_t CustomOpStringRegexReplace::GetOutputTypeCount() const {
-  return 1;
-};
+void KernelStringRegexReplace::Compute(const ortc::Tensor<std::string>& input,
+                                        std::string_view str_pattern,
+                                        std::string_view str_rewrite,
+                                        ortc::Tensor<std::string>& output) {
+  if (str_pattern.empty())
+    ORTX_CXX_API_THROW("pattern (second input) cannot be empty.", ORT_INVALID_ARGUMENT);
 
-ONNXTensorElementDataType CustomOpStringRegexReplace::GetOutputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-};
+  // Setup output
+  std::vector<std::string> str_input{input.Data()};
+  auto dim = input.Shape();
+  size_t size = input.NumberOfElement();
+
+  re2::StringPiece piece(str_rewrite.data());
+  re2::RE2 reg(str_pattern.data());
+
+  if (global_replace_) {
+    for (size_t i = 0; i < size; i++) {
+      re2::RE2::GlobalReplace(&(str_input[i]), reg, piece);
+    }
+  } else {
+    for (size_t i = 0; i < size; i++) {
+      re2::RE2::Replace(&(str_input[i]), reg, piece);
+    }
+  }
+  output.SetStringOutput(str_input, dim);
+}
