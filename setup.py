@@ -107,11 +107,11 @@ class BuildCMakeExt(_build_ext):
             '--parallel' + ('' if cpu_number is None else ' ' + cpu_number)
         ]
         cmake_exe = 'cmake'
-        # unlike Linux/macOS, cmake pip package on Windows fails to build some 3rd party dependencies.
-        # so we have to use the cmake installed from Visual Studio.
+
         if os.environ.get(VSINSTALLDIR_NAME):
-            cmake_exe = os.environ[VSINSTALLDIR_NAME] + \
-                        'Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe'
+            # Add fallback path for VS cmake. Prefer system install if available via existing PATH entry.
+            sys.path.append(os.environ[VSINSTALLDIR_NAME] +
+                            'Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin')
 
         self.spawn([cmake_exe, '-S', str(project_dir), '-B', str(build_temp)] + cmake_args)
         if not self.dry_run:
