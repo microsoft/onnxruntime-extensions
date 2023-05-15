@@ -111,8 +111,10 @@ struct KernelBpeDecoder : public BaseKernel {
 
     size_t seq_len = ids_dim.back();
     size_t string_batch = ids_dim.size() / seq_len;
+
     std::vector<std::string> decoded_strings;
     decoded_strings.reserve(string_batch);
+
     for (auto n = string_batch; n > 0; n--) {
       std::string text;
       bool f_special_last = false;

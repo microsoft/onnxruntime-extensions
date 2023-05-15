@@ -59,7 +59,6 @@ struct STFT : public BaseKernel {
       // switch nr and nc, so the output dim willbe tranposed one.
       std::vector<int64_t> outdim = {1, result.nc(), result.nr(), 2};
       float* out0 = output0.Allocate(outdim);
-
       for (size_t c = 0; c < result.nc(); ++c) {
         for (size_t r = 0; r < result.nr(); ++r) {
           *out0 = result(r, c).real();

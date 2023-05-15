@@ -495,9 +495,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         create_named_value = pre_post_processing.utils.create_named_value
 
         inputs = [create_named_value("box_and_score", onnx.TensorProto.FLOAT, ["num_boxes", length])]
-
         pipeline = pre_post_processing.PrePostProcessor(inputs)
-
         pipeline.add_post_processing([
             SplitOutBoxAndScore(num_classes=1),
             SelectBestBoundingBoxesByNMS(iou_threshold=iou_threshold, score_threshold=score_threshold,
@@ -512,10 +510,10 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
                 _output = Identity(_input)
             }}
         """)
+
         input_model = onnx.helper.make_model(graph_def, producer_name="onnx-1")
         input_model.opset_import.pop()
         input_model.opset_import.extend([onnx.helper.make_operatorsetid("", 16)])
-
         new_model = pipeline.run(input_model)
         onnx.save_model(new_model, output_model)
 
