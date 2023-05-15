@@ -14,7 +14,7 @@ def create_model(output_file: Path, **kwargs):
     """
     Create unit test model. If input is bytes from a jpg we do the following
       - DecodeImage: jpg to BGR
-      - Resize: for simulate fixed input size, 
+      - Resize: for simulate fixed input size,
       - LetterBox: for simulate fixed input size, copy border to fill the rest
       - DrawBoundingBoxes: draw bounding boxes on the image
       - EncodeImage: BGR to png (output format is set in the node)
@@ -61,7 +61,9 @@ def create_model(output_file: Path, **kwargs):
     )
 
     onnx_import = onnx.helper.make_operatorsetid('', onnx_opset)
-    model = onnx.helper.make_model(g, opset_imports=[onnx_import])
+    ir_version = onnx.helper.find_min_ir_version_for([onnx_import])
+    model = onnx.helper.make_model_gen_version(g, opset_imports=[onnx_import], ir_version=ir_version)
+
     new_model = pipeline.run(model)
     new_model.doc_string = "Model for testing drawing box."
     new_model.graph.doc_string = ""  # clear out all the messages from graph merges
