@@ -205,7 +205,7 @@ void DrawBoxesForNumClasses(ImageView& image, const BoxArray& boxes, int64_t thi
             [](const std::pair<size_t, int64_t>& first_, const std::pair<size_t, int64_t>& second_) {
               return first_.second < second_.second;
             });
-  for (int64_t i = static_cast<int64_t>(box_reverse.size() - 1); i >= 0; --i) {
+  for (int64_t i = static_cast<int64_t>(box_reverse.size()) - 1; i >= 0; --i) {
     auto [box_index, color_index] = box_reverse[i];
     const auto box = boxes.GetBox(box_index);
     const auto color = KBGRColorMap[color_index];
