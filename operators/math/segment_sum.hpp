@@ -6,6 +6,6 @@
 #include "ocos.h"
 #include "string_utils.h"
 
-void segment_sum(const ortc::TensorT<float>& data,
-                 const ortc::TensorT<int64_t>& segment_ids,
-                 ortc::TensorT<float>& output);
+void segment_sum(const ortc::Tensor<float>& data,
+                 const ortc::Tensor<int64_t>& segment_ids,
+                 ortc::Tensor<float>& output);

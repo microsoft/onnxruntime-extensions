@@ -4,9 +4,9 @@
 #include "string_tensor.h"
 #include "op_ragged_tensor.hpp"
 
-void KernelRaggedTensorToSparse::Compute(const ortc::TensorT<int64_t>& n_element,
-                                         ortc::TensorT<int64_t>& output_0,
-                                         ortc::TensorT<int64_t>& output_1) {
+void KernelRaggedTensoroSparse::Compute(const ortc::Tensor<int64_t>& n_element,
+                                         ortc::Tensor<int64_t>& output_0,
+                                         ortc::Tensor<int64_t>& output_1) {
   const int64_t* p_n_elements = n_element.Data();
 
   auto& d_length = n_element.Shape();
@@ -38,18 +38,18 @@ void KernelRaggedTensorToSparse::Compute(const ortc::TensorT<int64_t>& n_element
   }
 }
 
-CommonRaggedTensorToDense::CommonRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo& info)
+CommonRaggedTensoroDense::CommonRaggedTensoroDense(const OrtApi& api, const OrtKernelInfo& info)
     : BaseKernel(api, info) {
 }
 
-void CommonRaggedTensorToDense::GetInputDims(OrtKernelContext* context, const OrtValue** inputs, OrtTensorDimensions* dims) {
+void CommonRaggedTensoroDense::GetInputDims(OrtKernelContext* context, const OrtValue** inputs, OrtTensorDimensions* dims) {
   for (int i = 0; i < 4; ++i) {
     inputs[i] = ort_.KernelContext_GetInput(context, i);
     dims[i] = OrtTensorDimensions(ort_, inputs[i]);
   }
 }
 
-int64_t CommonRaggedTensorToDense::GetMaxCol(int64_t n, const int64_t* p_indices) {
+int64_t CommonRaggedTensoroDense::GetMaxCol(int64_t n, const int64_t* p_indices) {
   int64_t size = n;
   int64_t max_col = 0;
   for (int64_t i = 1; i < size; ++i) {
@@ -58,21 +58,21 @@ int64_t CommonRaggedTensorToDense::GetMaxCol(int64_t n, const int64_t* p_indices
   return max_col;
 }
 
-KernelRaggedTensorToDense::KernelRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo& info)
-    : CommonRaggedTensorToDense(api, info) {
+KernelRaggedTensoroDense::KernelRaggedTensoroDense(const OrtApi& api, const OrtKernelInfo& info)
+    : CommonRaggedTensoroDense(api, info) {
   missing_value_ = TryToGetAttributeWithDefault("missing_value", -1);
 }
 
-void KernelRaggedTensorToDense::Compute(const ortc::TensorT<int64_t>& input0,
-                                        const ortc::TensorT<int64_t>& input1,
-                                        const ortc::TensorT<int64_t>& input2,
-                                        const ortc::TensorT<int64_t>& input3,
-                                        ortc::TensorT<int64_t>& output) {
+void KernelRaggedTensoroDense::Compute(const ortc::Tensor<int64_t>& input0,
+                                        const ortc::Tensor<int64_t>& input1,
+                                        const ortc::Tensor<int64_t>& input2,
+                                        const ortc::Tensor<int64_t>& input3,
+                                        ortc::Tensor<int64_t>& output) {
   const int64_t* p_values = input1.Data();
   const int64_t* p_missing = input2.Data();
   const int64_t* p_indices = input3.Data();
 
-  int64_t size = input3.NumerOfElement();
+  int64_t size = input3.NumberOfElement();
   int64_t max_col = GetMaxCol(size, p_indices);
 
   std::vector<int64_t> shape_out{size - 1, max_col};
@@ -97,14 +97,14 @@ void KernelRaggedTensorToDense::Compute(const ortc::TensorT<int64_t>& input0,
   }
 }
 
-KernelStringRaggedTensorToDense::KernelStringRaggedTensorToDense(const OrtApi& api, const OrtKernelInfo& info) : CommonRaggedTensorToDense(api, info) {
+KernelStringRaggedTensoroDense::KernelStringRaggedTensoroDense(const OrtApi& api, const OrtKernelInfo& info) : CommonRaggedTensoroDense(api, info) {
 }
 
-void KernelStringRaggedTensorToDense::Compute(const ortc::TensorT<int64_t>& input0,
-                                              const ortc::TensorT<std::string>& input1,
-                                              const ortc::TensorT<int64_t>& input2,
-                                              const ortc::TensorT<std::string>& input3,
-                                              ortc::TensorT<std::string>& output) {
+void KernelStringRaggedTensoroDense::Compute(const ortc::Tensor<int64_t>& input0,
+                                              const ortc::Tensor<std::string>& input1,
+                                              const ortc::Tensor<int64_t>& input2,
+                                              const ortc::Tensor<std::string>& input3,
+                                              ortc::Tensor<std::string>& output) {
   // const OrtValue* inputs[4];
   // OrtTensorDimensions dims[4];
 
@@ -130,5 +130,5 @@ void KernelStringRaggedTensorToDense::Compute(const ortc::TensorT<int64_t>& inpu
     }
     pos = pos_end;
   }
-  output.SetStringOutput(0, dense, shape_out);
+  output.SetStringOutput(dense, shape_out);
 }

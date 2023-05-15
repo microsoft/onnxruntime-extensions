@@ -8,9 +8,9 @@
 #include <codecvt>
 #include <algorithm>
 
-void string_concat(const ortc::TensorT<std::string>& left,
-                   const ortc::TensorT<std::string>& right,
-                   ortc::TensorT<std::string>& output) {
+void string_concat(const ortc::Tensor<std::string>& left,
+                   const ortc::Tensor<std::string>& right,
+                   ortc::Tensor<std::string>& output) {
   if (left.Shape() != right.Shape()) {
     ORTX_CXX_API_THROW("Two input tensor should have the same dimension.", ORT_INVALID_ARGUMENT);
   }
@@ -22,5 +22,5 @@ void string_concat(const ortc::TensorT<std::string>& left,
     left_value[i].append(right_value[i]);
   }
 
-  output.SetStringOutput(0, left_value, left.Shape());
+  output.SetStringOutput(left_value, left.Shape());
 }

@@ -109,8 +109,8 @@ KernelStringToVector::KernelStringToVector(const OrtApi& api, const OrtKernelInf
   impl_ = std::make_shared<StringToVectorImpl>(map, unk);
 }
 
-void KernelStringToVector::Compute(const ortc::TensorT<std::string>& input,
-                                   ortc::TensorT<int64_t>& out) {
+void KernelStringToVector::Compute(const ortc::Tensor<std::string>& input,
+                                   ortc::Tensor<int64_t>& out) {
   // Setup input
   auto& input_data = input.Data();
   // Get output

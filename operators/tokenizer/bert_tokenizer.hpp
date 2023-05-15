@@ -91,10 +91,10 @@ class BertTokenizer final {
 
 struct KernelBertTokenizer : BaseKernel {
   KernelBertTokenizer(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::TensorT<std::string>& input,
-               ortc::TensorT<int64_t>& output,
-               ortc::TensorT<int64_t>& output1,
-               ortc::TensorT<int64_t>& output2);
+  void Compute(const ortc::Tensor<std::string>& input,
+               ortc::Tensor<int64_t>& output,
+               ortc::Tensor<int64_t>& output1,
+               ortc::Tensor<int64_t>& output2);
 
  protected:
   std::unique_ptr<BertTokenizer> tokenizer_;
@@ -102,8 +102,8 @@ struct KernelBertTokenizer : BaseKernel {
 
 struct KernelHfBertTokenizer : KernelBertTokenizer {
   KernelHfBertTokenizer(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::TensorT<std::string>& input,
-               ortc::TensorT<int64_t>& output,
-               ortc::TensorT<int64_t>& output1,
-               ortc::TensorT<int64_t>& output2);
+  void Compute(const ortc::Tensor<std::string>& input,
+               ortc::Tensor<int64_t>& output,
+               ortc::Tensor<int64_t>& output1,
+               ortc::Tensor<int64_t>& output2);
 };

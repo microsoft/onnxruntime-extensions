@@ -9,7 +9,7 @@
 struct KernelStringEqual : BaseKernel {
   KernelStringEqual(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(OrtKernelContext* context,
-               const ortc::TensorT<std::string>&,
-               const ortc::TensorT<std::string>&,
-               ortc::TensorT<bool>& output);
+               const ortc::Tensor<std::string>&,
+               const ortc::Tensor<std::string>&,
+               ortc::Tensor<bool>& output);
 };

@@ -7,8 +7,8 @@
 #include <cmath>
 #include <algorithm>
 
-void string_upper(const ortc::TensorT<std::string>& input,
-                  ortc::TensorT<std::string>& output) {
+void string_upper(const ortc::Tensor<std::string>& input,
+                  ortc::Tensor<std::string>& output) {
   // Setup inputs
   std::vector<std::string> X = input.Data();
 
@@ -16,5 +16,5 @@ void string_upper(const ortc::TensorT<std::string>& input,
     std::transform(X[i].begin(), X[i].end(), X[i].begin(), [](char c) { return static_cast<char>(::toupper(c)); });
   }
 
-  output.SetStringOutput(0, X, input.Shape());
+  output.SetStringOutput(X, input.Shape());
 }

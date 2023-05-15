@@ -4,12 +4,12 @@
 #include "string_split.hpp"
 #include "string_tensor.h"
 
-void string_split(const ortc::TensorT<std::string>& input_X,
-                  const std::string& sep,
+void string_split(const ortc::Tensor<std::string>& input_X,
+                  std::string_view sep,
                   bool skip_empty,
-                  ortc::TensorT<int64_t>& out_indices,
-                  ortc::TensorT<std::string>& out_text,
-                  ortc::TensorT<int64_t>& out_shape) {
+                  ortc::Tensor<int64_t>& out_indices,
+                  ortc::Tensor<std::string>& out_text,
+                  ortc::Tensor<int64_t>& out_shape) {
   // Setup inputs
   auto& X = input_X.Data();
 
@@ -76,5 +76,5 @@ void string_split(const ortc::TensorT<std::string>& input_X,
   memcpy(p_indices, indices.data(), indices.size() * sizeof(int64_t));
   p_shape[0] = dimensions[0];
   p_shape[1] = maxc;
-  out_text.SetStringOutput(1, words, shape_text);
+  out_text.SetStringOutput(words, shape_text);
 }

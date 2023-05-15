@@ -9,8 +9,8 @@
 #include <algorithm>
 #include "ustring.h"
 
-void string_length(const ortc::TensorT<std::string>& input,
-                   ortc::TensorT<int64_t>& output) {
+void string_length(const ortc::Tensor<std::string>& input,
+                   ortc::Tensor<int64_t>& output) {
   // Setup inputs
   auto& input_data = input.Data();
 

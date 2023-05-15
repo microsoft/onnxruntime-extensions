@@ -32,34 +32,34 @@ const std::vector<const OrtCustomOp*>& TokenizerLoader() {
       []() { return nullptr; }
 #ifdef ENABLE_GPT2_TOKENIZER
       ,
-      LiteCustomOpStruct("GPT2Tokenizer", KernelBpeTokenizer),
-      LiteCustomOpStruct("CLIPTokenizer", KernelClipBpeTokenizer),
-      LiteCustomOpStruct("RobertaTokenizer", KernelRobertaBpeTokenizer),
-      LiteCustomOpStruct("BpeDecoder", KernelBpeDecoder)
+      CustomCpuStruct("GPT2Tokenizer", KernelBpeTokenizer),
+      CustomCpuStruct("CLIPTokenizer", KernelClipBpeTokenizer),
+      CustomCpuStruct("RobertaTokenizer", KernelRobertaBpeTokenizer),
+      CustomCpuStruct("BpeDecoder", KernelBpeDecoder)
 #endif
 
 #ifdef ENABLE_SPM_TOKENIZER
           ,
-      LiteCustomOpStruct("SentencepieceTokenizer", KernelSentencepieceTokenizer),
-      LiteCustomOpStruct("SentencepieceDecoder", KernelSentencepieceDecoder)
+      CustomCpuStruct("SentencepieceTokenizer", KernelSentencepieceTokenizer),
+      CustomCpuStruct("SentencepieceDecoder", KernelSentencepieceDecoder)
 #endif
 
 #ifdef ENABLE_WORDPIECE_TOKENIZER
           ,
-      LiteCustomOpStruct("WordpieceTokenizer", KernelWordpieceTokenizer)
+      CustomCpuStruct("WordpieceTokenizer", KernelWordpieceTokenizer)
 #endif
 
 #ifdef ENABLE_BERT_TOKENIZER
           ,
-      LiteCustomOpStruct("BasicTokenizer", KernelBasicTokenizer),
-      LiteCustomOpStruct("BertTokenizer", KernelBertTokenizer),
-      LiteCustomOpStruct("BertTokenizerDecoder", KernelBertTokenizerDecoder),
-      LiteCustomOpStruct("HfBertTokenizer", KernelHfBertTokenizer)
+      CustomCpuStruct("BasicTokenizer", KernelBasicTokenizer),
+      CustomCpuStruct("BertTokenizer", KernelBertTokenizer),
+      CustomCpuStruct("BertTokenizerDecoder", KernelBertTokenizerDecoder),
+      CustomCpuStruct("HfBertTokenizer", KernelHfBertTokenizer)
 #endif
 
 #ifdef ENABLE_BLINGFIRE
           ,
-      LiteCustomOpStruct("BlingFireSentenceBreaker", KernelBlingFireSentenceBreaker)
+      CustomCpuStruct("BlingFireSentenceBreaker", KernelBlingFireSentenceBreaker)
 #endif
   );
   return op_loader.GetCustomOps();

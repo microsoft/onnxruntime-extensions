@@ -17,8 +17,8 @@ extern "C" void* SetModel(const unsigned char* pImgBytes, int ModelByteCount);
 
 struct KernelBlingFireSentenceBreaker : BaseKernel {
   KernelBlingFireSentenceBreaker(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const std::string& input,
-               ortc::TensorT<std::string>& output);
+  void Compute(std::string_view input,
+               ortc::Tensor<std::string>& output);
 
  private:
   using ModelPtr = std::shared_ptr<void>;

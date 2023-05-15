@@ -6,5 +6,5 @@
 #include "ocos.h"
 #include "string_utils.h"
 
-void string_upper(const ortc::TensorT<std::string>& input,
-                  ortc::TensorT<std::string>& output);
+void string_upper(const ortc::Tensor<std::string>& input,
+                  ortc::Tensor<std::string>& output);

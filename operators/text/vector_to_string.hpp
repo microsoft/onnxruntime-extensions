@@ -36,8 +36,8 @@ class VectorToStringImpl {
 
 struct KernelVectorToString : BaseKernel {
   KernelVectorToString(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::TensorT<int64_t>& input,
-               ortc::TensorT<std::string>& out);
+  void Compute(const ortc::Tensor<int64_t>& input,
+               ortc::Tensor<std::string>& out);
 
  private:
   std::shared_ptr<VectorToStringImpl> impl_;

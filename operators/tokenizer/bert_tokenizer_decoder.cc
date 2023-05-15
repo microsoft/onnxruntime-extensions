@@ -136,9 +136,9 @@ KernelBertTokenizerDecoder::KernelBertTokenizerDecoder(const OrtApi& api, const 
                                                     cls_token, mask_token, suffix_indicator);
 }
 
-void KernelBertTokenizerDecoder::Compute(const ortc::TensorT<int64_t>& ids,
-                                         const ortc::TensorT<int64_t>& positions,
-                                         ortc::TensorT<std::string>& output) {
+void KernelBertTokenizerDecoder::Compute(const ortc::Tensor<int64_t>& ids,
+                                         const ortc::Tensor<int64_t>& positions,
+                                         ortc::Tensor<std::string>& output) {
   const int64_t* p_ids = ids.Data();
   auto& ids_dim = ids.Shape();
 
@@ -149,17 +149,17 @@ void KernelBertTokenizerDecoder::Compute(const ortc::TensorT<int64_t>& ids,
   //  const int64_t* p_row_indices = ort_row_indices_dim.empty() ? nullptr : ort_.GetTensorData<int64_t>(ort_row_indices);
   auto& positions_dim = positions.Shape();
   if (use_indices_ &&
-      (!((positions.NumerOfElement() == 0) ||
+      (!((positions.NumberOfElement() == 0) ||
          (positions_dim.size() == 2 && positions_dim[1] == 2)))) {
     ORTX_CXX_API_THROW("[BertTokenizerDecoder]: Expect positions empty or a [n, 2] matrix when use indices", ORT_INVALID_GRAPH);
   }
 
-  const int64_t* p_positions = positions.NumerOfElement() == 0 ? nullptr : positions.Data();
+  const int64_t* p_positions = positions.NumberOfElement() == 0 ? nullptr : positions.Data();
 
   std::vector<std::string> result;
   std::vector<int64_t> output_dim(1);
   if (!use_indices_) {
-    result.push_back(decoder_->Decode(std::vector<int64_t>(p_ids, p_ids + ids.NumerOfElement()), skip_special_tokens_, clean_up_tokenization_spaces_));
+    result.push_back(decoder_->Decode(std::vector<int64_t>(p_ids, p_ids + ids.NumberOfElement()), skip_special_tokens_, clean_up_tokenization_spaces_));
     output_dim[0] = 1;
   } else {
     if (p_positions != nullptr) {
@@ -172,5 +172,5 @@ void KernelBertTokenizerDecoder::Compute(const ortc::TensorT<int64_t>& ids,
       output_dim[0] = positions_dim[0];
     }
   }
-  output.SetStringOutput(0, result, output_dim);
+  output.SetStringOutput(result, output_dim);
 }

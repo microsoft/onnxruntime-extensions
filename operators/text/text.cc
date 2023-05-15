@@ -22,27 +22,24 @@
 const std::vector<const OrtCustomOp*>& TextLoader() {
   static OrtOpLoader op_loader(
 #if defined(ENABLE_RE2_REGEX)
-      BuildCustomOp(CustomOpStringRegexReplace),
-      BuildCustomOp(CustomOpStringRegexSplitWithOffsets),
+      CustomCpuStruct("StringRegexReplace", KernelStringRegexReplace),
+      CustomCpuFunc("StringRegexSplitWithOffsets", KernelStringRegexSplitWithOffsets),
 #endif  // ENABLE_RE2_REGEX
-      LiteCustomOpStruct("RaggedTensorToSparse", KernelRaggedTensorToSparse),
-      LiteCustomOpStruct("RaggedTensorToDense", KernelRaggedTensorToDense),
-      LiteCustomOpStruct("StringRaggedTensorToDense", KernelStringRaggedTensorToDense),
-      LiteCustomOpStruct("StringEqual", KernelStringEqual),
-      LiteCustomOp("StringToHashBucket", string_hash),
-      LiteCustomOp("StringToHashBucketFast", string_hash_fast),
-      LiteCustomOp("StringJoin", string_join),
-      LiteCustomOp("StringLower", string_lower),
-      LiteCustomOp("StringUpper", string_upper),
-      LiteCustomOpStruct("StringMapping", KernelStringMapping),
-      LiteCustomOp("MaskedFill", masked_fill),
-      LiteCustomOp("StringSplit", string_split),
-      LiteCustomOpStruct("StringToVector", KernelStringToVector),
-      LiteCustomOpStruct("VectorToString", KernelVectorToString),
-      LiteCustomOp("StringLength", string_length),
-      LiteCustomOp("StringConcat", string_concat),
-      LiteCustomOpStruct("StringECMARegexReplace", KernelStringECMARegexReplace),
-      LiteCustomOpStruct("StringECMARegexSplitWithOffsets", KernelStringECMARegexSplitWithOffsets));
+      CustomCpuStruct("StringEqual", KernelStringEqual),
+      CustomCpuFunc("StringToHashBucket", string_hash),
+      CustomCpuFunc("StringToHashBucketFast", string_hash_fast),
+      CustomCpuFunc("StringJoin", string_join),
+      CustomCpuFunc("StringLower", string_lower),
+      CustomCpuFunc("StringUpper", string_upper),
+      CustomCpuStruct("StringMapping", KernelStringMapping),
+      CustomCpuFunc("MaskedFill", masked_fill),
+      CustomCpuFunc("StringSplit", string_split),
+      CustomCpuStruct("StringToVector", KernelStringToVector),
+      CustomCpuStruct("VectorToString", KernelVectorToString),
+      CustomCpuFunc("StringLength", string_length),
+      CustomCpuFunc("StringConcat", string_concat),
+      CustomCpuStruct("StringECMARegexReplace", KernelStringECMARegexReplace),
+      CustomCpuStruct("StringECMARegexSplitWithOffsets", KernelStringECMARegexSplitWithOffsets));
   return op_loader.GetCustomOps();
 }
 

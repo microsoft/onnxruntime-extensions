@@ -9,8 +9,8 @@
 
 struct KernelStringMapping : BaseKernel {
   KernelStringMapping(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::TensorT<std::string>& input,
-               ortc::TensorT<std::string>& output);
+  void Compute(const ortc::Tensor<std::string>& input,
+               ortc::Tensor<std::string>& output);
 
  private:
   std::unordered_map<std::string, std::string> map_;

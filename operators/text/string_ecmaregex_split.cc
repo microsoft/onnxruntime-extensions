@@ -15,13 +15,13 @@ KernelStringECMARegexSplitWithOffsets::KernelStringECMARegexSplitWithOffsets(con
   ignore_case_ = TryToGetAttributeWithDefault("ignore_case", false);
 }
 
-void KernelStringECMARegexSplitWithOffsets::Compute(const ortc::TensorT<std::string>& input,
-                                                    const std::string& pattern,
-                                                    const std::string& keep_pattern,
-                                                    ortc::TensorT<std::string>& output_text,
-                                                    ortc::TensorT<int64_t>& output1,
-                                                    ortc::TensorT<int64_t>& output2,
-                                                    ortc::TensorT<int64_t>& output3) {
+void KernelStringECMARegexSplitWithOffsets::Compute(const ortc::Tensor<std::string>& input,
+                                                    std::string_view pattern,
+                                                    std::string_view keep_pattern,
+                                                    ortc::Tensor<std::string>& output_text,
+                                                    ortc::Tensor<int64_t>& output1,
+                                                    ortc::Tensor<int64_t>& output2,
+                                                    ortc::Tensor<int64_t>& output3) {
   // Setup inputs
   auto& str_input = input.Data();
 
@@ -33,8 +33,8 @@ void KernelStringECMARegexSplitWithOffsets::Compute(const ortc::TensorT<std::str
     regex_flag |= std::regex_constants::icase;
   }
 
-  std::regex reg(pattern, regex_flag);
-  std::regex keep_reg(include_delimiter ? keep_pattern : "", regex_flag);
+  std::regex reg(pattern.data(), regex_flag);
+  std::regex keep_reg(include_delimiter ? keep_pattern.data() : "", regex_flag);
 
   std::vector<std::string> all_tokens;
   std::vector<int64_t> all_begin_offsets, all_end_offsets;
@@ -58,7 +58,7 @@ void KernelStringECMARegexSplitWithOffsets::Compute(const ortc::TensorT<std::str
 
   // Setup output
   std::vector<int64_t> dim_out{(int64_t)all_tokens.size()};
-  output_text.SetStringOutput(0, all_tokens, dim_out);
+  output_text.SetStringOutput(all_tokens, dim_out);
 
   int64_t* p_output = output1.Allocate(dim_out);
   memcpy(p_output, all_begin_offsets.data(), all_begin_offsets.size() * sizeof(int64_t));

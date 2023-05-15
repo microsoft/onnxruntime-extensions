@@ -3,9 +3,9 @@
 
 #include "segment_extraction.hpp"
 
-void segment_extraction(const ortc::TensorT<int64_t>& input,
-                        ortc::TensorT<int64_t>& output0,
-                        ortc::TensorT<int64_t>& output1) {
+void segment_extraction(const ortc::Tensor<int64_t>& input,
+                        ortc::Tensor<int64_t>& output0,
+                        ortc::Tensor<int64_t>& output1) {
   auto& input_dim = input.Shape();
   if (!((input_dim.size() == 1) || (input_dim.size() == 2 && input_dim[0] == 1))) {
     ORTX_CXX_API_THROW("[SegmentExtraction]: Expect input dimension [n] or [1,n].", ORT_INVALID_GRAPH);
@@ -13,7 +13,7 @@ void segment_extraction(const ortc::TensorT<int64_t>& input,
   const int64_t* p_data = input.Data();
   std::vector<std::int64_t> segment_value;
   std::vector<std::int64_t> segment_position;
-  for (std::int64_t i = 0; i < input.NumerOfElement(); i++) {
+  for (std::int64_t i = 0; i < input.NumberOfElement(); i++) {
     if (!p_data[i]) {
       continue;
     }
@@ -25,7 +25,7 @@ void segment_extraction(const ortc::TensorT<int64_t>& input,
     }
 
     // push end position
-    if (i == (input.NumerOfElement() - 1) || p_data[i + 1] != p_data[i]) {
+    if (i == (input.NumberOfElement() - 1) || p_data[i + 1] != p_data[i]) {
       segment_position.push_back(i + 1);
     }
   }

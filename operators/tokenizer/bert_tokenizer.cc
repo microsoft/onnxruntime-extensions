@@ -292,10 +292,10 @@ KernelBertTokenizer::KernelBertTokenizer(const OrtApi& api, const OrtKernelInfo&
       ustring(suffix_indicator), max_len, truncation_strategy_name);
 }
 
-void KernelBertTokenizer::Compute(const ortc::TensorT<std::string>& input,
-                                  ortc::TensorT<int64_t>& output,
-                                  ortc::TensorT<int64_t>& output1,
-                                  ortc::TensorT<int64_t>& output2) {
+void KernelBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
+                                  ortc::Tensor<int64_t>& output,
+                                  ortc::Tensor<int64_t>& output1,
+                                  ortc::Tensor<int64_t>& output2) {
   // Setup inputs
   auto& input_data = input.Data();
 
@@ -335,10 +335,10 @@ void KernelBertTokenizer::Compute(const ortc::TensorT<std::string>& input,
 KernelHfBertTokenizer::KernelHfBertTokenizer(const OrtApi& api, const OrtKernelInfo& info)
     : KernelBertTokenizer(api, info) {}
 
-void KernelHfBertTokenizer::Compute(const ortc::TensorT<std::string>& input,
-                                    ortc::TensorT<int64_t>& output,
-                                    ortc::TensorT<int64_t>& output1,
-                                    ortc::TensorT<int64_t>& output2) {
+void KernelHfBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
+                                    ortc::Tensor<int64_t>& output,
+                                    ortc::Tensor<int64_t>& output1,
+                                    ortc::Tensor<int64_t>& output2) {
   // Setup inputs
   auto& input_data = input.Data();
 

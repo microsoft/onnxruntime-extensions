@@ -3,9 +3,9 @@
 
 #include "segment_sum.hpp"
 
-void segment_sum(const ortc::TensorT<float>& data,
-                 const ortc::TensorT<int64_t>& segment_ids,
-                 ortc::TensorT<float>& output) {
+void segment_sum(const ortc::Tensor<float>& data,
+                 const ortc::Tensor<int64_t>& segment_ids,
+                 ortc::Tensor<float>& output) {
   auto& dim_data = data.Shape();
   auto& dim_seg = segment_ids.Shape();
   if (dim_data.size() == 0 || dim_seg.size() == 0)
@@ -26,12 +26,12 @@ void segment_sum(const ortc::TensorT<float>& data,
   dim_out[0] = last_seg + 1;
 
   float* p_output = output.Allocate(dim_out);
-  int64_t out_size = output.NumerOfElement();
+  int64_t out_size = output.NumberOfElement();
   memset(p_output, 0, static_cast<size_t>(out_size * sizeof(float)));
 
   // The implementation is naive. It could be parallelized and
   // use SIMD instructions to be faster.
-  int64_t in_stride = data.NumerOfElement();
+  int64_t in_stride = data.NumberOfElement();
   const float* begin = p_data;
   const float* end = p_data + in_stride;
   in_stride /= dim_data[0];

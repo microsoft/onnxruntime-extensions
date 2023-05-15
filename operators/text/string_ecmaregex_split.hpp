@@ -10,13 +10,13 @@
 // See https://github.com/tensorflow/text/blob/master/docs/api_docs/python/text/regex_split_with_offsets.md.
 struct KernelStringECMARegexSplitWithOffsets : BaseKernel {
   KernelStringECMARegexSplitWithOffsets(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::TensorT<std::string>& input,
-               const std::string& pattern,
-               const std::string& keep_pattern,
-               ortc::TensorT<std::string>& output_text,
-               ortc::TensorT<int64_t>& output1,
-               ortc::TensorT<int64_t>& output2,
-               ortc::TensorT<int64_t>& output3);
+  void Compute(const ortc::Tensor<std::string>& input,
+               std::string_view pattern,
+               std::string_view keep_pattern,
+               ortc::Tensor<std::string>& output_text,
+               ortc::Tensor<int64_t>& output1,
+               ortc::Tensor<int64_t>& output2,
+               ortc::Tensor<int64_t>& output3);
 
  private:
   bool ignore_case_;

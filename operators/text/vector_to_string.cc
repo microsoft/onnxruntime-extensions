@@ -113,11 +113,11 @@ KernelVectorToString::KernelVectorToString(const OrtApi& api, const OrtKernelInf
   impl_ = std::make_shared<VectorToStringImpl>(map, unk);
 }
 
-void KernelVectorToString::Compute(const ortc::TensorT<int64_t>& input,
-                                   ortc::TensorT<std::string>& out) {
+void KernelVectorToString::Compute(const ortc::Tensor<int64_t>& input,
+                                   ortc::Tensor<std::string>& out) {
   const void* input_data = input.Data();
 
   std::vector<int64_t> output_dim;
   std::vector<std::string> mapping_result = impl_->Compute(input_data, input.Shape(), output_dim);
-  out.SetStringOutput(0, mapping_result, output_dim);
+  out.SetStringOutput(mapping_result, output_dim);
 }

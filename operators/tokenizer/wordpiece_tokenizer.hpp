@@ -12,12 +12,12 @@
 
 struct KernelWordpieceTokenizer : BaseKernel {
   KernelWordpieceTokenizer(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::TensorT<std::string>& input,
-               const ortc::TensorT<int64_t>& row_indices,
-               ortc::TensorT<std::string>& output,
-               ortc::TensorT<int64_t>& row_lengths,
-               ortc::TensorT<int64_t>& out_row_begin,
-               ortc::TensorT<int64_t>& output_limit_values);
+  void Compute(const ortc::Tensor<std::string>& input,
+               const ortc::Tensor<int64_t>& row_indices,
+               ortc::Tensor<std::string>& output,
+               ortc::Tensor<int64_t>& row_lengths,
+               ortc::Tensor<int64_t>& out_row_begin,
+               ortc::Tensor<int64_t>& output_limit_values);
 
  private:
   int64_t max_input_chars_per_word_;
