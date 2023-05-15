@@ -110,8 +110,8 @@ class BuildCMakeExt(_build_ext):
 
         if os.environ.get(VSINSTALLDIR_NAME):
             # Add fallback path for VS cmake. Prefer system install if available via existing PATH entry.
-            sys.path.append(os.environ[VSINSTALLDIR_NAME] +
-                            'Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin')
+            os.environ["PATH"] += os.pathsep + os.environ[VSINSTALLDIR_NAME] +\
+                                  'Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin'
 
         self.spawn([cmake_exe, '-S', str(project_dir), '-B', str(build_temp)] + cmake_args)
         if not self.dry_run:
