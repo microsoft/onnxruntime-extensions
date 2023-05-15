@@ -41,6 +41,15 @@
       "component": {
         "type": "git",
         "git": {
+          "commitHash": "dd762b861ecadf5ddd5fb03e9ca1db6707b54fbb",
+          "repositoryUrl": "https://github.com/mackron/dr_libs.git"
+        }
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
           "commitHash": "2021-06-01",
           "repositoryUrl": "https://github.com/google/re2.git"
         }
@@ -52,6 +61,15 @@
         "git": {
           "commitHash": "release-1.11.0",
           "repositoryUrl": "https://github.com/google/googletest.git"
+        }
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "3.24.0",
+          "repositoryUrl": "https://github.com/microsoft/GSL.git"
         }
       }
     },
