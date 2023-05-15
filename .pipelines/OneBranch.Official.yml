@@ -47,8 +47,9 @@ extends:
         break: true # always break the build on binskim issues in addition to TSA upload
         analyzeTargetGlob: '**\RelWithDebInfo\ortextensions.dll'  # avoid scanning the 3rd party DLLs.
       codeql:
-        python:
+        compiled:
           enabled: true
+        cadence: 10
       policheck:
         break: true # always break the build on policheck issues. You can disable it by setting to 'false'
         exclusionsFile: '$(REPOROOT)\.config\policheck_exclusions.xml'
