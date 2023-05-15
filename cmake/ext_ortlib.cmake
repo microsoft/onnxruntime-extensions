@@ -11,9 +11,9 @@ else()
   # default to 1.11.1 if not specified
   set(ONNXRUNTIME_VER "1.11.1" CACHE STRING "ONNX Runtime version")
 
-  if(CMAKE_HOST_APPLE)
+  if(APPLE)
     set(ONNXRUNTIME_URL "v${ONNXRUNTIME_VER}/onnxruntime-osx-universal2-${ONNXRUNTIME_VER}.tgz")
-  elseif(CMAKE_HOST_WIN32)
+  elseif(WIN32)
     set(ONNXRUNTIME_BINARY_PLATFORM "x64")
 
     # override if generator platform is set
