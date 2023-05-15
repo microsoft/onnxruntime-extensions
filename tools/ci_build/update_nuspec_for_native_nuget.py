@@ -22,9 +22,9 @@ def update_nuspec(args):
             if args.is_release_build:
                 package_item.text = args.package_version
             elif args.is_for_nuget_publish:
-                # Update release_version below if publishing to NuGet
-                release_version = "beta" # alpha/beta/rc
-                package_item.text = f"{args.package_version}-{release_version}"
+                # Update version_suffix below if publishing to NuGet
+                version_suffix = "beta" # alpha/beta/rc
+                package_item.text = f"{args.package_version}-{version_suffix}"
             else:
                 import datetime
                 now = datetime.datetime.now().strftime('%Y%m%d-%H%M')
