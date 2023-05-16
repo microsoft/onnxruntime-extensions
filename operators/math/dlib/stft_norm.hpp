@@ -18,6 +18,7 @@ struct STFT : public BaseKernel {
             const ortc::Tensor<float>& x4,
             int64_t frame_length,
             ortc::Tensor<float>& output0) {
+
     const float* X = x1.Data();
     const float* window = x4.Data();
     const auto& dimensions = x1.Shape();
