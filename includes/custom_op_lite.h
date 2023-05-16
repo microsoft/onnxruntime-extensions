@@ -169,13 +169,15 @@ class Tensor<std::string> : public TensorBase {
     auto* output = ort_api_.KernelContext_GetOutput(&ctx_, indice_, dims.data(), dims.size());
     OrtW::ThrowOnError(ort_api_.GetOrtApi(), ort_api_.GetOrtApi().FillStringTensor(output, ss.data(), ss.size()));
   }
+  const Span<std::string>& AsSpan() {
+    ORTX_CXX_API_THROW("span for TensorT of string not implemented", ORT_RUNTIME_EXCEPTION);
+  }
   const std::string& AsScalar() {
     if (!shape_.has_value() || shape_->size() != 1 || (*shape_)[0] != 1) {
       ORTX_CXX_API_THROW("to get a scalar, shape must be {1}", ORT_RUNTIME_EXCEPTION);
     }
     return input_strings_[0];
   }
-
  private:
   std::vector<std::string> input_strings_;  // for input
 };
@@ -232,13 +234,15 @@ class Tensor<std::string_view> : public TensorBase {
   const string_views& Data() const {
     return input_string_views_;
   }
+  const Span<std::string_view>& AsSpan() {
+    ORTX_CXX_API_THROW("span for TensorT of string view not implemented", ORT_RUNTIME_EXCEPTION);
+  }
   std::string_view AsScalar() {
     if (!shape_.has_value() || shape_->size() != 1 || (*shape_)[0] != 1) {
       ORTX_CXX_API_THROW("to get a scalar, shape must be {1}", ORT_RUNTIME_EXCEPTION);
     }
     return input_string_views_[0];
   }
-
  private:
   std::vector<char> chars_;                           // for input
   std::vector<std::string_view> input_string_views_;  // for input

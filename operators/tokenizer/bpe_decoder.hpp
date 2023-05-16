@@ -100,6 +100,7 @@ struct KernelBpeDecoder : public BaseKernel {
   }
 
   void Compute(const ortc::Tensor<int64_t>& ids, ortc::Tensor<std::string>& output) {
+
     const int64_t* p_ids = ids.Data();
     const auto& ids_dim = ids.Shape();
     std::vector<int64_t> output_dim = {1};
@@ -112,6 +113,7 @@ struct KernelBpeDecoder : public BaseKernel {
     size_t string_batch = ids_dim.size() / seq_len;
     std::vector<std::string> decoded_strings;
     decoded_strings.reserve(string_batch);
+
     for (auto n = string_batch; n > 0; n--) {
       std::string text;
       bool f_special_last = false;

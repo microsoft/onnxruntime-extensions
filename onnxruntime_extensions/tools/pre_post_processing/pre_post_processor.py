@@ -57,10 +57,10 @@ class PrePostProcessor:
         self._post_processing_joins = None  # type: Union[None,List[Tuple[Union[Step, str], int, str]]]
 
         self._inputs = inputs if inputs else []
-        
+
         # preserve outputs from IOMapEntry, avoid it's consumed by the Follow-up steps.
         # we now can support a output value has more than one consumers with IOEntryValuePreserver.
-        # IOEntryValuePreserver will preserve the output value and add it to the graph output 
+        # IOEntryValuePreserver will preserve the output value and add it to the graph output
         # until consumer step is done.
         self.outputs_preserver = []  # type: List[IOEntryValuePreserver]
 
@@ -206,7 +206,7 @@ class PrePostProcessor:
                 io_map.append((step.output_names[step_idx], graph_input))
                 step_graph_outputs.remove((step.output_names[step_idx]))
 
-            # add outputs from previous IoMapEntry producers to maintain them as graph outputs 
+            # add outputs from previous IoMapEntry producers to maintain them as graph outputs
             # until consumed by the final Step that requires them.
             step_graph_outputs += [
                 o.name for o in graph.output if o.name not in step_graph_outputs]
@@ -253,7 +253,11 @@ class PrePostProcessor:
 
         opset_imports = [onnx.helper.make_operatorsetid(domain, opset)
                          for domain, opset in self._custom_op_checker_context.opset_imports.items()]
-        new_model = onnx.helper.make_model(graph, opset_imports=opset_imports)
+        # find_min_ir_version_for doesn't support custom domains until ONNX 1.14 so extract the ONNX opset from the
+        # imports and only pass that in.
+        ir_version = onnx.helper.find_min_ir_version_for([entry for entry in opset_imports
+                                                          if entry.domain == "" or entry.domain == "ai.onnx"])
+        new_model = onnx.helper.make_model(graph, opset_imports=opset_imports, ir_version=ir_version)
 
         onnx.checker.check_model(new_model)
 
@@ -275,7 +279,7 @@ class PrePostProcessor:
                    Can be:
                      A Step instance. This will be implicitly joined to the immediately previous Step if one exists.
                      A tuple of (Step instance, list of IoMapEntry)
-                      The IoMapEntry values are used to manually join an output from a producer Step to an input 
+                      The IoMapEntry values are used to manually join an output from a producer Step to an input
                       of the current Step.
                         In each IoMapEntry, if a step name is provided the producer Step will be searched for in all
                         predecessor steps. It is valid for a post-processor step to consume output from a

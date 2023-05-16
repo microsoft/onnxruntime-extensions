@@ -11,6 +11,7 @@ struct STFT : public BaseKernel {
   STFT(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
     onesided_ = TryToGetAttributeWithDefault<int64_t>("onesided", 0LL);
   }
+
   void Compute(const ortc::Tensor<float>& x1,
             int64_t n_fft,
             int64_t hop_length,
@@ -21,6 +22,7 @@ struct STFT : public BaseKernel {
     const float* window = x4.Data();
     const auto& dimensions = x1.Shape();
     const auto& win_dim = x4.Shape();
+
     if (dimensions.size() < 2 || dimensions.size() != dimensions[1]) {
       ORTX_CXX_API_THROW("[Stft] Only batch == 1 tensor supported.", ORT_INVALID_ARGUMENT);
     }
@@ -49,7 +51,6 @@ struct STFT : public BaseKernel {
       std::vector<int64_t> outdim = {1, result.nr(), result.nc()};
       auto result_size = result.size();
       float* out0 = output0.Allocate(outdim);
-
       memcpy(out0, result.steal_memory().get(), result_size * sizeof(float));
     } else {
       auto result = m_stft;
@@ -57,7 +58,6 @@ struct STFT : public BaseKernel {
       // switch nr and nc, so the output dim willbe tranposed one.
       std::vector<int64_t> outdim = {1, result.nc(), result.nr(), 2};
       float* out0 = output0.Allocate(outdim);
-
       for (size_t c = 0; c < result.nc(); ++c) {
         for (size_t r = 0; r < result.nr(); ++r) {
           *out0 = result(r, c).real();
