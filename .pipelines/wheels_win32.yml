@@ -1,7 +1,7 @@
 jobs:
 - job: windows
   timeoutInMinutes: 120
-  pool: {vmImage: 'windows-latest', name: 'Win-CPU-2021'}
+  pool: {name: 'onnxruntime-Win-CPU-2022'}
   variables:
     CIBW_BUILD: "cp3{7,8,9,10}-*amd64"
 
