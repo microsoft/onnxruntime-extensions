@@ -93,12 +93,12 @@ class BpeDecoder(CustomOp):
     @classmethod
     def get_inputs(cls):
         return [
-            cls.io_def("ids", onnx.TensorProto.INT64, [])
+            cls.io_def("ids", onnx.TensorProto.INT64, None)
         ]
 
     @classmethod
     def get_outputs(cls):
-        return [cls.io_def('str', onnx_proto.TensorProto.STRING, [])]
+        return [cls.io_def('str', onnx_proto.TensorProto.STRING, None)]
 
 
 class VectorToString(CustomOp):

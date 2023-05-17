@@ -145,7 +145,7 @@ struct KernelAudioDecoder : public BaseKernel {
 
     if (downsample_rate_ != 0 &&
       orig_sample_rate < downsample_rate_) {
-      ORTX_CXX_API_THROW("[AudioDecoder]: only down sampling supported.", ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW("[AudioDecoder]: only down-sampling supported.", ORT_INVALID_ARGUMENT);
     }
 
     // join all frames

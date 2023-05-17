@@ -7,6 +7,7 @@ import numpy as np
 from ._ocos import default_opset_domain, get_library_path  # noqa
 from ._cuops import onnx, onnx_proto, CustomOpConverter, SingleOpGraph
 
+
 _ort_check_passed = False
 try:
     from packaging import version as _ver

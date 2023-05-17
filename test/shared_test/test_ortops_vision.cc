@@ -5,6 +5,8 @@
 #include <fstream>
 #include <vector>
 
+
+#ifdef ENABLE_CV2
 #include "gtest/gtest.h"
 #include "opencv2/imgcodecs.hpp"
 
@@ -65,3 +67,6 @@ TEST(VisionOps, image_decode_encode) {
 
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }
+
+
+#endif

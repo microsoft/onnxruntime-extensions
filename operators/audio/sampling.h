@@ -102,13 +102,6 @@ class ButterworthLowpass {
   }
 
 
-  std::vector<double> coefs_a_;
-  std::vector<double> coefs_b_;
-
- public:
-  ButterworthLowpass(double cutoff_freq, double sampling_rate) {
-    auto normalized_cutoff = cutoff_freq / sampling_rate;
-    CalculateCoefs(coefs_b_, coefs_a_, kFilterOrder, normalized_cutoff);
   }
 
   const std::vector<double>& GetCoefs_A() {

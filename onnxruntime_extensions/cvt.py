@@ -1,5 +1,18 @@
 import json
+from typing import Union
+
 from ._cuops import CustomOpConverter
+
+
+_is_torch_available = False
+try:
+    import torch
+    _is_torch_available = True
+    from ._torch_cvt import WhisperConverter
+except ImportError:
+    import warnings
+    warnings.warn("The Whisper processor needs torch.onnx support, please install it")
+    WhisperConverter = None
 
 
 class HFTokenizerConverter(CustomOpConverter):
@@ -63,3 +76,43 @@ class HFTokenizerConverter(CustomOpConverter):
             *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
         attrs.update(**kwargs)
         return attrs
+
+
+_PROCESSOR_DICT = {
+    "ClipTokenizer": ('ClipTokenizer', HFTokenizerConverter.clip_tokenizer,
+                      'BpeDecoder', HFTokenizerConverter.bpe_decoder),
+    "ClipTokenizerFast": (HFTokenizerConverter.clip_tokenizer),
+    "RobertaTokenizer": (HFTokenizerConverter.roberta_tokenizer),
+}
+
+
+def gen_processing_models(processor: Union[str, object],
+                          pre_proc_only: bool=False,
+                          post_proc_only: bool=False,
+                          **kwargs):
+    """
+    Generate the pre- and post-processing ONNX model, basing on the name or HF class.
+
+    Parameters
+    ----------
+    processor:
+        the HF processor/tokenizer instance, or the name (str) of a Data Processor
+    pre_proc_only: bool
+        Only generating pre-processing model, skip the post-processing model
+    post_proc_only: bool
+        Only generating post-processing model, skip the pre-processing model
+    kwargs:
+        The arguments for generating models
+
+    Returns
+    -------
+    ONNX-Models
+        The pre- and post-processing ONNX models
+    """
+    if processor == "WhisperProcessor":
+        _converter = WhisperConverter(**kwargs)
+        return None if post_proc_only else _converter.pre_processing(),\
+            None if pre_proc_only else _converter.post_processing()
+
+    if processor in _PROCESSOR_DICT:
+        pass
