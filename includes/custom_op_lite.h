@@ -8,10 +8,10 @@ namespace Custom {
 
 class TensorBase {
  public:
-  TensorBase(const OrtW::CustomOpApi& ort_api,
+  TensorBase(const OrtW::CustomOpApi& api,
              OrtKernelContext& ctx,
              size_t indice,
-             bool is_input) : ort_api_(ort_api),
+             bool is_input) : api_(api),
                               ctx_(ctx),
                               indice_(indice),
                               is_input_(is_input) {}
@@ -34,9 +34,20 @@ class TensorBase {
       ORTX_CXX_API_THROW("tensor shape is not yet initialized", ORT_RUNTIME_EXCEPTION);
     }
   }
-
+  std::string Shape2Str() const {
+    if (shape_.has_value()) {
+      std::string shape_str;
+      for (const auto& dim: *shape_) {
+        shape_str.append(std::to_string(dim));
+        shape_str.append(", ");
+      }
+      return shape_str;
+    } else {
+      return "empty";
+    }
+  }
  protected:
-  const OrtW::CustomOpApi& ort_api_;
+  const OrtW::CustomOpApi& api_;
   OrtKernelContext& ctx_;
   size_t indice_;
   bool is_input_;
@@ -62,45 +73,45 @@ template <typename T>
 class Tensor : public TensorBase {
  public:
   using TT = typename std::remove_reference<T>::type;
-  Tensor(const OrtW::CustomOpApi& ort_api,
+  Tensor(const OrtW::CustomOpApi& api,
          OrtKernelContext& ctx,
          size_t indice,
-         bool is_input) : TensorBase(ort_api,
+         bool is_input) : TensorBase(api,
                                      ctx,
                                      indice,
                                      is_input) {
     if (is_input) {
-      auto input_count = ort_api_.KernelContext_GetInputCount(&ctx_);
+      auto input_count = api_.KernelContext_GetInputCount(&ctx_);
       if (indice >= input_count) {
         ORTX_CXX_API_THROW("invalid indice", ORT_RUNTIME_EXCEPTION);
       }
-      const_value_ = ort_api_.KernelContext_GetInput(&ctx_, indice);
-      auto* info = ort_api_.GetTensorTypeAndShape(const_value_);
-      shape_ = ort_api_.GetTensorShape(info);
-      ort_api_.ReleaseTensorTypeAndShapeInfo(info);
+      const_value_ = api_.KernelContext_GetInput(&ctx_, indice);
+      auto* info = api_.GetTensorTypeAndShape(const_value_);
+      shape_ = api_.GetTensorShape(info);
+      api_.ReleaseTensorTypeAndShapeInfo(info);
     }
   }
   const TT* Data() const {
-    return ort_api_.GetTensorData<TT>(const_value_);
+    return api_.GetTensorData<TT>(const_value_);
   }
   TT* Allocate(const std::vector<int64_t>& shape) {
     if (!data_) {
-      OrtValue* out = ort_api_.KernelContext_GetOutput(&ctx_, indice_, shape.data(), shape.size());
+      OrtValue* out = api_.KernelContext_GetOutput(&ctx_, indice_, shape.data(), shape.size());
       shape_ = shape;
-      data_ = ort_api_.GetTensorMutableData<TT>(out);
+      data_ = api_.GetTensorMutableData<TT>(out);
     }
     return data_;
   }
   const Span<T>& AsSpan() {
     if (!shape_.has_value() || shape_->size() != 1) {
-      ORTX_CXX_API_THROW("to get a span, shape must be 1-D", ORT_RUNTIME_EXCEPTION);
+      ORTX_CXX_API_THROW("to get a span, shape must be 1-D, actual shape: " + Shape2Str(), ORT_RUNTIME_EXCEPTION);
     }
     span_.Assign(Data(), (*shape_)[0]);
     return span_;
   }
   const T& AsScalar() {
-    if (!shape_.has_value() || shape_->size() != 1 || (*shape_)[0] != 1) {
-      ORTX_CXX_API_THROW("to get a scalar, shape must be {1}", ORT_RUNTIME_EXCEPTION);
+    if (!shape_.has_value() || (shape_->size() == 1 && (*shape_)[0] != 1) || shape_->size() > 1) {
+      ORTX_CXX_API_THROW("to get a scalar, shape must be {1}, actual shape: " + Shape2Str(), ORT_RUNTIME_EXCEPTION);
     }
     return *Data();
   }
@@ -116,34 +127,34 @@ class Tensor<std::string> : public TensorBase {
  public:
   using strings = std::vector<std::string>;
 
-  Tensor(const OrtW::CustomOpApi& ort_api,
+  Tensor(const OrtW::CustomOpApi& api,
          OrtKernelContext& ctx,
          size_t indice,
-         bool is_input) : TensorBase(ort_api,
+         bool is_input) : TensorBase(api,
                                      ctx,
                                      indice,
                                      is_input) {
     if (is_input) {
-      auto input_count = ort_api_.KernelContext_GetInputCount(&ctx_);
+      auto input_count = api_.KernelContext_GetInputCount(&ctx_);
       if (indice >= input_count) {
         ORTX_CXX_API_THROW("invalid indice", ORT_RUNTIME_EXCEPTION);
       }
 
-      auto* const_value = ort_api_.KernelContext_GetInput(&ctx_, indice);
-      auto* info = ort_api_.GetTensorTypeAndShape(const_value);
-      shape_ = ort_api_.GetTensorShape(info);
-      ort_api_.ReleaseTensorTypeAndShapeInfo(info);
+      auto* const_value = api_.KernelContext_GetInput(&ctx_, indice);
+      auto* info = api_.GetTensorTypeAndShape(const_value);
+      shape_ = api_.GetTensorShape(info);
+      api_.ReleaseTensorTypeAndShapeInfo(info);
 
       size_t num_chars;
-      OrtW::ThrowOnError(ort_api_.GetOrtApi(), ort_api_.GetOrtApi().GetStringTensorDataLength(const_value, &num_chars));
+      OrtW::ThrowOnError(api_.GetOrtApi(), api_.GetOrtApi().GetStringTensorDataLength(const_value, &num_chars));
       std::vector<char> chars(num_chars + 1, '\0');
       auto num_strings = NumberOfElement();
       std::vector<size_t> offsets(NumberOfElement());
-      OrtW::ThrowOnError(ort_api_.GetOrtApi(), ort_api_.GetOrtApi().GetStringTensorContent(const_value,
-                                                                                           (void*)chars.data(),
-                                                                                           num_chars,
-                                                                                           offsets.data(),
-                                                                                           offsets.size()));
+      OrtW::ThrowOnError(api_.GetOrtApi(), api_.GetOrtApi().GetStringTensorContent(const_value,
+                                                                                   (void*)chars.data(),
+                                                                                   num_chars,
+                                                                                   offsets.data(),
+                                                                                   offsets.size()));
       auto upper_bound = static_cast<int64_t>(num_strings) - 1;
       input_strings_.resize(num_strings);
       for (int64_t i = upper_bound; i >= 0; --i) {
@@ -162,16 +173,19 @@ class Tensor<std::string> : public TensorBase {
     for (const auto& s : ss) {
       raw.push_back(s.data());
     }
-    auto* output = ort_api_.KernelContext_GetOutput(&ctx_, indice_, dims.data(), dims.size());
-    OrtW::ThrowOnError(ort_api_.GetOrtApi(), ort_api_.GetOrtApi().FillStringTensor(output, raw.data(), raw.size()));
+    auto* output = api_.KernelContext_GetOutput(&ctx_, indice_, dims.data(), dims.size());
+    OrtW::ThrowOnError(api_.GetOrtApi(), api_.GetOrtApi().FillStringTensor(output, raw.data(), raw.size()));
   }
   void SetStringOutput(const std::vector<const char*>& ss, const std::vector<int64_t>& dims) {
-    auto* output = ort_api_.KernelContext_GetOutput(&ctx_, indice_, dims.data(), dims.size());
-    OrtW::ThrowOnError(ort_api_.GetOrtApi(), ort_api_.GetOrtApi().FillStringTensor(output, ss.data(), ss.size()));
+    auto* output = api_.KernelContext_GetOutput(&ctx_, indice_, dims.data(), dims.size());
+    OrtW::ThrowOnError(api_.GetOrtApi(), api_.GetOrtApi().FillStringTensor(output, ss.data(), ss.size()));
+  }
+  const Span<std::string>& AsSpan() {
+    ORTX_CXX_API_THROW("span for TensorT of string not implemented", ORT_RUNTIME_EXCEPTION);
   }
   const std::string& AsScalar() {
-    if (!shape_.has_value() || shape_->size() != 1 || (*shape_)[0] != 1) {
-      ORTX_CXX_API_THROW("to get a scalar, shape must be {1}", ORT_RUNTIME_EXCEPTION);
+    if (!shape_.has_value() || (shape_->size() == 1 && (*shape_)[0] != 1) || shape_->size() > 1) {
+      ORTX_CXX_API_THROW("to get a scalar, shape must be {1}, actual shape: " + Shape2Str(), ORT_RUNTIME_EXCEPTION);
     }
     return input_strings_[0];
   }
@@ -186,35 +200,35 @@ class Tensor<std::string_view> : public TensorBase {
   using strings = std::vector<std::string>;
   using string_views = std::vector<std::string_view>;
 
-  Tensor(const OrtW::CustomOpApi& ort_api,
+  Tensor(const OrtW::CustomOpApi& api,
          OrtKernelContext& ctx,
          size_t indice,
-         bool is_input) : TensorBase(ort_api,
+         bool is_input) : TensorBase(api,
                                      ctx,
                                      indice,
                                      is_input) {
     if (is_input_) {
-      auto input_count = ort_api_.KernelContext_GetInputCount(&ctx_);
+      auto input_count = api_.KernelContext_GetInputCount(&ctx_);
       if (indice >= input_count) {
         ORTX_CXX_API_THROW("invalid indice", ORT_RUNTIME_EXCEPTION);
       }
-      auto* const_value = ort_api_.KernelContext_GetInput(&ctx_, indice);
-      auto* info = ort_api_.GetTensorTypeAndShape(const_value);
-      shape_ = ort_api_.GetTensorShape(info);
-      ort_api_.ReleaseTensorTypeAndShapeInfo(info);
+      auto* const_value = api_.KernelContext_GetInput(&ctx_, indice);
+      auto* info = api_.GetTensorTypeAndShape(const_value);
+      shape_ = api_.GetTensorShape(info);
+      api_.ReleaseTensorTypeAndShapeInfo(info);
 
       size_t num_chars;
-      OrtW::ThrowOnError(ort_api_.GetOrtApi(), ort_api_.GetOrtApi().GetStringTensorDataLength(const_value, &num_chars));
+      OrtW::ThrowOnError(api_.GetOrtApi(), api_.GetOrtApi().GetStringTensorDataLength(const_value, &num_chars));
       chars_.resize(num_chars + 1, '\0');
 
       auto num_strings = static_cast<size_t>(NumberOfElement());
       if (num_strings) {
         std::vector<size_t> offsets(num_strings);
-        OrtW::ThrowOnError(ort_api_.GetOrtApi(), ort_api_.GetOrtApi().GetStringTensorContent(const_value,
-                                                                                             (void*)chars_.data(),
-                                                                                             num_chars,
-                                                                                             offsets.data(),
-                                                                                             offsets.size()));
+        OrtW::ThrowOnError(api_.GetOrtApi(), api_.GetOrtApi().GetStringTensorContent(const_value,
+                                                                                     (void*)chars_.data(),
+                                                                                     num_chars,
+                                                                                     offsets.data(),
+                                                                                     offsets.size()));
         offsets.push_back(num_chars);
         for (size_t i = 0; i < num_strings; ++i) {
           input_string_views_.emplace_back(chars_.data() + offsets[i], offsets[i + 1] - offsets[i]);
@@ -232,9 +246,12 @@ class Tensor<std::string_view> : public TensorBase {
   const string_views& Data() const {
     return input_string_views_;
   }
+  const Span<std::string_view>& AsSpan() {
+    ORTX_CXX_API_THROW("span for TensorT of string view not implemented", ORT_RUNTIME_EXCEPTION);
+  }
   std::string_view AsScalar() {
-    if (!shape_.has_value() || shape_->size() != 1 || (*shape_)[0] != 1) {
-      ORTX_CXX_API_THROW("to get a scalar, shape must be {1}", ORT_RUNTIME_EXCEPTION);
+    if (!shape_.has_value() || (shape_->size() == 1 && (*shape_)[0] != 1) || shape_->size() > 1) {
+      ORTX_CXX_API_THROW("to get a scalar, shape must be {1}, actual shape: " + Shape2Str(), ORT_RUNTIME_EXCEPTION);
     }
     return input_string_views_[0];
   }
@@ -253,146 +270,146 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   // CreateTuple
   template <size_t ith_input, size_t ith_output, typename... Ts>
   static typename std::enable_if<sizeof...(Ts) == 0, std::tuple<>>::type
-  CreateTuple(const OrtApi*, OrtKernelContext*, std::vector<TensorPtr>&, size_t, size_t, const std::string&) {
+  CreateTuple(const OrtW::CustomOpApi*, OrtKernelContext*, std::vector<TensorPtr>&, size_t, size_t, const std::string&) {
     return std::make_tuple();
   }
 
   template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
   static typename std::enable_if<std::is_same<T, OrtKernelContext*>::value, std::tuple<T, Ts...>>::type
-  CreateTuple(const OrtApi* ort_api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) {
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) {
     std::tuple<T> current = std::tuple<OrtKernelContext*>{context};
-    auto next = CreateTuple<ith_input, ith_output, Ts...>(ort_api, context, tensors, num_input, num_output, ep);
+    auto next = CreateTuple<ith_input, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);
     return std::tuple_cat(current, next);
   }
 
-#define CREATE_TUPLE_INPUT(data_type)                                                                                                                          \
-  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                   \
-  static typename std::enable_if<std::is_same<T, const Custom::Tensor<data_type>*>::value, std::tuple<T, Ts...>>::type                                         \
-  CreateTuple(const OrtApi* ort_api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
-    tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*ort_api, *context, ith_input, true));                                                         \
-    std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(tensors.back().get())};                                                                          \
-    auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(ort_api, context, tensors, num_input, num_output, ep);                                           \
-    return std::tuple_cat(current, next);                                                                                                                      \
-  }                                                                                                                                                            \
-  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                   \
-  static typename std::enable_if<std::is_same<T, const Custom::Tensor<data_type>&>::value, std::tuple<T, Ts...>>::type                                         \
-  CreateTuple(const OrtApi* ort_api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
-    tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*ort_api, *context, ith_input, true));                                                         \
-    std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(*tensors.back().get())};                                                                         \
-    auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(ort_api, context, tensors, num_input, num_output, ep);                                           \
-    return std::tuple_cat(current, next);                                                                                                                      \
-  }                                                                                                                                                            \
-  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                   \
-  static typename std::enable_if<std::is_same<T, std::optional<const Custom::Tensor<data_type>*>>::value, std::tuple<T, Ts...>>::type                          \
-  CreateTuple(const OrtApi* ort_api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
-    if (ith_input < num_input) {                                                                                                                               \
-      tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*ort_api, *context, ith_input, true));                                                       \
-      std::tuple<T> current = std::tuple<T>{reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())};                                               \
-      auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(ort_api, context, tensors, num_input, num_output, ep);                                         \
-      return std::tuple_cat(current, next);                                                                                                                    \
-    } else {                                                                                                                                                   \
-      std::tuple<T> current = std::tuple<T>{};                                                                                                                 \
-      auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(ort_api, context, tensors, num_input, num_output, ep);                                         \
-      return std::tuple_cat(current, next);                                                                                                                    \
-    }                                                                                                                                                          \
-  }                                                                                                                                                            \
-  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                   \
-  static typename std::enable_if<std::is_same<T, const Custom::Span<data_type>*>::value, std::tuple<T, Ts...>>::type                                           \
-  CreateTuple(const OrtApi* ort_api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
-    if ("CPUExecutionProvider" != ep) {                                                                                                                        \
-      ORTX_CXX_API_THROW("span input could only be applied to CPU EP", ORT_FAIL);                                                    \
-    }                                                                                                                                                          \
-    tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*ort_api, *context, ith_input, true));                                                         \
-    std::tuple<T> current = std::tuple<T>{&reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())->AsSpan()};                                      \
-    auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(ort_api, context, tensors, num_input, num_output, ep);                                           \
-    return std::tuple_cat(current, next);                                                                                                                      \
-  }                                                                                                                                                            \
-  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                   \
-  static typename std::enable_if<std::is_same<T, const Custom::Span<data_type>&>::value, std::tuple<T, Ts...>>::type                                           \
-  CreateTuple(const OrtApi* ort_api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
-    if ("CPUExecutionProvider" != ep) {                                                                                                                        \
-      ORTX_CXX_API_THROW("span input could only be applied to CPU EP", ORT_FAIL);                                                    \
-    }                                                                                                                                                          \
-    tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*ort_api, *context, ith_input, true));                                                         \
-    std::tuple<T> current = std::tuple<T>{reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())->AsSpan()};                                       \
-    auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(ort_api, context, tensors, num_input, num_output, ep);                                           \
-    return std::tuple_cat(current, next);                                                                                                                      \
-  }                                                                                                                                                            \
-  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                   \
-  static typename std::enable_if<std::is_same<T, std::optional<const Custom::Span<data_type>*>>::value, std::tuple<T, Ts...>>::type                            \
-  CreateTuple(const OrtApi* ort_api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
-    if (ith_input < num_input) {                                                                                                                               \
-      if ("CPUExecutionProvider" != ep) {                                                                                                                      \
-        ORTX_CXX_API_THROW("span input could only be applied to CPU EP", ORT_FAIL);                                                  \
-      }                                                                                                                                                        \
-      tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*ort_api, *context, ith_input, true));                                                       \
-      std::tuple<T> current = std::tuple<T>{&reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())->AsSpan()};                                    \
-      auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(ort_api, context, tensors, num_input, num_output, ep);                                         \
-      return std::tuple_cat(current, next);                                                                                                                    \
-    } else {                                                                                                                                                   \
-      std::tuple<T> current = std::tuple<T>{};                                                                                                                 \
-      auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(ort_api, context, tensors, num_input, num_output, ep);                                         \
-      return std::tuple_cat(current, next);                                                                                                                    \
-    }                                                                                                                                                          \
-  }                                                                                                                                                            \
-  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                   \
-  static typename std::enable_if<std::is_same<T, data_type>::value, std::tuple<T, Ts...>>::type                                                                \
-  CreateTuple(const OrtApi* ort_api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
-    if ("CPUExecutionProvider" != ep) {                                                                                                                        \
-      ORTX_CXX_API_THROW("scalar input could only be applied to CPU EP", ORT_FAIL);                                                  \
-    }                                                                                                                                                          \
-    tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*ort_api, *context, ith_input, true));                                                         \
-    std::tuple<T> current = std::tuple<T>{reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())->AsScalar()};                                     \
-    auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(ort_api, context, tensors, num_input, num_output, ep);                                           \
-    return std::tuple_cat(current, next);                                                                                                                      \
-  }                                                                                                                                                            \
-  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                   \
-  static typename std::enable_if<std::is_same<T, std::optional<data_type>>::value, std::tuple<T, Ts...>>::type                                                 \
-  CreateTuple(const OrtApi* ort_api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
-    if (ith_input < num_input) {                                                                                                                               \
-      if ("CPUExecutionProvider" != ep) {                                                                                                                      \
-        ORTX_CXX_API_THROW("scalar input could only be applied to CPU EP", ORT_FAIL);                                                \
-      }                                                                                                                                                        \
-      tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*ort_api, *context, ith_input, true));                                                       \
-      std::tuple<T> current = std::tuple<T>{reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())->AsScalar()};                                   \
-      auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(ort_api, context, tensors, num_input, num_output, ep);                                         \
-      return std::tuple_cat(current, next);                                                                                                                    \
-    } else {                                                                                                                                                   \
-      std::tuple<T> current = std::tuple<T>{};                                                                                                                 \
-      auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(ort_api, context, tensors, num_input, num_output, ep);                                         \
-      return std::tuple_cat(current, next);                                                                                                                    \
-    }                                                                                                                                                          \
+#define CREATE_TUPLE_INPUT(data_type)                                                                                                                                 \
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                          \
+  static typename std::enable_if<std::is_same<T, const Custom::Tensor<data_type>*>::value, std::tuple<T, Ts...>>::type                                                \
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
+    tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*api, *context, ith_input, true));                                                                  \
+    std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(tensors.back().get())};                                                                                 \
+    auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);                                                      \
+    return std::tuple_cat(current, next);                                                                                                                             \
+  }                                                                                                                                                                   \
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                          \
+  static typename std::enable_if<std::is_same<T, const Custom::Tensor<data_type>&>::value, std::tuple<T, Ts...>>::type                                                \
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
+    tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*api, *context, ith_input, true));                                                                  \
+    std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(*tensors.back().get())};                                                                                \
+    auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);                                                      \
+    return std::tuple_cat(current, next);                                                                                                                             \
+  }                                                                                                                                                                   \
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                          \
+  static typename std::enable_if<std::is_same<T, std::optional<const Custom::Tensor<data_type>*>>::value, std::tuple<T, Ts...>>::type                                 \
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
+    if (ith_input < num_input) {                                                                                                                                      \
+      tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*api, *context, ith_input, true));                                                                \
+      std::tuple<T> current = std::tuple<T>{reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())};                                                      \
+      auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);                                                    \
+      return std::tuple_cat(current, next);                                                                                                                           \
+    } else {                                                                                                                                                          \
+      std::tuple<T> current = std::tuple<T>{};                                                                                                                        \
+      auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);                                                    \
+      return std::tuple_cat(current, next);                                                                                                                           \
+    }                                                                                                                                                                 \
+  }                                                                                                                                                                   \
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                          \
+  static typename std::enable_if<std::is_same<T, const Custom::Span<data_type>*>::value, std::tuple<T, Ts...>>::type                                                  \
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
+    if ("CPUExecutionProvider" != ep) {                                                                                                                               \
+      ORTX_CXX_API_THROW("span input could only be applied to CPU EP", ORT_FAIL);                                                                                     \
+    }                                                                                                                                                                 \
+    tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*api, *context, ith_input, true));                                                                  \
+    std::tuple<T> current = std::tuple<T>{&reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())->AsSpan()};                                             \
+    auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);                                                      \
+    return std::tuple_cat(current, next);                                                                                                                             \
+  }                                                                                                                                                                   \
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                          \
+  static typename std::enable_if<std::is_same<T, const Custom::Span<data_type>&>::value, std::tuple<T, Ts...>>::type                                                  \
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
+    if ("CPUExecutionProvider" != ep) {                                                                                                                               \
+      ORTX_CXX_API_THROW("span input could only be applied to CPU EP", ORT_FAIL);                                                                                     \
+    }                                                                                                                                                                 \
+    tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*api, *context, ith_input, true));                                                                  \
+    std::tuple<T> current = std::tuple<T>{reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())->AsSpan()};                                              \
+    auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);                                                      \
+    return std::tuple_cat(current, next);                                                                                                                             \
+  }                                                                                                                                                                   \
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                          \
+  static typename std::enable_if<std::is_same<T, std::optional<const Custom::Span<data_type>*>>::value, std::tuple<T, Ts...>>::type                                   \
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
+    if (ith_input < num_input) {                                                                                                                                      \
+      if ("CPUExecutionProvider" != ep) {                                                                                                                             \
+        ORTX_CXX_API_THROW("span input could only be applied to CPU EP", ORT_FAIL);                                                                                   \
+      }                                                                                                                                                               \
+      tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*api, *context, ith_input, true));                                                                \
+      std::tuple<T> current = std::tuple<T>{&reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())->AsSpan()};                                           \
+      auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);                                                    \
+      return std::tuple_cat(current, next);                                                                                                                           \
+    } else {                                                                                                                                                          \
+      std::tuple<T> current = std::tuple<T>{};                                                                                                                        \
+      auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);                                                    \
+      return std::tuple_cat(current, next);                                                                                                                           \
+    }                                                                                                                                                                 \
+  }                                                                                                                                                                   \
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                          \
+  static typename std::enable_if<std::is_same<T, data_type>::value, std::tuple<T, Ts...>>::type                                                                       \
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
+    if ("CPUExecutionProvider" != ep) {                                                                                                                               \
+      ORTX_CXX_API_THROW("scalar input could only be applied to CPU EP", ORT_FAIL);                                                                                   \
+    }                                                                                                                                                                 \
+    tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*api, *context, ith_input, true));                                                                  \
+    std::tuple<T> current = std::tuple<T>{reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())->AsScalar()};                                            \
+    auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);                                                      \
+    return std::tuple_cat(current, next);                                                                                                                             \
+  }                                                                                                                                                                   \
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                          \
+  static typename std::enable_if<std::is_same<T, std::optional<data_type>>::value, std::tuple<T, Ts...>>::type                                                        \
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
+    if (ith_input < num_input) {                                                                                                                                      \
+      if ("CPUExecutionProvider" != ep) {                                                                                                                             \
+        ORTX_CXX_API_THROW("scalar input could only be applied to CPU EP", ORT_FAIL);                                                                                 \
+      }                                                                                                                                                               \
+      tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*api, *context, ith_input, true));                                                                \
+      std::tuple<T> current = std::tuple<T>{reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())->AsScalar()};                                          \
+      auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);                                                    \
+      return std::tuple_cat(current, next);                                                                                                                           \
+    } else {                                                                                                                                                          \
+      std::tuple<T> current = std::tuple<T>{};                                                                                                                        \
+      auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);                                                    \
+      return std::tuple_cat(current, next);                                                                                                                           \
+    }                                                                                                                                                                 \
   }
-#define CREATE_TUPLE_OUTPUT(data_type)                                                                                                                         \
-  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                   \
-  static typename std::enable_if<std::is_same<T, Custom::Tensor<data_type>*>::value, std::tuple<T, Ts...>>::type                                               \
-  CreateTuple(const OrtApi* ort_api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
-    tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*ort_api, *context, ith_output, false));                                                       \
-    std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(tensors.back().get())};                                                                          \
-    auto next = CreateTuple<ith_input, ith_output + 1, Ts...>(ort_api, context, tensors, num_input, num_output, ep);                                           \
-    return std::tuple_cat(current, next);                                                                                                                      \
-  }                                                                                                                                                            \
-  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                   \
-  static typename std::enable_if<std::is_same<T, Custom::Tensor<data_type>&>::value, std::tuple<T, Ts...>>::type                                               \
-  CreateTuple(const OrtApi* ort_api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
-    tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*ort_api, *context, ith_output, false));                                                       \
-    std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(*tensors.back().get())};                                                                         \
-    auto next = CreateTuple<ith_input, ith_output + 1, Ts...>(ort_api, context, tensors, num_input, num_output, ep);                                           \
-    return std::tuple_cat(current, next);                                                                                                                      \
-  }                                                                                                                                                            \
-  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                   \
-  static typename std::enable_if<std::is_same<T, std::optional<Custom::Tensor<data_type>*>>::value, std::tuple<T, Ts...>>::type                                \
-  CreateTuple(const OrtApi* ort_api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
-    if (ith_output < num_output) {                                                                                                                             \
-      tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*ort_api, *context, ith_output, false));                                                     \
-      std::tuple<T> current = std::tuple<T>{reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())};                                               \
-      auto next = CreateTuple<ith_input, ith_output + 1, Ts...>(ort_api, context, tensors, num_input, num_output, ep);                                         \
-      return std::tuple_cat(current, next);                                                                                                                    \
-    } else {                                                                                                                                                   \
-      std::tuple<T> current = std::tuple<T>{};                                                                                                                 \
-      auto next = CreateTuple<ith_input, ith_output + 1, Ts...>(ort_api, context, tensors, num_input, num_output, ep);                                         \
-      return std::tuple_cat(current, next);                                                                                                                    \
-    }                                                                                                                                                          \
+#define CREATE_TUPLE_OUTPUT(data_type)                                                                                                                                \
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                          \
+  static typename std::enable_if<std::is_same<T, Custom::Tensor<data_type>*>::value, std::tuple<T, Ts...>>::type                                                      \
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
+    tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*api, *context, ith_output, false));                                                                \
+    std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(tensors.back().get())};                                                                                 \
+    auto next = CreateTuple<ith_input, ith_output + 1, Ts...>(api, context, tensors, num_input, num_output, ep);                                                      \
+    return std::tuple_cat(current, next);                                                                                                                             \
+  }                                                                                                                                                                   \
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                          \
+  static typename std::enable_if<std::is_same<T, Custom::Tensor<data_type>&>::value, std::tuple<T, Ts...>>::type                                                      \
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
+    tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*api, *context, ith_output, false));                                                                \
+    std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(*tensors.back().get())};                                                                                \
+    auto next = CreateTuple<ith_input, ith_output + 1, Ts...>(api, context, tensors, num_input, num_output, ep);                                                      \
+    return std::tuple_cat(current, next);                                                                                                                             \
+  }                                                                                                                                                                   \
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                          \
+  static typename std::enable_if<std::is_same<T, std::optional<Custom::Tensor<data_type>*>>::value, std::tuple<T, Ts...>>::type                                       \
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
+    if (ith_output < num_output) {                                                                                                                                    \
+      tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*api, *context, ith_output, false));                                                              \
+      std::tuple<T> current = std::tuple<T>{reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())};                                                      \
+      auto next = CreateTuple<ith_input, ith_output + 1, Ts...>(api, context, tensors, num_input, num_output, ep);                                                    \
+      return std::tuple_cat(current, next);                                                                                                                           \
+    } else {                                                                                                                                                          \
+      std::tuple<T> current = std::tuple<T>{};                                                                                                                        \
+      auto next = CreateTuple<ith_input, ith_output + 1, Ts...>(api, context, tensors, num_input, num_output, ep);                                                    \
+      return std::tuple_cat(current, next);                                                                                                                           \
+    }                                                                                                                                                                 \
   }
 #define CREATE_TUPLE(data_type) \
   CREATE_TUPLE_INPUT(data_type) \
@@ -510,6 +527,14 @@ struct OrtLiteCustomOp : public OrtCustomOp {
       auto self = reinterpret_cast<const OrtLiteCustomOp*>(op);
       return self->output_types_[indice];
     };
+
+    OrtCustomOp::GetInputCharacteristic = [](const OrtCustomOp*, size_t) {
+      return INPUT_OUTPUT_OPTIONAL;
+    };
+
+    OrtCustomOp::GetOutputCharacteristic = [](const OrtCustomOp*, size_t) {
+      return INPUT_OUTPUT_OPTIONAL;
+    };
   }
 
   const std::string op_name_;
@@ -529,7 +554,7 @@ struct OrtLiteCustomFunc : public OrtLiteCustomOp {
     size_t num_output_{};
     ComputeFn compute_fn_{};
     std::string ep_{};
-    const OrtApi* ort_api_{};
+    std::unique_ptr<OrtW::CustomOpApi> api_;
   };
 
   OrtLiteCustomFunc(const char* op_name,
@@ -541,7 +566,7 @@ struct OrtLiteCustomFunc : public OrtLiteCustomOp {
     OrtCustomOp::KernelCompute = [](void* op_kernel, OrtKernelContext* context) {
       auto kernel = reinterpret_cast<Kernel*>(op_kernel);
       std::vector<TensorPtr> tensors;
-      auto t = CreateTuple<0, 0, Args...>(kernel->ort_api_, context, tensors, kernel->num_input_, kernel->num_output_, kernel->ep_);
+      auto t = CreateTuple<0, 0, Args...>(kernel->api_.get(), context, tensors, kernel->num_input_, kernel->num_output_, kernel->ep_);
       std::apply([kernel](Args const&... t_args) { kernel->compute_fn_(t_args...); }, t);
     };
 
@@ -549,12 +574,12 @@ struct OrtLiteCustomFunc : public OrtLiteCustomOp {
       auto kernel = std::make_unique<Kernel>();
       auto self = static_cast<const OrtLiteCustomFunc*>(this_);
       kernel->compute_fn_ = self->compute_fn_;
-      //Ort::ThrowOnError(ort_api->KernelInfo_GetInputCount(info, &kernel->num_input_));
-      //Ort::ThrowOnError(ort_api->KernelInfo_GetOutputCount(info, &kernel->num_output_));
+      // Ort::ThrowOnError(ort_api->KernelInfo_GetInputCount(info, &kernel->num_input_));
+      // Ort::ThrowOnError(ort_api->KernelInfo_GetOutputCount(info, &kernel->num_output_));
       kernel->num_input_ = self->input_types_.size();
       kernel->num_output_ = self->output_types_.size();
       kernel->ep_ = self->execution_provider_;
-      kernel->ort_api_ = ort_api;
+      kernel->api_ = std::make_unique<OrtW::CustomOpApi>(*ort_api);
       return reinterpret_cast<void*>(kernel.release());
     };
 
@@ -577,7 +602,7 @@ struct OrtLiteCustomStruct : public OrtLiteCustomOp {
     size_t num_output_{};
     std::unique_ptr<CustomOp> custom_op_;
     std::string ep_{};
-    const OrtApi* ort_api_;
+    std::unique_ptr<OrtW::CustomOpApi> api_;
   };
 
   OrtLiteCustomStruct(const char* op_name,
@@ -593,20 +618,20 @@ struct OrtLiteCustomStruct : public OrtLiteCustomOp {
     OrtCustomOp::KernelCompute = [](void* op_kernel, OrtKernelContext* context) {
       auto kernel = reinterpret_cast<Kernel*>(op_kernel);
       std::vector<TensorPtr> tensors;
-      auto t = CreateTuple<0, 0, Args...>(kernel->ort_api_, context, tensors, kernel->num_input_, kernel->num_output_, kernel->ep_);
+      auto t = CreateTuple<0, 0, Args...>(kernel->api_.get(), context, tensors, kernel->num_input_, kernel->num_output_, kernel->ep_);
       std::apply([kernel](Args const&... t_args) { kernel->custom_op_->Compute(t_args...); }, t);
     };
 
     OrtCustomOp::CreateKernel = [](const OrtCustomOp* this_, const OrtApi* ort_api, const OrtKernelInfo* info) {
       auto kernel = std::make_unique<Kernel>();
-      //Ort::ThrowOnError(ort_api->KernelInfo_GetInputCount(info, &kernel->num_input_));
-      //Ort::ThrowOnError(ort_api->KernelInfo_GetOutputCount(info, &kernel->num_output_));
+      // Ort::ThrowOnError(ort_api->KernelInfo_GetInputCount(info, &kernel->num_input_));
+      // Ort::ThrowOnError(ort_api->KernelInfo_GetOutputCount(info, &kernel->num_output_));
       kernel->custom_op_ = std::make_unique<CustomOp>(*ort_api, *info);
       auto self = static_cast<const MyType*>(this_);
       kernel->num_input_ = self->input_types_.size();
       kernel->num_output_ = self->output_types_.size();
       kernel->ep_ = self->execution_provider_;
-      kernel->ort_api_ = ort_api;
+      kernel->api_ = std::make_unique<OrtW::CustomOpApi>(*ort_api);
       return reinterpret_cast<void*>(kernel.release());
     };
 
