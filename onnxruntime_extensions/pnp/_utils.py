@@ -1,6 +1,6 @@
 import copy
 import onnx
-from onnx import numpy_helper
+from onnx import helper, numpy_helper
 from collections import namedtuple
 
 
@@ -271,20 +271,32 @@ class ONNXModelUtils:
                 del _n.input[:]
                 _n.input.extend([port_mapping[_i] if _i in port_mapping else _i for _i in new_input])
 
-        name = ''
+        name = "_".join([_mdl.graph.name for _mdl in models])
         domains = set()
         _opset = []
         for _mdl in models:
             for _ops in _mdl.opset_import:
-                if _ops.domain not in domains:
-                    domains.update([_ops.domain])
-                    _opset.append(_ops)
-            name = name + '_' + _mdl.graph.name if name else _mdl.graph.name
+                domain = _ops.domain if _ops.domain else "ai.onnx"
+                if domain in domains:
+                    if domain == "ai.onnx":
+                      assert _ops.version == _opset[0].version, \
+                        f"ai.onnx domain version doesn't match {_ops.version} != {_opset[0].version}"
+                else:
+                    domains.add(domain)
+                    if domain == "ai.onnx":
+                        _opset.insert(0, _ops)
+                    else:
+                        _opset.append(_ops)
 
         inits = cls._remove_unused_initializers(nodes, container.initializer)
-        helper = onnx.helper
         g = helper.make_graph(nodes, name, inputs, outputs,
                               initializer=inits,
                               value_info=container.value_info)
-        m = helper.make_model(g, opset_imports=_opset)
+
+        if hasattr(helper, 'make_model_gen_version'):
+            # make_model_gen_version doesn't accept the custom domain.
+            m = helper.make_model_gen_version(g, opset_imports=_opset[:1])
+            m.opset_import.extend(_opset[1:])
+        else:
+            m = helper.make_model(g, opset_imports=_opset)
         return m

@@ -79,7 +79,7 @@ Similarly the post-processing is assembled the same way. Let's say it's simply a
 first model output:
 
 ``` py
-pipeline.add_pre_processing(
+pipeline.add_post_processing(
     [
         Softmax()
     ]

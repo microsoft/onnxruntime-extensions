@@ -20,7 +20,6 @@
 #include "string_tensor.h"
 #include "pykernel.h"
 
-
 namespace py = pybind11;
 
 const int PyCustomOpDef::undefined = ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED;
@@ -211,37 +210,62 @@ typedef struct {
 } InputInformation;
 
 PyCustomOpKernel::PyCustomOpKernel(const OrtApi& api, const OrtKernelInfo& info,
-                                   uint64_t id, const std::vector<std::string>& attrs)
+                                   uint64_t id, const std::map<std::string, int>& attrs)
     : api_(api),
       ort_(api_),
       obj_id_(id) {
-  size_t size;
-  for (std::vector<std::string>::const_iterator it = attrs.begin(); it != attrs.end(); ++it) {
-    size = 0;
-    OrtStatus* status = api_.KernelInfoGetAttribute_string(&info, it->c_str(), nullptr, &size);
+  for (std::map<std::string, int>::const_iterator it = attrs.begin(); it != attrs.end(); ++it) {
+    std::string attr_name = it->first;
+    int attr_type = it->second;
+    OrtStatus* status = nullptr;
+    std::string attr_value;
+    if (attr_type == PyCustomOpDef::dt_int64) {
+      int64_t value = 0;
+      status = api_.KernelInfoGetAttribute_int64(&info, attr_name.c_str(), &value);
+      if (status == nullptr) {
+        std::stringstream ss;
+        ss << value;
+        attr_value = ss.str();
+      }
+    } else if (attr_type == PyCustomOpDef::dt_float) {
+      float value = 0.f;
+      status = api_.KernelInfoGetAttribute_float(&info, attr_name.c_str(), &value);
+      if (status == nullptr) {
+        std::stringstream ss;
+        ss << value;
+        attr_value = ss.str();
+      }
+    } else if (attr_type == PyCustomOpDef::dt_string) {
+      size_t size = 0;
+      status = api_.KernelInfoGetAttribute_string(&info, attr_name.c_str(), nullptr, &size);
+      if (status == nullptr || api_.GetErrorCode(status) == ORT_INVALID_ARGUMENT) {
+        attr_value = std::string(size, ' ');
+        status = api_.KernelInfoGetAttribute_string(&info, attr_name.c_str(), attr_value.data(), &size);
+        if ((status != nullptr) && (api_.GetErrorCode(status) != ORT_OK)) {
+          api_.ReleaseStatus(status);
+          throw std::runtime_error(MakeString(
+              "Unable to retrieve attribute '", attr_name, "' due to '",
+              api_.GetErrorMessage(status), "'."));
+        }
+        if (status != nullptr) {
+          api_.ReleaseStatus(status);
+        }
+        attr_value.resize(size - 1);
+      }
+    }
+
     if ((status != nullptr) && api_.GetErrorCode(status) != ORT_INVALID_ARGUMENT) {
       std::string error_message(api_.GetErrorMessage(status));
       api_.ReleaseStatus(status);
       throw std::runtime_error(MakeString(
-          "Unable to find attribute '", *it, "' due to '",
+          "Unable to find attribute '", attr_name, "' due to '",
           error_message, "'."));
     }
     if (status != nullptr) {
       api_.ReleaseStatus(status);
     }
-    attrs_values_[*it] = "";
-    attrs_values_[*it].resize(size);
-    status = api_.KernelInfoGetAttribute_string(&info, it->c_str(), &(attrs_values_[*it][0]), &size);
-    if ((status != nullptr) && (api_.GetErrorCode(status) != ORT_OK)) {
-      api_.ReleaseStatus(status);
-      throw std::runtime_error(MakeString(
-          "Unable to retrieve attribute '", *it, "' due to '",
-          api_.GetErrorMessage(status), "'."));
-    }
-    attrs_values_[*it].resize(size - 1);
-    if (status != nullptr) {
-      api_.ReleaseStatus(status);
-    }
+
+    attrs_values_[attr_name] = attr_value;
   }
 }
 
@@ -358,7 +382,6 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
   }
 }
 
-
 std::map<std::string, std::vector<PyCustomOpFactory>>& PyOp_container() {
   static std::map<std::string, std::vector<PyCustomOpFactory>> map_custom_opdef;
   return map_custom_opdef;
@@ -376,7 +399,7 @@ void PyCustomOpDef::AddOp(const PyCustomOpDef* cod) {
 
   // No need to protect against concurrent access, GIL is doing that.
   auto val = std::make_pair(op_domain, std::vector<PyCustomOpFactory>());
-  const auto [it_domain_op, success]  = PyOp_container().insert(val);
+  const auto [it_domain_op, success] = PyOp_container().insert(val);
   assert(success || !it_domain_op->second.empty());
   it_domain_op->second.emplace_back(PyCustomOpFactory(cod, op_domain, op));
 }
@@ -391,7 +414,8 @@ const PyCustomOpFactory* PyCustomOpDef_FetchPyCustomOps(size_t num) {
   if (it != PyOp_container().end()) {
     const std::vector<PyCustomOpFactory>& ref = it->second;
     if (num < ref.size()) {
-      return ref.data() + num; }
+      return ref.data() + num;
+    }
   }
 
   return nullptr;
@@ -399,7 +423,7 @@ const PyCustomOpFactory* PyCustomOpDef_FetchPyCustomOps(size_t num) {
 
 const OrtCustomOp* FetchPyCustomOps(size_t& num) {
   auto ptr = PyCustomOpDef_FetchPyCustomOps(num);
-  if (ptr == nullptr)   // For the breakpoint in debugging.
+  if (ptr == nullptr)  // For the breakpoint in debugging.
     return nullptr;
   return ptr;
 }
@@ -411,20 +435,20 @@ bool EnablePyCustomOps(bool enabled) {
   return last;
 }
 
-OrtStatusPtr RegisterPythonDomainAndOps(OrtSessionOptions* options, const OrtApi* ortApi){
+OrtStatusPtr RegisterPythonDomainAndOps(OrtSessionOptions* options, const OrtApi* ortApi) {
   OrtCustomOpDomain* domain = nullptr;
   OrtStatus* status = nullptr;
 
-  for (auto const& val_pair: PyOp_container()) {
+  for (auto const& val_pair : PyOp_container()) {
     if (val_pair.first == c_OpDomain) {
-      continue; // Register this domain in the second iteration.
+      continue;  // Register this domain in the second iteration.
     }
 
     if (status = ortApi->CreateCustomOpDomain(val_pair.first.c_str(), &domain); status) {
       return status;
     }
 
-    for (auto const& cop: val_pair.second) {
+    for (auto const& cop : val_pair.second) {
       if (status = ortApi->CustomOpDomain_Add(domain, &cop); status) {
         return status;
       }
@@ -453,8 +477,10 @@ uint64_t hash_64(const std::string& str, uint64_t num_buckets, bool fast) {
 void AddGlobalMethods(pybind11::module& m) {
   m.def("hash_64", &hash_64, "Computes a uint64 hash for a string (from tensorflow).");
   m.def("enable_py_op", &EnablePyCustomOps, "Enable or disable pyop functions.");
-  m.def("add_custom_op", [](const PyCustomOpDef& cod) { PyCustomOpDef::AddOp(&cod); }, "Add a PyOp Python object.");
-  m.def("default_opset_domain", []{return std::string(c_OpDomain);}, "return the default opset domain name.");
+  m.def(
+      "add_custom_op", [](const PyCustomOpDef& cod) { PyCustomOpDef::AddOp(&cod); }, "Add a PyOp Python object.");
+  m.def(
+      "default_opset_domain", [] { return std::string(c_OpDomain); }, "return the default opset domain name.");
 }
 
 void AddObjectMethods(pybind11::module& m) {
@@ -465,8 +491,7 @@ void AddObjectMethods(pybind11::module& m) {
       .def_readwrite("input_types", &PyCustomOpDef::input_types)
       .def_readwrite("output_types", &PyCustomOpDef::output_types)
       .def_readwrite("attrs", &PyCustomOpDef::attrs)
-      .def_static("install_hooker", [](py::object obj) {
-        PyCustomOpDefImpl::op_invoker = std::make_unique<PyCustomOpDefImpl::callback_t>(obj); })
+      .def_static("install_hooker", [](py::object obj) { PyCustomOpDefImpl::op_invoker = std::make_unique<PyCustomOpDefImpl::callback_t>(obj); })
       .def_readonly_static("undefined", &PyCustomOpDef::undefined)
       .def_readonly_static("dt_float", &PyCustomOpDef::dt_float)
       .def_readonly_static("dt_uint8", &PyCustomOpDef::dt_uint8)
@@ -494,6 +519,6 @@ PYBIND11_MODULE(_extensions_pydll, m) {
   AddObjectMethods(m);
   auto atexit = py::module_::import("atexit");
   atexit.attr("register")(py::cpp_function([]() {
-      PyCustomOpDefImpl::op_invoker.reset();
+    PyCustomOpDefImpl::op_invoker.reset();
   }));
 }

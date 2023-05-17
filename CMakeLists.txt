@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.25)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
 # set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -145,10 +145,15 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-set(CMAKE_FIND_FRAMEWORK NEVER CACHE STRING "...")
+# set both regular and cache variables to NEVER. the regular variable has a default of FIRST defined by cmake,
+# but due to CMP0126 that will exist in parallel to the cached variable if the CMake minimum version is >= 3.25.
+# if we don't set this to NEVER (or possibly LAST) the builds of the wheel for different python versions will fail
+# as it will find the system python version first and not the correct python version for the wheel.
+set(CMAKE_FIND_FRAMEWORK "NEVER")
+set(CMAKE_FIND_FRAMEWORK "NEVER" CACHE STRING "...")
 
 if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
-  message(FATAL_ERROR "CMAKE_FIND_FRAMEWORK is not NEVER")
+  message(STATUS "CMAKE_FIND_FRAMEWORK is ${CMAKE_FIND_FRAMEWORK} not NEVER.")
 endif()
 
 # External dependencies
@@ -491,6 +496,10 @@ if(OCOS_ENABLE_SPM_TOKENIZER)
   target_include_directories(ocos_operators PUBLIC ${spm_INCLUDE_DIRS})
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_SPM_TOKENIZER)
   list(APPEND ocos_libraries sentencepiece-static)
+
+  if(ANDROID)
+    list(APPEND ocos_libraries log)
+  endif()
 endif()
 
 if(OCOS_ENABLE_BLINGFIRE)
@@ -566,13 +575,7 @@ if(_BUILD_SHARED_LIBRARY)
   source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${shared_TARGET_SRC})
   standardize_output_folder(extensions_shared)
 
-  if(CMAKE_SYSTEM_NAME STREQUAL "Android")
-    if(OCOS_ENABLE_SPM_TOKENIZER)
-      target_link_libraries(extensions_shared PUBLIC log)
-    endif()
-  endif()
-
-  if(LINUX OR CMAKE_SYSTEM_NAME STREQUAL "Android")
+  if(LINUX OR ANDROID)
     set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS "-Wl,-s -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
   endif()
 
@@ -652,7 +655,7 @@ if(OCOS_ENABLE_CTEST)
     set(LINUX_CC_FLAGS "")
 
     # needs to link with stdc++fs in Linux
-    if(UNIX AND NOT APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
+    if(UNIX AND NOT APPLE AND NOT ANDROID)
       list(APPEND LINUX_CC_FLAGS stdc++fs -pthread)
     endif()
 
