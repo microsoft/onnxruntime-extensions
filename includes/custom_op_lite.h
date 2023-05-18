@@ -2,6 +2,7 @@
 #include "onnxruntime_customop.hpp"
 #include <optional>
 #include <numeric>
+#define SUPPORT_ORT_API_VERSION_TO 13
 
 namespace Ort {
 namespace Custom {
@@ -503,10 +504,11 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   OrtLiteCustomOp(const char* op_name,
                   const char* execution_provider) : op_name_(op_name),
                                                     execution_provider_(execution_provider) {
-    OrtCustomOp::version = ORT_API_VERSION;
+    OrtCustomOp::version = MIN_ORT_VERSION_SUPPORTED;
 
     OrtCustomOp::GetName = [](const OrtCustomOp* op) { return static_cast<const OrtLiteCustomOp*>(op)->op_name_.c_str(); };
     OrtCustomOp::GetExecutionProviderType = [](const OrtCustomOp* op) { return ((OrtLiteCustomOp*)op)->execution_provider_.c_str(); };
+    //OrtCustomOp::GetInputMemoryType = [](const OrtCustomOp*, size_t) { return OrtMemTypeDefault; };
 
     OrtCustomOp::GetInputTypeCount = [](const OrtCustomOp* op) {
       auto self = reinterpret_cast<const OrtLiteCustomOp*>(op);
