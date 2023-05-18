@@ -13,12 +13,11 @@ struct STFT : public BaseKernel {
   }
 
   void Compute(const ortc::Tensor<float>& x1,
-            int64_t n_fft,
-            int64_t hop_length,
-            const ortc::Tensor<float>& x4,
-            int64_t frame_length,
-            ortc::Tensor<float>& output0) {
-
+               int64_t n_fft,
+               int64_t hop_length,
+               const ortc::Span<float>& x4,
+               int64_t frame_length,
+               ortc::Tensor<float>& output0) {
     const float* X = x1.Data();
     const float* window = x4.Data();
     const auto& dimensions = x1.Shape();
@@ -27,14 +26,11 @@ struct STFT : public BaseKernel {
     if (dimensions.size() < 2 || dimensions.size() != dimensions[1]) {
       ORTX_CXX_API_THROW("[Stft] Only batch == 1 tensor supported.", ORT_INVALID_ARGUMENT);
     }
-    if (win_dim.size() != 1) {
-      ORTX_CXX_API_THROW("[Stft] Only 1-d hanning window supported.", ORT_INVALID_ARGUMENT);
-    }
     if (frame_length != n_fft) {
       ORTX_CXX_API_THROW("[Stft] Only support size of FFT equals the frame length.", ORT_INVALID_ARGUMENT);
     }
 
-    auto win_length = win_dim[0];
+    auto win_length = x4.size();
     dlib::matrix<float> dm_x = dlib::mat(X, 1, dimensions[1]);
     dlib::matrix<float> hann_win = dlib::mat(window, 1, win_length);
 

@@ -18,6 +18,8 @@
 
 #include "exceptions.h"
 
+#define MIN_ORT_VERSION_SUPPORTED 10
+
 namespace OrtW {
 
 //
@@ -63,7 +65,7 @@ struct CustomOpApi {
 template <typename TOp, typename TKernel>
 struct CustomOpBase : OrtCustomOp {
   CustomOpBase() {
-    OrtCustomOp::version = 10;  // The minimum ORT version supported
+    OrtCustomOp::version = MIN_ORT_VERSION_SUPPORTED;  // The minimum ORT version supported
     OrtCustomOp::CreateKernel = [](const OrtCustomOp* this_, const OrtApi* api, const OrtKernelInfo* info) {
       void* result = nullptr;
       OCOS_API_IMPL_BEGIN
