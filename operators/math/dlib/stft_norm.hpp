@@ -21,7 +21,6 @@ struct STFT : public BaseKernel {
     const float* X = x1.Data();
     const float* window = x4.Data();
     const auto& dimensions = x1.Shape();
-    const auto& win_dim = x4.Shape();
 
     if (dimensions.size() < 2 || dimensions.size() != dimensions[1]) {
       ORTX_CXX_API_THROW("[Stft] Only batch == 1 tensor supported.", ORT_INVALID_ARGUMENT);
