@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.25)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
 # set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -145,10 +145,15 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-set(CMAKE_FIND_FRAMEWORK NEVER CACHE STRING "...")
+# set both regular and cache variables to NEVER. the regular variable has a default of FIRST defined by cmake,
+# but due to CMP0126 that will exist in parallel to the cached variable if the CMake minimum version is >= 3.25.
+# if we don't set this to NEVER (or possibly LAST) the builds of the wheel for different python versions will fail
+# as it will find the system python version first and not the correct python version for the wheel.
+set(CMAKE_FIND_FRAMEWORK "NEVER")
+set(CMAKE_FIND_FRAMEWORK "NEVER" CACHE STRING "...")
 
 if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
-  message(FATAL_ERROR "CMAKE_FIND_FRAMEWORK is not NEVER")
+  message(STATUS "CMAKE_FIND_FRAMEWORK is ${CMAKE_FIND_FRAMEWORK} not NEVER.")
 endif()
 
 # External dependencies
