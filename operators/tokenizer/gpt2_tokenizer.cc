@@ -4,7 +4,6 @@
 
 #include "gpt2_tokenizer.hpp"
 
-
 KernelBpeTokenizer::KernelBpeTokenizer(const OrtApi& api, const OrtKernelInfo& info)
     : BaseKernel(api, info) {
   std::string vocab = ort_.KernelInfoGetAttribute<std::string>(&info, "vocab");
@@ -80,12 +79,12 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(const ustring& input, int64_t 
   return res;
 }
 
-void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
+void KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
+                                 ortc::Tensor<int64_t>& tokenize_output,
+                                 std::optional<ortc::Tensor<int64_t>*> attention_mask) {
   // Setup inputs
-  const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
-  std::vector<std::string> str_input;
-  GetTensorMutableDataString(api_, ort_, context, input, str_input);
-  OrtTensorDimensions input_dim(ort_, input);
+  std::vector<std::string> str_input{input.Data()};
+  const auto& input_dim = input.Shape();
 
   std::vector<std::vector<int64_t>> tokenize_results;
   for (auto& str : str_input) {
@@ -101,13 +100,11 @@ void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
     max_length = static_cast<size_t>(padding_length_);
   }
 
-  OrtTensorDimensions output_dim = input_dim;
+  std::vector<int64_t> output_dim = input_dim;
   output_dim.push_back(max_length);
-  OrtValue* tokenize_output = ort_.KernelContext_GetOutput(context, 0, output_dim.data(), output_dim.size());
-  OrtValue* attention_mask = ort_.KernelContext_GetOutput(context, 1, output_dim.data(), output_dim.size());
-  auto* token = ort_.GetTensorMutableData<int64_t>(tokenize_output);
-  if (attention_mask != nullptr) {
-    auto* mask = ort_.GetTensorMutableData<int64_t>(attention_mask);
+  auto* token = tokenize_output.Allocate(output_dim);
+  if (attention_mask.has_value()) {
+    auto* mask = attention_mask.value()->Allocate(output_dim);
     int idx = 0;
     for (auto& res : tokenize_results) {
       for (int64_t id : res) {
@@ -133,33 +130,4 @@ void KernelBpeTokenizer::Compute(OrtKernelContext* context) {
       idx++;
     }
   }
-}
-
-const char* CustomOpBpeTokenizer::GetName() const {
-  return "GPT2Tokenizer";
-}
-
-size_t CustomOpBpeTokenizer::GetInputTypeCount() const {
-  return 1;
-}
-
-ONNXTensorElementDataType CustomOpBpeTokenizer::GetInputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-}
-
-OrtCustomOpInputOutputCharacteristic CustomOpBpeTokenizer::GetInputCharacteristic(size_t /*index*/) const {
-  return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
-}
-
-size_t CustomOpBpeTokenizer::GetOutputTypeCount() const {
-  return 2;
-}
-
-ONNXTensorElementDataType CustomOpBpeTokenizer::GetOutputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-}
-
-OrtCustomOpInputOutputCharacteristic CustomOpBpeTokenizer::GetOutputCharacteristic(size_t index) const {
-  return index == 0 ? OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED
-                    : OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_OPTIONAL;
 }

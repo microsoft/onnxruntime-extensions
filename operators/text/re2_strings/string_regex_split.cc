@@ -9,7 +9,7 @@
 
 void KernelStringRegexSplitWithOffsets(const ortc::Tensor<std::string>& input,
                                        std::string_view str_pattern,
-                                       std::string_view str_keep_pattern,
+                                       const ortc::Tensor<std::string>& str_keep_pattern,
                                        ortc::Tensor<std::string>& output_text,
                                        ortc::Tensor<int64_t>& output_begin,
                                        ortc::Tensor<int64_t>& output_end,
@@ -18,14 +18,19 @@ void KernelStringRegexSplitWithOffsets(const ortc::Tensor<std::string>& input,
 
   std::vector<std::string> str_input(input.Data());
 
-  if (str_pattern.empty())
+  if (str_pattern.empty()) {
     ORTX_CXX_API_THROW("Splitting pattern cannot be empty.", ORT_INVALID_ARGUMENT);
-
+  }
+  if (str_keep_pattern.Data().size() > 1) {
+    ORTX_CXX_API_THROW(MakeString("Third input must contain only one element. It has ",
+                                  str_keep_pattern.Data().size(), " values."),
+                       ORT_INVALID_ARGUMENT);
+  }
   auto dimensions = input.Shape();
-  bool include_delimiter = (str_keep_pattern.size() == 1) && (!str_keep_pattern.empty());
+  bool include_delimiter = (str_keep_pattern.Data().size() == 1) && (!str_keep_pattern.Data()[0].empty());
 
   re2::RE2 reg(str_pattern.data());
-  re2::RE2 keep_reg(include_delimiter ? str_keep_pattern.data() : "");
+  re2::RE2 keep_reg(include_delimiter ? str_keep_pattern.Data()[0].data() : "");
 
   std::vector<std::string> all_tokens;
   std::vector<int64_t> all_begin_offsets, all_end_offsets;
