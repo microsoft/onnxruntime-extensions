@@ -139,7 +139,7 @@ void KernelRobertaBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
 
   auto* token = tokenize_output.Allocate(output_dim);
   if (attention_mask.has_value()) {
-    auto* mask = attention_mask.value()->Allocate(output_dim);
+    auto* mask = (*attention_mask)->Allocate(output_dim);
     int idx = 0;
     for (auto& res : tokenize_results) {
       for (int64_t id : res) {
@@ -154,7 +154,7 @@ void KernelRobertaBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
     }
   }
   if (offset_mapping.has_value()) {
-    auto* offset = offset_mapping.value()->Allocate(offset_dim);
+    auto* offset = (*offset_mapping)->Allocate(offset_dim);
     int idx2 = 0;
     for (auto& res : offset_map) {
       for (auto& mapping : res) {
