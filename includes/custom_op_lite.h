@@ -568,7 +568,12 @@ struct OrtLiteCustomFunc : public OrtLiteCustomOp {
     OrtCustomOp::KernelCompute = [](void* op_kernel, OrtKernelContext* context) {
       auto kernel = reinterpret_cast<Kernel*>(op_kernel);
       std::vector<TensorPtr> tensors;
-      auto t = CreateTuple<0, 0, Args...>(kernel->api_.get(), context, tensors, kernel->num_input_, kernel->num_output_, kernel->ep_);
+      auto t = CreateTuple<0, 0, Args...>(kernel->api_.get(),
+                                          context,
+                                          tensors,
+                                          kernel->api_->KernelContext_GetInputCount(context),
+                                          kernel->api_->KernelContext_GetOutputCount(context),
+                                          kernel->ep_);
       std::apply([kernel](Args const&... t_args) { kernel->compute_fn_(t_args...); }, t);
     };
 
@@ -576,8 +581,6 @@ struct OrtLiteCustomFunc : public OrtLiteCustomOp {
       auto kernel = std::make_unique<Kernel>();
       auto self = static_cast<const OrtLiteCustomFunc*>(this_);
       kernel->compute_fn_ = self->compute_fn_;
-      // Ort::ThrowOnError(ort_api->KernelInfo_GetInputCount(info, &kernel->num_input_));
-      // Ort::ThrowOnError(ort_api->KernelInfo_GetOutputCount(info, &kernel->num_output_));
       kernel->num_input_ = self->input_types_.size();
       kernel->num_output_ = self->output_types_.size();
       kernel->ep_ = self->execution_provider_;
@@ -620,14 +623,17 @@ struct OrtLiteCustomStruct : public OrtLiteCustomOp {
     OrtCustomOp::KernelCompute = [](void* op_kernel, OrtKernelContext* context) {
       auto kernel = reinterpret_cast<Kernel*>(op_kernel);
       std::vector<TensorPtr> tensors;
-      auto t = CreateTuple<0, 0, Args...>(kernel->api_.get(), context, tensors, kernel->num_input_, kernel->num_output_, kernel->ep_);
+      auto t = CreateTuple<0, 0, Args...>(kernel->api_.get(),
+                                          context,
+                                          tensors,
+                                          kernel->api_->KernelContext_GetInputCount(context),
+                                          kernel->api_->KernelContext_GetOutputCount(context),
+                                          kernel->ep_);
       std::apply([kernel](Args const&... t_args) { kernel->custom_op_->Compute(t_args...); }, t);
     };
 
     OrtCustomOp::CreateKernel = [](const OrtCustomOp* this_, const OrtApi* ort_api, const OrtKernelInfo* info) {
       auto kernel = std::make_unique<Kernel>();
-      // Ort::ThrowOnError(ort_api->KernelInfo_GetInputCount(info, &kernel->num_input_));
-      // Ort::ThrowOnError(ort_api->KernelInfo_GetOutputCount(info, &kernel->num_output_));
       kernel->custom_op_ = std::make_unique<CustomOp>(*ort_api, *info);
       auto self = static_cast<const MyType*>(this_);
       kernel->num_input_ = self->input_types_.size();

@@ -99,8 +99,8 @@ struct KernelBpeDecoder : public BaseKernel {
     arr_vocab_.shrink_to_fit();
   }
 
-  void Compute(const ortc::Tensor<int64_t>& ids, ortc::Tensor<std::string>& output) {
-
+  void Compute(const ortc::Tensor<int64_t>& ids,
+               ortc::Tensor<std::string>& output) {
     const int64_t* p_ids = ids.Data();
     const auto& ids_dim = ids.Shape();
     std::vector<int64_t> output_dim = {1};
@@ -110,7 +110,7 @@ struct KernelBpeDecoder : public BaseKernel {
     }
 
     size_t seq_len = ids_dim.back();
-    size_t string_batch = ids_dim.size() / seq_len;
+    size_t string_batch = ids.NumberOfElement() / seq_len;
     std::vector<std::string> decoded_strings;
     decoded_strings.reserve(string_batch);
 
@@ -118,7 +118,7 @@ struct KernelBpeDecoder : public BaseKernel {
       std::string text;
       bool f_special_last = false;
       bool f_special = false;
-      auto count = static_cast<size_t>(ids_dim.size());
+      auto count = static_cast<size_t>(ids.NumberOfElement());
 
       for (size_t tok_idx = 0; tok_idx < count; ++tok_idx) {
         const auto token = *(p_ids + tok_idx);
@@ -164,8 +164,7 @@ struct KernelBpeDecoder : public BaseKernel {
       decoded_strings.emplace_back(std::move(text));
       p_ids += seq_len;
     }
-
-    output.SetStringOutput(decoded_strings, {static_cast<int64_t>(decoded_strings.size())});
+    output.SetStringOutput(decoded_strings, output_dim);
   }
 
  private:

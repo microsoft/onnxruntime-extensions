@@ -25,6 +25,9 @@ const std::vector<const OrtCustomOp*>& TextLoader() {
       CustomCpuStruct("StringRegexReplace", KernelStringRegexReplace),
       CustomCpuFunc("StringRegexSplitWithOffsets", KernelStringRegexSplitWithOffsets),
 #endif  // ENABLE_RE2_REGEX
+      CustomCpuStruct("RaggedTensorToSparse", KernelRaggedTensoroSparse),
+      CustomCpuStruct("RaggedTensorToDense", KernelRaggedTensoroDense),
+      CustomCpuStruct("StringRaggedTensorToDense", KernelStringRaggedTensoroDense),
       CustomCpuStruct("StringEqual", KernelStringEqual),
       CustomCpuFunc("StringToHashBucket", string_hash),
       CustomCpuFunc("StringToHashBucketFast", string_hash_fast),
