@@ -508,6 +508,7 @@ struct OrtLiteCustomOp : public OrtCustomOp {
 
     OrtCustomOp::GetName = [](const OrtCustomOp* op) { return static_cast<const OrtLiteCustomOp*>(op)->op_name_.c_str(); };
     OrtCustomOp::GetExecutionProviderType = [](const OrtCustomOp* op) { return ((OrtLiteCustomOp*)op)->execution_provider_.c_str(); };
+    //OrtCustomOp::GetInputMemoryType = [](const OrtCustomOp*, size_t) { return OrtMemTypeDefault; };
 
     OrtCustomOp::GetInputTypeCount = [](const OrtCustomOp* op) {
       auto self = reinterpret_cast<const OrtLiteCustomOp*>(op);
