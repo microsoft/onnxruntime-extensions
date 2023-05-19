@@ -118,8 +118,8 @@ class Tensor : public TensorBase {
   }
 
  private:
-  const OrtValue* const_value_;  // for input
-  TT* data_{};                   // for output
+  const OrtValue* const_value_{};  // for input
+  TT* data_{};                     // for output
   Span<T> span_;
 };
 

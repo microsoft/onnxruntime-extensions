@@ -104,7 +104,7 @@ void KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
   output_dim.push_back(max_length);
   auto* token = tokenize_output.Allocate(output_dim);
   if (attention_mask.has_value()) {
-    auto* mask = attention_mask.value()->Allocate(output_dim);
+    auto* mask = (*attention_mask)->Allocate(output_dim);
     int idx = 0;
     for (auto& res : tokenize_results) {
       for (int64_t id : res) {
