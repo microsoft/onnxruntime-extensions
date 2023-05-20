@@ -10,7 +10,7 @@ parameters:
 
 - name: PoolName
   type: string
-  default: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'
+  default: 'ubuntu-latest'
 
 - name: OrtExtensionsCFlags
   type: string
