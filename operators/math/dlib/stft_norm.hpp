@@ -6,9 +6,10 @@
 #include "ocos.h"
 #include <dlib/matrix.h>
 
-template <bool with_norm = false>
 struct STFT : public BaseKernel {
-  STFT(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
+  STFT(const OrtApi& api, const OrtKernelInfo& info,
+       bool with_norm = false) : BaseKernel(api, info),
+                                 with_norm_(with_norm) {
     onesided_ = TryToGetAttributeWithDefault<int64_t>("onesided", 1);
   }
 
@@ -18,9 +19,8 @@ struct STFT : public BaseKernel {
                const ortc::Span<float>& input3,
                int64_t frame_length,
                ortc::Tensor<float>& output0) {
-
     auto X = input0.Data();
-    auto window = input3.Data();
+    auto window = input3.data();
     auto dimensions = input0.Shape();
     auto win_length = input3.size();
 
@@ -42,7 +42,7 @@ struct STFT : public BaseKernel {
       m_stft = dlib::subm(m_stft, 0, 0, m_stft.nr(), (m_stft.nc() >> 1) + 1);
     }
 
-    if (with_norm) {
+    if (with_norm_) {
       dlib::matrix<float> result = dlib::norm(m_stft);
       result = dlib::trans(result);
       std::vector<int64_t> outdim{1, result.nr(), result.nc()};
@@ -66,4 +66,9 @@ struct STFT : public BaseKernel {
   }
 
   int64_t onesided_{};
+  bool with_norm_{};
+};
+
+struct StftNormal : public STFT {
+  StftNormal(const OrtApi& api, const OrtKernelInfo& info) : STFT(api, info, true) {}
 };
