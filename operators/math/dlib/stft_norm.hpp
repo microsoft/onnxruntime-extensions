@@ -71,7 +71,6 @@ struct STFT : public BaseKernel {
 
 struct StftNormal : public STFT {
   StftNormal(const OrtApi& api, const OrtKernelInfo& info) : STFT(api, info, true) {}
-
   void Compute(const ortc::Tensor<float>& input0,
                int64_t n_fft,
                int64_t hop_length,
