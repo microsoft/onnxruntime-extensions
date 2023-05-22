@@ -5,6 +5,7 @@
 #include "onnxruntime_customop.hpp"
 #include <optional>
 #include <numeric>
+// uplevel the version when supported ort version migrates to newer ones
 #define SUPPORT_ORT_API_VERSION_TO 13
 
 namespace Ort {
