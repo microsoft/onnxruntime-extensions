@@ -8,6 +8,7 @@ from setuptools import setup, find_packages
 from setuptools.command.build import build as _build
 from setuptools.command.build_ext import build_ext as _build_ext
 
+import re
 import os
 import sys
 import setuptools
@@ -82,6 +83,7 @@ class BuildCMakeExt(_build_ext):
             '-DOCOS_EXTENTION_NAME=' + ext_fullpath.name,
             '-DCMAKE_BUILD_TYPE=' + config
         ]
+
         if os.environ.get('OCOS_NO_OPENCV') == '1':
             # Disabling openCV can drastically reduce the build time.
             cmake_args += [
@@ -89,6 +91,38 @@ class BuildCMakeExt(_build_ext):
                 '-DOCOS_ENABLE_OPENCV_CODECS=OFF',
                 '-DOCOS_ENABLE_CV2=OFF',
                 '-DOCOS_ENABLE_VISION=OFF']
+
+        # CMake lets you override the generator - we need to check this.
+        # Can be set with Conda-Build, for example.
+        cmake_generator = os.environ.get("CMAKE_GENERATOR", "")
+        # Adding CMake arguments set as environment variable
+        # (needed e.g. to build for ARM OSx on conda-forge)
+        if "CMAKE_ARGS" in os.environ:
+            cmake_args += [item for item in os.environ["CMAKE_ARGS"].split(" ") if item]
+
+        if sys.platform != "win32":
+            # Using Ninja-build since it a) is available as a wheel and b)
+            # multithreads automatically. MSVC would require all variables be
+            # exported for Ninja to pick it up, which is a little tricky to do.
+            # Users can override the generator with CMAKE_GENERATOR in CMake
+            # 3.15+.
+            if not cmake_generator or cmake_generator == "Ninja":
+                try:
+                    import ninja  # noqa: F401
+
+                    ninja_executable_path = os.path.join(ninja.BIN_DIR, "ninja")
+                    cmake_args += [
+                        "-GNinja",
+                        f"-DCMAKE_MAKE_PROGRAM:FILEPATH={ninja_executable_path}",
+                    ]
+                except ImportError:
+                    pass
+
+        if sys.platform.startswith("darwin"):
+            # Cross-compile support for macOS - respect ARCHFLAGS if set
+            archs = re.findall(r"-arch (\S+)", os.environ.get("ARCHFLAGS", ""))
+            if archs:
+                cmake_args += ["-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))]
 
         # overwrite the Python module info if the auto-detection doesn't work.
         # export Python3_INCLUDE_DIRS=/opt/python/cp38-cp38
