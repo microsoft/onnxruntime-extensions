@@ -12,12 +12,12 @@ void gaussian_blur(const ortc::Tensor<float>& input_data,
   if (input_ksize.size() != 2) {
     ORTX_CXX_API_THROW("[GaussianBlur]: ksize shape is (2,)", ORT_INVALID_ARGUMENT);
   }
-  std::copy_n(input_ksize.Data(), 2, ksize);
+  std::copy_n(input_ksize.data(), 2, ksize);
 
   if (input_sigma.size() != 2) {
     ORTX_CXX_API_THROW("[GaussianBlur]: sigma shape is (2,)", ORT_INVALID_ARGUMENT);
   }
-  std::copy_n(input_sigma.Data(), 2, sigma);
+  std::copy_n(input_sigma.data(), 2, sigma);
 
   auto& input_data_dimensions = input_data.Shape();
 

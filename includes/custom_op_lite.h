@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 #pragma once
 #include "onnxruntime_customop.hpp"
 #include <optional>
@@ -67,7 +70,7 @@ struct Span {
   T operator[](size_t indice) const {
     return data_[indice];
   }
-  const T* Data() const { return data_; }
+  const T* data() const { return data_; }
 };
 
 template <typename T>
@@ -508,7 +511,6 @@ struct OrtLiteCustomOp : public OrtCustomOp {
 
     OrtCustomOp::GetName = [](const OrtCustomOp* op) { return static_cast<const OrtLiteCustomOp*>(op)->op_name_.c_str(); };
     OrtCustomOp::GetExecutionProviderType = [](const OrtCustomOp* op) { return ((OrtLiteCustomOp*)op)->execution_provider_.c_str(); };
-    //OrtCustomOp::GetInputMemoryType = [](const OrtCustomOp*, size_t) { return OrtMemTypeDefault; };
 
     OrtCustomOp::GetInputTypeCount = [](const OrtCustomOp* op) {
       auto self = reinterpret_cast<const OrtLiteCustomOp*>(op);
@@ -552,8 +554,6 @@ struct OrtLiteCustomFunc : public OrtLiteCustomOp {
   using MyType = OrtLiteCustomFunc<Args...>;
 
   struct Kernel {
-    size_t num_input_{};
-    size_t num_output_{};
     ComputeFn compute_fn_{};
     std::string ep_{};
     std::unique_ptr<OrtW::CustomOpApi> api_;
@@ -581,8 +581,6 @@ struct OrtLiteCustomFunc : public OrtLiteCustomOp {
       auto kernel = std::make_unique<Kernel>();
       auto self = static_cast<const OrtLiteCustomFunc*>(this_);
       kernel->compute_fn_ = self->compute_fn_;
-      kernel->num_input_ = self->input_types_.size();
-      kernel->num_output_ = self->output_types_.size();
       kernel->ep_ = self->execution_provider_;
       kernel->api_ = std::make_unique<OrtW::CustomOpApi>(*ort_api);
       return reinterpret_cast<void*>(kernel.release());
@@ -603,8 +601,6 @@ struct OrtLiteCustomStruct : public OrtLiteCustomOp {
   using MyType = OrtLiteCustomStruct<CustomOp>;
 
   struct Kernel {
-    size_t num_input_{};
-    size_t num_output_{};
     std::unique_ptr<CustomOp> custom_op_;
     std::string ep_{};
     std::unique_ptr<OrtW::CustomOpApi> api_;
@@ -636,8 +632,6 @@ struct OrtLiteCustomStruct : public OrtLiteCustomOp {
       auto kernel = std::make_unique<Kernel>();
       kernel->custom_op_ = std::make_unique<CustomOp>(*ort_api, *info);
       auto self = static_cast<const MyType*>(this_);
-      kernel->num_input_ = self->input_types_.size();
-      kernel->num_output_ = self->output_types_.size();
       kernel->ep_ = self->execution_provider_;
       kernel->api_ = std::make_unique<OrtW::CustomOpApi>(*ort_api);
       return reinterpret_cast<void*>(kernel.release());

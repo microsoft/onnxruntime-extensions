@@ -11,8 +11,8 @@ const std::vector<const OrtCustomOp*>& MathLoader() {
   static OrtOpLoader op_loader(CustomCpuFunc("NegPos", neg_pos),
 #ifdef ENABLE_DLIB
                                CustomCpuFunc("Inverse", inverse),
-                               CustomCpuStruct("STFT", STFT<false>),
-                               CustomCpuStruct("StftNorm", STFT<true>),
+                               CustomCpuStruct("STFT", STFT),
+                               CustomCpuStruct("StftNorm", StftNormal),
 #endif
                                CustomCpuFunc("SegmentExtraction", segment_extraction),
                                CustomCpuFunc("SegmentSum", segment_sum));
