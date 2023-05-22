@@ -47,8 +47,7 @@ jobs:
       - bash: |
           sudo apt remove cmake
           pip install cmake --upgrade
-          export PATH=~/home/cloudtest/.local/lib/python3.8/site-packages/cmake:$PATH
-          source ~/.profile
+          export PATH=~/.local/bin:$PATH
           cmake --version
           export CFLAGS="${{parameters.OrtExtensionsCFlags}}"
           export CXXFLAGS="${{parameters.OrtExtensionsCXXFlags}}"
