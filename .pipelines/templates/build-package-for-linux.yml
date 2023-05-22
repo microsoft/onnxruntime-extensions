@@ -36,6 +36,7 @@ jobs:
 
     # Currently we can only run tests on x64 as the arm64 tests have a failure
     # https://github.com/microsoft/onnxruntime-extensions/issues/417
+    # NOTE: on arm64 machine, CMake version needs to be updated since we now require CMake 3.25 or newer.
     - ${{ if eq(parameters.OrtExtensionsArch, 'x64') }}:
       - bash: |
           export CFLAGS="${{parameters.OrtExtensionsCFlags}}"
