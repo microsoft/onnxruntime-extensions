@@ -45,8 +45,13 @@ jobs:
         displayName: 'build onnxruntime-extensions and run tests'
     - ${{ else }}:
       - bash: |
-          sudo apt remove cmake
-          pip install cmake --upgrade
+          sudo apt purge cmake
+          wget https://github.com/Kitware/CMake/releases/download/v3.26.4/cmake-3.26.4-linux-aarch64.tar.gz
+          tar zxvf cmake-3.26.4-linux-aarch64.tar.gz
+          cd cmake-3.26.4-linux-aarch64
+          sudo ./bootstrap
+          sudo make
+          sudo make install
           cmake --version
           export CFLAGS="${{parameters.OrtExtensionsCFlags}}"
           export CXXFLAGS="${{parameters.OrtExtensionsCXXFlags}}"
