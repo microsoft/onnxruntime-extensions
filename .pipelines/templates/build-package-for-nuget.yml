@@ -19,6 +19,10 @@ parameters:
   type: boolean
   default: false
 
+- name: NugetVersionSuffix
+  displayName: Nuget version suffix
+  type: string
+
 - name: OrtNugetPackageId
   displayName: Package name for nuget
   type: string
@@ -226,6 +230,7 @@ stages:
             --commit_id $(Build.SourceVersion) `
             --is_release_build ${{ parameters.IsReleaseBuild }} `
             --is_for_nuget_publish ${{ parameters.IsForNugetPublish }}
+            --nuget_version_suffix ${{ parameters.NugetVersionSuffix }}
 
           cat $(Build.SourcesDirectory)\nuget\NativeNuget.nuspec
         workingDirectory: '$(Build.SourcesDirectory)'

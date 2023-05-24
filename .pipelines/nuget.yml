@@ -19,6 +19,15 @@ parameters:
   type: boolean
   default: false
 
+- name: NugetVersionSuffix
+  displayName: Update nuget version suffix (only needed if publishing to nuget.org)
+  type: string
+  default: alpha
+  values:
+    - alpha
+    - beta
+    - rc
+
 trigger:
   branches:
     exclude:
@@ -36,4 +45,5 @@ stages:
     DoEsrp: ${{ parameters.DoEsrp }}
     IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
     IsForNugetPublish: ${{ parameters.IsForNugetPublish }}
+    NugetVersionSuffix: ${{ parameters.NugetVersionSuffix }}
     OrtNugetPackageId: 'Microsoft.ML.OnnxRuntime.Extensions'
