@@ -462,6 +462,16 @@ class TestPythonOpString(unittest.TestCase):
         txout = sess.run(None, {'input_1': input_1})
         self.assertEqual(txout[0].tolist(), np.array([["a b c"]]).tolist())
 
+    def test_string_strip_cc_empty(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_strip('')
+        self.assertIn('op_type: "StringUpper"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        input_1 = np.array([[""]])
+        txout = sess.run(None, {'input_1': input_1})
+        self.assertEqual(txout[0].tolist(), np.array([[""]]).tolist())
+
     def test_string_upper_cc(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
