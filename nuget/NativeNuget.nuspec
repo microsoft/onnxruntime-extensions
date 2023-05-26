@@ -13,7 +13,7 @@
       4. Introduces the Audio Domain, complemented with AudioCodec and optimized STFT Operators, enhancing audio processing capabilities.
       5. Enabled optional input/output support for some operators such as GPT2Tokenizer, ClipTokenizer, and RobertaTokenizer.
       6. Refined the implementation of offset mapping for BBPE-style tokenizers for more operators and efficiency improvement.
-	  7. Other bug and security fixings
+      7. Other bug and security fixes.
 	</releaseNotes>
     <copyright>© Microsoft Corporation. All rights reserved.</copyright>
     <tags>ONNX ONNXRuntime AI Machine Learning</tags>
