@@ -173,6 +173,22 @@ def _create_test_model_string_equal(prefix, domain='ai.onnx.contrib'):
     return model
 
 
+def _create_test_model_string_strip(prefix, domain='ai.onnx.contrib'):
+    nodes = []
+    nodes[0:] = [helper.make_node('Identity', ['input_1'], ['identity1'])]
+    nodes[1:] = [helper.make_node('%sStringStrip' % prefix,
+                                  ['identity1'], ['customout'],
+                                  domain=domain)]
+
+    input0 = helper.make_tensor_value_info(
+        'input_1', onnx_proto.TensorProto.STRING, [None, None])
+    output0 = helper.make_tensor_value_info(
+        'customout', onnx_proto.TensorProto.STRING, [None, None])
+
+    graph = helper.make_graph(nodes, 'test0', [input0], [output0])
+    model = make_onnx_model(graph)
+    return model
+
 def _create_test_model_string_split(prefix, domain='ai.onnx.contrib'):
     nodes = []
     nodes.append(helper.make_node('Identity', ['input'], ['id1']))
@@ -435,6 +451,16 @@ class TestPythonOpString(unittest.TestCase):
             'dt_uint8']
         for t in type_list:
             self.assertIn(t, def_list)
+
+    def test_string_strip_cc(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_string_strip('')
+        self.assertIn('op_type: "StringUpper"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        input_1 = np.array([["  a b c  "]])
+        txout = sess.run(None, {'input_1': input_1})
+        self.assertEqual(txout[0].tolist(), np.array([["a b c"]]).tolist())
 
     def test_string_upper_cc(self):
         so = _ort.SessionOptions()
@@ -1149,7 +1175,7 @@ class TestPythonOpString(unittest.TestCase):
                     value_dtype=tf.int64)
                 res = tf.lookup.StaticVocabularyTable(init, num_oov, lookup_key_dtype=tf.string)
                 res.__len__ = lambda self: len(vocab)
-                  
+
 
             vocab_table = _CreateTable(["want", "##want", "##ed", "wa", "un", "runn", "##ing"])
 
