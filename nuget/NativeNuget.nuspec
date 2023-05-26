@@ -2,23 +2,19 @@
 <package>
   <metadata>
     <id>Microsoft.ML.OnnxRuntime.Extensions</id>
-    <version>0.8.0-alpha</version>
+    <version>0.8.0</version>
     <authors>Microsoft</authors>
     <owners>Microsoft</owners>
     <description>ONNX Runtime Extensions NuGet Package</description>
     <releaseNotes>
-      General
-      1. New custom operators: Whisper, DrawBoundingBoxes, RobertaTokenizer, ClipTokenizer, EncodeImage, DecodeImage
-      2. Optional input/output support
-      3. ORT custom operator C++ stub generation tool
-      4. Operator implementation and documentation improved.
-
-      Mobile
-      1. Android package: Maven
-      2. iOS package: CocoaPods
-      3. PrePostProcessor tool for mobile model
-      4. Super-resolution model pre- / post- processing end-to-end examples
-    </releaseNotes>
+      1. NuGet package for the .NET platform. This package offers comprehensive platform support, including Windows, Linux, MacOS, Android, and iOS. Both x64 and arm64 architectures are supported, where applicable.
+      2. Support for pre-processing and post-processing of the Whisper model, inclusive of Audio and Tokenizer decoding operators.
+      3. Extends support for pre-processing and post-processing of object-detection models, including a new DrawBoundingBoxes operator. Pre/post processing tools can add non-max-suppression to the model to select the best bounding boxes, and scale those to the original image. See the end-to-end example in yolo_e2e.py.
+      4. Introduces the Audio Domain, complemented with AudioCodec and optimized STFT Operators, enhancing audio processing capabilities.
+      5. Enabled optional input/output support for some operators such as GPT2Tokenizer, ClipTokenizer, and RobertaTokenizer.
+      6. Refined the implementation of offset mapping for BBPE-style tokenizers for more operators and efficiency improvement.
+	  7. Other bug and security fixings
+	</releaseNotes>
     <copyright>© Microsoft Corporation. All rights reserved.</copyright>
     <tags>ONNX ONNXRuntime AI Machine Learning</tags>
     <icon>ORT_icon_for_light_bg.png</icon>
