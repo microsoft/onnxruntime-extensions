@@ -26,7 +26,7 @@ def _run_string_length(input):
 
     so = _ort.SessionOptions()
     so.register_custom_ops_library(_get_library_path())
-    sess = _ort.InferenceSession(model.SerializeToString(), so)
+    sess = _ort.InferenceSession(model.SerializeToString(), so, providers=['CPUExecutionProvider'])
     result = sess.run(None, {'input_1': input})
 
     # verify

@@ -90,10 +90,11 @@ class TestGPT2Tokenizer(unittest.TestCase):
         return super().tearDown()
 
     def _run_tokenizer(self, test_sentence, padding_length=-1):
-        model = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges, max_length=padding_length, attention_mask=True)
+        model = _create_test_model(vocab_file=self.tokjson,
+                                   merges_file=self.merges, max_length=padding_length, attention_mask=True)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        sess = _ort.InferenceSession(model.SerializeToString(), so)
+        sess = _ort.InferenceSession(model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input_text = np.array(test_sentence)
         input_ids, attention_mask = sess.run(None, {'string_input': input_text})
         expect_input_ids, expect_attention_mask = self.tokenizer.tokenizer_sentence(test_sentence, padding_length)
@@ -118,10 +119,11 @@ class TestGPT2Tokenizer(unittest.TestCase):
         enable_py_op(False)
 
         # Test for model without attention mask (input id output is always required)
-        model = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges, max_length=-1, attention_mask=False)
+        model = _create_test_model(vocab_file=self.tokjson,
+                                   merges_file=self.merges, max_length=-1, attention_mask=False)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        sess = _ort.InferenceSession(model.SerializeToString(), so)
+        sess = _ort.InferenceSession(model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input_text = np.array(["Hello World"])
         outputs = sess.run(None, {'string_input': input_text})
 
@@ -132,7 +134,6 @@ class TestGPT2Tokenizer(unittest.TestCase):
         gpt2_out = self.tokenizer.tokenizer_sentence(["Hello World"], -1)
         expect_input_ids = gpt2_out[0]
         np.testing.assert_array_equal(expect_input_ids, outputs[0])
-
 
     def test_tokenizer_pyop(self):
         self._run_tokenizer(["I can feel the magic, can you?"])
