@@ -39,7 +39,7 @@ std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t
     return res;
   }
   // Add BOS token to result
-  res.push_back(bbpe_tokenizer_->GetEncoding("<s>"));
+  res.push_back(bbpe_tokenizer_->GetEncoding("<s>").second);
 
   // Parse input
   auto special_token_split_res = bbpe_tokenizer_->SplitBySpecialTokens(input);
@@ -104,7 +104,7 @@ std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t
     offset_map.emplace_back(offset_mapping);
   }
   // Add EOS token to result
-  res.emplace_back(bbpe_tokenizer_->GetEncoding("</s>"));
+  res.emplace_back(bbpe_tokenizer_->GetEncoding("</s>").second);
   return res;
 }
 

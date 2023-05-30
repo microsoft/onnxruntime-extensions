@@ -15,6 +15,7 @@
 #include "string_tensor.h"
 
 #include <iostream>
+#include <utility>
 
 // Note: the following logic comes from CPython: unicodetype_db.h (_PyUnicode_IsWhitespace)
 inline bool IsUnicodeSpace(char32_t ch) {
@@ -54,7 +55,11 @@ inline bool IsUnicodeSpace(char32_t ch) {
 }
 
 inline bool IsEmptyUString(const ustring& str) {
-  return std::all_of(str.begin(), str.end(), [](char32_t ch) { return IsUnicodeSpace(ch); });
+  if (str == ustring("\n")) {
+    return false;
+  } else {
+    return std::all_of(str.begin(), str.end(), [](char32_t ch) { return IsUnicodeSpace(ch); });
+  }
 }
 
 class SpecialTokenMap {
@@ -269,9 +274,14 @@ class VocabData {
     return special_tokens_.SplitBySpecialTokens(input);
   }
 
-  int GetEncoding(const std::string& key) {
+  // Returns {true, token} if key was found in vocab, and {false, -1} otherwise
+  std::pair<bool, int> GetEncoding(const std::string& key) {
     auto it = vocab_map_.find(key);
-    return it->second;
+    if (it != end(vocab_map_)) {
+      return {true, it->second};
+    } else {
+      return {false, -1};
+    }
   }
 
   size_t VocabSize() const { return vocab_map_.size(); }

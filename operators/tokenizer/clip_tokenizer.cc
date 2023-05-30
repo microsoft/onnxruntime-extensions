@@ -37,7 +37,7 @@ std::vector<int64_t> KernelClipBpeTokenizer::Tokenize(ustring& input, int64_t ma
     return res;
   }
   // Add BOS token to result
-  res.push_back(bbpe_tokenizer_->GetEncoding("<|startoftext|>"));
+  res.push_back(bbpe_tokenizer_->GetEncoding("<|startoftext|>").second);
 
   // Convert to lowercase
   std::transform(input.begin(), input.end(), input.begin(), [](char32_t c) { return static_cast<char32_t>(ToLower(c)); });
@@ -84,7 +84,11 @@ std::vector<int64_t> KernelClipBpeTokenizer::Tokenize(ustring& input, int64_t ma
       for (int i = 0; i < utf8_token.length(); i++) {
         if (i == utf8_token.length() - 1) {
           std::string boundary(1, utf8_token[i]);
-          byte_list_.push_back(std::make_pair(bbpe_tokenizer_->GetEncoding(boundary + "</w>"), 1));
+          auto const token_pair = bbpe_tokenizer_->GetEncoding(boundary + "</w>");
+          // Add token if exists in vocab otherwise skip
+          if (token_pair.first) {
+            byte_list_.push_back(std::make_pair(token_pair.second, 1));
+          }
         } else {
           byte_list_.push_back(std::make_pair(bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(utf8_token[i])], 1));
         }
@@ -111,7 +115,7 @@ std::vector<int64_t> KernelClipBpeTokenizer::Tokenize(ustring& input, int64_t ma
     offset_map.emplace_back(offset_mapping);
   }
   // Add EOS token to result
-  res.push_back(bbpe_tokenizer_->GetEncoding("<|endoftext|>"));
+  res.push_back(bbpe_tokenizer_->GetEncoding("<|endoftext|>").second);
   return res;
 }
 
