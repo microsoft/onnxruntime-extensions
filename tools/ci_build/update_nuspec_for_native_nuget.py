@@ -21,6 +21,8 @@ def update_nuspec(args):
         if package_item.tag == "version" and args.package_version:
             if args.is_release_build:
                 package_item.text = args.package_version
+            elif args.nuget_version_suffix != "none":
+                package_item.text = f"{args.package_version}-{args.nuget_version_suffix}"
             else:
                 import datetime
                 now = datetime.datetime.now().strftime('%Y%m%d-%H%M')
@@ -51,6 +53,7 @@ def parse_arguments():
                         help="Path to nuspec file to update.")
     parser.add_argument("--commit_id", required=True, help="The last commit id included in this package.")
     parser.add_argument("--is_release_build", default="False", type=str, help="If it's a release build.")
+    parser.add_argument("--nuget_version_suffix", type=str, help="Nuget version suffix (needed if publishing to nuget.org and not release build)")
 
     args = parser.parse_args()
     args.nuspec_path = args.nuspec_path.resolve(strict=True)
