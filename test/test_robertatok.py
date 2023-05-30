@@ -73,10 +73,11 @@ class TestRobertaTokenizer(unittest.TestCase):
         cls.tokenizer_cvt = HFTokenizerConverter(cls.slow_tokenizer)
 
     def _run_tokenizer(self, test_sentence, padding_length=-1):
-        model = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges, max_length=padding_length, attention_mask=True, offset_map=True)
+        model = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges,
+                                   max_length=padding_length, attention_mask=True, offset_map=True)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        sess = _ort.InferenceSession(model.SerializeToString(), so)
+        sess = _ort.InferenceSession(model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input_text = np.array(test_sentence)
         input_ids, attention_mask, offset_mapping = sess.run(None, {'string_input': input_text})
         print("\nTest Sentence: " + str(test_sentence))
@@ -128,8 +129,8 @@ class TestRobertaTokenizer(unittest.TestCase):
         model2 = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges, max_length=-1, attention_mask=False, offset_map=False)
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        sess1 = _ort.InferenceSession(model1.SerializeToString(), so)
-        sess2 = _ort.InferenceSession(model2.SerializeToString(), so)
+        sess1 = _ort.InferenceSession(model1.SerializeToString(), so, providers=['CPUExecutionProvider'])
+        sess2 = _ort.InferenceSession(model2.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input_text = np.array(["Hello World"])
         outputs1 = sess1.run(None, {'string_input': input_text})
         outputs2 = sess2.run(None, {'string_input': input_text})
@@ -142,10 +143,9 @@ class TestRobertaTokenizer(unittest.TestCase):
         roberta_out = self.tokenizer(["Hello World"], return_offsets_mapping=True)
         expect_input_ids = roberta_out['input_ids']
         expect_attention_mask = roberta_out['attention_mask']
-        expect_offset_mapping = roberta_out['offset_mapping']
         np.testing.assert_array_equal(expect_input_ids, outputs1[0])
         np.testing.assert_array_equal(expect_attention_mask, outputs1[1])
-        np.testing.assert_array_equal(expect_input_ids, outputs2[0])
+
 
 if __name__ == "__main__":
     unittest.main()

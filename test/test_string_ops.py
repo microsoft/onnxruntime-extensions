@@ -441,7 +441,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_upper('')
         self.assertIn('op_type: "StringUpper"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input_1 = np.array([["Abc"]])
         txout = sess.run(None, {'input_1': input_1})
         self.assertEqual(txout[0].tolist(), np.array([["ABC"]]).tolist())
@@ -451,7 +451,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_lower('')
         self.assertIn('op_type: "StringLower"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input_1 = np.array([["Abc"]])
         txout = sess.run(None, {'input_1': input_1})
         self.assertEqual(txout[0].tolist(), np.array([["abc"]]).tolist())
@@ -461,7 +461,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_upper('')
         self.assertIn('op_type: "StringUpper"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input_1 = np.array([["R"], ["Abcé"], ["ABC"], ["A"]])
         txout = sess.run(None, {'input_1': input_1})
         self.assertEqual(
@@ -473,7 +473,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_lower('')
         self.assertIn('op_type: "StringLower"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input_1 = np.array([["R"], ["Abce"], ["ABC"], ["A"]])
         txout = sess.run(None, {'input_1': input_1})
         self.assertEqual(
@@ -497,7 +497,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_upper('Py')
         self.assertIn('op_type: "PyStringUpper"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input_1 = np.array([["Abc"]])
         txout = sess.run(None, {'input_1': input_1})
         self.assertEqual(txout[0].tolist(), np.array([["ABC"]]).tolist())
@@ -507,7 +507,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_lower('Py')
         self.assertIn('op_type: "PyStringLower"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input_1 = np.array([["Abc"]])
         txout = sess.run(None, {'input_1': input_1})
         self.assertEqual(txout[0].tolist(), np.array([["abc"]]).tolist())
@@ -517,7 +517,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_upper('Py')
         self.assertIn('op_type: "PyStringUpper"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input_1 = np.array([["Abcé"]])
         txout = sess.run(None, {'input_1': input_1})
         self.assertEqual(txout[0].tolist(),
@@ -528,7 +528,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_lower('Py')
         self.assertIn('op_type: "PyStringLower"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input_1 = np.array([["Abcé"]])
         txout = sess.run(None, {'input_1': input_1})
         self.assertEqual(txout[0].tolist(),
@@ -539,7 +539,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_join('Py')
         self.assertIn('op_type: "PyStringJoin"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         text = np.vstack([np.array([["a", "b", "c"]]),
                           np.array([["aa", "bb", ""]])])
         self.assertEqual(text.shape, (2, 3))
@@ -560,7 +560,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_join('Py')
         self.assertIn('op_type: "PyStringJoin"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         text = np.vstack([np.array([["a", "b", "c"]]),
                           np.array([["aa", "bb", ""]])]).reshape((2, 3, 1))
         sep = np.array([";"])
@@ -575,7 +575,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_join('Py')
         self.assertIn('op_type: "PyStringJoin"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         text = np.array(["a", "b", "cc"])
         sep = np.array([";"])
         axis = np.array([0], dtype=np.int64)
@@ -589,7 +589,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_join('')
         self.assertIn('op_type: "StringJoin"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         text = np.vstack([np.array([["a", "b", "c"]]),
                           np.array([["aa", "bb", ""]])])
         sep = np.array([";"])
@@ -607,7 +607,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_join('')
         self.assertIn('op_type: "StringJoin"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         text = np.array(["a", "b", "cc"])
         sep = np.array([";"])
         axis = np.array([0], dtype=np.int64)
@@ -620,7 +620,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_join('')
         self.assertIn('op_type: "StringJoin"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         text = np.array([""])
         sep = np.array([" "])
         axis = np.array([0], dtype=np.int64)
@@ -633,7 +633,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_join('')
         self.assertIn('op_type: "StringJoin"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         text = np.array("a scalar string")
         sep = np.array([" "])
         axis = np.array([0], dtype=np.int64)
@@ -646,7 +646,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_join('')
         self.assertIn('op_type: "StringJoin"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         text = np.array(["a", "b", "c", "d", "e", "f", "g", "h"]).reshape((
             2, 2, 2))
         sep = np.array([";"])
@@ -671,7 +671,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace('')
         self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
         rewrite = np.array([r'static PyObject* py_\1(void) {'])
         text = np.array([['def myfunc():'], ['def dummy():']])
@@ -687,7 +687,7 @@ class TestPythonOpString(unittest.TestCase):
         onnx_model = _create_test_model_string_replace(
             '', global_replace=False)
         self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
         rewrite = np.array([r'static PyObject* py_\1(void) {'])
         text = np.array([['def myfunc():def myfunc():'],
@@ -703,7 +703,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace('')
         self.assertIn('op_type: "StringRegexReplace"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
         rewrite = np.array([r'static PyObject* py_\1(void) {'])
         text = np.array([['def myfunc():'], ['def dummy():' * 2]])
@@ -718,7 +718,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace('Py')
         self.assertIn('op_type: "PyStringRegexReplace"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
         rewrite = np.array([r'static PyObject*\npy_\1(void)\n{'])
         text = np.array([['def myfunc():'], ['def dummy():']])
@@ -733,7 +733,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace('Py')
         self.assertIn('op_type: "PyStringRegexReplace"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
         rewrite = np.array([r'static PyObject*\npy_\1(void)\n{'])
         text = np.array([['def myfunc():'], ['def dummy():' * 2]])
@@ -748,7 +748,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_to_hash('Py', kind='crc32')
         self.assertIn('op_type: "PyStringToCRC32"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         text = np.array([["abc", "abcdé"], ["$$^l!%*ù", ""]])
         num_buckets = np.array([44], dtype=np.uint32)
         res = self._string_to_crc32(text, num_buckets)
@@ -765,7 +765,7 @@ class TestPythonOpString(unittest.TestCase):
         onnx_model = _create_test_model_string_to_hash(
             '', kind='hash_bucket')
         self.assertIn('op_type: "StringToHashBucket"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         raw = ["abc", "abcdé", "$$^l!%*ù", "", "a", "A"]
         text = np.array(raw).reshape((3, 2))
         num_buckets = np.array([NUM_BUCKETS], dtype=np.int64)
@@ -791,7 +791,7 @@ class TestPythonOpString(unittest.TestCase):
         onnx_model = _create_test_model_string_to_hash(
             '', kind='hash_bucket_fast')
         self.assertIn('op_type: "StringToHashBucketFast"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         raw = ["abc", "abcdé", "$$^l!%*ù", "", "a", "A"]
         text = np.array(raw).reshape((3, 2))
         num_buckets = np.array([NUM_BUCKETS], dtype=np.int64)
@@ -817,7 +817,7 @@ class TestPythonOpString(unittest.TestCase):
         onnx_model = _create_test_model_string_to_hash(
             'Py', kind='hash_bucket')
         self.assertIn('op_type: "PyStringToHashBucket"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         raw = ["abc", "abcdé", "$$^l!%*ù", "", "a", "A"]
         text = np.array(raw).reshape((3, 2))
         num_buckets = np.array([NUM_BUCKETS], dtype=np.int64)
@@ -850,7 +850,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_equal('Py')
         self.assertIn('op_type: "PyStringEqual"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
 
         for x, y in self.enumerate_matrix_couples():
             txout = sess.run(None, {'x': x, 'y': y})
@@ -863,7 +863,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_equal('')
         self.assertIn('op_type: "StringEqual"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
 
         for x, y in self.enumerate_matrix_couples():
             txout = sess.run(None, {'x': x, 'y': y})
@@ -876,7 +876,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_split('Py')
         self.assertIn('op_type: "PyStringSplit"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input = np.array(["a,,b", "", "aa,b,c", "dddddd"])
         delimiter = np.array([","])
 
@@ -908,7 +908,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_split('')
         self.assertIn('op_type: "StringSplit"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input = np.array(["a,,b", "", "aa,b,c", "dddddd"])
         delimiter = np.array([","])
 
@@ -956,7 +956,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_split('')
         self.assertIn('op_type: "StringSplit"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input = np.array(["a*b", "a,*b", "aa,b,,c", 'z', "dddddd,", "**"])
         delimiter = np.array([",*"])
 
@@ -1009,7 +1009,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_split('')
         self.assertIn('op_type: "StringSplit"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input = np.array(["a*b", "a,*b"])
         delimiter = np.array([""])
 
@@ -1051,7 +1051,7 @@ class TestPythonOpString(unittest.TestCase):
         onnx_model = _create_test_model_string_regex_split('')
         self.assertIn('op_type: "StringRegexSplitWithOffsets"',
                       str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input = np.array(["hello there", "hello  there"])
         pattern = np.array(["(\\s)"])
 
@@ -1114,7 +1114,7 @@ class TestPythonOpString(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         cc_onnx_model = _create_test_model_wordpiece('')
         self.assertIn('op_type: "WordpieceTokenizer"', str(cc_onnx_model))
-        cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so)
+        cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
 
         inputs = dict(text=np.array(["unwanted running",
                                      "unwantedX running"], dtype=object))
@@ -1149,7 +1149,6 @@ class TestPythonOpString(unittest.TestCase):
                     value_dtype=tf.int64)
                 res = tf.lookup.StaticVocabularyTable(init, num_oov, lookup_key_dtype=tf.string)
                 res.__len__ = lambda self: len(vocab)
-                  
 
             vocab_table = _CreateTable(["want", "##want", "##ed", "wa", "un", "runn", "##ing"])
 
