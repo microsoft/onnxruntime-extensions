@@ -83,7 +83,7 @@ class TestStringECMARegex(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace("")
         self.assertIn('op_type: "StringECMARegexReplace"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         pattern = np.array([r"def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):"])
         rewrite = np.array([r"static PyObject* py_$1(void) {"])
         text = np.array([["def myfunc():"], ["def dummy():"]])
@@ -99,7 +99,7 @@ class TestStringECMARegex(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace("", global_replace=False)
         self.assertIn('op_type: "StringECMARegexReplace"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         pattern = np.array([r"def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):"])
         rewrite = np.array([r"static PyObject* py_$1(void) {"])
         text = np.array([["def myfunc():def myfunc():"], ["def dummy():def dummy():"]])
@@ -115,7 +115,7 @@ class TestStringECMARegex(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_replace("")
         self.assertIn('op_type: "StringECMARegexReplace"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         pattern = np.array([r"def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):"])
         rewrite = np.array([r"static PyObject* py_$1(void) {"])
         text = np.array([["def myfunc():"], ["def dummy():" * 2]])
@@ -132,7 +132,7 @@ class TestStringECMARegex(unittest.TestCase):
         onnx_model = _create_test_model_string_replace(
             "", "ai.onnx.contrib", True, True
         )
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
 
         pattern = np.array(
             [
@@ -157,7 +157,7 @@ class TestStringECMARegex(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_string_regex_split("")
         self.assertIn('op_type: "StringECMARegexSplitWithOffsets"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input = np.array(["hello there", "hello  there"])
         pattern = np.array(["(\\s)"])
 

@@ -29,7 +29,7 @@ def _run_string_concat(input1, input2):
 
     so = _ort.SessionOptions()
     so.register_custom_ops_library(_get_library_path())
-    sess = _ort.InferenceSession(model.SerializeToString(), so)
+    sess = _ort.InferenceSession(model.SerializeToString(), so, providers=['CPUExecutionProvider'])
     result = sess.run(None, {'input_1': input1, 'input_2': input2})
 
     # verify
