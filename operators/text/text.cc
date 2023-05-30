@@ -4,6 +4,7 @@
 #include "text/string_join.hpp"
 #include "text/string_lower.hpp"
 #include "text/string_split.hpp"
+#include "text/string_strip.hpp"
 #include "text/string_to_vector.hpp"
 #include "text/string_upper.hpp"
 #include "text/vector_to_string.hpp"
@@ -17,15 +18,14 @@
 #if defined(ENABLE_RE2_REGEX)
 #include "text/re2_strings/string_regex_replace.hpp"
 #include "text/re2_strings/string_regex_split.hpp"
-#endif // ENABLE_RE2_REGEX
+#endif  // ENABLE_RE2_REGEX
 
-
-FxLoadCustomOpFactory LoadCustomOpClasses_Text = 
-    LoadCustomOpClasses<CustomOpClassBegin, 
+FxLoadCustomOpFactory LoadCustomOpClasses_Text =
+    LoadCustomOpClasses<CustomOpClassBegin,
 #if defined(ENABLE_RE2_REGEX)
                         CustomOpStringRegexReplace,
                         CustomOpStringRegexSplitWithOffsets,
-#endif // ENABLE_RE2_REGEX
+#endif  // ENABLE_RE2_REGEX
                         CustomOpRaggedTensorToDense,
                         CustomOpRaggedTensorToSparse,
                         CustomOpStringRaggedTensorToDense,
@@ -38,10 +38,10 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Text =
                         CustomOpStringMapping,
                         CustomOpMaskedFill,
                         CustomOpStringSplit,
+                        CustomOpStringStrip,
                         CustomOpStringToVector,
                         CustomOpVectorToString,
                         CustomOpStringLength,
                         CustomOpStringConcat,
                         CustomOpStringECMARegexReplace,
-                        CustomOpStringECMARegexSplitWithOffsets
-                        >;
+                        CustomOpStringECMARegexSplitWithOffsets>;
