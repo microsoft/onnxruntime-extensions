@@ -14,10 +14,10 @@ parameters:
   type: boolean
   default: false
 
-- name: IsForNugetPublish
-  displayName: Is this for publishing to nuget.org? If so, set to true, and update version info.
-  type: boolean
-  default: false
+- name: NugetVersionSuffix
+  displayName: Update nuget version suffix (e.g. alpha/beta/rc, only if publishing to nuget.org, otherwise leave as "none").
+  type: string
+  default: none
 
 trigger:
   branches:
@@ -35,5 +35,5 @@ stages:
     DoCompliance: ${{ parameters.DoCompliance }}
     DoEsrp: ${{ parameters.DoEsrp }}
     IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
-    IsForNugetPublish: ${{ parameters.IsForNugetPublish }}
+    NugetVersionSuffix: ${{ parameters.NugetVersionSuffix }}
     OrtNugetPackageId: 'Microsoft.ML.OnnxRuntime.Extensions'
