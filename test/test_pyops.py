@@ -154,7 +154,7 @@ class TestPythonOp(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model()
         self.assertIn('op_type: "PyReverseMatrix"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input_1 = np.array(
             [1, 2, 3, 4, 5, 6]).astype(np.float32).reshape([3, 2])
         txout = sess.run(None, {'input_1': input_1})
@@ -165,7 +165,7 @@ class TestPythonOp(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_double('Py')
         self.assertIn('op_type: "PyAddEpsilon"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         input_1 = np.array([[0., 1., 1.5], [7., 8., -5.5]])
         txout = sess.run(None, {'input_1': input_1})
         diff = txout[0] - input_1 - 1e-3
@@ -176,7 +176,7 @@ class TestPythonOp(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_2outputs('Py')
         self.assertIn('op_type: "PyNegPos"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         x = np.array([[0., 1., 1.5], [7., 8., -5.5]]).astype(np.float32)
         neg, pos = sess.run(None, {'x': x})
         diff = x - (neg + pos)
@@ -187,7 +187,7 @@ class TestPythonOp(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_model_2outputs("")
         self.assertIn('op_type: "NegPos"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         x = np.array([[0., 1., 1.5], [7., 8., -5.5]]).astype(np.float32)
         neg, pos = sess.run(None, {'x': x})
         diff = x - (neg + pos)
@@ -210,7 +210,7 @@ class TestPythonOp(unittest.TestCase):
         onnx_content = _create_test_model_test()
         self.assertIn('op_type: "CustomOpOne"', str(onnx_content))
         ser = onnx_content.SerializeToString()
-        sess0 = _ort.InferenceSession(ser, so)
+        sess0 = _ort.InferenceSession(ser, so, providers=['CPUExecutionProvider'])
         res = sess0.run(None, {
             'input_1': np.random.rand(3, 5).astype(np.float32),
             'input_2': np.random.rand(3, 5).astype(np.float32)})
@@ -221,7 +221,7 @@ class TestPythonOp(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         onnx_model = _create_test_join()
         self.assertIn('op_type: "PyOpJoin"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
         arr = np.array([["a", "b"]], dtype=object)
         txout = sess.run(None, {'input_1': arr})
         exp = np.array(["a;b"], dtype=object)

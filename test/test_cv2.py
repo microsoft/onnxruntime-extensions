@@ -18,7 +18,7 @@ class TestOpenCV(unittest.TestCase):
         try:
             rdr = OrtPyFunction.from_customop("ImageReader")
             img_nhwc = rdr([img_file])
-        except ONNXRuntimeError as e:
+        except ONNXRuntimeError:
             pass
 
         if img_nhwc is not None:
@@ -59,9 +59,9 @@ class TestOpenCV(unittest.TestCase):
         expected = np.asarray(expected, dtype=np.uint8).copy()
 
         # Convert the image to BGR format since cv2 is default BGR format.
-        red = expected[:,:,0].copy()
-        expected[:,:,0] = expected[:,:,2].copy()
-        expected[:,:,2] = red
+        red = expected[:, :, 0].copy()
+        expected[:, :, 0] = expected[:, :, 2].copy()
+        expected[:, :, 2] = red
 
         self.assertEqual(actual.shape[0], expected.shape[0])
         self.assertEqual(actual.shape[1], expected.shape[1])

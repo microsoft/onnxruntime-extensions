@@ -15,7 +15,8 @@ tools_dir = os.path.join(ort_ext_root, "tools")
 test_data_dir = os.path.join(ort_ext_root, "test", "data")
 sys.path.append(tools_dir)
 
-import gen_customop_template
+import gen_customop_template    # noqa: E402
+
 
 # create generic custom op models with some basic math ops for testing purposes
 def _create_test_model_1():
@@ -34,6 +35,7 @@ def _create_test_model_1():
     model = make_onnx_model(graph)
     return model
 
+
 def _create_test_model_2(prefix=""):
     nodes = [
         helper.make_node("Identity", ["data"], ["id1"]),
@@ -51,7 +53,18 @@ def _create_test_model_2(prefix=""):
     model = make_onnx_model(graph)
     return model
 
+
 class TestCustomOpTemplate(unittest.TestCase):
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        # remove generated files
+        template_output_path = os.path.join(test_data_dir, "generated")
+        if os.path.exists(template_output_path):
+            for file in os.listdir(template_output_path):
+                os.remove(os.path.join(template_output_path, file))
+            os.rmdir(template_output_path)
+        return super().tearDownClass()
 
     # check input and output type count of models extracted by template generator
     def check_io_count(self, model_name, output_path, expected_input_count, expected_output_count):
@@ -63,14 +76,19 @@ class TestCustomOpTemplate(unittest.TestCase):
     def test_template(self):
         template_output_path = os.path.join(test_data_dir, "generated")
         os.mkdir(template_output_path)
-        
+
         onnx.save(_create_test_model_1(), os.path.join(template_output_path, "test_model_1.onnx"))
         test1_template_output_path = os.path.join(template_output_path, "custom_op_template_test1.hpp")
-        self.check_io_count(model_name = "test_model_1.onnx", output_path = test1_template_output_path, expected_input_count = 1, expected_output_count = 1)
-        
+        self.check_io_count(model_name="test_model_1.onnx",
+                            output_path=test1_template_output_path,
+                            expected_input_count=1, expected_output_count=1)
+
         onnx.save(_create_test_model_2(), os.path.join(template_output_path, "test_model_2.onnx"))
         test2_template_output_path = os.path.join(template_output_path, "custom_op_template_test2.hpp")
-        self.check_io_count(model_name = "test_model_2.onnx", output_path = test2_template_output_path, expected_input_count = 2, expected_output_count = 1)
+        self.check_io_count(model_name="test_model_2.onnx",
+                            output_path=test2_template_output_path,
+                            expected_input_count=2, expected_output_count=1)
+
 
 if __name__ == "__main__":
     unittest.main()
