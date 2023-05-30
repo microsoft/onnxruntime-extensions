@@ -38,6 +38,7 @@ const std::vector<const OrtCustomOp*>& TextLoader() {
       CustomCpuStruct("StringMapping", KernelStringMapping),
       CustomCpuFunc("MaskedFill", masked_fill),
       CustomCpuFunc("StringSplit", string_split),
+      CustomCpuFunc("StringStrip", string_strip),
       CustomCpuStruct("StringToVector", KernelStringToVector),
       CustomCpuStruct("VectorToString", KernelVectorToString),
       CustomCpuFunc("StringLength", string_length),
