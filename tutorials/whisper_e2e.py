@@ -234,7 +234,7 @@ def postprocessing(token_ids, hf_processor):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-a", "--audio", required=True, help="Audio file input used to export model")
+    parser.add_argument("-a", "--audio", required=True, help="Audio file input used to test exported model")
     parser.add_argument("-m", "--model", required=True, help="Whisper model with beam search onnx file. Filename must be named whisper-.*_beamsearch.onnx")
     args = parser.parse_args()
 
