@@ -87,7 +87,6 @@ class ButterworthLowpass {
       sa += a[i];
       sb += b[i];
     }
-
     gain = sa / (1.0 - sb);
 
     for (auto i = 0; i <= num_pole; ++i)
