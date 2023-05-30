@@ -4,6 +4,7 @@
 #include "text/string_join.hpp"
 #include "text/string_lower.hpp"
 #include "text/string_split.hpp"
+#include "text/string_strip.hpp"
 #include "text/string_to_vector.hpp"
 #include "text/string_upper.hpp"
 #include "text/vector_to_string.hpp"
@@ -47,3 +48,4 @@ const std::vector<const OrtCustomOp*>& TextLoader() {
 }
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Text = TextLoader;
+
