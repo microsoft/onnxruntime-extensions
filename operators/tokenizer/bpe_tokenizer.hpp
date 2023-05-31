@@ -66,13 +66,13 @@ inline bool BothSpaces(char32_t lhs, char32_t rhs) {
     return (lhs == rhs) && (lhs == ' ');
 }
 
-inline ustring ReplaceString(ustring subject, ustring& search, ustring& replace) {
+inline ustring ReplaceString(ustring str, const ustring& search, const ustring& replace) {
     size_t pos = 0;
-    while ((pos = subject.find(search, pos)) != ustring::npos) {
-        subject.replace(pos, search.length(), replace);
+    while ((pos = str.find(search, pos)) != ustring::npos) {
+    str.replace(pos, search.length(), replace);
         pos += replace.length();
     }
-    return subject;
+    return str;
 }
 
 inline void WhiteSpaceClean(ustring& str) {
