@@ -52,10 +52,6 @@ class ButterworthLowpass {
 
   void CalculateCoefs(std::vector<double>& num, std::vector<double>& den, size_t num_pole, double cutoff_freq) {
     const size_t POLE_DATA_SIZE = 3;
-    if (num_pole <= 0) {
-      throw std::invalid_argument("num_pole must be greater than zero");
-    }
-
     num.resize(kFilterOrder + 1);
     den.resize(kFilterOrder + 1);
 
