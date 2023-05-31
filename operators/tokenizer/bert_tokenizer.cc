@@ -292,11 +292,12 @@ KernelBertTokenizer::KernelBertTokenizer(const OrtApi& api, const OrtKernelInfo&
       ustring(suffix_indicator), max_len, truncation_strategy_name);
 }
 
-void KernelBertTokenizer::Compute(OrtKernelContext* context) {
+void KernelBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
+                                  ortc::Tensor<int64_t>& output,
+                                  ortc::Tensor<int64_t>& output1,
+                                  ortc::Tensor<int64_t>& output2) {
   // Setup inputs
-  const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
-  std::vector<std::string> input_data;
-  GetTensorMutableDataString(api_, ort_, context, input, input_data);
+  auto& input_data = input.Data();
 
   if (input_data.size() != 1 && input_data.size() != 2) {
     ORTX_CXX_API_THROW("[BertTokenizer]: only support one or two query.", ORT_INVALID_GRAPH);
@@ -323,37 +324,23 @@ void KernelBertTokenizer::Compute(OrtKernelContext* context) {
 
   std::vector<int64_t> output_dim{static_cast<int64_t>(input_ids.size())};
 
-  SetOutput(context, 0, output_dim, input_ids);
-  SetOutput(context, 1, output_dim, token_type_ids);
-  SetOutput(context, 2, output_dim, attention_mask);
-}
-
-const char* CustomOpBertTokenizer::GetName() const { return "BertTokenizer"; }
-
-size_t CustomOpBertTokenizer::GetInputTypeCount() const {
-  return 1;
-}
-
-ONNXTensorElementDataType CustomOpBertTokenizer::GetInputType(size_t /* index */) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-}
-
-size_t CustomOpBertTokenizer::GetOutputTypeCount() const {
-  return 3;
-}
-
-ONNXTensorElementDataType CustomOpBertTokenizer::GetOutputType(size_t /* index */) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  auto* p_out = output.Allocate(output_dim);
+  std::copy(input_ids.begin(), input_ids.end(), p_out);
+  auto* p_out1 = output1.Allocate(output_dim);
+  std::copy(token_type_ids.begin(), token_type_ids.end(), p_out1);
+  auto* p_out2 = output2.Allocate(output_dim);
+  std::copy(attention_mask.begin(), attention_mask.end(), p_out2);
 }
 
 KernelHfBertTokenizer::KernelHfBertTokenizer(const OrtApi& api, const OrtKernelInfo& info)
     : KernelBertTokenizer(api, info) {}
 
-void KernelHfBertTokenizer::Compute(OrtKernelContext* context) {
+void KernelHfBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
+                                    ortc::Tensor<int64_t>& output,
+                                    ortc::Tensor<int64_t>& output1,
+                                    ortc::Tensor<int64_t>& output2) {
   // Setup inputs
-  const OrtValue* const input = ort_.KernelContext_GetInput(context, 0);
-  std::vector<std::string> input_data;
-  GetTensorMutableDataString(api_, ort_, context, input, input_data);
+  auto& input_data = input.Data();
 
   if (input_data.size() != 2) {
     ORTX_CXX_API_THROW("[HfBertTokenizer]: Support only two input strings.", ORT_INVALID_GRAPH);
@@ -368,33 +355,11 @@ void KernelHfBertTokenizer::Compute(OrtKernelContext* context) {
   std::vector<int64_t> attention_mask(input_ids.size(), 1LL);
 
   const std::vector<int64_t> outer_dims{1LL, static_cast<int64_t>(input_ids.size())};
-  const std::vector<int64_t> inner_dims{1LL};
-  for (int32_t i = 0; i < 3; ++i) {
-    OrtValue* const value = ort_.KernelContext_GetOutput(context, i, outer_dims.data(), outer_dims.size());
-    OrtTensorTypeAndShapeInfo* const info = ort_.GetTensorTypeAndShape(value);
-    ort_.SetDimensions(info, inner_dims.data(), inner_dims.size());
-    ort_.ReleaseTensorTypeAndShapeInfo(info);
-  }
 
-  SetOutput(context, 0, outer_dims, input_ids);
-  SetOutput(context, 1, outer_dims, attention_mask);
-  SetOutput(context, 2, outer_dims, token_type_ids);
-}
-
-const char* CustomOpHfBertTokenizer::GetName() const { return "HfBertTokenizer"; }
-
-size_t CustomOpHfBertTokenizer::GetInputTypeCount() const {
-  return 1;
-}
-
-ONNXTensorElementDataType CustomOpHfBertTokenizer::GetInputType(size_t /* index */) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-}
-
-size_t CustomOpHfBertTokenizer::GetOutputTypeCount() const {
-  return 3;
-}
-
-ONNXTensorElementDataType CustomOpHfBertTokenizer::GetOutputType(size_t /* index */) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  auto* p_out = output.Allocate(outer_dims);
+  std::copy(input_ids.begin(), input_ids.end(), p_out);
+  auto* p_out1 = output1.Allocate(outer_dims);
+  std::copy(attention_mask.begin(), attention_mask.end(), p_out1);
+  auto* p_out2 = output2.Allocate(outer_dims);
+  std::copy(token_type_ids.begin(), token_type_ids.end(), p_out2);
 }

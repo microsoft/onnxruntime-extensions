@@ -6,15 +6,9 @@
 #include "ocos.h"
 #include "string_utils.h"
 
-struct KernelStringSplit : BaseKernel {
-  KernelStringSplit(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(OrtKernelContext* context);
-};
-
-struct CustomOpStringSplit : OrtW::CustomOpBase<CustomOpStringSplit, KernelStringSplit> {
-  const char* GetName() const;
-  size_t GetInputTypeCount() const;
-  ONNXTensorElementDataType GetInputType(size_t index) const;
-  size_t GetOutputTypeCount() const;
-  ONNXTensorElementDataType GetOutputType(size_t index) const;
-};
+void string_split(const ortc::Tensor<std::string>& input_X,
+                  std::string_view sep,
+                  bool skip_empty,
+                  ortc::Tensor<int64_t>& out_indices,
+                  ortc::Tensor<std::string>& out_text,
+                  ortc::Tensor<int64_t>& out_shape);

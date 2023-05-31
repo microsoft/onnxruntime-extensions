@@ -8,13 +8,8 @@
 
 struct KernelStringEqual : BaseKernel {
   KernelStringEqual(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(OrtKernelContext* context);
-};
-
-struct CustomOpStringEqual : OrtW::CustomOpBase<CustomOpStringEqual, KernelStringEqual> {
-  size_t GetInputTypeCount() const;
-  size_t GetOutputTypeCount() const;
-  ONNXTensorElementDataType GetOutputType(size_t index) const;
-  const char* GetName() const;
-  ONNXTensorElementDataType GetInputType(size_t index) const;
+  void Compute(OrtKernelContext* context,
+               const ortc::Tensor<std::string>&,
+               const ortc::Tensor<std::string>&,
+               ortc::Tensor<bool>& output);
 };

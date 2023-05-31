@@ -3,21 +3,17 @@
 
 #include "segment_extraction.hpp"
 
-KernelSegmentExtraction::KernelSegmentExtraction(const OrtApi& api, const OrtKernelInfo& info)
-    : BaseKernel(api, info) {
-}
-
-void KernelSegmentExtraction::Compute(OrtKernelContext* context) {
-  const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
-  const int64_t* p_data = ort_.GetTensorData<int64_t>(input);
-  OrtTensorDimensions input_dim(ort_, input);
+void segment_extraction(const ortc::Tensor<int64_t>& input,
+                        ortc::Tensor<int64_t>& output0,
+                        ortc::Tensor<int64_t>& output1) {
+  auto& input_dim = input.Shape();
   if (!((input_dim.size() == 1) || (input_dim.size() == 2 && input_dim[0] == 1))) {
     ORTX_CXX_API_THROW("[SegmentExtraction]: Expect input dimension [n] or [1,n].", ORT_INVALID_GRAPH);
   }
-
+  const int64_t* p_data = input.Data();
   std::vector<std::int64_t> segment_value;
   std::vector<std::int64_t> segment_position;
-  for (std::int64_t i = 0; i < input_dim.Size(); i++) {
+  for (std::int64_t i = 0; i < input.NumberOfElement(); i++) {
     if (!p_data[i]) {
       continue;
     }
@@ -29,33 +25,17 @@ void KernelSegmentExtraction::Compute(OrtKernelContext* context) {
     }
 
     // push end position
-    if (i == (input_dim.Size() - 1) || p_data[i + 1] != p_data[i]) {
+    if (i == (input.NumberOfElement() - 1) || p_data[i + 1] != p_data[i]) {
       segment_position.push_back(i + 1);
     }
   }
 
   std::vector<int64_t> segment_value_dim({static_cast<int64_t>(segment_value.size())});
   std::vector<int64_t> segment_position_dim({static_cast<int64_t>(segment_value.size()), 2});
-  SetOutput(context, 0, segment_position_dim, segment_position);
-  SetOutput(context, 1, segment_value_dim, segment_value);
+
+  int64_t* out0_data = output0.Allocate(segment_position_dim);
+  std::copy(segment_position.begin(), segment_position.end(), out0_data);
+
+  int64_t* out1_data = output1.Allocate(segment_value_dim);
+  std::copy(segment_value.begin(), segment_value.end(), out1_data);
 }
-
-size_t CustomOpSegmentExtraction::GetInputTypeCount() const {
-  return 1;
-};
-
-size_t CustomOpSegmentExtraction::GetOutputTypeCount() const {
-  return 2;
-};
-
-ONNXTensorElementDataType CustomOpSegmentExtraction::GetOutputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-};
-
-const char* CustomOpSegmentExtraction::GetName() const {
-  return "SegmentExtraction";
-};
-
-ONNXTensorElementDataType CustomOpSegmentExtraction::GetInputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-};

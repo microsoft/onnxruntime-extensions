@@ -122,14 +122,20 @@ void KernelWordpieceTokenizer_Tokenizer(const std::unordered_map<std::u32string,
   rows.push_back(indices.size());
 }
 
-void KernelWordpieceTokenizer::Compute(OrtKernelContext* context) {
+void KernelWordpieceTokenizer::Compute(const ortc::Tensor<std::string>& input,
+                                       const ortc::Tensor<int64_t>& row_indices,
+                                       ortc::Tensor<std::string>& output,
+                                       ortc::Tensor<int64_t>& row_lengths,
+                                       ortc::Tensor<int64_t>& out_row_begin,
+                                       ortc::Tensor<int64_t>& output_limit_values) {
   // Update with the new API
-  const OrtValue* ort_input = ort_.KernelContext_GetInput(context, 0);
+  // make a copy as we need ustring
   std::vector<ustring> str_input;
-  GetTensorMutableDataString(api_, ort_, context, ort_input, str_input);
-  const OrtValue* ort_row_indices = ort_.KernelContext_GetInput(context, 1);
-  OrtTensorDimensions ort_row_indices_dim(ort_, ort_row_indices);
-  const int64_t* p_row_indices = ort_row_indices_dim.empty() ? nullptr : ort_.GetTensorData<int64_t>(ort_row_indices);
+  str_input.reserve(input.NumberOfElement());
+  for (auto& str : input.Data()) {
+    str_input.emplace_back(str);
+  }
+  const int64_t* p_row_indices = row_indices.Shape().empty() ? nullptr : row_indices.Data();
 
   std::vector<ustring> tokens;
   std::vector<int32_t> indices;
@@ -137,21 +143,21 @@ void KernelWordpieceTokenizer::Compute(OrtKernelContext* context) {
 
   KernelWordpieceTokenizer_Tokenizer(vocab_, suffix_indicator_, unk_token_, str_input,
                                      tokens, indices, row_begins,
-                                     p_row_indices, ort_row_indices_dim.Size(),
+                                     p_row_indices, row_indices.NumberOfElement(),
                                      max_input_chars_per_word_);
 
   std::vector<int64_t> size_content{(int64_t)indices.size()};
-  OrtValue* output = ort_.KernelContext_GetOutput(context, 0, size_content.data(), size_content.size());
-  FillTensorDataString(api_, ort_, context, tokens, output);
+  // TODO: avoid copy
+  std::vector<std::string> out_content;
+  for (auto& s : tokens)
+    out_content.emplace_back(s);
+  output.SetStringOutput(out_content, size_content);
 
   std::vector<int64_t> size_row_lengths{(int64_t)row_begins.size()};
-  OrtValue* output_row_lengths = ort_.KernelContext_GetOutput(context, 1, size_row_lengths.data(), size_row_lengths.size());
+  int64_t* ptr_row_lengths = row_lengths.Allocate(size_row_lengths);
   --size_row_lengths[0];
-  OrtValue* output_row_begins = ort_.KernelContext_GetOutput(context, 2, size_row_lengths.data(), size_row_lengths.size());
-  OrtValue* output_limit_values = ort_.KernelContext_GetOutput(context, 3, size_row_lengths.data(), size_row_lengths.size());
-  int64_t* ptr_row_lengths = ort_.GetTensorMutableData<int64_t>(output_row_lengths);
-  int64_t* ptr_row_begins = ort_.GetTensorMutableData<int64_t>(output_row_begins);
-  int64_t* ptr_limit_values = ort_.GetTensorMutableData<int64_t>(output_limit_values);
+  int64_t* ptr_row_begins = out_row_begin.Allocate(size_row_lengths);
+  int64_t* ptr_limit_values = output_limit_values.Allocate(size_row_lengths);
 
   int64_t i;
   for (i = 0; i < size_row_lengths[0]; ++i) {
@@ -163,39 +169,3 @@ void KernelWordpieceTokenizer::Compute(OrtKernelContext* context) {
   i = size_row_lengths[0];
   ptr_row_lengths[i] = row_begins[static_cast<size_t>(i)];
 }
-
-const char* CustomOpWordpieceTokenizer::GetName() const {
-  return "WordpieceTokenizer";
-};
-
-size_t CustomOpWordpieceTokenizer::GetInputTypeCount() const {
-  return 2;
-};
-
-ONNXTensorElementDataType CustomOpWordpieceTokenizer::GetInputType(size_t index) const {
-  switch (index) {
-    case 0:
-      return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-    case 1:
-      return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-    default:
-      ORTX_CXX_API_THROW(MakeString("Unexpected input index ", index), ORT_INVALID_ARGUMENT);
-  }
-};
-
-size_t CustomOpWordpieceTokenizer::GetOutputTypeCount() const {
-  return 4;
-};
-
-ONNXTensorElementDataType CustomOpWordpieceTokenizer::GetOutputType(size_t index) const {
-  switch (index) {
-    case 0:
-      return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-    case 1:
-    case 2:
-    case 3:
-      return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-    default:
-      ORTX_CXX_API_THROW(MakeString("[WordpieceTokenizer] Unexpected output index ", index), ORT_INVALID_ARGUMENT);
-  }
-};

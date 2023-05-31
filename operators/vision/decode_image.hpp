@@ -9,6 +9,10 @@
 #include <cstdint>
 
 namespace ort_extensions {
+
+void decode_image(const ortc::Tensor<uint8_t>& input,
+                  ortc::Tensor<uint8_t>& output);
+
 struct KernelDecodeImage : BaseKernel {
   KernelDecodeImage(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {}
 
@@ -50,4 +54,5 @@ struct CustomOpDecodeImage : OrtW::CustomOpBase<CustomOpDecodeImage, KernelDecod
     }
   }
 };
+
 }  // namespace ort_extensions
