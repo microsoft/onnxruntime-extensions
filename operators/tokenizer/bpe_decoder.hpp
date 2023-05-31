@@ -99,10 +99,10 @@ struct KernelBpeDecoder : public BaseKernel {
     arr_vocab_.shrink_to_fit();
   }
 
-  void Compute(OrtKernelContext* context) {
-    const OrtValue* ids = ort_.KernelContext_GetInput(context, 0);
-    const int64_t* p_ids = ort_.GetTensorData<int64_t>(ids);
-    OrtTensorDimensions ids_dim(ort_, ids);
+  void Compute(const ortc::Tensor<int64_t>& ids,
+               ortc::Tensor<std::string>& output) {
+    const int64_t* p_ids = ids.Data();
+    const auto& ids_dim = ids.Shape();
     std::vector<int64_t> output_dim = {1};
     if (ids_dim.size() > 1) {
       output_dim.resize(ids_dim.size() - 1);
@@ -110,14 +110,15 @@ struct KernelBpeDecoder : public BaseKernel {
     }
 
     size_t seq_len = ids_dim.back();
-    size_t string_batch = ids_dim.Size() / seq_len;
+    size_t string_batch = ids.NumberOfElement() / seq_len;
     std::vector<std::string> decoded_strings;
     decoded_strings.reserve(string_batch);
+
     for (auto n = string_batch; n > 0; n--) {
       std::string text;
       bool f_special_last = false;
       bool f_special = false;
-      auto count = static_cast<size_t>(ids_dim.Size());
+      auto count = static_cast<size_t>(ids.NumberOfElement());
 
       for (size_t tok_idx = 0; tok_idx < count; ++tok_idx) {
         const auto token = *(p_ids + tok_idx);
@@ -163,9 +164,7 @@ struct KernelBpeDecoder : public BaseKernel {
       decoded_strings.emplace_back(std::move(text));
       p_ids += seq_len;
     }
-
-    OrtValue* output = ort_.KernelContext_GetOutput(context, 0, output_dim.data(), output_dim.size());
-    FillTensorDataString(api_, ort_, context, decoded_strings, output);
+    output.SetStringOutput(decoded_strings, output_dim);
   }
 
  private:
@@ -182,26 +181,4 @@ struct KernelBpeDecoder : public BaseKernel {
   std::map<char32_t, unsigned char> byte_decoder_;
   std::map<int64_t, std::string> added_tokens_;
   std::set<int64_t> all_special_ids_;
-};
-
-struct CustomOpBpeDecoder : OrtW::CustomOpBase<CustomOpBpeDecoder, KernelBpeDecoder> {
-  const char* GetName() const {
-    return "BpeDecoder";
-  }
-
-  size_t GetInputTypeCount() const {
-    return 1;
-  }
-
-  ONNXTensorElementDataType GetInputType(size_t index) const {
-    return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-  }
-
-  size_t GetOutputTypeCount() const {
-    return 1;
-  }
-
-  ONNXTensorElementDataType GetOutputType(size_t index) const {
-    return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-  }
 };

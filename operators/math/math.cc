@@ -7,14 +7,16 @@
 #include "segment_extraction.hpp"
 #include "segment_sum.hpp"
 
-
-FxLoadCustomOpFactory LoadCustomOpClasses_Math = 
-    LoadCustomOpClasses<CustomOpClassBegin, 
-                        CustomOpNegPos,
+const std::vector<const OrtCustomOp*>& MathLoader() {
+  static OrtOpLoader op_loader(CustomCpuFunc("NegPos", neg_pos),
 #ifdef ENABLE_DLIB
-                        CustomOpInverse,
-                        CustomOpStft,
-                        CustomOpStftNorm,
+                               CustomCpuFunc("Inverse", inverse),
+                               CustomCpuStruct("STFT", STFT),
+                               CustomCpuStruct("StftNorm", StftNormal),
 #endif
-                        CustomOpSegmentExtraction,
-                        CustomOpSegmentSum>;
+                               CustomCpuFunc("SegmentExtraction", segment_extraction),
+                               CustomCpuFunc("SegmentSum", segment_sum));
+  return op_loader.GetCustomOps();
+}
+
+FxLoadCustomOpFactory LoadCustomOpClasses_Math = MathLoader;

@@ -3,14 +3,17 @@
 #ifdef ENABLE_OPENCV_CODECS
 #include "imgcodecs/imread.hpp"
 #include "imgcodecs/imdecode.hpp"
-#endif // ENABLE_OPENCV_CODECS
+#endif  // ENABLE_OPENCV_CODECS
 
-
-FxLoadCustomOpFactory LoadCustomOpClasses_CV2 =
-    LoadCustomOpClasses<CustomOpClassBegin
-                        , CustomOpGaussianBlur
+const std::vector<const OrtCustomOp*>& Cv2Loader() {
+  static OrtOpLoader op_loader(CustomCpuFunc("GaussianBlur", gaussian_blur)
 #ifdef ENABLE_OPENCV_CODECS
-                        , CustomOpImageReader
-                        , CustomOpImageDecoder
-#endif // ENABLE_OPENCV_CODECS
-    >;
+                                   ,
+                               CustomCpuFunc("ImageDecoder", image_decoder),
+                               CustomCpuFunc("ImageReader", image_reader)
+#endif  // ENABLE_OPENCV_CODECS
+  );
+  return op_loader.GetCustomOps();
+}
+
+FxLoadCustomOpFactory LoadCustomOpClasses_CV2 = Cv2Loader;

@@ -27,26 +27,14 @@ KernelBlingFireSentenceBreaker::KernelBlingFireSentenceBreaker(const OrtApi& api
   max_sentence = TryToGetAttributeWithDefault("max_sentence", -1);
 }
 
-void KernelBlingFireSentenceBreaker::Compute(OrtKernelContext* context) {
-  // Setup inputs
-  const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
-  OrtTensorDimensions dimensions(ort_, input);
-
-  // TODO: fix this scalar check.
-  if (dimensions.Size() != 1 && dimensions[0] != 1) {
-    ORTX_CXX_API_THROW("We only support string scalar.", ORT_INVALID_ARGUMENT);
-  }
-
-  std::vector<std::string> input_data;
-  GetTensorMutableDataString(api_, ort_, context, input, input_data);
-
-  std::string& input_string = input_data[0];
-  int max_length = static_cast<int>(2 * input_string.size() + 1);
+void KernelBlingFireSentenceBreaker::Compute(std::string_view input,
+                                             ortc::Tensor<std::string>& output) {
+  int max_length = static_cast<int>(2 * input.size() + 1);
   std::unique_ptr<char[]> output_str = std::make_unique<char[]>(max_length);
 
-  int output_length = TextToSentencesWithOffsetsWithModel(input_string.data(), static_cast<int>(input_string.size()), output_str.get(), nullptr, nullptr, max_length, model_.get());
+  int output_length = TextToSentencesWithOffsetsWithModel(input.data(), static_cast<int>(input.size()), output_str.get(), nullptr, nullptr, max_length, model_.get());
   if (output_length < 0) {
-    ORTX_CXX_API_THROW(MakeString("splitting input:\"", input_string, "\"  failed"), ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW(MakeString("splitting input:\"", input, "\"  failed"), ORT_INVALID_ARGUMENT);
   }
 
   // inline split output_str by newline '\n'
@@ -72,25 +60,5 @@ void KernelBlingFireSentenceBreaker::Compute(OrtKernelContext* context) {
 
   std::vector<int64_t> output_dimensions(1);
   output_dimensions[0] = output_sentences.size();
-
-  OrtValue* output = ort_.KernelContext_GetOutput(context, 0, output_dimensions.data(), output_dimensions.size());
-  OrtW::ThrowOnError(api_, api_.FillStringTensor(output, output_sentences.data(), output_sentences.size()));
+  output.SetStringOutput(output_sentences, output_dimensions);
 }
-
-const char* CustomOpBlingFireSentenceBreaker::GetName() const { return "BlingFireSentenceBreaker"; };
-
-size_t CustomOpBlingFireSentenceBreaker::GetInputTypeCount() const {
-  return 1;
-};
-
-ONNXTensorElementDataType CustomOpBlingFireSentenceBreaker::GetInputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-};
-
-size_t CustomOpBlingFireSentenceBreaker::GetOutputTypeCount() const {
-  return 1;
-};
-
-ONNXTensorElementDataType CustomOpBlingFireSentenceBreaker::GetOutputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-};

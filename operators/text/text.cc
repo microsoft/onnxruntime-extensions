@@ -20,28 +20,33 @@
 #include "text/re2_strings/string_regex_split.hpp"
 #endif  // ENABLE_RE2_REGEX
 
-FxLoadCustomOpFactory LoadCustomOpClasses_Text =
-    LoadCustomOpClasses<CustomOpClassBegin,
+const std::vector<const OrtCustomOp*>& TextLoader() {
+  static OrtOpLoader op_loader(
 #if defined(ENABLE_RE2_REGEX)
-                        CustomOpStringRegexReplace,
-                        CustomOpStringRegexSplitWithOffsets,
+      CustomCpuStruct("StringRegexReplace", KernelStringRegexReplace),
+      CustomCpuFunc("StringRegexSplitWithOffsets", KernelStringRegexSplitWithOffsets),
 #endif  // ENABLE_RE2_REGEX
-                        CustomOpRaggedTensorToDense,
-                        CustomOpRaggedTensorToSparse,
-                        CustomOpStringRaggedTensorToDense,
-                        CustomOpStringEqual,
-                        CustomOpStringHash,
-                        CustomOpStringHashFast,
-                        CustomOpStringJoin,
-                        CustomOpStringLower,
-                        CustomOpStringUpper,
-                        CustomOpStringMapping,
-                        CustomOpMaskedFill,
-                        CustomOpStringSplit,
-                        CustomOpStringStrip,
-                        CustomOpStringToVector,
-                        CustomOpVectorToString,
-                        CustomOpStringLength,
-                        CustomOpStringConcat,
-                        CustomOpStringECMARegexReplace,
-                        CustomOpStringECMARegexSplitWithOffsets>;
+      CustomCpuStruct("RaggedTensorToSparse", KernelRaggedTensoroSparse),
+      CustomCpuStruct("RaggedTensorToDense", KernelRaggedTensoroDense),
+      CustomCpuStruct("StringRaggedTensorToDense", KernelStringRaggedTensoroDense),
+      CustomCpuStruct("StringEqual", KernelStringEqual),
+      CustomCpuFunc("StringToHashBucket", string_hash),
+      CustomCpuFunc("StringToHashBucketFast", string_hash_fast),
+      CustomCpuFunc("StringJoin", string_join),
+      CustomCpuFunc("StringLower", string_lower),
+      CustomCpuFunc("StringUpper", string_upper),
+      CustomCpuStruct("StringMapping", KernelStringMapping),
+      CustomCpuFunc("MaskedFill", masked_fill),
+      CustomCpuFunc("StringSplit", string_split),
+      CustomCpuFunc("StringStrip", string_strip),
+      CustomCpuStruct("StringToVector", KernelStringToVector),
+      CustomCpuStruct("VectorToString", KernelVectorToString),
+      CustomCpuFunc("StringLength", string_length),
+      CustomCpuFunc("StringConcat", string_concat),
+      CustomCpuStruct("StringECMARegexReplace", KernelStringECMARegexReplace),
+      CustomCpuStruct("StringECMARegexSplitWithOffsets", KernelStringECMARegexSplitWithOffsets));
+  return op_loader.GetCustomOps();
+}
+
+FxLoadCustomOpFactory LoadCustomOpClasses_Text = TextLoader;
+

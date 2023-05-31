@@ -9,7 +9,9 @@ StringToVectorImpl::StringToVectorImpl(std::string& map, std::string& unk) {
   ParseUnkownValue(unk);
 }
 
-std::vector<std::vector<int64_t>> StringToVectorImpl::Compute(std::vector<std::string>& str_input, const OrtTensorDimensions& input_dim, OrtTensorDimensions& output_dim) {
+std::vector<std::vector<int64_t>> StringToVectorImpl::Compute(const std::vector<std::string>& str_input,
+                                                              const std::vector<int64_t>& input_dim,
+                                                              std::vector<int64_t>& output_dim) {
   std::vector<std::vector<int64_t>> result;
 
   // Set output dimension
@@ -107,19 +109,15 @@ KernelStringToVector::KernelStringToVector(const OrtApi& api, const OrtKernelInf
   impl_ = std::make_shared<StringToVectorImpl>(map, unk);
 }
 
-void KernelStringToVector::Compute(OrtKernelContext* context) {
+void KernelStringToVector::Compute(const ortc::Tensor<std::string>& input,
+                                   ortc::Tensor<int64_t>& out) {
   // Setup input
-  const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
-  std::vector<std::string> input_data;
-  GetTensorMutableDataString(api_, ort_, context, input, input_data);
-  OrtTensorDimensions input_dim(ort_, input);
-
+  auto& input_data = input.Data();
   // Get output
-  OrtTensorDimensions output_dim;
-  auto mapping_result = impl_->Compute(input_data, input_dim, output_dim);
+  std::vector<int64_t> output_dim;
+  auto mapping_result = impl_->Compute(input_data, input.Shape(), output_dim);
 
-  OrtValue* output = ort_.KernelContext_GetOutput(context, 0, output_dim.data(), output_dim.size());
-  auto* output_data = ort_.GetTensorMutableData<int64_t>(output);
+  auto* output_data = out.Allocate(output_dim);
 
   // Set output tensor data
   int idx = 0;
@@ -130,21 +128,3 @@ void KernelStringToVector::Compute(OrtKernelContext* context) {
     }
   }
 }
-
-const char* CustomOpStringToVector::GetName() const { return "StringToVector"; };
-
-size_t CustomOpStringToVector::GetInputTypeCount() const {
-  return 1;
-};
-
-ONNXTensorElementDataType CustomOpStringToVector::GetInputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-};
-
-size_t CustomOpStringToVector::GetOutputTypeCount() const {
-  return 1;
-};
-
-ONNXTensorElementDataType CustomOpStringToVector::GetOutputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-};
