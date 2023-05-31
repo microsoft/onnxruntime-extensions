@@ -55,11 +55,29 @@ inline bool IsUnicodeSpace(char32_t ch) {
 }
 
 inline bool IsEmptyUString(const ustring& str) {
-  if (str == ustring("\n")) {
+  if (str == ustring(" ")) {
     return false;
   } else {
     return std::all_of(str.begin(), str.end(), [](char32_t ch) { return IsUnicodeSpace(ch); });
   }
+}
+
+inline bool BothSpaces(char32_t lhs, char32_t rhs) {
+    return (lhs == rhs) && (lhs == ' ');
+}
+
+inline ustring ReplaceString(ustring subject, ustring& search, ustring& replace) {
+    size_t pos = 0;
+    while ((pos = subject.find(search, pos)) != ustring::npos) {
+        subject.replace(pos, search.length(), replace);
+        pos += replace.length();
+    }
+    return subject;
+}
+
+inline void WhiteSpaceClean(ustring& str) {
+    str = ReplaceString(str, ustring("\n"), ustring(" "));
+    str.erase(std::unique(str.begin(), str.end(), BothSpaces), str.end());
 }
 
 class SpecialTokenMap {
@@ -274,13 +292,13 @@ class VocabData {
     return special_tokens_.SplitBySpecialTokens(input);
   }
 
-  // Returns {true, token} if key was found in vocab, and {false, -1} otherwise
-  std::pair<bool, int> GetEncoding(const std::string& key) {
+  // Returns token if key was found in vocab, and unk_id_ otherwise
+  int GetEncoding(const std::string& key) {
     auto it = vocab_map_.find(key);
     if (it != end(vocab_map_)) {
-      return {true, it->second};
+      return it->second;
     } else {
-      return {false, -1};
+      return unk_id_;
     }
   }
 
