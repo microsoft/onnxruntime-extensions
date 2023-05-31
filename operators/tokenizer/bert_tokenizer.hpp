@@ -11,7 +11,6 @@
 
 #include <unordered_map>
 
-
 class BertTokenizerVocab final {
  public:
   explicit BertTokenizerVocab(std::string_view vocab);
@@ -92,29 +91,19 @@ class BertTokenizer final {
 
 struct KernelBertTokenizer : BaseKernel {
   KernelBertTokenizer(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(OrtKernelContext* context);
+  void Compute(const ortc::Tensor<std::string>& input,
+               ortc::Tensor<int64_t>& output,
+               ortc::Tensor<int64_t>& output1,
+               ortc::Tensor<int64_t>& output2);
 
  protected:
   std::unique_ptr<BertTokenizer> tokenizer_;
 };
 
-struct CustomOpBertTokenizer : OrtW::CustomOpBase<CustomOpBertTokenizer, KernelBertTokenizer> {
-  const char* GetName() const;
-  size_t GetInputTypeCount() const;
-  ONNXTensorElementDataType GetInputType(size_t index) const;
-  size_t GetOutputTypeCount() const;
-  ONNXTensorElementDataType GetOutputType(size_t index) const;
-};
-
 struct KernelHfBertTokenizer : KernelBertTokenizer {
   KernelHfBertTokenizer(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(OrtKernelContext* context);
-};
-
-struct CustomOpHfBertTokenizer : OrtW::CustomOpBase<CustomOpHfBertTokenizer, KernelHfBertTokenizer> {
-  const char* GetName() const;
-  size_t GetInputTypeCount() const;
-  ONNXTensorElementDataType GetInputType(size_t index) const;
-  size_t GetOutputTypeCount() const;
-  ONNXTensorElementDataType GetOutputType(size_t index) const;
+  void Compute(const ortc::Tensor<std::string>& input,
+               ortc::Tensor<int64_t>& output,
+               ortc::Tensor<int64_t>& output1,
+               ortc::Tensor<int64_t>& output2);
 };

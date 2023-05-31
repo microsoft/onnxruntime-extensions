@@ -15,40 +15,26 @@ KernelStringECMARegexSplitWithOffsets::KernelStringECMARegexSplitWithOffsets(con
   ignore_case_ = TryToGetAttributeWithDefault("ignore_case", false);
 }
 
-void KernelStringECMARegexSplitWithOffsets::Compute(OrtKernelContext* context) {
+void KernelStringECMARegexSplitWithOffsets::Compute(const ortc::Tensor<std::string>& input,
+                                                    std::string_view pattern,
+                                                    std::string_view keep_pattern,
+                                                    ortc::Tensor<std::string>& output_text,
+                                                    ortc::Tensor<int64_t>& output1,
+                                                    ortc::Tensor<int64_t>& output2,
+                                                    ortc::Tensor<int64_t>& output3) {
   // Setup inputs
-  const OrtValue* input = ort_.KernelContext_GetInput(context, 0);
-  const OrtValue* pattern = ort_.KernelContext_GetInput(context, 1);
-  const OrtValue* keep_pattern = ort_.KernelContext_GetInput(context, 2);
+  auto& str_input = input.Data();
 
-  std::vector<std::string> str_input, str_pattern, str_keep_pattern;
-  GetTensorMutableDataString(api_, ort_, context, input, str_input);
-  GetTensorMutableDataString(api_, ort_, context, pattern, str_pattern);
-  GetTensorMutableDataString(api_, ort_, context, keep_pattern, str_keep_pattern);
-
-  // Verifications
-  OrtTensorDimensions keep_pattern_dimensions(ort_, keep_pattern);
-  if (str_pattern.size() != 1)
-    ORTX_CXX_API_THROW(MakeString("pattern (second input) must contain only one element. It has ", str_pattern.size(),
-                                  " values."),
-                       ORT_INVALID_GRAPH);
-  if (str_keep_pattern.size() > 1)
-    ORTX_CXX_API_THROW(MakeString("Third input must contain only one element. It has ", str_keep_pattern.size(),
-                                  " values."),
-                       ORT_INVALID_GRAPH);
-  if (str_pattern[0].empty())
-    ORTX_CXX_API_THROW("Splitting pattern cannot be empty.", ORT_INVALID_GRAPH);
-
-  OrtTensorDimensions dimensions(ort_, input);
-  bool include_delimiter = (str_keep_pattern.size() == 1) && (!str_keep_pattern[0].empty());
+  auto& dimensions = input.Shape();
+  bool include_delimiter = !keep_pattern.empty();
 
   auto regex_flag = std::regex_constants::ECMAScript;
   if (ignore_case_) {
     regex_flag |= std::regex_constants::icase;
   }
 
-  std::regex reg(str_pattern[0], regex_flag);
-  std::regex keep_reg(include_delimiter ? str_keep_pattern[0] : "", regex_flag);
+  std::regex reg(pattern.data(), regex_flag);
+  std::regex keep_reg(include_delimiter ? keep_pattern.data() : "", regex_flag);
 
   std::vector<std::string> all_tokens;
   std::vector<int64_t> all_begin_offsets, all_end_offsets;
@@ -72,48 +58,15 @@ void KernelStringECMARegexSplitWithOffsets::Compute(OrtKernelContext* context) {
 
   // Setup output
   std::vector<int64_t> dim_out{(int64_t)all_tokens.size()};
-  OrtValue* output_text = ort_.KernelContext_GetOutput(context, 0, dim_out.data(), dim_out.size());
-  FillTensorDataString(api_, ort_, context, all_tokens, output_text);
+  output_text.SetStringOutput(all_tokens, dim_out);
 
-  OrtValue* output = ort_.KernelContext_GetOutput(context, 1, dim_out.data(), dim_out.size());
-  int64_t* p_output = ort_.GetTensorMutableData<int64_t>(output);
+  int64_t* p_output = output1.Allocate(dim_out);
   memcpy(p_output, all_begin_offsets.data(), all_begin_offsets.size() * sizeof(int64_t));
 
-  output = ort_.KernelContext_GetOutput(context, 2, dim_out.data(), dim_out.size());
-  p_output = ort_.GetTensorMutableData<int64_t>(output);
+  p_output = output2.Allocate(dim_out);
   memcpy(p_output, all_end_offsets.data(), all_end_offsets.size() * sizeof(int64_t));
 
   std::vector<int64_t> dim_out_row{(int64_t)row_offsets.size()};
-  output = ort_.KernelContext_GetOutput(context, 3, dim_out_row.data(), dim_out_row.size());
-  p_output = ort_.GetTensorMutableData<int64_t>(output);
+  p_output = output3.Allocate(dim_out_row);
   memcpy(p_output, row_offsets.data(), row_offsets.size() * sizeof(int64_t));
 }
-
-const char* CustomOpStringECMARegexSplitWithOffsets::GetName() const { return "StringECMARegexSplitWithOffsets"; };
-
-size_t CustomOpStringECMARegexSplitWithOffsets::GetInputTypeCount() const {
-  return 3;
-};
-
-ONNXTensorElementDataType CustomOpStringECMARegexSplitWithOffsets::GetInputType(size_t /*index*/) const {
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-};
-
-size_t CustomOpStringECMARegexSplitWithOffsets::GetOutputTypeCount() const {
-  return 4;
-};
-
-ONNXTensorElementDataType CustomOpStringECMARegexSplitWithOffsets::GetOutputType(size_t index) const {
-  switch (index) {
-    case 0:
-      return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-    case 1:
-    case 2:
-    case 3:
-      return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-    default:
-      ORTX_CXX_API_THROW(MakeString(
-                             "StringRegexSplitWithOffsets has 4 outputs but index is ", index, "."),
-                         ORT_INVALID_ARGUMENT);
-  }
-};
