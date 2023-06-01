@@ -118,6 +118,7 @@ class TestCLIPTokenizer(unittest.TestCase):
         self._run_tokenizer(["\n"])
         self._run_tokenizer(["Testing multiple      sequences       of spaces"])
         self._run_tokenizer(["      in the beginning and the end.      "])
+        self._run_tokenizer([" "])
 
     def test_converter(self):
         fn_tokenizer = PyOrtFunction.from_customop("CLIPTokenizer",
