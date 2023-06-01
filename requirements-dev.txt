@@ -3,6 +3,6 @@
 pytest
 # multiple versions of onnxruntime are supported, but only one can be installed at a time
 protobuf         < 4.0.0
-onnxruntime      >=1.10.0
+onnxruntime      >=1.12.0
 transformers     >=4.9.2
 tensorflow_text  >=2.5.0
