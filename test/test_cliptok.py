@@ -116,6 +116,8 @@ class TestCLIPTokenizer(unittest.TestCase):
         self._run_tokenizer(["\n Hey Cortana"])
         self._run_tokenizer(["lower newer \n"])
         self._run_tokenizer(["\n"])
+        self._run_tokenizer(["Testing multiple      sequences       of spaces"])
+        self._run_tokenizer(["      in the beginning and the end.      "])
 
     def test_converter(self):
         fn_tokenizer = PyOrtFunction.from_customop("CLIPTokenizer",

@@ -63,7 +63,7 @@ inline bool IsEmptyUString(const ustring& str) {
 }
 
 inline bool BothSpaces(char32_t lhs, char32_t rhs) {
-    return (lhs == rhs) && (lhs == ' ');
+    return (lhs == rhs) && IsUnicodeSpace(lhs);
 }
 
 inline ustring ReplaceString(ustring str, const ustring& search, const ustring& replace) {
