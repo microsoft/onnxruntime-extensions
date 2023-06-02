@@ -1,4 +1,4 @@
-import unittest
+﻿import unittest
 import numpy as np
 import numpy.lib.recfunctions as nlr
 import onnxruntime as _ort
@@ -112,6 +112,13 @@ class TestCLIPTokenizer(unittest.TestCase):
         self._run_tokenizer(["9 8 7 6 5 4 3 2 1 0"])
         self._run_tokenizer(["9 8 7 - 6 5 4 - 3 2 1 0"])
         self._run_tokenizer(["One Microsoft Way, Redmond, WA"])
+        self._run_tokenizer(["I can feel the magic, \n can you?"])
+        self._run_tokenizer(["\n Hey Cortana"])
+        self._run_tokenizer(["lower newer \n"])
+        self._run_tokenizer(["\n"])
+        self._run_tokenizer(["Testing multiple      sequences       of spaces"])
+        self._run_tokenizer(["      in the beginning and the end.      "])
+        self._run_tokenizer([" "])
 
     def test_converter(self):
         fn_tokenizer = PyOrtFunction.from_customop("CLIPTokenizer",
