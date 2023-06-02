@@ -34,6 +34,8 @@ KernelClipBpeTokenizer::KernelClipBpeTokenizer(const OrtApi& api, const OrtKerne
 std::vector<int64_t> KernelClipBpeTokenizer::Tokenize(ustring& input, int64_t max_length, std::list<OffsetMappingType>& offset_map) {
   std::vector<int64_t> res;
 
+  WhiteSpaceClean(input);
+
   if (IsEmptyUString(input)) {
     return res;
   }

@@ -15,6 +15,7 @@
 #include "string_tensor.h"
 
 #include <iostream>
+#include <utility>
 
 // Note: the following logic comes from CPython: unicodetype_db.h (_PyUnicode_IsWhitespace)
 inline bool IsUnicodeSpace(char32_t ch) {
@@ -54,7 +55,29 @@ inline bool IsUnicodeSpace(char32_t ch) {
 }
 
 inline bool IsEmptyUString(const ustring& str) {
-  return std::all_of(str.begin(), str.end(), [](char32_t ch) { return IsUnicodeSpace(ch); });
+  if (str == ustring(" ")) {
+    return false;
+  } else {
+    return std::all_of(str.begin(), str.end(), [](char32_t ch) { return IsUnicodeSpace(ch); });
+  }
+}
+
+inline bool BothSpaces(char32_t lhs, char32_t rhs) {
+    return (lhs == rhs) && IsUnicodeSpace(lhs);
+}
+
+inline ustring ReplaceString(ustring str, const ustring& search, const ustring& replace) {
+    size_t pos = 0;
+    while ((pos = str.find(search, pos)) != ustring::npos) {
+    str.replace(pos, search.length(), replace);
+        pos += replace.length();
+    }
+    return str;
+}
+
+inline void WhiteSpaceClean(ustring& str) {
+    str = ReplaceString(str, ustring("\n"), ustring(" "));
+    str.erase(std::unique(str.begin(), str.end(), BothSpaces), str.end());
 }
 
 class SpecialTokenMap {
@@ -269,9 +292,14 @@ class VocabData {
     return special_tokens_.SplitBySpecialTokens(input);
   }
 
+  // Returns token if key was found in vocab, and unk_id_ otherwise
   int GetEncoding(const std::string& key) {
     auto it = vocab_map_.find(key);
-    return it->second;
+    if (it != end(vocab_map_)) {
+      return it->second;
+    } else {
+      return unk_id_;
+    }
   }
 
   size_t VocabSize() const { return vocab_map_.size(); }
