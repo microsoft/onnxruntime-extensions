@@ -222,10 +222,11 @@ void DrawBoxesByScore(ImageView& image, const BoxArray& boxes, int64_t thickness
 
 }  // namespace
 
-void DrawBoundingBoxes::Compute(OrtKernelContext* context) {
+void DrawBoundingBoxes::Compute(const ortc::Tensor<uint8_t>& input_bgr,
+                                const ortc::Tensor<float>& input_box,
+                                ortc::Tensor<uint8_t>& output) {
   // Setup inputs
-  const OrtValue* input_bgr = ort_.KernelContext_GetInput(context, 0ULL);
-  const OrtTensorDimensions dimensions_bgr(ort_, input_bgr);
+  const auto& dimensions_bgr = input_bgr.Shape();
 
   if (dimensions_bgr.size() != 3 || dimensions_bgr[2] != 3) {
     // expect {H, W, C} as that's the inverse of what decode_image produces.
@@ -233,26 +234,21 @@ void DrawBoundingBoxes::Compute(OrtKernelContext* context) {
     ORTX_CXX_API_THROW("[DrawBoundingBoxes] requires rank 3 BGR input in channels last format.", ORT_INVALID_ARGUMENT);
   }
 
-  const OrtValue* input_box = ort_.KernelContext_GetInput(context, 1ULL);
-  const OrtTensorDimensions dimensions_box(ort_, input_box);
+  const auto& dimensions_box = input_box.Shape();
   // x,y, x/w y/h, score, class
   if (dimensions_box.size() != 2 || dimensions_box[1] != 6) {
     ORTX_CXX_API_THROW("[DrawBoundingBoxes] requires rank 2 input and the last dim should be 6.", ORT_INVALID_ARGUMENT);
   }
 
-  auto box_span = gsl::make_span(ort_.GetTensorData<float>(input_box), dimensions_box[0] * dimensions_box[1]);
+  auto box_span = gsl::make_span(input_box.Data(), dimensions_box[0] * dimensions_box[1]);
   BoxArray boxes(dimensions_box, box_span, bbox_mode_);
   int64_t image_size = dimensions_bgr[0] * dimensions_bgr[1] * dimensions_bgr[2];
 
   // Setup output & copy to destination
   // can we reuse the input buffer?
   const std::vector<int64_t>& output_dims = dimensions_bgr;
-  OrtValue* output_value = ort_.KernelContext_GetOutput(context, 0,
-                                                        output_dims.data(),
-                                                        output_dims.size());
-
-  auto* output_data = ort_.GetTensorMutableData<uint8_t>(output_value);
-  const auto* input_data = ort_.GetTensorData<uint8_t>(input_bgr);
+  auto* output_data = output.Allocate(output_dims);
+  const auto* input_data = input_bgr.Data();
 
   std::copy(input_data, input_data + image_size, output_data);
   auto data_span = gsl::make_span(output_data, image_size);
