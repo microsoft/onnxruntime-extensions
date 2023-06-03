@@ -8,21 +8,19 @@
 
 namespace ort_extensions {
 
-void KernelDecodeImage::Compute(OrtKernelContext* context) {
+void KernelDecodeImage::Compute(const ortc::Tensor<uint8_t>& input,
+                                ortc::Tensor<uint8_t>& output) {
   // Setup inputs
-  const OrtValue* const inputs = ort_.KernelContext_GetInput(context, 0ULL);
-  OrtTensorDimensions dimensions(ort_, inputs);
+  const auto& dimensions = input.Shape();
   if (dimensions.size() != 1ULL) {
     ORTX_CXX_API_THROW("[DecodeImage]: Raw image bytes with 1D shape expected.", ORT_INVALID_ARGUMENT);
   }
 
-  OrtTensorTypeAndShapeInfo* input_info = ort_.GetTensorTypeAndShape(inputs);
-  const int64_t encoded_image_data_len = ort_.GetTensorShapeElementCount(input_info);
-  ort_.ReleaseTensorTypeAndShapeInfo(input_info);
+  const int64_t encoded_image_data_len = input.NumberOfElement();
 
   // Decode the image
   const std::vector<int32_t> encoded_image_sizes{1, static_cast<int32_t>(encoded_image_data_len)};
-  const void* encoded_image_data = ort_.GetTensorData<uint8_t>(inputs);  // uint8 data
+  const void* encoded_image_data = input.Data();
   const cv::Mat encoded_image(encoded_image_sizes, CV_8UC1, const_cast<void*>(encoded_image_data));
   const cv::Mat decoded_image = cv::imdecode(encoded_image, cv::IMREAD_COLOR);
 
@@ -37,8 +35,7 @@ void KernelDecodeImage::Compute(OrtKernelContext* context) {
   const int64_t colors = decoded_image.elemSize();  //  == 3 as it's BGR
 
   const std::vector<int64_t> output_dims{height, width, colors};
-  OrtValue* output_value = ort_.KernelContext_GetOutput(context, 0, output_dims.data(), output_dims.size());
-  uint8_t* decoded_image_data = ort_.GetTensorMutableData<uint8_t>(output_value);
+  uint8_t* decoded_image_data = output.Allocate(output_dims);
   memcpy(decoded_image_data, decoded_image.data, narrow<size_t>(height * width * colors));
 }
 }  // namespace ort_extensions
