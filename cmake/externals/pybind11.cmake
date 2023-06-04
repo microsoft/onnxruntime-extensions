@@ -1,7 +1,7 @@
 FetchContent_Declare(
   pybind11
-  GIT_REPOSITORY https://github.com/pybind/pybind11.git
-  GIT_TAG        v2.6.2
+  URL       https://github.com/pybind/pybind11/archive/refs/tags/v2.10.1.zip
+  URL_HASH  SHA1=769b6aa67a77f17a770960f604b727645b6f6a13
 )
 
 FetchContent_GetProperties(pybind11)

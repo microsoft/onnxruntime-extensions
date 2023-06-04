@@ -1,6 +1,6 @@
 FetchContent_Declare(dr_libs
-    GIT_REPOSITORY https://github.com/mackron/dr_libs.git
-    GIT_TAG        dd762b861ecadf5ddd5fb03e9ca1db6707b54fbb
+    URL         https://github.com/mackron/dr_libs/archive/dbbd08d81fd2b084c5ae931531871d0c5fd83b87.zip
+    URL_HASH    SHA1=84a2a31ef890b6204223b12f71d6e701c0edcd92
 )
 
 FetchContent_GetProperties(dr_libs)
