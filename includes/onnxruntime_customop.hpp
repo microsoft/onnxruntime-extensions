@@ -18,6 +18,8 @@
 
 #include "exceptions.h"
 
+#define MIN_ORT_VERSION_SUPPORTED 10
+
 namespace OrtW {
 
 //
@@ -54,6 +56,8 @@ struct CustomOpApi {
     OrtW::ThrowOnError(api_, status);
   }
 
+  const OrtApi& GetOrtApi() const { return api_; }
+
  private:
   const OrtApi& api_;
 };
@@ -61,7 +65,7 @@ struct CustomOpApi {
 template <typename TOp, typename TKernel>
 struct CustomOpBase : OrtCustomOp {
   CustomOpBase() {
-    OrtCustomOp::version = 10;  // The minimum ORT version supported
+    OrtCustomOp::version = MIN_ORT_VERSION_SUPPORTED;  // The minimum ORT version supported
     OrtCustomOp::CreateKernel = [](const OrtCustomOp* this_, const OrtApi* api, const OrtKernelInfo* info) {
       void* result = nullptr;
       OCOS_API_IMPL_BEGIN
@@ -295,3 +299,7 @@ inline OrtValue* CustomOpApi::KernelContext_GetOutput(OrtKernelContext* context,
 }
 
 }  // namespace OrtW
+
+// !! TODO: only do it for legecy ort build
+#include "custom_op_lite.h"
+namespace ortc = Ort::Custom;

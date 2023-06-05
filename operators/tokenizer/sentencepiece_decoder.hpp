@@ -22,10 +22,10 @@ struct KernelSentencepieceDecoder : BaseKernel {
     }
   }
 
-  void Compute(OrtKernelContext* context) {
-    const OrtValue* ids = ort_.KernelContext_GetInput(context, 0);
-    const int64_t* p_ids = ort_.GetTensorData<int64_t>(ids);
-    OrtTensorDimensions ids_dim(ort_, ids);
+  void Compute(const ortc::Tensor<int64_t>& ids,
+               ortc::Tensor<std::string>& output) {
+    const int64_t* p_ids = ids.Data();
+    auto& ids_dim = ids.Shape();
 
     if (!((ids_dim.size() == 1) || (ids_dim.size() == 2 && ids_dim[0] == 1))) {
       ORTX_CXX_API_THROW("[SentencePieceDecoder]: Expect ids dimension [n] or [1,n].", ORT_INVALID_GRAPH);
@@ -34,7 +34,7 @@ struct KernelSentencepieceDecoder : BaseKernel {
     std::string decoded_string;
     std::vector<int64_t> output_dim = {1};
     std::vector<int> tids;
-    std::transform(p_ids, p_ids + ids_dim.Size(),
+    std::transform(p_ids, p_ids + ids.NumberOfElement(),
                    std::back_inserter(tids),
                    [](auto _id) { return static_cast<int>(_id); });
     auto status = tokenizer_.Decode(tids, &decoded_string);
@@ -43,32 +43,9 @@ struct KernelSentencepieceDecoder : BaseKernel {
     }
 
     std::vector<std::string> result = {decoded_string};
-    OrtValue* output = ort_.KernelContext_GetOutput(context, 0, output_dim.data(), output_dim.size());
-    FillTensorDataString(api_, ort_, context, result, output);
+    output.SetStringOutput(result, output_dim);
   }
 
  private:
   sentencepiece::SentencePieceProcessor tokenizer_;
-};
-
-struct CustomOpSentencepieceDecoder : OrtW::CustomOpBase<CustomOpSentencepieceDecoder, KernelSentencepieceDecoder> {
-  const char* GetName() const {
-    return "SentencepieceDecoder";
-  }
-
-  size_t GetInputTypeCount() const {
-    return 1;
-  }
-
-  ONNXTensorElementDataType GetInputType(size_t index) const {
-    return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-  }
-
-  size_t GetOutputTypeCount() const {
-    return 1;
-  }
-
-  ONNXTensorElementDataType GetOutputType(size_t index) const {
-    return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-  }
 };

@@ -37,7 +37,9 @@ struct DrawBoundingBoxes : BaseKernel {
     }
   }
 
-  void Compute(OrtKernelContext* context);
+  void Compute(const ortc::Tensor<uint8_t>& input_bgr,
+               const ortc::Tensor<float>& input_box,
+               ortc::Tensor<uint8_t>& output);
 
  private:
   int64_t thickness_;
@@ -46,41 +48,4 @@ struct DrawBoundingBoxes : BaseKernel {
   BoundingBoxFormat bbox_mode_;
 };
 
-struct CustomOpDrawBoundingBoxes : OrtW::CustomOpBase<CustomOpDrawBoundingBoxes, DrawBoundingBoxes> {
-  void KernelDestroy(void* op_kernel) {
-    delete static_cast<DrawBoundingBoxes*>(op_kernel);
-  }
-
-  const char* GetName() const {
-    return "DrawBoundingBoxes";
-  }
-
-  size_t GetInputTypeCount() const {
-    return 2;
-  }
-
-  ONNXTensorElementDataType GetInputType(size_t index) const {
-    switch (index) {
-      case 0:
-        return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
-      case 1:
-        return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
-      default:
-        ORTX_CXX_API_THROW(MakeString("Invalid input index ", index), ORT_INVALID_ARGUMENT);
-    }
-  }
-
-  size_t GetOutputTypeCount() const {
-    return 1;
-  }
-
-  ONNXTensorElementDataType GetOutputType(size_t index) const {
-    switch (index) {
-      case 0:
-        return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
-      default:
-        ORTX_CXX_API_THROW(MakeString("Invalid output index ", index), ORT_INVALID_ARGUMENT);
-    }
-  }
-};
 }  // namespace ort_extensions

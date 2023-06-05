@@ -8,16 +8,11 @@
 
 struct KernelStringRegexReplace : BaseKernel {
   KernelStringRegexReplace(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(OrtKernelContext* context);
+  void Compute(const ortc::Tensor<std::string>& input,
+               std::string_view str_pattern,
+               std::string_view str_rewrite,
+               ortc::Tensor<std::string>& output);
 
  protected:
   int64_t global_replace_;
-};
-
-struct CustomOpStringRegexReplace : OrtW::CustomOpBase<CustomOpStringRegexReplace, KernelStringRegexReplace> {
-  const char* GetName() const;
-  size_t GetInputTypeCount() const;
-  ONNXTensorElementDataType GetInputType(size_t index) const;
-  size_t GetOutputTypeCount() const;
-  ONNXTensorElementDataType GetOutputType(size_t index) const;
 };
