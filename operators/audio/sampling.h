@@ -78,12 +78,12 @@ class ButterworthLowpass {
 
     b[POLE_DATA_SIZE - 1] = 0.0;
 
-    for (auto i = 0; i <= num_pole; ++i) {
+    for (size_t i = 0; i <= num_pole; ++i) {
       a[i] = a[i + 2];
       b[i] = -b[i + 2];
     }
 
-    for (auto i = 0; i <= num_pole; ++i) {
+    for (size_t i = 0; i <= num_pole; ++i) {
       sa += a[i];
       sb += b[i];
     }
@@ -166,7 +166,7 @@ class KaiserWindowInterpolation {
     int outputSize = static_cast<int>(std::ceil(static_cast<float>(input.size()) * factor));
     output.resize(outputSize);
 
-    for (int i = 0; i < outputSize; i++) {
+    for (size_t i = 0; i < outputSize; i++) {
       float index = i / factor;  // Fractional index for interpolation
 
       // Calculate the integer and fractional parts of the index
@@ -175,20 +175,20 @@ class KaiserWindowInterpolation {
 
       // Calculate the range of input samples for interpolation
       int range = static_cast<int>(std::ceil(kBeta / (2.0 * factor)));
-      int startSample = std::max(0, integerPart - range);
-      int endSample = std::min(static_cast<int>(input.size()) - 1, integerPart + range);
+      size_t startSample = std::max(0, integerPart - range);
+      size_t endSample = std::min(static_cast<int>(input.size()) - 1, integerPart + range);
 
       // Calculate the Kaiser window weights for the input samples
       std::vector<double> weights = KaiserWin(static_cast<size_t>(endSample - startSample + 1));
-      for (int j = startSample; j <= endSample; j++) {
-        double distance = std::abs(j - index);
+      for (size_t j = startSample; j <= endSample; j++) {
+        double distance = std::abs(static_cast<double>(j) - index);
         double sincValue = (distance < 1e-6f) ? 1.0f : std::sin(M_PI * distance) / (M_PI * distance);
         weights[j - startSample] *= sincValue;
       }
 
       // Perform the interpolation
       double interpolatedValue = 0.0f;
-      for (int j = startSample; j <= endSample; j++) {
+      for (size_t j = startSample; j <= endSample; j++) {
         interpolatedValue += input[j] * weights[j - startSample];
       }
 
