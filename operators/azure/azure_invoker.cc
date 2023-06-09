@@ -2,12 +2,15 @@
 // Licensed under the MIT License.
 
 #define CURL_STATICLIB
+
+#include "http_client.h"
 #include "curl/curl.h"
 #include "azure_invoker.hpp"
 #include <sstream>
 
 constexpr const char* kUri = "model_uri";
 constexpr const char* kModelName = "model_name";
+constexpr const char* kModelVer = "model_version";
 constexpr const char* kVerbose = "verbose";
 
 struct StringBuffer {
@@ -103,4 +106,196 @@ void AzureAudioInvoker::Compute(std::string_view auth_token,
   }
 
   text.SetStringOutput(std::vector<std::string>{string_buffer.ss_.str()}, std::vector<int64_t>{1L});
+}
+
+namespace tc = triton::client;
+
+TritonInvoker::TritonInvoker(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
+  model_uri_ = TryToGetAttributeWithDefault<std::string>(kUri, "");
+  model_name_ = TryToGetAttributeWithDefault<std::string>(kModelName, "");
+  model_ver_ = TryToGetAttributeWithDefault<std::string>(kModelVer, "0");
+  verbose_ = TryToGetAttributeWithDefault<std::string>(kVerbose, "0");
+  auto err = tc::InferenceServerHttpClient::Create(&triton_client_, model_uri_, verbose_ != "0");
+}
+
+std::string MapDataType(ONNXTensorElementDataType onnx_data_type) {
+  std::string triton_data_type;
+  switch (onnx_data_type) {
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
+      triton_data_type = "FP32";
+      break;
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
+      triton_data_type = "UINT8";
+      break;
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8:
+      triton_data_type = "INT8";
+      break;
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16:
+      triton_data_type = "UINT16";
+      break;
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16:
+      triton_data_type = "INT16";
+      break;
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
+      triton_data_type = "INT32";
+      break;
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
+      triton_data_type = "INT64";
+      break;
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING:
+       triton_data_type = "BYTES";
+       break;
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL:
+      triton_data_type = "BOOL";
+      break;
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16:
+      triton_data_type = "FP16";
+      break;
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE:
+      triton_data_type = "FP64";
+      break;
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32:
+      triton_data_type = "UINT32";
+      break;
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64:
+      triton_data_type = "UINT64";
+      break;
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_BFLOAT16:
+      triton_data_type = "BF16";
+      break;
+    default:
+      break;
+  }
+  return triton_data_type;
+}
+
+int8_t* CreateTensor(const std::string& data_type,
+                     ortc::Variadic& outputs,
+                     size_t i,
+                     const std::vector<int64_t>& shape) {
+  if (data_type == "FP32") {
+    return reinterpret_cast<int8_t*>(outputs.AllocateOutput<float>(i, shape));
+  } else if (data_type == "UINT8") {
+    return reinterpret_cast<int8_t*>(outputs.AllocateOutput<uint8_t>(i, shape));
+  } else if (data_type == "INT8") {
+    return reinterpret_cast<int8_t*>(outputs.AllocateOutput<int8_t>(i, shape));
+  } else if (data_type == "UINT16") {
+    return reinterpret_cast<int8_t*>(outputs.AllocateOutput<uint16_t>(i, shape));
+  } else if (data_type == "INT16") {
+    return reinterpret_cast<int8_t*>(outputs.AllocateOutput<int16_t>(i, shape));
+  } else if (data_type == "INT32") {
+    return reinterpret_cast<int8_t*>(outputs.AllocateOutput<int32_t>(i, shape));
+  } else if (data_type == "UINT32") {
+    return reinterpret_cast<int8_t*>(outputs.AllocateOutput<uint32_t>(i, shape));
+  } else if (data_type == "INT64") {
+    return reinterpret_cast<int8_t*>(outputs.AllocateOutput<int64_t>(i, shape));
+  } else if (data_type == "UINT64") {
+    return reinterpret_cast<int8_t*>(outputs.AllocateOutput<uint64_t>(i, shape));
+  } else if (data_type == "BOOL") {
+    return reinterpret_cast<int8_t*>(outputs.AllocateOutput<bool>(i, shape));
+  } else if (data_type == "FP64") {
+    return reinterpret_cast<int8_t*>(outputs.AllocateOutput<double>(i, shape));
+  } /* else if (data_type == "BYTE") {  // todo - test string output
+  return reinterpret_cast<int8_t*>(outputs.AllocateOutput<std::string>(i, shape));
+  } */ else {
+    return {};
+  }
+}
+
+#define CHECK_TRITON_ERR(ret, msg)                                                    \
+  if (!ret.IsOk()) {                                                                  \
+    return ORTX_CXX_API_THROW("Triton err: " + ret.Message(), ORT_RUNTIME_EXCEPTION); \
+  }
+
+void TritonInvoker::Compute(std::string_view auth_token,
+                            const ortc::Variadic& inputs,
+                            ortc::Variadic& outputs) {
+
+  std::vector<std::unique_ptr<tc::InferInput>> triton_input_vec;
+  std::vector<tc::InferInput*> triton_inputs;
+  std::vector<std::unique_ptr<const tc::InferRequestedOutput>> triton_output_vec;
+  std::vector<const tc::InferRequestedOutput*> triton_outputs;
+  tc::Error err;
+
+  for (size_t ith_input = 0; ith_input < inputs.Size(); ++ith_input) {
+
+    tc::InferInput* triton_input = {};
+    std::string triton_data_type = MapDataType(inputs[ith_input]->Type());
+    if (triton_data_type.empty()) {
+      ORTX_CXX_API_THROW("unknow onnx data type", ORT_RUNTIME_EXCEPTION);
+    }
+
+    // todo - more refactoring here
+    char input_name[1024];
+    size_t name_size = 0;
+    api_.KernelInfo_GetInputName(&info_, ith_input, input_name, &name_size);
+
+    err = tc::InferInput::Create(&triton_input, input_name, inputs[ith_input]->Shape(), triton_data_type);
+    triton_input_vec.emplace_back(triton_input);
+    CHECK_TRITON_ERR(err);
+
+    triton_inputs.push_back(triton_input);
+    //todo - test string
+    err = triton_input->AppendRaw(static_cast<const uint8_t*>(inputs[ith_input]->DataRaw()), inputs[ith_input]->SizeInBytes());
+    CHECK_TRITON_ERR(err);
+  }
+
+  size_t output_count = 0;
+  api_.KernelInfo_GetOutputCount(&info_, &output_count);
+
+  std::vector<std::string> output_names;
+  for (size_t ith_output = 0; ith_output < output_count; ++ith_output) {
+
+    char output_name[1024];
+    size_t name_size = 0;
+    api_.KernelInfo_GetInputName(&info_, ith_output, output_name, &name_size);
+    output_names.push_back(output_name);
+
+    tc::InferRequestedOutput* triton_output;
+    err = tc::InferRequestedOutput::Create(&triton_output, output_name);
+    CHECK_TRITON_ERR(err);
+    triton_output_vec.emplace_back(triton_output);
+    triton_outputs.push_back(triton_output);
+  }
+
+  std::unique_ptr<tc::InferResult> results_ptr;
+  tc::InferResult* results = {};
+  tc::InferOptions options(model_name_);
+  options.model_version_ = model_ver_;
+  options.client_timeout_ = 0;
+
+  tc::Headers http_headers;
+  http_headers["Authorization"] = std::string{"Bearer "} + auth_token.data();
+
+  err = triton_client_->Infer(&results, options, triton_inputs, triton_outputs,
+                              http_headers, tc::Parameters(),
+                              tc::InferenceServerHttpClient::CompressionType::NONE,  // support compression in config?
+                              tc::InferenceServerHttpClient::CompressionType::NONE);
+
+  results_ptr.reset(results);
+  CHECK_TRITON_ERR(err);
+
+  size_t output_index = 0;
+  auto iter = output_names.begin();
+
+  while (iter != output_names.end()) {
+    std::vector<int64_t> shape;
+    err = results_ptr->Shape(*iter, &shape);
+    CHECK_TRITON_ERR(err);
+
+    std::string type;
+    err = results_ptr->Datatype(*iter, &type);
+    CHECK_TRITON_ERR(err);
+
+    const uint8_t* raw_data = {};
+    size_t raw_size;
+    err = results_ptr->RawData(*iter, &raw_data, &raw_size);
+    CHECK_TRITON_ERR(err);
+
+    auto* output_raw = CreateTensor(type, outputs, output_index, shape);
+    memcpy(output_raw, raw_data, raw_size);
+
+    ++output_index;
+    ++iter;
+  }
 }

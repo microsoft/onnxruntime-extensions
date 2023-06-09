@@ -5,8 +5,9 @@
 #include "onnxruntime_customop.hpp"
 #include <optional>
 #include <numeric>
+
 // uplevel the version when supported ort version migrates to newer ones
-#define SUPPORT_ORT_API_VERSION_TO 13
+// #define SUPPORT_ORT_API_VERSION_TO 13
 
 namespace Ort {
 namespace Custom {
@@ -32,6 +33,9 @@ class TensorBase {
       ORTX_CXX_API_THROW("tensor shape is not yet initialized", ORT_RUNTIME_EXCEPTION);
     }
   }
+  ONNXTensorElementDataType Type() const {
+    return type_;
+  }
   int64_t NumberOfElement() const {
     if (shape_.has_value()) {
       return std::accumulate(shape_->begin(), shape_->end(), 1LL, std::multiplies<int64_t>());
@@ -51,12 +55,16 @@ class TensorBase {
       return "empty";
     }
   }
+  virtual const void* DataRaw() const = 0;
+  virtual size_t SizeInBytes() const = 0;
+
  protected:
   const OrtW::CustomOpApi& api_;
   OrtKernelContext& ctx_;
   size_t indice_;
   bool is_input_;
   std::optional<std::vector<int64_t>> shape_;
+  ONNXTensorElementDataType type_;
 };
 
 template <typename T>
@@ -93,12 +101,22 @@ class Tensor : public TensorBase {
       const_value_ = api_.KernelContext_GetInput(&ctx_, indice);
       auto* info = api_.GetTensorTypeAndShape(const_value_);
       shape_ = api_.GetTensorShape(info);
+      type_ = api_.GetTensorElementType(info);
       api_.ReleaseTensorTypeAndShapeInfo(info);
     }
   }
   const TT* Data() const {
     return api_.GetTensorData<TT>(const_value_);
   }
+
+  const void* DataRaw() const override {
+    return reinterpret_cast<const void*>(data_);
+  }
+
+  size_t SizeInBytes() const override {
+    return NumberOfElement() * sizeof(TT);
+  }
+
   TT* Allocate(const std::vector<int64_t>& shape) {
     if (!data_) {
       OrtValue* out = api_.KernelContext_GetOutput(&ctx_, indice_, shape.data(), shape.size());
@@ -148,6 +166,7 @@ class Tensor<std::string> : public TensorBase {
       auto* const_value = api_.KernelContext_GetInput(&ctx_, indice);
       auto* info = api_.GetTensorTypeAndShape(const_value);
       shape_ = api_.GetTensorShape(info);
+      type_ = ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
       api_.ReleaseTensorTypeAndShapeInfo(info);
 
       size_t num_chars;
@@ -172,6 +191,19 @@ class Tensor<std::string> : public TensorBase {
   }
   const strings& Data() const {
     return input_strings_;
+  }
+  const void* DataRaw() const override {
+    if (input_strings_.size() != 1) {
+      ORTX_CXX_API_THROW("DataRaw() only applies to string scalar", ORT_RUNTIME_EXCEPTION);
+    }
+    return reinterpret_cast<const void*>(input_strings_[0].c_str());
+  }
+
+  size_t SizeInBytes() const override {
+    if (input_strings_.size() != 1) {
+      ORTX_CXX_API_THROW("DataRaw() only applies to string scalar", ORT_RUNTIME_EXCEPTION);
+    }
+    return input_strings_[0].size();
   }
   void SetStringOutput(const strings& ss, const std::vector<int64_t>& dims) {
     std::vector<const char*> raw;
@@ -220,6 +252,7 @@ class Tensor<std::string_view> : public TensorBase {
       auto* const_value = api_.KernelContext_GetInput(&ctx_, indice);
       auto* info = api_.GetTensorTypeAndShape(const_value);
       shape_ = api_.GetTensorShape(info);
+      type_ = ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
       api_.ReleaseTensorTypeAndShapeInfo(info);
 
       size_t num_chars;
@@ -251,6 +284,18 @@ class Tensor<std::string_view> : public TensorBase {
   const string_views& Data() const {
     return input_string_views_;
   }
+  const void* DataRaw() const override {
+    if (input_string_views_.size() != 1) {
+      ORTX_CXX_API_THROW("DataRaw() only applies to string scalar", ORT_RUNTIME_EXCEPTION);
+    }
+    return reinterpret_cast<const void*>(input_string_views_[0].data());
+  }
+  size_t SizeInBytes() const override {
+    if (input_string_views_.size() != 1) {
+      ORTX_CXX_API_THROW("DataRaw() only applies to string scalar", ORT_RUNTIME_EXCEPTION);
+    }
+    return input_string_views_[0].size();
+  }
   const Span<std::string_view>& AsSpan() {
     ORTX_CXX_API_THROW("span for TensorT of string view not implemented", ORT_RUNTIME_EXCEPTION);
   }
@@ -267,6 +312,89 @@ class Tensor<std::string_view> : public TensorBase {
 };
 
 using TensorPtr = std::unique_ptr<Custom::TensorBase>;
+using TensorPtrs = std::vector<TensorPtr>;
+
+// Represent variadic input or output
+struct Variadic : public TensorBase {
+  Variadic(const OrtW::CustomOpApi& api,
+           OrtKernelContext& ctx,
+           size_t indice,
+           bool is_input) : TensorBase(api,
+                                       ctx,
+                                       indice,
+                                       is_input) {
+    if (indice) {
+      ORTX_CXX_API_THROW("for op has variadic input, only one input is allowed", ORT_RUNTIME_EXCEPTION);
+    }
+    if (is_input) {
+      auto input_count = api_.KernelContext_GetInputCount(&ctx_);
+      for (size_t ith_input = 0; ith_input < input_count; ++input_count) {
+        auto* const_value = api_.KernelContext_GetInput(&ctx_, ith_input);
+        auto* info = api_.GetTensorTypeAndShape(const_value);
+        auto type = api_.GetTensorElementType(info);
+        api_.ReleaseTensorTypeAndShapeInfo(info);
+        TensorPtr tensor;
+        switch (type) {
+          case ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL:
+            tensor = std::make_unique<Custom::Tensor<bool>>(api, ctx, ith_input, true);
+            break;
+          case ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
+            tensor = std::make_unique<Custom::Tensor<float>>(api, ctx, ith_input, true);
+            break;
+          case ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE:
+            tensor = std::make_unique<Custom::Tensor<double>>(api, ctx, ith_input, true);
+            break;
+          case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
+            tensor = std::make_unique<Custom::Tensor<uint8_t>>(api, ctx, ith_input, true);
+            break;
+          case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8:
+            tensor = std::make_unique<Custom::Tensor<int8_t>>(api, ctx, ith_input, true);
+            break;
+          case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16:
+            tensor = std::make_unique<Custom::Tensor<uint16_t>>(api, ctx, ith_input, true);
+            break;
+          case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16:
+            tensor = std::make_unique<Custom::Tensor<int16_t>>(api, ctx, ith_input, true);
+            break;
+          case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32:
+            tensor = std::make_unique<Custom::Tensor<uint32_t>>(api, ctx, ith_input, true);
+            break;
+          case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
+            tensor = std::make_unique<Custom::Tensor<int32_t>>(api, ctx, ith_input, true);
+            break;
+          case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64:
+            tensor = std::make_unique<Custom::Tensor<uint64_t>>(api, ctx, ith_input, true);
+            break;
+          case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
+            tensor = std::make_unique<Custom::Tensor<int64_t>>(api, ctx, ith_input, true);
+            break;
+          case ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING:
+            tensor = std::make_unique<Custom::Tensor<std::string_view>>(api, ctx, ith_input, true);
+            break;
+          default:
+            ORTX_CXX_API_THROW("unknow input type", ORT_RUNTIME_EXCEPTION);
+            break;
+        }
+        tensors_.emplace_back(tensor.release());
+      } // for
+    }
+  }
+  template<typename T>
+  T* AllocateOutput(size_t ith_output, const std::vector<int64_t>& shape) {
+    auto tensor = std::make_unique<Tensor<T>>(api_, ctx_, ith_output, false);
+    auto raw_output = tensor.get()->Allocate(shape);
+    tensors_.emplace_back(tensor.release());
+    return raw_output;
+  }
+  size_t Size() const {
+    return tensors_.size();
+  }
+  const TensorPtr& operator[](size_t indice) const {
+    return tensors_.at(indice);
+  }
+ private:
+  TensorPtrs tensors_;
+};
 
 struct OrtLiteCustomOp : public OrtCustomOp {
   using ConstOptionalFloatTensor = std::optional<const Custom::Tensor<float>&>;
@@ -284,6 +412,42 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) {
     std::tuple<T> current = std::tuple<OrtKernelContext*>{context};
     auto next = CreateTuple<ith_input, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);
+    return std::tuple_cat(current, next);
+  }
+
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
+  static typename std::enable_if<std::is_same<T, const Variadic*>::value, std::tuple<T, Ts...>>::type
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) {
+    tensors.push_back(std::make_unique<Variadic>(*api, *context, ith_input, true));
+    std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(tensors.back().get())};
+    auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);
+    return std::tuple_cat(current, next);
+  }
+
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
+  static typename std::enable_if<std::is_same<T, const Variadic&>::value, std::tuple<T, Ts...>>::type
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) {
+    tensors.push_back(std::make_unique<Variadic>(*api, *context, ith_input, true));
+    std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(*tensors.back().get())};
+    auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);
+    return std::tuple_cat(current, next);
+  }
+
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
+  static typename std::enable_if<std::is_same<T, Variadic*>::value, std::tuple<T, Ts...>>::type
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) {
+    tensors.push_back(std::make_unique<Variadic>(*api, *context, ith_input, true));
+    std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(tensors.back().get())};
+    auto next = CreateTuple<ith_input, ith_output + 1, Ts...>(api, context, tensors, num_input, num_output, ep);
+    return std::tuple_cat(current, next);
+  }
+
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
+  static typename std::enable_if<std::is_same<T, Variadic&>::value, std::tuple<T, Ts...>>::type
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) {
+    tensors.push_back(std::make_unique<Variadic>(*api, *context, ith_input, true));
+    std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(*tensors.back().get())};
+    auto next = CreateTuple<ith_input, ith_output + 1, Ts...>(api, context, tensors, num_input, num_output, ep);
     return std::tuple_cat(current, next);
   }
 
@@ -446,6 +610,50 @@ struct OrtLiteCustomOp : public OrtCustomOp {
     ParseArgs<Ts...>(input_types, output_types);
   }
 
+  template <typename T, typename... Ts>
+  static typename std::enable_if<0 <= sizeof...(Ts) && std::is_same<T, const Variadic&>::value>::type
+  ParseArgs(std::vector<ONNXTensorElementDataType>& input_types, std::vector<ONNXTensorElementDataType>& output_types) {
+    input_characteristic_ = INPUT_OUTPUT_VARIADIC;
+    if (!input_types.empty()) {
+      ORTX_CXX_API_THROW("for op has variadic input, only one input is allowed", ORT_RUNTIME_EXCEPTION);
+    }
+    input_types.push_back(ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED);
+    ParseArgs<Ts...>(input_types, output_types);
+  }
+
+  template <typename T, typename... Ts>
+  static typename std::enable_if<0 <= sizeof...(Ts) && std::is_same<T, const Variadic*>::value>::type
+  ParseArgs(std::vector<ONNXTensorElementDataType>& input_types, std::vector<ONNXTensorElementDataType>& output_types) {
+    input_characteristic_ = INPUT_OUTPUT_VARIADIC;
+    if (!input_types.empty()) {
+      ORTX_CXX_API_THROW("for op has variadic input, only one input is allowed", ORT_RUNTIME_EXCEPTION);
+    }
+    input_types.push_back(ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED);
+    ParseArgs<Ts...>(input_types, output_types);
+  }
+
+  template <typename T, typename... Ts>
+  static typename std::enable_if<0 <= sizeof...(Ts) && std::is_same<T, Variadic&>::value>::type
+  ParseArgs(std::vector<ONNXTensorElementDataType>& input_types, std::vector<ONNXTensorElementDataType>& output_types) {
+    output_characteristic_ = INPUT_OUTPUT_VARIADIC;
+    if (!output_types.empty()) {
+      ORTX_CXX_API_THROW("for op has variadic output, only one output is allowed", ORT_RUNTIME_EXCEPTION);
+    }
+    output_types.push_back(ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED);
+    ParseArgs<Ts...>(input_types, output_types);
+  }
+
+  template <typename T, typename... Ts>
+  static typename std::enable_if<0 <= sizeof...(Ts) && std::is_same<T, Variadic*>::value>::type
+  ParseArgs(std::vector<ONNXTensorElementDataType>& input_types, std::vector<ONNXTensorElementDataType>& output_types) {
+    output_characteristic_ = INPUT_OUTPUT_VARIADIC;
+    if (!output_types.empty()) {
+      ORTX_CXX_API_THROW("for op has variadic output, only one output is allowed", ORT_RUNTIME_EXCEPTION);
+    }
+    output_types.push_back(ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED);
+    ParseArgs<Ts...>(input_types, output_types);
+  }
+
 #define PARSE_INPUT_BASE(pack_type, onnx_type)                                                                           \
   template <typename T, typename... Ts>                                                                                  \
   static typename std::enable_if<0 <= sizeof...(Ts) && std::is_same<T, pack_type>::value>::type                          \
@@ -547,6 +755,9 @@ struct OrtLiteCustomOp : public OrtCustomOp {
 
   std::vector<ONNXTensorElementDataType> input_types_;
   std::vector<ONNXTensorElementDataType> output_types_;
+
+  OrtCustomOpInputOutputCharacteristic input_characteristic_ = INPUT_OUTPUT_OPTIONAL;
+  OrtCustomOpInputOutputCharacteristic output_characteristic_ = INPUT_OUTPUT_OPTIONAL;
 };
 
 template <typename... Args>

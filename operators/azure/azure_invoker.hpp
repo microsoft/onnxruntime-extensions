@@ -16,3 +16,17 @@ struct AzureAudioInvoker : public BaseKernel {
   std::string model_name_;
   bool verbose_;
 };
+
+struct TritonInvoker : public BaseKernel {
+  TritonInvoker(const OrtApi& api, const OrtKernelInfo& info);
+  void Compute(std::string_view auth_token,
+               const ortc::Variadic& inputs,
+               ortc::Variadic& outputs);
+
+ private:
+  std::string model_uri_;
+  std::string model_name_;
+  std::string model_ver_;
+  std::string verbose_;
+  std::unique_ptr<triton::client::InferenceServerHttpClient> triton_client_;
+};
