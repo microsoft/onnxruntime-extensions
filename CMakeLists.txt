@@ -58,6 +58,7 @@ option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require o
 option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
 option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
+option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" ON)
 
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
@@ -79,6 +80,7 @@ function(disable_all_operators)
   set(OCOS_ENABLE_OPENCV_CODECS OFF CACHE INTERNAL "" FORCE)
   set(OCOS_ENABLE_CV2 OFF CACHE INTERNAL "" FORCE)
   set(OCOS_ENABLE_VISION OFF CACHE INTERNAL "" FORCE)
+  set(OCOS_ENABLE_AZURE OFF CACHE INTERNAL "" FORCE)
 endfunction()
 
 if (CMAKE_GENERATOR_PLATFORM)
@@ -376,6 +378,13 @@ if(OCOS_ENABLE_BLINGFIRE)
   list(APPEND TARGET_SRC ${blingfire_TARGET_SRC})
 endif()
 
+if(OCOS_ENABLE_AZURE)
+  # Azure endpoint invokers
+  include(triton)
+  file(GLOB TARGET_SRC_AZURE "operators/azure/*.cc" "operators/azure/*.h*")
+  list(APPEND TARGET_SRC ${TARGET_SRC_AZURE})
+endif()
+
 if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
   message(STATUS "Fetch json")
   include(json)
@@ -476,6 +485,10 @@ endif()
 
 if(OCOS_ENABLE_VISION)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_VISION)
+endif()
+
+if(OCOS_ENABLE_AZURE)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_AZURE)
 endif()
 
 if(OCOS_ENABLE_GPT2_TOKENIZER)
@@ -692,4 +705,24 @@ if(OCOS_ENABLE_CTEST)
       ${TEST_DATA_DES})
     add_test(NAME extensions_test COMMAND $<TARGET_FILE:extensions_test>)
   endif()
+endif()
+
+if(OCOS_ENABLE_AZURE)
+
+  target_include_directories(ocos_operators PUBLIC ${TRITON_BIN}/include ${TRITON_THIRD_PARTY}/curl/include)
+  target_link_directories(ocos_operators PUBLIC ${TRITON_BIN}/lib ${TRITON_BIN}/lib64 ${TRITON_THIRD_PARTY}/curl/lib ${TRITON_THIRD_PARTY}/curl/lib64)
+
+  if (WIN32)
+
+    target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${ocos_target_platform}-windows/lib)
+    target_link_libraries(ocos_operators PUBLIC libcurl httpclient_static ws2_32 crypt32 Wldap32)
+
+  else()
+
+    find_package(ZLIB REQUIRED)
+    find_package(OpenSSL REQUIRED)
+    target_link_libraries(ocos_operators PUBLIC httpclient_static curl ZLIB::ZLIB OpenSSL::Crypto OpenSSL::SSL)
+
+  endif() #if (WIN32)
+
 endif()
