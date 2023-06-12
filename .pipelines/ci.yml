@@ -418,7 +418,7 @@ jobs:
     steps:
       - template: templates/use-xcode-version.yml
         parameters:
-          xcodeVerson: ${{ variables.xcodeVersion }}
+          xcodeVersion: ${{ variables.xcodeVersion }}
 
       - task: UsePythonVersion@0
         inputs:
