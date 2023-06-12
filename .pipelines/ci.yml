@@ -274,7 +274,9 @@ jobs:
     steps:
       - script: |
           call .\build.bat -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>"
-        displayName: build ort-extensions with VC static runtime.
+          cd out/Windows
+          ctest -C RelWithDebInfo --output-on-failure
+        displayName: build and test ort-extensions with VC static runtime.
 
   ################
   # Windows Python
