@@ -27,7 +27,7 @@ jobs:
       - script: brew install coreutils ninja
         displayName: Install coreutils and ninja
 
-      - templates: templates/install-appcenter.yml
+      - template: templates/install-appcenter.yml
 
       - script: |
           python ./tools/gen_selectedops.py ./tools/android/package_ops.config
