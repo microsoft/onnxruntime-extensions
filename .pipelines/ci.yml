@@ -273,7 +273,7 @@ jobs:
 
     steps:
       - script: |
-          call .\build.bat -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$CONFIG:Debug:Debug>"
+          call .\build.bat -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>"
         displayName: build ort-extensions with VC static runtime.
 
   ################
