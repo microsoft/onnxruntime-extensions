@@ -41,13 +41,16 @@ jobs:
   - IOS_C_API_Packaging_iphonesimulator_arm64
   - IOS_C_API_Packaging_iphonesimulator_x86_64
   pool:
-    vmImage: "macOS-12"
+    vmImage: "macOS-13"
 
   timeoutInMinutes: 120
 
   steps:
   - checkout: self
     submodules: true
+
+  - template: use-xcode-version.yml
+
   - task: UsePythonVersion@0
     inputs:
       versionSpec: "3.9"

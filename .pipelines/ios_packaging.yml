@@ -11,11 +11,18 @@ jobs:
   displayName: "iOS Packaging"
 
   pool:
-    vmImage: "macOS-12"
+    vmImage: "macOS-13"
+
+  variables:
+    xcodeVersion: "14.3"
 
   timeoutInMinutes: 120
 
   steps:
+  - template: templates/use-xcode-version.yml
+    parameters:
+      xcodeVersion: ${{ variables.xcodeVersion }}
+
   - task: UsePythonVersion@0
     inputs:
       versionSpec: "3.9"
@@ -68,6 +75,7 @@ jobs:
         parameters:
           xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
           scheme: 'OrtExtensionsUsage'
+          xcodeVersion: ${{ variables.xcodeVersion }}
 
   - task: InstallAppleCertificate@2
     inputs:
@@ -89,6 +97,8 @@ jobs:
       xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
       sdk: 'iphoneos'
       scheme: 'OrtExtensionsUsage'
+      xcodeVersion: 'specifyPath'
+      xcodeDeveloperDir: '/Applications/Xcode_${{ variables.xcodeVersion }}.app/Contents/Developer'
       signingOption: 'manual'
       signingIdentity: '$(APPLE_CERTIFICATE_SIGNING_IDENTITY)'
       provisioningProfileName: 'iOS Team Provisioning Profile'

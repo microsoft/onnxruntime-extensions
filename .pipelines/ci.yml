@@ -97,7 +97,7 @@ jobs:
   ###########
   - job: MacOSX
     pool:
-      vmImage: 'macOS-12'
+      vmImage: 'macOS-13'
 
     strategy:
       matrix:
@@ -115,6 +115,8 @@ jobs:
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
 
     steps:
+      - template: templates/use-xcode-version.yml
+
       # needed for onnxruntime
       - script: brew install libomp
         displayName: 'Install omp'
@@ -151,7 +153,7 @@ jobs:
   #############
   - job: MacOSPython
     pool:
-      vmImage: 'macOS-12'
+      vmImage: 'macOS-13'
 
     strategy:
       matrix:
@@ -173,6 +175,8 @@ jobs:
           ort.version: '1.12.0'
 
     steps:
+      - template: templates/use-xcode-version.yml
+
       # needed for onnxruntime
       - script: brew install libomp
         displayName: 'Install omp'
@@ -353,6 +357,8 @@ jobs:
   #############
   - job: AndroidPackage
     pool:
+      # We need macOS-12 to run the Android emulator for now.
+      # https://github.com/actions/runner-images/issues/7671
       vmImage: 'macOS-12'
     timeoutInMinutes: 120
     steps:
@@ -405,9 +411,15 @@ jobs:
   #############
   - job: IosPackage
     pool:
-      vmImage: 'macOS-12'
+      vmImage: 'macOS-13'
     timeoutInMinutes: 120
+    variables:
+      xcodeVersion: "14.3"
     steps:
+      - template: templates/use-xcode-version.yml
+        parameters:
+          xcodeVerson: ${{ variables.xcodeVersion }}
+
       - task: UsePythonVersion@0
         inputs:
           versionSpec: '3.9'
@@ -451,6 +463,7 @@ jobs:
             parameters:
               xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
               scheme: 'OrtExtensionsUsage'
+              xcodeVersion: ${{ variables.xcodeVersion }}
 
 
   #####################################
