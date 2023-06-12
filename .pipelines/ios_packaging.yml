@@ -34,6 +34,8 @@ jobs:
       python -m pip install cmake==3.25.0
     displayName: "Install CMake 3.25.0"
 
+  - template: templates/install-appcenter.yml
+
   - template: templates/set-package-version-variable-step.yml
     parameters:
       IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
