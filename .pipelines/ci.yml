@@ -267,6 +267,15 @@ jobs:
           ctest -C RelWithDebInfo --output-on-failure
         displayName: Run C++ native tests
 
+  - job: WindowsStaticVC
+    pool:
+      vmImage: 'windows-latest'
+
+    steps:
+      - script: |
+          call .\build.bat -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$CONFIG:Debug:Debug>"
+        displayName: build ort-extensions with VC static runtime.
+
   ################
   # Windows Python
   ################
