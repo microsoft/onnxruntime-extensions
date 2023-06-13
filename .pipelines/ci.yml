@@ -413,12 +413,8 @@ jobs:
     pool:
       vmImage: 'macOS-13'
     timeoutInMinutes: 120
-    variables:
-      xcodeVersion: "14.3"
     steps:
       - template: templates/use-xcode-version.yml
-        parameters:
-          xcodeVersion: ${{ variables.xcodeVersion }}
 
       - task: UsePythonVersion@0
         inputs:

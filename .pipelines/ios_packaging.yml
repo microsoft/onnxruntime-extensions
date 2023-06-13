@@ -13,15 +13,10 @@ jobs:
   pool:
     vmImage: "macOS-13"
 
-  variables:
-    xcodeVersion: "14.3"
-
   timeoutInMinutes: 120
 
   steps:
   - template: templates/use-xcode-version.yml
-    parameters:
-      xcodeVersion: ${{ variables.xcodeVersion }}
 
   - task: UsePythonVersion@0
     inputs:
@@ -96,19 +91,18 @@ jobs:
       removeProfile: true
     displayName: "Install ORT Mobile Test Provisioning Profile"
 
-  - task: Xcode@5
-    inputs:
-      actions: 'build-for-testing'
-      configuration: 'Debug'
-      xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
-      sdk: 'iphoneos'
-      scheme: 'OrtExtensionsUsage'
-      xcodeVersion: 'specifyPath'
-      xcodeDeveloperDir: '/Applications/Xcode_${{ variables.xcodeVersion }}.app/Contents/Developer'
-      signingOption: 'manual'
-      signingIdentity: '$(APPLE_CERTIFICATE_SIGNING_IDENTITY)'
-      provisioningProfileName: 'iOS Team Provisioning Profile'
-      args: '-derivedDataPath $(Build.BinariesDirectory)/appcenter_test_derived_data'
+  - script: |
+      xcrun xcodebuild \
+        -sdk iphoneos \
+        -configuration Debug \
+        -workspace $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace \
+        -scheme OrtExtensionsUsage \
+        -derivedDataPath $(Build.BinariesDirectory)/appcenter_test_derived_data \
+        build-for-testing \
+        CODE_SIGN_STYLE=Manual \
+        "CODE_SIGN_IDENTITY=$(ios_signing_certificate_name)" \
+        PROVISIONING_PROFILE= \
+        "PROVISIONING_PROFILE_SPECIFIER=$(ios_provision_profile_name)"
     displayName: "Build appcenter test"
 
   - script: |
