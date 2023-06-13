@@ -83,12 +83,14 @@ jobs:
       certSecureFile: '$(ios_signing_certificate_name)'
       certPwd: '$(ios_signing_certificate_password)'
       keychain: 'temp'
+    name: installSigningCertificate
     displayName: "Install ORT Mobile Test Signing Certificate"
 
   - task: InstallAppleProvisioningProfile@1
     inputs:
       provProfileSecureFile: '$(ios_provision_profile_name)'
       removeProfile: true
+    name: installProvisioningProfile
     displayName: "Install ORT Mobile Test Provisioning Profile"
 
   - script: |
@@ -100,9 +102,9 @@ jobs:
         -derivedDataPath $(Build.BinariesDirectory)/appcenter_test_derived_data \
         build-for-testing \
         CODE_SIGN_STYLE=Manual \
-        "CODE_SIGN_IDENTITY=$(signingIdentity)" \
+        "CODE_SIGN_IDENTITY=$(installSigningCertificate.signingIdentity)" \
         PROVISIONING_PROFILE= \
-        "PROVISIONING_PROFILE_SPECIFIER=$(provisioningProfileName)"
+        "PROVISIONING_PROFILE_SPECIFIER=$(installProvisioningProfile.provisioningProfileName)"
     displayName: "Build appcenter test"
 
   - script: |
