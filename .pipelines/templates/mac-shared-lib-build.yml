@@ -19,13 +19,15 @@ jobs:
     MACOSX_DEPLOYMENT_TARGET: '10.14'
     TODAY: $[format('{0:dd}{0:MM}{0:yyyy}', pipeline.startTime)]
   pool:
-    vmImage: 'macOS-12'
+    vmImage: 'macOS-13'
   timeoutInMinutes: 300
 
   steps:
   - checkout: self
     clean: true
     submodules: none
+
+  - template: use-xcode-version.yml
 
   - task: NodeTool@0
     inputs:

@@ -21,11 +21,13 @@ jobs:
   - job: IOS_C_API_Packaging_${{ parameters.Platform }}_${{ parameters.IosArch }}
     condition: succeeded()
     pool:
-      vmImage: "macOS-12"
+      vmImage: "macOS-13"
     timeoutInMinutes: 120
     variables:
       buildConfig: Release
     steps:
+      - template: use-xcode-version.yml
+
       - task: UsePythonVersion@0
         inputs:
           versionSpec: "3.9"

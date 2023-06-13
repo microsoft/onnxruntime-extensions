@@ -13,6 +13,11 @@ steps:
     echo "##vso[task.setvariable variable=ORT_EXTENSIONS_BUILD_SIMULATOR_ID]${ORT_EXTENSIONS_BUILD_SIMULATOR_ID}"
   displayName: "Create iPhone simulator"
 
+- bash: |
+    set -e -x
+    xcrun simctl bootstatus ${ORT_EXTENSIONS_BUILD_SIMULATOR_ID} -b
+  displayName: "Wait for iPhone simulator to boot"
+
 - ${{ parameters.steps }}
 
 - bash: |
