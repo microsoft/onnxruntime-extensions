@@ -100,9 +100,9 @@ jobs:
         -derivedDataPath $(Build.BinariesDirectory)/appcenter_test_derived_data \
         build-for-testing \
         CODE_SIGN_STYLE=Manual \
-        "CODE_SIGN_IDENTITY=$(ios_signing_certificate_name)" \
+        "CODE_SIGN_IDENTITY=$(signingIdentity)" \
         PROVISIONING_PROFILE= \
-        "PROVISIONING_PROFILE_SPECIFIER=$(ios_provision_profile_name)"
+        "PROVISIONING_PROFILE_SPECIFIER=$(provisioningProfileName)"
     displayName: "Build appcenter test"
 
   - script: |
