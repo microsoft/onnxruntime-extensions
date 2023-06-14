@@ -712,10 +712,18 @@ if(OCOS_ENABLE_AZURE)
   target_include_directories(ocos_operators PUBLIC ${TRITON_BIN}/include ${TRITON_THIRD_PARTY}/curl/include)
   target_link_directories(ocos_operators PUBLIC ${TRITON_BIN}/lib ${TRITON_BIN}/lib64 ${TRITON_THIRD_PARTY}/curl/lib ${TRITON_THIRD_PARTY}/curl/lib64)
 
+  if (ocos_target_platform STREQUAL "AMD64")
+    set(vcpkg_target_platform "x64")
+  else()
+    set(vcpkg_target_platform ${ocos_target_platform})
+  endif()
+
   if (WIN32)
 
-    target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${ocos_target_platform}-windows/lib)
+    target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static/lib)
     target_link_libraries(ocos_operators PUBLIC libcurl httpclient_static ws2_32 crypt32 Wldap32)
+    #target_link_libraries(ocos_operators PUBLIC libcurl libssh2 httpclient_static ws2_32 crypt32 Wldap32)
+    #target_link_libraries(ocos_operators PUBLIC httpclient_static ws2_32 crypt32 Wldap32)
 
   else()
 

@@ -2,6 +2,12 @@ include(ExternalProject)
 
 if (WIN32)
 
+  if (ocos_target_platform STREQUAL "AMD64")
+    set(vcpkg_target_platform "x64")
+  else()
+    set(vcpkg_target_platform ${ocos_target_platform})
+  endif()
+
   function(get_vcpkg)
     ExternalProject_Add(vcpkg
       GIT_REPOSITORY https://github.com/microsoft/vcpkg.git
@@ -21,20 +27,21 @@ if (WIN32)
 
   function(vcpkg_install PACKAGE_NAME)
     add_custom_command(
-      OUTPUT ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${ocos_target_platform}-windows/BUILD_INFO
-      COMMAND ${VCPKG_SRC}/vcpkg install ${PACKAGE_NAME}:${ocos_target_platform}-windows
+      OUTPUT ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_target_platform}-windows-static/BUILD_INFO
+      COMMAND ${VCPKG_SRC}/vcpkg install ${PACKAGE_NAME}:${vcpkg_target_platform}-windows-static
       WORKING_DIRECTORY ${VCPKG_SRC}
       DEPENDS vcpkg)
 
     add_custom_target(get${PACKAGE_NAME}
       ALL
-      DEPENDS ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${ocos_target_platform}-windows/BUILD_INFO)
+      DEPENDS ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_target_platform}-windows-static/BUILD_INFO)
 
     list(APPEND VCPKG_DEPENDENCIES "get${PACKAGE_NAME}")
     set(VCPKG_DEPENDENCIES ${VCPKG_DEPENDENCIES} PARENT_SCOPE)
   endfunction()
 
   get_vcpkg()
+  # vcpkg_install(libssh2)
   vcpkg_install(openssl)
   vcpkg_install(openssl-windows)
   vcpkg_install(rapidjson)
@@ -51,6 +58,7 @@ if (WIN32)
   add_dependencies(getre2 getrapidjson)
   add_dependencies(getrapidjson getopenssl-windows)
   add_dependencies(getopenssl-windows getopenssl)
+  # add_dependencies(getopenssl getlibssh2)
 
   ExternalProject_Add(triton
                       GIT_REPOSITORY https://github.com/triton-inference-server/client.git
@@ -58,7 +66,7 @@ if (WIN32)
                       PREFIX triton
                       SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/triton-src
                       BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/triton-build
-                      CMAKE_ARGS -DVCPKG_TARGET_TRIPLET=${ocos_target_platform}-windows -DCMAKE_TOOLCHAIN_FILE=${VCPKG_SRC}/scripts/buildsystems/vcpkg.cmake -DCMAKE_INSTALL_PREFIX=binary -DTRITON_ENABLE_CC_HTTP=ON -DTRITON_ENABLE_ZLIB=OFF
+                      CMAKE_ARGS -DVCPKG_TARGET_TRIPLET=${vcpkg_target_platform}-windows-static -DCMAKE_TOOLCHAIN_FILE=${VCPKG_SRC}/scripts/buildsystems/vcpkg.cmake -DCMAKE_INSTALL_PREFIX=binary -DTRITON_ENABLE_CC_HTTP=ON -DTRITON_ENABLE_ZLIB=OFF
                       INSTALL_COMMAND ""
                       UPDATE_COMMAND "")
 

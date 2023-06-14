@@ -7,8 +7,8 @@
 
 struct AzureAudioInvoker : public BaseKernel {
   AzureAudioInvoker(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(std::string_view auth_token,
-               const ortc::Tensor<int8_t>& raw_audio_data,
+  void Compute(const ortc::Tensor<std::string>& auth_token,
+               const ortc::Tensor<uint8_t>& raw_audio_data,
                ortc::Tensor<std::string>& text);
 
  private:
@@ -17,8 +17,8 @@ struct AzureAudioInvoker : public BaseKernel {
   bool verbose_;
 };
 
-struct TritonInvoker : public BaseKernel {
-  TritonInvoker(const OrtApi& api, const OrtKernelInfo& info);
+struct AzureTritonInvoker : public BaseKernel {
+  AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(std::string_view auth_token,
                const ortc::Variadic& inputs,
                ortc::Variadic& outputs);

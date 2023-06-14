@@ -81,13 +81,13 @@ AzureAudioInvoker::AzureAudioInvoker(const OrtApi& api,
   verbose_ = TryToGetAttributeWithDefault<bool>(kVerbose, false);
 }
 
-void AzureAudioInvoker::Compute(std::string_view auth_token,
-                                const ortc::Tensor<int8_t>& audio,
+void AzureAudioInvoker::Compute(const ortc::Tensor<std::string>& auth_token,
+                                const ortc::Tensor<uint8_t>& audio,
                                 ortc::Tensor<std::string>& text) {
   CurlHandler curl_handler(WriteStringCallback);
   StringBuffer string_buffer;
 
-  std::string full_auth = std::string{"Authorization: Bearer "} + auth_token.data();
+  std::string full_auth = std::string{"Authorization: Bearer "} + auth_token.Data()[0];
   curl_handler.AddHeader(full_auth.c_str());
   curl_handler.AddHeader("Content-Type: multipart/form-data");
 
@@ -110,7 +110,7 @@ void AzureAudioInvoker::Compute(std::string_view auth_token,
 
 namespace tc = triton::client;
 
-TritonInvoker::TritonInvoker(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
+AzureTritonInvoker::AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
   model_uri_ = TryToGetAttributeWithDefault<std::string>(kUri, "");
   model_name_ = TryToGetAttributeWithDefault<std::string>(kModelName, "");
   model_ver_ = TryToGetAttributeWithDefault<std::string>(kModelVer, "0");
@@ -143,8 +143,8 @@ std::string MapDataType(ONNXTensorElementDataType onnx_data_type) {
       triton_data_type = "INT64";
       break;
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING:
-       triton_data_type = "BYTES";
-       break;
+      triton_data_type = "BYTES";
+      break;
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL:
       triton_data_type = "BOOL";
       break;
@@ -197,7 +197,8 @@ int8_t* CreateTensor(const std::string& data_type,
     return reinterpret_cast<int8_t*>(outputs.AllocateOutput<double>(i, shape));
   } /* else if (data_type == "BYTE") {  // todo - test string output
   return reinterpret_cast<int8_t*>(outputs.AllocateOutput<std::string>(i, shape));
-  } */ else {
+  } */
+  else {
     return {};
   }
 }
@@ -207,10 +208,9 @@ int8_t* CreateTensor(const std::string& data_type,
     return ORTX_CXX_API_THROW("Triton err: " + ret.Message(), ORT_RUNTIME_EXCEPTION); \
   }
 
-void TritonInvoker::Compute(std::string_view auth_token,
-                            const ortc::Variadic& inputs,
-                            ortc::Variadic& outputs) {
-
+void AzureTritonInvoker::Compute(std::string_view auth_token,
+                                 const ortc::Variadic& inputs,
+                                 ortc::Variadic& outputs) {
   std::vector<std::unique_ptr<tc::InferInput>> triton_input_vec;
   std::vector<tc::InferInput*> triton_inputs;
   std::vector<std::unique_ptr<const tc::InferRequestedOutput>> triton_output_vec;
@@ -218,7 +218,6 @@ void TritonInvoker::Compute(std::string_view auth_token,
   tc::Error err;
 
   for (size_t ith_input = 0; ith_input < inputs.Size(); ++ith_input) {
-
     tc::InferInput* triton_input = {};
     std::string triton_data_type = MapDataType(inputs[ith_input]->Type());
     if (triton_data_type.empty()) {
@@ -228,27 +227,26 @@ void TritonInvoker::Compute(std::string_view auth_token,
     // todo - more refactoring here
     char input_name[1024];
     size_t name_size = 0;
-    api_.KernelInfo_GetInputName(&info_, ith_input, input_name, &name_size);
+    //api_.KernelInfo_GetInputName(&info_, ith_input, input_name, &name_size);
 
     err = tc::InferInput::Create(&triton_input, input_name, inputs[ith_input]->Shape(), triton_data_type);
     triton_input_vec.emplace_back(triton_input);
     CHECK_TRITON_ERR(err);
 
     triton_inputs.push_back(triton_input);
-    //todo - test string
+    // todo - test string
     err = triton_input->AppendRaw(static_cast<const uint8_t*>(inputs[ith_input]->DataRaw()), inputs[ith_input]->SizeInBytes());
     CHECK_TRITON_ERR(err);
   }
 
   size_t output_count = 0;
-  api_.KernelInfo_GetOutputCount(&info_, &output_count);
+  //api_.KernelInfo_GetOutputCount(&info_, &output_count);
 
   std::vector<std::string> output_names;
   for (size_t ith_output = 0; ith_output < output_count; ++ith_output) {
-
     char output_name[1024];
     size_t name_size = 0;
-    api_.KernelInfo_GetInputName(&info_, ith_output, output_name, &name_size);
+    //api_.KernelInfo_GetOutputName(&info_, ith_output, output_name, &name_size);
     output_names.push_back(output_name);
 
     tc::InferRequestedOutput* triton_output;
@@ -299,3 +297,11 @@ void TritonInvoker::Compute(std::string_view auth_token,
     ++iter;
   }
 }
+
+const std::vector<const OrtCustomOp*>& AzureInvokerLoader() {
+  static OrtOpLoader op_loader(CustomAzureStruct("AzureAudioInvoker", AzureAudioInvoker) /*,
+                               CustomAzureStruct("AzureTritonInvoker", AzureTritonInvoker)*/);
+  return op_loader.GetCustomOps();
+}
+
+FxLoadCustomOpFactory LoadCustomOpClasses_Azure = AzureInvokerLoader;

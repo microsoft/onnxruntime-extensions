@@ -87,6 +87,7 @@ class CuopContainer {
 
 #define CustomCpuFunc(name, f) []() { return std::shared_ptr<ortc::OrtLiteCustomOp>(ortc::CreateLiteCustomOp(name, "CPUExecutionProvider", f)); }
 #define CustomCpuStruct(name, s) []() { return std::shared_ptr<ortc::OrtLiteCustomOp>(ortc::CreateLiteCustomOp<s>(name, "CPUExecutionProvider")); }
+#define CustomAzureStruct(name, s) []() { return std::shared_ptr<ortc::OrtLiteCustomOp>(ortc::CreateLiteCustomOp<s>(name, "AzureExecutionProvider")); }
 
 template <typename F>
 void AppendCustomOp(std::vector<std::shared_ptr<OrtCustomOp>>& ops,
@@ -170,4 +171,8 @@ extern FxLoadCustomOpFactory LoadCustomOpClasses_Vision;
 
 #ifdef ENABLE_DR_LIBS
 extern FxLoadCustomOpFactory LoadCustomOpClasses_Audio;
+#endif
+
+#ifdef ENABLE_AZURE
+extern FxLoadCustomOpFactory LoadCustomOpClasses_Azure;
 #endif
