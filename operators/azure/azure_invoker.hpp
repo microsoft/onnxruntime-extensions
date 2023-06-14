@@ -19,8 +19,7 @@ struct AzureAudioInvoker : public BaseKernel {
 
 struct AzureTritonInvoker : public BaseKernel {
   AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(std::string_view auth_token,
-               const ortc::Variadic& inputs,
+  void Compute(const ortc::Variadic& inputs,
                ortc::Variadic& outputs);
 
  private:

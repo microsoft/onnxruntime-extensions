@@ -9,7 +9,8 @@ else()
   message(STATUS "CMAKE_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}")
 
   # default to 1.11.1 if not specified
-  set(ONNXRUNTIME_VER "1.11.1" CACHE STRING "ONNX Runtime version")
+  set(ONNXRUNTIME_VER "1.15.0" CACHE STRING "ONNX Runtime version")
+  message(WARNING "ONNXRUNTIME_VER: " ${ONNXRUNTIME_VER})
 
   if(APPLE)
     set(ONNXRUNTIME_URL "v${ONNXRUNTIME_VER}/onnxruntime-osx-universal2-${ONNXRUNTIME_VER}.tgz")
