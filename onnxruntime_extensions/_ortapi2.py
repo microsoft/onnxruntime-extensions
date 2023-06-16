@@ -74,16 +74,7 @@ class OrtPyFunction:
                 self.execution_providers = ['CUDAExecutionProvider']
 
     def create_from_customop(self, op_type, *args, **kwargs):
-        cvt = kwargs.get('cvt', None)
-        if cvt is None:
-            cvt = args[0] if len(args) > 0 and isinstance(
-                args[0], CustomOpConverter) else None
-            args = args[1:]
-        else:
-            del kwargs['cvt']
-
-        new_kwargs = kwargs if cvt is None else cvt(**kwargs)
-        graph = SingleOpGraph.build_my_graph(op_type, *args, **new_kwargs)
+        graph = SingleOpGraph.build_graph(op_type, *args, **kwargs)
         self._bind(make_onnx_model(graph))
         return self
 

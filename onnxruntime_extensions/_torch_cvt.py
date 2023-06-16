@@ -1,14 +1,17 @@
 import io
+import os
 import onnx
 import torch
 import numpy as np
 
 from onnx import numpy_helper
+
+from . import SingleOpGraph
 from ._ortapi2 import OrtPyFunction, CustomOpConverter
 from .util import remove_unused_initializers
 
 
-class _WhisperProcesssingParams:
+class _WhisperHParams:
     SAMPLE_RATE = 16000
     N_FFT = 400
     N_MELS = 80
@@ -78,17 +81,17 @@ class CustomOpStftNorm(torch.autograd.Function):
 class WhisperPrePipeline(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.window = torch.hann_window(_WhisperProcesssingParams.N_FFT)
+        self.window = torch.hann_window(_WhisperHParams.N_FFT)
         self.mel_filters = torch.from_numpy(
             _mel_filterbank(
-                sr=_WhisperProcesssingParams.SAMPLE_RATE,
-                n_fft=_WhisperProcesssingParams.N_FFT,
-                n_mels=_WhisperProcesssingParams.N_MELS))
+                sr=_WhisperHParams.SAMPLE_RATE,
+                n_fft=_WhisperHParams.N_FFT,
+                n_mels=_WhisperHParams.N_MELS))
 
     def forward(self, audio_pcm: torch.Tensor):
         stft_norm = CustomOpStftNorm.apply(audio_pcm,
-                                           _WhisperProcesssingParams.N_FFT,
-                                           _WhisperProcesssingParams.HOP_LENGTH,
+                                           _WhisperHParams.N_FFT,
+                                           _WhisperHParams.HOP_LENGTH,
                                            self.window)
         magnitudes = stft_norm[:, :, :-1]
         mel_spec = self.mel_filters @ magnitudes
@@ -98,7 +101,7 @@ class WhisperPrePipeline(torch.nn.Module):
         spec_shape = log_spec.shape
         padding_spec = torch.ones(spec_shape[0],
                                   spec_shape[1], (
-                                    _WhisperProcesssingParams.N_SAMPLES // _WhisperProcesssingParams.HOP_LENGTH -
+                                    _WhisperHParams.N_SAMPLES // _WhisperHParams.HOP_LENGTH -
                                         spec_shape[2]), dtype=torch.float)
         padding_spec *= spec_min
         log_spec = torch.cat((log_spec, padding_spec), dim=2)
@@ -124,8 +127,8 @@ def _to_onnx_stft(onnx_model):
     replaced_nodes = [
         make_node('Constant', inputs=[], outputs=['const_14_output_0'], name='const_14',
                   value=numpy_helper.from_array(np.array([0,
-                                                          _WhisperProcesssingParams.N_FFT // 2, 0,
-                                                          _WhisperProcesssingParams.N_FFT // 2], dtype='int64'),
+                                                          _WhisperHParams.N_FFT // 2, 0,
+                                                          _WhisperHParams.N_FFT // 2], dtype='int64'),
                   name='const_14')),
         make_node('Pad',
                   inputs=[stft_norm_node.input[0], 'const_14_output_0'],
@@ -173,19 +176,14 @@ def _torch_export(*arg, **kwargs):
 
 class WhisperConverter(CustomOpConverter):
     def __init__(self, **kwargs):
-        pass
+        self.use_audio_decoder = kwargs.get('USE_AUDIO_DECODER', True)
+        self.use_onnx_stft = kwargs.get('USE_ONNX_STFT', True)
+        self.opset_version = kwargs.get('opset', 17)
 
     def pre_processing(self, **kwargs):
-        if USE_AUDIO_DECODER:
-            decoder = OrtPyFunction.from_customop(
-                "AudioDecoder", cpu_only=True, downsampling_rate=SAMPLE_RATE, stereo_to_mono=1)
-            audio_pcm = torch.from_numpy(decoder(audio_data))
-        else:
-            audio_pcm = torch.from_numpy(audio_data)
-
-        prep_model_name = 'whisper_pre.onnx'
         whisper_processing = WhisperPrePipeline()
 
+        audio_pcm = torch.rand((1, 32000), dtype=torch.float32)
         model_args = (audio_pcm,)
         pre_model = _torch_export(
             whisper_processing,
@@ -194,29 +192,30 @@ class WhisperConverter(CustomOpConverter):
             output_names=["log_mel"],
             do_constant_folding=True,
             export_params=True,
-            opset_version=17,
+            opset_version=self.opset_version,
             dynamic_axes={
                 "audio_pcm": {1: "sample_len"},
             }
         )
-        onnx.save_model(pre_model, os.path.join(root_dir, prep_model_name))
-        if USE_ONNX_STFT:
+        if self.use_onnx_stft:
             pre_model = _to_onnx_stft(pre_model)
-            util.remove_unused_initializers(pre_model.graph)
+            remove_unused_initializers(pre_model.graph)
 
-        pre_f = OrtPyFunction.from_model(pre_model, cpu_only=True)
-        if not USE_AUDIO_DECODER:
-            return pre_f(audio_data)
-        else:
+        pre_full = pre_model
+        if self.use_audio_decoder:
+            audecoder_g = SingleOpGraph.build_my_graph(
+                "AudioDecoder", downsampling_rate=_WhisperHParams.SAMPLE_RATE, stereo_to_mono=1)
+            audecoder_m = onnx.helper.make_model(audecoder_g)
             pre_full = onnx.compose.merge_models(
-                decoder.onnx_model,
+                audecoder_m,
                 pre_model,
                 io_map=[("floatPCM", "audio_pcm")])
-            pre_f = OrtPyFunction.from_model(pre_full, cpu_only=True)
 
-            onnx.save_model(pre_f.onnx_model, os.path.join(root_dir, "whisper_codec_pre.onnx"))
-            result = pre_f(audio_data)
-            return result
+        return pre_full
 
     def post_processing(self, **kwargs):
-        return None
+        SingleOpGraph.build_graph(
+            "BpeDecoder",
+            cvt=HFTokenizerConverter(self.hf_processor.tokenizer).bpe_decoder,
+            skip_special_tokens=True,
+            cpu_only=True)

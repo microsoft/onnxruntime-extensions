@@ -423,39 +423,6 @@ class StftNorm(CustomOp):
         ]
 
 
-class SingleOpGraph:
-
-    @classmethod
-    def get_next_id(cls):
-        if not hasattr(cls, '_id_counter'):
-            cls._id_counter = 0
-        cls._id_counter += 1
-        return cls._id_counter
-
-    @classmethod
-    def build_my_graph(cls, op_class, *args, **kwargs):
-        if isinstance(op_class, str):
-            op_class = cls.get_op_class(op_class)
-
-        op_type = op_class.op_type()
-        inputs = op_class.get_inputs()
-        outputs = op_class.get_outputs()
-        attrs = op_class.serialize_attr(kwargs)
-        cuop = onnx.helper.make_node(op_type, [i_.name for i_ in inputs],
-                                     [o_.name for o_ in outputs],
-                                     "{}_{}".format(op_type,
-                                                    cls.get_next_id()),
-                                     **attrs,
-                                     domain=default_opset_domain())
-        graph = onnx.helper.make_graph([cuop], "og_{}_{}".format(
-            op_type, cls.get_next_id()), inputs, outputs)
-        return graph
-
-    @staticmethod
-    def get_op_class(op_type):
-        return globals()[op_type]
-
-
 # TODO: have a C++ impl.
 def _argsort_op(x, dim):
     d = numpy.argsort(x, dim)
@@ -470,3 +437,45 @@ Opdef.create(_argsort_op,
 
 class CustomOpConverter:
     pass
+
+
+class SingleOpGraph:
+
+    @classmethod
+    def get_next_id(cls):
+        if not hasattr(cls, '_id_counter'):
+            cls._id_counter = 0
+        cls._id_counter += 1
+        return cls._id_counter
+
+    @classmethod
+    def build_graph(cls, op_class, *args, **kwargs):
+        if isinstance(op_class, str):
+            op_class = cls.get_op_class(op_class)
+
+        cvt = kwargs.get('cvt', None)
+        if cvt is None and len(args) > 0 and isinstance(args[0], CustomOpConverter):
+            cvt = args[0]
+            # args = args[1:]
+        else:
+            del kwargs['cvt']
+
+        new_kwargs = kwargs if cvt is None else cvt(**kwargs)
+
+        op_type = op_class.op_type()
+        inputs = op_class.get_inputs()
+        outputs = op_class.get_outputs()
+        attrs = op_class.serialize_attr(new_kwargs)
+        cuop = onnx.helper.make_node(op_type, [i_.name for i_ in inputs],
+                                     [o_.name for o_ in outputs],
+                                     "{}_{}".format(op_type,
+                                                    cls.get_next_id()),
+                                     **attrs,
+                                     domain=default_opset_domain())
+        graph = onnx.helper.make_graph([cuop], "og_{}_{}".format(
+            op_type, cls.get_next_id()), inputs, outputs)
+        return graph
+
+    @staticmethod
+    def get_op_class(op_type):
+        return globals()[op_type]
