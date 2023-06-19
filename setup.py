@@ -165,8 +165,8 @@ class BuildCMakeExt(_build_ext):
 class Build(_build):
     def initialize_options(self) -> None:
         super().initialize_options()
-        if os.environ.get('OCOS_SCB_DEBUG', None) == '1':
-            self.debug = True
+        #if os.environ.get('OCOS_SCB_DEBUG', None) == '1':
+        self.debug = True
 
     def finalize_options(self) -> None:
         # There is a bug in setuptools that prevents the build get the right platform name from arguments.

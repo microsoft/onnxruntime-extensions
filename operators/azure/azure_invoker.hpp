@@ -28,4 +28,6 @@ struct AzureTritonInvoker : public BaseKernel {
   std::string model_ver_;
   std::string verbose_;
   std::unique_ptr<triton::client::InferenceServerHttpClient> triton_client_;
+  std::vector<std::string> input_names_;
+  std::vector<std::string> output_names_;
 };

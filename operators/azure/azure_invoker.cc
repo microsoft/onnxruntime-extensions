@@ -116,6 +116,39 @@ AzureTritonInvoker::AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& i
   model_ver_ = TryToGetAttributeWithDefault<std::string>(kModelVer, "0");
   verbose_ = TryToGetAttributeWithDefault<std::string>(kVerbose, "0");
   auto err = tc::InferenceServerHttpClient::Create(&triton_client_, model_uri_, verbose_ != "0");
+
+  OrtStatusPtr status = {};
+  size_t input_count = {};
+  status = api_.KernelInfo_GetInputCount(&info_, &input_count);
+  if (status) {
+    ORTX_CXX_API_THROW("failed to get input count", ORT_RUNTIME_EXCEPTION);
+  }
+
+  for (size_t ith_input = 0; ith_input < input_count; ++ith_input) {
+    char input_name[1024] = {};
+    size_t name_size = 1024;
+    status = api_.KernelInfo_GetInputName(&info_, ith_input, input_name, &name_size);
+    if (status) {
+      ORTX_CXX_API_THROW("failed to get input name", ORT_RUNTIME_EXCEPTION);
+    }
+    input_names_.push_back(input_name);
+  }
+
+  size_t output_count = {};
+  status = api_.KernelInfo_GetOutputCount(&info_, &output_count);
+  if (status) {
+    ORTX_CXX_API_THROW("failed to get output count", ORT_RUNTIME_EXCEPTION);
+  }
+
+  for (size_t ith_output = 0; ith_output < output_count; ++ith_output) {
+    char output_name[1024] = {};
+    size_t name_size = 1024;
+    status = api_.KernelInfo_GetOutputName(&info_, ith_output, output_name, &name_size);
+    if (status) {
+      ORTX_CXX_API_THROW("failed to get output name", ORT_RUNTIME_EXCEPTION);
+    }
+    output_names_.push_back(output_name);
+  }
 }
 
 std::string MapDataType(ONNXTensorElementDataType onnx_data_type) {
@@ -215,6 +248,10 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
     ORTX_CXX_API_THROW("invalid inputs, auto token missing", ORT_RUNTIME_EXCEPTION);
   }
 
+  if (inputs.Size() != input_names_.size()) {
+    ORTX_CXX_API_THROW("input count mismatch", ORT_RUNTIME_EXCEPTION);
+  }
+
   auto auth_token = reinterpret_cast<const char*>(inputs[0]->DataRaw());
   std::vector<std::unique_ptr<tc::InferInput>> triton_input_vec;
   std::vector<tc::InferInput*> triton_inputs;
@@ -229,33 +266,22 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
       ORTX_CXX_API_THROW("unknow onnx data type", ORT_RUNTIME_EXCEPTION);
     }
 
-    // todo - more refactoring here
-    char input_name[1024];
-    size_t name_size = 0;
-    api_.KernelInfo_GetInputName(&info_, ith_input, input_name, &name_size);
-
-    err = tc::InferInput::Create(&triton_input, input_name, inputs[ith_input]->Shape(), triton_data_type);
-    triton_input_vec.emplace_back(triton_input);
+    err = tc::InferInput::Create(&triton_input, input_names_[ith_input], inputs[ith_input]->Shape(), triton_data_type);
     CHECK_TRITON_ERR(err);
+    triton_input_vec.emplace_back(triton_input);
 
     triton_inputs.push_back(triton_input);
     // todo - test string
-    err = triton_input->AppendRaw(static_cast<const uint8_t*>(inputs[ith_input]->DataRaw()), inputs[ith_input]->SizeInBytes());
+    const float* data_raw = reinterpret_cast<const float*>(inputs[ith_input]->DataRaw());
+    size_t size_in_bytes = inputs[ith_input]->SizeInBytes();
+    err = triton_input->AppendRaw(reinterpret_cast<const uint8_t*>(data_raw), size_in_bytes);
     CHECK_TRITON_ERR(err);
   }
 
-  size_t output_count = 0;
-  api_.KernelInfo_GetOutputCount(&info_, &output_count);
+  for (size_t ith_output = 0; ith_output < output_names_.size(); ++ith_output) {
 
-  std::vector<std::string> output_names;
-  for (size_t ith_output = 0; ith_output < output_count; ++ith_output) {
-    char output_name[1024];
-    size_t name_size = 0;
-    api_.KernelInfo_GetOutputName(&info_, ith_output, output_name, &name_size);
-    output_names.push_back(output_name);
-
-    tc::InferRequestedOutput* triton_output;
-    err = tc::InferRequestedOutput::Create(&triton_output, output_name);
+    tc::InferRequestedOutput* triton_output = {};
+    err = tc::InferRequestedOutput::Create(&triton_output, output_names_[ith_output]);
     CHECK_TRITON_ERR(err);
     triton_output_vec.emplace_back(triton_output);
     triton_outputs.push_back(triton_output);
@@ -279,9 +305,9 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
   CHECK_TRITON_ERR(err);
 
   size_t output_index = 0;
-  auto iter = output_names.begin();
+  auto iter = output_names_.begin();
 
-  while (iter != output_names.end()) {
+  while (iter != output_names_.end()) {
     std::vector<int64_t> shape;
     err = results_ptr->Shape(*iter, &shape);
     CHECK_TRITON_ERR(err);

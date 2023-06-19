@@ -110,7 +110,7 @@ class Tensor : public TensorBase {
   }
 
   const void* DataRaw() const override {
-    return reinterpret_cast<const void*>(data_);
+    return reinterpret_cast<const void*>(Data());
   }
 
   size_t SizeInBytes() const override {
@@ -198,10 +198,9 @@ class Tensor<std::string> : public TensorBase {
     }
     return reinterpret_cast<const void*>(input_strings_[0].c_str());
   }
-
   size_t SizeInBytes() const override {
     if (input_strings_.size() != 1) {
-      ORTX_CXX_API_THROW("DataRaw() only applies to string scalar", ORT_RUNTIME_EXCEPTION);
+      ORTX_CXX_API_THROW("SizeInBytes() only applies to string scalar", ORT_RUNTIME_EXCEPTION);
     }
     return input_strings_[0].size();
   }
@@ -292,7 +291,7 @@ class Tensor<std::string_view> : public TensorBase {
   }
   size_t SizeInBytes() const override {
     if (input_string_views_.size() != 1) {
-      ORTX_CXX_API_THROW("DataRaw() only applies to string scalar", ORT_RUNTIME_EXCEPTION);
+      ORTX_CXX_API_THROW("SizeInBytes() only applies to string scalar", ORT_RUNTIME_EXCEPTION);
     }
     return input_string_views_[0].size();
   }
@@ -328,7 +327,7 @@ struct Variadic : public TensorBase {
     //}
     if (is_input) {
       auto input_count = api_.KernelContext_GetInputCount(&ctx_);
-      for (size_t ith_input = 0; ith_input < input_count; ++input_count) {
+      for (size_t ith_input = 0; ith_input < input_count; ++ith_input) {
         auto* const_value = api_.KernelContext_GetInput(&ctx_, ith_input);
         auto* info = api_.GetTensorTypeAndShape(const_value);
         auto type = api_.GetTensorElementType(info);
@@ -444,7 +443,7 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
   static typename std::enable_if<std::is_same<T, Variadic*>::value, std::tuple<T, Ts...>>::type
   CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) {
-    tensors.push_back(std::make_unique<Variadic>(*api, *context, ith_output, true));
+    tensors.push_back(std::make_unique<Variadic>(*api, *context, ith_output, false));
     std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(tensors.back().get())};
     auto next = CreateTuple<ith_input, ith_output + 1, Ts...>(api, context, tensors, num_input, num_output, ep);
     return std::tuple_cat(current, next);
@@ -453,7 +452,7 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
   static typename std::enable_if<std::is_same<T, Variadic&>::value, std::tuple<T, Ts...>>::type
   CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) {
-    tensors.push_back(std::make_unique<Variadic>(*api, *context, ith_output, true));
+    tensors.push_back(std::make_unique<Variadic>(*api, *context, ith_output, false));
     std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(*tensors.back().get())};
     auto next = CreateTuple<ith_input, ith_output + 1, Ts...>(api, context, tensors, num_input, num_output, ep);
     return std::tuple_cat(current, next);
@@ -745,22 +744,34 @@ struct OrtLiteCustomOp : public OrtCustomOp {
       return self->output_types_[indice];
     };
 
-    //OrtCustomOp::GetInputCharacteristic = [](const OrtCustomOp* op, size_t) {
-    //  auto self = reinterpret_cast<const OrtLiteCustomOp*>(op);
-    //  return (self->input_types_.empty() || self->input_types_[0] != ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED) ? INPUT_OUTPUT_OPTIONAL : INPUT_OUTPUT_VARIADIC;
-    //};
-
-    //OrtCustomOp::GetOutputCharacteristic = [](const OrtCustomOp* op, size_t) {
-    //  auto self = reinterpret_cast<const OrtLiteCustomOp*>(op);
-    //  return (self->output_types_.empty() || self->output_types_[0] != ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED) ? INPUT_OUTPUT_OPTIONAL : INPUT_OUTPUT_VARIADIC;
-    //};
-
-    OrtCustomOp::GetInputCharacteristic = [](const OrtCustomOp*, size_t) {
-        return INPUT_OUTPUT_OPTIONAL;
+    OrtCustomOp::GetInputCharacteristic = [](const OrtCustomOp* op, size_t) {
+      auto self = reinterpret_cast<const OrtLiteCustomOp*>(op);
+      return (self->input_types_.empty() || self->input_types_[0] != ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED) ? INPUT_OUTPUT_OPTIONAL : INPUT_OUTPUT_VARIADIC;
     };
 
-    OrtCustomOp::GetOutputCharacteristic = [](const OrtCustomOp*, size_t) {
-        return INPUT_OUTPUT_OPTIONAL;
+    OrtCustomOp::GetOutputCharacteristic = [](const OrtCustomOp* op, size_t) {
+      auto self = reinterpret_cast<const OrtLiteCustomOp*>(op);
+      return (self->output_types_.empty() || self->output_types_[0] != ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED) ? INPUT_OUTPUT_OPTIONAL : INPUT_OUTPUT_VARIADIC;
+    };
+
+    OrtCustomOp::GetVariadicInputMinArity = [](const OrtCustomOp*) {
+      return 1;
+    };
+
+    OrtCustomOp::GetVariadicInputHomogeneity = [](const OrtCustomOp*) {
+      return 0;
+    };
+
+    OrtCustomOp::GetVariadicOutputMinArity = [](const OrtCustomOp*) {
+      return 1;
+    };
+
+    OrtCustomOp::GetVariadicOutputHomogeneity = [](const OrtCustomOp*) {
+      return 0;
+    };
+
+    OrtCustomOp::GetInputMemoryType = [](const OrtCustomOp*, size_t) {
+      return OrtMemTypeDefault;
     };
   }
 
@@ -787,6 +798,11 @@ struct OrtLiteCustomFunc : public OrtLiteCustomOp {
                     ComputeFn compute_fn) : OrtLiteCustomOp(op_name, execution_provider),
                                             compute_fn_(compute_fn) {
     ParseArgs<Args...>(input_types_, output_types_);
+
+    if (!input_types_.empty() && input_types_[0] == ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED ||
+        !output_types_.empty() && output_types_[0] == ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED) {
+      OrtCustomOp::version = 14;
+    }
 
     OrtCustomOp::KernelCompute = [](void* op_kernel, OrtKernelContext* context) {
       auto kernel = reinterpret_cast<Kernel*>(op_kernel);
@@ -838,6 +854,11 @@ struct OrtLiteCustomStruct : public OrtLiteCustomOp {
   template <typename... Args>
   void init(CustomComputeFn<Args...>) {
     ParseArgs<Args...>(input_types_, output_types_);
+
+    if (!input_types_.empty() && input_types_[0] == ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED ||
+        !output_types_.empty() && output_types_[0] == ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED) {
+      OrtCustomOp::version = 14;
+    }
 
     OrtCustomOp::KernelCompute = [](void* op_kernel, OrtKernelContext* context) {
       auto kernel = reinterpret_cast<Kernel*>(op_kernel);
