@@ -177,8 +177,8 @@ void KernelClipBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
     }
   }
   int idx = 0;
-  // currently HF uses "<|endoftext|>" (which has id 49407) as default pad token
-  int pad_token = 49407;
+  // currently HF uses "<|endoftext|>" as default pad token
+  int pad_token = bbpe_tokenizer_->GetEncoding("<|endoftext|>");
   for (auto& res : tokenize_results) {
     for (int64_t id : res) {
       token[idx] = id;
