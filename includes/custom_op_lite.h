@@ -777,6 +777,10 @@ struct OrtLiteCustomOp : public OrtCustomOp {
     OrtCustomOp::GetVariadicOutputHomogeneity = [](const OrtCustomOp*) {
       return 0;
     };
+
+    OrtCustomOp::GetInputMemoryType = [](const OrtCustomOp*, size_t) {
+      return OrtMemTypeDefault;
+    };
 #else
     OrtCustomOp::GetInputCharacteristic = [](const OrtCustomOp*, size_t) {
       return INPUT_OUTPUT_OPTIONAL;
@@ -784,12 +788,6 @@ struct OrtLiteCustomOp : public OrtCustomOp {
 
     OrtCustomOp::GetOutputCharacteristic = [](const OrtCustomOp* op, size_t) {
       return INPUT_OUTPUT_OPTIONAL;
-    };
-#endif
-
-#if ORT_API_VERSION > 12
-    OrtCustomOp::GetInputMemoryType = [](const OrtCustomOp*, size_t) {
-      return OrtMemTypeDefault;
     };
 #endif
   }
