@@ -8,8 +8,6 @@
 #include "azure_invoker.hpp"
 #include <sstream>
 
-#if ORT_API_VERSION >= 14
-
 constexpr const char* kUri = "model_uri";
 constexpr const char* kModelName = "model_name";
 constexpr const char* kModelVer = "model_version";
@@ -341,5 +339,3 @@ const std::vector<const OrtCustomOp*>& AzureInvokerLoader() {
 }
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Azure = AzureInvokerLoader;
-
-#endif

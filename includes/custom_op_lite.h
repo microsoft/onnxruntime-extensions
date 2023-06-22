@@ -310,7 +310,6 @@ class Tensor<std::string_view> : public TensorBase {
 using TensorPtr = std::unique_ptr<Custom::TensorBase>;
 using TensorPtrs = std::vector<TensorPtr>;
 
-#if ORT_API_VERSION >= 14
 // Represent variadic input or output
 struct Variadic : public TensorBase {
   Variadic(const OrtW::CustomOpApi& api,
@@ -320,6 +319,9 @@ struct Variadic : public TensorBase {
                                        ctx,
                                        indice,
                                        is_input) {
+#if ORT_API_VERSION < 14
+    ORTX_CXX_API_THROW("Variadic input or output only supported after onnxruntime 1.14", ORT_RUNTIME_EXCEPTION);
+#endif
     if (is_input) {
       auto input_count = api_.KernelContext_GetInputCount(&ctx_);
       for (size_t ith_input = 0; ith_input < input_count; ++ith_input) {
@@ -403,7 +405,6 @@ struct Variadic : public TensorBase {
  private:
   TensorPtrs tensors_;
 };
-#endif // if ORT_API_VERSION >= 14
 
 struct OrtLiteCustomOp : public OrtCustomOp {
   using ConstOptionalFloatTensor = std::optional<const Custom::Tensor<float>&>;
@@ -816,11 +817,6 @@ struct OrtLiteCustomFunc : public OrtLiteCustomOp {
                     ComputeFn compute_fn) : OrtLiteCustomOp(op_name, execution_provider),
                                             compute_fn_(compute_fn) {
     ParseArgs<Args...>(input_types_, output_types_);
-
-    //if (!input_types_.empty() && input_types_[0] == ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED ||
-    //    !output_types_.empty() && output_types_[0] == ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED) {
-    //  OrtCustomOp::version = 14;
-    //}
 
     OrtCustomOp::KernelCompute = [](void* op_kernel, OrtKernelContext* context) {
       auto kernel = reinterpret_cast<Kernel*>(op_kernel);
