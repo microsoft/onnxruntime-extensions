@@ -68,5 +68,4 @@ TEST(VisionOps, image_decode_encode) {
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }
 
-
 #endif
