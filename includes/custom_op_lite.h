@@ -787,7 +787,7 @@ struct OrtLiteCustomOp : public OrtCustomOp {
     };
 #endif
 
-#if ORT_API_VERSION >= 12
+#if ORT_API_VERSION > 12
     OrtCustomOp::GetInputMemoryType = [](const OrtCustomOp*, size_t) {
       return OrtMemTypeDefault;
     };
