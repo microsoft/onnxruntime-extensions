@@ -1,13 +1,21 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+###############################################################################
+
+"""
+_torch_cvt.py: Data processing graph converted from PyTorch
+"""
+
 import io
-import os
 import onnx
 import torch
 import numpy as np
 
 from onnx import numpy_helper
 
-from . import SingleOpGraph
-from ._ortapi2 import OrtPyFunction, CustomOpConverter
+from ._cuops import SingleOpGraph, CustomOpConverter
+from ._hf_cvt import HFTokenizerConverter
 from .util import remove_unused_initializers
 
 
@@ -175,10 +183,11 @@ def _torch_export(*arg, **kwargs):
 
 
 class WhisperConverter(CustomOpConverter):
-    def __init__(self, **kwargs):
-        self.use_audio_decoder = kwargs.get('USE_AUDIO_DECODER', True)
-        self.use_onnx_stft = kwargs.get('USE_ONNX_STFT', True)
-        self.opset_version = kwargs.get('opset', 17)
+    def __init__(self, processor, **kwargs):
+        self.hf_processor = processor
+        self.use_audio_decoder = kwargs.pop('USE_AUDIO_DECODER', True)
+        self.use_onnx_stft = kwargs.pop('USE_ONNX_STFT', True)
+        self.opset_version = kwargs.pop('opset', 17)
 
     def pre_processing(self, **kwargs):
         whisper_processing = WhisperPrePipeline()
@@ -203,7 +212,7 @@ class WhisperConverter(CustomOpConverter):
 
         pre_full = pre_model
         if self.use_audio_decoder:
-            audecoder_g = SingleOpGraph.build_my_graph(
+            audecoder_g = SingleOpGraph.build_graph(
                 "AudioDecoder", downsampling_rate=_WhisperHParams.SAMPLE_RATE, stereo_to_mono=1)
             audecoder_m = onnx.helper.make_model(audecoder_g)
             pre_full = onnx.compose.merge_models(
@@ -214,7 +223,7 @@ class WhisperConverter(CustomOpConverter):
         return pre_full
 
     def post_processing(self, **kwargs):
-        SingleOpGraph.build_graph(
+        return SingleOpGraph.build_graph(
             "BpeDecoder",
             cvt=HFTokenizerConverter(self.hf_processor.tokenizer).bpe_decoder,
             skip_special_tokens=True,

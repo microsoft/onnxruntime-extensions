@@ -3,6 +3,10 @@
 # license information.
 ###############################################################################
 
+"""
+_cuops.py: Custom operators signatures for Python usage.
+"""
+
 import onnx
 import numpy
 from onnx import onnx_pb as onnx_proto

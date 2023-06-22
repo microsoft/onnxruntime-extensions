@@ -1,7 +1,18 @@
-import json
-from typing import Union
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+###############################################################################
 
-from ._cuops import CustomOpConverter
+"""
+cvt.py: Processing Graph Converter and Generator
+"""
+
+from typing import Union
+from functools import partial
+
+from ._cuops import SingleOpGraph
+from ._hf_cvt import HFTokenizerConverter
+from ._ortapi2 import make_onnx_model
 
 
 _is_torch_available = False
@@ -15,80 +26,21 @@ except ImportError:
     WhisperConverter = None
 
 
-class HFTokenizerConverter(CustomOpConverter):
-    def __init__(self, tokenizer):
-        self.tokenizer = tokenizer
-
-    def bpe_tokenizer(self, **kwargs):
-        hf_gpt2_tokenizer = self.tokenizer
-        attrs = {'vocab': json.dumps(
-            hf_gpt2_tokenizer.encoder, separators=(',', ':'))}
-        sorted_merges = {v_: k_ for k_,
-                         v_ in hf_gpt2_tokenizer.bpe_ranks.items()}
-        attrs['merges'] = '\n'.join("{} {}".format(
-            *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
-        attrs.update(**kwargs)
-        return attrs
-
-    def bpe_decoder(self, **kwargs):
-        decoder = self.tokenizer.decoder
-        id_vocab = "\n".join([decoder[_idx] for _idx in sorted(decoder)])
-        # with open("id_vocab.txt", "w", encoding="utf-8") as f:
-        #     f.write(id_vocab)
-        byte_decoder = self.tokenizer.byte_decoder
-        str_byte_decoder = "\n".join(["{}\t{}".format(
-            ord(_c), str(byte_decoder[_c])) for _c in byte_decoder])
-        # with open("byte_decoder.txt", "w", encoding="utf-8") as f:
-        #     f.write(str_byte_decoder)
-        all_special_ids = self.tokenizer.all_special_ids
-        added_tokens = self.tokenizer.added_tokens_decoder
-        str_all_special_ids = "\n".join([str(_id) for _id in all_special_ids])
-        str_added_tokens = "\n".join(
-            ["{}\t{}".format(str(_id), added_tokens[_id]) for _id in added_tokens])
-        kwargs.update({
-            "id_vocab": id_vocab,
-            "byte_decoder": str_byte_decoder,
-            "added_tokens": str_added_tokens,
-            "all_special_ids": str_all_special_ids,
-            "skip_special_tokens": kwargs.get("skip_special_tokens", False)
-        })
-
-        return kwargs
-
-    def clip_tokenizer(self, **kwargs):
-        hf_clip_tokenizer = self.tokenizer
-        attrs = {'vocab': json.dumps(
-            hf_clip_tokenizer.encoder, separators=(',', ':'))}
-        sorted_merges = {v_: k_ for k_,
-                         v_ in hf_clip_tokenizer.bpe_ranks.items()}
-        attrs['merges'] = '\n'.join("{} {}".format(
-            *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
-        attrs.update(**kwargs)
-        return attrs
-
-    def roberta_tokenizer(self, **kwargs):
-        hf_roberta_tokenizer = self.tokenizer
-        attrs = {'vocab': json.dumps(
-            hf_roberta_tokenizer.encoder, separators=(',', ':'))}
-        sorted_merges = {v_: k_ for k_,
-                         v_ in hf_roberta_tokenizer.bpe_ranks.items()}
-        attrs['merges'] = '\n'.join("{} {}".format(
-            *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
-        attrs.update(**kwargs)
-        return attrs
-
-
 _PROCESSOR_DICT = {
-    "ClipTokenizer": ('ClipTokenizer', HFTokenizerConverter.clip_tokenizer,
-                      'BpeDecoder', HFTokenizerConverter.bpe_decoder),
-    "ClipTokenizerFast": (HFTokenizerConverter.clip_tokenizer),
-    "RobertaTokenizer": (HFTokenizerConverter.roberta_tokenizer),
+    "GPT2Tokenizer":    ('Gpt2Tokenizer', HFTokenizerConverter.bpe_tokenizer,
+                         'BpeDecoder', HFTokenizerConverter.bpe_decoder), 
+    "ClipTokenizer":    ('ClipTokenizer', HFTokenizerConverter.clip_tokenizer,
+                         'BpeDecoder', HFTokenizerConverter.bpe_decoder),
+    "RobertaTokenizer": ("RobertaTokenizer", HFTokenizerConverter.roberta_tokenizer,
+                         None, None),
+    "T5Tokenizer":      ("SentencepieceTokenizer", HFTokenizerConverter.t5_tokenizer,
+                         "SentencepieceDecoder", HFTokenizerConverter.t5_decoder),
 }
 
 
 def gen_processing_models(processor: Union[str, object],
-                          pre_proc_only: bool=False,
-                          post_proc_only: bool=False,
+                          pre_kwargs: dict=None,
+                          post_kwargs: dict=None,
                           **kwargs):
     """
     Generate the pre- and post-processing ONNX model, basing on the name or HF class.
@@ -97,22 +49,49 @@ def gen_processing_models(processor: Union[str, object],
     ----------
     processor:
         the HF processor/tokenizer instance, or the name (str) of a Data Processor
-    pre_proc_only: bool
-        Only generating pre-processing model, skip the post-processing model
-    post_proc_only: bool
-        Only generating post-processing model, skip the pre-processing model
+        the instance is preferred, otherwise when name was given, the corresponding configuration for the processor
+        has to be provided in the kwargs
+    pre_kwargs: dict
+        Keyword arguments for generating the pre-processing model
+    post_kwargs: dict
+        Keyword arguments for generating the post-processing model
     kwargs:
-        The arguments for generating models
+        The additional arguments for generating models
 
     Returns
     -------
     ONNX-Models
         The pre- and post-processing ONNX models
     """
-    if processor == "WhisperProcessor":
-        _converter = WhisperConverter(**kwargs)
-        return None if post_proc_only else _converter.pre_processing(),\
-            None if pre_proc_only else _converter.post_processing()
+    pre_g = None
+    post_g = None
 
-    if processor in _PROCESSOR_DICT:
-        pass
+    if pre_kwargs is None and post_kwargs is None:
+        raise ValueError("Either pre_kwargs or post_kwargs should be provided. None means no processing")
+
+    cls_name = processor if isinstance(processor, str) else type(processor).__name__
+    if cls_name.endswith("TokenizerFast"):
+        cls_name = cls_name[:-len("Fast")]
+
+    if cls_name == "WhisperProcessor":
+        _converter = WhisperConverter(**kwargs)
+        pre_g = _converter.pre_processing(**pre_kwargs) if pre_kwargs is not None else None
+        post_g = _converter.post_processing(**post_kwargs) if post_kwargs is not None else None
+
+    if cls_name in _PROCESSOR_DICT:
+        cvt_quadr = _PROCESSOR_DICT[cls_name]
+        _cvt_op = cvt_quadr[0]
+        _cvt_func = cvt_quadr[1]
+        cvt_obj = HFTokenizerConverter(processor)
+        cvt = partial(_cvt_func, cvt_obj)
+
+        if pre_kwargs is not None:
+            pre_g = SingleOpGraph.build_graph(_cvt_op, cvt=cvt, **pre_kwargs)
+        if post_kwargs is not None:
+            _cvt_op = cvt_quadr[2]
+            _cvt_func = cvt_quadr[3]
+            cvt = partial(_cvt_func, cvt_obj)
+            post_g = SingleOpGraph.build_graph(_cvt_op, cvt=cvt, **post_kwargs)
+
+    return make_onnx_model(pre_g) if pre_g else None, \
+        make_onnx_model(post_g) if post_g else None

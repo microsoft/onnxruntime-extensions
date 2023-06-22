@@ -1,5 +1,10 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
+
+"""
+util.py: Miscellaneous utility functions
+"""
+
 import onnx
 import pathlib
 import inspect
