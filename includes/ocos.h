@@ -173,6 +173,6 @@ extern FxLoadCustomOpFactory LoadCustomOpClasses_Vision;
 extern FxLoadCustomOpFactory LoadCustomOpClasses_Audio;
 #endif
 
-#ifdef ENABLE_AZURE
+#if defined(ENABLE_AZURE) && ORT_API_VERSION >= 14
 extern FxLoadCustomOpFactory LoadCustomOpClasses_Azure;
 #endif

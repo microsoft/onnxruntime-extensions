@@ -6,9 +6,6 @@
 #include <optional>
 #include <numeric>
 
-// uplevel the version when supported ort version migrates to newer ones
-// #define SUPPORT_ORT_API_VERSION_TO 13
-
 namespace Ort {
 namespace Custom {
 
@@ -313,6 +310,7 @@ class Tensor<std::string_view> : public TensorBase {
 using TensorPtr = std::unique_ptr<Custom::TensorBase>;
 using TensorPtrs = std::vector<TensorPtr>;
 
+#if ORT_API_VERSION >= 14
 // Represent variadic input or output
 struct Variadic : public TensorBase {
   Variadic(const OrtW::CustomOpApi& api,
@@ -322,9 +320,6 @@ struct Variadic : public TensorBase {
                                        ctx,
                                        indice,
                                        is_input) {
-    //if (indice) {
-    //  ORTX_CXX_API_THROW("for op has variadic input, only one input is allowed", ORT_RUNTIME_EXCEPTION);
-    //}
     if (is_input) {
       auto input_count = api_.KernelContext_GetInputCount(&ctx_);
       for (size_t ith_input = 0; ith_input < input_count; ++ith_input) {
@@ -385,6 +380,12 @@ struct Variadic : public TensorBase {
     tensors_.emplace_back(tensor.release());
     return raw_output;
   }
+  Tensor<std::string>& AllocateStringTensor(size_t ith_output) {
+    auto tensor = std::make_unique<Tensor<std::string>>(api_, ctx_, ith_output, false);
+    Tensor<std::string>& output = *tensor;
+    tensors_.emplace_back(tensor.release());
+    return output;
+  }
   const void* DataRaw() const override {
     ORTX_CXX_API_THROW("DataRaw() cannot be applied to Variadic", ORT_RUNTIME_EXCEPTION);
     return nullptr;
@@ -402,6 +403,7 @@ struct Variadic : public TensorBase {
  private:
   TensorPtrs tensors_;
 };
+#endif // if ORT_API_VERSION >= 14
 
 struct OrtLiteCustomOp : public OrtCustomOp {
   using ConstOptionalFloatTensor = std::optional<const Custom::Tensor<float>&>;
@@ -422,6 +424,7 @@ struct OrtLiteCustomOp : public OrtCustomOp {
     return std::tuple_cat(current, next);
   }
 
+#if ORT_API_VERSION >= 14
   template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
   static typename std::enable_if<std::is_same<T, const Variadic*>::value, std::tuple<T, Ts...>>::type
   CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) {
@@ -457,6 +460,7 @@ struct OrtLiteCustomOp : public OrtCustomOp {
     auto next = CreateTuple<ith_input, ith_output + 1, Ts...>(api, context, tensors, num_input, num_output, ep);
     return std::tuple_cat(current, next);
   }
+#endif
 
 #define CREATE_TUPLE_INPUT(data_type)                                                                                                                                 \
   template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                          \
@@ -617,6 +621,7 @@ struct OrtLiteCustomOp : public OrtCustomOp {
     ParseArgs<Ts...>(input_types, output_types);
   }
 
+#if ORT_API_VERSION >= 14
   template <typename T, typename... Ts>
   static typename std::enable_if<0 <= sizeof...(Ts) && std::is_same<T, const Variadic&>::value>::type
   ParseArgs(std::vector<ONNXTensorElementDataType>& input_types, std::vector<ONNXTensorElementDataType>& output_types) {
@@ -656,6 +661,7 @@ struct OrtLiteCustomOp : public OrtCustomOp {
     output_types.push_back(ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED);
     ParseArgs<Ts...>(input_types, output_types);
   }
+#endif
 
 #define PARSE_INPUT_BASE(pack_type, onnx_type)                                                                           \
   template <typename T, typename... Ts>                                                                                  \
@@ -719,7 +725,7 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   OrtLiteCustomOp(const char* op_name,
                   const char* execution_provider) : op_name_(op_name),
                                                     execution_provider_(execution_provider) {
-    OrtCustomOp::version = MIN_ORT_VERSION_SUPPORTED;
+    OrtCustomOp::version = ORT_API_VERSION;
 
     OrtCustomOp::GetName = [](const OrtCustomOp* op) { return static_cast<const OrtLiteCustomOp*>(op)->op_name_.c_str(); };
     OrtCustomOp::GetExecutionProviderType = [](const OrtCustomOp* op) { return ((OrtLiteCustomOp*)op)->execution_provider_.c_str(); };
@@ -744,6 +750,7 @@ struct OrtLiteCustomOp : public OrtCustomOp {
       return self->output_types_[indice];
     };
 
+#if ORT_API_VERSION >= 14
     OrtCustomOp::GetInputCharacteristic = [](const OrtCustomOp* op, size_t) {
       auto self = reinterpret_cast<const OrtLiteCustomOp*>(op);
       return (self->input_types_.empty() || self->input_types_[0] != ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED) ? INPUT_OUTPUT_OPTIONAL : INPUT_OUTPUT_VARIADIC;
@@ -769,10 +776,21 @@ struct OrtLiteCustomOp : public OrtCustomOp {
     OrtCustomOp::GetVariadicOutputHomogeneity = [](const OrtCustomOp*) {
       return 0;
     };
+#else
+    OrtCustomOp::GetInputCharacteristic = [](const OrtCustomOp*, size_t) {
+      return INPUT_OUTPUT_OPTIONAL;
+    };
 
+    OrtCustomOp::GetOutputCharacteristic = [](const OrtCustomOp* op, size_t) {
+      return INPUT_OUTPUT_OPTIONAL;
+    };
+#endif
+
+#if ORT_API_VERSION >= 12
     OrtCustomOp::GetInputMemoryType = [](const OrtCustomOp*, size_t) {
       return OrtMemTypeDefault;
     };
+#endif
   }
 
   const std::string op_name_;
@@ -799,10 +817,10 @@ struct OrtLiteCustomFunc : public OrtLiteCustomOp {
                                             compute_fn_(compute_fn) {
     ParseArgs<Args...>(input_types_, output_types_);
 
-    if (!input_types_.empty() && input_types_[0] == ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED ||
-        !output_types_.empty() && output_types_[0] == ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED) {
-      OrtCustomOp::version = 14;
-    }
+    //if (!input_types_.empty() && input_types_[0] == ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED ||
+    //    !output_types_.empty() && output_types_[0] == ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED) {
+    //  OrtCustomOp::version = 14;
+    //}
 
     OrtCustomOp::KernelCompute = [](void* op_kernel, OrtKernelContext* context) {
       auto kernel = reinterpret_cast<Kernel*>(op_kernel);

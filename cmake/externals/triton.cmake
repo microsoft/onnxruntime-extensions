@@ -41,7 +41,6 @@ if (WIN32)
   endfunction()
 
   get_vcpkg()
-  # vcpkg_install(libssh2)
   vcpkg_install(openssl)
   vcpkg_install(openssl-windows)
   vcpkg_install(rapidjson)
@@ -58,7 +57,6 @@ if (WIN32)
   add_dependencies(getre2 getrapidjson)
   add_dependencies(getrapidjson getopenssl-windows)
   add_dependencies(getopenssl-windows getopenssl)
-  # add_dependencies(getopenssl getlibssh2)
 
   ExternalProject_Add(triton
                       GIT_REPOSITORY https://github.com/triton-inference-server/client.git
@@ -106,5 +104,3 @@ set(TRITON_SRC ${SOURCE_DIR})
 ExternalProject_Get_Property(triton BINARY_DIR)
 set(TRITON_BIN ${BINARY_DIR}/binary)
 set(TRITON_THIRD_PARTY ${BINARY_DIR}/third-party)
-
-# message(FATAL_ERROR "TRITON_THIRD_PARTY: " ${TRITON_THIRD_PARTY})

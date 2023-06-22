@@ -5,6 +5,8 @@
 
 #include "ocos.h"
 
+#if ORT_API_VERSION >= 14
+
 struct AzureAudioInvoker : public BaseKernel {
   AzureAudioInvoker(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(const ortc::Tensor<std::string>& auth_token,
@@ -31,3 +33,5 @@ struct AzureTritonInvoker : public BaseKernel {
   std::vector<std::string> input_names_;
   std::vector<std::string> output_names_;
 };
+
+#endif

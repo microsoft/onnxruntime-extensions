@@ -8,6 +8,8 @@
 #include "azure_invoker.hpp"
 #include <sstream>
 
+#if ORT_API_VERSION >= 14
+
 constexpr const char* kUri = "model_uri";
 constexpr const char* kModelName = "model_name";
 constexpr const char* kModelVer = "model_version";
@@ -202,10 +204,10 @@ std::string MapDataType(ONNXTensorElementDataType onnx_data_type) {
   return triton_data_type;
 }
 
-int8_t* CreateTensor(const std::string& data_type,
-                     ortc::Variadic& outputs,
-                     size_t i,
-                     const std::vector<int64_t>& shape) {
+int8_t* CreateNonStrTensor(const std::string& data_type,
+                           ortc::Variadic& outputs,
+                           size_t i,
+                           const std::vector<int64_t>& shape) {
   if (data_type == "FP32") {
     return reinterpret_cast<int8_t*>(outputs.AllocateOutput<float>(i, shape));
   } else if (data_type == "UINT8") {
@@ -228,10 +230,7 @@ int8_t* CreateTensor(const std::string& data_type,
     return reinterpret_cast<int8_t*>(outputs.AllocateOutput<bool>(i, shape));
   } else if (data_type == "FP64") {
     return reinterpret_cast<int8_t*>(outputs.AllocateOutput<double>(i, shape));
-  } /* else if (data_type == "BYTE") {  // todo - test string output
-  return reinterpret_cast<int8_t*>(outputs.AllocateOutput<std::string>(i, shape));
-  } */
-  else {
+  } else {
     return {};
   }
 }
@@ -279,7 +278,6 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
   }
 
   for (size_t ith_output = 0; ith_output < output_names_.size(); ++ith_output) {
-
     tc::InferRequestedOutput* triton_output = {};
     err = tc::InferRequestedOutput::Create(&triton_output, output_names_[ith_output]);
     CHECK_TRITON_ERR(err);
@@ -316,13 +314,20 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
     err = results_ptr->Datatype(*iter, &type);
     CHECK_TRITON_ERR(err);
 
-    const uint8_t* raw_data = {};
-    size_t raw_size;
-    err = results_ptr->RawData(*iter, &raw_data, &raw_size);
-    CHECK_TRITON_ERR(err);
-
-    auto* output_raw = CreateTensor(type, outputs, output_index, shape);
-    memcpy(output_raw, raw_data, raw_size);
+    if ("BYTES" == type) {
+      std::vector<std::string> output_strings;
+      err = results_ptr->StringData(*iter, &output_strings);
+      CHECK_TRITON_ERR(err);
+      auto& string_tensor = outputs.AllocateStringTensor(output_index);
+      string_tensor.SetStringOutput(output_strings, shape);
+    } else {
+      const uint8_t* raw_data = {};
+      size_t raw_size;
+      err = results_ptr->RawData(*iter, &raw_data, &raw_size);
+      CHECK_TRITON_ERR(err);
+      auto* output_raw = CreateNonStrTensor(type, outputs, output_index, shape);
+      memcpy(output_raw, raw_data, raw_size);
+    }
 
     ++output_index;
     ++iter;
@@ -336,3 +341,5 @@ const std::vector<const OrtCustomOp*>& AzureInvokerLoader() {
 }
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Azure = AzureInvokerLoader;
+
+#endif

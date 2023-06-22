@@ -722,8 +722,6 @@ if(OCOS_ENABLE_AZURE)
 
     target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static/lib)
     target_link_libraries(ocos_operators PUBLIC libcurl httpclient_static ws2_32 crypt32 Wldap32)
-    #target_link_libraries(ocos_operators PUBLIC libcurl libssh2 httpclient_static ws2_32 crypt32 Wldap32)
-    #target_link_libraries(ocos_operators PUBLIC httpclient_static ws2_32 crypt32 Wldap32)
 
   else()
 
