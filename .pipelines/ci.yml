@@ -97,7 +97,7 @@ jobs:
   ###########
   - job: MacOSX
     pool:
-      vmImage: 'macOS-12'
+      vmImage: 'macOS-13'
 
     strategy:
       matrix:
@@ -115,6 +115,8 @@ jobs:
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
 
     steps:
+      - template: templates/use-xcode-version.yml
+
       # needed for onnxruntime
       - script: brew install libomp
         displayName: 'Install omp'
@@ -151,7 +153,7 @@ jobs:
   #############
   - job: MacOSPython
     pool:
-      vmImage: 'macOS-12'
+      vmImage: 'macOS-13'
 
     strategy:
       matrix:
@@ -173,6 +175,8 @@ jobs:
           ort.version: '1.12.0'
 
     steps:
+      - template: templates/use-xcode-version.yml
+
       # needed for onnxruntime
       - script: brew install libomp
         displayName: 'Install omp'
@@ -267,6 +271,17 @@ jobs:
           ctest -C RelWithDebInfo --output-on-failure
         displayName: Run C++ native tests
 
+  - job: WindowsStaticVC
+    pool:
+      vmImage: 'windows-latest'
+
+    steps:
+      - script: |
+          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>"
+          cd out/Windows
+          ctest -C RelWithDebInfo --output-on-failure
+        displayName: build and test ort-extensions with VC static runtime.
+
   ################
   # Windows Python
   ################
@@ -353,6 +368,8 @@ jobs:
   #############
   - job: AndroidPackage
     pool:
+      # We need macOS-12 to run the Android emulator for now.
+      # https://github.com/actions/runner-images/issues/7671
       vmImage: 'macOS-12'
     timeoutInMinutes: 120
     steps:
@@ -405,9 +422,11 @@ jobs:
   #############
   - job: IosPackage
     pool:
-      vmImage: 'macOS-12'
+      vmImage: 'macOS-13'
     timeoutInMinutes: 120
     steps:
+      - template: templates/use-xcode-version.yml
+
       - task: UsePythonVersion@0
         inputs:
           versionSpec: '3.9'
@@ -447,10 +466,15 @@ jobs:
       - template: templates/run-with-ios-simulator-steps.yml
         parameters:
           steps:
-          - template: templates/xcode-build-and-test-step.yml
-            parameters:
-              xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
-              scheme: 'OrtExtensionsUsage'
+          - script: |
+              xcrun xcodebuild \
+                -sdk iphonesimulator \
+                -configuration Debug \
+                -workspace $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace \
+                -scheme OrtExtensionsUsage \
+                -destination "platform=iOS Simulator,id=${ORT_EXTENSIONS_BUILD_SIMULATOR_ID}" \
+                test CODE_SIGNING_ALLOWED=NO
+            displayName: Build and test OrtExtensionsUsage
 
 
   #####################################

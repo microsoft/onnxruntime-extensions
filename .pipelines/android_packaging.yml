@@ -3,6 +3,8 @@
 jobs:
   - job: AndroidPackaging
     pool:
+      # We need macOS-12 to run the Android emulator for now.
+      # https://github.com/actions/runner-images/issues/7671
       vmImage: "macOS-12"
     timeoutInMinutes: 120
     variables:
@@ -24,6 +26,8 @@ jobs:
 
       - script: brew install coreutils ninja
         displayName: Install coreutils and ninja
+
+      - template: templates/install-appcenter.yml
 
       - script: |
           python ./tools/gen_selectedops.py ./tools/android/package_ops.config

@@ -40,6 +40,8 @@ stages:
     - Android_C_API_Packaging_armeabi_v7a
     - Android_C_API_Packaging_arm64_v8a
     pool:
+      # We need macOS-12 to run the Android emulator for now.
+      # https://github.com/actions/runner-images/issues/7671
       vmImage: 'macOS-12'
     timeoutInMinutes: 120
     variables:

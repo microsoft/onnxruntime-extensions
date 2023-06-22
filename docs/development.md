@@ -28,8 +28,12 @@ Use `./tools/ios/build_xcframework.py` to build an iOS xcframework package.
 ## Web-Assembly
 ONNXRuntime-Extensions will be built as a static library and linked with ONNXRuntime due to the lack of a good dynamic linking mechanism in WASM. Here are two additional arguments [–-use_extensions and --extensions_overridden_path](https://github.com/microsoft/onnxruntime/blob/860ba8820b72d13a61f0d08b915cd433b738ffdc/tools/ci_build/build.py#L416) on building onnxruntime to include ONNXRuntime-Extensions footprint in the ONNXRuntime package.
 
-## The C++ share library
+## The C++ shared library
 for any other cases, please run `build.bat` or `bash ./build.sh` to build the library. By default, the DLL or the library will be generated in the directory `out/<OS>/<FLAVOR>`. There is a unit test to help verify the build.
+
+
+**VC Runtime static linkage**  
+If you want to build the binary with VC Runtime static linkage, please add a parameter _-DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>"_ on running build.bat
 
 ## Copyright guidance
 check this link https://docs.opensource.microsoft.com/releasing/general-guidance/copyright-headers/ for source file copyright header.
