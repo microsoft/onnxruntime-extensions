@@ -3,6 +3,7 @@ import numpy as np
 import numpy.lib.recfunctions as nlr
 import onnxruntime as _ort
 from pathlib import Path
+from distutils.version import LooseVersion
 from onnx import helper, TensorProto, onnx_pb as onnx_proto
 from onnxruntime_extensions import (
     make_onnx_model,
@@ -30,20 +31,21 @@ class TestAzureOps(unittest.TestCase):
         pass
 
     def test_triton_invoker(self):
-        onnx_model = TestAzureOps.createTestModel()
-        so = _ort.SessionOptions()
-        so.register_custom_ops_library(_get_library_path())
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider', 'AzureExecutionProvider'])
-        auth_token = np.array(['XxvN8QTfK7AwzOyHSenaBUlvzGgdSEc4'])
-        x = np.array([1,2,3,4]).astype(np.float32)
-        y = np.array([4,3,2,1]).astype(np.float32)
-        ort_inputs = {
-            "auth_token": auth_token,
-            "X": x,
-            "Y": y
-        }
-        out = sess.run(None, ort_inputs)[0]
-        self.assertEqual((out == np.array([5,5,5,5]).astype(np.float32)).all(), True)
+        if LooseVersion(_ort.__version__) >= LooseVersion("1.15.1"):
+            onnx_model = TestAzureOps.createTestModel()
+            so = _ort.SessionOptions()
+            so.register_custom_ops_library(_get_library_path())
+            sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
+            auth_token = np.array(['XxvN8QTfK7AwzOyHSenaBUlvzGgdSEc4'])
+            x = np.array([1,2,3,4]).astype(np.float32)
+            y = np.array([4,3,2,1]).astype(np.float32)
+            ort_inputs = {
+                "auth_token": auth_token,
+                "X": x,
+                "Y": y
+            }
+            out = sess.run(None, ort_inputs)[0]
+            self.assertEqual((out == np.array([5,5,5,5]).astype(np.float32)).all(), True)
 
 if __name__ == "__main__":
     unittest.main()
