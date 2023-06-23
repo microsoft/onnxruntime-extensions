@@ -17,6 +17,7 @@ struct AzureAudioInvoker : public BaseKernel {
   bool verbose_;
 };
 
+#if ORT_API_VERSION >= 14
 struct AzureTritonInvoker : public BaseKernel {
   AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(const ortc::Variadic& inputs,
@@ -31,3 +32,4 @@ struct AzureTritonInvoker : public BaseKernel {
   std::vector<std::string> input_names_;
   std::vector<std::string> output_names_;
 };
+#endif

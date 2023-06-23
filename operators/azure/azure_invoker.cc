@@ -108,9 +108,19 @@ void AzureAudioInvoker::Compute(const ortc::Tensor<std::string>& auth_token,
   text.SetStringOutput(std::vector<std::string>{string_buffer.ss_.str()}, std::vector<int64_t>{1L});
 }
 
+#if ORT_API_VERSION >= 14
+
 namespace tc = triton::client;
 
 AzureTritonInvoker::AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
+
+  //todo - check ver_str against 1.14 to prevent invalid access on newer APIs such as "KernelInfo_GetInputCount"
+  //const auto* ort_api_base = OrtGetApiBase();
+  //if (!ort_api_base) {
+  //  ORTX_CXX_API_THROW("failed to get ort base api", ORT_RUNTIME_EXCEPTION); 
+  //}
+  //std::string ver_str = ort_api_base->GetVersionString();
+
   model_uri_ = TryToGetAttributeWithDefault<std::string>(kUri, "");
   model_name_ = TryToGetAttributeWithDefault<std::string>(kModelName, "");
   model_ver_ = TryToGetAttributeWithDefault<std::string>(kModelVer, "0");
@@ -338,5 +348,15 @@ const std::vector<const OrtCustomOp*>& AzureInvokerLoader() {
                                CustomCpuStruct("AzureTritonInvoker", AzureTritonInvoker));
   return op_loader.GetCustomOps();
 }
+
+#else
+
+const std::vector<const OrtCustomOp*>& AzureInvokerLoader() {
+  // todo - register as AzureEp ops on 1.16
+  static OrtOpLoader op_loader(CustomCpuStruct("AzureAudioInvoker", AzureAudioInvoker));
+  return op_loader.GetCustomOps();
+}
+
+#endif
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Azure = AzureInvokerLoader;
