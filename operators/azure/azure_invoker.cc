@@ -343,17 +343,15 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
 }
 
 const std::vector<const OrtCustomOp*>& AzureInvokerLoader() {
-  //todo - register as AzureEp ops on 1.16
-  static OrtOpLoader op_loader(CustomCpuStruct("AzureAudioInvoker", AzureAudioInvoker),
-                               CustomCpuStruct("AzureTritonInvoker", AzureTritonInvoker));
+  static OrtOpLoader op_loader(CustomAzureStruct("AzureAudioInvoker", AzureAudioInvoker),
+                               CustomAzureStruct("AzureTritonInvoker", AzureTritonInvoker));
   return op_loader.GetCustomOps();
 }
 
 #else
 
 const std::vector<const OrtCustomOp*>& AzureInvokerLoader() {
-  // todo - register as AzureEp ops on 1.16
-  static OrtOpLoader op_loader(CustomCpuStruct("AzureAudioInvoker", AzureAudioInvoker));
+  static OrtOpLoader op_loader(CustomAzureStruct("AzureAudioInvoker", AzureAudioInvoker));
   return op_loader.GetCustomOps();
 }
 
