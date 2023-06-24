@@ -64,7 +64,7 @@ jobs:
           mkdir build
           cd build
           cmake ..
-          cmake --install .
+          sudo cmake --install .
           cd ../..
         displayName: install deps
 
