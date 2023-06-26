@@ -66,6 +66,8 @@ jobs:
           cmake ..
           sudo cmake --install .
           cd ../..
+          git clone https://github.com/triton-inference-server/client.git --branch r23.05 ~/client
+          sudo ln -s ~/client/src/c++/library/libhttpclient.ldscript /lib/libhttpclient.ldscript
         displayName: install deps
 
       - script: |
