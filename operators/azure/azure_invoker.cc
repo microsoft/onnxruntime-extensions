@@ -274,7 +274,7 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
     }
 
     err = tc::InferInput::Create(&triton_input, input_names_[ith_input], inputs[ith_input]->Shape(), triton_data_type);
-    CHECK_TRITON_ERR(err);
+    CHECK_TRITON_ERR(err, "failed to create triton input");
     triton_input_vec.emplace_back(triton_input);
 
     triton_inputs.push_back(triton_input);
@@ -282,13 +282,13 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
     const float* data_raw = reinterpret_cast<const float*>(inputs[ith_input]->DataRaw());
     size_t size_in_bytes = inputs[ith_input]->SizeInBytes();
     err = triton_input->AppendRaw(reinterpret_cast<const uint8_t*>(data_raw), size_in_bytes);
-    CHECK_TRITON_ERR(err);
+    CHECK_TRITON_ERR(err, "failed to append raw data to input");
   }
 
   for (size_t ith_output = 0; ith_output < output_names_.size(); ++ith_output) {
     tc::InferRequestedOutput* triton_output = {};
     err = tc::InferRequestedOutput::Create(&triton_output, output_names_[ith_output]);
-    CHECK_TRITON_ERR(err);
+    CHECK_TRITON_ERR(err, "failed to create triton output");
     triton_output_vec.emplace_back(triton_output);
     triton_outputs.push_back(triton_output);
   }
@@ -308,7 +308,7 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
                               tc::InferenceServerHttpClient::CompressionType::NONE);
 
   results_ptr.reset(results);
-  CHECK_TRITON_ERR(err);
+  CHECK_TRITON_ERR(err, "failed to do triton inference");
 
   size_t output_index = 0;
   auto iter = output_names_.begin();
@@ -316,23 +316,23 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
   while (iter != output_names_.end()) {
     std::vector<int64_t> shape;
     err = results_ptr->Shape(*iter, &shape);
-    CHECK_TRITON_ERR(err);
+    CHECK_TRITON_ERR(err, "failed to get output shape");
 
     std::string type;
     err = results_ptr->Datatype(*iter, &type);
-    CHECK_TRITON_ERR(err);
+    CHECK_TRITON_ERR(err, "failed to get output type");
 
     if ("BYTES" == type) {
       std::vector<std::string> output_strings;
       err = results_ptr->StringData(*iter, &output_strings);
-      CHECK_TRITON_ERR(err);
+      CHECK_TRITON_ERR(err, "failed to get output as string");
       auto& string_tensor = outputs.AllocateStringTensor(output_index);
       string_tensor.SetStringOutput(output_strings, shape);
     } else {
       const uint8_t* raw_data = {};
       size_t raw_size;
       err = results_ptr->RawData(*iter, &raw_data, &raw_size);
-      CHECK_TRITON_ERR(err);
+      CHECK_TRITON_ERR(err, "failed to get output raw data");
       auto* output_raw = CreateNonStrTensor(type, outputs, output_index, shape);
       memcpy(output_raw, raw_data, raw_size);
     }
