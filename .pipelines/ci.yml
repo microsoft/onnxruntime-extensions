@@ -498,6 +498,19 @@ jobs:
       vmImage: 'ubuntu-latest'
 
     steps:
+      - script: |
+          wget https://github.com/Tencent/rapidjson/archive/refs/tags/v1.1.0.tar.gz
+          tar zxvf v1.1.0.tar.gz
+          cd rapidjson-1.1.0
+          mkdir build
+          cd build
+          cmake ..
+          sudo cmake --install .
+          cd ../..
+          git clone https://github.com/triton-inference-server/client.git --branch r23.05 ~/client
+          sudo ln -s ~/client/src/c++/library/libhttpclient.ldscript /lib/libhttpclient.ldscript
+        displayName: install deps
+
       # Simulate an embedded build as part of ORT with exceptions disabled by manually setting CMAKE_CXX_FLAGS and
       # using _OCOS_PREVENT_EXCEPTION_PROPAGATION_OVERRIDE. The build should re-enable exceptions within ort-ext
       # but prevent them from propagating. Unit tests are run to validate this.
