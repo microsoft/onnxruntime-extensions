@@ -23,7 +23,7 @@ if (WIN32)
     ExternalProject_Get_Property(vcpkg SOURCE_DIR)
     set(VCPKG_SRC ${SOURCE_DIR} PARENT_SCOPE)
     set(VCPKG_DEPENDENCIES "vcpkg" PARENT_SCOPE)
-    set(ENV{VCPKG_ROOT} ${VCPKG_SRC})
+    # set(ENV{VCPKG_ROOT} ${VCPKG_SRC})
     message(WARNING "VCPKG_ROOT: " $ENV{VCPKG_ROOT})
   endfunction()
 
