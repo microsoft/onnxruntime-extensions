@@ -8,25 +8,23 @@ if (WIN32)
     set(vcpkg_target_platform ${ocos_target_platform})
   endif()
 
-  function(get_vcpkg)
-    FetchContent_Declare(vcpkg
-      GIT_REPOSITORY https://github.com/microsoft/vcpkg.git
-      GIT_TAG 2022.11.14
-      PREFIX vcpkg
-      SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src
-      BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-build
-      CONFIGURE_COMMAND ""
-      INSTALL_COMMAND ""
-      UPDATE_COMMAND ""
-      BUILD_COMMAND "<SOURCE_DIR>/bootstrap-vcpkg.bat")
+  ExternalProject_Add(vcpkg
+    GIT_REPOSITORY https://github.com/microsoft/vcpkg.git
+    GIT_TAG 2022.11.14
+    PREFIX vcpkg
+    SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src
+    BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-build
+    CONFIGURE_COMMAND ""
+    INSTALL_COMMAND ""
+    UPDATE_COMMAND ""
+    BUILD_COMMAND "<SOURCE_DIR>/bootstrap-vcpkg.bat")
 
-    ExternalProject_Get_Property(vcpkg SOURCE_DIR)
-    set(VCPKG_SRC ${SOURCE_DIR} PARENT_SCOPE)
-    set(VCPKG_DEPENDENCIES "vcpkg" PARENT_SCOPE)
-    # set(ENV{VCPKG_ROOT} ${VCPKG_SRC})
-    message(WARNING "VCPKG_SRC: " ${VCPKG_SRC})
-    message(WARNING "VCPKG_ROOT: " $ENV{VCPKG_ROOT})
-  endfunction()
+  ExternalProject_Get_Property(vcpkg SOURCE_DIR)
+  set(VCPKG_SRC ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src)
+  set(VCPKG_DEPENDENCIES "vcpkg")
+  # set(ENV{VCPKG_ROOT} ${VCPKG_SRC})
+  message(WARNING "VCPKG_SRC: " ${VCPKG_SRC})
+  message(WARNING "VCPKG_ROOT: " $ENV{VCPKG_ROOT})
 
   function(vcpkg_install PACKAGE_NAME)
     add_custom_command(
@@ -43,7 +41,7 @@ if (WIN32)
     set(VCPKG_DEPENDENCIES ${VCPKG_DEPENDENCIES} PARENT_SCOPE)
   endfunction()
 
-  get_vcpkg()
+  # get_vcpkg()
   vcpkg_install(openssl)
   vcpkg_install(openssl-windows)
   vcpkg_install(rapidjson)
