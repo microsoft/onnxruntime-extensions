@@ -9,7 +9,6 @@ jobs:
     - task: UsePythonVersion@0
     - script: |
         python -m pip install --upgrade pip
-        pip install cmake
         pip install cibuildwheel
       displayName: Install dependencies
     - bash: cibuildwheel --platform windows --output-dir wheelhouse .

@@ -16,13 +16,14 @@ if (WIN32)
       SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src
       BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-build
       CONFIGURE_COMMAND ""
-      INSTALL_COMMAND ""
+      INSTALL_COMMAND "set VCPKG_ROOT=<SOURCE_DIR>"
       UPDATE_COMMAND ""
       BUILD_COMMAND "<SOURCE_DIR>/bootstrap-vcpkg.bat")
 
     ExternalProject_Get_Property(vcpkg SOURCE_DIR)
     set(VCPKG_SRC ${SOURCE_DIR} PARENT_SCOPE)
     set(VCPKG_DEPENDENCIES "vcpkg" PARENT_SCOPE)
+    message(WARNING "VCPKG_ROOT: " $ENV{VCPKG_ROOT})
   endfunction()
 
   function(vcpkg_install PACKAGE_NAME)
