@@ -21,8 +21,8 @@ if (WIN32)
 
   ExternalProject_Get_Property(vcpkg SOURCE_DIR)
   set(VCPKG_SRC ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src)
+  set(ENV{VCPKG_ROOT} ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src)
   set(VCPKG_DEPENDENCIES "vcpkg")
-  # set(ENV{VCPKG_ROOT} ${VCPKG_SRC})
   message(WARNING "VCPKG_SRC: " ${VCPKG_SRC})
   message(WARNING "VCPKG_ROOT: " $ENV{VCPKG_ROOT})
 
