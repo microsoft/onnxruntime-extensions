@@ -3,7 +3,7 @@ include(ExternalProject)
 if (WIN32)
 
   if (ocos_target_platform STREQUAL "AMD64")
-    set(vcpkg_target_platform "x86")
+    set(vcpkg_target_platform "x64")
   else()
     set(vcpkg_target_platform ${ocos_target_platform})
   endif()
@@ -35,14 +35,14 @@ if (WIN32)
 
   function(vcpkg_install PACKAGE_NAME)
     add_custom_command(
-      OUTPUT ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_target_platform}-windows-static/BUILD_INFO
-      COMMAND ${VCPKG_SRC}/vcpkg install ${PACKAGE_NAME}:${vcpkg_target_platform}-windows-static --vcpkg-root=${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src
+      OUTPUT ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_target_platform}-windows/BUILD_INFO
+      COMMAND ${VCPKG_SRC}/vcpkg install ${PACKAGE_NAME}:${vcpkg_target_platform}-windows --vcpkg-root=${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src
       WORKING_DIRECTORY ${VCPKG_SRC}
       DEPENDS vcpkg)
 
     add_custom_target(get${PACKAGE_NAME}
       ALL
-      DEPENDS ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_target_platform}-windows-static/BUILD_INFO)
+      DEPENDS ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_target_platform}-windows/BUILD_INFO)
 
     list(APPEND VCPKG_DEPENDENCIES "get${PACKAGE_NAME}")
     set(VCPKG_DEPENDENCIES ${VCPKG_DEPENDENCIES} PARENT_SCOPE)
