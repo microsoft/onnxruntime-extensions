@@ -28,6 +28,9 @@ if (WIN32)
 
   add_custom_command(
     COMMAND ${VCPKG_SRC}/vcpkg integrate install
+    COMMAND ${CMAKE_COMMAND} -E touch vcpkg_integrate.stamp
+    OUTPUT vcpkg_integrate.stamp
+    DEPENDS vcpkg
   )
 
   function(vcpkg_install PACKAGE_NAME)
