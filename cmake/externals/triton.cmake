@@ -15,7 +15,7 @@ if (WIN32)
     SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src
     BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-build
     CONFIGURE_COMMAND ""
-    INSTALL_COMMAND "<SOURCE_DIR>/vcpkg integrate install"
+    INSTALL_COMMAND ""
     UPDATE_COMMAND ""
     BUILD_COMMAND "<SOURCE_DIR>/bootstrap-vcpkg.bat")
 
@@ -25,6 +25,10 @@ if (WIN32)
   set(VCPKG_DEPENDENCIES "vcpkg")
   message(WARNING "VCPKG_SRC: " ${VCPKG_SRC})
   message(WARNING "VCPKG_ROOT: " $ENV{VCPKG_ROOT})
+
+  add_custom_command(
+    COMMAND ${VCPKG_SRC}/vcpkg integrate install
+  )
 
   function(vcpkg_install PACKAGE_NAME)
     add_custom_command(
