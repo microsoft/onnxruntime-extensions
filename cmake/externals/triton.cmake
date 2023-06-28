@@ -24,6 +24,7 @@ if (WIN32)
     set(VCPKG_SRC ${SOURCE_DIR} PARENT_SCOPE)
     set(VCPKG_DEPENDENCIES "vcpkg" PARENT_SCOPE)
     # set(ENV{VCPKG_ROOT} ${VCPKG_SRC})
+    message(WARNING "VCPKG_SRC: " ${VCPKG_SRC})
     message(WARNING "VCPKG_ROOT: " $ENV{VCPKG_ROOT})
   endfunction()
 
