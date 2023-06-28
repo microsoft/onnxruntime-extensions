@@ -25,6 +25,7 @@ if (WIN32)
   set(VCPKG_DEPENDENCIES "vcpkg")
   message(WARNING "VCPKG_SRC: " ${VCPKG_SRC})
   message(WARNING "VCPKG_ROOT: " $ENV{VCPKG_ROOT})
+  message(WARNING "VCPKG_DEFAULT_TRIPLET: " $ENV{VCPKG_DEFAULT_TRIPLET})
 
   add_custom_command(
     COMMAND ${VCPKG_SRC}/vcpkg integrate install
