@@ -9,7 +9,7 @@ if (WIN32)
   endif()
 
   function(get_vcpkg)
-    ExternalProject_Add(vcpkg
+    FetchContent_Declare(vcpkg
       GIT_REPOSITORY https://github.com/microsoft/vcpkg.git
       GIT_TAG 2022.11.14
       PREFIX vcpkg
