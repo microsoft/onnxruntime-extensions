@@ -23,9 +23,9 @@ if (WIN32)
   set(VCPKG_SRC ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src)
   set(ENV{VCPKG_ROOT} ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src)
   set(VCPKG_DEPENDENCIES "vcpkg")
+  set(VCPKG_TARGET_TRIPLET "x86-windows")
   message(WARNING "VCPKG_SRC: " ${VCPKG_SRC})
   message(WARNING "VCPKG_ROOT: " $ENV{VCPKG_ROOT})
-  message(WARNING "VCPKG_DEFAULT_TRIPLET: " $ENV{VCPKG_DEFAULT_TRIPLET})
 
   add_custom_command(
     COMMAND ${VCPKG_SRC}/vcpkg integrate install
