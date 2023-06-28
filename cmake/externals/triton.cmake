@@ -15,7 +15,7 @@ if (WIN32)
     SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src
     BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-build
     CONFIGURE_COMMAND ""
-    INSTALL_COMMAND ""
+    INSTALL_COMMAND "<SOURCE_DIR>/vcpkg integrate install"
     UPDATE_COMMAND ""
     BUILD_COMMAND "<SOURCE_DIR>/bootstrap-vcpkg.bat")
 
