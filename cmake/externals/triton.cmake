@@ -3,7 +3,7 @@ include(ExternalProject)
 if (WIN32)
 
   if (ocos_target_platform STREQUAL "AMD64")
-    set(vcpkg_target_platform "x64")
+    set(vcpkg_target_platform "x86")
   else()
     set(vcpkg_target_platform ${ocos_target_platform})
   endif()

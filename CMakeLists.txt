@@ -718,7 +718,7 @@ if(OCOS_ENABLE_AZURE)
   target_link_directories(ocos_operators PUBLIC ${TRITON_BIN}/lib ${TRITON_BIN}/lib64 ${TRITON_THIRD_PARTY}/curl/lib ${TRITON_THIRD_PARTY}/curl/lib64)
 
   if (ocos_target_platform STREQUAL "AMD64")
-    set(vcpkg_target_platform "x64")
+    set(vcpkg_target_platform "x86")
   else()
     set(vcpkg_target_platform ${ocos_target_platform})
   endif()
