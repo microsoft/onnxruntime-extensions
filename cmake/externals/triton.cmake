@@ -8,66 +8,17 @@ if (WIN32)
     set(vcpkg_target_platform ${ocos_target_platform})
   endif()
 
-  ExternalProject_Add(vcpkg
-    GIT_REPOSITORY https://github.com/microsoft/vcpkg.git
-    GIT_TAG 2023.06.20
-    PREFIX vcpkg
-    SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src
-    BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-build
-    CONFIGURE_COMMAND ""
-    INSTALL_COMMAND ""
-    UPDATE_COMMAND ""
-    BUILD_COMMAND "<SOURCE_DIR>/bootstrap-vcpkg.bat")
-
-  ExternalProject_Get_Property(vcpkg SOURCE_DIR)
-  set(VCPKG_SRC ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src)
-  set(ENV{VCPKG_ROOT} ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src)
-  set(VCPKG_DEPENDENCIES "vcpkg")
-  #set(VCPKG_TARGET_TRIPLET "x86-windows")
-  #set(VCPKG_TARGET_ARCHITECTURE "x86")
+  set(VCPKG_SRC $ENV{VCPKG_ROOT})
 
   message(WARNING "VCPKG_SRC: " ${VCPKG_SRC})
   message(WARNING "VCPKG_ROOT: " $ENV{VCPKG_ROOT})
 
   add_custom_command(
-    COMMAND ${VCPKG_SRC}/vcpkg integrate install
-    COMMAND ${CMAKE_COMMAND} -E touch vcpkg_integrate.stamp
-    OUTPUT vcpkg_integrate.stamp
-    DEPENDS vcpkg
+    COMMAND ${VCPKG_SRC}/vcpkg install
+    COMMAND ${CMAKE_COMMAND} -E touch vcpkg_install.stamp
+    OUTPUT vcpkg_install.stamp
+    DEPENDS vcpkg_install
   )
-
-  function(vcpkg_install PACKAGE_NAME)
-    add_custom_command(
-      OUTPUT ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_target_platform}-windows/BUILD_INFO
-      COMMAND ${VCPKG_SRC}/vcpkg install ${PACKAGE_NAME}:${vcpkg_target_platform}-windows --vcpkg-root=${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src
-      WORKING_DIRECTORY ${VCPKG_SRC}
-      DEPENDS vcpkg)
-
-    add_custom_target(get${PACKAGE_NAME}
-      ALL
-      DEPENDS ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_target_platform}-windows/BUILD_INFO)
-
-    list(APPEND VCPKG_DEPENDENCIES "get${PACKAGE_NAME}")
-    set(VCPKG_DEPENDENCIES ${VCPKG_DEPENDENCIES} PARENT_SCOPE)
-  endfunction()
-
-  # get_vcpkg()
-  vcpkg_install(openssl)
-  vcpkg_install(openssl-windows)
-  vcpkg_install(rapidjson)
-  vcpkg_install(re2)
-  vcpkg_install(boost-interprocess)
-  vcpkg_install(boost-stacktrace)
-  vcpkg_install(pthread)
-  vcpkg_install(b64)
-
-  add_dependencies(getb64 getpthread)
-  add_dependencies(getpthread getboost-stacktrace)
-  add_dependencies(getboost-stacktrace getboost-interprocess)
-  add_dependencies(getboost-interprocess getre2)
-  add_dependencies(getre2 getrapidjson)
-  add_dependencies(getrapidjson getopenssl-windows)
-  add_dependencies(getopenssl-windows getopenssl)
 
   ExternalProject_Add(triton
                       GIT_REPOSITORY https://github.com/triton-inference-server/client.git
@@ -79,7 +30,7 @@ if (WIN32)
                       INSTALL_COMMAND ""
                       UPDATE_COMMAND "")
 
-  add_dependencies(triton ${VCPKG_DEPENDENCIES})
+  add_dependencies(triton vcpkg_install)
 
 else()
 
