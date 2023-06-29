@@ -28,6 +28,7 @@ variables:
   CIBW_ARCHS: AMD64
   CIBW_BUILD_VERBOSITY: 1
   CIBW_BEFORE_BUILD: pip install cmake
+  CIBW_BEFORE_BUILD: where python3
   DEBIAN_FRONTEND: noninteractive
 
 resources:
