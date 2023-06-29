@@ -10,12 +10,16 @@ if (WIN32)
 
   set(VCPKG_SRC $ENV{VCPKG_ROOT})
   message(WARNING "VCPKG_SRC: " ${VCPKG_SRC})
+  message(WARNING "CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
 
   add_custom_command(
-    COMMAND ${VCPKG_SRC}/vcpkg install
+    COMMAND ${VCPKG_SRC}/vcpkg install --triplet ${vcpkg_target_platform}-windows-static
     COMMAND ${CMAKE_COMMAND} -E touch vcpkg_install.stamp
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     OUTPUT vcpkg_install.stamp
   )
+
+  add_custom_target(vcpkg_install ALL DEPENDS vcpkg_install.stamp)
 
   ExternalProject_Add(triton
                       GIT_REPOSITORY https://github.com/triton-inference-server/client.git
@@ -27,7 +31,7 @@ if (WIN32)
                       INSTALL_COMMAND ""
                       UPDATE_COMMAND "")
 
-  add_dependencies(triton vcpkg_install.stamp)
+  add_dependencies(triton vcpkg_install)
 
 else()
 

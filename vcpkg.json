@@ -1,0 +1,13 @@
+{
+  "builtin-baseline": "b86c0c35b88e2bf3557ff49dc831689c2f085090",
+  "dependencies": [
+    "openssl",
+    "openssl-windows",
+    "rapidjson",
+    "re2",
+    "boost-interprocess",
+    "boost-stacktrace",
+    "pthread",
+    "b64"
+  ]
+}
