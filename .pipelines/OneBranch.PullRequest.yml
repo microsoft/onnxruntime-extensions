@@ -27,7 +27,9 @@ variables:
   CIBW_BUILD: cp3{8,9,10,11}-*amd64
   CIBW_ARCHS: AMD64
   CIBW_BUILD_VERBOSITY: 1
-  CIBW_BEFORE_BUILD: pip install cmake && echo "python %*" > python3.bat && set PATH=%PATH%;%CD%
+  #CIBW_BEFORE_BUILD: pip install cmake && echo "python %*" > python3.bat && set PATH=%PATH%;%CD%
+  CIBW_BEFORE_BUILD: pip install cmake
+  CIBW_PROJECT_REQUIRES_PYTHON: ">=3.6"
   DEBIAN_FRONTEND: noninteractive
 
 resources:
