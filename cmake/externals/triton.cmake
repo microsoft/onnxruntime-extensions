@@ -13,7 +13,7 @@ if (WIN32)
   message(WARNING "CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
 
   add_custom_command(
-    COMMAND ${VCPKG_SRC}/vcpkg install --triplet ${vcpkg_target_platform}-windows-static
+    COMMAND ${VCPKG_SRC}/vcpkg install
     COMMAND ${CMAKE_COMMAND} -E touch vcpkg_install.stamp
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     OUTPUT vcpkg_install.stamp
