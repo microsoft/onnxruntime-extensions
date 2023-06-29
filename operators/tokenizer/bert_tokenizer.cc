@@ -2,6 +2,8 @@
 
 #include <utility>
 #include <iostream>
+#include <optional>
+#include <list>
 
 BertTokenizerVocab::BertTokenizerVocab(std::string_view vocab) : raw_vocab_(vocab) {
   auto tokens = SplitString(raw_vocab_, "\r\n", true);

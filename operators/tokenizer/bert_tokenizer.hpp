@@ -10,6 +10,7 @@
 #include "basic_tokenizer.hpp"
 
 #include <unordered_map>
+#include <list>
 
 class BertTokenizerVocab final {
  public:
