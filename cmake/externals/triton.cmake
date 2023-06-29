@@ -19,12 +19,8 @@ if (WIN32)
     UPDATE_COMMAND ""
     BUILD_COMMAND "<SOURCE_DIR>/bootstrap-vcpkg.bat")
 
-  #ExternalProject_Get_Property(vcpkg SOURCE_DIR)
   set(VCPKG_SRC ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src)
   set(ENV{VCPKG_ROOT} ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src)
-  #set(VCPKG_DEPENDENCIES "vcpkg")
-  #set(VCPKG_TARGET_TRIPLET "x86-windows")
-  #set(VCPKG_TARGET_ARCHITECTURE "x86")
 
   message(WARNING "VCPKG_SRC: " ${VCPKG_SRC})
   message(WARNING "VCPKG_ROOT: " $ENV{VCPKG_ROOT})
@@ -41,14 +37,14 @@ if (WIN32)
 
   function(vcpkg_install PACKAGE_NAME)
     add_custom_command(
-      OUTPUT ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_target_platform}-windows/BUILD_INFO
-      COMMAND ${VCPKG_SRC}/vcpkg install ${PACKAGE_NAME}:${vcpkg_target_platform}-windows --vcpkg-root=${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src
+      OUTPUT ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_target_platform}-windows-static/BUILD_INFO
+      COMMAND ${VCPKG_SRC}/vcpkg install ${PACKAGE_NAME}:${vcpkg_target_platform}-windows-static --vcpkg-root=${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src
       WORKING_DIRECTORY ${VCPKG_SRC}
       DEPENDS vcpkg_integrate)
 
     add_custom_target(get${PACKAGE_NAME}
       ALL
-      DEPENDS ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_target_platform}-windows/BUILD_INFO)
+      DEPENDS ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_target_platform}-windows-static/BUILD_INFO)
 
     list(APPEND VCPKG_DEPENDENCIES "get${PACKAGE_NAME}")
     set(VCPKG_DEPENDENCIES ${VCPKG_DEPENDENCIES} PARENT_SCOPE)
