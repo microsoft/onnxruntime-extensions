@@ -24,6 +24,8 @@ if (WIN32)
   set(ENV{VCPKG_ROOT} ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src)
   set(VCPKG_DEPENDENCIES "vcpkg")
   set(VCPKG_TARGET_TRIPLET "x86-windows")
+  set(VCPKG_TARGET_ARCHITECTURE "x86")
+
   message(WARNING "VCPKG_SRC: " ${VCPKG_SRC})
   message(WARNING "VCPKG_ROOT: " $ENV{VCPKG_ROOT})
 
