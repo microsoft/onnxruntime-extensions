@@ -44,8 +44,9 @@ class WordpieceTokenizer final {
   WordpieceTokenizer(
       std::shared_ptr<BertTokenizerVocab> vocab, ustring unk_token,
       ustring suffix_indicator, int max_input_chars_per_word = 100);
-  std::vector<ustring> Tokenize(const ustring& text);
-  std::vector<ustring> Tokenize(const std::vector<ustring>& tokens);
+  using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
+  std::vector<ustring> Tokenize(const ustring& text, std::list<OffsetMappingType>& offset_map);
+  std::vector<ustring> Tokenize(const std::vector<ustring>& tokens, std::list<OffsetMappingType>& offset_map);
   std::vector<int64_t> Encode(const std::vector<ustring>& tokens);
 
  private:
@@ -64,7 +65,8 @@ class BertTokenizer final {
                 ustring unk_token, ustring sep_token, ustring pad_token, ustring cls_token,
                 ustring mask_token, bool tokenize_chinese_chars, bool strip_accents,
                 ustring suffix_indicator, int32_t max_len, const std::string& truncation_strategy);
-  std::vector<ustring> Tokenize(const ustring& text);
+  using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
+  std::vector<ustring> Tokenize(const ustring& text, std::list<OffsetMappingType>& offset_map);
   std::vector<int64_t> Encode(const std::vector<ustring>& tokens);
 
   void Truncate(std::vector<int64_t>& ids);
@@ -94,7 +96,9 @@ struct KernelBertTokenizer : BaseKernel {
   void Compute(const ortc::Tensor<std::string>& input,
                ortc::Tensor<int64_t>& output,
                ortc::Tensor<int64_t>& output1,
-               ortc::Tensor<int64_t>& output2);
+               ortc::Tensor<int64_t>& output2,
+               std::optional<ortc::Tensor<int64_t>*> offset_mapping);
+  using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
 
  protected:
   std::unique_ptr<BertTokenizer> tokenizer_;
@@ -102,8 +106,10 @@ struct KernelBertTokenizer : BaseKernel {
 
 struct KernelHfBertTokenizer : KernelBertTokenizer {
   KernelHfBertTokenizer(const OrtApi& api, const OrtKernelInfo& info);
+  using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
   void Compute(const ortc::Tensor<std::string>& input,
                ortc::Tensor<int64_t>& output,
                ortc::Tensor<int64_t>& output1,
-               ortc::Tensor<int64_t>& output2);
+               ortc::Tensor<int64_t>& output2,
+               std::optional<ortc::Tensor<int64_t>*> offset_mapping);
 };

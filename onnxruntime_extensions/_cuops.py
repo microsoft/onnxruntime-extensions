@@ -237,7 +237,8 @@ class BertTokenizer(CustomOp):
         return [
             cls.io_def('input_ids', onnx_proto.TensorProto.INT64, [None]),
             cls.io_def('token_type_ids', onnx_proto.TensorProto.INT64, [None]),
-            cls.io_def('attention_mask', onnx_proto.TensorProto.INT64, [None])
+            cls.io_def('attention_mask', onnx_proto.TensorProto.INT64, [None]),
+            cls.io_def('offset_mapping', onnx.TensorProto.INT64, [None, 2])
         ]
 
     @classmethod
