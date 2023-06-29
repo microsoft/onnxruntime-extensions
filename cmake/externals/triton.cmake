@@ -9,15 +9,12 @@ if (WIN32)
   endif()
 
   set(VCPKG_SRC $ENV{VCPKG_ROOT})
-
   message(WARNING "VCPKG_SRC: " ${VCPKG_SRC})
-  message(WARNING "VCPKG_ROOT: " $ENV{VCPKG_ROOT})
 
   add_custom_command(
     COMMAND ${VCPKG_SRC}/vcpkg install
     COMMAND ${CMAKE_COMMAND} -E touch vcpkg_install.stamp
     OUTPUT vcpkg_install.stamp
-    DEPENDS vcpkg_install
   )
 
   ExternalProject_Add(triton
@@ -30,7 +27,7 @@ if (WIN32)
                       INSTALL_COMMAND ""
                       UPDATE_COMMAND "")
 
-  add_dependencies(triton vcpkg_install)
+  add_dependencies(triton vcpkg_install.stamp)
 
 else()
 
