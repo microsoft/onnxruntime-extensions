@@ -67,7 +67,7 @@ if (WIN32)
   add_dependencies(getrapidjson getopenssl-windows)
   add_dependencies(getopenssl-windows getopenssl)
 
- ExternalProject_Add(triton
+  ExternalProject_Add(triton
                       GIT_REPOSITORY https://github.com/triton-inference-server/client.git
                       GIT_TAG r23.05
                       PREFIX triton

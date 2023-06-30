@@ -714,6 +714,7 @@ endif()
 
 if(OCOS_ENABLE_AZURE)
 
+  add_dependencies(ocos_operators triton)
   target_include_directories(ocos_operators PUBLIC ${TRITON_BIN}/include ${TRITON_THIRD_PARTY}/curl/include)
   target_link_directories(ocos_operators PUBLIC ${TRITON_BIN}/lib ${TRITON_BIN}/lib64 ${TRITON_THIRD_PARTY}/curl/lib ${TRITON_THIRD_PARTY}/curl/lib64)
 
