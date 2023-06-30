@@ -61,7 +61,7 @@ class TensorBase {
   size_t indice_;
   bool is_input_;
   std::optional<std::vector<int64_t>> shape_;
-  ONNXTensorElementDataType type_;
+  ONNXTensorElementDataType type_ = ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED;
 };
 
 template <typename T>
