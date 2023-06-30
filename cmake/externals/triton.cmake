@@ -81,6 +81,13 @@ if (WIN32)
 
 else()
 
+  ExternalProject_Add(openssl
+                      GIT_REPOSITORY https://github.com/openssl/openssl.git
+                      GIT_TAG openssl-3.1.0
+                      PREFIX openssl
+                      SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/openssl-src
+                      BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/openssl-build)
+
   ExternalProject_Add(triton
                       GIT_REPOSITORY https://github.com/triton-inference-server/client.git
                       GIT_TAG r23.05
@@ -90,6 +97,8 @@ else()
                       CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=binary -DTRITON_ENABLE_CC_HTTP=ON -DTRITON_ENABLE_ZLIB=OFF
                       INSTALL_COMMAND ""
                       UPDATE_COMMAND "")
+
+  add_dependencies(triton openssl)
 
 endif() #if (WIN32)
 
