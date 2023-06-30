@@ -22,8 +22,8 @@ if (WIN32)
   set(VCPKG_SRC ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src)
   set(ENV{VCPKG_ROOT} ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg-src)
 
-  message(WARNING "VCPKG_SRC: " ${VCPKG_SRC})
-  message(WARNING "VCPKG_ROOT: " $ENV{VCPKG_ROOT})
+  message(STATUS "VCPKG_SRC: " ${VCPKG_SRC})
+  message(STATUS "VCPKG_ROOT: " $ENV{VCPKG_ROOT})
 
   add_custom_command(
     COMMAND ${VCPKG_SRC}/vcpkg integrate install
