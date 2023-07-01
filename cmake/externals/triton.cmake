@@ -81,6 +81,7 @@ if (WIN32)
 
 else()
 
+  set(CURL_LIBRARY "-lcurl")
   set(CURL_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/triton-build/third-party/curl/include)
 
   ExternalProject_Add(triton
@@ -92,8 +93,6 @@ else()
                       CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=binary -DTRITON_ENABLE_CC_HTTP=ON -DTRITON_ENABLE_ZLIB=OFF
                       INSTALL_COMMAND ""
                       UPDATE_COMMAND "")
-
-  add_dependencies(triton curl)
 
 endif() #if (WIN32)
 
