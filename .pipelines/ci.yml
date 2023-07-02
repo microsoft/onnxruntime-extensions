@@ -411,7 +411,7 @@ jobs:
           - bash: |
               set -e -x
 
-              export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/opt/openssl@1.1/lib/pkgconfig/
+              cp --symbolic-link /usr/local/opt/openssl@1.1/lib/pkgconfig/* /usr/local/lib/pkgconfig/
 
               _BUILD_CFG="x86_64 $(Build.BinariesDirectory)/android_aar" ./build.android
 
