@@ -411,7 +411,8 @@ jobs:
           - bash: |
               set -e -x
 
-              cp -s /usr/local/opt/openssl@1.1/lib/pkgconfig/*.pc /usr/local/lib/pkgconfig/
+              ls /usr/local/opt/openssl@1.1/lib/pkgconfig/
+              cp /usr/local/opt/openssl@1.1/lib/pkgconfig/*.pc /usr/local/lib/pkgconfig/
 
               _BUILD_CFG="x86_64 $(Build.BinariesDirectory)/android_aar" ./build.android
 
