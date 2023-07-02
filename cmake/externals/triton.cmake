@@ -81,16 +81,6 @@ if (WIN32)
 
 else()
 
-  if(DEFINED ENV{IS_DOCKER_BUILD})
-    ExternalProject_Add(curl7
-                        PREFIX curl7
-                        GIT_REPOSITORY "https://github.com/curl/curl.git"
-                        GIT_TAG "curl-7_86_0"
-                        SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/curl7-src
-                        BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/curl7-build
-                        CMAKE_ARGS -DBUILD_TESTING=OFF -DBUILD_CURL_EXE=OFF -DBUILD_SHARED_LIBS=OFF -DCURL_STATICLIB=ON -DHTTP_ONLY=ON -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
-  endif()
-
   ExternalProject_Add(triton
                       GIT_REPOSITORY https://github.com/triton-inference-server/client.git
                       GIT_TAG r23.05
@@ -101,7 +91,16 @@ else()
                       INSTALL_COMMAND ""
                       UPDATE_COMMAND "")
 
-  add_dependencies(triton curl7)
+  if(DEFINED ENV{IS_DOCKER_BUILD})
+    ExternalProject_Add(curl7
+                        PREFIX curl7
+                        GIT_REPOSITORY "https://github.com/curl/curl.git"
+                        GIT_TAG "curl-7_86_0"
+                        SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/curl7-src
+                        BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/curl7-build
+                        CMAKE_ARGS -DBUILD_TESTING=OFF -DBUILD_CURL_EXE=OFF -DBUILD_SHARED_LIBS=OFF -DCURL_STATICLIB=ON -DHTTP_ONLY=ON -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
+    add_dependencies(triton curl7)
+  endif()
 
 endif() #if (WIN32)
 
