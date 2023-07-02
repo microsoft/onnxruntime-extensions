@@ -81,8 +81,7 @@ if (WIN32)
 
 else()
 
-  set(CURL_LIBRARY "-lcurl")
-  set(CURL_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/triton-build/third-party/curl/include)
+  set(CURL_ROOT ${CMAKE_CURRENT_BINARY_DIR}/_deps/triton-build/third-party/curl)
 
   ExternalProject_Add(triton
                       GIT_REPOSITORY https://github.com/triton-inference-server/client.git
