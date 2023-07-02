@@ -401,7 +401,7 @@ jobs:
           jdkArchitectureOption: 'x64'
           jdkSourceOption: 'PreInstalled'
 
-      - script: brew install coreutils ninja openssl
+      - script: brew install coreutils ninja openssl@1.1
         displayName: Install coreutils ninja and openssl
 
       - template: templates/run-with-android-emulator-steps.yml
@@ -410,6 +410,8 @@ jobs:
 
           - bash: |
               set -e -x
+
+              export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/opt/openssl@1.1/lib/pkgconfig/
 
               _BUILD_CFG="x86_64 $(Build.BinariesDirectory)/android_aar" ./build.android
 
