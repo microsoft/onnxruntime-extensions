@@ -3,8 +3,8 @@ jobs:
   timeoutInMinutes: 240
   pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
   variables:
+    CIBW_ARCH: "i686"
     CIBW_BUILD: "cp3{8,9,10,11}-*"
-    CIBW_BEFORE_BUILD: "export IS_DOCKER_BUILD=1"
 
   steps:
     - task: UsePythonVersion@0
