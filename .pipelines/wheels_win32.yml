@@ -4,12 +4,12 @@ jobs:
   pool: {name: 'onnxruntime-Win-CPU-2022'}
   variables:
     CIBW_BUILD: "cp3{8,9,10,11}-*amd64"
+    CIBW_BEFORE_BUILD: pip install cmake
 
   steps:
     - task: UsePythonVersion@0
     - script: |
         python -m pip install --upgrade pip
-        pip install cmake
         pip install cibuildwheel
       displayName: Install dependencies
     - bash: cibuildwheel --platform windows --output-dir wheelhouse .

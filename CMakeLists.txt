@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.25)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
-# set(CMAKE_VERBOSE_MAKEFILE ON)
+#set(CMAKE_VERBOSE_MAKEFILE ON)
+set(CMAKE_POLICY_DEFAULT_CMP0135 NEW)
+
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Build type not set - using RelWithDebInfo")
   set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Choose build type: Debug Release RelWithDebInfo." FORCE)
@@ -714,11 +716,12 @@ endif()
 
 if(OCOS_ENABLE_AZURE)
 
+  add_dependencies(ocos_operators triton)
   target_include_directories(ocos_operators PUBLIC ${TRITON_BIN}/include ${TRITON_THIRD_PARTY}/curl/include)
   target_link_directories(ocos_operators PUBLIC ${TRITON_BIN}/lib ${TRITON_BIN}/lib64 ${TRITON_THIRD_PARTY}/curl/lib ${TRITON_THIRD_PARTY}/curl/lib64)
 
   if (ocos_target_platform STREQUAL "AMD64")
-    set(vcpkg_target_platform "x64")
+    set(vcpkg_target_platform "x86")
   else()
     set(vcpkg_target_platform ${ocos_target_platform})
   endif()
