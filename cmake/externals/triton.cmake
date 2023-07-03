@@ -81,7 +81,7 @@ if (WIN32)
 
 else()
 
-  if(DEFINED ENV{IS_DOCKER_BUILD})
+  if(DEFINED $ENV{IS_DOCKER_BUILD})
     message(STATUS "IS_DOCKER_BUILD set")
     ExternalProject_Add(curl7
                         PREFIX curl7
