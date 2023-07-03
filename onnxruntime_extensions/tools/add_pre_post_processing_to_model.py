@@ -11,13 +11,9 @@ from typing import Union
 # NOTE: If you're working on this script install onnxruntime_extensions using `pip install -e .` from the repo root
 # and run with `python -m onnxruntime_extensions.tools.add_pre_post_processing_to_model`
 # Running directly will result in an error from a relative import.
+from .image_processor import *
 from .pre_post_processing import *
-
-
-class ModelSource(enum.Enum):
-    PYTORCH = 0
-    TENSORFLOW = 1
-    OTHER = 2
+from .add_HuggingFace_CLIPImageProcessor_to_model import clip_image_processor
 
 
 def imagenet_preprocessing(model_source: ModelSource = ModelSource.PYTORCH):
@@ -34,31 +30,17 @@ def imagenet_preprocessing(model_source: ModelSource = ModelSource.PYTORCH):
       - for a tensorflow model this simply moves the image bytes into the range -1..1
       - adds a batch dimension with a value of 1
     """
-
     # These utils cover both cases of typical pytorch/tensorflow pre-processing for an imagenet trained model
     # https://github.com/keras-team/keras/blob/b80dd12da9c0bc3f569eca3455e77762cf2ee8ef/keras/applications/imagenet_utils.py#L177
-
-    steps = [
-        Resize(256),
-        CenterCrop(224, 224),
-        ImageBytesToFloat()
-    ]
-
+    ToCHW = False
     if model_source == ModelSource.PYTORCH:
-        # pytorch model has NCHW layout
-        steps.extend([
-            ChannelsLastToChannelsFirst(),
-            Normalize([(0.485, 0.229), (0.456, 0.224), (0.406, 0.225)], layout="CHW")
-        ])
+        norm_arg = {"mean_std": [(0.485, 0.229), (0.456, 0.224), (0.406, 0.225)], "layout": "CHW"}
+        ToCHW = True
     else:
-        # TF processing involves moving the data into the range -1..1 instead of 0..1.
-        # ImageBytesToFloat converts to range 0..1, so we use 0.5 for the mean to move into the range -0.5..0.5
-        # and 0.5 for the stddev to expand to -1..1
-        steps.append(Normalize([(0.5, 0.5)], layout="HWC"))
+        norm_arg = {"mean_std": [(0.5, 0.5)], "layout": "HWC"}
 
-    steps.append(Unsqueeze([0]))  # add batch dim
-
-    return steps
+    return image_processor(extend_config={"resize": 256, "center_crop": (224, 224), "rescale": None,
+                                          "normalize": norm_arg, "ToCHW": ToCHW})
 
 
 def mobilenet(model_file: Path, output_file: Path, model_source: ModelSource, onnx_opset: int = 16):
@@ -67,13 +49,8 @@ def mobilenet(model_file: Path, output_file: Path, model_source: ModelSource, on
 
     pipeline = PrePostProcessor(inputs, onnx_opset)
 
-    # support user providing encoded image bytes
-    preprocessing = [
-        ConvertImageToBGR(),  # custom op to convert jpg/png to BGR (output is HWC)
-        ReverseAxis(axis=2, dim_value=3, name="BGR_to_RGB"),
-    ]  # Normalization params are for RGB ordering
     # plug in default imagenet pre-processing
-    preprocessing.extend(imagenet_preprocessing(model_source))
+    preprocessing = imagenet_preprocessing(model_source)
 
     pipeline.add_pre_processing(preprocessing)
 
@@ -214,7 +191,7 @@ def yolo_detection(model_file: Path, output_file: Path, output_format: str = 'jp
     output_shape = [model_output_shape.dim[i].dim_value if model_output_shape.dim[i].HasField("dim_value") else -1
                     for i in [-2, -1]]
     if output_shape[0] != -1 and output_shape[1] != -1:
-        need_transpose = output_shape[0] < output_shape[1] 
+        need_transpose = output_shape[0] < output_shape[1]
     else:
         assert len(model.graph.input) == 1, "Doesn't support adding pre and post-processing for multi-inputs model."
         try:
@@ -253,9 +230,9 @@ Because we need to execute the model to determine the output shape in order to a
     )
     # NMS and drawing boxes
     post_processing_steps = [
-        Squeeze([0]), # - Squeeze to remove batch dimension
-        SplitOutBoxAndScore(num_classes=num_classes), # Separate bounding box and confidence outputs
-        SelectBestBoundingBoxesByNMS(), # Apply NMS to suppress bounding boxes
+        Squeeze([0]),  # - Squeeze to remove batch dimension
+        SplitOutBoxAndScore(num_classes=num_classes),  # Separate bounding box and confidence outputs
+        SelectBestBoundingBoxesByNMS(),  # Apply NMS to suppress bounding boxes
         (ScaleBoundingBoxes(),  # Scale bounding box coords back to original image
          [
             # A connection from original image to ScaleBoundingBoxes
@@ -411,6 +388,7 @@ def main():
             "superresolution",
             "mobilenet",
             "yolo",
+            "clip_feature_extractor",
             "transformers",
         ],
         help="Model type.",
@@ -485,6 +463,11 @@ def main():
         help="ONNX opset to use. Minimum allowed is 16. Opset 18 is required for Resize with anti-aliasing.",
     )
 
+    parser.add_argument(
+        "--extend_config", type=str, required=False, default=None,
+        help="extra json config file used for more configurations.",
+    )
+
     parser.add_argument("model", type=Path, help="Provide path to ONNX model to update.")
 
     args = parser.parse_args()
@@ -502,6 +485,9 @@ def main():
         if args.input_shape != "":
             input_shape = [int(x) for x in args.input_shape.split(",")]
         yolo_detection(model_path, new_model_path, args.output_format, args.opset, args.num_classes, input_shape)
+    elif args.model_type == "clip_feature":
+        clip_image_processor(model_path, new_model_path, args.opset, json.loads(
+            args.extend_config) if args.extend_config else None)
     else:
         if args.vocab_file is None or args.nlp_task_type is None or args.tokenizer_type is None:
             parser.error("Please provide vocab file/nlp_task_type/tokenizer_type.")
