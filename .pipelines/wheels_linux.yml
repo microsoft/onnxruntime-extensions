@@ -3,7 +3,7 @@ jobs:
   timeoutInMinutes: 240
   pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
   variables:
-    CIBW_ARCH: "i686"
+    CIBW_ARCHS: "i686"
     CIBW_BUILD: "cp3{8,9,10,11}-*"
 
   steps:
