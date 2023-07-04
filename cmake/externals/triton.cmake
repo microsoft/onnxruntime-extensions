@@ -98,7 +98,7 @@ else()
                       PREFIX triton
                       SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/triton-src
                       BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/triton-build
-                      CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=binary -DTRITON_ENABLE_CC_HTTP=ON -DTRITON_ENABLE_ZLIB=OFF
+                      CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=binary -DTRITON_ENABLE_CC_HTTP=ON -DTRITON_ENABLE_ZLIB=OFF -DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY}
                       INSTALL_COMMAND ""
                       UPDATE_COMMAND "")
 
