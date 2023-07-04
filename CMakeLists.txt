@@ -2,8 +2,6 @@ cmake_minimum_required(VERSION 3.25)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
 #set(CMAKE_VERBOSE_MAKEFILE ON)
-set(CMAKE_POLICY_DEFAULT_CMP0135 NEW)
-
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Build type not set - using RelWithDebInfo")
   set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Choose build type: Debug Release RelWithDebInfo." FORCE)
@@ -61,7 +59,8 @@ option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
 option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
 
-if (CMAKE_SYSTEM_NAME MATCHES "Darwin")
+message(STATUS "CMAKE_SYSTEM_NAME: " ${CMAKE_SYSTEM_NAME})
+if (CMAKE_SYSTEM_NAME MATCHES "Darwin|iOS")
   option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" OFF)
 else()
   option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" ON)
