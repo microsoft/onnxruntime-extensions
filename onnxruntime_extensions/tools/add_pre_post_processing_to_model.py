@@ -13,7 +13,7 @@ from typing import Union
 # Running directly will result in an error from a relative import.
 from .image_processor import *
 from .pre_post_processing import *
-from .add_HuggingFace_CLIPImageProcessor_to_model import clip_image_processor
+from ._HuggingFace_CLIPImageProcessor import clip_image_processor
 
 
 def imagenet_preprocessing(model_source: ModelSource = ModelSource.PYTORCH):
