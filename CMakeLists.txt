@@ -67,6 +67,8 @@ else()
   option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" ON)
 endif()
 
+message(STATUS "CMAKE_MSVC_RUNTIME_LIBRARY: " ${CMAKE_MSVC_RUNTIME_LIBRARY})
+
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
 option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
