@@ -722,6 +722,10 @@ endif()
 
 if(OCOS_ENABLE_AZURE)
 
+  if (DEFINED ENV{TEST_AZURE_INVOKERS_AS_CPU_OP})
+    add_compile_definitions(TEST_AZURE_INVOKERS_AS_CPU_OP)
+  endif()
+
   add_dependencies(ocos_operators triton)
   target_include_directories(ocos_operators PUBLIC ${TRITON_BIN}/include ${TRITON_THIRD_PARTY}/curl/include)
   target_link_directories(ocos_operators PUBLIC ${TRITON_BIN}/lib ${TRITON_BIN}/lib64 ${TRITON_THIRD_PARTY}/curl/lib ${TRITON_THIRD_PARTY}/curl/lib64)

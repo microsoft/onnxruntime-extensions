@@ -5,7 +5,7 @@
 
 #include "http_client.h"
 #include "curl/curl.h"
-#include "azure_invoker.hpp"
+#include "azure_invokers.hpp"
 #include <sstream>
 
 constexpr const char* kUri = "model_uri";
@@ -344,7 +344,12 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
 
 const std::vector<const OrtCustomOp*>& AzureInvokerLoader() {
   static OrtOpLoader op_loader(CustomAzureStruct("AzureAudioInvoker", AzureAudioInvoker),
-                               CustomAzureStruct("AzureTritonInvoker", AzureTritonInvoker));
+                               CustomAzureStruct("AzureTritonInvoker", AzureTritonInvoker))
+#ifdef TEST_AZURE_INVOKERS_AS_CPU_OP
+                              ,CustomCpuStruct("AzureAudioInvoker", AzureAudioInvoker)
+                              ,CustomCpuStruct("AzureTritonInvoker", AzureTritonInvoker)
+#endif
+                               ;
   return op_loader.GetCustomOps();
 }
 
