@@ -42,8 +42,7 @@ class TestAzureOps(unittest.TestCase):
 
     @classmethod
     def isEnabled(cls):
-        config = "TEST_AZURE_INVOKERS_AS_CPU_OP"
-        return config in os.environ and os.environ[config] == 'ON'
+        return os.environ.get('TEST_AZURE_INVOKERS_AS_CPU_OP', 'OFF') == 'ON'
 
     def test_azure_triton_invoker(self):
         if TestAzureOps.isEnabled():

@@ -392,6 +392,12 @@ if(OCOS_ENABLE_BLINGFIRE)
 endif()
 
 if(OCOS_ENABLE_AZURE)
+
+  if ($ENV{TEST_AZURE_INVOKERS_AS_CPU_OP} MATCHES "ON")
+    message(STATUS "Azure inovkers will be testable as cpu ops")
+    add_compile_definitions(TEST_AZURE_INVOKERS_AS_CPU_OP)
+  endif()
+
   # Azure endpoint invokers
   include(triton)
   file(GLOB TARGET_SRC_AZURE "operators/azure/*.cc" "operators/azure/*.h*")
@@ -721,10 +727,6 @@ if(OCOS_ENABLE_CTEST)
 endif()
 
 if(OCOS_ENABLE_AZURE)
-
-  if ($ENV{TEST_AZURE_INVOKERS_AS_CPU_OP} MATCHES "ON")
-    add_compile_definitions(TEST_AZURE_INVOKERS_AS_CPU_OP)
-  endif()
 
   add_dependencies(ocos_operators triton)
   target_include_directories(ocos_operators PUBLIC ${TRITON_BIN}/include ${TRITON_THIRD_PARTY}/curl/include)

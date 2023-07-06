@@ -338,6 +338,7 @@ jobs:
 
       - script: |
           call activate pyenv
+          $Env:TEST_AZURE_INVOKERS_AS_CPU_OP='ON'
           python -m pip install .
         displayName: Build the wheel
 
