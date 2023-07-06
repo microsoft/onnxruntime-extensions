@@ -1,3 +1,4 @@
+import os
 import unittest
 import numpy as np
 import numpy.lib.recfunctions as nlr
@@ -44,19 +45,25 @@ class TestAzureOps(unittest.TestCase):
         pass
 
     def test_azure_triton_invoker(self):
-        if LooseVersion(_ort.__version__) >= LooseVersion("1.15.1"):
-            onnx_model = TestAzureOps.createAzureTritonModel()
+        if os.environ['TEST_AZURE_INVOKERS_AS_CPU_OP'] == 'ON':
+            if LooseVersion(_ort.__version__) >= LooseVersion("1.15.1"):
+                onnx_model = TestAzureOps.createAzureTritonModel()
+                so = _ort.SessionOptions()
+                so.register_custom_ops_library(_get_library_path())
+                _ = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
+                print ("azure triton invoker session loaded.")
+        else:
+            print ("test_azure_triton_invoker disabled.")
+
+    def test_azure_audio_invoker(self):
+        if os.environ['TEST_AZURE_INVOKERS_AS_CPU_OP'] == 'ON':
+            onnx_model = TestAzureOps.createAzureAudioModel()
             so = _ort.SessionOptions()
             so.register_custom_ops_library(_get_library_path())
             _ = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
-            print ("azure triton invoker session loaded.")
+            print ("azure audio invoker session loaded.")
+        else:
+            print ("test_azure_audio_invoker disabled.")
 
-    def test_azure_audio_invoker(self):
-        onnx_model = TestAzureOps.createAzureAudioModel()
-        so = _ort.SessionOptions()
-        so.register_custom_ops_library(_get_library_path())
-        _ = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
-        print ("azure audio invoker session loaded.")
-
-if __name__ == "__main__" and os.environ['TEST_AZURE_INVOKERS_AS_CPU_OP'] == 'ON':
+if __name__ == "__main__":
     unittest.main()
