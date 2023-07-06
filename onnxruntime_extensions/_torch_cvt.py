@@ -14,6 +14,7 @@ import numpy as np
 
 from onnx import numpy_helper
 
+from ._ortapi2 import make_onnx_model
 from ._cuops import SingleOpGraph
 from ._hf_cvt import HFTokenizerConverter
 from .util import remove_unused_initializers
@@ -185,11 +186,12 @@ def _torch_export(*arg, **kwargs):
 class WhisperDataProcGraph:
     def __init__(self, processor, **kwargs):
         self.hf_processor = processor
-        self.use_audio_decoder = kwargs.pop('USE_AUDIO_DECODER', True)
-        self.use_onnx_stft = kwargs.pop('USE_ONNX_STFT', True)
-        self.opset_version = kwargs.pop('opset', 17)
+        _opset = kwargs.pop('opset', 17)
+        self.opset_version = _opset if _opset else 17
 
     def pre_processing(self, **kwargs):
+        use_audio_decoder = kwargs.pop('USE_AUDIO_DECODER', True)
+        use_onnx_stft = kwargs.pop('USE_ONNX_STFT', True)
         whisper_processing = WhisperPrePipeline()
 
         audio_pcm = torch.rand((1, 32000), dtype=torch.float32)
@@ -206,12 +208,12 @@ class WhisperDataProcGraph:
                 "audio_pcm": {1: "sample_len"},
             }
         )
-        if self.use_onnx_stft:
+        if use_onnx_stft:
             pre_model = _to_onnx_stft(pre_model)
             remove_unused_initializers(pre_model.graph)
 
         pre_full = pre_model
-        if self.use_audio_decoder:
+        if use_audio_decoder:
             audecoder_g = SingleOpGraph.build_graph(
                 "AudioDecoder", downsampling_rate=_WhisperHParams.SAMPLE_RATE, stereo_to_mono=1)
             audecoder_m = onnx.helper.make_model(audecoder_g)
@@ -228,4 +230,4 @@ class WhisperDataProcGraph:
             cvt=HFTokenizerConverter(self.hf_processor.tokenizer).bpe_decoder,
             skip_special_tokens=True,
             cpu_only=True)
-        return g
+        return make_onnx_model(g)

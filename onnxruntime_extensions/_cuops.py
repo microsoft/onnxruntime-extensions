@@ -457,12 +457,10 @@ class SingleOpGraph:
         if isinstance(op_class, str):
             op_class = cls.get_op_class(op_class)
 
-        cvt = kwargs.get('cvt', None)
+        cvt = kwargs.pop('cvt', None)
         if cvt is None and len(args) > 0 and isinstance(args[0], CustomOpConverter):
             cvt = args[0]
-            # args = args[1:]
-        else:
-            del kwargs['cvt']
+            args = args[1:]
 
         new_kwargs = kwargs if cvt is None else cvt(**kwargs)
 

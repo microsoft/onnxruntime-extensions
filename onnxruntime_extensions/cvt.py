@@ -17,17 +17,15 @@ _is_torch_available = False
 try:
     import torch
     _is_torch_available = True
-    from ._torch_cvt import WhisperConverter
+    from ._torch_cvt import WhisperDataProcGraph
 except ImportError:
-    import warnings
-    warnings.warn("The Whisper processor needs torch.onnx support, please install it")
-    WhisperConverter = None
+    WhisperDataProcGraph = None
 
 
 def gen_processing_models(processor: Union[str, object],
                           pre_kwargs: dict = None,
                           post_kwargs: dict = None,
-                          opset: int = 0,
+                          opset: int = None,
                           **kwargs):
     """
     Generate the pre- and post-processing ONNX model, basing on the name or HF class.
@@ -52,22 +50,22 @@ def gen_processing_models(processor: Union[str, object],
     ONNX-Models
         The pre- and post-processing ONNX models
     """
-    pre_g = None
-    post_g = None
-
     if pre_kwargs is None and post_kwargs is None:
         raise ValueError("Either pre_kwargs or post_kwargs should be provided. None means no processing")
 
     cls_name = processor if isinstance(processor, str) else type(processor).__name__
     if cls_name == "WhisperProcessor":
-        _converter = WhisperConverter(opset=opset, **kwargs)
+        if WhisperDataProcGraph is None:
+            raise ValueError("The Whisper processor needs torch.onnx support, please install it")
+        _converter = WhisperDataProcGraph(processor, opset=opset, **kwargs)
+        pre_m = _converter.pre_processing(**pre_kwargs) if pre_kwargs is not None else None
+        post_m = _converter.post_processing(**post_kwargs) if post_kwargs is not None else None
+        return pre_m, post_m
+    elif HFTokenizerOnnxGraph.is_supported(processor):
+        _converter = HFTokenizerOnnxGraph(processor)
         pre_g = _converter.pre_processing(**pre_kwargs) if pre_kwargs is not None else None
         post_g = _converter.post_processing(**post_kwargs) if post_kwargs is not None else None
-    elif HFTokenizerOnnxGraph.is_supported(cls_name):
-        pre_g = HFTokenizerOnnxGraph.pre_processing(**pre_kwargs) if pre_kwargs is not None else None
-        post_g = HFTokenizerOnnxGraph.post_processing(**post_kwargs) if post_kwargs is not None else None
+        return make_onnx_model(pre_g) if pre_g else None, \
+            make_onnx_model(post_g) if post_g else None
     else:
         raise ValueError(f"Unsupported processor/tokenizer: {cls_name}")
-
-    return make_onnx_model(pre_g) if pre_g else None, \
-        make_onnx_model(post_g) if post_g else None
