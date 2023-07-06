@@ -8,7 +8,9 @@ _hf_cvt.py: HuggingFace Tokenizer/Processor Converter
 """
 
 import json
-from ._cuops import CustomOpConverter
+from functools import partial
+
+from ._cuops import CustomOpConverter, SingleOpGraph
 from .util import read_file
 
 
@@ -82,3 +84,46 @@ class HFTokenizerConverter(CustomOpConverter):
         attrs = {'model': read_file(self.tokenizer.vocab_file, 'rb')}
         attrs.update(**kwargs)
         return attrs
+
+
+_PROCESSOR_DICT = {
+    "GPT2Tokenizer":    ('Gpt2Tokenizer', HFTokenizerConverter.bpe_tokenizer,
+                         'BpeDecoder', HFTokenizerConverter.bpe_decoder),
+    "ClipTokenizer":    ('ClipTokenizer', HFTokenizerConverter.clip_tokenizer,
+                         'BpeDecoder', HFTokenizerConverter.bpe_decoder),
+    "RobertaTokenizer": ("RobertaTokenizer", HFTokenizerConverter.roberta_tokenizer,
+                         None, None),
+    "T5Tokenizer":      ("SentencepieceTokenizer", HFTokenizerConverter.t5_tokenizer,
+                         "SentencepieceDecoder", HFTokenizerConverter.t5_decoder),
+}
+
+
+class HFTokenizerOnnxGraph:
+    @staticmethod
+    def extract_cls_name(processor):
+        cls_name = processor if isinstance(processor, str) else type(processor).__name__
+        if cls_name.endswith("TokenizerFast"):
+            cls_name = cls_name[:-len("Fast")]
+        return cls_name
+
+    @classmethod
+    def is_supported(cls, processor):
+        cls_name = cls.extract_cls_name(processor)
+        return cls_name in _PROCESSOR_DICT
+
+    def __init__(self, processor, **kwargs):
+        cls_name = self.extract_cls_name(processor)
+        self.cvt_quadruple = _PROCESSOR_DICT[cls_name]
+        self.cvt_obj = HFTokenizerConverter(processor)
+
+    def pre_processing(self, **kwargs):
+        _cvt_op = self.cvt_quadruple[0]
+        _cvt_func = self.cvt_quadruple[1]
+        cvt = partial(_cvt_func, self.cvt_obj)
+        return SingleOpGraph.build_graph(_cvt_op, cvt=cvt, **kwargs)
+
+    def post_processing(self, **kwargs):
+        _cvt_op = self.cvt_quadruple[2]
+        _cvt_func = self.cvt_quadruple[3]
+        cvt = partial(_cvt_func, self.cvt_obj)
+        return SingleOpGraph.build_graph(_cvt_op, cvt=cvt, **kwargs)

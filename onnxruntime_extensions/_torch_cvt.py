@@ -14,7 +14,7 @@ import numpy as np
 
 from onnx import numpy_helper
 
-from ._cuops import SingleOpGraph, CustomOpConverter
+from ._cuops import SingleOpGraph
 from ._hf_cvt import HFTokenizerConverter
 from .util import remove_unused_initializers
 
@@ -182,7 +182,7 @@ def _torch_export(*arg, **kwargs):
         return onnx.load_from_string(f.getvalue())
 
 
-class WhisperConverter(CustomOpConverter):
+class WhisperDataProcGraph:
     def __init__(self, processor, **kwargs):
         self.hf_processor = processor
         self.use_audio_decoder = kwargs.pop('USE_AUDIO_DECODER', True)
@@ -223,8 +223,9 @@ class WhisperConverter(CustomOpConverter):
         return pre_full
 
     def post_processing(self, **kwargs):
-        return SingleOpGraph.build_graph(
+        g = SingleOpGraph.build_graph(
             "BpeDecoder",
             cvt=HFTokenizerConverter(self.hf_processor.tokenizer).bpe_decoder,
             skip_special_tokens=True,
             cpu_only=True)
+        return g
