@@ -41,11 +41,12 @@ class TestAzureOps(unittest.TestCase):
         return model
 
     @classmethod
-    def setUpClass(cls) -> None:
-        pass
+    def isEnabled(cls):
+        config = "TEST_AZURE_INVOKERS_AS_CPU_OP"
+        return config in os.environ and os.environ[config] == 'ON'
 
     def test_azure_triton_invoker(self):
-        if os.environ['TEST_AZURE_INVOKERS_AS_CPU_OP'] == 'ON':
+        if TestAzureOps.isEnabled():
             if LooseVersion(_ort.__version__) >= LooseVersion("1.15.1"):
                 onnx_model = TestAzureOps.createAzureTritonModel()
                 so = _ort.SessionOptions()
@@ -56,7 +57,7 @@ class TestAzureOps(unittest.TestCase):
             print ("test_azure_triton_invoker disabled.")
 
     def test_azure_audio_invoker(self):
-        if os.environ['TEST_AZURE_INVOKERS_AS_CPU_OP'] == 'ON':
+        if TestAzureOps.isEnabled():
             onnx_model = TestAzureOps.createAzureAudioModel()
             so = _ort.SessionOptions()
             so.register_custom_ops_library(_get_library_path())
