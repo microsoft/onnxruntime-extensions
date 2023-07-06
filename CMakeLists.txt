@@ -722,7 +722,7 @@ endif()
 
 if(OCOS_ENABLE_AZURE)
 
-  if (DEFINED ENV{TEST_AZURE_INVOKERS_AS_CPU_OP})
+  if ($ENV{TEST_AZURE_INVOKERS_AS_CPU_OP} MATCHES "ON")
     add_compile_definitions(TEST_AZURE_INVOKERS_AS_CPU_OP)
   endif()
 

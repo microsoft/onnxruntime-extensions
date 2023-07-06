@@ -348,6 +348,7 @@ jobs:
 
       - script: |
           call activate pyenv
+          $Env:TEST_AZURE_INVOKERS_AS_CPU_OP='ON'
           pytest test
         displayName: Run python test
 
