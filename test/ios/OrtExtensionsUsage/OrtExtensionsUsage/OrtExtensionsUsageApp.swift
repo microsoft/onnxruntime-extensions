@@ -5,9 +5,9 @@ import SwiftUI
 
 @main
 struct OrtExtensionsUsageApp: App {
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-        }
+  var body: some Scene {
+    WindowGroup {
+      ContentView()
     }
+  }
 }

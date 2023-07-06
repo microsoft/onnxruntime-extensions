@@ -15,6 +15,8 @@
 
 @implementation OrtClient
 
+// Runs a model and checks the result.
+// Uses the ORT C++ API.
 + (BOOL)decodeAndCheckImageWithError:(NSError **)error {
   try {
     const auto ort_log_level = ORT_LOGGING_LEVEL_INFO;
