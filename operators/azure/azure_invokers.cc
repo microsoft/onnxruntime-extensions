@@ -356,7 +356,11 @@ const std::vector<const OrtCustomOp*>& AzureInvokerLoader() {
 #else
 
 const std::vector<const OrtCustomOp*>& AzureInvokerLoader() {
-  static OrtOpLoader op_loader(CustomAzureStruct("AzureAudioInvoker", AzureAudioInvoker));
+  static OrtOpLoader op_loader(CustomAzureStruct("AzureAudioInvoker", AzureAudioInvoker)
+#ifdef TEST_AZURE_INVOKERS_AS_CPU_OP
+                              ,CustomCpuStruct("AzureAudioInvoker", AzureAudioInvoker)
+#endif
+  );
   return op_loader.GetCustomOps();
 }
 
