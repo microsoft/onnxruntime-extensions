@@ -1,9 +1,8 @@
 jobs:
 - job: linux
-  timeoutInMinutes: 180
+  timeoutInMinutes: 120
   pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
   variables:
-    CIBW_ENVIRONMENT: "IS_DOCKER_BUILD=1"
     CIBW_BUILD: "cp3{8,9,10,11}-*"
 
   steps:
