@@ -3,6 +3,8 @@
 
 #include <mutex>
 #include <set>
+#include <cstdlib>  // for std::atoi
+#include <string>
 
 #include "onnxruntime_extensions.h"
 #include "ocos.h"
@@ -59,6 +61,34 @@ class ExternalCustomOps {
   std::vector<const OrtCustomOp*> op_array_;
 };
 
+static int GetOrtVersion(const OrtApiBase* api_base = nullptr) {
+  static int ort_version = 11;  // the default version is 1.11.0
+
+  if (api_base != nullptr) {
+    std::string str_version = api_base->GetVersionString();
+
+    std::size_t first_dot = str_version.find('.');
+    if (first_dot != std::string::npos) {
+      std::size_t second_dot = str_version.find('.', first_dot + 1);
+      // If there is no second dot and the string has more than one character after the first dot, set second_dot to the string length
+      if (second_dot == std::string::npos && first_dot + 1 < str_version.length()) {
+        second_dot = str_version.length();
+      }
+
+      if (second_dot != std::string::npos) {
+        std::string str_minor_version = str_version.substr(first_dot + 1, second_dot - first_dot - 1);
+        int ver = std::atoi(str_minor_version.c_str());
+        // Only change ort_version if conversion is successful (non-zero value)
+        if (ver != 0) {
+          ort_version = ver;
+        }
+      }
+    }
+  }
+
+  return ort_version;
+}
+
 extern "C" bool ORT_API_CALL AddExternalCustomOp(const OrtCustomOp* c_op) {
   OCOS_API_IMPL_BEGIN
   ExternalCustomOps::instance().Add(c_op);
@@ -66,12 +96,21 @@ extern "C" bool ORT_API_CALL AddExternalCustomOp(const OrtCustomOp* c_op) {
   return true;
 }
 
+extern "C" int ORT_API_CALL GetActiveOrtAPIVersion() {
+  int ver = 0;
+  OCOS_API_IMPL_BEGIN
+  ver = GetOrtVersion();
+  OCOS_API_IMPL_END
+  return ver;
+}
+
 extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api) {
   OrtStatus* status = nullptr;
   OCOS_API_IMPL_BEGIN
 
   OrtCustomOpDomain* domain = nullptr;
-  const OrtApi* ortApi = api->GetApi(ORT_API_VERSION);
+  auto ver = GetOrtVersion(api);
+  const OrtApi* ortApi = api->GetApi(ver);
   std::set<std::string> pyop_nameset;
 
 #if defined(PYTHON_OP_SUPPORT)
@@ -121,6 +160,10 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
 #if defined(ENABLE_DR_LIBS)
     ,
     LoadCustomOpClasses_Audio
+#endif
+#if defined(ENABLE_AZURE)
+    ,
+    LoadCustomOpClasses_Azure
 #endif
   };
 
