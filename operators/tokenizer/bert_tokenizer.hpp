@@ -12,6 +12,8 @@
 #include <unordered_map>
 #include <list>
 
+extern bool compute_offset_mapping;
+
 class BertTokenizerVocab final {
  public:
   explicit BertTokenizerVocab(std::string_view vocab);

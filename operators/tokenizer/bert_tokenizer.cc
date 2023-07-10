@@ -5,6 +5,8 @@
 #include <optional>
 #include <list>
 
+bool compute_offset_mapping;
+
 BertTokenizerVocab::BertTokenizerVocab(std::string_view vocab) : raw_vocab_(vocab) {
   auto tokens = SplitString(raw_vocab_, "\r\n", true);
 
@@ -79,36 +81,37 @@ std::vector<ustring> WordpieceTokenizer::Tokenize(const std::vector<ustring>& to
     GreedySearch(token, result);
   }
 
-  size_t offset = 0;
-  OffsetMappingType offset_mapping;
+  if (compute_offset_mapping) {
+    size_t offset = 0;
+    OffsetMappingType offset_mapping;
 
-  // Add offset mapping for BOS token
-  offset_mapping.push_back(std::make_pair(0, 0));
+    // Add offset mapping for BOS token
+    offset_mapping.push_back(std::make_pair(0, 0));
 
-  for (auto i : result) {
-
-    // Handle special cases for offset mapping
-    size_t idx = 0;
-    if (idx < std::string(i).size() && std::string(i).at(idx) == '#') {
-      while (idx < std::string(i).size() && std::string(i).at(idx) == '#') {
-        idx++;
+    for (auto i : result) {
+      // Handle special cases for offset mapping
+      size_t idx = 0;
+      if (idx < std::string(i).size() && std::string(i).at(idx) == '#') {
+        while (idx < std::string(i).size() && std::string(i).at(idx) == '#') {
+          idx++;
+        }
+        offset--;
+        offset_mapping.emplace_back(std::make_pair(offset, offset + std::string(i).size() - idx));
+        offset += (std::string(i).size() - idx) + 1;
+      } else if (std::string(i).compare("[UNK]") == 0) {
+        offset_mapping.emplace_back(std::make_pair(offset, offset + 1));
+        offset += 2;
+      } else {
+        offset_mapping.emplace_back(std::make_pair(offset, offset + std::string(i).size()));
+        offset += std::string(i).size() + 1;
       }
-      offset--;
-      offset_mapping.emplace_back(std::make_pair(offset, offset + std::string(i).size() - idx));
-      offset += (std::string(i).size() - idx) + 1;
-    } else if (std::string(i).compare("[UNK]") == 0) {
-      offset_mapping.emplace_back(std::make_pair(offset, offset + 1));
-      offset += 2;
-    } else {
-      offset_mapping.emplace_back(std::make_pair(offset, offset + std::string(i).size()));
-      offset += std::string(i).size() + 1;
     }
-  }
-  // Add offset mapping for EOS token
-  offset_mapping.emplace_back(std::make_pair(0, 0));
+    // Add offset mapping for EOS token
+    offset_mapping.emplace_back(std::make_pair(0, 0));
 
-  // Add offset mappings for input in this instance to list of offset mappings for all inputs
-  offset_map.emplace_back(offset_mapping);
+    // Add offset mappings for input in this instance to list of offset mappings for all inputs
+    offset_map.emplace_back(offset_mapping);
+  }
 
   return result;
 }
@@ -341,6 +344,12 @@ void KernelBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
   std::vector<int64_t> token_type_ids;
   std::list<OffsetMappingType> offset_map;
 
+  // Only compute offset mapping if optional output for it exists.
+  compute_offset_mapping = false;
+  if (offset_mapping.has_value()) {
+    compute_offset_mapping = true;
+  }
+
   if (input_data.size() == 1) {
     std::vector<ustring> tokens = tokenizer_->Tokenize(ustring(input_data[0]), offset_map);
     std::vector<int64_t> encoded = tokenizer_->Encode(tokens);
@@ -399,6 +408,12 @@ void KernelHfBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
   }
 
   std::list<OffsetMappingType> offset_map;
+
+  // Only compute offset mapping if optional output for it exists.
+  compute_offset_mapping = false;
+  if (offset_mapping.has_value()) {
+    compute_offset_mapping = true;
+  }
 
   std::vector<ustring> tokens1 = tokenizer_->Tokenize(ustring(input_data[0]), offset_map);
   std::vector<ustring> tokens2 = tokenizer_->Tokenize(ustring(input_data[1]), offset_map);
