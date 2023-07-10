@@ -161,6 +161,10 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
     ,
     LoadCustomOpClasses_Audio
 #endif
+#if defined(ENABLE_AZURE)
+    ,
+    LoadCustomOpClasses_Azure
+#endif
   };
 
   for (const auto& fx : c_factories) {
