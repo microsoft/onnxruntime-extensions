@@ -15,10 +15,12 @@
 #include <type_traits>
 
 #include "onnxruntime_c_api.h"
-
 #include "exceptions.h"
 
 #define MIN_ORT_VERSION_SUPPORTED 10
+
+extern "C" int ORT_API_CALL GetActiveOrtAPIVersion();
+
 
 namespace OrtW {
 

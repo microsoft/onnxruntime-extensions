@@ -8,8 +8,8 @@ else()
   message(STATUS "CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}")
   message(STATUS "CMAKE_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}")
 
-  # default to 1.11.1 if not specified
-  set(ONNXRUNTIME_VER "1.12.1" CACHE STRING "ONNX Runtime version")
+  # 1.15.1 is the latest ORT release.
+  set(ONNXRUNTIME_VER "1.15.1" CACHE STRING "ONNX Runtime version")
 
   if(APPLE)
     set(ONNXRUNTIME_URL "v${ONNXRUNTIME_VER}/onnxruntime-osx-universal2-${ONNXRUNTIME_VER}.tgz")

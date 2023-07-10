@@ -726,7 +726,7 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   OrtLiteCustomOp(const char* op_name,
                   const char* execution_provider) : op_name_(op_name),
                                                     execution_provider_(execution_provider) {
-    OrtCustomOp::version = ORT_API_VERSION;
+    OrtCustomOp::version = GetActiveOrtAPIVersion();
 
     OrtCustomOp::GetName = [](const OrtCustomOp* op) { return static_cast<const OrtLiteCustomOp*>(op)->op_name_.c_str(); };
     OrtCustomOp::GetExecutionProviderType = [](const OrtCustomOp* op) { return ((OrtLiteCustomOp*)op)->execution_provider_.c_str(); };
@@ -866,11 +866,6 @@ struct OrtLiteCustomStruct : public OrtLiteCustomOp {
   template <typename... Args>
   void init(CustomComputeFn<Args...>) {
     ParseArgs<Args...>(input_types_, output_types_);
-
-    if (!input_types_.empty() && input_types_[0] == ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED ||
-        !output_types_.empty() && output_types_[0] == ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED) {
-      OrtCustomOp::version = 14;
-    }
 
     OrtCustomOp::KernelCompute = [](void* op_kernel, OrtKernelContext* context) {
       auto kernel = reinterpret_cast<Kernel*>(op_kernel);
