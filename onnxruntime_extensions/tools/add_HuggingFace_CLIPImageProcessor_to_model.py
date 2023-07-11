@@ -35,6 +35,7 @@ def image_processor(args: argparse.Namespace):
 
     if args.do_rescale:
         steps.append(ImageBytesToFloat(args.rescale_factor))
+
     steps.append(ChannelsLastToChannelsFirst())
 
     if args.do_normalize:

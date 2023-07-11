@@ -100,7 +100,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
         add_clip_feature.clip_image_processor(Path(input_model), Path(output_model), opset=16, do_resize=True, 
                                               do_center_crop=True, do_normalize=True, do_rescale=True,
-                                              do_convert_rgb = True, size=256, crop_size=224, 
+                                              do_convert_rgb=True, size=256, crop_size=224, 
                                               rescale_factor=1/255, image_mean=[0.485, 0.456, 0.406],
                                               image_std=[0.229, 0.224, 0.225])
 
