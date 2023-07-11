@@ -10,6 +10,7 @@ struct KernelRobertaBpeTokenizer : BaseKernel {
                ortc::Tensor<int64_t>& tokenize_output,
                std::optional<ortc::Tensor<int64_t>*> attention_mask,
                std::optional<ortc::Tensor<int64_t>*> offset_mapping);
+  bool compute_offset_mapping;
 
  private:
   using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
