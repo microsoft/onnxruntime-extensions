@@ -1,48 +1,45 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 import argparse
+import os
 from pathlib import Path
 import onnx
 
 from .pre_post_processing import *
 
 
-def image_processor(extend_config: dict):
-    # Normalize config key to lower case
-    extend_config = {k.lower(): v for k, v in extend_config.items()}
+class Dict2Class(object):
+    '''
+    Convert dict to class 
+    '''
+    def __init__(self, my_dict):
+        for key in my_dict:
+            setattr(self, key, my_dict[key])
 
+def image_processor(args: argparse.Namespace):
     # support user providing encoded image bytes
     steps = [
         ConvertImageToBGR(),  # custom op to convert jpg/png to BGR (output is HWC)
-        ReverseAxis(axis=2, dim_value=3, name="BGR_to_RGB"),
     ]  # Normalization params are for RGB ordering
-    if 'resize' in extend_config:
-        to_size = extend_config['resize']
-        if not isinstance(to_size, int):
-            to_size = 256
+    if args.do_convert_rgb:
+        steps.append(ReverseAxis(axis=2, dim_value=3, name="BGR_to_RGB"))
+
+    if args.do_resize:
+        to_size = args.size
         steps.append(Resize(to_size))
 
-    if 'center_crop' in extend_config:
-        to_size = extend_config['center_crop']
-        if not isinstance(to_size, list) or len(to_size) != 2:
-            to_size = (224, 224)
+    if args.do_center_crop:
+        to_size = args.crop_size
+        to_size = (to_size, to_size)
         steps.append(CenterCrop(*to_size))
 
-    if 'rescale' in extend_config:
-        # default 255
-        steps.append(ImageBytesToFloat())
+    if args.do_rescale:
+        steps.append(ImageBytesToFloat(args.rescale_factor))
+    steps.append(ChannelsLastToChannelsFirst())
 
-    if 'tochw' in extend_config and extend_config['tochw']:
-        steps.append(ChannelsLastToChannelsFirst())
-
-    if 'normalize' in extend_config:
-        norm_arg = extend_config['normalize']
-        mean_std = [(0.485, 0.229), (0.456, 0.224), (0.406, 0.225)]
+    if args.do_normalize:
+        mean_std = list(zip(args.image_mean, args.image_std))
         layout = 'CHW'
-        if isinstance(norm_arg, dict):
-            mean_std = norm_arg.get('mean_std', [(0.485, 0.229), (0.456, 0.224), (0.406, 0.225)])
-            layout = norm_arg.get('layout', 'CHW')
-
         steps.append(Normalize(mean_std, layout=layout))
 
     steps.append(Unsqueeze([0]))  # add batch dim
@@ -50,7 +47,7 @@ def image_processor(extend_config: dict):
     return steps
 
 
-def clip_image_processor(model_file: Path, output_file: Path, onnx_opset: int = 16, extend_config: dict = None):
+def clip_image_processor(model_file: Path, output_file: Path, **kawrgs):
     """
     Used for models like stable-diffusion. should be compatible with 
     https://github.com/huggingface/transformers/blob/main/src/transformers/models/clip/image_processing_clip.py
@@ -64,23 +61,20 @@ def clip_image_processor(model_file: Path, output_file: Path, onnx_opset: int = 
     :param onnx_opset: The opset version of onnx model, default(16).
     :param extend_config: The extended config for the model.
     """
-    # Normalize config key to lower case
-    if extend_config is not None:
-        extend_config = {k.lower(): v for k, v in extend_config.items()}
-    else:
-        extend_config = {"resize": None, "center_crop": None, "rescale": None, "tochw": True, "normalize": True }
+    args = Dict2Class(kawrgs)
     # Load model
     model = onnx.load(str(model_file.resolve(strict=True)))
     inputs = [create_named_value("image", onnx.TensorProto.UINT8, ["num_bytes"])]
 
-    pipeline = PrePostProcessor(inputs, onnx_opset)
+    pipeline = PrePostProcessor(inputs, args.opset)
 
-    preprocessing = image_processor(extend_config=extend_config)
+    preprocessing = image_processor(args)
 
     pipeline.add_pre_processing(preprocessing)
 
     new_model = pipeline.run(model)
     onnx.save_model(new_model, str(output_file.resolve()))
+    print(f"Updated model saved to {output_file}")
 
 
 def main():
@@ -103,19 +97,60 @@ def main():
     )
     
     parser.add_argument(
-        "--extend_config", type=str, required=False, default=None,
-        help="extra json config file used for more configurations.",
+        "--do_resize", type=bool, required=False, default=True,
+        help="Whether to resize the image's (height, width) dimensions to the specified `size`. default(True)",
     )
-
+    parser.add_argument(
+        "--size", type=int, required=False, default=224,
+        help="The shortest edge of the image is resized to size. Default(224)",
+    )
+    parser.add_argument(
+        "--resample", type=str, default="cubic", choices=["cubic", "nearest","linear"],
+        help="Whether to resize the image's (height, width) dimensions to the specified `size`. Default(cubic)",
+    )
+    parser.add_argument(
+        "--do_center_crop", type=bool, default=True,
+        help="Whether to center crop the image to the specified `crop_size`. Default(True)",
+    )
+    parser.add_argument(
+        "--crop_size", type=int, default=224,
+        help="Size of the output image after applying `center_crop`. Default(224)",
+    )
+    parser.add_argument(
+        "--do_rescale", type=bool, default=True,
+        help="Whether to rescale the image by the specified scale (rescale_factor). Default(True)",
+    )
+    parser.add_argument(
+        "--rescale_factor", type=float, default=1/255,
+        help="Scale factor to use if rescaling the image. Default(1/255)",
+    )
+    parser.add_argument(
+        "--do_normalize", type=bool, default=True,
+        help="Whether to normalize the image. Default(True)",
+    )
+    parser.add_argument(
+        "--image_mean", type=str, default="[0.48145466, 0.4578275, 0.40821073]",
+        help=" Mean to use if normalizing the image, default([0.48145466, 0.4578275, 0.40821073])",
+    )
+    parser.add_argument(
+        "--image_std", type=str, default="[0.26862954, 0.26130258, 0.27577711]",
+        help="Image standard deviation., default([0.26862954, 0.26130258, 0.27577711]).",
+    )
+    parser.add_argument(
+        "--do_convert_rgb", type=bool, default=True,
+        help="Convert image from BGR to RGB. Default(True)",
+    )
     parser.add_argument("model", type=Path, help="Provide path to ONNX model to update.")
 
     args = parser.parse_args()
 
+    args.image_mean = [float(x) for x in args.image_mean.replace('[','').replace(']','').split(",")]
+    args.image_std = [float(x) for x in args.image_std.replace('[','').replace(']','').split(",")]  
+
     model_path = args.model.resolve(strict=True)
     new_model_path = model_path.with_suffix(".with_clip_processor.onnx")
 
-    clip_image_processor(model_path, new_model_path, args.opset, json.loads(
-        args.extend_config) if args.extend_config else None)
+    clip_image_processor(model_path, new_model_path, **vars(args))
 
 
 if __name__ == "__main__":
