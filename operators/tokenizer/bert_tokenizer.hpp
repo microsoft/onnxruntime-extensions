@@ -12,8 +12,6 @@
 #include <unordered_map>
 #include <list>
 
-extern bool compute_offset_mapping;
-
 class BertTokenizerVocab final {
  public:
   explicit BertTokenizerVocab(std::string_view vocab);
@@ -48,8 +46,8 @@ class WordpieceTokenizer final {
       std::shared_ptr<BertTokenizerVocab> vocab, ustring unk_token,
       ustring suffix_indicator, int max_input_chars_per_word = 100);
   using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
-  std::vector<ustring> Tokenize(const ustring& text, std::list<OffsetMappingType>& offset_map);
-  std::vector<ustring> Tokenize(const std::vector<ustring>& tokens, std::list<OffsetMappingType>& offset_map);
+  std::vector<ustring> Tokenize(const ustring& text, std::list<OffsetMappingType>& offset_map, bool compute_offset_mapping);
+  std::vector<ustring> Tokenize(const std::vector<ustring>& tokens, std::list<OffsetMappingType>& offset_map, bool compute_offset_mapping);
   std::vector<int64_t> Encode(const std::vector<ustring>& tokens);
 
  private:
@@ -69,7 +67,7 @@ class BertTokenizer final {
                 ustring mask_token, bool tokenize_chinese_chars, bool strip_accents,
                 ustring suffix_indicator, int32_t max_len, const std::string& truncation_strategy);
   using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
-  std::vector<ustring> Tokenize(const ustring& text, std::list<OffsetMappingType>& offset_map);
+  std::vector<ustring> Tokenize(const ustring& text, std::list<OffsetMappingType>& offset_map, bool compute_offset_mapping);
   std::vector<int64_t> Encode(const std::vector<ustring>& tokens);
 
   void Truncate(std::vector<int64_t>& ids);
@@ -102,6 +100,7 @@ struct KernelBertTokenizer : BaseKernel {
                ortc::Tensor<int64_t>& output2,
                std::optional<ortc::Tensor<int64_t>*> offset_mapping);
   using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
+  bool compute_offset_mapping;
 
  protected:
   std::unique_ptr<BertTokenizer> tokenizer_;
