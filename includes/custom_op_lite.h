@@ -407,9 +407,6 @@ struct Variadic : public TensorBase {
 };
 
 struct OrtLiteCustomOp : public OrtCustomOp {
-  using ConstOptionalFloatTensor = std::optional<const Custom::Tensor<float>&>;
-  using OptionalFloatTensor = std::optional<Custom::Tensor<float>>;
-
   // CreateTuple
   template <size_t ith_input, size_t ith_output, typename... Ts>
   static typename std::enable_if<sizeof...(Ts) == 0, std::tuple<>>::type

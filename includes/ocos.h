@@ -133,16 +133,17 @@ class OrtOpLoader {
   std::vector<std::shared_ptr<OrtCustomOp>> op_instances_;
 };
 
-struct CustomOpClassBegin {
+struct CustomOpClassNull {
 };
 
-using FxLoadCustomOpFactory = std::function<const std::vector<const OrtCustomOp*>&()>;
-
-template <typename _Begin_place_holder, typename... Args>
+template <typename _Begin_place_holder = CustomOpClassNull, typename... Args>
 const std::vector<const OrtCustomOp*>& LoadCustomOpClasses() {
   static CuopContainer<Args...> ctr;  // Let C++ runtime take cares of the MP initializing.
   return ctr.GetCustomOps();
 }
+
+using CustomOpArray = const std::vector<const OrtCustomOp*>;
+using FxLoadCustomOpFactory = std::function<CustomOpArray&()>;
 
 #if defined(PYTHON_OP_SUPPORT)
 const OrtCustomOp* FetchPyCustomOps(size_t& count);

@@ -65,6 +65,7 @@ struct STFT : public BaseKernel {
     }
   }
 
+ private:
   int64_t onesided_{};
   bool with_norm_{};
 };
