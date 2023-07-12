@@ -24,13 +24,6 @@ KernelSentencepieceTokenizer::KernelSentencepieceTokenizer(const OrtApi& api, co
                        ORT_FAIL);
 }
 
-static void _check_dimension_constant(OrtW::CustomOpApi ort, const OrtValue* ort_value, const char* name) {
-  OrtTensorDimensions dimensions(ort, ort_value);
-  if (dimensions.size() != 1 || dimensions[0] != 1)
-    ORTX_CXX_API_THROW(MakeString(name, " must contain only one element. It has ", dimensions.size(), " dimensions."),
-                       ORT_INVALID_ARGUMENT);
-}
-
 void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& input,
                                            int64_t /*nbest_size*/,
                                            float /*alpha*/,

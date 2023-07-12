@@ -140,31 +140,25 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
 #endif
 
   static std::vector<FxLoadCustomOpFactory> c_factories = {
-    LoadCustomOpClasses<CustomOpClassBegin>
 #if defined(ENABLE_TF_STRING)
-    ,
-    LoadCustomOpClasses_Text
+    LoadCustomOpClasses_Text,
 #endif  // ENABLE_TF_STRING
 #if defined(ENABLE_MATH)
-    ,
-    LoadCustomOpClasses_Math
+    LoadCustomOpClasses_Math,
 #endif
 #if defined(ENABLE_TOKENIZER)
-    ,
-    LoadCustomOpClasses_Tokenizer
+    LoadCustomOpClasses_Tokenizer,
 #endif
 #if defined(ENABLE_CV2)
-    ,
-    LoadCustomOpClasses_CV2
+    LoadCustomOpClasses_CV2,
 #endif
 #if defined(ENABLE_DR_LIBS)
-    ,
-    LoadCustomOpClasses_Audio
+    LoadCustomOpClasses_Audio,
 #endif
 #if defined(ENABLE_AZURE)
-    ,
-    LoadCustomOpClasses_Azure
+    LoadCustomOpClasses_Azure,
 #endif
+    LoadCustomOpClasses<>
   };
 
   for (const auto& fx : c_factories) {
@@ -201,15 +195,13 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
   AddOrtCustomOpDomainToContainer(domain, ortApi);
 
   static std::vector<FxLoadCustomOpFactory> new_domain_factories = {
-    LoadCustomOpClasses<CustomOpClassBegin>
 #if defined(ENABLE_VISION)
-    ,
-    LoadCustomOpClasses_Vision
+    LoadCustomOpClasses_Vision,
 #endif
 #if defined(ENABLE_TOKENIZER)
-    ,
-    LoadCustomOpClasses_Tokenizer
+    LoadCustomOpClasses_Tokenizer,
 #endif
+    LoadCustomOpClasses<>
   };
 
   for (const auto& fx : new_domain_factories) {
