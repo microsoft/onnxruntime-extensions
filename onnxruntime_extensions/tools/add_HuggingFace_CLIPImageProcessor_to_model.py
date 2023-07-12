@@ -48,21 +48,34 @@ def image_processor(args: argparse.Namespace):
     return steps
 
 
-def clip_image_processor(model_file: Path, output_file: Path, **kawrgs):
+def clip_image_processor(model_file: Path, output_file: Path, **kwargs):
     """
     Used for models like stable-diffusion. should be compatible with 
     https://github.com/huggingface/transformers/blob/main/src/transformers/models/clip/image_processing_clip.py
 
-    It applies to 'CLIP' image processor, and aligns with the HuggingFace class name.
+    It's similar to 'CLIP' image processor, and aligns with the HuggingFace class name.
 
     A typical usage example is used in Stable diffusion.
 
     :param model_file: The input model file path.
     :param output_file: The output file path, where the finalized model saved to.
-    :param onnx_opset: The opset version of onnx model, default(16).
-    :param extend_config: The extended config for the model.
+    :param Kwargs
+        onnx_opset: The opset version of onnx model, default(18).
+        do_convert_rgb: Convert image from BGR to RGB. default(True)
+        do_resize: Resize the image's (height, width) dimensions to the specified `size`. default(True)
+        size: The shortest edge of the image is resized to size. Default(224)
+        resample: An optional resampling filter. Default(cubic)
+        do_center_crop: Whether to center crop the image to the specified `crop_size`. Default(True)
+        crop_size: Size of the output image after applying `center_crop`. Default(224)
+        do_rescale: Whether to rescale the image by the specified scale (rescale_factor). Default(True)
+        rescale_factor: Scale factor to use if rescaling the image. Default(1/255)
+        do_normalize: Whether to normalize the image. Default(True)
+        image_mean: Mean values for image normalization. Default([0.485, 0.456, 0.406])
+        image_std: Standard deviation values for image normalization. Default([0.229, 0.224, 0.225])
+
+
     """
-    args = Dict2Class(kawrgs)
+    args = Dict2Class(kwargs)
     # Load model
     model = onnx.load(str(model_file.resolve(strict=True)))
     inputs = [create_named_value("image", onnx.TensorProto.UINT8, ["num_bytes"])]
@@ -93,8 +106,8 @@ def main():
     )
 
     parser.add_argument(
-        "--opset", type=int, required=False, default=16,
-        help="ONNX opset to use. Minimum allowed is 16. Opset 18 is required for Resize with anti-aliasing.",
+        "--opset", type=int, required=False, default=18,
+        help="ONNX opset to use. Minimum allowed is 18. Opset 18 is required for Resize with anti-aliasing.",
     )
     
     parser.add_argument(
