@@ -9,7 +9,7 @@ cvt.py: Processing Graph Converter and Generator
 
 from typing import Union
 
-from ._hf_cvt import HFTokenizerOnnxGraph
+from ._hf_cvt import HFTokenizerConverter, HFTokenizerOnnxGraph  # noqa
 from ._ortapi2 import make_onnx_model
 
 
