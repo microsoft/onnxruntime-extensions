@@ -15,7 +15,7 @@ from ._ortapi2 import make_onnx_model
 
 _is_torch_available = False
 try:
-    import torch
+    import torch    # noqa
     _is_torch_available = True
     from ._torch_cvt import WhisperDataProcGraph
 except ImportError:
@@ -56,7 +56,7 @@ def gen_processing_models(processor: Union[str, object],
     cls_name = processor if isinstance(processor, str) else type(processor).__name__
     if cls_name == "WhisperProcessor":
         if WhisperDataProcGraph is None:
-            raise ValueError("The Whisper processor needs torch.onnx support, please install it")
+            raise ValueError("The Whisper processor needs torch.onnx support, please install pytorch 2.0 and above")
         _converter = WhisperDataProcGraph(processor, opset=opset, **kwargs)
         pre_m = _converter.pre_processing(**pre_kwargs) if pre_kwargs is not None else None
         post_m = _converter.post_processing(**post_kwargs) if post_kwargs is not None else None

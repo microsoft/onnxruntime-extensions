@@ -9,7 +9,7 @@ _ortapi2.py: ONNXRuntime-Extensions Python API
 
 import numpy as np
 from ._ocos import default_opset_domain, get_library_path  # noqa
-from ._cuops import onnx, onnx_proto, CustomOpConverter, SingleOpGraph
+from ._cuops import onnx, onnx_proto, SingleOpGraph
 
 
 _ort_check_passed = False
@@ -59,12 +59,10 @@ def make_onnx_model(graph, opset_version=0, extra_domain=default_opset_domain(),
 
 
 class OrtPyFunction:
-
-    @classmethod
-    def get_ort_session_options(cls):
-        # ONNXRuntime has an issue to support reusing the SessionOptions object.
-        # Create a new one every time here
+    def get_ort_session_options(self):
         so = _ort.SessionOptions()
+        for k, v in self.extra_session_options.items():
+            so.__setattr__(k, v)
         so.register_custom_ops_library(get_library_path())
         return so
 
@@ -76,6 +74,7 @@ class OrtPyFunction:
         if not cpu_only:
             if _ort.get_device() == 'GPU':
                 self.execution_providers = ['CUDAExecutionProvider']
+        self.extra_session_options = {}
 
     def create_from_customop(self, op_type, *args, **kwargs):
         graph = SingleOpGraph.build_graph(op_type, *args, **kwargs)

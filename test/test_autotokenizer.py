@@ -32,11 +32,14 @@ class TestAutoTokenizer(unittest.TestCase):
     def test_whisper(self):
         processor = _hfts.WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
         pre_m, post_m = gen_processing_models(processor,
-                              pre_kwargs={"USE_AUDIO_DECODER": False, "USE_ONNX_STFT": False},
+                              pre_kwargs={"USE_AUDIO_DECODER": False, "USE_ONNX_STFT": True},
                               post_kwargs={})
-        fn_pre = OrtPyFunction.from_model(pre_m)
-        t = np.linspace(0, 2*np.pi, 400).astype(np.float32)
-        log_mel = fn_pre(np.expand_dims(np.sin(2 * np.pi * 100 * t), axis=0))
+
+        fn_pre = OrtPyFunction.from_model(pre_m, session_options={"graph_optimization_level": 0})
+        t = np.linspace(0, 2*np.pi, 480000).astype(np.float32)
+        simaudio = np.expand_dims(np.sin(2 * np.pi * 100 * t), axis=0)
+        log_mel = fn_pre(simaudio)
+
         self.assertEqual(log_mel.shape, (1, 80, 3000))
 
         fn_post = OrtPyFunction.from_model(post_m)

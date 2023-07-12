@@ -3,7 +3,7 @@ import numpy as np
 
 from transformers import AutoProcessor
 from onnxruntime_extensions import PyOrtFunction
-from onnxruntime_extensions.cvt import HFTokenizerConverter
+from onnxruntime_extensions._hf_cvt import HFTokenizerConverter
 
 
 class TestBpeTokenizer(unittest.TestCase):
