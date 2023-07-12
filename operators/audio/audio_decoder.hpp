@@ -106,8 +106,8 @@ struct AudioDecoder : public BaseKernel {
     }
 
     std::string str_format;
-    if (format.has_value()) {
-      str_format = format.value();
+    if (format) {
+      str_format = *format;
     }
     auto stream_format = ReadStreamFormat(p_data, str_format);
 
