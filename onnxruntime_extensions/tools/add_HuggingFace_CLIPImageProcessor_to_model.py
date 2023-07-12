@@ -107,7 +107,7 @@ def main():
 
     parser.add_argument(
         "--opset", type=int, required=False, default=18,
-        help="ONNX opset to use. Minimum allowed is 18. Opset 18 is required for Resize with anti-aliasing.",
+        help="ONNX opset to use. Minimum allowed is 16. Opset 18 is required for Resize with anti-aliasing.",
     )
     
     parser.add_argument(
