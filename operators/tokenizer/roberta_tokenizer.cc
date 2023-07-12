@@ -60,8 +60,10 @@ std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t
     size_t offset = 0;
     OffsetMappingType offset_mapping;
 
-    // Add offset mapping for BOS token
-    offset_mapping.push_back(std::make_pair(0, 0));
+    if (compute_offset_mapping) {
+      // Add offset mapping for BOS token
+      offset_mapping.push_back(std::make_pair(0, 0));
+    }
 
     while (static_cast<int64_t>(res.size()) < max_length) {
       auto [b, tok] = regcmp.GetNextToken();
@@ -69,11 +71,13 @@ std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t
 
       std::string utf8_token = std::string(ustring(tok));
 
-      // Handle special case for offset mapping
       size_t space_dif = 0;
-      if (utf8_token.at(0) == ' ') {
-        offset++;
-        space_dif = -1;  // account for spaces used in offset map algorithm in bpe(byte_list_)
+      if (compute_offset_mapping) {
+        // Handle special case for offset mapping
+        if (utf8_token.at(0) == ' ') {
+          offset++;
+          space_dif = -1;  // account for spaces used in offset map algorithm in bpe(byte_list_)
+        }
       }
 
       // Get byte encodings prior to performing BPE
@@ -92,15 +96,20 @@ std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t
         }
 
         res.push_back(p.first);
-        offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + (size_t)p.second + space_dif)));
-        offset += ((size_t)p.second + space_dif);
+
+        if (compute_offset_mapping) {
+          offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + (size_t)p.second + space_dif)));
+          offset += ((size_t)p.second + space_dif);
+        }
       }
     }
-    // Add offset mapping for EOS token
-    offset_mapping.emplace_back(std::make_pair(0, 0));
+    if (compute_offset_mapping) {
+      // Add offset mapping for EOS token
+      offset_mapping.emplace_back(std::make_pair(0, 0));
 
-    // Add offset mappings for input in this instance to list of offset mappings for all inputs
-    offset_map.emplace_back(offset_mapping);
+      // Add offset mappings for input in this instance to list of offset mappings for all inputs
+      offset_map.emplace_back(offset_mapping);
+    }
   }
   // Add EOS token to result
   res.emplace_back(bbpe_tokenizer_->GetEncoding("</s>"));
@@ -117,6 +126,13 @@ void KernelRobertaBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
   const auto& input_dim = input.Shape();
 
   std::vector<std::vector<int64_t>> tokenize_results;
+
+  // Only compute offset mapping if optional output for it exists.
+  compute_offset_mapping = false;
+  if (offset_mapping.has_value()) {
+    compute_offset_mapping = true;
+  }
+
   for (auto& str : str_input) {
     ustring ustr = ustring(str);
     tokenize_results.emplace_back(Tokenize(ustr, padding_length_ < 0 ? INT64_MAX : padding_length_, offset_map));
