@@ -522,12 +522,13 @@ class ImageBytesToFloat(Step):
     Convert uint8 or float values in range 0..255 to floating point values in range 0..1
     """
 
-    def __init__(self, name: Optional[str] = None):
+    def __init__(self, rescale_factor: float = 1/255, name: Optional[str] = None):
         """
         Args:
             name: Optional step name. Defaults to 'ImageBytesToFloat'
         """
         super().__init__(["data"], ["float_data"], name)
+        self.rescale_factor_ = rescale_factor
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
@@ -544,10 +545,10 @@ class ImageBytesToFloat(Step):
             byte_to_float ({input_type_str}[{input_shape_str}] {self.input_names[0]}) 
                 => (float[{input_shape_str}] {self.output_names[0]})
             {{
-                f_255 = Constant <value = float[1] {{255.0}}>()
+                f_scale = Constant <value = float[1] {{{self.rescale_factor_}}}>()
 
                 {optional_cast}
-                {self.output_names[0]} = Div(input_f, f_255)
+                {self.output_names[0]} = Mul(input_f, f_scale)
             }}
             """
         )
