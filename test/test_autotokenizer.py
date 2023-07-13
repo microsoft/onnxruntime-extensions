@@ -4,6 +4,8 @@ import unittest
 import transformers as _hfts
 
 import numpy as np
+import onnxruntime as _ort
+from packaging import version
 from onnxruntime_extensions import OrtPyFunction, util, gen_processing_models
 
 
@@ -29,6 +31,7 @@ class TestAutoTokenizer(unittest.TestCase):
         actual_ids = ort_tok(["best hotel in bay area."], *t5_default_inputs)[0]
         np.testing.assert_array_equal(ids[0][:-1], actual_ids)
 
+    @unittest.skipIf(version.parse(_ort.__version__) < version.parse("1.14.0"), "skip for onnxruntime < 1.14.0")
     def test_whisper(self):
         processor = _hfts.WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
         pre_m, post_m = gen_processing_models(processor,
@@ -46,7 +49,7 @@ class TestAutoTokenizer(unittest.TestCase):
         rel = fn_post(np.asarray([3, 4, 5], dtype=np.int32))
         self.assertEqual(rel[0], "$%&")
 
-
+    @unittest.skipIf(version.parse(_ort.__version__) < version.parse("1.14.0"), "skip for onnxruntime < 1.14.0")
     def test_whisper_audio_decoder(self):
         processor = _hfts.WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
         pre_m, _ = gen_processing_models(processor,
