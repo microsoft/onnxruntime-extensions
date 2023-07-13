@@ -5,7 +5,6 @@ from transformers import AutoProcessor
 from onnxruntime_extensions import PyOrtFunction
 from onnxruntime_extensions.cvt import HFTokenizerConverter
 
-input("puase")
 
 class TestBpeTokenizer(unittest.TestCase):
 

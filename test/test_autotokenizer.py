@@ -4,7 +4,7 @@ import unittest
 import transformers as _hfts
 
 import numpy as np
-from onnxruntime_extensions import OrtPyFunction, gen_processing_models
+from onnxruntime_extensions import OrtPyFunction, util, gen_processing_models
 
 
 class TestAutoTokenizer(unittest.TestCase):
@@ -32,7 +32,7 @@ class TestAutoTokenizer(unittest.TestCase):
     def test_whisper(self):
         processor = _hfts.WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
         pre_m, post_m = gen_processing_models(processor,
-                              pre_kwargs={"USE_AUDIO_DECODER": False, "USE_ONNX_STFT": True},
+                              pre_kwargs={"USE_AUDIO_DECODER": False, "USE_ONNX_STFT": False},
                               post_kwargs={})
 
         fn_pre = OrtPyFunction.from_model(pre_m, session_options={"graph_optimization_level": 0})
@@ -45,6 +45,19 @@ class TestAutoTokenizer(unittest.TestCase):
         fn_post = OrtPyFunction.from_model(post_m)
         rel = fn_post(np.asarray([3, 4, 5], dtype=np.int32))
         self.assertEqual(rel[0], "$%&")
+
+
+    def test_whisper_audio_decoder(self):
+        processor = _hfts.WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
+        pre_m, _ = gen_processing_models(processor,
+                              pre_kwargs={"USE_AUDIO_DECODER": True, "USE_ONNX_STFT": True})
+
+        fn_pre = OrtPyFunction.from_model(pre_m, session_options={"graph_optimization_level": 0})
+        test_flac_file = util.get_test_data_file('data', '1272-141231-0002.flac')
+        raw_audio = np.fromfile(test_flac_file, dtype=np.uint8)
+        log_mel = fn_pre(np.expand_dims(raw_audio, axis=0))
+
+        self.assertEqual(log_mel.shape, (1, 80, 3000))
 
 
 if __name__ == '__main__':

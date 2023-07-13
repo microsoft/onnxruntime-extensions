@@ -216,7 +216,7 @@ class WhisperDataProcGraph:
         if use_audio_decoder:
             audecoder_g = SingleOpGraph.build_graph(
                 "AudioDecoder", downsampling_rate=_WhisperHParams.SAMPLE_RATE, stereo_to_mono=1)
-            audecoder_m = onnx.helper.make_model(audecoder_g)
+            audecoder_m = make_onnx_model(audecoder_g)
             pre_full = onnx.compose.merge_models(
                 audecoder_m,
                 pre_model,
