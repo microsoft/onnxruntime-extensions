@@ -4,21 +4,21 @@ apply plugin: 'maven-publish'
 def jniLibsDir = System.properties['jniLibsDir']
 def buildDir = System.properties['buildDir']
 def publishDir = System.properties['publishDir']
-def minSdkVer = System.properties['minSdkVer']?:24
-def targetSdkVer = System.properties['targetSdkVer']?:32
-def ndkVer = System.properties['ndkVer']?:"25.1.8937393"
+def minSdkVer = System.properties['minSdkVer'] ?: 24
+def targetSdkVer = System.properties['targetSdkVer'] ?: 32
+def ndkVer = System.properties['ndkVer'] ?: "25.1.8937393"
 
 // Since Android requires a higher numbers indicating more recent versions
-// This function assume ORT version number will be in formart of A.B.C such as 1.7.0
+// This function assume ORT version number will be in format of A.B.C such as 1.7.0
 // We generate version code A[0{0,1}]B[0{0,1}]C,
 // for example '1.7.0' -> 10700, '1.6.15' -> 10615
-def getVersionCode(String version){
-	String[] code = version.split('\\-');
-	String[] codes = code[0].split('\\.');
-	// This will have problem if we have 3 digit [sub]version number, such as 1.7.199
-	// but it is highly unlikely to happen
-	String versionCodeStr = String.format("%d%02d%02d", codes[0] as int, codes[1] as int, codes[2] as int);
-	return versionCodeStr as int;
+def getVersionCode(String version) {
+    String[] code = version.split('\\-')
+    String[] codes = code[0].split('\\.')
+    // This will have problem if we have 3 digit [sub]version number, such as 1.7.199
+    // but it is highly unlikely to happen
+    String versionCodeStr = String.format("%d%02d%02d", codes[0] as int, codes[1] as int, codes[2] as int)
+    return versionCodeStr as int
 }
 
 project.buildDir = buildDir
@@ -28,136 +28,136 @@ project.version = rootProject.file('../version.txt').text.trim()
 def mavenArtifactId = project.name + '-android'
 
 buildscript {
-	repositories {
-		google()
-		mavenCentral()
-	}
-	dependencies {
-		classpath 'com.android.tools.build:gradle:7.3.0'
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:7.3.0'
 
-		// NOTE: Do not place your application dependencies here; they belong
-		// in the individual module build.gradle files
-	}
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
 }
 
 allprojects {
-	repositories {
-		google()
-		mavenCentral()
-	}
+    repositories {
+        google()
+        mavenCentral()
+    }
 }
 
 android {
-	compileSdkVersion 32
-	ndkVersion ndkVer
-	defaultConfig {
-		minSdkVersion minSdkVer
-		targetSdkVersion targetSdkVer
-		versionCode = getVersionCode(project.version)
-		versionName = project.version
+    compileSdkVersion 32
+    ndkVersion ndkVer
+    defaultConfig {
+        minSdkVersion minSdkVer
+        targetSdkVersion targetSdkVer
+        versionCode = getVersionCode(project.version)
+        versionName = project.version
 
-		testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-	}
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
 
-	android {
-		lintOptions {
-			abortOnError false
-		}
-	}
+    android {
+        lintOptions {
+            abortOnError false
+        }
+    }
 
-	buildTypes {
-		release {
-			minifyEnabled false
-			debuggable false
-			proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-		}
-	}
+    buildTypes {
+        release {
+            minifyEnabled false
+            debuggable false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
 
-	compileOptions {
-		sourceCompatibility = JavaVersion.VERSION_1_8
-		targetCompatibility = JavaVersion.VERSION_1_8
-	}
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
 
-	sourceSets {
-		main {
-			jniLibs.srcDirs = [jniLibsDir]
-		}
-	}
+    sourceSets {
+        main {
+            jniLibs.srcDirs = [jniLibsDir]
+        }
+    }
 
 }
 
 task sourcesJar(type: Jar) {
-	archiveClassifier = "sources"
-	from android.sourceSets.main.java.srcDirs
+    archiveClassifier = "sources"
+    from android.sourceSets.main.java.srcDirs
 }
 
 task javadoc(type: Javadoc) {
-	source = android.sourceSets.main.java.srcDirs
-	classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
+    source = android.sourceSets.main.java.srcDirs
+    classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
 }
 
 task javadocJar(type: Jar, dependsOn: javadoc) {
-	archiveClassifier = 'javadoc'
-	from javadoc.destinationDir
+    archiveClassifier = 'javadoc'
+    from javadoc.destinationDir
 }
 
 artifacts {
-	archives javadocJar
-	archives sourcesJar
+    archives javadocJar
+    archives sourcesJar
 }
 
 dependencies {
-	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
-	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
-	testImplementation 'com.google.protobuf:protobuf-java:3.20.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
+    testImplementation 'com.google.protobuf:protobuf-java:3.20.1'
 }
 
 publishing {
-	publications {
-		maven(MavenPublication) {
-			groupId = project.group
-			artifactId = mavenArtifactId
-			version = project.version
+    publications {
+        maven(MavenPublication) {
+            groupId = project.group
+            artifactId = mavenArtifactId
+            version = project.version
 
-			// Three artifacts, the `aar`, the sources and the javadoc
-			artifact("$buildDir/outputs/aar/${project.name}-release.aar")
-			artifact javadocJar
-			artifact sourcesJar
+            // Three artifacts, the `aar`, the sources and the javadoc
+            artifact("$buildDir/outputs/aar/${project.name}-release.aar")
+            artifact javadocJar
+            artifact sourcesJar
 
-			pom {
-				name = 'onnxruntime-extensions'
-				description = 'ONNXRuntime-Extensions is a library for Android for pre- and post-processing.'
-				url = 'https://microsoft.github.io/onnxruntime/'
-				licenses {
-					license {
-						name = 'MIT License'
-						url = 'https://opensource.org/licenses/MIT'
-					}
-				}
-				organization {
-					name = 'Microsoft'
-					url = 'http://www.microsoft.com'
-				}
-				scm {
-					connection = 'scm:git:git://github.com:microsoft/onnxruntime-extensions.git'
-					developerConnection = 'scm:git:ssh://github.com/microsoft/onnxruntime-extensions.git'
-					url = 'http://github.com/microsoft/onnxruntime-extensions'
-				}
-				developers {
-					developer {
-						id = 'onnxruntime'
-						name = 'ONNX Runtime'
-						email = 'onnxruntime@microsoft.com'
-					}
-				}
-			}
-		}
-	}
+            pom {
+                name = 'onnxruntime-extensions'
+                description = 'ONNXRuntime-Extensions is a library for Android for pre- and post-processing.'
+                url = 'https://microsoft.github.io/onnxruntime/'
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = 'https://opensource.org/licenses/MIT'
+                    }
+                }
+                organization {
+                    name = 'Microsoft'
+                    url = 'http://www.microsoft.com'
+                }
+                scm {
+                    connection = 'scm:git:git://github.com:microsoft/onnxruntime-extensions.git'
+                    developerConnection = 'scm:git:ssh://github.com/microsoft/onnxruntime-extensions.git'
+                    url = 'http://github.com/microsoft/onnxruntime-extensions'
+                }
+                developers {
+                    developer {
+                        id = 'onnxruntime'
+                        name = 'ONNX Runtime'
+                        email = 'onnxruntime@microsoft.com'
+                    }
+                }
+            }
+        }
+    }
 
-	//publish to filesystem repo
-	repositories{
-		maven {
-			url "$publishDir"
-		}
-	}
+    //publish to filesystem repo
+    repositories {
+        maven {
+            url "$publishDir"
+        }
+    }
 }
