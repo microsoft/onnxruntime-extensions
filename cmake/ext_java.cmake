@@ -39,7 +39,8 @@ endif()
 
 file(MAKE_DIRECTORY ${JAVA_OUTPUT_TEMP})
 add_custom_command(OUTPUT ${JAVA_OUTPUT_JAR}
-  COMMAND ${GRADLE_EXECUTABLE} ${GRADLE_ARGS} WORKING_DIRECTORY ${JAVA_OUTPUT_TEMP} DEPENDS ${onnxruntime_extensions4j_gradle_files} ${onnxruntime_extensions4j_src})
+  COMMAND ${GRADLE_EXECUTABLE} ${GRADLE_ARGS} WORKING_DIRECTORY ${JAVA_OUTPUT_TEMP}
+  DEPENDS ${onnxruntime_extensions4j_gradle_files} ${onnxruntime_extensions4j_src} ortcustomops)
 add_custom_target(onnxruntime_extensions4j DEPENDS ${JAVA_OUTPUT_JAR})
 set_source_files_properties(${JAVA_OUTPUT_JAR} PROPERTIES GENERATED TRUE)
 set_property(TARGET onnxruntime_extensions4j APPEND PROPERTY ADDITIONAL_CLEAN_FILES "${JAVA_OUTPUT_DIR}")
