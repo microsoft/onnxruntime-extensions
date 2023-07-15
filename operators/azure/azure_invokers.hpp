@@ -17,19 +17,31 @@ struct AzureAudioInvoker : public BaseKernel {
   bool verbose_;
 };
 
-#if ORT_API_VERSION >= 14
-struct AzureTritonInvoker : public BaseKernel {
-  AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::Variadic& inputs,
-               ortc::Variadic& outputs);
+struct AzureInvoker : public BaseKernel {
+  AzureInvoker(const OrtApi& api, const OrtKernelInfo& info);
 
- private:
+ protected:
+  ~AzureInvoker() = default;
   std::string model_uri_;
   std::string model_name_;
   std::string model_ver_;
   std::string verbose_;
-  std::unique_ptr<triton::client::InferenceServerHttpClient> triton_client_;
   std::vector<std::string> input_names_;
   std::vector<std::string> output_names_;
 };
-#endif
+
+struct AzureOpenAIInvoker : public AzureInvoker {
+  AzureOpenAIInvoker(const OrtApi& api, const OrtKernelInfo& info);
+  void Compute(const ortc::Variadic& inputs, ortc::Tensor<std::string>& output);
+
+ private:
+  std::string binary_type_;
+};
+
+struct AzureTritonInvoker : public AzureInvoker {
+  AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info);
+  void Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs);
+
+ private:
+  std::unique_ptr<triton::client::InferenceServerHttpClient> triton_client_;
+};
