@@ -112,48 +112,50 @@ dependencies {
     testImplementation 'com.google.protobuf:protobuf-java:3.21.7'
 }
 
-publishing {
-    publications {
-        maven(MavenPublication) {
-            from components.release
-            groupId = project.group
-            artifactId = mavenArtifactId
-            version = project.version
+project.afterEvaluate {
+    publishing {
+        publications {
+            maven(MavenPublication) {
+                from components.release
+                groupId = project.group
+                artifactId = mavenArtifactId
+                version = project.version
 
-            pom {
-                name = 'onnxruntime-extensions'
-                description = 'ONNXRuntime-Extensions is a library for Android for pre- and post-processing.'
-                url = 'https://microsoft.github.io/onnxruntime/'
-                licenses {
-                    license {
-                        name = 'MIT License'
-                        url = 'https://opensource.org/licenses/MIT'
+                pom {
+                    name = 'onnxruntime-extensions'
+                    description = 'ONNXRuntime-Extensions is a library for Android for pre- and post-processing.'
+                    url = 'https://microsoft.github.io/onnxruntime/'
+                    licenses {
+                        license {
+                            name = 'MIT License'
+                            url = 'https://opensource.org/licenses/MIT'
+                        }
                     }
-                }
-                organization {
-                    name = 'Microsoft'
-                    url = 'http://www.microsoft.com'
-                }
-                scm {
-                    connection = 'scm:git:git://github.com:microsoft/onnxruntime-extensions.git'
-                    developerConnection = 'scm:git:ssh://github.com/microsoft/onnxruntime-extensions.git'
-                    url = 'http://github.com/microsoft/onnxruntime-extensions'
-                }
-                developers {
-                    developer {
-                        id = 'onnxruntime'
-                        name = 'ONNX Runtime'
-                        email = 'onnxruntime@microsoft.com'
+                    organization {
+                        name = 'Microsoft'
+                        url = 'http://www.microsoft.com'
+                    }
+                    scm {
+                        connection = 'scm:git:git://github.com:microsoft/onnxruntime-extensions.git'
+                        developerConnection = 'scm:git:ssh://github.com/microsoft/onnxruntime-extensions.git'
+                        url = 'http://github.com/microsoft/onnxruntime-extensions'
+                    }
+                    developers {
+                        developer {
+                            id = 'onnxruntime'
+                            name = 'ONNX Runtime'
+                            email = 'onnxruntime@microsoft.com'
+                        }
                     }
                 }
             }
         }
-    }
 
-    //publish to filesystem repo
-    repositories {
-        maven {
-            url "$publishDir"
+        //publish to filesystem repo
+        repositories {
+            maven {
+                url "$publishDir"
+            }
         }
     }
 }
