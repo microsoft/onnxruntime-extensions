@@ -5,17 +5,17 @@
 
 #include "ocos.h"
 
-struct AzureAudioInvoker : public BaseKernel {
-  AzureAudioInvoker(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::Tensor<std::string>& auth_token,
-               const ortc::Tensor<uint8_t>& raw_audio_data,
-               ortc::Tensor<std::string>& text);
-
- private:
-  std::string model_uri_;
-  std::string model_name_;
-  bool verbose_;
-};
+// struct AzureAudioInvoker : public BaseKernel {
+//   AzureAudioInvoker(const OrtApi& api, const OrtKernelInfo& info);
+//   void Compute(const ortc::Tensor<std::string>& auth_token,
+//                const ortc::Tensor<uint8_t>& raw_audio_data,
+//                ortc::Tensor<std::string>& text);
+//
+//  private:
+//   std::string model_uri_;
+//   std::string model_name_;
+//   bool verbose_;
+// };
 
 struct AzureInvoker : public BaseKernel {
   AzureInvoker(const OrtApi& api, const OrtKernelInfo& info);
@@ -30,9 +30,17 @@ struct AzureInvoker : public BaseKernel {
   std::vector<std::string> output_names_;
 };
 
-struct AzureOpenAIInvoker : public AzureInvoker {
-  AzureOpenAIInvoker(const OrtApi& api, const OrtKernelInfo& info);
+struct AzureAudioInvoker : public AzureInvoker {
+  AzureAudioInvoker(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(const ortc::Variadic& inputs, ortc::Tensor<std::string>& output);
+
+ private:
+  std::string binary_type_;
+};
+
+struct AzureTextInvoker : public AzureInvoker {
+  AzureTextInvoker(const OrtApi& api, const OrtKernelInfo& info);
+  void Compute(std::string_view auth, std::string_view input, ortc::Tensor<std::string>& output);
 
  private:
   std::string binary_type_;

@@ -533,9 +533,9 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                          \
   static typename std::enable_if<std::is_same<T, data_type>::value, std::tuple<T, Ts...>>::type                                                                       \
   CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
-    if ("CPUExecutionProvider" != ep) {                                                                                                                               \
+/*    if ("CPUExecutionProvider" != ep) {                                                                                                                               \
       ORTX_CXX_API_THROW("scalar input could only be applied to CPU EP", ORT_FAIL);                                                                                   \
-    }                                                                                                                                                                 \
+    }  */                                                                                                                                                               \
     tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*api, *context, ith_input, true));                                                                  \
     std::tuple<T> current = std::tuple<T>{reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())->AsScalar()};                                            \
     auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);                                                      \
