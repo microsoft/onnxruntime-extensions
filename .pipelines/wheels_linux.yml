@@ -10,7 +10,7 @@ jobs:
   pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
   variables:
     CIBW_BUILD: "cp3{8,9,10,11}-*"
-    - ${{ if eq(parameters['BuildAzureOps'], 'true') }}:
+    - ${{ if eq(parameters.BuildAzureOps, 'true') }}:
         CIBW_ENVIRONMENT: "OCOS_ENABLE_AZURE=1"
 
   steps:
