@@ -71,7 +71,7 @@ jobs:
         displayName: install deps for azure invokers
 
       - script: |
-          CPU_NUMBER=2 sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=$(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ort.version)
+          CPU_NUMBER=2 sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=$(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ort.version) -DOCOS_ENABLE_AZURE=ON
         displayName: build the customop library with onnxruntime
 
       - script: |
