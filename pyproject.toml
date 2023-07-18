@@ -21,5 +21,5 @@ select = "*-musllinux*"
 before-all = "./install_deps.sh musl"
 
 [[tool.cibuildwheel.overrides]]
-select = "*windows*"
-before-all = "install_deps.bat"
+select = "*win*"
+before-build = "install_deps.bat"
