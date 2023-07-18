@@ -16,6 +16,14 @@ parameters: # parameters are shown up in ADO UI in a build queue time
   type: boolean
   default: false
 
+- name: BuildAzureOp
+  displayName: 'Build and test AzureEP ops'
+  type: string
+  values:
+  - '0'
+  - '1'
+  default: '0'
+
 variables:
   CDP_DEFINITION_BUILD_COUNT: $[counter('', 0)] 
   system.debug: ${{ parameters.debug }}
@@ -27,6 +35,7 @@ variables:
   CIBW_BUILD: cp3{8,9,10,11}-*amd64
   CIBW_ARCHS: AMD64
   DEBIAN_FRONTEND: noninteractive
+  CIBW_ENVIRONMENT: "OCOS_ENABLE_AZURE=${{ parameters.BuildAzureOp }}"
 
 resources:
   repositories: 
