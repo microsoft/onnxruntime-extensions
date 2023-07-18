@@ -87,7 +87,6 @@ class BuildCMakeExt(_build_ext):
         if os.environ.get('OCOS_NO_OPENCV') == '1':
             # Disabling openCV can drastically reduce the build time.
             cmake_args += [
-                '-DOCOS_ENABLE_CTEST=OFF',
                 '-DOCOS_ENABLE_OPENCV_CODECS=OFF',
                 '-DOCOS_ENABLE_CV2=OFF',
                 '-DOCOS_ENABLE_VISION=OFF']

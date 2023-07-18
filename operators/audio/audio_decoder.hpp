@@ -146,8 +146,8 @@ struct AudioDecoder : public BaseKernel {
     }
 
     if (downsample_rate_ != 0 &&
-        orig_sample_rate < downsample_rate_) {
-      ORTX_CXX_API_THROW("[AudioDecoder]: only down sampling supported.", ORT_INVALID_ARGUMENT);
+      orig_sample_rate < downsample_rate_) {
+      ORTX_CXX_API_THROW("[AudioDecoder]: only down-sampling supported.", ORT_INVALID_ARGUMENT);
     }
 
     // join all frames
@@ -172,7 +172,7 @@ struct AudioDecoder : public BaseKernel {
     if (downsample_rate_ != 0 &&
         downsample_rate_ != orig_sample_rate) {
       // A lowpass filter on buf audio data to remove high frequency noise
-      ButterworthLowpass filter(1.0 * orig_sample_rate, 0.5 * downsample_rate_);
+      ButterworthLowpass filter(0.5 * downsample_rate_, 1.0 * orig_sample_rate);
       std::vector<float> filtered_buf = filter.Process(buf);
       // downsample the audio data
       KaiserWindowInterpolation::Process(filtered_buf, buf,

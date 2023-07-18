@@ -200,8 +200,9 @@ void GetTensorMutableDataString(const OrtApi& api, const OrtValue* value, std::v
   OrtW::ThrowOnError(api, api.GetStringTensorContent(value, (void*)result.data(), data_len, offsets.data(), offsets.size()));
   output.resize(len);
   for (int64_t i = (int64_t)len - 1; i >= 0; --i) {
-    if (i < len - 1)
+    if (i < static_cast<int64_t>(len) - 1) {
       result[offsets[i + (int64_t)1]] = '\0';
+    }
     output[i] = result.data() + offsets[i];
   }
 }
