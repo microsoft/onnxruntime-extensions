@@ -263,7 +263,7 @@ jobs:
 
       - script: |
           call $(vsdevcmd)
-          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version) -DOCOS_ENABLE_AZURE=ON
+          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
         displayName: build the customop library with onnxruntime
 
       - script: |
