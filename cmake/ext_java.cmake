@@ -26,7 +26,8 @@ file(GLOB_RECURSE onnxruntime_extensions4j_gradle_files "${JAVA_ROOT}/*.gradle")
 file(GLOB_RECURSE onnxruntime_extensions4j_src "${JAVA_ROOT}/src/main/java/ai/onnxruntime/extensions/*.java")
 set(JAVA_OUTPUT_JAR ${JAVA_OUTPUT_TEMP}/build/libs/onnxruntime_extensions.jar)
 # this jar is solely used to signaling mechanism for dependency management in CMake
-# if any of the Java sources change, the jar (and generated headers) will be regenerated and the onnxruntime_extensions4j_jni target will be rebuilt
+# if any of the Java sources change, the jar (and generated headers) will be regenerated
+# and the onnxruntime_extensions4j_jni target will be rebuilt
 set(GRADLE_ARGS --console=plain clean jar -p ${JAVA_ROOT} -x test )
 if(WIN32)
   set(GRADLE_ARGS ${GRADLE_ARGS} -Dorg.gradle.daemon=false)
@@ -39,7 +40,8 @@ endif()
 
 file(MAKE_DIRECTORY ${JAVA_OUTPUT_TEMP})
 add_custom_command(OUTPUT ${JAVA_OUTPUT_JAR}
-  COMMAND ${GRADLE_EXECUTABLE} ${GRADLE_ARGS} WORKING_DIRECTORY ${JAVA_OUTPUT_TEMP} DEPENDS ${onnxruntime_extensions4j_gradle_files} ${onnxruntime_extensions4j_src})
+  COMMAND ${GRADLE_EXECUTABLE} ${GRADLE_ARGS} WORKING_DIRECTORY ${JAVA_OUTPUT_TEMP}
+  DEPENDS ${onnxruntime_extensions4j_gradle_files} ${onnxruntime_extensions4j_src} ortcustomops)
 add_custom_target(onnxruntime_extensions4j DEPENDS ${JAVA_OUTPUT_JAR})
 set_source_files_properties(${JAVA_OUTPUT_JAR} PROPERTIES GENERATED TRUE)
 set_property(TARGET onnxruntime_extensions4j APPEND PROPERTY ADDITIONAL_CLEAN_FILES "${JAVA_OUTPUT_DIR}")
@@ -139,11 +141,15 @@ if (WIN32)
   #Our static analysis plugin set /p:LinkCompiled=false
   if(NOT onnxruntime_extensions_ENABLE_STATIC_ANALYSIS)
     add_custom_command(TARGET onnxruntime_extensions4j_jni
-      POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions4j_jni> ${JAVA_PACKAGE_JNI_DIR}/$<TARGET_FILE_NAME:onnxruntime_extensions4j_jni>)
+      POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      $<TARGET_FILE:onnxruntime_extensions4j_jni>
+      ${JAVA_PACKAGE_JNI_DIR}/$<TARGET_FILE_NAME:onnxruntime_extensions4j_jni>)
   endif()
 else()
   add_custom_command(TARGET onnxruntime_extensions4j_jni
-    POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:onnxruntime_extensions4j_jni> ${JAVA_PACKAGE_JNI_DIR}/$<TARGET_LINKER_FILE_NAME:onnxruntime_extensions4j_jni>)
+    POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:onnxruntime_extensions4j_jni>
+    ${JAVA_PACKAGE_JNI_DIR}/$<TARGET_LINKER_FILE_NAME:onnxruntime_extensions4j_jni>)
 endif()
 
 # run the build process (this copies the results back into CMAKE_CURRENT_BINARY_DIR)
@@ -158,7 +164,8 @@ elseif (ANDROID)
 endif()
 
 message(STATUS "GRADLE_ARGS: ${GRADLE_ARGS}")
-add_custom_command(TARGET onnxruntime_extensions4j_jni POST_BUILD COMMAND ${GRADLE_EXECUTABLE} ${GRADLE_ARGS} WORKING_DIRECTORY ${JAVA_OUTPUT_TEMP})
+add_custom_command(TARGET onnxruntime_extensions4j_jni
+  POST_BUILD COMMAND ${GRADLE_EXECUTABLE} ${GRADLE_ARGS} WORKING_DIRECTORY ${JAVA_OUTPUT_TEMP})
 
 if (ANDROID)
   set(ANDROID_PACKAGE_JNILIBS_DIR ${JAVA_OUTPUT_DIR}/android)

@@ -21,7 +21,7 @@ from ._ocos import default_opset_domain  # noqa
 from ._cuops import *  # noqa
 from ._ortapi2 import OrtPyFunction as PyOrtFunction  # backward compatibility
 from ._ortapi2 import OrtPyFunction, optimize_model, make_onnx_model, ONNXRuntimeError
-
+from .cvt import gen_processing_models
 
 onnx_op = Opdef.declare
 PyOp = PyCustomOpDef
