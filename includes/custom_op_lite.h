@@ -52,6 +52,9 @@ class TensorBase {
       return "empty";
     }
   }
+  bool IsCpuTensor() const {
+    return mem_device_type_ == OrtMemoryInfoDeviceType::OrtMemoryInfoDeviceType_CPU;
+  }
   virtual const void* DataRaw() const = 0;
   virtual size_t SizeInBytes() const = 0;
 
@@ -62,6 +65,7 @@ class TensorBase {
   bool is_input_;
   std::optional<std::vector<int64_t>> shape_;
   ONNXTensorElementDataType type_ = ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED;
+  OrtMemoryInfoDeviceType mem_device_type_ = OrtMemoryInfoDeviceType::OrtMemoryInfoDeviceType_CPU;
 };
 
 template <typename T>
@@ -100,6 +104,11 @@ class Tensor : public TensorBase {
       shape_ = api_.GetTensorShape(info);
       type_ = api_.GetTensorElementType(info);
       api_.ReleaseTensorTypeAndShapeInfo(info);
+      const OrtMemoryInfo* mem_info = {};
+      api_.GetOrtApi().GetTensorMemoryInfo(const_value_, &mem_info);
+      if (mem_info) {
+        api.GetOrtApi().MemoryInfoGetDeviceType(mem_info, &mem_device_type_);
+      }
     }
   }
   const TT* Data() const {
@@ -495,10 +504,10 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                          \
   static typename std::enable_if<std::is_same<T, const Custom::Span<data_type>*>::value, std::tuple<T, Ts...>>::type                                                  \
   CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
-    if ("CPUExecutionProvider" != ep) {                                                                                                                               \
-      ORTX_CXX_API_THROW("span input could only be applied to CPU EP", ORT_FAIL);                                                                                     \
-    }                                                                                                                                                                 \
     tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*api, *context, ith_input, true));                                                                  \
+    if (!tensors.back()->IsCpuTensor()) {                                                                                                                             \
+      ORTX_CXX_API_THROW("span input could only be applied to CPU tensor", ORT_FAIL);                                                                                 \
+    }                                                                                                                                                                 \
     std::tuple<T> current = std::tuple<T>{&reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())->AsSpan()};                                             \
     auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);                                                      \
     return std::tuple_cat(current, next);                                                                                                                             \
@@ -506,10 +515,10 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                          \
   static typename std::enable_if<std::is_same<T, const Custom::Span<data_type>&>::value, std::tuple<T, Ts...>>::type                                                  \
   CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
-    if ("CPUExecutionProvider" != ep) {                                                                                                                               \
-      ORTX_CXX_API_THROW("span input could only be applied to CPU EP", ORT_FAIL);                                                                                     \
-    }                                                                                                                                                                 \
     tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*api, *context, ith_input, true));                                                                  \
+    if (!tensors.back()->IsCpuTensor()) {                                                                                                                             \
+      ORTX_CXX_API_THROW("span input could only be applied to CPU tensor", ORT_FAIL);                                                                                 \
+    }                                                                                                                                                                 \
     std::tuple<T> current = std::tuple<T>{reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())->AsSpan()};                                              \
     auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);                                                      \
     return std::tuple_cat(current, next);                                                                                                                             \
@@ -518,10 +527,10 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   static typename std::enable_if<std::is_same<T, std::optional<const Custom::Span<data_type>*>>::value, std::tuple<T, Ts...>>::type                                   \
   CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
     if (ith_input < num_input) {                                                                                                                                      \
-      if ("CPUExecutionProvider" != ep) {                                                                                                                             \
-        ORTX_CXX_API_THROW("span input could only be applied to CPU EP", ORT_FAIL);                                                                                   \
-      }                                                                                                                                                               \
       tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*api, *context, ith_input, true));                                                                \
+      if (!tensors.back()->IsCpuTensor()) {                                                                                                                           \
+        ORTX_CXX_API_THROW("span input could only be applied to CPU tensor", ORT_FAIL);                                                                               \
+      }                                                                                                                                                               \
       std::tuple<T> current = std::tuple<T>{&reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())->AsSpan()};                                           \
       auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);                                                    \
       return std::tuple_cat(current, next);                                                                                                                           \
@@ -534,10 +543,10 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   template <size_t ith_input, size_t ith_output, typename T, typename... Ts>                                                                                          \
   static typename std::enable_if<std::is_same<T, data_type>::value, std::tuple<T, Ts...>>::type                                                                       \
   CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
-/*    if ("CPUExecutionProvider" != ep) {                                                                                                                               \
-      ORTX_CXX_API_THROW("scalar input could only be applied to CPU EP", ORT_FAIL);                                                                                   \
-    }  */                                                                                                                                                               \
     tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*api, *context, ith_input, true));                                                                  \
+    if (!tensors.back()->IsCpuTensor()) {                                                                                                                             \
+      ORTX_CXX_API_THROW("scalar input could only be applied to CPU tensor", ORT_FAIL);                                                                               \
+    }                                                                                                                                                                 \
     std::tuple<T> current = std::tuple<T>{reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())->AsScalar()};                                            \
     auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);                                                      \
     return std::tuple_cat(current, next);                                                                                                                             \
@@ -546,10 +555,10 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   static typename std::enable_if<std::is_same<T, std::optional<data_type>>::value, std::tuple<T, Ts...>>::type                                                        \
   CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) { \
     if (ith_input < num_input) {                                                                                                                                      \
-      if ("CPUExecutionProvider" != ep) {                                                                                                                             \
-        ORTX_CXX_API_THROW("scalar input could only be applied to CPU EP", ORT_FAIL);                                                                                 \
-      }                                                                                                                                                               \
       tensors.push_back(std::make_unique<Custom::Tensor<data_type>>(*api, *context, ith_input, true));                                                                \
+      if (!tensors.back()->IsCpuTensor()) {                                                                                                                           \
+        ORTX_CXX_API_THROW("scalar input could only be applied to CPU tensor", ORT_FAIL);                                                                             \
+      }                                                                                                                                                               \
       std::tuple<T> current = std::tuple<T>{reinterpret_cast<Custom::Tensor<data_type>*>(tensors.back().get())->AsScalar()};                                          \
       auto next = CreateTuple<ith_input + 1, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);                                                    \
       return std::tuple_cat(current, next);                                                                                                                           \

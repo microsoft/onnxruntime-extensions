@@ -79,41 +79,7 @@ class CurlHandler {
   std::unique_ptr<curl_httppost, decltype(curl_formfree)*> from_holder_;
 };
 
-//AzureAudioInvoker::AzureAudioInvoker(const OrtApi& api,
-//                                     const OrtKernelInfo& info) : BaseKernel(api, info) {
-//  model_uri_ = TryToGetAttributeWithDefault<std::string>(kUri, "");
-//  model_name_ = TryToGetAttributeWithDefault<std::string>(kModelName, "");
-//  verbose_ = TryToGetAttributeWithDefault<bool>(kVerbose, false);
-//}
-//
-//void AzureAudioInvoker::Compute(const ortc::Tensor<std::string>& auth_token,
-//                                const ortc::Tensor<uint8_t>& audio,
-//                                ortc::Tensor<std::string>& text) {
-//  CurlHandler curl_handler(WriteStringCallback);
-//  StringBuffer string_buffer;
-//
-//  std::string full_auth = std::string{"Authorization: Bearer "} + auth_token.Data()[0];
-//  curl_handler.AddHeader(full_auth.c_str());
-//  curl_handler.AddHeader("Content-Type: multipart/form-data");
-//
-//  curl_handler.AddForm(CURLFORM_COPYNAME, "model", CURLFORM_COPYCONTENTS, model_name_.c_str(), CURLFORM_END);
-//  curl_handler.AddForm(CURLFORM_COPYNAME, "response_format", CURLFORM_COPYCONTENTS, "text", CURLFORM_END);
-//  curl_handler.AddForm(CURLFORM_COPYNAME, "file", CURLFORM_BUFFER, "non_exist.wav", CURLFORM_BUFFERPTR, audio.Data(),
-//                       CURLFORM_BUFFERLENGTH, audio.NumberOfElement(), CURLFORM_END);
-//
-//  curl_handler.SetOption(CURLOPT_URL, model_uri_.c_str());
-//  curl_handler.SetOption(CURLOPT_VERBOSE, verbose_);
-//  curl_handler.SetOption(CURLOPT_WRITEDATA, (void*)&string_buffer);
-//
-//  auto curl_ret = curl_handler.Perform();
-//  if (CURLE_OK != curl_ret) {
-//    ORTX_CXX_API_THROW(curl_easy_strerror(curl_ret), ORT_FAIL);
-//  }
-//
-//  text.SetStringOutput(std::vector<std::string>{string_buffer.ss_.str()}, std::vector<int64_t>{1L});
-//}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////// AzureInvoker //////////////////////
 
 AzureInvoker::AzureInvoker(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
   auto ver = GetActiveOrtAPIVersion();
@@ -159,7 +125,7 @@ AzureInvoker::AzureInvoker(const OrtApi& api, const OrtKernelInfo& info) : BaseK
   }
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////// AzureAudioInvoker //////////////////////
 
 AzureAudioInvoker::AzureAudioInvoker(const OrtApi& api, const OrtKernelInfo& info) : AzureInvoker(api, info) {
   binary_type_ = TryToGetAttributeWithDefault<std::string>(kBinaryType, "");
@@ -224,7 +190,8 @@ void AzureAudioInvoker::Compute(const ortc::Variadic& inputs, ortc::Tensor<std::
 
   output.SetStringOutput(std::vector<std::string>{string_buffer.ss_.str()}, std::vector<int64_t>{1L});
 }
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////// AzureTextInvoker //////////////////////
 
 AzureTextInvoker::AzureTextInvoker(const OrtApi& api, const OrtKernelInfo& info) : AzureInvoker(api, info) {
 }
@@ -251,7 +218,7 @@ void AzureTextInvoker::Compute(std::string_view auth, std::string_view input, or
   output.SetStringOutput(std::vector<std::string>{string_buffer.ss_.str()}, std::vector<int64_t>{1L});
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////// AzureTritonInvoker //////////////////////
 
 namespace tc = triton::client;
 

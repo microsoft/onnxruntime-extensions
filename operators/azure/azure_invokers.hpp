@@ -5,18 +5,6 @@
 
 #include "ocos.h"
 
-// struct AzureAudioInvoker : public BaseKernel {
-//   AzureAudioInvoker(const OrtApi& api, const OrtKernelInfo& info);
-//   void Compute(const ortc::Tensor<std::string>& auth_token,
-//                const ortc::Tensor<uint8_t>& raw_audio_data,
-//                ortc::Tensor<std::string>& text);
-//
-//  private:
-//   std::string model_uri_;
-//   std::string model_name_;
-//   bool verbose_;
-// };
-
 struct AzureInvoker : public BaseKernel {
   AzureInvoker(const OrtApi& api, const OrtKernelInfo& info);
 
