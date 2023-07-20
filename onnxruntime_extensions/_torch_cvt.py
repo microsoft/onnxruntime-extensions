@@ -66,7 +66,7 @@ def _mel_filterbank(
         # intersect them with each other and zero
         fbank[i] = np.maximum(0, np.minimum(left, right))
 
-    energy_norm = 2.0 / (mel_bins[2 : n_mels + 2] - mel_bins[:n_mels])
+    energy_norm = 2.0 / (mel_bins[2: n_mels + 2] - mel_bins[:n_mels])
     fbank *= energy_norm[:, np.newaxis]
     return fbank
 
@@ -109,9 +109,9 @@ class WhisperPrePipeline(torch.nn.Module):
         log_spec = torch.maximum(log_spec, spec_min)
         spec_shape = log_spec.shape
         padding_spec = torch.ones(spec_shape[0],
-                                  spec_shape[1], (
-                                    _WhisperHParams.N_SAMPLES // _WhisperHParams.HOP_LENGTH -
-                                        spec_shape[2]), dtype=torch.float)
+                                  spec_shape[1],
+                                  _WhisperHParams.N_SAMPLES // _WhisperHParams.HOP_LENGTH - spec_shape[2],
+                                  dtype=torch.float)
         padding_spec *= spec_min
         log_spec = torch.cat((log_spec, padding_spec), dim=2)
         log_spec = (log_spec + 4.0) / 4.0
@@ -138,7 +138,7 @@ def _to_onnx_stft(onnx_model):
                   value=numpy_helper.from_array(np.array([0,
                                                           _WhisperHParams.N_FFT // 2, 0,
                                                           _WhisperHParams.N_FFT // 2], dtype='int64'),
-                  name='const_14')),
+                                                name='const_14')),
         make_node('Pad',
                   inputs=[stft_norm_node.input[0], 'const_14_output_0'],
                   outputs=['pad_1_output_0'], mode='reflect'),
@@ -230,4 +230,5 @@ class WhisperDataProcGraph:
             cvt=HFTokenizerConverter(self.hf_processor.tokenizer).bpe_decoder,
             skip_special_tokens=True,
             cpu_only=True)
-        return make_onnx_model(g)
+        g.output[0].type.CopyFrom(onnx.helper.make_tensor_type_proto(onnx.TensorProto.STRING, ['N', 'seq_len', 'text']))
+        return make_onnx_model(g, opset_version=self.opset_version)

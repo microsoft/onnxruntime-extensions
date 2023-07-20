@@ -3,7 +3,7 @@
 import wave
 import unittest
 import numpy as np
-from onnxruntime_extensions import PyOrtFunction, util, make_onnx_model
+from onnxruntime_extensions import OrtPyFunction, util, make_onnx_model
 
 import onnx
 from onnx import onnx_pb as onnx_proto
@@ -12,6 +12,7 @@ from onnx import onnx_pb as onnx_proto
 _is_torch_available = False
 try:
     import torch
+
     _is_torch_available = True
 except ImportError:
     pass
@@ -19,6 +20,7 @@ except ImportError:
 _is_librosa_avaliable = False
 try:
     import librosa
+
     _is_librosa_avaliable = True
 except ImportError:
     pass
@@ -57,7 +59,7 @@ class TestAudio(unittest.TestCase):
         audio = wavefile.readframes(samples)
         audio_as_np_int16 = np.frombuffer(audio, dtype=np.int16)
         audio_as_np_float32 = audio_as_np_int16.astype(np.float32)
-        max_int16 = 2**15
+        max_int16 = 2 ** 15
         cls.test_pcm = audio_as_np_float32 / max_int16
 
     @staticmethod
@@ -99,7 +101,7 @@ class TestAudio(unittest.TestCase):
         audio_pcm = self.test_pcm
         expected = self.stft(audio_pcm, 400, 160, np.hanning(400).astype(np.float32))
 
-        ortx_stft = PyOrtFunction.from_model(_create_test_model(), cpu_only=True)
+        ortx_stft = OrtPyFunction.from_model(_create_test_model(), cpu_only=True)
         actual = ortx_stft(np.expand_dims(audio_pcm, axis=0), 400, 160, np.hanning(400).astype(np.float32), 400)
         actual = actual[0]
         actual = actual[:, :, 0] ** 2 + actual[:, :, 1] ** 2
@@ -109,7 +111,7 @@ class TestAudio(unittest.TestCase):
         audio_pcm = self.test_pcm
         expected = self.stft(audio_pcm, 400, 160, np.hanning(400).astype(np.float32))
 
-        ortx_stft = PyOrtFunction.from_customop("StftNorm", cpu_only=True)
+        ortx_stft = OrtPyFunction.from_customop("StftNorm", cpu_only=True)
         actual = ortx_stft(np.expand_dims(audio_pcm, axis=0), 400, 160, np.hanning(400).astype(np.float32), 400)
         actual = actual[0]
         np.testing.assert_allclose(expected[:, 1:], actual[:, 1:], rtol=1e-3, atol=1e-3)
@@ -125,7 +127,7 @@ class TestAudio(unittest.TestCase):
                               center=True,
                               return_complex=True).abs().pow(2).numpy()
         audio_pcm = np.expand_dims(self.test_pcm, axis=0)
-        ortx_stft = PyOrtFunction.from_customop("StftNorm")
+        ortx_stft = OrtPyFunction.from_customop("StftNorm")
         actual = ortx_stft(audio_pcm, 400, 160, np.hanning(wlen).astype(np.float32), 400)
         actual = actual[0]
         np.testing.assert_allclose(expected[:, 1:], actual[:, 1:], rtol=1e-3, atol=1e-3)
