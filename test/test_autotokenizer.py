@@ -1,5 +1,6 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
+import sys
 import unittest
 import transformers as _hfts
 
@@ -61,6 +62,7 @@ class TestAutoTokenizer(unittest.TestCase):
 
         self.assertEqual(log_mel.shape, (1, 80, 3000))
 
+    @unittest.skipIf(sys.platform.startswith('win'), "Huggingface Processor crashed on Windows.")
     def test_ort_stft_consistency(self):
         processor = _hfts.WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
         pre_m, _ = gen_processing_models(processor,
@@ -82,6 +84,7 @@ class TestAutoTokenizer(unittest.TestCase):
         self.assertTrue(num_mismatched / np.size(expected) < 0.02)
         self.assertAlmostEqual(expected.min(), actual.min(), delta=1e-05)
 
+    @unittest.skipIf(sys.platform.startswith('win'), "Huggingface Processor crashed on Windows.")
     def test_stft_norm_consistency(self):
         processor = _hfts.WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
         pre_m, _ = gen_processing_models(processor,
