@@ -7,3 +7,20 @@ line-length = 120
 
 [tool.ruff]
 line-length = 120
+
+[[tool.cibuildwheel.overrides]]
+select = "*-manylinux*x86_64*"
+before-all = "./tools/install_deps.sh many64"
+
+[[tool.cibuildwheel.overrides]]
+select = "*-manylinux*i686*"
+before-all = "./tools/install_deps.sh many86"
+
+[[tool.cibuildwheel.overrides]]
+select = "*-musllinux*"
+before-all = "./tools/install_deps.sh musl"
+
+[[tool.cibuildwheel.overrides]]
+select = "*win*"
+before-build = "tools\\install_deps.bat install"
+after-build = "tools\\install_deps.bat uninstall"

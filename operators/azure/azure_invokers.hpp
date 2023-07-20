@@ -5,31 +5,39 @@
 
 #include "ocos.h"
 
-struct AzureAudioInvoker : public BaseKernel {
-  AzureAudioInvoker(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::Tensor<std::string>& auth_token,
-               const ortc::Tensor<uint8_t>& raw_audio_data,
-               ortc::Tensor<std::string>& text);
+struct AzureInvoker : public BaseKernel {
+  AzureInvoker(const OrtApi& api, const OrtKernelInfo& info);
 
- private:
-  std::string model_uri_;
-  std::string model_name_;
-  bool verbose_;
-};
-
-#if ORT_API_VERSION >= 14
-struct AzureTritonInvoker : public BaseKernel {
-  AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::Variadic& inputs,
-               ortc::Variadic& outputs);
-
- private:
+ protected:
+  ~AzureInvoker() = default;
   std::string model_uri_;
   std::string model_name_;
   std::string model_ver_;
   std::string verbose_;
-  std::unique_ptr<triton::client::InferenceServerHttpClient> triton_client_;
   std::vector<std::string> input_names_;
   std::vector<std::string> output_names_;
 };
-#endif
+
+struct AzureAudioInvoker : public AzureInvoker {
+  AzureAudioInvoker(const OrtApi& api, const OrtKernelInfo& info);
+  void Compute(const ortc::Variadic& inputs, ortc::Tensor<std::string>& output);
+
+ private:
+  std::string binary_type_;
+};
+
+struct AzureTextInvoker : public AzureInvoker {
+  AzureTextInvoker(const OrtApi& api, const OrtKernelInfo& info);
+  void Compute(std::string_view auth, std::string_view input, ortc::Tensor<std::string>& output);
+
+ private:
+  std::string binary_type_;
+};
+
+struct AzureTritonInvoker : public AzureInvoker {
+  AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info);
+  void Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs);
+
+ private:
+  std::unique_ptr<triton::client::InferenceServerHttpClient> triton_client_;
+};

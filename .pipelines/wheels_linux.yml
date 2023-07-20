@@ -1,9 +1,19 @@
+parameters:
+- name: BuildAzureOp
+  displayName: 'Build and test AzureEP ops'
+  type: string
+  values:
+  - '0'
+  - '1'
+  default: '0'
+
 jobs:
 - job: linux
-  timeoutInMinutes: 120
+  timeoutInMinutes: 180
   pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
   variables:
     CIBW_BUILD: "cp3{8,9,10,11}-*"
+    CIBW_ENVIRONMENT: "OCOS_ENABLE_AZURE=${{ parameters.BuildAzureOp }}"
 
   steps:
     - task: UsePythonVersion@0
