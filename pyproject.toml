@@ -22,4 +22,4 @@ before-all = "./tools/install_deps.sh musl"
 
 [[tool.cibuildwheel.overrides]]
 select = "*win*"
-before-build = "tools/install_deps.bat"
+before-build = "tools\\install_deps.bat"
