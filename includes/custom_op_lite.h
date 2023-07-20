@@ -53,7 +53,7 @@ class TensorBase {
     }
   }
   bool IsCpuTensor() const {
-    return mem_device_type_ == OrtMemoryInfoDeviceType::OrtMemoryInfoDeviceType_CPU;
+    return strcmp("Cpu", mem_type_) == 0;
   }
   virtual const void* DataRaw() const = 0;
   virtual size_t SizeInBytes() const = 0;
@@ -65,7 +65,7 @@ class TensorBase {
   bool is_input_;
   std::optional<std::vector<int64_t>> shape_;
   ONNXTensorElementDataType type_ = ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED;
-  OrtMemoryInfoDeviceType mem_device_type_ = OrtMemoryInfoDeviceType::OrtMemoryInfoDeviceType_CPU;
+  const char* mem_type_ = "Cpu";
 };
 
 template <typename T>
@@ -107,7 +107,7 @@ class Tensor : public TensorBase {
       const OrtMemoryInfo* mem_info = {};
       api_.GetOrtApi().GetTensorMemoryInfo(const_value_, &mem_info);
       if (mem_info) {
-        api.GetOrtApi().MemoryInfoGetDeviceType(mem_info, &mem_device_type_);
+        api.GetOrtApi().MemoryInfoGetName(mem_info, &mem_type_);
       }
     }
   }
