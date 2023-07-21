@@ -20,7 +20,6 @@ before-all = "./tools/install_deps.sh many86"
 select = "*-musllinux*"
 before-all = "./tools/install_deps.sh musl"
 
-[[tool.cibuildwheel.overrides]]
-select = "*win*"
+[[tool.cibuildwheel.windows]]
 before-build = "tools\\install_deps.bat install"
-before-test = "tools\\install_deps.bat uninstall"
+test-command = "tools\\install_deps.bat uninstall"
