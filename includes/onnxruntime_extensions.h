@@ -6,6 +6,7 @@
 #include "onnxruntime/onnxruntime_c_api.h"
 #else
 #include "onnxruntime_c_api.h"
+#endif
 
 #ifdef _WIN32
 #define ORTX_EXPORT __declspec(dllexport)
