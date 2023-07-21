@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 #pragma once
-#include "onnxruntime_c_api.h"
+#include "onnxruntime/onnxruntime_c_api.h"
 
 #ifdef _WIN32
 #define ORTX_EXPORT __declspec(dllexport)
