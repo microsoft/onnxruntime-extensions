@@ -60,7 +60,7 @@ def mel_filterbank(
         # intersect them with each other and zero
         fbank[i] = np.maximum(0, np.minimum(left, right))
 
-    energy_norm = 2.0 / (mel_bins[2 : n_mels + 2] - mel_bins[:n_mels])
+    energy_norm = 2.0 / (mel_bins[2: n_mels + 2] - mel_bins[:n_mels])
     fbank *= energy_norm[:, np.newaxis]
     return fbank
 
@@ -126,3 +126,55 @@ def remove_unused_initializers(subgraph, top_level_initializers=None):
             elif attr.type == onnx.AttributeProto.GRAPHS:
                 for subgraph in attr.graphs:
                     remove_unused_initializers(subgraph, top_level_initializers)
+
+
+def quick_merge(*models, connection_indices=None):
+    """
+    This function merges multiple ONNX models into a single model, without performing any ONNX format checks.
+
+    Parameters:
+    *models (onnx.ModelProto): Varargs parameter representing the ONNX models to be merged.
+    connection_indices (List[List[int]], optional): A nested list specifying which outputs in one model should connect 
+                                                    to which inputs in the next model, based on their indices. 
+                                                    If not provided, it's assumed that the sequence of outputs in 
+                                                    one model exactly matches the sequence of inputs in the next model.
+
+    Returns:
+    merged_model (onnx.ModelProto): The merged ONNX model.
+
+    Raises:
+    ValueError: If there is any conflict in tensor names, either in initializers or in nodes, including subgraphs.
+                If there is any conflict in opset versions for the same domain.
+    """
+
+    merged_graph = models[0].graph
+
+    # Dictionary to store unique opsets
+    opset_imports = {opset.domain if opset.domain else "ai.onnx": opset for opset in models[0].opset_import}
+
+    # Iterate over all other models and merge
+    for model_idx, model in enumerate(models[1:], start=1):
+        if connection_indices is None:
+            io_map = [(out.name, in_.name) for out, in_ in zip(models[model_idx - 1].graph.output, model.graph.input)]
+        else:
+            io_map = [(models[model_idx - 1].graph.output[out_idx].name, model.graph.input[in_idx].name)
+                      for out_idx, in_idx in connection_indices[model_idx - 1]]
+
+        merged_graph = onnx.compose.merge_graphs(merged_graph, model.graph, io_map)
+
+        for opset in model.opset_import:
+            if not opset.domain:
+                opset.domain = "ai.onnx"
+            if opset.domain in opset_imports and opset_imports[opset.domain].version != opset.version:
+                raise ValueError(f"Conflict in opset versions for domain '{opset.domain}': " +
+                                 f"model {model_idx} has version {opset.version}, while previous model has version " +
+                                 f"{opset_imports[opset.domain].version}.")
+            else:
+                opset_imports[opset.domain] = opset
+
+    default_opset = opset_imports.pop("ai.onnx", None)
+    merged_model = onnx.helper.make_model_gen_version(merged_graph,
+                                                      opset_imports=[default_opset],
+                                                      producer_name='ONNX Model Merger')
+    merged_model.opset_import.extend(opset_imports.values())
+    return merged_model
