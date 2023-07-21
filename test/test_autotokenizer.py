@@ -47,7 +47,7 @@ class TestAutoTokenizer(unittest.TestCase):
         self.assertEqual(log_mel.shape, (1, 80, 3000))
 
         fn_post = OrtPyFunction.from_model(post_m)
-        rel = fn_post(np.asarray([3, 4, 5], dtype=np.int32))
+        rel = fn_post(np.asarray([3, 4, 5], dtype=np.int32)[np.newaxis, np.newaxis, :])
         self.assertEqual(rel[0], "$%&")
 
     def test_whisper_audio_decoder(self):
