@@ -22,4 +22,3 @@ before-all = "./tools/install_deps.sh musl"
 
 [[tool.cibuildwheel.windows]]
 before-build = "tools\\install_deps.bat install"
-test-command = "tools\\install_deps.bat uninstall"

@@ -108,6 +108,7 @@ extends:
             python -m pip install --upgrade pip
             python -m pip install cibuildwheel numpy
             python -m cibuildwheel --platform windows --archs AMD64 --output-dir $(REPOROOT)\out
+            tools\install_deps.bat uninstall
           displayName: Build wheels
         - task: SDLNativeRules@3
           inputs:
