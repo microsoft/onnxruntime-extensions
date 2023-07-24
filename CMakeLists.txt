@@ -58,7 +58,7 @@ option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require o
 option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
 option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
-option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" OFF)
+option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" ON)
 
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
@@ -379,14 +379,15 @@ if(OCOS_ENABLE_BLINGFIRE)
 endif()
 
 if(OCOS_ENABLE_AZURE)
-
   if ($ENV{TEST_AZURE_INVOKERS_AS_CPU_OP} MATCHES "ON")
-    message(STATUS "Azure inovkers will be testable as cpu ops")
+    message(STATUS "Azure invokers will be testable as cpu ops")
     add_compile_definitions(TEST_AZURE_INVOKERS_AS_CPU_OP)
   endif()
 
+  include(curl)
+
   # Azure endpoint invokers
-  include(triton)
+  # include(triton)
   file(GLOB TARGET_SRC_AZURE "operators/azure/*.cc" "operators/azure/*.h*")
   list(APPEND TARGET_SRC ${TARGET_SRC_AZURE})
 endif()
@@ -715,12 +716,16 @@ endif()
 
 if(OCOS_ENABLE_AZURE)
 
-  add_dependencies(ocos_operators triton)
-  target_include_directories(ocos_operators PUBLIC ${TRITON_BIN}/include ${TRITON_THIRD_PARTY}/curl/include)
-  target_link_directories(ocos_operators PUBLIC ${TRITON_BIN}/lib ${TRITON_BIN}/lib64 ${TRITON_THIRD_PARTY}/curl/lib ${TRITON_THIRD_PARTY}/curl/lib64)
+  # add_dependencies(ocos_operators triton)
+  add_dependencies(ocos_operators curl7)
+  target_include_directories(ocos_operators PRIVATE ${CURL7_SRC}/include)
+  target_link_directories(ocos_operators PUBLIC ${CURL7_BIN}/lib ${CURL7_BIN}/lib64)
+
+  # target_include_directories(ocos_operators PUBLIC ${TRITON_BIN}/include ${TRITON_THIRD_PARTY}/curl/include)
+  # target_link_directories(ocos_operators PUBLIC ${TRITON_BIN}/lib ${TRITON_BIN}/lib64 ${TRITON_THIRD_PARTY}/curl/lib ${TRITON_THIRD_PARTY}/curl/lib64)
 
   if (ocos_target_platform STREQUAL "AMD64")
-    set(vcpkg_target_platform "x86")
+    set(vcpkg_target_platform "x86")  # ??? Why are we choosing 32-bit if target is 64-bit?
   else()
     set(vcpkg_target_platform ${ocos_target_platform})
   endif()

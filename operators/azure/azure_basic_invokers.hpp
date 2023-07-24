@@ -1,23 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-
 #pragma once
 
 #include "ocos.h"
+#include "azure_invoker.hpp"
 
-struct AzureInvoker : public BaseKernel {
-  AzureInvoker(const OrtApi& api, const OrtKernelInfo& info);
-
- protected:
-  ~AzureInvoker() = default;
-  std::string model_uri_;
-  std::string model_name_;
-  std::string model_ver_;
-  std::string verbose_;
-  std::vector<std::string> input_names_;
-  std::vector<std::string> output_names_;
-};
-
+namespace ort_extensions {
 struct AzureAudioInvoker : public AzureInvoker {
   AzureAudioInvoker(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(const ortc::Variadic& inputs, ortc::Tensor<std::string>& output);
@@ -34,10 +22,4 @@ struct AzureTextInvoker : public AzureInvoker {
   std::string binary_type_;
 };
 
-struct AzureTritonInvoker : public AzureInvoker {
-  AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs);
-
- private:
-  std::unique_ptr<triton::client::InferenceServerHttpClient> triton_client_;
-};
+}  // namespace ort_extensions
