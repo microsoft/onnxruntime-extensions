@@ -1,9 +1,8 @@
 include(ExternalProject)
 
 if (WIN32)
-
   if (ocos_target_platform STREQUAL "AMD64")
-    set(vcpkg_target_platform "x86")
+    set(vcpkg_target_platform "x64")
   else()
     set(vcpkg_target_platform ${ocos_target_platform})
   endif()
@@ -58,6 +57,7 @@ if (WIN32)
   vcpkg_install(boost-stacktrace)
   vcpkg_install(pthread)
   vcpkg_install(b64)
+  vcpkg_install(curl)
 
   add_dependencies(getb64 getpthread)
   add_dependencies(getpthread getboost-stacktrace)
@@ -78,16 +78,14 @@ if (WIN32)
                       UPDATE_COMMAND "")
 
   add_dependencies(triton ${VCPKG_DEPENDENCIES})
-
 else()
-
-  # ExternalProject_Add(curl7
-  #                     PREFIX curl7
-  #                     GIT_REPOSITORY "https://github.com/curl/curl.git"
-  #                     GIT_TAG "curl-7_86_0"
-  #                     SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/curl7-src
-  #                     BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/curl7-build
-  #                     CMAKE_ARGS -DBUILD_TESTING=OFF -DBUILD_CURL_EXE=OFF -DBUILD_SHARED_LIBS=OFF -DCURL_STATICLIB=ON -DHTTP_ONLY=ON -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
+  ExternalProject_Add(curl7
+                      PREFIX curl7
+                      GIT_REPOSITORY "https://github.com/curl/curl.git"
+                      GIT_TAG "curl-7_86_0"
+                      SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/curl7-src
+                      BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/curl7-build
+                      CMAKE_ARGS -DBUILD_TESTING=OFF -DBUILD_CURL_EXE=OFF -DBUILD_SHARED_LIBS=OFF -DCURL_STATICLIB=ON -DHTTP_ONLY=ON -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
 
   ExternalProject_Add(triton
                       GIT_REPOSITORY https://github.com/triton-inference-server/client.git

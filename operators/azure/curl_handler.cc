@@ -7,26 +7,21 @@
 
 namespace ort_extensions {
 
-// Why?
-struct StringBuffer {
-  StringBuffer() = default;
-  ~StringBuffer() = default;
-  std::stringstream ss_;
-};
-
 // apply the callback only when response is for sure to be a '/0' terminated string
-size_t CurlHandler::WriteStringCallback(void* contents, size_t element_size, size_t num_elements, void* userp) {
+size_t CurlHandler::WriteStringCallback(char* contents, size_t element_size, size_t num_elements, void* userdata) {
   try {
     size_t bytes = element_size * num_elements;
-    // TODO: Why can't we just cast to std::stringstream*?
-    auto buffer = reinterpret_cast<struct StringBuffer*>(userp);
-    buffer->ss_.write(reinterpret_cast<const char*>(contents), bytes);
+    std::string& buffer = *static_cast<std::string*>(userdata);
+    buffer.append(contents, bytes);
     return bytes;
   } catch (const std::exception& ex) {
+    // TODO: This should be captured/logger properly
     std::cerr << ex.what() << std::endl;
+    return 0;
   } catch (...) {
     // exception caught, abort write
-    return CURLcode::CURLE_WRITE_ERROR;  // TODO: How are we meant to distinguish this from a successful return?
+    std::cerr << "Unknown exception caught in CurlHandler::WriteStringCallback" << std::endl;
+    return 0;
   }
 }
 

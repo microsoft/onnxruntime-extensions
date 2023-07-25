@@ -3,12 +3,12 @@
 
 #pragma once
 
-#include "ocos.h"
-#include "azure_invoker.hpp"
+#include "azure_base_kernel.hpp"
+#include "http_client.h"  // triton
 
 namespace ort_extensions {
 
-struct AzureTritonInvoker : public AzureInvoker {
+struct AzureTritonInvoker : public AzureBaseKernel {
   AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs);
 

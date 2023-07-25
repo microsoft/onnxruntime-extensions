@@ -384,10 +384,8 @@ if(OCOS_ENABLE_AZURE)
     add_compile_definitions(TEST_AZURE_INVOKERS_AS_CPU_OP)
   endif()
 
-  include(curl)
-
   # Azure endpoint invokers
-  # include(triton)
+  include(triton)  # TODO: Allow curl and triton support to be added independently
   file(GLOB TARGET_SRC_AZURE "operators/azure/*.cc" "operators/azure/*.h*")
   list(APPEND TARGET_SRC ${TARGET_SRC_AZURE})
 endif()
@@ -584,6 +582,34 @@ else()
   set(_BUILD_SHARED_LIBRARY TRUE)
 endif()
 
+if(OCOS_ENABLE_AZURE)
+  add_dependencies(ocos_operators triton)
+  target_include_directories(ocos_operators PUBLIC ${TRITON_BIN}/include)
+  target_link_directories(ocos_operators PUBLIC ${TRITON_BIN}/lib ${TRITON_BIN}/lib64 )
+
+  if (ocos_target_platform STREQUAL "AMD64")
+    set(vcpkg_target_platform "x64")  # Was 'x86' but not clear Why are we choosing 32-bit if target is 64-bit?
+  else()
+    set(vcpkg_target_platform ${ocos_target_platform})
+  endif()
+
+  if (WIN32)
+    # As per https://curl.se/docs/faq.html#Link_errors_when_building_libcur we need to set CURL_STATICLIB.
+    target_compile_definitions(ocos_operators PRIVATE CURL_STATICLIB)
+
+    target_include_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static/include)
+    target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static/lib)
+    target_link_libraries(ocos_operators PUBLIC libcurl httpclient_static ws2_32 crypt32 Wldap32)
+
+  else()
+    find_package(ZLIB REQUIRED)
+    find_package(OpenSSL REQUIRED)
+    target_link_libraries(ocos_operators PUBLIC httpclient_static curl ZLIB::ZLIB OpenSSL::Crypto OpenSSL::SSL)
+
+  endif() 
+
+endif()
+
 target_compile_definitions(ortcustomops PUBLIC ${OCOS_COMPILE_DEFINITIONS})
 target_include_directories(ortcustomops PUBLIC
   "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
@@ -712,35 +738,4 @@ if(OCOS_ENABLE_CTEST)
       ${TEST_DATA_DES})
     add_test(NAME extensions_test COMMAND $<TARGET_FILE:extensions_test>)
   endif()
-endif()
-
-if(OCOS_ENABLE_AZURE)
-
-  # add_dependencies(ocos_operators triton)
-  add_dependencies(ocos_operators curl7)
-  target_include_directories(ocos_operators PRIVATE ${CURL7_SRC}/include)
-  target_link_directories(ocos_operators PUBLIC ${CURL7_BIN}/lib ${CURL7_BIN}/lib64)
-
-  # target_include_directories(ocos_operators PUBLIC ${TRITON_BIN}/include ${TRITON_THIRD_PARTY}/curl/include)
-  # target_link_directories(ocos_operators PUBLIC ${TRITON_BIN}/lib ${TRITON_BIN}/lib64 ${TRITON_THIRD_PARTY}/curl/lib ${TRITON_THIRD_PARTY}/curl/lib64)
-
-  if (ocos_target_platform STREQUAL "AMD64")
-    set(vcpkg_target_platform "x86")  # ??? Why are we choosing 32-bit if target is 64-bit?
-  else()
-    set(vcpkg_target_platform ${ocos_target_platform})
-  endif()
-
-  if (WIN32)
-
-    target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static/lib)
-    target_link_libraries(ocos_operators PUBLIC libcurl httpclient_static ws2_32 crypt32 Wldap32)
-
-  else()
-
-    find_package(ZLIB REQUIRED)
-    find_package(OpenSSL REQUIRED)
-    target_link_libraries(ocos_operators PUBLIC httpclient_static curl ZLIB::ZLIB OpenSSL::Crypto OpenSSL::SSL)
-
-  endif() #if (WIN32)
-
 endif()

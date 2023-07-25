@@ -5,20 +5,24 @@
 
 #include <memory>
 
-// TODO: Why are we defining CURL_STATICLIB in code vs. in cmake
-#define CURL_STATICLIB
 #include "curl/curl.h"
 
 namespace ort_extensions {
 
 class CurlHandler {
  public:
-  using WriteCallBack = size_t (*)(void*, size_t, size_t, void*);
+  using WriteCallBack = size_t (*)(char*, size_t, size_t, void*);
 
   CurlHandler(WriteCallBack callback);
   ~CurlHandler() = default;
 
-  static size_t WriteStringCallback(void* contents, size_t size, size_t nmemb, void* userp);
+  /// <summary>
+  /// Callback to add contents to a string
+  /// </summary>
+  /// <seealso cref="https://curl.se/libcurl/c/CURLOPT_WRITEFUNCTION.html"/>
+  /// <returns>Bytes processed. If this does not match element_size * num_elements the libcurl function
+  /// used will return CURLE_WRITE_ERROR</returns>
+  static size_t WriteStringCallback(char* contents, size_t element_size, size_t num_elements, void* userdata);
 
   void AddHeader(const char* data) {
     headers_.reset(curl_slist_append(headers_.release(), data));

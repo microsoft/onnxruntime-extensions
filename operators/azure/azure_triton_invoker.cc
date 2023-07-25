@@ -2,14 +2,14 @@
 // Licensed under the MIT License.
 
 #include "azure_triton_invoker.hpp"
-#include "http_client.h"  // triton
 
 ////////////////////// AzureTritonInvoker //////////////////////
 
 namespace tc = triton::client;
 
 namespace ort_extensions {
-AzureTritonInvoker::AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info) : AzureInvoker(api, info) {
+AzureTritonInvoker::AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info)
+    : AzureBaseKernel(api, info) {
   auto err = tc::InferenceServerHttpClient::Create(&triton_client_, ModelUri(), Verbose() != "0");
 }
 
@@ -107,11 +107,13 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
     ORTX_CXX_API_THROW("invalid inputs, auto token missing", ORT_RUNTIME_EXCEPTION);
   }
 
-  if (inputs.Size() != input_names_.size()) {
+  gsl::span<const std::string> input_names = InputNames();
+  if (inputs.Size() != input_names.size()) {
     ORTX_CXX_API_THROW("input count mismatch", ORT_RUNTIME_EXCEPTION);
   }
 
   auto auth_token = reinterpret_cast<const char*>(inputs[0]->DataRaw());
+
   std::vector<std::unique_ptr<tc::InferInput>> triton_input_vec;
   std::vector<tc::InferInput*> triton_inputs;
   std::vector<std::unique_ptr<const tc::InferRequestedOutput>> triton_output_vec;
@@ -125,7 +127,7 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
       ORTX_CXX_API_THROW("unknow onnx data type", ORT_RUNTIME_EXCEPTION);
     }
 
-    err = tc::InferInput::Create(&triton_input, input_names_[ith_input], inputs[ith_input]->Shape(), triton_data_type);
+    err = tc::InferInput::Create(&triton_input, input_names[ith_input], inputs[ith_input]->Shape(), triton_data_type);
     CHECK_TRITON_ERR(err, "failed to create triton input");
     triton_input_vec.emplace_back(triton_input);
 
@@ -137,9 +139,10 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
     CHECK_TRITON_ERR(err, "failed to append raw data to input");
   }
 
-  for (size_t ith_output = 0; ith_output < output_names_.size(); ++ith_output) {
+  gsl::span<const std::string> output_names = OutputNames();
+  for (size_t ith_output = 0; ith_output < output_names.size(); ++ith_output) {
     tc::InferRequestedOutput* triton_output = {};
-    err = tc::InferRequestedOutput::Create(&triton_output, output_names_[ith_output]);
+    err = tc::InferRequestedOutput::Create(&triton_output, output_names[ith_output]);
     CHECK_TRITON_ERR(err, "failed to create triton output");
     triton_output_vec.emplace_back(triton_output);
     triton_outputs.push_back(triton_output);
@@ -147,8 +150,8 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
 
   std::unique_ptr<tc::InferResult> results_ptr;
   tc::InferResult* results = {};
-  tc::InferOptions options(model_name_);
-  options.model_version_ = model_ver_;
+  tc::InferOptions options(ModelName());
+  options.model_version_ = ModelVersion();
   options.client_timeout_ = 0;
 
   tc::Headers http_headers;
@@ -163,34 +166,32 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
   CHECK_TRITON_ERR(err, "failed to do triton inference");
 
   size_t output_index = 0;
-  auto iter = output_names_.begin();
 
-  while (iter != output_names_.end()) {
+  for (const auto& output_name : output_names) {
     std::vector<int64_t> shape;
-    err = results_ptr->Shape(*iter, &shape);
+    err = results_ptr->Shape(output_name, &shape);
     CHECK_TRITON_ERR(err, "failed to get output shape");
 
     std::string type;
-    err = results_ptr->Datatype(*iter, &type);
+    err = results_ptr->Datatype(output_name, &type);
     CHECK_TRITON_ERR(err, "failed to get output type");
 
     if ("BYTES" == type) {
       std::vector<std::string> output_strings;
-      err = results_ptr->StringData(*iter, &output_strings);
+      err = results_ptr->StringData(output_name, &output_strings);
       CHECK_TRITON_ERR(err, "failed to get output as string");
       auto& string_tensor = outputs.AllocateStringTensor(output_index);
       string_tensor.SetStringOutput(output_strings, shape);
     } else {
       const uint8_t* raw_data = {};
       size_t raw_size;
-      err = results_ptr->RawData(*iter, &raw_data, &raw_size);
+      err = results_ptr->RawData(output_name, &raw_data, &raw_size);
       CHECK_TRITON_ERR(err, "failed to get output raw data");
       auto* output_raw = CreateNonStrTensor(type, outputs, output_index, shape);
       memcpy(output_raw, raw_data, raw_size);
     }
 
     ++output_index;
-    ++iter;
   }
 }
 
