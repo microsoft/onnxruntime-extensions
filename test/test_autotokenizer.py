@@ -2,39 +2,36 @@
 # Licensed under the MIT License.
 import sys
 import unittest
-import transformers as _hfts
 
 import numpy as np
 import onnxruntime as _ort
 from packaging import version
+from transformers import AutoTokenizer, WhisperProcessor
 from onnxruntime_extensions import OrtPyFunction, util, gen_processing_models
 
 
 @unittest.skipIf(version.parse(_ort.__version__) < version.parse("1.14.0"), "skip for onnxruntime < 1.14.0")
 class TestAutoTokenizer(unittest.TestCase):
+    def test_llama_tokenizer(self):
+        # replace the official model name after the model is not gated anymore
+        tokenizer = AutoTokenizer.from_pretrained("hf-internal-testing/llama-tokenizer")
+        ids = tokenizer.encode("I was born in 92000, and this is falsé.", return_tensors="np")
+
+        ort_tok = OrtPyFunction.from_model(gen_processing_models(
+            tokenizer,
+            pre_kwargs={"WITH_DEFAULT_INPUTS": True})[0])
+        actual_ids = ort_tok(["I was born in 92000, and this is falsé."])[0]
+        np.testing.assert_array_equal(ids[0], actual_ids)
+
     def test_t5_tokenizer(self):
-        tokenizer = _hfts.AutoTokenizer.from_pretrained("t5-base", model_max_length=512)
+        tokenizer = AutoTokenizer.from_pretrained("t5-base", model_max_length=512)
         ids = tokenizer.encode("best hotel in bay area.", return_tensors="np")
-        print(ids)
-
-        alpha = 0
-        nbest_size = 0
-        flags = 0
-
-        t5_default_inputs = (
-            np.array(
-                [nbest_size], dtype=np.int64),
-            np.array([alpha], dtype=np.float32),
-            np.array([flags & 1], dtype=np.bool_),
-            np.array([flags & 2], dtype=np.bool_),
-            np.array([flags & 4], dtype=np.bool_))
-
         ort_tok = OrtPyFunction.from_model(gen_processing_models(tokenizer, pre_kwargs={})[0])
-        actual_ids = ort_tok(["best hotel in bay area."], *t5_default_inputs)[0]
-        np.testing.assert_array_equal(ids[0][:-1], actual_ids)
+        actual_ids = ort_tok(["best hotel in bay area."])[0]
+        np.testing.assert_array_equal(ids[0], actual_ids)
 
     def test_whisper_overall(self):
-        processor = _hfts.WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
+        processor = WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
         pre_m, post_m = gen_processing_models(processor,
                                               pre_kwargs={"USE_AUDIO_DECODER": False, "USE_ONNX_STFT": False},
                                               post_kwargs={})
@@ -51,7 +48,7 @@ class TestAutoTokenizer(unittest.TestCase):
         self.assertEqual(rel[0], "$%&")
 
     def test_whisper_audio_decoder(self):
-        processor = _hfts.WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
+        processor = WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
         pre_m, _ = gen_processing_models(processor,
                                          pre_kwargs={"USE_AUDIO_DECODER": True, "USE_ONNX_STFT": True})
 
@@ -64,7 +61,7 @@ class TestAutoTokenizer(unittest.TestCase):
 
     @unittest.skipIf(sys.platform.startswith('win'), "Huggingface Processor crashed on Windows.")
     def test_ort_stft_consistency(self):
-        processor = _hfts.WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
+        processor = WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
         pre_m, _ = gen_processing_models(processor,
                                          pre_kwargs={"USE_AUDIO_DECODER": False, "USE_ONNX_STFT": True})
 
@@ -86,7 +83,7 @@ class TestAutoTokenizer(unittest.TestCase):
 
     @unittest.skipIf(sys.platform.startswith('win'), "Huggingface Processor crashed on Windows.")
     def test_stft_norm_consistency(self):
-        processor = _hfts.WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
+        processor = WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
         pre_m, _ = gen_processing_models(processor,
                                          pre_kwargs={"USE_AUDIO_DECODER": False, "USE_ONNX_STFT": False})
 
