@@ -8,8 +8,9 @@
 namespace tc = triton::client;
 
 namespace ort_extensions {
+
 AzureTritonInvoker::AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info)
-    : AzureBaseKernel(api, info) {
+    : CloudBaseKernel(api, info) {
   auto err = tc::InferenceServerHttpClient::Create(&triton_client_, ModelUri(), Verbose() != "0");
 }
 

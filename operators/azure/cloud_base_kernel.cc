@@ -1,12 +1,12 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "azure_invoker.hpp"
+#include "cloud_base_kernel.hpp"
 
 #include <sstream>
 
 namespace ort_extensions {
-AzureBaseKernel::AzureBaseKernel(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
+CloudBaseKernel::CloudBaseKernel(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
   auto ver = GetActiveOrtAPIVersion();
   if (ver < MinimumSupportedOrtVersion) {
     ORTX_CXX_API_THROW("Azure custom operators require onnxruntime version >= 1.14", ORT_RUNTIME_EXCEPTION);
@@ -55,13 +55,14 @@ AzureBaseKernel::AzureBaseKernel(const OrtApi& api, const OrtKernelInfo& info) :
   }
 }
 
-std::string AzureBaseKernel::GetAuthToken(const ortc::Variadic& inputs) const {
+std::string CloudBaseKernel::GetAuthToken(const ortc::Variadic& inputs) const {
   if (inputs.Size() < 1 ||
       inputs[0]->Type() != ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
     ORTX_CXX_API_THROW("auth_token string is required to be the first input", ORT_INVALID_ARGUMENT);
   }
 
   std::string auth_token{static_cast<const char*>(inputs[0]->DataRaw())};
+  return auth_token;
 }
 
 }  // namespace ort_extensions

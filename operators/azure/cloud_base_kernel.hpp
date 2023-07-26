@@ -8,10 +8,13 @@
 
 namespace ort_extensions {
 
-class AzureBaseKernel : public BaseKernel {
+/// <summary>
+/// Base kernel for custom ops that call cloud endpoints.
+/// </summary>
+class CloudBaseKernel : public BaseKernel {
  protected:
-  AzureBaseKernel(const OrtApi& api, const OrtKernelInfo& info);
-  virtual ~AzureBaseKernel() = default;
+  CloudBaseKernel(const OrtApi& api, const OrtKernelInfo& info);
+  virtual ~CloudBaseKernel() = default;
 
   // Names of attributes the custom operator provides.
   static constexpr const char* kUri = "model_uri";

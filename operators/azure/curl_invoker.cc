@@ -1,7 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "curl_handler.hpp"
+#include "curl_invoker.hpp"
+
 #include <iostream>  // TEMP error output
 #include <sstream>
 
@@ -39,4 +40,47 @@ CurlHandler::CurlHandler(WriteCallBack callback) : curl_(curl_easy_init(), curl_
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, callback);
 }
 
+////////////////////// CurlInvoker //////////////////////
+CurlInvoker::CurlInvoker(const OrtApi& api, const OrtKernelInfo& info)
+    : CloudBaseKernel(api, info) {
+}
+
+void CurlInvoker::Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) {
+  std::string auth_token = GetAuthToken(inputs);
+
+  if (inputs.Size() != InputNames().size()) {
+    // TODO: Add something like MakeString from ORT so we can output expected vs actual counts easily
+    ORTX_CXX_API_THROW("input count mismatch", ORT_RUNTIME_EXCEPTION);
+  }
+
+  if (outputs.Size() != OutputNames().size()) {
+    ORTX_CXX_API_THROW("output count mismatch", ORT_RUNTIME_EXCEPTION);
+  }
+
+  // do any additional validation of the number and type of inputs/outputs
+  ValidateArgs(inputs, outputs);
+
+  // set the options for the curl handler that apply to all usages
+  CurlHandler curl_handler(CurlHandler::WriteStringCallback);
+
+  std::string full_auth = std::string{"Authorization: Bearer "} + auth_token;
+  curl_handler.AddHeader(full_auth.c_str());
+  curl_handler.SetOption(CURLOPT_URL, ModelUri().c_str());
+  curl_handler.SetOption(CURLOPT_VERBOSE, Verbose());
+
+  std::string response;
+  curl_handler.SetOption(CURLOPT_WRITEDATA, (void*)&response);
+
+  SetupRequest(curl_handler, inputs);
+  ExecuteRequest(curl_handler);
+  ProcessResponse(response, outputs);
+}
+
+void CurlInvoker::ExecuteRequest(CurlHandler& curl_handler) const {
+  // this is where we could add any logic required to make the request async
+  auto curl_ret = curl_handler.Perform();
+  if (CURLE_OK != curl_ret) {
+    ORTX_CXX_API_THROW(curl_easy_strerror(curl_ret), ORT_FAIL);
+  }
+}
 }  // namespace ort_extensions

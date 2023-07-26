@@ -1,95 +1,47 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "azure_basic_invokers.hpp"
+#include "azure_invokers.hpp"
 
 #include <sstream>
 
-#include "curl_handler.hpp"
-
 namespace ort_extensions {
-
-////////////////////// AzureCurlInvoker //////////////////////
-AzureCurlInvoker::AzureCurlInvoker(const OrtApi& api, const OrtKernelInfo& info)
-    : AzureBaseKernel(api, info) {
-}
-
-void AzureCurlInvoker::Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) {
-  std::string auth_token = GetAuthToken(inputs);
-
-  if (inputs.Size() != InputNames().size()) {
-    // TODO: Add something like MakeString from ORT so we can output expected vs actual counts easily
-    ORTX_CXX_API_THROW("input count mismatch", ORT_RUNTIME_EXCEPTION);
-  }
-
-  if (outputs.Size() != OutputNames().size()) {
-    ORTX_CXX_API_THROW("output count mismatch", ORT_RUNTIME_EXCEPTION);
-  }
-
-  // do any additional validation of the number and type of inputs/outputs
-  ValidateArgs(inputs, outputs);
-
-  // set the options for the curl handler that apply to all usages
-  CurlHandler curl_handler(CurlHandler::WriteStringCallback);
-
-  std::string full_auth = std::string{"Authorization: Bearer "} + auth_token;
-  curl_handler.AddHeader(full_auth.c_str());
-  curl_handler.SetOption(CURLOPT_URL, ModelUri().c_str());
-  curl_handler.SetOption(CURLOPT_VERBOSE, Verbose());
-
-  std::string response;
-  curl_handler.SetOption(CURLOPT_WRITEDATA, (void*)&response);
-
-  SetupRequest(curl_handler, inputs);
-  ExecuteRequest(curl_handler);
-  ProcessResponse(response, outputs);
-}
-
-void AzureCurlInvoker::ExecuteRequest(CurlHandler& curl_handler) const {
-  // this is where we could add any logic required to make the request async
-  auto curl_ret = curl_handler.Perform();
-  if (CURLE_OK != curl_ret) {
-    ORTX_CXX_API_THROW(curl_easy_strerror(curl_ret), ORT_FAIL);
-  }
-}
 
 ////////////////////// AzureAudioToText //////////////////////
 
 AzureAudioToText::AzureAudioToText(const OrtApi& api, const OrtKernelInfo& info)
-    : AzureCurlInvoker(api, info) {
-  binary_type_ = TryToGetAttributeWithDefault<std::string>(kBinaryType, "");
+    : CurlInvoker(api, info) {
+  audio_format_ = TryToGetAttributeWithDefault<std::string>(kAudioFormat, "");
 }
 
 void AzureAudioToText::ValidateArgs(const ortc::Variadic& inputs, const ortc::Variadic& outputs) const {
+  // TODO: Validate any required input names are present
   if (outputs.Size() != 1 || outputs[0]->Type() != ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
     ORTX_CXX_API_THROW("Expected single string output", ORT_INVALID_ARGUMENT);
   }
 }
 
 void AzureAudioToText::SetupRequest(CurlHandler& curl_handler, const ortc::Variadic& inputs) const {
+  // theoretically the filename the content was buffered from
+  static const std::string fake_filename = "non_exist." + audio_format_;
+
   gsl::span<const std::string> input_names = InputNames();
 
   curl_handler.AddHeader("Content-Type: multipart/form-data");
+  curl_handler.AddFormString("deployment_id", ModelName().c_str());
 
+  // TODO: If the handling here stays the same as in OpenAIAudioToText we can create a helper function to re-use
   for (size_t ith_input = 1; ith_input < inputs.Size(); ++ith_input) {
     switch (inputs[ith_input]->Type()) {
       case ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING:
-        curl_handler.AddForm(CURLFORM_COPYNAME,
-                             input_names[ith_input].c_str(),
-                             CURLFORM_COPYCONTENTS,
-                             inputs[ith_input]->DataRaw(),
-                             CURLFORM_END);
+        curl_handler.AddFormString(input_names[ith_input].c_str(),
+                                   static_cast<const char*>(inputs[ith_input]->DataRaw()));  // assumes null terminated
         break;
       case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
-        curl_handler.AddForm(CURLFORM_COPYNAME,
-                             input_names[ith_input].data(),
-                             CURLFORM_BUFFER,
-                             "non_exist." + binary_type_,
-                             CURLFORM_BUFFERPTR,
-                             inputs[ith_input]->DataRaw(),
-                             CURLFORM_BUFFERLENGTH,
-                             inputs[ith_input]->SizeInBytes(),
-                             CURLFORM_END);
+        curl_handler.AddFormBuffer(input_names[ith_input].c_str(),
+                                   fake_filename.c_str(),
+                                   inputs[ith_input]->DataRaw(),
+                                   inputs[ith_input]->SizeInBytes());
         break;
       default:
         ORTX_CXX_API_THROW("input must be either text or binary", ORT_RUNTIME_EXCEPTION);
@@ -106,7 +58,7 @@ void AzureAudioToText::ProcessResponse(const std::string& response, ortc::Variad
 ////////////////////// AzureTextToText //////////////////////
 
 AzureTextToText::AzureTextToText(const OrtApi& api, const OrtKernelInfo& info)
-    : AzureCurlInvoker(api, info) {
+    : CurlInvoker(api, info) {
 }
 
 void AzureTextToText::ValidateArgs(const ortc::Variadic& inputs, const ortc::Variadic& outputs) const {
