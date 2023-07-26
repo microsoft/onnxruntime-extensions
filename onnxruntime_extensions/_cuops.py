@@ -31,6 +31,10 @@ class CustomOp:
         return None
 
     @classmethod
+    def input_default_values(cls):
+        return None
+
+    @classmethod
     def serialize_attr(cls, attrs):
         """
         Only support serialize the basic python type like list or dict,
@@ -311,6 +315,17 @@ class SentencepieceTokenizer(CustomOp):
             cls.io_def('add_eos', onnx_proto.TensorProto.BOOL, [None]),
             cls.io_def('reverse', onnx_proto.TensorProto.BOOL, [None])
         ]
+
+    # beyond Python 3.7, the order of the dict is guaranteed to be insertion order
+    @classmethod
+    def input_default_values(cls):
+        return {
+            'nbest_size': [0],
+            'alpha': [0],
+            'add_bos': [False],
+            'add_eos': [False],
+            'reverse': [False]
+        }
 
     @classmethod
     def get_outputs(cls):
