@@ -27,7 +27,7 @@ class CloudBaseKernel : public BaseKernel {
   const std::string& ModelUri() const { return model_uri_; }
   const std::string& ModelName() const { return model_name_; }
   const std::string& ModelVersion() const { return model_ver_; }
-  const std::string& Verbose() const { return verbose_; }
+  bool Verbose() const { return verbose_; }
 
   const gsl::span<const std::string> InputNames() const { return input_names_; }
   const gsl::span<const std::string> OutputNames() const { return output_names_; }
@@ -39,7 +39,7 @@ class CloudBaseKernel : public BaseKernel {
   std::string model_uri_;
   std::string model_name_;
   std::string model_ver_;
-  std::string verbose_;
+  bool verbose_;
 
   std::vector<std::string> input_names_;
   std::vector<std::string> output_names_;

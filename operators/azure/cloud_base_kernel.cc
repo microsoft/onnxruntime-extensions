@@ -15,7 +15,7 @@ CloudBaseKernel::CloudBaseKernel(const OrtApi& api, const OrtKernelInfo& info) :
   model_uri_ = TryToGetAttributeWithDefault<std::string>(kUri, "");
   model_name_ = TryToGetAttributeWithDefault<std::string>(kModelName, "");
   model_ver_ = TryToGetAttributeWithDefault<std::string>(kModelVer, "0");
-  verbose_ = TryToGetAttributeWithDefault<std::string>(kVerbose, "0");
+  verbose_ = TryToGetAttributeWithDefault<std::string>(kVerbose, "0") != "0";
 
   OrtStatusPtr status{};
   size_t input_count{};

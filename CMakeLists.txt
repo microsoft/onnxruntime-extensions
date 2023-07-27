@@ -58,7 +58,7 @@ option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require o
 option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
 option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
-option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" ON)
+option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" ON)  # TEMPORARY for testing
 
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
@@ -385,8 +385,17 @@ if(OCOS_ENABLE_AZURE)
   endif()
 
   # Azure endpoint invokers
-  include(triton)  # TODO: Allow curl and triton support to be added independently
   file(GLOB TARGET_SRC_AZURE "operators/azure/*.cc" "operators/azure/*.h*")
+
+  if (ANDROID)
+    include(curl)
+    # exclude triton 
+    list(FILTER TARGET_SRC_AZURE EXCLUDE REGEX ".*triton.*")
+  else()
+    add_compile_definitions(AZURE_INVOKERS_ENABLE_TRITON)
+    include(triton) 
+  endif()
+  
   list(APPEND TARGET_SRC ${TARGET_SRC_AZURE})
 endif()
 
@@ -583,31 +592,37 @@ else()
 endif()
 
 if(OCOS_ENABLE_AZURE)
-  add_dependencies(ocos_operators triton)
-  target_include_directories(ocos_operators PUBLIC ${TRITON_BIN}/include)
-  target_link_directories(ocos_operators PUBLIC ${TRITON_BIN}/lib ${TRITON_BIN}/lib64 )
-
-  if (ocos_target_platform STREQUAL "AMD64")
-    set(vcpkg_target_platform "x64")  # Was 'x86' but not clear Why are we choosing 32-bit if target is 64-bit?
-  else()
-    set(vcpkg_target_platform ${ocos_target_platform})
-  endif()
-
-  if (WIN32)
-    # As per https://curl.se/docs/faq.html#Link_errors_when_building_libcur we need to set CURL_STATICLIB.
-    target_compile_definitions(ocos_operators PRIVATE CURL_STATICLIB)
-
-    target_include_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static/include)
-    target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static/lib)
-    target_link_libraries(ocos_operators PUBLIC libcurl httpclient_static ws2_32 crypt32 Wldap32)
-
-  else()
-    find_package(ZLIB REQUIRED)
+  if (ANDROID)
     find_package(OpenSSL REQUIRED)
-    target_link_libraries(ocos_operators PUBLIC httpclient_static curl ZLIB::ZLIB OpenSSL::Crypto OpenSSL::SSL)
+    find_package(CURL REQUIRED)
 
-  endif() 
+    target_link_libraries(ocos_operators PUBLIC CURL::libcurl OpenSSL::Crypto OpenSSL::SSL)
+  elseif(IOS)
+    # TODO
+  else()
+    add_dependencies(ocos_operators triton)
+    target_include_directories(ocos_operators PUBLIC ${TRITON_BIN}/include)
+    target_link_directories(ocos_operators PUBLIC ${TRITON_BIN}/lib ${TRITON_BIN}/lib64 )
 
+    if (ocos_target_platform STREQUAL "AMD64")
+      set(vcpkg_target_platform "x64")  # Was 'x86' but not clear Why are we choosing 32-bit if target is 64-bit?
+    else()
+      set(vcpkg_target_platform ${ocos_target_platform})
+    endif()
+
+    if (WIN32)
+      # As per https://curl.se/docs/faq.html#Link_errors_when_building_libcur we need to set CURL_STATICLIB.
+      target_compile_definitions(ocos_operators PRIVATE CURL_STATICLIB)
+
+      target_include_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static/include)
+      target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static/lib)
+      target_link_libraries(ocos_operators PUBLIC httpclient_static libcurl ws2_32 crypt32 Wldap32)
+    else()
+      find_package(ZLIB REQUIRED)
+      find_package(OpenSSL REQUIRED)
+      target_link_libraries(ocos_operators PUBLIC httpclient_static curl ZLIB::ZLIB OpenSSL::Crypto OpenSSL::SSL)
+    endif() 
+  endif()
 endif()
 
 target_compile_definitions(ortcustomops PUBLIC ${OCOS_COMPILE_DEFINITIONS})

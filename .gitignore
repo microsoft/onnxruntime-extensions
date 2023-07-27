@@ -52,3 +52,4 @@ java/hs_*.log
 *.pyd
 /test/data/ppp_vision/*.updated.onnx
 /test/data/generated/
+.setuptools-cmake-build
