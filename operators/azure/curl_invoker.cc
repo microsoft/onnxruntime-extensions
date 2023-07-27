@@ -45,7 +45,7 @@ CurlInvoker::CurlInvoker(const OrtApi& api, const OrtKernelInfo& info)
     : CloudBaseKernel(api, info) {
 }
 
-void CurlInvoker::Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) {
+void CurlInvoker::ComputeImpl(const ortc::Variadic& inputs, ortc::Variadic& outputs) const {
   std::string auth_token = GetAuthToken(inputs);
 
   if (inputs.Size() != InputNames().size()) {

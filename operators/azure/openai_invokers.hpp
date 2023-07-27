@@ -26,6 +26,11 @@ class OpenAIAudioToText : public CurlInvoker {
  public:
   OpenAIAudioToText(const OrtApi& api, const OrtKernelInfo& info);
 
+  void Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) {
+    // use impl from CurlInvoker
+    ComputeImpl(inputs, outputs);
+  }
+
  private:
   void ValidateArgs(const ortc::Variadic& inputs, const ortc::Variadic& outputs) const override;
   void SetupRequest(CurlHandler& curl_handler, const ortc::Variadic& inputs) const override;

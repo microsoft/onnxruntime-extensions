@@ -79,10 +79,9 @@ class CurlInvoker : public CloudBaseKernel {
   CurlInvoker(const OrtApi& api, const OrtKernelInfo& info);
   virtual ~CurlInvoker() = default;
 
- public:
-  // Compute method that is used to co-ordinate all Curl based Azure requests
-  // TODO: Can this be `const` to enforce it's stateless?
-  void Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs);
+  // Compute implementation that is used to co-ordinate all Curl based Azure requests.
+  // Derived classes need their own Compute to work with the CustomOpLite infrastructure
+  void ComputeImpl(const ortc::Variadic& inputs, ortc::Variadic& outputs) const;
 
  private:
   void ExecuteRequest(CurlHandler& handler) const;
