@@ -27,7 +27,8 @@ class BroadcastIteratorRight {
       }
       if (shape2[i] != 1 && shape1[i] != shape2[i]) {
         ORTX_CXX_API_THROW(MakeString(
-            "Cannot broadcast dimension ", i, " left:", shape1[i], " right:", shape2[i]), ORT_INVALID_ARGUMENT);
+                               "Cannot broadcast dimension ", i, " left:", shape1[i], " right:", shape2[i]),
+                           ORT_INVALID_ARGUMENT);
       }
     }
     cum_shape2_[shape2_.size() - 1] = 1;
@@ -114,7 +115,7 @@ inline bool Compare<std::string>::operator()(const std::string& s1, const std::s
 }
 
 template <typename T>
-void KernelEqual_Compute(const OrtApi& api, OrtW::CustomOpApi& ort_, OrtKernelContext* context) {
+void KernelEqual_Compute(const OrtApi& api, const OrtW::CustomOpApi& ort_, OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input_X = ort_.KernelContext_GetInput(context, 0);
   const T* X = ort_.GetTensorData<T>(input_X);
@@ -144,7 +145,8 @@ void KernelEqual_Compute(const OrtApi& api, OrtW::CustomOpApi& ort_, OrtKernelCo
 }
 
 template <>
-void KernelEqual_Compute<std::string>(const OrtApi& api, OrtW::CustomOpApi& ort_, OrtKernelContext* context) {
+void KernelEqual_Compute<std::string>(const OrtApi& api, const OrtW::CustomOpApi& ort_,
+                                      OrtKernelContext* context) {
   // Setup inputs
   const OrtValue* input_X = ort_.KernelContext_GetInput(context, 0);
   const OrtValue* input_Y = ort_.KernelContext_GetInput(context, 1);

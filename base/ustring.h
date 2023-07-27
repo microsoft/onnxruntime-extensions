@@ -45,9 +45,8 @@ struct hash<ustring> {
 };
 }  // namespace std
 
-
-void GetTensorMutableDataString(const OrtApi& api, OrtW::CustomOpApi& ort, OrtKernelContext* context,
+void GetTensorMutableDataString(const OrtApi& api, const OrtW::CustomOpApi& ort, const OrtKernelContext* context,
                                 const OrtValue* value, std::vector<ustring>& output);
 
-void FillTensorDataString(const OrtApi& api, OrtW::CustomOpApi& ort, OrtKernelContext* context,
+void FillTensorDataString(const OrtApi& api, const OrtW::CustomOpApi& ort, const OrtKernelContext* context,
                           const std::vector<ustring>& value, OrtValue* output);

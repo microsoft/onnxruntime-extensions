@@ -18,7 +18,7 @@ struct STFT : public BaseKernel {
                int64_t hop_length,
                const ortc::Span<float>& input3,
                int64_t frame_length,
-               ortc::Tensor<float>& output0) {
+               ortc::Tensor<float>& output0) const {
     auto X = input0.Data();
     auto window = input3.data();
     auto dimensions = input0.Shape();
@@ -77,7 +77,7 @@ struct StftNormal : public STFT {
                int64_t hop_length,
                const ortc::Span<float>& input3,
                int64_t frame_length,
-               ortc::Tensor<float>& output0) {
+               ortc::Tensor<float>& output0) const {
     STFT::Compute(input0, n_fft, hop_length, input3, frame_length, output0);
   }
 };

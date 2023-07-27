@@ -127,7 +127,7 @@ void KernelWordpieceTokenizer::Compute(const ortc::Tensor<std::string>& input,
                                        ortc::Tensor<std::string>& output,
                                        ortc::Tensor<int64_t>& row_lengths,
                                        ortc::Tensor<int64_t>& out_row_begin,
-                                       ortc::Tensor<int64_t>& output_limit_values) {
+                                       ortc::Tensor<int64_t>& output_limit_values) const {
   // Update with the new API
   // make a copy as we need ustring
   std::vector<ustring> str_input;
