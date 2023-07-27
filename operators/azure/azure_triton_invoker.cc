@@ -11,7 +11,7 @@ namespace ort_extensions {
 
 AzureTritonInvoker::AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info)
     : CloudBaseKernel(api, info) {
-  auto err = tc::InferenceServerHttpClient::Create(&triton_client_, ModelUri(), Verbose() != "0");
+  auto err = tc::InferenceServerHttpClient::Create(&triton_client_, ModelUri(), Verbose());
 }
 
 std::string MapDataType(ONNXTensorElementDataType onnx_data_type) {

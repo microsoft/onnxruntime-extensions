@@ -7,7 +7,7 @@
 
 namespace ort_extensions {
 
-////////////////////// OpenAIAudioToText //////////////////////
+////////////////////// OpenAIAudioToTextInvoker //////////////////////
 
 /// <summary>
 /// OpenAI Audio to Text
@@ -22,9 +22,9 @@ namespace ort_extensions {
 /// 	    - see OpenAI documentation for current supported audio formats
 ///       - a string tensor named `prompt` (optional)
 /// </remarks>
-class OpenAIAudioToText : public CurlInvoker {
+class OpenAIAudioToTextInvoker : public CurlInvoker {
  public:
-  OpenAIAudioToText(const OrtApi& api, const OrtKernelInfo& info);
+  OpenAIAudioToTextInvoker(const OrtApi& api, const OrtKernelInfo& info);
 
   void Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) {
     // use impl from CurlInvoker

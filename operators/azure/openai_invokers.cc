@@ -5,7 +5,7 @@
 
 namespace ort_extensions {
 
-OpenAIAudioToText::OpenAIAudioToText(const OrtApi& api, const OrtKernelInfo& info)
+OpenAIAudioToTextInvoker::OpenAIAudioToTextInvoker(const OrtApi& api, const OrtKernelInfo& info)
     : CurlInvoker(api, info) {
   audio_format_ = TryToGetAttributeWithDefault<std::string>(kAudioFormat, "");
 
@@ -18,13 +18,13 @@ OpenAIAudioToText::OpenAIAudioToText(const OrtApi& api, const OrtKernelInfo& inf
   ORTX_CXX_API_THROW("Required 'file' input was not found", ORT_INVALID_ARGUMENT);
 }
 
-void OpenAIAudioToText::ValidateArgs(const ortc::Variadic& inputs, const ortc::Variadic& outputs) const {
+void OpenAIAudioToTextInvoker::ValidateArgs(const ortc::Variadic& inputs, const ortc::Variadic& outputs) const {
   if (outputs.Size() != 1 || outputs[0]->Type() != ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
     ORTX_CXX_API_THROW("Expected single string output", ORT_INVALID_ARGUMENT);
   }
 }
 
-void OpenAIAudioToText::SetupRequest(CurlHandler& curl_handler, const ortc::Variadic& inputs) const {
+void OpenAIAudioToTextInvoker::SetupRequest(CurlHandler& curl_handler, const ortc::Variadic& inputs) const {
   // theoretically the filename the content was buffered from
   static const std::string fake_filename = "non_exist." + audio_format_;
   gsl::span<const std::string> input_names = InputNames();
@@ -53,7 +53,7 @@ void OpenAIAudioToText::SetupRequest(CurlHandler& curl_handler, const ortc::Vari
   }
 }
 
-void OpenAIAudioToText::ProcessResponse(const std::string& response, ortc::Variadic& outputs) const {
+void OpenAIAudioToTextInvoker::ProcessResponse(const std::string& response, ortc::Variadic& outputs) const {
   auto& string_tensor = outputs.AllocateStringTensor(0);
   string_tensor.SetStringOutput(std::vector<std::string>{response}, std::vector<int64_t>{1});
 }
