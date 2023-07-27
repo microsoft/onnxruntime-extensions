@@ -8,12 +8,11 @@ struct KernelBpeTokenizer : BaseKernel {
   KernelBpeTokenizer(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(const ortc::Tensor<std::string>& input,
                ortc::Tensor<int64_t>& tokenize_output,
-               std::optional<ortc::Tensor<int64_t>*> attention_mask);
+               std::optional<ortc::Tensor<int64_t>*> attention_mask) const;
 
  private:
-  std::vector<int64_t> Tokenize(const ustring& input, int64_t max_length);
+  std::vector<int64_t> Tokenize(const ustring& input, int64_t max_length) const;
 
   int64_t padding_length_;
-  std::list<std::pair<int, int>> byte_list_;
   std::shared_ptr<VocabData> bbpe_tokenizer_;
 };

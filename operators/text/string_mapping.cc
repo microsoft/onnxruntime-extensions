@@ -15,20 +15,23 @@ KernelStringMapping::KernelStringMapping(const OrtApi& api, const OrtKernelInfo&
     auto items = SplitString(line, "\t", true);
 
     if (items.size() != 2) {
-      ORTX_CXX_API_THROW(std::string("[StringMapping]: Should only exist two items in one line, find error in line: ") + std::string(line), ORT_INVALID_GRAPH);
+      ORTX_CXX_API_THROW(
+          "[StringMapping]: Should only exist two items in one line, find error in line: " + std::string(line),
+          ORT_INVALID_GRAPH);
     }
     map_[std::string(items[0])] = std::string(items[1]);
   }
 }
 
 void KernelStringMapping::Compute(const ortc::Tensor<std::string>& input,
-                                  ortc::Tensor<std::string>& output) {
+                                  ortc::Tensor<std::string>& output) const {
   // make a copy as input is constant
   std::vector<std::string> input_data = input.Data();
 
   for (auto& str : input_data) {
-    if (map_.find(str) != map_.end()) {
-      str = map_[str];
+    auto entry = map_.find(str);
+    if (entry != map_.end()) {
+      str = entry->second;
     }
   }
   output.SetStringOutput(input_data, input.Shape());

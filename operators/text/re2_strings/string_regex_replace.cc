@@ -10,13 +10,13 @@
 
 KernelStringRegexReplace::KernelStringRegexReplace(const OrtApi& api, const OrtKernelInfo& info)
     : BaseKernel(api, info) {
-  global_replace_ = TryToGetAttributeWithDefault("global_replace",1);
+  global_replace_ = TryToGetAttributeWithDefault("global_replace", 1);
 }
 
 void KernelStringRegexReplace::Compute(const ortc::Tensor<std::string>& input,
-                                        std::string_view str_pattern,
-                                        std::string_view str_rewrite,
-                                        ortc::Tensor<std::string>& output) {
+                                       std::string_view str_pattern,
+                                       std::string_view str_rewrite,
+                                       ortc::Tensor<std::string>& output) const {
   if (str_pattern.empty())
     ORTX_CXX_API_THROW("pattern (second input) cannot be empty.", ORT_INVALID_ARGUMENT);
 

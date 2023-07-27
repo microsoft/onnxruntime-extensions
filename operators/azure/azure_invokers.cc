@@ -131,7 +131,7 @@ AzureAudioInvoker::AzureAudioInvoker(const OrtApi& api, const OrtKernelInfo& inf
   binary_type_ = TryToGetAttributeWithDefault<std::string>(kBinaryType, "");
 }
 
-void AzureAudioInvoker::Compute(const ortc::Variadic& inputs, ortc::Tensor<std::string>& output) {
+void AzureAudioInvoker::Compute(const ortc::Variadic& inputs, ortc::Tensor<std::string>& output) const {
   if (inputs.Size() < 1 ||
       inputs[0]->Type() != ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
     ORTX_CXX_API_THROW("invalid inputs, auto token missing", ORT_RUNTIME_EXCEPTION);
@@ -196,7 +196,8 @@ void AzureAudioInvoker::Compute(const ortc::Variadic& inputs, ortc::Tensor<std::
 AzureTextInvoker::AzureTextInvoker(const OrtApi& api, const OrtKernelInfo& info) : AzureInvoker(api, info) {
 }
 
-void AzureTextInvoker::Compute(std::string_view auth, std::string_view input, ortc::Tensor<std::string>& output) {
+void AzureTextInvoker::Compute(std::string_view auth, std::string_view input,
+                               ortc::Tensor<std::string>& output) const {
   CurlHandler curl_handler(WriteStringCallback);
   StringBuffer string_buffer;
 
@@ -313,8 +314,7 @@ int8_t* CreateNonStrTensor(const std::string& data_type,
     return ORTX_CXX_API_THROW("Triton err: " + ret.Message(), ORT_RUNTIME_EXCEPTION); \
   }
 
-void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
-                                 ortc::Variadic& outputs) {
+void AzureTritonInvoker::Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) const {
   if (inputs.Size() < 1 ||
       inputs[0]->Type() != ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
     ORTX_CXX_API_THROW("invalid inputs, auto token missing", ORT_RUNTIME_EXCEPTION);
