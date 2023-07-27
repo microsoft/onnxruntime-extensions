@@ -41,6 +41,7 @@ CurlHandler::CurlHandler(WriteCallBack callback) : curl_(curl_easy_init(), curl_
 }
 
 ////////////////////// CurlInvoker //////////////////////
+
 CurlInvoker::CurlInvoker(const OrtApi& api, const OrtKernelInfo& info)
     : CloudBaseKernel(api, info) {
 }

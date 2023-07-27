@@ -7,16 +7,16 @@
 
 namespace ort_extensions {
 
-////////////////////// AzureAudioToText //////////////////////
+////////////////////// AzureAudioToTextInvoker //////////////////////
 
 /// <summary>
 /// Azure Audio to Text
 /// Input: auth_token {string}, ??? (Update when AOAI endpoint is defined)
 /// Output: text {string}
 /// </summary>
-class AzureAudioToText : public CurlInvoker {
+class AzureAudioToTextInvoker : public CurlInvoker {
  public:
-  AzureAudioToText(const OrtApi& api, const OrtKernelInfo& info);
+  AzureAudioToTextInvoker(const OrtApi& api, const OrtKernelInfo& info);
 
  private:
   void ValidateArgs(const ortc::Variadic& inputs, const ortc::Variadic& outputs) const override;
@@ -27,13 +27,13 @@ class AzureAudioToText : public CurlInvoker {
   std::string audio_format_;
 };
 
-////////////////////// AzureTextToText //////////////////////
+////////////////////// AzureTextToTextInvoker //////////////////////
 
 /// Azure Text to Text
 /// Input: auth_token {string}, text {string}
 /// Output: text {string}
-struct AzureTextToText : public CurlInvoker {
-  AzureTextToText(const OrtApi& api, const OrtKernelInfo& info);
+struct AzureTextToTextInvoker : public CurlInvoker {
+  AzureTextToTextInvoker(const OrtApi& api, const OrtKernelInfo& info);
 
  private:
   void ValidateArgs(const ortc::Variadic& inputs, const ortc::Variadic& outputs) const override;

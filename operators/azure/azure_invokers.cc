@@ -7,21 +7,21 @@
 
 namespace ort_extensions {
 
-////////////////////// AzureAudioToText //////////////////////
+////////////////////// AzureAudioToTextInvoker //////////////////////
 
-AzureAudioToText::AzureAudioToText(const OrtApi& api, const OrtKernelInfo& info)
+AzureAudioToTextInvoker::AzureAudioToTextInvoker(const OrtApi& api, const OrtKernelInfo& info)
     : CurlInvoker(api, info) {
   audio_format_ = TryToGetAttributeWithDefault<std::string>(kAudioFormat, "");
 }
 
-void AzureAudioToText::ValidateArgs(const ortc::Variadic& inputs, const ortc::Variadic& outputs) const {
+void AzureAudioToTextInvoker::ValidateArgs(const ortc::Variadic& inputs, const ortc::Variadic& outputs) const {
   // TODO: Validate any required input names are present
   if (outputs.Size() != 1 || outputs[0]->Type() != ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
     ORTX_CXX_API_THROW("Expected single string output", ORT_INVALID_ARGUMENT);
   }
 }
 
-void AzureAudioToText::SetupRequest(CurlHandler& curl_handler, const ortc::Variadic& inputs) const {
+void AzureAudioToTextInvoker::SetupRequest(CurlHandler& curl_handler, const ortc::Variadic& inputs) const {
   // theoretically the filename the content was buffered from
   static const std::string fake_filename = "non_exist." + audio_format_;
 
@@ -50,18 +50,18 @@ void AzureAudioToText::SetupRequest(CurlHandler& curl_handler, const ortc::Varia
   }
 }
 
-void AzureAudioToText::ProcessResponse(const std::string& response, ortc::Variadic& outputs) const {
+void AzureAudioToTextInvoker::ProcessResponse(const std::string& response, ortc::Variadic& outputs) const {
   auto& string_tensor = outputs.AllocateStringTensor(0);
   string_tensor.SetStringOutput(std::vector<std::string>{response}, std::vector<int64_t>{1});
 }
 
-////////////////////// AzureTextToText //////////////////////
+////////////////////// AzureTextToTextInvoker //////////////////////
 
-AzureTextToText::AzureTextToText(const OrtApi& api, const OrtKernelInfo& info)
+AzureTextToTextInvoker::AzureTextToTextInvoker(const OrtApi& api, const OrtKernelInfo& info)
     : CurlInvoker(api, info) {
 }
 
-void AzureTextToText::ValidateArgs(const ortc::Variadic& inputs, const ortc::Variadic& outputs) const {
+void AzureTextToTextInvoker::ValidateArgs(const ortc::Variadic& inputs, const ortc::Variadic& outputs) const {
   if (inputs.Size() != 2 || inputs[0]->Type() != ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
     ORTX_CXX_API_THROW("Expected 2 string inputs of auth_token and text respectively", ORT_INVALID_ARGUMENT);
   }
@@ -71,7 +71,7 @@ void AzureTextToText::ValidateArgs(const ortc::Variadic& inputs, const ortc::Var
   }
 }
 
-void AzureTextToText::SetupRequest(CurlHandler& curl_handler, const ortc::Variadic& inputs) const {
+void AzureTextToTextInvoker::SetupRequest(CurlHandler& curl_handler, const ortc::Variadic& inputs) const {
   gsl::span<const std::string> input_names = InputNames();
 
   // TODO: assuming we need to create the correct json from the input text
@@ -82,7 +82,7 @@ void AzureTextToText::SetupRequest(CurlHandler& curl_handler, const ortc::Variad
   curl_handler.SetOption(CURLOPT_POSTFIELDSIZE_LARGE, text_input->SizeInBytes());
 }
 
-void AzureTextToText::ProcessResponse(const std::string& response, ortc::Variadic& outputs) const {
+void AzureTextToTextInvoker::ProcessResponse(const std::string& response, ortc::Variadic& outputs) const {
   auto& string_tensor = outputs.AllocateStringTensor(0);
   string_tensor.SetStringOutput(std::vector<std::string>{response}, std::vector<int64_t>{1});
 }
