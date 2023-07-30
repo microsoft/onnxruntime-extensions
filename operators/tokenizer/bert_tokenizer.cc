@@ -331,7 +331,7 @@ void KernelBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
                                   ortc::Tensor<int64_t>& output,
                                   ortc::Tensor<int64_t>& output1,
                                   ortc::Tensor<int64_t>& output2,
-                                  std::optional<ortc::Tensor<int64_t>*> offset_mapping) {
+                                  std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
   // Setup inputs
   auto& input_data = input.Data();
 
@@ -343,7 +343,7 @@ void KernelBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
   std::list<OffsetMappingType> offset_map;
 
   // Only compute offset mapping if optional output for it exists.
-  compute_offset_mapping = false;
+  bool compute_offset_mapping = false;
   if (offset_mapping.has_value()) {
     compute_offset_mapping = true;
   }
@@ -397,7 +397,7 @@ void KernelHfBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
                                     ortc::Tensor<int64_t>& output,
                                     ortc::Tensor<int64_t>& output1,
                                     ortc::Tensor<int64_t>& output2,
-                                    std::optional<ortc::Tensor<int64_t>*> offset_mapping) {
+                                    std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
   // Setup inputs
   auto& input_data = input.Data();
 
@@ -408,7 +408,7 @@ void KernelHfBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
   std::list<OffsetMappingType> offset_map;
 
   // Only compute offset mapping if optional output for it exists.
-  compute_offset_mapping = false;
+  bool compute_offset_mapping = false;
   if (offset_mapping.has_value()) {
     compute_offset_mapping = true;
   }

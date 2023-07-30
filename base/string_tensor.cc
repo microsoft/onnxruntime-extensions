@@ -4,7 +4,7 @@
 #include "string_utils.h"
 #include "ustring.h"
 
-void GetTensorMutableDataString(const OrtApi& api, OrtW::CustomOpApi& ort, OrtKernelContext* context,
+void GetTensorMutableDataString(const OrtApi& api, const OrtW::CustomOpApi& ort, const OrtKernelContext* context,
                                 const OrtValue* value, std::vector<std::string>& output) {
   (void)context;
   OrtTensorDimensions dimensions(ort, value);
@@ -23,7 +23,7 @@ void GetTensorMutableDataString(const OrtApi& api, OrtW::CustomOpApi& ort, OrtKe
   }
 }
 
-void FillTensorDataString(const OrtApi& api, OrtW::CustomOpApi& ort, OrtKernelContext* context,
+void FillTensorDataString(const OrtApi& api, const OrtW::CustomOpApi& ort, const OrtKernelContext* context,
                           const std::vector<std::string>& value, OrtValue* output) {
   (void)ort;
   (void)context;
@@ -32,11 +32,11 @@ void FillTensorDataString(const OrtApi& api, OrtW::CustomOpApi& ort, OrtKernelCo
     temp[i] = value[i].c_str();
   }
 
-  OrtW::ThrowOnError(api,api.FillStringTensor(output, temp.data(), value.size()));
+  OrtW::ThrowOnError(api, api.FillStringTensor(output, temp.data(), value.size()));
 }
 
-void GetTensorMutableDataString(const OrtApi& api, OrtW::CustomOpApi& ort, OrtKernelContext* context,
-                                 const OrtValue* value, std::vector<ustring>& output) {
+void GetTensorMutableDataString(const OrtApi& api, const OrtW::CustomOpApi& ort, const OrtKernelContext* context,
+                                const OrtValue* value, std::vector<ustring>& output) {
   std::vector<std::string> utf8_strings;
   GetTensorMutableDataString(api, ort, context, value, utf8_strings);
 
@@ -46,12 +46,11 @@ void GetTensorMutableDataString(const OrtApi& api, OrtW::CustomOpApi& ort, OrtKe
   }
 }
 
-
-void FillTensorDataString(const OrtApi& api, OrtW::CustomOpApi& ort, OrtKernelContext* context,
+void FillTensorDataString(const OrtApi& api, const OrtW::CustomOpApi& ort, const OrtKernelContext* context,
                           const std::vector<ustring>& value, OrtValue* output) {
   std::vector<std::string> utf8_strings;
   utf8_strings.reserve(value.size());
-  for (const auto& str: value) {
+  for (const auto& str : value) {
     utf8_strings.push_back(std::string(str));
   }
   FillTensorDataString(api, ort, context, utf8_strings, output);

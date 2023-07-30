@@ -11,15 +11,15 @@ struct KernelRaggedTensoroSparse : BaseKernel {
 
   void Compute(const ortc::Tensor<int64_t>& n_element,
                ortc::Tensor<int64_t>& output_0,
-               ortc::Tensor<int64_t>& output_1);
+               ortc::Tensor<int64_t>& output_1) const;
 };
 
 struct CommonRaggedTensoroDense : BaseKernel {
   CommonRaggedTensoroDense(const OrtApi& api, const OrtKernelInfo& info);
 
  protected:
-  void GetInputDims(OrtKernelContext* context, const OrtValue** inputs, OrtTensorDimensions* dims);
-  int64_t GetMaxCol(int64_t n, const int64_t* p_indices);
+  void GetInputDims(OrtKernelContext* context, const OrtValue** inputs, OrtTensorDimensions* dims) const;
+  int64_t GetMaxCol(int64_t n, const int64_t* p_indices) const;
 };
 
 struct KernelRaggedTensoroDense : CommonRaggedTensoroDense {
@@ -28,7 +28,7 @@ struct KernelRaggedTensoroDense : CommonRaggedTensoroDense {
                const ortc::Tensor<int64_t>& input1,
                const ortc::Tensor<int64_t>& input2,
                const ortc::Tensor<int64_t>& input3,
-               ortc::Tensor<int64_t>& output);
+               ortc::Tensor<int64_t>& output) const;
 
  private:
   int64_t missing_value_;
@@ -40,5 +40,5 @@ struct KernelStringRaggedTensoroDense : CommonRaggedTensoroDense {
                const ortc::Tensor<std::string>& input1,
                const ortc::Tensor<int64_t>& input2,
                const ortc::Tensor<std::string>& input3,
-               ortc::Tensor<std::string>& output);
+               ortc::Tensor<std::string>& output) const;
 };

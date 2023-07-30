@@ -39,7 +39,7 @@ struct DrawBoundingBoxes : BaseKernel {
 
   void Compute(const ortc::Tensor<uint8_t>& input_bgr,
                const ortc::Tensor<float>& input_box,
-               ortc::Tensor<uint8_t>& output);
+               ortc::Tensor<uint8_t>& output) const;
 
  private:
   int64_t thickness_;

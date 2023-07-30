@@ -7,8 +7,7 @@
 
 namespace ort_extensions {
 
-void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input,
-                                ortc::Tensor<uint8_t>& output) {
+void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) const {
   // Setup inputs
   const auto dimensions_bgr = input.Shape();
 

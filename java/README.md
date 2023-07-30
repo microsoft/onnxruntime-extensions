@@ -12,9 +12,6 @@ This java and Android API and packaging principles were inspired by the https://
 1. install visual studio 2022 (with cmake, git, desktop C++)
 2. OpenJDK: https://docs.microsoft.com/en-us/java/openjdk/download
 		(OpenJDK 11.0.15 LTS)
-3. Gradle: https://gradle.org/releases/
-		(v6.9.2)
-
 
 ### Build command
 ./build.sh **-DOCOS_BUILD_JAVA=ON**
