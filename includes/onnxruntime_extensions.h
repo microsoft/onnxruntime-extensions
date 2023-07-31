@@ -8,8 +8,8 @@
 // The reason why we need a prefix is that when Xcode includes the package it copies it to an internally generated path with 
 // the package name as a prefix. 
 // And we don't have control over the include paths when that happens in the user's iOS app. 
-// The Only way we find to make the include path work automatically for now.
-#ifdef SPM_BUILD
+// The only way we found to make the include path work automatically for now.
+#ifdef ORT_SWIFT_PACKAGE_MANAGER_BUILD
 #include "onnxruntime/onnxruntime_c_api.h"
 #else
 #include "onnxruntime_c_api.h"
