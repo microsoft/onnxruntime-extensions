@@ -26,4 +26,4 @@ test-command = "./tools/test_cibuildwheel.sh"
 [[tool.cibuildwheel.overrides]]
 select = "*win*"
 before-build = "tools\\install_deps.bat install"
-test-command = "tools\\test_cibuildwheel.bat"
+test-command = "{project}\\tools\\test_cibuildwheel.bat {project}"
