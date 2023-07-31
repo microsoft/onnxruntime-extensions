@@ -374,7 +374,7 @@ struct Variadic : public TensorBase {
             tensor = std::make_unique<Custom::Tensor<int64_t>>(api, ctx, ith_input, true);
             break;
           case ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING:
-            tensor = std::make_unique<Custom::Tensor<std::string_view>>(api, ctx, ith_input, true);
+            tensor = std::make_unique<Custom::Tensor<std::string>>(api, ctx, ith_input, true);
             break;
           default:
             ORTX_CXX_API_THROW("unknow input type", ORT_RUNTIME_EXCEPTION);
