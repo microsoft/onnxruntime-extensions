@@ -389,13 +389,13 @@ if(OCOS_ENABLE_AZURE)
 
   if (ANDROID)
     include(curl)
-    # exclude triton 
+    # exclude triton
     list(FILTER TARGET_SRC_AZURE EXCLUDE REGEX ".*triton.*")
   else()
     add_compile_definitions(AZURE_INVOKERS_ENABLE_TRITON)
-    include(triton) 
+    include(triton)
   endif()
-  
+
   list(APPEND TARGET_SRC ${TARGET_SRC_AZURE})
 endif()
 
@@ -468,11 +468,13 @@ if(_HAS_TOKENIZER)
 endif()
 
 if(OCOS_ENABLE_TF_STRING)
-  target_include_directories(noexcep_operators PUBLIC
-    ${googlere2_SOURCE_DIR}
-    ${farmhash_SOURCE_DIR}/src)
+  target_include_directories(noexcep_operators PUBLIC ${farmhash_SOURCE_DIR}/src)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING NOMINMAX FARMHASH_NO_BUILTIN_EXPECT FARMHASH_DEBUG=0)
-  target_link_libraries(noexcep_operators PRIVATE re2)
+
+  if(OCOS_ENABLE_RE2_REGEX)
+    target_include_directories(noexcep_operators PUBLIC ${googlere2_SOURCE_DIR})
+    target_link_libraries(noexcep_operators PRIVATE re2)
+  endif()
 endif()
 
 if(OCOS_ENABLE_RE2_REGEX)
@@ -600,34 +602,59 @@ if(OCOS_ENABLE_AZURE)
   elseif(IOS)
     # TODO
   else()
+    # we need files from the triton client (e.g. curl header on linux) to be available for the ocos_operators build
+    # so add a dependency so the fetch and build of triton happens first.
     add_dependencies(ocos_operators triton)
-    target_include_directories(ocos_operators PUBLIC ${TRITON_BIN}/include)
-    target_link_directories(ocos_operators PUBLIC ${TRITON_BIN}/lib ${TRITON_BIN}/lib64 )
 
     if (ocos_target_platform STREQUAL "AMD64")
-      set(vcpkg_target_platform "x64")  # Was 'x86' but not clear Why are we choosing 32-bit if target is 64-bit?
+      set(vcpkg_target_platform "x64")
     else()
       set(vcpkg_target_platform ${ocos_target_platform})
     endif()
 
+    # include and link directories for triton and curl
+    target_include_directories(ocos_operators PUBLIC ${triton_INSTALL_DIR}/include
+                                                     ${triton_THIRD_PARTY_DIR}/curl/include)
+    target_link_directories(ocos_operators PUBLIC ${triton_INSTALL_DIR}/lib
+                                                  ${triton_THIRD_PARTY_DIR}/curl/lib)
+
     if (WIN32)
       # As per https://curl.se/docs/faq.html#Link_errors_when_building_libcur we need to set CURL_STATICLIB.
       target_compile_definitions(ocos_operators PRIVATE CURL_STATICLIB)
+      target_include_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static-md/include)
 
-      target_include_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static/include)
-      target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static/lib)
-      target_link_libraries(ocos_operators PUBLIC httpclient_static libcurl ws2_32 crypt32 Wldap32)
+      if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        # TODO: Can we get this name from vcpkg instead of having to hardcode it?
+        set(curl_LIB_NAME "libcurl-d")
+        target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static-md/debug/lib)
+      else()
+        set(curl_LIB_NAME "libcurl")
+      target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static-md/lib)
+      endif()
+
+      target_link_libraries(ocos_operators PUBLIC httpclient_static ${curl_LIB_NAME} ws2_32 crypt32 Wldap32)
     else()
       find_package(ZLIB REQUIRED)
+
+      # if finding the OpenSSL package fails most likely you need to install the triton client package dependencies.
+      #   https://github.com/triton-inference-server/client
+      #   sudo apt update
+      #   sudo apt install libcurl4-openssl-dev libb64-dev
+      #
+      # TODO: Should we use curl.h from this package or the triton build?
+      # Install location is platform specific. On Ubuntu according to `dpkg -L libcurl4-openssl-dev` we'd need these
+      # files.
+      #   /usr/include/x86_64-linux-gnu/curl/curl.h
+      #   /usr/lib/x86_64-linux-gnu/libcurl.a
       find_package(OpenSSL REQUIRED)
-      target_link_libraries(ocos_operators PUBLIC httpclient_static curl ZLIB::ZLIB OpenSSL::Crypto OpenSSL::SSL)
-    endif() 
+
+      target_link_libraries(ocos_operators PUBLIC httpclient_static ZLIB::ZLIB OpenSSL::Crypto OpenSSL::SSL)
+    endif()
   endif()
 endif()
 
 target_compile_definitions(ortcustomops PUBLIC ${OCOS_COMPILE_DEFINITIONS})
-target_include_directories(ortcustomops PUBLIC
-  "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
+target_include_directories(ortcustomops PUBLIC "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
 target_link_libraries(ortcustomops PUBLIC ocos_operators)
 
 if(_BUILD_SHARED_LIBRARY)
