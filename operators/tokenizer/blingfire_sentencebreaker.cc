@@ -16,7 +16,8 @@ KernelBlingFireSentenceBreaker::KernelBlingFireSentenceBreaker(const OrtApi& api
     ORTX_CXX_API_THROW("vocabulary shouldn't be empty.", ORT_INVALID_ARGUMENT);
   }
 
-  void* model_ptr = SetModel(reinterpret_cast<const unsigned char*>(model_data_.data()), static_cast<int>(model_data_.size()));
+  void* model_ptr = SetModel(reinterpret_cast<const unsigned char*>(model_data_.data()),
+                             static_cast<int>(model_data_.size()));
 
   if (model_ptr == nullptr) {
     ORTX_CXX_API_THROW("Invalid model", ORT_INVALID_ARGUMENT);
@@ -28,11 +29,13 @@ KernelBlingFireSentenceBreaker::KernelBlingFireSentenceBreaker(const OrtApi& api
 }
 
 void KernelBlingFireSentenceBreaker::Compute(std::string_view input,
-                                             ortc::Tensor<std::string>& output) {
+                                             ortc::Tensor<std::string>& output) const {
   int max_length = static_cast<int>(2 * input.size() + 1);
   std::unique_ptr<char[]> output_str = std::make_unique<char[]>(max_length);
 
-  int output_length = TextToSentencesWithOffsetsWithModel(input.data(), static_cast<int>(input.size()), output_str.get(), nullptr, nullptr, max_length, model_.get());
+  int output_length = TextToSentencesWithOffsetsWithModel(input.data(), static_cast<int>(input.size()),
+                                                          output_str.get(), nullptr, nullptr, max_length,
+                                                          model_.get());
   if (output_length < 0) {
     ORTX_CXX_API_THROW(MakeString("splitting input:\"", input, "\"  failed"), ORT_INVALID_ARGUMENT);
   }

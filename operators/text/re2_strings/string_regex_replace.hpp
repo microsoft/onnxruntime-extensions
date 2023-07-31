@@ -11,7 +11,7 @@ struct KernelStringRegexReplace : BaseKernel {
   void Compute(const ortc::Tensor<std::string>& input,
                std::string_view str_pattern,
                std::string_view str_rewrite,
-               ortc::Tensor<std::string>& output);
+               ortc::Tensor<std::string>& output) const;
 
  protected:
   int64_t global_replace_;

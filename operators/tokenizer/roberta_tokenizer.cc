@@ -31,8 +31,11 @@ KernelRobertaBpeTokenizer::KernelRobertaBpeTokenizer(const OrtApi& api, const Or
   bbpe_tokenizer_->Load(vocabu_stream, merges_stream, "<|endoftext|>", "<|endoftext|>");
 }
 
-std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t max_length, std::list<OffsetMappingType>& offset_map) {
+std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t max_length,
+                                                         bool compute_offset_mapping,
+                                                         std::list<OffsetMappingType>& offset_map) const {
   std::vector<int64_t> res;
+  std::list<std::pair<int, int>> byte_list;
 
   if (IsEmptyUString(input)) {
     return res;
@@ -81,16 +84,16 @@ std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t
       }
 
       // Get byte encodings prior to performing BPE
-      byte_list_.clear();
+      byte_list.clear();
       for (char& cp : utf8_token) {
-        byte_list_.emplace_back(std::make_pair(bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(cp)], 1));
+        byte_list.emplace_back(std::make_pair(bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(cp)], 1));
       }
 
       // Perform BPE
-      bbpe_tokenizer_->bpe(byte_list_);
+      bbpe_tokenizer_->bpe(byte_list);
 
       // Add output to result
-      for (auto p : byte_list_) {
+      for (auto p : byte_list) {
         if (static_cast<int64_t>(res.size()) >= max_length) {
           break;
         }
@@ -119,7 +122,7 @@ std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t
 void KernelRobertaBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
                                         ortc::Tensor<int64_t>& tokenize_output,
                                         std::optional<ortc::Tensor<int64_t>*> attention_mask,
-                                        std::optional<ortc::Tensor<int64_t>*> offset_mapping) {
+                                        std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
   // Setup inputs
   std::vector<std::string> str_input{input.Data()};
   std::list<OffsetMappingType> offset_map;
@@ -128,14 +131,15 @@ void KernelRobertaBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
   std::vector<std::vector<int64_t>> tokenize_results;
 
   // Only compute offset mapping if optional output for it exists.
-  compute_offset_mapping = false;
+  bool compute_offset_mapping = false;
   if (offset_mapping.has_value()) {
     compute_offset_mapping = true;
   }
 
   for (auto& str : str_input) {
     ustring ustr = ustring(str);
-    tokenize_results.emplace_back(Tokenize(ustr, padding_length_ < 0 ? INT64_MAX : padding_length_, offset_map));
+    tokenize_results.emplace_back(Tokenize(ustr, padding_length_ < 0 ? INT64_MAX : padding_length_,
+                                           compute_offset_mapping, offset_map));
   }
 
   size_t max_length = 0;

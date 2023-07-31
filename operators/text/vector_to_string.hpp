@@ -22,7 +22,7 @@ class VectorToStringImpl {
   VectorToStringImpl(std::string& map, std::string& unk);
   std::vector<std::string> Compute(const void* input,
                                    const std::vector<int64_t>& input_dim,
-                                   std::vector<int64_t>& output_dim);
+                                   std::vector<int64_t>& output_dim) const;
 
  private:
   void ParseMappingTable(std::string& map);
@@ -37,7 +37,7 @@ class VectorToStringImpl {
 struct KernelVectorToString : BaseKernel {
   KernelVectorToString(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(const ortc::Tensor<int64_t>& input,
-               ortc::Tensor<std::string>& out);
+               ortc::Tensor<std::string>& out) const;
 
  private:
   std::shared_ptr<VectorToStringImpl> impl_;

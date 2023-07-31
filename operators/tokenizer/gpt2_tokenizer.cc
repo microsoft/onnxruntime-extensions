@@ -30,8 +30,9 @@ KernelBpeTokenizer::KernelBpeTokenizer(const OrtApi& api, const OrtKernelInfo& i
   bbpe_tokenizer_->Load(vocabu_stream, merges_stream, "<|endoftext|>", "<|endoftext|>");
 }
 
-std::vector<int64_t> KernelBpeTokenizer::Tokenize(const ustring& input, int64_t max_length) {
+std::vector<int64_t> KernelBpeTokenizer::Tokenize(const ustring& input, int64_t max_length) const {
   std::vector<int64_t> res;
+  std::list<std::pair<int, int>> byte_list;
 
   if (IsEmptyUString(input)) {
     return res;
@@ -59,14 +60,14 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(const ustring& input, int64_t 
 
       std::string utf8_token = std::string(ustring(tok));
 
-      byte_list_.clear();
+      byte_list.clear();
       for (char& cp : utf8_token) {
-        byte_list_.push_back(std::make_pair(bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(cp)], 1));
+        byte_list.push_back(std::make_pair(bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(cp)], 1));
       }
 
-      bbpe_tokenizer_->bpe(byte_list_);
+      bbpe_tokenizer_->bpe(byte_list);
 
-      for (auto p : byte_list_) {
+      for (auto p : byte_list) {
         if (static_cast<int64_t>(res.size()) >= max_length) {
           break;
         }
@@ -81,7 +82,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(const ustring& input, int64_t 
 
 void KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
                                  ortc::Tensor<int64_t>& tokenize_output,
-                                 std::optional<ortc::Tensor<int64_t>*> attention_mask) {
+                                 std::optional<ortc::Tensor<int64_t>*> attention_mask) const {
   // Setup inputs
   std::vector<std::string> str_input{input.Data()};
   const auto& input_dim = input.Shape();

@@ -21,7 +21,6 @@
 
 extern "C" int ORT_API_CALL GetActiveOrtAPIVersion();
 
-
 namespace OrtW {
 
 //

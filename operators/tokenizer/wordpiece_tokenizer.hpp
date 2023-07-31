@@ -17,7 +17,7 @@ struct KernelWordpieceTokenizer : BaseKernel {
                ortc::Tensor<std::string>& output,
                ortc::Tensor<int64_t>& row_lengths,
                ortc::Tensor<int64_t>& out_row_begin,
-               ortc::Tensor<int64_t>& output_limit_values);
+               ortc::Tensor<int64_t>& output_limit_values) const;
 
  private:
   int64_t max_input_chars_per_word_;

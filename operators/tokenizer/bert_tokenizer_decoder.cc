@@ -138,7 +138,7 @@ KernelBertTokenizerDecoder::KernelBertTokenizerDecoder(const OrtApi& api, const 
 
 void KernelBertTokenizerDecoder::Compute(const ortc::Tensor<int64_t>& ids,
                                          const ortc::Tensor<int64_t>& positions,
-                                         ortc::Tensor<std::string>& output) {
+                                         ortc::Tensor<std::string>& output) const {
   const int64_t* p_ids = ids.Data();
   auto& ids_dim = ids.Shape();
 
@@ -151,7 +151,8 @@ void KernelBertTokenizerDecoder::Compute(const ortc::Tensor<int64_t>& ids,
   if (use_indices_ &&
       (!((positions.NumberOfElement() == 0) ||
          (positions_dim.size() == 2 && positions_dim[1] == 2)))) {
-    ORTX_CXX_API_THROW("[BertTokenizerDecoder]: Expect positions empty or a [n, 2] matrix when use indices", ORT_INVALID_GRAPH);
+    ORTX_CXX_API_THROW("[BertTokenizerDecoder]: Expect positions empty or a [n, 2] matrix when use indices",
+                       ORT_INVALID_GRAPH);
   }
 
   const int64_t* p_positions = positions.NumberOfElement() == 0 ? nullptr : positions.Data();
@@ -159,7 +160,8 @@ void KernelBertTokenizerDecoder::Compute(const ortc::Tensor<int64_t>& ids,
   std::vector<std::string> result;
   std::vector<int64_t> output_dim(1);
   if (!use_indices_) {
-    result.push_back(decoder_->Decode(std::vector<int64_t>(p_ids, p_ids + ids.NumberOfElement()), skip_special_tokens_, clean_up_tokenization_spaces_));
+    result.push_back(decoder_->Decode(std::vector<int64_t>(p_ids, p_ids + ids.NumberOfElement()),
+                                      skip_special_tokens_, clean_up_tokenization_spaces_));
     output_dim[0] = 1;
   } else {
     if (p_positions != nullptr) {
@@ -167,7 +169,8 @@ void KernelBertTokenizerDecoder::Compute(const ortc::Tensor<int64_t>& ids,
         int64_t start = p_positions[2 * i];
         int64_t end = p_positions[2 * i + 1];
 
-        result.push_back(decoder_->Decode(std::vector<int64_t>(p_ids + start, p_ids + end), skip_special_tokens_, clean_up_tokenization_spaces_));
+        result.push_back(decoder_->Decode(std::vector<int64_t>(p_ids + start, p_ids + end),
+                                          skip_special_tokens_, clean_up_tokenization_spaces_));
       }
       output_dim[0] = positions_dim[0];
     }
