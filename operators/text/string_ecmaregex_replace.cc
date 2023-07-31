@@ -16,7 +16,7 @@ KernelStringECMARegexReplace::KernelStringECMARegexReplace(const OrtApi& api, co
 void KernelStringECMARegexReplace::Compute(const ortc::Tensor<std::string>& input,
                                            std::string_view pattern,
                                            std::string_view rewrite,
-                                           ortc::Tensor<std::string>& output) {
+                                           ortc::Tensor<std::string>& output) const {
   // make a copy as input is constant;
   std::vector<std::string> str_input = input.Data();
   if (pattern.empty()) {

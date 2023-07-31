@@ -21,7 +21,7 @@ void KernelStringECMARegexSplitWithOffsets::Compute(const ortc::Tensor<std::stri
                                                     ortc::Tensor<std::string>& output_text,
                                                     ortc::Tensor<int64_t>& output1,
                                                     ortc::Tensor<int64_t>& output2,
-                                                    ortc::Tensor<int64_t>& output3) {
+                                                    ortc::Tensor<int64_t>& output3) const {
   // Setup inputs
   auto& str_input = input.Data();
 

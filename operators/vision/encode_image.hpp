@@ -21,7 +21,7 @@ struct KernelEncodeImage : BaseKernel {
   }
 
   void Compute(const ortc::Tensor<uint8_t>& input_bgr,
-               ortc::Tensor<uint8_t>& output);
+               ortc::Tensor<uint8_t>& output) const;
 
  private:
   std::string extension_;

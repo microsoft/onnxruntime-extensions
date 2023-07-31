@@ -153,7 +153,7 @@ void DrawBox(ImageView& image, gsl::span<const float> box, BoundingBoxFormat bbo
   if (thickness < 1) {
     return;
   }
-  
+
   // If not all filled
   if (thickness != (std::min(x_end - x_start, y_end - y_start))) {
     auto offset = thickness / 2;
@@ -224,7 +224,7 @@ void DrawBoxesByScore(ImageView& image, const BoxArray& boxes, int64_t thickness
 
 void DrawBoundingBoxes::Compute(const ortc::Tensor<uint8_t>& input_bgr,
                                 const ortc::Tensor<float>& input_box,
-                                ortc::Tensor<uint8_t>& output) {
+                                ortc::Tensor<uint8_t>& output) const {
   // Setup inputs
   const auto& dimensions_bgr = input_bgr.Shape();
 

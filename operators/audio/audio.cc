@@ -8,7 +8,9 @@
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Audio = []()-> CustomOpArray& {
   static OrtOpLoader op_loader(
+    []() { return nullptr; }
 #ifdef ENABLE_DR_LIBS
+    ,
     CustomCpuStruct("AudioDecoder", AudioDecoder)
 #endif
   );

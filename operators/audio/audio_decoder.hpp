@@ -38,7 +38,7 @@ struct AudioDecoder : public BaseKernel {
     kFLAC
   };
 
-  AudioStreamType ReadStreamFormat(const uint8_t* p_data, const std::string& str_format) {
+  AudioStreamType ReadStreamFormat(const uint8_t* p_data, const std::string& str_format) const {
     static const std::map<std::string, AudioStreamType> format_mapping = {
         {"default", AudioStreamType::kDefault},
         {"wav", AudioStreamType::kWAV},
@@ -98,7 +98,7 @@ struct AudioDecoder : public BaseKernel {
 
   void Compute(const ortc::Tensor<uint8_t>& input,
                const std::optional<std::string> format,
-               ortc::Tensor<float>& output0) {
+               ortc::Tensor<float>& output0) const {
     const uint8_t* p_data = input.Data();
     auto input_dim = input.Shape();
     if (!((input_dim.size() == 1) || (input_dim.size() == 2 && input_dim[0] == 1))) {
@@ -146,7 +146,7 @@ struct AudioDecoder : public BaseKernel {
     }
 
     if (downsample_rate_ != 0 &&
-      orig_sample_rate < downsample_rate_) {
+        orig_sample_rate < downsample_rate_) {
       ORTX_CXX_API_THROW("[AudioDecoder]: only down-sampling supported.", ORT_INVALID_ARGUMENT);
     }
 

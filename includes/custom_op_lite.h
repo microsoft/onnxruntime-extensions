@@ -105,9 +105,9 @@ class Tensor : public TensorBase {
       type_ = api_.GetTensorElementType(info);
       api_.ReleaseTensorTypeAndShapeInfo(info);
       const OrtMemoryInfo* mem_info = {};
-      api_.GetOrtApi().GetTensorMemoryInfo(const_value_, &mem_info);
+      api_.ThrowOnError(api_.GetOrtApi().GetTensorMemoryInfo(const_value_, &mem_info));
       if (mem_info) {
-        api.GetOrtApi().MemoryInfoGetName(mem_info, &mem_type_);
+        api_.ThrowOnError(api.GetOrtApi().MemoryInfoGetName(mem_info, &mem_type_));
       }
     }
   }
@@ -856,7 +856,7 @@ struct OrtLiteCustomFunc : public OrtLiteCustomOp {
 template <typename CustomOp>
 struct OrtLiteCustomStruct : public OrtLiteCustomOp {
   template <typename... Args>
-  using CustomComputeFn = void (CustomOp::*)(Args...);
+  using CustomComputeFn = void (CustomOp::*)(Args...) const;
   using MyType = OrtLiteCustomStruct<CustomOp>;
 
   struct Kernel {

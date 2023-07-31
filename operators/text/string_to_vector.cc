@@ -11,7 +11,7 @@ StringToVectorImpl::StringToVectorImpl(std::string& map, std::string& unk) {
 
 std::vector<std::vector<int64_t>> StringToVectorImpl::Compute(const std::vector<std::string>& str_input,
                                                               const std::vector<int64_t>& input_dim,
-                                                              std::vector<int64_t>& output_dim) {
+                                                              std::vector<int64_t>& output_dim) const {
   std::vector<std::vector<int64_t>> result;
 
   // Set output dimension
@@ -42,7 +42,8 @@ void StringToVectorImpl::ParseMappingTable(std::string& map) {
 
   vector_len_ = ParseVectorLen(lines[0]);
   if (vector_len_ == 0) {
-    ORTX_CXX_API_THROW(MakeString("The mapped value of string input cannot be empty: ", lines[0]), ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW(MakeString("The mapped value of string input cannot be empty: ", lines[0]),
+                       ORT_INVALID_ARGUMENT);
   }
 
   std::vector<int64_t> values(vector_len_);
@@ -50,7 +51,8 @@ void StringToVectorImpl::ParseMappingTable(std::string& map) {
     auto kv = SplitString(line, "\t", true);
 
     if (kv.size() != 2) {
-      ORTX_CXX_API_THROW(MakeString("Failed to parse mapping_table when processing the line: ", line), ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW(MakeString("Failed to parse mapping_table when processing the line: ", line),
+                         ORT_INVALID_ARGUMENT);
     }
 
     ParseValues(kv[1], values);
@@ -63,14 +65,17 @@ void StringToVectorImpl::ParseMappingTable(std::string& map) {
 void StringToVectorImpl::ParseUnkownValue(std::string& unk) {
   auto unk_strs = SplitString(unk, " ", true);
   if (unk_strs.size() != vector_len_) {
-    ORTX_CXX_API_THROW(MakeString("Incompatible dimension: required vector length of unknown_value should be: ", vector_len_), ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW(
+        MakeString("Incompatible dimension: required vector length of unknown_value should be: ", vector_len_),
+        ORT_INVALID_ARGUMENT);
   }
 
   for (auto& str : unk_strs) {
     int64_t value;
     auto [end, ec] = std::from_chars(str.data(), str.data() + str.size(), value);
     if (end != str.data() + str.size()) {
-      ORTX_CXX_API_THROW(MakeString("Failed to parse unknown_value when processing the number: ", str), ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW(MakeString("Failed to parse unknown_value when processing the number: ", str),
+                         ORT_INVALID_ARGUMENT);
     }
 
     unk_value_.push_back(value);
@@ -81,7 +86,8 @@ size_t StringToVectorImpl::ParseVectorLen(const std::string_view& line) {
   auto kv = SplitString(line, "\t", true);
 
   if (kv.size() != 2) {
-    ORTX_CXX_API_THROW(MakeString("Failed to parse mapping_table when processing the line: ", line), ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW(MakeString("Failed to parse mapping_table when processing the line: ", line),
+                       ORT_INVALID_ARGUMENT);
   }
 
   auto value_strs = SplitString(kv[1], " ", true);
@@ -95,7 +101,8 @@ void StringToVectorImpl::ParseValues(const std::string_view& v, std::vector<int6
   for (size_t i = 0; i < value_strs.size(); i++) {
     auto [end, ec] = std::from_chars(value_strs[i].data(), value_strs[i].data() + value_strs[i].size(), value);
     if (end != value_strs[i].data() + value_strs[i].size()) {
-      ORTX_CXX_API_THROW(MakeString("Failed to parse map when processing the number: ", value_strs[i]), ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW(MakeString("Failed to parse map when processing the number: ", value_strs[i]),
+                         ORT_INVALID_ARGUMENT);
     }
     values[i] = value;
   }
@@ -110,7 +117,7 @@ KernelStringToVector::KernelStringToVector(const OrtApi& api, const OrtKernelInf
 }
 
 void KernelStringToVector::Compute(const ortc::Tensor<std::string>& input,
-                                   ortc::Tensor<int64_t>& out) {
+                                   ortc::Tensor<int64_t>& out) const {
   // Setup input
   auto& input_data = input.Data();
   // Get output
