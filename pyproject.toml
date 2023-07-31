@@ -11,17 +11,17 @@ line-length = 120
 [[tool.cibuildwheel.overrides]]
 select = "*-manylinux*x86_64*"
 before-all = "./tools/install_deps.sh many64"
-test-command = "./tools/test_cibuildwheel.sh"
+test-command = "{project}/tools/test_cibuildwheel.sh"
 
 [[tool.cibuildwheel.overrides]]
 select = "*-manylinux*i686*"
 before-all = "./tools/install_deps.sh many86"
-test-command = "./tools/test_cibuildwheel.sh"
+test-command = "{project}/tools/test_cibuildwheel.sh"
 
 [[tool.cibuildwheel.overrides]]
 select = "*-musllinux*"
 before-all = "./tools/install_deps.sh musl"
-test-command = "./tools/test_cibuildwheel.sh"
+test-command = "{project}/tools/test_cibuildwheel.sh"
 
 [[tool.cibuildwheel.overrides]]
 select = "*win*"

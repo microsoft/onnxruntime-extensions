@@ -2,5 +2,7 @@
 
 if [[ "$OCOS_ENABLE_AZURE" == "1" ]]
 then
-    python ./test/test_azure_ops.sh
+    pushd $1/test
+    python ./test_azure_ops.py
+    popd
 fi
