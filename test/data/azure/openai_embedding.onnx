@@ -1,0 +1,17 @@
+:…
+™
+
+auth_token
+text	embeddingembedding_invoker"AzureTextInvoker*4
+	model_uri"$https://api.openai.com/v1/embeddings *
+verbose :ai.onnx.contribgraphZ!
+
+auth_token
+
+ÿÿÿÿÿÿÿÿÿZ
+text
+
+ÿÿÿÿÿÿÿÿÿb 
+	embedding
+
+ÿÿÿÿÿÿÿÿÿB
