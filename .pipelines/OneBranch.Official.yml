@@ -24,6 +24,11 @@ parameters: # parameters are shown up in ADO UI in a build queue time
   - '1'
   default: '0'
 
+- name: ExtraEnv
+  displayName: 'Extra env variable set to CIBW_ENVIRONMENT'
+  type: string
+  default: 'None=None'
+
 variables:
   CDP_DEFINITION_BUILD_COUNT: $[counter('', 0)] 
   system.debug: ${{ parameters.debug }}
@@ -35,7 +40,7 @@ variables:
   CIBW_BUILD: cp3{8,9,10,11}-*amd64
   CIBW_ARCHS: AMD64
   DEBIAN_FRONTEND: noninteractive
-  CIBW_ENVIRONMENT: "OCOS_ENABLE_AZURE=${{ parameters.BuildAzureOp }}"
+  CIBW_ENVIRONMENT: "OCOS_ENABLE_AZURE=${{ parameters.BuildAzureOp }} ${{ parameters.ExtraEnv }}"
 
 resources:
   repositories: 
