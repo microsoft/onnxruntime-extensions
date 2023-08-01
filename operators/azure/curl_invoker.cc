@@ -44,12 +44,6 @@ CurlHandler::CurlHandler(WriteCallBack callback) : curl_(curl_easy_init(), curl_
 
 CurlInvoker::CurlInvoker(const OrtApi& api, const OrtKernelInfo& info)
     : CloudBaseKernel(api, info) {
-  // extract the request property names from the input names
-  const auto& input_names = InputNames();
-  property_names_.reserve(input_names.size());
-
-  std::for_each(input_names.begin(), input_names.end(),
-                [this](const std::string& name) { property_names_.push_back(GetPropertyNameFromInputName(name)); });
 }
 
 void CurlInvoker::ComputeImpl(const ortc::Variadic& inputs, ortc::Variadic& outputs) const {

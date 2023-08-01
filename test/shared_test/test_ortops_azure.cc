@@ -37,7 +37,7 @@ TEST(AzureOps, OpenAIWhisper) {
   std::vector<std::string> expected_output{"Thank you for pressing the self-destruct button",
                                            "ship will self-destruct in three minutes"};
 
-  OutputValidator find_strings_in_output = [&expected_output](int output_idx, Ort::Value& actual, TestValue expected) {
+  OutputValidator find_strings_in_output = [&expected_output](size_t output_idx, Ort::Value& actual, TestValue expected) {
     std::vector<std::string> output_string;
     GetTensorMutableDataString(Ort::GetApi(), actual, output_string);
 

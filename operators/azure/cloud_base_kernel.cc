@@ -26,6 +26,9 @@ CloudBaseKernel::CloudBaseKernel(const OrtApi& api, const OrtKernelInfo& info) :
     ORTX_CXX_API_THROW("failed to get input count", ORT_RUNTIME_EXCEPTION);
   }
 
+  input_names_.reserve(input_count);
+  property_names_.reserve(input_count);
+
   for (size_t ith_input = 0; ith_input < input_count; ++ith_input) {
     char input_name[1024]{};
     size_t name_size = 1024;
@@ -33,7 +36,9 @@ CloudBaseKernel::CloudBaseKernel(const OrtApi& api, const OrtKernelInfo& info) :
     if (status) {
       ORTX_CXX_API_THROW("failed to get name for input " + std::to_string(ith_input), ORT_RUNTIME_EXCEPTION);
     }
+
     input_names_.push_back(input_name);
+    property_names_.push_back(GetPropertyNameFromInputName(input_name));
   }
 
   if (input_names_[0] != "auth_token") {
@@ -46,6 +51,7 @@ CloudBaseKernel::CloudBaseKernel(const OrtApi& api, const OrtKernelInfo& info) :
     ORTX_CXX_API_THROW("failed to get output count", ORT_RUNTIME_EXCEPTION);
   }
 
+  output_names_.reserve(output_count);
   for (size_t ith_output = 0; ith_output < output_count; ++ith_output) {
     char output_name[1024]{};
     size_t name_size = 1024;

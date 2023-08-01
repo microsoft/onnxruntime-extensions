@@ -83,9 +83,6 @@ class CurlInvoker : public CloudBaseKernel {
   // Derived classes need their own Compute to work with the CustomOpLite infrastructure
   void ComputeImpl(const ortc::Variadic& inputs, ortc::Variadic& outputs) const;
 
-  // Request property names that are parsed from input names.
-  const std::vector<std::string>& PropertyNames() const { return property_names_; }
-
  private:
   void ExecuteRequest(CurlHandler& handler) const;
 
@@ -100,7 +97,5 @@ class CurlInvoker : public CloudBaseKernel {
   // curl_handler has auth token set from input[0].
   virtual void SetupRequest(CurlHandler& curl_handler, const ortc::Variadic& inputs) const = 0;
   virtual void ProcessResponse(const std::string& response, ortc::Variadic& outputs) const = 0;
-
-  std::vector<std::string> property_names_;  // request property names. parsed from input names
 };
 }  // namespace ort_extensions

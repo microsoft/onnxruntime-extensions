@@ -32,6 +32,9 @@ class CloudBaseKernel : public BaseKernel {
   const gsl::span<const std::string> InputNames() const { return input_names_; }
   const gsl::span<const std::string> OutputNames() const { return output_names_; }
 
+  // Request property names that are parsed from input names. 1:1 with InputNames() values.
+  const gsl::span<const std::string> PropertyNames() const { return property_names_; }
+
   // first input is required to be auth token. validate that and return it.
   std::string GetAuthToken(const ortc::Variadic& inputs) const;
 
@@ -51,6 +54,7 @@ class CloudBaseKernel : public BaseKernel {
   bool verbose_;
 
   std::vector<std::string> input_names_;
+  std::vector<std::string> property_names_;
   std::vector<std::string> output_names_;
 };
 

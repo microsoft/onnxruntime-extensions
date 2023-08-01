@@ -102,23 +102,20 @@ int8_t* CreateNonStrTensor(const std::string& data_type,
   }
 
 void AzureTritonInvoker::Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) const {
-  if (inputs.Size() < 1 ||
-      inputs[0]->Type() != ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
-    ORTX_CXX_API_THROW("invalid inputs, auto token missing", ORT_RUNTIME_EXCEPTION);
-  }
+  auto auth_token = GetAuthToken(inputs);
 
   gsl::span<const std::string> input_names = InputNames();
   if (inputs.Size() != input_names.size()) {
     ORTX_CXX_API_THROW("input count mismatch", ORT_RUNTIME_EXCEPTION);
   }
 
-  auto auth_token = reinterpret_cast<const char*>(inputs[0]->DataRaw());
-
   std::vector<std::unique_ptr<tc::InferInput>> triton_input_vec;
   std::vector<tc::InferInput*> triton_inputs;
   std::vector<std::unique_ptr<const tc::InferRequestedOutput>> triton_output_vec;
   std::vector<const tc::InferRequestedOutput*> triton_outputs;
   tc::Error err;
+
+  const auto& property_names = PropertyNames();
 
   for (size_t ith_input = 1; ith_input < inputs.Size(); ++ith_input) {
     tc::InferInput* triton_input = {};
@@ -127,8 +124,8 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs, ortc::Variadic& o
       ORTX_CXX_API_THROW("unknow onnx data type", ORT_RUNTIME_EXCEPTION);
     }
 
-    std::string property_name = GetPropertyNameFromInputName(input_names[ith_input]);
-    err = tc::InferInput::Create(&triton_input, property_name, inputs[ith_input]->Shape(), triton_data_type);
+    err = tc::InferInput::Create(&triton_input, property_names[ith_input], inputs[ith_input]->Shape(),
+                                 triton_data_type);
     CHECK_TRITON_ERR(err, "failed to create triton input");
     triton_input_vec.emplace_back(triton_input);
 
