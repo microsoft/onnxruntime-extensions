@@ -11,7 +11,7 @@ from onnxruntime_extensions import OrtPyFunction, util, gen_processing_models
 
 
 @unittest.skipIf(version.parse(_ort.__version__) < version.parse("1.14.0"), "skip for onnxruntime < 1.14.0")
-class TestAutoTokenizer(unittest.TestCase):
+class TestHuggingfaceWhisper(unittest.TestCase):
     def test_whisper_overall(self):
         processor = WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
         pre_m, post_m = gen_processing_models(processor,

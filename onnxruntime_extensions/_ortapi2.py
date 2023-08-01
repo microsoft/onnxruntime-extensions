@@ -11,11 +11,11 @@ import numpy as np
 from ._ocos import default_opset_domain, get_library_path  # noqa
 from ._cuops import onnx, onnx_proto, SingleOpGraph
 
-
 _ort_check_passed = False
 try:
     from packaging import version as _ver
     import onnxruntime as _ort
+
     if _ver.parse(_ort.__version__) >= _ver.parse("1.10.0"):
         _ort_check_passed = True
 except ImportError:
@@ -37,6 +37,7 @@ def get_opset_version_from_ort():
         "1.12": 17,
         "1.13": 17,
         "1.14": 18,
+        "1.15": 18
     }
 
     ort_ver_string = '.'.join(_ort.__version__.split('.')[0:2])
@@ -65,6 +66,7 @@ class OrtPyFunction:
     standard Python function. The order of the function arguments correlates directly with
     the sequence of the input/output in the ONNX graph.
     """
+
     def get_ort_session_options(self):
         so = _ort.SessionOptions()
         for k, v in self.extra_session_options.items():
@@ -87,7 +89,8 @@ class OrtPyFunction:
             mpath = path_or_model
         else:
             oxml = path_or_model
-        self._bind(oxml, mpath)
+        if path_or_model is not None:
+            self._bind(oxml, mpath)
 
     def create_from_customop(self, op_type, *args, **kwargs):
         graph = SingleOpGraph.build_graph(op_type, *args, **kwargs)
@@ -143,7 +146,8 @@ class OrtPyFunction:
 
     @classmethod
     def from_customop(cls, op_type, *args, **kwargs):
-        return cls(cls._get_kwarg_device(kwargs)).create_from_customop(op_type, *args, **kwargs)
+        return (cls(cpu_only=cls._get_kwarg_device(kwargs))
+                .create_from_customop(op_type, *args, **kwargs))
 
     @classmethod
     def from_model(cls, path_or_model, *args, **kwargs):
