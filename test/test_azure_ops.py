@@ -16,7 +16,7 @@ class TestAzureOps(unittest.TestCase):
 
     def __init__(self, config):
         super().__init__(config)
-        self.__enabled = os.environ['OCOS_ENABLE_AZURE'] == '1'
+        self.__enabled = os.getenv('OCOS_ENABLE_AZURE','') == '1'
         if self.__enabled:
             self.__opt = SessionOptions()
             self.__opt.register_custom_ops_library(get_library_path())
@@ -25,7 +25,7 @@ class TestAzureOps(unittest.TestCase):
         if self.__enabled:
             sess = InferenceSession(os.path.join(test_data_dir, "triton_addf.onnx"),
                                     self.__opt, providers=["CPUExecutionProvider"])
-            auth_token = np.array([os.environ['ADDF']])
+            auth_token = np.array([os.getenv('ADDF', '')])
             x = np.array([1,2,3,4]).astype(np.float32)
             y = np.array([4,3,2,1]).astype(np.float32)
             ort_inputs = {
@@ -42,7 +42,7 @@ class TestAzureOps(unittest.TestCase):
             opt.register_custom_ops_library(get_library_path())
             sess = InferenceSession(os.path.join(test_data_dir, "triton_addf8.onnx"),
                                     self.__opt, providers=["CPUExecutionProvider"])
-            auth_token = np.array([os.environ['ADDF8']])
+            auth_token = np.array([os.getenv('ADDF8', '')])
             x = np.array([1,2,3,4]).astype(np.double)
             y = np.array([4,3,2,1]).astype(np.double)
             ort_inputs = {
@@ -57,7 +57,7 @@ class TestAzureOps(unittest.TestCase):
         if self.__enabled:
             sess = InferenceSession(os.path.join(test_data_dir, "triton_addi4.onnx"),
                                     self.__opt, providers=["CPUExecutionProvider"])
-            auth_token = np.array([os.environ['ADDI4']])
+            auth_token = np.array([os.getenv('ADDI4', '')])
             x = np.array([1,2,3,4]).astype(np.int32)
             y = np.array([4,3,2,1]).astype(np.int32)
             ort_inputs = {
@@ -72,7 +72,7 @@ class TestAzureOps(unittest.TestCase):
         if self.__enabled:
             sess = InferenceSession(os.path.join(test_data_dir, "triton_and.onnx"),
                                     self.__opt, providers=["CPUExecutionProvider"])
-            auth_token = np.array([os.environ['AND']])
+            auth_token = np.array([os.getenv('AND', '')])
             x = np.array([True, True])
             y = np.array([True, False])
             ort_inputs = {
@@ -87,7 +87,7 @@ class TestAzureOps(unittest.TestCase):
         if self.__enabled:
             sess = InferenceSession(os.path.join(test_data_dir, "triton_str.onnx"),
                                     self.__opt, providers=["CPUExecutionProvider"])
-            auth_token = np.array([os.environ['STR']])
+            auth_token = np.array([os.getenv('STR', '')])
             str_in = np.array(['this is the input'])
             ort_inputs = {
                 "auth_token": auth_token,
@@ -102,7 +102,7 @@ class TestAzureOps(unittest.TestCase):
         if self.__enabled:
             sess = InferenceSession(os.path.join(test_data_dir, "openai_audio.onnx"),
                                     self.__opt, providers=["CPUExecutionProvider"])
-            auth_token = np.array([os.environ['AUDIO']])
+            auth_token = np.array([os.getenv('AUDIO', '')])
             model = np.array(['whisper-1'])
             response_format = np.array(['text'])
 
@@ -121,7 +121,7 @@ class TestAzureOps(unittest.TestCase):
         if self.__enabled:
             sess = InferenceSession(os.path.join(test_data_dir, "openai_chat.onnx"),
                                     self.__opt, providers=["CPUExecutionProvider"])
-            auth_token = np.array([os.environ['CHAT']])
+            auth_token = np.array([os.getenv('CHAT', '')])
             chat = np.array(['{\"model\": \"gpt-3.5-turbo\",\"messages\": [{\"role\": \"system\", \"content\": \"You are a helpful assistant.\"}, {\"role\": \"user\", \"content\": \"Hello!\"}]}'])
             ort_inputs = {
                 "auth_token": auth_token,
@@ -136,7 +136,7 @@ class TestAzureOps(unittest.TestCase):
             opt.register_custom_ops_library(get_library_path())
             sess = InferenceSession(os.path.join(test_data_dir, "openai_embedding.onnx"),
                                     opt, providers=["CPUExecutionProvider"])
-            auth_token = np.array([os.environ['EMB']])
+            auth_token = np.array([os.getenv('EMB', '')])
             text = np.array(['{\"input\": \"The food was delicious and the waiter...\", \"model\": \"text-embedding-ada-002\"}'])
 
             ort_inputs = {
