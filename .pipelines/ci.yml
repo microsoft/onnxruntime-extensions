@@ -182,7 +182,6 @@ jobs:
           versionSpec: '$(python.version)'
           disableDownloadFromRegistry: true
           addToPath: true
-          architecture: 'x64'
 
       - script: |
           python -m pip install --upgrade pip
