@@ -114,9 +114,9 @@ ExternalProject_Add(triton
                                -DTRITON_ENABLE_CC_HTTP=ON
                                -DTRITON_ENABLE_ZLIB=OFF
                                ${triton_extra_cmake_args}
-                    CMAKE_CACHE_ARGS -DTRITON_USE_THIRD_PARTY:BOOL=OFF
                     INSTALL_COMMAND cmake -E echo "Skipping install step.")
 
 add_dependencies(triton ${triton_dependencies})
 
+ExternalProject_Get_Property(triton SOURCE_DIR BINARY_DIR)
 set(triton_THIRD_PARTY_DIR ${BINARY_DIR}/third-party)

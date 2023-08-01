@@ -389,6 +389,11 @@ if(OCOS_ENABLE_AZURE)
 
   if (ANDROID)
     include(curl)
+
+    # make sure these work 
+    find_package(OpenSSL REQUIRED)
+    find_package(CURL REQUIRED)
+
     # exclude triton
     list(FILTER TARGET_SRC_AZURE EXCLUDE REGEX ".*triton.*")
   else()
@@ -599,9 +604,7 @@ endif()
 
 if(OCOS_ENABLE_AZURE)
   if (ANDROID)
-    find_package(OpenSSL REQUIRED)
-    find_package(CURL REQUIRED)
-
+    # the find_package calls were made immediately after `include(curl)` so we know CURL and OpenSSL are available
     target_link_libraries(ocos_operators PUBLIC CURL::libcurl OpenSSL::Crypto OpenSSL::SSL)
   elseif(IOS)
     # TODO
@@ -610,12 +613,6 @@ if(OCOS_ENABLE_AZURE)
     # so add a dependency so the fetch and build of triton happens first.
     add_dependencies(ocos_operators triton)
 
-    if (ocos_target_platform STREQUAL "AMD64")
-      set(vcpkg_target_platform "x64")
-    else()
-      set(vcpkg_target_platform ${ocos_target_platform})
-    endif()
-
     # include and link directories for triton and curl
     target_include_directories(ocos_operators PUBLIC ${triton_INSTALL_DIR}/include
                                                      ${triton_THIRD_PARTY_DIR}/curl/include)
@@ -623,6 +620,12 @@ if(OCOS_ENABLE_AZURE)
                                                   ${triton_THIRD_PARTY_DIR}/curl/lib)
 
     if (WIN32)
+      if (ocos_target_platform STREQUAL "AMD64")
+        set(vcpkg_target_platform "x64")
+      else()
+        set(vcpkg_target_platform ${ocos_target_platform})
+      endif()
+
       # As per https://curl.se/docs/faq.html#Link_errors_when_building_libcur we need to set CURL_STATICLIB.
       target_compile_definitions(ocos_operators PRIVATE CURL_STATICLIB)
       target_include_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static-md/include)
@@ -640,19 +643,15 @@ if(OCOS_ENABLE_AZURE)
     else()
       find_package(ZLIB REQUIRED)
 
-      # if finding the OpenSSL package fails most likely you need to install the triton client package dependencies.
+      # if finding the OpenSSL or CURL package fails most likely you need to install the triton client package
+      #  dependencies.
       #   https://github.com/triton-inference-server/client
       #   sudo apt update
       #   sudo apt install libcurl4-openssl-dev libb64-dev
-      #
-      # TODO: Should we use curl.h from this package or the triton build?
-      # Install location is platform specific. On Ubuntu according to `dpkg -L libcurl4-openssl-dev` we'd need these
-      # files.
-      #   /usr/include/x86_64-linux-gnu/curl/curl.h
-      #   /usr/lib/x86_64-linux-gnu/libcurl.a
       find_package(OpenSSL REQUIRED)
+      find_package(CURL REQUIRED)
 
-      target_link_libraries(ocos_operators PUBLIC httpclient_static ZLIB::ZLIB OpenSSL::Crypto OpenSSL::SSL)
+      target_link_libraries(ocos_operators PUBLIC httpclient_static CURL::libcurl ZLIB::ZLIB OpenSSL::Crypto OpenSSL::SSL)
     endif()
   endif()
 endif()

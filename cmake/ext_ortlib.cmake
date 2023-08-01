@@ -40,15 +40,28 @@ else()
     endif()
   endif()
 
-  message(STATUS "ONNX Runtime URL suffix: ${ONNXRUNTIME_URL}")
+  if (ANDROID)
+    set(ort_fetch_URL "https://repo1.maven.org/maven2/com/microsoft/onnxruntime/onnxruntime-android/${ONNXRUNTIME_VER}/onnxruntime-android-${ONNXRUNTIME_VER}.aar")
+  else()
+    set(ort_fetch_URL "https://github.com/microsoft/onnxruntime/releases/download/${ONNXRUNTIME_URL}")
+  endif()
+
+  message(STATUS "ONNX Runtime URL: ${ort_fetch_URL}")
   FetchContent_Declare(
     onnxruntime
-    URL https://github.com/microsoft/onnxruntime/releases/download/${ONNXRUNTIME_URL}
+    URL ${ort_fetch_URL}
   )
 
   FetchContent_makeAvailable(onnxruntime)
-  set(ONNXRUNTIME_INCLUDE_DIR ${onnxruntime_SOURCE_DIR}/include)
-  set(ONNXRUNTIME_LIB_DIR ${onnxruntime_SOURCE_DIR}/lib)
+
+  if (ANDROID)
+    set(ONNXRUNTIME_INCLUDE_DIR ${onnxruntime_SOURCE_DIR}/headers)
+    set(ONNXRUNTIME_LIB_DIR ${onnxruntime_SOURCE_DIR}/jni/${ANDROID_ABI})
+    message(STATUS "Android onnxruntime inc=${ONNXRUNTIME_INCLUDE_DIR} lib=${ONNXRUNTIME_LIB_DIR}")
+  else()
+    set(ONNXRUNTIME_INCLUDE_DIR ${onnxruntime_SOURCE_DIR}/include)
+    set(ONNXRUNTIME_LIB_DIR ${onnxruntime_SOURCE_DIR}/lib)
+  endif()
 endif()
 
 if(NOT EXISTS ${ONNXRUNTIME_INCLUDE_DIR})
