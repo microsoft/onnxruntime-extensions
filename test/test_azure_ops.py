@@ -19,7 +19,7 @@ class TestAzureOps(unittest.TestCase):
         opt.register_custom_ops_library(get_library_path())
         sess = InferenceSession(os.path.join(test_data_dir, "triton_addf.onnx"),
                                 opt, providers=["CPUExecutionProvider"])
-        auth_token = np.array(['RuB4VFQMfRlOPadcdnuTjYxQi25bwSHa'])
+        auth_token = np.array([os.environ['ADDF']])
         x = np.array([1,2,3,4]).astype(np.float32)
         y = np.array([4,3,2,1]).astype(np.float32)
         ort_inputs = {
@@ -35,7 +35,7 @@ class TestAzureOps(unittest.TestCase):
         opt.register_custom_ops_library(get_library_path())
         sess = InferenceSession(os.path.join(test_data_dir, "triton_addf8.onnx"),
                                 opt, providers=["CPUExecutionProvider"])
-        auth_token = np.array(['cBdnbqR22qYWXR8ImY7tPGU2WYggGfPz'])
+        auth_token = np.array([os.environ['ADDF8']])
         x = np.array([1,2,3,4]).astype(np.double)
         y = np.array([4,3,2,1]).astype(np.double)
         ort_inputs = {
@@ -51,7 +51,7 @@ class TestAzureOps(unittest.TestCase):
         opt.register_custom_ops_library(get_library_path())
         sess = InferenceSession(os.path.join(test_data_dir, "triton_addi4.onnx"),
                                 opt, providers=["CPUExecutionProvider"])
-        auth_token = np.array(['MYFF7rX0Dxr0oVzK5Dac77RPZL6TnrNf'])
+        auth_token = np.array([os.environ['ADDI4']])
         x = np.array([1,2,3,4]).astype(np.int32)
         y = np.array([4,3,2,1]).astype(np.int32)
         ort_inputs = {
@@ -67,7 +67,7 @@ class TestAzureOps(unittest.TestCase):
         opt.register_custom_ops_library(get_library_path())
         sess = InferenceSession(os.path.join(test_data_dir, "triton_and.onnx"),
                                 opt, providers=["CPUExecutionProvider"])
-        auth_token = np.array(['QmzQoWY9GzUH6yihHaLd43g3RScXppjg'])
+        auth_token = np.array([os.environ['AND']])
         x = np.array([True, True])
         y = np.array([True, False])
         ort_inputs = {
@@ -83,7 +83,7 @@ class TestAzureOps(unittest.TestCase):
         opt.register_custom_ops_library(get_library_path())
         sess = InferenceSession(os.path.join(test_data_dir, "triton_str.onnx"),
                                 opt, providers=["CPUExecutionProvider"])
-        auth_token = np.array(['dyd4Ml9hvZX3cF3ticHyQ7ZD7RVVfaZH'])
+        auth_token = np.array([os.environ['STR']])
         str_in = np.array(['this is the input'])
         ort_inputs = {
             "auth_token": auth_token,
@@ -93,6 +93,56 @@ class TestAzureOps(unittest.TestCase):
         self.assertEqual(len(outs), 2)
         self.assertEqual(outs[0], ['this is the input'])
         self.assertEqual(outs[1], ['this is the input'])
+
+    def testOpenAiAudio(self):
+        opt = SessionOptions()
+        opt.register_custom_ops_library(get_library_path())
+        sess = InferenceSession(os.path.join(test_data_dir, "openai_audio.onnx"),
+                                opt, providers=["CPUExecutionProvider"])
+        auth_token = np.array([os.environ['AUDIO']])
+        model = np.array(['whisper-1'])
+        response_format = np.array(['text'])
+
+        with open(os.path.join(test_data_dir, "test16.wav"), "rb") as _f:
+            audio_blob = np.asarray(list(_f.read()), dtype=np.uint8)
+            ort_inputs = {
+                "auth_token": auth_token,
+                "model": model,
+                "response_format": response_format,
+                "file": audio_blob
+            }
+            out = sess.run(None, ort_inputs)[0]
+            self.assertEqual(out, ['This is a test recording to test the Whisper model.\n'])
+
+    def testOpenAiChat(self):
+        opt = SessionOptions()
+        opt.register_custom_ops_library(get_library_path())
+        sess = InferenceSession(os.path.join(test_data_dir, "openai_chat.onnx"),
+                                opt, providers=["CPUExecutionProvider"])
+        auth_token = np.array([os.environ['CHAT']])
+        chat = np.array(['{\"model\": \"gpt-3.5-turbo\",\"messages\": [{\"role\": \"system\", \"content\": \"You are a helpful assistant.\"}, {\"role\": \"user\", \"content\": \"Hello!\"}]}'])
+        ort_inputs = {
+            "auth_token": auth_token,
+            "chat": chat,
+        }
+        out = sess.run(None, ort_inputs)[0]
+        self.assertTrue('assist' in out[0])
+
+    def testOpenAiEmb(self):
+        opt = SessionOptions()
+        opt.register_custom_ops_library(get_library_path())
+        sess = InferenceSession(os.path.join(test_data_dir, "openai_embedding.onnx"),
+                                opt, providers=["CPUExecutionProvider"])
+        auth_token = np.array([os.environ['EMB']])
+        text = np.array(['{\"input\": \"The food was delicious and the waiter...\", \"model\": \"text-embedding-ada-002\"}'])
+
+        ort_inputs = {
+            "auth_token": auth_token,
+            "text": text,
+        }
+
+        out = sess.run(None, ort_inputs)[0]
+        self.assertTrue('text-embedding-ada' in out[0])
 
 
 if __name__ == '__main__':
