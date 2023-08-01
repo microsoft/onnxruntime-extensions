@@ -26,19 +26,21 @@ class OpenAIAudioToTextInvoker : public CurlInvoker {
  public:
   OpenAIAudioToTextInvoker(const OrtApi& api, const OrtKernelInfo& info);
 
-  void Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) {
+  void Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) const {
     // use impl from CurlInvoker
     ComputeImpl(inputs, outputs);
   }
 
  private:
-  void ValidateArgs(const ortc::Variadic& inputs, const ortc::Variadic& outputs) const override;
+  void ValidateArgs(const ortc::Variadic& inputs) const override;
   void SetupRequest(CurlHandler& curl_handler, const ortc::Variadic& inputs) const override;
   void ProcessResponse(const std::string& response, ortc::Variadic& outputs) const override;
 
-  // attribute name for audio format.
-  // TODO: can we use a more meaningful name for the attribute or does it need to be generic?
-  static constexpr const char* kAudioFormat = "binary_type";
+  // TODO: Consider allowing overriding with an optional input parameter so the audio format is not hardcoded.
+  // FWIW the OpenAI Whisper endpoint seems to infer the audio type but requires the filename to use a supported format.
+  //   e.g. if the 'file' property name ends in '.wav' the request is processed, and it will happily use mp3 data.
+  // Given that it doesn't seem like we need an optional input for now.
+  static constexpr const char* kAudioFormat = "audio_format";
   std::string audio_format_;
 };
 

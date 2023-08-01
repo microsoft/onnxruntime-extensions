@@ -542,6 +542,10 @@ if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
   list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 
+if(OCOS_ENABLE_AZURE)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_AZURE)
+endif()
+
 target_include_directories(noexcep_operators PUBLIC ${GSL_INCLUDE_DIR})
 list(APPEND ocos_libraries Microsoft.GSL::GSL)
 
@@ -747,8 +751,10 @@ if(OCOS_ENABLE_CTEST)
       list(APPEND LINUX_CC_FLAGS stdc++fs -pthread)
     endif()
 
-    file(GLOB shared_TEST_SRC "${TEST_SRC_DIR}/shared_test/*.cc")
+    file(GLOB shared_TEST_SRC "${TEST_SRC_DIR}/shared_test/*.cc" "${TEST_SRC_DIR}/shared_test/*.hpp")
     add_executable(extensions_test ${shared_TEST_SRC})
+    target_compile_definitions(extensions_test PUBLIC ${OCOS_COMPILE_DEFINITIONS})
+
     standardize_output_folder(extensions_test)
     target_include_directories(extensions_test PRIVATE ${spm_INCLUDE_DIRS}
       "$<TARGET_PROPERTY:extensions_shared,INTERFACE_INCLUDE_DIRECTORIES>")

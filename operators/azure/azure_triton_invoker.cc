@@ -101,8 +101,7 @@ int8_t* CreateNonStrTensor(const std::string& data_type,
     return ORTX_CXX_API_THROW("Triton err: " + ret.Message(), ORT_RUNTIME_EXCEPTION); \
   }
 
-void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
-                                 ortc::Variadic& outputs) {
+void AzureTritonInvoker::Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) const {
   if (inputs.Size() < 1 ||
       inputs[0]->Type() != ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
     ORTX_CXX_API_THROW("invalid inputs, auto token missing", ORT_RUNTIME_EXCEPTION);
@@ -128,7 +127,8 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
       ORTX_CXX_API_THROW("unknow onnx data type", ORT_RUNTIME_EXCEPTION);
     }
 
-    err = tc::InferInput::Create(&triton_input, input_names[ith_input], inputs[ith_input]->Shape(), triton_data_type);
+    std::string property_name = GetPropertyNameFromInputName(input_names[ith_input]);
+    err = tc::InferInput::Create(&triton_input, property_name, inputs[ith_input]->Shape(), triton_data_type);
     CHECK_TRITON_ERR(err, "failed to create triton input");
     triton_input_vec.emplace_back(triton_input);
 

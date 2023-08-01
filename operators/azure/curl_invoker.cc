@@ -44,22 +44,23 @@ CurlHandler::CurlHandler(WriteCallBack callback) : curl_(curl_easy_init(), curl_
 
 CurlInvoker::CurlInvoker(const OrtApi& api, const OrtKernelInfo& info)
     : CloudBaseKernel(api, info) {
+  // extract the request property names from the input names
+  const auto& input_names = InputNames();
+  property_names_.reserve(input_names.size());
+
+  std::for_each(input_names.begin(), input_names.end(),
+                [this](const std::string& name) { property_names_.push_back(GetPropertyNameFromInputName(name)); });
 }
 
 void CurlInvoker::ComputeImpl(const ortc::Variadic& inputs, ortc::Variadic& outputs) const {
   std::string auth_token = GetAuthToken(inputs);
 
   if (inputs.Size() != InputNames().size()) {
-    // TODO: Add something like MakeString from ORT so we can output expected vs actual counts easily
     ORTX_CXX_API_THROW("input count mismatch", ORT_RUNTIME_EXCEPTION);
   }
 
-  if (outputs.Size() != OutputNames().size()) {
-    ORTX_CXX_API_THROW("output count mismatch", ORT_RUNTIME_EXCEPTION);
-  }
-
   // do any additional validation of the number and type of inputs/outputs
-  ValidateArgs(inputs, outputs);
+  ValidateArgs(inputs);
 
   // set the options for the curl handler that apply to all usages
   CurlHandler curl_handler(CurlHandler::WriteStringCallback);
@@ -79,6 +80,10 @@ void CurlInvoker::ComputeImpl(const ortc::Variadic& inputs, ortc::Variadic& outp
 
 void CurlInvoker::ExecuteRequest(CurlHandler& curl_handler) const {
   // this is where we could add any logic required to make the request async
+
+  // set a timeout. TODO: should this be configurable maybe via a node attribute?
+  curl_handler.SetOption(CURLOPT_TIMEOUT, 10);
+
   auto curl_ret = curl_handler.Perform();
   if (CURLE_OK != curl_ret) {
     ORTX_CXX_API_THROW(curl_easy_strerror(curl_ret), ORT_FAIL);

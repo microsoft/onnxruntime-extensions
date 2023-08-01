@@ -14,10 +14,13 @@ AzureAudioToTextInvoker::AzureAudioToTextInvoker(const OrtApi& api, const OrtKer
   audio_format_ = TryToGetAttributeWithDefault<std::string>(kAudioFormat, "");
 }
 
-void AzureAudioToTextInvoker::ValidateArgs(const ortc::Variadic& inputs, const ortc::Variadic& outputs) const {
+void AzureAudioToTextInvoker::ValidateArgs(const ortc::Variadic& inputs) const {
   // TODO: Validate any required input names are present
-  if (outputs.Size() != 1 || outputs[0]->Type() != ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
-    ORTX_CXX_API_THROW("Expected single string output", ORT_INVALID_ARGUMENT);
+
+  // We don't have a way to get the output type from the custom op API.
+  // If there's a mismatch it will fail in the Compute when it allocates the output tensor.
+  if (OutputNames().size() != 1) {
+    ORTX_CXX_API_THROW("Expected single output", ORT_INVALID_ARGUMENT);
   }
 }
 
@@ -25,7 +28,7 @@ void AzureAudioToTextInvoker::SetupRequest(CurlHandler& curl_handler, const ortc
   // theoretically the filename the content was buffered from
   static const std::string fake_filename = "non_exist." + audio_format_;
 
-  gsl::span<const std::string> input_names = InputNames();
+  const auto& property_names = PropertyNames();
 
   curl_handler.AddHeader("Content-Type: multipart/form-data");
   curl_handler.AddFormString("deployment_id", ModelName().c_str());
@@ -34,11 +37,11 @@ void AzureAudioToTextInvoker::SetupRequest(CurlHandler& curl_handler, const ortc
   for (size_t ith_input = 1; ith_input < inputs.Size(); ++ith_input) {
     switch (inputs[ith_input]->Type()) {
       case ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING:
-        curl_handler.AddFormString(input_names[ith_input].c_str(),
+        curl_handler.AddFormString(property_names[ith_input].c_str(),
                                    static_cast<const char*>(inputs[ith_input]->DataRaw()));  // assumes null terminated
         break;
       case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
-        curl_handler.AddFormBuffer(input_names[ith_input].c_str(),
+        curl_handler.AddFormBuffer(property_names[ith_input].c_str(),
                                    fake_filename.c_str(),
                                    inputs[ith_input]->DataRaw(),
                                    inputs[ith_input]->SizeInBytes());
@@ -61,13 +64,15 @@ AzureTextToTextInvoker::AzureTextToTextInvoker(const OrtApi& api, const OrtKerne
     : CurlInvoker(api, info) {
 }
 
-void AzureTextToTextInvoker::ValidateArgs(const ortc::Variadic& inputs, const ortc::Variadic& outputs) const {
+void AzureTextToTextInvoker::ValidateArgs(const ortc::Variadic& inputs) const {
   if (inputs.Size() != 2 || inputs[0]->Type() != ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
     ORTX_CXX_API_THROW("Expected 2 string inputs of auth_token and text respectively", ORT_INVALID_ARGUMENT);
   }
 
-  if (outputs.Size() != 1 || outputs[0]->Type() != ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
-    ORTX_CXX_API_THROW("Expected single string output", ORT_INVALID_ARGUMENT);
+  // We don't have a way to get the output type from the custom op API.
+  // If there's a mismatch it will fail in the Compute when it allocates the output tensor.
+  if (OutputNames().size() != 1) {
+    ORTX_CXX_API_THROW("Expected single output", ORT_INVALID_ARGUMENT);
   }
 }
 

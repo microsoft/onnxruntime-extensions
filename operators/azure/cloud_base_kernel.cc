@@ -12,8 +12,10 @@ CloudBaseKernel::CloudBaseKernel(const OrtApi& api, const OrtKernelInfo& info) :
     ORTX_CXX_API_THROW("Azure custom operators require onnxruntime version >= 1.14", ORT_RUNTIME_EXCEPTION);
   }
 
-  model_uri_ = TryToGetAttributeWithDefault<std::string>(kUri, "");
-  model_name_ = TryToGetAttributeWithDefault<std::string>(kModelName, "");
+  // require model uri and name. other properties are optional
+  // Custom op can allow user to override the model uri and name via inputs
+  TryToGetAttribute<std::string>(kUri, model_uri_);
+  TryToGetAttribute<std::string>(kModelName, model_name_);
   model_ver_ = TryToGetAttributeWithDefault<std::string>(kModelVer, "0");
   verbose_ = TryToGetAttributeWithDefault<std::string>(kVerbose, "0") != "0";
 
@@ -63,6 +65,19 @@ std::string CloudBaseKernel::GetAuthToken(const ortc::Variadic& inputs) const {
 
   std::string auth_token{static_cast<const char*>(inputs[0]->DataRaw())};
   return auth_token;
+}
+
+/*static */ std::string CloudBaseKernel::GetPropertyNameFromInputName(const std::string& input_name) {
+  auto idx = input_name.find_last_of('/');
+  if (idx == std::string::npos) {
+    return input_name;
+  }
+
+  if (idx == input_name.length() - 1) {
+    ORTX_CXX_API_THROW("Input name cannot end with '/'. Invalid input:" + input_name, ORT_INVALID_ARGUMENT);
+  }
+
+  return input_name.substr(idx + 1);  // return text after the '/'
 }
 
 }  // namespace ort_extensions

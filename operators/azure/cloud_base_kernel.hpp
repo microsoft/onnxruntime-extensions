@@ -35,6 +35,15 @@ class CloudBaseKernel : public BaseKernel {
   // first input is required to be auth token. validate that and return it.
   std::string GetAuthToken(const ortc::Variadic& inputs) const;
 
+  /// <summary>
+  /// Parse the property name to use in the request to the clound endpoint from a node input name.
+  /// Value returned is text following last '/', or the entire string if no '/'.
+  ///   e.g. 'node0/prompt' -> 'prompt'
+  /// </summary>
+  /// <param name="input_name">Node input name.</param>
+  /// <returns>Request property name the input is providing data for.</returns>
+  static std::string GetPropertyNameFromInputName(const std::string& input_name);
+
  private:
   std::string model_uri_;
   std::string model_name_;

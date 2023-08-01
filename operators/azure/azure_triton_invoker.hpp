@@ -10,7 +10,7 @@ namespace ort_extensions {
 
 struct AzureTritonInvoker : public CloudBaseKernel {
   AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs);
+  void Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) const;
 
  private:
   std::unique_ptr<triton::client::InferenceServerHttpClient> triton_client_;

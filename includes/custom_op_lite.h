@@ -382,6 +382,8 @@ struct Variadic : public TensorBase {
         }
         tensors_.emplace_back(tensor.release());
       }  // for
+    } else {
+      // a Variadic used for output is populated by the Compute so leave tensors_ empty here
     }
   }
   template <typename T>
