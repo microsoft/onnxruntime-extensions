@@ -105,6 +105,14 @@ else()
 endif() #if (WIN32)
 
 # Add the triton build. We just need the library so we don't install it.
+#
+# Patch the triton client CMakeLists.txt to fix two issues when building the python wheels with cibuildwheel, which
+# uses CentOS 7.
+#  1) use the full path to the version script file so 'ld' doesn't fail to find it. Looks like ld is running from the 
+#     parent directory but not sure why the behavior differs vs. other linux builds 
+#     e.g. building locally on Ubuntu is fine without the patch
+#  2) only set the CURL lib path to 'lib64' on a 64-bit CentOS build as 'lib64' is invalid on a 32-bit OS. without
+#     this patch the build of the third-party libraries in the triton client fail as the CURL build is not found.
 ExternalProject_Add(triton
                     URL https://github.com/triton-inference-server/client/archive/refs/heads/r23.05.tar.gz
                     URL_HASH SHA1=b8fd2a4e09eae39c33cd04cfa9ec934e39d9afc1
@@ -113,10 +121,13 @@ ExternalProject_Add(triton
                                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                                -DTRITON_ENABLE_CC_HTTP=ON
                                -DTRITON_ENABLE_ZLIB=OFF
-                               ${triton_extra_cmake_args}
-                    INSTALL_COMMAND cmake -E echo "Skipping install step.")
+                               ${triton_extra_cmake_args}                    
+                    INSTALL_COMMAND ${CMAKE_COMMAND} -E echo "Skipping install step."
+                    PATCH_COMMAND patch --verbose -p1 -i ${PROJECT_SOURCE_DIR}/cmake/externals/triton_cmake.patch
+                    )
 
 add_dependencies(triton ${triton_dependencies})
 
 ExternalProject_Get_Property(triton SOURCE_DIR BINARY_DIR)
 set(triton_THIRD_PARTY_DIR ${BINARY_DIR}/third-party)
+

@@ -609,15 +609,13 @@ if(OCOS_ENABLE_AZURE)
   elseif(IOS)
     # TODO
   else()
-    # we need files from the triton client (e.g. curl header on linux) to be available for the ocos_operators build
-    # so add a dependency so the fetch and build of triton happens first.
+    # we need files from the triton client (e.g. curl header on linux) to be available for the ocos_operators build.
+    # add a dependency so the fetch and build of triton happens first.
     add_dependencies(ocos_operators triton)
+    target_include_directories(ocos_operators PUBLIC ${triton_INSTALL_DIR}/include)
 
-    # include and link directories for triton and curl
-    target_include_directories(ocos_operators PUBLIC ${triton_INSTALL_DIR}/include
-                                                     ${triton_THIRD_PARTY_DIR}/curl/include)
-    target_link_directories(ocos_operators PUBLIC ${triton_INSTALL_DIR}/lib
-                                                  ${triton_THIRD_PARTY_DIR}/curl/lib)
+    target_link_directories(ocos_operators PUBLIC ${triton_INSTALL_DIR}/lib)
+    target_link_directories(ocos_operators PUBLIC ${triton_INSTALL_DIR}/lib64)
 
     if (WIN32)
       if (ocos_target_platform STREQUAL "AMD64")
@@ -631,27 +629,46 @@ if(OCOS_ENABLE_AZURE)
       target_include_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static-md/include)
 
       if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-        # TODO: Can we get this name from vcpkg instead of having to hardcode it?
         set(curl_LIB_NAME "libcurl-d")
         target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static-md/debug/lib)
       else()
         set(curl_LIB_NAME "libcurl")
-      target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static-md/lib)
+        target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static-md/lib)
       endif()
 
       target_link_libraries(ocos_operators PUBLIC httpclient_static ${curl_LIB_NAME} ws2_32 crypt32 Wldap32)
     else()
       find_package(ZLIB REQUIRED)
 
-      # if finding the OpenSSL or CURL package fails most likely you need to install the triton client package
-      #  dependencies.
-      #   https://github.com/triton-inference-server/client
-      #   sudo apt update
-      #   sudo apt install libcurl4-openssl-dev libb64-dev
-      find_package(OpenSSL REQUIRED)
-      find_package(CURL REQUIRED)
+      # If finding the OpenSSL or CURL package fails for a local build you can install libcurl4-openssl-dev. 
+      # See also info on triton client dependencies here: https://github.com/triton-inference-server/client
+      find_package(OpenSSL REQUIRED)      
+      find_package(CURL)
 
-      target_link_libraries(ocos_operators PUBLIC httpclient_static CURL::libcurl ZLIB::ZLIB OpenSSL::Crypto OpenSSL::SSL)
+      if (CURL_FOUND)
+        message(STATUS "Found CURL package")
+        set(libcurl_target CURL::libcurl)
+      else()
+        # curl is coming from triton but as that's an external project it isn't built yet and we have to add
+        # paths and library names instead of cmake targets.
+        message(STATUS "Using CURL build from triton client. Once built it should be in ${triton_THIRD_PARTY_DIR}/curl")
+        target_include_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/include)
+
+        # Install is to 'lib' except on CentOS (which is used for the manylinux build of the python wheel).
+        # Side note: we have to patch the triton client CMakeLists.txt to only use 'lib64' for 64-bit builds otherwise
+        #            the build of the 32-bit python wheel fails with CURL not being found due to the invalid library
+        #            directory name.
+        target_link_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/lib)
+        target_link_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/lib64)
+
+        if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+          set(libcurl_target "curl-d")
+        else()
+          set(libcurl_target "curl")
+        endif()        
+      endif()
+
+      target_link_libraries(ocos_operators PUBLIC httpclient_static ${libcurl_target} OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB)
     endif()
   endif()
 endif()
@@ -670,8 +687,7 @@ if(_BUILD_SHARED_LIBRARY)
     set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS "-Wl,-s -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
   endif()
 
-  target_include_directories(extensions_shared PUBLIC
-    "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>")
+  target_include_directories(extensions_shared PUBLIC "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>")
   target_link_libraries(extensions_shared PRIVATE ortcustomops)
   set_target_properties(extensions_shared PROPERTIES OUTPUT_NAME "ortextensions")
   if(MSVC AND ocos_target_platform MATCHES "x86|x64")
