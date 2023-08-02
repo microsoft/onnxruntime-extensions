@@ -8,7 +8,6 @@ from onnxruntime_extensions import OrtPyFunction, util, make_onnx_model
 import onnx
 from onnx import onnx_pb as onnx_proto
 
-
 _is_torch_available = False
 try:
     import torch

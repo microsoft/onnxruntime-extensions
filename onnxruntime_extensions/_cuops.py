@@ -253,7 +253,9 @@ class BertTokenizer(CustomOp):
     def serialize_attr(cls, attrs):
         attrs_data = {}
         for k_, v_ in attrs.items():
-            if k_ == 'vocab_file':
+            if k_ == 'vocab':
+                attrs_data['vocab_file'] = v_
+            elif k_ == 'vocab_file':
                 with open(v_, "r", encoding='utf-8') as model_file:
                     lines = model_file.readlines()
                     attrs_data[k_] = '\n'.join(lines)

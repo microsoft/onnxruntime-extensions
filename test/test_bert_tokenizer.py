@@ -114,5 +114,6 @@ class TestBertTokenizer(unittest.TestCase):
 
         print("\n*** Offset mapping tests complete. ***\n")
 
+
 if __name__ == "__main__":
     unittest.main()
