@@ -16,14 +16,6 @@ parameters: # parameters are shown up in ADO UI in a build queue time
   type: boolean
   default: false
 
-- name: BuildAzureOp
-  displayName: 'Build and test AzureEP ops'
-  type: string
-  values:
-  - '0'
-  - '1'
-  default: '0'
-
 - name: ExtraEnv
   displayName: 'Extra env variable set to CIBW_ENVIRONMENT'
   type: string
@@ -40,7 +32,7 @@ variables:
   CIBW_BUILD: cp3{8,9,10,11}-*amd64
   CIBW_ARCHS: AMD64
   DEBIAN_FRONTEND: noninteractive
-  CIBW_ENVIRONMENT: "OCOS_ENABLE_AZURE=${{ parameters.BuildAzureOp }} ${{ parameters.ExtraEnv }}"
+  CIBW_ENVIRONMENT: "${{ parameters.ExtraEnv }}"
 
 resources:
   repositories: 
