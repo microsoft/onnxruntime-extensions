@@ -31,20 +31,24 @@ def make_graph(*args, doc_string=None, **kwargs):
         graph.doc_string = ''
     return graph
 
+# This creates a model that allows the prompt and filename to be optionally provided as inputs.
+# The filename can be specified to indicate a different audio type to the default value in the audio_format attribute.
 model = helper.make_model(
     opset_imports=[clear_field(helper.make_operatorsetid('', 18), 'domain')],
     graph=make_graph(
         name='OpenAIWhisperTranscribe',
         initializer=[
-            # default prompt is empty
+            # add default values in the initializers to make the model inputs optional
+            helper.make_tensor('transcribe0/filename', TensorProto.STRING, [1], [b""]),
             helper.make_tensor('transcribe0/prompt', TensorProto.STRING, [1], [b""])
         ],
         inputs=[
             helper.make_tensor_value_info('auth_token', TensorProto.STRING, shape=[1]),
             helper.make_tensor_value_info('transcribe0/file', TensorProto.UINT8, shape=["bytes"]),
-            helper.make_tensor_value_info('transcribe0/prompt', TensorProto.STRING, shape=["bytes"]),
+            helper.make_tensor_value_info('transcribe0/filename', TensorProto.STRING, shape=["bytes"]),  # optional
+            helper.make_tensor_value_info('transcribe0/prompt', TensorProto.STRING, shape=["bytes"]),  # optional
         ],
-        outputs=[helper.make_tensor_value_info('transcriptions', TensorProto.STRING, shape=["num_sentences"])],
+        outputs=[helper.make_tensor_value_info('transcription', TensorProto.STRING, shape=[1])],
         nodes=[
             make_node(
                 'OpenAIAudioToText',
@@ -52,11 +56,11 @@ model = helper.make_model(
                 #   response_format, temperature, language
                 # Using a prefix for input names allows the model to have multiple nodes calling cloud endpoints.
                 # auth_token does not need a prefix unless different auth tokens are used for different nodes.
-                inputs=['auth_token', 'transcribe0/file', 'transcribe0/prompt'],
-                outputs=['transcriptions'],
+                inputs=['auth_token', 'transcribe0/file', 'transcribe0/filename', 'transcribe0/prompt'],
+                outputs=['transcription'],
                 name='OpenAIAudioToText0',
                 domain='ai.onnx.contrib',
-                audio_format=b'wav',  # suffix to use for generated audio filename. 
+                audio_format=b'wav',  # default audio type if filename is not specified.
                 model_uri=b'https://api.openai.com/v1/audio/transcriptions',
                 model_name=b'whisper-1',
                 verbose=0,

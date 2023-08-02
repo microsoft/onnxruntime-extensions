@@ -49,13 +49,15 @@ TEST(AzureOps, OpenAIWhisper) {
     }
   };
 
-  std::vector<TestValue> outputs{TestValue("transcriptions", expected_output, {1})};
+  std::vector<TestValue> outputs{TestValue("transcription", expected_output, {1})};
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath(), find_strings_in_output);
 
   // Use mp3 input (despite the node having audio_format set to 'wav') and test altering the spelling using a prompt
   audio_path = data_dir / "be-a-man-take-some-pepto-bismol-get-dressed-and-come-on-over-here.mp3";
   audio_data = LoadBytesFromFile(audio_path);
   inputs[1] = TestValue("transcribe0/file", audio_data, {narrow<int64_t>(audio_data.size())});
+  // set filename to make it explicit we're providing mp3. model has default of wav.
+  inputs.push_back(TestValue("transcribe0/filename", {std::string("audio.mp3")}, {1}));
   expected_output = {"Take some Pepto-Bismol, get dressed, and come on over here."};
 
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath(), find_strings_in_output);

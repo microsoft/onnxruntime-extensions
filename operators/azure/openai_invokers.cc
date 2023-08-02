@@ -18,6 +18,14 @@ OpenAIAudioToTextInvoker::OpenAIAudioToTextInvoker(const OrtApi& api, const OrtK
   if (!have_required_input) {
     ORTX_CXX_API_THROW("Required 'file' input was not found", ORT_INVALID_ARGUMENT);
   }
+
+  auto filename_input = std::find_if(property_names.begin(), property_names.end(),
+                                     [](const auto& name) { return name == "filename"; });
+
+  // save the index of the 'filename' input
+  if (filename_input != property_names.end()) {
+    filename_input_ = filename_input - property_names.begin();
+  }
 }
 
 void OpenAIAudioToTextInvoker::ValidateArgs(const ortc::Variadic& inputs) const {
@@ -29,13 +37,20 @@ void OpenAIAudioToTextInvoker::ValidateArgs(const ortc::Variadic& inputs) const 
 }
 
 void OpenAIAudioToTextInvoker::SetupRequest(CurlHandler& curl_handler, const ortc::Variadic& inputs) const {
-  // theoretically the filename the content was buffered from
-  static const std::string fake_filename = "data_from_input." + audio_format_;
+  // theoretically the filename the content was buffered from. provides the extensions indicating the audio format
+  static const std::string fake_filename = "user_audio." + audio_format_;
 
   curl_handler.AddHeader("Content-Type: multipart/form-data");
   curl_handler.AddFormString("model", ModelName().c_str());
 
   const auto& property_names = PropertyNames();
+
+  // filename_input_ is optional in a model. if it's not present, use a fake filename.
+  // if it's present make sure it's not a default empty value. as the filename needs to have an extension of
+  // mp3, mp4, mpeg, mpga, m4a, wav, or webm it must be at least 4 characters long.
+  const char* filename = (filename_input_.has_value() && inputs[*filename_input_]->SizeInBytes() > 4)
+                             ? static_cast<const char*>(inputs[*filename_input_]->DataRaw())
+                             : fake_filename.c_str();
 
   for (size_t ith_input = 1; ith_input < inputs.Size(); ++ith_input) {
     switch (inputs[ith_input]->Type()) {
@@ -46,8 +61,14 @@ void OpenAIAudioToTextInvoker::SetupRequest(CurlHandler& curl_handler, const ort
                                    static_cast<const char*>(inputs[ith_input]->DataRaw()));
         break;
       case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
+        // only the 'file' input is uint8
+        if (property_names[ith_input] != "file") {
+          ORTX_CXX_API_THROW("Only the 'file' input should be uint8 data. Invalid input:" + InputNames()[ith_input],
+                             ORT_INVALID_ARGUMENT);
+        }
+
         curl_handler.AddFormBuffer(property_names[ith_input].c_str(),
-                                   fake_filename.c_str(),
+                                   filename,
                                    inputs[ith_input]->DataRaw(),
                                    inputs[ith_input]->SizeInBytes());
         break;
