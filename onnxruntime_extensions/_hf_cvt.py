@@ -9,9 +9,9 @@ _hf_cvt.py: HuggingFace Tokenizer/Processor Converter
 
 import json
 import onnx
-import numpy as np
+from numpy import array as nparray
 from functools import partial
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 
 from ._cuops import CustomOpConverter, SingleOpGraph
 from .util import read_file
@@ -29,6 +29,25 @@ class HFTokenizerConverter(CustomOpConverter):
         v_ in hf_gpt2_tokenizer.bpe_ranks.items()}
         attrs['merges'] = '\n'.join("{} {}".format(
             *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
+        attrs.update(**kwargs)
+        return attrs
+
+    def bert_tokenizer(self, **kwargs):
+        hf_bert_tokenizer = self.tokenizer
+        # has to be sorted since the id of token was generated automatically.
+        ordered_vocab = OrderedDict(sorted(hf_bert_tokenizer.vocab.items(), key=lambda item: int(item[1])))
+        vocab = '\n'.join(ordered_vocab.keys())
+        attrs = dict(vocab=vocab)
+        init_kwargs = hf_bert_tokenizer.init_kwargs
+        attrs['do_lower_case'] = 1 if 'do_lower_case' in init_kwargs and init_kwargs.get('do_lower_case') else 0
+        attrs['strip_accents'] = 1 if 'strip_accents' in init_kwargs and init_kwargs.get('strip_accents') else 0
+        attrs.update(**kwargs)
+        return attrs
+
+    def bert_decoder(self, **kwargs):
+        hf_bert_tokenizer = self.tokenizer
+        attrs = {'vocab': json.dumps(
+            hf_bert_tokenizer.ids_to_tokens, separators=(',', ':'))}
         attrs.update(**kwargs)
         return attrs
 
@@ -95,22 +114,28 @@ TokenOpParam = namedtuple("TokenOpParam",
                            "default_inputs"],
                           defaults=(None, None, None, None, None))
 
-# fmt: off
+# @formatter:off
 _PROCESSOR_DICT = {
-    "GPT2Tokenizer":    TokenOpParam('Gpt2Tokenizer', HFTokenizerConverter.bpe_tokenizer,
-                                     'BpeDecoder', HFTokenizerConverter.bpe_decoder),
-    "ClipTokenizer":    TokenOpParam('ClipTokenizer', HFTokenizerConverter.clip_tokenizer,
-                                     'BpeDecoder', HFTokenizerConverter.bpe_decoder),
-    "RobertaTokenizer": TokenOpParam("RobertaTokenizer", HFTokenizerConverter.roberta_tokenizer,
-                                     None, None),
-    "T5Tokenizer":      TokenOpParam("SentencepieceTokenizer", HFTokenizerConverter.spm_tokenizer,
-                                     "SentencepieceDecoder", HFTokenizerConverter.spm_decoder,
+    "BertTokenizer":    TokenOpParam('BertTokenizer',   HFTokenizerConverter.bert_tokenizer,
+                                     'BertDecoder',     HFTokenizerConverter.bpe_decoder, None),
+    "DistilBertTokenizer":
+                        TokenOpParam('BertTokenizer',   HFTokenizerConverter.bert_tokenizer,
+                                     'BertDecoder',     HFTokenizerConverter.bpe_decoder, None),
+    "GPT2Tokenizer":    TokenOpParam('Gpt2Tokenizer',   HFTokenizerConverter.bpe_tokenizer,
+                                     'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
+    "ClipTokenizer":    TokenOpParam('ClipTokenizer',   HFTokenizerConverter.clip_tokenizer,
+                                     'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
+    "RobertaTokenizer": TokenOpParam("RobertaTokenizer",    HFTokenizerConverter.roberta_tokenizer,
+                                     None, None, None),
+    "T5Tokenizer":      TokenOpParam("SentencepieceTokenizer",  HFTokenizerConverter.spm_tokenizer,
+                                     "SentencepieceDecoder",    HFTokenizerConverter.spm_decoder,
                                      default_inputs={'add_eos': [True]}),
-    "LlamaTokenizer":   TokenOpParam("SentencepieceTokenizer", HFTokenizerConverter.spm_tokenizer,
-                                     "SentencepieceDecoder", HFTokenizerConverter.spm_decoder,
+    "LlamaTokenizer":   TokenOpParam("SentencepieceTokenizer",  HFTokenizerConverter.spm_tokenizer,
+                                     "SentencepieceDecoder",    HFTokenizerConverter.spm_decoder,
                                      default_inputs={'add_bos': [True]}),
 }
-# fmt: on
+# @formatter:on
+
 
 class HFTokenizerOnnxGraph:
 
@@ -137,31 +162,34 @@ class HFTokenizerOnnxGraph:
         _cvt_func = self.cvt_quadruple.pre_attribute_cvt
         cvt = partial(_cvt_func, self.cvt_obj)
         g = SingleOpGraph.build_graph(_cvt_op, cvt=cvt, **kwargs)
+        default_inputs = []
         if with_default_inputs:
             op_class = SingleOpGraph.get_op_class(_cvt_op)
             default_inputs = op_class.input_default_values()
             if default_inputs is None:
-                raise ValueError("The op {} doesn't define default inputs".format(_cvt_op))
-            n_inputs = len(default_inputs)
-            if self.cvt_quadruple.default_inputs is not None:
-                default_inputs.update(self.cvt_quadruple.default_inputs)
-                if len(default_inputs) != n_inputs:
-                    raise ValueError("Op: {} does have the inputs from its TokenOpParam.".format(_cvt_op))
+                return g
 
-            new_initializers = []
+        # add default_inputs into initializers to simplify the model input
+        n_inputs = len(default_inputs)
+        if self.cvt_quadruple.default_inputs is not None:
+            default_inputs.update(self.cvt_quadruple.default_inputs)
+            if len(default_inputs) != n_inputs:
+                raise ValueError("Op: {} does have the inputs from its TokenOpParam.".format(_cvt_op))
 
-            for k, v in default_inputs.items():
-                input_value_info = next((i for i in g.input if i.name == k), None)
-                if input_value_info is None:
-                    raise ValueError("The input {} is not found in the graph".format(k))
+        new_initializers = []
 
-                np_dtype = onnx.helper.tensor_dtype_to_np_dtype(input_value_info.type.tensor_type.elem_type)
-                value = np.array(v, np_dtype)
-                new_initializers.append(onnx.numpy_helper.from_array(value, k))
-            g.initializer.extend(new_initializers)
-            new_inputs = [i for i in g.input if i.name not in default_inputs]
-            g.ClearField("input")
-            g.input.extend(new_inputs)
+        for k, v in default_inputs.items():
+            input_value_info = next((i for i in g.input if i.name == k), None)
+            if input_value_info is None:
+                raise ValueError("The input {} is not found in the graph".format(k))
+
+            np_dtype = onnx.helper.tensor_dtype_to_np_dtype(input_value_info.type.tensor_type.elem_type)
+            value = nparray(v, np_dtype)
+            new_initializers.append(onnx.numpy_helper.from_array(value, k))
+        g.initializer.extend(new_initializers)
+        new_inputs = [i for i in g.input if i.name not in default_inputs]
+        g.ClearField("input")
+        g.input.extend(new_inputs)
         return g
 
     def post_processing(self, **kwargs):

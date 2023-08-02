@@ -17,7 +17,7 @@ from ._extensions_pydll import (  # noqa
 def get_library_path():
     """
     The custom operator library binary path
-    :return: A string of the this library path.
+    :return: A string of this library path.
     """
     mod = sys.modules['onnxruntime_extensions._extensions_pydll']
     return mod.__file__

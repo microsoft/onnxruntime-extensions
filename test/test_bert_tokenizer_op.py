@@ -55,7 +55,6 @@ class TestBertTokenizerOp(unittest.TestCase):
             input="cat isnot playing toyssss"
         )
 
-
     def test_text_to_case1_with_hf_tok(self):
         ort_tok = pnp.PreHuggingFaceBert(hf_tok=_bert_cased_tokenizer)
         model = pnp.export(pnp.SequentialProcessingModule(ort_tok), ["whatever"], opset_version=12)
