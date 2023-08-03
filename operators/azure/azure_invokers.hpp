@@ -23,7 +23,7 @@ struct AzureAudioInvoker : public AzureInvoker {
   void Compute(const ortc::Variadic& inputs, ortc::Tensor<std::string>& output) const;
 
  private:
-  std::string binary_type_;
+  std::string file_name_;
 };
 
 struct AzureTextInvoker : public AzureInvoker {
