@@ -2,7 +2,9 @@
 // Licensed under the MIT License.
 
 #include "gtest/gtest.h"
+#ifdef ENABLE_RE2_REGEX
 #include "re2/re2.h"
+#endif
 #include "nlohmann/json.hpp"
 #include "string_utils.h"
 #include "ustring.h"
@@ -13,10 +15,12 @@ TEST(utils, make_string) {
   EXPECT_EQ(res, "ab0");
 }
 
+#ifdef ENABLE_RE2_REGEX
 TEST(utils, re2_basic) {
   re2::StringPiece piece("1234");
   re2::RE2 reg("[0-9]*");
 }
+#endif
 
 TEST(utils, json) {
   nlohmann::json j;
