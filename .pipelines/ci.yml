@@ -177,13 +177,10 @@ jobs:
     steps:
       - template: templates/use-xcode-version.yml
 
-      # needed for onnxruntime
-      - script: brew install libomp
-        displayName: 'Install omp'
-
       - task: UsePythonVersion@0
         inputs:
           versionSpec: '$(python.version)'
+          disableDownloadFromRegistry: true
           addToPath: true
 
       - script: |
@@ -428,6 +425,7 @@ jobs:
       - task: UsePythonVersion@0
         inputs:
           versionSpec: '3.9'
+          disableDownloadFromRegistry: true
           addToPath: true
           architecture: 'x64'
         displayName: "Use Python 3.9"

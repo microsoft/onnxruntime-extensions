@@ -11,5 +11,5 @@ struct KernelStringEqual : BaseKernel {
   void Compute(OrtKernelContext* context,
                const ortc::Tensor<std::string>&,
                const ortc::Tensor<std::string>&,
-               ortc::Tensor<bool>& output);
+               ortc::Tensor<bool>& output) const;
 };

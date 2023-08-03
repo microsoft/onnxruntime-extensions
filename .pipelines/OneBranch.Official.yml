@@ -16,13 +16,10 @@ parameters: # parameters are shown up in ADO UI in a build queue time
   type: boolean
   default: false
 
-- name: BuildAzureOp
-  displayName: 'Build and test AzureEP ops'
+- name: ExtraEnv
+  displayName: 'Extra env variable set to CIBW_ENVIRONMENT'
   type: string
-  values:
-  - '0'
-  - '1'
-  default: '0'
+  default: 'None=None'
 
 variables:
   CDP_DEFINITION_BUILD_COUNT: $[counter('', 0)] 
@@ -35,7 +32,7 @@ variables:
   CIBW_BUILD: cp3{8,9,10,11}-*amd64
   CIBW_ARCHS: AMD64
   DEBIAN_FRONTEND: noninteractive
-  CIBW_ENVIRONMENT: "OCOS_ENABLE_AZURE=${{ parameters.BuildAzureOp }}"
+  CIBW_ENVIRONMENT: "${{ parameters.ExtraEnv }}"
 
 resources:
   repositories: 
@@ -107,6 +104,7 @@ extends:
             python -m pip install --upgrade pip
             python -m pip install cibuildwheel numpy
             python -m cibuildwheel --platform windows --archs AMD64 --output-dir $(REPOROOT)\out
+            tools\install_deps.bat uninstall
           displayName: Build wheels
         - task: SDLNativeRules@3
           inputs:

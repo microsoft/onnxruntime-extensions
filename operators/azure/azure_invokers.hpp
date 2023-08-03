@@ -20,7 +20,7 @@ struct AzureInvoker : public BaseKernel {
 
 struct AzureAudioInvoker : public AzureInvoker {
   AzureAudioInvoker(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::Variadic& inputs, ortc::Tensor<std::string>& output);
+  void Compute(const ortc::Variadic& inputs, ortc::Tensor<std::string>& output) const;
 
  private:
   std::string binary_type_;
@@ -28,7 +28,7 @@ struct AzureAudioInvoker : public AzureInvoker {
 
 struct AzureTextInvoker : public AzureInvoker {
   AzureTextInvoker(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(std::string_view auth, std::string_view input, ortc::Tensor<std::string>& output);
+  void Compute(std::string_view auth, std::string_view input, ortc::Tensor<std::string>& output) const;
 
  private:
   std::string binary_type_;
@@ -36,7 +36,7 @@ struct AzureTextInvoker : public AzureInvoker {
 
 struct AzureTritonInvoker : public AzureInvoker {
   AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs);
+  void Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) const;
 
  private:
   std::unique_ptr<triton::client::InferenceServerHttpClient> triton_client_;

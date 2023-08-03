@@ -16,7 +16,7 @@ struct KernelSentencepieceTokenizer : BaseKernel {
                bool add_eos,
                bool add_rev,
                ortc::Tensor<int32_t>& output,
-               ortc::Tensor<int64_t>& output1);
+               ortc::Tensor<int64_t>& output1) const;
 
  private:
   sentencepiece::SentencePieceProcessor tokenizer_;

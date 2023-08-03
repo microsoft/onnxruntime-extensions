@@ -131,7 +131,7 @@ AzureAudioInvoker::AzureAudioInvoker(const OrtApi& api, const OrtKernelInfo& inf
   binary_type_ = TryToGetAttributeWithDefault<std::string>(kBinaryType, "");
 }
 
-void AzureAudioInvoker::Compute(const ortc::Variadic& inputs, ortc::Tensor<std::string>& output) {
+void AzureAudioInvoker::Compute(const ortc::Variadic& inputs, ortc::Tensor<std::string>& output) const {
   if (inputs.Size() < 1 ||
       inputs[0]->Type() != ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
     ORTX_CXX_API_THROW("invalid inputs, auto token missing", ORT_RUNTIME_EXCEPTION);
@@ -196,7 +196,8 @@ void AzureAudioInvoker::Compute(const ortc::Variadic& inputs, ortc::Tensor<std::
 AzureTextInvoker::AzureTextInvoker(const OrtApi& api, const OrtKernelInfo& info) : AzureInvoker(api, info) {
 }
 
-void AzureTextInvoker::Compute(std::string_view auth, std::string_view input, ortc::Tensor<std::string>& output) {
+void AzureTextInvoker::Compute(std::string_view auth, std::string_view input,
+                               ortc::Tensor<std::string>& output) const {
   CurlHandler curl_handler(WriteStringCallback);
   StringBuffer string_buffer;
 
@@ -313,8 +314,7 @@ int8_t* CreateNonStrTensor(const std::string& data_type,
     return ORTX_CXX_API_THROW("Triton err: " + ret.Message(), ORT_RUNTIME_EXCEPTION); \
   }
 
-void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
-                                 ortc::Variadic& outputs) {
+void AzureTritonInvoker::Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) const {
   if (inputs.Size() < 1 ||
       inputs[0]->Type() != ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
     ORTX_CXX_API_THROW("invalid inputs, auto token missing", ORT_RUNTIME_EXCEPTION);
@@ -343,11 +343,15 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs,
     triton_input_vec.emplace_back(triton_input);
 
     triton_inputs.push_back(triton_input);
-    // todo - test string
-    const float* data_raw = reinterpret_cast<const float*>(inputs[ith_input]->DataRaw());
-    size_t size_in_bytes = inputs[ith_input]->SizeInBytes();
-    err = triton_input->AppendRaw(reinterpret_cast<const uint8_t*>(data_raw), size_in_bytes);
-    CHECK_TRITON_ERR(err, "failed to append raw data to input");
+    if ("BYTES" == triton_data_type) {
+      const auto* string_tensor = reinterpret_cast<const ortc::Tensor<std::string>*>(inputs[ith_input].get());
+      triton_input->AppendFromString(string_tensor->Data());
+    } else {
+        const float* data_raw = reinterpret_cast<const float*>(inputs[ith_input]->DataRaw());
+        size_t size_in_bytes = inputs[ith_input]->SizeInBytes();
+        err = triton_input->AppendRaw(reinterpret_cast<const uint8_t*>(data_raw), size_in_bytes);
+        CHECK_TRITON_ERR(err, "failed to append raw data to input");
+    }
   }
 
   for (size_t ith_output = 0; ith_output < output_names_.size(); ++ith_output) {
@@ -411,15 +415,11 @@ const std::vector<const OrtCustomOp*>& AzureInvokerLoader() {
   static OrtOpLoader op_loader(CustomAzureStruct("AzureAudioInvoker", AzureAudioInvoker),
                                CustomAzureStruct("AzureTritonInvoker", AzureTritonInvoker),
                                CustomAzureStruct("AzureAudioInvoker", AzureAudioInvoker),
-                               CustomAzureStruct("AzureTextInvoker", AzureTextInvoker)
-
-#ifdef TEST_AZURE_INVOKERS_AS_CPU_OP
-                                   ,
+                               CustomAzureStruct("AzureTextInvoker", AzureTextInvoker),
                                CustomCpuStruct("AzureAudioInvoker", AzureAudioInvoker),
                                CustomCpuStruct("AzureTritonInvoker", AzureTritonInvoker),
                                CustomCpuStruct("AzureAudioInvoker", AzureAudioInvoker),
                                CustomCpuStruct("AzureTextInvoker", AzureTextInvoker)
-#endif
   );
   return op_loader.GetCustomOps();
 }
