@@ -17,9 +17,9 @@ parameters: # parameters are shown up in ADO UI in a build queue time
   default: false
 
 - name: ExtraEnv
-  displayName: 'Extra env variable set to CIBW_ENVIRONMENT'
+  displayName: 'Extra env variable set to CIBW_ENVIRONMENT, in form of "A=1 B=2 C=3"'
   type: string
-  default: 'None=None'
+  default: ''
 
 variables:
   CDP_DEFINITION_BUILD_COUNT: $[counter('', 0)] 
