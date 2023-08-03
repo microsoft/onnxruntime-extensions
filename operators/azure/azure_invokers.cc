@@ -343,11 +343,15 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs, ortc::Variadic& o
     triton_input_vec.emplace_back(triton_input);
 
     triton_inputs.push_back(triton_input);
-    // todo - test string
-    const float* data_raw = reinterpret_cast<const float*>(inputs[ith_input]->DataRaw());
-    size_t size_in_bytes = inputs[ith_input]->SizeInBytes();
-    err = triton_input->AppendRaw(reinterpret_cast<const uint8_t*>(data_raw), size_in_bytes);
-    CHECK_TRITON_ERR(err, "failed to append raw data to input");
+    if ("BYTES" == triton_data_type) {
+      const auto* string_tensor = reinterpret_cast<const ortc::Tensor<std::string>*>(inputs[ith_input].get());
+      triton_input->AppendFromString(string_tensor->Data());
+    } else {
+        const float* data_raw = reinterpret_cast<const float*>(inputs[ith_input]->DataRaw());
+        size_t size_in_bytes = inputs[ith_input]->SizeInBytes();
+        err = triton_input->AppendRaw(reinterpret_cast<const uint8_t*>(data_raw), size_in_bytes);
+        CHECK_TRITON_ERR(err, "failed to append raw data to input");
+    }
   }
 
   for (size_t ith_output = 0; ith_output < output_names_.size(); ++ith_output) {
@@ -411,15 +415,11 @@ const std::vector<const OrtCustomOp*>& AzureInvokerLoader() {
   static OrtOpLoader op_loader(CustomAzureStruct("AzureAudioInvoker", AzureAudioInvoker),
                                CustomAzureStruct("AzureTritonInvoker", AzureTritonInvoker),
                                CustomAzureStruct("AzureAudioInvoker", AzureAudioInvoker),
-                               CustomAzureStruct("AzureTextInvoker", AzureTextInvoker)
-
-#ifdef TEST_AZURE_INVOKERS_AS_CPU_OP
-                                   ,
+                               CustomAzureStruct("AzureTextInvoker", AzureTextInvoker),
                                CustomCpuStruct("AzureAudioInvoker", AzureAudioInvoker),
                                CustomCpuStruct("AzureTritonInvoker", AzureTritonInvoker),
                                CustomCpuStruct("AzureAudioInvoker", AzureAudioInvoker),
                                CustomCpuStruct("AzureTextInvoker", AzureTextInvoker)
-#endif
   );
   return op_loader.GetCustomOps();
 }
