@@ -113,12 +113,16 @@ endif() #if (WIN32)
 #     e.g. building locally on Ubuntu is fine without the patch
 #  2) only set the CURL lib path to 'lib64' on a 64-bit CentOS build as 'lib64' is invalid on a 32-bit OS. without
 #     this patch the build of the third-party libraries in the triton client fail as the CURL build is not found.
+set(triton_VERSION_TAG r23.05)
 ExternalProject_Add(triton
-                    URL https://github.com/triton-inference-server/client/archive/refs/heads/r23.05.tar.gz
+                    URL https://github.com/triton-inference-server/client/archive/refs/heads/${triton_VERSION_TAG}.tar.gz
                     URL_HASH SHA1=b8fd2a4e09eae39c33cd04cfa9ec934e39d9afc1
                     PREFIX ${triton_PREFIX}
                     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${triton_INSTALL_DIR}
                                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                               -DTRITON_COMMON_REPO_TAG=${triton_VERSION_TAG}
+                               -DTRITON_THIRD_PARTY_REPO_TAG=${triton_VERSION_TAG}
+                               -DTRITON_CORE_REPO_TAG=${triton_VERSION_TAG}
                                -DTRITON_ENABLE_CC_HTTP=ON
                                -DTRITON_ENABLE_ZLIB=OFF
                                ${triton_extra_cmake_args}                    
