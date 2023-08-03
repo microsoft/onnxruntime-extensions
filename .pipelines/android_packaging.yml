@@ -27,6 +27,13 @@ jobs:
 
       - template: templates/install-appcenter.yml
 
+      # TODO: Add variable for Azure ops being enabled and use as condition here
+      - script: |
+          set -x -e
+          cd prebuild
+          ./build_curl_for_android.sh
+        displayName: "Pre-build OpenSSL and CURL libraries for Android."
+
       - script: |
           python ./tools/gen_selectedops.py ./tools/android/package_ops.config
         displayName: "Generate selected ops CMake file"
