@@ -6,7 +6,15 @@ steps:
 - bash: |
     set -e -x
 
-    ORT_EXTENSIONS_BUILD_SIMULATOR_ID=$(xcrun simctl create iPhoneSimulatorForPipeline com.apple.CoreSimulator.SimDeviceType.iPhone-8)
+    # just so we have a list of options if we need to adjust
+    xcrun simctl list devices
+    xcrun simctl list runtimes
+
+    # hardcode to 16.4 for now.
+    # latest macOS image in Azure DevOps has iOS of 17.0 so that is the default.
+    #   a) iPhone 8 is not supported by that OS so we need update the phone
+    #   b) we don't want to be using a beta iOS version in our main testing
+    ORT_EXTENSIONS_BUILD_SIMULATOR_ID=$(xcrun simctl create iPhoneSimulatorForPipeline com.apple.CoreSimulator.SimDeviceType.iPhone-8 com.apple.CoreSimulator.SimRuntime.iOS-16-4)
 
     # Do not output ##vso[] commands with `set -x` or they may be parsed again and include a trailing quote.
     set +x
