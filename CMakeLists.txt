@@ -379,10 +379,10 @@ if(OCOS_ENABLE_BLINGFIRE)
 endif()
 
 if(OCOS_ENABLE_AZURE)
-  if ($ENV{TEST_AZURE_INVOKERS_AS_CPU_OP} MATCHES "ON")
+  #if ($ENV{TEST_AZURE_INVOKERS_AS_CPU_OP} MATCHES "ON")
     message(STATUS "Azure invokers will be testable as cpu ops")
     add_compile_definitions(TEST_AZURE_INVOKERS_AS_CPU_OP)
-  endif()
+  #endif()
 
   # Azure endpoint invokers
   file(GLOB TARGET_SRC_AZURE "operators/azure/*.cc" "operators/azure/*.h*")
@@ -390,7 +390,7 @@ if(OCOS_ENABLE_AZURE)
   if (ANDROID)
     include(curl)
 
-    # make sure these work 
+    # make sure these work
     find_package(OpenSSL REQUIRED)
     find_package(CURL REQUIRED)
 
@@ -640,9 +640,9 @@ if(OCOS_ENABLE_AZURE)
     else()
       find_package(ZLIB REQUIRED)
 
-      # If finding the OpenSSL or CURL package fails for a local build you can install libcurl4-openssl-dev. 
+      # If finding the OpenSSL or CURL package fails for a local build you can install libcurl4-openssl-dev.
       # See also info on triton client dependencies here: https://github.com/triton-inference-server/client
-      find_package(OpenSSL REQUIRED)      
+      find_package(OpenSSL REQUIRED)
       find_package(CURL)
 
       if (CURL_FOUND)
@@ -665,7 +665,7 @@ if(OCOS_ENABLE_AZURE)
           set(libcurl_target "curl-d")
         else()
           set(libcurl_target "curl")
-        endif()        
+        endif()
       endif()
 
       target_link_libraries(ocos_operators PUBLIC httpclient_static ${libcurl_target} OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB)
