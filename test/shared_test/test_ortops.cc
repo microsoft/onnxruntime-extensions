@@ -209,7 +209,8 @@ void GetTensorMutableDataString(const OrtApi& api, const OrtValue* value, std::v
 
 void RunSession(Ort::Session& session_object,
                 const std::vector<TestValue>& inputs,
-                const std::vector<TestValue>& outputs) {
+                const std::vector<TestValue>& outputs,
+                OutputValidator output_validator) {
   std::vector<Ort::Value> ort_inputs;
   std::vector<const char*> input_names;
   std::vector<const char*> output_names;
@@ -267,38 +268,48 @@ void RunSession(Ort::Session& session_object,
     ASSERT_EQ(output_type, expected.element_type);
     std::vector<int64_t> dimension = type_info.GetShape();
     ASSERT_EQ(dimension, expected.dims);
-    size_t total_len = type_info.GetElementCount();
-    switch (expected.element_type) {
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
-        _assert_eq(*output_tensor, expected.values_float, total_len);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
-        _assert_eq(*output_tensor, expected.values_uint8, total_len);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
-        _assert_eq(*output_tensor, expected.values_int32, total_len);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
-        _assert_eq(*output_tensor, expected.values_int64, total_len);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING: {
-        std::vector<std::string> output_string;
-        GetTensorMutableDataString(Ort::GetApi(), *output_tensor, output_string);
-        ASSERT_EQ(expected.values_string, output_string);
-        break;
-      }
-      default:
-        throw std::runtime_error(MakeString(
-            "Unable to handle output ", index, " type ", expected.element_type,
-            " is not implemented yet."));
+    if (output_validator != nullptr) {
+      output_validator(index, *output_tensor, expected);
+    } else {
+      ValidateOutputEqual(index, *output_tensor, expected);
     }
+  }
+}
+
+void ValidateOutputEqual(size_t output_idx, Ort::Value& actual, TestValue expected) {
+  size_t total_len = actual.GetTensorTypeAndShapeInfo().GetElementCount();
+
+  switch (expected.element_type) {
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
+      _assert_eq(actual, expected.values_float, total_len);
+      break;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
+      _assert_eq(actual, expected.values_uint8, total_len);
+      break;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
+      _assert_eq(actual, expected.values_int32, total_len);
+      break;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
+      _assert_eq(actual, expected.values_int64, total_len);
+      break;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING: {
+      std::vector<std::string> output_string;
+      GetTensorMutableDataString(Ort::GetApi(), actual, output_string);
+      ASSERT_EQ(expected.values_string, output_string);
+      break;
+    }
+    default:
+      throw std::runtime_error(MakeString(
+          "Unable to handle output ", output_idx, " type ", expected.element_type,
+          " is not implemented yet."));
   }
 }
 
 void TestInference(Ort::Env& env, const ORTCHAR_T* model_uri,
                    const std::vector<TestValue>& inputs,
                    const std::vector<TestValue>& outputs,
-                   const char* custom_op_library_filename) {
+                   const char* custom_op_library_filename,
+                   OutputValidator output_validator) {
   Ort::SessionOptions session_options;
   void* handle = nullptr;
   if (custom_op_library_filename) {
@@ -310,7 +321,7 @@ void TestInference(Ort::Env& env, const ORTCHAR_T* model_uri,
   Ort::Session session(env, model_uri, session_options);
 
   // Now run
-  RunSession(session, inputs, outputs);
+  RunSession(session, inputs, outputs, output_validator);
 }
 
 static CustomOpOne op_1st;
