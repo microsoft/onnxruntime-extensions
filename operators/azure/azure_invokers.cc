@@ -128,7 +128,7 @@ AzureInvoker::AzureInvoker(const OrtApi& api, const OrtKernelInfo& info) : BaseK
 ////////////////////// AzureAudioInvoker //////////////////////
 
 AzureAudioInvoker::AzureAudioInvoker(const OrtApi& api, const OrtKernelInfo& info) : AzureInvoker(api, info) {
-  binary_type_ = TryToGetAttributeWithDefault<std::string>(kBinaryType, "");
+  file_name_ = std::string{"non_exist."} + TryToGetAttributeWithDefault<std::string>(kBinaryType, "wav");
 }
 
 void AzureAudioInvoker::Compute(const ortc::Variadic& inputs, ortc::Tensor<std::string>& output) const {
@@ -166,7 +166,7 @@ void AzureAudioInvoker::Compute(const ortc::Variadic& inputs, ortc::Tensor<std::
         curl_handler.AddForm(CURLFORM_COPYNAME,
                              input_names_[ith_input].data(),
                              CURLFORM_BUFFER,
-                             "non_exist." + binary_type_,
+                             file_name_.c_str(),
                              CURLFORM_BUFFERPTR,
                              inputs[ith_input]->DataRaw(),
                              CURLFORM_BUFFERLENGTH,
