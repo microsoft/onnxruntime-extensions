@@ -99,7 +99,7 @@ TEST(AzureOps, OpenAIWhisper_Prompt_CustomFormat) {
   // use optional 'prompt' input to mis-spell Pepto-Bismol in response
   std::string prompt = "Peptoe-Bismole";
   inputs.push_back(TestValue("transcribe0/prompt", {prompt}, {1}));
-  outputs[0].values_string[0] = {"Take some Peptoe-Bismole, get dressed, and come on over here."};
+  outputs[0].values_string[0] = "Take some Peptoe-Bismole, get dressed, and come on over here.";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath(), find_strings_in_output);
 }
 

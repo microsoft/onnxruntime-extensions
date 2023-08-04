@@ -52,10 +52,10 @@ void OpenAIAudioToTextInvoker::SetupRequest(CurlHandler& curl_handler, const ort
   const auto& property_names = RequestPropertyNames();
 
   const auto& get_optional_input =
-      [&](const std::optional<size_t>& input_idx, const std::string& default, size_t min_size = 1) {
+      [&](const std::optional<size_t>& input_idx, const std::string& default_value, size_t min_size = 1) {
         return (input_idx.has_value() && inputs[*input_idx]->SizeInBytes() > min_size)
                    ? static_cast<const char*>(inputs[*input_idx]->DataRaw())
-                   : default.c_str();
+                   : default_value.c_str();
       };
 
   // filename_input_ is optional in a model. if it's not present, use a fake filename.
