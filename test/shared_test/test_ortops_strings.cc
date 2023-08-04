@@ -27,6 +27,7 @@ TEST(string_operator, test_string_lower) {
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }
 
+#ifdef ENABLE_RE2_REGEX
 TEST(string_operator, test_regex_split_with_offsets) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
 
@@ -61,6 +62,7 @@ TEST(string_operator, test_regex_split_with_offsets) {
   model_path /= "test_regex_split_with_offsets.onnx";
   TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
 }
+#endif
 
 TEST(string_operator, test_string_ecmaregex_replace) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
