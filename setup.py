@@ -74,7 +74,7 @@ class BuildCMakeExt(_build_ext):
         project_dir = pathlib.Path().absolute()
         build_temp = pathlib.Path(self.build_temp)
         build_temp.mkdir(parents=True, exist_ok=True)
-        ext_fullpath = pathlib.Path(self.get_ext_fullpath(extension.name))
+        ext_fullpath = pathlib.Path(self.get_ext_fullpath(extension.name)).absolute()
 
         config = 'RelWithDebInfo' if self.debug else 'Release'
         cmake_args = [

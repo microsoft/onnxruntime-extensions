@@ -148,7 +148,7 @@ class TestTrieTokenizer(TestCase):
             "I am a human",
             "that dog is so cute",
             # "私はねこむすめです、にゃん♪",
-            # "宇宙级特大事件！号外号外！"
+            "宇宙级特大事件！号外号外！"
         ]
 
         tokr = TRIE_TOKENIZER(self.vocab_file)

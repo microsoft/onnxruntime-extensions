@@ -40,5 +40,5 @@ if(OCOS_PYTHON_MODULE_PATH)
 
   add_custom_command(TARGET extensions_pydll POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:extensions_pydll> ${OCOS_PYTHON_MODULE_PATH}
-    COMMENT "Copying  $<TARGET_FILE:extensions_pydll> to ${OCOS_PYTHON_MODULE_PATH}")
+    COMMENT "Copying $<TARGET_FILE:extensions_pydll> to ${OCOS_PYTHON_MODULE_PATH}")
 endif()
