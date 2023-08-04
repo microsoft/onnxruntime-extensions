@@ -29,11 +29,16 @@ target_compile_definitions(extensions_pydll PRIVATE
 
 target_link_libraries(extensions_pydll PRIVATE Python3::Module ocos_operators)
 
-if(NOT "${OCOS_EXTENTION_NAME}" STREQUAL "")
+if(OCOS_PYTHON_MODULE_PATH)
+  get_filename_component(OCOS_PYTHON_MODULE_NAME ${OCOS_PYTHON_MODULE_PATH} NAME)
   if(NOT WIN32)
     set_target_properties(extensions_pydll PROPERTIES
-      LIBRARY_OUTPUT_NAME ${OCOS_EXTENTION_NAME}
+      LIBRARY_OUTPUT_NAME ${OCOS_PYTHON_MODULE_NAME}
       PREFIX ""
       SUFFIX "")
   endif()
+
+  add_custom_command(TARGET extensions_pydll POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:extensions_pydll> ${OCOS_PYTHON_MODULE_PATH}
+    COMMENT "Copying  $<TARGET_FILE:extensions_pydll> to ${OCOS_PYTHON_MODULE_PATH}")
 endif()

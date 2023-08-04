@@ -80,7 +80,7 @@ class BuildCMakeExt(_build_ext):
         cmake_args = [
             '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + str(ext_fullpath.parent.absolute()),
             '-DOCOS_BUILD_PYTHON=ON',
-            '-DOCOS_EXTENTION_NAME=' + ext_fullpath.name,
+            '-DOCOS_PYTHON_MODULE_PATH=' + str(ext_fullpath),
             '-DCMAKE_BUILD_TYPE=' + config
         ]
 
@@ -153,16 +153,6 @@ class BuildCMakeExt(_build_ext):
         self.spawn([cmake_exe, '-S', str(project_dir), '-B', str(build_temp)] + cmake_args)
         if not self.dry_run:
             self.spawn([cmake_exe, '--build', str(build_temp)] + build_args)
-
-        if sys.platform == "win32":
-            config_dir = '.'
-            if not (build_temp / 'build.ninja').exists():
-                config_dir = config
-            self.copy_file(build_temp / 'bin' / config_dir / 'extensions_pydll.dll', ext_fullpath,
-                           link='hard' if self.debug else None)
-        else:
-            self.copy_file(build_temp / 'lib' / ext_fullpath.name, ext_fullpath,
-                           link='sym' if self.debug else None)
 
 
 class Build(_build):

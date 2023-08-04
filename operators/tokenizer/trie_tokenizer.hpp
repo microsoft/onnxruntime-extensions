@@ -13,6 +13,8 @@
 #include <charconv>
 #include <optional>
 
+#include "unescape.h"
+
 // This Trie Tree is C++ implementation of
 // https://github.com/BlinkDL/ChatRWKV/blob/main/rwkv_pip_package/src/rwkv/rwkv_tokenizer.py
 // Perf optimized by leveraging C++ features, but the algorithm is the same.
@@ -79,27 +81,30 @@ class TrieTokenizer {
       auto l_ws = line.find(' ');
       auto r_ws = line.rfind(' ');
       if (l_ws == std::string::npos || r_ws == std::string::npos || l_ws == r_ws) {
-        ORTX_CXX_API_THROW("[TrieTokenizer] bad file format", ORT_RUNTIME_EXCEPTION);
+        ORTX_CXX_API_THROW(MakeString("[TrieTokenizer] vocab line: ", line), ORT_RUNTIME_EXCEPTION);
       }
 
       int idx = 0;
       std::from_chars(line.data(), line.data() + line.size(), idx);
       if (idx == 0) {
-        ORTX_CXX_API_THROW("[TrieTokenizer] bad file format", ORT_RUNTIME_EXCEPTION);
+        ORTX_CXX_API_THROW(MakeString("[TrieTokenizer] bad index in vocab line: ", line), ORT_RUNTIME_EXCEPTION);
       }
 
-      std::string x = line.substr(line.find(' ') + 1, line.rfind(' ') - line.find(' ') - 1);
+      std::string raw = line.substr(line.find(' ') + 1, line.rfind(' ') - line.find(' ') - 1);
+      std::string x;
       int key_length = 0;
-      std::from_chars(line.data() + r_ws + 1, line.data() + line.size(), key_length);
-      if (x.length() == key_length) {
-        ORTX_CXX_API_THROW("[TrieTokenizer] bad file format", ORT_RUNTIME_EXCEPTION);
+      if (ort_extensions::UnquoteString(raw, x)) {
+        std::from_chars(line.data() + r_ws + 1, line.data() + line.size(), key_length);
+      }
+      if (x.length() != key_length) {
+        ORTX_CXX_API_THROW(MakeString("[TrieTokenizer] bad len in vocab line: ", line), ORT_RUNTIME_EXCEPTION);
       }
 
       idx2token[idx] = x;
     }
 
     for (const auto& kv : idx2token) {
-      root.add(kv.second, kv.first);
+      root.add(kv.second, 0, kv.first);
     }
   }
 

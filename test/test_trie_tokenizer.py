@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+###########################################################################
+
 import numpy as np
 
 from unittest import TestCase, main as unittest_main
@@ -124,7 +130,32 @@ class TestTrieTokenizer(TestCase):
         self.assertEqual(tokr.decode(tokens), src)
 
     def test_ort_trie_tokenizer(self):
-        pass
+        vocab_data = util.read_file(self.vocab_file, 'rb')
+        tokr = OrtPyFunction.from_customop("TrieTokenizer", vocab=vocab_data)
+        tokens = tokr(["I love you"])
+        self.assertEqual(list(tokens[0]), [74, 31337, 22799])
+
+        detok = OrtPyFunction.from_customop("TrieDetokenizer", vocab=vocab_data)
+        self.assertEqual(list(detok(tokens)), ["I love you"])
+
+    def test_parity(self):
+        test_sentences = [
+            "I am a girl",
+            "我是个女孩",
+            "私は女の子です",
+            "广东人爱吃云吞面，还有腌面、竹升面，车仔面、油渣面、普宁面线、伊面等各种圆扁粗细，加碱水，不加碱水的面",
+            "我是个人类",
+            "I am a human",
+            "that dog is so cute",
+            # "私はねこむすめです、にゃん♪",
+            # "宇宙级特大事件！号外号外！"
+        ]
+
+        tokr = TRIE_TOKENIZER(self.vocab_file)
+
+        ortx_tokr = OrtPyFunction.from_customop("TrieTokenizer", vocab=util.read_file(self.vocab_file, 'rb'))
+        for s in test_sentences:
+            self.assertEqual(tokr.encode(s), list(ortx_tokr([s])[0]))
 
 
 if __name__ == "__main__":

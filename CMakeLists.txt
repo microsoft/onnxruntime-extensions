@@ -351,7 +351,7 @@ endif()
 if(OCOS_ENABLE_TRIE_TOKENIZER)
   # Trie Tokenizer
   set(_HAS_TOKENIZER ON)
-  file(GLOB tok_TARGET_SRC "operators/tokenizer/trietok*.*")
+  file(GLOB tok_TARGET_SRC "operators/tokenizer/trie_tokenizer.hpp" "operators/tokenizer/unescape.h")
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
 endif()
 
