@@ -3,7 +3,9 @@
 
 #include "gtest/gtest.h"
 #include "string_utils.h"
+#ifdef ENABLE_RE2_REGEX
 #include "text/re2_strings/string_regex_split_re.hpp"
+#endif
 #include "text/string_ecmaregex_split.hpp"
 
 TEST(strings, std_regex_test) {
@@ -17,7 +19,7 @@ TEST(strings, std_regex_test) {
   std::cout << result << std::endl;
 }
 
-
+#ifdef ENABLE_RE2_REGEX
 TEST(strings, regex_split) {
   std::string input = "hello  world";
   re2::RE2 reg("(\\s)");
@@ -49,6 +51,7 @@ TEST(strings, regex_split_skip) {
   EXPECT_EQ(expected_begin_offsets, begin_offsets);
   EXPECT_EQ(expected_end_offsets, end_offsets);
 }
+#endif
 
 TEST(strings, regex_split_no_matched) {
   std::string input = "helloworld";
@@ -81,4 +84,3 @@ TEST(strings, regex_split_begin_end_delim) {
   EXPECT_EQ(expected_begin_offsets, begin_offsets);
   EXPECT_EQ(expected_end_offsets, end_offsets);
 }
-
