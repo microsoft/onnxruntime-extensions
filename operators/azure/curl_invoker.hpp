@@ -1,7 +1,7 @@
-
+// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-#pragma once
 
+#pragma once
 #include <memory>
 
 #include "curl/curl.h"
@@ -92,7 +92,7 @@ class CurlInvoker : public CloudBaseKernel {
   //
   // the ortc::Variadic outputs are empty until the Compute populates it, so only output names can be validated
   // and those are available from the base class.
-  virtual void ValidateArgs(const ortc::Variadic& inputs) const {}
+  virtual void ValidateInputs(const ortc::Variadic& inputs) const {}
 
   // curl_handler has auth token set from input[0].
   virtual void SetupRequest(CurlHandler& curl_handler, const ortc::Variadic& inputs) const = 0;

@@ -24,7 +24,7 @@ class AzureAudioToTextInvoker : public CurlInvoker {
   }
 
  private:
-  void ValidateArgs(const ortc::Variadic& inputs) const override;
+  void ValidateInputs(const ortc::Variadic& inputs) const override;
   void SetupRequest(CurlHandler& curl_handler, const ortc::Variadic& inputs) const override;
   void ProcessResponse(const std::string& response, ortc::Variadic& outputs) const override;
 
@@ -46,7 +46,7 @@ struct AzureTextToTextInvoker : public CurlInvoker {
   }
 
  private:
-  void ValidateArgs(const ortc::Variadic& inputs) const override;
+  void ValidateInputs(const ortc::Variadic& inputs) const override;
   void SetupRequest(CurlHandler& curl_handler, const ortc::Variadic& inputs) const override;
   void ProcessResponse(const std::string& response, ortc::Variadic& outputs) const override;
 };

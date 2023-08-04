@@ -9,9 +9,9 @@ OpenAIAudioToTextInvoker::OpenAIAudioToTextInvoker(const OrtApi& api, const OrtK
     : CurlInvoker(api, info) {
   audio_format_ = TryToGetAttributeWithDefault<std::string>(kAudioFormat, "");
 
-  const auto& property_names = PropertyNames();
+  const auto& property_names = RequestPropertyNames();
 
-  const auto& find_optional_input = [&property_names](const std::string& property_name) {
+  const auto find_optional_input = [&property_names](const std::string& property_name) {
     std::optional<size_t> result;
     auto optional_input = std::find_if(property_names.begin(), property_names.end(),
                                        [&property_name](const auto& name) { return name == property_name; });
@@ -37,7 +37,7 @@ OpenAIAudioToTextInvoker::OpenAIAudioToTextInvoker(const OrtApi& api, const OrtK
   }
 }
 
-void OpenAIAudioToTextInvoker::ValidateArgs(const ortc::Variadic& inputs) const {
+void OpenAIAudioToTextInvoker::ValidateInputs(const ortc::Variadic& inputs) const {
   // We don't have a way to get the output type from the custom op API.
   // If there's a mismatch it will fail in the Compute when it allocates the output tensor.
   if (OutputNames().size() != 1) {
@@ -49,7 +49,7 @@ void OpenAIAudioToTextInvoker::SetupRequest(CurlHandler& curl_handler, const ort
   // theoretically the filename the content was buffered from. provides the extensions indicating the audio format
   static const std::string fake_filename = "audio." + audio_format_;
 
-  const auto& property_names = PropertyNames();
+  const auto& property_names = RequestPropertyNames();
 
   const auto& get_optional_input =
       [&](const std::optional<size_t>& input_idx, const std::string& default, size_t min_size = 1) {

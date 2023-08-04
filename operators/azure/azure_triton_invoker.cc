@@ -115,7 +115,7 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs, ortc::Variadic& o
   std::vector<const tc::InferRequestedOutput*> triton_outputs;
   tc::Error err;
 
-  const auto& property_names = PropertyNames();
+  const auto& property_names = RequestPropertyNames();
 
   for (size_t ith_input = 1; ith_input < inputs.Size(); ++ith_input) {
     tc::InferInput* triton_input = {};
@@ -134,10 +134,10 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs, ortc::Variadic& o
       const auto* string_tensor = reinterpret_cast<const ortc::Tensor<std::string>*>(inputs[ith_input].get());
       triton_input->AppendFromString(string_tensor->Data());
     } else {
-        const float* data_raw = reinterpret_cast<const float*>(inputs[ith_input]->DataRaw());
-        size_t size_in_bytes = inputs[ith_input]->SizeInBytes();
-        err = triton_input->AppendRaw(reinterpret_cast<const uint8_t*>(data_raw), size_in_bytes);
-        CHECK_TRITON_ERR(err, "failed to append raw data to input");
+      const float* data_raw = reinterpret_cast<const float*>(inputs[ith_input]->DataRaw());
+      size_t size_in_bytes = inputs[ith_input]->SizeInBytes();
+      err = triton_input->AppendRaw(reinterpret_cast<const uint8_t*>(data_raw), size_in_bytes);
+      CHECK_TRITON_ERR(err, "failed to append raw data to input");
     }
   }
 

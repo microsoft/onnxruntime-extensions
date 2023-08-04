@@ -22,7 +22,7 @@ class CloudBaseKernel : public BaseKernel {
   static constexpr const char* kModelVer = "model_version";  // optional
   static constexpr const char* kVerbose = "verbose";
 
-  static constexpr int MinimumSupportedOrtVersion = 14;
+  static constexpr int kMinimumSupportedOrtVersion = 14;
 
   const std::string& ModelUri() const { return model_uri_; }
   const std::string& ModelName() const { return model_name_; }
@@ -33,13 +33,15 @@ class CloudBaseKernel : public BaseKernel {
   const gsl::span<const std::string> OutputNames() const { return output_names_; }
 
   // Request property names that are parsed from input names. 1:1 with InputNames() values.
-  const gsl::span<const std::string> PropertyNames() const { return property_names_; }
+  // e.g. 'node0/prompt' -> 'prompt' and that input provides the 'prompt' property in the request to the endpoint.
+  // <see cref="GetPropertyNameFromInputName"/> for further details.
+  const gsl::span<const std::string> RequestPropertyNames() const { return property_names_; }
 
   // first input is required to be auth token. validate that and return it.
   std::string GetAuthToken(const ortc::Variadic& inputs) const;
 
   /// <summary>
-  /// Parse the property name to use in the request to the clound endpoint from a node input name.
+  /// Parse the property name to use in the request to the cloud endpoint from a node input name.
   /// Value returned is text following last '/', or the entire string if no '/'.
   ///   e.g. 'node0/prompt' -> 'prompt'
   /// </summary>

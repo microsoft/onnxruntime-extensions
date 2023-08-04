@@ -31,7 +31,7 @@ namespace ort_extensions {
 ///
 ///     NOTE: 'temperature' is not currently supported.
 /// </remarks>
-class OpenAIAudioToTextInvoker : public CurlInvoker {
+class OpenAIAudioToTextInvoker final : public CurlInvoker {
  public:
   OpenAIAudioToTextInvoker(const OrtApi& api, const OrtKernelInfo& info);
 
@@ -41,7 +41,7 @@ class OpenAIAudioToTextInvoker : public CurlInvoker {
   }
 
  private:
-  void ValidateArgs(const ortc::Variadic& inputs) const override;
+  void ValidateInputs(const ortc::Variadic& inputs) const override;
   void SetupRequest(CurlHandler& curl_handler, const ortc::Variadic& inputs) const override;
   void ProcessResponse(const std::string& response, ortc::Variadic& outputs) const override;
 

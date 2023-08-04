@@ -14,7 +14,7 @@ AzureAudioToTextInvoker::AzureAudioToTextInvoker(const OrtApi& api, const OrtKer
   audio_format_ = TryToGetAttributeWithDefault<std::string>(kAudioFormat, "");
 }
 
-void AzureAudioToTextInvoker::ValidateArgs(const ortc::Variadic& inputs) const {
+void AzureAudioToTextInvoker::ValidateInputs(const ortc::Variadic& inputs) const {
   // TODO: Validate any required input names are present
 
   // We don't have a way to get the output type from the custom op API.
@@ -28,7 +28,7 @@ void AzureAudioToTextInvoker::SetupRequest(CurlHandler& curl_handler, const ortc
   // theoretically the filename the content was buffered from
   static const std::string fake_filename = "audio." + audio_format_;
 
-  const auto& property_names = PropertyNames();
+  const auto& property_names = RequestPropertyNames();
 
   curl_handler.AddHeader("Content-Type: multipart/form-data");
   curl_handler.AddFormString("deployment_id", ModelName().c_str());
@@ -64,7 +64,7 @@ AzureTextToTextInvoker::AzureTextToTextInvoker(const OrtApi& api, const OrtKerne
     : CurlInvoker(api, info) {
 }
 
-void AzureTextToTextInvoker::ValidateArgs(const ortc::Variadic& inputs) const {
+void AzureTextToTextInvoker::ValidateInputs(const ortc::Variadic& inputs) const {
   if (inputs.Size() != 2 || inputs[0]->Type() != ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
     ORTX_CXX_API_THROW("Expected 2 string inputs of auth_token and text respectively", ORT_INVALID_ARGUMENT);
   }

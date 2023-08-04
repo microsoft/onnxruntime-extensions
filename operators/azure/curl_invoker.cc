@@ -57,7 +57,7 @@ void CurlInvoker::ComputeImpl(const ortc::Variadic& inputs, ortc::Variadic& outp
   }
 
   // do any additional validation of the number and type of inputs/outputs
-  ValidateArgs(inputs);
+  ValidateInputs(inputs);
 
   // set the options for the curl handler that apply to all usages
   CurlHandler curl_handler(CurlHandler::WriteStringCallback);
