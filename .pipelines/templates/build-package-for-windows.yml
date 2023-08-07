@@ -50,7 +50,7 @@ jobs:
         displayName: 'build onnxruntime-extensions and run tests'
         inputs:
           filename: '.\build_lib.bat'
-          arguments: '--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out --config RelWithDebInfo --cmake_generator "Visual Studio 16 2019" --enable_cxx_tests ${{parameters.AdditionalBuildFlags}}'
+          arguments: '--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out --config RelWithDebInfo --cmake_generator "Visual Studio 17 2022" --enable_cxx_tests ${{parameters.AdditionalBuildFlags}}'
           modifyEnvironment: true
           workingFolder: $(Build.SourcesDirectory)
     - ${{ else }}:
@@ -58,7 +58,7 @@ jobs:
         displayName: 'build onnxruntime-extensions'
         inputs:
           filename: '.\build_lib.bat'
-          arguments: '--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out --config RelWithDebInfo --cmake_generator "Visual Studio 16 2019" ${{parameters.AdditionalBuildFlags}}'
+          arguments: '--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out --config RelWithDebInfo --cmake_generator "Visual Studio 17 2022" ${{parameters.AdditionalBuildFlags}}'
           modifyEnvironment: true
           workingFolder: $(Build.SourcesDirectory)
 
