@@ -24,7 +24,7 @@ parameters:
 
 - name: BuildPool
   type: string
-  default: 'Win-CPU-2021'
+  default: 'onnxruntime-Win-CPU-2022'
 
 - name: AdditionalBuildFlags
   displayName: Additional build flags for build_lib.bat
