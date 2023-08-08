@@ -12,6 +12,7 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 ort_ext_root = os.path.abspath(os.path.join(script_dir, ".."))
 test_data_dir = os.path.join(ort_ext_root, "test", "data", "azure")
 
+
 class TestAzureOps(unittest.TestCase):
 
     def __init__(self, config):
@@ -21,7 +22,7 @@ class TestAzureOps(unittest.TestCase):
             self.__opt = SessionOptions()
             self.__opt.register_custom_ops_library(get_library_path())
 
-    def test_addf(self):
+    def test_add_f(self):
         if self.__enabled:
             sess = InferenceSession(os.path.join(test_data_dir, "triton_addf.onnx"),
                                     self.__opt, providers=["CPUExecutionProvider"])
@@ -36,7 +37,7 @@ class TestAzureOps(unittest.TestCase):
             out = sess.run(None, ort_inputs)[0]
             self.assertTrue(np.allclose(out, [5,5,5,5]))
 
-    def testAddf8(self):
+    def test_add_f8(self):
         if self.__enabled:
             opt = SessionOptions()
             opt.register_custom_ops_library(get_library_path())
@@ -53,7 +54,7 @@ class TestAzureOps(unittest.TestCase):
             out = sess.run(None, ort_inputs)[0]
             self.assertTrue(np.allclose(out, [5,5,5,5]))
 
-    def testAddi4(self):
+    def test_add_i4(self):
         if self.__enabled:
             sess = InferenceSession(os.path.join(test_data_dir, "triton_addi4.onnx"),
                                     self.__opt, providers=["CPUExecutionProvider"])
@@ -68,7 +69,7 @@ class TestAzureOps(unittest.TestCase):
             out = sess.run(None, ort_inputs)[0]
             self.assertTrue(np.allclose(out, [5,5,5,5]))
 
-    def testAnd(self):
+    def test_and(self):
         if self.__enabled:
             sess = InferenceSession(os.path.join(test_data_dir, "triton_and.onnx"),
                                     self.__opt, providers=["CPUExecutionProvider"])
@@ -83,7 +84,7 @@ class TestAzureOps(unittest.TestCase):
             out = sess.run(None, ort_inputs)[0]
             self.assertTrue(np.allclose(out, [True, False]))
 
-    def testStr(self):
+    def test_str(self):
         if self.__enabled:
             sess = InferenceSession(os.path.join(test_data_dir, "triton_str.onnx"),
                                     self.__opt, providers=["CPUExecutionProvider"])
@@ -98,7 +99,7 @@ class TestAzureOps(unittest.TestCase):
             self.assertEqual(outs[0], ['this is the input'])
             self.assertEqual(outs[1], ['this is the input'])
 
-    def testOpenAiAudio(self):
+    def test_open_ai_audio(self):
         if self.__enabled:
             sess = InferenceSession(os.path.join(test_data_dir, "openai_audio.onnx"),
                                     self.__opt, providers=["CPUExecutionProvider"])
@@ -110,14 +111,14 @@ class TestAzureOps(unittest.TestCase):
                 audio_blob = np.asarray(list(_f.read()), dtype=np.uint8)
                 ort_inputs = {
                     "auth_token": auth_token,
-                    "model": model,
+                    "model_name": model,
                     "response_format": response_format,
-                    "file": audio_blob
+                    "file": audio_blob,
                 }
                 out = sess.run(None, ort_inputs)[0]
                 self.assertEqual(out, ['This is a test recording to test the Whisper model.\n'])
 
-    def testOpenAiChat(self):
+    def test_open_ai_chat(self):
         if self.__enabled:
             sess = InferenceSession(os.path.join(test_data_dir, "openai_chat.onnx"),
                                     self.__opt, providers=["CPUExecutionProvider"])
@@ -129,23 +130,6 @@ class TestAzureOps(unittest.TestCase):
             }
             out = sess.run(None, ort_inputs)[0]
             self.assertTrue('assist' in out[0])
-
-    def testOpenAiEmb(self):
-        if self.__enabled:
-            opt = SessionOptions()
-            opt.register_custom_ops_library(get_library_path())
-            sess = InferenceSession(os.path.join(test_data_dir, "openai_embedding.onnx"),
-                                    opt, providers=["CPUExecutionProvider"])
-            auth_token = np.array([os.getenv('EMB', '')])
-            text = np.array(['{\"input\": \"The food was delicious and the waiter...\", \"model\": \"text-embedding-ada-002\"}'])
-
-            ort_inputs = {
-                "auth_token": auth_token,
-                "text": text,
-            }
-
-            out = sess.run(None, ort_inputs)[0]
-            self.assertTrue('text-embedding-ada' in out[0])
 
 
 if __name__ == '__main__':

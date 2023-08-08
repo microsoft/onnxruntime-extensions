@@ -155,9 +155,6 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
 #if defined(ENABLE_DR_LIBS)
     LoadCustomOpClasses_Audio,
 #endif
-#if defined(ENABLE_AZURE)
-    LoadCustomOpClasses_Azure,
-#endif
     LoadCustomOpClasses<>
   };
 
@@ -187,6 +184,10 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
     return status;
   }
 
+  //
+  // New custom ops should use the com.microsoft.extensions domain.
+  //
+
   // Create domain for ops using the new domain name.
   if (status = ortApi->CreateCustomOpDomain(c_ComMsExtOpDomain, &domain); status) {
     return status;
@@ -200,6 +201,9 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
 #endif
 #if defined(ENABLE_TOKENIZER)
     LoadCustomOpClasses_Tokenizer,
+#endif
+#if defined(ENABLE_AZURE)
+    LoadCustomOpClasses_Azure,
 #endif
     LoadCustomOpClasses<>
   };
