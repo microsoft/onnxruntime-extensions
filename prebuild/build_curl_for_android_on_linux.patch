@@ -1,0 +1,67 @@
+diff --git a/tools/build-android-common.sh b/tools/build-android-common.sh
+index 87df207..797d58a 100755
+--- a/tools/build-android-common.sh
++++ b/tools/build-android-common.sh
+@@ -148,13 +148,20 @@ function set_android_toolchain() {
+   local build_host=$(get_build_host_internal "$arch")
+   local clang_target_host=$(get_clang_target_host "$arch" "$api")
+ 
+-  export AR=${build_host}-ar
++  # NDK r23 removed a bunch of GNU things and replaced with llvm
++  # https://stackoverflow.com/questions/73105626/arm-linux-androideabi-ar-command-not-found-in-ndk
++  # export AR=${build_host}-ar
++  export AR=llvm-ar
+   export CC=${clang_target_host}-clang
+   export CXX=${clang_target_host}-clang++
+-  export AS=${build_host}-as
+-  export LD=${build_host}-ld
+-  export RANLIB=${build_host}-ranlib
++  #export AS=${build_host}-as
++  export AS=llvm-as
++  #export LD=${build_host}-ld
++  export LD=ld
++  # export RANLIB=${build_host}-ranlib
++  export RANLIB=llvm-ranlib
+   export STRIP=${build_host}-strip
++  export STRIP=llvm-strip
+ }
+ 
+ function get_common_includes() {
+@@ -187,13 +194,13 @@ function set_android_cpu_feature() {
+     export CPPFLAGS=${CFLAGS}
+     ;;
+   x86)
+-    export CFLAGS="-march=i686 -mtune=intel -mssse3 -mfpmath=sse -m32 -Wno-unused-function -fno-integrated-as -fstrict-aliasing -fPIC -DANDROID -D__ANDROID_API__=${api} -Os -ffunction-sections -fdata-sections $(get_common_includes)"
++    export CFLAGS="-march=i686 -mtune=native -mssse3 -mfpmath=sse -m32 -Wno-unused-function -fno-integrated-as -fstrict-aliasing -fPIC -DANDROID -D__ANDROID_API__=${api} -Os -ffunction-sections -fdata-sections $(get_common_includes)"
+     export CXXFLAGS="-std=c++14 -Os -ffunction-sections -fdata-sections"
+     export LDFLAGS="-march=i686 -Wl,--gc-sections -Os -ffunction-sections -fdata-sections $(get_common_linked_libraries ${api} ${arch})"
+     export CPPFLAGS=${CFLAGS}
+     ;;
+   x86-64)
+-    export CFLAGS="-march=x86-64 -msse4.2 -mpopcnt -m64 -mtune=intel -Wno-unused-function -fno-integrated-as -fstrict-aliasing -fPIC -DANDROID -D__ANDROID_API__=${api} -Os -ffunction-sections -fdata-sections $(get_common_includes)"
++    export CFLAGS="-march=x86-64 -msse4.2 -mpopcnt -m64 -mtune=native -Wno-unused-function -fno-integrated-as -fstrict-aliasing -fPIC -DANDROID -D__ANDROID_API__=${api} -Os -ffunction-sections -fdata-sections $(get_common_includes)"
+     export CXXFLAGS="-std=c++14 -Os -ffunction-sections -fdata-sections"
+     export LDFLAGS="-march=x86-64 -Wl,--gc-sections -Os -ffunction-sections -fdata-sections $(get_common_linked_libraries ${api} ${arch})"
+     export CPPFLAGS=${CFLAGS}
+diff --git a/tools/build-android-openssl.sh b/tools/build-android-openssl.sh
+index e13c314..5660cec 100755
+--- a/tools/build-android-openssl.sh
++++ b/tools/build-android-openssl.sh
+@@ -17,7 +17,7 @@
+ # # read -n1 -p "Press any key to continue..."
+ 
+ set -u
+-
++set -x
+ source ./build-android-common.sh
+ 
+ if [ -z ${version+x} ]; then 
+@@ -115,6 +115,8 @@ function configure_make() {
+     if [ $the_rc -eq 0 ] ; then
+         make SHLIB_EXT='.so' install_sw >>"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
+         make install_ssldirs >>"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
++    else
++        log_error "make returned $the_rc"
+     fi
+ 
+     popd

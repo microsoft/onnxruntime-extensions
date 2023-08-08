@@ -154,7 +154,7 @@ def _parse_arguments():
     # WebAssembly options
     parser.add_argument("--wasm", action="store_true", help="Build for WebAssembly")
     parser.add_argument("--emsdk_path", type=Path,
-                        help="Specify path to emscripten SDK. Setup manually with: "                         
+                        help="Specify path to emscripten SDK. Setup manually with: "
                              "  git clone https://github.com/emscripten-core/emsdk")
     parser.add_argument("--emsdk_version", default="3.1.26", help="Specify version of emsdk")
 
@@ -404,11 +404,11 @@ def _generate_build_tree(cmake_path: Path,
         _run_subprocess(cmake_args + [f"-DCMAKE_BUILD_TYPE={config}"], cwd=config_build_dir)
 
 
-def clean_targets(cmake_path, build_dir: Path, configs: Set[str]):
+def clean_targets(cmake_path: Path, build_dir: Path, configs: Set[str]):
     for config in configs:
         log.info("Cleaning targets for %s configuration", config)
         build_dir2 = _get_build_config_dir(build_dir, config)
-        cmd_args = [cmake_path, "--build", build_dir2, "--config", config, "--target", "clean"]
+        cmd_args = [str(cmake_path), "--build", str(build_dir2), "--config", config, "--target", "clean"]
 
         _run_subprocess(cmd_args)
 
@@ -564,6 +564,10 @@ def main():
     cmake_path = _resolve_executable_path(
         args.cmake_path,
         resolution_failure_allowed=(not (args.update or args.clean or args.build)))
+
+    if not cmake_path:
+        raise UsageError("Unable to find CMake executable. Please specify --cmake-path.")
+
     build_dir = args.build_dir
 
     if args.update or args.build:

@@ -1,43 +1,54 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-
 #pragma once
 
 #include "ocos.h"
+#include "curl_invoker.hpp"
 
-struct AzureInvoker : public BaseKernel {
-  AzureInvoker(const OrtApi& api, const OrtKernelInfo& info);
+namespace ort_extensions {
 
- protected:
-  ~AzureInvoker() = default;
-  std::string model_uri_;
-  std::string model_name_;
-  std::string model_ver_;
-  std::string verbose_;
-  std::vector<std::string> input_names_;
-  std::vector<std::string> output_names_;
-};
+////////////////////// AzureAudioToTextInvoker //////////////////////
 
-struct AzureAudioInvoker : public AzureInvoker {
-  AzureAudioInvoker(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::Variadic& inputs, ortc::Tensor<std::string>& output) const;
+/// <summary>
+/// Azure Audio to Text
+/// Input: auth_token {string}, ??? (Update when AOAI endpoint is defined)
+/// Output: text {string}
+/// </summary>
+class AzureAudioToTextInvoker : public CurlInvoker {
+ public:
+  AzureAudioToTextInvoker(const OrtApi& api, const OrtKernelInfo& info);
 
- private:
-  std::string file_name_;
-};
-
-struct AzureTextInvoker : public AzureInvoker {
-  AzureTextInvoker(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(std::string_view auth, std::string_view input, ortc::Tensor<std::string>& output) const;
+  void Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) const {
+    // use impl from CurlInvoker
+    ComputeImpl(inputs, outputs);
+  }
 
  private:
-  std::string binary_type_;
+  void ValidateInputs(const ortc::Variadic& inputs) const override;
+  void SetupRequest(CurlHandler& curl_handler, const ortc::Variadic& inputs) const override;
+  void ProcessResponse(const std::string& response, ortc::Variadic& outputs) const override;
+
+  static constexpr const char* kAudioFormat = "audio_format";
+  std::string audio_format_;
 };
 
-struct AzureTritonInvoker : public AzureInvoker {
-  AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) const;
+////////////////////// AzureTextToTextInvoker //////////////////////
+
+/// Azure Text to Text
+/// Input: auth_token {string}, text {string}
+/// Output: text {string}
+struct AzureTextToTextInvoker : public CurlInvoker {
+  AzureTextToTextInvoker(const OrtApi& api, const OrtKernelInfo& info);
+
+  void Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) const {
+    // use impl from CurlInvoker
+    ComputeImpl(inputs, outputs);
+  }
 
  private:
-  std::unique_ptr<triton::client::InferenceServerHttpClient> triton_client_;
+  void ValidateInputs(const ortc::Variadic& inputs) const override;
+  void SetupRequest(CurlHandler& curl_handler, const ortc::Variadic& inputs) const override;
+  void ProcessResponse(const std::string& response, ortc::Variadic& outputs) const override;
 };
+
+}  // namespace ort_extensions
