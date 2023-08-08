@@ -160,7 +160,7 @@ class TestTrieTokenizer(TestCase):
             "我是个人类",
             "I am a human",
             "that dog is so cute",
-            # "私はねこむすめです、にゃん♪",
+            "私はねこむすめです、にゃん♪",
             "宇宙级特大事件！号外号外！"
         ]
 

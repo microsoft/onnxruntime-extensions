@@ -46,11 +46,13 @@ class TrieTree {
     unsigned char ch = key[idx];
 
     int tok_id = 0;
+    size_t idx_end = idx;
     while (u->to_[ch]) {
       u = u->to_[ch].get();
       idx += 1;
       if (u->value_) {
         tok_id = *u->value_;
+        idx_end = idx;
       }
       if (idx == key.length()) {
         break;
@@ -58,6 +60,7 @@ class TrieTree {
       ch = key[idx];
     }
 
+    idx = idx_end;
     return tok_id;
   }
 
