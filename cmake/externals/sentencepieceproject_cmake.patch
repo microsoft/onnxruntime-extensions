@@ -1,17 +1,35 @@
-﻿diff --git a/CMakeLists.txt b/CMakeLists.txt
-index a3870cb..159cd84 100644
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a3870cb..1b060d3 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -63,7 +63,7 @@ if (MSVC)
-   string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_MINSIZEREL     ${CMAKE_CXX_FLAGS_MINSIZEREL})
-   string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELEASE        ${CMAKE_CXX_FLAGS_RELEASE})
-   string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_RELWITHDEBINFO})
+@@ -27,6 +27,7 @@ option(SPM_TCMALLOC_STATIC "Link static library of TCMALLOC." OFF)
+ option(SPM_NO_THREADLOCAL "Disable thread_local operator" OFF)
+ option(SPM_USE_BUILTIN_PROTOBUF "Use built-in protobuf" ON)
+ option(SPM_USE_EXTERNAL_ABSL "Use external protobuf" OFF)
++option(SPM_ENABLE_MSVC_MT_BUILD, "Use /MT flag in MSVC build" OFF)
+ 
+ set(CMAKE_CXX_STANDARD 11)
+ set(CMAKE_CXX_STANDARD_REQUIRED ON)
+@@ -59,11 +60,13 @@ else()
+ endif()
+ 
+ if (MSVC)
+-  string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_DEBUG          ${CMAKE_CXX_FLAGS_DEBUG})
+-  string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_MINSIZEREL     ${CMAKE_CXX_FLAGS_MINSIZEREL})
+-  string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELEASE        ${CMAKE_CXX_FLAGS_RELEASE})
+-  string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_RELWITHDEBINFO})
 -  add_definitions("/wd4267 /wd4244 /wd4305 /Zc:strictStrings /utf-8")
++  if (SPM_ENABLE_MSVC_MT_BUILD)
++    string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_DEBUG          ${CMAKE_CXX_FLAGS_DEBUG})
++    string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_MINSIZEREL     ${CMAKE_CXX_FLAGS_MINSIZEREL})
++    string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELEASE        ${CMAKE_CXX_FLAGS_RELEASE})
++    string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_RELWITHDEBINFO})
++  endif()
 +  add_definitions("/wd4305 /Zc:strictStrings /utf-8")
  endif()
  
  if (APPLE)
-@@ -108,7 +108,7 @@ if (SPM_USE_EXTERNAL_ABSL)
+@@ -108,7 +111,7 @@ if (SPM_USE_EXTERNAL_ABSL)
  endif()
  
  add_subdirectory(src)
