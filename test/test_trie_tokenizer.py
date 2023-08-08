@@ -3,11 +3,13 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 ###########################################################################
-
-import numpy as np
+import os
+import tempfile
+import requests
 
 from unittest import TestCase, main as unittest_main
 from onnxruntime_extensions import OrtPyFunction, util
+
 
 # to avoid to install rwkv LM package, we copy the tokenizer code here.
 ########################################################################################################
@@ -16,8 +18,9 @@ from onnxruntime_extensions import OrtPyFunction, util
 
 class TRIE:
     __slots__ = tuple("ch,to,values,front".split(","))
-    to:list
-    values:set
+    to: list
+    values: set
+
     def __init__(self, front=None, ch=None):
         self.ch = ch
         self.to = [None for ch in range(256)]
@@ -27,41 +30,42 @@ class TRIE:
     def __repr__(self):
         fr = self
         ret = []
-        while(fr!=None):
-            if(fr.ch!=None):
+        while (fr != None):
+            if (fr.ch != None):
                 ret.append(fr.ch)
             fr = fr.front
-        return "<TRIE %s %s>"%(ret[::-1], self.values)
+        return "<TRIE %s %s>" % (ret[::-1], self.values)
 
-    def add(self, key:bytes, idx:int=0, val=None):
-        if(idx == len(key)):
-            if(val is None):
+    def add(self, key: bytes, idx: int = 0, val=None):
+        if (idx == len(key)):
+            if (val is None):
                 val = key
             self.values.add(val)
             return self
         ch = key[idx]
-        if(self.to[ch] is None):
+        if (self.to[ch] is None):
             self.to[ch] = TRIE(front=self, ch=ch)
-        return self.to[ch].add(key, idx=idx+1, val=val)
+        return self.to[ch].add(key, idx=idx + 1, val=val)
 
-    def find_longest(self, key:bytes, idx:int=0):
-        u:TRIE = self
-        ch:int = key[idx]
+    def find_longest(self, key: bytes, idx: int = 0):
+        u: TRIE = self
+        ch: int = key[idx]
 
-        while(u.to[ch] is not None):
+        while (u.to[ch] is not None):
             u = u.to[ch]
             idx += 1
-            if(u.values):
+            if (u.values):
                 ret = idx, u, u.values
-            if(idx==len(key)):
+            if (idx == len(key)):
                 break
             ch = key[idx]
         return ret
 
+
 class TRIE_TOKENIZER():
     def __init__(self, file_name):
         self.idx2token = {}
-        sorted = [] # must be already sorted
+        sorted = []  # must be already sorted
         with open(file_name, "r", encoding="utf-8") as f:
             lines = f.readlines()
         for l in lines:
@@ -74,20 +78,20 @@ class TRIE_TOKENIZER():
             self.idx2token[idx] = x
 
         self.token2idx = {}
-        for k,v in self.idx2token.items():
+        for k, v in self.idx2token.items():
             self.token2idx[v] = int(k)
 
         self.root = TRIE()
         for t, i in self.token2idx.items():
             _ = self.root.add(t, val=(t, i))
 
-    def encodeBytes(self, src:bytes):
-        idx:int = 0
+    def encodeBytes(self, src: bytes):
+        idx: int = 0
         tokens = []
         while (idx < len(src)):
-            _idx:int = idx
+            _idx: int = idx
             idx, _, values = self.root.find_longest(src, idx)
-            assert(idx != _idx)
+            assert (idx != _idx)
             _, token = next(iter(values))
             tokens.append(token)
         return tokens
@@ -102,7 +106,7 @@ class TRIE_TOKENIZER():
         try:
             return self.decodeBytes(tokens).decode('utf-8')
         except:
-            return '\ufffd' # bad utf-8
+            return '\ufffd'  # bad utf-8
 
     def printTokens(self, tokens):
         for i in tokens:
@@ -113,6 +117,8 @@ class TRIE_TOKENIZER():
                 pass
             print(f'{repr(s)}{i}', end=' ')
         print()
+
+
 ########################################################################################################
 
 
@@ -120,7 +126,14 @@ class TestTrieTokenizer(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.vocab_file = util.get_test_data_file("data", "rwkv_vocab_v20230424.txt")
+        url = "https://raw.githubusercontent.com/BlinkDL/ChatRWKV/main/tokenizer/rwkv_vocab_v20230424.txt"
+        # Create a temporary directory and file path
+        temp_dir = tempfile.mkdtemp()
+        file_name = os.path.basename(url)  # Gets the file name from the URL
+        cls.vocab_file = os.path.join(temp_dir, file_name)
+        response = requests.get(url)
+        with open(cls.vocab_file, "wb") as f:
+            f.write(response.content)
 
     def test_trie_tokenizer(self):
         tokr = TRIE_TOKENIZER(self.vocab_file)
