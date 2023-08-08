@@ -1,5 +1,5 @@
-:Ì
-Ñ
+	:Õ
+Ú
 
 auth_token
 X
@@ -8,7 +8,7 @@ auth_token
 model_name"and *G
 	model_uri"7https://endpoint-5911162.westus2.inference.ml.azure.com *
 model_version"1 *
-verbose"1 :ai.onnx.contribgraphZ!
+verbose"1 :com.microsoft.extensionsgraphZ!
 
 auth_token
 
@@ -21,4 +21,5 @@ auth_token
 ÿÿÿÿÿÿÿÿÿb
 Z
 	
-ÿÿÿÿÿÿÿÿÿB
+ÿÿÿÿÿÿÿÿÿB
+com.microsoft.extensions
