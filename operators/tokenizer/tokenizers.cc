@@ -27,42 +27,44 @@
 #include "bert_tokenizer_decoder.hpp"
 #endif
 
-const std::vector<const OrtCustomOp*>& TokenizerLoader() {
+#ifdef ENABLE_TRIE_TOKENIZER
+#include "trie_tokenizer.hpp"
+#endif
+
+FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = []() -> CustomOpArray& {
   static OrtOpLoader op_loader(
-      []() { return nullptr; }
 #ifdef ENABLE_GPT2_TOKENIZER
-      ,
       CustomCpuStruct("GPT2Tokenizer", KernelBpeTokenizer),
       CustomCpuStruct("CLIPTokenizer", KernelClipBpeTokenizer),
       CustomCpuStruct("RobertaTokenizer", KernelRobertaBpeTokenizer),
-      CustomCpuStruct("BpeDecoder", KernelBpeDecoder)
+      CustomCpuStruct("BpeDecoder", KernelBpeDecoder),
 #endif
 
 #ifdef ENABLE_SPM_TOKENIZER
-          ,
       CustomCpuStruct("SentencepieceTokenizer", KernelSentencepieceTokenizer),
-      CustomCpuStruct("SentencepieceDecoder", KernelSentencepieceDecoder)
+      CustomCpuStruct("SentencepieceDecoder", KernelSentencepieceDecoder),
+#endif
+
+#ifdef ENABLE_TRIE_TOKENIZER
+      CustomCpuStruct("TrieTokenizer", KernelTrieTokenizer),
+      CustomCpuStruct("TrieDetokenizer", KernelTrieDetokenizer),
 #endif
 
 #ifdef ENABLE_WORDPIECE_TOKENIZER
-          ,
-      CustomCpuStruct("WordpieceTokenizer", KernelWordpieceTokenizer)
+      CustomCpuStruct("WordpieceTokenizer", KernelWordpieceTokenizer),
 #endif
 
 #ifdef ENABLE_BERT_TOKENIZER
-          ,
       CustomCpuStruct("BasicTokenizer", KernelBasicTokenizer),
       CustomCpuStruct("BertTokenizer", KernelBertTokenizer),
       CustomCpuStruct("BertTokenizerDecoder", KernelBertTokenizerDecoder),
-      CustomCpuStruct("HfBertTokenizer", KernelHfBertTokenizer)
+      CustomCpuStruct("HfBertTokenizer", KernelHfBertTokenizer),
 #endif
 
 #ifdef ENABLE_BLINGFIRE
-          ,
-      CustomCpuStruct("BlingFireSentenceBreaker", KernelBlingFireSentenceBreaker)
+      CustomCpuStruct("BlingFireSentenceBreaker", KernelBlingFireSentenceBreaker),
 #endif
-  );
-  return op_loader.GetCustomOps();
-}
+      []() { return nullptr; });
 
-FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = TokenizerLoader;
+  return op_loader.GetCustomOps();
+};
