@@ -133,6 +133,8 @@ _PROCESSOR_DICT = {
     "LlamaTokenizer":   TokenOpParam("SentencepieceTokenizer",  HFTokenizerConverter.spm_tokenizer,
                                      "SentencepieceDecoder",    HFTokenizerConverter.spm_decoder,
                                      default_inputs={'add_bos': [True]}),
+    "FalconTokenizer":   TokenOpParam('ClipTokenizer',   HFTokenizerConverter.bpe_tokenizer,
+                                      'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None)
 }
 # @formatter:on
 
