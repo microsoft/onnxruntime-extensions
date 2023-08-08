@@ -380,8 +380,22 @@ endif()
 
 if(OCOS_ENABLE_AZURE)
   # Azure endpoint invokers
-  include(triton)
   file(GLOB TARGET_SRC_AZURE "operators/azure/*.cc" "operators/azure/*.h*")
+
+  if (ANDROID)
+    include(curl)
+
+    # make sure these work
+    find_package(OpenSSL REQUIRED)
+    find_package(CURL REQUIRED)
+
+    # exclude triton
+    list(FILTER TARGET_SRC_AZURE EXCLUDE REGEX ".*triton.*")
+  else()
+    add_compile_definitions(AZURE_INVOKERS_ENABLE_TRITON)
+    include(triton)
+  endif()
+
   list(APPEND TARGET_SRC ${TARGET_SRC_AZURE})
 endif()
 
@@ -454,11 +468,13 @@ if(_HAS_TOKENIZER)
 endif()
 
 if(OCOS_ENABLE_TF_STRING)
-  target_include_directories(noexcep_operators PUBLIC
-    ${googlere2_SOURCE_DIR}
-    ${farmhash_SOURCE_DIR}/src)
+  target_include_directories(noexcep_operators PUBLIC ${farmhash_SOURCE_DIR}/src)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING NOMINMAX FARMHASH_NO_BUILTIN_EXPECT FARMHASH_DEBUG=0)
-  target_link_libraries(noexcep_operators PRIVATE re2)
+
+  if(OCOS_ENABLE_RE2_REGEX)
+    target_include_directories(noexcep_operators PUBLIC ${googlere2_SOURCE_DIR})
+    target_link_libraries(noexcep_operators PRIVATE re2)
+  endif()
 endif()
 
 if(OCOS_ENABLE_RE2_REGEX)
@@ -526,6 +542,10 @@ if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
   list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 
+if(OCOS_ENABLE_AZURE)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_AZURE)
+endif()
+
 target_include_directories(noexcep_operators PUBLIC ${GSL_INCLUDE_DIR})
 list(APPEND ocos_libraries Microsoft.GSL::GSL)
 
@@ -577,9 +597,79 @@ else()
   set(_BUILD_SHARED_LIBRARY TRUE)
 endif()
 
+if(OCOS_ENABLE_AZURE)
+  if (ANDROID)
+    # the find_package calls were made immediately after `include(curl)` so we know CURL and OpenSSL are available
+    target_link_libraries(ocos_operators PUBLIC CURL::libcurl OpenSSL::Crypto OpenSSL::SSL)
+  elseif(IOS)
+    # TODO
+  else()
+    # we need files from the triton client (e.g. curl header on linux) to be available for the ocos_operators build.
+    # add a dependency so the fetch and build of triton happens first.
+    add_dependencies(ocos_operators triton)
+    target_include_directories(ocos_operators PUBLIC ${triton_INSTALL_DIR}/include)
+
+    target_link_directories(ocos_operators PUBLIC ${triton_INSTALL_DIR}/lib)
+    target_link_directories(ocos_operators PUBLIC ${triton_INSTALL_DIR}/lib64)
+
+    if (WIN32)
+      if (ocos_target_platform STREQUAL "AMD64")
+        set(vcpkg_target_platform "x64")
+      else()
+        set(vcpkg_target_platform ${ocos_target_platform})
+      endif()
+
+      # As per https://curl.se/docs/faq.html#Link_errors_when_building_libcur we need to set CURL_STATICLIB.
+      target_compile_definitions(ocos_operators PRIVATE CURL_STATICLIB)
+      target_include_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static-md/include)
+
+      if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(curl_LIB_NAME "libcurl-d")
+        target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static-md/debug/lib)
+      else()
+        set(curl_LIB_NAME "libcurl")
+        target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static-md/lib)
+      endif()
+
+      target_link_libraries(ocos_operators PUBLIC httpclient_static ${curl_LIB_NAME} ws2_32 crypt32 Wldap32)
+    else()
+      find_package(ZLIB REQUIRED)
+
+      # If finding the OpenSSL or CURL package fails for a local build you can install libcurl4-openssl-dev.
+      # See also info on triton client dependencies here: https://github.com/triton-inference-server/client
+      find_package(OpenSSL REQUIRED)
+      find_package(CURL)
+
+      if (CURL_FOUND)
+        message(STATUS "Found CURL package")
+        set(libcurl_target CURL::libcurl)
+      else()
+        # curl is coming from triton but as that's an external project it isn't built yet and we have to add
+        # paths and library names instead of cmake targets.
+        message(STATUS "Using CURL build from triton client. Once built it should be in ${triton_THIRD_PARTY_DIR}/curl")
+        target_include_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/include)
+
+        # Install is to 'lib' except on CentOS (which is used for the manylinux build of the python wheel).
+        # Side note: we have to patch the triton client CMakeLists.txt to only use 'lib64' for 64-bit builds otherwise
+        #            the build of the 32-bit python wheel fails with CURL not being found due to the invalid library
+        #            directory name.
+        target_link_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/lib)
+        target_link_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/lib64)
+
+        if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+          set(libcurl_target "curl-d")
+        else()
+          set(libcurl_target "curl")
+        endif()
+      endif()
+
+      target_link_libraries(ocos_operators PUBLIC httpclient_static ${libcurl_target} OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB)
+    endif()
+  endif()
+endif()
+
 target_compile_definitions(ortcustomops PUBLIC ${OCOS_COMPILE_DEFINITIONS})
-target_include_directories(ortcustomops PUBLIC
-  "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
+target_include_directories(ortcustomops PUBLIC "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
 target_link_libraries(ortcustomops PUBLIC ocos_operators)
 
 if(_BUILD_SHARED_LIBRARY)
@@ -592,8 +682,7 @@ if(_BUILD_SHARED_LIBRARY)
     set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS "-Wl,-s -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
   endif()
 
-  target_include_directories(extensions_shared PUBLIC
-    "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>")
+  target_include_directories(extensions_shared PUBLIC "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>")
   target_link_libraries(extensions_shared PRIVATE ortcustomops)
   set_target_properties(extensions_shared PROPERTIES OUTPUT_NAME "ortextensions")
   if(MSVC AND ocos_target_platform MATCHES "x86|x64")
@@ -672,8 +761,10 @@ if(OCOS_ENABLE_CTEST)
       list(APPEND LINUX_CC_FLAGS stdc++fs -pthread)
     endif()
 
-    file(GLOB shared_TEST_SRC "${TEST_SRC_DIR}/shared_test/*.cc")
+    file(GLOB shared_TEST_SRC "${TEST_SRC_DIR}/shared_test/*.cc" "${TEST_SRC_DIR}/shared_test/*.hpp")
     add_executable(extensions_test ${shared_TEST_SRC})
+    target_compile_definitions(extensions_test PUBLIC ${OCOS_COMPILE_DEFINITIONS})
+
     standardize_output_folder(extensions_test)
     target_include_directories(extensions_test PRIVATE ${spm_INCLUDE_DIRS}
       "$<TARGET_PROPERTY:extensions_shared,INTERFACE_INCLUDE_DIRECTORIES>")
@@ -705,31 +796,4 @@ if(OCOS_ENABLE_CTEST)
       ${TEST_DATA_DES})
     add_test(NAME extensions_test COMMAND $<TARGET_FILE:extensions_test>)
   endif()
-endif()
-
-if(OCOS_ENABLE_AZURE)
-
-  add_dependencies(ocos_operators triton)
-  target_include_directories(ocos_operators PUBLIC ${TRITON_BIN}/include ${TRITON_THIRD_PARTY}/curl/include)
-  target_link_directories(ocos_operators PUBLIC ${TRITON_BIN}/lib ${TRITON_BIN}/lib64 ${TRITON_THIRD_PARTY}/curl/lib ${TRITON_THIRD_PARTY}/curl/lib64)
-
-  if (ocos_target_platform STREQUAL "AMD64")
-    set(vcpkg_target_platform "x86")
-  else()
-    set(vcpkg_target_platform ${ocos_target_platform})
-  endif()
-
-  if (WIN32)
-
-    target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static/lib)
-    target_link_libraries(ocos_operators PUBLIC libcurl httpclient_static ws2_32 crypt32 Wldap32)
-
-  else()
-
-    find_package(ZLIB REQUIRED)
-    find_package(OpenSSL REQUIRED)
-    target_link_libraries(ocos_operators PUBLIC httpclient_static curl ZLIB::ZLIB OpenSSL::Crypto OpenSSL::SSL)
-
-  endif() #if (WIN32)
-
 endif()
