@@ -11,7 +11,7 @@ import numpy as np
 import onnxruntime as ort
 
 from packaging import version
-from transformers import WhisperConfig, WhisperProcessor
+from transformers import WhisperProcessor
 from onnxruntime_extensions import OrtPyFunction, util
 from onnxruntime_extensions.cvt import gen_processing_models
 
@@ -57,7 +57,6 @@ def process_test_file():
 
 
 def get_model_inputs(ort_session, audio_data):
-    config = WhisperConfig.from_pretrained(MODEL_NAME)
     ort_names = list(map(lambda entry: entry.name, ort_session.get_inputs()))
     print(ort_names)
 
@@ -76,22 +75,26 @@ def get_model_inputs(ort_session, audio_data):
     # Add optional inputs if present in model
     batch_size = 1
     N_MELS = 80, N_FRAMES = 3000
+
+    vocab_size = 51864 if ".en" in MODEL_NAME else 51865
+    decoder_start_token_id = 50257 if ".en" in MODEL_NAME else 50258
+
     for name in ort_names:
         if name in required_input_names:
             continue
         elif name == "vocab_mask":
-            inputs.append(np.ones(config.vocab_size, dtype=np.int32))
+            inputs.append(np.ones(vocab_size, dtype=np.int32))
         elif name == "prefix_vocab_mask":
-            inputs.append(np.ones((batch_size, config.vocab_size), dtype=np.int32))
+            inputs.append(np.ones((batch_size, vocab_size), dtype=np.int32))
         elif name == "attention_mask":
             # For older ORT versions that have the dummy attention mask input for the beam search op
             inputs.append(np.zeros((batch_size, N_MELS, N_FRAMES), dtype=np.int32))
         elif name == "decoder_input_ids":
-            inputs.append(np.array([[config.decoder_start_token_id]], dtype=np.int32))
+            inputs.append(np.array([[decoder_start_token_id]], dtype=np.int32))
         elif name == "logits_processor":
             inputs.append(np.array([1], dtype=np.int32))
         else:
-            raise NotImplementedError(f"The '{name}' input name needs to be added")
+            raise NotImplementedError(f"'{name}' input is not supported")
     return inputs
 
 
