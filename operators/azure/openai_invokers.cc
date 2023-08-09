@@ -24,7 +24,7 @@ OpenAIAudioToTextInvoker::OpenAIAudioToTextInvoker(const OrtApi& api, const OrtK
   };
 
   filename_input_ = find_optional_input("filename");
-  model_name_input_ = find_optional_input("model");
+  model_name_input_ = find_optional_input("model_name");
 
   // OpenAI audio endpoints require 'file' and 'model'.
   if (!std::any_of(property_names.begin(), property_names.end(),
@@ -33,7 +33,7 @@ OpenAIAudioToTextInvoker::OpenAIAudioToTextInvoker(const OrtApi& api, const OrtK
   }
 
   if (ModelName().empty() && !model_name_input_) {
-    ORTX_CXX_API_THROW("Required 'model' input was not found", ORT_INVALID_ARGUMENT);
+    ORTX_CXX_API_THROW("Required 'model_name' input was not found", ORT_INVALID_ARGUMENT);
   }
 }
 
