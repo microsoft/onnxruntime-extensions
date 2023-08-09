@@ -59,6 +59,12 @@ if (WIN32)
   vcpkg_install(openssl)
   vcpkg_install(curl)
 
+  # fake dependency between openssl and rapidjson.
+  # without this 2 `vcpkg install` commands run in parallel which results in errors like this on the first build:
+  #  write_contents_and_dirs("D:\src\github\ort-extensions\.scb\temp.win-amd64-cpython-311\Release\_deps\vcpkg\src\vcpkg\buildtrees\0.vcpkg_tags.cmake"): permission denied
+  # second attempt works, but that's not good enough for a CI.
+  add_dependencies(getopenssl getrapidjson)
+
   add_dependencies(getcurl getopenssl)
 
   set(triton_extra_cmake_args -DVCPKG_TARGET_TRIPLET=${vcpkg_triplet}
