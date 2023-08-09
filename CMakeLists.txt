@@ -138,6 +138,7 @@ if (MSVC)
   else()
     set(OCOS_STATIC_MSVC_RUNTIME_LIBRARY OFF)
   endif()
+  message(STATUS "OCOS_STATIC_MSVC_RUNTIME_LIBRARY: ${OCOS_STATIC_MSVC_RUNTIME_LIBRARY}")
 
 endif()
 
@@ -464,15 +465,9 @@ if(OCOS_ENABLE_AZURE)
         message(FATAL_ERROR "Unexpected ocos_target_platform: ${ocos_target_platform}")
       endif()
 
-      # TODO: currently we disable OCOS_ENABLE_AZURE if the build is using the static CRT, as we get errors like this:
-      #   httpclient_static.lib(http_client.obj) : error LNK2038: mismatch detected for 'RuntimeLibrary': value 'MD_DynamicRelease'
-      #   doesn't match value 'MT_StaticRelease' in ortcustomops.lib(ortcustomops.obj) [D:\a\1\s\out\Windows\extensions_shared.vcxproj]
-      # i.e. the 'if' will always be false until we fix that error or decide we don't need to support that sort of build.
-      if (OCOS_STATIC_MSVC_RUNTIME_LIBRARY)
-          set(vcpkg_triplet ${vcpkg_target_platform}-windows-static-md)
-      else()
-        set(vcpkg_triplet ${vcpkg_target_platform}-windows)
-      endif()
+      # vcpkg is used for the azure ops. we build static versions so they're directly included in the extensions library
+      # in the python package.
+      set(vcpkg_triplet ${vcpkg_target_platform}-windows-static-md)
 
       message(STATUS "vcpkg_triplet: ${vcpkg_triplet}")
     endif()
@@ -706,9 +701,7 @@ if(OCOS_ENABLE_AZURE)
 
     if (WIN32)
       # As per https://curl.se/docs/faq.html#Link_errors_when_building_libcur we need to set CURL_STATICLIB.
-      if (OCOS_STATIC_MSVC_RUNTIME_LIBRARY)
-        target_compile_definitions(ocos_operators PRIVATE CURL_STATICLIB)
-      endif()
+      target_compile_definitions(ocos_operators PRIVATE CURL_STATICLIB)
 
       target_include_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_triplet}/include)
 
