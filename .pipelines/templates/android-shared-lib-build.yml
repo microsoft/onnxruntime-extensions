@@ -1,7 +1,7 @@
 # packaging pipeline for onnxruntime-extensions Android AAR in nuget package
 parameters:
 - name: AndroidABI
-  displayName: android abi,[arm64-v8a, x86_64, X86, armeabi-v7a]
+  displayName: android abi,[arm64-v8a, x86_64, x86, armeabi-v7a]
   values:
   - 'x86_64'
   - 'x86'

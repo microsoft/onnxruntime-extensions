@@ -4,12 +4,6 @@ set(triton_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/_deps/triton)
 set(triton_INSTALL_DIR ${triton_PREFIX}/install)
 
 if (WIN32)
-  if (ocos_target_platform STREQUAL "AMD64")
-    set(vcpkg_target_platform "x64")
-  else()
-    set(vcpkg_target_platform ${ocos_target_platform})
-  endif()
-
   set(vcpkg_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg)
 
   ExternalProject_Add(vcpkg
@@ -23,12 +17,10 @@ if (WIN32)
 
   ExternalProject_Get_Property(vcpkg SOURCE_DIR BINARY_DIR)
   set(VCPKG_SRC ${SOURCE_DIR})
-  message(status "vcpkg source dir: " ${VCPKG_SRC})
+  message(STATUS "VCPKG_SRC: " ${VCPKG_SRC})
 
   # set the environment variable so that the vcpkg.cmake file can find the vcpkg root directory
   set(ENV{VCPKG_ROOT} ${VCPKG_SRC})
-
-  message(STATUS "VCPKG_SRC: " ${VCPKG_SRC})
   message(STATUS "ENV{VCPKG_ROOT}: " $ENV{VCPKG_ROOT})
 
   # NOTE: The VCPKG_ROOT environment variable isn't propagated to an add_custom_command target, so specify --vcpkg-root
@@ -44,36 +36,35 @@ if (WIN32)
   add_custom_target(vcpkg_integrate ALL DEPENDS vcpkg_integrate.stamp)
   set(VCPKG_DEPENDENCIES "vcpkg_integrate")
 
-  # use static-md so it adjusts for debug/release CRT
-  # https://stackoverflow.com/questions/67258905/vcpkg-difference-between-windows-windows-static-and-other
   function(vcpkg_install PACKAGE_NAME)
     add_custom_command(
-      OUTPUT ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_target_platform}-windows-static-md/BUILD_INFO
+      OUTPUT ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_triplet}/BUILD_INFO
       COMMAND ${CMAKE_COMMAND} -E echo ${VCPKG_SRC}/vcpkg install --vcpkg-root=$ENV{VCPKG_ROOT}
-                                  ${PACKAGE_NAME}:${vcpkg_target_platform}-windows-static-md
+                                  ${PACKAGE_NAME}:${vcpkg_triplet}
       COMMAND ${VCPKG_SRC}/vcpkg install --vcpkg-root=$ENV{VCPKG_ROOT}
-                                         ${PACKAGE_NAME}:${vcpkg_target_platform}-windows-static-md
+                                         ${PACKAGE_NAME}:${vcpkg_triplet}
       WORKING_DIRECTORY ${VCPKG_SRC}
       DEPENDS vcpkg_integrate)
 
     add_custom_target(
       get${PACKAGE_NAME}
       ALL
-      DEPENDS ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_target_platform}-windows-static-md/BUILD_INFO)
+      DEPENDS ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_triplet}/BUILD_INFO)
 
     list(APPEND VCPKG_DEPENDENCIES "get${PACKAGE_NAME}")
     set(VCPKG_DEPENDENCIES ${VCPKG_DEPENDENCIES} PARENT_SCOPE)
   endfunction()
 
-  vcpkg_install(rapidjson)
+  vcpkg_install(rapidjson)  # required by triton
   vcpkg_install(openssl)
   vcpkg_install(curl)
 
-  set(triton_extra_cmake_args -DVCPKG_TARGET_TRIPLET=${vcpkg_target_platform}-windows-static-md
+  add_dependencies(getcurl getopenssl)
+
+  set(triton_extra_cmake_args -DVCPKG_TARGET_TRIPLET=${vcpkg_triplet}
                               -DCMAKE_TOOLCHAIN_FILE=${VCPKG_SRC}/scripts/buildsystems/vcpkg.cmake)
   set(triton_patch_command "")
   set(triton_dependencies ${VCPKG_DEPENDENCIES})
-
 else()
   # RapidJSON 1.1.0 (released in 2016) is compatible with the triton build. Later code is not compatible without
   # patching due to the change in variable name for the include dir from RAPIDJSON_INCLUDE_DIRS to

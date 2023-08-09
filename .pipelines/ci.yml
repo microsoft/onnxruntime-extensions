@@ -58,7 +58,7 @@ jobs:
         displayName: Unpack ONNXRuntime package.
 
       - script: |
-          CPU_NUMBER=2 sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=$(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ort.version)
+          CPU_NUMBER=2 sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=$(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ort.version)
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -260,7 +260,7 @@ jobs:
 
       - script: |
           call $(vsdevcmd)
-          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
+          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
         displayName: build the customop library with onnxruntime
 
       - script: |
@@ -273,8 +273,12 @@ jobs:
       vmImage: 'windows-latest'
 
     steps:
+      # the vcpkg build requires a cmake python module
+      - script: python -m pip install cmake
+        displayName: Install cmake python module
+
       - script: |
-          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>"
+          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>"
           cd out/Windows
           ctest -C RelWithDebInfo --output-on-failure
         displayName: build and test ort-extensions with VC static runtime.
@@ -318,7 +322,8 @@ jobs:
           python -m pip install onnxruntime==$(ort.version)
           python -m pip install -r requirements.txt
           python -m pip install -r requirements-dev.txt
-        displayName: Install requirements.txt
+          python -m pip install cmake
+        displayName: Install requirements{-dev}.txt and cmake python modules
 
       - script: |
           call activate pyenv

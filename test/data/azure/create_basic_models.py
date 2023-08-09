@@ -8,14 +8,14 @@ from onnx import helper, TensorProto
 
 def create_audio_model():
     auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [1])
-    model = helper.make_tensor_value_info('model', TensorProto.STRING, [1])
+    model = helper.make_tensor_value_info('model_name', TensorProto.STRING, [1])
     response_format = helper.make_tensor_value_info('response_format', TensorProto.STRING, [-1])
     file = helper.make_tensor_value_info('file', TensorProto.UINT8, [-1])
 
     transcriptions = helper.make_tensor_value_info('transcriptions', TensorProto.STRING, [-1])
 
     invoker = helper.make_node('OpenAIAudioToText',
-                               ['auth_token', 'model', 'response_format', 'file'],
+                               ['auth_token', 'model_name', 'response_format', 'file'],
                                ['transcriptions'],
                                domain='com.microsoft.extensions',
                                name='audio_invoker',
