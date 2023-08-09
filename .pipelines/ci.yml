@@ -278,7 +278,7 @@ jobs:
         displayName: Install cmake python module
 
       - script: |
-          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>"
+          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
           cd out/Windows
           ctest -C RelWithDebInfo --output-on-failure
         displayName: build and test ort-extensions with VC static runtime.
