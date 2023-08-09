@@ -48,6 +48,7 @@ option(OCOS_ENABLE_CPP_EXCEPTIONS "Enable C++ Exception" ON)
 option(OCOS_ENABLE_TF_STRING "Enable String Operator Set" ON)
 option(OCOS_ENABLE_RE2_REGEX "Enable StringRegexReplace and StringRegexSplit" ON)
 option(OCOS_ENABLE_GPT2_TOKENIZER "Enable the GPT2 tokenizer building" ON)
+option(OCOS_ENABLE_TRIE_TOKENIZER "Enable the TrieTokenizer building" ON)
 option(OCOS_ENABLE_SPM_TOKENIZER "Enable the SentencePiece tokenizer building" ON)
 option(OCOS_ENABLE_WORDPIECE_TOKENIZER "Enable the WordpieceTokenizer building" ON)
 option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
@@ -72,6 +73,7 @@ function(disable_all_operators)
   set(OCOS_ENABLE_TF_STRING OFF CACHE INTERNAL "" FORCE)
   set(OCOS_ENABLE_WORDPIECE_TOKENIZER OFF CACHE INTERNAL "" FORCE)
   set(OCOS_ENABLE_GPT2_TOKENIZER OFF CACHE INTERNAL "" FORCE)
+  set(OCOS_ENABLE_TRIE_TOKENIZER OFF CACHE INTERNAL "" FORCE)
   set(OCOS_ENABLE_SPM_TOKENIZER OFF CACHE INTERNAL "" FORCE)
   set(OCOS_ENABLE_BERT_TOKENIZER OFF CACHE INTERNAL "" FORCE)
   set(OCOS_ENABLE_BLINGFIRE OFF CACHE INTERNAL "" FORCE)
@@ -346,6 +348,13 @@ if(OCOS_ENABLE_GPT2_TOKENIZER)
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
 endif()
 
+if(OCOS_ENABLE_TRIE_TOKENIZER)
+  # Trie Tokenizer
+  set(_HAS_TOKENIZER ON)
+  file(GLOB tok_TARGET_SRC "operators/tokenizer/trie_tokenizer.hpp" "operators/tokenizer/unescape.h")
+  list(APPEND TARGET_SRC ${tok_TARGET_SRC})
+endif()
+
 if(OCOS_ENABLE_SPM_TOKENIZER)
   # SentencePiece
   set(_HAS_TOKENIZER ON)
@@ -510,6 +519,10 @@ endif()
 if(OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_GPT2_TOKENIZER)
+endif()
+
+if(OCOS_ENABLE_TRIE_TOKENIZER)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TRIE_TOKENIZER)
 endif()
 
 if(OCOS_ENABLE_WORDPIECE_TOKENIZER)
@@ -796,4 +809,31 @@ if(OCOS_ENABLE_CTEST)
       ${TEST_DATA_DES})
     add_test(NAME extensions_test COMMAND $<TARGET_FILE:extensions_test>)
   endif()
+endif()
+
+if(OCOS_ENABLE_AZURE)
+
+  add_dependencies(ocos_operators triton)
+  target_include_directories(ocos_operators PUBLIC ${TRITON_BIN}/include ${TRITON_THIRD_PARTY}/curl/include)
+  target_link_directories(ocos_operators PUBLIC ${TRITON_BIN}/lib ${TRITON_BIN}/lib64 ${TRITON_THIRD_PARTY}/curl/lib ${TRITON_THIRD_PARTY}/curl/lib64)
+
+  if (ocos_target_platform STREQUAL "AMD64")
+    set(vcpkg_target_platform "x86")
+  else()
+    set(vcpkg_target_platform ${ocos_target_platform})
+  endif()
+
+  if (WIN32)
+
+    target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static/lib)
+    target_link_libraries(ocos_operators PUBLIC libcurl httpclient_static ws2_32 crypt32 Wldap32)
+
+  else()
+
+    find_package(ZLIB REQUIRED)
+    find_package(OpenSSL REQUIRED)
+    target_link_libraries(ocos_operators PUBLIC httpclient_static curl ZLIB::ZLIB OpenSSL::Crypto OpenSSL::SSL)
+
+  endif() #if (WIN32)
+
 endif()

@@ -350,6 +350,26 @@ class SentencepieceDecoder(CustomOp):
         return [cls.io_def('str', onnx_proto.TensorProto.STRING, [None])]
 
 
+class TrieTokenizer(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def('str', onnx_proto.TensorProto.STRING, ['N'])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def("ids", onnx.TensorProto.INT64, ['N', None])]
+
+
+class TrieDetokenizer(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def("ids", onnx.TensorProto.INT64, ['N', None])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def('str', onnx_proto.TensorProto.STRING, [None])]
+
+
 class Inverse(CustomOp):
 
     @classmethod
