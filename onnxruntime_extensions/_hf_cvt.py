@@ -24,7 +24,7 @@ class HFTokenizerConverter(CustomOpConverter):
     def bpe_tokenizer(self, **kwargs):
         hf_bpe_tokenizer = self.tokenizer
 
-        if (str(self.tokenizer).index("Fast") != -1):
+        if ("Fast" in str(self.tokenizer)):
             slow_tokenizer = str(self.tokenizer)[:str(self.tokenizer).index("Fast")]
             # update pretrained_model_name below if different from ex: 'gpt' for GPT2Tokenizer
             pretrained_model_name = str(self.tokenizer)[:str(self.tokenizer).index("Tokenizer")]
@@ -87,7 +87,7 @@ class HFTokenizerConverter(CustomOpConverter):
     def clip_tokenizer(self, **kwargs):
         hf_clip_tokenizer = self.tokenizer
 
-        if (str(self.tokenizer).index("Fast") != -1):
+        if ("Fast" in str(self.tokenizer)):
             slow_tokenizer = str(self.tokenizer)[:str(self.tokenizer).index("Fast")]
             # update pretrained_model_name below if different
             pretrained_model_name = "openai/clip-vit-base-patch32"
@@ -107,7 +107,7 @@ class HFTokenizerConverter(CustomOpConverter):
     def roberta_tokenizer(self, **kwargs):
         hf_roberta_tokenizer = self.tokenizer
 
-        if (str(self.tokenizer).index("Fast") != -1):
+        if ("Fast" in str(self.tokenizer)):
             slow_tokenizer = str(self.tokenizer)[:str(self.tokenizer).index("Fast")]
             # update pretrained_model_name below if different
             pretrained_model_name = "roberta-base"
