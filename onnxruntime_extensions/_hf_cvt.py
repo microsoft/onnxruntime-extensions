@@ -22,22 +22,20 @@ class HFTokenizerConverter(CustomOpConverter):
         self.tokenizer = tokenizer
 
     def bpe_tokenizer(self, **kwargs):
-        vocab_file = "./test/data/gpt2.vocab"
-        merges_file = "./test/data/gpt2.merges.txt"
+        hf_bpe_tokenizer = self.tokenizer
 
-        with open(vocab_file, encoding="utf-8") as vocab_handle:
-            encoder = json.load(vocab_handle)
-
-        with open(merges_file, encoding="utf-8") as merges_handle:
-            bpe_merges = merges_handle.read().split("\n")[1:-1]
-
-        bpe_merges = [tuple(merge.split()) for merge in bpe_merges]
-        bpe_ranks = dict(zip(bpe_merges, range(len(bpe_merges))))
-
+        if (str(self.tokenizer).index("Fast") != -1):
+            slow_tokenizer = str(self.tokenizer)[:str(self.tokenizer).index("Fast")]
+            # update pretrained_model_name below if different from ex: 'gpt' for GPT2Tokenizer
+            pretrained_model_name = str(self.tokenizer)[:str(self.tokenizer).index("Tokenizer")]
+            import_line = f"from transformers import {slow_tokenizer}"
+            exec(import_line)
+            hf_bpe_tokenizer = eval(f"{slow_tokenizer}.from_pretrained('{pretrained_model_name.lower()}')")
+        
         attrs = {'vocab': json.dumps(
-            encoder, separators=(',', ':'))}
+            hf_bpe_tokenizer.encoder, separators=(',', ':'))}
         sorted_merges = {v_: k_ for k_,
-        v_ in bpe_ranks.items()}
+        v_ in hf_bpe_tokenizer.bpe_ranks.items()}
         attrs['merges'] = '\n'.join("{} {}".format(
             *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
         attrs.update(**kwargs)
@@ -88,6 +86,15 @@ class HFTokenizerConverter(CustomOpConverter):
 
     def clip_tokenizer(self, **kwargs):
         hf_clip_tokenizer = self.tokenizer
+
+        if (str(self.tokenizer).index("Fast") != -1):
+            slow_tokenizer = str(self.tokenizer)[:str(self.tokenizer).index("Fast")]
+            # update pretrained_model_name below if different
+            pretrained_model_name = "openai/clip-vit-base-patch32"
+            import_line = f"from transformers import {slow_tokenizer}"
+            exec(import_line)
+            hf_clip_tokenizer = eval(f"{slow_tokenizer}.from_pretrained('{pretrained_model_name.lower()}')")
+
         attrs = {'vocab': json.dumps(
             hf_clip_tokenizer.encoder, separators=(',', ':'))}
         sorted_merges = {v_: k_ for k_,
@@ -99,6 +106,15 @@ class HFTokenizerConverter(CustomOpConverter):
 
     def roberta_tokenizer(self, **kwargs):
         hf_roberta_tokenizer = self.tokenizer
+
+        if (str(self.tokenizer).index("Fast") != -1):
+            slow_tokenizer = str(self.tokenizer)[:str(self.tokenizer).index("Fast")]
+            # update pretrained_model_name below if different
+            pretrained_model_name = "roberta-base"
+            import_line = f"from transformers import {slow_tokenizer}"
+            exec(import_line)
+            hf_clip_tokenizer = eval(f"{slow_tokenizer}.from_pretrained('{pretrained_model_name.lower()}')")
+
         attrs = {'vocab': json.dumps(
             hf_roberta_tokenizer.encoder, separators=(',', ':'))}
         sorted_merges = {v_: k_ for k_,
