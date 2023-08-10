@@ -22,11 +22,22 @@ class HFTokenizerConverter(CustomOpConverter):
         self.tokenizer = tokenizer
 
     def bpe_tokenizer(self, **kwargs):
-        hf_gpt2_tokenizer = self.tokenizer
+        vocab_file = "./test/data/gpt2.vocab"
+        merges_file = "./test/data/gpt2.merges.txt"
+
+        with open(vocab_file, encoding="utf-8") as vocab_handle:
+            encoder = json.load(vocab_handle)
+
+        with open(merges_file, encoding="utf-8") as merges_handle:
+            bpe_merges = merges_handle.read().split("\n")[1:-1]
+
+        bpe_merges = [tuple(merge.split()) for merge in bpe_merges]
+        bpe_ranks = dict(zip(bpe_merges, range(len(bpe_merges))))
+
         attrs = {'vocab': json.dumps(
-            hf_gpt2_tokenizer.encoder, separators=(',', ':'))}
+            encoder, separators=(',', ':'))}
         sorted_merges = {v_: k_ for k_,
-        v_ in hf_gpt2_tokenizer.bpe_ranks.items()}
+        v_ in bpe_ranks.items()}
         attrs['merges'] = '\n'.join("{} {}".format(
             *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
         attrs.update(**kwargs)
@@ -121,7 +132,7 @@ _PROCESSOR_DICT = {
     "DistilBertTokenizer":
                         TokenOpParam('BertTokenizer',   HFTokenizerConverter.bert_tokenizer,
                                      'BertDecoder',     HFTokenizerConverter.bpe_decoder, None),
-    "GPT2Tokenizer":    TokenOpParam('Gpt2Tokenizer',   HFTokenizerConverter.bpe_tokenizer,
+    "GPT2Tokenizer":    TokenOpParam('GPT2Tokenizer',   HFTokenizerConverter.bpe_tokenizer,
                                      'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
     "ClipTokenizer":    TokenOpParam('ClipTokenizer',   HFTokenizerConverter.clip_tokenizer,
                                      'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
@@ -132,9 +143,7 @@ _PROCESSOR_DICT = {
                                      default_inputs={'add_eos': [True]}),
     "LlamaTokenizer":   TokenOpParam("SentencepieceTokenizer",  HFTokenizerConverter.spm_tokenizer,
                                      "SentencepieceDecoder",    HFTokenizerConverter.spm_decoder,
-                                     default_inputs={'add_bos': [True]}),
-    "FalconTokenizer":   TokenOpParam('ClipTokenizer',   HFTokenizerConverter.bpe_tokenizer,
-                                      'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None)
+                                     default_inputs={'add_bos': [True]})
 }
 # @formatter:on
 
