@@ -22,20 +22,15 @@ class HFTokenizerConverter(CustomOpConverter):
         self.tokenizer = tokenizer
 
     def bpe_tokenizer(self, **kwargs):
-        hf_bpe_tokenizer = self.tokenizer
+        hf_gpt2_tokenizer = self.tokenizer
 
         if ("Fast" in str(self.tokenizer)):
-            slow_tokenizer = str(self.tokenizer)[:str(self.tokenizer).index("Fast")]
-            # update pretrained_model_name below if different from ex: 'gpt' for GPT2Tokenizer
-            pretrained_model_name = str(self.tokenizer)[:str(self.tokenizer).index("Tokenizer")]
-            import_line = f"from transformers import {slow_tokenizer}"
-            exec(import_line)
-            hf_bpe_tokenizer = eval(f"{slow_tokenizer}.from_pretrained('{pretrained_model_name.lower()}')")
-        
+            raise ValueError('Please use the slow version of the tokenizer (ex: GPT2Tokenizer).')
+
         attrs = {'vocab': json.dumps(
-            hf_bpe_tokenizer.encoder, separators=(',', ':'))}
+            hf_gpt2_tokenizer.encoder, separators=(',', ':'))}
         sorted_merges = {v_: k_ for k_,
-        v_ in hf_bpe_tokenizer.bpe_ranks.items()}
+        v_ in hf_gpt2_tokenizer.bpe_ranks.items()}
         attrs['merges'] = '\n'.join("{} {}".format(
             *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
         attrs.update(**kwargs)
@@ -88,12 +83,7 @@ class HFTokenizerConverter(CustomOpConverter):
         hf_clip_tokenizer = self.tokenizer
 
         if ("Fast" in str(self.tokenizer)):
-            slow_tokenizer = str(self.tokenizer)[:str(self.tokenizer).index("Fast")]
-            # update pretrained_model_name below if different
-            pretrained_model_name = "openai/clip-vit-base-patch32"
-            import_line = f"from transformers import {slow_tokenizer}"
-            exec(import_line)
-            hf_clip_tokenizer = eval(f"{slow_tokenizer}.from_pretrained('{pretrained_model_name.lower()}')")
+            raise ValueError('Please use the slow version of the tokenizer (ex: CLIPTokenizer).')
 
         attrs = {'vocab': json.dumps(
             hf_clip_tokenizer.encoder, separators=(',', ':'))}
@@ -108,12 +98,7 @@ class HFTokenizerConverter(CustomOpConverter):
         hf_roberta_tokenizer = self.tokenizer
 
         if ("Fast" in str(self.tokenizer)):
-            slow_tokenizer = str(self.tokenizer)[:str(self.tokenizer).index("Fast")]
-            # update pretrained_model_name below if different
-            pretrained_model_name = "roberta-base"
-            import_line = f"from transformers import {slow_tokenizer}"
-            exec(import_line)
-            hf_clip_tokenizer = eval(f"{slow_tokenizer}.from_pretrained('{pretrained_model_name.lower()}')")
+            raise ValueError('Please use the slow version of the tokenizer (ex: RobertaTokenizer).')
 
         attrs = {'vocab': json.dumps(
             hf_roberta_tokenizer.encoder, separators=(',', ':'))}

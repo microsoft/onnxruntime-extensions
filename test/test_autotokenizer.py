@@ -30,7 +30,7 @@ class TestAutoTokenizer(unittest.TestCase):
 
     def test_falcon_tokenizer(self):
         # replace the official model name after the model is not gated anymore
-        tokenizer = AutoTokenizer.from_pretrained("Rocketknight1/falcon-rw-1b")
+        tokenizer = AutoTokenizer.from_pretrained("Rocketknight1/falcon-rw-1b", use_fast=False)
         text = "why don't you teach me some German?"
         ids = tokenizer.encode(text, return_tensors="np")
 
