@@ -69,7 +69,6 @@ if (WIN32)
 
   set(triton_extra_cmake_args -DVCPKG_TARGET_TRIPLET=${vcpkg_triplet}
                               -DCMAKE_TOOLCHAIN_FILE=${VCPKG_SRC}/scripts/buildsystems/vcpkg.cmake)
-  set(triton_patch_command "")
   set(triton_dependencies ${VCPKG_DEPENDENCIES})
 else()
   # RapidJSON 1.1.0 (released in 2016) is compatible with the triton build. Later code is not compatible without
@@ -99,7 +98,6 @@ else()
   set(RapidJSON_ROOT_DIR ${BINARY_DIR})
 
   set(triton_extra_cmake_args "")
-  set(triton_patch_command patch --verbose -p1 -i ${PROJECT_SOURCE_DIR}/cmake/externals/triton_cmake.patch)
   set(triton_dependencies RapidJSON)
 
   # Patch the triton client CMakeLists.txt to fix two issues when building the python wheels with cibuildwheel, which
@@ -115,6 +113,8 @@ else()
 # Add the triton build. We just need the library so we don't install it.
 #
 set(triton_VERSION_TAG r23.05)
+set(triton_patch_command patch --verbose -p1 -i ${PROJECT_SOURCE_DIR}/cmake/externals/triton_cmake.patch)
+
 ExternalProject_Add(triton
                     URL https://github.com/triton-inference-server/client/archive/refs/heads/${triton_VERSION_TAG}.tar.gz
                     URL_HASH SHA1=b8fd2a4e09eae39c33cd04cfa9ec934e39d9afc1
