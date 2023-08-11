@@ -23,6 +23,10 @@ class HFTokenizerConverter(CustomOpConverter):
 
     def bpe_tokenizer(self, **kwargs):
         hf_gpt2_tokenizer = self.tokenizer
+
+        if ("Fast" in str(self.tokenizer)):
+            raise ValueError('Please use the slow version of the tokenizer (ex: GPT2Tokenizer).')
+
         attrs = {'vocab': json.dumps(
             hf_gpt2_tokenizer.encoder, separators=(',', ':'))}
         sorted_merges = {v_: k_ for k_,
@@ -77,6 +81,10 @@ class HFTokenizerConverter(CustomOpConverter):
 
     def clip_tokenizer(self, **kwargs):
         hf_clip_tokenizer = self.tokenizer
+
+        if ("Fast" in str(self.tokenizer)):
+            raise ValueError('Please use the slow version of the tokenizer (ex: CLIPTokenizer).')
+
         attrs = {'vocab': json.dumps(
             hf_clip_tokenizer.encoder, separators=(',', ':'))}
         sorted_merges = {v_: k_ for k_,
@@ -88,6 +96,10 @@ class HFTokenizerConverter(CustomOpConverter):
 
     def roberta_tokenizer(self, **kwargs):
         hf_roberta_tokenizer = self.tokenizer
+
+        if ("Fast" in str(self.tokenizer)):
+            raise ValueError('Please use the slow version of the tokenizer (ex: RobertaTokenizer).')
+
         attrs = {'vocab': json.dumps(
             hf_roberta_tokenizer.encoder, separators=(',', ':'))}
         sorted_merges = {v_: k_ for k_,
@@ -121,7 +133,7 @@ _PROCESSOR_DICT = {
     "DistilBertTokenizer":
                         TokenOpParam('BertTokenizer',   HFTokenizerConverter.bert_tokenizer,
                                      'BertDecoder',     HFTokenizerConverter.bpe_decoder, None),
-    "GPT2Tokenizer":    TokenOpParam('Gpt2Tokenizer',   HFTokenizerConverter.bpe_tokenizer,
+    "GPT2Tokenizer":    TokenOpParam('GPT2Tokenizer',   HFTokenizerConverter.bpe_tokenizer,
                                      'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
     "ClipTokenizer":    TokenOpParam('ClipTokenizer',   HFTokenizerConverter.clip_tokenizer,
                                      'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
@@ -132,9 +144,7 @@ _PROCESSOR_DICT = {
                                      default_inputs={'add_eos': [True]}),
     "LlamaTokenizer":   TokenOpParam("SentencepieceTokenizer",  HFTokenizerConverter.spm_tokenizer,
                                      "SentencepieceDecoder",    HFTokenizerConverter.spm_decoder,
-                                     default_inputs={'add_bos': [True]}),
-    "FalconTokenizer":   TokenOpParam('ClipTokenizer',   HFTokenizerConverter.bpe_tokenizer,
-                                      'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None)
+                                     default_inputs={'add_bos': [True]})
 }
 # @formatter:on
 

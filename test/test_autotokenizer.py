@@ -30,7 +30,7 @@ class TestAutoTokenizer(unittest.TestCase):
 
     def test_falcon_tokenizer(self):
         # replace the official model name after the model is not gated anymore
-        tokenizer = AutoTokenizer.from_pretrained("hf-internal-testing/llama-tokenizer")
+        tokenizer = AutoTokenizer.from_pretrained("Rocketknight1/falcon-rw-1b", use_fast=False)
         text = "why don't you teach me some German?"
         ids = tokenizer.encode(text, return_tensors="np")
 
@@ -38,7 +38,7 @@ class TestAutoTokenizer(unittest.TestCase):
             tokenizer,
             pre_kwargs={"WITH_DEFAULT_INPUTS": True})[0])
         actual_ids = ort_tok([text])[0]
-        np.testing.assert_array_equal(ids[0], actual_ids)
+        np.testing.assert_array_equal(ids, actual_ids)
 
     def test_t5_tokenizer(self):
         tokenizer = AutoTokenizer.from_pretrained("t5-base", model_max_length=512)
