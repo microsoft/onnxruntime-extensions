@@ -146,6 +146,17 @@ _PROCESSOR_DICT = {
                                      "SentencepieceDecoder",    HFTokenizerConverter.spm_decoder,
                                      default_inputs={'add_bos': [True]})
 }
+
+_PROCESSOR_TYPE_DICT = {
+    'bert':   "BertTokenizer",
+    'gpt2':   "GPT2Tokenizer",
+    'clip':   "ClipTokenizer",
+    'roberta':"RobertaTokenizer",
+    't5':     "T5Tokenizer",
+    'llama':  "LlamaTokenizer",
+    'bpe':    "GPT2Tokenizer",
+    'falcon': "GPT2Tokenizer"
+}
 # @formatter:on
 
 
@@ -165,6 +176,19 @@ class HFTokenizerOnnxGraph:
 
     def __init__(self, processor, **kwargs):
         cls_name = self.extract_cls_name(processor)
+
+        cls_type = processor.init_kwargs.get("name_or_path")
+
+        if cls_name == "PreTrainedTokenizer":
+            processor_type_found = False
+            for processor_type in list(_PROCESSOR_TYPE_DICT.keys()):
+                if (processor_type in cls_type):
+                    cls_name = _PROCESSOR_TYPE_DICT[processor_type]
+                    processor_type_found = True
+
+            if (not processor_type_found):
+                raise ValueError('Tokenizer not found in list of supported processors.')
+
         self.cvt_quadruple = _PROCESSOR_DICT[cls_name]
         self.cvt_obj = HFTokenizerConverter(processor)
 
