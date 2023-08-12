@@ -8,6 +8,7 @@ _hf_cvt.py: HuggingFace Tokenizer/Processor Converter
 """
 
 import json
+import requests
 import onnx
 from numpy import array as nparray
 from functools import partial
@@ -24,16 +25,31 @@ class HFTokenizerConverter(CustomOpConverter):
     def bpe_tokenizer(self, **kwargs):
         hf_gpt2_tokenizer = self.tokenizer
 
-        if ("Fast" in str(self.tokenizer)):
+        if ("PreTrainedTokenizerFast" in str(hf_gpt2_tokenizer)):
+            tokenizer_json_path = f"https://huggingface.co/{hf_gpt2_tokenizer.init_kwargs.get('name_or_path')}/raw/main/tokenizer.json"
+            tokenizer_json = json.loads(requests.get(tokenizer_json_path).text)
+            
+            attrs = {}
+            attrs['vocab'] = f'{tokenizer_json["model"]["vocab"]}'
+            sorted_merges = {}
+            i = 0
+            for merge in tokenizer_json["model"]["merges"]:
+                sorted_merges[i] = (merge[:merge.index(" ")], merge[merge.index(" ")+1:])
+                i += 1
+            attrs['merges'] = '\n'.join("{} {}".format(
+                *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
+            attrs.update(**kwargs)
+        elif ("Fast" in str(self.tokenizer)):
             raise ValueError('Please use the slow version of the tokenizer (ex: GPT2Tokenizer).')
+        else:
+            attrs = {'vocab': json.dumps(
+                hf_gpt2_tokenizer.encoder, separators=(',', ':'))}
+            sorted_merges = {v_: k_ for k_,
+            v_ in hf_gpt2_tokenizer.bpe_ranks.items()}
+            attrs['merges'] = '\n'.join("{} {}".format(
+                *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
+            attrs.update(**kwargs)
 
-        attrs = {'vocab': json.dumps(
-            hf_gpt2_tokenizer.encoder, separators=(',', ':'))}
-        sorted_merges = {v_: k_ for k_,
-        v_ in hf_gpt2_tokenizer.bpe_ranks.items()}
-        attrs['merges'] = '\n'.join("{} {}".format(
-            *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
-        attrs.update(**kwargs)
         return attrs
 
     def bert_tokenizer(self, **kwargs):
@@ -82,7 +98,7 @@ class HFTokenizerConverter(CustomOpConverter):
     def clip_tokenizer(self, **kwargs):
         hf_clip_tokenizer = self.tokenizer
 
-        if ("Fast" in str(self.tokenizer)):
+        if ("Fast" in str(hf_clip_tokenizer)):
             raise ValueError('Please use the slow version of the tokenizer (ex: CLIPTokenizer).')
 
         attrs = {'vocab': json.dumps(
@@ -97,7 +113,7 @@ class HFTokenizerConverter(CustomOpConverter):
     def roberta_tokenizer(self, **kwargs):
         hf_roberta_tokenizer = self.tokenizer
 
-        if ("Fast" in str(self.tokenizer)):
+        if ("Fast" in str(hf_roberta_tokenizer)):
             raise ValueError('Please use the slow version of the tokenizer (ex: RobertaTokenizer).')
 
         attrs = {'vocab': json.dumps(
@@ -135,7 +151,7 @@ _PROCESSOR_DICT = {
                                      'BertDecoder',     HFTokenizerConverter.bpe_decoder, None),
     "GPT2Tokenizer":    TokenOpParam('GPT2Tokenizer',   HFTokenizerConverter.bpe_tokenizer,
                                      'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
-    "ClipTokenizer":    TokenOpParam('ClipTokenizer',   HFTokenizerConverter.clip_tokenizer,
+    "CLIPTokenizer":    TokenOpParam('CLIPTokenizer',   HFTokenizerConverter.clip_tokenizer,
                                      'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
     "RobertaTokenizer": TokenOpParam("RobertaTokenizer",    HFTokenizerConverter.roberta_tokenizer,
                                      None, None, None),
@@ -150,7 +166,7 @@ _PROCESSOR_DICT = {
 _PROCESSOR_TYPE_DICT = {
     'bert':   "BertTokenizer",
     'gpt2':   "GPT2Tokenizer",
-    'clip':   "ClipTokenizer",
+    'clip':   "CLIPTokenizer",
     'roberta':"RobertaTokenizer",
     't5':     "T5Tokenizer",
     'llama':  "LlamaTokenizer",
@@ -167,18 +183,8 @@ class HFTokenizerOnnxGraph:
         cls_name = processor if isinstance(processor, str) else type(processor).__name__
         if cls_name.endswith("TokenizerFast"):
             cls_name = cls_name[:-len("Fast")]
-        return cls_name
-
-    @classmethod
-    def is_supported(cls, processor):
-        cls_name = cls.extract_cls_name(processor)
-        return cls_name in _PROCESSOR_DICT
-
-    def __init__(self, processor, **kwargs):
-        cls_name = self.extract_cls_name(processor)
 
         cls_type = processor.init_kwargs.get("name_or_path")
-
         if cls_name == "PreTrainedTokenizer":
             processor_type_found = False
             for processor_type in list(_PROCESSOR_TYPE_DICT.keys()):
@@ -188,6 +194,16 @@ class HFTokenizerOnnxGraph:
 
             if (not processor_type_found):
                 raise ValueError('Tokenizer not found in list of supported processors.')
+
+        return cls_name
+
+    @classmethod
+    def is_supported(cls, processor):
+        cls_name = cls.extract_cls_name(processor)
+        return cls_name in _PROCESSOR_DICT
+
+    def __init__(self, processor, **kwargs):
+        cls_name = self.extract_cls_name(processor)
 
         self.cvt_quadruple = _PROCESSOR_DICT[cls_name]
         self.cvt_obj = HFTokenizerConverter(processor)
