@@ -69,6 +69,10 @@ if (WIN32)
 
   set(triton_extra_cmake_args -DVCPKG_TARGET_TRIPLET=${vcpkg_triplet}
                               -DCMAKE_TOOLCHAIN_FILE=${VCPKG_SRC}/scripts/buildsystems/vcpkg.cmake)
+
+  # insane... but we added patch.exe from the git 32-bit windows distribution because the CI image has removed it
+  # from the git install that is available, and this seems like the least egregious/inconsistent way to make it work...
+  set(triton_patch_exe ${PROJECT_SOURCE_DIR}/cmake/externals/git.Win32.2.41.03.patch/patch.exe)
   set(triton_dependencies ${VCPKG_DEPENDENCIES})
 else()
   # RapidJSON 1.1.0 (released in 2016) is compatible with the triton build. Later code is not compatible without
@@ -98,22 +102,25 @@ else()
   set(RapidJSON_ROOT_DIR ${BINARY_DIR})
 
   set(triton_extra_cmake_args "")
+  set(triton_patch_exe patch)
   set(triton_dependencies RapidJSON)
 
-  # Patch the triton client CMakeLists.txt to fix two issues when building the python wheels with cibuildwheel, which
-  # uses CentOS 7.
-  #  1) use the full path to the version script file so 'ld' doesn't fail to find it. Looks like ld is running from the
-  #     parent directory but not sure why the behavior differs vs. other linux builds
-  #       e.g. building locally on Ubuntu is fine without the patch
-  #  2) only set the CURL lib path to 'lib64' on a 64-bit CentOS build as 'lib64' is invalid on a 32-bit OS. without
-  #     this patch the build of the third-party libraries in the triton client fail as the CURL build is not found.
-
-  endif() #if (WIN32)
+endif() #if (WIN32)
 
 # Add the triton build. We just need the library so we don't install it.
-#
 set(triton_VERSION_TAG r23.05)
-set(triton_patch_command patch --verbose -p1 -i ${PROJECT_SOURCE_DIR}/cmake/externals/triton_cmake.patch)
+
+# Patch the triton client CMakeLists.txt to fix issues when building the linux python wheels with cibuildwheel, which
+# uses CentOS 7.
+#  1) use the full path to the version script file so 'ld' doesn't fail to find it. Looks like ld is running from the
+#     parent directory but not sure why the behavior differs vs. other linux builds
+#       e.g. building locally on Ubuntu is fine without the patch
+#  2) only set the CURL lib path to 'lib64' on a 64-bit CentOS build as 'lib64' is invalid on a 32-bit OS. without
+#     this patch the build of the third-party libraries in the triton client fail as the CURL build is not found.
+#
+# Also fix a Windows issue where the security tools complain about warnings being disabled by increasing the
+# warning level for triton/src/c++/library. Was /W0. Patched to /W3.
+set(triton_patch_command ${triton_patch_exe} --verbose -p1 -i ${PROJECT_SOURCE_DIR}/cmake/externals/triton_cmake.patch)
 
 ExternalProject_Add(triton
                     URL https://github.com/triton-inference-server/client/archive/refs/heads/${triton_VERSION_TAG}.tar.gz
