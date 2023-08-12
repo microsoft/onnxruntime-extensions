@@ -8,7 +8,7 @@
 # Support:        https://aka.ms/onebranchsup                                   #
 #################################################################################
 
-trigger: none 
+trigger: none
 
 parameters: # parameters are shown up in ADO UI in a build queue time
 - name: 'debug'
@@ -22,7 +22,7 @@ parameters: # parameters are shown up in ADO UI in a build queue time
   default: ''
 
 variables:
-  CDP_DEFINITION_BUILD_COUNT: $[counter('', 0)] 
+  CDP_DEFINITION_BUILD_COUNT: $[counter('', 0)]
   system.debug: ${{ parameters.debug }}
   ENABLE_PRS_DELAYSIGN: 1
   ROOT: $(Build.SourcesDirectory)
@@ -35,7 +35,7 @@ variables:
   CIBW_ENVIRONMENT: "${{ parameters.ExtraEnv }}"
 
 resources:
-  repositories: 
+  repositories:
     - repository: templates
       type: git
       name: OneBranch.Pipelines/GovernedTemplates
@@ -60,13 +60,13 @@ extends:
         break: true # always break the build on policheck issues. You can disable it by setting to 'false'
         exclusionsFile: '$(REPOROOT)\.config\policheck_exclusions.xml'
 
-    stages:    
+    stages:
     - stage: Windows_Build
       jobs:
       - job: main
         pool:
           type: windows
-        
+
         variables:
           ob_outputDirectory: '$(REPOROOT)\out'
           ob_sdl_binskim_break: true
@@ -86,12 +86,12 @@ extends:
                 set vsmsbuild="%%i\MSBuild\Current\Bin\amd64\msbuild.exe"
               )
             )
-            
+
             @echo vslatest %vslatest%
             @echo vsdevcmd %vsdevcmd%
             @echo vscmake %vscmake%
             @echo vsmsbuild %vsmsbuild%
-            
+
             @echo ##vso[task.setvariable variable=vslatest]%vslatest%
             @echo ##vso[task.setvariable variable=vsdevcmd]%vsdevcmd%
             @echo ##vso[task.setvariable variable=vscmake]%vscmake%
@@ -104,7 +104,6 @@ extends:
             python -m pip install --upgrade pip
             python -m pip install cibuildwheel numpy
             python -m cibuildwheel --platform windows --archs AMD64 --output-dir $(REPOROOT)\out
-            tools\install_deps.bat uninstall
           displayName: Build wheels
         - task: SDLNativeRules@3
           inputs:

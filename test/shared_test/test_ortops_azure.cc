@@ -14,6 +14,22 @@
 using namespace ort_extensions;
 using namespace ort_extensions::test;
 
+namespace {
+// find the substrings in `expected` in the actual output which contains a single string with the response
+void find_substrings_in_output(size_t output_idx, Ort::Value& actual, TestValue expected) {
+  std::vector<std::string> output_string;
+  GetTensorMutableDataString(Ort::GetApi(), actual, output_string);
+
+  ASSERT_EQ(output_string.size(), 1) << "Expected the Whisper response to be a single string with json";
+
+  for (auto& expected_substring : expected.values_string) {
+    if (output_string[0].find(expected_substring) == std::string::npos) {
+      FAIL() << "'" << expected_substring << "' was not found in output " << output_string[0];
+    }
+  }
+}
+}  // namespace
+
 // Test custom op with OpenAIAudioInvoker calling Whisper
 // Default input format. No prompt.
 TEST(AzureOps, OpenAIWhisper_basic) {
@@ -37,25 +53,11 @@ TEST(AzureOps, OpenAIWhisper_basic) {
   std::vector<std::string> expected_output{"Thank you for pressing the self-destruct button",
                                            "ship will self-destruct in three minutes"};
 
-  // dims are set to '{1}' as we expect one string output. the expected_output is the collection of substrings to look
-  // for in the single output
+  // dims are set to '{1}' as we expect one string output.
+  // the expected_output is the collection of substrings to look for in the single output string.
   std::vector<TestValue> outputs{TestValue("transcription", expected_output, {1})};
 
-  OutputValidator find_strings_in_output =
-      [](size_t output_idx, Ort::Value& actual, TestValue expected) {
-        std::vector<std::string> output_string;
-        GetTensorMutableDataString(Ort::GetApi(), actual, output_string);
-
-        ASSERT_EQ(output_string.size(), 1) << "Expected the Whisper response to be a single string with json";
-
-        for (auto& expected_substring : expected.values_string) {
-          if (output_string[0].find(expected_substring) == std::string::npos) {
-            FAIL() << "'" << expected_substring << "' was not found in output " << output_string[0];
-          }
-        }
-      };
-
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath(), find_strings_in_output);
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath(), find_substrings_in_output);
 }
 
 // test calling Whisper with a filename to provide mp3 instead of the default wav, and the optional prompt
@@ -82,25 +84,13 @@ TEST(AzureOps, OpenAIWhisper_Prompt_CustomFormat) {
   std::vector<std::string> expected_output = {"Take some Pepto-Bismol, get dressed, and come on over here."};
   std::vector<TestValue> outputs{TestValue("transcription", expected_output, {1})};
 
-  OutputValidator find_strings_in_output =
-      [](size_t output_idx, Ort::Value& actual, TestValue expected) {
-        std::vector<std::string> output_string;
-        GetTensorMutableDataString(Ort::GetApi(), actual, output_string);
-
-        ASSERT_EQ(output_string.size(), 1) << "Expected the Whisper response to be a single string with json";
-        const auto& expected_substring = expected.values_string[0];
-        if (output_string[0].find(expected_substring) == std::string::npos) {
-          FAIL() << "'" << expected_substring << "' was not found in output " << output_string[0];
-        }
-      };
-
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath(), find_strings_in_output);
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath(), find_substrings_in_output);
 
   // use optional 'prompt' input to mis-spell Pepto-Bismol in response
   std::string prompt = "Peptoe-Bismole";
   inputs.push_back(TestValue("transcribe0/prompt", {prompt}, {1}));
   outputs[0].values_string[0] = "Take some Peptoe-Bismole, get dressed, and come on over here.";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath(), find_strings_in_output);
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath(), find_substrings_in_output);
 }
 
 #endif

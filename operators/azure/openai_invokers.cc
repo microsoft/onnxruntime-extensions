@@ -51,7 +51,7 @@ void OpenAIAudioToTextInvoker::SetupRequest(CurlHandler& curl_handler, const ort
 
   const auto& property_names = RequestPropertyNames();
 
-  const auto& get_optional_input =
+  const auto get_optional_input =
       [&](const std::optional<size_t>& input_idx, const std::string& default_value, size_t min_size = 1) {
         return (input_idx.has_value() && inputs[*input_idx]->SizeInBytes() > min_size)
                    ? static_cast<const char*>(inputs[*input_idx]->DataRaw())

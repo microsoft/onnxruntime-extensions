@@ -8,7 +8,8 @@
 
 namespace ort_extensions {
 
-struct AzureTritonInvoker : public CloudBaseKernel {
+class AzureTritonInvoker : public CloudBaseKernel {
+ public:
   AzureTritonInvoker(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) const;
 

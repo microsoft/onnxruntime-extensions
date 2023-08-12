@@ -1,67 +1,155 @@
 diff --git a/tools/build-android-common.sh b/tools/build-android-common.sh
-index 87df207..797d58a 100755
+index 87df207..6f3ec66 100755
 --- a/tools/build-android-common.sh
 +++ b/tools/build-android-common.sh
-@@ -148,13 +148,20 @@ function set_android_toolchain() {
+@@ -148,13 +148,15 @@ function set_android_toolchain() {
    local build_host=$(get_build_host_internal "$arch")
    local clang_target_host=$(get_clang_target_host "$arch" "$api")
  
 -  export AR=${build_host}-ar
 +  # NDK r23 removed a bunch of GNU things and replaced with llvm
 +  # https://stackoverflow.com/questions/73105626/arm-linux-androideabi-ar-command-not-found-in-ndk
-+  # export AR=${build_host}-ar
 +  export AR=llvm-ar
    export CC=${clang_target_host}-clang
    export CXX=${clang_target_host}-clang++
 -  export AS=${build_host}-as
 -  export LD=${build_host}-ld
 -  export RANLIB=${build_host}-ranlib
-+  #export AS=${build_host}-as
+-  export STRIP=${build_host}-strip
 +  export AS=llvm-as
-+  #export LD=${build_host}-ld
 +  export LD=ld
-+  # export RANLIB=${build_host}-ranlib
 +  export RANLIB=llvm-ranlib
-   export STRIP=${build_host}-strip
 +  export STRIP=llvm-strip
  }
  
  function get_common_includes() {
-@@ -187,13 +194,13 @@ function set_android_cpu_feature() {
+@@ -169,31 +171,33 @@ function get_common_linked_libraries() {
+   echo "-L${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/${toolchain}/${build_host}/lib -L${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/${toolchain}/sysroot/usr/lib/${build_host}/${api} -L${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/${toolchain}/lib"
+ }
+ 
++# removed -fno-integrated-as is not supported from NDK r23 or later
++# removed -mtune=intel results in an error with NDK r25 when building on x86-64
+ function set_android_cpu_feature() {
+   local name=$1
+   local arch=$(get_android_arch $2)
+   local api=$3
+   case ${arch} in
+   arm-v7a | arm-v7a-neon)
+-    export CFLAGS="-march=armv7-a -mfpu=vfpv3-d16 -mfloat-abi=softfp -Wno-unused-function -fno-integrated-as -fstrict-aliasing -fPIC -DANDROID -D__ANDROID_API__=${api} -Os -ffunction-sections -fdata-sections $(get_common_includes)"
++    export CFLAGS="-march=armv7-a -mfpu=vfpv3-d16 -mfloat-abi=softfp -Wno-unused-function -fstrict-aliasing -fPIC -DANDROID -D__ANDROID_API__=${api} -Os -ffunction-sections -fdata-sections $(get_common_includes)"
+     export CXXFLAGS="-std=c++14 -Os -ffunction-sections -fdata-sections"
+     export LDFLAGS="-march=armv7-a -mfpu=vfpv3-d16 -mfloat-abi=softfp -Wl,--fix-cortex-a8 -Wl,--gc-sections -Os -ffunction-sections -fdata-sections $(get_common_linked_libraries ${api} ${arch})"
+     export CPPFLAGS=${CFLAGS}
+     ;;
+   arm64-v8a)
+-    export CFLAGS="-march=armv8-a -Wno-unused-function -fno-integrated-as -fstrict-aliasing -fPIC -DANDROID -D__ANDROID_API__=${api} -Os -ffunction-sections -fdata-sections $(get_common_includes)"
++    export CFLAGS="-march=armv8-a -Wno-unused-function -fstrict-aliasing -fPIC -DANDROID -D__ANDROID_API__=${api} -Os -ffunction-sections -fdata-sections $(get_common_includes)"
+     export CXXFLAGS="-std=c++14 -Os -ffunction-sections -fdata-sections"
+     export LDFLAGS="-march=armv8-a -Wl,--gc-sections -Os -ffunction-sections -fdata-sections $(get_common_linked_libraries ${api} ${arch})"
      export CPPFLAGS=${CFLAGS}
      ;;
    x86)
 -    export CFLAGS="-march=i686 -mtune=intel -mssse3 -mfpmath=sse -m32 -Wno-unused-function -fno-integrated-as -fstrict-aliasing -fPIC -DANDROID -D__ANDROID_API__=${api} -Os -ffunction-sections -fdata-sections $(get_common_includes)"
-+    export CFLAGS="-march=i686 -mtune=native -mssse3 -mfpmath=sse -m32 -Wno-unused-function -fno-integrated-as -fstrict-aliasing -fPIC -DANDROID -D__ANDROID_API__=${api} -Os -ffunction-sections -fdata-sections $(get_common_includes)"
++    export CFLAGS="-march=i686 -mssse3 -mfpmath=sse -m32 -Wno-unused-function -fstrict-aliasing -fPIC -DANDROID -D__ANDROID_API__=${api} -Os -ffunction-sections -fdata-sections $(get_common_includes)"
      export CXXFLAGS="-std=c++14 -Os -ffunction-sections -fdata-sections"
      export LDFLAGS="-march=i686 -Wl,--gc-sections -Os -ffunction-sections -fdata-sections $(get_common_linked_libraries ${api} ${arch})"
      export CPPFLAGS=${CFLAGS}
      ;;
    x86-64)
 -    export CFLAGS="-march=x86-64 -msse4.2 -mpopcnt -m64 -mtune=intel -Wno-unused-function -fno-integrated-as -fstrict-aliasing -fPIC -DANDROID -D__ANDROID_API__=${api} -Os -ffunction-sections -fdata-sections $(get_common_includes)"
-+    export CFLAGS="-march=x86-64 -msse4.2 -mpopcnt -m64 -mtune=native -Wno-unused-function -fno-integrated-as -fstrict-aliasing -fPIC -DANDROID -D__ANDROID_API__=${api} -Os -ffunction-sections -fdata-sections $(get_common_includes)"
++    export CFLAGS="-march=x86-64 -msse4.2 -mpopcnt -m64 -Wno-unused-function -fstrict-aliasing -fPIC -DANDROID -D__ANDROID_API__=${api} -Os -ffunction-sections -fdata-sections $(get_common_includes)"
      export CXXFLAGS="-std=c++14 -Os -ffunction-sections -fdata-sections"
      export LDFLAGS="-march=x86-64 -Wl,--gc-sections -Os -ffunction-sections -fdata-sections $(get_common_linked_libraries ${api} ${arch})"
      export CPPFLAGS=${CFLAGS}
+diff --git a/tools/build-android-curl.sh b/tools/build-android-curl.sh
+index b82d2bd..98ed6b9 100755
+--- a/tools/build-android-curl.sh
++++ b/tools/build-android-curl.sh
+@@ -84,29 +84,34 @@ function configure_make() {
+     echo ANDROID_NDK_HOME=${ANDROID_NDK_HOME}
+ 
+     OPENSSL_OUT_DIR="${pwd_path}/../output/android/openssl-${ABI}"
+-    NGHTTP2_OUT_DIR="${pwd_path}/../output/android/nghttp2-${ABI}"
++    # NGHTTP2_OUT_DIR="${pwd_path}/../output/android/nghttp2-${ABI}"
+ 
+-    export LDFLAGS="${LDFLAGS} -L${OPENSSL_OUT_DIR}/lib -L${NGHTTP2_OUT_DIR}/lib"
++    export LDFLAGS="${LDFLAGS} -L${OPENSSL_OUT_DIR}/lib"
++    #export LDFLAGS="${LDFLAGS} -L${OPENSSL_OUT_DIR}/lib -L${NGHTTP2_OUT_DIR}/lib"
+     # export LDFLAGS="-Wl,-rpath-link,-L${NGHTTP2_OUT_DIR}/lib,-L${OPENSSL_OUT_DIR}/lib $LDFLAGS "
+ 
+     android_printf_global_params "$ARCH" "$ABI" "$ABI_TRIPLE" "$PREFIX_DIR" "$OUTPUT_ROOT"
+ 
+     if [[ "${ARCH}" == "x86_64" ]]; then
+ 
+-        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} --with-nghttp2=${NGHTTP2_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
++        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --disable-shared --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
++        #./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --disable-shared --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} --with-nghttp2=${NGHTTP2_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
+ 
+     elif [[ "${ARCH}" == "x86" ]]; then
+ 
+-        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} --with-nghttp2=${NGHTTP2_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
++        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --disable-shared --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
++        #./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --disable-shared --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} --with-nghttp2=${NGHTTP2_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
+ 
+     elif [[ "${ARCH}" == "arm" ]]; then
+ 
+-        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} --with-nghttp2=${NGHTTP2_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
++        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --disable-shared --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
++        #./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --disable-shared --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} --with-nghttp2=${NGHTTP2_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
+ 
+     elif [[ "${ARCH}" == "arm64" ]]; then
+ 
+         # --enable-shared need nghttp2 cpp compile
+-        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --disable-shared --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} --with-nghttp2=${NGHTTP2_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
++        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --disable-shared --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
++        #./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --disable-shared --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} --with-nghttp2=${NGHTTP2_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
+ 
+     else
+         log_error "not support" && exit 1
 diff --git a/tools/build-android-openssl.sh b/tools/build-android-openssl.sh
-index e13c314..5660cec 100755
+index e13c314..97963fb 100755
 --- a/tools/build-android-openssl.sh
 +++ b/tools/build-android-openssl.sh
-@@ -17,7 +17,7 @@
+@@ -16,7 +16,7 @@
+ 
  # # read -n1 -p "Press any key to continue..."
  
- set -u
--
-+set -x
+-set -u
++set -u -e
+ 
  source ./build-android-common.sh
  
- if [ -z ${version+x} ]; then 
-@@ -115,6 +115,8 @@ function configure_make() {
+@@ -88,19 +88,19 @@ function configure_make() {
+ 
+     if [[ "${ARCH}" == "x86_64" ]]; then
+ 
+-        ./Configure android-x86_64 --prefix="${PREFIX_DIR}"
++        ./Configure android-x86_64 no-tests -static --prefix="${PREFIX_DIR}"
+ 
+     elif [[ "${ARCH}" == "x86" ]]; then
+ 
+-        ./Configure android-x86 --prefix="${PREFIX_DIR}"
++        ./Configure android-x86 no-tests -static --prefix="${PREFIX_DIR}"
+ 
+     elif [[ "${ARCH}" == "arm" ]]; then
+ 
+-        ./Configure android-arm --prefix="${PREFIX_DIR}"
++        ./Configure android-arm no-tests -static --prefix="${PREFIX_DIR}"
+ 
+     elif [[ "${ARCH}" == "arm64" ]]; then
+ 
+-        ./Configure android-arm64 --prefix="${PREFIX_DIR}"
++        ./Configure android-arm64 no-tests -static --prefix="${PREFIX_DIR}"
+ 
+     else
+         log_error "not support" && exit 1
+@@ -115,6 +115,9 @@ function configure_make() {
      if [ $the_rc -eq 0 ] ; then
          make SHLIB_EXT='.so' install_sw >>"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
          make install_ssldirs >>"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
 +    else
-+        log_error "make returned $the_rc"
++        cat "${OUTPUT_ROOT}/log/${ABI}.log"
++        log_error "make returned $the_rc" && exit $the_rc
      fi
  
      popd

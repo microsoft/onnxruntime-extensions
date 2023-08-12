@@ -12,13 +12,22 @@ index 7b11178..7749fa9 100644
      endif()
    endif()
 +  message(STATUS "Triton client CURL_LIB_DIR=${CURL_LIB_DIR}")
- 
+
    set(_cc_client_depends "")
    if(${TRITON_ENABLE_CC_HTTP})
 diff --git a/src/c++/library/CMakeLists.txt b/src/c++/library/CMakeLists.txt
-index bdaae25..c36dbc8 100644
+index bdaae25..0e599f2 100644
 --- a/src/c++/library/CMakeLists.txt
 +++ b/src/c++/library/CMakeLists.txt
+@@ -160,7 +160,7 @@ if(TRITON_ENABLE_CC_GRPC OR TRITON_ENABLE_PERF_ANALYZER)
+       ${_client_target} PRIVATE
+       $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:
+         -Wall -Wextra -Wno-unused-parameter -Werror>
+-      $<$<CXX_COMPILER_ID:MSVC>:/W0 /D_WIN32_WINNT=0x0A00 /EHsc>
++      $<$<CXX_COMPILER_ID:MSVC>:/W3 /D_WIN32_WINNT=0x0A00 /EHsc>
+     )
+
+     set_target_properties(
 @@ -320,7 +320,7 @@ if(TRITON_ENABLE_CC_HTTP OR TRITON_ENABLE_PERF_ANALYZER)
         httpclient
         PROPERTIES
@@ -27,4 +36,13 @@ index bdaae25..c36dbc8 100644
 +         LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_BINARY_DIR}/libhttpclient.ldscript"
       )
    endif() # NOT WIN32
- 
+
+@@ -337,7 +337,7 @@ if(TRITON_ENABLE_CC_HTTP OR TRITON_ENABLE_PERF_ANALYZER)
+       ${_client_target} PRIVATE
+       $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:
+         -Wall -Wextra -Wno-unused-parameter -Werror>
+-      $<$<CXX_COMPILER_ID:MSVC>:/W0 /D_WIN32_WINNT=0x0A00 /EHsc>
++      $<$<CXX_COMPILER_ID:MSVC>:/W3 /D_WIN32_WINNT=0x0A00 /EHsc>
+     )
+
+     set_target_properties(

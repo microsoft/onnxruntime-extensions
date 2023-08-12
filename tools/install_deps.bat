@@ -1,16 +1,10 @@
 @echo off
 if "%1" == "install" (
-  if "%OCOS_ENABLE_AZURE%"=="1" (
-    pip install cmake
-    if not exist "%ProgramFiles%\Miniconda3\python3.exe" (
-      mklink "%ProgramFiles%\Miniconda3\python3.exe" "%ProgramFiles%\Miniconda3\python.exe"
-    )
-  )
-) else (
-  if "%OCOS_ENABLE_AZURE%"=="1" (
-    pip uninstall cmake
-    if exist "%ProgramFiles%\Miniconda3\python3.exe" (
-      del "%ProgramFiles%\Miniconda3\python3.exe"
-    )
+  REM The vcpkg installation requires a cmake python module when being run from cibuildwheel
+  pip install cmake
+
+  REM This doesn't work on a CI as Miniconda isn't used. Given that, it's not clear what value it is providing.
+  if not exist "%ProgramFiles%\Miniconda3\python3.exe" if exist "%ProgramFiles%\Miniconda3\python.exe" (
+    mklink "%ProgramFiles%\Miniconda3\python3.exe" "%ProgramFiles%\Miniconda3\python.exe"
   )
 )

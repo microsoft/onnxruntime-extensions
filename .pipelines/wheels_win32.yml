@@ -2,7 +2,7 @@ parameters:
 - name: ExtraEnv
   displayName: 'Extra env variable set to CIBW_ENVIRONMENT'
   type: string
-  default: 'None=None'
+  default: 'ExampleEnvVar=ON'
 
 jobs:
 - job: windows

@@ -4,12 +4,6 @@ set(triton_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/_deps/triton)
 set(triton_INSTALL_DIR ${triton_PREFIX}/install)
 
 if (WIN32)
-  if (ocos_target_platform STREQUAL "AMD64")
-    set(vcpkg_target_platform "x64")
-  else()
-    set(vcpkg_target_platform ${ocos_target_platform})
-  endif()
-
   set(vcpkg_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg)
 
   ExternalProject_Add(vcpkg
@@ -23,12 +17,10 @@ if (WIN32)
 
   ExternalProject_Get_Property(vcpkg SOURCE_DIR BINARY_DIR)
   set(VCPKG_SRC ${SOURCE_DIR})
-  message(status "vcpkg source dir: " ${VCPKG_SRC})
+  message(STATUS "VCPKG_SRC: " ${VCPKG_SRC})
 
   # set the environment variable so that the vcpkg.cmake file can find the vcpkg root directory
   set(ENV{VCPKG_ROOT} ${VCPKG_SRC})
-
-  message(STATUS "VCPKG_SRC: " ${VCPKG_SRC})
   message(STATUS "ENV{VCPKG_ROOT}: " $ENV{VCPKG_ROOT})
 
   # NOTE: The VCPKG_ROOT environment variable isn't propagated to an add_custom_command target, so specify --vcpkg-root
@@ -44,36 +36,44 @@ if (WIN32)
   add_custom_target(vcpkg_integrate ALL DEPENDS vcpkg_integrate.stamp)
   set(VCPKG_DEPENDENCIES "vcpkg_integrate")
 
-  # use static-md so it adjusts for debug/release CRT
-  # https://stackoverflow.com/questions/67258905/vcpkg-difference-between-windows-windows-static-and-other
   function(vcpkg_install PACKAGE_NAME)
     add_custom_command(
-      OUTPUT ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_target_platform}-windows-static-md/BUILD_INFO
+      OUTPUT ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_triplet}/BUILD_INFO
       COMMAND ${CMAKE_COMMAND} -E echo ${VCPKG_SRC}/vcpkg install --vcpkg-root=$ENV{VCPKG_ROOT}
-                                  ${PACKAGE_NAME}:${vcpkg_target_platform}-windows-static-md
+                                  ${PACKAGE_NAME}:${vcpkg_triplet}
       COMMAND ${VCPKG_SRC}/vcpkg install --vcpkg-root=$ENV{VCPKG_ROOT}
-                                         ${PACKAGE_NAME}:${vcpkg_target_platform}-windows-static-md
+                                         ${PACKAGE_NAME}:${vcpkg_triplet}
       WORKING_DIRECTORY ${VCPKG_SRC}
       DEPENDS vcpkg_integrate)
 
     add_custom_target(
       get${PACKAGE_NAME}
       ALL
-      DEPENDS ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_target_platform}-windows-static-md/BUILD_INFO)
+      DEPENDS ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_triplet}/BUILD_INFO)
 
     list(APPEND VCPKG_DEPENDENCIES "get${PACKAGE_NAME}")
     set(VCPKG_DEPENDENCIES ${VCPKG_DEPENDENCIES} PARENT_SCOPE)
   endfunction()
 
-  vcpkg_install(rapidjson)
+  vcpkg_install(rapidjson)  # required by triton
   vcpkg_install(openssl)
   vcpkg_install(curl)
 
-  set(triton_extra_cmake_args -DVCPKG_TARGET_TRIPLET=${vcpkg_target_platform}-windows-static-md
-                              -DCMAKE_TOOLCHAIN_FILE=${VCPKG_SRC}/scripts/buildsystems/vcpkg.cmake)
-  set(triton_patch_command "")
-  set(triton_dependencies ${VCPKG_DEPENDENCIES})
+  # fake dependency between openssl and rapidjson.
+  # without this 2 `vcpkg install` commands run in parallel which results in errors like this on the first build:
+  #  write_contents_and_dirs("D:\src\github\ort-extensions\.scb\temp.win-amd64-cpython-311\Release\_deps\vcpkg\src\vcpkg\buildtrees\0.vcpkg_tags.cmake"): permission denied
+  # second attempt works, but that's not good enough for a CI.
+  add_dependencies(getopenssl getrapidjson)
 
+  add_dependencies(getcurl getopenssl)
+
+  set(triton_extra_cmake_args -DVCPKG_TARGET_TRIPLET=${vcpkg_triplet}
+                              -DCMAKE_TOOLCHAIN_FILE=${VCPKG_SRC}/scripts/buildsystems/vcpkg.cmake)
+
+  # insane... but we added patch.exe from the git 32-bit windows distribution because the CI image has removed it
+  # from the git install that is available, and this seems like the least egregious/inconsistent way to make it work...
+  set(triton_patch_exe ${PROJECT_SOURCE_DIR}/cmake/externals/git.Win32.2.41.03.patch/patch.exe)
+  set(triton_dependencies ${VCPKG_DEPENDENCIES})
 else()
   # RapidJSON 1.1.0 (released in 2016) is compatible with the triton build. Later code is not compatible without
   # patching due to the change in variable name for the include dir from RAPIDJSON_INCLUDE_DIRS to
@@ -102,22 +102,26 @@ else()
   set(RapidJSON_ROOT_DIR ${BINARY_DIR})
 
   set(triton_extra_cmake_args "")
-  set(triton_patch_command patch --verbose -p1 -i ${PROJECT_SOURCE_DIR}/cmake/externals/triton_cmake.patch)
+  set(triton_patch_exe patch)
   set(triton_dependencies RapidJSON)
 
-  # Patch the triton client CMakeLists.txt to fix two issues when building the python wheels with cibuildwheel, which
-  # uses CentOS 7.
-  #  1) use the full path to the version script file so 'ld' doesn't fail to find it. Looks like ld is running from the
-  #     parent directory but not sure why the behavior differs vs. other linux builds
-  #       e.g. building locally on Ubuntu is fine without the patch
-  #  2) only set the CURL lib path to 'lib64' on a 64-bit CentOS build as 'lib64' is invalid on a 32-bit OS. without
-  #     this patch the build of the third-party libraries in the triton client fail as the CURL build is not found.
-
-  endif() #if (WIN32)
+endif() #if (WIN32)
 
 # Add the triton build. We just need the library so we don't install it.
-#
 set(triton_VERSION_TAG r23.05)
+
+# Patch the triton client CMakeLists.txt to fix issues when building the linux python wheels with cibuildwheel, which
+# uses CentOS 7.
+#  1) use the full path to the version script file so 'ld' doesn't fail to find it. Looks like ld is running from the
+#     parent directory but not sure why the behavior differs vs. other linux builds
+#       e.g. building locally on Ubuntu is fine without the patch
+#  2) only set the CURL lib path to 'lib64' on a 64-bit CentOS build as 'lib64' is invalid on a 32-bit OS. without
+#     this patch the build of the third-party libraries in the triton client fail as the CURL build is not found.
+#
+# Also fix a Windows issue where the security tools complain about warnings being disabled by increasing the
+# warning level for triton/src/c++/library. Was /W0. Patched to /W3.
+set(triton_patch_command ${triton_patch_exe} --verbose -p1 -i ${PROJECT_SOURCE_DIR}/cmake/externals/triton_cmake.patch)
+
 ExternalProject_Add(triton
                     URL https://github.com/triton-inference-server/client/archive/refs/heads/${triton_VERSION_TAG}.tar.gz
                     URL_HASH SHA1=b8fd2a4e09eae39c33cd04cfa9ec934e39d9afc1

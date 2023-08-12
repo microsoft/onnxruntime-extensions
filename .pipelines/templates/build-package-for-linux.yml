@@ -34,6 +34,11 @@ jobs:
       clean: true
       submodules: none
 
+    - bash: |
+        sudo apt-get update
+        sudo apt-get install -y libssh-dev
+      displayName: Install OpenSSL for Azure custom ops
+
     # Currently we can only run tests on x64 as the arm64 tests have a failure
     # https://github.com/microsoft/onnxruntime-extensions/issues/417
     # NOTE: on arm64 machine, CMake version needs to be updated since we now require CMake 3.25 or newer.
