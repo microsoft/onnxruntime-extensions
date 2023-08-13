@@ -35,7 +35,7 @@ struct Exception : std::exception {
   std::string message_;
   OrtErrorCode code_;
 };
-#endif
+#endif 
 
 // helper that outputs an error message in a platform aware manner
 // Usages:
