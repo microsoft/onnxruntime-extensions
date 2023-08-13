@@ -11,7 +11,7 @@
 
 #include <stdexcept>
 
-// TODO: We need to do manual init in RegisterCustomOps if we want to use the ORT C++ API
+// FUTURE: We need to do manual init in RegisterCustomOps to use the ORT C++ API
 // #ifdef OCOS_SHARED_LIBRARY
 //   #define ORT_API_MANUAL_INIT
 //   #include "onnxruntime_cxx_api.h"

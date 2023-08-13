@@ -626,7 +626,7 @@ if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
 endif()
 
 # If building a shared library we can't throw an internal exception type across the library boundary as the type
-# will be unknown.
+# will be unknown. Set a compile definition so the code can adjust to the build type.
 if(NOT OCOS_ENABLE_STATIC_LIB)
   list(APPEND OCOS_COMPILE_DEFINITIONS OCOS_SHARED_LIBRARY)
 endif()
@@ -761,8 +761,8 @@ if(_BUILD_SHARED_LIBRARY)
   file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h" "shared/*.def")
   add_library(extensions_shared SHARED ${shared_TARGET_SRC})
 
-  # TODO: Need to propagate OCOS_SHARED_LIBRARY if set.
-  # Could manually do that if using OCOS_COMPILE_DEFINITIONS is too much
+  # We need to propagate OCOS_SHARED_LIBRARY if set. 
+  # could specifically add that if using OCOS_COMPILE_DEFINITIONS is too much.
   target_compile_definitions(extensions_shared PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 
   source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${shared_TARGET_SRC})
@@ -857,7 +857,7 @@ if(OCOS_ENABLE_CTEST)
     file(GLOB shared_TEST_SRC "${TEST_SRC_DIR}/shared_test/*.cc" "${TEST_SRC_DIR}/shared_test/*.hpp")
     add_executable(extensions_test ${shared_TEST_SRC})
 
-    # TODO: This is required to use the ORT C++ API with delayed init which must be done conditionally using
+    # FUTURE: This is required to use the ORT C++ API with delayed init which must be done conditionally using
     # ifdef OCOS_BUILD_SHARED in RegisterCustomOps and where onnxruntime_cxx_api.h is included .
     # ---
     # We have to remove the OCOS_BUILD_SHARED when building the test code. It is used to delay population of the
@@ -874,7 +874,10 @@ if(OCOS_ENABLE_CTEST)
       ${spm_INCLUDE_DIRS}
       $<TARGET_PROPERTY:extensions_shared,INTERFACE_INCLUDE_DIRECTORIES>)
 
-    target_link_directories(extensions_test PRIVATE ${ONNXRUNTIME_LIB_DIR})
+    if(ONNXRUNTIME_LIB_DIR)
+      target_link_directories(extensions_test PRIVATE ${ONNXRUNTIME_LIB_DIR})
+    endif()
+
     target_link_libraries(extensions_test PRIVATE extensions_shared ${ocos_libraries} onnxruntime
                                                   gtest_main gmock_main ${LINUX_CC_FLAGS})
 
