@@ -4,10 +4,11 @@
 #pragma once
 
 #define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
-#include <string>
 #include <algorithm>
+#include <cassert>
 #include <functional>
 #include <iterator>
+#include <string>
 #include <vector>
 
 #include "onnxruntime_customop.hpp"
@@ -19,8 +20,24 @@ extern "C" bool ORT_API_CALL AddExternalCustomOp(const OrtCustomOp* c_op);
 constexpr const char* c_OpDomain = "ai.onnx.contrib";
 constexpr const char* c_ComMsExtOpDomain = "com.microsoft.extensions";
 
+// for use in code of classes that derive from BaseKernel to log via the ORT logger 
+// requires the logger_ variable to exist and be valid.
+// severity is an ORT_LOGGING_LEVEL_... value (e.g. ORT_LOGGING_LEVEL_WARNING)
+#define KERNEL_LOG(severity, msg)                                                                   \
+  do {                                                                                              \
+    auto status = api_.Logger_LogMessage(logger_, severity, msg, ORT_FILE, __LINE__, __FUNCTION__); \
+    if (status != nullptr) {                                                                        \
+      OrtW::LogError(ORT_FILE, __LINE__, api_.GetErrorMessage(status));                             \
+      api_.ReleaseStatus(status);                                                                   \
+    }                                                                                               \
+  } while (false)
+
 struct BaseKernel {
   BaseKernel(const OrtApi& api, const OrtKernelInfo& info) noexcept : api_(api), info_(info), ort_(api_) {
+    // Get logger from the OrtKernelInfo should never fail. The logger comes from the EP, and is set when the EP is
+    // registered in the InferenceSession, which happens before model load.
+    auto status = api.KernelInfo_GetLogger(&info, &logger_);
+    assert(status == nullptr);
   }
 
   template <class T>
@@ -38,9 +55,11 @@ struct BaseKernel {
 
  protected:
   OrtErrorCode GetErrorCodeAndRelease(OrtStatusPtr status) const noexcept;
+
   const OrtApi& api_;
   OrtW::CustomOpApi ort_;
   const OrtKernelInfo& info_;
+  const OrtLogger* logger_{nullptr};
 };
 
 struct OrtTensorDimensions : std::vector<int64_t> {

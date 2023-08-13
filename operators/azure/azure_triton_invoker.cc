@@ -98,7 +98,7 @@ int8_t* CreateNonStrTensor(const std::string& data_type,
 
 #define CHECK_TRITON_ERR(ret, msg)                                                    \
   if (!ret.IsOk()) {                                                                  \
-    return ORTX_CXX_API_THROW("Triton err: " + ret.Message(), ORT_RUNTIME_EXCEPTION); \
+    ORTX_CXX_API_THROW("Triton err: " + ret.Message(), ORT_RUNTIME_EXCEPTION); \
   }
 
 void AzureTritonInvoker::Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) const {

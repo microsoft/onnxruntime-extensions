@@ -38,6 +38,10 @@ CurlHandler::CurlHandler(WriteCallBack callback) : curl_(curl_easy_init(), curl_
   curl_easy_setopt(curl, CURLOPT_FTP_SKIP_PASV_IP, 1L);      // what does this have to do with http requests?
   curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, callback);
+  
+  // TEMP
+  // https://stackoverflow.com/questions/25253823/how-to-make-ssl-peer-verify-work-on-android
+  // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
 
   // should this be configured via a node attribute? different endpoints may have different timeouts
   curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15);
@@ -79,7 +83,10 @@ void CurlInvoker::ExecuteRequest(CurlHandler& curl_handler) const {
   // this is where we could add any logic required to make the request async or maybe handle retries/cancellation.
   auto curl_ret = curl_handler.Perform();
   if (CURLE_OK != curl_ret) {
-    ORTX_CXX_API_THROW(curl_easy_strerror(curl_ret), ORT_FAIL);
+    const char* err = curl_easy_strerror(curl_ret);
+    KERNEL_LOG(ORT_LOGGING_LEVEL_ERROR, ("Curl error (CURLcode=" + std::to_string(curl_ret) + "): " + err).c_str());
+ 
+    ORTX_CXX_API_THROW(err, ORT_FAIL);
   }
 }
 }  // namespace ort_extensions
