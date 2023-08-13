@@ -111,7 +111,7 @@ index b82d2bd..cfb0fd2 100755
      else
          log_error "not support" && exit 1
 diff --git a/tools/build-android-openssl.sh b/tools/build-android-openssl.sh
-index e13c314..8ed232f 100755
+index e13c314..4e57334 100755
 --- a/tools/build-android-openssl.sh
 +++ b/tools/build-android-openssl.sh
 @@ -16,7 +16,7 @@
@@ -123,28 +123,29 @@ index e13c314..8ed232f 100755
  
  source ./build-android-common.sh
  
-@@ -88,19 +88,19 @@ function configure_make() {
+@@ -87,20 +87,20 @@ function configure_make() {
+     android_printf_global_params "$ARCH" "$ABI" "$ABI_TRIPLE" "$PREFIX_DIR" "$OUTPUT_ROOT"
  
      if [[ "${ARCH}" == "x86_64" ]]; then
- 
+-
 -        ./Configure android-x86_64 --prefix="${PREFIX_DIR}"
 +        #./Configure android-x86_64 no-tests -static --prefix="${PREFIX_DIR}"
 +        ./Configure android-x86_64 no-tests --prefix="${PREFIX_DIR}"
  
      elif [[ "${ARCH}" == "x86" ]]; then
- 
+-
 -        ./Configure android-x86 --prefix="${PREFIX_DIR}"
 +        #./Configure android-x86 no-tests -static --prefix="${PREFIX_DIR}"
 +        ./Configure android-x86 no-tests --prefix="${PREFIX_DIR}"
  
      elif [[ "${ARCH}" == "arm" ]]; then
- 
+-
 -        ./Configure android-arm --prefix="${PREFIX_DIR}"
 +        #./Configure android-arm no-tests -static --prefix="${PREFIX_DIR}"
 +        ./Configure android-arm no-tests --prefix="${PREFIX_DIR}"
  
      elif [[ "${ARCH}" == "arm64" ]]; then
- 
+-
 -        ./Configure android-arm64 --prefix="${PREFIX_DIR}"
 +        #./Configure android-arm64 no-tests -static --prefix="${PREFIX_DIR}"
 +        ./Configure android-arm64 no-tests --prefix="${PREFIX_DIR}"
