@@ -51,8 +51,7 @@ class CloudBaseKernel : public BaseKernel {
   /// <returns>Request property name the input is providing data for.</returns>
   static std::string GetPropertyNameFromInputName(const std::string& input_name);
 
-  using TLogger = has_Logger_LogMessage<OrtApi>::type;
-  const Logger<TLogger> GetLogger() const { return logger_; }
+  const Logger GetLogger() const { return logger_; }
 
  private:
   std::string model_uri_;
@@ -64,7 +63,7 @@ class CloudBaseKernel : public BaseKernel {
   std::vector<std::string> property_names_;
   std::vector<std::string> output_names_;
 
-  Logger<TLogger> logger_;
+  Logger logger_;
 };
 
 }  // namespace ort_extensions
