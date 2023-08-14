@@ -23,7 +23,6 @@
 
 namespace OrtW {
 
-#if !defined(OCOS_SHARED_LIBRARY)
 // All C++ methods that can fail will throw an exception of this type
 struct Exception : std::exception {
   Exception(std::string message, OrtErrorCode code) : message_{std::move(message)}, code_{code} {}
@@ -35,7 +34,6 @@ struct Exception : std::exception {
   std::string message_;
   OrtErrorCode code_;
 };
-#endif 
 
 // helper that outputs an error message in a platform aware manner
 // Usages:

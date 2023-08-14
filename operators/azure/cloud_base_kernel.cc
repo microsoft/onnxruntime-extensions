@@ -6,7 +6,9 @@
 #include <sstream>
 
 namespace ort_extensions {
-CloudBaseKernel::CloudBaseKernel(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
+CloudBaseKernel::CloudBaseKernel(const OrtApi& api, const OrtKernelInfo& info)
+    : BaseKernel(api, info),
+      logger_(api, info) {
   auto ver = GetActiveOrtAPIVersion();
   if (ver < kMinimumSupportedOrtVersion) {
     ORTX_CXX_API_THROW("Azure custom operators require onnxruntime version >= 1.14", ORT_RUNTIME_EXCEPTION);
