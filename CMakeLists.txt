@@ -59,7 +59,7 @@ option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require o
 option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
 option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
-option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" OFF)
+option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" ON)
 
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
