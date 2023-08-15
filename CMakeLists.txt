@@ -76,7 +76,7 @@ set(OCOS_ONNXRUNTIME_VERSION "" CACHE STRING
 # TODO: Remove the following statements if AzureOp build is enabled by default.
 # If build_buildid environment varaible is set, which means this is a CI build, then always enable AzureOp.
 # or it is enabled when OCOS_ENABLE_AZURE is set, which means the user explicitly enables it.
-if ($ENV{BUILD_BUILDID} OR $ENV{OCOS_ENABLE_AZURE})
+if ((DEFINED $ENV{BUILD_BUILDID}) OR (DEFINED $ENV{OCOS_ENABLE_AZURE}))
   set(OCOS_ENABLE_AZURE ON CACHE INTERNAL "" FORCE)
   message("**AzureOp is enabled by default.")
 endif()
