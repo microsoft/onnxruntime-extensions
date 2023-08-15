@@ -9,7 +9,11 @@ else()
   message(STATUS "CMAKE_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}")
 
   # 1.15.1 is the latest ORT release.
-  set(ONNXRUNTIME_VER "1.15.1")
+  if (OCOS_ONNXRUNTIME_VERSION)
+    set(ONNXRUNTIME_VER ${OCOS_ONNXRUNTIME_VERSION})
+  else()
+    set(ONNXRUNTIME_VER "1.15.1")
+  endif()
 
   if(APPLE)
     set(ONNXRUNTIME_URL "v${ONNXRUNTIME_VER}/onnxruntime-osx-universal2-${ONNXRUNTIME_VER}.tgz")
