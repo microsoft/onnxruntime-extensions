@@ -6,7 +6,7 @@
 #include "ocos.h"
 
 // may or may not be available depending on the ORT version
-struct OrtLogger;
+struct OrtLogger;  // may or may not exist
 
 namespace ort_extensions {
 // Disable GCC 'ignoring attributes on template argument' warning due to Logger_LogMessage using
@@ -38,77 +38,58 @@ struct has_Logger_LogMessage<T, std::void_t<decltype(&T::Logger_LogMessage)>> : 
   GetLogger().LogMessage(severity, __FILE__, __LINE__, __FUNCTION__, msg)
 #endif
 
-struct FallbackLogger {
-  static void LogMessage(OrtLoggingLevel log_severity_level, const ORTCHAR_T* file_path, int line_number,
-                         const char* func_name, const char* message) noexcept {
+// Logging wrapper to use the ORT logger if available, otherwise fallback to default logging.
+template <class T>
+class LoggerImpl {
+ public:
+  LoggerImpl(const T& api, const OrtKernelInfo& info) noexcept
+      : api_{api}, api_version_{GetActiveOrtAPIVersion()} {
+    if constexpr (has_Logger_LogMessage<T>::value) {
+      // Get logger from the OrtKernelInfo should never fail. The logger comes from the EP, and is set when the EP is
+      // registered in the InferenceSession, which happens before model load.
+      const OrtLogger* logger = nullptr;
+      auto status = api.KernelInfo_GetLogger(&info, &logger);
+      assert(status == nullptr);
+      ort_logger_ = logger;  // save in type agnostic member and static_cast to use.
+    }
+  }
+
+  void LogMessage(OrtLoggingLevel log_severity_level, const ORTCHAR_T* file_path, int line_number,
+                  const char* func_name, const char* message) const noexcept {
+    if constexpr (has_Logger_LogMessage<T>::value) {
+      // Logger_LogMessage was added in ORT 1.15
+      if (api_version_ >= 15) {
+        auto status = api_.Logger_LogMessage(static_cast<const OrtLogger*>(ort_logger_), log_severity_level, message,
+                                             file_path, line_number, func_name);
+        if (status == nullptr) {
+          return;
+        }
+
+        // Logger_LogMessage shouldn't fail. log why it did and fall through to use DefaultLogMessage.
+        OrtW::LogError(file_path, line_number, api_.GetErrorMessage(status));
+        api_.ReleaseStatus(status);
+      }
+    }
+
+    // use fallback
+    DefaultLogMessage(log_severity_level, file_path, line_number, func_name, message);
+  }
+
+  static void DefaultLogMessage(OrtLoggingLevel log_severity_level, const ORTCHAR_T* file_path, int line_number,
+                                const char* func_name, const char* message) noexcept {
     // hardcoded when using fallback due to old ORT version.
     if (log_severity_level >= ORT_LOGGING_LEVEL_WARNING) {
       OrtW::LogError(file_path, line_number, (std::string(func_name) + ": " + message).c_str());
     }
   }
-};
-
-// implementation for ORT versions < 1.15
-template <class T = OrtApi, bool HasLogger = has_Logger_LogMessage<T>::value>
-struct LoggerImpl {
-  LoggerImpl(const T& api, const OrtKernelInfo& /*info*/) noexcept : api_{api} {
-  }
-
-  void LogMessage(OrtLoggingLevel log_severity_level, const ORTCHAR_T* file_path, int line_number,
-                  const char* func_name, const char* message) const noexcept {
-    FallbackLogger::LogMessage(log_severity_level, file_path, line_number, func_name, message);
-  }
-
-  const T& api_;
-};
-
-// implementation for ORT version >= 1.15 where we can use the ORT logger
-template <class T>
-struct LoggerImpl<T, true> {
-  LoggerImpl(const T& api, const OrtKernelInfo& info) noexcept
-      : api_{api}, api_version_{GetActiveOrtAPIVersion()} {
-    // Get logger from the OrtKernelInfo should never fail. The logger comes from the EP, and is set when the EP is
-    // registered in the InferenceSession, which happens before model load.
-    auto status = api_.KernelInfo_GetLogger(&info, &ort_logger_);
-    assert(status == nullptr);
-  }
-
-  void LogMessage(OrtLoggingLevel log_severity_level, const ORTCHAR_T* file_path, int line_number,
-                  const char* func_name, const char* message) const noexcept {
-    // Logger_LogMessage was added in ORT 1.15
-    if (api_version_ >= 15) {
-      auto status = api_.Logger_LogMessage(ort_logger_, log_severity_level, message, file_path, line_number, func_name);
-      if (status == nullptr) {
-        return;
-      }
-
-      // Logger_LogMessage shouldn't fail. log why it did and fall through to use DefaultLogMessage.
-      OrtW::LogError(file_path, line_number, api_.GetErrorMessage(status));
-      api_.ReleaseStatus(status);
-    }
-
-    FallbackLogger::LogMessage(log_severity_level, file_path, line_number, func_name, message);
-  }
-
-  // T == OrtApi, but we must use T so it compiles when KernelInfo_GetLogger and Logger_LogMessage are not available
-  const T& api_;
-  const int api_version_;  // runtime API version that RegisterCustomOps was called with
-  const OrtLogger* ort_logger_{nullptr};
-};
-
-// Logging wrapper to use the ORT logger if available, otherwise fallback to default logging.
-class Logger {
- public:
-  Logger(const OrtApi& api, const OrtKernelInfo& info) noexcept
-      : impl_{api, info} {
-  }
-
-  void LogMessage(OrtLoggingLevel log_severity_level, const ORTCHAR_T* file_path, int line_number,
-                  const char* func_name, const char* message) const noexcept {
-    impl_.LogMessage(log_severity_level, file_path, line_number, func_name, message);
-  }
 
  private:
-  LoggerImpl<OrtApi> impl_;
+  // api_ is really OrtApi but we must use T so compilation works when Logger_LogMessage is not available
+  const T& api_;
+  int api_version_;                       // runtime ORT API version RegisterCustomOps was called with
+  const OrtLogger* ort_logger_{nullptr};  // OrtLogger if available
 };
+
+using Logger = LoggerImpl<OrtApi>;
+
 }  // namespace ort_extensions
