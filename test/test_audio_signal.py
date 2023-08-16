@@ -16,11 +16,11 @@ try:
 except ImportError:
     pass
 
-_is_librosa_avaliable = False
+_is_librosa_available = False
 try:
     import librosa
 
-    _is_librosa_avaliable = True
+    _is_librosa_available = True
 except ImportError:
     pass
 
@@ -119,7 +119,7 @@ class TestAudio(unittest.TestCase):
     def test_stft_norm_torch(self):
         audio_pcm = self.test_pcm
         wlen = 400
-        # intesting bug in torch.stft, if there is 2-D input with batch size 1, it will generate a different
+        # interesting bug in torch.stft, if there is 2-D input with batch size 1, it will generate a different
         # result with some spark points in the spectrogram.
         expected = torch.stft(torch.from_numpy(audio_pcm),
                               400, 160, wlen, torch.from_numpy(np.hanning(wlen).astype(np.float32)),
@@ -131,7 +131,7 @@ class TestAudio(unittest.TestCase):
         actual = actual[0]
         np.testing.assert_allclose(expected[:, 1:], actual[:, 1:], rtol=1e-3, atol=1e-3)
 
-    @unittest.skipIf(not _is_librosa_avaliable, "librosa is not available")
+    @unittest.skipIf(not _is_librosa_available, "librosa is not available")
     def test_mel_filter_bank(self):
         expected = librosa.filters.mel(n_fft=400, n_mels=80, sr=16000)
         actual = util.mel_filterbank(400, 80, 16000)
