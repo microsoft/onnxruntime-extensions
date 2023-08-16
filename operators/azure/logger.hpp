@@ -9,6 +9,7 @@
 struct OrtLogger;  // may or may not exist
 
 namespace ort_extensions {
+namespace detail {
 // Disable GCC 'ignoring attributes on template argument' warning due to Logger_LogMessage using
 // `__attribute__((warn_unused_result))`.
 // The template here is about whether Logger_LogMessage exists or not, so the attribute is irrelevant.
@@ -89,7 +90,8 @@ class LoggerImpl {
   int api_version_;                       // runtime ORT API version RegisterCustomOps was called with
   const OrtLogger* ort_logger_{nullptr};  // OrtLogger if available
 };
+}  // namespace detail
 
-using Logger = LoggerImpl<OrtApi>;
+using Logger = detail::LoggerImpl<OrtApi>;
 
 }  // namespace ort_extensions

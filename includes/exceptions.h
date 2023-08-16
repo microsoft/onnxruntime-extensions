@@ -42,6 +42,9 @@ struct Exception : std::exception {
 inline void LogError(const ORTCHAR_T* file, int line, const char* msg) {
 #if defined(__ANDROID__)
   __android_log_print(ANDROID_LOG_ERROR, "onnxruntime-extensions", "Error in %s line %d: %s", file, line, msg);
+#elif defined(_WIN32)
+  // need to use wcerr as ORTCHAR_T is wchar_t on Windows
+  std::wcerr << "Error in " << file << " line " << line << ": " << msg << std::endl;
 #else
   std::cerr << "Error in " << file << " line " << line << ": " << msg << std::endl;
 #endif
@@ -75,7 +78,7 @@ inline void LogError(const ORTCHAR_T* file, int line, const char* msg) {
     std::string msg(msg_in);                                               \
     OrtW::LogError(ORT_FILE, __LINE__, msg.c_str());                       \
     throw std::runtime_error((std::to_string(code) + ": " + msg).c_str()); \
-  } while(false)
+  } while (false)
 #else
 #define ORTX_CXX_API_THROW(msg, code) \
   throw std::runtime_error((std::to_string(code) + ": " + msg).c_str())
