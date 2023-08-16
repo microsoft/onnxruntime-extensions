@@ -208,6 +208,30 @@ jobs:
       - script: cd test && python -m pytest . --verbose
         displayName: Run python test
 
+  #############
+  # macOS Python 3.11 Debug
+  #############
+  - job: MacOsDbgPyBuild
+    pool:
+      vmImage: 'macOS-13'
+
+    steps:
+      - template: templates/use-xcode-version.yml
+
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.11'
+          disableDownloadFromRegistry: true
+          addToPath: true
+
+      - bash: |
+          export OCOS_NO_OPENCV=1
+          export OCOS_SCB_DEBUG=1
+          python -m pip install -v -e .
+          cd test
+          python -m pytest .
+        displayName: Build and test on Python debug package
+
   #########
   # Windows C++
   #########
