@@ -29,16 +29,6 @@ struct has_Logger_LogMessage<T, std::void_t<decltype(&T::Logger_LogMessage)>> : 
 #pragma GCC diagnostic pop
 #endif
 
-// for use in implementation of classes that have a GetLogger() member that returns an ort_extensions::Logger<T>.
-// severity is an ORT_LOGGING_LEVEL_... value (e.g. ORT_LOGGING_LEVEL_WARNING)
-#ifdef _WIN32
-#define KERNEL_LOG(severity, msg) \
-  GetLogger().LogMessage(severity, __FILEW__, __LINE__, __FUNCTION__, msg)
-#else
-#define KERNEL_LOG(severity, msg) \
-  GetLogger().LogMessage(severity, __FILE__, __LINE__, __FUNCTION__, msg)
-#endif
-
 // Logging wrapper to use the ORT logger if available, otherwise fallback to default logging.
 template <class T>
 class LoggerImpl {
@@ -91,6 +81,16 @@ class LoggerImpl {
   const OrtLogger* ort_logger_{nullptr};  // OrtLogger if available
 };
 }  // namespace detail
+
+// for use in implementation of classes that have a GetLogger() member that returns an ort_extensions::Logger<T>.
+// severity is an ORT_LOGGING_LEVEL_... value (e.g. ORT_LOGGING_LEVEL_WARNING)
+#ifdef _WIN32
+#define KERNEL_LOG(severity, msg) \
+  GetLogger().LogMessage(severity, __FILEW__, __LINE__, __FUNCTION__, msg)
+#else
+#define KERNEL_LOG(severity, msg) \
+  GetLogger().LogMessage(severity, __FILE__, __LINE__, __FUNCTION__, msg)
+#endif
 
 using Logger = detail::LoggerImpl<OrtApi>;
 
