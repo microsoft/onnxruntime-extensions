@@ -208,33 +208,6 @@ jobs:
       - script: cd test && python -m pytest . --verbose
         displayName: Run python test
 
-  #############
-  # macOS Python 3.11 Debug
-  #############
-  - job: MacOsDbgPyBuild
-    pool:
-      vmImage: 'macOS-13'
-
-    steps:
-      - template: templates/use-xcode-version.yml
-
-      - task: UsePythonVersion@0
-        inputs:
-          versionSpec: '3.11'
-          disableDownloadFromRegistry: true
-          addToPath: true
-
-      - bash: |
-          python -m pip install --upgrade pip
-          python -m pip install --upgrade setuptools
-          export OCOS_NO_OPENCV=1
-          export OCOS_SCB_DEBUG=1
-          python -m pip install -v -e .
-          python -m pip install -r requirements-dev.txt
-          cd test
-          python -m pytest .
-        displayName: Build and test on Python debug package
-
   #########
   # Windows C++
   #########
@@ -369,30 +342,33 @@ jobs:
         displayName: Run python test
 
   #############
-  # Windows Python 3.11 Debug
+  # WinPython Debug
   #############
   - job: WinPyDbgBuild
     pool:
       vmImage: 'windows-latest'
 
     steps:
-      - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
-        displayName: Add conda to PATH
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.x'
+        disableDownloadFromRegistry: true
+        addToPath: false
+        architecture: 'x64'
+      displayName: Use ADO python task
 
-      - script: conda create --yes --quiet --name pyenv -c conda-forge python=3.11 numpy
-        displayName: Create Anaconda environment
-
-      - script: |
-          call activate pyenv
-          python -m pip install --upgrade pip
-          python -m pip install --upgrade setuptools
-          export OCOS_NO_OPENCV=1
-          export OCOS_SCB_DEBUG=1
-          python -m pip install -v -e .
-          python -m pip install -r requirements-dev.txt
-          cd test
-          python -m pytest .
-        displayName: Build and test on Python debug package
+    - script: |
+        call activate pyenv
+        python -m pip install --upgrade pip
+        python -m pip install --upgrade setuptools
+        export OCOS_NO_OPENCV=1
+        export OCOS_SCB_DEBUG=1
+        python -m pip install -v -e .
+        python -m pip install -r requirements-dev.txt
+        python -m pip install torch torchvision torchaudio
+        cd test
+        python -m pytest .
+      displayName: Build and test on Python debug package
 
   #############
   # WebAssembly
