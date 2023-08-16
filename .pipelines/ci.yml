@@ -361,9 +361,10 @@ jobs:
         call activate pyenv
         python -m pip install --upgrade pip
         python -m pip install --upgrade setuptools
-        export OCOS_NO_OPENCV=1
-        export OCOS_SCB_DEBUG=1
+        set OCOS_NO_OPENCV=1
+        set OCOS_SCB_DEBUG=1
         python -m pip install -v -e .
+        
         python -m pip install -r requirements-dev.txt
         python -m pip install torch torchvision torchaudio
         cd test
