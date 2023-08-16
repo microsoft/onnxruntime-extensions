@@ -1308,3 +1308,101 @@ expect(node, inputs=[text, pattern, rewrite], outputs=[y],
 ```
 
 </details>
+
+
+### AzureTritonInvoker
+
+<details>
+<summary>AzureTritonInvoker details</summary>
+
+
+AzureTritonInvoker operator talks to openAI audio endpoints, send over audio data and fetch transcription as text.
+
+
+domain='com.microsoft.extensions',
+                               name='audio_invoker',
+                               model_uri='https://api.openai.com/v1/audio/transcriptions',
+                               audio_format='wav',
+                               verbose=False
+                               
+#### Attributes
+
+***model_uri:string***
+
+Endpoint uri, like "https://api.openai.com/v1/audio/transcriptions".
+
+***audio_format:string***
+
+The format of the audio, by default "wav"
+
+#### Inputs
+
+***auth_token: tensor(string)***
+
+An access token comes with openAI subscription.
+
+***model_name: tensor(string)***
+
+Model name to send to the endpoint, such as "whisper-1"
+
+***response_format: tensor(string)***
+
+Expected format of the response, either be "text" or "json"
+
+***audio_blob: tensor(uint8)***
+
+A byte array containing raw data from the audio file
+
+#### Outputs
+
+***transcriptions: tensor(string)***
+
+The transcriptions in form of text.
+
+
+#### Examples
+
+
+```python
+
+def create_openai_audio_model():
+    auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [1])
+    model = helper.make_tensor_value_info('model_name', TensorProto.STRING, [1])
+    response_format = helper.make_tensor_value_info('response_format', TensorProto.STRING, [-1])
+    file = helper.make_tensor_value_info('file', TensorProto.UINT8, [-1])
+
+    transcriptions = helper.make_tensor_value_info('transcriptions', TensorProto.STRING, [-1])
+
+    invoker = helper.make_node('OpenAIAudioToText',
+                               ['auth_token', 'model_name', 'response_format', 'file'],
+                               ['transcriptions'],
+                               domain='com.microsoft.extensions',
+                               name='audio_invoker',
+                               model_uri='https://api.openai.com/v1/audio/transcriptions',
+                               audio_format='wav',
+                               verbose=False)
+
+    graph = helper.make_graph([invoker], 'graph', [auth_token, model, response_format, file], [transcriptions])
+    model = helper.make_model(graph,
+                              opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
+
+    onnx.save(model, 'openai_audio.onnx')
+
+create_openai_audio_model()
+sess = InferenceSession(os.path.join(test_data_dir, "openai_audio.onnx"),
+                        self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
+auth_token = np.array([os.getenv('MYAUTH', '')])
+model = np.array(['whisper-1'])
+response_format = np.array(['text'])
+
+with open(os.path.join(test_data_dir, "test16.wav"), "rb") as _f:
+    audio_blob = np.asarray(list(_f.read()), dtype=np.uint8)
+    ort_inputs = {
+        "auth_token": auth_token,
+        "model_name": model,
+        "response_format": response_format,
+        "file": audio_blob,
+    }
+    out = sess.run(None, ort_inputs)[0]
+```
+</details>
