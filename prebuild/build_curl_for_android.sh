@@ -4,7 +4,6 @@
 
 set -e
 set -u
-set -x
 
 # change to the directory the script is in in case it's being executed from elsewhere
 echo `pwd`
@@ -26,7 +25,7 @@ fi
 cd tools
 
 # we target Android API level 21 but allow override by environment variable
-if [ -z ${ANDROID_API_LEVEL} ]; then 
+if [ -z ${ANDROID_API_LEVEL+x} ]; then 
     export api=21
 else
     export api=${ANDROID_API_LEVEL}
