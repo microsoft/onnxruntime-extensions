@@ -59,7 +59,7 @@ option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require o
 option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
 option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
-option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" ON)
+option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" OFF)
 
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
@@ -67,11 +67,6 @@ option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
 option(OCOS_BUILD_JAVA "Enable building the Java package" OFF)
 option(OCOS_BUILD_ANDROID "Enable building the Android package" OFF)
 option(OCOS_BUILD_APPLE_FRAMEWORK "Enable building of the MacOS/iOS framework" OFF)
-
-# Optional value. Some operators do not support old versions due to using the new custom operator interface
-# and will be disabled if this value is set and the version is incompatible.
-set(OCOS_ONNXRUNTIME_VERSION "" CACHE STRING
-  "The version of ONNX Runtime being used in the build. Format is <major>.<minor>.<patch>. e.g. 1.15.1" )
 
 function(disable_all_operators)
   set(OCOS_ENABLE_RE2_REGEX OFF CACHE INTERNAL "" FORCE)
@@ -131,15 +126,6 @@ if (MSVC)
     set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} /guard:cf")
     set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} /guard:cf")
   endif()
-
-  if (CMAKE_MSVC_RUNTIME_LIBRARY STREQUAL "MultiThreaded" OR
-      CMAKE_MSVC_RUNTIME_LIBRARY STREQUAL "MultiThreadedDebug")
-    set(OCOS_STATIC_MSVC_RUNTIME_LIBRARY ON)
-  else()
-    set(OCOS_STATIC_MSVC_RUNTIME_LIBRARY OFF)
-  endif()
-  message(STATUS "OCOS_STATIC_MSVC_RUNTIME_LIBRARY: ${OCOS_STATIC_MSVC_RUNTIME_LIBRARY}")
-
 endif()
 
 if(NOT OCOS_BUILD_PYTHON AND OCOS_ENABLE_PYTHON)
@@ -401,35 +387,6 @@ if(OCOS_ENABLE_BLINGFIRE)
   list(APPEND TARGET_SRC ${blingfire_TARGET_SRC})
 endif()
 
-# Build with Azure ops is disabled in a number of places due to the following reasons:
-# - not setup for macOS, iOS or WASM
-# - link error on Windows 32-bit ARM from some functions in wincrpt.h (e.g. CryptDestroyHash)
-#   - not sure if they're available on ARM 32.
-#   - we explicitly add crypt32 to the link list which is where they should be defined.
-# - build with static CRT on Windows causes link errors with triton. may not be supported.
-# - x86 Android build has error when using static openssl.
-#   - TODO: need to investigate further. currently getting load error with dynamic libs and runtime error with static libs
-if(OCOS_ENABLE_AZURE)
-  if (APPLE OR
-      CMAKE_SYSTEM_NAME STREQUAL "Emscripten" OR
-      (MSVC AND CMAKE_GENERATOR_PLATFORM STREQUAL "ARM") OR
-      (MSVC AND OCOS_STATIC_MSVC_RUNTIME_LIBRARY) OR
-      (ANDROID AND ANDROID_ABI STREQUAL "x86"))
-    message(STATUS "Excluding Azure custom operators as they are not currently supported in this type of build. ")
-    set(OCOS_ENABLE_AZURE OFF)
-
-  elseif(OCOS_ONNXRUNTIME_VERSION)
-    string(REPLACE "." ";" VERSION_LIST ${OCOS_ONNXRUNTIME_VERSION})
-    list(GET VERSION_LIST 0 ORT_VERSION_MAJOR)
-    list(GET VERSION_LIST 1 ORT_VERSION_MINOR)
-    if(ORT_VERSION_MAJOR EQUAL 1 AND ORT_VERSION_MINOR LESS 14)
-      message(STATUS "Azure custom operators are not supported with ONNX Runtime versions < 1.14. "
-                     "Excluding them from the build.")
-      set(OCOS_ENABLE_AZURE OFF)
-    endif()
-  endif()
-endif()
-
 if(OCOS_ENABLE_AZURE)
   # Azure endpoint invokers
   file(GLOB TARGET_SRC_AZURE "operators/azure/*.cc" "operators/azure/*.h*")
@@ -441,37 +398,10 @@ if(OCOS_ENABLE_AZURE)
     find_package(OpenSSL REQUIRED)
     find_package(CURL REQUIRED)
 
-    # exclude triton as it's not supported on Android
+    # exclude triton
     list(FILTER TARGET_SRC_AZURE EXCLUDE REGEX ".*triton.*")
   else()
     add_compile_definitions(AZURE_INVOKERS_ENABLE_TRITON)
-
-    # need to set the correct vcpkg target platform strings before including triton
-    if (WIN32)
-      set(vcpkg_target_platform ${ocos_target_platform})
-
-      # remap known variants
-      if (ocos_target_platform STREQUAL "AMD64")
-        set(vcpkg_target_platform "x64")
-      elseif(ocos_target_platform STREQUAL "Win32")
-        set(vcpkg_target_platform "x86")
-      elseif(ocos_target_platform STREQUAL "ARM64")
-        set(vcpkg_target_platform "arm64")
-      elseif(ocos_target_platform STREQUAL "ARM")
-        set(vcpkg_target_platform "arm")
-      endif()
-
-      if(NOT "${vcpkg_target_platform}" MATCHES "^(x64|x86|arm64|arm)$")
-        message(FATAL_ERROR "Unexpected ocos_target_platform: ${ocos_target_platform}")
-      endif()
-
-      # vcpkg is used for the azure ops. we build static versions so they're directly included in the extensions library
-      # in the python package.
-      set(vcpkg_triplet ${vcpkg_target_platform}-windows-static)
-
-      message(STATUS "vcpkg_triplet: ${vcpkg_triplet}")
-    endif()
-
     include(triton)
   endif()
 
@@ -625,6 +555,10 @@ if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
   list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 
+if(OCOS_ENABLE_AZURE)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_AZURE)
+endif()
+
 target_include_directories(noexcep_operators PUBLIC ${GSL_INCLUDE_DIR})
 list(APPEND ocos_libraries Microsoft.GSL::GSL)
 
@@ -678,16 +612,8 @@ endif()
 
 if(OCOS_ENABLE_AZURE)
   if (ANDROID)
-    # find_package doesn't work for nghttp2 so manually add the path and lib name
-    # target_link_directories(ocos_operators PUBLIC ${NGHTTP2_ROOT_DIR}/lib)
-
-    # if using static curl/openssl we need to manually specify these things instead of using find_package values
-    # target_link_libraries(ocos_operators PUBLIC CURL::libcurl OpenSSL::Crypto OpenSSL::SSL) # nghttp2)
-    target_include_directories(ocos_operators PUBLIC ${OPENSSL_ROOT_DIR}/include)
-    target_include_directories(ocos_operators PUBLIC ${CURL_ROOT_DIR}/include)
-    target_link_directories(ocos_operators PUBLIC ${OPENSSL_ROOT_DIR}/lib)
-    target_link_directories(ocos_operators PUBLIC ${CURL_ROOT_DIR}/lib)
-    target_link_libraries(ocos_operators PUBLIC curl crypto ssl) # nghttp2)
+    # the find_package calls were made immediately after `include(curl)` so we know CURL and OpenSSL are available
+    target_link_libraries(ocos_operators PUBLIC CURL::libcurl OpenSSL::Crypto OpenSSL::SSL)
   elseif(IOS)
     # TODO
   else()
@@ -700,17 +626,22 @@ if(OCOS_ENABLE_AZURE)
     target_link_directories(ocos_operators PUBLIC ${triton_INSTALL_DIR}/lib64)
 
     if (WIN32)
+      if (ocos_target_platform STREQUAL "AMD64")
+        set(vcpkg_target_platform "x64")
+      else()
+        set(vcpkg_target_platform ${ocos_target_platform})
+      endif()
+
       # As per https://curl.se/docs/faq.html#Link_errors_when_building_libcur we need to set CURL_STATICLIB.
       target_compile_definitions(ocos_operators PRIVATE CURL_STATICLIB)
-
-      target_include_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_triplet}/include)
+      target_include_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static-md/include)
 
       if (CMAKE_BUILD_TYPE STREQUAL "Debug")
         set(curl_LIB_NAME "libcurl-d")
-        target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_triplet}/debug/lib)
+        target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static-md/debug/lib)
       else()
         set(curl_LIB_NAME "libcurl")
-        target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_triplet}/lib)
+        target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static-md/lib)
       endif()
 
       target_link_libraries(ocos_operators PUBLIC httpclient_static ${curl_LIB_NAME} ws2_32 crypt32 Wldap32)
@@ -878,4 +809,31 @@ if(OCOS_ENABLE_CTEST)
       ${TEST_DATA_DES})
     add_test(NAME extensions_test COMMAND $<TARGET_FILE:extensions_test>)
   endif()
+endif()
+
+if(OCOS_ENABLE_AZURE)
+
+  add_dependencies(ocos_operators triton)
+  target_include_directories(ocos_operators PUBLIC ${TRITON_BIN}/include ${TRITON_THIRD_PARTY}/curl/include)
+  target_link_directories(ocos_operators PUBLIC ${TRITON_BIN}/lib ${TRITON_BIN}/lib64 ${TRITON_THIRD_PARTY}/curl/lib ${TRITON_THIRD_PARTY}/curl/lib64)
+
+  if (ocos_target_platform STREQUAL "AMD64")
+    set(vcpkg_target_platform "x86")
+  else()
+    set(vcpkg_target_platform ${ocos_target_platform})
+  endif()
+
+  if (WIN32)
+
+    target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static/lib)
+    target_link_libraries(ocos_operators PUBLIC libcurl httpclient_static ws2_32 crypt32 Wldap32)
+
+  else()
+
+    find_package(ZLIB REQUIRED)
+    find_package(OpenSSL REQUIRED)
+    target_link_libraries(ocos_operators PUBLIC httpclient_static curl ZLIB::ZLIB OpenSSL::Crypto OpenSSL::SSL)
+
+  endif() #if (WIN32)
+
 endif()

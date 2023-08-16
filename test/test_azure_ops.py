@@ -118,18 +118,18 @@ class TestAzureOps(unittest.TestCase):
                 out = sess.run(None, ort_inputs)[0]
                 self.assertEqual(out, ['This is a test recording to test the Whisper model.\n'])
 
-    def test_open_ai_chat(self):
+    def test_azure_chat(self):
         if self.__enabled:
-            sess = InferenceSession(os.path.join(test_data_dir, "openai_chat.onnx"),
+            sess = InferenceSession(os.path.join(test_data_dir, "azure_chat.onnx"),
                                     self.__opt, providers=["CPUExecutionProvider"])
             auth_token = np.array([os.getenv('CHAT', '')])
-            chat = np.array(['{\"model\": \"gpt-3.5-turbo\",\"messages\": [{\"role\": \"system\", \"content\": \"You are a helpful assistant.\"}, {\"role\": \"user\", \"content\": \"Hello!\"}]}'])
+            chat = np.array(['{\"messages\":[{\"role\": \"system\", \"content\": \"You are a helpful assistant.\"},{\"role\": \"user\", \"content\": \"Does Azure OpenAI support customer managed keys?\"},{\"role\": \"assistant\", \"content\": \"Yes, customer managed keys are supported by Azure OpenAI.\"},{\"role\": \"user\", \"content\": \"Do other Azure AI services support this too?\"}]}'])
             ort_inputs = {
                 "auth_token": auth_token,
                 "chat": chat,
             }
             out = sess.run(None, ort_inputs)[0]
-            self.assertTrue('assist' in out[0])
+            self.assertTrue('chat.completion' in out[0])
 
 
 if __name__ == '__main__':
