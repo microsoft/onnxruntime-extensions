@@ -467,7 +467,7 @@ if(OCOS_ENABLE_AZURE)
 
       # vcpkg is used for the azure ops. we build static versions so they're directly included in the extensions library
       # in the python package.
-      set(vcpkg_triplet ${vcpkg_target_platform}-windows-static-md)
+      set(vcpkg_triplet ${vcpkg_target_platform}-windows-static)
 
       message(STATUS "vcpkg_triplet: ${vcpkg_triplet}")
     endif()
