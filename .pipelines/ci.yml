@@ -225,9 +225,12 @@ jobs:
           addToPath: true
 
       - bash: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade setuptools
           export OCOS_NO_OPENCV=1
           export OCOS_SCB_DEBUG=1
           python -m pip install -v -e .
+          python -m pip install -r requirements.txt
           cd test
           python -m pytest .
         displayName: Build and test on Python debug package
