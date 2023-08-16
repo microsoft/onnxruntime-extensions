@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #include "azure_triton_invoker.hpp"
+#include "string_utils.h"
 
 ////////////////////// AzureTritonInvoker //////////////////////
 
@@ -96,9 +97,9 @@ int8_t* CreateNonStrTensor(const std::string& data_type,
   }
 }
 
-#define CHECK_TRITON_ERR(ret, msg)                                                    \
-  if (!ret.IsOk()) {                                                                  \
-    return ORTX_CXX_API_THROW("Triton err: " + ret.Message(), ORT_RUNTIME_EXCEPTION); \
+#define CHECK_TRITON_ERR(ret, msg)                                                                          \
+  if (!ret.IsOk()) {                                                                                        \
+    ORTX_CXX_API_THROW(MakeString("Error: ", msg, ", Triton err: ", ret.Message()), ORT_RUNTIME_EXCEPTION); \
   }
 
 void AzureTritonInvoker::Compute(const ortc::Variadic& inputs, ortc::Variadic& outputs) const {
@@ -121,7 +122,7 @@ void AzureTritonInvoker::Compute(const ortc::Variadic& inputs, ortc::Variadic& o
     tc::InferInput* triton_input = {};
     std::string triton_data_type = MapDataType(inputs[ith_input]->Type());
     if (triton_data_type.empty()) {
-      ORTX_CXX_API_THROW("unknow onnx data type", ORT_RUNTIME_EXCEPTION);
+      ORTX_CXX_API_THROW("unknown onnx data type", ORT_RUNTIME_EXCEPTION);
     }
 
     err = tc::InferInput::Create(&triton_input, property_names[ith_input], inputs[ith_input]->Shape(),

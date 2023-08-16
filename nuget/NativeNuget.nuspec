@@ -11,7 +11,7 @@
       2. Support for pre-processing and post-processing of the Whisper model, inclusive of Audio and Tokenizer decoding operators.
       3. Extends support for pre-processing and post-processing of object-detection models, including a new DrawBoundingBoxes operator. Pre/post processing tools can add non-max-suppression to the model to select the best bounding boxes, and scale those to the original image. See the end-to-end example in yolo_e2e.py.
       4. Introduces the Audio Domain, complemented with AudioCodec and optimized STFT Operators, enhancing audio processing capabilities.
-      5. Enabled optional input/output support for some operators such as GPT2Tokenizer, ClipTokenizer, and RobertaTokenizer.
+      5. Enabled optional input/output support for some operators such as GPT2Tokenizer, CLIPTokenizer, and RobertaTokenizer.
       6. Refined the implementation of offset mapping for BBPE-style tokenizers for more operators and efficiency improvement.
       7. Other bug and security fixes.
 	</releaseNotes>

@@ -83,7 +83,10 @@ void CurlInvoker::ExecuteRequest(CurlHandler& curl_handler) const {
   // this is where we could add any logic required to make the request async or maybe handle retries/cancellation.
   auto curl_ret = curl_handler.Perform();
   if (CURLE_OK != curl_ret) {
-    ORTX_CXX_API_THROW(curl_easy_strerror(curl_ret), ORT_FAIL);
+    const char* err = curl_easy_strerror(curl_ret);
+    KERNEL_LOG(ORT_LOGGING_LEVEL_ERROR, ("Curl error (CURLcode=" + std::to_string(curl_ret) + "): " + err).c_str());
+ 
+    ORTX_CXX_API_THROW(err, ORT_FAIL);
   }
 }
 }  // namespace ort_extensions

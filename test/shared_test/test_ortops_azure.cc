@@ -6,7 +6,6 @@
 
 #include "gtest/gtest.h"
 
-#include "ocos.h"
 #include "narrow.h"
 #include "test_kernel.hpp"
 #include "utils.hpp"
