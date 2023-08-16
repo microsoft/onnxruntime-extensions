@@ -108,6 +108,13 @@ def do_build_by_mode(output_dir: Path,
             for jnilib_name in jnilib_names:
                 shutil.copyfile(build_dir / config / "java" / "android" / abi / jnilib_name, jnilibs_dir / jnilib_name)
 
+            # depending on the build settings these libraries may not be build
+            optional_jnilib_names = ["libcrypto.so", "libssl.so", "libcurl.so"]
+            for jnilib_name in optional_jnilib_names:
+                src = build_dir / config / "java" / "android" / abi / jnilib_name
+                if src.exists():
+                    shutil.copyfile(src, jnilibs_dir / jnilib_name)
+
     # early return if only building JNI libraries
     # To accelerate the build pipeline, we can build the JNI libraries first in parallel for different abi,
     # and then build the AAR package.
