@@ -36,7 +36,15 @@ if (WIN32)
   add_custom_target(vcpkg_integrate ALL DEPENDS vcpkg_integrate.stamp)
   set(VCPKG_DEPENDENCIES "vcpkg_integrate")
 
-  function(vcpkg_install PACKAGE_NAME)
+  # we need the installs to be sequential otherwise you get strange build errors,
+  # and create fake dependencies between each to make the install of each package sequential
+  set(PACKAGE_NAMES rapidjson  # required by triton
+                    zlib       # required by curl. zlib also comes from opencv if enabled. TODO: check compatibility
+                    openssl
+                    curl)
+
+  foreach(PACKAGE_NAME ${PACKAGE_NAMES})
+    message(STATUS "Adding vcpkg package: ${PACKAGE_NAME}")
     add_custom_command(
       OUTPUT ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_triplet}/BUILD_INFO
       COMMAND ${CMAKE_COMMAND} -E echo ${VCPKG_SRC}/vcpkg install --vcpkg-root=$ENV{VCPKG_ROOT}
@@ -51,21 +59,15 @@ if (WIN32)
       ALL
       DEPENDS ${VCPKG_SRC}/packages/${PACKAGE_NAME}_${vcpkg_triplet}/BUILD_INFO)
 
-    list(APPEND VCPKG_DEPENDENCIES "get${PACKAGE_NAME}")
-    set(VCPKG_DEPENDENCIES ${VCPKG_DEPENDENCIES} PARENT_SCOPE)
-  endfunction()
+    set(_cur_package "get${PACKAGE_NAME}")
+    list(APPEND VCPKG_DEPENDENCIES ${_cur_package})
 
-  vcpkg_install(rapidjson)  # required by triton
-  vcpkg_install(openssl)
-  vcpkg_install(curl)
-
-  # fake dependency between openssl and rapidjson.
-  # without this 2 `vcpkg install` commands run in parallel which results in errors like this on the first build:
-  #  write_contents_and_dirs("D:\src\github\ort-extensions\.scb\temp.win-amd64-cpython-311\Release\_deps\vcpkg\src\vcpkg\buildtrees\0.vcpkg_tags.cmake"): permission denied
-  # second attempt works, but that's not good enough for a CI.
-  add_dependencies(getopenssl getrapidjson)
-
-  add_dependencies(getcurl getopenssl)
+    # chain the dependencies so that the packages are installed sequentially by cmake
+    if(_prev_package)
+      add_dependencies(${_cur_package} ${_prev_package})
+    endif()
+    set(_prev_package ${_cur_package})
+  endforeach()
 
   set(triton_extra_cmake_args -DVCPKG_TARGET_TRIPLET=${vcpkg_triplet}
                               -DCMAKE_TOOLCHAIN_FILE=${VCPKG_SRC}/scripts/buildsystems/vcpkg.cmake)
