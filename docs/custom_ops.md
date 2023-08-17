@@ -1230,85 +1230,6 @@ expect(node, inputs=[value, mask], outputs=[output],
 ```
 </details>
 
-### StringRaggedTensorToDense
-
-TODO
-
-### StringMapping
-
-TODO
-
-## Math operators
-
-
-### Inverse
-
-TODO 
-
-### NegPos
-
-TODO
-
-### SegmentExtraction
-
-TODO
-
-### SegmentSum
-
-TODO
-
-## Tensor operators
-
-### RaggedTensorToSparse
-
-TODO
-
-### RaggedTensorToDense
-
-TODO
-
-### Template
-
-<details>
-<summary>Template details</summary>
-
-Description
-
-#### Inputs
-
-***name: tensor(type)***
-
-Description
-
-#### Outputs
-
-***name: tensor(type)***
-
-Description
-
-#### Examples
-
-
-```python
-
-node = onnx.helper.make_node(
-    'StringRegexReplace',
-    inputs=['text', 'pattern', 'rewrite'],
-    outputs=['y'],
-)
-
-text = np.array([['def myfunc():'], ['def dummy():']])
-pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
-rewrite = np.array([r'static PyObject* py_\1(void) {'])
-y = [['static PyObject* py_myfunc(void) {'],
-     ['static PyObject* py_dummy(void) {']]
-
-expect(node, inputs=[text, pattern, rewrite], outputs=[y],
-       name='test_string_regex_replace')
-```
-
-</details>
-
 
 ### OpenAIAudioToText
 
@@ -1649,4 +1570,84 @@ def run_str(self):
         }
         outs = sess.run(None, ort_inputs)
 ```
+</details>
+
+
+### StringRaggedTensorToDense
+
+TODO
+
+### StringMapping
+
+TODO
+
+## Math operators
+
+
+### Inverse
+
+TODO 
+
+### NegPos
+
+TODO
+
+### SegmentExtraction
+
+TODO
+
+### SegmentSum
+
+TODO
+
+## Tensor operators
+
+### RaggedTensorToSparse
+
+TODO
+
+### RaggedTensorToDense
+
+TODO
+
+### Template
+
+<details>
+<summary>Template details</summary>
+
+Description
+
+#### Inputs
+
+***name: tensor(type)***
+
+Description
+
+#### Outputs
+
+***name: tensor(type)***
+
+Description
+
+#### Examples
+
+
+```python
+
+node = onnx.helper.make_node(
+    'StringRegexReplace',
+    inputs=['text', 'pattern', 'rewrite'],
+    outputs=['y'],
+)
+
+text = np.array([['def myfunc():'], ['def dummy():']])
+pattern = np.array([r'def\s+([a-zA-Z_][a-zA-Z_0-9]*)\s*\(\s*\):'])
+rewrite = np.array([r'static PyObject* py_\1(void) {'])
+y = [['static PyObject* py_myfunc(void) {'],
+     ['static PyObject* py_dummy(void) {']]
+
+expect(node, inputs=[text, pattern, rewrite], outputs=[y],
+       name='test_string_regex_replace')
+```
+
 </details>
