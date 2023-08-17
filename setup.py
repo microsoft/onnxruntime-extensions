@@ -149,6 +149,8 @@ class BuildCMakeExt(_build_ext):
         if os.environ.get(VSINSTALLDIR_NAME):
             cmake_exe = os.environ[VSINSTALLDIR_NAME] + \
                         'Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe'
+            # Add this cmake directory into PATH to make sure the child-process still find it.
+            os.environ['PATH'] = os.path.dirname(cmake_exe) + os.pathsep + os.environ['PATH']
 
         self.spawn([cmake_exe, '-S', str(project_dir), '-B', str(build_temp)] + cmake_args)
         if not self.dry_run:
