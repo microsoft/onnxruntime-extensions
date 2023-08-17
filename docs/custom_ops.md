@@ -1316,7 +1316,7 @@ expect(node, inputs=[text, pattern, rewrite], outputs=[y],
 <summary>OpenAIAudioToText details</summary>
 
 
-OpenAIAudioToText operator talks to [openAI audio](https://platform.openai.com/docs/api-reference/audio) endpoints, send over audio data and fetch transcription as text.
+OpenAIAudioToText operator talks to [openAI audio](https://platform.openai.com/docs/api-reference/audio) endpoints.
 
 
 #### Attributes
@@ -1364,7 +1364,6 @@ def create_openai_audio_model():
     model = helper.make_tensor_value_info('model_name', TensorProto.STRING, [1])
     response_format = helper.make_tensor_value_info('response_format', TensorProto.STRING, [-1])
     file = helper.make_tensor_value_info('file', TensorProto.UINT8, [-1])
-
     transcriptions = helper.make_tensor_value_info('transcriptions', TensorProto.STRING, [-1])
 
     invoker = helper.make_node('OpenAIAudioToText',
@@ -1484,8 +1483,6 @@ Endpoint uri, like "'https://endpoint-12345678.westus.inference.ml.azure.com".
 
 ***model_name:string***
 
-Model name.
-
 ***model_version:string***
 
 A version string, like "1", or "2".
@@ -1498,13 +1495,13 @@ An access token comes with Azure Machine Learning model deployment.
 
 ***inputs: tensor(variadic)***
 
-Arbitrary number of inputs of tensors, all onnx type accepted.
+Tensors of any supported onnx data type.
 
 #### Outputs
 
-***inputs: tensor(variadic)***
+***outputs: tensor(variadic)***
 
-Arbitrary number of outputs of tensors, all onnx type accepted.
+Tensors of any supported onnx data type.
 
 
 #### Examples
