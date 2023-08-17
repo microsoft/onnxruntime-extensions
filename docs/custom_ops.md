@@ -1457,8 +1457,7 @@ def create_azure_chat_model():
     onnx.save(model, 'azure_chat.onnx')
 
 create_azure_chat_model()
-sess = InferenceSession(os.path.join(test_data_dir, "azure_chat.onnx"),
-    self.__opt, providers=["CPUExecutionProvider"])
+sess = InferenceSession(os.path.join(test_data_dir, "azure_chat.onnx"), self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
 auth_token = np.array([os.getenv('MYAUTH', '')])
 chat = np.array(['{\"messages\":[{\"role\": \"system\", \"content\": \"You are a helpful assistant.\"},{\"role\": \"user\", \"content\": \"Does Azure OpenAI support customer managed keys?\"},{\"role\": \"assistant\", \"content\": \"Yes, customer managed keys are supported by Azure OpenAI.\"},{\"role\": \"user\", \"content\": \"Do other Azure AI services support this too?\"}]}'])
 ort_inputs = {
@@ -1466,5 +1465,201 @@ ort_inputs = {
     "chat": chat,
 }
 out = sess.run(None, ort_inputs)[0]
+```
+</details>
+
+
+### AzureTritonInvoker
+
+<details>
+<summary>AzureTritonInvoker details</summary>
+
+
+AzureTritonInvoker talks to [Azure Machine Learning triton services](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-deploy-with-triton?view=azureml-api-2&tabs=azure-cli%2Cendpoint).
+
+
+model_uri='https://endpoint-5095584.westus2.inference.ml.azure.com',
+                               model_name='addf', model_version='1',
+                               
+                               
+#### Attributes
+
+***model_uri:string***
+
+Endpoint uri, like "'https://endpoint-12345678.westus.inference.ml.azure.com".
+
+***model_name:string***
+
+Model name.
+
+***model_version:string***
+
+A version string, like "1", or "2"
+
+#### Inputs
+
+***auth_token: tensor(string)***
+
+An access token comes with Azure Machine Learning model deployment.
+
+***inputs: tensor(variadic)***
+
+Arbitrary number of inputs of tensors, all onnx type accepted.
+
+#### Outputs
+
+***inputs: tensor(variadic)***
+
+Arbitrary number of outputs of tensors, all onnx type accepted.
+
+
+#### Examples
+
+
+```python
+
+def createAddf():
+    auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
+    X = helper.make_tensor_value_info('X', TensorProto.FLOAT, [-1])
+    Y = helper.make_tensor_value_info('Y', TensorProto.FLOAT, [-1])
+    Z = helper.make_tensor_value_info('Z', TensorProto.FLOAT, [-1])
+    invoker = helper.make_node('AzureTritonInvoker', ['auth_token', 'X', 'Y'], ['Z'],
+                               domain='com.microsoft.extensions', name='triton_invoker',
+                               model_uri='https://endpoint-1.westus2.inference.ml.azure.com',
+                               model_name='addf', model_version='1', verbose='1')
+    graph = helper.make_graph([invoker], 'graph', [auth_token, X, Y], [Z])
+    model = helper.make_model(graph,
+                              opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
+    save(model, 'triton_addf.onnx')
+
+def createAddf8():
+    auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
+    X = helper.make_tensor_value_info('X', TensorProto.DOUBLE, [-1])
+    Y = helper.make_tensor_value_info('Y', TensorProto.DOUBLE, [-1])
+    Z = helper.make_tensor_value_info('Z', TensorProto.DOUBLE, [-1])
+    invoker = helper.make_node('AzureTritonInvoker', ['auth_token', 'X', 'Y'], ['Z'],
+                               domain='com.microsoft.extensions', name='triton_invoker',
+                               model_uri='https://endpoint-2.westus2.inference.ml.azure.com',
+                               model_name='addf8', model_version='1', verbose='1')
+    graph = helper.make_graph([invoker], 'graph', [auth_token, X, Y], [Z])
+    model = helper.make_model(graph,
+                              opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
+    save(model, 'triton_addf8.onnx')
+
+def createAddi4():
+    auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
+    X = helper.make_tensor_value_info('X', TensorProto.INT32, [-1])
+    Y = helper.make_tensor_value_info('Y', TensorProto.INT32, [-1])
+    Z = helper.make_tensor_value_info('Z', TensorProto.INT32, [-1])
+    invoker = helper.make_node('AzureTritonInvoker', ['auth_token', 'X', 'Y'], ['Z'],
+                               domain='com.microsoft.extensions', name='triton_invoker',
+                               model_uri='https://endpoint-3.westus2.inference.ml.azure.com',
+                               model_name='addi4', model_version='1', verbose='1')
+    graph = helper.make_graph([invoker], 'graph', [auth_token, X, Y], [Z])
+    model = helper.make_model(graph,
+                              opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
+    save(model, 'triton_addi4.onnx')
+
+def createAnd():
+    auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
+    X = helper.make_tensor_value_info('X', TensorProto.BOOL, [-1])
+    Y = helper.make_tensor_value_info('Y', TensorProto.BOOL, [-1])
+    Z = helper.make_tensor_value_info('Z', TensorProto.BOOL, [-1])
+    invoker = helper.make_node('AzureTritonInvoker', ['auth_token', 'X', 'Y'], ['Z'],
+                               domain='com.microsoft.extensions', name='triton_invoker',
+                               model_uri='https://endpoint-4.westus2.inference.ml.azure.com',
+                               model_name='and', model_version='1', verbose='1')
+    graph = helper.make_graph([invoker], 'graph', [auth_token, X, Y], [Z])
+    model = helper.make_model(graph,
+                              opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
+    save(model, 'triton_and.onnx')
+
+def createStr():
+    auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
+    str_in = helper.make_tensor_value_info('str_in', TensorProto.STRING, [-1])
+    str_out1 = helper.make_tensor_value_info('str_out1', TensorProto.STRING, [-1])
+    str_out2 = helper.make_tensor_value_info('str_out2', TensorProto.STRING, [-1])
+    invoker = helper.make_node('AzureTritonInvoker', ['auth_token', 'str_in'], ['str_out1','str_out2'],
+                               domain='com.microsoft.extensions', name='triton_invoker',
+                               model_uri='https://endpoint-5.westus2.inference.ml.azure.com',
+                               model_name='str', model_version='1', verbose='1')
+    graph = helper.make_graph([invoker], 'graph', [auth_token, str_in], [str_out1, str_out2])
+    model = helper.make_model(graph,
+                              opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
+    save(model, 'triton_str.onnx')
+
+def run_add_f(self):
+    if self.__enabled:
+        sess = InferenceSession(os.path.join(test_data_dir, "triton_addf.onnx"),
+                                self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
+        auth_token = np.array([os.getenv('MYAUTH', '')])
+        x = np.array([1,2,3,4]).astype(np.float32)
+        y = np.array([4,3,2,1]).astype(np.float32)
+        ort_inputs = {
+            "auth_token": auth_token,
+            "X": x,
+            "Y": y
+        }
+        out = sess.run(None, ort_inputs)[0]
+        self.assertTrue(np.allclose(out, [5,5,5,5]))
+
+def run_add_f8(self):
+    if self.__enabled:
+        opt = SessionOptions()
+        opt.register_custom_ops_library(get_library_path())
+        sess = InferenceSession(os.path.join(test_data_dir, "triton_addf8.onnx"),
+                                self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
+        auth_token = np.array([os.getenv('MYAUTH', '')])
+        x = np.array([1,2,3,4]).astype(np.double)
+        y = np.array([4,3,2,1]).astype(np.double)
+        ort_inputs = {
+            "auth_token": auth_token,
+            "X": x,
+            "Y": y
+        }
+        out = sess.run(None, ort_inputs)[0]
+        self.assertTrue(np.allclose(out, [5,5,5,5]))
+
+def run_add_i4(self):
+    if self.__enabled:
+        sess = InferenceSession(os.path.join(test_data_dir, "triton_addi4.onnx"),
+                                self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
+        auth_token = np.array([os.getenv('MYAUTH', '')])
+        x = np.array([1,2,3,4]).astype(np.int32)
+        y = np.array([4,3,2,1]).astype(np.int32)
+        ort_inputs = {
+            "auth_token": auth_token,
+            "X": x,
+            "Y": y
+        }
+        out = sess.run(None, ort_inputs)[0]
+        self.assertTrue(np.allclose(out, [5,5,5,5]))
+
+def run_and(self):
+    if self.__enabled:
+        sess = InferenceSession(os.path.join(test_data_dir, "triton_and.onnx"),
+                                self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
+        auth_token = np.array([os.getenv('MYAUTH', '')])
+        x = np.array([True, True])
+        y = np.array([True, False])
+        ort_inputs = {
+            "auth_token": auth_token,
+            "X": x,
+            "Y": y
+        }
+        out = sess.run(None, ort_inputs)[0]
+        self.assertTrue(np.allclose(out, [True, False]))
+
+def run_str(self):
+    if self.__enabled:
+        sess = InferenceSession(os.path.join(test_data_dir, "triton_str.onnx"),
+                                self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
+        auth_token = np.array([os.getenv('MYAUTH', '')])
+        str_in = np.array(['this is the input'])
+        ort_inputs = {
+            "auth_token": auth_token,
+            "str_in": str_in
+        }
+        outs = sess.run(None, ort_inputs)
 ```
 </details>
