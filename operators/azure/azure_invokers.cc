@@ -92,4 +92,8 @@ void AzureTextToTextInvoker::ProcessResponse(const std::string& response, ortc::
   string_tensor.SetStringOutput(std::vector<std::string>{response}, std::vector<int64_t>{1});
 }
 
+std::string AzureTextToTextInvoker::ComposeFullAuthToken(const std::string& auth_token) const {
+  return std::string{"api-key: "} + auth_token;
+}
+
 }  // namespace ort_extensions

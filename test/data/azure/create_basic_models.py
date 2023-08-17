@@ -9,7 +9,7 @@ from onnx import helper, TensorProto
 # with the Azure ops we need to use this version instead of onnx.IR_VERSION
 MODEL_IR_VERSION = 8
 
-def create_audio_model():
+def create_openai_audio_model():
     auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [1])
     model = helper.make_tensor_value_info('model_name', TensorProto.STRING, [1])
     response_format = helper.make_tensor_value_info('response_format', TensorProto.STRING, [-1])
@@ -33,7 +33,7 @@ def create_audio_model():
     onnx.save(model, 'openai_audio.onnx')
 
 
-def create_chat_model():
+def create_azure_chat_model():
     auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
     chat = helper.make_tensor_value_info('chat', TensorProto.STRING, [-1])
     response = helper.make_tensor_value_info('response', TensorProto.STRING, [-1])
@@ -41,15 +41,15 @@ def create_chat_model():
     invoker = helper.make_node('AzureTextToText', ['auth_token', 'chat'], ['response'],
                                domain='com.microsoft.extensions',
                                name='chat_invoker',
-                               model_uri='https://api.openai.com/v1/chat/completions',
+                               model_uri='https://rashuai-aoai-test.openai.azure.com/openai/deployments/randysgpt/chat/completions?api-version=2023-05-15',
                                verbose=False)
 
     graph = helper.make_graph([invoker], 'graph', [auth_token, chat], [response])
     model = helper.make_model(graph, ir_version=MODEL_IR_VERSION,
                               opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
 
-    onnx.save(model, 'openai_chat.onnx')
+    onnx.save(model, 'azure_chat.onnx')
 
 
-create_audio_model()
-create_chat_model()
+create_openai_audio_model()
+create_azure_chat_model()
