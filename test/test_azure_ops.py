@@ -25,7 +25,7 @@ class TestAzureOps(unittest.TestCase):
     def test_add_f(self):
         if self.__enabled:
             sess = InferenceSession(os.path.join(test_data_dir, "triton_addf.onnx"),
-                                    self.__opt, providers=["CPUExecutionProvider"])
+                                    self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
             auth_token = np.array([os.getenv('ADDF', '')])
             x = np.array([1,2,3,4]).astype(np.float32)
             y = np.array([4,3,2,1]).astype(np.float32)
@@ -42,7 +42,7 @@ class TestAzureOps(unittest.TestCase):
             opt = SessionOptions()
             opt.register_custom_ops_library(get_library_path())
             sess = InferenceSession(os.path.join(test_data_dir, "triton_addf8.onnx"),
-                                    self.__opt, providers=["CPUExecutionProvider"])
+                                    self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
             auth_token = np.array([os.getenv('ADDF8', '')])
             x = np.array([1,2,3,4]).astype(np.double)
             y = np.array([4,3,2,1]).astype(np.double)
@@ -57,7 +57,7 @@ class TestAzureOps(unittest.TestCase):
     def test_add_i4(self):
         if self.__enabled:
             sess = InferenceSession(os.path.join(test_data_dir, "triton_addi4.onnx"),
-                                    self.__opt, providers=["CPUExecutionProvider"])
+                                    self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
             auth_token = np.array([os.getenv('ADDI4', '')])
             x = np.array([1,2,3,4]).astype(np.int32)
             y = np.array([4,3,2,1]).astype(np.int32)
@@ -72,7 +72,7 @@ class TestAzureOps(unittest.TestCase):
     def test_and(self):
         if self.__enabled:
             sess = InferenceSession(os.path.join(test_data_dir, "triton_and.onnx"),
-                                    self.__opt, providers=["CPUExecutionProvider"])
+                                    self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
             auth_token = np.array([os.getenv('AND', '')])
             x = np.array([True, True])
             y = np.array([True, False])
@@ -87,7 +87,7 @@ class TestAzureOps(unittest.TestCase):
     def test_str(self):
         if self.__enabled:
             sess = InferenceSession(os.path.join(test_data_dir, "triton_str.onnx"),
-                                    self.__opt, providers=["CPUExecutionProvider"])
+                                    self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
             auth_token = np.array([os.getenv('STR', '')])
             str_in = np.array(['this is the input'])
             ort_inputs = {
@@ -102,7 +102,7 @@ class TestAzureOps(unittest.TestCase):
     def test_open_ai_audio(self):
         if self.__enabled:
             sess = InferenceSession(os.path.join(test_data_dir, "openai_audio.onnx"),
-                                    self.__opt, providers=["CPUExecutionProvider"])
+                                    self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
             auth_token = np.array([os.getenv('AUDIO', '')])
             model = np.array(['whisper-1'])
             response_format = np.array(['text'])
@@ -121,7 +121,7 @@ class TestAzureOps(unittest.TestCase):
     def test_azure_chat(self):
         if self.__enabled:
             sess = InferenceSession(os.path.join(test_data_dir, "azure_chat.onnx"),
-                                    self.__opt, providers=["CPUExecutionProvider"])
+                                    self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
             auth_token = np.array([os.getenv('CHAT', '')])
             chat = np.array(['{\"messages\":[{\"role\": \"system\", \"content\": \"You are a helpful assistant.\"},{\"role\": \"user\", \"content\": \"Does Azure OpenAI support customer managed keys?\"},{\"role\": \"assistant\", \"content\": \"Yes, customer managed keys are supported by Azure OpenAI.\"},{\"role\": \"user\", \"content\": \"Do other Azure AI services support this too?\"}]}'])
             ort_inputs = {

@@ -1316,7 +1316,7 @@ expect(node, inputs=[text, pattern, rewrite], outputs=[y],
 <summary>OpenAIAudioToText details</summary>
 
 
-OpenAIAudioToText operator talks to openAI audio endpoints, send over audio data and fetch transcription as text.
+OpenAIAudioToText operator talks to [openAI audio](https://platform.openai.com/docs/api-reference/audio) endpoints, send over audio data and fetch transcription as text.
 
 
 #### Attributes
@@ -1327,7 +1327,7 @@ Endpoint uri, like "https://api.openai.com/v1/audio/transcriptions".
 
 ***audio_format:string***
 
-The format of the audio, by default "wav"
+The format of the audio, by default "wav".
 
 #### Inputs
 
@@ -1337,15 +1337,15 @@ An access token comes with openAI subscription.
 
 ***model_name: tensor(string)***
 
-Model name to send to the endpoint, such as "whisper-1"
+Model name to send to the endpoint, such as "whisper-1".
 
 ***response_format: tensor(string)***
 
-Expected format of the response, either be "text" or "json"
+Expected format of the response, either be "text" or "json".
 
 ***audio_blob: tensor(uint8)***
 
-A byte array containing raw data from the audio file
+A byte array containing raw data from the audio file.
 
 #### Outputs
 
@@ -1373,8 +1373,7 @@ def create_openai_audio_model():
                                domain='com.microsoft.extensions',
                                name='audio_invoker',
                                model_uri='https://api.openai.com/v1/audio/transcriptions',
-                               audio_format='wav',
-                               verbose=False)
+                               audio_format='wav')
 
     graph = helper.make_graph([invoker], 'graph', [auth_token, model, response_format, file], [transcriptions])
     model = helper.make_model(graph,
@@ -1425,7 +1424,7 @@ An access token comes with Azure openAI subscription.
 
 ***chat: tensor(string)***
 
-A json string as requested [format](https://learn.microsoft.com/en-us/azure/ai-services/openai/chatgpt-quickstart?tabs=command-line&pivots=rest-api).
+A json string in requested [format](https://learn.microsoft.com/en-us/azure/ai-services/openai/chatgpt-quickstart?tabs=command-line&pivots=rest-api).
 
 #### Outputs
 
@@ -1447,8 +1446,7 @@ def create_azure_chat_model():
     invoker = helper.make_node('AzureTextToText', ['auth_token', 'chat'], ['response'],
                                domain='com.microsoft.extensions',
                                name='chat_invoker',
-                               model_uri='https://rashuai-aoai-test.openai.azure.com/openai/deployments/randysgpt/chat/completions?api-version=2023-05-15',
-                               verbose=False)
+                               model_uri='https://rashuai-aoai-test.openai.azure.com/openai/deployments/randysgpt/chat/completions?api-version=2023-05-15')
 
     graph = helper.make_graph([invoker], 'graph', [auth_token, chat], [response])
     model = helper.make_model(graph,
@@ -1478,10 +1476,6 @@ out = sess.run(None, ort_inputs)[0]
 AzureTritonInvoker talks to [Azure Machine Learning triton services](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-deploy-with-triton?view=azureml-api-2&tabs=azure-cli%2Cendpoint).
 
 
-model_uri='https://endpoint-5095584.westus2.inference.ml.azure.com',
-                               model_name='addf', model_version='1',
-                               
-                               
 #### Attributes
 
 ***model_uri:string***
@@ -1494,7 +1488,7 @@ Model name.
 
 ***model_version:string***
 
-A version string, like "1", or "2"
+A version string, like "1", or "2".
 
 #### Inputs
 
@@ -1526,7 +1520,7 @@ def createAddf():
     invoker = helper.make_node('AzureTritonInvoker', ['auth_token', 'X', 'Y'], ['Z'],
                                domain='com.microsoft.extensions', name='triton_invoker',
                                model_uri='https://endpoint-1.westus2.inference.ml.azure.com',
-                               model_name='addf', model_version='1', verbose='1')
+                               model_name='addf', model_version='1')
     graph = helper.make_graph([invoker], 'graph', [auth_token, X, Y], [Z])
     model = helper.make_model(graph,
                               opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
@@ -1540,7 +1534,7 @@ def createAddf8():
     invoker = helper.make_node('AzureTritonInvoker', ['auth_token', 'X', 'Y'], ['Z'],
                                domain='com.microsoft.extensions', name='triton_invoker',
                                model_uri='https://endpoint-2.westus2.inference.ml.azure.com',
-                               model_name='addf8', model_version='1', verbose='1')
+                               model_name='addf8', model_version='1')
     graph = helper.make_graph([invoker], 'graph', [auth_token, X, Y], [Z])
     model = helper.make_model(graph,
                               opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
@@ -1554,7 +1548,7 @@ def createAddi4():
     invoker = helper.make_node('AzureTritonInvoker', ['auth_token', 'X', 'Y'], ['Z'],
                                domain='com.microsoft.extensions', name='triton_invoker',
                                model_uri='https://endpoint-3.westus2.inference.ml.azure.com',
-                               model_name='addi4', model_version='1', verbose='1')
+                               model_name='addi4', model_version='1')
     graph = helper.make_graph([invoker], 'graph', [auth_token, X, Y], [Z])
     model = helper.make_model(graph,
                               opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
@@ -1568,7 +1562,7 @@ def createAnd():
     invoker = helper.make_node('AzureTritonInvoker', ['auth_token', 'X', 'Y'], ['Z'],
                                domain='com.microsoft.extensions', name='triton_invoker',
                                model_uri='https://endpoint-4.westus2.inference.ml.azure.com',
-                               model_name='and', model_version='1', verbose='1')
+                               model_name='and', model_version='1')
     graph = helper.make_graph([invoker], 'graph', [auth_token, X, Y], [Z])
     model = helper.make_model(graph,
                               opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
@@ -1582,7 +1576,7 @@ def createStr():
     invoker = helper.make_node('AzureTritonInvoker', ['auth_token', 'str_in'], ['str_out1','str_out2'],
                                domain='com.microsoft.extensions', name='triton_invoker',
                                model_uri='https://endpoint-5.westus2.inference.ml.azure.com',
-                               model_name='str', model_version='1', verbose='1')
+                               model_name='str', model_version='1')
     graph = helper.make_graph([invoker], 'graph', [auth_token, str_in], [str_out1, str_out2])
     model = helper.make_model(graph,
                               opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
@@ -1601,7 +1595,6 @@ def run_add_f(self):
             "Y": y
         }
         out = sess.run(None, ort_inputs)[0]
-        self.assertTrue(np.allclose(out, [5,5,5,5]))
 
 def run_add_f8(self):
     if self.__enabled:
@@ -1618,7 +1611,6 @@ def run_add_f8(self):
             "Y": y
         }
         out = sess.run(None, ort_inputs)[0]
-        self.assertTrue(np.allclose(out, [5,5,5,5]))
 
 def run_add_i4(self):
     if self.__enabled:
@@ -1633,7 +1625,6 @@ def run_add_i4(self):
             "Y": y
         }
         out = sess.run(None, ort_inputs)[0]
-        self.assertTrue(np.allclose(out, [5,5,5,5]))
 
 def run_and(self):
     if self.__enabled:
@@ -1648,7 +1639,6 @@ def run_and(self):
             "Y": y
         }
         out = sess.run(None, ort_inputs)[0]
-        self.assertTrue(np.allclose(out, [True, False]))
 
 def run_str(self):
     if self.__enabled:
