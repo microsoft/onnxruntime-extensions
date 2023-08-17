@@ -8,6 +8,10 @@ import onnx
 import numpy as np
 import sys
 
+# ORT 1.14 only supports IR version 8 so if we're unit testing with the oldest version of ORT that can be used
+# with the Azure ops we need to use this version instead of onnx.IR_VERSION
+MODEL_IR_VERSION = 8
+
 
 def order_repeated_field(repeated_proto, key_name, order):
     order = list(order)
@@ -33,6 +37,7 @@ def make_graph(*args, doc_string=None, **kwargs):
 # The filename can be specified to indicate a different audio type to the default value in the audio_format attribute.
 model = helper.make_model(
     opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)],
+    ir_version=MODEL_IR_VERSION,
     graph=make_graph(
         name='OpenAIWhisperTranscribe',
         initializer=[

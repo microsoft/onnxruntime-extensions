@@ -320,7 +320,7 @@ def _generate_build_tree(cmake_path: Path,
     ]
 
     if args.onnxruntime_version:
-        cmake_args.append(f"-DONNXRUNTIME_VER={args.onnxruntime_version}")
+        cmake_args.append(f"-DOCOS_ONNXRUNTIME_VERSION={args.onnxruntime_version}")
 
     if args.enable_cxx_tests:
         cmake_args.append("-DOCOS_ENABLE_CTEST=ON")
