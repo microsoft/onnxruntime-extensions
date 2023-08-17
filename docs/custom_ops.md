@@ -1311,7 +1311,7 @@ expect(node, inputs=[text, pattern, rewrite], outputs=[y],
 </details>
 
 
-## Azure endpoint Operators
+## Azure Operators
 
 ### OpenAIAudioToText
 
@@ -1630,8 +1630,6 @@ def run_add_f():
 
 
 def run_add_f8():
-    opt = SessionOptions()
-    opt.register_custom_ops_library(get_library_path())
     opt = SessionOptions()
     opt.register_custom_ops_library(get_library_path())
     sess = InferenceSession(os.path.join(test_data_dir, "triton_addf8.onnx"),
