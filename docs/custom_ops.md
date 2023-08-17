@@ -1230,6 +1230,7 @@ expect(node, inputs=[value, mask], outputs=[output],
 ```
 </details>
 
+## Azure endpoint Operators
 
 ### OpenAIAudioToText
 
@@ -1272,13 +1273,19 @@ A byte array containing raw data from the audio file.
 
 ***transcriptions: tensor(string)***
 
-The transcriptions in form of text.
-
 
 #### Examples
 
 
 ```python
+
+import os
+import numpy as np
+
+from onnx import *
+from onnxruntime_extensions import PyOrtFunction, util, get_library_path
+from onnxruntime import *
+
 
 def create_openai_audio_model():
     auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [1])
@@ -1302,8 +1309,10 @@ def create_openai_audio_model():
     onnx.save(model, 'openai_audio.onnx')
 
 create_openai_audio_model()
+opt = SessionOptions()
+opt.register_custom_ops_library(get_library_path())
 sess = InferenceSession(os.path.join(test_data_dir, "openai_audio.onnx"),
-                        self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
+                        opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
 auth_token = np.array([os.getenv('MYAUTH', '')])
 model = np.array(['whisper-1'])
 response_format = np.array(['text'])
@@ -1327,7 +1336,7 @@ with open(os.path.join(test_data_dir, "test16.wav"), "rb") as _f:
 <summary>AzureTextToText details</summary>
 
 
-AzureTextToText talks to a GPT model served by [Azure openAI service](https://learn.microsoft.com/en-us/azure/ai-services/openai/).
+AzureTextToText talks to a GPT model hosted by [Azure openAI service](https://learn.microsoft.com/en-us/azure/ai-services/openai/).
 
 
 #### Attributes
@@ -1358,6 +1367,14 @@ A json string as response.
 
 ```python
 
+import os
+import numpy as np
+
+from onnx import *
+from onnxruntime_extensions import PyOrtFunction, util, get_library_path
+from onnxruntime import *
+
+
 def create_azure_chat_model():
     auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
     chat = helper.make_tensor_value_info('chat', TensorProto.STRING, [-1])
@@ -1375,9 +1392,11 @@ def create_azure_chat_model():
     onnx.save(model, 'azure_chat.onnx')
 
 create_azure_chat_model()
-sess = InferenceSession(os.path.join(test_data_dir, "azure_chat.onnx"), self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
+opt = SessionOptions()
+opt.register_custom_ops_library(get_library_path())
+sess = InferenceSession(os.path.join(test_data_dir, "azure_chat.onnx"), opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
 auth_token = np.array([os.getenv('MYAUTH', '')])
-chat = np.array(['{\"messages\":[{\"role\": \"system\", \"content\": \"You are a helpful assistant.\"},{\"role\": \"user\", \"content\": \"Does Azure OpenAI support customer managed keys?\"},{\"role\": \"assistant\", \"content\": \"Yes, customer managed keys are supported by Azure OpenAI.\"},{\"role\": \"user\", \"content\": \"Do other Azure AI services support this too?\"}]}'])
+chat = np.array([r'{"messages":[{"role": "system", "content": "You are a helpful assistant."},{"role": "user", "content": "Does Azure OpenAI support customer managed keys?"},{"role": "assistant", "content": "Yes, customer managed keys are supported by Azure OpenAI."},{"role": "user", "content": "Do other Azure AI services support this too?"}]}'])
 ort_inputs = {
     "auth_token": auth_token,
     "chat": chat,
@@ -1430,6 +1449,14 @@ Tensors of any supported onnx data type.
 
 ```python
 
+import os
+import numpy as np
+
+from onnx import *
+from onnxruntime_extensions import PyOrtFunction, util, get_library_path
+from onnxruntime import *
+
+
 def createAddf():
     auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
     X = helper.make_tensor_value_info('X', TensorProto.FLOAT, [-1])
@@ -1443,6 +1470,7 @@ def createAddf():
     model = helper.make_model(graph,
                               opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
     save(model, 'triton_addf.onnx')
+
 
 def createAddf8():
     auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
@@ -1458,6 +1486,7 @@ def createAddf8():
                               opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
     save(model, 'triton_addf8.onnx')
 
+
 def createAddi4():
     auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
     X = helper.make_tensor_value_info('X', TensorProto.INT32, [-1])
@@ -1471,6 +1500,7 @@ def createAddi4():
     model = helper.make_model(graph,
                               opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
     save(model, 'triton_addi4.onnx')
+
 
 def createAnd():
     auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
@@ -1486,6 +1516,7 @@ def createAnd():
                               opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
     save(model, 'triton_and.onnx')
 
+
 def createStr():
     auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
     str_in = helper.make_tensor_value_info('str_in', TensorProto.STRING, [-1])
@@ -1500,75 +1531,85 @@ def createStr():
                               opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
     save(model, 'triton_str.onnx')
 
-def run_add_f(self):
-    if self.__enabled:
-        sess = InferenceSession(os.path.join(test_data_dir, "triton_addf.onnx"),
-                                self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
-        auth_token = np.array([os.getenv('MYAUTH', '')])
-        x = np.array([1,2,3,4]).astype(np.float32)
-        y = np.array([4,3,2,1]).astype(np.float32)
-        ort_inputs = {
-            "auth_token": auth_token,
-            "X": x,
-            "Y": y
-        }
-        out = sess.run(None, ort_inputs)[0]
 
-def run_add_f8(self):
-    if self.__enabled:
-        opt = SessionOptions()
-        opt.register_custom_ops_library(get_library_path())
-        sess = InferenceSession(os.path.join(test_data_dir, "triton_addf8.onnx"),
-                                self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
-        auth_token = np.array([os.getenv('MYAUTH', '')])
-        x = np.array([1,2,3,4]).astype(np.double)
-        y = np.array([4,3,2,1]).astype(np.double)
-        ort_inputs = {
-            "auth_token": auth_token,
-            "X": x,
-            "Y": y
-        }
-        out = sess.run(None, ort_inputs)[0]
+def run_add_f():
+    opt = SessionOptions()
+    opt.register_custom_ops_library(get_library_path())
+    sess = InferenceSession(os.path.join(test_data_dir, "triton_addf.onnx"),
+                            opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
+    auth_token = np.array([os.getenv('MYAUTH', '')])
+    x = np.array([1,2,3,4]).astype(np.float32)
+    y = np.array([4,3,2,1]).astype(np.float32)
+    ort_inputs = {
+        "auth_token": auth_token,
+        "X": x,
+        "Y": y
+    }
+    out = sess.run(None, ort_inputs)[0]
 
-def run_add_i4(self):
-    if self.__enabled:
-        sess = InferenceSession(os.path.join(test_data_dir, "triton_addi4.onnx"),
-                                self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
-        auth_token = np.array([os.getenv('MYAUTH', '')])
-        x = np.array([1,2,3,4]).astype(np.int32)
-        y = np.array([4,3,2,1]).astype(np.int32)
-        ort_inputs = {
-            "auth_token": auth_token,
-            "X": x,
-            "Y": y
-        }
-        out = sess.run(None, ort_inputs)[0]
 
-def run_and(self):
-    if self.__enabled:
-        sess = InferenceSession(os.path.join(test_data_dir, "triton_and.onnx"),
-                                self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
-        auth_token = np.array([os.getenv('MYAUTH', '')])
-        x = np.array([True, True])
-        y = np.array([True, False])
-        ort_inputs = {
-            "auth_token": auth_token,
-            "X": x,
-            "Y": y
-        }
-        out = sess.run(None, ort_inputs)[0]
+def run_add_f8():
+    opt = SessionOptions()
+    opt.register_custom_ops_library(get_library_path())
+    opt = SessionOptions()
+    opt.register_custom_ops_library(get_library_path())
+    sess = InferenceSession(os.path.join(test_data_dir, "triton_addf8.onnx"),
+                            opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
+    auth_token = np.array([os.getenv('MYAUTH', '')])
+    x = np.array([1,2,3,4]).astype(np.double)
+    y = np.array([4,3,2,1]).astype(np.double)
+    ort_inputs = {
+        "auth_token": auth_token,
+        "X": x,
+        "Y": y
+    }
+    out = sess.run(None, ort_inputs)[0]
 
-def run_str(self):
-    if self.__enabled:
-        sess = InferenceSession(os.path.join(test_data_dir, "triton_str.onnx"),
-                                self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
-        auth_token = np.array([os.getenv('MYAUTH', '')])
-        str_in = np.array(['this is the input'])
-        ort_inputs = {
-            "auth_token": auth_token,
-            "str_in": str_in
-        }
-        outs = sess.run(None, ort_inputs)
+
+def run_add_i4():
+    opt = SessionOptions()
+    opt.register_custom_ops_library(get_library_path())
+    sess = InferenceSession(os.path.join(test_data_dir, "triton_addi4.onnx"),
+                            opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
+    auth_token = np.array([os.getenv('MYAUTH', '')])
+    x = np.array([1,2,3,4]).astype(np.int32)
+    y = np.array([4,3,2,1]).astype(np.int32)
+    ort_inputs = {
+        "auth_token": auth_token,
+        "X": x,
+        "Y": y
+    }
+    out = sess.run(None, ort_inputs)[0]
+
+
+def run_and():
+    opt = SessionOptions()
+    opt.register_custom_ops_library(get_library_path())
+    sess = InferenceSession(os.path.join(test_data_dir, "triton_and.onnx"),
+                            opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
+    auth_token = np.array([os.getenv('MYAUTH', '')])
+    x = np.array([True, True])
+    y = np.array([True, False])
+    ort_inputs = {
+        "auth_token": auth_token,
+        "X": x,
+        "Y": y
+    }
+    out = sess.run(None, ort_inputs)[0]
+
+
+def run_str():
+    opt = SessionOptions()
+    opt.register_custom_ops_library(get_library_path())
+    sess = InferenceSession(os.path.join(test_data_dir, "triton_str.onnx"),
+                            self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
+    auth_token = np.array([os.getenv('MYAUTH', '')])
+    str_in = np.array(['this is the input'])
+    ort_inputs = {
+        "auth_token": auth_token,
+        "str_in": str_in
+    }
+    outs = sess.run(None, ort_inputs)
 ```
 </details>
 

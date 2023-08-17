@@ -123,7 +123,7 @@ class TestAzureOps(unittest.TestCase):
             sess = InferenceSession(os.path.join(test_data_dir, "azure_chat.onnx"),
                                     self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
             auth_token = np.array([os.getenv('CHAT', '')])
-            chat = np.array(['{\"messages\":[{\"role\": \"system\", \"content\": \"You are a helpful assistant.\"},{\"role\": \"user\", \"content\": \"Does Azure OpenAI support customer managed keys?\"},{\"role\": \"assistant\", \"content\": \"Yes, customer managed keys are supported by Azure OpenAI.\"},{\"role\": \"user\", \"content\": \"Do other Azure AI services support this too?\"}]}'])
+            chat = np.array([r'{"messages":[{"role": "system", "content": "You are a helpful assistant."},{"role": "user", "content": "Does Azure OpenAI support customer managed keys?"},{"role": "assistant", "content": "Yes, customer managed keys are supported by Azure OpenAI."},{"role": "user", "content": "Do other Azure AI services support this too?"}]}'])
             ort_inputs = {
                 "auth_token": auth_token,
                 "chat": chat,
