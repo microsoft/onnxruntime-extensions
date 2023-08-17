@@ -1311,7 +1311,7 @@ expect(node, inputs=[text, pattern, rewrite], outputs=[y],
 </details>
 
 
-## Azure Operators
+## Azure operators
 
 ### OpenAIAudioToText
 
@@ -1388,6 +1388,7 @@ def create_openai_audio_model():
                               opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
 
     onnx.save(model, 'openai_audio.onnx')
+
 
 create_openai_audio_model()
 opt = SessionOptions()
@@ -1471,6 +1472,7 @@ def create_azure_chat_model():
                               opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
 
     onnx.save(model, 'azure_chat.onnx')
+
 
 create_azure_chat_model()
 opt = SessionOptions()
