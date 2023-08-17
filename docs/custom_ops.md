@@ -1310,21 +1310,15 @@ expect(node, inputs=[text, pattern, rewrite], outputs=[y],
 </details>
 
 
-### AzureTritonInvoker
+### OpenAIAudioToText
 
 <details>
-<summary>AzureTritonInvoker details</summary>
+<summary>OpenAIAudioToText details</summary>
 
 
-AzureTritonInvoker operator talks to openAI audio endpoints, send over audio data and fetch transcription as text.
+OpenAIAudioToText operator talks to openAI audio endpoints, send over audio data and fetch transcription as text.
 
 
-domain='com.microsoft.extensions',
-                               name='audio_invoker',
-                               model_uri='https://api.openai.com/v1/audio/transcriptions',
-                               audio_format='wav',
-                               verbose=False
-                               
 #### Attributes
 
 ***model_uri:string***
@@ -1404,5 +1398,73 @@ with open(os.path.join(test_data_dir, "test16.wav"), "rb") as _f:
         "file": audio_blob,
     }
     out = sess.run(None, ort_inputs)[0]
+```
+</details>
+
+
+### AzureTextToText
+
+<details>
+<summary>AzureTextToText details</summary>
+
+
+AzureTextToText talks to a GPT model served by [Azure openAI service](https://learn.microsoft.com/en-us/azure/ai-services/openai/).
+
+
+#### Attributes
+
+***model_uri:string***
+
+Endpoint uri, like "https://myname-aoai-test.openai.azure.com/openai/deployments/mydeploy/chat/completions?api-version=2023-05-15'".
+
+#### Inputs
+
+***auth_token: tensor(string)***
+
+An access token comes with Azure openAI subscription.
+
+***chat: tensor(string)***
+
+A json string as requested [format](https://learn.microsoft.com/en-us/azure/ai-services/openai/chatgpt-quickstart?tabs=command-line&pivots=rest-api).
+
+#### Outputs
+
+***response_format: tensor(string)***
+
+A json string as response.
+
+
+#### Examples
+
+
+```python
+
+def create_azure_chat_model():
+    auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
+    chat = helper.make_tensor_value_info('chat', TensorProto.STRING, [-1])
+    response = helper.make_tensor_value_info('response', TensorProto.STRING, [-1])
+
+    invoker = helper.make_node('AzureTextToText', ['auth_token', 'chat'], ['response'],
+                               domain='com.microsoft.extensions',
+                               name='chat_invoker',
+                               model_uri='https://rashuai-aoai-test.openai.azure.com/openai/deployments/randysgpt/chat/completions?api-version=2023-05-15',
+                               verbose=False)
+
+    graph = helper.make_graph([invoker], 'graph', [auth_token, chat], [response])
+    model = helper.make_model(graph,
+                              opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
+
+    onnx.save(model, 'azure_chat.onnx')
+
+create_azure_chat_model()
+sess = InferenceSession(os.path.join(test_data_dir, "azure_chat.onnx"),
+    self.__opt, providers=["CPUExecutionProvider"])
+auth_token = np.array([os.getenv('MYAUTH', '')])
+chat = np.array(['{\"messages\":[{\"role\": \"system\", \"content\": \"You are a helpful assistant.\"},{\"role\": \"user\", \"content\": \"Does Azure OpenAI support customer managed keys?\"},{\"role\": \"assistant\", \"content\": \"Yes, customer managed keys are supported by Azure OpenAI.\"},{\"role\": \"user\", \"content\": \"Do other Azure AI services support this too?\"}]}'])
+ort_inputs = {
+    "auth_token": auth_token,
+    "chat": chat,
+}
+out = sess.run(None, ort_inputs)[0]
 ```
 </details>
