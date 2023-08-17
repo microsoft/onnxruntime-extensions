@@ -48,6 +48,17 @@ class TestAutoTokenizer(unittest.TestCase):
         actual_ids = ort_tok([text])[0]
         np.testing.assert_array_equal(ids[0], actual_ids)
 
+    def test_roberta_base(self):
+        tokenizer = AutoTokenizer.from_pretrained("SamLowe/roberta-base-go_emotions", use_fast=False)
+        text = "Agree. Keep trying, then if your rejected every time. I'm sorry your done."
+        ids = tokenizer.encode(text, return_tensors="np")
+        m_tok, m_detok = gen_processing_models(tokenizer, pre_kwargs={}, post_kwargs={})
+
+        actual_ids = OrtPyFunction(m_tok)([text])[0]
+        np.testing.assert_array_equal(ids, actual_ids)
+
+        self.assertEqual(OrtPyFunction(m_detok)(ids)[0], tokenizer.decode(ids[0]))
+
 
 if __name__ == '__main__':
     unittest.main()
