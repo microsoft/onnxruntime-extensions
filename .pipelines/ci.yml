@@ -79,7 +79,7 @@ jobs:
         displayName: Install requirements.txt
 
       - script: |
-          CPU_NUMBER=2 python -m pip install -e .
+          CPU_NUMBER=2 python -m pip install .
         displayName: Build the library and tests
 
       - script: python -m pip install $(torch.version)
@@ -89,7 +89,7 @@ jobs:
           python -m pip install -r requirements-dev.txt
         displayName: Install requirements-dev.txt
 
-      - script: python -m pytest test --verbose
+      - script: cd test && python -m pytest . --verbose
         displayName: Run python test
   
   ###############
@@ -120,7 +120,9 @@ jobs:
           python -m pip install -r requirements-dev.txt
         displayName: Install requirements-dev.txt
 
-      - script: python -m pytest test --verbose
+      - script: |
+          cd test
+          python -m pytest --ignore=test_cv2.py --ignore=test_tools_add_pre_post_processing_to_model.py . --verbose
         displayName: Run python test
 
   ###########
@@ -401,7 +403,9 @@ jobs:
         python -m pip install torch torchvision torchaudio
       displayName: Install dependencies for pytest
 
-    - script: python -m pytest test --verbose
+    - script: |
+        cd test
+        python -m pytest --ignore=test_cv2.py --ignore=test_tools_add_pre_post_processing_to_model.py . --verbose
       displayName: Run python test
 
   #############

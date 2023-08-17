@@ -91,9 +91,14 @@ class BuildCMakeExt(_build_ext):
                 '-DOCOS_ENABLE_CV2=OFF',
                 '-DOCOS_ENABLE_VISION=OFF']
 
-        if os.environ.get('OCOS_ENABLE_AZURE') == '1':
-            cmake_args += ['-DOCOS_ENABLE_AZURE=ON']
-            print ('azure ops enabled')
+        # explicitly set the flag for AzureOp, despite the default value in CMakeLists.txt
+        azure_flag = "ON" if os.environ.get('OCOS_ENABLE_AZURE') == '1' else None
+        if azure_flag is None:
+            # OCOS_NO_AZURE will be ignored if OCOS_ENABLE_AZURE is set.
+            azure_flag = "OFF" if os.environ.get('OCOS_NO_AZURE') == '1' else None
+        if azure_flag is not None:
+            cmake_args += ['-DOCOS_ENABLE_AZURE=' + azure_flag]
+            print("=> AzureOp build flag: " + azure_flag)
 
         # CMake lets you override the generator - we need to check this.
         # Can be set with Conda-Build, for example.
