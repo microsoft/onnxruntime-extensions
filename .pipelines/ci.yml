@@ -79,7 +79,7 @@ jobs:
         displayName: Install requirements.txt
 
       - script: |
-          CPU_NUMBER=2 python -m pip install -e .
+          CPU_NUMBER=2 python -m pip install .
         displayName: Build the library and tests
 
       - script: python -m pip install $(torch.version)
@@ -89,7 +89,40 @@ jobs:
           python -m pip install -r requirements-dev.txt
         displayName: Install requirements-dev.txt
 
-      - script: python -m pytest test --verbose
+      - script: cd test && python -m pytest . --verbose
+        displayName: Run python test
+  
+  ###############
+  # Linux PyDebug
+  ###############
+  - job: LinuxPyDbg
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.x'
+          disableDownloadFromRegistry: true
+          addToPath: false
+          architecture: 'x64'
+
+      - script: |
+          python -m pip install --upgrade setuptools pip
+          python -m pip install numpy
+          export OCOS_NO_OPENCV=1
+          export OCOS_SCB_DEBUG=1
+          CPU_NUMBER=2 python -m pip install -e .
+        displayName: Build the python library in editable mode
+
+      - script: |
+          python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r requirements-dev.txt
+        displayName: Install requirements-dev.txt
+
+      - script: |
+          cd test
+          python -m pytest --ignore=test_cv2.py --ignore=test_tools_add_pre_post_processing_to_model.py . --verbose
         displayName: Run python test
 
   ###########
@@ -340,6 +373,40 @@ jobs:
           call activate pyenv
           pytest test
         displayName: Run python test
+
+  #################
+  # Windows PyDebug
+  #################
+  - job: WinPyDbgBuild
+    pool:
+      vmImage: 'windows-latest'
+
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.x'
+        disableDownloadFromRegistry: true
+        addToPath: false
+        architecture: 'x64'
+      displayName: Use ADO python task
+
+    - script: |
+        python -m pip install --upgrade setuptools pip
+        python -m pip install numpy
+        set OCOS_NO_OPENCV=1
+        set OCOS_SCB_DEBUG=1
+        python -m pip install -v -e .
+      displayName: Build onnxruntime-extensions in editable mode.
+        
+    - script: |
+        python -m pip install -r requirements-dev.txt
+        python -m pip install torch torchvision torchaudio
+      displayName: Install dependencies for pytest
+
+    - script: |
+        cd test
+        python -m pytest --ignore=test_cv2.py --ignore=test_tools_add_pre_post_processing_to_model.py . --verbose
+      displayName: Run python test
 
   #############
   # WebAssembly

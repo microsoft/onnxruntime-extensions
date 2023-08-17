@@ -1,3 +1,7 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
+# Minimum CMake required
 cmake_minimum_required(VERSION 3.25)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
@@ -78,7 +82,7 @@ set(OCOS_ONNXRUNTIME_VERSION "" CACHE STRING
 # or it is enabled when OCOS_ENABLE_AZURE is set, which means the user explicitly enables it.
 if ((DEFINED ENV{BUILD_BUILDID}) OR (DEFINED ENV{OCOS_ENABLE_AZURE}))
   set(OCOS_ENABLE_AZURE ON CACHE INTERNAL "" FORCE)
-  message("===> AzureOp is enabled by default.")
+  message("=> AzureOp is enabled by default.")
 endif()
 
 function(disable_all_operators)
