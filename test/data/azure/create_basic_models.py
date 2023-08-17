@@ -5,6 +5,9 @@
 import onnx
 from onnx import helper, TensorProto
 
+# ORT 1.14 only supports IR version 8 so if we're unit testing with the oldest version of ORT that can be used
+# with the Azure ops we need to use this version instead of onnx.IR_VERSION
+MODEL_IR_VERSION = 8
 
 def create_audio_model():
     auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [1])
@@ -24,7 +27,7 @@ def create_audio_model():
                                verbose=False)
 
     graph = helper.make_graph([invoker], 'graph', [auth_token, model, response_format, file], [transcriptions])
-    model = helper.make_model(graph,
+    model = helper.make_model(graph, ir_version=MODEL_IR_VERSION,
                               opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
 
     onnx.save(model, 'openai_audio.onnx')
@@ -42,7 +45,7 @@ def create_chat_model():
                                verbose=False)
 
     graph = helper.make_graph([invoker], 'graph', [auth_token, chat], [response])
-    model = helper.make_model(graph,
+    model = helper.make_model(graph, ir_version=MODEL_IR_VERSION,
                               opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
 
     onnx.save(model, 'openai_chat.onnx')

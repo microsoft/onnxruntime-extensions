@@ -718,13 +718,14 @@ if(OCOS_ENABLE_AZURE)
 
       if (CMAKE_BUILD_TYPE STREQUAL "Debug")
         set(curl_LIB_NAME "libcurl-d")
+        set(zlib_LIB_NAME "zlibd")
         target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_triplet}/debug/lib)
       else()
         set(curl_LIB_NAME "libcurl")
+        set(zlib_LIB_NAME "zlib")
         target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_triplet}/lib)
       endif()
-
-      target_link_libraries(ocos_operators PUBLIC httpclient_static ${curl_LIB_NAME} ws2_32 crypt32 Wldap32)
+      target_link_libraries(ocos_operators PUBLIC httpclient_static ${curl_LIB_NAME} ${zlib_LIB_NAME} ws2_32 crypt32 Wldap32)
     else()
       find_package(ZLIB REQUIRED)
 
