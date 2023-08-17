@@ -82,6 +82,7 @@ class CurlInvoker : public CloudBaseKernel {
   // Compute implementation that is used to co-ordinate all Curl based Azure requests.
   // Derived classes need their own Compute to work with the CustomOpLite infrastructure
   void ComputeImpl(const ortc::Variadic& inputs, ortc::Variadic& outputs) const;
+  virtual std::string ComposeFullAuthToken(const std::string& auth_token) const;
 
  private:
   void ExecuteRequest(CurlHandler& handler) const;

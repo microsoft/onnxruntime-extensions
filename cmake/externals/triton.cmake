@@ -128,6 +128,8 @@ ExternalProject_Add(triton
                     URL https://github.com/triton-inference-server/client/archive/refs/heads/${triton_VERSION_TAG}.tar.gz
                     URL_HASH SHA1=b8fd2a4e09eae39c33cd04cfa9ec934e39d9afc1
                     PREFIX ${triton_PREFIX}
+                    SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/triton-src
+                    BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/triton-build
                     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${triton_INSTALL_DIR}
                                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                                -DTRITON_COMMON_REPO_TAG=${triton_VERSION_TAG}
