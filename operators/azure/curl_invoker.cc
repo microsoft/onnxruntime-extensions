@@ -62,7 +62,7 @@ void CurlInvoker::ComputeImpl(const ortc::Variadic& inputs, ortc::Variadic& outp
   // set the options for the curl handler that apply to all usages
   CurlHandler curl_handler(CurlHandler::WriteStringCallback);
 
-  std::string full_auth = std::string{"Authorization: Bearer "} + auth_token;
+  std::string full_auth = ComposeFullAuthToken(auth_token);
   curl_handler.AddHeader(full_auth.c_str());
   curl_handler.SetOption(CURLOPT_URL, ModelUri().c_str());
   curl_handler.SetOption(CURLOPT_VERBOSE, Verbose());
@@ -73,6 +73,10 @@ void CurlInvoker::ComputeImpl(const ortc::Variadic& inputs, ortc::Variadic& outp
   SetupRequest(curl_handler, inputs);
   ExecuteRequest(curl_handler);
   ProcessResponse(response, outputs);
+}
+
+std::string CurlInvoker::ComposeFullAuthToken(const std::string& auth_token) const {
+  return std::string{"Authorization: Bearer "} + auth_token;
 }
 
 void CurlInvoker::ExecuteRequest(CurlHandler& curl_handler) const {
