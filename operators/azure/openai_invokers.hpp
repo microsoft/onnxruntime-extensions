@@ -18,13 +18,13 @@ namespace ort_extensions {
 /// Output: text {string}
 /// </summary>
 /// <remarks>
-/// 	The model URI is read from the node attributes.
+///     The model URI is read from the node attributes.
 ///     The model name (e.g. 'whisper-1') can be provided as a node attribute or via an input.
 ///
-/// 	Example input would be:
+///     Example input would be:
 ///       - string tensor named `auth_token` (required, must be first input)
 ///       - a uint8 tensor named `file` with audio data in the format matching the 'audio_format' attribute (required)
-/// 	    - see OpenAI documentation for current supported audio formats
+///       - see OpenAI documentation for current supported audio formats
 ///       - a string tensor named `filename` (optional) with extension indicating the format of the audio data
 ///         - e.g. 'audio.mp3'
 ///       - a string tensor named `prompt` (optional)

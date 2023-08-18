@@ -91,9 +91,14 @@ class BuildCMakeExt(_build_ext):
                 '-DOCOS_ENABLE_CV2=OFF',
                 '-DOCOS_ENABLE_VISION=OFF']
 
-        if os.environ.get('OCOS_ENABLE_AZURE') == '1':
-            cmake_args += ['-DOCOS_ENABLE_AZURE=ON']
-            print ('azure ops enabled')
+        # explicitly set the flag for AzureOp, despite the default value in CMakeLists.txt
+        azure_flag = "ON" if os.environ.get('OCOS_ENABLE_AZURE') == '1' else None
+        if azure_flag is None:
+            # OCOS_NO_AZURE will be ignored if OCOS_ENABLE_AZURE is set.
+            azure_flag = "OFF" if os.environ.get('OCOS_NO_AZURE') == '1' else None
+        if azure_flag is not None:
+            cmake_args += ['-DOCOS_ENABLE_AZURE=' + azure_flag]
+            print("=> AzureOp build flag: " + azure_flag)
 
         # CMake lets you override the generator - we need to check this.
         # Can be set with Conda-Build, for example.
@@ -149,6 +154,8 @@ class BuildCMakeExt(_build_ext):
         if os.environ.get(VSINSTALLDIR_NAME):
             cmake_exe = os.environ[VSINSTALLDIR_NAME] + \
                         'Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe'
+            # Add this cmake directory into PATH to make sure the child-process still find it.
+            os.environ['PATH'] = os.path.dirname(cmake_exe) + os.pathsep + os.environ['PATH']
 
         self.spawn([cmake_exe, '-S', str(project_dir), '-B', str(build_temp)] + cmake_args)
         if not self.dry_run:

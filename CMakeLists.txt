@@ -1,3 +1,7 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
+# Minimum CMake required
 cmake_minimum_required(VERSION 3.25)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
@@ -78,7 +82,7 @@ set(OCOS_ONNXRUNTIME_VERSION "" CACHE STRING
 # or it is enabled when OCOS_ENABLE_AZURE is set, which means the user explicitly enables it.
 if ((DEFINED ENV{BUILD_BUILDID}) OR (DEFINED ENV{OCOS_ENABLE_AZURE}))
   set(OCOS_ENABLE_AZURE ON CACHE INTERNAL "" FORCE)
-  message("===> AzureOp is enabled by default.")
+  message("=> AzureOp is enabled by default.")
 endif()
 
 function(disable_all_operators)
@@ -718,13 +722,14 @@ if(OCOS_ENABLE_AZURE)
 
       if (CMAKE_BUILD_TYPE STREQUAL "Debug")
         set(curl_LIB_NAME "libcurl-d")
+        set(zlib_LIB_NAME "zlibd")
         target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_triplet}/debug/lib)
       else()
         set(curl_LIB_NAME "libcurl")
+        set(zlib_LIB_NAME "zlib")
         target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_triplet}/lib)
       endif()
-
-      target_link_libraries(ocos_operators PUBLIC httpclient_static ${curl_LIB_NAME} ws2_32 crypt32 Wldap32)
+      target_link_libraries(ocos_operators PUBLIC httpclient_static ${curl_LIB_NAME} ${zlib_LIB_NAME} ws2_32 crypt32 Wldap32)
     else()
       find_package(ZLIB REQUIRED)
 

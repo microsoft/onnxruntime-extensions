@@ -21,6 +21,17 @@
 // #endif
 #include "onnxruntime_c_api.h"
 
+// ORT_FILE is defined in the ORT C API from 1.15 on. Provide simplified definition for older versions.
+// On Windows, ORT_FILE is a wchar_t version of the __FILE__ macro.
+// Otherwise, ORT_FILE is equivalent to __FILE__.
+#ifndef ORT_FILE
+#ifdef _WIN32
+#define ORT_FILE __FILEW__
+#else
+#define ORT_FILE __FILE__
+#endif
+#endif
+
 namespace OrtW {
 
 // All C++ methods that can fail will throw an exception of this type
