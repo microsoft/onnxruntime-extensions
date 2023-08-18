@@ -11,13 +11,19 @@
 
 using namespace ort_extensions;
 
+#ifdef AZURE_OP_AS_CPU_OP
+#define AZURE_OP CustomCpuStruct
+#else
+#define AZURE_OP CustomAzureStruct
+#endif
+
 const std::vector<const OrtCustomOp*>& AzureInvokerLoader() {
-  static OrtOpLoader op_loader(CustomAzureStruct("AzureAudioToText", AzureAudioToTextInvoker),
-                               CustomAzureStruct("AzureTextToText", AzureTextToTextInvoker),
-                               CustomAzureStruct("OpenAIAudioToText", OpenAIAudioToTextInvoker)
+  static OrtOpLoader op_loader(AZURE_OP("AzureAudioToText", AzureAudioToTextInvoker),
+                               AZURE_OP("AzureTextToText", AzureTextToTextInvoker),
+                               AZURE_OP("OpenAIAudioToText", OpenAIAudioToTextInvoker)
 #ifdef AZURE_INVOKERS_ENABLE_TRITON
                                    ,
-                               CustomAzureStruct("AzureTritonInvoker", AzureTritonInvoker)
+                               AZURE_OP("AzureTritonInvoker", AzureTritonInvoker)
 #endif
   );
 

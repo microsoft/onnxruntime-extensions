@@ -455,6 +455,7 @@ if(OCOS_ENABLE_AZURE)
 
     # exclude triton as it's not supported on Android
     list(FILTER TARGET_SRC_AZURE EXCLUDE REGEX ".*triton.*")
+    add_compile_definitions(AZURE_OP_AS_CPU_OP)
   else()
     add_compile_definitions(AZURE_INVOKERS_ENABLE_TRITON)
 
