@@ -13,15 +13,11 @@ using namespace ort_extensions;
 
 const std::vector<const OrtCustomOp*>& AzureInvokerLoader() {
   static OrtOpLoader op_loader(CustomAzureStruct("AzureAudioToText", AzureAudioToTextInvoker),
-                               CustomCpuStruct("AzureAudioToText", AzureAudioToTextInvoker),
                                CustomAzureStruct("AzureTextToText", AzureTextToTextInvoker),
-                               CustomCpuStruct("AzureTextToText", AzureTextToTextInvoker),
-                               CustomAzureStruct("OpenAIAudioToText", OpenAIAudioToTextInvoker),
-                               CustomCpuStruct("OpenAIAudioToText", OpenAIAudioToTextInvoker)
+                               CustomAzureStruct("OpenAIAudioToText", OpenAIAudioToTextInvoker)
 #ifdef AZURE_INVOKERS_ENABLE_TRITON
                                    ,
-                               CustomAzureStruct("AzureTritonInvoker", AzureTritonInvoker),
-                               CustomCpuStruct("AzureTritonInvoker", AzureTritonInvoker)
+                               CustomAzureStruct("AzureTritonInvoker", AzureTritonInvoker)
 #endif
   );
 
