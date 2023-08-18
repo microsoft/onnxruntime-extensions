@@ -82,14 +82,14 @@ class LoggerImpl {
 };
 }  // namespace detail
 
-// for use in implementation of classes that have a GetLogger() member that returns an ort_extensions::Logger<T>.
+// logger is ort_extensions::Logger.
 // severity is an ORT_LOGGING_LEVEL_... value (e.g. ORT_LOGGING_LEVEL_WARNING)
 #ifdef _WIN32
-#define KERNEL_LOG(severity, msg) \
-  GetLogger().LogMessage(severity, __FILEW__, __LINE__, __FUNCTION__, msg)
+#define KERNEL_LOG(logger, severity, msg) \
+  logger.LogMessage(severity, __FILEW__, __LINE__, __FUNCTION__, msg)
 #else
-#define KERNEL_LOG(severity, msg) \
-  GetLogger().LogMessage(severity, __FILE__, __LINE__, __FUNCTION__, msg)
+#define KERNEL_LOG(logger, severity, msg) \
+  logger.LogMessage(severity, __FILE__, __LINE__, __FUNCTION__, msg)
 #endif
 
 using Logger = detail::LoggerImpl<OrtApi>;
