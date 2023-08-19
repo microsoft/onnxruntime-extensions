@@ -28,7 +28,7 @@ KernelRobertaBpeTokenizer::KernelRobertaBpeTokenizer(const OrtApi& api, const Or
   std::stringstream vocabu_stream(vocab);
   std::stringstream merges_stream(merges);
   bbpe_tokenizer_ = std::make_shared<VocabData>();
-  bbpe_tokenizer_->Load(vocabu_stream, merges_stream, "<|endoftext|>", "<|endoftext|>");
+  bbpe_tokenizer_->Load(vocabu_stream, merges_stream, "<unk>", "<s>\n</s>\n<pad>\n<mask>");
 }
 
 std::vector<int64_t> KernelRobertaBpeTokenizer::Tokenize(ustring& input, int64_t max_length,

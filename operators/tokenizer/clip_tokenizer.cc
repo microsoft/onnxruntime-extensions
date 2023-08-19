@@ -28,7 +28,7 @@ KernelClipBpeTokenizer::KernelClipBpeTokenizer(const OrtApi& api, const OrtKerne
   std::stringstream vocabu_stream(vocab);
   std::stringstream merges_stream(merges);
   bbpe_tokenizer_ = std::make_shared<VocabData>();
-  bbpe_tokenizer_->Load(vocabu_stream, merges_stream, "<|endoftext|>", "<|endoftext|>");
+  bbpe_tokenizer_->Load(vocabu_stream, merges_stream, "<|endoftext|>", "<|startoftext|>\n<|endoftext|>");
 }
 
 std::vector<int64_t> KernelClipBpeTokenizer::Tokenize(ustring& input, int64_t max_length, bool compute_offset_mapping,

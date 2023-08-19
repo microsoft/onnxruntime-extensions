@@ -74,7 +74,8 @@ def get_model_inputs(ort_session, audio_data):
 
     # Add optional inputs if present in model
     batch_size = 1
-    N_MELS = 80, N_FRAMES = 3000
+    N_MELS = 80
+    N_FRAMES = 3000
 
     vocab_size = 51864 if ".en" in MODEL_NAME else 51865
     decoder_start_token_id = 50257 if ".en" in MODEL_NAME else 50258
