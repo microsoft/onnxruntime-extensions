@@ -170,8 +170,4 @@ class TestAzureOps(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    try:
-        unittest.main()
-        print ('done')
-    except Exception as e:
-        print (e)
+    unittest.main()
