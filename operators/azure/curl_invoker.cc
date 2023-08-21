@@ -21,68 +21,60 @@ namespace {
 // need to do in memory cert on Android pending finding a way to use the system certs.
 #if defined(USE_IN_MEMORY_CURL_CERTS)
 // based on the approach from https://curl.se/libcurl/c/cacertinmem.html
+X509_STORE* CreateX509Store() {
+// the #include defines `static const char curl_pem[] = ...;` with the certs
+#include "curl_certs/cacert.pem.inc"
+  bool success = false;
+  X509_STORE* cts = X509_STORE_new();
+  if (!cts) {
+    ORTX_CXX_API_THROW("X509_STORE_new returned nullptr", ORT_RUNTIME_EXCEPTION);
+  }
 
-X509_STORE* GetCertificateStore() {
-  static X509_STORE* store = []() {
-    // the #include defines `static const char curl_pem[] = ...;` with the certs
-    #include "curl_certs/cacert.pem.inc"
-    
-    bool success = false;
-    X509_STORE* cts = X509_STORE_new();
-    if (!cts) {
-      ORTX_CXX_API_THROW("X509_STORE_new returned nullptr", ORT_RUNTIME_EXCEPTION);
+  auto free_cts_on_failure = gsl::finally([cts, &success] {
+    if (!success) {
+      X509_STORE_free(cts);
     }
-
-    auto free_cts_on_failure = gsl::finally([cts, &success] {
-      if (!success) {
-        X509_STORE_free(cts);
-      }
-    });
-
-    BIO* cbio = BIO_new_mem_buf(curl_pem, sizeof(curl_pem));
-    if (!cbio) {
-      ORTX_CXX_API_THROW("BIO_new_mem_buf returned nullptr", ORT_RUNTIME_EXCEPTION);
-    }
-
-    auto free_cbio = gsl::finally([cbio] {
-      BIO_free(cbio);
-    });
-
-    STACK_OF(X509_INFO)* inf = PEM_X509_INFO_read_bio(cbio, NULL, NULL, NULL);
-    if (!inf) {
-      ORTX_CXX_API_THROW("PEM_X509_INFO_read_bio returned nullptr", ORT_RUNTIME_EXCEPTION);
-    }
-
-    auto free_inf = gsl::finally([inf] {
-      sk_X509_INFO_pop_free(inf, X509_INFO_free);
-    });
-
-    for (int i = 0; i < sk_X509_INFO_num(inf); ++i) {
-      X509_INFO* itmp = sk_X509_INFO_value(inf, i);
-      if (itmp->x509) {
-        X509_STORE_add_cert(cts, itmp->x509);
-      }
-
-      if (itmp->crl) {
-        X509_STORE_add_crl(cts, itmp->crl);
-      }
-    }
-
-    // set flag so we don't free the store on exit
-    success = true;
-
-    return cts;
-  }();
-
-  // slightly obtuse cleanup on exit. 
-  // a lambda can't capture the static `store`, so call GetCachedStore() to get the pointer.
-  // we can't explicitly set `store` to nullptr due to this setup, but it's static cleanup and nothing else should be
-  // attempting to use the `store` when cleanup happens as it's only used in the SSL_CTX of a request. 
-  static auto free_store = gsl::finally([] {
-    X509_STORE_free(GetCertificateStore());
   });
 
-  return store;
+  BIO* cbio = BIO_new_mem_buf(curl_pem, sizeof(curl_pem));
+  if (!cbio) {
+    ORTX_CXX_API_THROW("BIO_new_mem_buf returned nullptr", ORT_RUNTIME_EXCEPTION);
+  }
+
+  auto free_cbio = gsl::finally([cbio] {
+    BIO_free(cbio);
+  });
+
+  STACK_OF(X509_INFO)* inf = PEM_X509_INFO_read_bio(cbio, NULL, NULL, NULL);
+  if (!inf) {
+    ORTX_CXX_API_THROW("PEM_X509_INFO_read_bio returned nullptr", ORT_RUNTIME_EXCEPTION);
+  }
+
+  auto free_inf = gsl::finally([inf] {
+    sk_X509_INFO_pop_free(inf, X509_INFO_free);
+  });
+
+  for (int i = 0; i < sk_X509_INFO_num(inf); ++i) {
+    X509_INFO* itmp = sk_X509_INFO_value(inf, i);
+    if (itmp->x509) {
+      X509_STORE_add_cert(cts, itmp->x509);
+    }
+
+    if (itmp->crl) {
+      X509_STORE_add_crl(cts, itmp->crl);
+    }
+  }
+
+  // set flag so we don't free the store on exit
+  success = true;
+
+  return cts;
+}
+
+X509_STORE* GetCertificateStore() {
+  static std::unique_ptr<X509_STORE, decltype(&X509_STORE_free)> store{CreateX509Store(), &X509_STORE_free};
+
+  return store.get();
 }
 
 CURLcode sslctx_function(CURL* /*curl*/, void* sslctx, void* /*parm*/) {
