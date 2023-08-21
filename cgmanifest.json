@@ -158,7 +158,37 @@
         },
         "comments": "CMake for building our CI build"
       }
-    }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "f6a5d4e8eb7476b8d7fc12a56dff300c1c986131",
+          "repositoryUrl": "https://github.com/microsoft/vcpkg"
+        },
+        "comments": "vcpkg for package management"
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "54717d6adb67c15f11b50b0389c426eecb5470da",
+          "repositoryUrl": "https://github.com/triton-inference-server/client"
+        },
+        "comments": "triton client to talk to AML triton service"
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "7f43373a1234f5f773bc6d43a5e3d1e4cddcf9f6",
+          "repositoryUrl": "https://github.com/Tencent/rapidjson"
+        },
+        "comments": "json utility library"
+      }
+    },
   ],
   "Version": 1
 }
