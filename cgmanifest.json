@@ -183,10 +183,40 @@
       "component": {
         "type": "git",
         "git": {
-          "commitHash": "7f43373a1234f5f773bc6d43a5e3d1e4cddcf9f6",
+          "commitHash": "f54b0e47a08782a6131cc3d60f94d038fa6e0a51",
           "repositoryUrl": "https://github.com/Tencent/rapidjson"
         },
-        "comments": "json utility library"
+        "comments": "an utility library for json"
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "2cf4e90eaaf7402bf038b158dbdacd0a15561fb7",
+          "repositoryUrl": "https://github.com/openssl/openssl"
+        },
+        "comments": "a toolkit for general-purpose cryptography and secure communication"
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "04f42ceca40f73e2978b50e93806c2a18c1281fc",
+          "repositoryUrl": "https://github.com/madler/zlib"
+        },
+        "comments": "a general purpose data compression library"
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "7ab9d43720bc34d9aa351c7ca683c1668ebf8335",
+          "repositoryUrl": "https://github.com/curl/curl"
+        },
+        "comments": "a library for transferring data specified with URL syntax"
       }
     },
   ],
