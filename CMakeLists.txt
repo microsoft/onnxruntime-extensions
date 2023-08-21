@@ -620,10 +620,6 @@ if(OCOS_ENABLE_SPM_TOKENIZER)
   target_include_directories(ocos_operators PUBLIC ${spm_INCLUDE_DIRS})
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_SPM_TOKENIZER)
   list(APPEND ocos_libraries sentencepiece-static)
-
-  if(ANDROID)
-    list(APPEND ocos_libraries log)
-  endif()
 endif()
 
 if(OCOS_ENABLE_BLINGFIRE)
@@ -641,6 +637,11 @@ endif()
 # will be unknown. Set a compile definition so the code can adjust to the build type.
 if(NOT OCOS_ENABLE_STATIC_LIB)
   list(APPEND OCOS_COMPILE_DEFINITIONS OCOS_SHARED_LIBRARY)
+endif()
+
+# __android_log_print support
+if(ANDROID)
+  list(APPEND ocos_libraries log)
 endif()
 
 target_include_directories(noexcep_operators PUBLIC ${GSL_INCLUDE_DIR})
@@ -696,7 +697,6 @@ endif()
 
 if(OCOS_ENABLE_AZURE)
   if (ANDROID)
-    
     # find_package calls were made immediately after `include(curl)` so we know CURL and OpenSSL are available.
     find_package(ZLIB REQUIRED)
     target_link_libraries(ocos_operators PUBLIC CURL::libcurl OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB)
@@ -776,7 +776,11 @@ if(_BUILD_SHARED_LIBRARY)
   standardize_output_folder(extensions_shared)
 
   if(LINUX OR ANDROID)
-    set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS "-Wl,-s -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
+    set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
+    # strip if not a debug build
+    if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+      set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-s")
+    endif()
   endif()
 
   target_include_directories(extensions_shared PUBLIC $<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>)
@@ -885,7 +889,7 @@ if(OCOS_ENABLE_CTEST)
       target_link_directories(extensions_test PRIVATE ${ONNXRUNTIME_LIB_DIR})
     endif()
 
-    target_link_libraries(extensions_test PRIVATE extensions_shared ${ocos_libraries} onnxruntime
+    target_link_libraries(extensions_test PRIVATE extensions_shared ${ocos_libraries} onnxruntime 
                                                   gtest_main gmock_main ${LINUX_CC_FLAGS})
 
     # Copy ONNXRuntime DLLs into bin folder for testing on Windows platform
