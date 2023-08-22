@@ -18,7 +18,7 @@
 
 namespace ort_extensions {
 namespace {
-// need to do in memory cert on Android pending finding a way to use the system certs.
+// need to do in-memory cert on Android pending finding a way to use the system certs.
 #if defined(USE_IN_MEMORY_CURL_CERTS)
 // based on the approach from https://curl.se/libcurl/c/cacertinmem.html
 X509_STORE* CreateX509Store(const std::string& certs) {
@@ -136,12 +136,12 @@ CurlInvoker::CurlInvoker(const OrtApi& api, const OrtKernelInfo& info)
     : CloudBaseKernel(api, info) {
 #if defined(USE_IN_MEMORY_CURL_CERTS)
   std::string x509_certs;
-  // attribute not present or empty. there could be other Azure operator nodes in the model though and we only need
-  // one to provide the certs.
   if (TryToGetAttribute(kX509Certificates, x509_certs) && !x509_certs.empty()) {
     // populate certificate store
     static_cast<void>(GetCertificateStore(x509_certs));
   } else {
+    // attribute not present or empty. there could be other Azure operator nodes in the model though and we only need
+    // one to provide the certs.
     KERNEL_LOG(GetLogger(), ORT_LOGGING_LEVEL_WARNING,
                (std::string(kX509Certificates) +
                 " attribute is required on Android from at least one Azure custom operator in the model")
