@@ -19,16 +19,19 @@ class CloudBaseKernel : public BaseKernel {
   virtual ~CloudBaseKernel() = default;
 
   // Names of attributes the custom operator provides.
-  static constexpr const char* kUri = "model_uri";           // required
-  static constexpr const char* kModelName = "model_name";    // optional
-  static constexpr const char* kModelVer = "model_version";  // optional
+  static constexpr const char* kUri = "model_uri";            // required
+  static constexpr const char* kModelName = "model_name";     // optional
+  static constexpr const char* kModelVer = "model_version";   // optional
+  static constexpr const char* kTimeout = "timeout_seconds";  // optional. timeout for request to endpoint
   static constexpr const char* kVerbose = "verbose";
 
   static constexpr int kMinimumSupportedOrtVersion = 14;
+  static constexpr int kDefaultTimeoutSeconds = 15;
 
   const std::string& ModelUri() const { return model_uri_; }
   const std::string& ModelName() const { return model_name_; }
   const std::string& ModelVersion() const { return model_ver_; }
+  int TimeoutSeconds() const { return timeout_seconds_; }
   bool Verbose() const { return verbose_; }
 
   const gsl::span<const std::string> InputNames() const { return input_names_; }
@@ -57,6 +60,7 @@ class CloudBaseKernel : public BaseKernel {
   std::string model_uri_;
   std::string model_name_;
   std::string model_ver_;
+  int timeout_seconds_;
   bool verbose_;
 
   std::vector<std::string> input_names_;
