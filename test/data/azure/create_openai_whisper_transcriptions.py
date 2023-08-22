@@ -66,6 +66,7 @@ model = helper.make_model(
                 audio_format='wav',  # default audio type if filename is not specified.
                 model_uri='https://api.openai.com/v1/audio/transcriptions',
                 model_name='whisper-1',
+                timeout_seconds=20,
                 verbose=0,
             ),
         ],

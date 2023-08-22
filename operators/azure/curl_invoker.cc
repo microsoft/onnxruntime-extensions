@@ -38,9 +38,6 @@ CurlHandler::CurlHandler(WriteCallBack callback) : curl_(curl_easy_init(), curl_
   curl_easy_setopt(curl, CURLOPT_FTP_SKIP_PASV_IP, 1L);      // what does this have to do with http requests?
   curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, callback);
-
-  // should this be configured via a node attribute? different endpoints may have different timeouts
-  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15);
 }
 
 ////////////////////// CurlInvoker //////////////////////
@@ -65,6 +62,8 @@ void CurlInvoker::ComputeImpl(const ortc::Variadic& inputs, ortc::Variadic& outp
   std::string full_auth = ComposeFullAuthToken(auth_token);
   curl_handler.AddHeader(full_auth.c_str());
   curl_handler.SetOption(CURLOPT_URL, ModelUri().c_str());
+  curl_handler.SetOption(CURLOPT_TIMEOUT, TimeoutSeconds());
+
   curl_handler.SetOption(CURLOPT_VERBOSE, Verbose());
 
   std::string response;
@@ -85,7 +84,7 @@ void CurlInvoker::ExecuteRequest(CurlHandler& curl_handler) const {
   if (CURLE_OK != curl_ret) {
     const char* err = curl_easy_strerror(curl_ret);
     KERNEL_LOG(ORT_LOGGING_LEVEL_ERROR, ("Curl error (CURLcode=" + std::to_string(curl_ret) + "): " + err).c_str());
- 
+
     ORTX_CXX_API_THROW(err, ORT_FAIL);
   }
 }
