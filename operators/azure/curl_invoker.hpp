@@ -79,6 +79,13 @@ class CurlInvoker : public CloudBaseKernel {
   CurlInvoker(const OrtApi& api, const OrtKernelInfo& info);
   virtual ~CurlInvoker() = default;
 
+  // attribute name containing x509 certificates for use in SSL requests. required on Android. 
+  // should only contain the certs (i.e. sequential blocks of 
+  // "-----BEGIN CERTIFICATE-----", certificate contents, "-----END CERTIFICATE-----" 
+  // with no comments or other text in between.
+  // see /test/data/azure/get_certs_for_model.py for example processing of a PEM file to extract the certificates.
+  static constexpr const char* kX509Certificates = "x509_certificates";  
+
   // Compute implementation that is used to co-ordinate all Curl based Azure requests.
   // Derived classes need their own Compute to work with the CustomOpLite infrastructure
   void ComputeImpl(const ortc::Variadic& inputs, ortc::Variadic& outputs) const;

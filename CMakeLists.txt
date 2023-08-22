@@ -723,7 +723,7 @@ if(OCOS_ENABLE_AZURE)
         set(zlib_LIB_NAME "zlib")
         target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_triplet}/lib)
       endif()
-      target_link_libraries(ocos_operators PUBLIC httpclient_static ${curl_LIB_NAME} ${zlib_LIB_NAME} ws2_32 crypt32 Wldap32)
+      target_link_libraries(ocos_operators PUBLIC httpclient_static ${curl_LIB_NAME} libcrypto libssl ${zlib_LIB_NAME} ws2_32 crypt32 Wldap32)
     else()
       find_package(ZLIB REQUIRED)
 
@@ -768,7 +768,7 @@ if(_BUILD_SHARED_LIBRARY)
   file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h" "shared/*.def")
   add_library(extensions_shared SHARED ${shared_TARGET_SRC})
 
-  # We need to propagate OCOS_SHARED_LIBRARY if set. 
+  # We need to propagate OCOS_SHARED_LIBRARY if set.
   # could specifically add that if using OCOS_COMPILE_DEFINITIONS is too much.
   target_compile_definitions(extensions_shared PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 

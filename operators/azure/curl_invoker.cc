@@ -21,9 +21,7 @@ namespace {
 // need to do in memory cert on Android pending finding a way to use the system certs.
 #if defined(USE_IN_MEMORY_CURL_CERTS)
 // based on the approach from https://curl.se/libcurl/c/cacertinmem.html
-X509_STORE* CreateX509Store() {
-// the #include defines `static const char curl_pem[] = ...;` with the certs
-#include "curl_certs/cacert.pem.inc"
+X509_STORE* CreateX509Store(const std::string& certs) {
   bool success = false;
   X509_STORE* cts = X509_STORE_new();
   if (!cts) {
@@ -36,7 +34,7 @@ X509_STORE* CreateX509Store() {
     }
   });
 
-  BIO* cbio = BIO_new_mem_buf(curl_pem, sizeof(curl_pem));
+  BIO* cbio = BIO_new_mem_buf(certs.data(), certs.length());
   if (!cbio) {
     ORTX_CXX_API_THROW("BIO_new_mem_buf returned nullptr", ORT_RUNTIME_EXCEPTION);
   }
@@ -71,15 +69,16 @@ X509_STORE* CreateX509Store() {
   return cts;
 }
 
-X509_STORE* GetCertificateStore() {
-  static std::unique_ptr<X509_STORE, decltype(&X509_STORE_free)> store{CreateX509Store(), &X509_STORE_free};
+X509_STORE* GetCertificateStore(const std::string& certs) {
+  // first call populates the store. `certs` is ignored after that.
+  static std::unique_ptr<X509_STORE, decltype(&X509_STORE_free)> store{CreateX509Store(certs), &X509_STORE_free};
 
   return store.get();
 }
 
 CURLcode sslctx_function(CURL* /*curl*/, void* sslctx, void* /*parm*/) {
-  // Need to use SSL_CTX_set1_cert_store so the ref count on the store gets incremented correctly. 
-  SSL_CTX_set1_cert_store(static_cast<SSL_CTX*>(sslctx), GetCertificateStore());
+  // Need to use SSL_CTX_set1_cert_store so the ref count on the store gets incremented correctly.
+  SSL_CTX_set1_cert_store(static_cast<SSL_CTX*>(sslctx), GetCertificateStore(""));
 
   return CURLE_OK;
 }
@@ -135,6 +134,20 @@ CurlHandler::CurlHandler() : curl_(curl_easy_init(), curl_easy_cleanup),
 
 CurlInvoker::CurlInvoker(const OrtApi& api, const OrtKernelInfo& info)
     : CloudBaseKernel(api, info) {
+#if defined(USE_IN_MEMORY_CURL_CERTS)
+  std::string x509_certs;
+  // attribute not present or empty. there could be other Azure operator nodes in the model though and we only need
+  // one to provide the certs.
+  if (TryToGetAttribute(kX509Certificates, x509_certs) && !x509_certs.empty()) {
+    // populate certificate store
+    static_cast<void>(GetCertificateStore(x509_certs));
+  } else {
+    KERNEL_LOG(GetLogger(), ORT_LOGGING_LEVEL_WARNING,
+               (std::string(kX509Certificates) +
+                " attribute is required on Android from at least one Azure custom operator in the model")
+                   .c_str());
+  }
+#endif
 }
 
 void CurlInvoker::ComputeImpl(const ortc::Variadic& inputs, ortc::Variadic& outputs) const {
