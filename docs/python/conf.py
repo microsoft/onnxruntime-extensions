@@ -95,3 +95,9 @@ intersphinx_mapping = {
     "numpy": ("https://numpy.org/doc/stable", None),
     "torch": ("https://pytorch.org/docs/stable/", None),
 }
+
+# -- Options for Sphinx Gallery ----------------------------------------------
+
+sphinx_gallery_conf = {
+    "examples_dirs": "examples",
+}

@@ -1,4 +1,4 @@
-name: Update Python API Docs
+name: Publish Python API Docs
 
 # Run when the Python API changes or every month so that the artifact does not expire
 on:
