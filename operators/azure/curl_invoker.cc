@@ -125,9 +125,6 @@ CurlHandler::CurlHandler() : curl_(curl_easy_init(), curl_easy_cleanup),
 #if defined(USE_IN_MEMORY_CURL_CERTS)
   curl_easy_setopt(curl, CURLOPT_SSL_CTX_FUNCTION, sslctx_function);
 #endif
-
-  // should this be configured via a node attribute? different endpoints may have different timeouts
-  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15);
 }
 
 ////////////////////// CurlInvoker //////////////////////
@@ -166,6 +163,7 @@ void CurlInvoker::ComputeImpl(const ortc::Variadic& inputs, ortc::Variadic& outp
   std::string full_auth = ComposeFullAuthToken(auth_token);
   curl_handler.AddHeader(full_auth.c_str());
   curl_handler.SetOption(CURLOPT_URL, ModelUri().c_str());
+  curl_handler.SetOption(CURLOPT_TIMEOUT, TimeoutSeconds());
   curl_handler.SetOption(CURLOPT_VERBOSE, Verbose());
 
   CurlHandler::WriteStringCallbackData callback_data(GetLogger());
