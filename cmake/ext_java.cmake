@@ -192,18 +192,22 @@ if (ANDROID)
   endif()
 
   if (OCOS_ENABLE_AZURE)
-    add_custom_command(TARGET onnxruntime_extensions4j_jni
-      POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different 
-        $<TARGET_FILE:OpenSSL::Crypto>
-        ${ANDROID_PACKAGE_ABI_DIR}/$<TARGET_LINKER_FILE_NAME:OpenSSL::Crypto>
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different 
-        $<TARGET_FILE:OpenSSL::SSL>
-        ${ANDROID_PACKAGE_ABI_DIR}/$<TARGET_LINKER_FILE_NAME:OpenSSL::SSL>
-      # not sure why but we need to use the library name directly for curl instead of CURL::libcurl
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different 
-        ${CURL_ROOT_DIR}/lib/libcurl.so
-        ${ANDROID_PACKAGE_ABI_DIR}/libcurl.so
-    )
+    # if we do a shared build of curl/openssl libcurl.so will exist, and we need to copy these files
+    # for inclusion in the AAR
+    if(EXISTS "${CURL_ROOT_DIR}/lib/libcurl.so")
+      add_custom_command(TARGET onnxruntime_extensions4j_jni
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+          $<TARGET_FILE:OpenSSL::Crypto>
+          ${ANDROID_PACKAGE_ABI_DIR}/$<TARGET_LINKER_FILE_NAME:OpenSSL::Crypto>
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+          $<TARGET_FILE:OpenSSL::SSL>
+          ${ANDROID_PACKAGE_ABI_DIR}/$<TARGET_LINKER_FILE_NAME:OpenSSL::SSL>
+        # not sure why but we need to use the library name directly for curl instead of CURL::libcurl
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+          ${CURL_ROOT_DIR}/lib/libcurl.so
+          ${ANDROID_PACKAGE_ABI_DIR}/libcurl.so
+      )
+    endif()
   endif()
 endif()
