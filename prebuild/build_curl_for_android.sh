@@ -16,7 +16,8 @@ if [ ! -d "openssl_for_ios_and_android" ]; then
     cd openssl_for_ios_and_android
     git checkout ci-release-663da9e2
     # patch with fixes to build on linux with NDK 25 or later
-    git apply ../build_curl_for_android_on_linux.patch
+    echo "Applying patches to tools for curl and openssl builds"
+    git apply --verbose ../build_curl_for_android_on_linux.patch
 else
     echo "Skipping checkout and patch"
     cd openssl_for_ios_and_android
@@ -31,7 +32,6 @@ else
     export api=${ANDROID_API_LEVEL}
 fi
 
-echo $api
 # provide a specific architecture as an argument to the script to limit the build to that
 # default is to build all
 # valid architecture values: "arm" "arm64" "x86" "x86_64"
