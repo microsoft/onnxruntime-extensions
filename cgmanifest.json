@@ -206,7 +206,7 @@
           "commitHash": "04f42ceca40f73e2978b50e93806c2a18c1281fc",
           "repositoryUrl": "https://github.com/madler/zlib"
         },
-        "comments": "a general purpose data compression library"
+        "comments": "the version of zlib is a dependency introduced by triton"
       }
     },
     {
