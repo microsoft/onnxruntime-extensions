@@ -63,9 +63,9 @@ class ustring : public std::u32string {
   using u32string = std::u32string;
   static u32string FromUTF8(const std::string_view& utf8) {
     u32string ucs32;
-    ucs32.reserve(utf8.length() / 2);
+    ucs32.reserve(utf8.length() / 2);   // a rough estimation for less memory allocation.
     for (size_t i = 0; i < utf8.size();) {
-      uint32_t codepoint = 0;
+      char32_t codepoint = 0;
       if ((utf8[i] & 0x80) == 0) {
         codepoint = utf8[i];
         i++;
