@@ -136,6 +136,9 @@ def _parse_arguments():
                         help="Path to the Android SDK.")
     parser.add_argument("--android_ndk_path", type=Path, default=path_from_env_var("ANDROID_NDK_HOME"),
                         help="Path to the Android NDK. Typically `<Android SDK>/ndk/<ndk_version>`.")
+    parser.add_argument("--android_adb_device_serial",
+                        help="Device serial argument passed to 'adb -s'. Can be used to select a specific device if "
+                             "there is more than one.")
 
     # macOS/iOS options
     parser.add_argument("--build_apple_framework", action="store_true",
@@ -463,7 +466,7 @@ def _run_android_tests(args, build_dir: Path, config: str):
     source_dir = REPO_DIR
     build_config_dir = _get_build_config_dir(build_dir, config)
     sdk_tools = android.get_sdk_tool_paths(str(args.android_home))
-    adb_global_options = ["-e"]  # target emulator (use TCP/IP device)
+    adb_global_options = ["-s", args.android_adb_device_serial] if args.android_adb_device_serial is not None else []
 
     def adb_push(host_src: Path, device_dest: PurePosixPath, **kwargs):
         return _run_subprocess(
