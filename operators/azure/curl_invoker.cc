@@ -5,24 +5,35 @@
 
 #include <sstream>
 
-#if defined(__ANDROID__)
-#define USE_IN_MEMORY_CURL_CERTS
-#endif
-
-#if defined(USE_IN_MEMORY_CURL_CERTS)
+// TODO: We were enabling this on Android but can now use the system certs.
+// TBD if there are user scenarios that require manual cert management where it would be beneficial for the user to
+// provide manage specific certs themselves. If nothing shows up in the next few months it can be removed.
+#if defined(ENABLE_USING_CERTS_FROM_MODEL)
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
 #include <gsl/util>
+
+#include "narrow.h"
 #endif
 
 namespace ort_extensions {
 namespace {
-// need to do in-memory cert on Android pending finding a way to use the system certs.
-#if defined(USE_IN_MEMORY_CURL_CERTS)
+// build an in-memory cert store and populate with certs from the model
+#if defined(ENABLE_USING_CERTS_FROM_MODEL)
 // based on the approach from https://curl.se/libcurl/c/cacertinmem.html
-X509_STORE* CreateX509Store(const std::string& certs) {
+X509_STORE* CreateX509Store(std::optional<const std::string> certs) {
   bool success = false;
+
+  // Any calls to GetCertificateStore from the CurlInvoker ctor will have `certs` set, and the return result
+  // populates the static variable in GetCertificateStore on the first successful call.
+  // Calls to GetCertificateStore during execution do not provide certs, so if CreateX509Store is being called without
+  // certs we didn't end up having any nodes with the certs in the x509_certificates attribute in the model,
+  // and will not use the in-memory store.
+  if (!certs) {
+    return nullptr;
+  }
+
   X509_STORE* cts = X509_STORE_new();
   if (!cts) {
     ORTX_CXX_API_THROW("X509_STORE_new returned nullptr", ORT_RUNTIME_EXCEPTION);
@@ -34,7 +45,7 @@ X509_STORE* CreateX509Store(const std::string& certs) {
     }
   });
 
-  BIO* cbio = BIO_new_mem_buf(certs.data(), certs.length());
+  BIO* cbio = BIO_new_mem_buf(certs.value().data(), narrow<int>(certs.value().length()));
   if (!cbio) {
     ORTX_CXX_API_THROW("BIO_new_mem_buf returned nullptr", ORT_RUNTIME_EXCEPTION);
   }
@@ -69,7 +80,7 @@ X509_STORE* CreateX509Store(const std::string& certs) {
   return cts;
 }
 
-X509_STORE* GetCertificateStore(const std::string& certs) {
+X509_STORE* GetCertificateStore(std::optional<const std::string> certs) {
   // first call populates the store. `certs` is ignored after that.
   static std::unique_ptr<X509_STORE, decltype(&X509_STORE_free)> store{CreateX509Store(certs), &X509_STORE_free};
 
@@ -78,14 +89,13 @@ X509_STORE* GetCertificateStore(const std::string& certs) {
 
 CURLcode sslctx_function(CURL* /*curl*/, void* sslctx, void* /*parm*/) {
   // Need to use SSL_CTX_set1_cert_store so the ref count on the store gets incremented correctly.
-  SSL_CTX_set1_cert_store(static_cast<SSL_CTX*>(sslctx), GetCertificateStore(""));
+  SSL_CTX_set1_cert_store(static_cast<SSL_CTX*>(sslctx), GetCertificateStore(std::nullopt));
 
   return CURLE_OK;
 }
-#endif  // defined(USE_IN_MEMORY_CURL_CERTS)
+#endif  // defined(ENABLE_USING_CERTS_FROM_MODEL)
 }  // namespace
 
-// apply the callback only when response is for sure to be a '/0' terminated string
 /// <summary>
 /// Callback to add contents to a string
 /// </summary>
@@ -122,8 +132,11 @@ CurlHandler::CurlHandler() : curl_(curl_easy_init(), curl_easy_cleanup),
   curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteStringCallback);
 
-#if defined(USE_IN_MEMORY_CURL_CERTS)
-  curl_easy_setopt(curl, CURLOPT_SSL_CTX_FUNCTION, sslctx_function);
+#if defined(ENABLE_USING_CERTS_FROM_MODEL)
+  // using the in-memory store is optional so make sure we have one before we enable overriding the default
+  if (GetCertificateStore(std::nullopt) != nullptr) {
+    curl_easy_setopt(curl, CURLOPT_SSL_CTX_FUNCTION, sslctx_function);
+  }
 #endif
 }
 
@@ -131,18 +144,14 @@ CurlHandler::CurlHandler() : curl_(curl_easy_init(), curl_easy_cleanup),
 
 CurlInvoker::CurlInvoker(const OrtApi& api, const OrtKernelInfo& info)
     : CloudBaseKernel(api, info) {
-#if defined(USE_IN_MEMORY_CURL_CERTS)
+#if defined(ENABLE_USING_CERTS_FROM_MODEL)
   std::string x509_certs;
   if (TryToGetAttribute(kX509Certificates, x509_certs) && !x509_certs.empty()) {
     // populate certificate store
-    static_cast<void>(GetCertificateStore(x509_certs));
+    static_cast<void>(GetCertificateStore(std::move(x509_certs)));
   } else {
-    // attribute not present or empty. there could be other Azure operator nodes in the model though and we only need
-    // one to provide the certs.
-    KERNEL_LOG(GetLogger(), ORT_LOGGING_LEVEL_WARNING,
-               (std::string(kX509Certificates) +
-                " attribute is required on Android from at least one Azure custom operator in the model")
-                   .c_str());
+    // attribute not present or empty. in-memory store may not be required or there could be other Azure operator
+    // nodes in the model and any of them could provide the certs.
   }
 #endif
 }
