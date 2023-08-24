@@ -892,13 +892,19 @@ if(OCOS_ENABLE_CTEST)
     target_link_libraries(extensions_test PRIVATE extensions_shared ${ocos_libraries} onnxruntime 
                                                   gtest_main gmock_main ${LINUX_CC_FLAGS})
 
-    # Copy ONNXRuntime DLLs into bin folder for testing on Windows platform
+    # Copy shared library files into the same directory as the test binary.
     if(WIN32)
-      file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
-      file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
       add_custom_command(
         TARGET extensions_test POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy ${ONNXRUNTIME_LIB_FILES} $<TARGET_FILE_DIR:extensions_test>)
+        COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:extensions_test>
+          $<TARGET_RUNTIME_DLLS:extensions_test>
+        COMMAND_EXPAND_LISTS)
+    else()
+      add_custom_command(
+        TARGET extensions_test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:extensions_test>
+          $<TARGET_LINKER_FILE:extensions_shared>
+          ${ONNXRUNTIME})
     endif()
 
     set(TEST_DATA_SRC ${TEST_SRC_DIR}/data)

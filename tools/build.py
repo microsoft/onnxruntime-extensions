@@ -9,14 +9,20 @@ import shlex
 import shutil
 import sys
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import List, Set
 
 SCRIPT_DIR = Path(__file__).parent
 REPO_DIR = SCRIPT_DIR.parent
 sys.path.insert(0, str(SCRIPT_DIR / "utils"))
 
-from utils import get_logger, is_linux, is_macOS, is_windows, run  # noqa: E402
+from utils import (
+    android,
+    get_logger,
+    is_macOS,
+    is_windows,
+    run,
+)  # noqa: E402
 
 log = get_logger("build")
 
@@ -189,6 +195,20 @@ def _parse_arguments():
 
     args = parser.parse_args()
 
+    # validate Android args
+    if args.android:
+        if not args.android_ndk_path:
+            raise UsageError("--android_ndk_path is required to build for Android")
+        if not args.android_home:
+            raise UsageError("--android_home is required to build for Android")
+
+        args.android_home = args.android_home.resolve(strict=True)
+        args.android_ndk_path = args.android_ndk_path.resolve(strict=True)
+
+        if not args.android_home.is_dir() or not args.android_ndk_path.is_dir():
+            raise UsageError("Android home and NDK paths must be directories.")
+
+    # set build directory if not provided
     if not args.build_dir:
         target_sys = platform.system()
 
@@ -329,23 +349,12 @@ def _generate_build_tree(cmake_path: Path,
             cmake_args.append(f"-DONNXRUNTIME_LIB_DIR={str(ort_lib_dir)}")
 
     if args.android:
-        if not args.android_ndk_path:
-            raise UsageError("android_ndk_path is required to build for Android")
-        if not args.android_home:
-            raise UsageError("android_home is required to build for Android")
-
-        android_home = args.android_home.resolve(strict=True)
-        android_ndk_path = args.android_ndk_path.resolve(strict=True)
-
-        if not android_home.is_dir() or not android_ndk_path.is_dir():
-            raise UsageError("Android home and NDK paths must be directories.")
-
         cmake_args += [
             "-DOCOS_BUILD_ANDROID=ON",
             "-DCMAKE_TOOLCHAIN_FILE="
             + str((args.android_ndk_path / "build" / "cmake" / "android.toolchain.cmake").resolve(strict=True)),
-            "-DANDROID_PLATFORM=android-" + str(args.android_api),
-            "-DANDROID_ABI=" + str(args.android_abi)
+            f"-DANDROID_PLATFORM=android-{args.android_api}",
+            f"-DANDROID_ABI={args.android_abi}",
         ]
 
     if is_macOS():
@@ -450,10 +459,44 @@ def _run_python_tests():
     pass
 
 
-def _run_android_tests(args, build_dir: Path, config: str, cwd: Path):
-    # TODO: Setup running tests using Android simulator and adb. See ORT build.py for example.
+def _run_android_tests(args, build_dir: Path, config: str):
     source_dir = REPO_DIR
-    pass
+    build_config_dir = _get_build_config_dir(build_dir, config)
+    sdk_tools = android.get_sdk_tool_paths(str(args.android_home))
+    adb_global_options = ["-e"]  # target emulator (use TCP/IP device)
+
+    def adb_push(host_src: Path, device_dest: PurePosixPath, **kwargs):
+        return _run_subprocess(
+            [sdk_tools.adb] + adb_global_options + ["push", str(host_src), str(device_dest)], **kwargs
+        )
+
+    def adb_shell(*args, **kwargs):
+        return _run_subprocess([sdk_tools.adb] + adb_global_options + ["shell", *args], **kwargs)
+
+    device_abi_list = adb_shell("getprop ro.product.cpu.abilist", capture_stdout=True).stdout.decode()
+    device_preferred_abi = device_abi_list.split(sep=",", maxsplit=1)[0]
+
+    if device_preferred_abi != args.android_abi:
+        log.warning(f"Skipping Android tests because the device/emulator preferred ABI ({device_preferred_abi}) does "
+                    f"not match the target Android ABI ({args.android_abi}).")
+        return
+
+    device_dir = PurePosixPath(f"/data/local/tmp/onnxruntime_extensions/{config}")
+    adb_shell(f"rm -rf {device_dir} && mkdir -p {device_dir}")
+
+    # copy shared libraries
+    adb_push(build_config_dir / "bin" / "libortextensions.so", device_dir / "libortextensions.so")
+    adb_push(build_config_dir / "bin" / "libonnxruntime.so", device_dir / "libonnxruntime.so")
+
+    # copy test data
+    adb_push(source_dir / "test" / "data", device_dir / "data")
+
+    # copy and run test programs
+    for test_program_name in ["extensions_test", "ocos_test"]:
+        device_test_program_path = device_dir / test_program_name
+        adb_push(build_config_dir / "bin" / test_program_name, device_test_program_path)
+        adb_shell(f"chmod 755 {device_test_program_path}")
+        adb_shell(f'cd "{device_dir}" && LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{device_dir} {device_test_program_path}')
 
 
 def _run_ios_tests(args, config: str, cwd: Path):
@@ -472,7 +515,7 @@ def _run_cxx_tests(args, build_dir: Path, configs: Set[str]):
         cwd = _get_build_config_dir(build_dir, config)
 
         if args.android:
-            _run_android_tests(args, build_dir, config, cwd)
+            _run_android_tests(args, build_dir, config)
             continue
         elif args.ios:
             _run_ios_tests(args, config, cwd)
