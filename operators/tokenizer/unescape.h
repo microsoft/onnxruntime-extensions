@@ -2,8 +2,7 @@
 // Licensed under the MIT License.
 #pragma once
 
-#include <string>
-#include <string_view>
+#include "ustring.h"
 #include <vector>
 
 namespace ort_extensions {
@@ -21,34 +20,6 @@ inline unsigned int hex_digit_to_int(char c) {
 
 inline bool IsSurrogate(char32_t c) {
   return c >= 0xD800 && c <= 0xDFFF;
-}
-
-size_t EncodeUTF8Char(char* buffer, char32_t utf8_char) {
-  if (utf8_char <= 0x7F) {
-    *buffer = static_cast<char>(utf8_char);
-    return 1;
-  } else if (utf8_char <= 0x7FF) {
-    buffer[1] = static_cast<char>(0x80 | (utf8_char & 0x3F));
-    utf8_char >>= 6;
-    buffer[0] = static_cast<char>(0xC0 | utf8_char);
-    return 2;
-  } else if (utf8_char <= 0xFFFF) {
-    buffer[2] = static_cast<char>(0x80 | (utf8_char & 0x3F));
-    utf8_char >>= 6;
-    buffer[1] = static_cast<char>(0x80 | (utf8_char & 0x3F));
-    utf8_char >>= 6;
-    buffer[0] = static_cast<char>(0xE0 | utf8_char);
-    return 3;
-  } else {
-    buffer[3] = static_cast<char>(0x80 | (utf8_char & 0x3F));
-    utf8_char >>= 6;
-    buffer[2] = static_cast<char>(0x80 | (utf8_char & 0x3F));
-    utf8_char >>= 6;
-    buffer[1] = static_cast<char>(0x80 | (utf8_char & 0x3F));
-    utf8_char >>= 6;
-    buffer[0] = static_cast<char>(0xF0 | utf8_char);
-    return 4;
-  }
 }
 
 // Unescape a Python escaped string
@@ -108,7 +79,7 @@ inline bool Unescape(const std::string_view& source, std::string& unescaped, boo
           if (is_bytes) {
             *d++ = static_cast<char>(ch);
           } else {
-            d += EncodeUTF8Char(d, static_cast<char32_t>(ch));
+            d += ustring::EncodeUTF8Char(d, static_cast<char32_t>(ch));
           }
           break;
         }
@@ -128,7 +99,7 @@ inline bool Unescape(const std::string_view& source, std::string& unescaped, boo
           if (IsSurrogate(rune)) {
             return false;
           }
-          d += EncodeUTF8Char(d, rune);
+          d += ustring::EncodeUTF8Char(d, rune);
           break;
         }
         case 'U': {
@@ -152,7 +123,7 @@ inline bool Unescape(const std::string_view& source, std::string& unescaped, boo
           if (IsSurrogate(rune)) {
             return false;
           }
-          d += EncodeUTF8Char(d, rune);
+          d += ustring::EncodeUTF8Char(d, rune);
           break;
         }
         default: {
