@@ -158,7 +158,67 @@
         },
         "comments": "CMake for building our CI build"
       }
-    }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "f6a5d4e8eb7476b8d7fc12a56dff300c1c986131",
+          "repositoryUrl": "https://github.com/microsoft/vcpkg"
+        },
+        "comments": "vcpkg for package management"
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "54717d6adb67c15f11b50b0389c426eecb5470da",
+          "repositoryUrl": "https://github.com/triton-inference-server/client"
+        },
+        "comments": "triton client to talk to AML triton service"
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "f54b0e47a08782a6131cc3d60f94d038fa6e0a51",
+          "repositoryUrl": "https://github.com/Tencent/rapidjson"
+        },
+        "comments": "an utility library for json"
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "2cf4e90eaaf7402bf038b158dbdacd0a15561fb7",
+          "repositoryUrl": "https://github.com/openssl/openssl"
+        },
+        "comments": "a toolkit for general-purpose cryptography and secure communication"
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "04f42ceca40f73e2978b50e93806c2a18c1281fc",
+          "repositoryUrl": "https://github.com/madler/zlib"
+        },
+        "comments": "the version of zlib is a dependency introduced by triton"
+      }
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "7ab9d43720bc34d9aa351c7ca683c1668ebf8335",
+          "repositoryUrl": "https://github.com/curl/curl"
+        },
+        "comments": "a library for transferring data specified with URL syntax"
+      }
+    },
   ],
   "Version": 1
 }
