@@ -401,7 +401,7 @@ void PyCustomOpDef::AddOp(const PyCustomOpDef* cod) {
   auto val = std::make_pair(op_domain, std::vector<PyCustomOpFactory>());
   auto [it_domain_op, success] = PyOp_container().insert(val);
   assert(success || !it_domain_op->second.empty());
-  it_domain_op->second.emplace_back(PyCustomOpFactory(cod, op_domain, op));
+  it_domain_op->second.emplace_back(cod, op_domain, op);
 }
 
 const PyCustomOpFactory* PyCustomOpDef_FetchPyCustomOps(size_t num) {
