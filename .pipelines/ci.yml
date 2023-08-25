@@ -603,7 +603,7 @@ stages:
     - script: |
         set -e
 
-        SIMULATOR_DEVICE_INFO=$(python3 tools/ios/get_simulator_device_info.py)
+        SIMULATOR_DEVICE_INFO=$(python tools/ios/get_simulator_device_info.py)
         echo "Simulator device info:"
         echo "${SIMULATOR_DEVICE_INFO}"
 
