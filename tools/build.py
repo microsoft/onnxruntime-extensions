@@ -476,7 +476,7 @@ def _run_android_tests(args, build_dir: Path, config: str):
     def adb_shell(*args, **kwargs):
         return _run_subprocess([sdk_tools.adb] + adb_global_options + ["shell", *args], **kwargs)
 
-    device_abi_list = adb_shell("getprop ro.product.cpu.abilist", capture_stdout=True).stdout.decode()
+    device_abi_list = adb_shell("getprop ro.product.cpu.abilist", capture_stdout=True).stdout.decode().strip()
     device_preferred_abi = device_abi_list.split(sep=",", maxsplit=1)[0]
 
     if device_preferred_abi != args.android_abi:
