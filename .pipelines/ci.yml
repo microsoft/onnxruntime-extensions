@@ -485,7 +485,7 @@ jobs:
               ./gradlew connectedDebugAndroidTest --no-daemon -DortExtensionsAarLocalPath="${ORT_EXTENSIONS_AAR_PATH}"
             displayName: Build and run onnxruntime-extensions Android test with Android Emulator
 
-- job: AndroidCpp
+  - job: AndroidCpp
     pool:
       vmImage: 'macOS-13'
     timeoutInMinutes: 30
