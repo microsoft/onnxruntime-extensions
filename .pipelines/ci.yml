@@ -485,6 +485,41 @@ jobs:
               ./gradlew connectedDebugAndroidTest --no-daemon -DortExtensionsAarLocalPath="${ORT_EXTENSIONS_AAR_PATH}"
             displayName: Build and run onnxruntime-extensions Android test with Android Emulator
 
+- job: AndroidCpp
+    pool:
+      vmImage: 'macOS-13'
+    timeoutInMinutes: 30
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: "3.9"
+          addToPath: true
+          architecture: "x64"
+        displayName: "Use Python 3.9"
+
+      - task: JavaToolInstaller@0
+        displayName: Use jdk 11
+        inputs:
+          versionSpec: '11'
+          jdkArchitectureOption: 'x64'
+          jdkSourceOption: 'PreInstalled'
+
+      - script: brew install ninja
+        displayName: Install ninja
+
+      - template: templates/run-with-android-emulator-steps.yml
+        parameters:
+          steps:
+
+          - bash: |
+              python ./tools/build.py \
+                --config Debug \
+                --android \
+                --android_abi x86_64 \
+                --enable_cxx_tests \
+                --update --build --test --parallel
+            displayName: Build onnxruntime-extensions for Android and run C++ tests on emulator
+
   #############
   # iOS
   #############
