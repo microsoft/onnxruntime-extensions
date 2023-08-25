@@ -323,6 +323,44 @@ def _setup_emscripten(args):
     _run_subprocess([emsdk_file, "activate", args.emsdk_version], cwd=args.emsdk_path)
 
 
+# run the prebuild to create the curl and openssl libraries for the Azure custom ops
+def _android_prebuild(android_abi: str, android_ndk_path: Path, android_api_level: int):
+    if is_windows():
+        log.info("Skipping Android prebuild on Windows because it is not supported yet.")
+        return
+
+    prebuild_dir = REPO_DIR / "prebuild"
+
+    # skip if curl binary is found. that is created as the last stage of the prebuild, so if it was successfully
+    # installed in the output dir we assume the prebuild completed previously.
+    curl_bin = prebuild_dir / "openssl_for_ios_and_android" / "output" / "android" / ("curl-" + android_abi) / "bin" / "curl"
+    if curl_bin.exists():
+        log.info(f"Found {curl_bin}. Assuming prebuild has completed previously. Skipping prebuild.")
+        return
+
+    # set some environment variables required by the script
+    env = {
+        'ANDROID_API_LEVEL': str(android_api_level),
+        'ANDROID_NDK_ROOT': str(android_ndk_path),
+    }
+
+    # adjust some strings to the values expected in the script
+    if android_abi == "armeabi-v7a":
+        curl_abi = "arm"
+    elif android_abi == "arm64-v8a":
+        curl_abi = "arm64"
+    else:
+        curl_abi = android_abi
+
+    prebuild_cmd = [
+        "/bin/bash",
+        "build_curl_for_android.sh",
+        curl_abi,
+    ]
+
+    _run_subprocess(prebuild_cmd, cwd=prebuild_dir, env=env)
+
+
 def _generate_build_tree(cmake_path: Path,
                          source_dir: Path,
                          build_dir: Path,
@@ -626,6 +664,9 @@ def main():
     log.info("Build started")
 
     if args.update:
+        if args.android:
+            _android_prebuild(args.android_abi, args.android_ndk_path, args.android_api)
+
         if _is_reduced_ops_build(args):
             log.info("Generating config for selected ops")
             _generate_selected_ops_config(args.include_ops_by_config)
