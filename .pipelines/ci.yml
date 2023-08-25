@@ -10,7 +10,11 @@
 # last available version of its dependencies (including the three listed above)
 # and so it's likely to be _better_ supported relative to any older versions.
 
-jobs:
+stages:
+
+- stage: LinuxBuilds
+  dependsOn: []
+  jobs:
 
   #######
   # Linux
@@ -124,6 +128,54 @@ jobs:
           cd test
           python -m pytest --ignore=test_cv2.py --ignore=test_tools_add_pre_post_processing_to_model.py . --verbose
         displayName: Run python test
+
+  #####################################
+  # Linux prevent exception propagation
+  #####################################
+  - job: Linux_Prevent_Exception_Propagation
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    steps:
+      # Simulate an embedded build as part of ORT with exceptions disabled by manually setting CMAKE_CXX_FLAGS and
+      # using _OCOS_PREVENT_EXCEPTION_PROPAGATION_OVERRIDE. The build should re-enable exceptions within ort-ext
+      # but prevent them from propagating. Unit tests are run to validate this.
+      - script: '
+          ./build_lib.sh --enable_cxx_tests --onnxruntime_version 1.14.0 --config RelWithDebInfo
+          --cmake_extra_defines
+            _OCOS_PREVENT_EXCEPTION_PROPAGATION_OVERRIDE=ON OCOS_ENABLE_CPP_EXCEPTIONS=OFF
+            CMAKE_CXX_FLAGS="-fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables"
+          '
+
+        displayName: Build ort-ext with exception propagation disabled
+
+      # As an extra validation check CMakeCache.txt as well
+      - script: |
+          grep "^_OCOS_PREVENT_EXCEPTION_PROPAGATION.*ON$" build/Linux/RelWithDebInfo/CMakeCache.txt
+          if [ $? -ne 0 ]; then
+            echo "Exception propogation was not enabled correctly."
+            exit 1
+          fi
+
+
+  ##############################
+  # Linux for selected_ops build
+  ##############################
+  - job: Linux_SelectedOpsBuild
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    steps:
+      # compiled as only one operator selected.
+      - bash: |
+          set -e -x -u
+          echo 'set (OCOS_ENABLE_BERT_TOKENIZER ON CACHE BOOL "" FORCE)' > cmake/_selectedoplist.cmake
+          ./build.sh -DOCOS_ENABLE_CPP_EXCEPTIONS=OFF -DOCOS_ENABLE_SELECTED_OPLIST=ON
+        displayName: Build ort-extensions with only one operator was selected
+
+- stage: MacOSBuilds
+  dependsOn: []
+  jobs:
 
   ###########
   # macOS C++
@@ -240,6 +292,10 @@ jobs:
 
       - script: cd test && python -m pytest . --verbose
         displayName: Run python test
+
+- stage: WindowsBuilds
+  dependsOn: []
+  jobs:
 
   #########
   # Windows C++
@@ -408,6 +464,10 @@ jobs:
         python -m pytest --ignore=test_cv2.py --ignore=test_tools_add_pre_post_processing_to_model.py . --verbose
       displayName: Run python test
 
+- stage: WebAssemblyBuilds
+  dependsOn: []
+  jobs:
+
   #############
   # WebAssembly
   #############
@@ -432,6 +492,10 @@ jobs:
           -DOCOS_ENABLE_VISION=OFF
         displayName: build the customop library with onnxruntime
     # TODO add unittest for webassembly
+
+- stage: AndroidBuilds
+  dependsOn: []
+  jobs:
 
   #############
   # Android
@@ -484,6 +548,10 @@ jobs:
 
               ./gradlew connectedDebugAndroidTest --no-daemon -DortExtensionsAarLocalPath="${ORT_EXTENSIONS_AAR_PATH}"
             displayName: Build and run onnxruntime-extensions Android test with Android Emulator
+
+- stage: IosBuilds
+  dependsOn: []
+  jobs:
 
   #############
   # iOS
@@ -544,48 +612,3 @@ jobs:
                 -destination "platform=iOS Simulator,id=${ORT_EXTENSIONS_BUILD_SIMULATOR_ID}" \
                 test CODE_SIGNING_ALLOWED=NO
             displayName: Build and test OrtExtensionsUsage
-
-
-  #####################################
-  # Linux prevent exception propagation
-  #####################################
-  - job: Linux_Prevent_Exception_Propagation
-    pool:
-      vmImage: 'ubuntu-latest'
-
-    steps:
-      # Simulate an embedded build as part of ORT with exceptions disabled by manually setting CMAKE_CXX_FLAGS and
-      # using _OCOS_PREVENT_EXCEPTION_PROPAGATION_OVERRIDE. The build should re-enable exceptions within ort-ext
-      # but prevent them from propagating. Unit tests are run to validate this.
-      - script: '
-          ./build_lib.sh --enable_cxx_tests --onnxruntime_version 1.14.0 --config RelWithDebInfo
-          --cmake_extra_defines
-            _OCOS_PREVENT_EXCEPTION_PROPAGATION_OVERRIDE=ON OCOS_ENABLE_CPP_EXCEPTIONS=OFF
-            CMAKE_CXX_FLAGS="-fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables"
-          '
-
-        displayName: Build ort-ext with exception propagation disabled
-
-      # As an extra validation check CMakeCache.txt as well
-      - script: |
-          grep "^_OCOS_PREVENT_EXCEPTION_PROPAGATION.*ON$" build/Linux/RelWithDebInfo/CMakeCache.txt
-          if [ $? -ne 0 ]; then
-            echo "Exception propogation was not enabled correctly."
-            exit 1
-          fi
-
-
-  ##############################
-  # Linux for selected_ops build
-  ##############################
-  - job: Linux_SelectedOpsBuild
-    pool:
-      vmImage: 'ubuntu-latest'
-
-    steps:
-      # compiled as only one operator selected.
-      - bash: |
-          set -e -x -u
-          echo 'set (OCOS_ENABLE_BERT_TOKENIZER ON CACHE BOOL "" FORCE)' > cmake/_selectedoplist.cmake
-          ./build.sh -DOCOS_ENABLE_CPP_EXCEPTIONS=OFF -DOCOS_ENABLE_SELECTED_OPLIST=ON
-        displayName: Build ort-extensions with only one operator was selected
