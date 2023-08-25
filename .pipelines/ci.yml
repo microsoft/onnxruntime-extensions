@@ -600,15 +600,20 @@ stages:
       displayName: Install pods for OrtExtensionsUsage
       workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage
 
-    - template: templates/run-with-ios-simulator-steps.yml
-      parameters:
-        steps:
-        - script: |
-            xcrun xcodebuild \
-              -sdk iphonesimulator \
-              -configuration Debug \
-              -workspace $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace \
-              -scheme OrtExtensionsUsage \
-              -destination "platform=iOS Simulator,id=${ORT_EXTENSIONS_BUILD_SIMULATOR_ID}" \
-              test CODE_SIGNING_ALLOWED=NO
-          displayName: Build and test OrtExtensionsUsage
+    - script: |
+        set -e
+
+        SIMULATOR_DEVICE_INFO=$(python3 tools/ios/get_simulator_device_info.py)
+        echo "Simulator device info:"
+        echo "${SIMULATOR_DEVICE_INFO}"
+
+        SIMULATOR_DEVICE_ID=$(jq --raw-output '.device_udid' <<< "${SIMULATOR_DEVICE_INFO}")
+
+        xcrun xcodebuild \
+          -sdk iphonesimulator \
+          -configuration Debug \
+          -workspace $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace \
+          -scheme OrtExtensionsUsage \
+          -destination "platform=iOS Simulator,id=${SIMULATOR_DEVICE_ID}" \
+          test CODE_SIGNING_ALLOWED=NO
+      displayName: Build and test OrtExtensionsUsage
