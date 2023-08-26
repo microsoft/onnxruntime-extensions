@@ -523,7 +523,7 @@ def _run_android_tests(args, build_dir: Path, config: str):
         return
 
     device_dir = PurePosixPath(f"/data/local/tmp/onnxruntime_extensions/{config}")
-    adb_shell(f"rm -rf {device_dir} && mkdir -p {device_dir}")
+    adb_shell(f'rm -rf "{device_dir}" && mkdir -p "{device_dir}"')
 
     # copy shared libraries
     adb_push(build_config_dir / "bin" / "libortextensions.so", device_dir / "libortextensions.so")
@@ -536,8 +536,9 @@ def _run_android_tests(args, build_dir: Path, config: str):
     for test_program_name in ["extensions_test", "ocos_test"]:
         device_test_program_path = device_dir / test_program_name
         adb_push(build_config_dir / "bin" / test_program_name, device_test_program_path)
-        adb_shell(f"chmod 755 {device_test_program_path}")
-        adb_shell(f'cd "{device_dir}" && LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{device_dir} {device_test_program_path}')
+        adb_shell(f'chmod 755 "{device_test_program_path}"')
+        adb_shell(f'cd "{device_dir}" && '
+                  f'LD_LIBRARY_PATH="$LD_LIBRARY_PATH:{device_dir}" "{device_test_program_path}"')
 
 
 def _run_ios_tests(args, config: str, cwd: Path):
