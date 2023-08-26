@@ -62,7 +62,7 @@ index 87df207..6f3ec66 100755
      export LDFLAGS="-march=x86-64 -Wl,--gc-sections -Os -ffunction-sections -fdata-sections $(get_common_linked_libraries ${api} ${arch})"
      export CPPFLAGS=${CFLAGS}
 diff --git a/tools/build-android-curl.sh b/tools/build-android-curl.sh
-index b82d2bd..1d1e03b 100755
+index b82d2bd..394e821 100755
 --- a/tools/build-android-curl.sh
 +++ b/tools/build-android-curl.sh
 @@ -84,29 +84,32 @@ function configure_make() {
@@ -81,31 +81,31 @@ index b82d2bd..1d1e03b 100755
  
 -        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} --with-nghttp2=${NGHTTP2_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
 +        #./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --enable-shared --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
-+        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --disable-shared --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
++        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --disable-shared --with-ca-path=/system/etc/security/cacerts --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
  
      elif [[ "${ARCH}" == "x86" ]]; then
  
 -        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} --with-nghttp2=${NGHTTP2_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
 +        #./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --enable-shared --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
-+        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --disable-shared --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
++        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --disable-shared --with-ca-path=/system/etc/security/cacerts --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
  
      elif [[ "${ARCH}" == "arm" ]]; then
  
 -        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} --with-nghttp2=${NGHTTP2_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
 +        #./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --enable-shared --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
-+        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --disable-shared --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
++        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --disable-shared --with-ca-path=/system/etc/security/cacerts --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
  
      elif [[ "${ARCH}" == "arm64" ]]; then
  
          # --enable-shared need nghttp2 cpp compile
 -        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --disable-shared --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} --with-nghttp2=${NGHTTP2_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
 +        #./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --enable-shared --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
-+        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --disable-shared --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
++        ./configure --host=$(android_get_build_host "${ARCH}") --prefix="${PREFIX_DIR}" --disable-shared --with-ca-path=/system/etc/security/cacerts --enable-ipv6 --with-ssl=${OPENSSL_OUT_DIR} >"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
  
      else
          log_error "not support" && exit 1
 diff --git a/tools/build-android-openssl.sh b/tools/build-android-openssl.sh
-index e13c314..b29829c 100755
+index e13c314..929932f 100755
 --- a/tools/build-android-openssl.sh
 +++ b/tools/build-android-openssl.sh
 @@ -16,7 +16,7 @@
@@ -117,7 +117,18 @@ index e13c314..b29829c 100755
  
  source ./build-android-common.sh
  
-@@ -87,20 +87,20 @@ function configure_make() {
+@@ -69,6 +69,10 @@ function configure_make() {
+     pushd .
+     cd "${LIB_NAME}"
+ 
++    log_info "patch to change android hash for cert lookup"
++    # https://stackoverflow.com/a/66926685
++    patch -p1 --verbose -i ${TOOLS_ROOT}/../../openssl_crypto_x509_android_hash.patch
++
+     PREFIX_DIR="${pwd_path}/../output/android/openssl-${ABI}"
+     if [ -d "${PREFIX_DIR}" ]; then
+         rm -fr "${PREFIX_DIR}"
+@@ -87,20 +91,20 @@ function configure_make() {
      android_printf_global_params "$ARCH" "$ABI" "$ABI_TRIPLE" "$PREFIX_DIR" "$OUTPUT_ROOT"
  
      if [[ "${ARCH}" == "x86_64" ]]; then
@@ -146,7 +157,7 @@ index e13c314..b29829c 100755
  
      else
          log_error "not support" && exit 1
-@@ -115,6 +115,9 @@ function configure_make() {
+@@ -115,6 +119,9 @@ function configure_make() {
      if [ $the_rc -eq 0 ] ; then
          make SHLIB_EXT='.so' install_sw >>"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
          make install_ssldirs >>"${OUTPUT_ROOT}/log/${ABI}.log" 2>&1
