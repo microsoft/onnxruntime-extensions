@@ -176,25 +176,24 @@ class VocabData {
       vocab_map_[unk_token] = id;
     }
 
-    std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> str_convert;
     for (auto i = 33; i <= 126; ++i) {
-      byte_encoder_[i] = GetVocabIndex(str_convert.to_bytes((char32_t)i));
+      byte_encoder_[i] = GetVocabIndex(ustring::EncodeUTF8Char((char32_t)i));
     }
     for (auto i = 161; i <= 172; ++i) {
-      byte_encoder_[i] = GetVocabIndex(str_convert.to_bytes((char32_t)i));
+      byte_encoder_[i] = GetVocabIndex(ustring::EncodeUTF8Char((char32_t)i));
     }
     for (auto i = 174; i <= 255; ++i) {
-      byte_encoder_[i] = GetVocabIndex(str_convert.to_bytes((char32_t)i));
+      byte_encoder_[i] = GetVocabIndex(ustring::EncodeUTF8Char((char32_t)i));
     }
 
     int index = 256;
     for (auto i = 0; i < 33; ++i) {
-      byte_encoder_[i] = GetVocabIndex(str_convert.to_bytes((char32_t)(index++)));
+      byte_encoder_[i] = GetVocabIndex(ustring::EncodeUTF8Char((char32_t)(index++)));
     }
     for (auto i = 127; i < 161; ++i) {
-      byte_encoder_[i] = GetVocabIndex(str_convert.to_bytes((char32_t)(index++)));
+      byte_encoder_[i] = GetVocabIndex(ustring::EncodeUTF8Char((char32_t)(index++)));
     }
-    byte_encoder_[173] = GetVocabIndex(str_convert.to_bytes((char32_t)(index++)));
+    byte_encoder_[173] = GetVocabIndex(ustring::EncodeUTF8Char((char32_t)(index++)));
 
     index = 0;
     std::string line;

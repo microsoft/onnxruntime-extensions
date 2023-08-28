@@ -12,3 +12,11 @@ void GetTensorMutableDataString(const OrtApi& api, const OrtW::CustomOpApi& ort,
                                 const OrtValue* value, std::vector<std::string>& output);
 void FillTensorDataString(const OrtApi& api, const OrtW::CustomOpApi& ort, const OrtKernelContext* context,
                           const std::vector<std::string>& value, OrtValue* output);
+
+
+class ustring;
+void GetTensorMutableDataString(const OrtApi& api, const OrtW::CustomOpApi& ort, const OrtKernelContext* context,
+                                const OrtValue* value, std::vector<ustring>& output);
+
+void FillTensorDataString(const OrtApi& api, const OrtW::CustomOpApi& ort, const OrtKernelContext* context,
+                          const std::vector<ustring>& value, OrtValue* output);

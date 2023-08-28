@@ -1,7 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
+
 #include <cstring>
+#include <codecvt>
 #include "gtest/gtest.h"
 #include "ustring.h"
 
@@ -64,4 +67,3 @@ TEST(ustring, operater) {
   test.append(U"用来测试");
   EXPECT_EQ(test.at(4), U'用');
 }
-
