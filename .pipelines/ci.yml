@@ -548,10 +548,6 @@ stages:
             ./gradlew connectedDebugAndroidTest --no-daemon -DortExtensionsAarLocalPath="${ORT_EXTENSIONS_AAR_PATH}"
           displayName: Build and run onnxruntime-extensions Android test with Android Emulator
 
-- stage: IosBuilds
-  dependsOn: []
-  jobs:
-
   - job: AndroidCpp
     pool:
       vmImage: 'macOS-13'
@@ -586,6 +582,10 @@ stages:
                 --enable_cxx_tests \
                 --update --build --test --parallel
             displayName: Build onnxruntime-extensions for Android and run C++ tests on emulator
+
+- stage: IosBuilds
+  dependsOn: []
+  jobs:
 
   #############
   # iOS
