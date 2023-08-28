@@ -15,7 +15,6 @@ KernelWordpieceTokenizer::KernelWordpieceTokenizer(const OrtApi& api, const OrtK
   suffix_indicator_ = ustring(suffix_indicator);
   unk_token_ = ustring(unk);
 
-  std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> cvt;
   std::unordered_map<std::string, int32_t> vocab_map;
   auto parsed = nlohmann::json::parse(vocab_as_string);
   parsed.get_to(vocab_map);

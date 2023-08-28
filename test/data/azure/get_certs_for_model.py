@@ -1,25 +1,17 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-# Curl + openssl has issues reading the system certificates on Android.
-# Pending a better solution we create an in-memory certificate store from certificates included in the model.
+# If the user needs/wants to control the certificates used in HTTPS requests to the custom op's endpoint, an 
+# in-memory certificate store can be built from certificates included in the model.
 #
-# The certificates must be added to the first Azure operator in the model in an attribute called 'x509_certificates'.
+# The certificates should be added to the first Azure operator in the model in an attribute called 'x509_certificates'.
 # The user must determine the correct certificates for their scenario, and add them to the model.
 # The PEM file from https://curl.se/docs/caextract.html may be used.
 #
 # Include this file in the python script that is creating your model with Azure custom operators.
-# Get the value to use in the 'x509_certificates' attribute from either a file (call get_certs_from_file) or
-# a url (call get_certs_from_url)
-# 
-# See create_openai_whisper_transcriptions.py for example usage.
-#
-# Notes:
-#
-# - Supposedly if openssl uses md5 hashing for the certificates in /system/etc/security/cacerts it should work, but
-# a patched version of openssl with this change still failed.
-# - The 'better' solution might be to use boringssl instead of openssl as it handles the certificate format in
-# /system/etc/security/cacerts, although even that is potentially problematic as there's no versioning of boringssl.
+# Set the 'x509_certificates' attribute of the node to the value returned from calling either get_certs_from_file
+# with the path to a PEM file, or get_certs_from_url with a URL that returns certificates in PEM format.
+
 
 import io
 import pathlib
