@@ -19,7 +19,7 @@ parameters: # parameters are shown up in ADO UI in a build queue time
 - name: ExtraEnv
   displayName: 'Extra env variable set to CIBW_ENVIRONMENT, in form of "A=1 B=2 C=3"'
   type: string
-  default: ''
+  default: 'ExampleEnvVar=ON'
 
 variables:
   CDP_DEFINITION_BUILD_COUNT: $[counter('', 0)]
@@ -31,6 +31,7 @@ variables:
   NUGET_XMLDOC_MODE: none
   CIBW_BUILD: cp3{8,9,10,11}-*amd64
   CIBW_ARCHS: AMD64
+  CIBW_BUILD_VERBOSITY: 1
   DEBIAN_FRONTEND: noninteractive
   CIBW_ENVIRONMENT: "${{ parameters.ExtraEnv }}"
 
@@ -98,7 +99,7 @@ extends:
             @echo ##vso[task.setvariable variable=vsmsbuild]%vsmsbuild%
           displayName: 'locate vsdevcmd via vswhere'
         - script: |
-            call $(vsdevcmd)
+            call $(vsdevcmd) -arch=amd64
             set PYTHONPATH=
             set PYTHONHOME=
             python -m pip install --upgrade pip
@@ -109,7 +110,7 @@ extends:
           inputs:
             msBuildArchitecture: amd64
             setupCommandlines: '"$(vscmake)" $(REPOROOT) -A x64 -B $(REPOROOT)\windows_out -DOCOS_BUILD_PYTHON=ON -DOCOS_ENABLE_CTEST=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo'
-            msBuildCommandline: '"$(vsmsbuild)" "$(REPOROOT)\windows_out\onnxruntime_extensions.sln" /p:RunCodeAnalysis=true /p:platform=x64 /p:configuration=RelWithDebInfo /p:VisualStudioVersion="16.0" /m /p:PreferredToolArchitecture=x64'
+            msBuildCommandline: '"$(vsmsbuild)" "$(REPOROOT)\windows_out\onnxruntime_extensions.sln" /p:RunCodeAnalysis=true /p:platform=x64 /p:configuration=RelWithDebInfo /p:VisualStudioVersion="17.0" /m /p:PreferredToolArchitecture=x64'
             excludedPaths: '$(REPOROOT)\windows_out#$(Build.SourcesDirectory)\cmake#C:\program files (x86)'
           displayName: 'Run the PREfast SDL Native Rules for MSBuild'
         - task: PostAnalysis@2
