@@ -1,0 +1,23 @@
+parameters:
+- name: debug
+  displayName: 'Enable debug output'
+  type: boolean
+  default: false
+
+- name: ExtraEnv
+  displayName: 'Extra env variable set to CIBW_ENVIRONMENT, in form of "A=1 B=2 C=3"'
+  type: string
+  default: ''
+
+variables:
+  CDP_DEFINITION_BUILD_COUNT: $[counter('', 0)]
+  system.debug: ${{ parameters.debug }}
+  ENABLE_PRS_DELAYSIGN: 1
+  ROOT: $(Build.SourcesDirectory)
+  REPOROOT: $(Build.SourcesDirectory)
+  OUTPUTROOT: $(REPOROOT)\out
+  NUGET_XMLDOC_MODE: none
+  CIBW_BUILD: cp3{8,9,10,11}-*amd64
+  CIBW_ARCHS: AMD64
+  DEBIAN_FRONTEND: noninteractive
+  CIBW_ENVIRONMENT: "${{ parameters.ExtraEnv }}"
