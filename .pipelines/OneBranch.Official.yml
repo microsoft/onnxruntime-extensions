@@ -19,7 +19,7 @@ parameters: # parameters are shown up in ADO UI in a build queue time
 - name: ExtraEnv
   displayName: 'Extra env variable set to CIBW_ENVIRONMENT, in form of "A=1 B=2 C=3"'
   type: string
-  default: ''
+  default: 'ExampleEnvVar=ON'
 
 variables:
 - template: /.pipelines/templates/onebranch-common-variables.yml@self
