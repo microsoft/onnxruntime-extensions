@@ -54,6 +54,4 @@ extends:
         exclusionsFile: '$(REPOROOT)\.config\policheck_exclusions.xml'
 
     stages:
-    - stage: Windows_Build
-      jobs:
-      - template: /.pipelines/templates/onebranch-windows-build-job.yml@self
+    - template: /.pipelines/templates/onebranch-windows-build-stage.yml@self
