@@ -4,7 +4,7 @@ import torch
 import unittest
 from typing import List, Tuple
 from PIL import Image
-from distutils.version import LooseVersion
+from packaging import version
 from onnxruntime_extensions import OrtPyFunction
 from onnxruntime_extensions import pnp, util
 from transformers import GPT2Config, GPT2LMHeadModel
@@ -52,10 +52,6 @@ class _MobileNetProcessingModule(pnp.ProcessingScriptModule):
         )
 
 
-@unittest.skipIf(
-    LooseVersion(torch.__version__) < LooseVersion("1.9"),
-    "Not works with older PyTorch",
-)
 class TestPreprocessing(unittest.TestCase):
     def test_imagenet_preprocessing(self):
         mnv2 = onnx.load_model(util.get_test_data_file("data", "mobilev2.onnx"))
@@ -125,7 +121,7 @@ class TestPreprocessing(unittest.TestCase):
         ]
         res = seq_m.forward(test_input)
         numpy.testing.assert_allclose(res, numpy.array([4, 5]))
-        if LooseVersion(torch.__version__) >= LooseVersion("1.11"):
+        if version.parse(torch.__version__) >= version.parse("1.11"):
             # The fixing for the sequence tensor support is only released in 1.11 and the above.
             oxml = pnp.export(
                 seq_m, test_input, opset_version=12, output_path="temp_seqtest.onnx"
