@@ -1,3 +1,9 @@
+parameters:
+- name: CibwEnv
+  displayName: 'Extra env variable set to CIBW_ENVIRONMENT, in form of "A=1 B=2 C=3"'
+  type: string
+  default: ''
+
 stages:
 - stage: Windows_Build
   dependsOn: []
@@ -7,6 +13,10 @@ stages:
       type: windows
 
     variables:
+      CIBW_BUILD: cp3{8,9,10,11}-*amd64
+      CIBW_ARCHS: AMD64
+      CIBW_ENVIRONMENT: "${{ parameters.CibwEnv }}"
+      CIBW_BUILD_VERBOSITY: 1
       ob_outputDirectory: '$(REPOROOT)\out'
       ob_sdl_binskim_break: true
 

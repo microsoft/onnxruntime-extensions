@@ -25,7 +25,6 @@ variables:
 - template: /.pipelines/templates/onebranch-common-variables.yml@self
   parameters:
     debug: ${{ parameters.debug }}
-    ExtraEnv: ${{ parameters.ExtraEnv }}
 
 resources:
   repositories:
@@ -55,3 +54,5 @@ extends:
 
     stages:
     - template: /.pipelines/templates/onebranch-windows-build-stage.yml@self
+      parameters:
+        CibwEnv: ${{ parameters.ExtraEnv }}
