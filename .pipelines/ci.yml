@@ -355,7 +355,6 @@ jobs:
           python -m pip install onnxruntime==$(ort.version)
           python -m pip install -r requirements.txt
           python -m pip install -r requirements-dev.txt
-          python -m pip install cmake
         displayName: Install requirements{-dev}.txt and cmake python modules
 
       - script: |
