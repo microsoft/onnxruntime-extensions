@@ -71,4 +71,4 @@ extends:
           ob_outputDirectory: '$(REPOROOT)\out'
           ob_sdl_binskim_break: true
         steps:
-        - template: templates/onebranch-windows-build-steps.yml@self
+        - template: .pipelines/templates/onebranch-windows-build-steps.yml@self
