@@ -63,12 +63,4 @@ extends:
     stages:
     - stage: Windows_Build
       jobs:
-      - job: main
-        pool:
-          type: windows
-
-        variables:
-          ob_outputDirectory: '$(REPOROOT)\out'
-          ob_sdl_binskim_break: true
-        steps:
-        - template: .pipelines/templates/onebranch-windows-build-steps.yml@self
+      - template: /.pipelines/templates/onebranch-windows-build-job.yml@self
