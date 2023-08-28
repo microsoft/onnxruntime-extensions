@@ -21,3 +21,4 @@ variables:
   CIBW_ARCHS: AMD64
   DEBIAN_FRONTEND: noninteractive
   CIBW_ENVIRONMENT: "${{ parameters.ExtraEnv }}"
+  CIBW_BUILD_VERBOSITY: 1

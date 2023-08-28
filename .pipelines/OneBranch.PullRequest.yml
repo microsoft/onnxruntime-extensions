@@ -26,8 +26,6 @@ variables:
   parameters:
     debug: ${{ parameters.debug }}
     ExtraEnv: ${{ parameters.ExtraEnv }}
-- name: CIBW_BUILD_VERBOSITY
-  value: 1
 
 resources:
   repositories:
