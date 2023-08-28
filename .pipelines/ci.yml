@@ -513,7 +513,7 @@ jobs:
 
           - bash: |
               python ./tools/build.py \
-                --config Debug \
+                --config RelWithDebInfo \
                 --android \
                 --android_abi x86_64 \
                 --enable_cxx_tests \
