@@ -44,7 +44,9 @@ jobs:
           rm -rf sphinx_output/docs/
           python3 -m sphinx -j1 -v -T -b html -d sphinx_output/docs/extensions/_doctrees/html docs/python/ sphinx_output/docs/extensions/html
       - name: Log source commit
-        run: git rev-parse --short HEAD > sphinx_output/docs/html/source-version.txt
+        run: |
+          mkdir -p sphinx_output/docs/html/
+          git rev-parse --short HEAD >> sphinx_output/docs/html/source-version.txt
       - name: Move Python docs into site
         run: |
           rm -rf _site/docs/api/python
