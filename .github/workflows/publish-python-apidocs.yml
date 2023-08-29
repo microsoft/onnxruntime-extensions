@@ -45,13 +45,13 @@ jobs:
           python3 -m sphinx -j1 -v -T -b html -d sphinx_output/docs/extensions/_doctrees/html docs/python/ sphinx_output/docs/extensions/html
       - name: Log source commit
         run: |
-          mkdir -p sphinx_output/docs/html/
-          git rev-parse --short HEAD >> sphinx_output/docs/html/source-version.txt
+          mkdir -p sphinx_output/docs/extensions/html/
+          git rev-parse --short HEAD >> sphinx_output/docs/extensions/html/source-version.txt
       - name: Move Python docs into site
         run: |
           rm -rf _site/docs/api/python
           mkdir -p _site/docs/api/
-          mv sphinx_output/docs/html _site/docs/api/python
+          mv sphinx_output/docs/extensions/html _site/docs/api/python
       - name: Upload docs artifact
         uses: actions/upload-artifact@v3
         with:
