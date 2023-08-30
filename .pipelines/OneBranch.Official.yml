@@ -19,20 +19,12 @@ parameters: # parameters are shown up in ADO UI in a build queue time
 - name: ExtraEnv
   displayName: 'Extra env variable set to CIBW_ENVIRONMENT, in form of "A=1 B=2 C=3"'
   type: string
-  default: ''
+  default: 'ExampleEnvVar=ON'
 
 variables:
-  CDP_DEFINITION_BUILD_COUNT: $[counter('', 0)]
-  system.debug: ${{ parameters.debug }}
-  ENABLE_PRS_DELAYSIGN: 1
-  ROOT: $(Build.SourcesDirectory)
-  REPOROOT: $(Build.SourcesDirectory)
-  OUTPUTROOT: $(REPOROOT)\out
-  NUGET_XMLDOC_MODE: none
-  CIBW_BUILD: cp3{8,9,10,11}-*amd64
-  CIBW_ARCHS: AMD64
-  DEBIAN_FRONTEND: noninteractive
-  CIBW_ENVIRONMENT: "${{ parameters.ExtraEnv }}"
+- template: /.pipelines/templates/onebranch-common-variables.yml@self
+  parameters:
+    debug: ${{ parameters.debug }}
 
 resources:
   repositories:
@@ -61,76 +53,6 @@ extends:
         exclusionsFile: '$(REPOROOT)\.config\policheck_exclusions.xml'
 
     stages:
-    - stage: Windows_Build
-      jobs:
-      - job: main
-        pool:
-          type: windows
-
-        variables:
-          ob_outputDirectory: '$(REPOROOT)\out'
-          ob_sdl_binskim_break: true
-        steps:
-        - script: |
-            @echo off
-            set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
-            for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
-              set vslatest="%%i"
-              if exist "%%i\Common7\Tools\vsdevcmd.bat" (
-                set vsdevcmd="%%i\Common7\Tools\vsdevcmd.bat"
-              )
-              if exist "%%i\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" (
-                set vscmake="%%i\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
-              )
-              if exist "%%i\MSBuild\Current\Bin\amd64\msbuild.exe" (
-                set vsmsbuild="%%i\MSBuild\Current\Bin\amd64\msbuild.exe"
-              )
-            )
-
-            @echo vslatest %vslatest%
-            @echo vsdevcmd %vsdevcmd%
-            @echo vscmake %vscmake%
-            @echo vsmsbuild %vsmsbuild%
-
-            @echo ##vso[task.setvariable variable=vslatest]%vslatest%
-            @echo ##vso[task.setvariable variable=vsdevcmd]%vsdevcmd%
-            @echo ##vso[task.setvariable variable=vscmake]%vscmake%
-            @echo ##vso[task.setvariable variable=vsmsbuild]%vsmsbuild%
-          displayName: 'locate vsdevcmd via vswhere'
-        - script: |
-            call $(vsdevcmd)
-            set PYTHONPATH=
-            set PYTHONHOME=
-            python -m pip install --upgrade pip
-            python -m pip install cibuildwheel numpy
-            python -m cibuildwheel --platform windows --archs AMD64 --output-dir $(REPOROOT)\out
-          displayName: Build wheels
-        - task: SDLNativeRules@3
-          inputs:
-            msBuildArchitecture: amd64
-            setupCommandlines: '"$(vscmake)" $(REPOROOT) -A x64 -B $(REPOROOT)\windows_out -DOCOS_BUILD_PYTHON=ON -DOCOS_ENABLE_CTEST=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo'
-            msBuildCommandline: '"$(vsmsbuild)" "$(REPOROOT)\windows_out\onnxruntime_extensions.sln" /p:RunCodeAnalysis=true /p:platform=x64 /p:configuration=RelWithDebInfo /p:VisualStudioVersion="16.0" /m /p:PreferredToolArchitecture=x64'
-            excludedPaths: '$(REPOROOT)\windows_out#$(Build.SourcesDirectory)\cmake#C:\program files (x86)'
-          displayName: 'Run the PREfast SDL Native Rules for MSBuild'
-        - task: PostAnalysis@2
-          inputs:
-            GdnBreakGdnToolSDLNativeRulesSeverity: Warning
-            GdnBreakGdnToolSDLNativeRules: true
-          displayName: 'Guardian Break'
-        - script: |
-            7z x $(REPOROOT)\out\*.whl -o$(REPOROOT)\out\*
-          displayName: unzip the package
-        - task: onebranch.pipeline.signing@1
-          inputs:
-            command: 'sign'
-            signing_profile: 'external_distribution'
-            files_to_sign: '**/**/*.pyd;**/**/*.dll'
-            search_root: '$(REPOROOT)\out'
-          displayName: 'Sign runtime DLLs'
-        - script: |
-            for /D %%i in ("out\onnxruntime_extensions*-win*") do (
-              7z u %%i.whl .\%%i\*
-              rmdir /s /q %%i
-              )
-          workingDirectory: '$(REPOROOT)'
-          displayName: zip package
+    - template: /.pipelines/templates/onebranch-windows-build-stage.yml@self
+      parameters:
+        CibwEnv: ${{ parameters.ExtraEnv }}

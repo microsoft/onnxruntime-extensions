@@ -7,7 +7,7 @@ import torch
 import torchvision
 import onnxruntime as _ort
 
-from distutils.version import LooseVersion
+from packaging import version
 from torch.onnx import register_custom_op_symbolic
 from onnxruntime_extensions import (
     PyOp,
@@ -21,7 +21,7 @@ def my_inverse(g, self):
     return g.op("ai.onnx.contrib::Inverse", self)
 
 
-if LooseVersion(torch.__version__) >= LooseVersion("1.13"):
+if version.parse(torch.__version__) >= version.parse("1.13"):
     register_custom_op_symbolic('::linalg_inv', my_inverse, 1)
 else:
     register_custom_op_symbolic('::inverse', my_inverse, 1)
@@ -100,7 +100,7 @@ class TestPyTorchCustomOp(unittest.TestCase):
         return x
 
     @unittest.skipIf(
-        (platform.system() == 'Darwin') or (LooseVersion(_ort.__version__) > LooseVersion("1.11")),
+        (platform.system() == 'Darwin') or (version.parse(_ort.__version__) > version.parse("1.11")),
         "pytorch.onnx crashed for this case! and test asserts with higher versions of ort"
     )
     def test_pyop_hooking(self):    # type: () -> None

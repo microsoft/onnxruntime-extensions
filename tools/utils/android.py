@@ -123,6 +123,7 @@ def start_emulator(
         waiter_process = waiter_stack.enter_context(
             _start_process(
                 sdk_tool_paths.adb,
+                "-e",
                 "wait-for-device",
                 "shell",
                 "while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done; input keyevent 82",
