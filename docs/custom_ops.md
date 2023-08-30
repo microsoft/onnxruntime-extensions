@@ -1359,18 +1359,18 @@ A byte array containing raw data from the audio file.
 
 Note - OpenAIAudioToText operator composes a request based on last part of the input and output names split by "/",
 
-which means the for input names, they must be of format:
+Meaning for input names, they must be of format:
 - auth_token: "whatever-name-you-want-to-use"
-- model_name: "<part-1>/<part-2>/.../model_name"
-- response_format: "<part-1>/<part-2>/.../response_format"
-- audio_blob: "<part-1>/<part-2>/.../file"
+- model_name: ".../.../.../model_name"
+- response_format: ".../.../.../response_format"
+- audio_blob: ".../.../.../file"
 
 for output name, it must be of format:
-- transcriptions: "<part-1>/<part-2>/.../transcriptions"
+- transcriptions: ".../.../.../transcriptions"
 
 Hence there could be multiple OpenAIAudioToText operators accepting different inputs inside a model, and give varied outputs.
 
-Pls find sample code below for better illustration.
+Pls find sample code below for a better illustration.
 
 
 ```python
