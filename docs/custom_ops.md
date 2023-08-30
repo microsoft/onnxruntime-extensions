@@ -1389,14 +1389,14 @@ openai_auth_token = os.getenv('AUTH', '')  # read auto token from env
 
 def create_openai_audio_model():
     auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [1])
-    model = helper.make_tensor_value_info('model_name', TensorProto.STRING, [1])
-    response_format = helper.make_tensor_value_info('response_format', TensorProto.STRING, [-1])
-    file = helper.make_tensor_value_info('file', TensorProto.UINT8, [-1])
-    transcriptions = helper.make_tensor_value_info('transcriptions', TensorProto.STRING, [-1])
+    model = helper.make_tensor_value_info('node_1/model_name', TensorProto.STRING, [1])
+    response_format = helper.make_tensor_value_info('node_1/response_format', TensorProto.STRING, [-1])
+    file = helper.make_tensor_value_info('node_1/file', TensorProto.UINT8, [-1])
+    transcriptions = helper.make_tensor_value_info('node_1/transcriptions', TensorProto.STRING, [-1])
 
     invoker = helper.make_node('OpenAIAudioToText',
-                               ['auth_token', 'model_name', 'response_format', 'file'],  # names must follow the format
-                               ['transcriptions'],  # names must follow the format
+                               ['auth_token', 'node_1/model_name', 'node_1/response_format', 'node_1/file'],  # names must follow the format
+                               ['node_1/transcriptions'],  # names must follow the format
                                domain='com.microsoft.extensions',
                                name='audio_invoker',
                                model_uri=openai_model_uri,
@@ -1422,9 +1422,9 @@ with open(os.path.join(test_data_dir, "test16.wav"), "rb") as _f:
     audio_blob = np.asarray(list(_f.read()), dtype=np.uint8)
     ort_inputs = {
         "auth_token": auth_token,
-        "model_name": model,
-        "response_format": response_format,
-        "file": audio_blob,
+        "node_1/model_name": model,
+        "node_1/response_format": response_format,
+        "node_1/file": audio_blob,
     }
     out = sess.run(None, ort_inputs)[0]
 ```
