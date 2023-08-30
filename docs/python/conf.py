@@ -9,13 +9,14 @@
 import os
 import shutil  # noqa: F401
 import sys
+from datetime import datetime
 
 # import recommonmark
 
 # -- Project information -----------------------------------------------------
 
 project = "ONNXRuntime-Extensions Python API"
-copyright = "2018-2023, Microsoft"
+copyright = f"2018-{datetime.now().year}, Microsoft"
 author = "Microsoft"
 
 # -- General configuration ---------------------------------------------------
