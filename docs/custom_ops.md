@@ -1357,6 +1357,21 @@ A byte array containing raw data from the audio file.
 
 #### Examples
 
+Note - OpenAIAudioToText operator composes a request based on last part of the input and output names split by "/",
+
+Meaning for input names, they must be of format:
+- auth_token: "whatever-name-you-want-to-use"
+- model_name: ".../.../.../model_name"
+- response_format: ".../.../.../response_format"
+- audio_blob: ".../.../.../file"
+
+for output name, it must be of format:
+- transcriptions: ".../.../.../transcriptions"
+
+Hence there could be multiple OpenAIAudioToText operators accepting different inputs inside a model, and give varied outputs.
+
+Pls find sample code below for a better illustration.
+
 
 ```python
 
@@ -1368,6 +1383,10 @@ from onnxruntime_extensions import PyOrtFunction, util, get_library_path
 from onnxruntime import *
 
 
+openai_model_uri = os.getenv('URI', '')  # read uri from env
+openai_auth_token = os.getenv('AUTH', '')  # read auto token from env
+
+
 def create_openai_audio_model():
     auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [1])
     model = helper.make_tensor_value_info('model_name', TensorProto.STRING, [1])
@@ -1376,11 +1395,11 @@ def create_openai_audio_model():
     transcriptions = helper.make_tensor_value_info('transcriptions', TensorProto.STRING, [-1])
 
     invoker = helper.make_node('OpenAIAudioToText',
-                               ['auth_token', 'model_name', 'response_format', 'file'],
-                               ['transcriptions'],
+                               ['auth_token', 'model_name', 'response_format', 'file'],  # names must follow the format
+                               ['transcriptions'],  # names must follow the format
                                domain='com.microsoft.extensions',
                                name='audio_invoker',
-                               model_uri='https://api.openai.com/v1/audio/transcriptions',
+                               model_uri=openai_model_uri,
                                audio_format='wav')
 
     graph = helper.make_graph([invoker], 'graph', [auth_token, model, response_format, file], [transcriptions])
@@ -1395,7 +1414,7 @@ opt = SessionOptions()
 opt.register_custom_ops_library(get_library_path())
 sess = InferenceSession(os.path.join(test_data_dir, "openai_audio.onnx"),
                         opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
-auth_token = np.array([os.getenv('MYAUTH', '')])
+auth_token = np.array([openai_auth_token])
 model = np.array(['whisper-1'])
 response_format = np.array(['text'])
 
@@ -1457,6 +1476,10 @@ from onnxruntime_extensions import PyOrtFunction, util, get_library_path
 from onnxruntime import *
 
 
+azure_model_uri = os.getenv('URI', '')  # read uri from env
+azure_auth_token = os.getenv('AUTH', '')  # read auto token from env
+
+
 def create_azure_chat_model():
     auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
     chat = helper.make_tensor_value_info('chat', TensorProto.STRING, [-1])
@@ -1465,7 +1488,7 @@ def create_azure_chat_model():
     invoker = helper.make_node('AzureTextToText', ['auth_token', 'chat'], ['response'],
                                domain='com.microsoft.extensions',
                                name='chat_invoker',
-                               model_uri='https://rashuai-aoai-test.openai.azure.com/openai/deployments/randysgpt/chat/completions?api-version=2023-05-15')
+                               model_uri=azure_model_uri)
 
     graph = helper.make_graph([invoker], 'graph', [auth_token, chat], [response])
     model = helper.make_model(graph,
@@ -1478,7 +1501,7 @@ create_azure_chat_model()
 opt = SessionOptions()
 opt.register_custom_ops_library(get_library_path())
 sess = InferenceSession(os.path.join(test_data_dir, "azure_chat.onnx"), opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
-auth_token = np.array([os.getenv('MYAUTH', '')])
+auth_token = np.array([azure_auth_token])
 chat = np.array([r'{"messages":[{"role": "system", "content": "You are a helpful assistant."},{"role": "user", "content": "Does Azure OpenAI support customer managed keys?"},{"role": "assistant", "content": "Yes, customer managed keys are supported by Azure OpenAI."},{"role": "user", "content": "Do other Azure AI services support this too?"}]}'])
 ort_inputs = {
     "auth_token": auth_token,
@@ -1540,6 +1563,10 @@ from onnxruntime_extensions import PyOrtFunction, util, get_library_path
 from onnxruntime import *
 
 
+triton_uri = os.getenv('URI', '')  # read uri from env
+triton_auth_token = os.getenv('AUTH', '')  # read auto token from env
+
+
 def createAddf():
     auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
     X = helper.make_tensor_value_info('X', TensorProto.FLOAT, [-1])
@@ -1547,7 +1574,7 @@ def createAddf():
     Z = helper.make_tensor_value_info('Z', TensorProto.FLOAT, [-1])
     invoker = helper.make_node('AzureTritonInvoker', ['auth_token', 'X', 'Y'], ['Z'],
                                domain='com.microsoft.extensions', name='triton_invoker',
-                               model_uri='https://endpoint-1.westus2.inference.ml.azure.com',
+                               model_uri=triton_uri,
                                model_name='addf', model_version='1')
     graph = helper.make_graph([invoker], 'graph', [auth_token, X, Y], [Z])
     model = helper.make_model(graph,
@@ -1555,72 +1582,12 @@ def createAddf():
     save(model, 'triton_addf.onnx')
 
 
-def createAddf8():
-    auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
-    X = helper.make_tensor_value_info('X', TensorProto.DOUBLE, [-1])
-    Y = helper.make_tensor_value_info('Y', TensorProto.DOUBLE, [-1])
-    Z = helper.make_tensor_value_info('Z', TensorProto.DOUBLE, [-1])
-    invoker = helper.make_node('AzureTritonInvoker', ['auth_token', 'X', 'Y'], ['Z'],
-                               domain='com.microsoft.extensions', name='triton_invoker',
-                               model_uri='https://endpoint-2.westus2.inference.ml.azure.com',
-                               model_name='addf8', model_version='1')
-    graph = helper.make_graph([invoker], 'graph', [auth_token, X, Y], [Z])
-    model = helper.make_model(graph,
-                              opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
-    save(model, 'triton_addf8.onnx')
-
-
-def createAddi4():
-    auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
-    X = helper.make_tensor_value_info('X', TensorProto.INT32, [-1])
-    Y = helper.make_tensor_value_info('Y', TensorProto.INT32, [-1])
-    Z = helper.make_tensor_value_info('Z', TensorProto.INT32, [-1])
-    invoker = helper.make_node('AzureTritonInvoker', ['auth_token', 'X', 'Y'], ['Z'],
-                               domain='com.microsoft.extensions', name='triton_invoker',
-                               model_uri='https://endpoint-3.westus2.inference.ml.azure.com',
-                               model_name='addi4', model_version='1')
-    graph = helper.make_graph([invoker], 'graph', [auth_token, X, Y], [Z])
-    model = helper.make_model(graph,
-                              opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
-    save(model, 'triton_addi4.onnx')
-
-
-def createAnd():
-    auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
-    X = helper.make_tensor_value_info('X', TensorProto.BOOL, [-1])
-    Y = helper.make_tensor_value_info('Y', TensorProto.BOOL, [-1])
-    Z = helper.make_tensor_value_info('Z', TensorProto.BOOL, [-1])
-    invoker = helper.make_node('AzureTritonInvoker', ['auth_token', 'X', 'Y'], ['Z'],
-                               domain='com.microsoft.extensions', name='triton_invoker',
-                               model_uri='https://endpoint-4.westus2.inference.ml.azure.com',
-                               model_name='and', model_version='1')
-    graph = helper.make_graph([invoker], 'graph', [auth_token, X, Y], [Z])
-    model = helper.make_model(graph,
-                              opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
-    save(model, 'triton_and.onnx')
-
-
-def createStr():
-    auth_token = helper.make_tensor_value_info('auth_token', TensorProto.STRING, [-1])
-    str_in = helper.make_tensor_value_info('str_in', TensorProto.STRING, [-1])
-    str_out1 = helper.make_tensor_value_info('str_out1', TensorProto.STRING, [-1])
-    str_out2 = helper.make_tensor_value_info('str_out2', TensorProto.STRING, [-1])
-    invoker = helper.make_node('AzureTritonInvoker', ['auth_token', 'str_in'], ['str_out1','str_out2'],
-                               domain='com.microsoft.extensions', name='triton_invoker',
-                               model_uri='https://endpoint-5.westus2.inference.ml.azure.com',
-                               model_name='str', model_version='1')
-    graph = helper.make_graph([invoker], 'graph', [auth_token, str_in], [str_out1, str_out2])
-    model = helper.make_model(graph,
-                              opset_imports=[helper.make_operatorsetid('com.microsoft.extensions', 1)])
-    save(model, 'triton_str.onnx')
-
-
 def run_add_f():
     opt = SessionOptions()
     opt.register_custom_ops_library(get_library_path())
     sess = InferenceSession(os.path.join(test_data_dir, "triton_addf.onnx"),
                             opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
-    auth_token = np.array([os.getenv('MYAUTH', '')])
+    auth_token = np.array([triton_auth_token])
     x = np.array([1,2,3,4]).astype(np.float32)
     y = np.array([4,3,2,1]).astype(np.float32)
     ort_inputs = {
@@ -1629,67 +1596,5 @@ def run_add_f():
         "Y": y
     }
     out = sess.run(None, ort_inputs)[0]
-
-
-def run_add_f8():
-    opt = SessionOptions()
-    opt.register_custom_ops_library(get_library_path())
-    sess = InferenceSession(os.path.join(test_data_dir, "triton_addf8.onnx"),
-                            opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
-    auth_token = np.array([os.getenv('MYAUTH', '')])
-    x = np.array([1,2,3,4]).astype(np.double)
-    y = np.array([4,3,2,1]).astype(np.double)
-    ort_inputs = {
-        "auth_token": auth_token,
-        "X": x,
-        "Y": y
-    }
-    out = sess.run(None, ort_inputs)[0]
-
-
-def run_add_i4():
-    opt = SessionOptions()
-    opt.register_custom_ops_library(get_library_path())
-    sess = InferenceSession(os.path.join(test_data_dir, "triton_addi4.onnx"),
-                            opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
-    auth_token = np.array([os.getenv('MYAUTH', '')])
-    x = np.array([1,2,3,4]).astype(np.int32)
-    y = np.array([4,3,2,1]).astype(np.int32)
-    ort_inputs = {
-        "auth_token": auth_token,
-        "X": x,
-        "Y": y
-    }
-    out = sess.run(None, ort_inputs)[0]
-
-
-def run_and():
-    opt = SessionOptions()
-    opt.register_custom_ops_library(get_library_path())
-    sess = InferenceSession(os.path.join(test_data_dir, "triton_and.onnx"),
-                            opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
-    auth_token = np.array([os.getenv('MYAUTH', '')])
-    x = np.array([True, True])
-    y = np.array([True, False])
-    ort_inputs = {
-        "auth_token": auth_token,
-        "X": x,
-        "Y": y
-    }
-    out = sess.run(None, ort_inputs)[0]
-
-
-def run_str():
-    opt = SessionOptions()
-    opt.register_custom_ops_library(get_library_path())
-    sess = InferenceSession(os.path.join(test_data_dir, "triton_str.onnx"),
-                            self.__opt, providers=["CPUExecutionProvider", "AzureExecutionProvider"])
-    auth_token = np.array([os.getenv('MYAUTH', '')])
-    str_in = np.array(['this is the input'])
-    ort_inputs = {
-        "auth_token": auth_token,
-        "str_in": str_in
-    }
-    outs = sess.run(None, ort_inputs)
 ```
 </details>
