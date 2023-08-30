@@ -29,7 +29,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install python3-pip
-          sudo apt-get install graphviz
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
