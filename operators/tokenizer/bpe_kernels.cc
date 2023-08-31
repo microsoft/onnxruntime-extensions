@@ -168,8 +168,10 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     OffsetMappingType offset_mapping;
 
     if (compute_offset_mapping) {
-      // Add offset mapping for BOS token
-      offset_mapping.push_back(std::make_pair(0, 0));
+      if (ModelName() != BpeModelConf::kModel_GPT2) {
+        // Add offset mapping for BOS token
+        offset_mapping.push_back(std::make_pair(0, 0));
+      }
     }
 
     while (static_cast<int64_t>(res.size()) < max_length) {
@@ -220,16 +222,22 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
         res.push_back(p.first);
 
         if (compute_offset_mapping) {
-          offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + (size_t)p.second + space_dif)));
-          offset += ((size_t)p.second + space_dif);
+          if (ModelName() == BpeModelConf::kModel_CLIP) {
+            offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + p.second)));
+            offset += p.second;
+          } else {
+            offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + (size_t)p.second + space_dif)));
+            offset += ((size_t)p.second + space_dif);
+          }
         }
       }
     }
 
     if (compute_offset_mapping) {
-      // Add offset mapping for EOS token
-      offset_mapping.emplace_back(std::make_pair(0, 0));
-
+      if (ModelName() != BpeModelConf::kModel_GPT2) {
+        // Add offset mapping for EOS token
+        offset_mapping.emplace_back(std::make_pair(0, 0));
+      }
       // Add offset mappings for input in this instance to list of offset mappings for all inputs
       offset_map.emplace_back(offset_mapping);
     }

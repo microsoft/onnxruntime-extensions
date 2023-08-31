@@ -1,6 +1,5 @@
 import unittest
 import numpy as np
-import numpy.lib.recfunctions as nlr
 import onnxruntime as _ort
 
 from pathlib import Path
