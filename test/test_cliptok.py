@@ -81,25 +81,12 @@ class TestCLIPTokenizer(unittest.TestCase):
         so.register_custom_ops_library(_get_library_path())
         sess = _ort.InferenceSession(model.SerializeToString(), so, providers=["CPUExecutionProvider"])
         input_text = np.array(test_sentence)
-        input_ids, attention_mask, offset_mapping = sess.run(None, {'string_input': input_text})
-        print("\nTest Sentence: " + str(test_sentence))
-        print("\nInput IDs: " + str(input_ids))
-        print("Attention Mask: " + str(attention_mask))
-        # Reformat offset mapping from 3d array to 2d array of tuples before printing for readability
-        reformatted_offset_mapping = nlr.unstructured_to_structured(np.array(offset_mapping)).astype('O')
-        print("Offset Mapping: " + str(reformatted_offset_mapping))
+        input_ids, attention_mask, _ = sess.run(None, {'string_input': input_text})
         clip_out = self.tokenizer(test_sentence, return_offsets_mapping=True)
         expect_input_ids = clip_out['input_ids']
         expect_attention_mask = clip_out['attention_mask']
-        expect_offset_mapping = clip_out['offset_mapping']
-        print("\nExpected Input IDs: " + str(expect_input_ids))
-        print("Expected Attention Mask: " + str(expect_attention_mask))
-        print("Expected Offset Mapping: " + str(expect_offset_mapping) + "\n")
         np.testing.assert_array_equal(expect_input_ids, input_ids)
         np.testing.assert_array_equal(expect_attention_mask, attention_mask)
-
-        del sess
-        del so
 
     def test_tokenizer(self):
         self._run_tokenizer(["I can feel the magic, can you?"])
@@ -130,10 +117,9 @@ class TestCLIPTokenizer(unittest.TestCase):
         expect_input_ids = clip_out['input_ids']
         expect_attention_mask = clip_out['attention_mask']
         expect_offset_mapping = clip_out['offset_mapping']
-        np.testing.assert_array_equal(fn_out[0].reshape((fn_out[0].size,)), expect_input_ids)
-        np.testing.assert_array_equal(fn_out[1].reshape((fn_out[1].size,)), expect_attention_mask)
-        np.testing.assert_array_equal(fn_out[2].reshape((fn_out[2].shape[1], fn_out[2].shape[2])),
-                                      expect_offset_mapping)
+        np.testing.assert_array_equal(fn_out[0][0], expect_input_ids)
+        np.testing.assert_array_equal(fn_out[1][0], expect_attention_mask)
+        np.testing.assert_array_equal(fn_out[2][0], expect_offset_mapping)
 
     def test_optional_outputs(self):
         # Test for models without offset mapping and without both attention mask and offset mapping
