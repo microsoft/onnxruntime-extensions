@@ -113,7 +113,9 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
   std::vector<int64_t> res;
   std::list<std::pair<uint32_t, uint32_t>> byte_list;
 
+  bool clean_up_spaces = false;
   if (ModelName() == BpeModelConf::kModel_CLIP) {
+    clean_up_spaces = true;
     // Merges consecutive '\s+' for CLIP
     /*
       text = re.sub(r"\s+", " ", text)
@@ -192,7 +194,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
       // Get byte encodings prior to performing BPE
       byte_list.clear();
 
-      if (ModelName() == BpeModelConf::kModel_CLIP) {
+      if (clean_up_spaces) {
         // Whitespace clean
         utf8_token.erase(std::remove(utf8_token.begin(), utf8_token.end(), ' '), utf8_token.end());
 
@@ -222,7 +224,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
         res.push_back(p.first);
 
         if (compute_offset_mapping) {
-          if (ModelName() == BpeModelConf::kModel_CLIP) {
+          if (clean_up_spaces) {
             offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + p.second)));
             offset += p.second;
           } else {

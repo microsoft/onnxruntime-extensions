@@ -25,11 +25,11 @@ class SpecialTokenMap {
     }
   }
 
-  std::list<std::pair<ustring, int>> SplitBySpecialTokens(ustring input) const {
-    std::list<std::pair<ustring, int>> res;
+  std::vector<std::pair<ustring, int>> SplitBySpecialTokens(ustring input) const {
+    std::vector<std::pair<ustring, int>> res;
     res.emplace_back(std::move(input), -1);
     for (const auto& st : token_list_) {
-      std::list<std::pair<ustring, int>> new_split_res;
+      std::vector<std::pair<ustring, int>> new_split_res;
       for (auto& str : res) {
         if (str.second != -1) {
           new_split_res.push_back(std::move(str));
