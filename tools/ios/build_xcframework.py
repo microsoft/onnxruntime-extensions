@@ -5,23 +5,27 @@
 
 # build an xcframework from individual per-platform/arch static frameworks
 
+from __future__ import annotations
+
 import argparse
 from pathlib import Path
 import shutil
-import subprocess
-from typing import Dict, List, Optional
+import sys
 
-_script_dir = Path(__file__).resolve().parent
-_repo_dir = _script_dir.parents[1]
+_repo_dir = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_repo_dir / "tools"))
+
+from utils import get_logger, run  # noqa
 
 _supported_platform_archs = {
     "iphoneos": ["arm64"],
     "iphonesimulator": ["x86_64", "arm64"],
 }
 
-_cmake = "cmake"
 _lipo = "lipo"
 _xcrun = "xcrun"
+
+_log = get_logger("build_xcframework")
 
 
 def _get_opencv_toolchain_file(platform: str, opencv_dir: Path):
@@ -30,13 +34,6 @@ def _get_opencv_toolchain_file(platform: str, opencv_dir: Path):
         / "platforms/ios/cmake/Toolchains"
         / ("Toolchain-iPhoneOS_Xcode.cmake" if platform == "iphoneos" else "Toolchain-iPhoneSimulator_Xcode.cmake")
     )
-
-
-def _run(cmd_args: List[str], **kwargs):
-    import shlex
-
-    print(f"Running command:\n  {shlex.join(cmd_args)}", flush=True)
-    subprocess.run(cmd_args, check=True, **kwargs)
 
 
 def _rmtree_if_existing(dir: Path):
@@ -53,50 +50,50 @@ def build_framework_for_platform_and_arch(
     config: str,
     opencv_dir: Path,
     ios_deployment_target: str,
-    cmake_extra_defines: List[str],
+    other_build_args: list[str],
 ):
-    build_dir.mkdir(parents=True, exist_ok=True)
+    cmake_defines = [
+        # required by OpenCV CMake toolchain file
+        # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L64-L66
+        f"IOS_ARCH={arch}",
+        # required by OpenCV CMake toolchain file
+        # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L96-L101
+        f"IPHONEOS_DEPLOYMENT_TARGET={ios_deployment_target}",
+    ]
 
-    # generate build files
-    generate_args = (
+    build_cmd = (
         [
-            _cmake,
-            "-G=Xcode",
-            f"-S={_repo_dir}",
-            f"-B={build_dir}",
+            sys.executable,
+            str(_repo_dir / "tools" / "build.py"),
+            f"--build_dir={build_dir}",
+            f"--config={config}",
+            "--update",
+            "--build",
+            "--parallel",
+            "--test",
+            # iOS options
+            "--ios",
+            "--build_apple_framework",
+            f"--ios_sysroot={platform}",
+            f"--ios_toolchain_file={_get_opencv_toolchain_file(platform, opencv_dir)}",
+            f"--apple_arch={arch}",
+            f"--apple_deploy_target={ios_deployment_target}",
         ]
-        + [f"-D{cmake_extra_define}" for cmake_extra_define in cmake_extra_defines]
-        + [
-            "-DCMAKE_SYSTEM_NAME=iOS",
-            f"-DCMAKE_OSX_DEPLOYMENT_TARGET={ios_deployment_target}",
-            f"-DCMAKE_OSX_SYSROOT={platform}",
-            f"-DCMAKE_OSX_ARCHITECTURES={arch}",
-            f"-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO",
-            "-DOCOS_BUILD_APPLE_FRAMEWORK=ON",
-            # use OpenCV's CMake toolchain file
-            f"-DCMAKE_TOOLCHAIN_FILE={_get_opencv_toolchain_file(platform, opencv_dir)}",
-            # required by OpenCV CMake toolchain file
-            # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L64-L66
-            f"-DIOS_ARCH={arch}",
-            # required by OpenCV CMake toolchain file
-            # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L96-L101
-            f"-DIPHONEOS_DEPLOYMENT_TARGET={ios_deployment_target}",
-        ]
+        + [f"--one_cmake_extra_define={cmake_define}" for cmake_define in cmake_defines]
+        + other_build_args
     )
-    _run(generate_args)
 
-    # build
-    _run([_cmake, f"--build", f"{build_dir}", f"--config={config}", "--parallel"])
+    run(*build_cmd)
 
 
 def build_xcframework(
     output_dir: Path,
-    platform_archs: Dict[str, List[str]],
+    platform_archs: dict[str, list[str]],
     mode: str,
     config: str,
     opencv_dir: Path,
     ios_deployment_target: str,
-    cmake_extra_defines: List[str],
+    other_build_args: list[str],
 ):
     output_dir = output_dir.resolve()
     intermediate_build_dir = output_dir / "intermediates"
@@ -122,7 +119,7 @@ def build_xcframework(
                     config,
                     opencv_dir,
                     ios_deployment_target,
-                    cmake_extra_defines,
+                    other_build_args,
                 )
 
     pack_xcframework = mode in ["pack_xcframework_only", "build_xcframework"]
@@ -137,7 +134,10 @@ def build_xcframework(
         platform_fat_framework_dirs = []
         for platform, archs in platform_archs.items():
             arch_framework_dirs = [
-                platform_arch_framework_build_dir(platform, arch) / "static_framework/onnxruntime_extensions.framework"
+                platform_arch_framework_build_dir(platform, arch)
+                / config
+                / "static_framework"
+                / "onnxruntime_extensions.framework"
                 for arch in archs
             ]
 
@@ -169,7 +169,9 @@ def build_xcframework(
 
             # combine arch-specific framework libraries
             arch_libs = [str(framework_dir / "onnxruntime_extensions") for framework_dir in arch_framework_dirs]
-            _run([_lipo, "-create", "-output", str(platform_fat_framework_dir / "onnxruntime_extensions")] + arch_libs)
+            run(
+                *([_lipo, "-create", "-output", str(platform_fat_framework_dir / "onnxruntime_extensions")] + arch_libs)
+            )
 
             platform_fat_framework_dirs.append(platform_fat_framework_dir)
 
@@ -177,10 +179,10 @@ def build_xcframework(
         xcframework_dir = output_dir / "onnxruntime_extensions.xcframework"
         _rmtree_if_existing(xcframework_dir)
 
-        create_xcframework_args = [_xcrun, "xcodebuild", "-create-xcframework", "-output", str(xcframework_dir)]
+        create_xcframework_cmd = [_xcrun, "xcodebuild", "-create-xcframework", "-output", str(xcframework_dir)]
         for platform_fat_framework_dir in platform_fat_framework_dirs:
-            create_xcframework_args += ["-framework", str(platform_fat_framework_dir)]
-        _run(create_xcframework_args)
+            create_xcframework_cmd += ["-framework", str(platform_fat_framework_dir)]
+        run(*create_xcframework_cmd)
 
         # copy public headers
         output_headers_dir = output_dir / "Headers"
@@ -218,7 +220,7 @@ def parse_args():
         "'pack_xcframework_only' packs the xcframework from existing lib files only. "
         "Note: 'pack_xcframework_only' assumes previous invocation(s) with mode 'build_platform_arch_frameworks_only'.",
     )
-	
+
     parser.add_argument(
         "--platform_arch",
         nargs=2,
@@ -238,30 +240,19 @@ def parse_args():
     )
     parser.add_argument(
         "--ios_deployment_target",
-        default="11.0",
+        default="12.0",
         help="iOS deployment target.",
     )
 
-    parser.add_argument(
-        "--cmake_extra_defines",
-        action="append",
-        nargs="+",
-        default=[],
-        help="Extra definition(s) to pass to CMake (with the CMake -D option) during build system generation. "
-             "e.g., `--cmake_extra_defines OPTION1=ON OPTION2=OFF --cmake_extra_defines OPTION3=ON`.",
-    )
-
-    # ignore unknown args which may be present in a CI build for the nuget package as we pass through
-    # all additional build flags
     args, unknown_args = parser.parse_known_args()
 
     # convert from [[platform1, arch1], [platform1, arch2], ...] to {platform1: [arch1, arch2, ...], ...}
-    def platform_archs_from_args(platform_archs_arg: Optional[List[List[str]]]) -> Dict[str, List[str]]:
+    def platform_archs_from_args(platform_archs_arg: list[list[str]] | None) -> dict[str, list[str]]:
         if not platform_archs_arg:
             return _supported_platform_archs.copy()
 
         platform_archs = {}
-        for (platform, arch) in platform_archs_arg:
+        for platform, arch in platform_archs_arg:
             assert (
                 platform in _supported_platform_archs.keys()
             ), f"Unsupported platform: '{platform}'. Valid values are {list(_supported_platform_archs.keys())}"
@@ -278,14 +269,13 @@ def parse_args():
 
     args.platform_archs = platform_archs_from_args(args.platform_archs)
 
-    # convert from List[List[str]] to List[str]
-    args.cmake_extra_defines = [element for inner_list in args.cmake_extra_defines for element in inner_list]
-
-    return args
+    return args, unknown_args
 
 
 def main():
-    args = parse_args()
+    args, unknown_args = parse_args()
+
+    _log.info(f"Building xcframework for platform archs: {args.platform_archs}")
 
     build_xcframework(
         output_dir=args.output_dir,
@@ -294,8 +284,10 @@ def main():
         config=args.config,
         opencv_dir=_repo_dir / "cmake/externals/opencv",
         ios_deployment_target=args.ios_deployment_target,
-        cmake_extra_defines=args.cmake_extra_defines,
+        other_build_args=unknown_args,
     )
+
+    _log.info("xcframework build complete.")
 
 
 if __name__ == "__main__":

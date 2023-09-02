@@ -2,6 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+from __future__ import annotations
+
 import argparse
 import os
 import platform
@@ -10,7 +12,6 @@ import shutil
 import sys
 
 from pathlib import Path, PurePosixPath
-from typing import List, Set
 
 SCRIPT_DIR = Path(__file__).parent
 REPO_DIR = SCRIPT_DIR.parent
@@ -33,9 +34,12 @@ class UsageError(Exception):
 
 
 def _check_python_version():
-    if (sys.version_info.major, sys.version_info.minor) < (3, 7):
-        raise UsageError("Invalid Python version. At least Python 3.7 is required. "
-                         f"Actual Python version: {sys.version}")
+    required_minor_version = 8
+    if (sys.version_info.major, sys.version_info.minor) < (3, required_minor_version):
+        raise UsageError(
+            f"Invalid Python version. At least Python 3.{required_minor_version} is required. "
+            f"Actual Python version: {sys.version}"
+        )
 
 
 _check_python_version()
@@ -98,13 +102,16 @@ def _parse_arguments():
                         help="Use parallel build. The optional value specifies the maximum number of parallel jobs. "
                              "If the optional value is 0 or unspecified, it is interpreted as the number of CPUs.")
 
-    parser.add_argument("--cmake_extra_defines", nargs="+", action="append",
-                        help="Extra definitions to pass to CMake during build system generation. "
+    parser.add_argument("--cmake_extra_defines", nargs="+", action="extend", default=[],
+                        help="Add extra definitions to pass to CMake during build system generation. "
                              "These are essentially CMake -D options without the leading -D. "
                              "Multiple name=value defines can be specified, with each separated by a space. "
                              "Quote the name and value if the value contains spaces. "
-                             "The cmake_extra_defines can also be specified multiple times. "
+                             "This option can also be specified multiple times. "
                              "  e.g. --cmake_extra_defines \"Name1=the value\" Name2=value2")
+    parser.add_argument("--one_cmake_extra_define", action="append", dest="cmake_extra_defines",
+                        help="Add one CMake extra definition, see --cmake_extra_defines. "
+                             "This option can be specified multiple times.")
 
     # Test options
     parser.add_argument("--enable_cxx_tests", action="store_true", help="Enable the C++ unit tests.")
@@ -142,7 +149,7 @@ def _parse_arguments():
 
     # macOS/iOS options
     parser.add_argument("--build_apple_framework", action="store_true",
-                        help="Build a macOS/iOS framework for the ONNXRuntime.")
+                        help="Build a macOS/iOS framework for ONNX Runtime Extensions.")
     parser.add_argument("--ios", action="store_true", help="build for iOS")
     parser.add_argument("--ios_sysroot", default="",
                         help="Specify the name of the platform SDK to be used. e.g. iphoneos, iphonesimulator")
@@ -152,7 +159,7 @@ def _parse_arguments():
                         help="The development team ID used for code signing in Xcode")
     parser.add_argument("--xcode_code_signing_identity", default="",
                         help="The development identity used for code signing in Xcode")
-    parser.add_argument("--osx_arch", default="arm64" if platform.machine() == "arm64" else "x86_64",
+    parser.add_argument("--apple_arch", default="arm64" if platform.machine() == "arm64" else "x86_64",
                         choices=["arm64", "arm64e", "x86_64"],
                         help="Specify the Target specific architectures for macOS and iOS. "
                              "This is only supported on macOS")
@@ -261,8 +268,12 @@ def _get_build_config_dir(build_dir: Path, config: str):
     return build_dir / config
 
 
-def _run_subprocess(args: List[str], cwd: Path = None, capture_stdout=False, shell=False, env=None,
-                    python_path: Path = None):
+def _run_subprocess(args: list[str],
+                    cwd: Path | None = None,
+                    capture_stdout: bool = False,
+                    shell: bool = False,
+                    env: dict[str, str] | None = None,
+                    python_path: Path | None = None):
 
     if isinstance(args, str):
         raise ValueError("args should be a sequence of strings, not a string")
@@ -284,13 +295,9 @@ def _run_subprocess(args: List[str], cwd: Path = None, capture_stdout=False, she
     return run(*args, cwd=cwd, capture_stdout=capture_stdout, shell=shell, env=my_env)
 
 
-def _flatten_arg_list(nested_list: List[List[str]]):
-    return [i for j in nested_list for i in j] if nested_list else []
-
-
 def _is_cross_compiling_on_apple(args):
     if is_macOS():
-        return args.ios or args.osx_arch != platform.machine()
+        return args.ios or args.apple_arch != platform.machine()
 
     return False
 
@@ -364,10 +371,9 @@ def _android_prebuild(android_abi: str, android_ndk_path: Path, android_api_leve
 def _generate_build_tree(cmake_path: Path,
                          source_dir: Path,
                          build_dir: Path,
-                         configs: Set[str],
-                         cmake_extra_defines: List[str],
+                         configs: set[str],
                          args,
-                         cmake_extra_args: List[str]
+                         cmake_extra_args: list[str]
                          ):
     log.info("Generating CMake build tree")
 
@@ -398,30 +404,34 @@ def _generate_build_tree(cmake_path: Path,
             f"-DANDROID_ABI={args.android_abi}",
         ]
 
-    if is_macOS():
-        cmake_args.append("-DOCOS_BUILD_APPLE_FRAMEWORK=" + ("ON" if args.build_apple_framework else "OFF"))
+    if is_macOS() and not args.android:
+        # these cmake definitions apply to MacOS and iOS builds
+        cmake_args += (
+            [f"-DCMAKE_OSX_ARCHITECTURES={args.apple_arch}"] +
+            ([f"-DCMAKE_OSX_DEPLOYMENT_TARGET={args.apple_deploy_target}"] if args.apple_deploy_target else []) +
+            (["-DOCOS_BUILD_APPLE_FRAMEWORK=ON"] if args.build_apple_framework else [])
+        )
 
-    if args.ios:
-        required_args = [
-            args.ios_sysroot,
-            args.apple_deploy_target,
-        ]
+        if args.ios:
+            required_args = [
+                args.ios_sysroot,
+                args.apple_deploy_target,
+            ]
 
-        arg_names = [
-            "--ios_sysroot          " + "<the location or name of the macOS platform SDK>",
-            "--apple_deploy_target  " + "<the minimum version of the target platform>",
-        ]
+            arg_names = [
+                "--ios_sysroot          " + "<the location or name of the macOS platform SDK>",
+                "--apple_deploy_target  " + "<the minimum version of the target platform>",
+            ]
 
-        if not all(required_args):
-            raise UsageError("iOS build on MacOS canceled due to missing required arguments: "
-                             + ", ".join(val for val, cond in zip(arg_names, required_args) if not cond))
+            if not all(required_args):
+                raise UsageError("iOS build is missing required arguments: "
+                                + ", ".join(val for val, cond in zip(arg_names, required_args) if not cond))
 
-        cmake_args += [
-            "-DCMAKE_SYSTEM_NAME=iOS",
-            "-DCMAKE_OSX_SYSROOT=" + args.ios_sysroot,
-            "-DCMAKE_OSX_DEPLOYMENT_TARGET=" + args.apple_deploy_target,
-            "-DCMAKE_TOOLCHAIN_FILE=" + str(args.ios_toolchain_file.resolve(strict=True)),
-        ]
+            cmake_args += [
+                "-DCMAKE_SYSTEM_NAME=iOS",
+                "-DCMAKE_OSX_SYSROOT=" + args.ios_sysroot,
+                "-DCMAKE_TOOLCHAIN_FILE=" + str(args.ios_toolchain_file.resolve(strict=True)),
+            ]
 
     if args.wasm:
         emsdk_toolchain = (args.emsdk_path / "upstream" / "emscripten" / "cmake" / "Modules" / "Platform" /
@@ -446,7 +456,7 @@ def _generate_build_tree(cmake_path: Path,
     if args.build_java:
         cmake_args.append("-DOCOS_BUILD_JAVA=ON")
 
-    cmake_args += ["-D{}".format(define) for define in cmake_extra_defines]
+    cmake_args += ["-D{}".format(define) for define in args.cmake_extra_defines]
     cmake_args += cmake_extra_args
 
     for config in configs:
@@ -454,7 +464,7 @@ def _generate_build_tree(cmake_path: Path,
         _run_subprocess(cmake_args + [f"-DCMAKE_BUILD_TYPE={config}"], cwd=config_build_dir)
 
 
-def clean_targets(cmake_path: Path, build_dir: Path, configs: Set[str]):
+def clean_targets(cmake_path: Path, build_dir: Path, configs: set[str]):
     for config in configs:
         log.info("Cleaning targets for %s configuration", config)
         build_dir2 = _get_build_config_dir(build_dir, config)
@@ -463,7 +473,7 @@ def clean_targets(cmake_path: Path, build_dir: Path, configs: Set[str]):
         _run_subprocess(cmd_args)
 
 
-def build_targets(args, cmake_path: Path, build_dir: Path, configs: Set[str], num_parallel_jobs: int):
+def build_targets(args, cmake_path: Path, build_dir: Path, configs: set[str], num_parallel_jobs: int):
     env = {}
     if args.android:
         env["ANDROID_HOME"] = str(args.android_home)
@@ -482,11 +492,10 @@ def build_targets(args, cmake_path: Path, build_dir: Path, configs: Set[str], nu
                     # if nodeReuse is true, msbuild processes will stay around for a bit after the build completes
                     "/nodeReuse:False",
                 ]
-            elif args.cmake_generator == "Xcode":
-                # CMake will generate correct build tool args for Xcode
-                cmd_args += ["--parallel", str(num_parallel_jobs)]
-            else:
+            elif args.cmake_generator in ("Ninja", "Unix Makefiles"):
                 build_tool_args += ["-j{}".format(num_parallel_jobs)]
+            else:
+                cmd_args += ["--parallel", str(num_parallel_jobs)]
 
         if build_tool_args:
             cmd_args += ["--"]
@@ -547,7 +556,7 @@ def _run_ios_tests(args, config: str, cwd: Path):
     pass
 
 
-def _run_cxx_tests(args, build_dir: Path, configs: Set[str]):
+def _run_cxx_tests(args, build_dir: Path, configs: set[str]):
     code_coverage_using_vstest = is_windows() and args.cxx_code_coverage
     ctest_path = _resolve_executable_path(args.ctest_path, resolution_failure_allowed=code_coverage_using_vstest)
 
@@ -612,8 +621,10 @@ def main():
     log.debug("Command line arguments:\n  {}".format(" ".join(shlex.quote(arg) for arg in sys.argv[1:])))
 
     args = _parse_arguments()
-    cmake_extra_defines = _flatten_arg_list(args.cmake_extra_defines)
-    cross_compiling = args.arm or args.arm64 or args.arm64ec or args.android or args.wasm
+    cross_compiling = any((args.arm, args.arm64, args.arm64ec,
+                           args.android,
+                           args.wasm,
+                           _is_cross_compiling_on_apple(args)))
 
     # If there was no explicit argument saying what to do, default
     # to update, build and test (for native builds).
@@ -621,10 +632,7 @@ def main():
         log.debug("Defaulting to running update, build [and test for native builds].")
         args.update = True
         args.build = True
-        if cross_compiling:
-            args.test = args.android_abi == "x86_64" or args.android_abi == "arm64-v8a"
-        else:
-            args.test = True
+        args.test = not cross_compiling
 
     if args.skip_tests:
         args.test = False
@@ -637,21 +645,24 @@ def main():
             elif _resolve_executable_path("make", resolution_failure_allowed=True) is not None:
                 args.cmake_generator = "Unix Makefiles"
             else:
-                raise UsageError("Unable to find appropriate CMake generator for cross-compiling Android. "
+                raise UsageError("Unable to find appropriate CMake generator for cross-compiling for Android. "
                                  "Valid generators are 'Ninja' or 'Unix Makefiles'.")
 
         if args.cmake_generator != original_cmake_generator:
-            log.info(f"Setting CMake generator to '{args.cmake_generator}' for cross-compiling Android.")
+            log.info(f"Setting CMake generator to '{args.cmake_generator}' for cross-compiling for Android.")
+
+    if args.ios:
+        if args.cmake_generator != "Xcode":
+            args.cmake_generator = "Xcode"
+            log.info(f"Setting CMake generator to 'Xcode' for cross-compiling for iOS.")
 
     configs = set(args.config)
 
     # setup paths and directories
-    cmake_path = _resolve_executable_path(
-        args.cmake_path,
-        resolution_failure_allowed=(not (args.update or args.clean or args.build)))
-
-    if not cmake_path:
-        raise UsageError("Unable to find CMake executable. Please specify --cmake-path.")
+    try:
+        cmake_path = _resolve_executable_path(args.cmake_path, resolution_failure_allowed=False)
+    except ValueError as e:
+        raise UsageError("Unable to find CMake executable. Please specify its path with --cmake_path.") from e
 
     build_dir = args.build_dir
 
@@ -713,7 +724,7 @@ def main():
             cmake_extra_args += ["-G", args.cmake_generator]
 
         if is_macOS():
-            if not args.ios and not args.android and args.osx_arch == "arm64" and platform.machine() == "x86_64":
+            if not args.ios and not args.android and args.apple_arch == "arm64" and platform.machine() == "x86_64":
                 if args.test:
                     log.warning("Cannot test ARM64 build on X86_64. Will skip test running after build.")
                     args.test = False
@@ -723,7 +734,6 @@ def main():
             REPO_DIR,
             build_dir,
             configs,
-            cmake_extra_defines,
             args,
             cmake_extra_args)
 
