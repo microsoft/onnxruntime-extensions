@@ -12,7 +12,7 @@
 
 #include "ocos.h"
 #include "test_kernel.hpp"
-#include "test_utils.hpp"
+#include "utils.hpp"
 
 using namespace ort_extensions::test;
 

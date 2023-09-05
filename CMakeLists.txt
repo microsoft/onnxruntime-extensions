@@ -1,3 +1,7 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
+# Minimum CMake required
 cmake_minimum_required(VERSION 3.25)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
@@ -48,6 +52,7 @@ option(OCOS_ENABLE_CPP_EXCEPTIONS "Enable C++ Exception" ON)
 option(OCOS_ENABLE_TF_STRING "Enable String Operator Set" ON)
 option(OCOS_ENABLE_RE2_REGEX "Enable StringRegexReplace and StringRegexSplit" ON)
 option(OCOS_ENABLE_GPT2_TOKENIZER "Enable the GPT2 tokenizer building" ON)
+option(OCOS_ENABLE_TRIE_TOKENIZER "Enable the TrieTokenizer building" ON)
 option(OCOS_ENABLE_SPM_TOKENIZER "Enable the SentencePiece tokenizer building" ON)
 option(OCOS_ENABLE_WORDPIECE_TOKENIZER "Enable the WordpieceTokenizer building" ON)
 option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
@@ -67,11 +72,25 @@ option(OCOS_BUILD_JAVA "Enable building the Java package" OFF)
 option(OCOS_BUILD_ANDROID "Enable building the Android package" OFF)
 option(OCOS_BUILD_APPLE_FRAMEWORK "Enable building of the MacOS/iOS framework" OFF)
 
+# Optional value. Some operators do not support old versions due to using the new custom operator interface
+# and will be disabled if this value is set and the version is incompatible.
+set(OCOS_ONNXRUNTIME_VERSION "" CACHE STRING
+  "The version of ONNX Runtime being used in the build. Format is <major>.<minor>.<patch>. e.g. 1.15.1" )
+
+# TODO: Remove the following statements if AzureOp build is enabled by default.
+# If build_buildid environment varaible is set, which means this is a CI build, then always enable AzureOp.
+# or it is enabled when OCOS_ENABLE_AZURE is set, which means the user explicitly enables it.
+if ((DEFINED ENV{BUILD_BUILDID}) OR (DEFINED ENV{OCOS_ENABLE_AZURE}))
+  set(OCOS_ENABLE_AZURE ON CACHE INTERNAL "" FORCE)
+  message(STATUS "=> AzureOp is enabled by default.")
+endif()
+
 function(disable_all_operators)
   set(OCOS_ENABLE_RE2_REGEX OFF CACHE INTERNAL "" FORCE)
   set(OCOS_ENABLE_TF_STRING OFF CACHE INTERNAL "" FORCE)
   set(OCOS_ENABLE_WORDPIECE_TOKENIZER OFF CACHE INTERNAL "" FORCE)
   set(OCOS_ENABLE_GPT2_TOKENIZER OFF CACHE INTERNAL "" FORCE)
+  set(OCOS_ENABLE_TRIE_TOKENIZER OFF CACHE INTERNAL "" FORCE)
   set(OCOS_ENABLE_SPM_TOKENIZER OFF CACHE INTERNAL "" FORCE)
   set(OCOS_ENABLE_BERT_TOKENIZER OFF CACHE INTERNAL "" FORCE)
   set(OCOS_ENABLE_BLINGFIRE OFF CACHE INTERNAL "" FORCE)
@@ -91,7 +110,7 @@ else()
 endif()
 
 if(NOT CC_OPTIMIZE)
-  message("!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
+  message(WARNING "!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
   string(REGEX REPLACE "([\-\/]O[123])" "" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
   string(REGEX REPLACE "([\-\/]O[123])" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
   string(REGEX REPLACE "([\-\/]O[123])" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
@@ -124,6 +143,15 @@ if (MSVC)
     set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} /guard:cf")
     set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} /guard:cf")
   endif()
+
+  if (CMAKE_MSVC_RUNTIME_LIBRARY STREQUAL "MultiThreaded" OR
+      CMAKE_MSVC_RUNTIME_LIBRARY STREQUAL "MultiThreadedDebug")
+    set(OCOS_STATIC_MSVC_RUNTIME_LIBRARY ON)
+  else()
+    set(OCOS_STATIC_MSVC_RUNTIME_LIBRARY OFF)
+  endif()
+  message(STATUS "OCOS_STATIC_MSVC_RUNTIME_LIBRARY: ${OCOS_STATIC_MSVC_RUNTIME_LIBRARY}")
+
 endif()
 
 if(NOT OCOS_BUILD_PYTHON AND OCOS_ENABLE_PYTHON)
@@ -342,7 +370,14 @@ set(_HAS_TOKENIZER OFF)
 if(OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
   set(_HAS_TOKENIZER ON)
-  file(GLOB tok_TARGET_SRC "operators/tokenizer/gpt*.cc" "operators/tokenizer/unicode*.*" "operators/tokenizer/clip*.cc" "operators/tokenizer/roberta*.cc")
+  file(GLOB tok_TARGET_SRC "operators/tokenizer/bpe_*.*" "operators/tokenizer/unicode*.*")
+  list(APPEND TARGET_SRC ${tok_TARGET_SRC})
+endif()
+
+if(OCOS_ENABLE_TRIE_TOKENIZER)
+  # Trie Tokenizer
+  set(_HAS_TOKENIZER ON)
+  file(GLOB tok_TARGET_SRC "operators/tokenizer/trie_tokenizer.hpp" "operators/tokenizer/unescape.h")
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
 endif()
 
@@ -378,10 +413,80 @@ if(OCOS_ENABLE_BLINGFIRE)
   list(APPEND TARGET_SRC ${blingfire_TARGET_SRC})
 endif()
 
+# Build with Azure ops is disabled in a number of places due to the following reasons:
+# - not setup for macOS, iOS or WASM
+# - link error on Windows 32-bit ARM from some functions in wincrpt.h (e.g. CryptDestroyHash)
+#   - not sure if they're available on ARM 32.
+#   - we explicitly add crypt32 to the link list which is where they should be defined.
+# - build with static CRT on Windows causes link errors with triton. may not be supported.
+# - x86 Android build has error when using static openssl.
+#   - TODO: need to investigate further. currently getting load error with dynamic libs and runtime error with static libs
+if(OCOS_ENABLE_AZURE)
+  if (APPLE OR
+      CMAKE_SYSTEM_NAME STREQUAL "Emscripten" OR
+      (MSVC AND CMAKE_GENERATOR_PLATFORM STREQUAL "ARM") OR
+      (MSVC AND OCOS_STATIC_MSVC_RUNTIME_LIBRARY) OR
+      (ANDROID AND ANDROID_ABI STREQUAL "x86"))
+    message(STATUS "Excluding Azure custom operators as they are not currently supported in this type of build. ")
+    set(OCOS_ENABLE_AZURE OFF)
+
+  elseif(OCOS_ONNXRUNTIME_VERSION)
+    string(REPLACE "." ";" VERSION_LIST ${OCOS_ONNXRUNTIME_VERSION})
+    list(GET VERSION_LIST 0 ORT_VERSION_MAJOR)
+    list(GET VERSION_LIST 1 ORT_VERSION_MINOR)
+    if(ORT_VERSION_MAJOR EQUAL 1 AND ORT_VERSION_MINOR LESS 14)
+      message(STATUS "Azure custom operators are not supported with ONNX Runtime versions < 1.14. "
+                     "Excluding them from the build.")
+      set(OCOS_ENABLE_AZURE OFF)
+    endif()
+  endif()
+endif()
+
 if(OCOS_ENABLE_AZURE)
   # Azure endpoint invokers
-  include(triton)
   file(GLOB TARGET_SRC_AZURE "operators/azure/*.cc" "operators/azure/*.h*")
+
+  if (ANDROID)
+    include(curl)
+
+    # make sure these work
+    find_package(OpenSSL REQUIRED)
+    find_package(CURL REQUIRED)
+
+    # exclude triton as it's not supported on Android
+    list(FILTER TARGET_SRC_AZURE EXCLUDE REGEX ".*triton.*")
+  else()
+    add_compile_definitions(AZURE_INVOKERS_ENABLE_TRITON)
+
+    # need to set the correct vcpkg target platform strings before including triton
+    if (WIN32)
+      set(vcpkg_target_platform ${ocos_target_platform})
+
+      # remap known variants
+      if (ocos_target_platform STREQUAL "AMD64")
+        set(vcpkg_target_platform "x64")
+      elseif(ocos_target_platform STREQUAL "Win32")
+        set(vcpkg_target_platform "x86")
+      elseif(ocos_target_platform STREQUAL "ARM64")
+        set(vcpkg_target_platform "arm64")
+      elseif(ocos_target_platform STREQUAL "ARM")
+        set(vcpkg_target_platform "arm")
+      endif()
+
+      if(NOT "${vcpkg_target_platform}" MATCHES "^(x64|x86|arm64|arm)$")
+        message(FATAL_ERROR "Unexpected ocos_target_platform: ${ocos_target_platform}")
+      endif()
+
+      # vcpkg is used for the azure ops. we build static versions so they're directly included in the extensions library
+      # in the python package.
+      set(vcpkg_triplet ${vcpkg_target_platform}-windows-static-md)
+
+      message(STATUS "vcpkg_triplet: ${vcpkg_triplet}")
+    endif()
+
+    include(triton)
+  endif()
+
   list(APPEND TARGET_SRC ${TARGET_SRC_AZURE})
 endif()
 
@@ -454,11 +559,13 @@ if(_HAS_TOKENIZER)
 endif()
 
 if(OCOS_ENABLE_TF_STRING)
-  target_include_directories(noexcep_operators PUBLIC
-    ${googlere2_SOURCE_DIR}
-    ${farmhash_SOURCE_DIR}/src)
+  target_include_directories(noexcep_operators PUBLIC ${farmhash_SOURCE_DIR}/src)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING NOMINMAX FARMHASH_NO_BUILTIN_EXPECT FARMHASH_DEBUG=0)
-  target_link_libraries(noexcep_operators PRIVATE re2)
+
+  if(OCOS_ENABLE_RE2_REGEX)
+    target_include_directories(noexcep_operators PUBLIC ${googlere2_SOURCE_DIR})
+    target_link_libraries(noexcep_operators PRIVATE re2)
+  endif()
 endif()
 
 if(OCOS_ENABLE_RE2_REGEX)
@@ -496,6 +603,10 @@ if(OCOS_ENABLE_GPT2_TOKENIZER)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_GPT2_TOKENIZER)
 endif()
 
+if(OCOS_ENABLE_TRIE_TOKENIZER)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TRIE_TOKENIZER)
+endif()
+
 if(OCOS_ENABLE_WORDPIECE_TOKENIZER)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_WORDPIECE_TOKENIZER)
 endif()
@@ -509,10 +620,6 @@ if(OCOS_ENABLE_SPM_TOKENIZER)
   target_include_directories(ocos_operators PUBLIC ${spm_INCLUDE_DIRS})
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_SPM_TOKENIZER)
   list(APPEND ocos_libraries sentencepiece-static)
-
-  if(ANDROID)
-    list(APPEND ocos_libraries log)
-  endif()
 endif()
 
 if(OCOS_ENABLE_BLINGFIRE)
@@ -524,6 +631,17 @@ endif()
 if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
   target_include_directories(ocos_operators PRIVATE ${nlohmann_json_SOURCE_DIR}/single_include)
   list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
+endif()
+
+# If building a shared library we can't throw an internal exception type across the library boundary as the type
+# will be unknown. Set a compile definition so the code can adjust to the build type.
+if(NOT OCOS_ENABLE_STATIC_LIB)
+  list(APPEND OCOS_COMPILE_DEFINITIONS OCOS_SHARED_LIBRARY)
+endif()
+
+# __android_log_print support
+if(ANDROID)
+  list(APPEND ocos_libraries log)
 endif()
 
 target_include_directories(noexcep_operators PUBLIC ${GSL_INCLUDE_DIR})
@@ -577,23 +695,95 @@ else()
   set(_BUILD_SHARED_LIBRARY TRUE)
 endif()
 
+if(OCOS_ENABLE_AZURE)
+  if (ANDROID)
+    # find_package calls were made immediately after `include(curl)` so we know CURL and OpenSSL are available.
+    find_package(ZLIB REQUIRED)
+    target_link_libraries(ocos_operators PUBLIC CURL::libcurl OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB)
+  else()
+    # we need files from the triton client (e.g. curl header on linux) to be available for the ocos_operators build.
+    # add a dependency so the fetch and build of triton happens first.
+    add_dependencies(ocos_operators triton)
+    target_include_directories(ocos_operators PUBLIC ${triton_INSTALL_DIR}/include)
+
+    target_link_directories(ocos_operators PUBLIC ${triton_INSTALL_DIR}/lib)
+    target_link_directories(ocos_operators PUBLIC ${triton_INSTALL_DIR}/lib64)
+
+    if (WIN32)
+      # As per https://curl.se/docs/faq.html#Link_errors_when_building_libcur we need to set CURL_STATICLIB.
+      target_compile_definitions(ocos_operators PRIVATE CURL_STATICLIB)
+      target_include_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_triplet}/include)
+
+      if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(curl_LIB_NAME "libcurl-d")
+        set(zlib_LIB_NAME "zlibd")
+        target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_triplet}/debug/lib)
+      else()
+        set(curl_LIB_NAME "libcurl")
+        set(zlib_LIB_NAME "zlib")
+        target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_triplet}/lib)
+      endif()
+      target_link_libraries(ocos_operators PUBLIC httpclient_static ${curl_LIB_NAME} libcrypto libssl ${zlib_LIB_NAME} ws2_32 crypt32 Wldap32)
+    else()
+      find_package(ZLIB REQUIRED)
+
+      # If finding the OpenSSL or CURL package fails for a local build you can install libcurl4-openssl-dev.
+      # See also info on triton client dependencies here: https://github.com/triton-inference-server/client
+      find_package(OpenSSL REQUIRED)
+      find_package(CURL)
+
+      if (CURL_FOUND)
+        message(STATUS "Found CURL package")
+        set(libcurl_target CURL::libcurl)
+      else()
+        # curl is coming from triton but as that's an external project it isn't built yet and we have to add
+        # paths and library names instead of cmake targets.
+        message(STATUS "Using CURL build from triton client. Once built it should be in ${triton_THIRD_PARTY_DIR}/curl")
+        target_include_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/include)
+
+        # Install is to 'lib' except on CentOS (which is used for the manylinux build of the python wheel).
+        # Side note: we have to patch the triton client CMakeLists.txt to only use 'lib64' for 64-bit builds otherwise
+        #            the build of the 32-bit python wheel fails with CURL not being found due to the invalid library
+        #            directory name.
+        target_link_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/lib)
+        target_link_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/lib64)
+
+        if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+          set(libcurl_target "curl-d")
+        else()
+          set(libcurl_target "curl")
+        endif()
+      endif()
+
+      target_link_libraries(ocos_operators PUBLIC httpclient_static ${libcurl_target} OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB)
+    endif()
+  endif()
+endif()
+
 target_compile_definitions(ortcustomops PUBLIC ${OCOS_COMPILE_DEFINITIONS})
-target_include_directories(ortcustomops PUBLIC
-  "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
+target_include_directories(ortcustomops PUBLIC "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
 target_link_libraries(ortcustomops PUBLIC ocos_operators)
 
 if(_BUILD_SHARED_LIBRARY)
   file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h" "shared/*.def")
   add_library(extensions_shared SHARED ${shared_TARGET_SRC})
+
+  # We need to propagate OCOS_SHARED_LIBRARY if set.
+  # could specifically add that if using OCOS_COMPILE_DEFINITIONS is too much.
+  target_compile_definitions(extensions_shared PRIVATE ${OCOS_COMPILE_DEFINITIONS})
+
   source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${shared_TARGET_SRC})
   standardize_output_folder(extensions_shared)
 
   if(LINUX OR ANDROID)
-    set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS "-Wl,-s -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
+    set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
+    # strip if not a debug build
+    if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+      set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-s")
+    endif()
   endif()
 
-  target_include_directories(extensions_shared PUBLIC
-    "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>")
+  target_include_directories(extensions_shared PUBLIC $<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>)
   target_link_libraries(extensions_shared PRIVATE ortcustomops)
   set_target_properties(extensions_shared PROPERTIES OUTPUT_NAME "ortextensions")
   if(MSVC AND ocos_target_platform MATCHES "x86|x64")
@@ -653,17 +843,20 @@ if(OCOS_ENABLE_CTEST)
   set(TEST_SRC_DIR ${PROJECT_SOURCE_DIR}/test)
   message(STATUS "Fetch googletest")
   include(googletest)
+
+  # -- static test --
   file(GLOB static_TEST_SRC "${TEST_SRC_DIR}/static_test/*.cc")
   add_executable(ocos_test ${static_TEST_SRC})
   standardize_output_folder(ocos_test)
   target_link_libraries(ocos_test PRIVATE gtest_main ocos_operators ${ocos_libraries})
   add_test(NAME ocos_test COMMAND $<TARGET_FILE:ocos_test>)
 
+  # -- shared test (needs onnxruntime) --
   SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
   find_library(ONNXRUNTIME onnxruntime HINTS "${ONNXRUNTIME_LIB_DIR}")
 
   if(ONNXRUNTIME-NOTFOUND)
-    message(WARNING "The prebuilt onnxruntime libraries directory cannot found (via ONNXRUNTIME_LIB_DIR), the extensions_test will be skipped.")
+    message(WARNING "The prebuilt onnxruntime libraries directory was not found (via ONNXRUNTIME_LIB_DIR), the extensions_test will be skipped.")
   else()
     set(LINUX_CC_FLAGS "")
 
@@ -672,26 +865,46 @@ if(OCOS_ENABLE_CTEST)
       list(APPEND LINUX_CC_FLAGS stdc++fs -pthread)
     endif()
 
-    file(GLOB shared_TEST_SRC "${TEST_SRC_DIR}/shared_test/*.cc")
+    file(GLOB shared_TEST_SRC "${TEST_SRC_DIR}/shared_test/*.cc" "${TEST_SRC_DIR}/shared_test/*.hpp")
     add_executable(extensions_test ${shared_TEST_SRC})
+
+    # FUTURE: This is required to use the ORT C++ API with delayed init which must be done conditionally using
+    # ifdef OCOS_BUILD_SHARED in RegisterCustomOps and where onnxruntime_cxx_api.h is included .
+    # ---
+    # We have to remove the OCOS_BUILD_SHARED when building the test code. It is used to delay population of the
+    # ORT api pointer until RegisterCustomOps is called, but the test code needs to create an ORT env which requires
+    # the pointer to exist.
+    # set(test_compile_definitions ${OCOS_COMPILE_DEFINITIONS})
+    # remove(test_compile_definitions "OCOS_SHARED_LIBRARY")
+    # target_compile_definitions(extensions_test PUBLIC ${test_compile_definitions})
+    target_compile_definitions(extensions_test PUBLIC ${OCOS_COMPILE_DEFINITIONS})
+
     standardize_output_folder(extensions_test)
-    target_include_directories(extensions_test PRIVATE ${spm_INCLUDE_DIRS}
-      "$<TARGET_PROPERTY:extensions_shared,INTERFACE_INCLUDE_DIRECTORIES>")
+
+    target_include_directories(extensions_test PRIVATE
+      ${spm_INCLUDE_DIRS}
+      $<TARGET_PROPERTY:extensions_shared,INTERFACE_INCLUDE_DIRECTORIES>)
 
     if(ONNXRUNTIME_LIB_DIR)
       target_link_directories(extensions_test PRIVATE ${ONNXRUNTIME_LIB_DIR})
     endif()
 
-    target_link_libraries(extensions_test PRIVATE ocos_operators extensions_shared onnxruntime gtest_main gmock_main
-                          ${ocos_libraries} ${LINUX_CC_FLAGS})
+    target_link_libraries(extensions_test PRIVATE extensions_shared ${ocos_libraries} onnxruntime 
+                                                  gtest_main gmock_main ${LINUX_CC_FLAGS})
 
-    # Copy ONNXRuntime DLLs into bin folder for testing on Windows platform
+    # Copy DLL/shared library files into the same directory as the test binary.
     if(WIN32)
       file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
       file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
       add_custom_command(
         TARGET extensions_test POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy ${ONNXRUNTIME_LIB_FILES} $<TARGET_FILE_DIR:extensions_test>)
+    else()
+      add_custom_command(
+        TARGET extensions_test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:extensions_test>
+          $<TARGET_LINKER_FILE:extensions_shared>
+          ${ONNXRUNTIME})
     endif()
 
     set(TEST_DATA_SRC ${TEST_SRC_DIR}/data)
@@ -705,31 +918,4 @@ if(OCOS_ENABLE_CTEST)
       ${TEST_DATA_DES})
     add_test(NAME extensions_test COMMAND $<TARGET_FILE:extensions_test>)
   endif()
-endif()
-
-if(OCOS_ENABLE_AZURE)
-
-  add_dependencies(ocos_operators triton)
-  target_include_directories(ocos_operators PUBLIC ${TRITON_BIN}/include ${TRITON_THIRD_PARTY}/curl/include)
-  target_link_directories(ocos_operators PUBLIC ${TRITON_BIN}/lib ${TRITON_BIN}/lib64 ${TRITON_THIRD_PARTY}/curl/lib ${TRITON_THIRD_PARTY}/curl/lib64)
-
-  if (ocos_target_platform STREQUAL "AMD64")
-    set(vcpkg_target_platform "x86")
-  else()
-    set(vcpkg_target_platform ${ocos_target_platform})
-  endif()
-
-  if (WIN32)
-
-    target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_target_platform}-windows-static/lib)
-    target_link_libraries(ocos_operators PUBLIC libcurl httpclient_static ws2_32 crypt32 Wldap32)
-
-  else()
-
-    find_package(ZLIB REQUIRED)
-    find_package(OpenSSL REQUIRED)
-    target_link_libraries(ocos_operators PUBLIC httpclient_static curl ZLIB::ZLIB OpenSSL::Crypto OpenSSL::SSL)
-
-  endif() #if (WIN32)
-
 endif()

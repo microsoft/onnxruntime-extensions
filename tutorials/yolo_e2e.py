@@ -5,7 +5,6 @@ import numpy
 from pathlib import Path
 import onnxruntime_extensions
 
-
 def get_yolov8_model(onnx_model_name: str):
     # install yolov8
     from pip._internal import main as pipmain
@@ -44,19 +43,19 @@ def test_inference(onnx_model_file:Path):
     session_options = ort.SessionOptions()
     session_options.register_custom_ops_library(onnxruntime_extensions.get_library_path())
 
-    image = np.frombuffer(open('./test/data/ppp_vision/wolves.jpg', 'rb').read(), dtype=np.uint8)
+    image = np.frombuffer(open('../test/data/ppp_vision/wolves.jpg', 'rb').read(), dtype=np.uint8)
     session = ort.InferenceSession(str(onnx_model_file), providers=providers, sess_options=session_options)
 
     inname = [i.name for i in session.get_inputs()]
     inp = {inname[0]: image}
     outputs = session.run(['image_out'], inp)[0]
-    open('./test/data/result.jpg', 'wb').write(outputs)
+    open('../test/data/result.jpg', 'wb').write(outputs)
 
 
 
 if __name__ == '__main__':
     print("checking the model...")
-    onnx_model_name = Path("test/data/yolov8n.onnx")
+    onnx_model_name = Path("../test/data/yolov8n.onnx")
     onnx_e2e_model_name = onnx_model_name.with_suffix(suffix=".with_pre_post_processing.onnx")
     add_pre_post_processing_to_yolo(onnx_model_name, onnx_e2e_model_name)
     test_inference(onnx_e2e_model_name)

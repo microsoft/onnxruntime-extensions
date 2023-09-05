@@ -29,8 +29,7 @@ class TestAutoTokenizer(unittest.TestCase):
         np.testing.assert_array_equal(ids[0], actual_ids)
 
     def test_falcon_tokenizer(self):
-        # replace the official model name after the model is not gated anymore
-        tokenizer = AutoTokenizer.from_pretrained("hf-internal-testing/llama-tokenizer")
+        tokenizer = AutoTokenizer.from_pretrained("Rocketknight1/falcon-rw-1b", use_fast=False)
         text = "why don't you teach me some German?"
         ids = tokenizer.encode(text, return_tensors="np")
 
@@ -38,7 +37,7 @@ class TestAutoTokenizer(unittest.TestCase):
             tokenizer,
             pre_kwargs={"WITH_DEFAULT_INPUTS": True})[0])
         actual_ids = ort_tok([text])[0]
-        np.testing.assert_array_equal(ids[0], actual_ids)
+        np.testing.assert_array_equal(ids, actual_ids)
 
     def test_t5_tokenizer(self):
         tokenizer = AutoTokenizer.from_pretrained("t5-base", model_max_length=512)
@@ -47,6 +46,28 @@ class TestAutoTokenizer(unittest.TestCase):
         ort_tok = OrtPyFunction.from_model(gen_processing_models(tokenizer, pre_kwargs={})[0])
         actual_ids = ort_tok([text])[0]
         np.testing.assert_array_equal(ids[0], actual_ids)
+
+    def test_roberta_base(self):
+        tokenizer = AutoTokenizer.from_pretrained("SamLowe/roberta-base-go_emotions", use_fast=False)
+        text = "Agree. Keep trying, then if your rejected every time. I'm sorry your done."
+        ids = tokenizer.encode(text, return_tensors="np")
+        m_tok, m_detok = gen_processing_models(tokenizer, pre_kwargs={}, post_kwargs={})
+
+        actual_ids = OrtPyFunction(m_tok)([text])[0]
+        np.testing.assert_array_equal(ids, actual_ids)
+
+        self.assertEqual(OrtPyFunction(m_detok)(ids)[0], tokenizer.decode(ids[0]))
+
+    def test_clip_tokenizer(self):
+        tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32", use_fast=False)
+        text = "Wow, these models are getting popular."
+        ids = tokenizer.encode(text, return_tensors="np")
+
+        ort_tok = OrtPyFunction.from_model(gen_processing_models(
+            tokenizer,
+            pre_kwargs={"WITH_DEFAULT_INPUTS": True})[0])
+        actual_ids = ort_tok([text])[0]
+        np.testing.assert_array_equal(ids, actual_ids)
 
 
 if __name__ == '__main__':

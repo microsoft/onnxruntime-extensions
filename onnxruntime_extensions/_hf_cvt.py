@@ -23,10 +23,13 @@ class HFTokenizerConverter(CustomOpConverter):
 
     def bpe_tokenizer(self, **kwargs):
         hf_gpt2_tokenizer = self.tokenizer
+
+        if type(self.tokenizer).__name__.endswith('Fast'):
+            raise ValueError('Please use the slow version of the tokenizer (ex: GPT2Tokenizer).')
+
         attrs = {'vocab': json.dumps(
             hf_gpt2_tokenizer.encoder, separators=(',', ':'))}
-        sorted_merges = {v_: k_ for k_,
-        v_ in hf_gpt2_tokenizer.bpe_ranks.items()}
+        sorted_merges = {v_: k_ for k_, v_ in hf_gpt2_tokenizer.bpe_ranks.items()}
         attrs['merges'] = '\n'.join("{} {}".format(
             *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
         attrs.update(**kwargs)
@@ -54,13 +57,9 @@ class HFTokenizerConverter(CustomOpConverter):
     def bpe_decoder(self, **kwargs):
         decoder = self.tokenizer.decoder
         id_vocab = "\n".join([decoder[_idx] for _idx in sorted(decoder)])
-        # with open("id_vocab.txt", "w", encoding="utf-8") as f:
-        #     f.write(id_vocab)
         byte_decoder = self.tokenizer.byte_decoder
         str_byte_decoder = "\n".join(["{}\t{}".format(
             ord(_c), str(byte_decoder[_c])) for _c in byte_decoder])
-        # with open("byte_decoder.txt", "w", encoding="utf-8") as f:
-        #     f.write(str_byte_decoder)
         all_special_ids = self.tokenizer.all_special_ids
         added_tokens = self.tokenizer.added_tokens_decoder
         str_all_special_ids = "\n".join([str(_id) for _id in all_special_ids])
@@ -77,6 +76,10 @@ class HFTokenizerConverter(CustomOpConverter):
 
     def clip_tokenizer(self, **kwargs):
         hf_clip_tokenizer = self.tokenizer
+
+        if type(self.tokenizer).__name__.endswith('Fast'):
+            raise ValueError('Please use the slow version of the tokenizer (ex: CLIPTokenizer).')
+
         attrs = {'vocab': json.dumps(
             hf_clip_tokenizer.encoder, separators=(',', ':'))}
         sorted_merges = {v_: k_ for k_,
@@ -88,6 +91,10 @@ class HFTokenizerConverter(CustomOpConverter):
 
     def roberta_tokenizer(self, **kwargs):
         hf_roberta_tokenizer = self.tokenizer
+
+        if type(self.tokenizer).__name__.endswith('Fast'):
+            raise ValueError('Please use the slow version of the tokenizer (ex: RobertaTokenizer).')
+
         attrs = {'vocab': json.dumps(
             hf_roberta_tokenizer.encoder, separators=(',', ':'))}
         sorted_merges = {v_: k_ for k_,
@@ -114,27 +121,38 @@ TokenOpParam = namedtuple("TokenOpParam",
                            "default_inputs"],
                           defaults=(None, None, None, None, None))
 
+# Some tokenizers can be added by this table
+# https://github.com/huggingface/transformers/blob/main/src/transformers/convert_slow_tokenizer.py#L1252
 # @formatter:off
 _PROCESSOR_DICT = {
-    "BertTokenizer":    TokenOpParam('BertTokenizer',   HFTokenizerConverter.bert_tokenizer,
-                                     'BertDecoder',     HFTokenizerConverter.bpe_decoder, None),
-    "DistilBertTokenizer":
-                        TokenOpParam('BertTokenizer',   HFTokenizerConverter.bert_tokenizer,
-                                     'BertDecoder',     HFTokenizerConverter.bpe_decoder, None),
-    "GPT2Tokenizer":    TokenOpParam('Gpt2Tokenizer',   HFTokenizerConverter.bpe_tokenizer,
-                                     'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
-    "ClipTokenizer":    TokenOpParam('ClipTokenizer',   HFTokenizerConverter.clip_tokenizer,
-                                     'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
-    "RobertaTokenizer": TokenOpParam("RobertaTokenizer",    HFTokenizerConverter.roberta_tokenizer,
-                                     None, None, None),
-    "T5Tokenizer":      TokenOpParam("SentencepieceTokenizer",  HFTokenizerConverter.spm_tokenizer,
-                                     "SentencepieceDecoder",    HFTokenizerConverter.spm_decoder,
-                                     default_inputs={'add_eos': [True]}),
-    "LlamaTokenizer":   TokenOpParam("SentencepieceTokenizer",  HFTokenizerConverter.spm_tokenizer,
-                                     "SentencepieceDecoder",    HFTokenizerConverter.spm_decoder,
-                                     default_inputs={'add_bos': [True]}),
-    "FalconTokenizer":   TokenOpParam('ClipTokenizer',   HFTokenizerConverter.bpe_tokenizer,
-                                      'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None)
+    "BertTokenizer":        TokenOpParam('BertTokenizer',   HFTokenizerConverter.bert_tokenizer,
+                                         'BertDecoder',     HFTokenizerConverter.bpe_decoder, None),
+    "DistilBertTokenizer":  TokenOpParam('BertTokenizer',   HFTokenizerConverter.bert_tokenizer,
+                                         'BertDecoder',     HFTokenizerConverter.bpe_decoder, None),
+    "GPT2Tokenizer":        TokenOpParam('GPT2Tokenizer',   HFTokenizerConverter.bpe_tokenizer,
+                                         'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
+    "CodeGenTokenizer":     TokenOpParam('GPT2Tokenizer',   HFTokenizerConverter.bpe_tokenizer,
+                                         'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
+    "CLIPTokenizer":        TokenOpParam('CLIPTokenizer',   HFTokenizerConverter.clip_tokenizer,
+                                         'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
+    "RobertaTokenizer":     TokenOpParam('RobertaTokenizer',        HFTokenizerConverter.roberta_tokenizer,
+                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None),
+    "BartTokenizer":        TokenOpParam('RobertaTokenizer',        HFTokenizerConverter.roberta_tokenizer,
+                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None),
+    "LayoutLMv3Tokenizer":  TokenOpParam('RobertaTokenizer',        HFTokenizerConverter.roberta_tokenizer,
+                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None),
+    "LongformerTokenizer":  TokenOpParam('RobertaTokenizer',        HFTokenizerConverter.roberta_tokenizer,
+                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None),
+    "LEDTokenizer":         TokenOpParam('RobertaTokenizer',        HFTokenizerConverter.roberta_tokenizer,
+                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None),
+    "MvpTokenizer":         TokenOpParam('RobertaTokenizer',        HFTokenizerConverter.roberta_tokenizer,
+                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None),
+    "T5Tokenizer":          TokenOpParam('SentencepieceTokenizer',  HFTokenizerConverter.spm_tokenizer,
+                                         'SentencepieceDecoder',    HFTokenizerConverter.spm_decoder,
+                                         default_inputs={'add_eos': [True]}),
+    "LlamaTokenizer":       TokenOpParam('SentencepieceTokenizer',  HFTokenizerConverter.spm_tokenizer,
+                                         'SentencepieceDecoder',    HFTokenizerConverter.spm_decoder,
+                                         default_inputs={'add_bos': [True]})
 }
 # @formatter:on
 

@@ -9,14 +9,20 @@ import shlex
 import shutil
 import sys
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import List, Set
 
 SCRIPT_DIR = Path(__file__).parent
 REPO_DIR = SCRIPT_DIR.parent
 sys.path.insert(0, str(SCRIPT_DIR / "utils"))
 
-from utils import get_logger, is_linux, is_macOS, is_windows, run  # noqa: E402
+from utils import (
+    android,
+    get_logger,
+    is_macOS,
+    is_windows,
+    run,
+)  # noqa: E402
 
 log = get_logger("build")
 
@@ -130,6 +136,9 @@ def _parse_arguments():
                         help="Path to the Android SDK.")
     parser.add_argument("--android_ndk_path", type=Path, default=path_from_env_var("ANDROID_NDK_HOME"),
                         help="Path to the Android NDK. Typically `<Android SDK>/ndk/<ndk_version>`.")
+    parser.add_argument("--android_adb_device_serial",
+                        help="Device serial argument passed to 'adb -s'. Can be used to select a specific device if "
+                             "there is more than one.")
 
     # macOS/iOS options
     parser.add_argument("--build_apple_framework", action="store_true",
@@ -154,7 +163,7 @@ def _parse_arguments():
     # WebAssembly options
     parser.add_argument("--wasm", action="store_true", help="Build for WebAssembly")
     parser.add_argument("--emsdk_path", type=Path,
-                        help="Specify path to emscripten SDK. Setup manually with: "                         
+                        help="Specify path to emscripten SDK. Setup manually with: "
                              "  git clone https://github.com/emscripten-core/emsdk")
     parser.add_argument("--emsdk_version", default="3.1.26", help="Specify version of emsdk")
 
@@ -189,6 +198,20 @@ def _parse_arguments():
 
     args = parser.parse_args()
 
+    # validate Android args
+    if args.android:
+        if not args.android_ndk_path:
+            raise UsageError("--android_ndk_path is required to build for Android")
+        if not args.android_home:
+            raise UsageError("--android_home is required to build for Android")
+
+        args.android_home = args.android_home.resolve(strict=True)
+        args.android_ndk_path = args.android_ndk_path.resolve(strict=True)
+
+        if not args.android_home.is_dir() or not args.android_ndk_path.is_dir():
+            raise UsageError("Android home and NDK paths must be directories.")
+
+    # set build directory if not provided
     if not args.build_dir:
         target_sys = platform.system()
 
@@ -300,6 +323,44 @@ def _setup_emscripten(args):
     _run_subprocess([emsdk_file, "activate", args.emsdk_version], cwd=args.emsdk_path)
 
 
+# run the prebuild to create the curl and openssl libraries for the Azure custom ops
+def _android_prebuild(android_abi: str, android_ndk_path: Path, android_api_level: int):
+    if is_windows():
+        log.info("Skipping Android prebuild on Windows because it is not supported yet.")
+        return
+
+    prebuild_dir = REPO_DIR / "prebuild"
+
+    # skip if curl binary is found. that is created as the last stage of the prebuild, so if it was successfully
+    # installed in the output dir we assume the prebuild completed previously.
+    curl_bin = prebuild_dir / "openssl_for_ios_and_android" / "output" / "android" / ("curl-" + android_abi) / "bin" / "curl"
+    if curl_bin.exists():
+        log.info(f"Found {curl_bin}. Assuming prebuild has completed previously. Skipping prebuild.")
+        return
+
+    # set some environment variables required by the script
+    env = {
+        'ANDROID_API_LEVEL': str(android_api_level),
+        'ANDROID_NDK_ROOT': str(android_ndk_path),
+    }
+
+    # adjust some strings to the values expected in the script
+    if android_abi == "armeabi-v7a":
+        curl_abi = "arm"
+    elif android_abi == "arm64-v8a":
+        curl_abi = "arm64"
+    else:
+        curl_abi = android_abi
+
+    prebuild_cmd = [
+        "/bin/bash",
+        "build_curl_for_android.sh",
+        curl_abi,
+    ]
+
+    _run_subprocess(prebuild_cmd, cwd=prebuild_dir, env=env)
+
+
 def _generate_build_tree(cmake_path: Path,
                          source_dir: Path,
                          build_dir: Path,
@@ -320,7 +381,7 @@ def _generate_build_tree(cmake_path: Path,
     ]
 
     if args.onnxruntime_version:
-        cmake_args.append(f"-DONNXRUNTIME_VER={args.onnxruntime_version}")
+        cmake_args.append(f"-DOCOS_ONNXRUNTIME_VERSION={args.onnxruntime_version}")
 
     if args.enable_cxx_tests:
         cmake_args.append("-DOCOS_ENABLE_CTEST=ON")
@@ -329,23 +390,12 @@ def _generate_build_tree(cmake_path: Path,
             cmake_args.append(f"-DONNXRUNTIME_LIB_DIR={str(ort_lib_dir)}")
 
     if args.android:
-        if not args.android_ndk_path:
-            raise UsageError("android_ndk_path is required to build for Android")
-        if not args.android_home:
-            raise UsageError("android_home is required to build for Android")
-
-        android_home = args.android_home.resolve(strict=True)
-        android_ndk_path = args.android_ndk_path.resolve(strict=True)
-
-        if not android_home.is_dir() or not android_ndk_path.is_dir():
-            raise UsageError("Android home and NDK paths must be directories.")
-
         cmake_args += [
             "-DOCOS_BUILD_ANDROID=ON",
             "-DCMAKE_TOOLCHAIN_FILE="
             + str((args.android_ndk_path / "build" / "cmake" / "android.toolchain.cmake").resolve(strict=True)),
-            "-DANDROID_PLATFORM=android-" + str(args.android_api),
-            "-DANDROID_ABI=" + str(args.android_abi)
+            f"-DANDROID_PLATFORM=android-{args.android_api}",
+            f"-DANDROID_ABI={args.android_abi}",
         ]
 
     if is_macOS():
@@ -404,11 +454,11 @@ def _generate_build_tree(cmake_path: Path,
         _run_subprocess(cmake_args + [f"-DCMAKE_BUILD_TYPE={config}"], cwd=config_build_dir)
 
 
-def clean_targets(cmake_path, build_dir: Path, configs: Set[str]):
+def clean_targets(cmake_path: Path, build_dir: Path, configs: Set[str]):
     for config in configs:
         log.info("Cleaning targets for %s configuration", config)
         build_dir2 = _get_build_config_dir(build_dir, config)
-        cmd_args = [cmake_path, "--build", build_dir2, "--config", config, "--target", "clean"]
+        cmd_args = [str(cmake_path), "--build", str(build_dir2), "--config", config, "--target", "clean"]
 
         _run_subprocess(cmd_args)
 
@@ -450,10 +500,45 @@ def _run_python_tests():
     pass
 
 
-def _run_android_tests(args, build_dir: Path, config: str, cwd: Path):
-    # TODO: Setup running tests using Android simulator and adb. See ORT build.py for example.
+def _run_android_tests(args, build_dir: Path, config: str):
     source_dir = REPO_DIR
-    pass
+    build_config_dir = _get_build_config_dir(build_dir, config)
+    sdk_tools = android.get_sdk_tool_paths(str(args.android_home))
+    adb_global_options = ["-s", args.android_adb_device_serial] if args.android_adb_device_serial is not None else []
+
+    def adb_push(host_src: Path, device_dest: PurePosixPath, **kwargs):
+        return _run_subprocess(
+            [sdk_tools.adb] + adb_global_options + ["push", str(host_src), str(device_dest)], **kwargs
+        )
+
+    def adb_shell(*args, **kwargs):
+        return _run_subprocess([sdk_tools.adb] + adb_global_options + ["shell", *args], **kwargs)
+
+    device_abi_list = adb_shell("getprop ro.product.cpu.abilist", capture_stdout=True).stdout.decode().strip()
+    device_preferred_abi = device_abi_list.split(sep=",", maxsplit=1)[0]
+
+    if device_preferred_abi != args.android_abi:
+        log.warning(f"Skipping Android tests because the device/emulator preferred ABI ({device_preferred_abi}) does "
+                    f"not match the target Android ABI ({args.android_abi}).")
+        return
+
+    device_dir = PurePosixPath(f"/data/local/tmp/onnxruntime_extensions/{config}")
+    adb_shell(f'rm -rf "{device_dir}" && mkdir -p "{device_dir}"')
+
+    # copy shared libraries
+    adb_push(build_config_dir / "bin" / "libortextensions.so", device_dir / "libortextensions.so")
+    adb_push(build_config_dir / "bin" / "libonnxruntime.so", device_dir / "libonnxruntime.so")
+
+    # copy test data
+    adb_push(source_dir / "test" / "data", device_dir / "data")
+
+    # copy and run test programs
+    for test_program_name in ["extensions_test", "ocos_test"]:
+        device_test_program_path = device_dir / test_program_name
+        adb_push(build_config_dir / "bin" / test_program_name, device_test_program_path)
+        adb_shell(f'chmod 755 "{device_test_program_path}"')
+        adb_shell(f'cd "{device_dir}" && '
+                  f'LD_LIBRARY_PATH="$LD_LIBRARY_PATH:{device_dir}" "{device_test_program_path}"')
 
 
 def _run_ios_tests(args, config: str, cwd: Path):
@@ -472,7 +557,7 @@ def _run_cxx_tests(args, build_dir: Path, configs: Set[str]):
         cwd = _get_build_config_dir(build_dir, config)
 
         if args.android:
-            _run_android_tests(args, build_dir, config, cwd)
+            _run_android_tests(args, build_dir, config)
             continue
         elif args.ios:
             _run_ios_tests(args, config, cwd)
@@ -564,6 +649,10 @@ def main():
     cmake_path = _resolve_executable_path(
         args.cmake_path,
         resolution_failure_allowed=(not (args.update or args.clean or args.build)))
+
+    if not cmake_path:
+        raise UsageError("Unable to find CMake executable. Please specify --cmake-path.")
+
     build_dir = args.build_dir
 
     if args.update or args.build:
@@ -576,6 +665,9 @@ def main():
     log.info("Build started")
 
     if args.update:
+        if args.android:
+            _android_prebuild(args.android_abi, args.android_ndk_path, args.android_api)
+
         if _is_reduced_ops_build(args):
             log.info("Generating config for selected ops")
             _generate_selected_ops_config(args.include_ops_by_config)

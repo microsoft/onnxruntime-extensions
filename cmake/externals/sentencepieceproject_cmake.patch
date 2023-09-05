@@ -1,17 +1,27 @@
-﻿diff --git a/CMakeLists.txt b/CMakeLists.txt
-index a3870cb..159cd84 100644
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a3870cb..a8732f4 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -63,7 +63,7 @@ if (MSVC)
-   string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_MINSIZEREL     ${CMAKE_CXX_FLAGS_MINSIZEREL})
-   string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELEASE        ${CMAKE_CXX_FLAGS_RELEASE})
-   string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_RELWITHDEBINFO})
+@@ -59,11 +59,13 @@ else()
+ endif()
+ 
+ if (MSVC)
+-  string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_DEBUG          ${CMAKE_CXX_FLAGS_DEBUG})
+-  string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_MINSIZEREL     ${CMAKE_CXX_FLAGS_MINSIZEREL})
+-  string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELEASE        ${CMAKE_CXX_FLAGS_RELEASE})
+-  string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_RELWITHDEBINFO})
 -  add_definitions("/wd4267 /wd4244 /wd4305 /Zc:strictStrings /utf-8")
++  if (CMAKE_MSVC_RUNTIME_LIBRARY STREQUAL "MultiThreaded" OR CMAKE_MSVC_RUNTIME_LIBRARY STREQUAL "MultiThreadedDebug")
++    string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_DEBUG          ${CMAKE_CXX_FLAGS_DEBUG})
++    string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_MINSIZEREL     ${CMAKE_CXX_FLAGS_MINSIZEREL})
++    string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELEASE        ${CMAKE_CXX_FLAGS_RELEASE})
++    string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_RELWITHDEBINFO})
++  endif()
 +  add_definitions("/wd4305 /Zc:strictStrings /utf-8")
  endif()
  
  if (APPLE)
-@@ -108,7 +108,7 @@ if (SPM_USE_EXTERNAL_ABSL)
+@@ -108,7 +110,7 @@ if (SPM_USE_EXTERNAL_ABSL)
  endif()
  
  add_subdirectory(src)

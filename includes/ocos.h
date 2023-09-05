@@ -3,11 +3,11 @@
 
 #pragma once
 
-#define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
-#include <string>
 #include <algorithm>
+#include <cassert>
 #include <functional>
 #include <iterator>
+#include <string>
 #include <vector>
 
 #include "onnxruntime_customop.hpp"
@@ -20,7 +20,8 @@ constexpr const char* c_OpDomain = "ai.onnx.contrib";
 constexpr const char* c_ComMsExtOpDomain = "com.microsoft.extensions";
 
 struct BaseKernel {
-  BaseKernel(const OrtApi& api, const OrtKernelInfo& info) noexcept : api_(api), info_(info), ort_(api_) {
+  BaseKernel(const OrtApi& api, const OrtKernelInfo& info) noexcept
+      : api_(api), info_(info), ort_(api_) {
   }
 
   template <class T>
@@ -38,6 +39,7 @@ struct BaseKernel {
 
  protected:
   OrtErrorCode GetErrorCodeAndRelease(OrtStatusPtr status) const noexcept;
+
   const OrtApi& api_;
   OrtW::CustomOpApi ort_;
   const OrtKernelInfo& info_;
