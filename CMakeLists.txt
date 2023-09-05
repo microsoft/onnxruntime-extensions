@@ -82,7 +82,7 @@ set(OCOS_ONNXRUNTIME_VERSION "" CACHE STRING
 # or it is enabled when OCOS_ENABLE_AZURE is set, which means the user explicitly enables it.
 if ((DEFINED ENV{BUILD_BUILDID}) OR (DEFINED ENV{OCOS_ENABLE_AZURE}))
   set(OCOS_ENABLE_AZURE ON CACHE INTERNAL "" FORCE)
-  message("=> AzureOp is enabled by default.")
+  message(STATUS "=> AzureOp is enabled by default.")
 endif()
 
 function(disable_all_operators)
@@ -110,7 +110,7 @@ else()
 endif()
 
 if(NOT CC_OPTIMIZE)
-  message("!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
+  message(WARNING "!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
   string(REGEX REPLACE "([\-\/]O[123])" "" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
   string(REGEX REPLACE "([\-\/]O[123])" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
   string(REGEX REPLACE "([\-\/]O[123])" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
@@ -370,7 +370,7 @@ set(_HAS_TOKENIZER OFF)
 if(OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
   set(_HAS_TOKENIZER ON)
-  file(GLOB tok_TARGET_SRC "operators/tokenizer/gpt*.cc" "operators/tokenizer/unicode*.*" "operators/tokenizer/clip*.cc" "operators/tokenizer/roberta*.cc")
+  file(GLOB tok_TARGET_SRC "operators/tokenizer/bpe_*.*" "operators/tokenizer/unicode*.*")
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
 endif()
 

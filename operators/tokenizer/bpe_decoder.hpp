@@ -13,6 +13,9 @@
 #include <set>
 #include <map>
 #include <unordered_map>
+#include <algorithm>
+#include <sstream>
+
 
 struct KernelBpeDecoder : public BaseKernel {
  public:
