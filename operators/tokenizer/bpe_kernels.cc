@@ -67,6 +67,26 @@ bool AllSpaceUstring(const ustring& str) {
   return std::all_of(str.begin(), str.end(), [](char32_t ch) { return IsUnicodeSpace(ch); });
 }
 
+ustring RemoveConsecutiveSpaces(const ustring& input) {
+  ustring result;
+  result.reserve(input.size());
+  bool lastWasSpace = false;
+
+  for (auto ch : input) {
+    if (IsUnicodeSpace(ch)) {
+      if (!lastWasSpace) {
+        result.push_back(ch);
+      }
+      lastWasSpace = true;
+    } else {
+      result.push_back(ch);
+      lastWasSpace = false;
+    }
+  }
+
+  return result;
+}
+
 KernelBpeTokenizer::KernelBpeTokenizer(const OrtApi& api, const OrtKernelInfo& info, const BpeModelConf& conf)
     : BaseKernel(api, info),
       bpe_conf_(conf) {
@@ -121,30 +141,28 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
       text = re.sub(r"\s+", " ", text)
       text = text.strip()
     */
-    ustring& str = input;
-    str.erase(std::unique(str.begin(), str.end(),
-                          [](char32_t lhs, char32_t rhs) { return IsUnicodeSpace(lhs) && IsUnicodeSpace(rhs); }),
-              str.end());
+    ustring str = RemoveConsecutiveSpaces(input);
     if (IsUnicodeSpace(str.front())) {
       str.erase(str.begin());
     }
     if (IsUnicodeSpace(str.back())) {
       str.pop_back();
     }
+    input = str;
   }
 
   if (AllSpaceUstring(input) && ModelName() == BpeModelConf::kModel_CLIP) {
-      // Add BOS and EOS token to result
-      res.push_back(bos_token_id_);
-      res.push_back(eos_token_id_);
-      return res;
+    // Add BOS and EOS token to result
+    res.push_back(bos_token_id_);
+    res.push_back(eos_token_id_);
+    return res;
   }
 
   if (ModelName() != BpeModelConf::kModel_GPT2) {
     // Add BOS token to result
     res.push_back(bos_token_id_);
   }
-  if (ModelName() == BpeModelConf::kModel_CLIP){
+  if (ModelName() == BpeModelConf::kModel_CLIP) {
     // Convert to lowercase
     std::transform(input.begin(), input.end(), input.begin(), [](char32_t c) { return static_cast<char32_t>(ToLower(c)); });
   }
