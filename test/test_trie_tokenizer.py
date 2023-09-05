@@ -144,11 +144,11 @@ class TestTrieTokenizer(TestCase):
 
     def test_ort_trie_tokenizer(self):
         vocab_data = util.read_file(self.vocab_file, 'rb')
-        tokr = OrtPyFunction.from_customop("TrieTokenizer", vocab=vocab_data)
+        tokr = OrtPyFunction.from_customop("TrieTokenizer", vocab=vocab_data, cpu_only=True)
         tokens = tokr(["I love you"])
         self.assertEqual(list(tokens[0]), [74, 31337, 22799])
 
-        detok = OrtPyFunction.from_customop("TrieDetokenizer", vocab=vocab_data)
+        detok = OrtPyFunction.from_customop("TrieDetokenizer", vocab=vocab_data, cpu_only=True)
         self.assertEqual(list(detok(tokens)), ["I love you"])
 
     def test_parity(self):
@@ -166,7 +166,9 @@ class TestTrieTokenizer(TestCase):
 
         tokr = TRIE_TOKENIZER(self.vocab_file)
 
-        ortx_tokr = OrtPyFunction.from_customop("TrieTokenizer", vocab=util.read_file(self.vocab_file, 'rb'))
+        ortx_tokr = OrtPyFunction.from_customop("TrieTokenizer",
+                                                vocab=util.read_file(self.vocab_file, 'rb'),
+                                                cpu_only=True)
         for s in test_sentences:
             self.assertEqual(tokr.encode(s), list(ortx_tokr([s])[0]))
 
