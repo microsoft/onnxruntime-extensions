@@ -31,7 +31,8 @@ void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& inpu
                                            bool add_eos,
                                            bool add_rev,
                                            ortc::Tensor<int32_t>& output,
-                                           ortc::Tensor<int64_t>& output1) const {
+                                           ortc::Tensor<int64_t>& output1,
+                                           std::optional<bool> xlm_roberta) const {
   // Update with the new API
   auto& str_input = input.Data();
   // computation
@@ -53,6 +54,16 @@ void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& inpu
       if (add_bos) {
         content.push_back(tokenizer_.bos_id());
       }
+    } else if (xlm_roberta.has_value() && xlm_roberta) {
+      // As per HF, the first "real" token "," has position 4 in the XLMRobertaTokenizer vocab
+      // and position 3 in the SPM vocab, so we add a padding value of 1 to all IDs.
+      //std::transform(content.begin(), content.end(), content.begin(), [](int& i) { return i + 1; });
+      std::for_each(inloop.begin(), inloop.end(), [](int& n) { n++; });
+
+      // Add HF BOS (0) and EOS (2) tokens for the XLMRobertaTokenizer
+      content.push_back(xlm_bos);
+      content.insert(content.end(), inloop.begin(), inloop.end());
+      content.push_back(xlm_eos);
     } else {
       if (add_bos) {
         content.push_back(tokenizer_.bos_id());

@@ -16,8 +16,12 @@ struct KernelSentencepieceTokenizer : BaseKernel {
                bool add_eos,
                bool add_rev,
                ortc::Tensor<int32_t>& output,
-               ortc::Tensor<int64_t>& output1) const;
+               ortc::Tensor<int64_t>& output1,
+               std::optional<bool> xlm_roberta) const;
 
  private:
   sentencepiece::SentencePieceProcessor tokenizer_;
+  // current HF ids for BOS and EOS tokens for XLMRobertaTokenizer
+  int xlm_bos = 0;
+  int xlm_eos = 2;
 };
