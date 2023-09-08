@@ -63,7 +63,7 @@ void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& inpu
         content.push_back(tokenizer_.eos_id());
       }
 
-      if (fairseq.has_value() && fairseq.value()) {
+      if (fairseq.has_value() && (*fairseq)) {
         // HF Fairseq Example (XLMRobertaTokenizer) : https://huggingface.co/transformers/v4.6.0/_modules/transformers/models/xlm_roberta/tokenization_xlm_roberta.html#XLMRobertaTokenizer
         //
         // Original fairseq vocab and spm vocab must be "aligned":
