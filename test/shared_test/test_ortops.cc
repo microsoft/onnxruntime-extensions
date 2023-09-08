@@ -3,10 +3,11 @@
 #include <filesystem>
 #include "gtest/gtest.h"
 #include "ocos.h"
-#include "ustring.h"
-#include "string_utils.h"
+#include "register_ort_extensions_ops.hpp"
 #include "string_tensor.h"
+#include "string_utils.h"
 #include "test_kernel.hpp"
+#include "ustring.h"
 
 const char* GetLibraryPath() {
 #if defined(_WIN32)
@@ -308,14 +309,10 @@ void ValidateOutputEqual(size_t output_idx, Ort::Value& actual, TestValue expect
 void TestInference(Ort::Env& env, const ORTCHAR_T* model_uri,
                    const std::vector<TestValue>& inputs,
                    const std::vector<TestValue>& outputs,
-                   const char* custom_op_library_filename,
+                   const char* /*custom_op_library_filename*/,  // TODO remove this parameter
                    OutputValidator output_validator) {
   Ort::SessionOptions session_options;
-  void* handle = nullptr;
-  if (custom_op_library_filename) {
-    Ort::ThrowOnError(Ort::GetApi().RegisterCustomOpsLibrary((OrtSessionOptions*)session_options,
-                                                             custom_op_library_filename, &handle));
-  }
+  RegisterOrtExtensionsOps(session_options);
 
   // if session creation passes, model loads fine
   Ort::Session session(env, model_uri, session_options);

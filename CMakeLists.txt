@@ -5,6 +5,12 @@
 cmake_minimum_required(VERSION 3.25)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
+# TODO can it be moved closer to where it's needed?
+if(IOS)
+  find_package(XCTest REQUIRED)
+  enable_language(OBJCXX)
+endif()
+
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Build type not set - using RelWithDebInfo")
@@ -844,29 +850,166 @@ if(OCOS_ENABLE_CTEST)
   message(STATUS "Fetch googletest")
   include(googletest)
 
+  function(add_test_target)
+    set(optional_args)
+    set(single_value_args
+        # test target name
+        TARGET)
+    set(multi_value_args
+        # test source files
+        TEST_SOURCES
+        # libraries to link to test target
+        LIBRARIES
+        # test data directories to copy to target directory
+        TEST_DATA_DIRECTORIES)
+    cmake_parse_arguments(ARG "${optional_args}" "${single_value_args}" "${multi_value_args}" ${ARGN})
+
+    if(NOT IOS)
+      # add a test executable
+
+      add_executable(${ARG_TARGET})
+
+      standardize_output_folder(${ARG_TARGET})
+
+      add_test(NAME ${ARG_TARGET}
+               COMMAND ${ARG_TARGET})
+
+      target_sources(${ARG_TARGET} PRIVATE
+                     ${ARG_TEST_SOURCES}
+                     "${TEST_SRC_DIR}/unittest_main/test_main.cc")
+
+      target_link_libraries(${ARG_TARGET} PRIVATE
+                            ${ARG_LIBRARIES}
+                            gtest gmock)
+
+      set(target_for_test_data_copy ${ARG_TARGET})
+
+    else()
+      # add a test that can run on iOS (simulator)
+      # it requires a dummy testee target
+
+      # create a dummy app to use as the testee target in xctest_add_bundle()
+      set(dummy_testee_target ${ARG_TARGET}_dummy_testee)
+      add_executable(${dummy_testee_target} "${TEST_SRC_DIR}/ios/dummy_testee_main.mm")
+      set(_dummy_testee_version 1)
+      set_target_properties(${dummy_testee_target} PROPERTIES
+          MACOSX_BUNDLE TRUE
+          MACOSX_BUNDLE_BUNDLE_NAME dummy_testee
+          MACOSX_BUNDLE_GUI_IDENTIFIER com.onnxruntime.unittest.dummy_testee
+          MACOSX_BUNDLE_LONG_VERSION_STRING ${_dummy_testee_version}
+          MACOSX_BUNDLE_BUNDLE_VERSION ${_dummy_testee_version}
+          MACOSX_BUNDLE_SHORT_VERSION_STRING ${_dummy_testee_version}
+          XCODE_ATTRIBUTE_CLANG_ENABLE_MODULES "YES"
+          XCODE_ATTRIBUTE_ENABLE_BITCODE "NO"
+          XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED "NO")
+      target_link_libraries(${dummy_testee_target} PRIVATE "-framework UIKit")
+
+      xctest_add_bundle(${ARG_TARGET} ${dummy_testee_target})
+
+      xctest_add_test("${ARG_TARGET}_xctest" ${ARG_TARGET})
+
+      target_sources(${ARG_TARGET} PRIVATE
+                     ${ARG_TEST_SOURCES}
+                     "${TEST_SRC_DIR}/ios/xcgtest.mm"
+                     # TODO check if stub_test_case.mm is needed
+                     "${TEST_SRC_DIR}/ios/stub_test_case.mm")
+
+      target_link_libraries(${ARG_TARGET} PRIVATE
+                            ${ARG_LIBRARIES}
+                            gtest gmock)
+
+      set(target_for_test_data_copy ${dummy_testee_target})
+
+    endif()
+
+    # copy any test data directories to the target directory
+    foreach(test_data_directory ${ARG_TEST_DATA_DIRECTORIES})
+      cmake_path(GET test_data_directory FILENAME test_data_directory_filename)
+      if(NOT test_data_directory_filename)
+        # There's no filename if the path has a trailing directory separator.
+        # In that case, try to get the filename of the parent path.
+        cmake_path(GET test_data_directory PARENT_PATH test_data_directory_parent)
+        cmake_path(GET test_data_directory_parent FILENAME test_data_directory_filename)
+      endif()
+      if(NOT test_data_directory_filename)
+        message(FATAL_ERROR "Failed to get filename for test data directory: ${test_data_directory}")
+      endif()
+
+      set(destination_directory
+          $<TARGET_FILE_DIR:${target_for_test_data_copy}>/${test_data_directory_filename})
+
+      add_custom_command(
+        TARGET ${ARG_TARGET} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
+          ${test_data_directory} ${destination_directory})
+    endforeach()
+
+  endfunction(add_test_target)
+
+  if(IOS)
+    # enable ARC on Objective-C++ source files
+    set_property(
+      SOURCE
+        "${TEST_SRC_DIR}/ios/dummy_testee_main.mm"
+        "${TEST_SRC_DIR}/ios/stub_test_case.mm"
+        "${TEST_SRC_DIR}/ios/xcgtest.mm"
+      APPEND
+      PROPERTY COMPILE_OPTIONS "-fobjc-arc")
+  endif()
+
+  # TODO clean up commented out code
   # -- static test --
   file(GLOB static_TEST_SRC "${TEST_SRC_DIR}/static_test/*.cc")
-  add_executable(ocos_test ${static_TEST_SRC})
-  standardize_output_folder(ocos_test)
-  target_link_libraries(ocos_test PRIVATE gtest_main ocos_operators ${ocos_libraries})
-  add_test(NAME ocos_test COMMAND $<TARGET_FILE:ocos_test>)
+
+  add_test_target(TARGET ocos_test
+                  TEST_SOURCES ${static_TEST_SRC}
+                  LIBRARIES ortcustomops ${ocos_libraries})
+
+  #add_executable(ocos_test ${static_TEST_SRC})
+  #standardize_output_folder(ocos_test)
+  #target_link_libraries(ocos_test PRIVATE ortcustomops ${ocos_libraries} gtest)
+  #add_test(NAME ocos_test COMMAND $<TARGET_FILE:ocos_test>)
 
   # -- shared test (needs onnxruntime) --
   SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
-  find_library(ONNXRUNTIME onnxruntime HINTS "${ONNXRUNTIME_LIB_DIR}")
+  find_library(ONNXRUNTIME onnxruntime PATHS "${ONNXRUNTIME_LIB_DIR}")
 
-  if(ONNXRUNTIME-NOTFOUND)
+  if("${ONNXRUNTIME}" STREQUAL "ONNXRUNTIME-NOTFOUND")
     message(WARNING "The prebuilt onnxruntime libraries directory was not found (via ONNXRUNTIME_LIB_DIR), the extensions_test will be skipped.")
   else()
-    set(LINUX_CC_FLAGS "")
+    block()  # keep newly defined variables in local scope
 
-    # needs to link with stdc++fs in Linux
-    if(UNIX AND NOT APPLE AND NOT ANDROID)
-      list(APPEND LINUX_CC_FLAGS stdc++fs -pthread)
+    # TODO check if we can use shared library on ios too
+    if (NOT IOS)
+      set(use_extensions_shared_library 1)
     endif()
 
-    file(GLOB shared_TEST_SRC "${TEST_SRC_DIR}/shared_test/*.cc" "${TEST_SRC_DIR}/shared_test/*.hpp")
-    add_executable(extensions_test ${shared_TEST_SRC})
+    set(extensions_target $<IF:$<BOOL:${use_extensions_shared_library}>,extensions_shared,ortcustomops>)
+
+    file(GLOB shared_TEST_SRC
+         "${TEST_SRC_DIR}/shared_test/*.cc"
+         "${TEST_SRC_DIR}/shared_test/*.hpp")
+
+    set(extensions_test_libraries ${extensions_target} ${ONNXRUNTIME})
+
+    # needs to link with stdc++fs in Linux
+    if(LINUX)
+      list(APPEND extensions_test_libraries stdc++fs -pthread)
+    endif()
+
+    add_test_target(TARGET extensions_test
+                    TEST_SOURCES ${shared_TEST_SRC}
+                    LIBRARIES ${extensions_test_libraries}
+                    TEST_DATA_DIRECTORIES ${TEST_SRC_DIR}/data)
+
+    target_include_directories(extensions_test PRIVATE ${spm_INCLUDE_DIRS})
+
+    target_compile_definitions(extensions_test PUBLIC ${OCOS_COMPILE_DEFINITIONS})
+    if(use_extensions_shared_library)
+      target_compile_definitions(extensions_test PRIVATE ORT_EXTENSIONS_UNIT_TEST_USE_EXTENSIONS_SHARED_LIBRARY)
+    endif()
+
+    #add_executable(extensions_test ${shared_TEST_SRC})
 
     # FUTURE: This is required to use the ORT C++ API with delayed init which must be done conditionally using
     # ifdef OCOS_BUILD_SHARED in RegisterCustomOps and where onnxruntime_cxx_api.h is included .
@@ -877,20 +1020,26 @@ if(OCOS_ENABLE_CTEST)
     # set(test_compile_definitions ${OCOS_COMPILE_DEFINITIONS})
     # remove(test_compile_definitions "OCOS_SHARED_LIBRARY")
     # target_compile_definitions(extensions_test PUBLIC ${test_compile_definitions})
-    target_compile_definitions(extensions_test PUBLIC ${OCOS_COMPILE_DEFINITIONS})
+    # target_compile_definitions(extensions_test PUBLIC ${OCOS_COMPILE_DEFINITIONS})
 
-    standardize_output_folder(extensions_test)
+    # if(use_extensions_shared_library)
+    #   target_compile_definitions(extensions_test PRIVATE ORT_EXTENSIONS_UNIT_TEST_USE_EXTENSIONS_SHARED_LIBRARY)
+    # endif()
 
-    target_include_directories(extensions_test PRIVATE
-      ${spm_INCLUDE_DIRS}
-      $<TARGET_PROPERTY:extensions_shared,INTERFACE_INCLUDE_DIRECTORIES>)
+    # standardize_output_folder(extensions_test)
 
-    if(ONNXRUNTIME_LIB_DIR)
-      target_link_directories(extensions_test PRIVATE ${ONNXRUNTIME_LIB_DIR})
-    endif()
+    # target_include_directories(extensions_test PRIVATE ${spm_INCLUDE_DIRS})
 
-    target_link_libraries(extensions_test PRIVATE extensions_shared ${ocos_libraries} onnxruntime 
-                                                  gtest_main gmock_main ${LINUX_CC_FLAGS})
+    # if(ONNXRUNTIME_LIB_DIR)
+    #   target_link_directories(extensions_test PRIVATE ${ONNXRUNTIME_LIB_DIR})
+    # endif()
+
+    # target_link_libraries(extensions_test PRIVATE ${extensions_target} onnxruntime gmock gtest)
+
+    # # needs to link with stdc++fs in Linux
+    # if(LINUX)
+    #   target_link_libraries(extensions_test PRIVATE stdc++fs -pthread)
+    # endif()
 
     # Copy DLL/shared library files into the same directory as the test binary.
     if(WIN32)
@@ -900,22 +1049,28 @@ if(OCOS_ENABLE_CTEST)
         TARGET extensions_test POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy ${ONNXRUNTIME_LIB_FILES} $<TARGET_FILE_DIR:extensions_test>)
     else()
+      set(library_files ${ONNXRUNTIME})
+      if(use_extensions_shared_library)
+        list(APPEND library_files $<TARGET_LINKER_FILE:${extensions_target}>)
+      endif()
+
       add_custom_command(
         TARGET extensions_test POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:extensions_test>
-          $<TARGET_LINKER_FILE:extensions_shared>
-          ${ONNXRUNTIME})
+          ${library_files})
     endif()
 
-    set(TEST_DATA_SRC ${TEST_SRC_DIR}/data)
-    set(TEST_DATA_DES ${onnxruntime_extensions_BINARY_DIR}/data)
+    #set(TEST_DATA_SRC ${TEST_SRC_DIR}/data)
+    #set(TEST_DATA_DES $<TARGET_FILE_DIR:extensions_test>/data)
 
     # Copy test data from source to destination.
-    add_custom_command(
-      TARGET extensions_test POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_directory
-      ${TEST_DATA_SRC}
-      ${TEST_DATA_DES})
-    add_test(NAME extensions_test COMMAND $<TARGET_FILE:extensions_test>)
+    # add_custom_command(
+    #   TARGET extensions_test POST_BUILD
+    #   COMMAND ${CMAKE_COMMAND} -E copy_directory
+    #   ${TEST_DATA_SRC}
+    #   ${TEST_DATA_DES})
+    #add_test(NAME extensions_test COMMAND $<TARGET_FILE:extensions_test>)
+
+    endblock()
   endif()
 endif()
