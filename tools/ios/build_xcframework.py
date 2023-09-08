@@ -244,7 +244,15 @@ def parse_args():
         help="iOS deployment target.",
     )
 
-    args, unknown_args = parser.parse_known_args()
+    parser.add_argument(
+        "build_py_args",
+        nargs="*",
+        default=[],
+        help="Build arguments to pass through to build.py. "
+        "They can be placed after '--' so they are treated as positional arguments.",
+    )
+
+    args = parser.parse_args()
 
     # convert from [[platform1, arch1], [platform1, arch2], ...] to {platform1: [arch1, arch2, ...], ...}
     def platform_archs_from_args(platform_archs_arg: list[list[str]] | None) -> dict[str, list[str]]:
@@ -269,11 +277,11 @@ def parse_args():
 
     args.platform_archs = platform_archs_from_args(args.platform_archs)
 
-    return args, unknown_args
+    return args
 
 
 def main():
-    args, unknown_args = parse_args()
+    args = parse_args()
 
     _log.info(f"Building xcframework for platform archs: {args.platform_archs}")
 
@@ -284,7 +292,7 @@ def main():
         config=args.config,
         opencv_dir=_repo_dir / "cmake/externals/opencv",
         ios_deployment_target=args.ios_deployment_target,
-        other_build_args=unknown_args,
+        other_build_args=args.build_py_args,
     )
 
     _log.info("xcframework build complete.")
