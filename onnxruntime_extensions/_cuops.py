@@ -316,7 +316,7 @@ class SentencepieceTokenizer(CustomOp):
             cls.io_def('add_bos', onnx_proto.TensorProto.BOOL, [None]),
             cls.io_def('add_eos', onnx_proto.TensorProto.BOOL, [None]),
             cls.io_def('reverse', onnx_proto.TensorProto.BOOL, [None]),
-            cls.io_def('xlm_roberta', onnx_proto.TensorProto.BOOL, [None])
+            cls.io_def('fairseq', onnx_proto.TensorProto.BOOL, [None])
         ]
 
     # beyond Python 3.7, the order of the dict is guaranteed to be insertion order
@@ -328,7 +328,7 @@ class SentencepieceTokenizer(CustomOp):
             'add_bos': [False],
             'add_eos': [False],
             'reverse': [False],
-            'xlm_roberta': [False]
+            'fairseq': [False]
         }
 
     @classmethod
