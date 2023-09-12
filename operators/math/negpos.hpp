@@ -5,7 +5,7 @@
 
 #include "ocos.h"
 
-void neg_pos(const ortc::Tensor<float>& input,
+OrtW::StatusMsg neg_pos(const ortc::Tensor<float>& input,
              ortc::Tensor<float>& out0_tensor,
              ortc::Tensor<float>& out1_tensor) {
   int64_t size = input.NumberOfElement();
@@ -22,4 +22,6 @@ void neg_pos(const ortc::Tensor<float>& input,
       out1[i] = 0;
     }
   }
+
+  return std::nullopt;
 }

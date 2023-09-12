@@ -3,12 +3,12 @@
 
 #include "segment_extraction.hpp"
 
-void segment_extraction(const ortc::Tensor<int64_t>& input,
+OrtW::StatusMsg segment_extraction(const ortc::Tensor<int64_t>& input,
                         ortc::Tensor<int64_t>& output0,
                         ortc::Tensor<int64_t>& output1) {
   auto& input_dim = input.Shape();
   if (!((input_dim.size() == 1) || (input_dim.size() == 2 && input_dim[0] == 1))) {
-    ORTX_CXX_API_THROW("[SegmentExtraction]: Expect input dimension [n] or [1,n].", ORT_INVALID_GRAPH);
+    return std::make_tuple("[SegmentExtraction]: Expect input dimension [n] or [1,n].", ORT_INVALID_GRAPH);
   }
   const int64_t* p_data = input.Data();
   std::vector<std::int64_t> segment_value;
@@ -38,4 +38,5 @@ void segment_extraction(const ortc::Tensor<int64_t>& input,
 
   int64_t* out1_data = output1.Allocate(segment_value_dim);
   std::copy(segment_value.begin(), segment_value.end(), out1_data);
+  return std::nullopt;
 }
