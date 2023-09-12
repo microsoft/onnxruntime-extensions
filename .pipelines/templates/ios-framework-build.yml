@@ -50,6 +50,7 @@ jobs:
             --config $(buildConfig) \
             --platform_arch  ${{ parameters.Platform }} ${{ parameters.IosArch }} \
             --mode build_platform_arch_frameworks_only \
+            -- \
             ${{parameters.AdditionalBuildFlags}}
         displayName: "Build xcframework"
 

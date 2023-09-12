@@ -248,8 +248,9 @@ def parse_args():
         "build_py_args",
         nargs="*",
         default=[],
-        help="Build arguments to pass through to build.py. "
-        "They can be placed after '--' so they are treated as positional arguments.",
+        help="Build arguments to pass through to build.py when building the platform/arch frameworks. "
+        "These should be placed after other arguments to this script following a trailing '--'. "
+        "For example: 'build_xcframework.py <build_xcframework.py options> -- <build.py options>'.",
     )
 
     args = parser.parse_args()
