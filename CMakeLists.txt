@@ -5,12 +5,6 @@
 cmake_minimum_required(VERSION 3.25)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
-# TODO can it be moved closer to where it's needed?
-if(IOS)
-  find_package(XCTest REQUIRED)
-  enable_language(OBJCXX)
-endif()
-
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Build type not set - using RelWithDebInfo")
@@ -181,16 +175,17 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
+# TODO check if we need this. if so, limit the effect to where it is required.
 # set both regular and cache variables to NEVER. the regular variable has a default of FIRST defined by cmake,
 # but due to CMP0126 that will exist in parallel to the cached variable if the CMake minimum version is >= 3.25.
 # if we don't set this to NEVER (or possibly LAST) the builds of the wheel for different python versions will fail
 # as it will find the system python version first and not the correct python version for the wheel.
-set(CMAKE_FIND_FRAMEWORK "NEVER")
-set(CMAKE_FIND_FRAMEWORK "NEVER" CACHE STRING "...")
+# set(CMAKE_FIND_FRAMEWORK "NEVER")
+# set(CMAKE_FIND_FRAMEWORK "NEVER" CACHE STRING "...")
 
-if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
-  message(STATUS "CMAKE_FIND_FRAMEWORK is ${CMAKE_FIND_FRAMEWORK} not NEVER.")
-endif()
+# if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
+#   message(STATUS "CMAKE_FIND_FRAMEWORK is ${CMAKE_FIND_FRAMEWORK} not NEVER.")
+# endif()
 
 # External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals ${PROJECT_SOURCE_DIR}/cmake)
@@ -843,12 +838,18 @@ if(OCOS_ENABLE_CTEST)
 
   # Enable CTest
   enable_testing()
+
   message(STATUS "Fetch CTest")
   include(CTest)
 
   set(TEST_SRC_DIR ${PROJECT_SOURCE_DIR}/test)
   message(STATUS "Fetch googletest")
   include(googletest)
+
+  if(IOS)
+    find_package(XCTest REQUIRED)
+    enable_language(OBJCXX)
+  endif()
 
   function(add_test_target)
     set(optional_args)
@@ -910,9 +911,7 @@ if(OCOS_ENABLE_CTEST)
 
       target_sources(${ARG_TARGET} PRIVATE
                      ${ARG_TEST_SOURCES}
-                     "${TEST_SRC_DIR}/ios/xcgtest.mm"
-                     # TODO check if stub_test_case.mm is needed
-                     "${TEST_SRC_DIR}/ios/stub_test_case.mm")
+                     "${TEST_SRC_DIR}/ios/xcgtest.mm")
 
       target_link_libraries(${ARG_TARGET} PRIVATE
                             ${ARG_LIBRARIES}
@@ -957,18 +956,12 @@ if(OCOS_ENABLE_CTEST)
       PROPERTY COMPILE_OPTIONS "-fobjc-arc")
   endif()
 
-  # TODO clean up commented out code
   # -- static test --
   file(GLOB static_TEST_SRC "${TEST_SRC_DIR}/static_test/*.cc")
 
   add_test_target(TARGET ocos_test
                   TEST_SOURCES ${static_TEST_SRC}
                   LIBRARIES ortcustomops ${ocos_libraries})
-
-  #add_executable(ocos_test ${static_TEST_SRC})
-  #standardize_output_folder(ocos_test)
-  #target_link_libraries(ocos_test PRIVATE ortcustomops ${ocos_libraries} gtest)
-  #add_test(NAME ocos_test COMMAND $<TARGET_FILE:ocos_test>)
 
   # -- shared test (needs onnxruntime) --
   SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
@@ -979,7 +972,6 @@ if(OCOS_ENABLE_CTEST)
   else()
     block()  # keep newly defined variables in local scope
 
-    # TODO check if we can use shared library on ios too
     if (NOT IOS)
       set(use_extensions_shared_library 1)
     endif()
@@ -1006,10 +998,8 @@ if(OCOS_ENABLE_CTEST)
 
     target_compile_definitions(extensions_test PUBLIC ${OCOS_COMPILE_DEFINITIONS})
     if(use_extensions_shared_library)
-      target_compile_definitions(extensions_test PRIVATE ORT_EXTENSIONS_UNIT_TEST_USE_EXTENSIONS_SHARED_LIBRARY)
+      target_compile_definitions(extensions_test PUBLIC ORT_EXTENSIONS_UNIT_TEST_USE_EXTENSIONS_SHARED_LIBRARY)
     endif()
-
-    #add_executable(extensions_test ${shared_TEST_SRC})
 
     # FUTURE: This is required to use the ORT C++ API with delayed init which must be done conditionally using
     # ifdef OCOS_BUILD_SHARED in RegisterCustomOps and where onnxruntime_cxx_api.h is included .
@@ -1020,56 +1010,23 @@ if(OCOS_ENABLE_CTEST)
     # set(test_compile_definitions ${OCOS_COMPILE_DEFINITIONS})
     # remove(test_compile_definitions "OCOS_SHARED_LIBRARY")
     # target_compile_definitions(extensions_test PUBLIC ${test_compile_definitions})
-    # target_compile_definitions(extensions_test PUBLIC ${OCOS_COMPILE_DEFINITIONS})
 
-    # if(use_extensions_shared_library)
-    #   target_compile_definitions(extensions_test PRIVATE ORT_EXTENSIONS_UNIT_TEST_USE_EXTENSIONS_SHARED_LIBRARY)
-    # endif()
-
-    # standardize_output_folder(extensions_test)
-
-    # target_include_directories(extensions_test PRIVATE ${spm_INCLUDE_DIRS})
-
-    # if(ONNXRUNTIME_LIB_DIR)
-    #   target_link_directories(extensions_test PRIVATE ${ONNXRUNTIME_LIB_DIR})
-    # endif()
-
-    # target_link_libraries(extensions_test PRIVATE ${extensions_target} onnxruntime gmock gtest)
-
-    # # needs to link with stdc++fs in Linux
-    # if(LINUX)
-    #   target_link_libraries(extensions_test PRIVATE stdc++fs -pthread)
-    # endif()
-
-    # Copy DLL/shared library files into the same directory as the test binary.
-    if(WIN32)
-      file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
-      file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
-      add_custom_command(
-        TARGET extensions_test POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy ${ONNXRUNTIME_LIB_FILES} $<TARGET_FILE_DIR:extensions_test>)
-    else()
-      set(library_files ${ONNXRUNTIME})
-      if(use_extensions_shared_library)
-        list(APPEND library_files $<TARGET_LINKER_FILE:${extensions_target}>)
+    if(use_extensions_shared_library)
+      # Copy DLL/shared library files into the same directory as the test binary.
+      if(WIN32)
+        file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
+        file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
+        add_custom_command(
+          TARGET extensions_test POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy ${ONNXRUNTIME_LIB_FILES} $<TARGET_FILE_DIR:extensions_test>)
+      else()
+        add_custom_command(
+          TARGET extensions_test POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:extensions_test>
+            $<TARGET_LINKER_FILE:${extensions_target}>
+            ${ONNXRUNTIME})
       endif()
-
-      add_custom_command(
-        TARGET extensions_test POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:extensions_test>
-          ${library_files})
     endif()
-
-    #set(TEST_DATA_SRC ${TEST_SRC_DIR}/data)
-    #set(TEST_DATA_DES $<TARGET_FILE_DIR:extensions_test>/data)
-
-    # Copy test data from source to destination.
-    # add_custom_command(
-    #   TARGET extensions_test POST_BUILD
-    #   COMMAND ${CMAKE_COMMAND} -E copy_directory
-    #   ${TEST_DATA_SRC}
-    #   ${TEST_DATA_DES})
-    #add_test(NAME extensions_test COMMAND $<TARGET_FILE:extensions_test>)
 
     endblock()
   endif()

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import platform
 import shlex
@@ -509,9 +510,8 @@ def _run_python_tests():
     pass
 
 
-def _run_android_tests(args, build_dir: Path, config: str):
+def _run_android_tests(args, config: str, config_build_dir: Path):
     source_dir = REPO_DIR
-    build_config_dir = _get_build_config_dir(build_dir, config)
     sdk_tools = android.get_sdk_tool_paths(str(args.android_home))
     adb_global_options = ["-s", args.android_adb_device_serial] if args.android_adb_device_serial is not None else []
 
@@ -535,8 +535,8 @@ def _run_android_tests(args, build_dir: Path, config: str):
     adb_shell(f'rm -rf "{device_dir}" && mkdir -p "{device_dir}"')
 
     # copy shared libraries
-    adb_push(build_config_dir / "bin" / "libortextensions.so", device_dir / "libortextensions.so")
-    adb_push(build_config_dir / "bin" / "libonnxruntime.so", device_dir / "libonnxruntime.so")
+    adb_push(config_build_dir / "bin" / "libortextensions.so", device_dir / "libortextensions.so")
+    adb_push(config_build_dir / "bin" / "libonnxruntime.so", device_dir / "libonnxruntime.so")
 
     # copy test data
     adb_push(source_dir / "test" / "data", device_dir / "data")
@@ -544,16 +544,42 @@ def _run_android_tests(args, build_dir: Path, config: str):
     # copy and run test programs
     for test_program_name in ["extensions_test", "ocos_test"]:
         device_test_program_path = device_dir / test_program_name
-        adb_push(build_config_dir / "bin" / test_program_name, device_test_program_path)
+        adb_push(config_build_dir / "bin" / test_program_name, device_test_program_path)
         adb_shell(f'chmod 755 "{device_test_program_path}"')
         adb_shell(f'cd "{device_dir}" && '
                   f'LD_LIBRARY_PATH="$LD_LIBRARY_PATH:{device_dir}" "{device_test_program_path}"')
 
 
-def _run_ios_tests(args, config: str, cwd: Path):
-    # TODO: Setup running tests using xcode an iPhone simulator. See ORT build.py for example.
+def _run_ios_tests(args, config: str, config_build_dir: Path):
     source_dir = REPO_DIR
-    pass
+
+    simulator_device_info = _run_subprocess(
+        [
+            sys.executable,
+            str(source_dir / "tools" / "ios" / "get_simulator_device_info.py")
+         ],
+         capture_stdout=True).stdout.decode().strip()
+
+    log.debug(f"Simulator device info:\n{simulator_device_info}")
+
+    simulator_device_info = json.loads(simulator_device_info)
+
+    # run test schemes
+    for scheme_name in ["ocos_test", "extensions_test"]:
+        _run_subprocess(
+            [
+                "xcrun",
+                "xcodebuild",
+                "test-without-building",
+                "-project",
+                str(config_build_dir / "onnxruntime_extensions.xcodeproj"),
+                "-configuration",
+                config,
+                "-scheme",
+                scheme_name,
+                "-destination",
+                f"platform=iOS Simulator,id={simulator_device_info['device_udid']}",
+            ])
 
 
 def _run_cxx_tests(args, build_dir: Path, configs: set[str]):
@@ -563,18 +589,18 @@ def _run_cxx_tests(args, build_dir: Path, configs: set[str]):
     for config in configs:
         log.info("Running tests for %s configuration", config)
 
-        cwd = _get_build_config_dir(build_dir, config)
+        config_build_dir = _get_build_config_dir(build_dir, config)
 
         if args.android:
-            _run_android_tests(args, build_dir, config)
+            _run_android_tests(args, config, config_build_dir)
             continue
         elif args.ios:
-            _run_ios_tests(args, config, cwd)
+            _run_ios_tests(args, config, config_build_dir)
             continue
 
         if code_coverage_using_vstest:
             # Get the "Google Test Adapter" for vstest.
-            if not (cwd / "GoogleTestAdapter.0.18.0").is_dir():
+            if not (config_build_dir / "GoogleTestAdapter.0.18.0").is_dir():
                 _run_subprocess(
                     [
                         "nuget.exe",
@@ -583,14 +609,14 @@ def _run_cxx_tests(args, build_dir: Path, configs: set[str]):
                         "-ConfigFile",
                         str(REPO_DIR / "test" / "NuGet.config"),
                         "-PackagesDirectory",
-                        str(cwd),
+                        str(config_build_dir),
                     ]
                 )
 
             # test exes are in the bin/<config> subdirectory of the build output dir
-            # call resolve() to get the full path as we're going to execute in build_dir not cwd
-            test_dir = (cwd / "bin" / config).resolve()
-            adapter = (cwd / 'GoogleTestAdapter.0.18.0' / 'build' / '_common').resolve()
+            # call resolve() to get the full path as we're going to execute in build_dir not config_build_dir
+            test_dir = (config_build_dir / "bin" / config).resolve()
+            adapter = (config_build_dir / 'GoogleTestAdapter.0.18.0' / 'build' / '_common').resolve()
 
             executables = [
                 str(test_dir / "extensions_test.exe"),
@@ -614,7 +640,7 @@ def _run_cxx_tests(args, build_dir: Path, configs: set[str]):
             )
         else:
             ctest_cmd = [str(ctest_path), "--build-config", config, "--verbose", "--timeout", "10800"]
-            _run_subprocess(ctest_cmd, cwd=cwd)
+            _run_subprocess(ctest_cmd, cwd=config_build_dir)
 
 
 def main():
