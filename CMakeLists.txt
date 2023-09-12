@@ -175,24 +175,10 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-# TODO check if we need this. if so, limit the effect to where it is required.
-# set both regular and cache variables to NEVER. the regular variable has a default of FIRST defined by cmake,
-# but due to CMP0126 that will exist in parallel to the cached variable if the CMake minimum version is >= 3.25.
-# if we don't set this to NEVER (or possibly LAST) the builds of the wheel for different python versions will fail
-# as it will find the system python version first and not the correct python version for the wheel.
-# set(CMAKE_FIND_FRAMEWORK "NEVER")
-# set(CMAKE_FIND_FRAMEWORK "NEVER" CACHE STRING "...")
-
-# if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
-#   message(STATUS "CMAKE_FIND_FRAMEWORK is ${CMAKE_FIND_FRAMEWORK} not NEVER.")
-# endif()
-
 # External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals ${PROJECT_SOURCE_DIR}/cmake)
 
-# PROJECT_IS_TOP_LEVEL is available since 3.21
-get_property(not_top DIRECTORY PROPERTY PARENT_DIRECTORY)
-if(not_top AND ONNXRUNTIME_ROOT)
+if(NOT PROJECT_IS_TOP_LEVEL AND ONNXRUNTIME_ROOT)
   set(_ONNXRUNTIME_EMBEDDED TRUE)
 endif()
 
@@ -970,64 +956,62 @@ if(OCOS_ENABLE_CTEST)
   if("${ONNXRUNTIME}" STREQUAL "ONNXRUNTIME-NOTFOUND")
     message(WARNING "The prebuilt onnxruntime libraries directory was not found (via ONNXRUNTIME_LIB_DIR), the extensions_test will be skipped.")
   else()
-    block()  # keep newly defined variables in local scope
-
-    if (NOT IOS)
-      set(use_extensions_shared_library 1)
-    endif()
-
-    set(extensions_target $<IF:$<BOOL:${use_extensions_shared_library}>,extensions_shared,ortcustomops>)
-
-    file(GLOB shared_TEST_SRC
-         "${TEST_SRC_DIR}/shared_test/*.cc"
-         "${TEST_SRC_DIR}/shared_test/*.hpp")
-
-    set(extensions_test_libraries ${extensions_target} ${ONNXRUNTIME})
-
-    # needs to link with stdc++fs in Linux
-    if(LINUX)
-      list(APPEND extensions_test_libraries stdc++fs -pthread)
-    endif()
-
-    add_test_target(TARGET extensions_test
-                    TEST_SOURCES ${shared_TEST_SRC}
-                    LIBRARIES ${extensions_test_libraries}
-                    TEST_DATA_DIRECTORIES ${TEST_SRC_DIR}/data)
-
-    target_include_directories(extensions_test PRIVATE ${spm_INCLUDE_DIRS})
-
-    target_compile_definitions(extensions_test PUBLIC ${OCOS_COMPILE_DEFINITIONS})
-    if(use_extensions_shared_library)
-      target_compile_definitions(extensions_test PUBLIC ORT_EXTENSIONS_UNIT_TEST_USE_EXTENSIONS_SHARED_LIBRARY)
-    endif()
-
-    # FUTURE: This is required to use the ORT C++ API with delayed init which must be done conditionally using
-    # ifdef OCOS_BUILD_SHARED in RegisterCustomOps and where onnxruntime_cxx_api.h is included .
-    # ---
-    # We have to remove the OCOS_BUILD_SHARED when building the test code. It is used to delay population of the
-    # ORT api pointer until RegisterCustomOps is called, but the test code needs to create an ORT env which requires
-    # the pointer to exist.
-    # set(test_compile_definitions ${OCOS_COMPILE_DEFINITIONS})
-    # remove(test_compile_definitions "OCOS_SHARED_LIBRARY")
-    # target_compile_definitions(extensions_test PUBLIC ${test_compile_definitions})
-
-    if(use_extensions_shared_library)
-      # Copy DLL/shared library files into the same directory as the test binary.
-      if(WIN32)
-        file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
-        file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
-        add_custom_command(
-          TARGET extensions_test POST_BUILD
-          COMMAND ${CMAKE_COMMAND} -E copy ${ONNXRUNTIME_LIB_FILES} $<TARGET_FILE_DIR:extensions_test>)
-      else()
-        add_custom_command(
-          TARGET extensions_test POST_BUILD
-          COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:extensions_test>
-            $<TARGET_LINKER_FILE:${extensions_target}>
-            ${ONNXRUNTIME})
+    block()
+      if (NOT IOS)
+        set(use_extensions_shared_library 1)
       endif()
-    endif()
 
+      set(extensions_target $<IF:$<BOOL:${use_extensions_shared_library}>,extensions_shared,ortcustomops>)
+
+      file(GLOB shared_TEST_SRC
+          "${TEST_SRC_DIR}/shared_test/*.cc"
+          "${TEST_SRC_DIR}/shared_test/*.hpp")
+
+      set(extensions_test_libraries ${extensions_target} ${ONNXRUNTIME})
+
+      # needs to link with stdc++fs in Linux
+      if(LINUX)
+        list(APPEND extensions_test_libraries stdc++fs -pthread)
+      endif()
+
+      add_test_target(TARGET extensions_test
+                      TEST_SOURCES ${shared_TEST_SRC}
+                      LIBRARIES ${extensions_test_libraries}
+                      TEST_DATA_DIRECTORIES ${TEST_SRC_DIR}/data)
+
+      target_include_directories(extensions_test PRIVATE ${spm_INCLUDE_DIRS})
+
+      target_compile_definitions(extensions_test PUBLIC ${OCOS_COMPILE_DEFINITIONS})
+      if(use_extensions_shared_library)
+        target_compile_definitions(extensions_test PUBLIC ORT_EXTENSIONS_UNIT_TEST_USE_EXTENSIONS_SHARED_LIBRARY)
+      endif()
+
+      # FUTURE: This is required to use the ORT C++ API with delayed init which must be done conditionally using
+      # ifdef OCOS_BUILD_SHARED in RegisterCustomOps and where onnxruntime_cxx_api.h is included .
+      # ---
+      # We have to remove the OCOS_BUILD_SHARED when building the test code. It is used to delay population of the
+      # ORT api pointer until RegisterCustomOps is called, but the test code needs to create an ORT env which requires
+      # the pointer to exist.
+      # set(test_compile_definitions ${OCOS_COMPILE_DEFINITIONS})
+      # remove(test_compile_definitions "OCOS_SHARED_LIBRARY")
+      # target_compile_definitions(extensions_test PUBLIC ${test_compile_definitions})
+
+      if(use_extensions_shared_library)
+        # Copy DLL/shared library files into the same directory as the test binary.
+        if(WIN32)
+          file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
+          file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
+          add_custom_command(
+            TARGET extensions_test POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy ${ONNXRUNTIME_LIB_FILES} $<TARGET_FILE_DIR:extensions_test>)
+        else()
+          add_custom_command(
+            TARGET extensions_test POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:extensions_test>
+              $<TARGET_LINKER_FILE:${extensions_target}>
+              ${ONNXRUNTIME})
+        endif()
+      endif()
     endblock()
   endif()
 endif()
