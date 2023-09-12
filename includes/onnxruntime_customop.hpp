@@ -23,6 +23,7 @@
 
 extern "C" int ORT_API_CALL GetActiveOrtAPIVersion();
 
+// namespace of ORT ABI Wrapper
 namespace OrtW {
 
 class API {
@@ -44,16 +45,6 @@ class API {
 
   template<typename T>
   static OrtStatusPtr KernelInfoGetAttribute(const OrtKernelInfo& info, const char* name, T& value) noexcept;
-
-  template<>
-  static OrtStatusPtr KernelInfoGetAttribute<int64_t>(const OrtKernelInfo& info, const char* name, int64_t& value) noexcept {
-    return instance()->KernelInfoGetAttribute_int64(&info, name, &value);
-  }
-
-  template<>
-  static OrtStatusPtr KernelInfoGetAttribute<float>(const OrtKernelInfo& info, const char* name, float& value) noexcept {
-    return instance()->KernelInfoGetAttribute_float(&info, name, &value);
-  }
 
   template <class T>
   static OrtStatusPtr TryToGetAttribute(const OrtKernelInfo& info, const char* name, T& value) noexcept {
@@ -150,93 +141,6 @@ struct CustomOpApi {
 
  private:
   const OrtApi& api_;
-};
-
-template <typename TOp, typename TKernel>
-struct CustomOpBase : OrtCustomOp {
-  CustomOpBase() {
-    OrtCustomOp::version = MIN_ORT_VERSION_SUPPORTED;  // The minimum ORT version supported
-    OrtCustomOp::CreateKernel = [](const OrtCustomOp* this_, const OrtApi* api, const OrtKernelInfo* info) {
-      void* result = nullptr;
-      OCOS_API_IMPL_BEGIN
-      result = static_cast<const TOp*>(this_)->CreateKernel(*api, *info);
-      OCOS_API_IMPL_END
-      return result;
-    };
-
-    OrtCustomOp::GetName = [](const OrtCustomOp* this_) noexcept {
-      return static_cast<const TOp*>(this_)->GetName();
-    };
-
-    OrtCustomOp::GetExecutionProviderType = [](const OrtCustomOp* this_) noexcept {
-      return static_cast<const TOp*>(this_)->GetExecutionProviderType();
-    };
-
-    OrtCustomOp::GetInputTypeCount = [](const OrtCustomOp* this_) noexcept {
-      return static_cast<const TOp*>(this_)->GetInputTypeCount();
-    };
-
-    OrtCustomOp::GetInputType = [](const OrtCustomOp* this_, size_t index) noexcept {
-      return static_cast<const TOp*>(this_)->GetInputType(index);
-    };
-
-    OrtCustomOp::GetOutputTypeCount = [](const OrtCustomOp* this_) noexcept {
-      return static_cast<const TOp*>(this_)->GetOutputTypeCount();
-    };
-
-    OrtCustomOp::GetOutputType = [](const OrtCustomOp* this_, size_t index) noexcept {
-      return static_cast<const TOp*>(this_)->GetOutputType(index);
-    };
-
-    OrtCustomOp::KernelCompute = [](void* op_kernel, OrtKernelContext* context) {
-      OCOS_API_IMPL_BEGIN
-      static_cast<TKernel*>(op_kernel)->Compute(context);
-      OCOS_API_IMPL_END
-    };
-
-#if defined(_MSC_VER) && !defined(__clang__)
-#pragma warning(push)
-#pragma warning(disable : 26409)
-#endif
-    OrtCustomOp::KernelDestroy = [](void* op_kernel) { delete static_cast<TKernel*>(op_kernel); };
-#if defined(_MSC_VER) && !defined(__clang__)
-#pragma warning(pop)
-#endif
-    OrtCustomOp::GetInputCharacteristic = [](const OrtCustomOp* this_, size_t index) noexcept {
-      return static_cast<const TOp*>(this_)->GetInputCharacteristic(index);
-    };
-
-    OrtCustomOp::GetOutputCharacteristic = [](const OrtCustomOp* this_, size_t index) noexcept {
-      return static_cast<const TOp*>(this_)->GetOutputCharacteristic(index);
-    };
-  }
-
-  // default implementation. we can't use a virtual function as the layout of this struct has to be aligned with
-  // OrtCustomOp, but a derived class can override by creating a function with the same name and signature,
-  // calling this base class implementation as needed. e.g. see CustomOpThree in the unit test code
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo& info) const {
-#if defined(_MSC_VER) && !defined(__clang__)
-#pragma warning(push)
-#pragma warning(disable : 26409)
-#endif
-    return new TKernel(api, info);
-#if defined(_MSC_VER) && !defined(__clang__)
-#pragma warning(pop)
-#endif
-  }
-
-  // Default implementation of GetExecutionProviderType that returns nullptr to default to the CPU provider
-  const char* GetExecutionProviderType() const { return nullptr; }
-
-  // Default implementations of GetInputCharacteristic() and GetOutputCharacteristic() below
-  // (inputs and outputs are required by default)
-  OrtCustomOpInputOutputCharacteristic GetInputCharacteristic(size_t /*index*/) const {
-    return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
-  }
-
-  OrtCustomOpInputOutputCharacteristic GetOutputCharacteristic(size_t /*index*/) const {
-    return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
-  }
 };
 
 //
@@ -386,6 +290,16 @@ inline OrtValue* CustomOpApi::KernelContext_GetOutput(OrtKernelContext* context,
   OrtValue* out;
   ThrowOnError(api_.KernelContext_GetOutput(context, index, dim_values, dim_count, &out));
   return out;
+}
+
+template <>
+inline OrtStatusPtr API::KernelInfoGetAttribute<int64_t>(const OrtKernelInfo& info, const char* name, int64_t& value) noexcept {
+  return instance()->KernelInfoGetAttribute_int64(&info, name, &value);
+}
+
+template <>
+inline OrtStatusPtr API::KernelInfoGetAttribute<float>(const OrtKernelInfo& info, const char* name, float& value) noexcept {
+  return instance()->KernelInfoGetAttribute_float(&info, name, &value);
 }
 
 inline StatusMsg CreateStatusMsg(const char* msg, OrtErrorCode code) {
