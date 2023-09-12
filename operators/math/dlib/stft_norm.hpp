@@ -9,11 +9,11 @@
 struct StftNormal{
   StftNormal() = default;
 
-  OrtW::StatusMsg OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
-    return OrtW::API::TryToGetAttribute(info, "onesided", onesided_);
+  OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
+    return OrtW::GetOpAttribute(info, "onesided", onesided_);
   }
 
-  OrtW::StatusMsg Compute(const ortc::Tensor<float>& input0,
+  OrtStatusPtr Compute(const ortc::Tensor<float>& input0,
                int64_t n_fft,
                int64_t hop_length,
                const ortc::Span<float>& input3,
@@ -25,10 +25,10 @@ struct StftNormal{
     auto win_length = input3.size();
 
     if (dimensions.size() < 2 || input0.NumberOfElement() != dimensions[1]) {
-      return OrtW::CreateStatusMsg("[Stft] Only batch == 1 tensor supported.", ORT_INVALID_ARGUMENT);
+      return OrtW::CreateStatus("[Stft] Only batch == 1 tensor supported.", ORT_INVALID_ARGUMENT);
     }
     if (frame_length != n_fft) {
-      return OrtW::CreateStatusMsg("[Stft] Only support size of FFT equals the frame length.", ORT_INVALID_ARGUMENT);
+      return OrtW::CreateStatus("[Stft] Only support size of FFT equals the frame length.", ORT_INVALID_ARGUMENT);
     }
 
     dlib::matrix<float> dm_x = dlib::mat(X, 1, dimensions[1]);
@@ -49,7 +49,7 @@ struct StftNormal{
     auto out0 = output0.Allocate(outdim);
     memcpy(out0, result.steal_memory().get(), result_size * sizeof(float));
 
-    return OrtW::StatusMsg(std::nullopt);
+    return nullptr;
   }
 
  private:

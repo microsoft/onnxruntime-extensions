@@ -46,17 +46,6 @@ class API {
   template<typename T>
   static OrtStatusPtr KernelInfoGetAttribute(const OrtKernelInfo& info, const char* name, T& value) noexcept;
 
-  template <class T>
-  static OrtStatusPtr TryToGetAttribute(const OrtKernelInfo& info, const char* name, T& value) noexcept {
-    if (auto status = KernelInfoGetAttribute(info, name, value); status) {
-      // Ideally, we should know which kind of error code can be ignored, but it is not availabe now.
-      // Just ignore all of them.
-      ReleaseStatus(status);
-    }
-
-    return nullptr;
-  }
-
 private:
   const OrtApi* operator->() const {
     return &api_;
@@ -68,39 +57,6 @@ private:
     }
   }
   const OrtApi& api_;
-};
-
-// Create C++ Status without OrtApi dependency
-class StatusMsg : std::optional<std::tuple<std::string, OrtErrorCode>> {
-  // StatusMsg doens't own the OrtStatusPtr, it is only used to pass the OrtStatusPtr
-  // since OrtStatus Pointer usually is consumed by the caller of the API, which is used to 
-  // be ONNX Runtime C API. not any functions in this header.
- public:
-  // accept all optional constructors
-  StatusMsg(std::optional<std::tuple<std::string, OrtErrorCode>> msg)
-      : std::optional<std::tuple<std::string, OrtErrorCode>>(msg) {
-    if (this->has_value()) {
-      auto& [msg, code] = this->value();
-      status_ = API::CreateStatus(code, msg.c_str());
-    }
-  }
-
-  StatusMsg(OrtStatusPtr status) : status_(status) {}
-
-  bool IsOk() const {
-    return status_ == nullptr;
-  }
-
-  operator OrtStatusPtr() const {
-    return status_;
-  }
-
-  OrtStatusPtr ToOrtStatus() const {
-    return status_;
-  }
-
- private:
-  OrtStatusPtr status_{};
 };
 
 //
@@ -302,12 +258,20 @@ inline OrtStatusPtr API::KernelInfoGetAttribute<float>(const OrtKernelInfo& info
   return instance()->KernelInfoGetAttribute_float(&info, name, &value);
 }
 
-inline StatusMsg CreateStatusMsg(const char* msg, OrtErrorCode code) {
-  return std::make_tuple(msg, code);
-}
+template <class T>
+  static OrtStatusPtr GetOpAttribute(const OrtKernelInfo& info, const char* name, T& value) noexcept {
+    if (auto status = API::KernelInfoGetAttribute(info, name, value); status) {
+      // Ideally, we should know which kind of error code can be ignored, but it is not availabe now.
+      // Just ignore all of them.
+      API::ReleaseStatus(status);
+    }
 
-inline StatusMsg CreateStatusMsg(OrtStatusPtr status) {
-  return StatusMsg(status);
+    return nullptr;
+  }
+
+
+inline OrtStatusPtr CreateStatus(const char* msg, OrtErrorCode code) {
+  return API::CreateStatus(code, msg);
 }
 
 }  // namespace OrtW
@@ -332,9 +296,9 @@ namespace Custom {
 
 template <typename... Args>
 struct FunctionKernel {
-  using ComputeFn = std::function<OrtW::StatusMsg(Args...)>;
+  using ComputeFn = std::function<OrtStatusPtr(Args...)>;
 
-  OrtW::StatusMsg Compute(Args... args) const {
+  OrtStatusPtr Compute(Args... args) const {
     return compute_fn_(args...);
   }
 
@@ -359,9 +323,9 @@ struct ComputeArgsList;
 
 // Specialization for member function
 template <typename C, typename... Args>
-struct ComputeArgsList<OrtW::StatusMsg (C::*)(Args...) const> {
-  using FunctionType = OrtW::StatusMsg (*)(Args...);
-  using MemberFunctionType = OrtW::StatusMsg (C::*)(Args...) const;
+struct ComputeArgsList<OrtStatusPtr (C::*)(Args...) const> {
+  using FunctionType = OrtStatusPtr (*)(Args...);
+  using MemberFunctionType = OrtStatusPtr (C::*)(Args...) const;
 };
 
 template <typename CustomOpKernel>
@@ -370,7 +334,7 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
   using RegularComputeType = typename ComputeArgsList<ComputeFunction>::FunctionType;
 
   template <typename... Args>
-  using MemberComputeType = OrtW::StatusMsg (CustomOpKernel::*)(Args...) const;
+  using MemberComputeType = OrtStatusPtr (CustomOpKernel::*)(Args...) const;
 
   struct KernelEx : public CustomOpKernel {
     struct {
@@ -380,22 +344,22 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
   };
 
   template <typename T>
-  static OrtW::StatusMsg InitKernel(KernelEx& kernel,
+  static OrtStatusPtr InitKernel(KernelEx& kernel,
                           const OrtApi& api, const OrtKernelInfo& info, RegularComputeType fn, T t) {
     return kernel.OnModelAttach(api, info);
   }
 
-  static OrtW::StatusMsg InitKernel(
+  static OrtStatusPtr InitKernel(
                           KernelEx& kernel,
                           const OrtApi& api, const OrtKernelInfo& info, RegularComputeType fn, std::true_type) {
     kernel.compute_fn_ = fn;
-    return OrtW::StatusMsg(std::nullopt);
+    return nullptr;
   }
 
   template <typename... Args>
   static void InvokeCompute(const KernelEx& kernel, Args&... t_args) {
     auto status = kernel.Compute(t_args...);
-    kernel.extra_.api_->ThrowOnError(status.ToOrtStatus());
+    kernel.extra_.api_->ThrowOnError(status);
   }
 
   template <typename... Args>
@@ -410,8 +374,9 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
     OrtCustomOp::CreateKernel = [](const OrtCustomOp* this_, const OrtApi* ort_api, const OrtKernelInfo* info) {
       auto self = static_cast<const OrtLiteCustomStructV2<CustomOpKernel>*>(this_);
       auto kernel = std::make_unique<KernelEx>();
-      OrtW::StatusMsg status = InitKernel(*kernel, *ort_api, *info, self->regular_fn_, IsFunctionKernel<CustomOpKernel>::type());
-      OrtW::ThrowOnError(*ort_api, status.ToOrtStatus());
+      typedef typename IsFunctionKernel<CustomOpKernel>::type type_flag;
+      OrtStatusPtr status = InitKernel(*kernel, *ort_api, *info, self->regular_fn_, type_flag());
+      OrtW::ThrowOnError(*ort_api, status);
 
       kernel->extra_.ep_ = self->execution_provider_;
       kernel->extra_.api_ = std::make_unique<OrtW::CustomOpApi>(*ort_api);
@@ -459,14 +424,15 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
         return api->CreateStatus(ORT_FAIL, "OrtCustomOp::CreateKernelV2: failed to new a kernel, OOM?");
       }
 
-      OrtW::StatusMsg status = InitKernel(*kernel, *api, *info, self->regular_fn_, IsFunctionKernel<CustomOpKernel>::type());
-      if (status.IsOk()) {
+      typedef typename IsFunctionKernel<CustomOpKernel>::type flag_type;
+      OrtStatusPtr status = InitKernel(*kernel, *api, *info, self->regular_fn_, flag_type());
+      if (status == nullptr) {
         kernel->extra_.ep_ = self->execution_provider_;
         kernel->extra_.api_ = std::make_unique<OrtW::CustomOpApi>(*api);
         *op_kernel = reinterpret_cast<void*>(kernel.release());
       }
 
-      return status.ToOrtStatus();
+      return status;
     };
 
     OrtCustomOp::KernelComputeV2 = [](void* op_kernel, OrtKernelContext* context) -> OrtStatusPtr {
@@ -479,7 +445,7 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
                                           kernel->extra_.api_->KernelContext_GetOutputCount(context),
                                           kernel->extra_.ep_);
       return std::apply([kernel](Args const&... t_args) {
-        return kernel->Compute(t_args...).ToOrtStatus(); }, t);
+        return kernel->Compute(t_args...); }, t);
     };
 
     OrtCustomOp::KernelDestroy = [](void* op_kernel) {
@@ -512,7 +478,7 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
 template <typename... Args>
 OrtLiteCustomOp* CreateLiteCustomOpV2(const char* op_name,
                                       const char* execution_provider,
-                                      OrtW::StatusMsg (*custom_compute_fn)(Args...)) {
+                                      OrtStatusPtr (*custom_compute_fn)(Args...)) {
   using LiteOp = OrtLiteCustomStructV2<FunctionKernel<Args...>>;
   return std::make_unique<LiteOp>(op_name, execution_provider, custom_compute_fn).release();
 }
