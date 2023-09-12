@@ -27,7 +27,9 @@ struct ExceptionalKernel2 : BaseKernel {
   }
 };
 
-struct ExceptionalCustomOp1 : OrtW::CustomOpBase<ExceptionalCustomOp1, ExceptionalKernel1> {
+struct ExceptionalCustomOp1 : Ort::CustomOpBase<ExceptionalCustomOp1, ExceptionalKernel1> {
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
+    return new ExceptionalKernel1(api, *info);  };
   const char* GetName() const { return "ExceptionalCustomOp1"; };
   size_t GetInputTypeCount() const { return 1; };
   ONNXTensorElementDataType GetInputType(size_t /*index*/) const { return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT; };
@@ -35,7 +37,9 @@ struct ExceptionalCustomOp1 : OrtW::CustomOpBase<ExceptionalCustomOp1, Exception
   ONNXTensorElementDataType GetOutputType(size_t /*index*/) const { return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT; };
 };
 
-struct ExceptionalCustomOp2 : OrtW::CustomOpBase<ExceptionalCustomOp2, ExceptionalKernel2> {
+struct ExceptionalCustomOp2 : Ort::CustomOpBase<ExceptionalCustomOp2, ExceptionalKernel2> {
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
+    return new ExceptionalKernel2(api, *info); };
   const char* GetName() const { return "ExceptionalCustomOp2"; };
   size_t GetInputTypeCount() const { return 1; };
   ONNXTensorElementDataType GetInputType(size_t /*index*/) const { return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT; };

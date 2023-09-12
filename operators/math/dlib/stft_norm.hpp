@@ -25,10 +25,10 @@ struct StftNormal{
     auto win_length = input3.size();
 
     if (dimensions.size() < 2 || input0.NumberOfElement() != dimensions[1]) {
-      return std::make_tuple("[Stft] Only batch == 1 tensor supported.", ORT_INVALID_ARGUMENT);
+      return OrtW::CreateStatusMsg("[Stft] Only batch == 1 tensor supported.", ORT_INVALID_ARGUMENT);
     }
     if (frame_length != n_fft) {
-      return std::make_tuple("[Stft] Only support size of FFT equals the frame length.", ORT_INVALID_ARGUMENT);
+      return OrtW::CreateStatusMsg("[Stft] Only support size of FFT equals the frame length.", ORT_INVALID_ARGUMENT);
     }
 
     dlib::matrix<float> dm_x = dlib::mat(X, 1, dimensions[1]);
@@ -48,7 +48,8 @@ struct StftNormal{
     auto result_size = result.size();
     auto out0 = output0.Allocate(outdim);
     memcpy(out0, result.steal_memory().get(), result_size * sizeof(float));
-    return std::nullopt;
+
+    return OrtW::StatusMsg(std::nullopt);
   }
 
  private:

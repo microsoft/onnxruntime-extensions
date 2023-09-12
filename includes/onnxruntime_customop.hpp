@@ -343,11 +343,15 @@ struct FunctionKernel {
 
 // primary template handles types that have no nested ::type member:
 template <class, class = void>
-struct IsFunctionKernel : std::false_type {};
+struct IsFunctionKernel {
+  typedef std::false_type type;
+};
 
 // specialization recognizes types that do have a nested ::type member:
 template <class T>
-struct IsFunctionKernel<T, std::void_t<typename T::ComputeFn>> : std::true_type {};
+struct IsFunctionKernel<T, std::void_t<typename T::ComputeFn>>{
+  typedef std::true_type type;
+};
 
 // Helper type
 template <typename T>
@@ -375,18 +379,17 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
     } extra_;
   };
 
-  template <bool b>
+  template <typename T>
   static OrtW::StatusMsg InitKernel(KernelEx& kernel,
-                          const OrtApi& api, const OrtKernelInfo& info, RegularComputeType fn = nullptr) {
+                          const OrtApi& api, const OrtKernelInfo& info, RegularComputeType fn, T t) {
     return kernel.OnModelAttach(api, info);
   }
 
-  template <>
-  static OrtW::StatusMsg InitKernel<true>(
+  static OrtW::StatusMsg InitKernel(
                           KernelEx& kernel,
-                          const OrtApi& api, const OrtKernelInfo& info, RegularComputeType fn) {
+                          const OrtApi& api, const OrtKernelInfo& info, RegularComputeType fn, std::true_type) {
     kernel.compute_fn_ = fn;
-    return std::nullopt;
+    return OrtW::StatusMsg(std::nullopt);
   }
 
   template <typename... Args>
@@ -407,7 +410,7 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
     OrtCustomOp::CreateKernel = [](const OrtCustomOp* this_, const OrtApi* ort_api, const OrtKernelInfo* info) {
       auto self = static_cast<const OrtLiteCustomStructV2<CustomOpKernel>*>(this_);
       auto kernel = std::make_unique<KernelEx>();
-      OrtW::StatusMsg status = InitKernel<IsFunctionKernel<CustomOpKernel>::value>(*kernel, *ort_api, *info, self->regular_fn_);
+      OrtW::StatusMsg status = InitKernel(*kernel, *ort_api, *info, self->regular_fn_, IsFunctionKernel<CustomOpKernel>::type());
       OrtW::ThrowOnError(*ort_api, status.ToOrtStatus());
 
       kernel->extra_.ep_ = self->execution_provider_;
@@ -456,7 +459,7 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
         return api->CreateStatus(ORT_FAIL, "OrtCustomOp::CreateKernelV2: failed to new a kernel, OOM?");
       }
 
-      OrtW::StatusMsg status = InitKernel<IsFunctionKernel<CustomOpKernel>::value>(*kernel, *api, *info, self->regular_fn_);
+      OrtW::StatusMsg status = InitKernel(*kernel, *api, *info, self->regular_fn_, IsFunctionKernel<CustomOpKernel>::type());
       if (status.IsOk()) {
         kernel->extra_.ep_ = self->execution_provider_;
         kernel->extra_.api_ = std::make_unique<OrtW::CustomOpApi>(*api);
