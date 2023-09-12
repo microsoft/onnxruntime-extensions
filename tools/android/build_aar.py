@@ -123,9 +123,7 @@ def do_build_by_mode(
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="""Builds the Android AAR package for onnxruntime-extensions.
-                       Any additional arguments provided will be passed through to build.py.
-                    """
+        description="Builds the Android AAR package for onnxruntime-extensions.",
     )
 
     def path_from_env_var(env_var: str):
@@ -133,7 +131,7 @@ def parse_args():
         return Path(env_var_value) if env_var_value is not None else None
 
     parser.add_argument(
-        "--output-dir",
+        "--output_dir",
         type=Path,
         required=True,
         help="Path to output directory.",
@@ -174,24 +172,33 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--api-level",
+        "--api_level",
         type=int,
         default=21,
         help="Android API Level. E.g., 21.",
     )
 
     parser.add_argument(
-        "--sdk-path",
+        "--sdk_path",
         type=Path,
         default=path_from_env_var("ANDROID_HOME"),
         help="Path to the Android SDK.",
     )
 
     parser.add_argument(
-        "--ndk-path",
+        "--ndk_path",
         type=Path,
         default=path_from_env_var("ANDROID_NDK_HOME"),
         help="Path to the Android NDK. Typically `<Android SDK>/ndk/<ndk_version>`.",
+    )
+
+    parser.add_argument(
+        "build_py_args",
+        nargs="*",
+        default=[],
+        help="Build arguments to pass through to build.py when building the per-ABI libraries. "
+        "These should be placed after other arguments to this script following a trailing '--'. "
+        "For example: 'build_aar.py <build_aar.py options> -- <build.py options>'.",
     )
 
     args, unknown_args = parser.parse_known_args()
@@ -200,11 +207,11 @@ def parse_args():
 
     assert (
         args.sdk_path is not None
-    ), "Android SDK path must be provided with --sdk-path or environment variable ANDROID_HOME."
+    ), "Android SDK path must be provided with --sdk_path or environment variable ANDROID_HOME."
 
     assert (
         args.ndk_path is not None
-    ), "Android NDK path must be provided with --ndk-path or environment variable ANDROID_NDK_HOME."
+    ), "Android NDK path must be provided with --ndk_path or environment variable ANDROID_NDK_HOME."
 
     return args, unknown_args
 
