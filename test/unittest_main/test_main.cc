@@ -9,16 +9,6 @@
 
 #include "exceptions.h"
 
-#define TEST_MAIN main
-
-#if defined(__APPLE__)
-#include <TargetConditionals.h>
-#if TARGET_OS_SIMULATOR || TARGET_OS_IOS
-#undef TEST_MAIN
-#define TEST_MAIN main_no_link_  // there is a UI test app for iOS.
-#endif
-#endif
-
 namespace {
 void FixCurrentDir() {
   // adjust for the Google Test Adapter in Visual Studio not setting the current path to $(ProjectDir),
@@ -42,7 +32,7 @@ void FixCurrentDir() {
 }
 }  // namespace
 
-int TEST_MAIN(int argc, char** argv) {
+int main(int argc, char** argv) {
   int status = 0;
 
   OCOS_TRY {
