@@ -312,7 +312,7 @@ void TestInference(Ort::Env& env, const ORTCHAR_T* model_uri,
                    const char* /*custom_op_library_filename*/,  // TODO remove this parameter
                    OutputValidator output_validator) {
   Ort::SessionOptions session_options;
-  RegisterOrtExtensionsOps(session_options);
+  auto library_handle = RegisterOrtExtensionsOps(session_options);
 
   // if session creation passes, model loads fine
   Ort::Session session(env, model_uri, session_options);

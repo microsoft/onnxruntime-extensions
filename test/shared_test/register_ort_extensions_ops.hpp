@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include <memory>
+
 #include "onnxruntime_cxx_api.h"
 
-void RegisterOrtExtensionsOps(Ort::SessionOptions& session_options);
+using LibraryHandle = std::unique_ptr<void, void(*)(void*)>;
+LibraryHandle RegisterOrtExtensionsOps(Ort::SessionOptions& session_options);
