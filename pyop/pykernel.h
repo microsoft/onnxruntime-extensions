@@ -119,10 +119,6 @@ struct PyCustomOpFactory : public OrtCustomOp {
     OrtCustomOp::GetOutputCharacteristic = [](const OrtCustomOp* this_, size_t index) noexcept {
       return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
     };
-
-    OrtCustomOp::GetInputMemoryType = [](const OrtCustomOp* this_, size_t index) noexcept {
-      return OrtMemType::OrtMemTypeDefault;
-    };
   }
 
   const PyCustomOpDef* opdef_ = nullptr;
