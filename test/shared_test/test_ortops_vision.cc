@@ -53,7 +53,7 @@ TEST(VisionOps, image_decode_encode) {
   std::vector<TestValue> inputs{TestValue("image", image_data, {static_cast<int64_t>(image_data.size())})};
   std::vector<TestValue> outputs{TestValue("bgr_data", expected_output, output_dimensions)};
 
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
 
 #endif

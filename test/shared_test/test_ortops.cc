@@ -9,18 +9,6 @@
 #include "test_kernel.hpp"
 #include "ustring.h"
 
-const char* GetLibraryPath() {
-#if defined(_WIN32)
-  return "ortextensions.dll";
-#elif defined(__APPLE__)
-  return "libortextensions.dylib";
-#elif defined(ANDROID) || defined(__ANDROID__)
-  return "libortextensions.so";
-#else
-  return "lib/libortextensions.so";
-#endif
-}
-
 struct KernelOne : BaseKernel {
   KernelOne(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
   }
@@ -309,7 +297,6 @@ void ValidateOutputEqual(size_t output_idx, Ort::Value& actual, TestValue expect
 void TestInference(Ort::Env& env, const ORTCHAR_T* model_uri,
                    const std::vector<TestValue>& inputs,
                    const std::vector<TestValue>& outputs,
-                   const char* /*custom_op_library_filename*/,  // TODO remove this parameter
                    OutputValidator output_validator) {
   Ort::SessionOptions session_options;
   auto library_handle = RegisterOrtExtensionsOps(session_options);
@@ -354,7 +341,7 @@ TEST(utils, test_ort_case) {
   model_path /= "custom_op_test.onnx";
   AddExternalCustomOp(&op_1st);
   AddExternalCustomOp(&op_2nd);
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
 
 static CustomOpThree op_3rd;
@@ -379,7 +366,7 @@ TEST(utils, test_get_str_attr) {
   std::filesystem::path model_path = "data";
   model_path /= "custom_op_str_attr_test.onnx";
   AddExternalCustomOp(&op_3rd);
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   // Expected output when the attribute is missing from the node.
   std::vector<TestValue> outputs_missing(1);
@@ -390,7 +377,7 @@ TEST(utils, test_get_str_attr) {
 
   std::filesystem::path model_missing_attr_path = "data";
   model_missing_attr_path /= "custom_op_str_attr_missing_test.onnx";
-  TestInference(*ort_env, model_missing_attr_path.c_str(), inputs, outputs_missing, GetLibraryPath());
+  TestInference(*ort_env, model_missing_attr_path.c_str(), inputs, outputs_missing);
 }
 
 TEST(ustring, tensor_operator) {
