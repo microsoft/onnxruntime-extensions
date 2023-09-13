@@ -75,7 +75,9 @@ option(OCOS_BUILD_APPLE_FRAMEWORK "Enable building of the MacOS/iOS framework" O
 # Optional value. Some operators do not support old versions due to using the new custom operator interface
 # and will be disabled if this value is set and the version is incompatible.
 set(OCOS_ONNXRUNTIME_VERSION "" CACHE STRING
-  "The version of ONNX Runtime being used in the build. Format is <major>.<minor>.<patch>. e.g. 1.15.1" )
+  "The version of ONNX Runtime being used in the build. Format is <major>.<minor>.<patch>. e.g. 1.15.1")
+set(OCOS_ONNXRUNTIME_PKG_URI "" CACHE STRING
+  "Specify the onnxruntime C++ shared library zip package path, like ./onnxruntime-win-x64-1.16.0.zip")
 
 # TODO: Remove the following statements if AzureOp build is enabled by default.
 # If build_buildid environment varaible is set, which means this is a CI build, then always enable AzureOp.
