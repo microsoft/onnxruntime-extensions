@@ -3,19 +3,19 @@
 
 #include "segment_sum.hpp"
 
-void segment_sum(const ortc::Tensor<float>& data,
+OrtStatusPtr segment_sum(const ortc::Tensor<float>& data,
                  const ortc::Tensor<int64_t>& segment_ids,
                  ortc::Tensor<float>& output) {
   auto& dim_data = data.Shape();
   auto& dim_seg = segment_ids.Shape();
   if (dim_data.size() == 0 || dim_seg.size() == 0)
-    ORTX_CXX_API_THROW("Both inputs cannot be empty.", ORT_INVALID_GRAPH);
+    return OrtW::CreateStatus("Both inputs cannot be empty.", ORT_INVALID_GRAPH);
   if (dim_seg.size() != 1)
-    ORTX_CXX_API_THROW("segment_ids must a single tensor", ORT_INVALID_GRAPH);
+    return OrtW::CreateStatus("segment_ids must a single tensor", ORT_INVALID_GRAPH);
   if (dim_data[0] != dim_seg[0])
-    ORTX_CXX_API_THROW(MakeString(
+    return OrtW::CreateStatus(MakeString(
                            "First dimensions of data and segment_ids should be the same, data shape: ", dim_data,
-                           " segment_ids shape: ", dim_seg),
+                           " segment_ids shape: ", dim_seg).c_str(),
                        ORT_INVALID_GRAPH);
 
   const int64_t* p_segment_ids = segment_ids.Data();
@@ -38,14 +38,18 @@ void segment_sum(const ortc::Tensor<float>& data,
   float *p_out, *p_out_end;
   const int64_t* p_seg = p_segment_ids;
   for (; begin != end; ++p_seg) {
-    if ((p_seg != p_segment_ids) && (*p_seg != *(p_seg - 1)) && (*p_seg != *(p_seg - 1) + 1))
-      ORTX_CXX_API_THROW(MakeString("segment_ids must be increasing but found ",
-                                    *(p_seg - 1), " and ", *p_seg, " at position ",
-                                    std::distance(p_segment_ids, p_seg), "."),
-                         ORT_RUNTIME_EXCEPTION);
+    if ((p_seg != p_segment_ids) && (*p_seg != *(p_seg - 1)) && (*p_seg != *(p_seg - 1) + 1)) {
+      return OrtW::CreateStatus(MakeString("segment_ids must be increasing but found ",
+                                        *(p_seg - 1), " and ", *p_seg, " at position ",
+                                        std::distance(p_segment_ids, p_seg), ".").c_str(),
+                             ORT_RUNTIME_EXCEPTION);
+    }
     p_out = p_output + *p_seg * in_stride;
     p_out_end = p_out + in_stride;
-    for (; p_out != p_out_end; ++p_out, ++begin)
+    for (; p_out != p_out_end; ++p_out, ++begin) {
       *p_out += *begin;
+    }
   }
+
+  return nullptr;
 }

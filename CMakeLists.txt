@@ -75,14 +75,16 @@ option(OCOS_BUILD_APPLE_FRAMEWORK "Enable building of the MacOS/iOS framework" O
 # Optional value. Some operators do not support old versions due to using the new custom operator interface
 # and will be disabled if this value is set and the version is incompatible.
 set(OCOS_ONNXRUNTIME_VERSION "" CACHE STRING
-  "The version of ONNX Runtime being used in the build. Format is <major>.<minor>.<patch>. e.g. 1.15.1" )
+  "The version of ONNX Runtime being used in the build. Format is <major>.<minor>.<patch>. e.g. 1.15.1")
+set(OCOS_ONNXRUNTIME_PKG_URI "" CACHE STRING
+  "Specify the onnxruntime C++ shared library zip package path, like ./onnxruntime-win-x64-1.16.0.zip")
 
 # TODO: Remove the following statements if AzureOp build is enabled by default.
 # If build_buildid environment varaible is set, which means this is a CI build, then always enable AzureOp.
 # or it is enabled when OCOS_ENABLE_AZURE is set, which means the user explicitly enables it.
 if ((DEFINED ENV{BUILD_BUILDID}) OR (DEFINED ENV{OCOS_ENABLE_AZURE}))
   set(OCOS_ENABLE_AZURE ON CACHE INTERNAL "" FORCE)
-  message("=> AzureOp is enabled by default.")
+  message(STATUS "=> AzureOp is enabled by default.")
 endif()
 
 function(disable_all_operators)
@@ -110,7 +112,7 @@ else()
 endif()
 
 if(NOT CC_OPTIMIZE)
-  message("!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
+  message(WARNING "!!!THE COMPILER OPTIMIZATION HAS BEEN DISABLED, DEBUG-ONLY!!!")
   string(REGEX REPLACE "([\-\/]O[123])" "" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
   string(REGEX REPLACE "([\-\/]O[123])" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
   string(REGEX REPLACE "([\-\/]O[123])" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
@@ -357,7 +359,7 @@ set(_HAS_TOKENIZER OFF)
 if(OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
   set(_HAS_TOKENIZER ON)
-  file(GLOB tok_TARGET_SRC "operators/tokenizer/gpt*.cc" "operators/tokenizer/unicode*.*" "operators/tokenizer/clip*.cc" "operators/tokenizer/roberta*.cc")
+  file(GLOB tok_TARGET_SRC "operators/tokenizer/bpe_*.*" "operators/tokenizer/unicode*.*")
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
 endif()
 

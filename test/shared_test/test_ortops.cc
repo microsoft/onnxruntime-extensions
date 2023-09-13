@@ -37,7 +37,10 @@ struct KernelOne : BaseKernel {
   }
 };
 
-struct CustomOpOne : OrtW::CustomOpBase<CustomOpOne, KernelOne> {
+struct CustomOpOne : Ort::CustomOpBase<CustomOpOne, KernelOne> {
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
+    return new KernelOne(api, *info);
+  };
   const char* GetName() const {
     return "CustomOpOne";
   };
@@ -80,7 +83,10 @@ struct KernelTwo : BaseKernel {
   }
 };
 
-struct CustomOpTwo : OrtW::CustomOpBase<CustomOpTwo, KernelTwo> {
+struct CustomOpTwo : Ort::CustomOpBase<CustomOpTwo, KernelTwo> {
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
+    return new KernelTwo(api, *info);
+  };
   const char* GetName() const {
     return "CustomOpTwo";
   };
@@ -125,13 +131,9 @@ struct KernelThree : BaseKernel {
   std::string substr_;
 };
 
-struct CustomOpThree : OrtW::CustomOpBase<CustomOpThree, KernelThree> {
-  // This is  example code to show how to override the CustomOpBase::CreateKernel method even though it is not virtual.
-  // The CustomOpBase implementation will call the CreateKernel of the first class specified in the template,
-  // and from there it's also possible to call the base CreateKernel as per below.
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo& info) const {
-    std::cout << "Called CreateKernel override" << std::endl;
-    return OrtW::CustomOpBase<CustomOpThree, KernelThree>::CreateKernel(api, info);
+struct CustomOpThree : Ort::CustomOpBase<CustomOpThree, KernelThree> {
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
+    return new KernelThree(api, *info);
   };
   const char* GetName() const {
     return "CustomOpThree";

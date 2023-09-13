@@ -4,9 +4,8 @@
 #include "ocos.h"
 
 #ifdef ENABLE_GPT2_TOKENIZER
-#include "gpt2_tokenizer.hpp"
-#include "clip_tokenizer.hpp"
-#include "roberta_tokenizer.hpp"
+#include "bpe_tokenizer.hpp"
+#include "bpe_kernels.h"
 #include "bpe_decoder.hpp"
 #endif
 
@@ -36,9 +35,9 @@
 FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = []() -> CustomOpArray& {
   static OrtOpLoader op_loader(
 #ifdef ENABLE_GPT2_TOKENIZER
-      CustomCpuStruct("GPT2Tokenizer", KernelBpeTokenizer),
-      CustomCpuStruct("CLIPTokenizer", KernelClipBpeTokenizer),
-      CustomCpuStruct("RobertaTokenizer", KernelRobertaBpeTokenizer),
+      CustomCpuStruct("GPT2Tokenizer", GPT2Tokenizer),
+      CustomCpuStruct("CLIPTokenizer", CLIPTokenizer),
+      CustomCpuStruct("RobertaTokenizer", RobertaTokenizer),
       CustomCpuStruct("BpeDecoder", KernelBpeDecoder),
 #endif
 

@@ -11,7 +11,9 @@
 // throw in ctor which will be called during model load
 struct ExceptionalKernel1 : BaseKernel {
   ExceptionalKernel1(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
+    OCOS_API_IMPL_BEGIN
     ORTX_CXX_API_THROW("Throw in ctor", ORT_FAIL);
+    OCOS_API_IMPL_END
   }
 
   void Compute(OrtKernelContext* context) {}
@@ -23,11 +25,19 @@ struct ExceptionalKernel2 : BaseKernel {
   }
 
   void Compute(OrtKernelContext* context) {
+    OCOS_API_IMPL_BEGIN
     ORTX_CXX_API_THROW("Throw in Compute", ORT_FAIL);
+    OCOS_API_IMPL_END
   }
 };
 
-struct ExceptionalCustomOp1 : OrtW::CustomOpBase<ExceptionalCustomOp1, ExceptionalKernel1> {
+struct ExceptionalCustomOp1 : Ort::CustomOpBase<ExceptionalCustomOp1, ExceptionalKernel1> {
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
+    void* result = nullptr;
+    OCOS_API_IMPL_BEGIN
+    result = new ExceptionalKernel1(api, *info);
+    OCOS_API_IMPL_END
+    return result; };
   const char* GetName() const { return "ExceptionalCustomOp1"; };
   size_t GetInputTypeCount() const { return 1; };
   ONNXTensorElementDataType GetInputType(size_t /*index*/) const { return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT; };
@@ -35,7 +45,13 @@ struct ExceptionalCustomOp1 : OrtW::CustomOpBase<ExceptionalCustomOp1, Exception
   ONNXTensorElementDataType GetOutputType(size_t /*index*/) const { return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT; };
 };
 
-struct ExceptionalCustomOp2 : OrtW::CustomOpBase<ExceptionalCustomOp2, ExceptionalKernel2> {
+struct ExceptionalCustomOp2 : Ort::CustomOpBase<ExceptionalCustomOp2, ExceptionalKernel2> {
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
+    void* result = nullptr;
+    OCOS_API_IMPL_BEGIN
+    result = new ExceptionalKernel2(api, *info);
+    OCOS_API_IMPL_END
+    return result;  };
   const char* GetName() const { return "ExceptionalCustomOp2"; };
   size_t GetInputTypeCount() const { return 1; };
   ONNXTensorElementDataType GetInputType(size_t /*index*/) const { return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT; };

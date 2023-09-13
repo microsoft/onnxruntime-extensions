@@ -61,8 +61,9 @@ class ExternalCustomOps {
   std::vector<const OrtCustomOp*> op_array_;
 };
 
-static int GetOrtVersion(const OrtApiBase* api_base = nullptr) {
-  static int ort_version = 11;  // the default version is 1.11.0
+static int GetOrtVersion(const OrtApiBase* api_base = nullptr) noexcept{
+  // the version will be cached after the first call on RegisterCustomOps
+  static int ort_version = MIN_ORT_VERSION_SUPPORTED;  // the default version is 1.11.0
 
   if (api_base != nullptr) {
     std::string str_version = api_base->GetVersionString();
@@ -104,13 +105,19 @@ extern "C" int ORT_API_CALL GetActiveOrtAPIVersion() {
   return ver;
 }
 
+
+// The main entrance of the extension library.
 extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api) {
   OrtStatus* status = nullptr;
   OCOS_API_IMPL_BEGIN
 
-  OrtCustomOpDomain* domain = nullptr;
+  // the following will initiate some global objects which
+  //  means any other function invocatoin prior to these calls to trigger undefined behavior.
   auto ver = GetOrtVersion(api);
   const OrtApi* ortApi = api->GetApi(ver);
+  API::instance(ortApi);
+
+  OrtCustomOpDomain* domain = nullptr;
   std::set<std::string> pyop_nameset;
 
 #if defined(PYTHON_OP_SUPPORT)

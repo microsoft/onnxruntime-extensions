@@ -3,8 +3,9 @@ import unittest
 import os
 import base64
 import numpy as np
-from numpy.testing import assert_almost_equal
+from numpy.testing import assert_almost_equal, assert_equal
 from onnx import helper, onnx_pb as onnx_proto
+from transformers import AutoTokenizer
 import onnxruntime as _ort
 from onnxruntime_extensions import (
     util,
@@ -241,6 +242,44 @@ def _create_test_model_ragged_to_dense(
     model = make_onnx_model(graph)
     return model
 
+def _create_test_model_sentencepiece_fairseq(
+        model, domain='ai.onnx.contrib'):
+    nodes = []
+    mkv = helper.make_tensor_value_info
+    nodes.append(helper.make_node(
+        'SentencepieceTokenizer',
+        inputs=[
+            'inputs',  # inputs
+            'nbest_size',
+            'alpha',
+            'add_bos',
+            'add_eos',
+            'reverse',
+            'fairseq'
+        ],
+        outputs=['out0', 'out1'],
+        model=model,
+        name='SentencepieceTokenizeOpName',
+        domain='ai.onnx.contrib'
+    ))
+    inputs = [
+        mkv('inputs', onnx_proto.TensorProto.STRING, [None]),
+        mkv('nbest_size', onnx_proto.TensorProto.INT64, [None]),
+        mkv('alpha', onnx_proto.TensorProto.FLOAT, [None]),
+        mkv('add_bos', onnx_proto.TensorProto.BOOL, [None]),
+        mkv('add_eos', onnx_proto.TensorProto.BOOL, [None]),
+        mkv('reverse', onnx_proto.TensorProto.BOOL, [None]),
+        mkv('fairseq', onnx_proto.TensorProto.BOOL, [None])
+    ]
+
+    graph = helper.make_graph(
+        nodes, 'test0', inputs, [
+            mkv('out0', onnx_proto.TensorProto.INT32, [None]),
+            mkv('out1', onnx_proto.TensorProto.INT64, [None])
+        ])
+    model = make_onnx_model(graph)
+    return model
+
 
 @unittest.skipIf(not _is_tensorflow_avaliable, "tensorflow/tensorflow-text is unavailable")
 class TestPythonOpSentencePiece(unittest.TestCase):
@@ -437,6 +476,33 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         for i in range(0, 2):
             assert_almost_equal(exp[i], py_txout[i])
             assert_almost_equal(exp[i], cc_txout[i])
+            
+    def test_xlm_roberta_tokenizer(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        tokenizer = AutoTokenizer.from_pretrained("xlm-roberta-base", use_fast=False)
+        text = "Wow, these models are getting popular."
+        ids = tokenizer.encode(text, return_tensors="np")
+        model = util.read_file(tokenizer.vocab_file, 'rb')
+        cc_onnx_model = _create_test_model_sentencepiece_fairseq(model)
+        self.assertIn('op_type: "SentencepieceTokenizer"', str(cc_onnx_model))
+        cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so)
+
+        inputs = dict(
+            model=model,
+            inputs=np.array(
+                [text],
+                dtype=object),
+            nbest_size=np.array(
+                [0], dtype=np.int64),
+            alpha=np.array([0], dtype=np.float32),
+            add_bos=np.array([True], dtype=np.bool_),
+            add_eos=np.array([True], dtype=np.bool_),
+            reverse=np.array([False], dtype=np.bool_),
+            fairseq=np.array([True], dtype=np.bool_))
+        del inputs['model']
+        cc_txout = cc_sess.run(None, inputs)
+        assert_equal(ids[0], cc_txout[0])
 
 
 class TestOrtXSentencePiece(unittest.TestCase):
@@ -454,9 +520,10 @@ class TestOrtXSentencePiece(unittest.TestCase):
             np.array([alpha], dtype=np.float32),
             np.array([flags & 1], dtype=np.bool_),
             np.array([flags & 2], dtype=np.bool_),
-            np.array([flags & 4], dtype=np.bool_))
+            np.array([flags & 4], dtype=np.bool_),
+            np.array([False], dtype=np.bool_))
         self.assertEqual(tokens.tolist(), [1095, 4054, 26, 2022, 755, 99935])
-
+    
 
     def test_spm_decoder(self):
         fullname = util.get_test_data_file('data', 'en.wiki.bpe.vs100000.model')

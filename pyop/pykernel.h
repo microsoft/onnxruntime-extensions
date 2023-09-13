@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <map>
+#include <memory>
 
 struct PyCustomOpDef {
   std::string op_type;
@@ -48,10 +49,9 @@ struct PyCustomOpKernel {
   std::map<std::string, std::string> attrs_values_;
 };
 
-struct PyCustomOpFactory : OrtW::CustomOpBase<PyCustomOpFactory, PyCustomOpKernel> {
-  PyCustomOpFactory() {
-    // STL vector needs it.
-  }
+struct PyCustomOpFactory : public OrtCustomOp {
+
+  PyCustomOpFactory() = default;
 
   PyCustomOpFactory(const PyCustomOpDef* opdef, const std::string& domain, const std::string& op) {
     if (opdef == nullptr)
@@ -59,30 +59,66 @@ struct PyCustomOpFactory : OrtW::CustomOpBase<PyCustomOpFactory, PyCustomOpKerne
     opdef_ = opdef;
     op_domain_ = domain;
     op_type_ = op;
-  }
 
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo& info) const {
-    return new PyCustomOpKernel(api, info, opdef_->obj_id, opdef_->attrs);
-  };
+    OrtCustomOp::version = MIN_ORT_VERSION_SUPPORTED;  // The minimum ORT version supported
+    OrtCustomOp::CreateKernel = [](const OrtCustomOp* this_, const OrtApi* api, const OrtKernelInfo* info) {
+      void* p = nullptr;
 
-  const char* GetName() const {
-    return op_type_.c_str();
-  };
+      OCOS_API_IMPL_BEGIN
+      auto self = static_cast<const PyCustomOpFactory*>(this_);
+      auto kernel = std::make_unique<PyCustomOpKernel>(*api, *info, self->opdef_->obj_id, self->opdef_->attrs).release();
+      p = reinterpret_cast<void*>(kernel);
+      OCOS_API_IMPL_END
 
-  size_t GetInputTypeCount() const {
-    return opdef_->input_types.size();
-  };
+      return p;
+    };
 
-  ONNXTensorElementDataType GetInputType(size_t idx) const {
-    return static_cast<ONNXTensorElementDataType>(opdef_->input_types[idx]);
-  };
+    OrtCustomOp::GetName = [](const OrtCustomOp* this_) noexcept {
+      auto self = static_cast<const PyCustomOpFactory*>(this_);
+      return self->op_type_.c_str();
+    };
 
-  size_t GetOutputTypeCount() const {
-    return opdef_->output_types.size();
-  };
+    OrtCustomOp::GetExecutionProviderType = [](const OrtCustomOp* this_) noexcept {
+      return "CPUExecutionProvider";
+    };
 
-  ONNXTensorElementDataType GetOutputType(size_t idx) const {
-    return static_cast<ONNXTensorElementDataType>(opdef_->output_types[idx]);
+    OrtCustomOp::GetInputTypeCount = [](const OrtCustomOp* this_) noexcept {
+      auto self = static_cast<const PyCustomOpFactory*>(this_);
+      return self->opdef_->input_types.size();
+    };
+
+    OrtCustomOp::GetInputType = [](const OrtCustomOp* this_, size_t index) noexcept {
+      auto self = static_cast<const PyCustomOpFactory*>(this_);
+      return static_cast<ONNXTensorElementDataType>(self->opdef_->input_types[index]);
+    };
+
+    OrtCustomOp::GetOutputTypeCount = [](const OrtCustomOp* this_) noexcept {
+      auto self = static_cast<const PyCustomOpFactory*>(this_);
+      return self->opdef_->output_types.size();
+    };
+
+    OrtCustomOp::GetOutputType = [](const OrtCustomOp* this_, size_t index) noexcept {
+      auto self = static_cast<const PyCustomOpFactory*>(this_);
+      return static_cast<ONNXTensorElementDataType>(self->opdef_->output_types[index]);
+    };
+
+    OrtCustomOp::KernelCompute = [](void* op_kernel, OrtKernelContext* context) noexcept {
+      OCOS_API_IMPL_BEGIN
+      static_cast<PyCustomOpKernel*>(op_kernel)->Compute(context);
+      OCOS_API_IMPL_END
+    };
+
+    OrtCustomOp::KernelDestroy = [](void* op_kernel) noexcept {
+      std::unique_ptr<PyCustomOpKernel>(reinterpret_cast<PyCustomOpKernel*>(op_kernel)).reset();
+    };
+
+    OrtCustomOp::GetInputCharacteristic = [](const OrtCustomOp* this_, size_t index) noexcept {
+      return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
+    };
+
+    OrtCustomOp::GetOutputCharacteristic = [](const OrtCustomOp* this_, size_t index) noexcept {
+      return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
+    };
   }
 
   const PyCustomOpDef* opdef_ = nullptr;
