@@ -551,6 +551,11 @@ def _run_android_tests(args, config: str, config_build_dir: Path):
 
 
 def _run_ios_tests(args, config: str, config_build_dir: Path):
+    if platform.machine() == "x86_64" and args.apple_arch != "x86_64":
+        log.warning("Skipping iOS tests because the host arch (x86_64) does not support simulation of the target arch "
+                    f"({args.apple_arch}).")
+        return
+
     source_dir = REPO_DIR
 
     simulator_device_info = _run_subprocess(
