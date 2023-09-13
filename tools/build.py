@@ -67,11 +67,10 @@ def _parse_arguments():
         If phases are explicitly specified only those phases will be run.
           e.g. run with `--build` to rebuild without running the update or test phases
         """,
-
         # files containing arguments can be specified on the command line with "@<filename>" and the arguments within
         # will be included at that point
         fromfile_prefix_chars="@",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     def path_from_env_var(env_var: str):
@@ -79,13 +78,20 @@ def _parse_arguments():
         return Path(env_var_value) if env_var_value is not None else None
 
     # Main arguments
-    parser.add_argument("--build_dir", type=Path,
-                        # We set the default programmatically as it needs to take into account whether we're
-                        # cross-compiling
-                        help="Path to the build directory. Defaults to 'build/<target platform>'")
-    parser.add_argument("--config", nargs="+", default=["Debug"],
-                        choices=["Debug", "MinSizeRel", "Release", "RelWithDebInfo"],
-                        help="Configuration(s) to build.")
+    parser.add_argument(
+        "--build_dir",
+        type=Path,
+        # We set the default programmatically as it needs to take into account whether we're
+        # cross-compiling
+        help="Path to the build directory. Defaults to 'build/<target platform>'",
+    )
+    parser.add_argument(
+        "--config",
+        nargs="+",
+        default=["Debug"],
+        choices=["Debug", "MinSizeRel", "Release", "RelWithDebInfo"],
+        help="Configuration(s) to build.",
+    )
 
     # Build phases
     parser.add_argument("--update", action="store_true", help="Update makefiles.")
@@ -95,111 +101,180 @@ def _parse_arguments():
     parser.add_argument("--test", action="store_true", help="Run tests.")
     parser.add_argument("--skip_tests", action="store_true", help="Skip all tests. Overrides --test.")
 
-    parser.add_argument("--clean", action="store_true",
-                        help="Run 'cmake --build --target clean' for the selected config/s.")
+    parser.add_argument(
+        "--clean", action="store_true", help="Run 'cmake --build --target clean' for the selected config/s."
+    )
     # Build phases end
 
-    parser.add_argument("--parallel", nargs="?", const="0", default="1", type=int,
-                        help="Use parallel build. The optional value specifies the maximum number of parallel jobs. "
-                             "If the optional value is 0 or unspecified, it is interpreted as the number of CPUs.")
+    parser.add_argument(
+        "--parallel",
+        nargs="?",
+        const="0",
+        default="1",
+        type=int,
+        help="Use parallel build. The optional value specifies the maximum number of parallel jobs. "
+        "If the optional value is 0 or unspecified, it is interpreted as the number of CPUs.",
+    )
 
-    parser.add_argument("--cmake_extra_defines", nargs="+", action="extend", default=[],
-                        help="Add extra definitions to pass to CMake during build system generation. "
-                             "These are essentially CMake -D options without the leading -D. "
-                             "Multiple name=value defines can be specified, with each separated by a space. "
-                             "Quote the name and value if the value contains spaces. "
-                             "This option can also be specified multiple times. "
-                             "  e.g. --cmake_extra_defines \"Name1=the value\" Name2=value2")
-    parser.add_argument("--one_cmake_extra_define", action="append", dest="cmake_extra_defines",
-                        help="Add one CMake extra definition, see --cmake_extra_defines. "
-                             "This option can be specified multiple times.")
+    parser.add_argument(
+        "--cmake_extra_defines",
+        nargs="+",
+        action="extend",
+        default=[],
+        help="Add extra definitions to pass to CMake during build system generation. "
+        "These are essentially CMake -D options without the leading -D. "
+        "Multiple name=value defines can be specified, with each separated by a space. "
+        "Quote the name and value if the value contains spaces. "
+        "This option can also be specified multiple times. "
+        '  e.g. --cmake_extra_defines "Name1=the value" Name2=value2',
+    )
+    parser.add_argument(
+        "--one_cmake_extra_define",
+        action="append",
+        dest="cmake_extra_defines",
+        help="Add one CMake extra definition, see --cmake_extra_defines. "
+        "This option can be specified multiple times.",
+    )
 
     # Test options
     parser.add_argument("--enable_cxx_tests", action="store_true", help="Enable the C++ unit tests.")
-    parser.add_argument("--cxx_code_coverage", action="store_true",
-                        help="Run C++ unit tests using vstest.exe to produce code coverage output. Windows only.")
+    parser.add_argument(
+        "--cxx_code_coverage",
+        action="store_true",
+        help="Run C++ unit tests using vstest.exe to produce code coverage output. Windows only.",
+    )
 
-    parser.add_argument("--onnxruntime_version", type=str,
-                        help="ONNX Runtime version to fetch for headers and library. Default is 1.10.0.")
-    parser.add_argument("--onnxruntime_lib_dir", type=Path,
-                        help="Path to directory containing the pre-built ONNX Runtime library if you do not want to "
-                             "use the library from the ONNX Runtime release package that is fetched by default.")
+    parser.add_argument(
+        "--onnxruntime_version",
+        type=str,
+        help="ONNX Runtime version to fetch for headers and library. Default is 1.10.0.",
+    )
+    parser.add_argument(
+        "--onnxruntime_lib_dir",
+        type=Path,
+        help="Path to directory containing the pre-built ONNX Runtime library if you do not want to "
+        "use the library from the ONNX Runtime release package that is fetched by default.",
+    )
     # Build for ARM
-    parser.add_argument("--arm", action="store_true",
-                        help="[cross-compiling] Create ARM makefiles. Requires --update and no existing cache "
-                             "CMake setup. Delete CMakeCache.txt if needed")
-    parser.add_argument("--arm64", action="store_true",
-                        help="[cross-compiling] Create ARM64 makefiles. Requires --update and no existing cache "
-                             "CMake setup. Delete CMakeCache.txt if needed")
-    parser.add_argument("--arm64ec", action="store_true",
-                        help="[cross-compiling] Create ARM64EC makefiles. Requires --update and no existing cache "
-                             "CMake setup. Delete CMakeCache.txt if needed")
+    parser.add_argument(
+        "--arm",
+        action="store_true",
+        help="[cross-compiling] Create ARM makefiles. Requires --update and no existing cache "
+        "CMake setup. Delete CMakeCache.txt if needed",
+    )
+    parser.add_argument(
+        "--arm64",
+        action="store_true",
+        help="[cross-compiling] Create ARM64 makefiles. Requires --update and no existing cache "
+        "CMake setup. Delete CMakeCache.txt if needed",
+    )
+    parser.add_argument(
+        "--arm64ec",
+        action="store_true",
+        help="[cross-compiling] Create ARM64EC makefiles. Requires --update and no existing cache "
+        "CMake setup. Delete CMakeCache.txt if needed",
+    )
 
     # Android options
     parser.add_argument("--android", action="store_true", help="Build for Android")
-    parser.add_argument("--android_abi", default="arm64-v8a", choices=["armeabi-v7a", "arm64-v8a", "x86", "x86_64"],
-                        help="Specify the target Android Application Binary Interface (ABI)")
+    parser.add_argument(
+        "--android_abi",
+        default="arm64-v8a",
+        choices=["armeabi-v7a", "arm64-v8a", "x86", "x86_64"],
+        help="Specify the target Android Application Binary Interface (ABI)",
+    )
     parser.add_argument("--android_api", type=int, default=27, help="Android API Level, e.g. 21")
-    parser.add_argument("--android_home", type=Path, default=path_from_env_var("ANDROID_HOME"),
-                        help="Path to the Android SDK.")
-    parser.add_argument("--android_ndk_path", type=Path, default=path_from_env_var("ANDROID_NDK_HOME"),
-                        help="Path to the Android NDK. Typically `<Android SDK>/ndk/<ndk_version>`.")
-    parser.add_argument("--android_adb_device_serial",
-                        help="Device serial argument passed to 'adb -s'. Can be used to select a specific device if "
-                             "there is more than one.")
+    parser.add_argument(
+        "--android_home", type=Path, default=path_from_env_var("ANDROID_HOME"), help="Path to the Android SDK."
+    )
+    parser.add_argument(
+        "--android_ndk_path",
+        type=Path,
+        default=path_from_env_var("ANDROID_NDK_HOME"),
+        help="Path to the Android NDK. Typically `<Android SDK>/ndk/<ndk_version>`.",
+    )
+    parser.add_argument(
+        "--android_adb_device_serial",
+        help="Device serial argument passed to 'adb -s'. Can be used to select a specific device if "
+        "there is more than one.",
+    )
 
     # macOS/iOS options
-    parser.add_argument("--build_apple_framework", action="store_true",
-                        help="Build a macOS/iOS framework for ONNX Runtime Extensions.")
+    parser.add_argument(
+        "--build_apple_framework", action="store_true", help="Build a macOS/iOS framework for ONNX Runtime Extensions."
+    )
     parser.add_argument("--ios", action="store_true", help="build for iOS")
-    parser.add_argument("--ios_sysroot", default="",
-                        help="Specify the name of the platform SDK to be used. e.g. iphoneos, iphonesimulator")
-    parser.add_argument("--ios_toolchain_file", default=f"{REPO_DIR}/cmake/ortext_ios.toolchain.cmake", type=Path,
-                        help="Path to ios toolchain file. Default is <repo>/cmake/ortext_ios.toolchain.cmake")
-    parser.add_argument("--xcode_code_signing_team_id", default="",
-                        help="The development team ID used for code signing in Xcode")
-    parser.add_argument("--xcode_code_signing_identity", default="",
-                        help="The development identity used for code signing in Xcode")
-    parser.add_argument("--apple_arch", default="arm64" if platform.machine() == "arm64" else "x86_64",
-                        choices=["arm64", "arm64e", "x86_64"],
-                        help="Specify the Target specific architectures for macOS and iOS. "
-                             "This is only supported on macOS")
-    parser.add_argument("--apple_deploy_target", type=str,
-                        help="Specify the minimum version of the target platform (e.g. macOS or iOS). "
-                             "This is only supported on macOS")
+    parser.add_argument(
+        "--ios_sysroot",
+        default="",
+        help="Specify the name of the platform SDK to be used. e.g. iphoneos, iphonesimulator",
+    )
+    parser.add_argument(
+        "--ios_toolchain_file",
+        default=f"{REPO_DIR}/cmake/ortext_ios.toolchain.cmake",
+        type=Path,
+        help="Path to ios toolchain file. Default is <repo>/cmake/ortext_ios.toolchain.cmake",
+    )
+    parser.add_argument(
+        "--xcode_code_signing_team_id", default="", help="The development team ID used for code signing in Xcode"
+    )
+    parser.add_argument(
+        "--xcode_code_signing_identity", default="", help="The development identity used for code signing in Xcode"
+    )
+    parser.add_argument(
+        "--apple_arch",
+        default="arm64" if platform.machine() == "arm64" else "x86_64",
+        choices=["arm64", "arm64e", "x86_64"],
+        help="Specify the Target specific architectures for macOS and iOS. " "This is only supported on macOS",
+    )
+    parser.add_argument(
+        "--apple_deploy_target",
+        type=str,
+        help="Specify the minimum version of the target platform (e.g. macOS or iOS). "
+        "This is only supported on macOS",
+    )
 
     # WebAssembly options
     parser.add_argument("--wasm", action="store_true", help="Build for WebAssembly")
-    parser.add_argument("--emsdk_path", type=Path,
-                        help="Specify path to emscripten SDK. Setup manually with: "
-                             "  git clone https://github.com/emscripten-core/emsdk")
+    parser.add_argument(
+        "--emsdk_path",
+        type=Path,
+        help="Specify path to emscripten SDK. Setup manually with: "
+        "  git clone https://github.com/emscripten-core/emsdk",
+    )
     parser.add_argument("--emsdk_version", default="3.1.26", help="Specify version of emsdk")
 
     # x86 args
-    parser.add_argument("--x86", action="store_true",
-                        help="[cross-compiling] Create Windows x86 makefiles. Requires --update and no existing cache "
-                             "CMake setup. Delete CMakeCache.txt if needed")
+    parser.add_argument(
+        "--x86",
+        action="store_true",
+        help="[cross-compiling] Create Windows x86 makefiles. Requires --update and no existing cache "
+        "CMake setup. Delete CMakeCache.txt if needed",
+    )
     # x64 args
-    parser.add_argument("--x64", action="store_true",
-                        help="doing nothing, just for compatibility")
+    parser.add_argument("--x64", action="store_true", help="doing nothing, just for compatibility")
 
     # Arguments needed by CI
     parser.add_argument("--cmake_path", default="cmake", type=Path, help="Path to the CMake program.")
     parser.add_argument("--ctest_path", default="ctest", type=Path, help="Path to the CTest program.")
 
-    parser.add_argument("--cmake_generator",
-                        choices=["Visual Studio 16 2019", "Visual Studio 17 2022", "Ninja", "Unix Makefiles", "Xcode"],
-                        default="Visual Studio 17 2022" if is_windows() else "Unix Makefiles",
-                        help="Specify the generator that CMake invokes.")
+    parser.add_argument(
+        "--cmake_generator",
+        choices=["Visual Studio 16 2019", "Visual Studio 17 2022", "Ninja", "Unix Makefiles", "Xcode"],
+        default="Visual Studio 17 2022" if is_windows() else "Unix Makefiles",
+        help="Specify the generator that CMake invokes.",
+    )
 
     # Binary size reduction options
-    parser.add_argument("--include_ops_by_config", type=Path,
-                        help="Only include ops specified in the build that are listed in this config file. "
-                             "Format of config file is `domain;opset;op1,op2,... "
-                             "  e.g. com.microsoft.extensions;1;ImageDecode,ImageEncode")
+    parser.add_argument(
+        "--include_ops_by_config",
+        type=Path,
+        help="Only include ops specified in the build that are listed in this config file. "
+        "Format of config file is `domain;opset;op1,op2,... "
+        "  e.g. com.microsoft.extensions;1;ImageDecode,ImageEncode",
+    )
 
-    parser.add_argument("--disable_exceptions", action="store_true",
-                        help="Disable exceptions to reduce binary size.")
+    parser.add_argument("--disable_exceptions", action="store_true", help="Disable exceptions to reduce binary size.")
 
     # Language bindings
     parser.add_argument("--build_java", action="store_true", help="Build Java bindings.")
@@ -269,13 +344,14 @@ def _get_build_config_dir(build_dir: Path, config: str):
     return build_dir / config
 
 
-def _run_subprocess(args: list[str],
-                    cwd: Path | None = None,
-                    capture_stdout: bool = False,
-                    shell: bool = False,
-                    env: dict[str, str] | None = None,
-                    python_path: Path | None = None):
-
+def _run_subprocess(
+    args: list[str],
+    cwd: Path | None = None,
+    capture_stdout: bool = False,
+    shell: bool = False,
+    env: dict[str, str] | None = None,
+    python_path: Path | None = None,
+):
     if isinstance(args, str):
         raise ValueError("args should be a sequence of strings, not a string")
 
@@ -341,15 +417,17 @@ def _android_prebuild(android_abi: str, android_ndk_path: Path, android_api_leve
 
     # skip if curl binary is found. that is created as the last stage of the prebuild, so if it was successfully
     # installed in the output dir we assume the prebuild completed previously.
-    curl_bin = prebuild_dir / "openssl_for_ios_and_android" / "output" / "android" / ("curl-" + android_abi) / "bin" / "curl"
+    curl_bin = (
+        prebuild_dir / "openssl_for_ios_and_android" / "output" / "android" / ("curl-" + android_abi) / "bin" / "curl"
+    )
     if curl_bin.exists():
         log.info(f"Found {curl_bin}. Assuming prebuild has completed previously. Skipping prebuild.")
         return
 
     # set some environment variables required by the script
     env = {
-        'ANDROID_API_LEVEL': str(android_api_level),
-        'ANDROID_NDK_ROOT': str(android_ndk_path),
+        "ANDROID_API_LEVEL": str(android_api_level),
+        "ANDROID_NDK_ROOT": str(android_ndk_path),
     }
 
     # adjust some strings to the values expected in the script
@@ -369,13 +447,9 @@ def _android_prebuild(android_abi: str, android_ndk_path: Path, android_api_leve
     _run_subprocess(prebuild_cmd, cwd=prebuild_dir, env=env)
 
 
-def _generate_build_tree(cmake_path: Path,
-                         source_dir: Path,
-                         build_dir: Path,
-                         configs: set[str],
-                         args,
-                         cmake_extra_args: list[str]
-                         ):
+def _generate_build_tree(
+    cmake_path: Path, source_dir: Path, build_dir: Path, configs: set[str], args, cmake_extra_args: list[str]
+):
     log.info("Generating CMake build tree")
 
     cmake_args = [
@@ -408,9 +482,9 @@ def _generate_build_tree(cmake_path: Path,
     if is_macOS() and not args.android:
         # these cmake definitions apply to MacOS and iOS builds
         cmake_args += (
-            [f"-DCMAKE_OSX_ARCHITECTURES={args.apple_arch}"] +
-            ([f"-DCMAKE_OSX_DEPLOYMENT_TARGET={args.apple_deploy_target}"] if args.apple_deploy_target else []) +
-            (["-DOCOS_BUILD_APPLE_FRAMEWORK=ON"] if args.build_apple_framework else [])
+            [f"-DCMAKE_OSX_ARCHITECTURES={args.apple_arch}"]
+            + ([f"-DCMAKE_OSX_DEPLOYMENT_TARGET={args.apple_deploy_target}"] if args.apple_deploy_target else [])
+            + (["-DOCOS_BUILD_APPLE_FRAMEWORK=ON"] if args.build_apple_framework else [])
         )
 
         if args.ios:
@@ -425,8 +499,10 @@ def _generate_build_tree(cmake_path: Path,
             ]
 
             if not all(required_args):
-                raise UsageError("iOS build is missing required arguments: "
-                                + ", ".join(val for val, cond in zip(arg_names, required_args) if not cond))
+                raise UsageError(
+                    "iOS build is missing required arguments: "
+                    + ", ".join(val for val, cond in zip(arg_names, required_args) if not cond)
+                )
 
             cmake_args += [
                 "-DCMAKE_SYSTEM_NAME=iOS",
@@ -435,8 +511,9 @@ def _generate_build_tree(cmake_path: Path,
             ]
 
     if args.wasm:
-        emsdk_toolchain = (args.emsdk_path / "upstream" / "emscripten" / "cmake" / "Modules" / "Platform" /
-                          "Emscripten.cmake").resolve()
+        emsdk_toolchain = (
+            args.emsdk_path / "upstream" / "emscripten" / "cmake" / "Modules" / "Platform" / "Emscripten.cmake"
+        ).resolve()
         if not emsdk_toolchain.exists():
             raise UsageError(f"Emscripten toolchain file was not found at {str(emsdk_toolchain)}")
 
@@ -448,7 +525,7 @@ def _generate_build_tree(cmake_path: Path,
             "-DOCOS_ENABLE_SPM_TOKENIZER=ON",
             "-DOCOS_BUILD_PYTHON=OFF",
             "-DOCOS_ENABLE_CV2=OFF",
-            "-DOCOS_ENABLE_VISION=OFF"
+            "-DOCOS_ENABLE_VISION=OFF",
         ]
 
     if args.disable_exceptions:
@@ -527,8 +604,10 @@ def _run_android_tests(args, config: str, config_build_dir: Path):
     device_preferred_abi = device_abi_list.split(sep=",", maxsplit=1)[0]
 
     if device_preferred_abi != args.android_abi:
-        log.warning(f"Skipping Android tests because the device/emulator preferred ABI ({device_preferred_abi}) does "
-                    f"not match the target Android ABI ({args.android_abi}).")
+        log.warning(
+            f"Skipping Android tests because the device/emulator preferred ABI ({device_preferred_abi}) does "
+            f"not match the target Android ABI ({args.android_abi})."
+        )
         return
 
     device_dir = PurePosixPath(f"/data/local/tmp/onnxruntime_extensions/{config}")
@@ -546,24 +625,28 @@ def _run_android_tests(args, config: str, config_build_dir: Path):
         device_test_program_path = device_dir / test_program_name
         adb_push(config_build_dir / "bin" / test_program_name, device_test_program_path)
         adb_shell(f'chmod 755 "{device_test_program_path}"')
-        adb_shell(f'cd "{device_dir}" && '
-                  f'LD_LIBRARY_PATH="$LD_LIBRARY_PATH:{device_dir}" "{device_test_program_path}"')
+        adb_shell(
+            f'cd "{device_dir}" && ' f'LD_LIBRARY_PATH="$LD_LIBRARY_PATH:{device_dir}" "{device_test_program_path}"'
+        )
 
 
 def _run_ios_tests(args, config: str, config_build_dir: Path):
     if platform.machine() == "x86_64" and args.apple_arch != "x86_64":
-        log.warning("Skipping iOS tests because the host arch (x86_64) does not support simulation of the target arch "
-                    f"({args.apple_arch}).")
+        log.warning(
+            "Skipping iOS tests because the host arch (x86_64) does not support simulation of the target arch "
+            f"({args.apple_arch})."
+        )
         return
 
     source_dir = REPO_DIR
 
-    simulator_device_info = _run_subprocess(
-        [
-            sys.executable,
-            str(source_dir / "tools" / "ios" / "get_simulator_device_info.py")
-         ],
-         capture_stdout=True).stdout.decode().strip()
+    simulator_device_info = (
+        _run_subprocess(
+            [sys.executable, str(source_dir / "tools" / "ios" / "get_simulator_device_info.py")], capture_stdout=True
+        )
+        .stdout.decode()
+        .strip()
+    )
 
     log.debug(f"Simulator device info:\n{simulator_device_info}")
 
@@ -584,7 +667,8 @@ def _run_ios_tests(args, config: str, config_build_dir: Path):
                 scheme_name,
                 "-destination",
                 f"platform=iOS Simulator,id={simulator_device_info['device_udid']}",
-            ])
+            ]
+        )
 
 
 def _run_cxx_tests(args, build_dir: Path, configs: set[str]):
@@ -621,12 +705,9 @@ def _run_cxx_tests(args, build_dir: Path, configs: set[str]):
             # test exes are in the bin/<config> subdirectory of the build output dir
             # call resolve() to get the full path as we're going to execute in build_dir not config_build_dir
             test_dir = (config_build_dir / "bin" / config).resolve()
-            adapter = (config_build_dir / 'GoogleTestAdapter.0.18.0' / 'build' / '_common').resolve()
+            adapter = (config_build_dir / "GoogleTestAdapter.0.18.0" / "build" / "_common").resolve()
 
-            executables = [
-                str(test_dir / "extensions_test.exe"),
-                str(test_dir / "ocos_test.exe")
-            ]
+            executables = [str(test_dir / "extensions_test.exe"), str(test_dir / "ocos_test.exe")]
 
             # run this script from a VS dev shell so vstest.console.exe is found via PATH
             vstest_exe = _resolve_executable_path("vstest.console.exe")
@@ -652,10 +733,9 @@ def main():
     log.debug("Command line arguments:\n  {}".format(" ".join(shlex.quote(arg) for arg in sys.argv[1:])))
 
     args = _parse_arguments()
-    cross_compiling = any((args.arm, args.arm64, args.arm64ec,
-                           args.android,
-                           args.wasm,
-                           _is_cross_compiling_on_apple(args)))
+    cross_compiling = any(
+        (args.arm, args.arm64, args.arm64ec, args.android, args.wasm, _is_cross_compiling_on_apple(args))
+    )
 
     # If there was no explicit argument saying what to do, default
     # to update, build and test (for native builds).
@@ -676,8 +756,10 @@ def main():
             elif _resolve_executable_path("make", resolution_failure_allowed=True) is not None:
                 args.cmake_generator = "Unix Makefiles"
             else:
-                raise UsageError("Unable to find appropriate CMake generator for cross-compiling for Android. "
-                                 "Valid generators are 'Ninja' or 'Unix Makefiles'.")
+                raise UsageError(
+                    "Unable to find appropriate CMake generator for cross-compiling for Android. "
+                    "Valid generators are 'Ninja' or 'Unix Makefiles'."
+                )
 
         if args.cmake_generator != original_cmake_generator:
             log.info(f"Setting CMake generator to '{args.cmake_generator}' for cross-compiling for Android.")
@@ -724,7 +806,8 @@ def main():
                 if cpu_arch == "32bit" or args.arm or args.arm64 or args.arm64ec:
                     raise UsageError(
                         "To cross-compile with Ninja, load the toolset environment for the target processor "
-                        "(e.g. Cross Tools Command Prompt for VS)")
+                        "(e.g. Cross Tools Command Prompt for VS)"
+                    )
                 cmake_extra_args = ["-G", args.cmake_generator]
             elif args.arm or args.arm64 or args.arm64ec:
                 # Cross-compiling for ARM(64) architecture
@@ -740,8 +823,10 @@ def main():
                 # Cannot test on host build machine for cross-compiled
                 # builds (Override any user-defined behaviour for test if any)
                 if args.test:
-                    log.warning("Cannot test on host build machine for cross-compiled ARM(64) builds. "
-                                "Will skip test running after build.")
+                    log.warning(
+                        "Cannot test on host build machine for cross-compiled ARM(64) builds. "
+                        "Will skip test running after build."
+                    )
                     args.test = False
             elif cpu_arch == "32bit" or args.x86:
                 cmake_extra_args = ["-A", "Win32", "-T", "host=x64", "-G", args.cmake_generator]
@@ -760,13 +845,7 @@ def main():
                     log.warning("Cannot test ARM64 build on X86_64. Will skip test running after build.")
                     args.test = False
 
-        _generate_build_tree(
-            cmake_path,
-            REPO_DIR,
-            build_dir,
-            configs,
-            args,
-            cmake_extra_args)
+        _generate_build_tree(cmake_path, REPO_DIR, build_dir, configs, args, cmake_extra_args)
 
     if args.clean:
         clean_targets(cmake_path, build_dir, configs)
