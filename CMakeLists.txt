@@ -967,7 +967,7 @@ if(OCOS_ENABLE_CTEST)
           "${TEST_SRC_DIR}/shared_test/*.cc"
           "${TEST_SRC_DIR}/shared_test/*.hpp")
 
-      set(extensions_test_libraries ${extensions_target} ${ONNXRUNTIME})
+      set(extensions_test_libraries ${extensions_target} ${ONNXRUNTIME} Microsoft.GSL::GSL)
 
       # needs to link with stdc++fs in Linux
       if(LINUX)
