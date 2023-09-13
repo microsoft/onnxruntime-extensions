@@ -31,7 +31,6 @@ class API {
  public:
   static API& instance(const OrtApi* ort_api = nullptr) noexcept {
     static API self(*ort_api);
-    assert(self.api_ != nullptr);
     return self;
   }
 
@@ -45,6 +44,10 @@ class API {
 
   template<typename T>
   static OrtStatusPtr KernelInfoGetAttribute(const OrtKernelInfo& info, const char* name, T& value) noexcept;
+
+  static void ThrowOnError(OrtStatusPtr ptr) {
+    OrtW::ThrowOnError(instance().api_, ptr);
+  }
 
 private:
   const OrtApi* operator->() const {
@@ -60,7 +63,7 @@ private:
 };
 
 //
-// Custom OPs (only needed to implement custom OPs)
+// DEPRECTED: Custom OPs (only needed to implement custom OPs)
 //
 struct CustomOpApi {
   CustomOpApi(const OrtApi& api) : api_(api) {}
@@ -357,12 +360,6 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
   }
 
   template <typename... Args>
-  static void InvokeCompute(const KernelEx& kernel, Args&... t_args) {
-    auto status = kernel.Compute(t_args...);
-    kernel.extra_.api_->ThrowOnError(status);
-  }
-
-  template <typename... Args>
   void ParseArgs(MemberComputeType<Args...> fn) {
     OrtLiteCustomOp::ParseArgs<Args...>(OrtLiteCustomOp::input_types_, OrtLiteCustomOp::output_types_);
   }
@@ -392,7 +389,8 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
                                           kernel->extra_.api_->KernelContext_GetInputCount(context),
                                           kernel->extra_.api_->KernelContext_GetOutputCount(context),
                                           kernel->extra_.ep_);
-      std::apply([kernel](Args const&... t_args) { InvokeCompute(*kernel, t_args...); }, t);
+      std::apply([kernel](Args const&... t_args) {
+        auto status = kernel->Compute(t_args...); OrtW::API::ThrowOnError(status);}, t);
     };
 
     OrtCustomOp::KernelDestroy = [](void* op_kernel) {
@@ -457,7 +455,7 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
   OrtLiteCustomStructV2(const char* op_name,
                         const char* execution_provider,
                         RegularComputeType fn_compute = nullptr)
-      : OrtLiteCustomOp(op_name, execution_provider) {
+      : OrtLiteCustomOp(op_name, execution_provider), regular_fn_(fn_compute) {
 
     ParseArgs(&CustomOpKernel::Compute);
 
