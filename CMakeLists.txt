@@ -957,7 +957,7 @@ if(OCOS_ENABLE_CTEST)
     message(WARNING "The prebuilt onnxruntime library was not found, the extensions_test will be skipped.")
   else()
     block()
-      if (NOT IOS)
+      if(NOT IOS)
         set(use_extensions_shared_library 1)
       endif()
 
@@ -967,7 +967,11 @@ if(OCOS_ENABLE_CTEST)
           "${TEST_SRC_DIR}/shared_test/*.cc"
           "${TEST_SRC_DIR}/shared_test/*.hpp")
 
-      set(extensions_test_libraries ${extensions_target} ${ONNXRUNTIME} Microsoft.GSL::GSL)
+      set(extensions_test_libraries ${extensions_target} ${ONNXRUNTIME})
+
+      if(use_extensions_shared_library)
+        list(APPEND extensions_test_libraries ${ocos_libraries})
+      endif()
 
       # needs to link with stdc++fs in Linux
       if(LINUX)
