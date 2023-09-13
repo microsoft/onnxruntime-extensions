@@ -859,7 +859,8 @@ if(OCOS_ENABLE_CTEST)
       standardize_output_folder(${ARG_TARGET})
 
       add_test(NAME ${ARG_TARGET}
-               COMMAND ${ARG_TARGET})
+               COMMAND ${ARG_TARGET}
+               WORKING_DIRECTORY $<TARGET_FILE_DIR:${ARG_TARGET}>)
 
       target_sources(${ARG_TARGET} PRIVATE
                      ${ARG_TEST_SOURCES}
@@ -925,7 +926,7 @@ if(OCOS_ENABLE_CTEST)
 
       add_custom_command(
         TARGET ${ARG_TARGET} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
           ${test_data_directory} ${destination_directory})
     endforeach()
 
@@ -936,7 +937,6 @@ if(OCOS_ENABLE_CTEST)
     set_property(
       SOURCE
         "${TEST_SRC_DIR}/ios/dummy_testee_main.mm"
-        "${TEST_SRC_DIR}/ios/stub_test_case.mm"
         "${TEST_SRC_DIR}/ios/xcgtest.mm"
       APPEND
       PROPERTY COMPILE_OPTIONS "-fobjc-arc")
@@ -954,7 +954,7 @@ if(OCOS_ENABLE_CTEST)
   find_library(ONNXRUNTIME onnxruntime PATHS "${ONNXRUNTIME_LIB_DIR}")
 
   if("${ONNXRUNTIME}" STREQUAL "ONNXRUNTIME-NOTFOUND")
-    message(WARNING "The prebuilt onnxruntime libraries directory was not found (via ONNXRUNTIME_LIB_DIR), the extensions_test will be skipped.")
+    message(WARNING "The prebuilt onnxruntime library was not found, the extensions_test will be skipped.")
   else()
     block()
       if (NOT IOS)

@@ -66,6 +66,10 @@ else()
     message(STATUS "Android onnxruntime inc=${ONNXRUNTIME_INCLUDE_DIR} lib=${ONNXRUNTIME_LIB_DIR}")
   elseif(IOS)
     set(ONNXRUNTIME_INCLUDE_DIR ${onnxruntime_SOURCE_DIR}/Headers)
+    # TODO Update once CMake supports finding and linking to .xcframeworks, possibly in 3.28.
+    # https://gitlab.kitware.com/cmake/cmake/-/issues/21752
+    # https://gitlab.kitware.com/cmake/cmake/-/merge_requests/8619
+    # https://gitlab.kitware.com/cmake/cmake/-/merge_requests/8661
     if(CMAKE_OSX_SYSROOT STREQUAL "iphoneos")
       set(ONNXRUNTIME_LIB_DIR ${onnxruntime_SOURCE_DIR}/onnxruntime.xcframework/ios-arm64)
     elseif(CMAKE_OSX_SYSROOT STREQUAL "iphonesimulator")
@@ -73,9 +77,6 @@ else()
     else()
       message(FATAL_ERROR "Unsupported CMAKE_OSX_SYSROOT value: ${CMAKE_OSX_SYSROOT}")
     endif()
-    # hack: set ONNXRUNTIME directly to the static library in the framework
-    # couldn't figure out how to get find_library to work with a framework and it doesn't support xcframeworks yet
-    set(ONNXRUNTIME ${ONNXRUNTIME_LIB_DIR}/onnxruntime.framework/onnxruntime)
   else()
     set(ONNXRUNTIME_INCLUDE_DIR ${onnxruntime_SOURCE_DIR}/include)
     set(ONNXRUNTIME_LIB_DIR ${onnxruntime_SOURCE_DIR}/lib)
