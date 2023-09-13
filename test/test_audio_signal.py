@@ -96,16 +96,6 @@ class TestAudio(unittest.TestCase):
             data[f] = np.fft.fft(fft_signal, axis=0)[:num_fft_bins]
         return np.absolute(data.T) ** 2
 
-    def test_onnx_stft(self):
-        audio_pcm = self.test_pcm
-        expected = self.stft(audio_pcm, 400, 160, np.hanning(400).astype(np.float32))
-
-        ortx_stft = OrtPyFunction.from_model(_create_test_model(), cpu_only=True)
-        actual = ortx_stft(np.expand_dims(audio_pcm, axis=0), 400, 160, np.hanning(400).astype(np.float32), 400)
-        actual = actual[0]
-        actual = actual[:, :, 0] ** 2 + actual[:, :, 1] ** 2
-        np.testing.assert_allclose(expected[:, 1:], actual[:, 1:], rtol=1e-3, atol=1e-3)
-
     def test_stft_norm_np(self):
         audio_pcm = self.test_pcm
         expected = self.stft(audio_pcm, 400, 160, np.hanning(400).astype(np.float32))

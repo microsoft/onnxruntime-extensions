@@ -102,14 +102,27 @@ struct PyCustomOpFactory : public OrtCustomOp {
       return static_cast<ONNXTensorElementDataType>(self->opdef_->output_types[index]);
     };
 
-    OrtCustomOp::KernelCompute = [](void* op_kernel, OrtKernelContext* context) {
+    OrtCustomOp::KernelCompute = [](void* op_kernel, OrtKernelContext* context) noexcept {
       OCOS_API_IMPL_BEGIN
       static_cast<PyCustomOpKernel*>(op_kernel)->Compute(context);
       OCOS_API_IMPL_END
     };
 
-    OrtCustomOp::KernelDestroy = [](void* op_kernel) {
-      std::unique_ptr<PyCustomOpKernel>(reinterpret_cast<PyCustomOpKernel*>(op_kernel)).reset(); };
+    OrtCustomOp::KernelDestroy = [](void* op_kernel) noexcept {
+      std::unique_ptr<PyCustomOpKernel>(reinterpret_cast<PyCustomOpKernel*>(op_kernel)).reset();
+    };
+
+    OrtCustomOp::GetInputCharacteristic = [](const OrtCustomOp* this_, size_t index) noexcept {
+      return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
+    };
+
+    OrtCustomOp::GetOutputCharacteristic = [](const OrtCustomOp* this_, size_t index) noexcept {
+      return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
+    };
+
+    OrtCustomOp::GetInputMemoryType = [](const OrtCustomOp* this_, size_t index) noexcept {
+      return OrtMemType::OrtMemTypeDefault;
+    };
   }
 
   const PyCustomOpDef* opdef_ = nullptr;
