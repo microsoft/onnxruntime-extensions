@@ -18,9 +18,10 @@ static constexpr const char* GetSharedLibraryPath() {
 }
 
 void RegisterOrtExtensionsOps(Ort::SessionOptions& session_options) {
+  void* handle = nullptr;
   constexpr auto custom_op_library_filename = GetSharedLibraryPath();
-  Ort::ThrowOnError(Ort::GetApi().RegisterCustomOpsLibrary_V2(static_cast<OrtSessionOptions*>(session_options),
-                                                              custom_op_library_filename));
+  Ort::ThrowOnError(Ort::GetApi().RegisterCustomOpsLibrary(static_cast<OrtSessionOptions*>(session_options),
+                                                           custom_op_library_filename, &handle));
 }
 
 #else  // defined(ORT_EXTENSIONS_UNIT_TEST_USE_EXTENSIONS_SHARED_LIBRARY)
