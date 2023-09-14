@@ -45,6 +45,7 @@ jobs:
           export CFLAGS="${{parameters.OrtExtensionsCFlags}}"
           export CXXFLAGS="${{parameters.OrtExtensionsCXXFlags}}"
           ./build_lib.sh --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo --parallel --enable_cxx_tests ${{parameters.AdditionalBuildFlags}}
+          find $(Build.BinariesDirectory)/out  # see what files are there...
         workingDirectory: '$(Build.SourcesDirectory)'
         displayName: 'build onnxruntime-extensions and run tests'
     - ${{ else }}:
