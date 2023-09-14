@@ -58,7 +58,7 @@ jobs:
           set -e -x
 
           package_name=onnxruntime-extensions-ios-${{ parameters.Platform }}-${{ parameters.IosArch }}-lib.tgz
-          target_folder=xcframework_out/intermediates/${{ parameters.Platform }}/${{ parameters.IosArch }}
+          target_folder=xcframework_out/intermediates/${{ parameters.Platform }}/${{ parameters.IosArch }}/$(buildConfig)
           framework_info=${target_folder}/framework_info.json
           tar -cvzf $(Build.ArtifactStagingDirectory)/${package_name} -C $(Build.BinariesDirectory)/ ${target_folder}/static_framework ${framework_info}
 
