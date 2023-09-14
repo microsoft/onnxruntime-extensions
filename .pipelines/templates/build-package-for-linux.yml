@@ -51,7 +51,8 @@ jobs:
     - bash: |
         export CFLAGS="${{parameters.OrtExtensionsCFlags}}"
         export CXXFLAGS="${{parameters.OrtExtensionsCXXFlags}}"
-        ./build_lib.sh --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo --parallel --enable_cxx_tests ${{parameters.AdditionalBuildFlags}}
+        export VERBOSE=1
+        ./build_lib.sh --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo --parallel --enable_cxx_tests --one_cmake_extra_define=CMAKE_VERBOSE_MAKEFILE=ON ${{parameters.AdditionalBuildFlags}}
       workingDirectory: '$(Build.SourcesDirectory)'
       displayName: 'build onnxruntime-extensions and run tests'
 
