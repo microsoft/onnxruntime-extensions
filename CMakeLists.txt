@@ -1000,22 +1000,21 @@ if(OCOS_ENABLE_CTEST)
       # remove(test_compile_definitions "OCOS_SHARED_LIBRARY")
       # target_compile_definitions(extensions_test PUBLIC ${test_compile_definitions})
 
-      if(use_extensions_shared_library)
-        # Copy DLL/shared library files into the same directory as the test binary.
-        if(WIN32)
-          file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
-          file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
-          add_custom_command(
-            TARGET extensions_test POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy ${ONNXRUNTIME_LIB_FILES} $<TARGET_FILE_DIR:extensions_test>)
-        else()
-          add_custom_command(
-            TARGET extensions_test POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy
-              $<TARGET_LINKER_FILE:${extensions_target}>
-              ${ONNXRUNTIME}
-              $<TARGET_FILE_DIR:extensions_test>)
-        endif()
+      # Copy onnxruntime DLL files into the same directory as the test binary.
+      if(WIN32)
+        file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
+        file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
+        add_custom_command(
+          TARGET extensions_test POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy_if_different ${ONNXRUNTIME_LIB_FILES} $<TARGET_FILE_DIR:extensions_test>)
+      endif()
+
+      # Copy onnxruntime shared library to known location for easy access, e.g., for adb push to emulator or device.
+      if(ANDROID)
+        add_custom_command(
+          TARGET extensions_test POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy_if_different ${ONNXRUNTIME} ${CMAKE_BINARY_DIR}/lib
+        )
       endif()
     endblock()
   endif()

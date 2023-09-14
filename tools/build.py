@@ -627,8 +627,8 @@ def _run_android_tests(args, config: str, config_build_dir: Path):
     adb_shell(f'rm -rf "{device_dir}" && mkdir -p "{device_dir}"')
 
     # copy shared libraries
-    adb_push(config_build_dir / "bin" / "libortextensions.so", device_dir / "libortextensions.so")
-    adb_push(config_build_dir / "bin" / "libonnxruntime.so", device_dir / "libonnxruntime.so")
+    adb_push(config_build_dir / "lib" / "libortextensions.so", device_dir / "libortextensions.so")
+    adb_push(config_build_dir / "lib" / "libonnxruntime.so", device_dir / "libonnxruntime.so")
 
     # copy test data
     adb_push(source_dir / "test" / "data", device_dir / "data")
