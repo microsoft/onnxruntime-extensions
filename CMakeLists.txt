@@ -1013,9 +1013,10 @@ if(OCOS_ENABLE_CTEST)
         else()
           add_custom_command(
             TARGET extensions_test POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:extensions_test>
+            COMMAND ${CMAKE_COMMAND} -E copy
               $<TARGET_LINKER_FILE:${extensions_target}>
-              ${ONNXRUNTIME})
+              ${ONNXRUNTIME}
+              $<TARGET_FILE_DIR:extensions_test>)
         endif()
       endif()
     endblock()
