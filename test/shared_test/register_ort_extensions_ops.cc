@@ -28,8 +28,10 @@ static constexpr const char* GetSharedLibraryPath() {
   return "ortextensions.dll";
 #elif defined(__APPLE__)
   return "libortextensions.dylib";
-#else
+#elif defined(__ANDROID__)
   return "libortextensions.so";
+#else
+  return "lib/libortextensions.so";
 #endif
 }
 

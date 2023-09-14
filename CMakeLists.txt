@@ -861,8 +861,7 @@ if(OCOS_ENABLE_CTEST)
       standardize_output_folder(${ARG_TARGET})
 
       add_test(NAME ${ARG_TARGET}
-               COMMAND ${ARG_TARGET}
-               WORKING_DIRECTORY $<TARGET_FILE_DIR:${ARG_TARGET}>)
+               COMMAND ${ARG_TARGET})
 
       target_sources(${ARG_TARGET} PRIVATE
                      ${ARG_TEST_SOURCES}
@@ -872,7 +871,7 @@ if(OCOS_ENABLE_CTEST)
                             ${ARG_LIBRARIES}
                             gtest gmock)
 
-      set(target_for_test_data_copy ${ARG_TARGET})
+      set(test_data_destination_root_directory ${onnxruntime_extensions_BINARY_DIR})
 
     else()
       # add a test that can run on iOS (simulator)
@@ -906,7 +905,7 @@ if(OCOS_ENABLE_CTEST)
                             ${ARG_LIBRARIES}
                             gtest gmock)
 
-      set(target_for_test_data_copy ${dummy_testee_target})
+      set(test_data_destination_root_directory $<TARGET_FILE_DIR:${dummy_testee_target}>)
 
     endif()
 
@@ -923,8 +922,7 @@ if(OCOS_ENABLE_CTEST)
         message(FATAL_ERROR "Failed to get filename for test data directory: ${test_data_directory}")
       endif()
 
-      set(destination_directory
-          $<TARGET_FILE_DIR:${target_for_test_data_copy}>/${test_data_directory_filename})
+      set(destination_directory ${test_data_destination_root_directory}/${test_data_directory_filename})
 
       add_custom_command(
         TARGET ${ARG_TARGET} POST_BUILD
