@@ -481,11 +481,24 @@ def _generate_build_tree(
 
     if is_macOS() and not args.android:
         # these cmake definitions apply to MacOS and iOS builds
-        cmake_args += (
-            [f"-DCMAKE_OSX_ARCHITECTURES={args.apple_arch}"]
-            + ([f"-DCMAKE_OSX_DEPLOYMENT_TARGET={args.apple_deploy_target}"] if args.apple_deploy_target else [])
-            + (["-DOCOS_BUILD_APPLE_FRAMEWORK=ON"] if args.build_apple_framework else [])
-        )
+        cmake_args += [f"-DCMAKE_OSX_ARCHITECTURES={args.apple_arch}"]
+
+        if args.apple_deploy_target:
+            cmake_args += [f"-DCMAKE_OSX_DEPLOYMENT_TARGET={args.apple_deploy_target}"]
+
+        if args.build_apple_framework:
+            cmake_args += ["-DOCOS_BUILD_APPLE_FRAMEWORK=ON"]
+
+        if args.xcode_code_signing_identity or args.xcode_code_signing_team_id:
+            # Code sign the binaries, if the code signing development identity and/or team id are provided
+            if args.xcode_code_signing_identity:
+                cmake_args += ["-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY=" + args.xcode_code_signing_identity]
+
+            if args.xcode_code_signing_team_id:
+                cmake_args += ["-DCMAKE_XCODE_ATTRIBUTE_DEVELOPMENT_TEAM=" + args.xcode_code_signing_team_id]
+        else:
+            # if neither code signing development identity nor team id are provided, don't code sign
+            cmake_args += ["-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO"]
 
         if args.ios:
             required_args = [
