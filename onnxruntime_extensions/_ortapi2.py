@@ -170,7 +170,7 @@ class OrtPyFunction:
                     np.int64) if i_.type.tensor_type.elem_type == onnx_proto.TensorProto.INT64 else ts_x
             idx += 1
 
-        # feed.update(kwargs)
+        feed.update(kwargs)
         return feed
 
     def __call__(self, *args, **kwargs):
@@ -178,6 +178,13 @@ class OrtPyFunction:
         outputs = self.ort_session.run(
             None, self._argument_map(*args, **kwargs))
         return outputs[0] if len(outputs) == 1 else tuple(outputs)
+
+
+def ort_inference(model, *args, cpu_only=True, **kwargs):
+    """
+    Run an ONNX model with ORT where args are inputs and return values are outputs.
+    """
+    return OrtPyFunction(model, cpu_only=cpu_only)(*args, **kwargs)
 
 
 def optimize_model(model_or_file, output_file):
