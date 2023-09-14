@@ -951,7 +951,7 @@ if(OCOS_ENABLE_CTEST)
 
   # -- shared test (needs onnxruntime) --
   SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
-  find_library(ONNXRUNTIME onnxruntime PATHS "${ONNXRUNTIME_LIB_DIR}")
+  find_library(ONNXRUNTIME onnxruntime HINTS "${ONNXRUNTIME_LIB_DIR}")
 
   if("${ONNXRUNTIME}" STREQUAL "ONNXRUNTIME-NOTFOUND")
     message(WARNING "The prebuilt onnxruntime library was not found, extensions_test will be skipped.")
