@@ -3,7 +3,7 @@
 
 # Minimum CMake required
 cmake_minimum_required(VERSION 3.25)
-project(onnxruntime_extensions LANGUAGES C CXX)
+project(onnxruntime_extensions LANGUAGES C CXX CUDA)
 
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 if(NOT CMAKE_BUILD_TYPE)
@@ -333,8 +333,20 @@ if(OCOS_ENABLE_MATH)
     file(GLOB TARGET_SRC_INVERSE "operators/math/dlib/*.cc" "operators/math/dlib/*.h*")
   endif()
 
+  # ------------- add cuda source ----------------
+  find_package(CUDAToolkit REQUIRED)
+  message("++++++++++ CUDAToolkit_INCLUDE_DIRS: " ${CUDAToolkit_INCLUDE_DIRS})
+  #set(NVCCFLAG -arch=sm_37 --device-c -std=c++11)
+  #set(NVCCLFALG -arch=sm_37 -std=c++11 -cudart=shared -rdc=true)
+  #list(APPEND cuda_compile_option "$<$<COMPILE_LANGUAGE:CUDA>:SHELL:-Xcompiler>")
+  add_compile_options("$<$<COMPILE_LANGUAGE:CUDA>:SHELL:-Xcompiler>")
+  #add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+  #file(GLOB TARGET_SRC_MATH_CUDA "operators/math/*.cu")
+  # ----------------------------------------------
+
   file(GLOB TARGET_SRC_MATH "operators/math/*.cc" "operators/math/*.h*")
-  list(APPEND TARGET_SRC ${TARGET_SRC_MATH} ${TARGET_SRC_DLIB} ${TARGET_SRC_INVERSE})
+  list(APPEND TARGET_SRC ${TARGET_SRC_MATH} ${TARGET_SRC_DLIB} ${TARGET_SRC_INVERSE} "operators/math/bias_gelu_cuda_impl.cu")
+  message("++++++++++ TARGET_SRC" ${TARGET_SRC})
 endif()
 
 # enable the opencv dependency if we have ops that require it
@@ -694,6 +706,13 @@ else()
   standardize_output_folder(ortcustomops)
   set(_BUILD_SHARED_LIBRARY TRUE)
 endif()
+
+# ---------------------- INDLUDE & LINK TO CUDA -----------------------
+set(CUDA_HOME "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.6")
+target_include_directories(ocos_operators PUBLIC ${CUDA_HOME}/include)
+target_link_directories(ocos_operators PUBLIC ${CUDA_HOME}/lib/x64)
+target_link_libraries(ocos_operators PUBLIC cuda)
+# -----------------------------------------------------------------------
 
 if(OCOS_ENABLE_AZURE)
   if (ANDROID)

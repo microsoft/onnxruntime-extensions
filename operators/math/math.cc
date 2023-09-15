@@ -6,6 +6,7 @@
 #endif
 #include "segment_extraction.hpp"
 #include "segment_sum.hpp"
+#include "bias_gelu_cuda.hpp"
 
 const std::vector<const OrtCustomOp*>& MathLoader() {
   static OrtOpLoader op_loader(CustomCpuFunc("NegPos", neg_pos),
@@ -15,7 +16,8 @@ const std::vector<const OrtCustomOp*>& MathLoader() {
                                CustomCpuStruct("StftNorm", StftNormal),
 #endif
                                CustomCpuFunc("SegmentExtraction", segment_extraction),
-                               CustomCpuFunc("SegmentSum", segment_sum));
+                               CustomCpuFunc("SegmentSum", segment_sum),
+                               CustomCudaFunc("BiasGelu", bias_gelu_cuda)); // cuda contrib op
   return op_loader.GetCustomOps();
 }
 
