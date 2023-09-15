@@ -29,8 +29,6 @@ void FixCurrentDir() {
 
   // set current path as the extensions library is also loaded from that directory by TestInference
   std::filesystem::current_path(cur);
-
-  std::cerr << "cwd: " << std::filesystem::current_path().generic_string() << "\n";
 }
 }  // namespace
 
