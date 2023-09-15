@@ -35,7 +35,7 @@ static constexpr const char* GetSharedLibraryPath() {
 #endif
 }
 
-LibraryHandle RegisterOrtExtensionsOps(Ort::SessionOptions& session_options) {
+LibraryHandle RegisterExtOps(Ort::SessionOptions& session_options) {
   void* handle = nullptr;
   constexpr auto custom_op_library_filename = GetSharedLibraryPath();
   // TODO upgrade to RegisterCustomOpsLibrary_V2() when the minimum supported ORT version is at least 1.14.
@@ -48,7 +48,7 @@ LibraryHandle RegisterOrtExtensionsOps(Ort::SessionOptions& session_options) {
 
 #include "onnxruntime_extensions.h"
 
-LibraryHandle RegisterOrtExtensionsOps(Ort::SessionOptions& session_options) {
+LibraryHandle RegisterExtOps(Ort::SessionOptions& session_options) {
   Ort::ThrowOnError(RegisterCustomOps(static_cast<OrtSessionOptions*>(session_options), OrtGetApiBase()));
   return LibraryHandle{nullptr,
                        // deleter does nothing
