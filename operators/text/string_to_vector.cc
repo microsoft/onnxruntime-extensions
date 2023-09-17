@@ -11,7 +11,7 @@ StringToVectorImpl::StringToVectorImpl(std::string& map, std::string& unk) {
 
 std::vector<std::vector<int64_t>> StringToVectorImpl::Compute(const std::vector<std::string>& str_input,
                                                               const std::vector<int64_t>& input_dim,
-                                                              std::vector<int64_t>& output_dim) const {
+                                                              std::vector<int64_t>& output_dim) {
   std::vector<std::vector<int64_t>> result;
 
   // Set output dimension
@@ -117,7 +117,7 @@ KernelStringToVector::KernelStringToVector(const OrtApi& api, const OrtKernelInf
 }
 
 void KernelStringToVector::Compute(const ortc::Tensor<std::string>& input,
-                                   ortc::Tensor<int64_t>& out) const {
+                                   ortc::Tensor<int64_t>& out) {
   // Setup input
   auto& input_data = input.Data();
   // Get output

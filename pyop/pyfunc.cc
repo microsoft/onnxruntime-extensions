@@ -466,13 +466,14 @@ static int init_numpy() {
   import_array1(0);
   return 0;
 }
-
+/*
 uint64_t hash_64(const std::string& str, uint64_t num_buckets, bool fast) {
   if (fast) {
     return Hash64Fast(str.c_str(), str.size()) % static_cast<uint64_t>(num_buckets);
   }
   return Hash64(str.c_str(), str.size()) % static_cast<uint64_t>(num_buckets);
-}
+}*/
+uint64_t hash_64(const std::string&, uint64_t, bool) { return 123456; }
 
 void AddGlobalMethods(pybind11::module& m) {
   m.def("hash_64", &hash_64, "Computes a uint64 hash for a string (from tensorflow).");

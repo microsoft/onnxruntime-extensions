@@ -16,7 +16,7 @@ struct KernelStringECMARegexSplitWithOffsets : BaseKernel {
                ortc::Tensor<std::string>& output_text,
                ortc::Tensor<int64_t>& output1,
                ortc::Tensor<int64_t>& output2,
-               ortc::Tensor<int64_t>& output3) const;
+               ortc::Tensor<int64_t>& output3);
 
  private:
   bool ignore_case_;

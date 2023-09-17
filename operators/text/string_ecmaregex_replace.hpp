@@ -11,7 +11,7 @@ struct KernelStringECMARegexReplace : BaseKernel {
   void Compute(const ortc::Tensor<std::string>& input,
                std::string_view pattern,
                std::string_view rewrite,
-               ortc::Tensor<std::string>& output) const;
+               ortc::Tensor<std::string>& output);
 
  protected:
   bool global_replace_;

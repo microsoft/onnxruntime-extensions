@@ -9,9 +9,9 @@
 #include "string_ecmaregex_split.hpp"
 #include "string_tensor.h"
 
-KernelStringECMARegexSplitWithOffsets::KernelStringECMARegexSplitWithOffsets(const OrtApi& api,
-                                                                             const OrtKernelInfo& info)
-    : BaseKernel(api, info) {
+KernelStringECMARegexSplitWithOffsets::KernelStringECMARegexSplitWithOffsets(const OrtApi* api,
+                                                                             const OrtKernelInfo* info)
+    : BaseKernel(*api, *info) {
   ignore_case_ = TryToGetAttributeWithDefault("ignore_case", false);
 }
 
@@ -21,7 +21,7 @@ void KernelStringECMARegexSplitWithOffsets::Compute(const ortc::Tensor<std::stri
                                                     ortc::Tensor<std::string>& output_text,
                                                     ortc::Tensor<int64_t>& output1,
                                                     ortc::Tensor<int64_t>& output2,
-                                                    ortc::Tensor<int64_t>& output3) const {
+                                                    ortc::Tensor<int64_t>& output3) {
   // Setup inputs
   auto& str_input = input.Data();
 

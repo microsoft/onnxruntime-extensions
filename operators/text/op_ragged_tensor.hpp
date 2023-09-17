@@ -11,7 +11,7 @@ struct KernelRaggedTensoroSparse : BaseKernel {
 
   void Compute(const ortc::Tensor<int64_t>& n_element,
                ortc::Tensor<int64_t>& output_0,
-               ortc::Tensor<int64_t>& output_1) const;
+               ortc::Tensor<int64_t>& output_1);
 };
 
 struct CommonRaggedTensoroDense : BaseKernel {
@@ -28,7 +28,7 @@ struct KernelRaggedTensoroDense : CommonRaggedTensoroDense {
                const ortc::Tensor<int64_t>& input1,
                const ortc::Tensor<int64_t>& input2,
                const ortc::Tensor<int64_t>& input3,
-               ortc::Tensor<int64_t>& output) const;
+               ortc::Tensor<int64_t>& output);
 
  private:
   int64_t missing_value_;
@@ -40,5 +40,5 @@ struct KernelStringRaggedTensoroDense : CommonRaggedTensoroDense {
                const ortc::Tensor<std::string>& input1,
                const ortc::Tensor<int64_t>& input2,
                const ortc::Tensor<std::string>& input3,
-               ortc::Tensor<std::string>& output) const;
+               ortc::Tensor<std::string>& output);
 };

@@ -20,7 +20,7 @@ VectorToStringImpl::VectorToStringImpl(std::string& map, std::string& unk) : unk
 
 std::vector<std::string> VectorToStringImpl::Compute(const void* input,
                                                      const std::vector<int64_t>& input_dim,
-                                                     std::vector<int64_t>& output_dim) const {
+                                                     std::vector<int64_t>& output_dim) {
   std::vector<std::string> result;
 
   const int64_t* ptr = static_cast<const int64_t*>(input);
@@ -118,7 +118,7 @@ KernelVectorToString::KernelVectorToString(const OrtApi& api, const OrtKernelInf
 }
 
 void KernelVectorToString::Compute(const ortc::Tensor<int64_t>& input,
-                                   ortc::Tensor<std::string>& out) const {
+                                   ortc::Tensor<std::string>& out) {
   const void* input_data = input.Data();
 
   std::vector<int64_t> output_dim;

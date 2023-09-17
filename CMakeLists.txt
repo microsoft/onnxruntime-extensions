@@ -49,20 +49,20 @@ option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
 option(OCOS_ENABLE_PYTHON "Enable Python component building, (deprecated)" OFF)
 option(OCOS_ENABLE_CTEST "Enable C++ test" OFF)
 option(OCOS_ENABLE_CPP_EXCEPTIONS "Enable C++ Exception" ON)
-option(OCOS_ENABLE_TF_STRING "Enable String Operator Set" ON)
-option(OCOS_ENABLE_RE2_REGEX "Enable StringRegexReplace and StringRegexSplit" ON)
-option(OCOS_ENABLE_GPT2_TOKENIZER "Enable the GPT2 tokenizer building" ON)
-option(OCOS_ENABLE_TRIE_TOKENIZER "Enable the TrieTokenizer building" ON)
-option(OCOS_ENABLE_SPM_TOKENIZER "Enable the SentencePiece tokenizer building" ON)
-option(OCOS_ENABLE_WORDPIECE_TOKENIZER "Enable the WordpieceTokenizer building" ON)
-option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
-option(OCOS_ENABLE_BLINGFIRE "Enable operators depending on the Blingfire library" ON)
+option(OCOS_ENABLE_TF_STRING "Enable String Operator Set" OFF)
+option(OCOS_ENABLE_RE2_REGEX "Enable StringRegexReplace and StringRegexSplit" OFF)
+option(OCOS_ENABLE_GPT2_TOKENIZER "Enable the GPT2 tokenizer building" OFF)
+option(OCOS_ENABLE_TRIE_TOKENIZER "Enable the TrieTokenizer building" OFF)
+option(OCOS_ENABLE_SPM_TOKENIZER "Enable the SentencePiece tokenizer building" OFF)
+option(OCOS_ENABLE_WORDPIECE_TOKENIZER "Enable the WordpieceTokenizer building" OFF)
+option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" OFF)
+option(OCOS_ENABLE_BLINGFIRE "Enable operators depending on the Blingfire library" OFF)
 option(OCOS_ENABLE_MATH "Enable math tensor operators building" ON)
-option(OCOS_ENABLE_DLIB "Enable operators like Inverse depending on DLIB" ON)
-option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require opencv imgcodecs." ON)
-option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
-option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
-option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
+option(OCOS_ENABLE_DLIB "Enable operators like Inverse depending on DLIB" OFF)
+option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require opencv imgcodecs." OFF)
+option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" OFF)
+option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" OFF)
+option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" OFF)
 option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" OFF)
 
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
@@ -75,7 +75,9 @@ option(OCOS_BUILD_APPLE_FRAMEWORK "Enable building of the MacOS/iOS framework" O
 # Optional value. Some operators do not support old versions due to using the new custom operator interface
 # and will be disabled if this value is set and the version is incompatible.
 set(OCOS_ONNXRUNTIME_VERSION "" CACHE STRING
-  "The version of ONNX Runtime being used in the build. Format is <major>.<minor>.<patch>. e.g. 1.15.1" )
+  "The version of ONNX Runtime being used in the build. Format is <major>.<minor>.<patch>. e.g. 1.15.1")
+set(OCOS_ONNXRUNTIME_PKG_URI "" CACHE STRING
+  "Specify the onnxruntime C++ shared library zip package path, like ./onnxruntime-win-x64-1.16.0.zip")
 
 # TODO: Remove the following statements if AzureOp build is enabled by default.
 # If build_buildid environment varaible is set, which means this is a CI build, then always enable AzureOp.
@@ -674,7 +676,7 @@ endif()
 
 list(APPEND ocos_libraries noexcep_operators)
 target_compile_definitions(ocos_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
-target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
+target_link_libraries(ocos_operators PUBLIC ${ocos_libraries})
 
 file(GLOB shared_TARGET_LIB_SRC "shared/lib/*.cc" "shared/lib/*.h")
 
@@ -709,9 +711,12 @@ endif()
 
 # ---------------------- INDLUDE & LINK TO CUDA -----------------------
 set(CUDA_HOME "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.6")
+set(CUDNN_HOME "C:/cudnn")
+include_directories(${CUDNN_HOME}/include)
 target_include_directories(ocos_operators PUBLIC ${CUDA_HOME}/include)
-target_link_directories(ocos_operators PUBLIC ${CUDA_HOME}/lib/x64)
-target_link_libraries(ocos_operators PUBLIC cuda)
+target_link_directories(ocos_operators PUBLIC ${CUDA_HOME}/lib/x64 ${ONNXRUNTIME_LIB_DIR})
+target_link_libraries(ocos_operators PUBLIC cuda onnxruntime)
+#target_link_libraries(ocos_operators PUBLIC cuda)
 # -----------------------------------------------------------------------
 
 if(OCOS_ENABLE_AZURE)

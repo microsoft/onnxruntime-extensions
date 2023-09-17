@@ -97,8 +97,8 @@ struct AudioDecoder : public BaseKernel {
   }
 
   void Compute(const ortc::Tensor<uint8_t>& input,
-               const std::optional<std::string> format,
-               ortc::Tensor<float>& output0) const {
+               /*const*/ std::optional<std::string> format,
+               ortc::Tensor<float>& output0) /*const*/ {
     const uint8_t* p_data = input.Data();
     auto input_dim = input.Shape();
     if (!((input_dim.size() == 1) || (input_dim.size() == 2 && input_dim[0] == 1))) {

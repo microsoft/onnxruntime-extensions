@@ -23,28 +23,29 @@
 const std::vector<const OrtCustomOp*>& TextLoader() {
   static OrtOpLoader op_loader(
 #if defined(ENABLE_RE2_REGEX)
-      CustomCpuStruct("StringRegexReplace", KernelStringRegexReplace),
-      CustomCpuFunc("StringRegexSplitWithOffsets", KernelStringRegexSplitWithOffsets),
+      //CustomCpuStruct("StringRegexReplace", KernelStringRegexReplace),
+      //CustomCpuFunc("StringRegexSplitWithOffsets", KernelStringRegexSplitWithOffsets),
 #endif  // ENABLE_RE2_REGEX
-      CustomCpuStruct("RaggedTensorToSparse", KernelRaggedTensoroSparse),
-      CustomCpuStruct("RaggedTensorToDense", KernelRaggedTensoroDense),
-      CustomCpuStruct("StringRaggedTensorToDense", KernelStringRaggedTensoroDense),
-      CustomCpuStruct("StringEqual", KernelStringEqual),
+      //CustomCpuStruct("RaggedTensorToSparse", KernelRaggedTensoroSparse),
+      //CustomCpuStruct("RaggedTensorToDense", KernelRaggedTensoroDense),
+      //CustomCpuStruct("StringRaggedTensorToDense", KernelStringRaggedTensoroDense),
+      //CustomCpuStruct("StringEqual", KernelStringEqual),
       CustomCpuFunc("StringToHashBucket", string_hash),
       CustomCpuFunc("StringToHashBucketFast", string_hash_fast),
       CustomCpuFunc("StringJoin", string_join),
       CustomCpuFunc("StringLower", string_lower),
       CustomCpuFunc("StringUpper", string_upper),
-      CustomCpuStruct("StringMapping", KernelStringMapping),
+      //CustomCpuStruct("StringMapping", KernelStringMapping),
       CustomCpuFunc("MaskedFill", masked_fill),
       CustomCpuFunc("StringSplit", string_split),
       CustomCpuFunc("StringStrip", string_strip),
-      CustomCpuStruct("StringToVector", KernelStringToVector),
-      CustomCpuStruct("VectorToString", KernelVectorToString),
+      //CustomCpuStruct("StringToVector", KernelStringToVector),
+      //CustomCpuStruct("VectorToString", KernelVectorToString),
       CustomCpuFunc("StringLength", string_length),
-      CustomCpuFunc("StringConcat", string_concat),
-      CustomCpuStruct("StringECMARegexReplace", KernelStringECMARegexReplace),
-      CustomCpuStruct("StringECMARegexSplitWithOffsets", KernelStringECMARegexSplitWithOffsets));
+      CustomCpuFunc("StringConcat", string_concat)//,
+      //CustomCpuStruct("StringECMARegexReplace", KernelStringECMARegexReplace),
+      //CustomCpuStruct("StringECMARegexSplitWithOffsets", KernelStringECMARegexSplitWithOffsets)
+      );
   return op_loader.GetCustomOps();
 }
 

@@ -7,8 +7,8 @@
 #include <regex>
 #include "string_tensor.h"
 
-KernelStringECMARegexReplace::KernelStringECMARegexReplace(const OrtApi& api, const OrtKernelInfo& info)
-    : BaseKernel(api, info) {
+KernelStringECMARegexReplace::KernelStringECMARegexReplace(const OrtApi* api, const OrtKernelInfo* info)
+    : BaseKernel(*api, *info) {
   global_replace_ = TryToGetAttributeWithDefault("global_replace", true);
   ignore_case_ = TryToGetAttributeWithDefault("ignore_case", false);
 }
@@ -16,7 +16,7 @@ KernelStringECMARegexReplace::KernelStringECMARegexReplace(const OrtApi& api, co
 void KernelStringECMARegexReplace::Compute(const ortc::Tensor<std::string>& input,
                                            std::string_view pattern,
                                            std::string_view rewrite,
-                                           ortc::Tensor<std::string>& output) const {
+                                           ortc::Tensor<std::string>& output) {
   // make a copy as input is constant;
   std::vector<std::string> str_input = input.Data();
   if (pattern.empty()) {
