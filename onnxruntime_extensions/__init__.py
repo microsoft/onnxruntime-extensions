@@ -13,6 +13,7 @@ __author__ = "Microsoft"
 
 __all__ = [
     'gen_processing_models',
+    'ort_inference',
     'get_library_path',
     'Opdef', 'onnx_op', 'PyCustomOpDef', 'PyOp',
     'enable_py_op',
@@ -37,7 +38,7 @@ from ._ocos import hook_model_op
 from ._ocos import default_opset_domain
 from ._cuops import *   # noqa
 from ._ortapi2 import OrtPyFunction as PyOrtFunction  # backward compatibility
-from ._ortapi2 import OrtPyFunction, optimize_model, make_onnx_model, ONNXRuntimeError
+from ._ortapi2 import OrtPyFunction, ort_inference, optimize_model, make_onnx_model, ONNXRuntimeError
 from .cvt import gen_processing_models
 
 # rename the implementation with a more formal name
