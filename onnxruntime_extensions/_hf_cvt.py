@@ -152,7 +152,10 @@ _PROCESSOR_DICT = {
                                          default_inputs={'add_eos': [True]}),
     "LlamaTokenizer":       TokenOpParam('SentencepieceTokenizer',  HFTokenizerConverter.spm_tokenizer,
                                          'SentencepieceDecoder',    HFTokenizerConverter.spm_decoder,
-                                         default_inputs={'add_bos': [True]})
+                                         default_inputs={'add_bos': [True]}),
+    "XLMRobertaTokenizer":  TokenOpParam('SentencepieceTokenizer',  HFTokenizerConverter.spm_tokenizer,
+                                         'SentencepieceDecoder',    HFTokenizerConverter.spm_decoder,
+                                         default_inputs={'add_bos': [True], 'add_eos': [True], 'fairseq': [True]}),
 }
 # @formatter:on
 

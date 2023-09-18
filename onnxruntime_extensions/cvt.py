@@ -10,7 +10,7 @@ cvt.py: Processing Graph Converter and Generator
 from typing import Union
 
 from ._hf_cvt import HFTokenizerConverter, HFTokenizerOnnxGraph  # noqa
-from ._ortapi2 import make_onnx_model
+from ._ortapi2 import make_onnx_model, SingleOpGraph
 
 
 _is_torch_available = False
@@ -20,6 +20,9 @@ try:
     from ._torch_cvt import WhisperDataProcGraph
 except ImportError:
     WhisperDataProcGraph = None
+
+
+_PRE_POST_PAIR = {'TrieTokenizer': "TrieDetokenizer"}
 
 
 def gen_processing_models(processor: Union[str, object],
@@ -52,8 +55,21 @@ def gen_processing_models(processor: Union[str, object],
     """
     if pre_kwargs is None and post_kwargs is None:
         raise ValueError("Either pre_kwargs or post_kwargs should be provided. None means no processing")
+    if isinstance(processor, str):
+        g_pre, g_post = (None, None)
+        if pre_kwargs:
+            g_pre = SingleOpGraph.build_graph(processor, **pre_kwargs)
+        if post_kwargs:
+            if pre_kwargs is None:
+                cls_name = processor
+            else:
+                if processor not in _PRE_POST_PAIR:
+                    raise RuntimeError(f"Cannot locate the post processing operator name from {processor}")
+                cls_name = _PRE_POST_PAIR[processor]
+            g_post = SingleOpGraph.build_graph(cls_name, **post_kwargs)
+        return make_onnx_model(g_pre) if g_pre else None, make_onnx_model(g_post) if g_post else None
 
-    cls_name = processor if isinstance(processor, str) else type(processor).__name__
+    cls_name = type(processor).__name__
     if cls_name == "WhisperProcessor":
         if WhisperDataProcGraph is None:
             raise ValueError("The Whisper processor needs torch.onnx support, please install pytorch 2.0 and above")
