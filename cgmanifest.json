@@ -219,6 +219,16 @@
         "comments": "a library for transferring data specified with URL syntax"
       }
     },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "commitHash": "1a5f833a7150225448f9379e475b3c122dd922d0",
+          "repositoryUrl": "https://github.com/mattstevens/xcode-googletest"
+        },
+        "comments": "a unit test utility for integrating GoogleTest with XCTest (test/ios/xcgtest.mm)"
+      }
+    }
   ],
   "Version": 1
 }

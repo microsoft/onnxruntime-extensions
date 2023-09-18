@@ -1,8 +1,11 @@
-set(Python3_FIND_REGISTRY NEVER CACHE STRING "...")
-if(NOT "${Python3_FIND_REGISTRY}" STREQUAL "NEVER")
-  message(FATAL_ERROR "Python3_FIND_REGISTRY is not NEVER")
-endif()
-find_package(Python3 COMPONENTS Interpreter Development.Module NumPy)
+block(PROPAGATE Python3_FOUND)
+  set(Python3_FIND_REGISTRY NEVER)
+  # if we don't set this to NEVER (or possibly LAST) the builds of the wheel for different python versions will fail
+  # as it will find the system python version first and not the correct python version for the wheel.
+  set(Python3_FIND_FRAMEWORK NEVER)
+  find_package(Python3 COMPONENTS Interpreter Development.Module NumPy)
+endblock()
+
 if (NOT Python3_FOUND)
   message(FATAL_ERROR "Python3 or NumPy not found!")
 endif()

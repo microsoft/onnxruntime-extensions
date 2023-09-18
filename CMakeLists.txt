@@ -177,23 +177,10 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-# set both regular and cache variables to NEVER. the regular variable has a default of FIRST defined by cmake,
-# but due to CMP0126 that will exist in parallel to the cached variable if the CMake minimum version is >= 3.25.
-# if we don't set this to NEVER (or possibly LAST) the builds of the wheel for different python versions will fail
-# as it will find the system python version first and not the correct python version for the wheel.
-set(CMAKE_FIND_FRAMEWORK "NEVER")
-set(CMAKE_FIND_FRAMEWORK "NEVER" CACHE STRING "...")
-
-if(NOT "${CMAKE_FIND_FRAMEWORK}" STREQUAL "NEVER")
-  message(STATUS "CMAKE_FIND_FRAMEWORK is ${CMAKE_FIND_FRAMEWORK} not NEVER.")
-endif()
-
 # External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals ${PROJECT_SOURCE_DIR}/cmake)
 
-# PROJECT_IS_TOP_LEVEL is available since 3.21
-get_property(not_top DIRECTORY PROPERTY PARENT_DIRECTORY)
-if(not_top AND ONNXRUNTIME_ROOT)
+if(NOT PROJECT_IS_TOP_LEVEL AND ONNXRUNTIME_ROOT)
   set(_ONNXRUNTIME_EMBEDDED TRUE)
 endif()
 
@@ -830,94 +817,6 @@ endforeach()
 # Run CPack to generate the NuGet package
 include(CPack)
 
-# test section
 if(OCOS_ENABLE_CTEST)
-  if (OCOS_ENABLE_SELECTED_OPLIST)
-    # currently the tests don't handle operator exclusion cleanly.
-    message(FATAL_ERROR "Due to usage of OCOS_ENABLE_SELECTED_OPLIST excluding operators the tests are unable to be built and run")
-  endif()
-
-  # Enable CTest
-  enable_testing()
-  message(STATUS "Fetch CTest")
-  include(CTest)
-
-  set(TEST_SRC_DIR ${PROJECT_SOURCE_DIR}/test)
-  message(STATUS "Fetch googletest")
-  include(googletest)
-
-  # -- static test --
-  file(GLOB static_TEST_SRC "${TEST_SRC_DIR}/static_test/*.cc")
-  add_executable(ocos_test ${static_TEST_SRC})
-  standardize_output_folder(ocos_test)
-  target_link_libraries(ocos_test PRIVATE gtest_main ocos_operators ${ocos_libraries})
-  add_test(NAME ocos_test COMMAND $<TARGET_FILE:ocos_test>)
-
-  # -- shared test (needs onnxruntime) --
-  SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
-  find_library(ONNXRUNTIME onnxruntime HINTS "${ONNXRUNTIME_LIB_DIR}")
-
-  if(ONNXRUNTIME-NOTFOUND)
-    message(WARNING "The prebuilt onnxruntime libraries directory was not found (via ONNXRUNTIME_LIB_DIR), the extensions_test will be skipped.")
-  else()
-    set(LINUX_CC_FLAGS "")
-
-    # needs to link with stdc++fs in Linux
-    if(UNIX AND NOT APPLE AND NOT ANDROID)
-      list(APPEND LINUX_CC_FLAGS stdc++fs -pthread)
-    endif()
-
-    file(GLOB shared_TEST_SRC "${TEST_SRC_DIR}/shared_test/*.cc" "${TEST_SRC_DIR}/shared_test/*.hpp")
-    add_executable(extensions_test ${shared_TEST_SRC})
-
-    # FUTURE: This is required to use the ORT C++ API with delayed init which must be done conditionally using
-    # ifdef OCOS_BUILD_SHARED in RegisterCustomOps and where onnxruntime_cxx_api.h is included .
-    # ---
-    # We have to remove the OCOS_BUILD_SHARED when building the test code. It is used to delay population of the
-    # ORT api pointer until RegisterCustomOps is called, but the test code needs to create an ORT env which requires
-    # the pointer to exist.
-    # set(test_compile_definitions ${OCOS_COMPILE_DEFINITIONS})
-    # remove(test_compile_definitions "OCOS_SHARED_LIBRARY")
-    # target_compile_definitions(extensions_test PUBLIC ${test_compile_definitions})
-    target_compile_definitions(extensions_test PUBLIC ${OCOS_COMPILE_DEFINITIONS})
-
-    standardize_output_folder(extensions_test)
-
-    target_include_directories(extensions_test PRIVATE
-      ${spm_INCLUDE_DIRS}
-      $<TARGET_PROPERTY:extensions_shared,INTERFACE_INCLUDE_DIRECTORIES>)
-
-    if(ONNXRUNTIME_LIB_DIR)
-      target_link_directories(extensions_test PRIVATE ${ONNXRUNTIME_LIB_DIR})
-    endif()
-
-    target_link_libraries(extensions_test PRIVATE extensions_shared ${ocos_libraries} onnxruntime 
-                                                  gtest_main gmock_main ${LINUX_CC_FLAGS})
-
-    # Copy DLL/shared library files into the same directory as the test binary.
-    if(WIN32)
-      file(TO_CMAKE_PATH "${ONNXRUNTIME_LIB_DIR}/*" ONNXRUNTIME_LIB_FILEPATTERN)
-      file(GLOB ONNXRUNTIME_LIB_FILES CONFIGURE_DEPENDS "${ONNXRUNTIME_LIB_FILEPATTERN}")
-      add_custom_command(
-        TARGET extensions_test POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy ${ONNXRUNTIME_LIB_FILES} $<TARGET_FILE_DIR:extensions_test>)
-    else()
-      add_custom_command(
-        TARGET extensions_test POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:extensions_test>
-          $<TARGET_LINKER_FILE:extensions_shared>
-          ${ONNXRUNTIME})
-    endif()
-
-    set(TEST_DATA_SRC ${TEST_SRC_DIR}/data)
-    set(TEST_DATA_DES ${onnxruntime_extensions_BINARY_DIR}/data)
-
-    # Copy test data from source to destination.
-    add_custom_command(
-      TARGET extensions_test POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_directory
-      ${TEST_DATA_SRC}
-      ${TEST_DATA_DES})
-    add_test(NAME extensions_test COMMAND $<TARGET_FILE:extensions_test>)
-  endif()
+  include(ext_tests)
 endif()

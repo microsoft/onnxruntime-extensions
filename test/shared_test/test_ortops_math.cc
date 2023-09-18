@@ -29,7 +29,7 @@ TEST(math_operator, segment_extraction) {
 
   std::filesystem::path model_path = "data";
   model_path /= "test_segment_extraction.onnx";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].name = "input";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
@@ -45,7 +45,7 @@ TEST(math_operator, segment_extraction) {
   outputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   outputs[1].dims = {4};
   outputs[1].values_int64 = {1, 2, 3, 5};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
 
   inputs[0].name = "input";
@@ -62,7 +62,7 @@ TEST(math_operator, segment_extraction) {
   outputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   outputs[1].dims = {4};
   outputs[1].values_int64 = {1, 2, 4, 5};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
 
   inputs[0].name = "input";
@@ -79,7 +79,7 @@ TEST(math_operator, segment_extraction) {
   outputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   outputs[1].dims = {2};
   outputs[1].values_int64 = {1, 3};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].name = "input";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
@@ -95,7 +95,7 @@ TEST(math_operator, segment_extraction) {
   outputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   outputs[1].dims = {0};
   outputs[1].values_int64 = {};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].name = "input";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
@@ -111,7 +111,7 @@ TEST(math_operator, segment_extraction) {
   outputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   outputs[1].dims = {0};
   outputs[1].values_int64 = {};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
 
   inputs[0].name = "input";
@@ -128,5 +128,5 @@ TEST(math_operator, segment_extraction) {
   outputs[1].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   outputs[1].dims = {1};
   outputs[1].values_int64 = {1};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }

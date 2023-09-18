@@ -6,8 +6,6 @@
 #include <math.h>
 #include "onnxruntime_cxx_api.h"
 
-const char* GetLibraryPath();
-
 struct TestValue {
   TestValue(const char* name_in, const std::vector<float>& values_in, const std::vector<int64_t>& dims_in)
       : name{name_in}, element_type{ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT}, values_float{values_in}, dims{dims_in} {}
@@ -54,7 +52,6 @@ void RunSession(Ort::Session& session_object,
 void TestInference(Ort::Env& env, const ORTCHAR_T* model_uri,
                    const std::vector<TestValue>& inputs,
                    const std::vector<TestValue>& outputs,
-                   const char* custom_op_library_filename,
                    OutputValidator output_validator = nullptr);
 
 void GetTensorMutableDataString(const OrtApi& api, const OrtValue* value, std::vector<std::string>& output);

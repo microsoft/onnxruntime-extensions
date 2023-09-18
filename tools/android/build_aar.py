@@ -5,12 +5,13 @@
 
 # builds an Android AAR package for the specified ABIs
 
+from __future__ import annotations
+
 import argparse
 import os
 from pathlib import Path
 import shutil
 import sys
-from typing import List
 
 _repo_dir = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_repo_dir / "tools"))
@@ -22,7 +23,8 @@ _log = get_logger("build_aar")
 
 
 def build_for_abi(
-    build_dir: Path, config: str, abi: str, api_level: int, sdk_path: Path, ndk_path: Path, other_args: List[str]):
+    build_dir: Path, config: str, abi: str, api_level: int, sdk_path: Path, ndk_path: Path, other_args: list[str]
+):
     build_cmd = [
         sys.executable,
         str(_repo_dir / "tools" / "build.py"),
@@ -43,14 +45,16 @@ def build_for_abi(
     run(*build_cmd)
 
 
-def do_build_by_mode(output_dir: Path,
-                     config: str,
-                     mode: str,
-                     abis: List[str],
-                     api_level: int,
-                     sdk_path: Path,
-                     ndk_path: Path,
-                     other_args: List[str]):
+def do_build_by_mode(
+    output_dir: Path,
+    config: str,
+    mode: str,
+    abis: list[str],
+    api_level: int,
+    sdk_path: Path,
+    ndk_path: Path,
+    other_args: list[str],
+):
     output_dir = output_dir.resolve()
 
     sdk_path = sdk_path.resolve(strict=True)
@@ -119,16 +123,15 @@ def do_build_by_mode(output_dir: Path,
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="""Builds the Android AAR package for onnxruntime-extensions.
-                       Any additional arguments provided will be passed through to build.py.
-                    """)
+        description="Builds the Android AAR package for onnxruntime-extensions.",
+    )
 
     def path_from_env_var(env_var: str):
         env_var_value = os.environ.get(env_var)
         return Path(env_var_value) if env_var_value is not None else None
 
     parser.add_argument(
-        "--output-dir",
+        "--output_dir",
         type=Path,
         required=True,
         help="Path to output directory.",
@@ -169,44 +172,52 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--api-level",
+        "--api_level",
         type=int,
         default=21,
         help="Android API Level. E.g., 21.",
     )
 
     parser.add_argument(
-        "--sdk-path",
+        "--sdk_path",
         type=Path,
         default=path_from_env_var("ANDROID_HOME"),
         help="Path to the Android SDK.",
     )
 
     parser.add_argument(
-        "--ndk-path",
+        "--ndk_path",
         type=Path,
         default=path_from_env_var("ANDROID_NDK_HOME"),
         help="Path to the Android NDK. Typically `<Android SDK>/ndk/<ndk_version>`.",
     )
 
+    parser.add_argument(
+        "build_py_args",
+        nargs="*",
+        default=[],
+        help="Build arguments to pass through to build.py when building the per-ABI libraries. "
+        "These should be placed after other arguments to this script following a trailing '--'. "
+        "For example: 'build_aar.py <build_aar.py options> -- <build.py options>'.",
+    )
+
     args, unknown_args = parser.parse_known_args()
-    args.other_args = unknown_args
 
     args.abis = args.abis or _supported_abis.copy()
 
     assert (
         args.sdk_path is not None
-    ), "Android SDK path must be provided with --sdk-path or environment variable ANDROID_HOME."
+    ), "Android SDK path must be provided with --sdk_path or environment variable ANDROID_HOME."
 
     assert (
         args.ndk_path is not None
-    ), "Android NDK path must be provided with --ndk-path or environment variable ANDROID_NDK_HOME."
+    ), "Android NDK path must be provided with --ndk_path or environment variable ANDROID_NDK_HOME."
 
-    return args
+    return args, unknown_args
 
 
 def main():
-    args = parse_args()
+    args, unknown_args = parse_args()
 
     _log.info(f"Building AAR for ABIs: {args.abis}")
 
@@ -218,7 +229,7 @@ def main():
         api_level=args.api_level,
         sdk_path=args.sdk_path,
         ndk_path=args.ndk_path,
-        other_args=args.other_args,
+        other_args=unknown_args,
     )
 
     _log.info("AAR build complete.")

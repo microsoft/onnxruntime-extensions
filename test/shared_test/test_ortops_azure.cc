@@ -56,7 +56,7 @@ TEST(AzureOps, OpenAIWhisper_basic) {
   // the expected_output is the collection of substrings to look for in the single output string.
   std::vector<TestValue> outputs{TestValue("transcription", expected_output, {1})};
 
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath(), find_substrings_in_output);
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, find_substrings_in_output);
 }
 
 // test calling Whisper with a filename to provide mp3 instead of the default wav, and the optional prompt
@@ -83,13 +83,13 @@ TEST(AzureOps, OpenAIWhisper_Prompt_CustomFormat) {
   std::vector<std::string> expected_output = {"Take some Pepto-Bismol, get dressed, and come on over here."};
   std::vector<TestValue> outputs{TestValue("transcription", expected_output, {1})};
 
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath(), find_substrings_in_output);
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, find_substrings_in_output);
 
   // use optional 'prompt' input to mis-spell Pepto-Bismol in response
   std::string prompt = "Peptoe-Bismole";
   inputs.push_back(TestValue("transcribe0/prompt", {prompt}, {1}));
   outputs[0].values_string[0] = "Take some Peptoe-Bismole, get dressed, and come on over here.";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath(), find_substrings_in_output);
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs, find_substrings_in_output);
 }
 
 #endif

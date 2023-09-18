@@ -618,7 +618,10 @@ stages:
         python ./tools/ios/build_xcframework.py \
           --output_dir $(Build.BinariesDirectory)/xcframework_out \
           --platform_arch iphonesimulator x86_64 \
-          --config Release
+          --config RelWithDebInfo \
+          --ios_deployment_target 13.0 \
+          -- \
+          --enable_cxx_tests
       displayName: Build xcframework for iphonesimulator x86_64
 
     - script: |
