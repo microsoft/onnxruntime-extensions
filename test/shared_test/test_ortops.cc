@@ -3,7 +3,7 @@
 #include <filesystem>
 #include "gtest/gtest.h"
 #include "ocos.h"
-#include "register_ort_extensions_ops.hpp"
+#include "register_ext_ops.hpp"
 #include "string_tensor.h"
 #include "string_utils.h"
 #include "test_kernel.hpp"
