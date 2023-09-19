@@ -5,7 +5,7 @@ parameters:
   default: 'OCOS_ENABLE_AZURE=1'
 
 jobs:
-- job: linux-x86_64
+- job: linux_x86_64
   timeoutInMinutes: 180
   pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
   variables:
@@ -19,6 +19,7 @@ jobs:
         python3 -m pip install --upgrade pip
         pip3 install cibuildwheel
       displayName: Install dependencies
+
     - bash: cibuildwheel --archs x86_64 --output-dir wheelhouse .
       displayName: Build wheels for x86_64
     - task: PublishBuildArtifacts@1
@@ -45,6 +46,5 @@ jobs:
 
     - bash: cibuildwheel --archs aarch64 --output-dir wheelhouse .
       displayName: Build wheels for arm64
-
     - task: PublishBuildArtifacts@1
       inputs: {pathtoPublish: 'wheelhouse'}
