@@ -19,7 +19,7 @@ jobs:
         python3 -m pip install --upgrade pip
         pip3 install cibuildwheel
       displayName: Install dependencies
-    - bash: cibuildwheel --output-dir wheelhouse .
+    - bash: cibuildwheel --skip *musllinux_1_1_aarch64* --archs x86_64 aarch64 --output-dir wheelhouse .
       displayName: Build wheels
     - task: PublishBuildArtifacts@1
       inputs: {pathtoPublish: 'wheelhouse'}
