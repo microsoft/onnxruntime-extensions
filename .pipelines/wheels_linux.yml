@@ -10,6 +10,7 @@ jobs:
   pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
   variables:
     CIBW_BUILD: "cp3{8,9,10,11}-*"
+    CIBW_SKIP: "*musllinux_1_1_aarch64*"
     CIBW_ENVIRONMENT: "${{ parameters.ExtraEnv }}"
 
   steps:
@@ -19,7 +20,7 @@ jobs:
         python3 -m pip install --upgrade pip
         pip3 install cibuildwheel
       displayName: Install dependencies
-    - bash: cibuildwheel --skip *musllinux_1_1_aarch64* --archs x86_64 aarch64 --output-dir wheelhouse .
+    - bash: cibuildwheel --archs "x86_64 aarch64" --output-dir wheelhouse .
       displayName: Build wheels
     - task: PublishBuildArtifacts@1
       inputs: {pathtoPublish: 'wheelhouse'}
