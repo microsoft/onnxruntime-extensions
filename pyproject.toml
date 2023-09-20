@@ -8,6 +8,12 @@ line-length = 120
 [tool.ruff]
 line-length = 120
 
+[tool.cibuildwheel]
+# Note: the below skip command doesn't do much currently, the platforms to
+# build wheels for in CI are controlled in `wheels_linux` and `wheels_macos.yml`.
+skip = "cp36-* cp37-* pp37-* *-manylinux_i686 *_ppc64le *_s390x *-musllinux_aarch64"
+build-verbosity = "3"
+
 [[tool.cibuildwheel.overrides]]
 select = "*-manylinux*x86_64*"
 before-all = "./tools/install_deps.sh many64"
