@@ -340,7 +340,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         model, model_b64 = load_piece('model__6')
         onnx_model = _create_test_model_ragged_to_sparse('Py', None)
         self.assertIn('op_type: "PyRaggedTensorToSparse"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
 
         inputs = dict(
             model=model,
@@ -363,7 +363,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         model, model_b64 = load_piece('model__6')
         onnx_model = _create_test_model_ragged_to_sparse('', model_b64)
         self.assertIn('op_type: "RaggedTensorToSparse"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
 
         inputs = dict(
             model=model,
@@ -388,7 +388,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         model, model_b64 = load_piece('model__6')
         onnx_model = _create_test_model_ragged_to_dense('', model_b64)
         self.assertIn('op_type: "RaggedTensorToDense"', str(onnx_model))
-        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
 
         inputs = dict(
             model=model,
@@ -415,8 +415,8 @@ class TestPythonOpSentencePiece(unittest.TestCase):
             'op_type: "PySentencepieceTokenizer"', str(py_onnx_model))
         cc_onnx_model = _create_test_model_sentencepiece('', model_b64)
         self.assertIn('op_type: "SentencepieceTokenizer"', str(cc_onnx_model))
-        py_sess = _ort.InferenceSession(py_onnx_model.SerializeToString(), so)
-        cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so)
+        py_sess = _ort.InferenceSession(py_onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
+        cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
 
         for alpha in [0, 0.5]:
             for nbest_size in [0, 1]:
@@ -452,8 +452,8 @@ class TestPythonOpSentencePiece(unittest.TestCase):
             'op_type: "PySentencepieceTokenizer"', str(py_onnx_model))
         cc_onnx_model = _create_test_model_sentencepiece('', modelb)
         self.assertIn('op_type: "SentencepieceTokenizer"', str(cc_onnx_model))
-        py_sess = _ort.InferenceSession(py_onnx_model.SerializeToString(), so)
-        cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so)
+        py_sess = _ort.InferenceSession(py_onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
+        cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
 
         alpha = 0
         nbest_size = 0
@@ -486,7 +486,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         model = util.read_file(tokenizer.vocab_file, 'rb')
         cc_onnx_model = _create_test_model_sentencepiece_fairseq(model)
         self.assertIn('op_type: "SentencepieceTokenizer"', str(cc_onnx_model))
-        cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so)
+        cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
 
         inputs = dict(
             model=model,
