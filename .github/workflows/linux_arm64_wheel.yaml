@@ -14,7 +14,6 @@ jobs:
     strategy:
       matrix:
         python_version: ['3.7', '3.8', '3.9', '3.10', '3.11']
-        cibw_skip: ['*musllinux*', '*manylinux*']
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
@@ -35,7 +34,7 @@ jobs:
         PYTHON_VERSION=${{ matrix.python_version }}
         CIBW_BUILD="cp${PYTHON_VERSION//.}-*"
         export CIBW_BUILD
-        export CIBW_SKIP=${{ matrix.cibw_skip }}
+        export CIBW_SKIP=*musllinux*      # skip musllinux builds since numpy hasn't support it yet.
         pip install cibuildwheel
         python -m cibuildwheel --platform linux --archs aarch64 --output-dir ./out
 
