@@ -5,7 +5,7 @@ parameters:
   default: 'OCOS_ENABLE_AZURE=1'
 
 jobs:
-- job: linux
+- job: linux_x86_64
   timeoutInMinutes: 180
   pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
   variables:
@@ -19,7 +19,33 @@ jobs:
         python3 -m pip install --upgrade pip
         pip3 install cibuildwheel
       displayName: Install dependencies
-    - bash: cibuildwheel --output-dir wheelhouse .
-      displayName: Build wheels
+
+    - bash: cibuildwheel --archs x86_64 --output-dir wheelhouse .
+      displayName: Build wheels for x86_64
+    - task: PublishBuildArtifacts@1
+      inputs: {pathtoPublish: 'wheelhouse'}
+
+- job: manylinux_aarch64
+  timeoutInMinutes: 180
+  pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
+  variables:
+    CIBW_BUILD: "cp3{8,9,10,11}-*"
+    CIBW_SKIP: "*musllinux_aarch64*"
+    # AzureOp doesn't support aaarch64 yet.
+    # CIBW_ENVIRONMENT: "${{ parameters.ExtraEnv }}"
+
+  steps:
+    - task: UsePythonVersion@0
+    - bash: |
+        set -o errexit
+        python3 -m pip install --upgrade pip
+        pip3 install cibuildwheel
+      displayName: Install dependencies
+
+    - script: docker run --privileged --rm tonistiigi/binfmt --install arm64
+      displayName: Register QEMU for arm64
+
+    - bash: cibuildwheel --archs aarch64 --output-dir wheelhouse .
+      displayName: Build wheels for arm64
     - task: PublishBuildArtifacts@1
       inputs: {pathtoPublish: 'wheelhouse'}
