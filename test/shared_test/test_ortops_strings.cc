@@ -24,9 +24,10 @@ TEST(string_operator, test_string_lower) {
 
   std::filesystem::path model_path = "data";
   model_path /= "custom_op_string_lower.onnx";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
 
+#ifdef ENABLE_RE2_REGEX
 TEST(string_operator, test_regex_split_with_offsets) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
 
@@ -59,8 +60,9 @@ TEST(string_operator, test_regex_split_with_offsets) {
 
   std::filesystem::path model_path = "data";
   model_path /= "test_regex_split_with_offsets.onnx";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
+#endif
 
 TEST(string_operator, test_string_ecmaregex_replace) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
@@ -89,7 +91,7 @@ TEST(string_operator, test_string_ecmaregex_replace) {
 
   std::filesystem::path model_path = "data";
   model_path /= "test_string_ecmaregex_replace.onnx";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].name = "input";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -110,7 +112,7 @@ TEST(string_operator, test_string_ecmaregex_replace) {
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
   outputs[0].dims = {1};
   outputs[0].values_string = {"a Test 1000 2000 3000 ♠♣"};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].name = "input";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -131,7 +133,7 @@ TEST(string_operator, test_string_ecmaregex_replace) {
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
   outputs[0].dims = {1};
   outputs[0].values_string = {"a Test 100 200 300 ♠♣"};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].name = "input";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -152,7 +154,7 @@ TEST(string_operator, test_string_ecmaregex_replace) {
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
   outputs[0].dims = {1};
   outputs[0].values_string = {"a+ Test+ 10+ 20+ 30+ ♠♣"};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].name = "input";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -173,7 +175,7 @@ TEST(string_operator, test_string_ecmaregex_replace) {
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
   outputs[0].dims = {1};
   outputs[0].values_string = {"a Test 10 20 30 ♣♠"};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].name = "input";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -194,7 +196,7 @@ TEST(string_operator, test_string_ecmaregex_replace) {
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
   outputs[0].dims = {3};
   outputs[0].values_string = {"Test 10 20 30 ", "Test 40 50 60 ", " Test 70 80 90 "};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].name = "input";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -215,7 +217,7 @@ TEST(string_operator, test_string_ecmaregex_replace) {
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
   outputs[0].dims = {1};
   outputs[0].values_string = {""};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   // Test case-insensitive and non-global matching case
   model_path = model_path.parent_path();
@@ -242,7 +244,7 @@ TEST(string_operator, test_string_ecmaregex_replace) {
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
   outputs[0].dims = {3};
   outputs[0].values_string = {"Test+ test", "tEsT+ Test", " TEST+ test"};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
 
 TEST(utils, test_string_join) {
@@ -272,7 +274,7 @@ TEST(utils, test_string_join) {
 
   std::filesystem::path model_path = "data";
   model_path /= "custom_op_string_join.onnx";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
 
 TEST(utils, test_string_join_values_empty_string) {
@@ -302,7 +304,7 @@ TEST(utils, test_string_join_values_empty_string) {
 
   std::filesystem::path model_path = "data";
   model_path /= "custom_op_string_join.onnx";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
 
 TEST(utils, test_string_join_dims_zero_values_empty) {
@@ -334,7 +336,7 @@ TEST(utils, test_string_join_dims_zero_values_empty) {
   std::filesystem::path model_path = "data";
   model_path /= "custom_op_string_join.onnx";
 
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
 
 TEST(utils, test_string_join_dims_empty_values_scalar) {
@@ -366,7 +368,7 @@ TEST(utils, test_string_join_dims_empty_values_scalar) {
   std::filesystem::path model_path = "data";
   model_path /= "custom_op_string_join.onnx";
 
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
 
 TEST(string_operator, test_vector_to_string) {
@@ -386,21 +388,21 @@ TEST(string_operator, test_vector_to_string) {
 
   std::filesystem::path model_path = "data";
   model_path /= "test_vector_to_string_scalar_map.onnx";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {5};
   inputs[0].values_int64 = {1000, 111, 2323, 444, 555};
 
   outputs[0].dims = {5};
   outputs[0].values_string = {"unk", "unk", "unk", "unk", "unk"};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {0};
   inputs[0].values_int64 = {};
 
   outputs[0].dims = {0};
   outputs[0].values_string = {};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {5, 3};
   inputs[0].values_int64 = {0, 0, 0, 0, 0, 1, 3, 0, 1, 100, 0, 1, 43, 23, 11};
@@ -412,14 +414,14 @@ TEST(string_operator, test_vector_to_string) {
   model_path /= "..";
   model_path /= "data";
   model_path /= "test_vector_to_string_vector_map.onnx";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {0, 3};
   inputs[0].values_int64 = {};
 
   outputs[0].dims = {0};
   outputs[0].values_string = {};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {};
   inputs[0].values_int64 = {111};
@@ -431,7 +433,7 @@ TEST(string_operator, test_vector_to_string) {
   model_path /= "..";
   model_path /= "data";
   model_path /= "test_vector_to_string_scalar_input.onnx";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
 
 TEST(string_operator, test_string_to_vector) {
@@ -451,21 +453,21 @@ TEST(string_operator, test_string_to_vector) {
 
   std::filesystem::path model_path = "data";
   model_path /= "test_string_to_vector.onnx";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {0};
   inputs[0].values_string = {};
 
   outputs[0].dims = {0, 3};
   outputs[0].values_int64 = {};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {1};
   inputs[0].values_string = {""};
 
   outputs[0].dims = {1, 3};
   outputs[0].values_int64 = {-1, -1, -1};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {};
   inputs[0].values_string = {""};
@@ -477,7 +479,7 @@ TEST(string_operator, test_string_to_vector) {
   model_path /= "..";
   model_path /= "data";
   model_path /= "test_string_to_vector_scalar.onnx";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
 
 TEST(string_operator, test_string_mapping) {
@@ -497,21 +499,21 @@ TEST(string_operator, test_string_mapping) {
 
   std::filesystem::path model_path = "data";
   model_path /= "test_string_mapping.onnx";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {};
   inputs[0].values_string = {"不知道啥颜色"};
 
   outputs[0].dims = {};
   outputs[0].values_string = {"也不知道可不可以"};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {};
   inputs[0].values_string = {""};
 
   outputs[0].dims = {};
   outputs[0].values_string = {""};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
 
 TEST(string_operator, test_masked_fill) {
@@ -536,7 +538,7 @@ TEST(string_operator, test_masked_fill) {
 
   std::filesystem::path model_path = "data";
   model_path /= "test_masked_fill.onnx";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {5};
   inputs[0].values_string = {"Orange and Yellow", "不知道啥颜色", "No color", "black", "white"};
@@ -546,7 +548,7 @@ TEST(string_operator, test_masked_fill) {
 
   outputs[0].dims = {0};
   outputs[0].values_string = {};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {5};
   inputs[0].values_string = {"Orange and Yellow", "不知道啥颜色", "No color", "black", "white"};
@@ -556,7 +558,7 @@ TEST(string_operator, test_masked_fill) {
 
   outputs[0].dims = {5};
   outputs[0].values_string = {"Orange and Yellow", "不知道啥颜色", "No color", "black", "white"};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {1};
   inputs[0].values_string = {"a"};
@@ -566,7 +568,7 @@ TEST(string_operator, test_masked_fill) {
 
   outputs[0].dims = {0};
   outputs[0].values_string = {};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {1};
   inputs[0].values_string = {"a"};
@@ -576,7 +578,7 @@ TEST(string_operator, test_masked_fill) {
 
   outputs[0].dims = {1};
   outputs[0].values_string = {"a"};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {0};
   inputs[0].values_string = {};
@@ -586,5 +588,5 @@ TEST(string_operator, test_masked_fill) {
 
   outputs[0].dims = {0};
   outputs[0].values_string = {};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }

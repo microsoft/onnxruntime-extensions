@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#ifdef ENABLE_CV2
+
 #include <filesystem>
 #include <fstream>
 #include <vector>
@@ -10,21 +12,9 @@
 
 #include "ocos.h"
 #include "test_kernel.hpp"
+#include "utils.hpp"
 
-namespace {
-std::vector<uint8_t> LoadBytesFromFile(const std::filesystem::path& filename) {
-  using namespace std;
-  ifstream ifs(filename, ios::binary | ios::ate);
-  ifstream::pos_type pos = ifs.tellg();
-
-  std::vector<uint8_t> input_bytes(pos);
-  ifs.seekg(0, ios::beg);
-  // we want uint8_t values so reinterpret_cast so we don't have to read chars and copy to uint8_t after.
-  ifs.read(reinterpret_cast<char*>(input_bytes.data()), pos);
-
-  return input_bytes;
-}
-}  // namespace
+using namespace ort_extensions::test;
 
 // Test DecodeImage and EncodeImage by providing a jpg image. Model will decode to BGR, encode to PNG and decode
 // again to BGR. We validate that the BGR output from that matches the original image.
@@ -63,5 +53,7 @@ TEST(VisionOps, image_decode_encode) {
   std::vector<TestValue> inputs{TestValue("image", image_data, {static_cast<int64_t>(image_data.size())})};
   std::vector<TestValue> outputs{TestValue("bgr_data", expected_output, output_dimensions)};
 
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
+
+#endif

@@ -3,22 +3,11 @@
 #include <filesystem>
 #include "gtest/gtest.h"
 #include "ocos.h"
-#include "ustring.h"
-#include "string_utils.h"
+#include "register_ext_ops.hpp"
 #include "string_tensor.h"
+#include "string_utils.h"
 #include "test_kernel.hpp"
-
-const char* GetLibraryPath() {
-#if defined(_WIN32)
-  return "ortextensions.dll";
-#elif defined(__APPLE__)
-  return "libortextensions.dylib";
-#elif defined(ANDROID) || defined(__ANDROID__)
-  return "libortextensions.so";
-#else
-  return "lib/libortextensions.so";
-#endif
-}
+#include "ustring.h"
 
 struct KernelOne : BaseKernel {
   KernelOne(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
@@ -48,7 +37,10 @@ struct KernelOne : BaseKernel {
   }
 };
 
-struct CustomOpOne : OrtW::CustomOpBase<CustomOpOne, KernelOne> {
+struct CustomOpOne : Ort::CustomOpBase<CustomOpOne, KernelOne> {
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
+    return new KernelOne(api, *info);
+  };
   const char* GetName() const {
     return "CustomOpOne";
   };
@@ -91,7 +83,10 @@ struct KernelTwo : BaseKernel {
   }
 };
 
-struct CustomOpTwo : OrtW::CustomOpBase<CustomOpTwo, KernelTwo> {
+struct CustomOpTwo : Ort::CustomOpBase<CustomOpTwo, KernelTwo> {
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
+    return new KernelTwo(api, *info);
+  };
   const char* GetName() const {
     return "CustomOpTwo";
   };
@@ -136,13 +131,9 @@ struct KernelThree : BaseKernel {
   std::string substr_;
 };
 
-struct CustomOpThree : OrtW::CustomOpBase<CustomOpThree, KernelThree> {
-  // This is  example code to show how to override the CustomOpBase::CreateKernel method even though it is not virtual.
-  // The CustomOpBase implementation will call the CreateKernel of the first class specified in the template,
-  // and from there it's also possible to call the base CreateKernel as per below.
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo& info) const {
-    std::cout << "Called CreateKernel override" << std::endl;
-    return OrtW::CustomOpBase<CustomOpThree, KernelThree>::CreateKernel(api, info);
+struct CustomOpThree : Ort::CustomOpBase<CustomOpThree, KernelThree> {
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
+    return new KernelThree(api, *info);
   };
   const char* GetName() const {
     return "CustomOpThree";
@@ -200,15 +191,17 @@ void GetTensorMutableDataString(const OrtApi& api, const OrtValue* value, std::v
   OrtW::ThrowOnError(api, api.GetStringTensorContent(value, (void*)result.data(), data_len, offsets.data(), offsets.size()));
   output.resize(len);
   for (int64_t i = (int64_t)len - 1; i >= 0; --i) {
-    if (i < len - 1)
+    if (i < static_cast<int64_t>(len) - 1) {
       result[offsets[i + (int64_t)1]] = '\0';
+    }
     output[i] = result.data() + offsets[i];
   }
 }
 
 void RunSession(Ort::Session& session_object,
                 const std::vector<TestValue>& inputs,
-                const std::vector<TestValue>& outputs) {
+                const std::vector<TestValue>& outputs,
+                OutputValidator output_validator) {
   std::vector<Ort::Value> ort_inputs;
   std::vector<const char*> input_names;
   std::vector<const char*> output_names;
@@ -266,50 +259,55 @@ void RunSession(Ort::Session& session_object,
     ASSERT_EQ(output_type, expected.element_type);
     std::vector<int64_t> dimension = type_info.GetShape();
     ASSERT_EQ(dimension, expected.dims);
-    size_t total_len = type_info.GetElementCount();
-    switch (expected.element_type) {
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
-        _assert_eq(*output_tensor, expected.values_float, total_len);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
-        _assert_eq(*output_tensor, expected.values_uint8, total_len);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
-        _assert_eq(*output_tensor, expected.values_int32, total_len);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
-        _assert_eq(*output_tensor, expected.values_int64, total_len);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING: {
-        std::vector<std::string> output_string;
-        GetTensorMutableDataString(Ort::GetApi(), *output_tensor, output_string);
-        ASSERT_EQ(expected.values_string, output_string);
-        break;
-      }
-      default:
-        throw std::runtime_error(MakeString(
-            "Unable to handle output ", index, " type ", expected.element_type,
-            " is not implemented yet."));
+    if (output_validator != nullptr) {
+      output_validator(index, *output_tensor, expected);
+    } else {
+      ValidateOutputEqual(index, *output_tensor, expected);
     }
+  }
+}
+
+void ValidateOutputEqual(size_t output_idx, Ort::Value& actual, TestValue expected) {
+  size_t total_len = actual.GetTensorTypeAndShapeInfo().GetElementCount();
+
+  switch (expected.element_type) {
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
+      _assert_eq(actual, expected.values_float, total_len);
+      break;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
+      _assert_eq(actual, expected.values_uint8, total_len);
+      break;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
+      _assert_eq(actual, expected.values_int32, total_len);
+      break;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
+      _assert_eq(actual, expected.values_int64, total_len);
+      break;
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING: {
+      std::vector<std::string> output_string;
+      GetTensorMutableDataString(Ort::GetApi(), actual, output_string);
+      ASSERT_EQ(expected.values_string, output_string);
+      break;
+    }
+    default:
+      throw std::runtime_error(MakeString(
+          "Unable to handle output ", output_idx, " type ", expected.element_type,
+          " is not implemented yet."));
   }
 }
 
 void TestInference(Ort::Env& env, const ORTCHAR_T* model_uri,
                    const std::vector<TestValue>& inputs,
                    const std::vector<TestValue>& outputs,
-                   const char* custom_op_library_filename) {
+                   OutputValidator output_validator) {
   Ort::SessionOptions session_options;
-  void* handle = nullptr;
-  if (custom_op_library_filename) {
-    Ort::ThrowOnError(Ort::GetApi().RegisterCustomOpsLibrary((OrtSessionOptions*)session_options,
-                                                             custom_op_library_filename, &handle));
-  }
+  auto library_handle = RegisterExtOps(session_options);
 
   // if session creation passes, model loads fine
   Ort::Session session(env, model_uri, session_options);
 
   // Now run
-  RunSession(session, inputs, outputs);
+  RunSession(session, inputs, outputs, output_validator);
 }
 
 static CustomOpOne op_1st;
@@ -345,7 +343,7 @@ TEST(utils, test_ort_case) {
   model_path /= "custom_op_test.onnx";
   AddExternalCustomOp(&op_1st);
   AddExternalCustomOp(&op_2nd);
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
 
 static CustomOpThree op_3rd;
@@ -370,7 +368,7 @@ TEST(utils, test_get_str_attr) {
   std::filesystem::path model_path = "data";
   model_path /= "custom_op_str_attr_test.onnx";
   AddExternalCustomOp(&op_3rd);
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   // Expected output when the attribute is missing from the node.
   std::vector<TestValue> outputs_missing(1);
@@ -381,7 +379,7 @@ TEST(utils, test_get_str_attr) {
 
   std::filesystem::path model_missing_attr_path = "data";
   model_missing_attr_path /= "custom_op_str_attr_missing_test.onnx";
-  TestInference(*ort_env, model_missing_attr_path.c_str(), inputs, outputs_missing, GetLibraryPath());
+  TestInference(*ort_env, model_missing_attr_path.c_str(), inputs, outputs_missing);
 }
 
 TEST(ustring, tensor_operator) {

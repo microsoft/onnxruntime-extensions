@@ -1,0 +1,24 @@
+	:û
+í
+
+auth_token
+str_instr_out1str_out2triton_invoker"AzureTritonInvoker*
+
+model_name"str *G
+	model_uri"7https://endpoint-7270363.westus2.inference.ml.azure.com *
+model_version"1 *
+verbose"1 :com.microsoft.extensionsgraphZ!
+
+auth_token
+
+ÿÿÿÿÿÿÿÿÿZ
+str_in
+
+ÿÿÿÿÿÿÿÿÿb
+str_out1
+
+ÿÿÿÿÿÿÿÿÿb
+str_out2
+
+ÿÿÿÿÿÿÿÿÿB
+com.microsoft.extensions

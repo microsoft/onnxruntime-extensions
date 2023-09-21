@@ -1,9 +1,16 @@
+parameters:
+- name: ExtraEnv
+  displayName: 'Extra env variable set to CIBW_ENVIRONMENT, in form of "A=1 B=2 C=3"'
+  type: string
+  default: 'OCOS_ENABLE_AZURE=1'
+
 jobs:
 - job: linux
-  timeoutInMinutes: 120
+  timeoutInMinutes: 180
   pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
   variables:
     CIBW_BUILD: "cp3{8,9,10,11}-*"
+    CIBW_ENVIRONMENT: "${{ parameters.ExtraEnv }}"
 
   steps:
     - task: UsePythonVersion@0

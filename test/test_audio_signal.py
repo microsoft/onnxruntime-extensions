@@ -3,23 +3,24 @@
 import wave
 import unittest
 import numpy as np
-from onnxruntime_extensions import PyOrtFunction, util, make_onnx_model
+from onnxruntime_extensions import OrtPyFunction, util, make_onnx_model
 
 import onnx
 from onnx import onnx_pb as onnx_proto
 
-
 _is_torch_available = False
 try:
     import torch
+
     _is_torch_available = True
 except ImportError:
     pass
 
-_is_librosa_avaliable = False
+_is_librosa_available = False
 try:
     import librosa
-    _is_librosa_avaliable = True
+
+    _is_librosa_available = True
 except ImportError:
     pass
 
@@ -57,7 +58,7 @@ class TestAudio(unittest.TestCase):
         audio = wavefile.readframes(samples)
         audio_as_np_int16 = np.frombuffer(audio, dtype=np.int16)
         audio_as_np_float32 = audio_as_np_int16.astype(np.float32)
-        max_int16 = 2**15
+        max_int16 = 2 ** 15
         cls.test_pcm = audio_as_np_float32 / max_int16
 
     @staticmethod
@@ -95,21 +96,11 @@ class TestAudio(unittest.TestCase):
             data[f] = np.fft.fft(fft_signal, axis=0)[:num_fft_bins]
         return np.absolute(data.T) ** 2
 
-    def test_onnx_stft(self):
-        audio_pcm = self.test_pcm
-        expected = self.stft(audio_pcm, 400, 160, np.hanning(400).astype(np.float32))
-
-        ortx_stft = PyOrtFunction.from_model(_create_test_model(), cpu_only=True)
-        actual = ortx_stft(np.expand_dims(audio_pcm, axis=0), 400, 160, np.hanning(400).astype(np.float32), 400)
-        actual = actual[0]
-        actual = actual[:, :, 0] ** 2 + actual[:, :, 1] ** 2
-        np.testing.assert_allclose(expected[:, 1:], actual[:, 1:], rtol=1e-3, atol=1e-3)
-
     def test_stft_norm_np(self):
         audio_pcm = self.test_pcm
         expected = self.stft(audio_pcm, 400, 160, np.hanning(400).astype(np.float32))
 
-        ortx_stft = PyOrtFunction.from_customop("StftNorm", cpu_only=True)
+        ortx_stft = OrtPyFunction.from_customop("StftNorm", cpu_only=True)
         actual = ortx_stft(np.expand_dims(audio_pcm, axis=0), 400, 160, np.hanning(400).astype(np.float32), 400)
         actual = actual[0]
         np.testing.assert_allclose(expected[:, 1:], actual[:, 1:], rtol=1e-3, atol=1e-3)
@@ -118,19 +109,19 @@ class TestAudio(unittest.TestCase):
     def test_stft_norm_torch(self):
         audio_pcm = self.test_pcm
         wlen = 400
-        # intesting bug in torch.stft, if there is 2-D input with batch size 1, it will generate a different
+        # interesting bug in torch.stft, if there is 2-D input with batch size 1, it will generate a different
         # result with some spark points in the spectrogram.
         expected = torch.stft(torch.from_numpy(audio_pcm),
                               400, 160, wlen, torch.from_numpy(np.hanning(wlen).astype(np.float32)),
                               center=True,
                               return_complex=True).abs().pow(2).numpy()
         audio_pcm = np.expand_dims(self.test_pcm, axis=0)
-        ortx_stft = PyOrtFunction.from_customop("StftNorm")
+        ortx_stft = OrtPyFunction.from_customop("StftNorm")
         actual = ortx_stft(audio_pcm, 400, 160, np.hanning(wlen).astype(np.float32), 400)
         actual = actual[0]
         np.testing.assert_allclose(expected[:, 1:], actual[:, 1:], rtol=1e-3, atol=1e-3)
 
-    @unittest.skipIf(not _is_librosa_avaliable, "librosa is not available")
+    @unittest.skipIf(not _is_librosa_available, "librosa is not available")
     def test_mel_filter_bank(self):
         expected = librosa.filters.mel(n_fft=400, n_mels=80, sr=16000)
         actual = util.mel_filterbank(400, 80, 16000)

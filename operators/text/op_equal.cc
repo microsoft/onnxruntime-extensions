@@ -11,6 +11,6 @@ KernelStringEqual::KernelStringEqual(const OrtApi& api, const OrtKernelInfo& inf
 void KernelStringEqual::Compute(OrtKernelContext* context,
                                 const ortc::Tensor<std::string>&,
                                 const ortc::Tensor<std::string>&,
-                                ortc::Tensor<bool>& output) {
+                                ortc::Tensor<bool>& output) const {
   KernelEqual_Compute<std::string>(api_, ort_, context);
 }

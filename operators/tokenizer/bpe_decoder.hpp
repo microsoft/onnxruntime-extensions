@@ -13,6 +13,9 @@
 #include <set>
 #include <map>
 #include <unordered_map>
+#include <algorithm>
+#include <sstream>
+
 
 struct KernelBpeDecoder : public BaseKernel {
  public:
@@ -100,7 +103,7 @@ struct KernelBpeDecoder : public BaseKernel {
   }
 
   void Compute(const ortc::Tensor<int64_t>& ids,
-               ortc::Tensor<std::string>& output) {
+               ortc::Tensor<std::string>& output) const {
     const int64_t* p_ids = ids.Data();
     const auto& ids_dim = ids.Shape();
     std::vector<int64_t> output_dim = {1};

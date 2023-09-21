@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
 #include "sentencepiece_processor.h"
@@ -24,13 +24,6 @@ KernelSentencepieceTokenizer::KernelSentencepieceTokenizer(const OrtApi& api, co
                        ORT_FAIL);
 }
 
-static void _check_dimension_constant(OrtW::CustomOpApi ort, const OrtValue* ort_value, const char* name) {
-  OrtTensorDimensions dimensions(ort, ort_value);
-  if (dimensions.size() != 1 || dimensions[0] != 1)
-    ORTX_CXX_API_THROW(MakeString(name, " must contain only one element. It has ", dimensions.size(), " dimensions."),
-                       ORT_INVALID_ARGUMENT);
-}
-
 void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& input,
                                            int64_t /*nbest_size*/,
                                            float /*alpha*/,
@@ -38,7 +31,8 @@ void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& inpu
                                            bool add_eos,
                                            bool add_rev,
                                            ortc::Tensor<int32_t>& output,
-                                           ortc::Tensor<int64_t>& output1) {
+                                           ortc::Tensor<int64_t>& output1,
+                                           std::optional<bool> fairseq) const {
   // Update with the new API
   auto& str_input = input.Data();
   // computation
@@ -67,6 +61,28 @@ void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& inpu
       content.insert(content.end(), inloop.begin(), inloop.end());
       if (add_eos) {
         content.push_back(tokenizer_.eos_id());
+      }
+
+      if (fairseq.has_value() && (*fairseq)) {
+        // HF Fairseq Example (XLMRobertaTokenizer) : https://huggingface.co/transformers/v4.6.0/_modules/transformers/models/xlm_roberta/tokenization_xlm_roberta.html#XLMRobertaTokenizer
+        //
+        // Original fairseq vocab and spm vocab must be "aligned":
+        // Vocab    |    0    |    1    |    2    |    3    |  4  |  5  |  6  |   7   |   8   | 9
+        // -------- | ------- | ------- | ------  | ------- | --- | --- | --- | ----- | ----- | ----
+        // fairseq  | '<s>'   | '<pad>' | '</s>'  | '<unk>' | ',' | '.' | '▁' | 's'   | '▁de' | '-'
+        // spm      | '<unk>' | '<s>'   | '</s>'  | ','     | '.' | '▁' | 's' | '▁de' | '-'   | '▁a'
+        //
+        // As per HF, the first "real" token "," has position 4 in the XLMRobertaTokenizer vocab and position
+        // 3 in the SPM vocab, so we add a padding value of 1 to IDs, and fix exceptions for '<unk>' and '<s>'.
+        std::for_each(content.begin(), content.end(), [](int& n) {
+          if (n == 0) { // '<unk>': 0 -> 3
+            n = 3;
+          } else if (n == 1) { // '<s>': 1 -> 0
+            n = 0;
+          } else if (n != 2) { // '</s>': 2 -> 2, '<*>': x -> x + 1
+            n++;
+          }
+        });
       }
     }
   }

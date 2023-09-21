@@ -74,23 +74,31 @@ class BuildCMakeExt(_build_ext):
         project_dir = pathlib.Path().absolute()
         build_temp = pathlib.Path(self.build_temp)
         build_temp.mkdir(parents=True, exist_ok=True)
-        ext_fullpath = pathlib.Path(self.get_ext_fullpath(extension.name))
+        ext_fullpath = pathlib.Path(self.get_ext_fullpath(extension.name)).absolute()
 
         config = 'RelWithDebInfo' if self.debug else 'Release'
         cmake_args = [
             '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + str(ext_fullpath.parent.absolute()),
             '-DOCOS_BUILD_PYTHON=ON',
-            '-DOCOS_EXTENTION_NAME=' + ext_fullpath.name,
+            '-DOCOS_PYTHON_MODULE_PATH=' + str(ext_fullpath),
             '-DCMAKE_BUILD_TYPE=' + config
         ]
 
         if os.environ.get('OCOS_NO_OPENCV') == '1':
             # Disabling openCV can drastically reduce the build time.
             cmake_args += [
-                '-DOCOS_ENABLE_CTEST=OFF',
                 '-DOCOS_ENABLE_OPENCV_CODECS=OFF',
                 '-DOCOS_ENABLE_CV2=OFF',
                 '-DOCOS_ENABLE_VISION=OFF']
+
+        # explicitly set the flag for AzureOp, despite the default value in CMakeLists.txt
+        azure_flag = "ON" if os.environ.get('OCOS_ENABLE_AZURE') == '1' else None
+        if azure_flag is None:
+            # OCOS_NO_AZURE will be ignored if OCOS_ENABLE_AZURE is set.
+            azure_flag = "OFF" if os.environ.get('OCOS_NO_AZURE') == '1' else None
+        if azure_flag is not None:
+            cmake_args += ['-DOCOS_ENABLE_AZURE=' + azure_flag]
+            print("=> AzureOp build flag: " + azure_flag)
 
         # CMake lets you override the generator - we need to check this.
         # Can be set with Conda-Build, for example.
@@ -146,20 +154,12 @@ class BuildCMakeExt(_build_ext):
         if os.environ.get(VSINSTALLDIR_NAME):
             cmake_exe = os.environ[VSINSTALLDIR_NAME] + \
                         'Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe'
+            # Add this cmake directory into PATH to make sure the child-process still find it.
+            os.environ['PATH'] = os.path.dirname(cmake_exe) + os.pathsep + os.environ['PATH']
 
         self.spawn([cmake_exe, '-S', str(project_dir), '-B', str(build_temp)] + cmake_args)
         if not self.dry_run:
             self.spawn([cmake_exe, '--build', str(build_temp)] + build_args)
-
-        if sys.platform == "win32":
-            config_dir = '.'
-            if not (build_temp / 'build.ninja').exists():
-                config_dir = config
-            self.copy_file(build_temp / 'bin' / config_dir / 'extensions_pydll.dll', ext_fullpath,
-                           link='hard' if self.debug else None)
-        else:
-            self.copy_file(build_temp / 'lib' / ext_fullpath.name, ext_fullpath,
-                           link='sym' if self.debug else None)
 
 
 class Build(_build):

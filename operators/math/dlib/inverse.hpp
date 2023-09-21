@@ -6,11 +6,11 @@
 #include "ocos.h"
 #include <dlib/matrix.h>
 
-void inverse(const ortc::Tensor<float>& input,
+OrtStatusPtr inverse(const ortc::Tensor<float>& input,
              ortc::Tensor<float>& output) {
   auto& dimensions = input.Shape();
   if (dimensions.size() != 2) {
-    throw std::runtime_error("Only 2-d matrix supported.");
+    return OrtW::CreateStatus("Only 2-d matrix supported.", ORT_INVALID_ARGUMENT);
   }
   const float* X = input.Data();
   float* out = output.Allocate(dimensions);
@@ -19,4 +19,6 @@ void inverse(const ortc::Tensor<float>& input,
   std::copy(X, X + dm_x.size(), dm_x.begin());
   dlib::matrix<float> dm = dlib::inv(dm_x);
   memcpy(out, dm.steal_memory().get(), dm_x.size() * sizeof(float));
+
+  return nullptr;
 }

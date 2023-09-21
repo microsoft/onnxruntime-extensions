@@ -3,11 +3,11 @@
 
 #pragma once
 
-#define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
-#include <string>
 #include <algorithm>
+#include <cassert>
 #include <functional>
 #include <iterator>
+#include <string>
 #include <vector>
 
 #include "onnxruntime_customop.hpp"
@@ -20,7 +20,8 @@ constexpr const char* c_OpDomain = "ai.onnx.contrib";
 constexpr const char* c_ComMsExtOpDomain = "com.microsoft.extensions";
 
 struct BaseKernel {
-  BaseKernel(const OrtApi& api, const OrtKernelInfo& info) noexcept : api_(api), info_(info), ort_(api_) {
+  BaseKernel(const OrtApi& api, const OrtKernelInfo& info) noexcept
+      : api_(api), info_(info), ort_(api_) {
   }
 
   template <class T>
@@ -38,6 +39,7 @@ struct BaseKernel {
 
  protected:
   OrtErrorCode GetErrorCodeAndRelease(OrtStatusPtr status) const noexcept;
+
   const OrtApi& api_;
   OrtW::CustomOpApi ort_;
   const OrtKernelInfo& info_;
@@ -87,6 +89,11 @@ class CuopContainer {
 
 #define CustomCpuFunc(name, f) []() { return std::shared_ptr<ortc::OrtLiteCustomOp>(ortc::CreateLiteCustomOp(name, "CPUExecutionProvider", f)); }
 #define CustomCpuStruct(name, s) []() { return std::shared_ptr<ortc::OrtLiteCustomOp>(ortc::CreateLiteCustomOp<s>(name, "CPUExecutionProvider")); }
+#define CustomAzureStruct(name, s) []() { return std::shared_ptr<ortc::OrtLiteCustomOp>(ortc::CreateLiteCustomOp<s>(name, "AzureExecutionProvider")); }
+
+#define CustomCpuFuncV2(name, f) []() { return std::shared_ptr<ortc::OrtLiteCustomOp>(ortc::CreateLiteCustomOpV2(name, "CPUExecutionProvider", f)); }
+#define CustomCpuStructV2(name, s) []() { return std::shared_ptr<ortc::OrtLiteCustomOp>(ortc::CreateLiteCustomOpV2<s>(name, "CPUExecutionProvider")); }
+
 
 template <typename F>
 void AppendCustomOp(std::vector<std::shared_ptr<OrtCustomOp>>& ops,
@@ -132,16 +139,17 @@ class OrtOpLoader {
   std::vector<std::shared_ptr<OrtCustomOp>> op_instances_;
 };
 
-struct CustomOpClassBegin {
+struct CustomOpClassNull {
 };
 
-using FxLoadCustomOpFactory = std::function<const std::vector<const OrtCustomOp*>&()>;
-
-template <typename _Begin_place_holder, typename... Args>
+template <typename _Begin_place_holder = CustomOpClassNull, typename... Args>
 const std::vector<const OrtCustomOp*>& LoadCustomOpClasses() {
   static CuopContainer<Args...> ctr;  // Let C++ runtime take cares of the MP initializing.
   return ctr.GetCustomOps();
 }
+
+using CustomOpArray = const std::vector<const OrtCustomOp*>;
+using FxLoadCustomOpFactory = std::function<CustomOpArray&()>;
 
 #if defined(PYTHON_OP_SUPPORT)
 const OrtCustomOp* FetchPyCustomOps(size_t& count);
@@ -170,4 +178,8 @@ extern FxLoadCustomOpFactory LoadCustomOpClasses_Vision;
 
 #ifdef ENABLE_DR_LIBS
 extern FxLoadCustomOpFactory LoadCustomOpClasses_Audio;
+#endif
+
+#if ENABLE_AZURE
+extern FxLoadCustomOpFactory LoadCustomOpClasses_Azure;
 #endif

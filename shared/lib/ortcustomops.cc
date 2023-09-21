@@ -3,6 +3,8 @@
 
 #include <mutex>
 #include <set>
+#include <cstdlib>  // for std::atoi
+#include <string>
 
 #include "onnxruntime_extensions.h"
 #include "ocos.h"
@@ -59,6 +61,35 @@ class ExternalCustomOps {
   std::vector<const OrtCustomOp*> op_array_;
 };
 
+static int GetOrtVersion(const OrtApiBase* api_base = nullptr) noexcept{
+  // the version will be cached after the first call on RegisterCustomOps
+  static int ort_version = MIN_ORT_VERSION_SUPPORTED;  // the default version is 1.11.0
+
+  if (api_base != nullptr) {
+    std::string str_version = api_base->GetVersionString();
+
+    std::size_t first_dot = str_version.find('.');
+    if (first_dot != std::string::npos) {
+      std::size_t second_dot = str_version.find('.', first_dot + 1);
+      // If there is no second dot and the string has more than one character after the first dot, set second_dot to the string length
+      if (second_dot == std::string::npos && first_dot + 1 < str_version.length()) {
+        second_dot = str_version.length();
+      }
+
+      if (second_dot != std::string::npos) {
+        std::string str_minor_version = str_version.substr(first_dot + 1, second_dot - first_dot - 1);
+        int ver = std::atoi(str_minor_version.c_str());
+        // Only change ort_version if conversion is successful (non-zero value)
+        if (ver != 0) {
+          ort_version = ver;
+        }
+      }
+    }
+  }
+
+  return ort_version;
+}
+
 extern "C" bool ORT_API_CALL AddExternalCustomOp(const OrtCustomOp* c_op) {
   OCOS_API_IMPL_BEGIN
   ExternalCustomOps::instance().Add(c_op);
@@ -66,12 +97,27 @@ extern "C" bool ORT_API_CALL AddExternalCustomOp(const OrtCustomOp* c_op) {
   return true;
 }
 
+extern "C" int ORT_API_CALL GetActiveOrtAPIVersion() {
+  int ver = 0;
+  OCOS_API_IMPL_BEGIN
+  ver = GetOrtVersion();
+  OCOS_API_IMPL_END
+  return ver;
+}
+
+
+// The main entrance of the extension library.
 extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api) {
   OrtStatus* status = nullptr;
   OCOS_API_IMPL_BEGIN
 
+  // the following will initiate some global objects which
+  //  means any other function invocatoin prior to these calls to trigger undefined behavior.
+  auto ver = GetOrtVersion(api);
+  const OrtApi* ortApi = api->GetApi(ver);
+  API::instance(ortApi);
+
   OrtCustomOpDomain* domain = nullptr;
-  const OrtApi* ortApi = api->GetApi(ORT_API_VERSION);
   std::set<std::string> pyop_nameset;
 
 #if defined(PYTHON_OP_SUPPORT)
@@ -101,27 +147,22 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
 #endif
 
   static std::vector<FxLoadCustomOpFactory> c_factories = {
-    LoadCustomOpClasses<CustomOpClassBegin>
 #if defined(ENABLE_TF_STRING)
-    ,
-    LoadCustomOpClasses_Text
+    LoadCustomOpClasses_Text,
 #endif  // ENABLE_TF_STRING
 #if defined(ENABLE_MATH)
-    ,
-    LoadCustomOpClasses_Math
+    LoadCustomOpClasses_Math,
 #endif
 #if defined(ENABLE_TOKENIZER)
-    ,
-    LoadCustomOpClasses_Tokenizer
+    LoadCustomOpClasses_Tokenizer,
 #endif
 #if defined(ENABLE_CV2)
-    ,
-    LoadCustomOpClasses_CV2
+    LoadCustomOpClasses_CV2,
 #endif
 #if defined(ENABLE_DR_LIBS)
-    ,
-    LoadCustomOpClasses_Audio
+    LoadCustomOpClasses_Audio,
 #endif
+    LoadCustomOpClasses<>
   };
 
   for (const auto& fx : c_factories) {
@@ -150,6 +191,10 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
     return status;
   }
 
+  //
+  // New custom ops should use the com.microsoft.extensions domain.
+  //
+
   // Create domain for ops using the new domain name.
   if (status = ortApi->CreateCustomOpDomain(c_ComMsExtOpDomain, &domain); status) {
     return status;
@@ -158,15 +203,16 @@ extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptio
   AddOrtCustomOpDomainToContainer(domain, ortApi);
 
   static std::vector<FxLoadCustomOpFactory> new_domain_factories = {
-    LoadCustomOpClasses<CustomOpClassBegin>
 #if defined(ENABLE_VISION)
-    ,
-    LoadCustomOpClasses_Vision
+    LoadCustomOpClasses_Vision,
 #endif
 #if defined(ENABLE_TOKENIZER)
-    ,
-    LoadCustomOpClasses_Tokenizer
+    LoadCustomOpClasses_Tokenizer,
 #endif
+#if defined(ENABLE_AZURE)
+    LoadCustomOpClasses_Azure,
+#endif
+    LoadCustomOpClasses<>
   };
 
   for (const auto& fx : new_domain_factories) {

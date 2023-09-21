@@ -7,15 +7,15 @@ import io
 import numpy as np
 import onnxruntime as ort
 import os
-from typing import List
 
 from PIL import Image
 from pathlib import Path
-from distutils.version import LooseVersion
+from packaging import version
 # NOTE: This assumes you have created an editable pip install for onnxruntime_extensions by running
 # `pip install -e .` from the repo root.
 from onnxruntime_extensions import get_library_path
 from onnxruntime_extensions.tools import add_pre_post_processing_to_model as add_ppp
+from onnxruntime_extensions.tools import add_HuggingFace_CLIPImageProcessor_to_model as add_clip_feature
 from onnxruntime_extensions.tools import pre_post_processing as pre_post_processing
 from onnxruntime_extensions.tools.pre_post_processing.steps import *
 
@@ -40,8 +40,14 @@ test_data_dir = os.path.join(ort_ext_root, "test", "data", "ppp_vision")
 #     assert(len(labels) == 1000 if is_pytorch else 1001)
 #     return labels
 
-@unittest.skipIf(LooseVersion(ort.__version__) < LooseVersion("1.13"), "only supported in ort 1.13 and above")
+@unittest.skipIf(version.parse(ort.__version__) < version.parse("1.13"), "only supported in ort 1.13 and above")
 class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        temp4onnx = Path(test_data_dir).parent / "temp_4onnx"
+        temp4onnx.mkdir(parents=True, exist_ok=True)
+        cls.temp4onnx = temp4onnx
+
     def test_pytorch_mobilenet(self):
         input_model = os.path.join(test_data_dir, "pytorch_mobilenet_v2.onnx")
         output_model = os.path.join(test_data_dir, "pytorch_mobilenet_v2.updated.onnx")
@@ -81,6 +87,66 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
             s = ort.InferenceSession(output_model, so, providers=['CPUExecutionProvider'])
             probabilities = s.run(None, {"image": np.array(input_bytes)})[0]
             probabilities = np.squeeze(probabilities)  # remove batch dim
+            return probabilities
+
+        orig_results = orig_output()
+        new_results = new_output()
+
+        orig_idx = np.argmax(orig_results)
+        new_idx = np.argmax(new_results)
+        self.assertEqual(orig_idx, new_idx)
+        # check within 1%. probability values are in range 0..1
+        self.assertTrue(abs(orig_results[orig_idx] - new_results[new_idx]) < 0.01)
+
+    def test_pytorch_mobilenet_using_clip_feature(self):
+        input_model = os.path.join(test_data_dir, "pytorch_mobilenet_v2.onnx")
+        output_model = os.path.join(test_data_dir, "pytorch_mobilenet_v2.updated.onnx")
+        input_image_path = os.path.join(test_data_dir, "wolves.jpg")
+
+        add_clip_feature.clip_image_processor(Path(input_model), Path(output_model), opset=16, do_resize=True, 
+                                              do_center_crop=True, do_normalize=True, do_rescale=True,
+                                              do_convert_rgb=True, size=256, crop_size=224, 
+                                              rescale_factor=1/255, image_mean=[0.485, 0.456, 0.406],
+                                              image_std=[0.229, 0.224, 0.225])
+
+        def orig_output():
+            from torchvision import transforms
+            input_image = Image.open(input_image_path)
+            preprocess = transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ])
+            input_tensor = preprocess(input_image)
+            input_batch = input_tensor.unsqueeze(
+                0).detach().cpu().numpy()  # create a mini-batch as expected by the model
+
+            s = ort.InferenceSession(input_model, providers=['CPUExecutionProvider'])
+            scores = s.run(None, {"x": np.array(input_batch)})
+            scores = np.squeeze(scores)
+
+            def softmax(x):
+                e_x = np.exp(x - np.max(x))
+                return e_x / e_x.sum()
+
+            probabilities = softmax(scores)
+            return probabilities
+
+        def new_output():
+            input_bytes = np.fromfile(input_image_path, dtype=np.uint8)
+            so = ort.SessionOptions()
+            so.register_custom_ops_library(get_library_path())
+
+            s = ort.InferenceSession(output_model, so, providers=['CPUExecutionProvider'])
+            probabilities = s.run(None, {"image": np.array(input_bytes)})[0]
+            scores = np.squeeze(probabilities)  # remove batch dim
+
+            def softmax(x):
+                e_x = np.exp(x - np.max(x))
+                return e_x / e_x.sum()
+
+            probabilities = softmax(scores)
             return probabilities
 
         orig_results = orig_output()
@@ -149,7 +215,6 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         # expected output is result of running the model that was manually compared to output from the
         # original pytorch model using torchvision and PIL for pre/post processing. the difference currently is due
         # to ONNX Resize not supporting antialiasing.
-        from packaging import version
         if version.parse(ort.__version__) >= version.parse("1.14.0"):
             onnx_opset = 18
             expected_output_image_path = os.path.join(test_data_dir, "test_superresolution.expected.opset18.png")
@@ -207,7 +272,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         return
 
     def test_sentencepiece_tokenizer(self):
-        output_model = (Path(test_data_dir) / "../sentencePiece.onnx").resolve()
+        output_model = (self.temp4onnx / "sentencePiece.onnx").resolve()
 
         input_text = ("This is a test sentence",)
         ref_output = [np.array([[0, 3293, 83, 10, 3034, 149357, 2]]),
@@ -232,7 +297,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         self.assertEqual(np.allclose(result[1], ref_output[1]), True)
 
     def test_bert_tokenizer(self):
-        output_model = (Path(test_data_dir) / "../bert_tokenizer.onnx").resolve()
+        output_model = (self.temp4onnx / "bert_tokenizer.onnx").resolve()
         input_text = ("This is a test sentence",)
         ref_output = [
             np.array([[2, 236, 118, 16, 1566, 875, 643, 3]]),
@@ -257,7 +322,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         self.assertEqual(np.allclose(result[2], ref_output[1]), True)
 
     def test_hfbert_tokenizer(self):
-        output_model = (Path(test_data_dir) / "../hfbert_tokenizer.onnx").resolve()
+        output_model = (self.temp4onnx / "hfbert_tokenizer.onnx").resolve()
         ref_output = ([
             np.array([[2, 236, 118, 16, 1566, 875, 643, 3, 236, 118, 978, 1566, 875, 643, 3]]),
             np.array([[0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1]]),
@@ -283,7 +348,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         self.assertEqual(np.allclose(result[2], ref_output[1]), True)
 
     def test_qatask_with_tokenizer(self):
-        output_model = (Path(test_data_dir) / "../hfbert_tokenizer.onnx").resolve()
+        output_model = (self.temp4onnx / "hfbert_tokenizer.onnx").resolve()
         ref_output = [np.array(["[CLS]"])]
         # tokenizer = transformers.AutoTokenizer.from_pretrained("lordtt13/emo-mobilebert")
         tokenizer_parameters = TokenizerParam(vocab_or_file=os.path.join(test_data_dir, "../hfbert.vocab"),
@@ -333,7 +398,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         sys.path.append(test_data_dir)
         import create_boxdrawing_model
 
-        output_model = (Path(test_data_dir) / "../draw_bounding_box.onnx").resolve()
+        output_model = (self.temp4onnx / "draw_bounding_box.onnx").resolve()
         test_boxes = [np.array([[220.0, 180.0, 450.0, 380.0, 0.5, 0.0]], dtype=np.float32),
                       np.array([[35.0, 200.0, 220.0, 340.0, 0.5, 0.0]], dtype=np.float32)]
         ref_img = ['wolves_with_box_crop.jpg', 'wolves_with_box_pad.jpg']
@@ -349,7 +414,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         sys.path.append(test_data_dir)
         import create_boxdrawing_model
 
-        output_model = (Path(test_data_dir) / "../draw_bounding_box.onnx").resolve()
+        output_model = (self.temp4onnx / "draw_bounding_box.onnx").resolve()
         test_boxes = np.array([
             [0, 0, 180.0, 150.0, 0.5, 0.0],
             [240, 0, 240.0, 150.0, 0.5, 0.0],
@@ -369,7 +434,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         sys.path.append(test_data_dir)
         import create_boxdrawing_model
 
-        output_model = (Path(test_data_dir) / "../draw_bounding_box.onnx").resolve()
+        output_model = (self.temp4onnx / "draw_bounding_box.onnx").resolve()
         test_boxes = np.array([
             [20, 20, 180.0, 150.0, 0.5, 0.0],
             [340, 0, 240.0, 150.0, 0.5, 0.0],
@@ -389,7 +454,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         sys.path.append(test_data_dir)
         import create_boxdrawing_model
 
-        output_model = (Path(test_data_dir) / "../draw_bounding_box.onnx").resolve()
+        output_model = (self.temp4onnx / "draw_bounding_box.onnx").resolve()
         test_boxes = np.array([
             [0, 0, 180.0, 150.0, 0.15, 10.0],
             [240, 0, 140.0, 150.0, 0.25, 1.0],
@@ -419,7 +484,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         sys.path.append(test_data_dir)
         import create_boxdrawing_model
 
-        output_model = (Path(test_data_dir) / "../draw_bounding_box.onnx").resolve()
+        output_model = (self.temp4onnx / "draw_bounding_box.onnx").resolve()
         test_boxes = np.array([
             [0, 0, 180.0, 150.0, 0.15, 0.0],
             [240, 0, 140.0, 150.0, 0.25, 0.0],
@@ -452,7 +517,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         sys.path.append(test_data_dir)
         import create_boxdrawing_model
 
-        output_model = (Path(test_data_dir) / "../draw_bounding_box.onnx").resolve()
+        output_model = (self.temp4onnx / "draw_bounding_box.onnx").resolve()
         test_boxes = np.array([
             [0, 0, 240, 240, 0.5, 0.0],
             [40, 40, 240, 240, 0.5, 0.0],
@@ -472,7 +537,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         sys.path.append(test_data_dir)
         import create_boxdrawing_model
 
-        output_model = (Path(test_data_dir) / "../draw_bounding_box.onnx").resolve()
+        output_model = (self.temp4onnx / "draw_bounding_box.onnx").resolve()
         test_boxes = np.array([
             [0, 0, 40, 40, 0.5, 0.0],
             [40, 40, 40, 40, 0.5, 0.0],
@@ -522,7 +587,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         onnx.save_model(new_model, output_model)
 
     def test_NMS_and_drawing_box_without_confOfObj(self):
-        output_model = (Path(test_data_dir) / "../nms.onnx").resolve()
+        output_model = (self.temp4onnx / "nms.onnx").resolve()
         self.create_pipeline_and_run_for_nms(output_model, iou_threshold=0.9, length=5)
         input_data = [
             [0, 0, 240, 240, 0.75],
@@ -542,7 +607,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         self.assertEqual((out == output_data_ref).all(), True)
 
     def test_NMS_and_drawing_box_with_confOfObj(self):
-        output_model = (Path(test_data_dir) / "../nms.onnx").resolve()
+        output_model = (self.temp4onnx / "nms.onnx").resolve()
         self.create_pipeline_and_run_for_nms(output_model, iou_threshold=0.9, score_threshold=0.5, length=6)
         input_data = [
             [0, 0, 240, 240, 0.75, 0.9],
@@ -562,8 +627,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         self.assertEqual(np.abs(out-output_data_ref).max() < 10e-6, True)
 
     def test_NMS_and_drawing_box_iou_and_score_threshold(self):
-        output_model = (Path(test_data_dir) / "../nms.onnx").resolve()
-        
+        output_model = (self.temp4onnx / "nms.onnx").resolve()
+
         def get_model_output():
             input_data = [
                 [0, 0, 240, 240, 0.75, 0.9],
@@ -608,6 +673,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         output_img = (Path(test_data_dir) / f"../wolves_with_fastestDet.jpg").resolve()
         image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
         self.assertEqual((image_ref == output).all(), True)
+
 
 if __name__ == "__main__":
     unittest.main()

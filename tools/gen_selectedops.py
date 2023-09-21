@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
 
 import argparse
 import pathlib
 import sys
 
 CMAKE_FLAG_TO_OPS = {
+    "OCOS_ENABLE_AZURE": [
+        "AzureAudioToText",
+        "AzureTextToText",
+        "OpenAIAudioToText"
+    ],
     "OCOS_ENABLE_BERT_TOKENIZER": [
         "BasicTokenizer",
         "BertTokenizer",
@@ -19,8 +26,9 @@ CMAKE_FLAG_TO_OPS = {
     ],
     "OCOS_ENABLE_GPT2_TOKENIZER": [
         "BpeDecoder",
-        "ClipTokenizer",
+        "CLIPTokenizer",
         "GPT2Tokenizer",
+        "RobertaTokenizer"
     ],
     "OCOS_ENABLE_MATH": [
         "SegmentExtraction",
@@ -36,6 +44,7 @@ CMAKE_FLAG_TO_OPS = {
     ],
     "OCOS_ENABLE_SPM_TOKENIZER": [
         "SentencepieceTokenizer",
+        "SentencepieceDecoder"
     ],
     "OCOS_ENABLE_TF_STRING": [
         "MaskedFill",
@@ -61,6 +70,17 @@ CMAKE_FLAG_TO_OPS = {
     ],
     "OCOS_ENABLE_WORDPIECE_TOKENIZER": [
         "WordpieceTokenizer",
+    ],
+    "OCOS_ENABLE_AUDIO": [
+        "AudioDecoder"
+    ],
+    "OCOS_ENABLE_DLIB": [
+        "Inverse",
+        "StftNorm"
+    ],
+    "OCOS_ENABLE_TRIE_TOKENIZER": [
+        "TrieTokenizer",
+        "TrieDetokenizer"
     ],
 }
 

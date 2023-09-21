@@ -34,7 +34,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer) {
 
   std::filesystem::path model_path = "data";
   model_path /= "test_bert_tokenizer.onnx";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].name = "text";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -55,7 +55,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer) {
   outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   outputs[2].dims = {17};
   outputs[2].values_int64 = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].name = "text";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -76,7 +76,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer) {
   outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   outputs[2].dims = {71};
   outputs[2].values_int64 = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].name = "text";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -97,7 +97,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer) {
   outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   outputs[2].dims = {2};
   outputs[2].values_int64 = {1, 1};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].name = "text";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -119,7 +119,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer) {
   outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   outputs[2].dims = {99};
   outputs[2].values_int64 = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].name = "text";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -140,7 +140,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer) {
   outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   outputs[2].dims = {4};
   outputs[2].values_int64 = {1, 1, 1, 1};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].name = "text";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -161,7 +161,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer) {
   outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   outputs[2].dims = {2};
   outputs[2].values_int64 = {1, 1};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].name = "text";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -183,7 +183,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer) {
   outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   outputs[2].dims = {99};
   outputs[2].values_int64 = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].name = "text";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -204,7 +204,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer) {
   outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   outputs[2].dims = {4};
   outputs[2].values_int64 = {1, 1, 1, 1};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].name = "text";
   inputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
@@ -225,7 +225,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer) {
   outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   outputs[2].dims = {51};
   outputs[2].values_int64 = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
 
 TEST(tokenizer_opertors, test_bert_tokenizer_scalar) {
@@ -255,7 +255,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer_scalar) {
 
   std::filesystem::path model_path = "data";
   model_path /= "test_bert_tokenizer_scalar.onnx";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   // change locale to system locale
   std::locale();
@@ -283,7 +283,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer_scalar) {
   outputs[2].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
   outputs[2].dims = {22};
   outputs[2].values_int64 = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
 
 TEST(tokenizer_opertors, test_bert_tokenizer_decoder) {
@@ -309,7 +309,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer_decoder) {
 
   std::filesystem::path model_path = "data";
   model_path /= "test_bert_tokenizer_decoder_without_indices.onnx";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {5};
   inputs[0].values_int64 = {101, 2774, 102, 2774, 102};
@@ -319,7 +319,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer_decoder) {
 
   outputs[0].dims = {1};
   outputs[0].values_string = {"[CLS] test [SEP] test [SEP]"};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {31};
   inputs[0].values_int64 = {101, 164, 17599, 7301, 4964, 120, 1113, 21123, 10607, 4974, 118, 16003, 166, 2508, 12272, 1514, 3392, 2607, 1154, 3392, 1231, 1233, 118, 121, 119, 125, 113, 11629, 108, 20977, 102};
@@ -329,7 +329,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer_decoder) {
 
   outputs[0].dims = {1};
   outputs[0].values_string = {"[CLS] [microsoft/onnxruntime-extensions] Merge main branch changes into branch rel-0. 4 (PR # 178 [SEP]"};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {5};
   inputs[0].values_int64 = {21123, 10607, 4974, 118, 16003};
@@ -339,7 +339,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer_decoder) {
 
   outputs[0].dims = {1};
   outputs[0].values_string = {"-extensions"};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {28};
   inputs[0].values_int64 = {163, 4638, 4538, 19009, 1708, 27516, 6592, 12324, 2137, 1161, 2137, 1162, 2101, 1394, 3663, 1158, 117, 23816, 2162, 3814, 1658, 10654, 1182, 1708, 9435, 7231, 1658, 6530};
@@ -349,7 +349,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer_decoder) {
 
   outputs[0].dims = {1};
   outputs[0].values_string = {"ZheJiuShisuibianDaDePinYing, YongLaiCeshiSuffixCase"};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {2};
   inputs[0].values_int64 = {-1, 28997};
@@ -359,7 +359,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer_decoder) {
 
   outputs[0].dims = {1};
   outputs[0].values_string = {"[UNK] [UNK]"};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
 
 TEST(tokenizer_opertors, test_bert_tokenizer_decoder_with_idices) {
@@ -384,7 +384,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer_decoder_with_idices) {
 
   std::filesystem::path model_path = "data";
   model_path /= "test_bert_tokenizer_decoder_with_indices.onnx";
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {30};
   inputs[0].values_int64 = {101, 163, 4638, 4538, 19009, 1708, 27516, 6592, 12324, 2137, 1161, 2137, 1162, 2101, 1394, 3663, 1158, 117, 23816, 2162, 3814, 1658, 10654, 1182, 1708, 9435, 7231, 1658, 6530, 102};
@@ -394,7 +394,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer_decoder_with_idices) {
 
   outputs[0].dims = {0};
   outputs[0].values_string = {};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
 
   inputs[0].dims = {30};
@@ -405,7 +405,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer_decoder_with_idices) {
 
   outputs[0].dims = {4};
   outputs[0].values_string = {"Zhe", "", ",", "YongLaiCeshiSuffixCase"};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 
   inputs[0].dims = {30};
   inputs[0].values_int64 = {101, 163, 4638, 4538, 19009, 1708, 27516, 6592, 12324, 2137, 1161, 2137, 1162, 2101, 1394, 3663, 1158, 117, 23816, 2162, 3814, 1658, 10654, 1182, 1708, 9435, 7231, 1658, 6530, 102};
@@ -415,5 +415,5 @@ TEST(tokenizer_opertors, test_bert_tokenizer_decoder_with_idices) {
 
   outputs[0].dims = {1};
   outputs[0].values_string = {"ZheJiuShisuibianDaDePinYing, YongLaiCeshiSuffixCase"};
-  TestInference(*ort_env, model_path.c_str(), inputs, outputs, GetLibraryPath());
+  TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }

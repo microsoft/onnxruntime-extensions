@@ -24,7 +24,7 @@ class BasicTokenizer {
 struct KernelBasicTokenizer : BaseKernel {
   KernelBasicTokenizer(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(std::string_view input,
-               ortc::Tensor<std::string>& output);
+               ortc::Tensor<std::string>& output) const;
 
  private:
   std::shared_ptr<BasicTokenizer> tokenizer_;

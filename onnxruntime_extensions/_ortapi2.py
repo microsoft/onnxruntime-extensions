@@ -3,14 +3,19 @@
 # license information.
 ###############################################################################
 
+"""
+_ortapi2.py: ONNXRuntime-Extensions Python API
+"""
+
 import numpy as np
 from ._ocos import default_opset_domain, get_library_path  # noqa
-from ._cuops import onnx, onnx_proto, CustomOpConverter, SingleOpGraph
+from ._cuops import onnx, onnx_proto, SingleOpGraph
 
 _ort_check_passed = False
 try:
     from packaging import version as _ver
     import onnxruntime as _ort
+
     if _ver.parse(_ort.__version__) >= _ver.parse("1.10.0"):
         _ort_check_passed = True
 except ImportError:
@@ -32,6 +37,7 @@ def get_opset_version_from_ort():
         "1.12": 17,
         "1.13": 17,
         "1.14": 18,
+        "1.15": 18
     }
 
     ort_ver_string = '.'.join(_ort.__version__.split('.')[0:2])
@@ -54,16 +60,21 @@ def make_onnx_model(graph, opset_version=0, extra_domain=default_opset_domain(),
 
 
 class OrtPyFunction:
+    """
+    OrtPyFunction is a convenience class that serves as a wrapper around the ONNXRuntime InferenceSession,
+    equipped with registered onnxruntime-extensions. This allows execution of an ONNX model as if it were a 
+    standard Python function. The order of the function arguments correlates directly with
+    the sequence of the input/output in the ONNX graph.
+    """
 
-    @classmethod
-    def get_ort_session_options(cls):
-        # ONNXRuntime has an issue to support reusing the SessionOptions object.
-        # Create a new one every time here
+    def get_ort_session_options(self):
         so = _ort.SessionOptions()
+        for k, v in self.extra_session_options.items():
+            so.__setattr__(k, v)
         so.register_custom_ops_library(get_library_path())
         return so
 
-    def __init__(self, cpu_only=None):
+    def __init__(self, path_or_model=None, cpu_only=None):
         self._onnx_model = None
         self.ort_session = None
         self.default_inputs = {}
@@ -71,18 +82,18 @@ class OrtPyFunction:
         if not cpu_only:
             if _ort.get_device() == 'GPU':
                 self.execution_providers = ['CUDAExecutionProvider']
+        self.extra_session_options = {}
+        mpath = None
+        if isinstance(path_or_model, str):
+            oxml = onnx.load_model(path_or_model)
+            mpath = path_or_model
+        else:
+            oxml = path_or_model
+        if path_or_model is not None:
+            self._bind(oxml, mpath)
 
     def create_from_customop(self, op_type, *args, **kwargs):
-        cvt = kwargs.get('cvt', None)
-        if cvt is None:
-            cvt = args[0] if len(args) > 0 and isinstance(
-                args[0], CustomOpConverter) else None
-            args = args[1:]
-        else:
-            del kwargs['cvt']
-
-        new_kwargs = kwargs if cvt is None else cvt(**kwargs)
-        graph = SingleOpGraph.build_my_graph(op_type, *args, **new_kwargs)
+        graph = SingleOpGraph.build_graph(op_type, *args, **kwargs)
         self._bind(make_onnx_model(graph))
         return self
 
@@ -135,17 +146,13 @@ class OrtPyFunction:
 
     @classmethod
     def from_customop(cls, op_type, *args, **kwargs):
-        return cls(cls._get_kwarg_device(kwargs)).create_from_customop(op_type, *args, **kwargs)
+        return (cls(cpu_only=cls._get_kwarg_device(kwargs))
+                .create_from_customop(op_type, *args, **kwargs))
 
     @classmethod
     def from_model(cls, path_or_model, *args, **kwargs):
-        mpath = None
-        if isinstance(path_or_model, str):
-            oxml = onnx.load_model(path_or_model)
-            mpath = path_or_model
-        else:
-            oxml = path_or_model
-        return cls(cls._get_kwarg_device(kwargs))._bind(oxml, mpath)
+        fn = cls(path_or_model, cls._get_kwarg_device(kwargs))
+        return fn
 
     def _argument_map(self, *args, **kwargs):
         idx = 0
@@ -163,7 +170,7 @@ class OrtPyFunction:
                     np.int64) if i_.type.tensor_type.elem_type == onnx_proto.TensorProto.INT64 else ts_x
             idx += 1
 
-        # feed.update(kwargs)
+        feed.update(kwargs)
         return feed
 
     def __call__(self, *args, **kwargs):
@@ -173,8 +180,15 @@ class OrtPyFunction:
         return outputs[0] if len(outputs) == 1 else tuple(outputs)
 
 
+def ort_inference(model, *args, cpu_only=True, **kwargs):
+    """
+    Run an ONNX model with ORT where args are inputs and return values are outputs.
+    """
+    return OrtPyFunction(model, cpu_only=cpu_only)(*args, **kwargs)
+
+
 def optimize_model(model_or_file, output_file):
-    sess_options = OrtPyFunction.get_ort_session_options()
+    sess_options = OrtPyFunction().get_ort_session_options()
     sess_options.graph_optimization_level = _ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
     sess_options.optimized_model_filepath = output_file
     _ort.InferenceSession(model_or_file if isinstance(model_or_file, str)

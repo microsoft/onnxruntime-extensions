@@ -23,7 +23,7 @@ struct KernelSentencepieceDecoder : BaseKernel {
   }
 
   void Compute(const ortc::Tensor<int64_t>& ids,
-               ortc::Tensor<std::string>& output) {
+               ortc::Tensor<std::string>& output) const {
     const int64_t* p_ids = ids.Data();
     auto& ids_dim = ids.Shape();
 

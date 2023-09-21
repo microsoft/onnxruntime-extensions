@@ -104,6 +104,7 @@ class TestGPT2Tokenizer(unittest.TestCase):
     def test_tokenizer(self):
         enable_py_op(False)
 
+        self._run_tokenizer([" ", "\n"])
         self._run_tokenizer(["I can feel the magic, can you?"])
         self._run_tokenizer(["Hey Cortana"])
         self._run_tokenizer(["你好123。david"])

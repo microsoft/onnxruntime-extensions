@@ -50,7 +50,8 @@ class TestAudioCodec(unittest.TestCase):
     def test_decoder_resampling(self):
         test_file = util.get_test_data_file('data', 'jfk.flac')
         blob = bytearray(util.read_file(test_file, mode='rb'))
-        decoder = PyOrtFunction.from_customop('AudioDecoder', cpu_only=True, downsampling_rate=16000, stereo_to_mono=1)
+        decoder = PyOrtFunction.from_customop(
+            'AudioDecoder', cpu_only=True, downsampling_rate=16000, stereo_to_mono=1)
         pcm_tensor = decoder(np.expand_dims(np.asarray(blob), axis=(0,)))
         self.assertEqual(pcm_tensor.shape, (1, 176000))
 

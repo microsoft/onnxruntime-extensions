@@ -1,8 +1,11 @@
-set(Python3_FIND_REGISTRY NEVER CACHE STRING "...")
-if(NOT "${Python3_FIND_REGISTRY}" STREQUAL "NEVER")
-  message(FATAL_ERROR "Python3_FIND_REGISTRY is not NEVER")
-endif()
-find_package(Python3 COMPONENTS Interpreter Development.Module NumPy)
+block(PROPAGATE Python3_FOUND)
+  set(Python3_FIND_REGISTRY NEVER)
+  # if we don't set this to NEVER (or possibly LAST) the builds of the wheel for different python versions will fail
+  # as it will find the system python version first and not the correct python version for the wheel.
+  set(Python3_FIND_FRAMEWORK NEVER)
+  find_package(Python3 COMPONENTS Interpreter Development.Module NumPy)
+endblock()
+
 if (NOT Python3_FOUND)
   message(FATAL_ERROR "Python3 or NumPy not found!")
 endif()
@@ -29,11 +32,16 @@ target_compile_definitions(extensions_pydll PRIVATE
 
 target_link_libraries(extensions_pydll PRIVATE Python3::Module ocos_operators)
 
-if(NOT "${OCOS_EXTENTION_NAME}" STREQUAL "")
+if(OCOS_PYTHON_MODULE_PATH)
+  get_filename_component(OCOS_PYTHON_MODULE_NAME ${OCOS_PYTHON_MODULE_PATH} NAME)
   if(NOT WIN32)
     set_target_properties(extensions_pydll PROPERTIES
-      LIBRARY_OUTPUT_NAME ${OCOS_EXTENTION_NAME}
+      LIBRARY_OUTPUT_NAME ${OCOS_PYTHON_MODULE_NAME}
       PREFIX ""
       SUFFIX "")
   endif()
+
+  add_custom_command(TARGET extensions_pydll POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:extensions_pydll> ${OCOS_PYTHON_MODULE_PATH}
+    COMMENT "Copying $<TARGET_FILE:extensions_pydll> to ${OCOS_PYTHON_MODULE_PATH}")
 endif()
