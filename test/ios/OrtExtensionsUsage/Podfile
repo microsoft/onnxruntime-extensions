@@ -5,7 +5,7 @@ target 'OrtExtensionsUsage' do
   use_frameworks!
 
   # Pods for OrtExtensionsUsage
-  pod 'onnxruntime-objc'
+  pod 'onnxruntime-objc', '>= 1.16.0'
 
   # environment variable ORT_EXTENSIONS_LOCAL_POD_PATH can be used to specify a local onnxruntime-extensions-c pod path
   ort_extensions_local_pod_path = ENV['ORT_EXTENSIONS_LOCAL_POD_PATH']

@@ -67,8 +67,10 @@
     const auto output_type_and_shape_info =
         output_tensor.GetTensorTypeAndShapeInfo();
 
+    // We expect the model output to be BGR values (3 uint8's) for each pixel
+    // in the decoded image.
+    // The input image has 32x32 pixels.
     const int64_t h = 32, w = 32, c = 3;
-    const uint8_t expected_pixel_bgr_data[] = {128, 64, 32};
     const std::vector<int64_t> expected_output_shape{h, w, c};
     const auto output_shape = output_type_and_shape_info.GetShape();
     if (output_shape != expected_output_shape) {
@@ -81,6 +83,9 @@
       throw std::runtime_error("Unexpected output element type");
     }
 
+    // Each pixel in the input image has an RGB value of [32, 64, 128], or
+    // equivalently, a BGR value of [128, 64, 32].
+    const uint8_t expected_pixel_bgr_data[] = {128, 64, 32};
     const uint8_t *output_data_raw = output_tensor.GetTensorData<uint8_t>();
     for (size_t i = 0; i < h * w * c; ++i) {
       if (output_data_raw[i] != expected_pixel_bgr_data[i % 3]) {
