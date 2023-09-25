@@ -16,6 +16,7 @@
 		2ECE960B293A77FD00039409 /* OrtClient.mm in Sources */ = {isa = PBXBuildFile; fileRef = 2ECE9608293A77FD00039409 /* OrtClient.mm */; };
 		2ECE960C293A77FD00039409 /* decode_image.onnx in Resources */ = {isa = PBXBuildFile; fileRef = 2ECE9609293A77FD00039409 /* decode_image.onnx */; };
 		2ECE960E293A784E00039409 /* r32_g64_b128_32x32.png in Resources */ = {isa = PBXBuildFile; fileRef = 2ECE960D293A784E00039409 /* r32_g64_b128_32x32.png */; };
+		2EF816742A572DC300CABC99 /* OrtSwiftClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF816732A572DC300CABC99 /* OrtSwiftClient.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,6 +51,7 @@
 		2ECE9609293A77FD00039409 /* decode_image.onnx */ = {isa = PBXFileReference; lastKnownFileType = file; path = decode_image.onnx; sourceTree = "<group>"; };
 		2ECE960A293A77FD00039409 /* OrtClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OrtClient.h; sourceTree = "<group>"; };
 		2ECE960D293A784E00039409 /* r32_g64_b128_32x32.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = r32_g64_b128_32x32.png; sourceTree = "<group>"; };
+		2EF816732A572DC300CABC99 /* OrtSwiftClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrtSwiftClient.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -111,6 +113,7 @@
 			children = (
 				2ECE960A293A77FD00039409 /* OrtClient.h */,
 				2ECE9608293A77FD00039409 /* OrtClient.mm */,
+				2EF816732A572DC300CABC99 /* OrtSwiftClient.swift */,
 				2ECE95DD293A742700039409 /* OrtExtensionsUsageApp.swift */,
 				2ECE95DF293A742700039409 /* ContentView.swift */,
 				2ECE9607293A77FD00039409 /* OrtExtensionsUsage-Bridging-Header.h */,
@@ -286,6 +289,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2EF816742A572DC300CABC99 /* OrtSwiftClient.swift in Sources */,
 				2ECE960B293A77FD00039409 /* OrtClient.mm in Sources */,
 				2ECE95E0293A742700039409 /* ContentView.swift in Sources */,
 				2ECE95DE293A742700039409 /* OrtExtensionsUsageApp.swift in Sources */,

@@ -3,3 +3,6 @@
 //
 
 #import "OrtClient.h"
+
+#import <onnxruntime.h>
+#include <onnxruntime_extensions.h>

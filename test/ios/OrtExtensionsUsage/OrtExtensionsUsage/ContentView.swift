@@ -4,29 +4,30 @@
 import SwiftUI
 
 struct ContentView: View {
-    func runOrtDecodeAndCheckImage() -> String {
-        do {
-            try OrtClient.decodeAndCheckImage()
-            return "Ok"
-        } catch let error as NSError {
-            return "Error: \(error.localizedDescription)"
-        }
+  func runOrtDecodeAndCheckImage() -> String {
+    do {
+      try OrtClient.decodeAndCheckImage()
+      try swiftDecodeAndCheckImage()
+      return "Ok"
+    } catch let error as NSError {
+      return "Error: \(error.localizedDescription)"
     }
+  }
 
-    var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundColor(.accentColor)
-            Text("Decode image result: \(runOrtDecodeAndCheckImage())")
-                .accessibilityIdentifier("decodeImageResult")
-        }
-        .padding()
+  var body: some View {
+    VStack {
+      Image(systemName: "globe")
+        .imageScale(.large)
+        .foregroundColor(.accentColor)
+      Text("Decode image result: \(runOrtDecodeAndCheckImage())")
+        .accessibilityIdentifier("decodeImageResult")
     }
+    .padding()
+  }
 }
 
 struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
-    }
+  static var previews: some View {
+    ContentView()
+  }
 }
