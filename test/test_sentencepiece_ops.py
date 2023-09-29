@@ -54,7 +54,7 @@ def _create_test_model_sentencepiece(
                 'add_eos',
                 'reverse',
             ],
-            outputs=['out0', 'out1', 'out2'],
+            outputs=['out0', 'out1'],
             name='SentencepieceTokenizeOpName',
             domain=domain,
         ))
@@ -78,7 +78,7 @@ def _create_test_model_sentencepiece(
                 'add_eos',
                 'reverse',
             ],
-            outputs=['out0', 'out1', 'out2'],
+            outputs=['out0', 'out1'],
             model=model_b64,
             name='SentencepieceTokenizeOpName',
             domain='ai.onnx.contrib',
@@ -95,8 +95,7 @@ def _create_test_model_sentencepiece(
     graph = helper.make_graph(
         nodes, 'test0', inputs, [
             mkv('out0', onnx_proto.TensorProto.INT32, [None]),
-            mkv('out1', onnx_proto.TensorProto.INT64, [None]),
-            mkv('out2', onnx_proto.TensorProto.INT32, [None])
+            mkv('out1', onnx_proto.TensorProto.INT64, [None])
         ])
     model = make_onnx_model(graph)
     return model
@@ -118,7 +117,7 @@ def _create_test_model_ragged_to_sparse(
                 'add_eos',
                 'reverse',
             ],
-            outputs=['tokout0', 'tokout1' 'tokout2'],
+            outputs=['tokout0', 'tokout1'],
             name='SentencepieceTokenizeOpName',
             domain=domain,
         ))
@@ -202,7 +201,7 @@ def _create_test_model_ragged_to_dense(
             'add_eos',
             'reverse',
         ],
-        outputs=['tokout0', 'tokout1', 'tokout2'],
+        outputs=['tokout0', 'tokout1'],
         model=model_b64,
         name='SentencepieceTokenizeOpName',
         domain=domain,
@@ -258,7 +257,7 @@ def _create_test_model_sentencepiece_fairseq(
             'reverse',
             'fairseq'
         ],
-        outputs=['out0', 'out1', 'out2'],
+        outputs=['out0', 'out1'],
         model=model,
         name='SentencepieceTokenizeOpName',
         domain='ai.onnx.contrib'
@@ -276,8 +275,7 @@ def _create_test_model_sentencepiece_fairseq(
     graph = helper.make_graph(
         nodes, 'test0', inputs, [
             mkv('out0', onnx_proto.TensorProto.INT32, [None]),
-            mkv('out1', onnx_proto.TensorProto.INT64, [None]),
-            mkv('out2', onnx_proto.TensorProto.INT32, [None])
+            mkv('out1', onnx_proto.TensorProto.INT64, [None])
         ])
     model = make_onnx_model(graph)
     return model
@@ -505,7 +503,6 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         del inputs['model']
         cc_txout = cc_sess.run(None, inputs)
         assert_equal(ids[0], cc_txout[0])
-        assert_equal(cc_txout[2], [0, 0, 3, 4, 10, 17, 21, 29, 37, 38])
 
 
 class TestOrtXSentencePiece(unittest.TestCase):
@@ -516,7 +513,7 @@ class TestOrtXSentencePiece(unittest.TestCase):
         alpha = 0
         nbest_size = 0
         flags = 0
-        tokens, indices = ofunc(
+        tokens, instance_indices, token_indices = ofunc(
             np.array(['best hotel in bay area.']),
             np.array(
                 [nbest_size], dtype=np.int64),

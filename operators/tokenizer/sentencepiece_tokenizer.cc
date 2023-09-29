@@ -33,7 +33,7 @@ void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& inpu
                                            bool add_rev,
                                            ortc::Tensor<int32_t>& output,
                                            ortc::Tensor<int64_t>& output1,
-                                           ortc::Tensor<int32_t>& output2,
+                                           std::optional<ortc::Tensor<int32_t>*> output2,
                                            std::optional<bool> fairseq) const {
   // Update with the new API
   auto& str_input = input.Data();
@@ -54,9 +54,11 @@ void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& inpu
         content.push_back(tokenizer_.eos_id());
         token_indices.push_back(str_input[i].length());
       }
-      for (const auto& sp : spt.pieces()) {
-        content.push_back(sp.id());
-        token_indices.push_back(sp.begin());
+      const auto& pieces = spt.pieces();
+      for (auto it = pieces.rbegin(); it != pieces.rend(); ++it)
+      {
+        content.push_back((*it).id());
+        token_indices.push_back((*it).begin());
       }
       if (add_bos) {
         content.push_back(tokenizer_.bos_id());
@@ -112,6 +114,8 @@ void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& inpu
   memcpy(ptr_content, content.data(), content.size() * sizeof(int));
   int64_t* ptr_instance_indices = output1.Allocate(size_instance_indices);
   memcpy(ptr_instance_indices, instance_indices.data(), instance_indices.size() * sizeof(int64_t));
-  int32_t* ptr_token_indices = output2.Allocate(size_content);
-  memcpy(ptr_token_indices, token_indices.data(), token_indices.size() * sizeof(int32_t));
+  if (output2.has_value()) {
+    int32_t* ptr_token_indices = (*output2)->Allocate(size_content);
+    memcpy(ptr_token_indices, token_indices.data(), token_indices.size() * sizeof(int32_t));
+  }
 }
