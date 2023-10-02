@@ -638,19 +638,30 @@ stages:
       workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage
 
     - script: |
-        set -e
+        set -e -x
 
-        SIMULATOR_DEVICE_INFO=$(python tools/ios/get_simulator_device_info.py)
+        SIMULATOR_DEVICE_INFO=$(python ./tools/ios/get_simulator_device_info.py)
+
         echo "Simulator device info:"
         echo "${SIMULATOR_DEVICE_INFO}"
 
         SIMULATOR_DEVICE_ID=$(jq --raw-output '.device_udid' <<< "${SIMULATOR_DEVICE_INFO}")
 
+        # Do not output ##vso[] commands with `set -x` or they may be parsed again and include a trailing quote.
+        set +x
+        echo "##vso[task.setvariable variable=ORT_EXTENSIONS_SIMULATOR_DEVICE_ID]${SIMULATOR_DEVICE_ID}"
+      displayName: Get simulator device info
+
+    - script: |
+        xcrun simctl bootstatus ${ORT_EXTENSIONS_SIMULATOR_DEVICE_ID} -b
+      displayName: Wait for simulator device to boot
+
+    - script: |
         xcrun xcodebuild \
           -sdk iphonesimulator \
           -configuration Debug \
           -workspace $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace \
           -scheme OrtExtensionsUsage \
-          -destination "platform=iOS Simulator,id=${SIMULATOR_DEVICE_ID}" \
+          -destination "platform=iOS Simulator,id=${ORT_EXTENSIONS_SIMULATOR_DEVICE_ID}" \
           test CODE_SIGNING_ALLOWED=NO
       displayName: Build and test OrtExtensionsUsage
