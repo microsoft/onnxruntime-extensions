@@ -95,7 +95,7 @@ stages:
 
     - script: cd test && python -m pytest . --verbose
       displayName: Run python test
-  
+
   ###############
   # Linux PyDebug
   ###############
@@ -452,7 +452,7 @@ stages:
         set OCOS_SCB_DEBUG=1
         python -m pip install -v -e .
       displayName: Build onnxruntime-extensions in editable mode.
-        
+
     - script: |
         python -m pip install -r requirements-dev.txt
         python -m pip install torch torchvision torchaudio
@@ -650,7 +650,27 @@ stages:
           -sdk iphonesimulator \
           -configuration Debug \
           -workspace $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace \
+          -derivedDataPath $(Build.BinariesDirectory)/OrtExtensionsUsage_derived_data
           -scheme OrtExtensionsUsage \
           -destination "platform=iOS Simulator,id=${SIMULATOR_DEVICE_ID}" \
           test CODE_SIGNING_ALLOWED=NO
       displayName: Build and test OrtExtensionsUsage
+
+    - script: |
+        set -e
+
+        DERIVED_DATA_DIR=$(Build.BinariesDirectory)/OrtExtensionsUsage_derived_data
+        XCRESULTS_DIR=$(Build.ArtifactStagingDirectory)/xcresults
+
+        mkdir "${XCRESULTS_DIR}"
+
+        if [[ -d "${DERIVED_DATA_DIR}" ]]; then
+          find "${DERIVED_DATA_DIR}" -type d -name "*.xcresult" -exec cp -r {} "${XCRESULTS_DIR}" \;
+        fi
+      displayName: Copy xcresult(s) to artifact staging directory
+      condition: succeededOrFailed()
+
+    - publish: $(Build.ArtifactStagingDirectory)/xcresults
+      artifact: xcresults
+      displayName: Publish xcresult(s)
+      condition: succeededOrFailed()
