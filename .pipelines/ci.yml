@@ -622,19 +622,19 @@ stages:
           --ios_deployment_target 13.0 \
           -- \
           --enable_cxx_tests
-      displayName: Build xcframework for iphonesimulator x86_64
+      displayName: "Build xcframework for iphonesimulator x86_64"
 
     - script: |
         python ./tools/ios/assemble_pod_package.py \
           --staging-dir $(Build.BinariesDirectory)/pod_staging \
           --xcframework-output-dir $(Build.BinariesDirectory)/xcframework_out \
           --pod-version ${ORT_EXTENSIONS_POD_VERSION}
-      displayName: Assemble pod
+      displayName: "Assemble pod"
 
     - script: |
         ORT_EXTENSIONS_LOCAL_POD_PATH=$(Build.BinariesDirectory)/pod_staging \
           pod install
-      displayName: Install pods for OrtExtensionsUsage
+      displayName: "Install pods for OrtExtensionsUsage"
       workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage
 
     - script: |
@@ -650,11 +650,11 @@ stages:
         # Do not output ##vso[] commands with `set -x` or they may be parsed again and include a trailing quote.
         set +x
         echo "##vso[task.setvariable variable=ORT_EXTENSIONS_SIMULATOR_DEVICE_ID]${SIMULATOR_DEVICE_ID}"
-      displayName: Get simulator device info
+      displayName: "Get simulator device info"
 
     - script: |
         xcrun simctl bootstatus ${ORT_EXTENSIONS_SIMULATOR_DEVICE_ID} -b
-      displayName: Wait for simulator device to boot
+      displayName: "Wait for simulator device to boot"
 
     - script: |
         xcrun xcodebuild \
@@ -665,4 +665,4 @@ stages:
           -scheme OrtExtensionsUsage \
           -destination "platform=iOS Simulator,id=${ORT_EXTENSIONS_SIMULATOR_DEVICE_ID}" \
           test CODE_SIGNING_ALLOWED=NO
-      displayName: Build and test OrtExtensionsUsage
+      displayName: "Build and test OrtExtensionsUsage"
