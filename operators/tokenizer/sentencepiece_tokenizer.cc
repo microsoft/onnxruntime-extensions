@@ -33,8 +33,8 @@ void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& inpu
                                            bool add_rev,
                                            ortc::Tensor<int32_t>& output,
                                            ortc::Tensor<int64_t>& output1,
-                                           std::optional<ortc::Tensor<int32_t>*> output2,
-                                           std::optional<bool> fairseq) const {
+                                           std::optional<bool> fairseq,
+                                           std::optional<ortc::Tensor<int32_t>*> output2) const {
   // Update with the new API
   auto& str_input = input.Data();
   // computation
