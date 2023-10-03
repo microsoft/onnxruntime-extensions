@@ -638,7 +638,7 @@ stages:
       workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage
 
     - script: |
-        set -e -x
+        set -e
 
         SIMULATOR_DEVICE_INFO=$(python ./tools/ios/get_simulator_device_info.py)
 
