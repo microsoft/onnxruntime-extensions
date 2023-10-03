@@ -650,7 +650,7 @@ stages:
           -sdk iphonesimulator \
           -configuration Debug \
           -workspace $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace \
-          -derivedDataPath $(Build.BinariesDirectory)/OrtExtensionsUsage_derived_data
+          -derivedDataPath $(Build.BinariesDirectory)/OrtExtensionsUsage_derived_data \
           -scheme OrtExtensionsUsage \
           -destination "platform=iOS Simulator,id=${SIMULATOR_DEVICE_ID}" \
           test CODE_SIGNING_ALLOWED=NO
