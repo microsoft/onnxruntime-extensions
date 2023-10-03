@@ -660,6 +660,7 @@ stages:
         xcrun xcodebuild \
           -sdk iphonesimulator \
           -configuration Debug \
+          -parallel-testing-enabled NO \
           -workspace $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace \
           -scheme OrtExtensionsUsage \
           -destination "platform=iOS Simulator,id=${ORT_EXTENSIONS_SIMULATOR_DEVICE_ID}" \
