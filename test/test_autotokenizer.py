@@ -3,7 +3,7 @@
 import unittest
 
 import numpy as np
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, GPT2Tokenizer
 from onnxruntime_extensions import OrtPyFunction, gen_processing_models, ort_inference, util
 
 
@@ -61,6 +61,17 @@ class TestAutoTokenizer(unittest.TestCase):
     def test_clip_tokenizer(self):
         tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32", use_fast=False)
         text = "Wow, these models are getting popular."
+        ids = tokenizer.encode(text, return_tensors="np")
+
+        ort_tok = OrtPyFunction.from_model(gen_processing_models(
+            tokenizer,
+            pre_kwargs={"WITH_DEFAULT_INPUTS": True})[0])
+        actual_ids = ort_tok([text])[0]
+        np.testing.assert_array_equal(ids, actual_ids)
+        
+    def test_gpt2_tokenizer(self):
+        tokenizer = GPT2Tokenizer.from_pretrained("Xenova/gpt-4", use_fast=False)
+        text = "Deep learning has come a long way, no?"
         ids = tokenizer.encode(text, return_tensors="np")
 
         ort_tok = OrtPyFunction.from_model(gen_processing_models(

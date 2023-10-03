@@ -9,6 +9,8 @@ _hf_cvt.py: HuggingFace Tokenizer/Processor Converter
 
 import json
 import onnx
+import uuid
+import numpy as np
 from numpy import array as nparray
 from functools import partial
 from collections import namedtuple, OrderedDict
@@ -23,12 +25,31 @@ class HFTokenizerConverter(CustomOpConverter):
 
     def bpe_tokenizer(self, **kwargs):
         hf_gpt2_tokenizer = self.tokenizer
+        attrs = None
 
         if type(self.tokenizer).__name__.endswith('Fast'):
             raise ValueError('Please use the slow version of the tokenizer (ex: GPT2Tokenizer).')
-
-        attrs = {'vocab': json.dumps(
-            hf_gpt2_tokenizer.encoder, separators=(',', ':'))}
+        elif(self.tokenizer.name_or_path.endswith('gpt-4')):
+            # Fill vocab gap for GPT4Tokenizer to create continuous domain
+            vocab_dict = hf_gpt2_tokenizer.encoder
+            partial_values = list(vocab_dict.values())
+            
+            max_vocab = partial_values[-1]
+            all_values = np.arange(max_vocab + 1)
+            
+            missing_values = set(all_values) - set(partial_values)
+            
+            for v in missing_values:
+                vocab_dict[str(uuid.uuid4())] = int(v)
+            
+            vocab_dict = dict(sorted(vocab_dict.items(), key=lambda item: item[1]))
+                
+            attrs = {'vocab': json.dumps(
+                vocab_dict, separators=(',', ':'))}
+        else:
+            attrs = {'vocab': json.dumps(
+                hf_gpt2_tokenizer.encoder, separators=(',', ':'))}
+        
         sorted_merges = {v_: k_ for k_, v_ in hf_gpt2_tokenizer.bpe_ranks.items()}
         attrs['merges'] = '\n'.join("{} {}".format(
             *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
@@ -130,7 +151,7 @@ _PROCESSOR_DICT = {
     "DistilBertTokenizer":  TokenOpParam('BertTokenizer',   HFTokenizerConverter.bert_tokenizer,
                                          'BertDecoder',     HFTokenizerConverter.bpe_decoder, None),
     "GPT2Tokenizer":        TokenOpParam('GPT2Tokenizer',   HFTokenizerConverter.bpe_tokenizer,
-                                         'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
+                                         'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),                                     
     "CodeGenTokenizer":     TokenOpParam('GPT2Tokenizer',   HFTokenizerConverter.bpe_tokenizer,
                                          'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
     "CLIPTokenizer":        TokenOpParam('CLIPTokenizer',   HFTokenizerConverter.clip_tokenizer,
