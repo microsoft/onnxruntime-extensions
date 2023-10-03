@@ -335,7 +335,8 @@ class SentencepieceTokenizer(CustomOp):
     def get_outputs(cls):
         return [
             cls.io_def('tokens', onnx_proto.TensorProto.INT32, [None]),
-            cls.io_def('indices', onnx_proto.TensorProto.INT64, [None])
+            cls.io_def('instance_indices', onnx_proto.TensorProto.INT64, [None]),
+            cls.io_def('token_indices', onnx_proto.TensorProto.INT32, [None])
         ]
 
 

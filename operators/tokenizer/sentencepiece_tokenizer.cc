@@ -1,8 +1,9 @@
-﻿// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
 #include "sentencepiece_processor.h"
 #include "sentencepiece_model.pb.h"
+#include "sentencepiece.pb.h"
 #include "sentencepiece_tokenizer.hpp"
 #include "string_tensor.h"
 #include "base64.h"
@@ -32,35 +33,49 @@ void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& inpu
                                            bool add_rev,
                                            ortc::Tensor<int32_t>& output,
                                            ortc::Tensor<int64_t>& output1,
-                                           std::optional<bool> fairseq) const {
+                                           std::optional<bool> fairseq,
+                                           std::optional<ortc::Tensor<int32_t>*> output2) const {
   // Update with the new API
   auto& str_input = input.Data();
   // computation
 
-  std::vector<int64_t> indices;
+  std::vector<int64_t> instance_indices;
+  std::vector<int32_t> token_indices;
   std::vector<int> content;
-  indices.reserve(str_input.size() + 1);
+  sentencepiece::SentencePieceText spt;
+  instance_indices.reserve(str_input.size() + 1);
   for (size_t i = 0; i < str_input.size(); ++i) {
-    std::vector<int> inloop;
-    if (!tokenizer_.Encode(str_input[i].c_str(), &inloop).ok())
+    if (!tokenizer_.Encode(str_input[i].c_str(), &spt).ok())
       ORTX_CXX_API_THROW(MakeString("Unable to encode string '", str_input[i], "'."), ORT_INVALID_ARGUMENT);
-    indices.push_back(content.size());
+    instance_indices.push_back(content.size());
 
     if (add_rev) {
       if (add_eos) {
         content.push_back(tokenizer_.eos_id());
+        token_indices.push_back(str_input[i].length());
       }
-      content.insert(content.end(), inloop.rbegin(), inloop.rend());
+      const auto& pieces = spt.pieces();
+      for (auto it = pieces.rbegin(); it != pieces.rend(); ++it)
+      {
+        content.push_back((*it).id());
+        token_indices.push_back((*it).begin());
+      }
       if (add_bos) {
         content.push_back(tokenizer_.bos_id());
+        token_indices.push_back(0);
       }
     } else {
       if (add_bos) {
         content.push_back(tokenizer_.bos_id());
+        token_indices.push_back(0);
       }
-      content.insert(content.end(), inloop.begin(), inloop.end());
+      for (const auto& sp : spt.pieces()) {
+        content.push_back(sp.id());
+        token_indices.push_back(sp.begin());
+      }
       if (add_eos) {
         content.push_back(tokenizer_.eos_id());
+        token_indices.push_back(str_input[i].length());
       }
 
       if (fairseq.has_value() && (*fairseq)) {
@@ -86,17 +101,21 @@ void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& inpu
       }
     }
   }
-  indices.push_back(content.size());
+  instance_indices.push_back(content.size());
 
   // Setup output
   std::vector<int64_t> size_content(1);
   size_content[0] = content.size();
 
-  std::vector<int64_t> size_indices(1);
-  size_indices[0] = indices.size();
+  std::vector<int64_t> size_instance_indices(1);
+  size_instance_indices[0] = instance_indices.size();
 
   int* ptr_content = output.Allocate(size_content);
   memcpy(ptr_content, content.data(), content.size() * sizeof(int));
-  int64_t* ptr_indices = output1.Allocate(size_indices);
-  memcpy(ptr_indices, indices.data(), indices.size() * sizeof(int64_t));
+  int64_t* ptr_instance_indices = output1.Allocate(size_instance_indices);
+  memcpy(ptr_instance_indices, instance_indices.data(), instance_indices.size() * sizeof(int64_t));
+  if (output2.has_value()) {
+    int32_t* ptr_token_indices = (*output2)->Allocate(size_content);
+    memcpy(ptr_token_indices, token_indices.data(), token_indices.size() * sizeof(int32_t));
+  }
 }
