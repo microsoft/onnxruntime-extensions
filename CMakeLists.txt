@@ -493,6 +493,11 @@ endif()
 # ### make all compile options.
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+
+# Library will not be built if the target src for the lib does not contain any valid *.cc files.
+# Hence the placeholders `noexcep_operators_placeholder.cc` and `ocos_operators_placeholder.cc`
+# are added to the target sources for TARGET_SRC_NOEXCEPTION and TARGET_SRC respectively
+# to ensure the libraries get built.
 add_library(noexcep_operators STATIC ${TARGET_SRC_NOEXCEPTION})
 add_library(ocos_operators STATIC ${TARGET_SRC})
 # TODO: need to address the SDL warnings happens on custom operator code.
