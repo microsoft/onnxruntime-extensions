@@ -23,7 +23,7 @@ _log = get_logger("build_aar")
 
 
 def build_for_abi(
-    build_dir: Path, config: str, abi: str, api_level: int, sdk_path: Path, ndk_path: Path, other_args: list[str]
+    build_dir: Path, config: str, abi: str, api_level: int, sdk_path: Path, ndk_path: Path, build_py_args: list[str]
 ):
     build_cmd = [
         sys.executable,
@@ -40,7 +40,7 @@ def build_for_abi(
         f"--android_api={api_level}",
         f"--android_home={sdk_path}",
         f"--android_ndk_path={ndk_path}",
-    ] + other_args
+    ] + build_py_args
 
     run(*build_cmd)
 
@@ -53,7 +53,7 @@ def do_build_by_mode(
     api_level: int,
     sdk_path: Path,
     ndk_path: Path,
-    other_args: list[str],
+    build_py_args: list[str]
 ):
     output_dir = output_dir.resolve()
 
@@ -69,7 +69,7 @@ def do_build_by_mode(
     if mode in ["build_so_only", "build_aar"]:
         for abi in abis:
             build_dir = intermediates_dir / abi
-            build_for_abi(build_dir, config, abi, api_level, sdk_path, ndk_path, other_args)
+            build_for_abi(build_dir, config, abi, api_level, sdk_path, ndk_path, build_py_args)
 
             # copy JNI library files to jnilibs_dir
             jnilibs_dir = base_jnilibs_dir / abi
@@ -203,6 +203,9 @@ def parse_args():
 
     args, unknown_args = parser.parse_known_args()
 
+    if unknown_args:
+        print("Ignoring unknown args: " + ", ".join(unknown_args))
+
     args.abis = args.abis or _supported_abis.copy()
 
     assert (
@@ -213,11 +216,11 @@ def parse_args():
         args.ndk_path is not None
     ), "Android NDK path must be provided with --ndk_path or environment variable ANDROID_NDK_HOME."
 
-    return args, unknown_args
+    return args
 
 
 def main():
-    args, unknown_args = parse_args()
+    args = parse_args()
 
     _log.info(f"Building AAR for ABIs: {args.abis}")
 
@@ -229,7 +232,7 @@ def main():
         api_level=args.api_level,
         sdk_path=args.sdk_path,
         ndk_path=args.ndk_path,
-        other_args=unknown_args,
+        build_py_args=args.build_py_args
     )
 
     _log.info("AAR build complete.")
