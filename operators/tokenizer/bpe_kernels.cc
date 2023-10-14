@@ -148,6 +148,8 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     if (IsUnicodeSpace(str.back())) {
       str.pop_back();
     }
+    // remove newlines as CLIP ignores them
+    str.erase(std::remove(str.begin(), str.end(), '\n'), str.end());
     input = str;
   }
 
@@ -195,7 +197,9 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     }
 
     while (static_cast<int64_t>(res.size()) < max_length) {
-      auto [b, tok] = regcmp.GetNextToken();
+      // Skip splitting words with apostrophes for CLIP (e.g., you're, i'm, etc.)
+      auto [b, tok] = regcmp.GetNextToken(ModelName() == BpeModelConf::kModel_CLIP);
+      
       if (!b) break;
 
       std::string utf8_token = std::string(ustring(tok));

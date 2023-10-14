@@ -60,7 +60,11 @@ class TestAutoTokenizer(unittest.TestCase):
 
     def test_clip_tokenizer(self):
         tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32", use_fast=False)
-        text = "Wow, these models are getting popular."
+        text = """
+               1. Testing long text with multiple lines to check newline handling
+               2. As well as words with apostrophes such as you're, i'm, don't, etc.
+               3. And weird characters such as . , ~ ? ( ) " [ ] ! : - .
+               """
         ids = tokenizer.encode(text, return_tensors="np")
 
         ort_tok = OrtPyFunction.from_model(gen_processing_models(
