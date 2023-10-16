@@ -59,6 +59,28 @@ class ustring : public std::u32string {
     return std::string(utf8_buf);
   }
 
+  static bool ValidateUTF8(const std::string& data) {
+    int cnt = 0;
+    for (auto i = 0; i < data.size(); i++) {
+      int x = data[i];
+      if (!cnt) {
+        if ((x >> 5) == 0b110) {
+          cnt = 1;
+        } else if ((x >> 4) == 0b1110) {
+          cnt = 2;
+        } else if ((x >> 3) == 0b11110) {
+          cnt = 3;
+        } else if ((x >> 7) != 0) {
+          return false;
+        }
+      } else {
+        if ((x >> 6) != 0b10) return false;
+        cnt--;
+      }
+    }
+    return cnt == 0;
+  }
+
  private:
   using u32string = std::u32string;
   static u32string FromUTF8(const std::string_view& utf8) {
