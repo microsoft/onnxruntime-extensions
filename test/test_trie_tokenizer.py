@@ -8,7 +8,6 @@ import tempfile
 import requests
 
 import numpy as np
-import onnxruntime
 from unittest import TestCase, main as unittest_main
 from onnxruntime_extensions import OrtPyFunction, util, ONNXRuntimeException
 
