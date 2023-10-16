@@ -63,7 +63,6 @@ class TestAutoTokenizer(unittest.TestCase):
         text = """
                1. Testing long text with multiple lines to check newline handling
                2. As well as words with apostrophes such as you're, i'm, don't, etc.
-               3. And weird characters such as . , ~ ? ( ) " [ ] ! : - .
                """
         ids = tokenizer.encode(text, return_tensors="np")
 

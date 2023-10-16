@@ -148,7 +148,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     if (IsUnicodeSpace(str.back())) {
       str.pop_back();
     }
-    // remove newlines as CLIP ignores them
+    // remove newlines as CLIP ignores them (treats them as whitespace which is then cleaned)
     str.erase(std::remove(str.begin(), str.end(), '\n'), str.end());
     input = str;
   }

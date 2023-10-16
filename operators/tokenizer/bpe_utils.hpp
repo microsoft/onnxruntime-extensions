@@ -101,6 +101,13 @@ class TokenWithRegularExp {
 
  private:
   std::u32string_view TryMatch(bool skipApostrophes) {
+    // HF Python implementation for CLIP has same regex
+    // (https://github.com/huggingface/transformers/blob/v4.34.0/src/transformers/models/clip/tokenization_clip.py#L337)
+    // as below but from manual testing it works differently: for example "you're" splits as ["you", "'re"] with C++ regex
+    // compiling but Python regex compiling gives the tokens ["you", "'", "re"].
+    // 
+    // skipApostrophes is intended to bring parity with the regex compiling for Python.
+
     if (!skipApostrophes) {
       // python pattern:
       // 's|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+
