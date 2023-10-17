@@ -196,3 +196,4 @@ def optimize_model(model_or_file, output_file):
 
 
 ONNXRuntimeError = _ort.capi.onnxruntime_pybind11_state.Fail
+ONNXRuntimeException = _ort.capi.onnxruntime_pybind11_state.RuntimeException
