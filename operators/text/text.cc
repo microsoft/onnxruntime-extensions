@@ -7,20 +7,19 @@
 #include "text/string_mapping.hpp"
 
 #if defined(ENABLE_RE2_REGEX)
-#include "text/re2_strings/string_regex_replace.hpp"
-#include "text/re2_strings/string_regex_split.hpp"
+#include "text/re2_strings/string_regex.h"
 #endif  // ENABLE_RE2_REGEX
 
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Text = []()-> CustomOpArray& {
   static OrtOpLoader op_loader(
 #if defined(ENABLE_RE2_REGEX)
-      CustomCpuStruct("StringRegexReplace", KernelStringRegexReplace),
-      CustomCpuFunc("StringRegexSplitWithOffsets", KernelStringRegexSplitWithOffsets),
+      CustomCpuStructV2("StringRegexReplace", KernelStringRegexReplace),
+      CustomCpuFuncV2("StringRegexSplitWithOffsets", KernelStringRegexSplitWithOffsets),
 #endif  // ENABLE_RE2_REGEX
-      CustomCpuStruct("RaggedTensorToSparse", KernelRaggedTensoroSparse),
-      CustomCpuStruct("RaggedTensorToDense", KernelRaggedTensoroDense),
-      CustomCpuStruct("StringRaggedTensorToDense", KernelStringRaggedTensoroDense),
+      CustomCpuFuncV2("RaggedTensorToSparse", RaggedTensorToSparse),
+      CustomCpuStructV2("RaggedTensorToDense", KernelRaggedTensoroDense),
+      CustomCpuFuncV2("StringRaggedTensorToDense", StringRaggedTensorToDense),
       CustomCpuFuncV2("StringEqual", string_equal),
       CustomCpuFuncV2("StringToHashBucket", string_hash),
       CustomCpuFuncV2("StringToHashBucketFast", string_hash_fast),
@@ -32,11 +31,11 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Text = []()-> CustomOpArray& {
       CustomCpuFuncV2("StringStrip", string_strip),
       CustomCpuFuncV2("StringLength", string_length),
       CustomCpuFuncV2("StringConcat", string_concat),
-      CustomCpuStruct("StringMapping", KernelStringMapping),
-      CustomCpuStruct("StringToVector", KernelStringToVector),
-      CustomCpuStruct("VectorToString", KernelVectorToString),
-      CustomCpuStruct("StringECMARegexReplace", KernelStringECMARegexReplace),
-      CustomCpuStruct("StringECMARegexSplitWithOffsets", KernelStringECMARegexSplitWithOffsets));
+      CustomCpuStructV2("StringMapping", KernelStringMapping),
+      CustomCpuStructV2("StringToVector", KernelStringToVector),
+      CustomCpuStructV2("VectorToString", KernelVectorToString),
+      CustomCpuStructV2("StringECMARegexReplace", KernelStringECMARegexReplace),
+      CustomCpuStructV2("StringECMARegexSplitWithOffsets", KernelStringECMARegexSplitWithOffsets));
 
   return op_loader.GetCustomOps();
 };

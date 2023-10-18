@@ -1,24 +1,19 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "string_regex_replace.hpp"
 #include <vector>
 #include <cmath>
 #include <algorithm>
 #include "re2/re2.h"
 #include "string_tensor.h"
+#include "string_regex.h"
 
-KernelStringRegexReplace::KernelStringRegexReplace(const OrtApi& api, const OrtKernelInfo& info)
-    : BaseKernel(api, info) {
-  global_replace_ = TryToGetAttributeWithDefault("global_replace", 1);
-}
-
-void KernelStringRegexReplace::Compute(const ortc::Tensor<std::string>& input,
-                                       std::string_view str_pattern,
-                                       std::string_view str_rewrite,
-                                       ortc::Tensor<std::string>& output) const {
+OrtStatusPtr KernelStringRegexReplace::Compute(const ortc::Tensor<std::string>& input,
+                                               std::string_view str_pattern,
+                                               std::string_view str_rewrite,
+                                               ortc::Tensor<std::string>& output) const {
   if (str_pattern.empty())
-    ORTX_CXX_API_THROW("pattern (second input) cannot be empty.", ORT_INVALID_ARGUMENT);
+    return OrtW::CreateStatus("pattern (second input) cannot be empty.", ORT_INVALID_ARGUMENT);
 
   // Setup output
   std::vector<std::string> str_input{input.Data()};
@@ -38,4 +33,5 @@ void KernelStringRegexReplace::Compute(const ortc::Tensor<std::string>& input,
     }
   }
   output.SetStringOutput(str_input, dim);
+  return nullptr;
 }

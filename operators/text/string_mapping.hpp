@@ -7,9 +7,10 @@
 #include "string_utils.h"
 #include <unordered_map>
 
-struct KernelStringMapping : BaseKernel {
-  KernelStringMapping(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::Tensor<std::string>& input,
+struct KernelStringMapping {
+
+  OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info);
+  OrtStatusPtr Compute(const ortc::Tensor<std::string>& input,
                ortc::Tensor<std::string>& output) const;
 
  private:

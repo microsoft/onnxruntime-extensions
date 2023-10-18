@@ -34,9 +34,9 @@ class VectorToStringImpl {
   size_t vector_len_;
 };
 
-struct KernelVectorToString : BaseKernel {
-  KernelVectorToString(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::Tensor<int64_t>& input,
+struct KernelVectorToString {
+  OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info);
+  OrtStatusPtr Compute(const ortc::Tensor<int64_t>& input,
                ortc::Tensor<std::string>& out) const;
 
  private:
