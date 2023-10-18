@@ -7,6 +7,7 @@
 #include "sentencepiece_tokenizer.hpp"
 #include "string_tensor.h"
 #include "base64.h"
+#include "narrow.h"
 
 KernelSentencepieceTokenizer::KernelSentencepieceTokenizer(const OrtApi& api, const OrtKernelInfo& info)
     : BaseKernel(api, info) {
@@ -52,7 +53,7 @@ void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& inpu
     if (add_rev) {
       if (add_eos) {
         content.push_back(tokenizer_.eos_id());
-        token_indices.push_back(str_input[i].length());
+        token_indices.push_back(ort_extensions::narrow<int32_t>(str_input[i].length()));
       }
       const auto& pieces = spt.pieces();
       for (auto it = pieces.rbegin(); it != pieces.rend(); ++it)
@@ -75,7 +76,7 @@ void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& inpu
       }
       if (add_eos) {
         content.push_back(tokenizer_.eos_id());
-        token_indices.push_back(str_input[i].length());
+        token_indices.push_back(ort_extensions::narrow<int32_t>(str_input[i].length()));
       }
 
       if (fairseq.has_value() && (*fairseq)) {

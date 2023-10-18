@@ -5,7 +5,6 @@
 #include "gtest/gtest.h"
 #include "ocos.h"
 #include "test_kernel.hpp"
-#include "text/string_lower.hpp"
 
 TEST(string_operator, test_string_lower) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");

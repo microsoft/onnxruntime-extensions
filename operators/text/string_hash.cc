@@ -6,9 +6,9 @@
 #include <algorithm>
 #include "farmhash.h"
 #include "string_tensor.h"
-#include "string_hash.hpp"
+#include "string_functions.h"
 
-void string_hash(const ortc::Tensor<std::string>& input,
+OrtStatusPtr string_hash(const ortc::Tensor<std::string>& input,
                  int64_t num_buckets,
                  ortc::Tensor<int64_t>& output) {
   // Setup inputs
@@ -25,9 +25,11 @@ void string_hash(const ortc::Tensor<std::string>& input,
   for (size_t i = 0; i < size; i++) {
     out[i] = static_cast<int64_t>(Hash64(str_input[i].c_str(), str_input[i].size()) % nb);
   }
+
+  return nullptr;
 }
 
-void string_hash_fast(const ortc::Tensor<std::string>& input,
+OrtStatusPtr string_hash_fast(const ortc::Tensor<std::string>& input,
                       int64_t num_buckets,
                       ortc::Tensor<int64_t>& output) {
   // Setup inputs
@@ -41,4 +43,6 @@ void string_hash_fast(const ortc::Tensor<std::string>& input,
   for (size_t i = 0; i < size; i++) {
     out[i] = static_cast<int64_t>(util::Fingerprint64(str_input[i].c_str(), str_input[i].size()) % nb);
   }
+
+  return nullptr;
 }

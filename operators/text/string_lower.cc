@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "string_lower.hpp"
+#include "string_functions.h"
 #include "string_tensor.h"
 #include "ustring.h"
 #include <vector>
@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <iterator>
 
-void string_lower(const ortc::Tensor<std::string>& input,
+OrtStatusPtr string_lower(const ortc::Tensor<std::string>& input,
                   ortc::Tensor<std::string>& output) {
   const auto& input_strings = input.Data();
 
@@ -25,4 +25,5 @@ void string_lower(const ortc::Tensor<std::string>& input,
                  });
 
   output.SetStringOutput(output_strings, input.Shape());
+  return nullptr;
 }
