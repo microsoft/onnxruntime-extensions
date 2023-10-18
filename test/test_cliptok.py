@@ -1,6 +1,7 @@
 ﻿import unittest
 import numpy as np
 import onnxruntime as _ort
+import ftfy
 
 from pathlib import Path
 from onnx import helper, onnx_pb as onnx_proto
@@ -107,8 +108,9 @@ class TestCLIPTokenizer(unittest.TestCase):
         self._run_tokenizer([" "])
         
         # Currently, HF CLIPTokenizer and CLIPTokenizerFast implementations are not consistent with apostrophe handling
-        # so we test aposrophe handling against the regular HF CLIPTokenizer Python implementation.
+        # until ftfy is installed so we test aposrophe handling for both slow and fast Python implementations.
         self._run_tokenizer(["Testing words with apostrophes such as you're, i'm, don't, etc."], use_slow=True)
+        self._run_tokenizer(["Testing words with apostrophes such as you're, i'm, don't, etc."])
 
     def test_converter(self):
         fn_tokenizer = PyOrtFunction.from_customop("CLIPTokenizer",

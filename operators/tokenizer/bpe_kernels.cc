@@ -198,8 +198,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     }
 
     while (static_cast<int64_t>(res.size()) < max_length) {
-      // Skip splitting words with apostrophes for CLIP (e.g., you're, i'm, etc.)
-      auto [b, tok] = regcmp.GetNextToken(ModelName() == BpeModelConf::kModel_CLIP);
+      auto [b, tok] = regcmp.GetNextToken();
       
       if (!b) break;
 

@@ -87,9 +87,9 @@ class TokenWithRegularExp {
     m_text = val;
   }
 
-  std::pair<bool, std::u32string_view> GetNextToken(bool skipApostrophes) {
+  std::pair<bool, std::u32string_view> GetNextToken() {
     while (!m_text.empty()) {
-      auto res = TryMatch(skipApostrophes);
+      auto res = TryMatch();
       if (res.empty()) {
         m_text = m_text.substr(1);
         continue;
@@ -100,36 +100,28 @@ class TokenWithRegularExp {
   }
 
  private:
-  std::u32string_view TryMatch(bool skipApostrophes) {
-    // HF Python implementation for CLIP has same regex
-    // (https://github.com/huggingface/transformers/blob/v4.34.0/src/transformers/models/clip/tokenization_clip.py#L337)
-    // as below but from manual testing it works differently: for example "you're" splits as ["you", "'re"] with C++ regex
-    // compiling but Python regex compiling gives the tokens ["you", "'", "re"].
-    // 
-    // skipApostrophes is intended to bring parity with the regex compiling for Python.
+  std::u32string_view TryMatch() {
 
-    if (!skipApostrophes) {
-      // python pattern:
-      // 's|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+
+    // python pattern:
+    // 's|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+
 
-      // 's|'t|'re|'ve|'m|'ll|'d|
-      // Note: the sequencial of the following if should not be switched, which follows the python regex's syntax
-      if ((m_text[0] == U'\'') && (m_text.size() > 1)) {
-        if ((m_text[1] == U's') || (m_text[1] == U't') ||
-            (m_text[1] == U'm') || (m_text[1] == U'd')) {
-          std::u32string_view res = m_text.substr(0, 2);
-          m_text = m_text.substr(2);
+    // 's|'t|'re|'ve|'m|'ll|'d|
+    // Note: the sequencial of the following if should not be switched, which follows the python regex's syntax
+    if ((m_text[0] == U'\'') && (m_text.size() > 1)) {
+      if ((m_text[1] == U's') || (m_text[1] == U't') ||
+          (m_text[1] == U'm') || (m_text[1] == U'd')) {
+        std::u32string_view res = m_text.substr(0, 2);
+        m_text = m_text.substr(2);
+        return res;
+      }
+
+      if (m_text.size() > 2) {
+        if (((m_text[1] == U'r') && (m_text[2] == U'e')) ||
+            ((m_text[1] == U'v') && (m_text[2] == U'e')) ||
+            ((m_text[1] == U'l') && (m_text[2] == U'l'))) {
+          std::u32string_view res = m_text.substr(0, 3);
+          m_text = m_text.substr(3);
           return res;
-        }
-
-        if (m_text.size() > 2) {
-          if (((m_text[1] == U'r') && (m_text[2] == U'e')) ||
-              ((m_text[1] == U'v') && (m_text[2] == U'e')) ||
-              ((m_text[1] == U'l') && (m_text[2] == U'l'))) {
-            std::u32string_view res = m_text.substr(0, 3);
-            m_text = m_text.substr(3);
-            return res;
-          }
         }
       }
     }

@@ -3,6 +3,7 @@
 import unittest
 
 import numpy as np
+import ftfy
 from transformers import AutoTokenizer, GPT2Tokenizer
 from onnxruntime_extensions import OrtPyFunction, gen_processing_models, ort_inference, util
 
@@ -49,7 +50,10 @@ class TestAutoTokenizer(unittest.TestCase):
 
     def test_roberta_base(self):
         tokenizer = AutoTokenizer.from_pretrained("SamLowe/roberta-base-go_emotions", use_fast=False)
-        text = "Agree. Keep trying, then if your rejected every time. I'm sorry your done."
+        text = """
+               Agree. Keep trying, then if your rejected every time. I'm sorry your done.
+               Testing words with apostrophes such as you're, i'm, don't, etc.
+               """
         ids = tokenizer.encode(text, return_tensors="np")
         m_tok, m_detok = gen_processing_models(tokenizer, pre_kwargs={}, post_kwargs={})
 
@@ -62,7 +66,8 @@ class TestAutoTokenizer(unittest.TestCase):
         tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32", use_fast=False)
         text = """
                1. Testing long text with multiple lines to check newline handling
-               2. And weird characters such as . , ~ ? ( ) " [ ] ! : - .
+               2. As well as words with apostrophes such as you're, i'm, don't, etc.
+               3. And weird characters such as . , ~ ? ( ) " [ ] ! : - .
                """
         ids = tokenizer.encode(text, return_tensors="np")
 
@@ -74,7 +79,7 @@ class TestAutoTokenizer(unittest.TestCase):
         
     def test_gpt2_tokenizer(self):
         tokenizer = GPT2Tokenizer.from_pretrained("Xenova/gpt-4", use_fast=False)
-        text = "Deep learning has come a long way, no?"
+        text = "Testing words with apostrophes such as you're, i'm, don't, etc."
         ids = tokenizer.encode(text, return_tensors="np")
 
         ort_tok = OrtPyFunction.from_model(gen_processing_models(
