@@ -1,30 +1,30 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "string_regex_split.hpp"
-#include "string_regex_split_re.hpp"
-#include "string_tensor.h"
+#include <string>
 #include <vector>
 #include <cmath>
+#include "string_regex.h"
+#include "string_regex_split_re.hpp"
 
-void KernelStringRegexSplitWithOffsets(const ortc::Tensor<std::string>& input,
-                                       std::string_view str_pattern,
-                                       const ortc::Tensor<std::string>& str_keep_pattern,
-                                       ortc::Tensor<std::string>& output_text,
-                                       ortc::Tensor<int64_t>& output_begin,
-                                       ortc::Tensor<int64_t>& output_end,
-                                       ortc::Tensor<int64_t>& output_offset) {
+OrtStatusPtr KernelStringRegexSplitWithOffsets(const ortc::Tensor<std::string>& input,
+                                               std::string_view str_pattern,
+                                               const ortc::Tensor<std::string>& str_keep_pattern,
+                                               ortc::Tensor<std::string>& output_text,
+                                               ortc::Tensor<int64_t>& output_begin,
+                                               ortc::Tensor<int64_t>& output_end,
+                                               ortc::Tensor<int64_t>& output_offset) {
   // Setup inputs
-
   std::vector<std::string> str_input(input.Data());
 
   if (str_pattern.empty()) {
-    ORTX_CXX_API_THROW("Splitting pattern cannot be empty.", ORT_INVALID_ARGUMENT);
+    return OrtW::CreateStatus("Splitting pattern cannot be empty.", ORT_INVALID_ARGUMENT);
   }
   if (str_keep_pattern.Data().size() > 1) {
-    ORTX_CXX_API_THROW(MakeString("Third input must contain only one element. It has ",
-                                  str_keep_pattern.Data().size(), " values."),
-                       ORT_INVALID_ARGUMENT);
+    return OrtW::CreateStatus(MakeString("Third input must contain only one element. It has ",
+                                         str_keep_pattern.Data().size(), " values.")
+                                  .c_str(),
+                              ORT_INVALID_ARGUMENT);
   }
   auto dimensions = input.Shape();
   bool include_delimiter = (str_keep_pattern.Data().size() == 1) && (!str_keep_pattern.Data()[0].empty());
@@ -65,4 +65,6 @@ void KernelStringRegexSplitWithOffsets(const ortc::Tensor<std::string>& input,
   std::vector<int64_t> dim_out_row{(int64_t)row_offsets.size()};
   output_raw = output_offset.Allocate(dim_out_row);
   memcpy(output_raw, row_offsets.data(), row_offsets.size() * sizeof(int64_t));
+
+  return nullptr;
 }

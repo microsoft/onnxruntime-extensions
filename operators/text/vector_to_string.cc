@@ -109,19 +109,26 @@ void VectorToStringImpl::ParseValues(const std::string_view& v, std::vector<int6
   }
 }
 
-KernelVectorToString::KernelVectorToString(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
-  std::string map = ort_.KernelInfoGetAttribute<std::string>(&info, "map");
-  std::string unk = ort_.KernelInfoGetAttribute<std::string>(&info, "unk");
+OrtStatusPtr KernelVectorToString::OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
+  std::string map, unk;
+  auto status = OrtW::GetOpAttribute(info, "map", map);
+  if (!status) {
+    status = OrtW::GetOpAttribute(info, "unk", unk);
+  }
 
-  // TODO: support more type when we can get input type from OrtKernelInfo
-  impl_ = std::make_shared<VectorToStringImpl>(map, unk);
+  if (!status) {
+    impl_ = std::make_shared<VectorToStringImpl>(map, unk);
+  }
+
+  return status;
 }
 
-void KernelVectorToString::Compute(const ortc::Tensor<int64_t>& input,
+OrtStatusPtr KernelVectorToString::Compute(const ortc::Tensor<int64_t>& input,
                                    ortc::Tensor<std::string>& out) const {
   const void* input_data = input.Data();
 
   std::vector<int64_t> output_dim;
   std::vector<std::string> mapping_result = impl_->Compute(input_data, input.Shape(), output_dim);
   out.SetStringOutput(mapping_result, output_dim);
+  return nullptr;
 }

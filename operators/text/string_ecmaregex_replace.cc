@@ -7,20 +7,22 @@
 #include <regex>
 #include "string_tensor.h"
 
-KernelStringECMARegexReplace::KernelStringECMARegexReplace(const OrtApi& api, const OrtKernelInfo& info)
-    : BaseKernel(api, info) {
-  global_replace_ = TryToGetAttributeWithDefault("global_replace", true);
-  ignore_case_ = TryToGetAttributeWithDefault("ignore_case", false);
+OrtStatusPtr KernelStringECMARegexReplace::OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
+  auto status = OrtW::GetOpAttribute(info, "global_replace", global_replace_);
+  if (!status) {
+    status = OrtW::GetOpAttribute(info, "ignore_case", ignore_case_);
+  }
+  return status;
 }
 
-void KernelStringECMARegexReplace::Compute(const ortc::Tensor<std::string>& input,
+OrtStatusPtr KernelStringECMARegexReplace::Compute(const ortc::Tensor<std::string>& input,
                                            std::string_view pattern,
                                            std::string_view rewrite,
                                            ortc::Tensor<std::string>& output) const {
   // make a copy as input is constant;
   std::vector<std::string> str_input = input.Data();
   if (pattern.empty()) {
-    ORTX_CXX_API_THROW("pattern (second input) cannot be empty.", ORT_INVALID_GRAPH);
+    return OrtW::CreateStatus("pattern (second input) cannot be empty.", ORT_INVALID_GRAPH);
   }
   size_t size = input.NumberOfElement();
 
@@ -43,4 +45,6 @@ void KernelStringECMARegexReplace::Compute(const ortc::Tensor<std::string>& inpu
 
   auto& dimensions = input.Shape();
   output.SetStringOutput(str_input, dimensions);
+
+  return nullptr;
 }

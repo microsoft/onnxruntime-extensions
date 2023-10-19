@@ -1,23 +1,30 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "string_join.hpp"
+#include "string_functions.h"
 #include "string_tensor.h"
 
-void string_join(const ortc::Tensor<std::string>& input_X,
-                 std::string_view input_sep,
-                 int64_t axis,
-                 ortc::Tensor<std::string>& output) {
+OrtStatusPtr string_join(const ortc::Tensor<std::string>& input_X,
+                         std::string_view input_sep,
+                         int64_t axis,
+                         ortc::Tensor<std::string>& output) {
+  OrtStatusPtr status = nullptr;
   // Setup inputs
   auto& X = input_X.Data();
   auto& dimensions = input_X.Shape();
   if (dimensions.size() == 0) {
     // dimensions size 0 means input 1 is scalar, input 1 must have 1 element. See issue: https://github.com/onnx/onnx/issues/3724
-    if (X.size() != 1)
-      ORTX_CXX_API_THROW(MakeString("Input 1's dimensions size is 0 (scalar), it must has 1 element but it has ", X.size()), ORT_INVALID_ARGUMENT);
+    if (X.size() != 1) {
+      status = OrtW::CreateStatus(
+          MakeString("Input 1's dimensions size is 0 (scalar), it must has 1 element but it has ", X.size()).c_str(), ORT_INVALID_ARGUMENT);
+      return status;
+    }
   } else {
-    if (axis < 0 || axis >= static_cast<int64_t>(dimensions.size()))
-      ORTX_CXX_API_THROW(MakeString("axis must be positive and smaller than the number of dimension but it is ", axis), ORT_INVALID_ARGUMENT);
+    if (axis < 0 || axis >= static_cast<int64_t>(dimensions.size())) {
+      status = OrtW::CreateStatus(
+          MakeString("axis must be positive and smaller than the number of dimension but it is ", axis).c_str(), ORT_INVALID_ARGUMENT);
+      return status;
+    }
   }
 
   std::vector<int64_t> dimensions_out(dimensions.size() > 1 ? dimensions.size() - 1 : 1);
@@ -67,4 +74,5 @@ void string_join(const ortc::Tensor<std::string>& input_X,
   }
 
   output.SetStringOutput(out, dimensions_out);
+  return status;
 }

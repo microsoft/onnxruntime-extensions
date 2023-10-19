@@ -9,19 +9,18 @@
 #include "string_ecmaregex_split.hpp"
 #include "string_tensor.h"
 
-KernelStringECMARegexSplitWithOffsets::KernelStringECMARegexSplitWithOffsets(const OrtApi& api,
-                                                                             const OrtKernelInfo& info)
-    : BaseKernel(api, info) {
-  ignore_case_ = TryToGetAttributeWithDefault("ignore_case", false);
+OrtStatusPtr KernelStringECMARegexSplitWithOffsets::OnModelAttach(const OrtApi& api,
+                                                                  const OrtKernelInfo& info) {
+  return OrtW::GetOpAttribute(info, "ignore_case", ignore_case_);
 }
 
-void KernelStringECMARegexSplitWithOffsets::Compute(const ortc::Tensor<std::string>& input,
-                                                    std::string_view pattern,
-                                                    std::string_view keep_pattern,
-                                                    ortc::Tensor<std::string>& output_text,
-                                                    ortc::Tensor<int64_t>& output1,
-                                                    ortc::Tensor<int64_t>& output2,
-                                                    ortc::Tensor<int64_t>& output3) const {
+OrtStatusPtr KernelStringECMARegexSplitWithOffsets::Compute(const ortc::Tensor<std::string>& input,
+                                                            std::string_view pattern,
+                                                            std::string_view keep_pattern,
+                                                            ortc::Tensor<std::string>& output_text,
+                                                            ortc::Tensor<int64_t>& output1,
+                                                            ortc::Tensor<int64_t>& output2,
+                                                            ortc::Tensor<int64_t>& output3) const {
   // Setup inputs
   auto& str_input = input.Data();
 
@@ -69,4 +68,6 @@ void KernelStringECMARegexSplitWithOffsets::Compute(const ortc::Tensor<std::stri
   std::vector<int64_t> dim_out_row{(int64_t)row_offsets.size()};
   p_output = output3.Allocate(dim_out_row);
   memcpy(p_output, row_offsets.data(), row_offsets.size() * sizeof(int64_t));
+
+  return nullptr;
 }

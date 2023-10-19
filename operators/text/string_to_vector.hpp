@@ -29,10 +29,10 @@ class StringToVectorImpl {
   size_t vector_len_;
 };
 
-struct KernelStringToVector : BaseKernel {
-  KernelStringToVector(const OrtApi& api, const OrtKernelInfo& info);
-  void Compute(const ortc::Tensor<std::string>& input,
-               ortc::Tensor<int64_t>& out) const;
+struct KernelStringToVector {
+  OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info);
+  OrtStatusPtr Compute(const ortc::Tensor<std::string>& input,
+                       ortc::Tensor<int64_t>& out) const;
 
  private:
   std::shared_ptr<StringToVectorImpl> impl_;

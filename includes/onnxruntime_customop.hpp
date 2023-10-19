@@ -261,6 +261,25 @@ inline OrtStatusPtr API::KernelInfoGetAttribute<float>(const OrtKernelInfo& info
   return instance()->KernelInfoGetAttribute_float(&info, name, &value);
 }
 
+template <>
+inline OrtStatusPtr API::KernelInfoGetAttribute<std::string>(const OrtKernelInfo& info, const char* name, std::string& value) noexcept {
+  size_t size = 0;
+  std::string out;
+  // Feed nullptr for the data buffer to query the true size of the string attribute
+  OrtStatus* status = instance()->KernelInfoGetAttribute_string(&info, name, nullptr, &size);
+  if (status == nullptr) {
+    out.resize(size);
+    status = instance()->KernelInfoGetAttribute_string(&info, name, &out[0], &size);
+    out.resize(size - 1);  // remove the terminating character '\0'
+  }
+
+  if (status == nullptr) {
+    value = std::move(out);
+  }
+
+  return status;
+}
+
 template <class T>
   static OrtStatusPtr GetOpAttribute(const OrtKernelInfo& info, const char* name, T& value) noexcept {
     if (auto status = API::KernelInfoGetAttribute(info, name, value); status) {
@@ -398,7 +417,7 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
     };
   }
 
-#if ORT_API_VERSION > 15
+#if ORT_API_VERSION > 16
   template <typename... Args>
   void DefineCallbackFunctions(MemberComputeType<Args...> fn, RegularComputeType regular_fn) {
     OrtCustomOp::CreateKernel = nullptr;
@@ -450,7 +469,7 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
       std::unique_ptr<KernelEx>(reinterpret_cast<KernelEx*>(op_kernel)).reset();
     };
   }
-#endif // ORT_API_VERSION > 15
+#endif // ORT_API_VERSION > 16
 
   OrtLiteCustomStructV2(const char* op_name,
                         const char* execution_provider,
@@ -459,11 +478,11 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
 
     ParseArgs(&CustomOpKernel::Compute);
 
-#if ORT_API_VERSION > 15
+#if ORT_API_VERSION > 16
     if (OrtCustomOp::version > 15) {
       DefineCallbackFunctions(&CustomOpKernel::Compute, fn_compute);
     } else
-#endif  // ORT_API_VERSION > 15
+#endif  // ORT_API_VERSION > 16
 
     {
       DefineCallbackFunctionsLegacy(&CustomOpKernel::Compute, fn_compute);

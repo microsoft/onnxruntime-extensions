@@ -1,10 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "string_split.hpp"
+#include "string_functions.h"
 #include "string_tensor.h"
 
-void string_split(const ortc::Tensor<std::string>& input_X,
+OrtStatusPtr string_split(const ortc::Tensor<std::string>& input_X,
                   std::string_view sep,
                   bool skip_empty,
                   ortc::Tensor<int64_t>& out_indices,
@@ -13,10 +13,13 @@ void string_split(const ortc::Tensor<std::string>& input_X,
   // Setup inputs
   auto& X = input_X.Data();
 
+  OrtStatusPtr status = nullptr;
   // Setup output
   auto& dimensions = input_X.Shape();
-  if (dimensions.size() != 1)
-    ORTX_CXX_API_THROW("Only 1D tensor are supported as input.", ORT_INVALID_ARGUMENT);
+  if (dimensions.size() != 1) {
+    status = OrtW::CreateStatus("Only 1D tensor are supported as input.", ORT_INVALID_ARGUMENT);
+    return status;
+  }
 
   std::vector<std::string> words;
   std::vector<int64_t> indices;
@@ -77,4 +80,5 @@ void string_split(const ortc::Tensor<std::string>& input_X,
   p_shape[0] = dimensions[0];
   p_shape[1] = maxc;
   out_text.SetStringOutput(words, shape_text);
+  return status;
 }
