@@ -148,6 +148,9 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     if (IsUnicodeSpace(str.back())) {
       str.pop_back();
     }
+    // remove newlines as CLIP ignores them (treats them as whitespace which is then cleaned)
+    str.erase(std::remove(str.begin(), str.end(), '\n'), str.end());
+    str.erase(std::remove(str.begin(), str.end(), '\r'), str.end());
     input = str;
   }
 
@@ -196,6 +199,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
 
     while (static_cast<int64_t>(res.size()) < max_length) {
       auto [b, tok] = regcmp.GetNextToken();
+      
       if (!b) break;
 
       std::string utf8_token = std::string(ustring(tok));
