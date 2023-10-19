@@ -108,16 +108,22 @@ void StringToVectorImpl::ParseValues(const std::string_view& v, std::vector<int6
   }
 }
 
-KernelStringToVector::KernelStringToVector(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
-  std::string map = ort_.KernelInfoGetAttribute<std::string>(&info, "map");
-  // unk_value is string here because KernelInfoGetAttribute doesn't support returning vector
-  std::string unk = ort_.KernelInfoGetAttribute<std::string>(&info, "unk");
+OrtStatusPtr KernelStringToVector::OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
+  std::string map, unk;
+  auto status = OrtW::GetOpAttribute(info, "map", map);
+  if (!status) {
+    status = OrtW::GetOpAttribute(info, "unk", unk);
+  }
 
-  impl_ = std::make_shared<StringToVectorImpl>(map, unk);
+  if (!status) {
+    impl_ = std::make_shared<StringToVectorImpl>(map, unk);
+  }
+
+  return status;
 }
 
-void KernelStringToVector::Compute(const ortc::Tensor<std::string>& input,
-                                   ortc::Tensor<int64_t>& out) const {
+OrtStatusPtr KernelStringToVector::Compute(const ortc::Tensor<std::string>& input,
+                                           ortc::Tensor<int64_t>& out) const {
   // Setup input
   auto& input_data = input.Data();
   // Get output
@@ -134,4 +140,6 @@ void KernelStringToVector::Compute(const ortc::Tensor<std::string>& input,
       idx++;
     }
   }
+
+  return nullptr;
 }

@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "string_strip.hpp"
+#include "string_functions.h"
 #include "string_tensor.h"
 #include <vector>
 #include <cmath>
@@ -9,7 +9,7 @@
 
 const char* WHITE_SPACE_CHARS = " \t\n\r\f\v";
 
-void string_strip(const ortc::Tensor<std::string>& input,
+OrtStatusPtr string_strip(const ortc::Tensor<std::string>& input,
                   ortc::Tensor<std::string>& output) {
   std::vector<std::string> X = input.Data();
   for (size_t i = 0; i < X.size(); ++i) {
@@ -21,4 +21,6 @@ void string_strip(const ortc::Tensor<std::string>& input,
     }
   }
   output.SetStringOutput(X, input.Shape());
+
+  return nullptr;
 }

@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "string_length.hpp"
+#include "string_functions.h"
 #include "string_tensor.h"
 #include <vector>
 #include <locale>
@@ -9,7 +9,7 @@
 #include <algorithm>
 #include "ustring.h"
 
-void string_length(const ortc::Tensor<std::string>& input,
+OrtStatusPtr string_length(const ortc::Tensor<std::string>& input,
                    ortc::Tensor<int64_t>& output) {
   // Setup inputs
   auto& input_data = input.Data();
@@ -20,4 +20,6 @@ void string_length(const ortc::Tensor<std::string>& input,
   for (int i = 0; i < input.NumberOfElement(); i++) {
     output_data[i] = ustring(input_data[i]).size();
   }
+
+  return nullptr;
 }

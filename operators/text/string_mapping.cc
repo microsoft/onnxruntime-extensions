@@ -8,23 +8,30 @@
 #include <codecvt>
 #include <algorithm>
 
-KernelStringMapping::KernelStringMapping(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
-  std::string map = ort_.KernelInfoGetAttribute<std::string>(&info, "map");
+OrtStatusPtr KernelStringMapping::OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
+  std::string map;
+  auto status = OrtW::GetOpAttribute(info, "map", map);
+  if (status != nullptr) {
+    return status;
+  }
+
   auto lines = SplitString(map, "\n", true);
   for (const auto& line : lines) {
     auto items = SplitString(line, "\t", true);
 
     if (items.size() != 2) {
-      ORTX_CXX_API_THROW(
-          "[StringMapping]: Should only exist two items in one line, find error in line: " + std::string(line),
+      return OrtW::CreateStatus(
+          ("[StringMapping]: Should only exist two items in one line, find error in line: " + std::string(line)).c_str(),
           ORT_INVALID_GRAPH);
     }
     map_[std::string(items[0])] = std::string(items[1]);
   }
+
+  return nullptr;
 }
 
-void KernelStringMapping::Compute(const ortc::Tensor<std::string>& input,
-                                  ortc::Tensor<std::string>& output) const {
+OrtStatusPtr KernelStringMapping::Compute(const ortc::Tensor<std::string>& input,
+                                          ortc::Tensor<std::string>& output) const {
   // make a copy as input is constant
   std::vector<std::string> input_data = input.Data();
 
@@ -35,4 +42,5 @@ void KernelStringMapping::Compute(const ortc::Tensor<std::string>& input,
     }
   }
   output.SetStringOutput(input_data, input.Shape());
+  return nullptr;
 }

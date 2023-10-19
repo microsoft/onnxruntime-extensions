@@ -23,12 +23,16 @@
 #include "string_tensor.h"
 #include "sampling.h"
 
-struct AudioDecoder : public BaseKernel {
+struct AudioDecoder{
  public:
-  AudioDecoder(const OrtApi& api, const OrtKernelInfo& info)
-      : BaseKernel(api, info),
-        downsample_rate_(TryToGetAttributeWithDefault<int64_t>("downsampling_rate", 0)),
-        stereo_mixer_(TryToGetAttributeWithDefault<int64_t>("stereo_to_mono", 0)) {
+
+  OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
+    auto status = OrtW::GetOpAttribute(info, "downsampling_rate", downsample_rate_);
+    if (!status) {
+      status = OrtW::GetOpAttribute(info, "stereo_to_mono", stereo_mixer_);
+    }
+
+    return status;
   }
 
   enum class AudioStreamType {
@@ -38,7 +42,7 @@ struct AudioDecoder : public BaseKernel {
     kFLAC
   };
 
-  AudioStreamType ReadStreamFormat(const uint8_t* p_data, const std::string& str_format) const {
+  AudioStreamType ReadStreamFormat(const uint8_t* p_data, const std::string& str_format, OrtStatusPtr& status) const {
     static const std::map<std::string, AudioStreamType> format_mapping = {
         {"default", AudioStreamType::kDefault},
         {"wav", AudioStreamType::kWAV},
@@ -49,9 +53,11 @@ struct AudioDecoder : public BaseKernel {
     if (str_format.length() > 0) {
       auto pos = format_mapping.find(str_format);
       if (pos == format_mapping.end()) {
-        ORTX_CXX_API_THROW(MakeString(
-                               "[AudioDecoder]: Unknown audio stream format: ", str_format),
+        status = OrtW::CreateStatus(MakeString(
+                               "[AudioDecoder]: Unknown audio stream format: ", str_format)
+                               .c_str(),
                            ORT_INVALID_ARGUMENT);
+        return stream_format;
       }
       stream_format = pos->second;
     }
@@ -68,7 +74,7 @@ struct AudioDecoder : public BaseKernel {
         // only detect the 8 + 3 bits sync word
         stream_format = AudioStreamType::kMP3;
       } else {
-        ORTX_CXX_API_THROW("[AudioDecoder]: Cannot detect audio stream format", ORT_INVALID_ARGUMENT);
+        status = OrtW::CreateStatus("[AudioDecoder]: Cannot detect audio stream format", ORT_INVALID_ARGUMENT);
       }
     }
 
@@ -96,20 +102,25 @@ struct AudioDecoder : public BaseKernel {
     return total_buf_size;
   }
 
-  void Compute(const ortc::Tensor<uint8_t>& input,
+    OrtStatusPtr Compute(const ortc::Tensor<uint8_t>& input,
                const std::optional<std::string> format,
                ortc::Tensor<float>& output0) const {
     const uint8_t* p_data = input.Data();
     auto input_dim = input.Shape();
+    OrtStatusPtr status = nullptr;
     if (!((input_dim.size() == 1) || (input_dim.size() == 2 && input_dim[0] == 1))) {
-      ORTX_CXX_API_THROW("[AudioDecoder]: Expect input dimension [n] or [1,n].", ORT_INVALID_ARGUMENT);
+      status = OrtW::CreateStatus("[AudioDecoder]: Expect input dimension [n] or [1,n].", ORT_INVALID_ARGUMENT);
+      return status;
     }
 
     std::string str_format;
     if (format) {
       str_format = *format;
     }
-    auto stream_format = ReadStreamFormat(p_data, str_format);
+    auto stream_format = ReadStreamFormat(p_data, str_format, status);
+    if (status) {
+      return status;
+    }
 
     int64_t total_buf_size = 0;
     std::list<std::vector<float>> lst_frames;
@@ -119,7 +130,8 @@ struct AudioDecoder : public BaseKernel {
     if (stream_format == AudioStreamType::kMP3) {
       auto mp3_obj_ptr = std::make_unique<drmp3>();
       if (!drmp3_init_memory(mp3_obj_ptr.get(), p_data, input.NumberOfElement(), nullptr)) {
-        ORTX_CXX_API_THROW("[AudioDecoder]: unexpected error on MP3 stream.", ORT_RUNTIME_EXCEPTION);
+        status = OrtW::CreateStatus("[AudioDecoder]: unexpected error on MP3 stream.", ORT_RUNTIME_EXCEPTION);
+        return status;
       }
       orig_sample_rate = mp3_obj_ptr->sampleRate;
       orig_channels = mp3_obj_ptr->channels;
@@ -129,7 +141,8 @@ struct AudioDecoder : public BaseKernel {
       drflac* flac_obj = drflac_open_memory(p_data, input.NumberOfElement(), nullptr);
       auto flac_obj_closer = gsl::finally([flac_obj]() { drflac_close(flac_obj); });
       if (flac_obj == nullptr) {
-        ORTX_CXX_API_THROW("[AudioDecoder]: unexpected error on FLAC stream.", ORT_RUNTIME_EXCEPTION);
+        status = OrtW::CreateStatus("[AudioDecoder]: unexpected error on FLAC stream.", ORT_RUNTIME_EXCEPTION);
+        return status;
       }
       orig_sample_rate = flac_obj->sampleRate;
       orig_channels = flac_obj->channels;
@@ -138,7 +151,8 @@ struct AudioDecoder : public BaseKernel {
     } else {
       drwav wav_obj;
       if (!drwav_init_memory(&wav_obj, p_data, input.NumberOfElement(), nullptr)) {
-        ORTX_CXX_API_THROW("[AudioDecoder]: unexpected error on WAV stream.", ORT_RUNTIME_EXCEPTION);
+        status = OrtW::CreateStatus("[AudioDecoder]: unexpected error on WAV stream.", ORT_RUNTIME_EXCEPTION);
+        return status;
       }
       orig_sample_rate = wav_obj.sampleRate;
       orig_channels = wav_obj.channels;
@@ -147,7 +161,8 @@ struct AudioDecoder : public BaseKernel {
 
     if (downsample_rate_ != 0 &&
         orig_sample_rate < downsample_rate_) {
-      ORTX_CXX_API_THROW("[AudioDecoder]: only down-sampling supported.", ORT_INVALID_ARGUMENT);
+      status = OrtW::CreateStatus("[AudioDecoder]: only down-sampling supported.", ORT_INVALID_ARGUMENT);
+      return status;
     }
 
     // join all frames
@@ -182,6 +197,7 @@ struct AudioDecoder : public BaseKernel {
     std::vector<int64_t> dim_out = {1, ort_extensions::narrow<int64_t>(buf.size())};
     float* p_output = output0.Allocate(dim_out);
     std::copy(buf.begin(), buf.end(), p_output);
+    return status;
   }
 
  private:

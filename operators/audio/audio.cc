@@ -11,7 +11,7 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Audio = []()-> CustomOpArray& {
     []() { return nullptr; }
 #ifdef ENABLE_DR_LIBS
     ,
-    CustomCpuStruct("AudioDecoder", AudioDecoder)
+    CustomCpuStructV2("AudioDecoder", AudioDecoder)
 #endif
   );
 
