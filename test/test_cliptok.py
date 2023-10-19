@@ -1,7 +1,7 @@
 ﻿import unittest
 import numpy as np
 import onnxruntime as _ort
-import ftfy
+import pkg_resources
 
 from pathlib import Path
 from onnx import helper, onnx_pb as onnx_proto
@@ -150,4 +150,8 @@ class TestCLIPTokenizer(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    try:
+        dist = pkg_resources.get_distribution('ftfy')
+    except pkg_resources.DistributionNotFound:
+        raise Exception("WARNING: ftfy is not installed - it is required for parity between CLIPTokenizer and CLIPTokenizerFast.")
     unittest.main()
