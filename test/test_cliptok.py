@@ -1,6 +1,7 @@
 ﻿import unittest
 import numpy as np
 import onnxruntime as _ort
+import ftfy
 
 from pathlib import Path
 from onnx import helper, onnx_pb as onnx_proto
@@ -105,6 +106,7 @@ class TestCLIPTokenizer(unittest.TestCase):
         self._run_tokenizer(["Testing multiple      sequences       of spaces"])
         self._run_tokenizer(["      in the beginning and the end.      "])
         self._run_tokenizer([" "])
+        self._run_tokenizer(["Testing words with apostrophes such as you're, i'm, don't, etc."])
 
     def test_converter(self):
         fn_tokenizer = PyOrtFunction.from_customop("CLIPTokenizer",
