@@ -1,9 +1,9 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 import unittest
+import pkg_resources
 
 import numpy as np
-import ftfy
 from transformers import AutoTokenizer, GPT2Tokenizer
 from onnxruntime_extensions import OrtPyFunction, gen_processing_models, ort_inference, util
 
@@ -129,4 +129,8 @@ class TestAutoTokenizer(unittest.TestCase):
 
 
 if __name__ == '__main__':
+    try:
+        dist = pkg_resources.get_distribution('ftfy')
+    except pkg_resources.DistributionNotFound:
+        raise Exception("WARNING: ftfy is not installed - it is required for parity between CLIPTokenizer and CLIPTokenizerFast.")
     unittest.main()
