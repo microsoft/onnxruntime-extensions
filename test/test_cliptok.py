@@ -74,7 +74,7 @@ class TestCLIPTokenizer(unittest.TestCase):
         cls.slow_tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
         cls.tokenizer_cvt = HFTokenizerConverter(cls.slow_tokenizer)
 
-    def _run_tokenizer(self, test_sentence, padding_length=-1, use_slow=False):
+    def _run_tokenizer(self, test_sentence, padding_length=-1):
         model = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges,
                                    max_length=padding_length, attention_mask=True, offset_map=True)
         so = _ort.SessionOptions()
@@ -82,7 +82,7 @@ class TestCLIPTokenizer(unittest.TestCase):
         sess = _ort.InferenceSession(model.SerializeToString(), so, providers=["CPUExecutionProvider"])
         input_text = np.array(test_sentence)
         input_ids, attention_mask, _ = sess.run(None, {'string_input': input_text})
-        clip_out = self.slow_tokenizer(test_sentence) if use_slow else self.tokenizer(test_sentence, return_offsets_mapping=True)
+        clip_out = self.tokenizer(test_sentence, return_offsets_mapping=True)
         expect_input_ids = clip_out['input_ids']
         expect_attention_mask = clip_out['attention_mask']
         np.testing.assert_array_equal(expect_input_ids, input_ids)
@@ -106,10 +106,6 @@ class TestCLIPTokenizer(unittest.TestCase):
         self._run_tokenizer(["Testing multiple      sequences       of spaces"])
         self._run_tokenizer(["      in the beginning and the end.      "])
         self._run_tokenizer([" "])
-        
-        # Currently, HF CLIPTokenizer and CLIPTokenizerFast implementations are not consistent with apostrophe handling
-        # until ftfy is installed so we test aposrophe handling for both slow and fast Python implementations.
-        self._run_tokenizer(["Testing words with apostrophes such as you're, i'm, don't, etc."], use_slow=True)
         self._run_tokenizer(["Testing words with apostrophes such as you're, i'm, don't, etc."])
 
     def test_converter(self):
