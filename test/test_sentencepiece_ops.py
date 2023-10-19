@@ -16,11 +16,11 @@ from onnxruntime_extensions import (
     get_library_path as _get_library_path)
 
 
-_is_tensorflow_avaliable = False
+_is_tensorflow_available = False
 try:
     import tensorflow as tf
     from tensorflow_text import SentencepieceTokenizer
-    _is_tensorflow_avaliable = True
+    _is_tensorflow_available = True
 except ImportError:
     pass
 
@@ -282,7 +282,7 @@ def _create_test_model_sentencepiece_fairseq(
     return model
 
 
-@unittest.skipIf(not _is_tensorflow_avaliable, "tensorflow/tensorflow-text is unavailable")
+@unittest.skipIf(not _is_tensorflow_available, "tensorflow/tensorflow-text is unavailable")
 class TestPythonOpSentencePiece(unittest.TestCase):
 
     @classmethod

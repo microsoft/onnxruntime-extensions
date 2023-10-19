@@ -7,8 +7,9 @@ import os
 import tempfile
 import requests
 
+import numpy as np
 from unittest import TestCase, main as unittest_main
-from onnxruntime_extensions import OrtPyFunction, util
+from onnxruntime_extensions import OrtPyFunction, util, ONNXRuntimeException
 
 
 # to avoid to install rwkv LM package, we copy the tokenizer code here.
@@ -150,6 +151,11 @@ class TestTrieTokenizer(TestCase):
 
         detok = OrtPyFunction.from_customop("TrieDetokenizer", vocab=vocab_data, cpu_only=True)
         self.assertEqual(list(detok(tokens)), ["I love you"])
+
+    def test_invalid_utf8(self):
+        vocab_data = util.read_file(self.vocab_file, 'rb')
+        detok = OrtPyFunction.from_customop("TrieDetokenizer", vocab=vocab_data, cpu_only=True)
+        self.assertRaises(ONNXRuntimeException, detok, np.array([[148]], np.int64))
 
     def test_parity(self):
         test_sentences = [

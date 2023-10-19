@@ -200,14 +200,24 @@ struct KernelTrieDetokenizer : public BaseKernel {
     }
 
     std::vector<std::string> output(output_dim[0]);
+    bool failed = false;
     for (auto n = 0; n < output_dim[0]; n++) {
       std::vector<int> ids;
       for (auto i = 0; i < ids_dim[1]; i++) {
         ids.push_back(ort_extensions::narrow<int>(p_ids[n * ids_dim[1] + i]));
       }
-      output[n] = tokenizer->decodeBytes(ids);
+      auto raw_string = tokenizer->decodeBytes(ids);
+      if (ustring::ValidateUTF8(raw_string)) {
+        output[n] = raw_string;
+      } else {
+        output[n] = "\ufffd";   // bad utf-8 string
+        failed = true;
+      }
     }
 
     text.SetStringOutput(output, output_dim);
+    if (failed) {
+      ORTX_CXX_API_THROW("[KernelTrieDetokenizer] the input ids cannot be parsed as a valid utf-8 string", ORT_RUNTIME_EXCEPTION);
+    }
   }
 };

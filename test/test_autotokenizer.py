@@ -80,12 +80,12 @@ class TestAutoTokenizer(unittest.TestCase):
         actual_ids = ort_tok([text])[0]
         np.testing.assert_array_equal(ids, actual_ids)
 
-    def test_xmlroberta_tokenizer(self):
+    def test_xlm_roberta_tokenizer(self):
         tokenizer = AutoTokenizer.from_pretrained("xlm-roberta-base", use_fast=False)
         # TODO: if there is <unk> in text, the result is not matched.
         text = (
             'This is a very long text with a lot of weird characters, such as: . , ~ ? ( ) " [ ] ! : - . Also we will'
-            " add words that should not exsist and be tokenized to , such as saoneuhaoesuth")
+            " add words that should not exist and be tokenized to , such as saoneuhaoesuth")
         ids = tokenizer.encode(text, return_tensors="np")
 
         ort_tok, _ = gen_processing_models(tokenizer,pre_kwargs={"WITH_DEFAULT_INPUTS": True})
