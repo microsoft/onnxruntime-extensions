@@ -213,41 +213,41 @@ stages:
       inputs:
         versionSpec: 6.2.1
 
-    - task: PowerShell@2
-      displayName: 'Updating NativeNuget.NuSpec'
-      condition: eq(${{ parameters.IsDummyPackage }}, false)
-      inputs:
-        targetType: 'inline'
-        script: |
-          $OrtExtVersion=(cat ./version.txt)
-          python $(Build.SourcesDirectory)\tools\ci_build\update_nuspec_for_native_nuget.py `
-            --package_version $OrtExtVersion `
-            --commit_id $(Build.SourceVersion) `
-            --is_release_build ${{ parameters.IsReleaseBuild }} `
-            --nuget_version_suffix ${{ parameters.NugetVersionSuffix }}
+    - ${{ if eq(parameters.IsDummyPackage, false) }}:
+      - task: PowerShell@2
+        displayName: 'Updating NativeNuget.NuSpec'
+        inputs:
+          targetType: 'inline'
+          script: |
+            $OrtExtVersion=(cat ./version.txt)
+            python $(Build.SourcesDirectory)\tools\ci_build\update_nuspec_for_native_nuget.py `
+              --package_version $OrtExtVersion `
+              --commit_id $(Build.SourceVersion) `
+              --is_release_build ${{ parameters.IsReleaseBuild }} `
+              --nuget_version_suffix ${{ parameters.NugetVersionSuffix }}
 
-          cat $(Build.SourcesDirectory)\nuget\NativeNuget.nuspec
-        workingDirectory: '$(Build.SourcesDirectory)'
+            cat $(Build.SourcesDirectory)\nuget\NativeNuget.nuspec
+          workingDirectory: '$(Build.SourcesDirectory)'
 
-    - task: PowerShell@2
-      displayName: 'Updating DummyNativeNuget.NuSpec, and props and targets filenames'
-      condition: eq(${{ parameters.IsDummyPackage }}, true)
-      inputs:
-        targetType: 'inline'
-        script: |
-          $OrtExtVersion=(cat ./version.txt)
-          python $(Build.SourcesDirectory)\tools\ci_build\update_nuspec_for_native_nuget.py `
-            --package_version $OrtExtVersion `
-            --commit_id $(Build.SourceVersion) `
-            --is_release_build ${{ parameters.IsReleaseBuild }} `
-            --nuget_version_suffix ${{ parameters.NugetVersionSuffix }} `
-            --nuspec_path $(Build.SourcesDirectory)\nuget\DummyNativeNuget.nuspec
+    - ${{ if eq(parameters.IsDummyPackage, true) }}:
+      - task: PowerShell@2
+        displayName: 'Updating DummyNativeNuget.NuSpec, and props and targets filenames'
+        inputs:
+          targetType: 'inline'
+          script: |
+            $OrtExtVersion=(cat ./version.txt)
+            python $(Build.SourcesDirectory)\tools\ci_build\update_nuspec_for_native_nuget.py `
+              --package_version $OrtExtVersion `
+              --commit_id $(Build.SourceVersion) `
+              --is_release_build ${{ parameters.IsReleaseBuild }} `
+              --nuget_version_suffix ${{ parameters.NugetVersionSuffix }} `
+              --nuspec_path $(Build.SourcesDirectory)\nuget\DummyNativeNuget.nuspec
 
-          gci $(Build.SourcesDirectory)/nuget -Filter *.props -Recurse | Rename-Item -NewName { $_.name -replace 'Extensions', 'Extensions.Dummy' }
-          gci $(Build.SourcesDirectory)/nuget -Filter *.targets -Recurse | Rename-Item -NewName { $_.name -replace 'Extensions', 'Extensions.Dummy' }
+            gci $(Build.SourcesDirectory)/nuget -Filter *.props -Recurse | Rename-Item -NewName { $_.name -replace 'Extensions', 'Extensions.Dummy' }
+            gci $(Build.SourcesDirectory)/nuget -Filter *.targets -Recurse | Rename-Item -NewName { $_.name -replace 'Extensions', 'Extensions.Dummy' }
 
-          cat $(Build.SourcesDirectory)\nuget\DummyNativeNuget.nuspec
-        workingDirectory: '$(Build.SourcesDirectory)'
+            cat $(Build.SourcesDirectory)\nuget\DummyNativeNuget.nuspec
+          workingDirectory: '$(Build.SourcesDirectory)'
 
     - task: PowerShell@2
       displayName: 'Setup for packing'
@@ -261,21 +261,21 @@ stages:
 
         workingDirectory: '$(Build.SourcesDirectory)'
 
-    - task: NuGetCommand@2
-      displayName: Packing Microsoft.ML.OnnxRuntime.Extensions NuGet-package
-      condition: eq(${{ parameters.IsDummyPackage }}, false)
-      inputs:
-        command: 'pack'
-        packagesToPack: '$(Build.BinariesDirectory)\nuget\NativeNuget.nuspec'
-        packDestination: $(Build.ArtifactStagingDirectory)
+    - ${{ if eq(parameters.IsDummyPackage, false) }}:
+      - task: NuGetCommand@2
+        displayName: Packing Microsoft.ML.OnnxRuntime.Extensions NuGet-package
+        inputs:
+          command: 'pack'
+          packagesToPack: '$(Build.BinariesDirectory)\nuget\NativeNuget.nuspec'
+          packDestination: $(Build.ArtifactStagingDirectory)
 
-    - task: NuGetCommand@2
-      displayName: Packing Microsoft.ML.OnnxRuntime.Extensions.Dummy NuGet-package
-      condition: eq(${{ parameters.IsDummyPackage }}, true)
-      inputs:
-        command: 'pack'
-        packagesToPack: '$(Build.BinariesDirectory)\nuget\DummyNativeNuget.nuspec'
-        packDestination: $(Build.ArtifactStagingDirectory)
+    - ${{ if eq(parameters.IsDummyPackage, true) }}:
+      - task: NuGetCommand@2
+        displayName: Packing Microsoft.ML.OnnxRuntime.Extensions.Dummy NuGet-package
+        inputs:
+          command: 'pack'
+          packagesToPack: '$(Build.BinariesDirectory)\nuget\DummyNativeNuget.nuspec'
+          packDestination: $(Build.ArtifactStagingDirectory)
 
     - template: esrp_nuget.yml
       parameters:

@@ -201,10 +201,7 @@ def parse_args():
         "For example: 'build_aar.py <build_aar.py options> -- <build.py options>'.",
     )
 
-    args, unknown_args = parser.parse_known_args()
-
-    if unknown_args:
-        print("Ignoring unknown args: " + ", ".join(unknown_args))
+    args = parser.parse_args()
 
     args.abis = args.abis or _supported_abis.copy()
 
