@@ -43,7 +43,7 @@ stages:
       IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
       NugetVersionSuffix: ${{ parameters.NugetVersionSuffix }}
 
-- ${{ if eq(parameters.IsDummyPackage, true) }}:
+- ${{ else }}:
   - template: templates/build-package-for-nuget.yml
     parameters:
       DoCompliance: ${{ parameters.DoCompliance }}
