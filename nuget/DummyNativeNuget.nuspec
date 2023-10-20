@@ -1,0 +1,70 @@
+<?xml version='1.0' encoding='utf-8'?>
+<package>
+  <metadata>
+    <id>Microsoft.ML.OnnxRuntime.Extensions.Dummy</id>
+    <version>0.1.0</version>
+    <authors>Microsoft</authors>
+    <owners>Microsoft</owners>
+    <description>ONNX Runtime Extensions Dummy NuGet Package</description>
+    <releaseNotes>
+      Dummy NuGet package for the .NET platform. The package does not include any custom operator implementations.
+      It is for usage on iOS with the Microsoft.ML.OnnxRuntime.Managed package to provide a dummy implementation of
+      the RegisterCustomOps symbol to resolve an iOS specific compile time requirement for that symbol to exist.
+      This package is required when the user does NOT need to use the real Microsoft.ML.OnnxRuntime.Extensions package.
+	</releaseNotes>
+    <copyright>© Microsoft Corporation. All rights reserved.</copyright>
+    <tags>ONNX ONNXRuntime AI Machine Learning</tags>
+    <icon>ORT_icon_for_light_bg.png</icon>
+    <license type="file">LICENSE.txt</license>
+    <readme>README.md</readme>
+    <projectUrl>https://github.com/Microsoft/onnxruntime-extensions</projectUrl>
+    <repository type="git" url="https://github.com/Microsoft/onnxruntime-extensions.git" commit="COMMIT_ID" />
+  </metadata>
+  <!-- For simplicity and consistency with the 'real' package we include all the same targets -->
+  <files>
+    <file src="LICENSE.txt" target="LICENSE.txt" />
+    <file src="README.md" target="README.md" />
+    <file src="ORT_icon_for_light_bg.png" target="ORT_icon_for_light_bg.png" />
+    <file src="..\ThirdPartyNotices.txt" target="ThirdPartyNotices.txt" />
+    <!--
+      NOTE: If you wish to create a local nuget package for testing, update the relevant src paths below
+      to point to the local build you wish to test, and comment out the entries for any platforms you don't
+      need in the nuget package.
+
+      You will need to rename the existing props and targets files to add the '.Dummy' segment,
+      as the filename must match the package name.
+
+      After renaming the props and targets files run `nuget pack DummyNativeNuget.nuspec` from this directory
+      to produce the package for local testing.
+    -->
+    <!-- Windows and Linux via netstandard -->
+    <file src="..\nuget-artifacts\onnxruntime-extensions-win-x64\lib\ortextensions.dll" target="runtimes\win-x64\native" />
+    <file src="..\nuget-artifacts\onnxruntime-extensions-win-x86\lib\ortextensions.dll" target="runtimes\win-x86\native" />
+    <file src="..\nuget-artifacts\onnxruntime-extensions-win-arm64\lib\ortextensions.dll" target="runtimes\win-arm64\native" />
+    <file src="..\nuget-artifacts\onnxruntime-extensions-win-arm\lib\ortextensions.dll" target="runtimes\win-arm\native" />
+    <file src="..\nuget-artifacts\onnxruntime-extensions-linux-aarch64\lib\libortextensions.so" target="runtimes\linux-arm64\native" />
+    <file src="..\nuget-artifacts\onnxruntime-extensions-linux-x64\lib\libortextensions.so" target="runtimes\linux-x64\native" />
+    <file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.Dummy.props" target="build\netstandard1.1" />
+    <file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.Dummy.props" target="build\netstandard2.0" />
+    <file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="build\netstandard1.1" />
+    <file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="build\netstandard2.0" />
+    <!-- Android via Xamarin/MAUI -->
+    <file src="..\nuget-artifacts\onnxruntime-extensions-android\onnxruntime-extensions.aar" target="runtimes\android\native" />
+    <file src="targets\monoandroid11.0\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="build\monoandroid11.0" />
+    <file src="targets\monoandroid11.0\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="buildTransitive\monoandroid11.0" />
+    <file src="targets\net6.0-android\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="build\net6.0-android31.0" />
+    <file src="targets\net6.0-android\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="buildTransitive\net6.0-android31.0" />
+    <!-- iOS via Xamarin/MAUI. -->
+    <file src="..\nuget-artifacts\onnxruntime_extensions.xcframework\**" target="runtimes\ios\native\onnxruntime_extensions.xcframework" />
+    <file src="targets\xamarinios10\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="build\xamarinios10" />
+    <file src="targets\xamarinios10\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="buildTransitive\xamarinios10" />
+    <file src="targets\net6.0-ios\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="build\net6.0-ios15.4" />
+    <file src="targets\net6.0-ios\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="buildTransitive\net6.0-ios15.4" />
+    <!-- .net 6 macOS -->
+    <file src="..\nuget-artifacts\onnxruntime-extensions-osx-x86_64\lib\libortextensions.dylib" target="runtimes\osx.10.14-x64\native" />
+    <file src="..\nuget-artifacts\onnxruntime-extensions-osx-arm64\lib\libortextensions.dylib" target="runtimes\osx.10.14-arm64\native"/>
+
+    <file src="targets\net6.0-macos\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="build\net6.0-macos12.3" />
+    <file src="targets\net6.0-macos\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="buildTransitive\net6.0-macos12.3" />
+  </files>
+</package>

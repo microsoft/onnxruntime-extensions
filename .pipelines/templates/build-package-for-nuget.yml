@@ -14,14 +14,14 @@ parameters:
   type: boolean
   default: false
 
+- name: IsDummyPackage
+  displayName: Is this a build of Microsoft.ML.OnnxRuntime.Extensions.Dummy package that has no operators?
+  type: boolean
+  default: false
+
 - name: NugetVersionSuffix
   displayName: Nuget version suffix
   type: string
-
-- name: OrtNugetPackageId
-  displayName: Package name for nuget
-  type: string
-  default: 'Microsoft.ML.OnnxRuntime.Extensions'
 
 - name: OperatorSelectionFlags
   displayName: Flags to select operators included. Default is to disable OCOS_ENABLE_CV2 and OCOS_ENABLE_BLINGFIRE
@@ -128,7 +128,6 @@ stages:
     # VS2019 has no support for net6 and we need to use msbuild (from the VS install) to do the packing
     pool: 'Azure-Pipelines-EO-Windows2022-aiinfra'
     variables:
-      OrtPackageId: ${{ parameters.OrtNugetPackageId }}
       breakCodesignValidationInjection: ${{ parameters.DoEsrp }}
 
     steps:
@@ -214,20 +213,41 @@ stages:
       inputs:
         versionSpec: 6.2.1
 
-    - task: PowerShell@2
-      displayName: 'Updating NuSpec'
-      inputs:
-        targetType: 'inline'
-        script: |
-          $OrtExtVersion=(cat ./version.txt)
-          python $(Build.SourcesDirectory)\tools\ci_build\update_nuspec_for_native_nuget.py `
-            --package_version $OrtExtVersion `
-            --commit_id $(Build.SourceVersion) `
-            --is_release_build ${{ parameters.IsReleaseBuild }} `
-            --nuget_version_suffix ${{ parameters.NugetVersionSuffix }}
+    - ${{ if eq(parameters.IsDummyPackage, false) }}:
+      - task: PowerShell@2
+        displayName: 'Updating NativeNuget.NuSpec'
+        inputs:
+          targetType: 'inline'
+          script: |
+            $OrtExtVersion=(cat ./version.txt)
+            python $(Build.SourcesDirectory)\tools\ci_build\update_nuspec_for_native_nuget.py `
+              --package_version $OrtExtVersion `
+              --commit_id $(Build.SourceVersion) `
+              --is_release_build ${{ parameters.IsReleaseBuild }} `
+              --nuget_version_suffix ${{ parameters.NugetVersionSuffix }}
 
-          cat $(Build.SourcesDirectory)\nuget\NativeNuget.nuspec
-        workingDirectory: '$(Build.SourcesDirectory)'
+            cat $(Build.SourcesDirectory)\nuget\NativeNuget.nuspec
+          workingDirectory: '$(Build.SourcesDirectory)'
+
+    - ${{ else }}:
+      - task: PowerShell@2
+        displayName: 'Updating DummyNativeNuget.NuSpec, and props and targets filenames'
+        inputs:
+          targetType: 'inline'
+          script: |
+            $OrtExtVersion=(cat ./version.txt)
+            python $(Build.SourcesDirectory)\tools\ci_build\update_nuspec_for_native_nuget.py `
+              --package_version $OrtExtVersion `
+              --commit_id $(Build.SourceVersion) `
+              --is_release_build ${{ parameters.IsReleaseBuild }} `
+              --nuget_version_suffix ${{ parameters.NugetVersionSuffix }} `
+              --nuspec_path $(Build.SourcesDirectory)\nuget\DummyNativeNuget.nuspec
+
+            gci $(Build.SourcesDirectory)/nuget -Filter *.props -Recurse | Rename-Item -NewName { $_.name -replace 'Extensions', 'Extensions.Dummy' }
+            gci $(Build.SourcesDirectory)/nuget -Filter *.targets -Recurse | Rename-Item -NewName { $_.name -replace 'Extensions', 'Extensions.Dummy' }
+
+            cat $(Build.SourcesDirectory)\nuget\DummyNativeNuget.nuspec
+          workingDirectory: '$(Build.SourcesDirectory)'
 
     - task: PowerShell@2
       displayName: 'Setup for packing'
@@ -241,12 +261,21 @@ stages:
 
         workingDirectory: '$(Build.SourcesDirectory)'
 
-    - task: NuGetCommand@2
-      displayName: Packing onnxruntime extensions NuGet-package
-      inputs:
-        command: 'pack'
-        packagesToPack: '$(Build.BinariesDirectory)\nuget\NativeNuget.nuspec'
-        packDestination: $(Build.ArtifactStagingDirectory)
+    - ${{ if eq(parameters.IsDummyPackage, false) }}:
+      - task: NuGetCommand@2
+        displayName: Packing Microsoft.ML.OnnxRuntime.Extensions NuGet-package
+        inputs:
+          command: 'pack'
+          packagesToPack: '$(Build.BinariesDirectory)\nuget\NativeNuget.nuspec'
+          packDestination: $(Build.ArtifactStagingDirectory)
+
+    - ${{ else }}:
+      - task: NuGetCommand@2
+        displayName: Packing Microsoft.ML.OnnxRuntime.Extensions.Dummy NuGet-package
+        inputs:
+          command: 'pack'
+          packagesToPack: '$(Build.BinariesDirectory)\nuget\DummyNativeNuget.nuspec'
+          packDestination: $(Build.ArtifactStagingDirectory)
 
     - template: esrp_nuget.yml
       parameters:
