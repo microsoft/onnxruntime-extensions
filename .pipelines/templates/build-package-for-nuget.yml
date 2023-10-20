@@ -229,7 +229,7 @@ stages:
             cat $(Build.SourcesDirectory)\nuget\NativeNuget.nuspec
           workingDirectory: '$(Build.SourcesDirectory)'
 
-    - ${{ if eq(parameters.IsDummyPackage, true) }}:
+    - ${{ else }}:
       - task: PowerShell@2
         displayName: 'Updating DummyNativeNuget.NuSpec, and props and targets filenames'
         inputs:
@@ -269,7 +269,7 @@ stages:
           packagesToPack: '$(Build.BinariesDirectory)\nuget\NativeNuget.nuspec'
           packDestination: $(Build.ArtifactStagingDirectory)
 
-    - ${{ if eq(parameters.IsDummyPackage, true) }}:
+    - ${{ else }}:
       - task: NuGetCommand@2
         displayName: Packing Microsoft.ML.OnnxRuntime.Extensions.Dummy NuGet-package
         inputs:
