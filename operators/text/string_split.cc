@@ -56,7 +56,7 @@ OrtStatusPtr string_split(const ortc::Tensor<std::string>& input_X,
           indices.push_back(col);
           ++col;
         }
-        previous = current + 1;
+        previous = current + sep.size();
         current = str.find_first_of(sep, previous);
       }
       current = str.size();
