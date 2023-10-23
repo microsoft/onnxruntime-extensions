@@ -1,4 +1,4 @@
-#ifdef ENABLE_TF_STRING
+﻿#ifdef ENABLE_TF_STRING
 #include "farmhash.h"
 #endif
 

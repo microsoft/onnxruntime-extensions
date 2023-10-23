@@ -18,6 +18,41 @@
 #include "onnxruntime_c_api.h"
 #include "exceptions.h"
 
+#ifdef USE_CUDA
+#include <cuda.h>
+#include <cuda_runtime.h>
+///////////////////////////////////////////////////////////////////////////
+// hard copy from onnxruntime/core/providers/cuda/cuda_resource.h
+enum CudaResource : int {
+  cuda_stream_t = 10000, //cuda_resource_offset,
+  cudnn_handle_t,
+  cublas_handle_t,
+  deferred_cpu_allocator_t,
+};
+
+struct CustomOpContext {
+  CustomOpContext() = default;
+  virtual ~CustomOpContext(){};
+  virtual void Init(const OrtKernelContext&){};
+};
+
+
+namespace Ort {
+
+namespace Custom {
+
+struct CudaContext : public CustomOpContext {
+  cudaStream_t cuda_stream = {};
+  struct {}   *cudnn_handle = {};
+  struct {}   *cublas_handle = {};
+  OrtAllocator* deferred_cpu_allocator = {};
+};
+
+}} // namespace Ort::Custom
+
+
+#endif // USE_CUDA
+
 
 #define MIN_ORT_VERSION_SUPPORTED 11
 

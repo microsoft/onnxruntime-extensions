@@ -8,6 +8,8 @@
 #include "string_utils.h"
 #include "test_kernel.hpp"
 #include "ustring.h"
+#include <cuda_runtime.h>
+
 
 struct KernelOne : BaseKernel {
   KernelOne(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
@@ -302,6 +304,9 @@ void TestInference(Ort::Env& env, const ORTCHAR_T* model_uri,
                    OutputValidator output_validator) {
   Ort::SessionOptions session_options;
   auto library_handle = RegisterExtOps(session_options);
+
+  cudaDeviceSynchronize();  // Wait for the GPU to finish
+
 
   // if session creation passes, model loads fine
   Ort::Session session(env, model_uri, session_options);
