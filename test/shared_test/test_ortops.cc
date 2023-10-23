@@ -9,7 +9,6 @@
 #include "test_kernel.hpp"
 #include "ustring.h"
 
-
 struct KernelOne : BaseKernel {
   KernelOne(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
   }
