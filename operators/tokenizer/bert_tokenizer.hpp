@@ -114,6 +114,6 @@ struct KernelHfBertTokenizer : KernelBertTokenizer {
   void Compute(const ortc::Tensor<std::string>& input,
                ortc::Tensor<int64_t>& output,
                ortc::Tensor<int64_t>& output1,
-               ortc::Tensor<int64_t>& output2,
+               std::optional<ortc::Tensor<int64_t>*> output2,
                std::optional<ortc::Tensor<int64_t>*> offset_mapping) const;
 };
