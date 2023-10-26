@@ -199,9 +199,9 @@ class BertTokenizer(Step):
         """
         outputs = []
         if last_output_optional:
-            outputs.extend("input_ids", "attention_mask", "token_type_ids")
-        else:
             outputs.extend("input_ids", "attention_mask")
+        else:
+            outputs.extend("input_ids", "attention_mask", "token_type_ids")
         super().__init__(["input_text"], outputs, name)
         self._tokenizer_param = tokenizer_param
 

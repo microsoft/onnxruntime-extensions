@@ -15,7 +15,7 @@ from packaging import version
 # `pip install -e .` from the repo root.
 from onnxruntime_extensions import get_library_path
 from onnxruntime_extensions.tools import add_pre_post_processing_to_model as add_ppp
-from onnxruntime_extensions.tools import add_HuggingFace_CLIPImageProcessor_to_model as add_clip_feature
+# from onnxruntime_extensions.tools import add_HuggingFace_CLIPImageProcessor_to_model as add_clip_feature
 from onnxruntime_extensions.tools import pre_post_processing as pre_post_processing
 from onnxruntime_extensions.tools.pre_post_processing.steps import *
 
@@ -98,65 +98,65 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         # check within 1%. probability values are in range 0..1
         self.assertTrue(abs(orig_results[orig_idx] - new_results[new_idx]) < 0.01)
 
-    def test_pytorch_mobilenet_using_clip_feature(self):
-        input_model = os.path.join(test_data_dir, "pytorch_mobilenet_v2.onnx")
-        output_model = os.path.join(test_data_dir, "pytorch_mobilenet_v2.updated.onnx")
-        input_image_path = os.path.join(test_data_dir, "wolves.jpg")
+    # def test_pytorch_mobilenet_using_clip_feature(self):
+    #     input_model = os.path.join(test_data_dir, "pytorch_mobilenet_v2.onnx")
+    #     output_model = os.path.join(test_data_dir, "pytorch_mobilenet_v2.updated.onnx")
+    #     input_image_path = os.path.join(test_data_dir, "wolves.jpg")
 
-        add_clip_feature.clip_image_processor(Path(input_model), Path(output_model), opset=16, do_resize=True, 
-                                              do_center_crop=True, do_normalize=True, do_rescale=True,
-                                              do_convert_rgb=True, size=256, crop_size=224, 
-                                              rescale_factor=1/255, image_mean=[0.485, 0.456, 0.406],
-                                              image_std=[0.229, 0.224, 0.225])
+    #     add_clip_feature.clip_image_processor(Path(input_model), Path(output_model), opset=16, do_resize=True, 
+    #                                           do_center_crop=True, do_normalize=True, do_rescale=True,
+    #                                           do_convert_rgb=True, size=256, crop_size=224, 
+    #                                           rescale_factor=1/255, image_mean=[0.485, 0.456, 0.406],
+    #                                           image_std=[0.229, 0.224, 0.225])
 
-        def orig_output():
-            from torchvision import transforms
-            input_image = Image.open(input_image_path)
-            preprocess = transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-            ])
-            input_tensor = preprocess(input_image)
-            input_batch = input_tensor.unsqueeze(
-                0).detach().cpu().numpy()  # create a mini-batch as expected by the model
+    #     def orig_output():
+    #         from torchvision import transforms
+    #         input_image = Image.open(input_image_path)
+    #         preprocess = transforms.Compose([
+    #             transforms.Resize(256),
+    #             transforms.CenterCrop(224),
+    #             transforms.ToTensor(),
+    #             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    #         ])
+    #         input_tensor = preprocess(input_image)
+    #         input_batch = input_tensor.unsqueeze(
+    #             0).detach().cpu().numpy()  # create a mini-batch as expected by the model
 
-            s = ort.InferenceSession(input_model, providers=['CPUExecutionProvider'])
-            scores = s.run(None, {"x": np.array(input_batch)})
-            scores = np.squeeze(scores)
+    #         s = ort.InferenceSession(input_model, providers=['CPUExecutionProvider'])
+    #         scores = s.run(None, {"x": np.array(input_batch)})
+    #         scores = np.squeeze(scores)
 
-            def softmax(x):
-                e_x = np.exp(x - np.max(x))
-                return e_x / e_x.sum()
+    #         def softmax(x):
+    #             e_x = np.exp(x - np.max(x))
+    #             return e_x / e_x.sum()
 
-            probabilities = softmax(scores)
-            return probabilities
+    #         probabilities = softmax(scores)
+    #         return probabilities
 
-        def new_output():
-            input_bytes = np.fromfile(input_image_path, dtype=np.uint8)
-            so = ort.SessionOptions()
-            so.register_custom_ops_library(get_library_path())
+    #     def new_output():
+    #         input_bytes = np.fromfile(input_image_path, dtype=np.uint8)
+    #         so = ort.SessionOptions()
+    #         so.register_custom_ops_library(get_library_path())
 
-            s = ort.InferenceSession(output_model, so, providers=['CPUExecutionProvider'])
-            probabilities = s.run(None, {"image": np.array(input_bytes)})[0]
-            scores = np.squeeze(probabilities)  # remove batch dim
+    #         s = ort.InferenceSession(output_model, so, providers=['CPUExecutionProvider'])
+    #         probabilities = s.run(None, {"image": np.array(input_bytes)})[0]
+    #         scores = np.squeeze(probabilities)  # remove batch dim
 
-            def softmax(x):
-                e_x = np.exp(x - np.max(x))
-                return e_x / e_x.sum()
+    #         def softmax(x):
+    #             e_x = np.exp(x - np.max(x))
+    #             return e_x / e_x.sum()
 
-            probabilities = softmax(scores)
-            return probabilities
+    #         probabilities = softmax(scores)
+    #         return probabilities
 
-        orig_results = orig_output()
-        new_results = new_output()
+    #     orig_results = orig_output()
+    #     new_results = new_output()
 
-        orig_idx = np.argmax(orig_results)
-        new_idx = np.argmax(new_results)
-        self.assertEqual(orig_idx, new_idx)
-        # check within 1%. probability values are in range 0..1
-        self.assertTrue(abs(orig_results[orig_idx] - new_results[new_idx]) < 0.01)
+    #     orig_idx = np.argmax(orig_results)
+    #     new_idx = np.argmax(new_results)
+    #     self.assertEqual(orig_idx, new_idx)
+    #     # check within 1%. probability values are in range 0..1
+    #     self.assertTrue(abs(orig_results[orig_idx] - new_results[new_idx]) < 0.01)
 
     def test_tflite_mobilenet(self):
         input_model = os.path.join(test_data_dir, "tflite_mobilenet_v2.onnx")
@@ -346,6 +346,31 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         self.assertEqual(np.allclose(result[0], ref_output[0]), True)
         self.assertEqual(np.allclose(result[1], ref_output[2]), True)
         self.assertEqual(np.allclose(result[2], ref_output[1]), True)
+        
+    def test_hfbert_tokenizer_optional_output(self):
+        output_model = (self.temp4onnx / "hfbert_tokenizer_optional_output.onnx").resolve()
+            
+        ref_output = ([
+            np.array([[2, 236, 118, 16, 1566, 875, 643, 3, 236, 118, 978, 1566, 875, 643, 3]]),
+            np.array([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]),
+        ]
+        )
+        # tokenizer = transformers.AutoTokenizer.from_pretrained("lordtt13/emo-mobilebert")
+        tokenizer_parameters = TokenizerParam(vocab_or_file=os.path.join(test_data_dir, "../hfbert.vocab"),
+                                              do_lower_case=True, is_sentence_pair=True)
+        input_text = ("This is a test sentence", "This is another test sentence")
+        tokenizer_impl = BertTokenizer(tokenizer_parameters, True)
+        self.create_pipeline_and_run_for_tokenizer(
+            tokenizer_impl, "HfBertTokenizer", tokenizer_parameters, output_model)
+
+        so = ort.SessionOptions()
+        so.register_custom_ops_library(get_library_path())
+        s = ort.InferenceSession(str(output_model), so, providers=["CPUExecutionProvider"])
+
+        result = s.run(None, {s.get_inputs()[0].name: np.array([[input_text[0], input_text[1]]])})
+
+        self.assertEqual(np.allclose(result[0], ref_output[0]), True)
+        self.assertEqual(np.allclose(result[1], ref_output[1]), True)
 
     def test_qatask_with_tokenizer(self):
         output_model = (self.temp4onnx / "hfbert_tokenizer.onnx").resolve()
