@@ -53,6 +53,7 @@ def _run_basic_with_offset_check(input, vocab_path):
         print("(" + str(row[0]) + ", " + str(row[1]) + "), ", end='')
     print("\n")
 
+
 class TestBertTokenizer(unittest.TestCase):
     def test_text_to_case1(self):
 
