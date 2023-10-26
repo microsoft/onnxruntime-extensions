@@ -7,7 +7,7 @@
 #include "ocos.h"
 #include "test_kernel.hpp"
 
-TEST(hf_bert_tokenizer_opertor, test_default) {
+TEST(hf_bert_tokenizer_operator, test_default) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
 
   const std::filesystem::path model_path = "data/bert-large-uncased-whole-word-masking-finetuned-squad-tokenizer.onnx";
@@ -142,7 +142,7 @@ TEST(hf_bert_tokenizer_opertor, test_default) {
   }
 }
 
-TEST(hf_bert_tokenizer_opertor, test_optional_output) {
+TEST(hf_bert_tokenizer_operator, test_optional_output) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
 
   const std::filesystem::path model_path = "data/test_hf_bert_tokenizer_optional_output.onnx";
