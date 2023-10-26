@@ -145,7 +145,7 @@ TEST(hf_bert_tokenizer_opertor, test_default) {
 TEST(hf_bert_tokenizer_opertor, test_optional_output) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
 
-  const std::filesystem::path model_path = "data/distilbert-base-uncased-distilled-squad.onnx";
+  const std::filesystem::path model_path = "data/test_hf_bert_tokenizer_optional_output.onnx";
 
   const std::vector<int64_t> input_dims{2};
   const std::string context1 =
