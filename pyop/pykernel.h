@@ -117,7 +117,8 @@ struct PyCustomOpFactory : public OrtCustomOp {
     };
 
     OrtCustomOp::GetOutputCharacteristic = [](const OrtCustomOp* this_, size_t index) noexcept {
-      return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
+      return index == 0 ? OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED
+                    : OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_OPTIONAL;
     };
   }
 
