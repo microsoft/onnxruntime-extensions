@@ -368,6 +368,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         s = ort.InferenceSession(str(output_model), so, providers=["CPUExecutionProvider"])
 
         result = s.run(None, {s.get_inputs()[0].name: np.array([[input_text[0], input_text[1]]])})
+        
+        self.assertEqual(len(result), 2)
 
         self.assertEqual(np.allclose(result[0], ref_output[0]), True)
         self.assertEqual(np.allclose(result[1], ref_output[1]), True)
