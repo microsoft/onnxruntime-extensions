@@ -199,6 +199,7 @@ class BertTokenizer(Step):
         """
         outputs = []
         if last_output_optional:
+            print("enter last_output_optional")
             outputs.extend(["input_ids", "attention_mask"])
         else:
             outputs.extend(["input_ids", "attention_mask", "token_type_ids"])
