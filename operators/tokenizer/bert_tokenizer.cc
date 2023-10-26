@@ -415,9 +415,9 @@ void KernelHfBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
 
   // Only allocate token_type_ids if optional output2 exists.
   bool generate_token_type_ids = false;
-  // if (output2.has_value()) {
-  //   generate_token_type_ids = true;
-  // }
+  if (output2.has_value()) {
+    generate_token_type_ids = true;
+  }
 
   std::vector<ustring> tokens1 = tokenizer_->Tokenize(ustring(input_data[0]), offset_map, compute_offset_mapping);
   std::vector<ustring> tokens2 = tokenizer_->Tokenize(ustring(input_data[1]), offset_map, compute_offset_mapping);
