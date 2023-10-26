@@ -239,6 +239,6 @@ TEST(hf_bert_tokenizer_operator, test_optional_output) {
   ASSERT_EQ(inputs.size(), outputs.size());
 
   for (size_t i = 0, count = inputs.size(); i < count; ++i) {
-    TestInference(*ort_env, model_path.c_str(), inputs[i], outputs[i], GetLibraryPath());
+    TestInference(*ort_env, model_path.c_str(), inputs[i], outputs[i]);
   }
 }
