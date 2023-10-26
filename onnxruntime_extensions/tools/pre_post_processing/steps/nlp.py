@@ -220,6 +220,8 @@ class BertTokenizer(Step):
         def build_output_declare():
             output_base = []
             for out in self.output_names:
+                print("xxxxxxxxxxxxxxxxxx")
+                print(out)
                 output_base.append(f"int64[{output_shape_str}] {out}")
 
             return ",".join(output_base)
