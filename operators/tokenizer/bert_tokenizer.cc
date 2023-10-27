@@ -407,13 +407,13 @@ void KernelHfBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
 
   std::list<OffsetMappingType> offset_map;
 
-  // Only compute offset mapping for optional output if it exists.
+  // Only compute offset mapping if the user demands it, i.e. compute_offset_mapping is true.
   bool compute_offset_mapping = false;
   if (offset_mapping.has_value()) {
     compute_offset_mapping = true;
   }
 
-  // Only allocate token_type_ids if optional output2 exists.
+  // Only allocate token_type_ids if optional output exists.
   bool generate_token_type_ids = false;
   if (output2.has_value()) {
     generate_token_type_ids = true;
