@@ -17,46 +17,11 @@
 
 #include "onnxruntime_c_api.h"
 #include "exceptions.h"
-
-#ifdef USE_CUDA
-#include <cuda.h>
-#include <cuda_runtime.h>
-///////////////////////////////////////////////////////////////////////////
-// hard copy from onnxruntime/core/providers/cuda/cuda_resource.h
-enum CudaResource : int {
-  cuda_stream_t = 10000, //cuda_resource_offset,
-  cudnn_handle_t,
-  cublas_handle_t,
-  deferred_cpu_allocator_t,
-};
-
-struct CustomOpContext {
-  CustomOpContext() = default;
-  virtual ~CustomOpContext(){};
-  virtual void Init(const OrtKernelContext&){};
-};
-
-
-namespace Ort {
-
-namespace Custom {
-
-struct CudaContext : public CustomOpContext {
-  cudaStream_t cuda_stream = {};
-  struct {}   *cudnn_handle = {};
-  struct {}   *cublas_handle = {};
-  OrtAllocator* deferred_cpu_allocator = {};
-};
-
-}} // namespace Ort::Custom
-
-
-#endif // USE_CUDA
-
+#include "onnxruntime_cpp_api_legacy.hpp"
+#include "onnxruntime_extensions.h"
+#include "custom_op_lite.h"
 
 #define MIN_ORT_VERSION_SUPPORTED 11
-
-extern "C" int ORT_API_CALL GetActiveOrtAPIVersion();
 
 // namespace of ORT ABI Wrapper
 namespace OrtW {
@@ -77,14 +42,14 @@ class API {
     instance()->ReleaseStatus(ptr);
   }
 
-  template<typename T>
+  template <typename T>
   static OrtStatusPtr KernelInfoGetAttribute(const OrtKernelInfo& info, const char* name, T& value) noexcept;
 
   static void ThrowOnError(OrtStatusPtr ptr) {
     OrtW::ThrowOnError(instance().api_, ptr);
   }
 
-private:
+ private:
   const OrtApi* operator->() const {
     return &api_;
   }
@@ -97,194 +62,6 @@ private:
   const OrtApi& api_;
 };
 
-//
-// DEPRECTED: Custom OPs (only needed to implement custom OPs)
-//
-struct CustomOpApi {
-  CustomOpApi(const OrtApi& api) : api_(api) {}
-
-  template <typename T>  // T is only implemented for std::vector<float>, std::vector<int64_t>, float, int64_t, and string
-  T KernelInfoGetAttribute(_In_ const OrtKernelInfo* info, _In_ const char* name) const;
-
-  OrtTensorTypeAndShapeInfo* GetTensorTypeAndShape(_In_ const OrtValue* value) const;
-  size_t GetTensorShapeElementCount(_In_ const OrtTensorTypeAndShapeInfo* info) const;
-  ONNXTensorElementDataType GetTensorElementType(const OrtTensorTypeAndShapeInfo* info) const;
-  size_t GetDimensionsCount(_In_ const OrtTensorTypeAndShapeInfo* info) const;
-  void GetDimensions(_In_ const OrtTensorTypeAndShapeInfo* info, _Out_ int64_t* dim_values,
-                     size_t dim_values_length) const;
-  void SetDimensions(OrtTensorTypeAndShapeInfo* info, _In_ const int64_t* dim_values, size_t dim_count) const;
-
-  template <typename T>
-  T* GetTensorMutableData(_Inout_ OrtValue* value) const;
-  template <typename T>
-  const T* GetTensorData(_Inout_ const OrtValue* value) const;
-
-  std::vector<int64_t> GetTensorShape(const OrtTensorTypeAndShapeInfo* info) const;
-  void ReleaseTensorTypeAndShapeInfo(OrtTensorTypeAndShapeInfo* input) const;
-  size_t KernelContext_GetInputCount(const OrtKernelContext* context) const;
-  const OrtValue* KernelContext_GetInput(const OrtKernelContext* context, _In_ size_t index) const;
-  size_t KernelContext_GetOutputCount(const OrtKernelContext* context) const;
-  OrtValue* KernelContext_GetOutput(OrtKernelContext* context, _In_ size_t index, _In_ const int64_t* dim_values,
-                                    size_t dim_count) const;
-
-  void ThrowOnError(OrtStatus* status) const {
-    OrtW::ThrowOnError(api_, status);
-  }
-
-  const OrtApi& GetOrtApi() const { return api_; }
-
- private:
-  const OrtApi& api_;
-};
-
-//
-// Custom OP API Inlines
-//
-
-template <>
-inline float CustomOpApi::KernelInfoGetAttribute<float>(_In_ const OrtKernelInfo* info, _In_ const char* name) const {
-  float out;
-  ThrowOnError(api_.KernelInfoGetAttribute_float(info, name, &out));
-  return out;
-}
-
-template <>
-inline int64_t CustomOpApi::KernelInfoGetAttribute<int64_t>(_In_ const OrtKernelInfo* info, _In_ const char* name) const {
-  int64_t out;
-  ThrowOnError(api_.KernelInfoGetAttribute_int64(info, name, &out));
-  return out;
-}
-
-template <>
-inline std::string CustomOpApi::KernelInfoGetAttribute<std::string>(_In_ const OrtKernelInfo* info, _In_ const char* name) const {
-  size_t size = 0;
-  std::string out;
-
-  // Feed nullptr for the data buffer to query the true size of the string attribute
-  OrtStatus* status = api_.KernelInfoGetAttribute_string(info, name, nullptr, &size);
-
-  if (status == nullptr) {
-    out.resize(size);
-    ThrowOnError(api_.KernelInfoGetAttribute_string(info, name, &out[0], &size));
-    out.resize(size - 1);  // remove the terminating character '\0'
-  } else {
-    ThrowOnError(status);
-  }
-  return out;
-}
-
-template <>
-inline std::vector<float> CustomOpApi::KernelInfoGetAttribute(_In_ const OrtKernelInfo* info, _In_ const char* name) const {
-  size_t size = 0;
-  std::vector<float> out;
-
-  // Feed nullptr for the data buffer to query the true size of the attribute
-  OrtStatus* status = api_.KernelInfoGetAttributeArray_float(info, name, nullptr, &size);
-
-  if (status == nullptr) {
-    out.resize(size);
-    ThrowOnError(api_.KernelInfoGetAttributeArray_float(info, name, out.data(), &size));
-  } else {
-    ThrowOnError(status);
-  }
-  return out;
-}
-
-template <>
-inline std::vector<int64_t> CustomOpApi::KernelInfoGetAttribute(_In_ const OrtKernelInfo* info, _In_ const char* name) const {
-  size_t size = 0;
-  std::vector<int64_t> out;
-
-  // Feed nullptr for the data buffer to query the true size of the attribute
-  OrtStatus* status = api_.KernelInfoGetAttributeArray_int64(info, name, nullptr, &size);
-
-  if (status == nullptr) {
-    out.resize(size);
-    ThrowOnError(api_.KernelInfoGetAttributeArray_int64(info, name, out.data(), &size));
-  } else {
-    ThrowOnError(status);
-  }
-  return out;
-}
-
-inline OrtTensorTypeAndShapeInfo* CustomOpApi::GetTensorTypeAndShape(_In_ const OrtValue* value) const {
-  OrtTensorTypeAndShapeInfo* out;
-  ThrowOnError(api_.GetTensorTypeAndShape(value, &out));
-  return out;
-}
-
-inline size_t CustomOpApi::GetTensorShapeElementCount(_In_ const OrtTensorTypeAndShapeInfo* info) const {
-  size_t out;
-  ThrowOnError(api_.GetTensorShapeElementCount(info, &out));
-  return out;
-}
-
-inline ONNXTensorElementDataType CustomOpApi::GetTensorElementType(const OrtTensorTypeAndShapeInfo* info) const {
-  ONNXTensorElementDataType out;
-  ThrowOnError(api_.GetTensorElementType(info, &out));
-  return out;
-}
-
-inline size_t CustomOpApi::GetDimensionsCount(_In_ const OrtTensorTypeAndShapeInfo* info) const {
-  size_t out;
-  ThrowOnError(api_.GetDimensionsCount(info, &out));
-  return out;
-}
-
-inline void CustomOpApi::GetDimensions(_In_ const OrtTensorTypeAndShapeInfo* info, _Out_ int64_t* dim_values, size_t dim_values_length) const {
-  ThrowOnError(api_.GetDimensions(info, dim_values, dim_values_length));
-}
-
-inline void CustomOpApi::SetDimensions(OrtTensorTypeAndShapeInfo* info, _In_ const int64_t* dim_values, size_t dim_count) const {
-  ThrowOnError(api_.SetDimensions(info, dim_values, dim_count));
-}
-
-template <typename T>
-inline T* CustomOpApi::GetTensorMutableData(_Inout_ OrtValue* value) const {
-  T* data = nullptr;
-  ThrowOnError(api_.GetTensorMutableData(value, reinterpret_cast<void**>(&data)));
-  return data;
-}
-
-template <typename T>
-inline const T* CustomOpApi::GetTensorData(_Inout_ const OrtValue* value) const {
-  return GetTensorMutableData<T>(const_cast<OrtValue*>(value));
-}
-
-inline std::vector<int64_t> CustomOpApi::GetTensorShape(const OrtTensorTypeAndShapeInfo* info) const {
-  std::vector<int64_t> output(GetDimensionsCount(info));
-  GetDimensions(info, output.data(), output.size());
-  return output;
-}
-
-inline void CustomOpApi::ReleaseTensorTypeAndShapeInfo(OrtTensorTypeAndShapeInfo* input) const {
-  api_.ReleaseTensorTypeAndShapeInfo(input);
-}
-
-inline size_t CustomOpApi::KernelContext_GetInputCount(const OrtKernelContext* context) const {
-  size_t out;
-  ThrowOnError(api_.KernelContext_GetInputCount(context, &out));
-  return out;
-}
-
-inline const OrtValue* CustomOpApi::KernelContext_GetInput(const OrtKernelContext* context, _In_ size_t index) const {
-  const OrtValue* out;
-  ThrowOnError(api_.KernelContext_GetInput(context, index, &out));
-  return out;
-}
-
-inline size_t CustomOpApi::KernelContext_GetOutputCount(const OrtKernelContext* context) const {
-  size_t out;
-  ThrowOnError(api_.KernelContext_GetOutputCount(context, &out));
-  return out;
-}
-
-inline OrtValue* CustomOpApi::KernelContext_GetOutput(OrtKernelContext* context, _In_ size_t index,
-                                                      _In_ const int64_t* dim_values, size_t dim_count) const {
-  OrtValue* out;
-  ThrowOnError(api_.KernelContext_GetOutput(context, index, dim_values, dim_count, &out));
-  return out;
-}
 
 template <>
 inline OrtStatusPtr API::KernelInfoGetAttribute<int64_t>(const OrtKernelInfo& info, const char* name, int64_t& value) noexcept {
@@ -316,40 +93,37 @@ inline OrtStatusPtr API::KernelInfoGetAttribute<std::string>(const OrtKernelInfo
 }
 
 template <class T>
-  static OrtStatusPtr GetOpAttribute(const OrtKernelInfo& info, const char* name, T& value) noexcept {
-    if (auto status = API::KernelInfoGetAttribute(info, name, value); status) {
-      // Ideally, we should know which kind of error code can be ignored, but it is not availabe now.
-      // Just ignore all of them.
-      API::ReleaseStatus(status);
-    }
-
-    return nullptr;
+inline OrtStatusPtr GetOpAttribute(const OrtKernelInfo& info, const char* name, T& value) noexcept {
+  if (auto status = API::KernelInfoGetAttribute(info, name, value); status) {
+    // Ideally, we should know which kind of error code can be ignored, but it is not available now.
+    // Just ignore all of them.
+    API::ReleaseStatus(status);
   }
 
+  return nullptr;
+}
 
 inline OrtStatusPtr CreateStatus(const char* msg, OrtErrorCode code) {
   return API::CreateStatus(code, msg);
 }
 
+inline void ReleaseStatus(OrtStatusPtr& status) {
+  API::ReleaseStatus(status);
+  status = nullptr;
+}
+
+
 }  // namespace OrtW
-
-
-#if ORT_API_VERSION < 15
-#include "custom_op_lite.h"
-
-#else
-// From onnxruntime 1.17, the custom op lite API header is used the one from onnxruntime package.
-// #include "onnxruntime_lite_custom_op.h"
-// The existing custom op lite API header has more features than the one from onnxruntime 1.16.
-#include "custom_op_lite.h"
-
-#endif // ORT_API_VERSION < 15
-
-
 
 namespace Ort {
 namespace Custom {
 
+#ifdef USE_CUDA
+///////////////////////////////////////////////////////////////////////////
+// TODO: include the definition from the header file in ONNXRuntime
+struct CudaContext {}; 
+
+#endif  // USE_CUDA
 
 template <typename... Args>
 struct FunctionKernel {
@@ -370,7 +144,7 @@ struct IsFunctionKernel {
 
 // specialization recognizes types that do have a nested ::type member:
 template <class T>
-struct IsFunctionKernel<T, std::void_t<typename T::ComputeFn>>{
+struct IsFunctionKernel<T, std::void_t<typename T::ComputeFn>> {
   typedef std::true_type type;
 };
 
@@ -402,13 +176,13 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
 
   template <typename T>
   static OrtStatusPtr InitKernel(KernelEx& kernel,
-                          const OrtApi& api, const OrtKernelInfo& info, RegularComputeType fn, T t) {
+                                 const OrtApi& api, const OrtKernelInfo& info, RegularComputeType fn, T t) {
     return kernel.OnModelAttach(api, info);
   }
 
   static OrtStatusPtr InitKernel(
-                          KernelEx& kernel,
-                          const OrtApi& api, const OrtKernelInfo& info, RegularComputeType fn, std::true_type) {
+      KernelEx& kernel,
+      const OrtApi& api, const OrtKernelInfo& info, RegularComputeType fn, std::true_type) {
     kernel.compute_fn_ = fn;
     return nullptr;
   }
@@ -421,7 +195,6 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
   // TODO: consider to disable these legacy functions for mobile build to save binary size
   template <typename... Args>
   void DefineCallbackFunctionsLegacy(MemberComputeType<Args...> fn, RegularComputeType regular_fn) {
-
     OrtCustomOp::CreateKernel = [](const OrtCustomOp* this_, const OrtApi* ort_api, const OrtKernelInfo* info) {
       auto self = static_cast<const OrtLiteCustomStructV2<CustomOpKernel>*>(this_);
       auto kernel = std::make_unique<KernelEx>();
@@ -444,7 +217,7 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
                                           kernel->extra_.api_->KernelContext_GetOutputCount(context),
                                           kernel->extra_.ep_);
       std::apply([kernel](Args const&... t_args) {
-        auto status = kernel->Compute(t_args...); OrtW::API::ThrowOnError(status);}, t);
+        auto status = kernel->Compute(t_args...); OrtW::API::ThrowOnError(status); }, t);
     };
 
     OrtCustomOp::KernelDestroy = [](void* op_kernel) {
@@ -452,7 +225,7 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
     };
   }
 
-#if ORT_API_VERSION > 16
+#if ORT_API_VERSION > 15
   template <typename... Args>
   void DefineCallbackFunctions(MemberComputeType<Args...> fn, RegularComputeType regular_fn) {
     OrtCustomOp::CreateKernel = nullptr;
@@ -488,7 +261,7 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
     };
 
     OrtCustomOp::KernelComputeV2 = [](void* op_kernel, OrtKernelContext* context) -> OrtStatusPtr {
-      auto kernel = reinterpret_cast<KernelEx* >(op_kernel);
+      auto kernel = reinterpret_cast<KernelEx*>(op_kernel);
       std::vector<TensorPtr> tensors;
       auto t = CreateTuple<0, 0, Args...>(kernel->extra_.api_.get(),
                                           context,
@@ -496,29 +269,26 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
                                           kernel->extra_.api_->KernelContext_GetInputCount(context),
                                           kernel->extra_.api_->KernelContext_GetOutputCount(context),
                                           kernel->extra_.ep_);
-      return std::apply([kernel](Args const&... t_args) {
-        return kernel->Compute(t_args...); }, t);
+      return std::apply([kernel](Args const&... t_args) { return kernel->Compute(t_args...); }, t);
     };
 
     OrtCustomOp::KernelDestroy = [](void* op_kernel) {
       std::unique_ptr<KernelEx>(reinterpret_cast<KernelEx*>(op_kernel)).reset();
     };
   }
-#endif // ORT_API_VERSION > 16
+#endif  // ORT_API_VERSION > 15
 
   OrtLiteCustomStructV2(const char* op_name,
                         const char* execution_provider,
                         RegularComputeType fn_compute = nullptr)
       : OrtLiteCustomOp(op_name, execution_provider), regular_fn_(fn_compute) {
-
     ParseArgs(&CustomOpKernel::Compute);
 
-#if ORT_API_VERSION > 16
+#if ORT_API_VERSION > 15
     if (OrtCustomOp::version > 15) {
       DefineCallbackFunctions(&CustomOpKernel::Compute, fn_compute);
     } else
-#endif  // ORT_API_VERSION > 16
-
+#endif  // ORT_API_VERSION > 15
     {
       DefineCallbackFunctionsLegacy(&CustomOpKernel::Compute, fn_compute);
     }
