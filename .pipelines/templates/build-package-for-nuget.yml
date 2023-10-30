@@ -55,7 +55,7 @@ stages:
   - template: build-package-for-linux.yml
     parameters:
       OrtExtensionsArch: 'aarch64'
-      PoolName: 'aiinfra-linux-ARM64-CPU-2019'
+      PoolName: 'onnxruntime-linux-ARM64-CPU-2019'
       IsReleaseBuild: ${{parameters.IsReleaseBuild}}
       OrtExtensionsCFlags: ''
       OrtExtensionsCXXFlags: ''
