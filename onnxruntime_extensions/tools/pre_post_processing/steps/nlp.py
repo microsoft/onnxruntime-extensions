@@ -193,8 +193,8 @@ class BertTokenizer(Step):
                                                  )
 
             name: Optional name of step. Defaults to 'BertTokenizer'
-            last_output_optional: last outout `token_type_ids` is not required in some Bert based models. (e.g. DistilBert, etc.) can optionally
-                                  choose to add it in graph for step.
+            need_token_type_ids_output: last outout `token_type_ids` is not required in some Bert based models. (e.g. DistilBert, etc.) can optionally
+                                        choose to add it in graph for step.
 
         """
         outputs = []
