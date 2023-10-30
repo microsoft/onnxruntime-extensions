@@ -25,6 +25,12 @@ Use `./tools/android/build_aar.py` to build an Android AAR package.
 ## iOS package
 Use `./tools/ios/build_xcframework.py` to build an iOS xcframework package.
 
+## NuGet package
+In order to build a local NuGet package for testing, run `nuget.exe pack ./nuget/WinOnlyNuget.nuspec` to build a NuGet package for Windows.
+
+Note: you might need to update the src paths in the ./nuget/WinOnlyNuget.nuspec file if the appropriate ortextensions.dll, .props, and .targets files do not exist/are not in the given location.
+If you do not have the .props or .targets files, you can open our C# tutorial in ./tutorials/demo4dotnet/demo4dotnet.sln and use the .props, and .targets files in ClipTokenizerTestCS/Dependencies/Packages/Microsoft.ML.OnnxRuntime.Extensions/Build Files/ as examples. 
+
 ## Web-Assembly
 ONNXRuntime-Extensions will be built as a static library and linked with ONNXRuntime due to the lack of a good dynamic linking mechanism in WASM. Here are two additional arguments [–-use_extensions and --extensions_overridden_path](https://github.com/microsoft/onnxruntime/blob/860ba8820b72d13a61f0d08b915cd433b738ffdc/tools/ci_build/build.py#L416) on building onnxruntime to include ONNXRuntime-Extensions footprint in the ONNXRuntime package.
 
