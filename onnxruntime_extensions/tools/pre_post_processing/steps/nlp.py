@@ -180,7 +180,7 @@ def _vocab_to_dict(vocab_or_file: Union[Dict[str, int], Path, str]):
 
 
 class BertTokenizer(Step):
-    def __init__(self, tokenizer_param: TokenizerParam, last_output_optional: bool = False, name: Optional[str] = None):
+    def __init__(self, tokenizer_param: TokenizerParam, need_token_type_ids_output: bool = False, name: Optional[str] = None):
         """
         Brief: This step is used to convert the input text into the input_ids, attention_mask, token_type_ids.
             It supports an input of a single string for classification models, or two strings for QA models.
@@ -198,7 +198,7 @@ class BertTokenizer(Step):
 
         """
         outputs = []
-        if last_output_optional:
+        if need_token_type_ids_output:
             outputs.extend(["input_ids", "attention_mask"])
         else:
             outputs.extend(["input_ids", "attention_mask", "token_type_ids"])
