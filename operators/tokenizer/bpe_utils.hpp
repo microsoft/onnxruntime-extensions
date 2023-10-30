@@ -101,7 +101,6 @@ class TokenWithRegularExp {
 
  private:
   std::u32string_view TryMatch() {
-
     // python pattern:
     // 's|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+
 
@@ -198,8 +197,7 @@ class TokenWithRegularExp {
       for (; i < m_text.size(); ++i) {
         if (!IsZ(m_text[i])) break;
       }
-      if ((i > 1) && (i != m_text.size()))  //\s+(?!\S)
-      {
+      if ((i > 1) && (i != m_text.size())) {  //\s+(?!\S)
         i--;
         std::u32string_view res = m_text.substr(0, i);
         m_text = m_text.substr(i);

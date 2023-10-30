@@ -48,7 +48,7 @@ class HFTokenizerConverter(CustomOpConverter):
                 vocab_dict, separators=(',', ':'))}
         else:
             attrs = {'vocab': json.dumps(
-                hf_gpt2_tokenizer.encoder, separators=(',', ':'))}
+                hf_gpt2_tokenizer.encoder | hf_gpt2_tokenizer.added_tokens_encoder, separators=(',', ':'))}
         
         sorted_merges = {v_: k_ for k_, v_ in hf_gpt2_tokenizer.bpe_ranks.items()}
         attrs['merges'] = '\n'.join("{} {}".format(

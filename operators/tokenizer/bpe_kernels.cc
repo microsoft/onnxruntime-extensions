@@ -87,43 +87,46 @@ ustring RemoveConsecutiveSpaces(const ustring& input) {
   return result;
 }
 
-KernelBpeTokenizer::KernelBpeTokenizer(const OrtApi& api, const OrtKernelInfo& info, const BpeModelConf& conf)
-    : BaseKernel(api, info),
-      bpe_conf_(conf) {
-  std::string vocab = ort_.KernelInfoGetAttribute<std::string>(&info, "vocab");
+KernelBpeTokenizer::KernelBpeTokenizer(const BpeModelConf& conf)
+    : bpe_conf_(conf){};
+
+OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
+  // note: if the attribute doesn't exist in op node, GetOpAttribute doesn't return a failed status;
+  std::string vocab;
+  ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "vocab", vocab));
   if (vocab.empty()) {
     ORTX_CXX_API_THROW("vocabulary shouldn't be empty.", ORT_INVALID_ARGUMENT);
   }
 
-  std::string merges = ort_.KernelInfoGetAttribute<std::string>(&info, "merges");
+  std::string merges;
+  ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "merges", merges));
   if (merges.empty()) {
     ORTX_CXX_API_THROW("merges shouldn't be empty.", ORT_INVALID_ARGUMENT);
   }
 
-  if (!TryToGetAttribute<int64_t>("padding_length", padding_length_)) {
-    padding_length_ = -1;
-  }
-
+  ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "padding_length", padding_length_));
   if (padding_length_ != -1 && padding_length_ <= 0) {
-    ORTX_CXX_API_THROW("padding_length should be more than 0 or equal -1", ORT_INVALID_ARGUMENT);
+    return OrtW::CreateStatus("padding_length should be more than 0 or equal -1", ORT_INVALID_ARGUMENT);
   }
 
   std::stringstream vocabu_stream(vocab);
   std::stringstream merges_stream(merges);
   bbpe_tokenizer_ = std::make_unique<BpeModel>();
-  bbpe_tokenizer_->Load(vocabu_stream, merges_stream, conf.unk_token_, conf.GetSpecialTokens().c_str());
+  bbpe_tokenizer_->Load(vocabu_stream, merges_stream, bpe_conf_.unk_token_, bpe_conf_.GetSpecialTokens().c_str());
 
   // TODO: need to check if the special token ids are the same as the ones in HFTokenizer
-  unk_token_id_ = bbpe_tokenizer_->GetTokenId(conf.unk_token_);
-  if (conf.bos_token_ != nullptr) {
-    bos_token_id_ = bbpe_tokenizer_->GetTokenId(conf.bos_token_);
+  unk_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.unk_token_);
+  if (bpe_conf_.bos_token_ != nullptr) {
+    bos_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.bos_token_);
   }
-  if (conf.eos_token_ != nullptr) {
-    eos_token_id_ = bbpe_tokenizer_->GetTokenId(conf.eos_token_);
+  if (bpe_conf_.eos_token_ != nullptr) {
+    eos_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.eos_token_);
   }
-  if (conf.pad_token_ != nullptr) {
-    pad_token_id_ = bbpe_tokenizer_->GetTokenId(conf.pad_token_);
+  if (bpe_conf_.pad_token_ != nullptr) {
+    pad_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.pad_token_);
   }
+
+  return nullptr;
 }
 
 std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
@@ -199,7 +202,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
 
     while (static_cast<int64_t>(res.size()) < max_length) {
       auto [b, tok] = regcmp.GetNextToken();
-      
+
       if (!b) break;
 
       std::string utf8_token = std::string(ustring(tok));
@@ -271,13 +274,14 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     // Add EOS token to result
     res.push_back(eos_token_id_);
   }
+
   return res;
 }
 
-void KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
-                                 ortc::Tensor<int64_t>& tokenize_output,
-                                 std::optional<ortc::Tensor<int64_t>*> attention_mask,
-                                 std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
+OrtStatusPtr KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
+                                         ortc::Tensor<int64_t>& tokenize_output,
+                                         std::optional<ortc::Tensor<int64_t>*> attention_mask,
+                                         std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
   // Setup inputs
   std::vector<std::string> str_input{input.Data()};
   std::list<OffsetMappingType> offset_map;
@@ -356,11 +360,13 @@ void KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
       idx++;
     }
   }
+
+  return nullptr;
 }
 
 static const auto kGPT2Confinguration = BpeModelConf();
-GPT2Tokenizer::GPT2Tokenizer(const OrtApi& api, const OrtKernelInfo& info)
-    : KernelBpeTokenizer(api, info, kGPT2Confinguration) {}
+GPT2Tokenizer::GPT2Tokenizer()
+    : KernelBpeTokenizer(kGPT2Confinguration) {}
 
 static const auto kRobertaConfiguration = BpeModelConf{
     BpeModelConf::kModel_Roberta,  // name
@@ -369,8 +375,8 @@ static const auto kRobertaConfiguration = BpeModelConf{
     "</s>",                        // eos_token
     "<pad>"};                      // pad_token
 
-RobertaTokenizer::RobertaTokenizer(const OrtApi& api, const OrtKernelInfo& info)
-    : KernelBpeTokenizer(api, info, kRobertaConfiguration) {}
+RobertaTokenizer::RobertaTokenizer()
+    : KernelBpeTokenizer(kRobertaConfiguration) {}
 
 static const auto kCLIPConfiguration = BpeModelConf{
     BpeModelConf::kModel_CLIP,  // name
@@ -379,5 +385,5 @@ static const auto kCLIPConfiguration = BpeModelConf{
     "<|endoftext|>",            // eos_token
     "<|endoftext|>"};           // pad_token
 
-CLIPTokenizer::CLIPTokenizer(const OrtApi& api, const OrtKernelInfo& info)
-    : KernelBpeTokenizer(api, info, kCLIPConfiguration) {}
+CLIPTokenizer::CLIPTokenizer()
+    : KernelBpeTokenizer(kCLIPConfiguration) {}

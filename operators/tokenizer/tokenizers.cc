@@ -35,10 +35,10 @@
 FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = []() -> CustomOpArray& {
   static OrtOpLoader op_loader(
 #ifdef ENABLE_GPT2_TOKENIZER
-      CustomCpuStruct("GPT2Tokenizer", GPT2Tokenizer),
-      CustomCpuStruct("CLIPTokenizer", CLIPTokenizer),
-      CustomCpuStruct("RobertaTokenizer", RobertaTokenizer),
-      CustomCpuStruct("BpeDecoder", KernelBpeDecoder),
+      CustomCpuStructV2("GPT2Tokenizer", GPT2Tokenizer),
+      CustomCpuStructV2("CLIPTokenizer", CLIPTokenizer),
+      CustomCpuStructV2("RobertaTokenizer", RobertaTokenizer),
+      CustomCpuStructV2("BpeDecoder", KernelBpeDecoder),
 #endif
 
 #ifdef ENABLE_SPM_TOKENIZER
