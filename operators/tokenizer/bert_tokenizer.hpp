@@ -98,9 +98,9 @@ class BertTokenizer final {
 struct KernelBertTokenizer : BaseKernel {
   KernelBertTokenizer(const OrtApi& api, const OrtKernelInfo& info);
   void Compute(const ortc::Tensor<std::string>& input,
-               ortc::Tensor<int64_t>& output,
-               ortc::Tensor<int64_t>& output1,
-               ortc::Tensor<int64_t>& output2,
+               ortc::Tensor<int64_t>& output,   // input_ids
+               ortc::Tensor<int64_t>& output1,  // token_type_ids
+               ortc::Tensor<int64_t>& output2,  // attention_mask
                std::optional<ortc::Tensor<int64_t>*> offset_mapping) const;
   using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
 
@@ -112,8 +112,8 @@ struct KernelHfBertTokenizer : KernelBertTokenizer {
   KernelHfBertTokenizer(const OrtApi& api, const OrtKernelInfo& info);
   using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
   void Compute(const ortc::Tensor<std::string>& input,
-               ortc::Tensor<int64_t>& output,
-               ortc::Tensor<int64_t>& output1,
-               std::optional<ortc::Tensor<int64_t>*> output2,
+               ortc::Tensor<int64_t>& output,                  // input_ids
+               ortc::Tensor<int64_t>& output1,                 // attention_mask
+               std::optional<ortc::Tensor<int64_t>*> output2,  // token_type_ids
                std::optional<ortc::Tensor<int64_t>*> offset_mapping) const;
 };
