@@ -22,8 +22,8 @@ log = get_logger("run_android_emulator")
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Manages the running of an Android emulator. "
-        "Supported modes are to start and stop (default), only start, or only "
-        "stop the emulator."
+        "Supported modes are to create an AVD, and start or stop the emulator. "
+        "The default is to start the emulator and wait for a keypress to stop it (start and stop)."
     )
 
     parser.add_argument("--create-avd", action="store_true", help="Whether to create the Android virtual device.")
@@ -49,8 +49,8 @@ def parse_args():
 
     args = parser.parse_args()
 
-    if not args.start and not args.stop:
-        # unspecified means start and stop
+    if not args.start and not args.stop and not args.create_avd:
+        # unspecified means start and stop if not creating the AVD
         args.start = args.stop = True
 
     if args.start != args.stop and args.emulator_pid_file is None:
@@ -86,14 +86,14 @@ def main():
         emulator_proc = android.start_emulator(**start_emulator_args)
 
         with open(args.emulator_pid_file, mode="w") as emulator_pid_file:
-            print("{}".format(emulator_proc.pid), file=emulator_pid_file)
+            print(f"{emulator_proc.pid}", file=emulator_pid_file)
 
     elif args.stop:
-        with open(args.emulator_pid_file, mode="r") as emulator_pid_file:
+        with open(args.emulator_pid_file) as emulator_pid_file:
             emulator_pid = int(emulator_pid_file.readline().strip())
 
         android.stop_emulator(emulator_pid)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
