@@ -3,7 +3,7 @@
 
 import collections
 import contextlib
-import logging
+import datetime
 import os
 import shutil
 import signal
@@ -11,10 +11,11 @@ import subprocess
 import time
 import typing
 
-from .platform_helpers import is_windows
+from .logger import get_logger
+from .platform_helpers import is_linux, is_windows
 from .run import run
 
-_log = logging.getLogger("util.android")
+_log = get_logger("util.android")
 
 
 SdkToolPaths = collections.namedtuple("SdkToolPaths", ["emulator", "adb", "sdkmanager", "avdmanager"])
