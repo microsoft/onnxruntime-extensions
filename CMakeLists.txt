@@ -72,6 +72,8 @@ option(OCOS_BUILD_JAVA "Enable building the Java package" OFF)
 option(OCOS_BUILD_ANDROID "Enable building the Android package" OFF)
 option(OCOS_BUILD_APPLE_FRAMEWORK "Enable building of the MacOS/iOS framework" OFF)
 
+option(OCOS_USE_CUDA "Build the CUDA kernels" OFF)
+
 # Optional value. Some operators do not support old versions due to using the new custom operator interface
 # and will be disabled if this value is set and the version is incompatible.
 set(OCOS_ONNXRUNTIME_VERSION "" CACHE STRING
@@ -149,11 +151,11 @@ if (MSVC)
 
   if (CMAKE_MSVC_RUNTIME_LIBRARY STREQUAL "MultiThreaded" OR
       CMAKE_MSVC_RUNTIME_LIBRARY STREQUAL "MultiThreadedDebug")
-    set(OCOS_STATIC_MSVC_RUNTIME_LIBRARY ON)
+    set(_STATIC_MSVC_RUNTIME_LIBRARY ON)
   else()
-    set(OCOS_STATIC_MSVC_RUNTIME_LIBRARY OFF)
+    set(_STATIC_MSVC_RUNTIME_LIBRARY OFF)
   endif()
-  message(STATUS "OCOS_STATIC_MSVC_RUNTIME_LIBRARY: ${OCOS_STATIC_MSVC_RUNTIME_LIBRARY}")
+  message(STATUS "_STATIC_MSVC_RUNTIME_LIBRARY: ${_STATIC_MSVC_RUNTIME_LIBRARY}")
 
 endif()
 
@@ -273,6 +275,13 @@ macro(standardize_output_folder bin_target)
     PDB_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 endmacro()
 
+if(OCOS_USE_CUDA)
+  include(ext_cuda)
+endif()
+
+#######################################################################################################################
+# build the operator file list from the build flag.
+
 if(OCOS_ENABLE_RE2_REGEX)
   if(NOT TARGET re2::re2)
     set(RE2_BUILD_TESTING OFF CACHE INTERNAL "")
@@ -324,6 +333,11 @@ if(OCOS_ENABLE_MATH)
   endif()
 
   file(GLOB TARGET_SRC_MATH "operators/math/*.cc" "operators/math/*.h*")
+  if(OCOS_USED_CUDA)
+    file(GLOB TARGET_SRC_MATH_CUDA "operators/math/cuda/*.*")
+    list(APPEND TARGET_SRC_MATH ${TARGET_SRC_MATH_CUDA})
+  endif()
+  
   list(APPEND TARGET_SRC ${TARGET_SRC_MATH} ${TARGET_SRC_DLIB} ${TARGET_SRC_INVERSE})
 endif()
 
@@ -415,7 +429,7 @@ if(OCOS_ENABLE_AZURE)
   if (APPLE OR
       CMAKE_SYSTEM_NAME STREQUAL "Emscripten" OR
       (MSVC AND CMAKE_GENERATOR_PLATFORM STREQUAL "ARM") OR
-      (MSVC AND OCOS_STATIC_MSVC_RUNTIME_LIBRARY) OR
+      (MSVC AND _STATIC_MSVC_RUNTIME_LIBRARY) OR
       (ANDROID AND ANDROID_ABI STREQUAL "x86"))
     message(STATUS "Excluding Azure custom operators as they are not currently supported in this type of build. ")
     set(OCOS_ENABLE_AZURE OFF)
@@ -491,9 +505,10 @@ if(_HAS_TOKENIZER)
   list(APPEND TARGET_SRC ${tokenizer_TARGET_SRC})
 endif()
 
-# ### make all compile options.
-add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
-add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+### make all compile options.
+if(MSVC)
+  add_compile_options("$<$<COMPILE_LANGUAGE:CUDA>:SHELL:--compiler-options /utf-8>" "$<$<COMPILE_LANGUAGE:CXX,C>:/utf-8>")
+endif()
 
 # Library will not be built if the target src for the lib does not contain any valid *.cc files.
 # Hence the placeholders `noexcep_operators_placeholder.cc` and `ocos_operators_placeholder.cc`
@@ -796,6 +811,12 @@ if(_BUILD_SHARED_LIBRARY)
     RUNTIME DESTINATION bin
   )
 
+endif()
+
+if(OCOS_USE_CUDA)
+  target_include_directories(ortcustomops PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+  target_link_libraries(extensions_shared PUBLIC cudart cublas cufft)
+  set_target_properties(ocos_operators PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 endif()
 
 if(OCOS_BUILD_PYTHON)

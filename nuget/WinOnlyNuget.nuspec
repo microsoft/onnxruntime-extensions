@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='utf-8'?>
+<package>
+	<metadata>
+		<id>Microsoft.ML.OnnxRuntime.Extensions</id>
+		<version>0.9.0</version>
+		<authors>Microsoft</authors>
+		<owners>Microsoft</owners>
+		<description>TEST ONNX Runtime Extensions NuGet Package</description>
+		<releaseNotes>
+			This is a test NuGet package - NOT for official release.
+		</releaseNotes>
+		<copyright>© Microsoft Corporation. All rights reserved.</copyright>
+		<tags>ONNX ONNXRuntime AI Machine Learning</tags>
+		<icon>ORT_icon_for_light_bg.png</icon>
+		<license type="file">LICENSE.txt</license>
+		<readme>README.md</readme>
+		<projectUrl>https://github.com/Microsoft/onnxruntime-extensions</projectUrl>
+		<repository type="git" url="https://github.com/Microsoft/onnxruntime-extensions.git"/>
+	</metadata>
+	<files>
+		<file src="LICENSE.txt" target="LICENSE.txt" />
+		<file src="README.md" target="README.md" />
+		<file src="ORT_icon_for_light_bg.png" target="ORT_icon_for_light_bg.png" />
+		<file src="..\ThirdPartyNotices.txt" target="ThirdPartyNotices.txt" />
+		
+		<!-- Src paths for local Windows build via netstandard -->
+		<file src="..\out\Windows\bin\RelWithDebInfo\ortextensions.dll" target="runtimes\win-x64\native" />
+		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.props" target="build\netstandard1.1" />
+		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.props" target="build\netstandard2.0" />
+		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.targets" target="build\netstandard1.1" />
+		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.targets" target="build\netstandard2.0" />
+	</files>
+</package>

@@ -25,7 +25,7 @@ struct KernelRaggedTensoroDense {
 };
 
 OrtStatusPtr StringRaggedTensorToDense(const ortc::Tensor<int64_t>& input0,
-                      const ortc::Tensor<std::string>& input1,
-                      const ortc::Tensor<int64_t>& input2,
-                      const ortc::Tensor<std::string>& input3,
-                      ortc::Tensor<std::string>& output);
+                                       const ortc::Tensor<std::string>& input1,
+                                       const ortc::Tensor<int64_t>& input2,
+                                       const ortc::Tensor<std::string>& input3,
+                                       ortc::Tensor<std::string>& output);

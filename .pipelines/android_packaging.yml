@@ -17,9 +17,9 @@ jobs:
         displayName: "Use Python 3.9"
 
       - task: JavaToolInstaller@0
-        displayName: Use jdk 11
+        displayName: Use jdk 17
         inputs:
-          versionSpec: "11"
+          versionSpec: "17"
           jdkArchitectureOption: "x64"
           jdkSourceOption: "PreInstalled"
 
@@ -32,26 +32,26 @@ jobs:
           python ./tools/gen_selectedops.py ./tools/android/package_ops.config
         displayName: "Generate selected ops CMake file"
 
+      - bash: |
+          set -e -x
+
+          python ./tools/android/build_aar.py \
+            --output_dir $(Build.BinariesDirectory)/android_aar \
+            --config $(buildConfig) \
+            -- \
+            --one_cmake_extra_define OCOS_ENABLE_SELECTED_OPLIST=ON
+
+          VERSION=$(cat ./version.txt)
+          AAR_PATH="$(Build.BinariesDirectory)/android_aar/aar_out/$(buildConfig)/com/microsoft/onnxruntime/onnxruntime-extensions-android/${VERSION}/onnxruntime-extensions-android-${VERSION}.aar"
+
+          # Do not output ##vso[] commands with `set -x` or they may be parsed again and include a trailing quote.
+          set +x
+          echo "##vso[task.setvariable variable=ORT_EXTENSIONS_AAR_PATH]${AAR_PATH}"
+        displayName: Build onnxruntime-extensions AAR package
+
       - template: templates/run-with-android-emulator-steps.yml
         parameters:
           steps:
-
-          - bash: |
-              set -e -x
-
-              python ./tools/android/build_aar.py \
-                --output_dir $(Build.BinariesDirectory)/android_aar \
-                --config $(buildConfig) \
-                -- \
-                --one_cmake_extra_define OCOS_ENABLE_SELECTED_OPLIST=ON
-
-              VERSION=$(cat ./version.txt)
-              AAR_PATH="$(Build.BinariesDirectory)/android_aar/aar_out/$(buildConfig)/com/microsoft/onnxruntime/onnxruntime-extensions-android/${VERSION}/onnxruntime-extensions-android-${VERSION}.aar"
-
-              # Do not output ##vso[] commands with `set -x` or they may be parsed again and include a trailing quote.
-              set +x
-              echo "##vso[task.setvariable variable=ORT_EXTENSIONS_AAR_PATH]${AAR_PATH}"
-            displayName: Build onnxruntime-extensions AAR package
 
           - bash: |
               set -e -x

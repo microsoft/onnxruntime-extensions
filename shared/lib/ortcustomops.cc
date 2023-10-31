@@ -107,7 +107,7 @@ extern "C" int ORT_API_CALL GetActiveOrtAPIVersion() {
 
 
 // The main entrance of the extension library.
-extern "C" ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api) {
+extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api) {
   OrtStatus* status = nullptr;
   OCOS_API_IMPL_BEGIN
 
