@@ -15,17 +15,14 @@
 #include "onnxruntime_c_api.h"
 #endif
 
-#ifdef _WIN32
-#define ORTX_EXPORT __declspec(dllexport)
-#else
-#define ORTX_EXPORT
-#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-ORTX_EXPORT OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api);
+OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api);
+
+int ORT_API_CALL GetActiveOrtAPIVersion();
 
 #ifdef __cplusplus
 }

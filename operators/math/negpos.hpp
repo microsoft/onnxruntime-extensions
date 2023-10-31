@@ -2,12 +2,11 @@
 // Licensed under the MIT License.
 
 #pragma once
-
 #include "ocos.h"
 
 OrtStatusPtr neg_pos(const ortc::Tensor<float>& input,
-             ortc::Tensor<float>& out0_tensor,
-             ortc::Tensor<float>& out1_tensor) {
+                     ortc::Tensor<float>& out0_tensor,
+                     ortc::Tensor<float>& out1_tensor) {
   int64_t size = input.NumberOfElement();
   float* out0 = out0_tensor.Allocate(input.Shape());
   float* out1 = out1_tensor.Allocate(input.Shape());

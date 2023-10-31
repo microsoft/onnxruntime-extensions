@@ -5,8 +5,8 @@
 #include "op_ragged_tensor.hpp"
 
 OrtStatusPtr RaggedTensorToSparse(const ortc::Tensor<int64_t>& n_element,
-                                 ortc::Tensor<int64_t>& output_0,
-                                 ortc::Tensor<int64_t>& output_1) {
+                                  ortc::Tensor<int64_t>& output_0,
+                                  ortc::Tensor<int64_t>& output_1) {
   const int64_t* p_n_elements = n_element.Data();
 
   auto& d_length = n_element.Shape();
@@ -88,10 +88,10 @@ OrtStatusPtr KernelRaggedTensoroDense::Compute(const ortc::Tensor<int64_t>& inpu
 }
 
 OrtStatusPtr StringRaggedTensorToDense(const ortc::Tensor<int64_t>& input0,
-                                                     const ortc::Tensor<std::string>& input1,
-                                                     const ortc::Tensor<int64_t>& input2,
-                                                     const ortc::Tensor<std::string>& input3,
-                                                     ortc::Tensor<std::string>& output) {
+                                       const ortc::Tensor<std::string>& input1,
+                                       const ortc::Tensor<int64_t>& input2,
+                                       const ortc::Tensor<std::string>& input3,
+                                       ortc::Tensor<std::string>& output) {
   auto& input = input1.Data();
   const int64_t* p_indices = input2.Data();
   int64_t size = input3.NumberOfElement();
