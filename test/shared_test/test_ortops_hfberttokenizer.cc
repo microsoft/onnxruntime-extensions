@@ -145,10 +145,10 @@ void TestHfBertTokenizerHelper(const std::filesystem::path& test_model_path,
 
 TEST(hf_bert_tokenizer_operator, test_default) {
   const std::filesystem::path model_path = "data/bert-large-uncased-whole-word-masking-finetuned-squad-tokenizer.onnx";
-  TestHfBertTokenizerHelper(model_path, true)
+  TestHfBertTokenizerHelper(model_path, true);
 }
 
 TEST(hf_bert_tokenizer_operator, test_optional_output) {
   const std::filesystem::path model_path = "data/test_hf_bert_tokenizer_optional_output.onnx";
-  TestHfBertTokenizerHelper(model_path, false)
+  TestHfBertTokenizerHelper(model_path, false);
 }
