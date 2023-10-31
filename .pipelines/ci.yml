@@ -95,7 +95,7 @@ stages:
 
     - script: cd test && python -m pytest . --verbose
       displayName: Run python test
-  
+
   ###############
   # Linux PyDebug
   ###############
@@ -452,7 +452,7 @@ stages:
         set OCOS_SCB_DEBUG=1
         python -m pip install -v -e .
       displayName: Build onnxruntime-extensions in editable mode.
-        
+
     - script: |
         python -m pip install -r requirements-dev.txt
         python -m pip install torch torchvision torchaudio
@@ -521,22 +521,22 @@ stages:
     - script: brew install coreutils ninja
       displayName: Install coreutils and ninja
 
+    - bash: |
+        set -e -x
+
+        _BUILD_CFG="x86_64 $(Build.BinariesDirectory)/android_aar" ./build.android
+
+        VERSION=$(cat ./version.txt)
+        AAR_PATH="$(Build.BinariesDirectory)/android_aar/aar_out/com/microsoft/onnxruntime/onnxruntime-extensions-android/${VERSION}/onnxruntime-extensions-android-${VERSION}.aar"
+
+        # Do not output ##vso[] commands with `set -x` or they may be parsed again and include a trailing quote.
+        set +x
+        echo "##vso[task.setvariable variable=ORT_EXTENSIONS_AAR_PATH]${AAR_PATH}"
+      displayName: Build onnxruntime-extensions AAR package
+
     - template: templates/run-with-android-emulator-steps.yml
       parameters:
         steps:
-
-        - bash: |
-            set -e -x
-
-            _BUILD_CFG="x86_64 $(Build.BinariesDirectory)/android_aar" ./build.android
-
-            VERSION=$(cat ./version.txt)
-            AAR_PATH="$(Build.BinariesDirectory)/android_aar/aar_out/com/microsoft/onnxruntime/onnxruntime-extensions-android/${VERSION}/onnxruntime-extensions-android-${VERSION}.aar"
-
-            # Do not output ##vso[] commands with `set -x` or they may be parsed again and include a trailing quote.
-            set +x
-            echo "##vso[task.setvariable variable=ORT_EXTENSIONS_AAR_PATH]${AAR_PATH}"
-          displayName: Build onnxruntime-extensions AAR package
 
         - bash: |
             set -e -x
@@ -570,18 +570,26 @@ stages:
       - script: brew install ninja
         displayName: Install ninja
 
+      - bash: |
+          python ./tools/build.py \
+            --config RelWithDebInfo \
+            --android \
+            --android_abi x86_64 \
+            --enable_cxx_tests \
+            --update --build --parallel
+        displayName: Build onnxruntime-extensions for Android
+
       - template: templates/run-with-android-emulator-steps.yml
         parameters:
           steps:
-
           - bash: |
               python ./tools/build.py \
                 --config RelWithDebInfo \
                 --android \
                 --android_abi x86_64 \
                 --enable_cxx_tests \
-                --update --build --test --parallel
-            displayName: Build onnxruntime-extensions for Android and run C++ tests on emulator
+                --test
+            displayName: Run C++ tests on emulator
 
 - stage: IosBuilds
   dependsOn: []
