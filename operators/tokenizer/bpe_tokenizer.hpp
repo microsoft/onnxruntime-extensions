@@ -15,6 +15,7 @@
 
 #include "nlohmann/json.hpp"
 #include "bpe_utils.hpp"
+#include "trietree.hpp"
 
 class BpeModel {
  public:
