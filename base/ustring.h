@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 #pragma once
 
-#include "ocos.h"
 #include <vector>
 #include <string_view>
 
@@ -23,6 +22,8 @@ class ustring : public std::u32string {
   explicit ustring(const std::u32string_view& str) : std::u32string(str) {}
 
   explicit operator std::string() const { return ToUTF8(*this); }
+
+  explicit operator std::u32string() const { return *this; }
 
   static size_t EncodeUTF8Char(char* buffer, char32_t utf8_char) {
     if (utf8_char <= 0x7F) {
@@ -85,7 +86,7 @@ class ustring : public std::u32string {
   using u32string = std::u32string;
   static u32string FromUTF8(const std::string_view& utf8) {
     u32string ucs32;
-    ucs32.reserve(utf8.length() / 2);   // a rough estimation for less memory allocation.
+    ucs32.reserve(utf8.length() / 2);  // a rough estimation for less memory allocation.
     for (size_t i = 0; i < utf8.size();) {
       char32_t codepoint = 0;
       if ((utf8[i] & 0x80) == 0) {

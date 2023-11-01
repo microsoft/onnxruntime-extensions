@@ -95,13 +95,13 @@ OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKerne
   std::string vocab;
   ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "vocab", vocab));
   if (vocab.empty()) {
-    ORTX_CXX_API_THROW("vocabulary shouldn't be empty.", ORT_INVALID_ARGUMENT);
+    return OrtW::CreateStatus("vocabulary shouldn't be empty.", ORT_INVALID_ARGUMENT);
   }
 
   std::string merges;
   ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "merges", merges));
   if (merges.empty()) {
-    ORTX_CXX_API_THROW("merges shouldn't be empty.", ORT_INVALID_ARGUMENT);
+    return OrtW::CreateStatus("merges shouldn't be empty.", ORT_INVALID_ARGUMENT);
   }
 
   ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "padding_length", padding_length_));
@@ -112,7 +112,16 @@ OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKerne
   std::stringstream vocabu_stream(vocab);
   std::stringstream merges_stream(merges);
   bbpe_tokenizer_ = std::make_unique<BpeModel>();
-  bbpe_tokenizer_->Load(vocabu_stream, merges_stream, bpe_conf_.unk_token_, bpe_conf_.GetSpecialTokens().c_str());
+  auto status = bbpe_tokenizer_->Load(vocabu_stream, merges_stream, bpe_conf_.unk_token_, bpe_conf_.GetSpecialTokens().c_str());
+  if (status != nullptr) {
+    return status;
+  }
+
+  std::string added_token;
+  ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "added_token", added_token));
+  if (!added_token.empty()) {
+    ORTX_RETURN_IF_ERROR(bbpe_tokenizer_->LoadAddedTokens(added_token.c_str()));
+  }
 
   // TODO: need to check if the special token ids are the same as the ones in HFTokenizer
   unk_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.unk_token_);
@@ -174,6 +183,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
   }
 
   // Parse input
+  auto bbpe_tokenizer_->SplitByAddedTokens(input);
   auto special_token_split_res = bbpe_tokenizer_->SplitBySpecialTokens(input);
   TokenWithRegularExp regcmp;
 

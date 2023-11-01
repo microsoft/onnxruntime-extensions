@@ -13,13 +13,14 @@
 #include <charconv>
 #include <optional>
 
+template <typename CharT>
 class TrieTree {
  public:
   static constexpr int kMaxTokenLength_ = 128;
 
-  TrieTree(unsigned char ch = 0) : ch_(ch), to_(256) {}
+  TrieTree(CharT ch = 0) : ch_(ch){}
 
-  void Add(const std::string& key, int idx = 0,
+  void Add(const std::basic_string<CharT>& key, int idx = 0,
            std::optional<int> value = std::optional<int>()) {
     if (idx == key.length()) {
       if (!value) {
@@ -29,20 +30,20 @@ class TrieTree {
       return;
     }
 
-    unsigned char ch = static_cast<unsigned char>(key[idx]);
-    if (to_[ch] == nullptr) {
+    auto ch = key[idx];
+    if (to_.count(ch) == 0) {
       to_[ch] = std::make_unique<TrieTree>(ch);
     }
     to_[ch]->Add(key, idx + 1, value);
   }
 
-  int FindLongest(const std::string& key, size_t& idx) {
+  int FindLongest(const std::basic_string<CharT>& key, size_t& idx) {
     const TrieTree* u = this;
-    unsigned char ch = key[idx];
+    CharT ch = key[idx];
 
     int tok_id = 0;
     size_t idx_end = idx;
-    while (u->to_[ch]) {
+    while (u->to_.count(ch)) {
       u = u->to_[ch].get();
       idx += 1;
       if (u->value_) {
@@ -60,7 +61,7 @@ class TrieTree {
   }
 
  private:
-  std::vector<std::unique_ptr<TrieTree>> to_;
+  std::map<CharT, std::unique_ptr<TrieTree>> to_;
   std::optional<int> value_;
-  unsigned char ch_;
+  CharT ch_;
 };

@@ -21,10 +21,22 @@ class BpeModel {
  public:
   BpeModel() = default;
 
-  void Load(std::istream& vocab_stream,
-            std::istream& merges_stream,
-            const char* unk_token,
-            const char* special_tokens) {
+  OrtStatusPtr LoadAddedTokens(const char* added_tokens) {
+    std::istringstream istrea(added_tokens);
+    std::string line;
+    while (istrea >> line) {
+      if (line.empty()) continue;
+      line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
+      add_tokens_.Add(ustring(line));
+    }
+
+    return nullptr;
+  }
+
+  OrtStatusPtr Load(std::istream& vocab_stream,
+                    std::istream& merges_stream,
+                    const char* unk_token,
+                    const char* special_tokens) {
     nlohmann::json tok_json;
     vocab_stream >> tok_json;
     vocab_map_ = std::move(tok_json.get<std::unordered_map<std::string, uint32_t>>());
@@ -35,6 +47,7 @@ class BpeModel {
     } else {
       auto id = ort_extensions::narrow<uint32_t>(vocab_map_.size());
       vocab_map_[unk_token] = id;
+      unk_id_ = id;
     }
 
     CreateByteEncoder();
@@ -47,7 +60,7 @@ class BpeModel {
       if ((line[0] == '#') && (index == 0)) continue;
       auto pos = line.find(' ');
       if (pos == std::string::npos) {
-        ORTX_CXX_API_THROW("Cannot know how to parse line: " + line, ORT_INVALID_ARGUMENT);
+        return OrtW::CreateStatus("Cannot know how to parse line: " + line, ORT_INVALID_ARGUMENT);
       }
       std::string w1 = line.substr(0, pos);
       std::string w2 = line.substr(pos + 1);
@@ -55,9 +68,9 @@ class BpeModel {
       if (w2.find("</w>") != std::string::npos || w1.find("</w>") != std::string::npos) {
         token_length -= 4;
       }
-      auto iw1 = GetVocabIndex(w1);
-      auto iw2 = GetVocabIndex(w2);
-      auto iww = GetVocabIndex(w1 + w2);
+      auto iw1 = GetTokenId(w1);
+      auto iw2 = GetTokenId(w2);
+      auto iww = GetTokenId(w1 + w2);
       BpeNode value{iww, index++, token_length};
       bpe_rank_[GetRankKey(iw1, iw2)] = value;
     }
@@ -83,6 +96,8 @@ class BpeModel {
     for (const auto& [t, i] : vocab_map_) {
       id2token_map_[i] = t;
     }
+
+    return nullptr;
   }
 
   void bpe(std::list<std::pair<uint32_t, uint32_t>>& vals) const {
@@ -130,6 +145,24 @@ class BpeModel {
     return byte_encoder_;
   }
 
+  // REF: https://github.com/huggingface/transformers/blob/7d8ff3629b2725ec43ace99c1a6e87ac1978d433/src/transformers/tokenization_utils_base.py#L82
+  // https://github.com/Narsil/transformers/blob/d6e64d3c2396cc3cd095778446cf6bae9495c8f2/src/transformers/tokenization_utils.py#L90
+  auto SplitByAddedTokens(const ustring& input) const {
+    size_t offset = 0;
+    std::vector<std::u32string_view> tokens;
+    while (offset < input.length()) {
+      auto token = add_tokens_.FindLongest(input, offset);
+      if (token == 0) {
+        offset += 1;
+      } else {
+        offset += 1;
+        yield(token);
+      }
+
+    }
+    return tokens;
+  }
+
   auto SplitBySpecialTokens(const ustring& input) const {
     return special_tokens_.SplitBySpecialTokens(input);
   }
@@ -164,19 +197,11 @@ class BpeModel {
       )
       */
       if ((i >= 0 && i < 33) || (i >= 127 && i < 161) || (i == 173)) {
-        byte_encoder_[i] = GetVocabIndex(ustring::EncodeUTF8Char(index++));
+        byte_encoder_[i] = GetTokenId(ustring::EncodeUTF8Char(index++));
       } else {
-        byte_encoder_[i] = GetVocabIndex(ustring::EncodeUTF8Char(i));
+        byte_encoder_[i] = GetTokenId(ustring::EncodeUTF8Char(i));
       }
     }
-  }
-
-  uint32_t GetVocabIndex(const std::string& str) {
-    auto it = vocab_map_.find(str);
-    if (it == vocab_map_.end()) {
-      ORTX_CXX_API_THROW("Cannot find word in vocabulary: " + str, ORT_INVALID_ARGUMENT);
-    }
-    return it->second;
   }
 
  private:
@@ -188,4 +213,5 @@ class BpeModel {
 
   uint32_t unk_id_ = std::numeric_limits<uint32_t>::max();
   SpecialTokenMap special_tokens_;
+  TrieTree<char32_t> add_tokens_;
 };

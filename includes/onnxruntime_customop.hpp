@@ -107,6 +107,11 @@ inline OrtStatusPtr CreateStatus(const char* msg, OrtErrorCode code) {
   return API::CreateStatus(code, msg);
 }
 
+inline OrtStatusPtr CreateStatus(const std::string& msg, OrtErrorCode code) {
+  return API::CreateStatus(code, msg.c_str());
+}
+
+
 inline void ReleaseStatus(OrtStatusPtr& status) {
   API::ReleaseStatus(status);
   status = nullptr;

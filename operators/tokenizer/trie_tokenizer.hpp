@@ -19,16 +19,16 @@
 // This Trie Tree is C++ implementation of
 // https://github.com/BlinkDL/ChatRWKV/blob/main/rwkv_pip_package/src/rwkv/rwkv_tokenizer.py
 // Perf optimized by leveraging C++ features, but the algorithm is the same.
-class RWKVTrieTree: public TrieTree {
+class RWKVTrieTree : public TrieTree<char> {
  public:
   static constexpr int kMaxTokenLength_ = 128;
 
-  RWKVTrieTree(unsigned char ch = 0) : TrieTree(ch){}
+  RWKVTrieTree(char ch = 0) : TrieTree(ch) {}
 
   // keep the same function for source code understanding.
   void add(const std::string& key, int idx = 0,
            std::optional<int> value = std::optional<int>()) {
-            Add(key, idx, value); 
+    Add(key, idx, value);
   }
 
   int find_longest(const std::string& key, size_t& idx) {
@@ -176,7 +176,7 @@ struct KernelTrieDetokenizer : public BaseKernel {
       if (ustring::ValidateUTF8(raw_string)) {
         output[n] = raw_string;
       } else {
-        output[n] = "\ufffd";   // bad utf-8 string
+        output[n] = "\ufffd";  // bad utf-8 string
         failed = true;
       }
     }
