@@ -82,6 +82,20 @@ class BpeModel {
     for (const auto& [t, i] : vocab_map_) {
       id2token_map_[i] = t;
     }
+
+    // std::transform(vocab_map_.begin(), vocab_map_.end(), std::back_inserter(vocab_vals_), [](const auto& val) { return val.second; });
+    // NOTE: Using std::back_inserter is ideal but our current C++/compiler versions do not support it.
+    for (std::unordered_map<std::string, uint32_t>::iterator it = vocab_map_.begin(); it != vocab_map_.end(); it++) {
+      vocab_vals_.push_back(it->second);
+    }
+  }
+
+  void CheckIdInVocab(std::list<std::pair<uint32_t, uint32_t>>& vals) const {
+    for (auto pair : vals) {
+      if (std::find(vocab_vals_.begin(), vocab_vals_.end(), pair.first) == vocab_vals_.end()) {
+        ORTX_CXX_API_THROW("Invalid input id result. Please check your vocab.", ORT_INVALID_ARGUMENT);
+      }
+    }
   }
 
   void bpe(std::list<std::pair<uint32_t, uint32_t>>& vals) const {
@@ -123,6 +137,7 @@ class BpeModel {
         pos_it->second = pos_it->second + token_length;
       }
     }
+    CheckIdInVocab(vals);
   }
 
   const auto& ByteEncoder() const {
@@ -173,7 +188,10 @@ class BpeModel {
   uint32_t GetVocabIndex(const std::string& str) {
     auto it = vocab_map_.find(str);
     if (it == vocab_map_.end()) {
-      ORTX_CXX_API_THROW("Cannot find word in vocabulary: " + str, ORT_INVALID_ARGUMENT);
+      // We do not throw an error here as CheckIdInVocab will do so if we cannot find a word in the vocab after completing
+      // byte-level byte-pair encoding (BBPE).
+      std::cout << "WARNING: Cannot find word in vocabulary: " << str << ".\n";
+      return 0;
     }
     return it->second;
   }
@@ -184,6 +202,7 @@ class BpeModel {
   uint32_t byte_encoder_[256] = {};
   std::unordered_map<std::string, uint32_t> vocab_map_;
   std::vector<std::string> id2token_map_;
+  std::vector<uint32_t> vocab_vals_;
 
   uint32_t unk_id_ = std::numeric_limits<uint32_t>::max();
   SpecialTokenMap special_tokens_;
