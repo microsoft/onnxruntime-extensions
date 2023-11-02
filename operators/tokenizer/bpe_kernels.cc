@@ -132,6 +132,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
                                                   std::list<OffsetMappingType>& offset_map) const {
   std::vector<int64_t> res;
   std::list<std::pair<uint32_t, uint32_t>> byte_list;
+  LRUCache bpe_cache = LRUCache(500);
 
   bool clean_up_spaces = false;
   if (ModelName() == BpeModelConf::kModel_CLIP) {
@@ -205,6 +206,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
       std::string utf8_token = std::string(ustring(tok));
 
       size_t space_dif = 0;
+
       if (compute_offset_mapping) {
         // Handle special case for offset mapping
         if (utf8_token.at(0) == ' ') {
@@ -213,30 +215,41 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
         }
       }
 
-      // Get byte encodings prior to performing BPE
-      byte_list.clear();
-
-      if (clean_up_spaces) {
-        // Whitespace clean
-        utf8_token.erase(std::remove(utf8_token.begin(), utf8_token.end(), ' '), utf8_token.end());
-
-        for (int i = 0; i < utf8_token.length(); i++) {
-          if (i == utf8_token.length() - 1) {
-            std::string boundary(1, utf8_token[i]);
-            byte_list.push_back(std::make_pair(bbpe_tokenizer_->GetTokenId(boundary + "</w>"), 1));
-          } else {
-            byte_list.push_back(std::make_pair(bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(utf8_token[i])], 1));
-          }
+      // Skip Byte-level BPE computations if input IDs and offset mapping have already been computed
+      // for this token, i.e. output is in the cache.
+      if (bpe_cache.already_tokenized(utf8_token)) {
+        byte_list.clear();
+        for (auto out : bpe_cache.get_output(utf8_token)) {
+          byte_list.push_back(out);
         }
       } else {
-        for (char& cp : utf8_token) {
-          byte_list.push_back(std::make_pair(bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(cp)], 1));
+        // Get byte encodings prior to performing BPE
+        byte_list.clear();
+
+        if (clean_up_spaces) {
+          // Whitespace clean
+          utf8_token.erase(std::remove(utf8_token.begin(), utf8_token.end(), ' '), utf8_token.end());
+
+          for (int i = 0; i < utf8_token.length(); i++) {
+            if (i == utf8_token.length() - 1) {
+              std::string boundary(1, utf8_token[i]);
+              byte_list.push_back(std::make_pair(bbpe_tokenizer_->GetTokenId(boundary + "</w>"), 1));
+            } else {
+              byte_list.push_back(std::make_pair(bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(utf8_token[i])], 1));
+            }
+          }
+        } else {
+          for (char& cp : utf8_token) {
+            byte_list.push_back(std::make_pair(bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(cp)], 1));
+          }
         }
+
+        // Perform BPE
+        bbpe_tokenizer_->bpe(byte_list);
+
+        // Add output to cache
+        bpe_cache.add(utf8_token, byte_list);
       }
-
-      // Perform BPE
-      bbpe_tokenizer_->bpe(byte_list);
-
       // Add output to result
       for (auto p : byte_list) {
         if (static_cast<int64_t>(res.size()) >= max_length) {

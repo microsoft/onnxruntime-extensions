@@ -230,3 +230,70 @@ class TokenWithRegularExp {
  private:
   std::u32string_view m_text;
 };
+
+class LRUCache {
+  // Store keys of cache
+  std::list<std::string> dq;
+
+  // Store references of keys in cache for efficiency
+  std::unordered_map<std::string, std::list<std::string>::iterator> references;
+
+  // Store input IDs and offset mappings of tokens
+  std::unordered_map<std::string, std::list<std::pair<uint32_t, uint32_t>>> input_ids_and_offsets;
+  
+  // Maximum capacity of cache
+  int capacity;
+
+ public:
+  // Declare the size
+  LRUCache(int n) { capacity = n; }
+
+  // Add tok to the LRU cache
+  void add(std::string tok, std::list<std::pair<uint32_t, uint32_t>> output) {
+    // token not present in cache
+    if (references.find(tok) == references.end()) {
+      // cache is full
+      if (dq.size() == capacity) {
+        // delete least recently used element
+        std::string last = dq.back();
+
+        // pop last element
+        dq.pop_back();
+
+        // erase last key reference
+        references.erase(last);
+
+        // erase output for key that is being removed from cache
+        input_ids_and_offsets.erase(last);
+      }
+    } else {
+      // tok present in cache
+      dq.erase(references[tok]);
+
+      // add output for tok
+      const std::pair out = std::make_pair(tok, output);
+      input_ids_and_offsets.insert(out);
+    }
+
+    // update keys and references
+    dq.push_front(tok);
+    references[tok] = dq.begin();
+  }
+
+  // Check if token is already tokenized
+  bool already_tokenized(std::string tok) {
+    bool tokenized = input_ids_and_offsets.find(tok) != input_ids_and_offsets.end();
+    if (tokenized) {
+      // update keys and references since tok is now recently used
+      dq.erase(references[tok]);
+      dq.push_front(tok);
+      references[tok] = dq.begin();
+    }
+    return tokenized;
+  }
+
+  // Return output for token that is already tokenized
+  std::list<std::pair<uint32_t, uint32_t>> get_output(std::string tok) {
+    return input_ids_and_offsets[tok];
+  }
+};
