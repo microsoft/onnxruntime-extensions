@@ -132,6 +132,13 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
                                                   std::list<OffsetMappingType>& offset_map) const {
   std::vector<int64_t> res;
   std::list<std::pair<uint32_t, uint32_t>> byte_list;
+
+  // HF implements a cache for BPE:
+  // https://github.com/huggingface/transformers/blob/6f316016877197014193b9463b2fd39fa8f0c8e4/src/transformers/models/gpt2/tokenization_gpt2.py#L216C6-L216C6
+
+  // We use a LRU cache algorithm for the same in C++ in order to save compute.
+
+  // Current cache capacity is set to a relatively small 500 in order to support mobile platforms.
   LRUCache bpe_cache = LRUCache(500);
 
   bool clean_up_spaces = false;
