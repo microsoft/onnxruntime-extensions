@@ -5,6 +5,7 @@
 #include "bpe_kernels.h"
 
 #include <optional>
+#include <chrono>
 
 std::string BpeModelConf::GetSpecialTokens() const {
   std::string special_tokens = unk_token_;  // unk_token_ is required
@@ -25,6 +26,10 @@ std::string BpeModelConf::GetSpecialTokens() const {
 const char BpeModelConf::kModel_GPT2[] = "GPT2";
 const char BpeModelConf::kModel_Roberta[] = "Roberta";
 const char BpeModelConf::kModel_CLIP[] = "CLIP";
+
+// We specifically measure performance for tokenization as our BPE implementation includes a number of optimizations
+long long total_tokenization_time = 0.0;
+int num_tokenizations = 0;
 
 // Note: the following logic comes from CPython: unicodetype_db.h (_PyUnicode_IsWhitespace)
 bool IsUnicodeSpace(char32_t ch) {
@@ -130,8 +135,8 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
                                                   int64_t max_length,
                                                   bool compute_offset_mapping,
                                                   std::list<OffsetMappingType>& offset_map) const {
-  std::vector<int64_t> res;
-  std::list<std::pair<uint32_t, uint32_t>> byte_list;
+
+  auto start = std::chrono::high_resolution_clock::now();
 
   // HF implements a cache for BPE:
   // https://github.com/huggingface/transformers/blob/6f316016877197014193b9463b2fd39fa8f0c8e4/src/transformers/models/gpt2/tokenization_gpt2.py#L216C6-L216C6
@@ -140,6 +145,9 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
 
   // Current cache capacity is set to a relatively small 500 in order to support mobile platforms.
   LRUCache bpe_cache = LRUCache(500);
+
+  std::vector<int64_t> res;
+  std::list<std::pair<uint32_t, uint32_t>> byte_list;
 
   bool clean_up_spaces = false;
   if (ModelName() == BpeModelConf::kModel_CLIP) {
@@ -224,9 +232,9 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
 
       // Skip Byte-level BPE computations if input IDs and offset mapping have already been computed
       // for this token, i.e. output is in the cache.
-      if (bpe_cache.already_tokenized(utf8_token)) {
+      if (bpe_cache.AlreadyTokenized(utf8_token)) {
         byte_list.clear();
-        for (auto out : bpe_cache.get_output(utf8_token)) {
+        for (auto out : bpe_cache.GetOutput(utf8_token)) {
           byte_list.push_back(out);
         }
       } else {
@@ -255,7 +263,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
         bbpe_tokenizer_->bpe(byte_list);
 
         // Add output to cache
-        bpe_cache.add(utf8_token, byte_list);
+        bpe_cache.Add(utf8_token, byte_list);
       }
       // Add output to result
       for (auto p : byte_list) {
@@ -291,6 +299,12 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     // Add EOS token to result
     res.push_back(eos_token_id_);
   }
+
+  auto stop = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+  total_tokenization_time += duration.count();
+  num_tokenizations += 1;
+
   return res;
 }
 
@@ -320,6 +334,9 @@ void KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
             compute_offset_mapping,
             offset_map));
   }
+
+  auto average_tokenization_time = total_tokenization_time / num_tokenizations;
+  std::cout << "\n Average tokenization time: " << average_tokenization_time << " microseconds.\n";
 
   size_t max_length = 0;
   if (padding_length_ == -1) {

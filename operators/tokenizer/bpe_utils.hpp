@@ -249,7 +249,7 @@ class LRUCache {
   LRUCache(int n) { capacity = n; }
 
   // Add tok to the LRU cache
-  void add(std::string tok, std::list<std::pair<uint32_t, uint32_t>> output) {
+  void Add(const std::string& tok, std::list<std::pair<uint32_t, uint32_t>> output) {
     // token not present in cache
     if (references.find(tok) == references.end()) {
       // cache is full
@@ -281,7 +281,7 @@ class LRUCache {
   }
 
   // Check if token is already tokenized
-  bool already_tokenized(std::string tok) {
+  bool AlreadyTokenized(std::string tok) {
     bool tokenized = input_ids_and_offsets.find(tok) != input_ids_and_offsets.end();
     if (tokenized) {
       // update keys and references since tok is now recently used
@@ -293,7 +293,7 @@ class LRUCache {
   }
 
   // Return output for token that is already tokenized
-  std::list<std::pair<uint32_t, uint32_t>> get_output(std::string tok) {
+  std::list<std::pair<uint32_t, uint32_t>> GetOutput(std::string tok) {
     return input_ids_and_offsets[tok];
   }
 };
