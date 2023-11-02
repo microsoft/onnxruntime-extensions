@@ -108,7 +108,7 @@ class BpeModel {
     bpe::TokenPairs final_result;
     added_tokens_.Split(input, added_result);
     for (const auto& [token, id] : added_result) {
-      if (id == unk_id_) {
+      if (id == bpe::kInvalidTokenId) {
         final_result.emplace_back(token, id);
       } else {
         auto special_result = special_tokens_.SplitBySpecialTokens(ustring(token));

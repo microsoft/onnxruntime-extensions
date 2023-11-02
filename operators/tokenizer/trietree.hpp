@@ -57,18 +57,19 @@ class TrieTree {
     return tok_id;
   }
 
-  int Split(const std::basic_string<CharT>& input, std::vector<std::pair<std::basic_string_view<CharT>, ValueT>>) const noexcept {
+  int Split(const std::basic_string<CharT>& input, std::vector<std::pair<std::basic_string_view<CharT>, ValueT>>& tokens) const noexcept {
     size_t seg_idx = 0;
     size_t tok_idx = 0;
-    size_t idx_end = 0;
-    size_t tok_len = 0;
 
-    ValueT tok_id = invalid_id_;
-
-    const TrieTree* u = this;
-    std::vector<std::pair<std::basic_string_view<CharT>, ValueT>> tokens;
     while (tok_idx < input.length()) {
+      // variable u is the tree root.
+      const TrieTree* u = this;
       auto ch = input[tok_idx];
+      size_t tok_len = 0;
+      size_t idx_end = 0;
+      ValueT tok_id = invalid_id_;
+
+      // try to match a longest token
       while (u->to_.count(ch)) {
         tok_len += 1;
         u = u->to_.at(ch).get();
@@ -83,9 +84,11 @@ class TrieTree {
         }
         ch = input[tok_idx];
       }
-      if (tok_idx == seg_idx) {
+      if (tok_idx == seg_idx || tok_len == 0) {
         tok_idx += 1;
-        continue;
+        if (tok_idx < input.length()) {
+          continue;
+        }
       }
 
       auto token_begin_idx = tok_idx - tok_len;
@@ -94,12 +97,11 @@ class TrieTree {
       }
       if (tok_len > 0) {
         tokens.emplace_back(std::basic_string_view<CharT>(input.data() + token_begin_idx, idx_end - seg_idx), tok_id);
+        tok_idx = idx_end;
       }
 
       // reset state for next match
-      seg_idx = idx_end;
-      tok_idx = idx_end;
-      tok_len = 0;
+      seg_idx = tok_idx;
     }
 
     return 0;
