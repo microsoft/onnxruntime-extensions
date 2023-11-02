@@ -17,21 +17,11 @@
 #include "bpe_utils.hpp"
 #include "trietree.hpp"
 
+namespace ort_extensions {
+
 class BpeModel {
  public:
   BpeModel() = default;
-
-  OrtStatusPtr LoadAddedTokens(const char* added_tokens) {
-    std::istringstream istrea(added_tokens);
-    std::string line;
-    while (istrea >> line) {
-      if (line.empty()) continue;
-      line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
-      add_tokens_.Add(ustring(line));
-    }
-
-    return nullptr;
-  }
 
   OrtStatusPtr Load(std::istream& vocab_stream,
                     std::istream& merges_stream,
@@ -100,6 +90,37 @@ class BpeModel {
     return nullptr;
   }
 
+  OrtStatusPtr LoadAddedTokens(const char* added_tokens) {
+    std::istringstream istrea(added_tokens);
+    std::string line;
+    while (istrea >> line) {
+      if (line.empty()) continue;
+      line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
+      added_tokens_.Add(ustring(line));
+    }
+
+    return nullptr;
+  }
+
+  // REF: https://github.com/huggingface/transformers/blob/c9e72f55b2dc4b9be4edb986dce0552582b328f2/src/transformers/tokenization_utils.py#L52
+  bpe::TokenPairs SplitByAddedAndSpecial(const ustring& input) const {
+    bpe::TokenPairs added_result;
+    bpe::TokenPairs final_result;
+    added_tokens_.Split(input, added_result);
+    for (const auto& [token, id] : added_result) {
+      if (id == unk_id_) {
+        final_result.emplace_back(token, id);
+      } else {
+        auto special_result = special_tokens_.SplitBySpecialTokens(ustring(token));
+        for (const auto& [token, id] : special_result) {
+          final_result.emplace_back(token, id);
+        }
+      }
+    }
+
+    return final_result;
+  }
+
   void bpe(std::list<std::pair<uint32_t, uint32_t>>& vals) const {
     while (vals.size() >= 2) {
       auto pos_it = vals.end();
@@ -143,28 +164,6 @@ class BpeModel {
 
   const auto& ByteEncoder() const {
     return byte_encoder_;
-  }
-
-  // REF: https://github.com/huggingface/transformers/blob/7d8ff3629b2725ec43ace99c1a6e87ac1978d433/src/transformers/tokenization_utils_base.py#L82
-  // https://github.com/Narsil/transformers/blob/d6e64d3c2396cc3cd095778446cf6bae9495c8f2/src/transformers/tokenization_utils.py#L90
-  auto SplitByAddedTokens(const ustring& input) const {
-    size_t offset = 0;
-    std::vector<std::u32string_view> tokens;
-    while (offset < input.length()) {
-      auto token = add_tokens_.FindLongest(input, offset);
-      if (token == 0) {
-        offset += 1;
-      } else {
-        offset += 1;
-        yield(token);
-      }
-
-    }
-    return tokens;
-  }
-
-  auto SplitBySpecialTokens(const ustring& input) const {
-    return special_tokens_.SplitBySpecialTokens(input);
   }
 
   // Returns token if key was found in vocab, and unk_id_ otherwise
@@ -212,6 +211,8 @@ class BpeModel {
   std::vector<std::string> id2token_map_;
 
   uint32_t unk_id_ = std::numeric_limits<uint32_t>::max();
-  SpecialTokenMap special_tokens_;
-  TrieTree<char32_t> add_tokens_;
+  bpe::SpecialTokenMap special_tokens_;
+  TrieTree<char32_t> added_tokens_;
 };
+
+}  // namespace ort_extensions

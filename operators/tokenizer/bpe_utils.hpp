@@ -6,30 +6,37 @@
 #include "ocos.h"
 #include "narrow.h"
 
+#include <cassert>
 #include <algorithm>
 #include "ustring.h"
 
 #include "unicode.h"
+
+namespace ort_extensions {
+namespace bpe {
+
+using TokenPairs = std::vector<std::pair<std::u32string_view, int>>;
+using u32string_view = std::u32string_view;
+
+constexpr int kInvalidTokenId = -1;
 
 class SpecialTokenMap {
  public:
   void Add(ustring p_str, int p_id) {
     auto it = token_map_.find(p_str);
     if (it != token_map_.end()) {
-      if (it->second != p_id) {
-        ORTX_CXX_API_THROW("Duplicate special tokens.", ORT_INVALID_ARGUMENT);
-      }
+      assert(it->second == p_id && "Duplicate special tokens.");
     } else {
       token_map_[p_str] = p_id;
       token_list_.push_back(SpecialTokenInfo(std::move(p_str), p_id));
     }
   }
 
-  std::vector<std::pair<ustring, int>> SplitBySpecialTokens(ustring input) const {
-    std::vector<std::pair<ustring, int>> res;
+  TokenPairs SplitBySpecialTokens(ustring input) const {
+    TokenPairs res;
     res.emplace_back(std::move(input), -1);
     for (const auto& st : token_list_) {
-      std::vector<std::pair<ustring, int>> new_split_res;
+      TokenPairs new_split_res;
       for (auto& str : res) {
         if (str.second != -1) {
           new_split_res.push_back(std::move(str));
@@ -46,15 +53,15 @@ class SpecialTokenMap {
                                        std::boyer_moore_searcher(st.str.begin(), st.str.end()));
 #endif
           if (search_it == str.first.end()) {
-            new_split_res.emplace_back(str.first.substr(search_pos), -1);
+            new_split_res.emplace_back(u32string_view(str.first.data() + search_pos), kInvalidTokenId);
             break;
           }
           auto prefixLen = search_it - it;
           if (prefixLen != 0) {
-            new_split_res.emplace_back(str.first.substr(search_pos, prefixLen), -1);
+            new_split_res.emplace_back(u32string_view(str.first.data() + search_pos, prefixLen), kInvalidTokenId);
             search_pos += prefixLen;
           }
-          new_split_res.emplace_back(str.first.substr(search_pos, st.str.size()), st.id);
+          new_split_res.emplace_back(u32string_view(str.first.data() + search_pos, st.str.size()), st.id);
           it = search_it + st.str.size();
           search_pos += st.str.size();
         }
@@ -228,3 +235,6 @@ class TokenWithRegularExp {
  private:
   std::u32string_view m_text;
 };
+
+}  // namespace bpe
+}  // namespace ort_extensions

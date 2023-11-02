@@ -23,7 +23,9 @@ struct BpeModelConf {
   std::string GetSpecialTokens() const;
 };
 
+namespace ort_extensions {
 class BpeModel;
+}
 
 struct KernelBpeTokenizer {
   KernelBpeTokenizer(const BpeModelConf& conf);
@@ -45,7 +47,7 @@ struct KernelBpeTokenizer {
 
  private:
   const BpeModelConf& bpe_conf_;
-  std::unique_ptr<BpeModel> bbpe_tokenizer_;
+  std::unique_ptr<ort_extensions::BpeModel> bbpe_tokenizer_;
 
   int64_t padding_length_ = -1;
   uint32_t unk_token_id_{};

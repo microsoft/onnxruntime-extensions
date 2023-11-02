@@ -6,6 +6,8 @@
 
 #include <optional>
 
+using namespace ort_extensions;
+
 std::string BpeModelConf::GetSpecialTokens() const {
   std::string special_tokens = unk_token_;  // unk_token_ is required
   auto add_token = [](std::string& sp, const char* tok) {
@@ -183,11 +185,10 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
   }
 
   // Parse input
-  auto bbpe_tokenizer_->SplitByAddedTokens(input);
-  auto special_token_split_res = bbpe_tokenizer_->SplitBySpecialTokens(input);
-  TokenWithRegularExp regcmp;
+  auto special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input);
+  bpe::TokenWithRegularExp regcmp;
 
-  for (auto& seg_id : special_token_split_res) {
+  for (auto seg_id : special_token_split_res) {
     if (static_cast<int64_t>(res.size()) >= max_length) break;
 
     if (seg_id.second != -1) {
@@ -195,10 +196,9 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
       continue;
     }
 
-    auto cur_input = std::move(seg_id.first);
     // Note: keep ptr to make sure the string_view is valid in the following process
-    const char32_t* ptr = cur_input.c_str();
-    regcmp.Set(ptr);
+    std::u32string str(seg_id.first);
+    regcmp.Set(str.c_str());
 
     size_t offset = 0;
     OffsetMappingType offset_mapping;

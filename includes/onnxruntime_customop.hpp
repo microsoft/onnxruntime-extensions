@@ -62,7 +62,6 @@ class API {
   const OrtApi& api_;
 };
 
-
 template <>
 inline OrtStatusPtr API::KernelInfoGetAttribute<int64_t>(const OrtKernelInfo& info, const char* name, int64_t& value) noexcept {
   return instance()->KernelInfoGetAttribute_int64(&info, name, &value);
@@ -111,14 +110,20 @@ inline OrtStatusPtr CreateStatus(const std::string& msg, OrtErrorCode code) {
   return API::CreateStatus(code, msg.c_str());
 }
 
-
 inline void ReleaseStatus(OrtStatusPtr& status) {
   API::ReleaseStatus(status);
   status = nullptr;
 }
 
-
 }  // namespace OrtW
+
+#define ORTX_RETURN_IF_ERROR(expr) \
+  do {                             \
+    auto _status = (expr);         \
+    if (_status != nullptr) {      \
+      return _status;              \
+    }                              \
+  } while (0)
 
 namespace Ort {
 namespace Custom {
@@ -126,7 +131,7 @@ namespace Custom {
 #ifdef USE_CUDA
 ///////////////////////////////////////////////////////////////////////////
 // TODO: include the definition from the header file in ONNXRuntime
-struct CudaContext {}; 
+struct CudaContext {};
 
 #endif  // USE_CUDA
 

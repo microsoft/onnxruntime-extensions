@@ -8,20 +8,17 @@
 #include <set>
 #include <map>
 #include <string>
-#include <memory>
-#include <sstream>
-#include <charconv>
 #include <optional>
 
-template <typename CharT>
+template <typename CharT, typename ValueT = int>
 class TrieTree {
  public:
   static constexpr int kMaxTokenLength_ = 128;
 
-  TrieTree(CharT ch = 0) : ch_(ch){}
+  TrieTree(CharT ch = 0, ValueT invalid_id = -1) : ch_(ch), invalid_id_(invalid_id) {}
 
   void Add(const std::basic_string<CharT>& key, int idx = 0,
-           std::optional<int> value = std::optional<int>()) {
+           std::optional<ValueT> value = std::optional<ValueT>()) noexcept {
     if (idx == key.length()) {
       if (!value) {
         value = key[0];
@@ -37,14 +34,14 @@ class TrieTree {
     to_[ch]->Add(key, idx + 1, value);
   }
 
-  int FindLongest(const std::basic_string<CharT>& key, size_t& idx) {
+  ValueT FindLongest(const std::basic_string<CharT>& key, size_t& idx) const noexcept {
     const TrieTree* u = this;
     CharT ch = key[idx];
 
-    int tok_id = 0;
+    ValueT tok_id = invalid_id_;
     size_t idx_end = idx;
     while (u->to_.count(ch)) {
-      u = u->to_[ch].get();
+      u = u->to_.at(ch).get();
       idx += 1;
       if (u->value_) {
         tok_id = *u->value_;
@@ -60,8 +57,57 @@ class TrieTree {
     return tok_id;
   }
 
+  int Split(const std::basic_string<CharT>& input, std::vector<std::pair<std::basic_string_view<CharT>, ValueT>>) const noexcept {
+    size_t seg_idx = 0;
+    size_t tok_idx = 0;
+    size_t idx_end = 0;
+    size_t tok_len = 0;
+
+    ValueT tok_id = invalid_id_;
+
+    const TrieTree* u = this;
+    std::vector<std::pair<std::basic_string_view<CharT>, ValueT>> tokens;
+    while (tok_idx < input.length()) {
+      auto ch = input[tok_idx];
+      while (u->to_.count(ch)) {
+        tok_len += 1;
+        u = u->to_.at(ch).get();
+        if (u->value_) {
+          tok_id = *u->value_;
+          idx_end = tok_idx;
+        }
+
+        tok_idx += 1;
+        if (tok_idx == input.length()) {
+          break;
+        }
+        ch = input[tok_idx];
+      }
+      if (tok_idx == seg_idx) {
+        tok_idx += 1;
+        continue;
+      }
+
+      auto token_begin_idx = tok_idx - tok_len;
+      if (token_begin_idx > seg_idx) {
+        tokens.emplace_back(std::basic_string_view<CharT>(input.data() + seg_idx, token_begin_idx - seg_idx), invalid_id_);
+      }
+      if (tok_len > 0) {
+        tokens.emplace_back(std::basic_string_view<CharT>(input.data() + token_begin_idx, idx_end - seg_idx), tok_id);
+      }
+
+      // reset state for next match
+      seg_idx = idx_end;
+      tok_idx = idx_end;
+      tok_len = 0;
+    }
+
+    return 0;
+  }
+
  private:
   std::map<CharT, std::unique_ptr<TrieTree>> to_;
-  std::optional<int> value_;
-  CharT ch_;
+  std::optional<ValueT> value_;
+  const CharT ch_;
+  const ValueT invalid_id_;
 };
