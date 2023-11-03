@@ -10,6 +10,8 @@
 #include <string>
 #include <optional>
 
+namespace ort_extensions {
+
 template <typename CharT, typename ValueT = int>
 class TrieTree {
  public:
@@ -18,20 +20,20 @@ class TrieTree {
   TrieTree(CharT ch = 0, ValueT invalid_id = -1) : ch_(ch), invalid_id_(invalid_id) {}
 
   void Add(const std::basic_string<CharT>& key, int idx = 0,
-           std::optional<ValueT> value = std::optional<ValueT>()) noexcept {
+           const std::optional<ValueT>& value = std::nullopt) noexcept {
     if (idx == key.length()) {
       if (!value) {
-        value = key[0];
+        value_ = std::make_optional(narrow<ValueT>(key[0]));
+      } else {
+        value_ = value;
       }
-      value_ = value;
-      return;
+    } else {
+      auto ch = key[idx];
+      if (to_.count(ch) == 0) {
+        to_[ch] = std::make_unique<TrieTree>(ch);
+      }
+      to_[ch]->Add(key, idx + 1, value);
     }
-
-    auto ch = key[idx];
-    if (to_.count(ch) == 0) {
-      to_[ch] = std::make_unique<TrieTree>(ch);
-    }
-    to_[ch]->Add(key, idx + 1, value);
   }
 
   ValueT FindLongest(const std::basic_string<CharT>& key, size_t& idx) const noexcept {
@@ -57,7 +59,8 @@ class TrieTree {
     return tok_id;
   }
 
-  int Split(const std::basic_string<CharT>& input, std::vector<std::pair<std::basic_string_view<CharT>, ValueT>>& tokens) const noexcept {
+  int Split(const std::basic_string<CharT>& input,
+            std::vector<std::pair<std::basic_string_view<CharT>, ValueT>>& tokens) const noexcept {
     size_t seg_idx = 0;
     size_t tok_idx = 0;
 
@@ -66,7 +69,7 @@ class TrieTree {
       const TrieTree* u = this;
       auto ch = input[tok_idx];
       size_t tok_len = 0;
-      size_t idx_end = 0;
+      size_t idx_end = tok_idx;
       ValueT tok_id = invalid_id_;
 
       // try to match a longest token
@@ -75,7 +78,7 @@ class TrieTree {
         u = u->to_.at(ch).get();
         if (u->value_) {
           tok_id = *u->value_;
-          idx_end = tok_idx;
+          idx_end = tok_idx + 1;
         }
 
         tok_idx += 1;
@@ -84,19 +87,23 @@ class TrieTree {
         }
         ch = input[tok_idx];
       }
-      if (tok_idx == seg_idx || tok_len == 0) {
-        tok_idx += 1;
+
+      tok_idx += 1;
+      if (tok_id == invalid_id_) {
         if (tok_idx < input.length()) {
           continue;
         }
       }
 
-      auto token_begin_idx = tok_idx - tok_len;
-      if (token_begin_idx > seg_idx) {
-        tokens.emplace_back(std::basic_string_view<CharT>(input.data() + seg_idx, token_begin_idx - seg_idx), invalid_id_);
+      auto token_begin_idx = tok_idx - tok_len - 1;  // since the tok_idx already moved forward by 1
+      tok_len = idx_end - token_begin_idx;
+      if (token_begin_idx > seg_idx || tok_len == 0) {
+        tokens.emplace_back(std::basic_string_view<CharT>(
+                                input.data() + seg_idx, token_begin_idx - seg_idx + 1),
+                            invalid_id_);
       }
       if (tok_len > 0) {
-        tokens.emplace_back(std::basic_string_view<CharT>(input.data() + token_begin_idx, idx_end - seg_idx), tok_id);
+        tokens.emplace_back(std::basic_string_view<CharT>(input.data() + token_begin_idx, tok_len), tok_id);
         tok_idx = idx_end;
       }
 
@@ -113,3 +120,5 @@ class TrieTree {
   const CharT ch_;
   const ValueT invalid_id_;
 };
+
+}  // namespace ort_extensions

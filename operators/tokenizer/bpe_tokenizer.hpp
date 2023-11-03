@@ -90,15 +90,19 @@ class BpeModel {
     return nullptr;
   }
 
-  OrtStatusPtr LoadAddedTokens(const char* added_tokens) {
-    std::istringstream istrea(added_tokens);
+  OrtStatusPtr LoadAddedTokens(const char* added_tokens, int64_t id_begin) {
+    int index = ort_extensions::narrow<int>(vocab_map_.size());
+    if (id_begin != bpe::kInvalidTokenId) {
+      index = ort_extensions::narrow<int>(id_begin);
+    }
+    std::istringstream strm_tokens(added_tokens);
     std::string line;
-    while (istrea >> line) {
+    while (!strm_tokens.eof()) {
+      std::getline(strm_tokens, line);
       if (line.empty()) continue;
       line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
-      added_tokens_.Add(ustring(line));
+      added_tokens_.Add(ustring(line), 0, std::make_optional(index++));
     }
-
     return nullptr;
   }
 

@@ -23,36 +23,28 @@ class HFTokenizerConverter(CustomOpConverter):
     def __init__(self, tokenizer):
         self.tokenizer = tokenizer
 
-    def bpe_tokenizer(self, **kwargs):
-        hf_gpt2_tokenizer = self.tokenizer
-        attrs = None
+    @staticmethod
+    def convert_bpe_vocab(hf_tokenizer):
+        attrs = {'vocab': json.dumps(
+            hf_tokenizer.encoder, separators=(',', ':'))}
+        if hf_tokenizer.added_tokens_encoder:
+            ids = sorted(hf_tokenizer.added_tokens_encoder.values())
+            if not ids == list(range(min(ids), max(ids) + 1)):
+                raise RuntimeError(f"{hf_tokenizer.__name__}: the ids in added_tokens_encoder are not consecutive")
+            attrs.update({"added_token": "\n".join(hf_tokenizer.added_tokens_encoder.keys()),
+                          "added_token_id": min(ids)})
 
-        if type(self.tokenizer).__name__.endswith('Fast'):
-            raise ValueError('Please use the slow version of the tokenizer (ex: GPT2Tokenizer).')
-        elif(self.tokenizer.name_or_path.endswith('gpt-4')):
-            # Fill vocab gap for GPT4Tokenizer to create continuous domain
-            vocab_dict = hf_gpt2_tokenizer.encoder
-            partial_values = list(vocab_dict.values())
-            
-            max_vocab = partial_values[-1]
-            all_values = np.arange(max_vocab + 1)
-            
-            missing_values = set(all_values) - set(partial_values)
-            
-            for v in missing_values:
-                vocab_dict[str(uuid.uuid4())] = int(v)
-            
-            vocab_dict = dict(sorted(vocab_dict.items(), key=lambda item: item[1]))
-                
-            attrs = {'vocab': json.dumps(
-                vocab_dict, separators=(',', ':'))}
-        else:
-            attrs = {'vocab': json.dumps(
-                hf_gpt2_tokenizer.encoder, separators=(',', ':'))}
-        
-        sorted_merges = {v_: k_ for k_, v_ in hf_gpt2_tokenizer.bpe_ranks.items()}
+        sorted_merges = {v_: k_ for k_, v_ in hf_tokenizer.bpe_ranks.items()}
         attrs['merges'] = '\n'.join("{} {}".format(
             *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
+        return attrs
+
+    def bpe_tokenizer(self, **kwargs):
+        hf_gpt2_tokenizer = self.tokenizer
+        if type(self.tokenizer).__name__.endswith('Fast'):
+            raise ValueError('Please use the slow version of the tokenizer (ex: GPT2Tokenizer).')
+
+        attrs = self.convert_bpe_vocab(hf_gpt2_tokenizer)
         attrs.update(**kwargs)
         return attrs
 
@@ -101,12 +93,7 @@ class HFTokenizerConverter(CustomOpConverter):
         if type(self.tokenizer).__name__.endswith('Fast'):
             raise ValueError('Please use the slow version of the tokenizer (ex: CLIPTokenizer).')
 
-        attrs = {'vocab': json.dumps(
-            hf_clip_tokenizer.encoder, separators=(',', ':'))}
-        sorted_merges = {v_: k_ for k_,
-        v_ in hf_clip_tokenizer.bpe_ranks.items()}
-        attrs['merges'] = '\n'.join("{} {}".format(
-            *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
+        attrs = self.convert_bpe_vocab(hf_clip_tokenizer)
         attrs.update(**kwargs)
         return attrs
 
@@ -116,12 +103,7 @@ class HFTokenizerConverter(CustomOpConverter):
         if type(self.tokenizer).__name__.endswith('Fast'):
             raise ValueError('Please use the slow version of the tokenizer (ex: RobertaTokenizer).')
 
-        attrs = {'vocab': json.dumps(
-            hf_roberta_tokenizer.encoder, separators=(',', ':'))}
-        sorted_merges = {v_: k_ for k_,
-        v_ in hf_roberta_tokenizer.bpe_ranks.items()}
-        attrs['merges'] = '\n'.join("{} {}".format(
-            *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
+        attrs = self.convert_bpe_vocab(hf_roberta_tokenizer)
         attrs.update(**kwargs)
         return attrs
 

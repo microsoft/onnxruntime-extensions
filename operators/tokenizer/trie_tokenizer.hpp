@@ -19,7 +19,7 @@
 // This Trie Tree is C++ implementation of
 // https://github.com/BlinkDL/ChatRWKV/blob/main/rwkv_pip_package/src/rwkv/rwkv_tokenizer.py
 // Perf optimized by leveraging C++ features, but the algorithm is the same.
-class RWKVTrieTree : public TrieTree<char> {
+class RWKVTrieTree : public ort_extensions::TrieTree<char> {
  public:
   static constexpr int kMaxTokenLength_ = 128;
 
