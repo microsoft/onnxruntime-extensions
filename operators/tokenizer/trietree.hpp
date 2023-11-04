@@ -92,17 +92,19 @@ class TrieTree {
       if (tok_id == invalid_id_) {
         if (tok_idx < input.length()) {
           continue;
+        } else {
+          tok_idx += 1;  // Assign tok_idx to input.length()
+          idx_end = tok_idx;
         }
       }
 
       auto token_begin_idx = tok_idx - tok_len - 1;  // since the tok_idx already moved forward by 1
       tok_len = idx_end - token_begin_idx;
       if (token_begin_idx > seg_idx || tok_len == 0) {
-        tokens.emplace_back(std::basic_string_view<CharT>(
-                                input.data() + seg_idx, token_begin_idx - seg_idx + 1),
+        tokens.emplace_back(std::basic_string_view<CharT>(input.data() + seg_idx, token_begin_idx - seg_idx),
                             invalid_id_);
       }
-      if (tok_len > 0) {
+      if (tok_id != invalid_id_) {
         tokens.emplace_back(std::basic_string_view<CharT>(input.data() + token_begin_idx, tok_len), tok_id);
         tok_idx = idx_end;
       }

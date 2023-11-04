@@ -32,16 +32,17 @@ class SpecialTokenMap {
     }
   }
 
-  TokenPairs SplitBySpecialTokens(ustring input) const {
+  TokenPairs SplitBySpecialTokens(const std::u32string_view& input) const {
     TokenPairs res;
-    res.emplace_back(std::move(input), -1);
+    res.emplace_back(input, kInvalidTokenId);
     for (const auto& st : token_list_) {
       TokenPairs new_split_res;
       for (auto& str : res) {
-        if (str.second != -1) {
-          new_split_res.push_back(std::move(str));
+        if (str.second != kInvalidTokenId) {
+          new_split_res.emplace_back(str);
           continue;
         }
+
         auto it = str.first.begin();
         size_t search_pos = 0;
         while (it != str.first.end()) {
@@ -53,21 +54,27 @@ class SpecialTokenMap {
                                        std::boyer_moore_searcher(st.str.begin(), st.str.end()));
 #endif
           if (search_it == str.first.end()) {
-            new_split_res.emplace_back(u32string_view(str.first.data() + search_pos), kInvalidTokenId);
+            new_split_res.emplace_back(u32string_view(
+                                           str.first.data() + search_pos, str.first.size() - search_pos),
+                                       kInvalidTokenId);
             break;
           }
+
           auto prefixLen = search_it - it;
           if (prefixLen != 0) {
             new_split_res.emplace_back(u32string_view(str.first.data() + search_pos, prefixLen), kInvalidTokenId);
             search_pos += prefixLen;
           }
+
           new_split_res.emplace_back(u32string_view(str.first.data() + search_pos, st.str.size()), st.id);
           it = search_it + st.str.size();
           search_pos += st.str.size();
         }
       }
+
       std::swap(new_split_res, res);
     }
+
     return res;
   }
 

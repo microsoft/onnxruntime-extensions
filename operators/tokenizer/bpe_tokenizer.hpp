@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <iostream>
 #include <utility>
+#include <charconv>
 
 #include "nlohmann/json.hpp"
 #include "bpe_utils.hpp"
@@ -90,32 +91,43 @@ class BpeModel {
     return nullptr;
   }
 
-  OrtStatusPtr LoadAddedTokens(const char* added_tokens, int64_t id_begin) {
-    int index = ort_extensions::narrow<int>(vocab_map_.size());
-    if (id_begin != bpe::kInvalidTokenId) {
-      index = ort_extensions::narrow<int>(id_begin);
-    }
+  OrtStatusPtr LoadAddedTokens(const char* added_tokens) {
+    int id = bpe::kInvalidTokenId;
     std::istringstream strm_tokens(added_tokens);
     std::string line;
     while (!strm_tokens.eof()) {
       std::getline(strm_tokens, line);
-      if (line.empty()) continue;
       line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
-      added_tokens_.Add(ustring(line), 0, std::make_optional(index++));
+      if (line.empty()) continue;
+      // seperate the key and value by =
+      auto pos = line.rfind("=");
+      if (pos == std::string::npos) {
+        return OrtW::CreateStatus("Error on parse a added_token line: " + line, ORT_INVALID_ARGUMENT);
+      }
+      auto token = line.substr(0, pos);
+      auto id_str = line.substr(pos + 1);  // 1 is the length of "="
+      auto [ptr, ec] = std::from_chars(id_str.data(), id_str.data() + id_str.length(), id);
+      if (ec != std::errc()) {
+        return OrtW::CreateStatus("Cannot convert to an integer from " + id_str, ORT_INVALID_ARGUMENT);
+      }
+
+      added_tokens_.Add(ustring(token), 0, std::make_optional(id));
     }
+
     return nullptr;
   }
 
   // REF: https://github.com/huggingface/transformers/blob/c9e72f55b2dc4b9be4edb986dce0552582b328f2/src/transformers/tokenization_utils.py#L52
   bpe::TokenPairs SplitByAddedAndSpecial(const ustring& input) const {
+    // split by added tokens
     bpe::TokenPairs added_result;
     bpe::TokenPairs final_result;
     added_tokens_.Split(input, added_result);
     for (const auto& [token, id] : added_result) {
-      if (id == bpe::kInvalidTokenId) {
+      if (id != bpe::kInvalidTokenId) {
         final_result.emplace_back(token, id);
       } else {
-        auto special_result = special_tokens_.SplitBySpecialTokens(ustring(token));
+        auto special_result = special_tokens_.SplitBySpecialTokens(token);
         for (const auto& [token, id] : special_result) {
           final_result.emplace_back(token, id);
         }
@@ -135,9 +147,15 @@ class BpeModel {
       for (auto it = vals.begin(); it != vals.end(); ++it) {
         auto it2 = it;
         ++it2;
-        if (it2 == vals.end()) break;
+        if (it2 == vals.end()) {
+          break;
+        }
+
         auto map_it = bpe_rank_.find(GetRankKey(it->first, it2->first));
-        if (map_it == bpe_rank_.end()) continue;
+        if (map_it == bpe_rank_.end()) {
+          continue;
+        }
+
         if (minval > map_it->second.value) {
           ori_id1 = it->first;
           ori_id2 = it2->first;
@@ -146,7 +164,10 @@ class BpeModel {
           aim_id = map_it->second.id;
         }
       }
-      if (pos_it == vals.end()) break;
+
+      if (pos_it == vals.end()) {
+        break;
+      }
 
       token_length = pos_it->second;
       pos_it = vals.erase(pos_it);
@@ -170,7 +191,6 @@ class BpeModel {
     return byte_encoder_;
   }
 
-  // Returns token if key was found in vocab, and unk_id_ otherwise
   uint32_t GetTokenId(const std::string& key) {
     auto it = vocab_map_.find(key);
     if (it != end(vocab_map_)) {

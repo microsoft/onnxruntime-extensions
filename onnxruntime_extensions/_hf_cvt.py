@@ -28,11 +28,11 @@ class HFTokenizerConverter(CustomOpConverter):
         attrs = {'vocab': json.dumps(
             hf_tokenizer.encoder, separators=(',', ':'))}
         if hf_tokenizer.added_tokens_encoder:
-            ids = sorted(hf_tokenizer.added_tokens_encoder.values())
-            if not ids == list(range(min(ids), max(ids) + 1)):
-                raise RuntimeError(f"{hf_tokenizer.__name__}: the ids in added_tokens_encoder are not consecutive")
-            attrs.update({"added_token": "\n".join(hf_tokenizer.added_tokens_encoder.keys()),
-                          "added_token_id": min(ids)})
+            # ids = sorted(hf_tokenizer.added_tokens_encoder.values())
+            # if not ids == list(range(min(ids), max(ids) + 1)):
+            #     raise RuntimeError(f"{hf_tokenizer.__name__}: the ids in added_tokens_encoder are not consecutive")
+            token_map = [f"{_k}={_v}" for _k, _v in hf_tokenizer.added_tokens_encoder.items()]
+            attrs.update({"added_token": "\n".join(token_map)})
 
         sorted_merges = {v_: k_ for k_, v_ in hf_tokenizer.bpe_ranks.items()}
         attrs['merges'] = '\n'.join("{} {}".format(

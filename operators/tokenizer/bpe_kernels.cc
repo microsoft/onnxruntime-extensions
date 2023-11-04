@@ -121,9 +121,7 @@ OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKerne
 
   std::string added_token;
   ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "added_token", added_token));
-  int64_t added_token_id = bpe::kInvalidTokenId;
-  ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "added_token_id", added_token_id));
-  ORTX_RETURN_IF_ERROR(bbpe_tokenizer_->LoadAddedTokens(added_token.c_str(), added_token_id));
+  ORTX_RETURN_IF_ERROR(bbpe_tokenizer_->LoadAddedTokens(added_token.c_str()));
 
   // TODO: need to check if the special token ids are the same as the ones in HFTokenizer
   unk_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.unk_token_);
@@ -188,10 +186,10 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
   auto special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input);
   bpe::TokenWithRegularExp regcmp;
 
-  for (auto seg_id : special_token_split_res) {
+  for (auto& seg_id : special_token_split_res) {
     if (static_cast<int64_t>(res.size()) >= max_length) break;
 
-    if (seg_id.second != -1) {
+    if (seg_id.second != bpe::kInvalidTokenId) {
       res.push_back(seg_id.second);
       continue;
     }
