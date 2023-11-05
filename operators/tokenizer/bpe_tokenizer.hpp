@@ -12,18 +12,23 @@
 #include <unordered_map>
 #include <iostream>
 #include <utility>
+#include <charconv>
+#include <limits>
 
 #include "nlohmann/json.hpp"
 #include "bpe_utils.hpp"
+#include "trietree.hpp"
+
+namespace ort_extensions {
 
 class BpeModel {
  public:
   BpeModel() = default;
 
-  void Load(std::istream& vocab_stream,
-            std::istream& merges_stream,
-            const char* unk_token,
-            const char* special_tokens) {
+  OrtStatusPtr Load(std::istream& vocab_stream,
+                    std::istream& merges_stream,
+                    const char* unk_token,
+                    const char* special_tokens) {
     nlohmann::json tok_json;
     vocab_stream >> tok_json;
     vocab_map_ = std::move(tok_json.get<std::unordered_map<std::string, uint32_t>>());
@@ -34,6 +39,7 @@ class BpeModel {
     } else {
       auto id = ort_extensions::narrow<uint32_t>(vocab_map_.size());
       vocab_map_[unk_token] = id;
+      unk_id_ = id;
     }
 
     CreateByteEncoder();
@@ -46,7 +52,7 @@ class BpeModel {
       if ((line[0] == '#') && (index == 0)) continue;
       auto pos = line.find(' ');
       if (pos == std::string::npos) {
-        ORTX_CXX_API_THROW("Cannot know how to parse line: " + line, ORT_INVALID_ARGUMENT);
+        return OrtW::CreateStatus("Cannot know how to parse line: " + line, ORT_INVALID_ARGUMENT);
       }
       std::string w1 = line.substr(0, pos);
       std::string w2 = line.substr(pos + 1);
@@ -54,9 +60,9 @@ class BpeModel {
       if (w2.find("</w>") != std::string::npos || w1.find("</w>") != std::string::npos) {
         token_length -= 4;
       }
-      auto iw1 = GetVocabIndex(w1);
-      auto iw2 = GetVocabIndex(w2);
-      auto iww = GetVocabIndex(w1 + w2);
+      auto iw1 = GetTokenId(w1);
+      auto iw2 = GetTokenId(w2);
+      auto iww = GetTokenId(w1 + w2);
       BpeNode value{iww, index++, token_length};
       bpe_rank_[GetRankKey(iw1, iw2)] = value;
     }
@@ -80,8 +86,62 @@ class BpeModel {
 
     id2token_map_.resize(vocab_map_.size());
     for (const auto& [t, i] : vocab_map_) {
+      if (i > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
+        continue;  // safe purpose.
+      }
+      if (i > id2token_map_.size()) {
+        id2token_map_.resize(i + 1);
+      }
       id2token_map_[i] = t;
     }
+
+    return nullptr;
+  }
+
+  OrtStatusPtr LoadAddedTokens(const char* added_tokens) {
+    int id = bpe::kInvalidTokenId;
+    std::istringstream strm_tokens(added_tokens);
+    std::string line;
+    while (!strm_tokens.eof()) {
+      std::getline(strm_tokens, line);
+      line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
+      if (line.empty()) continue;
+      // seperate the key and value by =
+      auto pos = line.rfind("=");
+      if (pos == std::string::npos) {
+        return OrtW::CreateStatus("Error on parse a added_token line: " + line, ORT_INVALID_ARGUMENT);
+      }
+      auto token = line.substr(0, pos);
+      auto id_str = line.substr(pos + 1);  // 1 is the length of "="
+      auto [ptr, ec] = std::from_chars(id_str.data(), id_str.data() + id_str.length(), id);
+      if (ec != std::errc()) {
+        return OrtW::CreateStatus("Cannot convert to an integer from " + id_str, ORT_INVALID_ARGUMENT);
+      }
+
+      added_tokens_.Add(ustring(token), 0, std::make_optional(id));
+    }
+
+    return nullptr;
+  }
+
+  // REF: https://github.com/huggingface/transformers/blob/c9e72f55b2dc4b9be4edb986dce0552582b328f2/src/transformers/tokenization_utils.py#L52
+  bpe::TokenPairs SplitByAddedAndSpecial(const ustring& input) const {
+    // split by added tokens
+    bpe::TokenPairs added_result;
+    bpe::TokenPairs final_result;
+    added_tokens_.Split(input, added_result);
+    for (const auto& [token, id] : added_result) {
+      if (id != bpe::kInvalidTokenId) {
+        final_result.emplace_back(token, id);
+      } else {
+        auto special_result = special_tokens_.SplitBySpecialTokens(token);
+        for (const auto& [token, id] : special_result) {
+          final_result.emplace_back(token, id);
+        }
+      }
+    }
+
+    return final_result;
   }
 
   void bpe(std::list<std::pair<uint32_t, uint32_t>>& vals) const {
@@ -94,9 +154,15 @@ class BpeModel {
       for (auto it = vals.begin(); it != vals.end(); ++it) {
         auto it2 = it;
         ++it2;
-        if (it2 == vals.end()) break;
+        if (it2 == vals.end()) {
+          break;
+        }
+
         auto map_it = bpe_rank_.find(GetRankKey(it->first, it2->first));
-        if (map_it == bpe_rank_.end()) continue;
+        if (map_it == bpe_rank_.end()) {
+          continue;
+        }
+
         if (minval > map_it->second.value) {
           ori_id1 = it->first;
           ori_id2 = it2->first;
@@ -105,7 +171,10 @@ class BpeModel {
           aim_id = map_it->second.id;
         }
       }
-      if (pos_it == vals.end()) break;
+
+      if (pos_it == vals.end()) {
+        break;
+      }
 
       token_length = pos_it->second;
       pos_it = vals.erase(pos_it);
@@ -129,11 +198,6 @@ class BpeModel {
     return byte_encoder_;
   }
 
-  auto SplitBySpecialTokens(const ustring& input) const {
-    return special_tokens_.SplitBySpecialTokens(input);
-  }
-
-  // Returns token if key was found in vocab, and unk_id_ otherwise
   uint32_t GetTokenId(const std::string& key) {
     auto it = vocab_map_.find(key);
     if (it != end(vocab_map_)) {
@@ -163,19 +227,11 @@ class BpeModel {
       )
       */
       if ((i >= 0 && i < 33) || (i >= 127 && i < 161) || (i == 173)) {
-        byte_encoder_[i] = GetVocabIndex(ustring::EncodeUTF8Char(index++));
+        byte_encoder_[i] = GetTokenId(ustring::EncodeUTF8Char(index++));
       } else {
-        byte_encoder_[i] = GetVocabIndex(ustring::EncodeUTF8Char(i));
+        byte_encoder_[i] = GetTokenId(ustring::EncodeUTF8Char(i));
       }
     }
-  }
-
-  uint32_t GetVocabIndex(const std::string& str) {
-    auto it = vocab_map_.find(str);
-    if (it == vocab_map_.end()) {
-      ORTX_CXX_API_THROW("Cannot find word in vocabulary: " + str, ORT_INVALID_ARGUMENT);
-    }
-    return it->second;
   }
 
  private:
@@ -186,5 +242,8 @@ class BpeModel {
   std::vector<std::string> id2token_map_;
 
   uint32_t unk_id_ = std::numeric_limits<uint32_t>::max();
-  SpecialTokenMap special_tokens_;
+  bpe::SpecialTokenMap special_tokens_;
+  TrieTree<char32_t> added_tokens_;
 };
+
+}  // namespace ort_extensions

@@ -16,19 +16,27 @@
 #include <algorithm>
 #include <sstream>
 
-
-struct KernelBpeDecoder : public BaseKernel {
+struct KernelBpeDecoder {
  public:
-  KernelBpeDecoder(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
-    std::string vocab = ort_.KernelInfoGetAttribute<std::string>(&info, "id_vocab");
-    if (vocab.empty()) {
-      ORTX_CXX_API_THROW("[BPEDecoder]id vocab text cannot be empty.", ORT_INVALID_ARGUMENT);
+  OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
+    // note: if the attribute doesn't exist in op node, GetOpAttribute doesn't return a failed status;
+    std::string vocab;
+    OrtStatusPtr status = OrtW::GetOpAttribute(info, "id_vocab", vocab);
+    if (status != nullptr || vocab.empty()) {
+      if (status == nullptr) {
+        status = OrtW::CreateStatus("[BPEDecoder]id vocab text cannot be empty.", ORT_INVALID_ARGUMENT);
+      }
+      return status;
     }
     BuildIdVocab(vocab);
 
-    std::string byte_decoder = ort_.KernelInfoGetAttribute<std::string>(&info, "byte_decoder");
-    if (byte_decoder.empty()) {
-      ORTX_CXX_API_THROW("[BPEDecoder]byte_decoder cannot be empty.", ORT_INVALID_ARGUMENT);
+    std::string byte_decoder;
+    status = OrtW::GetOpAttribute(info, "byte_decoder", byte_decoder);
+    if (status != nullptr || byte_decoder.empty()) {
+      if (status == nullptr) {
+        status = OrtW::CreateStatus("[BPEDecoder]byte_decoder cannot be empty.", ORT_INVALID_ARGUMENT);
+      }
+      return status;
     } else {
       auto um = ParseId2String(byte_decoder);
       std::transform(um.begin(), um.end(),
@@ -37,13 +45,15 @@ struct KernelBpeDecoder : public BaseKernel {
                                                                ort_extensions::narrow<unsigned char>(std::stoul(p.second))); });
     }
 
-    std::string added_tokens = TryToGetAttributeWithDefault<std::string>("added_tokens", "");
+    std::string added_tokens;
+    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "added_tokens", added_tokens));
     if (!added_tokens.empty()) {
       auto um = ParseId2String(added_tokens);
       added_tokens_ = std::map<int64_t, std::string>(um.begin(), um.end());
     }
 
-    std::string all_special_ids = TryToGetAttributeWithDefault<std::string>("all_special_ids", "");
+    std::string all_special_ids;
+    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "all_special_ids", all_special_ids));
     if (!all_special_ids.empty()) {
       auto um = ParseId2String(all_special_ids);
       std::transform(um.begin(), um.end(),
@@ -51,12 +61,14 @@ struct KernelBpeDecoder : public BaseKernel {
                      [](const auto& p) { return p.first; });
     }
 
-    en_normalization_ = TryToGetAttributeWithDefault<int64_t>("en_normalization", 0);
-    skip_special_tokens_ = TryToGetAttributeWithDefault<int64_t>("skip_special_tokens", 0);
-    whitespace_token_ = TryToGetAttributeWithDefault<int64_t>("whitespace_token", 0);
-    bos_token_ = TryToGetAttributeWithDefault("bos_token", std::string("<|endoftext|>"));
-    eos_token_ = TryToGetAttributeWithDefault("eos_token", std::string("<|endoftext|>"));
-    unk_token_ = TryToGetAttributeWithDefault("unk_token", std::string("<|endoftext|>"));
+    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "en_normalization", en_normalization_));
+    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "skip_special_tokens", skip_special_tokens_));
+    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "whitespace_token", whitespace_token_));
+    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "bos_token", bos_token_));
+    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "eos_token", eos_token_));
+    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "unk_token", unk_token_));
+
+    return status;
   }
 
   std::unordered_map<int64_t, std::string> ParseId2String(const std::string& s_attr) {
@@ -102,8 +114,8 @@ struct KernelBpeDecoder : public BaseKernel {
     arr_vocab_.shrink_to_fit();
   }
 
-  void Compute(const ortc::Tensor<int64_t>& ids,
-               ortc::Tensor<std::string>& output) const {
+  OrtStatusPtr Compute(const ortc::Tensor<int64_t>& ids,
+                       ortc::Tensor<std::string>& output) const {
     const int64_t* p_ids = ids.Data();
     const auto& ids_dim = ids.Shape();
     std::vector<int64_t> output_dim = {1};
@@ -168,12 +180,13 @@ struct KernelBpeDecoder : public BaseKernel {
       p_ids += seq_len;
     }
     output.SetStringOutput(decoded_strings, output_dim);
+    return nullptr;
   }
 
  private:
-  std::string bos_token_;
-  std::string eos_token_;
-  std::string unk_token_;
+  std::string bos_token_{"<|endoftext|>"};
+  std::string eos_token_{"<|endoftext|>"};
+  std::string unk_token_{"<|endoftext|>"};
 
   // Since ORT API doesn't support boolean type in ONNX node attribute,
   // all flag attributes here are defined as int64 type to be more explicit.

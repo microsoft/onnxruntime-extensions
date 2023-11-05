@@ -1,7 +1,6 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 import unittest
-import pkg_resources
 
 import numpy as np
 from transformers import AutoTokenizer, GPT2Tokenizer
@@ -76,7 +75,7 @@ class TestAutoTokenizer(unittest.TestCase):
             pre_kwargs={"WITH_DEFAULT_INPUTS": True})[0])
         actual_ids = ort_tok([text])[0]
         np.testing.assert_array_equal(ids, actual_ids)
-        
+
     def test_gpt2_tokenizer(self):
         tokenizer = GPT2Tokenizer.from_pretrained("Xenova/gpt-4", use_fast=False)
         text = "Testing words with apostrophes such as you're, i'm, don't, etc."
@@ -96,7 +95,7 @@ class TestAutoTokenizer(unittest.TestCase):
             " add words that should not exist and be tokenized to , such as saoneuhaoesuth")
         ids = tokenizer.encode(text, return_tensors="np")
 
-        ort_tok, _ = gen_processing_models(tokenizer,pre_kwargs={"WITH_DEFAULT_INPUTS": True})
+        ort_tok, _ = gen_processing_models(tokenizer, pre_kwargs={"WITH_DEFAULT_INPUTS": True})
         actual_ids, *_ = ort_inference(ort_tok, [text])
         np.testing.assert_array_equal(ids[0], actual_ids)
 
@@ -124,8 +123,7 @@ class TestAutoTokenizer(unittest.TestCase):
         ort_tok, _ = gen_processing_models(tokenizer, pre_kwargs={})
         actual_ids, *_ = ort_inference(ort_tok, [code])
         self.assertEqual(len(ids['input_ids'].shape), len(actual_ids.shape))
-        # TODO: not matched.
-        # np.testing.assert_array_equal(ids['input_ids'], actual_ids)
+        np.testing.assert_array_equal(ids['input_ids'], actual_ids)
 
 
 if __name__ == '__main__':
