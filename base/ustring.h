@@ -23,8 +23,6 @@ class ustring : public std::u32string {
 
   explicit operator std::string() const { return ToUTF8(*this); }
 
-  explicit operator std::u32string() const { return *this; }
-
   static size_t EncodeUTF8Char(char* buffer, char32_t utf8_char) {
     if (utf8_char <= 0x7F) {
       *buffer = static_cast<char>(utf8_char);

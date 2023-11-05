@@ -13,6 +13,7 @@
 #include <iostream>
 #include <utility>
 #include <charconv>
+#include <limits>
 
 #include "nlohmann/json.hpp"
 #include "bpe_utils.hpp"
@@ -85,6 +86,12 @@ class BpeModel {
 
     id2token_map_.resize(vocab_map_.size());
     for (const auto& [t, i] : vocab_map_) {
+      if (i > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
+        continue;  // safe purpose.
+      }
+      if (i > id2token_map_.size()) {
+        id2token_map_.resize(i + 1);
+      }
       id2token_map_[i] = t;
     }
 

@@ -30,7 +30,7 @@ class API {
   // To use ONNX C ABI in a way like OrtW::API::CreateStatus.
  public:
   static API& instance(const OrtApi* ort_api = nullptr) noexcept {
-    static API self(*ort_api);
+    static API self(ort_api);
     return self;
   }
 
@@ -54,11 +54,12 @@ class API {
     return &api_;
   }
 
-  API(const OrtApi& api) : api_(api) {
-    if (&api == nullptr) {
+  API(const OrtApi* api) : api_(*api) {
+    if (api == nullptr) {
       ORTX_CXX_API_THROW("ort-extensions internal error: ORT-APIs used before RegisterCustomOps", ORT_RUNTIME_EXCEPTION);
     }
   }
+
   const OrtApi& api_;
 };
 
