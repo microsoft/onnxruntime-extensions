@@ -123,7 +123,6 @@ class TestAutoTokenizer(unittest.TestCase):
         ort_tok, _ = gen_processing_models(tokenizer, pre_kwargs={})
         actual_ids, *_ = ort_inference(ort_tok, [code])
         self.assertEqual(len(ids['input_ids'].shape), len(actual_ids.shape))
-        # TODO: not matched.
         np.testing.assert_array_equal(ids['input_ids'], actual_ids)
 
 
