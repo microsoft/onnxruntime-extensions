@@ -1,6 +1,6 @@
 # ONNXRuntime-Extensions
 
-[![Build Status](https://dev.azure.com/onnxruntime/onnxruntime/_apis/build/status%2Fmicrosoft.onnxruntime-extensions?branchName=main)](https://dev.azure.com/onnxruntime/onnxruntime/_build/latest?definitionId=209&branchName=main)
+[![Build Status](https://dev.azure.com/onnxruntime/onnxruntime/_apis/build/status%2Fonnxruntime-extensions.CI?branchName=main)](https://dev.azure.com/onnxruntime/onnxruntime/_build/latest?definitionId=213&branchName=main)
 
 ## What's ONNXRuntime-Extensions
 
