@@ -125,6 +125,15 @@ class TestAutoTokenizer(unittest.TestCase):
         self.assertEqual(len(ids['input_ids'].shape), len(actual_ids.shape))
         np.testing.assert_array_equal(ids['input_ids'], actual_ids)
 
+    def test_mistral(self):
+        tokenizer = AutoTokenizer.from_pretrained( "mistralai/Mistral-7B-v0.1", use_fast=False)
+        text = "My name is Clara and I am"
+        ids = tokenizer.encode(text, return_tensors="np")
+
+        ort_tok, _ = gen_processing_models(tokenizer, pre_kwargs={"WITH_DEFAULT_INPUTS": True})
+        actual_ids, *_ = ort_inference(ort_tok, [text])
+        np.testing.assert_array_equal(ids[0], actual_ids)
+
 
 if __name__ == '__main__':
     unittest.main()
