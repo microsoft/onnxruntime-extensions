@@ -30,11 +30,11 @@ else()
   message(STATUS "CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}")
   message(STATUS "CMAKE_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}")
 
-  # 1.15.1 is the latest ORT release.
+  # 1.16.1 is the latest ORT release.
   if (OCOS_ONNXRUNTIME_VERSION)
     set(ONNXRUNTIME_VER ${OCOS_ONNXRUNTIME_VERSION})
   else()
-    set(ONNXRUNTIME_VER "1.15.1")
+    set(ONNXRUNTIME_VER "1.16.1")
   endif()
 
   if (ANDROID)
