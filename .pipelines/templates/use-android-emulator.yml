@@ -47,6 +47,7 @@ steps:
         exit 1
       fi
     displayName: Start Android Emulator
+    timeoutInMinutes: 10
     retryCountOnTaskFailure: 1
 
 - ${{ if eq(parameters.stop, true) }}:
