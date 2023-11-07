@@ -562,6 +562,9 @@ stages:
     pool:
       vmImage: 'macOS-13'
     timeoutInMinutes: 60
+    # TODO for testing only, remove
+    strategy:
+      parallel: 10
     steps:
       - task: UsePythonVersion@0
         inputs:
