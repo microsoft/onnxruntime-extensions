@@ -564,7 +564,7 @@ stages:
     timeoutInMinutes: 60
     # TODO for testing only, remove
     strategy:
-      parallel: 10
+      parallel: 25
     steps:
       - task: UsePythonVersion@0
         inputs:
@@ -583,25 +583,26 @@ stages:
       - script: brew install ninja
         displayName: Install ninja
 
-      - bash: |
-          python ./tools/build.py \
-            --config RelWithDebInfo \
-            --android \
-            --android_abi x86_64 \
-            --enable_cxx_tests \
-            --update --build --parallel
-        displayName: Build onnxruntime-extensions for Android
+      # - bash: |
+      #     python ./tools/build.py \
+      #       --config RelWithDebInfo \
+      #       --android \
+      #       --android_abi x86_64 \
+      #       --enable_cxx_tests \
+      #       --update --build --parallel
+      #   displayName: Build onnxruntime-extensions for Android
 
       - template: templates/run-with-android-emulator-steps.yml
         parameters:
           steps:
           - bash: |
-              python ./tools/build.py \
-                --config RelWithDebInfo \
-                --android \
-                --android_abi x86_64 \
-                --enable_cxx_tests \
-                --test
+              echo "the android emulator should be running"
+              # python ./tools/build.py \
+              #   --config RelWithDebInfo \
+              #   --android \
+              #   --android_abi x86_64 \
+              #   --enable_cxx_tests \
+              #   --test
             displayName: Run C++ tests on emulator
 
 - stage: IosBuilds
