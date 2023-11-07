@@ -561,7 +561,7 @@ stages:
   - job: AndroidCpp
     pool:
       vmImage: 'macOS-13'
-    timeoutInMinutes: 30
+    timeoutInMinutes: 60
     steps:
       - task: UsePythonVersion@0
         inputs:
