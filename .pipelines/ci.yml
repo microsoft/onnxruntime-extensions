@@ -1,14 +1,24 @@
-# IMPORTANT: READ ME BEFORE MAKING ANY CHANGES
-#
-# Supported matrix should follow these conventions strictly and
-# for any exceptions to the rules, please document them in comments.
-#
-#  * When adding new configurations to the matrix, update all platforms simultaneously.
-#  * Onnxruntime version should be one release ahead of torch, torchvision, and torchaudio.
-#
-# The rationale is that the onnxruntime release process would have verified the
-# last available version of its dependencies (including the three listed above)
-# and so it's likely to be _better_ supported relative to any older versions.
+# Pipeline trigger settings
+trigger:
+  branches:
+    include:
+    - main
+    - rel-*
+  paths:
+    exclude:
+    - docs/**
+    - README.md
+    - tutorials/**
+pr:
+  branches:
+    include:
+    - main
+    - rel-*
+  paths:
+    exclude:
+    - docs/**
+    - README.md
+    - tutorials/**
 
 stages:
 
