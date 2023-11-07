@@ -127,7 +127,7 @@ class TestAutoTokenizer(unittest.TestCase):
 
     def test_mistral(self):
         tokenizer = AutoTokenizer.from_pretrained( "mistralai/Mistral-7B-v0.1", use_fast=False)
-        text = "  \nMy name is Clara and I am "
+        text = " \nMy name is Clara and I am "
         ids = tokenizer.encode(text, return_tensors="np")
 
         ort_tok, _ = gen_processing_models(tokenizer, pre_kwargs={"WITH_DEFAULT_INPUTS": True})
