@@ -286,7 +286,7 @@ Because we need to execute the model to determine the output shape in order to a
     pipeline.add_post_processing(post_processing_steps)
 
     new_model = pipeline.run(model)
-    new_mode = onnx.shape_inference.infer_shapes(new_model)
+    new_model = onnx.shape_inference.infer_shapes(new_model)
     onnx.save_model(new_model, str(output_file.resolve()))
 
 
