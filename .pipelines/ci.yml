@@ -369,7 +369,7 @@ stages:
 
   - job: WindowsStaticVC
     pool:
-      vmImage: 'windows-latest'
+      name: 'onnxruntime-extensions-Windows-CPU'
 
     steps:
     # the vcpkg build requires a cmake python module
@@ -387,7 +387,7 @@ stages:
   ################
   - job: WindowsPython
     pool:
-      vmImage: 'windows-latest'
+      name: 'onnxruntime-extensions-Windows-CPU'
 
     strategy:
       matrix:
@@ -444,7 +444,7 @@ stages:
   #################
   - job: WinPyDbgBuild
     pool:
-      vmImage: 'windows-latest'
+      name: 'onnxruntime-extensions-Windows-CPU'
 
     steps:
     - task: UsePythonVersion@0
