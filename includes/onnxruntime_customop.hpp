@@ -30,7 +30,7 @@ class API {
   // To use ONNX C ABI in a way like OrtW::API::CreateStatus.
  public:
   static API& instance(const OrtApi* ort_api = nullptr) noexcept {
-    static API self(*ort_api);
+    static API self(ort_api);
     return self;
   }
 
@@ -54,14 +54,14 @@ class API {
     return &api_;
   }
 
-  API(const OrtApi& api) : api_(api) {
-    if (&api == nullptr) {
+  API(const OrtApi* api) : api_(*api) {
+    if (api == nullptr) {
       ORTX_CXX_API_THROW("ort-extensions internal error: ORT-APIs used before RegisterCustomOps", ORT_RUNTIME_EXCEPTION);
     }
   }
+
   const OrtApi& api_;
 };
-
 
 template <>
 inline OrtStatusPtr API::KernelInfoGetAttribute<int64_t>(const OrtKernelInfo& info, const char* name, int64_t& value) noexcept {
@@ -107,13 +107,24 @@ inline OrtStatusPtr CreateStatus(const char* msg, OrtErrorCode code) {
   return API::CreateStatus(code, msg);
 }
 
+inline OrtStatusPtr CreateStatus(const std::string& msg, OrtErrorCode code) {
+  return API::CreateStatus(code, msg.c_str());
+}
+
 inline void ReleaseStatus(OrtStatusPtr& status) {
   API::ReleaseStatus(status);
   status = nullptr;
 }
 
-
 }  // namespace OrtW
+
+#define ORTX_RETURN_IF_ERROR(expr) \
+  do {                             \
+    auto _status = (expr);         \
+    if (_status != nullptr) {      \
+      return _status;              \
+    }                              \
+  } while (0)
 
 namespace Ort {
 namespace Custom {
@@ -121,7 +132,7 @@ namespace Custom {
 #ifdef USE_CUDA
 ///////////////////////////////////////////////////////////////////////////
 // TODO: include the definition from the header file in ONNXRuntime
-struct CudaContext {}; 
+struct CudaContext {};
 
 #endif  // USE_CUDA
 

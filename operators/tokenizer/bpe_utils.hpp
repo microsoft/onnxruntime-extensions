@@ -6,35 +6,43 @@
 #include "ocos.h"
 #include "narrow.h"
 
+#include <cassert>
 #include <algorithm>
 #include "ustring.h"
 
 #include "unicode.h"
+
+namespace ort_extensions {
+namespace bpe {
+
+using TokenPairs = std::vector<std::pair<std::u32string_view, int>>;
+using u32string_view = std::u32string_view;
+
+constexpr int kInvalidTokenId = -1;
 
 class SpecialTokenMap {
  public:
   void Add(ustring p_str, int p_id) {
     auto it = token_map_.find(p_str);
     if (it != token_map_.end()) {
-      if (it->second != p_id) {
-        ORTX_CXX_API_THROW("Duplicate special tokens.", ORT_INVALID_ARGUMENT);
-      }
+      assert(it->second == p_id && "Duplicate special tokens.");
     } else {
       token_map_[p_str] = p_id;
       token_list_.push_back(SpecialTokenInfo(std::move(p_str), p_id));
     }
   }
 
-  std::vector<std::pair<ustring, int>> SplitBySpecialTokens(ustring input) const {
-    std::vector<std::pair<ustring, int>> res;
-    res.emplace_back(std::move(input), -1);
+  TokenPairs SplitBySpecialTokens(const std::u32string_view& input) const {
+    TokenPairs res;
+    res.emplace_back(input, kInvalidTokenId);
     for (const auto& st : token_list_) {
-      std::vector<std::pair<ustring, int>> new_split_res;
+      TokenPairs new_split_res;
       for (auto& str : res) {
-        if (str.second != -1) {
-          new_split_res.push_back(std::move(str));
+        if (str.second != kInvalidTokenId) {
+          new_split_res.emplace_back(str);
           continue;
         }
+
         auto it = str.first.begin();
         size_t search_pos = 0;
         while (it != str.first.end()) {
@@ -46,21 +54,27 @@ class SpecialTokenMap {
                                        std::boyer_moore_searcher(st.str.begin(), st.str.end()));
 #endif
           if (search_it == str.first.end()) {
-            new_split_res.emplace_back(str.first.substr(search_pos), -1);
+            new_split_res.emplace_back(u32string_view(
+                                           str.first.data() + search_pos, str.first.size() - search_pos),
+                                       kInvalidTokenId);
             break;
           }
+
           auto prefixLen = search_it - it;
           if (prefixLen != 0) {
-            new_split_res.emplace_back(str.first.substr(search_pos, prefixLen), -1);
+            new_split_res.emplace_back(u32string_view(str.first.data() + search_pos, prefixLen), kInvalidTokenId);
             search_pos += prefixLen;
           }
-          new_split_res.emplace_back(str.first.substr(search_pos, st.str.size()), st.id);
+
+          new_split_res.emplace_back(u32string_view(str.first.data() + search_pos, st.str.size()), st.id);
           it = search_it + st.str.size();
           search_pos += st.str.size();
         }
       }
+
       std::swap(new_split_res, res);
     }
+
     return res;
   }
 
@@ -101,7 +115,6 @@ class TokenWithRegularExp {
 
  private:
   std::u32string_view TryMatch() {
-
     // python pattern:
     // 's|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+
 
@@ -198,8 +211,7 @@ class TokenWithRegularExp {
       for (; i < m_text.size(); ++i) {
         if (!IsZ(m_text[i])) break;
       }
-      if ((i > 1) && (i != m_text.size()))  //\s+(?!\S)
-      {
+      if ((i > 1) && (i != m_text.size())) {  //\s+(?!\S)
         i--;
         std::u32string_view res = m_text.substr(0, i);
         m_text = m_text.substr(i);
@@ -230,3 +242,6 @@ class TokenWithRegularExp {
  private:
   std::u32string_view m_text;
 };
+
+}  // namespace bpe
+}  // namespace ort_extensions
