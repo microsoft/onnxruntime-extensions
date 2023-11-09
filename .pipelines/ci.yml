@@ -31,7 +31,7 @@ stages:
   #######
   - job: Linux
     pool:
-      vmImage: 'ubuntu-latest'
+      name: 'onnxruntime-extensions-Linux-CPU'
 
     strategy:
       matrix:
@@ -72,7 +72,7 @@ stages:
       displayName: Unpack ONNXRuntime package.
 
     - script: |
-        CPU_NUMBER=2 sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=$(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ort.version)
+        CPU_NUMBER=8 sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=$(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ort.version)
       displayName: build the customop library with onnxruntime
 
     - script: |
@@ -93,7 +93,7 @@ stages:
       displayName: Install requirements.txt
 
     - script: |
-        CPU_NUMBER=2 python -m pip install .
+        CPU_NUMBER=8 python -m pip install .
       displayName: Build the library and tests
 
     - script: python -m pip install $(torch.version)
@@ -111,7 +111,7 @@ stages:
   ###############
   - job: LinuxPyDbg
     pool:
-      vmImage: 'ubuntu-latest'
+      name: 'onnxruntime-extensions-Linux-CPU'
 
     steps:
     - task: UsePythonVersion@0
@@ -126,7 +126,7 @@ stages:
         python -m pip install numpy
         export OCOS_NO_OPENCV=1
         export OCOS_SCB_DEBUG=1
-        CPU_NUMBER=2 python -m pip install -e .
+        CPU_NUMBER=8 python -m pip install -e .
       displayName: Build the python library in editable mode
 
     - script: |
@@ -144,7 +144,7 @@ stages:
   #####################################
   - job: Linux_Prevent_Exception_Propagation
     pool:
-      vmImage: 'ubuntu-latest'
+      name: 'onnxruntime-extensions-Linux-CPU'
 
     steps:
     # Simulate an embedded build as part of ORT with exceptions disabled by manually setting CMAKE_CXX_FLAGS and
@@ -173,7 +173,7 @@ stages:
   ##############################
   - job: Linux_SelectedOpsBuild
     pool:
-      vmImage: 'ubuntu-latest'
+      name: 'onnxruntime-extensions-Linux-CPU'
 
     steps:
     # compiled as only one operator selected.
@@ -312,7 +312,7 @@ stages:
   #########
   - job: WindowsC
     pool:
-      vmImage: 'windows-latest'
+      name: 'onnxruntime-extensions-Windows-CPU'
 
     strategy:
       matrix:
@@ -369,7 +369,7 @@ stages:
 
   - job: WindowsStaticVC
     pool:
-      vmImage: 'windows-latest'
+      name: 'onnxruntime-extensions-Windows-CPU'
 
     steps:
     # the vcpkg build requires a cmake python module
@@ -387,7 +387,7 @@ stages:
   ################
   - job: WindowsPython
     pool:
-      vmImage: 'windows-latest'
+      name: 'onnxruntime-extensions-Windows-CPU'
 
     strategy:
       matrix:
@@ -444,7 +444,7 @@ stages:
   #################
   - job: WinPyDbgBuild
     pool:
-      vmImage: 'windows-latest'
+      name: 'onnxruntime-extensions-Windows-CPU'
 
     steps:
     - task: UsePythonVersion@0
