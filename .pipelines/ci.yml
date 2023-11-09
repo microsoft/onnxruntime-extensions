@@ -312,7 +312,7 @@ stages:
   #########
   - job: WindowsC
     pool:
-      vmImage: 'windows-latest'
+      name: 'onnxruntime-extensions-Windows-CPU'
 
     strategy:
       matrix:
