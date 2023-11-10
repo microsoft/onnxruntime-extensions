@@ -418,6 +418,21 @@ struct Variadic : public TensorBase {
   TensorPtrs tensors_;
 };
 
+#ifdef USE_CUDA
+
+struct CudaContext {
+  void Init(const OrtW::CustomOpApi& api, const OrtKernelContext& ctx) {
+    const auto& ort_api = api.GetOrtApi();
+    ort_api.KernelContext_GetResource(&ctx, 1, 10000, &cuda_stream);
+    if (!cuda_stream) {
+      ORTX_CXX_API_THROW("Failed to fetch cuda stream from context", ORT_RUNTIME_EXCEPTION);
+    }
+  }
+  void* cuda_stream = {};
+};
+
+#endif
+
 struct OrtLiteCustomOp : public OrtCustomOp {
   // CreateTuple
   template <size_t ith_input, size_t ith_output, typename... Ts>
@@ -433,6 +448,18 @@ struct OrtLiteCustomOp : public OrtCustomOp {
     auto next = CreateTuple<ith_input, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);
     return std::tuple_cat(current, next);
   }
+
+#ifdef USE_CUDA
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
+  static typename std::enable_if<std::is_same<T, const CudaContext&>::value, std::tuple<T, Ts...>>::type
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) {
+    thread_local CudaContext cuda_context;
+    cuda_context.Init(*api, *context);
+    std::tuple<T> current = std::tuple<const CudaContext&>{cuda_context};
+    auto next = CreateTuple<ith_input, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);
+    return std::tuple_cat(current, next);
+  }
+#endif
 
 #if ORT_API_VERSION >= 14
   template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
@@ -630,6 +657,14 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   ParseArgs(std::vector<ONNXTensorElementDataType>& input_types, std::vector<ONNXTensorElementDataType>& output_types) {
     ParseArgs<Ts...>(input_types, output_types);
   }
+
+#ifdef USE_CUDA
+  template <typename T, typename... Ts>
+  static typename std::enable_if<0 <= sizeof...(Ts) && std::is_same<T, const CudaContext&>::value>::type
+  ParseArgs(std::vector<ONNXTensorElementDataType>& input_types, std::vector<ONNXTensorElementDataType>& output_types) {
+    ParseArgs<Ts...>(input_types, output_types);
+  }
+#endif
 
 #if ORT_API_VERSION >= 14
   template <typename T, typename... Ts>

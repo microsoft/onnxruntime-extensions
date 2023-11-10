@@ -1,6 +1,11 @@
-#include "negpos.cuh"
+// #include "negpos.cuh"
 #include "narrow.h"
-#include "negpos.h"
+#include "negpos_def.h"
+#include <cuda.h>
+#include <cuda_runtime.h>
+
+void neg_pos_impl(cudaStream_t stream,
+                  const float* input, float* pos_out, float* neg_out, int size);
 
 OrtStatusPtr neg_pos_cuda(const Ort::Custom::CudaContext& ctx,
                           const ortc::Tensor<float>& input,
@@ -11,6 +16,6 @@ OrtStatusPtr neg_pos_cuda(const Ort::Custom::CudaContext& ctx,
   float* out1 = out1_tensor.Allocate(input.Shape());
   const float* X = input.Data();
 
-  neg_pos_impl(ctx.cuda_stream, X, out0, out1, size);
+  neg_pos_impl(reinterpret_cast<cudaStream_t>(ctx.cuda_stream), X, out0, out1, size);
   return nullptr;
 }

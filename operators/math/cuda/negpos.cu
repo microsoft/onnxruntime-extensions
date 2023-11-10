@@ -1,5 +1,5 @@
+#include <cuda.h>
 #include <cuda_runtime.h>
-#include "negpos.cuh"
 
 __global__ void neg_pos_kernel(const float* input, float* pos_out, float* neg_out, int size) {
   for (int i = 0; i < size; i++) {

@@ -129,13 +129,6 @@ inline void ReleaseStatus(OrtStatusPtr& status) {
 namespace Ort {
 namespace Custom {
 
-#ifdef USE_CUDA
-///////////////////////////////////////////////////////////////////////////
-// TODO: include the definition from the header file in ONNXRuntime
-struct CudaContext {};
-
-#endif  // USE_CUDA
-
 template <typename... Args>
 struct FunctionKernel {
   using ComputeFn = std::function<OrtStatusPtr(Args...)>;
