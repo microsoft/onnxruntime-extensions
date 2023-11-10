@@ -527,7 +527,9 @@ stages:
           call $(vsdevcmd)
           set CUDA_PATH="$(Agent.TempDirectory)\v11.8"
           set CUDA_HOME="$(Agent.TempDirectory)\v11.8"
-          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86 -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-gpu-$(ort.version) DCMAKE_GENERATOR='Visual Studio 17 2022'
+          xcopy "$(Agent.TempDirectory)\v11.8\extras\visual_studio_integration\MSBuildExtensions\" "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Microsoft\VC\v170\BuildCustomizations" /y
+          dir "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Microsoft\VC\v170\BuildCustomizations"
+          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86 -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-gpu-$(ort.version) DCMAKE_GENERATOR="Visual Studio 17 2022"
         displayName: build the customop library with onnxruntime
 
       - script: |
