@@ -486,7 +486,6 @@ stages:
         parameters:
           EnvSetupScript: 'set_env_cuda.bat'
           DownloadCUDA: true
-          PrimaryCUDAVersion: '11.8'
 
       - script: |
           nvidia-smi
@@ -527,7 +526,9 @@ stages:
       - script: |
           call $(vsdevcmd)
           set CUDA_PATH="$(Agent.TempDirectory)\v11.8"
-          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-gpu-$(ort.version)
+          set CUDA_HOEM="$(Agent.TempDirectory)\v11.8"
+          set
+          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86 -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-gpu-$(ort.version)
         displayName: build the customop library with onnxruntime
 
       - script: |
