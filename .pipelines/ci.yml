@@ -526,6 +526,7 @@ stages:
 
       - script: |
           call $(vsdevcmd)
+          set CUDA_PATH=$(Agent.TempDirectory)\v11.8
           set CudaToolkitDir=$(Agent.TempDirectory)\v11.8
           xcopy "$(Agent.TempDirectory)\v11.8\extras\visual_studio_integration\MSBuildExtensions\" "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Microsoft\VC\v170\BuildCustomizations" /y
           dir "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Microsoft\VC\v170\BuildCustomizations"
