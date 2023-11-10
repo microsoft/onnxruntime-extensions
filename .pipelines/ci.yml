@@ -477,19 +477,20 @@ stages:
   dependsOn: []
   jobs:
   - job: WindowsC
-      pool:
-        name: 'onnxruntime-extensions-Windows-GPU-A10'
-      steps:
-        - template: templates/set_winenv.yml
-          parameters:
-            EnvSetupScript: 'set_winenv_cuda.bat'
-            DownloadCUDA: true
-            PrimaryCUDAVersion: '11.8'
-            SecondaryCUDAVersion: '12.2'
-        - script: |
-            nvidia-smi
-            nvcc --version
-          displayName: check cuda version
+    pool:
+      name: 'onnxruntime-extensions-Win2022-GPU-A10'
+
+    steps:
+      - template: templates/set_winenv.yml
+        parameters:
+          EnvSetupScript: 'set_winenv_cuda.bat'
+          DownloadCUDA: true
+          PrimaryCUDAVersion: '11.8'
+          SecondaryCUDAVersion: '12.2'
+      - script: |
+          nvidia-smi
+          nvcc --version
+        displayName: check cuda version
 
 - stage: WebAssemblyBuilds
   dependsOn: []
