@@ -332,7 +332,7 @@ stages:
         userRepository: 'microsoft/onnxruntime'
         defaultVersionType: 'specificTag'
         version: 'v$(ort.version)'
-        itemPattern: '*-win-x64-$(ort.version)*'
+        itemPattern: '*-win-cuda-x64-$(ort.version)*'
         downloadPath: '$(Build.SourcesDirectory)'
       displayName: Download the ONNXRuntime prebuilt package.
 
@@ -359,7 +359,7 @@ stages:
 
     - script: |
         call $(vsdevcmd)
-        call .\build.bat -DOCOS_ENABLE_CTEST=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
+        call .\build.bat -DOCOS_ENABLE_CTEST=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-cuda-x64-$(ort.version)
       displayName: build the customop library with onnxruntime
 
     - script: |
@@ -479,18 +479,60 @@ stages:
   - job: WindowsC
     pool:
       name: 'onnxruntime-extensions-Win2022-GPU-A10'
-
+    variables:
+      ort.version: '1.16.1'
     steps:
       - template: templates/set_winenv.yml
         parameters:
           EnvSetupScript: 'set_env_cuda.bat'
           DownloadCUDA: true
           PrimaryCUDAVersion: '11.8'
-          SecondaryCUDAVersion: '12.2'
+
       - script: |
           nvidia-smi
           nvcc --version
         displayName: check cuda version
+
+      - task: DownloadGitHubRelease@0
+        inputs:
+          connection: 'GitHub - Release'
+          userRepository: 'microsoft/onnxruntime'
+          defaultVersionType: 'specificTag'
+          version: 'v1.16.1'
+          itemPattern: '*-win-x64-1.16.1*'
+          downloadPath: '$(Build.SourcesDirectory)'
+        displayName: Download the ONNXRuntime prebuilt package.
+
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '**/*.zip'
+          destinationFolder: '$(Build.SourcesDirectory)'
+          cleanDestinationFolder: false
+          overwriteExistingFiles: true
+        displayName: Unpack ONNXRuntime package.
+
+      - script: |
+          @echo off
+          set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+          for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
+            if exist "%%i\Common7\Tools\vsdevcmd.bat" (
+              set vsdevcmd="%%i\Common7\Tools\vsdevcmd.bat"
+            )
+          )
+
+          @echo %vsdevcmd% will be used as the VC compiler
+          @echo ##vso[task.setvariable variable=vsdevcmd]%vsdevcmd%
+        displayName: 'locate vsdevcmd via vswhere'
+
+      - script: |
+          call $(vsdevcmd)
+          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
+        displayName: build the customop library with onnxruntime
+
+      - script: |
+          cd out/Windows
+          ctest -C RelWithDebInfo --output-on-failure
+        displayName: Run C++ native tests
 
 - stage: WebAssemblyBuilds
   dependsOn: []
