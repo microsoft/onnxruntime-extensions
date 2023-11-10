@@ -499,7 +499,7 @@ stages:
           userRepository: 'microsoft/onnxruntime'
           defaultVersionType: 'specificTag'
           version: 'v1.16.1'
-          itemPattern: '*-win-x64-1.16.1*'
+          itemPattern: '*-win-x64-gpu-1.16.1*'
           downloadPath: '$(Build.SourcesDirectory)'
         displayName: Download the ONNXRuntime prebuilt package.
 
@@ -526,7 +526,8 @@ stages:
 
       - script: |
           call $(vsdevcmd)
-          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
+          set CUDA_PATH="$(Agent.TempDirectory)\v11.8"
+          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-gpu-$(ort.version)
         displayName: build the customop library with onnxruntime
 
       - script: |
