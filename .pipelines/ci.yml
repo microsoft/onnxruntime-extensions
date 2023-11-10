@@ -473,6 +473,24 @@ stages:
         python -m pytest --ignore=test_cv2.py --ignore=test_tools_add_pre_post_processing_to_model.py . --verbose
       displayName: Run python test
 
+- stage: WindowsCUDABuilds
+  dependsOn: []
+  jobs:
+  - job: WindowsC
+      pool:
+        name: 'onnxruntime-extensions-Windows-GPU-A10'
+      steps:
+        - template: templates/set_winenv.yml
+          parameters:
+            EnvSetupScript: 'set_winenv_cuda.bat'
+            DownloadCUDA: true
+            PrimaryCUDAVersion: '11.8'
+            SecondaryCUDAVersion: '12.2'
+        - script: |
+            nvidia-smi
+            nvcc --version
+          displayName: check cuda version
+
 - stage: WebAssemblyBuilds
   dependsOn: []
   jobs:
