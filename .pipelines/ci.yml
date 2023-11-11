@@ -332,7 +332,7 @@ stages:
         userRepository: 'microsoft/onnxruntime'
         defaultVersionType: 'specificTag'
         version: 'v$(ort.version)'
-        itemPattern: '*-win-cuda-x64-$(ort.version)*'
+        itemPattern: '*-win-x64-$(ort.version)*'
         downloadPath: '$(Build.SourcesDirectory)'
       displayName: Download the ONNXRuntime prebuilt package.
 
@@ -359,7 +359,7 @@ stages:
 
     - script: |
         call $(vsdevcmd)
-        call .\build.bat -DOCOS_ENABLE_CTEST=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-cuda-x64-$(ort.version)
+        call .\build.bat -DOCOS_ENABLE_CTEST=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
       displayName: build the customop library with onnxruntime
 
     - script: |
