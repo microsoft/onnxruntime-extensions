@@ -480,7 +480,7 @@ stages:
     pool:
       name: 'onnxruntime-extensions-Win2022-GPU-A10'
     variables:
-      ort.version: '1.16.1'
+      ort.version: '1.16.2'
     steps:
       - template: templates/set_winenv.yml
         parameters:
@@ -527,9 +527,8 @@ stages:
       - script: |
           call $(vsdevcmd)
           set CUDA_PATH=$(Agent.TempDirectory)\v11.8
-          set CudaToolkitDir=$(Agent.TempDirectory)\v11.8
+          set CudaToolkitDir=%CUDA_PATH%
           xcopy "$(Agent.TempDirectory)\v11.8\extras\visual_studio_integration\MSBuildExtensions\" "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Microsoft\VC\v170\BuildCustomizations" /y
-          dir "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Microsoft\VC\v170\BuildCustomizations"
           call .\build.bat -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86 -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-gpu-$(ort.version)
         displayName: build the customop library with onnxruntime
 
