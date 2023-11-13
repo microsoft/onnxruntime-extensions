@@ -328,9 +328,9 @@ KernelBertTokenizer::KernelBertTokenizer(const OrtApi& api, const OrtKernelInfo&
 }
 
 void KernelBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
-                                  ortc::Tensor<int64_t>& output,
-                                  ortc::Tensor<int64_t>& output1,
-                                  ortc::Tensor<int64_t>& output2,
+                                  ortc::Tensor<int64_t>& output,   // input_ids
+                                  ortc::Tensor<int64_t>& output1,  // token_type_ids
+                                  ortc::Tensor<int64_t>& output2,  // attention_mask
                                   std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
   // Setup inputs
   auto& input_data = input.Data();
@@ -394,9 +394,9 @@ KernelHfBertTokenizer::KernelHfBertTokenizer(const OrtApi& api, const OrtKernelI
     : KernelBertTokenizer(api, info) {}
 
 void KernelHfBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
-                                    ortc::Tensor<int64_t>& output,
-                                    ortc::Tensor<int64_t>& output1,
-                                    ortc::Tensor<int64_t>& output2,
+                                    ortc::Tensor<int64_t>& output,                  // input_ids
+                                    ortc::Tensor<int64_t>& output1,                 // attention_mask
+                                    std::optional<ortc::Tensor<int64_t>*> output2,  // token_type_ids
                                     std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
   // Setup inputs
   auto& input_data = input.Data();
@@ -407,18 +407,20 @@ void KernelHfBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
 
   std::list<OffsetMappingType> offset_map;
 
-  // Only compute offset mapping if optional output for it exists.
+  // Only compute offset mapping if the user demands it, i.e. compute_offset_mapping is true.
   bool compute_offset_mapping = false;
   if (offset_mapping.has_value()) {
     compute_offset_mapping = true;
   }
+
+  // Only allocate token_type_ids if optional output exists.
+  bool generate_token_type_ids = output2.has_value();
 
   std::vector<ustring> tokens1 = tokenizer_->Tokenize(ustring(input_data[0]), offset_map, compute_offset_mapping);
   std::vector<ustring> tokens2 = tokenizer_->Tokenize(ustring(input_data[1]), offset_map, compute_offset_mapping);
   std::vector<int64_t> encoded1 = tokenizer_->Encode(tokens1);
   std::vector<int64_t> encoded2 = tokenizer_->Encode(tokens2);
   std::vector<int64_t> input_ids = tokenizer_->AddSpecialToken(encoded1, encoded2);
-  std::vector<int64_t> token_type_ids = tokenizer_->GenerateTypeId(encoded1, encoded2);
   std::vector<int64_t> attention_mask(input_ids.size(), 1LL);
 
   const std::vector<int64_t> outer_dims{1LL, static_cast<int64_t>(input_ids.size())};
@@ -427,12 +429,15 @@ void KernelHfBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
   std::copy(input_ids.begin(), input_ids.end(), p_out);
   auto* p_out1 = output1.Allocate(outer_dims);
   std::copy(attention_mask.begin(), attention_mask.end(), p_out1);
-  auto* p_out2 = output2.Allocate(outer_dims);
-  std::copy(token_type_ids.begin(), token_type_ids.end(), p_out2);
+
+  if (generate_token_type_ids) {
+    std::vector<int64_t> token_type_ids = tokenizer_->GenerateTypeId(encoded1, encoded2);
+    auto* p_out2 = (*output2)->Allocate(outer_dims);
+    std::copy(token_type_ids.begin(), token_type_ids.end(), p_out2);
+  }
 
   std::vector<int64_t> offset_dim{static_cast<int64_t>(input_ids.size()), 2};  // tuple of offsets for each input id
-
-  if (offset_mapping.has_value()) {
+  if (compute_offset_mapping) {
     auto* offset = (*offset_mapping)->Allocate(offset_dim);
     int idx2 = 0;
     for (auto& res : offset_map) {
