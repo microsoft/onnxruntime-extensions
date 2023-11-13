@@ -9,9 +9,10 @@
 #include "base64.h"
 #include "narrow.h"
 
-KernelSentencepieceTokenizer::KernelSentencepieceTokenizer(const OrtApi& api, const OrtKernelInfo& info)
-    : BaseKernel(api, info) {
-  std::string model_as_string = ort_.KernelInfoGetAttribute<std::string>(&info, "model");
+OrtStatusPtr KernelSentencepieceTokenizer::OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
+  std::string model_as_string;
+  ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "model", model_as_string));
+
   sentencepiece::ModelProto model_proto;
   std::vector<uint8_t> model_as_bytes;
   if (base64_decode(model_as_string, model_as_bytes)) {
@@ -19,23 +20,26 @@ KernelSentencepieceTokenizer::KernelSentencepieceTokenizer(const OrtApi& api, co
   } else {
     model_proto.ParseFromArray(model_as_string.c_str(), static_cast<int>(model_as_string.size()));
   }
-  sentencepiece::util::Status status = tokenizer_.Load(model_proto);
-  if (!status.ok())
-    ORTX_CXX_API_THROW(MakeString("Failed to create SentencePieceProcessor instance. Error code is ",
-                                  (int)status.code(), ". Message is '", status.error_message(), "'."),
-                       ORT_FAIL);
+  sentencepiece::util::Status spm_status = tokenizer_.Load(model_proto);
+  if (!spm_status.ok()) {
+    return OrtW::CreateStatus(MakeString("Failed to create SentencePieceProcessor instance. Error code is ",
+                                         (int)spm_status.code(), ". Message is '", spm_status.error_message(), "'."),
+                              ORT_FAIL);
+  }
+
+  return nullptr;
 }
 
-void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& input,
-                                           int64_t /*nbest_size*/,
-                                           float /*alpha*/,
-                                           bool add_bos,
-                                           bool add_eos,
-                                           bool add_rev,
-                                           ortc::Tensor<int32_t>& output,
-                                           ortc::Tensor<int64_t>& output1,
-                                           std::optional<bool> fairseq,
-                                           std::optional<ortc::Tensor<int32_t>*> output2) const {
+OrtStatusPtr KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& input,
+                                                   int64_t /*nbest_size*/,
+                                                   float /*alpha*/,
+                                                   bool add_bos,
+                                                   bool add_eos,
+                                                   bool add_rev,
+                                                   ortc::Tensor<int32_t>& output,
+                                                   ortc::Tensor<int64_t>& output1,
+                                                   std::optional<bool> fairseq,
+                                                   std::optional<ortc::Tensor<int32_t>*> output2) const {
   // Update with the new API
   auto& str_input = input.Data();
   // computation
@@ -46,8 +50,10 @@ void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& inpu
   sentencepiece::SentencePieceText spt;
   instance_indices.reserve(str_input.size() + 1);
   for (size_t i = 0; i < str_input.size(); ++i) {
-    if (!tokenizer_.Encode(str_input[i].c_str(), &spt).ok())
-      ORTX_CXX_API_THROW(MakeString("Unable to encode string '", str_input[i], "'."), ORT_INVALID_ARGUMENT);
+    if (!tokenizer_.Encode(str_input[i].c_str(), &spt).ok()) {
+      return OrtW::CreateStatus(MakeString("Unable to encode string '", str_input[i], "'."), ORT_INVALID_ARGUMENT);
+    }
+
     instance_indices.push_back(content.size());
 
     if (add_rev) {
@@ -56,8 +62,7 @@ void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& inpu
         token_indices.push_back(ort_extensions::narrow<int32_t>(str_input[i].length()));
       }
       const auto& pieces = spt.pieces();
-      for (auto it = pieces.rbegin(); it != pieces.rend(); ++it)
-      {
+      for (auto it = pieces.rbegin(); it != pieces.rend(); ++it) {
         content.push_back((*it).id());
         token_indices.push_back((*it).begin());
       }
@@ -91,11 +96,11 @@ void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& inpu
         // As per HF, the first "real" token "," has position 4 in the XLMRobertaTokenizer vocab and position
         // 3 in the SPM vocab, so we add a padding value of 1 to IDs, and fix exceptions for '<unk>' and '<s>'.
         std::for_each(content.begin(), content.end(), [](int& n) {
-          if (n == 0) { // '<unk>': 0 -> 3
+          if (n == 0) {  // '<unk>': 0 -> 3
             n = 3;
-          } else if (n == 1) { // '<s>': 1 -> 0
+          } else if (n == 1) {  // '<s>': 1 -> 0
             n = 0;
-          } else if (n != 2) { // '</s>': 2 -> 2, '<*>': x -> x + 1
+          } else if (n != 2) {  // '</s>': 2 -> 2, '<*>': x -> x + 1
             n++;
           }
         });
@@ -119,4 +124,6 @@ void KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::string>& inpu
     int32_t* ptr_token_indices = (*output2)->Allocate(size_content);
     memcpy(ptr_token_indices, token_indices.data(), token_indices.size() * sizeof(int32_t));
   }
+
+  return nullptr;
 }

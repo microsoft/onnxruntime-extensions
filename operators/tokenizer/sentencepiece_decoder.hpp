@@ -9,26 +9,30 @@
 #include "sentencepiece_processor.h"
 #include "sentencepiece_model.pb.h"
 
-struct KernelSentencepieceDecoder : BaseKernel {
-  KernelSentencepieceDecoder(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
-    std::string model_blob = ort_.KernelInfoGetAttribute<std::string>(&info, "model");
+struct KernelSentencepieceDecoder {
+  OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
+    std::string model_blob;
+    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "model", model_blob));
+
     sentencepiece::ModelProto model_proto;
     model_proto.ParseFromArray(model_blob.data(), static_cast<int>(model_blob.size()));
     sentencepiece::util::Status status = tokenizer_.Load(model_proto);
     if (!status.ok()) {
-      ORTX_CXX_API_THROW(MakeString("Failed to create SentencePieceProcessor instance. Error code is ",
-                                    (int)status.code(), ". Message is '", status.error_message(), "'."),
-                         ORT_INVALID_PROTOBUF);
+      return OrtW::CreateStatus(MakeString("Failed to create SentencePieceProcessor instance. Error code is ",
+                                           (int)status.code(), ". Message is '", status.error_message(), "'."),
+                                ORT_INVALID_PROTOBUF);
     }
+
+    return nullptr;
   }
 
-  void Compute(const ortc::Tensor<int64_t>& ids,
-               ortc::Tensor<std::string>& output) const {
+  OrtStatusPtr Compute(const ortc::Tensor<int64_t>& ids,
+                       ortc::Tensor<std::string>& output) const {
     const int64_t* p_ids = ids.Data();
     auto& ids_dim = ids.Shape();
 
     if (!((ids_dim.size() == 1) || (ids_dim.size() == 2 && ids_dim[0] == 1))) {
-      ORTX_CXX_API_THROW("[SentencePieceDecoder]: Expect ids dimension [n] or [1,n].", ORT_INVALID_GRAPH);
+      return OrtW::CreateStatus("[SentencePieceDecoder]: Expect ids dimension [n] or [1,n].", ORT_INVALID_GRAPH);
     }
 
     std::string decoded_string;
@@ -39,11 +43,12 @@ struct KernelSentencepieceDecoder : BaseKernel {
                    [](auto _id) { return static_cast<int>(_id); });
     auto status = tokenizer_.Decode(tids, &decoded_string);
     if (!status.ok()) {
-      ORTX_CXX_API_THROW("[SentencePieceDecoder] model decoding failed.", ORT_RUNTIME_EXCEPTION);
+      return OrtW::CreateStatus("[SentencePieceDecoder] model decoding failed.", ORT_RUNTIME_EXCEPTION);
     }
 
     std::vector<std::string> result = {decoded_string};
     output.SetStringOutput(result, output_dim);
+    return nullptr;
   }
 
  private:
