@@ -346,6 +346,33 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         self.assertEqual(np.allclose(result[0], ref_output[0]), True)
         self.assertEqual(np.allclose(result[1], ref_output[2]), True)
         self.assertEqual(np.allclose(result[2], ref_output[1]), True)
+        
+    def test_hfbert_tokenizer_optional_output(self):
+        output_model = (self.temp4onnx / "hfbert_tokenizer_optional_output.onnx").resolve()
+            
+        ref_output = ([
+            np.array([[2, 236, 118, 16, 1566, 875, 643, 3, 236, 118, 978, 1566, 875, 643, 3]]),
+            np.array([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]),
+        ]
+        )
+        # tokenizer = transformers.AutoTokenizer.from_pretrained("lordtt13/emo-mobilebert")
+        tokenizer_parameters = TokenizerParam(vocab_or_file=os.path.join(test_data_dir, "../hfbert.vocab"),
+                                              do_lower_case=True, is_sentence_pair=True)
+        input_text = ("This is a test sentence", "This is another test sentence")
+        tokenizer_impl = BertTokenizer(tokenizer_parameters, True)
+        self.create_pipeline_and_run_for_tokenizer(
+            tokenizer_impl, "HfBertTokenizer", tokenizer_parameters, output_model)
+
+        so = ort.SessionOptions()
+        so.register_custom_ops_library(get_library_path())
+        s = ort.InferenceSession(str(output_model), so, providers=["CPUExecutionProvider"])
+
+        result = s.run(None, {s.get_inputs()[0].name: np.array([[input_text[0], input_text[1]]])})
+        
+        self.assertEqual(len(result), 2)
+
+        self.assertEqual(np.allclose(result[0], ref_output[0]), True)
+        self.assertEqual(np.allclose(result[1], ref_output[1]), True)
 
     def test_qatask_with_tokenizer(self):
         output_model = (self.temp4onnx / "hfbert_tokenizer.onnx").resolve()

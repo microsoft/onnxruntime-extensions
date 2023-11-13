@@ -180,7 +180,7 @@ def _vocab_to_dict(vocab_or_file: Union[Dict[str, int], Path, str]):
 
 
 class BertTokenizer(Step):
-    def __init__(self, tokenizer_param: TokenizerParam, name: Optional[str] = None):
+    def __init__(self, tokenizer_param: TokenizerParam, need_token_type_ids_output: bool = False, name: Optional[str] = None):
         """
         Brief: This step is used to convert the input text into the input_ids, attention_mask, token_type_ids.
             It supports an input of a single string for classification models, or two strings for QA models.
@@ -193,9 +193,16 @@ class BertTokenizer(Step):
                                                  )
 
             name: Optional name of step. Defaults to 'BertTokenizer'
+            need_token_type_ids_output: last outout `token_type_ids` is not required in some Bert based models. (e.g. DistilBert, etc.) can optionally
+                                        choose to add it in graph for step.
 
         """
-        super().__init__(["input_text"], ["input_ids", "attention_mask", "token_type_ids"], name)
+        outputs = []
+        if need_token_type_ids_output:
+            outputs.extend(["input_ids", "attention_mask"])
+        else:
+            outputs.extend(["input_ids", "attention_mask", "token_type_ids"])
+        super().__init__(["input_text"], outputs, name)
         self._tokenizer_param = tokenizer_param
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
