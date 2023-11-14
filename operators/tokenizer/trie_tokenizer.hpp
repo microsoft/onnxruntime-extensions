@@ -97,19 +97,20 @@ class TrieTokenizer {
   }
 };
 
-struct KernelTrieTokenizer : public BaseKernel {
+struct KernelTrieTokenizer {
  private:
   std::shared_ptr<TrieTokenizer> tokenizer;
 
  public:
-  KernelTrieTokenizer(const OrtApi& api, const OrtKernelInfo& info)
-      : BaseKernel(api, info) {
-    std::string text_tokens = ort_.KernelInfoGetAttribute<std::string>(&info, "vocab");
+  OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
+    std::string text_tokens;
+    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "vocab", text_tokens));
     tokenizer = std::make_shared<TrieTokenizer>(text_tokens);
+    return nullptr;
   };
 
-  void Compute(const ortc::Tensor<std::string>& input,
-               ortc::Tensor<int64_t>& tokenize_output) const {
+  OrtStatusPtr Compute(const ortc::Tensor<std::string>& input,
+                       ortc::Tensor<int64_t>& tokenize_output) const {
     std::vector<std::string> str_input{input.Data()};
     const auto& input_dim = input.Shape();
 
@@ -142,21 +143,24 @@ struct KernelTrieTokenizer : public BaseKernel {
     for (auto& result : tokenize_results) {
       result.resize(max_length, 0);
     }
+
+    return nullptr;
   }
 };
 
-struct KernelTrieDetokenizer : public BaseKernel {
+struct KernelTrieDetokenizer {
  private:
   std::shared_ptr<TrieTokenizer> tokenizer;
 
  public:
-  KernelTrieDetokenizer(const OrtApi& api, const OrtKernelInfo& info)
-      : BaseKernel(api, info) {
-    std::string text_tokens = ort_.KernelInfoGetAttribute<std::string>(&info, "vocab");
+  OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
+    std::string text_tokens;
+    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "vocab", text_tokens));
     tokenizer = std::make_shared<TrieTokenizer>(text_tokens);
+    return nullptr;
   };
 
-  void Compute(const ortc::Tensor<int64_t>& tokens, ortc::Tensor<std::string>& text) const {
+  OrtStatusPtr Compute(const ortc::Tensor<int64_t>& tokens, ortc::Tensor<std::string>& text) const {
     const int64_t* p_ids = tokens.Data();
     const auto& ids_dim = tokens.Shape();
     std::vector<int64_t> output_dim = {1};
@@ -183,7 +187,9 @@ struct KernelTrieDetokenizer : public BaseKernel {
 
     text.SetStringOutput(output, output_dim);
     if (failed) {
-      ORTX_CXX_API_THROW("[KernelTrieDetokenizer] the input ids cannot be parsed as a valid utf-8 string", ORT_RUNTIME_EXCEPTION);
+      return OrtW::CreateStatus("[KernelTrieDetokenizer] the input ids cannot be parsed as a valid utf-8 string", ORT_RUNTIME_EXCEPTION);
     }
+
+    return nullptr;
   }
 };
