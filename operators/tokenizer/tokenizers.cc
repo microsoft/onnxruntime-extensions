@@ -42,13 +42,13 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = []() -> CustomOpArray& {
 #endif
 
 #ifdef ENABLE_SPM_TOKENIZER
-      CustomCpuStruct("SentencepieceTokenizer", KernelSentencepieceTokenizer),
-      CustomCpuStruct("SentencepieceDecoder", KernelSentencepieceDecoder),
+      CustomCpuStructV2("SentencepieceTokenizer", KernelSentencepieceTokenizer),
+      CustomCpuStructV2("SentencepieceDecoder", KernelSentencepieceDecoder),
 #endif
 
 #ifdef ENABLE_TRIE_TOKENIZER
-      CustomCpuStruct("TrieTokenizer", KernelTrieTokenizer),
-      CustomCpuStruct("TrieDetokenizer", KernelTrieDetokenizer),
+      CustomCpuStructV2("TrieTokenizer", KernelTrieTokenizer),
+      CustomCpuStructV2("TrieDetokenizer", KernelTrieDetokenizer),
 #endif
 
 #ifdef ENABLE_WORDPIECE_TOKENIZER
