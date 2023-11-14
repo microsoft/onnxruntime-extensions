@@ -480,7 +480,7 @@ stages:
     pool:
       name: 'onnxruntime-extensions-Win2022-GPU-A10'
     variables:
-      ort.version: '1.16.2'
+      ORT_VERSION: '1.16.2'
     steps:
       - template: templates/set_winenv.yml
         parameters:
@@ -498,8 +498,8 @@ stages:
           connection: 'GitHub - Release'
           userRepository: 'microsoft/onnxruntime'
           defaultVersionType: 'specificTag'
-          version: 'v$(ort.version)'
-          itemPattern: '*-win-x64-gpu-${ort.version}*'
+          version: 'v$(ORT_VERSION)'
+          itemPattern: '*-win-x64-gpu-$(ORT_VERSION)*'
           downloadPath: '$(Build.SourcesDirectory)'
         displayName: Download the ONNXRuntime prebuilt package.
 
@@ -527,9 +527,7 @@ stages:
       - script: |
           call $(vsdevcmd)
           set CUDA_PATH=$(Agent.TempDirectory)\v11.8
-          set CudaToolkitDir=%CUDA_PATH%
-          xcopy "$(Agent.TempDirectory)\v11.8\extras\visual_studio_integration\MSBuildExtensions\" "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Microsoft\VC\v170\BuildCustomizations" /y
-          call .\build.bat -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86 -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-gpu-$(ort.version)
+          call .\build.bat -T cuda="%CUDA_PATH%" -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86 -DOCOS_ONNXRUNTIME_VERSION="$(ORT_VERSION)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-gpu-$(ORT_VERSION)
         displayName: build the customop library with onnxruntime
 
       - script: |
