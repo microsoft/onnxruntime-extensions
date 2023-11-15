@@ -512,20 +512,6 @@ stages:
         displayName: Unpack ONNXRuntime package.
 
       - script: |
-          @echo off
-          set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
-          for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
-            if exist "%%i\Common7\Tools\vsdevcmd.bat" (
-              set vsdevcmd="%%i\Common7\Tools\vsdevcmd.bat"
-            )
-          )
-
-          @echo %vsdevcmd% will be used as the VC compiler
-          @echo ##vso[task.setvariable variable=vsdevcmd]%vsdevcmd%
-        displayName: 'locate vsdevcmd via vswhere'
-
-      - script: |
-          call $(vsdevcmd)
           set CUDA_PATH=$(Agent.TempDirectory)\v11.8
           call .\build.bat -T cuda="%CUDA_PATH%" -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86 -DOCOS_ONNXRUNTIME_VERSION="$(ORT_VERSION)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-gpu-$(ORT_VERSION)
         displayName: build the customop library with onnxruntime
