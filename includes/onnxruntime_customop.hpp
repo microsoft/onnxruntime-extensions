@@ -129,13 +129,6 @@ inline void ReleaseStatus(OrtStatusPtr& status) {
 namespace Ort {
 namespace Custom {
 
-#ifdef USE_CUDA
-///////////////////////////////////////////////////////////////////////////
-// TODO: include the definition from the header file in ONNXRuntime
-struct CudaContext {};
-
-#endif  // USE_CUDA
-
 template <typename... Args>
 struct FunctionKernel {
   using ComputeFn = std::function<OrtStatusPtr(Args...)>;
@@ -236,7 +229,7 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
     };
   }
 
-#if ORT_API_VERSION > 15
+#if ORT_API_VERSION >= 16
   template <typename... Args>
   void DefineCallbackFunctions(MemberComputeType<Args...> fn, RegularComputeType regular_fn) {
     OrtCustomOp::CreateKernel = nullptr;
@@ -287,7 +280,7 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
       std::unique_ptr<KernelEx>(reinterpret_cast<KernelEx*>(op_kernel)).reset();
     };
   }
-#endif  // ORT_API_VERSION > 15
+#endif  // ORT_API_VERSION >= 16
 
   OrtLiteCustomStructV2(const char* op_name,
                         const char* execution_provider,
@@ -295,11 +288,11 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
       : OrtLiteCustomOp(op_name, execution_provider), regular_fn_(fn_compute) {
     ParseArgs(&CustomOpKernel::Compute);
 
-#if ORT_API_VERSION > 15
+#if ORT_API_VERSION >= 16
     if (OrtCustomOp::version > 15) {
       DefineCallbackFunctions(&CustomOpKernel::Compute, fn_compute);
     } else
-#endif  // ORT_API_VERSION > 15
+#endif  // ORT_API_VERSION >= 16
     {
       DefineCallbackFunctionsLegacy(&CustomOpKernel::Compute, fn_compute);
     }

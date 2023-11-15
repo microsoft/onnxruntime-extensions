@@ -13,6 +13,9 @@
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Math = []() -> CustomOpArray& {
   static OrtOpLoader op_loader(CustomCpuFuncV2("NegPos", neg_pos),
+#ifdef USE_CUDA
+                               CustomCudaFuncV2("NegPos", neg_pos_cuda),
+#endif
 #ifdef ENABLE_DLIB
                                CustomCpuFuncV2("Inverse", inverse),
                                CustomCpuStructV2("StftNorm", StftNormal),
