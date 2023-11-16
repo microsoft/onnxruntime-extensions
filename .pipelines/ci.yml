@@ -473,6 +473,54 @@ stages:
         python -m pytest --ignore=test_cv2.py --ignore=test_tools_add_pre_post_processing_to_model.py . --verbose
       displayName: Run python test
 
+- stage: WindowsCUDABuilds
+  dependsOn: []
+  jobs:
+  - job: WindowsC
+    pool:
+      name: 'onnxruntime-extensions-Win2022-GPU-A10'
+    variables:
+      ORT_VERSION: '1.16.2'
+    steps:
+      - template: templates/set_winenv.yml
+        parameters:
+          EnvSetupScript: 'set_env_cuda.bat'
+          DownloadCUDA: true
+
+      - script: |
+          nvidia-smi
+          nvcc --version
+          where nvcc
+        displayName: check cuda version
+
+      - task: DownloadGitHubRelease@0
+        inputs:
+          connection: 'GitHub - Release'
+          userRepository: 'microsoft/onnxruntime'
+          defaultVersionType: 'specificTag'
+          version: 'v$(ORT_VERSION)'
+          itemPattern: '*-win-x64-gpu-$(ORT_VERSION)*'
+          downloadPath: '$(Build.SourcesDirectory)'
+        displayName: Download the ONNXRuntime prebuilt package.
+
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '**/*.zip'
+          destinationFolder: '$(Build.SourcesDirectory)'
+          cleanDestinationFolder: false
+          overwriteExistingFiles: true
+        displayName: Unpack ONNXRuntime package.
+
+      - script: |
+          set CUDA_PATH=$(Agent.TempDirectory)\v11.8
+          call .\build.bat -T cuda="%CUDA_PATH%" -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86 -DOCOS_ONNXRUNTIME_VERSION="$(ORT_VERSION)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-gpu-$(ORT_VERSION)
+        displayName: build the customop library with onnxruntime
+
+      - script: |
+          cd out/Windows
+          ctest -C RelWithDebInfo --output-on-failure
+        displayName: Run C++ native tests
+
 - stage: WebAssemblyBuilds
   dependsOn: []
   jobs:
