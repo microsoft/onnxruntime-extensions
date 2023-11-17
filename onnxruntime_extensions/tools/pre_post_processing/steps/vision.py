@@ -641,7 +641,8 @@ class DrawBoundingBoxes(Step):
     """
 
     def __init__(self, mode: str = "XYXY", thickness: int = 4, num_classes: int = 10,
-                 colour_by_classes=False, name: Optional[str] = None):
+                 colour_by_classes = False, layout: str = "HWC",
+                 name: Optional[str] = None):
         """
         Args:
             mode: The mode of the boxes, 
@@ -661,6 +662,7 @@ class DrawBoundingBoxes(Step):
                                `num_colours` classes displayed. A colour is only used for a single class. 
                                If `False`, we draw boxes for the top `num_colours` results. A colour is used 
                                for a single result, regardless of class.
+            layout: Layout of input images. HWC or CHW. Required to know where to read the H and W values from.
             name: Optional name of step. Defaults to 'DrawBoundingBoxes'
         """
         super().__init__(["image", "boxes"], ["image_out"], name)
@@ -668,6 +670,11 @@ class DrawBoundingBoxes(Step):
         self.num_classes_ = num_classes
         self.colour_by_classes_ = colour_by_classes
         self.mode_ = mode
+
+        if layout != "HWC" and layout != "CHW":
+            raise ValueError("Invalid layout. Only HWC and CHW are supported")
+
+        self.layout_ = layout
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input0_type_str, input0_shape_str = self._get_input_type_and_shape_strs(graph, 0)
@@ -713,10 +720,12 @@ class LetterBox(Step):
 
     Input shape: <uint8_t>{height, width, 3<BGR>}
     target_shape: <uint8_t>{out_height, out_width, 3<BGR>}
+    layout: HWC or CHW are supported
     Output shape: specified by target_shape
     """
 
-    def __init__(self, target_shape: Union[int, Tuple[int, int]], fill_value=0, name: Optional[str] = None):
+    def __init__(self, target_shape: Union[int, Tuple[int, int]], fill_value=0, layout: str = "HWC",
+                 name: Optional[str] = None):
         """
         Args:
             target_shape: the size of the output image
@@ -728,19 +737,32 @@ class LetterBox(Step):
         self.target_shape_ = target_shape
         self.fill_value_ = fill_value
 
+        if layout != "HWC" and layout != "CHW":
+            raise ValueError("Invalid layout. Only HWC and CHW are supported")
+
+        self.layout_ = layout
+
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input0_type_str, input0_shape_str = self._get_input_type_and_shape_strs(graph, 0)
+        assert len(input0_shape_str.split(',')) == 3, "expected HWC or CHW input"
 
-        assert len(input0_shape_str.split(',')) == 3, " expected BGR image"
+        target_shape = f"{self.target_shape_[0]}, {self.target_shape_[1]}"
 
-        target_shape_str = f"{self.target_shape_[0]}, {self.target_shape_[1]}, 3"
+        if self.layout_ == "HWC":
+            target_shape_str = f"{target_shape}, 3"
+            split_input_shape_output = "h, w, c"
+            concat_input_order = "half_pad_hw, i64_0, remainder_pad_hw, i64_0"
+        else:
+            target_shape_str = f"3, {target_shape}"
+            split_input_shape_output = "c, h, w"
+            concat_input_order = "i64_0, half_pad_hw, i64_0, remainder_pad_hw"
 
         split_input_shape_attr = "axis = 0"
         if onnx_opset >= 18:
             # Split now requires the number of outputs to be specified even though that can be easily inferred...
             split_input_shape_attr += f", num_outputs = 3"
 
-        converter_graph = onnx.parser.parse_graph(
+        graph_text = (
             f"""\
             LetterBox (uint8[{input0_shape_str}] {self.input_names[0]}) 
                 => (uint8[{target_shape_str}] {self.output_names[0]})  
@@ -750,16 +772,18 @@ class LetterBox(Step):
                 i64_0 = Constant <value = int64[1] {{0}}>()
                 const_val = Constant <value = uint8[1] {{{self.fill_value_}}}> ()
                 image_shape = Shape ({self.input_names[0]})
-                h,w,c = Split <{split_input_shape_attr}> (image_shape)
+                {split_input_shape_output} = Split <{split_input_shape_attr}> (image_shape)
                 hw = Concat <axis = 0> (h, w)
                 pad_hw = Sub (target_size, hw)
                 half_pad_hw = Div (pad_hw, i64_2)
                 remainder_pad_hw = Sub (pad_hw, half_pad_hw)
-                pad_value = Concat <axis = 0> (half_pad_hw, i64_0,remainder_pad_hw,i64_0)
+                pad_value = Concat <axis = 0> ({concat_input_order})
                 {self.output_names[0]} = Pad({self.input_names[0]}, pad_value, const_val)
             }}
             """
         )
+
+        converter_graph = onnx.parser.parse_graph(graph_text)
 
         return converter_graph
 
@@ -944,15 +968,23 @@ class ScaleNMSBoundingBoxesAndKeyPoints(Step):
         nms_output_with_scaled_boxes_and_keypoints: input data with boxes and key points scaled to original image.
     """
 
-    def __init__(self, num_key_points: Optional[int] = 0, name: Optional[str] = None):
+    def __init__(self, num_key_points: Optional[int] = 0, layout: Optional[str] = "HWC", name: Optional[str] = None):
         """
         Args:
             num_key_points: Number of key points in mask data. Only required if input has optional mask data.
+            layout: HWC or CHW. Used to determine where to read the H and W value from the input image shapes.
+                    MUST be the same for all 3 input images.
+
             name: Optional name of step. Defaults to 'ScaleNMSBoundingBoxesAndKeyPoints'
         """
         super().__init__(["nms_step_output", "original_image", "resized_image", "letter_boxed_image"],
                          ["nms_output_with_scaled_boxes_and_keypoints"], name)
         self._num_key_points = num_key_points
+
+        if layout != "HWC" and layout != "CHW":
+            raise ValueError("Invalid layout. Only HWC and CHW are supported")
+
+        self.layout_ = layout
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         graph_input_params = []
@@ -962,6 +994,16 @@ class ScaleNMSBoundingBoxesAndKeyPoints(Step):
             graph_input_params.append(f"{input_type_str}[{input_shape_str}] {input_name}")
 
         graph_input_params = ', '.join(graph_input_params)
+
+        if self.layout_ == "HWC":
+            orig_image_h_w_c = "oh, ow, oc"
+            scaled_image_h_w_c = "sh, sw, sc"
+            letterboxed_image_h_w_c = "lh, lw, lc"
+        else:
+            pass
+            orig_image_h_w_c = "oc, oh, ow"
+            scaled_image_h_w_c = "sc, sh, sw"
+            letterboxed_image_h_w_c = "lc, lh, lw"
 
         def split_num_outputs(num_outputs: int):
             split_input_shape_attr= ''
@@ -1043,9 +1085,9 @@ class ScaleNMSBoundingBoxesAndKeyPoints(Step):
                 ori_shape = Shape ({self.input_names[1]})
                 scaled_shape = Shape ({self.input_names[2]})
                 lettered_shape = Shape ({self.input_names[3]})
-                oh,ow,oc = Split <axis = 0 {split_num_outputs(3)}> (ori_shape)
-                sh,sw,sc = Split <axis = 0 {split_num_outputs(3)}> (scaled_shape)
-                lh,lw,lc = Split <axis = 0 {split_num_outputs(3)}> (lettered_shape)
+                {orig_image_h_w_c} = Split <axis = 0 {split_num_outputs(3)}> (ori_shape)
+                {scaled_image_h_w_c} = Split <axis = 0 {split_num_outputs(3)}> (scaled_shape)
+                {letterboxed_image_h_w_c} = Split <axis = 0 {split_num_outputs(3)}> (lettered_shape)
                 swh = Concat <axis = -1> (sw,sh)
                 lwh = Concat <axis = -1> (lw,lh)
                 

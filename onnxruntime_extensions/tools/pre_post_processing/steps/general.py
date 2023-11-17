@@ -6,6 +6,34 @@ from typing import List, Optional
 from ..step import Step
 
 
+class Identity(Step):
+    """
+    ONNX Identity
+    """
+
+    def __init__(self, name: Optional[str] = None):
+        """
+        Args:
+            name: Optional name of step. Defaults to 'Identity'
+        """
+        super().__init__(["in"], ["out"], name)
+
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
+        input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
+
+        converter_graph = onnx.parser.parse_graph(
+            f"""\
+            identity ({input_type_str}[{input_shape_str}] {self.input_names[0]}) 
+                => ({input_type_str}[{input_shape_str}] {self.output_names[0]})  
+            {{
+                {self.output_names[0]} =  Identity({self.input_names[0]})
+            }}
+            """
+        )
+
+        return converter_graph
+
+
 class ReverseAxis(Step):
     """
     Reverses the data in an axis by splitting and concatenating in reverse order.
