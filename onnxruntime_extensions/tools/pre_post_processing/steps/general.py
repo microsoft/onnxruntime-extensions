@@ -63,6 +63,78 @@ class ReverseAxis(Step):
         return reverse_graph
 
 
+class Split(Step):
+    """
+    ONNX Split
+    """
+
+    def __init__(self,
+                 num_outputs: int,
+                 axis: Optional[int] = None,
+                 splits: Optional[List[int]] = None,
+                 name: Optional[str] = None):
+        """
+        :param num_outputs: Number of outputs to split the input into. Unequal split is allowed for opset 18+.
+        :param axis: Axis to split on. Default is 0.
+        :param splits: Optional length of each output. Sum must equal dim value at 'axis'
+        :param name: Optional Step name. Defaults to 'Split'
+        """
+        output_names = [f"{name if name else self.__class__.__name__}_{x}" for x in range(0, num_outputs)]
+        super().__init__(["data"], output_names, name)
+        self._num_outputs = num_outputs
+        self._axis = axis if axis else 0
+        self._splits = splits
+
+        if splits and len(splits) != num_outputs:
+            raise ValueError("Splits length must match num_outputs")
+
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
+        input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
+        dims = input_shape_str.split(",")
+
+        axis = (self._axis + len(dims)) if self._axis < 0 else self._axis
+
+        # calculate dim value of axis being split for each output
+        if self._splits:
+            split_dim_strs = [str(x) for x in self._splits]
+            splits_input_name = ", split_sizes"
+            splits_const = (f"split_sizes = Constant <value = int64[{self._num_outputs}] "
+                            f"{{{', '.join(split_dim_strs)}}}>()")
+        else:
+            if dims[axis].isdigit():
+                split_dim_str = str(int(dims[axis]) / self._num_outputs)
+            else:
+                split_dim_str = f"{dims[axis]}_/_{self._num_outputs}"
+
+            split_dim_strs = [split_dim_str] * self._num_outputs
+            splits_input_name = ""
+            splits_const = ""
+
+        split_outputs = []
+        for i in range(0, self._num_outputs):
+            dims[axis] = split_dim_strs[i]
+            split_outputs.append(f"{input_type_str}[{','.join(dims)}] {self.output_names[i]}")
+
+        # num_outputs attribute is required if opset 18+ and not providing splits input
+        num_outputs = ""
+        if onnx_opset >= 18 and not self._splits:
+            num_outputs = ", num_outputs = {self._num_outputs}"
+
+        split_graph = onnx.parser.parse_graph(
+            f"""\
+            split ({input_type_str}[{input_shape_str}] {self.input_names[0]}) 
+                => ({",".join(split_outputs)})  
+            {{
+                {splits_const}            
+                {",".join(self.output_names)} 
+                    = Split <axis={self._axis} {num_outputs}>({self.input_names[0]} {splits_input_name})
+            }}
+            """
+        )
+
+        return split_graph
+
+
 class Squeeze(Step):
     """
     ONNX Squeeze

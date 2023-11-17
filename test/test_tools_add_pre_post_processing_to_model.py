@@ -579,23 +579,32 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
         self.assertEqual((image_ref == output).all(), True)
 
-    def create_pipeline_and_run_for_nms(self, output_model: Path, length: int,
+    def create_pipeline_and_run_for_nms(self, output_model: Path,
+                                        has_conf_value: bool,
                                         iou_threshold: float = 0.5,
                                         score_threshold: float = 0.7,
                                         max_detections: int = 10):
         import onnx
         create_named_value = pre_post_processing.utils.create_named_value
-
+        length = 6 if has_conf_value else 5
         inputs = [create_named_value("box_and_score", onnx.TensorProto.FLOAT, ["num_boxes", length])]
 
         onnx_opset = 16
         pipeline = pre_post_processing.PrePostProcessor(inputs, onnx_opset)
 
-        pipeline.add_post_processing([
-            SplitOutBoxAndScore(num_classes=1),
-            SelectBestBoundingBoxesByNMS(iou_threshold=iou_threshold, score_threshold=score_threshold,
-                                         max_detections=max_detections),
-        ])
+        if has_conf_value:
+            pipeline.add_post_processing([
+                SplitOutBoxAndScoreWithConf(num_classes=1),
+                SelectBestBoundingBoxesByNMS(iou_threshold=iou_threshold, score_threshold=score_threshold,
+                                             max_detections=max_detections),
+            ])
+        else:
+            pipeline.add_post_processing([
+                # split the 4 bounding box co-ords from the single class's score
+                Split(num_outputs=2, axis=-1, splits=[4, 1]),
+                SelectBestBoundingBoxesByNMS(iou_threshold=iou_threshold, score_threshold=score_threshold,
+                                             max_detections=max_detections),
+            ])
 
         graph_def = onnx.parser.parse_graph(
             f"""\
@@ -615,7 +624,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
     def test_NMS_and_drawing_box_without_confOfObj(self):
         output_model = (self.temp4onnx / "nms.onnx").resolve()
-        self.create_pipeline_and_run_for_nms(output_model, iou_threshold=0.9, length=5)
+        self.create_pipeline_and_run_for_nms(output_model, iou_threshold=0.9, has_conf_value=False)
         input_data = [
             [0, 0, 240, 240, 0.75],
             [10, 10, 240, 240, 0.75],
@@ -635,7 +644,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
     def test_NMS_and_drawing_box_with_confOfObj(self):
         output_model = (self.temp4onnx / "nms.onnx").resolve()
-        self.create_pipeline_and_run_for_nms(output_model, iou_threshold=0.9, score_threshold=0.5, length=6)
+        self.create_pipeline_and_run_for_nms(output_model, iou_threshold=0.9, score_threshold=0.5, has_conf_value=True)
         input_data = [
             [0, 0, 240, 240, 0.75, 0.9],
             [10, 10, 240, 240, 0.75, 0.9],
@@ -677,7 +686,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         for iou_threshold in [0.9, 0.75, 0.5]:
             for score_threshold in [0.5, 0.8, 0.9]:
                 self.create_pipeline_and_run_for_nms(
-                    output_model, iou_threshold=iou_threshold, score_threshold=score_threshold, length=6)
+                    output_model, iou_threshold=iou_threshold, score_threshold=score_threshold, has_conf_value=True)
                 out = get_model_output()
                 self.assertEqual(out.size, expected_size[idx])
                 idx += 1
@@ -689,7 +698,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         output_model = os.path.join(test_data_dir, "FastestDet.updated.onnx")
         input_image_path = os.path.join(test_data_dir, "wolves.jpg")
 
-        add_ppp.yolo_detection(Path(input_model), Path(output_model),input_shape=(352,352))
+        add_ppp.yolo_detection(Path(input_model), Path(output_model), input_shape=(352, 352))
 
         so = ort.SessionOptions()
         so.register_custom_ops_library(get_library_path())

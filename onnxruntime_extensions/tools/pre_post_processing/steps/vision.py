@@ -384,8 +384,9 @@ class Resize(Step):
         
         # Resize-18 has the attribute "not_larger/not_smaller" to specify the resize policy, however
         # we want to support older opsets as well. 
-        assert (self.policy_ in ["not_smaller", "not_larger"], 
-                f"Unsupported resize policy of {self.policy_}, must be 'not_smaller' or 'not_larger'")
+        assert self.policy_ in ["not_smaller", "not_larger"], \
+            f"Unsupported resize policy of {self.policy_}, must be 'not_smaller' or 'not_larger'"
+
         ratio_resize_func = "ReduceMax"
         if self.policy_ == "not_larger":
             ratio_resize_func = "ReduceMin"
@@ -763,63 +764,47 @@ class LetterBox(Step):
         return converter_graph
 
 
-class SplitOutBoxAndScore(Step):
+class SplitOutBoxAndScoreWithConf(Step):
     r"""
-    Split the output of the model into boxes and scores. This step will also handle the optional object score.
-    Input shape: <float>{num_boxes, 4/5+num_classes}
+    Split the output of the model into boxes and scores, applying the object confidence score.
+    Input shape: <float>{num_boxes, <4 box co-ords, conf score, num_classes>}
     Output shape: <float>{num_boxes, 4}, <float>{num_boxes, num_classes}
-    |x1,x2,x3,x4, (obj), cls_1, ... cls_num|
+    |x1,x2,x3,x4, obj_conf, cls_1, ... cls_num|
             /\
            /  \
-    |x1,x2,x3,x4|  |cls_1, ... clx_num|*(obj)
-    obj is optional, if it is not present, it will be set to 1.0
-    This is where 4/5 comes from, '4' represent coordinates and the fifth object probability.
+    |x1,x2,x3,x4|  |cls_1, ... clx_num|*obj_conf
     """
-    def __init__(self, num_classes:int = 80, name: Optional[str] = None):
+
+    def __init__(self, num_classes: int, name: Optional[str] = None):
         """
         Args:
             num_classes: number of classes
-            name: Optional name of step. Defaults to 'SplitOutBoxAndScore'
+            name: Optional name of step. Defaults to 'SplitOutBoxAndScoreWithConf'
         """
-            
-        super().__init__(["box_and_score"], ["_pre_boxes", "_pre_scores"], name)
+
+        super().__init__(["box_conf_scores"], ["boxes", "scores"], name)
         self.num_classes_ = num_classes
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input0_type_str, input0_shape_str = self._get_input_type_and_shape_strs(graph, 0)
 
         input_shape_list = input0_shape_str.split(',')
-        assert len(input_shape_list) == 2, " expected [num_boxes, 4/5+num_classes]"
+        assert len(input_shape_list) == 2, " expected [num_boxes, 5+num_classes]"
 
         target_shape_str_0 = f"{input_shape_list[0]}, 4"
         target_shape_str_1 = f"{input_shape_list[0]}, _{self._step_num}_class"
 
         converter_graph = onnx.parser.parse_graph(
             f"""\
-            SplitOutBoxAndScore (float[{input0_shape_str}] {self.input_names[0]}) 
-                => (float[{target_shape_str_0}] {self.output_names[0]}, float[{target_shape_str_1}] {self.output_names[1]})  
-            {{
-
-                i64_neg1 = Constant <value = int64[1] {{-1}}>()
-                i64_4 = Constant <value = int64[1] {{4}}>()
-                i64_0 = Constant <value = int64[1] {{0}}>()
-                fp32_1 = Constant <value = float[1] {{1.0}}>()
-                i64_classes = Constant <value = int64[1] {{{self.num_classes_}}}>()
-                out_shape = Shape ({self.input_names[0]})
-                class_and_coor_dim = Gather (out_shape, i64_neg1)
-                coor_and_obj = Sub (class_and_coor_dim, i64_classes)
-                obj_0_or_1 = Sub (coor_and_obj, i64_4)
-                bool_num_obj_0_or_1 = Cast<to=9>(obj_0_or_1)
-
-                box_obj_class_concat = Concat <axis = 0> (i64_4, obj_0_or_1, i64_classes)
-                boxes_o, scores_obj_o, scores_cls_o = Split <axis = -1> ({self.input_names[0]}, box_obj_class_concat)
-                scores_obj_not_null = Concat <axis = -1> (scores_obj_o, boxes_o)
-                coef_obj_cat =  Where(bool_num_obj_0_or_1, scores_obj_not_null,fp32_1)
-                coef_obj = Gather <axis=-1> (coef_obj_cat, i64_0)
-                scores_o = Mul (scores_cls_o, coef_obj)
-                {self.output_names[0]} = Identity (boxes_o)
-                {self.output_names[1]} = Identity (scores_o)
-
+            SplitOutBoxConfidenceAndScore (float[{input0_shape_str}] {self.input_names[0]}) 
+                => (float[{target_shape_str_0}] {self.output_names[0]}, 
+                    float[{target_shape_str_1}] {self.output_names[1]})  
+            {{               
+                split_sizes = Constant <value = int64[3] {{4, 1, {self.num_classes_}}}>()            
+                {self.output_names[0]}, conf, orig_scores = Split <axis=-1>({self.input_names[0]}, split_sizes)
+                
+                scores_with_conf = Mul(orig_scores, conf)                
+                {self.output_names[1]} = Identity (scores_with_conf)
             }}
             """
         )
@@ -828,32 +813,35 @@ class SplitOutBoxAndScore(Step):
 
 class SelectBestBoundingBoxesByNMS(Step):
     """
-    Non-maximum suppression (NMS) is to filter out redundant bounding boxes.
-    This step is used to warp the boxes and scores into onnx SelectBestBoundingBoxesByNMS op.
+    Non-maximum suppression (NMS) is to select best bounding boxes.
     Input:
-        boxes:  float[num_boxes, 4]
-        scores:  shape float[num_boxes, num_classes]
+        boxes: float[num_boxes, 4]
+        scores: float[num_boxes, num_classes]
+        masks: float[num_boxes, mask_data]. optional
 
     Output:
-        nms_out: float[_few_num_boxes, 6<coordinate+score+class>]
+        nms_out: float[_few_num_boxes, <box+score+class+mask_data>]
     """
 
-    def __init__(self, iou_threshold:float = 0.5, score_threshold:float = 0.67, 
-                 max_detections:int = 300, name: Optional[str] = None):
+    def __init__(self, iou_threshold: float = 0.5, score_threshold: float = 0.67, max_detections: int = 300,
+                 has_mask_data: Optional[bool] = False, name: Optional[str] = None):
         """
-        Args:
-        Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#SelectBestBoundingBoxesByNMS
-        for more details about the parameters.
-            iou_threshold:  same as SelectBestBoundingBoxesByNMS op, intersection /union of boxes 
-            score_threshold:  If this box's score is lower than score_threshold, it will be removed.
-            max_detections:  max number of boxes to be selected
+        Args: Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#NonMaxSuppression
+              for more details about the parameters.
+            iou_threshold: same as NonMaxSuppression op, intersection/union of boxes
+            score_threshold: If this box's score is lower than score_threshold, it will be removed.
+            max_detections: max number of boxes to be selected
             name: Optional name of step. Defaults to 'SelectBestBoundingBoxesByNMS'
         """
-        super().__init__(["boxes", "scores"], ["nms_out"], name)
+        inputs = ["boxes", "scores"]
+        if has_mask_data:
+            inputs.append("masks")
+
+        super().__init__(inputs, ["nms_out"], name)
+
         self.iou_threshold_ = iou_threshold
         self.score_threshold_ = score_threshold
         self.max_detections_ = max_detections
-
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input0_type_str, input0_shape_str = self._get_input_type_and_shape_strs(graph, 0)
@@ -862,104 +850,202 @@ class SelectBestBoundingBoxesByNMS(Step):
         input0_shape_list = input0_shape_str.split(',')
         assert len(input0_shape_list) == 2, " expected [num_boxes, 4]"
 
-        target_shape_str = f"_{self._step_num}_nms_boxes, 6"
+        has_mask_input = len(self.input_names) == 3
 
-        reduce_score = '(score_select_nm,i64_neg1)' if onnx_opset >= 18 else '<axes=[-1]>(score_select_nm)'
+        input_2 = ""
+        mask_i = ""
+        mask_select = ""
+        concat_for_output = "boxes_select, score_select, class_select"
+        output_size_str = "6"
+        reduce_score = '(score_select_nm, i64_neg1)' if onnx_opset >= 18 else '<axes=[-1]>(score_select_nm)'
 
-        converter_graph = onnx.parser.parse_graph(
+        if has_mask_input:
+            input2_type_str, input2_shape_str = self._get_input_type_and_shape_strs(graph, 2)
+            input_2 = f", float[{input2_shape_str}] {self.input_names[2]}"
+            mask_i = f"masks_i = Identity({self.input_names[2]})"
+            mask_select = "mask_select = Gather <axis=0>(masks_i, boxes_idx)"
+            concat_for_output += ", mask_select"
+
+            mask_size_str = input2_shape_str.split(",")[-1]
+            if mask_size_str.isnumeric():
+                output_size_str = str(6 + int(mask_size_str))
+            else:
+                output_size_str = f"_step{self._step_num}_6_+_mask_size"
+
+        graph_text = \
             f"""\
-            SelectBestBoundingBoxesByNMS (float[{input0_shape_str}] {self.input_names[0]},float[{input1_shape_str}] {self.input_names[1]}) 
-                => (float[{target_shape_str}] {self.output_names[0]})  
+            SelectBestBoundingBoxesByNMS (float[{input0_shape_str}] {self.input_names[0]},
+                                          float[{input1_shape_str}] {self.input_names[1]}
+                                          {input_2}) 
+                => (float[_{self._step_num}_nms_boxes, {output_size_str}] {self.output_names[0]})  
             {{
-                i64_2 = Constant <value = int64[1] {{2}}>()
+                i64_neg1 = Constant <value = int64[1] {{-1}}>()
                 i64_0 = Constant <value = int64[1] {{0}}>()
                 i64_1 = Constant <value = int64[1] {{1}}>()
+                i64_2 = Constant <value = int64[1] {{2}}>()
                 i64_max_obj = Constant <value = int64[1] {{{self.max_detections_}}}>()
-                i64_neg1 = Constant <value = int64[1] {{-1}}>()
                 fp32_iou_th = Constant <value = float[1] {{{self.iou_threshold_}}}>()
                 fp32_score_th = Constant <value = float[1] {{{self.score_threshold_}}}>()
 
-                boxes_i = Identity ({self.input_names[0]})
+                boxes_i = Identity({self.input_names[0]})
                 scores_i = Identity({self.input_names[1]})
+                {mask_i}
+                
                 scores_c_b = Transpose<perm=[1,0]>(scores_i)
                 batch_boxes = Unsqueeze(boxes_i, i64_0)
                 batch_scores = Unsqueeze(scores_c_b, i64_0)
 
-                nmsbox = NonMaxSuppression<center_point_box =1>(batch_boxes, batch_scores, i64_max_obj,fp32_iou_th,fp32_score_th)
-                classes_i64 = Gather <axis=-1>(nmsbox,i64_1)
+                nmsbox = NonMaxSuppression<center_point_box=1>(batch_boxes, batch_scores, i64_max_obj, 
+                                                               fp32_iou_th, fp32_score_th)
+                classes_i64 = Gather <axis=-1>(nmsbox, i64_1)
                 class_select = Cast <to = 1>(classes_i64)
 
-                boxes_idx_us = Gather <axis=-1>(nmsbox,i64_2)
+                boxes_idx_us = Gather <axis=-1>(nmsbox, i64_2)
                 boxes_idx = Squeeze(boxes_idx_us, i64_neg1)
                 boxes_select = Gather <axis=0>(boxes_i, boxes_idx)
 
                 score_select_nm = Gather <axis=0>(scores_i, boxes_idx)
                 score_select = ReduceMax{reduce_score}
-
-                {self.output_names[0]} = Concat <axis = -1> (boxes_select, score_select, class_select)
+                
+                {mask_select}
+                
+                {self.output_names[0]} = Concat <axis = -1> ({concat_for_output})
             }}
             """
-        )
+
+        converter_graph = onnx.parser.parse_graph(graph_text)
+
         return converter_graph
 
 
-class ScaleBoundingBoxes(Step):
+class ScaleNMSBoundingBoxesAndKeyPoints(Step):
     """
-    Mapping boxes coordinate to scale in original image.
-    The coordinate of boxes from detection model is relative to the input image of network, 
-    image is scaled and padded/cropped. So we need to do a linear mapping to get the real coordinate of original image.
+    Scale bounding box and key point coordinates in optional mask data to original image.
+
+    Input image goes through Resize and LetterBox steps during pre-processing (in that order), and the output of this
+    is what the original model runs against.
+    To display the predictions on the original image we need to apply the reserve size changes to the co-ordinates 
+    of the bounding boxes.
+
+    nms_step_output inner dimension has 4 values for the bounding box, 1 for the score, 1 for the selected class,
+    and the remainder (if any) is the mask data.
+
+    The mask data has values for a fixed number of key points. Each key point has an x and y value, and optionally a
+    confidence value.
+
     input:
-        box_of_nms_out: output of NMS, shape [num_boxes, 6]
-        original_image: original image decoded from jpg/png<uint8_t>[H, W, 3<BGR>]
-        scaled_image: scaled image, but without padding/crop[<uint8_t>[H1, W1, 3<BGR>]
-        letter_boxed_image: scaled image and with padding/crop[<uint8_t>[H2, W3, 3<BGR>]
+        nms_step_output: output of SelectBestBoundingBoxesByNMS Step, shape [num_boxes, 6+]
+        original_image: original image decoded from jpg/png, <uint8_t>[H, W, 3]
+        resized_image: output from Resize pre-processing Step, <uint8_t>[H1, W1, 3]
+        letter_boxed_image: output from LetterBox pre-processing Step, <uint8_t>[H2, W3, 3]
+        num_key_points: number of key points in each mask data entry, if present. optional.
     
     output:
-        scaled_box_out: shape [num_boxes, 6] with coordinate mapped to original image.
+        nms_output_with_scaled_boxes_and_keypoints: input data with boxes and key points scaled to original image.
     """
 
-    def __init__(self, name: Optional[str] = None):
+    def __init__(self, num_key_points: Optional[int] = 0, name: Optional[str] = None):
         """
         Args:
-            name: Optional name of step. Defaults to 'ScaleBoundingBoxes'
+            num_key_points: Number of key points in mask data. Only required if input has optional mask data.
+            name: Optional name of step. Defaults to 'ScaleNMSBoundingBoxesAndKeyPoints'
         """
-        super().__init__(["box_of_nms_out", "original_image", "scaled_image",
-                          "letter_boxed_image"], ["scaled_box_out"], name)
+        super().__init__(["nms_step_output", "original_image", "resized_image", "letter_boxed_image"],
+                         ["nms_output_with_scaled_boxes_and_keypoints"], name)
+        self._num_key_points = num_key_points
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
-        graph_input_param = []
-        target_shape = []
-        for idx,input_name in enumerate(self.input_names):
+        graph_input_params = []
+
+        for idx, input_name in enumerate(self.input_names):
             input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, idx)
-            graph_input_param.append(f"{input_type_str}[{input_shape_str}] {input_name}")
-            target_shape.append(input_shape_str)
-        graph_input_param = ','.join(graph_input_param)
+            graph_input_params.append(f"{input_type_str}[{input_shape_str}] {input_name}")
 
-        target_shape = target_shape[:1]
-        graph_output_param = []
-        for idx,output_name in enumerate(self.output_names):
-            graph_output_param.append(f"float[{target_shape[idx]}] {output_name}")
-        graph_output_param = ','.join(graph_output_param)
+        graph_input_params = ', '.join(graph_input_params)
 
-        def split_num_ouputs(num_outputs: int):
+        def split_num_outputs(num_outputs: int):
             split_input_shape_attr= ''
             if onnx_opset >= 18:
                 split_input_shape_attr = f", num_outputs = {num_outputs}"
             return split_input_shape_attr
 
-        converter_graph = onnx.parser.parse_graph(
+        nms_output_type_str, nms_output_shape_str = self._get_input_type_and_shape_strs(graph, 0)
+        nms_output_shape = nms_output_shape_str.split(',')
+        data_size_per_result = nms_output_shape[-1]
+        if not data_size_per_result.isnumeric():
+            # this should be known when adding pre-processing
+            raise ValueError("Shape of input must have numeric value for the mask data size")
+
+        data_num_splits = 3  # splits of nms data into box[:2], box[2:4] , score+class, [mask]
+        data_split_sizes = "2, 2, 2"  # sizes of the splits
+        score_class_masks = "score_class"  # output name/s for trailing output/s from Split
+        keypoint_processing = ""  # operators to process the keypoints
+        scaled_keypoints = ""  # optional output from keypoint scaling
+
+        data_size = int(data_size_per_result)
+        if data_size > 6:
+            # we have mask data to split out
+            data_num_splits = 4
+            keypoint_data_size = data_size - 6
+            data_split_sizes += f", {keypoint_data_size}"
+            score_class_masks = "score_class, masks"
+            scaled_keypoints = ", scaled_keypoints"
+
+            values_per_keypoint = int(keypoint_data_size / self._num_key_points)
+            reshape_keypoints_to = ",".join([str(self._num_key_points), str(values_per_keypoint)])
+
+            if keypoint_data_size > 2:
+                # split into xy and conf
+                keypoints_xy_and_conf_from_keypoints = \
+                    f"""
+                    keypoints_split_sizes = Constant <value = int64[2] {{2, {values_per_keypoint - 2}}}>()
+                    keypoints_xy, conf = Split <axis = -1>(keypoints, keypoints_split_sizes)
+                    """
+                # need to re-combine after scaling
+                scaled_keypoints_and_conf = "scaled_keypoints_and_conf = Concat <axis=-1>(scaled_keypoints_xy, conf)"
+
+            else:
+                # use the keypoint data as-is as we don't have 'conf' data to split out
+                keypoints_xy_and_conf_from_keypoints = "keypoints_xy = Identity(keypoints)"
+                scaled_keypoints_and_conf = "scaled_keypoints_and_conf = Identity(scaled_keypoints_xy)"
+
+            keypoint_processing = \
+                f"""
+                reshape_keypoints_to = Constant <value = int64[2] {{{reshape_keypoints_to}}}>()
+                input_shape = Shape ({self.input_names[0]})
+
+                i64_0 = Constant <value = int64[1] {{0}}>()
+                num_boxes = Gather <axis=0>(input_shape, i64_0)
+                reshape_masks_to = Concat<axis=-1> (num_boxes, reshape_keypoints_to)
+                keypoints = Reshape(masks, reshape_masks_to)
+                
+                {keypoints_xy_and_conf_from_keypoints}
+                
+                offset_keypoints_xy = Sub (keypoints_xy, f_half_pad_wh)
+                scaled_keypoints_xy = Mul (offset_keypoints_xy, ratios)
+                
+                {scaled_keypoints_and_conf}
+                
+                orig_shape = Shape(masks)
+                scaled_keypoints = Reshape(scaled_keypoints_and_conf, orig_shape)
+                """
+
+        graph_text = \
             f"""\
-            ScaleBoundingBoxes ({graph_input_param}) 
-                => ({graph_output_param})  
+            ScaleNMSBoundingBoxesAndKeyPoints 
+            ({graph_input_params}) => ({nms_output_type_str}[{nms_output_shape_str}] {self.output_names[0]})
             {{
                 i64_2 = Constant <value = int64[1] {{2}}>()
-
+                data_split_sizes = Constant <value = int64[{data_num_splits}] {{{data_split_sizes}}}>()
+                
+                boxes_xy, boxes_wh_or_xy, {score_class_masks} = Split <axis=-1>({self.input_names[0]}, data_split_sizes)
+                    
                 ori_shape = Shape ({self.input_names[1]})
                 scaled_shape = Shape ({self.input_names[2]})
                 lettered_shape = Shape ({self.input_names[3]})
-                oh,ow,oc = Split <axis = 0 {split_num_ouputs(3)}> (ori_shape)
-                sh,sw,sc = Split <axis = 0 {split_num_ouputs(3)}> (scaled_shape)
-                lh,lw,lc = Split <axis = 0 {split_num_ouputs(3)}> (lettered_shape)
+                oh,ow,oc = Split <axis = 0 {split_num_outputs(3)}> (ori_shape)
+                sh,sw,sc = Split <axis = 0 {split_num_outputs(3)}> (scaled_shape)
+                lh,lw,lc = Split <axis = 0 {split_num_outputs(3)}> (lettered_shape)
                 swh = Concat <axis = -1> (sw,sh)
                 lwh = Concat <axis = -1> (lw,lh)
                 
@@ -971,14 +1057,16 @@ class ScaleBoundingBoxes(Step):
                 half_pad_wh = Div (pad_wh, i64_2)
                 f_half_pad_wh = Cast <to = 1> (half_pad_wh)
 
-                boxes_xy,boxes_wh_orxy,boxes_score_class = Split <axis=-1 {split_num_ouputs(3)}>({self.input_names[0]})
                 offset_boxes_xy = Sub (boxes_xy, f_half_pad_wh)
-                restored_boxes = Concat <axis=-1> (offset_boxes_xy, boxes_wh_orxy)
-                scaled_boxes_coor = Mul (restored_boxes, ratios)
-                restored_boxes_res = Concat <axis=-1> (scaled_boxes_coor, boxes_score_class)
-
-                {self.output_names[0]} = Identity (restored_boxes_res)
+                restored_boxes = Concat <axis=-1> (offset_boxes_xy, boxes_wh_or_xy)
+                scaled_boxes = Mul (restored_boxes, ratios)
+                
+                {keypoint_processing}
+                
+                {self.output_names[0]} = Concat <axis=-1> (scaled_boxes, score_class {scaled_keypoints})
             }}
             """
-        )
+
+        converter_graph = onnx.parser.parse_graph(graph_text)
+
         return converter_graph
