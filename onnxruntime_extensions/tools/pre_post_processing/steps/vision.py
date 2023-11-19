@@ -847,14 +847,19 @@ class SelectBestBoundingBoxesByNMS(Step):
         nms_out: float[_few_num_boxes, <box+score+class+mask_data>]
     """
 
-    def __init__(self, iou_threshold: float = 0.5, score_threshold: float = 0.67, max_detections: int = 300,
+    def __init__(self,
+                 iou_threshold: Optional[float] = 0.5,
+                 score_threshold: Optional[float] = 0.67,
+                 max_boxes_per_class: Optional[int] = 100,
+                 max_detections: Optional[int] = None,
                  has_mask_data: Optional[bool] = False, name: Optional[str] = None):
         """
         Args: Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#NonMaxSuppression
               for more details about the parameters.
             iou_threshold: same as NonMaxSuppression op, intersection/union of boxes
             score_threshold: If this box's score is lower than score_threshold, it will be removed.
-            max_detections: max number of boxes to be selected
+            max_boxes_per_class: max number of boxes to be selected per class
+            max_detections: maximum number of boxes in total. Applied as the last step of processing if specified.
             name: Optional name of step. Defaults to 'SelectBestBoundingBoxesByNMS'
         """
         inputs = ["boxes", "scores"]
@@ -865,6 +870,7 @@ class SelectBestBoundingBoxesByNMS(Step):
 
         self.iou_threshold_ = iou_threshold
         self.score_threshold_ = score_threshold
+        self.max_boxes_per_class_ = max_boxes_per_class
         self.max_detections_ = max_detections
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
@@ -881,6 +887,7 @@ class SelectBestBoundingBoxesByNMS(Step):
         mask_select = ""
         concat_for_output = "boxes_select, score_select, class_select"
         output_size_str = "6"
+        # reduce_score picks the class with the best score for the selected box
         reduce_score = '(score_select_nm, i64_neg1)' if onnx_opset >= 18 else '<axes=[-1]>(score_select_nm)'
 
         if has_mask_input:
@@ -896,20 +903,50 @@ class SelectBestBoundingBoxesByNMS(Step):
             else:
                 output_size_str = f"_step{self._step_num}_6_+_mask_size"
 
+        if self.max_detections_:
+            # squeeze scores from [num_results, 1] to [num_results]
+            # use TopK to find the best scores for the selected boxes, but only if the number of results is
+            # greater than max_detections, and there are results (otherwise calling TopK is invalid).
+            apply_max_detections = \
+                f"""
+                max_detections = Constant <value = int64[1] {{{self.max_detections_}}}>()
+                scores_1d = Squeeze(score_select, i64_neg1)
+                num_results = Shape(scores_1d)
+                num_results_less_than_max = Less(num_results, max_detections)
+                k = Where(num_results_less_than_max, num_results, max_detections)
+                have_results = Greater(k, i64_0)
+                final_results = If<
+                                then_branch=then_graph() => 
+                                    ({output_size_str}] then_output) 
+                                    {{
+                                        topk_scores, topk_i = TopK<axis = 0>(scores_1d, k)
+                                        then_output = Gather<axis = 0>(merged_results, topk_i)
+                                    }},
+                                else_branch=else_graph() => 
+                                    ({output_size_str}] else_output) 
+                                    {{
+                                        else_output = Identity(merged_results)
+                                    }}>
+                                    (have_results)
+                """
+
+        else:
+            apply_max_detections = "final_results = Identity(merged_results)"
+
         graph_text = \
-            f"""\
+            f"""
             SelectBestBoundingBoxesByNMS (float[{input0_shape_str}] {self.input_names[0]},
                                           float[{input1_shape_str}] {self.input_names[1]}
                                           {input_2}) 
-                => (float[_{self._step_num}_nms_boxes, {output_size_str}] {self.output_names[0]})  
+                => (float[_{self._step_num}_selected_boxes, {output_size_str}] {self.output_names[0]})  
             {{
                 i64_neg1 = Constant <value = int64[1] {{-1}}>()
                 i64_0 = Constant <value = int64[1] {{0}}>()
                 i64_1 = Constant <value = int64[1] {{1}}>()
                 i64_2 = Constant <value = int64[1] {{2}}>()
-                i64_max_obj = Constant <value = int64[1] {{{self.max_detections_}}}>()
-                fp32_iou_th = Constant <value = float[1] {{{self.iou_threshold_}}}>()
-                fp32_score_th = Constant <value = float[1] {{{self.score_threshold_}}}>()
+                max_per_class = Constant <value = int64[1] {{{self.max_boxes_per_class_}}}>()
+                iou_th = Constant <value = float[1] {{{self.iou_threshold_}}}>()
+                score_th = Constant <value = float[1] {{{self.score_threshold_}}}>()
 
                 boxes_i = Identity({self.input_names[0]})
                 scores_i = Identity({self.input_names[1]})
@@ -919,21 +956,25 @@ class SelectBestBoundingBoxesByNMS(Step):
                 batch_boxes = Unsqueeze(boxes_i, i64_0)
                 batch_scores = Unsqueeze(scores_c_b, i64_0)
 
-                nmsbox = NonMaxSuppression<center_point_box=1>(batch_boxes, batch_scores, i64_max_obj, 
-                                                               fp32_iou_th, fp32_score_th)
-                classes_i64 = Gather <axis=-1>(nmsbox, i64_1)
-                class_select = Cast <to = 1>(classes_i64)
+                nmsbox = NonMaxSuppression<center_point_box=1>(batch_boxes, batch_scores, max_per_class,
+                                                               iou_th, score_th)
+                classes_i64 = Gather<axis=-1>(nmsbox, i64_1)
+                class_select = Cast<to = 1>(classes_i64)
 
-                boxes_idx_us = Gather <axis=-1>(nmsbox, i64_2)
+                boxes_idx_us = Gather<axis=-1>(nmsbox, i64_2)
                 boxes_idx = Squeeze(boxes_idx_us, i64_neg1)
-                boxes_select = Gather <axis=0>(boxes_i, boxes_idx)
+                boxes_select = Gather<axis=0>(boxes_i, boxes_idx)
 
-                score_select_nm = Gather <axis=0>(scores_i, boxes_idx)
+                score_select_nm = Gather<axis=0>(scores_i, boxes_idx)
                 score_select = ReduceMax{reduce_score}
                 
                 {mask_select}
                 
-                {self.output_names[0]} = Concat <axis = -1> ({concat_for_output})
+                merged_results = Concat <axis = -1> ({concat_for_output})
+                
+                {apply_max_detections}
+                
+                {self.output_names[0]} = Identity(final_results)
             }}
             """
 
@@ -1006,7 +1047,7 @@ class ScaleNMSBoundingBoxesAndKeyPoints(Step):
             letterboxed_image_h_w_c = "lc, lh, lw"
 
         def split_num_outputs(num_outputs: int):
-            split_input_shape_attr= ''
+            split_input_shape_attr = ''
             if onnx_opset >= 18:
                 split_input_shape_attr = f", num_outputs = {num_outputs}"
             return split_input_shape_attr
