@@ -845,6 +845,12 @@ struct OrtLiteCustomOp : public OrtCustomOp {
     OrtCustomOp::CreateKernelV2 = nullptr;
     OrtCustomOp::KernelComputeV2 = nullptr;
 #endif
+
+#if ORT_API_VERSION >= 17
+    OrtCustomOp::InferOutputShapeFn = nullptr;
+    OrtCustomOp::GetStartVersion = nullptr;
+    OrtCustomOp::GetEndVersion = nullptr;
+#endif
   }
 
   const std::string op_name_;
