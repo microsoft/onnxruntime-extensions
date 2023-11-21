@@ -775,6 +775,9 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   OrtLiteCustomOp(const char* op_name,
                   const char* execution_provider) : op_name_(op_name),
                                                     execution_provider_(execution_provider) {
+    // Zero out OrtCustomOp so that any added func pointers are nullptr for forwards compatibility
+    memset(&this->version, 0, sizeof(OrtCustomOp));
+
     int act_ver = GetActiveOrtAPIVersion();
     OrtCustomOp::version = act_ver < ORT_API_VERSION ? act_ver : ORT_API_VERSION;
 
@@ -839,11 +842,6 @@ struct OrtLiteCustomOp : public OrtCustomOp {
     OrtCustomOp::GetOutputCharacteristic = [](const OrtCustomOp* op, size_t) {
       return INPUT_OUTPUT_OPTIONAL;
     };
-#endif
-
-#if ORT_API_VERSION >= 16
-    OrtCustomOp::CreateKernelV2 = nullptr;
-    OrtCustomOp::KernelComputeV2 = nullptr;
 #endif
   }
 
