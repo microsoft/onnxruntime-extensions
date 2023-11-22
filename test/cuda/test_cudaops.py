@@ -29,7 +29,7 @@ class TestCudaOps(unittest.TestCase):
         model = make_onnx_model(graph)
         return model
 
-    def test_cc_negpos(self):
+    def test_cuda_negpos(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
         onnx_model = self._create_test_model()

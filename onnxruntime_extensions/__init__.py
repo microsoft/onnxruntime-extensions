@@ -2,10 +2,6 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 ###############################################################################
-import os
-import sys
-import glob
-
 """
 The `onnxruntime-extensions` Python package offers an API that allows users to generate models for pre-processing and
 post-processing tasks. In addition, it also provides an API to register custom operations implemented in Python.
@@ -31,27 +27,7 @@ __all__ = [
     '__version__',
 ]
 
-
-def _search_cuda_dir():
-    paths = os.getenv('PATH', '').split(os.pathsep)
-    for path in paths:
-        for filename in glob.glob(os.path.join(path, 'cudart64*.dll')):
-            return os.path.dirname(filename)
-
-    return None
-
-
-from . import _version
-
-__version__ = _version.__version__
-if sys.platform == 'win32':
-    if hasattr(_version, 'cuda'):
-        cuda_path = _search_cuda_dir()
-        if cuda_path is None:
-            raise RuntimeError("Cannot find cuda in the environment variable for GPU package")
-
-        os.add_dll_directory(cuda_path)
-
+from ._version import __version__
 from ._ocos import get_library_path
 from ._ocos import Opdef, PyCustomOpDef
 from ._ocos import hash_64
