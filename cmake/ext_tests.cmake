@@ -59,6 +59,10 @@ function(add_test_target)
                           ${ARG_LIBRARIES}
                           gtest gmock)
 
+    if(OCOS_USE_CUDA)
+      target_link_directories(${ARG_TARGET} PRIVATE $ENV{CUDA_PATH}/lib64)
+    endif()
+
     set(test_data_destination_root_directory ${onnxruntime_extensions_BINARY_DIR})
 
   else()
@@ -126,10 +130,6 @@ file(GLOB static_TEST_SRC "${TEST_SRC_DIR}/static_test/*.cc")
 add_test_target(TARGET ocos_test
                 TEST_SOURCES ${static_TEST_SRC}
                 LIBRARIES ortcustomops ${ocos_libraries})
-
-if(OCOS_USE_CUDA)
-  target_link_libraries(ocos_test PUBLIC cudart cublas cufft)
-endif()
 
 # -- shared test (needs onnxruntime) --
 SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
