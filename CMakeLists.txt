@@ -814,6 +814,7 @@ if(_BUILD_SHARED_LIBRARY)
 endif()
 
 if(OCOS_USE_CUDA)
+  target_include_directories(ocos_operators PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
   target_include_directories(ortcustomops PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
   target_link_libraries(extensions_shared PUBLIC cudart cublas cufft)
 endif()

@@ -127,6 +127,10 @@ add_test_target(TARGET ocos_test
                 TEST_SOURCES ${static_TEST_SRC}
                 LIBRARIES ortcustomops ${ocos_libraries})
 
+if(OCOS_USE_CUDA)
+  target_link_libraries(ocos_test PUBLIC cudart cublas cufft)
+endif()
+
 # -- shared test (needs onnxruntime) --
 SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
 find_library(ONNXRUNTIME onnxruntime HINTS "${ONNXRUNTIME_LIB_DIR}")
