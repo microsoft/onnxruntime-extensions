@@ -7,154 +7,114 @@
 import re
 import os
 import sys
-import shlex
+import glob
 import pathlib
+import subprocess
 
+from textwrap import dedent
 from setuptools.command.build import build as _build
 from setuptools.command.build_ext import build_ext as _build_ext
 from setuptools.command.develop import develop as _develop
 
 VSINSTALLDIR_NAME = 'VSINSTALLDIR'
+ORTX_USER_OPTION = 'ortx-user-option'
+
+
+def _load_cuda_version():
+    pattern = r"\bV\d+\.\d+\.\d+\b"
+    output = subprocess.check_output(["nvcc", "--version"]).decode("utf-8")
+    match = re.search(pattern, output)
+    if match:
+        vers = match.group()[1:].split('.')
+        return f"{vers[0]}.{vers[1]}"  # only keep the major and minor version.
+
+    return None
+
+
+def _load_vsdevcmd(project_root):
+    if os.environ.get(VSINSTALLDIR_NAME) is None:
+        stdout, _ = subprocess.Popen([
+            'powershell', ' -noprofile', '-executionpolicy',
+            'bypass', '-f', project_root + '/tools/get_vsdevcmd.ps1', '-outputEnv', '1'],
+            stdout=subprocess.PIPE, shell=False, universal_newlines=True).communicate()
+        for line in stdout.splitlines():
+            kv_pair = line.split('=')
+            if len(kv_pair) == 2:
+                os.environ[kv_pair[0]] = kv_pair[1]
+    else:
+        import shutil
+        if shutil.which('cmake') is None:
+            raise SystemExit(
+                "Cannot find cmake in the executable path, "
+                "please run this script under Developer Command Prompt for VS.")
+
+
+def prepare_env(project_root):
+    if sys.platform == "win32":
+        _load_vsdevcmd(project_root)
+
+
+def read_git_refs(project_root):
+    release_branch = False
+    stdout, _ = subprocess.Popen(
+        ['git'] + ['log', '-1', '--format=%H'],
+        cwd=project_root,
+        stdout=subprocess.PIPE, universal_newlines=True).communicate()
+    HEAD = dedent(stdout.splitlines()[0]).strip('\n\r')
+    stdout, _ = subprocess.Popen(
+        ['git'] + ['show-ref', '--head'],
+        cwd=project_root,
+        stdout=subprocess.PIPE, universal_newlines=True).communicate()
+    for _ln in stdout.splitlines():
+        _ln = dedent(_ln).strip('\n\r')
+        if _ln.startswith(HEAD):
+            _, _2 = _ln.split(' ')
+            if _2.startswith('refs/remotes/origin/rel-'):
+                release_branch = True
+    return release_branch, HEAD
 
 
 class CommandMixin:
     user_options = [
-        # ('use-cuda', None, 'enable CUDA kernels on building extensions'),
-        # ('no-azure', None, 'disable AzureOp kernels on building extensions'),
-        # ('no-opencv', None, 'disable OpenCV based kernels on building extensions')
-        ('ortx-user-option=', None, "extensions options for kernel building")
+        (ORTX_USER_OPTION + '=', None, "extensions options for kernel building")
     ]
-
     supported_cmds = ['build', 'develop', 'install']
-
     config_settings = None
 
-    @staticmethod
-    def assign_options(target, distr):
-        active_obj = None
-        if len(distr.commands) > 0:
-            active_obj = distr.get_command_obj(distr.commands[0], create=0)
-
-        if active_obj is not None and isinstance(active_obj, CommandMixin):
-            for _opt in CommandMixin.user_options:
-                opt_name = _opt[0].replace('-', '_')
-                value = getattr(active_obj, opt_name)
-                setattr(target, opt_name, value)
-
-    @staticmethod
-    def environ_to_options():
-        build_opt = os.environ.get('OCOS_SETUP_OPTIONS', None)
-        if build_opt is not None:
-            opt_list = shlex.split(build_opt)
-            cmd_found = False
-            for _cmd in CommandMixin.supported_cmds:
-                if _cmd in sys.argv[1:]:
-                    cmd_found = True
-                    break
-            if cmd_found:
-                print("=> Setup options from environment variable: " + build_opt)
-                print("=> Setup options from sys.argv: " + str(sys.argv))
-                sys.argv += opt_list
-
-    def __init__(self, dist):
-        self.ortx_user_option = None
-        super().__init__(dist)
-
+    # noinspection PyAttributeOutsideInit
     def initialize_options(self) -> None:
         super().initialize_options()
+        self.ortx_user_option = None
 
     def finalize_options(self) -> None:
         if self.ortx_user_option is not None:
             if CommandMixin.config_settings is None:
-                CommandMixin.config_settings = {"ortx-user-option": self.ortx_user_option}
+                CommandMixin.config_settings = {ORTX_USER_OPTION.replace('-', '_'): self.ortx_user_option}
             else:
-                raise RuntimeError("Cannot pass ortx-user-option both as the command args and in backend API.")
-            if self is self.get_finalized_command('build', create=1):
-                # There is a bug in setuptools that prevents the build get the right platform name from arguments.
-                # So, it cannot generate the correct wheel with the right arch in Official release pipeline.
-                # Force plat_name to be 'win-amd64' in Windows to fix that,
-                # since extensions cmake is only available on x64 for Windows now, it is not a problem to hardcode it.
-                if sys.platform == "win32" and "arm" not in sys.version.lower():
-                    self.plat_name = "win-amd64"
-                if os.environ.get('OCOS_SCB_DEBUG', None) == '1':
-                    self.debug = True
+                raise RuntimeError(
+                    f"Cannot pass {ORTX_USER_OPTION} several times, like as the command args and in backend API.")
 
         super().finalize_options()
-    #
-    # def finalize_options(self) -> None:
-    #     if isinstance(self, _build):
-    #         # There is a bug in setuptools that prevents the build get the right platform name from arguments.
-    #         # So, it cannot generate the correct wheel with the right arch in Official release pipeline.
-    #         # Force plat_name to be 'win-amd64' in Windows to fix that,
-    #         # since extensions cmake is only available on x64 for Windows now, it is not a problem to hardcode it.
-    #         if sys.platform == "win32" and "arm" not in sys.version.lower():
-    #             self.plat_name = "win-amd64"
-    #         if os.environ.get('OCOS_SCB_DEBUG', None) == '1':
-    #             self.debug = True
-    #
-    #     super().finalize_options()
-
-    # cmd_objs = self.distribution.command_obj
-    # # bridge the options from develop to build
-    # if "develop" in self.distribution.commands or \
-    #         'install' in self.distribution.commands:
-    #     build_cmd = cmd_objs.get('build', None)
-    #     if build_cmd:
-    #         build_cmd.no_cuda = self.no_cuda
-    #         build_cmd.no_azure = self.no_azure
-    #         build_cmd.no_opencv = self.no_opencv
-
-    # def run(self):
-    #     build_ext_cmd = None
-    #     try:
-    #         cmd_objs = self.distribution.command_obj
-    #         build_ext_cmd = cmd_objs.get('build_ext', None)
-    #     except AttributeError:
-    #         pass
-    #
-    #     if build_ext_cmd:
-    #         setattr(build_ext_cmd, 'no_cuda', self.no_cuda)
-    #         setattr(build_ext_cmd, 'no_azure', self.no_azure)
-    #         setattr(build_ext_cmd, 'no_opencv', self.no_opencv)
-    #
-    #     return super().run()
 
 
 class CmdDevelop(CommandMixin, _develop):
     user_options = getattr(_develop, 'user_options', []) + CommandMixin.user_options
 
 
-# class CmdBuild(CommandMixin, _build):
-#     user_options = getattr(_build, 'user_options', []) + CommandMixin.user_options
-#
-#     def initialize_options(self) -> None:
-#         build_opt = os.environ.get('OCOS_SETUP_OPTIONS', None)
-#         if build_opt is not None:
-#             opt_list = shlex.split(build_opt)
-#             cmd_found = True
-#             # for _cmd in CommandMixin.supported_cmds:
-#             #     if _cmd in sys.argv[1:]:
-#             #         cmd_found = True
-#             #         break
-#             if cmd_found:
-#                 print("=> Setup options from environment variable: " + build_opt)
-#                 print("=> Setup options from sys.argv: " + str(sys.argv))
-#                 sys.argv += opt_list
-#
-#         super(_build, self).initialize_options()
-#
-#     # noinspection PyAttributeOutsideInit
-#     def finalize_options(self) -> None:
-#         if os.environ.get('OCOS_SCB_DEBUG', None) == '1':
-#             self.debug = 1
-#         # There is a bug in setuptools that prevents the build get the right platform name from arguments.
-#         # So, it cannot generate the correct wheel with the right arch in Official release pipeline.
-#         # Force plat_name to be 'win-amd64' in Windows to fix that,
-#         # since extensions cmake is only available on x64 for Windows now, it is not a problem to hardcode it.
-#         if sys.platform == "win32" and "arm" not in sys.version.lower():
-#             self.plat_name = "win-amd64"
-#
-#         super(_build, self).finalize_options()
+class CmdBuild(CommandMixin, _build):
+    user_options = getattr(_build, 'user_options', []) + CommandMixin.user_options
+
+    # noinspection PyAttributeOutsideInit
+    def finalize_options(self) -> None:
+        # There is a bug in setuptools that prevents the build get the right platform name from arguments.
+        # So, it cannot generate the correct wheel with the right arch in Official release pipeline.
+        # Force plat_name to be 'win-amd64' in Windows to fix that,
+        # since extensions cmake is only available on x64 for Windows now, it is not a problem to hardcode it.
+        if sys.platform == "win32" and "arm" not in sys.version.lower():
+            self.plat_name = "win-amd64"
+        if os.environ.get('OCOS_SCB_DEBUG', None) == '1':
+            self.debug = True
+        super().finalize_options()
 
 
 class CmdBuildCMakeExt(_build_ext):
@@ -175,13 +135,14 @@ class CmdBuildCMakeExt(_build_ext):
                 value = 1
 
             key = key.replace('-', '_')
+            if not hasattr(self, key):
+                raise RuntimeError(f"Unknown {ORTX_USER_OPTION} option value: {key}")
             setattr(self, key, value)
         return self
 
-    # noinspection PyAttributeOutsideInit
     def finalize_options(self) -> None:
         if CommandMixin.config_settings is not None:
-            self._parse_options(CommandMixin.config_settings.get("ortx-user-option", ""))
+            self._parse_options(CommandMixin.config_settings.get(ORTX_USER_OPTION, ""))
 
         super().finalize_options()
 
@@ -223,6 +184,14 @@ class CmdBuildCMakeExt(_build_ext):
             cuda_flag = "OFF" if self.use_cuda == 0 else "ON"
             cmake_args += ['-DOCOS_USE_CUDA=' + cuda_flag]
             print("=> CUDA build flag: " + cuda_flag)
+            cuda_ver = _load_cuda_version()
+            if cuda_ver is None:
+                raise RuntimeError("Cannot find nvcc in your env:path, use-cuda doesn't work")
+            f_ver = ext_fullpath.parent / "_version.py"
+            with f_ver.open('a') as _f:
+                _f.writelines(["\n",
+                               f"cuda = {cuda_ver}",
+                               "\n"])
 
         # CMake lets you override the generator - we need to check this.
         # Can be set with Conda-Build, for example.
@@ -234,7 +203,7 @@ class CmdBuildCMakeExt(_build_ext):
 
         if sys.platform != "win32":
             # Using Ninja-build since it a) is available as a wheel and b)
-            # multithreads automatically. MSVC would require all variables be
+            # multithread automatically. MSVC would require all variables be
             # exported for Ninja to pick it up, which is a little tricky to do.
             # Users can override the generator with CMAKE_GENERATOR in CMake
             # 3.15+.
@@ -286,5 +255,6 @@ class CmdBuildCMakeExt(_build_ext):
             self.spawn([cmake_exe, '--build', str(build_temp)] + build_args)
 
 
-ortx_cmdclass = dict(develop=CmdDevelop,
+ortx_cmdclass = dict(build=CmdBuild,
+                     develop=CmdDevelop,
                      build_ext=CmdBuildCMakeExt)
