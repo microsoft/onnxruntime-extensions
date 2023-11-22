@@ -7,7 +7,6 @@
 import re
 import os
 import sys
-import glob
 import pathlib
 import subprocess
 
@@ -78,7 +77,6 @@ class CommandMixin:
     user_options = [
         (ORTX_USER_OPTION + '=', None, "extensions options for kernel building")
     ]
-    supported_cmds = ['build', 'develop', 'install']
     config_settings = None
 
     # noinspection PyAttributeOutsideInit
@@ -89,7 +87,8 @@ class CommandMixin:
     def finalize_options(self) -> None:
         if self.ortx_user_option is not None:
             if CommandMixin.config_settings is None:
-                CommandMixin.config_settings = {ORTX_USER_OPTION.replace('-', '_'): self.ortx_user_option}
+                CommandMixin.config_settings = {
+                    ORTX_USER_OPTION: self.ortx_user_option}
             else:
                 raise RuntimeError(
                     f"Cannot pass {ORTX_USER_OPTION} several times, like as the command args and in backend API.")
@@ -98,11 +97,13 @@ class CommandMixin:
 
 
 class CmdDevelop(CommandMixin, _develop):
-    user_options = getattr(_develop, 'user_options', []) + CommandMixin.user_options
+    user_options = getattr(_develop, 'user_options', []
+                           ) + CommandMixin.user_options
 
 
 class CmdBuild(CommandMixin, _build):
-    user_options = getattr(_build, 'user_options', []) + CommandMixin.user_options
+    user_options = getattr(_build, 'user_options', []) + \
+                   CommandMixin.user_options
 
     # noinspection PyAttributeOutsideInit
     def finalize_options(self) -> None:
@@ -125,9 +126,12 @@ class CmdBuildCMakeExt(_build_ext):
         self.use_cuda = None
         self.no_azure = None
         self.no_opencv = None
+        self.cc_debug = None
 
     def _parse_options(self, options):
         for segment in options.split(','):
+            if not segment:
+                continue
             key = segment
             if '=' in segment:
                 key, value = segment.split('=')
@@ -136,14 +140,17 @@ class CmdBuildCMakeExt(_build_ext):
 
             key = key.replace('-', '_')
             if not hasattr(self, key):
-                raise RuntimeError(f"Unknown {ORTX_USER_OPTION} option value: {key}")
+                raise RuntimeError(
+                    f"Unknown {ORTX_USER_OPTION} option value: {key}")
             setattr(self, key, value)
         return self
 
     def finalize_options(self) -> None:
         if CommandMixin.config_settings is not None:
-            self._parse_options(CommandMixin.config_settings.get(ORTX_USER_OPTION, ""))
-
+            self._parse_options(
+                CommandMixin.config_settings.get(ORTX_USER_OPTION, ""))
+            if self.cc_debug:
+                self.debug = True
         super().finalize_options()
 
     def run(self):
@@ -158,11 +165,13 @@ class CmdBuildCMakeExt(_build_ext):
         project_dir = pathlib.Path().absolute()
         build_temp = pathlib.Path(self.build_temp)
         build_temp.mkdir(parents=True, exist_ok=True)
-        ext_fullpath = pathlib.Path(self.get_ext_fullpath(extension.name)).absolute()
+        ext_fullpath = pathlib.Path(
+            self.get_ext_fullpath(extension.name)).absolute()
 
         config = 'RelWithDebInfo' if self.debug else 'Release'
         cmake_args = [
-            '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + str(ext_fullpath.parent.absolute()),
+            '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' +
+            str(ext_fullpath.parent.absolute()),
             '-DOCOS_BUILD_PYTHON=ON',
             '-DOCOS_PYTHON_MODULE_PATH=' + str(ext_fullpath),
             '-DCMAKE_BUILD_TYPE=' + config
@@ -186,7 +195,8 @@ class CmdBuildCMakeExt(_build_ext):
             print("=> CUDA build flag: " + cuda_flag)
             cuda_ver = _load_cuda_version()
             if cuda_ver is None:
-                raise RuntimeError("Cannot find nvcc in your env:path, use-cuda doesn't work")
+                raise RuntimeError(
+                    "Cannot find nvcc in your env:path, use-cuda doesn't work")
             f_ver = ext_fullpath.parent / "_version.py"
             with f_ver.open('a') as _f:
                 _f.writelines(["\n",
@@ -199,7 +209,8 @@ class CmdBuildCMakeExt(_build_ext):
         # Adding CMake arguments set as environment variable
         # (needed e.g. to build for ARM OSx on conda-forge)
         if "CMAKE_ARGS" in os.environ:
-            cmake_args += [item for item in os.environ["CMAKE_ARGS"].split(" ") if item]
+            cmake_args += [
+                item for item in os.environ["CMAKE_ARGS"].split(" ") if item]
 
         if sys.platform != "win32":
             # Using Ninja-build since it a) is available as a wheel and b)
@@ -211,7 +222,8 @@ class CmdBuildCMakeExt(_build_ext):
                 try:
                     import ninja  # noqa: F401
 
-                    ninja_executable_path = os.path.join(ninja.BIN_DIR, "ninja")
+                    ninja_executable_path = os.path.join(
+                        ninja.BIN_DIR, "ninja")
                     cmake_args += [
                         "-GNinja",
                         f"-DCMAKE_MAKE_PROGRAM:FILEPATH={ninja_executable_path}",
@@ -223,7 +235,8 @@ class CmdBuildCMakeExt(_build_ext):
             # Cross-compile support for macOS - respect ARCHFLAGS if set
             archs = re.findall(r"-arch (\S+)", os.environ.get("ARCHFLAGS", ""))
             if archs:
-                cmake_args += ["-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))]
+                cmake_args += [
+                    "-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))]
 
         # overwrite the Python module info if the auto-detection doesn't work.
         # export Python3_INCLUDE_DIRS=/opt/python/cp38-cp38
@@ -248,9 +261,11 @@ class CmdBuildCMakeExt(_build_ext):
             cmake_exe = os.environ[VSINSTALLDIR_NAME] + \
                         'Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe'
             # Add this cmake directory into PATH to make sure the child-process still find it.
-            os.environ['PATH'] = os.path.dirname(cmake_exe) + os.pathsep + os.environ['PATH']
+            os.environ['PATH'] = os.path.dirname(
+                cmake_exe) + os.pathsep + os.environ['PATH']
 
-        self.spawn([cmake_exe, '-S', str(project_dir), '-B', str(build_temp)] + cmake_args)
+        self.spawn([cmake_exe, '-S', str(project_dir),
+                    '-B', str(build_temp)] + cmake_args)
         if not self.dry_run:
             self.spawn([cmake_exe, '--build', str(build_temp)] + build_args)
 

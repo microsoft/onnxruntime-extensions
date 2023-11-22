@@ -16,9 +16,16 @@ The package contains all custom operators and some Python scripts to manipulate 
   mode, which is more friendly for the developer since the Python code change will take effect without having to copy
   the files to a different location in the disk.(**hints**: debug=1 in setup.cfg wil make C++ code be debuggable in a
   Python process.)
-- Add the following argument `--config-settings "ortx_user_option=use-cuda"` in the pip command line to enable **CUDA**
-  kernels for the package. For example:```pip install --config-settings "ortx_user_option=use-cuda" .``` This command
-  ensures that CUDA kernels are enabled during the installation of the package.
+- Add the following argument `--config-settings "ortx-user-option=use-cuda"` in the pip command line to enable **CUDA**
+  kernels for the package.
+- The flags can be used in --config-settings are
+  - use-cuda: enable CUDA kernel build in Python package.
+  - no-azure: disable AzureOp kernel build in Python package.
+  - no-opencv: disable operators based on OpenCV in build.
+  - cc_debug: Generate debug info for extensions binaries and disable C/C++ compiler optimization.
+
+   For example:`pip install --config-settings "ortx-user-option=use-cuda,cc_debug" `, This command builds CUDA
+ kernels into the package and installs it, accompanied by the generation of debug information.
 
 Test:
 
