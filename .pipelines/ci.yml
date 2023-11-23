@@ -521,6 +521,115 @@ stages:
           ctest -C RelWithDebInfo --output-on-failure
         displayName: Run C++ native tests
 
+- stage: LinuxCUDABuilds
+  dependsOn: []
+  jobs:
+  - job: LinuxGPU
+    pool:
+      name: 'onnxruntime-extensions-Linux-GPU-A10'
+    variables:
+      ORT_VERSION: '1.16.2'
+      TORCH_VERSION: 'torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118'
+    steps:
+      - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
+        displayName: 'Clean Agent Directories'
+        condition: always()
+
+      - script: |
+          nvidia-smi
+        displayName: check cuda version
+
+      - checkout: self
+        clean: true
+        submodules: none
+
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.8'
+          addToPath: true
+
+      - task: DownloadGitHubRelease@0
+        inputs:
+          connection: 'GitHub - Release'
+          userRepository: 'microsoft/onnxruntime'
+          defaultVersionType: 'specificTag'
+          version: 'v$(ORT_VERSION)'
+          itemPattern: '*-linux-x64-$(ORT_VERSION)*'
+          downloadPath: '$(Build.SourcesDirectory)'
+        displayName: Download the ONNXRuntime prebuilt package.
+
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '**/*.tgz'
+          destinationFolder: '$(Build.SourcesDirectory)'
+          cleanDestinationFolder: false
+          overwriteExistingFiles: true
+        displayName: Unpack ONNXRuntime package.
+
+      - template: ../tools/ci_build/github/azure-pipeline/templates/get-docker-image-steps.yml
+        parameters:
+          Dockerfile: tools/ci_build/github/linux/docker/Dockerfile.ubuntu_cuda11_8_tensorrt8_6
+          Context: tools/ci_build/github/linux/docker
+          DockerBuildArgs: "--build-arg BUILD_UID=$( id -u )"
+          Repository: onnxruntime-extensionscuda11build
+          UpdateDepsTxt: false
+
+      - task: CmdLine@2
+        inputs:
+          script: |
+            docker run --gpus all --rm \
+              --volume $(Build.SourcesDirectory):/onnxruntime-extensions \
+              --volume $(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ORT_VERSION):/onnxruntime \
+              -e CUDA_PATH=/usr/local/cuda-11.8 \
+              onnxruntime-extensionscuda11build \
+              /bin/bash -c "
+                set -ex; \
+                pushd /onnxruntime-extensions; \
+                sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86 -DOCOS_ONNXRUNTIME_VERSION="$(ORT_VERSION)" -DONNXRUNTIME_PKG_DIR=/onnxruntime; \
+                popd; \
+                "
+          workingDirectory: $(Build.SourcesDirectory)
+        displayName: build the customop library with onnxruntime
+
+      - task: CmdLine@2
+        inputs:
+          script: |
+            docker run --gpus all --rm \
+              --volume $(Build.SourcesDirectory):/onnxruntime-extensions \
+              --volume $(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ORT_VERSION):/onnxruntime \
+              -e CUDA_PATH=/usr/local/cuda-11.8 \
+              onnxruntime-extensionscuda11build \
+              /bin/bash -c "
+                set -ex; \
+                pushd /onnxruntime-extensions; \
+                cd out/Linux/RelWithDebInfo; \
+                ctest -C RelWithDebInfo --output-on-failure; \
+                popd; \
+                "
+          workingDirectory: $(Build.SourcesDirectory)
+        displayName: Run C++ native tests
+
+      - script: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade setuptools
+          python -m pip install onnxruntime-gpu==$(ORT_VERSION)
+          python -m pip install -r requirements.txt
+        displayName: Install requirements.txt
+
+      - script: |
+          python -m pip install .
+        displayName: Build the library and tests
+
+      - script: python -m pip install $(TORCH_VERSION)
+        displayName: Install pytorch
+
+      - script: |
+          python -m pip install -r requirements-dev.txt
+        displayName: Install requirements-dev.txt
+
+      - script: cd test && python -m pytest . --verbose
+        displayName: Run python test
+
 - stage: WebAssemblyBuilds
   dependsOn: []
   jobs:
