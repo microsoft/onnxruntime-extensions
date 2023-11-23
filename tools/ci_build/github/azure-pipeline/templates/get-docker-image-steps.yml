@@ -28,24 +28,6 @@ parameters:
 
 steps:
 
-- ${{ if contains(parameters.Dockerfile, 'manylinux') }}:
-    - checkout: manylinux
-    - script: |
-        set -e -x
-        mv manylinux onnxruntime-extensions
-        mv onnxruntime-extensions ..
-        cd ..
-        rmdir $(Build.SourcesDirectory)
-        mv onnxruntime-extensions $(Build.SourcesDirectory)
-      displayName: "Move Manylinux source code to ORT-Extensions folder"
-    # It makes the files in context keep consistent before and after docker build step.
-    - task: PythonScript@0
-      inputs:
-        scriptPath: $(Build.SourcesDirectory)/tools/ci_build/patch_manylinux.py
-        arguments: --dockerfile "${{ parameters.Dockerfile }}" --context "${{ parameters.Context }}"
-        pythonInterpreter: /usr/bin/python3
-      displayName: patch manylinux
-
 - script: |
     docker image ls
     docker system df
