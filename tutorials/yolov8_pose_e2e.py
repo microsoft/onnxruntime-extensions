@@ -24,7 +24,9 @@ def get_yolov8_pose_model(onnx_model_name: str):
 
 
 def add_pre_post_processing_to_yolo(input_model_file: Path, output_model_file: Path,
-                                    output_image: bool = False):
+                                    output_image: bool = False,
+                                    decode_input: bool = True,
+                                    input_shape: Optional[List[int | str]] = None):
     """Construct the pipeline for an end2end model with pre and post processing. 
     The final model can take raw image binary as inputs and output the result in raw image file.
 
@@ -35,6 +37,9 @@ def add_pre_post_processing_to_yolo(input_model_file: Path, output_model_file: P
             the keypoints as there's no custom operator to handle that currently.
             If false, the output will have the same shape as the original model, with all the co-ordinates updated
             to match the original input image.
+        decode_input: Input is jpg/png to decode. Alternative is to provide RGB data
+        input_shape: Input shape if RGB data is being provided. Can use symbolic dimensions. Either the first or last
+                     dimension must be 3 to determine if layout is HWC or CHW.
     """
     if not Path(input_model_file).is_file():
         print("Fetching the model...")
@@ -44,24 +49,37 @@ def add_pre_post_processing_to_yolo(input_model_file: Path, output_model_file: P
     model = onnx.load(str(input_model_file.resolve(strict=True)))
     model_with_shape_info = onnx.shape_inference.infer_shapes(model)
 
-    # TEMPORARY TEST of CHW byte input with no use of ConvertImageToBGR
-    # inputs = [create_named_value("image", onnx.TensorProto.UINT8, ["num_bytes"])]
-    inputs = [create_named_value("decoded_image", onnx.TensorProto.UINT8, [3, "in_H", "in_W"])]
-
     model_input_shape = model_with_shape_info.graph.input[0].type.tensor_type.shape
     model_output_shape = model_with_shape_info.graph.output[0].type.tensor_type.shape
 
     # infer the input sizes from the model.
     w_in = model_input_shape.dim[-1].dim_value
     h_in = model_input_shape.dim[-2].dim_value
-    assert(w_in == 640 and h_in == 640)  # expected values
+    assert w_in == 640 and h_in == 640  # expected values
 
     # output is [1, 56, 8400]
     # there are
     classes_masks_out = model_output_shape.dim[1].dim_value
     boxes_out = model_output_shape.dim[2].dim_value
-    assert(classes_masks_out == 56)
-    assert(boxes_out == 8400)
+    assert classes_masks_out == 56
+    assert boxes_out == 8400
+
+    # layout of image prior to Resize and LetterBox being run. post-processing needs to know this to determine where
+    # to get the original H and W from
+    if decode_input:
+        inputs = [create_named_value("image", onnx.TensorProto.UINT8, ["num_bytes"])]
+        # ConvertImageToBGR produces HWC output
+        decoded_image_layout = "HWC"
+    else:
+        assert input_shape and len(input_shape) == 3, "3D input shape is required if decode_input is false."
+        if input_shape[0] == 3:
+            decoded_image_layout = "CHW"
+        elif input_shape[2] == 3:
+            decoded_image_layout = "HWC"
+        else:
+            raise ValueError("Invalid input shape. Either first or last dimension must be 3.")
+
+        inputs = [create_named_value("decoded_image", onnx.TensorProto.UINT8, input_shape)]
 
     onnx_opset = 18
     pipeline = PrePostProcessor(inputs, onnx_opset)
@@ -69,24 +87,27 @@ def add_pre_post_processing_to_yolo(input_model_file: Path, output_model_file: P
     # precess steps are responsible for converting any jpg/png image to CHW BGR float32 tensor
     # jpg-->BGR(Image Tensor)--> Resize (scaled Image)-->LetterBox (Fix sized Image)-->(from HWC to)CHW-->float32-->1CHW
 
-    # layout of image prior to Resize and LetterBox being run. post-processing needs to know this to determine where
-    # to get the original H and W from
-    # Use "HWC" if first step is ConvertImageToBGR
-    decoded_image_layout = "CHW"
+    pre_processing_steps = []
+    if decode_input:
+        pre_processing_steps.append(ConvertImageToBGR(name="ImageHWC"))  # jpg/png image to BGR in HWC layout
+    else:
+        # use Identity if we don't need to call ChannelsLastToChannelsFirst as the next step
+        if decoded_image_layout == "CHW":
+            pre_processing_steps.append(Identity(name="DecodedImageCHW"))
 
-    pipeline.add_pre_processing(
-        [
-            Identity(name="OriginalRGBImage"),
-            # ConvertImageToBGR(name="OriginalImage"),  # jpg/png image to BGR in HWC layout
-            # Resize an arbitrary sized image to a fixed size in not_larger policy
-            Resize((h_in, w_in), policy='not_larger', layout=decoded_image_layout),
-            # padding or cropping the image to (h_in, w_in)
-            LetterBox(target_shape=(h_in, w_in), layout=decoded_image_layout),
-            # ChannelsLastToChannelsFirst(),  # HWC to CHW
-            ImageBytesToFloat(),  # Convert to float in range 0..1
-            Unsqueeze([0]),  # add batch, CHW --> 1CHW
-        ]
-    )
+    if decoded_image_layout == "HWC":
+        pre_processing_steps.append(ChannelsLastToChannelsFirst(name="DecodedImageCHW"))  # HWC to CHW
+
+    pre_processing_steps += [
+        # Resize an arbitrary sized image to a fixed size in not_larger policy
+        Resize((h_in, w_in), policy='not_larger', layout='CHW'),
+        # padding or cropping the image to (h_in, w_in)
+        LetterBox(target_shape=(h_in, w_in), layout='CHW'),
+        ImageBytesToFloat(),  # Convert to float in range 0..1
+        Unsqueeze([0]),  # add batch, CHW --> 1CHW
+    ]
+
+    pipeline.add_pre_processing(pre_processing_steps)
 
     # NMS and drawing boxes
     post_processing_steps = [
@@ -98,7 +119,7 @@ def add_pre_post_processing_to_yolo(input_model_file: Path, output_model_file: P
         # https://github.com/ultralytics/ultralytics/blob/e7bd159a44cf7426c0f33ed9b413ef4439505a03/ultralytics/models/yolo/pose/predict.py#L34-L35
         SelectBestBoundingBoxesByNMS(iou_threshold=0.7, score_threshold=0.25, has_mask_data=True),
         # Scale boxes and key point coords back to original image. Mask data has 17 key points per box.
-        (ScaleNMSBoundingBoxesAndKeyPoints(num_key_points=17, layout=decoded_image_layout),
+        (ScaleNMSBoundingBoxesAndKeyPoints(num_key_points=17, layout='CHW'),
          [
              # A default connection from SelectBestBoundingBoxesByNMS for input 0
              # A connection from original image to ScaleBoundingBoxes
@@ -106,7 +127,7 @@ def add_pre_post_processing_to_yolo(input_model_file: Path, output_model_file: P
              # A connection from the LetterBoxed image to ScaleBoundingBoxes
              # We can use the three images to calculate the scale factor and offset.
              # With scale and offset, we can scale the bounding box and key points back to the original image.
-             utils.IoMapEntry("OriginalRGBImage", producer_idx=0, consumer_idx=1),
+             utils.IoMapEntry("DecodedImageCHW", producer_idx=0, consumer_idx=1),
              utils.IoMapEntry("Resize", producer_idx=0, consumer_idx=2),
              utils.IoMapEntry("LetterBox", producer_idx=0, consumer_idx=3),
         ]),
@@ -139,7 +160,7 @@ def add_pre_post_processing_to_yolo(input_model_file: Path, output_model_file: P
     print("Updated model saved.")
 
 
-def run_inference(onnx_model_file: Path, output_image: bool = False):
+def run_inference(onnx_model_file: Path, output_image: bool = False, model_decodes_image: bool = True):
     import onnxruntime as ort
     import numpy as np
 
@@ -151,14 +172,15 @@ def run_inference(onnx_model_file: Path, output_image: bool = False):
     session = ort.InferenceSession(str(onnx_model_file), providers=providers, sess_options=session_options)
 
     input_image_path = './data/bus.jpg'
-    image_bytes = np.frombuffer(open(input_image_path, 'rb').read(), dtype=np.uint8)
     input_name = [i.name for i in session.get_inputs()]
+    if model_decodes_image:
+        image_bytes = np.frombuffer(open(input_image_path, 'rb').read(), dtype=np.uint8)
+        model_input = {input_name[0]: image_bytes}
+    else:
+        rgb_image = np.array(Image.open(input_image_path).convert('RGB'))
+        rgb_image = rgb_image.transpose((2, 0, 1))  # Channels first
+        model_input = {input_name[0]: rgb_image}
 
-    # TEMPORARY: Test CHW input
-    # model_input = {input_name[0]: image_bytes}
-    rgb_image = np.array(Image.open(input_image_path).convert('RGB'))
-    rgb_image = rgb_image.transpose((2, 0, 1))  # Channels first
-    model_input = {input_name[0]: rgb_image}
     model_output = ['image_out'] if output_image else ['nms_output_with_scaled_boxes_and_keypoints']
     outputs = session.run(model_output, model_input)
 
@@ -225,5 +247,18 @@ if __name__ == '__main__':
     # bounding box is centered XYWH format.
     # alternative is to output the original image with the bounding boxes but no key points drawn.
     output_image_with_bounding_boxes = False
-    add_pre_post_processing_to_yolo(onnx_model_name, onnx_e2e_model_name, output_image_with_bounding_boxes)
-    run_inference(onnx_e2e_model_name, output_image_with_bounding_boxes)
+
+    for model_decodes_image in [True, False]:
+        if model_decodes_image:
+            print("Running with model taking jpg/png as input.")
+        else:
+            print("Running with model taking RGB data as input.")
+
+        input_shape = None
+        if not model_decodes_image:
+            # NOTE: This uses CHW just for the sake of testing both layouts
+            input_shape = [3, "h_in", "w_in"]
+
+        add_pre_post_processing_to_yolo(onnx_model_name, onnx_e2e_model_name, output_image_with_bounding_boxes,
+                                        model_decodes_image, input_shape)
+        run_inference(onnx_e2e_model_name, output_image_with_bounding_boxes, model_decodes_image)

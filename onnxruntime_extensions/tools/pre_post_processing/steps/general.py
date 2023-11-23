@@ -8,25 +8,37 @@ from ..step import Step
 
 class Identity(Step):
     """
-    ONNX Identity
+    ONNX Identity for all inputs to the Step. Used to pass through values as-is to later Steps.
     """
 
-    def __init__(self, name: Optional[str] = None):
+    def __init__(self, num_inputs: int = 1, name: Optional[str] = None):
         """
         Args:
             name: Optional name of step. Defaults to 'Identity'
         """
-        super().__init__(["in"], ["out"], name)
+        super().__init__([f"in_{x}" for x in range(0, num_inputs)],
+                         [f"out_{x}" for x in range(0, num_inputs)],
+                         name)
+        self._num_inputs = num_inputs
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
-        input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
 
+        inputs = []
+        outputs = []
+        identity_nodes = []
+
+        for i in range(0, self._num_inputs):
+            input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, i)
+            inputs.append(f"{input_type_str}[{input_shape_str}] {self.input_names[i]}")
+            outputs.append(f"{input_type_str}[{input_shape_str}] {self.output_names[i]}")
+            identity_nodes.append(f"{self.output_names[i]} =  Identity({self.input_names[i]})")
+
+        identity_node_text = '\n'.join(identity_nodes)
         converter_graph = onnx.parser.parse_graph(
             f"""\
-            identity ({input_type_str}[{input_shape_str}] {self.input_names[0]}) 
-                => ({input_type_str}[{input_shape_str}] {self.output_names[0]})  
+            identities ({', '.join(inputs)}) => ({', '.join(outputs)})  
             {{
-                {self.output_names[0]} =  Identity({self.input_names[0]})
+                {identity_node_text}
             }}
             """
         )

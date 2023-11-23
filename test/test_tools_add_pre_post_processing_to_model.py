@@ -17,8 +17,7 @@ from onnxruntime_extensions import get_library_path
 from onnxruntime_extensions.tools import add_pre_post_processing_to_model as add_ppp
 from onnxruntime_extensions.tools import add_HuggingFace_CLIPImageProcessor_to_model as add_clip_feature
 from onnxruntime_extensions.tools import pre_post_processing as pre_post_processing
-from onnxruntime_extensions.tools.pre_post_processing.steps import *
-
+from onnxruntime_extensions.tools.pre_post_processing import *
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 ort_ext_root = os.path.abspath(os.path.join(script_dir, ".."))
@@ -579,31 +578,34 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
         self.assertEqual((image_ref == output).all(), True)
 
-    def create_pipeline_and_run_for_nms(self, output_model: Path,
-                                        has_conf_value: bool,
-                                        iou_threshold: float = 0.5,
-                                        score_threshold: float = 0.7,
-                                        max_detections: int = 10):
+    def _create_pipeline_and_run_for_nms(self, output_model: Path,
+                                         has_conf_value: bool,
+                                         iou_threshold: float = 0.5,
+                                         score_threshold: float = 0.7,
+                                         max_detections: int = 100,
+                                         max_boxes_per_class: int = 100,
+                                         num_classes: int = 1):
         import onnx
         create_named_value = pre_post_processing.utils.create_named_value
-        length = 6 if has_conf_value else 5
-        inputs = [create_named_value("box_and_score", onnx.TensorProto.FLOAT, ["num_boxes", length])]
+        length = (5 if has_conf_value else 4) + num_classes
+        # [ num_boxes, <4 points for box, optional conf, one score per class> ]
+        inputs = [create_named_value("_input", onnx.TensorProto.FLOAT, ["num_boxes", length])]
 
         onnx_opset = 16
         pipeline = pre_post_processing.PrePostProcessor(inputs, onnx_opset)
 
         if has_conf_value:
             pipeline.add_post_processing([
-                SplitOutBoxAndScoreWithConf(num_classes=1),
+                SplitOutBoxAndScoreWithConf(num_classes=num_classes),
                 SelectBestBoundingBoxesByNMS(iou_threshold=iou_threshold, score_threshold=score_threshold,
-                                             max_detections=max_detections),
+                                             max_boxes_per_class=max_boxes_per_class, max_detections=max_detections),
             ])
         else:
             pipeline.add_post_processing([
-                # split the 4 bounding box co-ords from the single class's score
-                Split(num_outputs=2, axis=-1, splits=[4, 1]),
+                # split the 4 bounding box co-ords from the class scores
+                Split(num_outputs=2, axis=-1, splits=[4, num_classes]),
                 SelectBestBoundingBoxesByNMS(iou_threshold=iou_threshold, score_threshold=score_threshold,
-                                             max_detections=max_detections),
+                                             max_boxes_per_class=max_boxes_per_class, max_detections=max_detections),
             ])
 
         graph_def = onnx.parser.parse_graph(
@@ -624,7 +626,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
     def test_NMS_and_drawing_box_without_confOfObj(self):
         output_model = (self.temp4onnx / "nms.onnx").resolve()
-        self.create_pipeline_and_run_for_nms(output_model, iou_threshold=0.9, has_conf_value=False)
+        self._create_pipeline_and_run_for_nms(output_model, iou_threshold=0.9, has_conf_value=False)
         input_data = [
             [0, 0, 240, 240, 0.75],
             [10, 10, 240, 240, 0.75],
@@ -644,7 +646,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
     def test_NMS_and_drawing_box_with_confOfObj(self):
         output_model = (self.temp4onnx / "nms.onnx").resolve()
-        self.create_pipeline_and_run_for_nms(output_model, iou_threshold=0.9, score_threshold=0.5, has_conf_value=True)
+        self._create_pipeline_and_run_for_nms(output_model, iou_threshold=0.9, score_threshold=0.5, has_conf_value=True)
         input_data = [
             [0, 0, 240, 240, 0.75, 0.9],
             [10, 10, 240, 240, 0.75, 0.9],
@@ -685,12 +687,302 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         idx = 0
         for iou_threshold in [0.9, 0.75, 0.5]:
             for score_threshold in [0.5, 0.8, 0.9]:
-                self.create_pipeline_and_run_for_nms(
+                self._create_pipeline_and_run_for_nms(
                     output_model, iou_threshold=iou_threshold, score_threshold=score_threshold, has_conf_value=True)
                 out = get_model_output()
                 self.assertEqual(out.size, expected_size[idx])
                 idx += 1
-        
+
+    def test_NMS_max_detections(self):
+        def run_test(max_per_class, max_overall):
+
+            output_model = (self.temp4onnx / "nms_max_det.onnx").resolve()
+            self._create_pipeline_and_run_for_nms(output_model, has_conf_value=False, iou_threshold=0.95, num_classes=2,
+                                                  max_boxes_per_class=max_per_class, max_detections=max_overall)
+            input_data = [
+                [25, 25, 10, 10, 0.75, 0.85],
+                [100, 100, 10, 10, 0.91, 0.72],
+                [25, 150, 10, 10, 0.83, 0.93],
+                [150, 150, 10, 10, 0.87, 0.77],
+            ]
+
+            input_data = np.array(input_data, dtype=np.float32)
+
+            num_classes = 2
+            # max results is returning both classes for every bounding box
+            num_to_select = min(max_overall, num_classes * len(input_data))
+            num_selected = 0
+            num_selected_per_class = [0 for i in range(0, num_classes)]
+
+            results_expected = [[] for i in range(0, num_classes)]
+            scores = input_data[:, -2:].copy()  # copy as we set values to 0 as we go along
+            # pick the initial set of results based on score
+            cur_result = 0
+            while num_selected < num_to_select and cur_result < scores.size:
+                cur_result += 1  # we may run out of results before we select enough
+                expected = []
+
+                best_score = scores.max()
+                idx = int(scores.argmax() / num_classes)  # find row best score came from. num_classes entries per row.
+                selected_class = np.where(scores[idx] == best_score)[0][0]  # find index of best score
+                scores[idx][selected_class] = 0.  # set the score to 0 so it doesn't get selected again
+
+                if num_selected_per_class[selected_class] == max_per_class:
+                    continue
+
+                box = np.array(input_data[idx][:4])
+                expected += box.tolist()
+                expected.append(best_score)
+                expected.append(selected_class)
+
+                results_expected[selected_class].append(expected)
+                num_selected_per_class[selected_class] += 1
+                num_selected += 1
+
+            so = ort.SessionOptions()
+            so.register_custom_ops_library(get_library_path())
+            ort_sess = ort.InferenceSession(str(output_model), providers=['CPUExecutionProvider'], sess_options=so)
+
+            # flatten the per-class entries from
+            #   {num_classes, num selected results, result size} to {num_classes * num_results, result size}
+            results_expected = [np.asarray(entry) for entry in results_expected if len(entry) > 0]
+            results_expected = np.concatenate(results_expected).reshape((-1, 6))
+
+            outputs = ort_sess.run(None, {'_input': input_data})
+            results_actual = outputs[0]
+
+            self.assertEqual(results_expected.shape, results_actual.shape)
+            compared = np.isclose(results_expected, results_actual)
+            self.assertTrue(compared.all(),
+                            msg=f"\nExpected={results_expected}\nActual={results_actual}\nCompared={compared}")
+
+        run_test(100, 3)  # max overall trims
+        run_test(1, 100)  # max per class trims
+        run_test(1, 1)  # max per class and max overall trim
+
+    # Create pipeline to run NMS and scaling.
+    # Scaling should handle converting back to co-ordinates in the original image that was resized and letterboxed
+    def _create_pipeline_and_run_for_nms_and_scaling(self, output_model: Path,
+                                                     orig_image_shape: List[int],  # 3 dims, HWC or CHW
+                                                     resized_image_shape: List[int],
+                                                     letterboxed_image_shape: List[int],
+                                                     num_classes: int = 1,
+                                                     has_key_points: bool = False,
+                                                     key_points_have_conf: bool = False,
+                                                     ):
+
+        # channels are 3 so infer layout from shape
+        layout = "HWC" if orig_image_shape[-1] == 3 else "CHW"
+
+        mask_data_size = 0
+        if has_key_points:
+            # 3 results of x and y. optional conf in each result
+            mask_data_size = 3 * (3 if key_points_have_conf else 2)
+
+        result_data_size = 4 + num_classes + mask_data_size
+
+        # create graph to provide outputs for post-processing
+        inputs = [utils.create_named_value("results", onnx.TensorProto.FLOAT, ["num_boxes", result_data_size]),
+                  utils.create_named_value("orig_img", onnx.TensorProto.UINT8, orig_image_shape),
+                  utils.create_named_value("resized_img", onnx.TensorProto.UINT8, resized_image_shape),
+                  utils.create_named_value("letterboxed_img", onnx.TensorProto.UINT8, letterboxed_image_shape),
+                  ]
+
+        graph_input_strings = [f"float[num_boxes, {result_data_size}] results",
+                               f"uint8[{','.join([str(i) for i in orig_image_shape])}] orig_img",
+                               f"uint8[{','.join([str(i) for i in resized_image_shape])}] resized_img",
+                               f"uint8[{','.join([str(i) for i in letterboxed_image_shape])}] letterboxed_img",
+                               ]
+
+        graph_output_strings = [s + "_out" for s in graph_input_strings]
+        graph_nodes = "\n".join([f"{input.name}_out = Identity({input.name})" for input in inputs])
+
+        onnx_opset = 16
+
+        graph_text = \
+            f"""pass_through ({', '.join(graph_input_strings)}) => ({', '.join(graph_output_strings)})             
+            {{
+                {graph_nodes}
+            }}"""
+
+        graph_def = onnx.parser.parse_graph(graph_text)
+
+        onnx_import = onnx.helper.make_operatorsetid('', onnx_opset)
+        ir_version = onnx.helper.find_min_ir_version_for([onnx_import])
+        input_model = onnx.helper.make_model_gen_version(graph_def, opset_imports=[onnx_import], ir_version=ir_version)
+
+        # if there is mask data containing keypoints we need to split that out
+        splits = [4, num_classes]
+        if has_key_points:
+            splits.append(mask_data_size)
+
+        pipeline = pre_post_processing.PrePostProcessor(inputs, onnx_opset)
+
+        post_processing = [
+            # pass through model inputs via a Step so the original, resized and letterboxed shapes are available
+            # to use in the IoMapEntry for scaling
+            Identity(num_inputs=4, name="InputsPassThrough"),
+            Split(num_outputs=len(splits), axis=1, splits=splits),
+            SelectBestBoundingBoxesByNMS(iou_threshold=0.7, score_threshold=0.25, has_mask_data=has_key_points),
+            # Scale boxes and key point coords back to original image. Mask data has 3 key points per box.
+            (ScaleNMSBoundingBoxesAndKeyPoints(num_key_points=3, layout=layout),
+             [
+                 # A default connection from SelectBestBoundingBoxesByNMS for input 0
+                 # A connection from original image
+                 # A connection from the resized image
+                 # A connection from the LetterBoxed image
+                 # We use the images to calculate the scale factor and offset.
+                 # With scale and offset, we can scale the bounding box and key points back to the original image.
+                 utils.IoMapEntry("InputsPassThrough", producer_idx=1, consumer_idx=1),
+                 utils.IoMapEntry("InputsPassThrough", producer_idx=2, consumer_idx=2),
+                 utils.IoMapEntry("InputsPassThrough", producer_idx=3, consumer_idx=3),
+             ]),
+        ]
+
+        pipeline.add_post_processing(post_processing)
+
+        new_model = pipeline.run(input_model)
+        onnx.save_model(new_model, str(output_model))
+
+    def _run_nms_scaling_test(self, channels_last: bool = True, num_classes: int = 1,
+                              has_key_points: bool = False, key_points_have_conf: bool = False):
+        model_name = (f"nms_{'HWC' if channels_last else 'CHW'}_c{num_classes}_"
+                      f"kp{has_key_points}_kpc{key_points_have_conf}")
+        output_model = (self.temp4onnx / f"{model_name}.onnx").resolve()
+
+        if channels_last:
+            h_dim, w_dim = 0, 1
+            orig_image_shape = [400, 500, 3]  # HWC
+            resized_image_shape = [320, 400, 3]  # Resize to not_smaller 400 x 400
+            letterboxed_image_shape = [400, 400, 3]  # letterbox to 400 x 400
+        else:
+            h_dim, w_dim = 1, 2
+            orig_image_shape = [3, 400, 500]
+            resized_image_shape = [3, 320, 400]
+            letterboxed_image_shape = [3, 400, 400]
+
+        scale_ratio = 500 / 400  # we kept the aspect ratio
+        # width and height padding to apply to first 2 points of box as format is XYWH
+        # / 2 as we
+        half_pad_h = (letterboxed_image_shape[h_dim] - resized_image_shape[h_dim]) / 2
+        half_pad_w = (letterboxed_image_shape[w_dim] - resized_image_shape[w_dim]) / 2
+        letterbox_padding = np.array([half_pad_w, half_pad_h, 0, 0], dtype=np.float32)
+
+        # default score threshold is 0.25 so this will ensure no results are thrown away due to the score
+        np.random.seed(123)
+        # scores0 = np.random.uniform(low=0.5, high=1.0, size=num_classes)
+        # scores1 = scores0 - 0.1  # first result should win if picking a single result and be first in NMS output
+        # scores = [scores0, scores1]
+        scores = np.random.uniform(low=0.5, high=1.0, size=(2, num_classes))
+
+        if has_key_points:
+            if key_points_have_conf:
+                keypoints = [[5., 5., .8, 10., 10., .8, 60., 60., .9],
+                             [60., 60., .9, 80., 80., .6, 150., 120., .5]]
+            else:
+                keypoints = [[5., 5., 10., 10., 60., 60.],
+                             [60., 60., 80., 80., 150., 120.]]
+        else:
+            keypoints = [[], []]
+
+        # 4 for box, num_classes scores, key point data
+        input_data = [
+            [50., 50., 100., 100., *scores[0], *keypoints[0]],
+            [80., 80., 100., 100., *scores[1], *keypoints[1]],
+        ]
+        input_data = np.array(input_data, dtype=np.float32)
+
+        model_inputs = {
+            "results": input_data,
+            "orig_img": np.ones(orig_image_shape, dtype=np.uint8),
+            "resized_img": np.ones(resized_image_shape, dtype=np.uint8),
+            "letterboxed_img": np.ones(letterboxed_image_shape, dtype=np.uint8),
+        }
+
+        # for each result, manually scale box and keypoints to validate. check for correct class and score info.
+        # we aren't limiting results based on max classes per box or max overall matches so we expect all classes
+        # to be returned as results for both bounding boxes.
+        # the NMS output is sorted by class first and score second, so we assemble the results on a per-class basis
+        # and flatten to compare with the actual results
+        results_expected = [[] for i in range(0, num_classes)]
+        num_selected = 0
+        while num_selected < num_classes * len(input_data):
+            expected = []
+
+            best_score = scores.max()
+            idx = int(scores.argmax() / num_classes)  # find row best score came from. num_classes entry per row.
+
+            box = np.array(input_data[idx][:4])
+            box -= letterbox_padding
+            box *= scale_ratio
+            expected += box.tolist()
+
+            selected_class = np.where(scores[idx] == best_score)[0][0]  # find index of best score
+            expected.append(best_score)
+            expected.append(selected_class)
+
+            # set the score to 0 so it doesn't get selected again
+            scores[idx][selected_class] = 0.
+
+            # keypoints
+            values_per_entry = 3 if key_points_have_conf else 2
+            for kp_idx, kp in enumerate(input_data[idx][4 + num_classes:]):
+
+                if kp_idx % values_per_entry == 0:
+                    # x coord
+                    expected.append((kp - letterbox_padding[0]) * scale_ratio)
+                elif kp_idx % values_per_entry == 1:
+                    # y coord
+                    expected.append((kp - letterbox_padding[1]) * scale_ratio)
+                else:
+                    assert key_points_have_conf
+                    # confidence score should match input
+                    expected.append(keypoints[idx][kp_idx])
+
+            results_expected[selected_class].append(expected)
+            num_selected += 1
+
+        self._create_pipeline_and_run_for_nms_and_scaling(
+            output_model, orig_image_shape, resized_image_shape, letterboxed_image_shape,
+            num_classes, has_key_points, key_points_have_conf)
+
+        so = ort.SessionOptions()
+        so.register_custom_ops_library(get_library_path())
+        ort_sess = ort.InferenceSession(str(output_model), providers=['CPUExecutionProvider'], sess_options=so)
+
+        outputs = ort_sess.run(None, model_inputs)
+        results_actual = outputs[0]
+        # flatten the per-class entries. we are returning results for all classes of both bounding boxes so should be
+        # equal to scores.size
+        #   {num_classes, num results, result size} to {num_classes * num_results, result size}
+        results_expected = np.asarray(results_expected).reshape((scores.size, -1))
+        self.assertEqual(results_expected.shape, results_actual.shape)
+
+        compared = np.isclose(results_expected, results_actual)
+        self.assertTrue(compared.all(),
+                        msg=f"\nExpected={results_expected}\nActual={results_actual}\nCompared={compared}")
+
+    def test_NMS_with_scaling_and_keypoints(self):
+        """
+        Test selecting bounding boxes with NMS and scaling the results.
+        Include testing of when there are key points in mask data in the results (used by pose models)
+        """
+        for channels_last in [True, False]:
+            for num_classes in [1, 4]:
+                for has_key_points in [True, False]:
+                    # it only makes sense to have keypoints when there's a single class as the keypoints are
+                    # per bounding box. e.g. if you have a bounding box and classes of person and dog, each class would
+                    # require totally different keypoints
+                    if not has_key_points or num_classes == 1:
+                        msg = (f"Running test with layout={'HWC' if channels_last else 'CHW'} "
+                               f"num_classes={num_classes} has_key_points={has_key_points}")
+                        print(msg)
+                        self._run_nms_scaling_test(channels_last, num_classes, has_key_points)
+                        if has_key_points:
+                            key_points_have_conf = True
+                            print(msg + " key_points_have_conf=True")
+                            self._run_nms_scaling_test(channels_last, num_classes, has_key_points, key_points_have_conf)
+
     def test_FastestDet(self):
         # https://github.com/dog-qiuqiu/FastestDet
         # a minor fix is to accommodate output with yolo output format, including bounding box regression inside.
