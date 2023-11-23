@@ -84,9 +84,6 @@ def add_pre_post_processing_to_yolo(input_model_file: Path, output_model_file: P
     onnx_opset = 18
     pipeline = PrePostProcessor(inputs, onnx_opset)
 
-    # precess steps are responsible for converting any jpg/png image to CHW BGR float32 tensor
-    # jpg-->BGR(Image Tensor)--> Resize (scaled Image)-->LetterBox (Fix sized Image)-->(from HWC to)CHW-->float32-->1CHW
-
     pre_processing_steps = []
     if decode_input:
         pre_processing_steps.append(ConvertImageToBGR(name="ImageHWC"))  # jpg/png image to BGR in HWC layout
@@ -112,7 +109,7 @@ def add_pre_post_processing_to_yolo(input_model_file: Path, output_model_file: P
     # NMS and drawing boxes
     post_processing_steps = [
         Squeeze([0]),  # - Squeeze to remove batch dimension from [batch, 56, 8200] output
-        Transpose([1, 0]),  # reverse so box (4)/score (1)/mask (56) is inner dim
+        Transpose([1, 0]),  # reverse so result info is inner dim
         # split the 56 elements into the box, score for the 1 class, and mask info (17 locations x 3 values)
         Split(num_outputs=3, axis=1, splits=[4, 1, 51]),
         # Apply NMS to select best boxes. iou and score values match
@@ -122,10 +119,10 @@ def add_pre_post_processing_to_yolo(input_model_file: Path, output_model_file: P
         (ScaleNMSBoundingBoxesAndKeyPoints(num_key_points=17, layout='CHW'),
          [
              # A default connection from SelectBestBoundingBoxesByNMS for input 0
-             # A connection from original image to ScaleBoundingBoxes
-             # A connection from the resized image to ScaleBoundingBoxes
-             # A connection from the LetterBoxed image to ScaleBoundingBoxes
-             # We can use the three images to calculate the scale factor and offset.
+             # A connection from original image to input 1
+             # A connection from the resized image to input 2
+             # A connection from the LetterBoxed image to input 3
+             # We use the three images to calculate the scale factor and offset.
              # With scale and offset, we can scale the bounding box and key points back to the original image.
              utils.IoMapEntry("DecodedImageCHW", producer_idx=0, consumer_idx=1),
              utils.IoMapEntry("Resize", producer_idx=0, consumer_idx=2),

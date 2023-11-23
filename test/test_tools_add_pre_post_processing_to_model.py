@@ -19,6 +19,7 @@ from onnxruntime_extensions.tools import add_HuggingFace_CLIPImageProcessor_to_m
 from onnxruntime_extensions.tools import pre_post_processing as pre_post_processing
 from onnxruntime_extensions.tools.pre_post_processing import *
 
+
 script_dir = os.path.dirname(os.path.realpath(__file__))
 ort_ext_root = os.path.abspath(os.path.join(script_dir, ".."))
 test_data_dir = os.path.join(ort_ext_root, "test", "data", "ppp_vision")

@@ -641,8 +641,7 @@ class DrawBoundingBoxes(Step):
     """
 
     def __init__(self, mode: str = "XYXY", thickness: int = 4, num_classes: int = 10,
-                 colour_by_classes = False, layout: str = "HWC",
-                 name: Optional[str] = None):
+                 colour_by_classes=False, name: Optional[str] = None):
         """
         Args:
             mode: The mode of the boxes, 
@@ -662,7 +661,6 @@ class DrawBoundingBoxes(Step):
                                `num_colours` classes displayed. A colour is only used for a single class. 
                                If `False`, we draw boxes for the top `num_colours` results. A colour is used 
                                for a single result, regardless of class.
-            layout: Layout of input images. HWC or CHW. Required to know where to read the H and W values from.
             name: Optional name of step. Defaults to 'DrawBoundingBoxes'
         """
         super().__init__(["image", "boxes"], ["image_out"], name)
@@ -670,11 +668,6 @@ class DrawBoundingBoxes(Step):
         self.num_classes_ = num_classes
         self.colour_by_classes_ = colour_by_classes
         self.mode_ = mode
-
-        if layout != "HWC" and layout != "CHW":
-            raise ValueError("Invalid layout. Only HWC and CHW are supported")
-
-        self.layout_ = layout
 
     def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int):
         input0_type_str, input0_shape_str = self._get_input_type_and_shape_strs(graph, 0)
@@ -822,12 +815,12 @@ class SplitOutBoxAndScoreWithConf(Step):
             f"""\
             SplitOutBoxConfidenceAndScore (float[{input0_shape_str}] {self.input_names[0]}) 
                 => (float[{target_shape_str_0}] {self.output_names[0]}, 
-                    float[{target_shape_str_1}] {self.output_names[1]})  
-            {{               
-                split_sizes = Constant <value = int64[3] {{4, 1, {self.num_classes_}}}>()            
+                    float[{target_shape_str_1}] {self.output_names[1]})
+            {{
+                split_sizes = Constant <value = int64[3] {{4, 1, {self.num_classes_}}}>()
                 {self.output_names[0]}, conf, orig_scores = Split <axis=-1>({self.input_names[0]}, split_sizes)
-                
-                scores_with_conf = Mul(orig_scores, conf)                
+
+                scores_with_conf = Mul(orig_scores, conf)
                 {self.output_names[1]} = Identity (scores_with_conf)
             }}
             """
@@ -837,7 +830,7 @@ class SplitOutBoxAndScoreWithConf(Step):
 
 class SelectBestBoundingBoxesByNMS(Step):
     """
-    Non-maximum suppression (NMS) is to select best bounding boxes.
+    Non-maximum suppression (NMS) is to select the best bounding boxes.
     Input:
         boxes: float[num_boxes, 4]
         scores: float[num_boxes, num_classes]
@@ -999,7 +992,7 @@ class ScaleNMSBoundingBoxesAndKeyPoints(Step):
 
     Input image goes through Resize and LetterBox steps during pre-processing (in that order), and the output of this
     is what the original model runs against.
-    To display the predictions on the original image we need to apply the reserve size changes to the co-ordinates 
+    To display the predictions on the original image we need to apply the reverse size changes to the co-ordinates 
     of the bounding boxes.
 
     nms_step_output inner dimension has 4 values for the bounding box, 1 for the score, 1 for the selected class,
@@ -1010,9 +1003,9 @@ class ScaleNMSBoundingBoxesAndKeyPoints(Step):
 
     input:
         nms_step_output: output of SelectBestBoundingBoxesByNMS Step, shape [num_boxes, 6+]
-        original_image: original image decoded from jpg/png, <uint8_t>[H, W, 3]
-        resized_image: output from Resize pre-processing Step, <uint8_t>[H1, W1, 3]
-        letter_boxed_image: output from LetterBox pre-processing Step, <uint8_t>[H2, W3, 3]
+        original_image: original image decoded from jpg/png, <uint8_t>[H, W, 3] or [3, H, W]
+        resized_image: output from Resize pre-processing Step, <uint8_t>[H1, W1, 3] or [3, H1, W1]
+        letter_boxed_image: output from LetterBox pre-processing Step, <uint8_t>[H2, W2, 3] or [3, H2, W2]
         num_key_points: number of key points in each mask data entry, if present. optional.
     
     output:

@@ -4,7 +4,7 @@ Module pre_post_processing.steps.nlp
 Classes
 -------
 
-`BertTokenizer(tokenizer_param: pre_post_processing.steps.nlp.TokenizerParam, name: Optional[str] = None)`
+`BertTokenizer(tokenizer_param: pre_post_processing.steps.nlp.TokenizerParam, need_token_type_ids_output: bool = False, name: Optional[str] = None)`
 :   Base class for a pre or post processing step.
     
     Brief: This step is used to convert the input text into the input_ids, attention_mask, token_type_ids.
@@ -18,6 +18,8 @@ Classes
                                              )
     
         name: Optional name of step. Defaults to 'BertTokenizer'
+        need_token_type_ids_output: last outout `token_type_ids` is not required in some Bert based models. (e.g. DistilBert, etc.) can optionally
+                                    choose to add it in graph for step.
 
     ### Ancestors (in MRO)
 

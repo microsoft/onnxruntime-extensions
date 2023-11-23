@@ -35,8 +35,10 @@ Classes
 
     * pre_post_processing.step.Debug
     * pre_post_processing.steps.general.ArgMax
+    * pre_post_processing.steps.general.Identity
     * pre_post_processing.steps.general.ReverseAxis
     * pre_post_processing.steps.general.Softmax
+    * pre_post_processing.steps.general.Split
     * pre_post_processing.steps.general.Squeeze
     * pre_post_processing.steps.general.Transpose
     * pre_post_processing.steps.general.Unsqueeze
@@ -53,9 +55,9 @@ Classes
     * pre_post_processing.steps.vision.Normalize
     * pre_post_processing.steps.vision.PixelsToYCbCr
     * pre_post_processing.steps.vision.Resize
-    * pre_post_processing.steps.vision.ScaleBoundingBoxes
+    * pre_post_processing.steps.vision.ScaleNMSBoundingBoxesAndKeyPoints
     * pre_post_processing.steps.vision.SelectBestBoundingBoxesByNMS
-    * pre_post_processing.steps.vision.SplitOutBoxAndScore
+    * pre_post_processing.steps.vision.SplitOutBoxAndScoreWithConf
     * pre_post_processing.steps.vision.YCbCrToPixels
 
     ### Class variables
