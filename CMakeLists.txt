@@ -64,6 +64,7 @@ option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
 option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
 option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" OFF)
+option(OCOS_ENABLE_CONTRIB "Enable the contrib operators" ON)
 
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
@@ -337,8 +338,17 @@ if(OCOS_ENABLE_MATH)
     file(GLOB TARGET_SRC_MATH_CUDA "operators/math/cuda/*.*")
     list(APPEND TARGET_SRC_MATH ${TARGET_SRC_MATH_CUDA})
   endif()
-  
+
   list(APPEND TARGET_SRC ${TARGET_SRC_MATH} ${TARGET_SRC_DLIB} ${TARGET_SRC_INVERSE})
+endif()
+
+if (OCOS_ENABLE_CONTRIB)
+  file(GLOB TARGET_SRC_CONTRIB "operators/contrib/*.cc" "operators/contrib/*.h*")
+  if (OCOS_USE_CUDA)
+    file(GLOB TARGET_SRC_CONTRIB_CUDA "operators/contrib/cuda/*.*")
+    list(APPEND TARGET_SRC_CONTRIB ${TARGET_SRC_CONTRIB_CUDA})
+  endif()
+  list(APPEND TARGET_SRC ${TARGET_SRC_CONTRIB})
 endif()
 
 # enable the opencv dependency if we have ops that require it
@@ -598,6 +608,10 @@ endif()
 
 if(OCOS_ENABLE_CV2)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_CV2)
+endif()
+
+if(OCOS_ENABLE_CONTRIB)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_CONTRIB)
 endif()
 
 if(OCOS_ENABLE_VISION)

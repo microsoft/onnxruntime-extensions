@@ -133,3 +133,7 @@ extern FxLoadCustomOpFactory LoadCustomOpClasses_Audio;
 #if ENABLE_AZURE
 extern FxLoadCustomOpFactory LoadCustomOpClasses_Azure;
 #endif
+
+#if ENABLE_CONTRIB
+extern FxLoadCustomOpFactory LoadCustomOpClasses_Contrib;
+#endif

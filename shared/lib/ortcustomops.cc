@@ -162,7 +162,10 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
 #if defined(ENABLE_DR_LIBS)
     LoadCustomOpClasses_Audio,
 #endif
-    LoadCustomOpClasses<>
+#if ENABLE_CONTRIB
+    LoadCustomOpClasses_Contrib,
+#endif
+    LoadCustomOpClasses<>,
   };
 
   for (const auto& fx : c_factories) {
