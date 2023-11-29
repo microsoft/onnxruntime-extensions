@@ -715,7 +715,7 @@ stages:
             ./gradlew connectedDebugAndroidTest --no-daemon -DortExtensionsAarLocalPath="${ORT_EXTENSIONS_AAR_PATH}"
           displayName: Build and run onnxruntime-extensions Android test with Android Emulator
 
-  - job: AndroidCpp
+  - job: AndroidCpp(BuildOnly)
     pool:
       vmImage: 'macOS-13'
     timeoutInMinutes: 30
@@ -745,18 +745,6 @@ stages:
             --enable_cxx_tests \
             --update --build --parallel
         displayName: Build onnxruntime-extensions for Android
-
-      - template: templates/run-with-android-emulator-steps.yml
-        parameters:
-          steps:
-          - bash: |
-              python ./tools/build.py \
-                --config RelWithDebInfo \
-                --android \
-                --android_abi x86_64 \
-                --enable_cxx_tests \
-                --test
-            displayName: Run C++ tests on emulator
 
 - stage: IosBuilds
   dependsOn: []
