@@ -90,7 +90,7 @@ class BpeModel {
         continue;  // safe purpose.
       }
       if (i > id2token_map_.size()) {
-        id2token_map_.resize(i + 1);
+        id2token_map_.resize(static_cast<size_t>(i) + 1);
       }
       id2token_map_[i] = t;
     }
