@@ -6,5 +6,5 @@
 #include <cuda_runtime.h>
 
 template <typename T>
-cudaError_t LaunchFastGeluKernel(const cudaDeviceProp& prop, cudaStream_t stream, int input_length, int bias_length,
+cudaError_t LaunchFastGeluKernel(cudaStream_t stream, int input_length, int bias_length,
                                  const T* input, const T* bias, T* output, bool use_half2);

@@ -12,7 +12,6 @@ __device__ __inline__ float _Tanh(float a) { return tanhf(a); }
 
 /////////////////////////////////////////////////////////////////////////
 
-
 constexpr float A = 0.5f;
 
 constexpr float B = 0.7978845608028654f;  // sqrt(2.0/M_PI)
@@ -33,8 +32,8 @@ __global__ void FastGeluKernel(const T a, const T b, const T c, int input_length
 }
 
 template <>
-cudaError_t LaunchFastGeluKernel(const cudaDeviceProp& prop, cudaStream_t stream, int input_length, int bias_length,
-                            const float* input, const float* bias, float* output, bool /*use_half2*/) {
+cudaError_t LaunchFastGeluKernel(cudaStream_t stream, int input_length, int bias_length,
+                                 const float* input, const float* bias, float* output, bool /*use_half2*/) {
   constexpr int blockSize = 256;
   const int gridSize = (input_length + blockSize - 1) / blockSize;
   FastGeluKernel<float, blockSize><<<gridSize, blockSize, 0, stream>>>(A, B, C, input_length, bias_length,
