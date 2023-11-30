@@ -3,6 +3,7 @@ import unittest
 import os
 import base64
 import numpy as np
+import onnx
 from numpy.testing import assert_almost_equal, assert_equal
 from onnx import helper, onnx_pb as onnx_proto
 from transformers import AutoTokenizer
@@ -281,6 +282,29 @@ def _create_test_model_sentencepiece_fairseq(
     model = make_onnx_model(graph)
     return model
 
+def _create_test_model_sentencepiece_fairseq_decoder(
+        model, domain='ai.onnx.contrib'):
+    nodes = []
+    mkv = helper.make_tensor_value_info
+    nodes.append(helper.make_node(
+        'SentencepieceDecoder',
+        inputs=['ids', 'fairseq'],
+        outputs=['str'],
+        model=model,
+        name='SentencepieceDecodeOpName',
+        domain='ai.onnx.contrib'
+    ))
+    inputs = [
+        mkv('ids', onnx.TensorProto.INT64, [None]),
+        mkv('fairseq', onnx_proto.TensorProto.BOOL, [None])
+    ]
+
+    graph = helper.make_graph(
+        nodes, 'test0', inputs, [
+            mkv('str', onnx_proto.TensorProto.STRING, [None])
+        ])
+    model = make_onnx_model(graph)
+    return model
 
 @unittest.skipIf(not _is_tensorflow_available, "tensorflow/tensorflow-text is unavailable")
 class TestPythonOpSentencePiece(unittest.TestCase):
@@ -486,8 +510,11 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         ids = tokenizer.encode(text, return_tensors="np")
         model = util.read_file(tokenizer.vocab_file, 'rb')
         cc_onnx_model = _create_test_model_sentencepiece_fairseq(model)
+        cc_decoder_onnx_model = _create_test_model_sentencepiece_fairseq_decoder(model)
         self.assertIn('op_type: "SentencepieceTokenizer"', str(cc_onnx_model))
+        self.assertIn('op_type: "SentencepieceDecoder"', str(cc_decoder_onnx_model))
         cc_sess = _ort.InferenceSession(cc_onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
+        cc_decoder_sess = _ort.InferenceSession(cc_decoder_onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
 
         inputs = dict(
             model=model,
@@ -503,7 +530,16 @@ class TestPythonOpSentencePiece(unittest.TestCase):
             fairseq=np.array([True], dtype=np.bool_))
         del inputs['model']
         cc_txout = cc_sess.run(None, inputs)
+        
+        decoder_inputs = dict(
+            ids=np.array(
+                cc_txout[0],
+                dtype=np.int64),
+            fairseq=np.array([True], dtype=np.bool_))
+        cc_decoder_out = cc_decoder_sess.run(None, decoder_inputs)
+        
         assert_equal(ids[0], cc_txout[0])
+        assert_equal(text, cc_decoder_out[0])
         assert_equal(cc_txout[2], [0, 0, 3, 4, 10, 17, 21, 29, 37, 38])
 
 

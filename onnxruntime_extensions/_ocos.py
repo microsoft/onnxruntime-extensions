@@ -5,11 +5,34 @@
 """
 _ocos.py: PythonOp implementation
 """
-
+import os
 import sys
 import copy
+import glob
 import onnx
 from onnx import helper
+
+
+def _search_cuda_dir():
+    paths = os.getenv('PATH', '').split(os.pathsep)
+    for path in paths:
+        for filename in glob.glob(os.path.join(path, 'cudart64*.dll')):
+            return os.path.dirname(filename)
+
+    return None
+
+
+if sys.platform == 'win32':
+    from . import _version  # noqa: E402
+    if hasattr(_version, 'cuda'):
+        cuda_path = _search_cuda_dir()
+        if cuda_path is None:
+            raise RuntimeError(
+                "Cannot locate CUDA directory in the environment variable for GPU package")
+
+        os.add_dll_directory(cuda_path)
+
+
 from ._extensions_pydll import (  # noqa
     PyCustomOpDef, enable_py_op, add_custom_op, hash_64, default_opset_domain)
 
@@ -65,7 +88,7 @@ class Opdef:
         if attrs is None:
             attrs = {}
         elif isinstance(attrs, (list, tuple)):
-                attrs = {k: PyCustomOpDef.dt_string for k in attrs}
+            attrs = {k: PyCustomOpDef.dt_string for k in attrs}
         opdef._nativedef.attrs = attrs
         add_custom_op(opdef._nativedef)
         return opdef
@@ -115,7 +138,8 @@ def _ensure_opset_domain(model):
             domain_missing = False
 
     if domain_missing:
-        model.opset_import.extend([helper.make_operatorsetid(op_domain_name, 1)])
+        model.opset_import.extend(
+            [helper.make_operatorsetid(op_domain_name, 1)])
 
     return model
 
@@ -130,7 +154,8 @@ def expand_onnx_inputs(model, target_input, extra_nodes, new_inputs):
     :return: The ONNX model after modification
     """
     graph = model.graph
-    new_inputs = [n for n in graph.input if n.name != target_input] + new_inputs
+    new_inputs = [n for n in graph.input if n.name !=
+                  target_input] + new_inputs
     new_nodes = list(model.graph.node) + extra_nodes
     new_graph = helper.make_graph(
         new_nodes, graph.name, new_inputs, list(graph.output), list(graph.initializer))
@@ -179,7 +204,8 @@ def hook_model_op(model, node_name, hook_func, input_types):
     del hkd_model.graph.node[:]
     hkd_model.graph.node.extend(repacked)
 
-    Opdef.create(hook_func, op_type=optype_name, inputs=input_types, outputs=input_types)
+    Opdef.create(hook_func, op_type=optype_name,
+                 inputs=input_types, outputs=input_types)
     return _ensure_opset_domain(hkd_model)
 
 
