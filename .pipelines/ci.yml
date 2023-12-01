@@ -521,9 +521,6 @@ stages:
           ctest -C RelWithDebInfo --output-on-failure
         displayName: Run C++ native tests
 
-- stage: WindowsCUDAPython
-  dependsOn: []
-  jobs:
   - job: WindowsPyCUDA
     pool:
       name: 'onnxruntime-extensions-Win2022-GPU-A10'
@@ -549,15 +546,16 @@ stages:
 
       - script: |
           set CUDA_PATH=$(Agent.TempDirectory)\v11.8
+          set CUDAARCHS=86
           python -m pip install --upgrade setuptools pip
-          python -m pip install numpy
+          python -m pip install numpy coloredlogs flatbuffers packaging protobuf sympy
           python -m pip install -U --index-url https://pkgs.dev.azure.com/aiinfra/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ ort-nightly-gpu
           python -m pip install -v --config-settings "ortx-user-option=use-cuda" .
         displayName: Build and install onnxruntime-extensions CUDA package.
 
       - script: |
           python -m pip install -r requirements-dev.txt
-          python -m pip install torch torchvision torchaudio
+          python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
         displayName: Install dependencies for Python unit tests
 
       - script: |

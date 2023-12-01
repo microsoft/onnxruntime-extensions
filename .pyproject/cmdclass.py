@@ -193,6 +193,9 @@ class CmdBuildCMakeExt(_build_ext):
             cuda_flag = "OFF" if self.use_cuda == 0 else "ON"
             cmake_args += ['-DOCOS_USE_CUDA=' + cuda_flag]
             print("=> CUDA build flag: " + cuda_flag)
+            if sys.platform == "win32":
+                cuda_path = os.environ.get("CUDA_PATH")
+                cmake_args += [f'-T cuda={cuda_path}']
             cuda_ver = _load_cuda_version()
             if cuda_ver is None:
                 raise RuntimeError(
