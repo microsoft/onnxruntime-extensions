@@ -19,11 +19,11 @@ class TestCudaOps(unittest.TestCase):
         ]
 
         input0 = helper.make_tensor_value_info(
-            'x', onnx_proto.TensorProto.FLOAT, [])
+            'x', onnx_proto.TensorProto.FLOAT, [None, None])
         output1 = helper.make_tensor_value_info(
-            'neg', onnx_proto.TensorProto.FLOAT, [])
+            'neg', onnx_proto.TensorProto.FLOAT, [None, None])
         output2 = helper.make_tensor_value_info(
-            'pos', onnx_proto.TensorProto.FLOAT, [])
+            'pos', onnx_proto.TensorProto.FLOAT, [None, None])
 
         graph = helper.make_graph(nodes, 'test0', [input0], [output1, output2])
         model = make_onnx_model(graph)
