@@ -10,7 +10,7 @@
 FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
   static OrtOpLoader op_loader(
 #ifdef USE_CUDA
-                               CustomCpuStructV2("FastGelu", contrib::FastGelu<float>)
+                               CustomCudaStructV2("FastGelu", contrib::FastGelu<float>)
 #endif
                                );
   return op_loader.GetCustomOps();
