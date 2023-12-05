@@ -10,8 +10,6 @@ __device__ __inline T _Tanh(T a);
 template <>
 __device__ __inline__ float _Tanh(float a) { return tanhf(a); }
 
-/////////////////////////////////////////////////////////////////////////
-
 constexpr float A = 0.5f;
 
 constexpr float B = 0.7978845608028654f;  // sqrt(2.0/M_PI)
