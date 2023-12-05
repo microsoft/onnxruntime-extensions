@@ -25,17 +25,14 @@ print("Loading model...")
 #model=og.Llama_Model("../../test_models/llama2-7b-fp16-gpu/rank_0_Llama-2-7b-hf_decoder_merged_model_fp16.onnx", device_type)
 #model=og.Llama_Model("../../test_models/llama2-7b-int4-gpu/rank_0_Llama-2-7b-hf_decoder_merged_model_int4.onnx", device_type)
 #model=og.Model("../../test_models/llama2-7b-chat-int4-gpu", device_type)
-model=og.Model("../../test_models/hf-internal-testing/tiny-random-gpt2-fp16/", device_type)
+model=og.Model("../../test_models/llama2-7b-fp32-cpu/", device_type)
 print("Model loaded")
 
 # Keep asking for input prompts in an loop
 while True:
     text = input("Input:")
-    input_tokens = tokenizer.encode(text, return_tensors='np')
-    ort_ext_ids = ort_tok([text])[0]
-    np.testing.assert_array_equal(input_tokens[0], ort_ext_ids)
-    print("Huggingface Tokenized Input IDs: " + str(input_tokens))
-    print("ORT Extensions Tokenized Input IDs: " + str(ort_ext_ids))
+    input_tokens = ort_tok([text])[0]
+    print("ORT Extensions Tokenized Input IDs: " + str(input_tokens))
 
     params=og.SearchParams(model)
     params.max_length = 128
