@@ -617,7 +617,7 @@ stages:
         displayName: Install requirements.txt
 
       - script: |
-          python -m pip install .
+          python -m pip install -v --config-settings "ortx-user-option=use-cuda" .
         displayName: Build the library and tests
 
       - script: python -m pip install $(TORCH_VERSION)
@@ -629,6 +629,10 @@ stages:
 
       - script: cd test && python -m pytest . --verbose
         displayName: Run python test
+
+      - script: cd cuda && python -m pytest . --verbose
+        displayName: Run python test with CUDA kernels
+
 
 - stage: WebAssemblyBuilds
   dependsOn: []
