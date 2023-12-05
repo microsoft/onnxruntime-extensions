@@ -337,9 +337,16 @@ if(OCOS_ENABLE_MATH)
     file(GLOB TARGET_SRC_MATH_CUDA "operators/math/cuda/*.*")
     list(APPEND TARGET_SRC_MATH ${TARGET_SRC_MATH_CUDA})
   endif()
-  
+
   list(APPEND TARGET_SRC ${TARGET_SRC_MATH} ${TARGET_SRC_DLIB} ${TARGET_SRC_INVERSE})
 endif()
+
+file(GLOB TARGET_SRC_CONTRIB "operators/contrib/*.cc" "operators/contrib/*.h*")
+if (OCOS_USE_CUDA)
+  file(GLOB TARGET_SRC_CONTRIB_CUDA "operators/contrib/cuda/*.*")
+  list(APPEND TARGET_SRC_CONTRIB ${TARGET_SRC_CONTRIB_CUDA})
+endif()
+list(APPEND TARGET_SRC ${TARGET_SRC_CONTRIB})
 
 # enable the opencv dependency if we have ops that require it
 if(OCOS_ENABLE_CV2 OR OCOS_ENABLE_VISION)

@@ -44,6 +44,7 @@ class CuopContainer {
 #define CustomCpuStructV2(name, s) []() { return std::shared_ptr<ortc::OrtLiteCustomOp>(ortc::CreateLiteCustomOpV2<s>(name, "CPUExecutionProvider")); }
 
 #define CustomCudaFuncV2(name, f) []() { return std::shared_ptr<ortc::OrtLiteCustomOp>(ortc::CreateLiteCustomOpV2(name, "CUDAExecutionProvider", f)); }
+#define CustomCudaStructV2(name, s) []() { return std::shared_ptr<ortc::OrtLiteCustomOp>(ortc::CreateLiteCustomOpV2<s>(name, "CUDAExecutionProvider")); }
 
 template <typename F>
 void AppendCustomOp(std::vector<std::shared_ptr<OrtCustomOp>>& ops,
@@ -133,3 +134,5 @@ extern FxLoadCustomOpFactory LoadCustomOpClasses_Audio;
 #if ENABLE_AZURE
 extern FxLoadCustomOpFactory LoadCustomOpClasses_Azure;
 #endif
+
+extern FxLoadCustomOpFactory LoadCustomOpClasses_Contrib;
