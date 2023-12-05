@@ -1,0 +1,154 @@
+trigger:
+  branches:
+    include:
+    - main
+    - rel-*
+  paths:
+    exclude:
+    - docs/**
+    - README.md
+    - tutorials/**
+pr:
+  branches:
+    include:
+    - main
+    - rel-*
+  paths:
+    exclude:
+    - docs/**
+    - README.md
+    - tutorials/**
+
+stages:
+- stage: AndroidBuilds
+  dependsOn: []
+  jobs:
+
+  #############
+  # Android - Need resolve the unstable issue of start-emulator task before move it back
+  #############
+  - job: AndroidPackage
+    pool:
+      vmImage: 'macOS-13'
+    timeoutInMinutes: 120
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: "3.9"
+        addToPath: true
+        architecture: "x64"
+      displayName: "Use Python 3.9"
+
+    - task: JavaToolInstaller@0
+      displayName: Use jdk 17
+      inputs:
+        versionSpec: '17'
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'PreInstalled'
+
+    - script: brew install coreutils ninja
+      displayName: Install coreutils and ninja
+
+    - bash: |
+        set -e -x
+
+        _BUILD_CFG="x86_64 $(Build.BinariesDirectory)/android_aar" ./build.android
+
+        VERSION=$(cat ./version.txt)
+        AAR_PATH="$(Build.BinariesDirectory)/android_aar/aar_out/com/microsoft/onnxruntime/onnxruntime-extensions-android/${VERSION}/onnxruntime-extensions-android-${VERSION}.aar"
+
+        # Do not output ##vso[] commands with `set -x` or they may be parsed again and include a trailing quote.
+        set +x
+        echo "##vso[task.setvariable variable=ORT_EXTENSIONS_AAR_PATH]${AAR_PATH}"
+      displayName: Build onnxruntime-extensions AAR package
+
+    - template: templates/run-with-android-emulator-steps.yml
+      parameters:
+        steps:
+
+        - bash: |
+            set -e -x
+
+            cp -r $(Build.SourcesDirectory)/java/src/test/android $(Build.BinariesDirectory)/android_test
+
+            cd $(Build.BinariesDirectory)/android_test
+
+            ./gradlew connectedDebugAndroidTest --no-daemon -DortExtensionsAarLocalPath="${ORT_EXTENSIONS_AAR_PATH}"
+          displayName: Build and run onnxruntime-extensions Android test with Android Emulator
+  
+  - job: AndroidCpp
+    pool:
+      vmImage: 'macOS-13'
+    timeoutInMinutes: 30
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: "3.9"
+          addToPath: true
+          architecture: "x64"
+        displayName: "Use Python 3.9"
+
+      - task: JavaToolInstaller@0
+        displayName: Use jdk 17
+        inputs:
+          versionSpec: '17'
+          jdkArchitectureOption: 'x64'
+          jdkSourceOption: 'PreInstalled'
+
+      - script: brew install ninja
+        displayName: Install ninja
+
+      - bash: |
+          python ./tools/build.py \
+            --config RelWithDebInfo \
+            --android \
+            --android_abi x86_64 \
+            --enable_cxx_tests \
+            --update --build --parallel
+        displayName: Build onnxruntime-extensions for Android
+
+      - template: templates/run-with-android-emulator-steps.yml
+        parameters:
+          steps:
+          - bash: |
+              python ./tools/build.py \
+                --config RelWithDebInfo \
+                --android \
+                --android_abi x86_64 \
+                --enable_cxx_tests \
+                --test
+            displayName: Run C++ tests on emulator
+
+- stage: WindowsBuilds
+  dependsOn: []
+  jobs:
+
+  - job: OrtNightly
+    pool:
+      name: 'onnxruntime-extensions-Windows-CPU'
+
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.x'
+        disableDownloadFromRegistry: true
+        addToPath: false
+        architecture: 'x64'
+      displayName: Use ADO python task
+
+    - script: |
+        python -m pip install --upgrade setuptools pip
+        python -m pip install numpy
+        python -m pip install -U --index-url https://pkgs.dev.azure.com/aiinfra/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ ort-nightly
+        python -m pip install -v -e .
+      displayName: Build onnxruntime-extensions in editable mode.
+
+    - script: |
+        python -m pip install -r requirements-dev.txt
+        python -m pip install torch torchvision torchaudio
+      displayName: Install dependencies for pytest
+
+    - script: |
+        cd test
+        python -m pytest . --verbose
+      displayName: Run python test

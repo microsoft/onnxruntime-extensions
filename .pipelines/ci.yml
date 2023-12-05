@@ -666,7 +666,7 @@ stages:
   #############
   # Android
   #############
-  - job: AndroidPackage
+  - job: AndroidPackage_BuildOnly
     pool:
       vmImage: 'macOS-13'
     timeoutInMinutes: 120
@@ -701,21 +701,7 @@ stages:
         echo "##vso[task.setvariable variable=ORT_EXTENSIONS_AAR_PATH]${AAR_PATH}"
       displayName: Build onnxruntime-extensions AAR package
 
-    - template: templates/run-with-android-emulator-steps.yml
-      parameters:
-        steps:
-
-        - bash: |
-            set -e -x
-
-            cp -r $(Build.SourcesDirectory)/java/src/test/android $(Build.BinariesDirectory)/android_test
-
-            cd $(Build.BinariesDirectory)/android_test
-
-            ./gradlew connectedDebugAndroidTest --no-daemon -DortExtensionsAarLocalPath="${ORT_EXTENSIONS_AAR_PATH}"
-          displayName: Build and run onnxruntime-extensions Android test with Android Emulator
-
-  - job: AndroidCpp
+  - job: AndroidCpp_BuildOnly
     pool:
       vmImage: 'macOS-13'
     timeoutInMinutes: 30
@@ -745,18 +731,6 @@ stages:
             --enable_cxx_tests \
             --update --build --parallel
         displayName: Build onnxruntime-extensions for Android
-
-      - template: templates/run-with-android-emulator-steps.yml
-        parameters:
-          steps:
-          - bash: |
-              python ./tools/build.py \
-                --config RelWithDebInfo \
-                --android \
-                --android_abi x86_64 \
-                --enable_cxx_tests \
-                --test
-            displayName: Run C++ tests on emulator
 
 - stage: IosBuilds
   dependsOn: []
