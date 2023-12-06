@@ -38,19 +38,19 @@ stages:
         py311-1150:
           python.version: '3.11'
           torch.version: 'torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu'
-          ort.version: '1.15.0'
+          ort.version: '1.16.0'
         py310-1141:
           python.version: '3.10'
           torch.version: 'torch==1.13.1+cpu torchvision==0.14.1+cpu torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
-          ort.version: '1.14.1'
+          ort.version: '1.15.1'
         py39-1131:
           python.version: '3.9'
           torch.version: 'torch==1.12.1+cpu torchvision==0.13.1+cpu torchaudio==0.12.1+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
-          ort.version: '1.13.1'
+          ort.version: '1.14.1'
         py38-1121:
           python.version: '3.8'
           torch.version: 'torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
-          ort.version: '1.12.1'
+          ort.version: '1.13.1'
 
     steps:
     - task: DownloadGitHubRelease@0
@@ -197,16 +197,16 @@ stages:
     strategy:
       matrix:
         ort-1150:
-          ort.version: '1.15.0'
+          ort.version: '1.16.0'
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
         ort-1141:
-          ort.version: '1.14.1'
+          ort.version: '1.15.1'
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
         ort-1131:
-          ort.version: '1.13.1'
+          ort.version: '1.14.1'
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
         ort-1121:
-          ort.version: '1.12.1'
+          ort.version: '1.13.1'
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
 
     steps:
@@ -255,19 +255,19 @@ stages:
         py311-1150:
           python.version: '3.11'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.15.0'
+          ort.version: '1.16.0'
         py310-1141:
           python.version: '3.10'
           torch.version: 'torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
-          ort.version: '1.14.1'
+          ort.version: '1.15.1'
         py39-1131:
           python.version: '3.9'
           torch.version: 'torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -f https://download.pytorch.org/whl/torch_stable.html'
-          ort.version: '1.13.1'
+          ort.version: '1.14.1'
         py38-1120:
           python.version: '3.8'
           torch.version: 'torch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 -f https://download.pytorch.org/whl/torch_stable.html'
-          ort.version: '1.12.0'
+          ort.version: '1.13.0'
 
     steps:
     - template: templates/use-xcode-version.yml
@@ -317,13 +317,13 @@ stages:
     strategy:
       matrix:
         ort-1150:
-          ort.version: '1.15.0'
+          ort.version: '1.16.0'
         ort-1141:
-          ort.version: '1.14.1'
+          ort.version: '1.15.1'
         ort-1131:
-          ort.version: '1.13.1'
+          ort.version: '1.14.1'
         ort-1121:
-          ort.version: '1.12.1'
+          ort.version: '1.13.1'
 
     steps:
     - task: DownloadGitHubRelease@0
@@ -394,19 +394,19 @@ stages:
         py311-1150:
           python.version: '3.11'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.15.0'
+          ort.version: '1.16.0'
         py310-1141:
           python.version: '3.10'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.14.1'
+          ort.version: '1.15.1'
         py39-1131:
           python.version: '3.9'
           torch.version: 'torch==1.12.1+cpu torchvision==0.13.1+cpu torchaudio==0.12.1+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
-          ort.version: '1.13.1'
+          ort.version: '1.14.1'
         py38-1121:
           python.version: '3.8'
           torch.version: 'torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
-          ort.version: '1.12.1'
+          ort.version: '1.13.1'
 
     steps:
     - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
