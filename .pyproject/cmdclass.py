@@ -20,12 +20,18 @@ ORTX_USER_OPTION = 'ortx-user-option'
 
 
 def _load_cuda_version():
-    pattern = r"\bV\d+\.\d+\.\d+\b"
-    output = subprocess.check_output(["nvcc", "--version"]).decode("utf-8")
-    match = re.search(pattern, output)
-    if match:
-        vers = match.group()[1:].split('.')
-        return f"{vers[0]}.{vers[1]}"  # only keep the major and minor version.
+    nvcc_path = 'nvcc'
+    cuda_path = os.environ.get('CUDA_PATH')
+    if cuda_path is not None:
+        nvcc_path = os.path.join(cuda_path, 'bin', 'nvcc.exe')
+    try:
+        output = subprocess.check_output([nvcc_path, "--version"], stderr=subprocess.STDOUT).decode("utf-8")
+        pattern = r"\bV(\d+\.\d+\.\d+)\b"
+        match = re.search(pattern, output)
+        if match:
+            return match.group(1)
+    except subprocess.CalledProcessError:
+        pass
 
     return None
 
@@ -193,7 +199,7 @@ class CmdBuildCMakeExt(_build_ext):
             cuda_flag = "OFF" if self.use_cuda == 0 else "ON"
             cmake_args += ['-DOCOS_USE_CUDA=' + cuda_flag]
             print("=> CUDA build flag: " + cuda_flag)
-            if sys.platform == "win32":
+            if cuda_flag == "ON" and sys.platform == "win32":
                 cuda_path = os.environ.get("CUDA_PATH")
                 cmake_args += [f'-T cuda={cuda_path}']
             cuda_ver = _load_cuda_version()

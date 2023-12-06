@@ -521,6 +521,34 @@ stages:
           ctest -C RelWithDebInfo --output-on-failure
         displayName: Run C++ native tests
 
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.x'
+          disableDownloadFromRegistry: true
+          addToPath: false
+          architecture: 'x64'
+        displayName: Use ADO python task
+
+      - script: |
+          set CUDA_PATH=$(Agent.TempDirectory)\v11.8
+          python -m pip install --upgrade setuptools pip
+          python -m pip install numpy coloredlogs flatbuffers packaging protobuf sympy
+          python -m pip install onnxruntime-gpu==$(ORT_VERSION)
+          python -m pip install -v --config-settings "ortx-user-option=use-cuda" .
+        displayName: Build and install onnxruntime-extensions CUDA package.
+
+      - script: |
+          python -m pip install -r requirements-dev.txt
+          python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+        displayName: Install dependencies for Python unit tests
+
+      - script: |
+          cd test
+          python -m pytest . --verbose
+          cd cuda
+          python -m pytest . --verbose
+        displayName: Run python test for CPU and CUDA kernels
+
 - stage: LinuxCUDABuilds
   dependsOn: []
   jobs:
@@ -632,7 +660,7 @@ stages:
                 popd; \
                 "
           workingDirectory: $(Build.SourcesDirectory)
-        displayName: Build the library and tests
+        displayName: Build the library and Python unit tests
 
 - stage: WebAssemblyBuilds
   dependsOn: []
