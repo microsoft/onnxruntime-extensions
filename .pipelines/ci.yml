@@ -609,30 +609,30 @@ stages:
           workingDirectory: $(Build.SourcesDirectory)
         displayName: Run C++ native tests
 
-      - script: |
-          python -m pip install --upgrade pip
-          python -m pip install --upgrade setuptools
-          python -m pip install onnxruntime-gpu==$(ORT_VERSION)
-          python -m pip install -r requirements.txt
-        displayName: Install requirements.txt
-
-      - script: |
-          python -m pip install -v --config-settings "ortx-user-option=use-cuda" .
+      - task: CmdLine@2
+        inputs:
+          script: |
+            docker run --gpus all --rm \
+              --volume $(Build.SourcesDirectory):/onnxruntime-extensions \
+              --volume $(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ORT_VERSION):/onnxruntime \
+              -e CUDA_PATH=/usr/local/cuda-11.8 \
+              onnxruntime-extensionscuda11build \
+              /bin/bash -c "
+                set -ex; \
+                pushd /onnxruntime-extensions; \
+                python3 -m pip install --upgrade pip; \
+                python3 -m pip install --upgrade setuptools; \
+                python3 -m pip install onnxruntime-gpu==$(ORT_VERSION); \
+                python3 -m pip install -r requirements.txt; \
+                python3 -m pip install -v --config-settings "ortx-user-option=use-cuda" . ; \
+                python3 -m pip install $(TORCH_VERSION) ; \
+                python3 -m pip install -r requirements-dev.txt; \
+                cd test && python -m pytest . --verbose; \
+                cd cuda && python -m pytest . --verbose; \
+                popd; \
+                "
+          workingDirectory: $(Build.SourcesDirectory)
         displayName: Build the library and tests
-
-      - script: python -m pip install $(TORCH_VERSION)
-        displayName: Install pytorch
-
-      - script: |
-          python -m pip install -r requirements-dev.txt
-        displayName: Install requirements-dev.txt
-
-      - script: cd test && python -m pytest . --verbose
-        displayName: Run python test
-
-      - script: cd cuda && python -m pytest . --verbose
-        displayName: Run python test with CUDA kernels
-
 
 - stage: WebAssemblyBuilds
   dependsOn: []
