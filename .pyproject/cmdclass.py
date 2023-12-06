@@ -200,12 +200,12 @@ class CmdBuildCMakeExt(_build_ext):
             cmake_args += ['-DOCOS_USE_CUDA=' + cuda_flag]
             print("=> CUDA build flag: " + cuda_flag)
             if cuda_flag == "ON":
-                if sys.platform == "win32":
-                    cuda_path = os.environ.get("CUDA_PATH")
-                    cmake_args += [f'-T cuda={cuda_path}']
                 cuda_ver = _load_cuda_version()
                 if cuda_ver is None:
                     raise RuntimeError("Cannot find nvcc in your env:path, use-cuda doesn't work")
+                if sys.platform == "win32":
+                    cuda_path = os.environ.get("CUDA_PATH")
+                    cmake_args += [f'-T cuda={cuda_path}']
                 f_ver = ext_fullpath.parent / "_version.py"
                 with f_ver.open('a') as _f:
                     _f.writelines(["\n", f"cuda = {cuda_ver}", "\n"])
