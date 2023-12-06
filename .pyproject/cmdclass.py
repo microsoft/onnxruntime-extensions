@@ -23,7 +23,7 @@ def _load_cuda_version():
     nvcc_path = 'nvcc'
     cuda_path = os.environ.get('CUDA_PATH')
     if cuda_path is not None:
-        nvcc_path = os.path.join(cuda_path, 'bin', 'nvcc.exe')
+        nvcc_path = os.path.join(cuda_path, 'bin', 'nvcc')
     try:
         output = subprocess.check_output([nvcc_path, "--version"], stderr=subprocess.STDOUT).decode("utf-8")
         pattern = r"\bV(\d+\.\d+\.\d+)\b"
@@ -208,7 +208,7 @@ class CmdBuildCMakeExt(_build_ext):
                     cmake_args += [f'-T cuda={cuda_path}']
                 f_ver = ext_fullpath.parent / "_version.py"
                 with f_ver.open('a') as _f:
-                    _f.writelines(["\n", f"cuda = {cuda_ver}", "\n"])
+                    _f.writelines(["\n", f"cuda = \"{cuda_ver}\"", "\n"])
 
         # CMake lets you override the generator - we need to check this.
         # Can be set with Conda-Build, for example.
