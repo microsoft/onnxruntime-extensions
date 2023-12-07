@@ -16,6 +16,7 @@
 #include <optional>
 
 #include "onnxruntime_c_api.h"
+#include "onnxruntime_float16.h"
 #include "exceptions.h"
 #include "onnxruntime_cpp_api_legacy.hpp"
 #include "onnxruntime_extensions.h"

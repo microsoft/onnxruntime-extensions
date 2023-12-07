@@ -4,8 +4,19 @@
 #pragma once
 #include "ocos.h"
 #include "fast_gelu_impl.cuh"
+#include "cuda_fp16.h"
 
 namespace contrib {
+
+template <typename T>
+struct CudaT {
+  using MappedType = T;
+};
+
+template <>
+struct CudaT<ortc::Float16_t> {
+  using MappedType = half;
+};
 
 template <typename T>
 struct FastGelu {
@@ -21,22 +32,23 @@ struct FastGelu {
     T* output_data = output.Allocate(input.Shape());
     auto input_length = input.NumberOfElement();
     if (0 == input_length) {
-        return nullptr;
+      return nullptr;
     }
-    const T* bias_data = bias.has_value()?(*bias)->Data():nullptr;
-    auto bias_length = bias.has_value()?(*bias)->NumberOfElement():0;
-    LaunchFastGeluKernel(reinterpret_cast<cudaStream_t>(ctx.cuda_stream),
-                         input_length,
-                         bias_length,
-                         input_data,
-                         bias_data,
-                         output_data,
-                         use_half2_);
+    const T* bias_data = bias.has_value() ? (*bias)->Data() : nullptr;
+    auto bias_length = bias.has_value() ? (*bias)->NumberOfElement() : 0;
+    using TT = CudaT<T>::MappedType;
+    LaunchFastGeluKernel<TT>(reinterpret_cast<cudaStream_t>(ctx.cuda_stream),
+                             input_length,
+                             bias_length,
+                             reinterpret_cast<const TT*>(input_data),
+                             reinterpret_cast<const TT*>(bias_data),
+                             reinterpret_cast<TT*>(output_data),
+                             use_half2_);
     return nullptr;
   }
 
  private:
-  bool use_half2_ = false; // to-do, read this from env var
+  bool use_half2_ = false;  // to-do, read this from env var
 };
 
-}
+}  // namespace contrib

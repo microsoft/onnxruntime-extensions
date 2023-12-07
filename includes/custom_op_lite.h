@@ -9,6 +9,42 @@
 namespace Ort {
 namespace Custom {
 
+// MFloat16
+struct Float16_t : onnxruntime_float16::Float16Impl<Float16_t> {
+ private:
+  constexpr explicit Float16_t(uint16_t v) noexcept { val = v; }
+
+ public:
+  using Base = onnxruntime_float16::Float16Impl<Float16_t>;
+
+  Float16_t() = default;
+
+  constexpr static Float16_t FromBits(uint16_t v) noexcept { return Float16_t(v); }
+
+  explicit Float16_t(float v) noexcept { val = Base::ToUint16Impl(v); }
+
+  float ToFloat() const noexcept { return Base::ToFloatImpl(); }
+
+  using Base::Abs;
+  using Base::AreZero;
+  using Base::IsFinite;
+  using Base::IsInfinity;
+  using Base::IsNaN;
+  using Base::IsNaNOrZero;
+  using Base::IsNegative;
+  using Base::IsNegativeInfinity;
+  using Base::IsNormal;
+  using Base::IsPositiveInfinity;
+  using Base::IsSubnormal;
+  using Base::Negate;
+
+  explicit operator float() const noexcept { return ToFloat(); }
+
+  using Base::operator==;
+  using Base::operator!=;
+  using Base::operator<;
+};
+
 class TensorBase {
  public:
   TensorBase(const OrtW::CustomOpApi& api,
@@ -81,6 +117,21 @@ struct Span {
     return data_[indice];
   }
   const T* data() const { return data_; }
+};
+
+template <>
+struct Span<Float16_t> {
+  const Float16_t* data_ = {};
+  size_t size_ = {};
+  void Assign(const Float16_t* data, size_t size) {
+    data_ = data;
+    size_ = size;
+  }
+  size_t size() const { return size_; }
+  Float16_t operator[](size_t indice) const {
+    return data_[indice];
+  }
+  const Float16_t* data() const { return data_; }
 };
 
 template <typename T>
@@ -316,6 +367,68 @@ class Tensor<std::string_view> : public TensorBase {
   std::vector<std::string_view> input_string_views_;  // for input
 };
 
+template <>
+struct Tensor<Float16_t> : public TensorBase {
+  Tensor(const OrtW::CustomOpApi& api,
+         OrtKernelContext& ctx,
+         size_t indice,
+         bool is_input) : TensorBase(api,
+                                     ctx,
+                                     indice,
+                                     is_input) {
+    type_ = ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16;
+    if (is_input_) {
+      auto input_count = api_.KernelContext_GetInputCount(&ctx_);
+      if (indice >= input_count) {
+        ORTX_CXX_API_THROW("invalid indice", ORT_RUNTIME_EXCEPTION);
+      }
+      const_value_ = api_.KernelContext_GetInput(&ctx_, indice);
+      auto* info = api_.GetTensorTypeAndShape(const_value_);
+      shape_ = api_.GetTensorShape(info);
+      type_ = api_.GetTensorElementType(info);
+      api_.ReleaseTensorTypeAndShapeInfo(info);
+      const OrtMemoryInfo* mem_info = {};
+      api_.ThrowOnError(api_.GetOrtApi().GetTensorMemoryInfo(const_value_, &mem_info));
+      if (mem_info) {
+        api_.ThrowOnError(api.GetOrtApi().MemoryInfoGetName(mem_info, &mem_type_));
+      }
+    }
+  }
+
+  const Float16_t* Data() const {
+    return reinterpret_cast<const Float16_t*>(api_.GetTensorData<uint16_t>(const_value_));
+  }
+
+  Float16_t* Allocate(const std::vector<int64_t>& shape) {
+    if (!data_) {
+      OrtValue* out = api_.KernelContext_GetOutput(&ctx_, indice_, shape.data(), shape.size());
+      shape_ = shape;
+      data_ = reinterpret_cast<Float16_t*>(api_.GetTensorMutableData<uint16_t>(out));
+    }
+    return data_;
+  }
+
+  const Span<Float16_t>& AsSpan() {
+    ORTX_CXX_API_THROW("AsSpan for Float16_t not implemented", ORT_RUNTIME_EXCEPTION);
+  }
+
+  const Float16_t& AsScalar() {
+    ORTX_CXX_API_THROW("AsScalar for Float16_t not implemented", ORT_RUNTIME_EXCEPTION);
+  }
+
+  const void* DataRaw() const override {
+    return reinterpret_cast<const void*>(Data());
+  }
+
+  virtual size_t SizeInBytes() const override {
+    return NumberOfElement() * sizeof(uint16_t);
+  }
+
+ private:
+  const OrtValue* const_value_{};  // for input
+  Float16_t* data_{};              // for output
+};
+
 using TensorPtr = std::unique_ptr<Custom::TensorBase>;
 using TensorPtrs = std::vector<TensorPtr>;
 
@@ -437,6 +550,8 @@ struct CudaContext {
 };
 
 #endif
+
+//using mf16_t = uint16_t;
 
 struct OrtLiteCustomOp : public OrtCustomOp {
   // CreateTuple
@@ -638,6 +753,7 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   CREATE_TUPLE_OUTPUT(data_type)
 
   CREATE_TUPLE(bool)
+  CREATE_TUPLE(Float16_t)
   CREATE_TUPLE(float)
   CREATE_TUPLE(double)
   CREATE_TUPLE(int8_t)
@@ -759,6 +875,7 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   PARSE_OUTPUT(data_type, onnx_type)
 
   PARSE_ARGS(bool, ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL)
+  PARSE_ARGS(Float16_t, ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16)
   PARSE_ARGS(float, ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT)
   PARSE_ARGS(double, ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE)
   PARSE_ARGS(int8_t, ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8)

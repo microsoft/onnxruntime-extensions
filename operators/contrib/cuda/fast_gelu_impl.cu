@@ -3,12 +3,109 @@
 
 #include "fast_gelu_impl.cuh"
 #include <cuda_runtime.h>
+#include <cuda_fp16.h>
+
+#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ < 530) && ((__CUDACC_VER_MAJOR__ < 12) || ((__CUDACC_VER_MAJOR__ == 12) && (__CUDACC_VER_MINOR__ < 2)))
+__device__ __forceinline__ half operator+(const half& lh, const half& rh) { return half((float)lh + (float)rh); }
+__device__ __forceinline__ half operator-(const half& lh, const half& rh) { return half((float)lh - (float)rh); }
+__device__ __forceinline__ half operator*(const half& lh, const half& rh) { return half((float)lh * (float)rh); }
+__device__ __forceinline__ half operator/(const half& lh, const half& rh) { return half((float)lh / (float)rh); }
+
+__device__ __forceinline__ half& operator+=(half& lh, const half& rh) {
+  lh = half((float)lh + (float)rh);
+  return lh;
+}
+__device__ __forceinline__ half& operator-=(half& lh, const half& rh) {
+  lh = half((float)lh - (float)rh);
+  return lh;
+}
+__device__ __forceinline__ half& operator*=(half& lh, const half& rh) {
+  lh = half((float)lh * (float)rh);
+  return lh;
+}
+__device__ __forceinline__ half& operator/=(half& lh, const half& rh) {
+  lh = half((float)lh / (float)rh);
+  return lh;
+}
+
+/* Note for increment and decrement we use the raw value 0x3C00 equating to half(1.0f), to avoid the extra conversion */
+__device__ __forceinline__ __half& operator++(__half& h) {
+  h = half((float)h + 1.0f);
+  return h;
+}
+__device__ __forceinline__ __half& operator--(__half& h) {
+  h = half((float)h - 1.0f);
+  return h;
+}
+__device__ __forceinline__ __half operator++(__half& h, int) {
+  half ret = h;
+  h = half((float)h + 1);
+  return ret;
+}
+__device__ __forceinline__ __half operator--(__half& h, int) {
+  half ret = h;
+  h = half((float)h - 1);
+  return ret;
+}
+
+/* Unary plus and inverse operators */
+__device__ __forceinline__ half operator+(const half& h) { return h; }
+__device__ __forceinline__ half operator-(const half& h) { return half(-(float)h); }
+
+/* Some basic comparison operations to make it look like a builtin */
+__device__ __forceinline__ bool operator==(const half& lh, const half& rh) { return (float)lh == (float)rh; }
+__device__ __forceinline__ bool operator!=(const half& lh, const half& rh) { return (float)lh != (float)rh; }
+__device__ __forceinline__ bool operator>(const half& lh, const half& rh) { return (float)lh > (float)rh; }
+__device__ __forceinline__ bool operator<(const half& lh, const half& rh) { return (float)lh < (float)rh; }
+__device__ __forceinline__ bool operator>=(const half& lh, const half& rh) { return (float)lh >= (float)rh; }
+__device__ __forceinline__ bool operator<=(const half& lh, const half& rh) { return (float)lh <= (float)rh; }
+
+// support half2 arithmetic for cuda architecture < 5.3
+__device__ __forceinline__ half2 operator+(const half2& lh, const half2& rh) {
+  half2 r;
+  r.x = lh.x + rh.x;
+  r.y = lh.y + rh.y;
+  return r;
+}
+
+__device__ __forceinline__ half2 operator-(const half2& lh, const half2& rh) {
+  half2 r;
+  r.x = lh.x - rh.x;
+  r.y = lh.y - rh.y;
+  return r;
+}
+
+__device__ __forceinline__ half2 operator*(const half2& lh, const half2& rh) {
+  half2 r;
+  r.x = lh.x * rh.x;
+  r.y = lh.y * rh.y;
+  return r;
+}
+
+__device__ __forceinline__ half2 operator/(const half2& lh, const half2& rh) {
+  half2 r;
+  r.x = lh.x / rh.x;
+  r.y = lh.y / rh.y;
+  return r;
+}
+#endif
 
 template <typename T>
 __device__ __inline T _Tanh(T a);
 
 template <>
 __device__ __inline__ float _Tanh(float a) { return tanhf(a); }
+
+template <>
+__device__ __inline__ half _Tanh(half a) { return half(tanhf((float)a)); }
+
+template <>
+__device__ __inline__ half2 _Tanh(half2 a) {
+  float2 tmp = (__half22float2(a));
+  tmp.x = tanhf(tmp.x);
+  tmp.y = tanhf(tmp.y);
+  return __float22half2_rn(tmp);
+}
 
 constexpr float A = 0.5f;
 
@@ -29,6 +126,18 @@ __global__ void FastGeluKernel(const T a, const T b, const T c, int input_length
   }
 }
 
+template <unsigned TPB>
+__global__ void FastGeluKernel2(const half2 a, const half2 b, const half2 c, int input_length, int bias_length,
+                                const half2* input, const half2* bias, half2* output) {
+  const int idx = blockIdx.x * TPB + threadIdx.x;
+  if (idx < input_length) {
+    const half2 x = input[idx];
+    const half2 in = (bias == nullptr) ? x : (x + bias[idx % bias_length]);
+    const half2 cdf = a + a * _Tanh(in * (c * in * in + b));
+    output[idx] = in * cdf;
+  }
+}
+
 template <>
 cudaError_t LaunchFastGeluKernel(cudaStream_t stream, int input_length, int bias_length,
                                  const float* input, const float* bias, float* output, bool /*use_half2*/) {
@@ -36,6 +145,30 @@ cudaError_t LaunchFastGeluKernel(cudaStream_t stream, int input_length, int bias
   const int gridSize = (input_length + blockSize - 1) / blockSize;
   FastGeluKernel<float, blockSize><<<gridSize, blockSize, 0, stream>>>(A, B, C, input_length, bias_length,
                                                                        input, bias, output);
+
+  return cudaGetLastError();
+}
+
+template <>
+cudaError_t LaunchFastGeluKernel(cudaStream_t stream, int input_length, int bias_length,
+                                 const half* input, const half* bias, half* output, bool use_half2) {
+  constexpr int blockSize = 256;
+  if (use_half2 && 0 == (bias_length & 1) /*&& prop.major >= 7*/ ) {
+    const int n = input_length / 2;
+    const int gridSize = (n + blockSize - 1) / blockSize;
+    const half2 A2 = __floats2half2_rn(A, A);
+    const half2 B2 = __floats2half2_rn(B, B);
+    const half2 C2 = __floats2half2_rn(C, C);
+    const half2* input2 = reinterpret_cast<const half2*>(input);
+    const half2* bias2 = reinterpret_cast<const half2*>(bias);
+    half2* output2 = reinterpret_cast<half2*>(output);
+    FastGeluKernel2<blockSize><<<gridSize, blockSize, 0, stream>>>(A2, B2, C2, n, bias_length / 2,
+                                                                   input2, bias2, output2);
+  } else {
+    const int gridSize = (input_length + blockSize - 1) / blockSize;
+    FastGeluKernel<half, blockSize><<<gridSize, blockSize, 0, stream>>>(A, B, C, input_length, bias_length,
+                                                                        input, bias, output);
+  }
 
   return cudaGetLastError();
 }
