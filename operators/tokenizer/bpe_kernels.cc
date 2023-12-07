@@ -161,8 +161,8 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
       str.pop_back();
     }
     // remove newlines as CLIP ignores them (treats them as whitespace which is then cleaned)
-    str.erase(std::remove(str.begin(), str.end(), '\n'), str.end());
-    str.erase(std::remove(str.begin(), str.end(), '\r'), str.end());
+    str.erase(std::remove(str.begin(), str.end(), U'\n'), str.end());
+    str.erase(std::remove(str.begin(), str.end(), U'\r'), str.end());
     input = str;
   }
 
@@ -229,7 +229,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
 
       if (clean_up_spaces) {
         // Whitespace clean
-        utf8_token.erase(std::remove(utf8_token.begin(), utf8_token.end(), ' '), utf8_token.end());
+        utf8_token.erase(std::remove(utf8_token.begin(), utf8_token.end(), U' '), utf8_token.end());
 
         for (int i = 0; i < utf8_token.length(); i++) {
           if (i == utf8_token.length() - 1) {
@@ -246,7 +246,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
       }
 
       // Perform BPE
-      bbpe_tokenizer_->bpe(byte_list);
+      bbpe_tokenizer_->PerformBPE(byte_list);
 
       // Add output to result
       for (auto p : byte_list) {
@@ -372,9 +372,9 @@ OrtStatusPtr KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
   return nullptr;
 }
 
-static const auto kGPT2Confinguration = BpeModelConf();
+static const auto kGPT2Configuration = BpeModelConf();
 GPT2Tokenizer::GPT2Tokenizer()
-    : KernelBpeTokenizer(kGPT2Confinguration) {}
+    : KernelBpeTokenizer(kGPT2Configuration) {}
 
 static const auto kRobertaConfiguration = BpeModelConf{
     BpeModelConf::kModel_Roberta,  // name
