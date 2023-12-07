@@ -153,7 +153,7 @@ template <>
 cudaError_t LaunchFastGeluKernel(cudaStream_t stream, int input_length, int bias_length,
                                  const half* input, const half* bias, half* output, bool use_half2) {
   constexpr int blockSize = 256;
-  if (use_half2 && 0 == (bias_length & 1) /*&& prop.major >= 7*/ ) {
+  if (use_half2 && 0 == (bias_length & 1) /*&& prop.major >= 7*/ ) { // todo - get device id from ort for device property
     const int n = input_length / 2;
     const int gridSize = (n + blockSize - 1) / blockSize;
     const half2 A2 = __floats2half2_rn(A, A);
