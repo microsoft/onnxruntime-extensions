@@ -106,7 +106,7 @@ class BpeModel {
       std::getline(strm_tokens, line);
       line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
       if (line.empty()) continue;
-      // seperate the key and value by =
+      // separate the key and value by =
       auto pos = line.rfind("=");
       if (pos == std::string::npos) {
         return OrtW::CreateStatus("Error on parse a added_token line: " + line, ORT_INVALID_ARGUMENT);
@@ -144,7 +144,7 @@ class BpeModel {
     return final_result;
   }
 
-  void bpe(std::list<std::pair<uint32_t, uint32_t>>& vals) const {
+  void PerformBPE(std::list<std::pair<uint32_t, uint32_t>>& vals) const {
     while (vals.size() >= 2) {
       auto pos_it = vals.end();
       uint32_t minval = std::numeric_limits<uint32_t>::max();
@@ -179,7 +179,7 @@ class BpeModel {
       token_length = pos_it->second;
       pos_it = vals.erase(pos_it);
       pos_it->first = aim_id;
-      pos_it->second = pos_it->second + token_length;
+      pos_it->second += token_length;
       for (++pos_it; pos_it != vals.end(); ++pos_it) {
         if (pos_it->first != ori_id1) continue;
         auto it2 = pos_it;
@@ -189,7 +189,7 @@ class BpeModel {
         token_length = pos_it->second;
         pos_it = vals.erase(pos_it);
         pos_it->first = aim_id;
-        pos_it->second = pos_it->second + token_length;
+        pos_it->second += token_length;
       }
     }
   }
