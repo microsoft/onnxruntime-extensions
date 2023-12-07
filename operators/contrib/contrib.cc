@@ -13,7 +13,7 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
 #ifdef USE_CUDA
       ,
       CustomCudaStructV2("FastGelu", contrib::FastGelu<float>),
-      CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::Float16_t>),
+      CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::MFloat16>),
       CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::BFloat16>)
 #endif
   );

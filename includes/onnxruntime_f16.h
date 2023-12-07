@@ -12,18 +12,18 @@ namespace Ort {
 namespace Custom {
 
 // MFloat16
-struct Float16_t : onnxruntime_float16::Float16Impl<Float16_t> {
+struct MFloat16 : onnxruntime_float16::Float16Impl<MFloat16> {
  private:
-  constexpr explicit Float16_t(uint16_t v) noexcept { val = v; }
+  constexpr explicit MFloat16(uint16_t v) noexcept { val = v; }
 
  public:
-  using Base = onnxruntime_float16::Float16Impl<Float16_t>;
+  using Base = onnxruntime_float16::Float16Impl<MFloat16>;
 
-  Float16_t() = default;
+  MFloat16() = default;
 
-  constexpr static Float16_t FromBits(uint16_t v) noexcept { return Float16_t(v); }
+  constexpr static MFloat16 FromBits(uint16_t v) noexcept { return MFloat16(v); }
 
-  explicit Float16_t(float v) noexcept { val = Base::ToUint16Impl(v); }
+  explicit MFloat16(float v) noexcept { val = Base::ToUint16Impl(v); }
 
   float ToFloat() const noexcept { return Base::ToFloatImpl(); }
 

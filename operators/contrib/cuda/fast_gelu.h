@@ -14,7 +14,7 @@ struct CudaT {
 };
 
 template <>
-struct CudaT<ortc::Float16_t> {
+struct CudaT<ortc::MFloat16> {
   using MappedType = half;
 };
 
