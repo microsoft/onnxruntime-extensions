@@ -58,7 +58,7 @@ struct KernelBpeTokenizer {
 
 struct GPT2Tokenizer : KernelBpeTokenizer {
   GPT2Tokenizer();
-  // required by LiteCustomOp which neede a explicit Compute declaration for non-MSVC compiler.
+  // required by LiteCustomOp which needs an explicit Compute declaration for non-MSVC compiler.
   OrtStatusPtr Compute(const ortc::Tensor<std::string>& input,
                        ortc::Tensor<int64_t>& tokenize_output,
                        std::optional<ortc::Tensor<int64_t>*> attention_mask,
@@ -69,7 +69,7 @@ struct GPT2Tokenizer : KernelBpeTokenizer {
 
 struct RobertaTokenizer : KernelBpeTokenizer {
   RobertaTokenizer();
-  // required by LiteCustomOp which neede a explicit Compute declaration for non-MSVC compiler.
+  // required by LiteCustomOp which needs a explicit Compute declaration for non-MSVC compiler.
   OrtStatusPtr Compute(const ortc::Tensor<std::string>& input,
                        ortc::Tensor<int64_t>& tokenize_output,
                        std::optional<ortc::Tensor<int64_t>*> attention_mask,
@@ -80,7 +80,7 @@ struct RobertaTokenizer : KernelBpeTokenizer {
 
 struct CLIPTokenizer : KernelBpeTokenizer {
   CLIPTokenizer();
-  // required by LiteCustomOp which neede a explicit Compute declaration for non-MSVC compiler.
+  // required by LiteCustomOp which needs a explicit Compute declaration for non-MSVC compiler.
   OrtStatusPtr Compute(const ortc::Tensor<std::string>& input,
                        ortc::Tensor<int64_t>& tokenize_output,
                        std::optional<ortc::Tensor<int64_t>*> attention_mask,
