@@ -84,6 +84,8 @@ struct Span {
   const T* data() const { return data_; }
 };
 
+#if ORT_API_VERSION >= 16
+
 template <>
 struct Span<MFloat16> {
   const MFloat16* data_ = {};
@@ -113,6 +115,8 @@ struct Span<BFloat16> {
   }
   const BFloat16* data() const { return data_; }
 };
+
+#endif
 
 template <typename T>
 class Tensor : public TensorBase {
@@ -347,6 +351,8 @@ class Tensor<std::string_view> : public TensorBase {
   std::vector<std::string_view> input_string_views_;  // for input
 };
 
+#if ORT_API_VERSION >= 16
+
 template <>
 struct Tensor<MFloat16> : public TensorBase {
   Tensor(const OrtW::CustomOpApi& api,
@@ -406,7 +412,7 @@ struct Tensor<MFloat16> : public TensorBase {
 
  private:
   const OrtValue* const_value_{};  // for input
-  MFloat16* data_{};              // for output
+  MFloat16* data_{};               // for output
 };
 
 template <>
@@ -470,6 +476,8 @@ struct Tensor<BFloat16> : public TensorBase {
   const OrtValue* const_value_{};  // for input
   BFloat16* data_{};               // for output
 };
+
+#endif
 
 using TensorPtr = std::unique_ptr<Custom::TensorBase>;
 using TensorPtrs = std::vector<TensorPtr>;
@@ -593,7 +601,7 @@ struct CudaContext {
 
 #endif
 
-//using mf16_t = uint16_t;
+// using mf16_t = uint16_t;
 
 struct OrtLiteCustomOp : public OrtCustomOp {
   // CreateTuple
@@ -795,8 +803,10 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   CREATE_TUPLE_OUTPUT(data_type)
 
   CREATE_TUPLE(bool)
+#if ORT_API_VERSION >= 16
   CREATE_TUPLE(MFloat16)
   CREATE_TUPLE(BFloat16)
+#endif
   CREATE_TUPLE(float)
   CREATE_TUPLE(double)
   CREATE_TUPLE(int8_t)
@@ -918,8 +928,10 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   PARSE_OUTPUT(data_type, onnx_type)
 
   PARSE_ARGS(bool, ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL)
+#if ORT_API_VERSION >= 16
   PARSE_ARGS(MFloat16, ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16)
   PARSE_ARGS(BFloat16, ONNX_TENSOR_ELEMENT_DATA_TYPE_BFLOAT16)
+#endif
   PARSE_ARGS(float, ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT)
   PARSE_ARGS(double, ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE)
   PARSE_ARGS(int8_t, ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8)

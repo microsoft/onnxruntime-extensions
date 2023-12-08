@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include "onnxruntime_c_api.h"
+#if ORT_API_VERSION >= 16
+
 #include "onnxruntime_float16.h"
 #ifdef USE_CUDA
 #include <cuda_bf16.h>
@@ -91,7 +94,7 @@ struct BFloat16 : onnxruntime_float16::BFloat16Impl<BFloat16> {
 #else
 
     // Use C isnan to work both in host and device
-    if (::isnan(v)) {
+    if (std::isnan(v)) {
       val = kPositiveQNaNBits;
     } else {
       auto get_msb_half = [](float fl) {
@@ -231,3 +234,5 @@ struct BFloat16 : onnxruntime_float16::BFloat16Impl<BFloat16> {
 
 }  // namespace Custom
 }  // namespace Ort
+
+#endif
