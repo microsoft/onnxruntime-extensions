@@ -36,7 +36,7 @@ struct FastGelu {
     }
     const T* bias_data = bias.has_value() ? (*bias)->Data() : nullptr;
     auto bias_length = bias.has_value() ? (*bias)->NumberOfElement() : 0;
-    using TT = CudaT<T>::MappedType;
+    using TT = typename CudaT<T>::MappedType;
     LaunchFastGeluKernel<TT>(reinterpret_cast<cudaStream_t>(ctx.cuda_stream),
                              input_length,
                              bias_length,
