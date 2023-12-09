@@ -7,7 +7,7 @@
 #if ORT_API_VERSION >= 16
 
 #include "onnxruntime_float16.h"
-#ifdef USE_CUDA
+#if defined(CUDA_VERSION) && CUDA_VERSION >= 11000
 #include <cuda_bf16.h>
 #endif
 
