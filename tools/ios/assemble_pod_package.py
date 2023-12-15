@@ -83,7 +83,11 @@ def assemble_pod_package(
     pod_description = "Pod containing pre and post processing custom ops for onnxruntime."
     with open(framework_info_file, mode="r") as f:
         framework_info = json.load(f)
-        ios_deployment_target = framework_info["apple_deployment_target"]
+        ios_deployment_target = framework_info["iphonesimulator"]["apple_deployment_target"]
+        # NOTE: hard coded the cmake osx sysroot variable for macosx key here. 
+        # Not sure why sysroot is not setting to `macosx` here as expected.
+        macosx = "/Applications/Xcode_14.3.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk"
+        macos_deployment_target = framework_info.get(macosx, {}).get("apple_deployment_target", "")
 
     podspec_variable_substitutions = {
         "NAME": pod_name,
@@ -91,6 +95,7 @@ def assemble_pod_package(
         "SUMMARY": pod_summary,
         "DESCRIPTION": pod_description,
         "IOS_DEPLOYMENT_TARGET": ios_deployment_target,
+        "MACOSX_DEPLOYMENT_TARGET": macos_deployment_target,
         "LICENSE_FILE": "LICENSE",
         "XCFRAMEWORK_DIR": xcframework_dir.name,
         "PUBLIC_HEADERS_DIR": public_headers_dir.name,
@@ -157,7 +162,7 @@ def parse_args():
     if args.xcframework_output_dir is not None:
         args.xcframework_dir = args.xcframework_output_dir / "onnxruntime_extensions.xcframework"
         args.public_headers_dir = args.xcframework_output_dir / "Headers"
-        args.framework_info_file = args.xcframework_output_dir / "framework_info.json"
+        args.framework_info_file = args.xcframework_output_dir / "xcframework_info.json"
 
     return args
 

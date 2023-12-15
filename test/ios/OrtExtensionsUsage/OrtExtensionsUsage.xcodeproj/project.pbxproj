@@ -17,6 +17,15 @@
 		2ECE960C293A77FD00039409 /* decode_image.onnx in Resources */ = {isa = PBXBuildFile; fileRef = 2ECE9609293A77FD00039409 /* decode_image.onnx */; };
 		2ECE960E293A784E00039409 /* r32_g64_b128_32x32.png in Resources */ = {isa = PBXBuildFile; fileRef = 2ECE960D293A784E00039409 /* r32_g64_b128_32x32.png */; };
 		2EF816742A572DC300CABC99 /* OrtSwiftClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF816732A572DC300CABC99 /* OrtSwiftClient.swift */; };
+		511A8C482B2A771C0048868D /* r32_g64_b128_32x32.png in Resources */ = {isa = PBXBuildFile; fileRef = 511A8C442B2A76DB0048868D /* r32_g64_b128_32x32.png */; };
+		511A8C492B2A77360048868D /* decode_image.onnx in Resources */ = {isa = PBXBuildFile; fileRef = 511A8C462B2A76F70048868D /* decode_image.onnx */; };
+		514544C42B294E1C0093D431 /* OrtExtensionsMacOSUsageApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 514544C32B294E1C0093D431 /* OrtExtensionsMacOSUsageApp.swift */; };
+		514544C62B294E1C0093D431 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 514544C52B294E1C0093D431 /* ContentView.swift */; };
+		514544C82B294E1E0093D431 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 514544C72B294E1E0093D431 /* Assets.xcassets */; };
+		514544CB2B294E1E0093D431 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 514544CA2B294E1E0093D431 /* Preview Assets.xcassets */; };
+		514544D62B294E1E0093D431 /* OrtExtensionsMacOSUsageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 514544D52B294E1E0093D431 /* OrtExtensionsMacOSUsageTests.swift */; };
+		514544F32B294F580093D431 /* OrtClient.mm in Sources */ = {isa = PBXBuildFile; fileRef = 514544F22B294F580093D431 /* OrtClient.mm */; };
+		514544F62B29506F0093D431 /* OrtSwiftClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 514544F52B29506F0093D431 /* OrtSwiftClient.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -33,6 +42,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 2ECE95D9293A742700039409;
 			remoteInfo = OrtExtensionsUsage;
+		};
+		514544D22B294E1E0093D431 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2ECE95D2293A742700039409 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 514544C02B294E1C0093D431;
+			remoteInfo = OrtExtensionsMacOSUsage;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -52,6 +68,19 @@
 		2ECE960A293A77FD00039409 /* OrtClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OrtClient.h; sourceTree = "<group>"; };
 		2ECE960D293A784E00039409 /* r32_g64_b128_32x32.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = r32_g64_b128_32x32.png; sourceTree = "<group>"; };
 		2EF816732A572DC300CABC99 /* OrtSwiftClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrtSwiftClient.swift; sourceTree = "<group>"; };
+		511A8C442B2A76DB0048868D /* r32_g64_b128_32x32.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = r32_g64_b128_32x32.png; path = OrtExtensionsUsage/r32_g64_b128_32x32.png; sourceTree = SOURCE_ROOT; };
+		511A8C462B2A76F70048868D /* decode_image.onnx */ = {isa = PBXFileReference; lastKnownFileType = file; name = decode_image.onnx; path = OrtExtensionsUsage/decode_image.onnx; sourceTree = SOURCE_ROOT; };
+		514544C12B294E1C0093D431 /* OrtExtensionsMacOSUsage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OrtExtensionsMacOSUsage.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		514544C32B294E1C0093D431 /* OrtExtensionsMacOSUsageApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrtExtensionsMacOSUsageApp.swift; sourceTree = "<group>"; };
+		514544C52B294E1C0093D431 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		514544C72B294E1E0093D431 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		514544CA2B294E1E0093D431 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		514544D12B294E1E0093D431 /* OrtExtensionsMacOSUsageTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OrtExtensionsMacOSUsageTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		514544D52B294E1E0093D431 /* OrtExtensionsMacOSUsageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrtExtensionsMacOSUsageTests.swift; sourceTree = "<group>"; };
+		514544F12B294F580093D431 /* OrtExtensionsMacOSUsage-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "OrtExtensionsMacOSUsage-Bridging-Header.h"; sourceTree = "<group>"; };
+		514544F22B294F580093D431 /* OrtClient.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = OrtClient.mm; sourceTree = "<group>"; };
+		514544F42B29505B0093D431 /* OrtClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OrtClient.h; sourceTree = "<group>"; };
+		514544F52B29506F0093D431 /* OrtSwiftClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrtSwiftClient.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -76,6 +105,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		514544BE2B294E1C0093D431 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		514544CE2B294E1E0093D431 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -93,6 +136,8 @@
 				2ECE95DC293A742700039409 /* OrtExtensionsUsage */,
 				2ECE95ED293A742800039409 /* OrtExtensionsUsageTests */,
 				2E95FB692948166D00AA2CA7 /* OrtExtensionsUsageUITests */,
+				514544C22B294E1C0093D431 /* OrtExtensionsMacOSUsage */,
+				514544D42B294E1E0093D431 /* OrtExtensionsMacOSUsageTests */,
 				2ECE95DB293A742700039409 /* Products */,
 				614CBC9BE6DEBAEABF4B9145 /* Pods */,
 			);
@@ -104,6 +149,8 @@
 				2ECE95DA293A742700039409 /* OrtExtensionsUsage.app */,
 				2ECE95EA293A742800039409 /* OrtExtensionsUsageTests.xctest */,
 				2E95FB682948166D00AA2CA7 /* OrtExtensionsUsageUITests.xctest */,
+				514544C12B294E1C0093D431 /* OrtExtensionsMacOSUsage.app */,
+				514544D12B294E1E0093D431 /* OrtExtensionsMacOSUsageTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -139,6 +186,39 @@
 				2ECE95EE293A742800039409 /* OrtExtensionsUsageTests.swift */,
 			);
 			path = OrtExtensionsUsageTests;
+			sourceTree = "<group>";
+		};
+		514544C22B294E1C0093D431 /* OrtExtensionsMacOSUsage */ = {
+			isa = PBXGroup;
+			children = (
+				514544C32B294E1C0093D431 /* OrtExtensionsMacOSUsageApp.swift */,
+				511A8C442B2A76DB0048868D /* r32_g64_b128_32x32.png */,
+				511A8C462B2A76F70048868D /* decode_image.onnx */,
+				514544C52B294E1C0093D431 /* ContentView.swift */,
+				514544C72B294E1E0093D431 /* Assets.xcassets */,
+				514544C92B294E1E0093D431 /* Preview Content */,
+				514544F22B294F580093D431 /* OrtClient.mm */,
+				514544F12B294F580093D431 /* OrtExtensionsMacOSUsage-Bridging-Header.h */,
+				514544F42B29505B0093D431 /* OrtClient.h */,
+				514544F52B29506F0093D431 /* OrtSwiftClient.swift */,
+			);
+			path = OrtExtensionsMacOSUsage;
+			sourceTree = "<group>";
+		};
+		514544C92B294E1E0093D431 /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				514544CA2B294E1E0093D431 /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		514544D42B294E1E0093D431 /* OrtExtensionsMacOSUsageTests */ = {
+			isa = PBXGroup;
+			children = (
+				514544D52B294E1E0093D431 /* OrtExtensionsMacOSUsageTests.swift */,
+			);
+			path = OrtExtensionsMacOSUsageTests;
 			sourceTree = "<group>";
 		};
 		614CBC9BE6DEBAEABF4B9145 /* Pods */ = {
@@ -204,6 +284,41 @@
 			productReference = 2ECE95EA293A742800039409 /* OrtExtensionsUsageTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		514544C02B294E1C0093D431 /* OrtExtensionsMacOSUsage */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 514544E92B294E1F0093D431 /* Build configuration list for PBXNativeTarget "OrtExtensionsMacOSUsage" */;
+			buildPhases = (
+				514544BD2B294E1C0093D431 /* Sources */,
+				514544BE2B294E1C0093D431 /* Frameworks */,
+				514544BF2B294E1C0093D431 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OrtExtensionsMacOSUsage;
+			productName = OrtExtensionsMacOSUsage;
+			productReference = 514544C12B294E1C0093D431 /* OrtExtensionsMacOSUsage.app */;
+			productType = "com.apple.product-type.application";
+		};
+		514544D02B294E1E0093D431 /* OrtExtensionsMacOSUsageTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 514544EA2B294E1F0093D431 /* Build configuration list for PBXNativeTarget "OrtExtensionsMacOSUsageTests" */;
+			buildPhases = (
+				514544CD2B294E1E0093D431 /* Sources */,
+				514544CE2B294E1E0093D431 /* Frameworks */,
+				514544CF2B294E1E0093D431 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				514544D32B294E1E0093D431 /* PBXTargetDependency */,
+			);
+			name = OrtExtensionsMacOSUsageTests;
+			productName = OrtExtensionsMacOSUsageTests;
+			productReference = 514544D12B294E1E0093D431 /* OrtExtensionsMacOSUsageTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -211,7 +326,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1410;
+				LastSwiftUpdateCheck = 1500;
 				LastUpgradeCheck = 1410;
 				TargetAttributes = {
 					2E95FB672948166D00AA2CA7 = {
@@ -225,6 +340,14 @@
 					2ECE95E9293A742800039409 = {
 						CreatedOnToolsVersion = 14.1;
 						TestTargetID = 2ECE95D9293A742700039409;
+					};
+					514544C02B294E1C0093D431 = {
+						CreatedOnToolsVersion = 15.0.1;
+						LastSwiftMigration = 1500;
+					};
+					514544D02B294E1E0093D431 = {
+						CreatedOnToolsVersion = 15.0.1;
+						TestTargetID = 514544C02B294E1C0093D431;
 					};
 				};
 			};
@@ -244,6 +367,8 @@
 				2ECE95D9293A742700039409 /* OrtExtensionsUsage */,
 				2ECE95E9293A742800039409 /* OrtExtensionsUsageTests */,
 				2E95FB672948166D00AA2CA7 /* OrtExtensionsUsageUITests */,
+				514544C02B294E1C0093D431 /* OrtExtensionsMacOSUsage */,
+				514544D02B294E1E0093D431 /* OrtExtensionsMacOSUsageTests */,
 			);
 		};
 /* End PBXProject section */
@@ -274,6 +399,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		514544BF2B294E1C0093D431 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				511A8C492B2A77360048868D /* decode_image.onnx in Resources */,
+				511A8C482B2A771C0048868D /* r32_g64_b128_32x32.png in Resources */,
+				514544CB2B294E1E0093D431 /* Preview Assets.xcassets in Resources */,
+				514544C82B294E1E0093D431 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		514544CF2B294E1E0093D431 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -289,8 +432,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2EF816742A572DC300CABC99 /* OrtSwiftClient.swift in Sources */,
 				2ECE960B293A77FD00039409 /* OrtClient.mm in Sources */,
+				2EF816742A572DC300CABC99 /* OrtSwiftClient.swift in Sources */,
 				2ECE95E0293A742700039409 /* ContentView.swift in Sources */,
 				2ECE95DE293A742700039409 /* OrtExtensionsUsageApp.swift in Sources */,
 			);
@@ -301,6 +444,25 @@
 			buildActionMask = 2147483647;
 			files = (
 				2ECE95EF293A742800039409 /* OrtExtensionsUsageTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		514544BD2B294E1C0093D431 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				514544F62B29506F0093D431 /* OrtSwiftClient.swift in Sources */,
+				514544F32B294F580093D431 /* OrtClient.mm in Sources */,
+				514544C62B294E1C0093D431 /* ContentView.swift in Sources */,
+				514544C42B294E1C0093D431 /* OrtExtensionsMacOSUsageApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		514544CD2B294E1E0093D431 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				514544D62B294E1E0093D431 /* OrtExtensionsMacOSUsageTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -316,6 +478,11 @@
 			isa = PBXTargetDependency;
 			target = 2ECE95D9293A742700039409 /* OrtExtensionsUsage */;
 			targetProxy = 2ECE95EB293A742800039409 /* PBXContainerItemProxy */;
+		};
+		514544D32B294E1E0093D431 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 514544C02B294E1C0093D431 /* OrtExtensionsMacOSUsage */;
+			targetProxy = 514544D22B294E1E0093D431 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -412,13 +579,16 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "${inherited}";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.3;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				USER_HEADER_SEARCH_PATHS = "${PODS_ROOT}/**";
 			};
 			name = Debug;
 		};
@@ -466,12 +636,15 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "${inherited}";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.3;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				USER_HEADER_SEARCH_PATHS = "${PODS_ROOT}/**";
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -505,6 +678,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "OrtExtensionsUsage/OrtExtensionsUsage-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_PRECOMPILE_BRIDGING_HEADER = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -538,6 +712,7 @@
 				STRIP_PNG_TEXT = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "OrtExtensionsUsage/OrtExtensionsUsage-Bridging-Header.h";
+				SWIFT_PRECOMPILE_BRIDGING_HEADER = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -581,6 +756,127 @@
 			};
 			name = Release;
 		};
+		514544E32B294E1F0093D431 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"OrtExtensionsMacOSUsage/Preview Content\"";
+				DEVELOPMENT_TEAM = UBF8T346G9;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.onnxruntime-extensions.OrtExtensionsMacOSUsage";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "OrtExtensionsMacOSUsage/OrtExtensionsMacOSUsage-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_PRECOMPILE_BRIDGING_HEADER = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		514544E42B294E1F0093D431 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"OrtExtensionsMacOSUsage/Preview Content\"";
+				DEVELOPMENT_TEAM = UBF8T346G9;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.onnxruntime-extensions.OrtExtensionsMacOSUsage";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "OrtExtensionsMacOSUsage/OrtExtensionsMacOSUsage-Bridging-Header.h";
+				SWIFT_PRECOMPILE_BRIDGING_HEADER = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		514544E52B294E1F0093D431 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = UBF8T346G9;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.onnxruntime-extensions.OrtExtensionsMacOSUsageTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/OrtExtensionsMacOSUsage.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/OrtExtensionsMacOSUsage";
+			};
+			name = Debug;
+		};
+		514544E62B294E1F0093D431 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = UBF8T346G9;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.onnxruntime-extensions.OrtExtensionsMacOSUsageTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/OrtExtensionsMacOSUsage.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/OrtExtensionsMacOSUsage";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -616,6 +912,24 @@
 			buildConfigurations = (
 				2ECE9602293A742900039409 /* Debug */,
 				2ECE9603293A742900039409 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		514544E92B294E1F0093D431 /* Build configuration list for PBXNativeTarget "OrtExtensionsMacOSUsage" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				514544E32B294E1F0093D431 /* Debug */,
+				514544E42B294E1F0093D431 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		514544EA2B294E1F0093D431 /* Build configuration list for PBXNativeTarget "OrtExtensionsMacOSUsageTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				514544E52B294E1F0093D431 /* Debug */,
+				514544E62B294E1F0093D431 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

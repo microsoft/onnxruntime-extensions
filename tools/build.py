@@ -205,9 +205,9 @@ def _parse_arguments():
     )
     parser.add_argument("--ios", action="store_true", help="build for iOS")
     parser.add_argument(
-        "--ios_sysroot",
+        "--apple_sysroot",
         default="",
-        help="Specify the name of the platform SDK to be used. e.g. iphoneos, iphonesimulator",
+        help="Specify the name of the platform SDK to be used. e.g. iphoneos, iphonesimulator, macosx",
     )
     parser.add_argument(
         "--ios_toolchain_file",
@@ -500,28 +500,30 @@ def _generate_build_tree(
             # if neither code signing development identity nor team id are provided, don't code sign
             cmake_args += ["-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO"]
 
-        if args.ios:
+        if args.ios or args.apple_sysroot == "macosx":
             required_args = [
-                args.ios_sysroot,
+                args.apple_sysroot,
                 args.apple_deploy_target,
             ]
 
             arg_names = [
-                "--ios_sysroot          " + "<the location or name of the macOS platform SDK>",
+                "--apple_sysroot          " + "<the location or name of the macOS platform SDK>",
                 "--apple_deploy_target  " + "<the minimum version of the target platform>",
             ]
 
             if not all(required_args):
                 raise UsageError(
-                    "iOS build is missing required arguments: "
+                    "Apple build is missing required arguments: "
                     + ", ".join(val for val, cond in zip(arg_names, required_args) if not cond)
                 )
-
             cmake_args += [
-                "-DCMAKE_SYSTEM_NAME=iOS",
-                "-DCMAKE_OSX_SYSROOT=" + args.ios_sysroot,
-                "-DCMAKE_TOOLCHAIN_FILE=" + str(args.ios_toolchain_file.resolve(strict=True)),
+                "-DCMAKE_OSX_SYSROOT=" + args.apple_sysroot,
             ]
+            if args.ios:
+                cmake_args += [
+                    "-DCMAKE_SYSTEM_NAME=iOS",
+                    "-DCMAKE_TOOLCHAIN_FILE=" + str(args.ios_toolchain_file.resolve(strict=True)),
+                ]
 
     if args.wasm:
         emsdk_toolchain = (
@@ -644,7 +646,7 @@ def _run_android_tests(args, config: str, config_build_dir: Path):
 
 
 def _run_ios_tests(args, config: str, config_build_dir: Path):
-    if platform.machine() == "x86_64" and args.apple_arch != "x86_64":
+    if platform.machine() == "x86_64" and args.apple_arch != "x86_64" and args.apple_sysroot != "macosx":
         log.warning(
             "Skipping iOS tests because the host arch (x86_64) does not support simulation of the target arch "
             f"({args.apple_arch})."

@@ -48,6 +48,10 @@ jobs:
         -- \
         --one_cmake_extra_define OCOS_ENABLE_SELECTED_OPLIST=ON
     displayName: "Build xcframework"
+  
+  - script: |
+       cat $(Build.BinariesDirectory)/xcframework_out/xcframework_info.json
+    displayName: 'List xcframework_info.json file contents'
 
   - script: |
       python ./tools/ios/assemble_pod_package.py \
@@ -96,6 +100,16 @@ jobs:
         -destination "platform=iOS Simulator,id=${ORT_EXTENSIONS_SIMULATOR_DEVICE_ID}" \
         test CODE_SIGNING_ALLOWED=NO
     displayName: "Build and test OrtExtensionsUsage"
+
+  - script: |
+      xcrun xcodebuild \
+        -configuration Debug \
+        -parallel-testing-enabled NO \
+        -workspace $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace \
+        -scheme OrtExtensionsMacOSUsage \
+        -destination "platform=macos" \
+        test CODE_SIGNING_ALLOWED=NO
+    displayName: "Build and test OrtExtensionsUsage for MacOS"
 
   - task: InstallAppleCertificate@2
     inputs:
