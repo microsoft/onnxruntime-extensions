@@ -19,10 +19,9 @@ sys.path.insert(0, str(_repo_dir / "tools"))
 
 from utils import get_logger, run  # noqa
 
-_all_supported_platform_archs = {
+_supported_platform_archs = {
     "iphoneos": ["arm64"],
-    "iphonesimulator": ["x86_64", "arm64"],
-    "macosx": ["x86_64", "arm64"],
+    "macosx": ["x86_64"],
 }
 
 _lipo = "lipo"
@@ -45,7 +44,7 @@ def _rmtree_if_existing(dir: Path):
     except FileNotFoundError:
         pass
     
-def _merge_framework_info_files(files, output_file):
+def _merge_framework_info_files(files: list[str], output_file: Path):
     merged_data = {}
 
     for file in files:
@@ -65,10 +64,29 @@ def build_framework_for_platform_and_arch(
     config: str,
     opencv_dir: Path,
     ios_deployment_target: str,
+    macos_deployment_target: str,
     other_build_args: list[str],
 ):  
+    build_cmd = (
+        [
+            sys.executable,
+                str(_repo_dir / "tools" / "build.py"),
+                f"--build_dir={build_dir}",
+                f"--config={config}",
+                "--update",
+                "--build",
+                "--parallel",
+                "--test",
+                "--build_apple_framework",
+                f"--apple_sysroot={platform}",
+                f"--apple_arch={arch}",
+        ]
+    )
+    
+    cmake_defines = []
+    
     if platform != "macosx":
-        cmake_defines = [
+        cmake_defines += [
             # required by OpenCV CMake toolchain file
             # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L64-L66
             f"IOS_ARCH={arch}",
@@ -76,48 +94,19 @@ def build_framework_for_platform_and_arch(
             # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L96-L101
             f"IPHONEOS_DEPLOYMENT_TARGET={ios_deployment_target}",
         ]
-        build_cmd = (
-            [
-                sys.executable,
-                str(_repo_dir / "tools" / "build.py"),
-                f"--build_dir={build_dir}",
-                f"--config={config}",
-                "--update",
-                "--build",
-                "--parallel",
-                "--test",
+        build_cmd += [
                 # iOS options
                 "--ios",
-                "--build_apple_framework",
-                f"--apple_sysroot={platform}",
                 f"--ios_toolchain_file={_get_opencv_toolchain_file(platform, opencv_dir)}",
-                f"--apple_arch={arch}",
                 f"--apple_deploy_target={ios_deployment_target}",
-            ]
-            + [f"--one_cmake_extra_define={cmake_define}" for cmake_define in cmake_defines]
-            + other_build_args
-        )
+        ]
     else:
-        cmake_defines = []
-        build_cmd = (
-            [
-                sys.executable,
-                str(_repo_dir / "tools" / "build.py"),
-                f"--build_dir={build_dir}",
-                f"--config={config}",
-                "--update",
-                "--build",
-                "--parallel",
-                "--test",
+        build_cmd += [
                 # macOS options
-                "--build_apple_framework",
-                f"--apple_sysroot={platform}",
-                f"--apple_arch={arch}",
-                f"--apple_deploy_target=11.0",
-            ]
-            + [f"--one_cmake_extra_define={cmake_define}" for cmake_define in cmake_defines]
-            + other_build_args
-        )
+                f"--apple_deploy_target={macos_deployment_target}",
+        ]
+    build_cmd += [f"--one_cmake_extra_define={cmake_define}" for cmake_define in cmake_defines]
+    build_cmd += other_build_args
 
     run(*build_cmd)
 
@@ -129,6 +118,7 @@ def build_xcframework(
     config: str,
     opencv_dir: Path,
     ios_deployment_target: str,
+    macos_deployment_target: str,
     other_build_args: list[str],
 ):
     output_dir = output_dir.resolve()
@@ -155,6 +145,7 @@ def build_xcframework(
                     config,
                     opencv_dir,
                     ios_deployment_target,
+                    macos_deployment_target,
                     other_build_args,
                 )
 
@@ -227,7 +218,7 @@ def build_xcframework(
         shutil.copytree(headers_dir, output_headers_dir)
 
         # merge framework_info.json per platform into xcframework_info.json in output_dir
-        _merge_framework_info_files(framework_info_files_to_merge, os.path.join(output_dir, "xcframework_info.json"))
+        _merge_framework_info_files(framework_info_files_to_merge, Path(output_dir, "xcframework_info.json"))
 
 
 def parse_args():
@@ -280,7 +271,11 @@ def parse_args():
         default="12.0",
         help="iOS deployment target.",
     )
-
+    parser.add_argument(
+        "--macos_deployment_target",
+        default="11.0",
+        help="macOS deployment target.",
+    )
     parser.add_argument(
         "build_py_args",
         nargs="*",
@@ -295,16 +290,16 @@ def parse_args():
     # convert from [[platform1, arch1], [platform1, arch2], ...] to {platform1: [arch1, arch2, ...], ...}
     def platform_archs_from_args(platform_archs_arg: list[list[str]] | None) -> dict[str, list[str]]:
         if not platform_archs_arg:
-            return _all_supported_platform_archs.copy()
+            return _supported_platform_archs.copy()
 
         platform_archs = {}
         for platform, arch in platform_archs_arg:
             assert (
-                platform in _all_supported_platform_archs.keys()
-            ), f"Unsupported platform: '{platform}'. Valid values are {list(_all_supported_platform_archs.keys())}"
-            assert arch in _all_supported_platform_archs[platform], (
+                platform in _supported_platform_archs.keys()
+            ), f"Unsupported platform: '{platform}'. Valid values are {list(_supported_platform_archs.keys())}"
+            assert arch in _supported_platform_archs[platform], (
                 f"Unsupported arch for platform '{platform}': '{arch}'. "
-                f"Valid values are {_all_supported_platform_archs[platform]}"
+                f"Valid values are {_supported_platform_archs[platform]}"
             )
 
             archs = platform_archs.setdefault(platform, [])
@@ -330,6 +325,7 @@ def main():
         config=args.config,
         opencv_dir=_repo_dir / "cmake/externals/opencv",
         ios_deployment_target=args.ios_deployment_target,
+        macos_deployment_target=args.macos_deployment_target,
         other_build_args=args.build_py_args,
     )
 

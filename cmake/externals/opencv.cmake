@@ -37,7 +37,7 @@ set(BUILD_TBB                   OFF CACHE INTERNAL "")
 set(BUILD_TIFF                  OFF CACHE INTERNAL "")
 set(BUILD_WEBP                  OFF CACHE INTERNAL "")
 set(BUILD_WITH_STATIC_CRT       OFF CACHE INTERNAL "")
-if(APPLE)
+if(OCOS_BUILD_APPLE_FRAMEWORK)
   # tell OpenCV to build zlib so we can link to the static library
   set(BUILD_ZLIB                ON  CACHE INTERNAL "")
 else()
