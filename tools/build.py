@@ -497,7 +497,7 @@ def _generate_build_tree(
             # if neither code signing development identity nor team id are provided, don't code sign
             cmake_args += ["-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO"]
 
-        if args.build_apple_framework:
+        if args.build_apple_framework or args.ios:
             cmake_args += ["-DOCOS_BUILD_APPLE_FRAMEWORK=ON"]
     
             required_args = [
@@ -643,7 +643,7 @@ def _run_android_tests(args, config: str, config_build_dir: Path):
 
 
 def _run_ios_tests(args, config: str, config_build_dir: Path):
-    if platform.machine() == "x86_64" and args.apple_arch != "x86_64" and args.apple_sysroot != "macosx":
+    if platform.machine() == "x86_64" and args.apple_arch != "x86_64":
         log.warning(
             "Skipping iOS tests because the host arch (x86_64) does not support simulation of the target arch "
             f"({args.apple_arch})."
