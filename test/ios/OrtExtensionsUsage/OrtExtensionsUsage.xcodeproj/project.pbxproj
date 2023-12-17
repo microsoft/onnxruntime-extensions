@@ -24,8 +24,10 @@
 		514544C82B294E1E0093D431 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 514544C72B294E1E0093D431 /* Assets.xcassets */; };
 		514544CB2B294E1E0093D431 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 514544CA2B294E1E0093D431 /* Preview Assets.xcassets */; };
 		514544D62B294E1E0093D431 /* OrtExtensionsMacOSUsageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 514544D52B294E1E0093D431 /* OrtExtensionsMacOSUsageTests.swift */; };
-		514544F32B294F580093D431 /* OrtClient.mm in Sources */ = {isa = PBXBuildFile; fileRef = 514544F22B294F580093D431 /* OrtClient.mm */; };
-		514544F62B29506F0093D431 /* OrtSwiftClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 514544F52B29506F0093D431 /* OrtSwiftClient.swift */; };
+		51A106AD2B2EC3EC004DF79C /* OrtClient.mm in Sources */ = {isa = PBXBuildFile; fileRef = 2ECE9608293A77FD00039409 /* OrtClient.mm */; };
+		51A106AE2B2EC3EF004DF79C /* OrtSwiftClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF816732A572DC300CABC99 /* OrtSwiftClient.swift */; };
+		51A106AF2B2EC3F6004DF79C /* OrtClient.h in Sources */ = {isa = PBXBuildFile; fileRef = 2ECE960A293A77FD00039409 /* OrtClient.h */; };
+		51A106B02B2EC3FC004DF79C /* OrtClient.h in Sources */ = {isa = PBXBuildFile; fileRef = 2ECE960A293A77FD00039409 /* OrtClient.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -78,9 +80,6 @@
 		514544D12B294E1E0093D431 /* OrtExtensionsMacOSUsageTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OrtExtensionsMacOSUsageTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		514544D52B294E1E0093D431 /* OrtExtensionsMacOSUsageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrtExtensionsMacOSUsageTests.swift; sourceTree = "<group>"; };
 		514544F12B294F580093D431 /* OrtExtensionsMacOSUsage-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "OrtExtensionsMacOSUsage-Bridging-Header.h"; sourceTree = "<group>"; };
-		514544F22B294F580093D431 /* OrtClient.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = OrtClient.mm; sourceTree = "<group>"; };
-		514544F42B29505B0093D431 /* OrtClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OrtClient.h; sourceTree = "<group>"; };
-		514544F52B29506F0093D431 /* OrtSwiftClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrtSwiftClient.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -133,6 +132,7 @@
 		2ECE95D1293A742700039409 = {
 			isa = PBXGroup;
 			children = (
+				51A106AC2B2EC381004DF79C /* OrtClient */,
 				2ECE95DC293A742700039409 /* OrtExtensionsUsage */,
 				2ECE95ED293A742800039409 /* OrtExtensionsUsageTests */,
 				2E95FB692948166D00AA2CA7 /* OrtExtensionsUsageUITests */,
@@ -158,9 +158,6 @@
 		2ECE95DC293A742700039409 /* OrtExtensionsUsage */ = {
 			isa = PBXGroup;
 			children = (
-				2ECE960A293A77FD00039409 /* OrtClient.h */,
-				2ECE9608293A77FD00039409 /* OrtClient.mm */,
-				2EF816732A572DC300CABC99 /* OrtSwiftClient.swift */,
 				2ECE95DD293A742700039409 /* OrtExtensionsUsageApp.swift */,
 				2ECE95DF293A742700039409 /* ContentView.swift */,
 				2ECE9607293A77FD00039409 /* OrtExtensionsUsage-Bridging-Header.h */,
@@ -197,10 +194,7 @@
 				514544C52B294E1C0093D431 /* ContentView.swift */,
 				514544C72B294E1E0093D431 /* Assets.xcassets */,
 				514544C92B294E1E0093D431 /* Preview Content */,
-				514544F22B294F580093D431 /* OrtClient.mm */,
 				514544F12B294F580093D431 /* OrtExtensionsMacOSUsage-Bridging-Header.h */,
-				514544F42B29505B0093D431 /* OrtClient.h */,
-				514544F52B29506F0093D431 /* OrtSwiftClient.swift */,
 			);
 			path = OrtExtensionsMacOSUsage;
 			sourceTree = "<group>";
@@ -219,6 +213,16 @@
 				514544D52B294E1E0093D431 /* OrtExtensionsMacOSUsageTests.swift */,
 			);
 			path = OrtExtensionsMacOSUsageTests;
+			sourceTree = "<group>";
+		};
+		51A106AC2B2EC381004DF79C /* OrtClient */ = {
+			isa = PBXGroup;
+			children = (
+				2ECE9608293A77FD00039409 /* OrtClient.mm */,
+				2EF816732A572DC300CABC99 /* OrtSwiftClient.swift */,
+				2ECE960A293A77FD00039409 /* OrtClient.h */,
+			);
+			path = OrtClient;
 			sourceTree = "<group>";
 		};
 		614CBC9BE6DEBAEABF4B9145 /* Pods */ = {
@@ -432,6 +436,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				51A106AF2B2EC3F6004DF79C /* OrtClient.h in Sources */,
 				2ECE960B293A77FD00039409 /* OrtClient.mm in Sources */,
 				2EF816742A572DC300CABC99 /* OrtSwiftClient.swift in Sources */,
 				2ECE95E0293A742700039409 /* ContentView.swift in Sources */,
@@ -451,8 +456,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				514544F62B29506F0093D431 /* OrtSwiftClient.swift in Sources */,
-				514544F32B294F580093D431 /* OrtClient.mm in Sources */,
+				51A106B02B2EC3FC004DF79C /* OrtClient.h in Sources */,
+				51A106AE2B2EC3EF004DF79C /* OrtSwiftClient.swift in Sources */,
+				51A106AD2B2EC3EC004DF79C /* OrtClient.mm in Sources */,
 				514544C62B294E1C0093D431 /* ContentView.swift in Sources */,
 				514544C42B294E1C0093D431 /* OrtExtensionsMacOSUsageApp.swift in Sources */,
 			);
