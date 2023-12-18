@@ -85,6 +85,7 @@ def assemble_pod_package(
         xcframework_info = json.load(f)
         ios_deployment_target = xcframework_info["iphonesimulator"]["apple_deployment_target"]
         macos_deployment_target = ""
+        # Note: For key value for macos, it is directly using the path name from Xcode's MacOS SDK path.
         for key in xcframework_info.keys():
             if "MacOSX" in key:
                 macos_deployment_target = xcframework_info[key]["apple_deployment_target"]
