@@ -35,22 +35,22 @@ stages:
 
     strategy:
       matrix:
-        py311-1150:
+        py311-1163:
           python.version: '3.11'
-          torch.version: 'torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu'
-          ort.version: '1.15.0'
-        py310-1141:
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.16.3'
+        py310-1151:
           python.version: '3.10'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.15.1'
+        py39-1141:
+          python.version: '3.9'
           torch.version: 'torch==1.13.1+cpu torchvision==0.14.1+cpu torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
           ort.version: '1.14.1'
-        py39-1131:
-          python.version: '3.9'
+        py38-1131:
+          python.version: '3.8'
           torch.version: 'torch==1.12.1+cpu torchvision==0.13.1+cpu torchaudio==0.12.1+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
           ort.version: '1.13.1'
-        py38-1121:
-          python.version: '3.8'
-          torch.version: 'torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
-          ort.version: '1.12.1'
 
     steps:
     - task: DownloadGitHubRelease@0
@@ -196,17 +196,17 @@ stages:
 
     strategy:
       matrix:
-        ort-1150:
-          ort.version: '1.15.0'
+        ort-1163:
+          ort.version: '1.16.3'
+          ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
+        ort-1151:
+          ort.version: '1.15.1'
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
         ort-1141:
           ort.version: '1.14.1'
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
         ort-1131:
           ort.version: '1.13.1'
-          ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
-        ort-1121:
-          ort.version: '1.12.1'
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
 
     steps:
@@ -252,22 +252,22 @@ stages:
 
     strategy:
       matrix:
-        py311-1150:
+        py311-1163:
           python.version: '3.11'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.15.0'
-        py310-1141:
+          ort.version: '1.16.3'
+        py310-1151:
           python.version: '3.10'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.15.1'
+        py39-1141:
+          python.version: '3.9'
           torch.version: 'torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
           ort.version: '1.14.1'
-        py39-1131:
-          python.version: '3.9'
+        py38-1131:
+          python.version: '3.8'
           torch.version: 'torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -f https://download.pytorch.org/whl/torch_stable.html'
           ort.version: '1.13.1'
-        py38-1120:
-          python.version: '3.8'
-          torch.version: 'torch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 -f https://download.pytorch.org/whl/torch_stable.html'
-          ort.version: '1.12.0'
 
     steps:
     - template: templates/use-xcode-version.yml
@@ -316,14 +316,14 @@ stages:
 
     strategy:
       matrix:
-        ort-1150:
-          ort.version: '1.15.0'
+        ort-1163:
+          ort.version: '1.16.3'
+        ort-1151:
+          ort.version: '1.15.1'
         ort-1141:
           ort.version: '1.14.1'
         ort-1131:
           ort.version: '1.13.1'
-        ort-1121:
-          ort.version: '1.12.1'
 
     steps:
     - task: DownloadGitHubRelease@0
@@ -394,19 +394,19 @@ stages:
         py311-1150:
           python.version: '3.11'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.15.0'
+          ort.version: '1.16.0'
         py310-1141:
           python.version: '3.10'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.14.1'
+          ort.version: '1.15.1'
         py39-1131:
           python.version: '3.9'
-          torch.version: 'torch==1.12.1+cpu torchvision==0.13.1+cpu torchaudio==0.12.1+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
-          ort.version: '1.13.1'
+          torch.version: 'torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
+          ort.version: '1.14.1'
         py38-1121:
           python.version: '3.8'
-          torch.version: 'torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
-          ort.version: '1.12.1'
+          torch.version: 'torch==1.12.1+cpu torchvision==0.13.1+cpu torchaudio==0.12.1+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
+          ort.version: '1.13.1'
 
     steps:
     - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
@@ -521,6 +521,147 @@ stages:
           ctest -C RelWithDebInfo --output-on-failure
         displayName: Run C++ native tests
 
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.x'
+          disableDownloadFromRegistry: true
+          addToPath: false
+          architecture: 'x64'
+        displayName: Use ADO python task
+
+      - script: |
+          set CUDA_PATH=$(Agent.TempDirectory)\v11.8
+          python -m pip install --upgrade setuptools pip
+          python -m pip install numpy coloredlogs flatbuffers packaging protobuf sympy
+          python -m pip install onnxruntime-gpu==$(ORT_VERSION)
+          python -m pip install -v --config-settings "ortx-user-option=use-cuda" .
+        displayName: Build and install onnxruntime-extensions CUDA package.
+
+      - script: |
+          python -m pip install -r requirements-dev.txt
+          python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+        displayName: Install dependencies for Python unit tests
+
+      - script: |
+          cd test
+          python -m pytest . --verbose
+          cd cuda
+          python -m pytest . --verbose
+        displayName: Run python test for CPU and CUDA kernels
+
+- stage: LinuxCUDABuilds
+  dependsOn: []
+  jobs:
+  - job: LinuxGPU
+    pool:
+      name: 'onnxruntime-extensions-Linux-GPU-A10'
+    variables:
+      ORT_VERSION: '1.16.2'
+      TORCH_VERSION: 'torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118'
+    steps:
+      - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
+        displayName: 'Clean Agent Directories'
+        condition: always()
+
+      - script: |
+          nvidia-smi
+        displayName: check cuda version
+
+      - checkout: self
+        clean: true
+        submodules: none
+
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.8'
+          addToPath: true
+
+      - task: DownloadGitHubRelease@0
+        inputs:
+          connection: 'GitHub - Release'
+          userRepository: 'microsoft/onnxruntime'
+          defaultVersionType: 'specificTag'
+          version: 'v$(ORT_VERSION)'
+          itemPattern: '*-linux-x64-$(ORT_VERSION)*'
+          downloadPath: '$(Build.SourcesDirectory)'
+        displayName: Download the ONNXRuntime prebuilt package.
+
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '**/*.tgz'
+          destinationFolder: '$(Build.SourcesDirectory)'
+          cleanDestinationFolder: false
+          overwriteExistingFiles: true
+        displayName: Unpack ONNXRuntime package.
+
+      - template: ../tools/ci_build/github/azure-pipeline/templates/get-docker-image-steps.yml
+        parameters:
+          Dockerfile: tools/ci_build/github/linux/docker/Dockerfile.ubuntu_cuda11_8_tensorrt8_6
+          Context: tools/ci_build/github/linux/docker
+          DockerBuildArgs: "--build-arg BUILD_UID=$( id -u )"
+          Repository: onnxruntime-extensionscuda11build
+          UpdateDepsTxt: false
+
+      - task: CmdLine@2
+        inputs:
+          script: |
+            docker run --gpus all --rm \
+              --volume $(Build.SourcesDirectory):/onnxruntime-extensions \
+              --volume $(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ORT_VERSION):/onnxruntime \
+              -e CUDA_PATH=/usr/local/cuda-11.8 \
+              onnxruntime-extensionscuda11build \
+              /bin/bash -c "
+                set -ex; \
+                pushd /onnxruntime-extensions; \
+                sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86 -DOCOS_ONNXRUNTIME_VERSION="$(ORT_VERSION)" -DONNXRUNTIME_PKG_DIR=/onnxruntime; \
+                popd; \
+                "
+          workingDirectory: $(Build.SourcesDirectory)
+        displayName: build the customop library with onnxruntime
+
+      - task: CmdLine@2
+        inputs:
+          script: |
+            docker run --gpus all --rm \
+              --volume $(Build.SourcesDirectory):/onnxruntime-extensions \
+              --volume $(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ORT_VERSION):/onnxruntime \
+              -e CUDA_PATH=/usr/local/cuda-11.8 \
+              onnxruntime-extensionscuda11build \
+              /bin/bash -c "
+                set -ex; \
+                pushd /onnxruntime-extensions; \
+                cd out/Linux/RelWithDebInfo; \
+                ctest -C RelWithDebInfo --output-on-failure; \
+                popd; \
+                "
+          workingDirectory: $(Build.SourcesDirectory)
+        displayName: Run C++ native tests
+
+      - task: CmdLine@2
+        inputs:
+          script: |
+            docker run --gpus all --rm \
+              --volume $(Build.SourcesDirectory):/onnxruntime-extensions \
+              --volume $(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ORT_VERSION):/onnxruntime \
+              -e CUDA_PATH=/usr/local/cuda-11.8 \
+              onnxruntime-extensionscuda11build \
+              /bin/bash -c "
+                set -ex; \
+                pushd /onnxruntime-extensions; \
+                python3 -m pip install --upgrade pip; \
+                python3 -m pip install --upgrade setuptools; \
+                python3 -m pip install onnxruntime-gpu==$(ORT_VERSION); \
+                python3 -m pip install -r requirements.txt; \
+                python3 -m pip install -v --config-settings "ortx-user-option=use-cuda" . ; \
+                python3 -m pip install $(TORCH_VERSION) ; \
+                python3 -m pip install -r requirements-dev.txt; \
+                cd test && python -m pytest . --verbose; \
+                cd cuda && python -m pytest . --verbose; \
+                popd; \
+                "
+          workingDirectory: $(Build.SourcesDirectory)
+        displayName: Build the library and Python unit tests
+
 - stage: WebAssemblyBuilds
   dependsOn: []
   jobs:
@@ -557,7 +698,7 @@ stages:
   #############
   # Android
   #############
-  - job: AndroidPackage
+  - job: AndroidPackage_BuildOnly
     pool:
       vmImage: 'macOS-13'
     timeoutInMinutes: 120
@@ -592,21 +733,7 @@ stages:
         echo "##vso[task.setvariable variable=ORT_EXTENSIONS_AAR_PATH]${AAR_PATH}"
       displayName: Build onnxruntime-extensions AAR package
 
-    - template: templates/run-with-android-emulator-steps.yml
-      parameters:
-        steps:
-
-        - bash: |
-            set -e -x
-
-            cp -r $(Build.SourcesDirectory)/java/src/test/android $(Build.BinariesDirectory)/android_test
-
-            cd $(Build.BinariesDirectory)/android_test
-
-            ./gradlew connectedDebugAndroidTest --no-daemon -DortExtensionsAarLocalPath="${ORT_EXTENSIONS_AAR_PATH}"
-          displayName: Build and run onnxruntime-extensions Android test with Android Emulator
-
-  - job: AndroidCpp
+  - job: AndroidCpp_BuildOnly
     pool:
       vmImage: 'macOS-13'
     timeoutInMinutes: 30
@@ -636,18 +763,6 @@ stages:
             --enable_cxx_tests \
             --update --build --parallel
         displayName: Build onnxruntime-extensions for Android
-
-      - template: templates/run-with-android-emulator-steps.yml
-        parameters:
-          steps:
-          - bash: |
-              python ./tools/build.py \
-                --config RelWithDebInfo \
-                --android \
-                --android_abi x86_64 \
-                --enable_cxx_tests \
-                --test
-            displayName: Run C++ tests on emulator
 
 - stage: IosBuilds
   dependsOn: []

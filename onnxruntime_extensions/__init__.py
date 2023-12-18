@@ -2,7 +2,6 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 ###############################################################################
-
 """
 The `onnxruntime-extensions` Python package offers an API that allows users to generate models for pre-processing and
 post-processing tasks. In addition, it also provides an API to register custom operations implemented in Python.
@@ -36,7 +35,7 @@ from ._ocos import enable_py_op
 from ._ocos import expand_onnx_inputs
 from ._ocos import hook_model_op
 from ._ocos import default_opset_domain
-from ._cuops import *   # noqa
+from ._cuops import *  # noqa
 from ._ortapi2 import OrtPyFunction as PyOrtFunction  # backward compatibility
 from ._ortapi2 import OrtPyFunction, ort_inference, optimize_model, make_onnx_model
 from ._ortapi2 import ONNXRuntimeError, ONNXRuntimeException
