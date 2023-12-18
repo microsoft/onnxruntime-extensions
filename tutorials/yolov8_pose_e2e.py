@@ -26,7 +26,7 @@ def get_yolov8_pose_model(onnx_model_name: str):
 def add_pre_post_processing_to_yolo(input_model_file: Path, output_model_file: Path,
                                     output_image: bool = False,
                                     decode_input: bool = True,
-                                    input_shape: Optional[List[int | str]] = None):
+                                    input_shape: Optional[List[Union[int, str]]] = None):
     """Construct the pipeline for an end2end model with pre and post processing. 
     The final model can take raw image binary as inputs and output the result in raw image file.
 
