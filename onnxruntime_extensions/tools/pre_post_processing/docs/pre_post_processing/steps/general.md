@@ -16,6 +16,16 @@ Classes
 
     * pre_post_processing.step.Step
 
+`Identity(num_inputs: int = 1, name: Optional[str] = None)`
+:   ONNX Identity for all inputs to the Step. Used to pass through values as-is to later Steps.
+    
+    Args:
+        name: Optional name of step. Defaults to 'Identity'
+
+    ### Ancestors (in MRO)
+
+    * pre_post_processing.step.Step
+
 `ReverseAxis(axis: int = -1, dim_value: int = -1, name: Optional[str] = None)`
 :   Reverses the data in an axis by splitting and concatenating in reverse order.
       e.g. convert RGB ordered data to BGR.
@@ -38,6 +48,18 @@ Classes
     
     Args:
         name: Optional Step name. Defaults to 'Softmax'
+
+    ### Ancestors (in MRO)
+
+    * pre_post_processing.step.Step
+
+`Split(num_outputs: int, axis: Optional[int] = None, splits: Optional[List[int]] = None, name: Optional[str] = None)`
+:   ONNX Split
+    
+    :param num_outputs: Number of outputs to split the input into. Unequal split is allowed for opset 18+.
+    :param axis: Axis to split on. Default is 0.
+    :param splits: Optional length of each output. Sum must equal dim value at 'axis'
+    :param name: Optional Step name. Defaults to 'Split'
 
     ### Ancestors (in MRO)
 

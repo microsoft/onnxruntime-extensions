@@ -186,6 +186,9 @@ class PrePostProcessor:
                 pre_process_graph.input.append(i)
                 pre_process_graph.output.append(i)
 
+            # connect up the graph input names to the first pre-processing step based on order
+            self.pre_processors[0]._connect_graph_inputs([vi.name for vi in self._inputs])
+
             for idx, step in enumerate(self.pre_processors):
                 pre_process_graph = connect_and_run(pre_process_graph, step, self._pre_processor_connections[idx])
 

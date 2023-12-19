@@ -109,7 +109,7 @@ Classes
 
     * pre_post_processing.step.Step
 
-`ImageBytesToFloat(name: Optional[str] = None)`
+`ImageBytesToFloat(rescale_factor: float = 0.00392156862745098, name: Optional[str] = None)`
 :   Convert uint8 or float values in range 0..255 to floating point values in range 0..1
     
     Args:
@@ -119,7 +119,7 @@ Classes
 
     * pre_post_processing.step.Step
 
-`LetterBox(target_shape: Union[int, Tuple[int, int]], fill_value=0, name: Optional[str] = None)`
+`LetterBox(target_shape: Union[int, Tuple[int, int]], fill_value=0, layout: str = 'HWC', name: Optional[str] = None)`
 :   Image is channel last and ordered by BGR.
     mainly used in object detection, it mostly follows behind resize operation. 
     This step either add border or crop the image to satisfy network input.
@@ -133,6 +133,7 @@ Classes
     
     Input shape: <uint8_t>{height, width, 3<BGR>}
     target_shape: <uint8_t>{out_height, out_width, 3<BGR>}
+    layout: HWC or CHW are supported
     Output shape: specified by target_shape
     
     Args:
@@ -195,62 +196,75 @@ Classes
 
     * pre_post_processing.step.Step
 
-`ScaleBoundingBoxes(name: Optional[str] = None)`
-:   Mapping boxes coordinate to scale in original image.
-    The coordinate of boxes from detection model is relative to the input image of network, 
-    image is scaled and padded/cropped. So we need to do a linear mapping to get the real coordinate of original image.
+`ScaleNMSBoundingBoxesAndKeyPoints(num_key_points: Optional[int] = 0, layout: Optional[str] = 'HWC', name: Optional[str] = None)`
+:   Scale bounding box and key point coordinates in optional mask data to original image.
+    
+    Input image goes through Resize and LetterBox steps during pre-processing (in that order), and the output of this
+    is what the original model runs against.
+    To display the predictions on the original image we need to apply the reverse size changes to the co-ordinates 
+    of the bounding boxes.
+    
+    nms_step_output inner dimension has 4 values for the bounding box, 1 for the score, 1 for the selected class,
+    and the remainder (if any) is the mask data.
+    
+    The mask data has values for a fixed number of key points. Each key point has an x and y value, and optionally a
+    confidence value.
+    
     input:
-        box_of_nms_out: output of NMS, shape [num_boxes, 6]
-        original_image: original image decoded from jpg/png<uint8_t>[H, W, 3<BGR>]
-        scaled_image: scaled image, but without padding/crop[<uint8_t>[H1, W1, 3<BGR>]
-        letter_boxed_image: scaled image and with padding/crop[<uint8_t>[H2, W3, 3<BGR>]
+        nms_step_output: output of SelectBestBoundingBoxesByNMS Step, shape [num_boxes, 6+]
+        original_image: original image decoded from jpg/png, <uint8_t>[H, W, 3] or [3, H, W]
+        resized_image: output from Resize pre-processing Step, <uint8_t>[H1, W1, 3] or [3, H1, W1]
+        letter_boxed_image: output from LetterBox pre-processing Step, <uint8_t>[H2, W2, 3] or [3, H2, W2]
+        num_key_points: number of key points in each mask data entry, if present. optional.
     
     output:
-        scaled_box_out: shape [num_boxes, 6] with coordinate mapped to original image.
+        nms_output_with_scaled_boxes_and_keypoints: input data with boxes and key points scaled to original image.
     
     Args:
-        name: Optional name of step. Defaults to 'ScaleBoundingBoxes'
+        num_key_points: Number of key points in mask data. Only required if input has optional mask data.
+        layout: HWC or CHW. Used to determine where to read the H and W value from the input image shapes.
+                MUST be the same for all 3 input images.
+    
+        name: Optional name of step. Defaults to 'ScaleNMSBoundingBoxesAndKeyPoints'
 
     ### Ancestors (in MRO)
 
     * pre_post_processing.step.Step
 
-`SelectBestBoundingBoxesByNMS(iou_threshold: float = 0.5, score_threshold: float = 0.67, max_detections: int = 300, name: Optional[str] = None)`
-:   Non-maximum suppression (NMS) is to filter out redundant bounding boxes.
-    This step is used to warp the boxes and scores into onnx SelectBestBoundingBoxesByNMS op.
+`SelectBestBoundingBoxesByNMS(iou_threshold: Optional[float] = 0.5, score_threshold: Optional[float] = 0.67, max_boxes_per_class: Optional[int] = 100, max_detections: Optional[int] = None, has_mask_data: Optional[bool] = False, name: Optional[str] = None)`
+:   Non-maximum suppression (NMS) is to select the best bounding boxes.
     Input:
-        boxes:  float[num_boxes, 4]
-        scores:  shape float[num_boxes, num_classes]
+        boxes: float[num_boxes, 4]
+        scores: float[num_boxes, num_classes]
+        masks: float[num_boxes, mask_data]. optional
     
     Output:
-        nms_out: float[_few_num_boxes, 6<coordinate+score+class>]
+        nms_out: float[_few_num_boxes, <box+score+class+mask_data>]
     
-    Args:
-    Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#SelectBestBoundingBoxesByNMS
-    for more details about the parameters.
-        iou_threshold:  same as SelectBestBoundingBoxesByNMS op, intersection /union of boxes 
-        score_threshold:  If this box's score is lower than score_threshold, it will be removed.
-        max_detections:  max number of boxes to be selected
+    Args: Please refer to https://github.com/onnx/onnx/blob/main/docs/Operators.md#NonMaxSuppression
+          for more details about the parameters.
+        iou_threshold: same as NonMaxSuppression op, intersection/union of boxes
+        score_threshold: If this box's score is lower than score_threshold, it will be removed.
+        max_boxes_per_class: max number of boxes to be selected per class
+        max_detections: maximum number of boxes in total. Applied as the last step of processing if specified.
         name: Optional name of step. Defaults to 'SelectBestBoundingBoxesByNMS'
 
     ### Ancestors (in MRO)
 
     * pre_post_processing.step.Step
 
-`SplitOutBoxAndScore(num_classes: int = 80, name: Optional[str] = None)`
-:   Split the output of the model into boxes and scores. This step will also handle the optional object score.
-    Input shape: <float>{num_boxes, 4/5+num_classes}
+`SplitOutBoxAndScoreWithConf(num_classes: int, name: Optional[str] = None)`
+:   Split the output of the model into boxes and scores, applying the object confidence score.
+    Input shape: <float>{num_boxes, <4 box co-ords, conf score, num_classes>}
     Output shape: <float>{num_boxes, 4}, <float>{num_boxes, num_classes}
-    |x1,x2,x3,x4, (obj), cls_1, ... cls_num|
+    |x1,x2,x3,x4, obj_conf, cls_1, ... cls_num|
             /\
            /  \
-    |x1,x2,x3,x4|  |cls_1, ... clx_num|*(obj)
-    obj is optional, if it is not present, it will be set to 1.0
-    This is where 4/5 comes from, '4' represent coordinates and the fifth object probability.
+    |x1,x2,x3,x4|  |cls_1, ... clx_num|*obj_conf
     
     Args:
         num_classes: number of classes
-        name: Optional name of step. Defaults to 'SplitOutBoxAndScore'
+        name: Optional name of step. Defaults to 'SplitOutBoxAndScoreWithConf'
 
     ### Ancestors (in MRO)
 

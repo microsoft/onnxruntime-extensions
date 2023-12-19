@@ -209,12 +209,12 @@ def yolo_detection(model_file: Path, output_file: Path, output_format: str = 'jp
     # https://github.com/ultralytics/ultralytics/blob/e5cb35edfc3bbc9d7d7db8a6042778a751f0e39e/examples/YOLOv8-CPP-Inference/inference.cpp#L31-L33
     # We always want the box info to be the last dim for each of iteration.
     # For new variants like YoloV8, we need to add an transpose op to permute output back.
-    need_transpose = False
+    yolo_v8_or_later = False
 
     output_shape = [model_output_shape.dim[i].dim_value if model_output_shape.dim[i].HasField("dim_value") else -1
                     for i in [-2, -1]]
     if output_shape[0] != -1 and output_shape[1] != -1:
-        need_transpose = output_shape[0] < output_shape[1] 
+        yolo_v8_or_later = output_shape[0] < output_shape[1]
     else:
         assert len(model.graph.input) == 1, "Doesn't support adding pre and post-processing for multi-inputs model."
         try:
@@ -233,7 +233,7 @@ Because we need to execute the model to determine the output shape in order to a
         outputs = session.run(None,  inp)[0]
         assert len(outputs.shape) == 3 and outputs.shape[0] == 1, "shape of the first model output is not (1, n, m)"
         if outputs.shape[1] < outputs.shape[2]:
-            need_transpose = True
+            yolo_v8_or_later = True
         assert num_classes+4 == outputs.shape[2] or num_classes+5 == outputs.shape[2], \
             "The output shape is neither (1, num_boxes, num_classes+4(reg)) nor (1, num_boxes, num_classes+5(reg+obj))"
 
@@ -251,12 +251,29 @@ Because we need to execute the model to determine the output shape in order to a
             Unsqueeze([0]),  # add batch, CHW --> 1CHW
         ]
     )
+
     # NMS and drawing boxes
     post_processing_steps = [
-        Squeeze([0]), # - Squeeze to remove batch dimension
-        SplitOutBoxAndScore(num_classes=num_classes), # Separate bounding box and confidence outputs
-        SelectBestBoundingBoxesByNMS(), # Apply NMS to suppress bounding boxes
-        (ScaleBoundingBoxes(),  # Scale bounding box coords back to original image
+        Squeeze([0]),  # - Squeeze to remove batch dimension
+    ]
+
+    if yolo_v8_or_later:
+        post_processing_steps += [
+            Transpose([1, 0]),  # transpose to (num_boxes, box+scores)
+            # split  elements into the box and scores for the classes. no confidence value to apply to scores
+            Split(num_outputs=2, axis=-1, splits=[4, num_classes]),
+        ]
+    else:
+        post_processing_steps += [
+            # Split bounding box from confidence and scores for each class
+            # Apply confidence to the scores.
+            SplitOutBoxAndScoreWithConf(num_classes=num_classes),
+        ]
+
+    post_processing_steps += [
+        SelectBestBoundingBoxesByNMS(),  # pick best bounding boxes with NonMaxSuppression
+         # Scale bounding box coords back to original image
+        (ScaleNMSBoundingBoxesAndKeyPoints(name='ScaleBoundingBoxes'),
          [
             # A connection from original image to ScaleBoundingBoxes
             # A connection from the resized image to ScaleBoundingBoxes
@@ -279,9 +296,6 @@ Because we need to execute the model to determine the output shape in order to a
         # Encode to jpg/png
         ConvertBGRToImage(image_format=output_format),
     ]
-    # transpose to (num_boxes, coor+conf) if needed
-    if need_transpose:
-        post_processing_steps.insert(1, Transpose([1, 0]))
 
     pipeline.add_post_processing(post_processing_steps)
 
