@@ -21,8 +21,8 @@ from utils import get_logger, run  # noqa
 
 _supported_platform_archs = {
     "iphoneos": ["arm64"],
-    # "iphonesimulator": ["x86_64", "arm64"],
-    "macosx": ["x86_64"],
+    "iphonesimulator": ["x86_64", "arm64"],
+    "macosx": ["x86_64", "arm64"],
 }
 
 _lipo = "lipo"
