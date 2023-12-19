@@ -814,6 +814,7 @@ stages:
 
     - script: |
         ORT_EXTENSIONS_LOCAL_POD_PATH=$(Build.BinariesDirectory)/pod_staging \
+        EXCLUDE_MACOS_TARGET=true
           pod install
       displayName: "Install pods for OrtExtensionsUsage"
       workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage

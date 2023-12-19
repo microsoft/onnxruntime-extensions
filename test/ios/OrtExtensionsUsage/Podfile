@@ -1,3 +1,11 @@
+def exclude_macos_target
+  exclude_macos_target = ENV['EXCLUDE_MACOS_TARGET']
+  if exclude_macos_target
+    return true
+  end
+  return false
+end
+
 target 'OrtExtensionsUsage' do
   # Comment the next line if you don't want to use dynamic frameworks
   use_frameworks!
@@ -26,30 +34,32 @@ target 'OrtExtensionsUsage' do
   end
 end
 
-target 'OrtExtensionsMacOSUsage' do
-  # Comment the next line if you don't want to use dynamic frameworks
-  use_frameworks!
-  
-  platform :osx, '11.0'
+unless exclude_macos_target
+  target 'OrtExtensionsMacOSUsage' do
+    # Comment the next line if you don't want to use dynamic frameworks
+    use_frameworks!
+    
+    platform :osx, '11.0'
 
-  # Pods for OrtExtensionsMacOSUsage
-  
-  # Note: Currently using a pre-release version of ORT OBJC pod to enable support for macOS target.
-  # TODO: Update to release version when available
-  pod 'onnxruntime-objc', '1.17.0-dev+20231211010.8f2b5a6'
+    # Pods for OrtExtensionsMacOSUsage
+    
+    # Note: Currently using a pre-release version of ORT OBJC pod to enable support for macOS target.
+    # TODO: Update to release version when available
+    pod 'onnxruntime-objc', '1.17.0-dev+20231211010.8f2b5a6'
 
-  # environment variable ORT_EXTENSIONS_LOCAL_POD_PATH can be used to specify a local onnxruntime-extensions-c pod path
-  ort_extensions_local_pod_path = ENV['ORT_EXTENSIONS_LOCAL_POD_PATH']
-  if ort_extensions_local_pod_path != nil
-    print 'Using onnxruntime-extensions-c pod at ', ort_extensions_local_pod_path, "\n"
-    pod 'onnxruntime-extensions-c', :path => ort_extensions_local_pod_path
-  else
-    pod 'onnxruntime-extensions-c'
-  end
+    # environment variable ORT_EXTENSIONS_LOCAL_POD_PATH can be used to specify a local onnxruntime-extensions-c pod path
+    ort_extensions_local_pod_path = ENV['ORT_EXTENSIONS_LOCAL_POD_PATH']
+    if ort_extensions_local_pod_path != nil
+      print 'Using onnxruntime-extensions-c pod at ', ort_extensions_local_pod_path, "\n"
+      pod 'onnxruntime-extensions-c', :path => ort_extensions_local_pod_path
+    else
+      pod 'onnxruntime-extensions-c'
+    end
 
-  target 'OrtExtensionsMacOSUsageTests' do
-    inherit! :search_paths
-    # Pods for testing
+    target 'OrtExtensionsMacOSUsageTests' do
+      inherit! :search_paths
+      # Pods for testing
+    end
   end
 end
 
