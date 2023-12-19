@@ -21,8 +21,8 @@ from utils import get_logger, run  # noqa
 
 _supported_platform_archs = {
     "iphoneos": ["arm64"],
-    "iphonesimulator": ["x86_64", "arm64"],
-    "macosx": ["x86_64", "arm64"],
+    # "iphonesimulator": ["x86_64", "arm64"],
+    "macosx": ["x86_64"],
 }
 
 _lipo = "lipo"
@@ -71,16 +71,16 @@ def build_framework_for_platform_and_arch(
     build_cmd = (
         [
             sys.executable,
-                str(_repo_dir / "tools" / "build.py"),
-                f"--build_dir={build_dir}",
-                f"--config={config}",
-                "--update",
-                "--build",
-                "--parallel",
-                "--test",
-                "--build_apple_framework",
-                f"--apple_sysroot={platform}",
-                f"--apple_arch={arch}",
+            str(_repo_dir / "tools" / "build.py"),
+            f"--build_dir={build_dir}",
+            f"--config={config}",
+            "--update",
+            "--build",
+            "--parallel",
+            "--test",
+            "--build_apple_framework",
+            f"--apple_sysroot={platform}",
+            f"--apple_arch={arch}",
         ]
     )
     

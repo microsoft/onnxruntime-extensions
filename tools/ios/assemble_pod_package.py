@@ -83,12 +83,17 @@ def assemble_pod_package(
     pod_description = "Pod containing pre and post processing custom ops for onnxruntime."
     with open(xcframework_info_file, mode="r") as f:
         xcframework_info = json.load(f)
-        ios_deployment_target = xcframework_info["iphonesimulator"]["apple_deployment_target"]
+        ios_deployment_target = ""
         macos_deployment_target = ""
-        # Note: For key value for macos, it is directly using the path name from Xcode's MacOS SDK path.
         for key in xcframework_info.keys():
-            if "MacOSX" in key:
-                macos_deployment_target = xcframework_info[key]["apple_deployment_target"]
+            for key in xcframework_info.keys():
+                if key.startswith("iphone") and ios_deployment_target == "":
+                    print("enter 1")
+                    ios_deployment_target = xcframework_info[key]["apple_deployment_target"]
+                if "MacOSX" in key:
+                    # Note: For key value for macos, it is directly using the path name from Xcode's MacOS SDK path.
+                    print("enter 2")
+                    macos_deployment_target = xcframework_info[key]["apple_deployment_target"]
 
     podspec_variable_substitutions = {
         "NAME": pod_name,
