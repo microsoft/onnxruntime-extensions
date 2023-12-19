@@ -5,7 +5,8 @@ import numpy
 from pathlib import Path
 import onnxruntime_extensions
 
-def get_yolov8_model(onnx_model_name: str):
+
+def get_yolo_model(version: int, onnx_model_name: str):
     # install yolov8
     from pip._internal import main as pipmain
     try:
@@ -13,12 +14,12 @@ def get_yolov8_model(onnx_model_name: str):
     except ImportError:
         pipmain(['install', 'ultralytics'])
         import ultralytics
-    pt_model = Path("yolov8n.pt")
+    pt_model = Path(f"yolov{version}n.pt")
     model = ultralytics.YOLO(str(pt_model))  # load a pretrained model
-    success = model.export(format="onnx")  # export the model to ONNX format
-    assert success, "Failed to export yolov8n.pt to onnx"
+    exported_filename = model.export(format="onnx")  # export the model to ONNX format
+    assert exported_filename, f"Failed to export yolov{version}n.pt to onnx"
     import shutil
-    shutil.move(pt_model.with_suffix('.onnx'), onnx_model_name)
+    shutil.move(exported_filename, onnx_model_name)
 
 
 def add_pre_post_processing_to_yolo(input_model_file: Path, output_model_file: Path):
@@ -29,13 +30,11 @@ def add_pre_post_processing_to_yolo(input_model_file: Path, output_model_file: P
         input_model_file (Path): The onnx yolo model.
         output_model_file (Path): where to save the final onnx model.
     """
-    if not Path(input_model_file).is_file():
-        get_yolov8_model(input_model_file)
-
     from onnxruntime_extensions.tools import add_pre_post_processing_to_model as add_ppp
     add_ppp.yolo_detection(input_model_file, output_model_file, "jpg", onnx_opset=18)
 
-def test_inference(onnx_model_file:Path):
+
+def run_inference(onnx_model_file: Path):
     import onnxruntime as ort
     import numpy as np
 
@@ -48,14 +47,23 @@ def test_inference(onnx_model_file:Path):
 
     inname = [i.name for i in session.get_inputs()]
     inp = {inname[0]: image}
-    outputs = session.run(['image_out'], inp)[0]
-    open('../test/data/result.jpg', 'wb').write(outputs)
-
+    output = session.run(['image_out'], inp)[0]
+    output_filename = '../test/data/result.jpg'
+    open(output_filename, 'wb').write(output)
+    from PIL import Image
+    Image.open(output_filename).show()
 
 
 if __name__ == '__main__':
-    print("checking the model...")
-    onnx_model_name = Path("../test/data/yolov8n.onnx")
+    # YOLO version. Tested with 5 and 8.
+    version = 8
+    onnx_model_name = Path(f"../test/data/yolov{version}n.onnx")
+    if not onnx_model_name.exists():
+        print("Fetching original model...")
+        get_yolo_model(version, str(onnx_model_name))
+
     onnx_e2e_model_name = onnx_model_name.with_suffix(suffix=".with_pre_post_processing.onnx")
+    print("Adding pre/post processing...")
     add_pre_post_processing_to_yolo(onnx_model_name, onnx_e2e_model_name)
-    test_inference(onnx_e2e_model_name)
+    print("Testing updated model...")
+    run_inference(onnx_e2e_model_name)

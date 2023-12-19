@@ -48,6 +48,11 @@ class Step(object):
 
         self.input_names[entry.consumer_idx] = entry.producer.output_names[entry.producer_idx]
 
+    def _connect_graph_inputs(self, graph_inputs: List[str]):
+        "Internal method to connect names of the first pre-processor step with the graph inputs"
+        for i, input_name in enumerate(graph_inputs):
+            self.input_names[i] = input_name
+
     def apply(self, graph: onnx.GraphProto, 
               checker_context: onnx.checker.C.CheckerContext, 
               graph_outputs_to_maintain: List[str]):
