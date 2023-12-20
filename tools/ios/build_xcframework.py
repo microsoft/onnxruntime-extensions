@@ -8,6 +8,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+import os
 from pathlib import Path
 import shutil
 import sys
@@ -20,6 +22,7 @@ from utils import get_logger, run  # noqa
 _supported_platform_archs = {
     "iphoneos": ["arm64"],
     "iphonesimulator": ["x86_64", "arm64"],
+    "macosx": ["x86_64", "arm64"],
 }
 
 _lipo = "lipo"
@@ -41,7 +44,19 @@ def _rmtree_if_existing(dir: Path):
         shutil.rmtree(dir)
     except FileNotFoundError:
         pass
+    
+def _merge_framework_info_files(files: list[str], output_file: Path):
+    merged_data = {}
 
+    for file in files:
+        with open(file) as f:
+            data = json.load(f)
+            for platform, values in data.items():
+                assert platform not in merged_data, f"Duplicate platform value: {platform}"
+                merged_data[platform] = values
+
+    with open(output_file, "w") as f:
+        json.dump(merged_data, f, indent=2)
 
 def build_framework_for_platform_and_arch(
     build_dir: Path,
@@ -50,17 +65,9 @@ def build_framework_for_platform_and_arch(
     config: str,
     opencv_dir: Path,
     ios_deployment_target: str,
+    macos_deployment_target: str,
     other_build_args: list[str],
-):
-    cmake_defines = [
-        # required by OpenCV CMake toolchain file
-        # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L64-L66
-        f"IOS_ARCH={arch}",
-        # required by OpenCV CMake toolchain file
-        # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L96-L101
-        f"IPHONEOS_DEPLOYMENT_TARGET={ios_deployment_target}",
-    ]
-
+):  
     build_cmd = (
         [
             sys.executable,
@@ -71,17 +78,36 @@ def build_framework_for_platform_and_arch(
             "--build",
             "--parallel",
             "--test",
-            # iOS options
-            "--ios",
             "--build_apple_framework",
-            f"--ios_sysroot={platform}",
-            f"--ios_toolchain_file={_get_opencv_toolchain_file(platform, opencv_dir)}",
+            f"--apple_sysroot={platform}",
             f"--apple_arch={arch}",
-            f"--apple_deploy_target={ios_deployment_target}",
         ]
-        + [f"--one_cmake_extra_define={cmake_define}" for cmake_define in cmake_defines]
-        + other_build_args
     )
+    
+    cmake_defines = []
+    
+    if platform != "macosx":
+        cmake_defines += [
+            # required by OpenCV CMake toolchain file
+            # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L64-L66
+            f"IOS_ARCH={arch}",
+            # required by OpenCV CMake toolchain file
+            # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L96-L101
+            f"IPHONEOS_DEPLOYMENT_TARGET={ios_deployment_target}",
+        ]
+        build_cmd += [
+                # iOS options
+                "--ios",
+                f"--ios_toolchain_file={_get_opencv_toolchain_file(platform, opencv_dir)}",
+                f"--apple_deploy_target={ios_deployment_target}",
+        ]
+    else:
+        build_cmd += [
+                # macOS options
+                f"--apple_deploy_target={macos_deployment_target}",
+        ]
+    build_cmd += [f"--one_cmake_extra_define={cmake_define}" for cmake_define in cmake_defines]
+    build_cmd += other_build_args
 
     run(*build_cmd)
 
@@ -93,6 +119,7 @@ def build_xcframework(
     config: str,
     opencv_dir: Path,
     ios_deployment_target: str,
+    macos_deployment_target: str,
     other_build_args: list[str],
 ):
     output_dir = output_dir.resolve()
@@ -119,16 +146,18 @@ def build_xcframework(
                     config,
                     opencv_dir,
                     ios_deployment_target,
+                    macos_deployment_target,
                     other_build_args,
                 )
 
     pack_xcframework = mode in ["pack_xcframework_only", "build_xcframework"]
 
     if pack_xcframework:
-        # the public headers and framework_info.json should be the same across platform/arch builds
-        # select them from one of the platform/arch build directories to copy to the output directory
+        # the public headers and framework_info.json should be the same across different archs per platform builds
+        # select one of them, merge into xcframework_info.json and copy to output directory
         headers_dir = None
-        framework_info_file = None
+        curr_framework_info_file = None
+        framework_info_files_to_merge = []
 
         # create per-platform fat framework from platform/arch frameworks
         platform_fat_framework_dirs = []
@@ -150,9 +179,9 @@ def build_xcframework(
 
             first_arch_framework_dir = arch_framework_dirs[0]
 
-            if headers_dir is None:
-                headers_dir = first_arch_framework_dir / "Headers"
-                framework_info_file = first_arch_framework_dir.parents[1] / "framework_info.json"
+            headers_dir = first_arch_framework_dir / "Headers"
+            curr_framework_info_file = first_arch_framework_dir.parents[1] / "framework_info.json"
+            framework_info_files_to_merge.append(curr_framework_info_file)
 
             platform_fat_framework_dir = intermediate_build_dir / f"{platform}/onnxruntime_extensions.framework"
             _rmtree_if_existing(platform_fat_framework_dir)
@@ -189,8 +218,8 @@ def build_xcframework(
         _rmtree_if_existing(output_headers_dir)
         shutil.copytree(headers_dir, output_headers_dir)
 
-        # copy framework_info.json
-        shutil.copyfile(framework_info_file, output_dir / "framework_info.json")
+        # merge framework_info.json per platform into xcframework_info.json in output_dir
+        _merge_framework_info_files(framework_info_files_to_merge, Path(output_dir, "xcframework_info.json"))
 
 
 def parse_args():
@@ -243,7 +272,11 @@ def parse_args():
         default="12.0",
         help="iOS deployment target.",
     )
-
+    parser.add_argument(
+        "--macos_deployment_target",
+        default="11.0",
+        help="macOS deployment target.",
+    )
     parser.add_argument(
         "build_py_args",
         nargs="*",
@@ -293,6 +326,7 @@ def main():
         config=args.config,
         opencv_dir=_repo_dir / "cmake/externals/opencv",
         ios_deployment_target=args.ios_deployment_target,
+        macos_deployment_target=args.macos_deployment_target,
         other_build_args=args.build_py_args,
     )
 

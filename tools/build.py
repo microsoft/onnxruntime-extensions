@@ -205,9 +205,9 @@ def _parse_arguments():
     )
     parser.add_argument("--ios", action="store_true", help="build for iOS")
     parser.add_argument(
-        "--ios_sysroot",
+        "--apple_sysroot",
         default="",
-        help="Specify the name of the platform SDK to be used. e.g. iphoneos, iphonesimulator",
+        help="Specify the name of the platform SDK to be used. e.g. iphoneos, iphonesimulator, macosx",
     )
     parser.add_argument(
         "--ios_toolchain_file",
@@ -486,9 +486,6 @@ def _generate_build_tree(
         if args.apple_deploy_target:
             cmake_args += [f"-DCMAKE_OSX_DEPLOYMENT_TARGET={args.apple_deploy_target}"]
 
-        if args.build_apple_framework:
-            cmake_args += ["-DOCOS_BUILD_APPLE_FRAMEWORK=ON"]
-
         if args.xcode_code_signing_identity or args.xcode_code_signing_team_id:
             # Code sign the binaries, if the code signing development identity and/or team id are provided
             if args.xcode_code_signing_identity:
@@ -500,28 +497,30 @@ def _generate_build_tree(
             # if neither code signing development identity nor team id are provided, don't code sign
             cmake_args += ["-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO"]
 
-        if args.ios:
+        if args.build_apple_framework or args.ios:
+            cmake_args += ["-DOCOS_BUILD_APPLE_FRAMEWORK=ON"]
+    
             required_args = [
-                args.ios_sysroot,
+                args.apple_sysroot,
                 args.apple_deploy_target,
             ]
-
             arg_names = [
-                "--ios_sysroot          " + "<the location or name of the macOS platform SDK>",
+                "--apple_sysroot          " + "<the location or name of the macOS platform SDK>",
                 "--apple_deploy_target  " + "<the minimum version of the target platform>",
             ]
-
             if not all(required_args):
                 raise UsageError(
-                    "iOS build is missing required arguments: "
+                    "Apple build is missing required arguments: "
                     + ", ".join(val for val, cond in zip(arg_names, required_args) if not cond)
                 )
-
             cmake_args += [
-                "-DCMAKE_SYSTEM_NAME=iOS",
-                "-DCMAKE_OSX_SYSROOT=" + args.ios_sysroot,
-                "-DCMAKE_TOOLCHAIN_FILE=" + str(args.ios_toolchain_file.resolve(strict=True)),
+                "-DCMAKE_OSX_SYSROOT=" + args.apple_sysroot,
             ]
+            if args.ios:
+                cmake_args += [
+                    "-DCMAKE_SYSTEM_NAME=iOS",
+                    "-DCMAKE_TOOLCHAIN_FILE=" + str(args.ios_toolchain_file.resolve(strict=True)),
+                ]
 
     if args.wasm:
         emsdk_toolchain = (
