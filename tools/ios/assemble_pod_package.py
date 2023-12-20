@@ -83,6 +83,7 @@ def assemble_pod_package(
     pod_description = "Pod containing pre and post processing custom ops for onnxruntime."
     with open(xcframework_info_file, mode="r") as f:
         xcframework_info = json.load(f)
+        print(f"Setting deployment target from available frameworks: {', '.join(xcframework_info.keys())}")
         ios_deployment_target = ""
         macos_deployment_target = ""
         for key in xcframework_info.keys():
