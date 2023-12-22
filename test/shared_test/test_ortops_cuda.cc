@@ -7,7 +7,7 @@
 #include "ocos.h"
 #include "test_kernel.hpp"
 
-TEST(tokenizer_opertors, test_bert_tokenizer) {
+TEST(CudaOp, test_fastgelu) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
 
   std::vector<TestValue> inputs(2);
@@ -25,7 +25,7 @@ TEST(tokenizer_opertors, test_bert_tokenizer) {
   outputs[0].name = "y";
   outputs[0].element_type = ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
   outputs[0].dims = {6};
-  outputs[0].values_int64 = {0., 0.9505811, 2.1696784, 3.298689, 4.399991, 5.5};
+  outputs[0].values_float = {0., 0.9505811, 2.1696784, 3.298689, 4.399991, 5.5};
 
   std::filesystem::path model_path = "data/cuda";
   model_path /= "test_fastgelu.onnx";
