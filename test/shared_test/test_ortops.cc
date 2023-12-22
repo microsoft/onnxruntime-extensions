@@ -296,11 +296,31 @@ void ValidateOutputEqual(size_t output_idx, Ort::Value& actual, TestValue expect
   }
 }
 
+OrtCUDAProviderOptions CreateDefaultOrtCudaProviderOptionsWithCustomStream(void* cuda_compute_stream) {
+  OrtCUDAProviderOptions cuda_options;
+
+  cuda_options.device_id = 0;
+  cuda_options.cudnn_conv_algo_search = OrtCudnnConvAlgoSearch::OrtCudnnConvAlgoSearchExhaustive;
+  cuda_options.gpu_mem_limit = std::numeric_limits<size_t>::max();
+  cuda_options.arena_extend_strategy = 0;
+  cuda_options.do_copy_in_default_stream = true;
+  cuda_options.has_user_compute_stream = cuda_compute_stream != nullptr ? 1 : 0;
+  cuda_options.user_compute_stream = cuda_compute_stream;
+  cuda_options.default_memory_arena_cfg = nullptr;
+
+  return cuda_options;
+}
+
 void TestInference(Ort::Env& env, const ORTCHAR_T* model_uri,
                    const std::vector<TestValue>& inputs,
                    const std::vector<TestValue>& outputs,
-                   OutputValidator output_validator) {
+                   OutputValidator output_validator,
+                   void* cuda_compute_stream) {
   Ort::SessionOptions session_options;
+#ifdef USE_CUDA
+  auto cuda_options = CreateDefaultOrtCudaProviderOptionsWithCustomStream(cuda_compute_stream);
+  session_options.AppendExecutionProvider_CUDA(cuda_options);
+#endif
   auto library_handle = RegisterExtOps(session_options);
 
   // if session creation passes, model loads fine
