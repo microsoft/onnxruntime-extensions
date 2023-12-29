@@ -4,7 +4,7 @@ jobs:
   - job: AndroidPackaging
     pool:
       vmImage: "macOS-13"
-    timeoutInMinutes: 120
+    timeoutInMinutes: 150
     variables:
       buildConfig: Release
     steps:
