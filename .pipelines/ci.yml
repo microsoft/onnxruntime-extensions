@@ -814,6 +814,9 @@ stages:
           --pod-version ${ORT_EXTENSIONS_POD_VERSION}
       displayName: "Assemble pod"
 
+    # Note: In this CI, we only specify to build for iphonesimulator x86_64 arch in build_framework.py command however 
+    # this test app's podfile by default is setup for all platforms, and due to that we have to explicitly exclude the 
+    # macos target below when installing the pod for the test app.
     - script: |
         ORT_EXTENSIONS_LOCAL_POD_PATH=$(Build.BinariesDirectory)/pod_staging \
         EXCLUDE_MACOS_TARGET=true \
