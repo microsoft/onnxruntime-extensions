@@ -123,6 +123,9 @@ jobs:
     displayName: "Lint pod"
     workingDirectory: $(Build.BinariesDirectory)/pod_staging
 
+  # Note: In this CI, we exclude macos arch in the build_framework.py command however the test app's podfile by default
+  # is setup for all platforms, and due to that we have explicitly exclude the macos target below when installing the pod
+  # for the test app.
   - script: |
       ORT_EXTENSIONS_LOCAL_POD_PATH=$(Build.BinariesDirectory)/pod_staging \
       EXCLUDE_MACOS_TARGET=true \
