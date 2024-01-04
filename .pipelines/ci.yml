@@ -481,6 +481,7 @@ stages:
       name: 'onnxruntime-extensions-Win2022-GPU-A10'
     variables:
       ORT_VERSION: '1.16.2'
+    timeoutInMinutes: 120
     steps:
       - template: templates/set_winenv.yml
         parameters:
@@ -555,6 +556,7 @@ stages:
   - job: LinuxGPU
     pool:
       name: 'onnxruntime-extensions-Linux-GPU-A10'
+    timeoutInMinutes: 120
     variables:
       ORT_VERSION: '1.16.2'
       TORCH_VERSION: 'torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118'
