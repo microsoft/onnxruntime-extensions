@@ -112,11 +112,13 @@ def remove_unused_initializers(subgraph, top_level_initializers=None):
     all_initializers = initializers + top_level_initializers
 
     # Filter the initializers by checking if their names are in the list of used input tensors
-    used_initializers = [init for init in all_initializers if init.name in input_tensors]
+    used_initializers = [
+        init for init in all_initializers if init.name in input_tensors]
 
     # Update the subgraph's initializers
     del subgraph.initializer[:]
-    subgraph.initializer.extend([init for init in used_initializers if init in initializers])
+    subgraph.initializer.extend(
+        [init for init in used_initializers if init in initializers])
 
     # Recursively process subgraphs within this subgraph
     for node in nodes:
@@ -125,7 +127,8 @@ def remove_unused_initializers(subgraph, top_level_initializers=None):
                 remove_unused_initializers(attr.g, top_level_initializers)
             elif attr.type == onnx.AttributeProto.GRAPHS:
                 for subgraph in attr.graphs:
-                    remove_unused_initializers(subgraph, top_level_initializers)
+                    remove_unused_initializers(
+                        subgraph, top_level_initializers)
 
 
 def quick_merge(*models, connection_indices=None):
@@ -150,17 +153,20 @@ def quick_merge(*models, connection_indices=None):
     merged_graph = models[0].graph
 
     # Dictionary to store unique opsets
-    opset_imports = {opset.domain if opset.domain else "ai.onnx": opset for opset in models[0].opset_import}
+    opset_imports = {
+        opset.domain if opset.domain else "ai.onnx": opset for opset in models[0].opset_import}
 
     # Iterate over all other models and merge
     for model_idx, model in enumerate(models[1:], start=1):
         if connection_indices is None:
-            io_map = [(out.name, in_.name) for out, in_ in zip(models[model_idx - 1].graph.output, model.graph.input)]
+            io_map = [(out.name, in_.name) for out, in_ in zip(
+                models[model_idx - 1].graph.output, model.graph.input)]
         else:
             io_map = [(models[model_idx - 1].graph.output[out_idx].name, model.graph.input[in_idx].name)
                       for out_idx, in_idx in connection_indices[model_idx - 1]]
 
-        merged_graph = onnx.compose.merge_graphs(merged_graph, model.graph, io_map)
+        merged_graph = onnx.compose.merge_graphs(
+            merged_graph, model.graph, io_map)
 
         for opset in model.opset_import:
             if not opset.domain:
@@ -174,7 +180,8 @@ def quick_merge(*models, connection_indices=None):
 
     default_opset = opset_imports.pop("ai.onnx", None)
     merged_model = onnx.helper.make_model_gen_version(merged_graph,
-                                                      opset_imports=[default_opset],
+                                                      opset_imports=[
+                                                          default_opset],
                                                       producer_name='ONNX Model Merger')
     merged_model.opset_import.extend(opset_imports.values())
     return merged_model
