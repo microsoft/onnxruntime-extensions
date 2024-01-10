@@ -165,8 +165,7 @@ def quick_merge(*models, connection_indices=None):
             io_map = [(models[model_idx - 1].graph.output[out_idx].name, model.graph.input[in_idx].name)
                       for out_idx, in_idx in connection_indices[model_idx - 1]]
 
-        merged_graph = onnx.compose.merge_graphs(
-            merged_graph, model.graph, io_map)
+        merged_graph = onnx.compose.merge_graphs(merged_graph, model.graph, io_map)
 
         for opset in model.opset_import:
             if not opset.domain:
