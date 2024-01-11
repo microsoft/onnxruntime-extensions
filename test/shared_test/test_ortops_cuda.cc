@@ -7,6 +7,8 @@
 #include "ocos.h"
 #include "test_kernel.hpp"
 
+#ifdef USE_CUDA
+
 TEST(CudaOp, test_fastgelu) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
 
@@ -33,3 +35,4 @@ TEST(CudaOp, test_fastgelu) {
   TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
 
+#endif
