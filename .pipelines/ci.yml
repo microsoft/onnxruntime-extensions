@@ -615,7 +615,7 @@ stages:
               /bin/bash -c "
                 set -ex; \
                 pushd /onnxruntime-extensions; \
-                sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86 -DOCOS_ONNXRUNTIME_VERSION="$(ORT_VERSION)" -DONNXRUNTIME_PKG_DIR=/onnxruntime; \
+                sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86 -DOCOS_ONNXRUNTIME_VERSION="$(ORT_VERSION)" -DONNXRUNTIME_PKG_DIR=$(Build.SourcesDirectory)/onnxruntime-linux-x64-gpu-$(ort.version); \
                 popd; \
                 "
           workingDirectory: $(Build.SourcesDirectory)
