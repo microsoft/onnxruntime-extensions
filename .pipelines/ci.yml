@@ -584,7 +584,7 @@ stages:
           userRepository: 'microsoft/onnxruntime'
           defaultVersionType: 'specificTag'
           version: 'v$(ORT_VERSION)'
-          itemPattern: '*-linux-x64-$(ORT_VERSION)*'
+          itemPattern: '*-linux-x64-gpu-$(ORT_VERSION)*'
           downloadPath: '$(Build.SourcesDirectory)'
         displayName: Download the ONNXRuntime prebuilt package.
 
