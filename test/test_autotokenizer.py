@@ -28,6 +28,20 @@ class TestAutoTokenizer(unittest.TestCase):
         actual_ids = ort_tok([text])[0]
         np.testing.assert_array_equal(ids[0], actual_ids)
 
+    def test_llama_tokenizer_id64(self):
+        # replace the official model name after the model is not gated anymore
+        tokenizer = AutoTokenizer.from_pretrained("hf-internal-testing/llama-tokenizer")
+        text = "I was born in 92000, and this is falsé."
+        ids = tokenizer.encode(text, return_tensors="np")
+
+        ort_tok = OrtPyFunction.from_model(gen_processing_models(
+            tokenizer,
+            pre_kwargs={"WITH_DEFAULT_INPUTS": True,
+                        "CAST_TOKEN_ID": True})[0])
+        actual_ids = ort_tok([text])[0]
+        self.assertEqual(actual_ids.dtype, np.int64)
+        np.testing.assert_array_equal(ids[0], actual_ids)
+
     def test_falcon_tokenizer(self):
         tokenizer = AutoTokenizer.from_pretrained("Rocketknight1/falcon-rw-1b", use_fast=False)
         text = "why don't you teach me some German?"
