@@ -558,7 +558,7 @@ stages:
       name: 'onnxruntime-extensions-Linux-GPU-A10'
     timeoutInMinutes: 120
     variables:
-      ORT_VERSION: '1.16.2'
+      ORT_VERSION: '1.16.3'
       TORCH_VERSION: 'torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118'
     steps:
       - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
@@ -626,7 +626,7 @@ stages:
           script: |
             docker run --gpus all --rm \
               --volume $(Build.SourcesDirectory):/onnxruntime-extensions \
-              --volume $(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ORT_VERSION):/onnxruntime \
+              --volume $(Build.SourcesDirectory)/onnxruntime-linux-x64-gpu-$(ORT_VERSION):/onnxruntime \
               -e CUDA_PATH=/usr/local/cuda-11.8 \
               onnxruntime-extensionscuda11build \
               /bin/bash -c "
@@ -644,7 +644,7 @@ stages:
           script: |
             docker run --gpus all --rm \
               --volume $(Build.SourcesDirectory):/onnxruntime-extensions \
-              --volume $(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ORT_VERSION):/onnxruntime \
+              --volume $(Build.SourcesDirectory)/onnxruntime-linux-x64-gpu-$(ORT_VERSION):/onnxruntime \
               -e CUDA_PATH=/usr/local/cuda-11.8 \
               onnxruntime-extensionscuda11build \
               /bin/bash -c "
