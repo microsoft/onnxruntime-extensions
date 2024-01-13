@@ -609,13 +609,13 @@ stages:
           script: |
             docker run --gpus all --rm \
               --volume $(Build.SourcesDirectory):/onnxruntime-extensions \
-              --volume $(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ORT_VERSION):/onnxruntime \
+              --volume $(Build.SourcesDirectory)/onnxruntime-linux-x64-gpu-$(ORT_VERSION):/onnxruntime \
               -e CUDA_PATH=/usr/local/cuda-11.8 \
               onnxruntime-extensionscuda11build \
               /bin/bash -c "
                 set -ex; \
                 pushd /onnxruntime-extensions; \
-                sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86 -DOCOS_ONNXRUNTIME_VERSION="$(ORT_VERSION)" -DONNXRUNTIME_PKG_DIR=$(Build.SourcesDirectory)/onnxruntime-linux-x64-gpu-$(ort.version); \
+                sh ./build.sh -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86 -DOCOS_ONNXRUNTIME_VERSION="$(ORT_VERSION)" -DONNXRUNTIME_PKG_DIR=/onnxruntime; \
                 popd; \
                 "
           workingDirectory: $(Build.SourcesDirectory)
