@@ -1,0 +1,15 @@
+LIBRARY tfmtok_c
+EXPORTS
+    TfmGetAPIVersion @1
+    TfmGetLastErrorMessage @2
+    TfmCreate @3
+    TfmDispose @4
+    TfmCreateTokenizer @5
+    TfmTokenize @6
+    TfmDetokenize @7
+    TfmDetokenize1D @8
+    TfmDetokenizeCached @9
+    TfmStringArrayGetBatch @10
+    TfmStringArrayGetItem @11
+    TfmTokenId2DArrayGetBatch @12
+    TfmTokenId2DArrayGetItem @13

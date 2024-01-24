@@ -47,7 +47,7 @@ include(CheckLanguage)
 
 option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
 option(OCOS_ENABLE_PYTHON "Enable Python component building, (deprecated)" OFF)
-option(OCOS_ENABLE_CTEST "Enable C++ test" OFF)
+option(OCOS_ENABLE_CTEST "Enable C++ test" ON)
 option(OCOS_ENABLE_CPP_EXCEPTIONS "Enable C++ Exception" ON)
 option(OCOS_ENABLE_TF_STRING "Enable String Operator Set" ON)
 option(OCOS_ENABLE_RE2_REGEX "Enable StringRegexReplace and StringRegexSplit" ON)
@@ -64,6 +64,7 @@ option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
 option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
 option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" OFF)
+option(OCOS_ENABLE_TOKENIZER_API "Enable building the tokenizer API" ON)
 
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
@@ -710,6 +711,16 @@ else()
   add_library(onnxruntime_extensions ALIAS ortcustomops)
   standardize_output_folder(ortcustomops)
   set(_BUILD_SHARED_LIBRARY TRUE)
+endif()
+
+if (OCOS_ENABLE_TOKENIZER_API)
+  message(STATUS "Build the tokenizer API")
+  include(simdjson)
+  add_subdirectory(tfmtok)
+  target_include_directories(tfmtok PUBLIC
+    ${PROJECT_SOURCE_DIR}/includes/tfmtok
+    ${simdjson_SOURCE_DIR}/singleheader
+    ${spm_INCLUDE_DIRS})
 endif()
 
 if(OCOS_ENABLE_AZURE)
