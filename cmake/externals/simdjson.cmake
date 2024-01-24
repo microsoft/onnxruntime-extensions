@@ -4,5 +4,4 @@ FetchContent_Declare(
     URL_HASH SHA1=2b063a2e81f74a5d1cb937fadf3d2fca0f1edb09
   )
 
-  FetchContent_MakeAvailable(simdjson)
-  
+FetchContent_MakeAvailable(simdjson)
