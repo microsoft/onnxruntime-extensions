@@ -689,7 +689,8 @@ stages:
         -DOCOS_ENABLE_SPM_TOKENIZER=ON \
         -DOCOS_BUILD_PYTHON=OFF \
         -DOCOS_ENABLE_CV2=OFF \
-        -DOCOS_ENABLE_VISION=OFF
+        -DOCOS_ENABLE_VISION=OFF \
+        -DOCOS_ENABLE_CTEST=OFF
       displayName: build the customop library with onnxruntime
     # TODO add unittest for webassembly
 
