@@ -85,6 +85,9 @@ OrtStatusPtr KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::strin
       }
     }
   }
+  instance_indices.push_back(content.size());
+
+  // Patch fairseq indices
   if (fairseq.has_value() && (*fairseq) && !add_rev) {
     // HF Fairseq Example (XLMRobertaTokenizer) : https://huggingface.co/transformers/v4.6.0/_modules/transformers/models/xlm_roberta/tokenization_xlm_roberta.html#XLMRobertaTokenizer
     //
@@ -106,7 +109,6 @@ OrtStatusPtr KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::strin
       }
     });
   }
-  instance_indices.push_back(content.size());
 
   // Setup output
   std::vector<int64_t> size_content(1);
