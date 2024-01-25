@@ -83,29 +83,28 @@ OrtStatusPtr KernelSentencepieceTokenizer::Compute(const ortc::Tensor<std::strin
         content.push_back(tokenizer_.eos_id());
         token_indices.push_back(ort_extensions::narrow<int32_t>(str_input[i].length()));
       }
-
-      if (fairseq.has_value() && (*fairseq)) {
-        // HF Fairseq Example (XLMRobertaTokenizer) : https://huggingface.co/transformers/v4.6.0/_modules/transformers/models/xlm_roberta/tokenization_xlm_roberta.html#XLMRobertaTokenizer
-        //
-        // Original fairseq vocab and spm vocab must be "aligned":
-        // Vocab    |    0    |    1    |    2    |    3    |  4  |  5  |  6  |   7   |   8   | 9
-        // -------- | ------- | ------- | ------  | ------- | --- | --- | --- | ----- | ----- | ----
-        // fairseq  | '<s>'   | '<pad>' | '</s>'  | '<unk>' | ',' | '.' | '▁' | 's'   | '▁de' | '-'
-        // spm      | '<unk>' | '<s>'   | '</s>'  | ','     | '.' | '▁' | 's' | '▁de' | '-'   | '▁a'
-        //
-        // As per HF, the first "real" token "," has position 4 in the XLMRobertaTokenizer vocab and position
-        // 3 in the SPM vocab, so we add a padding value of 1 to IDs, and fix exceptions for '<unk>' and '<s>'.
-        std::for_each(content.begin(), content.end(), [](int& n) {
-          if (n == 0) {  // '<unk>': 0 -> 3
-            n = 3;
-          } else if (n == 1) {  // '<s>': 1 -> 0
-            n = 0;
-          } else if (n != 2) {  // '</s>': 2 -> 2, '<*>': x -> x + 1
-            n++;
-          }
-        });
-      }
     }
+  }
+  if (fairseq.has_value() && (*fairseq) && !add_rev) {
+    // HF Fairseq Example (XLMRobertaTokenizer) : https://huggingface.co/transformers/v4.6.0/_modules/transformers/models/xlm_roberta/tokenization_xlm_roberta.html#XLMRobertaTokenizer
+    //
+    // Original fairseq vocab and spm vocab must be "aligned":
+    // Vocab    |    0    |    1    |    2    |    3    |  4  |  5  |  6  |   7   |   8   | 9
+    // -------- | ------- | ------- | ------  | ------- | --- | --- | --- | ----- | ----- | ----
+    // fairseq  | '<s>'   | '<pad>' | '</s>'  | '<unk>' | ',' | '.' | '▁' | 's'   | '▁de' | '-'
+    // spm      | '<unk>' | '<s>'   | '</s>'  | ','     | '.' | '▁' | 's' | '▁de' | '-'   | '▁a'
+    //
+    // As per HF, the first "real" token "," has position 4 in the XLMRobertaTokenizer vocab and position
+    // 3 in the SPM vocab, so we add a padding value of 1 to IDs, and fix exceptions for '<unk>' and '<s>'.
+    std::for_each(content.begin(), content.end(), [](int& n) {
+      if (n == 0) {  // '<unk>': 0 -> 3
+        n = 3;
+      } else if (n == 1) {  // '<s>': 1 -> 0
+        n = 0;
+      } else if (n != 2) {  // '</s>': 2 -> 2, '<*>': x -> x + 1
+        n++;
+      }
+    });
   }
   instance_indices.push_back(content.size());
 
