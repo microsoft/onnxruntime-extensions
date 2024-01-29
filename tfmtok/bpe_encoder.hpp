@@ -42,7 +42,7 @@ class BpeEncoder {
     }
 
     auto ewsuffix = model_node.at_key("end_of_word_suffix");
-    if (ewsuffix.is_string()) {  
+    if (ewsuffix.is_string()) {
       end_of_word_suffix_ = model_node.at_key("end_of_word_suffix").get_c_str().value();
     }
 
@@ -155,7 +155,7 @@ class BpeEncoder {
     }
   }
 
-  uint32_t GetTokenId(const std::string& key) const{
+  uint32_t GetTokenId(const std::string& key) const {
     auto it = vocab_map_.find(key);
     if (it != end(vocab_map_)) {
       return it->second;

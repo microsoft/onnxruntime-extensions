@@ -130,9 +130,10 @@ void BPETokenizer::LoadPredefinedTokens(const TokenConfig& config) {
 }
 
 TfmStatus BPETokenizer::DecodeExtraArgs(const simdjson::dom::element& root) {
-  const simdjson::dom::element& decoder_obj = root.at_key("decoder");
-  if (decoder_obj.is_null()) {
-    return {kTfmErrorInvalidFile, "Cannot find the decoder key in the the tokenizer.json"};
+  simdjson::dom::element decoder_obj;
+  auto error = root.at_key("decoder").get(decoder_obj);
+  if (error != simdjson::SUCCESS && error != simdjson::NO_SUCH_FIELD) {
+    return {kTfmErrorInvalidFile, "Cannot parse the decoder section in the the tokenizer.json"};
   }
   TryToGetJson(decoder_obj, "add_prefix_space", decode_extra_args_.add_prefix_space);
   return TfmStatus::OK();
@@ -377,7 +378,7 @@ TfmStatus BPETokenizer::Decode(const span<tfmTokenId_t const>& ids, std::string&
         if (byte_decoder_.count(wchr) == 0 && wchr <= 0xFF) {
           // std::cout << "Error: cannot find the byte_decoder_ for " << (uint32_t)(unsigned char)wchr << std::endl;
           decoded_token.push_back(gsl::narrow<unsigned char>(wchr));
-        }else {
+        } else {
           unsigned char uchr = byte_decoder_.at(wchr);
           decoded_token.push_back(uchr);
         }
