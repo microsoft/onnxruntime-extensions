@@ -1,0 +1,37 @@
+parameters:
+- name: JavaPackaging
+  displayName: Package and Publish Java Package
+  type: boolean
+  default: true
+stages:
+- stage: Package and Publish Java Package
+  jobs:
+  - job:
+    workspace:
+      clean: all
+    pool: 'onnxruntime-Win-CPU-2022'
+
+    steps:
+    - script: |
+        ./build.sh -DOCOS_BUILD_JAVA=ON
+      displayName: build the extensions java package
+
+    - task: CopyFiles@2
+      displayName: 'Copy Java Files to Artifact Staging Directory'
+      inputs:
+        SourceFolder: '$(Build.BinariesDirectory)\java\build\libs'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Pipeline Artifact'
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)'
+        artifact: 'onnxruntime-extensions-java-cpu'
+
+    - template: templates/component-governance-component-detection-steps.yml
+      parameters :
+        condition : 'succeeded'
+
+    - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
+      displayName: 'Clean Agent Directories'
+      condition: always()
