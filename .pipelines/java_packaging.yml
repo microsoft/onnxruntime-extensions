@@ -1,15 +1,15 @@
 parameters:
-- name: JavaPackaging
+- name: JavaPackagingandPublishing
   displayName: Package and Publish Java Package
   type: boolean
   default: true
 stages:
-- stage: Package and Publish Java Package
+- stage: Java_Packaging
   jobs:
-  - job:
+  - job: Windows CPU Java Packaging
     workspace:
       clean: all
-    pool: 'onnxruntime-Win-CPU-2022'
+    pool: 'onnxruntime-extensions-Windows-CPU'
 
     steps:
     - script: |
@@ -17,21 +17,57 @@ stages:
       displayName: build the extensions java package
 
     - task: CopyFiles@2
-      displayName: 'Copy Java Files to Artifact Staging Directory'
+      displayName: 'Copy Java Files for $(Agent.OS) Arch to Artifact Staging Directory'
       inputs:
-        SourceFolder: '$(Build.BinariesDirectory)\java\build\libs'
+        SourceFolder: '$(Build.BinariesDirectory)/out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
-    - task: PublishPipelineArtifact@1
-      displayName: 'Publish Pipeline Artifact'
+  - job: Linux CPU Java Packaging
+    workspace:
+      clean: all
+    pool: 'onnxruntime-extensions-Linux-CPU'
+
+    steps:
+    - script: |
+        sh ./build.sh -DOCOS_BUILD_JAVA=ON
+      displayName: build the extensions java package
+
+    - task: CopyFiles@2
+      displayName: 'Copy Java Files for $(Agent.OS) Arch to Artifact Staging Directory'
       inputs:
-        targetPath: '$(Build.ArtifactStagingDirectory)'
-        artifact: 'onnxruntime-extensions-java-cpu'
+        SourceFolder: '$(Build.BinariesDirectory)/out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
-    - template: templates/component-governance-component-detection-steps.yml
-      parameters :
-        condition : 'succeeded'
+  - job: MacOS CPU Java Packaging
+    workspace:
+      clean: all
+    pool:
+      vmImage: 'macOS-13'
 
-    - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
-      displayName: 'Clean Agent Directories'
-      condition: always()
+    steps:
+    - script: |
+        sh ./build.sh -DOCOS_BUILD_JAVA=ON
+      displayName: build the extensions java package
+
+    - task: CopyFiles@2
+      displayName: 'Copy Java Files for $(Agent.OS) Arch to Artifact Staging Directory'
+      inputs:
+        SourceFolder: '$(Build.BinariesDirectory)/out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+- stage: Publish_Java_Package
+  dependsOn: Java_Packaging
+  jobs:
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish Pipeline Artifact'
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)'
+      artifact: 'onnxruntime-extensions-java-cpu'
+
+  - template: templates/component-governance-component-detection-steps.yml
+    parameters :
+      condition : 'succeeded'
+
+  - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
+    displayName: 'Clean Agent Directories'
+    condition: always()
