@@ -41,6 +41,8 @@ def gen_processing_models(processor: Union[str, object],
         has to be provided in the kwargs
     pre_kwargs: dict
         Keyword arguments for generating the pre-processing model
+        WITH_DEFAULT_INPUTS: bool, add default inputs to the graph, default is True
+        CAST_TOKEN_ID: bool, add a cast op to output token IDs to be int64 if needed, default is False
     post_kwargs: dict
         Keyword arguments for generating the post-processing model
     opset: int
@@ -54,7 +56,8 @@ def gen_processing_models(processor: Union[str, object],
         The pre- and post-processing ONNX models
     """
     if pre_kwargs is None and post_kwargs is None:
-        raise ValueError("Either pre_kwargs or post_kwargs should be provided. None means no processing")
+        raise ValueError(
+            "Either pre_kwargs or post_kwargs should be provided. None means no processing graph output.")
     if isinstance(processor, str):
         g_pre, g_post = (None, None)
         if pre_kwargs:
@@ -64,7 +67,8 @@ def gen_processing_models(processor: Union[str, object],
                 cls_name = processor
             else:
                 if processor not in _PRE_POST_PAIR:
-                    raise RuntimeError(f"Cannot locate the post processing operator name from {processor}")
+                    raise RuntimeError(
+                        f"Cannot locate the post processing operator name from {processor}")
                 cls_name = _PRE_POST_PAIR[processor]
             g_post = SingleOpGraph.build_graph(cls_name, **post_kwargs)
         return make_onnx_model(g_pre) if g_pre else None, make_onnx_model(g_post) if g_post else None
@@ -72,15 +76,20 @@ def gen_processing_models(processor: Union[str, object],
     cls_name = type(processor).__name__
     if cls_name == "WhisperProcessor":
         if WhisperDataProcGraph is None:
-            raise ValueError("The Whisper processor needs torch.onnx support, please install pytorch 2.0 and above")
+            raise ValueError(
+                "The Whisper processor needs torch.onnx support, please install pytorch 2.0 and above")
         _converter = WhisperDataProcGraph(processor, opset=opset, **kwargs)
-        pre_m = _converter.pre_processing(**pre_kwargs) if pre_kwargs is not None else None
-        post_m = _converter.post_processing(**post_kwargs) if post_kwargs is not None else None
+        pre_m = _converter.pre_processing(
+            **pre_kwargs) if pre_kwargs is not None else None
+        post_m = _converter.post_processing(
+            **post_kwargs) if post_kwargs is not None else None
         return pre_m, post_m
     elif HFTokenizerOnnxGraph.is_supported(processor):
         _converter = HFTokenizerOnnxGraph(processor)
-        pre_g = _converter.pre_processing(**pre_kwargs) if pre_kwargs is not None else None
-        post_g = _converter.post_processing(**post_kwargs) if post_kwargs is not None else None
+        pre_g = _converter.pre_processing(
+            **pre_kwargs) if pre_kwargs is not None else None
+        post_g = _converter.post_processing(
+            **post_kwargs) if post_kwargs is not None else None
         return make_onnx_model(pre_g) if pre_g else None, \
             make_onnx_model(post_g) if post_g else None
     else:

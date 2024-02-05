@@ -52,6 +52,7 @@ void RunSession(Ort::Session& session_object,
 void TestInference(Ort::Env& env, const ORTCHAR_T* model_uri,
                    const std::vector<TestValue>& inputs,
                    const std::vector<TestValue>& outputs,
-                   OutputValidator output_validator = nullptr);
+                   OutputValidator output_validator = nullptr,
+                   void* cuda_compute_stream = nullptr);
 
 void GetTensorMutableDataString(const OrtApi& api, const OrtValue* value, std::vector<std::string>& output);
