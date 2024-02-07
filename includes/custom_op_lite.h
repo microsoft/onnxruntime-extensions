@@ -585,18 +585,30 @@ struct Variadic : public TensorBase {
 
 enum CudaResource {
   cuda_handle_t = 10000,
+  cudnn_handle_t,
+  cublas_handle_t,
+  deferred_cpu_allocator_t,
+  // below are cuda ep options
+  device_id_t,  // 10004
 };
 
 struct CudaContext {
   static const int cuda_resource_ver = 1;
   void Init(const OrtW::CustomOpApi& api, const OrtKernelContext& ctx) {
     const auto& ort_api = api.GetOrtApi();
-    ort_api.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::cuda_handle_t, &cuda_stream);
+    auto hr = ort_api.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::cuda_handle_t, &cuda_stream);
+    if (hr) return;
     if (!cuda_stream) {
       ORTX_CXX_API_THROW("Failed to fetch cuda stream from context", ORT_RUNTIME_EXCEPTION);
     }
+
+    ort_api.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::cublas_handle_t, &cublas);
+    if (!cublas) {
+      ORTX_CXX_API_THROW("Failed to fetch cublas handle from context", ORT_RUNTIME_EXCEPTION);
+    }
   }
   void* cuda_stream = {};
+  void* cublas = {};
 };
 
 #endif
@@ -623,6 +635,10 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
   static typename std::enable_if<std::is_same<T, const CudaContext&>::value, std::tuple<T, Ts...>>::type
   CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) {
+    //OrtMemoryInfo* memory_info = nullptr;
+    //(*api).GetOrtApi().CreateMemoryInfo("Cuda", OrtDeviceAllocator, 0, OrtMemTypeDefault, &memory_info);
+    //OrtAllocator* allocator = nullptr;
+    //(*api).GetOrtApi().KernelContext_GetAllocator(context, memory_info, &allocator);
     thread_local CudaContext cuda_context;
     cuda_context.Init(*api, *context);
     std::tuple<T> current = std::tuple<const CudaContext&>{cuda_context};

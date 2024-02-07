@@ -31,6 +31,7 @@ class TestCudaOps(unittest.TestCase):
 
     def test_cuda_negpos(self):
         so = _ort.SessionOptions()
+        print('lib_path:'+_get_library_path())
         so.register_custom_ops_library(_get_library_path())
         onnx_model = self._create_negpos_test_model()
         self.assertIn('op_type: "NegPos"', str(onnx_model))

@@ -42,6 +42,24 @@ class API {
     instance()->ReleaseStatus(ptr);
   }
 
+  static OrtStatusPtr GetInputCount(const OrtKernelContext* context, size_t* out) noexcept {
+    return instance()->KernelContext_GetInputCount(context, out);
+  }
+
+  static OrtMemoryInfo* CreateOrtMemoryInfo(const char* name, enum OrtAllocatorType type, int id, enum OrtMemType mem_type) noexcept {
+    OrtMemoryInfo* ret = nullptr;
+    OrtStatusPtr tmp = instance()->CreateMemoryInfo(name, type, id, mem_type, &ret);
+    if (tmp) return nullptr;
+    return ret;
+  }
+
+  static OrtAllocator* GetOrtAllocator(const OrtKernelContext* context, const OrtMemoryInfo* mem_info) {
+    OrtAllocator* ret = nullptr;
+    OrtStatusPtr tmp = instance()->KernelContext_GetAllocator(context, mem_info, &ret);
+    if (tmp) return nullptr;
+    return ret;
+  }
+
   template <typename T>
   static OrtStatusPtr KernelInfoGetAttribute(const OrtKernelInfo& info, const char* name, T& value) noexcept;
 

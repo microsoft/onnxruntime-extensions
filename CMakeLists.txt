@@ -277,6 +277,7 @@ endmacro()
 
 if(OCOS_USE_CUDA)
   include(ext_cuda)
+  include(cutlass)
 endif()
 
 #######################################################################################################################
@@ -556,6 +557,10 @@ target_include_directories(ocos_operators PUBLIC
   ${PROJECT_SOURCE_DIR}/includes
   ${PROJECT_SOURCE_DIR}/base
   ${PROJECT_SOURCE_DIR}/operators)
+
+if (OCOS_USE_CUDA) 
+  target_include_directories(ocos_operators PUBLIC ${cutlass_SOURCE_DIR}/include ${cutlass_SOURCE_DIR}/examples)
+endif()
 
 set(ocos_libraries)
 set(OCOS_COMPILE_DEFINITIONS)
