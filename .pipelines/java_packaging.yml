@@ -6,7 +6,7 @@ parameters:
 stages:
 - stage: Java_Packaging
   jobs:
-  - job: Windows CPU Java Packaging
+  - job: Windows_CPU_Java_Packaging
     workspace:
       clean: all
     pool: 'onnxruntime-extensions-Windows-CPU'
@@ -22,7 +22,7 @@ stages:
         SourceFolder: '$(Build.BinariesDirectory)/out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
-  - job: Linux CPU Java Packaging
+  - job: Linux_CPU_Java_Packaging
     workspace:
       clean: all
     pool: 'onnxruntime-extensions-Linux-CPU'
@@ -38,7 +38,7 @@ stages:
         SourceFolder: '$(Build.BinariesDirectory)/out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
-  - job: MacOS CPU Java Packaging
+  - job: MacOS_CPU_Java_Packaging
     workspace:
       clean: all
     pool:
@@ -58,16 +58,18 @@ stages:
 - stage: Publish_Java_Package
   dependsOn: Java_Packaging
   jobs:
-  - task: PublishPipelineArtifact@1
-    displayName: 'Publish Pipeline Artifact'
-    inputs:
-      targetPath: '$(Build.ArtifactStagingDirectory)'
-      artifact: 'onnxruntime-extensions-java-cpu'
+  - job: Publich_and_Cleanup
+    steps:
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Pipeline Artifact'
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)'
+        artifact: 'onnxruntime-extensions-java-cpu'
 
-  - template: templates/component-governance-component-detection-steps.yml
-    parameters :
-      condition : 'succeeded'
+    - template: templates/component-governance-component-detection-steps.yml
+      parameters :
+        condition : 'succeeded'
 
-  - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
-    displayName: 'Clean Agent Directories'
-    condition: always()
+    - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
+      displayName: 'Clean Agent Directories'
+      condition: always()
