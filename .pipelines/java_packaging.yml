@@ -9,7 +9,7 @@ stages:
   - job: Windows_CPU_Java_Packaging
     workspace:
       clean: all
-    pool: 'onnxruntime-extensions-Windows-CPU'
+    pool: {name: 'onnxruntime-Win-CPU-2022'}
 
     steps:
     - script: |
@@ -25,7 +25,7 @@ stages:
   - job: Linux_CPU_Java_Packaging
     workspace:
       clean: all
-    pool: 'onnxruntime-extensions-Linux-CPU'
+    pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
 
     steps:
     - script: |
