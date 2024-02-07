@@ -13,13 +13,13 @@ stages:
 
     steps:
     - script: |
-        ./build.sh -DOCOS_BUILD_JAVA=ON
+        sh ./build.sh -DOCOS_BUILD_JAVA=ON
       displayName: build the extensions java package
 
     - task: CopyFiles@2
       displayName: 'Copy Java Files for $(Agent.OS) Arch to Artifact Staging Directory'
       inputs:
-        SourceFolder: '$(Build.BinariesDirectory)/out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
+        SourceFolder: 'out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - job: Linux_CPU_Java_Packaging
@@ -35,7 +35,7 @@ stages:
     - task: CopyFiles@2
       displayName: 'Copy Java Files for $(Agent.OS) Arch to Artifact Staging Directory'
       inputs:
-        SourceFolder: '$(Build.BinariesDirectory)/out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
+        SourceFolder: 'out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - job: MacOS_CPU_Java_Packaging
@@ -52,7 +52,7 @@ stages:
     - task: CopyFiles@2
       displayName: 'Copy Java Files for $(Agent.OS) Arch to Artifact Staging Directory'
       inputs:
-        SourceFolder: '$(Build.BinariesDirectory)/out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
+        SourceFolder: 'out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
 - stage: Publish_Java_Package
