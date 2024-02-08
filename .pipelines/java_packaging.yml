@@ -23,6 +23,20 @@ stages:
         SourceFolder: 'out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Linux Artifact'
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)'
+        artifact: 'drop-linux-onnxruntime-extensions-java-cpu'
+
+    - template: templates/component-governance-component-detection-steps.yml
+      parameters :
+        condition : 'succeeded'
+
+    - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
+      displayName: 'Clean Agent Directories'
+      condition: always()
+
   - job: MacOS_CPU_Java_Packaging
     workspace:
       clean: all
@@ -39,11 +53,12 @@ stages:
       inputs:
         SourceFolder: 'out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
     - task: PublishPipelineArtifact@1
-      displayName: 'Publish Pipeline Artifact'
+      displayName: 'Publish MacOS Artifact'
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)'
-        artifact: 'drop-onnxruntime-extensions-java-cpu'
+        artifact: 'drop-macos-onnxruntime-extensions-java-cpu'
 
     - template: templates/component-governance-component-detection-steps.yml
       parameters :
