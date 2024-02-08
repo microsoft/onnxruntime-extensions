@@ -7,6 +7,36 @@ stages:
 - stage: Java_Packaging_and_Publishing
   jobs:
 
+  - job: Windows_CPU_Java_Packaging
+    workspace:
+      clean: all
+    pool: {name: 'onnxruntime-Win-CPU-2022'}
+
+    steps:
+    - script: |
+        call .\build.bat -DOCOS_BUILD_JAVA=ON
+      displayName: build the extensions java package
+
+    - task: CopyFiles@2
+      displayName: 'Copy Java Files for $(Agent.OS) Arch to Artifact Staging Directory'
+      inputs:
+        SourceFolder: 'out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Windows Artifact'
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)'
+        artifact: 'drop-windows-onnxruntime-extensions-java-cpu'
+
+    - template: templates/component-governance-component-detection-steps.yml
+      parameters :
+        condition : 'succeeded'
+
+    - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
+      displayName: 'Clean Agent Directories'
+      condition: always()
+
   - job: Linux_CPU_Java_Packaging
     workspace:
       clean: all
