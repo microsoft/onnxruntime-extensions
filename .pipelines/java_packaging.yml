@@ -4,7 +4,7 @@ parameters:
   type: boolean
   default: true
 stages:
-- stage: Java_Packaging
+- stage: Java_Packaging_and_Publishing
   jobs:
 
   - job: Linux_CPU_Java_Packaging
@@ -39,17 +39,11 @@ stages:
       inputs:
         SourceFolder: 'out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
-
-- stage: Publish_Java_Package
-  dependsOn: Java_Packaging
-  jobs:
-  - job: Publish_and_Cleanup
-    steps:
     - task: PublishPipelineArtifact@1
       displayName: 'Publish Pipeline Artifact'
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)'
-        artifact: 'onnxruntime-extensions-java-cpu'
+        artifact: 'drop-onnxruntime-extensions-java-cpu'
 
     - template: templates/component-governance-component-detection-steps.yml
       parameters :
