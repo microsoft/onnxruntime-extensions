@@ -6,21 +6,6 @@ parameters:
 stages:
 - stage: Java_Packaging
   jobs:
-  - job: Windows_CPU_Java_Packaging
-    workspace:
-      clean: all
-    pool: {name: 'onnxruntime-Win-CPU-2022'}
-
-    steps:
-    - script: |
-        sh ./build.sh -DOCOS_BUILD_JAVA=ON
-      displayName: build the extensions java package
-
-    - task: CopyFiles@2
-      displayName: 'Copy Java Files for $(Agent.OS) Arch to Artifact Staging Directory'
-      inputs:
-        SourceFolder: 'out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
-        TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - job: Linux_CPU_Java_Packaging
     workspace:
@@ -58,7 +43,7 @@ stages:
 - stage: Publish_Java_Package
   dependsOn: Java_Packaging
   jobs:
-  - job: Publich_and_Cleanup
+  - job: Publish_and_Cleanup
     steps:
     - task: PublishPipelineArtifact@1
       displayName: 'Publish Pipeline Artifact'
