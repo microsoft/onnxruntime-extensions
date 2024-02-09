@@ -7,7 +7,6 @@
 #include "flash.h"
 #include "flash_fwd_kernel.h"
 
-namespace onnxruntime {
 namespace flash {
 
 template <typename Kernel_traits, bool Is_causal, bool Is_local, bool Is_even_MN, bool Is_even_K, bool Return_softmax>
@@ -293,4 +292,3 @@ void run_mha_fwd_hdim256(Flash_fwd_params& params, cudaStream_t stream) {
 }
 
 }  // namespace flash
-}  // namespace onnxruntime

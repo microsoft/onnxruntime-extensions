@@ -294,7 +294,7 @@ struct GroupQueryAttention {
     output_shape[2] = static_cast<int64_t>(parameters.hidden_size);
   
 #if USE_FLASH_ATTENTION
-    bool use_flash_attention = !disable_flash_attention_ && flash::is_supported(device_prop, parameters.head_size, parameters.num_heads, parameters.kv_num_heads);
+    bool use_flash_attention = !disable_flash_attention_ && flash::is_supported(DeviceProp::GetCudaDeviceProp(), parameters.head_size, parameters.num_heads, parameters.kv_num_heads);
     // Allocate buffers
     size_t softmax_lse_bytes = 0;
     size_t softmax_lse_accum_bytes = 0;
@@ -306,7 +306,7 @@ struct GroupQueryAttention {
       using namespace std;
       auto [num_splits, slse_accum_bytes, o_accum_bytes] = flash::get_num_splits_and_buffer_sizes(
           parameters.batch_size, parameters.sequence_length, parameters.sequence_length, parameters.num_heads,
-          parameters.head_size, device_prop.multiProcessorCount);
+          parameters.head_size, DeviceProp::GetCudaDeviceProp().multiProcessorCount);
       parameters.num_splits = num_splits;
       softmax_lse_accum_bytes = slse_accum_bytes;
       out_accum_bytes = o_accum_bytes;
