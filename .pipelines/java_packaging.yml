@@ -20,7 +20,7 @@ stages:
     - task: CopyFiles@2
       displayName: 'Copy Java Files for Windows Arch to Artifact Staging Directory'
       inputs:
-        SourceFolder: 'out/Windows/RelWithDebInfo/java/build/libs'
+        SourceFolder: 'out/Windows/bin/RelWithDebInfo/java/build/libs'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
     - task: PublishPipelineArtifact@1
