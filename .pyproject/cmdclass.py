@@ -239,11 +239,13 @@ class CmdBuildCMakeExt(_build_ext):
                     pass
 
         if sys.platform.startswith("darwin"):
+            cmake_args += ["-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15"]
             # Cross-compile support for macOS - respect ARCHFLAGS if set
             archs = re.findall(r"-arch (\S+)", os.environ.get("ARCHFLAGS", ""))
             if archs:
                 cmake_args += [
                     "-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))]
+
 
         # overwrite the Python module info if the auto-detection doesn't work.
         # export Python3_INCLUDE_DIRS=/opt/python/cp38-cp38

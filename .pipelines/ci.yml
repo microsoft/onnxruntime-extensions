@@ -180,7 +180,7 @@ stages:
     - bash: |
         set -e -x -u
         echo 'set (OCOS_ENABLE_BERT_TOKENIZER ON CACHE BOOL "" FORCE)' > cmake/_selectedoplist.cmake
-        ./build.sh -DOCOS_ENABLE_CPP_EXCEPTIONS=OFF -DOCOS_ENABLE_SELECTED_OPLIST=ON
+        ./build.sh -DOCOS_ENABLE_CPP_EXCEPTIONS=OFF -DOCOS_ENABLE_SELECTED_OPLIST=ON -DOCOS_ENABLE_CTEST=OFF
       displayName: Build ort-extensions with only one operator was selected
 
 - stage: MacOSBuilds
@@ -689,7 +689,8 @@ stages:
         -DOCOS_ENABLE_SPM_TOKENIZER=ON \
         -DOCOS_BUILD_PYTHON=OFF \
         -DOCOS_ENABLE_CV2=OFF \
-        -DOCOS_ENABLE_VISION=OFF
+        -DOCOS_ENABLE_VISION=OFF \
+        -DOCOS_ENABLE_CTEST=OFF
       displayName: build the customop library with onnxruntime
     # TODO add unittest for webassembly
 
