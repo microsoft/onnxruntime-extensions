@@ -194,6 +194,9 @@ if(OCOS_ENABLE_SELECTED_OPLIST)
   message(STATUS "Looking for the _selectedoplist.cmake")
   disable_all_operators()
   include(_selectedoplist)
+  # Include the selected_ops case, no way to run the unit tests, so disable it,
+  # even the user explicitly set it to ON. (it is rare, most of the time, it is set by default)
+  set(OCOS_ENABLE_CTEST OFF CACHE BOOL "" FORCE)
 endif()
 
 set(_OCOS_EXCEPTIONS_REQUIRED OFF)
