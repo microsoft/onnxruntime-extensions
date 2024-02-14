@@ -89,8 +89,7 @@ stages:
         python -m pip install --upgrade pip
         python -m pip install --upgrade setuptools
         python -m pip install onnxruntime==$(ort.version)
-        python -m pip install -r requirements.txt
-      displayName: Install requirements.txt
+      displayName: Install requirements
 
     - script: |
         CPU_NUMBER=8 python -m pip install .
@@ -283,8 +282,7 @@ stages:
         python -m pip install --upgrade setuptools
         python -m pip install --upgrade wheel
         python -m pip install onnxruntime==$(ort.version)
-        python -m pip install -r requirements.txt
-      displayName: Install requirements.txt
+      displayName: Install requirements
 
     - script: |
         python -c "import onnxruntime;print(onnxruntime.__version__)"
@@ -419,7 +417,6 @@ stages:
         call activate pyenv
         python -m pip install --upgrade pip
         python -m pip install onnxruntime==$(ort.version)
-        python -m pip install -r requirements.txt
         python -m pip install -r requirements-dev.txt
       displayName: Install requirements{-dev}.txt and cmake python modules
 
@@ -653,7 +650,6 @@ stages:
                 python3 -m pip install --upgrade pip; \
                 python3 -m pip install --upgrade setuptools; \
                 python3 -m pip install onnxruntime-gpu==$(ORT_VERSION); \
-                python3 -m pip install -r requirements.txt; \
                 python3 -m pip install -v --config-settings "ortx-user-option=use-cuda" . ; \
                 python3 -m pip install $(TORCH_VERSION) ; \
                 python3 -m pip install -r requirements-dev.txt; \
