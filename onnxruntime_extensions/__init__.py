@@ -10,37 +10,61 @@ This enables more flexibility and control over model execution, thus expanding t
 
 __author__ = "Microsoft"
 
-__all__ = [
-    'gen_processing_models',
-    'ort_inference',
-    'get_library_path',
-    'Opdef', 'onnx_op', 'PyCustomOpDef', 'PyOp',
-    'enable_py_op',
-    'expand_onnx_inputs',
-    'hook_model_op',
-    'default_opset_domain',
-    'OrtPyFunction', 'PyOrtFunction',
-    'optimize_model',
-    'make_onnx_model',
-    'ONNXRuntimeError',
-    'hash_64',
-    '__version__',
-]
 
 from ._version import __version__
 from ._ocos import get_library_path
 from ._ocos import Opdef, PyCustomOpDef
 from ._ocos import hash_64
 from ._ocos import enable_py_op
-from ._ocos import expand_onnx_inputs
-from ._ocos import hook_model_op
 from ._ocos import default_opset_domain
-from ._cuops import *  # noqa
-from ._ortapi2 import OrtPyFunction as PyOrtFunction  # backward compatibility
-from ._ortapi2 import OrtPyFunction, ort_inference, optimize_model, make_onnx_model
-from ._ortapi2 import ONNXRuntimeError, ONNXRuntimeException
-from .cvt import gen_processing_models
+
+
+_lib_only = False
+
+try:
+    import onnx  # noqa
+    import onnxruntime  # noqa
+except ImportError:
+    _lib_only = True
+    pass
+
+
+_offline_api = [
+    "gen_processing_models",
+    "ort_inference",
+    "OrtPyFunction",
+    "PyOrtFunction",
+    "optimize_model",
+    "make_onnx_model",
+    "ONNXRuntimeError",
+]
+
+__all__ = [
+    "get_library_path",
+    "Opdef",
+    "onnx_op",
+    "PyCustomOpDef",
+    "PyOp",
+    "enable_py_op",
+    "expand_onnx_inputs",
+    "hook_model_op",
+    "default_opset_domain",
+    "hash_64",
+    "__version__",
+]
 
 # rename the implementation with a more formal name
 onnx_op = Opdef.declare
 PyOp = PyCustomOpDef
+
+
+if not _lib_only:
+    __all__ += _offline_api
+
+    from ._cuops import *  # noqa
+    from ._ortapi2 import hook_model_op
+    from ._ortapi2 import expand_onnx_inputs
+    from ._ortapi2 import OrtPyFunction, ort_inference, optimize_model, make_onnx_model
+    from ._ortapi2 import OrtPyFunction as PyOrtFunction  # backward compatibility
+    from ._ortapi2 import ONNXRuntimeError, ONNXRuntimeException  # noqa
+    from .cvt import gen_processing_models
