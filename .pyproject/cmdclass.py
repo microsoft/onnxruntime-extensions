@@ -178,6 +178,7 @@ class CmdBuildCMakeExt(_build_ext):
         cmake_args = [
             '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' +
             str(ext_fullpath.parent.absolute()),
+            '-DOCOS_ENABLE_CTEST=OFF',
             '-DOCOS_BUILD_PYTHON=ON',
             '-DOCOS_PYTHON_MODULE_PATH=' + str(ext_fullpath),
             '-DCMAKE_BUILD_TYPE=' + config
