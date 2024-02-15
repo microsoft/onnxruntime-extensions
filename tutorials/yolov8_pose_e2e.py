@@ -159,7 +159,7 @@ def add_pre_post_processing_to_yolo(input_model_file: Path, output_model_file: P
     print(f"Updated model saved to {output_model_file}")
 
 
-def run_inference(onnx_model_file: Path, input_image: str, output_image: bool = False, model_decodes_image: bool = True):
+def run_inference(onnx_model_file: Path, input_image: str, output_image: bool = False, rgb_input: bool = False, layout: str = "HWC"):
     import onnxruntime as ort
     import numpy as np
 
@@ -172,13 +172,15 @@ def run_inference(onnx_model_file: Path, input_image: str, output_image: bool = 
 
     input_image_path = Path(input_image)
     input_name = [i.name for i in session.get_inputs()]
-    if model_decodes_image:
-        image_bytes = np.frombuffer(open(input_image_path, 'rb').read(), dtype=np.uint8)
-        model_input = {input_name[0]: image_bytes}
-    else:
+    if rgb_input:
         rgb_image = np.array(Image.open(input_image_path).convert('RGB'))
         rgb_image = rgb_image.transpose((2, 0, 1))  # Channels first
         model_input = {input_name[0]: rgb_image}
+        print(f"RGB input: {rgb_input}")
+    else:
+        image_bytes = np.frombuffer(open(input_image_path, 'rb').read(), dtype=np.uint8)
+        model_input = {input_name[0]: image_bytes}
+        print(f"RGB input: {rgb_input}, Input shape: {image_bytes.shape}")
 
     model_output = ['image_out'] if output_image else ['nms_output_with_scaled_boxes_and_keypoints']
     outputs = session.run(model_output, model_input)
@@ -241,13 +243,13 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_image", type=str, default="./person.jpg", help="The input image to run inference on.")
-    parser.add_argument("--rgb_input", type=bool, default=False, help="Input is RGB. If this flag is not set, the input is jpg/png to decode and is decoded in the model")
+    parser.add_argument("--rgb_input", action='store_true', help="Input is RGB. If this flag is not set, the input is jpg/png to decode and is decoded in the model")
     parser.add_argument("--layout", type=str, default="HWC", help="Layout of RGB data: HWC or CHW.")
     parser.add_argument("--input_shape", nargs=3, type=int, help="Input shape if RGB data is being provided. Can use symbolic dimensions. Either the first or last dimension must be 3 to determine if layout is HWC or CHW.")
     parser.add_argument("--output_image", type=bool, default="True", help="Model will draw bounding boxes on the original image and output that. It will NOT draw the keypoints as there's no custom operator to handle that currently.")
     parser.add_argument("--onnx_model_name", type=str, default="./yolov8n-pose.onnx", help="The onnx yolo model.")
     parser.add_argument("--onnx_e2e_model_name", type=str, default="./yolov8n-pose.with_pre_post_processing.onnx", help="where to save the final onnx model.")
-    parser.add_argument("--run_model", type=bool, default=True, help="Run inference on the model to validate output.")
+    parser.add_argument("--run_model", action='store_true', help="Run inference on the model to validate output.")
 
     args = parser.parse_args()
 
@@ -272,11 +274,7 @@ if __name__ == '__main__':
 
     input_shape = None
     
-    if rgb_input:
-        # NOTE: This uses CHW just for the sake of testing both layouts
-        input_shape = [3, "h_in", "w_in"]
-
     add_pre_post_processing_to_yolo(onnx_model_name, onnx_e2e_model_name, output_image_with_bounding_boxes, rgb_input, layout)
 
     if run_model:
-        run_inference(onnx_e2e_model_name, input_image, output_image_with_bounding_boxes, rgb_input)
+        run_inference(onnx_e2e_model_name, input_image, output_image_with_bounding_boxes, rgb_input, layout)
