@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
+import argparse
 import onnx.shape_inference
 import onnxruntime_extensions
 from onnxruntime_extensions.tools.pre_post_processing import *
@@ -25,7 +26,8 @@ def get_yolov8_pose_model(onnx_model_name: str):
 
 def add_pre_post_processing_to_yolo(input_model_file: Path, output_model_file: Path,
                                     output_image: bool = False,
-                                    decode_input: bool = True,
+                                    rgb_input: bool = False,
+                                    layout: str = "HWC",
                                     input_shape: Optional[List[Union[int, str]]] = None):
     """Construct the pipeline for an end2end model with pre and post processing. 
     The final model can take raw image binary as inputs and output the result in raw image file.
@@ -37,12 +39,13 @@ def add_pre_post_processing_to_yolo(input_model_file: Path, output_model_file: P
             the keypoints as there's no custom operator to handle that currently.
             If false, the output will have the same shape as the original model, with all the co-ordinates updated
             to match the original input image.
-        decode_input: Input is jpg/png to decode. Alternative is to provide RGB data
+        rgb_input: Input is RGB data. Default is jpg/png to decode.
+        layout: Layout of RGB data: HWC or CHW.
         input_shape: Input shape if RGB data is being provided. Can use symbolic dimensions. Either the first or last
                      dimension must be 3 to determine if layout is HWC or CHW.
     """
     if not Path(input_model_file).is_file():
-        print("Fetching the model...")
+        print(f"Fetching the model... {str(input_model_file)}")
         get_yolov8_pose_model(str(input_model_file))
 
     print("Adding pre/post processing to the model...")
@@ -66,33 +69,32 @@ def add_pre_post_processing_to_yolo(input_model_file: Path, output_model_file: P
 
     # layout of image prior to Resize and LetterBox being run. post-processing needs to know this to determine where
     # to get the original H and W from
-    if decode_input:
-        inputs = [create_named_value("image", onnx.TensorProto.UINT8, ["num_bytes"])]
-        # ConvertImageToBGR produces HWC output
-        decoded_image_layout = "HWC"
-    else:
-        assert input_shape and len(input_shape) == 3, "3D input shape is required if decode_input is false."
-        if input_shape[0] == 3:
-            decoded_image_layout = "CHW"
-        elif input_shape[2] == 3:
-            decoded_image_layout = "HWC"
+    if rgb_input:
+        if layout == "HWC":
+            input_shape = [h_in, w_in, 3]
+        elif layout == "CHW":
+            input_shape = [3, h_in, w_in]
         else:
-            raise ValueError("Invalid input shape. Either first or last dimension must be 3.")
+            raise ValueError("Invalid RGB layout. Must be HWC or CHW.")
 
         inputs = [create_named_value("decoded_image", onnx.TensorProto.UINT8, input_shape)]
+    else:
+        inputs = [create_named_value("image", onnx.TensorProto.UINT8, ["num_bytes"])]
+        # ConvertImageToBGR produces HWC output
+        layout = "HWC"
 
     onnx_opset = 18
     pipeline = PrePostProcessor(inputs, onnx_opset)
 
     pre_processing_steps = []
-    if decode_input:
-        pre_processing_steps.append(ConvertImageToBGR(name="ImageHWC"))  # jpg/png image to BGR in HWC layout
-    else:
+    if rgb_input:
         # use Identity if we don't need to call ChannelsLastToChannelsFirst as the next step
-        if decoded_image_layout == "CHW":
+        if layout == "CHW":
             pre_processing_steps.append(Identity(name="DecodedImageCHW"))
+    else:
+        pre_processing_steps.append(ConvertImageToBGR(name="ImageHWC"))  # jpg/png image to BGR in HWC layout
 
-    if decoded_image_layout == "HWC":
+    if layout == "HWC":
         pre_processing_steps.append(ChannelsLastToChannelsFirst(name="DecodedImageCHW"))  # HWC to CHW
 
     pre_processing_steps += [
@@ -154,21 +156,21 @@ def add_pre_post_processing_to_yolo(input_model_file: Path, output_model_file: P
     # but we ignore that and save new_model as it is smaller due to not containing the inferred shape information.
     _ = onnx.shape_inference.infer_shapes(new_model, strict_mode=True)
     onnx.save_model(new_model, str(output_model_file.resolve()))
-    print("Updated model saved.")
+    print(f"Updated model saved to {output_model_file}")
 
 
-def run_inference(onnx_model_file: Path, output_image: bool = False, model_decodes_image: bool = True):
+def run_inference(onnx_model_file: Path, input_image: str, output_image: bool = False, model_decodes_image: bool = True):
     import onnxruntime as ort
     import numpy as np
 
-    print("Running the model to validate output.")
+    print(f"Running the model on {input_image} ...")
 
     providers = ['CPUExecutionProvider']
     session_options = ort.SessionOptions()
     session_options.register_custom_ops_library(onnxruntime_extensions.get_library_path())
     session = ort.InferenceSession(str(onnx_model_file), providers=providers, sess_options=session_options)
 
-    input_image_path = './data/bus.jpg'
+    input_image_path = Path(input_image)
     input_name = [i.name for i in session.get_inputs()]
     if model_decodes_image:
         image_bytes = np.frombuffer(open(input_image_path, 'rb').read(), dtype=np.uint8)
@@ -236,8 +238,26 @@ def run_inference(onnx_model_file: Path, output_image: bool = False, model_decod
 
 
 if __name__ == '__main__':
-    onnx_model_name = Path("./data/yolov8n-pose.onnx")
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input_image", type=str, default="./person.jpg", help="The input image to run inference on.")
+    parser.add_argument("--rgb_input", type=bool, default=False, help="Input is RGB. If this flag is not set, the input is jpg/png to decode and is decoded in the model")
+    parser.add_argument("--layout", type=str, default="HWC", help="Layout of RGB data: HWC or CHW.")
+    parser.add_argument("--input_shape", nargs=3, type=int, help="Input shape if RGB data is being provided. Can use symbolic dimensions. Either the first or last dimension must be 3 to determine if layout is HWC or CHW.")
+    parser.add_argument("--output_image", type=bool, default="True", help="Model will draw bounding boxes on the original image and output that. It will NOT draw the keypoints as there's no custom operator to handle that currently.")
+    parser.add_argument("--onnx_model_name", type=str, default="./yolov8n-pose.onnx", help="The onnx yolo model.")
+    parser.add_argument("--onnx_e2e_model_name", type=str, default="./yolov8n-pose.with_pre_post_processing.onnx", help="where to save the final onnx model.")
+    parser.add_argument("--run_model", type=bool, default=True, help="Run inference on the model to validate output.")
+
+    args = parser.parse_args()
+
+    input_image = args.input_image
+    onnx_model_name = Path(args.onnx_model_name)
     onnx_e2e_model_name = onnx_model_name.with_suffix(suffix=".with_pre_post_processing.onnx")
+    rgb_input = args.rgb_input
+    input_shape = args.input_shape
+    layout = args.layout
+    run_model = args.run_model
 
     # default output is the scaled non-max suppresion data which matches the original model.
     # each result has bounding box (4), score (1), class (1), keypoints(17 x 3) = 57 elements
@@ -245,17 +265,18 @@ if __name__ == '__main__':
     # alternative is to output the original image with the bounding boxes but no key points drawn.
     output_image_with_bounding_boxes = False
 
-    for model_decodes_image in [True, False]:
-        if model_decodes_image:
-            print("Running with model taking jpg/png as input.")
-        else:
-            print("Running with model taking RGB data as input.")
+    if rgb_input:
+        print("Running with model taking RGB data as input.")
+    else:
+        print("Running with model taking jpg/png as input.")
 
-        input_shape = None
-        if not model_decodes_image:
-            # NOTE: This uses CHW just for the sake of testing both layouts
-            input_shape = [3, "h_in", "w_in"]
+    input_shape = None
+    
+    if rgb_input:
+        # NOTE: This uses CHW just for the sake of testing both layouts
+        input_shape = [3, "h_in", "w_in"]
 
-        add_pre_post_processing_to_yolo(onnx_model_name, onnx_e2e_model_name, output_image_with_bounding_boxes,
-                                        model_decodes_image, input_shape)
-        run_inference(onnx_e2e_model_name, output_image_with_bounding_boxes, model_decodes_image)
+    add_pre_post_processing_to_yolo(onnx_model_name, onnx_e2e_model_name, output_image_with_bounding_boxes, rgb_input, layout)
+
+    if run_model:
+        run_inference(onnx_e2e_model_name, input_image, output_image_with_bounding_boxes, rgb_input)
