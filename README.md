@@ -31,12 +31,15 @@ python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.gi
 
 ## Usage
 
-## 1. Generate the pre-/post- processing ONNX model
-With onnxruntime-extensions Python package, you can easily get the ONNX processing graph by converting them from Huggingface transformer data processing classes, check the following API for details.
+## 1. Generation of Pre-/Post-Processing ONNX Model
+The `onnxruntime-extensions` Python package provides a convenient way to generate the ONNX processing graph. This can be achieved by converting the Huggingface transformer data processing classes into the desired format. For more detailed information, please refer to the API below:
+
 ```python
 help(onnxruntime_extensions.gen_processing_models)
 ```
-### NOTE: These data processing model can be merged into other model [onnx.compose](https://onnx.ai/onnx/api/compose.html) if needed.
+### NOTE:
+The generation of model processing requires the **ONNX** package to be installed. The data processing models generated in this manner can be merged with other models using the [onnx.compose](https://onnx.ai/onnx/api/compose.html) if needed.
+
 ## 2. Using Extensions for ONNX Runtime inference
 
 ### Python

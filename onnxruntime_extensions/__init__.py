@@ -58,7 +58,16 @@ onnx_op = Opdef.declare
 PyOp = PyCustomOpDef
 
 
-if not _lib_only:
+if _lib_only:
+
+    def _unimplemented(*args, **kwargs):
+        raise NotImplementedError("ONNX or ONNX Runtime is not installed")
+
+    gen_processing_models = _unimplemented
+    OrtPyFunction = _unimplemented
+    ort_inference = _unimplemented
+
+else:
     __all__ += _offline_api
 
     from ._cuops import *  # noqa
