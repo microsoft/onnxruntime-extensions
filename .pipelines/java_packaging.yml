@@ -23,6 +23,12 @@ stages:
         SourceFolder: 'out\Windows\java\build\libs'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
+    - script: |
+        cd $(Build.ArtifactStagingDirectory)
+        jar xf onnxruntime-extensions-0.10.0.jar
+        tree $(Build.ArtifactStagingDirectory) /f
+      displayName: Unpack JAR to sign DLL
+
     - task: PublishPipelineArtifact@1
       displayName: 'Publish Windows Artifact'
       inputs:
