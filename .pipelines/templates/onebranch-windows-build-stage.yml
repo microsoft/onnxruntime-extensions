@@ -13,7 +13,7 @@ stages:
       type: windows
 
     variables:
-      CIBW_BUILD: cp3{8,9,10,11}-*amd64
+      CIBW_BUILD: cp3{8,9,10,11,12}-*amd64
       CIBW_ARCHS: AMD64
       CIBW_ENVIRONMENT: "${{ parameters.CibwEnv }}"
       CIBW_BUILD_VERBOSITY: 1
