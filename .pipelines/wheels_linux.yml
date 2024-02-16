@@ -9,7 +9,7 @@ jobs:
   timeoutInMinutes: 180
   pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
   variables:
-    CIBW_BUILD: "cp3{8,9,10,11}-*"
+    CIBW_BUILD: "cp3{8,9,10,11,12}-*"
     CIBW_ENVIRONMENT: "${{ parameters.ExtraEnv }}"
 
   steps:
@@ -29,7 +29,7 @@ jobs:
   timeoutInMinutes: 180
   pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
   variables:
-    CIBW_BUILD: "cp3{8,9,10,11}-*"
+    CIBW_BUILD: "cp3{8,9,10,11,12}-*"
     CIBW_SKIP: "*musllinux_aarch64*"
     # AzureOp doesn't support aaarch64 yet.
     # CIBW_ENVIRONMENT: "${{ parameters.ExtraEnv }}"
