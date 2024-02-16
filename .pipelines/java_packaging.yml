@@ -25,7 +25,7 @@ stages:
 
     - script: |
         cd $(Build.ArtifactStagingDirectory)
-        jar xf onnxruntime-extensions-0.10.0.jar
+        jar xf onnxruntime-extensions-0.11.0.jar
         tree $(Build.ArtifactStagingDirectory) /f
       displayName: Unpack JAR to sign DLL
 
