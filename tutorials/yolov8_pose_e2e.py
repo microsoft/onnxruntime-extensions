@@ -246,7 +246,7 @@ if __name__ == '__main__':
     parser.add_argument("--rgb_input", action='store_true', help="Input is RGB. If this flag is not set, the input is jpg/png to decode and is decoded in the model")
     parser.add_argument("--layout", type=str, default="HWC", help="Layout of RGB data: HWC or CHW.")
     parser.add_argument("--input_shape", nargs=3, type=int, help="Input shape if RGB data is being provided. Can use symbolic dimensions. Either the first or last dimension must be 3 to determine if layout is HWC or CHW.")
-    parser.add_argument("--output_image", type=bool, default="True", help="Model will draw bounding boxes on the original image and output that. It will NOT draw the keypoints as there's no custom operator to handle that currently.")
+    parser.add_argument("--output_image", action='store_true', help="Model will draw bounding boxes on the original image and output that. It will NOT draw the keypoints as there's no custom operator to handle that currently.")
     parser.add_argument("--onnx_model_name", type=str, default="./yolov8n-pose.onnx", help="The onnx yolo model.")
     parser.add_argument("--onnx_e2e_model_name", type=str, default="./yolov8n-pose.with_pre_post_processing.onnx", help="where to save the final onnx model.")
     parser.add_argument("--run_model", action='store_true', help="Run inference on the model to validate output.")
@@ -260,12 +260,13 @@ if __name__ == '__main__':
     input_shape = args.input_shape
     layout = args.layout
     run_model = args.run_model
+    output_image=args.output_image
 
     # default output is the scaled non-max suppresion data which matches the original model.
     # each result has bounding box (4), score (1), class (1), keypoints(17 x 3) = 57 elements
     # bounding box is centered XYWH format.
     # alternative is to output the original image with the bounding boxes but no key points drawn.
-    output_image_with_bounding_boxes = False
+    output_image_with_bounding_boxes = output_image
 
     if rgb_input:
         print("Running with model taking RGB data as input.")
