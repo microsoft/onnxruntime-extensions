@@ -222,6 +222,8 @@ def _add_pre_post_processing_to_image_input(input_model_path: Path,
 
     pipeline.add_post_processing(post_processing_steps)
 
+    print("Updating model ...")
+
     _update_model(model, output_model_path, pipeline)
 
 
@@ -335,7 +337,7 @@ if __name__ == '__main__':
                              "NOTE: it will NOT draw the key points as there's no custom operator to handle that.")
     parser.add_argument("--run_model", action='store_true',
                         help="Run inference on the model to validate output.")
-    parser.add_argument("--test_image", type=Path, default="person.jpg",
+    parser.add_argument("--test_image", type=Path, default="data/stormtroopers.jpg",
                         help="JPG or PNG image to run model with.")
 
     args = parser.parse_args()
