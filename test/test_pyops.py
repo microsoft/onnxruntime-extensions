@@ -2,7 +2,7 @@ import os
 import onnx
 import unittest
 import numpy as np
-from numpy.testing import assert_almost_equal
+from numpy.testing import assert_almost_equal, assert_array_equal
 from onnx import helper, onnx_pb as onnx_proto
 import onnxruntime as _ort
 from onnxruntime_extensions import (
@@ -72,11 +72,11 @@ def _create_test_model_2outputs(prefix, domain='ai.onnx.contrib'):
     ]
 
     input0 = helper.make_tensor_value_info(
-        'x', onnx_proto.TensorProto.FLOAT, [])
+        'x', onnx_proto.TensorProto.FLOAT, None)
     output1 = helper.make_tensor_value_info(
-        'neg', onnx_proto.TensorProto.FLOAT, [])
+        'neg', onnx_proto.TensorProto.FLOAT, None)
     output2 = helper.make_tensor_value_info(
-        'pos', onnx_proto.TensorProto.FLOAT, [])
+        'pos', onnx_proto.TensorProto.FLOAT, None)
 
     graph = helper.make_graph(nodes, 'test0', [input0], [output1, output2])
     model = make_onnx_model(graph)
@@ -225,7 +225,7 @@ class TestPythonOp(unittest.TestCase):
         arr = np.array([["a", "b"]], dtype=object)
         txout = sess.run(None, {'input_1': arr})
         exp = np.array(["a;b"], dtype=object)
-        assert txout[0][0] == exp[0]
+        assert_array_equal(txout[0][0], exp[0])
 
 
 if __name__ == "__main__":
