@@ -58,13 +58,16 @@ def run_inference(onnx_model_file: Path, test_image: Path):
 
 
 if __name__ == '__main__':
+
+    script_dir = Path( __file__ ).parent.absolute()
+
     # YOLO version. Tested with 5 and 8.
     version = 8
 
     parser = argparse.ArgumentParser("Add pre and post processing to the YOLOv8 model.")
     parser.add_argument("--onnx_model_path", type=Path, default=f"yolov{version}n.onnx",
             help="The location and name of the file to output the ONNX YOLO model.")
-    parser.add_argument("--test_image", type=Path, default="data/wolves.jpg")
+    parser.add_argument("--test_image", type=Path, default=f"{script_dir}/data/wolves.jpg")
     
     args = parser.parse_args()
     onnx_model_path = args.onnx_model_path
