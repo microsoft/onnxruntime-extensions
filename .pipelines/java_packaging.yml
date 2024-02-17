@@ -29,7 +29,7 @@ stages:
         tree $(Build.ArtifactStagingDirectory) /f
       displayName: Unpack JAR to sign DLL
 
-    - template: win-esrp-dll.yml
+    - template: templates/win-esrp-dll.yml
       parameters:
         FolderPath: '$(Build.ArtifactStagingDirectory)/onnxruntime-extensions-0.11.0/ai/onnxruntime/extensions/native/win-x64'
         DisplayName: 'Sign DLL'
