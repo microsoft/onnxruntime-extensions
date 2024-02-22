@@ -95,6 +95,12 @@ def build_framework_for_platform_and_arch(
             # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L96-L101
             f"IPHONEOS_DEPLOYMENT_TARGET={ios_deployment_target}",
         ]
+
+        # C++ test utils use std::filesystem which isn't available until iOS 13.
+        ios_major_version = int(ios_deployment_target.split(".")[0])
+        if ios_major_version < 13:
+            cmake_defines.append("OCOS_ENABLE_CTEST=OFF")
+
         build_cmd += [
                 # iOS options
                 "--ios",

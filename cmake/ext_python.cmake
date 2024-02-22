@@ -3,11 +3,11 @@ block(PROPAGATE Python3_FOUND)
   # if we don't set this to NEVER (or possibly LAST) the builds of the wheel for different python versions will fail
   # as it will find the system python version first and not the correct python version for the wheel.
   set(Python3_FIND_FRAMEWORK NEVER)
-  find_package(Python3 COMPONENTS Interpreter Development.Module NumPy)
+  find_package(Python3 COMPONENTS Interpreter Development.Module)
 endblock()
 
 if (NOT Python3_FOUND)
-  message(FATAL_ERROR "Python3 or NumPy not found!")
+  message(FATAL_ERROR "Python3 not found!")
 endif()
 
 file(GLOB TARGET_SRC_PYOPS "pyop/*.cc" "pyop/*.h" "shared/*.cc")
@@ -25,7 +25,6 @@ include(pybind11)
 target_include_directories(extensions_pydll PRIVATE
   ${pybind11_INCLUDE_DIRS}
   $<TARGET_PROPERTY:Python3::Module,INTERFACE_INCLUDE_DIRECTORIES>
-  $<TARGET_PROPERTY:Python3::NumPy,INTERFACE_INCLUDE_DIRECTORIES>
   $<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>)
 
 target_compile_definitions(extensions_pydll PRIVATE

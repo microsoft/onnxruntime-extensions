@@ -47,7 +47,7 @@ include(CheckLanguage)
 
 option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
 option(OCOS_ENABLE_PYTHON "Enable Python component building, (deprecated)" OFF)
-option(OCOS_ENABLE_CTEST "Enable C++ test" OFF)
+option(OCOS_ENABLE_CTEST "Enable C++ test" ON)
 option(OCOS_ENABLE_CPP_EXCEPTIONS "Enable C++ Exception" ON)
 option(OCOS_ENABLE_TF_STRING "Enable String Operator Set" ON)
 option(OCOS_ENABLE_RE2_REGEX "Enable StringRegexReplace and StringRegexSplit" ON)
@@ -67,6 +67,7 @@ option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" OFF
 
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
+
 option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
 option(OCOS_BUILD_JAVA "Enable building the Java package" OFF)
 option(OCOS_BUILD_ANDROID "Enable building the Android package" OFF)
@@ -193,6 +194,9 @@ if(OCOS_ENABLE_SELECTED_OPLIST)
   message(STATUS "Looking for the _selectedoplist.cmake")
   disable_all_operators()
   include(_selectedoplist)
+  # Include the selected_ops case, no way to run the unit tests, so disable it,
+  # even the user explicitly set it to ON. (it is rare, most of the time, it is set by default)
+  set(OCOS_ENABLE_CTEST OFF CACHE BOOL "" FORCE)
 endif()
 
 set(_OCOS_EXCEPTIONS_REQUIRED OFF)
