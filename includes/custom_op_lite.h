@@ -604,14 +604,16 @@ struct CudaContext {
     if (!cublas) {
       ORTX_CXX_API_THROW("Failed to fetch cublas handle from context", ORT_RUNTIME_EXCEPTION);
     }
-    ort_api.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::device_id_t, &device_id);
-    if (!device_id) {
+    void* resource = nullptr;
+    OrtStatusPtr result = ort_api.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::device_id_t, &resource);
+    if (result) {
       ORTX_CXX_API_THROW("Failed to fetch device id from context", ORT_RUNTIME_EXCEPTION);
     }
+    memcpy(&device_id, &resource, sizeof(int));
   }
   void* cuda_stream = {};
   void* cublas = {};
-  void* device_id = {};
+  int device_id = 0;
 };
 
 #endif

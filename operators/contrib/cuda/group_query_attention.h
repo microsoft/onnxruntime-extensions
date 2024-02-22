@@ -243,9 +243,9 @@ struct GroupQueryAttention {
     num_heads_ = static_cast<int>(num_heads);
     kv_num_heads_ = static_cast<int>(kv_num_heads);
     is_past_bsnh_ = false;
-    local_window_size_ = static_cast<int>(OrtW::GetOpAttributeOrDefault(info, "local_window_size", -1LL));
-    do_rotary_ = OrtW::GetOpAttributeOrDefault(info, "do_rotary", 0LL) == 1LL;
-    rotary_interleaved_ = OrtW::GetOpAttributeOrDefault(info, "rotary_interleaved", 0LL) == 1LL;
+    local_window_size_ = static_cast<int>(OrtW::GetOpAttributeOrDefault<int64_t>(info, "local_window_size", -1));
+    do_rotary_ = OrtW::GetOpAttributeOrDefault<int64_t>(info, "do_rotary", 0) == 1;
+    rotary_interleaved_ = OrtW::GetOpAttributeOrDefault<int64_t>(info, "rotary_interleaved", 0) == 1;
     scale_ = OrtW::GetOpAttributeOrDefault(info, "scale", 0.0f);
     
 #if USE_FLASH_ATTENTION
@@ -268,13 +268,13 @@ struct GroupQueryAttention {
                        const ortc::Tensor<int>& seqlens_k, const ortc::Tensor<int>& total_seqlen, std::optional<const ortc::Tensor<T>*> cos_cache, 
                        std::optional<const ortc::Tensor<T>*> sin_cache, ortc::Tensor<T>& attn_out, std::optional<ortc::Tensor<T>*> present_key, std::optional<ortc::Tensor<T>*> present_value) const {
     OrtMemoryInfo* mem_info = nullptr;  // TODO: delete mem_info
-    ORTX_RETURN_IF_ERROR(OrtW::API::CreateOrtMemoryInfo("Cuda", OrtDeviceAllocator, *(static_cast<int*>(ctx.device_id)), OrtMemTypeDefault, &mem_info));
+    ORTX_RETURN_IF_ERROR(OrtW::API::CreateOrtMemoryInfo("Cuda", OrtDeviceAllocator, ctx.device_id, OrtMemTypeDefault, &mem_info));
     OrtAllocator* allocator = nullptr;  // TODO: delete allocator
     ORTX_RETURN_IF_ERROR(OrtW::API::GetOrtAllocator(kernel_context, mem_info, &allocator));
     // TODO: will initialize disable_flash_attention_ be put here or OnModelAttach()? if latter, need to expose a function to get allocator from kernelInfo
-//    if (!disable_flash_attention_) {
-//      zeros_ = GetScrachBuffer<int>(allocator->Alloc(allocator, kZerosCount), allocator);
-//    }
+    if (!disable_flash_attention_) {
+      zeros_ = GetScrachBuffer<int>(allocator->Alloc(allocator, kZerosCount), allocator);
+    }
   
     GroupQueryAttentionParameters parameters;
     ORTX_RETURN_IF_ERROR(CheckInputs<T>(query, key, value, past_key, past_value, cos_cache, sin_cache, &parameters, num_heads_, kv_num_heads_, 
@@ -440,7 +440,7 @@ struct GroupQueryAttention {
   bool disable_flash_attention_;
   bool disable_memory_efficient_attention_;
   static constexpr int kZerosCount = 256;  // In prompt case we create a zero buffer of size 256 for seqlen (assume batch_size <= 256)
-  IAllocatorUniquePtr<int> zeros_;
+  mutable IAllocatorUniquePtr<int> zeros_;
 };
 
 }  // namespace contrib
