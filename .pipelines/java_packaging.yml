@@ -38,7 +38,7 @@ stages:
     - script: |
         cd $(Build.ArtifactStagingDirectory)
         rm onnxruntime-extensions-0.11.0.jar
-        jar cmf0 META-INF/MANIFEST.MF ../onnxruntime-extensions-0.11.0.jar  *
+        jar cmf0 META-INF/MANIFEST.MF onnxruntime-extensions-0.11.0.jar  *
         tree $(Build.ArtifactStagingDirectory) /f
       displayName: Repack JAR with signed DLL
 
