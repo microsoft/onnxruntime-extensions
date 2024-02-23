@@ -23,11 +23,30 @@ stages:
         SourceFolder: 'out\Windows\java\build\libs'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
+    - script: |
+        cd $(Build.ArtifactStagingDirectory)
+        jar xvf onnxruntime-extensions-0.11.0.jar
+        tree $(Build.ArtifactStagingDirectory) /f
+      displayName: Unpack JAR to sign DLL
+
+    - template: templates/win-esrp-dll.yml
+      parameters:
+        FolderPath: '$(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native/win-x64'
+        DisplayName: 'Sign DLL'
+        DoEsrp: 'true'
+
+    - script: |
+        cd $(Build.ArtifactStagingDirectory)
+        rm onnxruntime-extensions-0.11.0.jar
+        jar cmf0 META-INF/MANIFEST.MF onnxruntime-extensions-0.11.0.jar  *
+        tree $(Build.ArtifactStagingDirectory) /f
+      displayName: Repack JAR with signed DLL
+
     - task: PublishPipelineArtifact@1
       displayName: 'Publish Windows Artifact'
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)'
-        artifact: 'drop-windows-onnxruntime-extensions-java-cpu'
+        artifact: 'drop-signed-windows-onnxruntime-extensions-java-cpu'
 
     - template: templates/component-governance-component-detection-steps.yml
       parameters :
