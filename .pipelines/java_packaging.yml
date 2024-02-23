@@ -46,7 +46,7 @@ stages:
       displayName: 'Publish Windows Artifact'
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)'
-        artifact: 'drop-windows-onnxruntime-extensions-java-cpu'
+        artifact: 'drop-signed-windows-onnxruntime-extensions-java-cpu'
 
     - template: templates/component-governance-component-detection-steps.yml
       parameters :
