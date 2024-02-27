@@ -91,7 +91,8 @@ std::optional<T> ParseEnvironmentVariable(const std::string& name) {
     buffer.clear();
   }
 #else
-  buffer = getenv(name.c_str());
+  char* val = getenv(name.c_str());
+  buffer = (val == nullptr) ? std::string() : std::string(val);
 #endif
   T parsed_value;
   if (!TryParseStringWithClassicLocale(buffer, parsed_value)) {

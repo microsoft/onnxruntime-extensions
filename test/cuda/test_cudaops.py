@@ -115,6 +115,67 @@ class TestCudaOps(unittest.TestCase):
             assert_almost_equal(y, expected_y)
         else:
             print ('CUDAExecutionProvider not available, test_cuda_fastgelu_f16 skipped.')
+    
+    @staticmethod
+    def _create_GroupQueryAttention_test_model(domain='ai.onnx.contrib'):
+        nodes = [
+            helper.make_node(
+                'GroupQueryAttention', 
+                #['query', 'key', 'value', 'past_key', 'past_value', 'seqlens_k', 'total_seqlen', 'cos_cache', 'sin_cache'], 
+                ['query', 'key', 'value', 'past_key', 'past_value', 'seqlens_k', 'total_seqlen'], 
+                ['attn_out', 'present_key', 'present_value'],
+                #domain=domain, num_heads=32, kv_num_heads=32, scale=0.0, local_window_size=-1, do_rotary=0, rotary_interleaved=0)
+                domain=domain, num_heads=32, kv_num_heads=32)
+        ]
+
+        query = helper.make_tensor_value_info(
+            'query', onnx_proto.TensorProto.FLOAT16, [1,28,2560])
+        key = helper.make_tensor_value_info(
+            'key', onnx_proto.TensorProto.FLOAT16, [1,28,2560])
+        value = helper.make_tensor_value_info(
+            'value', onnx_proto.TensorProto.FLOAT16, [1,28,2560])
+        past_key = helper.make_tensor_value_info(
+            'past_key', onnx_proto.TensorProto.FLOAT16, [1,32,2048,80])
+        past_value = helper.make_tensor_value_info(
+            'past_value', onnx_proto.TensorProto.FLOAT16, [1,32,2048,80])
+        seqlens_k = helper.make_tensor_value_info(
+            'seqlens_k', onnx_proto.TensorProto.INT32, [1,1])
+        total_seqlen = helper.make_tensor_value_info(
+            'total_seqlen', onnx_proto.TensorProto.INT32, [1])
+#        cos_cache = helper.make_tensor_value_info(
+#            'cos_cache', onnx_proto.TensorProto.FLOAT, [])
+#        sin_cache = helper.make_tensor_value_info(
+#            'sin_cache', onnx_proto.TensorProto.FLOAT, [])
+        attn_out = helper.make_tensor_value_info(
+            'attn_out', onnx_proto.TensorProto.FLOAT16, [1,28,2560])
+        present_key = helper.make_tensor_value_info(
+            'present_key', onnx_proto.TensorProto.FLOAT16, [1,32,2048,80])
+        present_value = helper.make_tensor_value_info(
+            'present_value', onnx_proto.TensorProto.FLOAT16, [1,32,2048,80])
+
+        graph = helper.make_graph(nodes, 'testgqa', 
+                    #[query, key, value, past_key, past_value, seqlens_k, total_seqlen, cos_cache, sin_cache], 
+                    [query, key, value, past_key, past_value, seqlens_k, total_seqlen], 
+                    [attn_out, present_key, present_value])
+        model = make_onnx_model(graph)
+        return model
+
+    def test_cuda_GroupQueryAttention(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = self._create_GroupQueryAttention_test_model()
+        #self.assertIn('op_type: "NegPos"', str(onnx_model))
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(),
+                                     so,
+                                     providers=['CUDAExecutionProvider'])
+        query = np.random.randn(1,28,2560).astype(np.float16)
+        key = np.random.randn(1,28,2560).astype(np.float16)
+        value = np.random.randn(1,28,2560).astype(np.float16)
+        past_key = np.zeros([1,32,2048,80]).astype(np.float16)
+        past_value = np.zeros([1,32,2048,80]).astype(np.float16)
+        seqlens_k = np.array([[27]]).astype(np.int32)
+        total_seqlen = np.array([28]).astype(np.int32)
+        y = sess.run(None, {'query':query, 'key':key, 'value':value, 'past_key':past_key, 'past_value':past_value, 'seqlens_k':seqlens_k, 'total_seqlen':total_seqlen})
 
 
 if __name__ == "__main__":

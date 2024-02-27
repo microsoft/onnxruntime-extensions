@@ -236,6 +236,11 @@ OrtStatusPtr CheckInputs(const Ort::Custom::Tensor<T>& query,
 
 template <typename T>
 struct GroupQueryAttention {
+  static OrtMemType GetInputMemoryType(size_t input_index) {
+    if (input_index == 6) return OrtMemType::OrtMemTypeCPUInput;
+    return OrtMemType::OrtMemTypeDefault;
+  }
+
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
     int64_t num_heads = 0, kv_num_heads = 0;
     ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "num_heads", num_heads));

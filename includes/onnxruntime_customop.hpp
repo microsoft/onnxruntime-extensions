@@ -62,6 +62,12 @@ struct ComputeArgsList<OrtStatusPtr (C::*)(Args...) const> {
   using MemberFunctionType = OrtStatusPtr (C::*)(Args...) const;
 };
 
+template <typename T, typename = void>
+struct CustomOp_defined_getInputMemoryType : std::false_type {};
+
+template <typename T>
+struct CustomOp_defined_getInputMemoryType<T, std::void_t<decltype(&T::GetInputMemoryType)>> : std::true_type {};
+
 template <typename CustomOpKernel>
 struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
   using ComputeFunction = decltype(&CustomOpKernel::Compute);
@@ -133,6 +139,12 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
   void DefineCallbackFunctions(MemberComputeType<Args...> fn, RegularComputeType regular_fn) {
     OrtCustomOp::CreateKernel = nullptr;
     OrtCustomOp::KernelCompute = nullptr;
+
+    if constexpr (CustomOp_defined_getInputMemoryType<CustomOpKernel>::value) {
+      OrtCustomOp::GetInputMemoryType = [](const OrtCustomOp* /*this_*/, size_t index) -> OrtMemType {
+        return CustomOpKernel::GetInputMemoryType(index);
+      };
+    }
 
     OrtCustomOp::CreateKernelV2 = [](const OrtCustomOp* this_,
                                      const OrtApi* api, const OrtKernelInfo* info, void** op_kernel) -> OrtStatusPtr {
