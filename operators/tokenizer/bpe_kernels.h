@@ -44,7 +44,7 @@ struct KernelBpeTokenizer {
                        std::optional<ortc::Tensor<int64_t>*> attention_mask,
                        std::optional<ortc::Tensor<int64_t>*> offset_mapping) const;
 
-  const char* ModelName() const { model_name_.c_str(); }
+  const char* ModelName() const { return model_name_.c_str(); }
 
  protected:
   using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
