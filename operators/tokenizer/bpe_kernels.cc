@@ -27,6 +27,8 @@ std::string BpeModelConf::GetSpecialTokens() const {
 const char BpeModelConf::kModel_GPT2[] = "GPT2";
 const char BpeModelConf::kModel_Roberta[] = "Roberta";
 const char BpeModelConf::kModel_CLIP[] = "CLIP";
+const char BpeModelConf::kModel_Llama[] = "Llama";
+const char BpeModelConf::kModel_Gemma[] = "Gemma";
 
 // Note: the following logic comes from CPython: unicodetype_db.h (_PyUnicode_IsWhitespace)
 bool IsUnicodeSpace(char32_t ch) {
@@ -90,7 +92,9 @@ ustring RemoveConsecutiveSpaces(const ustring& input) {
 }
 
 KernelBpeTokenizer::KernelBpeTokenizer(const BpeModelConf& conf)
-    : bpe_conf_(conf){};
+    : bpe_conf_(conf) {
+  model_name_ = conf.name_;
+};
 
 OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
   // note: if the attribute doesn't exist in op node, GetOpAttribute doesn't return a failed status;
@@ -109,6 +113,12 @@ OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKerne
   ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "padding_length", padding_length_));
   if (padding_length_ != -1 && padding_length_ <= 0) {
     return OrtW::CreateStatus("padding_length should be more than 0 or equal -1", ORT_INVALID_ARGUMENT);
+  }
+
+  std::string model_name;
+  ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "model_name", model_name));
+  if (!model_name.empty()) {
+    model_name_ = model_name;
   }
 
   std::stringstream vocabu_stream(vocab);
@@ -261,7 +271,9 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
             offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + p.second)));
             offset += p.second;
           } else {
-            offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + (size_t)p.second + space_dif)));
+            offset_mapping.emplace_back(std::make_pair(
+                offset,
+                ort_extensions::narrow<size_t>(offset + (size_t)p.second + space_dif)));
             offset += ((size_t)p.second + space_dif);
           }
         }
@@ -286,6 +298,91 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
   return res;
 }
 
+std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input,
+                                                     int64_t max_length_i64,
+                                                     bool compute_offset_mapping,
+                                                     std::list<OffsetMappingType>& offset_map) const {
+  std::vector<int64_t> res;
+  std::list<std::pair<uint32_t, uint32_t>> byte_list;
+
+  // Add BOS token to result
+  res.push_back(bos_token_id_);
+
+  size_t max_length = static_cast<size_t>(max_length_i64);
+  // Parse input
+  auto special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input);
+  for (auto& seg_id : special_token_split_res) {
+    if (res.size() >= max_length) break;
+
+    if (seg_id.second != bpe::kInvalidTokenId) {
+      res.push_back(seg_id.second);
+      continue;
+    }
+
+    // Note: keep ptr to make sure the string_view is valid in the following process
+    std::u32string ustr(seg_id.first);
+
+    size_t offset = 0;
+    size_t char_pos = 0;
+    OffsetMappingType offset_mapping;
+
+    if (compute_offset_mapping) {
+      offset_mapping.push_back(std::make_pair(0, 0));
+    }
+
+    // Get byte encodings prior to performing BPE
+    byte_list.clear();
+
+    while (res.size() < max_length && char_pos < ustr.length()) {
+      auto chr = ustr[char_pos];
+      if (IsUnicodeSpace(chr)) {
+        chr = 0x2581;  // UTF-8 string '\xe2\x96\x81'
+      }
+
+      std::u32string token_ucs = {chr};
+      std::string token_s = (std::string)ustring(token_ucs);
+      auto id = bbpe_tokenizer_->GetTokenId(token_s);
+      if (id == bpe::kInvalidTokenId) {
+        for (auto chr : token_s) {
+          auto byte_id = bbpe_tokenizer_->GetTokenId({chr});
+          byte_list.emplace_back(byte_id, 1);
+        }
+      } else {
+        byte_list.emplace_back(id, ort_extensions::narrow<uint32_t>(token_s.length()));
+      }
+
+      char_pos++;
+    }
+    {
+      // Perform BPE
+      bbpe_tokenizer_->PerformBPE(byte_list);
+
+      // Add output to result
+      for (auto p : byte_list) {
+        if (res.size() >= max_length) {
+          break;
+        }
+
+        res.push_back(p.first);
+
+        if (compute_offset_mapping) {
+          offset_mapping.emplace_back(std::make_pair(
+              offset,
+              ort_extensions::narrow<size_t>(offset + (size_t)p.second)));
+          offset += ((size_t)p.second);
+        }
+      }
+    }
+
+    if (compute_offset_mapping) {
+      // Add offset mappings for input in this instance to list of offset mappings for all inputs
+      offset_map.emplace_back(offset_mapping);
+    }
+  }
+
+  return res;
+}
+
 OrtStatusPtr KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
                                          ortc::Tensor<int64_t>& tokenize_output,
                                          std::optional<ortc::Tensor<int64_t>*> attention_mask,
@@ -303,14 +400,19 @@ OrtStatusPtr KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
     compute_offset_mapping = true;
   }
 
+  auto tok_fun = &KernelBpeTokenizer::Tokenize;
+  if (bpe_conf_.IsSpmModel()) {
+    tok_fun = &KernelBpeTokenizer::SpmTokenize;
+  }
+
   for (auto& str : str_input) {
     ustring ustr = ustring(str);
     tokenize_results.emplace_back(
-        Tokenize(
-            ustr,
-            padding_length_ < 0 ? std::numeric_limits<uint32_t>::max() : padding_length_,
-            compute_offset_mapping,
-            offset_map));
+        (this->*tok_fun)(
+          ustr,
+          padding_length_ < 0 ? std::numeric_limits<uint32_t>::max() : padding_length_,
+          compute_offset_mapping,
+          offset_map));
   }
 
   size_t max_length = 0;
@@ -395,3 +497,13 @@ static const auto kCLIPConfiguration = BpeModelConf{
 
 CLIPTokenizer::CLIPTokenizer()
     : KernelBpeTokenizer(kCLIPConfiguration) {}
+
+static const auto kSpmConfiguration = BpeModelConf{
+    BpeModelConf::kModel_Llama,  // name
+    "<unk>",                     // unk_token
+    "<s>",                       // bos_token
+    "</s>",                      // eos_token
+    ""};                         // pad_token
+
+SpmTokenizer::SpmTokenizer()
+    : KernelBpeTokenizer(kSpmConfiguration) {}
