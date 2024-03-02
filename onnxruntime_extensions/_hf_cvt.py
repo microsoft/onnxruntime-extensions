@@ -7,6 +7,7 @@
 _hf_cvt.py: HuggingFace Tokenizer/Processor Converter
 """
 
+import os
 import json
 import onnx
 from numpy import array as nparray
@@ -43,7 +44,6 @@ class HFTokenizerConverter(CustomOpConverter):
                 f"{hf_tokenizer.__name__}: vocab_files_names is not found")
 
         tokenizer_file = filenames["tokenizer_file"]
-        import os
 
         if (hf_tokenizer.vocab_file is None) or (not os.path.exists(hf_tokenizer.vocab_file)):
             model_dir = hf_tokenizer.name_or_path
@@ -64,6 +64,15 @@ class HFTokenizerConverter(CustomOpConverter):
 
         return attrs
 
+    @staticmethod
+    def get_model_name(hf_tokenizer):
+        name = hf_tokenizer.__class__.__name__
+        if name.endswith("Fast"):
+            name = name[: -len("Fast")]
+        if name.endswith("Tokenizer"):
+            name = name[: -len("Tokenizer")]
+        return name
+
     def bpe_tokenizer(self, **kwargs):
         hf_bpe_tokenizer = self.tokenizer
         if getattr(hf_bpe_tokenizer, "is_fast", False):
@@ -71,6 +80,7 @@ class HFTokenizerConverter(CustomOpConverter):
         else:
             attrs = self.convert_bpe_vocab(hf_bpe_tokenizer)
 
+        attrs.update({"model_name": self.get_model_name(hf_bpe_tokenizer)})
         attrs.update(**kwargs)
         return attrs
 
