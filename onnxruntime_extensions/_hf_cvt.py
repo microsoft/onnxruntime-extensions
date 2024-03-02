@@ -26,9 +26,6 @@ class HFTokenizerConverter(CustomOpConverter):
         attrs = {"vocab": json.dumps(
             hf_tokenizer.encoder, separators=(",", ":"))}
         if hf_tokenizer.added_tokens_encoder:
-            # ids = sorted(hf_tokenizer.added_tokens_encoder.values())
-            # if not ids == list(range(min(ids), max(ids) + 1)):
-            #     raise RuntimeError(f"{hf_tokenizer.__name__}: the ids in added_tokens_encoder are not consecutive")
             token_map = [f"{_k}={_v}" for _k,
                          _v in hf_tokenizer.added_tokens_encoder.items()]
             attrs.update({"added_token": "\n".join(token_map)})
@@ -107,7 +104,8 @@ class HFTokenizerConverter(CustomOpConverter):
         id_vocab = "\n".join([decoder[_idx] for _idx in sorted(decoder)])
         byte_decoder = getattr(self.tokenizer, "byte_decoder", None)
         if byte_decoder is None:
-            byte_decoder = {chr(i): i for i in range(256)}
+            # let's take it as a SPM tokenizer
+            byte_decoder = {chr(0x2581): ord(' ')}
         str_byte_decoder = "\n".join(
             ["{}\t{}".format(ord(_c), str(byte_decoder[_c])) for _c in byte_decoder])
         all_special_ids = self.tokenizer.all_special_ids
@@ -195,8 +193,8 @@ _PROCESSOR_DICT = {
     "T5Tokenizer":          TokenOpParam('SentencepieceTokenizer',  HFTokenizerConverter.spm_tokenizer,
                                          'SentencepieceDecoder',    HFTokenizerConverter.spm_decoder,
                                          default_inputs={'add_eos': [True]}),
-    "LlamaTokenizer":       TokenOpParam('SentencepieceTokenizer',  HFTokenizerConverter.bpe_tokenizer,
-                                         'SentencepieceDecoder',    HFTokenizerConverter.bpe_decoder, None),
+    "LlamaTokenizer":       TokenOpParam('SpmTokenizer',            HFTokenizerConverter.bpe_tokenizer,
+                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None),
     "XLMRobertaTokenizer":  TokenOpParam('SentencepieceTokenizer',  HFTokenizerConverter.spm_tokenizer,
                                          'SentencepieceDecoder',    HFTokenizerConverter.spm_decoder,
                                          default_inputs={'add_bos': [True], 'add_eos': [True], 'fairseq': [True]}),
