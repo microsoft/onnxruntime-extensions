@@ -35,6 +35,10 @@ stages:
 
     strategy:
       matrix:
+        py312-1171:
+          python.version: '3.12'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.17.1'
         py311-1163:
           python.version: '3.11'
           torch.version: 'torch torchvision torchaudio'
@@ -49,7 +53,7 @@ stages:
           ort.version: '1.14.1'
         py38-1131:
           python.version: '3.8'
-          torch.version: 'torch==1.12.1+cpu torchvision==0.13.1+cpu torchaudio==0.12.1+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
+          torch.version: 'torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -f https://download.pytorch.org/whl/torch_stable.html'
           ort.version: '1.13.1'
 
     steps:
@@ -195,6 +199,9 @@ stages:
 
     strategy:
       matrix:
+        ort-1171:
+          ort.version: '1.17.1'
+          ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
         ort-1163:
           ort.version: '1.16.3'
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
@@ -203,9 +210,6 @@ stages:
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
         ort-1141:
           ort.version: '1.14.1'
-          ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
-        ort-1131:
-          ort.version: '1.13.1'
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
 
     steps:
@@ -251,6 +255,10 @@ stages:
 
     strategy:
       matrix:
+        py312-1171:
+          python.version: '3.12'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.17.1'
         py311-1163:
           python.version: '3.11'
           torch.version: 'torch torchvision torchaudio'
@@ -314,14 +322,14 @@ stages:
 
     strategy:
       matrix:
+        ort-1171:
+          ort.version: '1.17.1'
         ort-1163:
           ort.version: '1.16.3'
         ort-1151:
           ort.version: '1.15.1'
         ort-1141:
           ort.version: '1.14.1'
-        ort-1131:
-          ort.version: '1.13.1'
 
     steps:
     - task: DownloadGitHubRelease@0
@@ -389,21 +397,25 @@ stages:
 
     strategy:
       matrix:
-        py311-1150:
+        py312-1171:
+          python.version: '3.12'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.17.1'
+        py311-1163:
           python.version: '3.11'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.16.0'
-        py310-1141:
+          ort.version: '1.16.3'
+        py310-1151:
           python.version: '3.10'
           torch.version: 'torch torchvision torchaudio'
           ort.version: '1.15.1'
-        py39-1131:
+        py39-1141:
           python.version: '3.9'
           torch.version: 'torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
           ort.version: '1.14.1'
-        py38-1121:
+        py38-1131:
           python.version: '3.8'
-          torch.version: 'torch==1.12.1+cpu torchvision==0.13.1+cpu torchaudio==0.12.1+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html'
+          torch.version: 'torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -f https://download.pytorch.org/whl/torch_stable.html'
           ort.version: '1.13.1'
 
     steps:
@@ -419,6 +431,7 @@ stages:
         python -m pip install onnxruntime==$(ort.version)
         python -m pip install -r requirements-dev.txt
       displayName: Install requirements{-dev}.txt and cmake python modules
+      condition: ne(variables['python.version'], '3.12')
 
     - script: |
         call activate pyenv
@@ -430,11 +443,13 @@ stages:
         call activate pyenv
         python -m pip install $(torch.version)
       displayName: Install pytorch
+      condition: ne(variables['python.version'], '3.12')
 
     - script: |
         call activate pyenv
         pytest test
       displayName: Run python test
+      condition: ne(variables['python.version'], '3.12')
 
   #################
   # Windows PyDebug
@@ -477,7 +492,7 @@ stages:
     pool:
       name: 'onnxruntime-extensions-Win2022-GPU-A10'
     variables:
-      ORT_VERSION: '1.16.2'
+      ORT_VERSION: '1.17.1'
     timeoutInMinutes: 120
     steps:
       - template: templates/set_winenv.yml
@@ -555,7 +570,7 @@ stages:
       name: 'onnxruntime-extensions-Linux-GPU-A10'
     timeoutInMinutes: 120
     variables:
-      ORT_VERSION: '1.16.3'
+      ORT_VERSION: '1.17.1'
       TORCH_VERSION: 'torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118'
     steps:
       - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
@@ -572,7 +587,7 @@ stages:
 
       - task: UsePythonVersion@0
         inputs:
-          versionSpec: '3.8'
+          versionSpec: '3.12'
           addToPath: true
 
       - task: DownloadGitHubRelease@0
@@ -704,10 +719,10 @@ stages:
     steps:
     - task: UsePythonVersion@0
       inputs:
-        versionSpec: "3.9"
+        versionSpec: "3.12"
         addToPath: true
         architecture: "x64"
-      displayName: "Use Python 3.9"
+      displayName: "Use Python 3.12"
 
     - task: JavaToolInstaller@0
       displayName: Use jdk 17
@@ -739,10 +754,10 @@ stages:
     steps:
       - task: UsePythonVersion@0
         inputs:
-          versionSpec: "3.9"
+          versionSpec: "3.12"
           addToPath: true
           architecture: "x64"
-        displayName: "Use Python 3.9"
+        displayName: "Use Python 3.12"
 
       - task: JavaToolInstaller@0
         displayName: Use jdk 17
@@ -779,11 +794,11 @@ stages:
 
     - task: UsePythonVersion@0
       inputs:
-        versionSpec: '3.9'
+        versionSpec: '3.12'
         disableDownloadFromRegistry: true
         addToPath: true
         architecture: 'x64'
-      displayName: "Use Python 3.9"
+      displayName: "Use Python 3.12"
 
     # iOS xcframework build doesn't work with CMake 3.25.1, pin to 3.25.0
     - script: |
