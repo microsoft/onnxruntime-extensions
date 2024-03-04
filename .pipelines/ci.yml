@@ -429,13 +429,27 @@ stages:
         call activate pyenv
         python -m pip install --upgrade pip
         python -m pip install onnxruntime==$(ort.version)
-      displayName: Install requirements and cmake python modules
+        python -m pip install -r requirements-dev.txt
+      displayName: Install requirements{-dev}.txt and cmake python modules
+      condition: neq(variables['python.version'], '3.12')
 
     - script: |
         call activate pyenv
         set CMAKE_ARGS=-DOCOS_ONNXRUNTIME_VERSION=$(ort.version)
         python -m pip install .
       displayName: Build the wheel
+
+    - script: |
+        call activate pyenv
+        python -m pip install $(torch.version)
+      displayName: Install pytorch
+      condition: neq(variables['python.version'], '3.12')
+
+    - script: |
+        call activate pyenv
+        pytest test
+      displayName: Run python test
+      condition: neq(variables['python.version'], '3.12')
 
   #################
   # Windows PyDebug
