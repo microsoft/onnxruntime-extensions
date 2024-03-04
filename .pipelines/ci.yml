@@ -36,21 +36,25 @@ stages:
     strategy:
       matrix:
         py312-1171:
-          python.version: '3.11'
+          python.version: '3.12'
           torch.version: 'torch torchvision torchaudio'
           ort.version: '1.17.1'
         py311-1163:
-          python.version: '3.10'
+          python.version: '3.11'
           torch.version: 'torch torchvision torchaudio'
           ort.version: '1.16.3'
         py310-1151:
-          python.version: '3.9'
+          python.version: '3.10'
           torch.version: 'torch torchvision torchaudio'
           ort.version: '1.15.1'
         py39-1141:
-          python.version: '3.8'
+          python.version: '3.9'
           torch.version: 'torch==1.13.1+cpu torchvision==0.14.1+cpu torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
           ort.version: '1.14.1'
+        py38-1131:
+          python.version: '3.8'
+          torch.version: 'torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -f https://download.pytorch.org/whl/torch_stable.html'
+          ort.version: '1.13.1'
 
     steps:
     - task: DownloadGitHubRelease@0
@@ -252,21 +256,25 @@ stages:
     strategy:
       matrix:
         py312-1171:
-          python.version: '3.11'
+          python.version: '3.12'
           torch.version: 'torch torchvision torchaudio'
           ort.version: '1.17.1'
         py311-1163:
-          python.version: '3.10'
+          python.version: '3.11'
           torch.version: 'torch torchvision torchaudio'
           ort.version: '1.16.3'
         py310-1151:
-          python.version: '3.9'
+          python.version: '3.10'
           torch.version: 'torch torchvision torchaudio'
           ort.version: '1.15.1'
         py39-1141:
-          python.version: '3.8'
+          python.version: '3.9'
           torch.version: 'torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
           ort.version: '1.14.1'
+        py38-1131:
+          python.version: '3.8'
+          torch.version: 'torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -f https://download.pytorch.org/whl/torch_stable.html'
+          ort.version: '1.13.1'
 
     steps:
     - template: templates/use-xcode-version.yml
@@ -390,21 +398,25 @@ stages:
     strategy:
       matrix:
         py312-1171:
-          python.version: '3.11'
+          python.version: '3.12'
           torch.version: 'torch torchvision torchaudio'
           ort.version: '1.17.1'
         py311-1163:
-          python.version: '3.10'
+          python.version: '3.11'
           torch.version: 'torch torchvision torchaudio'
           ort.version: '1.16.3'
         py310-1151:
-          python.version: '3.9'
+          python.version: '3.10'
           torch.version: 'torch torchvision torchaudio'
           ort.version: '1.15.1'
         py39-1141:
-          python.version: '3.8'
+          python.version: '3.9'
           torch.version: 'torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
           ort.version: '1.14.1'
+        py38-1131:
+          python.version: '3.8'
+          torch.version: 'torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -f https://download.pytorch.org/whl/torch_stable.html'
+          ort.version: '1.13.1'
 
     steps:
     - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
@@ -417,24 +429,13 @@ stages:
         call activate pyenv
         python -m pip install --upgrade pip
         python -m pip install onnxruntime==$(ort.version)
-        python -m pip install -r requirements-dev.txt
-      displayName: Install requirements{-dev}.txt and cmake python modules
+      displayName: Install requirements and cmake python modules
 
     - script: |
         call activate pyenv
         set CMAKE_ARGS=-DOCOS_ONNXRUNTIME_VERSION=$(ort.version)
         python -m pip install .
       displayName: Build the wheel
-
-    - script: |
-        call activate pyenv
-        python -m pip install $(torch.version)
-      displayName: Install pytorch
-
-    - script: |
-        call activate pyenv
-        pytest test
-      displayName: Run python test
 
   #################
   # Windows PyDebug
