@@ -431,7 +431,7 @@ stages:
         python -m pip install onnxruntime==$(ort.version)
         python -m pip install -r requirements-dev.txt
       displayName: Install requirements{-dev}.txt and cmake python modules
-      condition: neq(variables['python.version'], '3.12')
+      condition: ne(variables['python.version'], '3.12')
 
     - script: |
         call activate pyenv
@@ -443,13 +443,13 @@ stages:
         call activate pyenv
         python -m pip install $(torch.version)
       displayName: Install pytorch
-      condition: neq(variables['python.version'], '3.12')
+      condition: ne(variables['python.version'], '3.12')
 
     - script: |
         call activate pyenv
         pytest test
       displayName: Run python test
-      condition: neq(variables['python.version'], '3.12')
+      condition: ne(variables['python.version'], '3.12')
 
   #################
   # Windows PyDebug
