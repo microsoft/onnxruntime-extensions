@@ -13,8 +13,8 @@ from numpy import array as nparray
 from functools import partial
 from collections import namedtuple, OrderedDict
 
-from ._cuops import CustomOpConverter, SingleOpGraph
 from .util import read_file
+from ._cuops import CustomOpConverter, SingleOpGraph
 
 
 class HFTokenizerConverter(CustomOpConverter):
