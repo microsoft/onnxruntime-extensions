@@ -6,7 +6,6 @@
 """
 _hf_cvt.py: HuggingFace Tokenizer/Processor Converter
 """
-
 import os
 import json
 import onnx
@@ -24,15 +23,15 @@ class HFTokenizerConverter(CustomOpConverter):
 
     @staticmethod
     def convert_bpe_vocab(hf_tokenizer):
-        attrs = {"vocab": json.dumps(
-            hf_tokenizer.encoder, separators=(",", ":"))}
+        attrs = {'vocab': json.dumps(
+            hf_tokenizer.encoder, separators=(',', ':'))}
         if hf_tokenizer.added_tokens_encoder:
             token_map = [f"{_k}={_v}" for _k,
                          _v in hf_tokenizer.added_tokens_encoder.items()]
             attrs.update({"added_token": "\n".join(token_map)})
 
         sorted_merges = {v_: k_ for k_, v_ in hf_tokenizer.bpe_ranks.items()}
-        attrs["merges"] = "\n".join("{} {}".format(
+        attrs['merges'] = '\n'.join("{} {}".format(
             *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
         return attrs
 
@@ -44,19 +43,18 @@ class HFTokenizerConverter(CustomOpConverter):
                 f"{hf_tokenizer.__name__}: vocab_files_names is not found")
 
         tokenizer_file = filenames["tokenizer_file"]
-
         if (hf_tokenizer.vocab_file is None) or (not os.path.exists(hf_tokenizer.vocab_file)):
             model_dir = hf_tokenizer.name_or_path
         else:
-            model_dir = os.dirname(hf_tokenizer.vocab_file)
+            model_dir = os.path.dirname(hf_tokenizer.vocab_file)
         tokenizer_json = json.load(
             open(os.path.join(model_dir, tokenizer_file), "r", encoding="utf-8"))
         # get vocab object from json file
         vocab = tokenizer_json.get("model", {}).get("vocab", {})
-        sorted_merges = tokenizer_json.get("model", {}).get("merges", {})
+        sorted_merges = tokenizer_json.get("model", {}).get("merges", [])
+        sorted_merges = [v_.replace("\n", "<0x0A>") for v_ in sorted_merges]
         attrs = {"vocab": json.dumps(vocab, separators=(",", ":"))}
-        attrs["merges"] = "\n".join("{} {}".format(
-            *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
+        attrs["merges"] = "\n".join(sorted_merges)
         if hf_tokenizer.added_tokens_encoder:
             token_map = [f"{_k}={_v}" for _k,
                          _v in hf_tokenizer.added_tokens_encoder.items()]
@@ -75,7 +73,7 @@ class HFTokenizerConverter(CustomOpConverter):
 
     def bpe_tokenizer(self, **kwargs):
         hf_bpe_tokenizer = self.tokenizer
-        if getattr(hf_bpe_tokenizer, "is_fast", False):
+        if getattr(hf_bpe_tokenizer, "is_fast", True):
             attrs = self.convert_json_vocab(hf_bpe_tokenizer)
         else:
             attrs = self.convert_bpe_vocab(hf_bpe_tokenizer)
@@ -89,20 +87,20 @@ class HFTokenizerConverter(CustomOpConverter):
         # has to be sorted since the id of token was generated automatically.
         ordered_vocab = OrderedDict(
             sorted(hf_bert_tokenizer.vocab.items(), key=lambda item: int(item[1])))
-        vocab = "\n".join(ordered_vocab.keys())
+        vocab = '\n'.join(ordered_vocab.keys())
         attrs = dict(vocab=vocab)
         init_kwargs = hf_bert_tokenizer.init_kwargs
-        attrs["do_lower_case"] = 1 if "do_lower_case" in init_kwargs and init_kwargs.get(
-            "do_lower_case") else 0
-        attrs["strip_accents"] = 1 if "strip_accents" in init_kwargs and init_kwargs.get(
-            "strip_accents") else 0
+        attrs['do_lower_case'] = 1 if 'do_lower_case' in init_kwargs and init_kwargs.get(
+            'do_lower_case') else 0
+        attrs['strip_accents'] = 1 if 'strip_accents' in init_kwargs and init_kwargs.get(
+            'strip_accents') else 0
         attrs.update(**kwargs)
         return attrs
 
     def bert_decoder(self, **kwargs):
         hf_bert_tokenizer = self.tokenizer
-        attrs = {"vocab": json.dumps(
-            hf_bert_tokenizer.ids_to_tokens, separators=(",", ":"))}
+        attrs = {'vocab': json.dumps(
+            hf_bert_tokenizer.ids_to_tokens, separators=(',', ':'))}
         attrs.update(**kwargs)
         return attrs
 
@@ -123,23 +121,21 @@ class HFTokenizerConverter(CustomOpConverter):
         str_all_special_ids = "\n".join([str(_id) for _id in all_special_ids])
         str_added_tokens = "\n".join(
             ["{}\t{}".format(str(_id), added_tokens[_id]) for _id in added_tokens])
-        kwargs.update(
-            {
-                "id_vocab": id_vocab,
-                "byte_decoder": str_byte_decoder,
-                "added_tokens": str_added_tokens,
-                "all_special_ids": str_all_special_ids,
-                "skip_special_tokens": kwargs.get("skip_special_tokens", False),
-            }
-        )
+        kwargs.update({
+            "id_vocab": id_vocab,
+            "byte_decoder": str_byte_decoder,
+            "added_tokens": str_added_tokens,
+            "all_special_ids": str_all_special_ids,
+            "skip_special_tokens": kwargs.get("skip_special_tokens", False)
+        })
         return kwargs
 
     def clip_tokenizer(self, **kwargs):
         hf_clip_tokenizer = self.tokenizer
 
-        if type(self.tokenizer).__name__.endswith("Fast"):
+        if type(self.tokenizer).__name__.endswith('Fast'):
             raise ValueError(
-                "Please use the slow version of the tokenizer (ex: CLIPTokenizer).")
+                'Please use the slow version of the tokenizer (ex: CLIPTokenizer).')
 
         attrs = self.convert_bpe_vocab(hf_clip_tokenizer)
         attrs.update(**kwargs)
@@ -148,31 +144,30 @@ class HFTokenizerConverter(CustomOpConverter):
     def roberta_tokenizer(self, **kwargs):
         hf_roberta_tokenizer = self.tokenizer
 
-        if type(self.tokenizer).__name__.endswith("Fast"):
+        if type(self.tokenizer).__name__.endswith('Fast'):
             raise ValueError(
-                "Please use the slow version of the tokenizer (ex: RobertaTokenizer).")
+                'Please use the slow version of the tokenizer (ex: RobertaTokenizer).')
 
         attrs = self.convert_bpe_vocab(hf_roberta_tokenizer)
         attrs.update(**kwargs)
         return attrs
 
     def spm_tokenizer(self, **kwargs):
-        attrs = {"model": read_file(self.tokenizer.vocab_file, "rb")}
+        attrs = {'model': read_file(self.tokenizer.vocab_file, 'rb')}
         attrs.update(**kwargs)
         return attrs
 
     def spm_decoder(self, **kwargs):
-        attrs = {"model": read_file(self.tokenizer.vocab_file, "rb")}
+        attrs = {'model': read_file(self.tokenizer.vocab_file, 'rb')}
         attrs.update(**kwargs)
         return attrs
 
 
-TokenOpParam = namedtuple(
-    "TokenOpParam",
-    ["pre_op", "pre_attribute_cvt", "post_op",
-        "post_attribute_cvt", "default_inputs"],
-    defaults=(None, None, None, None, None),
-)
+TokenOpParam = namedtuple("TokenOpParam",
+                          ["pre_op", "pre_attribute_cvt",
+                           "post_op", "post_attribute_cvt",
+                           "default_inputs"],
+                          defaults=(None, None, None, None, None))
 
 # Some tokenizers can be added by this table
 # https://github.com/huggingface/transformers/blob/main/src/transformers/convert_slow_tokenizer.py#L1252
@@ -219,7 +214,7 @@ class HFTokenizerOnnxGraph:
         cls_name = processor if isinstance(
             processor, str) else type(processor).__name__
         if cls_name.endswith("TokenizerFast"):
-            cls_name = cls_name[: -len("Fast")]
+            cls_name = cls_name[:-len("Fast")]
         return cls_name
 
     @classmethod
@@ -275,19 +270,16 @@ class HFTokenizerOnnxGraph:
         if cast_token_id:
             # assume the first output is always the token ID.
             if g.output[0].type.tensor_type.elem_type != onnx.onnx_pb.TensorProto.INT64:
-                new_output_name = g.output[0].name + "_cast"
+                new_output_name = g.output[0].name + '_cast'
                 shape = g.output[0].type.tensor_type.shape
-                cast_node = onnx.helper.make_node(
-                    "Cast", [g.output[0].name], [new_output_name], to=onnx.onnx_pb.TensorProto.INT64
-                )
-                new_output = [
-                    onnx.helper.make_tensor_value_info(
-                        new_output_name, onnx.onnx_pb.TensorProto.INT64, None)
-                ] + list(g.output)[1:]
+                cast_node = onnx.helper.make_node('Cast', [g.output[0].name], [new_output_name],
+                                                  to=onnx.onnx_pb.TensorProto.INT64)
+                new_output = [onnx.helper.make_tensor_value_info(
+                    new_output_name, onnx.onnx_pb.TensorProto.INT64, None)] + list(g.output)[1:]
                 if shape is not None:
                     new_output[0].type.tensor_type.shape.CopyFrom(shape)
                 g.node.append(cast_node)
-                g.ClearField("output")
+                g.ClearField('output')
                 g.output.extend(new_output)
 
         return g

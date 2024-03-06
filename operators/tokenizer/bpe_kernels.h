@@ -10,25 +10,13 @@
 #include <vector>
 
 struct BpeModelConf {
-  static const char kModel_GPT2[];
-  static const char kModel_Roberta[];
-  static const char kModel_CLIP[];
-  static const char kModel_Llama[];
-  static const char kModel_Gemma[];
-
-  const char* name_{kModel_GPT2};
+  const char* name_{"GPT2"};      // this name may be overridden by the tokenizer's attribute.
   const char* unk_token_{"<|endoftext|>"};
   const char* bos_token_{"<|endoftext|>"};
   const char* eos_token_{"<|endoftext|>"};
   const char* pad_token_{nullptr};
 
   std::string GetSpecialTokens() const;
-
-  bool IsSpmModel() const {
-    std::string name = name_;
-    return name == kModel_Llama ||
-           name == kModel_Gemma;
-  }
 };
 
 namespace ort_extensions {
@@ -44,7 +32,7 @@ struct KernelBpeTokenizer {
                        std::optional<ortc::Tensor<int64_t>*> attention_mask,
                        std::optional<ortc::Tensor<int64_t>*> offset_mapping) const;
 
-  const char* ModelName() const { return model_name_.c_str(); }
+  const std::string& ModelName() const { return model_name_; }
 
  protected:
   using OffsetMappingType = std::list<std::pair<size_t, size_t>>;

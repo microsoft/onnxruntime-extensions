@@ -8,6 +8,22 @@
 
 using namespace ort_extensions;
 
+const char kModel_GPT2[] = "GPT2";
+const char kModel_CodeGen[] = "CodeGen";
+const char kModel_Roberta[] = "Roberta";
+const char kModel_CLIP[] = "CLIP";
+const char kModel_Llama[] = "Llama";
+const char kModel_Gemma[] = "Gemma";
+
+static bool IsBosEosRequired(const std::string& model_name) {
+  return model_name != kModel_GPT2 && model_name != kModel_CodeGen;
+}
+
+static bool IsSpmModel(const std::string& model_name) {
+  return model_name == kModel_Llama ||
+         model_name == kModel_Gemma;
+}
+
 std::string BpeModelConf::GetSpecialTokens() const {
   std::string special_tokens = unk_token_;  // unk_token_ is required
   auto add_token = [](std::string& sp, const char* tok) {
@@ -23,12 +39,6 @@ std::string BpeModelConf::GetSpecialTokens() const {
   add_token(special_tokens, pad_token_);
   return special_tokens;
 }
-
-const char BpeModelConf::kModel_GPT2[] = "GPT2";
-const char BpeModelConf::kModel_Roberta[] = "Roberta";
-const char BpeModelConf::kModel_CLIP[] = "CLIP";
-const char BpeModelConf::kModel_Llama[] = "Llama";
-const char BpeModelConf::kModel_Gemma[] = "Gemma";
 
 // Note: the following logic comes from CPython: unicodetype_db.h (_PyUnicode_IsWhitespace)
 bool IsUnicodeSpace(char32_t ch) {
@@ -124,7 +134,11 @@ OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKerne
   std::stringstream vocabu_stream(vocab);
   std::stringstream merges_stream(merges);
   bbpe_tokenizer_ = std::make_unique<BpeModel>();
-  auto status = bbpe_tokenizer_->Load(vocabu_stream, merges_stream, bpe_conf_.unk_token_, bpe_conf_.GetSpecialTokens().c_str());
+  auto status = bbpe_tokenizer_->Load(vocabu_stream,
+      merges_stream,
+      bpe_conf_.unk_token_,
+      bpe_conf_.GetSpecialTokens().c_str(),
+      IsSpmModel(ModelName()));
   if (status != nullptr) {
     return status;
   }
@@ -156,7 +170,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
   std::list<std::pair<uint32_t, uint32_t>> byte_list;
 
   bool clean_up_spaces = false;
-  if (ModelName() == BpeModelConf::kModel_CLIP) {
+  if (ModelName() == kModel_CLIP) {
     clean_up_spaces = true;
     // Merges consecutive '\s+' for CLIP
     /*
@@ -176,18 +190,18 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     input = str;
   }
 
-  if (AllSpaceUstring(input) && ModelName() == BpeModelConf::kModel_CLIP) {
+  if (AllSpaceUstring(input) && ModelName() == kModel_CLIP) {
     // Add BOS and EOS token to result
     res.push_back(bos_token_id_);
     res.push_back(eos_token_id_);
     return res;
   }
 
-  if (ModelName() != BpeModelConf::kModel_GPT2) {
+  if (IsBosEosRequired(ModelName())) {
     // Add BOS token to result
     res.push_back(bos_token_id_);
   }
-  if (ModelName() == BpeModelConf::kModel_CLIP) {
+  if (ModelName() == kModel_CLIP) {
     // Convert to lowercase
     std::transform(input.begin(), input.end(), input.begin(), [](char32_t c) { return static_cast<char32_t>(ToLower(c)); });
   }
@@ -212,7 +226,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     OffsetMappingType offset_mapping;
 
     if (compute_offset_mapping) {
-      if (ModelName() != BpeModelConf::kModel_GPT2) {
+      if (IsBosEosRequired(ModelName())) {
         // Add offset mapping for BOS token
         offset_mapping.push_back(std::make_pair(0, 0));
       }
@@ -281,7 +295,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     }
 
     if (compute_offset_mapping) {
-      if (ModelName() != BpeModelConf::kModel_GPT2) {
+      if (IsBosEosRequired(ModelName())) {
         // Add offset mapping for EOS token
         offset_mapping.emplace_back(std::make_pair(0, 0));
       }
@@ -290,7 +304,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     }
   }
 
-  if (ModelName() != BpeModelConf::kModel_GPT2) {
+  if (IsBosEosRequired(ModelName())) {
     // Add EOS token to result
     res.push_back(eos_token_id_);
   }
@@ -310,6 +324,9 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input,
 
   size_t max_length = static_cast<size_t>(max_length_i64);
   // Parse input
+  if (ModelName() == kModel_Llama) {
+    input.insert(input.begin(), 0x2581);
+  }
   auto special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input);
   for (auto& seg_id : special_token_split_res) {
     if (res.size() >= max_length) break;
@@ -335,7 +352,7 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input,
 
     while (res.size() < max_length && char_pos < ustr.length()) {
       auto chr = ustr[char_pos];
-      if (IsUnicodeSpace(chr)) {
+      if (chr == U' ') {
         chr = 0x2581;  // UTF-8 string '\xe2\x96\x81'
       }
 
@@ -401,7 +418,7 @@ OrtStatusPtr KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
   }
 
   auto tok_fun = &KernelBpeTokenizer::Tokenize;
-  if (bpe_conf_.IsSpmModel()) {
+  if (IsSpmModel(ModelName())) {
     tok_fun = &KernelBpeTokenizer::SpmTokenize;
   }
 
@@ -409,10 +426,10 @@ OrtStatusPtr KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
     ustring ustr = ustring(str);
     tokenize_results.emplace_back(
         (this->*tok_fun)(
-          ustr,
-          padding_length_ < 0 ? std::numeric_limits<uint32_t>::max() : padding_length_,
-          compute_offset_mapping,
-          offset_map));
+            ustr,
+            padding_length_ < 0 ? std::numeric_limits<uint32_t>::max() : padding_length_,
+            compute_offset_mapping,
+            offset_map));
   }
 
   size_t max_length = 0;
@@ -479,31 +496,31 @@ GPT2Tokenizer::GPT2Tokenizer()
     : KernelBpeTokenizer(kGPT2Configuration) {}
 
 static const auto kRobertaConfiguration = BpeModelConf{
-    BpeModelConf::kModel_Roberta,  // name
-    "<unk>",                       // unk_token
-    "<s>",                         // bos_token
-    "</s>",                        // eos_token
-    "<pad>"};                      // pad_token
+    kModel_Roberta,  // name
+    "<unk>",         // unk_token
+    "<s>",           // bos_token
+    "</s>",          // eos_token
+    "<pad>"};        // pad_token
 
 RobertaTokenizer::RobertaTokenizer()
     : KernelBpeTokenizer(kRobertaConfiguration) {}
 
 static const auto kCLIPConfiguration = BpeModelConf{
-    BpeModelConf::kModel_CLIP,  // name
-    "<|endoftext|>",            // unk_token
-    "<|startoftext|>",          // bos_token
-    "<|endoftext|>",            // eos_token
-    "<|endoftext|>"};           // pad_token
+    kModel_CLIP,        // name
+    "<|endoftext|>",    // unk_token
+    "<|startoftext|>",  // bos_token
+    "<|endoftext|>",    // eos_token
+    "<|endoftext|>"};   // pad_token
 
 CLIPTokenizer::CLIPTokenizer()
     : KernelBpeTokenizer(kCLIPConfiguration) {}
 
 static const auto kSpmConfiguration = BpeModelConf{
-    BpeModelConf::kModel_Llama,  // name
-    "<unk>",                     // unk_token
-    "<s>",                       // bos_token
-    "</s>",                      // eos_token
-    ""};                         // pad_token
+    kModel_Llama,  // name
+    "<unk>",       // unk_token
+    "<s>",         // bos_token
+    "</s>",        // eos_token
+    ""};           // pad_token
 
 SpmTokenizer::SpmTokenizer()
     : KernelBpeTokenizer(kSpmConfiguration) {}

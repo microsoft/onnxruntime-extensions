@@ -25,10 +25,27 @@ class BpeModel {
  public:
   BpeModel() = default;
 
+  static void UpdateSpmByteToken(std::unordered_map<std::string, uint32_t>& vocab_map) {
+    static const char* hex = "0123456789ABCDEF";
+    for (char32_t ch = 0; ch < 256; ++ch) {
+      std::string tok(1, ort_extensions::narrow<unsigned char>(ch));
+      if (vocab_map.find(tok) != vocab_map.end()) {
+        continue;
+      }
+
+      const char buf[7] = {'<', '0', 'x', hex[ch >> 4], hex[ch & 15], '>', 0};
+      auto it = vocab_map.find(buf);
+      if (it != vocab_map.end()) {
+        vocab_map[tok] = it->second;
+      }
+    }
+  }
+
   OrtStatusPtr Load(std::istream& vocab_stream,
                     std::istream& merges_stream,
                     const char* unk_token,
-                    const char* special_tokens) {
+                    const char* special_tokens,
+                    bool spm_converted) {
     nlohmann::json tok_json;
     vocab_stream >> tok_json;
     vocab_map_ = std::move(tok_json.get<std::unordered_map<std::string, uint32_t>>());
@@ -42,7 +59,11 @@ class BpeModel {
       unk_id_ = id;
     }
 
-    CreateByteEncoder();
+    if (spm_converted) {
+	  UpdateSpmByteToken(vocab_map_);
+    } else {
+      CreateByteEncoder();
+    }
 
     uint32_t index = 0;
     std::string line;
