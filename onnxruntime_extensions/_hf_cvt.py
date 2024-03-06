@@ -6,7 +6,7 @@
 """
 _hf_cvt.py: HuggingFace Tokenizer/Processor Converter
 """
-
+import os
 import json
 import onnx
 from numpy import array as nparray
@@ -26,9 +26,6 @@ class HFTokenizerConverter(CustomOpConverter):
         attrs = {'vocab': json.dumps(
             hf_tokenizer.encoder, separators=(',', ':'))}
         if hf_tokenizer.added_tokens_encoder:
-            # ids = sorted(hf_tokenizer.added_tokens_encoder.values())
-            # if not ids == list(range(min(ids), max(ids) + 1)):
-            #     raise RuntimeError(f"{hf_tokenizer.__name__}: the ids in added_tokens_encoder are not consecutive")
             token_map = [f"{_k}={_v}" for _k,
                          _v in hf_tokenizer.added_tokens_encoder.items()]
             attrs.update({"added_token": "\n".join(token_map)})
@@ -38,13 +35,50 @@ class HFTokenizerConverter(CustomOpConverter):
             *sorted_merges[n_]) for n_ in range(len(sorted_merges)))
         return attrs
 
-    def bpe_tokenizer(self, **kwargs):
-        hf_gpt2_tokenizer = self.tokenizer
-        if type(self.tokenizer).__name__.endswith('Fast'):
+    @staticmethod
+    def convert_json_vocab(hf_tokenizer):
+        filenames = getattr(hf_tokenizer, "vocab_files_names", None)
+        if filenames is None:
             raise ValueError(
-                'Please use the slow version of the tokenizer (ex: GPT2Tokenizer).')
+                f"{hf_tokenizer.__name__}: vocab_files_names is not found")
 
-        attrs = self.convert_bpe_vocab(hf_gpt2_tokenizer)
+        tokenizer_file = filenames["tokenizer_file"]
+        if (hf_tokenizer.vocab_file is None) or (not os.path.exists(hf_tokenizer.vocab_file)):
+            model_dir = hf_tokenizer.name_or_path
+        else:
+            model_dir = os.path.dirname(hf_tokenizer.vocab_file)
+        tokenizer_json = json.load(
+            open(os.path.join(model_dir, tokenizer_file), "r", encoding="utf-8"))
+        # get vocab object from json file
+        vocab = tokenizer_json.get("model", {}).get("vocab", {})
+        sorted_merges = tokenizer_json.get("model", {}).get("merges", [])
+        sorted_merges = [v_.replace("\n", "<0x0A>") for v_ in sorted_merges]
+        attrs = {"vocab": json.dumps(vocab, separators=(",", ":"))}
+        attrs["merges"] = "\n".join(sorted_merges)
+        if hf_tokenizer.added_tokens_encoder:
+            token_map = [f"{_k}={_v}" for _k,
+                         _v in hf_tokenizer.added_tokens_encoder.items()]
+            attrs.update({"added_token": "\n".join(token_map)})
+
+        return attrs
+
+    @staticmethod
+    def get_model_name(hf_tokenizer):
+        name = hf_tokenizer.__class__.__name__
+        if name.endswith("Fast"):
+            name = name[: -len("Fast")]
+        if name.endswith("Tokenizer"):
+            name = name[: -len("Tokenizer")]
+        return name
+
+    def bpe_tokenizer(self, **kwargs):
+        hf_bpe_tokenizer = self.tokenizer
+        if getattr(hf_bpe_tokenizer, "is_fast", True):
+            attrs = self.convert_json_vocab(hf_bpe_tokenizer)
+        else:
+            attrs = self.convert_bpe_vocab(hf_bpe_tokenizer)
+
+        attrs.update({"model_name": self.get_model_name(hf_bpe_tokenizer)})
         attrs.update(**kwargs)
         return attrs
 
@@ -72,10 +106,16 @@ class HFTokenizerConverter(CustomOpConverter):
 
     def bpe_decoder(self, **kwargs):
         decoder = self.tokenizer.decoder
+        # if decoder is not iterable, build it from the vocab.
+        if not hasattr(decoder, "__iter__"):
+            decoder = {id: token for token, id in self.tokenizer.vocab.items()}
         id_vocab = "\n".join([decoder[_idx] for _idx in sorted(decoder)])
-        byte_decoder = self.tokenizer.byte_decoder
-        str_byte_decoder = "\n".join(["{}\t{}".format(
-            ord(_c), str(byte_decoder[_c])) for _c in byte_decoder])
+        byte_decoder = getattr(self.tokenizer, "byte_decoder", None)
+        if byte_decoder is None:
+            # let's take it as a SPM tokenizer
+            byte_decoder = {chr(0x2581): ord(' ')}
+        str_byte_decoder = "\n".join(
+            ["{}\t{}".format(ord(_c), str(byte_decoder[_c])) for _c in byte_decoder])
         all_special_ids = self.tokenizer.all_special_ids
         added_tokens = self.tokenizer.added_tokens_decoder
         str_all_special_ids = "\n".join([str(_id) for _id in all_special_ids])
@@ -158,9 +198,8 @@ _PROCESSOR_DICT = {
     "T5Tokenizer":          TokenOpParam('SentencepieceTokenizer',  HFTokenizerConverter.spm_tokenizer,
                                          'SentencepieceDecoder',    HFTokenizerConverter.spm_decoder,
                                          default_inputs={'add_eos': [True]}),
-    "LlamaTokenizer":       TokenOpParam('SentencepieceTokenizer',  HFTokenizerConverter.spm_tokenizer,
-                                         'SentencepieceDecoder',    HFTokenizerConverter.spm_decoder,
-                                         default_inputs={'add_bos': [True]}),
+    "LlamaTokenizer":       TokenOpParam('SpmTokenizer',            HFTokenizerConverter.bpe_tokenizer,
+                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None),
     "XLMRobertaTokenizer":  TokenOpParam('SentencepieceTokenizer',  HFTokenizerConverter.spm_tokenizer,
                                          'SentencepieceDecoder',    HFTokenizerConverter.spm_decoder,
                                          default_inputs={'add_bos': [True], 'add_eos': [True], 'fairseq': [True]}),
