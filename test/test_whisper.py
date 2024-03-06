@@ -1,6 +1,5 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
-import sys
 import unittest
 
 import numpy as np
@@ -41,7 +40,6 @@ class TestHuggingfaceWhisper(unittest.TestCase):
 
         self.assertEqual(log_mel.shape, (1, 80, 3000))
 
-    @unittest.skipIf(sys.platform.startswith('win'), "Huggingface Processor crashed on Windows.")
     def test_ort_stft_consistency(self):
         processor = WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
         pre_m, _ = gen_processing_models(processor,
@@ -63,9 +61,27 @@ class TestHuggingfaceWhisper(unittest.TestCase):
         self.assertTrue(num_mismatched / np.size(expected) < 0.02)
         self.assertAlmostEqual(expected.min(), actual.min(), delta=1e-05)
 
-    @unittest.skipIf(sys.platform.startswith('win'), "Huggingface Processor crashed on Windows.")
     def test_stft_norm_consistency(self):
         processor = WhisperProcessor.from_pretrained("openai/whisper-tiny.en")
+        pre_m, _ = gen_processing_models(processor,
+                                         pre_kwargs={"USE_AUDIO_DECODER": False, "USE_ONNX_STFT": False})
+
+        test_mp3_file = util.get_test_data_file('data', '1272-141231-0002.mp3')
+        test_data = np.expand_dims(np.fromfile(test_mp3_file, dtype=np.uint8), axis=0)
+        raw_audio = OrtPyFunction.from_customop(
+            "AudioDecoder", cpu_only=True, downsampling_rate=16000, stereo_to_mono=1)(test_data)
+
+        input_features = processor([raw_audio[0]], sampling_rate=16000)
+        expected = input_features['input_features'][0]
+
+        log_mel = OrtPyFunction.from_model(pre_m)(raw_audio)
+        actual = log_mel[0]
+
+        np.testing.assert_allclose(expected, actual, rtol=1e-03, atol=1e-05)
+        self.assertAlmostEqual(expected.min(), actual.min(), delta=1e-05)
+
+    def test_stft_norm_consistency_large(self):
+        processor = WhisperProcessor.from_pretrained("openai/whisper-large-v3")
         pre_m, _ = gen_processing_models(processor,
                                          pre_kwargs={"USE_AUDIO_DECODER": False, "USE_ONNX_STFT": False})
 
