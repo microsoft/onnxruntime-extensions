@@ -194,12 +194,13 @@ class WhisperDataProcGraph:
     def pre_processing(self, **kwargs):
         use_audio_decoder = kwargs.pop('USE_AUDIO_DECODER', True)
         use_onnx_stft = kwargs.pop('USE_ONNX_STFT', True)
+        feature_extractor = self.hf_processor.feature_extractor
         whisper_processing = WhisperPrePipeline(
-            self.hf_processor.feature_extractor.sampling_rate,
-            self.hf_processor.feature_extractor.n_fft,
-            self.hf_processor.feature_extractor.hop_length,
-            self.hf_processor.feature_extractor.feature_size,
-            self.hf_processor.feature_extractor.n_samples)
+            feature_extractor.sampling_rate,
+            feature_extractor.n_fft,
+            feature_extractor.hop_length,
+            feature_extractor.feature_size,
+            feature_extractor.n_samples)
 
         audio_pcm = torch.rand((1, 32000), dtype=torch.float32)
         model_args = (audio_pcm,)
@@ -216,14 +217,14 @@ class WhisperDataProcGraph:
             }
         )
         if use_onnx_stft:
-            pre_model = _to_onnx_stft(pre_model, self.hf_processor.feature_extractor.n_fft)
+            pre_model = _to_onnx_stft(pre_model, feature_extractor.n_fft)
             remove_unused_initializers(pre_model.graph)
 
         pre_full = pre_model
         if use_audio_decoder:
             audecoder_g = SingleOpGraph.build_graph(
                 "AudioDecoder",
-                downsampling_rate=self.hf_processor.feature_extractor.sampling_rate,
+                downsampling_rate=feature_extractor.sampling_rate,
                 stereo_to_mono=1)
             audecoder_m = make_onnx_model(audecoder_g)
             pre_full = onnx.compose.merge_models(
