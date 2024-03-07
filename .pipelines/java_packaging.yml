@@ -72,6 +72,12 @@ stages:
         SourceFolder: 'out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
+    - script: |
+        cd $(Build.ArtifactStagingDirectory)
+        jar xvf onnxruntime-extensions-0.11.0.jar
+        tree $(Build.ArtifactStagingDirectory) /f
+      displayName: Unpack JAR to view contents
+
     - task: PublishPipelineArtifact@1
       displayName: 'Publish Linux Artifact'
       inputs:
@@ -102,6 +108,12 @@ stages:
       inputs:
         SourceFolder: 'out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+    - script: |
+        cd $(Build.ArtifactStagingDirectory)
+        jar xvf onnxruntime-extensions-0.11.0.jar
+        tree $(Build.ArtifactStagingDirectory) /f
+      displayName: Unpack JAR to view contents
 
     - task: PublishPipelineArtifact@1
       displayName: 'Publish MacOS Artifact'
