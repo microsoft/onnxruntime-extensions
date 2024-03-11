@@ -3,6 +3,7 @@
 
 # Minimum CMake required
 cmake_minimum_required(VERSION 3.25)
+cmake_policy(SET CMP0104 OLD)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
 # set(CMAKE_VERBOSE_MAKEFILE ON)

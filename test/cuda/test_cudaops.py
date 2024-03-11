@@ -564,6 +564,43 @@ def parity_check_gqa_past_no_buff(
     out = torch.squeeze(out, 0)
     out = torch.reshape(out, (config.batch_size, config.sequence_length, config.num_heads, config.head_size))
     out = out.detach().cpu().numpy()
+    # Compare results
+    print(
+        "NO buff",
+        " packed:",
+        packed,
+        " causal:",
+        causal,
+        " local:",
+        local,
+        " rotary:",
+        rotary,
+        " rotary_interleaved:",
+        rotary_interleaved,
+        "past kv format:",
+        "BSNH" if past_format == Formats.BSNH else "BNSH",
+        " B:",
+        config.batch_size,
+        " S:",
+        config.sequence_length,
+        " kv S:",
+        config.kv_sequence_length,
+        " N:",
+        config.num_heads,
+        " kv N:",
+        config.kv_num_heads,
+        " h:",
+        config.head_size,
+        " Mean Error:",
+        np.mean(np.abs(out - out_ref)),
+        np.allclose(
+            out,
+            out_ref,
+            rtol=rtol,
+            atol=atol,
+            equal_nan=True,
+        ),
+    )
 
 class TestCudaOps(unittest.TestCase):
     @staticmethod
