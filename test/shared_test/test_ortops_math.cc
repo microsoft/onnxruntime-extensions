@@ -6,6 +6,20 @@
 #include "ocos.h"
 #include "test_kernel.hpp"
 
+#include "operators/math/negpos.hpp"
+
+TEST(math_operator, eager_poc){
+  std::vector<float> input_data = {0.0f, 0.2f, -1.3f, 1.5f};
+
+  ortc::Tensor<float> input(ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,
+                            input_data.data(),
+                            std::vector<int64_t>{2, 2});
+  ortc::Tensor<float> output1(ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, nullptr, std::vector<int64_t>{2, 2});
+  ortc::Tensor<float> output2(ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, nullptr, std::vector<int64_t>{2, 2});
+
+  auto result = neg_pos(input, output1, output2);
+  assert(!result);
+}
 
 TEST(math_operator, segment_extraction) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");

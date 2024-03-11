@@ -30,6 +30,9 @@ struct CustomOpApi {
   template <typename T>
   const T* GetTensorData(_Inout_ const OrtValue* value) const;
 
+  void* GetTensorMutableRawData(_Inout_ OrtValue* value) const;
+  const void* GetTensorRawData(_Inout_ const OrtValue* value) const;
+
   std::vector<int64_t> GetTensorShape(const OrtTensorTypeAndShapeInfo* info) const;
   void ReleaseTensorTypeAndShapeInfo(OrtTensorTypeAndShapeInfo* input) const;
   size_t KernelContext_GetInputCount(const OrtKernelContext* context) const;
@@ -160,6 +163,16 @@ inline T* CustomOpApi::GetTensorMutableData(_Inout_ OrtValue* value) const {
 template <typename T>
 inline const T* CustomOpApi::GetTensorData(_Inout_ const OrtValue* value) const {
   return GetTensorMutableData<T>(const_cast<OrtValue*>(value));
+}
+
+inline void* CustomOpApi::GetTensorMutableRawData(_Inout_ OrtValue* value) const {
+  void* data = nullptr;
+  ThrowOnError(api_.GetTensorMutableData(value, &data));
+  return data;
+}
+
+inline const void* CustomOpApi::GetTensorRawData(_Inout_ const OrtValue* value) const {
+  return GetTensorMutableRawData(const_cast<OrtValue*>(value));
 }
 
 inline std::vector<int64_t> CustomOpApi::GetTensorShape(const OrtTensorTypeAndShapeInfo* info) const {

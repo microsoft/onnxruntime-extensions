@@ -12,13 +12,7 @@ namespace Custom {
 
 class TensorBase {
  public:
-  TensorBase(const OrtW::CustomOpApi& api,
-             OrtKernelContext& ctx,
-             size_t indice,
-             bool is_input) : api_(api),
-                              ctx_(ctx),
-                              indice_(indice),
-                              is_input_(is_input) {}
+  TensorBase() {}
 
   virtual ~TensorBase() = default;
   operator bool() const {
@@ -60,10 +54,6 @@ class TensorBase {
   virtual size_t SizeInBytes() const = 0;
 
  protected:
-  const OrtW::CustomOpApi& api_;
-  OrtKernelContext& ctx_;
-  size_t indice_;
-  bool is_input_;
   std::optional<std::vector<int64_t>> shape_;
   ONNXTensorElementDataType type_ = ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED;
   const char* mem_type_ = "Cpu";
@@ -118,40 +108,105 @@ struct Span<BFloat16> {
 
 #endif
 
-template <typename T>
-class Tensor : public TensorBase {
- public:
-  using TT = typename std::remove_reference<T>::type;
-  Tensor(const OrtW::CustomOpApi& api,
-         OrtKernelContext& ctx,
-         size_t indice,
-         bool is_input) : TensorBase(api,
-                                     ctx,
-                                     indice,
-                                     is_input) {
-    if (is_input) {
+class TensorStorage {
+public:
+  virtual const void* DataRaw() const = 0;
+  virtual void* Allocate(const std::vector<int64_t>& shape) = 0;
+};
+
+class EagerTensorStorage : public TensorStorage {
+public:
+  EagerTensorStorage(void* buffer, 
+                     ONNXTensorElementDataType type) : buffer_(buffer), type_(type) {}
+  const void* DataRaw() const override {
+    return buffer_;
+  }
+
+  void* Allocate(const std::vector<int64_t>& shape) override {
+    if (!buffer_) {
+      // TODO: allocated with ORT allocator
+      int64_t n_elem = std::accumulate(shape.begin(), shape.end(), 1LL, std::multiplies<int64_t>());
+      // TODO: get size of type
+      auto buffer_size = n_elem * 4;
+      buffer_holder_ = std::make_unique<char>(buffer_size);
+      buffer_ = buffer_holder_.get();
+    }
+    return buffer_;
+  }
+private:
+  void* buffer_;
+  std::unique_ptr<char> buffer_holder_;
+  ONNXTensorElementDataType type_;
+};
+
+class OrtTensorStorage : public TensorStorage {
+public:
+  OrtTensorStorage(const OrtW::CustomOpApi& api,
+                   OrtKernelContext& ctx,
+                   size_t indice,
+                   bool is_input) : api_(api), ctx_(ctx), indice_(indice) {
+    if (is_input){
       auto input_count = api_.KernelContext_GetInputCount(&ctx_);
       if (indice >= input_count) {
         ORTX_CXX_API_THROW("invalid indice", ORT_RUNTIME_EXCEPTION);
       }
       const_value_ = api_.KernelContext_GetInput(&ctx_, indice);
-      auto* info = api_.GetTensorTypeAndShape(const_value_);
-      shape_ = api_.GetTensorShape(info);
-      type_ = api_.GetTensorElementType(info);
-      api_.ReleaseTensorTypeAndShapeInfo(info);
+    }
+  }
+
+  const void* DataRaw() const override {
+    return api_.GetTensorRawData(const_value_);
+  }
+
+  void* Allocate(const std::vector<int64_t>& shape) override {
+    if (!const_value_) {
+      const_value_ = api_.KernelContext_GetOutput(&ctx_, indice_, shape.data(), shape.size());
+    }
+    return api_.GetTensorMutableRawData(const_cast<OrtValue*>(const_value_));
+  }
+
+private:
+  const OrtW::CustomOpApi& api_;
+  OrtKernelContext& ctx_;
+  size_t indice_;
+  const OrtValue* const_value_{};  // for input
+  
+};
+
+template <typename T>
+class Tensor : public TensorBase {
+ public:
+  using TT = typename std::remove_reference<T>::type;
+  Tensor(ONNXTensorElementDataType type,
+         void* buffer_ptr,
+         std::optional<std::vector<int64_t>> shape) : storage_(std::make_unique<EagerTensorStorage>(buffer_ptr, type)){
+    shape_ = shape;
+  }
+  
+  Tensor(const OrtW::CustomOpApi& api,
+         OrtKernelContext& ctx,
+         size_t indice,
+         bool is_input) : storage_(std::make_unique<OrtTensorStorage>(api, ctx, indice, is_input)) {
+    // init metadata
+    if (is_input) {
+      const OrtValue* const_value = api.KernelContext_GetInput(&ctx, indice);
+      auto* info = api.GetTensorTypeAndShape(const_value);
+      shape_ = api.GetTensorShape(info);
+      type_ = api.GetTensorElementType(info);
+      api.ReleaseTensorTypeAndShapeInfo(info);
       const OrtMemoryInfo* mem_info = {};
-      api_.ThrowOnError(api_.GetOrtApi().GetTensorMemoryInfo(const_value_, &mem_info));
+      api.ThrowOnError(api.GetOrtApi().GetTensorMemoryInfo(const_value, &mem_info));
       if (mem_info) {
-        api_.ThrowOnError(api.GetOrtApi().MemoryInfoGetName(mem_info, &mem_type_));
+        api.ThrowOnError(api.GetOrtApi().MemoryInfoGetName(mem_info, &mem_type_));
       }
     }
   }
   const TT* Data() const {
-    return api_.GetTensorData<TT>(const_value_);
+    return static_cast<const TT*>(storage_->DataRaw());
   }
 
   const void* DataRaw() const override {
-    return reinterpret_cast<const void*>(Data());
+    return storage_->DataRaw();
   }
 
   size_t SizeInBytes() const override {
@@ -159,13 +214,13 @@ class Tensor : public TensorBase {
   }
 
   TT* Allocate(const std::vector<int64_t>& shape) {
-    if (!data_) {
-      OrtValue* out = api_.KernelContext_GetOutput(&ctx_, indice_, shape.data(), shape.size());
+    // it should be OK to allocate multiple times
+    void* buffer = storage_->Allocate(shape);
+    if (!shape_.has_value())
       shape_ = shape;
-      data_ = api_.GetTensorMutableData<TT>(out);
-    }
-    return data_;
+    return static_cast<TT*>(buffer);
   }
+
   const Span<T>& AsSpan() {
     if (!shape_.has_value() || shape_->size() != 1) {
       ORTX_CXX_API_THROW("to get a span, shape must be 1-D, actual shape: " + Shape2Str(), ORT_RUNTIME_EXCEPTION);
@@ -173,6 +228,7 @@ class Tensor : public TensorBase {
     span_.Assign(Data(), (*shape_)[0]);
     return span_;
   }
+
   const T& AsScalar() {
     if (!shape_.has_value() || (shape_->size() == 1 && (*shape_)[0] != 1) || shape_->size() > 1) {
       ORTX_CXX_API_THROW("to get a scalar, shape must be {1}, actual shape: " + Shape2Str(), ORT_RUNTIME_EXCEPTION);
@@ -181,8 +237,7 @@ class Tensor : public TensorBase {
   }
 
  private:
-  const OrtValue* const_value_{};  // for input
-  TT* data_{};                     // for output
+  std::unique_ptr<TensorStorage> storage_;
   Span<T> span_;
 };
 
@@ -194,10 +249,9 @@ class Tensor<std::string> : public TensorBase {
   Tensor(const OrtW::CustomOpApi& api,
          OrtKernelContext& ctx,
          size_t indice,
-         bool is_input) : TensorBase(api,
-                                     ctx,
-                                     indice,
-                                     is_input) {
+         bool is_input) : api_(api),
+                          ctx_(ctx),
+                          indice_(indice) {
     if (is_input) {
       auto input_count = api_.KernelContext_GetInputCount(&ctx_);
       if (indice >= input_count) {
@@ -268,6 +322,9 @@ class Tensor<std::string> : public TensorBase {
   }
 
  private:
+  const OrtW::CustomOpApi& api_;
+  OrtKernelContext& ctx_;
+  size_t indice_;
   std::vector<std::string> input_strings_;  // for input
 };
 
@@ -280,11 +337,10 @@ class Tensor<std::string_view> : public TensorBase {
   Tensor(const OrtW::CustomOpApi& api,
          OrtKernelContext& ctx,
          size_t indice,
-         bool is_input) : TensorBase(api,
-                                     ctx,
-                                     indice,
-                                     is_input) {
-    if (is_input_) {
+         bool is_input) : api_(api),
+                          ctx_(ctx),
+                          indice_(indice) {
+    if (is_input) {
       auto input_count = api_.KernelContext_GetInputCount(&ctx_);
       if (indice >= input_count) {
         ORTX_CXX_API_THROW("invalid indice", ORT_RUNTIME_EXCEPTION);
@@ -347,6 +403,9 @@ class Tensor<std::string_view> : public TensorBase {
   }
 
  private:
+  const OrtW::CustomOpApi& api_;
+  OrtKernelContext& ctx_;
+  size_t indice_;
   std::vector<char> chars_;                           // for input
   std::vector<std::string_view> input_string_views_;  // for input
 };
@@ -358,40 +417,33 @@ struct Tensor<MFloat16> : public TensorBase {
   Tensor(const OrtW::CustomOpApi& api,
          OrtKernelContext& ctx,
          size_t indice,
-         bool is_input) : TensorBase(api,
-                                     ctx,
-                                     indice,
-                                     is_input) {
+         bool is_input) : storage_(std::make_unique<OrtTensorStorage>(api, ctx, indice, is_input)) {
+    // init metadata
     type_ = ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16;
-    if (is_input_) {
-      auto input_count = api_.KernelContext_GetInputCount(&ctx_);
-      if (indice >= input_count) {
-        ORTX_CXX_API_THROW("invalid indice", ORT_RUNTIME_EXCEPTION);
-      }
-      const_value_ = api_.KernelContext_GetInput(&ctx_, indice);
-      auto* info = api_.GetTensorTypeAndShape(const_value_);
-      shape_ = api_.GetTensorShape(info);
-      type_ = api_.GetTensorElementType(info);
-      api_.ReleaseTensorTypeAndShapeInfo(info);
+    if (is_input) {
+      const OrtValue* const_value = api.KernelContext_GetInput(&ctx, indice);
+      auto* info = api.GetTensorTypeAndShape(const_value);
+      shape_ = api.GetTensorShape(info);
+      type_ = api.GetTensorElementType(info);
+      api.ReleaseTensorTypeAndShapeInfo(info);
       const OrtMemoryInfo* mem_info = {};
-      api_.ThrowOnError(api_.GetOrtApi().GetTensorMemoryInfo(const_value_, &mem_info));
+      api.ThrowOnError(api.GetOrtApi().GetTensorMemoryInfo(const_value, &mem_info));
       if (mem_info) {
-        api_.ThrowOnError(api.GetOrtApi().MemoryInfoGetName(mem_info, &mem_type_));
+        api.ThrowOnError(api.GetOrtApi().MemoryInfoGetName(mem_info, &mem_type_));
       }
     }
   }
 
   const MFloat16* Data() const {
-    return reinterpret_cast<const MFloat16*>(api_.GetTensorData<uint16_t>(const_value_));
+    return reinterpret_cast<const MFloat16*>(storage_->DataRaw());
   }
 
   MFloat16* Allocate(const std::vector<int64_t>& shape) {
-    if (!data_) {
-      OrtValue* out = api_.KernelContext_GetOutput(&ctx_, indice_, shape.data(), shape.size());
+    // it should be OK to allocate multiple times
+    void* buffer = storage_->Allocate(shape);
+    if (!shape_.has_value())
       shape_ = shape;
-      data_ = reinterpret_cast<MFloat16*>(api_.GetTensorMutableData<uint16_t>(out));
-    }
-    return data_;
+    return reinterpret_cast<MFloat16*>(buffer);
   }
 
   const Span<MFloat16>& AsSpan() {
@@ -403,7 +455,7 @@ struct Tensor<MFloat16> : public TensorBase {
   }
 
   const void* DataRaw() const override {
-    return reinterpret_cast<const void*>(Data());
+    return storage_->DataRaw();
   }
 
   virtual size_t SizeInBytes() const override {
@@ -411,8 +463,7 @@ struct Tensor<MFloat16> : public TensorBase {
   }
 
  private:
-  const OrtValue* const_value_{};  // for input
-  MFloat16* data_{};               // for output
+  std::unique_ptr<TensorStorage> storage_;
 };
 
 template <>
@@ -420,40 +471,33 @@ struct Tensor<BFloat16> : public TensorBase {
   Tensor(const OrtW::CustomOpApi& api,
          OrtKernelContext& ctx,
          size_t indice,
-         bool is_input) : TensorBase(api,
-                                     ctx,
-                                     indice,
-                                     is_input) {
-    type_ = ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16;
-    if (is_input_) {
-      auto input_count = api_.KernelContext_GetInputCount(&ctx_);
-      if (indice >= input_count) {
-        ORTX_CXX_API_THROW("invalid indice", ORT_RUNTIME_EXCEPTION);
-      }
-      const_value_ = api_.KernelContext_GetInput(&ctx_, indice);
-      auto* info = api_.GetTensorTypeAndShape(const_value_);
-      shape_ = api_.GetTensorShape(info);
-      type_ = api_.GetTensorElementType(info);
-      api_.ReleaseTensorTypeAndShapeInfo(info);
+         bool is_input) : storage_(std::make_unique<OrtTensorStorage>(api, ctx, indice, is_input)) {
+    // init metadata
+    type_ = ONNX_TENSOR_ELEMENT_DATA_TYPE_BFLOAT16;
+    if (is_input) {
+      const OrtValue* const_value = api.KernelContext_GetInput(&ctx, indice);
+      auto* info = api.GetTensorTypeAndShape(const_value);
+      shape_ = api.GetTensorShape(info);
+      type_ = api.GetTensorElementType(info);
+      api.ReleaseTensorTypeAndShapeInfo(info);
       const OrtMemoryInfo* mem_info = {};
-      api_.ThrowOnError(api_.GetOrtApi().GetTensorMemoryInfo(const_value_, &mem_info));
+      api.ThrowOnError(api.GetOrtApi().GetTensorMemoryInfo(const_value, &mem_info));
       if (mem_info) {
-        api_.ThrowOnError(api.GetOrtApi().MemoryInfoGetName(mem_info, &mem_type_));
+        api.ThrowOnError(api.GetOrtApi().MemoryInfoGetName(mem_info, &mem_type_));
       }
     }
   }
 
   const BFloat16* Data() const {
-    return reinterpret_cast<const BFloat16*>(api_.GetTensorData<uint16_t>(const_value_));
+    return reinterpret_cast<const BFloat16*>(storage_->DataRaw());
   }
 
   BFloat16* Allocate(const std::vector<int64_t>& shape) {
-    if (!data_) {
-      OrtValue* out = api_.KernelContext_GetOutput(&ctx_, indice_, shape.data(), shape.size());
+    // it should be OK to allocate multiple times
+    void* buffer = storage_->Allocate(shape);
+    if (!shape_.has_value())
       shape_ = shape;
-      data_ = reinterpret_cast<BFloat16*>(api_.GetTensorMutableData<uint16_t>(out));
-    }
-    return data_;
+    return reinterpret_cast<BFloat16*>(buffer);
   }
 
   const Span<BFloat16>& AsSpan() {
@@ -465,7 +509,7 @@ struct Tensor<BFloat16> : public TensorBase {
   }
 
   const void* DataRaw() const override {
-    return reinterpret_cast<const void*>(Data());
+    return storage_->DataRaw();
   }
 
   virtual size_t SizeInBytes() const override {
@@ -473,8 +517,7 @@ struct Tensor<BFloat16> : public TensorBase {
   }
 
  private:
-  const OrtValue* const_value_{};  // for input
-  BFloat16* data_{};               // for output
+  std::unique_ptr<TensorStorage> storage_;
 };
 
 #endif
@@ -487,10 +530,9 @@ struct Variadic : public TensorBase {
   Variadic(const OrtW::CustomOpApi& api,
            OrtKernelContext& ctx,
            size_t indice,
-           bool is_input) : TensorBase(api,
-                                       ctx,
-                                       indice,
-                                       is_input) {
+           bool is_input) : api_(api),
+                            ctx_(ctx),
+                            indice_(indice) {
 #if ORT_API_VERSION < 14
     ORTX_CXX_API_THROW("Variadic input or output only supported after onnxruntime 1.14", ORT_RUNTIME_EXCEPTION);
 #endif
@@ -578,6 +620,9 @@ struct Variadic : public TensorBase {
   }
 
  private:
+  const OrtW::CustomOpApi& api_;
+  OrtKernelContext& ctx_;
+  size_t indice_;
   TensorPtrs tensors_;
 };
 

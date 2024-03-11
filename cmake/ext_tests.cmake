@@ -165,7 +165,7 @@ else()
                     LIBRARIES ${extensions_test_libraries}
                     TEST_DATA_DIRECTORIES ${TEST_SRC_DIR}/data)
 
-    target_include_directories(extensions_test PRIVATE ${spm_INCLUDE_DIRS})
+    target_include_directories(extensions_test PRIVATE ${spm_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR})
 
     target_compile_definitions(extensions_test PUBLIC ${OCOS_COMPILE_DEFINITIONS})
     if(use_extensions_shared_library)
