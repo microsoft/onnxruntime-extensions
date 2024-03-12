@@ -39,19 +39,6 @@ stages:
       displayName: 'Publish Windows Binaries for Combined JAR'
       artifact: WindowsBinaries
 
-    - script: |
-        cd $(Build.ArtifactStagingDirectory)
-        rm onnxruntime-extensions-0.11.0.jar
-        jar cmf0 META-INF/MANIFEST.MF onnxruntime-extensions-0.11.0.jar  *
-        tree $(Build.ArtifactStagingDirectory) /f
-      displayName: Repack JAR with signed DLL
-
-    - task: PublishPipelineArtifact@1
-      displayName: 'Publish Windows Artifact'
-      inputs:
-        targetPath: '$(Build.ArtifactStagingDirectory)'
-        artifact: 'drop-signed-windows-onnxruntime-extensions-java-cpu'
-
     - template: templates/component-governance-component-detection-steps.yml
       parameters :
         condition : 'succeeded'
@@ -80,17 +67,11 @@ stages:
         cd $(Build.ArtifactStagingDirectory)
         jar xvf onnxruntime-extensions-0.11.0.jar
         tree $(Build.ArtifactStagingDirectory) /f
-      displayName: Unpack JAR to view contents
+      displayName: Unpack JAR
 
     - publish: $(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native/
       displayName: 'Publish Linux Binaries for Combined JAR'
       artifact: LinuxBinaries
-
-    - task: PublishPipelineArtifact@1
-      displayName: 'Publish Linux Artifact'
-      inputs:
-        targetPath: '$(Build.ArtifactStagingDirectory)'
-        artifact: 'drop-linux-onnxruntime-extensions-java-cpu'
 
     - template: templates/component-governance-component-detection-steps.yml
       parameters :
@@ -142,11 +123,17 @@ stages:
         tree $(Build.ArtifactStagingDirectory)
       displayName: Print contents
 
+    - script: |
+        cd $(Build.ArtifactStagingDirectory)
+        rm onnxruntime-extensions-0.11.0.jar
+        jar cmf0 META-INF/MANIFEST.MF onnxruntime-extensions-0.11.0.jar  *
+      displayName: Combine and pack JAR with Windows, Linux and MacOS Binaries
+
     - task: PublishPipelineArtifact@1
       displayName: 'Publish MacOS Artifact'
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)'
-        artifact: 'drop-macos-onnxruntime-extensions-java-cpu'
+        artifact: 'drop-onnxruntime-extensions-java-cpu'
 
     - template: templates/component-governance-component-detection-steps.yml
       parameters :
