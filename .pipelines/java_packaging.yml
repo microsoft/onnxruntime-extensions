@@ -113,7 +113,7 @@ stages:
         cd $(Build.ArtifactStagingDirectory)
         jar xvf onnxruntime-extensions-0.11.0.jar
         brew install tree
-        tree $(Build.ArtifactStagingDirectory) /f
+        tree $(Build.ArtifactStagingDirectory)
       displayName: Unpack JAR to view contents
 
     - task: PublishPipelineArtifact@1
