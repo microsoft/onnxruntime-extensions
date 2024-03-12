@@ -14,10 +14,6 @@ stages:
 
     steps:
     - script: |
-        echo "##vso[task.setvariable variable=windowsDir;isoutput=true]$(Build.ArtifactStagingDirectory)"
-      name: WinOutput
-
-    - script: |
         call .\build.bat -DOCOS_BUILD_JAVA=ON
       displayName: build the extensions java package
 
@@ -38,6 +34,10 @@ stages:
         FolderPath: '$(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native/win-x64'
         DisplayName: 'Sign DLL'
         DoEsrp: 'true'
+
+    - publish: $(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native/
+      displayName: 'Publish Windows Binaries for Combined JAR'
+      artifact: WindowsBinaries
 
     - script: |
         cd $(Build.ArtifactStagingDirectory)
@@ -67,10 +67,6 @@ stages:
 
     steps:
     - script: |
-        echo "##vso[task.setvariable variable=linuxDir;isoutput=true]$(Build.ArtifactStagingDirectory)"
-      name: LinuxOutput
-
-    - script: |
         sh ./build.sh -DOCOS_BUILD_JAVA=ON
       displayName: build the extensions java package
 
@@ -85,6 +81,10 @@ stages:
         jar xvf onnxruntime-extensions-0.11.0.jar
         tree $(Build.ArtifactStagingDirectory) /f
       displayName: Unpack JAR to view contents
+
+    - publish: $(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native/
+      displayName: 'Publish Linux Binaries for Combined JAR'
+      artifact: LinuxBinaries
 
     - task: PublishPipelineArtifact@1
       displayName: 'Publish Linux Artifact'
@@ -101,35 +101,12 @@ stages:
       condition: always()
 
   - job: MacOS_CPU_Java_Packaging
-    dependsOn:         # this stage runs after DeployUS1 and DeployUS2
-    - Windows_CPU_Java_Packaging
-    - Linux_CPU_Java_Packaging
-    variables:
-      WindowsBuildDir: $[ dependencies.Windows_CPU_Java_Packaging.outputs['WinOutput.windowsDir'] ] 
-      LinuxBuildDir: $[ dependencies.Linux_CPU_Java_Packaging.outputs['LinuxOutput.linuxDir'] ] 
     workspace:
       clean: all
     pool:
       vmImage: 'macOS-13'
 
     steps:
-    - script: |
-        echo $(WindowsBuildDir)
-        echo $(LinuxBuildDir)
-      displayName: print Windows and Linux Build Directories
-
-    - task: CopyFiles@2
-      displayName: 'Copy Build Files from Windows into MacOS Build Directory for Combined JAR'
-      inputs:
-        SourceFolder: 'WindowsBuildDir/ai/onnxruntime/extensions/native/'
-        TargetFolder: '$(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native/'
-
-    - task: CopyFiles@2
-      displayName: 'Copy Build Files from Linux into MacOS Build Directory for Combined JAR'
-      inputs:
-        SourceFolder: 'LinuxBuildDir/ai/onnxruntime/extensions/native/'
-        TargetFolder: '$(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native/'
-
     - script: |
         sh ./build.sh -DOCOS_BUILD_JAVA=ON
       displayName: build the extensions java package
@@ -143,9 +120,24 @@ stages:
     - script: |
         cd $(Build.ArtifactStagingDirectory)
         jar xvf onnxruntime-extensions-0.11.0.jar
+      displayName: Unpack JAR to view contents
+
+    - download: current
+      displayName: 'Download Windows Pipeline Artifact'
+      inputs:
+        artifactName: 'WindowsBinaries'
+        targetPath: '$(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native/'
+
+    - download: current
+      displayName: 'Download Linux Pipeline Artifact'
+      inputs:
+        artifactName: 'LinuxBinaries'
+        targetPath: '$(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native/'
+
+    - script: |
         brew install tree
         tree $(Build.ArtifactStagingDirectory)
-      displayName: Unpack JAR to view contents
+      displayName: Print contents
 
     - task: PublishPipelineArtifact@1
       displayName: 'Publish MacOS Artifact'
