@@ -122,13 +122,13 @@ stages:
         jar xvf onnxruntime-extensions-0.11.0.jar
       displayName: Unpack JAR to view contents
 
-    - download: current
+    - task: DownloadPipelineArtifact@0
       displayName: 'Download Windows Pipeline Artifact'
       inputs:
         artifactName: 'WindowsBinaries'
         targetPath: '$(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native/'
 
-    - download: current
+    - task: DownloadPipelineArtifact@0
       displayName: 'Download Linux Pipeline Artifact'
       inputs:
         artifactName: 'LinuxBinaries'
