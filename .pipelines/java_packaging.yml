@@ -13,6 +13,15 @@ stages:
     pool: {name: 'onnxruntime-Win-CPU-2022'}
 
     steps:
+    - task: PowerShell@2
+      displayName: 'Set version'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $_OrtExtVersion=(cat version.txt)
+          echo "##vso[task.setvariable variable=OrtExtVersion;isOutput=true]$_OrtExtVersion"
+        workingDirectory: '$(Build.SourcesDirectory)'
+
     - script: |
         call .\build.bat -DOCOS_BUILD_JAVA=ON
       displayName: build the extensions java package
@@ -25,7 +34,7 @@ stages:
 
     - script: |
         cd $(Build.ArtifactStagingDirectory)
-        jar xvf onnxruntime-extensions-$(cat version.txt).jar
+        jar xvf onnxruntime-extensions-$(OrtExtVersion).jar
         tree $(Build.ArtifactStagingDirectory) /f
       displayName: Unpack JAR to sign DLL
 
@@ -48,6 +57,9 @@ stages:
       condition: always()
 
   - job: Linux_CPU_Java_Packaging
+    dependsOn: Windows_CPU_Java_Packaging
+    variables:
+      ortVersion: $[ dependencies.Windows_CPU_Java_Packaging.outputs['OrtExtVersion'] ]
     workspace:
       clean: all
     pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
@@ -65,7 +77,7 @@ stages:
 
     - script: |
         cd $(Build.ArtifactStagingDirectory)
-        jar xvf onnxruntime-extensions-$(cat version.txt).jar
+        jar xvf onnxruntime-extensions-$(ortVersion).jar
         tree $(Build.ArtifactStagingDirectory) /f
       displayName: Unpack JAR
 
@@ -85,6 +97,8 @@ stages:
     dependsOn:
     - Windows_CPU_Java_Packaging
     - Linux_CPU_Java_Packaging
+    variables:
+      ortVersion: $[ dependencies.Windows_CPU_Java_Packaging.outputs['OrtExtVersion'] ]
     workspace:
       clean: all
     pool:
@@ -103,7 +117,7 @@ stages:
 
     - script: |
         cd $(Build.ArtifactStagingDirectory)
-        jar xvf onnxruntime-extensions-$(cat version.txt).jar
+        jar xvf onnxruntime-extensions-$(ortVersion).jar
       displayName: Unpack JAR to view contents
 
     - task: DownloadPipelineArtifact@0
@@ -125,8 +139,8 @@ stages:
 
     - script: |
         cd $(Build.ArtifactStagingDirectory)
-        rm onnxruntime-extensions-$(cat version.txt).jar
-        jar cmf0 META-INF/MANIFEST.MF onnxruntime-extensions-$(cat version.txt).jar  *
+        rm onnxruntime-extensions-$(ortVersion).jar
+        jar cmf0 META-INF/MANIFEST.MF onnxruntime-extensions-$(ortVersion).jar  *
       displayName: Combine and pack JAR with Windows, Linux and MacOS Binaries
 
     - task: PublishPipelineArtifact@1
