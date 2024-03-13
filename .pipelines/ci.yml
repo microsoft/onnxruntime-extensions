@@ -666,7 +666,7 @@ stages:
                 python3 -m pip install --upgrade pip; \
                 python3 -m pip install --upgrade setuptools; \
                 python3 -m pip install onnxruntime-gpu==$(ORT_VERSION); \
-                python3 -m pip install -v --config-settings "ortx-user-option=use-cuda" . ; \
+                python3 -m pip install -v --config-settings "ortx-user-option=use-cuda,cuda_archs=70;86" . ; \
                 python3 -m pip install $(TORCH_VERSION) ; \
                 python3 -m pip install -r requirements-dev.txt; \
                 cd test && python -m pytest . --verbose; \
