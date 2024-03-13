@@ -24,13 +24,5 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Visible>false</Visible>
     </None>
-
-    <!-- arm -->
-    <None Include="$(MSBuildThisFileDirectory)..\..\runtimes\win-arm\native\ortextensions.dll"
-          Condition="'$(PlatformTarget)' == 'ARM'">
-      <Link>ortextensions.dll</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Visible>false</Visible>
-    </None>
   </ItemGroup>
 </Project>
