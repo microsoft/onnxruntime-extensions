@@ -18,8 +18,7 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-          $_OrtExtVersion=(cat version.txt)
-          echo "##vso[task.setvariable variable=OrtExtVersion;]$_OrtExtVersion"
+          echo "##vso[task.setvariable variable=OrtExtVersion;isOutput=true]$(cat version.txt)"
           echo $(OrtExtVersion)
         workingDirectory: '$(Build.SourcesDirectory)'
 
