@@ -36,6 +36,17 @@ def _load_cuda_version():
     return None
 
 
+def _load_nvidia_smi():
+    try:
+        output = subprocess.check_output(["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader,nounits"], stderr=subprocess.STDOUT).decode("utf-8")
+        arch = output.strip().replace('.', '')
+        return arch if arch.isdigit() else None
+    except (subprocess.CalledProcessError, OSError):
+        pass
+
+    return None
+
+
 def _load_vsdevcmd(project_root):
     if os.environ.get(VSINSTALLDIR_NAME) is None:
         stdout, _ = subprocess.Popen([
@@ -215,18 +226,9 @@ class CmdBuildCMakeExt(_build_ext):
                 if self.cuda_archs is not None:
                     cmake_args += ['-DCMAKE_CUDA_ARCHITECTURES=' + self.cuda_archs]
                 else:
-                    # detect the archs from the machine installed
-                    try:
-                        arch = subprocess.check_output(
-                            ["/usr/bin/nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader,nounits"],
-                            stderr=subprocess.STDOUT).decode("utf-8").strip()
-                    except subprocess.CalledProcessError:
-                        raise RuntimeError("Failed to get CUDA archs from nvidia-smi")
-                    # if archs is not numeric string, raise error
-                    smi = arch.replace('.', '')
-                    if not smi.isdigit():
-                        raise RuntimeError(
-                            f"Cannot detect the CUDA archs from your machine: {arch}, please specify it by yourself.")
+                    smi = _load_nvidia_smi()
+                    if not smi:
+                        raise RuntimeError(f"Cannot detect the CUDA archs from your machine, please specify it by yourself.")
                     cmake_args += ['-DCMAKE_CUDA_ARCHITECTURES=' + smi]
 
         # CMake lets you override the generator - we need to check this.
