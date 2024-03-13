@@ -30,7 +30,7 @@ def _load_cuda_version():
         match = re.search(pattern, output)
         if match:
             return match.group(1)
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, OSError):
         pass
 
     return None
@@ -133,6 +133,7 @@ class CmdBuildCMakeExt(_build_ext):
         self.no_azure = None
         self.no_opencv = None
         self.cc_debug = None
+        self.cuda_archs = None
 
     def _parse_options(self, options):
         for segment in options.split(','):
@@ -210,6 +211,23 @@ class CmdBuildCMakeExt(_build_ext):
                 f_ver = ext_fullpath.parent / "_version.py"
                 with f_ver.open('a') as _f:
                     _f.writelines(["\n", f"cuda = \"{cuda_ver}\"", "\n"])
+
+                if self.cuda_archs is not None:
+                    cmake_args += ['-DCMAKE_CUDA_ARCHITECTURES=' + self.cuda_archs]
+                else:
+                    # detect the archs from the machine installed
+                    try:
+                        arch = subprocess.check_output(
+                            ["/usr/bin/nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader,nounits"],
+                            stderr=subprocess.STDOUT).decode("utf-8").strip()
+                    except subprocess.CalledProcessError:
+                        raise RuntimeError("Failed to get CUDA archs from nvidia-smi")
+                    # if archs is not numeric string, raise error
+                    smi = arch.replace('.', '')
+                    if not smi.isdigit():
+                        raise RuntimeError(
+                            f"Cannot detect the CUDA archs from your machine: {arch}, please specify it by yourself.")
+                    cmake_args += ['-DCMAKE_CUDA_ARCHITECTURES=' + smi]
 
         # CMake lets you override the generator - we need to check this.
         # Can be set with Conda-Build, for example.
