@@ -24,11 +24,9 @@ stages:
 
     - script: |
         echo "##vso[task.setvariable variable=OrtExtVersion;isOutput=true]$(ExtVersion)"
+        echo $(versionVar.OrtExtVersion)
       name: versionVar
       workingDirectory: '$(Build.SourcesDirectory)'
-      
-    - script: |
-        echo $(versionVar.OrtExtVersion)
 
     - script: |
         call .\build.bat -DOCOS_BUILD_JAVA=ON
@@ -87,6 +85,8 @@ stages:
         cd $(Build.ArtifactStagingDirectory)
         echo $(ortVersion)
         jar xvf onnxruntime-extensions-$(ortVersion).jar
+        tree $(Build.ArtifactStagingDirectory) /f
+        jar xvf onnxruntime-extensions-0.11.0.jar
         tree $(Build.ArtifactStagingDirectory) /f
       displayName: Unpack JAR
 
