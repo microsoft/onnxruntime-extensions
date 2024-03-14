@@ -42,7 +42,7 @@ stages:
 
     - script: |
         cd $(Build.ArtifactStagingDirectory)
-        jar xvf onnxruntime-extensions-$(OrtExtVersion).jar
+        jar xvf onnxruntime-extensions-$(versionVar.OrtExtVersion).jar
         tree $(Build.ArtifactStagingDirectory) /f
       displayName: Unpack JAR to sign DLL
 
