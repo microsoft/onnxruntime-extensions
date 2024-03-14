@@ -14,8 +14,9 @@ stages:
 
     steps:
     - script: |
-        echo "##vso[task.setvariable variable=OrtExtVersion;isOutput=true]from Windows Job"
+        echo "##vso[task.setvariable variable=OrtExtVersion;isOutput=true]$(type version.txt)"
       name: versionVar
+      workingDirectory: '$(Build.SourcesDirectory)'
       
     - script: |
         echo $(versionVar.OrtExtVersion)
