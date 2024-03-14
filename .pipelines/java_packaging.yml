@@ -19,14 +19,8 @@ stages:
         targetType: 'inline'
         script: |
           $_ExtVersion=(cat version.txt)
-          echo "##vso[task.setvariable variable=ExtVersion;]$_ExtVersion"
+          echo "##vso[task.setvariable variable=OrtExtVersion;]$_ExtVersion"
         workingDirectory: '$(Build.SourcesDirectory)'
-
-    - script: |
-        echo "##vso[task.setvariable variable=OrtExtVersion;isOutput=true]$(ExtVersion)"
-        echo $(versionVar.OrtExtVersion)
-      name: versionVar
-      workingDirectory: '$(Build.SourcesDirectory)'
 
     - script: |
         call .\build.bat -DOCOS_BUILD_JAVA=ON
@@ -40,7 +34,7 @@ stages:
 
     - script: |
         cd $(Build.ArtifactStagingDirectory)
-        jar xvf onnxruntime-extensions-$(versionVar.OrtExtVersion).jar
+        jar xvf onnxruntime-extensions-$(OrtExtVersion).jar
         tree $(Build.ArtifactStagingDirectory) /f
       displayName: Unpack JAR to sign DLL
 
@@ -63,14 +57,15 @@ stages:
       condition: always()
 
   - job: Linux_CPU_Java_Packaging
-    dependsOn: Windows_CPU_Java_Packaging
-    variables:
-      ortVersion: $[ dependencies.Windows_CPU_Java_Packaging.outputs['versionVar.OrtExtVersion'] ]
     workspace:
       clean: all
     pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
 
     steps:
+    - bash: |
+        $_ExtVersion=(cat version.txt)
+        echo "##vso[task.setvariable variable=OrtExtVersion;]$_ExtVersion"
+
     - script: |
         sh ./build.sh -DOCOS_BUILD_JAVA=ON
       displayName: build the extensions java package
@@ -83,10 +78,8 @@ stages:
 
     - script: |
         cd $(Build.ArtifactStagingDirectory)
-        echo $(ortVersion)
-        jar xvf onnxruntime-extensions-$(ortVersion).jar
-        tree $(Build.ArtifactStagingDirectory) /f
-        jar xvf onnxruntime-extensions-0.11.0.jar
+        echo $(OrtExtVersion)
+        jar xvf onnxruntime-extensions-$(OrtExtVersion).jar
         tree $(Build.ArtifactStagingDirectory) /f
       displayName: Unpack JAR
 
@@ -103,17 +96,16 @@ stages:
       condition: always()
 
   - job: MacOS_CPU_Java_Packaging
-    dependsOn:
-    - Windows_CPU_Java_Packaging
-    - Linux_CPU_Java_Packaging
-    variables:
-      ortVersion: $[ dependencies.Windows_CPU_Java_Packaging.outputs['versionVar.OrtExtVersion'] ]
     workspace:
       clean: all
     pool:
       vmImage: 'macOS-13'
 
     steps:
+    - bash: |
+        $_ExtVersion=(cat version.txt)
+        echo "##vso[task.setvariable variable=OrtExtVersion;]$_ExtVersion"
+
     - script: |
         sh ./build.sh -DOCOS_BUILD_JAVA=ON
       displayName: build the extensions java package
@@ -126,7 +118,10 @@ stages:
 
     - script: |
         cd $(Build.ArtifactStagingDirectory)
-        jar xvf onnxruntime-extensions-$(ortVersion).jar
+        echo $(OrtExtVersion)
+        jar xvf onnxruntime-extensions-$(OrtExtVersion).jar
+        brew install tree
+        tree $(Build.ArtifactStagingDirectory)
       displayName: Unpack JAR to view contents
 
     - task: DownloadPipelineArtifact@0
