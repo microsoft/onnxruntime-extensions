@@ -156,8 +156,8 @@ stages:
 
     - script: |
         cd $(Build.ArtifactStagingDirectory)
-        rm onnxruntime-extensions-$(ortVersion).jar
-        jar cmf0 META-INF/MANIFEST.MF onnxruntime-extensions-$(ortVersion).jar  *
+        rm onnxruntime-extensions-$(OrtExtVersion).jar
+        jar cmf0 META-INF/MANIFEST.MF onnxruntime-extensions-$(OrtExtVersion).jar  *
       displayName: Combine and pack JAR with Windows, Linux and MacOS Binaries
 
     - task: PublishPipelineArtifact@1
