@@ -6,6 +6,7 @@
 // testing, the ONNXRuntime public C++ APIs should be used since there is no binary compatible requirement.
 
 #pragma once
+#include <cstdint>
 #include <cstddef>
 #include <array>
 #include <memory>
