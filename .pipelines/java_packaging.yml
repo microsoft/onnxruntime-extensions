@@ -13,14 +13,12 @@ stages:
     pool: {name: 'onnxruntime-Win-CPU-2022'}
 
     steps:
-    - task: PowerShell@2
-      displayName: 'Set version'
-      inputs:
-        targetType: 'inline'
-        script: |
-          echo "##vso[task.setvariable variable=OrtExtVersion]$(cat version.txt)"
-          echo $(OrtExtVersion)
-        workingDirectory: '$(Build.SourcesDirectory)'
+    - script: |
+        echo "##vso[task.setvariable variable=OrtExtVersion;isOutput=true]from Windows Job"
+      name: versionVar
+      
+    - script: |
+        echo $(versionVar.OrtExtVersion)
 
     - script: |
         call .\build.bat -DOCOS_BUILD_JAVA=ON
@@ -59,7 +57,7 @@ stages:
   - job: Linux_CPU_Java_Packaging
     dependsOn: Windows_CPU_Java_Packaging
     variables:
-      ortVersion: $[ dependencies.Windows_CPU_Java_Packaging.outputs['OrtExtVersion'] ]
+      ortVersion: $[ dependencies.Windows_CPU_Java_Packaging.outputs['versionVar.OrtExtVersion'] ]
     workspace:
       clean: all
     pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
@@ -98,7 +96,7 @@ stages:
     - Windows_CPU_Java_Packaging
     - Linux_CPU_Java_Packaging
     variables:
-      ortVersion: $[ dependencies.Windows_CPU_Java_Packaging.outputs['OrtExtVersion'] ]
+      ortVersion: $[ dependencies.Windows_CPU_Java_Packaging.outputs['versionVar.OrtExtVersion'] ]
     workspace:
       clean: all
     pool:
