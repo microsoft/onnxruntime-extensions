@@ -13,8 +13,17 @@ stages:
     pool: {name: 'onnxruntime-Win-CPU-2022'}
 
     steps:
+    - task: PowerShell@2
+      displayName: 'Set version'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $_ExtVersion=(cat version.txt)
+          echo "##vso[task.setvariable variable=ExtVersion;]$_ExtVersion"
+        workingDirectory: '$(Build.SourcesDirectory)'
+
     - script: |
-        echo "##vso[task.setvariable variable=OrtExtVersion;isOutput=true]$(type version.txt)"
+        echo "##vso[task.setvariable variable=OrtExtVersion;isOutput=true]$(ExtVersion)"
       name: versionVar
       workingDirectory: '$(Build.SourcesDirectory)'
       
