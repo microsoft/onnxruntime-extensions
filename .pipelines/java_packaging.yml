@@ -62,9 +62,14 @@ stages:
     pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
 
     steps:
-    - script: |
-        $_ExtVersion=(cat version.txt)
-        echo "##vso[task.setvariable variable=OrtExtVersion;]$_ExtVersion"
+    - task: PowerShell@2
+      displayName: 'Set version'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $_ExtVersion=(cat version.txt)
+          echo "##vso[task.setvariable variable=OrtExtVersion;]$_ExtVersion"
+        workingDirectory: '$(Build.SourcesDirectory)'
 
     - script: |
         sh ./build.sh -DOCOS_BUILD_JAVA=ON
@@ -102,9 +107,14 @@ stages:
       vmImage: 'macOS-13'
 
     steps:
-    - script: |
-        $_ExtVersion=(cat version.txt)
-        echo "##vso[task.setvariable variable=OrtExtVersion;]$_ExtVersion"
+    - task: PowerShell@2
+      displayName: 'Set version'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $_ExtVersion=(cat version.txt)
+          echo "##vso[task.setvariable variable=OrtExtVersion;]$_ExtVersion"
+        workingDirectory: '$(Build.SourcesDirectory)'
 
     - script: |
         sh ./build.sh -DOCOS_BUILD_JAVA=ON
