@@ -101,6 +101,9 @@ stages:
       condition: always()
 
   - job: MacOS_CPU_Java_Packaging
+    dependsOn:
+    - Windows_CPU_Java_Packaging
+    - Linux_CPU_Java_Packaging
     workspace:
       clean: all
     pool:
