@@ -85,6 +85,8 @@ stages:
 
     - script: |
         cd $(Build.ArtifactStagingDirectory)
+        echo $(ortVersion)
+        echo $(dependencies.Windows_CPU_Java_Packaging.outputs['versionVar.OrtExtVersion'])
         jar xvf onnxruntime-extensions-$(ortVersion).jar
         tree $(Build.ArtifactStagingDirectory) /f
       displayName: Unpack JAR
