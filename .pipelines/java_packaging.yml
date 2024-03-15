@@ -13,6 +13,15 @@ stages:
     pool: {name: 'onnxruntime-Win-CPU-2022'}
 
     steps:
+    - task: PowerShell@2
+      displayName: 'Set version'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $_ExtVersion=(cat version.txt)
+          echo "##vso[task.setvariable variable=OrtExtVersion;]$_ExtVersion"
+        workingDirectory: '$(Build.SourcesDirectory)'
+
     - script: |
         call .\build.bat -DOCOS_BUILD_JAVA=ON
       displayName: build the extensions java package
@@ -25,7 +34,7 @@ stages:
 
     - script: |
         cd $(Build.ArtifactStagingDirectory)
-        jar xvf onnxruntime-extensions-0.11.0.jar
+        jar xvf onnxruntime-extensions-$(OrtExtVersion).jar
         tree $(Build.ArtifactStagingDirectory) /f
       displayName: Unpack JAR to sign DLL
 
@@ -35,18 +44,9 @@ stages:
         DisplayName: 'Sign DLL'
         DoEsrp: 'true'
 
-    - script: |
-        cd $(Build.ArtifactStagingDirectory)
-        rm onnxruntime-extensions-0.11.0.jar
-        jar cmf0 META-INF/MANIFEST.MF onnxruntime-extensions-0.11.0.jar  *
-        tree $(Build.ArtifactStagingDirectory) /f
-      displayName: Repack JAR with signed DLL
-
-    - task: PublishPipelineArtifact@1
-      displayName: 'Publish Windows Artifact'
-      inputs:
-        targetPath: '$(Build.ArtifactStagingDirectory)'
-        artifact: 'drop-signed-windows-onnxruntime-extensions-java-cpu'
+    - publish: $(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native/
+      displayName: 'Publish Windows Binaries for Combined JAR'
+      artifact: WindowsBinaries
 
     - template: templates/component-governance-component-detection-steps.yml
       parameters :
@@ -62,6 +62,15 @@ stages:
     pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
 
     steps:
+    - task: PowerShell@2
+      displayName: 'Set version'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $_ExtVersion=(cat version.txt)
+          echo "##vso[task.setvariable variable=OrtExtVersion;]$_ExtVersion"
+        workingDirectory: '$(Build.SourcesDirectory)'
+
     - script: |
         sh ./build.sh -DOCOS_BUILD_JAVA=ON
       displayName: build the extensions java package
@@ -72,11 +81,16 @@ stages:
         SourceFolder: 'out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
-    - task: PublishPipelineArtifact@1
-      displayName: 'Publish Linux Artifact'
-      inputs:
-        targetPath: '$(Build.ArtifactStagingDirectory)'
-        artifact: 'drop-linux-onnxruntime-extensions-java-cpu'
+    - script: |
+        cd $(Build.ArtifactStagingDirectory)
+        echo $(OrtExtVersion)
+        jar xvf onnxruntime-extensions-$(OrtExtVersion).jar
+        tree $(Build.ArtifactStagingDirectory) /f
+      displayName: Unpack JAR
+
+    - publish: $(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native/
+      displayName: 'Publish Linux Binaries for Combined JAR'
+      artifact: LinuxBinaries
 
     - template: templates/component-governance-component-detection-steps.yml
       parameters :
@@ -87,12 +101,24 @@ stages:
       condition: always()
 
   - job: MacOS_CPU_Java_Packaging
+    dependsOn:
+    - Windows_CPU_Java_Packaging
+    - Linux_CPU_Java_Packaging
     workspace:
       clean: all
     pool:
       vmImage: 'macOS-13'
 
     steps:
+    - task: PowerShell@2
+      displayName: 'Set version'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $_ExtVersion=(cat version.txt)
+          echo "##vso[task.setvariable variable=OrtExtVersion;]$_ExtVersion"
+        workingDirectory: '$(Build.SourcesDirectory)'
+
     - script: |
         sh ./build.sh -DOCOS_BUILD_JAVA=ON
       displayName: build the extensions java package
@@ -103,11 +129,42 @@ stages:
         SourceFolder: 'out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
+    - script: |
+        cd $(Build.ArtifactStagingDirectory)
+        echo $(OrtExtVersion)
+        jar xvf onnxruntime-extensions-$(OrtExtVersion).jar
+        brew install tree
+        tree $(Build.ArtifactStagingDirectory)
+      displayName: Unpack JAR to view contents
+
+    - task: DownloadPipelineArtifact@0
+      displayName: 'Download Windows Pipeline Artifact'
+      inputs:
+        artifactName: 'WindowsBinaries'
+        targetPath: '$(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native/'
+
+    - task: DownloadPipelineArtifact@0
+      displayName: 'Download Linux Pipeline Artifact'
+      inputs:
+        artifactName: 'LinuxBinaries'
+        targetPath: '$(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native/'
+
+    - script: |
+        brew install tree
+        tree $(Build.ArtifactStagingDirectory)
+      displayName: Print contents
+
+    - script: |
+        cd $(Build.ArtifactStagingDirectory)
+        rm onnxruntime-extensions-$(OrtExtVersion).jar
+        jar cmf0 META-INF/MANIFEST.MF onnxruntime-extensions-$(OrtExtVersion).jar  *
+      displayName: Combine and pack JAR with Windows, Linux and MacOS Binaries
+
     - task: PublishPipelineArtifact@1
       displayName: 'Publish MacOS Artifact'
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)'
-        artifact: 'drop-macos-onnxruntime-extensions-java-cpu'
+        artifact: 'drop-onnxruntime-extensions-java-cpu'
 
     - template: templates/component-governance-component-detection-steps.yml
       parameters :
