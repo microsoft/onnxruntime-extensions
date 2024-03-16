@@ -585,6 +585,11 @@ struct Variadic : public TensorBase {
 
 enum CudaResource {
   cuda_handle_t = 10000,
+  cudnn_handle_t,
+  cublas_handle_t,
+  deferred_cpu_allocator_t,
+  // below are cuda ep options
+  device_id_t,
 };
 
 struct CudaContext {
@@ -595,8 +600,20 @@ struct CudaContext {
     if (!cuda_stream) {
       ORTX_CXX_API_THROW("Failed to fetch cuda stream from context", ORT_RUNTIME_EXCEPTION);
     }
+    ort_api.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::cublas_handle_t, &cublas);
+    if (!cublas) {
+      ORTX_CXX_API_THROW("Failed to fetch cublas handle from context", ORT_RUNTIME_EXCEPTION);
+    }
+    void* resource = nullptr;
+    OrtStatusPtr result = ort_api.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::device_id_t, &resource);
+    if (result) {
+      ORTX_CXX_API_THROW("Failed to fetch device id from context", ORT_RUNTIME_EXCEPTION);
+    }
+    memcpy(&device_id, &resource, sizeof(int));
   }
   void* cuda_stream = {};
+  void* cublas = {};
+  int device_id = 0;
 };
 
 #endif

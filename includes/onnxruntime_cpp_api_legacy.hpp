@@ -3,7 +3,7 @@
 
 #pragma once
 #include <vector>
-#include "onnxruntime_c_api.h"
+#include "exceptions.h"
 
 //
 // DEPRECATED: All new custom OPs should not use any class/struct/functions from this file.

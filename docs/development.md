@@ -17,7 +17,7 @@ The package contains all custom operators and some Python scripts to manipulate 
   - no-opencv: disable operators based on OpenCV in build.
   - cc-debug: Generate debug info for extensions binaries and disable C/C++ compiler optimization.
 
-   For example:`pip install --config-settings "ortx-user-option=use-cuda,cc-debug" `, This command builds CUDA kernels into the package and installs it, accompanied by the generation of debug information.
+   For example:`pip install . --config-settings "ortx-user-option=use-cuda,cc-debug" `, This command builds CUDA kernels into the package and installs it, accompanied by the generation of debug information.
 
 Test:
 
