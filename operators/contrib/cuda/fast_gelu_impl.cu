@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "utils.cuh"
+#include "device_prop.cuh"
 #include "fast_gelu_impl.cuh"
 
 using namespace Ort::Custom;

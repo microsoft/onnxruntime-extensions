@@ -1,7 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#pragma once
 #include "onnxruntime_f16.h"
+#include "string_utils.h"
+#include "onnxruntime_no_customop.h"
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
 #include <stdexcept>
@@ -189,19 +192,3 @@ __device__ __inline__ half2 _Tanh(half2 a) {
 
 template <>
 __device__ __inline__ BFloat16 _Tanh(BFloat16 a) { return tanhf(static_cast<float>(a)); }
-
-struct DeviceProp {
-  static int GetCapability() {
-    static DeviceProp device_prop;
-    return device_prop.prop_.major;
-  }
-
- private:
-  DeviceProp() {
-    auto err = cudaGetDeviceProperties(&prop_, 0);
-    if (err != cudaError::cudaSuccess) {
-      throw std::runtime_error((std::string{"Failed to get device property, err code: "} + std::to_string(err)).c_str());
-    }
-  }
-  cudaDeviceProp prop_;
-};

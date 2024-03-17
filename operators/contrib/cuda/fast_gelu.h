@@ -4,19 +4,9 @@
 #pragma once
 #include "ocos.h"
 #include "fast_gelu_impl.cuh"
-#include "cuda_fp16.h"
+#include "cuda_type.h"
 
 namespace contrib {
-
-template <typename T>
-struct CudaT {
-  using MappedType = T;
-};
-
-template <>
-struct CudaT<ortc::MFloat16> {
-  using MappedType = half;
-};
 
 template <typename T>
 struct FastGelu {
