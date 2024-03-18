@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #include "device_prop.cuh"
+#include "utils.cuh"
 #include "fast_gelu_impl.cuh"
 
 using namespace Ort::Custom;

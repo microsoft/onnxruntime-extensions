@@ -1,9 +1,9 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 #pragma once
+#include <stdexcept>
+#include <string>
 #include <cuda_runtime.h>
-
-using namespace Ort::Custom;
 
 struct DeviceProp {
   static cudaDeviceProp& GetCudaDeviceProp() {
