@@ -36,12 +36,12 @@ class API {
   static OrtStatusPtr CreateOrtMemoryInfo(const char* name, enum OrtAllocatorType type, int id, enum OrtMemType mem_type, OrtMemoryInfo** out) noexcept {
     return instance()->CreateMemoryInfo(name, type, id, mem_type, out);
   }
-
+#if ORT_API_VERSION >= 15
   // Caller is responsible for releasing OrtAllocator object: delete static_cast<onnxruntime::OrtAllocatorImpl*> (allocator)
   static OrtStatusPtr GetOrtAllocator(const OrtKernelContext* context, const OrtMemoryInfo* mem_info, OrtAllocator** out) {
     return instance()->KernelContext_GetAllocator(context, mem_info, out);
   }
-
+#endif
  private:
   const OrtApi* operator->() const {
     return &api_;

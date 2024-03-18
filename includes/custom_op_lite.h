@@ -614,7 +614,6 @@ struct CudaContext {
   void* cuda_stream = {};
   void* cublas = {};
   int device_id = 0;
-  }
 };
 
 #endif
