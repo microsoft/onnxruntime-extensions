@@ -7,6 +7,23 @@
 #include "ocos.h"
 #include "test_kernel.hpp"
 
+#include "operators/tokenizer/basic_tokenizer.hpp"
+
+TEST(basic_tokenizer, eager) {
+  std::string test_case = "I mean, you’ll need something to talk about next Sunday, right?";
+  std::vector<std::string> expect_result = {"I", "mean", ",", "you", "’", "ll", "need", "something", "to", "talk", "about", "next", "Sunday", ",", "right", "?"};
+  
+  ortc::NamedArgumentDict dict({"do_lower_case", "tokenize_chinese_chars", "strip_accents", "tokenize_punctuation", "remove_control_chars"}, 
+                               std::make_tuple(false, true, true, true, true));
+
+  KernelBasicTokenizer tokenizer(dict);
+  
+  //ortc::Tensor<std::string_view> input(std::vector<std::string_view>{test_case});
+  ortc::Tensor<std::string> output;
+  tokenizer.Compute(test_case, output);
+  EXPECT_EQ(output.Data(), expect_result);
+}
+
 TEST(tokenizer_opertors, test_bert_tokenizer) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
 

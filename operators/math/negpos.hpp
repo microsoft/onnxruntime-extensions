@@ -24,3 +24,4 @@ OrtStatusPtr neg_pos(const ortc::Tensor<float>& input,
 
   return nullptr;
 }
+

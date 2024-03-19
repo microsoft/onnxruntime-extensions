@@ -6,6 +6,7 @@
 #include <optional>
 #include <numeric>
 #include "tensor_api.h"
+#include "onnxruntime_cpp_api_legacy.hpp"
 
 namespace Ort {
 namespace Custom {
@@ -95,15 +96,13 @@ public:
   }
 };
 
-template <>
-class Tensor<std::string> : public OrtKernelArg, public Arg {
- public:
+class OrtStringTensorStorage : public IStringTensorStorage<std::string>{
+public:
   using strings = std::vector<std::string>;
-
-  Tensor(const OrtW::CustomOpApi& api,
-         OrtKernelContext& ctx,
-         size_t indice,
-         bool is_input) : OrtKernelArg(api, ctx, indice, is_input) {
+  OrtStringTensorStorage(const OrtW::CustomOpApi& api,
+                          OrtKernelContext& ctx,
+                          size_t indice,
+                          bool is_input) : api_(api), ctx_(ctx), indice_(indice){
     if (is_input) {
       auto input_count = api_.KernelContext_GetInputCount(&ctx_);
       if (indice >= input_count) {
@@ -118,8 +117,9 @@ class Tensor<std::string> : public OrtKernelArg, public Arg {
       size_t num_chars;
       OrtW::ThrowOnError(api_.GetOrtApi(), api_.GetOrtApi().GetStringTensorDataLength(const_value, &num_chars));
       std::vector<char> chars(num_chars + 1, '\0');
-      auto num_strings = NumberOfElement();
-      std::vector<size_t> offsets(NumberOfElement());
+      assert((*shape_).size() == 1);
+      auto num_strings = (*shape_)[0];
+      std::vector<size_t> offsets((*shape_)[0]);
       OrtW::ThrowOnError(api_.GetOrtApi(), api_.GetOrtApi().GetStringTensorContent(const_value,
                                                                                    (void*)chars.data(),
                                                                                    num_chars,
@@ -135,53 +135,25 @@ class Tensor<std::string> : public OrtKernelArg, public Arg {
       }
     }
   }
-  const strings& Data() const {
-    return input_strings_;
+
+  const std::vector<int64_t>& Shape() const override {
+    if (!IsInitialized())
+      ORTX_CXX_API_THROW("Tensor not initialized", ORT_RUNTIME_EXCEPTION);
+    return *shape_;
   }
 
-  const std::vector<int64_t>& Shape() const {
-    if (shape_.has_value()) {
-      return *shape_;
-    } else {
-      ORTX_CXX_API_THROW("tensor shape is not yet initialized", ORT_RUNTIME_EXCEPTION);
-    }
-  }
-
-  int64_t NumberOfElement() const {
-    if (shape_.has_value()) {
-      return std::accumulate(shape_->begin(), shape_->end(), 1LL, std::multiplies<int64_t>());
-    } else {
-      ORTX_CXX_API_THROW("tensor shape is not yet initialized", ORT_RUNTIME_EXCEPTION);
-    }
-  }
-
-  std::string Shape2Str() const {
-    if (shape_.has_value()) {
-      std::string shape_str;
-      for (const auto& dim : *shape_) {
-        shape_str.append(std::to_string(dim));
-        shape_str.append(", ");
-      }
-      return shape_str;
-    } else {
-      return "empty";
-    }
-  }
-
-
-  const void* DataRaw() const {
+  virtual const void* DataRaw() const override {
     if (input_strings_.size() != 1) {
       ORTX_CXX_API_THROW("DataRaw() only applies to string scalar", ORT_RUNTIME_EXCEPTION);
     }
     return reinterpret_cast<const void*>(input_strings_[0].c_str());
   }
-  size_t SizeInBytes() const {
-    if (input_strings_.size() != 1) {
-      ORTX_CXX_API_THROW("SizeInBytes() only applies to string scalar", ORT_RUNTIME_EXCEPTION);
-    }
-    return input_strings_[0].size();
+
+  virtual bool IsInitialized() const override {
+    return shape_.has_value();
   }
-  void SetStringOutput(const strings& ss, const std::vector<int64_t>& dims) {
+  
+  virtual void SetStringOutput(const strings& ss, const std::vector<int64_t>& dims) override {
     std::vector<const char*> raw;
     for (const auto& s : ss) {
       raw.push_back(s.data());
@@ -189,45 +161,32 @@ class Tensor<std::string> : public OrtKernelArg, public Arg {
     auto* output = api_.KernelContext_GetOutput(&ctx_, indice_, dims.data(), dims.size());
     OrtW::ThrowOnError(api_.GetOrtApi(), api_.GetOrtApi().FillStringTensor(output, raw.data(), raw.size()));
   }
-  void SetStringOutput(const std::vector<const char*>& ss, const std::vector<int64_t>& dims) {
+
+  virtual void SetStringOutput(const std::vector<const char*>& ss, const std::vector<int64_t>& dims) override {
     auto* output = api_.KernelContext_GetOutput(&ctx_, indice_, dims.data(), dims.size());
     OrtW::ThrowOnError(api_.GetOrtApi(), api_.GetOrtApi().FillStringTensor(output, ss.data(), ss.size()));
   }
-  const Span<std::string>& AsSpan() {
-    ORTX_CXX_API_THROW("span for TensorT of string not implemented", ORT_RUNTIME_EXCEPTION);
-  }
-  const std::string& AsScalar() {
-    if (!shape_.has_value() || (shape_->size() == 1 && (*shape_)[0] != 1) || shape_->size() > 1) {
-      ORTX_CXX_API_THROW("to get a scalar, shape must be {1}, actual shape: " + Shape2Str(), ORT_RUNTIME_EXCEPTION);
-    }
-    return input_strings_[0];
+
+  const strings& Data() const override {
+    return input_strings_;
   }
 
- private:
-  std::vector<std::string> input_strings_;  // for input
+private:
+  const OrtW::CustomOpApi& api_;
+  OrtKernelContext& ctx_;
+  size_t indice_;
+  std::vector<std::string> input_strings_;  
   std::optional<std::vector<int64_t>> shape_;
 };
 
-// to make the metaprogramming magic happy.
-template <>
-class OrtTensor<std::string> : public Tensor<std::string>{
+
+class OrtStringViewTensorStorage : public IStringTensorStorage<std::string_view>{
 public:
-  OrtTensor(const OrtW::CustomOpApi& api,
-         OrtKernelContext& ctx,
-         size_t indice,
-         bool is_input) : Tensor<std::string>(api, ctx, indice, is_input) {};
-};
-
-template <>
-class Tensor<std::string_view> : public OrtKernelArg, public Arg {
- public:
-  using strings = std::vector<std::string>;
-  using string_views = std::vector<std::string_view>;
-
-  Tensor(const OrtW::CustomOpApi& api,
-         OrtKernelContext& ctx,
-         size_t indice,
-         bool is_input) : OrtKernelArg(api, ctx, indice, is_input) {
+  using strings = std::vector<std::string_view>;
+  OrtStringViewTensorStorage(const OrtW::CustomOpApi& api,
+                          OrtKernelContext& ctx,
+                          size_t indice,
+                          bool is_input) : api_(api), ctx_(ctx), indice_(indice){
     if (is_input) {
       auto input_count = api_.KernelContext_GetInputCount(&ctx_);
       if (indice >= input_count) {
@@ -242,7 +201,7 @@ class Tensor<std::string_view> : public OrtKernelArg, public Arg {
       OrtW::ThrowOnError(api_.GetOrtApi(), api_.GetOrtApi().GetStringTensorDataLength(const_value, &num_chars));
       chars_.resize(num_chars + 1, '\0');
 
-      auto num_strings = static_cast<size_t>(NumberOfElement());
+      auto num_strings = static_cast<size_t>((*shape_)[0]);
       if (num_strings) {
         std::vector<size_t> offsets(num_strings);
         OrtW::ThrowOnError(api_.GetOrtApi(), api_.GetOrtApi().GetStringTensorContent(const_value,
@@ -257,60 +216,40 @@ class Tensor<std::string_view> : public OrtKernelArg, public Arg {
       }
     }
   }
-  const std::vector<int64_t>& Shape() const {
-    if (shape_.has_value()) {
-      return *shape_;
-    } else {
-      ORTX_CXX_API_THROW("tensor shape is not yet initialized", ORT_RUNTIME_EXCEPTION);
-    }
+
+  const std::vector<int64_t>& Shape() const override {
+    if (!IsInitialized())
+      ORTX_CXX_API_THROW("Tensor not initialized", ORT_RUNTIME_EXCEPTION);
+    return *shape_;
   }
 
-  int64_t NumberOfElement() const {
-    if (shape_.has_value()) {
-      return std::accumulate(shape_->begin(), shape_->end(), 1ULL, std::multiplies<int64_t>());
-    } else {
-      return 0;
-    }
-  }
-  std::string Shape2Str() const {
-    if (shape_.has_value()) {
-      std::string shape_str;
-      for (const auto& dim : *shape_) {
-        shape_str.append(std::to_string(dim));
-        shape_str.append(", ");
-      }
-      return shape_str;
-    } else {
-      return "empty";
-    }
-  }
-
-  const string_views& Data() const {
-    return input_string_views_;
-  }
-  const void* DataRaw() const {
+  virtual const void* DataRaw() const override {
     if (input_string_views_.size() != 1) {
       ORTX_CXX_API_THROW("DataRaw() only applies to string scalar", ORT_RUNTIME_EXCEPTION);
     }
     return reinterpret_cast<const void*>(input_string_views_[0].data());
   }
-  size_t SizeInBytes() const {
-    if (input_string_views_.size() != 1) {
-      ORTX_CXX_API_THROW("SizeInBytes() only applies to string scalar", ORT_RUNTIME_EXCEPTION);
-    }
-    return input_string_views_[0].size();
+
+  virtual bool IsInitialized() const override {
+    return shape_.has_value();
   }
-  const Span<std::string_view>& AsSpan() {
-    ORTX_CXX_API_THROW("span for TensorT of string view not implemented", ORT_RUNTIME_EXCEPTION);
-  }
-  std::string_view AsScalar() {
-    if (!shape_.has_value() || (shape_->size() == 1 && (*shape_)[0] != 1) || shape_->size() > 1) {
-      ORTX_CXX_API_THROW("to get a scalar, shape must be {1}, actual shape: " + Shape2Str(), ORT_RUNTIME_EXCEPTION);
-    }
-    return input_string_views_[0];
+  
+  virtual void SetStringOutput(const strings& ss, const std::vector<int64_t>& dims) override {
+    ORTX_CXX_API_THROW("Set output for string view tensor is not supported", ORT_RUNTIME_EXCEPTION);
   }
 
- private:
+  virtual void SetStringOutput(const std::vector<const char*>& ss, const std::vector<int64_t>& dims) override {
+    ORTX_CXX_API_THROW("Set output for string view tensor is not supported", ORT_RUNTIME_EXCEPTION);
+  }
+
+  const strings& Data() const override {
+    return input_string_views_;
+  }
+
+private:
+  const OrtW::CustomOpApi& api_;
+  OrtKernelContext& ctx_;
+  size_t indice_;
   std::vector<char> chars_;                           // for input
   std::vector<std::string_view> input_string_views_;  // for input
   std::optional<std::vector<int64_t>> shape_;
@@ -318,12 +257,25 @@ class Tensor<std::string_view> : public OrtKernelArg, public Arg {
 
 // to make the metaprogramming magic happy.
 template <>
-class OrtTensor<std::string_view> : public Tensor<std::string_view>{
+class OrtTensor<std::string> : public OrtKernelArg, 
+                               public Tensor<std::string>{
 public:
   OrtTensor(const OrtW::CustomOpApi& api,
          OrtKernelContext& ctx,
          size_t indice,
-         bool is_input) : Tensor<std::string_view>(api, ctx, indice, is_input) {}
+         bool is_input) : OrtKernelArg(api, ctx, indice, is_input),
+                          Tensor<std::string>(std::make_unique<OrtStringTensorStorage>(api, ctx, indice, is_input)) {}
+};
+
+template <>
+class OrtTensor<std::string_view> : public OrtKernelArg, 
+                                    public Tensor<std::string_view>{
+public:
+  OrtTensor(const OrtW::CustomOpApi& api,
+         OrtKernelContext& ctx,
+         size_t indice,
+         bool is_input) : OrtKernelArg(api, ctx, indice, is_input),
+                          Tensor<std::string_view>(std::make_unique<OrtStringViewTensorStorage>(api, ctx, indice, is_input)) {}
 };
 
 using TensorPtr = std::unique_ptr<Custom::Arg>;
@@ -401,7 +353,7 @@ struct Variadic : public OrtKernelArg, public Arg {
     return raw_output;
   }
   Tensor<std::string>& AllocateStringTensor(size_t ith_output) {
-    auto tensor = std::make_unique<Tensor<std::string>>(api_, ctx_, ith_output, false);
+    auto tensor = std::make_unique<OrtTensor<std::string>>(api_, ctx_, ith_output, false);
     Tensor<std::string>& output = *tensor;
     tensors_.emplace_back(tensor.release());
     return output;
@@ -915,6 +867,20 @@ struct OrtLiteCustomFunc : public OrtLiteCustomOp {
   ComputeFn compute_fn_;
 };
 
+class OrtAttributeReader {
+public:
+  OrtAttributeReader(const OrtApi& api, const OrtKernelInfo& info) : base_kernel_(api, info) {
+  }
+
+  template <class T>
+  T TryToGetAttributeWithDefault(const char* name, const T& default_value) const noexcept {
+    return base_kernel_.TryToGetAttributeWithDefault(name, default_value);
+  }
+
+private:
+  BaseKernel base_kernel_; 
+};
+
 template <typename CustomOp>
 struct OrtLiteCustomStruct : public OrtLiteCustomOp {
   template <typename... Args>
@@ -951,7 +917,13 @@ struct OrtLiteCustomStruct : public OrtLiteCustomOp {
 
     OrtCustomOp::CreateKernel = [](const OrtCustomOp* this_, const OrtApi* ort_api, const OrtKernelInfo* info) {
       auto kernel = std::make_unique<Kernel>();
-      kernel->custom_op_ = std::make_unique<CustomOp>(*ort_api, *info);
+      
+      if constexpr (std::is_constructible<CustomOp, const OrtApi&, const OrtKernelInfo&>::value){
+        kernel->custom_op_ = std::make_unique<CustomOp>(*ort_api, *info);
+      }
+      else {
+        kernel->custom_op_ = std::make_unique<CustomOp>(OrtAttributeReader(*ort_api, *info));
+      }
       auto self = static_cast<const MyType*>(this_);
       kernel->ep_ = self->execution_provider_;
       kernel->api_ = std::make_unique<OrtW::CustomOpApi>(*ort_api);

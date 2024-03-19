@@ -167,6 +167,8 @@ else()
 
     target_include_directories(extensions_test PRIVATE ${spm_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR})
 
+    target_link_libraries(extensions_test PRIVATE ocos_operators)
+
     target_compile_definitions(extensions_test PUBLIC ${OCOS_COMPILE_DEFINITIONS})
     if(use_extensions_shared_library)
       target_compile_definitions(extensions_test PUBLIC ORT_EXTENSIONS_UNIT_TEST_USE_EXTENSIONS_SHARED_LIBRARY)

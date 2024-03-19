@@ -29,8 +29,27 @@ class BertTokenizerDecoder {
   bool RemoveTokenizeSpace(int64_t pre_token_id, int64_t new_token_id);
 };
 
-struct KernelBertTokenizerDecoder : BaseKernel {
-  KernelBertTokenizerDecoder(const OrtApi& api, const OrtKernelInfo& info);
+struct KernelBertTokenizerDecoder {
+  
+  template<typename T>
+  KernelBertTokenizerDecoder(const T& dict) {
+    //std::string vocab = ort_.KernelInfoGetAttribute<std::string>(&info, "vocab_file");
+    std::string vocab = dict.TryToGetAttributeWithDefault("vocab_file", std::string(""));
+    std::string unk_token = dict.TryToGetAttributeWithDefault("unk_token", std::string("[UNK]"));
+    std::string sep_token = dict.TryToGetAttributeWithDefault("sep_token", std::string("[SEP]"));
+    std::string pad_token = dict.TryToGetAttributeWithDefault("pad_token", std::string("[PAD]"));
+    std::string cls_token = dict.TryToGetAttributeWithDefault("cls_token", std::string("[CLS]"));
+    std::string mask_token = dict.TryToGetAttributeWithDefault("mask_token", std::string("[MASK]"));
+    std::string suffix_indicator = dict.TryToGetAttributeWithDefault("suffix_indicator", std::string("##"));
+
+    use_indices_ = dict.TryToGetAttributeWithDefault("use_indices", false);
+    skip_special_tokens_ = dict.TryToGetAttributeWithDefault("skip_special_tokens", false);
+    clean_up_tokenization_spaces_ = dict.TryToGetAttributeWithDefault("clean_up_tokenization_spaces", true);
+
+    decoder_ = std::make_shared<BertTokenizerDecoder>(vocab, unk_token, sep_token, pad_token,
+                                                      cls_token, mask_token, suffix_indicator);
+  }
+
   void Compute(const ortc::Tensor<int64_t>& ids,
                const ortc::Tensor<int64_t>& positions,
                ortc::Tensor<std::string>& output) const;
