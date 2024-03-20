@@ -4,6 +4,7 @@
 #pragma once
 
 #include "ocos.h"
+#include "ortx_common.h"
 #include "string_utils.h"
 #include "string_tensor.h"
 #include "sentencepiece_processor.h"

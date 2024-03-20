@@ -3,6 +3,7 @@
 
 #include "bpe_tokenizer.hpp"
 #include "bpe_kernels.h"
+#include "ortx_common.h"
 
 #include <optional>
 
