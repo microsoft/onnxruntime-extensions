@@ -39,6 +39,8 @@ extends:
     cloudvault:
       enabled: false
     globalSdl:
+      asyncSdl:
+        enabled: false
       tsa:
         enabled: true
       binskim:
