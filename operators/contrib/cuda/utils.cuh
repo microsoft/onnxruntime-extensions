@@ -192,3 +192,8 @@ __device__ __inline__ half2 _Tanh(half2 a) {
 
 template <>
 __device__ __inline__ BFloat16 _Tanh(BFloat16 a) { return tanhf(static_cast<float>(a)); }
+
+inline OrtStatusPtr CudaCall(cudaError_t cuda_error) {
+  if (cuda_error == cudaSuccess) return nullptr;
+  return OrtW::API::CreateStatus(ORT_FAIL, MakeString("cuda error:", (int)cuda_error).c_str());
+}
