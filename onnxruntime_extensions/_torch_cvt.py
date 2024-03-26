@@ -74,12 +74,9 @@ def _mel_filterbank(
 class CustomOpStftNorm(torch.autograd.Function):
     @staticmethod
     def symbolic(g, self, n_fft, hop_length, window):
-        t_n_fft = g.op('Constant', value_t=torch.tensor(
-            n_fft, dtype=torch.int64))
-        t_hop_length = g.op('Constant', value_t=torch.tensor(
-            hop_length, dtype=torch.int64))
-        t_frame_size = g.op(
-            'Constant', value_t=torch.tensor(n_fft, dtype=torch.int64))
+        t_n_fft = g.op('Constant', value_t=torch.tensor(n_fft, dtype=torch.int64))
+        t_hop_length = g.op('Constant', value_t=torch.tensor(hop_length, dtype=torch.int64))
+        t_frame_size = g.op('Constant', value_t=torch.tensor(n_fft, dtype=torch.int64))
         return g.op("ai.onnx.contrib::StftNorm", self, t_n_fft, t_hop_length, window, t_frame_size)
 
     @staticmethod
@@ -115,8 +112,7 @@ class WhisperPrePipeline(torch.nn.Module):
         spec_shape = log_spec.shape
         padding_spec = torch.ones(spec_shape[0],
                                   spec_shape[1],
-                                  self.n_samples // self.hop_length -
-                                  spec_shape[2],
+                                  self.n_samples // self.hop_length - spec_shape[2],
                                   dtype=torch.float)
         padding_spec *= spec_min
         log_spec = torch.cat((log_spec, padding_spec), dim=2)
@@ -169,20 +165,15 @@ def _to_onnx_stft(onnx_model, n_fft):
         make_node('Slice', inputs=['transpose_1_output_0', 'const_18_output_0', 'const_minus_1_output_0',
                                    'const_17_output_0', 'const_20_output_0'], outputs=['slice_1_output_0'],
                   name='slice_1'),
-        make_node('Constant', inputs=[], outputs=[
-                  'const0_output_0'], name='const0', value_int=0),
-        make_node('Constant', inputs=[], outputs=[
-                  'const1_output_0'], name='const1', value_int=1),
+        make_node('Constant', inputs=[], outputs=['const0_output_0'], name='const0', value_int=0),
+        make_node('Constant', inputs=[], outputs=['const1_output_0'], name='const1', value_int=1),
         make_node('Gather', inputs=['slice_1_output_0', 'const0_output_0'], outputs=['gather_4_output_0'],
                   name='gather_4', axis=3),
         make_node('Gather', inputs=['slice_1_output_0', 'const1_output_0'], outputs=['gather_5_output_0'],
                   name='gather_5', axis=3),
-        make_node('Mul', inputs=['gather_4_output_0', 'gather_4_output_0'], outputs=[
-                  'mul_output_0'], name='mul0'),
-        make_node('Mul', inputs=['gather_5_output_0', 'gather_5_output_0'], outputs=[
-                  'mul_1_output_0'], name='mul1'),
-        make_node('Add', inputs=['mul_output_0', 'mul_1_output_0'], outputs=[
-                  stft_norm_node.output[0]], name='add0'),
+        make_node('Mul', inputs=['gather_4_output_0', 'gather_4_output_0'], outputs=['mul_output_0'], name='mul0'),
+        make_node('Mul', inputs=['gather_5_output_0', 'gather_5_output_0'], outputs=['mul_1_output_0'], name='mul1'),
+        make_node('Add', inputs=['mul_output_0', 'mul_1_output_0'], outputs=[stft_norm_node.output[0]], name='add0'),
     ]
     new_stft_nodes.extend(onnx_model.graph.node[:node_idx])
     new_stft_nodes.extend(replaced_nodes)
@@ -266,7 +257,6 @@ class WhisperDataProcGraph:
             "sequences", onnx.TensorProto.INT32, ['N', 'seq_len', 'ids'])]
         del g.input[:]
         g.input.extend(inputs)
-        g.output[0].type.CopyFrom(onnx.helper.make_tensor_type_proto(
-            onnx.TensorProto.STRING, ['N', 'text']))
+        g.output[0].type.CopyFrom(onnx.helper.make_tensor_type_proto(onnx.TensorProto.STRING, ['N', 'text']))
 
         return make_onnx_model(g, opset_version=self.opset_version)
