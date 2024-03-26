@@ -253,8 +253,7 @@ class WhisperDataProcGraph:
         del g.node[:]
         g.node.extend(nodes)
 
-        inputs = [onnx.helper.make_tensor_value_info(
-            "sequences", onnx.TensorProto.INT32, ['N', 'seq_len', 'ids'])]
+        inputs = [onnx.helper.make_tensor_value_info("sequences", onnx.TensorProto.INT32, ['N', 'seq_len', 'ids'])]
         del g.input[:]
         g.input.extend(inputs)
         g.output[0].type.CopyFrom(onnx.helper.make_tensor_type_proto(onnx.TensorProto.STRING, ['N', 'text']))
