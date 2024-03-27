@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+find_package(CUDAToolkit)
 enable_language(CUDA)
 
 set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
