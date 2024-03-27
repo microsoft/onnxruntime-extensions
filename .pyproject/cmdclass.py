@@ -38,9 +38,10 @@ def _load_cuda_version():
 
 def _load_nvidia_smi():
     try:
-        output = subprocess.check_output(
+        outputs = subprocess.check_output(
             ["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader,nounits"],
-            stderr=subprocess.STDOUT).decode("utf-8")
+            stderr=subprocess.STDOUT).decode("utf-8").splitlines()
+        output = outputs[0] if outputs else ""
         arch = output.strip().replace('.', '')
         return arch if arch.isdigit() else None
     except (subprocess.CalledProcessError, OSError):
