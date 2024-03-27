@@ -182,6 +182,8 @@ _PROCESSOR_DICT = {
                                          'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
     "CodeGenTokenizer":     TokenOpParam('GPT2Tokenizer',   HFTokenizerConverter.bpe_tokenizer,
                                          'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
+    "GPTNeoXTokenizer":     TokenOpParam('GPT2Tokenizer',   HFTokenizerConverter.bpe_tokenizer,
+                                         'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
     "CLIPTokenizer":        TokenOpParam('CLIPTokenizer',   HFTokenizerConverter.clip_tokenizer,
                                          'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
     "RobertaTokenizer":     TokenOpParam('RobertaTokenizer',        HFTokenizerConverter.roberta_tokenizer,
