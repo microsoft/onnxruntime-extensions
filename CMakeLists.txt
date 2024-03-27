@@ -3,6 +3,8 @@
 
 # Minimum CMake required
 cmake_minimum_required(VERSION 3.25)
+# Don't let cmake set a default value for CMAKE_CUDA_ARCHITECTURES
+cmake_policy(SET CMP0104 OLD)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
 # set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -281,6 +283,7 @@ endmacro()
 
 if(OCOS_USE_CUDA)
   include(ext_cuda)
+  include(cutlass)
 endif()
 
 #######################################################################################################################
@@ -347,7 +350,7 @@ endif()
 
 file(GLOB TARGET_SRC_CONTRIB "operators/contrib/*.cc" "operators/contrib/*.h*")
 if (OCOS_USE_CUDA)
-  file(GLOB TARGET_SRC_CONTRIB_CUDA "operators/contrib/cuda/*.*")
+  file(GLOB_RECURSE TARGET_SRC_CONTRIB_CUDA "operators/contrib/cuda/*.*")
   list(APPEND TARGET_SRC_CONTRIB ${TARGET_SRC_CONTRIB_CUDA})
 endif()
 list(APPEND TARGET_SRC ${TARGET_SRC_CONTRIB})
@@ -560,6 +563,10 @@ target_include_directories(ocos_operators PUBLIC
   ${PROJECT_SOURCE_DIR}/includes
   ${PROJECT_SOURCE_DIR}/base
   ${PROJECT_SOURCE_DIR}/operators)
+
+if (OCOS_USE_CUDA) 
+  target_include_directories(ocos_operators PUBLIC ${cutlass_SOURCE_DIR}/include ${cutlass_SOURCE_DIR}/examples)
+endif()
 
 set(ocos_libraries)
 set(OCOS_COMPILE_DEFINITIONS)
