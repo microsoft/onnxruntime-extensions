@@ -43,10 +43,11 @@ class HFTokenizerConverter(CustomOpConverter):
                 f"{hf_tokenizer.__name__}: vocab_files_names is not found")
 
         tokenizer_file = filenames["tokenizer_file"]
-        if (hf_tokenizer.vocab_file is None) or (not os.path.exists(hf_tokenizer.vocab_file)):
+        vocab_file = getattr(hf_tokenizer, "vocab_file", None)
+        if (vocab_file is None) or (not os.path.exists(vocab_file)):
             model_dir = hf_tokenizer.name_or_path
         else:
-            model_dir = os.path.dirname(hf_tokenizer.vocab_file)
+            model_dir = os.path.dirname(vocab_file)
         tokenizer_json = json.load(
             open(os.path.join(model_dir, tokenizer_file), "r", encoding="utf-8"))
         # get vocab object from json file
