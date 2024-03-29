@@ -32,6 +32,20 @@ jobs:
     IosArch: 'arm64'
     IsReleaseBuild: ${{parameters.IsReleaseBuild}}
     AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
+  
+- template: ios-framework-build.yml
+  parameters:
+    Platform: 'maccatalyst'
+    IosArch: 'arm64'
+    IsReleaseBuild: ${{parameters.IsReleaseBuild}}
+    AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
+
+- template: ios-framework-build.yml
+    parameters:
+      Platform: 'maccatalyst'
+      IosArch: 'x86_64'
+      IsReleaseBuild: ${{parameters.IsReleaseBuild}}
+      AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
 - job: IosPackaging
   condition: not(or(failed(), canceled()))
@@ -107,6 +121,8 @@ jobs:
         --platform_arch iphonesimulator x86_64 \
         --platform_arch iphonesimulator arm64 \
         --platform_arch iphoneos arm64 \
+        --platform_arch maccatalyst x86_64 \
+        --platform_arch maccatalyst arm64 \
         --mode pack_xcframework_only
     displayName: "Pack xcframework for distributed building"
 

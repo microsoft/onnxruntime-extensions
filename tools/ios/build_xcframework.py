@@ -23,6 +23,7 @@ _supported_platform_archs = {
     "iphoneos": ["arm64"],
     "iphonesimulator": ["x86_64", "arm64"],
     "macosx": ["x86_64", "arm64"],
+    "maccatalyst": ["x86_64", "arm64"],
 }
 
 _lipo = "lipo"
@@ -66,8 +67,14 @@ def build_framework_for_platform_and_arch(
     opencv_dir: Path,
     ios_deployment_target: str,
     macos_deployment_target: str,
+    catalyst_deployment_target: str,
     other_build_args: list[str],
 ):  
+    if platform == "maccatalyst":
+        apple_sysroot = "macosx"
+    else:
+        apple_sysroot = {platform}
+        
     build_cmd = (
         [
             sys.executable,
@@ -79,14 +86,14 @@ def build_framework_for_platform_and_arch(
             "--parallel",
             "--test",
             "--build_apple_framework",
-            f"--apple_sysroot={platform}",
+            f"--apple_sysroot={apple_sysroot}",
             f"--apple_arch={arch}",
         ]
     )
     
     cmake_defines = []
     
-    if platform != "macosx":
+    if platform != "macosx" and platform != "maccatalyst": # ios platform
         cmake_defines += [
             # required by OpenCV CMake toolchain file
             # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L64-L66
@@ -107,10 +114,17 @@ def build_framework_for_platform_and_arch(
                 f"--ios_toolchain_file={_get_opencv_toolchain_file(platform, opencv_dir)}",
                 f"--apple_deploy_target={ios_deployment_target}",
         ]
-    else:
+    elif platform == "macosx":
         build_cmd += [
                 # macOS options
+                "--macos=MacOSX ",
                 f"--apple_deploy_target={macos_deployment_target}",
+        ]
+    else:
+        build_cmd += [
+            # mac catalyst options
+            "--macos=Catalyst",
+            f"--apple_deploy_target={catalyst_deployment_target}",
         ]
     build_cmd += [f"--one_cmake_extra_define={cmake_define}" for cmake_define in cmake_defines]
     build_cmd += other_build_args
@@ -126,6 +140,7 @@ def build_xcframework(
     opencv_dir: Path,
     ios_deployment_target: str,
     macos_deployment_target: str,
+    catalyst_deployment_target: str,
     other_build_args: list[str],
 ):
     output_dir = output_dir.resolve()
@@ -153,6 +168,7 @@ def build_xcframework(
                     opencv_dir,
                     ios_deployment_target,
                     macos_deployment_target,
+                    catalyst_deployment_target,
                     other_build_args,
                 )
 
@@ -284,6 +300,11 @@ def parse_args():
         help="macOS deployment target.",
     )
     parser.add_argument(
+        "--catalyst_deployment_target",
+        default="14.0",
+        help="Mac Catalyst deployment target.",
+    )
+    parser.add_argument(
         "build_py_args",
         nargs="*",
         default=[],
@@ -333,6 +354,7 @@ def main():
         opencv_dir=_repo_dir / "cmake/externals/opencv",
         ios_deployment_target=args.ios_deployment_target,
         macos_deployment_target=args.macos_deployment_target,
+        catalyst_deployment_target=args.catalyst_deployment_target,
         other_build_args=args.build_py_args,
     )
 
