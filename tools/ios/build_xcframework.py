@@ -19,11 +19,17 @@ sys.path.insert(0, str(_repo_dir / "tools"))
 
 from utils import get_logger, run  # noqa
 
-_supported_platform_archs = {
+_all_supported_platform_archs = {
     "iphoneos": ["arm64"],
     "iphonesimulator": ["x86_64", "arm64"],
     "macosx": ["x86_64", "arm64"],
     "maccatalyst": ["x86_64", "arm64"],
+}
+
+_default_supported_platform_archs = {
+    "iphoneos": ["arm64"],
+    "iphonesimulator": ["x86_64", "arm64"],
+    "macosx": ["x86_64", "arm64"],
 }
 
 _lipo = "lipo"
@@ -318,16 +324,16 @@ def parse_args():
     # convert from [[platform1, arch1], [platform1, arch2], ...] to {platform1: [arch1, arch2, ...], ...}
     def platform_archs_from_args(platform_archs_arg: list[list[str]] | None) -> dict[str, list[str]]:
         if not platform_archs_arg:
-            return _supported_platform_archs.copy()
+            return _default_supported_platform_archs.copy()
 
         platform_archs = {}
         for platform, arch in platform_archs_arg:
             assert (
-                platform in _supported_platform_archs.keys()
-            ), f"Unsupported platform: '{platform}'. Valid values are {list(_supported_platform_archs.keys())}"
-            assert arch in _supported_platform_archs[platform], (
+                platform in _all_supported_platform_archs.keys()
+            ), f"Unsupported platform: '{platform}'. Valid values are {list(_all_supported_platform_archs.keys())}"
+            assert arch in _all_supported_platform_archs[platform], (
                 f"Unsupported arch for platform '{platform}': '{arch}'. "
-                f"Valid values are {_supported_platform_archs[platform]}"
+                f"Valid values are {_all_supported_platform_archs[platform]}"
             )
 
             archs = platform_archs.setdefault(platform, [])

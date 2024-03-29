@@ -54,6 +54,8 @@ jobs:
   - IOS_C_API_Packaging_iphoneos_arm64
   - IOS_C_API_Packaging_iphonesimulator_arm64
   - IOS_C_API_Packaging_iphonesimulator_x86_64
+  - IOS_C_API_Packaging_maccatalyst_x86_64
+  - IOS_C_API_Packaging_maccatalyst_arm64
   pool:
     vmImage: "macOS-13"
 
