@@ -79,7 +79,7 @@ def build_framework_for_platform_and_arch(
     if platform == "maccatalyst":
         apple_sysroot = "macosx"
     else:
-        apple_sysroot = {platform}
+        apple_sysroot = platform
         
     build_cmd = (
         [

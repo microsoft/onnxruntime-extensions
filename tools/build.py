@@ -535,6 +535,7 @@ def _generate_build_tree(
                     f"-DCMAKE_CC_FLAGS_RELEASE=-O3 -DNDEBUG --target={macabi_target}",
                     "-DOCOS_ENABLE_CV2=OFF",
                     "-DOCOS_ENABLE_VISION=OFF",
+                    "-DOCOS_ENABLE_CTESTS=OFF",
                     "-DMAC_CATALYST=1",
                 ]
 
