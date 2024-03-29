@@ -41,11 +41,11 @@ jobs:
     AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
 - template: ios-framework-build.yml
-    parameters:
-      Platform: 'maccatalyst'
-      IosArch: 'x86_64'
-      IsReleaseBuild: ${{parameters.IsReleaseBuild}}
-      AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
+  parameters:
+    Platform: 'maccatalyst'
+    IosArch: 'x86_64'
+    IsReleaseBuild: ${{parameters.IsReleaseBuild}}
+    AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
 - job: IosPackaging
   condition: not(or(failed(), canceled()))
