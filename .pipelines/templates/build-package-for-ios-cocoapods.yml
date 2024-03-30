@@ -16,6 +16,7 @@ jobs:
   parameters:
     Platform: 'iphoneos'
     IosArch: 'arm64'
+    IosVersion: '12.0'
     IsReleaseBuild: ${{parameters.IsReleaseBuild}}
     AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
@@ -23,6 +24,7 @@ jobs:
   parameters:
     Platform: 'iphonesimulator'
     IosArch: 'x86_64'
+    IosVersion: '12.0'
     IsReleaseBuild: ${{parameters.IsReleaseBuild}}
     AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
@@ -30,6 +32,7 @@ jobs:
   parameters:
     Platform: 'iphonesimulator'
     IosArch: 'arm64'
+    IosVersion: '12.0'
     IsReleaseBuild: ${{parameters.IsReleaseBuild}}
     AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
   
@@ -37,6 +40,7 @@ jobs:
   parameters:
     Platform: 'maccatalyst'
     IosArch: 'arm64'
+    IosVersion: '14.0'
     IsReleaseBuild: ${{parameters.IsReleaseBuild}}
     AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
@@ -44,6 +48,7 @@ jobs:
   parameters:
     Platform: 'maccatalyst'
     IosArch: 'x86_64'
+    IosVersion: '14.0'
     IsReleaseBuild: ${{parameters.IsReleaseBuild}}
     AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
@@ -51,11 +56,11 @@ jobs:
   condition: not(or(failed(), canceled()))
   displayName: "iOS Packaging"
   dependsOn:
-  - IOS_C_API_Packaging_iphoneos_arm64
-  - IOS_C_API_Packaging_iphonesimulator_arm64
-  - IOS_C_API_Packaging_iphonesimulator_x86_64
-  - IOS_C_API_Packaging_maccatalyst_x86_64
-  - IOS_C_API_Packaging_maccatalyst_arm64
+  - IOS_C_API_Packaging_iphoneos_arm64_12.0
+  - IOS_C_API_Packaging_iphonesimulator_arm64_12.0
+  - IOS_C_API_Packaging_iphonesimulator_x86_64_12.0
+  - IOS_C_API_Packaging_maccatalyst_x86_64_14.0
+  - IOS_C_API_Packaging_maccatalyst_arm64_14.0
   pool:
     vmImage: "macOS-13"
 
@@ -142,7 +147,8 @@ jobs:
       python ./tools/ios/assemble_pod_package.py \
         --staging-dir $(Build.BinariesDirectory)/pod_staging \
         --xcframework-output-dir $(Build.BinariesDirectory)/xcframework_out \
-        --pod-version ${ORT_EXTENSIONS_POD_VERSION}
+        --pod-version ${ORT_EXTENSIONS_POD_VERSION} \
+        --mac_catalyst_enabled
     displayName: "Assemble pod"
 
   - script: |

@@ -8,6 +8,10 @@ parameters:
   displayName: IosArch
   type: string
 
+- name: IosArch
+  displayName: IosVersion
+  type: string
+
 - name: IsReleaseBuild
   displayName: "Is this a release build?"
   type: boolean
@@ -18,7 +22,7 @@ parameters:
   type: string
 
 jobs:
-  - job: IOS_C_API_Packaging_${{ parameters.Platform }}_${{ parameters.IosArch }}
+  - job: IOS_C_API_Packaging_${{ parameters.Platform }}_${{ parameters.IosArch }}_${{ parameter.IosVersion}}
     condition: succeeded()
     pool:
       vmImage: "macOS-13"
@@ -50,6 +54,7 @@ jobs:
             --config $(buildConfig) \
             --platform_arch  ${{ parameters.Platform }} ${{ parameters.IosArch }} \
             --mode build_platform_arch_frameworks_only \
+            --ios_deployment_target ${{ parameter.IosVersion}} \
             -- \
             ${{parameters.AdditionalBuildFlags}}
         displayName: "Build xcframework"
