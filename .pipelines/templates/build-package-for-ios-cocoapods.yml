@@ -105,7 +105,7 @@ jobs:
   
   - task: DownloadPipelineArtifact@2
     inputs:
-      artifact: 'nnxruntime-extensions-ios-maccatalyst-arm64-lib'
+      artifact: 'onnxruntime-extensions-ios-maccatalyst-arm64-lib'
       targetPath: '$(Build.BinariesDirectory)/'
       
   - script: |
