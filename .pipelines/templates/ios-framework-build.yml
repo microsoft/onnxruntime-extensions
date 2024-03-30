@@ -22,7 +22,7 @@ parameters:
   type: string
 
 jobs:
-  - job: IOS_C_API_Packaging_${{ parameters.Platform }}_${{ parameters.IosArch }}_${{ parameters.IosVersion}}
+  - job: IOS_C_API_Packaging_${{ parameters.Platform }}_${{ parameters.IosArch }}
     condition: succeeded()
     pool:
       vmImage: "macOS-13"
