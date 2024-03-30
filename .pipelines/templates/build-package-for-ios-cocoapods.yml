@@ -98,6 +98,16 @@ jobs:
       artifact: 'onnxruntime-extensions-ios-iphonesimulator-x86_64-lib'
       targetPath: '$(Build.BinariesDirectory)/'
 
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      artifact: 'onnxruntime-extensions-ios-maccatalyst-x86_64-lib'
+      targetPath: '$(Build.BinariesDirectory)/'
+  
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      artifact: 'nnxruntime-extensions-ios-maccatalyst-arm64-lib'
+      targetPath: '$(Build.BinariesDirectory)/'
+      
   - script: |
       set -e -x
       ls
