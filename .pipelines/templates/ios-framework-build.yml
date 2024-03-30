@@ -8,7 +8,7 @@ parameters:
   displayName: IosArch
   type: string
 
-- name: IosArch
+- name: IosVersion
   displayName: IosVersion
   type: string
 
