@@ -1,3 +1,9 @@
+if (MAC_CATALYST)
+  # Needed for maccatalyst C compilation
+  # i.e. the flags below add "--target=x86_64-apple-ios14.0-macabi -ffunction-sections -fdata-sections"
+  target_compile_options(extensions_test PRIVATE ${CMAKE_C_FLAGS})
+endif()
+
 if (OCOS_ENABLE_SELECTED_OPLIST)
   # currently the tests don't handle operator exclusion cleanly.
   message(FATAL_ERROR "Due to usage of OCOS_ENABLE_SELECTED_OPLIST excluding operators the tests are unable to be built and run")
