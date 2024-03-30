@@ -1,8 +1,4 @@
-if (MAC_CATALYST)
-  # Needed for maccatalyst C compilation
-  # i.e. the flags below add "--target=x86_64-apple-ios14.0-macabi -ffunction-sections -fdata-sections"
-  target_compile_options(extensions_test PRIVATE ${CMAKE_C_FLAGS})
-endif()
+if (NOT MAC_CATALYST)
 
 if (OCOS_ENABLE_SELECTED_OPLIST)
   # currently the tests don't handle operator exclusion cleanly.
@@ -205,4 +201,6 @@ else()
       )
     endif()
   endblock()
+endif()
+
 endif()
