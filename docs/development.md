@@ -15,9 +15,10 @@ The package contains all custom operators and some Python scripts to manipulate 
   - use-cuda: enable CUDA kernel build in Python package.
   - no-azure: disable AzureOp kernel build in Python package.
   - no-opencv: disable operators based on OpenCV in build.
-  - cc-debug: Generate debug info for extensions binaries and disable C/C++ compiler optimization.
+  - cc-debug: generate debug info for extensions binaries and disable C/C++ compiler optimization.
+  - cuda-archs: specify the CUDA architectures(like 70, 85, etc.), and the multiple values can be combined with semicolon. The default value is nvidia-smi util output of GPU-0
 
-   For example:`pip install --config-settings "ortx-user-option=use-cuda,cc-debug" `, This command builds CUDA kernels into the package and installs it, accompanied by the generation of debug information.
+  For example:`pip install . --config-settings "ortx-user-option=use-cuda,cc-debug" `, This command builds CUDA kernels into the package and installs it, accompanied by the generation of debug information.
 
 Test:
 
@@ -58,6 +59,9 @@ For any alternative scenarios, execute the following commands:
 - On Unix-based systems: Execute `bash ./build.sh`.
 
 The generated DLL or library is typically located in the `out/<OS>/<FLAVOR>` directory. To validate the build, utilize the unit tests available in the `test/test_static_test` and `test/shared_test` directories.
+
+**CUDA Build**  
+The cuda build can be enabled with -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=<arch>
 
 **VC Runtime static linkage**  
 If you want to build the binary with VC Runtime static linkage, please add a parameter _-DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>"_ when running build.bat

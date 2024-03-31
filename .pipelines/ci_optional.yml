@@ -181,7 +181,7 @@ stages:
           python -m pip install --upgrade setuptools pip
           python -m pip install numpy coloredlogs flatbuffers packaging protobuf sympy
           python -m pip install -U --index-url https://pkgs.dev.azure.com/aiinfra/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ ort-nightly-gpu
-          python -m pip install -v --config-settings "ortx-user-option=use-cuda" .
+          python -m pip install -v --config-settings "ortx-user-option=use-cuda,cuda_archs=70;86" .
         displayName: Build and install onnxruntime-extensions CUDA package.
 
       - script: |

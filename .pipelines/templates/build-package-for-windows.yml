@@ -15,7 +15,6 @@ parameters:
   - 'x86'
   - 'x64'
   - 'arm64'
-  - 'arm'
 
 - name: StageNameSuffix
   displayName: job name for nuget
@@ -43,7 +42,7 @@ jobs:
       clean: true
       submodules: none
 
-    # Currently we can only run tests on x64. x86 tests faile. arm/arm64 tests can't be run as the build machine is amd64
+    # Currently we can only run tests on x64. x86 tests faile. arm64 tests can't be run as the build machine is amd64
     # TODO: Fix these issues so the nuget build is properly tested.
     - ${{ if eq(parameters.BuildPlatform, 'x64') }}:
       - task: BatchScript@1

@@ -6,6 +6,7 @@
 #include "ocos.h"
 #include "ustring.h"
 #include "narrow.h"
+#include "ortx_common.h"
 #include <string>
 #include <vector>
 #include <locale>

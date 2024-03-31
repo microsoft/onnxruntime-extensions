@@ -60,7 +60,7 @@ function(add_test_target)
                           gtest gmock)
 
     if(OCOS_USE_CUDA)
-      target_link_directories(${ARG_TARGET} PRIVATE $ENV{CUDA_PATH}/lib64)
+      target_link_directories(${ARG_TARGET} PRIVATE ${CUDAToolkit_LIBRARY_DIR})
     endif()
 
     set(test_data_destination_root_directory ${onnxruntime_extensions_BINARY_DIR})
