@@ -27,4 +27,4 @@ if [ -n "$cuda_arch" ]; then
   param="$@ -DCMAKE_CUDA_ARCHITECTURE=$cuda_arch ../../.."
 fi
 # it looks the parallel build on CI pipeline machine causes crashes.
-cmake $param && cmake --build . --config $BUILD_FLAVOR  --parallel "${CPU_NUMBER}"
+cmake "$@" ../../.. "-DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=52;60;61;70;75;80" && cmake --build . --config $BUILD_FLAVOR  --parallel "${CPU_NUMBER}"

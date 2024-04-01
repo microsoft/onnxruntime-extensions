@@ -1,15 +1,13 @@
+#pragma once
 #include <optional>
 #include <numeric>
 #include <type_traits>
 #include "onnxruntime_customop.hpp"
 #include "onnxruntime_f16.h"
+#include "kernel_context.h"
 
 namespace Ort {
 namespace Custom {
-
-// this is for the ORT custom op template magic
-class Arg {
-};
 
 template <typename T>
 struct Span {
@@ -69,6 +67,7 @@ public:
   virtual void* Initialize(const std::vector<int64_t>& shape, size_t element_size) = 0;
 };
 
+
 class IAllocator {
 public:
   virtual void* Alloc(size_t size) = 0;
@@ -76,7 +75,6 @@ public:
 };
 
 // TODO: remove this
-
 class TestAllocator : public IAllocator {
 public:
   void* Alloc(size_t size) override {

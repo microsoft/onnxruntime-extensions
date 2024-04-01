@@ -377,6 +377,36 @@ struct Variadic : public OrtKernelArg, public Arg {
   TensorPtrs tensors_;
 };
 
+class OrtGraphKernelContext : public KernelContext {
+public:
+  OrtGraphKernelContext(const OrtApi& api, const OrtKernelContext& ctx) : api_(api) {
+    OrtMemoryInfo* info;
+    OrtW::ThrowOnError(api, api.CreateCpuMemoryInfo(OrtAllocatorType::OrtArenaAllocator, OrtMemType::OrtMemTypeDefault, &info));
+    OrtW::ThrowOnError(api, api.KernelContext_GetAllocator(&ctx, info, &allocator_));
+    api.ReleaseMemoryInfo(info);
+  }
+
+  virtual ~OrtGraphKernelContext(){
+    if (allocator_){
+      api_.ReleaseAllocator(allocator_);
+    }
+  }
+
+  void* AllocScratchBuffer(size_t size) override{
+    return allocator_->Alloc(allocator_, size);
+  }
+
+  void FreeScratchBuffer(void* p) override {
+    if (p){
+      allocator_->Free(allocator_, p);
+    }
+  }
+  
+private:
+  const OrtApi& api_;
+  OrtAllocator* allocator_;
+};
+
 #ifdef USE_CUDA
 
 enum CudaResource {
@@ -412,6 +442,89 @@ struct CudaContext {
   int device_id = 0;
 };
 
+
+class OrtGraphCudaKernelContext : public CUDAKernelContext {
+public:
+  static const int cuda_resource_ver = 1;
+
+  OrtGraphCudaKernelContext(const OrtApi& api, const OrtKernelContext& ctx) : api_(api) {
+    api.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::cuda_handle_t, &cuda_stream_);
+    if (!cuda_stream_) {
+      ORTX_CXX_API_THROW("Failed to fetch cuda stream from context", ORT_RUNTIME_EXCEPTION);
+    }
+    api.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::cublas_handle_t, &cublas_);
+    if (!cublas_) {
+      ORTX_CXX_API_THROW("Failed to fetch cublas handle from context", ORT_RUNTIME_EXCEPTION);
+    }
+    void* resource = nullptr;
+    OrtStatusPtr result = api.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::device_id_t, &resource);
+    if (result) {
+      ORTX_CXX_API_THROW("Failed to fetch device id from context", ORT_RUNTIME_EXCEPTION);
+    }
+    memcpy(&device_id_, &resource, sizeof(int));
+
+    OrtMemoryInfo* info;
+    OrtW::ThrowOnError(api, api.CreateCpuMemoryInfo(OrtAllocatorType::OrtArenaAllocator, OrtMemType::OrtMemTypeDefault, &info));
+    OrtW::ThrowOnError(api, api.KernelContext_GetAllocator(&ctx, info, &cpu_allocator_));
+    api.ReleaseMemoryInfo(info);
+
+    OrtMemoryInfo* cuda_mem_info;
+    OrtW::ThrowOnError(api, api.CreateMemoryInfo("GPU", OrtAllocatorType::OrtArenaAllocator, device_id_, OrtMemType::OrtMemTypeDefault, &cuda_mem_info));
+    OrtW::ThrowOnError(api, api.KernelContext_GetAllocator(&ctx, cuda_mem_info, &cuda_allocator_));
+    api.ReleaseMemoryInfo(cuda_mem_info);
+
+  }
+
+  virtual ~OrtGraphCudaKernelContext(){
+    if (cpu_allocator_){
+      api_.ReleaseAllocator(cpu_allocator_);
+    }
+    if (cuda_allocator_){
+      api_.ReleaseAllocator(cuda_allocator_);
+    }
+  }
+
+  void* AllocScratchBuffer(size_t size) override{
+    return cpu_allocator_->Alloc(cpu_allocator_, size);
+  }
+
+  void FreeScratchBuffer(void* p) override {
+    if (p){
+      cpu_allocator_->Free(cpu_allocator_, p);
+    }
+  }
+
+  void* AllocCudaScratchBuffer(size_t size) override {
+    return cuda_allocator_->Alloc(cuda_allocator_, size);
+  }
+
+  void FreeCudaScratchBuffer(void* p) override {
+    if (p){
+      cuda_allocator_->Free(cuda_allocator_, p);
+    }
+  }
+
+  void* GetCudaStream() const override {
+    return cuda_stream_;
+  }
+
+  void* GetCublasHandle() const override {
+    return cublas_;
+  }
+
+  int GetCudaDeviceId() const override {
+    return device_id_;
+  }
+  
+private:
+  const OrtApi& api_;
+  OrtAllocator* cpu_allocator_;
+  OrtAllocator* cuda_allocator_;
+  void* cuda_stream_ = {};
+  void* cublas_ = {};
+  int device_id_ = 0;
+};
+
 #endif
 
 // using mf16_t = uint16_t;
@@ -443,6 +556,24 @@ struct OrtLiteCustomOp : public OrtCustomOp {
     return std::tuple_cat(current, next);
   }
 #endif
+
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
+  static typename std::enable_if<std::is_same<T, KernelContext&>::value, std::tuple<T, Ts...>>::type
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) {
+    tensors.push_back(std::make_unique<OrtGraphCudaKernelContext>(api->GetOrtApi(), *context));
+    std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(*tensors.back().get())};
+    auto next = CreateTuple<ith_input, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);
+    return std::tuple_cat(current, next);
+  }
+
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
+  static typename std::enable_if<std::is_same<T, CUDAKernelContext&>::value, std::tuple<T, Ts...>>::type
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) {
+    tensors.push_back(std::make_unique<OrtGraphKernelContext>(api->GetOrtApi(), *context));
+    std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(*tensors.back().get())};
+    auto next = CreateTuple<ith_input, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);
+    return std::tuple_cat(current, next);
+  }
 
 #if ORT_API_VERSION >= 14
   template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
@@ -652,6 +783,18 @@ struct OrtLiteCustomOp : public OrtCustomOp {
     ParseArgs<Ts...>(input_types, output_types);
   }
 #endif
+
+  template <typename T, typename... Ts>
+  static typename std::enable_if<0 <= sizeof...(Ts) && std::is_same<T, KernelContext&>::value>::type
+  ParseArgs(std::vector<ONNXTensorElementDataType>& input_types, std::vector<ONNXTensorElementDataType>& output_types) {
+    ParseArgs<Ts...>(input_types, output_types);
+  }
+
+  template <typename T, typename... Ts>
+  static typename std::enable_if<0 <= sizeof...(Ts) && std::is_same<T, CUDAKernelContext&>::value>::type
+  ParseArgs(std::vector<ONNXTensorElementDataType>& input_types, std::vector<ONNXTensorElementDataType>& output_types) {
+    ParseArgs<Ts...>(input_types, output_types);
+  }
 
 #if ORT_API_VERSION >= 14
   template <typename T, typename... Ts>

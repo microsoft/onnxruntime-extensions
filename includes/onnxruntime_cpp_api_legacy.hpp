@@ -40,7 +40,7 @@ struct CustomOpApi {
   size_t KernelContext_GetOutputCount(const OrtKernelContext* context) const;
   OrtValue* KernelContext_GetOutput(OrtKernelContext* context, _In_ size_t index, _In_ const int64_t* dim_values,
                                     size_t dim_count) const;
-
+  
   void ThrowOnError(OrtStatus* status) const {
     OrtW::ThrowOnError(api_, status);
   }
