@@ -43,7 +43,7 @@ function(add_test_target)
       TEST_DATA_DIRECTORIES)
   cmake_parse_arguments(ARG "${optional_args}" "${single_value_args}" "${multi_value_args}" ${ARGN})
 
-  if(NOT IOS OR NOT MAC_CATALYST)
+  if(NOT IOS)
     # add a test executable
 
     add_executable(${ARG_TARGET})

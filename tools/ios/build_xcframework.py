@@ -98,7 +98,7 @@ def build_framework_for_platform_and_arch(
 
     cmake_defines = []
 
-    if platform != "macosx" and platform != "maccatalyst":  # ios platform
+    if platform != "macosx" and platform != "maccatalyst":  #ios simulator or iphoneos platform
         cmake_defines += [
             # required by OpenCV CMake toolchain file
             # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L64-L66
@@ -122,7 +122,7 @@ def build_framework_for_platform_and_arch(
     elif platform == "macosx":
         build_cmd += [
             # macOS options
-            "--macos=MacOSX ",
+            "--macos=MacOSX",
             f"--apple_deploy_target={macos_deployment_target}",
         ]
     else:
@@ -302,7 +302,6 @@ def parse_args():
         default="11.0",
         help="macOS deployment target.",
     )
-
     parser.add_argument(
         "build_py_args",
         nargs="*",
