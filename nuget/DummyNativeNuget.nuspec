@@ -65,5 +65,8 @@
 
     <file src="targets\net6.0-macos\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="build\net6.0-macos12.3" />
     <file src="targets\net6.0-macos\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="buildTransitive\net6.0-macos12.3" />
+    <!-- .net 6 macCatalyst -->
+    <file src="targets\net6.0-maccatalyst\_._" target="build\net6.0-maccatalyst14.0" />
+    <file src="targets\net6.0-maccatalyst\_._" target="buildTransitive\net6.0-maccatalyst14.0" />
   </files>
 </package>
