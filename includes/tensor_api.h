@@ -259,7 +259,7 @@ template<typename T>
 class EagerStringTensorStorage : public IStringTensorStorage<T>{
 public:
   using strings = std::vector<T>;
-  EagerStringTensorStorage(const strings& ss) : input_strings_(ss), shape_(std::vector<int64_t>{ss.size()}){}
+  EagerStringTensorStorage(const strings& ss) : input_strings_(ss), shape_(std::vector<int64_t>{static_cast<int64_t>(ss.size())}){}
 
   EagerStringTensorStorage() {}
 
