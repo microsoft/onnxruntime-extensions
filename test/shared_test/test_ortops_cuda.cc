@@ -6,10 +6,10 @@
 #include "gtest/gtest.h"
 #include "ocos.h"
 #include "test_kernel.hpp"
-#include "operators\math\cuda\negpos_def.h"
 #include "kernel_context.h"
 
 #ifdef USE_CUDA
+#include "operators/math/cuda/negpos_def.h"
 #include <cuda.h>
 #include <cuda_runtime.h>
 
