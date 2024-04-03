@@ -449,30 +449,6 @@ enum CudaResource {
   device_id_t,
 };
 
-struct CudaContext {
-  static const int cuda_resource_ver = 1;
-  void Init(const OrtW::CustomOpApi& api, const OrtKernelContext& ctx) {
-    const auto& ort_api = api.GetOrtApi();
-    ort_api.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::cuda_handle_t, &cuda_stream);
-    if (!cuda_stream) {
-      ORTX_CXX_API_THROW("Failed to fetch cuda stream from context", ORT_RUNTIME_EXCEPTION);
-    }
-    ort_api.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::cublas_handle_t, &cublas);
-    if (!cublas) {
-      ORTX_CXX_API_THROW("Failed to fetch cublas handle from context", ORT_RUNTIME_EXCEPTION);
-    }
-    void* resource = nullptr;
-    OrtStatusPtr result = ort_api.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::device_id_t, &resource);
-    if (result) {
-      ORTX_CXX_API_THROW("Failed to fetch device id from context", ORT_RUNTIME_EXCEPTION);
-    }
-    memcpy(&device_id, &resource, sizeof(int));
-  }
-  void* cuda_stream = {};
-  void* cublas = {};
-  int device_id = 0;
-};
-
 #if ORT_API_VERSION >= 17
 class OrtGraphCudaKernelContext : public CUDAKernelContext {
  public:
@@ -575,19 +551,6 @@ struct OrtLiteCustomOp : public OrtCustomOp {
     auto next = CreateTuple<ith_input, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);
     return std::tuple_cat(current, next);
   }
-
-#ifdef USE_CUDA
-  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
-  static typename std::enable_if<std::is_same<T, const CudaContext&>::value, std::tuple<T, Ts...>>::type
-  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) {
-    thread_local CudaContext cuda_context;
-    cuda_context.Init(*api, *context);
-    std::tuple<T> current = std::tuple<const CudaContext&>{cuda_context};
-    auto next = CreateTuple<ith_input, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);
-    return std::tuple_cat(current, next);
-  }
-
-#endif
 
 #if ORT_API_VERSION >= 17
   template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
@@ -727,14 +690,6 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   ParseArgs(std::vector<ONNXTensorElementDataType>& input_types, std::vector<ONNXTensorElementDataType>& output_types) {
     ParseArgs<Ts...>(input_types, output_types);
   }
-
-#ifdef USE_CUDA
-  template <typename T, typename... Ts>
-  static typename std::enable_if<0 <= sizeof...(Ts) && std::is_same<T, const CudaContext&>::value>::type
-  ParseArgs(std::vector<ONNXTensorElementDataType>& input_types, std::vector<ONNXTensorElementDataType>& output_types) {
-    ParseArgs<Ts...>(input_types, output_types);
-  }
-#endif
 
 #if ORT_API_VERSION >= 17
   template <typename T, typename... Ts>
