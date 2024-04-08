@@ -76,12 +76,13 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_onnx_path", type=str, default="./phi2_original.onnx", help="Input ONNX model")
     parser.add_argument("--optimized_GQA_path", type=str, default="./phi2_decoder_fp16_gpu_sm8x.onnx", help="Optimized GQA model")
+    parser.add_argument("--skip_export", required=False, action="store_true", help="skip export phi2 model and optiomization")
+    parser.add_argument("--run_example", required=False, action="store_true", help="Run phi2 model example with ORT-extension")
     args = parser.parse_args()
     return args
 
-def optimize_to_GroupQueryAttention():
-    args = parse_arguments()
-    model = load_model(args.input_onnx_path)
+def optimize_to_GroupQueryAttention(input_onnx_path, optimized_GQA_path):
+    model = load_model(input_onnx_path)
     phi_config = AutoConfig.from_pretrained("microsoft/phi-2", trust_remote_code=True, cache_dir="./cache")
     optimization_options = FusionOptions("phi")
     optimization_options.set_attention_op_type(AttentionOpType.GroupQueryAttention)
@@ -107,7 +108,13 @@ def optimize_to_GroupQueryAttention():
         use_bfloat16_as_blocked_nodes_dtype=True,
     )
     logging.info("Converting onnx model to float16/bfloat16 done.")
-    optimizer.save_model_to_file(args.optimized_GQA_path, use_external_data_format=True)
+    optimizer.save_model_to_file(optimized_GQA_path, use_external_data_format=True)
 
 if __name__ == "__main__":
-    optimize_to_GroupQueryAttention()
+    args = parse_arguments()
+    if not args.skip_export:
+        optimize_to_GroupQueryAttention(args.input_onnx_path, args.optimized_GQA_path)
+    if args.run_example:
+        from inference_example import run_phi2
+        run_phi2(onnx_model_path=args.optimized_GQA_path)
+    
