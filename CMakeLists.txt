@@ -283,6 +283,7 @@ endmacro()
 if(OCOS_USE_CUDA)
   include(ext_cuda)
   include(cutlass)
+# include(flash_attention)
 endif()
 
 #######################################################################################################################
