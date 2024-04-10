@@ -96,5 +96,10 @@ void KernelBasicTokenizer::Compute(std::string_view input,
                                    ortc::Tensor<std::string>& output) const {
   // Setup inputs
   std::vector<ustring> result = tokenizer_->Tokenize(ustring(input));
-  output.SetStringOutput({result[0].operator std::string()}, {1});
+  std::vector<std::string> tokens;
+  for (const auto& token : result) {
+    tokens.push_back((std::string)token);
+  }
+
+  output.SetStringOutput(tokens, {static_cast<int64_t>(tokens.size())});
 }

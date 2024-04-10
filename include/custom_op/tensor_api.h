@@ -455,7 +455,10 @@ class NamedArgumentDict{
 public:
   using ValueTuple = std::tuple<Args...>;
 
-  NamedArgumentDict(const std::vector<const char*>& keys, const std::tuple<Args...>& args) : names_(keys), entries_(args) {
+  NamedArgumentDict(const std::vector<const char*>& keys, const std::tuple<Args...>& args) : entries_(args) {
+    for (const char* key : keys){
+      names_.push_back(key);
+    }
   }
 
   template<typename T>
@@ -482,7 +485,7 @@ private:
     return TryToGetAttributeWithDefaultInternal<I+1>(name, default_value);
   }
 
-  std::vector<const char*> names_;
+  std::vector<std::string> names_;
   std::tuple<Args...> entries_;
 
 };
