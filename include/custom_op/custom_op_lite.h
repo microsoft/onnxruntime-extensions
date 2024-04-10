@@ -117,9 +117,16 @@ public:
       size_t num_chars;
       OrtW::ThrowOnError(api_.GetOrtApi(), api_.GetOrtApi().GetStringTensorDataLength(const_value, &num_chars));
       std::vector<char> chars(num_chars + 1, '\0');
-      assert((*shape_).size() == 1);
-      auto num_strings = (*shape_)[0];
-      std::vector<size_t> offsets((*shape_)[0]);
+      // assert((*shape_).size() == 1 || ((*shape_).size() == 2 && (*shape_)[0] == 1));
+
+      int64_t num_strings = 1; // string scalar
+      if ((*shape_).size() > 0) {
+        num_strings = (*shape_).front();
+        for (auto iter = (*shape_).begin() + 1; iter != (*shape_).end(); ++iter) {
+          num_strings *= *iter;
+        }
+      }
+      std::vector<size_t> offsets(num_strings);
       OrtW::ThrowOnError(api_.GetOrtApi(), api_.GetOrtApi().GetStringTensorContent(const_value,
                                                                                    (void*)chars.data(),
                                                                                    num_chars,
