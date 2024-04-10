@@ -119,4 +119,3 @@ inline void ReleaseStatus(OrtStatusPtr& status) {
 }
 
 }  // namespace OrtW
-

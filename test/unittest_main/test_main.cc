@@ -10,11 +10,11 @@
 #include "exceptions.h"
 
 namespace {
-void FixCurrentDir() {
+void FixCurrentDir(const std::string& init_dir = "") {
   // adjust for the Google Test Adapter in Visual Studio not setting the current path to $(ProjectDir),
   // which results in us being 2 levels below where the `data` folder is copied to and where the extensions
   // library is
-  auto cur = std::filesystem::current_path();
+  auto cur = init_dir.empty()? std::filesystem::current_path() : std::filesystem::path(init_dir);
 
   do {
     auto data_dir = cur / "data";
@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
   OCOS_TRY {
     ::testing::InitGoogleTest(&argc, argv);
 
-    FixCurrentDir();
+    FixCurrentDir(argv[0]);
     status = RUN_ALL_TESTS();
   }
   OCOS_CATCH(const std::exception& ex) {

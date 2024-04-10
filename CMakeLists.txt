@@ -53,20 +53,21 @@ option(OCOS_ENABLE_TF_STRING "Enable String Operator Set" ON)
 option(OCOS_ENABLE_RE2_REGEX "Enable StringRegexReplace and StringRegexSplit" ON)
 option(OCOS_ENABLE_GPT2_TOKENIZER "Enable the GPT2 tokenizer building" ON)
 option(OCOS_ENABLE_TRIE_TOKENIZER "Enable the TrieTokenizer building" ON)
-option(OCOS_ENABLE_SPM_TOKENIZER "Enable the SentencePiece tokenizer building" ON)
+option(OCOS_ENABLE_SPM_TOKENIZER "Enable the SentencePiece tokenizer building" OFF)
 option(OCOS_ENABLE_WORDPIECE_TOKENIZER "Enable the WordpieceTokenizer building" ON)
 option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
 option(OCOS_ENABLE_BLINGFIRE "Enable operators depending on the Blingfire library" ON)
 option(OCOS_ENABLE_MATH "Enable math tensor operators building" ON)
 option(OCOS_ENABLE_DLIB "Enable operators like Inverse depending on DLIB" ON)
 option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require opencv imgcodecs." ON)
-option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
+option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" OFF)
 option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
 option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" OFF)
 
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
+option(OCOS_ENABLE_C_API "Enable building the C API" OFF)
 
 option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
 option(OCOS_BUILD_JAVA "Enable building the Java package" OFF)
@@ -300,7 +301,7 @@ endif()
 
 # ### scan all source files
 file(GLOB TARGET_SRC_NOEXCEPTION "base/*.h" "base/*.cc")
-file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h" "includes/*.h*")
+file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h" "include/*.h" "include/*.hpp")
 
 if(OCOS_ENABLE_TF_STRING)
   set(farmhash_SOURCE_DIR ${PROJECT_SOURCE_DIR}/cmake/externals/farmhash)
@@ -551,13 +552,13 @@ standardize_output_folder(ocos_operators)
 
 target_include_directories(noexcep_operators PUBLIC
   ${ONNXRUNTIME_INCLUDE_DIR}
-  ${PROJECT_SOURCE_DIR}/includes
+  ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_SOURCE_DIR}/base
   ${PROJECT_SOURCE_DIR}/operators)
 
 target_include_directories(ocos_operators PUBLIC
   ${ONNXRUNTIME_INCLUDE_DIR}
-  ${PROJECT_SOURCE_DIR}/includes
+  ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_SOURCE_DIR}/base
   ${PROJECT_SOURCE_DIR}/operators)
 
