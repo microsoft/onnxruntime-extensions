@@ -22,20 +22,24 @@ public:
       const OrtMemoryInfo* mem_info = {};
       api.ThrowOnError(api.GetOrtApi().GetTensorMemoryInfo(const_value, &mem_info));
       if (mem_info) {
-        api.ThrowOnError(api.GetOrtApi().MemoryInfoGetName(mem_info, &mem_type_));
+        const char* mem_type = nullptr;
+        api.ThrowOnError(api.GetOrtApi().MemoryInfoGetName(mem_info, &mem_type));
+        if (mem_type) {
+          mem_type_ = mem_type;
+        }
       }
     }
   }
 
   bool IsCpuTensor() const {
-    return strcmp("Cpu", mem_type_) == 0;
+    return mem_type_ == "Cpu";
   }
 
 protected:
   const OrtW::CustomOpApi& api_;
   OrtKernelContext& ctx_;
   size_t indice_;
-  const char* mem_type_ = "Cpu";
+  std::string mem_type_ = "Cpu";
 };
 
 class OrtKernelContextStorage : public ITensorStorage {
