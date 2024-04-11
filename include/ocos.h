@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "opdef_struct.hpp"
+#include "opdef_struct.h"
 
 // A helper API to support test kernels.
 // Must be invoked before RegisterCustomOps.

@@ -3,7 +3,7 @@
 #pragma once
 #include <sstream>
 #include <vector>
-#include "onnxruntime_cpp_api_legacy.hpp"
+#include "onnxruntime_cpp_api_legacy.h"
 
 template <typename T>
 inline void MakeStringInternal(std::ostringstream& ss, const T& t) noexcept {

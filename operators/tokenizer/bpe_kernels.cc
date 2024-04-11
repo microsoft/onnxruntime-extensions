@@ -6,6 +6,7 @@
 #include "ortx_common.h"
 
 #include <optional>
+#include <limits>
 
 using namespace ort_extensions;
 
@@ -428,7 +429,7 @@ OrtStatusPtr KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
     tokenize_results.emplace_back(
         (this->*tok_fun)(
             ustr,
-            padding_length_ < 0 ? std::numeric_limits<uint32_t>::max() : padding_length_,
+            padding_length_ < 0 ? (std::numeric_limits<uint32_t>::max)() : padding_length_,
             compute_offset_mapping,
             offset_map));
   }
@@ -436,7 +437,7 @@ OrtStatusPtr KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
   size_t max_length = 0;
   if (padding_length_ == -1) {
     for (auto& res : tokenize_results) {
-      max_length = std::max(max_length, res.size());
+      max_length = (std::max)(max_length, res.size());
     }
   } else {
     max_length = static_cast<size_t>(padding_length_);

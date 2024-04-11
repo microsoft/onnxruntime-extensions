@@ -7,7 +7,8 @@ namespace Ort {
 namespace Custom {
 
 // this is for the ORT custom op template magic
-class Arg {
+struct Arg {
+  virtual ~Arg() = default;
 };
 
 class KernelContext : public Arg{
