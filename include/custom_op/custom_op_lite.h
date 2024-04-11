@@ -11,37 +11,6 @@
 namespace Ort {
 namespace Custom {
 
-class OrtKernelArg {
-public:
-  OrtKernelArg(const OrtW::CustomOpApi& api,
-               OrtKernelContext& ctx,
-               size_t indice,
-               bool is_input) : api_(api), ctx_(ctx), indice_(indice) {
-    if (is_input) {
-      const OrtValue* const_value = api.KernelContext_GetInput(&ctx, indice);
-      const OrtMemoryInfo* mem_info = {};
-      api.ThrowOnError(api.GetOrtApi().GetTensorMemoryInfo(const_value, &mem_info));
-      if (mem_info) {
-        const char* mem_type = nullptr;
-        api.ThrowOnError(api.GetOrtApi().MemoryInfoGetName(mem_info, &mem_type));
-        if (mem_type) {
-          mem_type_ = mem_type;
-        }
-      }
-    }
-  }
-
-  bool IsCpuTensor() const {
-    return mem_type_ == "Cpu";
-  }
-
-protected:
-  const OrtW::CustomOpApi& api_;
-  OrtKernelContext& ctx_;
-  size_t indice_;
-  std::string mem_type_ = "Cpu";
-};
-
 class OrtKernelContextStorage : public ITensorStorage {
 public:
   OrtKernelContextStorage(const OrtW::CustomOpApi& api,
@@ -89,15 +58,42 @@ private:
   std::optional<std::vector<int64_t>> shape_;
 };
 
+static std::string get_mem_type(const OrtW::CustomOpApi& api,
+                          OrtKernelContext& ctx,
+                          size_t indice,
+                          bool is_input){
+  std::string output = "Cpu";
+  if (is_input) {
+    const OrtValue* const_value = api.KernelContext_GetInput(&ctx, indice);
+    const OrtMemoryInfo* mem_info = {};
+    api.ThrowOnError(api.GetOrtApi().GetTensorMemoryInfo(const_value, &mem_info));
+    if (mem_info) {
+      const char* mem_type = nullptr;
+      api.ThrowOnError(api.GetOrtApi().MemoryInfoGetName(mem_info, &mem_type));
+      if (mem_type) {
+        output = mem_type;
+      }
+    }
+  }
+  return output;
+}
+
 template <typename T>
-class OrtTensor : public OrtKernelArg, public Tensor<T> {
+class OrtTensor : public Tensor<T> {
 public:
   OrtTensor(const OrtW::CustomOpApi& api,
            OrtKernelContext& ctx,
            size_t indice,
-           bool is_input) : OrtKernelArg(api, ctx, indice, is_input), 
-                            Tensor<T>(std::make_unique<OrtKernelContextStorage>(api, ctx, indice, is_input)){
+           bool is_input) : Tensor<T>(std::make_unique<OrtKernelContextStorage>(api, ctx, indice, is_input)),
+                            mem_type_(get_mem_type(api, ctx, indice, is_input)) {
   }
+
+  bool IsCpuTensor() const {
+    return mem_type_ == "Cpu";
+  }
+
+private:
+  std::string mem_type_ = "Cpu";
 };
 
 class OrtStringTensorStorage : public IStringTensorStorage<std::string>{
@@ -268,36 +264,48 @@ private:
 
 // to make the metaprogramming magic happy.
 template <>
-class OrtTensor<std::string> : public OrtKernelArg, 
-                               public Tensor<std::string>{
+class OrtTensor<std::string> : public Tensor<std::string>{
 public:
   OrtTensor(const OrtW::CustomOpApi& api,
          OrtKernelContext& ctx,
          size_t indice,
-         bool is_input) : OrtKernelArg(api, ctx, indice, is_input),
-                          Tensor<std::string>(std::make_unique<OrtStringTensorStorage>(api, ctx, indice, is_input)) {}
+         bool is_input) : Tensor<std::string>(std::make_unique<OrtStringTensorStorage>(api, ctx, indice, is_input)),
+                          mem_type_(get_mem_type(api, ctx, indice, is_input)) {}
+  
+  bool IsCpuTensor() const {
+    return mem_type_ == "Cpu";
+  }
+
+private:
+  std::string mem_type_ = "Cpu";
 };
 
 template <>
-class OrtTensor<std::string_view> : public OrtKernelArg, 
-                                    public Tensor<std::string_view>{
+class OrtTensor<std::string_view> : public Tensor<std::string_view>{
 public:
   OrtTensor(const OrtW::CustomOpApi& api,
          OrtKernelContext& ctx,
          size_t indice,
-         bool is_input) : OrtKernelArg(api, ctx, indice, is_input),
-                          Tensor<std::string_view>(std::make_unique<OrtStringViewTensorStorage>(api, ctx, indice, is_input)) {}
+         bool is_input) : Tensor<std::string_view>(std::make_unique<OrtStringViewTensorStorage>(api, ctx, indice, is_input)),
+                          mem_type_(get_mem_type(api, ctx, indice, is_input)) {}
+
+  bool IsCpuTensor() const {
+    return mem_type_ == "Cpu";
+  }
+
+private:
+  std::string mem_type_ = "Cpu";
 };
 
 using TensorPtr = std::unique_ptr<Custom::Arg>;
 using TensorPtrs = std::vector<TensorPtr>;
 
 // Represent variadic input or output
-struct Variadic : public OrtKernelArg, public Arg {
+struct Variadic : public Arg {
   Variadic(const OrtW::CustomOpApi& api,
            OrtKernelContext& ctx,
            size_t indice,
-           bool is_input) : OrtKernelArg(api, ctx, indice, is_input) {
+           bool is_input) : api_(api), ctx_(ctx), indice_(indice), mem_type_(get_mem_type(api, ctx, indice, is_input)) {
 #if ORT_API_VERSION < 14
     ORTX_CXX_API_THROW("Variadic input or output only supported after onnxruntime 1.14", ORT_RUNTIME_EXCEPTION);
 #endif
@@ -384,7 +392,15 @@ struct Variadic : public OrtKernelArg, public Arg {
     return tensors_.at(indice);
   }
 
+  bool IsCpuTensor() const {
+    return mem_type_ == "Cpu";
+  }
+
  private:
+  const OrtW::CustomOpApi& api_;
+  OrtKernelContext& ctx_;
+  size_t indice_;
+  std::string mem_type_ = "Cpu";
   TensorPtrs tensors_;
 };
 
@@ -566,7 +582,7 @@ struct OrtLiteCustomOp : public OrtCustomOp {
     auto next = CreateTuple<ith_input, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);
     return std::tuple_cat(current, next);
   }
-#endif
+
 
   template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
   static typename std::enable_if<std::is_same<T, KernelContext&>::value, std::tuple<T, Ts...>>::type
@@ -576,6 +592,7 @@ struct OrtLiteCustomOp : public OrtCustomOp {
     auto next = CreateTuple<ith_input, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);
     return std::tuple_cat(current, next);
   }
+#endif
 
   // template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
   // static typename std::enable_if<std::is_same<T, CUDAKernelContext&>::value, std::tuple<T, Ts...>>::type
