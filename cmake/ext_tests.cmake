@@ -126,6 +126,7 @@ file(GLOB static_TEST_SRC "${TEST_SRC_DIR}/static_test/*.cc")
 add_test_target(TARGET ocos_test
                 TEST_SOURCES ${static_TEST_SRC}
                 LIBRARIES ortcustomops ${ocos_libraries})
+target_compile_definitions(ocos_test PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 
 # -- shared test (needs onnxruntime) --
 SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
