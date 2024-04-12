@@ -134,8 +134,49 @@ private:
   IAllocator* allocator_;
 };
 
+template <typename TT>
+ONNXTensorElementDataType GetOrtDType(){
+  if constexpr (std::is_same<TT, bool>::value)
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL;
+  else if constexpr (std::is_same<TT, float>::value)
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
+  else if constexpr (std::is_same<TT, double>::value)
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE;
+  else if constexpr (std::is_same<TT, uint8_t>::value)
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
+  else if constexpr (std::is_same<TT, int8_t>::value)
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8;
+  else if constexpr (std::is_same<TT, uint16_t>::value)
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16;
+  else if constexpr (std::is_same<TT, int16_t>::value)
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16;
+  else if constexpr (std::is_same<TT, uint32_t>::value)
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32;
+  else if constexpr (std::is_same<TT, int32_t>::value)
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32;
+  else if constexpr (std::is_same<TT, uint64_t>::value)
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64;
+  else if constexpr (std::is_same<TT, int64_t>::value)
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+  else if constexpr (std::is_same<TT, std::string>::value)
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
+  ORTX_CXX_API_THROW("Unexpected type", ORT_RUNTIME_EXCEPTION);
+  return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
+}
+
+class TensorBase : public Arg {
+public:
+  virtual ~TensorBase() {}
+
+  virtual ONNXTensorElementDataType Type() const = 0; 
+  virtual const std::vector<int64_t>& Shape() const = 0;
+  virtual int64_t NumberOfElement() const = 0;
+  virtual const void* DataRaw() const = 0;
+  virtual size_t SizeInBytes() const = 0;
+};
+
 template <typename T>
-class Tensor : public Arg {
+class Tensor : public TensorBase {
  public:
   using TT = typename std::remove_reference<T>::type;
   Tensor(std::unique_ptr<ITensorStorage> tensor_storage) : storage_(std::move(tensor_storage)){
@@ -151,11 +192,15 @@ class Tensor : public Arg {
     return storage_->IsInitialized();
   }
 
-  const std::vector<int64_t>& Shape() const {
+  ONNXTensorElementDataType Type() const override {
+    return GetOrtDType<T>();
+  }
+
+  const std::vector<int64_t>& Shape() const override {
     return storage_->Shape();
   }
 
-  int64_t NumberOfElement() const {
+  int64_t NumberOfElement() const override {
     auto& shape = storage_->Shape();
     return std::accumulate(shape.begin(), shape.end(), 1LL, std::multiplies<int64_t>());
   }
@@ -183,11 +228,11 @@ class Tensor : public Arg {
       return static_cast<const TT*>(storage_->DataRaw());
   }
 
-  const void* DataRaw() const {
+  const void* DataRaw() const override {
     return storage_->DataRaw();
   }
 
-  size_t SizeInBytes() const {
+  size_t SizeInBytes() const override {
     return NumberOfElement() * sizeof(TT);
   }
 
@@ -309,7 +354,7 @@ private:
 };
 
 template <>
-class Tensor<std::string> : public Arg {
+class Tensor<std::string> : public TensorBase {
  public:
   using strings = std::vector<std::string>;
 
@@ -319,15 +364,19 @@ class Tensor<std::string> : public Arg {
 
   Tensor() : storage_(std::make_unique<EagerStringTensorStorage<std::string>>()) {}
 
+  ONNXTensorElementDataType Type() const override {
+    return GetOrtDType<std::string>();
+  }
+
   const strings& Data() const {
     return storage_->Data();
   }
 
-  const std::vector<int64_t>& Shape() const {
+  const std::vector<int64_t>& Shape() const override {
     return storage_->Shape();
   }
 
-  int64_t NumberOfElement() const {
+  int64_t NumberOfElement() const override {
     auto& shape = storage_->Shape();
     return std::accumulate(shape.begin(), shape.end(), 1LL, std::multiplies<int64_t>());
   }
@@ -346,11 +395,11 @@ class Tensor<std::string> : public Arg {
     }
   }
 
-  const void* DataRaw() const {
+  const void* DataRaw() const override {
     return storage_->DataRaw();
   }
 
-  size_t SizeInBytes() const {
+  size_t SizeInBytes() const override {
     auto& ss = storage_->Data();
     if (ss.size() != 1) {
       ORTX_CXX_API_THROW("SizeInBytes() only applies to string scalar", ORT_RUNTIME_EXCEPTION);
@@ -381,7 +430,7 @@ class Tensor<std::string> : public Arg {
 
 
 template <>
-class Tensor<std::string_view> : public Arg {
+class Tensor<std::string_view> : public TensorBase {
  public:
   using strings = std::vector<std::string_view>;
 
@@ -389,15 +438,19 @@ class Tensor<std::string_view> : public Arg {
 
   Tensor(const strings& ss) : storage_(std::make_unique<EagerStringTensorStorage<std::string_view>>(ss)) {}
 
+  ONNXTensorElementDataType Type() const override {
+    return GetOrtDType<std::string_view>();
+  }
+
   const strings& Data() const {
     return storage_->Data();
   }
 
-  const std::vector<int64_t>& Shape() const {
+  const std::vector<int64_t>& Shape() const override {
     return storage_->Shape();
   }
 
-  int64_t NumberOfElement() const {
+  int64_t NumberOfElement() const override {
     auto& shape = storage_->Shape();
     return std::accumulate(shape.begin(), shape.end(), 1LL, std::multiplies<int64_t>());
   }
@@ -416,11 +469,11 @@ class Tensor<std::string_view> : public Arg {
     }
   }
 
-  const void* DataRaw() const {
+  const void* DataRaw() const override {
     return storage_->DataRaw();
   }
 
-  size_t SizeInBytes() const {
+  size_t SizeInBytes() const override {
     auto& ss = storage_->Data();
     if (ss.size() != 1) {
       ORTX_CXX_API_THROW("SizeInBytes() only applies to string scalar", ORT_RUNTIME_EXCEPTION);

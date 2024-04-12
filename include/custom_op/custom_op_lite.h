@@ -303,6 +303,10 @@ private:
 using TensorPtr = std::unique_ptr<Custom::Arg>;
 using TensorPtrs = std::vector<TensorPtr>;
 
+
+using TensorBasePtr = std::unique_ptr<Custom::TensorBase>;
+using TensorBasePtrs = std::vector<TensorBasePtr>;
+
 // Represent variadic input or output
 struct Variadic : public Arg {
   Variadic(const OrtW::CustomOpApi& api,
@@ -319,7 +323,7 @@ struct Variadic : public Arg {
         auto* info = api_.GetTensorTypeAndShape(const_value);
         auto type = api_.GetTensorElementType(info);
         api_.ReleaseTensorTypeAndShapeInfo(info);
-        TensorPtr tensor;
+        TensorBasePtr tensor;
         switch (type) {
           case ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL:
             tensor = std::make_unique<Custom::OrtTensor<bool>>(api, ctx, ith_input, true);
@@ -380,23 +384,12 @@ struct Variadic : public Arg {
     tensors_.emplace_back(tensor.release());
     return output;
   }
-  const void* DataRaw() const {
-    ORTX_CXX_API_THROW("DataRaw() cannot be applied to Variadic", ORT_RUNTIME_EXCEPTION);
-    return nullptr;
-  }
-  size_t SizeInBytes() const {
-    ORTX_CXX_API_THROW("SizeInBytes() cannot be applied to Variadic", ORT_RUNTIME_EXCEPTION);
-    return 0;
-  }
   size_t Size() const {
     return tensors_.size();
   }
-  const TensorPtr& operator[](size_t indice) const {
+  
+  const TensorBasePtr& operator[](size_t indice) const {
     return tensors_.at(indice);
-  }
-
-  bool IsCpuTensor() const {
-    return mem_type_ == "Cpu";
   }
 
  private:
@@ -404,7 +397,7 @@ struct Variadic : public Arg {
   OrtKernelContext& ctx_;
   size_t indice_;
   std::string mem_type_ = "Cpu";
-  TensorPtrs tensors_;
+  TensorBasePtrs tensors_;
 };
 
 class OrtGraphKernelContext : public KernelContext {
