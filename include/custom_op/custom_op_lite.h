@@ -5,8 +5,11 @@
 
 #include <optional>
 #include <numeric>
+#include <string>
+#include <string_view>
 #include "tensor_api.h"
 #include "onnxruntime_cpp_api_legacy.h"
+#include "onnxruntime_f16.h"
 
 namespace Ort {
 namespace Custom {
@@ -639,15 +642,15 @@ struct OrtLiteCustomOp : public OrtCustomOp {
 #define data_type_def bool
 #include "tensor_tuple.inc"
 
-// #if ORT_API_VERSION >= 16
-// #undef data_type_def
-// #define data_type_def MFloat16;
-// #include "tensor_tuple.inc"
+#if ORT_API_VERSION >= 16
+#undef data_type_def
+#define data_type_def BFloat16
+#include "tensor_tuple.inc"
 
-// #undef data_type_def
-// #define data_type_def MFloat16
-// #include "tensor_tuple.inc"
-// #endif
+#undef data_type_def
+#define data_type_def MFloat16
+#include "tensor_tuple.inc"
+#endif
 
 #undef data_type_def
 #define data_type_def float
