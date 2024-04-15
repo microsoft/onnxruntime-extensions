@@ -403,6 +403,8 @@ struct Variadic : public Arg {
   TensorBasePtrs tensors_;
 };
 
+#if ORT_API_VERSION >= 14
+
 class OrtGraphKernelContext : public KernelContext {
  public:
   OrtGraphKernelContext(const OrtApi& api, const OrtKernelContext& ctx) : api_(api) {
@@ -432,6 +434,8 @@ class OrtGraphKernelContext : public KernelContext {
   const OrtApi& api_;
   OrtAllocator* allocator_;
 };
+
+#endif
 
 #ifdef USE_CUDA
 
@@ -468,6 +472,7 @@ struct CudaContext {
   int device_id = 0;
 };
 
+#if ORT_API_VERSION >= 17
 class OrtGraphCudaKernelContext : public CUDAKernelContext {
  public:
   static const int cuda_resource_ver = 1;
@@ -549,6 +554,7 @@ class OrtGraphCudaKernelContext : public CUDAKernelContext {
   int device_id_ = 0;
 };
 
+#endif
 #endif
 
 // using mf16_t = uint16_t;
