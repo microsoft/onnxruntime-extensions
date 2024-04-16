@@ -73,19 +73,6 @@ public:
   virtual void Free(void* p) = 0;
 };
 
-// TODO: remove this
-class TestAllocator : public IAllocator {
-public:
-  void* Alloc(size_t size) override {
-    return malloc(size);
-  }
-
-  void Free(void* p) override {
-    if (p){
-      free(p);
-    }
-  }
-};
 
 class OrtEagerTensorStorage : public ITensorStorage {
 public:

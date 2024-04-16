@@ -8,7 +8,7 @@
 #include <string>
 #include <string_view>
 #include "tensor_api.h"
-#include "onnxruntime_cpp_api_legacy.h"
+#include "ort_c_to_cpp.h"
 #include "onnxruntime_f16.h"
 
 namespace Ort {

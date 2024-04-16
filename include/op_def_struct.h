@@ -18,8 +18,6 @@
 #include <functional>
 
 #include "exceptions.h"
-#include "onnxruntime_cpp_api_legacy.h"
-#include "onnxruntime_cpp_api.h"
 #include "onnxruntime_extensions.h"
 #include "custom_op/custom_op_lite.h"
 
