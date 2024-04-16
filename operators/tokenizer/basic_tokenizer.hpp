@@ -21,8 +21,20 @@ class BasicTokenizer {
   bool remove_control_chars_;
 };
 
-struct KernelBasicTokenizer : BaseKernel {
-  KernelBasicTokenizer(const OrtApi& api, const OrtKernelInfo& info);
+struct KernelBasicTokenizer {
+
+  template<typename T>
+  KernelBasicTokenizer(const T& dict) {
+    bool do_lower_case = dict.TryToGetAttributeWithDefault("do_lower_case", true);
+    bool tokenize_chinese_chars = dict.TryToGetAttributeWithDefault("tokenize_chinese_chars", true);
+    bool strip_accents = dict.TryToGetAttributeWithDefault("strip_accents", false);
+    bool tokenize_punctuation = dict.TryToGetAttributeWithDefault("tokenize_punctuation", false);
+    bool remove_control_chars = dict.TryToGetAttributeWithDefault("remove_control_chars", true);
+
+    tokenizer_ = std::make_shared<BasicTokenizer>(do_lower_case, tokenize_chinese_chars, strip_accents,
+                                                  tokenize_punctuation, remove_control_chars);
+  }
+
   void Compute(std::string_view input,
                ortc::Tensor<std::string>& output) const;
 

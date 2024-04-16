@@ -797,7 +797,7 @@ if(_BUILD_SHARED_LIBRARY)
   standardize_output_folder(extensions_shared)
 
   if(LINUX OR ANDROID)
-    set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
+    # set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
     # strip if not a debug build
     if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
       set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-s")

@@ -6,6 +6,21 @@
 #include "ocos.h"
 #include "test_kernel.hpp"
 
+#include "operators/math/negpos.hpp"
+
+TEST(math_operator, eager_poc){
+  auto test_allocator = std::make_unique<ortc::TestAllocator>();
+  std::vector<float> input_data = {0.0f, 0.2f, -1.3f, 1.5f};
+
+  ortc::Tensor<float> input(std::vector<int64_t>{2, 2}, input_data.data());
+
+  ortc::Tensor<float> output1(test_allocator.get());
+  ortc::Tensor<float> output2(test_allocator.get());
+
+  auto result = neg_pos(input, output1, output2);
+  assert(!result);
+  assert(output1.Shape() == input.Shape() && output2.Shape() == input.Shape());
+}
 
 TEST(math_operator, segment_extraction) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
