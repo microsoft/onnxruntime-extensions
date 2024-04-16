@@ -49,6 +49,7 @@ class OrtKernelContextStorage : public ITensorStorage {
   void* Initialize(const std::vector<int64_t>& shape, size_t element_size) override {
     if (!const_value_) {
       const_value_ = api_.KernelContext_GetOutput(&ctx_, indice_, shape.data(), shape.size());
+      shape_ = shape;
     }
     return api_.GetTensorMutableRawData(const_cast<OrtValue*>(const_value_));
   }
