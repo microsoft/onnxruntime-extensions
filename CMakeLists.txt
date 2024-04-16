@@ -565,12 +565,14 @@ standardize_output_folder(ocos_operators)
 target_include_directories(noexcep_operators PUBLIC
   ${ONNXRUNTIME_INCLUDE_DIR}
   ${PROJECT_SOURCE_DIR}/include
+  ${PROJECT_SOURCE_DIR}/include/custom_op
   ${PROJECT_SOURCE_DIR}/base
   ${PROJECT_SOURCE_DIR}/operators)
 
 target_include_directories(ocos_operators PUBLIC
   ${ONNXRUNTIME_INCLUDE_DIR}
   ${PROJECT_SOURCE_DIR}/include
+  ${PROJECT_SOURCE_DIR}/include/custom_op
   ${PROJECT_SOURCE_DIR}/base
   ${PROJECT_SOURCE_DIR}/operators)
 

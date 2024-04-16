@@ -4,7 +4,7 @@
 #pragma once
 #include "onnxruntime_f16.h"
 #include "string_utils.h"
-#include "onnxruntime_no_customop.h"
+#include "onnxruntime_cpp_api.h"
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
 #include <stdexcept>
