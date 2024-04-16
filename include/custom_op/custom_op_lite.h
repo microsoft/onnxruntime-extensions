@@ -404,7 +404,7 @@ struct Variadic : public Arg {
   TensorBasePtrs tensors_;
 };
 
-#if ORT_API_VERSION >= 14
+#if ORT_API_VERSION >= 17
 
 class OrtGraphKernelContext : public KernelContext {
  public:
