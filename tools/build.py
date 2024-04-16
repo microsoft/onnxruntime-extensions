@@ -204,7 +204,7 @@ def _parse_arguments():
         "--build_apple_framework", action="store_true", help="Build a macOS/iOS framework for ONNX Runtime Extensions."
     )
     parser.add_argument("--ios", action="store_true", help="build for iOS")
-    parser.add_argument("--macos", choices=["MacOSX", "Catalyst"])
+    parser.add_argument("--macos", choices=["MacOSX", "Catalyst"], help="build for MacOS (OSX/Catalyst)")
     parser.add_argument(
         "--apple_sysroot",
         default="",
