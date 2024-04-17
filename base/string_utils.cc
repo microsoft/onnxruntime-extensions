@@ -190,5 +190,4 @@ uint64_t Hash64Fast(const char* data, size_t n) {
   return static_cast<int64_t>(util::Fingerprint64(data, n));
 }
 
-
 #endif  // ENABLE_TF_STRING

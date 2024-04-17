@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "onnxruntime_customop.hpp"
+#include "op_def_struct.h"
 
 // A helper API to support test kernels.
 // Must be invoked before RegisterCustomOps.

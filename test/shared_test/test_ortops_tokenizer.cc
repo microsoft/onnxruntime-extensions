@@ -7,6 +7,7 @@
 #include "ocos.h"
 #include "test_kernel.hpp"
 
+
 TEST(tokenizer_opertors, test_bert_tokenizer) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
 

@@ -2,6 +2,9 @@
 // Licensed under the MIT License.
 
 #include "gtest/gtest.h"
+
+#ifdef ENABLE_DLIB
+
 #include <dlib/matrix.h>
 
 using namespace dlib;
@@ -20,3 +23,5 @@ TEST(math, matrix_op) {
   matrix<float> x = inv(M)*y;
   EXPECT_FLOAT_EQ(x(1, 0), -13.909741);
 }
+
+#endif  // ENABLE_DLIB

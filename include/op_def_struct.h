@@ -18,10 +18,8 @@
 #include <functional>
 
 #include "exceptions.h"
-#include "onnxruntime_no_customop.h"
-#include "onnxruntime_cpp_api_legacy.hpp"
 #include "onnxruntime_extensions.h"
-#include "custom_op_lite.h"
+#include "custom_op/custom_op_lite.h"
 
 #define MIN_ORT_VERSION_SUPPORTED 11
 

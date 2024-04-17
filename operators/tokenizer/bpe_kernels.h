@@ -8,6 +8,7 @@
 
 #include <string>
 #include <vector>
+#include <list>
 
 struct BpeModelConf {
   const char* name_{"GPT2"};      // this name may be overridden by the tokenizer's attribute.

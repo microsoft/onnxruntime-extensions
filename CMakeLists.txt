@@ -67,6 +67,7 @@ option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" OFF
 
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
+option(OCOS_ENABLE_C_API "Enable building the C API" OFF)
 
 option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
 option(OCOS_BUILD_JAVA "Enable building the Java package" OFF)
@@ -81,7 +82,8 @@ set(OCOS_ONNXRUNTIME_VERSION "" CACHE STRING
   "The version of ONNX Runtime being used in the build. Format is <major>.<minor>.<patch>. e.g. 1.15.1")
 set(OCOS_ONNXRUNTIME_PKG_URI "" CACHE STRING
   "Specify the onnxruntime C++ shared library zip package path, like ./onnxruntime-win-x64-1.16.0.zip")
-
+set(OCOS_BUILD_PRESET "" CACHE STRING
+  "Specify the build preset cmake settings file path, like 'token_api_only' which includes ./cmake/presets/token_api_only.cmake")
 # TODO: Remove the following statements if AzureOp build is enabled by default.
 # If build_buildid environment varaible is set, which means this is a CI build, then always enable AzureOp.
 # or it is enabled when OCOS_ENABLE_AZURE is set, which means the user explicitly enables it.
@@ -188,15 +190,26 @@ if(NOT PROJECT_IS_TOP_LEVEL AND ONNXRUNTIME_ROOT)
   set(_ONNXRUNTIME_EMBEDDED TRUE)
 endif()
 
-if(OCOS_ENABLE_SELECTED_OPLIST)
-  # Need to ensure _selectedoplist.cmake file is already generated in folder: ${PROJECT_SOURCE_DIR}/cmake/
-  # You could run gen_selectedops.py in folder: tools/ to generate _selectedoplist.cmake
-  message(STATUS "Looking for the _selectedoplist.cmake")
+
+if (OCOS_ENABLE_SELECTED_OPLIST OR OCOS_BUILD_PRESET)
   disable_all_operators()
-  include(_selectedoplist)
-  # Include the selected_ops case, no way to run the unit tests, so disable it,
-  # even the user explicitly set it to ON. (it is rare, most of the time, it is set by default)
-  set(OCOS_ENABLE_CTEST OFF CACHE BOOL "" FORCE)
+  if(OCOS_ENABLE_SELECTED_OPLIST)
+    # Need to ensure _selectedoplist.cmake file is already generated in folder: ${PROJECT_SOURCE_DIR}/cmake/
+    # You could run gen_selectedops.py in folder: tools/ to generate _selectedoplist.cmake
+    message(STATUS "Looking for the _selectedoplist.cmake")
+    include(_selectedoplist)
+    # Include the selected_ops case, no way to run the unit tests, so disable it,
+    # even the user explicitly set it to ON. (it is rare, most of the time, it is set by default)
+    set(OCOS_ENABLE_CTEST OFF CACHE BOOL "" FORCE)
+  endif()
+  if (OCOS_BUILD_PRESET)
+    set(_BUILD_PRESET "${PROJECT_SOURCE_DIR}/cmake/presets/${OCOS_BUILD_PRESET}.cmake")
+    if (EXISTS ${_BUILD_PRESET})
+      include(${_BUILD_PRESET})
+    else()
+      message(FATAL_ERROR "The specified build preset file does not exist: ${_BUILD_PRESET}")
+    endif()
+  endif()
 endif()
 
 set(_OCOS_EXCEPTIONS_REQUIRED OFF)
@@ -300,7 +313,7 @@ endif()
 
 # ### scan all source files
 file(GLOB TARGET_SRC_NOEXCEPTION "base/*.h" "base/*.cc")
-file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h" "includes/*.h*")
+file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h" "include/*.h" "include/*.hpp")
 
 if(OCOS_ENABLE_TF_STRING)
   set(farmhash_SOURCE_DIR ${PROJECT_SOURCE_DIR}/cmake/externals/farmhash)
@@ -551,13 +564,15 @@ standardize_output_folder(ocos_operators)
 
 target_include_directories(noexcep_operators PUBLIC
   ${ONNXRUNTIME_INCLUDE_DIR}
-  ${PROJECT_SOURCE_DIR}/includes
+  ${PROJECT_SOURCE_DIR}/include
+  ${PROJECT_SOURCE_DIR}/include/custom_op
   ${PROJECT_SOURCE_DIR}/base
   ${PROJECT_SOURCE_DIR}/operators)
 
 target_include_directories(ocos_operators PUBLIC
   ${ONNXRUNTIME_INCLUDE_DIR}
-  ${PROJECT_SOURCE_DIR}/includes
+  ${PROJECT_SOURCE_DIR}/include
+  ${PROJECT_SOURCE_DIR}/include/custom_op
   ${PROJECT_SOURCE_DIR}/base
   ${PROJECT_SOURCE_DIR}/operators)
 

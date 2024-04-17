@@ -47,16 +47,12 @@ function(add_test_target)
     # add a test executable
 
     add_executable(${ARG_TARGET})
-
     standardize_output_folder(${ARG_TARGET})
-
     add_test(NAME ${ARG_TARGET}
              COMMAND ${ARG_TARGET})
-
     target_sources(${ARG_TARGET} PRIVATE
                    ${ARG_TEST_SOURCES}
                    "${TEST_SRC_DIR}/unittest_main/test_main.cc")
-
     target_link_libraries(${ARG_TARGET} PRIVATE
                           ${ARG_LIBRARIES}
                           gtest gmock)
@@ -132,6 +128,7 @@ file(GLOB static_TEST_SRC "${TEST_SRC_DIR}/static_test/*.cc")
 add_test_target(TARGET ocos_test
                 TEST_SOURCES ${static_TEST_SRC}
                 LIBRARIES ortcustomops ${ocos_libraries})
+target_compile_definitions(ocos_test PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 
 # -- shared test (needs onnxruntime) --
 SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
@@ -200,6 +197,20 @@ else()
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${ONNXRUNTIME} ${CMAKE_BINARY_DIR}/lib
       )
     endif()
+  endblock()
+
+  block()
+  file(GLOB tokenizer_TEST_SRC
+    "${TEST_SRC_DIR}/tokenizer_test/*.cc"
+    "${TEST_SRC_DIR}/tokenizer_test/*.hpp")
+
+  add_test_target(TARGET tokenizer_api_test
+    TEST_SOURCES ${tokenizer_TEST_SRC}
+    LIBRARIES onnxruntime_extensions ${ocos_libraries}
+    TEST_DATA_DIRECTORIES ${TEST_SRC_DIR}/data)
+
+  target_compile_definitions(tokenizer_api_test PRIVATE ${OCOS_COMPILE_DEFINITIONS})
+
   endblock()
 endif()
 

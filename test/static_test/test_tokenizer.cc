@@ -7,29 +7,29 @@
 #include "bert_tokenizer.hpp"
 
 #include <clocale>
+#include "tokenizer/basic_tokenizer.hpp"
 
-
-class LocaleBaseTest : public testing::Test{
-  public:
-    // Remember that SetUp() is run immediately before a test starts.
-    void SetUp() override {
+class LocaleBaseTest : public testing::Test {
+ public:
+  // Remember that SetUp() is run immediately before a test starts.
+  void SetUp() override {
 #if (defined(WIN32) || defined(_WIN32) || defined(__WIN32__) && !defined(__GNUC__))
-      default_locale_ = std::locale().name();
-      std::setlocale(LC_CTYPE, "C");
+    default_locale_ = std::locale().name();
+    std::setlocale(LC_CTYPE, "C");
 #else
-      default_locale_ = std::locale("").name();
-      std::setlocale(LC_CTYPE, "en_US.UTF-8");
+    default_locale_ = std::locale("").name();
+    std::setlocale(LC_CTYPE, "en_US.UTF-8");
 #endif
+  }
+  // TearDown() is invoked immediately after a test finishes.
+  void TearDown() override {
+    if (!default_locale_.empty()) {
+      std::setlocale(LC_CTYPE, default_locale_.c_str());
     }
-    // TearDown() is invoked immediately after a test finishes.
-    void TearDown() override {
-      if (!default_locale_.empty()) {
-        std::setlocale(LC_CTYPE, default_locale_.c_str());
-      }
-    }
+  }
 
-  private:
-    std::string default_locale_;
+ private:
+  std::string default_locale_;
 };
 
 TEST(tokenizer, bert_word_split) {
@@ -65,7 +65,7 @@ std::unordered_map<std::u32string, int32_t> get_vocabulary_basic() {
   };
   std::unordered_map<std::u32string, int32_t> vocab;
   for (auto it = vocab_tokens.begin(); it != vocab_tokens.end(); ++it) {
-    vocab[*it] = vocab.size();
+    vocab[*it] = static_cast<int32_t>(vocab.size());
   }
   return vocab;
 }
@@ -104,7 +104,7 @@ std::unordered_map<std::u32string, int32_t> get_vocabulary_wordpiece() {
   };
   std::unordered_map<std::u32string, int32_t> vocab;
   for (auto it = vocab_tokens.begin(); it != vocab_tokens.end(); ++it) {
-    vocab[*it] = vocab.size();
+    vocab[*it] = static_cast<int32_t>(vocab.size());
   }
   return vocab;
 }
@@ -156,9 +156,9 @@ TEST(tokenizer, bert_wordpiece_tokenizer_rows) {
 TEST_F(LocaleBaseTest, basic_tokenizer_chinese) {
   ustring test_case = ustring("ÀÁÂÃÄÅÇÈÉÊËÌÍÎÑÒÓÔÕÖÚÜ\t䗓𨖷虴𨀐辘𧄋脟𩑢𡗶镇伢𧎼䪱轚榶𢑌㺽𤨡!#$%&(Tom@microsoft.com)*+,-./:;<=>?@[\\]^_`{|}~");
   std::vector<ustring> expect_result = ustring_vector_convertor({"aaaaaaceeeeiiinooooouu",
-    "䗓", "𨖷", "虴", "𨀐", "辘", "𧄋", "脟", "𩑢", "𡗶", "镇", "伢", "𧎼", "䪱", "轚", "榶", "𢑌", "㺽", "𤨡",
-    "!", "#", "$", "%", "&", "(", "tom", "@", "microsoft", ".", "com", ")", "*", "+", ",", "-", ".", "/", ":",
-    ";", "<", "=", ">", "?", "@", "[", "\\", "]", "^", "_", "`", "{", "|", "}", "~"});
+                                                                 "䗓", "𨖷", "虴", "𨀐", "辘", "𧄋", "脟", "𩑢", "𡗶", "镇", "伢", "𧎼", "䪱", "轚", "榶", "𢑌", "㺽", "𤨡",
+                                                                 "!", "#", "$", "%", "&", "(", "tom", "@", "microsoft", ".", "com", ")", "*", "+", ",", "-", ".", "/", ":",
+                                                                 ";", "<", "=", ">", "?", "@", "[", "\\", "]", "^", "_", "`", "{", "|", "}", "~"});
   BasicTokenizer tokenizer(true, true, true, true, true);
   auto result = tokenizer.Tokenize(test_case);
   EXPECT_EQ(result, expect_result);
@@ -245,5 +245,19 @@ TEST(tokenizer, truncation_longest_first) {
   test_input2 = init_vector1;
   truncate.Truncate(test_input1, test_input2, 12);
   EXPECT_EQ(test_input1, std::vector<int64_t>({1, 2, 3, 4, 5}));
-  EXPECT_EQ(test_input2, std::vector<int64_t>({1, 2, 3, 4, 5,  6 ,7}));
+  EXPECT_EQ(test_input2, std::vector<int64_t>({1, 2, 3, 4, 5, 6, 7}));
+}
+
+TEST(tokenizer, basic_tok_eager) {
+  std::string test_case = "I mean, you’ll need something to talk about next Sunday, right?";
+  std::vector<std::string> expect_result = {"I", "mean", ",", "you", "’", "ll", "need", "something", "to", "talk", "about", "next", "Sunday", ",", "right", "?"};
+
+  ortc::NamedArgumentDict dict({"do_lower_case", "tokenize_chinese_chars", "strip_accents", "tokenize_punctuation", "remove_control_chars"},
+                               std::make_tuple(false, true, true, true, true));
+
+  KernelBasicTokenizer tokenizer(dict);
+
+  ortc::Tensor<std::string> output;
+  tokenizer.Compute(test_case, output);
+  EXPECT_EQ(output.Data(), expect_result);
 }
