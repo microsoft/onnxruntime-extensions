@@ -16,6 +16,7 @@ jobs:
   parameters:
     Platform: 'iphoneos'
     IosArch: 'arm64'
+    IosVersion: '12.0'
     IsReleaseBuild: ${{parameters.IsReleaseBuild}}
     AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
@@ -23,6 +24,7 @@ jobs:
   parameters:
     Platform: 'iphonesimulator'
     IosArch: 'x86_64'
+    IosVersion: '12.0'
     IsReleaseBuild: ${{parameters.IsReleaseBuild}}
     AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
@@ -30,6 +32,23 @@ jobs:
   parameters:
     Platform: 'iphonesimulator'
     IosArch: 'arm64'
+    IosVersion: '12.0'
+    IsReleaseBuild: ${{parameters.IsReleaseBuild}}
+    AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
+  
+- template: ios-framework-build.yml
+  parameters:
+    Platform: 'maccatalyst'
+    IosArch: 'arm64'
+    IosVersion: '14.0'
+    IsReleaseBuild: ${{parameters.IsReleaseBuild}}
+    AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
+
+- template: ios-framework-build.yml
+  parameters:
+    Platform: 'maccatalyst'
+    IosArch: 'x86_64'
+    IosVersion: '14.0'
     IsReleaseBuild: ${{parameters.IsReleaseBuild}}
     AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
 
@@ -40,6 +59,8 @@ jobs:
   - IOS_C_API_Packaging_iphoneos_arm64
   - IOS_C_API_Packaging_iphonesimulator_arm64
   - IOS_C_API_Packaging_iphonesimulator_x86_64
+  - IOS_C_API_Packaging_maccatalyst_x86_64
+  - IOS_C_API_Packaging_maccatalyst_arm64
   pool:
     vmImage: "macOS-13"
 
@@ -82,6 +103,16 @@ jobs:
       artifact: 'onnxruntime-extensions-ios-iphonesimulator-x86_64-lib'
       targetPath: '$(Build.BinariesDirectory)/'
 
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      artifact: 'onnxruntime-extensions-ios-maccatalyst-x86_64-lib'
+      targetPath: '$(Build.BinariesDirectory)/'
+  
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      artifact: 'onnxruntime-extensions-ios-maccatalyst-arm64-lib'
+      targetPath: '$(Build.BinariesDirectory)/'
+      
   - script: |
       set -e -x
       ls
@@ -107,6 +138,8 @@ jobs:
         --platform_arch iphonesimulator x86_64 \
         --platform_arch iphonesimulator arm64 \
         --platform_arch iphoneos arm64 \
+        --platform_arch maccatalyst x86_64 \
+        --platform_arch maccatalyst arm64 \
         --mode pack_xcframework_only
     displayName: "Pack xcframework for distributed building"
 
@@ -114,7 +147,8 @@ jobs:
       python ./tools/ios/assemble_pod_package.py \
         --staging-dir $(Build.BinariesDirectory)/pod_staging \
         --xcframework-output-dir $(Build.BinariesDirectory)/xcframework_out \
-        --pod-version ${ORT_EXTENSIONS_POD_VERSION}
+        --pod-version ${ORT_EXTENSIONS_POD_VERSION} \
+        --mac_catalyst_enabled
     displayName: "Assemble pod"
 
   - script: |

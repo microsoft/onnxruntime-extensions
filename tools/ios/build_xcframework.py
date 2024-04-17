@@ -19,7 +19,14 @@ sys.path.insert(0, str(_repo_dir / "tools"))
 
 from utils import get_logger, run  # noqa
 
-_supported_platform_archs = {
+_all_supported_platform_archs = {
+    "iphoneos": ["arm64"],
+    "iphonesimulator": ["x86_64", "arm64"],
+    "macosx": ["x86_64", "arm64"],
+    "maccatalyst": ["x86_64", "arm64"],
+}
+
+_default_supported_platform_archs = {
     "iphoneos": ["arm64"],
     "iphonesimulator": ["x86_64", "arm64"],
     "macosx": ["x86_64", "arm64"],
@@ -44,7 +51,8 @@ def _rmtree_if_existing(dir: Path):
         shutil.rmtree(dir)
     except FileNotFoundError:
         pass
-    
+
+
 def _merge_framework_info_files(files: list[str], output_file: Path):
     merged_data = {}
 
@@ -58,6 +66,7 @@ def _merge_framework_info_files(files: list[str], output_file: Path):
     with open(output_file, "w") as f:
         json.dump(merged_data, f, indent=2)
 
+
 def build_framework_for_platform_and_arch(
     build_dir: Path,
     platform: str,
@@ -67,26 +76,29 @@ def build_framework_for_platform_and_arch(
     ios_deployment_target: str,
     macos_deployment_target: str,
     other_build_args: list[str],
-):  
-    build_cmd = (
-        [
-            sys.executable,
-            str(_repo_dir / "tools" / "build.py"),
-            f"--build_dir={build_dir}",
-            f"--config={config}",
-            "--update",
-            "--build",
-            "--parallel",
-            "--test",
-            "--build_apple_framework",
-            f"--apple_sysroot={platform}",
-            f"--apple_arch={arch}",
-        ]
-    )
-    
+):
+    if platform == "maccatalyst":
+        apple_sysroot = "macosx"
+    else:
+        apple_sysroot = platform
+
+    build_cmd = [
+        sys.executable,
+        str(_repo_dir / "tools" / "build.py"),
+        f"--build_dir={build_dir}",
+        f"--config={config}",
+        "--update",
+        "--build",
+        "--parallel",
+        "--test",
+        "--build_apple_framework",
+        f"--apple_sysroot={apple_sysroot}",
+        f"--apple_arch={arch}",
+    ]
+
     cmake_defines = []
-    
-    if platform != "macosx":
+
+    if platform != "macosx" and platform != "maccatalyst":  #ios simulator or iphoneos platform
         cmake_defines += [
             # required by OpenCV CMake toolchain file
             # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L64-L66
@@ -102,15 +114,22 @@ def build_framework_for_platform_and_arch(
             cmake_defines.append("OCOS_ENABLE_CTEST=OFF")
 
         build_cmd += [
-                # iOS options
-                "--ios",
-                f"--ios_toolchain_file={_get_opencv_toolchain_file(platform, opencv_dir)}",
-                f"--apple_deploy_target={ios_deployment_target}",
+            # iOS options
+            "--ios",
+            f"--ios_toolchain_file={_get_opencv_toolchain_file(platform, opencv_dir)}",
+            f"--apple_deploy_target={ios_deployment_target}",
+        ]
+    elif platform == "macosx":
+        build_cmd += [
+            # macOS options
+            "--macos=MacOSX",
+            f"--apple_deploy_target={macos_deployment_target}",
         ]
     else:
         build_cmd += [
-                # macOS options
-                f"--apple_deploy_target={macos_deployment_target}",
+            # mac catalyst options
+            "--macos=Catalyst",
+            f"--apple_deploy_target={ios_deployment_target}",
         ]
     build_cmd += [f"--one_cmake_extra_define={cmake_define}" for cmake_define in cmake_defines]
     build_cmd += other_build_args
@@ -297,16 +316,16 @@ def parse_args():
     # convert from [[platform1, arch1], [platform1, arch2], ...] to {platform1: [arch1, arch2, ...], ...}
     def platform_archs_from_args(platform_archs_arg: list[list[str]] | None) -> dict[str, list[str]]:
         if not platform_archs_arg:
-            return _supported_platform_archs.copy()
+            return _default_supported_platform_archs.copy()
 
         platform_archs = {}
         for platform, arch in platform_archs_arg:
             assert (
-                platform in _supported_platform_archs.keys()
-            ), f"Unsupported platform: '{platform}'. Valid values are {list(_supported_platform_archs.keys())}"
-            assert arch in _supported_platform_archs[platform], (
+                platform in _all_supported_platform_archs.keys()
+            ), f"Unsupported platform: '{platform}'. Valid values are {list(_all_supported_platform_archs.keys())}"
+            assert arch in _all_supported_platform_archs[platform], (
                 f"Unsupported arch for platform '{platform}': '{arch}'. "
-                f"Valid values are {_supported_platform_archs[platform]}"
+                f"Valid values are {_all_supported_platform_archs[platform]}"
             )
 
             archs = platform_archs.setdefault(platform, [])

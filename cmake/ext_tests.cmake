@@ -1,3 +1,5 @@
+if (NOT MAC_CATALYST)
+
 if (OCOS_ENABLE_SELECTED_OPLIST)
   # currently the tests don't handle operator exclusion cleanly.
   message(FATAL_ERROR "Due to usage of OCOS_ENABLE_SELECTED_OPLIST excluding operators the tests are unable to be built and run")
@@ -199,4 +201,6 @@ else()
       )
     endif()
   endblock()
+endif()
+
 endif()
