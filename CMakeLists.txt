@@ -857,6 +857,10 @@ endif()
 
 if(OCOS_BUILD_APPLE_FRAMEWORK)
   include(ext_apple_framework)
+  if (MAC_CATALYST)
+    add_compile_options(-Wno-overriding-t-option)
+    add_link_options(-Wno-overriding-t-option)
+  endif()
 endif()
 
 # clean up the requirements.txt files from 3rd party project folder to suppress the code security false alarms

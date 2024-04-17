@@ -60,7 +60,7 @@ def gen_file_from_template(
 
 
 def assemble_pod_package(
-    staging_dir: Path, xcframework_dir: Path, public_headers_dir: Path, xcframework_info_file: Path, pod_version: str
+    staging_dir: Path, xcframework_dir: Path, public_headers_dir: Path, xcframework_info_file: Path, pod_version: str, catalyst_enabled: bool,
 ):
     staging_dir = staging_dir.resolve()
     xcframework_dir = xcframework_dir.resolve(strict=True)
@@ -90,7 +90,7 @@ def assemble_pod_package(
             for key in xcframework_info.keys():
                 if key.startswith("iphone") and ios_deployment_target == "":
                     ios_deployment_target = xcframework_info[key]["apple_deployment_target"]
-                if "MacOSX" in key:
+                if "MacOSX" in key and not catalyst_enabled:
                     # Note: For key value for macos, it is directly using the path name from Xcode's MacOS SDK path.
                     macos_deployment_target = xcframework_info[key]["apple_deployment_target"]
 
@@ -128,6 +128,12 @@ def parse_args():
         "--pod-version",
         required=True,
         help="The pod's version.",
+    )
+
+    parser.add_argument(
+        "--mac_catalyst_enabled",
+        action="store_true",
+        help="mac catalyst variants included in pods. Specify this argument when build targets contains catalyst archs. ",
     )
 
     input_paths_group = parser.add_argument_group(description="Input path arguments.")
@@ -180,6 +186,7 @@ def main():
         public_headers_dir=args.public_headers_dir,
         xcframework_info_file=args.xcframework_info_file,
         pod_version=args.pod_version,
+        catalyst_enabled=args.mac_catalyst_enabled,
     )
 
 
