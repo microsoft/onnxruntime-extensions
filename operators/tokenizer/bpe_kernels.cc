@@ -141,7 +141,7 @@ OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKerne
                                       bpe_conf_.unk_token_,
                                       bpe_conf_.GetSpecialTokens().c_str(),
                                       IsSpmModel(ModelName()));
-  if (status.IsOk()) {
+  if (!status.IsOk()) {
     return status.CreateOrtStatus();
   }
 
