@@ -137,17 +137,20 @@ OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKerne
   std::stringstream merges_stream(merges);
   bbpe_tokenizer_ = std::make_unique<BpeModel>();
   auto status = bbpe_tokenizer_->Load(vocabu_stream,
-      merges_stream,
-      bpe_conf_.unk_token_,
-      bpe_conf_.GetSpecialTokens().c_str(),
-      IsSpmModel(ModelName()));
-  if (status != nullptr) {
-    return status;
+                                      merges_stream,
+                                      bpe_conf_.unk_token_,
+                                      bpe_conf_.GetSpecialTokens().c_str(),
+                                      IsSpmModel(ModelName()));
+  if (status.IsOk()) {
+    return status.CreateOrtStatus();
   }
 
   std::string added_token;
   ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "added_token", added_token));
-  ORTX_RETURN_IF_ERROR(bbpe_tokenizer_->LoadAddedTokens(added_token.c_str()));
+  status = bbpe_tokenizer_->LoadAddedTokens(added_token.c_str());
+  if (!status.IsOk()) {
+    return status.CreateOrtStatus();
+  }
 
   // TODO: need to check if the special token ids are the same as the ones in HFTokenizer
   unk_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.unk_token_);
@@ -161,7 +164,7 @@ OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKerne
     pad_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.pad_token_);
   }
 
-  return nullptr;
+  return {};
 }
 
 std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
@@ -402,10 +405,10 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input,
   return res;
 }
 
-OrtStatusPtr KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
-                                         ortc::Tensor<int64_t>& tokenize_output,
-                                         std::optional<ortc::Tensor<int64_t>*> attention_mask,
-                                         std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
+OrtxStatus KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
+                                       ortc::Tensor<int64_t>& tokenize_output,
+                                       std::optional<ortc::Tensor<int64_t>*> attention_mask,
+                                       std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
   // Setup inputs
   std::vector<std::string> str_input{input.Data()};
   std::list<OffsetMappingType> offset_map;
@@ -490,7 +493,7 @@ OrtStatusPtr KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
     }
   }
 
-  return nullptr;
+  return {};
 }
 
 static const auto kGPT2Configuration = BpeModelConf();

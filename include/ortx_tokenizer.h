@@ -5,35 +5,7 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <stddef.h>
-
-#if defined(__CYGWIN__) || defined(__MINGW32__)
-#define ORTX_API_CALL __stdcall
-#elif defined(_WIN32)
-#define ORTX_API_CALL _stdcall
-#define ORTX_MUST_USE_RESULT
-#elif __APPLE__
-#define ORTX_API_CALL
-// To make symbols visible on macOS/iOS
-#define ORTX_MUST_USE_RESULT __attribute__((warn_unused_result))
-#else
-#define ORTX_API_CALL
-#define ORTX_MUST_USE_RESULT
-#endif
-
-typedef enum {
-  kOrtxOK = 0,
-  kOrtxErrorInvalidArgument = 1,
-  kOrtxErrorOutOfMemory = 2,
-  kOrtxErrorInvalidFile = 3,
-  kOrtxErrorNotFound = 4,
-  kOrtxErrorAlreadyExists = 5,
-  kOrtxErrorOutOfRange = 6,
-  kOrtxErrorNotImplemented = 7,
-  kOrtxErrorInternal = 8,
-  kOrtxErrorUnknown = 1000
-} extError_t;
+#include "ortx_types.h"
 
 typedef enum {
   kOrtxKindUnknown = 0,

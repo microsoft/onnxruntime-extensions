@@ -17,9 +17,11 @@
 extern "C" {
 #endif
 
-OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api);
+OrtStatus*
+ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api);
 
-int ORT_API_CALL GetActiveOrtAPIVersion();
+int
+ORT_API_CALL GetActiveOrtAPIVersion();
 
 #ifdef __cplusplus
 }

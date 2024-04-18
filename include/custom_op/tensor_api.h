@@ -118,7 +118,7 @@ private:
   void* buffer_ {};
   std::optional<std::vector<int64_t>> shape_;
   // caller need to make sure the allocator is alive
-  IAllocator* allocator_;
+  IAllocator* allocator_{};
 };
 
 template <typename TT>

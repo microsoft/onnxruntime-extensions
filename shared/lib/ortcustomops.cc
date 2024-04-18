@@ -61,7 +61,7 @@ class ExternalCustomOps {
   std::vector<const OrtCustomOp*> op_array_;
 };
 
-static int GetOrtVersion(const OrtApiBase* api_base = nullptr) noexcept{
+static int GetOrtVersion(const OrtApiBase* api_base = nullptr) noexcept {
   // the version will be cached after the first call on RegisterCustomOps
   static int ort_version = MIN_ORT_VERSION_SUPPORTED;  // the default version is 1.11.0
 
@@ -105,7 +105,6 @@ extern "C" int ORT_API_CALL GetActiveOrtAPIVersion() {
   return ver;
 }
 
-
 // The main entrance of the extension library.
 extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api) {
   OrtStatus* status = nullptr;
@@ -148,22 +147,24 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
 
   static std::vector<FxLoadCustomOpFactory> c_factories = {
 #if defined(ENABLE_TF_STRING)
-    LoadCustomOpClasses_Text,
+      LoadCustomOpClasses_Text,
 #endif  // ENABLE_TF_STRING
 #if defined(ENABLE_MATH)
-    LoadCustomOpClasses_Math,
+      LoadCustomOpClasses_Math,
 #endif
 #if defined(ENABLE_TOKENIZER)
-    LoadCustomOpClasses_Tokenizer,
+      LoadCustomOpClasses_Tokenizer,
 #endif
 #if defined(ENABLE_CV2)
-    LoadCustomOpClasses_CV2,
+      LoadCustomOpClasses_CV2,
 #endif
 #if defined(ENABLE_DR_LIBS)
-    LoadCustomOpClasses_Audio,
+      LoadCustomOpClasses_Audio,
 #endif
-    LoadCustomOpClasses_Contrib,
-    LoadCustomOpClasses<>,
+#if defined(USE_CUDA)
+      LoadCustomOpClasses_Contrib,
+#endif
+      LoadCustomOpClasses<>,
   };
 
   for (const auto& fx : c_factories) {
@@ -205,16 +206,15 @@ extern "C" OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options,
 
   static std::vector<FxLoadCustomOpFactory> new_domain_factories = {
 #if defined(ENABLE_VISION)
-    LoadCustomOpClasses_Vision,
+      LoadCustomOpClasses_Vision,
 #endif
 #if defined(ENABLE_TOKENIZER)
-    LoadCustomOpClasses_Tokenizer,
+      LoadCustomOpClasses_Tokenizer,
 #endif
 #if defined(ENABLE_AZURE)
-    LoadCustomOpClasses_Azure,
+      LoadCustomOpClasses_Azure,
 #endif
-    LoadCustomOpClasses<>
-  };
+      LoadCustomOpClasses<>};
 
   for (const auto& fx : new_domain_factories) {
     const auto& ops = fx();
