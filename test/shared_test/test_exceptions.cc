@@ -79,18 +79,17 @@ TEST(Exceptions, TestApiTryCatch_ThrowInModelLoad) {
 
 // if no exceptions, the ORTX_CXX_API_THROW will trigger the log+abort
 // if no exception propagation, the OCOS_API_IMPL_END will trigger the log+abort
-//#if defined(OCOS_NO_EXCEPTIONS) || defined(OCOS_PREVENT_EXCEPTION_PROPAGATION)
+#if defined(OCOS_NO_EXCEPTIONS) || defined(OCOS_PREVENT_EXCEPTION_PROPAGATION)
   // the exception should be caught and logged, and the process should abort so the exception is not propagated up.
   // log output needs to be manually checked
   // can test on Linux but not Windows.
-//#if !defined(_WIN32)
-  std::cout << "OK!!!!!!!!!!!!!!!!!!" << std::endl;
+#if !defined(_WIN32)
   EXPECT_EXIT(fail_fn(), ::testing::KilledBySignal(SIGABRT), ".*");
-//#endif
-//#else
-  // ORT catches the exceptions thrown by the custom op and rethrows them as Ort::Exception
-//  EXPECT_THROW(fail_fn(), Ort::Exception);
-//#endif
+#endif
+#else
+  //ORT catches the exceptions thrown by the custom op and rethrows them as Ort::Exception
+  EXPECT_THROW(fail_fn(), Ort::Exception);
+#endif
 }
 
 // test a call to an entry point wrapped with OCOS_API_IMPL_BEGIN/OCOS_API_IMPL_END behaves as expected.
