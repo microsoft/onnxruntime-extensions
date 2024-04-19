@@ -1,0 +1,68 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+#include "bpe_kernels.h"
+#include "bpe_tokenizer.hpp"
+#include "bpe_decoder.hpp"
+
+#include "tokenizer_impl.h"
+
+using namespace ort_extensions;
+
+class SimpleAllocator : public ortc::IAllocator {
+ public:
+  void* Alloc(size_t size) override {
+    return malloc(size);
+  }
+
+  void Free(void* p) override {
+    if (p) {
+      free(p);
+    }
+  }
+};
+
+static SimpleAllocator g_allocator;
+
+TokenizerImpl::TokenizerImpl() : OrtxObjectImpl(extObjectKind_t::kOrtxKindTokenizer){};
+TokenizerImpl::~TokenizerImpl(){};
+
+OrtxStatus TokenizerImpl::Load(const std::string& dir) {
+  // TODO: Load the tokenizer from the specified directory.
+  return {};
+}
+
+OrtxStatus TokenizerImpl::BatchEncode(
+    const std::vector<std::string_view>& input,
+    std::vector<std::vector<extTokenId_t>>& t_ids) const {
+  for (const auto& s : input) {
+    ortc::Tensor<int64_t> ts_output(&g_allocator);
+    ortc::Tensor<std::string> ts_input = ortc::Tensor<std::string>(std::vector<std::string>{std::string(s)});
+    auto status = tokenizer_->Compute(ts_input, ts_output, std::nullopt, std::nullopt);
+
+    if (!status.IsOk()) {
+      return status;
+    }
+    std::vector<extTokenId_t> ids(ts_output.NumberOfElement());
+    std::transform(ts_output.Data(), ts_output.Data() + ts_output.NumberOfElement(), ids.begin(),
+                   [](int64_t v) { return static_cast<extTokenId_t>(v); });
+  }
+
+  return {};
+}
+
+OrtxStatus TokenizerImpl::BatchDecode(const std::vector<span<extTokenId_t const>>& t_ids,
+                                      std::vector<std::string>& t_text) const {
+  // for (const auto& s : t_ids) {
+  //   std::string text;
+  //   OrtxStatus status = Decode(s, text);
+  //   if (!status.IsOk()) {
+  //     return status;
+  //   }
+  //   t_text.emplace_back(text);
+  // }
+  return {};
+}
+
+OrtxStatus TokenizerImpl::Id2Token(extTokenId_t /* id */, std::string& /* token */, DecoderState** /* state */) const {
+  return {kOrtxErrorNotImplemented, std::string("Id2Token not implemented for this tokenizer type.")};
+}

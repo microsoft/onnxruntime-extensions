@@ -201,8 +201,9 @@ else()
 
   block()
   file(GLOB tokenizer_TEST_SRC
+    "${TEST_SRC_DIR}/tokenizer_test/*.c"
     "${TEST_SRC_DIR}/tokenizer_test/*.cc"
-    "${TEST_SRC_DIR}/tokenizer_test/*.hpp")
+    "${TEST_SRC_DIR}/tokenizer_test/*.h")
 
   add_test_target(TARGET tokenizer_api_test
     TEST_SOURCES ${tokenizer_TEST_SRC}

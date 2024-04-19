@@ -43,40 +43,39 @@ std::string BpeModelConf::GetSpecialTokens() const {
 }
 
 // Note: the following logic comes from CPython: unicodetype_db.h (_PyUnicode_IsWhitespace)
-bool IsUnicodeSpace(char32_t ch) {
-  switch (ch) {
-    case 0x0009:
-    case 0x000A:
-    case 0x000B:
-    case 0x000C:
-    case 0x000D:
-    case 0x001C:
-    case 0x001D:
-    case 0x001E:
-    case 0x001F:
-    case 0x0020:
-    case 0x0085:
-    case 0x00A0:
-    case 0x1680:
-    case 0x2000:
-    case 0x2001:
-    case 0x2002:
-    case 0x2003:
-    case 0x2004:
-    case 0x2005:
-    case 0x2006:
-    case 0x2007:
-    case 0x2008:
-    case 0x2009:
-    case 0x200A:
-    case 0x2028:
-    case 0x2029:
-    case 0x202F:
-    case 0x205F:
-    case 0x3000:
-      return true;
-  }
-  return false;
+static bool IsUnicodeSpace(char32_t ch) {
+  const std::set<char32_t> unicode_spaces = {
+      0x0009,  // CHARACTER TABULATION
+      0x000A,  // LINE FEED (LF)
+      0x000B,  // LINE TABULATION
+      0x000C,  // FORM FEED (FF)
+      0x000D,  // CARRIAGE RETURN (CR)
+      0x001C,  // FILE SEPARATOR
+      0x001D,  // GROUP SEPARATOR
+      0x001E,  // RECORD SEPARATOR
+      0x001F,  // UNIT SEPARATOR
+      0x0020,  // SPACE
+      0x0085,  // NEXT
+      0x00A0,  // NO-BREAK SPACE
+      0x1680,  // OGHAM SPACE MARK
+      0x2000,  // EN QUAD
+      0x2001,  // EM QUAD
+      0x2002,  // EN SPACE
+      0x2003,  // EM SPACE
+      0x2004,  // THREE-PER-EM SPACE
+      0x2005,  // FOUR-PER-EM SPACE
+      0x2006,  // SIX-PER-EM SPACE
+      0x2007,  // FIGURE SPACE
+      0x2008,  // PUNCTUATION SPACE
+      0x2009,  // THIN SPACE
+      0x200A,  // HAIR SPACE
+      0x2028,  // LINE SEPARATOR
+      0x2029,  // PARAGRAPH SEPARATOR
+      0x202F,  // NARROW NO-BREAK SPACE
+      0x205F,  // MEDIUM MATHEMATICAL SPACE
+      0x3000,  // IDEOGRAPHIC SPACE
+  };
+  return unicode_spaces.count(ch) > 0;
 }
 
 bool AllSpaceUstring(const ustring& str) {

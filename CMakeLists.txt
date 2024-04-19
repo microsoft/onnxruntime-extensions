@@ -564,6 +564,7 @@ standardize_output_folder(ocos_operators)
 
 target_include_directories(noexcep_operators PUBLIC
   ${ONNXRUNTIME_INCLUDE_DIR}
+  ${GSL_INCLUDE_DIR}
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_SOURCE_DIR}/include/custom_op
   ${PROJECT_SOURCE_DIR}/base
@@ -571,6 +572,7 @@ target_include_directories(noexcep_operators PUBLIC
 
 target_include_directories(ocos_operators PUBLIC
   ${ONNXRUNTIME_INCLUDE_DIR}
+  ${GSL_INCLUDE_DIR}
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_SOURCE_DIR}/include/custom_op
   ${PROJECT_SOURCE_DIR}/base
@@ -669,7 +671,7 @@ if(OCOS_ENABLE_BLINGFIRE)
 endif()
 
 if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
-  target_include_directories(ocos_operators PRIVATE ${nlohmann_json_SOURCE_DIR}/single_include)
+  target_include_directories(ocos_operators PUBLIC ${nlohmann_json_SOURCE_DIR}/single_include)
   list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 
@@ -684,7 +686,6 @@ if(ANDROID)
   list(APPEND ocos_libraries log)
 endif()
 
-target_include_directories(noexcep_operators PUBLIC ${GSL_INCLUDE_DIR})
 list(APPEND ocos_libraries Microsoft.GSL::GSL)
 
 list(REMOVE_DUPLICATES OCOS_COMPILE_DEFINITIONS)

@@ -12,11 +12,11 @@ struct OrtxStatus::Rep {
 OrtxStatus::OrtxStatus() = default;
 OrtxStatus::~OrtxStatus() = default;
 
-OrtxStatus::OrtxStatus(extError_t code, std::string_view error_message)
-    : rep_(new Rep) {
-  rep_->code = code;
-  rep_->error_message = std::string(error_message);
-}
+// OrtxStatus::OrtxStatus(extError_t code, std::string_view error_message)
+//     : rep_(new Rep) {
+//   rep_->code = code;
+//   rep_->error_message = std::string(error_message);
+// }
 
 OrtxStatus::OrtxStatus(extError_t code, const std::string& error_message)
     : rep_(new Rep) {

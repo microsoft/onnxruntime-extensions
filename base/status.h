@@ -11,7 +11,6 @@ struct OrtStatus;
 struct OrtxStatus {
   OrtxStatus();
   ~OrtxStatus();
-  OrtxStatus(extError_t code, std::string_view error_message);
   OrtxStatus(extError_t code, const std::string& error_message);
   OrtxStatus(const OrtxStatus& s);
   OrtxStatus& operator=(const OrtxStatus& s);
