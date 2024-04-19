@@ -4,6 +4,7 @@
 #pragma once
 
 #include "ocos.h"
+#include "status.h"
 #include "ustring.h"
 
 #include <string>
@@ -28,7 +29,7 @@ struct KernelBpeTokenizer {
   KernelBpeTokenizer(const BpeModelConf& conf);
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info);
 
-  OrtStatusPtr Compute(const ortc::Tensor<std::string>& input,
+  OrtxStatus Compute(const ortc::Tensor<std::string>& input,
                        ortc::Tensor<int64_t>& tokenize_output,
                        std::optional<ortc::Tensor<int64_t>*> attention_mask,
                        std::optional<ortc::Tensor<int64_t>*> offset_mapping) const;
@@ -62,7 +63,7 @@ struct KernelBpeTokenizer {
 struct GPT2Tokenizer : KernelBpeTokenizer {
   GPT2Tokenizer();
   // required by LiteCustomOp which needs an explicit Compute declaration for non-MSVC compiler.
-  OrtStatusPtr Compute(const ortc::Tensor<std::string>& input,
+  OrtxStatus Compute(const ortc::Tensor<std::string>& input,
                        ortc::Tensor<int64_t>& tokenize_output,
                        std::optional<ortc::Tensor<int64_t>*> attention_mask,
                        std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
@@ -73,7 +74,7 @@ struct GPT2Tokenizer : KernelBpeTokenizer {
 struct RobertaTokenizer : KernelBpeTokenizer {
   RobertaTokenizer();
   // required by LiteCustomOp which needs a explicit Compute declaration for non-MSVC compiler.
-  OrtStatusPtr Compute(const ortc::Tensor<std::string>& input,
+  OrtxStatus Compute(const ortc::Tensor<std::string>& input,
                        ortc::Tensor<int64_t>& tokenize_output,
                        std::optional<ortc::Tensor<int64_t>*> attention_mask,
                        std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
@@ -84,7 +85,7 @@ struct RobertaTokenizer : KernelBpeTokenizer {
 struct CLIPTokenizer : KernelBpeTokenizer {
   CLIPTokenizer();
   // required by LiteCustomOp which needs a explicit Compute declaration for non-MSVC compiler.
-  OrtStatusPtr Compute(const ortc::Tensor<std::string>& input,
+  OrtxStatus Compute(const ortc::Tensor<std::string>& input,
                        ortc::Tensor<int64_t>& tokenize_output,
                        std::optional<ortc::Tensor<int64_t>*> attention_mask,
                        std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
@@ -95,7 +96,7 @@ struct CLIPTokenizer : KernelBpeTokenizer {
 struct SpmTokenizer : KernelBpeTokenizer {
   SpmTokenizer();
   // required by LiteCustomOp which needs a explicit Compute declaration for non-MSVC compiler.
-  OrtStatusPtr Compute(const ortc::Tensor<std::string>& input,
+  OrtxStatus Compute(const ortc::Tensor<std::string>& input,
                        ortc::Tensor<int64_t>& tokenize_output,
                        std::optional<ortc::Tensor<int64_t>*> attention_mask,
                        std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {

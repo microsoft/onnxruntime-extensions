@@ -26,11 +26,21 @@
 namespace Ort {
 namespace Custom {
 
-template <typename... Args>
-struct FunctionKernel {
-  using ComputeFn = std::function<OrtStatusPtr(Args...)>;
+template <typename T>
+inline OrtStatusPtr ToApiStatus(const T& status) {
+  return status.CreateOrtStatus();
+}
 
-  OrtStatusPtr Compute(Args... args) const {
+template <>
+inline OrtStatusPtr ToApiStatus(const OrtStatusPtr& status) {
+  return status;
+}
+
+template <typename RType, typename... Args>
+struct FunctionKernel {
+  using ComputeFn = std::function<RType(Args...)>;
+
+  RType Compute(Args... args) const {
     return compute_fn_(args...);
   }
 
@@ -54,10 +64,11 @@ template <typename T>
 struct ComputeArgsList;
 
 // Specialization for member function
-template <typename C, typename... Args>
-struct ComputeArgsList<OrtStatusPtr (C::*)(Args...) const> {
-  using FunctionType = OrtStatusPtr (*)(Args...);
-  using MemberFunctionType = OrtStatusPtr (C::*)(Args...) const;
+template <typename RType, typename C, typename... Args>
+struct ComputeArgsList<RType (C::*)(Args...) const> {
+  using FunctionType = RType (*)(Args...);
+  using MemberFunctionType = RType (C::*)(Args...) const;
+  using ResultType = RType;
 };
 
 template <typename T, typename = void>
@@ -70,9 +81,10 @@ template <typename CustomOpKernel>
 struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
   using ComputeFunction = decltype(&CustomOpKernel::Compute);
   using RegularComputeType = typename ComputeArgsList<ComputeFunction>::FunctionType;
+  using RType = typename ComputeArgsList<ComputeFunction>::ResultType;
 
   template <typename... Args>
-  using MemberComputeType = OrtStatusPtr (CustomOpKernel::*)(Args...) const;
+  using MemberComputeType = RType (CustomOpKernel::*)(Args...) const;
 
   struct KernelEx : public CustomOpKernel {
     struct {
@@ -84,7 +96,8 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
   template <typename T>
   static OrtStatusPtr InitKernel(KernelEx& kernel,
                                  const OrtApi& api, const OrtKernelInfo& info, RegularComputeType fn, T t) {
-    return kernel.OnModelAttach(api, info);
+    auto status = kernel.OnModelAttach(api, info);
+    return ToApiStatus(status);
   }
 
   static OrtStatusPtr InitKernel(
@@ -106,7 +119,7 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
       auto self = static_cast<const OrtLiteCustomStructV2<CustomOpKernel>*>(this_);
       auto kernel = std::make_unique<KernelEx>();
       typedef typename IsFunctionKernel<CustomOpKernel>::type type_flag;
-      OrtStatusPtr status = InitKernel(*kernel, *ort_api, *info, self->regular_fn_, type_flag());
+      auto status = InitKernel(*kernel, *ort_api, *info, self->regular_fn_, type_flag());
       OrtW::ThrowOnError(*ort_api, status);
 
       kernel->extra_.ep_ = self->execution_provider_;
@@ -124,7 +137,7 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
                                           kernel->extra_.api_->KernelContext_GetOutputCount(context),
                                           kernel->extra_.ep_);
       std::apply([kernel](Args const&... t_args) {
-        auto status = kernel->Compute(t_args...); OrtW::API::ThrowOnError(status); }, t);
+        auto status = kernel->Compute(t_args...); OrtW::API::ThrowOnError(ToApiStatus(status)); }, t);
     };
 
     OrtCustomOp::KernelDestroy = [](void* op_kernel) {
@@ -163,7 +176,7 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
       }
 
       typedef typename IsFunctionKernel<CustomOpKernel>::type flag_type;
-      OrtStatusPtr status = InitKernel(*kernel, *api, *info, self->regular_fn_, flag_type());
+      auto status = InitKernel(*kernel, *api, *info, self->regular_fn_, flag_type());
       if (status == nullptr) {
         kernel->extra_.ep_ = self->execution_provider_;
         kernel->extra_.api_ = std::make_unique<OrtW::CustomOpApi>(*api);
@@ -182,7 +195,9 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
                                           kernel->extra_.api_->KernelContext_GetInputCount(context),
                                           kernel->extra_.api_->KernelContext_GetOutputCount(context),
                                           kernel->extra_.ep_);
-      return std::apply([kernel](Args const&... t_args) { return kernel->Compute(t_args...); }, t);
+      return std::apply([kernel](Args const&... t_args) { 
+        auto status = kernel->Compute(t_args...); 
+        return ToApiStatus(status); }, t);
     };
 
     OrtCustomOp::KernelDestroy = [](void* op_kernel) {
@@ -198,7 +213,7 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
     ParseArgs(&CustomOpKernel::Compute);
 
 #if ORT_API_VERSION >= 16
-    if (OrtCustomOp::version > 15) {
+    if (OrtCustomOp::version >= 16) {
       DefineCallbackFunctions(&CustomOpKernel::Compute, fn_compute);
     } else
 #endif  // ORT_API_VERSION >= 16
@@ -210,11 +225,11 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
   RegularComputeType regular_fn_{};
 };
 
-template <typename... Args>
+template <typename RType, typename... Args>
 OrtLiteCustomOp* CreateLiteCustomOpV2(const char* op_name,
                                       const char* execution_provider,
-                                      OrtStatusPtr (*custom_compute_fn)(Args...)) {
-  using LiteOp = OrtLiteCustomStructV2<FunctionKernel<Args...>>;
+                                      RType (*custom_compute_fn)(Args...)) {
+  using LiteOp = OrtLiteCustomStructV2<FunctionKernel<RType, Args...>>;
   return std::make_unique<LiteOp>(op_name, execution_provider, custom_compute_fn).release();
 }
 
