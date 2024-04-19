@@ -21,7 +21,7 @@ class TestAutoTokenizer(unittest.TestCase):
         np.testing.assert_array_equal(ids[0], actual_ids[0])
 
     def test_mistral(self):
-        tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-v0.1", use_fast=True)
+        tokenizer = AutoTokenizer.from_pretrained("mistral-community/Mistral-7B-v0.2", use_fast=True)
         text = "\nOnce upon a time, I was really into monochromatic makeup looks. I have a lot of coppery and bronze "
         ids = tokenizer.encode(text, return_tensors="np")
 

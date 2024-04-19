@@ -15,9 +15,7 @@ set(APPLE_FRAMEWORK_VERSION "${VERSION}")
 
 # public header files
 set(APPLE_FRAMEWORK_HEADERS
-    "${PROJECT_SOURCE_DIR}/include/onnxruntime_extensions.h"
-    "${PROJECT_SOURCE_DIR}/include/ortx_tokenizer.h"
-    "${PROJECT_SOURCE_DIR}/include/ortx_op_registry.h")
+    "${PROJECT_SOURCE_DIR}/include/onnxruntime_extensions.h")
 
 # generated framework directory
 set(APPLE_FRAMEWORK_DIRECTORY
