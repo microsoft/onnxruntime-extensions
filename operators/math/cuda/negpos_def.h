@@ -4,7 +4,7 @@
 #pragma once
 #include "ocos.h"
 
-OrtStatusPtr neg_pos_cuda(const Ort::Custom::CudaContext& ctx,
+OrtStatusPtr neg_pos_cuda(Ort::Custom::CUDAKernelContext* ctx,
                           const ortc::Tensor<float>& input,
                           ortc::Tensor<float>& out0_tensor,
                           ortc::Tensor<float>& out1_tensor);

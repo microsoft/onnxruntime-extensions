@@ -587,24 +587,31 @@ struct OrtLiteCustomOp : public OrtCustomOp {
     return std::tuple_cat(current, next);
   }
 
+#endif
 
+#if ORT_API_VERSION >= 17
   template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
-  static typename std::enable_if<std::is_same<T, KernelContext&>::value, std::tuple<T, Ts...>>::type
-  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) {
-    tensors.push_back(std::make_unique<OrtGraphCudaKernelContext>(api->GetOrtApi(), *context));
-    std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(*tensors.back().get())};
-    auto next = CreateTuple<ith_input, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);
-    return std::tuple_cat(current, next);
-  }
-
-  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
-  static typename std::enable_if<std::is_same<T, CUDAKernelContext&>::value, std::tuple<T, Ts...>>::type
+  static typename std::enable_if<std::is_same<T, KernelContext*>::value, std::tuple<T, Ts...>>::type
   CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) {
     tensors.push_back(std::make_unique<OrtGraphKernelContext>(api->GetOrtApi(), *context));
-    std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(*tensors.back().get())};
+    std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(tensors.back().get())};
     auto next = CreateTuple<ith_input, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);
     return std::tuple_cat(current, next);
   }
+
+#ifdef USE_CUDA
+
+  template <size_t ith_input, size_t ith_output, typename T, typename... Ts>
+  static typename std::enable_if<std::is_same<T, CUDAKernelContext*>::value, std::tuple<T, Ts...>>::type
+  CreateTuple(const OrtW::CustomOpApi* api, OrtKernelContext* context, std::vector<TensorPtr>& tensors, size_t num_input, size_t num_output, const std::string& ep) {
+    tensors.push_back(std::make_unique<OrtGraphCudaKernelContext>(api->GetOrtApi(), *context));
+    std::tuple<T> current = std::tuple<T>{reinterpret_cast<T>(tensors.back().get())};
+    auto next = CreateTuple<ith_input, ith_output, Ts...>(api, context, tensors, num_input, num_output, ep);
+    return std::tuple_cat(current, next);
+  }
+
+#endif
+
 #endif
 
 #if ORT_API_VERSION >= 14
@@ -729,18 +736,20 @@ struct OrtLiteCustomOp : public OrtCustomOp {
   }
 #endif
 
+#if ORT_API_VERSION >= 17
   template <typename T, typename... Ts>
-  static typename std::enable_if<0 <= sizeof...(Ts) && std::is_same<T, KernelContext&>::value>::type
+  static typename std::enable_if<0 <= sizeof...(Ts) && std::is_same<T, KernelContext*>::value>::type
   ParseArgs(std::vector<ONNXTensorElementDataType>& input_types, std::vector<ONNXTensorElementDataType>& output_types) {
     ParseArgs<Ts...>(input_types, output_types);
   }
 
 #ifdef USE_CUDA
   template <typename T, typename... Ts>
-  static typename std::enable_if<0 <= sizeof...(Ts) && std::is_same<T, CUDAKernelContext&>::value>::type
+  static typename std::enable_if<0 <= sizeof...(Ts) && std::is_same<T, CUDAKernelContext*>::value>::type
   ParseArgs(std::vector<ONNXTensorElementDataType>& input_types, std::vector<ONNXTensorElementDataType>& output_types) {
     ParseArgs<Ts...>(input_types, output_types);
   }
+#endif
 #endif
 
 #if ORT_API_VERSION >= 14
