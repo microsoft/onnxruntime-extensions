@@ -706,6 +706,10 @@ target_compile_definitions(ocos_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
 
 file(GLOB shared_TARGET_LIB_SRC "shared/lib/*.cc" "shared/lib/*.h")
+if (NOT OCOS_ENABLE_C_API)
+  file(GLOB shared_TARGET_LIB_C_API_SRC "shared/lib/*tokenizer*")
+  list(REMOVE_ITEM shared_TARGET_LIB_SRC ${shared_TARGET_LIB_C_API_SRC})
+endif()
 
 if(NOT OCOS_ENABLE_STATIC_LIB AND CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   add_executable(ortcustomops ${shared_TARGET_LIB_SRC})
