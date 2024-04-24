@@ -158,6 +158,24 @@ class BpeModel {
     return {};
   }
 
+  std::vector<ustring> BuildDecoder() const {
+    std::vector<ustring> decoder;
+    uint32_t max_token_id_ = 0;
+    decoder.resize(vocab_map_.size());
+    for (const auto& [str, id] : vocab_map_) {
+      decoder[id] = ustring(str);
+      if (id > max_token_id_) {
+        max_token_id_ = id;
+      }
+    }
+
+    for (size_t n = decoder.size(); n < max_token_id_; ++n) {
+      decoder.emplace_back(ustring());
+    }
+
+    return decoder;
+  }
+
   // REF: https://github.com/huggingface/transformers/blob/c9e72f55b2dc4b9be4edb986dce0552582b328f2/src/transformers/tokenization_utils.py#L52
   bpe::TokenPairs SplitByAddedAndSpecial(const ustring& input) const {
     // split by added tokens

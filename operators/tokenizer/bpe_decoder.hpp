@@ -19,6 +19,8 @@
 
 struct KernelBpeDecoder {
  public:
+  virtual ~KernelBpeDecoder() = default;
+
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
     // note: if the attribute doesn't exist in op node, GetOpAttribute doesn't return a failed status;
     std::string vocab;
@@ -196,7 +198,7 @@ struct KernelBpeDecoder {
     return {};
   }
 
- private:
+ protected:
   std::string bos_token_{"<|endoftext|>"};
   std::string eos_token_{"<|endoftext|>"};
   std::string unk_token_{"<|endoftext|>"};

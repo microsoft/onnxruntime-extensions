@@ -395,7 +395,7 @@ template <typename T> STATIC_INLINE T DebugTweak(T x) {
   return x;
 }
 
-template <> STATIC_INLINE uint64_t DebugTweak(uint64_t x) {
+template <> uint64_t DebugTweak(uint64_t x) {
   if (debug_mode) {
     x = ~Bswap64(x * k1);
   }

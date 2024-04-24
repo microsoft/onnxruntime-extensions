@@ -1,10 +1,12 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#pragma once
+
 #include "ortx_tokenizer.h"
 #include "bpe_kernels.h"
 #include "bpe_json.hpp"
-#include "bpe_decoder.hpp"
+#include "bpe_streaming.hpp"
 
 
 namespace ort_extensions {
@@ -91,7 +93,7 @@ class TokenizerImpl : public OrtxObjectImpl {
   std::string tokenizer_dir_;
   std::shared_ptr<ort_extensions::bpe::TokenJsonConfig> tok_config_;
   std::unique_ptr<JsonFastTokenizer> tokenizer_;
-  std::unique_ptr<KernelBpeDecoder> detokenizer_;
+  std::unique_ptr<BpeStreamingDecoder> detokenizer_;
 };
 
 }  // namespace ort_extensions
