@@ -1,7 +1,7 @@
 FetchContent_Declare(
   googletest
-  URL         https://github.com/google/googletest/archive/9406a60c7839052e4944ea4dbc8344762a89f9bd.zip
-  URL_HASH    SHA1=06096d3900c356e468ba060a609642c635131106
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG        release-1.11.0
 )
 
 FetchContent_MakeAvailable(googletest)

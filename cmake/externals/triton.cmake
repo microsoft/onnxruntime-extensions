@@ -1,10 +1,10 @@
 include(ExternalProject)
 
-set(triton_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/_deps_triton/triton)
+set(triton_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/_deps/triton)
 set(triton_INSTALL_DIR ${triton_PREFIX}/install)
 
 if (WIN32)
-  set(vcpkg_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/_deps_triton/vcpkg)
+  set(vcpkg_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg)
 
   ExternalProject_Add(vcpkg
                       GIT_REPOSITORY https://github.com/microsoft/vcpkg.git
@@ -84,7 +84,7 @@ else()
   # The triton code here https://github.com/triton-inference-server/common/blob/main/CMakeLists.txt is using
   # RAPIDJSON_INCLUDE_DIRS so the build fails if a newer RapidJSON version is used. It will find the package but the
   # include path will be wrong so the build error is delayed/misleading and non-trivial to understand/resolve.
-  set(RapidJSON_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/_deps_triton/rapidjson)
+  set(RapidJSON_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/_deps/rapidjson)
   set(RapidJSON_INSTALL_DIR ${RapidJSON_PREFIX}/install)
   ExternalProject_Add(RapidJSON
                       PREFIX ${RapidJSON_PREFIX}
@@ -128,8 +128,8 @@ ExternalProject_Add(triton
                     URL https://github.com/triton-inference-server/client/archive/refs/heads/${triton_VERSION_TAG}.tar.gz
                     URL_HASH SHA1=b8fd2a4e09eae39c33cd04cfa9ec934e39d9afc1
                     PREFIX ${triton_PREFIX}
-                    SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps_triton/triton-src
-                    BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps_triton/triton-build
+                    SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/triton-src
+                    BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/triton-build
                     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${triton_INSTALL_DIR}
                                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                                -DTRITON_COMMON_REPO_TAG=${triton_VERSION_TAG}
