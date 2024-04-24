@@ -14,7 +14,7 @@ struct FastGelu {
                              const OrtKernelInfo& /*info*/) {
     return nullptr;
   }
-  OrtStatusPtr Compute(const Ort::Custom::CudaContext& ctx,
+  OrtStatusPtr Compute(Ort::Custom::CUDAKernelContext* ctx,
                        const ortc::Tensor<T>& input,
                        std::optional<const ortc::Tensor<T>*> bias,
                        ortc::Tensor<T>& output) const {
@@ -27,7 +27,7 @@ struct FastGelu {
     const T* bias_data = bias.has_value() ? (*bias)->Data() : nullptr;
     auto bias_length = bias.has_value() ? (*bias)->NumberOfElement() : 0;
     using TT = typename CudaT<T>::MappedType;
-    LaunchFastGeluKernel<TT>(reinterpret_cast<cudaStream_t>(ctx.cuda_stream),
+    LaunchFastGeluKernel<TT>(reinterpret_cast<cudaStream_t>(ctx->GetCudaStream()),
                              input_length,
                              bias_length,
                              reinterpret_cast<const TT*>(input_data),
