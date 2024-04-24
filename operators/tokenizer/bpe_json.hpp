@@ -47,29 +47,6 @@ class TokenJsonConfig final {
       return OrtxStatus(kOrtxErrorCorruptData, "Failed to get tokenizer class.");
     }
 
-    // auto added_tokens = json_config.find("added_tokens_decoder");
-    // if (added_tokens != json_config.end()) {
-    //   for (const auto& token : *added_tokens) {
-    //     AddedToken added_token;
-    //     added_token.token_type_ = token.value("type", "");
-    //     added_token.content_ = token.value("content", "");
-    //     added_token.lstrip_ = token.value("lstrip", false);
-    //     added_token.normalized_ = token.value("normalized", false);
-    //     added_token.rstrip_ = token.value("rstrip", false);
-    //     added_token.single_word_ = token.value("single_word", false);
-
-    //     if (added_token.token_type_ == "special_tokens") {
-    //       if (added_token.content_ == unk_token_) {
-    //         unk_token_item_ = added_token;
-    //       } else if (added_token.content_ == bos_token_) {
-    //         bos_token_item_ = added_token;
-    //       } else if (added_token.content_ == eos_token_) {
-    //         eos_token_item_ = added_token;
-    //       }
-    //     }
-    //   }
-    // }
-
     return {};
   }
 
@@ -88,10 +65,6 @@ class TokenJsonConfig final {
   std::string eos_token_;
   std::string unk_token_;
   std::string pad_token_;
-
-  // AddedToken bos_token_item_;
-  // AddedToken eos_token_item_;
-  // AddedToken unk_token_item_;
 
  private:
   std::string vocab_path_;

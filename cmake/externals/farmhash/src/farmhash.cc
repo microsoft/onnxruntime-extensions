@@ -1042,7 +1042,7 @@ STATIC_INLINE uint32_t Hash32Len13to24(const char *s, size_t len, uint32_t seed 
   uint32_t d = Fetch(s + (len >> 1));
   uint32_t e = Fetch(s);
   uint32_t f = Fetch(s + len - 4);
-  uint32_t h = d * c1 + len + seed;
+  uint32_t h = static_cast<uint32_t>(d * c1 + len + seed);
   a = Rotate(a, 12) + f;
   h = Mur(c, h) + a;
   a = Rotate(a, 3) + c;
@@ -1060,11 +1060,11 @@ STATIC_INLINE uint32_t Hash32Len0to4(const char *s, size_t len, uint32_t seed = 
     b = b * c1 + v;
     c ^= b;
   }
-  return fmix(Mur(b, Mur(len, c)));
+  return fmix(Mur(b, Mur(static_cast<uint32_t>(len), c)));
 }
 
 STATIC_INLINE uint32_t Hash32Len5to12(const char *s, size_t len, uint32_t seed = 0) {
-  uint32_t a = len, b = len * 5, c = 9, d = b + seed;
+  uint32_t a = static_cast<uint32_t>(len), b = static_cast<uint32_t>(len * 5), c = 9, d = b + seed;
   a += Fetch(s);
   b += Fetch(s + len - 4);
   c += Fetch(s + ((len >> 1) & 4));
@@ -1079,7 +1079,7 @@ uint32_t Hash32(const char *s, size_t len) {
   }
 
   // len > 24
-  uint32_t h = len, g = c1 * len, f = g;
+  uint32_t h = static_cast<uint32_t>(len), g = static_cast<uint32_t>(c1 * len), f = g;
   uint32_t a0 = Rotate(Fetch(s + len - 4) * c1, 17) * c2;
   uint32_t a1 = Rotate(Fetch(s + len - 8) * c1, 17) * c2;
   uint32_t a2 = Rotate(Fetch(s + len - 16) * c1, 17) * c2;
@@ -1135,7 +1135,7 @@ uint32_t Hash32WithSeed(const char *s, size_t len, uint32_t seed) {
     else if (len >= 5) return Hash32Len5to12(s, len, seed);
     else return Hash32Len0to4(s, len, seed);
   }
-  uint32_t h = Hash32Len13to24(s, 24, seed ^ len);
+  uint32_t h = Hash32Len13to24(s, 24, seed ^ static_cast<uint32_t>(len));
   return Mur(Hash32(s + 24, len - 24) + seed, h);
 }
 }  // namespace farmhashmk
@@ -1144,7 +1144,7 @@ namespace farmhashsu {
 
 uint32_t Hash32(const char *s, size_t len) {
   FARMHASH_DIE_IF_MISCONFIGURED;
-  return s == NULL ? 0 : len;
+  return s == NULL ? 0 : static_cast<uint32_t>(len);
 }
 
 uint32_t Hash32WithSeed(const char *s, size_t len, uint32_t seed) {
@@ -1364,7 +1364,7 @@ namespace farmhashsa {
 
 uint32_t Hash32(const char *s, size_t len) {
   FARMHASH_DIE_IF_MISCONFIGURED;
-  return s == NULL ? 0 : len;
+  return s == NULL ? 0 : static_cast<uint32_t>(len);
 }
 
 uint32_t Hash32WithSeed(const char *s, size_t len, uint32_t seed) {
@@ -1590,7 +1590,7 @@ STATIC_INLINE uint32_t Hash32Len13to24(const char *s, size_t len) {
   uint32_t d = Fetch(s + (len >> 1));
   uint32_t e = Fetch(s);
   uint32_t f = Fetch(s + len - 4);
-  uint32_t h = len;
+  uint32_t h = static_cast<uint32_t>(len);
 
   return fmix(Mur(f, Mur(e, Mur(d, Mur(c, Mur(b, Mur(a, h)))))));
 }
@@ -1603,11 +1603,11 @@ STATIC_INLINE uint32_t Hash32Len0to4(const char *s, size_t len) {
     b = b * c1 + v;
     c ^= b;
   }
-  return fmix(Mur(b, Mur(len, c)));
+  return fmix(Mur(b, Mur(static_cast<uint32_t>(len), c)));
 }
 
 STATIC_INLINE uint32_t Hash32Len5to12(const char *s, size_t len) {
-  uint32_t a = len, b = len * 5, c = 9, d = b;
+  uint32_t a = static_cast<uint32_t>(len), b = static_cast<uint32_t>(len * 5), c = 9, d = b;
   a += Fetch(s);
   b += Fetch(s + len - 4);
   c += Fetch(s + ((len >> 1) & 4));
@@ -1622,7 +1622,7 @@ uint32_t Hash32(const char *s, size_t len) {
   }
 
   // len > 24
-  uint32_t h = len, g = c1 * len, f = g;
+  uint32_t h = static_cast<uint32_t>(len), g = static_cast<uint32_t>(c1 * len), f = g;
   uint32_t a0 = Rotate(Fetch(s + len - 4) * c1, 17) * c2;
   uint32_t a1 = Rotate(Fetch(s + len - 8) * c1, 17) * c2;
   uint32_t a2 = Rotate(Fetch(s + len - 16) * c1, 17) * c2;
@@ -1689,7 +1689,7 @@ uint32_t Hash32WithSeed(const char *s, size_t len, uint32_t seed) {
     else if (len >= 5) return farmhashmk::Hash32Len5to12(s, len, seed);
     else return farmhashmk::Hash32Len0to4(s, len, seed);
   }
-  uint32_t h = farmhashmk::Hash32Len13to24(s, 24, seed ^ len);
+  uint32_t h = farmhashmk::Hash32Len13to24(s, 24, seed ^ static_cast<uint32_t>(len));
   return Mur(Hash32(s + 24, len - 24) + seed, h);
 }
 
@@ -1739,7 +1739,7 @@ STATIC_INLINE uint64_t HashLen0to16(const char *s, size_t len) {
     uint8_t b = s[len >> 1];
     uint8_t c = s[len - 1];
     uint32_t y = static_cast<uint32_t>(a) + (static_cast<uint32_t>(b) << 8);
-    uint32_t z = len + (static_cast<uint32_t>(c) << 2);
+    uint32_t z = static_cast<uint32_t>(len + (static_cast<uint32_t>(c) << 2));
     return ShiftMix(y * k2 ^ z * k0) * k2;
   }
   return k2;
