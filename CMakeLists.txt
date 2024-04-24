@@ -810,7 +810,12 @@ target_include_directories(ortcustomops PUBLIC "$<TARGET_PROPERTY:ocos_operators
 target_link_libraries(ortcustomops PUBLIC ocos_operators)
 
 if(_BUILD_SHARED_LIBRARY)
-  file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h" "shared/*.def")
+  file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h")
+  if (OCOS_ENABLE_C_API)
+    list(APPEND shared_TARGET_SRC "shared/extensions_c.def")
+  else()
+    list(APPEND shared_TARGET_SRC "shared/ortcustomops.def")
+  endif()
   add_library(extensions_shared SHARED ${shared_TARGET_SRC})
 
   # We need to propagate OCOS_SHARED_LIBRARY if set.
