@@ -3,6 +3,9 @@
 
 #include "ortx_tokenizer.h"
 #include "bpe_kernels.h"
+#include "bpe_json.hpp"
+#include "bpe_decoder.hpp"
+
 
 namespace ort_extensions {
 class OrtxObjectImpl : public OrtxObject {
@@ -86,8 +89,9 @@ class TokenizerImpl : public OrtxObjectImpl {
 
  private:
   std::string tokenizer_dir_;
-  // std::unique_ptr<TokenConfig> token_cfg_;
+  std::shared_ptr<ort_extensions::bpe::TokenJsonConfig> tok_config_;
   std::unique_ptr<JsonFastTokenizer> tokenizer_;
+  std::unique_ptr<KernelBpeDecoder> detokenizer_;
 };
 
 }  // namespace ort_extensions

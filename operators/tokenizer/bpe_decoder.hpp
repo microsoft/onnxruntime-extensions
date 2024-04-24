@@ -115,7 +115,7 @@ struct KernelBpeDecoder {
     arr_vocab_.shrink_to_fit();
   }
 
-  OrtStatusPtr Compute(const ortc::Tensor<int64_t>& ids,
+  OrtxStatus Compute(const ortc::Tensor<int64_t>& ids,
                        ortc::Tensor<std::string>& output) const {
     const int64_t* p_ids = ids.Data();
     const auto& ids_dim = ids.Shape();
@@ -193,7 +193,7 @@ struct KernelBpeDecoder {
       p_ids += seq_len;
     }
     output.SetStringOutput(decoded_strings, output_dim);
-    return nullptr;
+    return {};
   }
 
  private:

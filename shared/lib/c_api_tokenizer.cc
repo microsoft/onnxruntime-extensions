@@ -119,7 +119,7 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer,
                                              const char* tokenizer_path) {
   // test if the tokenizer_path is a valid directory
   if (tokenizer_path == nullptr) {
-    last_error_message = "Invalid argument";
+    last_error_message = "The tokenizer data directory is null";
     return kOrtxErrorInvalidArgument;
   }
 

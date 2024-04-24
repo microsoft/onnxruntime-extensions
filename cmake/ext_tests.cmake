@@ -199,7 +199,7 @@ else()
     endif()
   endblock()
 
-  block()
+  if (OCOS_ENABLE_C_API)
   file(GLOB tokenizer_TEST_SRC
     "${TEST_SRC_DIR}/tokenizer_test/*.c"
     "${TEST_SRC_DIR}/tokenizer_test/*.cc"
@@ -211,8 +211,7 @@ else()
     TEST_DATA_DIRECTORIES ${TEST_SRC_DIR}/data)
 
   target_compile_definitions(tokenizer_api_test PRIVATE ${OCOS_COMPILE_DEFINITIONS})
-
-  endblock()
+  endif()
 endif()
 
 endif()

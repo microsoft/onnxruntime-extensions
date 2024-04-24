@@ -19,6 +19,7 @@
 #include "nlohmann/json.hpp"
 #include "bpe_utils.hpp"
 #include "trietree.hpp"
+#include "bpe_types.h"
 
 namespace ort_extensions {
 
@@ -144,6 +145,14 @@ class BpeModel {
       }
 
       added_tokens_.Add(ustring(token), 0, std::make_optional(id));
+    }
+
+    return {};
+  }
+
+  OrtxStatus LoadAddedTokens(const std::vector<bpe::AddedToken>& added_tokens) {
+    for (const auto& token : added_tokens) {
+      added_tokens_.Add(ustring(token.content_), 0, token.id_);
     }
 
     return {};

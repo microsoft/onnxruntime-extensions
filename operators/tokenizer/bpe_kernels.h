@@ -7,9 +7,12 @@
 #include "status.h"
 #include "ustring.h"
 
+#include <list>
 #include <string>
 #include <vector>
-#include <list>
+#include <functional>
+
+#include "bpe_types.h"
 
 struct BpeModelConf {
   const char* name_{"GPT2"};  // this name may be overridden by the tokenizer's attribute.
@@ -20,10 +23,6 @@ struct BpeModelConf {
 
   std::string GetSpecialTokens() const;
 };
-
-namespace ort_extensions {
-class BpeModel;
-}
 
 struct KernelBpeTokenizer {
   KernelBpeTokenizer(const BpeModelConf& conf);
@@ -48,8 +47,8 @@ struct KernelBpeTokenizer {
                                    bool compute_offset_mapping,
                                    std::list<OffsetMappingType>& offset_map) const;
 
- private:
-  const BpeModelConf& bpe_conf_;
+ protected:
+  std::reference_wrapper<BpeModelConf const> bpe_conf_;
   std::string model_name_;
   std::unique_ptr<ort_extensions::BpeModel> bbpe_tokenizer_;
 
@@ -104,12 +103,16 @@ struct SpmTokenizer : KernelBpeTokenizer {
   }
 };
 
-struct JsonFastTokenizer : KernelBpeTokenizer {
+class JsonFastTokenizer : KernelBpeTokenizer {
+ public:
   JsonFastTokenizer();
+  OrtxStatus Load(const ort_extensions::bpe::TokenJsonConfig& config);
   OrtxStatus Compute(const ortc::Tensor<std::string>& input,
                      ortc::Tensor<int64_t>& tokenize_output,
                      std::optional<ortc::Tensor<int64_t>*> attention_mask,
-                     std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
-    return KernelBpeTokenizer::Compute(input, tokenize_output, attention_mask, offset_mapping);
-  }
+                     std::optional<ortc::Tensor<int64_t>*> offset_mapping) const;
+
+ private:
+  BpeModelConf json_conf_;
+  std::vector<ort_extensions::bpe::AddedToken> added_tokens_;
 };

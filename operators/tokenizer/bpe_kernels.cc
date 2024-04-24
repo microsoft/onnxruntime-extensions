@@ -1,9 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "bpe_tokenizer.hpp"
-#include "bpe_kernels.h"
 #include "ortx_common.h"
+#include "bpe_kernels.h"
+#include "bpe_json.hpp"
+#include "bpe_tokenizer.hpp"
 
 #include <optional>
 #include <limits>
@@ -104,7 +105,7 @@ ustring RemoveConsecutiveSpaces(const ustring& input) {
 
 KernelBpeTokenizer::KernelBpeTokenizer(const BpeModelConf& conf)
     : bpe_conf_(conf) {
-  model_name_ = conf.name_;
+  model_name_ = conf.name_ == nullptr ? "" : conf.name_;
 };
 
 OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
@@ -132,13 +133,13 @@ OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKerne
     model_name_ = model_name;
   }
 
-  std::stringstream vocabu_stream(vocab);
+  std::stringstream vocab_stream(vocab);
   std::stringstream merges_stream(merges);
   bbpe_tokenizer_ = std::make_unique<BpeModel>();
-  auto status = bbpe_tokenizer_->Load(vocabu_stream,
+  auto status = bbpe_tokenizer_->Load(vocab_stream,
                                       merges_stream,
-                                      bpe_conf_.unk_token_,
-                                      bpe_conf_.GetSpecialTokens().c_str(),
+                                      bpe_conf_.get().unk_token_,
+                                      bpe_conf_.get().GetSpecialTokens().c_str(),
                                       IsSpmModel(ModelName()));
   if (!status.IsOk()) {
     return status.CreateOrtStatus();
@@ -152,15 +153,15 @@ OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKerne
   }
 
   // TODO: need to check if the special token ids are the same as the ones in HFTokenizer
-  unk_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.unk_token_);
-  if (bpe_conf_.bos_token_ != nullptr) {
-    bos_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.bos_token_);
+  unk_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.get().unk_token_);
+  if (bpe_conf_.get().bos_token_ != nullptr) {
+    bos_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.get().bos_token_);
   }
-  if (bpe_conf_.eos_token_ != nullptr) {
-    eos_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.eos_token_);
+  if (bpe_conf_.get().eos_token_ != nullptr) {
+    eos_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.get().eos_token_);
   }
-  if (bpe_conf_.pad_token_ != nullptr) {
-    pad_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.pad_token_);
+  if (bpe_conf_.get().pad_token_ != nullptr) {
+    pad_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.get().pad_token_);
   }
 
   return {};
@@ -528,3 +529,72 @@ static const auto kSpmConfiguration = BpeModelConf{
 
 SpmTokenizer::SpmTokenizer()
     : KernelBpeTokenizer(kSpmConfiguration) {}
+
+JsonFastTokenizer::JsonFastTokenizer() : KernelBpeTokenizer(kGPT2Configuration) {}
+
+OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& config) {
+  std::string voc_file = config.GetVocabDataFile();
+  std::ifstream ifs(voc_file);
+  if (!ifs.is_open()) {
+    return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open json file: " + voc_file);
+  }
+
+  json_conf_.name_ = config.tokenizer_class_.c_str();
+  json_conf_.bos_token_ = config.bos_token_.c_str();
+  json_conf_.eos_token_ = config.eos_token_.c_str();
+  json_conf_.unk_token_ = config.unk_token_.c_str();
+  json_conf_.pad_token_ = config.pad_token_.c_str();
+
+  // re-bind the configuration object
+  bpe_conf_ = json_conf_;
+
+  // consider to use SAX parser for large json file
+  nlohmann::json tok_json;
+  ifs >> tok_json;
+  auto model_node = tok_json.find("model");
+  if (model_node == tok_json.end()) {
+    return OrtxStatus(kOrtxErrorCorruptData, "Failed to get model node from tokenizer.json");
+  }
+
+  std::string vocab = model_node->at("vocab").dump();
+  std::string merges = model_node->at("merges").dump();
+
+  std::stringstream vocab_stream(vocab);
+  std::stringstream merges_stream(merges);
+  bbpe_tokenizer_ = std::make_unique<BpeModel>();
+  auto status = bbpe_tokenizer_->Load(vocab_stream,
+                                      merges_stream,
+                                      bpe_conf_.get().unk_token_,
+                                      bpe_conf_.get().GetSpecialTokens().c_str(),
+                                      IsSpmModel(ModelName()));
+
+  auto added_tokens = tok_json.find("added_tokens");
+  if (added_tokens != tok_json.end()) {
+    for (const auto& token : *added_tokens) {
+      bpe::AddedToken added_token;
+      added_token.id_ = token.value("id", 0);
+      added_token.token_type_ = token.value("type", "");
+      added_token.content_ = token.value("content", "");
+      added_token.lstrip_ = token.value("lstrip", false);
+      added_token.normalized_ = token.value("normalized", false);
+      added_token.rstrip_ = token.value("rstrip", false);
+      added_token.single_word_ = token.value("single_word", false);
+
+      added_tokens_.emplace_back(added_token);
+    }
+  }
+
+  if (!status.IsOk()) {
+    return status;
+  }
+
+  status = bbpe_tokenizer_->LoadAddedTokens(added_tokens_);
+  return status;
+}
+
+OrtxStatus JsonFastTokenizer::Compute(const ortc::Tensor<std::string>& input,
+                                      ortc::Tensor<int64_t>& tokenize_output,
+                                      std::optional<ortc::Tensor<int64_t>*> attention_mask,
+                                      std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
+  return KernelBpeTokenizer::Compute(input, tokenize_output, attention_mask, offset_mapping);
+}

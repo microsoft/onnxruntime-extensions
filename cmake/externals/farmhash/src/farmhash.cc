@@ -390,11 +390,14 @@ STATIC_INLINE uint32_t Mur(uint32_t a, uint32_t h) {
 
 template <typename T> STATIC_INLINE T DebugTweak(T x) {
   if (debug_mode) {
-    if (sizeof(x) == 4) {
-      x = ~Bswap32(x * c1);
-    } else {
-      x = ~Bswap64(x * k1);
-    }
+    x = ~Bswap32(x * c1);
+  }
+  return x;
+}
+
+template <> STATIC_INLINE uint64_t DebugTweak(uint64_t x) {
+  if (debug_mode) {
+    x = ~Bswap64(x * k1);
   }
   return x;
 }
@@ -461,7 +464,7 @@ STATIC_INLINE uint64_t HashLen0to16(const char *s, size_t len) {
     uint8_t b = s[len >> 1];
     uint8_t c = s[len - 1];
     uint32_t y = static_cast<uint32_t>(a) + (static_cast<uint32_t>(b) << 8);
-    uint32_t z = len + (static_cast<uint32_t>(c) << 2);
+    uint32_t z = static_cast<uint32_t>(len + (static_cast<uint32_t>(c) << 2));
     return ShiftMix(y * k2 ^ z * k0) * k2;
   }
   return k2;
@@ -1002,7 +1005,7 @@ namespace farmhashnt {
 
 uint32_t Hash32(const char *s, size_t len) {
   FARMHASH_DIE_IF_MISCONFIGURED;
-  return s == NULL ? 0 : len;
+  return s == NULL ? 0 : static_cast<uint32_t>(len);
 }
 
 uint32_t Hash32WithSeed(const char *s, size_t len, uint32_t seed) {
@@ -1775,7 +1778,7 @@ STATIC_INLINE NAMESPACE_FOR_HASH_FUNCTIONS::uint128_t CityMurmur(const char *s, 
   uint64_t b = Uint128High64(seed);
   uint64_t c = 0;
   uint64_t d = 0;
-  signed long l = len - 16;
+  signed long l = static_cast<signed long>(len) - 16;
   if (l <= 0) {  // len <= 16
     a = ShiftMix(a * k1) * k1;
     c = b * k1 + HashLen0to16(s, len);

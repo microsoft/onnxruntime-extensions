@@ -27,14 +27,22 @@ TokenizerImpl::TokenizerImpl() : OrtxObjectImpl(extObjectKind_t::kOrtxKindTokeni
 TokenizerImpl::~TokenizerImpl(){};
 
 OrtxStatus TokenizerImpl::Load(const std::string& dir) {
-  // TODO: Load the tokenizer from the specified directory.
-  return {};
+  tok_config_ = std::make_shared<ort_extensions::bpe::TokenJsonConfig>();
+  auto status = tok_config_->Load(dir);
+  if (!status.IsOk()) {
+    return status;
+  }
+
+  tokenizer_ = std::make_unique<JsonFastTokenizer>();
+  // load the tokenizer from a config
+  status = tokenizer_->Load(*tok_config_);
+  return status;
 }
 
 OrtxStatus TokenizerImpl::BatchEncode(
     const std::vector<std::string_view>& input,
     std::vector<std::vector<extTokenId_t>>& t_ids) const {
-  for (const auto& s : input) {
+    for (const auto& s : input) {
     ortc::Tensor<int64_t> ts_output(&g_allocator);
     ortc::Tensor<std::string> ts_input = ortc::Tensor<std::string>(std::vector<std::string>{std::string(s)});
     auto status = tokenizer_->Compute(ts_input, ts_output, std::nullopt, std::nullopt);
@@ -52,14 +60,15 @@ OrtxStatus TokenizerImpl::BatchEncode(
 
 OrtxStatus TokenizerImpl::BatchDecode(const std::vector<span<extTokenId_t const>>& t_ids,
                                       std::vector<std::string>& t_text) const {
-  // for (const auto& s : t_ids) {
-  //   std::string text;
-  //   OrtxStatus status = Decode(s, text);
-  //   if (!status.IsOk()) {
-  //     return status;
-  //   }
-  //   t_text.emplace_back(text);
-  // }
+  for (const auto& s : t_ids) {
+    ortc::Tensor<int64_t> ts_input(std::vector<int64_t>{1, static_cast<int64_t>(s.size())}, (void*)s.data());
+    ortc::Tensor<std::string> ts_output;
+    OrtxStatus status = detokenizer_->Compute(ts_input, ts_output);
+    if (!status.IsOk()) {
+      return status;
+    }
+    t_text.emplace_back(ts_output.AsScalar());
+  }
   return {};
 }
 
