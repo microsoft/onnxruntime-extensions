@@ -87,7 +87,7 @@ TEST(Exceptions, TestApiTryCatch_ThrowInModelLoad) {
   EXPECT_EXIT(fail_fn(), ::testing::KilledBySignal(SIGABRT), ".*");
 #endif
 #else
-  //ORT catches the exceptions thrown by the custom op and rethrows them as Ort::Exception
+  // ORT catches the exceptions thrown by the custom op and rethrows them as Ort::Exception
   EXPECT_THROW(fail_fn(), Ort::Exception);
 #endif
 }
