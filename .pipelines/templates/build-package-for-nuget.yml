@@ -77,14 +77,6 @@ stages:
     parameters:
       DoCompliance: ${{ parameters.DoCompliance }}
       DoEsrp: ${{ parameters.DoEsrp }}
-      StageNameSuffix: CPU_arm
-      BuildPlatform: arm
-      AdditionalBuildFlags: ${{parameters.OperatorSelectionFlags}} ${{parameters.AdditionalBuildFlags}}
-
-  - template: build-package-for-windows.yml
-    parameters:
-      DoCompliance: ${{ parameters.DoCompliance }}
-      DoEsrp: ${{ parameters.DoEsrp }}
       StageNameSuffix: CPU_arm64
       BuildPlatform: arm64
       AdditionalBuildFlags: ${{parameters.OperatorSelectionFlags}} ${{parameters.AdditionalBuildFlags}}
@@ -159,11 +151,6 @@ stages:
         artifactName: 'onnxruntime-extensions-win-arm64'
         targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
 
-    - task: DownloadPipelineArtifact@0
-      displayName: 'Download win-arm Pipeline Artifact'
-      inputs:
-        artifactName: 'onnxruntime-extensions-win-arm'
-        targetPath: '$(Build.BinariesDirectory)/artifact-downloads'
     - task: DownloadPipelineArtifact@0
       displayName: 'Download osx-all Pipeline Artifact'
       inputs:

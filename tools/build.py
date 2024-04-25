@@ -204,6 +204,7 @@ def _parse_arguments():
         "--build_apple_framework", action="store_true", help="Build a macOS/iOS framework for ONNX Runtime Extensions."
     )
     parser.add_argument("--ios", action="store_true", help="build for iOS")
+    parser.add_argument("--macos", choices=["MacOSX", "Catalyst"], help="build for MacOS (OSX/Catalyst)")
     parser.add_argument(
         "--apple_sysroot",
         default="",
@@ -497,9 +498,8 @@ def _generate_build_tree(
             # if neither code signing development identity nor team id are provided, don't code sign
             cmake_args += ["-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO"]
 
-        if args.build_apple_framework or args.ios:
+        if args.build_apple_framework or args.ios or args.macos:
             cmake_args += ["-DOCOS_BUILD_APPLE_FRAMEWORK=ON"]
-    
             required_args = [
                 args.apple_sysroot,
                 args.apple_deploy_target,
@@ -520,6 +520,23 @@ def _generate_build_tree(
                 cmake_args += [
                     "-DCMAKE_SYSTEM_NAME=iOS",
                     "-DCMAKE_TOOLCHAIN_FILE=" + str(args.ios_toolchain_file.resolve(strict=True)),
+                ]
+            if args.macos == "Catalyst":
+                macabi_target = f"{args.apple_arch}-apple-ios{args.apple_deploy_target}-macabi"
+                cmake_args += [
+                    "-DCMAKE_CXX_COMPILER_TARGET=" + macabi_target,
+                    "-DCMAKE_C_COMPILER_TARGET=" + macabi_target,
+                    "-DCMAKE_CC_COMPILER_TARGET=" + macabi_target,
+                    f"-DCMAKE_CXX_FLAGS=--target={macabi_target}",
+                    f"-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG --target={macabi_target}",
+                    f"-DCMAKE_C_FLAGS=--target={macabi_target}",
+                    f"-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG --target={macabi_target}",
+                    f"-DCMAKE_CC_FLAGS=--target={macabi_target}",
+                    f"-DCMAKE_CC_FLAGS_RELEASE=-O3 -DNDEBUG --target={macabi_target}",
+                    "-DOCOS_ENABLE_CV2=OFF",
+                    "-DOCOS_ENABLE_VISION=OFF",
+                    "-DOCOS_ENABLE_CTESTS=OFF",
+                    "-DMAC_CATALYST=1",
                 ]
 
     if args.wasm:

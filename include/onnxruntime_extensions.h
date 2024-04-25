@@ -1,8 +1,6 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#pragma once
-
 // Note: The following include path is used for building Swift Package Manager support for ORT Extensions.
 // The macro is defined in cxxSettings config in Package.swift.
 // The reason why we need a prefix is that when Xcode includes the package it copies it to an internally generated path with 
@@ -15,15 +13,20 @@
 #include "onnxruntime_c_api.h"
 #endif
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-OrtStatus* ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api);
+OrtStatus*
+ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api);
 
-int ORT_API_CALL GetActiveOrtAPIVersion();
+int
+ORT_API_CALL GetActiveOrtAPIVersion();
 
 #ifdef __cplusplus
 }
 #endif
+
+#if defined(ENABLE_C_API)
+#include "ortx_tokenizer.h"
+#endif // ENABLE_C_API

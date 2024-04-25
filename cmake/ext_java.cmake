@@ -97,6 +97,8 @@ elseif (ANDROID)
   set(JNI_ARCH ${ANDROID_ABI})
 elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
   set(JNI_ARCH x64)
+elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+  set(JNI_ARCH aarch64)
 else()
   # Now mirror the checks used with MSVC
   if(MSVC)

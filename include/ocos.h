@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "onnxruntime_customop.hpp"
+#include "op_def_struct.h"
 
 // A helper API to support test kernels.
 // Must be invoked before RegisterCustomOps.
@@ -121,7 +121,7 @@ extern FxLoadCustomOpFactory LoadCustomOpClasses_Text;
 
 #ifdef ENABLE_CV2
 extern FxLoadCustomOpFactory LoadCustomOpClasses_CV2;
-#endif  // ENABLE_OPENCV
+#endif  // ENABLE_CV2
 
 #ifdef ENABLE_VISION
 extern FxLoadCustomOpFactory LoadCustomOpClasses_Vision;
@@ -135,4 +135,6 @@ extern FxLoadCustomOpFactory LoadCustomOpClasses_Audio;
 extern FxLoadCustomOpFactory LoadCustomOpClasses_Azure;
 #endif
 
+#if USE_CUDA
 extern FxLoadCustomOpFactory LoadCustomOpClasses_Contrib;
+#endif // USE_CUDA

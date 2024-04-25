@@ -39,6 +39,7 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = []() -> CustomOpArray& {
       CustomCpuStructV2("CLIPTokenizer", CLIPTokenizer),
       CustomCpuStructV2("RobertaTokenizer", RobertaTokenizer),
       CustomCpuStructV2("BpeDecoder", KernelBpeDecoder),
+      CustomCpuStructV2("SpmTokenizer", SpmTokenizer),
 #endif
 
 #ifdef ENABLE_SPM_TOKENIZER

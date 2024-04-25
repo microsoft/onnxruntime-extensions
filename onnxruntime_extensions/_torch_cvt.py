@@ -88,19 +88,21 @@ class CustomOpStftNorm(torch.autograd.Function):
 
 
 class WhisperPrePipeline(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, sr=_WhisperHParams.SAMPLE_RATE, n_fft=_WhisperHParams.N_FFT,
+                 hop_length=_WhisperHParams.HOP_LENGTH, n_mels=_WhisperHParams.N_MELS,
+                 n_samples=_WhisperHParams.N_SAMPLES):
         super().__init__()
-        self.window = torch.hann_window(_WhisperHParams.N_FFT)
+        self.n_samples = n_samples
+        self.hop_length = hop_length
+        self.n_fft = n_fft
+        self.window = torch.hann_window(n_fft)
         self.mel_filters = torch.from_numpy(
-            _mel_filterbank(
-                sr=_WhisperHParams.SAMPLE_RATE,
-                n_fft=_WhisperHParams.N_FFT,
-                n_mels=_WhisperHParams.N_MELS))
+            _mel_filterbank(sr=sr, n_fft=n_fft, n_mels=n_mels))
 
     def forward(self, audio_pcm: torch.Tensor):
         stft_norm = CustomOpStftNorm.apply(audio_pcm,
-                                           _WhisperHParams.N_FFT,
-                                           _WhisperHParams.HOP_LENGTH,
+                                           self.n_fft,
+                                           self.hop_length,
                                            self.window)
         magnitudes = stft_norm[:, :, :-1]
         mel_spec = self.mel_filters @ magnitudes
@@ -110,7 +112,7 @@ class WhisperPrePipeline(torch.nn.Module):
         spec_shape = log_spec.shape
         padding_spec = torch.ones(spec_shape[0],
                                   spec_shape[1],
-                                  _WhisperHParams.N_SAMPLES // _WhisperHParams.HOP_LENGTH - spec_shape[2],
+                                  self.n_samples // self.hop_length - spec_shape[2],
                                   dtype=torch.float)
         padding_spec *= spec_min
         log_spec = torch.cat((log_spec, padding_spec), dim=2)
@@ -118,7 +120,7 @@ class WhisperPrePipeline(torch.nn.Module):
         return log_spec
 
 
-def _to_onnx_stft(onnx_model):
+def _to_onnx_stft(onnx_model, n_fft):
     """Convert custom-op STFT-Norm to ONNX STFT"""
     node_idx = 0
     new_stft_nodes = []
@@ -134,28 +136,33 @@ def _to_onnx_stft(onnx_model):
 
     make_node = onnx.helper.make_node
     replaced_nodes = [
+        make_node('Constant', inputs=[], outputs=['const_minus_1_output_0'], name='const_minus_1',
+                  value=numpy_helper.from_array(np.array([-1], dtype='int64'))),
         make_node('Constant', inputs=[], outputs=['const_14_output_0'], name='const_14',
                   value=numpy_helper.from_array(np.array([0,
-                                                          _WhisperHParams.N_FFT // 2, 0,
-                                                          _WhisperHParams.N_FFT // 2], dtype='int64'),
+                                                          n_fft // 2, 0,
+                                                          n_fft // 2], dtype='int64'),
                                                 name='const_14')),
         make_node('Pad',
                   inputs=[stft_norm_node.input[0], 'const_14_output_0'],
                   outputs=['pad_1_output_0'], mode='reflect'),
+        make_node('Unsqueeze',
+                  inputs=['pad_1_output_0', 'const_minus_1_output_0'],
+                  outputs=['unsqueeze_1_output_0'],
+                  name='unsqueeze_1'),
         make_node('STFT',
-                  inputs=['pad_1_output_0', stft_norm_node.input[2], stft_norm_node.input[3], stft_norm_node.input[4]],
-                  outputs=['stft_output_0'], name='stft', domain='', onesided=1),
+                  inputs=['unsqueeze_1_output_0', stft_norm_node.input[2],
+                          stft_norm_node.input[3], stft_norm_node.input[4]],
+                  outputs=['stft_output_0'], name='stft', onesided=1),
         make_node('Transpose', inputs=['stft_output_0'], outputs=['transpose_1_output_0'], name='transpose_1',
                   perm=[0, 2, 1, 3]),
         make_node('Constant', inputs=[], outputs=['const_17_output_0'], name='const_17',
                   value=numpy_helper.from_array(np.array([2], dtype='int64'), name='')),
         make_node('Constant', inputs=[], outputs=['const_18_output_0'], name='const_18',
                   value=numpy_helper.from_array(np.array([0], dtype='int64'), name='')),
-        make_node('Constant', inputs=[], outputs=['const_19_output_0'], name='const_19',
-                  value=numpy_helper.from_array(np.array([-1], dtype='int64'), name='')),
         make_node('Constant', inputs=[], outputs=['const_20_output_0'], name='const_20',
                   value=numpy_helper.from_array(np.array([1], dtype='int64'), name='')),
-        make_node('Slice', inputs=['transpose_1_output_0', 'const_18_output_0', 'const_19_output_0',
+        make_node('Slice', inputs=['transpose_1_output_0', 'const_18_output_0', 'const_minus_1_output_0',
                                    'const_17_output_0', 'const_20_output_0'], outputs=['slice_1_output_0'],
                   name='slice_1'),
         make_node('Constant', inputs=[], outputs=['const0_output_0'], name='const0', value_int=0),
@@ -192,7 +199,13 @@ class WhisperDataProcGraph:
     def pre_processing(self, **kwargs):
         use_audio_decoder = kwargs.pop('USE_AUDIO_DECODER', True)
         use_onnx_stft = kwargs.pop('USE_ONNX_STFT', True)
-        whisper_processing = WhisperPrePipeline()
+        feature_extractor = self.hf_processor.feature_extractor
+        whisper_processing = WhisperPrePipeline(
+            feature_extractor.sampling_rate,
+            feature_extractor.n_fft,
+            feature_extractor.hop_length,
+            feature_extractor.feature_size,
+            feature_extractor.n_samples)
 
         audio_pcm = torch.rand((1, 32000), dtype=torch.float32)
         model_args = (audio_pcm,)
@@ -209,13 +222,15 @@ class WhisperDataProcGraph:
             }
         )
         if use_onnx_stft:
-            pre_model = _to_onnx_stft(pre_model)
+            pre_model = _to_onnx_stft(pre_model, feature_extractor.n_fft)
             remove_unused_initializers(pre_model.graph)
 
         pre_full = pre_model
         if use_audio_decoder:
             audecoder_g = SingleOpGraph.build_graph(
-                "AudioDecoder", downsampling_rate=_WhisperHParams.SAMPLE_RATE, stereo_to_mono=1)
+                "AudioDecoder",
+                downsampling_rate=feature_extractor.sampling_rate,
+                stereo_to_mono=1)
             audecoder_m = make_onnx_model(audecoder_g)
             pre_full = onnx.compose.merge_models(
                 audecoder_m,

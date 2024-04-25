@@ -1,7 +1,7 @@
 include *.txt
 global-include *.def
 recursive-include cmake *.*
-recursive-include includes *.*
+recursive-include include *.*
 recursive-include operators *.*
 recursive-include pyop *.*
 recursive-include shared *.*

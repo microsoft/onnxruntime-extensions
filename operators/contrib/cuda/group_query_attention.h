@@ -14,6 +14,8 @@
 #include "cutlass_fmha/memory_efficient_attention.h"
 #endif
 
+#include "ortx_common.h"
+
 namespace contrib {
 
 template <typename T>
@@ -268,12 +270,12 @@ struct GroupQueryAttention {
     return nullptr;
   }
 
-  OrtStatusPtr Compute(OrtKernelContext* kernel_context, const Ort::Custom::CudaContext& ctx, const ortc::Tensor<T>& query, std::optional<const ortc::Tensor<T>*> key,
+  OrtStatusPtr Compute(OrtKernelContext* kernel_context, Ort::Custom::CUDAKernelContext* ctx, const ortc::Tensor<T>& query, std::optional<const ortc::Tensor<T>*> key,
                        std::optional<const ortc::Tensor<T>*> value, std::optional<const ortc::Tensor<T>*> past_key, std::optional<const ortc::Tensor<T>*> past_value,
                        const ortc::Tensor<int>& seqlens_k, const ortc::Tensor<int>& total_seqlen, std::optional<const ortc::Tensor<T>*> cos_cache, 
                        std::optional<const ortc::Tensor<T>*> sin_cache, ortc::Tensor<T>& attn_out, std::optional<ortc::Tensor<T>*> present_key, std::optional<ortc::Tensor<T>*> present_value) const {
     OrtMemoryInfo* mem_info = nullptr;  // TODO: delete mem_info
-    ORTX_RETURN_IF_ERROR(OrtW::API::CreateOrtMemoryInfo("Cuda", OrtDeviceAllocator, ctx.device_id, OrtMemTypeDefault, &mem_info));
+    ORTX_RETURN_IF_ERROR(OrtW::API::CreateOrtMemoryInfo("Cuda", OrtDeviceAllocator, ctx->GetCudaDeviceId(), OrtMemTypeDefault, &mem_info));
     OrtAllocator* allocator = nullptr;  // TODO: delete allocator
     ORTX_RETURN_IF_ERROR(OrtW::API::GetOrtAllocator(kernel_context, mem_info, &allocator));
     // TODO: will initialize disable_flash_attention_ be put here or OnModelAttach()? if latter, need to expose a function to get allocator from kernelInfo
@@ -430,7 +432,7 @@ struct GroupQueryAttention {
     }
   
     return cuda::QkvToContext<TT>(
-        /*device_prop, ctx.cublas,*/ reinterpret_cast<cudaStream_t>(ctx.cuda_stream), parameters, data);
+        /*device_prop, ctx.cublas,*/ reinterpret_cast<cudaStream_t>(ctx->GetCudaStream()), parameters, data);
   }
 
  private:

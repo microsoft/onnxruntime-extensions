@@ -2,14 +2,15 @@
 #include <cuda.h>
 #include "group_query_attention_impl.cuh"
 #include "utils.cuh"
-#include "onnxruntime_no_customop.h"
 #include "ortx_common.h"
+#include "onnxruntime_f16.h"
 #ifdef USE_FLASH_ATTENTION
 #include "flash_attention/flash_api.h"
 #endif
 #ifdef USE_MEMORY_EFFICIENT_ATTENTION
 #include "cutlass_fmha/memory_efficient_attention.h"
 #endif
+#include "device_prop.cuh"
 
 namespace contrib {
 namespace cuda {
@@ -433,6 +434,8 @@ OrtStatusPtr LaunchGetSeqlenBuff(contrib::GroupQueryAttentionParameters& paramet
 }
 
 ////////// Launch Kernels
+
+using BFloat16 = Ort::Custom::BFloat16;
 
 #if USE_FLASH_ATTENTION
 template <typename T>

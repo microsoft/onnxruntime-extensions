@@ -76,7 +76,8 @@ class CLIPTokenizer(CustomOp):
         return [
             cls.io_def("input_ids", onnx.TensorProto.INT64, [None, None]),
             cls.io_def('attention_mask', onnx.TensorProto.INT64, [None, None]),
-            cls.io_def('offset_mapping', onnx.TensorProto.INT64, [None, None, 2])
+            cls.io_def('offset_mapping',
+                       onnx.TensorProto.INT64, [None, None, 2])
         ]
 
 
@@ -93,7 +94,8 @@ class RobertaTokenizer(CustomOp):
         return [
             cls.io_def("input_ids", onnx.TensorProto.INT64, [None, None]),
             cls.io_def('attention_mask', onnx.TensorProto.INT64, [None, None]),
-            cls.io_def('offset_mapping', onnx.TensorProto.INT64, [None, None, 2])
+            cls.io_def('offset_mapping',
+                       onnx.TensorProto.INT64, [None, None, 2])
         ]
 
 
@@ -107,6 +109,22 @@ class BpeDecoder(CustomOp):
     @classmethod
     def get_outputs(cls):
         return [cls.io_def('str', onnx_proto.TensorProto.STRING, None)]
+
+
+class SpmTokenizer(CustomOp):
+
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def("input_text", onnx_proto.TensorProto.STRING, [None])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [
+            cls.io_def("input_ids", onnx.TensorProto.INT64, [None, None]),
+            cls.io_def("attention_mask", onnx.TensorProto.INT64, [None, None]),
+            cls.io_def("offset_mapping",
+                       onnx.TensorProto.INT64, [None, None, 2]),
+        ]
 
 
 class VectorToString(CustomOp):
@@ -335,7 +353,8 @@ class SentencepieceTokenizer(CustomOp):
     def get_outputs(cls):
         return [
             cls.io_def('tokens', onnx_proto.TensorProto.INT32, [None]),
-            cls.io_def('instance_indices', onnx_proto.TensorProto.INT64, [None]),
+            cls.io_def('instance_indices',
+                       onnx_proto.TensorProto.INT64, [None]),
             cls.io_def('token_indices', onnx_proto.TensorProto.INT32, [None])
         ]
 
@@ -399,7 +418,8 @@ class ImageReader(CustomOp):
     @classmethod
     def get_outputs(cls):
         return [
-            cls.io_def('nchw_bytes', onnx_proto.TensorProto.UINT8, [None, None, None, None])
+            cls.io_def('nchw_bytes', onnx_proto.TensorProto.UINT8,
+                       [None, None, None, None])
         ]
 
 
@@ -408,7 +428,8 @@ class GaussianBlur(CustomOp):
     @classmethod
     def get_inputs(cls):
         return [
-            cls.io_def('nhwc', onnx_proto.TensorProto.FLOAT, [None, None, None, None]),
+            cls.io_def('nhwc', onnx_proto.TensorProto.FLOAT,
+                       [None, None, None, None]),
             cls.io_def('kernel_size', onnx_proto.TensorProto.INT64, [None]),
             cls.io_def('sigma_xy', onnx_proto.TensorProto.DOUBLE, [None])
         ]
@@ -416,7 +437,8 @@ class GaussianBlur(CustomOp):
     @classmethod
     def get_outputs(cls):
         return [
-            cls.io_def('gb_nhwc', onnx_proto.TensorProto.FLOAT, [None, None, None, None])
+            cls.io_def('gb_nhwc', onnx_proto.TensorProto.FLOAT,
+                       [None, None, None, None])
         ]
 
 
@@ -431,7 +453,8 @@ class ImageDecoder(CustomOp):
     @classmethod
     def get_outputs(cls):
         return [
-            cls.io_def('decoded_image', onnx_proto.TensorProto.UINT8, [None, None, 3])
+            cls.io_def('decoded_image',
+                       onnx_proto.TensorProto.UINT8, [None, None, 3])
         ]
 
 
@@ -463,7 +486,8 @@ class StftNorm(CustomOp):
     @classmethod
     def get_outputs(cls):
         return [
-            cls.io_def('stft_norm', onnx_proto.TensorProto.FLOAT, [1, None, None])
+            cls.io_def('stft_norm', onnx_proto.TensorProto.FLOAT,
+                       [1, None, None])
         ]
 
 

@@ -3,6 +3,7 @@
 
 #pragma once
 #include "ocos.h"
+#include "status.h"
 #include "narrow.h"
 #include "ustring.h"
 #include "string_utils.h"
@@ -25,10 +26,27 @@ class BpeModel {
  public:
   BpeModel() = default;
 
-  OrtStatusPtr Load(std::istream& vocab_stream,
-                    std::istream& merges_stream,
-                    const char* unk_token,
-                    const char* special_tokens) {
+  static void UpdateSpmByteToken(std::unordered_map<std::string, uint32_t>& vocab_map) {
+    static const char* hex = "0123456789ABCDEF";
+    for (char32_t ch = 0; ch < 256; ++ch) {
+      std::string tok(1, ort_extensions::narrow<unsigned char>(ch));
+      if (vocab_map.find(tok) != vocab_map.end()) {
+        continue;
+      }
+
+      const char buf[7] = {'<', '0', 'x', hex[ch >> 4], hex[ch & 15], '>', 0};
+      auto it = vocab_map.find(buf);
+      if (it != vocab_map.end()) {
+        vocab_map[tok] = it->second;
+      }
+    }
+  }
+
+  OrtxStatus Load(std::istream& vocab_stream,
+                  std::istream& merges_stream,
+                  const char* unk_token,
+                  const char* special_tokens,
+                  bool spm_converted) {
     nlohmann::json tok_json;
     vocab_stream >> tok_json;
     vocab_map_ = std::move(tok_json.get<std::unordered_map<std::string, uint32_t>>());
@@ -42,7 +60,11 @@ class BpeModel {
       unk_id_ = id;
     }
 
-    CreateByteEncoder();
+    if (spm_converted) {
+      UpdateSpmByteToken(vocab_map_);
+    } else {
+      CreateByteEncoder();
+    }
 
     uint32_t index = 0;
     std::string line;
@@ -52,7 +74,10 @@ class BpeModel {
       if ((line[0] == '#') && (index == 0)) continue;
       auto pos = line.find(' ');
       if (pos == std::string::npos) {
-        return OrtW::CreateStatus("Cannot know how to parse line: " + line, ORT_INVALID_ARGUMENT);
+        return {
+            kOrtxErrorCorruptData,
+            "Cannot know how to parse line: " + line,
+        };
       }
       std::string w1 = line.substr(0, pos);
       std::string w2 = line.substr(pos + 1);
@@ -95,10 +120,10 @@ class BpeModel {
       id2token_map_[i] = t;
     }
 
-    return nullptr;
+    return {};
   }
 
-  OrtStatusPtr LoadAddedTokens(const char* added_tokens) {
+  OrtxStatus LoadAddedTokens(const char* added_tokens) {
     int id = bpe::kInvalidTokenId;
     std::istringstream strm_tokens(added_tokens);
     std::string line;
@@ -109,19 +134,19 @@ class BpeModel {
       // separate the key and value by =
       auto pos = line.rfind("=");
       if (pos == std::string::npos) {
-        return OrtW::CreateStatus("Error on parse a added_token line: " + line, ORT_INVALID_ARGUMENT);
+        return {kOrtxErrorCorruptData, "Error on parse a added_token line: " + line};
       }
       auto token = line.substr(0, pos);
       auto id_str = line.substr(pos + 1);  // 1 is the length of "="
       auto [ptr, ec] = std::from_chars(id_str.data(), id_str.data() + id_str.length(), id);
       if (ec != std::errc()) {
-        return OrtW::CreateStatus("Cannot convert to an integer from " + id_str, ORT_INVALID_ARGUMENT);
+        return {kOrtxErrorCorruptData, "Cannot convert to an integer from " + id_str};
       }
 
       added_tokens_.Add(ustring(token), 0, std::make_optional(id));
     }
 
-    return nullptr;
+    return {};
   }
 
   // REF: https://github.com/huggingface/transformers/blob/c9e72f55b2dc4b9be4edb986dce0552582b328f2/src/transformers/tokenization_utils.py#L52

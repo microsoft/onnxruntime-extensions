@@ -6,6 +6,7 @@
 #include "ocos.h"
 #include "ustring.h"
 #include "narrow.h"
+#include "ortx_common.h"
 #include <string>
 #include <vector>
 #include <locale>
@@ -150,7 +151,19 @@ struct KernelBpeDecoder {
         } else if (static_cast<size_t>(token) < arr_vocab_.size()) {
           const auto str = arr_vocab_[token];
           for (auto wchr : str) {
-            unsigned char uchr = byte_decoder_.at(wchr);
+            if (byte_decoder_.count(wchr) == 0) {
+              if (wchr <= char32_t(0xFF)) {
+                decoded_token.push_back(static_cast<char>(wchr));
+                continue;
+              }
+              if (skip_special_tokens_) {
+                continue;
+              } else {
+                decoded_token = unk_token_;
+                break;
+              }
+            }
+            char uchr = byte_decoder_.at(wchr);
             decoded_token.push_back(uchr);
           }
         } else {

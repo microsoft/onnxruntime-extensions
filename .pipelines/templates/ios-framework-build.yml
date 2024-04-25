@@ -8,6 +8,10 @@ parameters:
   displayName: IosArch
   type: string
 
+- name: IosVersion
+  displayName: IosVersion
+  type: string
+
 - name: IsReleaseBuild
   displayName: "Is this a release build?"
   type: boolean
@@ -50,6 +54,7 @@ jobs:
             --config $(buildConfig) \
             --platform_arch  ${{ parameters.Platform }} ${{ parameters.IosArch }} \
             --mode build_platform_arch_frameworks_only \
+            --ios_deployment_target ${{ parameters.IosVersion}} \
             -- \
             ${{parameters.AdditionalBuildFlags}}
         displayName: "Build xcframework"

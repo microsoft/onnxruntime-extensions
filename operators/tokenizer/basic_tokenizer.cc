@@ -81,20 +81,25 @@ std::vector<ustring> BasicTokenizer::Tokenize(ustring text) {
   return result;
 }
 
-KernelBasicTokenizer::KernelBasicTokenizer(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
-  bool do_lower_case = TryToGetAttributeWithDefault("do_lower_case", true);
-  bool tokenize_chinese_chars = TryToGetAttributeWithDefault("tokenize_chinese_chars", true);
-  bool strip_accents = TryToGetAttributeWithDefault("strip_accents", false);
-  bool tokenize_punctuation = TryToGetAttributeWithDefault("tokenize_punctuation", false);
-  bool remove_control_chars = TryToGetAttributeWithDefault("remove_control_chars", true);
+// KernelBasicTokenizer::KernelBasicTokenizer(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {
+//   bool do_lower_case = TryToGetAttributeWithDefault("do_lower_case", true);
+//   bool tokenize_chinese_chars = TryToGetAttributeWithDefault("tokenize_chinese_chars", true);
+//   bool strip_accents = TryToGetAttributeWithDefault("strip_accents", false);
+//   bool tokenize_punctuation = TryToGetAttributeWithDefault("tokenize_punctuation", false);
+//   bool remove_control_chars = TryToGetAttributeWithDefault("remove_control_chars", true);
 
-  tokenizer_ = std::make_shared<BasicTokenizer>(do_lower_case, tokenize_chinese_chars, strip_accents,
-                                                tokenize_punctuation, remove_control_chars);
-}
+//   tokenizer_ = std::make_shared<BasicTokenizer>(do_lower_case, tokenize_chinese_chars, strip_accents,
+//                                                 tokenize_punctuation, remove_control_chars);
+// }
 
 void KernelBasicTokenizer::Compute(std::string_view input,
                                    ortc::Tensor<std::string>& output) const {
   // Setup inputs
   std::vector<ustring> result = tokenizer_->Tokenize(ustring(input));
-  output.SetStringOutput({result[0].operator std::string()}, {1});
+  std::vector<std::string> tokens;
+  for (const auto& token : result) {
+    tokens.push_back((std::string)token);
+  }
+
+  output.SetStringOutput(tokens, {static_cast<int64_t>(tokens.size())});
 }
