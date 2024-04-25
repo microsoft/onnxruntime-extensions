@@ -250,7 +250,7 @@ class BpeModel {
     return byte_encoder_;
   }
 
-  uint32_t GetTokenId(const std::string& key) {
+  uint32_t GetTokenId(const std::string& key) const {
     auto it = vocab_map_.find(key);
     if (it != end(vocab_map_)) {
       return it->second;

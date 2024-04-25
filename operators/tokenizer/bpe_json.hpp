@@ -17,6 +17,8 @@ class TokenJsonConfig final {
  public:
   TokenJsonConfig() {}
   ~TokenJsonConfig() {}
+  using json = nlohmann::json;
+  using json_pointer = nlohmann::json_pointer<std::string>;
 
  public:
   OrtxStatus Load(const std::string& json_path) {
@@ -38,10 +40,22 @@ class TokenJsonConfig final {
     model_max_length_ = json_config.value("model_max_length", 1e+30);
 
     tokenizer_class_ = json_config.value("tokenizer_class", "");
-    bos_token_ = json_config.value("bos_token", "");
-    eos_token_ = json_config.value("eos_token", "");
-    unk_token_ = json_config.value("unk_token", "");
-    pad_token_ = json_config.value("pad_token", "");
+
+    auto tok_iter = json_config.find("bos_token");
+    if (tok_iter != json_config.end() && tok_iter->is_object()) {
+      bos_token_ = tok_iter->value("content", "");
+      eos_token_ = json_config.value("/eos_token/content"_json_pointer, "");
+      unk_token_ = json_config.value("/unk_token/content"_json_pointer, "");
+    } else {
+      bos_token_ = json_config.value("bos_token", "");
+      eos_token_ = json_config.value("eos_token", "");
+      unk_token_ = json_config.value("unk_token", "");
+    }
+
+    auto pad_iter = json_config.find("pad_token");
+    if (pad_iter != json_config.end() && pad_iter->is_string()) {
+      pad_token_ = json_config.value("pad_token", "");
+    }
 
     if (tokenizer_class_.empty()) {
       return OrtxStatus(kOrtxErrorCorruptData, "Failed to get tokenizer class.");

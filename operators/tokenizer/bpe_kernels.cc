@@ -11,6 +11,7 @@
 
 using namespace ort_extensions;
 
+const char kModel_Default[] = "PreTrainedTokenizerFast";
 const char kModel_GPT2[] = "GPT2";
 const char kModel_CodeGen[] = "CodeGen";
 const char kModel_Roberta[] = "Roberta";
@@ -539,7 +540,9 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& c
     return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open json file: " + voc_file);
   }
 
-  json_conf_.name_ = config.tokenizer_class_.c_str();
+  const char token_sub[] = "Tokenizer";
+  class_name_ = config.tokenizer_class_.substr(0, config.tokenizer_class_.find(token_sub));
+  json_conf_.name_ = class_name_.c_str();
   json_conf_.bos_token_ = config.bos_token_.c_str();
   json_conf_.eos_token_ = config.eos_token_.c_str();
   json_conf_.unk_token_ = config.unk_token_.c_str();

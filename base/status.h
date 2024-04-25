@@ -21,6 +21,7 @@ struct OrtxStatus {
   void SetErrorMessage(const char* str);
   [[nodiscard]] const char* Message() const;
   [[nodiscard]] extError_t Code() const;
+  std::string ToString() const;
 
   OrtStatus* CreateOrtStatus() const;
 

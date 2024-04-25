@@ -116,6 +116,7 @@ class JsonFastTokenizer : KernelBpeTokenizer {
   const ort_extensions::BpeModel& GetEncoder() const { return *bbpe_tokenizer_; }
 
  private:
+  std::string class_name_;
   BpeModelConf json_conf_;
   std::vector<ort_extensions::bpe::AddedToken> added_tokens_;
 };

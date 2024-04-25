@@ -36,6 +36,97 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     return {};
   }
 
+  static std::string ReplaceAll(std::string_view s, const std::string& search, const std::string& replace) {
+    std::string result;
+    for (size_t pos = 0;; pos += search.length()) {
+      auto new_pos = s.find(search, pos);
+      if (new_pos == std::string::npos) {
+        result += s.substr(pos, s.size() - pos);
+        break;
+      }
+      result += s.substr(pos, new_pos - pos);
+      result += replace;
+      pos = new_pos;
+    }
+
+    return result;
+  }
+
+  static bool IsSpmByteWord(std::string_view word) {
+    return word.size() == 6 && word[0] == '<' && word[1] == '0' && word[2] == 'x' && word[5] == '>';
+  }
+
+  OrtxStatus Id2Token(extTokenId_t id,
+                      std::string& token,
+                      bool skip_special_tokens,
+                      bool& f_special_last) const {
+    bool f_special = all_special_ids_.count(id) ? true : false;
+    if (skip_special_tokens && f_special) {
+      f_special_last = f_special;
+      return {};
+    }
+
+    if (added_tokens_.count(id)) {
+      const std::string ws = added_tokens_.at(id);
+      token = (std::string)ws;
+    } else if (static_cast<size_t>(id) < arr_vocab_.size()) {
+      const auto str = arr_vocab_[id];
+      for (auto wchr : str) {
+        if (byte_decoder_.count(wchr) == 0 && wchr <= 0xFF) {
+          token.push_back(gsl::narrow<unsigned char>(wchr));
+        } else {
+          unsigned char uchr = byte_decoder_.at(wchr);
+          token.push_back(uchr);
+        }
+      }
+    } else {
+      if (skip_special_tokens) {
+        f_special_last = f_special;
+        return {};
+      } else {
+        token = unk_token_;
+      }
+    }
+
+    /*
+    // remove the end_word_suffix like </w> or </s> etc.
+    auto& end_word_suffix = bbpe_encoder_.GetEndWordSuffix();
+    if (end_word_suffix.size() > 0) {
+      if (token.size() >= end_word_suffix.size() &&
+          token.substr(token.size() - end_word_suffix.size()) == end_word_suffix) {
+        token = token.substr(0, token.size() - end_word_suffix.size());
+        token += ' ';
+      }
+    }
+   */
+
+    f_special_last = f_special;
+    return {};
+  }
+
+  OrtxStatus SpmId2Token(extTokenId_t id, std::string& token, bool& f_special_last) const {
+    const char spm_underscore[] = "\xe2\x96\x81";
+
+    std::string piece = id < arr_vocab_.size() ? std::string(arr_vocab_[id]) : "";
+    bool f_special = false;
+    if (piece.empty() || all_special_ids_.count(id)) {
+      token = "";
+      f_special = true;
+    } else if (IsSpmByteWord(piece)) {
+      char buf[3] = {piece[3], piece[4], 0};  // something like <0x20>
+      token = {static_cast<char>(strtol(buf, NULL, 16))};
+    } else {
+      token = ReplaceAll(piece, spm_underscore, " ");
+    }
+
+    if (!token.empty() && token[0] == ' ' && f_special_last /* && add_dummpy_prefix_ */) {
+      token = token.substr(1);
+    }
+
+    f_special_last = f_special;
+    return {};
+  }
+
  private:
   void CreateByteDecoder(const ort_extensions::BpeModel& /* bpe_model */) {
     char32_t index = 256;

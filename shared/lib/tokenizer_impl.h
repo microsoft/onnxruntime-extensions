@@ -8,7 +8,6 @@
 #include "bpe_json.hpp"
 #include "bpe_streaming.hpp"
 
-
 namespace ort_extensions {
 class OrtxObjectImpl : public OrtxObject {
  public:
@@ -48,9 +47,9 @@ class span {
   size_t size_;
 };
 
-class DecoderState {
- public:
-  virtual ~DecoderState() = default;
+struct BPEDecoderState {
+  bool f_special_last{};
+  std::string incomplete_utf8_;
 };
 
 class TokenizerImpl : public OrtxObjectImpl {
@@ -62,17 +61,17 @@ class TokenizerImpl : public OrtxObjectImpl {
   OrtxStatus Load(const std::string& dir);
 
   OrtxStatus Tokenize(const std::vector<std::string_view>& input,
-                                std::vector<std::vector<extTokenId_t>>& t_ids) const {
+                      std::vector<std::vector<extTokenId_t>>& t_ids) const {
     return BatchEncode(input, t_ids);
   }
 
   OrtxStatus Detokenize(const std::vector<span<extTokenId_t const>>& t_ids,
-                                  std::vector<std::string>& t_text) const {
+                        std::vector<std::string>& t_text) const {
     return BatchDecode(t_ids, t_text);
   }
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, std::unique_ptr<DecoderState>& cache) const {
-    DecoderState* state_ptr = cache.get();
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, std::unique_ptr<BPEDecoderState>& cache) const {
+    BPEDecoderState* state_ptr = cache.get();
     OrtxStatus status = Id2Token(id, token, &state_ptr);
     if (status.IsOk()) {
       if (state_ptr != cache.get()) {
@@ -87,9 +86,10 @@ class TokenizerImpl : public OrtxObjectImpl {
 
   OrtxStatus BatchDecode(const std::vector<span<extTokenId_t const>>& t_ids, std::vector<std::string>& t_text) const;
 
-  OrtxStatus Id2Token(extTokenId_t /* id */, std::string& /* token */, DecoderState** /* state */) const;
+  OrtxStatus Id2Token(extTokenId_t /* id */, std::string& /* token */, BPEDecoderState** /* state */) const;
 
  private:
+  extTokenId_t eos_token_id_{0};
   std::string tokenizer_dir_;
   std::shared_ptr<ort_extensions::bpe::TokenJsonConfig> tok_config_;
   std::unique_ptr<JsonFastTokenizer> tokenizer_;

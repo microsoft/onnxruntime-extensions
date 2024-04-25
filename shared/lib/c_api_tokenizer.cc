@@ -47,7 +47,7 @@ class DetokenizerCache : public OrtxObjectImpl {
   DetokenizerCache() : OrtxObjectImpl(extObjectKind_t::kOrtxKindDetokenizerCache) {}
   ~DetokenizerCache() override = default;
 
-  std::unique_ptr<DecoderState> decoder_state_{};
+  std::unique_ptr<BPEDecoderState> decoder_state_{};
   std::string last_text_{};  // last detokenized text
 };
 
@@ -169,6 +169,10 @@ extError_t ORTX_API_CALL OrtxDispose(OrtxObject** object) {
 
   *object = nullptr;
   return extError_t();
+}
+
+extError_t ORTX_API_CALL OrtxDisposeOnly(OrtxObject* object) {
+  return OrtxDispose(&object);
 }
 
 extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer,
