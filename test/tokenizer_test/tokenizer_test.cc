@@ -65,43 +65,34 @@ TEST(CApiTest, StreamApiTest) {
   OrtxDispose(&tokenizer);
 }
 
-/*
+
 TEST(OrtxTokenizerTest, ClipTokenizer) {
-  // TfmStatus status;
-  OrtxTokenizer* tokenizer = NULL;
-  extError_t err = OrtxCreateTokenizer(&tokenizer, "data/clip");
-  // if (!status.ok()) {
-  //   std::cout << status.ToString() << std::endl;
-  // }
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/clip");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+  }
 
   // validate tokenizer is not null
   EXPECT_NE(tokenizer, nullptr);
 
-  // std::vector<std::string_view> input = {"this is a test", "the second one"};
-  const char* input = "This is a test";
+  std::vector<std::string_view> input = {"this is a test", "the second one"};
 
-  char* decoded_text = NULL;
-  err = tokenize_text(tokenizer, input, &decoded_text);
-  EXPECT_EQ(err, kOrtxOK);
-  EXPECT_STREQ(decoded_text, input);
-  free(decoded_text);
-  // EXPECT_TRUE(tokenization_result.ok());
-  // EXPECT_EQ(token_ids.size(), 2);
-  // EXPECT_EQ(token_ids[0].size(), 6);
-  // EXPECT_EQ(token_ids[1].size(), 5);
+  std::vector<std::vector<extTokenId_t>> token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  EXPECT_TRUE(status.IsOk());
+  EXPECT_EQ(token_ids.size(), 2);
+  EXPECT_EQ(token_ids[0].size(), 6);
+  EXPECT_EQ(token_ids[1].size(), 5);
 
-  // std::vector<std::string> out_text;
-  // std::vector<tfm::span<extTokenId_t const>> token_ids_span = {token_ids[0], token_ids[1]};
-  // auto result = tokenizer->Detokenize(token_ids_span, out_text);
-  // EXPECT_TRUE(result.ok());
-  // EXPECT_EQ(out_text[0], input[0]);
+  std::vector<std::string> out_text;
+  std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {token_ids[0], token_ids[1]};
+  status = tokenizer->Detokenize(token_ids_span, out_text);
+  EXPECT_TRUE(status.IsOk());
+  EXPECT_EQ(out_text[0], input[0]);
 }
 
-*/
-
-
 TEST(OrtxTokenizerTest, GemmaTokenizer) {
-  // TfmStatus status;
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
   auto status = tokenizer->Load("data/gemma");
   if (!status.IsOk()) {
@@ -142,7 +133,6 @@ TEST(OrtxTokenizerTest, GemmaTokenizer) {
   EXPECT_EQ(out_text[1], input[1]);
 }
 
-/*
 static const char* kPromptText = R"(```python
 def print_prime(n):
    """
@@ -160,114 +150,94 @@ def print_prime(n):
    print(primes)''')";
 
 TEST(OrtxTokenizerTest, CodeGenTokenizer) {
-  // TfmStatus status;
-  OrtxTokenizer* tokenizer = NULL;
-  extError_t err = OrtxCreateTokenizer(&tokenizer, "data/phi-2");
-  // if (!status.ok()) {
-  //   std::cout << status.ToString() << std::endl;
-  // }
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/phi-2");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+  }
 
   // validate tokenizer is not null
   EXPECT_NE(tokenizer, nullptr);
 
   const char* prompt_text = kPromptText;
 
-  char* decoded_text = NULL;
-  err = tokenize_text(tokenizer, prompt_text, &decoded_text);
-  EXPECT_EQ(err, kOrtxOK);
-  EXPECT_STREQ(decoded_text, prompt_text);
-  free(decoded_text);
+  std::vector<std::string_view> input = {prompt_text};
+  std::vector<std::vector<extTokenId_t>> token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  EXPECT_TRUE(status.IsOk());
+  EXPECT_EQ(token_ids.size(), 1);
 
-  // std::vector<std::string_view> input = {prompt_text};
-  // std::vector<std::vector<extTokenId_t>> token_ids;
-  // auto tokenization_result = tokenizer->Tokenize(input, token_ids);
-  // EXPECT_TRUE(tokenization_result.ok());
-  // EXPECT_EQ(token_ids.size(), 1);
-
-  // std::vector<std::string> out_text;
-  // std::vector<tfm::span<extTokenId_t const>> token_ids_span = {token_ids[0]};
-  // auto result = tokenizer->Detokenize(token_ids_span, out_text);
-  // EXPECT_TRUE(result.ok());
-  // //  std::cout << out_text[0] << std::endl;
-  // EXPECT_EQ(out_text[0], input[0]);
+  std::vector<std::string> out_text;
+  std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {token_ids[0]};
+  status = tokenizer->Detokenize(token_ids_span, out_text);
+  EXPECT_TRUE(status.IsOk());
+  //  std::cout << out_text[0] << std::endl;
+  EXPECT_EQ(out_text[0], input[0]);
 }
 
-TEST(TfmTokStreamTest, CodeGenTokenizer) {
-  // TfmStatus status;
-  OrtxTokenizer* tokenizer = NULL;
-  extError_t err = OrtxCreateTokenizer(&tokenizer, "data/phi-2");
-  // if (!status.ok()) {
-  //   std::cout << status.ToString() << std::endl;
-  // }
+TEST(OrtxTokenizerStreamTest, CodeGenTokenizer) {
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/phi-2");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+  }
 
   // validate tokenizer is not null
   EXPECT_NE(tokenizer, nullptr);
 
   const char* prompt_text = kPromptText;
 
-  char* decoded_text = NULL;
-  err = tokenize_text(tokenizer, prompt_text, &decoded_text);
-  EXPECT_EQ(err, kOrtxOK);
-  EXPECT_STREQ(decoded_text, prompt_text);
-  free(decoded_text);
+  std::vector<std::string_view> input = {prompt_text};
+  std::vector<std::vector<extTokenId_t>> token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  EXPECT_TRUE(status.IsOk());
+  EXPECT_EQ(token_ids.size(), 1);
 
-  // std::vector<std::string_view> input = {prompt_text};
-  // std::vector<std::vector<extTokenId_t>> token_ids;
-  // auto tokenization_result = tokenizer->Tokenize(input, token_ids);
-  // EXPECT_TRUE(tokenization_result.ok());
-  // EXPECT_EQ(token_ids.size(), 1);
-
-  // std::string text;
-  // std::unique_ptr<tfm::DecoderState> decoder_cache;
-  // // token_ids[0].insert(token_ids[0].begin() + 2, 607);  // <0x20>
-  // token_ids[0] = {921, 765, 2130, 588, 262, 6123, 447, 251, 2130, 588, 262};
-  // for (const auto& token_id : token_ids[0]) {
-  //   std::string token;
-  //   status = tokenizer->Id2Token(token_id, token, decoder_cache);
-  //   EXPECT_TRUE(status.ok());
-  //   // std::cout << token;
-  //   text.append(token);
-  // }
+  std::string text;
+  std::unique_ptr<ort_extensions::BPEDecoderState> decoder_cache;
+  // token_ids[0].insert(token_ids[0].begin() + 2, 607);  // <0x20>
+  token_ids[0] = {921, 765, 2130, 588, 262, 6123, 447, 251, 2130, 588, 262};
+  for (const auto& token_id : token_ids[0]) {
+    std::string token;
+    status = tokenizer->Id2Token(token_id, token, decoder_cache);
+    EXPECT_TRUE(status.IsOk());
+    // std::cout << token;
+    text.append(token);
+  }
 
   // EXPECT_EQ(text, input[0]);
 }
 
-TEST(TfmTokStreamTest, Llama2Tokenizer) {
+TEST(OrtxTokenizerStreamTest, Llama2Tokenizer) {
   // test the llama2 tokenizer with BPE class, instead of sentencepiece wrapper.
-  OrtxTokenizer* tokenizer = NULL;
-  extError_t err = OrtxCreateTokenizer(&tokenizer, "data/llama2");
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/llama2");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+  }
 
   // validate tokenizer is not null
   EXPECT_TRUE(tokenizer != nullptr);
 
-  const char* input = "This is a test";
+  std::vector<std::string_view> input = {"This is a test and the second one. "};
+  std::vector<std::vector<extTokenId_t>> token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  EXPECT_TRUE(status.IsOk());
+  // Add an extra byte token for decoding tests
+  token_ids[0].push_back(35);  // <0x20>
+  DumpTokenIds(token_ids);
 
-  char* decoded_text = NULL;
-  err = tokenize_text(tokenizer, input, &decoded_text);
-  EXPECT_EQ(err, kOrtxOK);
-  EXPECT_STREQ(decoded_text, input);
-  free(decoded_text);
+  std::string text;
+  std::unique_ptr<ort_extensions::BPEDecoderState> decoder_cache;
+  // std::cout << "\"";
+  for (const auto& token_id : token_ids[0]) {
+    std::string token;
+    auto status = tokenizer->Id2Token(token_id, token, decoder_cache);
+    EXPECT_TRUE(status.IsOk());
+    // std::cout << token;
+    text.append(token);
+  }
 
-  // std::vector<std::string_view> input = {"This is a test and the second one. "};
-  // std::vector<std::vector<extTokenId_t>> token_ids;
-  // auto tokenization_result = tokenizer->Tokenize(input, token_ids);
-  // EXPECT_TRUE(tokenization_result.ok());
-  // // Add an extra byte token for decoding tests
-  // token_ids[0].push_back(35);  // <0x20>
-  // DumpTokenIds(token_ids);
-
-  // std::string text;
-  // std::unique_ptr<tfm::DecoderState> decoder_cache;
-  // // std::cout << "\"";
-  // for (const auto& token_id : token_ids[0]) {
-  //   std::string token;
-  //   auto status = tokenizer->Id2Token(token_id, token, decoder_cache);
-  //   EXPECT_TRUE(status.ok());
-  //   // std::cout << token;
-  //   text.append(token);
-  // }
-
-  // // std::cout << "\"" << std::endl;
-  // EXPECT_EQ(std::string(text), std::string(input[0])); /* + " ");  // from the extra byte token
+  // std::cout << "\"" << std::endl;
+  EXPECT_EQ(std::string(text), std::string(input[0])); /* + " ");  // from the extra byte token */
 }
-*/
