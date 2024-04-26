@@ -11,7 +11,7 @@
 
 using namespace ort_extensions;
 
-const char kModel_Default[] = "PreTrainedTokenizerFast";
+const char kModel_Default[] = "PreTrained";
 const char kModel_GPT2[] = "GPT2";
 const char kModel_CodeGen[] = "CodeGen";
 const char kModel_Roberta[] = "Roberta";
@@ -559,14 +559,9 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& c
     return OrtxStatus(kOrtxErrorCorruptData, "Failed to get model node from tokenizer.json");
   }
 
-  std::string vocab = model_node->at("vocab").dump();
-  std::string merges = model_node->at("merges").dump();
-
-  std::stringstream vocab_stream(vocab);
-  std::stringstream merges_stream(merges);
   bbpe_tokenizer_ = std::make_unique<BpeModel>();
-  auto status = bbpe_tokenizer_->Load(vocab_stream,
-                                      merges_stream,
+  auto status = bbpe_tokenizer_->Load(model_node->at("vocab"),
+                                      model_node->at("merges"),
                                       bpe_conf_.get().unk_token_,
                                       bpe_conf_.get().GetSpecialTokens().c_str(),
                                       IsSpmModel(ModelName()));

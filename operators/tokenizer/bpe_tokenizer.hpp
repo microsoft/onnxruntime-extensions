@@ -24,6 +24,8 @@
 namespace ort_extensions {
 
 class BpeModel {
+  using json = nlohmann::json;
+
  public:
   BpeModel() = default;
 
@@ -50,7 +52,7 @@ class BpeModel {
                   bool spm_converted) {
     nlohmann::json tok_json;
     vocab_stream >> tok_json;
-    vocab_map_ = std::move(tok_json.get<std::unordered_map<std::string, uint32_t>>());
+    tok_json.get_to(vocab_map_);
 
     auto it = vocab_map_.find(unk_token);
     if (it != vocab_map_.end()) {
@@ -109,6 +111,88 @@ class BpeModel {
         special_tokens_.Add(std::move(line_32), id);
       }
     }
+
+    id2token_map_.resize(vocab_map_.size());
+    for (const auto& [t, i] : vocab_map_) {
+      if (i > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
+        continue;  // safe purpose.
+      }
+      if (i > id2token_map_.size()) {
+        id2token_map_.resize(static_cast<size_t>(i) + 1);
+      }
+      id2token_map_[i] = t;
+    }
+
+    return {};
+  }
+
+  OrtxStatus Load(const json& vocab_json,
+                  const json& merges_json,
+                  const char* unk_token,
+                  const char* special_tokens,
+                  bool spm_converted) {
+
+    vocab_json.get_to(vocab_map_);
+    auto it = vocab_map_.find(unk_token);
+    if (it != vocab_map_.end()) {
+      unk_id_ = it->second;
+    } else {
+      auto id = ort_extensions::narrow<uint32_t>(vocab_map_.size());
+      vocab_map_[unk_token] = id;
+      unk_id_ = id;
+    }
+
+    if (spm_converted) {
+      UpdateSpmByteToken(vocab_map_);
+    } else {
+      CreateByteEncoder();
+    }
+
+    uint32_t index = 0;
+    auto merge_item = merges_json.begin();
+    while(merge_item != merges_json.end()) {
+      std::string line = merge_item.value();
+      line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
+      if (line.empty()) continue;
+      if ((line[0] == '#') && (index == 0)) continue;
+      auto pos = line.find(' ');
+      if (pos == std::string::npos) {
+        return {
+            kOrtxErrorCorruptData,
+            "Cannot know how to parse line: " + line,
+        };
+      }
+      std::string w1 = line.substr(0, pos);
+      std::string w2 = line.substr(pos + 1);
+      int token_length = ort_extensions::narrow<int>(w1.length() + w2.length());
+      if (w2.find("</w>") != std::string::npos || w1.find("</w>") != std::string::npos) {
+        token_length -= 4;
+      }
+      auto iw1 = GetTokenId(w1);
+      auto iw2 = GetTokenId(w2);
+      auto iww = GetTokenId(w1 + w2);
+      BpeNode value{iww, index++, token_length};
+      bpe_rank_[GetRankKey(iw1, iw2)] = value;
+
+      merge_item++;
+    }
+
+    // if (special_tokens != nullptr) {
+    //   std::istringstream istrea(special_tokens);
+
+    //   while (istrea >> line) {
+    //     if (line.empty()) continue;
+    //     line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
+    //     ustring line_32(line);
+    //     auto id = ort_extensions::narrow<uint32_t>(vocab_map_.size());
+    //     if (auto nestedIt = vocab_map_.find(line); nestedIt != vocab_map_.end()) {
+    //       id = nestedIt->second;
+    //     } else {
+    //       vocab_map_[line] = id;
+    //     }
+    //     special_tokens_.Add(std::move(line_32), id);
+    //   }
+    // }
 
     id2token_map_.resize(vocab_map_.size());
     for (const auto& [t, i] : vocab_map_) {
