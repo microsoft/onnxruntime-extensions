@@ -40,7 +40,7 @@ OrtxStatus TokenizerImpl::Load(const std::string& dir) {
     eos_token_id_ = tokenizer_->GetEncoder().GetTokenId(tok_config_->eos_token_);
 
     detokenizer_ = std::make_unique<BpeStreamingDecoder>();
-    status = detokenizer_->Load(*tok_config_, *tokenizer_);
+    status = detokenizer_->Load(tok_config_, *tokenizer_);
   }
 
   return status;
@@ -97,8 +97,8 @@ OrtxStatus TokenizerImpl::Id2Token(extTokenId_t id, std::string& token, BPEDecod
     is_first = true;
   }
 
-  bool f_special = false;
-  bool& f_special_last = bpe_state->f_special_last;
+  bool f_special = bpe_state->f_special_last; // [Spm]Id2Token needs the last state
+  bool f_special_last = bpe_state->f_special_last;
   auto status = IsSpmTokenizer(tok_config_->tokenizer_class_)
                     ? detokenizer_->SpmId2Token(id, token, f_special)
                     : detokenizer_->Id2Token(id, token, true /* tok_config_.skip_special_tokens_ */, f_special);

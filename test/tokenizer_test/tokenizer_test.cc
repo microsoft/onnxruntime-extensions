@@ -267,5 +267,5 @@ TEST(OrtxTokenizerStreamTest, Llama2Tokenizer) {
   }
 
   // std::cout << "\"" << std::endl;
-  EXPECT_EQ(std::string(text), std::string(input[0])); /* + " ");  // from the extra byte token */
+  EXPECT_EQ(std::string(text), std::string(input[0]) + " ");  // from the extra byte token */
 }

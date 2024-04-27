@@ -619,6 +619,9 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& c
       if (text.find(config.bos_token_) != std::string::npos) {
         add_bos_token_ = true;
       }
+      if (text.find(config.eos_token_) != std::string::npos) {
+        add_eos_token_ = true;
+      }
     }
   }
 

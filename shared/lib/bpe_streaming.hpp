@@ -14,7 +14,10 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
   ~BpeStreamingDecoder() override = default;
 
   // shared the data between the encoder and decoder
-  OrtxStatus Load(const ort_extensions::bpe::TokenJsonConfig& tok_config, const JsonFastTokenizer& encoder) {
+  OrtxStatus Load(
+    std::shared_ptr<ort_extensions::bpe::TokenJsonConfig const> ptr_config,
+    const JsonFastTokenizer& encoder) {
+    const auto& tok_config = *ptr_config;
     bos_token_ = tok_config.bos_token_;
     eos_token_ = tok_config.eos_token_;
     unk_token_ = tok_config.unk_token_;
@@ -31,10 +34,11 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     CreateByteDecoder(tok_model);
     arr_vocab_ = tok_model.BuildDecoder();
     end_of_word_suffix_ = tok_model.GetEndOfWordSuffix();
-    whitespace_token_ = tok_config.clean_up_tokenization_spaces_ ? 1 : 0;
+    // whitespace_token_ = tok_config.clean_up_tokenization_spaces_ ? 1 : 0;
     skip_special_tokens_ = 1;
     // en_normalization_ = 0;
-
+    add_dummy_prefix_ = tok_config.tokenizer_class_ == "LlamaTokenizer" ? 1 : 0;
+    tok_config_ = ptr_config;
     return {};
   }
 
@@ -118,11 +122,70 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
       token = ReplaceAll(piece, spm_underscore, " ");
     }
 
-    if (!token.empty() && token[0] == ' ' && f_special_last /* && add_dummpy_prefix_ */) {
+    if (!token.empty() && token[0] == ' ' && f_special_last && add_dummy_prefix_) {
       token = token.substr(1);
     }
 
     f_special_last = f_special;
+    return {};
+  }
+
+  static bool IsSpmTokenizer(const std::string& tok_class) {
+    return tok_class == "GemmaTokenizer" || tok_class == "LlamaTokenizer";
+  }
+
+  OrtxStatus Compute(const ortc::Tensor<int64_t>& ids,
+                     ortc::Tensor<std::string>& output) const {
+    const int64_t* p_ids = ids.Data();
+    const auto& ids_dim = ids.Shape();
+    std::vector<int64_t> output_dim = {1};
+    if (ids_dim.size() > 1) {
+      output_dim.resize(ids_dim.size() - 1);
+      std::copy(ids_dim.begin(), ids_dim.begin() + ids_dim.size() - 1, output_dim.begin());
+    }
+
+    size_t seq_len = ids_dim.back();
+    size_t string_batch = ids.NumberOfElement() / seq_len;
+    std::vector<std::string> decoded_strings;
+    decoded_strings.reserve(string_batch);
+
+    for (auto n = string_batch; n > 0; n--) {
+      bool f_special_last = false;
+      std::string text;
+
+      for (size_t tok_idx = 0; tok_idx < seq_len; ++tok_idx) {
+        const auto id = ort_extensions::narrow<extTokenId_t>(*(p_ids + tok_idx));
+        std::string decoded_token;
+        auto status = IsSpmTokenizer(tok_config_->tokenizer_class_)
+                          ? SpmId2Token(id, decoded_token, f_special_last)
+                          : Id2Token(id, decoded_token, true, f_special_last);
+
+        if (!status.IsOk()) {
+          return status;
+        }
+
+        bool f_special = all_special_ids_.count(id) ? true : false;
+
+        if (whitespace_token_ && f_special && (tok_idx > 0 && !f_special_last)) {
+          text.push_back(' ');
+        }
+
+        text.append(decoded_token);
+
+        if (whitespace_token_ && f_special && tok_idx != seq_len - 1) {
+          text.push_back(' ');
+        }
+      }
+
+      if (tok_config_->tokenizer_class_.find("CLIP") == 0 && !text.empty() && text.back() == ' ') {
+        text.pop_back();
+      }
+
+      decoded_strings.emplace_back(std::move(text));
+      p_ids += seq_len;
+    }
+
+    output.SetStringOutput(decoded_strings, output_dim);
     return {};
   }
 
@@ -142,6 +205,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
       }
     }
   }
-
-  std::shared_ptr<ort_extensions::bpe::TokenJsonConfig> tok_config_;
+private:
+  bool add_dummy_prefix_ = false;
+  std::shared_ptr<ort_extensions::bpe::TokenJsonConfig const> tok_config_;
 };
