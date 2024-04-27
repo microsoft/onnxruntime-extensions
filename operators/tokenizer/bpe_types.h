@@ -18,6 +18,7 @@ struct AddedToken final {
   bool normalized_{};
   bool rstrip_{};
   bool single_word_{};
+  bool special_{};
 };
 
 class TokenJsonConfig;  // forward declaration

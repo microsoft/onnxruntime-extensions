@@ -53,10 +53,12 @@ struct KernelBpeTokenizer {
   std::unique_ptr<ort_extensions::BpeModel> bbpe_tokenizer_;
 
   int64_t padding_length_ = -1;
-  uint32_t unk_token_id_{};
   uint32_t bos_token_id_{};
   uint32_t eos_token_id_{};
   uint32_t pad_token_id_{};
+
+  std::optional<bool> add_bos_token_;
+  std::optional<bool> add_eos_token_;
 };
 
 struct GPT2Tokenizer : KernelBpeTokenizer {
@@ -111,12 +113,12 @@ class JsonFastTokenizer : KernelBpeTokenizer {
                      ortc::Tensor<int64_t>& tokenize_output,
                      std::optional<ortc::Tensor<int64_t>*> attention_mask,
                      std::optional<ortc::Tensor<int64_t>*> offset_mapping) const;
+
  public:
   auto GetAddedTokens() const { return added_tokens_; }
   const ort_extensions::BpeModel& GetEncoder() const { return *bbpe_tokenizer_; }
 
  private:
-  std::string class_name_;
   BpeModelConf json_conf_;
   std::vector<ort_extensions::bpe::AddedToken> added_tokens_;
 };

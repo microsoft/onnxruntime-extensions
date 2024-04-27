@@ -92,6 +92,34 @@ TEST(OrtxTokenizerTest, ClipTokenizer) {
   EXPECT_EQ(out_text[0], input[0]);
 }
 
+TEST(OrtxTokenizerTest, TicTokenTokenizer) {
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/tiktoken");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+  }
+
+  // validate tokenizer is not null
+  EXPECT_NE(tokenizer, nullptr);
+
+  std::vector<extTokenId_t> EXPECTED_IDS_0 = {128000, 2028, 374, 264, 1296};
+  std::vector<std::string_view> input = {"This is a test", "the second one"};
+
+  std::vector<std::vector<extTokenId_t>> token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  EXPECT_TRUE(status.IsOk());
+  EXPECT_EQ(token_ids.size(), 2);
+  EXPECT_EQ(token_ids[0], EXPECTED_IDS_0);
+  EXPECT_EQ(token_ids[1].size(), 4);
+
+  std::vector<std::string> out_text;
+  std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {token_ids[0], token_ids[1]};
+  status = tokenizer->Detokenize(token_ids_span, out_text);
+  EXPECT_TRUE(status.IsOk());
+  EXPECT_EQ(out_text[0], input[0]);
+}
+
+
 TEST(OrtxTokenizerTest, GemmaTokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
   auto status = tokenizer->Load("data/gemma");

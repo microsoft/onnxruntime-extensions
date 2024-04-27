@@ -126,20 +126,24 @@ class BpeModel {
     return {};
   }
 
-  OrtxStatus Load(const json& vocab_json,
-                  const json& merges_json,
-                  const char* unk_token,
-                  const char* special_tokens,
+  OrtxStatus Load(const json& bpe_model,
+                  const char* /* special_tokens */,
                   bool spm_converted) {
-
+    const json& vocab_json = bpe_model["vocab"];
+    const json& merges_json = bpe_model["merges"];
     vocab_json.get_to(vocab_map_);
-    auto it = vocab_map_.find(unk_token);
-    if (it != vocab_map_.end()) {
-      unk_id_ = it->second;
-    } else {
-      auto id = ort_extensions::narrow<uint32_t>(vocab_map_.size());
-      vocab_map_[unk_token] = id;
-      unk_id_ = id;
+    auto it = bpe_model.find("unk_token");
+    if (it != bpe_model.end() && it->is_string()) {
+      auto ukt = it->get<std::string>();
+      auto it_word = vocab_map_.find(ukt);
+      if (it_word != vocab_map_.end()) {
+        unk_id_ = it_word->second;
+      }
+    }
+
+    it = bpe_model.find("end_of_word_suffix");
+    if (it != bpe_model.end() && it->is_string()) {
+      end_of_word_suffix_ = it->get<std::string>();
     }
 
     if (spm_converted) {
@@ -150,7 +154,7 @@ class BpeModel {
 
     uint32_t index = 0;
     auto merge_item = merges_json.begin();
-    while(merge_item != merges_json.end()) {
+    while (merge_item != merges_json.end()) {
       std::string line = merge_item.value();
       line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
       if (line.empty()) continue;
@@ -242,22 +246,8 @@ class BpeModel {
     return {};
   }
 
-  std::vector<ustring> BuildDecoder() const {
-    std::vector<ustring> decoder;
-    uint32_t max_token_id_ = 0;
-    decoder.resize(vocab_map_.size());
-    for (const auto& [str, id] : vocab_map_) {
-      decoder[id] = ustring(str);
-      if (id > max_token_id_) {
-        max_token_id_ = id;
-      }
-    }
-
-    for (size_t n = decoder.size(); n < max_token_id_; ++n) {
-      decoder.emplace_back(ustring());
-    }
-
-    return decoder;
+  std::vector<std::string> BuildDecoder() const {
+    return id2token_map_;
   }
 
   // REF: https://github.com/huggingface/transformers/blob/c9e72f55b2dc4b9be4edb986dce0552582b328f2/src/transformers/tokenization_utils.py#L52
@@ -343,6 +333,10 @@ class BpeModel {
     }
   }
 
+  const std::string& GetEndOfWordSuffix() const {
+    return end_of_word_suffix_;
+  }
+
  private:
   struct BpeNode {
     uint32_t id;
@@ -371,6 +365,7 @@ class BpeModel {
   }
 
  private:
+  std::string end_of_word_suffix_;
   std::map<uint64_t, BpeNode> bpe_rank_;
 
   uint32_t byte_encoder_[256] = {};

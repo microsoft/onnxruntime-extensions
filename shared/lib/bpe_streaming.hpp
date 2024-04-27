@@ -19,16 +19,18 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     eos_token_ = tok_config.eos_token_;
     unk_token_ = tok_config.unk_token_;
 
-    auto a_toks = encoder.GetAddedTokens();
+    auto& a_toks = encoder.GetAddedTokens();
     for (const auto& tok : a_toks) {
       added_tokens_[tok.id_] = tok.content_;
-      if (tok.token_type_ == "special") {
+      if (tok.special_) {
         all_special_ids_.insert(tok.id_);
       }
     }
 
-    CreateByteDecoder(encoder.GetEncoder());
-    arr_vocab_ = encoder.GetEncoder().BuildDecoder();
+    auto& tok_model = encoder.GetEncoder();
+    CreateByteDecoder(tok_model);
+    arr_vocab_ = tok_model.BuildDecoder();
+    end_of_word_suffix_ = tok_model.GetEndOfWordSuffix();
     whitespace_token_ = tok_config.clean_up_tokenization_spaces_ ? 1 : 0;
     skip_special_tokens_ = 1;
     // en_normalization_ = 0;
@@ -70,7 +72,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
       const std::string ws = added_tokens_.at(id);
       token = (std::string)ws;
     } else if (static_cast<size_t>(id) < arr_vocab_.size()) {
-      const auto str = arr_vocab_[id];
+      const auto str = ustring(arr_vocab_[id]);
       for (auto wchr : str) {
         if (byte_decoder_.count(wchr) == 0 && wchr <= 0xFF) {
           token.push_back(gsl::narrow<unsigned char>(wchr));
@@ -88,17 +90,14 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
       }
     }
 
-    /*
-    // remove the end_word_suffix like </w> or </s> etc.
-    auto& end_word_suffix = bbpe_encoder_.GetEndWordSuffix();
-    if (end_word_suffix.size() > 0) {
-      if (token.size() >= end_word_suffix.size() &&
-          token.substr(token.size() - end_word_suffix.size()) == end_word_suffix) {
-        token = token.substr(0, token.size() - end_word_suffix.size());
+    // remove the end_of_word_suffix like </w> or </s> etc.
+    if (end_of_word_suffix_.size() > 0) {
+      if (token.size() >= end_of_word_suffix_.size() &&
+          token.substr(token.size() - end_of_word_suffix_.size()) == end_of_word_suffix_) {
+        token = token.substr(0, token.size() - end_of_word_suffix_.size());
         token += ' ';
       }
     }
-   */
 
     f_special_last = f_special;
     return {};
@@ -107,7 +106,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
   OrtxStatus SpmId2Token(extTokenId_t id, std::string& token, bool& f_special_last) const {
     const char spm_underscore[] = "\xe2\x96\x81";
 
-    std::string piece = id < arr_vocab_.size() ? std::string(arr_vocab_[id]) : "";
+    std::string piece = id < arr_vocab_.size() ? arr_vocab_[id] : "";
     bool f_special = false;
     if (piece.empty() || all_special_ids_.count(id)) {
       token = "";
@@ -137,7 +136,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
       )
       */
       if ((/* i >= 0 && */ i < 33) || (i >= 127 && i < 161) || (i == 173)) {
-        byte_decoder_[index] = gsl::narrow<unsigned char>(i);
+        byte_decoder_[index++] = gsl::narrow<unsigned char>(i);
       } else {
         byte_decoder_[i] = gsl::narrow<unsigned char>(i);
       }

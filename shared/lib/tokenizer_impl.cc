@@ -97,17 +97,17 @@ OrtxStatus TokenizerImpl::Id2Token(extTokenId_t id, std::string& token, BPEDecod
     is_first = true;
   }
 
-  bool f_special_last = bpe_state->f_special_last;  // save special flag which will be updated in the next call.
+  bool f_special = false;
+  bool& f_special_last = bpe_state->f_special_last;
   auto status = IsSpmTokenizer(tok_config_->tokenizer_class_)
-                    ? detokenizer_->SpmId2Token(id, token, bpe_state->f_special_last)
-                    : detokenizer_->Id2Token(id, token, true /* tok_config_.skip_special_tokens_ */, bpe_state->f_special_last);
+                    ? detokenizer_->SpmId2Token(id, token, f_special)
+                    : detokenizer_->Id2Token(id, token, true /* tok_config_.skip_special_tokens_ */, f_special);
 
   if (status.IsOk()) {
     if (bpe_state_ptr) {
       *state = bpe_state_ptr.release();
     }
-    // bpe_state->f_special_last is already update for next iteration, so it is current.
-    bool f_special = bpe_state->f_special_last;
+
     if (tok_config_->clean_up_tokenization_spaces_) {
       if (f_special && (is_first && !f_special_last)) {
         token = std::string(" ") + token;
@@ -129,5 +129,6 @@ OrtxStatus TokenizerImpl::Id2Token(extTokenId_t id, std::string& token, BPEDecod
     }
   }
 
+  bpe_state->f_special_last = f_special;
   return status;
 }

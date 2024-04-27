@@ -154,7 +154,6 @@ OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKerne
   }
 
   // TODO: need to check if the special token ids are the same as the ones in HFTokenizer
-  unk_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.get().unk_token_);
   if (bpe_conf_.get().bos_token_ != nullptr) {
     bos_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.get().bos_token_);
   }
@@ -203,10 +202,23 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     return res;
   }
 
-  if (IsBosEosRequired(ModelName())) {
-    // Add BOS token to result
+  bool add_bos_token = false;
+  if (add_bos_token_.has_value()) {
+    add_bos_token = add_bos_token_.value();
+  } else if (IsBosEosRequired(ModelName())) {
+    add_bos_token = true;
+  }
+  if (add_bos_token) {
     res.push_back(bos_token_id_);
   }
+
+  bool add_eos_token = false;
+  if (add_eos_token_.has_value()) {
+    add_eos_token = add_eos_token_.value();
+  } else if (IsBosEosRequired(ModelName())) {
+    add_eos_token = true;
+  }
+
   if (ModelName() == kModel_CLIP) {
     // Convert to lowercase
     std::transform(input.begin(), input.end(), input.begin(), [](char32_t c) { return static_cast<char32_t>(ToLower(c)); });
@@ -232,7 +244,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     OffsetMappingType offset_mapping;
 
     if (compute_offset_mapping) {
-      if (IsBosEosRequired(ModelName())) {
+      if (add_bos_token) {
         // Add offset mapping for BOS token
         offset_mapping.push_back(std::make_pair(0, 0));
       }
@@ -301,7 +313,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     }
 
     if (compute_offset_mapping) {
-      if (IsBosEosRequired(ModelName())) {
+      if (add_eos_token) {
         // Add offset mapping for EOS token
         offset_mapping.emplace_back(std::make_pair(0, 0));
       }
@@ -310,7 +322,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     }
   }
 
-  if (IsBosEosRequired(ModelName())) {
+  if (add_eos_token) {
     // Add EOS token to result
     res.push_back(eos_token_id_);
   }
@@ -541,8 +553,8 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& c
   }
 
   const char token_sub[] = "Tokenizer";
-  class_name_ = config.tokenizer_class_.substr(0, config.tokenizer_class_.find(token_sub));
-  json_conf_.name_ = class_name_.c_str();
+  model_name_ = config.tokenizer_class_.substr(0, config.tokenizer_class_.find(token_sub));
+  json_conf_.name_ = model_name_.c_str();
   json_conf_.bos_token_ = config.bos_token_.c_str();
   json_conf_.eos_token_ = config.eos_token_.c_str();
   json_conf_.unk_token_ = config.unk_token_.c_str();
@@ -560,9 +572,7 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& c
   }
 
   bbpe_tokenizer_ = std::make_unique<BpeModel>();
-  auto status = bbpe_tokenizer_->Load(model_node->at("vocab"),
-                                      model_node->at("merges"),
-                                      bpe_conf_.get().unk_token_,
+  auto status = bbpe_tokenizer_->Load(*model_node,
                                       bpe_conf_.get().GetSpecialTokens().c_str(),
                                       IsSpmModel(ModelName()));
 
@@ -571,14 +581,22 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& c
     for (const auto& token : *added_tokens) {
       bpe::AddedToken added_token;
       added_token.id_ = token.value("id", 0);
-      added_token.token_type_ = token.value("type", "");
+      added_token.token_type_ = token.value("__type", "");
       added_token.content_ = token.value("content", "");
       added_token.lstrip_ = token.value("lstrip", false);
       added_token.normalized_ = token.value("normalized", false);
       added_token.rstrip_ = token.value("rstrip", false);
       added_token.single_word_ = token.value("single_word", false);
+      added_token.special_ = token.value("special", false);
 
       added_tokens_.emplace_back(added_token);
+      if (added_token.content_ == config.bos_token_) {
+        bos_token_id_ = added_token.id_;
+      } else if (added_token.content_ == config.eos_token_) {
+        eos_token_id_ = added_token.id_;
+      } else if (added_token.content_ == config.pad_token_) {
+        pad_token_id_ = added_token.id_;
+      }
     }
   }
 
@@ -587,6 +605,23 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& c
   }
 
   status = bbpe_tokenizer_->LoadAddedTokens(added_tokens_);
+  if (!status.IsOk()) {
+    return status;
+  }
+
+  add_bos_token_ = config.add_bos_token_;
+  add_eos_token_ = config.add_eos_token_;
+  // add_bos_token is default as false, we need to check post_processor json to see if it is true
+  if (!config.add_bos_token_ && !config.bos_token_.empty()) {
+    auto post_processor = tok_json.find("post_processor");
+    if (post_processor != tok_json.end()) {
+      std::string text = post_processor->dump();
+      if (text.find(config.bos_token_) != std::string::npos) {
+        add_bos_token_ = true;
+      }
+    }
+  }
+
   return status;
 }
 

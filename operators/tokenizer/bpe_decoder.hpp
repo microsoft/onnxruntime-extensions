@@ -98,19 +98,18 @@ struct KernelBpeDecoder {
   void BuildIdVocab(const std::string& vocab) {
     arr_vocab_.reserve(vocab.size() / 2);  // give a rough estimation.
 
-    std::u32string u_vocab = ustring(vocab);
-    std::u32string_view uv_vocab(u_vocab);
+    std::string_view v_vocab(vocab);
     size_t last_pos = 0;
 
-    auto ccount = uv_vocab.size();
-    for (size_t n = 0; n < ccount; ++n) {
-      if (uv_vocab[n] == char32_t('\n')) {
-        std::u32string_view s_tok = uv_vocab.substr(last_pos, n - last_pos);
-        arr_vocab_.emplace_back(ustring(s_tok));
+    auto c_count = v_vocab.size();
+    for (size_t n = 0; n < c_count; ++n) {
+      if (v_vocab[n] == '\n') {
+        std::string_view s_tok = v_vocab.substr(last_pos, n - last_pos);
+        arr_vocab_.emplace_back(std::string(s_tok));
         last_pos = n + 1;
-      } else if (n == ccount - 1) {
-        std::u32string_view s_tok = uv_vocab.substr(last_pos, n - last_pos + 1);
-        arr_vocab_.emplace_back(ustring(s_tok));
+      } else if (n == c_count - 1) {
+        std::string_view s_tok = v_vocab.substr(last_pos, n - last_pos + 1);
+        arr_vocab_.emplace_back(std::string(s_tok));
       }
     }
 
@@ -118,7 +117,7 @@ struct KernelBpeDecoder {
   }
 
   OrtxStatus Compute(const ortc::Tensor<int64_t>& ids,
-                       ortc::Tensor<std::string>& output) const {
+                     ortc::Tensor<std::string>& output) const {
     const int64_t* p_ids = ids.Data();
     const auto& ids_dim = ids.Shape();
     std::vector<int64_t> output_dim = {1};
@@ -148,10 +147,10 @@ struct KernelBpeDecoder {
         }
 
         if (added_tokens_.count(token)) {
-          const std::string ws = added_tokens_.at(token);
+          const std::string& ws = added_tokens_.at(token);
           decoded_token = (std::string)ws;
         } else if (static_cast<size_t>(token) < arr_vocab_.size()) {
-          const auto str = arr_vocab_[token];
+          const auto str = ustring(arr_vocab_[token]);
           for (auto wchr : str) {
             if (byte_decoder_.count(wchr) == 0) {
               if (wchr <= char32_t(0xFF)) {
@@ -173,6 +172,14 @@ struct KernelBpeDecoder {
             continue;
           } else {
             decoded_token = unk_token_;
+          }
+        }
+        // remove the end_of_word_suffix like </w> or </s> etc.
+        if (end_of_word_suffix_.size() > 0) {
+          if (decoded_token.size() >= end_of_word_suffix_.size() &&
+              decoded_token.substr(decoded_token.size() - end_of_word_suffix_.size()) == end_of_word_suffix_) {
+            decoded_token = decoded_token.substr(0, decoded_token.size() - end_of_word_suffix_.size());
+            decoded_token += ' ';
           }
         }
 
@@ -208,8 +215,9 @@ struct KernelBpeDecoder {
   int64_t en_normalization_ = 0;
   int64_t skip_special_tokens_ = 0;
   int64_t whitespace_token_ = 0;
-  std::vector<ustring> arr_vocab_;
+  std::vector<std::string> arr_vocab_;
   std::map<char32_t, unsigned char> byte_decoder_;
   std::map<int64_t, std::string> added_tokens_;
   std::set<int64_t> all_special_ids_;
+  std::string end_of_word_suffix_;
 };
