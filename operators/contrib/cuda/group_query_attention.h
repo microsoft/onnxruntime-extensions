@@ -243,17 +243,20 @@ struct GroupQueryAttention {
     return OrtMemType::OrtMemTypeDefault;
   }
 
-  OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
-    int64_t num_heads = 0, kv_num_heads = 0;
-    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "num_heads", num_heads));
-    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "kv_num_heads", kv_num_heads));
+  template<typename TDict>
+  OrtStatusPtr OnModelAttach(const TDict& dict) {
+    int64_t num_heads = dict.TryToGetAttributeWithDefault("num_heads", 0);
+    int64_t kv_num_heads = dict.TryToGetAttributeWithDefault("kv_num_heads", 0);
     num_heads_ = static_cast<int>(num_heads);
     kv_num_heads_ = static_cast<int>(kv_num_heads);
     is_past_bsnh_ = false;
-    local_window_size_ = static_cast<int>(OrtW::GetOpAttributeOrDefault<int64_t>(info, "local_window_size", -1));
-    do_rotary_ = OrtW::GetOpAttributeOrDefault<int64_t>(info, "do_rotary", 0) == 1;
-    rotary_interleaved_ = OrtW::GetOpAttributeOrDefault<int64_t>(info, "rotary_interleaved", 0) == 1;
-    scale_ = OrtW::GetOpAttributeOrDefault(info, "scale", 0.0f);
+    int64_t local_window_size = dict.TryToGetAttributeWithDefault("local_window_size", -1);
+    local_window_size_ = static_cast<int>(local_window_size);
+    int64_t do_rotary = dict.TryToGetAttributeWithDefault("do_rotary", 0);
+    do_rotary_ = do_rotary == 1;
+    int64_t rotary_interleaved = dict.TryToGetAttributeWithDefault("rotary_interleaved", 0);
+    rotary_interleaved_ = rotary_interleaved == 1;
+    scale_ = dict.TryToGetAttributeWithDefault("scale", 0.0f);
     
 #if USE_FLASH_ATTENTION
     disable_flash_attention_ = sizeof(T) != 2 || ParseEnvironmentVariableWithDefault<bool>(attention::kDisableFlashAttention, false);
