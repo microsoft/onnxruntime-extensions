@@ -22,10 +22,16 @@ template <typename T>
 using IAllocatorUniquePtr = std::unique_ptr<T, std::function<void(T*)>>;
 
 template <typename T>
-inline IAllocatorUniquePtr<T> GetScrachBuffer(void* p, OrtAllocator* allocator) {
-  return IAllocatorUniquePtr<T>{static_cast<T*>(p), [allocator = std::move(allocator)](T* p) {
-                                  allocator->Free(allocator, p);
-                                }};
+inline IAllocatorUniquePtr<T> GetScrachBuffer(void* p, std::function<void(T* p)> deleter) {
+  return IAllocatorUniquePtr<T>{static_cast<T*>(p), deleter};
+}
+
+template <typename T>
+inline IAllocatorUniquePtr<T> GetCudaScrachBuffer(void* p, Ort::Custom::CUDAKernelContext* ctx) {
+  return GetScrachBuffer<T>(p, [&](T* p) {
+    if (p)
+      ctx->FreeCudaScratchBuffer(p);
+  });
 }
 
 template <typename T>
@@ -273,17 +279,13 @@ struct GroupQueryAttention {
     return nullptr;
   }
 
-  OrtStatusPtr Compute(OrtKernelContext* kernel_context, Ort::Custom::CUDAKernelContext* ctx, const ortc::Tensor<T>& query, std::optional<const ortc::Tensor<T>*> key,
+  OrtStatusPtr Compute(Ort::Custom::CUDAKernelContext* ctx, const ortc::Tensor<T>& query, std::optional<const ortc::Tensor<T>*> key,
                        std::optional<const ortc::Tensor<T>*> value, std::optional<const ortc::Tensor<T>*> past_key, std::optional<const ortc::Tensor<T>*> past_value,
                        const ortc::Tensor<int>& seqlens_k, const ortc::Tensor<int>& total_seqlen, std::optional<const ortc::Tensor<T>*> cos_cache, 
                        std::optional<const ortc::Tensor<T>*> sin_cache, ortc::Tensor<T>& attn_out, std::optional<ortc::Tensor<T>*> present_key, std::optional<ortc::Tensor<T>*> present_value) const {
-    OrtMemoryInfo* mem_info = nullptr;  // TODO: delete mem_info
-    ORTX_RETURN_IF_ERROR(OrtW::API::CreateOrtMemoryInfo("Cuda", OrtDeviceAllocator, ctx->GetCudaDeviceId(), OrtMemTypeDefault, &mem_info));
-    OrtAllocator* allocator = nullptr;  // TODO: delete allocator
-    ORTX_RETURN_IF_ERROR(OrtW::API::GetOrtAllocator(kernel_context, mem_info, &allocator));
     // TODO: will initialize disable_flash_attention_ be put here or OnModelAttach()? if latter, need to expose a function to get allocator from kernelInfo
     if (!disable_flash_attention_) {
-      zeros_ = GetScrachBuffer<int>(allocator->Alloc(allocator, kZerosCount), allocator);
+      zeros_ = GetCudaScrachBuffer<int>(ctx->AllocCudaScratchBuffer(kZerosCount), ctx);
     }
   
     GroupQueryAttentionParameters parameters;
@@ -321,9 +323,9 @@ struct GroupQueryAttention {
       softmax_lse_accum_bytes = slse_accum_bytes;
       out_accum_bytes = o_accum_bytes;
     }
-    auto softmax_lse_buffer = GetScrachBuffer<void>(allocator->Alloc(allocator, softmax_lse_bytes), allocator);
-    auto softmax_lse_accum_buffer = GetScrachBuffer<void>(allocator->Alloc(allocator, softmax_lse_accum_bytes), allocator);
-    auto out_accum_buffer = GetScrachBuffer<void>(allocator->Alloc(allocator, out_accum_bytes), allocator);
+    auto softmax_lse_buffer = GetCudaScrachBuffer<void>(ctx->AllocCudaScratchBuffer(softmax_lse_bytes), ctx);
+    auto softmax_lse_accum_buffer = GetCudaScrachBuffer<void>(ctx->AllocCudaScratchBuffer(softmax_lse_accum_bytes), ctx);
+    auto out_accum_buffer = GetCudaScrachBuffer<void>(ctx->AllocCudaScratchBuffer(out_accum_bytes), ctx);
 #else
     constexpr bool use_flash_attention = false;
     IAllocatorUniquePtr<void> softmax_lse_buffer = nullptr;
@@ -354,9 +356,9 @@ struct GroupQueryAttention {
     if (use_memory_efficient_attention && cuda::MemoryEfficientAttentionParams::need_workspace(parameters.head_size, sizeof(T) == sizeof(float))) {
       fmha_buffer_bytes = (parameters.batch_size * parameters.sequence_length * parameters.num_heads * parameters.head_size * sizeof(float));
     }
-    auto k_buffer = GetScrachBuffer<void>(allocator->Alloc(allocator, kv_buffer_bytes), allocator);
-    auto v_buffer = GetScrachBuffer<void>(allocator->Alloc(allocator, kv_buffer_bytes), allocator);
-    auto fmha_buffer = GetScrachBuffer<void>(allocator->Alloc(allocator, fmha_buffer_bytes), allocator);
+    auto k_buffer = GetCudaScrachBuffer<void>(ctx->AllocCudaScratchBuffer(kv_buffer_bytes), ctx);
+    auto v_buffer = GetCudaScrachBuffer<void>(ctx->AllocCudaScratchBuffer(kv_buffer_bytes), ctx);
+    auto fmha_buffer = GetCudaScrachBuffer<void>(ctx->AllocCudaScratchBuffer(fmha_buffer_bytes), ctx);
 #else
     constexpr bool use_memory_efficient_attention = false;
     IAllocatorUniquePtr<void> k_buffer = nullptr;
@@ -367,7 +369,7 @@ struct GroupQueryAttention {
     // seqlens_k buffer
     size_t seqlens_k_bytes = 0;
     seqlens_k_bytes = sizeof(int) * parameters.batch_size;
-    auto seqlens_k_buffer = GetScrachBuffer<void>(allocator->Alloc(allocator, seqlens_k_bytes), allocator);
+    auto seqlens_k_buffer = GetCudaScrachBuffer<void>(ctx->AllocCudaScratchBuffer(seqlens_k_bytes), ctx);
   
     std::vector<int64_t> present_dims;
     if (parameters.past_kv_format == AttentionQkvFormat::Q_K_V_BSNH) {
