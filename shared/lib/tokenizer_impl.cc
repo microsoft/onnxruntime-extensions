@@ -37,8 +37,6 @@ OrtxStatus TokenizerImpl::Load(const std::string& dir) {
   // load the tokenizer from a config
   status = tokenizer_->Load(*tok_config_);
   if (status.IsOk()) {
-    eos_token_id_ = tokenizer_->GetEncoder().GetTokenId(tok_config_->eos_token_);
-
     detokenizer_ = std::make_unique<BpeStreamingDecoder>();
     status = detokenizer_->Load(tok_config_, *tokenizer_);
   }
@@ -83,52 +81,6 @@ OrtxStatus TokenizerImpl::BatchDecode(const std::vector<span<extTokenId_t const>
   return {};
 }
 
-static bool IsSpmTokenizer(const std::string& tok_class) {
-  return tok_class == "GemmaTokenizer" || tok_class == "LlamaTokenizer";
-}
-
 OrtxStatus TokenizerImpl::Id2Token(extTokenId_t id, std::string& token, BPEDecoderState** state) const {
-  auto bpe_state = *state;
-  std::unique_ptr<BPEDecoderState> bpe_state_ptr;
-  bool is_first = false;
-  if (bpe_state == nullptr) {
-    bpe_state_ptr = std::make_unique<BPEDecoderState>();
-    bpe_state = bpe_state_ptr.get();
-    is_first = true;
-  }
-
-  bool f_special = bpe_state->f_special_last; // [Spm]Id2Token needs the last state
-  bool f_special_last = bpe_state->f_special_last;
-  auto status = IsSpmTokenizer(tok_config_->tokenizer_class_)
-                    ? detokenizer_->SpmId2Token(id, token, f_special)
-                    : detokenizer_->Id2Token(id, token, true /* tok_config_.skip_special_tokens_ */, f_special);
-
-  if (status.IsOk()) {
-    if (bpe_state_ptr) {
-      *state = bpe_state_ptr.release();
-    }
-
-    if (tok_config_->clean_up_tokenization_spaces_) {
-      if (f_special && (is_first && !f_special_last)) {
-        token = std::string(" ") + token;
-      }
-
-      if (f_special && id != eos_token_id_) {
-        token.push_back(' ');
-      }
-    }  // end case of whitespace_token_
-
-    if (!bpe_state->incomplete_utf8_.empty()) {
-      token = bpe_state->incomplete_utf8_ + token;
-      bpe_state->incomplete_utf8_.clear();
-    } else {
-      if (!token.empty() && ustring::UTF8Len(token.front()) > token.size()) {
-        bpe_state->incomplete_utf8_ = token;
-        token = "";
-      }
-    }
-  }
-
-  bpe_state->f_special_last = f_special;
-  return status;
+  return detokenizer_->Id2Token(id, token, state);
 }

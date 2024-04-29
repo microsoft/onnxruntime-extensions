@@ -23,13 +23,6 @@ ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api
 int
 ORT_API_CALL GetActiveOrtAPIVersion();
 
-/** \brief Get the current C ABI version of this library
- *
- * \snippet{doc} snippets.dox int Return Value
- */
-int
-ORT_API_CALL OrtxGetAPIVersion(void);
-
 #ifdef __cplusplus
 }
 #endif

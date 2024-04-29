@@ -326,7 +326,7 @@ class BpeModel {
 
   uint32_t GetTokenId(const std::string& key) const {
     auto it = vocab_map_.find(key);
-    if (it != end(vocab_map_)) {
+    if (it != vocab_map_.end()) {
       return it->second;
     } else {
       return unk_id_;

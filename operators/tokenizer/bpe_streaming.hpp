@@ -8,15 +8,24 @@
 #include "bpe_json.hpp"
 #include "bpe_tokenizer.hpp"
 
+namespace ort_extensions {
+struct BPEDecoderState {
+  bool f_special_last{};
+  std::string incomplete_utf8_;
+};
+}  // namespace ort_extensions
+
 class BpeStreamingDecoder : public KernelBpeDecoder {
  public:
   BpeStreamingDecoder() = default;
   ~BpeStreamingDecoder() override = default;
 
+  using BPEDecoderState = ort_extensions::BPEDecoderState;
+
   // shared the data between the encoder and decoder
   OrtxStatus Load(
-    std::shared_ptr<ort_extensions::bpe::TokenJsonConfig const> ptr_config,
-    const JsonFastTokenizer& encoder) {
+      std::shared_ptr<ort_extensions::bpe::TokenJsonConfig const> ptr_config,
+      const JsonFastTokenizer& encoder) {
     const auto& tok_config = *ptr_config;
     bos_token_ = tok_config.bos_token_;
     eos_token_ = tok_config.eos_token_;
@@ -38,6 +47,8 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     skip_special_tokens_ = 1;
     // en_normalization_ = 0;
     add_dummy_prefix_ = tok_config.tokenizer_class_ == "LlamaTokenizer" ? 1 : 0;
+    eos_token_id_ = encoder.GetEncoder().GetTokenId(tok_config.eos_token_);
+
     tok_config_ = ptr_config;
     return {};
   }
@@ -134,6 +145,52 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     return tok_class == "GemmaTokenizer" || tok_class == "LlamaTokenizer";
   }
 
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, BPEDecoderState** state) const {
+    auto bpe_state = *state;
+    std::unique_ptr<BPEDecoderState> bpe_state_ptr;
+    bool is_first = false;
+    if (bpe_state == nullptr) {
+      bpe_state_ptr = std::make_unique<BPEDecoderState>();
+      bpe_state = bpe_state_ptr.get();
+      is_first = true;
+    }
+
+    bool f_special = bpe_state->f_special_last;  // [Spm]Id2Token needs the last state
+    bool f_special_last = bpe_state->f_special_last;
+    auto status = IsSpmTokenizer(tok_config_->tokenizer_class_)
+                      ? SpmId2Token(id, token, f_special)
+                      : Id2Token(id, token, true /* tok_config_.skip_special_tokens_ */, f_special);
+
+    if (status.IsOk()) {
+      if (bpe_state_ptr) {
+        *state = bpe_state_ptr.release();
+      }
+
+      if (tok_config_->clean_up_tokenization_spaces_) {
+        if (f_special && (is_first && !f_special_last)) {
+          token = std::string(" ") + token;
+        }
+
+        if (f_special && id != eos_token_id_) {
+          token.push_back(' ');
+        }
+      }  // end case of whitespace_token_
+
+      if (!bpe_state->incomplete_utf8_.empty()) {
+        token = bpe_state->incomplete_utf8_ + token;
+        bpe_state->incomplete_utf8_.clear();
+      } else {
+        if (!token.empty() && ustring::UTF8Len(token.front()) > token.size()) {
+          bpe_state->incomplete_utf8_ = token;
+          token = "";
+        }
+      }
+    }
+
+    bpe_state->f_special_last = f_special;
+    return status;
+  }
+
   OrtxStatus Compute(const ortc::Tensor<int64_t>& ids,
                      ortc::Tensor<std::string>& output) const {
     const int64_t* p_ids = ids.Data();
@@ -205,7 +262,9 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
       }
     }
   }
-private:
+
+ private:
+  extTokenId_t eos_token_id_{0};
   bool add_dummy_prefix_ = false;
   std::shared_ptr<ort_extensions::bpe::TokenJsonConfig const> tok_config_;
 };

@@ -47,10 +47,6 @@ class span {
   size_t size_;
 };
 
-struct BPEDecoderState {
-  bool f_special_last{};
-  std::string incomplete_utf8_;
-};
 
 class TokenizerImpl : public OrtxObjectImpl {
  public:
@@ -86,10 +82,9 @@ class TokenizerImpl : public OrtxObjectImpl {
 
   OrtxStatus BatchDecode(const std::vector<span<extTokenId_t const>>& t_ids, std::vector<std::string>& t_text) const;
 
-  OrtxStatus Id2Token(extTokenId_t /* id */, std::string& /* token */, BPEDecoderState** /* state */) const;
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, BPEDecoderState** state ) const;
 
  private:
-  extTokenId_t eos_token_id_{0};
   std::string tokenizer_dir_;
   std::shared_ptr<ort_extensions::bpe::TokenJsonConfig> tok_config_;
   std::unique_ptr<JsonFastTokenizer> tokenizer_;
