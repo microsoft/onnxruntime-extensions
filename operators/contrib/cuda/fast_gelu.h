@@ -11,7 +11,7 @@ namespace contrib {
 template <typename T>
 struct FastGelu {
   template<typename TDict>
-  OrtStatusPtr OnModelAttach(const TDicti& /*dict*/) {
+  OrtStatusPtr OnModelAttach(const TDict& /*dict*/) {
     return nullptr;
   }
   OrtStatusPtr Compute(Ort::Custom::CUDAKernelContext* ctx,
