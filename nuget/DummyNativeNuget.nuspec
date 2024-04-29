@@ -59,13 +59,13 @@
     <file src="targets\xamarinios10\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="buildTransitive\xamarinios10" />
     <file src="targets\net6.0-ios\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="build\net6.0-ios15.4" />
     <file src="targets\net6.0-ios\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="buildTransitive\net6.0-ios15.4" />
-    <!-- .net 7 macOS -->
+    <!-- .net 6 macOS -->
     <file src="..\nuget-artifacts\onnxruntime-extensions-osx-x86_64\lib\libortextensions.dylib" target="runtimes\osx.10.14-x64\native" />
     <file src="..\nuget-artifacts\onnxruntime-extensions-osx-arm64\lib\libortextensions.dylib" target="runtimes\osx.10.14-arm64\native"/>
 
     <file src="targets\net6.0-macos\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="build\net6.0-macos12.3" />
     <file src="targets\net6.0-macos\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="buildTransitive\net6.0-macos12.3" />
-    <!-- .net 7 macCatalyst -->
+    <!-- .net 6 macCatalyst -->
     <file src="targets\net6.0-maccatalyst\_._" target="build\net6.0-maccatalyst14.0" />
     <file src="targets\net6.0-maccatalyst\_._" target="buildTransitive\net6.0-maccatalyst14.0" />
   </files>
