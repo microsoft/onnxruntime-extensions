@@ -58,6 +58,24 @@ class ustring : public std::u32string {
     return std::string(utf8_buf);
   }
 
+  static size_t UTF8Len(char byte1) {
+    const size_t lookup[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 4};
+    uint8_t highbits = static_cast<uint8_t>(byte1) >> 4;
+    return lookup[highbits];
+  }
+
+  static size_t UTF8Len(char32_t codepoint) {
+    if (codepoint <= 0x7F) {
+      return 1;
+    } else if (codepoint <= 0x7FF) {
+      return 2;
+    } else if (codepoint <= 0xFFFF) {
+      return 3;
+    } else {
+      return 4;
+    }
+  }
+
   static bool ValidateUTF8(const std::string& data) {
     int cnt = 0;
     for (auto i = 0; i < data.size(); i++) {

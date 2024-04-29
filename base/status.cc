@@ -12,12 +12,6 @@ struct OrtxStatus::Rep {
 OrtxStatus::OrtxStatus() = default;
 OrtxStatus::~OrtxStatus() = default;
 
-OrtxStatus::OrtxStatus(extError_t code, std::string_view error_message)
-    : rep_(new Rep) {
-  rep_->code = code;
-  rep_->error_message = std::string(error_message);
-}
-
 OrtxStatus::OrtxStatus(extError_t code, const std::string& error_message)
     : rep_(new Rep) {
   rep_->code = code;
@@ -57,4 +51,52 @@ OrtStatus* OrtxStatus::CreateOrtStatus() const {
 
   OrtStatus* status = OrtW::CreateStatus(Message(), OrtErrorCode::ORT_RUNTIME_EXCEPTION);
   return status;
+}
+
+std::string OrtxStatus::ToString() const {
+  if (rep_ == nullptr)
+    return "OK";
+
+  std::string result;
+  switch (Code()) {
+    case extError_t::kOrtxOK:
+      result = "Success";
+      break;
+    case extError_t::kOrtxErrorInvalidArgument:
+      result = "Invalid argument";
+      break;
+    case extError_t::kOrtxErrorOutOfMemory:
+      result = "Out of Memory";
+      break;
+    case extError_t::kOrtxErrorCorruptData:
+      result = "Corrupt data";
+      break;
+    case extError_t::kOrtxErrorInvalidFile:
+      result = "Invalid data file";
+      break;
+    case extError_t::kOrtxErrorNotFound:
+      result = "Not found";
+      break;
+    case extError_t::kOrtxErrorAlreadyExists:
+      result = "Already exists";
+      break;
+    case extError_t::kOrtxErrorOutOfRange:
+      result = "Out of range";
+      break;
+    case extError_t::kOrtxErrorNotImplemented:
+      result = "Not implemented";
+      break;
+    case extError_t::kOrtxErrorInternal:
+      result = "Internal";
+      break;
+    case extError_t::kOrtxErrorUnknown:
+      result = "Unknown";
+      break;
+    default:
+      break;
+  }
+
+  result += ": ";
+  result += rep_->error_message;
+  return result;
 }

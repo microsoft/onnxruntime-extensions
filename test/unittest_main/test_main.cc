@@ -19,7 +19,7 @@ void FixCurrentDir(const std::string& init_path = "") {
   auto cur_dir = std::filesystem::current_path();
   if (!init_path.empty()) {
     std::filesystem::path init_dir = init_path;
-    cur_dir = init_dir.parent_path();
+    cur_dir = std::filesystem::absolute(init_dir).parent_path();
   }
 
   do {
