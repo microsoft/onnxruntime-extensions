@@ -181,23 +181,6 @@ class BpeModel {
       merge_item++;
     }
 
-    // if (special_tokens != nullptr) {
-    //   std::istringstream istrea(special_tokens);
-
-    //   while (istrea >> line) {
-    //     if (line.empty()) continue;
-    //     line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
-    //     ustring line_32(line);
-    //     auto id = ort_extensions::narrow<uint32_t>(vocab_map_.size());
-    //     if (auto nestedIt = vocab_map_.find(line); nestedIt != vocab_map_.end()) {
-    //       id = nestedIt->second;
-    //     } else {
-    //       vocab_map_[line] = id;
-    //     }
-    //     special_tokens_.Add(std::move(line_32), id);
-    //   }
-    // }
-
     id2token_map_.resize(vocab_map_.size());
     for (const auto& [t, i] : vocab_map_) {
       if (i > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
