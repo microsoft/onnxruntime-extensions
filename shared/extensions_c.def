@@ -1,0 +1,18 @@
+LIBRARY "ortextensions.dll"
+EXPORTS
+ RegisterCustomOps @1
+ AddExternalCustomOp @2
+ GetActiveOrtAPIVersion @3
+ OrtxGetAPIVersion @4
+ OrtxGetLastErrorMessage @5
+ OrtxCreate @6
+ OrtxDispose @7
+ OrtxCreateTokenizer @8
+ OrtxTokenize @9
+ OrtxDetokenize @10
+ OrtxDetokenize1D @11
+ OrtxDetokenizeCached @12
+ OrtxStringArrayGetBatch @13
+ OrtxStringArrayGetItem @14
+ OrtxTokenId2DArrayGetBatch @15
+ OrtxTokenId2DArrayGetItem @16
