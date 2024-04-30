@@ -78,7 +78,6 @@ extError_t ORTX_API_CALL OrtxDispose(OrtxObject** object);
  */
 extError_t ORTX_API_CALL OrtxDisposeOnly(OrtxObject* object);
 
-
 /** \brief Create a tokenizer object with the specified tokenizer path
  *
  * \param tokenizer Pointer to store the created tokenizer object

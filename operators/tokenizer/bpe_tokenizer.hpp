@@ -19,10 +19,13 @@
 #include "nlohmann/json.hpp"
 #include "bpe_utils.hpp"
 #include "trietree.hpp"
+#include "bpe_types.h"
 
 namespace ort_extensions {
 
 class BpeModel {
+  using json = nlohmann::json;
+
  public:
   BpeModel() = default;
 
@@ -49,7 +52,7 @@ class BpeModel {
                   bool spm_converted) {
     nlohmann::json tok_json;
     vocab_stream >> tok_json;
-    vocab_map_ = std::move(tok_json.get<std::unordered_map<std::string, uint32_t>>());
+    tok_json.get_to(vocab_map_);
 
     auto it = vocab_map_.find(unk_token);
     if (it != vocab_map_.end()) {
@@ -123,6 +126,75 @@ class BpeModel {
     return {};
   }
 
+  OrtxStatus Load(const json& bpe_model,
+                  const char* /* special_tokens */,
+                  bool spm_converted) {
+    const json& vocab_json = bpe_model["vocab"];
+    const json& merges_json = bpe_model["merges"];
+    vocab_json.get_to(vocab_map_);
+    auto it = bpe_model.find("unk_token");
+    if (it != bpe_model.end() && it->is_string()) {
+      auto ukt = it->get<std::string>();
+      auto it_word = vocab_map_.find(ukt);
+      if (it_word != vocab_map_.end()) {
+        unk_id_ = it_word->second;
+      }
+    }
+
+    it = bpe_model.find("end_of_word_suffix");
+    if (it != bpe_model.end() && it->is_string()) {
+      end_of_word_suffix_ = it->get<std::string>();
+    }
+
+    if (spm_converted) {
+      UpdateSpmByteToken(vocab_map_);
+    } else {
+      CreateByteEncoder();
+    }
+
+    uint32_t index = 0;
+    auto merge_item = merges_json.begin();
+    while (merge_item != merges_json.end()) {
+      std::string line = merge_item.value();
+      line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
+      if (line.empty()) continue;
+      if ((line[0] == '#') && (index == 0)) continue;
+      auto pos = line.find(' ');
+      if (pos == std::string::npos) {
+        return {
+            kOrtxErrorCorruptData,
+            "Cannot know how to parse line: " + line,
+        };
+      }
+      std::string w1 = line.substr(0, pos);
+      std::string w2 = line.substr(pos + 1);
+      int token_length = ort_extensions::narrow<int>(w1.length() + w2.length());
+      if (w2.find("</w>") != std::string::npos || w1.find("</w>") != std::string::npos) {
+        token_length -= 4;
+      }
+      auto iw1 = GetTokenId(w1);
+      auto iw2 = GetTokenId(w2);
+      auto iww = GetTokenId(w1 + w2);
+      BpeNode value{iww, index++, token_length};
+      bpe_rank_[GetRankKey(iw1, iw2)] = value;
+
+      merge_item++;
+    }
+
+    id2token_map_.resize(vocab_map_.size());
+    for (const auto& [t, i] : vocab_map_) {
+      if (i > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
+        continue;  // safe purpose.
+      }
+      if (i > id2token_map_.size()) {
+        id2token_map_.resize(static_cast<size_t>(i) + 1);
+      }
+      id2token_map_[i] = t;
+    }
+
+    return {};
+  }
+
   OrtxStatus LoadAddedTokens(const char* added_tokens) {
     int id = bpe::kInvalidTokenId;
     std::istringstream strm_tokens(added_tokens);
@@ -147,6 +219,18 @@ class BpeModel {
     }
 
     return {};
+  }
+
+  OrtxStatus LoadAddedTokens(const std::vector<bpe::AddedToken>& added_tokens) {
+    for (const auto& token : added_tokens) {
+      added_tokens_.Add(ustring(token.content_), 0, token.id_);
+    }
+
+    return {};
+  }
+
+  std::vector<std::string> BuildDecoder() const {
+    return id2token_map_;
   }
 
   // REF: https://github.com/huggingface/transformers/blob/c9e72f55b2dc4b9be4edb986dce0552582b328f2/src/transformers/tokenization_utils.py#L52
@@ -223,13 +307,17 @@ class BpeModel {
     return byte_encoder_;
   }
 
-  uint32_t GetTokenId(const std::string& key) {
+  uint32_t GetTokenId(const std::string& key) const {
     auto it = vocab_map_.find(key);
-    if (it != end(vocab_map_)) {
+    if (it != vocab_map_.end()) {
       return it->second;
     } else {
       return unk_id_;
     }
+  }
+
+  const std::string& GetEndOfWordSuffix() const {
+    return end_of_word_suffix_;
   }
 
  private:
@@ -260,6 +348,7 @@ class BpeModel {
   }
 
  private:
+  std::string end_of_word_suffix_;
   std::map<uint64_t, BpeNode> bpe_rank_;
 
   uint32_t byte_encoder_[256] = {};
