@@ -567,6 +567,7 @@ standardize_output_folder(ocos_operators)
 
 target_include_directories(noexcep_operators PUBLIC
   ${ONNXRUNTIME_INCLUDE_DIR}
+  ${GSL_INCLUDE_DIR}
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_SOURCE_DIR}/include/custom_op
   ${PROJECT_SOURCE_DIR}/base
@@ -574,6 +575,7 @@ target_include_directories(noexcep_operators PUBLIC
 
 target_include_directories(ocos_operators PUBLIC
   ${ONNXRUNTIME_INCLUDE_DIR}
+  ${GSL_INCLUDE_DIR}
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_SOURCE_DIR}/include/custom_op
   ${PROJECT_SOURCE_DIR}/base
@@ -676,7 +678,7 @@ if(OCOS_ENABLE_BLINGFIRE)
 endif()
 
 if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
-  target_include_directories(ocos_operators PRIVATE ${nlohmann_json_SOURCE_DIR}/single_include)
+  target_include_directories(ocos_operators PUBLIC ${nlohmann_json_SOURCE_DIR}/single_include)
   list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 
@@ -691,7 +693,6 @@ if(ANDROID)
   list(APPEND ocos_libraries log)
 endif()
 
-target_include_directories(noexcep_operators PUBLIC ${GSL_INCLUDE_DIR})
 list(APPEND ocos_libraries Microsoft.GSL::GSL)
 
 list(REMOVE_DUPLICATES OCOS_COMPILE_DEFINITIONS)
@@ -712,6 +713,10 @@ target_compile_definitions(ocos_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
 
 file(GLOB shared_TARGET_LIB_SRC "shared/lib/*.cc" "shared/lib/*.h")
+if (NOT OCOS_ENABLE_C_API)
+  file(GLOB shared_TARGET_LIB_C_API_SRC "shared/lib/*tokenizer*")
+  list(REMOVE_ITEM shared_TARGET_LIB_SRC ${shared_TARGET_LIB_C_API_SRC})
+endif()
 
 if(NOT OCOS_ENABLE_STATIC_LIB AND CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   add_executable(ortcustomops ${shared_TARGET_LIB_SRC})
@@ -812,7 +817,12 @@ target_include_directories(ortcustomops PUBLIC "$<TARGET_PROPERTY:ocos_operators
 target_link_libraries(ortcustomops PUBLIC ocos_operators)
 
 if(_BUILD_SHARED_LIBRARY)
-  file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h" "shared/*.def")
+  file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h")
+  if (OCOS_ENABLE_C_API)
+    list(APPEND shared_TARGET_SRC "shared/extensions_c.def")
+  else()
+    list(APPEND shared_TARGET_SRC "shared/ortcustomops.def")
+  endif()
   add_library(extensions_shared SHARED ${shared_TARGET_SRC})
 
   # We need to propagate OCOS_SHARED_LIBRARY if set.

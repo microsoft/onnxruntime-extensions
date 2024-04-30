@@ -12,7 +12,11 @@ void convert_test(const char* const_str) {
   std::string string(const_str);
   const std::string const_string(const_str);
 
+#if _WIN32
+  auto str = std::shared_ptr<char>(_strdup(const_str));
+#else
   auto str = std::shared_ptr<char>(strdup(const_str));
+#endif
   ustring char_construct(str.get());
   EXPECT_EQ(const_string, std::string(char_construct));
 
