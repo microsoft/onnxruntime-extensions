@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
 #include <filesystem>
@@ -65,7 +65,6 @@ TEST(CApiTest, StreamApiTest) {
   OrtxDispose(&tokenizer);
 }
 
-
 TEST(OrtxTokenizerTest, ClipTokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
   auto status = tokenizer->Load("data/clip");
@@ -119,7 +118,6 @@ TEST(OrtxTokenizerTest, TicTokenTokenizer) {
   EXPECT_EQ(out_text[0], input[0]);
 }
 
-
 TEST(OrtxTokenizerTest, GemmaTokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
   auto status = tokenizer->Load("data/gemma");
@@ -157,6 +155,42 @@ TEST(OrtxTokenizerTest, GemmaTokenizer) {
   // std::cout << out_text[0] << std::endl;
   // std::cout << out_text[1] << std::endl;
   // std::cout << out_text[2] << std::endl;
+  EXPECT_EQ(out_text[0], input[0]);
+  EXPECT_EQ(out_text[1], input[1]);
+}
+
+TEST(OrtxTokenizerTest, Phi3Tokenizer) {
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/phi-3");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+  }
+
+  std::vector<std::string_view> input = {
+      "分析",
+      " こんにちは",  // an extra space at the beginning
+      "<|user|>こんにちは。データ分析するにはなにをすればいい？<|end|><|assistant|>",
+  };
+  std::vector<extTokenId_t> EXPECTED_IDS_0 = {1, 29871, 30748, 233, 161, 147};
+  std::vector<extTokenId_t> EXPECTED_IDS_1 = {1, 259, 30589, 30389, 30353, 30644, 30449};
+  std::vector<extTokenId_t> EXPECTED_IDS_2 = {1, 32010, 29871, 30589, 30389, 30353,
+                                              30644, 30449, 30267, 30597, 30185, 30369, 30748, 233, 161, 147, 30427, 30332, 30353,
+                                              30449, 30371, 30353, 30396, 30427, 30553, 31254, 30298, 30298, 30882, 32007, 32001};
+
+  std::vector<std::vector<extTokenId_t>> token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  EXPECT_TRUE(status.IsOk());
+  EXPECT_EQ(token_ids.size(), input.size());
+  DumpTokenIds(token_ids);
+  EXPECT_EQ(token_ids[0], EXPECTED_IDS_0);
+  EXPECT_EQ(token_ids[1], EXPECTED_IDS_1);
+  EXPECT_EQ(token_ids[2], EXPECTED_IDS_2);
+
+  std::vector<std::string> out_text;
+  std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {
+      EXPECTED_IDS_0, EXPECTED_IDS_1};
+  status = tokenizer->Detokenize(token_ids_span, out_text);
+  EXPECT_TRUE(status.IsOk());
   EXPECT_EQ(out_text[0], input[0]);
   EXPECT_EQ(out_text[1], input[1]);
 }

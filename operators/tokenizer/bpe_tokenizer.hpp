@@ -312,7 +312,7 @@ class BpeModel {
     if (it != vocab_map_.end()) {
       return it->second;
     } else {
-      return unk_id_;
+      return bpe::kInvalidTokenId;
     }
   }
 

@@ -8,7 +8,7 @@ include(FetchContent)
 FetchContent_Declare(
   ortx
   GIT_REPOSITORY https://github.com/microsoft/onnxruntime-extensions.git
-  GIT_TAG a7043c56e4f19c4bf11642d390f7b502f80a34ba)
+  GIT_TAG main)
 
 set(OCOS_BUILD_PRESET token_api_only)
 FetchContent_MakeAvailable(ortx)
