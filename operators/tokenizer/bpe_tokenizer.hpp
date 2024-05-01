@@ -114,7 +114,7 @@ class BpeModel {
 
     id2token_map_.resize(vocab_map_.size());
     for (const auto& [t, i] : vocab_map_) {
-      if (i > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
+      if (i > static_cast<uint32_t>((std::numeric_limits<int32_t>::max)())) {
         continue;  // safe purpose.
       }
       if (i > id2token_map_.size()) {
@@ -183,7 +183,7 @@ class BpeModel {
 
     id2token_map_.resize(vocab_map_.size());
     for (const auto& [t, i] : vocab_map_) {
-      if (i > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
+      if (i > static_cast<uint32_t>((std::numeric_limits<int32_t>::max)())) {
         continue;  // safe purpose.
       }
       if (i > id2token_map_.size()) {
@@ -256,7 +256,7 @@ class BpeModel {
   void PerformBPE(std::list<std::pair<uint32_t, uint32_t>>& vals) const {
     while (vals.size() >= 2) {
       auto pos_it = vals.end();
-      uint32_t minval = std::numeric_limits<uint32_t>::max();
+      uint32_t minval = (std::numeric_limits<uint32_t>::max)();
       uint32_t ori_id1 = 0, ori_id2 = 0;
       uint32_t aim_id = 0;
       int token_length = 0;
@@ -355,7 +355,7 @@ class BpeModel {
   std::unordered_map<std::string, uint32_t> vocab_map_;
   std::vector<std::string> id2token_map_;
 
-  uint32_t unk_id_ = std::numeric_limits<uint32_t>::max();
+  uint32_t unk_id_ = (std::numeric_limits<uint32_t>::max)();
   bpe::SpecialTokenMap special_tokens_;
   TrieTree<char32_t> added_tokens_;
 };
