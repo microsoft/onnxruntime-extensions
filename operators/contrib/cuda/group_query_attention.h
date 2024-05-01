@@ -278,14 +278,12 @@ struct GroupQueryAttention {
     disable_memory_efficient_attention_ = true;
 #endif
 
-#if ORT_API_VERSION >= 18
     if (!disable_flash_attention_) {
       OrtAllocator* allocator = nullptr;
       ORTX_RETURN_IF_ERROR(api.KernelInfoGetAllocator(&info, OrtMemType::OrtMemTypeDefault, &allocator));
       allocator_ = UniquePtrWithDeletor<OrtAllocator>{allocator, [&api](OrtAllocator* p){api.ReleaseAllocator(p);}};
       zeros_ = GetScratchBuffer<int>(allocator_->Alloc(allocator_.get(), kZerosCount), allocator_.get());
     }
-#endif
     return nullptr;
   }
 
@@ -331,19 +329,17 @@ struct GroupQueryAttention {
       softmax_lse_accum_bytes = slse_accum_bytes;
       out_accum_bytes = o_accum_bytes;
     }
-#if ORT_API_VERSION >= 18
     void* softmax_lse_p = nullptr;
-    ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, softmax_lse_bytes, &soft_lse_p));
+    ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, softmax_lse_bytes, &softmax_lse_p));
     auto softmax_lse_buffer = GetScratchBuffer<void>(softmax_lse_p, allocator_.get());
 
     void* softmax_lse_accum_p = nullptr;
-    ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, softmax_lse_accum_bytes, &soft_lse_accum_p));
+    ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, softmax_lse_accum_bytes, &softmax_lse_accum_p));
     auto softmax_lse_accum_buffer = GetScratchBuffer<void>(softmax_lse_accum_p, allocator_.get());
 
     void* out_accum_p = nullptr;
     ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, out_accum_bytes, &out_accum_p));
     auto out_accum_buffer = GetScratchBuffer<void>(out_accum_p, allocator_.get());
-#endif
 #else
     constexpr bool use_flash_attention = false;
     UniquePtrWithDeletor<void> softmax_lse_buffer = nullptr;
@@ -374,7 +370,6 @@ struct GroupQueryAttention {
     if (use_memory_efficient_attention && cuda::MemoryEfficientAttentionParams::need_workspace(parameters.head_size, sizeof(T) == sizeof(float))) {
       fmha_buffer_bytes = (parameters.batch_size * parameters.sequence_length * parameters.num_heads * parameters.head_size * sizeof(float));
     }
-#if ORT_API_VERSION >= 18
     void* k_p = nullptr;
     ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, kv_buffer_bytes, &k_p));
     auto k_buffer = GetScratchBuffer<void>(k_p, allocator_.get());
@@ -386,7 +381,6 @@ struct GroupQueryAttention {
     void* fmha_p = nullptr;
     ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, fmha_buffer_bytes, &fmha_p));
     auto fmha_buffer = GetScratchBuffer<void>(fmha_p, allocator_.get());
-#endif
 #else
     constexpr bool use_memory_efficient_attention = false;
     UniquePtrWithDeletor<void> k_buffer = nullptr;

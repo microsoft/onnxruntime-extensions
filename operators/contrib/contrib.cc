@@ -5,7 +5,9 @@
 
 #ifdef USE_CUDA
 #include "cuda/fast_gelu.h"
+#if ORT_API_VERSION >= 18
 #include "cuda/group_query_attention.h"
+#endif
 #endif
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
@@ -14,9 +16,11 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
 #ifdef USE_CUDA
       ,
       CustomCudaStructV2("FastGelu", contrib::FastGelu<float>),
-#if ORT_API_VERSION >= 16
+#if ORT_API_VERSION >= 18
       CustomCudaStructV2("GroupQueryAttention", contrib::GroupQueryAttention<ortc::MFloat16>),
       CustomCudaStructV2("GroupQueryAttention", contrib::GroupQueryAttention<ortc::BFloat16>),
+#endif
+#if ORT_API_VERSION >= 16
       CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::MFloat16>),
       CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::BFloat16>)
 #endif
