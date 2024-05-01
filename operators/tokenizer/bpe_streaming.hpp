@@ -183,7 +183,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
         } else {
           token = bpe_state->incomplete_utf8_;
           bpe_state->incomplete_utf8_.clear();
-          if (ustring::ValidateUTF8(token)) {
+          if (!ustring::ValidateUTF8(token)) {
             token = "";
           }
         }
