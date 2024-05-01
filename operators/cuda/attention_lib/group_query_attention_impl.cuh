@@ -4,7 +4,7 @@
 #pragma once
 #include <cublas_v2.h>
 #include "onnxruntime_c_api.h"
-#include "../attention_common.h"
+#include "attention_common.h"
 
 namespace contrib {
 namespace cuda {

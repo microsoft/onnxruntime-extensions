@@ -3,10 +3,10 @@
 
 #pragma once
 #include "ocos.h"
-#include "cuda_type.h"
-#include "../attention_common.h"
+#include "../cuda_type.h"
+#include "attention_common.h"
 #include "group_query_attention_impl.cuh"
-#include "device_prop.cuh"
+#include "../device_prop.cuh"
 #if USE_FLASH_ATTENTION
 #include "flash_attention/flash_api.h"
 #endif

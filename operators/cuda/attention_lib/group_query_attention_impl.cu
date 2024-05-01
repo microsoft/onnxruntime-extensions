@@ -1,7 +1,7 @@
 #include <cassert>
 #include <cuda.h>
 #include "group_query_attention_impl.cuh"
-#include "utils.cuh"
+#include "../utils.cuh"
 #include "ortx_common.h"
 #include "onnxruntime_f16.h"
 #ifdef USE_FLASH_ATTENTION
@@ -10,7 +10,7 @@
 #ifdef USE_MEMORY_EFFICIENT_ATTENTION
 #include "cutlass_fmha/memory_efficient_attention.h"
 #endif
-#include "device_prop.cuh"
+#include "../device_prop.cuh"
 
 namespace contrib {
 namespace cuda {

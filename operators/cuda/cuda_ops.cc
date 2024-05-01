@@ -4,8 +4,8 @@
 #include "ocos.h"
 
 #ifdef USE_CUDA
-#include "cuda/fast_gelu.h"
-#include "cuda/group_query_attention.h"
+#include "fast_gelu.h"
+#include "attention_lib/group_query_attention.h"
 #endif
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
