@@ -45,9 +45,14 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(CheckCXXCompilerFlag)
 include(CheckLanguage)
 
+set(_ORTX_STANDALONE_PROJECT OFF)
+if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+    set(_ORTX_STANDALONE_PROJECT ON)
+endif()
+
 option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
 option(OCOS_ENABLE_PYTHON "Enable Python component building, (deprecated)" OFF)
-option(OCOS_ENABLE_CTEST "Enable C++ test" ON)
+option(OCOS_ENABLE_CTEST "Enable C++ test" ${_ORTX_STANDALONE_PROJECT})
 option(OCOS_ENABLE_CPP_EXCEPTIONS "Enable C++ Exception" ON)
 option(OCOS_ENABLE_TF_STRING "Enable String Operator Set" ON)
 option(OCOS_ENABLE_RE2_REGEX "Enable StringRegexReplace and StringRegexSplit" ON)
@@ -877,6 +882,7 @@ if(OCOS_BUILD_APPLE_FRAMEWORK)
   endif()
 endif()
 
+if (_ORTX_STANDALONE_PROJECT)
 # clean up the requirements.txt files from 3rd party project folder to suppress the code security false alarms
 file(GLOB_RECURSE NO_USE_FILES ${CMAKE_BINARY_DIR}/_deps/*requirements.txt)
 message(STATUS "Found the following requirements.txt: ${NO_USE_FILES}")
@@ -887,6 +893,7 @@ endforeach()
 
 # Run CPack to generate the NuGet package
 include(CPack)
+endif()
 
 if(OCOS_ENABLE_CTEST)
   include(ext_tests)
