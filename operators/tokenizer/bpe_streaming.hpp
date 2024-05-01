@@ -177,8 +177,16 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
       }  // end case of whitespace_token_
 
       if (!bpe_state->incomplete_utf8_.empty()) {
-        token = bpe_state->incomplete_utf8_ + token;
-        bpe_state->incomplete_utf8_.clear();
+        bpe_state->incomplete_utf8_ += token;
+        if (ustring::UTF8Len(bpe_state->incomplete_utf8_.front()) > bpe_state->incomplete_utf8_.size()) {
+          token = "";
+        } else {
+          token = bpe_state->incomplete_utf8_;
+          bpe_state->incomplete_utf8_.clear();
+          if (ustring::ValidateUTF8(token)) {
+            token = "";
+          }
+        }
       } else {
         if (!token.empty() && ustring::UTF8Len(token.front()) > token.size()) {
           bpe_state->incomplete_utf8_ = token;
