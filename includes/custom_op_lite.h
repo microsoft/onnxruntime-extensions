@@ -1038,6 +1038,7 @@ struct OrtLiteCustomOp : public OrtCustomOp {
     OrtCustomOp::GetMayInplace = [](int**, int**) -> size_t {
       return 0;
     };
+    OrtCustomOp::ReleaseMayInplace = [](int*, int*) -> void {};
 #endif
   }
 

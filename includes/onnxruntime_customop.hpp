@@ -74,6 +74,12 @@ struct CustomOp_defined_getMayInplace : std::false_type {};
 template <typename T>
 struct CustomOp_defined_getMayInplace<T, std::void_t<decltype(&T::GetMayInplace)>> : std::true_type {};
 
+template <typename T, typename = void>
+struct CustomOp_defined_releaseMayInplace : std::false_type {};
+
+template <typename T>
+struct CustomOp_defined_releaseMayInplace<T, std::void_t<decltype(&T::ReleaseMayInplace)>> : std::true_type {};
+
 template <typename CustomOpKernel>
 struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
   using ComputeFunction = decltype(&CustomOpKernel::Compute);
@@ -156,6 +162,11 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
     if constexpr (CustomOp_defined_getMayInplace<CustomOpKernel>::value) {
       OrtCustomOp::GetMayInplace = [](int** input_index, int** output_index) -> size_t {
         return CustomOpKernel::GetMayInplace(input_index, output_index);
+      };
+    }
+    if constexpr (CustomOp_defined_releaseMayInplace<CustomOpKernel>::value) {
+      OrtCustomOp::ReleaseMayInplace = [](int* input_index, int* output_index) -> void {
+        CustomOpKernel::ReleaseMayInplace(input_index, output_index);
       };
     }
 #endif

@@ -253,6 +253,11 @@ struct GroupQueryAttention {
     return 2;
   }
 
+  static void ReleaseMayInplace(int* input_index, int* output_index) {
+    free(input_index);
+    free(output_index);
+  }
+
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
     int64_t num_heads = 0, kv_num_heads = 0;
     ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "num_heads", num_heads));
