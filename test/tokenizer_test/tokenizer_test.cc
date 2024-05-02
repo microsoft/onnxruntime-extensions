@@ -257,7 +257,7 @@ TEST(OrtxTokenizerStreamTest, CodeGenTokenizer) {
   std::string text;
   std::unique_ptr<ort_extensions::BPEDecoderState> decoder_cache;
   // token_ids[0].insert(token_ids[0].begin() + 2, 607);  // <0x20>
-  token_ids[0] = {921, 765, 2130, 588, 262, 6123, 447, 251, 2130, 588, 262};
+  token_ids[0] = {564, 921, 765, 2130, 588, 262, 6123, 447, 251, 2130, 588, 262};
   for (const auto& token_id : token_ids[0]) {
     std::string token;
     status = tokenizer->Id2Token(token_id, token, decoder_cache);

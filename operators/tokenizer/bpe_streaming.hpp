@@ -176,23 +176,19 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
         }
       }  // end case of whitespace_token_
 
-      if (!bpe_state->incomplete_utf8_.empty()) {
-        bpe_state->incomplete_utf8_ += token;
-        if (ustring::UTF8Len(bpe_state->incomplete_utf8_.front()) > bpe_state->incomplete_utf8_.size()) {
-          token = "";
-        } else {
-          token = bpe_state->incomplete_utf8_;
-          bpe_state->incomplete_utf8_.clear();
-          if (!ustring::ValidateUTF8(token)) {
-            token = "";
-          }
-        }
-      } else {
-        if (!token.empty() && ustring::UTF8Len(token.front()) > token.size()) {
-          bpe_state->incomplete_utf8_ = token;
-          token = "";
+      bpe_state->incomplete_utf8_ += token;
+      token.clear();
+      std::string& s_utf8 = bpe_state->incomplete_utf8_;
+      size_t utf8_len = 0;
+      for (size_t i = 0; i < s_utf8.size(); i += utf8_len) {
+        utf8_len = ustring::UTF8Len(s_utf8[i]);
+        if (utf8_len <= s_utf8.size() - i) {
+          auto _t = s_utf8.substr(i, utf8_len);
+          token += ustring::ValidateUTF8(_t) ? _t : "";
         }
       }
+
+      s_utf8 = s_utf8.substr(token.size());
     }
 
     bpe_state->f_special_last = f_special;
