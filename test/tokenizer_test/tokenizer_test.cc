@@ -169,8 +169,7 @@ TEST(OrtxTokenizerTest, Phi3Tokenizer) {
   std::vector<std::string_view> input = {
       "分析",
       " こんにちは",  // an extra space at the beginning
-      "<|user|>こんにちは。データ分析するにはなにをすればいい？<|end|><|assistant|>",
-  };
+      "<|user|>こんにちは。データ分析するにはなにをすればいい？<|end|><|assistant|>"};
   std::vector<extTokenId_t> EXPECTED_IDS_0 = {1, 29871, 30748, 233, 161, 147};
   std::vector<extTokenId_t> EXPECTED_IDS_1 = {1, 259, 30589, 30389, 30353, 30644, 30449};
   std::vector<extTokenId_t> EXPECTED_IDS_2 = {1, 32010, 29871, 30589, 30389, 30353,
@@ -283,6 +282,42 @@ TEST(OrtxTokenizerStreamTest, Llama2Tokenizer) {
 
   std::vector<std::string_view> input = {"This is a test and the second one. "};
   std::vector<std::vector<extTokenId_t>> token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  EXPECT_TRUE(status.IsOk());
+  // Add an extra byte token for decoding tests
+  token_ids[0].push_back(35);  // <0x20>
+  DumpTokenIds(token_ids);
+
+  std::string text;
+  std::unique_ptr<ort_extensions::BPEDecoderState> decoder_cache;
+  // std::cout << "\"";
+  for (const auto& token_id : token_ids[0]) {
+    std::string token;
+    auto status = tokenizer->Id2Token(token_id, token, decoder_cache);
+    EXPECT_TRUE(status.IsOk());
+    // std::cout << token;
+    text.append(token);
+  }
+
+  // std::cout << "\"" << std::endl;
+  EXPECT_EQ(std::string(text), std::string(input[0]) + " ");  // from the extra byte token */
+}
+
+TEST(OrtxTokenizerStreamTest, Phi3Tokenizer) {
+  // test the llama2 tokenizer with BPE class, instead of sentencepiece wrapper.
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/phi-3");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+  }
+
+  // validate tokenizer is not null
+  EXPECT_TRUE(tokenizer != nullptr);
+
+  std::vector<std::string_view> input = {
+      R"(こんにちは。データ分析にはいくつかのステップがあります。まずは目的を明確にします。次に、データを収集し、クリーニングを行い ます。その後、データを構造化し、その後、データを分析します。これらのステップを実行することで、データを有意的に分析することができます。)"};
+  std::vector<std::vector<extTokenId_t>>
+      token_ids;
   status = tokenizer->Tokenize(input, token_ids);
   EXPECT_TRUE(status.IsOk());
   // Add an extra byte token for decoding tests
