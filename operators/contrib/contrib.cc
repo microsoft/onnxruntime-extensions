@@ -5,6 +5,7 @@
 
 #ifdef USE_CUDA
 #include "cuda/fast_gelu.h"
+#include "cuda/scatter_nd_of_shape.h"
 #endif
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
@@ -16,7 +17,9 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
 #if ORT_API_VERSION >= 16
 
       CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::MFloat16>),
-      CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::BFloat16>)
+      CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::BFloat16>),
+      []() { return std::shared_ptr<ortc::OrtCustomOps>(std::make_unique<ScatterNDOfShapeOp<float>>().release()) },
+      []() { return std::shared_ptr<ortc::OrtCustomOps>(std::make_unique<ScatterNDOfShapeOp<ortc::MFloat16>>().release()) }
 #endif
 #endif
   );
