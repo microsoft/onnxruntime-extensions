@@ -77,8 +77,8 @@ class ustring : public std::u32string {
   }
 
   static bool ValidateUTF8(const std::string& data) {
-    const char* s = data.c_str();
-    const char* s_end = s + data.size();
+    const unsigned char* s = reinterpret_cast<const unsigned char*>(data.c_str());
+    const unsigned char* s_end = s + data.size();
     if (*s_end != '\0')
       return false;
 
