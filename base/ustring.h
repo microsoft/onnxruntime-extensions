@@ -78,7 +78,8 @@ class ustring : public std::u32string {
 
   static bool ValidateUTF8(const std::string& data) {
     const char* s = data.c_str();
-    if (*(s + data.size()) != '\0')
+    const char* s_end = s + data.size();
+    if (*s_end != '\0')
       return false;
 
     while (*s) {
@@ -87,6 +88,9 @@ class ustring : public std::u32string {
         s++;
       else if ((s[0] & 0xe0) == 0xc0) {
         /* 110XXXXx 10xxxxxx */
+        if (s + 1 >= s_end) {
+          return false;
+        }
         if ((s[1] & 0xc0) != 0x80 ||
             (s[0] & 0xfe) == 0xc0) /* overlong? */
           return false;
@@ -94,6 +98,9 @@ class ustring : public std::u32string {
           s += 2;
       } else if ((s[0] & 0xf0) == 0xe0) {
         /* 1110XXXX 10Xxxxxx 10xxxxxx */
+        if (s + 2 >= s_end) {
+          return false;
+        }
         if ((s[1] & 0xc0) != 0x80 ||
             (s[2] & 0xc0) != 0x80 ||
             (s[0] == 0xe0 && (s[1] & 0xe0) == 0x80) || /* overlong? */
@@ -105,6 +112,9 @@ class ustring : public std::u32string {
           s += 3;
       } else if ((s[0] & 0xf8) == 0xf0) {
         /* 11110XXX 10XXxxxx 10xxxxxx 10xxxxxx */
+        if (s + 3 >= s_end) {
+          return false;
+        }
         if ((s[1] & 0xc0) != 0x80 ||
             (s[2] & 0xc0) != 0x80 ||
             (s[3] & 0xc0) != 0x80 ||
