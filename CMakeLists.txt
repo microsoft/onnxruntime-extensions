@@ -66,7 +66,7 @@ option(OCOS_ENABLE_BLINGFIRE "Enable operators depending on the Blingfire librar
 option(OCOS_ENABLE_MATH "Enable math tensor operators building" ON)
 option(OCOS_ENABLE_DLIB "Enable operators like Inverse depending on DLIB" ON)
 option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require opencv imgcodecs." ON)
-option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
+option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" OFF)
 option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
 option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" OFF)
