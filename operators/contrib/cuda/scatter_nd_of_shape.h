@@ -1,10 +1,19 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 #pragma once
 
 #include "ocos.h"
 // #include "cublas_v2.h"
-// #include <cuda_runtime.h>
+#include <cuda_runtime.h>
 
-namespace ortops {
+#ifdef ORT_SWIFT_PACKAGE_MANAGER_BUILD
+#include "onnxruntime/onnxruntime_cxx_api.h"
+#else
+#include "onnxruntime_cxx_api.h"
+#endif
+
+namespace contrib {
 
 enum class Reduction : int {
   None = 0,
@@ -34,8 +43,7 @@ struct ScatterNDOfShapeKernel {
 };
 
 template <typename T>
-struct ScatterNDOfShapeOp
-    : Ort::CustomOpBase<ScatterNDOfShapeOp<T>, ScatterNDOfShapeKernel<T>> {
+struct ScatterNDOfShapeOp : Ort::CustomOpBase<ScatterNDOfShapeOp<T>, ScatterNDOfShapeKernel<T>> {
   typedef Ort::CustomOpBase<ScatterNDOfShapeOp<T>, ScatterNDOfShapeKernel<T>> parent_type;
   ScatterNDOfShapeOp() : parent_type() {}
   void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
@@ -52,4 +60,4 @@ struct ScatterNDOfShapeOp
   OrtCustomOpInputOutputCharacteristic GetOutputCharacteristic(std::size_t index) const;
 };
 
-}  // namespace ortops
+}  // namespace contrib

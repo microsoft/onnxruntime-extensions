@@ -1,11 +1,24 @@
 import unittest
 import numpy as np
 from numpy.testing import assert_almost_equal
-from onnx import helper, onnx_pb as onnx_proto
+from onnx import helper, onnx_pb as onnx_proto, TensorProto
+from onnx.reference import ReferenceEvaluator
+from onnx.reference.op_run import OpRun
+from onnx.reference.ops.op_scatternd import _scatter_nd_impl
 from onnxruntime_extensions import make_onnx_model
 from onnxruntime_extensions import get_library_path as _get_library_path
 
 import onnxruntime as _ort
+
+
+class ScatterNDOfShape(OpRun):
+    op_domain = "ai.onnx.contrib"
+
+    def _run(self, shape, indices, updates, reduction=None, strategy=None):
+        data = np.zeros(shape, dtype=updates.dtype)
+        y = _scatter_nd_impl(data, indices, updates, reduction=reduction)
+        return (y,)
+
 
 
 class TestCudaOps(unittest.TestCase):
@@ -115,6 +128,90 @@ class TestCudaOps(unittest.TestCase):
             assert_almost_equal(y, expected_y)
         else:
             print ('CUDAExecutionProvider not available, test_cuda_fastgelu_f16 skipped.')
+
+
+    def _scatternd_of_shape_cuda(self, reduction, line, itype):
+        import onnxruntime
+
+        model1 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node(
+                        "ScatterND",
+                        inputs=["data", "indices", "updates"],
+                        outputs=["y"],
+                        reduction=reduction,
+                    )
+                ],
+                "nd",
+                [
+                    helper.make_tensor_value_info("data", itype, [None, None, None]),
+                    helper.make_tensor_value_info(
+                        "indices", TensorProto.INT64, [None, None]
+                    ),
+                    helper.make_tensor_value_info("updates", itype, [None, None, None]),
+                ],
+                [helper.make_tensor_value_info("y", itype, [None, None, None])],
+            ),
+            opset_imports=[helper.make_opsetid("", 18)],
+            ir_version=9,
+        )
+
+        dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
+        data = np.zeros((2, 2, 3), dtype=dtype)
+
+        model2 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node(
+                        "ScatterNDOfShape",
+                        inputs=["shape", "indices", "updates"],
+                        outputs=["y"],
+                        reduction=reduction,
+                        domain="onnx_extended.ortops.optim.cuda",
+                    )
+                ],
+                "nd",
+                [
+                    helper.make_tensor_value_info("shape", TensorProto.INT64, [None]),
+                    helper.make_tensor_value_info(
+                        "indices", TensorProto.INT64, [None, None]
+                    ),
+                    helper.make_tensor_value_info("updates", itype, [None, None, None]),
+                ],
+                [helper.make_tensor_value_info("y", itype, [None, None, None])],
+            ),
+            opset_imports=[
+                helper.make_opsetid("", 18),
+                helper.make_opsetid("onnx_extended.ortops.optim.cuda", 1),
+            ],
+            ir_version=9,
+        )
+
+        indices = np.array([[line], [1 - line], [line]], dtype=np.int64)
+        if itype == TensorProto.FLOAT:
+            updates = (2 ** np.arange(18).reshape((3, 2, 3))).astype(dtype)
+        else:
+            updates = np.arange(18).reshape((3, 2, 3)).astype(dtype)
+
+        feeds1 = dict(data=data, indices=indices, updates=updates)
+        feeds2 = dict(
+            shape=np.array([2, 2, 3], dtype=np.int64), indices=indices, updates=updates
+        )
+        ref = ReferenceEvaluator(model1, new_ops=[ScatterNDOfShape])
+        expected = ref.run(None, feeds1)[0]
+
+        opts = onnxruntime.SessionOptions()
+        opts.register_custom_ops_library(_get_library_path())
+        sess = onnxruntime.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
+        got = sess.run(None, feeds2)[0]
+        self.assertEqual(expected.tolist(), got.tolist())
+
+    def test_cuda_scatternd_of_shape(self):
+        self._scatternd_of_shape_cuda("add", 0, TensorProto.FLOAT)
+        self._scatternd_of_shape_cuda("add", 0, TensorProto.FLOAT16)
+        self._scatternd_of_shape_cuda("add", 1, TensorProto.FLOAT)
+        self._scatternd_of_shape_cuda("add", 1, TensorProto.FLOAT16)
 
 
 if __name__ == "__main__":

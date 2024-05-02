@@ -18,8 +18,8 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
 
       CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::MFloat16>),
       CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::BFloat16>),
-      []() { return std::shared_ptr<ortc::OrtCustomOps>(std::make_unique<ScatterNDOfShapeOp<float>>().release()) },
-      []() { return std::shared_ptr<ortc::OrtCustomOps>(std::make_unique<ScatterNDOfShapeOp<ortc::MFloat16>>().release()) }
+      []() { return std::shared_ptr<OrtCustomOp>(std::make_unique<contrib::ScatterNDOfShapeOp<float>>().release()); },
+      []() { return std::shared_ptr<OrtCustomOp>(std::make_unique<contrib::ScatterNDOfShapeOp<ortc::MFloat16>>().release()); }
 #endif
 #endif
   );
