@@ -251,16 +251,16 @@ struct GroupQueryAttention {
 
   template<typename TDict>
   OrtStatusPtr OnModelAttach(const TDict& dict) {
-    int64_t num_heads = dict.TryToGetAttributeWithDefault("num_heads", 0);
-    int64_t kv_num_heads = dict.TryToGetAttributeWithDefault("kv_num_heads", 0);
+    int64_t num_heads = dict.TryToGetAttributeWithDefault("num_heads", (int64_t)0);
+    int64_t kv_num_heads = dict.TryToGetAttributeWithDefault("kv_num_heads", (int64_t)0);
     num_heads_ = static_cast<int>(num_heads);
     kv_num_heads_ = static_cast<int>(kv_num_heads);
     is_past_bsnh_ = false;
-    int64_t local_window_size = dict.TryToGetAttributeWithDefault("local_window_size", -1);
+    int64_t local_window_size = dict.TryToGetAttributeWithDefault("local_window_size", (int64_t)-1);
     local_window_size_ = static_cast<int>(local_window_size);
     int64_t do_rotary = dict.TryToGetAttributeWithDefault("do_rotary", 0);
     do_rotary_ = do_rotary == 1;
-    int64_t rotary_interleaved = dict.TryToGetAttributeWithDefault("rotary_interleaved", 0);
+    int64_t rotary_interleaved = dict.TryToGetAttributeWithDefault("rotary_interleaved", (int64_t)0);
     rotary_interleaved_ = rotary_interleaved == 1;
     scale_ = dict.TryToGetAttributeWithDefault("scale", 0.0f);
     
