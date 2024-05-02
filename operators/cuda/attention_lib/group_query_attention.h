@@ -28,7 +28,7 @@ inline IAllocatorUniquePtr<T> GetScrachBuffer(void* p, std::function<void(T* p)>
 
 template <typename T>
 inline IAllocatorUniquePtr<T> GetCudaScrachBuffer(void* p, Ort::Custom::CUDAKernelContext* ctx) {
-  return GetScrachBuffer<T>(p, [&](T* p) {
+  return GetScrachBuffer<T>(p, [=](T* p) {
     if (p)
       ctx->FreeCudaScratchBuffer(p);
   });
@@ -284,9 +284,7 @@ struct GroupQueryAttention {
                        const ortc::Tensor<int>& seqlens_k, const ortc::Tensor<int>& total_seqlen, std::optional<const ortc::Tensor<T>*> cos_cache, 
                        std::optional<const ortc::Tensor<T>*> sin_cache, ortc::Tensor<T>& attn_out, std::optional<ortc::Tensor<T>*> present_key, std::optional<ortc::Tensor<T>*> present_value) const {
     // TODO: will initialize disable_flash_attention_ be put here or OnModelAttach()? if latter, need to expose a function to get allocator from kernelInfo
-    if (!disable_flash_attention_) {
-      zeros_ = GetCudaScrachBuffer<int>(ctx->AllocCudaScratchBuffer(kZerosCount), ctx);
-    }
+    IAllocatorUniquePtr<int> zeros_ = disable_flash_attention_ ? nullptr : GetCudaScrachBuffer<int>(ctx->AllocCudaScratchBuffer(kZerosCount), ctx);
   
     GroupQueryAttentionParameters parameters;
     ORTX_RETURN_IF_ERROR(CheckInputs<T>(query, key, value, past_key, past_value, cos_cache, sin_cache, &parameters, num_heads_, kv_num_heads_, 
@@ -452,7 +450,6 @@ struct GroupQueryAttention {
   bool disable_flash_attention_;
   bool disable_memory_efficient_attention_;
   static constexpr int kZerosCount = 256;  // In prompt case we create a zero buffer of size 256 for seqlen (assume batch_size <= 256)
-  mutable IAllocatorUniquePtr<int> zeros_;
 };
 
 }  // namespace contrib
