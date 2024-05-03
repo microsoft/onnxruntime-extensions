@@ -3,6 +3,7 @@
 
 # Minimum CMake required
 cmake_minimum_required(VERSION 3.25)
+cmake_policy(SET CMP0104 OLD)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
 # set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -299,6 +300,7 @@ endmacro()
 
 if(OCOS_USE_CUDA)
   include(ext_cuda)
+  include(cutlass)
 endif()
 
 #######################################################################################################################
@@ -364,8 +366,16 @@ if(OCOS_ENABLE_MATH)
 endif()
 
 if (OCOS_USE_CUDA)
-  file(GLOB_RECURSE TARGET_SRC_CUDA "operators/cuda/*.*")
+  file(GLOB TARGET_SRC_CUDA "operators/cuda/*.*")
   list(APPEND TARGET_SRC ${TARGET_SRC_CUDA})
+  if(USE_MEMORY_EFFICIENT_ATTENTION OR USE_FLASH_ATTENTION)
+    file(GLOB TARGET_SRC_CUTLASS "operators/cuda/attention_lib/cutlass_fmha/*.*")
+    list(APPEND TARGET_SRC ${TARGET_SRC_CUTLASS}) 
+  endif()
+  if(USE_FLASH_ATTENTION)
+    file(GLOB TARGET_SRC_FLASH_ATTN "operators/cuda/attention_lib/flash_attention/*.*")
+    list(APPEND TARGET_SRC ${TARGET_SRC_FLASH_ATTN})
+  endif()
 endif()
 
 # enable the opencv dependency if we have ops that require it
@@ -580,6 +590,10 @@ target_include_directories(ocos_operators PUBLIC
   ${PROJECT_SOURCE_DIR}/include/custom_op
   ${PROJECT_SOURCE_DIR}/base
   ${PROJECT_SOURCE_DIR}/operators)
+
+if (OCOS_USE_CUDA) 
+  target_include_directories(ocos_operators PUBLIC ${cutlass_SOURCE_DIR}/include ${cutlass_SOURCE_DIR}/examples)
+endif()
 
 set(ocos_libraries)
 set(OCOS_COMPILE_DEFINITIONS)
