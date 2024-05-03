@@ -62,6 +62,7 @@ class ITensorStorage{
 public:
   virtual const std::vector<int64_t>& Shape() const = 0;
   virtual const void* DataRaw() const = 0;
+  virtual void* MutableDataRaw() const = 0;
   virtual bool IsInitialized() const = 0;
   virtual void* Initialize(const std::vector<int64_t>& shape, size_t element_size) = 0;
 };
@@ -100,6 +101,10 @@ public:
   }
 
   const void* DataRaw() const override {
+    return buffer_;
+  }
+
+  void* MutableDataRaw() const override {
     return buffer_;
   }
 
@@ -159,6 +164,7 @@ public:
   virtual const std::vector<int64_t>& Shape() const = 0;
   virtual int64_t NumberOfElement() const = 0;
   virtual const void* DataRaw() const = 0;
+  virtual void* MutableDataRaw() const = 0;
   virtual size_t SizeInBytes() const = 0;
 };
 
@@ -172,6 +178,8 @@ class Tensor : public TensorBase {
   Tensor(const std::vector<int64_t>& shape, void* buffer) : Tensor(std::make_unique<OrtEagerTensorStorage>(shape, buffer)) {}
 
   Tensor(IAllocator* allocator) : storage_(std::make_unique<OrtEagerTensorStorage>(allocator)){}
+
+  Tensor(Tensor&& other) : storage_(std::move(other.storage_)) {};
 
   virtual ~Tensor() = default;
 
@@ -217,6 +225,10 @@ class Tensor : public TensorBase {
 
   const void* DataRaw() const override {
     return storage_->DataRaw();
+  }
+
+  void* MutableDataRaw() const override {
+    return storage_->MutableDataRaw();
   }
 
   size_t SizeInBytes() const override {
