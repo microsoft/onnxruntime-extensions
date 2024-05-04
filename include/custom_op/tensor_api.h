@@ -192,8 +192,6 @@ class Tensor : public TensorBase {
 
   Tensor(IAllocator* allocator, OrtDevice device) : storage_(std::make_unique<OrtEagerTensorStorage>(allocator, device)) {}
 
-  Tensor(Tensor&& other) : storage_(std::move(other.storage_)) {};
-
   virtual ~Tensor() = default;
 
   Tensor(const Tensor& src) = delete;
