@@ -3,6 +3,7 @@
 #include <numeric>
 #include <type_traits>
 #include "onnxruntime_f16.h"
+#include "ortdevice.h"
 #include "kernel_context.h"
 
 namespace Ort {
@@ -65,6 +66,7 @@ public:
   virtual void* MutableDataRaw() const = 0;
   virtual bool IsInitialized() const = 0;
   virtual void* Initialize(const std::vector<int64_t>& shape, size_t element_size) = 0;
+  virtual OrtDevice Device() const = 0;
 };
 
 
@@ -78,12 +80,9 @@ public:
 class OrtEagerTensorStorage : public ITensorStorage {
 public:
   OrtEagerTensorStorage(const std::vector<int64_t>& shape,
-                        void* buffer) : buffer_(buffer), shape_(shape){
+                        void* buffer, OrtDevice device) : buffer_(buffer), shape_(shape), device_(device) {}
 
-  }
-
-  OrtEagerTensorStorage(IAllocator* allocator) : allocator_(allocator){
-  }
+  OrtEagerTensorStorage(IAllocator* allocator, OrtDevice device) : allocator_(allocator), device_(device) {}
 
   virtual ~OrtEagerTensorStorage(){
     if (allocator_ && buffer_)
@@ -119,11 +118,16 @@ public:
     return buffer_;
   }
 
+  OrtDevice Device() const override {
+    return device_;
+  }
+
 private:
   void* buffer_ {};
   std::optional<std::vector<int64_t>> shape_;
   // caller need to make sure the allocator is alive
   IAllocator* allocator_{};
+  OrtDevice device_;
 };
 
 template <typename TT>
@@ -175,9 +179,9 @@ class Tensor : public TensorBase {
   Tensor(std::unique_ptr<ITensorStorage> tensor_storage) : storage_(std::move(tensor_storage)){
   }
 
-  Tensor(const std::vector<int64_t>& shape, void* buffer) : Tensor(std::make_unique<OrtEagerTensorStorage>(shape, buffer)) {}
+  Tensor(const std::vector<int64_t>& shape, void* buffer, OrtDevice device) : Tensor(std::make_unique<OrtEagerTensorStorage>(shape, buffer, device)) {}
 
-  Tensor(IAllocator* allocator) : storage_(std::make_unique<OrtEagerTensorStorage>(allocator)){}
+  Tensor(IAllocator* allocator, OrtDevice device) : storage_(std::make_unique<OrtEagerTensorStorage>(allocator, device)) {}
 
   Tensor(Tensor&& other) : storage_(std::move(other.storage_)) {};
 
@@ -198,6 +202,10 @@ class Tensor : public TensorBase {
   int64_t NumberOfElement() const override {
     auto& shape = storage_->Shape();
     return std::accumulate(shape.begin(), shape.end(), 1LL, std::multiplies<int64_t>());
+  }
+
+  OrtDevice Device() const {
+    return storage_->Device();
   }
 
   std::string Shape2Str() const {
