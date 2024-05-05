@@ -3,7 +3,6 @@
 
 # Minimum CMake required
 cmake_minimum_required(VERSION 3.25)
-cmake_policy(SET CMP0104 OLD)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
 # set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -45,6 +44,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 include(CheckCXXCompilerFlag)
 include(CheckLanguage)
+include(CMakeDependentOption)
 
 set(_ORTX_STANDALONE_PROJECT OFF)
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
@@ -366,16 +366,8 @@ if(OCOS_ENABLE_MATH)
 endif()
 
 if (OCOS_USE_CUDA)
-  file(GLOB TARGET_SRC_CUDA "operators/cuda/*.*")
+  file(GLOB_RECURSE TARGET_SRC_CUDA "operators/cuda/*.*")
   list(APPEND TARGET_SRC ${TARGET_SRC_CUDA})
-  if(USE_MEMORY_EFFICIENT_ATTENTION OR USE_FLASH_ATTENTION)
-    file(GLOB TARGET_SRC_CUTLASS "operators/cuda/attention_lib/cutlass_fmha/*.*")
-    list(APPEND TARGET_SRC ${TARGET_SRC_CUTLASS}) 
-  endif()
-  if(USE_FLASH_ATTENTION)
-    file(GLOB TARGET_SRC_FLASH_ATTN "operators/cuda/attention_lib/flash_attention/*.*")
-    list(APPEND TARGET_SRC ${TARGET_SRC_FLASH_ATTN})
-  endif()
 endif()
 
 # enable the opencv dependency if we have ops that require it

@@ -1,4 +1,4 @@
-#if USE_FLASH_ATTENTION
+#if OCOS_USE_FLASH_ATTENTION
 
 #include "flash_api.h"
 #include "flash.h"
@@ -462,4 +462,4 @@ OrtStatusPtr mha_fwd_kvcache(const cudaDeviceProp& dprops,
 
 }  // namespace flash
 
-#endif  // USE_FLASH_ATTENTION
+#endif  // OCOS_USE_FLASH_ATTENTION

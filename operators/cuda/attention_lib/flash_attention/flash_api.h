@@ -1,6 +1,6 @@
 #pragma once
 
-#if USE_FLASH_ATTENTION
+#if OCOS_USE_FLASH_ATTENTION
 
 #include <tuple>
 #include <cuda.h>
@@ -89,4 +89,4 @@ bool is_supported(const cudaDeviceProp& dprops, int head_size, int num_heads, in
 
 }  // namespace flash
 
-#endif  //  USE_FLASH_ATTENTION
+#endif  //  OCOS_USE_FLASH_ATTENTION

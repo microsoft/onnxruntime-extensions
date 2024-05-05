@@ -6,13 +6,12 @@ enable_language(CUDA)
 
 set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
 set(CMAKE_CUDA_STANDARD 17)
-include(CMakeDependentOption)
-cmake_dependent_option(USE_FLASH_ATTENTION "Build flash attention kernel for scaled dot product attention" ON "NOT WIN32" OFF)
-option(USE_MEMORY_EFFICIENT_ATTENTION "Build memory efficient attention kernel for scaled dot product attention" ON)
+cmake_dependent_option(OCOS_USE_FLASH_ATTENTION "Build flash attention kernel for scaled dot product attention" ON "NOT WIN32" OFF)
+option(OCOS_USE_MEMORY_EFFICIENT_ATTENTION "Build memory efficient attention kernel for scaled dot product attention" ON)
 if (CMAKE_CUDA_COMPILER_VERSION VERSION_LESS 11.6)
   message(STATUS "Turn off flash attention and memory efficient attention since CUDA compiler version < 11.6")
-  set(USE_FLASH_ATTENTION OFF)
-  set(USE_MEMORY_EFFICIENT_ATTENTION OFF)
+  set(OCOS_USE_FLASH_ATTENTION OFF)
+  set(OCOS_USE_MEMORY_EFFICIENT_ATTENTION OFF)
 endif()
 
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr")
@@ -31,13 +30,13 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcudafe \"--diag_suppress=expr_has_no
 
 add_compile_definitions(USE_CUDA)
 
-set(USE_MEMORY_EFFICIENT_ATTENTION OFF) # turn off for the build time. Turn them on when these 2 libs are really in use
-set(USE_FLASH_ATTENTION OFF)
-if (USE_FLASH_ATTENTION)
+set(OCOS_USE_MEMORY_EFFICIENT_ATTENTION OFF) # turn off for the build time. Turn them on when these 2 libs are really in use
+set(OCOS_USE_FLASH_ATTENTION OFF)
+if (OCOS_USE_FLASH_ATTENTION)
   message(STATUS "Enable flash attention")
-  add_compile_definitions(USE_FLASH_ATTENTION)
+  add_compile_definitions(OCOS_USE_FLASH_ATTENTION)
 endif()
-if (USE_MEMORY_EFFICIENT_ATTENTION)
+if (OCOS_USE_MEMORY_EFFICIENT_ATTENTION)
   message(STATUS "Enable memory efficient attention")
-  add_compile_definitions(USE_MEMORY_EFFICIENT_ATTENTION)
+  add_compile_definitions(OCOS_USE_MEMORY_EFFICIENT_ATTENTION)
 endif()

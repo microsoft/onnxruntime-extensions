@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#if USE_MEMORY_EFFICIENT_ATTENTION
+#if OCOS_USE_MEMORY_EFFICIENT_ATTENTION
 
 #if defined(__GNUC__)
 #pragma GCC diagnostic push
@@ -12,7 +12,7 @@
 #include "memory_efficient_attention.h"
 #include "41_fused_multi_head_attention/kernel_forward.h"
 
-namespace contrib {
+namespace ort_extensions {
 namespace cuda {
 
 template <typename AttentionKernel, int kQueriesPerBlock>
@@ -267,10 +267,10 @@ void DispatchBlockSize(const MemoryEfficientAttentionParams& params) {
 }
 
 }  // namespace cuda
-}  // namespace contrib
+}  // namespace ort_extensions
 
 #if defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
 
-#endif  // USE_MEMORY_EFFICIENT_ATTENTION
+#endif  // OCOS_USE_MEMORY_EFFICIENT_ATTENTION

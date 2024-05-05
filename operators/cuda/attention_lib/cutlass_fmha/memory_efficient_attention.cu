@@ -1,11 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-#if USE_MEMORY_EFFICIENT_ATTENTION
+#if OCOS_USE_MEMORY_EFFICIENT_ATTENTION
 
 #include "memory_efficient_attention.h"
 #include <cassert>
 
-namespace contrib {
+namespace ort_extensions {
 namespace cuda {
 
 void run_memory_efficient_attention(const MemoryEfficientAttentionParams& params) {
@@ -24,6 +24,6 @@ void run_memory_efficient_attention(const MemoryEfficientAttentionParams& params
 }
 
 }  // namespace cuda
-}  // namespace contrib
+}  // namespace ort_extensions
 
-#endif  // USE_MEMORY_EFFICIENT_ATTENTION
+#endif  // OCOS_USE_MEMORY_EFFICIENT_ATTENTION

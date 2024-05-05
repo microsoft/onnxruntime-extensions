@@ -1,10 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 #pragma once
-#if USE_MEMORY_EFFICIENT_ATTENTION
+#if OCOS_USE_MEMORY_EFFICIENT_ATTENTION
 #include <cstdint>
 
-namespace contrib {
+namespace ort_extensions {
 namespace cuda {
 
 struct MemoryEfficientAttentionParams {

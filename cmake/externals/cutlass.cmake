@@ -1,4 +1,3 @@
-include(FetchContent)
 FetchContent_Declare(
         cutlass
         GIT_REPOSITORY https://github.com/NVIDIA/cutlass.git
