@@ -4,12 +4,11 @@
 #pragma once
 #include "ocos.h"
 #include "negxplus1_impl.cuh"
-#include "cuda_type.h"
 
 namespace contrib {
 
 template <typename T>
-struct FastGelu {
+struct NegXPlus1 {
   template <typename TDict>
   OrtStatusPtr OnModelAttach(const TDict& /*dict*/) {
     return nullptr;
