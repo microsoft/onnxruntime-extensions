@@ -342,8 +342,9 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input,
 
   size_t max_length = static_cast<size_t>(max_length_i64);
   // Parse input
+  bool add_dummy_prefix = false;
   if (ModelName() == kModel_Llama) {
-    input.insert(input.begin(), 0x2581);
+    add_dummy_prefix = true;
   }
   auto special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input);
   for (auto& seg_id : special_token_split_res) {
@@ -356,6 +357,10 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input,
 
     // Note: keep ptr to make sure the string_view is valid in the following process
     std::u32string ustr(seg_id.first);
+    if (add_dummy_prefix) {
+      ustr.insert(ustr.begin(), 0x2581);  // UTF-8 string '\xe2\x96\x81'
+      add_dummy_prefix = false;           // only add dummy prefix once
+    }
 
     size_t offset = 0;
     size_t char_pos = 0;
