@@ -143,7 +143,7 @@ class TestCudaOps(unittest.TestCase):
         got = sess.run(None, feeds1)[0]
         assert_almost_equal(expected, got, decimal=5)
 
-    def test_negxplus1_cuda(self):
+    def test_cuda_negxplus1(self):
         self._negxplus1_cuda(TensorProto.FLOAT)
         self._negxplus1_cuda(TensorProto.FLOAT16)
 
