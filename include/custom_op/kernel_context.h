@@ -2,6 +2,7 @@
 #include <optional>
 #include <numeric>
 #include <type_traits>
+#include "onnxruntime_c_api.h"
 
 namespace Ort {
 namespace Custom {
@@ -26,6 +27,7 @@ public:
   virtual void* GetCudaStream() const = 0;
   virtual void* GetCublasHandle() const = 0;
   virtual int GetCudaDeviceId() const = 0;
+  virtual void* GetScratchBufferUnderMultiStream(const OrtMemoryInfo* , size_t ) { return nullptr; }
 };
 #endif
 
