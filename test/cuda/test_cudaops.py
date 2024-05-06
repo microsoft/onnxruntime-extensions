@@ -2,10 +2,19 @@ import unittest
 import numpy as np
 from numpy.testing import assert_almost_equal
 from onnx import helper, numpy_helper, onnx_pb as onnx_proto, TensorProto
+from onnx.reference import ReferenceEvaluator
+from onnx.reference.op_run import OpRun
 from onnxruntime_extensions import make_onnx_model
 from onnxruntime_extensions import get_library_path as _get_library_path
 
 import onnxruntime as _ort
+
+
+class NegXPlus1(OpRun):
+    op_domain = "ai.onnx.contrib"
+
+    def _run(self, X):
+        return (1 - X,)
 
 
 class TestCudaOps(unittest.TestCase):
@@ -109,7 +118,7 @@ class TestCudaOps(unittest.TestCase):
 
         model2 = helper.make_model(
             helper.make_graph(
-                [helper.make_node("NegXplus1", ["X"], ["Y"], domain="ai.onnx.contrib")],
+                [helper.make_node("NegXPlus1", ["X"], ["Y"], domain="ai.onnx.contrib")],
                 "nd",
                 [helper.make_tensor_value_info("X", itype, [None, None, None])],
                 [helper.make_tensor_value_info("Y", itype, [None, None, None])],
@@ -125,14 +134,14 @@ class TestCudaOps(unittest.TestCase):
         x = (np.arange(18) - 4).reshape((3, 2, 3)).astype(dtype)
 
         feeds1 = dict(X=x)
-        ref = CReferenceEvaluator(model1)
+        ref = ReferenceEvaluator(model1, new_ops=[NegXPlus1])
         expected = ref.run(None, feeds1)[0]
 
         opts = onnxruntime.SessionOptions()
         opts.register_custom_ops_library(_get_library_path())
         sess = onnxruntime.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
         got = sess.run(None, feeds1)[0]
-        self.assertEqualArray(expected, got, atol=1e-5)
+        assert_almost_equal(expected, got, decimal=5)
 
     def test_negxplus1_cuda(self):
         self._negxplus1_cuda(TensorProto.FLOAT)

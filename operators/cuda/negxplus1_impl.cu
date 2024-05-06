@@ -35,7 +35,7 @@ cudaError_t _LaunchNegXPlus1Kernel(cudaStream_t stream, int input_length, const 
   constexpr int blockSize = 256;
   const int gridSize = (input_length + blockSize - 1) / blockSize;
   using TT = typename contrib::CudaT<T>::MappedType;
-  NegXPlus1Kernel<TT><<<gridSize, blockSize, 0, stream>>>((TT*)output, (const TT*)input, input_length);
+  NegXPlus1Kernel<TT><<<gridSize, blockSize, 0, stream>>>(reinterpret_cast<TT*>(output), reinterpret_cast<const TT*>(input), input_length);
   return cudaGetLastError();
 }
 

@@ -22,11 +22,10 @@ struct NegXPlus1 {
     if (0 == input_length) {
       return nullptr;
     }
-    using TT = typename CudaT<T>::MappedType;
-    LaunchNegXPlus1Kernel<TT>(reinterpret_cast<cudaStream_t>(ctx->GetCudaStream()),
-                              input_length,
-                              reinterpret_cast<const TT*>(input_data),
-                              reinterpret_cast<TT*>(output_data));
+    LaunchNegXPlus1Kernel<T>(reinterpret_cast<cudaStream_t>(ctx->GetCudaStream()),
+                             input_length,
+                             input_data,
+                             output_data);
     return nullptr;
   }
 };
