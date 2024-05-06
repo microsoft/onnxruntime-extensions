@@ -44,6 +44,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 include(CheckCXXCompilerFlag)
 include(CheckLanguage)
+include(CMakeDependentOption)
 
 set(_ORTX_STANDALONE_PROJECT OFF)
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
@@ -299,6 +300,7 @@ endmacro()
 
 if(OCOS_USE_CUDA)
   include(ext_cuda)
+  include(cutlass)
 endif()
 
 #######################################################################################################################
@@ -580,6 +582,10 @@ target_include_directories(ocos_operators PUBLIC
   ${PROJECT_SOURCE_DIR}/include/custom_op
   ${PROJECT_SOURCE_DIR}/base
   ${PROJECT_SOURCE_DIR}/operators)
+
+if (OCOS_USE_CUDA) 
+  target_include_directories(ocos_operators PUBLIC ${cutlass_SOURCE_DIR}/include ${cutlass_SOURCE_DIR}/examples)
+endif()
 
 set(ocos_libraries)
 set(OCOS_COMPILE_DEFINITIONS)
