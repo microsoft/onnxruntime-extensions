@@ -5,6 +5,12 @@
 #include <cublas_v2.h>
 #include <cuda_bf16.h>
 #include <cuda_fp16.h>
+#include "exceptions.h"
+#include "custom_op/onnxruntime_f16.h"
+
+namespace ortc = Ort::Custom;
+
+#include "cuda_type.h"
 
 namespace contrib {
 
@@ -65,116 +71,6 @@ addition_inplace_kernel(T* __restrict__ output_data, const int64_t* __restrict__
   }
 }
 
-//////////////////
-// ScatterNDOfShapeOp...
-//////////////////
-
-template <typename T>
-void* ScatterNDOfShapeOp<T>::CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const {
-  return std::make_unique<ScatterNDOfShapeKernel<T>>(api, info).release();
-}
-
-template <typename T>
-const char* ScatterNDOfShapeOp<T>::GetName() const {
-  return "ScatterNDOfShape";
-}
-
-template <typename T>
-const char* ScatterNDOfShapeOp<T>::GetExecutionProviderType() const {
-  return "CUDAExecutionProvider";
-}
-
-template <typename T>
-size_t ScatterNDOfShapeOp<T>::GetInputTypeCount() const { return 3; };
-
-template <>
-ONNXTensorElementDataType ScatterNDOfShapeOp<float>::GetInputType(std::size_t index) const {
-  switch (index) {
-    case 0:
-    case 1:
-      return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-    case 2:
-      return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
-    default:
-      ORTX_CXX_API_THROW("Wrong input index.", ORT_RUNTIME_EXCEPTION);
-  }
-}
-
-template <>
-ONNXTensorElementDataType ScatterNDOfShapeOp<ortc::MFloat16>::GetInputType(std::size_t index) const {
-  switch (index) {
-    case 0:
-    case 1:
-      return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-    case 2:
-      return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16;
-    default:
-      ORTX_CXX_API_THROW("Wrong input index.", ORT_RUNTIME_EXCEPTION);
-  }
-}
-
-template <typename T>
-OrtMemType ScatterNDOfShapeOp<T>::GetInputMemoryType(std::size_t index) const {
-  switch (index) {
-    case 0:
-      return OrtMemTypeCPUInput;
-    case 1:
-    case 2:
-      return OrtMemTypeDefault;
-    default:
-      ORTX_CXX_API_THROW("Wrong input index.", ORT_RUNTIME_EXCEPTION);
-  }
-}
-
-template <typename T>
-OrtCustomOpInputOutputCharacteristic
-ScatterNDOfShapeOp<T>::GetInputCharacteristic(std::size_t index) const {
-  switch (index) {
-    case 0:
-    case 1:
-    case 2:
-      return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
-    default:
-      ORTX_CXX_API_THROW("Wrong output index.", ORT_RUNTIME_EXCEPTION);
-  }
-}
-
-template <typename T>
-size_t ScatterNDOfShapeOp<T>::GetOutputTypeCount() const { return 1; }
-
-template <>
-ONNXTensorElementDataType ScatterNDOfShapeOp<float>::GetOutputType(std::size_t index) const {
-  // D, scale D
-  switch (index) {
-    case 0:
-      return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
-    default:
-      ORTX_CXX_API_THROW("Wrong output index.", ORT_RUNTIME_EXCEPTION);
-  }
-}
-
-template <>
-ONNXTensorElementDataType ScatterNDOfShapeOp<ortc::MFloat16>::GetOutputType(std::size_t index) const {
-  // D, scale D
-  switch (index) {
-    case 0:
-      return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16;
-    default:
-      ORTX_CXX_API_THROW("Wrong output index.", ORT_RUNTIME_EXCEPTION);
-  }
-}
-
-template <typename T>
-OrtCustomOpInputOutputCharacteristic
-ScatterNDOfShapeOp<T>::GetOutputCharacteristic(std::size_t index) const {
-  switch (index) {
-    case 0:
-      return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
-    default:
-      ORTX_CXX_API_THROW("Wrong output index", ORT_RUNTIME_EXCEPTION);
-  }
-}
-
 ///////////////////
 // ScatterNDOfShapeKernel
 ///////////////////
@@ -201,7 +97,7 @@ template <typename T>
 void ScatterNDOfShapeKernel<T>::Compute(OrtKernelContext* context) {
   Ort::KernelContext ctx(context);
 
-  int n_inputs = ctx.GetInputCount();
+  int n_inputs = ctx.GetInputCount();  // crashes here... core dumped.
   _ENFORCE(n_inputs == 3, "Expecting 3 inputs.");
   Ort::ConstValue shape = ctx.GetInput(0);
   Ort::ConstValue indices = ctx.GetInput(1);
@@ -244,18 +140,9 @@ void _ComputeNoAtomic(cudaStream_t stream, const std::vector<int64_t>& input_sha
                       int threads_per_block, int blocks_per_grid, size_t indice_size, size_t nrows, size_t stride) {
   dim3 threads(threads_per_block);
   dim3 blocks(blocks_per_grid);
-  addition_inplace_kernel<T><<<blocks, threads, 0, stream>>>(output_data, indices_data, updates_data, indice_size, nrows, stride);
-}
-
-template <>
-void _ComputeNoAtomic<ortc::MFloat16>(cudaStream_t stream, const std::vector<int64_t>& input_shape,
-                                      const std::vector<int64_t>& indices_shape, ortc::MFloat16* output_data,
-                                      const int64_t* indices_data, const ortc::MFloat16* updates_data,
-                                      int threads_per_block, int blocks_per_grid, size_t indice_size, size_t nrows, size_t stride) {
-
-  dim3 threads(threads_per_block);
-  dim3 blocks(blocks_per_grid);
-  addition_inplace_kernel<half><<<blocks, threads, 0, stream>>>((half*)output_data, indices_data, (const half*)updates_data, indice_size, nrows, stride);
+  using TT = typename CudaT<T>::MappedType;
+  addition_inplace_kernel<TT><<<blocks, threads, 0, stream>>>((TT*)output_data, indices_data,
+                                                              (TT*)updates_data, indice_size, nrows, stride);
 }
 
 template <typename T>

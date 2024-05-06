@@ -3,15 +3,20 @@
 
 #pragma once
 
-#include "ocos.h"
-// #include "cublas_v2.h"
-#include <cuda_runtime.h>
-
+#define ORT_API_MANUAL_INIT
 #ifdef ORT_SWIFT_PACKAGE_MANAGER_BUILD
+#include "onnxruntime/onnxruntime_c_api.h"
 #include "onnxruntime/onnxruntime_cxx_api.h"
 #else
+#include "onnxruntime_c_api.h"
 #include "onnxruntime_cxx_api.h"
 #endif
+#undef ORT_API_MANUAL_INIT
+#include "custom_op/onnxruntime_f16.h"
+
+// #include "ocos.h"
+//  #include "cublas_v2.h"
+#include <cuda_runtime.h>
 
 namespace contrib {
 
@@ -23,10 +28,17 @@ enum class Reduction : int {
   Max = 4,
 };
 
+template <typename T>
+inline ONNXTensorElementDataType onnx_type();
+template <>
+inline ONNXTensorElementDataType onnx_type<float>() { return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT; }
+template <>
+inline ONNXTensorElementDataType onnx_type<Ort::Custom::MFloat16>() { return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16; }
+
 /**
  * This kernel implementation the fusion of ConstantOfShape and ScatterND.
  * The implementation does not use OrtLiteCustom as the input shape (first input)
- * is expected to be on CPU wheeras the other outputs are expected to be on CUDA.
+ * is expected to be on CPU whereas the other outputs are expected to be on CUDA.
  */
 template <typename T>
 struct ScatterNDOfShapeKernel {
@@ -46,18 +58,18 @@ template <typename T>
 struct ScatterNDOfShapeOp : Ort::CustomOpBase<ScatterNDOfShapeOp<T>, ScatterNDOfShapeKernel<T>> {
   typedef Ort::CustomOpBase<ScatterNDOfShapeOp<T>, ScatterNDOfShapeKernel<T>> parent_type;
   ScatterNDOfShapeOp() : parent_type() {}
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const;
-  const char* GetName() const;
-  const char* GetExecutionProviderType() const;
+  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const { return std::make_unique<ScatterNDOfShapeKernel<T>>(api, info).release(); }
+  const char* GetName() const { return "ScatterNDOfShape"; }
+  const char* GetExecutionProviderType() const { return "CUDAExecutionProvider"; }
 
-  std::size_t GetInputTypeCount() const;
-  ONNXTensorElementDataType GetInputType(std::size_t index) const;
-  OrtCustomOpInputOutputCharacteristic GetInputCharacteristic(std::size_t index) const;
-  OrtMemType GetInputMemoryType(std::size_t index) const;
+  std::size_t GetInputTypeCount() const { return 3; }
+  ONNXTensorElementDataType GetInputType(std::size_t index) const { return index == 2 ? onnx_type<T>() : ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64; }
+  OrtCustomOpInputOutputCharacteristic GetInputCharacteristic(std::size_t index) const { return INPUT_OUTPUT_REQUIRED; }
+  OrtMemType GetInputMemoryType(std::size_t index) const { return index == 0 ? OrtMemTypeCPUInput : OrtMemTypeDefault; }
 
-  std::size_t GetOutputTypeCount() const;
-  ONNXTensorElementDataType GetOutputType(std::size_t index) const;
-  OrtCustomOpInputOutputCharacteristic GetOutputCharacteristic(std::size_t index) const;
+  std::size_t GetOutputTypeCount() const { return 1; }
+  ONNXTensorElementDataType GetOutputType(std::size_t index) const { return onnx_type<T>(); }
+  OrtCustomOpInputOutputCharacteristic GetOutputCharacteristic(std::size_t index) const { return INPUT_OUTPUT_REQUIRED; }
 };
 
 }  // namespace contrib
