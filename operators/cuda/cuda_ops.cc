@@ -17,7 +17,7 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
       ,
       CustomCudaStructV2("FastGelu", contrib::FastGelu<float>),
 #if ORT_API_VERSION >= 18
-      CustomCudaStructV2("PagedAttention", contrib::PagedAttention<ortc::MFloat16>),
+      CustomCudaStructV2("PagedAttention", PagedAttention<ortc::MFloat16>),
 #endif
 #if ORT_API_VERSION >= 16
       CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::MFloat16>),

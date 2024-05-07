@@ -2,44 +2,20 @@
 // Licensed under the MIT License.
 
 #pragma once
-#include "ocos.h"
+#include "ortx_common.h"
+#include "gsl/narrow"
 #include <cuda.h>
 
-template <typename T>
-using UniquePtrWithDeletor = std::unique_ptr<T, std::function<void(T*)>>;
-
-template <typename T>
-inline UniquePtrWithDeletor<T> GetScratchBuffer(void* p, OrtAllocator* allocator) {
-  return UniquePtrWithDeletor<T>{static_cast<T*>(p), [allocator = std::move(allocator)](T* p) {
-                                  allocator->Free(allocator, p);
-                                }};
-}
-
 namespace cuda {
-struct InputMetadata {
-  //int64_t schedule_type;  // 0: vllm. 1:sarathi, 2:custom, 3:self-build
-  //int64_t block_tables;
-  int64_t max_num_blocks_per_seq;
-  //int64_t context_lens;
-  int64_t max_context_len = 0;
-  int64_t num_prompt_tokens = 0;
-  int64_t num_valid_tokens = 0;
-  //int64_t slot_mapping;
-  int64_t num_generation_tokens = 0;
-
-  UniquePtrWithDeletor<int64_t> position_ids; 
-};
-
-void InitializeHeadMapping();
-
-// TODO(leca): remove unnecessary parameters
-template <typename T>
-OrtStatusPtr CheckInputs(const cudaStream_t stream, OrtAllocator* allocator, const ortc::Tensor<T>& query, const ortc::Tensor<T>& key,
-                         const ortc::Tensor<T>& value, const ortc::Tensor<T>& key_cache, const ortc::Tensor<T>& value_cache,
-                         const ortc::Tensor<int32_t>& block_tables, const ortc::Tensor<int32_t>& slot_mappings, 
-                         std::optional<const ortc::Tensor<int32_t>*> context_lens,
-                         std::optional<const ortc::Tensor<int64_t>*> positions, InputMetadata& input_metadata);
-
+//
+//// TODO(leca): move the implementation to paged_attention.h and remove unnecessary parameters
+//template <typename T>
+//OrtStatusPtr CheckInputs(const cudaStream_t stream, OrtAllocator* allocator, const ortc::Tensor<T>& query, const ortc::Tensor<T>& key,
+//                         const ortc::Tensor<T>& value, const ortc::Tensor<T>& key_cache, const ortc::Tensor<T>& value_cache,
+//                         const ortc::Tensor<int32_t>& block_tables, const ortc::Tensor<int32_t>& slot_mappings, 
+//                         std::optional<const ortc::Tensor<int32_t>*> context_lens,
+//                         std::optional<const ortc::Tensor<int64_t>*> positions, InputMetadata& input_metadata, int32_t num_heads, int32_t head_size);
+//
 void paged_attention_v1(
     const cudaStream_t stream,
     void* out,                // [num_seqs, num_heads, head_size]
