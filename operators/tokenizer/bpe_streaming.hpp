@@ -31,7 +31,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     eos_token_ = tok_config.eos_token_;
     unk_token_ = tok_config.unk_token_;
 
-    auto& a_toks = encoder.GetAddedTokens();
+    const auto& a_toks = encoder.GetAddedTokens();
     for (const auto& tok : a_toks) {
       added_tokens_[tok.id_] = tok.content_;
       if (tok.special_) {
