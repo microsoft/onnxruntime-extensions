@@ -135,4 +135,17 @@ OrtStatusPtr QkvToContext(
     cudaStream_t stream,
     PackedAttentionParameters& parameters,
     PackedMultiHeadAttentionData<T>& data);
+
+size_t GetAttentionWorkspaceSize(
+    size_t element_size,
+    size_t batch_size,
+    size_t num_heads,
+    size_t qk_head_size,
+    size_t v_head_size,
+    size_t sequence_length,
+    void* fused_runner,
+    bool use_flash_attention,
+    bool use_memory_efficient_attention,
+    bool no_qkv_workspace);
+
 } // namespace cuda

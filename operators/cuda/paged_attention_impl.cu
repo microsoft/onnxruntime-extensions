@@ -5,6 +5,12 @@
 #include "paged_dtype_float16.cuh"
 #include "paged_dtype_float32.cuh"
 #include "paged_utils.cuh"
+#ifdef OCOS_USE_FLASH_ATTENTION
+#include "attention_lib/flash_attention/flash_api.h"
+#endif
+#ifdef OCOS_USE_MEMORY_EFFICIENT_ATTENTION
+#include "attention_lib/cutlass_fmha/memory_efficient_attention.h"
+#endif
 #include <vector>
 
 namespace cuda {
@@ -1073,9 +1079,9 @@ void reshape_and_cache(
   }
 }
 
-#if USE_FLASH_ATTENTION
+#if OCOS_USE_FLASH_ATTENTION
 template <typename T>
-Status FlashAttention(
+OrtStatusPtr FlashAttention(
     const cudaDeviceProp& device_prop,
     cudaStream_t stream,
     PackedAttentionParameters& parameters,
@@ -1094,13 +1100,14 @@ Status FlashAttention(
   const size_t elements_v = static_cast<size_t>(parameters.token_count) * static_cast<size_t>(model_dimension_v);
 
   // When separated Q, K, V is used, we can directly use them in Cutlass FMHA. Otherwise, transpose BSN3H to 3BSNH
-  if (!data.no_qkv_workspace) {
-    LaunchTranspose(data.query, data.key, data.value, data.bias, data.workspace,
-                    batch_size, sequence_length,
-                    num_heads, qk_head_size, v_head_size,
-                    data.source_qkv_format, AttentionQkvFormat::Q_K_V_TNH,
-                    data.token_offset, parameters.token_count, stream);
-  }
+  // TODO(leca): 
+//  if (!data.no_qkv_workspace) {
+//    LaunchTranspose(data.query, data.key, data.value, data.bias, data.workspace,
+//                    batch_size, sequence_length,
+//                    num_heads, qk_head_size, v_head_size,
+//                    data.source_qkv_format, AttentionQkvFormat::Q_K_V_TNH,
+//                    data.token_offset, parameters.token_count, stream);
+//  }
 
   float scale = parameters.scale == 0.0f ? 1.f / sqrt(static_cast<float>(qk_head_size))
                                          : parameters.scale;
@@ -1113,8 +1120,8 @@ Status FlashAttention(
                                  ? data.workspace
                                  : (data.workspace + elements_qk + elements_v + elements_v);
 
-  ORT_RETURN_IF_ERROR(
-      onnxruntime::flash::mha_varlen_fwd(
+  ORTX_RETURN_IF_ERROR(
+      flash::mha_varlen_fwd(
           device_prop,
           stream,
           const_cast<void*>(query),
@@ -1131,7 +1138,8 @@ Status FlashAttention(
           sequence_length,
           sequence_length,
           scale,
-          parameters.causal  // is causal
+          parameters.causal,  // is causal
+          false    // is_bf16 TODO(leca)
           ));
 
   return nullptr;
@@ -1147,6 +1155,10 @@ OrtStatusPtr QkvToContext(
 #if OCOS_USE_FLASH_ATTENTION
   return FlashAttention(device_prop, stream, parameters, data);
 #endif
+#if OCOS_USE_MEMORY_EFFICIENT_ATTENTION
+  // TODO(leca):
+  //return FusedAttentionCutlass(device_prop, stream, parameters, data);
+#endif
   return nullptr;
 }
 
@@ -1159,5 +1171,57 @@ template OrtStatusPtr QkvToContext<half>(
     cudaStream_t stream,
     PackedAttentionParameters& parameters,
     PackedMultiHeadAttentionData<half>& data);
+
+constexpr size_t kCUDAMemoryAlignment = 256;
+
+size_t GetAttentionScratchSize(
+    size_t element_size,
+    size_t batch_size,
+    size_t num_heads,
+    size_t sequence_length) {
+  const size_t bytes = element_size * batch_size * num_heads * sequence_length * sequence_length;
+  return ((bytes + kCUDAMemoryAlignment - 1) / kCUDAMemoryAlignment) * kCUDAMemoryAlignment;
+}
+
+size_t GetAttentionWorkspaceSize(
+    size_t element_size,
+    size_t batch_size,
+    size_t num_heads,
+    size_t qk_head_size,
+    size_t v_head_size,
+    size_t sequence_length,
+    void* fused_runner,
+    bool use_flash_attention,
+    bool use_memory_efficient_attention,
+    bool no_qkv_workspace) {
+  // Note that q, k and v might need alignment for fused attention kernels.
+  const size_t qkv_bytes = no_qkv_workspace ? 0 : (element_size * batch_size * num_heads * sequence_length * (qk_head_size + qk_head_size + v_head_size));
+
+#if USE_FLASH_ATTENTION
+  // Use portion of workspace for softmax buffer.
+  if (use_flash_attention) {
+    size_t flash_buffer_bytes = onnxruntime::flash::get_softmax_lse_size(sequence_length, batch_size, num_heads);
+    return qkv_bytes + flash_buffer_bytes;
+  }
+#endif
+
+  if (fused_runner != nullptr) {
+    return qkv_bytes;
+  }
+
+//#if USE_MEMORY_EFFICIENT_ATTENTION
+//  if (use_memory_efficient_attention) {
+//    size_t fmha_buffer_bytes = 0;
+//    if (MemoryEfficientAttentionParams::need_workspace(v_head_size, element_size == sizeof(float))) {
+//      fmha_buffer_bytes = batch_size * sequence_length * num_heads * v_head_size * sizeof(float);
+//    }
+//    return qkv_bytes + fmha_buffer_bytes;
+//  }
+//#else
+//  ORT_UNUSED_PARAMETER(use_memory_efficient_attention);
+//#endif
+
+  return qkv_bytes + 2 * GetAttentionScratchSize(element_size, batch_size, num_heads, sequence_length);
+}
 
 }   // namespace cuda
