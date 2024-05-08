@@ -1,15 +1,11 @@
 #include "paged_attention_impl.h"
 #include "utils.cuh"
-
+#include "device_prop.cuh"
 #include "paged_generic.cuh"
 #include "paged_dtype_float16.cuh"
 #include "paged_dtype_float32.cuh"
 #include "paged_utils.cuh"
 #include <vector>
-
-void InitializeHeadMapping(void* dest_data, const void* src_data, size_t count) {
-  cudaMemcpy(dest_data, src_data, count, cudaMemcpyHostToDevice);
-}
 
 namespace cuda {
 
@@ -623,62 +619,6 @@ __global__ void rotary_embedding_kernel(
 }
 }   // namespace vllm
 
-//template <typename T>
-//OrtStatusPtr CheckInputs(const cudaStream_t stream, OrtAllocator* allocator, const ortc::Tensor<T>& query, const ortc::Tensor<T>& key,
-//                         const ortc::Tensor<T>& value, const ortc::Tensor<T>& key_cache, const ortc::Tensor<T>& value_cache,
-//                         const ortc::Tensor<int32_t>& block_tables, const ortc::Tensor<int32_t>& slot_mappings, 
-//                         std::optional<const ortc::Tensor<int32_t>*> context_lens,
-//                         std::optional<const ortc::Tensor<int64_t>*> positions, InputMetadata& input_metadata, int32_t num_heads, int32_t head_size) {
-//    const std::vector<int64_t>& query_shape = query.Shape();
-//    if (query_shape.size() < 2 || query_shape.size() > 3) {
-//      return OrtW::CreateStatus(MakeString("Invalid query shape, expect 2 or 3 dimensions"), ORT_INVALID_ARGUMENT);
-//    }
-//    if (query_shape.back() != num_heads * head_size) {
-//      return OrtW::CreateStatus(MakeString("query shape should equal to num_heads_ * head_size_"), ORT_INVALID_ARGUMENT);
-//    }
-//
-//    // TODO(leca): Cpu input or CUDA input?
-//    int seq_len = query_shape.size() == 3 ? query_shape[1] : query_shape[0];
-//    if (positions.has_value()) {
-//      std::vector<int64_t> positions_host((*positions)->Shape().size());
-//      ORTX_RETURN_IF_ERROR(CudaCall(cudaMemcpy(positions_host.data(), (*positions)->DataRaw(), (*positions)->SizeInBytes(), cudaMemcpyDeviceToHost)));
-//      while (positions_host.back() == 0) {
-//        positions_host.pop_back();
-//        seq_len--;
-//      }
-//
-//      input_metadata.max_num_blocks_per_seq = 0;
-//      // in prompt mode
-//      if (positions_host.size() > 1 || positions_host.back() == 0) {
-//        input_metadata.num_prompt_tokens = seq_len;
-//        input_metadata.num_generation_tokens = 0;
-//      } else {
-//        input_metadata.num_prompt_tokens = 0;
-//        input_metadata.num_generation_tokens = seq_len;
-//        input_metadata.max_context_len = positions_host.back() + 1; // TODO(leca): what if position_host is empty?
-//
-//        int32_t block_size = gsl::narrow<int32_t>(key_cache.Shape()[3]);
-//        for (int i = 0; i < positions_host.back() + 1; i += block_size) input_metadata.max_num_blocks_per_seq++;
-//      }
-//    } else {
-//      // TODO(leca): context_lens is nullptr?
-//      std::vector<int32_t> context_len_host((*context_lens)->SizeInBytes());
-//      ORTX_RETURN_IF_ERROR(CudaCall(cudaMemcpy(context_len_host.data(), (*context_lens)->DataRaw(), (*context_lens)->SizeInBytes(), cudaMemcpyDeviceToHost)));
-//      std::vector<int64_t> position_ids;
-//      for (size_t i = 0; i < context_len_host.size(); i++) {
-//        if (context_len_host[i] == 0)   continue;
-//        std::vector<int64_t> position_id(context_len_host[i]);
-//        std::iota(position_id.begin(), position_id.end(), 0);   // fill position_id with {0, 1, 2, ...context_len_span[i]-1}
-//        position_ids.insert(position_ids.end(), position_id.begin(), position_id.end());
-//      }
-//      input_metadata.position_ids = GetScratchBuffer<int64_t>(allocator->Alloc(allocator, position_ids.size()), allocator);
-//      ORTX_RETURN_IF_ERROR(CudaCall(cudaMemcpyAsync(input_metadata.position_ids.get(), position_ids.data(), position_ids.size(), cudaMemcpyHostToDevice, stream)));
-//    }
-//    input_metadata.num_valid_tokens = seq_len;
-//  
-//  return nullptr;
-//}
-
 #define LAUNCH_PAGED_ATTENTION_V1(HEAD_SIZE)                                  \
   cudaFuncSetAttribute(                                                       \
       vllm::paged_attention_v1_kernel<T, HEAD_SIZE, BLOCK_SIZE, NUM_THREADS>, \
@@ -1132,5 +1072,92 @@ void reshape_and_cache(
         x);
   }
 }
+
+#if USE_FLASH_ATTENTION
+template <typename T>
+Status FlashAttention(
+    const cudaDeviceProp& device_prop,
+    cudaStream_t stream,
+    PackedAttentionParameters& parameters,
+    PackedMultiHeadAttentionData<T>& data) {
+  const int batch_size = parameters.batch_size;
+  const int sequence_length = parameters.sequence_length;
+  const int num_heads = parameters.num_heads;
+  const int num_kv_heads = parameters.num_kv_heads;
+  const int qk_head_size = parameters.head_size;
+  const int v_head_size = parameters.v_head_size;
+
+  // Q, K and V pointers
+  const int model_dimension_qk = num_heads * qk_head_size;
+  const int model_dimension_v = num_kv_heads * v_head_size;
+  const size_t elements_qk = static_cast<size_t>(parameters.token_count) * static_cast<size_t>(model_dimension_qk);
+  const size_t elements_v = static_cast<size_t>(parameters.token_count) * static_cast<size_t>(model_dimension_v);
+
+  // When separated Q, K, V is used, we can directly use them in Cutlass FMHA. Otherwise, transpose BSN3H to 3BSNH
+  if (!data.no_qkv_workspace) {
+    LaunchTranspose(data.query, data.key, data.value, data.bias, data.workspace,
+                    batch_size, sequence_length,
+                    num_heads, qk_head_size, v_head_size,
+                    data.source_qkv_format, AttentionQkvFormat::Q_K_V_TNH,
+                    data.token_offset, parameters.token_count, stream);
+  }
+
+  float scale = parameters.scale == 0.0f ? 1.f / sqrt(static_cast<float>(qk_head_size))
+                                         : parameters.scale;
+  int32_t* cu_seqlens_q = const_cast<int32_t*>(data.cumulative_sequence_length);
+  int32_t* cu_seqlens_k = const_cast<int32_t*>(data.cumulative_sequence_length);
+  const void* query = data.no_qkv_workspace ? data.query : data.workspace;
+  const void* key = data.no_qkv_workspace ? data.key : (data.workspace + elements_qk);
+  const void* value = data.no_qkv_workspace ? data.value : (data.workspace + elements_qk + elements_qk);
+  void* softmax_lse_buffer = data.no_qkv_workspace
+                                 ? data.workspace
+                                 : (data.workspace + elements_qk + elements_v + elements_v);
+
+  ORT_RETURN_IF_ERROR(
+      onnxruntime::flash::mha_varlen_fwd(
+          device_prop,
+          stream,
+          const_cast<void*>(query),
+          const_cast<void*>(key),
+          const_cast<void*>(value),
+          data.output,
+          cu_seqlens_q,
+          cu_seqlens_k,
+          softmax_lse_buffer,
+          batch_size,
+          num_heads,
+          num_kv_heads,  // num_heads_k
+          qk_head_size,
+          sequence_length,
+          sequence_length,
+          scale,
+          parameters.causal  // is causal
+          ));
+
+  return nullptr;
+}
+#endif
+
+template <typename T>
+OrtStatusPtr QkvToContext(
+    cudaStream_t stream,
+    PackedAttentionParameters& parameters,
+    PackedMultiHeadAttentionData<T>& data) {
+  const cudaDeviceProp& device_prop = DeviceProp::GetCudaDeviceProp();
+#if OCOS_USE_FLASH_ATTENTION
+  return FlashAttention(device_prop, stream, parameters, data);
+#endif
+  return nullptr;
+}
+
+//template OrtStatusPtr QkvToContext<BFloat16>(
+//    cudaStream_t stream,
+//    PackedAttentionParameters& parameters,
+//    PackedMultiHeadAttentionData<BFloat16>& data);
+
+template OrtStatusPtr QkvToContext<half>(
+    cudaStream_t stream,
+    PackedAttentionParameters& parameters,
+    PackedMultiHeadAttentionData<half>& data);
 
 }   // namespace cuda

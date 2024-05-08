@@ -5,17 +5,60 @@
 #include "ortx_common.h"
 #include "gsl/narrow"
 #include <cuda.h>
+#include <cublas_v2.h>
+
+enum AttentionQkvFormat {
+  UNKNOWN,               // enum value not set, or depends on qkv projection implementation details
+  Q_K_V_BNSH,            // for non-packed qkv, permuted
+  Q_K_V_BSNH,            // for non-packed qkv, not permuted, used by memory efficient attention or MultiHeadAttention
+  QKV_BSN3H,             // for TRT fused attention, qkv are packed
+  Q_K_V_BNSH_QKV_BS3NH,  // for TRT fused causal attention, data has two formats (qkv is 3BNSH, gemm_buffer is BS3NH)
+  Q_KV_BSNH_BSN2H,       // for TRT fused cross attention, kv are packed
+  Q_K_V_TNH,             // for memory efficient attention, qkv are not packed, and paddings are removed.
+  QKV_TN3H,              // for TRT fused attention, qkv are packed and paddings are removed
+};
+
+struct PackedAttentionParameters {
+  int batch_size;
+  int sequence_length;
+  int input_hidden_size;  // hidden size of input
+  int hidden_size;        // hidden size of Q or K
+  int head_size;          // hidden size per head of Q or K
+  int v_hidden_size;      // hidden size of V
+  int v_head_size;        // hidden size per head of V
+  int num_heads;
+  int num_kv_heads;
+  float scale;
+  int token_count;
+  int valid_token_count;
+  bool has_relative_position_bias;
+  bool broadcast_res_pos_bias;
+  bool causal;
+};
+
+template <typename T>
+struct PackedMultiHeadAttentionData {
+  const T* query;
+  const T* key;
+  const T* value;
+  const T* bias;
+  const T* relative_position_bias;
+  const int32_t* token_offset;
+  const int32_t* cumulative_sequence_length;
+
+  AttentionQkvFormat source_qkv_format;
+
+  bool no_qkv_workspace;
+  T* workspace;
+  T* output;
+
+  void* fused_runner;
+
+  bool use_flash_attention;
+  bool use_memory_efficient_attention;
+};
 
 namespace cuda {
-//
-//// TODO(leca): move the implementation to paged_attention.h and remove unnecessary parameters
-//template <typename T>
-//OrtStatusPtr CheckInputs(const cudaStream_t stream, OrtAllocator* allocator, const ortc::Tensor<T>& query, const ortc::Tensor<T>& key,
-//                         const ortc::Tensor<T>& value, const ortc::Tensor<T>& key_cache, const ortc::Tensor<T>& value_cache,
-//                         const ortc::Tensor<int32_t>& block_tables, const ortc::Tensor<int32_t>& slot_mappings, 
-//                         std::optional<const ortc::Tensor<int32_t>*> context_lens,
-//                         std::optional<const ortc::Tensor<int64_t>*> positions, InputMetadata& input_metadata, int32_t num_heads, int32_t head_size);
-//
 void paged_attention_v1(
     const cudaStream_t stream,
     void* out,                // [num_seqs, num_heads, head_size]
@@ -86,4 +129,10 @@ void rotary_embedding_neox(
     int num_heads,
     int num_kv_heads,
     int dtype);
+
+template <typename T>
+OrtStatusPtr QkvToContext(
+    cudaStream_t stream,
+    PackedAttentionParameters& parameters,
+    PackedMultiHeadAttentionData<T>& data);
 } // namespace cuda

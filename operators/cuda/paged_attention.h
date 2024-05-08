@@ -6,8 +6,6 @@
 #include "cuda_type.h"
 #include "paged_attention_impl.h"
 
-void InitializeHeadMapping(void* dest_data, const void* src_data, size_t count);
-
 template <typename T>
 using UniquePtrWithDeletor = std::unique_ptr<T, std::function<void(T*)>>;
 
@@ -17,6 +15,16 @@ inline UniquePtrWithDeletor<T> GetScratchBuffer(void* p, OrtAllocator* allocator
                                   allocator->Free(allocator, p);
                                 }};
 }
+
+struct AttnBias {
+  typedef struct {
+    int64_t seqstart;
+    int64_t max_seqlen;
+    int64_t seqstart_py;
+  } block_tables;
+  block_tables q_seqinfo;
+  int64_t batchsize;
+};
 
 struct InputMetadata {
   //int64_t schedule_type;  // 0: vllm. 1:sarathi, 2:custom, 3:self-build
@@ -28,12 +36,73 @@ struct InputMetadata {
   int64_t num_valid_tokens = 0;
   //int64_t slot_mapping;
   int64_t num_generation_tokens = 0;
-
+  AttnBias attn_bias;
   UniquePtrWithDeletor<int64_t> position_ids; 
 };
 
+//// TODO(leca): remove unnecessary parameters, move all cuda call to .cu file and check return value by calling CudaCall().
+template <typename T>
+OrtStatusPtr CheckInputs(const cudaStream_t stream, OrtAllocator* allocator, const ortc::Tensor<T>& query, const ortc::Tensor<T>& key,
+                         const ortc::Tensor<T>& value, const ortc::Tensor<T>& key_cache, const ortc::Tensor<T>& value_cache,
+                         const ortc::Tensor<int32_t>& block_tables, const ortc::Tensor<int32_t>& slot_mappings, 
+                         std::optional<const ortc::Tensor<int32_t>*> context_lens,
+                         std::optional<const ortc::Tensor<int64_t>*> positions, int32_t num_heads, int32_t head_size, InputMetadata& input_metadata) {
+  const std::vector<int64_t>& query_shape = query.Shape();
+  if (query_shape.size() < 2 || query_shape.size() > 3) {
+    return OrtW::CreateStatus(MakeString("Invalid query shape, expect 2 or 3 dimensions"), ORT_INVALID_ARGUMENT);
+  }
+  if (query_shape.back() != num_heads * head_size) {
+    return OrtW::CreateStatus(MakeString("query shape should equal to num_heads_ * head_size_"), ORT_INVALID_ARGUMENT);
+  }
+
+  // TODO(leca): Cpu input or CUDA input?
+  int seq_len = query_shape.size() == 3 ? query_shape[1] : query_shape[0];
+  if (positions.has_value()) {
+    std::vector<int64_t> positions_host((*positions)->Shape().size());
+    //ORTX_RETURN_IF_ERROR(CudaCall(cudaMemcpy(positions_host.data(), (*positions)->DataRaw(), (*positions)->SizeInBytes(), cudaMemcpyDeviceToHost)));
+    cudaMemcpy(positions_host.data(), (*positions)->DataRaw(), (*positions)->SizeInBytes(), cudaMemcpyDeviceToHost);
+    while (positions_host.back() == 0) {
+      positions_host.pop_back();
+      seq_len--;
+    }
+
+    input_metadata.max_num_blocks_per_seq = 0;
+    // in prompt mode
+    if (positions_host.size() > 1 || positions_host.back() == 0) {
+      input_metadata.num_prompt_tokens = seq_len;
+      input_metadata.num_generation_tokens = 0;
+    } else {
+      input_metadata.num_prompt_tokens = 0;
+      input_metadata.num_generation_tokens = seq_len;
+      input_metadata.max_context_len = positions_host.back() + 1; // TODO(leca): what if position_host is empty?
+
+      int32_t block_size = gsl::narrow<int32_t>(key_cache.Shape()[3]);
+      for (int i = 0; i < positions_host.back() + 1; i += block_size) input_metadata.max_num_blocks_per_seq++;
+    }
+  } else {
+    // TODO(leca): context_lens is nullptr?
+    std::vector<int32_t> context_len_host((*context_lens)->SizeInBytes());
+    //ORTX_RETURN_IF_ERROR(CudaCall(cudaMemcpy(context_len_host.data(), (*context_lens)->DataRaw(), (*context_lens)->SizeInBytes(), cudaMemcpyDeviceToHost)));
+    cudaMemcpy(context_len_host.data(), (*context_lens)->DataRaw(), (*context_lens)->SizeInBytes(), cudaMemcpyDeviceToHost);
+    std::vector<int64_t> position_ids;
+    for (size_t i = 0; i < context_len_host.size(); i++) {
+      if (context_len_host[i] == 0)   continue;
+      std::vector<int64_t> position_id(context_len_host[i]);
+      std::iota(position_id.begin(), position_id.end(), 0);   // fill position_id with {0, 1, 2, ...context_len_span[i]-1}
+      position_ids.insert(position_ids.end(), position_id.begin(), position_id.end());
+    }
+    input_metadata.position_ids = GetScratchBuffer<int64_t>(allocator->Alloc(allocator, position_ids.size()), allocator);
+    //ORTX_RETURN_IF_ERROR(CudaCall(cudaMemcpyAsync(input_metadata.position_ids.get(), position_ids.data(), position_ids.size(), cudaMemcpyHostToDevice, stream)));
+    cudaMemcpyAsync(input_metadata.position_ids.get(), position_ids.data(), position_ids.size(), cudaMemcpyHostToDevice, stream);
+  }
+    input_metadata.num_valid_tokens = seq_len;
+  
+  return nullptr;
+}
+
 template<typename T>
 struct PagedAttention {
+  using TT = typename contrib::CudaT<T>::MappedType;
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
     int64_t num_heads = 0, head_size = 0;
     ORTX_RETURN_IF_ERROR(api.KernelInfoGetAttribute_int64(&info, "num_heads", &num_heads));
@@ -60,8 +129,15 @@ struct PagedAttention {
     ORTX_RETURN_IF_ERROR(api.KernelInfoGetAllocator(&info, OrtMemType::OrtMemTypeDefault, &allocator));
     allocator_ = UniquePtrWithDeletor<OrtAllocator>{allocator, [&api](OrtAllocator* p){api.ReleaseAllocator(p);}};
     head_mapping_ = GetScratchBuffer<int32_t>(allocator_->Alloc(allocator_.get(), num_heads_), allocator_.get());
-    InitializeHeadMapping(head_mapping_.get(), head_mapping_host.data(), head_mapping_host.size());
+    cudaMemcpy(head_mapping_.get(), head_mapping_host.data(), head_mapping_host.size(), cudaMemcpyHostToDevice);
     return nullptr;
+  }
+
+  OrtStatusPtr RunMultiHeadAttention(Ort::Custom::CUDAKernelContext* ctx, PackedAttentionParameters& parameters) const {
+    PackedMultiHeadAttentionData<TT> data;
+    
+    return cuda::QkvToContext<TT>(reinterpret_cast<cudaStream_t>(ctx->GetCudaStream()), parameters, data);
+//    return nullptr;
   }
 
   OrtStatusPtr Compute(Ort::Custom::CUDAKernelContext* ctx, const ortc::Tensor<T>& query, const ortc::Tensor<T>& key,
@@ -71,7 +147,9 @@ struct PagedAttention {
                        std::optional<const ortc::Tensor<int64_t>*> positions,
                        std::optional<const ortc::Tensor<T>*> cos_sin_cache, ortc::Tensor<T>& attn_out) const {
     InputMetadata input_metadata;
-//    ORTX_RETURN_IF_ERROR(CheckInputs(ctx->GetCudaStream(), allocator_.get(), query, key, value, key_cache, value_cache, block_tables, slot_mappings, context_lens, positions, input_metadata, num_heads_, head_size_));
+    PackedAttentionParameters parameters;
+    ORTX_RETURN_IF_ERROR(CheckInputs<T>(reinterpret_cast<cudaStream_t>(ctx->GetCudaStream()), allocator_.get(), query, key, value, 
+                         key_cache, value_cache, block_tables, slot_mappings, context_lens, positions, num_heads_, head_size_, input_metadata));
     const std::vector<int64_t>& query_shape = query.Shape();
     T* output_data = attn_out.Allocate(query_shape);
 
@@ -91,10 +169,8 @@ struct PagedAttention {
                         key_shape_r, value_shape_r, block_size, key_cache_shape[4], 1);
     }
 
-    using TT = typename contrib::CudaT<T>::MappedType;
     if (input_metadata.num_prompt_tokens > 0) {
-      //TODO(leca): flash attention for prompt > 0 case
-      return nullptr; // Don't handle prompt with decoding case for now
+      return RunMultiHeadAttention(ctx, parameters); // Don't handle prompt with decoding case for now
     }
 
     if (input_metadata.num_generation_tokens > 0) {
