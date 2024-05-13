@@ -887,18 +887,18 @@ if(OCOS_BUILD_APPLE_FRAMEWORK)
 endif()
 
 if (_ORTX_STANDALONE_PROJECT)
-# clean up the requirements.txt files from 3rd party project folder to suppress the code security false alarms
-file(GLOB_RECURSE NO_USE_FILES ${CMAKE_BINARY_DIR}/_deps/*requirements.txt)
-message(STATUS "Found the following requirements.txt: ${NO_USE_FILES}")
+  # clean up the requirements.txt files from 3rd party project folder to suppress the code security false alarms
+  file(GLOB_RECURSE NO_USE_FILES ${CMAKE_BINARY_DIR}/_deps/*requirements.txt)
+  message(STATUS "Found the following requirements.txt: ${NO_USE_FILES}")
 
-foreach(nf ${NO_USE_FILES})
-  execute_process(COMMAND ${CMAKE_COMMAND} -E remove ${nf})
-endforeach()
+  foreach(nf ${NO_USE_FILES})
+    execute_process(COMMAND ${CMAKE_COMMAND} -E remove ${nf})
+  endforeach()
 
-# Run CPack to generate the NuGet package
-include(CPack)
-endif()
+  # Run CPack to generate the NuGet package
+  include(CPack)
 
-if(OCOS_ENABLE_CTEST)
-  include(ext_tests)
+  if(OCOS_ENABLE_CTEST)
+    include(ext_tests)
+  endif()
 endif()

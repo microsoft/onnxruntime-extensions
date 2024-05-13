@@ -213,7 +213,8 @@ else()
     target_compile_definitions(tokenizer_api_test PRIVATE ${OCOS_COMPILE_DEFINITIONS})
     target_include_directories(tokenizer_api_test PRIVATE
       ${PROJECT_SOURCE_DIR}/
-      "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>")
+      "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>"
+      "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
   endif()
 endif()
 
