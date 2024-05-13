@@ -64,6 +64,7 @@ public:
   virtual const void* DataRaw() const = 0;
   virtual bool IsInitialized() const = 0;
   virtual void* Initialize(const std::vector<int64_t>& shape, size_t element_size) = 0;
+  virtual ~ITensorStorage() = default;
 };
 
 
@@ -84,7 +85,7 @@ public:
   OrtEagerTensorStorage(IAllocator* allocator) : allocator_(allocator){
   }
 
-  virtual ~OrtEagerTensorStorage(){
+  ~OrtEagerTensorStorage() override{
     if (allocator_ && buffer_)
       allocator_->Free(buffer_);
   }
@@ -95,7 +96,7 @@ public:
     return *shape_;
   }
 
-  virtual bool IsInitialized() const override {
+  bool IsInitialized() const override {
     return shape_.has_value();
   }
 
@@ -153,7 +154,7 @@ ONNXTensorElementDataType GetOrtDType(){
 
 class TensorBase : public Arg {
 public:
-  virtual ~TensorBase() {}
+  virtual ~TensorBase() = default;
 
   virtual ONNXTensorElementDataType Type() const = 0; 
   virtual const std::vector<int64_t>& Shape() const = 0;
@@ -172,8 +173,6 @@ class Tensor : public TensorBase {
   Tensor(const std::vector<int64_t>& shape, void* buffer) : Tensor(std::make_unique<OrtEagerTensorStorage>(shape, buffer)) {}
 
   Tensor(IAllocator* allocator) : storage_(std::make_unique<OrtEagerTensorStorage>(allocator)){}
-
-  virtual ~Tensor() = default;
 
   operator bool() const {
     return storage_->IsInitialized();
@@ -284,6 +283,7 @@ public:
   virtual bool IsInitialized() const = 0;
   virtual void SetStringOutput(const strings& ss, const std::vector<int64_t>& dims) = 0;
   virtual void SetStringOutput(const std::vector<const char*>& ss, const std::vector<int64_t>& dims) = 0;
+  virtual ~IStringTensorStorage() = default;
 };
 
 template<typename T>
@@ -300,7 +300,7 @@ public:
     return *shape_;
   }
 
-  virtual const void* DataRaw() const override {
+  const void* DataRaw() const override {
     if (input_strings_.size() != 1) {
       ORTX_CXX_API_THROW("DataRaw() only applies to string scalar", ORT_RUNTIME_EXCEPTION);
     }
@@ -310,11 +310,11 @@ public:
       return reinterpret_cast<const void*>(input_strings_[0].c_str());
   }
 
-  virtual bool IsInitialized() const override {
+  bool IsInitialized() const override {
     return shape_.has_value();
   }
   
-  virtual void SetStringOutput(const strings& ss, const std::vector<int64_t>& dims) override {
+  void SetStringOutput(const strings& ss, const std::vector<int64_t>& dims) override {
     if constexpr (std::is_same<std::string_view, T>::value)
       ORTX_CXX_API_THROW("Set output for string view tensor is not supported", ORT_RUNTIME_EXCEPTION);
     input_strings_.assign(ss.begin(), ss.end());
@@ -325,7 +325,7 @@ public:
     return input_strings_;
   }
 
-  virtual void SetStringOutput(const std::vector<const char*>& ss, const std::vector<int64_t>& dims) override {
+  void SetStringOutput(const std::vector<const char*>& ss, const std::vector<int64_t>& dims) override {
     if constexpr (std::is_same<std::string_view, T>::value)
       ORTX_CXX_API_THROW("Set output for string view tensor is not supported", ORT_RUNTIME_EXCEPTION);
     
