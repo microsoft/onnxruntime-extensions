@@ -153,10 +153,6 @@ if (OCOS_ENABLE_OPENCV_CODECS)
     list(APPEND opencv_LIBS opencv_imgcodecs)
 endif()
 
-if (NOT OCOS_ENABLE_CV2)  # only include the necessary modules
-  list(REMOVE_ITEM opencv_LIBS opencv_core opencv_imgproc)
-endif ()
-
 # unset it to avoid affecting other projects.
 unset(EXECUTABLE_OUTPUT_PATH CACHE)
 
