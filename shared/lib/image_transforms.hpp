@@ -121,39 +121,39 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input,
   auto h = dimensions[0];
   auto w = dimensions[1];
   auto c = dimensions[2];
+  std::vector<int32_t> height_x_width{static_cast<int32_t>(h),   // H
+                                      static_cast<int32_t>(w)};  // W
 
-  // Allocate memory for output tensors
+  cv::Mat rgb_image(height_x_width, CV_8UC3, const_cast<uint8_t *>(input_data));
+  // elems = [HD_transform(im, hd_num = self.num_crops) for im in images]
+  auto elem = hd_transform(rgb_image, max_crops);
+  // # tensor transform and normalize
+  // hd_images = [img_processor(im) for im in elems]
+  std::tie(h, w) = std::make_tuple(elem.cols, elem.rows);
+  auto elem_image = elem.data;
   auto rgb_image_ptr = std::make_unique<float[]>(h * w * c);
   auto p_pixel_values = rgb_image_ptr.get();
   for (int64_t j = 0; j < h; ++j) {
     for (int64_t k = 0; k < w; ++k) {
       auto c0_index = j * w * c + k * c;
-      p_pixel_values[c0_index] = (static_cast<float>(input_data[c0_index]) - OPENAI_CLIP_MEAN[0]) / OPENAI_CLIP_STD[0];
-      p_pixel_values[c0_index + 1] = (static_cast<float>(input_data[c0_index + 1]) - OPENAI_CLIP_MEAN[1]) / OPENAI_CLIP_STD[1];
-      p_pixel_values[c0_index + 2] = (static_cast<float>(input_data[c0_index + 2]) - OPENAI_CLIP_MEAN[2]) / OPENAI_CLIP_STD[2];
+      p_pixel_values[c0_index] = (static_cast<float>(elem_image[c0_index]) - OPENAI_CLIP_MEAN[0]) / OPENAI_CLIP_STD[0];
+      p_pixel_values[c0_index + 1] = (static_cast<float>(elem_image[c0_index + 1]) - OPENAI_CLIP_MEAN[1]) / OPENAI_CLIP_STD[1];
+      p_pixel_values[c0_index + 2] = (static_cast<float>(elem_image[c0_index + 2]) - OPENAI_CLIP_MEAN[2]) / OPENAI_CLIP_STD[2];
     }
   }
-
-  std::vector<int32_t> height_x_width{static_cast<int32_t>(h),   // H
-                                      static_cast<int32_t>(w)};  // W
-
-  cv::Mat rgb_image(height_x_width, CV_32FC3, p_pixel_values);
-  // elems = [HD_transform(im, hd_num = self.num_crops) for im in images]
-  auto elem = hd_transform(rgb_image, max_crops);
-  // # tensor transform and normalize
-  // hd_images = [img_processor(im) for im in elems]
+  cv::Mat hd_image(h, w, CV_32FC3, p_pixel_values);
   // # create global image
   // global_image = [torch.nn.functional.interpolate(im.unsqueeze(0).float(), size=(336, 336), mode='bicubic',).to(im.dtype) for im in hd_images]
   cv::Mat global_image;
-  cv::resize(elem, global_image, {image_resized_height, image_resized_width}, 0.0, 0.0, cv::INTER_CUBIC);
+  cv::resize(hd_image, global_image, {image_resized_height, image_resized_width}, 0.0, 0.0, cv::INTER_CUBIC);
 
   int64_t shape[2];
   // # [(3, h, w)], where h, w is multiple of 336
   // shapes = [[im.size(1), im.size(2)] for im in hd_images]
   {
     auto shapes = image_sizes.Allocate({2});
-    shapes[0] = shape[0] = elem.cols;
-    shapes[1] = shape[1] = elem.rows;
+    shapes[0] = shape[0] = hd_image.cols;
+    shapes[1] = shape[1] = hd_image.rows;
   }
   // num_img_tokens = [int((h//336*w//336+1)*144 + 1 + (h//336+1)*12) for h, w in shapes]
   {
@@ -177,7 +177,7 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input,
   // TODO: need permute channel dimension
   memcpy(output_pixel, global_image.data, image_c_size);
   auto num_crops = shape[0] / image_resized_height;
-  char* image_transformed = reinterpret_cast<char*>(elem.data);
+  char* image_transformed = reinterpret_cast<char*>(hd_image.data);
   for (int i = 0; i < num_crops; ++i) {
     // TODO: need permute channel dimension
     memcpy(output_pixel + (i + 1) * image_c_size, image_transformed + i * image_c_size, image_c_size);

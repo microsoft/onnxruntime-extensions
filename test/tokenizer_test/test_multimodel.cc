@@ -92,7 +92,7 @@ TEST(MultiModelTest, Test1) {
 }
   )";
 
-  auto [input_data, n_data] = LoadRawImages({"data/multimodel/exceltable.png", "data/multimodel/australia.jpg"});
+  auto [input_data, n_data] = LoadRawImages({"data/multimodel/australia.jpg", "data/multimodel/exceltable.png"});
 
   ProcessorPtr proc(transform_def);
   ortc::Tensor<float>* pixel_values;
