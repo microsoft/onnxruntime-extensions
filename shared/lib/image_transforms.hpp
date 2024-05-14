@@ -113,7 +113,7 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input,
                              ortc::Tensor<int64_t>& num_img_takens) {
   auto& dimensions = input.Shape();
   if (dimensions.size() != 3ULL) {
-    return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Only raw image formats"};
+    return {kOrtxErrorInvalidArgument, "[hd_transform]: Only raw image formats"};
   }
 
   // Normalize the pixel value with mean and var
@@ -152,8 +152,8 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input,
   // shapes = [[im.size(1), im.size(2)] for im in hd_images]
   {
     auto shapes = image_sizes.Allocate({2});
-    shapes[0] = shape[0] = input.Shape()[0];
-    shapes[1] = shape[1] = input.Shape()[1];
+    shapes[0] = shape[0] = elem.cols;
+    shapes[1] = shape[1] = elem.rows;
   }
   // num_img_tokens = [int((h//336*w//336+1)*144 + 1 + (h//336+1)*12) for h, w in shapes]
   {
@@ -170,17 +170,21 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input,
   // image_transformed = [pad_to_max_num_crops_tensor(im, self.num_crops+1) for im in hd_images_reshape]
   // image_transformed = torch.stack(image_transformed, dim=0)
   // padded_images = image_transformed
-  std::vector<int64_t> padded_image_shape = {max_crops, 3, image_resized_height, image_resized_width};
+  std::vector<int64_t> padded_image_shape = {max_crops + 1, 3, image_resized_height, image_resized_width};
   char* output_pixel = reinterpret_cast<char*>(pixel_values.Allocate(padded_image_shape));
   // Copy the image pixel value from the global image
   const int image_c_size = image_resized_height * image_resized_width * 3 * sizeof(float);
+  // TODO: need permute channel dimension
   memcpy(output_pixel, global_image.data, image_c_size);
   auto num_crops = shape[0] / image_resized_height;
-  std::uint8_t* image_transformed = nullptr;
+  char* image_transformed = reinterpret_cast<char*>(elem.data);
   for (int i = 0; i < num_crops; ++i) {
+    // TODO: need permute channel dimension
     memcpy(output_pixel + (i + 1) * image_c_size, image_transformed + i * image_c_size, image_c_size);
   }
 
+  // padding the rest of the crops
+  // pad = torch.zeros(max_crops - B, 3, H, W, dtype=images.dtype, device=images.device)
   memset(output_pixel + num_crops * image_c_size, 0, image_c_size * (max_crops - num_crops));
 
   // image_sizes = shapes

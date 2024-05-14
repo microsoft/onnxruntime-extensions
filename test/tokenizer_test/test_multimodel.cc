@@ -105,6 +105,8 @@ TEST(MultiModelTest, Test1) {
       &image_sizes,
       &num_img_takens);
 
-  proc->ClearOutputs(&r);
   ASSERT_TRUE(status.IsOk());
+  ASSERT_EQ(pixel_values->Shape(),  std::vector<int64_t>({2, 17, 3, 336, 336}));
+
+  proc->ClearOutputs(&r);
 }

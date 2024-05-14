@@ -159,7 +159,9 @@ class Operation {
 
 struct ProcessorResult : public OrtxObjectImpl {
   ProcessorResult() : OrtxObjectImpl(kOrtxKindProcessorResult) {}
-  Operation* last_operation_{};
+  ortc::Tensor<float>* pixel_values{};
+  ortc::Tensor<int64_t>* image_sizes{};
+  ortc::Tensor<int64_t>* num_img_takens{};
 };
 
 class ImageProcessor : public OrtxObjectImpl {

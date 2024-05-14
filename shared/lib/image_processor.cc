@@ -42,7 +42,7 @@ OrtxStatus Operation::Init(std::string_view op_def) {
   op_name_ = op_name;
   kernel_ = kernel_iter->second();
 
-  /*
+  /* TODO: parse the attributes
     if (op_json.contains("attrs")) {
       auto attrs = op_json.at("attrs");
       attrs.get_to(attributes_);
@@ -65,20 +65,19 @@ class OrtxRunner {
       : allocator_(allocator), ops_(ops, ops + op_num) {}
 
   template <typename IT, typename OT>  // batch input/output containter
-  OrtxStatus Run(IT& inputs, OT& outputs) {
-    OT output_list;
-    Operation* last_op = nullptr;
-    for (size_t i = 0; i < inputs.size(); ++i) {
-      if (last_op != nullptr) {
-        last_op->ResetTensors(allocator_);
-      }
-
-      auto& input = *(inputs.begin() + i);
+  OrtxStatus Run(IT& input_seq, OT& output_seq) {
+    for (size_t i = 0; i < input_seq.size(); ++i) {
+      auto& input = *(input_seq.begin() + i);
+      Operation* last_op = nullptr;
+      // squentially apply the operations
       for (auto& op : ops_) {
+        if (last_op != nullptr) {
+          last_op->ResetTensors(allocator_);
+        }
         auto [status, ts_output] = op->Apply(allocator_, input);
         if (status.IsOk()) {
           if (op == ops_.back()) {
-            output_list.push_back(ts_output);
+            output_seq.push_back(ts_output);
           } else {
             input = ts_output;
           }
@@ -90,7 +89,6 @@ class OrtxRunner {
       }
     }
 
-    outputs = std::move(output_list);
     return {};
   }
 
@@ -148,16 +146,49 @@ ImageProcessor::ImageProcessor()
     : allocator_(&g_allocator_), OrtxObjectImpl(kOrtxKindProcessor) {
 }
 
+template <typename T>
+static ortc::Tensor<T>*
+StackTensor(const std::vector<TensorArgs>& arg_lists, int axis, ortc::IAllocator* allocator) {
+  using TT = ortc::Tensor<T>;
+  auto output = std::make_unique<TT>(allocator);
+
+  if (arg_lists.empty()) {
+    return nullptr;
+  }
+
+  size_t batch_size = arg_lists.size();
+
+  std::vector<TT*> ts_ptrs;
+  ts_ptrs.reserve(arg_lists.size());
+  std::vector<int64_t> shape = arg_lists[0][axis]->Shape();
+  for (auto& ts : arg_lists) {
+    if (shape != ts[axis]->Shape()) {
+      return nullptr;
+    }
+    ts_ptrs.push_back(static_cast<TT*>(ts[axis]));
+  }
+
+  std::vector<int64_t> output_shape = shape;
+  output_shape.insert(output_shape.begin(), batch_size);
+
+  char* buff = reinterpret_cast<char*>(output->Allocate(output_shape));
+  for (size_t i = 0; i < batch_size; ++i) {
+    auto ts = ts_ptrs[i];
+    const char* ts_buff = reinterpret_cast<const char*>(ts->DataRaw());
+    auto ts_size = ts->SizeInBytes();
+    std::memcpy(buff + i * ts_size, ts_buff, ts_size);
+  }
+
+  return output.release();
+}
+
 std::tuple<OrtxStatus, ProcessorResult>
 ImageProcessor::PreProcess(
     ort_extensions::span<ImageRawData> image_data,
     ortc::Tensor<float>** pixel_values,
     ortc::Tensor<int64_t>** image_sizes,
     ortc::Tensor<int64_t>** num_img_takens) {
-
   ProcessorResult r;
-  r.last_operation_ = operations_.back().get();
-
   std::vector<TensorArgs> inputs;
   inputs.resize(image_data.size());
   for (size_t i = 0; i < image_data.size(); ++i) {
@@ -168,13 +199,13 @@ ImageProcessor::PreProcess(
   }
 
   std::vector<TensorArgs> outputs;
-  outputs.resize(image_data.size());
-  for (size_t i = 0; i < image_data.size(); ++i) {
-    auto& ts_output = outputs[i];
-    ts_output.push_back(std::make_unique<ortc::Tensor<uint8_t>>(allocator_).release());
-    ts_output.push_back(std::make_unique<ortc::Tensor<int64_t>>(allocator_).release());
-    ts_output.push_back(std::make_unique<ortc::Tensor<int64_t>>(allocator_).release());
-  }
+  // outputs.resize(image_data.size());
+  // for (size_t i = 0; i < image_data.size(); ++i) {
+  //   auto& ts_output = outputs[i];
+  //   ts_output.push_back(std::make_unique<ortc::Tensor<uint8_t>>(allocator_).release());
+  //   ts_output.push_back(std::make_unique<ortc::Tensor<int64_t>>(allocator_).release());
+  //   ts_output.push_back(std::make_unique<ortc::Tensor<int64_t>>(allocator_).release());
+  // }
 
   std::vector<Operation*> ops(operations_.size());
   std::transform(operations_.begin(), operations_.end(), ops.begin(), [](auto& op) { return op.get(); });
@@ -187,21 +218,32 @@ ImageProcessor::PreProcess(
   // clear the input tensors
   for (auto& input : inputs) {
     for (auto& ts : input) {
-      delete ts;
+      std::unique_ptr<ortc::TensorBase>(ts).reset();
     }
   }
 
-  *pixel_values = static_cast<ortc::Tensor<float>*>(outputs[0][0]);
-  *image_sizes = static_cast<ortc::Tensor<int64_t>*>(outputs[0][1]);
-  *num_img_takens = static_cast<ortc::Tensor<int64_t>*>(outputs[0][2]);
+  operations_.back()->ResetTensors(allocator_);
+
+  *pixel_values = r.pixel_values = StackTensor<float>(outputs, 0, allocator_);
+  *image_sizes = r.image_sizes = StackTensor<int64_t>(outputs, 1, allocator_);
+  *num_img_takens = r.num_img_takens = StackTensor<int64_t>(outputs, 2, allocator_);
 
   return {status, r};
 }
 
 void ImageProcessor::ClearOutputs(ProcessorResult* r) {
-  if (r != nullptr) {
-    if (r->last_operation_ != nullptr) {
-      r->last_operation_->ResetTensors(allocator_);
-    }
+  if (r->pixel_values) {
+    std::unique_ptr<ortc::TensorBase>(r->pixel_values).reset();
+    r->pixel_values = nullptr;
+  }
+
+  if (r->image_sizes) {
+    std::unique_ptr<ortc::TensorBase>(r->image_sizes).reset();
+    r->image_sizes = nullptr;
+  }
+
+  if (r->num_img_takens) {
+    std::unique_ptr<ortc::TensorBase>(r->num_img_takens).reset();
+    r->num_img_takens = nullptr;
   }
 }
