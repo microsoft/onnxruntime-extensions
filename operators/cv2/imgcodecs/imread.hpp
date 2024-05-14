@@ -4,7 +4,7 @@
 #include "status.h"
 #include "string_tensor.h"
 
-OrtxStatus image_reader(const ortc::Tensor<std::string>& input,
+inline OrtxStatus image_reader(const ortc::Tensor<std::string>& input,
                         ortc::Tensor<uint8_t>& output) {
   auto& input_data_dimensions = input.Shape();
   auto n = input_data_dimensions[0];

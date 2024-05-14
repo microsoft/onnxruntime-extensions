@@ -12,7 +12,7 @@
 
 #include <cstdint>
 
-OrtxStatus image_decoder(const ortc::Tensor<uint8_t>& input,
+inline OrtxStatus image_decoder(const ortc::Tensor<uint8_t>& input,
                          ortc::Tensor<uint8_t>& output) {
   auto& dimensions = input.Shape();
   if (dimensions.size() != 1ULL) {
