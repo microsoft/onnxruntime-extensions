@@ -151,7 +151,7 @@ ImageProcessor::ImageProcessor()
 std::tuple<OrtxStatus, ProcessorResult>
 ImageProcessor::PreProcess(
     ort_extensions::span<ImageRawData> image_data,
-    ortc::Tensor<uint8_t>** pixel_values,
+    ortc::Tensor<float>** pixel_values,
     ortc::Tensor<int64_t>** image_sizes,
     ortc::Tensor<int64_t>** num_img_takens) {
 
@@ -184,11 +184,18 @@ ImageProcessor::PreProcess(
     return {status, r};
   }
 
-  *pixel_values = static_cast<ortc::Tensor<uint8_t>*>(outputs[0][0]);
+  // clear the input tensors
+  for (auto& input : inputs) {
+    for (auto& ts : input) {
+      delete ts;
+    }
+  }
+
+  *pixel_values = static_cast<ortc::Tensor<float>*>(outputs[0][0]);
   *image_sizes = static_cast<ortc::Tensor<int64_t>*>(outputs[0][1]);
   *num_img_takens = static_cast<ortc::Tensor<int64_t>*>(outputs[0][2]);
 
-  return {{}, r};
+  return {status, r};
 }
 
 void ImageProcessor::ClearOutputs(ProcessorResult* r) {

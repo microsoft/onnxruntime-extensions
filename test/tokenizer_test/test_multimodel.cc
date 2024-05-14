@@ -95,14 +95,15 @@ TEST(MultiModelTest, Test1) {
   auto [input_data, n_data] = LoadRawImages({"data/multimodel/exceltable.png", "data/multimodel/australia.jpg"});
 
   ProcessorPtr proc(transform_def);
-  ortc::Tensor<uint8_t>* pixel_values;
+  ortc::Tensor<float>* pixel_values;
   ortc::Tensor<int64_t>* image_sizes;
   ortc::Tensor<int64_t>* num_img_takens;
 
-  auto [status, r] = proc->PreProcess(ort_extensions::span(input_data.get(), (size_t)n_data),
-                                 &pixel_values,
-                                 &image_sizes,
-                                 &num_img_takens);
+  auto [status, r] = proc->PreProcess(
+      ort_extensions::span(input_data.get(), (size_t)n_data),
+      &pixel_values,
+      &image_sizes,
+      &num_img_takens);
 
   proc->ClearOutputs(&r);
   ASSERT_TRUE(status.IsOk());

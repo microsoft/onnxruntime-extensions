@@ -11,8 +11,8 @@ constexpr int num_img_tokens = 144;
 constexpr int image_resized_width = 336;
 constexpr int image_resized_height = 336;
 
-constexpr double OPENAI_CLIP_MEAN[] = {0.48145466, 0.4578275, 0.40821073};
-constexpr double OPENAI_CLIP_STD[] = {0.26862954, 0.26130258, 0.27577711};
+constexpr float OPENAI_CLIP_MEAN[] = {0.48145466, 0.4578275, 0.40821073};
+constexpr float OPENAI_CLIP_STD[] = {0.26862954, 0.26130258, 0.27577711};
 
 inline OrtxStatus convert_to_rgb(const ortc::Tensor<uint8_t>& input,
                           ortc::Tensor<uint8_t>& output) {
@@ -108,7 +108,7 @@ inline cv::Mat hd_transform(const cv::Mat& image, int hd_num) {
 }
 
 inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input,
-                             ortc::Tensor<uint8_t>& pixel_values,
+                             ortc::Tensor<float>& pixel_values,
                              ortc::Tensor<int64_t>& image_sizes,
                              ortc::Tensor<int64_t>& num_img_takens) {
   auto& dimensions = input.Shape();
@@ -123,21 +123,21 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input,
   auto c = dimensions[2];
 
   // Allocate memory for output tensors
-  auto rgb_image_ptr = std::make_unique<uint8_t[]>(h * w * c);
+  auto rgb_image_ptr = std::make_unique<float[]>(h * w * c);
   auto p_pixel_values = rgb_image_ptr.get();
   for (int64_t j = 0; j < h; ++j) {
     for (int64_t k = 0; k < w; ++k) {
       auto c0_index = j * w * c + k * c;
-      p_pixel_values[c0_index] = static_cast<uint8_t>((input_data[c0_index] - OPENAI_CLIP_MEAN[0]) / OPENAI_CLIP_STD[0]);
-      p_pixel_values[c0_index + 1] = static_cast<uint8_t>((input_data[c0_index + 1] - OPENAI_CLIP_MEAN[1]) / OPENAI_CLIP_STD[1]);
-      p_pixel_values[c0_index + 2] = static_cast<uint8_t>((input_data[c0_index + 2] - OPENAI_CLIP_MEAN[2]) / OPENAI_CLIP_STD[2]);
+      p_pixel_values[c0_index] = (static_cast<float>(input_data[c0_index]) - OPENAI_CLIP_MEAN[0]) / OPENAI_CLIP_STD[0];
+      p_pixel_values[c0_index + 1] = (static_cast<float>(input_data[c0_index + 1]) - OPENAI_CLIP_MEAN[1]) / OPENAI_CLIP_STD[1];
+      p_pixel_values[c0_index + 2] = (static_cast<float>(input_data[c0_index + 2]) - OPENAI_CLIP_MEAN[2]) / OPENAI_CLIP_STD[2];
     }
   }
 
   std::vector<int32_t> height_x_width{static_cast<int32_t>(h),   // H
                                       static_cast<int32_t>(w)};  // W
 
-  cv::Mat rgb_image(height_x_width, CV_8UC3, p_pixel_values);
+  cv::Mat rgb_image(height_x_width, CV_32FC3, p_pixel_values);
   // elems = [HD_transform(im, hd_num = self.num_crops) for im in images]
   auto elem = hd_transform(rgb_image, max_crops);
   // # tensor transform and normalize
@@ -171,9 +171,9 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input,
   // image_transformed = torch.stack(image_transformed, dim=0)
   // padded_images = image_transformed
   std::vector<int64_t> padded_image_shape = {max_crops, 3, image_resized_height, image_resized_width};
-  auto output_pixel = pixel_values.Allocate(padded_image_shape);
+  char* output_pixel = reinterpret_cast<char*>(pixel_values.Allocate(padded_image_shape));
   // Copy the image pixel value from the global image
-  const int image_c_size = image_resized_height * image_resized_width * 3;
+  const int image_c_size = image_resized_height * image_resized_width * 3 * sizeof(float);
   memcpy(output_pixel, global_image.data, image_c_size);
   auto num_crops = shape[0] / image_resized_height;
   std::uint8_t* image_transformed = nullptr;

@@ -172,7 +172,7 @@ class ImageProcessor : public OrtxObjectImpl {
   std::tuple<OrtxStatus, ProcessorResult>
   PreProcess(
       ort_extensions::span<ImageRawData> image_data,
-      ortc::Tensor<uint8_t>** pixel_values,
+      ortc::Tensor<float>** pixel_values,
       ortc::Tensor<int64_t>** image_sizes,
       ortc::Tensor<int64_t>** num_img_takens);
 
