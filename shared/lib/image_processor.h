@@ -18,6 +18,9 @@ namespace ort_extensions {
 using ImageRawData = std::vector<uint8_t>;
 using TensorArgs = std::vector<ortc::TensorBase*>;
 
+std::tuple<std::unique_ptr<ImageRawData[]>, size_t>
+LoadRawImages(const std::initializer_list<const char*>& image_paths);
+
 class KernelClass {
  public:
   KernelClass() = default;

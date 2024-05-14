@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include <fstream>
 #include "nlohmann/json.hpp"
 #include "image_processor.h"
 #include "cv2/imgcodecs/imdecode.hpp"
@@ -8,6 +9,30 @@
 
 using namespace ort_extensions;
 using json = nlohmann::json;
+
+namespace ort_extensions {
+std::tuple<std::unique_ptr<ImageRawData[]>, size_t>
+LoadRawImages(const std::initializer_list<const char*>& image_paths) {
+  auto raw_images = std::make_unique<ImageRawData[]>(image_paths.size());
+  size_t n = 0;
+  for (const auto& image_path : image_paths) {
+    std::ifstream ifs(image_path, std::ios::binary);
+    if (!ifs.is_open()) {
+      break;
+    }
+
+    ifs.seekg(0, std::ios::end);
+    size_t size = ifs.tellg();
+    ifs.seekg(0, std::ios::beg);
+
+    ImageRawData& raw_image = raw_images[n++];
+    raw_image.resize(size);
+    ifs.read(reinterpret_cast<char*>(raw_image.data()), size);
+  }
+
+  return std::make_tuple(std::move(raw_images), n);
+}
+}  // namespace ort_extensions
 
 std::unordered_map<std::string_view, std::function<std::unique_ptr<KernelClass>()>> Operation::kernel_registry_ = {
     {"DecodeImage", []() { return DefineKernelFunction(image_decoder); }},

@@ -32,27 +32,6 @@ class ProcessorPtr : public std::unique_ptr<ImageProcessor, OrtxDeleter> {
   int err_ = kOrtxOK;
 };
 
-auto LoadRawImages(const std::initializer_list<const char*>& image_paths) {
-  auto raw_images = std::make_unique<ImageRawData[]>(image_paths.size());
-  size_t n = 0;
-  for (const auto& image_path : image_paths) {
-    std::ifstream ifs(image_path, std::ios::binary);
-    if (!ifs.is_open()) {
-      break;
-    }
-
-    ifs.seekg(0, std::ios::end);
-    size_t size = ifs.tellg();
-    ifs.seekg(0, std::ios::beg);
-
-    ImageRawData& raw_image = raw_images[n++];
-    raw_image.resize(size);
-    ifs.read(reinterpret_cast<char*>(raw_image.data()), size);
-  }
-
-  return std::make_tuple(std::move(raw_images), n);
-}
-
 TEST(MultiModelTest, Test1) {
   const char transform_def[] = R"(
 {
@@ -92,7 +71,8 @@ TEST(MultiModelTest, Test1) {
 }
   )";
 
-  auto [input_data, n_data] = LoadRawImages({"data/multimodel/australia.jpg", "data/multimodel/exceltable.png"});
+  auto [input_data, n_data] = ort_extensions::LoadRawImages(
+      {"data/multimodel/australia.jpg", "data/multimodel/exceltable.png"});
 
   ProcessorPtr proc(transform_def);
   ortc::Tensor<float>* pixel_values;
@@ -106,7 +86,7 @@ TEST(MultiModelTest, Test1) {
       &num_img_takens);
 
   ASSERT_TRUE(status.IsOk());
-  ASSERT_EQ(pixel_values->Shape(),  std::vector<int64_t>({2, 17, 3, 336, 336}));
+  ASSERT_EQ(pixel_values->Shape(), std::vector<int64_t>({2, 17, 3, 336, 336}));
 
   proc->ClearOutputs(&r);
 }
