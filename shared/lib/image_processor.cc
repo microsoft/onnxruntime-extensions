@@ -9,49 +9,13 @@
 using namespace ort_extensions;
 using json = nlohmann::json;
 
-// {
-//   "processor": {
-//     "name": "image_processing",
-//     "transforms": [
-//       {
-//         "operation": {
-//           "name": "decode_image",
-//           "domain": "com.microsoft.extensions",
-//           "type": "DecodeImage",
-//           "attrs": {
-//             "color_space": "BGR"
-//           }
-//         }
-//       },
-//       {
-//         "operation": {
-//           "name": "convert_to_rgb",
-//           "domain": "com.microsoft.extensions",
-//           "type": "ConvertRGB"
-//         }
-//       },
-//       {
-//         "operation": {
-//           "name": "phi3_image_transform",
-//           "domain": "com.microsoft.extensions",
-//           "type": "Phi3ImageTransform",
-//           "attrs": {
-//             "num_crops": 16,
-//             "num_img_tokens": 144
-//           }
-//         }
-//       }
-//     ]
-//   }
-// }
-
 std::unordered_map<std::string_view, std::function<std::unique_ptr<KernelClass>()>> Operation::kernel_registry_ = {
     {"DecodeImage", []() { return DefineKernelFunction(image_decoder); }},
     {"ConvertRGB", []() { return DefineKernelFunction(convert_to_rgb); }},
     {"Phi3ImageTransform", []() { return DefineKernelFunction(phi3_hd_transform); }},
 };
 
-OrtxStatus Operation::Create(std::string_view op_def, std::unique_ptr<Operation>& op) {
+OrtxStatus Operation::Init(std::string_view op_def) {
   // parse the op_def by json
   auto full_json = json::parse(op_def);
   if (!full_json.is_object()) {
@@ -75,14 +39,15 @@ OrtxStatus Operation::Create(std::string_view op_def, std::unique_ptr<Operation>
     return {kOrtxErrorInvalidArgument, "[Operation]: type is not supported."};
   }
 
-  op = std::move(std::make_unique<Operation>(*kernel_iter->second()));
+  op_name_ = op_name;
+  kernel_ = kernel_iter->second();
 
-  if (op_json.contains("attrs")) {
-    auto attrs = op_json.at("attrs");
-    attrs.get_to(op->attributes_);
-  }
-
-  op->op_name_ = op_name;
+  /*
+    if (op_json.contains("attrs")) {
+      auto attrs = op_json.at("attrs");
+      attrs.get_to(attributes_);
+    }
+  */
   return {};
 }
 
@@ -93,14 +58,6 @@ void Operation::ResetTensors(ortc::IAllocator* allocator) {
 Operation::~Operation() {
   ResetTensors(allocator_);
 }
-
-// std::tuple<OrtxStatus, std::list<ortc::TensorBase*>>
-// Operation::Apply(ortc::IAllocator* allocator, std::vector<ortc::TensorBase*> inputs) {
-//   // split the inputs along with batch dimension
-//   allocator_ = allocator;
-//   std::vector<ortc::TensorBase*> batched_inputs;
-
-// }
 
 class OrtxRunner {
  public:
@@ -162,8 +119,8 @@ OrtxStatus ImageProcessor::Init(std::string_view processor_def) {
 
   operations_.reserve(transforms.size());
   for (auto mod_iter = transforms.begin(); mod_iter != transforms.end(); ++mod_iter) {
-    std::unique_ptr<Operation> op;
-    auto status = Operation::Create(mod_iter->dump(), op);
+    auto op = std::make_unique<Operation>();
+    auto status = op->Init(mod_iter->dump());
     if (!status.IsOk()) {
       return status;
     }
@@ -197,12 +154,6 @@ OrtxStatus ImageProcessor::PreProcess(
     ts_output.push_back(std::make_unique<ortc::Tensor<int64_t>>(allocator_).release());
   }
 
-  // std::unique_ptr<ortc::TensorBase> outputs[] = {
-  //     std::make_unique<ortc::Tensor<float>>(allocator_),    // pixel_values
-  //     std::make_unique<ortc::Tensor<int64_t>>(allocator_),  // image_sizes
-  //     std::make_unique<ortc::Tensor<int64_t>>(allocator_),  // num_img_takens
-  // };
-
   std::vector<Operation*> ops(operations_.size());
   std::transform(operations_.begin(), operations_.end(), ops.begin(), [](auto& op) { return op.get(); });
   OrtxRunner runner(allocator_, ops.data(), ops.size());
@@ -210,29 +161,6 @@ OrtxStatus ImageProcessor::PreProcess(
   if (!status.IsOk()) {
     return status;
   }
-
-  // ortc::Tensor<uint8_t> image_input(image_data.data(), image_data.size());
-  // std::vector<ortc::TensorBase*> intermediate_tensors = {&image_input};
-
-  // Operation* last_op = nullptr;
-  // for (auto& op : operations_) {
-  //   if (last_op != nullptr) {
-  //     last_op->ResetTensors(allocator_);
-  //   }
-
-  //   auto [ts1, status] = op.Apply(allocator_, intermediate_tensors);
-  //   if (status.IsOk()) {
-  //     intermediate_tensors = std::move(ts1);
-  //   } else {
-  //     return status;
-  //   }
-
-  //   last_op = &op;
-  // }
-
-  // if (intermediate_tensors.size() != 3) {
-  //   return {kOrtxErrorCorruptData, "The last op in processor json definition should return 3 tensors."};
-  // }
 
   *pixel_values = static_cast<ortc::Tensor<float>*>(outputs[0][0]);
   *image_sizes = static_cast<ortc::Tensor<int64_t>*>(outputs[0][1]);
