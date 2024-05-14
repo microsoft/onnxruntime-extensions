@@ -48,26 +48,28 @@ class KernelClass {
     return std::make_tuple(static_cast<T>(*tensor));
   }
 
-  template <typename T, typename EIT = void>
-  static ortc::TensorBase* AllocateTensor(ortc::IAllocator* allocator) {
+  template <typename T>
+  static typename std::enable_if<std::is_const<T>::value, ortc::TensorBase*>::type
+  AllocateTensor(ortc::IAllocator* allocator) {
     return nullptr;
   }
 
-  template <typename T, typename std::enable_if_t<std::is_const<T>::value, int> = 0>
-  static ortc::TensorBase* AllocateTensor(ortc::IAllocator* allocator) {
+  template <typename T>
+  static typename std::enable_if<!std::is_const<T>::value, ortc::TensorBase*>::type
+  AllocateTensor(ortc::IAllocator* allocator) {
     return std::make_unique<T>(allocator).release();
   }
 
   template <typename... Args>
-  static auto AllocateTuple(ortc::IAllocator* allocator, std::tuple<Args...>* = nullptr) {
+  static auto AllocateTuple(ortc::IAllocator* allocator, std::tuple<Args...>*) {
     return std::make_tuple(AllocateTensor<Args>(allocator)...);
   }
 
   template <typename... Args>
   static std::vector<ortc::TensorBase*> AllocateOutput(ortc::IAllocator* allocator) {
     using tuple_no_ref = std::tuple<typename std::remove_reference<Args>::type...>;
-    auto result = AllocateTuple<tuple_no_ref>(allocator);
-    return std::apply([](auto&&... elems) { return std::vector<ortc::TensorBase*>{elems...}; }, std::move(result));
+    auto result = AllocateTuple(allocator, (tuple_no_ref*)0);
+    return std::apply([](auto&&... elems) { return std::vector<ortc::TensorBase*>{std::forward<decltype(elems)>(elems)...}; }, std::move(result));
   }
 
   static auto CastOutputAllType(TensorArgs::iterator tensor) {
@@ -95,7 +97,7 @@ class KernelFunction : public KernelClass {
   virtual ~KernelFunction() = default;
 
   OrtxStatus Compute(Args... args) const {
-    return body_(args...);
+    return body_(std::forward<Args>(args)...);
   }
 
   TensorArgs AllocateOutput(ortc::IAllocator* allocator) const override {
@@ -115,10 +117,8 @@ class KernelFunction : public KernelClass {
     all_args.reserve(inputs.size() + outputs.size());
     all_args.insert(all_args.end(), inputs.begin(), inputs.end());
     all_args.insert(all_args.end(), outputs.begin(), outputs.end());
-    // auto input_output = std::tuple_cat(CastTensors<Args...>(inputs), CastTensors<Args...>(outputs));
     auto args_tuple = std::tuple_cat(CastTensors<Args...>(all_args));
-    // auto input_output = CastInputType<Args...>(inputs, 0);
-    return std::apply([this](auto&&... args) { return this->Compute(*args...); }, args_tuple);
+    return std::apply([this](auto&&... args) { return this->Compute(std::forward<decltype(*args)>(*args)...); }, std::move(args_tuple));
   }
 
  private:
@@ -150,25 +150,33 @@ class Operation {
 
  private:
   static std::unordered_map<std::string_view, std::function<std::unique_ptr<KernelClass>()>> kernel_registry_;
-  
+
   std::unique_ptr<KernelClass> kernel_;
   std::string op_name_;
   std::unordered_map<std::string, std::string> attributes_;
   ortc::IAllocator* allocator_{};
 };
 
+struct ProcessorResult : public OrtxObjectImpl {
+  ProcessorResult() : OrtxObjectImpl(kOrtxKindProcessorResult) {}
+  Operation* last_operation_{};
+};
+
 class ImageProcessor : public OrtxObjectImpl {
  public:
-  ImageProcessor() : OrtxObjectImpl(kOrtxKindProcessor){};
+  ImageProcessor();
   virtual ~ImageProcessor() = default;
 
   OrtxStatus Init(std::string_view processor_def);
 
-  OrtxStatus PreProcess(
+  std::tuple<OrtxStatus, ProcessorResult>
+  PreProcess(
       ort_extensions::span<ImageRawData> image_data,
-      ortc::Tensor<float>** pixel_values,
+      ortc::Tensor<uint8_t>** pixel_values,
       ortc::Tensor<int64_t>** image_sizes,
       ortc::Tensor<int64_t>** num_img_takens);
+
+  void ClearOutputs(ProcessorResult* r);
 
  private:
   std::vector<std::unique_ptr<Operation>> operations_;

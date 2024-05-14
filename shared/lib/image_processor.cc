@@ -61,7 +61,7 @@ Operation::~Operation() {
 
 class OrtxRunner {
  public:
-  OrtxRunner(ortc::IAllocator* allocator, Operation** ops, int op_num)
+  OrtxRunner(ortc::IAllocator* allocator, Operation** ops, size_t op_num)
       : allocator_(allocator), ops_(ops, ops + op_num) {}
 
   template <typename IT, typename OT>  // batch input/output containter
@@ -77,7 +77,7 @@ class OrtxRunner {
       for (auto& op : ops_) {
         auto [status, ts_output] = op->Apply(allocator_, input);
         if (status.IsOk()) {
-          if (i == input.size() - 1) {
+          if (op == ops_.back()) {
             output_list.push_back(ts_output);
           } else {
             input = ts_output;
@@ -91,7 +91,6 @@ class OrtxRunner {
     }
 
     outputs = std::move(output_list);
-
     return {};
   }
 
@@ -131,11 +130,34 @@ OrtxStatus ImageProcessor::Init(std::string_view processor_def) {
   return {};
 }
 
-OrtxStatus ImageProcessor::PreProcess(
+class SimpleAllocator : public ortc::IAllocator {
+ public:
+  void* Alloc(size_t size) override {
+    return std::make_unique<char[]>(size).release();
+  }
+
+  void Free(void* p) override {
+    std::unique_ptr<char[]> ptr(static_cast<char*>(p));
+    ptr.reset();
+  }
+};
+
+static SimpleAllocator g_allocator_;
+
+ImageProcessor::ImageProcessor()
+    : allocator_(&g_allocator_), OrtxObjectImpl(kOrtxKindProcessor) {
+}
+
+std::tuple<OrtxStatus, ProcessorResult>
+ImageProcessor::PreProcess(
     ort_extensions::span<ImageRawData> image_data,
-    ortc::Tensor<float>** pixel_values,
+    ortc::Tensor<uint8_t>** pixel_values,
     ortc::Tensor<int64_t>** image_sizes,
     ortc::Tensor<int64_t>** num_img_takens) {
+
+  ProcessorResult r;
+  r.last_operation_ = operations_.back().get();
+
   std::vector<TensorArgs> inputs;
   inputs.resize(image_data.size());
   for (size_t i = 0; i < image_data.size(); ++i) {
@@ -149,7 +171,7 @@ OrtxStatus ImageProcessor::PreProcess(
   outputs.resize(image_data.size());
   for (size_t i = 0; i < image_data.size(); ++i) {
     auto& ts_output = outputs[i];
-    ts_output.push_back(std::make_unique<ortc::Tensor<float>>(allocator_).release());
+    ts_output.push_back(std::make_unique<ortc::Tensor<uint8_t>>(allocator_).release());
     ts_output.push_back(std::make_unique<ortc::Tensor<int64_t>>(allocator_).release());
     ts_output.push_back(std::make_unique<ortc::Tensor<int64_t>>(allocator_).release());
   }
@@ -159,12 +181,20 @@ OrtxStatus ImageProcessor::PreProcess(
   OrtxRunner runner(allocator_, ops.data(), ops.size());
   auto status = runner.Run(inputs, outputs);
   if (!status.IsOk()) {
-    return status;
+    return {status, r};
   }
 
-  *pixel_values = static_cast<ortc::Tensor<float>*>(outputs[0][0]);
+  *pixel_values = static_cast<ortc::Tensor<uint8_t>*>(outputs[0][0]);
   *image_sizes = static_cast<ortc::Tensor<int64_t>*>(outputs[0][1]);
   *num_img_takens = static_cast<ortc::Tensor<int64_t>*>(outputs[0][2]);
 
-  return {};
+  return {{}, r};
+}
+
+void ImageProcessor::ClearOutputs(ProcessorResult* r) {
+  if (r != nullptr) {
+    if (r->last_operation_ != nullptr) {
+      r->last_operation_->ResetTensors(allocator_);
+    }
+  }
 }

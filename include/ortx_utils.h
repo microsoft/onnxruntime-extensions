@@ -14,6 +14,7 @@ typedef enum {
   kOrtxKindTokenId2DArray = 0x778A,
   kOrtxKindDetokenizerCache = 0x778B,
   kOrtxKindProcessor = 0x778C,
+  kOrtxKindProcessorResult = 0x778D,
   kOrtxKindEnd = 0x7999
 } extObjectKind_t;
 
