@@ -67,6 +67,8 @@ public:
   virtual bool IsInitialized() const = 0;
   virtual void* Initialize(const std::vector<int64_t>& shape, size_t element_size) = 0;
   virtual OrtDevice Device() const = 0;
+  virtual void* Release() = 0;
+  virtual ~ITensorStorage() = default;
 };
 
 
@@ -120,6 +122,13 @@ public:
 
   OrtDevice Device() const override {
     return device_;
+  }
+
+  void* Release() override {
+    void* tmp = buffer_;
+    buffer_ = 0;
+    shape_ = std::nullopt;
+    return tmp;
   }
 
 private:
@@ -187,8 +196,24 @@ class Tensor : public TensorBase {
 
   virtual ~Tensor() = default;
 
+  Tensor(const Tensor& src) = delete;
+
+  Tensor& operator=(Tensor src) = delete;
+
+  Tensor(Tensor&& other) : storage_(std::move(other.storage_)) {
+    other.storage_ = nullptr;
+    other.span_ = {};
+  }
+
+  Tensor& operator=(Tensor&& other)
+  {
+    storage_ = std::move(other.storage_);
+    other.span_ = {};
+    return *this;
+  }
+
   operator bool() const {
-    return storage_->IsInitialized();
+    return storage_ && storage_->IsInitialized();
   }
 
   ONNXTensorElementDataType Type() const override {
@@ -196,10 +221,14 @@ class Tensor : public TensorBase {
   }
 
   const std::vector<int64_t>& Shape() const override {
+    if (!storage_)
+      ORTX_CXX_API_THROW("tensor not initialized.", ORT_RUNTIME_EXCEPTION);
     return storage_->Shape();
   }
 
   int64_t NumberOfElement() const override {
+    if (!storage_)
+      ORTX_CXX_API_THROW("tensor not initialized.", ORT_RUNTIME_EXCEPTION);
     auto& shape = storage_->Shape();
     return std::accumulate(shape.begin(), shape.end(), 1LL, std::multiplies<int64_t>());
   }
@@ -209,7 +238,9 @@ class Tensor : public TensorBase {
   }
 
   std::string Shape2Str() const {
-    if (storage_->IsInitialized()) {
+    if (!storage_)
+      ORTX_CXX_API_THROW("tensor not initialized.", ORT_RUNTIME_EXCEPTION);
+    if (storage_&& storage_->IsInitialized()) {
       std::string shape_str;
       auto& shape = storage_->Shape();
       for (const auto& dim : shape) {
@@ -221,8 +252,17 @@ class Tensor : public TensorBase {
       return "empty";
     }
   }
+
+  void* Release() {
+    if (!storage_)
+      ORTX_CXX_API_THROW("tensor not initialized.", ORT_RUNTIME_EXCEPTION);
+    span_ = {};
+    return storage_->Release();
+  }
   
   const TT* Data() const {
+    if (!storage_)
+      ORTX_CXX_API_THROW("tensor not initialized.", ORT_RUNTIME_EXCEPTION);
 #if ORT_API_VERSION >= 16
     if constexpr (std::is_same<TT, MFloat16>::value || std::is_same<TT, BFloat16>::value)
       return reinterpret_cast<const TT*>(storage_->DataRaw());
@@ -232,6 +272,8 @@ class Tensor : public TensorBase {
   }
 
   const void* DataRaw() const override {
+    if (!storage_)
+      ORTX_CXX_API_THROW("tensor not initialized.", ORT_RUNTIME_EXCEPTION);
     return storage_->DataRaw();
   }
 
@@ -240,10 +282,14 @@ class Tensor : public TensorBase {
   }
 
   size_t SizeInBytes() const override {
+    if (!storage_)
+      ORTX_CXX_API_THROW("tensor not initialized.", ORT_RUNTIME_EXCEPTION);
     return NumberOfElement() * sizeof(TT);
   }
 
   TT* Allocate(const std::vector<int64_t>& shape) {
+    if (!storage_)
+      ORTX_CXX_API_THROW("tensor not initialized.", ORT_RUNTIME_EXCEPTION);
     // it should be OK to allocate multiple times
     void* buffer = storage_->Initialize(shape, sizeof(TT));
 #if ORT_API_VERSION >= 16
@@ -255,6 +301,8 @@ class Tensor : public TensorBase {
   }
 
   const Span<T>& AsSpan() {
+    if (!storage_)
+      ORTX_CXX_API_THROW("tensor not initialized.", ORT_RUNTIME_EXCEPTION);
 #if ORT_API_VERSION >= 16
     if constexpr (std::is_same<TT, MFloat16>::value || std::is_same<TT, BFloat16>::value) {
         ORTX_CXX_API_THROW("AsSpan for MFloat16 / BFloat16 not implemented", ORT_RUNTIME_EXCEPTION);
@@ -273,6 +321,8 @@ class Tensor : public TensorBase {
   }
 
   const T& AsScalar() {
+    if (!storage_)
+      ORTX_CXX_API_THROW("tensor not initialized.", ORT_RUNTIME_EXCEPTION);
 #if ORT_API_VERSION >= 16
     if constexpr (std::is_same<TT, MFloat16>::value || std::is_same<TT, BFloat16>::value) {
       ORTX_CXX_API_THROW("AsScalar for MFloat16 / BFloat16 not implemented", ORT_RUNTIME_EXCEPTION);

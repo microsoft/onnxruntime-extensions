@@ -54,6 +54,10 @@ class OrtKernelContextStorage : public ITensorStorage {
     return api_.GetTensorMutableRawData(const_cast<OrtValue*>(const_value_));
   }
 
+  void* Release() override {
+    ORTX_CXX_API_THROW("Can't release the tensor buffer with ORT graph mode.", ORT_RUNTIME_EXCEPTION);
+  }
+
  private:
   const OrtW::CustomOpApi& api_;
   OrtKernelContext& ctx_;
