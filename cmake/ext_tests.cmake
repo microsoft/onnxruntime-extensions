@@ -200,10 +200,10 @@ else()
   endblock()
 
   if (OCOS_ENABLE_C_API)
-    file(GLOB tokenizer_TEST_SRC
-      "${TEST_SRC_DIR}/tokenizer_test/*.c"
-      "${TEST_SRC_DIR}/tokenizer_test/*.cc"
-      "${TEST_SRC_DIR}/tokenizer_test/*.h")
+    file(GLOB pp_api_TEST_SRC
+      "${TEST_SRC_DIR}/pp_api_test/*.c"
+      "${TEST_SRC_DIR}/pp_api_test/*.cc"
+      "${TEST_SRC_DIR}/pp_api_test/*.h")
 
     add_test_target(TARGET tokenizer_api_test
       TEST_SOURCES ${tokenizer_TEST_SRC}

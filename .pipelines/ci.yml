@@ -388,6 +388,17 @@ stages:
         ctest -C RelWithDebInfo --output-on-failure
       displayName: build and test ort-extensions with VC static runtime.
 
+  - job: WindowsPpApi
+    pool:
+      name: 'onnxruntime-extensions-Windows-CPU'
+
+    steps:
+    - script: |
+        call .\build.bat -DOCOS_ENABLE_C_API=ON
+        cd out\Windows
+        ctest -C RelWithDebInfo --output-on-failure
+      displayName: build and test ort-extensions with VC static runtime.
+
   ################
   # Windows Python
   ################
