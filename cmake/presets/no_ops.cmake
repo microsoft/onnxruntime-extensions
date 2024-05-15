@@ -1,0 +1,1 @@
+set(OCOS_ENABLE_CTEST OFF CACHE BOOL "Disable CTest for OCOS")

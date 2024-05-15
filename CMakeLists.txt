@@ -714,11 +714,12 @@ list(APPEND ocos_libraries noexcep_operators)
 target_compile_definitions(ocos_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
 
-file(GLOB shared_TARGET_LIB_SRC "shared/lib/*.cc" "shared/lib/*.h")
-if (NOT OCOS_ENABLE_C_API)
-  file(GLOB shared_TARGET_LIB_C_API_SRC "shared/lib/*tokenizer*")
-  list(REMOVE_ITEM shared_TARGET_LIB_SRC ${shared_TARGET_LIB_C_API_SRC})
+set (file_patterns "shared/lib/*.cc")
+if (OCOS_ENABLE_C_API)
+  list(APPEND file_patterns "shared/api/*.h*" "shared/api/*.cc")
 endif()
+
+file(GLOB shared_TARGET_LIB_SRC ${file_patterns})
 
 if(NOT OCOS_ENABLE_STATIC_LIB AND CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   add_executable(ortcustomops ${shared_TARGET_LIB_SRC})
@@ -887,18 +888,18 @@ if(OCOS_BUILD_APPLE_FRAMEWORK)
 endif()
 
 if (_ORTX_STANDALONE_PROJECT)
-# clean up the requirements.txt files from 3rd party project folder to suppress the code security false alarms
-file(GLOB_RECURSE NO_USE_FILES ${CMAKE_BINARY_DIR}/_deps/*requirements.txt)
-message(STATUS "Found the following requirements.txt: ${NO_USE_FILES}")
+  # clean up the requirements.txt files from 3rd party project folder to suppress the code security false alarms
+  file(GLOB_RECURSE NO_USE_FILES ${CMAKE_BINARY_DIR}/_deps/*requirements.txt)
+  message(STATUS "Found the following requirements.txt: ${NO_USE_FILES}")
 
-foreach(nf ${NO_USE_FILES})
-  execute_process(COMMAND ${CMAKE_COMMAND} -E remove ${nf})
-endforeach()
+  foreach(nf ${NO_USE_FILES})
+    execute_process(COMMAND ${CMAKE_COMMAND} -E remove ${nf})
+  endforeach()
 
-# Run CPack to generate the NuGet package
-include(CPack)
-endif()
+  # Run CPack to generate the NuGet package
+  include(CPack)
 
-if(OCOS_ENABLE_CTEST)
-  include(ext_tests)
+  if(OCOS_ENABLE_CTEST)
+    include(ext_tests)
+  endif()
 endif()
