@@ -7,7 +7,7 @@
 #include "ocos.h"
 
 #include "c_only_test.h"
-#include "shared/lib/tokenizer_impl.h"
+#include "shared/api/tokenizer_impl.h"
 
 static void DumpTokenIds(const std::vector<std::vector<extTokenId_t>>& token_ids) {
 #ifdef _DEBUG
