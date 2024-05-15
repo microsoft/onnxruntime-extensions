@@ -2,24 +2,21 @@
 // Licensed under the MIT License.
 
 #pragma once
+
 #include <list>
 #include <tuple>
+#include <string>
 #include <vector>
 #include <unordered_map>
 
-#include "ortx_processor.h"
+#include "nlohmann/json.hpp"
+#include "op_def_struct.h"
 #include "c_api_utils.hpp"
-
-#include "ocos.h"
-#include "status.h"
 
 namespace ort_extensions {
 
-using ImageRawData = std::vector<uint8_t>;
+using json = nlohmann::json;
 using TensorArgs = std::vector<ortc::TensorBase*>;
-
-std::tuple<std::unique_ptr<ImageRawData[]>, size_t>
-LoadRawImages(const std::initializer_list<const char*>& image_paths);
 
 class KernelClass {
  public:
@@ -135,9 +132,48 @@ std::unique_ptr<KernelClass> DefineKernelFunction(OrtxStatus (*body)(Args...)) {
 
 class Operation {
  public:
-  Operation() = default;
-  OrtxStatus Init(std::string_view op_def);
-  virtual ~Operation();
+  using KernelRegistry = std::unordered_map<std::string_view, std::function<std::unique_ptr<KernelClass>()>>;
+  Operation(const KernelRegistry& registry) { kernel_registry_ = &registry; };
+
+  OrtxStatus Init(std::string_view op_def) {
+    // parse the op_def by json
+    auto full_json = json::parse(op_def);
+    if (!full_json.is_object()) {
+      return {kOrtxErrorInvalidArgument, "[Operation]: failed to parse op_def."};
+    }
+
+    auto op_json = full_json.at("operation");
+
+    auto op_name = op_json.at("name").get<std::string>();
+    if (op_name.empty()) {
+      return {kOrtxErrorInvalidArgument, "[Operation]: name field is missing."};
+    }
+
+    auto op_type = op_json.at("type").get<std::string>();
+    if (op_type.empty()) {
+      return {kOrtxErrorInvalidArgument, "[Operation]: type field is missing."};
+    }
+
+    auto kernel_iter = kernel_registry_->find(op_type);
+    if (kernel_iter == kernel_registry_->end()) {
+      return {kOrtxErrorInvalidArgument, "[Operation]: type is not supported."};
+    }
+
+    op_name_ = op_name;
+    kernel_ = kernel_iter->second();
+
+    /* TODO: parse the attributes
+      if (op_json.contains("attrs")) {
+        auto attrs = op_json.at("attrs");
+        attrs.get_to(attributes_);
+      }
+    */
+    return {};
+  }
+
+  virtual ~Operation() {
+    ResetTensors(allocator_);
+  }
 
   std::tuple<OrtxStatus, std::vector<ortc::TensorBase*>>
   Apply(ortc::IAllocator* allocator, std::vector<ortc::TensorBase*> inputs) {
@@ -146,13 +182,15 @@ class Operation {
     return std::make_tuple(status, outputs);
   }
 
-  void ResetTensors(ortc::IAllocator* allocator);
+  void ResetTensors(ortc::IAllocator* allocator) {
+    outputs_.clear();
+  }
 
  private:
   std::vector<std::unique_ptr<ortc::TensorBase>> outputs_;
 
  private:
-  static std::unordered_map<std::string_view, std::function<std::unique_ptr<KernelClass>()>> kernel_registry_;
+  const KernelRegistry* kernel_registry_;
 
   std::unique_ptr<KernelClass> kernel_;
   std::string op_name_;
@@ -160,31 +198,41 @@ class Operation {
   ortc::IAllocator* allocator_{};
 };
 
-struct ProcessorResult : public OrtxObjectImpl {
-  ProcessorResult() : OrtxObjectImpl(kOrtxKindProcessorResult) {}
-  ortc::Tensor<float>* pixel_values{};
-  ortc::Tensor<int64_t>* image_sizes{};
-  ortc::Tensor<int64_t>* num_img_takens{};
-};
-
-class ImageProcessor : public OrtxObjectImpl {
+class OrtxRunner {
  public:
-  ImageProcessor();
-  virtual ~ImageProcessor() = default;
+  OrtxRunner(ortc::IAllocator* allocator, Operation** ops, size_t op_num)
+      : allocator_(allocator), ops_(ops, ops + op_num) {}
 
-  OrtxStatus Init(std::string_view processor_def);
+  template <typename IT, typename OT>  // batch input/output container
+  OrtxStatus Run(IT& input_seq, OT& output_seq) {
+    for (size_t i = 0; i < input_seq.size(); ++i) {
+      auto& input = *(input_seq.begin() + i);
+      Operation* last_op = nullptr;
+      // sequentially apply the operations
+      for (auto& op : ops_) {
+        if (last_op != nullptr) {
+          last_op->ResetTensors(allocator_);
+        }
+        auto [status, ts_output] = op->Apply(allocator_, input);
+        if (status.IsOk()) {
+          if (op == ops_.back()) {
+            output_seq.push_back(ts_output);
+          } else {
+            input = ts_output;
+          }
+        } else {
+          return status;
+        }
 
-  std::tuple<OrtxStatus, ProcessorResult>
-  PreProcess(
-      ort_extensions::span<ImageRawData> image_data,
-      ortc::Tensor<float>** pixel_values,
-      ortc::Tensor<int64_t>** image_sizes,
-      ortc::Tensor<int64_t>** num_img_takens);
+        last_op = op;
+      }
+    }
 
-  void ClearOutputs(ProcessorResult* r);
+    return {};
+  }
 
  private:
-  std::vector<std::unique_ptr<Operation>> operations_;
+  std::vector<Operation*> ops_;
   ortc::IAllocator* allocator_;
 };
 

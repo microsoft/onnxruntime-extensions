@@ -6,6 +6,7 @@
 
 #include "ortx_utils.h"
 #include "status.h"
+#include "op_def_struct.h"
 
 namespace ort_extensions {
 class OrtxObjectImpl : public OrtxObject {
@@ -124,6 +125,49 @@ class OrtxObjectFactory {
 
 };
 
-class DetokenizerCache;  // deferred definition in tokenizer_impl.cc
+class DetokenizerCache;  // forward definition in tokenizer_impl.cc
+class ProcessorResult;  // forward definition in image_processor.h
+
+template <typename T>
+class OrtxDeleter {
+ public:
+  void operator()(T* p) const {
+    if (p) {
+      OrtxDisposeOnly(p);
+    }
+  }
+};
+
+template <typename T>
+class OrtxObjectPtr : public std::unique_ptr<T, OrtxDeleter<T>> {
+ public:
+  template <typename TFn>
+  OrtxObjectPtr(TFn fn, const char* def) {
+    OrtxObject* proc = nullptr;
+    err_ = fn(&proc, def);
+    if (err_ == kOrtxOK) {
+      reset(static_cast<T*>(proc));
+    }
+  }
+
+  int err_ = kOrtxOK;
+};
+
+class CppAllocator : public ortc::IAllocator {
+ public:
+  void* Alloc(size_t size) override {
+    return std::make_unique<char[]>(size).release();
+  }
+
+  void Free(void* p) override {
+    std::unique_ptr<char[]> ptr(static_cast<char*>(p));
+    ptr.reset();
+  }
+
+  static CppAllocator& Instance() {
+    static CppAllocator allocator;
+    return allocator;
+  }
+};
 
 }  // namespace ort_extensions

@@ -714,9 +714,9 @@ list(APPEND ocos_libraries noexcep_operators)
 target_compile_definitions(ocos_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
 
-set (file_patterns "shared/lib/ops_registry.cc")
+set (file_patterns "shared/lib/*.cc")
 if (OCOS_ENABLE_C_API)
-  set (file_patterns "shared/lib/*.h*" "shared/lib/*.cc")
+  list(APPEND file_patterns "shared/api/*.h*" "shared/api/*.cc")
 endif()
 
 file(GLOB shared_TARGET_LIB_SRC ${file_patterns})

@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 #include <fstream>
+#include <string_view>
+
 #include "nlohmann/json.hpp"
 #include "image_processor.h"
 #include "cv2/imgcodecs/imdecode.hpp"
@@ -34,99 +36,27 @@ LoadRawImages(const std::initializer_list<const char*>& image_paths) {
 }
 }  // namespace ort_extensions
 
-std::unordered_map<std::string_view, std::function<std::unique_ptr<KernelClass>()>> Operation::kernel_registry_ = {
+Operation::KernelRegistry ImageProcessor::kernel_registry_ = {
     {"DecodeImage", []() { return DefineKernelFunction(image_decoder); }},
     {"ConvertRGB", []() { return DefineKernelFunction(convert_to_rgb); }},
     {"Phi3ImageTransform", []() { return DefineKernelFunction(phi3_hd_transform); }},
 };
 
-OrtxStatus Operation::Init(std::string_view op_def) {
-  // parse the op_def by json
-  auto full_json = json::parse(op_def);
-  if (!full_json.is_object()) {
-    return {kOrtxErrorInvalidArgument, "[Operation]: failed to parse op_def."};
-  }
-
-  auto op_json = full_json.at("operation");
-
-  auto op_name = op_json.at("name").get<std::string>();
-  if (op_name.empty()) {
-    return {kOrtxErrorInvalidArgument, "[Operation]: name field is missing."};
-  }
-
-  auto op_type = op_json.at("type").get<std::string>();
-  if (op_type.empty()) {
-    return {kOrtxErrorInvalidArgument, "[Operation]: type field is missing."};
-  }
-
-  auto kernel_iter = kernel_registry_.find(op_type);
-  if (kernel_iter == kernel_registry_.end()) {
-    return {kOrtxErrorInvalidArgument, "[Operation]: type is not supported."};
-  }
-
-  op_name_ = op_name;
-  kernel_ = kernel_iter->second();
-
-  /* TODO: parse the attributes
-    if (op_json.contains("attrs")) {
-      auto attrs = op_json.at("attrs");
-      attrs.get_to(attributes_);
-    }
-  */
-  return {};
-}
-
-void Operation::ResetTensors(ortc::IAllocator* allocator) {
-  outputs_.clear();
-}
-
-Operation::~Operation() {
-  ResetTensors(allocator_);
-}
-
-class OrtxRunner {
- public:
-  OrtxRunner(ortc::IAllocator* allocator, Operation** ops, size_t op_num)
-      : allocator_(allocator), ops_(ops, ops + op_num) {}
-
-  template <typename IT, typename OT>  // batch input/output containter
-  OrtxStatus Run(IT& input_seq, OT& output_seq) {
-    for (size_t i = 0; i < input_seq.size(); ++i) {
-      auto& input = *(input_seq.begin() + i);
-      Operation* last_op = nullptr;
-      // squentially apply the operations
-      for (auto& op : ops_) {
-        if (last_op != nullptr) {
-          last_op->ResetTensors(allocator_);
-        }
-        auto [status, ts_output] = op->Apply(allocator_, input);
-        if (status.IsOk()) {
-          if (op == ops_.back()) {
-            output_seq.push_back(ts_output);
-          } else {
-            input = ts_output;
-          }
-        } else {
-          return status;
-        }
-
-        last_op = op;
-      }
-    }
-
-    return {};
-  }
-
- private:
-  std::vector<Operation*> ops_;
-  ortc::IAllocator* allocator_;
-};
-
 OrtxStatus ImageProcessor::Init(std::string_view processor_def) {
+  std::string processor_def_str;
+  if (processor_def.size() >= 5 && processor_def.substr(processor_def.size() - 5) == ".json") {
+    std::ifstream ifs(std::string(processor_def.data(), processor_def.size()));
+    if (!ifs.is_open()) {
+      return {kOrtxErrorInvalidArgument, std::string("[ImageProcessor]: failed to open ") + std::string(processor_def)};
+    }
+
+    processor_def_str = std::string(std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>());
+    processor_def = processor_def_str.c_str();
+  }
   // pase the processor_def by json
   auto proc_json = json::parse(processor_def, nullptr, false);
   if (proc_json.is_discarded()) {
-    return {kOrtxErrorInvalidArgument, "[ImageProcessor]: failed to parse processor_def."};
+    return {kOrtxErrorInvalidArgument, "[ImageProcessor]: failed to parse processor json configuration."};
   }
 
   auto processor_root = proc_json.at("processor");
@@ -141,7 +71,7 @@ OrtxStatus ImageProcessor::Init(std::string_view processor_def) {
 
   operations_.reserve(transforms.size());
   for (auto mod_iter = transforms.begin(); mod_iter != transforms.end(); ++mod_iter) {
-    auto op = std::make_unique<Operation>();
+    auto op = std::make_unique<Operation>(kernel_registry_);
     auto status = op->Init(mod_iter->dump());
     if (!status.IsOk()) {
       return status;
@@ -153,22 +83,8 @@ OrtxStatus ImageProcessor::Init(std::string_view processor_def) {
   return {};
 }
 
-class SimpleAllocator : public ortc::IAllocator {
- public:
-  void* Alloc(size_t size) override {
-    return std::make_unique<char[]>(size).release();
-  }
-
-  void Free(void* p) override {
-    std::unique_ptr<char[]> ptr(static_cast<char*>(p));
-    ptr.reset();
-  }
-};
-
-static SimpleAllocator g_allocator_;
-
 ImageProcessor::ImageProcessor()
-    : allocator_(&g_allocator_), OrtxObjectImpl(kOrtxKindProcessor) {
+    : allocator_(&CppAllocator::Instance()), OrtxObjectImpl(kOrtxKindProcessor) {
 }
 
 template <typename T>
@@ -224,13 +140,6 @@ ImageProcessor::PreProcess(
   }
 
   std::vector<TensorArgs> outputs;
-  // outputs.resize(image_data.size());
-  // for (size_t i = 0; i < image_data.size(); ++i) {
-  //   auto& ts_output = outputs[i];
-  //   ts_output.push_back(std::make_unique<ortc::Tensor<uint8_t>>(allocator_).release());
-  //   ts_output.push_back(std::make_unique<ortc::Tensor<int64_t>>(allocator_).release());
-  //   ts_output.push_back(std::make_unique<ortc::Tensor<int64_t>>(allocator_).release());
-  // }
 
   std::vector<Operation*> ops(operations_.size());
   std::transform(operations_.begin(), operations_.end(), ops.begin(), [](auto& op) { return op.get(); });
