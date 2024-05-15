@@ -171,3 +171,6 @@ if (OCOS_ENABLE_OPENCV_CODECS)
     list(APPEND opencv_LIBS LIBSPNG_FILES)
     list(APPEND opencv_LIBS LIBJPEG_FILES)
 endif()
+
+# unset it to avoid affecting other projects.
+unset(EXECUTABLE_OUTPUT_PATH CACHE)
