@@ -186,6 +186,23 @@ stages:
         ./build.sh -DOCOS_ENABLE_CPP_EXCEPTIONS=OFF -DOCOS_ENABLE_SELECTED_OPLIST=ON -DOCOS_ENABLE_CTEST=OFF
       displayName: Build ort-extensions with only one operator was selected
 
+  ##############################
+  # Linux for pre-processing API
+  ##############################
+  - job: Linux_PPApiBuild
+    pool:
+      name: 'onnxruntime-extensions-Linux-CPU'
+
+    steps:
+    # compiled as only one operator selected.
+    - bash: |
+        set -e -x -u
+        ./build.sh -DOCOS_ENABLE_C_API=ON
+        cd out/Linux
+        ctest -C RelWithDebInfo --output-on-failure
+      displayName: Build ort-extensions with API enabled and run tests
+
+
 - stage: MacOSBuilds
   dependsOn: []
   jobs:
@@ -245,6 +262,21 @@ stages:
         cd out/Darwin/RelWithDebInfo
         ctest -C RelWithDebInfo --output-on-failure
       displayName: Run C++ native tests
+  ##############################
+  # MacOS for pre-processing API
+  ##############################
+  - job: MacOS_PPApiBuild
+    pool:
+      name: 'onnxruntime-extensions-Linux-CPU'
+
+    steps:
+    # compiled as only one operator selected.
+    - bash: |
+        set -e -x -u
+        ./build.sh -DOCOS_ENABLE_C_API=ON
+        cd out/Darwin
+        ctest -C RelWithDebInfo --output-on-failure
+      displayName: Build ort-extensions with API enabled and run tests
 
   #############
   # macOS Python
@@ -388,7 +420,7 @@ stages:
         ctest -C RelWithDebInfo --output-on-failure
       displayName: build and test ort-extensions with VC static runtime.
 
-  - job: WindowsPpApi
+  - job: Windows_PPApiBuild
     pool:
       name: 'onnxruntime-extensions-Windows-CPU'
 
@@ -397,7 +429,7 @@ stages:
         call .\build.bat -DOCOS_ENABLE_C_API=ON
         cd out\Windows
         ctest -C RelWithDebInfo --output-on-failure
-      displayName: build and test ort-extensions with VC static runtime.
+      displayName: Build ort-extensions with API enabled and run tests
 
   ################
   # Windows Python
