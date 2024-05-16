@@ -146,7 +146,7 @@ class OrtxObjectPtr : public std::unique_ptr<T, OrtxDeleter<T>> {
     OrtxObject* proc = nullptr;
     err_ = fn(&proc, def);
     if (err_ == kOrtxOK) {
-      reset(static_cast<T*>(proc));
+      this->reset(static_cast<T*>(proc));
     }
   }
 

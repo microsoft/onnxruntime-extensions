@@ -206,7 +206,7 @@ else()
       "${TEST_SRC_DIR}/pp_api_test/*.h")
 
     add_test_target(TARGET pp_api_test
-      TEST_SOURCES ${tokenizer_TEST_SRC}
+      TEST_SOURCES ${pp_api_TEST_SRC}
       LIBRARIES onnxruntime_extensions ${ocos_libraries}
       TEST_DATA_DIRECTORIES ${TEST_SRC_DIR}/data)
 
