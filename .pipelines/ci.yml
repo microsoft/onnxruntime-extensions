@@ -262,19 +262,20 @@ stages:
         cd out/Darwin/RelWithDebInfo
         ctest -C RelWithDebInfo --output-on-failure
       displayName: Run C++ native tests
+
   ##############################
   # MacOS for pre-processing API
   ##############################
   - job: MacOS_PPApiBuild
     pool:
-      name: 'onnxruntime-extensions-Linux-CPU'
+      vmImage: 'macOS-13'
 
     steps:
     # compiled as only one operator selected.
     - bash: |
         set -e -x -u
         ./build.sh -DOCOS_ENABLE_C_API=ON
-        cd out/Darwin
+        cd out/Darwin/RelWithDebInfo
         ctest -C RelWithDebInfo --output-on-failure
       displayName: Build ort-extensions with API enabled and run tests
 
