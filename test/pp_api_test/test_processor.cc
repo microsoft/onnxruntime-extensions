@@ -10,7 +10,7 @@
 
 using namespace ort_extensions;
 
-TEST(MultiModelTest, TestPhi_3) {
+TEST(ProcessorTest, TestMsImage) {
 
   auto [input_data, n_data] = ort_extensions::LoadRawImages(
       {"data/processor/australia.jpg", "data/processor/exceltable.png"});

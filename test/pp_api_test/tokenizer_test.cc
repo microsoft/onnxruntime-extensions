@@ -4,7 +4,6 @@
 #include <filesystem>
 #include <locale>
 #include "gtest/gtest.h"
-#include "ocos.h"
 
 #include "c_only_test.h"
 #include "shared/api/tokenizer_impl.h"
