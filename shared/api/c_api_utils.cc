@@ -38,9 +38,9 @@ extError_t ORTX_API_CALL OrtxCreate(extObjectKind_t kind, OrtxObject** object, .
   va_list args;
   va_start(args, object);
 
- if (kind == extObjectKind_t::kOrtxKindDetokenizerCache) {
+  if (kind == extObjectKind_t::kOrtxKindDetokenizerCache) {
     *object = OrtxObjectFactory<DetokenizerCache>::CreateForward();
-  } else  if (kind == extObjectKind_t::kOrtxKindTokenizer) {
+  } else if (kind == extObjectKind_t::kOrtxKindTokenizer) {
     return OrtxCreateTokenizer(static_cast<OrtxTokenizer**>(object), va_arg(args, const char*));
   }
 
@@ -73,32 +73,43 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer,
   return status.Code();
 }
 
-extError_t ORTX_API_CALL OrtxDispose(OrtxObject** object) {
-  if (object == nullptr || *object == nullptr) {
+extError_t ORTX_API_CALL OrtxDisposeOnly(OrtxObject* object) {
+  if (object == nullptr) {
     return kOrtxErrorInvalidArgument;
   }
 
-  auto Ortx_object = static_cast<OrtxObjectImpl*>(*object);
+  auto Ortx_object = static_cast<OrtxObjectImpl*>(object);
   if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindUnknown) {
     return kOrtxErrorInvalidArgument;
   }
 
   if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindStringArray) {
-    OrtxObjectFactory<ort_extensions::StringArray>::Dispose(*object);
+    OrtxObjectFactory<ort_extensions::StringArray>::Dispose(object);
   } else if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindTokenId2DArray) {
-    OrtxObjectFactory<ort_extensions::TokenId2DArray>::Dispose(*object);
+    OrtxObjectFactory<ort_extensions::TokenId2DArray>::Dispose(object);
   } else if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindDetokenizerCache) {
-    OrtxObjectFactory<ort_extensions::DetokenizerCache>::DisposeForward(*object);
+    OrtxObjectFactory<ort_extensions::DetokenizerCache>::DisposeForward(object);
   } else if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindTokenizer) {
-    OrtxObjectFactory<ort_extensions::TokenizerImpl>::Dispose(*object);
+    OrtxObjectFactory<ort_extensions::TokenizerImpl>::Dispose(object);
+  } else if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindProcessorResult) {
+    OrtxObjectFactory<ort_extensions::ProcessorResult>::Dispose(object);
   } else if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindProcessor) {
-    OrtxObjectFactory<ort_extensions::ImageProcessor>::Dispose(*object);
+    OrtxObjectFactory<ort_extensions::ImageProcessor>::Dispose(object);
   }
 
-  *object = nullptr;
   return extError_t();
 }
 
-extError_t ORTX_API_CALL OrtxDisposeOnly(OrtxObject* object) {
-  return OrtxDispose(&object);
+extError_t ORTX_API_CALL OrtxDispose(OrtxObject** object) {
+  if (object == nullptr) {
+    return kOrtxErrorInvalidArgument;
+  }
+
+  extError_t err = OrtxDisposeOnly(*object);
+  if (err != extError_t()) {
+    return err;
+  }
+
+  *object = nullptr;
+  return err;
 }

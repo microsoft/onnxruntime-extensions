@@ -4,6 +4,7 @@
 #pragma once
 
 #include "ortx_tokenizer.h"
+#include "ortx_processor.h"
 
 
 #ifdef __cplusplus
