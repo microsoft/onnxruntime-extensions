@@ -148,6 +148,7 @@ class CmdBuildCMakeExt(_build_ext):
         self.no_opencv = None
         self.cc_debug = None
         self.cuda_archs = None
+        self.ort_pkg_dir = None
 
     def _parse_options(self, options):
         for segment in options.split(','):
@@ -198,6 +199,9 @@ class CmdBuildCMakeExt(_build_ext):
             '-DOCOS_PYTHON_MODULE_PATH=' + str(ext_fullpath),
             '-DCMAKE_BUILD_TYPE=' + config
         ]
+
+        if self.ort_pkg_dir:
+            cmake_args += ['-DONNXRUNTIME_PKG_DIR=' + self.ort_pkg_dir]
 
         if self.no_opencv:
             # Disabling openCV can drastically reduce the build time.
