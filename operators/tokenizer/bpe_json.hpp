@@ -4,7 +4,6 @@
 #pragma once
 
 #include "ocos.h"
-#include "status.h"
 #include "file_sys.h"
 #include "nlohmann/json.hpp"
 
