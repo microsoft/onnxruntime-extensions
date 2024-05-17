@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include <filesystem>
 #include <algorithm>
 
 #include "c_api_utils.hpp"

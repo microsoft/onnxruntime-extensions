@@ -17,7 +17,7 @@ extern "C" {
 /** \brief Create a processor object with the specified processor definition
  *
  * \param processor Pointer to store the created processor object
- * \param processor_def The processor definition
+ * \param processor_def The processor definition, either a path to the processor directory or a JSON string, and is utf-8 encoded.
  * \return Error code indicating the success or failure of the operation
  */
 extError_t ORTX_API_CALL OrtxCreateProcessor(OrtxProcessor** processor, const char* processor_def);

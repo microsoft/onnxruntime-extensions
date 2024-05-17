@@ -21,7 +21,7 @@ extern "C" {
 /** \brief Create a tokenizer object with the specified tokenizer path
  *
  * \param tokenizer Pointer to store the created tokenizer object
- * \param tokenizer_path The path to the tokenizer
+ * \param tokenizer_path The path to the tokenizer directory, which is utf-8 encoded
  * \return Error code indicating the success or failure of the operation
  */
 extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const char* tokenizer_path);

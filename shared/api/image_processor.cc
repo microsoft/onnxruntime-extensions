@@ -1,10 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include <fstream>
 #include <string_view>
 
 #include "nlohmann/json.hpp"
+#include "file_sys.h"
+
 #include "image_processor.h"
 #include "cv2/imgcodecs/imdecode.hpp"
 #include "image_transforms.hpp"
@@ -18,7 +19,7 @@ LoadRawImages(const std::initializer_list<const char*>& image_paths) {
   auto raw_images = std::make_unique<ImageRawData[]>(image_paths.size());
   size_t n = 0;
   for (const auto& image_path : image_paths) {
-    std::ifstream ifs(image_path, std::ios::binary);
+    std::ifstream ifs = path(image_path).open(std::ios::binary);
     if (!ifs.is_open()) {
       break;
     }
@@ -45,7 +46,7 @@ Operation::KernelRegistry ImageProcessor::kernel_registry_ = {
 OrtxStatus ImageProcessor::Init(std::string_view processor_def) {
   std::string processor_def_str;
   if (processor_def.size() >= 5 && processor_def.substr(processor_def.size() - 5) == ".json") {
-    std::ifstream ifs(std::string(processor_def.data(), processor_def.size()));
+    std::ifstream ifs = path({processor_def.data(), processor_def.size()}).open();
     if (!ifs.is_open()) {
       return {kOrtxErrorInvalidArgument, std::string("[ImageProcessor]: failed to open ") + std::string(processor_def)};
     }

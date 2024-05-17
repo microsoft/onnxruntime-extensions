@@ -1,7 +1,9 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+#include <stdio.h>
 #include <cstdarg>
 
+#include "file_sys.h"
 #include "image_processor.h"
 #include "tokenizer_impl.h"
 
@@ -56,7 +58,7 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer,
     return kOrtxErrorInvalidArgument;
   }
 
-  if (!std::filesystem::is_directory(tokenizer_path)) {
+  if (!path(tokenizer_path).is_directory()) {
     ReturnableStatus::last_error_message_ = std::string("Cannot find the directory of ") + tokenizer_path;
     return kOrtxErrorInvalidArgument;
   }
