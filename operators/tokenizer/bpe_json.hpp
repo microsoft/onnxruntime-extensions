@@ -6,7 +6,6 @@
 #include <fstream>
 #include <filesystem>
 #include "ocos.h"
-#include "status.h"
 #include "nlohmann/json.hpp"
 
 #include "bpe_types.h"

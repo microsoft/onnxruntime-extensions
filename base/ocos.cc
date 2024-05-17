@@ -4,6 +4,15 @@
 #include "ocos.h"
 #include "narrow.h"
 
+OrtxStatus::operator OrtStatus*() const noexcept {
+  if (IsOk()) {
+    return nullptr;
+  }
+
+  OrtStatus* status = OrtW::CreateStatus(Message(), OrtErrorCode::ORT_RUNTIME_EXCEPTION);
+  return status;
+}
+
 OrtErrorCode BaseKernel::GetErrorCodeAndRelease(OrtStatusPtr status) const noexcept {
   if (status == nullptr) {
     return ORT_OK;
