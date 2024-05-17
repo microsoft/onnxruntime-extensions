@@ -32,7 +32,7 @@ class path {
 #ifdef _WIN32
     return std::ifstream(to_wstring(), mode);
 #else
-    return ifstream(path_, mode);
+    return std::ifstream(path_, mode);
 #endif  // _WIN32
   }
 
