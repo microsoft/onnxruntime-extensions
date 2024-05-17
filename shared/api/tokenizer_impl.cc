@@ -8,21 +8,6 @@
 
 using namespace ort_extensions;
 
-class SimpleAllocator : public ortc::IAllocator {
- public:
-  void* Alloc(size_t size) override {
-    return malloc(size);
-  }
-
-  void Free(void* p) override {
-    if (p) {
-      free(p);
-    }
-  }
-};
-
-static SimpleAllocator g_allocator;
-
 TokenizerImpl::TokenizerImpl() : OrtxObjectImpl(extObjectKind_t::kOrtxKindTokenizer){};
 TokenizerImpl::~TokenizerImpl(){};
 
@@ -48,7 +33,7 @@ OrtxStatus TokenizerImpl::BatchEncode(
     const std::vector<std::string_view>& input,
     std::vector<std::vector<extTokenId_t>>& t_ids) const {
   for (const auto& s : input) {
-    ortc::Tensor<int64_t> ts_output(&g_allocator);
+    ortc::Tensor<int64_t> ts_output(&CppAllocator::Instance());
     ortc::Tensor<std::string> ts_input = ortc::Tensor<std::string>(std::vector<std::string>{std::string(s)});
     auto status = tokenizer_->Compute(ts_input, ts_output, std::nullopt, std::nullopt);
 

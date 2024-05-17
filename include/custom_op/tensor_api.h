@@ -2,6 +2,8 @@
 #include <optional>
 #include <numeric>
 #include <type_traits>
+#include <assert.h>
+
 #include "onnxruntime_f16.h"
 #include "kernel_context.h"
 
