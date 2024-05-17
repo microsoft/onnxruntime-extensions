@@ -1,7 +1,6 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 
-#include "status.h"
 #include "string_tensor.h"
 
 inline OrtxStatus image_reader(const ortc::Tensor<std::string>& input,

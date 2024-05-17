@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "ortx_utils.h"
-#include "status.h"
+#include "ext_status.h"
 #include "op_def_struct.h"
 
 namespace ort_extensions {

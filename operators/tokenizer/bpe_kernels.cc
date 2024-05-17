@@ -143,14 +143,14 @@ OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKerne
                                       bpe_conf_.get().GetSpecialTokens().c_str(),
                                       IsSpmModel(ModelName()));
   if (!status.IsOk()) {
-    return status.CreateOrtStatus();
+    return (OrtStatusPtr)status;
   }
 
   std::string added_token;
   ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "added_token", added_token));
   status = bbpe_tokenizer_->LoadAddedTokens(added_token.c_str());
   if (!status.IsOk()) {
-    return status.CreateOrtStatus();
+    return (OrtStatusPtr)status;
   }
 
   // TODO: need to check if the special token ids are the same as the ones in HFTokenizer

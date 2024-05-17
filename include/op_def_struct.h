@@ -28,7 +28,7 @@ namespace Custom {
 
 template <typename T>
 inline OrtStatusPtr ToApiStatus(const T& status) {
-  return status.CreateOrtStatus();
+  return (OrtStatus*)status;
 }
 
 template <>

@@ -4,7 +4,6 @@
 #pragma once
 
 #include "ocos.h"
-#include "status.h"
 
 constexpr int max_crops = 16;
 constexpr int num_img_tokens = 144;
