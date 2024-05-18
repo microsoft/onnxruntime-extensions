@@ -3,9 +3,8 @@
 
 #pragma once
 
-#include <fstream>
-#include <filesystem>
 #include "ocos.h"
+#include "file_sys.h"
 #include "nlohmann/json.hpp"
 
 #include "bpe_types.h"
@@ -25,13 +24,13 @@ class TokenJsonConfig final {
       return OrtxStatus(kOrtxErrorInvalidArgument, "json_path is empty.");
     }
 
-    auto file_path = std::filesystem::path(json_path) / "tokenizer_config.json";
-    std::ifstream ifs(file_path);
+    auto file_path = path(json_path) / "tokenizer_config.json";
+    std::ifstream ifs = file_path.open();
     if (!ifs.is_open()) {
       return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open a json file: " + file_path.string());
     }
 
-    vocab_path_ = (std::filesystem::path(json_path) / "tokenizer.json").string();
+    vocab_path_ = (path(json_path) / "tokenizer.json").string();
     nlohmann::json json_config = nlohmann::json::parse(ifs);
     add_bos_token_ = json_config.value("add_bos_token", false);
     add_eos_token_ = json_config.value("add_eos_token", false);

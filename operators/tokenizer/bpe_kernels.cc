@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 #include "ortx_common.h"
+#include "file_sys.h"
+
 #include "bpe_kernels.h"
 #include "bpe_json.hpp"
 #include "bpe_tokenizer.hpp"
@@ -552,7 +554,7 @@ JsonFastTokenizer::JsonFastTokenizer() : KernelBpeTokenizer(kGPT2Configuration) 
 
 OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& config) {
   std::string voc_file = config.GetVocabDataFile();
-  std::ifstream ifs(voc_file);
+  std::ifstream ifs = path(voc_file).open();
   if (!ifs.is_open()) {
     return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open json file: " + voc_file);
   }
