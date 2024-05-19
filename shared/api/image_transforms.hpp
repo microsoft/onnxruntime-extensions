@@ -115,7 +115,7 @@ inline void Permute3DArray(const float* array, float* permutedArray, size_t X, s
     for (size_t y = 0; y < Y; ++y) {
       for (size_t z = 0; z < Z; ++z) {
         size_t oldIndex = Index3D(x, y, z, X, Y, Z);
-        size_t newIndex = Index3D(z, y, x, Z, X, Y);
+        size_t newIndex = Index3D(z, x, y, Z, X, Y);
         permutedArray[newIndex] = array[oldIndex];
       }
     }
