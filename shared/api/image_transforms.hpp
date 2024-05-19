@@ -14,7 +14,7 @@ constexpr float OPENAI_CLIP_MEAN[] = {0.48145466f, 0.4578275f, 0.40821073f};
 constexpr float OPENAI_CLIP_STD[] = {0.26862954f, 0.26130258f, 0.27577711f};
 
 inline OrtxStatus convert_to_rgb(const ortc::Tensor<uint8_t>& input,
-                          ortc::Tensor<uint8_t>& output) {
+                                 ortc::Tensor<uint8_t>& output) {
   auto& dimensions = input.Shape();
   if (dimensions.size() != 3ULL || dimensions[2] != 3) {
     return {kOrtxErrorInvalidArgument, "[ConvertToRGB]: input is not (H, W, C)"};
@@ -115,7 +115,7 @@ inline void Permute3DArray(const float* array, float* permutedArray, size_t X, s
     for (size_t y = 0; y < Y; ++y) {
       for (size_t z = 0; z < Z; ++z) {
         size_t oldIndex = Index3D(x, y, z, X, Y, Z);
-        size_t newIndex = Index3D(z, y, x, Z, X, Y);
+        size_t newIndex = Index3D(z, x, y, Z, X, Y);
         permutedArray[newIndex] = array[oldIndex];
       }
     }
@@ -123,9 +123,9 @@ inline void Permute3DArray(const float* array, float* permutedArray, size_t X, s
 }
 
 inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input,
-                             ortc::Tensor<float>& pixel_values,
-                             ortc::Tensor<int64_t>& image_sizes,
-                             ortc::Tensor<int64_t>& num_img_takens) {
+                                    ortc::Tensor<float>& pixel_values,
+                                    ortc::Tensor<int64_t>& image_sizes,
+                                    ortc::Tensor<int64_t>& num_img_takens) {
   auto& dimensions = input.Shape();
   if (dimensions.size() != 3ULL) {
     return {kOrtxErrorInvalidArgument, "[hd_transform]: Only raw image formats"};
@@ -139,7 +139,7 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input,
   std::vector<int32_t> height_x_width{static_cast<int32_t>(h),   // H
                                       static_cast<int32_t>(w)};  // W
 
-  cv::Mat rgb_image(height_x_width, CV_8UC3, const_cast<uint8_t *>(input_data));
+  cv::Mat rgb_image(height_x_width, CV_8UC3, const_cast<uint8_t*>(input_data));
   // elems = [HD_transform(im, hd_num = self.num_crops) for im in images]
   auto elem = hd_transform(rgb_image, max_crops);
   // # tensor transform and normalize
@@ -156,6 +156,11 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input,
       p_pixel_values[c0_index + 2] = (static_cast<float>(elem_image[c0_index + 2]) / 255.f - OPENAI_CLIP_MEAN[2]) / OPENAI_CLIP_STD[2];
     }
   }
+
+  // Debug code to check the image parity
+  // auto rgb_image_ptr_debug = std::make_unique<float[]>(h * w * c);
+  // Permute3DArray(p_pixel_values, rgb_image_ptr_debug.get(), h, w, c);
+
   cv::Mat hd_image(h, w, CV_32FC3, p_pixel_values);
   // # create global image
   // global_image = [torch.nn.functional.interpolate(im.unsqueeze(0).float(), size=(336, 336), mode='bicubic',).to(im.dtype) for im in hd_images]
@@ -175,8 +180,10 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input,
     auto n_tokens = num_img_takens.Allocate({1});
     auto [h_t, w_t] = std::make_tuple(image_sizes.Data()[0], image_sizes.Data()[1]);
     auto num_t = (static_cast<int32_t>(
-      static_cast<int32_t>(h_t / image_resized_height) * w_t / image_resized_width) + 1) * 144 
-      + 1 + static_cast<int32_t>(h_t / image_resized_height + 1) * 12;
+                      static_cast<int32_t>(h_t / image_resized_height) * w_t / image_resized_width) +
+                  1) *
+                     144 +
+                 1 + static_cast<int32_t>(h_t / image_resized_height + 1) * 12;
     *n_tokens = static_cast<int64_t>(num_t);
   }
   // # reshape to channel dimension -> (num_images, num_crops, 3, 336, 336)
@@ -195,8 +202,27 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input,
   Permute3DArray(reinterpret_cast<float*>(global_image.data), output_pixel, image_resized_height, image_resized_width, 3);
   auto num_crops = static_cast<int>((shape[0] / image_resized_height) * (shape[1] / image_resized_width));
   float* image_transformed = reinterpret_cast<float*>(hd_image.data);
-  for (int i = 0; i < num_crops; ++i) {
-    Permute3DArray(image_transformed + i * image_c_size, output_pixel + (i + 1) * image_c_size, image_resized_height, image_resized_width, 3);
+  // for (int i = 0; i < num_crops; ++i) {
+  //   Permute3DArray(image_transformed + i * image_c_size, output_pixel + (i + 1) * image_c_size, image_resized_height, image_resized_width, 3);
+  // }
+
+  float* output_pixel_n_1 = output_pixel + image_c_size;
+  int m = static_cast<int>(shape[0] / image_resized_height);
+  int n = static_cast<int>(shape[1] / image_resized_width);
+  h = image_resized_height;
+  w = image_resized_width;
+  assert(m * n == num_crops);
+  for (int i = 0; i < m; ++i) {
+    for (int j = 0; j < n; ++j) {
+      int sub_index = (i * n + j) * image_c_size;
+      for (int x = 0; x < image_resized_height; ++x) {
+        for (int y = 0; y < image_resized_width; ++y) {
+          for (int k = 0; k < 3; ++k) {  // Loop over channels
+            output_pixel_n_1[sub_index + k * h * w + x * w + y] = image_transformed[((i * h + x) * shape[1] + (j * w + y)) * 3 + k];
+          }
+        }
+      }
+    }
   }
 
   // padding the rest of the crops
