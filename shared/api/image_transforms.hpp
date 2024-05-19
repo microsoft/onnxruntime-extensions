@@ -109,13 +109,13 @@ inline size_t Index3D(size_t i, size_t j, size_t k, size_t dim1, size_t dim2, si
   return i * dim2 * dim3 + j * dim3 + k;
 }
 
-// Function to permute 3D array stored in 1D array from (X, Y, Z) to (Z, Y, X)
+// Function to permute 3D array stored in 1D array from (X, Y, Z) to (Z, X, Y)
 inline void Permute3DArray(const float* array, float* permutedArray, size_t X, size_t Y, size_t Z) {
   for (size_t x = 0; x < X; ++x) {
     for (size_t y = 0; y < Y; ++y) {
       for (size_t z = 0; z < Z; ++z) {
         size_t oldIndex = Index3D(x, y, z, X, Y, Z);
-        size_t newIndex = Index3D(z, y, x, Z, Y, X);
+        size_t newIndex = Index3D(z, y, x, Z, X, Y);
         permutedArray[newIndex] = array[oldIndex];
       }
     }
@@ -193,7 +193,7 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input,
   // Copy the image pixel value from the global image
   const int image_c_size = image_resized_height * image_resized_width * 3;
   Permute3DArray(reinterpret_cast<float*>(global_image.data), output_pixel, image_resized_height, image_resized_width, 3);
-  auto num_crops = static_cast<int>(std::ceil(float(shape[0]) / image_resized_height));
+  auto num_crops = static_cast<int>((shape[0] / image_resized_height) * (shape[1] / image_resized_width));
   float* image_transformed = reinterpret_cast<float*>(hd_image.data);
   for (int i = 0; i < num_crops; ++i) {
     Permute3DArray(image_transformed + i * image_c_size, output_pixel + (i + 1) * image_c_size, image_resized_height, image_resized_width, 3);

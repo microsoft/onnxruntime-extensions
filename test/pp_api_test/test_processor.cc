@@ -29,5 +29,9 @@ TEST(ProcessorTest, TestMsImage) {
   ASSERT_TRUE(status.IsOk());
   ASSERT_EQ(pixel_values->Shape(), std::vector<int64_t>({2, 17, 3, 336, 336}));
 
+  // FILE* fp = fopen("ppoutput.bin", "wb");
+  // fwrite(pixel_values->Data(), sizeof(float), pixel_values->NumberOfElement(), fp);
+  // fclose(fp);
+
   proc->ClearOutputs(&r);
 }
