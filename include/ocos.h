@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "op_def_struct.h"
+#include "ext_status.h"
 
 // A helper API to support test kernels.
 // Must be invoked before RegisterCustomOps.
@@ -18,6 +19,8 @@ extern "C" bool ORT_API_CALL AddExternalCustomOp(const OrtCustomOp* c_op);
 
 constexpr const char* c_OpDomain = "ai.onnx.contrib";
 constexpr const char* c_ComMsExtOpDomain = "com.microsoft.extensions";
+
+
 template <typename... Args>
 class CuopContainer {
  public:

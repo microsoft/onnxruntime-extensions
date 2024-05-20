@@ -200,20 +200,21 @@ else()
   endblock()
 
   if (OCOS_ENABLE_C_API)
-    file(GLOB tokenizer_TEST_SRC
-      "${TEST_SRC_DIR}/tokenizer_test/*.c"
-      "${TEST_SRC_DIR}/tokenizer_test/*.cc"
-      "${TEST_SRC_DIR}/tokenizer_test/*.h")
+    file(GLOB pp_api_TEST_SRC
+      "${TEST_SRC_DIR}/pp_api_test/*.c"
+      "${TEST_SRC_DIR}/pp_api_test/*.cc"
+      "${TEST_SRC_DIR}/pp_api_test/*.h")
 
-    add_test_target(TARGET tokenizer_api_test
-      TEST_SOURCES ${tokenizer_TEST_SRC}
+    add_test_target(TARGET pp_api_test
+      TEST_SOURCES ${pp_api_TEST_SRC}
       LIBRARIES onnxruntime_extensions ${ocos_libraries}
       TEST_DATA_DIRECTORIES ${TEST_SRC_DIR}/data)
 
-    target_compile_definitions(tokenizer_api_test PRIVATE ${OCOS_COMPILE_DEFINITIONS})
-    target_include_directories(tokenizer_api_test PRIVATE
+    target_compile_definitions(pp_api_test PRIVATE ${OCOS_COMPILE_DEFINITIONS})
+    target_include_directories(pp_api_test PRIVATE
       ${PROJECT_SOURCE_DIR}/
-      "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>")
+      "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>"
+      "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
   endif()
 endif()
 

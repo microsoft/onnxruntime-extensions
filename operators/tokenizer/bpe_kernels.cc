@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 #include "ortx_common.h"
+#include "file_sys.h"
+
 #include "bpe_kernels.h"
 #include "bpe_json.hpp"
 #include "bpe_tokenizer.hpp"
@@ -143,14 +145,14 @@ OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKerne
                                       bpe_conf_.get().GetSpecialTokens().c_str(),
                                       IsSpmModel(ModelName()));
   if (!status.IsOk()) {
-    return status.CreateOrtStatus();
+    return (OrtStatusPtr)status;
   }
 
   std::string added_token;
   ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "added_token", added_token));
   status = bbpe_tokenizer_->LoadAddedTokens(added_token.c_str());
   if (!status.IsOk()) {
-    return status.CreateOrtStatus();
+    return (OrtStatusPtr)status;
   }
 
   // TODO: need to check if the special token ids are the same as the ones in HFTokenizer
@@ -342,8 +344,9 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input,
 
   size_t max_length = static_cast<size_t>(max_length_i64);
   // Parse input
+  bool add_dummy_prefix = false;
   if (ModelName() == kModel_Llama) {
-    input.insert(input.begin(), 0x2581);
+    add_dummy_prefix = true;
   }
   auto special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input);
   for (auto& seg_id : special_token_split_res) {
@@ -356,6 +359,10 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input,
 
     // Note: keep ptr to make sure the string_view is valid in the following process
     std::u32string ustr(seg_id.first);
+    if (add_dummy_prefix) {
+      ustr.insert(ustr.begin(), 0x2581);  // UTF-8 string '\xe2\x96\x81'
+      add_dummy_prefix = false;           // only add dummy prefix once
+    }
 
     size_t offset = 0;
     size_t char_pos = 0;
@@ -547,7 +554,7 @@ JsonFastTokenizer::JsonFastTokenizer() : KernelBpeTokenizer(kGPT2Configuration) 
 
 OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& config) {
   std::string voc_file = config.GetVocabDataFile();
-  std::ifstream ifs(voc_file);
+  std::ifstream ifs = path(voc_file).open();
   if (!ifs.is_open()) {
     return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open json file: " + voc_file);
   }

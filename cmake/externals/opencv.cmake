@@ -104,6 +104,9 @@ set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "")
 set(BUILD_DOCS        OFF CACHE INTERNAL "")
 set(BUILD_EXAMPLES    OFF CACHE INTERNAL "")
 set(BUILD_TESTS       OFF CACHE INTERNAL "")
+set(CV_TRACE          OFF CACHE INTERNAL "")
+
+set(CV_DISABLE_OPTIMIZATION     ON CACHE INTERNAL "")
 
 if(IOS)
   # copy what OpenCV's platforms/ios/build_framework.py does and set CPU_BASELINE=DETECT
@@ -135,7 +138,6 @@ FetchContent_Declare(
     -DBUILD_TESTS:BOOL=FALSE
     -DBUILD_SHARED_LIBS:BOOL=FALSE
     -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_CURRENT_BINARY_DIR}/opencv
-    -DCV_TRACE:BOOL=FALSE
     PATCH_COMMAND git checkout . && git apply --whitespace=fix --ignore-space-change --ignore-whitespace ${CMAKE_CURRENT_SOURCE_DIR}/cmake/externals/opencv-no-rtti.patch
 )
 

@@ -31,7 +31,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     eos_token_ = tok_config.eos_token_;
     unk_token_ = tok_config.unk_token_;
 
-    auto& a_toks = encoder.GetAddedTokens();
+    const auto& a_toks = encoder.GetAddedTokens();
     for (const auto& tok : a_toks) {
       added_tokens_[tok.id_] = tok.content_;
       if (tok.special_) {
@@ -176,15 +176,21 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
         }
       }  // end case of whitespace_token_
 
-      if (!bpe_state->incomplete_utf8_.empty()) {
-        token = bpe_state->incomplete_utf8_ + token;
-        bpe_state->incomplete_utf8_.clear();
-      } else {
-        if (!token.empty() && ustring::UTF8Len(token.front()) > token.size()) {
-          bpe_state->incomplete_utf8_ = token;
-          token = "";
+      bpe_state->incomplete_utf8_ += token;
+      token.clear();
+      std::string& s_utf8 = bpe_state->incomplete_utf8_;
+      size_t utf8_len = 1;
+      size_t utf8_all_len = 0;
+      for (size_t i = 0; i < s_utf8.size(); i += utf8_len) {
+        utf8_len = ustring::UTF8Len(s_utf8[i]);
+        if (utf8_len <= s_utf8.size() - i) {
+          utf8_all_len += utf8_len;
+          auto _t = s_utf8.substr(i, utf8_len);
+          token += ustring::ValidateUTF8(_t) ? _t : "";
         }
       }
+
+      s_utf8 = s_utf8.substr(utf8_all_len);
     }
 
     bpe_state->f_special_last = f_special;
