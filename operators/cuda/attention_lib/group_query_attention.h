@@ -3,11 +3,11 @@
 
 #pragma once
 #include "ocos.h"
-#include "cuda_type.h"
+#include "../cuda_type.h"
 #include "ortx_common.h"
 #include "attention_common.h"
 #include "group_query_attention_impl.cuh"
-#include "device_prop.cuh"
+#include "../device_prop.cuh"
 #if USE_FLASH_ATTENTION
 #include "flash_attention/flash_api.h"
 #endif
@@ -292,7 +292,7 @@ struct GroupQueryAttention {
     return nullptr;
   }
 
-  OrtStatusPtr Compute(OrtKernelContext* kernel_context, const Ort::Custom::CudaContext& ctx, const ortc::Tensor<T>& query, std::optional<const ortc::Tensor<T>*> key,
+  OrtStatusPtr Compute(/*OrtKernelContext* kernel_context, */Ort::Custom::CUDAKernelContext* ctx, const ortc::Tensor<T>& query, std::optional<const ortc::Tensor<T>*> key,
                        std::optional<const ortc::Tensor<T>*> value, std::optional<const ortc::Tensor<T>*> past_key, std::optional<const ortc::Tensor<T>*> past_value,
                        const ortc::Tensor<int>& seqlens_k, const ortc::Tensor<int>& total_seqlen, std::optional<const ortc::Tensor<T>*> cos_cache, 
                        std::optional<const ortc::Tensor<T>*> sin_cache, ortc::Tensor<T>& attn_out, std::optional<ortc::Tensor<T>*> present_key, std::optional<ortc::Tensor<T>*> present_value) const {
@@ -314,7 +314,7 @@ struct GroupQueryAttention {
     output_shape[2] = static_cast<int64_t>(parameters.hidden_size);
 
     OrtMemoryInfo* mem_info = nullptr;
-    ORTX_RETURN_IF_ERROR(OrtW::API::CreateOrtMemoryInfo("Cuda", OrtDeviceAllocator, ctx.device_id, OrtMemTypeDefault, &mem_info));
+    ORTX_RETURN_IF_ERROR(OrtW::API::CreateOrtMemoryInfo("Cuda", OrtDeviceAllocator, ctx->GetCudaDeviceId(), OrtMemTypeDefault, &mem_info));
   
 #if USE_FLASH_ATTENTION
     bool use_flash_attention = !disable_flash_attention_ && flash::is_supported(DeviceProp::GetCudaDeviceProp(), parameters.head_size, parameters.num_heads, parameters.kv_num_heads);
@@ -335,15 +335,15 @@ struct GroupQueryAttention {
       out_accum_bytes = o_accum_bytes;
     }
     void* softmax_lse_p = nullptr;
-    ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, softmax_lse_bytes, &softmax_lse_p));
+    //ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, softmax_lse_bytes, &softmax_lse_p));
     auto softmax_lse_buffer = GetScratchBuffer<void>(softmax_lse_p, allocator_.get());
 
     void* softmax_lse_accum_p = nullptr;
-    ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, softmax_lse_accum_bytes, &softmax_lse_accum_p));
+    //ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, softmax_lse_accum_bytes, &softmax_lse_accum_p));
     auto softmax_lse_accum_buffer = GetScratchBuffer<void>(softmax_lse_accum_p, allocator_.get());
 
     void* out_accum_p = nullptr;
-    ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, out_accum_bytes, &out_accum_p));
+    //ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, out_accum_bytes, &out_accum_p));
     auto out_accum_buffer = GetScratchBuffer<void>(out_accum_p, allocator_.get());
 #else
     constexpr bool use_flash_attention = false;
@@ -376,15 +376,15 @@ struct GroupQueryAttention {
       fmha_buffer_bytes = (parameters.batch_size * parameters.sequence_length * parameters.num_heads * parameters.head_size * sizeof(float));
     }
     void* k_p = nullptr;
-    ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, kv_buffer_bytes, &k_p));
+    //ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, kv_buffer_bytes, &k_p));
     auto k_buffer = GetScratchBuffer<void>(k_p, allocator_.get());
 
     void* v_p = nullptr;
-    ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, kv_buffer_bytes, &v_p));
+    //ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, kv_buffer_bytes, &v_p));
     auto v_buffer = GetScratchBuffer<void>(v_p, allocator_.get());
 
     void* fmha_p = nullptr;
-    ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, fmha_buffer_bytes, &fmha_p));
+    //ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, fmha_buffer_bytes, &fmha_p));
     auto fmha_buffer = GetScratchBuffer<void>(fmha_p, allocator_.get());
 #else
     constexpr bool use_memory_efficient_attention = false;
@@ -396,7 +396,7 @@ struct GroupQueryAttention {
     // seqlens_k buffer
     size_t seqlens_k_bytes = sizeof(int) * parameters.batch_size;
     void* seqlens_p = nullptr;
-    ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, seqlens_k_bytes, &seqlens_p));
+    //ORTX_RETURN_IF_ERROR(OrtW::API::KernelContextGetScratchBuffer(kernel_context, mem_info, seqlens_k_bytes, &seqlens_p));
     auto seqlens_k_buffer = GetScratchBuffer<void>(seqlens_p, allocator_.get());
 
     std::vector<int64_t> present_dims;
@@ -466,7 +466,7 @@ struct GroupQueryAttention {
 
     OrtW::API::ReleaseMemoryInfo(mem_info);
     return cuda::QkvToContext<TT>(
-        /*device_prop, ctx.cublas,*/ reinterpret_cast<cudaStream_t>(ctx.cuda_stream), parameters, data);
+        /*device_prop, ctx.cublas,*/ reinterpret_cast<cudaStream_t>(ctx->GetCudaStream()), parameters, data);
   }
 
  private:

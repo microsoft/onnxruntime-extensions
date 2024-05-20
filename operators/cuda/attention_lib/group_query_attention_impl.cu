@@ -1,8 +1,8 @@
 #include <cassert>
 #include <cuda.h>
 #include "group_query_attention_impl.cuh"
-#include "utils.cuh"
-#include "device_prop.cuh"
+#include "../utils.cuh"
+#include "../device_prop.cuh"
 #include "ort_c_to_cpp.h"
 #include "ortx_common.h"
 #ifdef USE_FLASH_ATTENTION
@@ -452,7 +452,7 @@ OrtStatusPtr FlashAttention(
   const int head_size = parameters.head_size;
   AttentionQkvFormat past_kv_format = parameters.past_kv_format;
   bool is_causal = true;
-  bool is_bf16 = std::is_same<T, BFloat16>::value;
+  bool is_bf16 = std::is_same<T, Ort::Custom::BFloat16>::value;
 
   void* query = reinterpret_cast<void*>(const_cast<T*>(data.query));
   void* key;
@@ -649,13 +649,13 @@ template OrtStatusPtr QkvToContext<half>(
     contrib::GroupQueryAttentionParameters& parameters,
     GroupQueryAttentionData<half>& data);
 
-template struct GroupQueryAttentionData<BFloat16>;
+template struct GroupQueryAttentionData<Ort::Custom::BFloat16>;
 
-template OrtStatusPtr QkvToContext<BFloat16>(
+template OrtStatusPtr QkvToContext<Ort::Custom::BFloat16>(
 //    const cudaDeviceProp& device_prop,
 //    cublasHandle_t& cublas,
     cudaStream_t cuda_stream,
     contrib::GroupQueryAttentionParameters& parameters,
-    GroupQueryAttentionData<BFloat16>& data);
+    GroupQueryAttentionData<Ort::Custom::BFloat16>& data);
 }
 }  // namespace contrib

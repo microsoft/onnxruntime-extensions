@@ -9,7 +9,7 @@
 
 #ifdef USE_CUDA
 #include "math/cuda/negpos_def.h"
-#include "contrib/cuda/fast_gelu.h"
+#include "cuda/fast_gelu.h"
 #include <cuda.h>
 #include <cuda_runtime.h>
 
