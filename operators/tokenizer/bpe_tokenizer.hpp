@@ -3,7 +3,6 @@
 
 #pragma once
 #include "ocos.h"
-#include "status.h"
 #include "narrow.h"
 #include "ustring.h"
 #include "string_utils.h"
@@ -312,7 +311,7 @@ class BpeModel {
     if (it != vocab_map_.end()) {
       return it->second;
     } else {
-      return unk_id_;
+      return bpe::kInvalidTokenId;
     }
   }
 

@@ -8,15 +8,15 @@
 #include <opencv2/imgcodecs.hpp>
 
 #include "ocos.h"
-#include "string_utils.h"
+#include "ortx_common.h"
 
 #include <cstdint>
 
-void image_decoder(const ortc::Tensor<uint8_t>& input,
-                   ortc::Tensor<uint8_t>& output) {
+inline OrtxStatus image_decoder(const ortc::Tensor<uint8_t>& input,
+                         ortc::Tensor<uint8_t>& output) {
   auto& dimensions = input.Shape();
   if (dimensions.size() != 1ULL) {
-    ORTX_CXX_API_THROW("[ImageDecoder]: Only raw image formats are supported.", ORT_INVALID_ARGUMENT);
+    return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Only raw image formats are supported."};
   }
 
   // Get data & the length
@@ -36,4 +36,6 @@ void image_decoder(const ortc::Tensor<uint8_t>& input,
   const std::vector<int64_t> output_dimensions{decoded_image_size.height, decoded_image_size.width, colors};
   uint8_t* const decoded_image_data = output.Allocate(output_dimensions);
   memcpy(decoded_image_data, decoded_image.data, decoded_image.total() * decoded_image.elemSize());
+
+  return {};
 }

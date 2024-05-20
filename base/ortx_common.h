@@ -5,7 +5,7 @@
 #include <optional>
 #include <string>
 #include <sstream>
-#include "status.h"
+
 #include "string_utils.h"
 #ifdef _WIN32
 #include <Windows.h>

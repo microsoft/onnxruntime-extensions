@@ -9,8 +9,8 @@ const std::vector<const OrtCustomOp*>& Cv2Loader() {
   static OrtOpLoader op_loader(CustomCpuFunc("GaussianBlur", gaussian_blur)
 #ifdef ENABLE_OPENCV_CODECS
                                    ,
-                               CustomCpuFunc("ImageDecoder", image_decoder),
-                               CustomCpuFunc("ImageReader", image_reader)
+                               CustomCpuFuncV2("ImageDecoder", image_decoder),
+                               CustomCpuFuncV2("ImageReader", image_reader)
 #endif  // ENABLE_OPENCV_CODECS
   );
   return op_loader.GetCustomOps();

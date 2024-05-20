@@ -4,7 +4,6 @@
 #pragma once
 
 #include "ocos.h"
-#include "status.h"
 #include "ustring.h"
 
 #include <list>
@@ -115,7 +114,7 @@ class JsonFastTokenizer : KernelBpeTokenizer {
                      std::optional<ortc::Tensor<int64_t>*> offset_mapping) const;
 
  public:
-  auto GetAddedTokens() const { return added_tokens_; }
+  const auto& GetAddedTokens() const { return added_tokens_; }
   const ort_extensions::BpeModel& GetEncoder() const { return *bbpe_tokenizer_; }
 
  private:
