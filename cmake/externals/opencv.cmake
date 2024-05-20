@@ -131,6 +131,7 @@ endif()
 FetchContent_Declare(
     opencv
     GIT_REPOSITORY https://github.com/opencv/opencv.git
+    SOURCE_DIR opencv_source
     GIT_TAG        4.5.4
     GIT_SHALLOW    TRUE
     -DBUILD_DOCS:BOOL=FALSE
@@ -141,7 +142,19 @@ FetchContent_Declare(
     PATCH_COMMAND git checkout . && git apply --whitespace=fix --ignore-space-change --ignore-whitespace ${CMAKE_CURRENT_SOURCE_DIR}/cmake/externals/opencv-no-rtti.patch
 )
 
-FetchContent_MakeAvailable(opencv)
+string(TOLOWER "opencv" lcName)
+if(NOT ${lcName}_POPULATED)
+  FetchContent_Populate(opencv)
+
+  # Set variablles to paths of libspng and libjpeg (we only these 2 folders for our vision operators in Extensions)
+  set(libspng ${opencv_source}/3rdparty/libspng/)
+  set(libjpeg ${opencv_source}/3rdparty/libjpeg/)
+
+  # Get a list of all files in the folders
+  file(GLOB_RECURSE LIBSPNG_FILES "${libspng}/*")
+  file(GLOB_RECURSE LIBJPEG_FILES "${libjpeg}/*")
+endif()
+
 set(opencv_INCLUDE_DIRS "")
 list(APPEND opencv_INCLUDE_DIRS ${OPENCV_CONFIG_FILE_INCLUDE_DIR})
 list(APPEND opencv_INCLUDE_DIRS
@@ -153,17 +166,11 @@ list(APPEND opencv_LIBS opencv_core opencv_imgproc)
 if (OCOS_ENABLE_OPENCV_CODECS)
     list(APPEND opencv_INCLUDE_DIRS ${OPENCV_MODULE_opencv_imgcodecs_LOCATION}/include)
     list(APPEND opencv_LIBS opencv_imgcodecs)
+
+    # Add libspng and libjpeg files to our build target
+    list(APPEND opencv_LIBS LIBSPNG_FILES)
+    list(APPEND opencv_LIBS LIBJPEG_FILES)
 endif()
 
 # unset it to avoid affecting other projects.
 unset(EXECUTABLE_OUTPUT_PATH CACHE)
-
-if (CMAKE_SYSTEM_NAME MATCHES "Windows")
-    set(opencv_projs gen_opencv_java_source gen_opencv_js_source gen_opencv_python_source)
-    list(APPEND opencv_projs gen_opencv_objc_source gen_opencv_objc_source_ios gen_opencv_objc_source_osx)
-    list(APPEND opencv_projs opencv_highgui_plugins opencv_videoio_plugins)
-    foreach(p ${opencv_projs})
-        set_target_properties(${p} PROPERTIES FOLDER "externals/opencv")
-        set_target_properties(${p} PROPERTIES EXCLUDE_FROM_ALL TRUE EXCLUDE_FROM_DEFAULT_BUILD TRUE)
-    endforeach()
-endif()
