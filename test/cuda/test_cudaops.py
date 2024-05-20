@@ -116,6 +116,61 @@ class TestCudaOps(unittest.TestCase):
         else:
             print ('CUDAExecutionProvider not available, test_cuda_fastgelu_f16 skipped.')
 
+    @staticmethod
+    def _create_pagedattention_test_model(domain='ai.onnx.contrib'):
+        nodes = [
+            helper.make_node('PagedAttention',  
+                ['query', 'key', 'value', 'key_cache', 'value_cache', 'block_tables', 'slot_mappings', 'context_lens', 'is_prompt'], 
+                ['attn_out'], 
+                domain=domain, num_heads=32, num_kv_heads=32, head_size=16, scale=1.0)
+        ]
+        query = helper.make_tensor_value_info(
+            'query', onnx_proto.TensorProto.FLOAT16, [87,512])
+        key = helper.make_tensor_value_info(
+            'key', onnx_proto.TensorProto.FLOAT16, [87,512])
+        value = helper.make_tensor_value_info(
+            'value', onnx_proto.TensorProto.FLOAT16, [87,512])
+        key_cache = helper.make_tensor_value_info(
+            'key_cache', onnx_proto.TensorProto.FLOAT16, [32,8192])
+        value_cache = helper.make_tensor_value_info(
+            'value_cache', onnx_proto.TensorProto.FLOAT16, [32,8192])
+        block_tables = helper.make_tensor_value_info(
+            'block_tables', onnx_proto.TensorProto.INT32, [5,3])
+        slot_mappings = helper.make_tensor_value_info(
+            'slot_mappings', onnx_proto.TensorProto.INT32, [87])
+        context_lens = helper.make_tensor_value_info(
+            'context_lens', onnx_proto.TensorProto.INT32, [5])
+        is_prompt = helper.make_tensor_value_info(
+            'is_prompt', onnx_proto.TensorProto.INT32, [1])
+        attn_out = helper.make_tensor_value_info(
+            'attn_out', onnx_proto.TensorProto.FLOAT16, [87,512])
+        graph = helper.make_graph(nodes, 'test_paged_attention', 
+                    [query, key, value, key_cache, value_cache, block_tables, slot_mappings, context_lens, is_prompt], 
+                    [attn_out])
+        model = make_onnx_model(graph)
+        return model
+        
+    def test_cuda_paged_attention(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = self._create_pagedattention_test_model()
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(),
+                                     so,
+                                     providers=['CUDAExecutionProvider'])
+        query = np.random.randn(87,512).astype(np.float16) # 87 is the token num of all the sequences (5+12+16+20+34)
+        key = np.random.randn(87,512).astype(np.float16)
+        value = np.random.randn(87,512).astype(np.float16)
+        key_cache = np.zeros([32,8192]).astype(np.float16)
+        value_cache = np.zeros([32,8192]).astype(np.float16)
+        block_tables = np.array([[0,-1,-1],[1,-1,-1],[2,-1,-1],[3,4,-1],[5,6,7]]).astype(np.int32)
+        slot1 = np.arange(0, 5, dtype=np.int32)
+        slot2 = np.arange(16, 28, dtype=np.int32)
+        slot3 = np.arange(32, 68, dtype=np.int32)
+        slot4 = np.arange(80, 114, dtype=np.int32)
+        slot_mappings = np.concatenate((slot1, slot2, slot3, slot4))
+        context_lens = np.array([5, 12, 16, 20, 34]).astype(np.int32)
+        is_prompt = np.array([1]).astype(np.int32)
+        y = sess.run(None, {'query':query, 'key':key, 'value':value, 'key_cache':key_cache, 'value_cache':value_cache, 'block_tables':block_tables, 'slot_mappings':slot_mappings, 'context_lens':context_lens, 'is_prompt':is_prompt})
 
 if __name__ == "__main__":
     unittest.main()

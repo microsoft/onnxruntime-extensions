@@ -105,14 +105,12 @@ void reshape_and_cache(
     const cudaStream_t stream,
     const void* key,          // [num_tokens, num_heads, head_size]
     const void* value,        // [num_tokens, num_heads, head_size]
-    const void* key_cache,    // [num_blocks, num_heads, head_size/x, block_size, x]
+    const void* key_cache,    // [num_blocks, num_heads, head_size, block_size]
     const void* value_cache,  // [num_blocks, num_heads, head_size, block_size]
     const int* slot_mapping,  // [num_tokens]
     const int64_t* key_shapes,
     const int64_t* value_shapes,
-    const int64_t block_size,
-    const int vec_x,
-    int dtype);
+    const int64_t block_size);
 //    void* kv_quant_param = nullptr,  // [num_blocks, 2, num_heads, head_size / kv_quant_chunk_size, block_size]
 //    const int kv_quant_chunk_size = 0,
 //    const int kv_quant_param_dtype = 1);
