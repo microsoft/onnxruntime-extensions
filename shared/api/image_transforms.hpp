@@ -227,7 +227,7 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input,
 
   // padding the rest of the crops
   // pad = torch.zeros(max_crops - B, 3, H, W, dtype=images.dtype, device=images.device)
-  memset(output_pixel + num_crops * image_c_size, 0, image_c_size * (max_crops - num_crops) * sizeof(float));
+  memset(output_pixel_n_1 + num_crops * image_c_size, 0, image_c_size * (max_crops - num_crops) * sizeof(float));
 
   // image_sizes = shapes
   return {};
