@@ -3,7 +3,6 @@
 #include <filesystem>
 
 #include "gtest/gtest.h"
-#include "gmock/gmock.h"
 
 #include "ocos.h"
 #include "test_kernel.hpp"

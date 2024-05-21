@@ -107,6 +107,16 @@ set(BUILD_TESTS       OFF CACHE INTERNAL "")
 set(CV_TRACE          OFF CACHE INTERNAL "")
 
 set(CV_DISABLE_OPTIMIZATION     ON CACHE INTERNAL "")
+set(BUILD_PERF_TESTS            OFF CACHE INTERNAL "")
+set(BUILD_opencv_java_bindings_generator	  OFF CACHE INTERNAL "")
+set(BUILD_opencv_js_bindings_generator	  OFF CACHE INTERNAL "")
+set(BUILD_opencv_objc_bindings_generator	  OFF CACHE INTERNAL "")
+set(BUILD_opencv_python_bindings_generator  OFF CACHE INTERNAL "")
+set(BUILD_opencv_python_tests  OFF CACHE INTERNAL "")
+
+set(WITH_ADE                   OFF CACHE INTERNAL "")
+set(VIDEOIO_ENABLE_PLUGINS	OFF CACHE INTERNAL "")
+set(HIGHGUI_ENABLE_PLUGINS  OFF CACHE INTERNAL "")
 
 if(IOS)
   # copy what OpenCV's platforms/ios/build_framework.py does and set CPU_BASELINE=DETECT

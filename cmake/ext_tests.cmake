@@ -55,7 +55,7 @@ function(add_test_target)
                    "${TEST_SRC_DIR}/unittest_main/test_main.cc")
     target_link_libraries(${ARG_TARGET} PRIVATE
                           ${ARG_LIBRARIES}
-                          gtest gmock)
+                          gtest)
 
     if(OCOS_USE_CUDA)
       target_link_directories(${ARG_TARGET} PRIVATE ${CUDAToolkit_LIBRARY_DIR})
@@ -93,7 +93,7 @@ function(add_test_target)
 
     target_link_libraries(${ARG_TARGET} PRIVATE
                           ${ARG_LIBRARIES}
-                          gtest gmock)
+                          gtest)
 
     set(test_data_destination_root_directory $<TARGET_FILE_DIR:${dummy_testee_target}>)
 
