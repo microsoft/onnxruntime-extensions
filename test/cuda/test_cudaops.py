@@ -157,9 +157,12 @@ class TestCudaOps(unittest.TestCase):
         sess = _ort.InferenceSession(onnx_model.SerializeToString(),
                                      so,
                                      providers=['CUDAExecutionProvider'])
-        query = np.random.randn(87,512).astype(np.float16) # 87 is the token num of all the sequences (5+12+16+20+34)
-        key = np.random.randn(87,512).astype(np.float16)
-        value = np.random.randn(87,512).astype(np.float16)
+        #query = np.random.randn(87,512).astype(np.float16) # 87 is the token num of all the sequences (5+12+16+20+34)
+        #key = np.random.randn(87,512).astype(np.float16)
+        #value = np.random.randn(87,512).astype(np.float16)
+        query = np.load('query.npy')
+        key = np.load('key.npy')
+        value = np.load('value.npy')
         key_cache = np.zeros([32,8192]).astype(np.float16)
         value_cache = np.zeros([32,8192]).astype(np.float16)
         block_tables = np.array([[0,-1,-1],[1,-1,-1],[2,-1,-1],[3,4,-1],[5,6,7]]).astype(np.int32)
@@ -171,6 +174,8 @@ class TestCudaOps(unittest.TestCase):
         context_lens = np.array([5, 12, 16, 20, 34]).astype(np.int32)
         is_prompt = np.array([1]).astype(np.int32)
         y = sess.run(None, {'query':query, 'key':key, 'value':value, 'key_cache':key_cache, 'value_cache':value_cache, 'block_tables':block_tables, 'slot_mappings':slot_mappings, 'context_lens':context_lens, 'is_prompt':is_prompt})
+        print('Y=')
+        print(y)
 
 if __name__ == "__main__":
     unittest.main()

@@ -74,8 +74,8 @@ void paged_attention_v1(
     const float* __restrict__ alibi_slopes,
     const int max_num_blocks_per_seq,
     const int64_t* query_shapes,
-    int num_queries_per_kv,
-    int dtype);
+    int num_queries_per_kv);
+//    int dtype);
 //    const void* kv_quant_params_cache = nullptr,  // [num_blocks, 2, num_kv_heads, head_size / kv_quant_chunk_size, block_size]
 //    int kv_quant_chunk_size = 0,
 //    int kv_quant_param_dtype = 0);
@@ -98,8 +98,8 @@ void paged_attention_v2(
     const float* alibi_slopes,
     const int max_num_blocks_per_seq,
     const int64_t* query_shapes,
-    int num_queries_per_kv,
-    int dtype);
+    int num_queries_per_kv);
+//    int dtype);
 
 void reshape_and_cache(
     const cudaStream_t stream,
