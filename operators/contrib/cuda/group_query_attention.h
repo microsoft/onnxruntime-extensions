@@ -15,6 +15,12 @@
 #include "cutlass_fmha/memory_efficient_attention.h"
 #endif
 
+/*
+ * Usage:
+ * pip3 install . --config-settings "ortx-user-option=use-cuda,cc_debug,ort_pkg_dir=/home/leca/ort_pkg_19"
+ * python3 test_cudaops.py TestCudaOps.test_cuda_GroupQueryAttention
+ */
+
 namespace contrib {
 
 template <typename T>
@@ -481,8 +487,8 @@ struct GroupQueryAttention {
   bool disable_flash_attention_;
   bool disable_memory_efficient_attention_;
   static constexpr int kZerosCount = 256;  // In prompt case we create a zero buffer of size 256 for seqlen (assume batch_size <= 256)
-  UniquePtrWithDeletor<int> zeros_;
   UniquePtrWithDeletor<OrtAllocator> allocator_; // TODO(leca): Does the release order of allocator_ and zeros_ matter?
+  UniquePtrWithDeletor<int> zeros_;
 };
 
 }  // namespace contrib

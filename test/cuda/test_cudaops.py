@@ -783,5 +783,45 @@ class TestCudaOps(unittest.TestCase):
                                 atol=1e-3,
                             )
 
+    @staticmethod
+    def _create_GroupQueryAttention_test_model_validate_PA(domain='ai.onnx.contrib'):
+        nodes = [
+            helper.make_node(
+                'GroupQueryAttention', 
+                ['query', 'key', 'value', 'seqlens_k', 'total_seqlen'], 
+                ['attn_out'],
+                domain=domain, num_heads=32, kv_num_heads=32)
+        ]
+
+        query = helper.make_tensor_value_info(
+            'query', onnx_proto.TensorProto.FLOAT16, [5,34,512])
+        key = helper.make_tensor_value_info(
+            'key', onnx_proto.TensorProto.FLOAT16, [5,34,512])
+        value = helper.make_tensor_value_info(
+            'value', onnx_proto.TensorProto.FLOAT16, [5,34,512])
+        seqlens_k = helper.make_tensor_value_info(
+            'seqlens_k', onnx_proto.TensorProto.INT32, [5])
+        total_seqlen = helper.make_tensor_value_info(
+            'total_seqlen', onnx_proto.TensorProto.INT32, [1])
+        attn_out = helper.make_tensor_value_info(
+            'attn_out', onnx_proto.TensorProto.FLOAT16, [5,34,512])
+
+        graph = helper.make_graph(nodes, 'testgqa', 
+                    [query, key, value, seqlens_k, total_seqlen], 
+                    [attn_out])
+        model = make_onnx_model(graph)
+        return model
+
+    def test_cuda_GroupQueryAttention_validate_PagedAttention(self):
+        query = np.load('query.npy')
+        key = np.load('key.npy')
+        value = np.load('value.npy')
+        query_batch = np.random.randn(5, 34, 512).astype(np.float16)
+        key_batch = np.random.randn(5, 34, 512).astype(np.float16)
+        value_batch = np.random.randn(5, 34, 512).astype(np.float16)
+        #query_batch[0, 0:]
+        seqlens_k = np.array([5, 12, 16, 20, 34]).astype(np.int32)
+        total_seqlen = np.array([87]).astype(np.int32)
+
 if __name__ == "__main__":
     unittest.main()
