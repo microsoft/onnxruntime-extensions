@@ -244,15 +244,18 @@ OrtStatusPtr CheckInputs(const Ort::Custom::Tensor<T>& query,
 template <typename T>
 struct GroupQueryAttention {
   static OrtMemType GetInputMemoryType(size_t input_index) {
-    if (input_index == 6) return OrtMemType::OrtMemTypeCPUInput;
+//    if (input_index == 6) return OrtMemType::OrtMemTypeCPUInput;  // total_seqlen
+    if (input_index == 4) return OrtMemType::OrtMemTypeCPUInput;  // total_seqlen
     return OrtMemType::OrtMemTypeDefault;
   }
 
-  static size_t GetMayInplace(int** input_index, int** output_index) {
+  static size_t GetMayInplace(int** input_index, int** output_index) {  // past_key <=> key, past_value <=> value
     size_t ret = 2;
     *input_index = static_cast<int*>(malloc(ret * sizeof(int)));
-    (*input_index)[0] = 3;
-    (*input_index)[1] = 4;
+//    (*input_index)[0] = 3;
+//    (*input_index)[1] = 4;
+    (*input_index)[0] = 5;
+    (*input_index)[1] = 6;
     *output_index = static_cast<int*>(malloc(ret * sizeof(int)));
     (*output_index)[0] = 1;
     (*output_index)[1] = 2;
@@ -299,8 +302,10 @@ struct GroupQueryAttention {
   }
 
   OrtStatusPtr Compute(OrtKernelContext* kernel_context, const Ort::Custom::CudaContext& ctx, const ortc::Tensor<T>& query, std::optional<const ortc::Tensor<T>*> key,
-                       std::optional<const ortc::Tensor<T>*> value, std::optional<const ortc::Tensor<T>*> past_key, std::optional<const ortc::Tensor<T>*> past_value,
-                       const ortc::Tensor<int>& seqlens_k, const ortc::Tensor<int>& total_seqlen, std::optional<const ortc::Tensor<T>*> cos_cache, 
+//                       std::optional<const ortc::Tensor<T>*> value, std::optional<const ortc::Tensor<T>*> past_key, std::optional<const ortc::Tensor<T>*> past_value,
+//                       const ortc::Tensor<int>& seqlens_k, const ortc::Tensor<int>& total_seqlen, std::optional<const ortc::Tensor<T>*> cos_cache, 
+                       std::optional<const ortc::Tensor<T>*> value, const ortc::Tensor<int>& seqlens_k, const ortc::Tensor<int>& total_seqlen,
+                       std::optional<const ortc::Tensor<T>*> past_key, std::optional<const ortc::Tensor<T>*> past_value, std::optional<const ortc::Tensor<T>*> cos_cache, 
                        std::optional<const ortc::Tensor<T>*> sin_cache, ortc::Tensor<T>& attn_out, std::optional<ortc::Tensor<T>*> present_key, std::optional<ortc::Tensor<T>*> present_value) const {
     GroupQueryAttentionParameters parameters;
     ORTX_RETURN_IF_ERROR(CheckInputs<T>(query, key, value, past_key, past_value, cos_cache, sin_cache, &parameters, num_heads_, kv_num_heads_, 

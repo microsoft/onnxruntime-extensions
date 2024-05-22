@@ -799,6 +799,10 @@ class TestCudaOps(unittest.TestCase):
             'key', onnx_proto.TensorProto.FLOAT16, [5,34,512])
         value = helper.make_tensor_value_info(
             'value', onnx_proto.TensorProto.FLOAT16, [5,34,512])
+#        past_key = helper.make_tensor_value_info(
+#            'past_key', onnx_proto.TensorProto.FLOAT16, [5,32,128,16])
+#        past_value = helper.make_tensor_value_info(
+#            'past_value', onnx_proto.TensorProto.FLOAT16, [5,32,128,16])
         seqlens_k = helper.make_tensor_value_info(
             'seqlens_k', onnx_proto.TensorProto.INT32, [5])
         total_seqlen = helper.make_tensor_value_info(
@@ -813,15 +817,39 @@ class TestCudaOps(unittest.TestCase):
         return model
 
     def test_cuda_GroupQueryAttention_validate_PagedAttention(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = self._create_GroupQueryAttention_test_model_validate_PA()
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(),
+                                     so,
+                                     providers=['CUDAExecutionProvider'])
         query = np.load('query.npy')
         key = np.load('key.npy')
         value = np.load('value.npy')
         query_batch = np.random.randn(5, 34, 512).astype(np.float16)
         key_batch = np.random.randn(5, 34, 512).astype(np.float16)
         value_batch = np.random.randn(5, 34, 512).astype(np.float16)
-        #query_batch[0, 0:]
+#        query_batch[0, 0:5] = query[0:5]    # TODO(leca): Need padding for the rest?
+#        query_batch[1, 0:12] = query[5:17]
+#        query_batch[2, 0:16] = query[17:33]
+#        query_batch[3, 0:20] = query[33:53]
+#        query_batch[4, 0:34] = query[53:87]
+#        key_batch[0, 0:5] = key[0:5]
+#        key_batch[1, 0:12] = key[5:17]
+#        key_batch[2, 0:16] = key[17:33]
+#        key_batch[3, 0:20] = key[33:53]
+#        key_batch[4, 0:34] = key[53:87]
+#        value_batch[0, 0:5] = value[0:5]
+#        value_batch[1, 0:12] = value[5:17]
+#        value_batch[2, 0:16] = value[17:33]
+#        value_batch[3, 0:20] = value[33:53]
+#        value_batch[4, 0:34] = value[53:87]
         seqlens_k = np.array([5, 12, 16, 20, 34]).astype(np.int32)
         total_seqlen = np.array([87]).astype(np.int32)
+        y = sess.run(None, {'query':query_batch, 'key':key_batch, 'value':value_batch, 'seqlens_k':seqlens_k, 'total_seqlen':total_seqlen})
+        print('y=')
+        print(y)
+
 
 if __name__ == "__main__":
     unittest.main()
