@@ -48,7 +48,7 @@ class BoxArray {
  private:
   void SortBoxesByScore(gsl::span<const float> data) {
     boxes_by_score_.reserve(NumBoxes());
-    for (size_t i = 0; i < NumBoxes(); ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(NumBoxes()); ++i) {
       boxes_by_score_.push_back(data.subspan(i * shape_[1], shape_[1]));
     }
 
@@ -188,7 +188,7 @@ void DrawBoxesForNumClasses(ImageView& image, const BoxArray& boxes, int64_t thi
   std::unordered_map<float, size_t> color_used;
   std::vector<std::pair<size_t, int64_t>> box_reverse;
   box_reverse.reserve(boxes.NumBoxes());
-  for (size_t i = 0; i < boxes.NumBoxes(); ++i) {
+  for (size_t i = 0; i < static_cast<size_t>(boxes.NumBoxes()); ++i) {
     const auto box = boxes.GetBox(i);
     if (color_used.find(box[kBoxClassIndex]) == color_used.end()) {
       if (color_used.size() >= KBGRColorMap.size()) {

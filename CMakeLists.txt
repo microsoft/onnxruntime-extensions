@@ -285,9 +285,11 @@ function(set_msvc_c_cpp_compiler_warning_level warning_level)
   endif()
 endfunction()
 
+if (NOT ONNXRUNTIME_INCLUDE_DIR)
+  include(ext_ortlib)
+endif()
 # set default MSVC warning level to 3 for external dependencies
 set_msvc_c_cpp_compiler_warning_level(3)
-include(ext_ortlib)
 include(gsl)
 
 macro(standardize_output_folder bin_target)
@@ -896,7 +898,7 @@ if (_ORTX_STANDALONE_PROJECT)
   # Run CPack to generate the NuGet package
   include(CPack)
 
-  if(OCOS_ENABLE_CTEST)
+  if(OCOS_ENABLE_CTEST AND NOT MAC_CATALYST)
     include(ext_tests)
   endif()
 endif()

@@ -1,5 +1,3 @@
-if (NOT MAC_CATALYST)
-
 if (OCOS_ENABLE_SELECTED_OPLIST)
   # currently the tests don't handle operator exclusion cleanly.
   message(FATAL_ERROR "Due to usage of OCOS_ENABLE_SELECTED_OPLIST excluding operators the tests are unable to be built and run")
@@ -130,9 +128,40 @@ add_test_target(TARGET ocos_test
                 LIBRARIES ortcustomops ${ocos_libraries})
 target_compile_definitions(ocos_test PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 
+if (OCOS_ENABLE_C_API)
+  file(GLOB pp_api_TEST_SRC
+    "${TEST_SRC_DIR}/pp_api_test/*.c"
+    "${TEST_SRC_DIR}/pp_api_test/*.cc"
+    "${TEST_SRC_DIR}/pp_api_test/*.h")
+
+  add_test_target(TARGET pp_api_test
+    TEST_SOURCES ${pp_api_TEST_SRC}
+    LIBRARIES onnxruntime_extensions ${ocos_libraries}
+    TEST_DATA_DIRECTORIES ${TEST_SRC_DIR}/data)
+
+  target_compile_definitions(pp_api_test PRIVATE ${OCOS_COMPILE_DEFINITIONS})
+  target_include_directories(pp_api_test PRIVATE
+    ${PROJECT_SOURCE_DIR}/
+    "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>"
+    "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
+
+  if (ORTX_TEST_DATA2)
+    file(TO_NATIVE_PATH "${ORTX_TEST_DATA2}/tests/data2" _TEST_DATA2)
+    add_custom_command(TARGET pp_api_test POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E create_symlink ${_TEST_DATA2} ${onnxruntime_extensions_BINARY_DIR}/data2)
+  endif()
+endif()
+
+
 # -- shared test (needs onnxruntime) --
-SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
-find_library(ONNXRUNTIME onnxruntime HINTS "${ONNXRUNTIME_LIB_DIR}")
+# avoid blindling searching for onnxruntime library
+# wbhich leads to a unpredictable result
+if (NOT ONNXRUNTIME_LIB_DIR)  
+  set(ONNXRUNTIME "ONNXRUNTIME-NOTFOUND")
+else()
+  SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
+  find_library(ONNXRUNTIME onnxruntime HINTS "${ONNXRUNTIME_LIB_DIR}")
+endif()
 
 if("${ONNXRUNTIME}" STREQUAL "ONNXRUNTIME-NOTFOUND")
   message(WARNING "The prebuilt onnxruntime library was not found, extensions_test will be skipped.")
@@ -197,25 +226,10 @@ else()
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${ONNXRUNTIME} ${CMAKE_BINARY_DIR}/lib
       )
     endif()
+
+    if (OCOS_ENABLE_C_API)
+      # avoid copying the same data directory at the same time.
+      add_dependencies(extensions_test pp_api_test)
+    endif()
   endblock()
-
-  if (OCOS_ENABLE_C_API)
-    file(GLOB pp_api_TEST_SRC
-      "${TEST_SRC_DIR}/pp_api_test/*.c"
-      "${TEST_SRC_DIR}/pp_api_test/*.cc"
-      "${TEST_SRC_DIR}/pp_api_test/*.h")
-
-    add_test_target(TARGET pp_api_test
-      TEST_SOURCES ${pp_api_TEST_SRC}
-      LIBRARIES onnxruntime_extensions ${ocos_libraries}
-      TEST_DATA_DIRECTORIES ${TEST_SRC_DIR}/data)
-
-    target_compile_definitions(pp_api_test PRIVATE ${OCOS_COMPILE_DEFINITIONS})
-    target_include_directories(pp_api_test PRIVATE
-      ${PROJECT_SOURCE_DIR}/
-      "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>"
-      "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
-  endif()
-endif()
-
 endif()
