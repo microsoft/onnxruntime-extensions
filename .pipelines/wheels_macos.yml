@@ -6,6 +6,7 @@ jobs:
   variables:
     CIBW_BUILD: "cp3{8,9,10,11,12}-*"
     CIBW_ARCHS_MACOS: "x86_64 universal2 arm64"
+    CIBW_ENVIRONMENT: "MACOSX_DEPLOYMENT_TARGET=11.0"
     # Skip trying to test arm64 builds on Intel Macs
     # CIBW_TEST_SKIP: "*-macosx_arm64 *-macosx_universal2:arm64"
     # Disable building PyPy wheels
