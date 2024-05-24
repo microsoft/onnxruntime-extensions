@@ -194,6 +194,47 @@ class BpeModel {
     return {};
   }
 
+  OrtxStatus Load(std::unordered_map<std::string, uint32_t>& vocab,
+                  std::vector<std::pair<std::string, std::string>>& merges,
+                  const char* /* special_tokens */,
+                  bool spm_converted) {
+    vocab_map_ = vocab;
+
+    if (spm_converted) {
+      UpdateSpmByteToken(vocab_map_);
+    } else {
+      CreateByteEncoder();
+    }
+
+    uint32_t index = 0;
+    for (auto& tuple : merges){
+      std::string w1 = tuple.first;
+      std::string w2 = tuple.second;
+      int token_length = ort_extensions::narrow<int>(w1.length() + w2.length());
+      if (w2.find("</w>") != std::string::npos || w1.find("</w>") != std::string::npos) {
+        token_length -= 4;
+      }
+      auto iw1 = GetTokenId(w1);
+      auto iw2 = GetTokenId(w2);
+      auto iww = GetTokenId(w1 + w2);
+      BpeNode value{iww, index++, token_length};
+      bpe_rank_[GetRankKey(iw1, iw2)] = value;
+    }
+
+    id2token_map_.resize(vocab_map_.size());
+    for (const auto& [t, i] : vocab_map_) {
+      if (i > static_cast<uint32_t>((std::numeric_limits<int32_t>::max)())) {
+        continue;  // safe purpose.
+      }
+      if (i > id2token_map_.size()) {
+        id2token_map_.resize(static_cast<size_t>(i) + 1);
+      }
+      id2token_map_[i] = t;
+    }
+
+    return {};
+  }
+
   OrtxStatus LoadAddedTokens(const char* added_tokens) {
     int id = bpe::kInvalidTokenId;
     std::istringstream strm_tokens(added_tokens);

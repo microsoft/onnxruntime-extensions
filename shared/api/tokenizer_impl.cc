@@ -18,9 +18,22 @@ OrtxStatus TokenizerImpl::Load(const std::string& dir) {
     return status;
   }
 
-  tokenizer_ = std::make_unique<JsonFastTokenizer>();
-  // load the tokenizer from a config
-  status = tokenizer_->Load(*tok_config_);
+  auto vocab_file_path = path(dir) / "tokenizer.json";
+  std::ifstream vocab_fs = vocab_file_path.open();
+  if (!vocab_fs.is_open()) {
+    // No tokenizer.json file present; use TikTokenTokenizer
+    tiktoken = true;
+    tiktokenizer_ = std::make_unique<TikTokenizer>();
+
+    // load the tokenizer from a config
+    status = tiktokenizer_->Load(*tok_config_);
+  } else {
+    tokenizer_ = std::make_unique<JsonFastTokenizer>();
+
+    // load the tokenizer from a config
+    status = tokenizer_->Load(*tok_config_);
+  }
+  
   if (status.IsOk()) {
     detokenizer_ = std::make_unique<BpeStreamingDecoder>();
     status = detokenizer_->Load(tok_config_, *tokenizer_);
@@ -35,7 +48,12 @@ OrtxStatus TokenizerImpl::BatchEncode(
   for (const auto& s : input) {
     ortc::Tensor<int64_t> ts_output(&CppAllocator::Instance());
     ortc::Tensor<std::string> ts_input = ortc::Tensor<std::string>(std::vector<std::string>{std::string(s)});
-    auto status = tokenizer_->Compute(ts_input, ts_output, std::nullopt, std::nullopt);
+    OrtxStatus status;
+    if (tiktoken){
+      status = tiktokenizer_->Compute(ts_input, ts_output, std::nullopt, std::nullopt);
+    } else {
+      status = tokenizer_->Compute(ts_input, ts_output, std::nullopt, std::nullopt);
+    }
 
     if (!status.IsOk()) {
       return status;
