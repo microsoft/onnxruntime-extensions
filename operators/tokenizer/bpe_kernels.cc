@@ -654,6 +654,25 @@ std::string TikTokenizer::TokenBytesToString(std::vector<uint8_t>& bytes) {
     return result;
 }
 
+// Custom hash function for the vector key
+struct VectorHash {
+    size_t operator()(const std::vector<uint8_t>& v) const {
+        std::hash<uint8_t> hasher;
+        size_t seed = 0;
+        for (uint8_t i : v) {
+            seed ^= hasher(i) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+        return seed;
+    }
+};
+
+// Custom equality function for the vector key
+struct VectorEqual {
+    bool operator()(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) const {
+        return a == b;
+    }
+};
+
 OrtxStatus TikTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& config) {
   std::string voc_file = config.GetVocabDataFile();
   std::ifstream ifs = path(voc_file).open();
@@ -661,7 +680,7 @@ OrtxStatus TikTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& config
     return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open vocab file: " + voc_file);
   }
 
-  std::unordered_map<std::vector<uint8_t>, uint32_t> bpe_ranks;
+  std::unordered_map<std::vector<uint8_t>, uint32_t, VectorHash, VectorEqual> bpe_ranks;
 
   std::string line;
   while (std::getline(ifs, line)) {
