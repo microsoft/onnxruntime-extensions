@@ -144,8 +144,10 @@ class TestCudaOps(unittest.TestCase):
         assert_almost_equal(expected, got, decimal=5)
 
     def test_cuda_negxplus1(self):
-        self._negxplus1_cuda(TensorProto.FLOAT)
-        self._negxplus1_cuda(TensorProto.FLOAT16)
+        eps = _ort.get_available_providers()
+        if "CUDAExecutionProvider" in eps:
+            self._negxplus1_cuda(TensorProto.FLOAT)
+            self._negxplus1_cuda(TensorProto.FLOAT16)
 
 
 if __name__ == "__main__":
