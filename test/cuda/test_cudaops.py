@@ -175,10 +175,14 @@ class TestCudaOps(unittest.TestCase):
         self.assertEqual(expected.tolist(), got.tolist())
 
     def test_cuda_scatternd_of_shape(self):
-        self._scatternd_of_shape_cuda("add", 0, TensorProto.FLOAT)
-        self._scatternd_of_shape_cuda("add", 0, TensorProto.FLOAT16)
-        self._scatternd_of_shape_cuda("add", 1, TensorProto.FLOAT)
-        self._scatternd_of_shape_cuda("add", 1, TensorProto.FLOAT16)
+        eps = _ort.get_available_providers()
+        if "CUDAExecutionProvider" in eps:
+            self._scatternd_of_shape_cuda("add", 0, TensorProto.FLOAT)
+            self._scatternd_of_shape_cuda("add", 0, TensorProto.FLOAT16)
+            self._scatternd_of_shape_cuda("add", 1, TensorProto.FLOAT)
+            self._scatternd_of_shape_cuda("add", 1, TensorProto.FLOAT16)
+        else:
+            print("CUDAExecutionProvider not available, test_cuda_scatternd_of_shape skipped.")
 
 
 if __name__ == "__main__":
