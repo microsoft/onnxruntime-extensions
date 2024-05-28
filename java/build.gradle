@@ -113,7 +113,7 @@ if (cmakeBuildDir != null) {
     // Overwrite jar location
     task allJar(type: Jar) {
         manifest {
-            attributes('Automatic-Module-Name': project.group,
+            attributes('Automatic-Module-Name': "com.microsoft.onnxruntime.extensions",
                     'Implementation-Title': 'onnxruntime-extensions',
                     'Implementation-Version': project.version)
         }
