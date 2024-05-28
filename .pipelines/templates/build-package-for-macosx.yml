@@ -50,3 +50,7 @@ stages:
         targetPath: '$(Build.ArtifactStagingDirectory)'
         artifact: 'onnxruntime-extensions-osx'
         condition: 'succeededOrFailed()'
+
+  - template: component-governance-component-detection-steps.yml
+    parameters :
+      condition : 'succeeded'
