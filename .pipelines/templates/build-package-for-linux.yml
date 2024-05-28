@@ -96,8 +96,10 @@ jobs:
         targetPath: '$(Build.ArtifactStagingDirectory)'
         artifactName: 'onnxruntime-extensions-linux-${{parameters.OrtExtensionsArch}}'
 
-    - script: echo "Build.BinariesDirectory: $(Build.BinariesDirectory)"
+    - script: echo $(Build.BinariesDirectory)
+      displayName: "Echo binaries directory"
     - script: ls -l $(Build.BinariesDirectory)
+      displayName: "List binaries directory"
 
     - template: component-governance-component-detection-steps.yml
       parameters :
