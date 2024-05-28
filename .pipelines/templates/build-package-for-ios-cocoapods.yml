@@ -188,7 +188,3 @@ jobs:
   - publish: "$(Build.ArtifactStagingDirectory)"
     artifact: onnxruntime-extensions-ios_package
     displayName: "Publish artifacts"
-
-  - template: component-governance-component-detection-steps.yml
-    parameters :
-      condition : 'succeeded'
