@@ -12,3 +12,9 @@ steps:
       or(or(and(eq('${{parameters.condition}}', 'ci_only'), and(succeeded(), in(variables['Build.Reason'], 'IndividualCI', 'BatchedCI', 'Scheduled'))),
           and(eq('${{parameters.condition}}', 'always'), always())),
           and(eq('${{parameters.condition}}', 'succeeded'), succeeded()))
+    # ignore unused languages bindings from 3rd party dependencies
+    ignoreDirectories:
+      '$(Build.BinariesDirectory)/_deps/triton-src/src/grpc_generated,
+      $(Build.BinariesDirectory)/_deps/protobuf-src/java,
+      $(Build.BinariesDirectory)/_deps/protobuf-src/js,
+      $(Build.BinariesDirectory)/_deps/protobuf-src/ruby'
