@@ -22,7 +22,3 @@ steps:
         $(Build.BinariesDirectory)/_deps/protobuf-src/java,
         $(Build.BinariesDirectory)/_deps/protobuf-src/js,
         $(Build.BinariesDirectory)/_deps/protobuf-src/ruby'
-
-  - script: echo "Build.BinariesDirectory: $(Build.BinariesDirectory)"
-
-  - script: ls -l $(Build.BinariesDirectory)
