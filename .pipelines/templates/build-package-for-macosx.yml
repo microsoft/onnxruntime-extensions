@@ -25,6 +25,11 @@ stages:
     parameters:
       MacosArch: 'universal2'
       AdditionalBuildFlags: "${{ parameters.AdditionalBuildFlags }} --cmake_extra_defines CMAKE_OSX_ARCHITECTURES=\"arm64;x86_64\""
+
+  - template: component-governance-component-detection-steps.yml
+    parameters :
+      condition : 'succeeded'
+
   - job: MacOS_C_API_Package_Publish_All
     dependsOn:
     - MacOS_C_API_Packaging_CPU_x86_64
@@ -50,7 +55,3 @@ stages:
         targetPath: '$(Build.ArtifactStagingDirectory)'
         artifact: 'onnxruntime-extensions-osx'
         condition: 'succeededOrFailed()'
-
-  - template: component-governance-component-detection-steps.yml
-    parameters :
-      condition : 'succeeded'
