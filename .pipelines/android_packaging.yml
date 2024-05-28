@@ -79,3 +79,7 @@ jobs:
       - publish: "$(Build.ArtifactStagingDirectory)"
         artifact: onnxruntime-extensions-android-aar
         displayName: "Publish artifacts"
+
+      - template: templates/component-governance-component-detection-steps.yml
+        parameters :
+          condition : 'succeeded'
