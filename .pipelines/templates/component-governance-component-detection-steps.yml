@@ -17,6 +17,8 @@ steps:
       # ignore unused languages bindings from 3rd party dependencies
       ignoreDirectories:
         '$(Build.BinariesDirectory)/_deps/triton-src/src/grpc_generated,
+        $(Build.BinariesDirectory)/_deps/protobuf-src/benchmarks,
+        $(Build.BinariesDirectory)/_deps/protobuf-src/examples,
         $(Build.BinariesDirectory)/_deps/protobuf-src/java,
         $(Build.BinariesDirectory)/_deps/protobuf-src/js,
         $(Build.BinariesDirectory)/_deps/protobuf-src/ruby'
