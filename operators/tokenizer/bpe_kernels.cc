@@ -734,12 +734,12 @@ OrtxStatus TikTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& config
   }
 
   // Custom comparator that compares the third element of the tuples
-  auto compare_merge_tuples = [](const std::tuple<std::vector<uint8_t>, std::vector<uint8_t>, uint32_t>& a,
+  auto compare_merge_tuples = [&](const std::tuple<std::vector<uint8_t>, std::vector<uint8_t>, uint32_t>& a,
                                       const std::tuple<std::vector<uint8_t>, std::vector<uint8_t>, uint32_t>& b) {
     return std::get<2>(a) < std::get<2>(b);
   };
   
-  std::sort(merges.begin(), merges.end(), compare_merge_tuples);
+  std::sort(byte_merges.begin(), byte_merges.end(), compare_merge_tuples);
 
   // Populate merges
   for (auto& val : byte_merges) {
