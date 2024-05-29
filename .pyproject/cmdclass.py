@@ -190,7 +190,8 @@ class CmdBuildCMakeExt(_build_ext):
         ext_fullpath = pathlib.Path(
             self.get_ext_fullpath(extension.name)).absolute()
 
-        config = 'RelWithDebInfo' if self.debug else 'Release'
+#        config = 'RelWithDebInfo' if self.debug else 'Release'
+        config = 'Debug' if self.debug else 'Release'
         cmake_args = [
             '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' +
             str(ext_fullpath.parent.absolute()),

@@ -458,7 +458,7 @@ class OrtGraphCudaKernelContext : public CUDAKernelContext {
  public:
   static const int cuda_resource_ver = 1;
 
-  OrtGraphCudaKernelContext(const OrtApi& api, const OrtKernelContext& ctx) : api_(api) {
+  OrtGraphCudaKernelContext(const OrtApi& api, const OrtKernelContext& ctx) : api_(api), kernel_context_(ctx) {
     api.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::cuda_handle_t, &cuda_stream_);
     if (!cuda_stream_) {
       ORTX_CXX_API_THROW("Failed to fetch cuda stream from context", ORT_RUNTIME_EXCEPTION);
@@ -525,9 +525,16 @@ class OrtGraphCudaKernelContext : public CUDAKernelContext {
   int GetCudaDeviceId() const override {
     return device_id_;
   }
+  
+  void* GetScratchBufferUnderMultiStream(const OrtMemoryInfo* mem_info, size_t count_or_bytes) override {
+    void* ret = nullptr;
+    api_.KernelContext_GetScratchBuffer(&kernel_context_, mem_info, count_or_bytes, &ret);
+    return ret;
+  }
 
  private:
   const OrtApi& api_;
+  const OrtKernelContext& kernel_context_;
   OrtAllocator* cpu_allocator_;
   OrtAllocator* cuda_allocator_;
   void* cuda_stream_ = {};
