@@ -185,7 +185,7 @@ template <typename T>
 class Tensor : public TensorBase {
  public:
   using TT = typename std::remove_reference<T>::type;
-  Tensor(std::unique_ptr<ITensorStorage> tensor_storage) : storage_(std::move(tensor_storage)){
+  Tensor(std::shared_ptr<ITensorStorage> tensor_storage) : storage_(std::move(tensor_storage)){
   }
 
   Tensor(const std::vector<int64_t>& shape, void* buffer, OrtDevice device) : Tensor(std::make_unique<OrtEagerTensorStorage>(shape, buffer, device)) {}
@@ -194,9 +194,13 @@ class Tensor : public TensorBase {
 
   virtual ~Tensor() = default;
 
-  Tensor(const Tensor& src) = delete;
+  Tensor(const Tensor& src) {
+    storage_ = src.storage_;
+  }
 
-  Tensor& operator=(Tensor src) = delete;
+  Tensor& operator=(const Tensor& src) {
+    storage_ = src.storage_;
+  };
 
   Tensor(Tensor&& other) : storage_(std::move(other.storage_)) {
     other.storage_ = nullptr;
@@ -338,7 +342,7 @@ class Tensor : public TensorBase {
   }
 
  private:
-  std::unique_ptr<ITensorStorage> storage_;
+  std::shared_ptr<ITensorStorage> storage_;
   Span<T> span_;
 };
 
@@ -413,7 +417,7 @@ class Tensor<std::string> : public TensorBase {
  public:
   using strings = std::vector<std::string>;
 
-  Tensor(std::unique_ptr<IStringTensorStorage<std::string>> storage) : storage_(std::move(storage)) {}
+  Tensor(std::shared_ptr<IStringTensorStorage<std::string>> storage) : storage_(std::move(storage)) {}
 
   Tensor(const strings& ss) : storage_(std::make_unique<EagerStringTensorStorage<std::string>>(ss)) {}
 
@@ -480,7 +484,7 @@ class Tensor<std::string> : public TensorBase {
   }
 
  private:
-  std::unique_ptr<IStringTensorStorage<std::string>> storage_;
+  std::shared_ptr<IStringTensorStorage<std::string>> storage_;
 };
 
 
@@ -489,7 +493,7 @@ class Tensor<std::string_view> : public TensorBase {
  public:
   using strings = std::vector<std::string_view>;
 
-  Tensor(std::unique_ptr<IStringTensorStorage<std::string_view>> storage) : storage_(std::move(storage)) {}
+  Tensor(std::shared_ptr<IStringTensorStorage<std::string_view>> storage) : storage_(std::move(storage)) {}
 
   Tensor(const strings& ss) : storage_(std::make_unique<EagerStringTensorStorage<std::string_view>>(ss)) {}
 
@@ -554,7 +558,7 @@ class Tensor<std::string_view> : public TensorBase {
   }
 
  private:
-  std::unique_ptr<IStringTensorStorage<std::string_view>> storage_;
+  std::shared_ptr<IStringTensorStorage<std::string_view>> storage_;
 };
 
 
