@@ -96,6 +96,10 @@ jobs:
         targetPath: '$(Build.ArtifactStagingDirectory)'
         artifactName: 'onnxruntime-extensions-linux-${{parameters.OrtExtensionsArch}}'
 
+    - template: component-governance-component-detection-steps.yml
+      parameters :
+        condition : 'succeeded'
+
     - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
       displayName: 'Clean Agent Directories'
       condition: always()
