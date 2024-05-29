@@ -2,74 +2,74 @@
 // Licensed under the MIT License.
 
 #pragma once
-
-#define ORT_API_MANUAL_INIT
-#ifdef ORT_SWIFT_PACKAGE_MANAGER_BUILD
-#include "onnxruntime/onnxruntime_c_api.h"
-#include "onnxruntime/onnxruntime_cxx_api.h"
-#else
-#include "onnxruntime_c_api.h"
-#include "onnxruntime_cxx_api.h"
-#endif
-#undef ORT_API_MANUAL_INIT
-#include "custom_op/onnxruntime_f16.h"
-
-// #include "ocos.h"
-//  #include "cublas_v2.h"
-#include <cuda_runtime.h>
+#include "ocos.h"
+#include "string_utils.h"
+#include "scatter_nd_of_shape_impl.cuh"
 
 namespace contrib {
 
-enum class Reduction : int {
-  None = 0,
-  Add = 1,
-  Mul = 2,
-  Min = 3,
-  Max = 4,
-};
-
 template <typename T>
-inline ONNXTensorElementDataType onnx_type();
-template <>
-inline ONNXTensorElementDataType onnx_type<float>() { return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT; }
-template <>
-inline ONNXTensorElementDataType onnx_type<Ort::Custom::MFloat16>() { return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16; }
+struct ScatterNDOfShape {
+  OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
+    std::string value;
+    OrtStatusPtr status = OrtW::GetOpAttribute(info, "reduction", value);
+    if (status != nullptr)
+      return status;
 
-/**
- * This kernel implementation the fusion of ConstantOfShape and ScatterND.
- * The implementation does not use OrtLiteCustom as the input shape (first input)
- * is expected to be on CPU whereas the other outputs are expected to be on CUDA.
- */
-template <typename T>
-struct ScatterNDOfShapeKernel {
-  ScatterNDOfShapeKernel(const OrtApi& api, const OrtKernelInfo* info);
-  void Compute(OrtKernelContext* context);
+    if (value == "add")
+      reduction_ = ScatterReduction::Add;
+    else if (value == "mul")
+      reduction_ = ScatterReduction::Mul;
+    else if (value == "min")
+      reduction_ = ScatterReduction::Min;
+    else if (value == "max")
+      reduction_ = ScatterReduction::Max;
+    else
+      ORTX_CXX_API_THROW("Unexpected reduction, only Add is implemented.", ORT_RUNTIME_EXCEPTION);
 
- private:
-  void ComputeNoAtomic(cudaStream_t& stream, const std::vector<int64_t>& input_shape,
-                       const std::vector<int64_t>& indices_shape, T* output_data,
-                       const int64_t* indices_data, const T* updates_data) const;
+    return nullptr;
+  }
 
-  Reduction reduction_;
-  int maxThreadPerBlock_;
-};
+  OrtStatusPtr Compute(Ort::Custom::CUDAKernelContext* ctx,
+                       const ortc::Tensor<int64_t>& shape,
+                       const ortc::Tensor<int64_t>& indices,
+                       const ortc::Tensor<T>& updates,
+                       ortc::Tensor<T>& output) const {
+    auto& shape_shape = shape.Shape();
+    auto& indices_shape = indices.Shape();
+    auto& updates_shape = updates.Shape();
 
-template <typename T>
-struct ScatterNDOfShapeOp : Ort::CustomOpBase<ScatterNDOfShapeOp<T>, ScatterNDOfShapeKernel<T>> {
-  typedef Ort::CustomOpBase<ScatterNDOfShapeOp<T>, ScatterNDOfShapeKernel<T>> parent_type;
-  ScatterNDOfShapeOp() : parent_type() {}
-  void* CreateKernel(const OrtApi& api, const OrtKernelInfo* info) const { return std::make_unique<ScatterNDOfShapeKernel<T>>(api, info).release(); }
-  const char* GetName() const { return "ScatterNDOfShape"; }
-  const char* GetExecutionProviderType() const { return "CUDAExecutionProvider"; }
+    if (0 == shape_shape.size() || (shape_shape.size() != 1 && shape_shape[0] == 0)) {
+      return nullptr;
+    }
+    if (shape_shape[0] != 2) {
+      ORTX_CXX_API_THROW("input shape should be 2D", ORT_RUNTIME_EXCEPTION);
+    }
+    if (indices_shape[indices_shape.size() - 1] != 1) {
+      ORTX_CXX_API_THROW("last dimension of the indices tensor should be one", ORT_RUNTIME_EXCEPTION);
+    }
 
-  std::size_t GetInputTypeCount() const { return 3; }
-  ONNXTensorElementDataType GetInputType(std::size_t index) const { return index == 2 ? onnx_type<T>() : ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64; }
-  OrtCustomOpInputOutputCharacteristic GetInputCharacteristic(std::size_t index) const { return INPUT_OUTPUT_REQUIRED; }
-  OrtMemType GetInputMemoryType(std::size_t index) const { return index == 0 ? OrtMemTypeCPUInput : OrtMemTypeDefault; }
+    const int64_t* shape_data = shape.Data();
+    const int64_t* indices_data = indices.Data();
+    const T* updates_data = updates.Data();
+    std::vector<int64_t> output_shape(shape.Data(), shape.Data() + shape_shape[0]);
+    T* output_data = output.Allocate(output_shape);
+    LaunchScatterNDOfShapeKernel<T>(reinterpret_cast<cudaStream_t>(ctx->GetCudaStream()),
+                                    output_shape,
+                                    indices_shape,
+                                    indices_data,
+                                    updates_data,
+                                    output_data,
+                                    reduction_);
+    return nullptr;
+  }
 
-  std::size_t GetOutputTypeCount() const { return 1; }
-  ONNXTensorElementDataType GetOutputType(std::size_t index) const { return onnx_type<T>(); }
-  OrtCustomOpInputOutputCharacteristic GetOutputCharacteristic(std::size_t index) const { return INPUT_OUTPUT_REQUIRED; }
+  static OrtMemType GetInputMemoryType(size_t input_index) {
+    if (input_index == 0) return OrtMemType::OrtMemTypeCPUInput;  // shape
+    return OrtMemType::OrtMemTypeDefault;
+  }
+
+  ScatterReduction reduction_;
 };
 
 }  // namespace contrib

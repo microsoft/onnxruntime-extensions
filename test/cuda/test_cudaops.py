@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from numpy.testing import assert_almost_equal
-from onnx import helper, onnx_pb as onnx_proto, TensorProto
+from onnx import helper, numpy_helper, onnx_pb as onnx_proto, TensorProto
 from onnx.reference import ReferenceEvaluator
 from onnx.reference.op_run import OpRun
 from onnx.reference.ops.op_scatternd import _scatter_nd_impl
@@ -18,6 +18,13 @@ class ScatterNDOfShape(OpRun):
         data = np.zeros(shape, dtype=updates.dtype)
         y = _scatter_nd_impl(data, indices, updates, reduction=reduction)
         return (y,)
+
+
+class NegXPlus1(OpRun):
+    op_domain = "ai.onnx.contrib"
+
+    def _run(self, X):
+        return (1 - X,)
 
 
 class TestCudaOps(unittest.TestCase):
@@ -102,6 +109,55 @@ class TestCudaOps(unittest.TestCase):
             assert_almost_equal(y, expected_y)
         else:
             print("CUDAExecutionProvider not available, test_cuda_fastgelu_f16 skipped.")
+
+    def _negxplus1_cuda(self, itype):
+        import onnxruntime
+
+        dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
+        model1 = helper.make_model(
+            helper.make_graph(
+                [helper.make_node("Sub", ["one", "X"], ["Y"])],
+                "nd",
+                [helper.make_tensor_value_info("X", itype, [None, None, None])],
+                [helper.make_tensor_value_info("Y", itype, [None, None, None])],
+                [numpy_helper.from_array(np.array([1], dtype=dtype), name="one")],
+            ),
+            opset_imports=[helper.make_opsetid("", 18)],
+            ir_version=9,
+        )
+
+        model2 = helper.make_model(
+            helper.make_graph(
+                [helper.make_node("NegXPlus1", ["X"], ["Y"], domain="ai.onnx.contrib")],
+                "nd",
+                [helper.make_tensor_value_info("X", itype, [None, None, None])],
+                [helper.make_tensor_value_info("Y", itype, [None, None, None])],
+            ),
+            opset_imports=[
+                helper.make_opsetid("", 18),
+                helper.make_opsetid("ai.onnx.contrib", 1),
+            ],
+            ir_version=9,
+        )
+
+        dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
+        x = (np.arange(18) - 4).reshape((3, 2, 3)).astype(dtype)
+
+        feeds1 = dict(X=x)
+        ref = ReferenceEvaluator(model1, new_ops=[NegXPlus1])
+        expected = ref.run(None, feeds1)[0]
+
+        opts = onnxruntime.SessionOptions()
+        opts.register_custom_ops_library(_get_library_path())
+        sess = onnxruntime.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
+        got = sess.run(None, feeds1)[0]
+        assert_almost_equal(expected, got, decimal=5)
+
+    def test_cuda_negxplus1(self):
+        eps = _ort.get_available_providers()
+        if "CUDAExecutionProvider" in eps:
+            self._negxplus1_cuda(TensorProto.FLOAT)
+            self._negxplus1_cuda(TensorProto.FLOAT16)
 
     def _scatternd_of_shape_cuda(self, reduction, line, itype):
         import onnxruntime
