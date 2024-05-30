@@ -223,11 +223,16 @@ class TestCudaOps(unittest.TestCase):
         feeds2 = dict(shape=np.array([2, 2, 3], dtype=np.int64), indices=indices, updates=updates)
         ref = ReferenceEvaluator(model1, new_ops=[ScatterNDOfShape])
         expected = ref.run(None, feeds1)[0]
+        print(indices)
+        print(updates)
+        print("----")
+        print(expected)
 
         opts = onnxruntime.SessionOptions()
         opts.register_custom_ops_library(_get_library_path())
         sess = onnxruntime.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
         got = sess.run(None, feeds2)[0]
+        print(got)
         self.assertEqual(expected.tolist(), got.tolist())
 
     def test_cuda_scatternd_of_shape(self):
@@ -242,4 +247,4 @@ class TestCudaOps(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(verbosity=2)

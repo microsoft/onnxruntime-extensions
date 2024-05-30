@@ -8,15 +8,6 @@
 
 namespace contrib {
 
-template <class NTYPE>
-NTYPE flattened_dimension(const std::vector<NTYPE>& values, int64_t first = 0) {
-  NTYPE r = 1;
-  auto end = values.begin() + first;
-  for (auto it = values.begin(); it != end; ++it)
-    r *= *it;
-  return r;
-}
-
 #define _ENFORCE(cond, msg) \
   if (!(cond)) ORTX_CXX_API_THROW(msg, ORT_RUNTIME_EXCEPTION);
 
@@ -53,14 +44,15 @@ addition_inplace_kernel(T* __restrict__ output_data, const int64_t* __restrict__
     output_data[i * stride + id] = 0;
   }
 
+  int64_t index;
   for (size_t i = 0; i < indice_size; ++i) {
-    _add_inplace(output_data[indices_data[i] * stride + id], updates_data[i * stride + id]);
+    index = (indices_data[i] + nrows) % nrows;
+    _add_inplace(output_data[index * stride + id], updates_data[i * stride + id]);
   }
 }
 
 template <typename T>
-cudaError_t _ComputeNoAtomic(cudaStream_t stream, const std::vector<int64_t>& input_shape,
-                             const std::vector<int64_t>& indices_shape, T* output_data,
+cudaError_t _ComputeNoAtomic(cudaStream_t stream, T* output_data,
                              const int64_t* indices_data, const T* updates_data,
                              int threads_per_block, int blocks_per_grid, size_t indice_size, size_t nrows, size_t stride) {
   dim3 threads(threads_per_block);
@@ -69,6 +61,14 @@ cudaError_t _ComputeNoAtomic(cudaStream_t stream, const std::vector<int64_t>& in
   addition_inplace_kernel<TT><<<blocks, threads, 0, stream>>>((TT*)output_data, indices_data,
                                                               (TT*)updates_data, indice_size, nrows, stride);
   return cudaGetLastError();
+}
+
+template <class NTYPE>
+NTYPE flattened_dimension(const std::vector<NTYPE>& values, size_t first = 0) {
+  NTYPE r = 1;
+  for (auto it = values.begin() + first; it != values.end(); ++it)
+    r *= *it;
+  return r;
 }
 
 template <typename T>
@@ -82,17 +82,14 @@ cudaError_t ScatterNDOfShapeKernel(cudaStream_t stream,
   if (reduction != ScatterReduction::Add)
     ORTX_CXX_API_THROW("Only reduction 'add' is implemented.", ORT_RUNTIME_EXCEPTION);
   size_t indice_size = static_cast<size_t>(flattened_dimension(indices_shape));
-  size_t input_size = static_cast<size_t>(flattened_dimension(output_shape));
-  size_t stride = output_shape[output_shape.size() - 1];
-  size_t nrows = input_size / stride;
-
-  std::vector<size_t> next_batch(indice_size);
-  std::vector<uint8_t> processed(output_shape[0], 0);
-  std::vector<uint8_t> processed_once(output_shape[0], 0);
+  size_t output_size = static_cast<size_t>(flattened_dimension(output_shape));
+  size_t rank = output_shape.size() - indices_shape.size();
+  size_t stride =  static_cast<size_t>(flattened_dimension(output_shape, output_shape.size() - 1 - rank));
+  size_t nrows = output_size / stride;
 
   int threads_per_block = 256;
   int blocks_per_grid = (stride + threads_per_block - 1) / threads_per_block;
-  return _ComputeNoAtomic(stream, output_shape, indices_shape, output_data, indices_data, updates_data, threads_per_block, blocks_per_grid, indice_size, nrows, stride);
+  return _ComputeNoAtomic(stream, output_data, indices_data, updates_data, threads_per_block, blocks_per_grid, indice_size, nrows, stride);
 }
 
 template <>
