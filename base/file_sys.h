@@ -17,7 +17,20 @@ namespace ort_extensions {
 class path {
  public:
   path() = default;
-  path(const std::string& path) : path_(path){};
+  path(const std::string& path) : path_(path) {
+#ifdef _WIN32
+    w_path_ = to_wstring();
+#endif  // _WIN32
+  };
+
+#ifdef _WIN32
+  path(const std::wstring& wpath) {
+    int size_needed = WideCharToMultiByte(CP_UTF8, 0, wpath.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    std::string utf8_str(size_needed, 0);
+    WideCharToMultiByte(CP_UTF8, 0, wpath.c_str(), -1, &utf8_str[0], size_needed, nullptr, nullptr);
+    path_ = utf8_str;
+  }
+#endif  // _WIN32
 
   static constexpr char separator =
 #ifdef _WIN32
@@ -30,7 +43,7 @@ class path {
   std::ifstream open(ios_base::openmode mode = ios_base::in) const {
     // if Windows, need to convert the string to UTF-16
 #ifdef _WIN32
-    return std::ifstream(to_wstring(), mode);
+    return std::ifstream(w_path_, mode);
 #else
     return std::ifstream(path_, mode);
 #endif  // _WIN32
@@ -55,7 +68,7 @@ class path {
   bool is_directory() const {
 #ifdef _WIN32
     struct _stat64 info;
-    if (_wstat64(to_wstring().c_str(), &info) != 0) {
+    if (_wstat64(w_path_.c_str(), &info) != 0) {
       return false;
     }
 #else
@@ -69,8 +82,9 @@ class path {
 
  private:
   std::string path_;
-
 #ifdef _WIN32
+  std::wstring w_path_;
+
   std::wstring to_wstring() const {
     int size_needed = MultiByteToWideChar(CP_UTF8, 0, path_.c_str(), -1, nullptr, 0);
     std::wstring utf16_str(size_needed, 0);

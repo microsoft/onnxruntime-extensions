@@ -38,9 +38,9 @@ LoadRawImages(const std::initializer_list<const char*>& image_paths) {
 }  // namespace ort_extensions
 
 Operation::KernelRegistry ImageProcessor::kernel_registry_ = {
-    {"DecodeImage", []() { return DefineKernelFunction(image_decoder); }},
-    {"ConvertRGB", []() { return DefineKernelFunction(convert_to_rgb); }},
-    {"Phi3ImageTransform", []() { return DefineKernelFunction(phi3_hd_transform); }},
+    {"DecodeImage", []() { return CreateKernelInstance(image_decoder); }},
+    {"ConvertRGB", []() { return CreateKernelInstance(&ConvertToRGB::Compute); }},
+    {"Phi3ImageTransform", []() { return CreateKernelInstance(phi3_hd_transform); }},
 };
 
 OrtxStatus ImageProcessor::Init(std::string_view processor_def) {

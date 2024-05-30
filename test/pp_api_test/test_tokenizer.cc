@@ -117,6 +117,42 @@ TEST(OrtxTokenizerTest, TicTokenTokenizer) {
   EXPECT_EQ(out_text[0], input[0]);
 }
 
+TEST(OrtxTokenizerTest, Phi3_S_Tokenizer) {
+  if (!std::filesystem::exists("data2/phi-3-small")) {
+    GTEST_SKIP() << "Skip test as extra test data is not deployed.";
+  }
+
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data2/phi-3-small");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+  }
+
+  // validate tokenizer is not null
+  EXPECT_NE(tokenizer, nullptr);
+
+  std::vector<extTokenId_t> EXPECTED_IDS_0 = {2028, 374, 264, 1296, 13};
+  std::vector<std::string_view> input = {
+      "This is a test.",
+      "the second one",
+      "I like walking my cute dog\n and\x17 then", 
+      "Hey<|endoftext|>. \t\t \n\nyou  é  @#😈  🤗!       , 1234 15 5,61"};
+  std::vector<std::vector<extTokenId_t>>
+      token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  EXPECT_TRUE(status.IsOk());
+  DumpTokenIds(token_ids);
+
+  EXPECT_EQ(token_ids.size(), input.size());
+  EXPECT_EQ(token_ids[0], EXPECTED_IDS_0);
+
+  std::vector<std::string> out_text;
+  std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {token_ids[0], token_ids[1]};
+  status = tokenizer->Detokenize(token_ids_span, out_text);
+  EXPECT_TRUE(status.IsOk());
+  EXPECT_EQ(out_text[0], input[0]);
+}
+
 TEST(OrtxTokenizerTest, GemmaTokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
   auto status = tokenizer->Load("data/gemma");
