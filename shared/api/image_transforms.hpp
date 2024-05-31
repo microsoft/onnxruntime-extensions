@@ -13,30 +13,32 @@ constexpr int image_resized_height = 336;
 constexpr float OPENAI_CLIP_MEAN[] = {0.48145466f, 0.4578275f, 0.40821073f};
 constexpr float OPENAI_CLIP_STD[] = {0.26862954f, 0.26130258f, 0.27577711f};
 
-inline OrtxStatus convert_to_rgb(const ortc::Tensor<uint8_t>& input,
-                                 ortc::Tensor<uint8_t>& output) {
-  auto& dimensions = input.Shape();
-  if (dimensions.size() != 3ULL || dimensions[2] != 3) {
-    return {kOrtxErrorInvalidArgument, "[ConvertToRGB]: input is not (H, W, C)"};
-  }
-
-  std::uint8_t* p_output_image = output.Allocate(dimensions);
-  auto* input_data = input.Data();
-  auto h = dimensions[0];
-  auto w = dimensions[1];
-  auto c = dimensions[2];
-
-  // convert BGR channel layouts to RGB
-  for (int64_t j = 0; j < h; ++j) {
-    for (int64_t k = 0; k < w; ++k) {
-      auto c0_index = j * w * c + k * c;
-      std::tie(p_output_image[c0_index], p_output_image[c0_index + 1], p_output_image[c0_index + 2]) =
-          std::make_tuple(input_data[c0_index + 2], input_data[c0_index + 1], input_data[c0_index]);
+struct ConvertToRGB {
+  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input,
+                     ortc::Tensor<uint8_t>& output) {
+    auto& dimensions = input.Shape();
+    if (dimensions.size() != 3ULL || dimensions[2] != 3) {
+      return {kOrtxErrorInvalidArgument, "[ConvertToRGB]: input is not (H, W, C)"};
     }
-  }
 
-  return {};
-}
+    std::uint8_t* p_output_image = output.Allocate(dimensions);
+    auto* input_data = input.Data();
+    auto h = dimensions[0];
+    auto w = dimensions[1];
+    auto c = dimensions[2];
+
+    // convert BGR channel layouts to RGB
+    for (int64_t j = 0; j < h; ++j) {
+      for (int64_t k = 0; k < w; ++k) {
+        auto c0_index = j * w * c + k * c;
+        std::tie(p_output_image[c0_index], p_output_image[c0_index + 1], p_output_image[c0_index + 2]) =
+            std::make_tuple(input_data[c0_index + 2], input_data[c0_index + 1], input_data[c0_index]);
+      }
+    }
+
+    return {};
+  }
+};
 
 inline cv::Mat padding_336(const cv::Mat& image) {
   // def padding_336(b):

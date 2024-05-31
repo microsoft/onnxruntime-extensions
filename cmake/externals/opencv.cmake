@@ -107,6 +107,16 @@ set(BUILD_TESTS       OFF CACHE INTERNAL "")
 set(CV_TRACE          OFF CACHE INTERNAL "")
 
 set(CV_DISABLE_OPTIMIZATION     ON CACHE INTERNAL "")
+set(BUILD_PERF_TESTS            OFF CACHE INTERNAL "")
+set(BUILD_opencv_java_bindings_generator	  OFF CACHE INTERNAL "")
+set(BUILD_opencv_js_bindings_generator	  OFF CACHE INTERNAL "")
+set(BUILD_opencv_objc_bindings_generator	  OFF CACHE INTERNAL "")
+set(BUILD_opencv_python_bindings_generator  OFF CACHE INTERNAL "")
+set(BUILD_opencv_python_tests  OFF CACHE INTERNAL "")
+
+set(WITH_ADE                   OFF CACHE INTERNAL "")
+set(VIDEOIO_ENABLE_PLUGINS	OFF CACHE INTERNAL "")
+set(HIGHGUI_ENABLE_PLUGINS  OFF CACHE INTERNAL "")
 
 if(IOS)
   # copy what OpenCV's platforms/ios/build_framework.py does and set CPU_BASELINE=DETECT
@@ -157,13 +167,3 @@ endif()
 
 # unset it to avoid affecting other projects.
 unset(EXECUTABLE_OUTPUT_PATH CACHE)
-
-if (CMAKE_SYSTEM_NAME MATCHES "Windows")
-    set(opencv_projs gen_opencv_java_source gen_opencv_js_source gen_opencv_python_source)
-    list(APPEND opencv_projs gen_opencv_objc_source gen_opencv_objc_source_ios gen_opencv_objc_source_osx)
-    list(APPEND opencv_projs opencv_highgui_plugins opencv_videoio_plugins)
-    foreach(p ${opencv_projs})
-        set_target_properties(${p} PROPERTIES FOLDER "externals/opencv")
-        set_target_properties(${p} PROPERTIES EXCLUDE_FROM_ALL TRUE EXCLUDE_FROM_DEFAULT_BUILD TRUE)
-    endforeach()
-endif()

@@ -4,8 +4,8 @@ FetchContent_Declare(
   URL_HASH    SHA1=06096d3900c356e468ba060a609642c635131106
 )
 
+set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
-set_target_properties(gmock PROPERTIES FOLDER "externals/gtest")
-set_target_properties(gmock_main PROPERTIES FOLDER "externals/gtest")
 set_target_properties(gtest PROPERTIES FOLDER "externals/gtest")
 set_target_properties(gtest_main PROPERTIES FOLDER "externals/gtest")

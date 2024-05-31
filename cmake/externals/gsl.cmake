@@ -14,5 +14,13 @@ else()
     )
 endif()
 
-FetchContent_MakeAvailable(GSL)
-get_target_property(GSL_INCLUDE_DIR Microsoft.GSL::GSL INTERFACE_INCLUDE_DIRECTORIES)
+FetchContent_GetProperties(GSL)
+string(TOLOWER "GSL" lcName)
+if(NOT ${lcName}_POPULATED)
+  FetchContent_Populate(GSL)
+#  add_subdirectory(${GSL_SOURCE_DIR} ${GSL_BINARY_DIR} EXCLUDE_FROM_ALL)
+endif()
+
+set(GSL_INCLUDE_DIR ${gsl_SOURCE_DIR}/include)
+
+#get_target_property(GSL_INCLUDE_DIR Microsoft.GSL::GSL INTERFACE_INCLUDE_DIRECTORIES)
