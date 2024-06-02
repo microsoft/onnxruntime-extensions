@@ -117,7 +117,7 @@ class TestCudaOps(unittest.TestCase):
             print ('CUDAExecutionProvider not available, test_cuda_fastgelu_f16 skipped.')
 
     @staticmethod
-    def _create_pagedattention_test_model(batch_size, total_seqlen, hidden_size, slot_cnt_per_block, block_cnt_per_layer, block_cnt_needed_by_longest_seq, num_heads=32, num_kv_heads=32, head_size=16, scale=1.0, domain='ai.onnx.contrib'):
+    def _create_pagedattention_test_model(batch_size, total_seqlen, hidden_size, slot_cnt_per_block, block_cnt_per_layer, block_cnt_needed_by_longest_seq, num_heads=32, num_kv_heads=32, head_size=16, scale=0.0, domain='ai.onnx.contrib'):
         nodes = [
             helper.make_node('PagedAttention',  
                 ['query', 'key', 'value', 'key_cache', 'value_cache', 'block_tables', 'slot_mappings', 'context_lens', 'is_prompt'], 

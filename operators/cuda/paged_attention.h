@@ -56,21 +56,23 @@ OrtStatusPtr CheckInputs(const cudaStream_t stream, OrtAllocator* allocator, con
   }
 
   cudaDeviceSynchronize();
-  std::vector<int32_t> context_len_host(context_lens.SizeInBytes() / sizeof(int32_t));
-  cudaMemcpy(context_len_host.data(), context_lens.DataRaw(), context_lens.SizeInBytes(), cudaMemcpyDeviceToHost);
   int seq_len = query_shape[0];
   input_metadata.max_num_blocks_per_seq = 0;
   if (prompt_mode) {
       input_metadata.num_prompt_tokens = seq_len;
       input_metadata.num_generation_tokens = 0;
 
-      std::vector<int32_t> seqstart(context_len_host.size() + 1, 0);
-      for (size_t i = 0; i < context_len_host.size(); i++) seqstart[i+1] += seqstart[i] + context_len_host[i];
+      std::vector<int32_t> seqstart(context_lens.NumberOfElement() + 1, 0);
+      input_metadata.attn_bias.q_seqinfo.max_seqlen = 0;
+      for (int64_t i = 0; i < context_lens.NumberOfElement(); i++) {
+        int32_t seqlen_i = *(context_lens.Data()+i);
+        if (seqlen_i > input_metadata.attn_bias.q_seqinfo.max_seqlen) input_metadata.attn_bias.q_seqinfo.max_seqlen = seqlen_i;
+        seqstart[i+1] = seqstart[i] + seqlen_i;
+      }
       input_metadata.seqinfo = GetScratchBuffer<int32_t>(allocator->Alloc(allocator, seqstart.size() * sizeof(int32_t)), allocator);
       cudaMemcpy(input_metadata.seqinfo.get(), seqstart.data(), seqstart.size() * sizeof(int32_t), cudaMemcpyHostToDevice);
       input_metadata.attn_bias.q_seqinfo.seqstart = reinterpret_cast<int64_t>(input_metadata.seqinfo.get());
-      input_metadata.attn_bias.q_seqinfo.max_seqlen = input_metadata.num_prompt_tokens;
-      input_metadata.attn_bias.batchsize = 1;
+      input_metadata.attn_bias.batchsize = context_lens.NumberOfElement();
   } else {
       std::vector<int64_t> positions_host((*positions)->Shape().size());  // TODO(leca): 
       input_metadata.num_prompt_tokens = 0;
@@ -83,10 +85,11 @@ OrtStatusPtr CheckInputs(const cudaStream_t stream, OrtAllocator* allocator, con
 
   if (!positions.has_value()) { // TODO(leca): only generate position when cos_sin_cache is provided? As position and cos_sin_cache are only used for rotary embeding
     std::vector<int64_t> position_ids;
-    for (size_t i = 0; i < context_len_host.size(); i++) {
-      if (context_len_host[i] == 0)   continue;
-      std::vector<int64_t> position_id(context_len_host[i]);
-      std::iota(position_id.begin(), position_id.end(), 0);   // fill position_id with {0, 1, 2, ...context_len_span[i]-1}
+    for (int64_t i = 0; i < context_lens.NumberOfElement(); i++) {
+      int32_t seqlen_i = *(context_lens.Data()+i);
+      if (seqlen_i == 0) continue;
+      std::vector<int64_t> position_id(seqlen_i);
+      std::iota(position_id.begin(), position_id.end(), 0);   // fill position_id with [0, 1, 2, ...seqlen_i)
       position_ids.insert(position_ids.end(), position_id.begin(), position_id.end());
     }
     input_metadata.position_ids = GetScratchBuffer<int64_t>(allocator->Alloc(allocator, position_ids.size()), allocator);   // TODO(leca): position_ids.size() or position_ids.size() * sizeof(int64_t)?
@@ -109,7 +112,7 @@ OrtStatusPtr CheckInputs(const cudaStream_t stream, OrtAllocator* allocator, con
 template<typename T>
 struct PagedAttention {
   static OrtMemType GetInputMemoryType(size_t input_index) {
-    if (input_index == 8) return OrtMemType::OrtMemTypeCPUInput;  // make is_prompt CPU input
+    if (input_index == 7 || input_index == 8) return OrtMemType::OrtMemTypeCPUInput;  // make context_lens and is_prompt CPU input
     return OrtMemType::OrtMemTypeDefault;
   }
 
@@ -126,7 +129,7 @@ struct PagedAttention {
     head_size_ = static_cast<int32_t>(head_size);
 
     ORTX_RETURN_IF_ERROR(api.KernelInfoGetAttribute_float(&info, "scale", &scale_));
-    assert(scale_ > 0);
+    assert(scale_ >= 0);
 
     num_queries_per_kv_ = num_heads_ / num_kv_heads_;
     std::vector<int32_t> head_mapping_host(num_heads_);
