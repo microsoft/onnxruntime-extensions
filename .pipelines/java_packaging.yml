@@ -160,10 +160,19 @@ stages:
         jar cmf0 META-INF/MANIFEST.MF onnxruntime-extensions-$(OrtExtVersion).jar  *
       displayName: Combine and pack JAR with Windows, Linux and MacOS Binaries
 
+    - script: |
+        cd $(Build.ArtifactStagingDirectory)
+        mkdir drop
+        cp onnxruntime-extensions-$(OrtExtVersion).jar drop/onnxruntime-extensions-$(OrtExtVersion).jar
+        cp onnxruntime-extensions-$(OrtExtVersion)-javadoc.jar drop/onnxruntime-extensions-$(OrtExtVersion)-javadoc.jar
+        cp onnxruntime-extensions-$(OrtExtVersion)-sources.jar drop/onnxruntime-extensions-$(OrtExtVersion)-sources.jar
+        cp META-INF/maven/com.microsoft.onnxruntime/onnxruntime-extensions/pom.xml drop/onnxruntime-extensions-$(OrtExtVersion).pom
+      displayName: Move files to a drop folder for publishing
+
     - task: PublishPipelineArtifact@1
       displayName: 'Publish MacOS Artifact'
       inputs:
-        targetPath: '$(Build.ArtifactStagingDirectory)'
+        targetPath: '$(Build.ArtifactStagingDirectory)/drop'
         artifact: 'drop-onnxruntime-extensions-java-cpu'
 
     - template: templates/component-governance-component-detection-steps.yml
