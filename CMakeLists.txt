@@ -285,9 +285,11 @@ function(set_msvc_c_cpp_compiler_warning_level warning_level)
   endif()
 endfunction()
 
+if (NOT ONNXRUNTIME_INCLUDE_DIR)
+  include(ext_ortlib)
+endif()
 # set default MSVC warning level to 3 for external dependencies
 set_msvc_c_cpp_compiler_warning_level(3)
-include(ext_ortlib)
 include(gsl)
 
 macro(standardize_output_folder bin_target)
@@ -681,7 +683,6 @@ endif()
 
 if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
   target_include_directories(ocos_operators PUBLIC ${nlohmann_json_SOURCE_DIR}/single_include)
-  list(APPEND ocos_libraries nlohmann_json::nlohmann_json)
 endif()
 
 # If building a shared library we can't throw an internal exception type across the library boundary as the type
@@ -694,8 +695,6 @@ endif()
 if(ANDROID)
   list(APPEND ocos_libraries log)
 endif()
-
-list(APPEND ocos_libraries Microsoft.GSL::GSL)
 
 list(REMOVE_DUPLICATES OCOS_COMPILE_DEFINITIONS)
 target_compile_definitions(noexcep_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
@@ -899,7 +898,7 @@ if (_ORTX_STANDALONE_PROJECT)
   # Run CPack to generate the NuGet package
   include(CPack)
 
-  if(OCOS_ENABLE_CTEST)
+  if(OCOS_ENABLE_CTEST AND NOT MAC_CATALYST)
     include(ext_tests)
   endif()
 endif()

@@ -18,10 +18,11 @@ namespace ort_extensions {
 using json = nlohmann::json;
 using TensorArgs = std::vector<ortc::TensorBase*>;
 
-class KernelClass {
+class KernelDef {
  public:
-  KernelClass() = default;
-  virtual ~KernelClass() = default;
+  KernelDef() = default;
+  virtual ~KernelDef() = default;
+  virtual OrtxStatus Init(std::string_view attr) { return {}; }  // no need to be initialized for a kernel function
   virtual TensorArgs AllocateOutput(ortc::IAllocator* allocator) const = 0;
   virtual OrtxStatus Apply(TensorArgs& inputs, TensorArgs& output) const = 0;
 
@@ -91,17 +92,13 @@ class KernelClass {
 };
 
 template <typename... Args>
-class KernelFunction : public KernelClass {
+class KernelFunction : public KernelDef {
  public:
   KernelFunction(OrtxStatus (*body)(Args...)) : body_(body){};
   virtual ~KernelFunction() = default;
 
-  OrtxStatus Compute(Args... args) const {
-    return body_(std::forward<Args>(args)...);
-  }
-
   TensorArgs AllocateOutput(ortc::IAllocator* allocator) const override {
-    auto tensors = KernelClass::AllocateOutput<Args...>(allocator);
+    auto tensors = KernelDef::AllocateOutput<Args...>(allocator);
     TensorArgs all_args;
     for (auto& tensor : tensors) {
       if (tensor != nullptr) {
@@ -123,16 +120,64 @@ class KernelFunction : public KernelClass {
 
  private:
   std::function<OrtxStatus(Args...)> body_;
+
+  OrtxStatus Compute(Args... args) const {
+    return body_(std::forward<Args>(args)...);
+  }
+};
+
+template <typename T, typename... Args>
+class KernelStruct : public KernelDef {
+ public:
+  KernelStruct(OrtxStatus (T::*body)(Args...)) : body_(body){};
+  virtual ~KernelStruct() = default;
+
+  TensorArgs AllocateOutput(ortc::IAllocator* allocator) const override {
+    auto tensors = KernelDef::AllocateOutput<Args...>(allocator);
+    TensorArgs all_args;
+    for (auto& tensor : tensors) {
+      if (tensor != nullptr) {
+        all_args.push_back(tensor);
+      }
+    }
+
+    return all_args;
+  }
+
+  template <typename DT>
+  OrtxStatus Init(DT attr) {
+    instance_ = std::make_unique<T>();
+    return instance_->Init(std::move(attr));
+  }
+
+  OrtxStatus Apply(TensorArgs& inputs, TensorArgs& outputs) const override {
+    TensorArgs all_args;
+    all_args.reserve(inputs.size() + outputs.size());
+    all_args.insert(all_args.end(), inputs.begin(), inputs.end());
+    all_args.insert(all_args.end(), outputs.begin(), outputs.end());
+    auto args_tuple = std::tuple_cat(CastTensors<Args...>(all_args));
+    return std::apply([this](auto&&... args) {
+      return (instance_.get()->*body_)(std::forward<decltype(*args)>(*args)...); }, std::move(args_tuple));
+  }
+
+ private:
+  OrtxStatus (T::*body_)(Args...){};
+  std::unique_ptr<T> instance_;
 };
 
 template <typename... Args>
-std::unique_ptr<KernelClass> DefineKernelFunction(OrtxStatus (*body)(Args...)) {
+std::unique_ptr<KernelDef> CreateKernelInstance(OrtxStatus (*body)(Args...)) {
   return std::make_unique<KernelFunction<Args...>>(body);
+}
+
+template <typename T, typename... Args>
+std::unique_ptr<KernelDef> CreateKernelInstance(OrtxStatus (T::*method)(Args...)) {
+  return std::make_unique<KernelStruct<T, Args...>>(method);
 }
 
 class Operation {
  public:
-  using KernelRegistry = std::unordered_map<std::string_view, std::function<std::unique_ptr<KernelClass>()>>;
+  using KernelRegistry = std::unordered_map<std::string_view, std::function<std::unique_ptr<KernelDef>()>>;
   Operation(const KernelRegistry& registry) { kernel_registry_ = &registry; };
 
   OrtxStatus Init(std::string_view op_def) {
@@ -162,12 +207,14 @@ class Operation {
     op_name_ = op_name;
     kernel_ = kernel_iter->second();
 
-    /* TODO: parse the attributes
-      if (op_json.contains("attrs")) {
-        auto attrs = op_json.at("attrs");
-        attrs.get_to(attributes_);
+    if (op_json.contains("attrs")) {
+      auto attrs = op_json.at("attrs");
+      auto status = kernel_->Init(attrs.dump());
+      if (!status.IsOk()) {
+        return status;
       }
-    */
+    }
+
     return {};
   }
 
@@ -192,9 +239,8 @@ class Operation {
  private:
   const KernelRegistry* kernel_registry_;
 
-  std::unique_ptr<KernelClass> kernel_;
+  std::unique_ptr<KernelDef> kernel_;
   std::string op_name_;
-  std::unordered_map<std::string, std::string> attributes_;
   ortc::IAllocator* allocator_{};
 };
 
