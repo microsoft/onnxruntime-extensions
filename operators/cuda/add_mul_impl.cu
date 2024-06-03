@@ -44,14 +44,14 @@ __device__ __forceinline__ void _mul3_op(half* ab, half* ac, const half a, const
 
 template <typename T>
 struct Mul3SharedOp {
-  __device__ __inline__ void operator()(T* ab, T* ac, const T a, const T b, const T c) const {
+  __device__ __forceinline__ void operator()(T* ab, T* ac, const T a, const T b, const T c) const {
     _mul3_op(ab, ac, a, b, c);
   }
 };
 
 template <typename T>
 struct Add3SharedOp {
-  __device__ __inline__ void operator()(T* ab, T* ac, const T a, const T b, const T c) const {
+  __device__ __forceinline__ void operator()(T* ab, T* ac, const T a, const T b, const T c) const {
     _add3_op(ab, ac, a, b, c);
   }
 };
@@ -78,7 +78,7 @@ cudaError_t _LaunchAddOrMulSharedInputKernel(cudaStream_t stream,
                                              int64_t countA, int64_t countB, int64_t countC, bool addition) {
   int64_t max_count = std::max(std::max(countA, countB), countC);
   if (max_count == 0)  // special case where there's a dim value of 0 in the output shape
-    return;
+    return cudaGetLastError();
 
   const int num_elements_per_thread = 4;
   const int num_threads_per_block = 256;
@@ -94,15 +94,16 @@ cudaError_t _LaunchAddOrMulSharedInputKernel(cudaStream_t stream,
             reinterpret_cast<TT*>(output_ab), reinterpret_cast<TT*>(output_ac),
             reinterpret_cast<const TT*>(pA), reinterpret_cast<const TT*>(pB), reinterpret_cast<const TT*>(pC), static_cast<CUDA_LONG>(countA),
             static_cast<CUDA_LONG>(countB), static_cast<CUDA_LONG>(countC),
-            static_cast<CUDA_LONG>(max_count), Add3SharedOp<T>());
+            static_cast<CUDA_LONG>(max_count), Add3SharedOp<TT>());
   } else {
     AddMulKernel<TT, Mul3SharedOp<TT>, num_threads_per_block, num_elements_per_thread>
         <<<blocksPerGrid, num_threads_per_block, 0, stream>>>(
             reinterpret_cast<TT*>(output_ab), reinterpret_cast<TT*>(output_ac),
             reinterpret_cast<const TT*>(pA), reinterpret_cast<const TT*>(pB), reinterpret_cast<const TT*>(pC), static_cast<CUDA_LONG>(countA),
             static_cast<CUDA_LONG>(countB), static_cast<CUDA_LONG>(countC),
-            static_cast<CUDA_LONG>(max_count), Mul3SharedOp<T>());
+            static_cast<CUDA_LONG>(max_count), Mul3SharedOp<TT>());
   }
+  return cudaGetLastError();
 }
 
 template <>
