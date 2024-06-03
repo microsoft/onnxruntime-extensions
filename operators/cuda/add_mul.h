@@ -31,7 +31,7 @@ struct AddOrMulSharedInput {
     T* output_data_ab = output_ab.Allocate(length_a <= length_b ? tensor_b.Shape() : tensor_a.Shape());
     T* output_data_ac = output_ab.Allocate(length_a <= length_c ? tensor_c.Shape() : tensor_a.Shape());
 
-    if (0 == input_length) {
+    if (0 == input_data_a || 0 == input_data_b || 0 == input_data_c) {
       return {};
     }
     LaunchAddOrMulSharedInputKernel<T>(reinterpret_cast<cudaStream_t>(ctx->GetCudaStream()),
