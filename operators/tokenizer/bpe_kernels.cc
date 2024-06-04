@@ -757,14 +757,6 @@ OrtxStatus TikTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& config
   // re-bind the configuration object
   bpe_conf_ = json_conf_;
 
-  // consider to use SAX parser for large json file
-  nlohmann::json tok_json;
-  ifs >> tok_json;
-  auto model_node = tok_json.find("model");
-  if (model_node == tok_json.end()) {
-    return OrtxStatus(kOrtxErrorCorruptData, "Failed to get model node from tokenizer.json");
-  }
-
   bbpe_tokenizer_ = std::make_unique<BpeModel>();
   auto status = bbpe_tokenizer_->Load(vocab,
                                       merges,

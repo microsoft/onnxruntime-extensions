@@ -9,6 +9,8 @@
 
 #include "bpe_types.h"
 
+#include <filesystem>
+
 namespace ort_extensions::bpe {
 
 class TokenJsonConfig final {
@@ -35,7 +37,12 @@ class TokenJsonConfig final {
     std::ifstream vocab_fs = vocab_file_path.open();
     if (!vocab_fs.is_open()) {
       // No tokenizer.json file present; search for .tiktoken file
-      vocab_path_ = (path(json_path) / "cl100k_base.tiktoken").string();
+      for (const auto& entry : std::filesystem::directory_iterator(json_path)) {
+        if (entry.path().extension() == ".tiktoken") {
+            vocab_path_ = entry.path().string();
+            break;
+        }
+      }
     }
     nlohmann::json json_config = nlohmann::json::parse(ifs);
     add_bos_token_ = json_config.value("add_bos_token", false);
