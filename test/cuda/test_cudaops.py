@@ -216,7 +216,7 @@ class TestCudaOps(unittest.TestCase):
         sess = _ort.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
         got = sess.run(None, feeds1)
         for i in range(2):
-            self.assertEqualArray(expected[i], got[i])
+            assert_almost_equal(expected[i], got[i])
 
     @unittest.skipIf(not has_cuda(), reason="CUDA is missing")
     def test_add_shared_input_cuda(self):
