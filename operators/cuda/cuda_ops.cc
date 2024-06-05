@@ -7,6 +7,7 @@
 #include "cuda/add_mul.h"
 #include "cuda/fast_gelu.h"
 #include "cuda/negxplus1.h"
+#incluce "cuda/transpose_cast.h"
 #endif
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
@@ -17,6 +18,8 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
 #if ORT_API_VERSION >= 16
   using AddSharedInputFloat16Type = typename contrib::AddOrMulSharedInput<ortc::MFloat16, true>;
   using MulSharedInputFloat16Type = typename contrib::AddOrMulSharedInput<ortc::MFloat16, false>;
+  using Transpose2DCastFloat32ToFloat16Type = typename contrib::Transpose2DCast<float, ortc::MFloat16>;
+  using Transpose2DCastFloat16ToFloat32Type = typename contrib::Transpose2DCast<ortc::MFloat16, float>;
 #endif
 
 
@@ -34,7 +37,9 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
       CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::MFloat16>),
       CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::BFloat16>),
       CustomCudaStructV2("MulSharedInput", MulSharedInputFloat16Type),
-      CustomCudaStructV2("NegXPlus1", contrib::NegXPlus1<ortc::MFloat16>)
+      CustomCudaStructV2("NegXPlus1", contrib::NegXPlus1<ortc::MFloat16>),
+      CustomCudaStructV2("Transpose2DCastFP16", Transpose2DCastFloat32ToFloat16Type),
+      CustomCudaStructV2("Transpose2DCastFP32", Transpose2DCastFloat16ToFloat32Type)
 #endif
 #endif
   );

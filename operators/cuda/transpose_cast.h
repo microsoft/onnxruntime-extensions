@@ -1,0 +1,36 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+#pragma once
+#include "ocos.h"
+#include "transpose_cast_impl.cuh"
+#include "ortx_common.h"
+
+namespace contrib {
+
+template <typename TIN, typename TOUT>
+struct TransposeCast2D {
+  template <typename TDict>
+  OrtxStatus OnModelAttach(const TDict& /*dict*/) {
+    return {};
+  }
+  OrtxStatus Compute(Ort::Custom::CUDAKernelContext* ctx,
+                       const ortc::Tensor<TIN>& input,
+                       ortc::Tensor<TOUT>& output) const {
+    const TIN* input_data = input.Data();
+    auto shape = input.Shape();
+    if (shape.size() != 2)
+      ORTX_CXX_API_THROW("Input must be a 2D tensor", ORT_RUNTIME_EXCEPTION);
+    size_t n_rows = shape[0];
+    size_t n_cols = shape[1];    
+    TOUT* output_data = output.Allocate(shape);
+    if (0 == n_rows || 0 == n_cols) {
+      return {};
+    }
+    TransposeCast2DKernel<TIN, TOUT>(reinterpret_cast<cudaStream_t>(ctx->GetCudaStream()),
+                             n_rows, n_cols, input_data, output_data);
+    return {};
+  }
+};
+
+}  // namespace contrib
