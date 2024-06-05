@@ -323,7 +323,7 @@ class TestCudaOps(unittest.TestCase):
         opts.register_custom_ops_library(_get_library_path())
         sess = _ort.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
         got = sess.run(None, feeds1)[0]
-        self.assertEqualArray(expected, got, atol=1e-5)
+        assert_almost_equal(expected, got, decimal=5)
 
     @unittest.skipIf(not has_cuda(), reason="cuda not available")
     def test_transpose_cast_cuda(self):
@@ -332,4 +332,4 @@ class TestCudaOps(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(verbosity=2)

@@ -9,7 +9,7 @@
 namespace contrib {
 
 template <typename TIN, typename TOUT>
-struct TransposeCast2D {
+struct Transpose2DCast {
   template <typename TDict>
   OrtxStatus OnModelAttach(const TDict& /*dict*/) {
     return {};
@@ -19,16 +19,19 @@ struct TransposeCast2D {
                        ortc::Tensor<TOUT>& output) const {
     const TIN* input_data = input.Data();
     auto shape = input.Shape();
-    if (shape.size() != 2)
+    if (shape.size() != 2) {
       ORTX_CXX_API_THROW("Input must be a 2D tensor", ORT_RUNTIME_EXCEPTION);
+    }
     size_t n_rows = shape[0];
-    size_t n_cols = shape[1];    
-    TOUT* output_data = output.Allocate(shape);
+    size_t n_cols = shape[1];
+
+    std::vector<int64_t> new_shape{n_cols, n_rows};
+    TOUT* output_data = output.Allocate(new_shape);
     if (0 == n_rows || 0 == n_cols) {
       return {};
     }
-    TransposeCast2DKernel<TIN, TOUT>(reinterpret_cast<cudaStream_t>(ctx->GetCudaStream()),
-                             n_rows, n_cols, input_data, output_data);
+    LaunchTranspose2DCastKernel<TIN, TOUT>(reinterpret_cast<cudaStream_t>(ctx->GetCudaStream()),
+                                           n_rows, n_cols, input_data, output_data);
     return {};
   }
 };

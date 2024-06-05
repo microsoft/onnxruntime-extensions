@@ -6,4 +6,4 @@
 #include <cuda_runtime.h>
 
 template <typename TIN, typename TOUT>
-cudaError_t TransposeCast2DKernel(cudaStream_t stream, size_t n_rows, size_t n_cols, const TIN* input, TOUT* output);
+cudaError_t LaunchTranspose2DCastKernel(cudaStream_t stream, size_t n_rows, size_t n_cols, const TIN* input, TOUT* output);
