@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from numpy.testing import assert_almost_equal
+from numpy.testing import assert_almost_equal, assert_allclose
 from onnx import helper, numpy_helper, onnx_pb as onnx_proto, TensorProto
 from onnx.reference import ReferenceEvaluator
 from onnx.reference.op_run import OpRun
@@ -151,7 +151,7 @@ class TestCudaOps(unittest.TestCase):
         self._negxplus1_cuda(TensorProto.FLOAT16)
 
     def _addmul_shared_input_cuda(self, itype, op_type, shapea=(3, 2, 3), shapeb=(3, 2, 3), shapec=(3, 2, 3)):
-        from onnx_extended.ortops.optim.cuda import get_ort_ext_libs
+        from ai.onnx.contrib import get_ort_ext_libs
 
         model1 = helper.make_model(
             helper.make_graph(
@@ -181,7 +181,7 @@ class TestCudaOps(unittest.TestCase):
                         f"{op_type}SharedInput",
                         ["X", "Y", "Z"],
                         ["XY", "XZ"],
-                        domain="onnx_extended.ortops.optim.cuda",
+                        domain="ai.onnx.contrib",
                     )
                 ],
                 "nd",
@@ -197,7 +197,7 @@ class TestCudaOps(unittest.TestCase):
             ),
             opset_imports=[
                 helper.make_opsetid("", 18),
-                helper.make_opsetid("onnx_extended.ortops.optim.cuda", 1),
+                helper.make_opsetid("ai.onnx.contrib", 1),
             ],
             ir_version=9,
         )
@@ -261,6 +261,66 @@ class TestCudaOps(unittest.TestCase):
             shapeb=(3, 2, 3),
             shapec=(3, 2, 3),
         )
+
+    def _replace_zero_cuda(self, itype):
+        dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
+        model1 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node("Equal", ["X", "zero"], ["cond"]),
+                    helper.make_node("Where", ["cond", "cst", "X"], ["Y"]),
+                ],
+                "nd",
+                [helper.make_tensor_value_info("X", itype, [None, None, None])],
+                [helper.make_tensor_value_info("Y", itype, [None, None, None])],
+                [
+                    numpy_helper.from_array(np.array([0], dtype=dtype), name="zero"),
+                    numpy_helper.from_array(np.array([1.67], dtype=dtype), name="cst"),
+                ],
+            ),
+            opset_imports=[helper.make_opsetid("", 18)],
+            ir_version=9,
+        )
+
+        model2 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node(
+                        "ReplaceZero",
+                        ["X"],
+                        ["Y"],
+                        by=1.67,
+                        domain="ai.onnx.contrib",
+                    )
+                ],
+                "nd",
+                [helper.make_tensor_value_info("X", itype, [None, None, None])],
+                [helper.make_tensor_value_info("Y", itype, [None, None, None])],
+            ),
+            opset_imports=[
+                helper.make_opsetid("", 18),
+                helper.make_opsetid("ai.onnx.contrib", 1),
+            ],
+            ir_version=9,
+        )
+
+        dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
+        x = (np.arange(18) - 4).reshape((3, 2, 3)).astype(dtype)
+
+        feeds1 = dict(X=x)
+        ref = ReferenceEvaluator(model1)
+        expected = ref.run(None, feeds1)[0]
+
+        opts = _ort.SessionOptions()
+        opts.register_custom_ops_library(_get_library_path())
+        sess = _ort.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
+        got = sess.run(None, feeds1)[0]
+        assert_allclose(expected, got, atol=1e-5)
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_replace_zero_cuda(self):
+        self._replace_zero_cuda(TensorProto.FLOAT)
+        self._replace_zero_cuda(TensorProto.FLOAT16)
 
 
 if __name__ == "__main__":
