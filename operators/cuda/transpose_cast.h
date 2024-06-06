@@ -22,10 +22,10 @@ struct Transpose2DCast {
     if (shape.size() != 2) {
       ORTX_CXX_API_THROW("Input must be a 2D tensor", ORT_RUNTIME_EXCEPTION);
     }
-    size_t n_rows = shape[0];
-    size_t n_cols = shape[1];
+    int n_rows = static_cast<int>(shape[0]);
+    int n_cols = static_cast<int>(shape[1]);
 
-    std::vector<int64_t> new_shape{n_cols, n_rows};
+    std::vector<int64_t> new_shape{static_cast<int64_t>(n_cols), static_cast<int64_t>(n_rows)};
     TOUT* output_data = output.Allocate(new_shape);
     if (0 == n_rows || 0 == n_cols) {
       return {};

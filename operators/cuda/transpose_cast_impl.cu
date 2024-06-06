@@ -32,26 +32,25 @@ __global__ void Transpose2DCastKernel(TOUT *output_data, const TIN *input_data, 
 }
 
 template <typename TIN, typename TOUT>
-cudaError_t _LaunchTranspose2DCastKernel(cudaStream_t stream, size_t n_rows, size_t n_cols,
+cudaError_t _LaunchTranspose2DCastKernel(cudaStream_t stream, int n_rows, int n_cols,
                                          const TIN* input, TOUT* output) {
   dim3 dimGrid((n_cols + TILE_DIM - 1) / TILE_DIM, (n_rows + TILE_DIM - 1) / TILE_DIM, 1);
   dim3 dimBlock(TILE_DIM, BLOCK_ROWS, 1);
   using TTIN = typename contrib::CudaT<TIN>::MappedType;
   using TTOUT = typename contrib::CudaT<TOUT>::MappedType;
   Transpose2DCastKernel<TTOUT, TTIN><<<dimGrid, dimBlock, TILE_DIM * TILE_DIM + TILE_DIM, stream>>>(
-    reinterpret_cast<TTOUT*>(output), reinterpret_cast<const TTIN*>(input),
-    static_cast<int>(n_rows), static_cast<int>(n_cols));
+    reinterpret_cast<TTOUT*>(output), reinterpret_cast<const TTIN*>(input), n_rows, n_cols);
   return cudaGetLastError();
 }
 
 template <>
-cudaError_t LaunchTranspose2DCastKernel<float, ortc::MFloat16>(cudaStream_t stream, size_t n_rows, size_t n_cols,
+cudaError_t LaunchTranspose2DCastKernel<float, ortc::MFloat16>(cudaStream_t stream, int n_rows, int n_cols,
                                                                const float* input, ortc::MFloat16* output) {
   return _LaunchTranspose2DCastKernel(stream, n_rows, n_cols, input, output);
 }
 
 template <>
-cudaError_t LaunchTranspose2DCastKernel<ortc::MFloat16, float>(cudaStream_t stream, size_t n_rows, size_t n_cols,
+cudaError_t LaunchTranspose2DCastKernel<ortc::MFloat16, float>(cudaStream_t stream, int n_rows, int n_cols,
                                                                const ortc::MFloat16* input, float* output) {
   return _LaunchTranspose2DCastKernel(stream, n_rows, n_cols, input, output);
 }
