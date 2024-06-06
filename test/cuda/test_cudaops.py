@@ -21,6 +21,20 @@ class NegXPlus1(OpRun):
         return (1 - X,)
 
 
+class Transpose2DCastFP16(OpRun):
+    op_domain = "ai.onnx.contrib"
+
+    def _run(self, X):
+        return (X.T.to(np.float16),)
+
+
+class Transpose2DCastFP32(OpRun):
+    op_domain = "ai.onnx.contrib"
+
+    def _run(self, X):
+        return (X.T.to(np.float32),)
+
+
 class TestCudaOps(unittest.TestCase):
     @staticmethod
     def _create_negpos_test_model(domain="ai.onnx.contrib"):
@@ -151,8 +165,6 @@ class TestCudaOps(unittest.TestCase):
         self._negxplus1_cuda(TensorProto.FLOAT16)
 
     def _addmul_shared_input_cuda(self, itype, op_type, shapea=(3, 2, 3), shapeb=(3, 2, 3), shapec=(3, 2, 3)):
-        from onnx_extended.ortops.optim.cuda import get_ort_ext_libs
-
         model1 = helper.make_model(
             helper.make_graph(
                 [
@@ -181,7 +193,7 @@ class TestCudaOps(unittest.TestCase):
                         f"{op_type}SharedInput",
                         ["X", "Y", "Z"],
                         ["XY", "XZ"],
-                        domain="onnx_extended.ortops.optim.cuda",
+                        domain="ai.onnx.contrib",
                     )
                 ],
                 "nd",
@@ -197,7 +209,7 @@ class TestCudaOps(unittest.TestCase):
             ),
             opset_imports=[
                 helper.make_opsetid("", 18),
-                helper.make_opsetid("onnx_extended.ortops.optim.cuda", 1),
+                helper.make_opsetid("ai.onnx.contrib", 1),
             ],
             ir_version=9,
         )
@@ -212,7 +224,7 @@ class TestCudaOps(unittest.TestCase):
         expected = ref.run(None, feeds1)
 
         opts = _ort.SessionOptions()
-        opts.register_custom_ops_library(get_ort_ext_libs()[0])
+        opts.register_custom_ops_library(_get_library_path())
         sess = _ort.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
         got = sess.run(None, feeds1)
         for i in range(2):
@@ -262,6 +274,62 @@ class TestCudaOps(unittest.TestCase):
             shapec=(3, 2, 3),
         )
 
+    def _transpose_cast_cuda(self, itype):
+        dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
+        itype2 = TensorProto.FLOAT if itype == TensorProto.FLOAT16 else TensorProto.FLOAT16
+        model1 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node("Transpose", ["X"], ["t"], perm=[1, 0]),
+                    helper.make_node("Cast", ["t"], ["Y"], to=itype2),
+                ],
+                "nd",
+                [helper.make_tensor_value_info("X", itype, [None, None])],
+                [helper.make_tensor_value_info("Y", itype2, [None, None])],
+            ),
+            opset_imports=[helper.make_opsetid("", 18)],
+            ir_version=9,
+        )
+
+        model2 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node(
+                        ("Transpose2DCastFP16" if itype2 == TensorProto.FLOAT16 else "Transpose2DCastFP32"),
+                        ["X"],
+                        ["Y"],
+                        domain="ai.onnx.contrib",
+                    )
+                ],
+                "nd",
+                [helper.make_tensor_value_info("X", itype, [None, None])],
+                [helper.make_tensor_value_info("Y", itype2, [None, None])],
+            ),
+            opset_imports=[
+                helper.make_opsetid("", 18),
+                helper.make_opsetid("ai.onnx.contrib", 1),
+            ],
+            ir_version=9,
+        )
+
+        dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
+        x = (np.arange(32 * 32 * 3) + 1).reshape((32, 32 * 3)).astype(dtype)
+
+        feeds1 = dict(X=x)
+        ref = ReferenceEvaluator(model1, new_ops=[Transpose2DCastFP16, Transpose2DCastFP32])
+        expected = ref.run(None, feeds1)[0]
+
+        opts = _ort.SessionOptions()
+        opts.register_custom_ops_library(_get_library_path())
+        sess = _ort.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
+        got = sess.run(None, feeds1)[0]
+        assert_almost_equal(expected, got, decimal=5)
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_transpose_cast_cuda(self):
+        self._transpose_cast_cuda(TensorProto.FLOAT)
+        self._transpose_cast_cuda(TensorProto.FLOAT16)
+
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(verbosity=2)
