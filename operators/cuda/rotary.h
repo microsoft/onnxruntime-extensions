@@ -11,12 +11,9 @@ namespace contrib {
 template <typename T>
 struct Rotary {
   template <typename TDict>
-  OrtxStatus OnModelAttach(OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
-    std::string side;
-    auto status = OrtW::GetOpAttribute(info, "side", side);
-    if (!status) {
-      return {kOrtxErrorInvalidArgument, "Missing or wrong argument side."};
-    }
+  OrtxStatus OnModelAttach(const TDict& dict) {
+    std::string empty;
+    std::string side = dict.TryToGetAttributeWithDefault("side", empty);
     if (side == "left") {
       side_ = RotarySide::LEFT;
     }
@@ -45,14 +42,13 @@ struct Rotary {
     if (shape_split.size() != 1 || shape_split[0] != 2) {
       return {kOrtxErrorInvalidArgument, "Rotary only works when there are two sides."};
     }
-    if (shape_split[0] != shape_split[1]) {
+    const int64_t* split_data = split.Data();
+    if (split_data[0] != split_data[1]) {
       return {kOrtxErrorInvalidArgument, "Only equal split are allowed."};
     }
-    if (shape_split[0] * 2 != input_shape[input_shape.size()-1]) {
+    if (split_data[0] * 2 != input_shape[input_shape.size()-1]) {
       return {kOrtxErrorInvalidArgument, "Sum of the splits are not equal to the last dimension."};
     }
-
-    const int64_t* split_data = split.Data();
 
     LaunchRotaryKernel<T>(reinterpret_cast<cudaStream_t>(ctx->GetCudaStream()),
                              input_length,

@@ -3,8 +3,12 @@
 
 #include "device_prop.cuh"
 #include "utils.cuh"
-#include "Rotary_impl.cuh"
+#include "rotary_impl.cuh"
 #include "cuda_type.h"
+
+#ifndef CUDA_LONG
+#define CUDA_LONG int32_t
+#endif
 
 using namespace Ort::Custom;
 
@@ -34,46 +38,44 @@ __global__ void RotaryKernel(T *output_data, const T *input_data, CUDA_LONG half
 
 template <typename T>
 cudaError_t _LaunchRotaryKernel(cudaStream_t stream, int input_length, int last_dim,
-                                const T* input, const int64_t* split_data, T* output, RotarySide side) {
-  constexpr int blockSize = 256;
-  const int gridSize = (input_length + blockSize - 1) / blockSize;
+                                const T* input_data, const int64_t* /* split_data */, T* output_data, RotarySide side) {
   if (input_length == 0)
-      return;
+      return cudaGetLastError();
   using TT = typename contrib::CudaT<T>::MappedType;
 
-  CUDA_LONG N = static_cast<CUDA_LONG>(count);
+  CUDA_LONG N = static_cast<CUDA_LONG>(input_length);
   CUDA_LONG stride = static_cast<CUDA_LONG>(last_dim);
 
-  const int num_threads_per_block = GridDim::maxThreadsPerBlock;
+  const int num_threads_per_block = 256;
   const int num_elements_per_thread =
       (N / 2 + num_threads_per_block - 1) / num_threads_per_block;
 
   switch (side) {
   case RotarySide::LEFT:
-    RotaryKernel<T, RotarySide::LEFT>
-        <<<num_elements_per_thread, num_threads_per_block, 0, stream>>>(output_data, input_data,
+    RotaryKernel<TT, RotarySide::LEFT>
+        <<<num_elements_per_thread, num_threads_per_block, 0, stream>>>(reinterpret_cast<TT*>(output_data),
+                                                                        reinterpret_cast<const TT*>(input_data),
                                                                         N / 2, stride / 2);
     break;
   case RotarySide::RIGHT:
-    RotaryKernel<T, RotarySide::RIGHT>
-        <<<num_elements_per_thread, num_threads_per_block, 0, stream>>>(output_data, input_data,
+    RotaryKernel<TT, RotarySide::RIGHT>
+        <<<num_elements_per_thread, num_threads_per_block, 0, stream>>>(reinterpret_cast<TT*>(output_data),
+                                                                        reinterpret_cast<const TT*>(input_data),
                                                                         N / 2, stride / 2);
     break;
   }
-
-  RotaryKernel<TT><<<gridSize, blockSize, 0, stream>>>(reinterpret_cast<TT*>(output), reinterpret_cast<const TT*>(input), input_length);
   return cudaGetLastError();
 }
 
 template <>
 cudaError_t LaunchRotaryKernel<float>(cudaStream_t stream, int input_length, int last_dim,
-                                      const float* input, const int64_t* split_data, float* output, RotarySide side) {
-  return _LaunchRotaryKernel(stream, input_length, last_dim, input, split_data, output, side);
+                                      const float* input_data, const int64_t* split_data, float* output_data, RotarySide side) {
+  return _LaunchRotaryKernel(stream, input_length, last_dim, input_data, split_data, output_data, side);
 }
 
 template <>
 cudaError_t LaunchRotaryKernel<ortc::MFloat16>(cudaStream_t stream, int input_length, int last_dim,
-                                               const ortc::MFloat16* input, const int64_t* split_data,
-                                               ortc::MFloat16* output, RotarySide side) {
-  return _LaunchRotaryKernel(stream, input_length, last_dim, input, split_data, output, side);
+                                               const ortc::MFloat16* input_data, const int64_t* split_data,
+                                               ortc::MFloat16* output_data, RotarySide side) {
+  return _LaunchRotaryKernel(stream, input_length, last_dim, input_data, split_data, output_data, side);
 }

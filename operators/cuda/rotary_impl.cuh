@@ -12,4 +12,4 @@ enum class RotarySide : int {
 
 template <typename T>
 cudaError_t LaunchRotaryKernel(cudaStream_t stream, int input_length, int last_dim,
-                               const T* input, const int64_t* split_data, T* output, RotarySide side);
+                               const T* input_data, const int64_t* split_data, T* output_data, RotarySide side);

@@ -7,6 +7,7 @@
 #include "cuda/add_mul.h"
 #include "cuda/fast_gelu.h"
 #include "cuda/negxplus1.h"
+#include "cuda/rotary.h"
 #endif
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
@@ -28,13 +29,15 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
       CustomCudaStructV2("FastGelu", contrib::FastGelu<float>),
       CustomCudaStructV2("MulSharedInput", MulSharedInputFloat32Type),
       CustomCudaStructV2("NegXPlus1", contrib::NegXPlus1<float>),
+      CustomCudaStructV2("Rotary", contrib::Rotary<float>),
 #if ORT_API_VERSION >= 16
 
       CustomCudaStructV2("AddSharedInput", AddSharedInputFloat16Type),
       CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::MFloat16>),
       CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::BFloat16>),
       CustomCudaStructV2("MulSharedInput", MulSharedInputFloat16Type),
-      CustomCudaStructV2("NegXPlus1", contrib::NegXPlus1<ortc::MFloat16>)
+      CustomCudaStructV2("NegXPlus1", contrib::NegXPlus1<ortc::MFloat16>),
+      CustomCudaStructV2("Rotary", contrib::Rotary<ortc::MFloat16>)
 #endif
 #endif
   );

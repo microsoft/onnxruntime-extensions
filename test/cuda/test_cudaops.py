@@ -151,8 +151,6 @@ class TestCudaOps(unittest.TestCase):
         self._negxplus1_cuda(TensorProto.FLOAT16)
 
     def _addmul_shared_input_cuda(self, itype, op_type, shapea=(3, 2, 3), shapeb=(3, 2, 3), shapec=(3, 2, 3)):
-        from onnx_extended.ortops.optim.cuda import get_ort_ext_libs
-
         model1 = helper.make_model(
             helper.make_graph(
                 [
@@ -181,7 +179,7 @@ class TestCudaOps(unittest.TestCase):
                         f"{op_type}SharedInput",
                         ["X", "Y", "Z"],
                         ["XY", "XZ"],
-                        domain="onnx_extended.ortops.optim.cuda",
+                        domain="ai.onnx.contrib",
                     )
                 ],
                 "nd",
@@ -197,7 +195,7 @@ class TestCudaOps(unittest.TestCase):
             ),
             opset_imports=[
                 helper.make_opsetid("", 18),
-                helper.make_opsetid("onnx_extended.ortops.optim.cuda", 1),
+                helper.make_opsetid("ai.onnx.contrib", 1),
             ],
             ir_version=9,
         )
@@ -212,7 +210,7 @@ class TestCudaOps(unittest.TestCase):
         expected = ref.run(None, feeds1)
 
         opts = _ort.SessionOptions()
-        opts.register_custom_ops_library(get_ort_ext_libs()[0])
+        opts.register_custom_ops_library(_get_library_path())
         sess = _ort.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
         got = sess.run(None, feeds1)
         for i in range(2):
@@ -261,6 +259,67 @@ class TestCudaOps(unittest.TestCase):
             shapeb=(3, 2, 3),
             shapec=(3, 2, 3),
         )
+
+    def _rotary_cuda(self, itype, side, input_shape=(3, 2, 3, 4)):
+        model2 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node(
+                        "Rotary",
+                        ["X", "splits"],
+                        ["Y"],
+                        domain="ai.onnx.contrib",
+                        side=side,
+                    )
+                ],
+                "nd",
+                [
+                    helper.make_tensor_value_info("X", itype, [None, None, None, None]),
+                    helper.make_tensor_value_info("splits", TensorProto.INT64, [2]),
+                ],
+                [helper.make_tensor_value_info("Y", itype, [None, None, None, None])],
+            ),
+            opset_imports=[
+                helper.make_opsetid("", 18),
+                helper.make_opsetid("ai.onnx.contrib", 1),
+            ],
+            ir_version=9,
+        )
+
+        dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
+        x = (np.arange(np.prod(input_shape)) + 1).reshape(input_shape).astype(dtype)
+        splits = np.array([x.shape[-1] // 2, x.shape[-1] // 2], dtype=np.int64)
+
+        expected = x.copy()
+        half = x.shape[-1] // 2
+        if side == "left":
+            expected[:, :, :, :half] = x[:, :, :, half:]
+            expected[:, :, :, half:] = -x[:, :, :, :half]
+        else:
+            expected[:, :, :, :half] = -x[:, :, :, half:]
+            expected[:, :, :, half:] = x[:, :, :, :half]
+
+        feeds = dict(X=x, splits=splits)
+        opts = _ort.SessionOptions()
+        opts.register_custom_ops_library(_get_library_path())
+        sess = _ort.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
+        got = sess.run(None, feeds)[0]
+        assert_almost_equal(expected, got)
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_rotary_cuda(self):
+        self._rotary_cuda(TensorProto.FLOAT, "left")
+        self._rotary_cuda(TensorProto.FLOAT, "right")
+        self._rotary_cuda(TensorProto.FLOAT16, "left")
+        self._rotary_cuda(TensorProto.FLOAT16, "right")
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_bigger_rotary_cuda(self):
+        sh = (2, 2, 1024, 8)
+        self._rotary_cuda(TensorProto.FLOAT, "left", input_shape=sh)
+        self._rotary_cuda(TensorProto.FLOAT, "right", input_shape=sh)
+        self._rotary_cuda(TensorProto.FLOAT16, "left", input_shape=sh)
+        self._rotary_cuda(TensorProto.FLOAT16, "right", input_shape=sh)
 
 
 if __name__ == "__main__":
