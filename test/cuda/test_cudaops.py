@@ -22,6 +22,83 @@ class NegXPlus1(OpRun):
 
 
 class TestCudaOps(unittest.TestCase):
+    def _addaddmulmul_cuda(self, itype, op_type, broad=False):
+        model1 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node(op_type, ["X", "Y"], ["xy"]),
+                    helper.make_node(op_type, ["xy", "Z"], ["final"]),
+                ],
+                "nd",
+                [
+                    helper.make_tensor_value_info("X", itype, [None, None, None]),
+                    helper.make_tensor_value_info("Y", itype, [None, None, None]),
+                    helper.make_tensor_value_info("Z", itype, [None, None, None]),
+                ],
+                [helper.make_tensor_value_info("final", itype, [None, None, None])],
+            ),
+            opset_imports=[helper.make_opsetid("", 18)],
+            ir_version=9,
+        )
+
+        model2 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node(
+                        f"{op_type}{op_type}",
+                        ["X", "Y", "Z"],
+                        ["final"],
+                        domain="ai.onnx.contrib",
+                    )
+                ],
+                "nd",
+                [
+                    helper.make_tensor_value_info("X", itype, [None, None, None]),
+                    helper.make_tensor_value_info("Y", itype, [None, None, None]),
+                    helper.make_tensor_value_info("Z", itype, [None, None, None]),
+                ],
+                [helper.make_tensor_value_info("final", itype, [None, None, None])],
+            ),
+            opset_imports=[
+                helper.make_opsetid("", 18),
+                helper.make_opsetid("ai.onnx.contrib", 1),
+            ],
+            ir_version=9,
+        )
+
+        dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
+        shapex = (1, 2, 3) if broad else (3, 2, 3)
+        shapey = (3, 2, 3)
+        shapez = (1, 2, 3) if broad else (3, 2, 3)
+        x = (np.arange(np.prod(shapex)) + 1).reshape(shapex).astype(dtype)
+        y = (np.arange(np.prod(shapey)) + 1).reshape(shapey).astype(dtype)
+        z = (np.arange(np.prod(shapez)) + 1).reshape(shapez).astype(dtype)
+
+        feeds1 = dict(X=x, Y=y, Z=z)
+        ref = ReferenceEvaluator(model1)
+        expected = ref.run(None, feeds1)[0]
+
+        opts = _ort.SessionOptions()
+        opts.register_custom_ops_library(_get_library_path())
+        sess = _ort.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
+        got = sess.run(None, feeds1)[0]
+        assert_almost_equal(expected, got)
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_mulmul_cuda(self):
+        self._addaddmulmul_cuda(TensorProto.FLOAT, "Mul")
+        self._addaddmulmul_cuda(TensorProto.FLOAT16, "Mul")
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_mulmul_cuda_broadcast(self):
+        self._addaddmulmul_cuda(TensorProto.FLOAT, "Mul", True)
+        self._addaddmulmul_cuda(TensorProto.FLOAT16, "Mul", True)
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_addadd_cuda(self):
+        self._addaddmulmul_cuda(TensorProto.FLOAT, "Add")
+        self._addaddmulmul_cuda(TensorProto.FLOAT16, "Add")
+
     @staticmethod
     def _create_negpos_test_model(domain="ai.onnx.contrib"):
         nodes = [
@@ -151,7 +228,7 @@ class TestCudaOps(unittest.TestCase):
         self._negxplus1_cuda(TensorProto.FLOAT16)
 
     def _addmul_shared_input_cuda(self, itype, op_type, shapea=(3, 2, 3), shapeb=(3, 2, 3), shapec=(3, 2, 3)):
-        from onnx_extended.ortops.optim.cuda import get_ort_ext_libs
+        from ai.onnx.contrib import get_ort_ext_libs
 
         model1 = helper.make_model(
             helper.make_graph(
@@ -181,7 +258,7 @@ class TestCudaOps(unittest.TestCase):
                         f"{op_type}SharedInput",
                         ["X", "Y", "Z"],
                         ["XY", "XZ"],
-                        domain="onnx_extended.ortops.optim.cuda",
+                        domain="ai.onnx.contrib",
                     )
                 ],
                 "nd",
@@ -197,7 +274,7 @@ class TestCudaOps(unittest.TestCase):
             ),
             opset_imports=[
                 helper.make_opsetid("", 18),
-                helper.make_opsetid("onnx_extended.ortops.optim.cuda", 1),
+                helper.make_opsetid("ai.onnx.contrib", 1),
             ],
             ir_version=9,
         )
