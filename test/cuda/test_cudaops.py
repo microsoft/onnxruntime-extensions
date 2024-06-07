@@ -155,10 +155,129 @@ class TestCudaOps(unittest.TestCase):
         got = sess.run(None, feeds1)[0]
         assert_almost_equal(expected, got, decimal=5)
 
+<<<<<<< HEAD
     @unittest.skipIf(not has_cuda(), reason="cuda not available")
     def test_cuda_negxplus1(self):
         self._negxplus1_cuda(TensorProto.FLOAT)
         self._negxplus1_cuda(TensorProto.FLOAT16)
+=======
+    @unittest.skipIf(not has_cuda(), reason="CUDA is missing")
+    def test_cuda_negxplus1(self):
+        self._negxplus1_cuda(TensorProto.FLOAT)
+        self._negxplus1_cuda(TensorProto.FLOAT16)
+
+    def _addmul_shared_input_cuda(self, itype, op_type, shapea=(3, 2, 3), shapeb=(3, 2, 3), shapec=(3, 2, 3)):
+        from onnx_extended.ortops.optim.cuda import get_ort_ext_libs
+
+        model1 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node(op_type, ["X", "Y"], ["XY"]),
+                    helper.make_node(op_type, ["X", "Z"], ["XZ"]),
+                ],
+                "nd",
+                [
+                    helper.make_tensor_value_info("X", itype, [None, None, None]),
+                    helper.make_tensor_value_info("Y", itype, [None, None, None]),
+                    helper.make_tensor_value_info("Z", itype, [None, None, None]),
+                ],
+                [
+                    helper.make_tensor_value_info("XY", itype, [None, None, None]),
+                    helper.make_tensor_value_info("XZ", itype, [None, None, None]),
+                ],
+            ),
+            opset_imports=[helper.make_opsetid("", 18)],
+            ir_version=9,
+        )
+
+        model2 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node(
+                        f"{op_type}SharedInput",
+                        ["X", "Y", "Z"],
+                        ["XY", "XZ"],
+                        domain="onnx_extended.ortops.optim.cuda",
+                    )
+                ],
+                "nd",
+                [
+                    helper.make_tensor_value_info("X", itype, [None, None, None]),
+                    helper.make_tensor_value_info("Y", itype, [None, None, None]),
+                    helper.make_tensor_value_info("Z", itype, [None, None, None]),
+                ],
+                [
+                    helper.make_tensor_value_info("XY", itype, [None, None, None]),
+                    helper.make_tensor_value_info("XZ", itype, [None, None, None]),
+                ],
+            ),
+            opset_imports=[
+                helper.make_opsetid("", 18),
+                helper.make_opsetid("onnx_extended.ortops.optim.cuda", 1),
+            ],
+            ir_version=9,
+        )
+
+        dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
+        x = (np.arange(np.prod(shapea)) + 1).reshape((shapea)).astype(dtype)
+        y = (np.arange(np.prod(shapeb)) + 2).reshape((shapeb)).astype(dtype)
+        z = (np.arange(np.prod(shapec)) + 3).reshape((shapec)).astype(dtype)
+
+        feeds1 = dict(X=x, Y=y, Z=z)
+        ref = ReferenceEvaluator(model1)
+        expected = ref.run(None, feeds1)
+
+        opts = _ort.SessionOptions()
+        opts.register_custom_ops_library(get_ort_ext_libs()[0])
+        sess = _ort.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
+        got = sess.run(None, feeds1)
+        for i in range(2):
+            assert_almost_equal(expected[i], got[i])
+
+    @unittest.skipIf(not has_cuda(), reason="CUDA is missing")
+    def test_add_shared_input_cuda(self):
+        self._addmul_shared_input_cuda(TensorProto.FLOAT, "Add")
+        self._addmul_shared_input_cuda(TensorProto.FLOAT16, "Add")
+
+    @unittest.skipIf(not has_cuda(), reason="CUDA is missing")
+    def test_mul_shared_input_cuda(self):
+        self._addmul_shared_input_cuda(TensorProto.FLOAT, "Mul")
+        self._addmul_shared_input_cuda(TensorProto.FLOAT16, "Mul")
+
+    @unittest.skipIf(not has_cuda(), reason="CUDA is missing")
+    def test_add_shared_input_cuda_broadcast1(self):
+        self._addmul_shared_input_cuda(
+            TensorProto.FLOAT,
+            "Add",
+            shapea=(3, 2, 3),
+            shapeb=(1, 2, 3),
+            shapec=(1, 2, 3),
+        )
+        self._addmul_shared_input_cuda(
+            TensorProto.FLOAT16,
+            "Add",
+            shapea=(3, 2, 3),
+            shapeb=(1, 2, 3),
+            shapec=(1, 2, 3),
+        )
+
+    @unittest.skipIf(not has_cuda(), reason="CUDA is missing")
+    def test_add_shared_input_cuda_broadcast2(self):
+        self._addmul_shared_input_cuda(
+            TensorProto.FLOAT,
+            "Add",
+            shapea=(1, 2, 3),
+            shapeb=(3, 2, 3),
+            shapec=(3, 2, 3),
+        )
+        self._addmul_shared_input_cuda(
+            TensorProto.FLOAT16,
+            "Add",
+            shapea=(1, 2, 3),
+            shapeb=(3, 2, 3),
+            shapec=(3, 2, 3),
+        )
+>>>>>>> 04029e13f7998574670e2bc7eb500825800654fa
 
     def _scatternd_of_shape_optimize_cuda(self, optimize, dim3, itype):
         indices_shape = ["i", "j", 1] if dim3 else ["j", 1]
