@@ -44,12 +44,32 @@ template <> __device__ __inline__ half mul_sigmoid(const half a) {
 }
 #endif
 
+template <typename T> __device__ __inline__ T mul_mul_sigmoid(const T x, const T y) {
+  return x * y * sigmoid(y);
+}
+
+#if __CUDA_ARCH__ < 700
+template <> __device__ __inline__ half mul_mul_sigmoid(const half x, const half y) {
+  float hy = __half2float(y);
+  return __float2half(__half2float(x) * hy * sigmoid(hy));
+}
+#endif
+
 template <typename T>
 __global__ void MulSigmoidKernel(T *output_data, const T *input_data, CUDA_LONG N) {
   CUDA_LONG id = blockDim.x * blockIdx.x + threadIdx.x;
   if (id >= N)
     return;
   output_data[id] = mul_sigmoid(input_data[id]);
+}
+
+template <typename T>
+__global__ void MulMulSigmoidKernel(T *output_data, const T *px, const T *py, CUDA_LONG N,
+                                    CUDA_LONG Nx, CUDA_LONG Ny) {
+  CUDA_LONG id = blockDim.x * blockIdx.x + threadIdx.x;
+  if (id >= N)
+    return;
+  output_data[id] = mul_mul_sigmoid(px[id % Nx], py[id % Ny]);
 }
 
 template <typename T>
@@ -69,4 +89,31 @@ cudaError_t LaunchMulSigmoidKernel<float>(cudaStream_t stream, int input_length,
 template <>
 cudaError_t LaunchMulSigmoidKernel<ortc::MFloat16>(cudaStream_t stream, int input_length, const ortc::MFloat16* input, ortc::MFloat16* output) {
   return _LaunchMulSigmoidKernel(stream, input_length, input, output);
+}
+
+template <typename T>
+cudaError_t _LaunchMulMulSigmoidKernel(cudaStream_t stream, int input_length_x, int input_length_y,
+                                       const T* input_data_x, const T* input_data_y, T* output) {
+  int input_length = std::max(input_length_x, input_length_y);
+  constexpr int blockSize = 256;
+  const int gridSize = (input_length + blockSize - 1) / blockSize;
+  using TT = typename contrib::CudaT<T>::MappedType;
+  MulMulSigmoidKernel<TT><<<gridSize, blockSize, 0, stream>>>(reinterpret_cast<TT*>(output),
+                                                              reinterpret_cast<const TT*>(input_data_x), 
+                                                              reinterpret_cast<const TT*>(input_data_y),
+                                                              input_length, input_length_x, input_length_y);
+  return cudaGetLastError();
+}
+
+template <>
+cudaError_t LaunchMulMulSigmoidKernel<float>(cudaStream_t stream, int input_length_x, int input_length_y,
+                                             const float* input_data_x, const float* input_data_y, float* output) {
+  return _LaunchMulMulSigmoidKernel(stream, input_length_x, input_length_y, input_data_x, input_data_y, output);
+}
+
+template <>
+cudaError_t LaunchMulMulSigmoidKernel<ortc::MFloat16>(cudaStream_t stream, int input_length_x, int input_length_y,
+                                                      const ortc::MFloat16* input_data_x, const ortc::MFloat16* input_data_y,
+                                                      ortc::MFloat16* output) {
+  return _LaunchMulMulSigmoidKernel(stream, input_length_x, input_length_y, input_data_x, input_data_y, output);
 }
