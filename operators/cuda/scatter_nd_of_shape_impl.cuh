@@ -24,4 +24,14 @@ cudaError_t LaunchScatterNDOfShapeKernel(cudaStream_t stream,
                                          T* output,
                                          ScatterReduction reduction);
 
+template <typename T>
+cudaError_t LaunchMaskedScatterNDOfShapeKernel(cudaStream_t stream,
+                                               const std::vector<int64_t>& output_shape,
+                                               const std::vector<int64_t>& indices_shape,
+                                               const int64_t* indices,
+                                               const T* updates,
+                                               T* output,
+                                               ScatterReduction reduction,
+                                               int64_t masked_value);
+
 }  // namespace contrib

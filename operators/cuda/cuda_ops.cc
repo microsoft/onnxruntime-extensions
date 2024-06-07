@@ -15,12 +15,14 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
 #ifdef USE_CUDA
       ,
       CustomCudaStructV2("FastGelu", contrib::FastGelu<float>),
+      CustomCudaStructV2("MaskedScatterNDOfShape", contrib::MaskedScatterNDOfShape<float>),
       CustomCudaStructV2("NegXPlus1", contrib::NegXPlus1<float>),
       CustomCudaStructV2("ScatterNDOfShape", contrib::ScatterNDOfShape<float>),
 #if ORT_API_VERSION >= 16
 
       CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::MFloat16>),
       CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::BFloat16>),
+      CustomCudaStructV2("MaskedScatterNDOfShape", contrib::MaskedScatterNDOfShape<ortc::MFloat16>),
       CustomCudaStructV2("NegXPlus1", contrib::NegXPlus1<ortc::MFloat16>),
       CustomCudaStructV2("ScatterNDOfShape", contrib::ScatterNDOfShape<ortc::MFloat16>)
 #endif
