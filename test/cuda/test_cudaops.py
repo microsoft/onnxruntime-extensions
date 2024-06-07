@@ -311,7 +311,6 @@ class TestCudaOps(unittest.TestCase):
         out_np = out.reshape(381, 512).numpy()
         assert np.allclose(y_np, out_np, rtol=1e-3, atol=1e-3, equal_nan=True)
 
-
     def test_cuda_paged_attention3(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
@@ -340,6 +339,60 @@ class TestCudaOps(unittest.TestCase):
         y_np = np.array(y).reshape(381, 512)
         out_np = out.reshape(381, 512).numpy()
         assert np.allclose(y_np, out_np, rtol=1e-3, atol=1e-3, equal_nan=True)
+
+    def test_cuda_paged_attention_prompt_decoding(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = self._create_pagedattention_test_model(3, 381, 512, 16, 32, 8)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(),
+                                     so,
+                                     providers=['CUDAExecutionProvider'])
+
+        query = np.random.randn(381,512).astype(np.float16) # 381 is the token num of all the sequences (127, 127, 127)
+        key = np.random.randn(381,512).astype(np.float16)
+        value = np.random.randn(381,512).astype(np.float16)
+        key_cache = np.zeros([32,8192]).astype(np.float16)
+        value_cache = np.zeros([32,8192]).astype(np.float16)
+        block_tables = np.array([[0,1,2,3,4,5,6,7],[8,9,10,11,12,13,14,15],[16,17,18,19,20,21,22,23]]).astype(np.int32) # each sequence occupies 8 blocks (127/16)
+        slot1 = np.arange(0, 127, dtype=np.int32)
+        slot2 = np.arange(128, 255, dtype=np.int32)
+        slot3 = np.arange(256, 383, dtype=np.int32)
+        slot_mappings = np.concatenate((slot1, slot2, slot3))
+        context_lens = np.array([127, 127, 127]).astype(np.int32)
+        is_prompt = np.array([1]).astype(np.int32)
+
+        key_cache_ort = _ort.OrtValue.ortvalue_from_numpy(key_cache, "cuda")
+        value_cache_ort = _ort.OrtValue.ortvalue_from_numpy(value_cache, "cuda")
+        block_tables_ort = _ort.OrtValue.ortvalue_from_numpy(block_tables, "cuda")
+        slot_mappings_ort = _ort.OrtValue.ortvalue_from_numpy(slot_mappings, "cuda")
+        context_lens_ort = _ort.OrtValue.ortvalue_from_numpy(context_lens)
+        is_prompt_ort = _ort.OrtValue.ortvalue_from_numpy(is_prompt)
+
+        # prompt case
+        io_binding = sess.io_binding()
+        io_binding.bind_cpu_input("query", query)
+        io_binding.bind_cpu_input("key", key)
+        io_binding.bind_cpu_input("value", value)
+        io_binding.bind_ortvalue_input("key_cache", key_cache_ort)
+        io_binding.bind_ortvalue_input("value_cache", value_cache_ort)
+        io_binding.bind_ortvalue_input("block_tables", block_tables_ort)
+        io_binding.bind_ortvalue_input("slot_mappings", slot_mappings_ort)
+        io_binding.bind_ortvalue_input("context_lens", context_lens_ort)
+        io_binding.bind_ortvalue_input("is_prompt", is_prompt_ort)
+        io_binding.bind_output("attn_out")
+        sess.run_with_iobinding(io_binding)
+
+        # decoding case
+        query2 = np.random.randn(3, 512).astype(np.float16)
+        key2 = np.random.randn(3, 512).astype(np.float16)
+        value2 = np.random.randn(3, 512).astype(np.float16)
+        io_binding.bind_cpu_input("query", query2)
+        io_binding.bind_cpu_input("key", key2)
+        io_binding.bind_cpu_input("value", value2)
+        context_lens_ort.update_inplace(np.array([1,1,1]).astype(np.int32))
+        is_prompt_ort.update_inplace(np.array([0]).astype(np.int32))
+        sess.run_with_iobinding(io_binding)
+
 
 if __name__ == "__main__":
     unittest.main()
