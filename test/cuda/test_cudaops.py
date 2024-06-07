@@ -169,12 +169,6 @@ class TestCudaOps(unittest.TestCase):
         got = sess.run(None, feeds1)[0]
         assert_almost_equal(expected, got, decimal=5)
 
-<<<<<<< HEAD
-    @unittest.skipIf(not has_cuda(), reason="cuda not available")
-    def test_cuda_negxplus1(self):
-        self._negxplus1_cuda(TensorProto.FLOAT)
-        self._negxplus1_cuda(TensorProto.FLOAT16)
-=======
     @unittest.skipIf(not has_cuda(), reason="CUDA is missing")
     def test_cuda_negxplus1(self):
         self._negxplus1_cuda(TensorProto.FLOAT)
@@ -289,7 +283,6 @@ class TestCudaOps(unittest.TestCase):
             shapeb=(3, 2, 3),
             shapec=(3, 2, 3),
         )
->>>>>>> 04029e13f7998574670e2bc7eb500825800654fa
 
     def _scatternd_of_shape_optimize_cuda(self, optimize, dim3, itype):
         indices_shape = ["i", "j", 1] if dim3 else ["j", 1]

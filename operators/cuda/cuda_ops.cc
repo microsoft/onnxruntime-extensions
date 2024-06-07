@@ -7,11 +7,8 @@
 #include "cuda/add_mul.h"
 #include "cuda/fast_gelu.h"
 #include "cuda/negxplus1.h"
-<<<<<<< HEAD
 #include "cuda/scatter_nd_of_shape.h"
-=======
 #include "cuda/transpose_cast.h"
->>>>>>> 79f3b048d4d195b6684f2d1b6ca5bfe1ab9ea8d6
 #endif
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
