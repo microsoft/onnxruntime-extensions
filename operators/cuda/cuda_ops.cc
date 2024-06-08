@@ -10,12 +10,14 @@
 #endif
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
-
   using AddSharedInputFloat32Type = typename contrib::AddOrMulSharedInput<float, true>;
   using MulSharedInputFloat32Type = typename contrib::AddOrMulSharedInput<float, false>;
 
   using AddTwiceFloat32Type = typename contrib::AddOrMulTwice<float, true>;
   using MulTwiceFloat32Type = typename contrib::AddOrMulTwice<float, false>;
+
+  using AddAndMulFloat32Type = typename contrib::AddOrMulTwice<float, true>;
+  using MulAndAddFloat32Type = typename contrib::AddOrMulTwice<float, false>;
 
 #if ORT_API_VERSION >= 16
   using AddSharedInputFloat16Type = typename contrib::AddOrMulSharedInput<ortc::MFloat16, true>;
@@ -23,25 +25,31 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
 
   using AddTwiceFloat16Type = typename contrib::AddOrMulTwice<ortc::MFloat16, true>;
   using MulTwiceFloat16Type = typename contrib::AddOrMulTwice<ortc::MFloat16, false>;
-#endif
 
+  using AddAndMulFloat32Type = typename contrib::AddOrMulTwice<ortc::MFloat16, true>;
+  using MulAndAddFloat32Type = typename contrib::AddOrMulTwice<ortc::MFloat16, false>;
+#endif
 
   static OrtOpLoader op_loader(
       []() { return nullptr; }
 #ifdef USE_CUDA
       ,
+      CustomCudaStructV2("AddMul", AddAndMulFloat32Type),
       CustomCudaStructV2("AddSharedInput", AddSharedInputFloat32Type),
       CustomCudaStructV2("AddTwice", AddTwiceFloat32Type),
       CustomCudaStructV2("FastGelu", contrib::FastGelu<float>),
+      CustomCudaStructV2("MulAdd", MulAndAddFloat32Type),
       CustomCudaStructV2("MulSharedInput", MulSharedInputFloat32Type),
       CustomCudaStructV2("MulTwice", MulTwiceFloat32Type),
       CustomCudaStructV2("NegXPlus1", contrib::NegXPlus1<float>),
 #if ORT_API_VERSION >= 16
 
+      CustomCudaStructV2("AddMul", AddAndMulFloat16Type),
       CustomCudaStructV2("AddSharedInput", AddSharedInputFloat16Type),
       CustomCudaStructV2("AddTwice", AddTwiceFloat16Type),
       CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::MFloat16>),
       CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::BFloat16>),
+      CustomCudaStructV2("MulAdd", MulAndAddFloat16Type),
       CustomCudaStructV2("MulSharedInput", MulSharedInputFloat16Type),
       CustomCudaStructV2("MulTwice", MulTwiceFloat16Type),
       CustomCudaStructV2("NegXPlus1", contrib::NegXPlus1<ortc::MFloat16>)

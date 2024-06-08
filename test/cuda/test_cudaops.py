@@ -339,6 +339,90 @@ class TestCudaOps(unittest.TestCase):
             shapec=(3, 2, 3),
         )
 
+    def _addmul_cuda(self, itype, op_type1, op_type2, broad=False, negative=False):
+        model1 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node(op_type1, ["Y", "X"] if negative else ["X", "Y"], ["xy"]),
+                    helper.make_node(op_type2, ["Z", "xy"] if negative else ["xy", "Z"], ["final"]),
+                ],
+                "nd",
+                [
+                    helper.make_tensor_value_info("X", itype, [None, None, None]),
+                    helper.make_tensor_value_info("Y", itype, [None, None, None]),
+                    helper.make_tensor_value_info("Z", itype, [None, None, None]),
+                ],
+                [helper.make_tensor_value_info("final", itype, [None, None, None])],
+            ),
+            opset_imports=[helper.make_opsetid("", 18)],
+            ir_version=9,
+        )
+
+        kwargs = {"negative": 1} if negative else {}
+        model2 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node(
+                        f"{op_type1}{op_type2}",
+                        ["X", "Y", "Z"],
+                        ["final"],
+                        domain="ai.onnx.contrib",
+                        **kwargs,
+                    )
+                ],
+                "nd",
+                [
+                    helper.make_tensor_value_info("X", itype, [None, None, None]),
+                    helper.make_tensor_value_info("Y", itype, [None, None, None]),
+                    helper.make_tensor_value_info("Z", itype, [None, None, None]),
+                ],
+                [helper.make_tensor_value_info("final", itype, [None, None, None])],
+            ),
+            opset_imports=[
+                helper.make_opsetid("", 18),
+                helper.make_opsetid("ai.onnx.contrib", 1),
+            ],
+            ir_version=9,
+        )
+
+        dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
+        shapex = (1, 2, 3) if broad else (3, 2, 3)
+        shapey = (3, 2, 3)
+        shapez = (1, 2, 3) if broad else (3, 2, 3)
+        x = (np.arange(np.prod(shapex)) + 1).reshape(shapex).astype(dtype)
+        y = (np.arange(np.prod(shapey)) + 1).reshape(shapey).astype(dtype)
+        z = (np.arange(np.prod(shapez)) + 1).reshape(shapez).astype(dtype)
+
+        feeds1 = dict(X=x, Y=y, Z=z)
+        ref = ReferenceEvaluator(model1, verbose=0)
+        expected = ref.run(None, feeds1)[0]
+
+        opts = _ort.SessionOptions()
+        opts.register_custom_ops_library(_get_library_path())
+        sess = _ort.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
+        got = sess.run(None, feeds1)[0]
+        assert_almost_equal(expected, got)
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_addmul_cuda(self):
+        self._addmul_cuda(TensorProto.FLOAT, "Add", "Mul")
+        self._addmul_cuda(TensorProto.FLOAT16, "Add", "Mul")
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_addmul_cuda_broadcast(self):
+        self._addmul_cuda(TensorProto.FLOAT, "Add", "Mul", True)
+        self._addmul_cuda(TensorProto.FLOAT16, "Add", "Mul", True)
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_muladd_cuda(self):
+        self._addmul_cuda(TensorProto.FLOAT, "Mul", "Add")
+        self._addmul_cuda(TensorProto.FLOAT16, "Mul", "Add")
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_submul_cuda(self):
+        self._addmul_cuda(TensorProto.FLOAT, "Sub", "Mul")
+        self._addmul_cuda(TensorProto.FLOAT16, "Sub", "Mul")
+
 
 if __name__ == "__main__":
     unittest.main()
