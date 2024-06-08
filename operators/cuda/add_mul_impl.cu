@@ -321,7 +321,7 @@ cudaError_t _LaunchAddAndMulKernel(cudaStream_t stream,
                                    const T* pA, const T* pB, const T* pC,
                                    T* output,
                                    int64_t countA, int64_t countB, int64_t countC,
-                                   bool addition_first, bool switchMiddleAxes) {
+                                   bool addition_first) {
   int64_t max_count = std::max(std::max(countA, countB), countC);
   if (max_count == 0)  // special case where there's a dim value of 0 in the output shape
     return cudaGetLastError();
@@ -356,6 +356,22 @@ cudaError_t _LaunchAddAndMulKernel(cudaStream_t stream,
             max_size, MulAdd<TT>());
   }
   return cudaGetLastError();
+}
+
+template <>
+cudaError_t LaunchAddAndMulKernel(cudaStream_t stream, const float* input_a, const float* input_b, const float* input_c,
+                                  float* output, int64_t length_a, int64_t length_b, int64_t length_c,
+                                  bool addition) {
+  return _LaunchAddAndMulKernel(stream, pA, pB, pC, output, countA, countB, countC, addition_first);
+}
+
+template <>
+cudaError_t LaunchAddAndMulKernel(cudaStream_t stream,
+                                  const ortc::MFloat16* input_a, const ortc::MFloat16* input_b,
+                                  const ortc::MFloat16* input_c,
+                                  ortc::MFloat16* output, int64_t length_a, int64_t length_b, int64_t length_c,
+                                  bool addition) {
+  return _LaunchAddAndMulKernel(stream, pA, pB, pC, output, countA, countB, countC, addition_first);
 }
 
 template <typename T>
@@ -398,4 +414,204 @@ cudaError_t _LaunchAddAndMulSwitchMiddleAxesKernel(cudaStream_t stream,
             max_size, MulAdd<TT>());
   }
   return cudaGetLastError();
+}
+
+template <>
+cudaError_t LaunchAddAndMulSwitchMiddleAxesKernel(cudaStream_t stream, const float* input_a, const float* input_b, const float* input_c,
+                                                  float* output, int64_t length_a, int64_t length_b, int64_t length_c,
+                                                  bool addition,
+                                                  int64_t d2, int64_t d3, int64_t d4) {
+  return _LaunchAddAndMulSwitchMiddleAxesKernel(stream, pA, pB, pC, output, countA, countB, countC,
+                                                addition_first, d2, d3, d4);
+}
+
+template <>
+cudaError_t LaunchAddAndMulSwitchMiddleAxesKernel(cudaStream_t stream, const ortc::MFloat16* input_a,
+                                                  const ortc::MFloat16* input_b, const ortc::MFloat16* input_c,
+                                                  ortc::MFloat16* output, int64_t length_a, int64_t length_b, int64_t length_c,
+                                                  bool addition,
+                                                  int64_t d2, int64_t d3, int64_t d4) {
+  return _LaunchAddAndMulSwitchMiddleAxesKernel(stream, pA, pB, pC, output, countA, countB, countC,
+                                                addition_first, d2, d3, d4);
+}
+
+__device__ __forceinline__ void _submul_op(float* address, const float a, const float b,
+                                           const float c) {
+  *address = (a - b) * c;
+}
+
+__device__ __forceinline__ void _submul_op(half* address, const half a, const half b,
+                                           const half c) {
+#if __CUDA_ARCH__ < 700
+  *address = __float2half((__half2float(a) - __half2float(b)) * __half2float(c));
+#else
+  *address = (a - b) * c;
+#endif
+}
+
+__device__ __forceinline__ void _submul_neg_op(float* address, const float a, const float b,
+                                               const float c) {
+  *address = (b - a) * c;
+}
+
+__device__ __forceinline__ void _submul_neg_op(half* address, const half a, const half b,
+                                               const half c) {
+#if __CUDA_ARCH__ < 700
+  *address = __float2half((__half2float(b) - __half2float(a)) * __half2float(c));
+#else
+  *address = (b - a) * c;
+#endif
+}
+
+__device__ __forceinline__ void _mulsub_op(float* address, const float a, const float b,
+                                           const float c) {
+  *address = a * b - c;
+}
+
+__device__ __forceinline__ void _mulsub_op(half* address, const half a, const half b,
+                                           const half c) {
+#if __CUDA_ARCH__ < 700
+  *address = __float2half(__half2float(a) * __half2float(b) - __half2float(c));
+#else
+  *address = a * b - c;
+#endif
+}
+
+__device__ __forceinline__ void _mulsub_neg_op(float* address, const float a, const float b,
+                                               const float c) {
+  *address = c - a * b;
+}
+
+__device__ __forceinline__ void _mulsub_neg_op(half* address, const half a, const half b,
+                                               const half c) {
+#if __CUDA_ARCH__ < 700
+  *address = __float2half(__half2float(c) - __half2float(a) * __half2float(b));
+#else
+  *address = c - a * b;
+#endif
+}
+
+template <typename T>
+struct SubMul {
+  __device__ __inline__ void operator()(T* address, const T a, const T b, const T c) const {
+    _submul_op(address, a, b, c);
+  }
+};
+
+template <typename T>
+struct MulSub {
+  __device__ __inline__ void operator()(T* address, const T a, const T b, const T c) const {
+    _mulsub_op(address, a, b, c);
+  }
+};
+
+template <typename T>
+struct SubMulNeg {
+  __device__ __inline__ void operator()(T* address, const T a, const T b, const T c) const {
+    _submul_neg_op(address, a, b, c);
+  }
+};
+
+template <typename T>
+struct MulSubNeg {
+  __device__ __inline__ void operator()(T* address, const T a, const T b, const T c) const {
+    _mulsub_neg_op(address, a, b, c);
+  }
+};
+
+template <typename T, typename TFunc, int NumThreadsPerBlock, int NumElementsPerThread>
+__global__ void _MulSubKernel(T* output_data, const T* pA, const T* pB, const T* pC,
+                              CUDA_LONG nA, CUDA_LONG nB, CUDA_LONG nC, CUDA_LONG N,
+                              const TFunc func) {
+  CUDA_LONG start = NumElementsPerThread * NumThreadsPerBlock * blockIdx.x + threadIdx.x;
+  CUDA_LONG id = start;
+#pragma unroll
+  for (int i = 0; i < NumElementsPerThread; i++) {
+    if (id < N) {
+      func(output_data + id, pA[id % nA], pB[id % nB], pC[id % nC]);
+      id += NumThreadsPerBlock;
+    }
+  }
+}
+
+template <typename T>
+cudaError_t _LaunchSubAndMulKernel(cudaStream_t stream,
+                                   const T* pA, const T* pB, const T* pC,
+                                   T* output,
+                                   int64_t countA, int64_t countB, int64_t countC,
+                                   bool addition_first) {
+  int64_t max_count = std::max(std::max(countA, countB), countC);
+  if (max_count == 0)  // special case where there's a dim value of 0 in the output shape
+    return cudaGetLastError();
+
+  const int num_elements_per_thread = 4;
+  const int num_threads_per_block = 256;
+  const int num_el_th = num_threads_per_block * num_elements_per_thread;
+
+  int blocksPerGrid = (max_count + num_el_th - 1) / num_el_th;
+
+  using TT = typename contrib::CudaT<T>::MappedType;
+
+  if (addition_first) {
+    if (negative) {
+      SubAndMulKernel<TT, SubMul<TT>, num_threads_per_block, num_elements_per_thread>
+          <<<blocksPerGrid, num_threads_per_block, 0, stream>>>(
+              cuda_stream,
+              reinterpret_cast<TT*>(output),
+              reinterpret_cast<const TT*>(pA),
+              reinterpret_cast<const TT*>(pB),
+              reinterpret_cast<const TT*>(pC),
+              countA, countB, countC,
+              max_size, SubMulNEg<TT>());
+    } else {
+      SubAndMulKernel<TT, SubMul<TT>, num_threads_per_block, num_elements_per_thread>
+          <<<blocksPerGrid, num_threads_per_block, 0, stream>>>(
+              cuda_stream,
+              reinterpret_cast<TT*>(output),
+              reinterpret_cast<const TT*>(pA),
+              reinterpret_cast<const TT*>(pB),
+              reinterpret_cast<const TT*>(pC),
+              countA, countB, countC,
+              max_size, SubMul<TT>());
+    }
+  } else {
+    if (negative) {
+      SubAndMulKernel<TT, MulSub<TT>, num_threads_per_block, num_elements_per_thread>
+          <<<blocksPerGrid, num_threads_per_block, 0, stream>>>(
+              cuda_stream,
+              reinterpret_cast<TT*>(output),
+              reinterpret_cast<const TT*>(pA),
+              reinterpret_cast<const TT*>(pB),
+              reinterpret_cast<const TT*>(pC),
+              countA, countB, countC,
+              max_size, MulSubNeg<TT>());
+    } else {
+      SubAndMulKernel<TT, MulSub<TT>, num_threads_per_block, num_elements_per_thread>
+          <<<blocksPerGrid, num_threads_per_block, 0, stream>>>(
+              cuda_stream,
+              reinterpret_cast<TT*>(output),
+              reinterpret_cast<const TT*>(pA),
+              reinterpret_cast<const TT*>(pB),
+              reinterpret_cast<const TT*>(pC),
+              countA, countB, countC,
+              max_size, MulSub<TT>());
+    }
+  }
+  return cudaGetLastError();
+}
+
+template <>
+cudaError_t LaunchSubAndMulKernel(cudaStream_t stream, const float* input_a, const float* input_b, const float* input_c,
+                                  float* output, int64_t length_a, int64_t length_b, int64_t length_c,
+                                  bool subtract_first, bool negative) {
+  return _LaunchSubAndMulKernel(stream, pA, pB, pC, output, countA, countB, countC, subtract_first, negative);
+}
+
+template <>
+cudaError_t LaunchSubAndMulKernel(cudaStream_t stream,
+                                  const ortc::MFloat16* input_a, const ortc::MFloat16* input_b,
+                                  const ortc::MFloat16* input_c,
+                                  ortc::MFloat16* output, int64_t length_a, int64_t length_b, int64_t length_c,
+                                  bool subtract_first, negative) {
+  return _LaunchSubAndMulKernel(stream, pA, pB, pC, output, countA, countB, countC, subtract_first, negative);
 }

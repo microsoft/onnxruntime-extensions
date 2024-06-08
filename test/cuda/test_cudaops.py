@@ -423,6 +423,26 @@ class TestCudaOps(unittest.TestCase):
         self._addmul_cuda(TensorProto.FLOAT, "Sub", "Mul")
         self._addmul_cuda(TensorProto.FLOAT16, "Sub", "Mul")
 
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_submul_cuda_negative(self):
+        self._addmul_cuda(TensorProto.FLOAT, "Sub", "Mul", negative=True)
+        self._addmul_cuda(TensorProto.FLOAT16, "Sub", "Mul", negative=True)
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_submul_cuda_broadcast(self):
+        self._addmul_cuda(TensorProto.FLOAT, "Sub", "Mul", True)
+        self._addmul_cuda(TensorProto.FLOAT16, "Sub", "Mul", True)
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_mulsub_cuda(self):
+        self._addmul_cuda(TensorProto.FLOAT, "Mul", "Sub")
+        self._addmul_cuda(TensorProto.FLOAT16, "Mul", "Sub")
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_mulsub_cuda_negative(self):
+        self._addmul_cuda(TensorProto.FLOAT, "Mul", "Sub", negative=True)
+        self._addmul_cuda(TensorProto.FLOAT16, "Mul", "Sub", negative=True)
+
 
 if __name__ == "__main__":
     unittest.main()

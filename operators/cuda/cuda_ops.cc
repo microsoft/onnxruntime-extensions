@@ -16,8 +16,11 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
   using AddTwiceFloat32Type = typename contrib::AddOrMulTwice<float, true>;
   using MulTwiceFloat32Type = typename contrib::AddOrMulTwice<float, false>;
 
-  using AddAndMulFloat32Type = typename contrib::AddOrMulTwice<float, true>;
-  using MulAndAddFloat32Type = typename contrib::AddOrMulTwice<float, false>;
+  using AddAndMulFloat32Type = typename contrib::AddAndMul<float, true>;
+  using MulAndAddFloat32Type = typename contrib::AddAndMul<float, false>;
+
+  using SubAndMulFloat32Type = typename contrib::SubAndMul<float, true>;
+  using MulAndSubFloat32Type = typename contrib::SubAndMul<float, false>;
 
 #if ORT_API_VERSION >= 16
   using AddSharedInputFloat16Type = typename contrib::AddOrMulSharedInput<ortc::MFloat16, true>;
@@ -26,8 +29,11 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
   using AddTwiceFloat16Type = typename contrib::AddOrMulTwice<ortc::MFloat16, true>;
   using MulTwiceFloat16Type = typename contrib::AddOrMulTwice<ortc::MFloat16, false>;
 
-  using AddAndMulFloat32Type = typename contrib::AddOrMulTwice<ortc::MFloat16, true>;
-  using MulAndAddFloat32Type = typename contrib::AddOrMulTwice<ortc::MFloat16, false>;
+  using AddAndMulFloat32Type = typename contrib::AddAndMul<ortc::MFloat16, true>;
+  using MulAndAddFloat32Type = typename contrib::AddAndMul<ortc::MFloat16, false>;
+
+  using SubAndMulFloat32Type = typename contrib::SubAndMul<ortc::MFloat16, true>;
+  using MulAndSubFloat32Type = typename contrib::SubAndMul<ortc::MFloat16, false>;
 #endif
 
   static OrtOpLoader op_loader(
@@ -40,8 +46,10 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
       CustomCudaStructV2("FastGelu", contrib::FastGelu<float>),
       CustomCudaStructV2("MulAdd", MulAndAddFloat32Type),
       CustomCudaStructV2("MulSharedInput", MulSharedInputFloat32Type),
+      CustomCudaStructV2("MulSub", MulAndSubFloat32Type),
       CustomCudaStructV2("MulTwice", MulTwiceFloat32Type),
       CustomCudaStructV2("NegXPlus1", contrib::NegXPlus1<float>),
+      CustomCudaStructV2("SubMul", SubAndMulFloat32Type),
 #if ORT_API_VERSION >= 16
 
       CustomCudaStructV2("AddMul", AddAndMulFloat16Type),
@@ -51,8 +59,10 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
       CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::BFloat16>),
       CustomCudaStructV2("MulAdd", MulAndAddFloat16Type),
       CustomCudaStructV2("MulSharedInput", MulSharedInputFloat16Type),
+      CustomCudaStructV2("MulSub", MulAndSubFloat16Type),
       CustomCudaStructV2("MulTwice", MulTwiceFloat16Type),
-      CustomCudaStructV2("NegXPlus1", contrib::NegXPlus1<ortc::MFloat16>)
+      CustomCudaStructV2("NegXPlus1", contrib::NegXPlus1<ortc::MFloat16>),
+      CustomCudaStructV2("SubMul", SubAndMulFloat16Type)
 #endif
 #endif
   );
