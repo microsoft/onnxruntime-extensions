@@ -225,11 +225,11 @@ class TestCudaOps(unittest.TestCase):
                 domain=domain, num_heads=num_heads, num_kv_heads=num_kv_heads, head_size=head_size, scale=scale)
         ]
         query = helper.make_tensor_value_info(
-            'query', onnx_proto.TensorProto.FLOAT16, [total_seqlen, hidden_size])
+            'query', onnx_proto.TensorProto.FLOAT16, [None, hidden_size])
         key = helper.make_tensor_value_info(
-            'key', onnx_proto.TensorProto.FLOAT16, [total_seqlen, hidden_size])
+            'key', onnx_proto.TensorProto.FLOAT16, [None, hidden_size])
         value = helper.make_tensor_value_info(
-            'value', onnx_proto.TensorProto.FLOAT16, [total_seqlen, hidden_size])
+            'value', onnx_proto.TensorProto.FLOAT16, [None, hidden_size])
         key_cache = helper.make_tensor_value_info(
             'key_cache', onnx_proto.TensorProto.FLOAT16, [block_cnt_per_layer, hidden_size * slot_cnt_per_block])
         value_cache = helper.make_tensor_value_info(
@@ -243,7 +243,7 @@ class TestCudaOps(unittest.TestCase):
         is_prompt = helper.make_tensor_value_info(
             'is_prompt', onnx_proto.TensorProto.INT32, [1])
         attn_out = helper.make_tensor_value_info(
-            'attn_out', onnx_proto.TensorProto.FLOAT16, [total_seqlen, hidden_size])
+            'attn_out', onnx_proto.TensorProto.FLOAT16, [None, hidden_size])
         graph = helper.make_graph(nodes, 'test_paged_attention', 
                     [query, key, value, key_cache, value_cache, block_tables, slot_mappings, context_lens, is_prompt], 
                     [attn_out])
@@ -300,7 +300,7 @@ class TestCudaOps(unittest.TestCase):
         context_lens = np.array([127, 127, 127]).astype(np.int32)
         is_prompt = np.array([1]).astype(np.int32)
         y = sess.run(None, {'query':query, 'key':key, 'value':value, 'key_cache':key_cache, 'value_cache':value_cache, 'block_tables':block_tables, 'slot_mappings':slot_mappings, 'context_lens':context_lens, 'is_prompt':is_prompt})
-        pdb.set_trace()
+        #pdb.set_trace()
         print('Y=')
         print(y)
         q_pt = torch.from_numpy(query.reshape(3, 127, 32, 16))
