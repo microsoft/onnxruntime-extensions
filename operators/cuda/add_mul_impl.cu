@@ -169,15 +169,15 @@ struct Add3Op {
 };
 
 template <typename T, typename TFunc, int NumThreadsPerBlock, int NumElementsPerThread>
-__global__ void AddMulTwiceKernel(T* output, const T* pA, const T* pB,
-                                  const T* pC, CUDA_LONG nA, CUDA_LONG nB, CUDA_LONG nC,
-                                  CUDA_LONG N, const TFunc func) {
+__global__ void AddMulTwiceKernel(T* output_data, const T* pA, const T* pB, const T* pC,
+                                  CUDA_LONG nA, CUDA_LONG nB, CUDA_LONG nC, CUDA_LONG N,
+                                  const TFunc func) {
   CUDA_LONG start = NumElementsPerThread * NumThreadsPerBlock * blockIdx.x + threadIdx.x;
   CUDA_LONG id = start;
 #pragma unroll
   for (int i = 0; i < NumElementsPerThread; i++) {
     if (id < N) {
-      func(output_ab, pA[id % nA], pB[id % nB], pC[id % nC]);
+      func(output_data + id, pA[id % nA], pB[id % nB], pC[id % nC]);
       id += NumThreadsPerBlock;
     }
   }
@@ -206,36 +206,39 @@ cudaError_t _LaunchAddOrMulTwiceKernel(cudaStream_t stream,
             reinterpret_cast<TT*>(output),
             reinterpret_cast<const TT*>(pA), reinterpret_cast<const TT*>(pB), reinterpret_cast<const TT*>(pC),
             static_cast<CUDA_LONG>(countA), static_cast<CUDA_LONG>(countB), static_cast<CUDA_LONG>(countC),
-            static_cast<CUDA_LONG>(max_count), Add3SharedOp<TT>());
+            static_cast<CUDA_LONG>(max_count), Add3Op<TT>());
   } else {
     AddMulTwiceKernel<TT, Mul3Op<TT>, num_threads_per_block, num_elements_per_thread>
         <<<blocksPerGrid, num_threads_per_block, 0, stream>>>(
             reinterpret_cast<TT*>(output),
             reinterpret_cast<const TT*>(pA), reinterpret_cast<const TT*>(pB), reinterpret_cast<const TT*>(pC), static_cast<CUDA_LONG>(countA),
             static_cast<CUDA_LONG>(countB), static_cast<CUDA_LONG>(countC),
-            static_cast<CUDA_LONG>(max_count), Mul3SharedOp<TT>());
+            static_cast<CUDA_LONG>(max_count), Mul3Op<TT>());
   }
   return cudaGetLastError();
 }
 
 template <>
-cudaError_t LaunchAddOrMulSharedInputKernel<float>(cudaStream_t stream,
-                                                   const float* input_a, const float* input_b, const float* input_c,
-                                                   float* output,
-                                                   int64_t length_a, int64_t length_b, int64_t length_c, bool addition) {
-  return _LaunchAddOrMulSharedInputKernel(stream, input_a, input_b, input_c,
-                                          output,
-                                          length_a, length_b, length_c, addition);
+cudaError_t LaunchAddOrMulTwiceKernel<float>(cudaStream_t stream,
+                                             const float* input_a, const float* input_b, const float* input_c,
+                                             float* output,
+                                             int64_t length_a, int64_t length_b, int64_t length_c,
+                                             bool addition) {
+  return _LaunchAddOrMulTwiceKernel(stream, input_a, input_b, input_c,
+                                    output,
+                                    length_a, length_b, length_c, addition);
 }
 
 template <>
-cudaError_t LaunchAddOrMulSharedInputKernel<ortc::MFloat16>(cudaStream_t stream,
-                                                            const ortc::MFloat16* input_a, const ortc::MFloat16* input_b, const ortc::MFloat16* input_c,
-                                                            ortc::MFloat16* output,
-                                                            int64_t length_a, int64_t length_b, int64_t length_c, bool addition) {
-  return _LaunchAddOrMulSharedInputKernel(stream, input_a, input_b, input_c,
-                                          output,
-                                          length_a, length_b, length_c, addition);
+cudaError_t LaunchAddOrMulTwiceKernel<ortc::MFloat16>(cudaStream_t stream,
+                                                      const ortc::MFloat16* input_a, const ortc::MFloat16* input_b,
+                                                      const ortc::MFloat16* input_c,
+                                                      ortc::MFloat16* output,
+                                                      int64_t length_a, int64_t length_b, int64_t length_c,
+                                                      bool addition) {
+  return _LaunchAddOrMulTwiceKernel(stream, input_a, input_b, input_c,
+                                    output,
+                                    length_a, length_b, length_c, addition);
 }
 
 __device__ __forceinline__ void _addmul_op(float* address, const float a, const float b,
@@ -281,7 +284,7 @@ struct MulAdd {
 };
 
 template <typename T, typename TFunc, int NumThreadsPerBlock, int NumElementsPerThread>
-__global__ void _AddAndMulKernel(T* output_data, const T* pA, const T* pB, const T* pC,
+__global__ void AddAndMulKernel(T* output_data, const T* pA, const T* pB, const T* pC,
                                  CUDA_LONG nA, CUDA_LONG nB, CUDA_LONG nC, CUDA_LONG N,
                                  const TFunc func) {
   CUDA_LONG start = NumElementsPerThread * NumThreadsPerBlock * blockIdx.x + threadIdx.x;
@@ -296,7 +299,7 @@ __global__ void _AddAndMulKernel(T* output_data, const T* pA, const T* pB, const
 }
 
 template <typename T, typename TFunc, int NumThreadsPerBlock, int NumElementsPerThread>
-__global__ void _AddAndMulSwitchMiddleAxesKernel(T* output_data, const T* pA, const T* pB,
+__global__ void AddAndMulSwitchMiddleAxesKernel(T* output_data, const T* pA, const T* pB,
                                                  const T* pC, CUDA_LONG nA, CUDA_LONG nB,
                                                  CUDA_LONG nC, CUDA_LONG N,
                                                  const TFunc func, CUDA_LONG d2,
@@ -337,23 +340,27 @@ cudaError_t _LaunchAddAndMulKernel(cudaStream_t stream,
   if (addition_first) {
     AddAndMulKernel<TT, AddMul<TT>, num_threads_per_block, num_elements_per_thread>
         <<<blocksPerGrid, num_threads_per_block, 0, stream>>>(
-            cuda_stream,
             reinterpret_cast<TT*>(output),
             reinterpret_cast<const TT*>(pA),
             reinterpret_cast<const TT*>(pB),
             reinterpret_cast<const TT*>(pC),
-            countA, countB, countC,
-            max_size, AddMul<TT>());
+            static_cast<CUDA_LONG>(countA),
+            static_cast<CUDA_LONG>(countB),
+            static_cast<CUDA_LONG>(countC),
+            static_cast<CUDA_LONG>(max_count),
+            AddMul<TT>());
   } else {
     AddAndMulKernel<TT, MulAdd<TT>, num_threads_per_block, num_elements_per_thread>
         <<<blocksPerGrid, num_threads_per_block, 0, stream>>>(
-            cuda_stream,
             reinterpret_cast<TT*>(output),
             reinterpret_cast<const TT*>(pA),
             reinterpret_cast<const TT*>(pB),
             reinterpret_cast<const TT*>(pC),
-            countA, countB, countC,
-            max_size, MulAdd<TT>());
+            static_cast<CUDA_LONG>(countA),
+            static_cast<CUDA_LONG>(countB),
+            static_cast<CUDA_LONG>(countC),
+            static_cast<CUDA_LONG>(max_count),
+            MulAdd<TT>());
   }
   return cudaGetLastError();
 }
@@ -361,8 +368,8 @@ cudaError_t _LaunchAddAndMulKernel(cudaStream_t stream,
 template <>
 cudaError_t LaunchAddAndMulKernel(cudaStream_t stream, const float* input_a, const float* input_b, const float* input_c,
                                   float* output, int64_t length_a, int64_t length_b, int64_t length_c,
-                                  bool addition) {
-  return _LaunchAddAndMulKernel(stream, pA, pB, pC, output, countA, countB, countC, addition_first);
+                                  bool addition_first) {
+  return _LaunchAddAndMulKernel(stream, input_a, input_b, input_c, output, length_a, length_b, length_c, addition_first);
 }
 
 template <>
@@ -370,8 +377,8 @@ cudaError_t LaunchAddAndMulKernel(cudaStream_t stream,
                                   const ortc::MFloat16* input_a, const ortc::MFloat16* input_b,
                                   const ortc::MFloat16* input_c,
                                   ortc::MFloat16* output, int64_t length_a, int64_t length_b, int64_t length_c,
-                                  bool addition) {
-  return _LaunchAddAndMulKernel(stream, pA, pB, pC, output, countA, countB, countC, addition_first);
+                                  bool addition_first) {
+  return _LaunchAddAndMulKernel(stream, input_a, input_b, input_c, output, length_a, length_b, length_c, addition_first);
 }
 
 template <typename T>
@@ -395,23 +402,27 @@ cudaError_t _LaunchAddAndMulSwitchMiddleAxesKernel(cudaStream_t stream,
   if (addition_first) {
     AddAndMulSwitchMiddleAxesKernel<TT, AddMul<TT>, num_threads_per_block, num_elements_per_thread>
         <<<blocksPerGrid, num_threads_per_block, 0, stream>>>(
-            cuda_stream,
             reinterpret_cast<TT*>(output),
             reinterpret_cast<const TT*>(pA),
             reinterpret_cast<const TT*>(pB),
             reinterpret_cast<const TT*>(pC),
-            countA, countB, countC,
-            max_size, AddMul<TT>());
+            static_cast<CUDA_LONG>(countA),
+            static_cast<CUDA_LONG>(countB),
+            static_cast<CUDA_LONG>(countC),
+            static_cast<CUDA_LONG>(max_count),
+            AddMul<TT>(), d2, d3, d4);
   } else {
     AddAndMulSwitchMiddleAxesKernel<TT, MulAdd<TT>, num_threads_per_block, num_elements_per_thread>
         <<<blocksPerGrid, num_threads_per_block, 0, stream>>>(
-            cuda_stream,
             reinterpret_cast<TT*>(output),
             reinterpret_cast<const TT*>(pA),
             reinterpret_cast<const TT*>(pB),
             reinterpret_cast<const TT*>(pC),
-            countA, countB, countC,
-            max_size, MulAdd<TT>());
+            static_cast<CUDA_LONG>(countA),
+            static_cast<CUDA_LONG>(countB),
+            static_cast<CUDA_LONG>(countC),
+            static_cast<CUDA_LONG>(max_count),
+            MulAdd<TT>(), d2, d3, d4);
   }
   return cudaGetLastError();
 }
@@ -419,9 +430,9 @@ cudaError_t _LaunchAddAndMulSwitchMiddleAxesKernel(cudaStream_t stream,
 template <>
 cudaError_t LaunchAddAndMulSwitchMiddleAxesKernel(cudaStream_t stream, const float* input_a, const float* input_b, const float* input_c,
                                                   float* output, int64_t length_a, int64_t length_b, int64_t length_c,
-                                                  bool addition,
+                                                  bool addition_first,
                                                   int64_t d2, int64_t d3, int64_t d4) {
-  return _LaunchAddAndMulSwitchMiddleAxesKernel(stream, pA, pB, pC, output, countA, countB, countC,
+  return _LaunchAddAndMulSwitchMiddleAxesKernel(stream, input_a, input_b, input_c, output, length_a, length_b, length_c,
                                                 addition_first, d2, d3, d4);
 }
 
@@ -429,9 +440,9 @@ template <>
 cudaError_t LaunchAddAndMulSwitchMiddleAxesKernel(cudaStream_t stream, const ortc::MFloat16* input_a,
                                                   const ortc::MFloat16* input_b, const ortc::MFloat16* input_c,
                                                   ortc::MFloat16* output, int64_t length_a, int64_t length_b, int64_t length_c,
-                                                  bool addition,
+                                                  bool addition_first,
                                                   int64_t d2, int64_t d3, int64_t d4) {
-  return _LaunchAddAndMulSwitchMiddleAxesKernel(stream, pA, pB, pC, output, countA, countB, countC,
+  return _LaunchAddAndMulSwitchMiddleAxesKernel(stream, input_a, input_b, input_c, output, length_a, length_b, length_c,
                                                 addition_first, d2, d3, d4);
 }
 
@@ -519,27 +530,12 @@ struct MulSubNeg {
   }
 };
 
-template <typename T, typename TFunc, int NumThreadsPerBlock, int NumElementsPerThread>
-__global__ void _MulSubKernel(T* output_data, const T* pA, const T* pB, const T* pC,
-                              CUDA_LONG nA, CUDA_LONG nB, CUDA_LONG nC, CUDA_LONG N,
-                              const TFunc func) {
-  CUDA_LONG start = NumElementsPerThread * NumThreadsPerBlock * blockIdx.x + threadIdx.x;
-  CUDA_LONG id = start;
-#pragma unroll
-  for (int i = 0; i < NumElementsPerThread; i++) {
-    if (id < N) {
-      func(output_data + id, pA[id % nA], pB[id % nB], pC[id % nC]);
-      id += NumThreadsPerBlock;
-    }
-  }
-}
-
 template <typename T>
 cudaError_t _LaunchSubAndMulKernel(cudaStream_t stream,
                                    const T* pA, const T* pB, const T* pC,
                                    T* output,
                                    int64_t countA, int64_t countB, int64_t countC,
-                                   bool addition_first) {
+                                   bool addition_first, bool negative) {
   int64_t max_count = std::max(std::max(countA, countB), countC);
   if (max_count == 0)  // special case where there's a dim value of 0 in the output shape
     return cudaGetLastError();
@@ -554,47 +550,55 @@ cudaError_t _LaunchSubAndMulKernel(cudaStream_t stream,
 
   if (addition_first) {
     if (negative) {
-      SubAndMulKernel<TT, SubMul<TT>, num_threads_per_block, num_elements_per_thread>
+      AddAndMulKernel<TT, SubMulNeg<TT>, num_threads_per_block, num_elements_per_thread>
           <<<blocksPerGrid, num_threads_per_block, 0, stream>>>(
-              cuda_stream,
               reinterpret_cast<TT*>(output),
               reinterpret_cast<const TT*>(pA),
               reinterpret_cast<const TT*>(pB),
               reinterpret_cast<const TT*>(pC),
-              countA, countB, countC,
-              max_size, SubMulNEg<TT>());
+              static_cast<CUDA_LONG>(countA),
+              static_cast<CUDA_LONG>(countB),
+              static_cast<CUDA_LONG>(countC),
+              static_cast<CUDA_LONG>(max_count),
+              SubMulNeg<TT>());
     } else {
-      SubAndMulKernel<TT, SubMul<TT>, num_threads_per_block, num_elements_per_thread>
+      AddAndMulKernel<TT, SubMul<TT>, num_threads_per_block, num_elements_per_thread>
           <<<blocksPerGrid, num_threads_per_block, 0, stream>>>(
-              cuda_stream,
               reinterpret_cast<TT*>(output),
               reinterpret_cast<const TT*>(pA),
               reinterpret_cast<const TT*>(pB),
               reinterpret_cast<const TT*>(pC),
-              countA, countB, countC,
-              max_size, SubMul<TT>());
+              static_cast<CUDA_LONG>(countA),
+              static_cast<CUDA_LONG>(countB),
+              static_cast<CUDA_LONG>(countC),
+              static_cast<CUDA_LONG>(max_count),
+              SubMul<TT>());
     }
   } else {
     if (negative) {
-      SubAndMulKernel<TT, MulSub<TT>, num_threads_per_block, num_elements_per_thread>
+      AddAndMulKernel<TT, MulSubNeg<TT>, num_threads_per_block, num_elements_per_thread>
           <<<blocksPerGrid, num_threads_per_block, 0, stream>>>(
-              cuda_stream,
               reinterpret_cast<TT*>(output),
               reinterpret_cast<const TT*>(pA),
               reinterpret_cast<const TT*>(pB),
               reinterpret_cast<const TT*>(pC),
-              countA, countB, countC,
-              max_size, MulSubNeg<TT>());
+              static_cast<CUDA_LONG>(countA),
+              static_cast<CUDA_LONG>(countB),
+              static_cast<CUDA_LONG>(countC),
+              static_cast<CUDA_LONG>(max_count),
+              MulSubNeg<TT>());
     } else {
-      SubAndMulKernel<TT, MulSub<TT>, num_threads_per_block, num_elements_per_thread>
+      AddAndMulKernel<TT, MulSub<TT>, num_threads_per_block, num_elements_per_thread>
           <<<blocksPerGrid, num_threads_per_block, 0, stream>>>(
-              cuda_stream,
               reinterpret_cast<TT*>(output),
               reinterpret_cast<const TT*>(pA),
               reinterpret_cast<const TT*>(pB),
               reinterpret_cast<const TT*>(pC),
-              countA, countB, countC,
-              max_size, MulSub<TT>());
+              static_cast<CUDA_LONG>(countA),
+              static_cast<CUDA_LONG>(countB),
+              static_cast<CUDA_LONG>(countC),
+              static_cast<CUDA_LONG>(max_count),
+              MulSub<TT>());
     }
   }
   return cudaGetLastError();
@@ -604,7 +608,7 @@ template <>
 cudaError_t LaunchSubAndMulKernel(cudaStream_t stream, const float* input_a, const float* input_b, const float* input_c,
                                   float* output, int64_t length_a, int64_t length_b, int64_t length_c,
                                   bool subtract_first, bool negative) {
-  return _LaunchSubAndMulKernel(stream, pA, pB, pC, output, countA, countB, countC, subtract_first, negative);
+  return _LaunchSubAndMulKernel(stream, input_a, input_b, input_c, output, length_a, length_b, length_c, subtract_first, negative);
 }
 
 template <>
@@ -612,6 +616,6 @@ cudaError_t LaunchSubAndMulKernel(cudaStream_t stream,
                                   const ortc::MFloat16* input_a, const ortc::MFloat16* input_b,
                                   const ortc::MFloat16* input_c,
                                   ortc::MFloat16* output, int64_t length_a, int64_t length_b, int64_t length_c,
-                                  bool subtract_first, negative) {
-  return _LaunchSubAndMulKernel(stream, pA, pB, pC, output, countA, countB, countC, subtract_first, negative);
+                                  bool subtract_first, bool negative) {
+  return _LaunchSubAndMulKernel(stream, input_a, input_b, input_c, output, length_a, length_b, length_c, subtract_first, negative);
 }

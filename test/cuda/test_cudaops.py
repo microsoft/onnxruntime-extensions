@@ -71,8 +71,8 @@ class TestCudaOps(unittest.TestCase):
         shapey = (3, 2, 3)
         shapez = (1, 2, 3) if broad else (3, 2, 3)
         x = (np.arange(np.prod(shapex)) + 1).reshape(shapex).astype(dtype)
-        y = (np.arange(np.prod(shapey)) + 1).reshape(shapey).astype(dtype)
-        z = (np.arange(np.prod(shapez)) + 1).reshape(shapez).astype(dtype)
+        y = (np.arange(np.prod(shapey)) + 10).reshape(shapey).astype(dtype)
+        z = (np.arange(np.prod(shapez)) + 100).reshape(shapez).astype(dtype)
 
         feeds1 = dict(X=x, Y=y, Z=z)
         ref = ReferenceEvaluator(model1)
@@ -228,8 +228,6 @@ class TestCudaOps(unittest.TestCase):
         self._negxplus1_cuda(TensorProto.FLOAT16)
 
     def _addmul_shared_input_cuda(self, itype, op_type, shapea=(3, 2, 3), shapeb=(3, 2, 3), shapec=(3, 2, 3)):
-        from ai.onnx.contrib import get_ort_ext_libs
-
         model1 = helper.make_model(
             helper.make_graph(
                 [
@@ -289,7 +287,7 @@ class TestCudaOps(unittest.TestCase):
         expected = ref.run(None, feeds1)
 
         opts = _ort.SessionOptions()
-        opts.register_custom_ops_library(get_ort_ext_libs()[0])
+        opts.register_custom_ops_library(_get_library_path())
         sess = _ort.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
         got = sess.run(None, feeds1)
         for i in range(2):
@@ -445,4 +443,4 @@ class TestCudaOps(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(verbosity=2)
