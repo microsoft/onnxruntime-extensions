@@ -103,6 +103,7 @@ struct AddAndMul {
   OrtxStatus OnModelAttach(const TDict& dict) {
     int64_t default_value = 0;
     switchMiddelAxis_ = dict.TryToGetAttributeWithDefault("switchMiddleAxis", default_value) == 1;
+    return {};
   }
   OrtxStatus Compute(Ort::Custom::CUDAKernelContext* ctx,
                      const ortc::Tensor<T>& tensor_a,
@@ -157,9 +158,9 @@ template <typename T, bool subtract_first>
 struct SubAndMul {
   template <typename TDict>
   OrtxStatus OnModelAttach(const TDict& dict) {
-    //int64_t default_value = 0;
-    //negative_ = dict.TryToGetAttributeWithDefault("negative", default_value) == 1;
-    negative_ = false;
+    int64_t default_value = 0;
+    negative_ = dict.TryToGetAttributeWithDefault("negative", default_value) == 1;
+    return {};
   }
   OrtxStatus Compute(Ort::Custom::CUDAKernelContext* ctx,
                      const ortc::Tensor<T>& tensor_a,

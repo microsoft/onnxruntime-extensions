@@ -21,6 +21,20 @@ class NegXPlus1(OpRun):
         return (1 - X,)
 
 
+class Transpose2DCastFP16(OpRun):
+    op_domain = "ai.onnx.contrib"
+
+    def _run(self, X):
+        return (X.T.to(np.float16),)
+
+
+class Transpose2DCastFP32(OpRun):
+    op_domain = "ai.onnx.contrib"
+
+    def _run(self, X):
+        return (X.T.to(np.float32),)
+
+
 class TestCudaOps(unittest.TestCase):
     def _addaddmulmul_cuda(self, itype, op_type, broad=False):
         model1 = helper.make_model(
@@ -337,6 +351,57 @@ class TestCudaOps(unittest.TestCase):
             shapec=(3, 2, 3),
         )
 
+    def _transpose_cast_cuda(self, itype):
+        dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
+        itype2 = TensorProto.FLOAT if itype == TensorProto.FLOAT16 else TensorProto.FLOAT16
+        model1 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node("Transpose", ["X"], ["t"], perm=[1, 0]),
+                    helper.make_node("Cast", ["t"], ["Y"], to=itype2),
+                ],
+                "nd",
+                [helper.make_tensor_value_info("X", itype, [None, None])],
+                [helper.make_tensor_value_info("Y", itype2, [None, None])],
+            ),
+            opset_imports=[helper.make_opsetid("", 18)],
+            ir_version=9,
+        )
+
+        model2 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node(
+                        ("Transpose2DCastFP16" if itype2 == TensorProto.FLOAT16 else "Transpose2DCastFP32"),
+                        ["X"],
+                        ["Y"],
+                        domain="ai.onnx.contrib",
+                    )
+                ],
+                "nd",
+                [helper.make_tensor_value_info("X", itype, [None, None])],
+                [helper.make_tensor_value_info("Y", itype2, [None, None])],
+            ),
+            opset_imports=[
+                helper.make_opsetid("", 18),
+                helper.make_opsetid("ai.onnx.contrib", 1),
+            ],
+            ir_version=9,
+        )
+
+        dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
+        x = (np.arange(32 * 32 * 3) + 1).reshape((32, 32 * 3)).astype(dtype)
+
+        feeds1 = dict(X=x)
+        ref = ReferenceEvaluator(model1, new_ops=[Transpose2DCastFP16, Transpose2DCastFP32])
+        expected = ref.run(None, feeds1)[0]
+
+        opts = _ort.SessionOptions()
+        opts.register_custom_ops_library(_get_library_path())
+        sess = _ort.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
+        got = sess.run(None, feeds1)[0]
+        assert_almost_equal(expected, got, decimal=5)
+
     def _addmul_cuda(self, itype, op_type1, op_type2, broad=False, negative=False):
         model1 = helper.make_model(
             helper.make_graph(
@@ -440,6 +505,11 @@ class TestCudaOps(unittest.TestCase):
     def test_mulsub_cuda_negative(self):
         self._addmul_cuda(TensorProto.FLOAT, "Mul", "Sub", negative=True)
         self._addmul_cuda(TensorProto.FLOAT16, "Mul", "Sub", negative=True)
+        
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_transpose_cast_cuda(self):
+        self._transpose_cast_cuda(TensorProto.FLOAT)
+        self._transpose_cast_cuda(TensorProto.FLOAT16)
 
 
 if __name__ == "__main__":
