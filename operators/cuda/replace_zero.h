@@ -8,6 +8,12 @@
 
 namespace contrib {
 
+/**
+* Y = ReplaceZero(X, by=c) is equivalent to:
+*
+* Y = X.copy()
+* X[X == 0] = c
+*/
 template <typename T>
 struct ReplaceZero {
   template <typename TDict>
