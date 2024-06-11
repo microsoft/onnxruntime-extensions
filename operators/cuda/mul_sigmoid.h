@@ -8,6 +8,9 @@
 
 namespace contrib {
 
+/**
+* MulSigmoid(X) = X * Sigmoid(X)
+*/
 template <typename T>
 struct MulSigmoid {
   template <typename TDict>
@@ -31,6 +34,9 @@ struct MulSigmoid {
   }
 };
 
+/**
+* MulSigmoid(X, Y) = X * Y * Sigmoid(Y)
+*/
 template <typename T>
 struct MulMulSigmoid {
   template <typename TDict>
