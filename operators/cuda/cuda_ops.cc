@@ -7,6 +7,7 @@
 #include "cuda/add_mul.h"
 #include "cuda/fast_gelu.h"
 #include "cuda/negxplus1.h"
+#include "cuda/scatter_nd_of_shape.h"
 #include "cuda/transpose_cast.h"
 #endif
 
@@ -48,11 +49,13 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
       CustomCudaStructV2("AddMul", AddAndMulFloat32Type),
       CustomCudaStructV2("AddSharedInput", AddSharedInputFloat32Type),
       CustomCudaStructV2("FastGelu", contrib::FastGelu<float>),
+      CustomCudaStructV2("MaskedScatterNDOfShape", contrib::MaskedScatterNDOfShape<float>),
       CustomCudaStructV2("MulAdd", MulAndAddFloat32Type),
       CustomCudaStructV2("MulMul", MulTwiceFloat32Type),
       CustomCudaStructV2("MulSharedInput", MulSharedInputFloat32Type),
       CustomCudaStructV2("MulSub", MulAndSubFloat32Type),
       CustomCudaStructV2("NegXPlus1", contrib::NegXPlus1<float>),
+      CustomCudaStructV2("ScatterNDOfShape", contrib::ScatterNDOfShape<float>),
       CustomCudaStructV2("SubMul", SubAndMulFloat32Type),
 #if ORT_API_VERSION >= 16
 
@@ -61,11 +64,13 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
       CustomCudaStructV2("AddSharedInput", AddSharedInputFloat16Type),
       CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::MFloat16>),
       CustomCudaStructV2("FastGelu", contrib::FastGelu<ortc::BFloat16>),
+      CustomCudaStructV2("MaskedScatterNDOfShape", contrib::MaskedScatterNDOfShape<ortc::MFloat16>),
       CustomCudaStructV2("MulAdd", MulAndAddFloat16Type),
       CustomCudaStructV2("MulMul", MulTwiceFloat16Type),
       CustomCudaStructV2("MulSharedInput", MulSharedInputFloat16Type),
       CustomCudaStructV2("MulSub", MulAndSubFloat16Type),
       CustomCudaStructV2("NegXPlus1", contrib::NegXPlus1<ortc::MFloat16>),
+      CustomCudaStructV2("ScatterNDOfShape", contrib::ScatterNDOfShape<ortc::MFloat16>),
       CustomCudaStructV2("SubMul", SubAndMulFloat16Type),
       CustomCudaStructV2("Transpose2DCastFP16", Transpose2DCastFloat32ToFloat16Type),
       CustomCudaStructV2("Transpose2DCastFP32", Transpose2DCastFloat16ToFloat32Type)
