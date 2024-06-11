@@ -4,6 +4,7 @@ from numpy.testing import assert_almost_equal, assert_allclose
 from onnx import helper, numpy_helper, onnx_pb as onnx_proto, TensorProto
 from onnx.reference import ReferenceEvaluator
 from onnx.reference.op_run import OpRun
+from onnx.reference.ops.op_scatternd import _scatter_nd_impl
 from onnxruntime_extensions import make_onnx_model
 from onnxruntime_extensions import get_library_path as _get_library_path
 
@@ -12,6 +13,15 @@ import onnxruntime as _ort
 
 def has_cuda():
     return "CUDAExecutionProvider" in _ort.get_available_providers()
+
+
+class ScatterNDOfShape(OpRun):
+    op_domain = "ai.onnx.contrib"
+
+    def _run(self, shape, indices, updates, reduction=None, strategy=None):
+        data = np.zeros(shape, dtype=updates.dtype)
+        y = _scatter_nd_impl(data, indices, updates, reduction=reduction)
+        return (y,)
 
 
 class NegXPlus1(OpRun):
@@ -398,6 +408,193 @@ class TestCudaOps(unittest.TestCase):
             shapeb=(3, 2, 3),
             shapec=(3, 2, 3),
         )
+
+    def _scatternd_of_shape_optimize_cuda(self, optimize, dim3, itype):
+        indices_shape = ["i", "j", 1] if dim3 else ["j", 1]
+        updates_shape = ["i", "j", "b"] if dim3 else ["j", "b"]
+
+        model = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node(
+                        "ScatterNDOfShape",
+                        inputs=["shape", "indices", "updates"],
+                        outputs=["y"],
+                        reduction="add",
+                        strategy="optimize" if optimize else "none",
+                        domain="ai.onnx.contrib",
+                    )
+                ],
+                "nd",
+                [
+                    helper.make_tensor_value_info("shape", TensorProto.INT64, [2]),
+                    helper.make_tensor_value_info("indices", TensorProto.INT64, indices_shape),
+                    helper.make_tensor_value_info("updates", itype, updates_shape),
+                ],
+                [helper.make_tensor_value_info("y", itype, [None, None])],
+            ),
+            opset_imports=[
+                helper.make_opsetid("", 18),
+                helper.make_opsetid("ai.onnx.contrib", 1),
+            ],
+            ir_version=9,
+        )
+
+        if dim3:
+            shape = (128, 1024)
+            indices = np.zeros((2, 64, 1)).astype(np.int64)
+            indices[:, ::2, 0] = 87
+            indices[:, ::3, 0] = 85
+            updates = np.ones((2, 64, 1024)).astype(np.float32)
+        else:
+            shape = (128, 1024)
+            indices = np.zeros((128, 1)).astype(np.int64)
+            indices[::2, 0] = 87
+            indices[::3, 0] = 85
+            updates = np.ones((128, 1024)).astype(np.float32)
+        if itype != 1:
+            updates = updates.astype(np.float16)
+        feeds = dict(shape=np.array(shape, dtype=np.int64), indices=indices, updates=updates)
+
+        ref = ReferenceEvaluator(model, new_ops=[ScatterNDOfShape])
+        expected = ref.run(None, feeds)[0]
+
+        opts = _ort.SessionOptions()
+        opts.register_custom_ops_library(_get_library_path())
+        sess = _ort.InferenceSession(model.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
+        ro = None
+        got = sess.run(None, feeds, ro)[0]
+        self.assertEqual(expected.tolist(), got.tolist())
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_scatternd_of_shape_optimize_cuda(self):
+        with self.subTest(optimize=True, dim3=True):
+            self._scatternd_of_shape_optimize_cuda(True, True, TensorProto.FLOAT)
+        self._scatternd_of_shape_optimize_cuda(False, False, TensorProto.FLOAT)
+        self._scatternd_of_shape_optimize_cuda(False, True, TensorProto.FLOAT)
+        with self.subTest(optimize=True, dim3=False):
+            self._scatternd_of_shape_optimize_cuda(True, False, TensorProto.FLOAT)
+        with self.subTest(optimize=True, dim3=True, itype=TensorProto.FLOAT16):
+            self._scatternd_of_shape_optimize_cuda(True, True, TensorProto.FLOAT16)
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_scatternd_of_shape_standalone_cuda(self):
+        self._scatternd_of_shape_cuda("add", 0, TensorProto.FLOAT)
+        self._scatternd_of_shape_cuda("add", 0, TensorProto.FLOAT16)
+        self._scatternd_of_shape_cuda("add", 1, TensorProto.FLOAT)
+        self._scatternd_of_shape_cuda("add", 1, TensorProto.FLOAT16)
+
+    def _masked_scatternd_of_shape_cuda(self, reduction, line, itype, big):
+        dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
+
+        model1 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node("Equal", ["indices", "mone"], ["masked_indices"]),
+                    helper.make_node(
+                        "Where",
+                        ["masked_indices", "zero", "updates"],
+                        ["masked_updates"],
+                    ),
+                    helper.make_node(
+                        "ScatterND",
+                        inputs=["data", "indices", "masked_updates"],
+                        outputs=["y"],
+                        reduction=reduction,
+                    ),
+                ],
+                "nd",
+                [
+                    helper.make_tensor_value_info("data", itype, [None, None]),
+                    helper.make_tensor_value_info("indices", TensorProto.INT64, [None, None, 1]),
+                    helper.make_tensor_value_info("updates", itype, [None, None, None]),
+                ],
+                [helper.make_tensor_value_info("y", itype, [None, None])],
+                [
+                    numpy_helper.from_array(np.array([-1], dtype=np.int64), name="mone"),
+                    numpy_helper.from_array(np.array([0], dtype=dtype), name="zero"),
+                ],
+            ),
+            opset_imports=[helper.make_opsetid("", 18)],
+            ir_version=9,
+        )
+
+        model2 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node(
+                        "MaskedScatterNDOfShape",
+                        inputs=["shape", "indices", "updates"],
+                        outputs=["y"],
+                        reduction=reduction,
+                        maskedValue=-1,
+                        domain="ai.onnx.contrib",
+                    )
+                ],
+                "nd",
+                [
+                    helper.make_tensor_value_info("shape", TensorProto.INT64, [None]),
+                    helper.make_tensor_value_info("indices", TensorProto.INT64, [None, None, 1]),
+                    helper.make_tensor_value_info("updates", itype, [None, None, None]),
+                ],
+                [helper.make_tensor_value_info("y", itype, [None, None])],
+            ),
+            opset_imports=[
+                helper.make_opsetid("", 18),
+                helper.make_opsetid("ai.onnx.contrib", 1),
+            ],
+            ir_version=9,
+        )
+
+        if big:
+            data = np.zeros((2048, 4096), dtype=dtype)
+            indices = np.ones((2, 1024), dtype=np.int64)
+            indices = indices[..., np.newaxis]
+            shape = tuple(indices.shape[:2]) + (data.shape[-1],)
+            updates = (np.arange(np.prod(shape)).reshape(shape) / np.prod(shape)).astype(dtype)
+        else:
+            data = np.zeros((32, 16), dtype=dtype)
+            indices = np.array(
+                [
+                    [0, 1, 2],
+                    [2, 3, 4],
+                    [-1, 30, 31],
+                    [-1, 7, 8],
+                    [10, 11, -1],
+                    [20, -1, 21],
+                ],
+                dtype=np.int64,
+            )
+            indices = indices[..., np.newaxis]
+            shape = (6, 3, data.shape[-1])
+            updates = (np.arange(np.prod(shape)).reshape(shape) + 1).astype(dtype)
+
+        feeds1 = dict(data=data, indices=indices, updates=updates)
+        feeds2 = dict(shape=np.array(data.shape, dtype=np.int64), indices=indices, updates=updates)
+        ref = ReferenceEvaluator(model1)
+        expected = ref.run(None, feeds1)[0]
+
+        opts = _ort.SessionOptions()
+        opts.register_custom_ops_library(_get_library_path())
+        # opts.log_severity_level = 0
+        # opts.log_verbosity_level = 0
+        sess = _ort.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
+        got = sess.run(None, feeds2)[0]
+        assert_almost_equal(expected.tolist(), got.tolist())
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_masked_scatternd_of_shape_standalone_cuda_small(self):
+        self._masked_scatternd_of_shape_cuda("add", 0, TensorProto.FLOAT, False)
+        self._masked_scatternd_of_shape_cuda("add", 0, TensorProto.FLOAT16, False)
+        self._masked_scatternd_of_shape_cuda("add", 1, TensorProto.FLOAT, False)
+        self._masked_scatternd_of_shape_cuda("add", 1, TensorProto.FLOAT16, False)
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_masked_scatternd_of_shape_standalone_cuda_big(self):
+        self._masked_scatternd_of_shape_cuda("add", 0, TensorProto.FLOAT, True)
+        self._masked_scatternd_of_shape_cuda("add", 0, TensorProto.FLOAT16, True)
+        self._masked_scatternd_of_shape_cuda("add", 1, TensorProto.FLOAT, True)
+        self._masked_scatternd_of_shape_cuda("add", 1, TensorProto.FLOAT16, True)
 
     def _transpose_cast_cuda(self, itype):
         dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
