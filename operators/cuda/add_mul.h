@@ -36,6 +36,7 @@ inline void _FillOutputShape3Op(std::vector<int64_t>& dimsA,
 *  The operator supports broadcast on first dimensions.
 *  A[1, J] + B[I, J] is supported,
 *  A[1, J, 1] + B[I, J, K] is not supported,
+*  In all other cases, all tensors must have the same shape.
 */
 template <typename T, bool addition>
 struct AddOrMulSharedInput {
