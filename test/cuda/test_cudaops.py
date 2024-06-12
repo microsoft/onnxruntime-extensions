@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from numpy.testing import assert_almost_equal
+from numpy.testing import assert_almost_equal, assert_allclose
 from onnx import helper, numpy_helper, onnx_pb as onnx_proto, TensorProto
 from onnx.reference import ReferenceEvaluator
 from onnx.reference.op_run import OpRun
@@ -127,6 +127,131 @@ class TestCudaOps(unittest.TestCase):
             assert_almost_equal(y, expected_y)
         else:
             print("CUDAExecutionProvider not available, test_cuda_fastgelu_f16 skipped.")
+
+    def _mulmulsigmoid_cuda(self, itype, broad=False, atol=1e-5, rtol=1e-3):
+        model1 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node("Mul", ["X", "Y"], ["xy"]),
+                    helper.make_node("Sigmoid", ["Y"], ["sy"]),
+                    helper.make_node("Mul", ["xy", "sy"], ["final"]),
+                ],
+                "nd",
+                [
+                    helper.make_tensor_value_info("X", itype, [None, None, None]),
+                    helper.make_tensor_value_info("Y", itype, [None, None, None]),
+                ],
+                [helper.make_tensor_value_info("final", itype, [None, None, None])],
+            ),
+            opset_imports=[helper.make_opsetid("", 18)],
+            ir_version=9,
+        )
+
+        model2 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node(
+                        "MulMulSigmoid",
+                        ["X", "Y"],
+                        ["final"],
+                        domain="ai.onnx.contrib",
+                    )
+                ],
+                "nd",
+                [
+                    helper.make_tensor_value_info("X", itype, [None, None, None]),
+                    helper.make_tensor_value_info("Y", itype, [None, None, None]),
+                ],
+                [helper.make_tensor_value_info("final", itype, [None, None, None])],
+            ),
+            opset_imports=[
+                helper.make_opsetid("", 18),
+                helper.make_opsetid("ai.onnx.contrib", 1),
+            ],
+            ir_version=9,
+        )
+
+        dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
+        shapex = (1, 2, 3) if broad else (3, 2, 3)
+        shapey = (3, 2, 3)
+        x = (np.arange(np.prod(shapex)) + 1).reshape(shapex).astype(dtype)
+        y = (np.arange(np.prod(shapey)) + 2).reshape(shapey).astype(dtype)
+        x /= x.size
+        y /= y.size
+
+        feeds1 = dict(X=x, Y=y)
+        ref = ReferenceEvaluator(model1)
+        expected = ref.run(None, feeds1)[0]
+
+        opts = _ort.SessionOptions()
+        opts.register_custom_ops_library(_get_library_path())
+        sess = _ort.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
+        got = sess.run(None, feeds1)[0]
+        assert_allclose(expected, got, atol=atol, rtol=rtol)
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_mulmulsigmoid_cuda(self):
+        self._mulmulsigmoid_cuda(TensorProto.FLOAT)
+        self._mulmulsigmoid_cuda(TensorProto.FLOAT16)
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_mulmulsigmoid_cuda_broadcast(self):
+        self._mulmulsigmoid_cuda(TensorProto.FLOAT, True)
+        self._mulmulsigmoid_cuda(TensorProto.FLOAT16, True)
+
+    def _mul_sigmoid_cuda(self, itype):
+        model1 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node("Sigmoid", ["X"], ["sx"]),
+                    helper.make_node("Mul", ["X", "sx"], ["Y"]),
+                ],
+                "nd",
+                [helper.make_tensor_value_info("X", itype, [None, None, None])],
+                [helper.make_tensor_value_info("Y", itype, [None, None, None])],
+            ),
+            opset_imports=[helper.make_opsetid("", 18)],
+            ir_version=9,
+        )
+
+        model2 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node(
+                        "MulSigmoid",
+                        ["X"],
+                        ["Y"],
+                        domain="ai.onnx.contrib",
+                    )
+                ],
+                "nd",
+                [helper.make_tensor_value_info("X", itype, [None, None, None])],
+                [helper.make_tensor_value_info("Y", itype, [None, None, None])],
+            ),
+            opset_imports=[
+                helper.make_opsetid("", 18),
+                helper.make_opsetid("ai.onnx.contrib", 1),
+            ],
+            ir_version=9,
+        )
+
+        dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
+        x = (np.arange(18) + 1).reshape((3, 2, 3)).astype(dtype)
+
+        feeds1 = dict(X=x)
+        ref = ReferenceEvaluator(model1)
+        expected = ref.run(None, feeds1)[0]
+
+        opts = _ort.SessionOptions()
+        opts.register_custom_ops_library(_get_library_path())
+        sess = _ort.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
+        got = sess.run(None, feeds1)[0]
+        assert_allclose(expected, got, atol=1e-5 if itype == TensorProto.FLOAT else 1e-2)
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_mul_sigmoid_cuda(self):
+        self._mul_sigmoid_cuda(TensorProto.FLOAT)
+        self._mul_sigmoid_cuda(TensorProto.FLOAT16)
 
     def _negxplus1_cuda(self, itype):
         dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
