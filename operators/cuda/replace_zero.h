@@ -13,6 +13,9 @@ namespace contrib {
 *
 * Y = X.copy()
 * X[X == 0] = c
+*
+* This operation usually appears when a tensor is updated with an operator Equal and Where.
+* This kernel avoids the creation of one null tensor.
 */
 template <typename T>
 struct ReplaceZero {
