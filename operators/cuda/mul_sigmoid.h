@@ -10,6 +10,8 @@ namespace contrib {
 
 /**
 * MulSigmoid(X) = X * Sigmoid(X)
+
+No shape broadcasting supported.
 */
 template <typename T>
 struct MulSigmoid {
@@ -36,6 +38,8 @@ struct MulSigmoid {
 
 /**
 * MulSigmoid(X, Y) = X * Y * Sigmoid(Y)
+
+No shape broadcasting supported.
 */
 template <typename T>
 struct MulMulSigmoid {
