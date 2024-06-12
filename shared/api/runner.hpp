@@ -16,6 +16,7 @@
 namespace ort_extensions {
 
 using json = nlohmann::json;
+using TensorPtr = std::unique_ptr<ortc::TensorBase>;
 using TensorArgs = std::vector<ortc::TensorBase*>;
 
 class KernelDef {
@@ -50,14 +51,14 @@ class KernelDef {
   }
 
   template <typename T>
-  static typename std::enable_if<std::is_const<T>::value, ortc::TensorBase*>::type
-  AllocateTensor(ortc::IAllocator* allocator) {
+  static typename std::enable_if<std::is_const<T>::value, ortc::TensorBase*>::type AllocateTensor(
+      ortc::IAllocator* allocator) {
     return nullptr;
   }
 
   template <typename T>
-  static typename std::enable_if<!std::is_const<T>::value, ortc::TensorBase*>::type
-  AllocateTensor(ortc::IAllocator* allocator) {
+  static typename std::enable_if<!std::is_const<T>::value, ortc::TensorBase*>::type AllocateTensor(
+      ortc::IAllocator* allocator) {
     return std::make_unique<T>(allocator).release();
   }
 
@@ -70,18 +71,17 @@ class KernelDef {
   static std::vector<ortc::TensorBase*> AllocateOutput(ortc::IAllocator* allocator) {
     using tuple_no_ref = std::tuple<typename std::remove_reference<Args>::type...>;
     auto result = AllocateTuple(allocator, (tuple_no_ref*)0);
-    return std::apply([](auto&&... elems) { return std::vector<ortc::TensorBase*>{std::forward<decltype(elems)>(elems)...}; }, std::move(result));
+    return std::apply(
+        [](auto&&... elems) { return std::vector<ortc::TensorBase*>{std::forward<decltype(elems)>(elems)...}; },
+        std::move(result));
   }
 
-  static auto CastOutputAllType(TensorArgs::iterator tensor) {
-    return std::make_tuple();
-  }
+  static auto CastOutputAllType(TensorArgs::iterator tensor) { return std::make_tuple(); }
 
   template <typename T, typename... Args>
   static auto CastOutputAllType(TensorArgs::iterator tensor, T& arg, Args&... args) {
     // return std::make_tuple(static_cast<T&>(*tensor), CastOutputAllType(args...));
-    return std::tuple_cat(CastOutputImpl<T>(tensor),
-                          CastOutputAllType(tensor + 1, args...));
+    return std::tuple_cat(CastOutputImpl<T>(tensor), CastOutputAllType(tensor + 1, args...));
   }
 
   template <typename... Args>
@@ -115,15 +115,14 @@ class KernelFunction : public KernelDef {
     all_args.insert(all_args.end(), inputs.begin(), inputs.end());
     all_args.insert(all_args.end(), outputs.begin(), outputs.end());
     auto args_tuple = std::tuple_cat(CastTensors<Args...>(all_args));
-    return std::apply([this](auto&&... args) { return this->Compute(std::forward<decltype(*args)>(*args)...); }, std::move(args_tuple));
+    return std::apply([this](auto&&... args) { return this->Compute(std::forward<decltype(*args)>(*args)...); },
+                      std::move(args_tuple));
   }
 
  private:
   std::function<OrtxStatus(Args...)> body_;
 
-  OrtxStatus Compute(Args... args) const {
-    return body_(std::forward<Args>(args)...);
-  }
+  OrtxStatus Compute(Args... args) const { return body_(std::forward<Args>(args)...); }
 };
 
 template <typename T, typename... Args>
@@ -156,8 +155,9 @@ class KernelStruct : public KernelDef {
     all_args.insert(all_args.end(), inputs.begin(), inputs.end());
     all_args.insert(all_args.end(), outputs.begin(), outputs.end());
     auto args_tuple = std::tuple_cat(CastTensors<Args...>(all_args));
-    return std::apply([this](auto&&... args) {
-      return (instance_.get()->*body_)(std::forward<decltype(*args)>(*args)...); }, std::move(args_tuple));
+    return std::apply(
+        [this](auto&&... args) { return (instance_.get()->*body_)(std::forward<decltype(*args)>(*args)...); },
+        std::move(args_tuple));
   }
 
  private:
@@ -218,20 +218,26 @@ class Operation {
     return {};
   }
 
-  virtual ~Operation() {
-    ResetTensors(allocator_);
-  }
+  virtual ~Operation() { ResetTensors(allocator_); }
 
-  std::tuple<OrtxStatus, std::vector<ortc::TensorBase*>>
-  Apply(ortc::IAllocator* allocator, std::vector<ortc::TensorBase*> inputs) {
+  std::tuple<OrtxStatus, std::vector<ortc::TensorBase*>> Apply(ortc::IAllocator* allocator,
+                                                               std::vector<ortc::TensorBase*> inputs) {
     auto outputs = kernel_->AllocateOutput(allocator);
     auto status = kernel_->Apply(inputs, outputs);
     return std::make_tuple(status, outputs);
   }
 
-  void ResetTensors(ortc::IAllocator* allocator) {
-    outputs_.clear();
+  std::vector<TensorPtr> AllocateOutputs(ortc::IAllocator* allocator) {
+    auto tensors = kernel_->AllocateOutput(allocator);
+    std::vector<TensorPtr> outputs;
+    for (auto& tensor : tensors) {
+      outputs.push_back(std::unique_ptr<ortc::TensorBase>(tensor));
+    }
+
+    return outputs;
   }
+
+  void ResetTensors(ortc::IAllocator* allocator) { outputs_.clear(); }
 
  private:
   std::vector<std::unique_ptr<ortc::TensorBase>> outputs_;

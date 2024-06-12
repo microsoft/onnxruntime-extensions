@@ -86,17 +86,19 @@ extError_t ORTX_API_CALL OrtxDisposeOnly(OrtxObject* object) {
   }
 
   if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindStringArray) {
-    OrtxObjectFactory<ort_extensions::StringArray>::Dispose(object);
+    OrtxObjectFactory<StringArray>::Dispose(object);
   } else if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindTokenId2DArray) {
-    OrtxObjectFactory<ort_extensions::TokenId2DArray>::Dispose(object);
+    OrtxObjectFactory<TokenId2DArray>::Dispose(object);
   } else if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindDetokenizerCache) {
-    OrtxObjectFactory<ort_extensions::DetokenizerCache>::DisposeForward(object);
+    OrtxObjectFactory<DetokenizerCache>::DisposeForward(object);
   } else if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindTokenizer) {
-    OrtxObjectFactory<ort_extensions::TokenizerImpl>::Dispose(object);
+    OrtxObjectFactory<TokenizerImpl>::Dispose(object);
   } else if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindProcessorResult) {
-    OrtxObjectFactory<ort_extensions::ProcessorResult>::Dispose(object);
+    OrtxObjectFactory<ProcessorResult>::Dispose(object);
+  } else if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindImageProcessorResult) {
+    OrtxObjectFactory<ImageProcessorResult>::Dispose(object);
   } else if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindProcessor) {
-    OrtxObjectFactory<ort_extensions::ImageProcessor>::Dispose(object);
+    OrtxObjectFactory<ImageProcessor>::Dispose(object);
   }
 
   return extError_t();
@@ -114,4 +116,23 @@ extError_t ORTX_API_CALL OrtxDispose(OrtxObject** object) {
 
   *object = nullptr;
   return err;
+}
+
+
+extError_t ORTX_API_CALL OrtxGetTensorData(OrtxTensor* tensor, const void** data, const int64_t** shape, size_t* num_dims) {
+  if (tensor == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  auto tensor_impl = static_cast<OrtxObjectWrapper<ortc::TensorBase>*>(tensor);
+  if (tensor_impl->ortx_kind() != extObjectKind_t::kOrtxKindTensor) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  *data = tensor_impl->GetObject()->DataRaw();
+  *shape = tensor_impl->GetObject()->Shape().data();
+  *num_dims = tensor_impl->GetObject()->Shape().size();
+  return extError_t();
 }

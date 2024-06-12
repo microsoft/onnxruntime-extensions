@@ -24,6 +24,27 @@ class OrtxObjectImpl : public OrtxObject {
     }
     return static_cast<extObjectKind_t>(ext_kind_);
   }
+
+  template <typename T>
+  [[nodiscard]] static extObjectKind_t Type2Kind();
+};
+
+template <typename T>
+class OrtxObjectWrapper : public OrtxObjectImpl {
+ public:
+  OrtxObjectWrapper() : OrtxObjectImpl(OrtxObjectImpl::Type2Kind<T>()) {}
+  ~OrtxObjectWrapper() override = default;
+
+  void SetObject(T* t) {
+    stored_object_ = t;
+  }
+
+  [[nodiscard]] T* GetObject() const {
+    return stored_object_;
+  }
+
+ private:
+  T* stored_object_{};
 };
 
 template <typename T>
@@ -39,7 +60,7 @@ class span {
 
   const T& operator[](size_t i) const { return data_[i]; }
   T& operator[](size_t i) { return data_[i]; }
-  
+
   T* data() const { return data_; }
   [[nodiscard]] size_t size() const { return size_; }
   T* begin() const { return data_; }
@@ -109,7 +130,7 @@ struct ReturnableStatus {
 
 template <typename T>
 class OrtxObjectFactory {
-  public:
+ public:
   static std::unique_ptr<T> Create() {
     return std::make_unique<T>();
   }
@@ -122,11 +143,10 @@ class OrtxObjectFactory {
     std::unique_ptr<T> ptr(obj_ptr);
     ptr.reset();
   }
-
 };
 
 class DetokenizerCache;  // forward definition in tokenizer_impl.cc
-class ProcessorResult;  // forward definition in image_processor.h
+class ProcessorResult;   // forward definition in image_processor.h
 
 template <typename T>
 class OrtxDeleter {
