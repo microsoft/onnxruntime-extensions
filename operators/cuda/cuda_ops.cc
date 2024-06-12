@@ -8,11 +8,8 @@
 #include "cuda/fast_gelu.h"
 #include "cuda/mul_sigmoid.h"
 #include "cuda/negxplus1.h"
-<<<<<<< HEAD
 #include "cuda/rotary.h"
-=======
 #include "cuda/scatter_nd_of_shape.h"
->>>>>>> f5055466d5376059c2ea74e3cea46e16a537bc0d
 #include "cuda/transpose_cast.h"
 #endif
 
