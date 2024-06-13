@@ -1312,7 +1312,7 @@ expect(node, inputs=[text, pattern, rewrite], outputs=[y],
 
 
 ## Azure operators
-
+Starting from onnxruntime-extensions 0.12, these Azure operators will be removed from the official onnxruntime-extensions packages. However, they can still be built from source using `cmake -DOCOS_ENABLE_AZURE=ON ...`.
 ### OpenAIAudioToText
 
 <details>
