@@ -24,12 +24,20 @@ extern "C" {
  */
 extError_t ORTX_API_CALL OrtxCreateProcessor(OrtxProcessor** processor, const char* processor_def);
 
-/** \brief Dispose of the processor object
+/**
+ * @brief Loads a set of images from the specified image paths.
  *
- * \param processor The processor object to dispose
- * \return Error code indicating the success or failure of the operation
+ * This function loads a set of images from the given image paths and returns a pointer to the loaded images.
+ * The number of images loaded is also returned through the `num_images_loaded` parameter.
+ *
+ * @param[out] images A pointer to a pointer that will be set to the loaded images.
+ * @param[in] image_paths An array of image paths.
+ * @param[in] num_images The number of images to load.
+ * @param[out] num_images_loaded A pointer to a variable that will be set to the number of images loaded.
+ *
+ * @return An error code indicating the status of the operation.
  */
-extError_t ORTX_API_CALL OrtxLoadImages(const char** image_paths, size_t num_images, OrtxRawImages** images,
+extError_t ORTX_API_CALL OrtxLoadImages(OrtxRawImages** images, const char** image_paths, size_t num_images,
                                         size_t* num_images_loaded);
 
 /**
@@ -45,6 +53,15 @@ extError_t ORTX_API_CALL OrtxLoadImages(const char** image_paths, size_t num_ima
  */
 extError_t ORTX_API_CALL OrtxImagePreProcess(OrtxProcessor* processor, OrtxRawImages* images,
                                              OrtxImageProcessorResult** result);
+
+/**
+ * @brief Retrieves the image processor result at the specified index.
+ *
+ * @param result Pointer to the OrtxImageProcessorResult structure to store the result.
+ * @param index The index of the result to retrieve.
+ * @return extError_t The error code indicating the success or failure of the operation.
+ */
+extError_t ORTX_API_CALL OrtxImageGetTensorResult(OrtxImageProcessorResult* result, size_t index, OrtxTensor** tensor);
 
 /** \brief Clear the outputs of the processor
  *

@@ -86,7 +86,7 @@ extError_t ORTX_API_CALL OrtxDisposeOnly(OrtxObject* object);
  * \return Error code indicating the success or failure of the operation
  */
 extError_t ORTX_API_CALL OrtxGetTensorData(OrtxTensor* tensor, const void** data, const int64_t** shape,
-                                           const size_t* num_dims);
+                                           size_t* num_dims);
 /**
  * \brief Get the data from the tensor as int64_t type
  *
@@ -98,7 +98,7 @@ extError_t ORTX_API_CALL OrtxGetTensorData(OrtxTensor* tensor, const void** data
  */
 
 extError_t ORTX_API_CALL OrtxGetTensorDataInt64(OrtxTensor* tensor, const int64_t** data, const int64_t** shape,
-                                                const size_t* num_dims);
+                                                size_t* num_dims);
 
 /**
  * \brief Get the data from the tensor as float type
@@ -110,7 +110,7 @@ extError_t ORTX_API_CALL OrtxGetTensorDataInt64(OrtxTensor* tensor, const int64_
  * \return Error code indicating the success or failure of the operation
  */
 extError_t ORTX_API_CALL OrtxGetTensorDataFloat(OrtxTensor* tensor, const float** data, const int64_t** shape,
-                                                const size_t* num_dims);
+                                                size_t* num_dims);
 
 #ifdef __cplusplus
 }

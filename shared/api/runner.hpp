@@ -7,6 +7,7 @@
 #include <tuple>
 #include <string>
 #include <vector>
+#include <variant>
 #include <unordered_map>
 
 #include "nlohmann/json.hpp"
@@ -26,6 +27,9 @@ class KernelDef {
   virtual OrtxStatus Init(std::string_view attr) { return {}; }  // no need to be initialized for a kernel function
   virtual TensorArgs AllocateOutput(ortc::IAllocator* allocator) const = 0;
   virtual OrtxStatus Apply(TensorArgs& inputs, TensorArgs& output) const = 0;
+
+  using AttrType = std::variant<std::string, double>;
+  using AttrDict = std::unordered_map<std::string, AttrType>;
 
   template <typename... Args>
   using tuple_function_args = std::tuple<typename std::remove_reference<Args>::type*...>;
@@ -143,10 +147,25 @@ class KernelStruct : public KernelDef {
     return all_args;
   }
 
-  template <typename DT>
-  OrtxStatus Init(DT attr) {
+  OrtxStatus Init(std::string_view attr_str) override {
     instance_ = std::make_unique<T>();
-    return instance_->Init(std::move(attr));
+    auto attr = json::parse(attr_str, nullptr, false);
+
+    if (attr.is_discarded()) {
+      return {kOrtxErrorCorruptData, "Failed to parse JSON for kernel attributes."};
+    }
+
+    AttrDict attr_dict;
+    attr_dict.reserve(attr.size());
+    for (auto& [key, value] : attr.items()) {
+      if (value.is_string()) {
+        attr_dict[key] = value;
+      } else if (value.is_number()) {
+        attr_dict[key] = value;
+      }
+    }
+
+    return instance_->Init(attr_dict);
   }
 
   OrtxStatus Apply(TensorArgs& inputs, TensorArgs& outputs) const override {

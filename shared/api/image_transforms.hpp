@@ -5,8 +5,7 @@
 
 #include "ocos.h"
 
-inline OrtxStatus convert_to_rgb(const ortc::Tensor<uint8_t>& input,
-                                 ortc::Tensor<uint8_t>& output) {
+inline OrtxStatus convert_to_rgb(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) {
   auto& dimensions = input.Shape();
   if (dimensions.size() != 3ULL || dimensions[2] != 3) {
     return {kOrtxErrorInvalidArgument, "[ConvertToRGB]: input is not (H, W, C)"};
@@ -31,8 +30,15 @@ inline OrtxStatus convert_to_rgb(const ortc::Tensor<uint8_t>& input,
 }
 
 struct Resize {
-  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input,
-                     ortc::Tensor<uint8_t>& output) {
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    for (const auto& [key, value] : attrs) {
+      ;
+    }
+    return {};
+  }
+
+  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) {
     auto& dimensions = input.Shape();
     if (dimensions.size() != 3ULL) {
       return {kOrtxErrorInvalidArgument, "[Resize]: Only raw image formats"};
@@ -56,9 +62,7 @@ struct Resize {
       return {kOrtxErrorInvalidArgument, "[Resize]: Invalid interpolation method"};
     }
 
-    cv::resize(image, output_image,
-               {static_cast<int32_t>(width_), static_cast<int32_t>(height_)}, 0.0, 0.0,
-               interp);
+    cv::resize(image, output_image, {static_cast<int32_t>(width_), static_cast<int32_t>(height_)}, 0.0, 0.0, interp);
 
     auto* p_output_image = output.Allocate({height_, width_, c});
     std::memcpy(p_output_image, output_image.data, height_ * width_ * c);
@@ -73,8 +77,18 @@ struct Resize {
 };
 
 struct Rescale {
-  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input,
-                     ortc::Tensor<float>& output) {
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    for (const auto& [key, value] : attrs) {
+      if (key == "scale") {
+        scale_ = static_cast<float>(std::get<double>(value));
+      }
+    }
+
+    return {};
+  }
+
+  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<float>& output) {
     auto& dimensions = input.Shape();
     if (dimensions.size() != 3ULL) {  // Only raw image formats
       return {kOrtxErrorInvalidArgument, "[Rescale]: Only raw image formats"};
@@ -103,8 +117,16 @@ struct Rescale {
 };
 
 struct Normalize {
-  OrtxStatus Compute(const ortc::Tensor<float>& input,
-                     ortc::Tensor<float>& output) {
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    for (const auto& [key, value] : attrs) {
+      ;
+    }
+
+    return {};
+  }
+
+  OrtxStatus Compute(const ortc::Tensor<float>& input, ortc::Tensor<float>& output) {
     auto& dimensions = input.Shape();
     if (dimensions.size() != 3ULL) {
       return {kOrtxErrorInvalidArgument, "[Normalize]: Only raw image formats"};
@@ -134,6 +156,15 @@ struct Normalize {
 };
 
 struct CenterCrop {
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    for (const auto& [key, value] : attrs) {
+      ;
+    }
+
+    return {};
+  }
+
   //   # T.CenterCrop(224),
   // width, height = self.target_size, self.target_size
   // img_h, img_w = img.shape[-2:]
@@ -141,8 +172,7 @@ struct CenterCrop {
   // s_w = torch.div((img_w - width), 2, rounding_mode='trunc')
   // x = img[:, :, s_h:s_h + height, s_w:s_w + width]
 
-  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input,
-                     ortc::Tensor<uint8_t>& output) {
+  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) {
     auto& dimensions = input.Shape();
     if (dimensions.size() != 3ULL) {
       return {kOrtxErrorInvalidArgument, "[CenterCrop]: Only raw image formats"};

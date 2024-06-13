@@ -29,12 +29,22 @@ struct RawImagesObject : public OrtxObjectImpl {
   size_t num_images;
 };
 
-extError_t ORTX_API_CALL OrtxLoadImages(const char** image_paths, size_t num_images, OrtxRawImages** images,
+extError_t ORTX_API_CALL OrtxLoadImages(OrtxRawImages** images, const char** image_paths, size_t num_images,
                                         size_t* num_images_loaded) {
+  if (images == nullptr || image_paths == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
   auto images_obj = std::make_unique<RawImagesObject>();
   auto [img, num] = LoadRawImages(image_paths, image_paths + num_images);
   images_obj->images = std::move(img);
   images_obj->num_images = num;
+  if (num_images_loaded != nullptr) {
+    *num_images_loaded = num;
+  }
+  
+  *images = static_cast<OrtxRawImages*>(images_obj.release());
   return extError_t();
 }
 
@@ -67,6 +77,29 @@ extError_t ORTX_API_CALL OrtxImagePreProcess(OrtxProcessor* processor, OrtxRawIm
   }
 
   return {};
+}
+
+extError_t ORTX_API_CALL OrtxImageGetTensorResult(OrtxImageProcessorResult* result, size_t index, OrtxTensor** tensor) {
+  if (result == nullptr || tensor == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  auto result_ptr = static_cast<ImageProcessorResult*>(result);
+  ReturnableStatus status(result_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindImageProcessorResult));
+  if (!status.IsOk()) {
+    return status.Code();
+  }
+
+  if (index >= result_ptr->results.size()) {
+    ReturnableStatus::last_error_message_ = "Index out of range";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  auto tensor_ptr = std::make_unique<OrtxObjectWrapper<ortc::TensorBase>>();
+  tensor_ptr->SetObject(result_ptr->results[index].get());
+  *tensor = static_cast<OrtxTensor*>(tensor_ptr.release());
+  return extError_t();
 }
 
 extError_t ORTX_API_CALL OrtxClearOutputs(OrtxProcessor* processor, OrtxImageProcessorResult* result) {
