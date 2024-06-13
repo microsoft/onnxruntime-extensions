@@ -91,6 +91,12 @@ set(OCOS_ONNXRUNTIME_PKG_URI "" CACHE STRING
 set(OCOS_BUILD_PRESET "" CACHE STRING
   "Specify the build preset cmake settings file path, like 'token_api_only' which includes ./cmake/presets/token_api_only.cmake")
 
+# AzureOp can be enabled by environment varaible OCOS_ENABLE_AZURE == 1
+if (DEFINED ENV{OCOS_ENABLE_AZURE})
+  set(OCOS_ENABLE_AZURE ON CACHE INTERNAL "" FORCE)
+  message(STATUS "=> AzureOp is enabled env variable.")
+endif()
+
 function(disable_all_operators)
   set(OCOS_ENABLE_RE2_REGEX OFF CACHE INTERNAL "" FORCE)
   set(OCOS_ENABLE_TF_STRING OFF CACHE INTERNAL "" FORCE)
