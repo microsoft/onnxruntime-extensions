@@ -14,6 +14,8 @@ set GEN_PLATFORM=-A x64
 set GENERATOR="Visual Studio 16 2019"
 IF "%VisualStudioVersion:~0,2%" == "16" GOTO :START_BUILD
 set GENERATOR="Visual Studio 17 2022"
+REM temporarily enable MSVC 19.40 working with nvcc
+set NVCC_APPEND_FLAGS="%NVCC_APPEND_FLAGS% -allow-unsupported-compiler"
 
 :START_BUILD
 set cmake_exe="%VSINSTALLDIR%Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
