@@ -33,7 +33,18 @@ struct Resize {
   template <typename DictT>
   OrtxStatus Init(const DictT& attrs) {
     for (const auto& [key, value] : attrs) {
-      ;
+      if (key == "height") {
+        height_ = std::get<int64_t>(value);
+      } else if (key == "width") {
+        width_ = std::get<int64_t>(value);
+      } else if (key == "interpolation") {
+        interpolation_ = std::get<std::string>(value);
+        if (interpolation_ != "NEAREST" && interpolation_ != "LINEAR" && interpolation_ != "CUBIC") {
+          return {kOrtxErrorInvalidArgument, "[Resize]: Invalid interpolation method"};
+        }
+      } else {
+        return {kOrtxErrorInvalidArgument, "[Resize]: Invalid argument"};
+      }
     }
     return {};
   }
@@ -45,9 +56,9 @@ struct Resize {
     }
 
     auto* input_data = input.Data();
-    auto h = dimensions[0];
-    auto w = dimensions[1];
-    auto c = dimensions[2];
+    int h = static_cast<int>(dimensions[0]);
+    int w = static_cast<int>(dimensions[1]);
+    int c = static_cast<int>(dimensions[2]);
 
     cv::Mat image(h, w, CV_8UC3, const_cast<uint8_t*>(input_data));
     cv::Mat output_image;
@@ -82,6 +93,8 @@ struct Rescale {
     for (const auto& [key, value] : attrs) {
       if (key == "scale") {
         scale_ = static_cast<float>(std::get<double>(value));
+      } else {
+        return {kOrtxErrorInvalidArgument, "[Rescale]: Invalid argument"};
       }
     }
 
@@ -120,7 +133,15 @@ struct Normalize {
   template <typename DictT>
   OrtxStatus Init(const DictT& attrs) {
     for (const auto& [key, value] : attrs) {
-      ;
+      if (key == "mean") {
+        auto mean = std::get<std::vector<double>>(value);
+        mean_ = {static_cast<float>(mean[0]), static_cast<float>(mean[1]), static_cast<float>(mean[2])};
+      } else if (key == "std") {
+        auto std = std::get<std::vector<double>>(value);
+        std_ = {static_cast<float>(std[0]), static_cast<float>(std[1]), static_cast<float>(std[2])};
+      } else {
+        return {kOrtxErrorInvalidArgument, "[Normalize]: Invalid argument"};
+      }
     }
 
     return {};
@@ -151,15 +172,21 @@ struct Normalize {
   }
 
  private:
-  std::vector<float> mean_;
-  std::vector<float> std_;
+  std::vector<float> mean_{0.48145466f, 0.4578275f, 0.40821073f};
+  std::vector<float> std_{0.26862954f, 0.26130258f, 0.27577711f};
 };
 
 struct CenterCrop {
   template <typename DictT>
   OrtxStatus Init(const DictT& attrs) {
     for (const auto& [key, value] : attrs) {
-      ;
+      if (key == "height") {
+        target_h_ = std::get<int64_t>(value);
+      } else if (key == "width") {
+        target_w_ = std::get<int64_t>(value);
+      } else {
+        return {kOrtxErrorInvalidArgument, "[CenterCrop]: Invalid attribute " + key};
+      }
     }
 
     return {};

@@ -28,7 +28,7 @@ class KernelDef {
   virtual TensorArgs AllocateOutput(ortc::IAllocator* allocator) const = 0;
   virtual OrtxStatus Apply(TensorArgs& inputs, TensorArgs& output) const = 0;
 
-  using AttrType = std::variant<std::string, double>;
+  using AttrType = std::variant<std::string, double, int64_t, std::vector<double>>;
   using AttrDict = std::unordered_map<std::string, AttrType>;
 
   template <typename... Args>
@@ -149,19 +149,28 @@ class KernelStruct : public KernelDef {
 
   OrtxStatus Init(std::string_view attr_str) override {
     instance_ = std::make_unique<T>();
-    auto attr = json::parse(attr_str, nullptr, false);
 
+    AttrDict attr_dict;
+    if (attr_str.empty()) {
+      return instance_->Init(attr_dict);
+    }
+
+    auto attr = json::parse(attr_str, nullptr, false);
     if (attr.is_discarded()) {
       return {kOrtxErrorCorruptData, "Failed to parse JSON for kernel attributes."};
     }
-
-    AttrDict attr_dict;
     attr_dict.reserve(attr.size());
     for (auto& [key, value] : attr.items()) {
       if (value.is_string()) {
-        attr_dict[key] = value;
-      } else if (value.is_number()) {
-        attr_dict[key] = value;
+        attr_dict[key] = value.get<std::string>();
+      } else if (value.is_number_integer() || value.is_number_unsigned()) {
+        attr_dict[key] = value.get<int64_t>();
+      } else if (value.is_number_float()) {
+        attr_dict[key] = value.get<double>();
+      } else if (value.is_array()) {
+        attr_dict[key] = value.get<std::vector<double>>();
+      } else {
+        return {kOrtxErrorCorruptData, "Invalid attribute type."};
       }
     }
 
@@ -226,15 +235,13 @@ class Operation {
     op_name_ = op_name;
     kernel_ = kernel_iter->second();
 
+    std::string attr_str;
     if (op_json.contains("attrs")) {
       auto attrs = op_json.at("attrs");
-      auto status = kernel_->Init(attrs.dump());
-      if (!status.IsOk()) {
-        return status;
-      }
+      attr_str = attrs.dump();
     }
 
-    return {};
+    return kernel_->Init(attr_str);
   }
 
   virtual ~Operation() { ResetTensors(allocator_); }

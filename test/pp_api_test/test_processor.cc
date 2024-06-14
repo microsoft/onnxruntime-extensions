@@ -80,6 +80,9 @@ TEST(ProcessorTest, TestClipImageProcessing) {
 
   OrtxObjectPtr<OrtxProcessor> processor;
   err = OrtxCreateProcessor(ort_extensions::ptr(processor), "data/processor/clip_image.json");
+  if (err != kOrtxOK) {
+    std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
+  }
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxObjectPtr<OrtxImageProcessorResult> result;
