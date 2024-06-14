@@ -15,6 +15,10 @@ if (CMAKE_CUDA_COMPILER_VERSION VERSION_LESS 11.6)
 endif()
 
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr")
+if(MSVC)
+  # MSVC 19.40 version release triggers this nvcc failure.
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -allow-unsupported-compiler")
+endif()
 if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --Werror default-stream-launch")
 endif()
