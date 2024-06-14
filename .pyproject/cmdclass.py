@@ -227,7 +227,7 @@ class CmdBuildCMakeExt(_build_ext):
                     cuda_path = os.environ.get("CUDA_PATH")
                     cmake_args += [f'-T cuda={cuda_path}']
                     # TODO: temporarily add a flag for MSVC 19.40
-                    cmake_args += ['-D-DCMAKE_CUDA_FLAGS_INIT=-allow-unsupported-compiler']
+                    cmake_args += ['-DCMAKE_CUDA_FLAGS_INIT=-allow-unsupported-compiler']
                 f_ver = ext_fullpath.parent / "_version.py"
                 with f_ver.open('a') as _f:
                     _f.writelines(["\n", f"cuda = \"{cuda_ver}\"", "\n"])
