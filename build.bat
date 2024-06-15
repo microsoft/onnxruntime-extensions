@@ -16,7 +16,8 @@ IF "%VisualStudioVersion:~0,2%" == "16" GOTO :START_BUILD
 set GENERATOR="Visual Studio 17 2022"
 
 :START_BUILD
-set cmake_exe="%VSINSTALLDIR%Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+REM set cmake_exe="%VSINSTALLDIR%Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+set cmake_exe="cmake"
 mkdir .\out\Windows\ 2>NUL
 %cmake_exe% -G %GENERATOR% %GEN_PLATFORM% %* -B out\Windows -S .
 IF %ERRORLEVEL% NEQ 0 EXIT /B %ERRORLEVEL%
