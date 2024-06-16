@@ -399,7 +399,7 @@ stages:
     - script: |
         call $(vsdevcmd)
         mkdir out\Windows
-        cmake --build out\Windows --config RelWithDebInfo . -DOCOS_ENABLE_CTEST=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
+        cmake --build out\Windows --config RelWithDebInfo . -DOCOS_ENABLE_CTEST=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version) .
       displayName: build the customop library with onnxruntime
 
     - script: |
@@ -571,10 +571,11 @@ stages:
 
       - script: |
           set CUDA_PATH=$(Agent.TempDirectory)\v11.8
-          call .\build.bat -T cuda="%CUDA_PATH%" -DOCOS_ENABLE_CTEST=ON^
+          mkdir out\Windows
+          cmake --build out\Windows -T cuda="%CUDA_PATH%" -DOCOS_ENABLE_CTEST=ON^
             -DCMAKE_CUDA_FLAGS_INIT=-allow-unsupported-compiler^
             -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=70;86^
-            -DOCOS_ONNXRUNTIME_VERSION="$(ORT_VERSION)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-gpu-$(ORT_VERSION)
+            -DOCOS_ONNXRUNTIME_VERSION="$(ORT_VERSION)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-gpu-$(ORT_VERSION) .
         displayName: build the customop library with onnxruntime
 
       - script: |
