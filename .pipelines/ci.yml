@@ -398,7 +398,8 @@ stages:
 
     - script: |
         call $(vsdevcmd)
-        call .\build.bat -DOCOS_ENABLE_CTEST=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
+        mkdir out\Windows
+        cmake --build out\Windows --config RelWithDebInfo . -DOCOS_ENABLE_CTEST=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
       displayName: build the customop library with onnxruntime
 
     - script: |
