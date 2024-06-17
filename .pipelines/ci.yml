@@ -126,7 +126,7 @@ stages:
 
     - script: |
         python -m pip install --upgrade setuptools pip
-        python -m pip install numpy < 2.0.0
+        python -m pip install 'numpy < 2.0.0'
         export OCOS_NO_OPENCV=1
         export OCOS_SCB_DEBUG=1
         CPU_NUMBER=8 python -m pip install -e .
@@ -322,7 +322,7 @@ stages:
         python -m pip install --upgrade pip
         python -m pip install --upgrade setuptools
         python -m pip install --upgrade wheel
-        python -m pip install numpy < 2.0.0
+        python -m pip install 'numpy < 2.0.0'
         python -m pip install onnxruntime==$(ort.version)
       displayName: Install requirements
 
@@ -467,7 +467,7 @@ stages:
     - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
       displayName: Add conda to PATH
 
-    - script: conda create --yes --quiet --name pyenv -c conda-forge python=$(python.version) numpy < 2.0.0
+    - script: conda create --yes --quiet --name pyenv -c conda-forge python=$(python.version) numpy
       displayName: Create Anaconda environment
 
     - script: |
@@ -514,7 +514,7 @@ stages:
 
     - script: |
         python -m pip install --upgrade setuptools pip
-        python -m pip install numpy < 2.0.0
+        python -m pip install "numpy < 2.0.0"
         set OCOS_NO_OPENCV=1
         set OCOS_SCB_DEBUG=1
         python -m pip install -v -e .
@@ -593,7 +593,7 @@ stages:
       - script: |
           set CUDA_PATH=$(Agent.TempDirectory)\v11.8
           python -m pip install --upgrade setuptools pip
-          python -m pip install numpy < 2.0.0 coloredlogs flatbuffers packaging protobuf sympy
+          python -m pip install "numpy < 2.0.0" coloredlogs flatbuffers packaging protobuf sympy
           python -m pip install onnxruntime-gpu==$(ORT_VERSION)
           python -m pip install -v --config-settings "ortx-user-option=use-cuda,cuda_archs=70;86" .
         displayName: Build and install onnxruntime-extensions CUDA package.
