@@ -1,5 +1,10 @@
 @ECHO OFF
 SETLOCAL ENABLEDELAYEDEXPANSION
+
+IF NOT EXIST "%ProgramFiles%\CMake\bin\cmake.exe" GOTO :FIND_VS
+set cmake_exe="%ProgramFiles%\CMake\bin\cmake.exe"
+
+:FIND_VS
 IF DEFINED VSINSTALLDIR GOTO :VSDEV_CMD
 set _VSFINDER=%~dp0tools\get_vsdevcmd.ps1
 for /f "tokens=* USEBACKQ" %%i in (
@@ -7,6 +12,10 @@ for /f "tokens=* USEBACKQ" %%i in (
 
 IF NOT DEFINED VSINSTALLDIR GOTO :NOT_FOUND
 
+IF DEFINED cmake_exe GOTO :CMAKE_DEF
+set cmake_exe="%VSINSTALLDIR%Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+
+:CMAKE_DEF
 IF "%1" == "-A" GOTO :VSDEV_CMD
 set GEN_PLATFORM=-A x64
 
@@ -16,8 +25,8 @@ IF "%VisualStudioVersion:~0,2%" == "16" GOTO :START_BUILD
 set GENERATOR="Visual Studio 17 2022"
 
 :START_BUILD
-set cmake_exe="%VSINSTALLDIR%Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
 mkdir .\out\Windows\ 2>NUL
+ECHO %cmake_exe% -G %GENERATOR% %GEN_PLATFORM% %* -B out\Windows -S .
 %cmake_exe% -G %GENERATOR% %GEN_PLATFORM% %* -B out\Windows -S .
 IF %ERRORLEVEL% NEQ 0 EXIT /B %ERRORLEVEL%
 %cmake_exe% --build out\Windows --config RelWithDebInfo

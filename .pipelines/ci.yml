@@ -126,7 +126,7 @@ stages:
 
     - script: |
         python -m pip install --upgrade setuptools pip
-        python -m pip install numpy
+        python -m pip install 'numpy < 2.0.0'
         export OCOS_NO_OPENCV=1
         export OCOS_SCB_DEBUG=1
         CPU_NUMBER=8 python -m pip install -e .
@@ -322,6 +322,7 @@ stages:
         python -m pip install --upgrade pip
         python -m pip install --upgrade setuptools
         python -m pip install --upgrade wheel
+        python -m pip install 'numpy < 2.0.0'
         python -m pip install onnxruntime==$(ort.version)
       displayName: Install requirements
 
@@ -513,7 +514,7 @@ stages:
 
     - script: |
         python -m pip install --upgrade setuptools pip
-        python -m pip install numpy
+        python -m pip install "numpy < 2.0.0"
         set OCOS_NO_OPENCV=1
         set OCOS_SCB_DEBUG=1
         python -m pip install -v -e .
@@ -570,7 +571,9 @@ stages:
 
       - script: |
           set CUDA_PATH=$(Agent.TempDirectory)\v11.8
-          call .\build.bat -T cuda="%CUDA_PATH%" -DOCOS_ENABLE_CTEST=ON -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=70;86^
+          call .\build.bat -T cuda="%CUDA_PATH%" -DOCOS_ENABLE_CTEST=ON^
+            -DCMAKE_CUDA_FLAGS_INIT=-allow-unsupported-compiler^
+            -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=70;86^
             -DOCOS_ONNXRUNTIME_VERSION="$(ORT_VERSION)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-gpu-$(ORT_VERSION)
         displayName: build the customop library with onnxruntime
 
@@ -590,7 +593,7 @@ stages:
       - script: |
           set CUDA_PATH=$(Agent.TempDirectory)\v11.8
           python -m pip install --upgrade setuptools pip
-          python -m pip install numpy coloredlogs flatbuffers packaging protobuf sympy
+          python -m pip install "numpy < 2.0.0" coloredlogs flatbuffers packaging protobuf sympy
           python -m pip install onnxruntime-gpu==$(ORT_VERSION)
           python -m pip install -v --config-settings "ortx-user-option=use-cuda,cuda_archs=70;86" .
         displayName: Build and install onnxruntime-extensions CUDA package.
