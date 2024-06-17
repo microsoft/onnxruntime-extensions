@@ -90,12 +90,11 @@ set(OCOS_ONNXRUNTIME_PKG_URI "" CACHE STRING
   "Specify the onnxruntime C++ shared library zip package path, like ./onnxruntime-win-x64-1.16.0.zip")
 set(OCOS_BUILD_PRESET "" CACHE STRING
   "Specify the build preset cmake settings file path, like 'token_api_only' which includes ./cmake/presets/token_api_only.cmake")
-# TODO: Remove the following statements if AzureOp build is enabled by default.
-# If build_buildid environment varaible is set, which means this is a CI build, then always enable AzureOp.
-# or it is enabled when OCOS_ENABLE_AZURE is set, which means the user explicitly enables it.
-if ((DEFINED ENV{BUILD_BUILDID}) OR (DEFINED ENV{OCOS_ENABLE_AZURE}))
+
+# AzureOp can be enabled by environment varaible OCOS_ENABLE_AZURE == 1
+if (DEFINED ENV{OCOS_ENABLE_AZURE})
   set(OCOS_ENABLE_AZURE ON CACHE INTERNAL "" FORCE)
-  message(STATUS "=> AzureOp is enabled by default.")
+  message(STATUS "=> AzureOp is enabled env variable.")
 endif()
 
 function(disable_all_operators)
