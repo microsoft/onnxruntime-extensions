@@ -294,18 +294,18 @@ class CmdBuildCMakeExt(_build_ext):
             '--parallel' + ('' if cpu_number is None else ' ' + cpu_number)
         ]
         cmake_exe = 'cmake'
-        if sys.platform == "win32":
-            # unlike Linux/macOS, cmake pip package on Windows fails to build some 3rd party dependencies.
-            # so we have to use the cmake from a standalone installation or the one from Visual Studio.
-            standalone_cmake = os.path.join(os.environ.get("ProgramFiles"), "\\CMake\\bin\\cmake.exe")
-            if os.path.exists(standalone_cmake):
-                cmake_exe = standalone_cmake
-            elif os.environ.get(VSINSTALLDIR_NAME):
-                cmake_exe = os.environ[VSINSTALLDIR_NAME] + \
-                            'Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe'
-            # Add this cmake directory into PATH to make sure the child-process still find it.
-            os.environ['PATH'] = os.path.dirname(
-                cmake_exe) + os.pathsep + os.environ['PATH']
+        # if sys.platform == "win32":
+        #     # unlike Linux/macOS, cmake pip package on Windows fails to build some 3rd party dependencies.
+        #     # so we have to use the cmake from a standalone installation or the one from Visual Studio.
+        #     standalone_cmake = os.path.join(os.environ.get("ProgramFiles"), "\\CMake\\bin\\cmake.exe")
+        #     if os.path.exists(standalone_cmake):
+        #         cmake_exe = standalone_cmake
+        #     elif os.environ.get(VSINSTALLDIR_NAME):
+        #         cmake_exe = os.environ[VSINSTALLDIR_NAME] + \
+        #                     'Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe'
+        #     # Add this cmake directory into PATH to make sure the child-process still find it.
+        #     os.environ['PATH'] = os.path.dirname(
+        #         cmake_exe) + os.pathsep + os.environ['PATH']
 
         self.spawn([cmake_exe, '-S', str(project_dir),
                     '-B', str(build_temp)] + cmake_args)
