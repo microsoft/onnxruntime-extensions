@@ -11,10 +11,13 @@ for /f "tokens=* USEBACKQ" %%i in (
     `powershell -NoProfile -ExecutionPolicy Bypass -File "%_VSFINDER%"`) do call "%%i"
 
 IF NOT DEFINED VSINSTALLDIR GOTO :NOT_FOUND
+
+IF DEFINED cmake_exe GOTO :CMAKE_DEF
+set cmake_exe="%VSINSTALLDIR%Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+
+:CMAKE_DEF
 IF "%1" == "-A" GOTO :VSDEV_CMD
 set GEN_PLATFORM=-A x64
-IF DEFINED cmake_exe GOTO :VSDEV_CMD
-set cmake_exe="%VSINSTALLDIR%Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
 
 :VSDEV_CMD
 set GENERATOR="Visual Studio 16 2019"
