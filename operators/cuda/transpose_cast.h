@@ -8,6 +8,9 @@
 
 namespace contrib {
 
+/**
+*  Transpose2DCast(X, to=to) = Cast(Transpose(X, perm=[1, 0]), to=to)
+*/
 template <typename TIN, typename TOUT>
 struct Transpose2DCast {
   template <typename TDict>

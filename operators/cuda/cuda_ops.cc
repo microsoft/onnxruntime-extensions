@@ -8,13 +8,13 @@
 #include "cuda/fast_gelu.h"
 #include "cuda/mul_sigmoid.h"
 #include "cuda/negxplus1.h"
+#include "cuda/replace_zero.h"
 #include "cuda/rotary.h"
 #include "cuda/scatter_nd_of_shape.h"
 #include "cuda/transpose_cast.h"
 #endif
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
-
   using AddSharedInputFloat32Type = typename contrib::AddOrMulSharedInput<float, true>;
   using MulSharedInputFloat32Type = typename contrib::AddOrMulSharedInput<float, false>;
 
@@ -24,7 +24,6 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
   using Transpose2DCastFloat32ToFloat16Type = typename contrib::Transpose2DCast<float, ortc::MFloat16>;
   using Transpose2DCastFloat16ToFloat32Type = typename contrib::Transpose2DCast<ortc::MFloat16, float>;
 #endif
-
 
   static OrtOpLoader op_loader(
       []() { return nullptr; }
@@ -37,6 +36,7 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
       CustomCudaStructV2("MulMulSigmoid", contrib::MulMulSigmoid<float>),
       CustomCudaStructV2("MulSigmoid", contrib::MulSigmoid<float>),
       CustomCudaStructV2("NegXPlus1", contrib::NegXPlus1<float>),
+      CustomCudaStructV2("ReplaceZero", contrib::ReplaceZero<float>),
       CustomCudaStructV2("Rotary", contrib::Rotary<float>),
       CustomCudaStructV2("ScatterNDOfShape", contrib::ScatterNDOfShape<float>),
 #if ORT_API_VERSION >= 16
@@ -49,6 +49,7 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Contrib = []() -> CustomOpArray& {
       CustomCudaStructV2("MulMulSigmoid", contrib::MulMulSigmoid<ortc::MFloat16>),
       CustomCudaStructV2("MulSigmoid", contrib::MulSigmoid<ortc::MFloat16>),
       CustomCudaStructV2("NegXPlus1", contrib::NegXPlus1<ortc::MFloat16>),
+      CustomCudaStructV2("ReplaceZero", contrib::ReplaceZero<ortc::MFloat16>),
       CustomCudaStructV2("Rotary", contrib::Rotary<ortc::MFloat16>),
       CustomCudaStructV2("ScatterNDOfShape", contrib::ScatterNDOfShape<ortc::MFloat16>),
       CustomCudaStructV2("Transpose2DCastFP16", Transpose2DCastFloat32ToFloat16Type),
