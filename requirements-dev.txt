@@ -1,5 +1,6 @@
 pytest
-onnx             >= 1.9.0
+numpy            < 2.0.0
+onnx             >=1.9.0
 protobuf         < 4.0.0
 # multiple versions of onnxruntime are supported, but only one can be installed at a time
 onnxruntime      >=1.12.0
