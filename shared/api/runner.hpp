@@ -162,13 +162,13 @@ class KernelStruct : public KernelDef {
     attr_dict.reserve(attr.size());
     for (auto& [key, value] : attr.items()) {
       if (value.is_string()) {
-        attr_dict[key] = value.get<std::string>();
+        attr_dict[key] = value.template get<std::string>();
       } else if (value.is_number_integer() || value.is_number_unsigned()) {
-        attr_dict[key] = value.get<int64_t>();
+        attr_dict[key] = value.template get<int64_t>();
       } else if (value.is_number_float()) {
-        attr_dict[key] = value.get<double>();
+        attr_dict[key] = value.template get<double>();
       } else if (value.is_array()) {
-        attr_dict[key] = value.get<std::vector<double>>();
+        attr_dict[key] = value.template get<std::vector<double>>();
       } else {
         return {kOrtxErrorCorruptData, "Invalid attribute type."};
       }
