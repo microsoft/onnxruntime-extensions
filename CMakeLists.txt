@@ -36,6 +36,11 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
   cmake_policy(SET CMP0077 NEW)
 endif()
 
+# Avoid warning of Calling FetchContent_Populate(GSL) is deprecated
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.30.0")
+  cmake_policy(CMP0169 OLD)
+endif()
+
 # Needed for Java
 set(CMAKE_C_STANDARD 99)
 
