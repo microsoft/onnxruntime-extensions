@@ -8,6 +8,9 @@
 
 namespace contrib {
 
+/**
+* ScatterNDOfShape(shape, indices, updates) = ScatterND(ConstantOfShape(shape, value=0), indices, updates)
+*/
 template <typename T>
 struct ScatterNDOfShape {
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
@@ -71,6 +74,12 @@ struct ScatterNDOfShape {
 };
 
 
+/**
+* MaskedScatterNDOfShape(shape, indices, updates) = ScatterND(ConstantOfShape(shape, value=0),
+*                                                             indices[indices != maskedValue],
+*                                                             updates[indices != maskedValue])
+*
+*/
 template <typename T>
 struct MaskedScatterNDOfShape {
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {

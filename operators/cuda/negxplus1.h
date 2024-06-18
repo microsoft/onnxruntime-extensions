@@ -8,6 +8,9 @@
 
 namespace contrib {
 
+/**
+* NegXPlus1(X) = 1 - X
+*/
 template <typename T>
 struct NegXPlus1 {
   template <typename TDict>
