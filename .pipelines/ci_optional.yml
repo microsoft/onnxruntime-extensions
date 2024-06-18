@@ -132,7 +132,7 @@ stages:
       inputs:
         versionSpec: '3.x'
         disableDownloadFromRegistry: true
-        addToPath: false
+        addToPath: true
         architecture: 'x64'
       displayName: Use ADO python task
 
@@ -172,7 +172,7 @@ stages:
         inputs:
           versionSpec: '3.x'
           disableDownloadFromRegistry: true
-          addToPath: false
+          addToPath: true
           architecture: 'x64'
         displayName: Use ADO python task
 
