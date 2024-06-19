@@ -32,7 +32,9 @@ void set_params_fprop(Flash_fwd_params& params,
                       bool is_bf16,
                       bool kv_bsnh = true,
                       int window_size_left = -1,
-                      int window_size_right = -1) {
+                      int window_size_right = -1,
+                      bool paged_KV = false,
+                      int page_block_size = -1) {
   // Set the pointers and strides.
   params.q_ptr = q;
   params.k_ptr = k;
@@ -64,8 +66,8 @@ void set_params_fprop(Flash_fwd_params& params,
 
   if (cu_seqlens_q_d == nullptr) {
     params.q_batch_stride = seqlen_q * num_heads * head_size;    // stride(0)
-    params.k_batch_stride = seqlen_k * num_heads_k * head_size;  // stride(0)
-    params.v_batch_stride = seqlen_k * num_heads_k * head_size;  // stride(0)
+    params.k_batch_stride = (paged_KV ? page_block_size : seqlen_k) * num_heads_k * head_size;  // stride(0)
+    params.v_batch_stride = (paged_KV ? page_block_size : seqlen_k) * num_heads_k * head_size;  // stride(0)
     params.o_batch_stride = seqlen_q * num_heads * head_size;    // stride(0)
   } else {
     params.q_batch_stride = 0;
@@ -401,7 +403,9 @@ OrtStatusPtr mha_fwd_kvcache(const cudaDeviceProp& dprops,
                    is_bf16,
                    past_bsnh,
                    local_window_size,
-                   is_causal ? 0 : -1);
+                   is_causal ? 0 : -1,
+                   block_table != nullptr,
+                   page_block_size);
   params.dprops = &dprops;
 
   if (k_new != nullptr && v_new != nullptr) {

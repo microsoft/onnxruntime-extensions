@@ -239,6 +239,7 @@ struct PagedAttention {
     int seqlen_knew = 1;  // TODO(leca): Decoding case, the sequence of k will always be 1?
     int max_num_blocks_per_seq = block_tables.Shape()[1];
     int seqlen_k = max_num_blocks_per_seq * block_size;
+    parameters.causal = false;  // flash code: if (seqlen_q == 1 && !alibi_slopes_.has_value()) { is_causal = false; }
     size_t workSpaceSize = cuda::GetAttentionWorkspaceSize(sizeof(T), parameters.batch_size, parameters.num_heads, parameters.head_size, parameters.v_head_size,
                                                            seqlen_knew, nullptr, true/*data.use_flash_attention*/, false/*data.use_memory_efficient_attention*/, true);
     UniquePtrWithDeletor<T> workspace_unique = GetScratchBuffer<T>(allocator_->Alloc(allocator_.get(), workSpaceSize), allocator_.get()); // for softmax_lse
