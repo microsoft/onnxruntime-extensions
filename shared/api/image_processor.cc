@@ -85,7 +85,7 @@ OrtxStatus ImageProcessor::Init(std::string_view processor_def) {
 }
 
 ImageProcessor::ImageProcessor()
-    : allocator_(&CppAllocator::Instance()), OrtxObjectImpl(kOrtxKindProcessor) {
+    : OrtxObjectImpl(kOrtxKindProcessor), allocator_(&CppAllocator::Instance()) {
 }
 
 template <typename T>
