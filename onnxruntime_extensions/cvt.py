@@ -90,7 +90,7 @@ def gen_processing_models(processor: Union[str, object],
             **pre_kwargs) if pre_kwargs is not None else None
         post_g = _converter.post_processing(
             **post_kwargs) if post_kwargs is not None else None
-        return make_onnx_model(pre_g) if pre_g else None, \
-            make_onnx_model(post_g) if post_g else None
+        return make_onnx_model(pre_g, opset_version=opset) if pre_g else None, \
+            make_onnx_model(post_g, opset_version=opset) if post_g else None
     else:
         raise ValueError(f"Unsupported processor/tokenizer: {cls_name}")
