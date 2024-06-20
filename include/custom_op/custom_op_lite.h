@@ -11,6 +11,9 @@
 #include "ort_c_to_cpp.h"
 #include "onnxruntime_f16.h"
 
+#pragma warning(push)
+#pragma warning(disable : 4459)  // declaration of 'api' hides global declaration
+
 namespace Ort {
 namespace Custom {
 
@@ -1027,3 +1030,5 @@ OrtLiteCustomOp* CreateLiteCustomOp(const char* op_name,
 
 }  // namespace Custom
 }  // namespace Ort
+
+#pragma warning(pop)
