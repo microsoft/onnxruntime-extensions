@@ -24,6 +24,30 @@ class OrtxObjectImpl : public OrtxObject {
     }
     return static_cast<extObjectKind_t>(ext_kind_);
   }
+
+  template <typename T>
+  struct Type2Kind {
+    static const extObjectKind_t value = kOrtxKindUnknown;
+  };
+};
+
+template <>
+struct OrtxObjectImpl::Type2Kind<ortc::TensorBase> {
+  static const extObjectKind_t value = kOrtxKindTensor;
+};
+
+template <typename T>
+class OrtxObjectWrapper : public OrtxObjectImpl {
+ public:
+  OrtxObjectWrapper() : OrtxObjectImpl(OrtxObjectImpl::Type2Kind<T>::value) {}
+  ~OrtxObjectWrapper() override = default;
+
+  void SetObject(T* t) { stored_object_ = t; }
+
+  [[nodiscard]] T* GetObject() const { return stored_object_; }
+
+ private:
+  T* stored_object_{};
 };
 
 template <typename T>
@@ -39,7 +63,7 @@ class span {
 
   const T& operator[](size_t i) const { return data_[i]; }
   T& operator[](size_t i) { return data_[i]; }
-  
+
   T* data() const { return data_; }
   [[nodiscard]] size_t size() const { return size_; }
   T* begin() const { return data_; }
@@ -55,13 +79,9 @@ class TokenId2DArray : public OrtxObjectImpl {
   TokenId2DArray() : OrtxObjectImpl(extObjectKind_t::kOrtxKindTokenId2DArray) {}
   ~TokenId2DArray() override = default;
 
-  void SetTokenIds(std::vector<std::vector<extTokenId_t>>&& token_ids) {
-    token_ids_ = token_ids;
-  }
+  void SetTokenIds(std::vector<std::vector<extTokenId_t>>&& token_ids) { token_ids_ = token_ids; }
 
-  [[nodiscard]] const std::vector<std::vector<extTokenId_t>>& token_ids() const {
-    return token_ids_;
-  }
+  [[nodiscard]] const std::vector<std::vector<extTokenId_t>>& token_ids() const { return token_ids_; }
 
  private:
   std::vector<std::vector<extTokenId_t>> token_ids_;
@@ -72,13 +92,9 @@ class StringArray : public OrtxObjectImpl {
   StringArray() : OrtxObjectImpl(extObjectKind_t::kOrtxKindStringArray) {}
   ~StringArray() override = default;
 
-  void SetStrings(std::vector<std::string>&& strings) {
-    strings_ = strings;
-  }
+  void SetStrings(std::vector<std::string>&& strings) { strings_ = strings; }
 
-  [[nodiscard]] const std::vector<std::string>& strings() const {
-    return strings_;
-  }
+  [[nodiscard]] const std::vector<std::string>& strings() const { return strings_; }
 
  private:
   std::vector<std::string> strings_;
@@ -109,10 +125,8 @@ struct ReturnableStatus {
 
 template <typename T>
 class OrtxObjectFactory {
-  public:
-  static std::unique_ptr<T> Create() {
-    return std::make_unique<T>();
-  }
+ public:
+  static std::unique_ptr<T> Create() { return std::make_unique<T>(); }
 
   static OrtxObject* CreateForward();
   static void DisposeForward(OrtxObject* object);
@@ -122,42 +136,15 @@ class OrtxObjectFactory {
     std::unique_ptr<T> ptr(obj_ptr);
     ptr.reset();
   }
-
 };
 
 class DetokenizerCache;  // forward definition in tokenizer_impl.cc
-class ProcessorResult;  // forward definition in image_processor.h
+class ProcessorResult;   // forward definition in image_processor.h
 
-template <typename T>
-class OrtxDeleter {
- public:
-  void operator()(T* p) const {
-    if (p) {
-      OrtxDisposeOnly(p);
-    }
-  }
-};
-
-template <typename T>
-class OrtxObjectPtr : public std::unique_ptr<T, OrtxDeleter<T>> {
- public:
-  template <typename TFn>
-  OrtxObjectPtr(TFn fn, const char* def) {
-    OrtxObject* proc = nullptr;
-    err_ = fn(&proc, def);
-    if (err_ == kOrtxOK) {
-      this->reset(static_cast<T*>(proc));
-    }
-  }
-
-  int err_ = kOrtxOK;
-};
 
 class CppAllocator : public ortc::IAllocator {
  public:
-  void* Alloc(size_t size) override {
-    return std::make_unique<char[]>(size).release();
-  }
+  void* Alloc(size_t size) override { return std::make_unique<char[]>(size).release(); }
 
   void Free(void* p) override {
     std::unique_ptr<char[]> ptr(static_cast<char*>(p));

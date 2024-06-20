@@ -7,6 +7,7 @@
 #include <filesystem>
 
 #include "gtest/gtest.h"
+#include "ortx_c_helper.h"
 #include "shared/api/image_processor.h"
 
 using namespace ort_extensions;
@@ -30,16 +31,13 @@ TEST(ProcessorTest, TestPhi3VImageProcessing) {
   auto [input_data, n_data] = ort_extensions::LoadRawImages(
       {"data/processor/standard_s.jpg", "data/processor/australia.jpg", "data/processor/exceltable.png"});
 
-  auto proc = OrtxObjectPtr<ImageProcessor>(OrtxCreateProcessor, "data/processor/image_processor.json");
+  auto proc = OrtxObjectPtr<ImageProcessor>(OrtxCreateProcessor, "data/processor/phi_3_image.json");
   ortc::Tensor<float>* pixel_values;
   ortc::Tensor<int64_t>* image_sizes;
   ortc::Tensor<int64_t>* num_img_tokens;
 
-  auto [status, r] = proc->PreProcess(
-      ort_extensions::span(input_data.get(), (size_t)n_data),
-      &pixel_values,
-      &image_sizes,
-      &num_img_tokens);
+  auto [status, r] = proc->PreProcess(ort_extensions::span(input_data.get(), (size_t)n_data), &pixel_values,
+                                      &image_sizes, &num_img_tokens);
 
   ASSERT_TRUE(status.IsOk());
   int64_t expected_image_size[] = {1344, 1344, 1008, 1344, 1008, 1680};
@@ -71,4 +69,34 @@ TEST(ProcessorTest, TestPhi3VImageProcessing) {
   }
 
   proc->ClearOutputs(&r);
+}
+
+TEST(ProcessorTest, TestClipImageProcessing) {
+  const char* images_path[] = {"data/processor/standard_s.jpg", "data/processor/australia.jpg",
+                               "data/processor/exceltable.png"};
+  OrtxObjectPtr<OrtxRawImages> raw_images;
+  extError_t err = OrtxLoadImages(ort_extensions::ptr(raw_images), images_path, 3, nullptr);
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxProcessor> processor;
+  err = OrtxCreateProcessor(ort_extensions::ptr(processor), "data/processor/clip_image.json");
+  if (err != kOrtxOK) {
+    std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxImageProcessorResult> result;
+  err = OrtxImagePreProcess(processor.get(), raw_images.get(), ort_extensions::ptr(result));
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxImageGetTensorResult(result.get(), 0, ort_extensions::ptr(tensor));
+  ASSERT_EQ(err, kOrtxOK);
+
+  const float* data{};
+  const int64_t* shape{};
+  size_t num_dims;
+  err = OrtxGetTensorDataFloat(tensor.get(), &data, &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 4);
 }
