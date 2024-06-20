@@ -97,7 +97,9 @@ OrtxStatus ImageProcessor::Init(std::string_view processor_def) {
   return {};
 }
 
-ImageProcessor::ImageProcessor() : allocator_(&CppAllocator::Instance()), OrtxObjectImpl(kOrtxKindProcessor) {}
+ImageProcessor::ImageProcessor()
+    : OrtxObjectImpl(kOrtxKindProcessor), allocator_(&CppAllocator::Instance()) {
+}
 
 template <typename T>
 static ortc::Tensor<T>* StackTensor(const std::vector<TensorArgs>& arg_lists, int axis, ortc::IAllocator* allocator) {

@@ -310,8 +310,8 @@ class OrtxRunner {
   }
 
  private:
-  std::vector<Operation*> ops_;
   ortc::IAllocator* allocator_;
+  std::vector<Operation*> ops_;
 };
 
 }  // namespace ort_extensions
