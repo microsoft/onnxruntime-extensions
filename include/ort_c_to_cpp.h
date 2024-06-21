@@ -343,8 +343,8 @@ struct BaseKernel {
   OrtErrorCode GetErrorCodeAndRelease(OrtStatusPtr status) const noexcept;
 
   const OrtApi& api_;
-  OrtW::CustomOpApi ort_;
   const OrtKernelInfo& info_;
+  OrtW::CustomOpApi ort_;
 };
 
 // Deprecated: Use OrtW::CustomOpApi::KernelInfoGetAttribute instead
