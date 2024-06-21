@@ -81,6 +81,9 @@ class API {
     return instance()->KernelContext_GetAllocator(context, mem_info, out);
   }
 #endif
+  static void ReleaseMemoryInfo(OrtMemoryInfo* mem_info) {
+    return instance()->ReleaseMemoryInfo(mem_info);
+  }
  private:
   const OrtApi* operator->() const {
     return &api_;
