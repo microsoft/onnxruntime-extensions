@@ -101,6 +101,10 @@ void set_params_fprop(Flash_fwd_params& params,
   params.scale_softmax = softmax_scale;
   params.scale_softmax_log2 = softmax_scale * M_LOG2E;
 
+  params.rp_dropout = 1.f;
+  params.alibi_slopes_ptr = nullptr;
+  params.alibi_slopes_batch_stride = 0;
+
   // In our API, causal/unidirectional determines if we only look at prior tokens. However, the flash API seperates
   // local and causal, meaning when we have local window size
   params.is_causal = is_causal;

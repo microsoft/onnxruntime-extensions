@@ -248,8 +248,8 @@ struct PagedAttention {
                                                 const_cast<void*>(value_cache.DataRaw()), const_cast<void*>(key.DataRaw()), const_cast<void*>(value.DataRaw()), output_data,
                                                 workspace_unique.get(), const_cast<void*>(context_lens.DataRaw()), 
                                                 nullptr, nullptr, // rotary_sin and rotary_cos. TODO(leca): Do we still split the input cos_sin_cache as there is a seperate step to do rotary embedding
-                                                query_shape[0], num_heads_, num_kv_heads_, head_size_, 1, seqlen_k, seqlen_knew, 1.0f/sqrt(head_size_), parameters.causal, false, true,
-                                                0, nullptr, nullptr, -1, false, false, const_cast<int32_t*>(block_tables.Data()), max_num_blocks_per_seq, block_size));
+                                                query_shape[0], num_heads_, num_kv_heads_, head_size_, 1 /*seqlen_q*/, seqlen_k, seqlen_knew, 1.0f/sqrt(head_size_), parameters.causal, false, true,
+                                                1 /*num_splits*/, nullptr, nullptr, -1 /*local_window_size*/, false, false, const_cast<int32_t*>(block_tables.Data()), max_num_blocks_per_seq, block_size));
 #endif
 
 //    if (input_metadata.num_generation_tokens > 0) {

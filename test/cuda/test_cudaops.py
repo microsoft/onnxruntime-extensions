@@ -340,10 +340,10 @@ class TestCudaOps(unittest.TestCase):
         out_np = out.reshape(381, 512).numpy()
         assert np.allclose(y_np, out_np, rtol=1e-3, atol=1e-3, equal_nan=True)
 
-    def test_cuda_paged_attention_prompt_decoding():
+    def test_cuda_paged_attention_prompt_decoding(self):
         so = _ort.SessionOptions()
-        so.register_custom_ops_library('/home/leca/code/onnxruntime-genai/test/custom_ops/build/libgenai_custom_ops_test.so')
-        onnx_model = _create_pagedattention_test_model(3, 381, 512, 16, 32, 8)
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = self._create_pagedattention_test_model(3, 381, 512, 16, 32, 8)
         sess = _ort.InferenceSession(onnx_model.SerializeToString(),
                                      so,
                                      providers=['CUDAExecutionProvider'])
@@ -422,23 +422,37 @@ class TestCudaOps(unittest.TestCase):
         )[:, :seqlen_k]
         return k_cache, v_cache, block_table, k_cache_paged, v_cache_paged, num_blocks
     
-    def test_cuda_paged_attention_decoding():
+    def test_cuda_paged_attention_decoding(self):
         so = _ort.SessionOptions()
-        so.register_custom_ops_library('/home/leca/code/onnxruntime-genai/test/custom_ops/build/libgenai_custom_ops_test.so')
-        onnx_model = _create_pagedattention_test_model(batch_size=2, total_seqlen=0, hidden_size=96, slot_cnt_per_block=256, 
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = self._create_pagedattention_test_model(batch_size=2, total_seqlen=0, hidden_size=96, slot_cnt_per_block=256, 
                                                        block_cnt_per_layer=6, block_cnt_needed_by_longest_seq=3, num_heads=6, num_kv_heads=6, head_size=16)
         sess = _ort.InferenceSession(onnx_model.SerializeToString(),
                                      so,
                                      providers=['CUDAExecutionProvider'])
     
-        query = np.random.randn(2,96).astype(np.float16)
-        key = np.random.randn(2,96).astype(np.float16)
-        value = np.random.randn(2,96).astype(np.float16)
-        key_cache = np.zeros([6,24576]).astype(np.float16)  # 24576 = 256x6x16
-        value_cache = np.zeros([6,24576]).astype(np.float16)
-        block_tables = np.array([[0,1,2],[3,4,5]]).astype(np.int32)
+#        query = np.random.randn(2,96).astype(np.float16)
+#        key = np.random.randn(2,96).astype(np.float16)
+#        value = np.random.randn(2,96).astype(np.float16)
+#        key_cache = np.zeros([6,24576]).astype(np.float16)  # 24576 = 256x6x16
+#        value_cache = np.zeros([6,24576]).astype(np.float16)
+#        block_tables = np.array([[0,1,2],[3,4,5]]).astype(np.int32)
+#        context_lens = np.array([83, 65]).astype(np.int32)
+        pdb.set_trace()
+        query_2x1x6x16 = np.load('q_2x1x6x16.npy')
+        key_2x1x6x16 = np.load('k_2x1x6x16.npy')
+        value_2x1x6x16 = np.load('v_2x1x6x16.npy')
+        key_cache_6x256x6x16 = np.load('k_cache_6x256x6x16.npy')
+        value_cache_6x256x6x16 = np.load('v_cache_6x256x6x16.npy')
+        block_tables = np.load('block_table_2x3.npy')   # [[2,4,1], [5,3,0]]
+        context_lens = np.load('cache_seqlens_2.npy')   # [83, 65]
+        query = np.reshape(query_2x1x6x16, (2, 96))
+        key = np.reshape(key_2x1x6x16, (2, 96))
+        value = np.reshape(value_2x1x6x16, (2, 96))
+        key_cache = np.reshape(key_cache_6x256x6x16, (6, 24576))
+        value_cache = np.reshape(value_cache_6x256x6x16, (6, 24576))
+
         slot_mappings = np.array([250, 500]).astype(np.int32)
-        context_lens = np.array([1, 1]).astype(np.int32)
         is_prompt = np.array([0]).astype(np.int32)
         y = sess.run(None, {'query':query, 'key':key, 'value':value, 'key_cache':key_cache, 'value_cache':value_cache, 'block_tables':block_tables, 'slot_mappings':slot_mappings, 'context_lens':context_lens, 'is_prompt':is_prompt})
     #    q_pt = torch.from_numpy(query.reshape(3, 127, 32, 16))
