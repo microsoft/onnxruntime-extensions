@@ -108,6 +108,32 @@ def attention_ref(
         output.masked_fill_(rearrange(~query_padding_mask, "b s -> b s 1 1"), 0.0)
     return output.to(dtype=dtype_og), attention.to(dtype=dtype_og)
 
+def generate_block_kvcache(seqlen_k, paged_kv_block_size, batch_size, nheads_k, d, device, dtype):
+    num_blocks = math.ceil(seqlen_k / paged_kv_block_size) * batch_size * 3
+    k_cache_paged = torch.randn(
+        num_blocks, paged_kv_block_size, nheads_k, d, device=device, dtype=dtype
+    )
+    v_cache_paged = torch.randn(
+        num_blocks, paged_kv_block_size, nheads_k, d, device=device, dtype=dtype
+    )
+    block_table = rearrange(
+        torch.randperm(num_blocks, dtype=torch.int32, device=device),
+        "(b nblocks) -> b nblocks",
+        b=batch_size,
+    )
+    k_cache = rearrange(
+        # pytorch 1.12 doesn't have indexing with int32
+        k_cache_paged[block_table.to(dtype=torch.long).flatten()],
+        "(b nblocks) block_size ... -> b (nblocks block_size) ...",
+        b=batch_size,
+    )[:, :seqlen_k]
+    v_cache = rearrange(
+        v_cache_paged[block_table.to(dtype=torch.long).flatten()],
+        "(b nblocks) block_size ... -> b (nblocks block_size) ...",
+        b=batch_size,
+    )[:, :seqlen_k]
+    return k_cache, v_cache, block_table, k_cache_paged, v_cache_paged, num_blocks
+
 class TestCudaOps(unittest.TestCase):
     @staticmethod
     def _create_negpos_test_model(domain='ai.onnx.contrib'):
@@ -395,33 +421,6 @@ class TestCudaOps(unittest.TestCase):
         is_prompt_ort.update_inplace(np.array([0]).astype(np.int32))
         sess.run_with_iobinding(io_binding)
     
-    def _generate_block_kvcache(seqlen_k, paged_kv_block_size, batch_size, nheads_k, d, device, dtype):
-        pdb.set_trace()
-        num_blocks = math.ceil(seqlen_k / paged_kv_block_size) * batch_size * 3
-        k_cache_paged = torch.randn(
-            num_blocks, paged_kv_block_size, nheads_k, d, device=device, dtype=dtype
-        )
-        v_cache_paged = torch.randn(
-            num_blocks, paged_kv_block_size, nheads_k, d, device=device, dtype=dtype
-        )
-        block_table = rearrange(
-            torch.randperm(num_blocks, dtype=torch.int32, device=device),
-            "(b nblocks) -> b nblocks",
-            b=batch_size,
-        )
-        k_cache = rearrange(
-            # pytorch 1.12 doesn't have indexing with int32
-            k_cache_paged[block_table.to(dtype=torch.long).flatten()],
-            "(b nblocks) block_size ... -> b (nblocks block_size) ...",
-            b=batch_size,
-        )[:, :seqlen_k]
-        v_cache = rearrange(
-            v_cache_paged[block_table.to(dtype=torch.long).flatten()],
-            "(b nblocks) block_size ... -> b (nblocks block_size) ...",
-            b=batch_size,
-        )[:, :seqlen_k]
-        return k_cache, v_cache, block_table, k_cache_paged, v_cache_paged, num_blocks
-    
     def test_cuda_paged_attention_decoding(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
@@ -438,7 +437,7 @@ class TestCudaOps(unittest.TestCase):
 #        value_cache = np.zeros([6,24576]).astype(np.float16)
 #        block_tables = np.array([[0,1,2],[3,4,5]]).astype(np.int32)
 #        context_lens = np.array([83, 65]).astype(np.int32)
-        pdb.set_trace()
+#        pdb.set_trace()
         query_2x1x6x16 = np.load('q_2x1x6x16.npy')
         key_2x1x6x16 = np.load('k_2x1x6x16.npy')
         value_2x1x6x16 = np.load('v_2x1x6x16.npy')
@@ -455,16 +454,63 @@ class TestCudaOps(unittest.TestCase):
         slot_mappings = np.array([250, 500]).astype(np.int32)
         is_prompt = np.array([0]).astype(np.int32)
         y = sess.run(None, {'query':query, 'key':key, 'value':value, 'key_cache':key_cache, 'value_cache':value_cache, 'block_tables':block_tables, 'slot_mappings':slot_mappings, 'context_lens':context_lens, 'is_prompt':is_prompt})
-    #    q_pt = torch.from_numpy(query.reshape(3, 127, 32, 16))
-    #    k_pt = torch.from_numpy(key.reshape(3, 127, 32, 16))
-    #    v_pt = torch.from_numpy(value.reshape(3, 127, 32, 16))
-    #    out, attention = attention_ref(q_pt, k_pt, v_pt, causal=True, window_size=[-1, 0])
-    #    y_np = np.array(y).reshape(381, 512)
-    #    out_np = out.reshape(381, 512).numpy()
-    #    #assert np.allclose(y_np, out_np, rtol=1e-3, atol=1e-3, equal_nan=True)
-    #    print(np.allclose(y_np, out_np, rtol=1e-3, atol=1e-3, equal_nan=True))
-    #    print(y_np)
-    #    print(out_np)
+        print('Y=')
+        print(y)
+
+    def test_cuda_paged_attention_decoding2(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = self._create_pagedattention_test_model(batch_size=2, total_seqlen=0, hidden_size=96, slot_cnt_per_block=256, 
+                                                       block_cnt_per_layer=6, block_cnt_needed_by_longest_seq=3, num_heads=6, num_kv_heads=6, head_size=16)
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(),
+                                     so,
+                                     providers=['CUDAExecutionProvider'])
+
+        torch.random.manual_seed(0)                            
+        seqlen_k = 127
+        batch_size = 2
+        nheads = 6
+        d = 16
+        paged_kv_block_size = 256
+
+        query = np.random.randn(batch_size, nheads*d).astype(np.float16)
+        key = np.random.randn(batch_size, nheads*d).astype(np.float16)
+        value = np.random.randn(batch_size, nheads*d).astype(np.float16)
+        (k_cache, v_cache, block_table, k_cache_paged, v_cache_paged, num_blocks) = generate_block_kvcache(
+            seqlen_k, paged_kv_block_size, batch_size, nheads, d, 'cuda', torch.float16)
+
+        key_cache = k_cache_paged.cpu().numpy().reshape(6, 24576)
+        value_cache = v_cache_paged.cpu().numpy().reshape(6, 24576)    
+        block_tables = block_table.cpu().numpy()
+        cache_seqlens = torch.randint(1, seqlen_k, (batch_size,), dtype=torch.int32)
+        context_lens = cache_seqlens.numpy()
+        slot_mappings = np.array([250, 500]).astype(np.int32)
+        is_prompt = np.array([0]).astype(np.int32)
+        y = sess.run(None, {'query':query, 'key':key, 'value':value, 'key_cache':key_cache, 'value_cache':value_cache, 'block_tables':block_tables, 'slot_mappings':slot_mappings, 'context_lens':context_lens, 'is_prompt':is_prompt})
+        #print('Y=')
+        #print(y)
+
+        q = torch.from_numpy(query.reshape(batch_size, 1, nheads, d))
+        k = torch.from_numpy(key.reshape(batch_size, 1, nheads, d))
+        v = torch.from_numpy(value.reshape(batch_size, 1, nheads, d))
+
+        arange = rearrange(torch.arange(seqlen_k), 's->1 s')
+        cache_seqlens_expand = rearrange(cache_seqlens, 'b->b 1')
+        key_padding_mask = arange < cache_seqlens_expand + 1
+        update_mask = torch.logical_and(cache_seqlens_expand <= arange, arange < cache_seqlens_expand + 1)
+        k_cache_cpu = k_cache.cpu()
+        v_cache_cpu = v_cache.cpu()
+        k_cache_cpu[update_mask] = rearrange(k, 'b s ... -> (b s) ...')
+        v_cache_cpu[update_mask] = rearrange(v, 'b s ... -> (b s) ...')
+        out_ref, _ = attention_ref(q, k_cache_cpu, v_cache_cpu, None, key_padding_mask, 0.0, None, causal=True)
+        #print('out_ref=')
+        #print(out_ref)
+        y_np = np.array(y).reshape(2, 96)
+        out_np = out_ref.reshape(2, 96).numpy()
+        print(np.max(np.absolute(y_np - out_np)))
+        #print(out_np)
+        #assert np.allclose(y_np, out_np, rtol=1e-3, atol=1e-3, equal_nan=True)
+
 
 if __name__ == "__main__":
     unittest.main()
