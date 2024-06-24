@@ -174,6 +174,8 @@ public:
   virtual int64_t NumberOfElement() const = 0;
   virtual const void* DataRaw() const = 0;
   virtual size_t SizeInBytes() const = 0;
+
+  virtual std::byte* AllocateRaw(const std::vector<int64_t>& shape) = 0;
 };
 
 template <typename T>
@@ -281,6 +283,10 @@ class Tensor : public TensorBase {
     else
 #endif
       return static_cast<TT*>(buffer);
+  }
+
+  std::byte* AllocateRaw(const std::vector<int64_t>& shape) override {
+    return reinterpret_cast<std::byte*>(Allocate(shape));
   }
 
   const Span<T>& AsSpan() {
@@ -448,6 +454,10 @@ class Tensor<std::string> : public TensorBase {
     return ss[0].size();
   }
 
+  std::byte* AllocateRaw(const std::vector<int64_t>& shape) override {
+    ORTX_CXX_API_THROW("AllocateRaw() not supported for string tensor", ORT_RUNTIME_EXCEPTION);
+  }
+
   void SetStringOutput(const strings& ss, const std::vector<int64_t>& dims) {
     storage_->SetStringOutput(ss, dims);
   }
@@ -522,6 +532,10 @@ class Tensor<std::string_view> : public TensorBase {
     return ss[0].size();
   }
 
+  std::byte* AllocateRaw(const std::vector<int64_t>& shape) override {
+    ORTX_CXX_API_THROW("AllocateRaw() not supported for string tensor", ORT_RUNTIME_EXCEPTION);
+  }
+  
   void SetStringOutput(const strings& ss, const std::vector<int64_t>& dims) {
     storage_->SetStringOutput(ss, dims);
   }

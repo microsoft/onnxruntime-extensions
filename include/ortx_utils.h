@@ -5,6 +5,8 @@
 
 #include "ortx_types.h"
 
+const int API_VERSION = 1;
+
 typedef enum {
   kOrtxKindUnknown = 0,
 
@@ -14,7 +16,10 @@ typedef enum {
   kOrtxKindTokenId2DArray = 0x778A,
   kOrtxKindDetokenizerCache = 0x778B,
   kOrtxKindProcessor = 0x778C,
-  kOrtxKindProcessorResult = 0x778D,
+  kOrtxKindRawImages = 0x778D,
+  kOrtxKindImageProcessorResult = 0x778E,
+  kOrtxKindProcessorResult = 0x778F,
+  kOrtxKindTensor = 0x7790,
   kOrtxKindEnd = 0x7999
 } extObjectKind_t;
 
@@ -24,7 +29,7 @@ typedef struct {
   int ext_kind_;
 } OrtxObject;
 
-const int API_VERSION = 1;
+typedef OrtxObject OrtxTensor;
 
 // C, instead of C++ doesn't cast automatically,
 // so we need to use a macro to cast the object to the correct type
@@ -71,6 +76,41 @@ extError_t ORTX_API_CALL OrtxDispose(OrtxObject** object);
  * \return Error code indicating the success or failure of the operation
  */
 extError_t ORTX_API_CALL OrtxDisposeOnly(OrtxObject* object);
+
+/** \brief Get the data from the tensor
+ *
+ * \param tensor The tensor object
+ * \param data Pointer to store the data
+ * \param shape Pointer to store the shape
+ * \param num_dims Pointer to store the number of dimensions
+ * \return Error code indicating the success or failure of the operation
+ */
+extError_t ORTX_API_CALL OrtxGetTensorData(OrtxTensor* tensor, const void** data, const int64_t** shape,
+                                           size_t* num_dims);
+/**
+ * \brief Get the data from the tensor as int64_t type
+ *
+ * \param tensor The tensor object
+ * \param data Pointer to store the data
+ * \param shape Pointer to store the shape
+ * \param num_dims Pointer to store the number of dimensions
+ * \return Error code indicating the success or failure of the operation
+ */
+
+extError_t ORTX_API_CALL OrtxGetTensorDataInt64(OrtxTensor* tensor, const int64_t** data, const int64_t** shape,
+                                                size_t* num_dims);
+
+/**
+ * \brief Get the data from the tensor as float type
+ *
+ * \param tensor The tensor object
+ * \param data Pointer to store the data
+ * \param shape Pointer to store the shape
+ * \param num_dims Pointer to store the number of dimensions
+ * \return Error code indicating the success or failure of the operation
+ */
+extError_t ORTX_API_CALL OrtxGetTensorDataFloat(OrtxTensor* tensor, const float** data, const int64_t** shape,
+                                                size_t* num_dims);
 
 #ifdef __cplusplus
 }
