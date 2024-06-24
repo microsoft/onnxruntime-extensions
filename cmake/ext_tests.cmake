@@ -145,8 +145,8 @@ if (OCOS_ENABLE_C_API)
     "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>"
     "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
 
-  if (ORTX_TEST_DATA2)
-    file(TO_NATIVE_PATH "${ORTX_TEST_DATA2}/tests/data2" _TEST_DATA2)
+  if (ORTX_DATA_PATH)
+    file(TO_NATIVE_PATH "${ORTX_DATA_PATH}/tests/data2" _TEST_DATA2)
     add_custom_command(TARGET pp_api_test POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E create_symlink ${_TEST_DATA2} ${onnxruntime_extensions_BINARY_DIR}/data2)
   endif()
