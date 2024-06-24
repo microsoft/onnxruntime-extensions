@@ -16,10 +16,10 @@ namespace Custom {
 
 class OrtKernelContextStorage : public ITensorStorage {
  public:
-  OrtKernelContextStorage(const OrtW::CustomOpApi& api_,
+  OrtKernelContextStorage(const OrtW::CustomOpApi& custom_op_api,
                           OrtKernelContext& ctx,
                           size_t indice,
-                          bool is_input) : api_(api_), ctx_(ctx), indice_(indice) {
+                          bool is_input) : api_(custom_op_api), ctx_(ctx), indice_(indice) {
     if (is_input) {
       auto input_count = api_.KernelContext_GetInputCount(&ctx);
       if (indice >= input_count) {
@@ -66,18 +66,18 @@ class OrtKernelContextStorage : public ITensorStorage {
   std::optional<std::vector<int64_t>> shape_;
 };
 
-static std::string get_mem_type(const OrtW::CustomOpApi& api_,
+static std::string get_mem_type(const OrtW::CustomOpApi& custom_op_api,
                                 OrtKernelContext& ctx,
                                 size_t indice,
                                 bool is_input) {
   std::string output = "Cpu";
   if (is_input) {
-    const OrtValue* const_value = api_.KernelContext_GetInput(&ctx, indice);
+    const OrtValue* const_value = custom_op_api.KernelContext_GetInput(&ctx, indice);
     const OrtMemoryInfo* mem_info = {};
-    api_.ThrowOnError(api_.GetOrtApi().GetTensorMemoryInfo(const_value, &mem_info));
+    custom_op_api.ThrowOnError(custom_op_api.GetOrtApi().GetTensorMemoryInfo(const_value, &mem_info));
     if (mem_info) {
       const char* mem_type = nullptr;
-      api_.ThrowOnError(api_.GetOrtApi().MemoryInfoGetName(mem_info, &mem_type));
+      custom_op_api.ThrowOnError(custom_op_api.GetOrtApi().MemoryInfoGetName(mem_info, &mem_type));
       if (mem_type) {
         output = mem_type;
       }
@@ -89,11 +89,11 @@ static std::string get_mem_type(const OrtW::CustomOpApi& api_,
 template <typename T>
 class OrtTensor : public Tensor<T> {
  public:
-  OrtTensor(const OrtW::CustomOpApi& api,
+  OrtTensor(const OrtW::CustomOpApi& custom_op_api,
             OrtKernelContext& ctx,
             size_t indice,
-            bool is_input) : Tensor<T>(std::make_unique<OrtKernelContextStorage>(api, ctx, indice, is_input)),
-                             mem_type_(get_mem_type(api, ctx, indice, is_input)) {
+            bool is_input) : Tensor<T>(std::make_unique<OrtKernelContextStorage>(custom_op_api, ctx, indice, is_input)),
+                             mem_type_(get_mem_type(custom_op_api, ctx, indice, is_input)) {
   }
 
   bool IsCpuTensor() const {
@@ -107,10 +107,10 @@ class OrtTensor : public Tensor<T> {
 class OrtStringTensorStorage : public IStringTensorStorage<std::string> {
  public:
   using strings = std::vector<std::string>;
-  OrtStringTensorStorage(const OrtW::CustomOpApi& api_,
+  OrtStringTensorStorage(const OrtW::CustomOpApi& custom_op_api,
                          OrtKernelContext& ctx,
                          size_t indice,
-                         bool is_input) : api_(api_), ctx_(ctx), indice_(indice) {
+                         bool is_input) : api_(custom_op_api), ctx_(ctx), indice_(indice) {
     if (is_input) {
       auto input_count = api_.KernelContext_GetInputCount(&ctx_);
       if (indice >= input_count) {
@@ -197,10 +197,10 @@ class OrtStringTensorStorage : public IStringTensorStorage<std::string> {
 class OrtStringViewTensorStorage : public IStringTensorStorage<std::string_view> {
  public:
   using strings = std::vector<std::string_view>;
-  OrtStringViewTensorStorage(const OrtW::CustomOpApi& api_,
+  OrtStringViewTensorStorage(const OrtW::CustomOpApi& custom_op_api,
                              OrtKernelContext& ctx,
                              size_t indice,
-                             bool is_input) : api_(api_), ctx_(ctx), indice_(indice) {
+                             bool is_input) : api_(custom_op_api), ctx_(ctx), indice_(indice) {
     if (is_input) {
       auto input_count = api_.KernelContext_GetInputCount(&ctx_);
       if (indice >= input_count) {
@@ -277,11 +277,11 @@ class OrtStringViewTensorStorage : public IStringTensorStorage<std::string_view>
 template <>
 class OrtTensor<std::string> : public Tensor<std::string> {
  public:
-  OrtTensor(const OrtW::CustomOpApi& api,
+  OrtTensor(const OrtW::CustomOpApi& custom_op_api,
             OrtKernelContext& ctx,
             size_t indice,
-            bool is_input) : Tensor<std::string>(std::make_unique<OrtStringTensorStorage>(api, ctx, indice, is_input)),
-                             mem_type_(get_mem_type(api, ctx, indice, is_input)) {}
+            bool is_input) : Tensor<std::string>(std::make_unique<OrtStringTensorStorage>(custom_op_api, ctx, indice, is_input)),
+                             mem_type_(get_mem_type(custom_op_api, ctx, indice, is_input)) {}
 
   bool IsCpuTensor() const {
     return mem_type_ == "Cpu";
@@ -294,11 +294,11 @@ class OrtTensor<std::string> : public Tensor<std::string> {
 template <>
 class OrtTensor<std::string_view> : public Tensor<std::string_view> {
  public:
-  OrtTensor(const OrtW::CustomOpApi& api_,
+  OrtTensor(const OrtW::CustomOpApi& custom_op_api,
             OrtKernelContext& ctx,
             size_t indice,
-            bool is_input) : Tensor<std::string_view>(std::make_unique<OrtStringViewTensorStorage>(api_, ctx, indice, is_input)),
-                             mem_type_(get_mem_type(api_, ctx, indice, is_input)) {}
+            bool is_input) : Tensor<std::string_view>(std::make_unique<OrtStringViewTensorStorage>(custom_op_api, ctx, indice, is_input)),
+                             mem_type_(get_mem_type(custom_op_api, ctx, indice, is_input)) {}
 
   bool IsCpuTensor() const {
     return mem_type_ == "Cpu";
@@ -316,15 +316,15 @@ using TensorBasePtrs = std::vector<TensorBasePtr>;
 
 // Represent variadic input or output
 struct Variadic : public Arg {
-  Variadic(const OrtW::CustomOpApi& api,
+  Variadic(const OrtW::CustomOpApi& custom_op_api,
            OrtKernelContext& ctx,
            size_t indice,
-           bool is_input) : api_(api), ctx_(ctx), indice_(indice), mem_type_(get_mem_type(api, ctx, indice, is_input)) {
+           bool is_input) : api_(custom_op_api), ctx_(ctx), indice_(indice), mem_type_(get_mem_type(custom_op_api, ctx, indice, is_input)) {
 #if ORT_API_VERSION < 14
     ORTX_CXX_API_THROW("Variadic input or output only supported after onnxruntime 1.14", ORT_RUNTIME_EXCEPTION);
 #endif
     if (is_input) {
-      auto input_count = api.KernelContext_GetInputCount(&ctx_);
+      auto input_count = api_.KernelContext_GetInputCount(&ctx_);
       for (size_t ith_input = 0; ith_input < input_count; ++ith_input) {
         auto* const_value = api_.KernelContext_GetInput(&ctx_, ith_input);
         auto* info = api_.GetTensorTypeAndShape(const_value);
@@ -333,40 +333,40 @@ struct Variadic : public Arg {
         TensorBasePtr tensor;
         switch (type) {
           case ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL:
-            tensor = std::make_unique<Custom::OrtTensor<bool>>(api, ctx, ith_input, true);
+            tensor = std::make_unique<Custom::OrtTensor<bool>>(api_, ctx, ith_input, true);
             break;
           case ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
-            tensor = std::make_unique<Custom::OrtTensor<float>>(api, ctx, ith_input, true);
+            tensor = std::make_unique<Custom::OrtTensor<float>>(api_, ctx, ith_input, true);
             break;
           case ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE:
-            tensor = std::make_unique<Custom::OrtTensor<double>>(api, ctx, ith_input, true);
+            tensor = std::make_unique<Custom::OrtTensor<double>>(api_, ctx, ith_input, true);
             break;
           case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
-            tensor = std::make_unique<Custom::OrtTensor<uint8_t>>(api, ctx, ith_input, true);
+            tensor = std::make_unique<Custom::OrtTensor<uint8_t>>(api_, ctx, ith_input, true);
             break;
           case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8:
-            tensor = std::make_unique<Custom::OrtTensor<int8_t>>(api, ctx, ith_input, true);
+            tensor = std::make_unique<Custom::OrtTensor<int8_t>>(api_, ctx, ith_input, true);
             break;
           case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16:
-            tensor = std::make_unique<Custom::OrtTensor<uint16_t>>(api, ctx, ith_input, true);
+            tensor = std::make_unique<Custom::OrtTensor<uint16_t>>(api_, ctx, ith_input, true);
             break;
           case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16:
-            tensor = std::make_unique<Custom::OrtTensor<int16_t>>(api, ctx, ith_input, true);
+            tensor = std::make_unique<Custom::OrtTensor<int16_t>>(api_, ctx, ith_input, true);
             break;
           case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32:
-            tensor = std::make_unique<Custom::OrtTensor<uint32_t>>(api, ctx, ith_input, true);
+            tensor = std::make_unique<Custom::OrtTensor<uint32_t>>(api_, ctx, ith_input, true);
             break;
           case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
-            tensor = std::make_unique<Custom::OrtTensor<int32_t>>(api, ctx, ith_input, true);
+            tensor = std::make_unique<Custom::OrtTensor<int32_t>>(api_, ctx, ith_input, true);
             break;
           case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64:
-            tensor = std::make_unique<Custom::OrtTensor<uint64_t>>(api, ctx, ith_input, true);
+            tensor = std::make_unique<Custom::OrtTensor<uint64_t>>(api_, ctx, ith_input, true);
             break;
           case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
-            tensor = std::make_unique<Custom::OrtTensor<int64_t>>(api, ctx, ith_input, true);
+            tensor = std::make_unique<Custom::OrtTensor<int64_t>>(api_, ctx, ith_input, true);
             break;
           case ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING:
-            tensor = std::make_unique<Custom::OrtTensor<std::string>>(api, ctx, ith_input, true);
+            tensor = std::make_unique<Custom::OrtTensor<std::string>>(api_, ctx, ith_input, true);
             break;
           default:
             ORTX_CXX_API_THROW("unknow input type", ORT_RUNTIME_EXCEPTION);
@@ -411,7 +411,7 @@ struct Variadic : public Arg {
 
 class OrtGraphKernelContext : public KernelContext {
  public:
-  OrtGraphKernelContext(const OrtApi& api_, const OrtKernelContext& ctx) : api_(api_) {
+  OrtGraphKernelContext(const OrtApi& ort_api, const OrtKernelContext& ctx) : api_(ort_api) {
     OrtMemoryInfo* info;
     OrtW::ThrowOnError(api_, api_.CreateCpuMemoryInfo(OrtAllocatorType::OrtArenaAllocator, OrtMemType::OrtMemTypeDefault, &info));
     OrtW::ThrowOnError(api_, api_.KernelContext_GetAllocator(&ctx, info, &allocator_));
@@ -457,7 +457,7 @@ class OrtGraphCudaKernelContext : public CUDAKernelContext {
  public:
   static const int cuda_resource_ver = 1;
 
-  OrtGraphCudaKernelContext(const OrtApi& api, const OrtKernelContext& ctx) : api_(api) {
+  OrtGraphCudaKernelContext(const OrtApi& ort_api, const OrtKernelContext& ctx) : api_(ort_api) {
     api.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::cuda_handle_t, &cuda_stream_);
     if (!cuda_stream_) {
       ORTX_CXX_API_THROW("Failed to fetch cuda stream from context", ORT_RUNTIME_EXCEPTION);
@@ -943,7 +943,7 @@ struct OrtLiteCustomFunc : public OrtLiteCustomOp {
 
 class OrtAttributeReader {
  public:
-  OrtAttributeReader(const OrtApi& api, const OrtKernelInfo& info) : base_kernel_(api, info) {
+  OrtAttributeReader(const OrtApi& ort_api, const OrtKernelInfo& info) : base_kernel_(ort_api, info) {
   }
 
   template <class T>
