@@ -476,7 +476,7 @@ class OrtGraphCudaKernelContext : public CUDAKernelContext {
     OrtMemoryInfo* info;
     OrtW::ThrowOnError(api_, api_.CreateCpuMemoryInfo(OrtAllocatorType::OrtArenaAllocator, OrtMemType::OrtMemTypeDefault, &info));
     OrtW::ThrowOnError(api_, api_.KernelContext_GetAllocator(&ctx, info, &cpu_allocator_));
-    api.ReleaseMemoryInfo(info);
+    api_.ReleaseMemoryInfo(info);
 
     OrtMemoryInfo* cuda_mem_info;
     OrtW::ThrowOnError(api_, api_.CreateMemoryInfo("Cuda", OrtAllocatorType::OrtArenaAllocator, device_id_, OrtMemType::OrtMemTypeDefault, &cuda_mem_info));
