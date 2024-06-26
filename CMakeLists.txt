@@ -36,6 +36,12 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
   cmake_policy(SET CMP0077 NEW)
 endif()
 
+# Avoid warning of Calling FetchContent_Populate(GSL) is deprecated temporarily
+# TODO: find a better way to handle the header-only 3rd party deps
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.30.0")
+  cmake_policy(SET CMP0169 OLD)
+endif()
+
 # Needed for Java
 set(CMAKE_C_STANDARD 99)
 
@@ -90,12 +96,11 @@ set(OCOS_ONNXRUNTIME_PKG_URI "" CACHE STRING
   "Specify the onnxruntime C++ shared library zip package path, like ./onnxruntime-win-x64-1.16.0.zip")
 set(OCOS_BUILD_PRESET "" CACHE STRING
   "Specify the build preset cmake settings file path, like 'token_api_only' which includes ./cmake/presets/token_api_only.cmake")
-# TODO: Remove the following statements if AzureOp build is enabled by default.
-# If build_buildid environment varaible is set, which means this is a CI build, then always enable AzureOp.
-# or it is enabled when OCOS_ENABLE_AZURE is set, which means the user explicitly enables it.
-if ((DEFINED ENV{BUILD_BUILDID}) OR (DEFINED ENV{OCOS_ENABLE_AZURE}))
+
+# AzureOp can be enabled by environment varaible OCOS_ENABLE_AZURE == 1
+if (DEFINED ENV{OCOS_ENABLE_AZURE})
   set(OCOS_ENABLE_AZURE ON CACHE INTERNAL "" FORCE)
-  message(STATUS "=> AzureOp is enabled by default.")
+  message(STATUS "=> AzureOp is enabled env variable.")
 endif()
 
 function(disable_all_operators)
