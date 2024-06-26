@@ -483,6 +483,8 @@ class TestCudaOps(unittest.TestCase):
         value_cache_6x256x6x16 = np.random.randn(6, paged_kv_block_size, nheads, d).astype(np.float16)
         key_cache = key_cache_6x256x6x16.reshape(6, paged_kv_block_size * nheads * d)
         value_cache = value_cache_6x256x6x16.reshape(6, paged_kv_block_size * nheads * d)
+#        block_tables = np.random.permutation(6).astype(np.int32).reshape(2,3)
+#        context_lens = np.random.randint(1, seqlen_k, size=(batch_size,)).astype(np.int32)
 #        (k_cache, v_cache, block_table, k_cache_paged, v_cache_paged, num_blocks) = generate_block_kvcache(
 #            seqlen_k, paged_kv_block_size, batch_size, nheads, d, 'cuda', torch.float16)
 #        key_cache = k_cache_paged.cpu().numpy().reshape(6, 24576)
@@ -501,8 +503,8 @@ class TestCudaOps(unittest.TestCase):
 #        query = np.reshape(query_2x1x6x16, (2, 96))
 #        key = np.reshape(key_2x1x6x16, (2, 96))
 #        value = np.reshape(value_2x1x6x16, (2, 96))
-#        key_cache = np.reshape(key_cache_6x256x6x16, (6, 24576))
-#        value_cache = np.reshape(value_cache_6x256x6x16, (6, 24576))
+        key_cache = np.reshape(key_cache_6x256x6x16, (6, 24576))
+        value_cache = np.reshape(value_cache_6x256x6x16, (6, 24576))
 
         slot_mappings = np.array([250, 500]).astype(np.int32)
         is_prompt = np.array([0]).astype(np.int32)
@@ -538,6 +540,7 @@ class TestCudaOps(unittest.TestCase):
         #out_np2 = out_ref2.reshape(2, 96).numpy()
         #print(y_np-out_np)
         print(np.max(np.absolute(y_np - out_np)))
+        #print(query)
         #print(out_np)
         assert np.allclose(y_np, out_np, rtol=1e-3, atol=1e-3, equal_nan=True)
         #assert np.allclose(y_np, out_np2, rtol=1e-3, atol=1e-3, equal_nan=True)
