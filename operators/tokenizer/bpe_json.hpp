@@ -36,12 +36,18 @@ class TokenJsonConfig final {
     vocab_path_ = vocab_file_path.string();
     std::ifstream vocab_fs = vocab_file_path.open();
     if (!vocab_fs.is_open()) {
-      // No tokenizer.json file present; search for .tiktoken file
-      for (const auto& entry : std::filesystem::directory_iterator(json_path)) {
-        if (entry.path().extension() == ".tiktoken") {
-            vocab_path_ = entry.path().string();
-            break;
-        }
+      // No tokenizer.json file present; search for tokenizer module file
+      auto module_file_path = path(json_path) / "tokenizer_module.json";
+      module_path_ = module_file_path.string();
+      std::ifstream tok_module_ifs = module_file_path.open();
+      if (!tok_module_ifs.is_open()) {
+        return OrtxStatus(kOrtxErrorInvalidFile, "No tokenizer.json or tokenizer_module.json file found.");
+      } else {
+        nlohmann::json tok_module_json_config = nlohmann::json::parse(tok_module_ifs);
+        auto tiktoken_path = tok_module_json_config.value("tiktoken_file", "");
+        //auto vocab_file_path = path(json_path) / tiktoken_path;
+        vocab_file_path = path(json_path) / "cl100k_base.tiktoken";
+        vocab_path_ = vocab_file_path.string();
       }
     }
     nlohmann::json json_config = nlohmann::json::parse(ifs);
@@ -79,6 +85,10 @@ class TokenJsonConfig final {
     return vocab_path_;
   }
 
+  const std::string& GetTikTokenModuleFile() const {
+    return module_path_;
+  }
+
  public:
   bool add_bos_token_{};
   bool add_eos_token_{};
@@ -93,6 +103,7 @@ class TokenJsonConfig final {
 
  private:
   std::string vocab_path_;
+  std::string module_path_;
 };
 
 }  // namespace ort_extensions::bpe

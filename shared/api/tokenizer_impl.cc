@@ -32,11 +32,11 @@ OrtxStatus TokenizerImpl::Load(const std::string& dir) {
 
     // load the tokenizer from a config
     status = tokenizer_->Load(*tok_config_);
-  }
-  
-  if (status.IsOk()) {
-    detokenizer_ = std::make_unique<BpeStreamingDecoder>();
-    status = detokenizer_->Load(tok_config_, *tokenizer_);
+
+    if (status.IsOk()) {
+      detokenizer_ = std::make_unique<BpeStreamingDecoder>();
+      status = detokenizer_->Load(tok_config_, *tokenizer_);
+    }
   }
 
   return status;

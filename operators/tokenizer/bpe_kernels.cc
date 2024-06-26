@@ -647,10 +647,7 @@ OrtxStatus JsonFastTokenizer::Compute(const ortc::Tensor<std::string>& input,
 TikTokenizer::TikTokenizer() : KernelBpeTokenizer(kGPT2Configuration) {}
 
 std::string TikTokenizer::TokenBytesToString(std::vector<uint8_t>& bytes) {
-    std::string result;
-    for (auto c : bytes) {
-        result += bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(c)];
-    }
+    std::string result(bytes.begin(), bytes.end());
     return result;
 }
 
@@ -675,9 +672,15 @@ struct VectorEqual {
 
 OrtxStatus TikTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& config) {
   std::string voc_file = config.GetVocabDataFile();
+  std::string module_file = config.GetTikTokenModuleFile();
   std::ifstream ifs = path(voc_file).open();
   if (!ifs.is_open()) {
     return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open vocab file: " + voc_file);
+  }
+
+  std::ifstream module_ifs = path(module_file).open();
+  if (!module_ifs.is_open()) {
+    return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open module file: " + module_file);
   }
 
   std::unordered_map<std::vector<uint8_t>, uint32_t, VectorHash, VectorEqual> bpe_ranks;
@@ -702,6 +705,8 @@ OrtxStatus TikTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& config
   std::vector<std::pair<std::string, std::string>> merges;
 
   std::vector<std::tuple<std::vector<uint8_t>, std::vector<uint8_t>, uint32_t>> byte_merges;
+
+  bbpe_tokenizer_ = std::make_unique<BpeModel>();
   
   for (const auto& item : bpe_ranks) {
     std::vector<uint8_t> token = item.first;
@@ -757,12 +762,43 @@ OrtxStatus TikTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& config
   // re-bind the configuration object
   bpe_conf_ = json_conf_;
 
-  bbpe_tokenizer_ = std::make_unique<BpeModel>();
   auto status = bbpe_tokenizer_->Load(vocab,
                                       merges,
                                       bpe_conf_.get().GetSpecialTokens().c_str(),
                                       IsSpmModel(ModelName()));
 
+  nlohmann::json tok_json;
+  module_ifs >> tok_json;
+  
+  auto added_tokens = tok_json.find("added_tokens");
+  if (added_tokens != tok_json.end()) {
+    for (const auto& token : *added_tokens) {
+      bpe::AddedToken added_token;
+      added_token.id_ = token.value("id", 0);
+      added_token.token_type_ = token.value("__type", "");
+      added_token.content_ = token.value("content", "");
+      added_token.lstrip_ = token.value("lstrip", false);
+      added_token.normalized_ = token.value("normalized", false);
+      added_token.rstrip_ = token.value("rstrip", false);
+      added_token.single_word_ = token.value("single_word", false);
+      added_token.special_ = token.value("special", false);
+
+      added_tokens_.emplace_back(added_token);
+      if (added_token.content_ == config.bos_token_) {
+        bos_token_id_ = added_token.id_;
+      } else if (added_token.content_ == config.eos_token_) {
+        eos_token_id_ = added_token.id_;
+      } else if (added_token.content_ == config.pad_token_) {
+        pad_token_id_ = added_token.id_;
+      }
+    }
+  }
+
+  if (!status.IsOk()) {
+    return status;
+  }
+
+  status = bbpe_tokenizer_->LoadAddedTokens(added_tokens_);
   if (!status.IsOk()) {
     return status;
   }
