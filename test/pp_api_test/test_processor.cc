@@ -7,7 +7,7 @@
 #include <filesystem>
 
 #include "gtest/gtest.h"
-#include "ortx_c_helper.h"
+#include "ortx_cpp_helper.h"
 #include "shared/api/image_processor.h"
 
 using namespace ort_extensions;
@@ -85,18 +85,18 @@ TEST(ProcessorTest, TestClipImageProcessing) {
   }
   ASSERT_EQ(err, kOrtxOK);
 
-  OrtxObjectPtr<OrtxImageProcessorResult> result;
+  OrtxObjectPtr<OrtxTensorResult> result;
   err = OrtxImagePreProcess(processor.get(), raw_images.get(), ort_extensions::ptr(result));
   ASSERT_EQ(err, kOrtxOK);
 
-  OrtxObjectPtr<OrtxTensor> tensor;
-  err = OrtxImageGetTensorResult(result.get(), 0, ort_extensions::ptr(tensor));
+  OrtxTensor* tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, &tensor);
   ASSERT_EQ(err, kOrtxOK);
 
   const float* data{};
   const int64_t* shape{};
   size_t num_dims;
-  err = OrtxGetTensorDataFloat(tensor.get(), &data, &shape, &num_dims);
+  err = OrtxGetTensorDataFloat(tensor, &data, &shape, &num_dims);
   ASSERT_EQ(err, kOrtxOK);
   ASSERT_EQ(num_dims, 4);
 }

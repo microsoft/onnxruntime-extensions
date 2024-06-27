@@ -4,7 +4,9 @@
 #pragma once
 
 #include "ortx_tokenizer.h"
+// make sure the C only compiler compatibility only.
 #include "ortx_processor.h"
+#include "ortx_extractor.h"
 
 
 #ifdef __cplusplus
