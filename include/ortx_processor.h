@@ -10,7 +10,6 @@
 // typedefs to create/dispose function flood, and to make the API more C++ friendly with less casting
 typedef OrtxObject OrtxProcessor;
 typedef OrtxObject OrtxRawImages;
-typedef OrtxObject OrtxImageProcessorResult;
 
 #ifdef __cplusplus
 extern "C" {
@@ -52,24 +51,16 @@ extError_t ORTX_API_CALL OrtxLoadImages(OrtxRawImages** images, const char** ima
  * @return An `extError_t` value indicating the success or failure of the preprocessing operation.
  */
 extError_t ORTX_API_CALL OrtxImagePreProcess(OrtxProcessor* processor, OrtxRawImages* images,
-                                             OrtxImageProcessorResult** result);
+                                             OrtxTensorResult** result);
 
-/**
- * @brief Retrieves the image processor result at the specified index.
- *
- * @param result Pointer to the OrtxImageProcessorResult structure to store the result.
- * @param index The index of the result to retrieve.
- * @return extError_t The error code indicating the success or failure of the operation.
- */
-extError_t ORTX_API_CALL OrtxImageGetTensorResult(OrtxImageProcessorResult* result, size_t index, OrtxTensor** tensor);
-
-/** \brief Clear the outputs of the processor
- *
- * \param processor The processor object
- * \param result The result object to clear
- * \return Error code indicating the success or failure of the operation
- */
-extError_t ORTX_API_CALL OrtxClearOutputs(OrtxProcessor* processor, OrtxImageProcessorResult* result);
+// /**
+//  * @brief Retrieves the image processor result at the specified index.
+//  *
+//  * @param result Pointer to the OrtxImageProcessorResult structure to store the result.
+//  * @param index The index of the result to retrieve.
+//  * @return extError_t The error code indicating the success or failure of the operation.
+//  */
+// extError_t ORTX_API_CALL OrtxImageGetTensorResult(OrtxImageProcessorResult* result, size_t index, OrtxTensor** tensor);
 
 #ifdef __cplusplus
 }

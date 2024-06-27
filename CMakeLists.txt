@@ -442,7 +442,9 @@ endif()
 if(OCOS_ENABLE_BERT_TOKENIZER)
   # Bert
   set(_HAS_TOKENIZER ON)
-  file(GLOB bert_TARGET_SRC "operators/tokenizer/basic_tokenizer.*" "operators/tokenizer/bert_tokenizer.*" "operators/tokenizer/bert_tokenizer_decoder.*")
+  file(GLOB bert_TARGET_SRC "operators/tokenizer/basic_tokenizer.*"
+                            "operators/tokenizer/bert_tokenizer.*"
+                            "operators/tokenizer/bert_tokenizer_decoder.*")
   list(APPEND TARGET_SRC ${bert_TARGET_SRC})
 endif()
 
@@ -820,7 +822,9 @@ if(OCOS_ENABLE_AZURE)
 endif()
 
 target_compile_definitions(ortcustomops PUBLIC ${OCOS_COMPILE_DEFINITIONS})
+target_include_directories(ortcustomops PUBLIC "$<TARGET_PROPERTY:noexcep_operators,INTERFACE_INCLUDE_DIRECTORIES>")
 target_include_directories(ortcustomops PUBLIC "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
+
 target_link_libraries(ortcustomops PUBLIC ocos_operators)
 
 if(_BUILD_SHARED_LIBRARY)
@@ -840,7 +844,8 @@ if(_BUILD_SHARED_LIBRARY)
   standardize_output_folder(extensions_shared)
 
   if(LINUX OR ANDROID)
-    set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
+    set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS
+      " -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
     # strip if not a debug build
     if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
       set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-s")
