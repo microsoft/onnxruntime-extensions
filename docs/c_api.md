@@ -1,13 +1,19 @@
 # ONNXRuntime Extensions C ABI
 
-ONNXRuntime Extensions supports C style ABI to do pre-processing, it supports tokenizer, image-processing and speech  feature extraction and etc. You can compile the ONNXRuntime Extensions as a static library or dynamic library to access these APIs.
+ONNXRuntime Extensions supports a C-style ABI for pre-processing. It provides support for tokenization, image processing, speech feature extraction, and more. You can compile the ONNXRuntime Extensions as either a static library or a dynamic library to access these APIs.
 
-the C ABI header files are named as ortx_*.h in the include folder, and there are 3 types data processing API:
-- ortx_tokenizer.h: the tokenization for LLM model
-- ortx_processor.h: the image processing APIs for multimodel
-- ortx_extraction.h: the speech feature extraction for audio data processing to help Whisper model
+The C ABI header files are named as `ortx_*.h` and can be found in the include folder. There are three types of data processing APIs available:
 
-### ABI QuickStart
+- `ortx_tokenizer.h`: Provides tokenization for LLM models.
+- `ortx_processor.h`: Offers image processing APIs for multimodels.
+- `ortx_extraction.h`: Provides speech feature extraction for audio data processing to assist the Whisper model.
 
-Most API accept the raw data input like audio, image compressed binary format, or UTF-8 encoded text for tokenization. 
+## ABI QuickStart
 
+Most APIs accept raw data inputs such as audio, image compressed binary formats, or UTF-8 encoded text for tokenization.
+
+**Tokenization:** You can create a tokenizer object using `OrtxCreateTokenizer` and then use the object to tokenize a text or decode the token ID into the text. You can find a C-style code snippet [here](../test/pp_api_test/c_only_test.c).
+
+**Image processing:** `OrtxCreateProcessor` can create an image processor object from a pre-defined workflow in JSON format to process image files into a tensor-like data type. an example code snippet can be found [here](../test/pp_api_test/test_processor.cc#L75) 
+
+**Audio feature extraction:** `OrtxCreateSpeechFeatureExtractor` creates a speech feature extractor to obtain log mel spectrum data as input for the Whisper model.

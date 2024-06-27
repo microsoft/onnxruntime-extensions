@@ -39,8 +39,22 @@ extError_t ORTX_API_CALL OrtxCreateProcessor(OrtxProcessor** processor, const ch
 extError_t ORTX_API_CALL OrtxLoadImages(OrtxRawImages** images, const char** image_paths, size_t num_images,
                                         size_t* num_images_loaded);
 
+
 /**
- * @brief Preprocesses the given raw images using the specified processor.
+ * @brief Creates raw images from the provided data.
+ *
+ * This function creates raw images from the provided data. The raw images are stored in the `images` parameter.
+ *
+ * @param images Pointer to a pointer to the `OrtxRawImages` structure that will hold the created raw images.
+ * @param data Array of pointers to the data for each image.
+ * @param sizes Array of pointers to the sizes of each image.
+ * @param num_images Number of images to create.
+ * @return An `extError_t` value indicating the success or failure of the operation.
+ */
+extError_t ORTX_API_CALL OrtxCreateRawImages(OrtxRawImages** images, const void* data[], const int64_t* sizes[], size_t num_images);
+
+/**
+ * @brief Pre-processes the given raw images using the specified processor.
  *
  * This function applies preprocessing operations on the raw images using the provided processor.
  * The result of the preprocessing is stored in the `OrtxImageProcessorResult` object.
