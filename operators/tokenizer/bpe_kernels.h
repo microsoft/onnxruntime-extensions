@@ -107,6 +107,8 @@ struct SpmTokenizer : KernelBpeTokenizer {
 class JsonFastTokenizer : KernelBpeTokenizer {
  public:
   JsonFastTokenizer();
+  bool tiktoken;
+  std::string TokenBytesToString(std::vector<uint8_t>& bytes);
   OrtxStatus Load(const ort_extensions::bpe::TokenJsonConfig& config);
   OrtxStatus Compute(const ortc::Tensor<std::string>& input,
                      ortc::Tensor<int64_t>& tokenize_output,
@@ -137,7 +139,7 @@ class TikTokenizer : KernelBpeTokenizer {
   const ort_extensions::BpeModel& GetEncoder() const { return *bbpe_tokenizer_; }
 
  private:
-  std::unique_ptr<ort_extensions::BpeModel> bbpe_tokenizer_;
+  std::unique_ptr<ort_extensions::BpeModel>bbpe_tokenizer_;
   BpeModelConf json_conf_;
   std::vector<ort_extensions::bpe::AddedToken> added_tokens_;
 };

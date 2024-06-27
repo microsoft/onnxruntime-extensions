@@ -52,7 +52,6 @@ class TokenizerImpl : public OrtxObjectImpl {
   std::string tokenizer_dir_;
   std::shared_ptr<ort_extensions::bpe::TokenJsonConfig> tok_config_;
   std::unique_ptr<JsonFastTokenizer> tokenizer_;
-  std::unique_ptr<TikTokenizer> tiktokenizer_;
   std::unique_ptr<BpeStreamingDecoder> detokenizer_;
 };
 
