@@ -190,7 +190,7 @@ struct AddAndMul {
 *  A[1, J] + B[I, J] is supported,
 *  A[1, J, 1] + B[I, J, K] is not supported,
 *
-* If negative is true, then the output is transposed, then
+* If negative is true, then
 * SubAndMul(A, B, C, negative=1) = (B - A) * C
 */
 template <typename T, bool subtract_first>
