@@ -87,6 +87,13 @@ struct Flash_fwd_params : public Qkv_params {
   // The indices to index into the KV cache.
   int* __restrict__ cache_batch_idx = nullptr;
 
+  // Paged KV cache
+  int * __restrict__ block_table;
+  index_t block_table_batch_stride;
+  int page_block_size;
+
+  float rp_dropout;
+
   // Local window size
   int window_size_left = -1;
   int window_size_right = -1;
@@ -101,6 +108,9 @@ struct Flash_fwd_params : public Qkv_params {
   bool is_rotary_interleaved = false;
 
   int num_splits = 0;  // For split-KV version
+
+  void * __restrict__ alibi_slopes_ptr;
+  index_t alibi_slopes_batch_stride;
 
   const cudaDeviceProp* dprops = nullptr;
 };

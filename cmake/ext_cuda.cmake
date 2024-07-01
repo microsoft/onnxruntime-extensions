@@ -30,8 +30,6 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcudafe \"--diag_suppress=expr_has_no
 
 add_compile_definitions(USE_CUDA)
 
-set(OCOS_USE_MEMORY_EFFICIENT_ATTENTION OFF) # turn off for the build time. Turn them on when these 2 libs are really in use
-set(OCOS_USE_FLASH_ATTENTION OFF)
 if (OCOS_USE_FLASH_ATTENTION)
   message(STATUS "Enable flash attention")
   add_compile_definitions(OCOS_USE_FLASH_ATTENTION)
