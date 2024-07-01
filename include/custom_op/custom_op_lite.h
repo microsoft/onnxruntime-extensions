@@ -886,6 +886,13 @@ struct OrtLiteCustomOp : public OrtCustomOp {
       return INPUT_OUTPUT_OPTIONAL;
     };
 #endif
+
+#if ORT_API_VERSION >= 18
+    OrtCustomOp::GetMayInplace = [](int**, int**) -> size_t {
+      return 0;
+    };
+    OrtCustomOp::ReleaseMayInplace = [](int*, int*) -> void {};
+#endif
   }
 
   const std::string op_name_;

@@ -53,8 +53,8 @@ OrtStatusPtr mha_varlen_fwd(const cudaDeviceProp& dprops,
 OrtStatusPtr mha_fwd_kvcache(const cudaDeviceProp& dprops,
                        cudaStream_t stream,
                        void* q,            // batch_size x seqlen_q x num_heads x head_size
-                       void* kcache,       // batch_size x seqlen_k x num_heads_k x head_size or batch_size x num_heads_k seqlen_k x x head_size
-                       void* vcache,       // batch_size x seqlen_k x num_heads_k x head_size or batch_size x num_heads_k seqlen_k x x head_size
+                       void* kcache,       // batch_size x seqlen_k x num_heads_k x head_size or batch_size x num_heads_k seqlen_k x x head_size or num_blocks x page_block_size x num_heads_k x head_size if there's a block_table
+                       void* vcache,       // batch_size x seqlen_k x num_heads_k x head_size or batch_size x num_heads_k seqlen_k x x head_size or num_blocks x page_block_size x num_heads_k x head_size if there's a block_table
                        void* k,            // batch_size x seqlen_k_new x num_heads_k x head_size
                        void* v,            // batch_size x seqlen_k_new x num_heads_k x head_size
                        void* out,          // batch_size x seqlen_q x num_heads x head_size
@@ -78,7 +78,10 @@ OrtStatusPtr mha_fwd_kvcache(const cudaDeviceProp& dprops,
                        void* out_accum = nullptr,          // num_splits x batch_size x seqlen_q x num_heads x head_size_rounded
                        int local_window_size = -1,
                        bool is_rotary_interleaved = false,
-                       bool is_packed_qkv = false);
+                       bool is_packed_qkv = false,
+                       int32_t* block_table = nullptr,      // batch_size x max_num_blocks_per_seq
+                       int32_t max_num_blocks_per_seq = -1,
+                       int32_t page_block_size = 1);
 
 size_t get_softmax_lse_size(int max_seqlen_q, int batch_size, int num_heads);
 
