@@ -10,6 +10,10 @@ This enables more flexibility and control over model execution, thus expanding t
 
 __author__ = "Microsoft"
 
+import importlib.util
+spec = importlib.util.find_spec('pybind11')
+if spec is None:
+    raise ModuleNotFoundError("pybind11 is required. Use 'pip install' to install pybind11 first.")
 
 from ._version import __version__
 from ._ocos import get_library_path
@@ -66,6 +70,10 @@ if _lib_only:
     gen_processing_models = _unimplemented
     OrtPyFunction = _unimplemented
     ort_inference = _unimplemented
+    PyOrtFunction = _unimplemented
+    optimize_model = _unimplemented
+    make_onnx_model = _unimplemented
+    ONNXRuntimeError = _unimplemented
 
 else:
     __all__ += _offline_api
