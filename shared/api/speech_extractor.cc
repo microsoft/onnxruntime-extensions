@@ -8,29 +8,10 @@
 
 using namespace ort_extensions;
 
-OrtxStatus log_mel_spectrum(const ortc::Tensor<float>& stfm_norm, ortc::Tensor<float>& logmel) {
-  // magnitudes = stft_norm[:, :, :-1]
-  // mel_spec = self.mel_filters @ magnitudes
-  // log_spec = torch.clamp(mel_spec, min=1e-10).log10()
-  // spec_min = log_spec.max() - 8.0
-  // log_spec = torch.maximum(log_spec, spec_min)
-  // spec_shape = log_spec.shape
-  // padding_spec = torch.ones(spec_shape[0],
-  //                           spec_shape[1],
-  //                           self.n_samples // self.hop_length - spec_shape[2],
-  //                           dtype=torch.float)
-  // padding_spec *= spec_min
-  // log_spec = torch.cat((log_spec, padding_spec), dim=2)
-  // log_spec = (log_spec + 4.0) / 4.0
-  // return log_spec
-
-  return {};
-}
-
 Operation::KernelRegistry SpeechFeatureExtractor::kernel_registry_ = {
     {"AudioDecoder", []() { return CreateKernelInstance(&AudioDecoder::ComputeNoOpt); }},
-    {"STFTNorm", []() { return CreateKernelInstance(&AudioFeatures::STFTNorm); }},
-    {"LogMelSpectrum", []() { return CreateKernelInstance(log_mel_spectrum); }},
+    {"STFTNorm", []() { return CreateKernelInstance(&SpeechFeatures::STFTNorm); }},
+    {"LogMelSpectrum", []() { return CreateKernelInstance(&LogMel::Compute); }},
 };
 
 SpeechFeatureExtractor::SpeechFeatureExtractor()

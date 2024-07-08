@@ -28,7 +28,8 @@ class KernelDef {
   virtual TensorArgs AllocateOutput(ortc::IAllocator* allocator) const = 0;
   virtual OrtxStatus Apply(TensorArgs& inputs, TensorArgs& output) const = 0;
 
-  using AttrType = std::variant<std::string, double, int64_t, std::vector<double>>;
+  using AttrType =
+      std::variant<std::string, double, int64_t, std::vector<std::string>, std::vector<double>, std::vector<int64_t>>;
   using AttrDict = std::unordered_map<std::string, AttrType>;
 
   template <typename... Args>
@@ -167,8 +168,18 @@ class KernelStruct : public KernelDef {
         attr_dict[key] = value.template get<int64_t>();
       } else if (value.is_number_float()) {
         attr_dict[key] = value.template get<double>();
-      } else if (value.is_array()) {
-        attr_dict[key] = value.template get<std::vector<double>>();
+      } else if (value.is_array() && value.size() > 0) {
+        auto& elem_0 = value.at(0);
+        if (elem_0.is_number_float()) {
+          attr_dict[key] = value.template get<std::vector<double>>();
+        } else if (elem_0.is_string()) {
+          attr_dict[key] = value.template get<std::vector<std::string>>();
+        } else if (elem_0.is_number_integer() || elem_0.is_number_unsigned()) {
+          attr_dict[key] = value.template get<std::vector<int64_t>>();
+        } else {
+          return {kOrtxErrorCorruptData, "Unsupported mix types in attribute value."};
+        }
+
       } else {
         return {kOrtxErrorCorruptData, "Invalid attribute type."};
       }

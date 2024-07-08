@@ -171,6 +171,10 @@ if (MSVC)
   endif()
   message(STATUS "_STATIC_MSVC_RUNTIME_LIBRARY: ${_STATIC_MSVC_RUNTIME_LIBRARY}")
 
+  # DLL initialization errors due to old conda msvcp140.dll dll are a result of the new MSVC compiler
+  # See https://developercommunity.visualstudio.com/t/Access-violation-with-std::mutex::lock-a/10664660#T-N10668856
+  # Remove this definition once the conda msvcp140.dll dll is updated.
+  add_compile_definitions(_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
 endif()
 
 if(NOT OCOS_BUILD_PYTHON AND OCOS_ENABLE_PYTHON)
