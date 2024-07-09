@@ -16,7 +16,7 @@
             "frame_length": 400,
             "hop_length": 160,
             "hann_win": [
-              0,
+              0.0,
               0.0000616908073425293,
               0.0002467334270477295,
               0.0005550682544708252,
@@ -425,13 +425,10 @@
           "name": "log_mel_spectrogram",
           "type": "LogMelSpectrum",
           "attrs": {
-            "n_samples": 480000,
+            "chunk_size": 30,
             "hop_length": 160,
-            "mel_filters": [
-              0.0,
-              0,
-              0
-            ]
+            "n_fft": 400,
+            "n_mel": 80
           }
         }
       }

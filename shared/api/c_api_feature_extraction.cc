@@ -64,7 +64,7 @@ extError_t ORTX_API_CALL OrtxSpeechLogMel(OrtxFeatureExtractor* extractor, OrtxR
   ReturnableStatus status =
       extractor_ptr->DoCall(ort_extensions::span(audios_obj->audios_.get(), audios_obj->num_audios_), log_mel[0]);
   if (status.IsOk()) {
-    std::vector<std::unique_ptr<ortc::TensorBase>> tensors(1);
+    std::vector<std::unique_ptr<ortc::TensorBase>> tensors;
     std::transform(log_mel, log_mel + 1, std::back_inserter(tensors),
                    [](auto& ts) { return std::unique_ptr<ortc::TensorBase>(ts.release()); });
     ts_result->SetTensors(std::move(tensors));
