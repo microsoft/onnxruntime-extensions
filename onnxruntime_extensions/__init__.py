@@ -10,11 +10,6 @@ This enables more flexibility and control over model execution, thus expanding t
 
 __author__ = "Microsoft"
 
-import importlib.util
-spec = importlib.util.find_spec('pybind11')
-if spec is None:
-    raise ModuleNotFoundError("pybind11 is required. Use 'pip install' to install pybind11 first.")
-
 from ._version import __version__
 from ._ocos import get_library_path
 from ._ocos import Opdef, PyCustomOpDef

@@ -48,4 +48,13 @@ In some cases you need more control on the parameters, in this case you have to 
 // By default the function will return OrtMemType::OrtMemTypeDefault for all the inputs, 
 // you can provide your own implementation to specify the ith input is in CPU or GPU.
 static OrtMemType GetInputMemoryType(size_t input_index) 
+
+// You can specify input i shares the same memory with output j if possible, by allocating
+// two array with same length for the pointer input_index and output_index seperately, and
+// then let (*input_index)[k] = i and (*output_index)[k] = j.
+// The return value is the length of the allocated array.
+static size_t GetMayInplace(int** input_index, int** output_index)
+
+// Release the allocated array from the GetMayInplace() function.
+static void ReleaseMayInplace(int* input_index, int* output_index)
 ```
