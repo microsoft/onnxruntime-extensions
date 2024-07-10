@@ -8,13 +8,15 @@
 #include <list>
 #include <optional>
 
-
 struct AudioDecoder {
  public:
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info);
 
   template <typename DictT>
   OrtxStatus Init(const DictT& attrs) {
+    // in API mode, the default value is 1
+    downsample_rate_ = 16000;
+    stereo_mixer_ = 1;
     for (const auto& [key, value] : attrs) {
       if (key == "downsampling_rate") {
         downsample_rate_ = std::get<std::int64_t>(value);
@@ -24,6 +26,7 @@ struct AudioDecoder {
         return {kOrtxErrorInvalidArgument, "[AudioDecoder]: Invalid argument"};
       }
     }
+
     return {};
   }
 
