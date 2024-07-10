@@ -32,7 +32,9 @@ void set_params_fprop(Flash_fwd_params& params,
                       bool is_bf16,
                       bool kv_bsnh = true,
                       int window_size_left = -1,
-                      int window_size_right = -1) {
+                      int window_size_right = -1,
+                      bool paged_KV = false,
+                      int page_block_size = -1) {
   // Set the pointers and strides.
   params.q_ptr = q;
   params.k_ptr = k;
@@ -64,8 +66,8 @@ void set_params_fprop(Flash_fwd_params& params,
 
   if (cu_seqlens_q_d == nullptr) {
     params.q_batch_stride = seqlen_q * num_heads * head_size;    // stride(0)
-    params.k_batch_stride = seqlen_k * num_heads_k * head_size;  // stride(0)
-    params.v_batch_stride = seqlen_k * num_heads_k * head_size;  // stride(0)
+    params.k_batch_stride = (paged_KV ? page_block_size : seqlen_k) * num_heads_k * head_size;  // stride(0)
+    params.v_batch_stride = (paged_KV ? page_block_size : seqlen_k) * num_heads_k * head_size;  // stride(0)
     params.o_batch_stride = seqlen_q * num_heads * head_size;    // stride(0)
   } else {
     params.q_batch_stride = 0;
@@ -98,6 +100,10 @@ void set_params_fprop(Flash_fwd_params& params,
   // Set the different scale values.
   params.scale_softmax = softmax_scale;
   params.scale_softmax_log2 = softmax_scale * M_LOG2E;
+
+  params.rp_dropout = 1.f;
+  params.alibi_slopes_ptr = nullptr;
+  params.alibi_slopes_batch_stride = 0;
 
   // In our API, causal/unidirectional determines if we only look at prior tokens. However, the flash API seperates
   // local and causal, meaning when we have local window size
@@ -349,8 +355,8 @@ bool is_supported(const cudaDeviceProp& dprops, int head_size, int num_heads, in
 OrtStatusPtr mha_fwd_kvcache(const cudaDeviceProp& dprops,
                        cudaStream_t stream,
                        void* q,            // batch_size x seqlen_q x num_heads x head_size
-                       void* kcache,       // batch_size x seqlen_k_max x num_heads_k x head_size or batch_size x num_heads_k seqlen_k_max x head_size
-                       void* vcache,       // batch_size x seqlen_k_max x num_heads_k x head_size or batch_size x num_heads_k seqlen_k_max x head_size
+                       void* kcache,       // batch_size x seqlen_k_max x num_heads_k x head_size or batch_size x num_heads_k seqlen_k_max x head_size or num_blocks x page_block_size x num_heads_k x head_size if there's a block_table
+                       void* vcache,       // batch_size x seqlen_k_max x num_heads_k x head_size or batch_size x num_heads_k seqlen_k_max x head_size or num_blocks x page_block_size x num_heads_k x head_size if there's a block_table
                        void* k_new,        // (optional) batch_size x seqlen_k_new x num_heads_k x head_size
                        void* v_new,        // (optional) batch_size x seqlen_k_new x num_heads_k x head_size
                        void* out,          // batch_size x seqlen_q x num_heads x head_size
@@ -374,7 +380,10 @@ OrtStatusPtr mha_fwd_kvcache(const cudaDeviceProp& dprops,
                        void* out_accum,          // num_splits x batch_size x seqlen_q x num_heads x head_size_rounded
                        int local_window_size,
                        bool is_rotary_interleaved,
-                       bool is_packed_qkv) {
+                       bool is_packed_qkv,
+                       int32_t* block_table,  // batch_size x max_num_blocks_per_seq
+                       int32_t max_num_blocks_per_seq,
+                       int32_t page_block_size) {
   auto round_multiple = [](int x, int m) { return (x + m - 1) / m * m; };
   const int head_size_rounded = round_multiple(head_size, 32);
   const int seqlen_q_rounded = round_multiple(seqlen_q, 128);
@@ -398,7 +407,9 @@ OrtStatusPtr mha_fwd_kvcache(const cudaDeviceProp& dprops,
                    is_bf16,
                    past_bsnh,
                    local_window_size,
-                   is_causal ? 0 : -1);
+                   is_causal ? 0 : -1,
+                   block_table != nullptr,
+                   page_block_size);
   params.dprops = &dprops;
 
   if (k_new != nullptr && v_new != nullptr) {
@@ -453,6 +464,10 @@ OrtStatusPtr mha_fwd_kvcache(const cudaDeviceProp& dprops,
     params.softmax_lseaccum_ptr = nullptr;
     params.oaccum_ptr = nullptr;
   }
+
+  params.block_table = block_table;
+  params.block_table_batch_stride = max_num_blocks_per_seq;
+  params.page_block_size = page_block_size;
 
   // Only split kernel supports appending to KV cache
   run_mha_fwd(params, stream, /*force_split_kernel=*/k_new != nullptr);
