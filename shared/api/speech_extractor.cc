@@ -3,7 +3,7 @@
 
 #include "speech_extractor.h"
 
-#include "c_api_utils.hpp"
+#include "audio/audio_decoder.h"
 #include "speech_features.hpp"
 
 using namespace ort_extensions;

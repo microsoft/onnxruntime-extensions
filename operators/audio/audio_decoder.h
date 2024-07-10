@@ -17,9 +17,9 @@ struct AudioDecoder {
   OrtxStatus Init(const DictT& attrs) {
     for (const auto& [key, value] : attrs) {
       if (key == "downsampling_rate") {
-        downsample_rate_ = std::get<int64_t>(value);
+        downsample_rate_ = std::get<std::int64_t>(value);
       } else if (key == "stereo_to_mono") {
-        stereo_mixer_ = std::get<int64_t>(value);
+        stereo_mixer_ = std::get<std::int64_t>(value);
       } else {
         return {kOrtxErrorInvalidArgument, "[AudioDecoder]: Invalid argument"};
       }

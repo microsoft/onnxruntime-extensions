@@ -4,11 +4,9 @@
 #pragma once
 
 #include "ortx_extractor.h"
-
-#include "audio/audio_decoder.h"
-
 #include "c_api_utils.hpp"
 #include "runner.hpp"
+
 
 namespace ort_extensions {
 
