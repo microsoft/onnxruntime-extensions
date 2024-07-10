@@ -6,6 +6,10 @@
 #include <dlib/matrix.h>
 #include <math/dlib/stft_norm.hpp>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 namespace ort_extensions {
 
 class SpeechFeatures {
@@ -23,15 +27,32 @@ class SpeechFeatures {
         auto& win = std::get<std::vector<double>>(value);
         hann_win_.resize(win.size());
         std::transform(win.begin(), win.end(), hann_win_.begin(), [](double x) { return static_cast<float>(x); });
-      } else {
+      } else if (key != "_comment") {
         return {kOrtxErrorInvalidArgument, "[AudioFeatures]: Invalid key in the JSON configuration."};
       }
+    }
+
+    if (hann_win_.empty()) {
+      hann_win_ = hann_window(frame_length_);
     }
     return {};
   }
 
   OrtxStatus STFTNorm(const ortc::Tensor<float>& pcm, ortc::Tensor<float>& stft_norm) {
     return stft_norm_.Compute(pcm, n_fft_, hop_length_, {hann_win_.data(), hann_win_.size()}, frame_length_, stft_norm);
+  }
+
+  static std::vector<float> hann_window(int N) {
+    std::vector<float> window(N);
+
+    for (int n = 0; n < N; ++n) {
+      // this formula leads to more rounding errors than the one below
+      // window[n] = static_cast<float>(0.5 * (1 - std::cos(2 * M_PI * n / (N - 1))));
+      double n_sin = std::sin(M_PI * n / N);
+      window[n] = static_cast<float>(n_sin * n_sin);
+    }
+
+    return window;
   }
 
  private:
@@ -69,20 +90,23 @@ class LogMel {
   }
 
   OrtxStatus Compute(const ortc::Tensor<float>& stft_norm, ortc::Tensor<float>& logmel) {
-    // magnitudes = stft_norm[:, :, :-1]
-    // mel_spec = self.mel_filters @ magnitudes
-    // log_spec = torch.clamp(mel_spec, min=1e-10).log10()
-    // spec_min = log_spec.max() - 8.0
-    // log_spec = torch.maximum(log_spec, spec_min)
-    // spec_shape = log_spec.shape
-    // padding_spec = torch.ones(spec_shape[0],
-    //                           spec_shape[1],
-    //                           self.n_samples // self.hop_length - spec_shape[2],
-    //                           dtype=torch.float)
-    // padding_spec *= spec_min
-    // log_spec = torch.cat((log_spec, padding_spec), dim=2)
-    // log_spec = (log_spec + 4.0) / 4.0
-    // return log_spec
+    // Compute the Mel spectrogram by following Python code
+    /*
+      magnitudes = stft_norm[:, :, :-1]
+      mel_spec = self.mel_filters @ magnitudes
+      log_spec = torch.clamp(mel_spec, min=1e-10).log10()
+      spec_min = log_spec.max() - 8.0
+      log_spec = torch.maximum(log_spec, spec_min)
+      spec_shape = log_spec.shape
+      padding_spec = torch.ones(spec_shape[0],
+                                spec_shape[1],
+                                self.n_samples // self.hop_length - spec_shape[2],
+                                dtype=torch.float)
+      padding_spec *= spec_min
+      log_spec = torch.cat((log_spec, padding_spec), dim=2)
+      log_spec = (log_spec + 4.0) / 4.0
+      return log_spec
+    */
     assert(stft_norm.Shape().size() == 3 && stft_norm.Shape()[0] == 1);
     std::vector<int64_t> stft_shape = stft_norm.Shape();
     dlib::matrix<float> magnitudes(stft_norm.Shape()[1], stft_norm.Shape()[2] - 1);
@@ -108,7 +132,7 @@ class LogMel {
       }
     }
 
-    std::vector<int64_t> shape = {mel_filters_.nc(), n_samples_ / hop_length_};
+    std::vector<int64_t> shape = {mel_filters_.nr(), n_samples_ / hop_length_};
     float* buff = logmel.Allocate(shape);
     std::fill(buff, buff + logmel.NumberOfElement(), (log_spec_min + 4.0f) / 4.0f);
     for (int i = 0; i < log_spec.nr(); ++i) {

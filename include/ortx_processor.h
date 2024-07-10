@@ -67,15 +67,6 @@ extError_t ORTX_API_CALL OrtxCreateRawImages(OrtxRawImages** images, const void*
 extError_t ORTX_API_CALL OrtxImagePreProcess(OrtxProcessor* processor, OrtxRawImages* images,
                                              OrtxTensorResult** result);
 
-// /**
-//  * @brief Retrieves the image processor result at the specified index.
-//  *
-//  * @param result Pointer to the OrtxImageProcessorResult structure to store the result.
-//  * @param index The index of the result to retrieve.
-//  * @return extError_t The error code indicating the success or failure of the operation.
-//  */
-// extError_t ORTX_API_CALL OrtxImageGetTensorResult(OrtxImageProcessorResult* result, size_t index, OrtxTensor** tensor);
-
 #ifdef __cplusplus
 }
 #endif

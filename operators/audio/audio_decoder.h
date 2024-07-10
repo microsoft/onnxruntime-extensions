@@ -18,7 +18,7 @@ struct AudioDecoder {
     downsample_rate_ = 16000;
     stereo_mixer_ = 1;
     for (const auto& [key, value] : attrs) {
-      if (key == "downsampling_rate") {
+      if (key == "target_sample_rate") {
         downsample_rate_ = std::get<std::int64_t>(value);
       } else if (key == "stereo_to_mono") {
         stereo_mixer_ = std::get<std::int64_t>(value);
