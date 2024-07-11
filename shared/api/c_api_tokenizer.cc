@@ -6,7 +6,7 @@
 #include "c_api_utils.hpp"
 #include "tokenizer_impl.h"
 
-namespace ort_extensions {
+using namespace ort_extensions;
 
 class DetokenizerCache : public OrtxObjectImpl {
  public:
@@ -17,29 +17,20 @@ class DetokenizerCache : public OrtxObjectImpl {
   std::string last_text_{};  // last detokenized text
 };
 
-template<>
-OrtxObject* OrtxObjectFactory<DetokenizerCache>::CreateForward() {
-  return std::make_unique<DetokenizerCache>().release();
+template <>
+OrtxObject* OrtxObjectFactory::CreateForward<DetokenizerCache>() {
+  return Create<DetokenizerCache>();
 }
 
-template<>
-void OrtxObjectFactory<DetokenizerCache>::DisposeForward(OrtxObject* obj) {
-  Dispose(obj);
-}
-}  // namespace ort_extensions
-
-using namespace ort_extensions;
-
-extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer,
-                                      const char* input[], size_t batch_size, OrtxTokenId2DArray** output) {
+extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
+                                      OrtxTokenId2DArray** output) {
   if (tokenizer == nullptr || input == nullptr || output == nullptr) {
     ReturnableStatus::last_error_message_ = "Invalid argument";
     return kOrtxErrorInvalidArgument;
   }
 
   auto token_ptr = static_cast<const TokenizerImpl*>(tokenizer);
-  ReturnableStatus status =
-      token_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindTokenizer);
+  ReturnableStatus status = token_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindTokenizer);
   if (!status.IsOk()) {
     return status.Code();
   }
@@ -61,8 +52,8 @@ extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer,
   return extError_t();
 }
 
-extError_t ORTX_API_CALL OrtxDetokenize(const OrtxTokenizer* tokenizer,
-                                        const OrtxTokenId2DArray* input, OrtxStringArray** output) {
+extError_t ORTX_API_CALL OrtxDetokenize(const OrtxTokenizer* tokenizer, const OrtxTokenId2DArray* input,
+                                        OrtxStringArray** output) {
   if (tokenizer == nullptr || input == nullptr || output == nullptr) {
     ReturnableStatus::last_error_message_ = "Invalid argument";
     return kOrtxErrorInvalidArgument;
@@ -81,11 +72,8 @@ extError_t ORTX_API_CALL OrtxDetokenize(const OrtxTokenizer* tokenizer,
   }
 
   std::vector<span<extTokenId_t const>> t_ids;
-  std::transform(input_2d->token_ids().begin(), input_2d->token_ids().end(),
-                 std::back_inserter(t_ids),
-                 [](const std::vector<extTokenId_t>& vec) {
-                   return span<extTokenId_t const>(vec.data(), vec.size());
-                 });
+  std::transform(input_2d->token_ids().begin(), input_2d->token_ids().end(), std::back_inserter(t_ids),
+                 [](const std::vector<extTokenId_t>& vec) { return span<extTokenId_t const>(vec.data(), vec.size()); });
 
   std::vector<std::string> output_text;
   status = token_ptr->Detokenize(t_ids, output_text);
@@ -101,9 +89,7 @@ extError_t ORTX_API_CALL OrtxDetokenize(const OrtxTokenizer* tokenizer,
   ;
 }
 
-extError_t ORTX_API_CALL OrtxDetokenize1D(const OrtxTokenizer* tokenizer,
-                                          const extTokenId_t* input,
-                                          size_t len,
+extError_t ORTX_API_CALL OrtxDetokenize1D(const OrtxTokenizer* tokenizer, const extTokenId_t* input, size_t len,
                                           OrtxStringArray** output) {
   if (tokenizer == nullptr || input == nullptr || output == nullptr) {
     ReturnableStatus::last_error_message_ = "Invalid argument";
@@ -186,8 +172,8 @@ extError_t ORTX_API_CALL OrtxTokenId2DArrayGetBatch(const OrtxTokenId2DArray* to
   return extError_t();
 }
 
-extError_t ORTX_API_CALL OrtxTokenId2DArrayGetItem(const OrtxTokenId2DArray* token_id_2d_array,
-                                                   size_t index, const extTokenId_t** item, size_t* length) {
+extError_t ORTX_API_CALL OrtxTokenId2DArrayGetItem(const OrtxTokenId2DArray* token_id_2d_array, size_t index,
+                                                   const extTokenId_t** item, size_t* length) {
   if (token_id_2d_array == nullptr || item == nullptr || length == nullptr) {
     ReturnableStatus::last_error_message_ = "Invalid argument";
     return kOrtxErrorInvalidArgument;
@@ -210,9 +196,8 @@ extError_t ORTX_API_CALL OrtxTokenId2DArrayGetItem(const OrtxTokenId2DArray* tok
   return extError_t();
 }
 
-extError_t OrtxDetokenizeCached(const OrtxTokenizer* tokenizer,
-                                OrtxDetokenizerCache* cache,
-                                extTokenId_t next_id, const char** text_out) {
+extError_t OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, OrtxDetokenizerCache* cache, extTokenId_t next_id,
+                                const char** text_out) {
   if (tokenizer == nullptr || cache == nullptr || text_out == nullptr) {
     ReturnableStatus::last_error_message_ = "Invalid argument";
     return kOrtxErrorInvalidArgument;
