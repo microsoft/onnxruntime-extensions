@@ -4,7 +4,4 @@ FetchContent_Declare(
         GIT_TAG v3.1.0
 )
 
-FetchContent_GetProperties(cutlass)
-if(NOT cutlass_POPULATED)
-  FetchContent_Populate(cutlass)
-endif()
+FetchContent_MakeAvailable(cutlass)
