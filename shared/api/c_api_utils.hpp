@@ -3,8 +3,10 @@
 
 #pragma once
 #include <vector>
+#include <fstream>
 
 #include "ortx_utils.h"
+#include "file_sys.h"
 #include "ext_status.h"
 #include "op_def_struct.h"
 
@@ -12,7 +14,7 @@ namespace ort_extensions {
 class OrtxObjectImpl : public OrtxObject {
  public:
   explicit OrtxObjectImpl(extObjectKind_t kind = extObjectKind_t::kOrtxKindUnknown) : OrtxObject() {
-    ext_kind_ = static_cast<int>(kind);
+    ext_kind_ = kind;
   };
   virtual ~OrtxObjectImpl() = default;
 
@@ -24,30 +26,21 @@ class OrtxObjectImpl : public OrtxObject {
     }
     return static_cast<extObjectKind_t>(ext_kind_);
   }
-
-  template <typename T>
-  struct Type2Kind {
-    static const extObjectKind_t value = kOrtxKindUnknown;
-  };
 };
 
-template <>
-struct OrtxObjectImpl::Type2Kind<ortc::TensorBase> {
-  static const extObjectKind_t value = kOrtxKindTensor;
-};
-
-template <typename T>
+// A wrapper class to store a object pointer which is readonly. i.e. unowned.
+template <typename T, extObjectKind_t kind>
 class OrtxObjectWrapper : public OrtxObjectImpl {
  public:
-  OrtxObjectWrapper() : OrtxObjectImpl(OrtxObjectImpl::Type2Kind<T>::value) {}
+  OrtxObjectWrapper() : OrtxObjectImpl(kind) {}
   ~OrtxObjectWrapper() override = default;
 
-  void SetObject(T* t) { stored_object_ = t; }
+  void SetObject(const T* t) { stored_object_ = t; }
 
-  [[nodiscard]] T* GetObject() const { return stored_object_; }
+  [[nodiscard]] const T* GetObject() const { return stored_object_; }
 
  private:
-  T* stored_object_{};
+  const T* stored_object_{};
 };
 
 template <typename T>
@@ -100,6 +93,35 @@ class StringArray : public OrtxObjectImpl {
   std::vector<std::string> strings_;
 };
 
+class TensorResult : public OrtxObjectImpl {
+ public:
+  TensorResult() : OrtxObjectImpl(extObjectKind_t::kOrtxKindTensorResult) {}
+  ~TensorResult() override = default;
+
+  void SetTensors(std::vector<std::unique_ptr<ortc::TensorBase>>&& tensors) { tensors_ = std::move(tensors); }
+
+  [[nodiscard]] const std::vector<std::unique_ptr<ortc::TensorBase>>& tensors() const { return tensors_; }
+
+  [[nodiscard]] std::vector<ortc::TensorBase*> GetTensors() const {
+    std::vector<ortc::TensorBase*> ts;
+    ts.reserve(tensors_.size());
+    for (auto& t : tensors_) {
+      ts.push_back(t.get());
+    }
+    return ts;
+  }
+
+  ortc::TensorBase* GetAt(size_t i) const {
+    if (i < tensors_.size()) {
+      return tensors_[i].get();
+    }
+    return nullptr;
+  }
+
+ private:
+  std::vector<std::unique_ptr<ortc::TensorBase>> tensors_;
+};
+
 struct ReturnableStatus {
  public:
   thread_local static std::string last_error_message_;
@@ -123,24 +145,25 @@ struct ReturnableStatus {
   OrtxStatus status_;
 };
 
-template <typename T>
 class OrtxObjectFactory {
  public:
-  static std::unique_ptr<T> Create() { return std::make_unique<T>(); }
+  template <typename T>
+  static OrtxObject* Create() {
+    return std::make_unique<T>().release();
+  }
 
-  static OrtxObject* CreateForward();
-  static void DisposeForward(OrtxObject* object);
-
+  template <typename T>
   static void Dispose(OrtxObject* object) {
     auto obj_ptr = static_cast<T*>(object);
     std::unique_ptr<T> ptr(obj_ptr);
     ptr.reset();
   }
+
+  // Forward declaration for creating an object which isn't visible to c_api_utils.cc
+  // and the definition is in the corresponding .cc file.
+  template <typename T>
+  static OrtxObject* CreateForward();
 };
-
-class DetokenizerCache;  // forward definition in tokenizer_impl.cc
-class ProcessorResult;   // forward definition in image_processor.h
-
 
 class CppAllocator : public ortc::IAllocator {
  public:
@@ -157,4 +180,25 @@ class CppAllocator : public ortc::IAllocator {
   }
 };
 
+template <typename It, typename T>
+std::tuple<std::unique_ptr<T[]>, size_t> LoadRawData(It begin, It end) {
+  auto raw_data = std::make_unique<T[]>(end - begin);
+  size_t n = 0;
+  for (auto it = begin; it != end; ++it) {
+    std::ifstream ifs = path(*it).open(std::ios::binary | std::ios::in);
+    if (!ifs.is_open()) {
+      break;
+    }
+
+    ifs.seekg(0, std::ios::end);
+    size_t size = ifs.tellg();
+    ifs.seekg(0, std::ios::beg);
+
+    T& datum = raw_data[n++];
+    datum.resize(size);
+    ifs.read(reinterpret_cast<char*>(datum.data()), size);
+  }
+
+  return std::make_tuple(std::move(raw_data), n);
+}
 }  // namespace ort_extensions

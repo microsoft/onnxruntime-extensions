@@ -28,7 +28,8 @@ class KernelDef {
   virtual TensorArgs AllocateOutput(ortc::IAllocator* allocator) const = 0;
   virtual OrtxStatus Apply(TensorArgs& inputs, TensorArgs& output) const = 0;
 
-  using AttrType = std::variant<std::string, double, int64_t, std::vector<double>>;
+  using AttrType =
+      std::variant<std::string, double, int64_t, std::vector<std::string>, std::vector<double>, std::vector<int64_t>>;
   using AttrDict = std::unordered_map<std::string, AttrType>;
 
   template <typename... Args>
@@ -98,7 +99,7 @@ class KernelDef {
 template <typename... Args>
 class KernelFunction : public KernelDef {
  public:
-  KernelFunction(OrtxStatus (*body)(Args...)) : body_(body){};
+  KernelFunction(OrtxStatus (*body)(Args...)) : body_(body) {};
   virtual ~KernelFunction() = default;
 
   TensorArgs AllocateOutput(ortc::IAllocator* allocator) const override {
@@ -132,7 +133,7 @@ class KernelFunction : public KernelDef {
 template <typename T, typename... Args>
 class KernelStruct : public KernelDef {
  public:
-  KernelStruct(OrtxStatus (T::*body)(Args...)) : body_(body){};
+  KernelStruct(OrtxStatus (T::*body)(Args...)) : body_(body) {};
   virtual ~KernelStruct() = default;
 
   TensorArgs AllocateOutput(ortc::IAllocator* allocator) const override {
@@ -167,8 +168,18 @@ class KernelStruct : public KernelDef {
         attr_dict[key] = value.template get<int64_t>();
       } else if (value.is_number_float()) {
         attr_dict[key] = value.template get<double>();
-      } else if (value.is_array()) {
-        attr_dict[key] = value.template get<std::vector<double>>();
+      } else if (value.is_array() && value.size() > 0) {
+        auto& elem_0 = value.at(0);
+        if (elem_0.is_number_float()) {
+          attr_dict[key] = value.template get<std::vector<double>>();
+        } else if (elem_0.is_string()) {
+          attr_dict[key] = value.template get<std::vector<std::string>>();
+        } else if (elem_0.is_number_integer() || elem_0.is_number_unsigned()) {
+          attr_dict[key] = value.template get<std::vector<int64_t>>();
+        } else {
+          return {kOrtxErrorCorruptData, "Unsupported mix types in attribute value."};
+        }
+
       } else {
         return {kOrtxErrorCorruptData, "Invalid attribute type."};
       }
@@ -303,6 +314,39 @@ class OrtxRunner {
         }
 
         last_op = op;
+      }
+    }
+
+    return {};
+  }
+
+  static OrtxStatus StackTensors(const std::vector<TensorArgs>& arg_lists, std::vector<TensorPtr>& outputs,
+                                 ortc::IAllocator* allocator) {
+    if (arg_lists.empty()) {
+      return {};
+    }
+
+    size_t batch_size = arg_lists.size();
+    size_t num_outputs = arg_lists[0].size();
+    for (size_t axis = 0; axis < num_outputs; ++axis) {
+      std::vector<ortc::TensorBase*> ts_ptrs;
+      ts_ptrs.reserve(arg_lists.size());
+      std::vector<int64_t> shape = arg_lists[0][axis]->Shape();
+      for (auto& ts : arg_lists) {
+        if (shape != ts[axis]->Shape()) {
+          return {kOrtxErrorInvalidArgument, "[StackTensors]: shapes of tensors to stack are not the same."};
+        }
+        ts_ptrs.push_back(ts[axis]);
+      }
+
+      std::vector<int64_t> output_shape = shape;
+      output_shape.insert(output_shape.begin(), batch_size);
+      std::byte* tensor_buf = outputs[axis]->AllocateRaw(output_shape);
+      for (size_t i = 0; i < batch_size; ++i) {
+        auto ts = ts_ptrs[i];
+        const std::byte* ts_buff = reinterpret_cast<const std::byte*>(ts->DataRaw());
+        auto ts_size = ts->SizeInBytes();
+        std::memcpy(tensor_buf + i * ts_size, ts_buff, ts_size);
       }
     }
 
