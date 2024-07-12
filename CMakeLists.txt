@@ -759,6 +759,7 @@ else()
   standardize_output_folder(ortcustomops)
   set(_BUILD_SHARED_LIBRARY TRUE)
 endif()
+set_target_properties(ortcustomops PROPERTIES FOLDER "operators")
 
 if(OCOS_ENABLE_AZURE)
   if (ANDROID)

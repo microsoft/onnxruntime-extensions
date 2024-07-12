@@ -123,7 +123,7 @@
       "component": {
         "type": "other",
         "other": {
-          "name": "libjpeg",
+          "name": "libpng",
           "version": "1.6.37",
           "downloadUrl": "https://github.com/opencv/opencv/tree/4.5.4/3rdparty/libpng"
         },

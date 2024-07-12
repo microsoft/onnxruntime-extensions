@@ -10,6 +10,7 @@ if(NOT _ONNXRUNTIME_EMBEDDED)
     protobuf
     GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
     GIT_TAG v3.20.3
+    EXCLUDE_FROM_ALL
     PATCH_COMMAND git checkout . && git apply --ignore-space-change --ignore-whitespace ${PROJECT_SOURCE_DIR}/cmake/externals/protobuf_cmake.patch
     SOURCE_SUBDIR cmake
   )
@@ -28,16 +29,8 @@ if(NOT _ONNXRUNTIME_EMBEDDED)
   set(protobuf_DISABLE_RTTI ON CACHE BOOL "Disable RTTI")
 
   FetchContent_MakeAvailable(protobuf)
-  set_target_properties(libprotobuf PROPERTIES
-    FOLDER externals/google/protobuf)
   set_target_properties(libprotobuf-lite PROPERTIES
-    FOLDER externals/google/protobuf)
-  if(NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
-    set_target_properties(libprotoc PROPERTIES
-      FOLDER externals/google/protobuf)
-    set_target_properties(protoc PROPERTIES
-      FOLDER externals/google/protobuf)
-  endif()
+    FOLDER externals/google)
 endif()
 
 # To avoid creating complicated logic to build protoc, especially for mobile platforms, we use the pre-generated pb files
@@ -58,6 +51,7 @@ FetchContent_Declare(
   spm
   GIT_REPOSITORY https://github.com/google/sentencepiece.git
   GIT_TAG v0.1.96
+  EXCLUDE_FROM_ALL
   PATCH_COMMAND ${spm_patch_command}
 )
 
@@ -71,7 +65,7 @@ endif()
 FetchContent_MakeAvailable(spm)
 target_link_libraries(sentencepiece-static PUBLIC protobuf::libprotobuf-lite)
 set_target_properties(sentencepiece-static PROPERTIES
-  FOLDER externals/google/sentencepiece)
+  FOLDER externals/google)
 
 set(spm_INCLUDE_DIRS
   ${protobuf_SOURCE_DIR}/src

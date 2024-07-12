@@ -98,6 +98,7 @@ if (OCOS_ENABLE_OPENCV_CODECS)
 
   set(WITH_JPEG               ON CACHE INTERNAL "")
   set(WITH_PNG                ON CACHE INTERNAL "")
+  set(BUILD_JPEG_TURBO_DISABLE  ON CACHE INTERNAL "")
 endif()
 
 set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "")
@@ -149,6 +150,7 @@ FetchContent_Declare(
     -DBUILD_SHARED_LIBS:BOOL=FALSE
     -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_CURRENT_BINARY_DIR}/opencv
     PATCH_COMMAND git checkout . && git apply --whitespace=fix --ignore-space-change --ignore-whitespace ${CMAKE_CURRENT_SOURCE_DIR}/cmake/externals/opencv-no-rtti.patch
+    EXCLUDE_FROM_ALL
 )
 
 FetchContent_MakeAvailable(opencv)
