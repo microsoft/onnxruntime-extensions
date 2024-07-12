@@ -753,7 +753,7 @@ stages:
       displayName: build the customop library with onnxruntime
     # TODO add unittest for webassembly
 
-- stage: Builds
+- stage: AndroidBuilds
   dependsOn: []
   jobs:
 
