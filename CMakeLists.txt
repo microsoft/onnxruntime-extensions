@@ -190,7 +190,9 @@ if(OCOS_BUILD_ANDROID)
     message(FATAL_ERROR "The Android platform (ANDROID_PLATFORM) and ABI (ANDROID_ABI) must be specified.")
   endif()
 
-  set(OCOS_BUILD_JAVA ON CACHE INTERNAL "")
+  # Bingfire is not supported on Android any more.
+  set(OCOS_ENABLE_BLINGFIRE OFF CACHE INTERNAL "" FORCE)
+  set(OCOS_BUILD_JAVA ON CACHE INTERNAL "" FORCE)
 endif()
 
 # Build the libraries with -fPIC
