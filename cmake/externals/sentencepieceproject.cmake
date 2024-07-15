@@ -9,11 +9,11 @@ if(NOT _ONNXRUNTIME_EMBEDDED)
   FetchContent_Declare(
     protobuf
     GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
-    GIT_TAG v3.20.3
+    GIT_TAG v21.12
     EXCLUDE_FROM_ALL
     PATCH_COMMAND git checkout . && git apply --ignore-space-change --ignore-whitespace ${PROJECT_SOURCE_DIR}/cmake/externals/protobuf_cmake.patch
-    SOURCE_SUBDIR cmake
   )
+  
   set(protobuf_BUILD_TESTS OFF CACHE BOOL "Build tests")
   set(protobuf_WITH_ZLIB OFF CACHE BOOL "Use zlib")
 
