@@ -798,7 +798,7 @@ stages:
   - job: AndroidCpp_BuildOnly
     pool:
       vmImage: 'macOS-13'
-    timeoutInMinutes: 30
+    timeoutInMinutes: 45
     steps:
       - task: UsePythonVersion@0
         inputs:

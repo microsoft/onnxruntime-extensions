@@ -3,10 +3,12 @@
 #include <stdio.h>
 #include <cstdarg>
 
-#include "file_sys.h"
-#include "image_processor.h"
-#include "tokenizer_impl.h"
 #include "ortx_utils.h"
+#include "file_sys.h"
+
+#include "tokenizer_impl.h"
+#include "image_processor.h"
+#include "speech_extractor.h"
 
 using namespace ort_extensions;
 
@@ -48,30 +50,6 @@ extError_t ORTX_API_CALL OrtxCreate(extObjectKind_t kind, OrtxObject** object, .
   return extError_t();
 }
 
-extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const char* tokenizer_path) {
-  // test if the tokenizer_path is a valid directory
-  if (tokenizer_path == nullptr) {
-    ReturnableStatus::last_error_message_ = "The tokenizer data directory is null";
-    return kOrtxErrorInvalidArgument;
-  }
-
-  if (!path(tokenizer_path).is_directory()) {
-    ReturnableStatus::last_error_message_ = std::string("Cannot find the directory of ") + tokenizer_path;
-    return kOrtxErrorInvalidArgument;
-  }
-
-  ReturnableStatus status;
-  // auto ptr = ort_extensions::CreateTokenizer(tokenizer_path, "", &status);
-  auto ptr = std::make_unique<ort_extensions::TokenizerImpl>();
-  status = ptr->Load(tokenizer_path);
-  if (status.IsOk()) {
-    *tokenizer = static_cast<OrtxTokenizer*>(ptr.release());
-    return extError_t();
-  }
-
-  return status.Code();
-}
-
 extError_t ORTX_API_CALL OrtxDisposeOnly(OrtxObject* object) {
   if (object == nullptr) {
     return kOrtxErrorInvalidArgument;
@@ -82,21 +60,6 @@ extError_t ORTX_API_CALL OrtxDisposeOnly(OrtxObject* object) {
     return kOrtxErrorInvalidArgument;
   }
 
-  /* if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindStringArray) {
-    OrtxObjectFactory::Dispose<StringArray>(object);
-  } else if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindTokenId2DArray) {
-    OrtxObjectFactory<TokenId2DArray>::Dispose(object);
-  } else if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindDetokenizerCache) {
-    OrtxObjectFactory<DetokenizerCache>::DisposeForward(object);
-  } else if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindTokenizer) {
-    OrtxObjectFactory<TokenizerImpl>::Dispose(object);
-  } else if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindProcessorResult) {
-    OrtxObjectFactory<ProcessorResult>::Dispose(object);
-  } else if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindImageProcessorResult) {
-    OrtxObjectFactory<ImageProcessorResult>::Dispose(object);
-  } else if (Ortx_object->ortx_kind() == extObjectKind_t::kOrtxKindProcessor) {
-    OrtxObjectFactory<ImageProcessor>::Dispose(object);
-  } */
   if (Ortx_object->ortx_kind() >= kOrtxKindBegin && Ortx_object->ortx_kind() < kOrtxKindEnd) {
     OrtxObjectFactory::Dispose<OrtxObjectImpl>(object);
   } else {
@@ -165,7 +128,7 @@ extError_t ORTX_API_CALL OrtxGetTensorData(OrtxTensor* tensor, const void** data
 
 extError_t ORTX_API_CALL OrtxGetTensorDataInt64(OrtxTensor* tensor, const int64_t** data, const int64_t** shape,
                                                 size_t* num_dims) {
-  const void* data_ptr;
+  const void* data_ptr{};
   auto err = OrtxGetTensorData(tensor, &data_ptr, shape, num_dims);
   *data = reinterpret_cast<const int64_t*>(data_ptr);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
   return err;
@@ -173,7 +136,7 @@ extError_t ORTX_API_CALL OrtxGetTensorDataInt64(OrtxTensor* tensor, const int64_
 
 extError_t ORTX_API_CALL OrtxGetTensorDataFloat(OrtxTensor* tensor, const float** data, const int64_t** shape,
                                                 size_t* num_dims) {
-  const void* data_ptr;
+  const void* data_ptr{};
   auto err = OrtxGetTensorData(tensor, &data_ptr, shape, num_dims);
   *data = reinterpret_cast<const float*>(data_ptr);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
   return err;

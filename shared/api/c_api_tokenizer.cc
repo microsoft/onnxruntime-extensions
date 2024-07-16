@@ -22,6 +22,30 @@ OrtxObject* OrtxObjectFactory::CreateForward<DetokenizerCache>() {
   return Create<DetokenizerCache>();
 }
 
+extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const char* tokenizer_path) {
+  // test if the tokenizer_path is a valid directory
+  if (tokenizer_path == nullptr) {
+    ReturnableStatus::last_error_message_ = "The tokenizer data directory is null";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  if (!path(tokenizer_path).is_directory()) {
+    ReturnableStatus::last_error_message_ = std::string("Cannot find the directory of ") + tokenizer_path;
+    return kOrtxErrorInvalidArgument;
+  }
+
+  ReturnableStatus status;
+  // auto ptr = ort_extensions::CreateTokenizer(tokenizer_path, "", &status);
+  auto ptr = std::make_unique<ort_extensions::TokenizerImpl>();
+  status = ptr->Load(tokenizer_path);
+  if (status.IsOk()) {
+    *tokenizer = static_cast<OrtxTokenizer*>(ptr.release());
+    return extError_t();
+  }
+
+  return status.Code();
+}
+
 extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
                                       OrtxTokenId2DArray** output) {
   if (tokenizer == nullptr || input == nullptr || output == nullptr) {
