@@ -46,7 +46,7 @@ stages:
   - template: build-package-for-linux.yml
     parameters:
       OrtExtensionsArch: 'x64'
-      PoolName: 'aiinfra-Linux-CPU'
+      PoolName: 'onnxruntime-Ubuntu2204-AMD-CPU'
       IsReleaseBuild: ${{parameters.IsReleaseBuild}}
       OrtExtensionsCFlags: ''
       OrtExtensionsCXXFlags: ''
