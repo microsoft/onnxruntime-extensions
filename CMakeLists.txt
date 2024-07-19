@@ -5,6 +5,17 @@
 cmake_minimum_required(VERSION 3.25)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
+MESSAGE(OCOS_LIBTORCH_PATH=$ENV{OCOS_LIBTORCH_PATH})
+if (DEFINED ENV{OCOS_LIBTORCH_PATH})
+  # https://download.pytorch.org/libtorch/nightly/cu121/libtorch-shared-with-deps-latest.zip <-- NOT TESTED
+  # https://download.pytorch.org/libtorch/nightly/cu121/libtorch-cxx11-abi-shared-with-deps-latest.zip <- NOT TESTED
+  # https://download.pytorch.org/libtorch/nightly/cpu/libtorch-shared-with-deps-latest.zip <-- WORKS
+  # TODO: Maybe use export _GLIBCXX_USE_CXX11_ABI=1 if building pytorch from source
+  set(CMAKE_PREFIX_PATH $ENV{OCOS_LIBTORCH_PATH})
+  find_package(Torch REQUIRED)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+endif()
+
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Build type not set - using RelWithDebInfo")
@@ -175,6 +186,18 @@ if (MSVC)
   # See https://developercommunity.visualstudio.com/t/Access-violation-with-std::mutex::lock-a/10664660#T-N10668856
   # Remove this definition once the conda msvcp140.dll dll is updated.
   add_compile_definitions(_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
+
+  if (DEFINED ENV{OCOS_LIBTORCH_PATH})
+    # The following code block is suggested to be used on Windows.
+    # According to https://github.com/pytorch/pytorch/issues/25457,
+    # the DLLs need to be copied to avoid memory errors.
+    file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
+    add_custom_command(TARGET ocos_operators
+                      POST_BUILD
+                      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                      ${TORCH_DLLS}
+                      $<TARGET_FILE_DIR:ocos_operators>)
+  endif()
 endif()
 
 if(NOT OCOS_BUILD_PYTHON AND OCOS_ENABLE_PYTHON)
@@ -596,6 +619,10 @@ target_include_directories(ocos_operators PUBLIC
   ${PROJECT_SOURCE_DIR}/base
   ${PROJECT_SOURCE_DIR}/operators)
 
+if (DEFINED ENV{OCOS_LIBTORCH_PATH})
+  target_include_directories(ocos_operators PUBLIC ${TORCH_INCLUDE_DIRS})
+endif()
+
 if (OCOS_USE_CUDA) 
   target_include_directories(ocos_operators PUBLIC ${cutlass_SOURCE_DIR}/include ${cutlass_SOURCE_DIR}/examples)
 endif()
@@ -723,6 +750,10 @@ endif()
 list(APPEND ocos_libraries noexcep_operators)
 target_compile_definitions(ocos_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
+
+if (DEFINED ENV{OCOS_LIBTORCH_PATH})
+  target_link_libraries(ocos_operators PRIVATE "${TORCH_LIBRARIES}")
+endif()
 
 set (file_patterns "shared/lib/*.cc")
 if (OCOS_ENABLE_C_API)
