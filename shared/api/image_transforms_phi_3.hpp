@@ -37,7 +37,7 @@ inline Imaging padding_336_h(Imaging image) {
   Imaging output = ImagingNew("RGB", image->xsize, tar);
   for (int32_t i = 0; i < top_padding; ++i) {
     for (int32_t j = 0; j < image->xsize; ++j) {
-      output->image[i][j * 4] = char(255);
+      output->image[i][j * 4 + 0] = char(255);
       output->image[i][j * 4 + 1] = char(255);
       output->image[i][j * 4 + 2] = char(255);
       output->image[i][j * 4 + 3] = 0;  // unused
@@ -45,7 +45,7 @@ inline Imaging padding_336_h(Imaging image) {
   }
   for (int32_t i = top_padding; i < top_padding + image->ysize; ++i) {
     for (int32_t j = 0; j < image->xsize; ++j) {
-      output->image[i][j * 4] = image->image[i - top_padding][j * 4];
+      output->image[i][j * 4 + 0] = image->image[i - top_padding][j * 4];
       output->image[i][j * 4 + 1] = image->image[i - top_padding][j * 4 + 1];
       output->image[i][j * 4 + 2] = image->image[i - top_padding][j * 4 + 2];
       output->image[i][j * 4 + 3] = 0;  // unused
@@ -53,7 +53,7 @@ inline Imaging padding_336_h(Imaging image) {
   }
   for (int32_t i = top_padding + image->ysize; i < tar; ++i) {
     for (int32_t j = 0; j < image->xsize; ++j) {
-      output->image[i][j * 4] = char(255);
+      output->image[i][j * 4 + 0] = char(255);
       output->image[i][j * 4 + 1] = char(255);
       output->image[i][j * 4 + 2] = char(255);
       output->image[i][j * 4 + 3] = 0;  // unused
@@ -77,19 +77,19 @@ inline Imaging padding_336_w(Imaging image) {
   Imaging output = ImagingNew("RGB", tar, image->ysize);
   for (int32_t i = 0; i < image->ysize; ++i) {
     for (int32_t j = 0; j < left_padding; ++j) {
-      output->image[i][j * 4] = char(255);
+      output->image[i][j * 4 + 0] = char(255);
       output->image[i][j * 4 + 1] = char(255);
       output->image[i][j * 4 + 2] = char(255);
       output->image[i][j * 4 + 3] = 0;  // unused
     }
     for (int32_t j = left_padding; j < left_padding + image->xsize; ++j) {
-      output->image[i][j * 4] = image->image[i][j - left_padding * 4];
-      output->image[i][j * 4 + 1] = image->image[i][j - left_padding * 4 + 1];
-      output->image[i][j * 4 + 2] = image->image[i][j - left_padding * 4 + 2];
+      output->image[i][j * 4 + 0] = image->image[i][(j - left_padding) * 4 + 0];
+      output->image[i][j * 4 + 1] = image->image[i][(j - left_padding) * 4 + 1];
+      output->image[i][j * 4 + 2] = image->image[i][(j - left_padding) * 4 + 2];
       output->image[i][j * 4 + 3] = 0;  // unused
     }
     for (int32_t j = left_padding + image->xsize; j < tar; ++j) {
-      output->image[i][j * 4] = char(255);
+      output->image[i][j * 4 + 0] = char(255);
       output->image[i][j * 4 + 1] = char(255);
       output->image[i][j * 4 + 2] = char(255);
       output->image[i][j * 4 + 3] = 0;  // unused
@@ -141,9 +141,9 @@ inline Imaging hd_transform(Imaging image, int hd_num) {
   // cv::resize(image, output_image, {static_cast<int32_t>(new_w), static_cast<int32_t>(new_h)}, 0.0, 0.0,
   //            cv::INTER_LINEAR);
 
-  float filter[4] = {0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height)};
+  float box[4] = {0.0f, 0.0f, static_cast<float>(image->xsize), static_cast<float>(image->ysize)};
   auto output_image =
-      ImagingResample(image, static_cast<int>(new_w), static_cast<int>(new_h), IMAGING_TRANSFORM_BILINEAR, filter);
+      ImagingResample(image, static_cast<int>(new_w), static_cast<int>(new_h), IMAGING_TRANSFORM_BILINEAR, box);
   ImagingDelete(image);
 
   //     img = padding_336(img)
@@ -192,10 +192,6 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
       pixel[1] = input_data[(i * w + j) * 3 + 1];
       pixel[2] = input_data[(i * w + j) * 3 + 2];
       pixel[3] = 0;  // unused
-      // rgb_image->image[i][j * 4] = input_data[(i * w + j) * 3];
-      // rgb_image->image[i][j * 4 + 1] = input_data[(i * w + j) * 3 + 1];
-      // rgb_image->image[i][j * 4 + 2] = input_data[(i * w + j) * 3 + 2];
-      // rgb_image->image[i][j * 4 + 3] = 0;  // unused
     }
   }
 
@@ -224,36 +220,37 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
   uint8_t** elem_image = reinterpret_cast<uint8_t**>(elem->image);
   auto rgb_image_ptr = std::make_unique<float[]>(c * h * w);  // channel first
   auto p_pixel_values = rgb_image_ptr.get();
-  for (int32_t i = 0; i < c; ++i) {
-    for (int32_t j = 0; j < h; ++j) {
-      for (int32_t k = 0; k < w; ++k) {
-        p_pixel_values[i * h * w + j * w + k] =
-            (static_cast<float>(elem_image[j][k * 4 + i]) / 255.f - OPENAI_CLIP_MEAN[i]) / OPENAI_CLIP_STD[i];
+  for (int32_t k = 0; k < c; ++k) {
+    for (int32_t i = 0; i < h; ++i) {
+      for (int32_t j = 0; j < w; ++j) {
+        p_pixel_values[k * h * w + i * w + j] =
+            (static_cast<float>(elem_image[i][j * 4 + k]) / 255.f - OPENAI_CLIP_MEAN[k]) / OPENAI_CLIP_STD[k];
       }
     }
   }
+  ImagingDelete(elem);
 
   auto shape = image_sizes.Allocate({2});
   {
     // # [(3, h, w)], where h, w is multiple of 336
     // shapes = [[im.size(1), im.size(2)] for im in hd_images]
-    shape[0] = elem->ysize;
-    shape[1] = elem->xsize;
+    shape[0] = h;
+    shape[1] = w;
   }
-  ImagingDelete(elem);
 
   // Debug code to check the image parity
   // auto rgb_image_ptr_debug = std::make_unique<float[]>(h * w * c);
   // Permute3DArray(p_pixel_values, rgb_image_ptr_debug.get(), h, w, c);
 
   auto image_size_1c = h * w;
-  std::vector<Imaging> global_image(c);  // resample the iamge per channel
+  std::vector<Imaging> global_image(c);  // resample the image per channel
   for (int32_t k = 0; k < c; ++k) {
     // # create global image
     auto image_1c = ImagingNew("F", w, h);
     for (int32_t y = 0; y < h; ++y) {
       for (int32_t x = 0; x < w; ++x) {
-        *(reinterpret_cast<float*>(image_1c->image[y]) + x) = p_pixel_values[k * image_size_1c + y * w + x];
+        float* pixel = reinterpret_cast<float*>(image_1c->image[y]);
+        *(pixel + x) = p_pixel_values[k * image_size_1c + y * w + x];
       }
     }
     // global_image = [torch.nn.functional.interpolate(im.unsqueeze(0).float(), size=(336, 336),

@@ -1,6 +1,21 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+// The major implementation is based on the Python Imaging Library (PIL) by Fredrik Lundh and Contributors.
+// https://github.com/python-pillow/Pillow/blob/73dfe67736565805f4c769cdfc92447f2b098187/src/libImaging/Resample.c
+/*
+ * The Python Imaging Library
+ * $Id$
+ *
+ * declarations for the imaging core library
+ *
+ * Copyright (c) 1997-2005 by Secret Labs AB
+ * Copyright (c) 1995-2005 by Fredrik Lundh
+ *
+ * See the README file for information on usage and redistribution.
+ * https://github.com/python-pillow/Pillow/blob/73dfe67736565805f4c769cdfc92447f2b098187/README.md
+ */
+
 #include <math.h>
 #include <limits.h>
 #include <stdio.h>
