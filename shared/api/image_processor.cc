@@ -143,7 +143,7 @@ std::tuple<OrtxStatus, ProcessorResult> ImageProcessor::PreProcess(ort_extension
 
   *pixel_values = r.pixel_values = StackTensor<float>(outputs, 0, allocator_);
   *image_sizes = r.image_sizes = StackTensor<int64_t>(outputs, 1, allocator_);
-  *num_img_takens = r.num_img_takens = StackTensor<int64_t>(outputs, 2, allocator_);
+  *num_img_takens = r.num_img_tokens = StackTensor<int64_t>(outputs, 2, allocator_);
 
   return {status, std::move(r)};
 }
@@ -179,6 +179,7 @@ OrtxStatus ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_d
   operations_.back()->ResetTensors(allocator_);
   if (status.IsOk()) {
     r.SetTensors(std::move(img_result));
+    r.SetTensorTypes({kOrtxFloat, kOrtxInt64, kOrtxInt64});
   }
 
   return status;
@@ -195,8 +196,8 @@ void ImageProcessor::ClearOutputs(ProcessorResult* r) {
     r->image_sizes = nullptr;
   }
 
-  if (r->num_img_takens) {
-    std::unique_ptr<ortc::TensorBase>(r->num_img_takens).reset();
-    r->num_img_takens = nullptr;
+  if (r->num_img_tokens) {
+    std::unique_ptr<ortc::TensorBase>(r->num_img_tokens).reset();
+    r->num_img_tokens = nullptr;
   }
 }

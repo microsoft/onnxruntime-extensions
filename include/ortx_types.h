@@ -33,3 +33,23 @@ typedef enum {
   kOrtxErrorInternal = 9,
   kOrtxErrorUnknown = 1000
 } extError_t;
+
+typedef enum {
+  kOrtxUnknownType = 0,
+  kOrtxFloat = 1,
+  kOrtxDouble = 2,
+  kOrtxString = 3,
+  kOrtxBool = 4,
+  kOrtxComplex64 = 5,
+  kOrtxComplex128 = 6,
+  kOrtxBFloat16 = 7,
+  kOrtxUint8 = 8,
+  kOrtxInt8 = 9,
+  kOrtxUint16 = 10,
+  kOrtxInt16 = 11,
+  kOrtxInt32 = 12,
+  kOrtxUint32 = 13,
+  kOrtxInt64 = 14,
+  kOrtxUint64 = 15,
+  kOrtxFloat16 = 16
+} extDataType_t;

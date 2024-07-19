@@ -92,6 +92,19 @@ extError_t ORTX_API_CALL OrtxDisposeOnly(OrtxObject* object);
  */
 extError_t ORTX_API_CALL OrtxTensorResultGetAt(OrtxTensorResult* result, size_t index, OrtxTensor** tensor);
 
+/**
+ * @brief Retrieves the data type of the given tensor.
+ *
+ * This function returns the data type of the specified tensor. The data type is
+ * stored in the `type` parameter.
+ *
+ * @param tensor The tensor for which to retrieve the data type.
+ * @param type   A pointer to a variable that will hold the retrieved data type.
+ *
+ * @return An `extError_t` value indicating the success or failure of the operation.
+ */
+extError_t ORTX_API_CALL OrtxGetTensorType(OrtxTensor* tensor, extDataType_t* type);
+
 /** \brief Get the data from the tensor
  *
  * \param tensor The tensor object

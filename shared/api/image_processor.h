@@ -24,7 +24,7 @@ class ProcessorResult : public OrtxObjectImpl {
   ProcessorResult() : OrtxObjectImpl(kOrtxKindProcessorResult) {}
   ortc::Tensor<float>* pixel_values{};
   ortc::Tensor<int64_t>* image_sizes{};
-  ortc::Tensor<int64_t>* num_img_takens{};
+  ortc::Tensor<int64_t>* num_img_tokens{};
 };
 class ImageProcessor : public OrtxObjectImpl {
  public:
