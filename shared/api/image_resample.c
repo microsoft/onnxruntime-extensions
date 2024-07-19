@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include <string.h>
 
 #include "image_resample.h"
 
@@ -279,10 +280,10 @@ ImagingNewPrologueSubtype(const char *mode, int xsize, int ysize, int size) {
         case 1:
         case 2:
         case 3:
-            im->image8 = (UINT8 **)im->image;
+            im->image8 = (uint8_t **)im->image;
             break;
         case 4:
-            im->image32 = (INT32 **)im->image;
+            im->image32 = (int32_t **)im->image;
             break;
     }
 

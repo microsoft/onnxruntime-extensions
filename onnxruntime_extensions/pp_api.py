@@ -4,6 +4,8 @@
 ###############################################################################
 
 from . import _extensions_pydll as _C
+if not hasattr(_C, "create_processor"):
+    raise ImportError("onnxruntime_extensions is not built with pre-processing API")
 
 create_processor = _C.create_processor
 load_images = _C.load_images
