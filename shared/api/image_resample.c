@@ -58,8 +58,6 @@
 #define IMAGING_PIXEL_1(im, x, y) ((im)->image8[(y)][(x)])
 #define IMAGING_PIXEL_L(im, x, y) ((im)->image8[(y)][(x)])
 #define IMAGING_PIXEL_LA(im, x, y) ((im)->image[(y)][(x) * 4])
-#define IMAGING_PIXEL_P(im, x, y) ((im)->image8[(y)][(x)])
-#define IMAGING_PIXEL_PA(im, x, y) ((im)->image[(y)][(x) * 4])
 #define IMAGING_PIXEL_I(im, x, y) ((im)->image32[(y)][(x)])
 #define IMAGING_PIXEL_F(im, x, y) (((float *)(im)->image32[y])[x])
 #define IMAGING_PIXEL_RGB(im, x, y) ((im)->image[(y)][(x) * 4])

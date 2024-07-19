@@ -24,7 +24,6 @@ struct ImagingMemoryInstance {
   char mode[IMAGING_MODE_LENGTH]; /* Band names ("1", "L", "P", "RGB", "RGBA", "CMYK",
                                      "YCbCr", "BGR;xy") */
   int type;                       /* Data type (IMAGING_TYPE_*) */
-  // int depth;                      /* Depth (ignored in this version) */
   int bands;                      /* Number of bands (1, 2, 3, or 4) */
   int xsize;                      /* Image dimension. */
   int ysize;

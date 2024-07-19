@@ -134,13 +134,6 @@ inline Imaging hd_transform(Imaging image, int hd_num) {
   }
 
   //     img = torchvision.transforms.functional.resize(img, [new_h, new_w])
-  // std::vector<int32_t> height_x_width{static_cast<int32_t>(new_h),   // H
-  //                                     static_cast<int32_t>(new_w)};  // W
-
-  // cv::Mat output_image;
-  // cv::resize(image, output_image, {static_cast<int32_t>(new_w), static_cast<int32_t>(new_h)}, 0.0, 0.0,
-  //            cv::INTER_LINEAR);
-
   float box[4] = {0.0f, 0.0f, static_cast<float>(image->xsize), static_cast<float>(image->ysize)};
   auto output_image =
       ImagingResample(image, static_cast<int>(new_w), static_cast<int>(new_h), IMAGING_TRANSFORM_BILINEAR, box);
@@ -199,22 +192,6 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
   // elems = [HD_transform(im, hd_num = self.num_crops) for im in images]
   auto elem = hd_transform(rgb_image, max_crops);
   // # tensor transform and normalize
-  // hd_images = [img_processor(im) for im in elems]
-  // std::tie(w, h) = std::make_tuple(elem->xsize, elem->ysize);
-  // auto elem_image = elem->image;
-  // auto rgb_image_ptr = std::make_unique<float[]>(h * w * c);
-  // auto p_pixel_values = rgb_image_ptr.get();
-  // for (int64_t j = 0; j < h; ++j) {
-  //   for (int64_t k = 0; k < w; ++k) {
-  //     auto c0_index = j * w * c + k * c;
-  //     p_pixel_values[c0_index] =
-  //         (static_cast<float>(elem_image[j][k * 4]) / 255.f - OPENAI_CLIP_MEAN[0]) / OPENAI_CLIP_STD[0];
-  //     p_pixel_values[c0_index + 1] =
-  //         (static_cast<float>(elem_image[j][k * 4 + 1]) / 255.f - OPENAI_CLIP_MEAN[1]) / OPENAI_CLIP_STD[1];
-  //     p_pixel_values[c0_index + 2] =
-  //         (static_cast<float>(elem_image[j][k * 4 + 2]) / 255.f - OPENAI_CLIP_MEAN[2]) / OPENAI_CLIP_STD[2];
-  //   }
-  // }
 
   std::tie(w, h) = std::make_tuple(elem->xsize, elem->ysize);
   uint8_t** elem_image = reinterpret_cast<uint8_t**>(elem->image);
@@ -231,16 +208,9 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
   ImagingDelete(elem);
 
   auto shape = image_sizes.Allocate({2});
-  {
-    // # [(3, h, w)], where h, w is multiple of 336
-    // shapes = [[im.size(1), im.size(2)] for im in hd_images]
-    shape[0] = h;
-    shape[1] = w;
-  }
-
-  // Debug code to check the image parity
-  // auto rgb_image_ptr_debug = std::make_unique<float[]>(h * w * c);
-  // Permute3DArray(p_pixel_values, rgb_image_ptr_debug.get(), h, w, c);
+  // shapes = [[im.size(1), im.size(2)] for im in hd_images]
+  shape[0] = h;
+  shape[1] = w;
 
   auto image_size_1c = h * w;
   std::vector<Imaging> global_image(c);  // resample the image per channel
@@ -261,12 +231,6 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
     ImagingDelete(image_1c);
   }
 
-  // cv::Mat hd_image(h, w, CV_32FC3, p_pixel_values);
-  // // # create global image
-  // // global_image = [torch.nn.functional.interpolate(im.unsqueeze(0).float(), size=(336, 336),
-  // // mode='bicubic',).to(im.dtype) for im in hd_images]
-  // cv::Mat global_image;
-  // cv::resize(hd_image, global_image, {image_resized_height, image_resized_width}, 0.0, 0.0, cv::INTER_CUBIC);
   {
     // num_img_tokens = [int((h//336*w//336+1)*144 + 1 + (h//336+1)*12) for h, w in shapes]
     auto n_tokens = num_img_tokens.Allocate({1});
@@ -286,14 +250,9 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
   std::vector<int64_t> padded_image_shape = {max_crops + 1, 3, image_resized_height, image_resized_width};
   float* output_pixel = pixel_values.Allocate(padded_image_shape);
   // Copy the image pixel value from the global image
-  // const int image_c_size = image_resized_height * image_resized_width * 3;
-  // Permute3DArray(reinterpret_cast<float*>(global_image.data), output_pixel, image_resized_height,
-  // image_resized_width,
-  //                3);
   const int image_1c_size = image_resized_height * image_resized_width;
   for (auto i = c - c; i < c; ++i) {
     for (int y = 0; y < image_resized_height; ++y) {
-      // memcpy(output_pixel + i * image_size_1c, image_transformed, image_size_1c * sizeof(float));
       auto image_transformed = reinterpret_cast<float*>(global_image[i]->image[y]);
       memcpy(output_pixel + i * image_1c_size + y * image_resized_width, image_transformed,
              image_resized_width * sizeof(float));
@@ -305,12 +264,6 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
   }
 
   auto num_crops = static_cast<int>((shape[0] / image_resized_height) * (shape[1] / image_resized_width));
-  // float* image_transformed = reinterpret_cast<float*>(hd_image.data);
-  // for (int i = 0; i < num_crops; ++i) {
-  //   Permute3DArray(image_transformed + i * image_c_size, output_pixel + (i + 1) * image_c_size, image_resized_height,
-  //   image_resized_width, 3);
-  // }
-
   // chop the image into crops
   float* output_pixel_n_1 = output_pixel + image_1c_size * c;
   int m = static_cast<int>(shape[0] / image_resized_height);
@@ -331,20 +284,6 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
       }
     }
   }
-
-  // for (int i = 0; i < m; ++i) {
-  //   for (int j = 0; j < n; ++j) {
-  //     int sub_index = (i * n + j) * image_c_size;
-  //     for (int x = 0; x < image_resized_height; ++x) {
-  //       for (int y = 0; y < image_resized_width; ++y) {
-  //         for (int k = 0; k < 3; ++k) {  // Loop over channels
-  //           output_pixel_n_1[sub_index + k * h * w + x * w + y] =
-  //               image_transformed[((i * h + x) * shape[1] + (j * w + y)) * 3 + k];
-  //         }
-  //       }
-  //     }
-  //   }
-  // }
 
   // padding the rest of the crops
   // pad = torch.zeros(max_crops - B, 3, H, W, dtype=images.dtype, device=images.device)

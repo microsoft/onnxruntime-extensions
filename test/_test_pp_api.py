@@ -23,8 +23,8 @@ def regen_image(arr):
     return image
 
 
-# test_image = "test/data/processor/passport.png"
-test_image = "/temp/passport_s.png"
+test_image = "test/data/processor/standard_s.jpg"
+# test_image = "/temp/passport_s.png"
 # test_image = "/temp/passport_s2.png"
 model_id = "microsoft/Phi-3-vision-128k-instruct"
 
