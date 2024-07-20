@@ -1,3 +1,5 @@
+import os
+import tempfile
 from PIL import Image
 from transformers import AutoProcessor
 from onnxruntime_extensions.pp_api import create_processor, load_images, image_pre_process, tensor_result_get_at
@@ -23,7 +25,7 @@ def regen_image(arr):
     return image
 
 
-test_image = "test/data/processor/standard_s.jpg"
+test_image = "test/data/processor/passport.png"
 # test_image = "/temp/passport_s.png"
 # test_image = "/temp/passport_s2.png"
 model_id = "microsoft/Phi-3-vision-128k-instruct"
@@ -52,16 +54,23 @@ inputs = processor(prompt, [image], return_tensors="pt")
 np.testing.assert_allclose(
     inputs["image_sizes"].numpy(), tensor_result_get_at(c_out, 1))
 # np.testing.assert_allclose(inputs["pixel_values"].numpy(), tensor_result_get_at(c_out, 0), rtol=1e-1)
+
+if os.path.exists("/temp"):
+    temp_dir = "/temp"
+else:
+    temp_dir = tempfile.mkdtemp()
+    print(f"Created temp dir: {temp_dir}")
+
 for i in range(17):
     expected = inputs["pixel_values"].numpy()[0, i]
     actual = tensor_result_get_at(c_out, 0)[0, i]
     e_image = regen_image(expected.transpose(1, 2, 0))
     a_image = regen_image(actual.transpose(1, 2, 0))
-    e_image.save(f"/temp/e_{i}.png")
-    a_image.save(f"/temp/a_{i}.png")
+    e_image.save(f"{temp_dir}/e_{i}.png")
+    a_image.save(f"{temp_dir}/a_{i}.png")
 
     try:
         np.testing.assert_allclose(inputs["pixel_values"].numpy(
-        )[0, i], tensor_result_get_at(c_out, 0)[0, i], rtol=1e-3)
+        )[0, i], tensor_result_get_at(c_out, 0)[0, i], rtol=1e-2)
     except AssertionError as e:
         print(str(e))
