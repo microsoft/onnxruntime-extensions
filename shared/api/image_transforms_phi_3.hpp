@@ -35,6 +35,9 @@ inline Imaging padding_336_h(Imaging image) {
   int32_t bottom_padding = tar - image->ysize - top_padding;
 
   Imaging output = ImagingNew("RGB", image->xsize, tar);
+  if (output == nullptr) {
+    return nullptr;
+  }
   for (int32_t i = 0; i < top_padding; ++i) {
     for (int32_t j = 0; j < image->xsize; ++j) {
       output->image[i][j * 4 + 0] = char(255);
@@ -75,6 +78,9 @@ inline Imaging padding_336_w(Imaging image) {
   int32_t right_padding = tar - image->xsize - left_padding;
 
   Imaging output = ImagingNew("RGB", tar, image->ysize);
+  if (output == nullptr) {
+    return nullptr;
+  }
   for (int32_t i = 0; i < image->ysize; ++i) {
     for (int32_t j = 0; j < left_padding; ++j) {
       output->image[i][j * 4 + 0] = char(255);
@@ -138,6 +144,9 @@ inline Imaging hd_transform(Imaging image, int hd_num) {
   auto output_image =
       ImagingResample(image, static_cast<int>(new_w), static_cast<int>(new_h), IMAGING_TRANSFORM_BILINEAR, box);
   ImagingDelete(image);
+  if (output_image == nullptr) {
+    return nullptr;
+  }
 
   //     img = padding_336(img)
   return width < height ? padding_336_w(output_image) : padding_336_h(output_image);
@@ -178,6 +187,9 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
 
   // cv::Mat rgb_image(static_cast<int>(h), static_cast<int>(w), CV_8UC3, const_cast<uint8_t*>(input_data));
   Imaging rgb_image = ImagingNew("RGB", w, h);
+  if (rgb_image == nullptr) {
+    return {kOrtxErrorOutOfMemory, "[hd_transform]: Failed to allocate memory for RGB image"};
+  }
   for (int32_t i = 0; i < h; ++i) {
     for (int32_t j = 0; j < w; ++j) {
       uint8_t* pixel = reinterpret_cast<uint8_t*>(rgb_image->image[i] + j * 4);
@@ -192,6 +204,9 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
   // elems = [HD_transform(im, hd_num = self.num_crops) for im in images]
   auto elem = hd_transform(rgb_image, max_crops);
   // # tensor transform and normalize
+  if (elem == nullptr) {
+    return {kOrtxErrorOutOfMemory, "[hd_transform]: Failed to allocate memory for elem"};
+  }
 
   std::tie(w, h) = std::make_tuple(elem->xsize, elem->ysize);
   uint8_t** elem_image = reinterpret_cast<uint8_t**>(elem->image);
@@ -228,6 +243,9 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
     float box[]{0.0f, 0.0f, static_cast<float>(image_1c->xsize), static_cast<float>(image_1c->ysize)};
     global_image[k] =
         ImagingResample(image_1c, image_resized_width, image_resized_height, IMAGING_TRANSFORM_BICUBIC, box);
+    if (global_image[k] == nullptr) {
+      return {kOrtxErrorOutOfMemory, "[hd_transform]: Failed to allocate memory for global_image"};
+    }
     ImagingDelete(image_1c);
   }
 

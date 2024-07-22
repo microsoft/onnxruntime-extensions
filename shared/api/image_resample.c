@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
+#include <assert.h>
 
 #include "image_resample.h"
 
@@ -106,22 +107,20 @@ struct ImagingMemoryArenaInstance ImagingDefaultArena = {
 
 extern void *
 ImagingError_MemoryError(void)  {
-    fprintf(stderr, "*** exception: out of memory\n");
+    assert(0 && "out of memory");
     return NULL;
 }
 
 extern void *
 ImagingError_ValueError(const char *message){
-    if (!message) {
-        message = "exception: bad argument to function";
-    }
-    fprintf(stderr, "*** %s\n", message);
+    assert(0 && "exception: bad argument to function");
     return NULL;
 }
 
 extern void *
 ImagingError_ModeError(void){
-    return ImagingError_ValueError("bad image mode");
+    assert(0 && "bad image mode");
+    return NULL;
 }
 
 Imaging
