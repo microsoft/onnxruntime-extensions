@@ -411,6 +411,7 @@ stages:
     pool:
       name: 'onnxruntime-extensions-Windows-CPU'
 
+    steps:
     - script: |
         call .\build.bat -DOCOS_ENABLE_CTEST=ON -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
         cd out/Windows
