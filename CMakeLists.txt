@@ -726,7 +726,7 @@ target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
 
 set (file_patterns "shared/lib/*.cc")
 if (OCOS_ENABLE_C_API)
-  list(APPEND file_patterns "shared/api/*.h*" "shared/api/*.cc")
+  list(APPEND file_patterns "shared/api/*.h*" "shared/api/*.c" "shared/api/*.cc")
 endif()
 
 file(GLOB shared_TARGET_LIB_SRC ${file_patterns})

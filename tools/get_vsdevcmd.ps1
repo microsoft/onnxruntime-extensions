@@ -4,10 +4,10 @@ $latest_valid_vs = ""
 function choose_latter_vs {
     param([string]$path)
     if ($global:latest_valid_vs -lt $path) {
-        $cmake_path = $path + "\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
-        if (Test-Path -Path $cmake_path) {
-            $global:latest_valid_vs = $path
-        }
+        # $cmake_path = $path + "\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+        # if (Test-Path -Path $cmake_path) {
+        $global:latest_valid_vs = $path
+        # }
     }
 }
 

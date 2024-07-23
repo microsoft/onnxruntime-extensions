@@ -101,9 +101,26 @@ extError_t ORTX_API_CALL OrtxTensorResultGetAt(OrtxTensorResult* result, size_t 
     return kOrtxErrorInvalidArgument;
   }
 
-  auto tensor_ptr = std::make_unique<OrtxObjectWrapper<ortc::TensorBase, kOrtxKindTensor>>();
-  tensor_ptr->SetObject(ts);
+  auto tensor_ptr = std::make_unique<TensorObject>();
+  tensor_ptr->SetTensor(ts);
+  tensor_ptr->SetTensorType(result_ptr->GetTensorType(index));
   *tensor = static_cast<OrtxTensor*>(tensor_ptr.release());
+  return extError_t();
+}
+
+extError_t ORTX_API_CALL OrtxGetTensorType(OrtxTensor* tensor, extDataType_t* type) {
+  if (tensor == nullptr || type == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  auto tensor_impl = static_cast<TensorObject*>(tensor);
+  if (tensor_impl->ortx_kind() != extObjectKind_t::kOrtxKindTensor) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  *type = tensor_impl->GetTensorType();
   return extError_t();
 }
 
@@ -114,15 +131,15 @@ extError_t ORTX_API_CALL OrtxGetTensorData(OrtxTensor* tensor, const void** data
     return kOrtxErrorInvalidArgument;
   }
 
-  auto tensor_impl = static_cast<OrtxObjectWrapper<ortc::TensorBase, kOrtxKindTensor>*>(tensor);
+  auto tensor_impl = static_cast<TensorObject*>(tensor);
   if (tensor_impl->ortx_kind() != extObjectKind_t::kOrtxKindTensor) {
     ReturnableStatus::last_error_message_ = "Invalid argument";
     return kOrtxErrorInvalidArgument;
   }
 
-  *data = tensor_impl->GetObject()->DataRaw();
-  *shape = tensor_impl->GetObject()->Shape().data();
-  *num_dims = tensor_impl->GetObject()->Shape().size();
+  *data = tensor_impl->GetTensor()->DataRaw();
+  *shape = tensor_impl->GetTensor()->Shape().data();
+  *num_dims = tensor_impl->GetTensor()->Shape().size();
   return extError_t();
 }
 

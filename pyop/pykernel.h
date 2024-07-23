@@ -127,3 +127,7 @@ struct PyCustomOpFactory : public OrtCustomOp {
 };
 
 bool EnablePyCustomOps(bool enable = true);
+
+#if defined(ENABLE_C_API)
+void AddGlobalMethodsCApi(pybind11::module& m);
+#endif

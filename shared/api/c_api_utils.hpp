@@ -93,12 +93,33 @@ class StringArray : public OrtxObjectImpl {
   std::vector<std::string> strings_;
 };
 
+class TensorObject : public OrtxObjectImpl {
+ public:
+  TensorObject() : OrtxObjectImpl(extObjectKind_t::kOrtxKindTensor) {}
+  ~TensorObject() override = default;
+
+  void SetTensor(ortc::TensorBase* tensor) { tensor_ = tensor; }
+  void SetTensorType(extDataType_t type) { tensor_type_ = type; }
+
+  [[nodiscard]] extDataType_t GetTensorType() const { return tensor_type_; }
+
+  [[nodiscard]] ortc::TensorBase* GetTensor() const { return tensor_; }
+
+ private:
+  ortc::TensorBase* tensor_{};
+  extDataType_t tensor_type_{extDataType_t::kOrtxUnknownType};
+};
+
 class TensorResult : public OrtxObjectImpl {
  public:
   TensorResult() : OrtxObjectImpl(extObjectKind_t::kOrtxKindTensorResult) {}
   ~TensorResult() override = default;
 
   void SetTensors(std::vector<std::unique_ptr<ortc::TensorBase>>&& tensors) { tensors_ = std::move(tensors); }
+  void SetTensorTypes(const std::vector<extDataType_t>& types) { tensor_types_ = types; }
+  [[nodiscard]] size_t NumTensors() const { return tensors_.size(); }
+
+  [[nodiscard]] const std::vector<extDataType_t>& tensor_types() const { return tensor_types_; }
 
   [[nodiscard]] const std::vector<std::unique_ptr<ortc::TensorBase>>& tensors() const { return tensors_; }
 
@@ -118,8 +139,16 @@ class TensorResult : public OrtxObjectImpl {
     return nullptr;
   }
 
+  extDataType_t GetTensorType(size_t i) const {
+    if (i < tensor_types_.size()) {
+      return tensor_types_[i];
+    }
+    return extDataType_t::kOrtxUnknownType;
+  }
+
  private:
   std::vector<std::unique_ptr<ortc::TensorBase>> tensors_;
+  std::vector<extDataType_t> tensor_types_;
 };
 
 struct ReturnableStatus {

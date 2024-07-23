@@ -1,18 +1,17 @@
-﻿diff --git a/3rdparty/libjpeg-turbo/CMakeLists.txt b/3rdparty/libjpeg-turbo/CMakeLists.txt
-index 3c7f29b08e..066ea4e545 100644
---- a/3rdparty/libjpeg-turbo/CMakeLists.txt
-+++ b/3rdparty/libjpeg-turbo/CMakeLists.txt
-@@ -67,7 +67,7 @@ set(JPEG_LIB_VERSION "${VERSION}-${JPEG_LIB_VERSION}" PARENT_SCOPE)
- set(THREAD_LOCAL "")  # WITH_TURBOJPEG is not used
+diff --git a/3rdparty/libjpeg/CMakeLists.txt b/3rdparty/libjpeg/CMakeLists.txt
+index c0524cc38..69a71e416 100644
+--- a/3rdparty/libjpeg/CMakeLists.txt
++++ b/3rdparty/libjpeg/CMakeLists.txt
+@@ -27,7 +27,6 @@ endif()
  
- if(MSVC)
--  add_definitions(-W3 -wd4996 -wd4018)
-+  add_definitions(-W3)
- endif()
+ ocv_warnings_disable(CMAKE_C_FLAGS -Wcast-align -Wshadow -Wunused -Wshift-negative-value -Wimplicit-fallthrough)
+ ocv_warnings_disable(CMAKE_C_FLAGS -Wunused-parameter) # clang
+-ocv_warnings_disable(CMAKE_C_FLAGS /wd4013 /wd4244 /wd4267) # vs2005
  
- if(WIN32)
+ set_target_properties(${JPEG_LIBRARY}
+   PROPERTIES OUTPUT_NAME ${JPEG_LIBRARY}
 diff --git a/3rdparty/zlib/CMakeLists.txt b/3rdparty/zlib/CMakeLists.txt
-index 9758861a6b..9e654ba922 100644
+index 9758861a6..9e654ba92 100644
 --- a/3rdparty/zlib/CMakeLists.txt
 +++ b/3rdparty/zlib/CMakeLists.txt
 @@ -81,7 +81,6 @@ set_target_properties(${ZLIB_LIBRARY} PROPERTIES DEFINE_SYMBOL ZLIB_DLL)
@@ -24,7 +23,7 @@ index 9758861a6b..9e654ba922 100644
  )
  
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index d95e5db163..db185453df 100644
+index d95e5db16..db185453d 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -617,11 +617,6 @@ endif()
@@ -40,7 +39,7 @@ index d95e5db163..db185453df 100644
  
  ocv_cmake_hook(POST_COMPILER_OPTIONS)
 diff --git a/cmake/OpenCVDetectCXXCompiler.cmake b/cmake/OpenCVDetectCXXCompiler.cmake
-index 7f229cde96..92e204a5b9 100644
+index 7f229cde9..92e204a5b 100644
 --- a/cmake/OpenCVDetectCXXCompiler.cmake
 +++ b/cmake/OpenCVDetectCXXCompiler.cmake
 @@ -171,7 +171,7 @@ elseif(MSVC)
@@ -53,7 +52,7 @@ index 7f229cde96..92e204a5b9 100644
    else()
      message(WARNING "OpenCV does not recognize MSVC_VERSION \"${MSVC_VERSION}\". Cannot set OpenCV_RUNTIME")
 diff --git a/modules/core/include/opencv2/core/ocl.hpp b/modules/core/include/opencv2/core/ocl.hpp
-index 4503fa00dd..642b0508d0 100644
+index 4503fa00d..642b0508d 100644
 --- a/modules/core/include/opencv2/core/ocl.hpp
 +++ b/modules/core/include/opencv2/core/ocl.hpp
 @@ -302,21 +302,6 @@ public:
@@ -79,7 +78,7 @@ index 4503fa00dd..642b0508d0 100644
      inline Impl* getImpl() const { return (Impl*)p; }
      inline bool empty() const { return !p; }
 diff --git a/modules/core/src/ocl_disabled.impl.hpp b/modules/core/src/ocl_disabled.impl.hpp
-index a217979a1e..0ba30d024c 100644
+index a217979a1..0ba30d024 100644
 --- a/modules/core/src/ocl_disabled.impl.hpp
 +++ b/modules/core/src/ocl_disabled.impl.hpp
 @@ -177,11 +177,6 @@ void* Context::getOpenCLContextProperty(int /*propertyId*/) const { OCL_NOT_AVAI
@@ -94,3 +93,25 @@ index a217979a1e..0ba30d024c 100644
  /* static */ Context Context::fromHandle(void* context) { OCL_NOT_AVAILABLE(); }
  /* static */ Context Context::fromDevice(const ocl::Device& device) { OCL_NOT_AVAILABLE(); }
  /* static */ Context Context::create(const std::string& configuration) { OCL_NOT_AVAILABLE(); }
+diff --git a/samples/dnn/dnn_model_runner/dnn_conversion/requirements.txt b/samples/dnn/dnn_model_runner/dnn_conversion/requirements.txt
+deleted file mode 100644
+index 6887c2ab2..000000000
+--- a/samples/dnn/dnn_model_runner/dnn_conversion/requirements.txt
++++ /dev/null
+@@ -1,15 +0,0 @@
+-# Python 3.7.5
+-onnx>=1.7.0
+-numpy>=1.19.1
+-
+-torch>=1.5.1
+-torchvision>=0.6.1
+-
+-tensorflow>=2.1.0
+-tensorflow-gpu>=2.1.0
+-
+-paddlepaddle>=2.0.0
+-paddlepaddle-gpu>=2.0.0
+-paddlehub>=2.1.0
+-paddle2onnx>=0.5.1
+-paddleseg>=2.0.0
+\ No newline at end of file
