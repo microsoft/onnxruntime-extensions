@@ -54,6 +54,9 @@ file(GLOB onnxruntime_extensions4j_native_src
     "${JAVA_ROOT}/src/main/native/*.h"
     "${PROJECT_SOURCE_DIR}/include/*.h"
     )
+if(WIN32)
+  list(APPEND onnxruntime_extensions4j_native_src "${JAVA_ROOT}/ortx_jni.def")
+endif()
 # Build the JNI library
 add_library(onnxruntime_extensions4j_jni SHARED ${onnxruntime_extensions4j_native_src})
 
@@ -68,6 +71,15 @@ if (ANDROID AND _BUILD_SHARED_LIBRARY)
   target_link_libraries(onnxruntime_extensions4j_jni PRIVATE extensions_shared)
 else()
   target_link_libraries(onnxruntime_extensions4j_jni PRIVATE ortcustomops)
+endif()
+
+if(LINUX)
+  set_property(TARGET onnxruntime_extensions4j_jni APPEND_STRING PROPERTY LINK_FLAGS
+    " -Wl,--version-script -Wl,${JAVA_ROOT}/ortx_jni.ver")
+  # strip if not a debug build
+  if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set_property(TARGET onnxruntime_extensions4j_jni APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-s")
+  endif()
 endif()
 
 standardize_output_folder(onnxruntime_extensions4j_jni)

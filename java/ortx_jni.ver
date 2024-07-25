@@ -1,0 +1,8 @@
+{
+global:
+    RegisterCustomOps;
+    AddExternalCustomOp;
+    GetActiveOrtAPIVersion;
+    Java_ai_onnxruntime_extensions_Utils_getNativeExtensionOperatorRegister;
+local: *;
+};
