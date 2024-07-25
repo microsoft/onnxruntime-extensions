@@ -14,6 +14,7 @@ dependencies {
     // onnxruntime and its extensions package
     implementation 'com.microsoft.onnxruntime:onnxruntime:1.17.1'
     implementation fileTree(dir: '..\\..\\..\\out\\Windows\\java\\build\\libs', include: ['onnxruntime-extensions-0.*.0.jar'])
+    // implementation fileTree(dir: '../../../out/Linux/RelWithDebInfo/java/build/libs', include: ['onnxruntime-extensions-0.*.0.jar'])
 
     // This dependency is used by the application.
     implementation 'com.google.guava:guava:30.1.1-jre'
