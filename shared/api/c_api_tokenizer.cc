@@ -76,6 +76,32 @@ extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char
   return extError_t();
 }
 
+extError_t ORTX_API_CALL OrtxGetDecoderPromptIds(const OrtxTokenizer* tokenizer, size_t batch_size, const char* lang,
+                                                 const char* task, int no_timestamps, OrtxTokenId2DArray** output) {
+  if (tokenizer == nullptr || output == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  auto token_ptr = static_cast<const TokenizerImpl*>(tokenizer);
+  ReturnableStatus status = token_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindTokenizer);
+  if (!status.IsOk()) {
+    return status.Code();
+  }
+
+  std::vector<std::vector<extTokenId_t>> t_ids;
+  status = token_ptr->GetDecoderPromptIds(batch_size, lang, task, no_timestamps, t_ids);
+  if (!status.IsOk()) {
+    return status.Code();
+  }
+
+  auto result = std::make_unique<ort_extensions::TokenId2DArray>().release();
+  result->SetTokenIds(std::move(t_ids));
+  *output = static_cast<OrtxTokenId2DArray*>(result);
+
+  return extError_t();
+}
+
 extError_t ORTX_API_CALL OrtxDetokenize(const OrtxTokenizer* tokenizer, const OrtxTokenId2DArray* input,
                                         OrtxStringArray** output) {
   if (tokenizer == nullptr || input == nullptr || output == nullptr) {
@@ -110,7 +136,6 @@ extError_t ORTX_API_CALL OrtxDetokenize(const OrtxTokenizer* tokenizer, const Or
   *output = static_cast<OrtxStringArray*>(result);
 
   return extError_t();
-  ;
 }
 
 extError_t ORTX_API_CALL OrtxDetokenize1D(const OrtxTokenizer* tokenizer, const extTokenId_t* input, size_t len,
