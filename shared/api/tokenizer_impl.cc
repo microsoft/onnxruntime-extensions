@@ -105,7 +105,8 @@ OrtxStatus TokenizerImpl::GetDecoderPromptIds(size_t batch_size, const char* lan
     if (!status.IsOk()) {
       return static_cast<extTokenId_t>(-1);
     }
-    return static_cast<extTokenId_t>(ts_output.Data()[0]);
+    auto num = ts_output.NumberOfElement();
+    return static_cast<extTokenId_t>(ts_output.Data()[num / 2]);  // get the middle token
   };
 
   auto translate_token_id = convert_tokens_to_ids("<|translate|>");
@@ -118,13 +119,15 @@ OrtxStatus TokenizerImpl::GetDecoderPromptIds(size_t batch_size, const char* lan
     if (lang_str == LANGUAGES.end()) {
       return OrtxStatus(kOrtxErrorInvalidArgument, "Invalid language");
     }
-    ids.push_back(convert_tokens_to_ids(lang_str->second));
+
+    std::string lang_token = "<|" + lang_str->first + "|>";
+    ids.push_back(convert_tokens_to_ids(lang_token));
   }
 
   if (task != nullptr) {
-    if (!strcmp(task, "translation") || !strcmp(task, "translate")) {
+    if (0 == strcmp(task, "translate") == 0) {
       ids.push_back(translate_token_id);
-    } else if (!strcmp(task, "transcription") || !strcmp(task, "transcribe")) {
+    } else if (0 == strcmp(task, "transcribe")) {
       ids.push_back(transcribe_token_id);
     } else {
       return OrtxStatus(kOrtxErrorInvalidArgument, "Invalid task");
