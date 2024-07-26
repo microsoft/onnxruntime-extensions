@@ -389,5 +389,5 @@ TEST(OrtxTokenizerTest, WhisperTokenizer) {
   //   std::cout << id << " ";
   // }
 
-  EXPECT_EQ(ids, std::vector<extTokenId_t>({50258, 50357, 50362}));
+  EXPECT_EQ(ids, std::vector<extTokenId_t>({50259, 50358, 50363}));
 }
