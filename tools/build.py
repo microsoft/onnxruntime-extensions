@@ -818,8 +818,8 @@ def main():
     log.info("Build started")
 
     if args.update:
-        if args.android:
-            _android_prebuild(args.android_abi, args.android_ndk_path, args.android_api)
+#        if args.android:
+#            _android_prebuild(args.android_abi, args.android_ndk_path, args.android_api)
 
         if _is_reduced_ops_build(args):
             log.info("Generating config for selected ops")

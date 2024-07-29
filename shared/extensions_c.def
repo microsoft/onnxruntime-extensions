@@ -16,3 +16,4 @@ EXPORTS
  OrtxStringArrayGetItem @14
  OrtxTokenId2DArrayGetBatch @15
  OrtxTokenId2DArrayGetItem @16
+ OrtxGetDecoderPromptIds @17

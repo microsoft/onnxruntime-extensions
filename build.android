@@ -42,9 +42,9 @@ ANDROID_API_LEVEL=24
 # build openssl and curl for azure ops
 export ANDROID_API_LEVEL=${ANDROID_API_LEVEL}
 export ANDROID_NDK_ROOT=${NDK_ROOT}
-pushd "${SCRIPT_DIR}/prebuild"
-./build_curl_for_android.sh ${abi_name}
-popd
+# pushd "${SCRIPT_DIR}/prebuild"
+# ./build_curl_for_android.sh ${abi_name}
+# popd
 
 mkdir -p "${target_dir}"
 pushd "${target_dir}"
