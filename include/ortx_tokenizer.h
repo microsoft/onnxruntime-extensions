@@ -37,6 +37,22 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const ch
 extError_t ORTX_API_CALL OrtxTokenize(
     const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size, OrtxTokenId2DArray** output);
 
+/**
+ * @brief Retrieves the decoder prompt IDs from the tokenizer.
+ *
+ * This function retrieves the decoder prompt IDs from the specified tokenizer.
+ *
+ * @param tokenizer A pointer to the OrtxTokenizer object.
+ * @param batch_size The size of the batch.
+ * @param lang The language for the Whisper model decoding, like 'en'. Can be NULL, which is no id in the output.
+ * @param task The task for the model, like 'translation' or 'transcribe'. Can be NULL, which is no id in the output.
+ * @param no_timestamps Flag indicating whether to include timestamps in the output. 1 is true, 0 is false.
+ * @param output A pointer to the OrtxTokenId2DArray object to store the output.
+ * @return An extError_t value indicating the success or failure of the operation.
+ */
+extError_t ORTX_API_CALL OrtxGetDecoderPromptIds(
+    const OrtxTokenizer* tokenizer, size_t batch_size, const char* lang, const char* task, int no_timestamps, OrtxTokenId2DArray** output);
+
 /** \brief Detokenize the input using the specified tokenizer
  *
  * \param tokenizer Pointer to the tokenizer object

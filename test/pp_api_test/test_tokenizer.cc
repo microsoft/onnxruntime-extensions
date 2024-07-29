@@ -6,6 +6,7 @@
 #include "gtest/gtest.h"
 
 #include "c_only_test.h"
+#include "ortx_cpp_helper.h"
 #include "shared/api/tokenizer_impl.h"
 
 static void DumpTokenIds(const std::vector<std::vector<extTokenId_t>>& token_ids) {
@@ -132,13 +133,10 @@ TEST(OrtxTokenizerTest, Phi3_S_Tokenizer) {
   EXPECT_NE(tokenizer, nullptr);
 
   std::vector<extTokenId_t> EXPECTED_IDS_0 = {2028, 374, 264, 1296, 13};
-  std::vector<std::string_view> input = {
-      "This is a test.",
-      "the second one",
-      "I like walking my cute dog\n and\x17 then", 
-      "Hey<|endoftext|>. \t\t \n\nyou  é  @#😈  🤗!       , 1234 15 5,61"};
-  std::vector<std::vector<extTokenId_t>>
-      token_ids;
+  std::vector<std::string_view> input = {"This is a test.", "the second one",
+                                         "I like walking my cute dog\n and\x17 then",
+                                         "Hey<|endoftext|>. \t\t \n\nyou  é  @#😈  🤗!       , 1234 15 5,61"};
+  std::vector<std::vector<extTokenId_t>> token_ids;
   status = tokenizer->Tokenize(input, token_ids);
   EXPECT_TRUE(status.IsOk());
   DumpTokenIds(token_ids);
@@ -160,17 +158,15 @@ TEST(OrtxTokenizerTest, GemmaTokenizer) {
     std::cout << status.ToString() << std::endl;
   }
 
-  std::vector<std::string_view> input = {
-      "I like walking my cute dog\n and\x17 then",
-      "生活的真谛是",
-      "\t\t\t\t \n\n61",
-      "Hey<eos>. \t\t \n\nyou  é  @#😈  🤗!       , 1234 15 5,61"};
+  std::vector<std::string_view> input = {"I like walking my cute dog\n and\x17 then", "生活的真谛是", "\t\t\t\t \n\n61",
+                                         "Hey<eos>. \t\t \n\nyou  é  @#😈  🤗!       , 1234 15 5,61"};
   std::vector<extTokenId_t> EXPECTED_IDS_0 = {2, 235285, 1154, 10350, 970, 9786, 5929, 108, 578, 240, 1492};
   std::vector<extTokenId_t> EXPECTED_IDS_1 = {2, 122182, 235710, 245467, 235427};
   std::vector<extTokenId_t> EXPECTED_IDS_2 = {2, 255971, 235248, 109, 235318, 235274};
-  std::vector<extTokenId_t> EXPECTED_IDS_3 = {2, 6750, 1, 235265, 235248, 255969, 235248, 109, 4747, 139, 235335, 139,
-                                              216311, 241316, 139, 239880, 235341, 144, 235269, 235248, 235274, 235284,
-                                              235304, 235310, 235248, 235274, 235308, 235248, 235308, 235269, 235318, 235274};
+  std::vector<extTokenId_t> EXPECTED_IDS_3 = {2,      6750,   1,      235265, 235248, 255969, 235248, 109,
+                                              4747,   139,    235335, 139,    216311, 241316, 139,    239880,
+                                              235341, 144,    235269, 235248, 235274, 235284, 235304, 235310,
+                                              235248, 235274, 235308, 235248, 235308, 235269, 235318, 235274};
 
   std::vector<std::vector<extTokenId_t>> token_ids;
   status = tokenizer->Tokenize(input, token_ids);
@@ -183,8 +179,8 @@ TEST(OrtxTokenizerTest, GemmaTokenizer) {
   EXPECT_EQ(token_ids[3], EXPECTED_IDS_3);
 
   std::vector<std::string> out_text;
-  std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {
-      EXPECTED_IDS_0, EXPECTED_IDS_1, EXPECTED_IDS_2, EXPECTED_IDS_3};
+  std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {EXPECTED_IDS_0, EXPECTED_IDS_1,
+                                                                          EXPECTED_IDS_2, EXPECTED_IDS_3};
   status = tokenizer->Detokenize(token_ids_span, out_text);
   EXPECT_TRUE(status.IsOk());
   // std::cout << out_text[0] << std::endl;
@@ -207,9 +203,9 @@ TEST(OrtxTokenizerTest, Phi3Tokenizer) {
       "<|user|>こんにちは。データ分析するにはなにをすればいい？<|end|><|assistant|>"};
   std::vector<extTokenId_t> EXPECTED_IDS_0 = {1, 29871, 30748, 233, 161, 147};
   std::vector<extTokenId_t> EXPECTED_IDS_1 = {1, 259, 30589, 30389, 30353, 30644, 30449};
-  std::vector<extTokenId_t> EXPECTED_IDS_2 = {1, 32010, 29871, 30589, 30389, 30353,
-                                              30644, 30449, 30267, 30597, 30185, 30369, 30748, 233, 161, 147, 30427, 30332, 30353,
-                                              30449, 30371, 30353, 30396, 30427, 30553, 31254, 30298, 30298, 30882, 32007, 32001};
+  std::vector<extTokenId_t> EXPECTED_IDS_2 = {
+      1,     32010, 29871, 30589, 30389, 30353, 30644, 30449, 30267, 30597, 30185, 30369, 30748, 233,   161,  147,
+      30427, 30332, 30353, 30449, 30371, 30353, 30396, 30427, 30553, 31254, 30298, 30298, 30882, 32007, 32001};
 
   std::vector<std::vector<extTokenId_t>> token_ids;
   status = tokenizer->Tokenize(input, token_ids);
@@ -221,8 +217,7 @@ TEST(OrtxTokenizerTest, Phi3Tokenizer) {
   EXPECT_EQ(token_ids[2], EXPECTED_IDS_2);
 
   std::vector<std::string> out_text;
-  std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {
-      EXPECTED_IDS_0, EXPECTED_IDS_1};
+  std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {EXPECTED_IDS_0, EXPECTED_IDS_1};
   status = tokenizer->Detokenize(token_ids_span, out_text);
   EXPECT_TRUE(status.IsOk());
   EXPECT_EQ(out_text[0], input[0]);
@@ -351,8 +346,7 @@ TEST(OrtxTokenizerStreamTest, Phi3Tokenizer) {
 
   std::vector<std::string_view> input = {
       R"(こんにちは。データ分析にはいくつかのステップがあります。まずは目的を明確にします。次に、データを収集し、クリーニングを行い ます。その後、データを構造化し、その後、データを分析します。これらのステップを実行することで、データを有意的に分析することができます。)"};
-  std::vector<std::vector<extTokenId_t>>
-      token_ids;
+  std::vector<std::vector<extTokenId_t>> token_ids;
   status = tokenizer->Tokenize(input, token_ids);
   EXPECT_TRUE(status.IsOk());
   // Add an extra byte token for decoding tests
@@ -372,4 +366,28 @@ TEST(OrtxTokenizerStreamTest, Phi3Tokenizer) {
 
   // std::cout << "\"" << std::endl;
   EXPECT_EQ(std::string(text), std::string(input[0]) + " ");  // from the extra byte token */
+}
+
+using namespace ort_extensions;
+
+TEST(OrtxTokenizerTest, WhisperTokenizer) {
+  // test the llama2 tokenizer with BPE class, instead of sentencepiece wrapper.
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/whisper.tiny");
+  EXPECT_EQ(tokenizer.Code(), kOrtxOK);
+
+  OrtxObjectPtr<OrtxTokenId2DArray> prompt_ids;
+
+  extError_t err = OrtxGetDecoderPromptIds(tokenizer.get(), 1, "en", "transcribe", 1, ort_extensions::ptr(prompt_ids));
+  EXPECT_EQ(err, kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* token_ids = NULL;
+  OrtxTokenId2DArrayGetItem(prompt_ids.get(), 0, &token_ids, &length);
+  std::vector<extTokenId_t> ids(token_ids, token_ids + length);
+  // std::cout << "Prompt IDs: ";
+  // for (const auto& id : ids) {
+  //   std::cout << id << " ";
+  // }
+
+  EXPECT_EQ(ids, std::vector<extTokenId_t>({50259, 50358, 50363}));
 }
