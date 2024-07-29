@@ -10,9 +10,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pathlib import Path
 import shutil
 import sys
+from pathlib import Path
 
 _repo_dir = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_repo_dir / "tools"))
@@ -98,7 +98,7 @@ def build_framework_for_platform_and_arch(
 
     cmake_defines = []
 
-    if platform != "macosx" and platform != "maccatalyst":  #ios simulator or iphoneos platform
+    if platform != "macosx" and platform != "maccatalyst":  # ios simulator or iphoneos platform
         cmake_defines += [
             # required by OpenCV CMake toolchain file
             # https://github.com/opencv/opencv/blob/4223495e6cd67011f86b8ecd9be1fa105018f3b1/platforms/ios/cmake/Toolchains/common-ios-toolchain.cmake#L64-L66
@@ -213,19 +213,64 @@ def build_xcframework(
             platform_fat_framework_dir.mkdir()
 
             # copy over files from arch-specific framework to fat framework
-            for framework_file_relative_path in [Path("Headers"), Path("Info.plist")]:
-                src = first_arch_framework_dir / framework_file_relative_path
-                dst = platform_fat_framework_dir / framework_file_relative_path
-                if src.is_dir():
-                    shutil.copytree(src, dst)
-                else:
-                    shutil.copy(src, dst)
+            # macos requires different framework structure:
+            # https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPFrameworks/Concepts/FrameworkAnatomy.html
+            if platform == "macosx":
+                # Set up directory strcture
+                dest_headers_dir = platform_fat_framework_dir / "Versions/A/Headers"
+                dest_resources_dir = platform_fat_framework_dir / "Versions/A/Resources"
 
-            # combine arch-specific framework libraries
-            arch_libs = [str(framework_dir / "onnxruntime_extensions") for framework_dir in arch_framework_dirs]
-            run(
-                *([_lipo, "-create", "-output", str(platform_fat_framework_dir / "onnxruntime_extensions")] + arch_libs)
-            )
+                Path(dest_headers_dir).mkdir(parents=True, exist_ok=True)
+                Path(dest_resources_dir).mkdir(parents=True, exist_ok=True)
+
+                # Copy headers and Info.plist
+                shutil.copytree(first_arch_framework_dir / Path("Headers"), dest_headers_dir)
+                shutil.copy(first_arch_framework_dir / Path("Info.plist"), dest_resources_dir / "Info.plist")
+
+                # combine arch-specific framework libraries
+                arch_libs = [str(framework_dir / "onnxruntime_extensions") for framework_dir in arch_framework_dirs]
+                run(
+                    *(
+                        [
+                            _lipo,
+                            "-create",
+                            "-output",
+                            str(platform_fat_framework_dir / "Versions/A/onnxruntime_extensions"),
+                        ]
+                        + arch_libs
+                    )
+                )
+
+                # create Symbolic links
+                Path(platform_fat_framework_dir / "Versions/Current").symlink_to("A", target_is_directory=True)
+                Path(platform_fat_framework_dir / "Headers").symlink_to(
+                    "Versions/Current/Headers", target_is_directory=True
+                )
+                Path(platform_fat_framework_dir / "Resources").symlink_to(
+                    "Versions/Current/Resources", target_is_directory=True
+                )
+                Path(platform_fat_framework_dir / "onnxruntime_extensions").symlink_to(
+                    "Versions/Current/onnxruntime_extensions"
+                )
+
+            else:
+
+                for framework_file_relative_path in [Path("Headers"), Path("Info.plist")]:
+                    src = first_arch_framework_dir / framework_file_relative_path
+                    dst = platform_fat_framework_dir / framework_file_relative_path
+                    if src.is_dir():
+                        shutil.copytree(src, dst)
+                    else:
+                        shutil.copy(src, dst)
+
+                # combine arch-specific framework libraries
+                arch_libs = [str(framework_dir / "onnxruntime_extensions") for framework_dir in arch_framework_dirs]
+                run(
+                    *(
+                        [_lipo, "-create", "-output", str(platform_fat_framework_dir / "onnxruntime_extensions")]
+                        + arch_libs
+                    )
+                )
 
             platform_fat_framework_dirs.append(platform_fat_framework_dir)
 
