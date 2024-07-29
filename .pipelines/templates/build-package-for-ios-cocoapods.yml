@@ -173,13 +173,13 @@ jobs:
       POD_STAGING_DIR="$(Build.BinariesDirectory)/pod_staging"
       ARTIFACTS_STAGING_DIR="$(Build.ArtifactStagingDirectory)"
       POD_NAME="onnxruntime-extensions-c"
-      POD_ARCHIVE_BASENAME="pod-archive-${POD_NAME}-${ORT_EXTENSIONS_POD_VERSION}.zip"
+      POD_ARCHIVE_BASENAME="onnxruntime_extensions.xcframework.${ORT_EXTENSIONS_POD_VERSION}.zip"
       PODSPEC_BASENAME="${POD_NAME}.podspec"
 
       pushd ${POD_STAGING_DIR}
 
       # assemble the files in the artifacts staging directory
-      zip -r ${ARTIFACTS_STAGING_DIR}/${POD_ARCHIVE_BASENAME} * --exclude ${PODSPEC_BASENAME}
+      zip -vry ${ARTIFACTS_STAGING_DIR}/${POD_ARCHIVE_BASENAME} * --exclude ${PODSPEC_BASENAME}
       cp ${PODSPEC_BASENAME} ${ARTIFACTS_STAGING_DIR}/${PODSPEC_BASENAME}
 
       popd
