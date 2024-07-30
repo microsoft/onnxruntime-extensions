@@ -53,25 +53,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     return {};
   }
 
-  static std::string ReplaceAll(std::string_view s, const std::string& search, const std::string& replace) {
-    std::string result;
-    for (size_t pos = 0;; pos += search.length()) {
-      auto new_pos = s.find(search, pos);
-      if (new_pos == std::string::npos) {
-        result += s.substr(pos, s.size() - pos);
-        break;
-      }
-      result += s.substr(pos, new_pos - pos);
-      result += replace;
-      pos = new_pos;
-    }
 
-    return result;
-  }
-
-  static bool IsSpmByteWord(std::string_view word) {
-    return word.size() == 6 && word[0] == '<' && word[1] == '0' && word[2] == 'x' && word[5] == '>';
-  }
 
   OrtxStatus Id2Token(extTokenId_t id,
                       std::string& token,
@@ -119,7 +101,6 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
   }
 
   OrtxStatus SpmId2Token(extTokenId_t id, std::string& token, bool& f_special_last) const {
-    const char spm_underscore[] = "\xe2\x96\x81";
 
     std::string piece = id < arr_vocab_.size() ? arr_vocab_[id] : "";
     bool f_special = false;
