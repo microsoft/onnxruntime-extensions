@@ -220,11 +220,9 @@ def build_xcframework(
                 dest_headers_dir = platform_fat_framework_dir / "Versions/A/Headers"
                 dest_resources_dir = platform_fat_framework_dir / "Versions/A/Resources"
 
-                Path(dest_headers_dir).mkdir(parents=True, exist_ok=True)
-                Path(dest_resources_dir).mkdir(parents=True, exist_ok=True)
-
                 # Copy headers and Info.plist
                 shutil.copytree(first_arch_framework_dir / Path("Headers"), dest_headers_dir)
+                Path(dest_resources_dir).mkdir(parents=True, exist_ok=True)
                 shutil.copy(first_arch_framework_dir / Path("Info.plist"), dest_resources_dir / "Info.plist")
 
                 # combine arch-specific framework libraries
