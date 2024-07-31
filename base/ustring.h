@@ -11,11 +11,11 @@ class ustring : public std::u32string {
  public:
   ustring() = default;
 
-  explicit ustring(const char* str) { assign(FromUTF8(str)); }
+  explicit ustring(const char* str) { assign(std::move(FromUTF8(str))); }
 
-  explicit ustring(const std::string& str) { assign(FromUTF8(str)); }
+  explicit ustring(const std::string& str) { assign(std::move(FromUTF8(str))); }
 
-  explicit ustring(const std::string_view& str) { assign(FromUTF8(str)); }
+  explicit ustring(const std::string_view& str) { assign(std::move(FromUTF8(str))); }
 
   explicit ustring(const char32_t* str) : std::u32string(str) {}
 

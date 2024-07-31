@@ -115,6 +115,7 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         return obj;
       },
       "Get tensor at index.");
+
   m.def(
       "create_tokenizer",
       [](std::string tokenizer_def_json) {
@@ -126,6 +127,7 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         return reinterpret_cast<std::uintptr_t>(tokenizer);
       },
       "Create a tokenizer.");
+
   m.def(
       "batch_tokenize",
       [](std::uintptr_t h, const std::vector<std::string>& inputs) -> std::vector<std::vector<int64_t>> {
@@ -142,43 +144,55 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         }
 
         for (size_t i = 0; i < inputs.size(); ++i) {
-          const extTokenId_t **item, size_t *length;
-          err = OrtxTokenId2DArrayGetItem(tid_output, i, &token_id, &length);
+          const extTokenId_t* t2d{};
+          size_t length{};
+          err = OrtxTokenId2DArrayGetItem(tid_output, i, &t2d, &length);
           if (err != kOrtxOK) {
             throw std::runtime_error(std::string("Failed to get token id") + OrtxGetLastErrorMessage());
           }
-          output.push_back(std::vector<int64_t>(token_id, token_id + *length));
+          output.push_back(std::vector<int64_t>(t2d, t2d + length));
         }
         OrtxDisposeOnly(tid_output);
         return output;
       },
       "Batch tokenize.");
+
   m.def(
       "batch_detokenize",
       [](std::uintptr_t h, const std::vector<std::vector<int64_t>>& inputs) -> std::vector<std::string> {
+        std::vector<std::string> result;
         OrtxTokenizer* tokenizer = reinterpret_cast<OrtxTokenizer*>(h);
         OrtxStringArray* output = nullptr;
-        auto err = OrtxDetokenize(tokenizer, inputs, &output);
-        if (err != kOrtxOK) {
-          throw std::runtime_error(std::string("Failed to detokenize") + OrtxGetLastErrorMessage());
-        }
-        size_t length;
-        err = OrtxStringArrayGetBatch(output, &length);
-        if (err != kOrtxOK) {
-          throw std::runtime_error(std::string("Failed to get batch size") + OrtxGetLastErrorMessage());
-        }
-        std::vector<std::string> result;
-        for (size_t i = 0; i < length; ++i) {
-          const char* item;
-          err = OrtxStringArrayGetItem(output, i, &item);
+        for (size_t i = 0; i < inputs.size(); ++i) {
+          std::vector<extTokenId_t> input;
+          input.reserve(inputs[i].size());
+          std::transform(inputs[i].begin(), inputs[i].end(), std::back_inserter(input),
+                         [](int64_t v) { return static_cast<extTokenId_t>(v); });
+
+          auto err = OrtxDetokenize1D(tokenizer, input.data(), input.size(), &output);
           if (err != kOrtxOK) {
-            throw std::runtime_error(std::string("Failed to get item") + OrtxGetLastErrorMessage());
+            throw std::runtime_error(std::string("Failed to detokenize") + OrtxGetLastErrorMessage());
           }
-          result.push_back(item);
+          size_t length;
+          err = OrtxStringArrayGetBatch(output, &length);
+          if (err != kOrtxOK) {
+            throw std::runtime_error(std::string("Failed to get batch size") + OrtxGetLastErrorMessage());
+          }
+          for (size_t i = 0; i < length; ++i) {
+            const char* item;
+            err = OrtxStringArrayGetItem(output, i, &item);
+            if (err != kOrtxOK) {
+              throw std::runtime_error(std::string("Failed to get item") + OrtxGetLastErrorMessage());
+            }
+            result.push_back(item);
+          }
+          OrtxDisposeOnly(output);
         }
-        OrtxDisposeOnly(output);
         return result;
       },
       "Batch detokenize.");
-  m.def("delete_object", [](std::uintptr_t h) { OrtxDisposeOnly(reinterpret_cast<OrtxObject*>(h)); }, "Delete object.");
+
+  m.def(
+      "delete_object", [](std::uintptr_t h) { OrtxDisposeOnly(reinterpret_cast<OrtxObject*>(h)); },
+      "Delete the object created by C API.");
 }
