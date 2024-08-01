@@ -32,6 +32,8 @@ class LocaleBaseTest : public testing::Test {
   std::string default_locale_;
 };
 
+#if defined(ENABLE_WORDPIECE_TOKENIZER) && defined(ENABLE_BERT_TOKENIZER)
+
 TEST(tokenizer, bert_word_split) {
   ustring ind("##");
   ustring text("A AAA B BB");
@@ -261,3 +263,5 @@ TEST(tokenizer, basic_tok_eager) {
   tokenizer.Compute(test_case, output);
   EXPECT_EQ(output.Data(), expect_result);
 }
+
+#endif
