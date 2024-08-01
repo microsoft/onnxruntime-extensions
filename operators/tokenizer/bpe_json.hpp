@@ -40,14 +40,16 @@ class TokenJsonConfig final {
     tokenizer_class_ = json_config.value("tokenizer_class", "");
 
     auto tok_iter = json_config.find("bos_token");
-    if (tok_iter != json_config.end() && tok_iter->is_object()) {
-      bos_token_ = tok_iter->value("content", "");
-      eos_token_ = json_config.value("/eos_token/content"_json_pointer, "");
-      unk_token_ = json_config.value("/unk_token/content"_json_pointer, "");
-    } else {
-      bos_token_ = json_config.value("bos_token", "");
-      eos_token_ = json_config.value("eos_token", "");
-      unk_token_ = json_config.value("unk_token", "");
+    if (tok_iter != json_config.end() && !tok_iter->is_null()) {
+      if (tok_iter->is_object()) {
+        bos_token_ = tok_iter->value("content", "");
+        eos_token_ = json_config.value("/eos_token/content"_json_pointer, "");
+        unk_token_ = json_config.value("/unk_token/content"_json_pointer, "");
+      } else {
+        bos_token_ = json_config.value("bos_token", "");
+        eos_token_ = json_config.value("eos_token", "");
+        unk_token_ = json_config.value("unk_token", "");
+      }
     }
 
     auto pad_iter = json_config.find("pad_token");
@@ -62,9 +64,7 @@ class TokenJsonConfig final {
     return {};
   }
 
-  const std::string& GetVocabDataFile() const {
-    return vocab_path_;
-  }
+  const std::string& GetVocabDataFile() const { return vocab_path_; }
 
  public:
   bool add_bos_token_{};
