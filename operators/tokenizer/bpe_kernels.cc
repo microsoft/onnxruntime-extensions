@@ -613,7 +613,7 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& c
   std::unordered_map<std::string, uint32_t> vocab;
   std::vector<std::pair<std::string, std::string>> merges;
 
-  if (tiktoken){
+  if (tiktoken_){
     std::string module_file = config.GetTikTokenModuleFile();
 
     module_ifs = path(module_file).open();
@@ -700,11 +700,11 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& c
   bpe_conf_ = json_conf_;
 
   OrtxStatus status;
-  if (tiktoken){
+  if (tiktoken_){
     status = bbpe_tokenizer_->Load(vocab,
                                    merges,
                                    bpe_conf_.get().GetSpecialTokens().c_str(),
-                                   IsSpmModel(ModelName()));
+                                   false);
 
     module_ifs >> tok_json;
   } else {

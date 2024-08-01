@@ -107,7 +107,7 @@ struct SpmTokenizer : KernelBpeTokenizer {
 class JsonFastTokenizer : KernelBpeTokenizer {
  public:
   JsonFastTokenizer();
-  bool tiktoken;
+  bool tiktoken_ = false;
   std::string unicode_byte_encoder_[256] = {};
   void CreateUnicodeByteEncoder();
   std::string TokenBytesToString(std::vector<uint8_t>& bytes);

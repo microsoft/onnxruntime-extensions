@@ -24,13 +24,11 @@ OrtxStatus TokenizerImpl::Load(const std::string& dir) {
   tokenizer_ = std::make_unique<JsonFastTokenizer>();
   if (!vocab_fs.is_open()) {
     // No tokenizer.json file present; use TikToken tokenizer
-    tokenizer_->tiktoken = true;
+    tokenizer_->tiktoken_ = true;
 
     // load the tokenizer from a config
     status = tokenizer_->Load(*tok_config_);
   } else {
-    tokenizer_->tiktoken = false;
-    
     // load the tokenizer from a config
     status = tokenizer_->Load(*tok_config_);
 
