@@ -41,7 +41,7 @@ jobs:
     - checkout: self
       clean: true
       submodules: none
-
+    - task: UsePythonVersion@0
     # Currently we can only run tests on x64. x86 tests faile. arm64 tests can't be run as the build machine is amd64
     # TODO: Fix these issues so the nuget build is properly tested.
     - ${{ if eq(parameters.BuildPlatform, 'x64') }}:
