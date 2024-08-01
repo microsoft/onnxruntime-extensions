@@ -1,0 +1,6 @@
+LIBRARY "onnxruntime_extensions4j_jni.dll"
+EXPORTS
+ RegisterCustomOps @1
+ AddExternalCustomOp @2
+ GetActiveOrtAPIVersion @3
+ Java_ai_onnxruntime_extensions_Utils_getNativeExtensionOperatorRegister @4

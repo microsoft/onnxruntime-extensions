@@ -4,6 +4,7 @@
 #pragma once
 
 #include "ocos.h"
+#include "image_resample.h"
 
 inline OrtxStatus convert_to_rgb(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) {
   auto& dimensions = input.Shape();
@@ -60,24 +61,45 @@ struct Resize {
     int w = static_cast<int>(dimensions[1]);
     int c = static_cast<int>(dimensions[2]);
 
-    cv::Mat image(h, w, CV_8UC3, const_cast<uint8_t*>(input_data));
-    cv::Mat output_image;
-    cv::InterpolationFlags interp{};
+    Imaging rgb_image = ImagingNew("RGB", w, h);
+    for (int32_t i = 0; i < h; ++i) {
+      for (int32_t j = 0; j < w; ++j) {
+        uint8_t* pixel = reinterpret_cast<uint8_t*>(rgb_image->image[i] + j * 4);
+        pixel[0] = input_data[(i * w + j) * 3];
+        pixel[1] = input_data[(i * w + j) * 3 + 1];
+        pixel[2] = input_data[(i * w + j) * 3 + 2];
+        pixel[3] = 0;  // unused
+      }
+    }
+
+    int interp = IMAGING_TRANSFORM_NEAREST;
     if (interpolation_ == "NEAREST") {
-      interp = cv::INTER_NEAREST;
+      interp = IMAGING_TRANSFORM_NEAREST;
     } else if (interpolation_ == "LINEAR") {
-      interp = cv::INTER_LINEAR;
+      interp = IMAGING_TRANSFORM_BILINEAR;
     } else if (interpolation_ == "CUBIC") {
-      interp = cv::INTER_CUBIC;
+      interp = IMAGING_TRANSFORM_BICUBIC;
+    } else if (interpolation_ == "LANCZOS") {
+      interp = IMAGING_TRANSFORM_LANCZOS;
     } else {
       return {kOrtxErrorInvalidArgument, "[Resize]: Invalid interpolation method"};
     }
 
-    cv::resize(image, output_image, {static_cast<int32_t>(width_), static_cast<int32_t>(height_)}, 0.0, 0.0, interp);
+    float box[4] = {0.0f, 0.0f, static_cast<float>(width_), static_cast<float>(height_)};
+
+    auto output_image = ImagingResample(rgb_image, static_cast<int>(width_), static_cast<int>(height_), interp, box);
+    // cv::resize(image, output_image, {static_cast<int32_t>(width_), static_cast<int32_t>(height_)}, 0.0, 0.0, interp);
+    ImagingDelete(rgb_image);
 
     auto* p_output_image = output.Allocate({height_, width_, c});
-    std::memcpy(p_output_image, output_image.data, height_ * width_ * c);
+    for (auto i = height_ - height_; i < height_; ++i) {
+      for (auto j = width_ - width_; j < width_; ++j) {
+        auto c0_index = i * width_ * c + j * c;
+        std::memcpy(p_output_image + c0_index, output_image->image[i] + j * 4, c);
+      }
+    }
 
+    ImagingDelete(output_image);
     return {};
   }
 

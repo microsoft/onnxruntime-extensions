@@ -17,19 +17,22 @@ typedef enum {
   kOrtxKindDetokenizerCache = 0x778B,
   kOrtxKindProcessor = 0x778C,
   kOrtxKindRawImages = 0x778D,
-  kOrtxKindImageProcessorResult = 0x778E,
+  kOrtxKindTensorResult = 0x778E,
   kOrtxKindProcessorResult = 0x778F,
   kOrtxKindTensor = 0x7790,
+  kOrtxKindFeatureExtractor = 0x7791,
+  kOrtxKindRawAudios = 0x7792,
   kOrtxKindEnd = 0x7999
 } extObjectKind_t;
 
 // all object managed by the library should be 'derived' from this struct
 // which eventually will be released by TfmDispose if C++, or TFM_DISPOSE if C
 typedef struct {
-  int ext_kind_;
+  extObjectKind_t ext_kind_;
 } OrtxObject;
 
 typedef OrtxObject OrtxTensor;
+typedef OrtxObject OrtxTensorResult;
 
 // C, instead of C++ doesn't cast automatically,
 // so we need to use a macro to cast the object to the correct type
@@ -76,6 +79,31 @@ extError_t ORTX_API_CALL OrtxDispose(OrtxObject** object);
  * \return Error code indicating the success or failure of the operation
  */
 extError_t ORTX_API_CALL OrtxDisposeOnly(OrtxObject* object);
+
+/**
+ * @brief Retrieves the tensor at the specified index from the given tensor result.
+ *
+ * This function allows you to access a specific tensor from a tensor result object.
+ *
+ * @param result The tensor result object from which to retrieve the tensor.
+ * @param index The index of the tensor to retrieve.
+ * @param tensor A pointer to a variable that will hold the retrieved tensor.
+ * @return An error code indicating the success or failure of the operation.
+ */
+extError_t ORTX_API_CALL OrtxTensorResultGetAt(OrtxTensorResult* result, size_t index, OrtxTensor** tensor);
+
+/**
+ * @brief Retrieves the data type of the given tensor.
+ *
+ * This function returns the data type of the specified tensor. The data type is
+ * stored in the `type` parameter.
+ *
+ * @param tensor The tensor for which to retrieve the data type.
+ * @param type   A pointer to a variable that will hold the retrieved data type.
+ *
+ * @return An `extError_t` value indicating the success or failure of the operation.
+ */
+extError_t ORTX_API_CALL OrtxGetTensorType(OrtxTensor* tensor, extDataType_t* type);
 
 /** \brief Get the data from the tensor
  *

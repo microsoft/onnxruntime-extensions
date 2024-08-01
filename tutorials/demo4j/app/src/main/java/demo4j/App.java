@@ -5,6 +5,7 @@ package demo4j;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import ai.onnxruntime.*;
 import ai.onnxruntime.extensions.OrtxPackage;
@@ -19,8 +20,15 @@ public class App {
             sess_opt.registerCustomOpLibrary(OrtxPackage.getLibraryPath());
 
             /* do a quick inference on Bert Tokenizer custom ops with Ort */
-            var modelPath = Paths.get(this.getClass().getClassLoader().getResource("test_bert_tokenizer.onnx").getPath());
-            var session = env.createSession(modelPath.toString(), sess_opt);
+            var modelPath = "";
+            try {
+                modelPath = Paths.get(this.getClass().getClassLoader().getResource("test_bert_tokenizer.onnx").toURI()).toString();
+            } catch (URISyntaxException e) {
+                // handle the exception
+                e.printStackTrace();
+            }
+            var session = env.createSession(modelPath, sess_opt);
+            
             var t1 = OnnxTensor.createTensor(env, new String[]{"This is a test"});
             var inputs = Map.of("text", t1);
             try (var r = session.run(inputs)) {

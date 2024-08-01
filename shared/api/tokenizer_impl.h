@@ -19,13 +19,11 @@ class TokenizerImpl : public OrtxObjectImpl {
  public:
   OrtxStatus Load(const std::string& dir);
 
-  OrtxStatus Tokenize(const std::vector<std::string_view>& input,
-                      std::vector<std::vector<extTokenId_t>>& t_ids) const {
+  OrtxStatus Tokenize(const std::vector<std::string_view>& input, std::vector<std::vector<extTokenId_t>>& t_ids) const {
     return BatchEncode(input, t_ids);
   }
 
-  OrtxStatus Detokenize(const std::vector<span<extTokenId_t const>>& t_ids,
-                        std::vector<std::string>& t_text) const {
+  OrtxStatus Detokenize(const std::vector<span<extTokenId_t const>>& t_ids, std::vector<std::string>& t_text) const {
     return BatchDecode(t_ids, t_text);
   }
 
@@ -41,11 +39,15 @@ class TokenizerImpl : public OrtxObjectImpl {
     return status;
   }
 
-  OrtxStatus BatchEncode(const std::vector<std::string_view>& input, std::vector<std::vector<extTokenId_t>>& t_ids) const;
+  OrtxStatus BatchEncode(const std::vector<std::string_view>& input,
+                         std::vector<std::vector<extTokenId_t>>& t_ids) const;
 
   OrtxStatus BatchDecode(const std::vector<span<extTokenId_t const>>& t_ids, std::vector<std::string>& t_text) const;
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, BPEDecoderState** state ) const;
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, BPEDecoderState** state) const;
+
+  OrtxStatus GetDecoderPromptIds(size_t batch_size, const char* lang, const char* task, int no_timestamps,
+                                 std::vector<std::vector<extTokenId_t>>& t_ids) const;
 
  private:
   bool tiktoken = false;

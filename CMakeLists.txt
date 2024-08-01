@@ -39,7 +39,7 @@ endif()
 # Avoid warning of Calling FetchContent_Populate(GSL) is deprecated temporarily
 # TODO: find a better way to handle the header-only 3rd party deps
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.30.0")
-  cmake_policy(SET CMP0169 OLD)
+  cmake_policy(SET CMP0169 NEW)
 endif()
 
 # Needed for Java
@@ -171,6 +171,10 @@ if (MSVC)
   endif()
   message(STATUS "_STATIC_MSVC_RUNTIME_LIBRARY: ${_STATIC_MSVC_RUNTIME_LIBRARY}")
 
+  # DLL initialization errors due to old conda msvcp140.dll dll are a result of the new MSVC compiler
+  # See https://developercommunity.visualstudio.com/t/Access-violation-with-std::mutex::lock-a/10664660#T-N10668856
+  # Remove this definition once the conda msvcp140.dll dll is updated.
+  add_compile_definitions(_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
 endif()
 
 if(NOT OCOS_BUILD_PYTHON AND OCOS_ENABLE_PYTHON)
@@ -442,7 +446,9 @@ endif()
 if(OCOS_ENABLE_BERT_TOKENIZER)
   # Bert
   set(_HAS_TOKENIZER ON)
-  file(GLOB bert_TARGET_SRC "operators/tokenizer/basic_tokenizer.*" "operators/tokenizer/bert_tokenizer.*" "operators/tokenizer/bert_tokenizer_decoder.*")
+  file(GLOB bert_TARGET_SRC "operators/tokenizer/basic_tokenizer.*"
+                            "operators/tokenizer/bert_tokenizer.*"
+                            "operators/tokenizer/bert_tokenizer_decoder.*")
   list(APPEND TARGET_SRC ${bert_TARGET_SRC})
 endif()
 
@@ -720,7 +726,7 @@ target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
 
 set (file_patterns "shared/lib/*.cc")
 if (OCOS_ENABLE_C_API)
-  list(APPEND file_patterns "shared/api/*.h*" "shared/api/*.cc")
+  list(APPEND file_patterns "shared/api/*.h*" "shared/api/*.c" "shared/api/*.cc")
 endif()
 
 file(GLOB shared_TARGET_LIB_SRC ${file_patterns})
@@ -753,6 +759,7 @@ else()
   standardize_output_folder(ortcustomops)
   set(_BUILD_SHARED_LIBRARY TRUE)
 endif()
+set_target_properties(ortcustomops PROPERTIES FOLDER "operators")
 
 if(OCOS_ENABLE_AZURE)
   if (ANDROID)
@@ -820,7 +827,9 @@ if(OCOS_ENABLE_AZURE)
 endif()
 
 target_compile_definitions(ortcustomops PUBLIC ${OCOS_COMPILE_DEFINITIONS})
+target_include_directories(ortcustomops PUBLIC "$<TARGET_PROPERTY:noexcep_operators,INTERFACE_INCLUDE_DIRECTORIES>")
 target_include_directories(ortcustomops PUBLIC "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
+
 target_link_libraries(ortcustomops PUBLIC ocos_operators)
 
 if(_BUILD_SHARED_LIBRARY)
@@ -840,7 +849,8 @@ if(_BUILD_SHARED_LIBRARY)
   standardize_output_folder(extensions_shared)
 
   if(LINUX OR ANDROID)
-    set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
+    set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS
+      " -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
     # strip if not a debug build
     if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
       set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-s")

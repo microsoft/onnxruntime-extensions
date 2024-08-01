@@ -482,6 +482,9 @@ PYBIND11_MODULE(_extensions_pydll, m) {
   m.doc() = "pybind11 stateful interface to ONNXRuntime-Extensions";
 
   AddGlobalMethods(m);
+#if defined(ENABLE_C_API)
+  AddGlobalMethodsCApi(m);
+#endif
   AddObjectMethods(m);
   auto atexit = py::module_::import("atexit");
   atexit.attr("register")(py::cpp_function([]() {

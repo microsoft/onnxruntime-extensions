@@ -12,8 +12,9 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.7.2'
 
     // onnxruntime and its extensions package
-    implementation 'com.microsoft.onnxruntime:onnxruntime:1.12.1'
-    implementation files('libs/onnxruntime-extensions-0.5.0.jar')
+    implementation 'com.microsoft.onnxruntime:onnxruntime:1.17.1'
+    implementation fileTree(dir: '..\\..\\..\\out\\Windows\\java\\build\\libs', include: ['onnxruntime-extensions-0.*.0.jar'])
+    // implementation fileTree(dir: '../../../out/Linux/RelWithDebInfo/java/build/libs', include: ['onnxruntime-extensions-0.*.0.jar'])
 
     // This dependency is used by the application.
     implementation 'com.google.guava:guava:30.1.1-jre'

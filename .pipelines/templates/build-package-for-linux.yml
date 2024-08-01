@@ -10,7 +10,7 @@ parameters:
 
 - name: PoolName
   type: string
-  default: 'aiinfra-Linux-CPU'
+  default: 'onnxruntime-Ubuntu2204-AMD-CPU'
 
 - name: OrtExtensionsCFlags
   type: string

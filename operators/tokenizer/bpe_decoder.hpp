@@ -42,10 +42,10 @@ struct KernelBpeDecoder {
       return status;
     } else {
       auto um = ParseId2String(byte_decoder);
-      std::transform(um.begin(), um.end(),
-                     std::inserter(byte_decoder_, byte_decoder_.end()),
-                     [](const auto& p) { return std::make_pair(static_cast<char32_t>(p.first),
-                                                               ort_extensions::narrow<unsigned char>(std::stoul(p.second))); });
+      std::transform(um.begin(), um.end(), std::inserter(byte_decoder_, byte_decoder_.end()), [](const auto& p) {
+        return std::make_pair(static_cast<char32_t>(p.first),
+                              ort_extensions::narrow<unsigned char>(std::stoul(p.second)));
+      });
     }
 
     std::string added_tokens;
@@ -59,8 +59,7 @@ struct KernelBpeDecoder {
     ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "all_special_ids", all_special_ids));
     if (!all_special_ids.empty()) {
       auto um = ParseId2String(all_special_ids);
-      std::transform(um.begin(), um.end(),
-                     std::inserter(all_special_ids_, all_special_ids_.end()),
+      std::transform(um.begin(), um.end(), std::inserter(all_special_ids_, all_special_ids_.end()),
                      [](const auto& p) { return p.first; });
     }
 
@@ -116,8 +115,29 @@ struct KernelBpeDecoder {
     arr_vocab_.shrink_to_fit();
   }
 
-  OrtxStatus Compute(const ortc::Tensor<int64_t>& ids,
-                     ortc::Tensor<std::string>& output) const {
+  const std::string spm_underscore{"\xe2\x96\x81"};
+
+  static bool IsSpmByteWord(std::string_view word) {
+    return word.size() == 6 && word[0] == '<' && word[1] == '0' && word[2] == 'x' && word[5] == '>';
+  }
+
+  static std::string ReplaceAll(std::string_view s, const std::string& search, const std::string& replace) {
+    std::string result;
+    for (size_t pos = 0;; pos += search.length()) {
+      auto new_pos = s.find(search, pos);
+      if (new_pos == std::string::npos) {
+        result += s.substr(pos, s.size() - pos);
+        break;
+      }
+      result += s.substr(pos, new_pos - pos);
+      result += replace;
+      pos = new_pos;
+    }
+
+    return result;
+  }
+
+  OrtxStatus Compute(const ortc::Tensor<int64_t>& ids, ortc::Tensor<std::string>& output) const {
     const int64_t* p_ids = ids.Data();
     const auto& ids_dim = ids.Shape();
     std::vector<int64_t> output_dim = {1};
@@ -125,6 +145,8 @@ struct KernelBpeDecoder {
       output_dim.resize(ids_dim.size() - 1);
       std::copy(ids_dim.begin(), ids_dim.begin() + ids_dim.size() - 1, output_dim.begin());
     }
+
+    bool spm_mode = byte_decoder_.count(ustring(spm_underscore)[0]) > 0;
 
     size_t seq_len = ids_dim.back();
     size_t string_batch = ids.NumberOfElement() / seq_len;
@@ -148,24 +170,37 @@ struct KernelBpeDecoder {
 
         if (added_tokens_.count(token)) {
           const std::string& ws = added_tokens_.at(token);
-          decoded_token = (std::string)ws;
+          decoded_token.assign(ws);
         } else if (static_cast<size_t>(token) < arr_vocab_.size()) {
-          const auto str = ustring(arr_vocab_[token]);
-          for (auto wchr : str) {
-            if (byte_decoder_.count(wchr) == 0) {
-              if (wchr <= char32_t(0xFF)) {
-                decoded_token.push_back(static_cast<char>(wchr));
-                continue;
-              }
-              if (skip_special_tokens_) {
-                continue;
-              } else {
-                decoded_token = unk_token_;
-                break;
-              }
+          const auto piece = arr_vocab_[token];
+          if (spm_mode) {
+            // sentencepiece case, which doesn't really have a byte decoder
+            if ((IsSpmByteWord(piece))) {
+              char buf[3] = {piece[3], piece[4], 0};  // something like <0x20>
+              char token = {static_cast<char>(strtol(buf, NULL, 16))};
+              decoded_token.push_back(token);
+            } else {
+              decoded_token.append(ReplaceAll(piece, spm_underscore, " "));
             }
-            char uchr = byte_decoder_.at(wchr);
-            decoded_token.push_back(uchr);
+          } else {
+            // the common bpe case
+            const auto str = ustring(piece);
+            for (auto wchr : str) {
+              if (byte_decoder_.count(wchr) == 0) {
+                if (wchr <= char32_t(0xFF)) {
+                  decoded_token.push_back(static_cast<char>(wchr));
+                  continue;
+                }
+                if (skip_special_tokens_) {
+                  continue;
+                } else {
+                  decoded_token = unk_token_;
+                  break;
+                }
+              }
+              char uchr = byte_decoder_.at(wchr);
+              decoded_token.push_back(uchr);
+            }
           }
         } else {
           if (skip_special_tokens_) {
@@ -183,15 +218,13 @@ struct KernelBpeDecoder {
           }
         }
 
-        if (whitespace_token_ &&
-            f_special && (tok_idx > 0 && !f_special_last)) {
+        if (whitespace_token_ && f_special && (tok_idx > 0 && !f_special_last)) {
           text.push_back(' ');
         }
 
         text.append(decoded_token);
 
-        if (whitespace_token_ &&
-            f_special && tok_idx != count - 1) {
+        if (whitespace_token_ && f_special && tok_idx != count - 1) {
           text.push_back(' ');
         }
 
