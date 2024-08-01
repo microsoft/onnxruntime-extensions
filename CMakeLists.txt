@@ -747,6 +747,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   if(OCOS_ENABLE_STATIC_LIB)
     message(FATAL_ERROR "Emscripten build does not support building a static library.")
   endif()
+  # Emscripten does not support building a shared library with custom ops.
+  # and backward compatible with the previous version, we silently turn off the shared library build.
+  set(OCOS_BUILD_SHARED_LIB OFF CACHE INTERNAL "" FORCE)
   add_executable(ortcustomops ${_TARGET_LIB_SRC})
   set_target_properties(ortcustomops PROPERTIES LINK_FLAGS "                                  \
                       -s WASM=1                                                               \
@@ -902,6 +905,7 @@ endif()
 
 if(OCOS_BUILD_PYTHON)
   message(STATUS "Python Build is enabled")
+  set(shared_TARGET_LIB_SRC ${_TARGET_LIB_SRC}) # these library file are also needed for python build
   include(ext_python)
 endif()
 
