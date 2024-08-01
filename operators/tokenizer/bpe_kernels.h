@@ -108,6 +108,8 @@ class JsonFastTokenizer : KernelBpeTokenizer {
  public:
   JsonFastTokenizer();
   bool tiktoken;
+  std::string unicode_byte_encoder_[256] = {};
+  void CreateUnicodeByteEncoder();
   std::string TokenBytesToString(std::vector<uint8_t>& bytes);
   OrtxStatus Load(const ort_extensions::bpe::TokenJsonConfig& config);
   OrtxStatus Compute(const ortc::Tensor<std::string>& input,

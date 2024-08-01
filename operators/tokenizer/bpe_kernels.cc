@@ -554,8 +554,28 @@ SpmTokenizer::SpmTokenizer()
 
 JsonFastTokenizer::JsonFastTokenizer() : KernelBpeTokenizer(kGPT2Configuration) {}
 
+/*
+Read more here: https://github.com/huggingface/transformers/blob/60bb571e993b7d73257fb64044726b569fef9403/src/transformers/convert_slow_tokenizer.py#L1454
+
+Note: this is similar to the BPE CreateByteEncoder, however for decoding the .tiktoken bytes
+we need to store the strings rather than their IDs, and thereby need a separate map.
+*/
+void JsonFastTokenizer::CreateUnicodeByteEncoder() {
+  char32_t index = 256;
+  for (char32_t i = 0; i < 256; ++i) {
+    if ((i >= 0 && i < 33) || (i >= 127 && i < 161) || (i == 173)) {
+      unicode_byte_encoder_[i] = ustring::EncodeUTF8Char(index++);
+    } else {
+      unicode_byte_encoder_[i] = ustring::EncodeUTF8Char(i);
+    }
+  }
+}
+
 std::string JsonFastTokenizer::TokenBytesToString(std::vector<uint8_t>& bytes) {
-    std::string result(bytes.begin(), bytes.end());
+    std::string result;
+    for (auto c : bytes) {
+        result += unicode_byte_encoder_[static_cast<unsigned char>(c)];
+    }
     return result;
 }
 
@@ -622,6 +642,7 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& c
     std::vector<std::tuple<std::vector<uint8_t>, std::vector<uint8_t>, uint32_t>> byte_merges;
 
     bbpe_tokenizer_ = std::make_unique<BpeModel>();
+    JsonFastTokenizer::CreateUnicodeByteEncoder();
     
     for (const auto& item : bpe_ranks) {
       std::vector<uint8_t> token = item.first;

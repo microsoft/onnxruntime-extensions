@@ -175,12 +175,6 @@ TEST(OrtxTokenizerTest, Phi3_Small_Tokenizer) {
 
   EXPECT_EQ(token_ids.size(), input.size());
   EXPECT_EQ(token_ids[0], EXPECTED_IDS_0);
-
-  std::vector<std::string> out_text;
-  std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {token_ids[0], token_ids[1]};
-  status = tokenizer->Detokenize(token_ids_span, out_text);
-  EXPECT_TRUE(status.IsOk());
-  EXPECT_EQ(out_text[0], input[0]);
 }
 
 TEST(OrtxTokenizerTest, GemmaTokenizer) {

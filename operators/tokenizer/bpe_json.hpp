@@ -45,7 +45,7 @@ class TokenJsonConfig final {
       } else {
         nlohmann::json tok_module_json_config = nlohmann::json::parse(tok_module_ifs);
         auto tiktoken_path = tok_module_json_config.value("tiktoken_file", "");
-        //auto vocab_file_path = path(json_path) / tiktoken_path;
+        vocab_file_path = path(json_path) / tiktoken_path.c_str();
         vocab_file_path = path(json_path) / "cl100k_base.tiktoken";
         vocab_path_ = vocab_file_path.string();
       }
