@@ -393,6 +393,13 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
         self.assertEqual(result[0][0], ref_output[0][0])
 
+    def test_transformers_and_bert(self):
+        input_model = os.path.join(test_data_dir, "../bert_qa_decoder_base.onnx")
+        output_model = (self.temp4onnx / "bert_qa.updated.onnx").resolve()
+        vocab_file = os.path.join(test_data_dir, "../bert.vocab")
+
+        add_ppp.transformers_and_bert(Path(input_model), Path(output_model), Path(vocab_file), "BertTokenizer", "QuestionAnswering")
+
     # Corner Case
     def test_debug_step(self):
         import onnx
