@@ -8,6 +8,8 @@
 #include "bpe_json.hpp"
 #include "bpe_tokenizer.hpp"
 
+#include "base64.h"
+
 #include <optional>
 #include <limits>
 
@@ -552,11 +554,138 @@ SpmTokenizer::SpmTokenizer()
 
 JsonFastTokenizer::JsonFastTokenizer() : KernelBpeTokenizer(kGPT2Configuration) {}
 
+/*
+Read more here: https://github.com/huggingface/transformers/blob/60bb571e993b7d73257fb64044726b569fef9403/src/transformers/convert_slow_tokenizer.py#L1454
+
+Note: this is similar to the BPE CreateByteEncoder, however for decoding the .tiktoken bytes
+we need to store the strings rather than their IDs, and thereby need a separate map.
+*/
+void JsonFastTokenizer::CreateUnicodeByteEncoder() {
+  char32_t index = 256;
+  for (char32_t i = 0; i < 256; ++i) {
+    if ((i >= 0 && i < 33) || (i >= 127 && i < 161) || (i == 173)) {
+      unicode_byte_encoder_[i] = ustring::EncodeUTF8Char(index++);
+    } else {
+      unicode_byte_encoder_[i] = ustring::EncodeUTF8Char(i);
+    }
+  }
+}
+
+std::string JsonFastTokenizer::TokenBytesToString(std::vector<uint8_t>& bytes) {
+    std::string result;
+    for (auto c : bytes) {
+        result += unicode_byte_encoder_[static_cast<unsigned char>(c)];
+    }
+    return result;
+}
+
+// Custom hash function for the vector key
+struct VectorHash {
+    size_t operator()(const std::vector<uint8_t>& v) const {
+        std::hash<uint8_t> hasher;
+        size_t seed = 0;
+        for (uint8_t i : v) {
+            seed ^= hasher(i) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+        return seed;
+    }
+};
+
+// Custom equality function for the vector key
+struct VectorEqual {
+    bool operator()(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) const {
+        return a == b;
+    }
+};
+
 OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& config) {
   std::string voc_file = config.GetVocabDataFile();
   std::ifstream ifs = path(voc_file).open();
   if (!ifs.is_open()) {
     return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open json file: " + voc_file);
+  }
+
+  // consider to use SAX parser for large json file
+  nlohmann::json tok_json;
+  std::ifstream module_ifs;
+
+  // Following vocab and merges only used for tiktoken case but accessed outside scope below
+  std::unordered_map<std::string, uint32_t> vocab;
+  std::vector<std::pair<std::string, std::string>> merges;
+
+  if (tiktoken_){
+    std::string module_file = config.GetTikTokenModuleFile();
+
+    module_ifs = path(module_file).open();
+    if (!module_ifs.is_open()) {
+      return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open module file: " + module_file);
+    }
+
+    std::unordered_map<std::vector<uint8_t>, uint32_t, VectorHash, VectorEqual> bpe_ranks;
+
+    std::string line;
+    while (std::getline(ifs, line)) {
+      if (!line.empty()) {
+        std::istringstream lineStream(line);
+        std::string token;
+        uint32_t rank;
+        while (lineStream >> token >> rank) {
+            // Decode base64 token and convert rank to int
+            std::vector<uint8_t> decoded_token;
+            base64_decode(token, decoded_token);
+            // Store bpe token and rank
+            bpe_ranks[decoded_token] = rank;
+        }
+      }
+    }
+
+    std::vector<std::tuple<std::vector<uint8_t>, std::vector<uint8_t>, uint32_t>> byte_merges;
+
+    bbpe_tokenizer_ = std::make_unique<BpeModel>();
+    JsonFastTokenizer::CreateUnicodeByteEncoder();
+    
+    for (const auto& item : bpe_ranks) {
+      std::vector<uint8_t> token = item.first;
+      uint32_t rank = item.second;
+      vocab[JsonFastTokenizer::TokenBytesToString(token)] = rank;
+      
+      if (token.size() == 1) {
+          continue;
+      }
+      
+      std::vector<std::tuple<std::vector<uint8_t>, std::vector<uint8_t>, uint32_t>> local;
+      for (size_t index = 1; index < token.size(); index++) {
+          std::vector<uint8_t> piece_l(token.begin(), token.begin() + index);
+          std::vector<uint8_t> piece_r(token.begin() + index, token.end());
+          if (bpe_ranks.count(piece_l) && bpe_ranks.count(piece_r)) {
+              local.emplace_back(piece_l, piece_r, rank);
+          }
+      }
+      
+      auto compare_bpe_tuples = [&](const std::tuple<std::vector<uint8_t>, std::vector<uint8_t>, uint32_t>& a,
+                                        const std::tuple<std::vector<uint8_t>, std::vector<uint8_t>, uint32_t>& b) {
+        // Compare comparator based on the ranks in bpe_ranks
+        return bpe_ranks[std::get<0>(a)] < bpe_ranks[std::get<0>(b)] ||
+                (bpe_ranks[std::get<0>(a)] == bpe_ranks[std::get<0>(b)] && bpe_ranks[std::get<1>(a)] < bpe_ranks[std::get<1>(b)]);
+      };
+
+      std::sort(local.begin(), local.end(), compare_bpe_tuples);
+      
+      byte_merges.insert(byte_merges.end(), local.begin(), local.end());
+    }
+
+    // Custom comparator that compares the third element of the tuples
+    auto compare_merge_tuples = [&](const std::tuple<std::vector<uint8_t>, std::vector<uint8_t>, uint32_t>& a,
+                                        const std::tuple<std::vector<uint8_t>, std::vector<uint8_t>, uint32_t>& b) {
+      return std::get<2>(a) < std::get<2>(b);
+    };
+    
+    std::sort(byte_merges.begin(), byte_merges.end(), compare_merge_tuples);
+
+    // Populate merges
+    for (auto& val : byte_merges) {
+      merges.push_back({JsonFastTokenizer::TokenBytesToString(std::get<0>(val)), JsonFastTokenizer::TokenBytesToString(std::get<1>(val))});
+    }
   }
 
   const char token_sub[] = "Tokenizer";
@@ -570,18 +699,27 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& c
   // re-bind the configuration object
   bpe_conf_ = json_conf_;
 
-  // consider to use SAX parser for large json file
-  nlohmann::json tok_json;
-  ifs >> tok_json;
-  auto model_node = tok_json.find("model");
-  if (model_node == tok_json.end()) {
-    return OrtxStatus(kOrtxErrorCorruptData, "Failed to get model node from tokenizer.json");
-  }
+  OrtxStatus status;
+  if (tiktoken_){
+    status = bbpe_tokenizer_->Load(vocab,
+                                   merges,
+                                   bpe_conf_.get().GetSpecialTokens().c_str(),
+                                   false);
 
-  bbpe_tokenizer_ = std::make_unique<BpeModel>();
-  auto status = bbpe_tokenizer_->Load(*model_node,
-                                      bpe_conf_.get().GetSpecialTokens().c_str(),
-                                      IsSpmModel(ModelName()));
+    module_ifs >> tok_json;
+  } else {
+    ifs >> tok_json;
+    auto model_node = tok_json.find("model");
+    if (model_node == tok_json.end()) {
+      return OrtxStatus(kOrtxErrorCorruptData, "Failed to get model node from tokenizer.json");
+    }
+
+    bbpe_tokenizer_ = std::make_unique<BpeModel>();
+    status = bbpe_tokenizer_->Load(*model_node,
+                                    bpe_conf_.get().GetSpecialTokens().c_str(),
+                                    IsSpmModel(ModelName()));
+  }
+  
 
   auto added_tokens = tok_json.find("added_tokens");
   if (added_tokens != tok_json.end()) {

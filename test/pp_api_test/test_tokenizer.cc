@@ -151,6 +151,32 @@ TEST(OrtxTokenizerTest, Phi3_S_Tokenizer) {
   EXPECT_EQ(out_text[0], input[0]);
 }
 
+TEST(OrtxTokenizerTest, Phi3_Small_Tokenizer) {
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/phi-3-small");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+  }
+
+  // validate tokenizer is not null
+  EXPECT_NE(tokenizer, nullptr);
+
+  std::vector<extTokenId_t> EXPECTED_IDS_0 = {2028, 374, 264, 1296, 13};
+  std::vector<std::string_view> input = {
+      "This is a test.",
+      "the second one",
+      "I like walking my cute dog\n and\x17 then", 
+      "Hey<|endoftext|>. \t\t \n\nyou  é  @#😈  🤗!       , 1234 15 5,61"};
+  std::vector<std::vector<extTokenId_t>>
+      token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  EXPECT_TRUE(status.IsOk());
+  DumpTokenIds(token_ids);
+
+  EXPECT_EQ(token_ids.size(), input.size());
+  EXPECT_EQ(token_ids[0], EXPECTED_IDS_0);
+}
+
 TEST(OrtxTokenizerTest, GemmaTokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
   auto status = tokenizer->Load("data/gemma");

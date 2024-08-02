@@ -50,6 +50,7 @@ class TokenizerImpl : public OrtxObjectImpl {
                                  std::vector<std::vector<extTokenId_t>>& t_ids) const;
 
  private:
+  bool tiktoken = false;
   std::string tokenizer_dir_;
   std::shared_ptr<ort_extensions::bpe::TokenJsonConfig> tok_config_;
   std::unique_ptr<JsonFastTokenizer> tokenizer_;
