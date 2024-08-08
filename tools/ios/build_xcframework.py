@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import shutil
 import sys
 from pathlib import Path
@@ -215,7 +214,7 @@ def build_xcframework(
             # copy over files from arch-specific framework to fat framework
             # macos requires different framework structure:
             # https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPFrameworks/Concepts/FrameworkAnatomy.html
-            if platform == "macosx":
+            if platform == "macosx" or platform == "maccatalyst":
                 # Set up directory strcture
                 dest_headers_dir = platform_fat_framework_dir / "Versions/A/Headers"
                 dest_resources_dir = platform_fat_framework_dir / "Versions/A/Resources"
@@ -252,7 +251,6 @@ def build_xcframework(
                 )
 
             else:
-
                 for framework_file_relative_path in [Path("Headers"), Path("Info.plist")]:
                     src = first_arch_framework_dir / framework_file_relative_path
                     dst = platform_fat_framework_dir / framework_file_relative_path
@@ -284,7 +282,7 @@ def build_xcframework(
         # copy public headers
         output_headers_dir = output_dir / "Headers"
         _rmtree_if_existing(output_headers_dir)
-        shutil.copytree(headers_dir, output_headers_dir)
+        shutil.copytree(headers_dir, output_headers_dir, symlinks=True)
 
         # merge framework_info.json per platform into xcframework_info.json in output_dir
         _merge_framework_info_files(framework_info_files_to_merge, Path(output_dir, "xcframework_info.json"))

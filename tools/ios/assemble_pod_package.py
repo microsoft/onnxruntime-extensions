@@ -7,10 +7,10 @@
 
 import argparse
 import json
-from pathlib import Path
 import re
 import shutil
 import sys
+from pathlib import Path
 from typing import Dict
 
 _script_dir = Path(__file__).resolve().parent
@@ -60,7 +60,12 @@ def gen_file_from_template(
 
 
 def assemble_pod_package(
-    staging_dir: Path, xcframework_dir: Path, public_headers_dir: Path, xcframework_info_file: Path, pod_version: str, catalyst_enabled: bool,
+    staging_dir: Path,
+    xcframework_dir: Path,
+    public_headers_dir: Path,
+    xcframework_info_file: Path,
+    pod_version: str,
+    catalyst_enabled: bool,
 ):
     staging_dir = staging_dir.resolve()
     xcframework_dir = xcframework_dir.resolve(strict=True)
@@ -74,8 +79,8 @@ def assemble_pod_package(
 
     # copy files to staging dir
     shutil.copyfile(_repo_dir / "LICENSE", staging_dir / "LICENSE")
-    shutil.copytree(xcframework_dir, staging_dir / xcframework_dir.name, dirs_exist_ok=True)
-    shutil.copytree(public_headers_dir, staging_dir / public_headers_dir.name, dirs_exist_ok=True)
+    shutil.copytree(xcframework_dir, staging_dir / xcframework_dir.name, dirs_exist_ok=True, symlinks=True)
+    shutil.copytree(public_headers_dir, staging_dir / public_headers_dir.name, dirs_exist_ok=True, symlinks=True)
 
     # generate podspec
     pod_name = "onnxruntime-extensions-c"
