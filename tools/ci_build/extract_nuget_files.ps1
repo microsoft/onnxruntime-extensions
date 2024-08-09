@@ -20,7 +20,7 @@ New-Item -Path $nuget_sources_dir -ItemType directory
 
 ## .zip files
 # unzip directly
-Get-ChildItem $artifact_download_dir -Filter *.zip |
+Get-ChildItem $artifact_download_dir -Include *.zip -Exclude onnxruntime_extensions.xcframework.zip |
 Foreach-Object {
   $cmd = "7z.exe x $($_.FullName) -y -o$nuget_sources_dir"
   Write-Output $cmd
