@@ -173,7 +173,7 @@ jobs:
       POD_STAGING_DIR="$(Build.BinariesDirectory)/pod_staging"
       ARTIFACTS_STAGING_DIR="$(Build.ArtifactStagingDirectory)"
       POD_NAME="onnxruntime-extensions-c"
-      POD_ARCHIVE_BASENAME="onnxruntime_extensions.xcframework.zip"
+      POD_ARCHIVE_BASENAME="onnxruntime_extensions.xcframework.${ORT_EXTENSIONS_POD_VERSION}.zip"
       PODSPEC_BASENAME="${POD_NAME}.podspec"
 
       pushd ${POD_STAGING_DIR}
