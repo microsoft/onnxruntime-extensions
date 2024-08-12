@@ -56,7 +56,7 @@ if ($xcframeworks.Count -eq 1) {
   Copy-Item $xcframework.FullName $target_file
 }
 elseif ($xcframeworks.Count -ne 1) {
-  Write-Error "Expected at most one onnxruntime_ios_xcframework.*.zip file but got: [$xcframeworks]"
+  Write-Error "Expected at most one onnxruntime_extensions.xcframework.*.zip file but got: [$xcframeworks]"
 }
 
 # copy android AAR.
