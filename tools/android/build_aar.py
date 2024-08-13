@@ -30,10 +30,7 @@ def build_for_abi(
         str(_repo_dir / "tools" / "build.py"),
         f"--build_dir={build_dir}",
         f"--config={config}",
-        "--update",
-        "--build",
         "--parallel",
-        "--test",
         # Android options
         "--android",
         f"--android_abi={abi}",
@@ -53,7 +50,7 @@ def do_build_by_mode(
     api_level: int,
     sdk_path: Path,
     ndk_path: Path,
-    build_py_args: list[str]
+    build_py_args: list[str],
 ):
     output_dir = output_dir.resolve()
 
@@ -77,12 +74,12 @@ def do_build_by_mode(
 
             jnilib_names = ["libortextensions.so", "libonnxruntime_extensions4j_jni.so"]
             for jnilib_name in jnilib_names:
-                shutil.copyfile(build_dir / config / "java" / "android" / abi / jnilib_name, jnilibs_dir / jnilib_name)
+                shutil.copyfile(build_dir / config / "lib" / jnilib_name, jnilibs_dir / jnilib_name)
 
             # depending on the build settings these libraries may not be build
             optional_jnilib_names = ["libcrypto.so", "libssl.so", "libcurl.so"]
             for jnilib_name in optional_jnilib_names:
-                src = build_dir / config / "java" / "android" / abi / jnilib_name
+                src = build_dir / config / "lib" / jnilib_name
                 if src.exists():
                     shutil.copyfile(src, jnilibs_dir / jnilib_name)
 
