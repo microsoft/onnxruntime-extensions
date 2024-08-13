@@ -54,7 +54,7 @@
     <file src="targets\net6.0-android\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="build\net6.0-android31.0" />
     <file src="targets\net6.0-android\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="buildTransitive\net6.0-android31.0" />
     <!-- iOS via Xamarin/MAUI. -->
-    <file src="..\nuget-artifacts\onnxruntime_extensions.xcframework\**" target="runtimes\ios\native\onnxruntime_extensions.xcframework" />
+    <file src="..\nuget-artifacts\onnxruntime_extensions.xcframework.zip" target="runtimes\ios\native\" />
     <file src="targets\xamarinios10\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="build\xamarinios10" />
     <file src="targets\xamarinios10\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="buildTransitive\xamarinios10" />
     <file src="targets\net6.0-ios\Microsoft.ML.OnnxRuntime.Extensions.Dummy.targets" target="build\net6.0-ios15.4" />
