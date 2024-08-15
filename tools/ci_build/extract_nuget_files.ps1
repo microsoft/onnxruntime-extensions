@@ -49,9 +49,7 @@ $xcframeworks = Get-ChildItem $artifact_download_dir -Filter onnxruntime_extensi
 if ($xcframeworks.Count -eq 1) {
   $xcframework = $xcframeworks[0]
   # remove version info from filename and use required filename format
-  $target_dir = "$nuget_sources_dir\onnxruntime_extensions"
-  $target_file = "$target_dir\onnxruntime_extensions.xcframework.zip"
-  New-Item -Path $target_dir -ItemType directory
+  $target_file = "$nuget_sources_dir\onnxruntime_extensions.xcframework.zip"
 
   Write-Output "Copy-Item $($xcframework.FullName) $target_file"
   Copy-Item $xcframework.FullName $target_file
