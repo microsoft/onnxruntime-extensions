@@ -45,12 +45,11 @@ Foreach-Object {
 }
 
 # process iOS xcframework
-$xcframeworks = Get-ChildItem $Env:BUILD_BINARIESDIRECTORY\nuget-artifacts -Filter onnxruntime_extensions.xcframework.*.zip
+$xcframeworks = Get-ChildItem $artifact_download_dir -Filter onnxruntime_extensions.xcframework.*.zip
 if ($xcframeworks.Count -eq 1) {
   $xcframework = $xcframeworks[0]
   # remove version info from filename and use required filename format
   $target_file = "$nuget_sources_dir\onnxruntime_extensions.xcframework.zip"
-  New-Item -Path $target_dir -ItemType directory
 
   Write-Output "Copy-Item $($xcframework.FullName) $target_file"
   Copy-Item $xcframework.FullName $target_file
