@@ -20,7 +20,7 @@ New-Item -Path $nuget_sources_dir -ItemType directory
 
 ## .zip files
 # unzip directly
-Get-ChildItem $artifact_download_dir -Filter *.zip |
+Get-ChildItem $artifact_download_dir -Include *.zip -Exclude onnxruntime_extensions.xcframework.*.zip |
 Foreach-Object {
   $cmd = "7z.exe x $($_.FullName) -y -o$nuget_sources_dir"
   Write-Output $cmd
@@ -42,6 +42,20 @@ Foreach-Object {
   $cmd = "7z.exe x $($_.FullName) -y -o$nuget_sources_dir"
   Write-Output $cmd
   Invoke-Expression -Command $cmd
+}
+
+# process iOS xcframework
+$xcframeworks = Get-ChildItem $artifact_download_dir -Filter onnxruntime_extensions.xcframework.*.zip
+if ($xcframeworks.Count -eq 1) {
+  $xcframework = $xcframeworks[0]
+  # remove version info from filename and use required filename format
+  $target_file = "$nuget_sources_dir\onnxruntime_extensions.xcframework.zip"
+
+  Write-Output "Copy-Item $($xcframework.FullName) $target_file"
+  Copy-Item $xcframework.FullName $target_file
+}
+elseif ($xcframeworks.Count -ne 1) {
+  Write-Error "Expected at most one onnxruntime_extensions.xcframework.*.zip file but got: [$xcframeworks]"
 }
 
 # copy android AAR.
