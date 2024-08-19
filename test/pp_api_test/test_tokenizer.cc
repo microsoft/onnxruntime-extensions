@@ -410,10 +410,11 @@ TEST(OrtxTokenizerTest, WhisperTokenizer) {
   const extTokenId_t* token_ids = NULL;
   OrtxTokenId2DArrayGetItem(prompt_ids.get(), 0, &token_ids, &length);
   std::vector<extTokenId_t> ids(token_ids, token_ids + length);
-  // std::cout << "Prompt IDs: ";
-  // for (const auto& id : ids) {
-  //   std::cout << id << " ";
-  // }
 
   EXPECT_EQ(ids, std::vector<extTokenId_t>({50259, 50358, 50363}));
+
+  extTokenId_t sot_id{};
+  err = OrtxConvertTokenToId(tokenizer.get(), "<|startoftranscript|>", &sot_id);
+  EXPECT_EQ(err, kOrtxOK);
+  EXPECT_EQ(sot_id, 50258);
 }

@@ -76,6 +76,21 @@ extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char
   return extError_t();
 }
 
+extError_t ORTX_API_CALL OrtxConvertTokenToId(const OrtxTokenizer* tokenizer, const char* token, extTokenId_t* id) {
+  if (tokenizer == nullptr || token == nullptr || id == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+  auto token_ptr = static_cast<const TokenizerImpl*>(tokenizer);
+  ReturnableStatus status = token_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindTokenizer);
+  if (!status.IsOk()) {
+    return status.Code();
+  }
+
+  status = token_ptr->Token2Id(token, *id);
+  return status.Code();
+}
+
 extError_t ORTX_API_CALL OrtxGetDecoderPromptIds(const OrtxTokenizer* tokenizer, size_t batch_size, const char* lang,
                                                  const char* task, int no_timestamps, OrtxTokenId2DArray** output) {
   if (tokenizer == nullptr || output == nullptr) {
