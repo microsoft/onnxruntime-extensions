@@ -44,11 +44,8 @@ class BpeModel {
     }
   }
 
-  OrtxStatus Load(std::istream& vocab_stream,
-                  std::istream& merges_stream,
-                  const char* unk_token,
-                  const char* special_tokens,
-                  bool spm_converted) {
+  OrtxStatus Load(std::istream& vocab_stream, std::istream& merges_stream, const char* unk_token,
+                  const char* special_tokens, bool spm_converted) {
     nlohmann::json tok_json;
     vocab_stream >> tok_json;
     tok_json.get_to(vocab_map_);
@@ -125,9 +122,7 @@ class BpeModel {
     return {};
   }
 
-  OrtxStatus Load(const json& bpe_model,
-                  const char* /* special_tokens */,
-                  bool spm_converted) {
+  OrtxStatus Load(const json& bpe_model, const char* /* special_tokens */, bool spm_converted) {
     const json& vocab_json = bpe_model["vocab"];
     const json& merges_json = bpe_model["merges"];
     vocab_json.get_to(vocab_map_);
@@ -195,8 +190,7 @@ class BpeModel {
   }
 
   OrtxStatus Load(std::unordered_map<std::string, uint32_t>& vocab,
-                  std::vector<std::pair<std::string, std::string>>& merges,
-                  const char* /* special_tokens */,
+                  std::vector<std::pair<std::string, std::string>>& merges, const char* /* special_tokens */,
                   bool spm_converted) {
     vocab_map_ = vocab;
 
@@ -207,7 +201,7 @@ class BpeModel {
     }
 
     uint32_t index = 0;
-    for (auto& tuple : merges){
+    for (auto& tuple : merges) {
       std::string w1 = tuple.first;
       std::string w2 = tuple.second;
       int token_length = ort_extensions::narrow<int>(w1.length() + w2.length());
@@ -269,11 +263,10 @@ class BpeModel {
     return {};
   }
 
-  std::vector<std::string> BuildDecoder() const {
-    return id2token_map_;
-  }
+  std::vector<std::string> BuildDecoder() const { return id2token_map_; }
 
-  // REF: https://github.com/huggingface/transformers/blob/c9e72f55b2dc4b9be4edb986dce0552582b328f2/src/transformers/tokenization_utils.py#L52
+  // REF:
+  // https://github.com/huggingface/transformers/blob/c9e72f55b2dc4b9be4edb986dce0552582b328f2/src/transformers/tokenization_utils.py#L52
   bpe::TokenPairs SplitByAddedAndSpecial(const ustring& input) const {
     // split by added tokens
     bpe::TokenPairs added_result;
@@ -343,9 +336,7 @@ class BpeModel {
     }
   }
 
-  const auto& ByteEncoder() const {
-    return byte_encoder_;
-  }
+  const auto& ByteEncoder() const { return byte_encoder_; }
 
   uint32_t GetTokenId(const std::string& key) const {
     auto it = vocab_map_.find(key);
@@ -356,9 +347,17 @@ class BpeModel {
     }
   }
 
-  const std::string& GetEndOfWordSuffix() const {
-    return end_of_word_suffix_;
+  uint32_t GetAddedTokenId(const std::string& key) const {
+    size_t idx = 0;
+    int id = added_tokens_.FindLongest(ustring(key), idx);
+    if (idx == 0) {
+      return bpe::kInvalidTokenId;
+    }
+
+    return static_cast<uint32_t>(id);
   }
+
+  const std::string& GetEndOfWordSuffix() const { return end_of_word_suffix_; }
 
  private:
   struct BpeNode {
