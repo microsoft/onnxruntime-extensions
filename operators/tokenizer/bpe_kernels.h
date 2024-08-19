@@ -33,7 +33,7 @@ struct KernelBpeTokenizer {
                      std::optional<ortc::Tensor<int64_t>*> offset_mapping) const;
 
   const std::string& ModelName() const { return model_name_; }
-  extTokenId_t GetTokenId(const std::string& token) const;
+  uint32_t GetTokenId(const std::string& token) const;
 
  protected:
   using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
