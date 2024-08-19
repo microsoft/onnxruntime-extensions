@@ -171,6 +171,15 @@ OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKerne
   return {};
 }
 
+extTokenId_t KernelBpeTokenizer::GetTokenId(const std::string& token) const {
+  auto id = bbpe_tokenizer_->GetAddedTokenId(token);
+  if (id != bpe::kInvalidTokenId) {
+    return id;
+  }
+
+  return bbpe_tokenizer_->GetTokenId(token);
+}
+
 std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
                                                   int64_t max_length,
                                                   bool compute_offset_mapping,
