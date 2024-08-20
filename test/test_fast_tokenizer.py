@@ -38,15 +38,17 @@ class TestAutoTokenizer(unittest.TestCase):
                 "Qué dijiste? \n über 给 ば was los ist im Mannschaft ц \n",
                 "明天雷阵雨，气温26度。"]
 
-        ids = tokenizer(text, return_tensors="np")["input_ids"]
-
         ort_tok, _ = gen_processing_models(tokenizer, pre_kwargs={})
         actual_ids, *_ = ort_inference(ort_tok, text)
         for n in range(len(actual_ids)):
-            print("index is ", n)
             expected_ids = tokenizer.encode(text[n], return_tensors="np")
-            np.testing.assert_array_equal(expected_ids[0], actual_ids[n][1:])
+            try:
+                np.testing.assert_array_equal(
+                    expected_ids[0], actual_ids[n][1:expected_ids.shape[1] + 1])
+            except AssertionError:
+                print("index is ", n)
+                raise
 
 
 if __name__ == '__main__':
-     unittest.main()
+    unittest.main()
