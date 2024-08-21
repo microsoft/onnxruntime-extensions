@@ -449,7 +449,8 @@ node = onnx.helper.make_node(
     outputs=['indices', 'output'],
     mapping_file_name='vocabulary.txt',
     unmapping_value="unknown_word",
-    model=model
+    model=model,
+    domain='ai.onnx.contrib'
 )
 
 inputs = np.array(["Hello world", "Hello world louder"], dtype=object),
@@ -459,8 +460,8 @@ add_bos = np.array([0], dtype=np.bool_),
 add_eos = np.array([0], dtype=np.bool_),
 reverse = np.array([0], dtype=np.bool_)
 
-tokens = array([17486,  1017, 17486,  1017,   155, 21869], dtype=int32)
-indices = array([0, 2, 6], dtype=int64)
+tokens = np.array([17486,  1017, 17486,  1017,   155, 21869], dtype=np.int32)
+indices = np.array([0, 2, 6], dtype=np.int64)
 
 expect(node, inputs=[inputs, nbest_size, alpha, add_bos, add_eos, reverse],
        outputs=[tokens, indices], name='sp')
