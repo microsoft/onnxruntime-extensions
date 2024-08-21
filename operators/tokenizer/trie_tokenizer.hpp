@@ -178,7 +178,7 @@ struct KernelTrieDetokenizer {
         ids.push_back(ort_extensions::narrow<int>(p_ids[n * ids_dim[1] + i]));
       }
       auto raw_string = tokenizer->decodeBytes(ids);
-      if (ustring::ValidateUTF8(raw_string)) {
+      if (ustring::ValidateUTF8(raw_string) < 0) {
         output[n] = raw_string;
       } else {
         output[n] = "\ufffd";  // bad utf-8 string

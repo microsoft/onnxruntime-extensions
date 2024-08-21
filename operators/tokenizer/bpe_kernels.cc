@@ -27,11 +27,6 @@ static bool IsBosEosRequired(const std::string& model_name) {
   return model_name != kModel_GPT2 && model_name != kModel_CodeGen;
 }
 
-static bool IsSpmModel(const std::string& model_name) {
-  return model_name == kModel_Llama ||
-         model_name == kModel_Gemma;
-}
-
 std::string BpeModelConf::GetSpecialTokens() const {
   std::string special_tokens = unk_token_;  // unk_token_ is required
   auto add_token = [](std::string& sp, const char* tok) {
@@ -145,7 +140,7 @@ OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKerne
                                       merges_stream,
                                       bpe_conf_.get().unk_token_,
                                       bpe_conf_.get().GetSpecialTokens().c_str(),
-                                      IsSpmModel(ModelName()));
+                                      bpe_conf_.get().spm_model_);
   if (!status.IsOk()) {
     return (OrtStatusPtr)status;
   }
@@ -454,7 +449,7 @@ OrtxStatus KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input,
   }
 
   auto tok_fun = &KernelBpeTokenizer::Tokenize;
-  if (IsSpmModel(ModelName())) {
+  if (bpe_conf_.get().spm_model_) {
     tok_fun = &KernelBpeTokenizer::SpmTokenize;
   }
 
@@ -556,7 +551,8 @@ static const auto kSpmConfiguration = BpeModelConf{
     "<unk>",       // unk_token
     "<s>",         // bos_token
     "</s>",        // eos_token
-    ""};           // pad_token
+    "",            // pad_token
+    true};
 
 SpmTokenizer::SpmTokenizer()
     : KernelBpeTokenizer(kSpmConfiguration) {}
@@ -718,6 +714,19 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& c
     module_ifs >> tok_json;
   } else {
     ifs >> tok_json;
+    auto decoders_node = tok_json.find("/decoder/decoders"_json_pointer);
+    if (decoders_node != tok_json.end()) {
+      for(auto step = decoders_node->begin(); step != decoders_node->end(); ++step) {
+        std::string type = step->value("type", "");
+        if (type == "Replace") {
+          std::string target = step->value("/pattern/String"_json_pointer, "");
+          if (target == "\xe2\x96\x81") {
+            json_conf_.spm_model_ = true;
+            break;
+          }
+        }
+      }
+    }
     auto model_node = tok_json.find("model");
     if (model_node == tok_json.end()) {
       return OrtxStatus(kOrtxErrorCorruptData, "Failed to get model node from tokenizer.json");
@@ -725,8 +734,8 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& c
 
     bbpe_tokenizer_ = std::make_unique<BpeModel>();
     status = bbpe_tokenizer_->Load(*model_node,
-                                    bpe_conf_.get().GetSpecialTokens().c_str(),
-                                    IsSpmModel(ModelName()));
+                                   bpe_conf_.get().GetSpecialTokens().c_str(),
+                                   bpe_conf_.get().spm_model_);
   }
   
 

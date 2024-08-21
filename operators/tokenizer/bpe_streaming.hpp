@@ -30,6 +30,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     bos_token_ = tok_config.bos_token_;
     eos_token_ = tok_config.eos_token_;
     unk_token_ = tok_config.unk_token_;
+    spm_model_ = encoder.IsSpmModel();
 
     const auto& a_toks = encoder.GetAddedTokens();
     for (const auto& tok : a_toks) {
@@ -122,10 +123,6 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     return {};
   }
 
-  static bool IsSpmTokenizer(const std::string& tok_class) {
-    return tok_class == "GemmaTokenizer" || tok_class == "LlamaTokenizer";
-  }
-
   OrtxStatus Id2Token(extTokenId_t id, std::string& token, BPEDecoderState** state) const {
     auto bpe_state = *state;
     std::unique_ptr<BPEDecoderState> bpe_state_ptr;
@@ -138,9 +135,9 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
 
     bool f_special = bpe_state->f_special_last;  // [Spm]Id2Token needs the last state
     bool f_special_last = bpe_state->f_special_last;
-    auto status = IsSpmTokenizer(tok_config_->tokenizer_class_)
-                      ? SpmId2Token(id, token, f_special)
-                      : Id2Token(id, token, true /* tok_config_.skip_special_tokens_ */, f_special);
+    auto status = spm_model_
+                  ? SpmId2Token(id, token, f_special)
+                  : Id2Token(id, token, true /* tok_config_.skip_special_tokens_ */, f_special);
 
     if (status.IsOk()) {
       if (bpe_state_ptr) {
@@ -167,7 +164,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
         if (utf8_len <= s_utf8.size() - i) {
           utf8_all_len += utf8_len;
           auto _t = s_utf8.substr(i, utf8_len);
-          token += ustring::ValidateUTF8(_t) ? _t : "";
+          token += ustring::ValidateUTF8(_t) < 0 ? _t : "";
         }
       }
 
@@ -200,9 +197,9 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
       for (size_t tok_idx = 0; tok_idx < seq_len; ++tok_idx) {
         const auto id = ort_extensions::narrow<extTokenId_t>(*(p_ids + tok_idx));
         std::string decoded_token;
-        auto status = IsSpmTokenizer(tok_config_->tokenizer_class_)
-                          ? SpmId2Token(id, decoded_token, f_special_last)
-                          : Id2Token(id, decoded_token, true, f_special_last);
+        auto status = spm_model_
+                      ? SpmId2Token(id, decoded_token, f_special_last)
+                      : Id2Token(id, decoded_token, true, f_special_last);
 
         if (!status.IsOk()) {
           return status;
@@ -223,6 +220,11 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
 
       if (tok_config_->tokenizer_class_.find("CLIP") == 0 && !text.empty() && text.back() == ' ') {
         text.pop_back();
+      }
+
+      size_t z = ustring::ValidateUTF8(text);
+      if (z >= 0) {
+        text = text.substr(0, z);
       }
 
       decoded_strings.emplace_back(std::move(text));
@@ -251,7 +253,9 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
   }
 
  private:
+
   extTokenId_t eos_token_id_{0};
   bool add_dummy_prefix_ = false;
+  bool spm_model_{};
   std::shared_ptr<ort_extensions::bpe::TokenJsonConfig const> tok_config_;
 };

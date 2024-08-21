@@ -12,20 +12,6 @@
 
 using namespace ort_extensions;
 
-std::vector<float> ReadArrayFromFile(const std::string& filename) {
-  std::ifstream inFile(filename, std::ios::binary | std::ios::ate);
-  if (!inFile) {
-    throw std::runtime_error("Cannot open file for reading.");
-  }
-  std::streamsize fileSize = inFile.tellg();
-  inFile.seekg(0, std::ios::beg);
-  std::vector<float> array(fileSize / sizeof(float));
-  if (!inFile.read(reinterpret_cast<char*>(array.data()), fileSize)) {
-    throw std::runtime_error("Error reading file.");
-  }
-
-  return array;
-}
 
 TEST(ProcessorTest, TestPhi3VImageProcessing) {
   auto [input_data, n_data] = ort_extensions::LoadRawImages(
@@ -46,20 +32,6 @@ TEST(ProcessorTest, TestPhi3VImageProcessing) {
   ASSERT_EQ(pixel_values->Shape(), std::vector<int64_t>({3, 17, 3, 336, 336}));
   ASSERT_EQ(image_sizes->Shape(), std::vector<int64_t>({3, 2}));
   ASSERT_EQ(num_img_tokens->Shape(), std::vector<int64_t>({3, 1}));
-
-  // if (std::filesystem::is_directory("data2/processor")) {
-  //   // the test data was dumped in this way
-  //   // {
-  //   // std::ofstream outFile("data2/processor/img_proc_pixel_values.bin", std::ios::binary);
-  //   // outFile.write(reinterpret_cast<const char*>(array.data()), array.size() * sizeof(float));
-  //   // }
-
-  //   auto expected_output = ReadArrayFromFile("data2/processor/img_proc_pixel_values.bin");
-  //   ASSERT_EQ(pixel_values->NumberOfElement(), expected_output.size());
-  //   for (size_t i = 0; i < expected_output.size(); i++) {
-  //     ASSERT_NEAR(pixel_values->Data()[i], expected_output[i], 1e-3);
-  //   }
-  // }
 
   // compare the image sizes
   for (size_t i = 0; i < 3; i++) {

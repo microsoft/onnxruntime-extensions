@@ -20,6 +20,7 @@ struct BpeModelConf {
   const char* eos_token_{"<|endoftext|>"};
   const char* pad_token_{nullptr};
 
+  bool spm_model_{};
   std::string GetSpecialTokens() const;
 };
 
@@ -108,41 +109,23 @@ struct SpmTokenizer : KernelBpeTokenizer {
 class JsonFastTokenizer : public KernelBpeTokenizer {
  public:
   JsonFastTokenizer();
+  OrtxStatus Load(const ort_extensions::bpe::TokenJsonConfig& config);
+  OrtxStatus Compute(const ortc::Tensor<std::string>& input,
+                     ortc::Tensor<int64_t>& tokenize_output,
+                     std::optional<ortc::Tensor<int64_t>*> attention_mask,
+                     std::optional<ortc::Tensor<int64_t>*> offset_mapping) const;
+
+ public:
+  const auto& GetAddedTokens() const { return added_tokens_; }
+  const ort_extensions::BpeModel& GetEncoder() const { return *bbpe_tokenizer_; }
+  bool IsSpmModel() const { return json_conf_.spm_model_; }
   bool tiktoken_ = false;
-  std::string unicode_byte_encoder_[256] = {};
+
+ private:
   void CreateUnicodeByteEncoder();
   std::string TokenBytesToString(std::vector<uint8_t>& bytes);
-  OrtxStatus Load(const ort_extensions::bpe::TokenJsonConfig& config);
-  OrtxStatus Compute(const ortc::Tensor<std::string>& input,
-                     ortc::Tensor<int64_t>& tokenize_output,
-                     std::optional<ortc::Tensor<int64_t>*> attention_mask,
-                     std::optional<ortc::Tensor<int64_t>*> offset_mapping) const;
 
- public:
-  const auto& GetAddedTokens() const { return added_tokens_; }
-  const ort_extensions::BpeModel& GetEncoder() const { return *bbpe_tokenizer_; }
-
- private:
   BpeModelConf json_conf_;
   std::vector<ort_extensions::bpe::AddedToken> added_tokens_;
-};
-
-class TikTokenizer : KernelBpeTokenizer {
- public:
-  TikTokenizer();
-  std::string TokenBytesToString(std::vector<uint8_t>& bytes);
-  OrtxStatus Load(const ort_extensions::bpe::TokenJsonConfig& config);
-  OrtxStatus Compute(const ortc::Tensor<std::string>& input,
-                     ortc::Tensor<int64_t>& tokenize_output,
-                     std::optional<ortc::Tensor<int64_t>*> attention_mask,
-                     std::optional<ortc::Tensor<int64_t>*> offset_mapping) const;
-
- public:
-  const auto& GetAddedTokens() const { return added_tokens_; }
-  const ort_extensions::BpeModel& GetEncoder() const { return *bbpe_tokenizer_; }
-
- private:
-  std::unique_ptr<ort_extensions::BpeModel>bbpe_tokenizer_;
-  BpeModelConf json_conf_;
-  std::vector<ort_extensions::bpe::AddedToken> added_tokens_;
+  std::string unicode_byte_encoder_[256] = {};
 };

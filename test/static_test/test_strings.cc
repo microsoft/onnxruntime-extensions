@@ -13,7 +13,7 @@ TEST(strings, std_regex_test) {
                     "\U0001f300-\U0001f5ff\U0001f900-\U0001f9ff\U0001fa70-\U0001faff"
                     "\U0001f680-\U0001f6ff]");
 
-  std::string test =u8"abcde😀🔍🦑😁🔍🎉😂🤣";
+  std::string test = u8"abcde😀🔍🦑😁🔍🎉😂🤣";
   auto result = std::regex_replace(test, regex, "");
   std::cout << test << std::endl;
   std::cout << result << std::endl;
