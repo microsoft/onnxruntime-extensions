@@ -164,7 +164,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
         if (utf8_len <= s_utf8.size() - i) {
           utf8_all_len += utf8_len;
           auto _t = s_utf8.substr(i, utf8_len);
-          token += ustring::ValidateUTF8(_t) < 0 ? _t : "";
+          token += ustring::ValidateUTF8(_t) > 0 ? _t : "";
         }
       }
 
@@ -222,9 +222,9 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
         text.pop_back();
       }
 
-      size_t z = ustring::ValidateUTF8(text);
-      if (z >= 0) {
-        text = text.substr(0, z);
+      ptrdiff_t z = ustring::ValidateUTF8(text);
+      if (z <= 0) {
+        text = text.substr(0, -z);
       }
 
       decoded_strings.emplace_back(std::move(text));
