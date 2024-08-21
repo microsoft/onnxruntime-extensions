@@ -9,6 +9,7 @@
 #include <thread>
 
 #include "ortx_utils.h"
+#include "ortx_tokenizer.h"
 #include "ortx_processor.h"
 #include "pykernel.h"
 
@@ -68,47 +69,130 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
       },
       "Preprocess images.");
 
-  m.def("tensor_result_get_at", [](std::uintptr_t result_h, size_t index) {
-    OrtxTensorResult* result = reinterpret_cast<OrtxTensorResult*>(result_h);
-    OrtxTensor* tensor{};
-    auto err = OrtxTensorResultGetAt(result, index, &tensor);
-    if (err != kOrtxOK) {
-      throw std::runtime_error(std::string("Failed to get tensor") + OrtxGetLastErrorMessage());
-    }
+  m.def(
+      "tensor_result_get_at",
+      [](std::uintptr_t result_h, size_t index) {
+        OrtxTensorResult* result = reinterpret_cast<OrtxTensorResult*>(result_h);
+        OrtxTensor* tensor{};
+        auto err = OrtxTensorResultGetAt(result, index, &tensor);
+        if (err != kOrtxOK) {
+          throw std::runtime_error(std::string("Failed to get tensor") + OrtxGetLastErrorMessage());
+        }
 
-    extDataType_t tensor_type;
+        extDataType_t tensor_type;
 
-    OrtxGetTensorType(tensor, &tensor_type);
-    const int64_t* shape{};
-    size_t num_dims;
-    const void* data{};
-    size_t elem_size = 0;
-    if (tensor_type == extDataType_t::kOrtxInt64 || tensor_type == extDataType_t::kOrtxFloat) {
-      OrtxGetTensorData(tensor, reinterpret_cast<const void**>(&data), &shape, &num_dims);
-      elem_size = 4;
-      if (tensor_type == extDataType_t::kOrtxInt64) {
-        elem_size = 8;
-      }
-    } else if (tensor_type == extDataType_t::kOrtxUnknownType) {
-      throw std::runtime_error("Failed to get tensor type");
-    } else if (tensor_type == extDataType_t::kOrtxUnknownType) {
-      throw std::runtime_error("unsupported tensor type");
-    }
+        OrtxGetTensorType(tensor, &tensor_type);
+        const int64_t* shape{};
+        size_t num_dims;
+        const void* data{};
+        size_t elem_size = 0;
+        if (tensor_type == extDataType_t::kOrtxInt64 || tensor_type == extDataType_t::kOrtxFloat) {
+          OrtxGetTensorData(tensor, reinterpret_cast<const void**>(&data), &shape, &num_dims);
+          elem_size = 4;
+          if (tensor_type == extDataType_t::kOrtxInt64) {
+            elem_size = 8;
+          }
+        } else if (tensor_type == extDataType_t::kOrtxUnknownType) {
+          throw std::runtime_error("Failed to get tensor type");
+        } else if (tensor_type == extDataType_t::kOrtxUnknownType) {
+          throw std::runtime_error("unsupported tensor type");
+        }
 
-    std::vector<std::size_t> npy_dims;
-    for (auto n = num_dims - num_dims; n < num_dims; ++n) {
-      npy_dims.push_back(shape[n]);
-    }
-    py::array obj{};
+        std::vector<std::size_t> npy_dims;
+        for (auto n = num_dims - num_dims; n < num_dims; ++n) {
+          npy_dims.push_back(shape[n]);
+        }
+        py::array obj{};
 
-    if (tensor_type == extDataType_t::kOrtxFloat) {
-      obj = py::array_t<float>(npy_dims);
-    } else if (tensor_type == extDataType_t::kOrtxInt64) {
-      obj = py::array_t<int64_t>(npy_dims);
-    }
+        if (tensor_type == extDataType_t::kOrtxFloat) {
+          obj = py::array_t<float>(npy_dims);
+        } else if (tensor_type == extDataType_t::kOrtxInt64) {
+          obj = py::array_t<int64_t>(npy_dims);
+        }
 
-    void* out_ptr = obj.mutable_data();
-    memcpy(out_ptr, data, NumOfElement(npy_dims) * elem_size);
-    return obj;
-  }, "Get tensor at index.");
+        void* out_ptr = obj.mutable_data();
+        memcpy(out_ptr, data, NumOfElement(npy_dims) * elem_size);
+        return obj;
+      },
+      "Get tensor at index.");
+
+  m.def(
+      "create_tokenizer",
+      [](std::string tokenizer_def_json) {
+        OrtxTokenizer* tokenizer = nullptr;
+        auto err = OrtxCreateTokenizer(&tokenizer, tokenizer_def_json.c_str());
+        if (err != kOrtxOK) {
+          throw std::runtime_error(std::string("Failed to create tokenizer") + OrtxGetLastErrorMessage());
+        }
+        return reinterpret_cast<std::uintptr_t>(tokenizer);
+      },
+      "Create a tokenizer.");
+
+  m.def(
+      "batch_tokenize",
+      [](std::uintptr_t h, const std::vector<std::string>& inputs) -> std::vector<std::vector<int64_t>> {
+        std::vector<std::vector<int64_t>> output;
+        OrtxTokenizer* tokenizer = reinterpret_cast<OrtxTokenizer*>(h);
+        OrtxTokenId2DArray* tid_output = nullptr;
+        std::vector<const char*> cs_inputs;
+        for (const auto& input : inputs) {
+          cs_inputs.push_back(input.c_str());
+        }
+        auto err = OrtxTokenize(tokenizer, cs_inputs.data(), inputs.size(), &tid_output);
+        if (err != kOrtxOK) {
+          throw std::runtime_error(std::string("Failed to tokenize") + OrtxGetLastErrorMessage());
+        }
+
+        for (size_t i = 0; i < inputs.size(); ++i) {
+          const extTokenId_t* t2d{};
+          size_t length{};
+          err = OrtxTokenId2DArrayGetItem(tid_output, i, &t2d, &length);
+          if (err != kOrtxOK) {
+            throw std::runtime_error(std::string("Failed to get token id") + OrtxGetLastErrorMessage());
+          }
+          output.push_back(std::vector<int64_t>(t2d, t2d + length));
+        }
+        OrtxDisposeOnly(tid_output);
+        return output;
+      },
+      "Batch tokenize.");
+
+  m.def(
+      "batch_detokenize",
+      [](std::uintptr_t h, const std::vector<std::vector<int64_t>>& inputs) -> std::vector<std::string> {
+        std::vector<std::string> result;
+        OrtxTokenizer* tokenizer = reinterpret_cast<OrtxTokenizer*>(h);
+        OrtxStringArray* output = nullptr;
+        for (size_t i = 0; i < inputs.size(); ++i) {
+          std::vector<extTokenId_t> input;
+          input.reserve(inputs[i].size());
+          std::transform(inputs[i].begin(), inputs[i].end(), std::back_inserter(input),
+                         [](int64_t v) { return static_cast<extTokenId_t>(v); });
+
+          auto err = OrtxDetokenize1D(tokenizer, input.data(), input.size(), &output);
+          if (err != kOrtxOK) {
+            throw std::runtime_error(std::string("Failed to detokenize") + OrtxGetLastErrorMessage());
+          }
+          size_t length;
+          err = OrtxStringArrayGetBatch(output, &length);
+          if (err != kOrtxOK) {
+            throw std::runtime_error(std::string("Failed to get batch size") + OrtxGetLastErrorMessage());
+          }
+          for (size_t i = 0; i < length; ++i) {
+            const char* item;
+            err = OrtxStringArrayGetItem(output, i, &item);
+            if (err != kOrtxOK) {
+              throw std::runtime_error(std::string("Failed to get item") + OrtxGetLastErrorMessage());
+            }
+            result.push_back(item);
+          }
+          OrtxDisposeOnly(output);
+        }
+        return result;
+      },
+      "Batch detokenize.");
+
+  m.def(
+      "delete_object", [](std::uintptr_t h) { OrtxDisposeOnly(reinterpret_cast<OrtxObject*>(h)); },
+      "Delete the object created by C API.");
 }

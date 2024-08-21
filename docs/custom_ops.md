@@ -531,15 +531,6 @@ expect(node, inputs=[inputs],
 </details>
 
 
-### BlingFireSentenceBreaker
-
-TODO
-
-### BpeTokenizer
-
-TODO
-
-
 ## String operators
 
 ### StringEqual

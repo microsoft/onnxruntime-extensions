@@ -147,6 +147,7 @@ class CmdBuildCMakeExt(_build_ext):
         self.no_azure = None
         self.no_opencv = None
         self.cc_debug = None
+        self.pp_api = None
         self.cuda_archs = None
         self.ort_pkg_dir = None
 
@@ -209,6 +210,9 @@ class CmdBuildCMakeExt(_build_ext):
                 '-DOCOS_ENABLE_OPENCV_CODECS=OFF',
                 '-DOCOS_ENABLE_CV2=OFF',
                 '-DOCOS_ENABLE_VISION=OFF']
+
+        if self.pp_api:
+            cmake_args += ['-DOCOS_ENABLE_C_API=ON']
 
         if self.no_azure is not None:
             azure_flag = "OFF" if self.no_azure == 1 else "ON"
