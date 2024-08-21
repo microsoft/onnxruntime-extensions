@@ -714,8 +714,13 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& c
     module_ifs >> tok_json;
   } else {
     ifs >> tok_json;
-    auto decoders_node = tok_json.find("/decoder/decoders"_json_pointer);
+    // auto decoders_node = tok_json.find("/decoder/decoders"_json_pointer);
+    auto decoders_node = tok_json.find("decoder");
     if (decoders_node != tok_json.end()) {
+      decoders_node = decoders_node->find("decoders");
+    }
+
+    if (decoders_node->is_array()) {
       for(auto step = decoders_node->begin(); step != decoders_node->end(); ++step) {
         std::string type = step->value("type", "");
         if (type == "Replace") {
