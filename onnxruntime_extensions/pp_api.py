@@ -41,7 +41,8 @@ class Tokenizer:
                     f"Downloaded HF file '{resolved_full_file}' cannot be found")
             if (os.path.dirname(resolved_full_file) != os.path.dirname(resolved_config_file)):
                 raise FileNotFoundError(
-                    f"Downloaded HF files '{resolved_full_file}' and '{resolved_config_file}' are not in the same directory")
+                    f"Downloaded HF files '{resolved_full_file}' "
+                    f"and '{resolved_config_file}' are not in the same directory")
 
             tokenizer_dir = os.path.dirname(resolved_full_file)
             self.tokenizer = create_tokenizer(tokenizer_dir)

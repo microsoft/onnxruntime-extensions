@@ -198,7 +198,6 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
                                                   bool compute_offset_mapping,
                                                   std::list<OffsetMappingType>& offset_map) const {
   std::vector<int64_t> res;
-  std::list<std::pair<uint32_t, uint32_t>> byte_list;
 
   bool clean_up_spaces = false;
   if (ModelName() == kModel_CLIP) {
@@ -209,10 +208,10 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
       text = text.strip()
     */
     ustring str = RemoveConsecutiveSpaces(input);
-    if (IsUnicodeSpace(str.front())) {
+    if (!str.empty() && IsUnicodeSpace(str.front())) {
       str.erase(str.begin());
     }
-    if (IsUnicodeSpace(str.back())) {
+    if (!str.empty() && IsUnicodeSpace(str.back())) {
       str.pop_back();
     }
     // remove newlines as CLIP ignores them (treats them as whitespace which is then cleaned)
@@ -282,21 +281,6 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
       if (!b) break;
 
       std::string utf8_token = std::string(ustring(tok));
-      // std::string token_bytes;
-      // token_bytes.reserve(utf8_token.size() * 2);
-      // for (int i = 0; i < utf8_token.length(); i++) {
-      //   token_bytes += unicode_byte_encoder_[static_cast<unsigned char>(utf8_token[i])];
-      // }
-
-      // auto id = bbpe_tokenizer_->GetTokenId(token_bytes);
-      // if (id != bpe::kInvalidTokenId) {
-      //   res.push_back(id);
-      //   if (compute_offset_mapping) {
-      //     offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + utf8_token.size())));
-      //     offset += utf8_token.size();
-      //   }
-      //   continue;
-      // }
 
       size_t space_dif = 0;
       if (compute_offset_mapping) {
@@ -307,11 +291,11 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
         }
       }
 
-      // Get byte encodings prior to performing BPE
-      byte_list.clear();
+      std::list<std::pair<uint32_t, uint32_t>> byte_list;
       std::string token_bytes;
       token_bytes.reserve(utf8_token.size() * 2);
       size_t token_len = utf8_token.length();
+      size_t end_diff = 0;
       if (clean_up_spaces) {
         // Whitespace clean
         utf8_token.erase(std::remove(utf8_token.begin(), utf8_token.end(), U' '), utf8_token.end());
@@ -322,21 +306,29 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
         token_bytes += unicode_byte_encoder_[static_cast<unsigned char>(utf8_token[i])];
       }
 
+      if (clean_up_spaces) {
+        end_diff = token_bytes.length();
+        if (!utf8_token.empty()) {
+          token_bytes += unicode_byte_encoder_[static_cast<unsigned char>(utf8_token.back())];
+          token_bytes += "</w>";
+        }
+        end_diff = token_bytes.length() - end_diff;
+      }
+
       auto id = bbpe_tokenizer_->GetTokenId(token_bytes);
       if (id != bpe::kInvalidTokenId) {
         byte_list.push_back(std::make_pair(id, ort_extensions::narrow<uint32_t>(utf8_token.size())));
       } else {
         token_len = token_bytes.length();
-        for (size_t i = 0; i < token_len; /* i++ */) {
+        for (size_t i = 0; i < token_len - end_diff; /* i++ */) {
           size_t j = ustring::UTF8Len(token_bytes[i]);
           byte_list.push_back(std::make_pair(bbpe_tokenizer_->GetTokenId(token_bytes.substr(i, j)), j));
           i += j;
         }
-      }
-
-      if (clean_up_spaces) {
-        std::string boundary(1, utf8_token.back());
-        byte_list.push_back(std::make_pair(bbpe_tokenizer_->GetTokenId(boundary + "</w>"), 1));
+        if (end_diff > 0) {
+          byte_list.push_back(std::make_pair(
+            bbpe_tokenizer_->GetTokenId(token_bytes.substr(token_len - end_diff, end_diff)), end_diff));
+        }
       }
 
       // Perform BPE
