@@ -7,7 +7,7 @@ import os
 from . import _extensions_pydll as _C
 if not hasattr(_C, "delete_object"):
     raise ImportError(
-        "onnxruntime_extensions is not built with pre-processing C API"
+        "onnxruntime_extensions is not built with pre-processing C API\n"
         "To enable it, please build the package with --ortx-user-option=pp_api")
 
 create_processor = _C.create_processor

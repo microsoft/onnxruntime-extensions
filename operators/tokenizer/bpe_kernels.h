@@ -48,6 +48,8 @@ struct KernelBpeTokenizer {
                                    bool compute_offset_mapping,
                                    std::list<OffsetMappingType>& offset_map) const;
 
+  void CreateUnicodeByteEncoder();
+
  protected:
   std::reference_wrapper<BpeModelConf const> bpe_conf_;
   std::string model_name_;
@@ -60,6 +62,7 @@ struct KernelBpeTokenizer {
 
   std::optional<bool> add_bos_token_;
   std::optional<bool> add_eos_token_;
+  std::string unicode_byte_encoder_[256] = {};
 };
 
 struct GPT2Tokenizer : KernelBpeTokenizer {
@@ -122,10 +125,8 @@ class JsonFastTokenizer : public KernelBpeTokenizer {
   bool tiktoken_ = false;
 
  private:
-  void CreateUnicodeByteEncoder();
   std::string TokenBytesToString(std::vector<uint8_t>& bytes);
 
   BpeModelConf json_conf_;
   std::vector<ort_extensions::bpe::AddedToken> added_tokens_;
-  std::string unicode_byte_encoder_[256] = {};
 };

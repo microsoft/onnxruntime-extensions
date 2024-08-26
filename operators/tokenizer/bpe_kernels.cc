@@ -106,6 +106,7 @@ ustring RemoveConsecutiveSpaces(const ustring& input) {
 KernelBpeTokenizer::KernelBpeTokenizer(const BpeModelConf& conf)
     : bpe_conf_(conf) {
   model_name_ = conf.name_ == nullptr ? "" : conf.name_;
+  CreateUnicodeByteEncoder();
 };
 
 OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
@@ -173,6 +174,23 @@ uint32_t KernelBpeTokenizer::GetTokenId(const std::string& token) const {
   }
 
   return bbpe_tokenizer_->GetTokenId(token);
+}
+
+/*
+Read more here: https://github.com/huggingface/transformers/blob/60bb571e993b7d73257fb64044726b569fef9403/src/transformers/convert_slow_tokenizer.py#L1454
+
+Note: this is similar to the BPE CreateByteEncoder, however for decoding the .tiktoken bytes
+we need to store the strings rather than their IDs, and thereby need a separate map.
+*/
+void KernelBpeTokenizer::CreateUnicodeByteEncoder() {
+  char32_t index = 256;
+  for (char32_t i = 0; i < 256; ++i) {
+    if ((i >= 0 && i < 33) || (i >= 127 && i < 161) || (i == 173)) {
+      unicode_byte_encoder_[i] = ustring::EncodeUTF8Char(index++);
+    } else {
+      unicode_byte_encoder_[i] = ustring::EncodeUTF8Char(i);
+    }
+  }
 }
 
 std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
@@ -264,6 +282,21 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
       if (!b) break;
 
       std::string utf8_token = std::string(ustring(tok));
+      // std::string token_bytes;
+      // token_bytes.reserve(utf8_token.size() * 2);
+      // for (int i = 0; i < utf8_token.length(); i++) {
+      //   token_bytes += unicode_byte_encoder_[static_cast<unsigned char>(utf8_token[i])];
+      // }
+
+      // auto id = bbpe_tokenizer_->GetTokenId(token_bytes);
+      // if (id != bpe::kInvalidTokenId) {
+      //   res.push_back(id);
+      //   if (compute_offset_mapping) {
+      //     offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + utf8_token.size())));
+      //     offset += utf8_token.size();
+      //   }
+      //   continue;
+      // }
 
       size_t space_dif = 0;
       if (compute_offset_mapping) {
@@ -276,23 +309,34 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
 
       // Get byte encodings prior to performing BPE
       byte_list.clear();
-
+      std::string token_bytes;
+      token_bytes.reserve(utf8_token.size() * 2);
+      size_t token_len = utf8_token.length();
       if (clean_up_spaces) {
         // Whitespace clean
         utf8_token.erase(std::remove(utf8_token.begin(), utf8_token.end(), U' '), utf8_token.end());
+        token_len = utf8_token.length() - 1;
+      }
 
-        for (int i = 0; i < utf8_token.length(); i++) {
-          if (i == utf8_token.length() - 1) {
-            std::string boundary(1, utf8_token[i]);
-            byte_list.push_back(std::make_pair(bbpe_tokenizer_->GetTokenId(boundary + "</w>"), 1));
-          } else {
-            byte_list.push_back(std::make_pair(bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(utf8_token[i])], 1));
-          }
-        }
+      for (size_t i = 0; i < token_len; i++) {
+        token_bytes += unicode_byte_encoder_[static_cast<unsigned char>(utf8_token[i])];
+      }
+
+      auto id = bbpe_tokenizer_->GetTokenId(token_bytes);
+      if (id != bpe::kInvalidTokenId) {
+        byte_list.push_back(std::make_pair(id, ort_extensions::narrow<uint32_t>(utf8_token.size())));
       } else {
-        for (char& cp : utf8_token) {
-          byte_list.push_back(std::make_pair(bbpe_tokenizer_->ByteEncoder()[static_cast<unsigned char>(cp)], 1));
+        token_len = token_bytes.length();
+        for (size_t i = 0; i < token_len; /* i++ */) {
+          size_t j = ustring::UTF8Len(token_bytes[i]);
+          byte_list.push_back(std::make_pair(bbpe_tokenizer_->GetTokenId(token_bytes.substr(i, j)), j));
+          i += j;
         }
+      }
+
+      if (clean_up_spaces) {
+        std::string boundary(1, utf8_token.back());
+        byte_list.push_back(std::make_pair(bbpe_tokenizer_->GetTokenId(boundary + "</w>"), 1));
       }
 
       // Perform BPE
@@ -559,23 +603,6 @@ SpmTokenizer::SpmTokenizer()
 
 JsonFastTokenizer::JsonFastTokenizer() : KernelBpeTokenizer(kGPT2Configuration) {}
 
-/*
-Read more here: https://github.com/huggingface/transformers/blob/60bb571e993b7d73257fb64044726b569fef9403/src/transformers/convert_slow_tokenizer.py#L1454
-
-Note: this is similar to the BPE CreateByteEncoder, however for decoding the .tiktoken bytes
-we need to store the strings rather than their IDs, and thereby need a separate map.
-*/
-void JsonFastTokenizer::CreateUnicodeByteEncoder() {
-  char32_t index = 256;
-  for (char32_t i = 0; i < 256; ++i) {
-    if ((i >= 0 && i < 33) || (i >= 127 && i < 161) || (i == 173)) {
-      unicode_byte_encoder_[i] = ustring::EncodeUTF8Char(index++);
-    } else {
-      unicode_byte_encoder_[i] = ustring::EncodeUTF8Char(i);
-    }
-  }
-}
-
 std::string JsonFastTokenizer::TokenBytesToString(std::vector<uint8_t>& bytes) {
     std::string result;
     for (auto c : bytes) {
@@ -647,7 +674,6 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& c
     std::vector<std::tuple<std::vector<uint8_t>, std::vector<uint8_t>, uint32_t>> byte_merges;
 
     bbpe_tokenizer_ = std::make_unique<BpeModel>();
-    JsonFastTokenizer::CreateUnicodeByteEncoder();
     
     for (const auto& item : bpe_ranks) {
       std::vector<uint8_t> token = item.first;
@@ -714,13 +740,18 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& c
     module_ifs >> tok_json;
   } else {
     ifs >> tok_json;
+    // doesn't work for json with nested objects
     // auto decoders_node = tok_json.find("/decoder/decoders"_json_pointer);
-    auto decoders_node = tok_json.find("decoder");
-    if (decoders_node != tok_json.end()) {
-      decoders_node = decoders_node->find("decoders");
+    auto decoders_node = tok_json.end();
+    auto decoder_node = tok_json.find("decoder");
+    if (decoder_node != tok_json.end()) {
+      decoders_node = decoder_node->find("decoders");
+      if (decoders_node == decoder_node->end()) {
+        decoders_node = tok_json.end();
+      }
     }
 
-    if (decoders_node->is_array()) {
+    if (decoders_node != tok_json.end() && decoders_node->is_array()) {
       for(auto step = decoders_node->begin(); step != decoders_node->end(); ++step) {
         std::string type = step->value("type", "");
         if (type == "Replace") {
