@@ -296,7 +296,8 @@ TEST(OrtxTokenizerTest, CodeGenTokenizer) {
     = {std::vector<extTokenId_t>({14675, 8466, 705, 252, 538, 5374, 82, 329, 4554})};
   status = tokenizer->Detokenize(invalid_token_ids_span, out_text);
   EXPECT_TRUE(status.IsOk());
-  EXPECT_EQ(out_text.back().substr(out_text.size() - 2), "\ufffd");
+  auto& out_text_ref = out_text.back();
+  EXPECT_EQ(out_text_ref.substr(out_text_ref.size() - 3), "\ufffd");
 }
 
 TEST(OrtxTokenizerStreamTest, CodeGenTokenizer) {
