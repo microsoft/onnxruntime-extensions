@@ -198,7 +198,7 @@ stages:
     - bash: |
         set -e -x -u
         ./build.sh -DOCOS_ENABLE_C_API=ON
-        cd out/Linux
+        cd out/Linux/RelWithDebInfo
         ctest -C RelWithDebInfo --output-on-failure
       displayName: Build ort-extensions with API enabled and run tests
 
