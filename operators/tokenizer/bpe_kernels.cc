@@ -379,7 +379,6 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input,
                                                      bool compute_offset_mapping,
                                                      std::list<OffsetMappingType>& offset_map) const {
   std::vector<int64_t> res;
-  std::list<std::pair<uint32_t, uint32_t>> byte_list;
 
   // Add BOS token to result
   res.push_back(bos_token_id_);
@@ -415,7 +414,7 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input,
     }
 
     // Get byte encodings prior to performing BPE
-    byte_list.clear();
+    std::list<std::pair<uint32_t, uint32_t>> byte_list;
 
     while (res.size() < max_length && char_pos < ustr.length()) {
       auto chr = ustr[char_pos];

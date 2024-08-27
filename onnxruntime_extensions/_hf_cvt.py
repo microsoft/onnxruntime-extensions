@@ -48,8 +48,9 @@ class HFTokenizerConverter(CustomOpConverter):
             model_dir = hf_tokenizer.name_or_path
         else:
             model_dir = os.path.dirname(vocab_file)
-        tokenizer_json = json.load(
-            open(os.path.join(model_dir, tokenizer_file), "r", encoding="utf-8"))
+        f = open(os.path.join(model_dir, tokenizer_file), "r", encoding="utf-8")
+        tokenizer_json = json.load(f)
+        f.close()
         # get vocab object from json file
         vocab = tokenizer_json.get("model", {}).get("vocab", {})
         sorted_merges = tokenizer_json.get("model", {}).get("merges", [])
