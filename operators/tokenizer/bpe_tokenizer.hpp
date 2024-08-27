@@ -61,8 +61,6 @@ class BpeModel {
 
     if (spm_converted) {
       UpdateSpmByteToken(vocab_map_);
-    } else {
-      CreateByteEncoder();
     }
 
     uint32_t index = 0;
@@ -142,8 +140,6 @@ class BpeModel {
 
     if (spm_converted) {
       UpdateSpmByteToken(vocab_map_);
-    } else {
-      CreateByteEncoder();
     }
 
     uint32_t index = 0;
@@ -196,8 +192,6 @@ class BpeModel {
 
     if (spm_converted) {
       UpdateSpmByteToken(vocab_map_);
-    } else {
-      CreateByteEncoder();
     }
 
     uint32_t index = 0;
@@ -336,8 +330,6 @@ class BpeModel {
     }
   }
 
-  const auto& ByteEncoder() const { return byte_encoder_; }
-
   uint32_t GetTokenId(const std::string& key) const {
     auto it = vocab_map_.find(key);
     if (it != vocab_map_.end()) {
@@ -370,27 +362,10 @@ class BpeModel {
     return (static_cast<uint64_t>(i1) << 32) | (i0 & 0xFFFFFFFFLL);
   }
 
-  void CreateByteEncoder() {
-    char32_t index = 256;
-    for (char32_t i = 0; i < 256; ++i) {
-      /*
-      bs = (
-        list(range(ord("!"), ord("~") + 1)) + list(range(ord("¡"), ord("¬") + 1)) + list(range(ord("®"), ord("ÿ") + 1))
-      )
-      */
-      if ((i >= 0 && i < 33) || (i >= 127 && i < 161) || (i == 173)) {
-        byte_encoder_[i] = GetTokenId(ustring::EncodeUTF8Char(index++));
-      } else {
-        byte_encoder_[i] = GetTokenId(ustring::EncodeUTF8Char(i));
-      }
-    }
-  }
-
  private:
   std::string end_of_word_suffix_;
   std::map<uint64_t, BpeNode> bpe_rank_;
 
-  uint32_t byte_encoder_[256] = {};
   std::unordered_map<std::string, uint32_t> vocab_map_;
   std::vector<std::string> id2token_map_;
 
