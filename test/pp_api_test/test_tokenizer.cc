@@ -299,7 +299,8 @@ TEST(OrtxTokenizerTest, CodeGenTokenizer) {
   EXPECT_TRUE(status.IsOk());
   EXPECT_EQ(out_text1.size(), 1);
   std::string out_text_ref = out_text1.back();
-  EXPECT_EQ(out_text_ref.substr(out_text_ref.size() - 3), "\ufffd");
+  std::cout << out_text_ref << std::endl;
+  EXPECT_EQ(out_text_ref.substr(out_text_ref.length() - 3, 3), "\ufffd");
 }
 
 TEST(OrtxTokenizerStreamTest, CodeGenTokenizer) {
