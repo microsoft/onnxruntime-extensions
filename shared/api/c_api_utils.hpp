@@ -53,6 +53,7 @@ class span {
     data_ = v.data();
     size_ = v.size();
   }
+  span(std::initializer_list<value_type> il) : data_(il.begin()), size_(il.size()) {}
 
   const T& operator[](size_t i) const { return data_[i]; }
   T& operator[](size_t i) { return data_[i]; }

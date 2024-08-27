@@ -291,10 +291,10 @@ TEST(OrtxTokenizerTest, CodeGenTokenizer) {
   //  std::cout << out_text[0] << std::endl;
   EXPECT_EQ(out_text[0], input[0]);
 
-  // 253 and the following id cannot be decoded as a valid utf-8 string
-  std::vector<ort_extensions::span<extTokenId_t const>> invalid_token_ids_span
-    = {std::vector<extTokenId_t>({14675, 8466, 705, 252, 538, 5374, 82, 329, 4554})};
-  status = tokenizer->Detokenize(invalid_token_ids_span, out_text);
+  // 252 and the following ids cannot be decoded as a valid utf-8 string
+  ort_extensions::span<extTokenId_t const>
+    invalid_token_ids_span = {14675, 8466, 705, 252, 538, 5374, 82, 329, 4554};
+  status = tokenizer->Detokenize({invalid_token_ids_span}, out_text);
   EXPECT_TRUE(status.IsOk());
   auto& out_text_ref = out_text.back();
   EXPECT_EQ(out_text_ref.substr(out_text_ref.size() - 3), "\ufffd");
