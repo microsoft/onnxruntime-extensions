@@ -205,7 +205,7 @@ stages:
     - bash: |
         set -e -x -u
         ./build.sh -DOCOS_BUILD_PRESET=token_api_only -DOCOS_BUILD_SHARED_LIB=OFF
-        cd out/Linux
+        cd out/Linux/RelWithDebInfo
         ctest -C RelWithDebInfo --output-on-failure
       displayName: Build ort-extensions with tokenizer API only enabled and run tests
 

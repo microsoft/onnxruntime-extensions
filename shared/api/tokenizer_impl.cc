@@ -72,7 +72,7 @@ OrtxStatus TokenizerImpl::BatchDecode(const std::vector<span<extTokenId_t const>
     if (!status.IsOk()) {
       return status;
     }
-    t_text.emplace_back(ts_output.AsScalar());
+    t_text.push_back(ts_output.AsScalar());
   }
   return {};
 }
