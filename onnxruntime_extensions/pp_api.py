@@ -24,6 +24,7 @@ delete_object = _C.delete_object
 
 class Tokenizer:
     def __init__(self, tokenizer_dir):
+        self.tokenizer = None
         if os.path.isdir(tokenizer_dir):
             self.tokenizer = create_tokenizer(tokenizer_dir)
         else:
