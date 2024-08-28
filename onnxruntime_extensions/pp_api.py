@@ -7,7 +7,7 @@ import os
 from . import _extensions_pydll as _C
 if not hasattr(_C, "delete_object"):
     raise ImportError(
-        "onnxruntime_extensions is not built with pre-processing C API"
+        "onnxruntime_extensions is not built with pre-processing C API\n"
         "To enable it, please build the package with --ortx-user-option=pp_api")
 
 create_processor = _C.create_processor
@@ -24,6 +24,7 @@ delete_object = _C.delete_object
 
 class Tokenizer:
     def __init__(self, tokenizer_dir):
+        self.tokenizer = None
         if os.path.isdir(tokenizer_dir):
             self.tokenizer = create_tokenizer(tokenizer_dir)
         else:
@@ -41,7 +42,8 @@ class Tokenizer:
                     f"Downloaded HF file '{resolved_full_file}' cannot be found")
             if (os.path.dirname(resolved_full_file) != os.path.dirname(resolved_config_file)):
                 raise FileNotFoundError(
-                    f"Downloaded HF files '{resolved_full_file}' and '{resolved_config_file}' are not in the same directory")
+                    f"Downloaded HF files '{resolved_full_file}' "
+                    f"and '{resolved_config_file}' are not in the same directory")
 
             tokenizer_dir = os.path.dirname(resolved_full_file)
             self.tokenizer = create_tokenizer(tokenizer_dir)

@@ -225,6 +225,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
       ptrdiff_t z = ustring::ValidateUTF8(text);
       if (z <= 0) {
         text = text.substr(0, -z);
+        text += "\ufffd";  // bad utf-8 string
       }
 
       decoded_strings.emplace_back(std::move(text));
