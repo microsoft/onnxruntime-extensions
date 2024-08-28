@@ -72,7 +72,7 @@ OrtxStatus TokenizerImpl::BatchDecode(const std::vector<span<extTokenId_t const>
     if (!status.IsOk()) {
       return status;
     }
-    t_text.emplace_back(ts_output.AsScalar());
+    t_text.push_back(ts_output.AsScalar());
   }
   return {};
 }
@@ -110,20 +110,9 @@ OrtxStatus TokenizerImpl::GetDecoderPromptIds(size_t batch_size, const char* lan
   }
   // since it was only supported by Whisper model, should we check it here?
 
-  auto convert_tokens_to_ids = [this](const std::string& token) -> extTokenId_t {
-    ortc::Tensor<int64_t> ts_output(&CppAllocator::Instance());
-    ortc::Tensor<std::string> ts_input = ortc::Tensor<std::string>(std::vector<std::string>{std::string(token)});
-    auto status = this->tokenizer_->Compute(ts_input, ts_output, std::nullopt, std::nullopt);
-    if (!status.IsOk()) {
-      return static_cast<extTokenId_t>(-1);
-    }
-    auto num = ts_output.NumberOfElement();
-    return static_cast<extTokenId_t>(ts_output.Data()[num / 2]);  // get the middle token
-  };
-
-  auto translate_token_id = convert_tokens_to_ids("<|translate|>");
-  auto transcribe_token_id = convert_tokens_to_ids("<|transcribe|>");
-  auto notimestamps_token_id = convert_tokens_to_ids("<|notimestamps|>");
+  auto translate_token_id = tokenizer_->GetTokenId("<|translate|>");
+  auto transcribe_token_id = tokenizer_->GetTokenId("<|transcribe|>");
+  auto notimestamps_token_id = tokenizer_->GetTokenId("<|notimestamps|>");
   std::vector<extTokenId_t> ids;
   ids.reserve(4);
   if (lang != nullptr) {
@@ -133,7 +122,7 @@ OrtxStatus TokenizerImpl::GetDecoderPromptIds(size_t batch_size, const char* lan
     }
 
     std::string lang_token = "<|" + lang_str->first + "|>";
-    ids.push_back(convert_tokens_to_ids(lang_token));
+    ids.push_back(tokenizer_->GetTokenId(lang_token));
   }
 
   if (task != nullptr) {

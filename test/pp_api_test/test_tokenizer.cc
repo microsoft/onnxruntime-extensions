@@ -290,6 +290,16 @@ TEST(OrtxTokenizerTest, CodeGenTokenizer) {
   EXPECT_TRUE(status.IsOk());
   //  std::cout << out_text[0] << std::endl;
   EXPECT_EQ(out_text[0], input[0]);
+
+  // 252 and the following ids cannot be decoded as a valid utf-8 string
+  std::vector<extTokenId_t> invalid_token_ids_span = {14675, 8466, 705, 252, 538, 5374, 82, 329, 4554};
+  std::vector<std::string> out_text1;
+  status = tokenizer->Detokenize({ort_extensions::span<const extTokenId_t>(invalid_token_ids_span)}, out_text1);
+  EXPECT_TRUE(status.IsOk());
+  EXPECT_EQ(out_text1.size(), 1);
+  std::string out_text_ref = out_text1.back();
+  std::cout << out_text_ref << std::endl;
+  EXPECT_EQ(out_text_ref.substr(out_text_ref.length() - 3, 3), "\ufffd");
 }
 
 TEST(OrtxTokenizerStreamTest, CodeGenTokenizer) {
@@ -410,10 +420,11 @@ TEST(OrtxTokenizerTest, WhisperTokenizer) {
   const extTokenId_t* token_ids = NULL;
   OrtxTokenId2DArrayGetItem(prompt_ids.get(), 0, &token_ids, &length);
   std::vector<extTokenId_t> ids(token_ids, token_ids + length);
-  // std::cout << "Prompt IDs: ";
-  // for (const auto& id : ids) {
-  //   std::cout << id << " ";
-  // }
 
   EXPECT_EQ(ids, std::vector<extTokenId_t>({50259, 50358, 50363}));
+
+  extTokenId_t sot_id{};
+  err = OrtxConvertTokenToId(tokenizer.get(), "<|startoftranscript|>", &sot_id);
+  EXPECT_EQ(err, kOrtxOK);
+  EXPECT_EQ(sot_id, 50258);
 }
