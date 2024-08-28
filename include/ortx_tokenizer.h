@@ -37,6 +37,17 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const ch
 extError_t ORTX_API_CALL OrtxTokenize(
     const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size, OrtxTokenId2DArray** output);
 
+
+/**
+ * Converts a token to its corresponding ID.
+ *
+ * @param tokenizer The tokenizer object.
+ * @param input The input token to be converted.
+ * @param output Pointer to store the converted token ID.
+ * @return The error code indicating the success or failure of the conversion.
+ */
+extError_t ORTX_API_CALL OrtxConvertTokenToId(const OrtxTokenizer* tokenizer, const char* token, extTokenId_t* id);
+
 /**
  * @brief Retrieves the decoder prompt IDs from the tokenizer.
  *

@@ -44,11 +44,8 @@ class BpeModel {
     }
   }
 
-  OrtxStatus Load(std::istream& vocab_stream,
-                  std::istream& merges_stream,
-                  const char* unk_token,
-                  const char* special_tokens,
-                  bool spm_converted) {
+  OrtxStatus Load(std::istream& vocab_stream, std::istream& merges_stream, const char* unk_token,
+                  const char* special_tokens, bool spm_converted) {
     nlohmann::json tok_json;
     vocab_stream >> tok_json;
     tok_json.get_to(vocab_map_);
@@ -64,8 +61,6 @@ class BpeModel {
 
     if (spm_converted) {
       UpdateSpmByteToken(vocab_map_);
-    } else {
-      CreateByteEncoder();
     }
 
     uint32_t index = 0;
@@ -125,9 +120,7 @@ class BpeModel {
     return {};
   }
 
-  OrtxStatus Load(const json& bpe_model,
-                  const char* /* special_tokens */,
-                  bool spm_converted) {
+  OrtxStatus Load(const json& bpe_model, const char* /* special_tokens */, bool spm_converted) {
     const json& vocab_json = bpe_model["vocab"];
     const json& merges_json = bpe_model["merges"];
     vocab_json.get_to(vocab_map_);
@@ -147,8 +140,6 @@ class BpeModel {
 
     if (spm_converted) {
       UpdateSpmByteToken(vocab_map_);
-    } else {
-      CreateByteEncoder();
     }
 
     uint32_t index = 0;
@@ -195,19 +186,16 @@ class BpeModel {
   }
 
   OrtxStatus Load(std::unordered_map<std::string, uint32_t>& vocab,
-                  std::vector<std::pair<std::string, std::string>>& merges,
-                  const char* /* special_tokens */,
+                  std::vector<std::pair<std::string, std::string>>& merges, const char* /* special_tokens */,
                   bool spm_converted) {
     vocab_map_ = vocab;
 
     if (spm_converted) {
       UpdateSpmByteToken(vocab_map_);
-    } else {
-      CreateByteEncoder();
     }
 
     uint32_t index = 0;
-    for (auto& tuple : merges){
+    for (auto& tuple : merges) {
       std::string w1 = tuple.first;
       std::string w2 = tuple.second;
       int token_length = ort_extensions::narrow<int>(w1.length() + w2.length());
@@ -269,11 +257,10 @@ class BpeModel {
     return {};
   }
 
-  std::vector<std::string> BuildDecoder() const {
-    return id2token_map_;
-  }
+  std::vector<std::string> BuildDecoder() const { return id2token_map_; }
 
-  // REF: https://github.com/huggingface/transformers/blob/c9e72f55b2dc4b9be4edb986dce0552582b328f2/src/transformers/tokenization_utils.py#L52
+  // REF:
+  // https://github.com/huggingface/transformers/blob/c9e72f55b2dc4b9be4edb986dce0552582b328f2/src/transformers/tokenization_utils.py#L52
   bpe::TokenPairs SplitByAddedAndSpecial(const ustring& input) const {
     // split by added tokens
     bpe::TokenPairs added_result;
@@ -343,10 +330,6 @@ class BpeModel {
     }
   }
 
-  const auto& ByteEncoder() const {
-    return byte_encoder_;
-  }
-
   uint32_t GetTokenId(const std::string& key) const {
     auto it = vocab_map_.find(key);
     if (it != vocab_map_.end()) {
@@ -356,9 +339,17 @@ class BpeModel {
     }
   }
 
-  const std::string& GetEndOfWordSuffix() const {
-    return end_of_word_suffix_;
+  uint32_t GetAddedTokenId(const std::string& key) const {
+    size_t idx = 0;
+    int id = added_tokens_.FindLongest(ustring(key), idx);
+    if (idx == 0) {
+      return bpe::kInvalidTokenId;
+    }
+
+    return static_cast<uint32_t>(id);
   }
+
+  const std::string& GetEndOfWordSuffix() const { return end_of_word_suffix_; }
 
  private:
   struct BpeNode {
@@ -371,27 +362,10 @@ class BpeModel {
     return (static_cast<uint64_t>(i1) << 32) | (i0 & 0xFFFFFFFFLL);
   }
 
-  void CreateByteEncoder() {
-    char32_t index = 256;
-    for (char32_t i = 0; i < 256; ++i) {
-      /*
-      bs = (
-        list(range(ord("!"), ord("~") + 1)) + list(range(ord("¡"), ord("¬") + 1)) + list(range(ord("®"), ord("ÿ") + 1))
-      )
-      */
-      if ((i >= 0 && i < 33) || (i >= 127 && i < 161) || (i == 173)) {
-        byte_encoder_[i] = GetTokenId(ustring::EncodeUTF8Char(index++));
-      } else {
-        byte_encoder_[i] = GetTokenId(ustring::EncodeUTF8Char(i));
-      }
-    }
-  }
-
  private:
   std::string end_of_word_suffix_;
   std::map<uint64_t, BpeNode> bpe_rank_;
 
-  uint32_t byte_encoder_[256] = {};
   std::unordered_map<std::string, uint32_t> vocab_map_;
   std::vector<std::string> id2token_map_;
 

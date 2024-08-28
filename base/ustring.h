@@ -11,11 +11,11 @@ class ustring : public std::u32string {
  public:
   ustring() = default;
 
-  explicit ustring(const char* str) { assign(FromUTF8(str)); }
+  explicit ustring(const char* str) { assign(std::move(FromUTF8(str))); }
 
-  explicit ustring(const std::string& str) { assign(FromUTF8(str)); }
+  explicit ustring(const std::string& str) { assign(std::move(FromUTF8(str))); }
 
-  explicit ustring(const std::string_view& str) { assign(FromUTF8(str)); }
+  explicit ustring(const std::string_view& str) { assign(std::move(FromUTF8(str))); }
 
   explicit ustring(const char32_t* str) : std::u32string(str) {}
 
@@ -76,11 +76,15 @@ class ustring : public std::u32string {
     }
   }
 
-  static bool ValidateUTF8(const std::string& data) {
+  // return a negative value for the first invalid utf8 char position,
+  // otherwise the position of the terminating null character, which is the end of the string.
+  static ptrdiff_t ValidateUTF8(const std::string& data) {
     const unsigned char* s = reinterpret_cast<const unsigned char*>(data.c_str());
+    const unsigned char* s_begin = s;
     const unsigned char* s_end = s + data.size();
+
     if (*s_end != '\0')
-      return false;
+      return 0;
 
     while (*s) {
       if (*s < 0x80)
@@ -89,17 +93,17 @@ class ustring : public std::u32string {
       else if ((s[0] & 0xe0) == 0xc0) {
         /* 110XXXXx 10xxxxxx */
         if (s + 1 >= s_end) {
-          return false;
+          return s_begin - s;
         }
         if ((s[1] & 0xc0) != 0x80 ||
             (s[0] & 0xfe) == 0xc0) /* overlong? */
-          return false;
+          return s_begin - s;
         else
           s += 2;
       } else if ((s[0] & 0xf0) == 0xe0) {
         /* 1110XXXX 10Xxxxxx 10xxxxxx */
         if (s + 2 >= s_end) {
-          return false;
+          return s_begin - s;
         }
         if ((s[1] & 0xc0) != 0x80 ||
             (s[2] & 0xc0) != 0x80 ||
@@ -107,27 +111,27 @@ class ustring : public std::u32string {
             (s[0] == 0xed && (s[1] & 0xe0) == 0xa0) || /* surrogate? */
             (s[0] == 0xef && s[1] == 0xbf &&
              (s[2] & 0xfe) == 0xbe)) /* U+FFFE or U+FFFF? */
-          return false;
+          return s_begin - s;
         else
           s += 3;
       } else if ((s[0] & 0xf8) == 0xf0) {
         /* 11110XXX 10XXxxxx 10xxxxxx 10xxxxxx */
         if (s + 3 >= s_end) {
-          return false;
+          return s_begin - s;
         }
         if ((s[1] & 0xc0) != 0x80 ||
             (s[2] & 0xc0) != 0x80 ||
             (s[3] & 0xc0) != 0x80 ||
             (s[0] == 0xf0 && (s[1] & 0xf0) == 0x80) ||    /* overlong? */
             (s[0] == 0xf4 && s[1] > 0x8f) || s[0] > 0xf4) /* > U+10FFFF? */
-          return false;
+          return s_begin - s;
         else
           s += 4;
       } else
-        return false;
+        return s_begin - s;
     }
 
-    return true;
+    return s - s_begin;
   }
 
  private:

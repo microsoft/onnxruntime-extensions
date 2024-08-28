@@ -27,6 +27,11 @@ class TokenizerImpl : public OrtxObjectImpl {
     return BatchDecode(t_ids, t_text);
   }
 
+  OrtxStatus Token2Id(const std::string& token, extTokenId_t& id) const {
+    id = tokenizer_->GetTokenId(token);
+    return {};
+  }
+
   OrtxStatus Id2Token(extTokenId_t id, std::string& token, std::unique_ptr<BPEDecoderState>& cache) const {
     BPEDecoderState* state_ptr = cache.get();
     OrtxStatus status = Id2Token(id, token, &state_ptr);
@@ -50,7 +55,6 @@ class TokenizerImpl : public OrtxObjectImpl {
                                  std::vector<std::vector<extTokenId_t>>& t_ids) const;
 
  private:
-  bool tiktoken = false;
   std::string tokenizer_dir_;
   std::shared_ptr<ort_extensions::bpe::TokenJsonConfig> tok_config_;
   std::unique_ptr<JsonFastTokenizer> tokenizer_;
