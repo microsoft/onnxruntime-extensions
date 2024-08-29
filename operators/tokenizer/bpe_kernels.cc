@@ -416,7 +416,58 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input,
     // Get byte encodings prior to performing BPE
     std::list<std::pair<uint32_t, uint32_t>> byte_list;
 
-    while (res.size() < max_length && char_pos < ustr.length()) {
+    while (res.size() < max_length && char_pos <= ustr.length()) {
+      bool split_now = false;
+      if (char_pos == ustr.length()) {
+        split_now = true;
+      }
+
+      // the longest word is around 46, so we split if we have more than 50 bytes
+      if (!split_now && byte_list.size() > 50) {
+        if (byte_list.size() > 256) {
+          split_now = true;   // split immediately to avoid too long token
+        }
+        else if (ustr[char_pos] == U' ') {
+          if ((char_pos < ustr.length() - 1) && ustr[char_pos + 1] != U' ') {
+            split_now = true;
+          }
+        }
+        // if (!split_now) {
+        //   auto ch = ustr[char_pos];
+        //   auto category = ufal::unilib::unicode::category(ch);
+        //   if ((category & ufal::unilib::unicode::P) != 0) {
+        //     split_now = true;
+        //   }
+        // }
+      }
+
+      if (split_now) {
+        // Perform BPE
+        bbpe_tokenizer_->PerformBPE(byte_list);
+
+        // Add output to result
+        for (auto p : byte_list) {
+          if (res.size() >= max_length) {
+            break;
+          }
+
+          res.push_back(p.first);
+
+          if (compute_offset_mapping) {
+            offset_mapping.emplace_back(std::make_pair(
+                offset,
+                ort_extensions::narrow<size_t>(offset + (size_t)p.second)));
+            offset += ((size_t)p.second);
+          }
+        }
+
+        byte_list.clear();
+      }
+
+      if (char_pos == ustr.length()) {
+        break;
+      }
+
       auto chr = ustr[char_pos];
       if (chr == U' ') {
         chr = 0x2581;  // UTF-8 string '\xe2\x96\x81'
@@ -436,30 +487,16 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input,
 
       char_pos++;
     }
-    {
-      // Perform BPE
-      bbpe_tokenizer_->PerformBPE(byte_list);
-
-      // Add output to result
-      for (auto p : byte_list) {
-        if (res.size() >= max_length) {
-          break;
-        }
-
-        res.push_back(p.first);
-
-        if (compute_offset_mapping) {
-          offset_mapping.emplace_back(std::make_pair(
-              offset,
-              ort_extensions::narrow<size_t>(offset + (size_t)p.second)));
-          offset += ((size_t)p.second);
-        }
-      }
-    }
 
     if (compute_offset_mapping) {
       // Add offset mappings for input in this instance to list of offset mappings for all inputs
       offset_map.emplace_back(offset_mapping);
+    }
+  }
+
+  if (res.size() > 0 && res.front() == bos_token_id_) {
+    if (add_bos_token_.has_value() && add_bos_token_.value() == false) {
+      res.erase(res.begin());
     }
   }
 
