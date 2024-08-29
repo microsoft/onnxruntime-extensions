@@ -422,23 +422,18 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input,
         split_now = true;
       }
 
-      // the longest word is around 46, so we split if we have more than 50 bytes
-      if (!split_now && byte_list.size() > 50) {
-        if (byte_list.size() > 256) {
-          split_now = true;   // split immediately to avoid too long token
-        }
-        else if (ustr[char_pos] == U' ') {
-          if ((char_pos < ustr.length() - 1) && ustr[char_pos + 1] != U' ') {
+      // temporary split logic, will be replaced regex based split after it is implemented
+      if (!split_now && byte_list.size() > 10) {
+        auto is_split_char = [](char32_t ch) {
+          return ch == U' ' || ch == U'\n' || ch == U'\r' || ch == U'\t' || ch == U'▁';
+        };
+        if (!is_split_char(ustr[char_pos - 1]) && is_split_char(ustr[char_pos])) {
             split_now = true;
-          }
         }
-        // if (!split_now) {
-        //   auto ch = ustr[char_pos];
-        //   auto category = ufal::unilib::unicode::category(ch);
-        //   if ((category & ufal::unilib::unicode::P) != 0) {
-        //     split_now = true;
-        //   }
-        // }
+        // split immediately to avoid too long byte_list for extreme cases, which is slow.
+        if (!split_now && byte_list.size() > 100) {
+          split_now = true;   
+        }
       }
 
       if (split_now) {
