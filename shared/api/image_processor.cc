@@ -8,7 +8,7 @@
 
 #include "image_processor.h"
 #include "c_api_utils.hpp"
-#include "cv2/imgcodecs/imdecode.hpp"
+#include "image_decoder.hpp"
 #include "image_transforms.hpp"
 #include "image_transforms_phi_3.hpp"
 

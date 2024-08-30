@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # The example build script to build the source in Linux-like platform
-set -e -x -u
+set -e -u
 
 cuda_arch=''
 if [[ $@ == *"DOCOS_USE_CUDA=ON"* && $@ != *"DCMAKE_CUDA_ARCHITECTURES"* ]]; then
