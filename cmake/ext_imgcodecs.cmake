@@ -1,17 +1,23 @@
-# FetchContent_Declare(
-#   opencv_454
-#   URL           https://github.com/opencv/opencv/archive/refs/tags/4.5.4.zip
-#   URL_HASH      SHA1=a60b3675763382a2c405cdb1d217b27372311c8e
-#   SOURCE_SUBDIR not_set
-# )
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
 
-# FetchContent_MakeAvailable(opencv_454)
-# set(_IMGCODEC_ROOT_DIR ${opencv_454_SOURCE_DIR}/3rdparty)
 set(_IMGCODEC_ROOT_DIR ${dlib_SOURCE_DIR}/dlib/external)
 
 set(ZLIB_LIBRARY "zlib")
 set(ZLIB_SOURCE_DIR ${_IMGCODEC_ROOT_DIR}/zlib)
 
+macro(ocv_list_filterout lst regex)
+  foreach(item ${${lst}})
+    if(item MATCHES "${regex}")
+      list(REMOVE_ITEM ${lst} "${item}")
+    endif()
+  endforeach()
+endmacro()
+
+# ----------------------------------------------------------------------------
+#  project zlib
+#
+# ----------------------------------------------------------------------------
 project(${ZLIB_LIBRARY} C)
 
 include(CheckFunctionExists)
@@ -87,7 +93,7 @@ add_library(${ZLIB_LIBRARY} STATIC EXCLUDE_FROM_ALL ${ZLIB_SRCS} ${ZLIB_PUBLIC_H
 set_target_properties(${ZLIB_LIBRARY} PROPERTIES DEFINE_SYMBOL ZLIB_DLL)
 
 # ----------------------------------------------------------------------------
-#  CMake file for libpng. See root CMakeLists.txt
+#  project libpng
 #
 # ----------------------------------------------------------------------------
 set (PNG_LIBRARY "libpng")
@@ -152,26 +158,17 @@ if(PPC64LE OR PPC64)
   endif()
 endif()
 
-# ----------------------------------------------------------------------------------
-#         Define the library target:
-# ----------------------------------------------------------------------------------
-
+add_library(${PNG_LIBRARY} STATIC ${OPENCV_3RDPARTY_EXCLUDE_FROM_ALL} ${lib_srcs} ${lib_hdrs})
 if(MSVC)
-  add_definitions(-D_CRT_SECURE_NO_DEPRECATE)
+  target_include_directories(${PNG_LIBRARY} PUBLIC ${ZLIB_SOURCE_DIR})
+  target_compile_definitions(${PNG_LIBRARY} PRIVATE -D_CRT_SECURE_NO_DEPRECATE)
+  target_link_libraries(${PNG_LIBRARY} PUBLIC ${ZLIB_LIBRARY})
 endif(MSVC)
 
-add_library(${PNG_LIBRARY} STATIC ${OPENCV_3RDPARTY_EXCLUDE_FROM_ALL} ${lib_srcs} ${lib_hdrs})
-# target_compile_definitions(${PNG_LIBRARY} PRIVATE -DPNG_SIMPLIFIED_READ_SUPPORTED=1 -DPNG_SIMPLIFIED_WRITE_SUPPORTED=1)
-target_link_libraries(${PNG_LIBRARY} PUBLIC ${ZLIB_LIBRARY})
-
-# set_target_properties(${PNG_LIBRARY}
-#   PROPERTIES OUTPUT_NAME ${PNG_LIBRARY}
-#   DEBUG_POSTFIX "${OPENCV_DEBUG_POSTFIX}"
-#   COMPILE_PDB_NAME ${PNG_LIBRARY}
-#   COMPILE_PDB_NAME_DEBUG "${PNG_LIBRARY}${OPENCV_DEBUG_POSTFIX}"
-#   ARCHIVE_OUTPUT_DIRECTORY ${3P_LIBRARY_OUTPUT_PATH}
-# )
-
+# ----------------------------------------------------------------------------
+#  project libjpeg
+#
+# ----------------------------------------------------------------------------
 set(JPEG_LIBRARY "libjpeg")
 set(libJPEG_SOURCE_DIR ${_IMGCODEC_ROOT_DIR}/libjpeg)
 project(${JPEG_LIBRARY})
@@ -179,11 +176,11 @@ project(${JPEG_LIBRARY})
 file(GLOB lib_srcs ${libJPEG_SOURCE_DIR}/*.c)
 file(GLOB lib_hdrs ${libJPEG_SOURCE_DIR}/*.h)
 
-# if(ANDROID OR IOS OR APPLE)
-#   ocv_list_filterout(lib_srcs jmemansi.c)
-# else()
-#   ocv_list_filterout(lib_srcs jmemnobs.c)
-# endif()
+if(ANDROID OR IOS OR APPLE)
+  ocv_list_filterout(lib_srcs ${libJPEG_SOURCE_DIR}/jmemansi.c)
+else()
+  ocv_list_filterout(lib_srcs ${libJPEG_SOURCE_DIR}/jmemnobs.c)
+endif()
 
 # ----------------------------------------------------------------------------------
 #         Define the library target:
@@ -195,15 +192,3 @@ if(GCC OR CLANG)
   set_source_files_properties(jcdctmgr.c PROPERTIES COMPILE_FLAGS "-O1")
 endif()
 target_compile_definitions(${JPEG_LIBRARY} PRIVATE -DNO_MKTEMP)
-
-# ocv_warnings_disable(CMAKE_C_FLAGS -Wcast-align -Wshadow -Wunused -Wshift-negative-value -Wimplicit-fallthrough)
-# ocv_warnings_disable(CMAKE_C_FLAGS -Wunused-parameter) # clang
-# ocv_warnings_disable(CMAKE_C_FLAGS /wd4013 /wd4244 /wd4267) # vs2005
-
-# set_target_properties(${JPEG_LIBRARY}
-#   PROPERTIES OUTPUT_NAME ${JPEG_LIBRARY}
-#   DEBUG_POSTFIX "${OPENCV_DEBUG_POSTFIX}"
-#   COMPILE_PDB_NAME ${JPEG_LIBRARY}
-#   COMPILE_PDB_NAME_DEBUG "${JPEG_LIBRARY}${OPENCV_DEBUG_POSTFIX}"
-#   ARCHIVE_OUTPUT_DIRECTORY ${3P_LIBRARY_OUTPUT_PATH}
-#   )
