@@ -425,14 +425,14 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input,
       // temporary split logic, will be replaced regex based split after it is implemented
       if (!split_now && byte_list.size() > 10) {
         auto is_split_char = [](char32_t ch) {
-          return ch == U' ' || ch == U'\n' || ch == U'\r' || ch == U'\t' || ch == U'▁';
+          return ch == U' ' || ch == U'\n' || ch == U'\r' || ch == U'▁';
         };
         if (!is_split_char(ustr[char_pos - 1]) && is_split_char(ustr[char_pos])) {
             split_now = true;
         }
         // split immediately to avoid too long byte_list for extreme cases, which is slow.
         if (!split_now && byte_list.size() > 100) {
-          split_now = true;   
+          split_now = true;
         }
       }
 
