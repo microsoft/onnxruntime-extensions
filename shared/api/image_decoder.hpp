@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <unistd.h>
 #include <cstdint>
 
 #include "ortx_common.h"

@@ -6,7 +6,7 @@ set(_IMGCODEC_ROOT_DIR ${dlib_SOURCE_DIR}/dlib/external)
 set(ZLIB_LIBRARY "zlib")
 set(ZLIB_SOURCE_DIR ${_IMGCODEC_ROOT_DIR}/zlib)
 
-macro(ocv_list_filterout lst regex)
+macro(ortx_list_filterout lst regex)
   foreach(item ${${lst}})
     if(item MATCHES "${regex}")
       list(REMOVE_ITEM ${lst} "${item}")
@@ -177,14 +177,10 @@ file(GLOB lib_srcs ${libJPEG_SOURCE_DIR}/*.c)
 file(GLOB lib_hdrs ${libJPEG_SOURCE_DIR}/*.h)
 
 if(ANDROID OR IOS OR APPLE)
-  ocv_list_filterout(lib_srcs ${libJPEG_SOURCE_DIR}/jmemansi.c)
+  ortx_list_filterout(lib_srcs ${libJPEG_SOURCE_DIR}/jmemansi.c)
 else()
-  ocv_list_filterout(lib_srcs ${libJPEG_SOURCE_DIR}/jmemnobs.c)
+  ortx_list_filterout(lib_srcs ${libJPEG_SOURCE_DIR}/jmemnobs.c)
 endif()
-
-# ----------------------------------------------------------------------------------
-#         Define the library target:
-# ----------------------------------------------------------------------------------
 
 add_library(${JPEG_LIBRARY} STATIC ${OPENCV_3RDPARTY_EXCLUDE_FROM_ALL} ${lib_srcs} ${lib_hdrs})
 
