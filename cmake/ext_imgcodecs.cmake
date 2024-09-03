@@ -6,20 +6,10 @@ set(_IMGCODEC_ROOT_DIR ${dlib_SOURCE_DIR}/dlib/external)
 set(ZLIB_LIBRARY "zlib_static_c")
 set(ZLIB_SOURCE_DIR ${_IMGCODEC_ROOT_DIR}/zlib)
 
-macro(ortx_list_filterout lst regex)
-  foreach(item ${${lst}})
-    if(item MATCHES "${regex}")
-      list(REMOVE_ITEM ${lst} "${item}")
-    endif()
-  endforeach()
-endmacro()
-
 # ----------------------------------------------------------------------------
 #  project zlib
 #
 # ----------------------------------------------------------------------------
-project(${ZLIB_LIBRARY} C)
-
 include(CheckFunctionExists)
 include(CheckIncludeFile)
 include(CheckCSourceCompiles)
@@ -99,12 +89,6 @@ set_target_properties(${ZLIB_LIBRARY} PROPERTIES DEFINE_SYMBOL ZLIB_DLL)
 set (PNG_LIBRARY "libpng_static_c")
 set (libPNG_SOURCE_DIR ${_IMGCODEC_ROOT_DIR}/libpng)
 
-if(ENABLE_NEON)
-  project(${PNG_LIBRARY} C ASM)
-else()
-  project(${PNG_LIBRARY} C)
-endif()
-
 if(NOT WIN32)
   find_library(M_LIBRARY
     NAMES m
@@ -171,17 +155,54 @@ endif(MSVC)
 # ----------------------------------------------------------------------------
 set(JPEG_LIBRARY "libjpeg_static_c")
 set(libJPEG_SOURCE_DIR ${_IMGCODEC_ROOT_DIR}/libjpeg)
-project(${JPEG_LIBRARY})
 
-file(GLOB lib_srcs ${libJPEG_SOURCE_DIR}/*.c)
+set(lib_srcs
+  ${libJPEG_SOURCE_DIR}/jaricom.c
+  ${libJPEG_SOURCE_DIR}/jcapimin.c
+  ${libJPEG_SOURCE_DIR}/jcapistd.c
+  ${libJPEG_SOURCE_DIR}/jcarith.c
+  ${libJPEG_SOURCE_DIR}/jccoefct.c
+  ${libJPEG_SOURCE_DIR}/jccolor.c
+  ${libJPEG_SOURCE_DIR}/jcdctmgr.c
+  ${libJPEG_SOURCE_DIR}/jchuff.c
+  ${libJPEG_SOURCE_DIR}/jcinit.c
+  ${libJPEG_SOURCE_DIR}/jcmainct.c
+  ${libJPEG_SOURCE_DIR}/jcmarker.c
+  ${libJPEG_SOURCE_DIR}/jcmaster.c
+  ${libJPEG_SOURCE_DIR}/jcomapi.c
+  ${libJPEG_SOURCE_DIR}/jcparam.c
+  ${libJPEG_SOURCE_DIR}/jcprepct.c
+  ${libJPEG_SOURCE_DIR}/jcsample.c
+  ${libJPEG_SOURCE_DIR}/jdapimin.c
+  ${libJPEG_SOURCE_DIR}/jdapistd.c
+  ${libJPEG_SOURCE_DIR}/jdarith.c
+  ${libJPEG_SOURCE_DIR}/jdatadst.c
+  ${libJPEG_SOURCE_DIR}/jdatasrc.c
+  ${libJPEG_SOURCE_DIR}/jdcoefct.c
+  ${libJPEG_SOURCE_DIR}/jdcolor.c
+  ${libJPEG_SOURCE_DIR}/jddctmgr.c
+  ${libJPEG_SOURCE_DIR}/jdhuff.c
+  ${libJPEG_SOURCE_DIR}/jdinput.c
+  ${libJPEG_SOURCE_DIR}/jdmainct.c
+  ${libJPEG_SOURCE_DIR}/jdmarker.c
+  ${libJPEG_SOURCE_DIR}/jdmaster.c
+  ${libJPEG_SOURCE_DIR}/jdmerge.c
+  ${libJPEG_SOURCE_DIR}/jdpostct.c
+  ${libJPEG_SOURCE_DIR}/jdsample.c
+  ${libJPEG_SOURCE_DIR}/jerror.c
+  ${libJPEG_SOURCE_DIR}/jfdctflt.c
+  ${libJPEG_SOURCE_DIR}/jfdctfst.c
+  ${libJPEG_SOURCE_DIR}/jfdctint.c
+  ${libJPEG_SOURCE_DIR}/jidctflt.c
+  ${libJPEG_SOURCE_DIR}/jidctfst.c
+  ${libJPEG_SOURCE_DIR}/jidctint.c
+  ${libJPEG_SOURCE_DIR}/jmemmgr.c
+  ${libJPEG_SOURCE_DIR}/jmemnobs.c
+  ${libJPEG_SOURCE_DIR}/jquant1.c
+  ${libJPEG_SOURCE_DIR}/jquant2.c
+  ${libJPEG_SOURCE_DIR}/jutils.c
+  )
 file(GLOB lib_hdrs ${libJPEG_SOURCE_DIR}/*.h)
-
-if(ANDROID OR IOS OR APPLE)
-  ortx_list_filterout(lib_srcs ${libJPEG_SOURCE_DIR}/jmemansi.c)
-else()
-  ortx_list_filterout(lib_srcs ${libJPEG_SOURCE_DIR}/jmemnobs.c)
-endif()
-
 add_library(${JPEG_LIBRARY} STATIC ${OPENCV_3RDPARTY_EXCLUDE_FROM_ALL} ${lib_srcs} ${lib_hdrs})
 
 if(GCC OR CLANG)
