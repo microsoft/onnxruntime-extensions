@@ -3,7 +3,7 @@
 
 set(_IMGCODEC_ROOT_DIR ${dlib_SOURCE_DIR}/dlib/external)
 
-set(ZLIB_LIBRARY "zlib")
+set(ZLIB_LIBRARY "zlib_static_c")
 set(ZLIB_SOURCE_DIR ${_IMGCODEC_ROOT_DIR}/zlib)
 
 macro(ortx_list_filterout lst regex)
@@ -96,7 +96,7 @@ set_target_properties(${ZLIB_LIBRARY} PROPERTIES DEFINE_SYMBOL ZLIB_DLL)
 #  project libpng
 #
 # ----------------------------------------------------------------------------
-set (PNG_LIBRARY "libpng")
+set (PNG_LIBRARY "libpng_static_c")
 set (libPNG_SOURCE_DIR ${_IMGCODEC_ROOT_DIR}/libpng)
 
 if(ENABLE_NEON)
@@ -169,7 +169,7 @@ endif(MSVC)
 #  project libjpeg
 #
 # ----------------------------------------------------------------------------
-set(JPEG_LIBRARY "libjpeg")
+set(JPEG_LIBRARY "libjpeg_static_c")
 set(libJPEG_SOURCE_DIR ${_IMGCODEC_ROOT_DIR}/libjpeg)
 project(${JPEG_LIBRARY})
 
