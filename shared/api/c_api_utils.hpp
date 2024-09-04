@@ -99,15 +99,56 @@ class TensorObject : public OrtxObjectImpl {
   ~TensorObject() override = default;
 
   void SetTensor(ortc::TensorBase* tensor) { tensor_ = tensor; }
-  void SetTensorType(extDataType_t type) { tensor_type_ = type; }
 
-  [[nodiscard]] extDataType_t GetTensorType() const { return tensor_type_; }
+  static extDataType_t GetDataType(ONNXTensorElementDataType dt) {
+    if (dt == ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT) {
+      return extDataType_t::kOrtxFloat;
+    } else if (dt == ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8) {
+      return extDataType_t::kOrtxUint8;
+    } else if (dt == ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8) {
+      return extDataType_t::kOrtxInt8;
+    } else if (dt == ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16) {
+      return extDataType_t::kOrtxUint16;
+    } else if (dt == ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16) {
+      return extDataType_t::kOrtxInt16;
+    } else if (dt == ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32) {
+      return extDataType_t::kOrtxInt32;
+    } else if (dt == ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64) {
+      return extDataType_t::kOrtxInt64;
+    } else if (dt == ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
+      return extDataType_t::kOrtxString;
+    } else if (dt == ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL) {
+      return extDataType_t::kOrtxBool;
+    } else if (dt == ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16) {
+      return extDataType_t::kOrtxFloat16;
+    } else if (dt == ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE) {
+      return extDataType_t::kOrtxDouble;
+    } else if (dt == ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32) {
+      return extDataType_t::kOrtxUint32;
+    } else if (dt == ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64) {
+      return extDataType_t::kOrtxUint64;
+    } else if (dt == ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64) {
+      return extDataType_t::kOrtxComplex64;
+    } else if (dt == ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128) {
+      return extDataType_t::kOrtxComplex128;
+    } else if (dt == ONNX_TENSOR_ELEMENT_DATA_TYPE_BFLOAT16) {
+      return extDataType_t::kOrtxBFloat16;
+    } else {
+      return extDataType_t::kOrtxUnknownType;
+    }
+  }
+  
+  [[nodiscard]] extDataType_t GetTensorType() const {
+    if (tensor_ == nullptr) {
+      return extDataType_t::kOrtxUnknownType;
+    }
+    return GetDataType(tensor_->Type());
+  }
 
   [[nodiscard]] ortc::TensorBase* GetTensor() const { return tensor_; }
 
  private:
   ortc::TensorBase* tensor_{};
-  extDataType_t tensor_type_{extDataType_t::kOrtxUnknownType};
 };
 
 class TensorResult : public OrtxObjectImpl {
@@ -116,13 +157,8 @@ class TensorResult : public OrtxObjectImpl {
   ~TensorResult() override = default;
 
   void SetTensors(std::vector<std::unique_ptr<ortc::TensorBase>>&& tensors) { tensors_ = std::move(tensors); }
-  void SetTensorTypes(const std::vector<extDataType_t>& types) { tensor_types_ = types; }
   [[nodiscard]] size_t NumTensors() const { return tensors_.size(); }
-
-  [[nodiscard]] const std::vector<extDataType_t>& tensor_types() const { return tensor_types_; }
-
   [[nodiscard]] const std::vector<std::unique_ptr<ortc::TensorBase>>& tensors() const { return tensors_; }
-
   [[nodiscard]] std::vector<ortc::TensorBase*> GetTensors() const {
     std::vector<ortc::TensorBase*> ts;
     ts.reserve(tensors_.size());
@@ -139,16 +175,8 @@ class TensorResult : public OrtxObjectImpl {
     return nullptr;
   }
 
-  extDataType_t GetTensorType(size_t i) const {
-    if (i < tensor_types_.size()) {
-      return tensor_types_[i];
-    }
-    return extDataType_t::kOrtxUnknownType;
-  }
-
  private:
   std::vector<std::unique_ptr<ortc::TensorBase>> tensors_;
-  std::vector<extDataType_t> tensor_types_;
 };
 
 struct ReturnableStatus {
