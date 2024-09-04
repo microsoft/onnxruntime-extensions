@@ -5,9 +5,10 @@
 
 #include <cstdint>
 
-#include "ortx_common.h"
 #include "png.h"
 #include "jpeglib.h"
+#include "op_def_struct.h"
+#include "ext_status.h"
 
 class JMemorySourceManager : public jpeg_source_mgr {
  public:
