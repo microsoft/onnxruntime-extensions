@@ -179,7 +179,7 @@ OrtxStatus ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_d
   operations_.back()->ResetTensors(allocator_);
   if (status.IsOk()) {
     r.SetTensors(std::move(img_result));
-    r.SetTensorTypes({kOrtxFloat, kOrtxInt64, kOrtxInt64});
+    // r.SetTensorTypes({kOrtxFloat, kOrtxInt64, kOrtxInt64});
   }
 
   return status;

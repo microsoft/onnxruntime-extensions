@@ -103,7 +103,6 @@ extError_t ORTX_API_CALL OrtxTensorResultGetAt(OrtxTensorResult* result, size_t 
 
   auto tensor_ptr = std::make_unique<TensorObject>();
   tensor_ptr->SetTensor(ts);
-  tensor_ptr->SetTensorType(result_ptr->GetTensorType(index));
   *tensor = static_cast<OrtxTensor*>(tensor_ptr.release());
   return extError_t();
 }
@@ -121,6 +120,24 @@ extError_t ORTX_API_CALL OrtxGetTensorType(OrtxTensor* tensor, extDataType_t* ty
   }
 
   *type = tensor_impl->GetTensorType();
+  return extError_t();
+}
+
+extError_t ORTX_API_CALL OrtxGetTensorSizeOfElement(OrtxTensor* tensor, size_t* size) {
+  if (tensor == nullptr || size == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  auto tensor_impl = static_cast<TensorObject*>(tensor);
+  if (tensor_impl->ortx_kind() != extObjectKind_t::kOrtxKindTensor) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  auto tb = tensor_impl->GetTensor();
+  assert(tb != nullptr); 
+  *size = tb->SizeInBytes() / tb->NumberOfElement();
   return extError_t();
 }
 
@@ -156,5 +173,13 @@ extError_t ORTX_API_CALL OrtxGetTensorDataFloat(OrtxTensor* tensor, const float*
   const void* data_ptr{};
   auto err = OrtxGetTensorData(tensor, &data_ptr, shape, num_dims);
   *data = reinterpret_cast<const float*>(data_ptr);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+  return err;
+}
+
+extError_t ORTX_API_CALL OrtxGetTensorDataUint8(OrtxTensor* tensor, const uint8_t** data, const int64_t** shape,
+                                                size_t* num_dims) {
+  const void* data_ptr{};
+  auto err = OrtxGetTensorData(tensor, &data_ptr, shape, num_dims);
+  *data = reinterpret_cast<const uint8_t*>(data_ptr);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
   return err;
 }

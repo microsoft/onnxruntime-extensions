@@ -3,7 +3,6 @@
 
 set(_IMGCODEC_ROOT_DIR ${dlib_SOURCE_DIR}/dlib/external)
 
-
 # ----------------------------------------------------------------------------
 #  project libpng
 #

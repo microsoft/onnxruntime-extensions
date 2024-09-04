@@ -105,6 +105,17 @@ extError_t ORTX_API_CALL OrtxTensorResultGetAt(OrtxTensorResult* result, size_t 
  */
 extError_t ORTX_API_CALL OrtxGetTensorType(OrtxTensor* tensor, extDataType_t* type);
 
+/**
+ * @brief Retrieves the size of each element in the given tensor.
+ *
+ * This function calculates the size of each element in the specified tensor and stores it in the provided size variable.
+ *
+ * @param tensor A pointer to the OrtxTensor object.
+ * @param size A pointer to a size_t variable to store the size of each element.
+ * @return An extError_t value indicating the success or failure of the operation.
+ */
+extError_t ORTX_API_CALL OrtxGetTensorSizeOfElement(OrtxTensor* tensor, size_t* size);
+
 /** \brief Get the data from the tensor
  *
  * \param tensor The tensor object
