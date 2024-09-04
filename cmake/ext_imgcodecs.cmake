@@ -60,9 +60,8 @@ set(lib_srcs
    ${zlib_SOURCE_DIR}/zutil.c
 )
 
-add_library(${PNG_LIBRARY} STATIC ${lib_srcs})
+add_library(${PNG_LIBRARY} STATIC EXCLUDE_FROM_ALL ${lib_srcs})
 target_include_directories(${PNG_LIBRARY} BEFORE PRIVATE ${zlib_SOURCE_DIR})
-set_target_properties(${PNG_LIBRARY} PROPERTIES C_STANDARD 90)
 
 if(MSVC)
   target_compile_definitions(${PNG_LIBRARY} PRIVATE -D_CRT_SECURE_NO_DEPRECATE)
@@ -124,10 +123,9 @@ set(lib_srcs
   ${libJPEG_SOURCE_DIR}/jutils.c
   )
 file(GLOB lib_hdrs ${libJPEG_SOURCE_DIR}/*.h)
-add_library(${JPEG_LIBRARY} STATIC ${OPENCV_3RDPARTY_EXCLUDE_FROM_ALL} ${lib_srcs} ${lib_hdrs})
+add_library(${JPEG_LIBRARY} STATIC EXCLUDE_FROM_ALL ${lib_srcs} ${lib_hdrs})
 
 if(NOT MSVC)
   set_source_files_properties(jcdctmgr.c PROPERTIES COMPILE_FLAGS "-O1")
 endif()
 target_compile_definitions(${JPEG_LIBRARY} PRIVATE -DNO_MKTEMP)
-set_target_properties(${JPEG_LIBRARY} PROPERTIES C_STANDARD 90)

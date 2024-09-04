@@ -127,10 +127,6 @@ add_test_target(TARGET ocos_test
                 TEST_SOURCES ${static_TEST_SRC}
                 LIBRARIES ortcustomops ${ocos_libraries})
 target_compile_definitions(ocos_test PRIVATE ${OCOS_COMPILE_DEFINITIONS})
-target_include_directories(ocos_test PRIVATE
-  ${PROJECT_SOURCE_DIR}/
-  "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>"
-  "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
 
 if (OCOS_ENABLE_C_API AND OCOS_BUILD_SHARED_LIB)
   file(GLOB pp_api_TEST_SRC
