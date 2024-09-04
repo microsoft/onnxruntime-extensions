@@ -157,13 +157,8 @@ class TensorResult : public OrtxObjectImpl {
   ~TensorResult() override = default;
 
   void SetTensors(std::vector<std::unique_ptr<ortc::TensorBase>>&& tensors) { tensors_ = std::move(tensors); }
-  // void SetTensorTypes(const std::vector<extDataType_t>& types) { tensor_types_ = types; }
   [[nodiscard]] size_t NumTensors() const { return tensors_.size(); }
-
-  // [[nodiscard]] const std::vector<extDataType_t>& tensor_types() const { return tensor_types_; }
-
   [[nodiscard]] const std::vector<std::unique_ptr<ortc::TensorBase>>& tensors() const { return tensors_; }
-
   [[nodiscard]] std::vector<ortc::TensorBase*> GetTensors() const {
     std::vector<ortc::TensorBase*> ts;
     ts.reserve(tensors_.size());
@@ -180,16 +175,8 @@ class TensorResult : public OrtxObjectImpl {
     return nullptr;
   }
 
-  // extDataType_t GetTensorType(size_t i) const {
-  //   if (i < tensor_types_.size()) {
-  //     return tensor_types_[i];
-  //   }
-  //   return extDataType_t::kOrtxUnknownType;
-  // }
-
  private:
   std::vector<std::unique_ptr<ortc::TensorBase>> tensors_;
-  // std::vector<extDataType_t> tensor_types_;
 };
 
 struct ReturnableStatus {
