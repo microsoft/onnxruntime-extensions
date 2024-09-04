@@ -16,6 +16,7 @@ The package contains all custom operators and some Python scripts to manipulate 
   - no-azure: disable AzureOp kernel build in Python package.
   - no-opencv: disable operators based on OpenCV in build.
   - cc-debug: generate debug info for extensions binaries and disable C/C++ compiler optimization.
+  - pp-api: enable pre-processing C ABI Python wrapper, `from onnxruntime_extensions.pp_api import *`
   - cuda-archs: specify the CUDA architectures(like 70, 85, etc.), and the multiple values can be combined with semicolon. The default value is nvidia-smi util output of GPU-0
   - ort\_pkg\_dir: specify ONNXRuntime package directory the extension project is depending on. This is helpful if you want to use some ONNXRuntime latest function which has not been involved in the official build
 

@@ -18,4 +18,13 @@ Most APIs accept raw data inputs such as audio, image compressed binary formats,
 
 **Audio feature extraction:** `OrtxCreateSpeechFeatureExtractor` creates a speech feature extractor to obtain log mel spectrum data as input for the Whisper model. An example code snippet can be found [here](../test/pp_api_test/test_feature_extraction.cc#L16).
 
-NB: If onnxruntime-extensions is to build as a shared library, which requires the OCOS_ENABLE_AUDIO OCOS_ENABLE_CV2 OCOS_ENABLE_OPENCV_CODECS OCOS_ENABLE_GPT2_TOKENIZER build flags are ON to have a full function of binary. Only onnxruntime-extensions static library can be used for a minimal build with the selected operators, so in that case, the shared library build can be switched off by `-DOCOS_BUILD_SHARED_LIB=OFF`.
+**NB:** If onnxruntime-extensions is to build as a shared library, which requires the OCOS_ENABLE_AUDIO OCOS_ENABLE_CV2 OCOS_ENABLE_OPENCV_CODECS OCOS_ENABLE_GPT2_TOKENIZER build flags are ON to have a full function of binary. Only onnxruntime-extensions static library can be used for a minimal build with the selected operators, so in that case, the shared library build can be switched off by `-DOCOS_BUILD_SHARED_LIB=OFF`.
+
+There is a simple Python wrapper on these C API in [pp_api](../onnxruntime_extensions/pp_api.py), which can have a easy access these APIs in Python code like
+
+```Python
+from onnxruntime_extensions.pp_api import Tokenizer
+# the name can be the same one used by Huggingface transformers.AutoTokenizer
+pp_tok = Tokenizer('google/gemma-2-2b') 
+print(pp_tok.tokenize("what are you? \n 给 weiss ich, über was los ist \n"))
+```

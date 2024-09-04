@@ -32,13 +32,23 @@ class TestAutoTokenizer(unittest.TestCase):
 
     def test_phi_3_mini(self):
         tokenizer = AutoTokenizer.from_pretrained(
-            "microsoft/Phi-3-mini-128k-instruct", use_fast=True)
-        text = "what are you? \n 给 weiss ich, über was los ist \n"
-        ids = tokenizer.encode(text, return_tensors="np")
+            "microsoft/Phi-3-mini-128k-instruct", use_fast=True, add_bos_token=True, add_eos_token=False)
+        text = ["what are you? \n 给 weiss ich, über was los ist \n",
+                "@? \n was los ist \n",
+                "Qué dijiste? \n über 给 ば was los ist im Mannschaft ц \n",
+                "明天雷阵雨，气温26度。"]
 
         ort_tok, _ = gen_processing_models(tokenizer, pre_kwargs={})
-        actual_ids, *_ = ort_inference(ort_tok, [text])
-        np.testing.assert_array_equal(ids[0], actual_ids[0][1:])
+        actual_ids, *_ = ort_inference(ort_tok, text)
+        for n in range(len(actual_ids)):
+            expected_ids = tokenizer.encode(text[n], return_tensors="np")
+            try:
+                np.testing.assert_array_equal(
+                    # skip the padding tokens in the ort output
+                    expected_ids[0], actual_ids[n][:expected_ids.shape[1]])
+            except AssertionError:
+                print("the failed sentence index is ", n)
+                raise
 
 
 if __name__ == '__main__':
