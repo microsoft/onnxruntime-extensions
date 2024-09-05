@@ -8,7 +8,7 @@
 
 #include "image_processor.h"
 #include "c_api_utils.hpp"
-#include "cv2/imgcodecs/imdecode.hpp"
+#include "image_decoder.hpp"
 #include "image_transforms.hpp"
 #include "image_transforms_phi_3.hpp"
 
@@ -179,7 +179,7 @@ OrtxStatus ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_d
   operations_.back()->ResetTensors(allocator_);
   if (status.IsOk()) {
     r.SetTensors(std::move(img_result));
-    r.SetTensorTypes({kOrtxFloat, kOrtxInt64, kOrtxInt64});
+    // r.SetTensorTypes({kOrtxFloat, kOrtxInt64, kOrtxInt64});
   }
 
   return status;

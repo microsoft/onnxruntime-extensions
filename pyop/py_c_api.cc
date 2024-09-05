@@ -85,15 +85,12 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         const int64_t* shape{};
         size_t num_dims;
         const void* data{};
-        size_t elem_size = 0;
-        if (tensor_type == extDataType_t::kOrtxInt64 || tensor_type == extDataType_t::kOrtxFloat) {
+        size_t elem_size = 1;
+        if (tensor_type == extDataType_t::kOrtxInt64 ||
+            tensor_type == extDataType_t::kOrtxFloat ||
+            tensor_type == extDataType_t::kOrtxUint8) {
           OrtxGetTensorData(tensor, reinterpret_cast<const void**>(&data), &shape, &num_dims);
-          elem_size = 4;
-          if (tensor_type == extDataType_t::kOrtxInt64) {
-            elem_size = 8;
-          }
-        } else if (tensor_type == extDataType_t::kOrtxUnknownType) {
-          throw std::runtime_error("Failed to get tensor type");
+          OrtxGetTensorSizeOfElement(tensor, &elem_size);
         } else if (tensor_type == extDataType_t::kOrtxUnknownType) {
           throw std::runtime_error("unsupported tensor type");
         }
@@ -108,6 +105,8 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
           obj = py::array_t<float>(npy_dims);
         } else if (tensor_type == extDataType_t::kOrtxInt64) {
           obj = py::array_t<int64_t>(npy_dims);
+        } else if (tensor_type == extDataType_t::kOrtxUint8) {
+          obj = py::array_t<uint8_t>(npy_dims);
         }
 
         void* out_ptr = obj.mutable_data();

@@ -189,6 +189,10 @@ if (OCOS_BUILD_SHARED_LIB)
         list(APPEND extensions_test_libraries stdc++fs -pthread)
       endif()
 
+      if (NOT MSVC)
+        list(APPEND extensions_test_libraries ${CMAKE_DL_LIBS})
+      endif()
+
       add_test_target(TARGET extensions_test
                       TEST_SOURCES ${shared_TEST_SRC}
                       LIBRARIES ${extensions_test_libraries}

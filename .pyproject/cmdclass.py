@@ -212,6 +212,9 @@ class CmdBuildCMakeExt(_build_ext):
                 '-DOCOS_ENABLE_VISION=OFF']
 
         if self.pp_api:
+            if not self.no_opencv:
+                raise RuntimeError(
+                    "Cannot enable PP C API Python Wrapper without disabling OpenCV.")
             cmake_args += ['-DOCOS_ENABLE_C_API=ON']
 
         if self.no_azure is not None:
