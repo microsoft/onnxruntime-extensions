@@ -15,8 +15,7 @@ using namespace ort_extensions;
 
 TEST(ProcessorTest, TestPhi3VImageProcessing) {
   auto [input_data, n_data] = ort_extensions::LoadRawImages(
-      // {"data/processor/standard_s.jpg", "data/processor/australia.jpg", "data/processor/exceltable.png"});
-      {"C:\\g\\phi-3-mini-v\\image.jpg", "data/processor/australia.jpg", "data/processor/exceltable.png"});
+      {"data/processor/standard_s.jpg", "data/processor/australia.jpg", "data/processor/exceltable.png"});
 
   auto proc = OrtxObjectPtr<ImageProcessor>(OrtxCreateProcessor, "data/processor/phi_3_image.json");
   ortc::Tensor<float>* pixel_values;
