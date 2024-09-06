@@ -12,6 +12,8 @@
 
 #include "unicode.h"
 
+#include <regex>
+
 namespace ort_extensions {
 namespace bpe {
 
@@ -103,7 +105,7 @@ class TokenWithRegularExp {
 
   std::pair<bool, std::u32string_view> GetNextToken() {
     while (!m_text.empty()) {
-      auto res = TryMatch();
+      auto res = RegexMatchGPT2();
       if (res.empty()) {
         m_text = m_text.substr(1);
         continue;
@@ -114,30 +116,94 @@ class TokenWithRegularExp {
   }
 
  private:
-  std::u32string_view TryMatch() {
-    // python pattern:
-    // 's|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+
 
-    // 's|'t|'re|'ve|'m|'ll|'d|
-    // Note: the sequencial of the following if should not be switched, which follows the python regex's syntax
-    if ((m_text[0] == U'\'') && (m_text.size() > 1)) {
-      if ((m_text[1] == U's') || (m_text[1] == U't') ||
-          (m_text[1] == U'm') || (m_text[1] == U'd')) {
-        std::u32string_view res = m_text.substr(0, 2);
-        m_text = m_text.substr(2);
-        return res;
-      }
+  /*
+  std::regex does not directly support std::u32string (which is what U"" literals produce).
+  The std::regex class template is specialized for char and wchar_t types, but not for char32_t or char16_t.
+  To work with Unicode strings, we therefore convert the std::u32string to a std::wstring.
 
-      if (m_text.size() > 2) {
-        if (((m_text[1] == U'r') && (m_text[2] == U'e')) ||
-            ((m_text[1] == U'v') && (m_text[2] == U'e')) ||
-            ((m_text[1] == U'l') && (m_text[2] == U'l'))) {
-          std::u32string_view res = m_text.substr(0, 3);
-          m_text = m_text.substr(3);
-          return res;
-        }
+  Wide strings, or std::wstring, are used for supporting a large character set, including Unicode
+  characters and characters from various languages.
+  */
+
+  static std::wstring U2Wstring(const std::u32string& u32str) {
+    std::wstring wstr;
+    wstr.reserve(u32str.size()); // Reserve space to avoid multiple allocations
+
+    for (char32_t codepoint : u32str) {
+      if (codepoint <= 0xFFFF) {
+        // Single UTF-16 code unit
+        wstr.push_back(static_cast<wchar_t>(codepoint));
+      } else if (codepoint <= 0x10FFFF) {
+        // Surrogate pair
+        codepoint -= 0x10000;
+        wchar_t high_surrogate = static_cast<wchar_t>((codepoint >> 10) + 0xD800);
+        wchar_t low_surrogate = static_cast<wchar_t>((codepoint & 0x3FF) + 0xDC00);
+        wstr.push_back(high_surrogate);
+        wstr.push_back(low_surrogate);
+      } else {
+        // Invalid code point for UTF-16
+        throw std::runtime_error("Invalid UTF-32 codepoint encountered");
       }
     }
+
+    return wstr;
+  }
+
+
+  std::u32string W2Ustring(const std::wstring& wstr) {
+      std::u32string u32str;
+      u32str.reserve(wstr.size());  // Reserve space to avoid multiple allocations
+
+      for (wchar_t wc : wstr) {
+          if (wc <= 0x7F) {
+              // 1-byte character (ASCII)
+              u32str.push_back(static_cast<char32_t>(wc));
+          } else if (wc <= 0x7FF) {
+              // 2-byte character
+              char32_t ch = (static_cast<char32_t>(wc) & 0x07FF) | 0x0800;
+              u32str.push_back(ch);
+          } else if (wc <= 0xFFFF) {
+              // 3-byte character
+              char32_t ch = (static_cast<char32_t>(wc) & 0x0FFF) | 0xD800;
+              u32str.push_back(ch);
+              ch = (static_cast<char32_t>(wc) >> 10) | 0xDC00;
+              u32str.push_back(ch);
+          } else if (wc <= 0x10FFFF) {
+              // 4-byte character (surrogate pairs)
+              char32_t ch = ((wc >> 10) & 0x3FF) | 0xD800;
+              u32str.push_back(ch);
+              ch = (wc & 0x3FF) | 0xDC00;
+              u32str.push_back(ch);
+          } else {
+              // Invalid Unicode code point
+              throw std::runtime_error("Invalid wide character encountered");
+          }
+      }
+
+      return u32str;
+  }
+
+  std::u32string_view RegexMatchSTD(const std::u32string& regex) {
+    static std::u32string text(m_text);
+    std::wstring wstr = U2Wstring(text);
+    std::wstring wpattern = U2Wstring(regex);
+
+    std::wregex pattern(wpattern);
+    std::wsmatch match;
+
+    if (std::regex_search(wstr, match, pattern)) {
+        std::u32string_view token = std::u32string_view(W2Ustring(match.str()).data(), match.str().size());
+        m_text = std::u32string(match.suffix().first, match.suffix().second); // Update text to the remaining part after the match
+        return token;
+    } else {
+        return std::u32string_view{};
+    }
+  }
+
+  std::u32string_view RegexMatchGPT2() {
+    // GPT2 python regex pattern:
+    // 's|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+
 
     // ?\p{L}+
     if ((m_text[0] == U' ') && (m_text.size() > 1) && (ufal::unilib::unicode::category(m_text[1]) & ufal::unilib::unicode::L)) {
@@ -223,8 +289,12 @@ class TokenWithRegularExp {
       return res;
     }
 
-    return std::u32string_view{};
+    // s|'t|'re|'ve|'m|'ll|'d
+    return RegexMatchSTD(U"'s|'t|'re|'ve|'m|'ll|'d");
   }
+
+  // TODO: Add Llama3 regex support for python regex:
+  // (?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+
 
   static bool IsZ(char32_t ch) {
     auto category = ufal::unilib::unicode::category(ch);
