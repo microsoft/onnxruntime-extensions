@@ -205,6 +205,12 @@ class TokenWithRegularExp {
     // GPT2 python regex pattern:
     // 's|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+
 
+    // s|'t|'re|'ve|'m|'ll|'d
+    std::u32string_view std_regex = RegexMatchSTD(U"'s|'t|'re|'ve|'m|'ll|'d");
+    if (std_regex.size() != 0){
+      return std_regex;
+    }
+
     // ?\p{L}+
     if ((m_text[0] == U' ') && (m_text.size() > 1) && (ufal::unilib::unicode::category(m_text[1]) & ufal::unilib::unicode::L)) {
       size_t i = 2;
@@ -289,8 +295,7 @@ class TokenWithRegularExp {
       return res;
     }
 
-    // s|'t|'re|'ve|'m|'ll|'d
-    return RegexMatchSTD(U"'s|'t|'re|'ve|'m|'ll|'d");
+    return std::u32string_view{};
   }
 
   // TODO: Add Llama3 regex support for python regex:
