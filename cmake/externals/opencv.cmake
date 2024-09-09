@@ -142,7 +142,7 @@ endif()
 FetchContent_Declare(
     opencv
     GIT_REPOSITORY https://github.com/opencv/opencv.git
-    GIT_TAG        4.10.0
+    GIT_TAG        4.5.4
     GIT_SHALLOW    TRUE
     -DBUILD_DOCS:BOOL=FALSE
     -DBUILD_EXAMPLES:BOOL=FALSE
