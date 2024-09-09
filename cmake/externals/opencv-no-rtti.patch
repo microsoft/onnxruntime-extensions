@@ -80,6 +80,28 @@ index fab5351025..2bd13bc81b 100644
  /* static */ Context Context::fromHandle(void* context) { OCL_NOT_AVAILABLE(); }
  /* static */ Context Context::fromDevice(const ocl::Device& device) { OCL_NOT_AVAILABLE(); }
  /* static */ Context Context::create(const std::string& configuration) { OCL_NOT_AVAILABLE(); }
+diff --git a/modules/imgcodecs/src/macosx_conversions.mm b/modules/imgcodecs/src/macosx_conversions.mm
+index 0023e06260..abfe41ce11 100644
+--- a/modules/imgcodecs/src/macosx_conversions.mm
++++ b/modules/imgcodecs/src/macosx_conversions.mm
+@@ -9,6 +9,9 @@ CV_EXPORTS NSImage* MatToNSImage(const cv::Mat& image);
+ CV_EXPORTS void NSImageToMat(const NSImage* image, cv::Mat& m, bool alphaExist);
+ 
+ NSImage* MatToNSImage(const cv::Mat& image) {
++#if TARGET_OS_MACCATALYST
++    @throw [NSException exceptionWithName:@"NSGenericException" reason:@"NSImage is not supported on Mac-Catalyst"];
++#else
+     // Creating CGImage from cv::Mat
+     CGImageRef imageRef = MatToCGImage(image);
+ 
+@@ -17,6 +20,7 @@ NSImage* MatToNSImage(const cv::Mat& image) {
+     CGImageRelease(imageRef);
+ 
+     return nsImage;
++#endif
+ }
+ 
+ void NSImageToMat(const NSImage* image, cv::Mat& m, bool alphaExist) {
 diff --git a/samples/dnn/dnn_model_runner/dnn_conversion/requirements.txt b/samples/dnn/dnn_model_runner/dnn_conversion/requirements.txt
 index 6887c2ab2c..e69de29bb2 100644
 --- a/samples/dnn/dnn_model_runner/dnn_conversion/requirements.txt
