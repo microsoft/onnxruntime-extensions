@@ -202,23 +202,33 @@ class TokenWithRegularExp {
   }
 
   std::u32string_view RegexMatchGPT2() {
-    // GPT2 python regex pattern:
+    // python pattern:
     // 's|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+
 
-    // s|'t|'re|'ve|'m|'ll|'d
+    // 's|'t|'re|'ve|'m|'ll|'d|
+    // Note: the sequencial of the following if should not be switched, which follows the python regex's syntax
 
     // Standard Library Search might be too compute intensive here due to conversions to and fro ustring and wstring
     // std::u32string_view std_regex = RegexMatchSTD(U"'s|'t|'re|'ve|'m|'ll|'d");
     // if (std_regex.size() != 0){
     //   return std_regex;
     // }
-    // Note: the sequencial of the following if should not be switched, which follows the python regex's syntax
     if ((m_text[0] == U'\'') && (m_text.size() > 1)) {
       if ((m_text[1] == U's') || (m_text[1] == U't') ||
           (m_text[1] == U'm') || (m_text[1] == U'd')) {
         std::u32string_view res = m_text.substr(0, 2);
         m_text = m_text.substr(2);
         return res;
+      }
+
+      if (m_text.size() > 2) {
+        if (((m_text[1] == U'r') && (m_text[2] == U'e')) ||
+            ((m_text[1] == U'v') && (m_text[2] == U'e')) ||
+            ((m_text[1] == U'l') && (m_text[2] == U'l'))) {
+          std::u32string_view res = m_text.substr(0, 3);
+          m_text = m_text.substr(3);
+          return res;
+        }
       }
     }
 
