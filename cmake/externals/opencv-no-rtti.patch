@@ -1,5 +1,5 @@
 diff --git a/3rdparty/libjpeg/CMakeLists.txt b/3rdparty/libjpeg/CMakeLists.txt
-index c0524cc38..69a71e416 100644
+index c0524cc38a..69a71e4162 100644
 --- a/3rdparty/libjpeg/CMakeLists.txt
 +++ b/3rdparty/libjpeg/CMakeLists.txt
 @@ -27,7 +27,6 @@ endif()
@@ -11,7 +11,7 @@ index c0524cc38..69a71e416 100644
  set_target_properties(${JPEG_LIBRARY}
    PROPERTIES OUTPUT_NAME ${JPEG_LIBRARY}
 diff --git a/3rdparty/zlib/CMakeLists.txt b/3rdparty/zlib/CMakeLists.txt
-index 9758861a6..9e654ba92 100644
+index d88ad8f39f..0a3c2872d5 100644
 --- a/3rdparty/zlib/CMakeLists.txt
 +++ b/3rdparty/zlib/CMakeLists.txt
 @@ -81,7 +81,6 @@ set_target_properties(${ZLIB_LIBRARY} PROPERTIES DEFINE_SYMBOL ZLIB_DLL)
@@ -20,42 +20,29 @@ index 9758861a6..9e654ba92 100644
      -Wundef  # _LFS64_LARGEFILE is not defined
 -    /wd4267  # MSVS 2015 (x64) + zlib 1.2.11
      -Wimplicit-fallthrough
+     /wd4244  # MSVS + zlib 1.2.12: warning C4244: '=': conversion from 'ush' to 'uchf', possible loss of data
  )
- 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index d95e5db16..db185453d 100644
+index f5e39b4c71..46306297d8 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -617,11 +617,6 @@ endif()
+@@ -673,11 +673,6 @@ endif()
  
  ocv_cmake_hook(POST_CMAKE_BUILD_OPTIONS)
  
 -# --- Python Support ---
--if(NOT IOS)
+-if(NOT IOS AND NOT XROS)
 -  include(cmake/OpenCVDetectPython.cmake)
 -endif()
 -
  include(cmake/OpenCVCompilerOptions.cmake)
  
  ocv_cmake_hook(POST_COMPILER_OPTIONS)
-diff --git a/cmake/OpenCVDetectCXXCompiler.cmake b/cmake/OpenCVDetectCXXCompiler.cmake
-index 7f229cde9..92e204a5b 100644
---- a/cmake/OpenCVDetectCXXCompiler.cmake
-+++ b/cmake/OpenCVDetectCXXCompiler.cmake
-@@ -171,7 +171,7 @@ elseif(MSVC)
-     set(OpenCV_RUNTIME vc15)
-   elseif(MSVC_VERSION MATCHES "^192[0-9]$")
-     set(OpenCV_RUNTIME vc16)
--  elseif(MSVC_VERSION MATCHES "^193[0-9]$")
-+  elseif(MSVC_VERSION MATCHES "^19[34][0-9]$")
-     set(OpenCV_RUNTIME vc17)
-   else()
-     message(WARNING "OpenCV does not recognize MSVC_VERSION \"${MSVC_VERSION}\". Cannot set OpenCV_RUNTIME")
 diff --git a/modules/core/include/opencv2/core/ocl.hpp b/modules/core/include/opencv2/core/ocl.hpp
-index 4503fa00d..642b0508d 100644
+index 891fd678b7..e15b660af2 100644
 --- a/modules/core/include/opencv2/core/ocl.hpp
 +++ b/modules/core/include/opencv2/core/ocl.hpp
-@@ -302,21 +302,6 @@ public:
+@@ -307,21 +307,6 @@ public:
  
      void release();
  
@@ -78,10 +65,10 @@ index 4503fa00d..642b0508d 100644
      inline Impl* getImpl() const { return (Impl*)p; }
      inline bool empty() const { return !p; }
 diff --git a/modules/core/src/ocl_disabled.impl.hpp b/modules/core/src/ocl_disabled.impl.hpp
-index a217979a1..0ba30d024 100644
+index fab5351025..2bd13bc81b 100644
 --- a/modules/core/src/ocl_disabled.impl.hpp
 +++ b/modules/core/src/ocl_disabled.impl.hpp
-@@ -177,11 +177,6 @@ void* Context::getOpenCLContextProperty(int /*propertyId*/) const { OCL_NOT_AVAI
+@@ -180,11 +180,6 @@ void* Context::getOpenCLContextProperty(int /*propertyId*/) const { OCL_NOT_AVAI
  bool Context::useSVM() const { return false; }
  void Context::setUseSVM(bool enabled) { }
  
@@ -94,10 +81,9 @@ index a217979a1..0ba30d024 100644
  /* static */ Context Context::fromDevice(const ocl::Device& device) { OCL_NOT_AVAILABLE(); }
  /* static */ Context Context::create(const std::string& configuration) { OCL_NOT_AVAILABLE(); }
 diff --git a/samples/dnn/dnn_model_runner/dnn_conversion/requirements.txt b/samples/dnn/dnn_model_runner/dnn_conversion/requirements.txt
-deleted file mode 100644
-index 6887c2ab2..000000000
+index 6887c2ab2c..e69de29bb2 100644
 --- a/samples/dnn/dnn_model_runner/dnn_conversion/requirements.txt
-+++ /dev/null
++++ b/samples/dnn/dnn_model_runner/dnn_conversion/requirements.txt
 @@ -1,15 +0,0 @@
 -# Python 3.7.5
 -onnx>=1.7.0
