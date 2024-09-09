@@ -105,7 +105,7 @@ class TokenWithRegularExp {
 
   std::pair<bool, std::u32string_view> GetNextToken() {
     while (!m_text.empty()) {
-      auto res = RegexMatchGPT2();
+      auto res = RegexMatchLlama3();
       if (res.empty()) {
         m_text = m_text.substr(1);
         continue;
@@ -202,7 +202,7 @@ class TokenWithRegularExp {
   }
 
   std::u32string_view RegexMatchGPT2() {
-    // python pattern:
+    // GPT2 Python Regex pattern:
     // 's|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+
 
     // 's|'t|'re|'ve|'m|'ll|'d|
@@ -233,20 +233,20 @@ class TokenWithRegularExp {
     }
 
     // ?\p{L}+
-    if ((m_text[0] == U' ') && (m_text.size() > 1) && (ufal::unilib::unicode::category(m_text[1]) & ufal::unilib::unicode::L)) {
+    if ((m_text[0] == U' ') && (m_text.size() > 1) && IsL(m_text[1])) {
       size_t i = 2;
       for (; i < m_text.size(); ++i) {
-        if ((ufal::unilib::unicode::category(m_text[i]) & ufal::unilib::unicode::L) == 0)
+        if (!IsL(m_text[i]))
           break;
       }
       std::u32string_view res = m_text.substr(0, i);
       m_text = m_text.substr(i);
       return res;
     }
-    if (ufal::unilib::unicode::category(m_text[0]) & ufal::unilib::unicode::L) {
+    if (IsL(m_text[0])) {
       size_t i = 1;
       for (; i < m_text.size(); ++i) {
-        if ((ufal::unilib::unicode::category(m_text[i]) & ufal::unilib::unicode::L) == 0)
+        if (!IsL(m_text[i]))
           break;
       }
       std::u32string_view res = m_text.substr(0, i);
@@ -255,20 +255,20 @@ class TokenWithRegularExp {
     }
 
     // ?\p{N}+
-    if ((m_text[0] == U' ') && (m_text.size() > 1) && (ufal::unilib::unicode::category(m_text[1]) & ufal::unilib::unicode::N)) {
+    if ((m_text[0] == U' ') && (m_text.size() > 1) && IsN(m_text[1])) {
       size_t i = 2;
       for (; i < m_text.size(); ++i) {
-        if ((ufal::unilib::unicode::category(m_text[i]) & ufal::unilib::unicode::N) == 0)
+        if (!IsN(m_text[i]))
           break;
       }
       std::u32string_view res = m_text.substr(0, i);
       m_text = m_text.substr(i);
       return res;
     }
-    if (ufal::unilib::unicode::category(m_text[0]) & ufal::unilib::unicode::N) {
+    if (IsN(m_text[0])) {
       size_t i = 1;
       for (; i < m_text.size(); ++i) {
-        if ((ufal::unilib::unicode::category(m_text[i]) & ufal::unilib::unicode::N) == 0)
+        if (!IsN(m_text[i]))
           break;
       }
       std::u32string_view res = m_text.substr(0, i);
@@ -319,8 +319,155 @@ class TokenWithRegularExp {
     return std::u32string_view{};
   }
 
-  // TODO: Add Llama3 regex support for python regex:
-  // (?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+
+  std::u32string_view RegexMatchLlama3() {
+    // Llama3 Python Regex pattern:
+    // (?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+
+
+    // (?i:'s|'t|'re|'ve|'m|'ll|'d)
+    // Note: the sequencial of the following if should not be switched, which follows the python regex's syntax
+    if ((m_text[0] == U'\'') && (m_text.size() > 1)) {
+      if ((m_text[1] == U's') || (m_text[1] == U't') ||
+          (m_text[1] == U'm') || (m_text[1] == U'd') ||
+          (m_text[1] == U'S') || (m_text[1] == U'T') ||
+          (m_text[1] == U'M') || (m_text[1] == U'D')) {
+        std::u32string_view res = m_text.substr(0, 2);
+        m_text = m_text.substr(2);
+        return res;
+      }
+
+      if (m_text.size() > 2) {
+        if ((((m_text[1] == U'r') || (m_text[1] == U'R')) && ((m_text[2] == U'e') || (m_text[2] == U'E'))) ||
+            (((m_text[1] == U'v') || (m_text[1] == U'V')) && ((m_text[2] == U'e') || (m_text[2] == U'E'))) ||
+            (((m_text[1] == U'l') || (m_text[1] == U'L')) && ((m_text[2] == U'l') || (m_text[2] == U'L')))) {
+          std::u32string_view res = m_text.substr(0, 3);
+          m_text = m_text.substr(3);
+          return res;
+        }
+      }
+    }
+
+    // [^\r\n\p{L}\p{N}]?\p{L}+
+    if (!IsRN(m_text[0]) && !IsN(m_text[0])){
+      if (IsL(m_text[0]) || ((m_text.size() > 1) && IsL(m_text[1]))){
+        size_t i = 1;
+        for (; i < m_text.size(); ++i) {
+          if (!IsL(m_text[i]))
+            break;
+        }
+        std::u32string_view res = m_text.substr(0, i);
+        m_text = m_text.substr(i);
+        return res;
+      }
+    }
+
+    // \p{N}{1,3}
+    if (IsN(m_text[0])){
+      size_t i = 1;
+      for (; i < m_text.size(); ++i) {
+        if (!IsN(m_text[i]) || (i > 2))
+          break;
+      }
+      std::u32string_view res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+
+    // ?[^\s\p{L}\p{N}]+[\r\n]*
+    if ((m_text[0] == U' ') && (m_text.size() > 1) && (NotLNZ(m_text[1]))) {
+      size_t i = 2;
+      for (; i < m_text.size(); ++i) {
+        if (!NotLNZ(m_text[i]))
+          break;
+      }
+      if (i < m_text.size() && IsRN(m_text[i])){
+        for (; i < m_text.size(); ++i) {
+          if (!IsRN(m_text[i]))
+            break;
+        }
+      }
+      std::u32string_view res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+    if (NotLNZ(m_text[0])) {
+      size_t i = 1;
+      for (; i < m_text.size(); ++i) {
+        if (!NotLNZ(m_text[i]))
+          break;
+      }
+      if (i < m_text.size() && IsRN(m_text[i])){
+        for (; i < m_text.size(); ++i) {
+          if (!IsRN(m_text[i]))
+            break;
+        }
+      }
+      std::u32string_view res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+
+    // \s*[\r\n]+
+    if (IsZ(m_text[0])){
+      size_t i = 1;
+      for (; i < m_text.size(); ++i) {
+        if (!IsZ(m_text[i]))
+          break;
+      }
+      if (i < m_text.size() && IsRN(m_text[i])){
+        for (; i < m_text.size(); ++i) {
+          if (!IsRN(m_text[i]))
+            break;
+        }
+      }
+      std::u32string_view res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+    if (IsRN(m_text[0])){
+      size_t i = 1;
+      for (; i < m_text.size(); ++i) {
+        if (!IsRN(m_text[i]))
+          break;
+      }
+      std::u32string_view res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+
+    // \s+(?!\S)|\s+
+    if ((m_text.size() >= 1) && (IsZ(m_text[0]))) {
+      size_t i = 1;
+      for (; i < m_text.size(); ++i) {
+        if (!IsZ(m_text[i])) break;
+      }
+      if ((i > 1) && (i != m_text.size())) {  //\s+(?!\S)
+        i--;
+        std::u32string_view res = m_text.substr(0, i);
+        m_text = m_text.substr(i);
+        return res;
+      }
+      // \s+
+      std::u32string_view res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+
+    return std::u32string_view{};
+  }
+
+  static bool IsRN(char32_t ch) {
+    return ch == U'\r' || ch == U'\n';
+  }
+
+  static bool IsL(char32_t ch) {
+    auto category = ufal::unilib::unicode::category(ch);
+    return (category & ufal::unilib::unicode::L) != 0;
+  }
+
+  static bool IsN(char32_t ch) {
+    auto category = ufal::unilib::unicode::category(ch);
+    return (category & ufal::unilib::unicode::N) != 0;
+  }
 
   static bool IsZ(char32_t ch) {
     auto category = ufal::unilib::unicode::category(ch);
