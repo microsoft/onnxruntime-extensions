@@ -184,6 +184,7 @@ class TokenWithRegularExp {
       return u32str;
   }
 
+  // Use the C++ standard library to handle regex pattern matching for compatible strings
   std::u32string_view RegexMatchSTD(const std::u32string& regex) {
     static std::u32string text(m_text);
     std::wstring wstr = U2Wstring(text);
@@ -201,18 +202,29 @@ class TokenWithRegularExp {
     }
   }
 
-  std::u32string_view RegexMatchGPT2() {
-    // GPT2 Python Regex pattern:
-    // 's|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+
+  // For efficiency, we handle manual parsing for certain popular regex strings commonly used in popular models,
+  // such as GPT2 and Llama3.
+  // Reference: https://github.com/ggerganov/llama.cpp/blob/9fe94ccac92693d4ae1bc283ff0574e8b3f4e765/src/unicode.cpp#L225
 
-    // 's|'t|'re|'ve|'m|'ll|'d|
+  // GPT2 Python Regex pattern:
+  // 's|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+
+
+  std::u32string_view RegexMatchGPT2() {
+
+    // Case 1: English apostrophe handling (1st-7th Alternative, the endings for her's, can't, you're, etc.)
+
     // Note: the sequencial of the following if should not be switched, which follows the python regex's syntax
 
-    // Standard Library Search might be too compute intensive here due to conversions to and fro ustring and wstring
+    // Standard Library Search might be too compute intensive here due to conversions to and fro ustring and wstring,
+    // so we stick to manual parsing here for efficiency, however (as an example for the usage of RegexMatchSTD),
+    // note that this following snippet would also work:
+
     // std::u32string_view std_regex = RegexMatchSTD(U"'s|'t|'re|'ve|'m|'ll|'d");
     // if (std_regex.size() != 0){
     //   return std_regex;
     // }
+
+    // 's|'t|'re|'ve|'m|'ll|'d
     if ((m_text[0] == U'\'') && (m_text.size() > 1)) {
       if ((m_text[1] == U's') || (m_text[1] == U't') ||
           (m_text[1] == U'm') || (m_text[1] == U'd')) {
@@ -232,6 +244,11 @@ class TokenWithRegularExp {
       }
     }
 
+    // Case 2: Language Character Class (8th Alternative)
+    // ? matches the previous token between zero and one times, as many times as possible, giving back as needed (greedy)
+    // \p{L} matches any kind of letter from any language
+    // + matches the previous token between one and unlimited times, as many times as possible, giving back as needed (greedy)
+    
     // ?\p{L}+
     if ((m_text[0] == U' ') && (m_text.size() > 1) && IsL(m_text[1])) {
       size_t i = 2;
@@ -253,6 +270,10 @@ class TokenWithRegularExp {
       m_text = m_text.substr(i);
       return res;
     }
+
+    // Case 3: Numeric Character Class (9th Alternative)
+    // \p{N} matches any kind of numeric character in any script
+    // all other symbols as previously described.
 
     // ?\p{N}+
     if ((m_text[0] == U' ') && (m_text.size() > 1) && IsN(m_text[1])) {
@@ -276,6 +297,11 @@ class TokenWithRegularExp {
       return res;
     }
 
+    // Case 4: Custom Character Combination (10th Alternative)
+    // [^...] matches a single character not present in the list
+    // \s matches any whitespace character (equivalent to [\r\n\t\f\v])
+    // all other symbols as previously described.
+
     // ?[^\s\p{L}\p{N}]+
     if ((m_text[0] == U' ') && (m_text.size() > 1) && (NotLNZ(m_text[1]))) {
       size_t i = 2;
@@ -298,6 +324,11 @@ class TokenWithRegularExp {
       return res;
     }
 
+    // Case 5: Custom Character Combination (11th and 12th Alternative)
+    // (?!...) is a Negative Lookahead, it asserts that the regex in ... does not match
+    // \S matches any non-whitespace character (equivalent to [^\r\n\t\f\v])
+    // all other symbols as previously described.
+
     // \s+(?!\S)|\s+
     if ((m_text.size() >= 1) && (IsZ(m_text[0]))) {
       size_t i = 1;
@@ -319,12 +350,18 @@ class TokenWithRegularExp {
     return std::u32string_view{};
   }
 
+  // Llama3 Python Regex pattern:
+  // (?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+
   std::u32string_view RegexMatchLlama3() {
-    // Llama3 Python Regex pattern:
-    // (?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+
+
+    // Case 1: English apostrophe handling, case insensitive (1st Alternative, the endings for her's, CAN'T, etc.)
+    // (?_: ...) is a Non-capturing Group, which matches the tokens contained with the effective flags following ?
+    // i modifier performs a case insensitive match (ignores case of [a-zA-Z])
+    // all other symbols as previously described.
+
+    // Note: the sequencial of the following if should not be switched, which follows the python regex's syntax
 
     // (?i:'s|'t|'re|'ve|'m|'ll|'d)
-    // Note: the sequencial of the following if should not be switched, which follows the python regex's syntax
     if ((m_text[0] == U'\'') && (m_text.size() > 1)) {
       if ((m_text[1] == U's') || (m_text[1] == U't') ||
           (m_text[1] == U'm') || (m_text[1] == U'd') ||
@@ -346,6 +383,11 @@ class TokenWithRegularExp {
       }
     }
 
+    // Case 2: Custom Character Combination (2nd Alternative)
+    // \r matches a carriage return (ASCII 13)
+    // \n matches a line-feed (newline) character (ASCII 10)
+    // all other symbols as previously described.
+
     // [^\r\n\p{L}\p{N}]?\p{L}+
     if (!IsRN(m_text[0]) && !IsN(m_text[0])){
       if (IsL(m_text[0]) || ((m_text.size() > 1) && IsL(m_text[1]))){
@@ -360,6 +402,10 @@ class TokenWithRegularExp {
       }
     }
 
+    // Case 3: Numeric Character Class (3rd Alternative)
+    // {1,3} matches the previous token between 1 and 3 times, as many times as possible, giving back as needed (greedy)
+    // all other symbols as previously described. 
+
     // \p{N}{1,3}
     if (IsN(m_text[0])){
       size_t i = 1;
@@ -371,6 +417,10 @@ class TokenWithRegularExp {
       m_text = m_text.substr(i);
       return res;
     }
+
+    // Case 4: Custom Character Combination (4th Alternative)
+    // * matches the previous token between zero and unlimited times, as many times as possible, giving back as needed (greedy)
+    // all other symbols as previously described.
 
     // ?[^\s\p{L}\p{N}]+[\r\n]*
     if ((m_text[0] == U' ') && (m_text.size() > 1) && (NotLNZ(m_text[1]))) {
@@ -406,6 +456,9 @@ class TokenWithRegularExp {
       return res;
     }
 
+    // Case 5: Custom Character Combination (5th Alternative)
+    // all symbols as previously described.
+
     // \s*[\r\n]+
     if (IsZ(m_text[0])){
       size_t i = 1;
@@ -434,6 +487,9 @@ class TokenWithRegularExp {
       return res;
     }
 
+    // Case 5: Custom Character Combination (6th and 7th Alternative)
+    // all symbols as previously described.
+
     // \s+(?!\S)|\s+
     if ((m_text.size() >= 1) && (IsZ(m_text[0]))) {
       size_t i = 1;
@@ -455,6 +511,9 @@ class TokenWithRegularExp {
     return std::u32string_view{};
   }
 
+  // RegexMatchCustom takes a regular expression 'regex_expr' and perform pattern matching to get the next token.
+  // If the regex is familiar and matches that for one of our pre-written parsers for GPT2 or Llama3, we use the
+  // appropriate methods. If not, we check to see if the regex can be parsed with the C++ Standard Library methods.
   std::u32string_view RegexMatchCustom(const std::string & regex_expr) {
     std::vector<size_t> bpe_offsets;
 
@@ -475,7 +534,7 @@ class TokenWithRegularExp {
     }
 
     return std::u32string_view{};
-}
+  }
 
   static bool IsRN(char32_t ch) {
     return ch == U'\r' || ch == U'\n';
