@@ -276,7 +276,9 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     }
 
     while (static_cast<int64_t>(res.size()) < max_length) {
-      auto [b, tok] = regcmp.GetNextToken();
+      // TODO: Change regex based on tokenizer type. Currently using GPT2 regex.
+      std::string regex_expr = "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)";
+      auto [b, tok] = regcmp.GetNextToken(regex_expr);
 
       if (!b) break;
 

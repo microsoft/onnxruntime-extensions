@@ -103,9 +103,9 @@ class TokenWithRegularExp {
     m_text = val;
   }
 
-  std::pair<bool, std::u32string_view> GetNextToken() {
+  std::pair<bool, std::u32string_view> GetNextToken(std::string & regex_expr) {
     while (!m_text.empty()) {
-      auto res = RegexMatchLlama3();
+      auto res = RegexMatchCustom(regex_expr);
       if (res.empty()) {
         m_text = m_text.substr(1);
         continue;
@@ -454,6 +454,28 @@ class TokenWithRegularExp {
 
     return std::u32string_view{};
   }
+
+  std::u32string_view RegexMatchCustom(const std::string & regex_expr) {
+    std::vector<size_t> bpe_offsets;
+
+    if (regex_expr == "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)") {
+        return RegexMatchGPT2();
+    } else if (regex_expr == "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+" ||
+               regex_expr == "(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+") {
+
+        return RegexMatchLlama3();
+    }
+
+    try {
+      return RegexMatchSTD(ustring(regex_expr));
+    } catch (const std::exception& ex) {
+      std::string part1 = "Regex '";
+      std::string part2 = "' not supported!";
+      throw std::runtime_error(part1 + regex_expr + part2);
+    }
+
+    return std::u32string_view{};
+}
 
   static bool IsRN(char32_t ch) {
     return ch == U'\r' || ch == U'\n';
