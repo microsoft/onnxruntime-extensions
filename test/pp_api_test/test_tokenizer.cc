@@ -65,6 +65,24 @@ TEST(CApiTest, StreamApiTest) {
   OrtxDispose(&tokenizer);
 }
 
+TEST(OrtxTokenizerTest, RegexTest) {
+  std::u32string str = U"CAN'T \r\n 2413m";
+  auto regcmp = std::make_unique<ort_extensions::bpe::TokenWithRegularExp>();
+
+  std::vector<std::u32string> res;
+  std::vector<std::u32string> out_tokens = {U"CAN", U"'T", U" \r\n", U" ", U"241", U"3", U"m"};
+
+  int64_t max_length = out_tokens.size();
+  regcmp->Set(str.c_str());
+  std::string regex_expr = regcmp->LLAMA_REGEX_PATTERN_1;
+
+  while (static_cast<int64_t>(res.size()) < max_length) {
+    auto [b, tok] = regcmp->GetNextToken(regex_expr);
+    res.push_back(ustring(tok));
+  }
+  EXPECT_EQ(res, out_tokens);
+}
+
 TEST(OrtxTokenizerTest, ClipTokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
   auto status = tokenizer->Load("data/clip");

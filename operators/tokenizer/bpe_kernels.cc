@@ -278,10 +278,10 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     while (static_cast<int64_t>(res.size()) < max_length) {
       std::string regex_expr = "";
       if (ModelName() == kModel_Llama){
-        regex_expr = "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+";
+        regex_expr = regcmp.LLAMA_REGEX_PATTERN_1;
       } else {
         // default to GPT2 regex
-        regex_expr = "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)";
+        regex_expr = regcmp.GPT2_REGEX_PATTERN;
       }
       auto [b, tok] = regcmp.GetNextToken(regex_expr);
 
