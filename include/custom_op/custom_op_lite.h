@@ -459,16 +459,16 @@ class OrtGraphCudaKernelContext : public CUDAKernelContext {
 
   OrtGraphCudaKernelContext(const OrtApi& ort_api, const OrtKernelContext& ctx) : api_(ort_api) {
     OrtStatusPtr result = api_.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::cuda_handle_t, &cuda_stream_);
-    if (!cuda_stream_) {
+    if (result || !cuda_stream_) {
       ORTX_CXX_API_THROW("Failed to fetch cuda stream from context", ORT_RUNTIME_EXCEPTION);
     }
     result = api_.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::cublas_handle_t, &cublas_);
-    if (!cublas_) {
+    if (result || !cublas_) {
       ORTX_CXX_API_THROW("Failed to fetch cublas handle from context", ORT_RUNTIME_EXCEPTION);
     }
     void* resource = nullptr;
     result = api_.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::device_id_t, &resource);
-    if (result) {
+    if (result || !resource) {
       ORTX_CXX_API_THROW("Failed to fetch device id from context", ORT_RUNTIME_EXCEPTION);
     }
     memcpy(&device_id_, &resource, sizeof(int));
