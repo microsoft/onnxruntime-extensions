@@ -8,7 +8,11 @@
 
 #include "image_processor.h"
 #include "c_api_utils.hpp"
+#ifdef WIN32
+#include "image_decoder_win32.hpp"
+#else
 #include "image_decoder.hpp"
+#endif
 #include "image_transforms.hpp"
 #include "image_transforms_phi_3.hpp"
 
