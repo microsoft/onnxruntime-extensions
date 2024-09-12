@@ -65,6 +65,24 @@ TEST(CApiTest, StreamApiTest) {
   OrtxDispose(&tokenizer);
 }
 
+TEST(OrtxTokenizerTest, RegexTest) {
+  std::u32string str = U"CAN'T \r\n 2413m";
+  auto regcmp = std::make_unique<ort_extensions::bpe::TokenWithRegularExp>();
+
+  std::vector<std::u32string> res;
+  std::vector<std::u32string> out_tokens = {U"CAN", U"'T", U" \r\n", U" ", U"241", U"3", U"m"};
+
+  int64_t max_length = out_tokens.size();
+  regcmp->Set(str.c_str());
+  std::string regex_expr = regcmp->LLAMA_REGEX_PATTERN_1;
+
+  while (static_cast<int64_t>(res.size()) < max_length) {
+    auto [b, tok] = regcmp->GetNextToken(regex_expr);
+    res.push_back(ustring(tok));
+  }
+  EXPECT_EQ(res, out_tokens);
+}
+
 TEST(OrtxTokenizerTest, ClipTokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
   auto status = tokenizer->Load("data/clip");
@@ -133,7 +151,7 @@ TEST(OrtxTokenizerTest, Phi3_S_Tokenizer) {
   EXPECT_NE(tokenizer, nullptr);
 
   std::vector<extTokenId_t> EXPECTED_IDS_0 = {2028, 374, 264, 1296, 13};
-  std::vector<std::string_view> input = {"This is a test.", "the second one",
+  std::vector<std::string_view> input = {"This is a test.", "Ich liebe München",
                                          "I like walking my cute dog\n and\x17 then",
                                          "Hey<|endoftext|>. \t\t \n\nyou  é  @#😈  🤗!       , 1234 15 5,61"};
   std::vector<std::vector<extTokenId_t>> token_ids;
@@ -346,7 +364,7 @@ TEST(OrtxTokenizerStreamTest, Llama2Tokenizer) {
   // validate tokenizer is not null
   EXPECT_TRUE(tokenizer != nullptr);
 
-  std::vector<std::string_view> input = {"This is a test and the second one. "};
+  std::vector<std::string_view> input = {"This is a test and the second one is in German. Ich liebe München!"};
   std::vector<std::vector<extTokenId_t>> token_ids;
   status = tokenizer->Tokenize(input, token_ids);
   EXPECT_TRUE(status.IsOk());
