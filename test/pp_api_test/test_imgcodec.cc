@@ -8,7 +8,7 @@
 
 #include "gtest/gtest.h"
 #include "shared/api/c_api_utils.hpp"
-#include "shared/api/image_decoder.hpp"
+#include "shared/api/image_decoder_win32.hpp"
 
 using namespace ort_extensions;
 
@@ -67,6 +67,15 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({48, 14, 5, 48, 14, 5, 48, 14, 5, 48, 14, 5}));
 
+#if WIN32
+  out_range = out_tensor.Data() + 1296 * 3;
+  ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
+            std::vector<uint8_t>({228, 234, 222, 228, 235, 219, 219, 221, 200, 203, 201, 178}));
+
+  out_range = out_tensor.Data() + 438 * 1300 * 3;
+  ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
+            std::vector<uint8_t>({84, 68, 53, 86, 70, 55, 92, 76, 60, 101, 86, 65}));
+#else
   out_range = out_tensor.Data() + 1296 * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({221, 237, 224, 225, 236, 219, 218, 222, 199, 203, 202, 174}));
@@ -74,7 +83,7 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
   out_range = out_tensor.Data() + 438 * 1300 * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({84, 68, 55, 86, 70, 55, 92, 77, 58, 101, 86, 65}));
-
+#endif
   out_range = out_tensor.Data() + 875 * 1300 * 3 + 1296 * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({208, 210, 197, 204, 206, 193, 198, 200, 187, 194, 196, 183}));

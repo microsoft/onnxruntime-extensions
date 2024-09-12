@@ -111,6 +111,7 @@ inline OrtxStatus image_decoder(const ortc::Tensor<uint8_t>& input, ortc::Tensor
 
   IWICBitmapSource* pSource = pIDecoderFrame;
 
+  // Convert to 24 bytes per pixel RGB format if needed
   if (pixelFormat != GUID_WICPixelFormat24bppRGB) {
     IWICBitmapSource* pConverted = NULL;
     hr = WICConvertBitmapSource(GUID_WICPixelFormat24bppRGB, pSource, &pConverted);
