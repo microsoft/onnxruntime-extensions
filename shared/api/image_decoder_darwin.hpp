@@ -100,7 +100,7 @@ inline OrtxStatus image_decoder(const ortc::Tensor<uint8_t>& input, ortc::Tensor
     ptr++; // Skip A
   }
 
-  delete _32bpp_bitmapData;
+  free(_32bpp_bitmapData);
 
   return status;
 }
