@@ -21,7 +21,7 @@ inline OrtxStatus image_decoder(const ortc::Tensor<uint8_t>& input, ortc::Tensor
   const uint8_t* encoded_image_data = input.Data();
   const int64_t encoded_image_data_len = input.NumberOfElement();
 
-  // check it's a PNG image or JPEG image
+  // check whether it's too small for a image
   if (encoded_image_data_len < 8) {
     return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Invalid image data."};
   }
@@ -52,7 +52,7 @@ inline OrtxStatus image_decoder(const ortc::Tensor<uint8_t>& input, ortc::Tensor
   static_assert(sizeof(uint8_t) == sizeof(unsigned char));
 
   // Initialize the stream with the memory pointer and size.
-  hr = pIWICStream->InitializeFromMemory((unsigned char *)input.Data(), input.NumberOfElement());
+  hr = pIWICStream->InitializeFromMemory((unsigned char *)encoded_image_data, encoded_image_data_len);
   if (FAILED(hr)) {
     return {kOrtxErrorInternal, "[ImageDecoder]: Failed when pIWICStream->InitializeFromMemory."};
   }

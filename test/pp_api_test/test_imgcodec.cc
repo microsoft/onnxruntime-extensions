@@ -8,7 +8,18 @@
 
 #include "gtest/gtest.h"
 #include "shared/api/c_api_utils.hpp"
-#include "shared/api/image_decoder_win32.hpp"
+
+#if OCOS_ENABLE_VENDOR_IMAGE_CODECS
+  #if WIN32
+    #include "shared/api/image_decoder_win32.hpp"
+  #elif __APPLE__
+    #include "shared/api/image_decoder_darwin.hpp"
+  #else
+    #include "shared/api/image_decoder.hpp"
+  #endif
+#else
+#include "shared/api/image_decoder.hpp"
+#endif
 
 using namespace ort_extensions;
 
@@ -26,7 +37,7 @@ TEST(ImgDecoderTest, TestPngDecoder) {
   ortc::Tensor<uint8_t> png_tensor({static_cast<int64_t>(png_data.size())},  png_data.data());
   ortc::Tensor<uint8_t> out_tensor{&CppAllocator::Instance()};
   auto status = image_decoder(png_tensor, out_tensor);
-  ASSERT_TRUE(status.IsOk());
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
 
   ASSERT_EQ(out_tensor.Shape(), std::vector<int64_t>({206, 487, 3}));
   auto out_range = out_tensor.Data() + 0;
@@ -60,14 +71,15 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
   ortc::Tensor<uint8_t> jpeg_tensor({static_cast<int64_t>(jpeg_data.size())},  jpeg_data.data());
   ortc::Tensor<uint8_t> out_tensor{&CppAllocator::Instance()};
   auto status = image_decoder(jpeg_tensor, out_tensor);
-  ASSERT_TRUE(status.IsOk());
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
 
   ASSERT_EQ(out_tensor.Shape(), std::vector<int64_t>({876, 1300, 3}));
   auto out_range = out_tensor.Data() + 0;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({48, 14, 5, 48, 14, 5, 48, 14, 5, 48, 14, 5}));
 
-#if WIN32
+#if OCOS_ENABLE_VENDOR_IMAGE_CODECS
+  #if WIN32
   out_range = out_tensor.Data() + 1296 * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({228, 234, 222, 228, 235, 219, 219, 221, 200, 203, 201, 178}));
@@ -75,6 +87,36 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
   out_range = out_tensor.Data() + 438 * 1300 * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({84, 68, 53, 86, 70, 55, 92, 76, 60, 101, 86, 65}));
+
+  out_range = out_tensor.Data() + 875 * 1300 * 3 + 1296 * 3;
+  ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
+            std::vector<uint8_t>({208, 210, 197, 204, 206, 193, 198, 200, 187, 194, 196, 183}));
+
+  #elif __APPLE__
+  out_range = out_tensor.Data() + 1296 * 3;
+  ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
+            std::vector<uint8_t>({225, 236, 222, 228, 235, 219, 218, 220, 199, 203, 201, 178}));
+
+  out_range = out_tensor.Data() + 438 * 1300 * 3;
+  ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
+            std::vector<uint8_t>({84, 68, 53, 86, 70, 55, 92, 76, 59, 101, 86, 65}));
+
+  out_range = out_tensor.Data() + 875 * 1300 * 3 + 1296 * 3;
+  ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
+            std::vector<uint8_t>({209, 211, 198, 204, 206, 193, 198, 200, 187, 194, 196, 183}));
+  #else
+  out_range = out_tensor.Data() + 1296 * 3;
+  ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
+            std::vector<uint8_t>({221, 237, 224, 225, 236, 219, 218, 222, 199, 203, 202, 174}));
+
+  out_range = out_tensor.Data() + 438 * 1300 * 3;
+  ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
+            std::vector<uint8_t>({84, 68, 55, 86, 70, 55, 92, 77, 58, 101, 86, 65}));
+
+  out_range = out_tensor.Data() + 875 * 1300 * 3 + 1296 * 3;
+  ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
+            std::vector<uint8_t>({208, 210, 197, 204, 206, 193, 198, 200, 187, 194, 196, 183}));
+  #endif
 #else
   out_range = out_tensor.Data() + 1296 * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
@@ -83,8 +125,9 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
   out_range = out_tensor.Data() + 438 * 1300 * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({84, 68, 55, 86, 70, 55, 92, 77, 58, 101, 86, 65}));
-#endif
+
   out_range = out_tensor.Data() + 875 * 1300 * 3 + 1296 * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({208, 210, 197, 204, 206, 193, 198, 200, 187, 194, 196, 183}));
+#endif
 }

@@ -8,8 +8,14 @@
 
 #include "image_processor.h"
 #include "c_api_utils.hpp"
-#ifdef WIN32
-#include "image_decoder_win32.hpp"
+#if OCOS_ENABLE_VENDOR_IMAGE_CODECS
+  #if WIN32
+    #include "image_decoder_win32.hpp"
+  #elif __APPLE__
+    #include "image_decoder_darwin.hpp"
+  #else
+    #include "image_decoder.hpp"
+  #endif
 #else
 #include "image_decoder.hpp"
 #endif

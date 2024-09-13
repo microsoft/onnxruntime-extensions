@@ -747,7 +747,7 @@ if(OCOS_ENABLE_C_API)
         # Use WIC on Windows. Nothing to be done
       elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
         # Use ImageIO on Apple platforms
-        target_link_libraries(ocos_operators PRIVATE "-framework ImageIO")
+        target_link_libraries(ocos_operators PRIVATE "-framework CoreFoundation" "-framework CoreGraphics" "-framework ImageIO")
       else()
         # Fallback to libpng & libjpeg on all other platforms
         target_include_directories(ocos_operators PUBLIC ${libPNG_SOURCE_DIR} ${libJPEG_SOURCE_DIR})
