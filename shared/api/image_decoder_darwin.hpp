@@ -64,11 +64,15 @@ inline OrtxStatus image_decoder(const ortc::Tensor<uint8_t>& input, ortc::Tensor
   std::vector<int64_t> output_dimensions{height, width, channels};
   uint8_t* decoded_image_data = output.Allocate(output_dimensions);
 
+  if (decoded_image_data == nullptr) {
+    return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Failed to allocate memory for decoded image data."};
+  }
+
   // CoreGraphics don't support 24BPP. We get 32BPP with alpha first and then extract the 24BPP data we need.
   const size_t _32bpp_channel = 4;
   const size_t _32bpp_bytesPerRow = width * _32bpp_channel;
-  const size_t bitmapByteCount = width * height * _32bpp_channel;
-  void* _32bpp_bitmapData = malloc(bitmapByteCount);
+  const size_t _32bpp_bitmapByteCount = width * height * _32bpp_channel;
+  void* _32bpp_bitmapData = malloc(_32bpp_bitmapByteCount);
 
   // Ask for the sRGB color space.
   CGColorSpaceRef colorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);

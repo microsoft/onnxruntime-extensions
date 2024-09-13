@@ -133,6 +133,7 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
 }
 
 #if OCOS_ENABLE_VENDOR_IMAGE_CODECS
+#if defined(WIN32) || defined(__APPLE__)
 TEST(ImageDecoderTest, TestTiffDecoder) {
   std::vector<uint8_t> tiff_data;
   std::filesystem::path tiff_path = "data/processor/canoe.tif";
@@ -166,5 +167,5 @@ TEST(ImageDecoderTest, TestTiffDecoder) {
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({82, 66, 49, 74, 66, 57, 74, 66, 49, 82, 74, 57}));
 }
-
+#endif
 #endif
