@@ -131,3 +131,40 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
             std::vector<uint8_t>({208, 210, 197, 204, 206, 193, 198, 200, 187, 194, 196, 183}));
 #endif
 }
+
+#if OCOS_ENABLE_VENDOR_IMAGE_CODECS
+TEST(ImageDecoderTest, TestTiffDecoder) {
+  std::vector<uint8_t> tiff_data;
+  std::filesystem::path tiff_path = "data/processor/canoe.tif";
+  std::ifstream tiff_file(tiff_path, std::ios::binary);
+  ASSERT_TRUE(tiff_file.is_open());
+  tiff_file.seekg(0, std::ios::end);
+  tiff_data.resize(tiff_file.tellg());
+  tiff_file.seekg(0, std::ios::beg);
+  tiff_file.read(reinterpret_cast<char*>(tiff_data.data()), tiff_data.size());
+  tiff_file.close();
+
+  ortc::Tensor<uint8_t> tiff_tensor({static_cast<int64_t>(tiff_data.size())},  tiff_data.data());
+  ortc::Tensor<uint8_t> out_tensor{&CppAllocator::Instance()};
+  auto status = image_decoder(tiff_tensor, out_tensor);
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  ASSERT_EQ(out_tensor.Shape(), std::vector<int64_t>({207, 346, 3}));
+  auto out_range = out_tensor.Data() + 0;
+  ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
+            std::vector<uint8_t>({66, 74, 57, 66, 74, 57, 66, 74, 57, 74, 66, 49}));
+
+  out_range = out_tensor.Data() + 477 * 3;
+  ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
+            std::vector<uint8_t>({41, 41, 41, 33, 33, 33, 41, 41, 49, 33, 33, 33}));
+
+  out_range = out_tensor.Data() + 103 * 346 * 3;
+  ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
+            std::vector<uint8_t>({24, 24, 24, 16, 16, 24, 16, 16, 24, 16, 16, 24}));
+
+  out_range = out_tensor.Data() + 206 * 346 * 3 + 342 * 3;
+  ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
+            std::vector<uint8_t>({82, 66, 49, 74, 66, 57, 74, 66, 49, 82, 74, 57}));
+}
+
+#endif
