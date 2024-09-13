@@ -5,7 +5,7 @@
 
 #include "bpe_kernels.h"
 #include "bpe_decoder.hpp"
-#include "bpe_json.hpp"
+#include "bpe_jsoncfg.hpp"
 #include "bpe_tokenizer.hpp"
 
 namespace ort_extensions {

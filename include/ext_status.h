@@ -103,3 +103,11 @@ class OrtxStatus {
  private:
   std::unique_ptr<Rep> rep_;
 };
+
+#define ORTX_RETURN_IF_ERROR(expr) \
+  do {                             \
+    auto _status = (expr);         \
+    if (_status != nullptr) {      \
+      return _status;              \
+    }                              \
+  } while (0)
