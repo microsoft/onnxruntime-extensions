@@ -131,7 +131,7 @@ struct DecodeImage {
       pSource = pConverted;
     }
 
-    int rowStride = uiWidth * sizeof(uint8_t) * channels;
+    const int rowStride = uiWidth * sizeof(uint8_t) * channels;
     hr = pSource->CopyPixels(NULL, rowStride, output.SizeInBytes(), decoded_image_data);
 
     if (FAILED(hr)) {

@@ -9,8 +9,6 @@
 #include "ext_status.h"
 
 
-OrtxStatus image_decoder(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output);
-
 struct DecodeImage {
   template <typename DictT>
   OrtxStatus Init(const DictT& attrs) {
@@ -84,12 +82,12 @@ struct DecodeImage {
     void* _32bpp_bitmapData = malloc(_32bpp_bitmapByteCount);
 
     // Ask for the sRGB color space.
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+    const CGColorSpaceRef colorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
     if (colorSpace == nullptr) {
       return {kOrtxErrorInternal, "[ImageDecoder]: Failed to create CGColorSpace."};
     }
 
-    CGBitmapInfo _32bpp_bitmapInfo = kCGBitmapByteOrder32Big | (CGBitmapInfo)kCGImageAlphaPremultipliedLast;
+    const CGBitmapInfo _32bpp_bitmapInfo = kCGBitmapByteOrder32Big | (CGBitmapInfo)kCGImageAlphaPremultipliedLast;
     CGContextRef context = CGBitmapContextCreate(_32bpp_bitmapData, width, height, 8 /** bitsPerComponent */,
                                                  _32bpp_bytesPerRow, colorSpace, _32bpp_bitmapInfo);
     CFRelease(colorSpace);
@@ -97,7 +95,7 @@ struct DecodeImage {
       return {kOrtxErrorInternal, "[ImageDecoder]: Failed to create CGBitmapContext."};
     }
 
-    CGRect rect = CGRectMake(0, 0, width, height);
+    const CGRect rect = CGRectMake(0, 0, width, height);
     CGContextDrawImage(context, rect, image);
     CFRelease(context);
 
@@ -117,6 +115,7 @@ struct DecodeImage {
   ~DecodeImage() {
     CFRelease(_imageSourceOptions);
   }
+
   private:
     CFDictionaryRef _imageSourceOptions{NULL};
 };
