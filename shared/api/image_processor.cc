@@ -31,7 +31,7 @@ ort_extensions::LoadRawImages(const std::initializer_list<const char*>& image_pa
 }
 
 Operation::KernelRegistry ImageProcessor::kernel_registry_ = {
-    {"DecodeImage", []() { return CreateKernelInstance(image_decoder); }},
+    {"DecodeImage", []() { return CreateKernelInstance(&DecodeImage::Compute); }},
     {"Resize", []() { return CreateKernelInstance(&Resize::Compute); }},
     {"Rescale", []() { return CreateKernelInstance(&Rescale::Compute); }},
     {"Normalize", []() { return CreateKernelInstance(&Normalize::Compute); }},

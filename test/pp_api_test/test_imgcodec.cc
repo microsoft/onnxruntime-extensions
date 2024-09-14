@@ -24,6 +24,8 @@
 using namespace ort_extensions;
 
 TEST(ImgDecoderTest, TestPngDecoder) {
+  DecodeImage image_decoder;
+  image_decoder.Init(NULL);
   std::vector<uint8_t> png_data;
   std::filesystem::path png_path = "data/processor/exceltable.png";
   std::ifstream png_file(png_path, std::ios::binary);
@@ -36,7 +38,7 @@ TEST(ImgDecoderTest, TestPngDecoder) {
 
   ortc::Tensor<uint8_t> png_tensor({static_cast<int64_t>(png_data.size())},  png_data.data());
   ortc::Tensor<uint8_t> out_tensor{&CppAllocator::Instance()};
-  auto status = image_decoder(png_tensor, out_tensor);
+  auto status = image_decoder.Compute(png_tensor, out_tensor);
   ASSERT_TRUE(status.IsOk()) << status.ToString();
 
   ASSERT_EQ(out_tensor.Shape(), std::vector<int64_t>({206, 487, 3}));
@@ -58,6 +60,8 @@ TEST(ImgDecoderTest, TestPngDecoder) {
 }
 
 TEST(ImageDecoderTest, TestJpegDecoder) {
+  DecodeImage image_decoder;
+  image_decoder.Init(NULL);
   std::vector<uint8_t> jpeg_data;
   std::filesystem::path jpeg_path = "data/processor/australia.jpg";
   std::ifstream jpeg_file(jpeg_path, std::ios::binary);
@@ -70,7 +74,7 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
 
   ortc::Tensor<uint8_t> jpeg_tensor({static_cast<int64_t>(jpeg_data.size())},  jpeg_data.data());
   ortc::Tensor<uint8_t> out_tensor{&CppAllocator::Instance()};
-  auto status = image_decoder(jpeg_tensor, out_tensor);
+  auto status = image_decoder.Compute(jpeg_tensor, out_tensor);
   ASSERT_TRUE(status.IsOk()) << status.ToString();
 
   ASSERT_EQ(out_tensor.Shape(), std::vector<int64_t>({876, 1300, 3}));
@@ -135,6 +139,8 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
 #if OCOS_ENABLE_VENDOR_IMAGE_CODECS
 #if defined(WIN32) || defined(__APPLE__)
 TEST(ImageDecoderTest, TestTiffDecoder) {
+  DecodeImage image_decoder;
+  image_decoder.Init(NULL);
   std::vector<uint8_t> tiff_data;
   std::filesystem::path tiff_path = "data/processor/canoe.tif";
   std::ifstream tiff_file(tiff_path, std::ios::binary);
@@ -147,7 +153,7 @@ TEST(ImageDecoderTest, TestTiffDecoder) {
 
   ortc::Tensor<uint8_t> tiff_tensor({static_cast<int64_t>(tiff_data.size())},  tiff_data.data());
   ortc::Tensor<uint8_t> out_tensor{&CppAllocator::Instance()};
-  auto status = image_decoder(tiff_tensor, out_tensor);
+  auto status = image_decoder.Compute(tiff_tensor, out_tensor);
   ASSERT_TRUE(status.IsOk()) << status.ToString();
 
   ASSERT_EQ(out_tensor.Shape(), std::vector<int64_t>({207, 346, 3}));
