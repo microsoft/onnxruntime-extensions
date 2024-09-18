@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 
 import argparse
-import json
+import re
 from functools import partial
 from pathlib import Path
 from typing import Literal, Optional, TypeAlias
@@ -14,6 +14,8 @@ from onnxruntime_extensions.tools.pre_post_processing import *
 from PIL import Image, ImageDraw
 
 ModelSize: TypeAlias = Optional[Literal["s", "m", "l", "x"]]
+
+BASE_PATH = Path(__file__).parent
 
 
 def _get_yolov8_world_model(onnx_model_path: Path, classes: list[str], size: ModelSize = None):
@@ -27,8 +29,6 @@ def _get_yolov8_world_model(onnx_model_path: Path, classes: list[str], size: Mod
         import ultralytics
 
     if size is None:
-        import re
-
         regex = r"yolov8(.{1})"
         matches = re.search(regex, onnx_model_path.name)
         if matches:
@@ -295,7 +295,27 @@ def _run_inference(
         input_image.show()
 
 
-# python yolov8_world_e2e.py yolov8m-worldv2.onnx --infer --test_image=image.jpg --input=rgb --input_shape H,W,3
+def load_classes(args) -> list[str]:
+    if args.classes:
+        return args.classes
+    elif args.classes_file:
+        classes_file = Path(args.classes_file)
+        with classes_file.open() as fp:
+            if classes_file.suffix == ".json":
+                import json
+
+                classes = json.load(fp)
+            elif classes_file.suffix == ".txt":
+                classes = fp.read().splitlines()
+            else:
+                raise ValueError(f"Invalid file type {classes_file}")
+        return classes
+    else:
+        # default value for data/stormtroopers.jpg
+        return ["person", "helmet"]
+
+
+# python tutorials/yolov8_world_e2e.py yolov8m-worldv2.onnx --infer --input=rgb --input_shape H,W,3
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         """Add pre and post processing to the YOLOv8 World model. The model can be updated to take either 
@@ -305,11 +325,16 @@ if __name__ == "__main__":
     """
     )
     parser.add_argument("model", type=Path, help="The ONNX YOLOv8 World model.")
-    parser.add_argument(
+    classes_group = parser.add_mutually_exclusive_group()
+    classes_group.add_argument(
         "--classes",
-        type=Path,
-        default="classes.json",
-        help="JSON file containing list of classes that will be set as yolo world prompt.",
+        type=lambda x: re.split(r"\s*,\s*", x.strip()),
+        default=["person", "helmet"],
+        help="List of class names that will be passed to yolo world prompt."
+        "Default values 'person,helmet' for data/stormtroopers.jpg",
+    )
+    classes_group.add_argument(
+        "--classes-file", type=Path, help="JSON file containing list of classes that will be set as yolo world prompt."
     )
     parser.add_argument(
         "--size",
@@ -352,13 +377,15 @@ if __name__ == "__main__":
     )
     parser.add_argument("--infer", action="store_true", help="Run inference on the model to validate output.")
     parser.add_argument(
-        "--test_image", type=Path, default="data/stormtroopers.jpg", help="JPG or PNG image to run model with."
+        "--test_image",
+        type=Path,
+        default=BASE_PATH / "data/stormtroopers.jpg",
+        help="JPG or PNG image to run model with.",
     )
 
     args = parser.parse_args()
 
-    with Path(args.classes).open() as fp:
-        classes = json.load(fp)
+    classes = load_classes(args)
 
     num_classes = len(classes)
     assert num_classes > 0, "Requires prompt for YOLO world model."
