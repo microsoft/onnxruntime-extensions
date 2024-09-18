@@ -118,7 +118,7 @@ static std::map<std::string, std::string> LANGUAGES = {
     {"ro", "romanian"},       {"da", "danish"},        {"hu", "hungarian"}, {"ta", "tamil"},      {"no", "norwegian"},
     {"th", "thai"},           {"ur", "urdu"},          {"hr", "croatian"},  {"bg", "bulgarian"},  {"lt", "lithuanian"},
     {"la", "latin"},          {"mi", "maori"},         {"ml", "malayalam"}, {"cy", "welsh"},      {"sk", "slovak"},
-    {"te", "telugu"},         {"fa", "persian"},       {"lv", "latvian"},   {"bn", "bengali"},    {"sr", "serbian"},
+    {"te", "telugu"},         {"fa", "persian"},       {"lv", "latvian"},   {"bn", "bangla"},     {"sr", "serbian"},
     {"az", "azerbaijani"},    {"sl", "slovenian"},     {"kn", "kannada"},   {"et", "estonian"},   {"mk", "macedonian"},
     {"br", "breton"},         {"eu", "basque"},        {"is", "icelandic"}, {"hy", "armenian"},   {"ne", "nepali"},
     {"mn", "mongolian"},      {"bs", "bosnian"},       {"kk", "kazakh"},    {"sq", "albanian"},   {"sw", "swahili"},

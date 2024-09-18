@@ -388,7 +388,7 @@ struct SpmUgmTokenizer : public TokenizerKernelBase {
     size_t prefix_off = 0;
     // if input prefix matches some user-defined token return this token as normalization result
     auto user_defined_token_match = user_defined_token_matcher.FindLongest(prefix, prefix_off);
-    if (user_defined_token_match > 0) {
+    if (user_defined_token_match != user_defined_token_matcher.kInvalidId_) {
       return {&input[input_offset], prefix_off + input_offset, prefix_off + input_offset};
     }
 
@@ -438,8 +438,8 @@ struct SpmUgmTokenizer : public TokenizerKernelBase {
       return {prefix_replacement, strlen(prefix_replacement), longest_prefix_length};
     } else {
       // if yes, return this sequence unmodified
-      size_t prefix_offset = input_offset;
-      if (ustring::ValidateUTF8(input.substr(prefix_offset)) >= 0) {
+      size_t prefix_offset = input_offset + ustring::UTF8Len(input[input_offset]);
+      if (prefix_offset <= input.size()) {
         return {&input[input_offset], prefix_offset - input_offset, prefix_offset - input_offset};
       } else {
         return {"\xEF\xBF\xBD", 3, 1};

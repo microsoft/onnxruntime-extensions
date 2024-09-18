@@ -16,6 +16,7 @@ template <typename CharT, typename ValueT = int, int invalid_id = -1>
 class TrieTree {
  public:
   static constexpr int kMaxTokenLength_ = 128;
+  static constexpr ValueT kInvalidId_ = static_cast<ValueT>(invalid_id);
 
   TrieTree(CharT ch = 0) : ch_(ch), value_(std::nullopt) {}
 
@@ -36,16 +37,10 @@ class TrieTree {
     }
   }
 
-  TrieTree* Find(CharT ch) {
-    if (to_.count(ch) == 0) {
-      return nullptr;
-    }
-    return to_[ch].get();
-  }
-
   const TrieTree* Find(CharT ch) const {
-    return const_cast<const TrieTree*>(static_cast<const TrieTree*>(this)->Find(ch));
-  } 
+    auto it = to_.find(ch);
+    return it != to_.end() ? it->second.get() : nullptr;
+  }
 
   ValueT FindLongest(const std::basic_string<CharT>& key, size_t& idx) const noexcept {
     const TrieTree* u = this;

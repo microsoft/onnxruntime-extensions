@@ -449,4 +449,15 @@ TEST(OrtxTokenizerTest, SpmUgmTokenizer) {
   // test the llama2 tokenizer with BPE class, instead of sentencepiece wrapper.
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/fairseq/xlm-roberta-base");
   EXPECT_EQ(tokenizer.Code(), kOrtxOK);
+
+  const char* input[] = {"hello world"};
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  OrtxTokenize(tokenizer.get(), input, 1, ort_extensions::ptr(token_ids));
+  EXPECT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = NULL;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  std::vector<extTokenId_t> ids_vec(ids, ids + length);
+  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({127, 13817, uint32_t(-1), 32554}));
 }
