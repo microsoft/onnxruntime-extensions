@@ -450,14 +450,18 @@ TEST(OrtxTokenizerTest, SpmUgmTokenizer) {
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/fairseq/xlm-roberta-base");
   EXPECT_EQ(tokenizer.Code(), kOrtxOK);
 
-  const char* input[] = {"hello world"};
+  const char* input[] = {"I like walking my cute dog\n and\x17 then, 生活的真谛是  \t\t\t\t \n\n61"};
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
   OrtxTokenize(tokenizer.get(), input, 1, ort_extensions::ptr(token_ids));
   EXPECT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;
-  const extTokenId_t* ids = NULL;
+  const extTokenId_t* ids = nullptr;
   OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
   std::vector<extTokenId_t> ids_vec(ids, ids + length);
-  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({127, 13817, uint32_t(-1), 32554}));
+
+  // expected ids was generated using the following command:
+  // AutoTokenizer.from_pretrained("FacebookAI/xlm-roberta-base")
+  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({
+    0, 87, 1884, 122395, 759, 99942, 10269, 136, 7068, 4, 6, 62668, 5364, 245875, 354, 11716, 2}));
 }
