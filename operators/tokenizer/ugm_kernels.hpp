@@ -50,7 +50,6 @@ struct SpmUgmTokenizer : public TokenizerKernelBase {
       auto iter = normalizer->find("precompiled_charsmap");
       if (iter != normalizer->end()) {
         auto charsmap = iter->get<std::string>();
-        std::vector<uint8_t> charsmap_data;
         if (!base64_decode(charsmap, charsmap_data)) {
           return OrtxStatus(extError_t::kOrtxErrorCorruptData, "Failed to decode charsmap.");
         }
@@ -450,6 +449,7 @@ struct SpmUgmTokenizer : public TokenizerKernelBase {
   // escaped space symbol - U+2581 (Lower One Eighth Block)
   const std::string escaped_space = "\xE2\x96\x81";
 
+  std::vector<uint8_t> charsmap_data;
   const char* prefix_replacements = NULL;
   size_t prefix_replacements_size = 0;
 
