@@ -444,3 +444,9 @@ TEST(OrtxTokenizerTest, WhisperTokenizer) {
   EXPECT_EQ(err, kOrtxOK);
   EXPECT_EQ(sot_id, 50258);
 }
+
+TEST(OrtxTokenizerTest, SpmUgmTokenizer) {
+  // test the llama2 tokenizer with BPE class, instead of sentencepiece wrapper.
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/fairseq/xlm-roberta-base");
+  EXPECT_EQ(tokenizer.Code(), kOrtxOK);
+}
