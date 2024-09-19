@@ -279,7 +279,7 @@ struct SpmUgmTokenizer {
     normalized->clear();
     normalized->reserve(input.size() * 3);
 
-    const std::string space = tokenizer_escape_whitespaces_ ? std::string(escaped_space_) : " ";
+    const std::string space = tokenizer_escape_whitespaces_ ? std::string(spm_escaped_space) : " ";
 
     bool shall_prepend_space = !tokenizer_treat_whitespace_as_suffix_ && tokenizer_add_space_prefix_;
     bool shall_append_space = tokenizer_treat_whitespace_as_suffix_ && tokenizer_add_space_prefix_;
@@ -419,7 +419,6 @@ struct SpmUgmTokenizer {
 
   // escaped space symbol - U+2581 (Lower One Eighth Block)
   static constexpr double unknown_token_score_penalty_ = 10.0;
-  static constexpr std::string_view escaped_space_ = "\xE2\x96\x81";
 
   std::vector<uint8_t> charsmap_data_;
   const char* prefix_replacements_ = NULL;

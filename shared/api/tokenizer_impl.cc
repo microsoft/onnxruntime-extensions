@@ -16,17 +16,6 @@ TokenizerImpl::TokenizerImpl()
 TokenizerImpl::~TokenizerImpl() {};
 
 OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
-  // bool is_tiktoken = false;
-  // ortx::path tok_path_obj(tok_path);
-  // if (tok_path_obj.is_regular_file() && tok_path_obj.extension() == ".tiktoken") {
-  //   is_tiktoken = true;
-  // }
-
-  // std::string tok_dir = tok_path;
-  // if (tok_path_obj.is_regular_file()) {
-  //   tok_dir = tok_path_obj.parent_path();
-  // }
-
   tok_config_ = std::make_shared<ort_extensions::bpe::TokenJsonConfig>();
   auto status = tok_config_->Load(tok_path);
   if (!status.IsOk()) {
@@ -45,6 +34,7 @@ OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
 
   auto vocab_file_path = ortx::path(tok_config_->GetVocabDataFile());
   auto tokenizer = std::make_unique<JsonFastTokenizer>();
+  // vocab file is checked in TokenJsonConfig::Load
   auto fx_load = vocab_file_path.extension() == ".json"?
                  &JsonFastTokenizer::Load: &JsonFastTokenizer::LoadTikTokenBase64;
   status = (tokenizer.get()->*fx_load)(*tok_config_);
@@ -67,11 +57,6 @@ OrtxStatus TokenizerImpl::BatchEncode(const std::vector<std::string_view>& input
     ortc::Tensor<int64_t> ts_output(&CppAllocator::Instance());
     ortc::Tensor<std::string> ts_input = ortc::Tensor<std::string>(std::vector<std::string>{std::string(s)});
     
-    // if (std::holds_alternative<ugm_tokenizer_t>(tokenizer_)) {
-    //   status = std::get<ugm_tokenizer_t>(tokenizer_)->Compute(ts_input, ts_output);
-    // } else {
-    //   status = std::get<bpe_tokenizer_t>(tokenizer_)->Compute(ts_input, ts_output, std::nullopt, std::nullopt);
-    // }
     OrtxStatus status = std::visit([&](auto& tokenizer) {
       return tokenizer->Compute(ts_input, ts_output);
     }, tokenizer_);

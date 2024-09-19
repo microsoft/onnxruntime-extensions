@@ -24,4 +24,6 @@ struct AddedToken final {
 class TokenJsonConfig;  // forward declaration
 
 }  // namespace bpe
+
+constexpr std::string_view spm_escaped_space = "\xE2\x96\x81";
 }  // namespace ort_extensions

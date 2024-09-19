@@ -697,7 +697,7 @@ bool JsonFastTokenizer::CheckForSpmModel(const json& tok_json) {
         std::string type = step.value("type", "");
         if (type == "Replace") {
           std::string target = step.value("/pattern/String"_json_pointer, "");
-          if (target == "\xe2\x96\x81") {
+          if (target == spm_escaped_space) {
             return true;
           }
         }
@@ -778,7 +778,6 @@ OrtxStatus JsonFastTokenizer::LoadTikTokenBase64(const ort_extensions::bpe::Toke
     return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open json file: " + voc_file);
   }
 
-  // Following vocab and merges only used for tiktoken case but accessed outside scope below
   std::unordered_map<std::string, uint32_t> vocab;
   std::vector<std::pair<std::string, std::string>> merges;
   std::unordered_map<std::vector<uint8_t>, uint32_t, VectorHash, VectorEqual> bpe_ranks;
