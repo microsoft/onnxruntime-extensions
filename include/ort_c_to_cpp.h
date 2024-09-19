@@ -375,3 +375,11 @@ inline bool IsScalarOr1ElementVector(size_t num_dimensions, int64_t shape_size) 
   if (num_dimensions == 0 || (num_dimensions == 1 && shape_size == 1)) return true;
   return false;
 }
+
+#define ORTX_RETURN_IF_ERROR(expr) \
+  do {                             \
+    auto _status = (expr);         \
+    if (_status != nullptr) {      \
+      return _status;              \
+    }                              \
+  } while (0)

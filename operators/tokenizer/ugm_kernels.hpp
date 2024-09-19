@@ -13,16 +13,18 @@
 #include <functional>
 #include <unordered_map>
 
+#include "ortx_tokenizer.h"
+#include "ext_status.h"
+#include "op_def_struct.h"
 #include "base64.h"
 #include "ustring.h"
 #include "nlohmann/json.hpp"
-#include "token_fwd.h"
 #include "trietree.hpp"
 #include "bpe_jsoncfg.hpp"
 
 namespace ort_extensions {
 
-struct SpmUgmTokenizer : public TokenizerKernelBase {
+struct SpmUgmTokenizer {
   using json = nlohmann::json;
   using VocabTrieTree = ort_extensions::TrieTree<char, extTokenId_t, -1>;
   using Vocab = std::unordered_map<std::string, std::tuple<extTokenId_t, double>>; 

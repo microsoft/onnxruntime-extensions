@@ -659,8 +659,7 @@ struct VectorEqual {
     }
 };
 
-template <typename T_JSON>
-OrtxStatus JsonFastTokenizer::LoadAddedTokens(const T_JSON& tok_json, const ort_extensions::bpe::TokenJsonConfig& config) {
+OrtxStatus JsonFastTokenizer::LoadAddedTokens(const json& tok_json, const ort_extensions::bpe::TokenJsonConfig& config) {
   auto added_tokens = tok_json.find("added_tokens");
   if (added_tokens != tok_json.end()) {
     for (const auto& token : *added_tokens) {
@@ -689,8 +688,7 @@ OrtxStatus JsonFastTokenizer::LoadAddedTokens(const T_JSON& tok_json, const ort_
 }
 
 // Helper methods (to be added to the class declaration)
-template <typename T_JSON>
-bool JsonFastTokenizer::CheckForSpmModel(const T_JSON& tok_json) {
+bool JsonFastTokenizer::CheckForSpmModel(const json& tok_json) {
   auto decoder_node = tok_json.find("decoder");
   if (decoder_node != tok_json.end()) {
     auto decoders_node = decoder_node->find("decoders");
@@ -709,8 +707,7 @@ bool JsonFastTokenizer::CheckForSpmModel(const T_JSON& tok_json) {
   return false;
 }
 
-template <typename T_JSON>
-void JsonFastTokenizer::UpdateTokenAdditionFlags(const T_JSON& tok_json, const ort_extensions::bpe::TokenJsonConfig& config) {
+void JsonFastTokenizer::UpdateTokenAdditionFlags(const json& tok_json, const ort_extensions::bpe::TokenJsonConfig& config) {
   if (!config.add_bos_token_ && !config.bos_token_.empty()) {
     auto post_processor = tok_json.find("post_processor");
     if (post_processor != tok_json.end()) {

@@ -73,12 +73,5 @@
       "normalized": false,
       "special": true
     }
-  ],
-  "bos_token": "<|endoftext|>",
-  "chat_template": "{{ bos_token }}{% for message in messages %}{{'<|' + message['role'] + '|>' + '\n' + message['content'] + '<|end|>\n' }}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>\n' }}{% else %}{{ eos_token }}{% endif %}",
-  "clean_up_tokenization_spaces": true,
-  "eos_token": "<|endoftext|>",
-  "model_max_length": 8192,
-  "pad_token": "<|endoftext|>",
-  "tokenizer_class": "Phi3SmallTokenizer"
+  ]
 }

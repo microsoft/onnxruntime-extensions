@@ -5,9 +5,8 @@
 
 #include <variant>
 
-#include "token_fwd.h"
-#include "ugm_kernels.hpp"
 #include "bpe_kernels.h"
+#include "ugm_kernels.hpp"
 #include "bpe_jsoncfg.hpp"
 #include "bpe_streaming.hpp"
 #include "c_api_utils.hpp"

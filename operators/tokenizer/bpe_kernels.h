@@ -8,8 +8,11 @@
 #include <vector>
 #include <functional>
 
-#include "token_fwd.h"
-#include "bpe_types.h"
+#include "ortx_tokenizer.h"
+#include "ext_status.h"
+#include "op_def_struct.h"
+#include "nlohmann/json_fwd.hpp"
+#include "tokjson_types.h"
 #include "ustring.h"
 
 
@@ -24,7 +27,8 @@ struct BpeModelConf {
   std::string GetSpecialTokens() const;
 };
 
-struct KernelBpeTokenizer: public TokenizerKernelBase {
+struct KernelBpeTokenizer {
+  using json = nlohmann::json;
   KernelBpeTokenizer(const BpeModelConf& conf);
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info);
 
@@ -128,12 +132,9 @@ class JsonFastTokenizer : public KernelBpeTokenizer {
  private:
   std::string TokenBytesToString(std::vector<uint8_t>& bytes);
   // template functions to avoid including the huge json header file
-  template <typename T_JSON>
-  bool CheckForSpmModel(const T_JSON& tok_json);
-  template <typename T_JSON>
-  void UpdateTokenAdditionFlags(const T_JSON& tok_json, const ort_extensions::bpe::TokenJsonConfig& config);
-  template <typename T_JSON>
-  OrtxStatus LoadAddedTokens(const T_JSON& tok_json, const ort_extensions::bpe::TokenJsonConfig& config);
+  bool CheckForSpmModel(const json& tok_json);
+  void UpdateTokenAdditionFlags(const json& tok_json, const ort_extensions::bpe::TokenJsonConfig& config);
+  OrtxStatus LoadAddedTokens(const json& tok_json, const ort_extensions::bpe::TokenJsonConfig& config);
 
   BpeModelConf json_conf_;
   std::vector<ort_extensions::bpe::AddedToken> added_tokens_;
