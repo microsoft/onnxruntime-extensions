@@ -18,7 +18,7 @@
 #include "nlohmann/json.hpp"
 #include "bpe_utils.hpp"
 #include "trietree.hpp"
-#include "bpe_types.h"
+#include "tokjson_types.h"
 
 namespace ort_extensions {
 

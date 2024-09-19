@@ -4,7 +4,6 @@
 #pragma once
 #include "ocos.h"
 #include "replace_zero_impl.cuh"
-#include "ortx_common.h"
 
 namespace contrib {
 

@@ -532,7 +532,7 @@ class TokenWithRegularExp {
 
     try {
       return RegexMatchSTD(ustring(regex_expr));
-    } catch (const std::exception& ex) {
+    } catch (const std::exception& /* ex */) {
       std::string part1 = "Regex '";
       std::string part2 = "' not supported!";
       throw std::runtime_error(part1 + regex_expr + part2);

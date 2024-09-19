@@ -8,7 +8,6 @@
 #include "string_tensor.h"
 #include "base64.h"
 #include "narrow.h"
-#include "ortx_common.h"
 
 OrtStatusPtr KernelSentencepieceTokenizer::OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
   std::string model_as_string;

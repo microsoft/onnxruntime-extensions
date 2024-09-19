@@ -5,7 +5,7 @@
 
 #include "bpe_kernels.h"
 #include "bpe_decoder.hpp"
-#include "bpe_json.hpp"
+#include "bpe_jsoncfg.hpp"
 #include "bpe_tokenizer.hpp"
 
 namespace ort_extensions {
@@ -112,7 +112,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
       char buf[3] = {piece[3], piece[4], 0};  // something like <0x20>
       token = {static_cast<char>(strtol(buf, NULL, 16))};
     } else {
-      token = ReplaceAll(piece, spm_underscore, " ");
+      token = ReplaceAll(piece, std::string(ort_extensions::spm_escaped_space), " ");
     }
 
     if (!token.empty() && token[0] == ' ' && f_special_last && add_dummy_prefix_) {
