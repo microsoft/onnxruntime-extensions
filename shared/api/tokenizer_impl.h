@@ -3,9 +3,11 @@
 
 #pragma once
 
-#include "ortx_tokenizer.h"
+#include <variant>
+
 #include "bpe_kernels.h"
-#include "bpe_json.hpp"
+#include "ugm_kernels.hpp"
+#include "bpe_jsoncfg.hpp"
 #include "bpe_streaming.hpp"
 #include "c_api_utils.hpp"
 
@@ -17,7 +19,7 @@ class TokenizerImpl : public OrtxObjectImpl {
   virtual ~TokenizerImpl();
 
  public:
-  OrtxStatus Load(const std::string& dir);
+  OrtxStatus Load(const std::string& tok_path);
 
   OrtxStatus Tokenize(const std::vector<std::string_view>& input, std::vector<std::vector<extTokenId_t>>& t_ids) const {
     return BatchEncode(input, t_ids);
@@ -28,7 +30,7 @@ class TokenizerImpl : public OrtxObjectImpl {
   }
 
   OrtxStatus Token2Id(const std::string& token, extTokenId_t& id) const {
-    id = tokenizer_->GetTokenId(token);
+    id = std::visit([&](auto& tokenizer) { return tokenizer->GetTokenId(token); }, tokenizer_);
     return {};
   }
 
@@ -55,9 +57,11 @@ class TokenizerImpl : public OrtxObjectImpl {
                                  std::vector<std::vector<extTokenId_t>>& t_ids) const;
 
  private:
-  std::string tokenizer_dir_;
+  using bpe_tokenizer_t = std::unique_ptr<JsonFastTokenizer>;
+  using ugm_tokenizer_t = std::unique_ptr<SpmUgmTokenizer>;
+  std::variant<bpe_tokenizer_t, ugm_tokenizer_t> tokenizer_;
+
   std::shared_ptr<ort_extensions::bpe::TokenJsonConfig> tok_config_;
-  std::unique_ptr<JsonFastTokenizer> tokenizer_;
   std::unique_ptr<BpeStreamingDecoder> detokenizer_;
 };
 
