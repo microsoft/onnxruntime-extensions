@@ -1,3 +1,5 @@
+REM To build the project for an architecture other than x64, pass the -A flag to the script.
+REM Example: build.bat -A arm64 -DCMAKE_ENABLE...
 @ECHO OFF
 SETLOCAL ENABLEDELAYEDEXPANSION
 

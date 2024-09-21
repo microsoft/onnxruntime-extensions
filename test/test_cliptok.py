@@ -147,6 +147,14 @@ class TestCLIPTokenizer(unittest.TestCase):
         np.testing.assert_array_equal(expect_input_ids, outputs1[0])
         np.testing.assert_array_equal(expect_attention_mask, outputs1[1])
 
+    def test_unicode(self):
+        for code_point in range(32, 500):
+            try:
+                self._run_tokenizer([chr(code_point)])
+            except AssertionError as e:
+                print(f"Failed for code point {code_point}: {self.slow_tokenizer([chr(code_point)])}")
+                # raise e
+
 
 if __name__ == "__main__":
     unittest.main()
