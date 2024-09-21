@@ -126,30 +126,6 @@ extError_t ORTX_API_CALL OrtxGetTensorSizeOfElement(OrtxTensor* tensor, size_t* 
  */
 extError_t ORTX_API_CALL OrtxGetTensorData(OrtxTensor* tensor, const void** data, const int64_t** shape,
                                            size_t* num_dims);
-/**
- * \brief Get the data from the tensor as int64_t type
- *
- * \param tensor The tensor object
- * \param data Pointer to store the data
- * \param shape Pointer to store the shape
- * \param num_dims Pointer to store the number of dimensions
- * \return Error code indicating the success or failure of the operation
- */
-
-extError_t ORTX_API_CALL OrtxGetTensorDataInt64(OrtxTensor* tensor, const int64_t** data, const int64_t** shape,
-                                                size_t* num_dims);
-
-/**
- * \brief Get the data from the tensor as float type
- *
- * \param tensor The tensor object
- * \param data Pointer to store the data
- * \param shape Pointer to store the shape
- * \param num_dims Pointer to store the number of dimensions
- * \return Error code indicating the success or failure of the operation
- */
-extError_t ORTX_API_CALL OrtxGetTensorDataFloat(OrtxTensor* tensor, const float** data, const int64_t** shape,
-                                                size_t* num_dims);
 
 #ifdef __cplusplus
 }
