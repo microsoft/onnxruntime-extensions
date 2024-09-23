@@ -85,7 +85,7 @@ TEST(OrtxTokenizerTest, RegexTest) {
 
 TEST(OrtxTokenizerTest, ClipTokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
-  auto status = tokenizer->Load("data/clip");
+  auto status = tokenizer->Load("data/tokenizer/clip");
   if (!status.IsOk()) {
     std::cout << status.ToString() << std::endl;
   }

@@ -78,11 +78,26 @@ static bool IsUnicodeSpace(char32_t ch) {
   return unicode_spaces.count(ch) > 0;
 }
 
-bool AllSpaceUstring(const ustring& str) {
+// Note: In CPython, it supports converting upper case 'I' with diaeresis to lower case 'i' with diaeresis
+static ustring ToLowerCase(ustring input) {
+  ustring str_lower;
+  str_lower.reserve(input.size() * 2);
+  for (auto c : input) {
+    if (c == 304) {
+      str_lower += {105, 775};
+    } else {
+      str_lower += ufal::unilib::unicode::lowercase(c);
+    }
+  }
+
+  return str_lower;
+}
+
+static bool AllSpaceUstring(const ustring& str) {
   return std::all_of(str.begin(), str.end(), [](char32_t ch) { return IsUnicodeSpace(ch); });
 }
 
-ustring RemoveConsecutiveSpaces(const ustring& input) {
+static ustring RemoveConsecutiveSpaces(const ustring& input) {
   ustring result;
   result.reserve(input.size());
   bool lastWasSpace = false;
@@ -244,8 +259,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
   }
 
   if (ModelName() == kModel_CLIP) {
-    // Convert to lowercase
-    std::transform(input.begin(), input.end(), input.begin(), [](char32_t c) { return static_cast<char32_t>(ToLower(c)); });
+    input = std::move(ToLowerCase(input));
   }
 
   // Parse input

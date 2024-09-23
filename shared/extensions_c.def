@@ -17,3 +17,15 @@ EXPORTS
  OrtxTokenId2DArrayGetBatch @15
  OrtxTokenId2DArrayGetItem @16
  OrtxGetDecoderPromptIds @17
+ OrtxTensorResultGetAt @18
+ OrtxGetTensorType @19
+ OrtxGetTensorSizeOfElement @20
+ OrtxGetTensorData @21
+ OrtxCreateSpeechFeatureExtractor @22
+ OrtxLoadAudios @23
+ OrtxCreateRawAudios @24
+ OrtxSpeechLogMel @25
+ OrtxCreateProcessor @26
+ OrtxLoadImages @27
+ OrtxCreateRawImages @28
+ OrtxImagePreProcess @29

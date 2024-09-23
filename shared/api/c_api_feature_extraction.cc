@@ -13,8 +13,25 @@ class RawAudiosObject : public OrtxObjectImpl {
   ~RawAudiosObject() override = default;
 
   std::unique_ptr<AudioRawData[]> audios_;
-  size_t num_audios_;
+  size_t num_audios_{};
 };
+
+extError_t ORTX_API_CALL
+OrtxCreateRawAudios(OrtxRawAudios** audios, const void* data[], const int64_t sizes[],  size_t num_audios) {
+  if (audios == nullptr || data == nullptr || sizes == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  auto audios_obj = std::make_unique<RawAudiosObject>();
+  audios_obj->audios_ = std::make_unique<AudioRawData[]>(num_audios);
+  for (size_t i = 0; i < num_audios; ++i) {
+    audios_obj->audios_[i].resize(sizes[i]);
+    std::copy_n(static_cast<const std::byte*>(data[i]), sizes[i], audios_obj->audios_[i].data());
+  }
+
+  return {};
+}
 
 extError_t ORTX_API_CALL OrtxLoadAudios(OrtxRawAudios** raw_audios, const char* const* audio_paths, size_t num_audios) {
   if (raw_audios == nullptr || audio_paths == nullptr) {
