@@ -149,11 +149,12 @@ class TestCLIPTokenizer(unittest.TestCase):
 
     def test_unicode(self):
         for code_point in range(32, 500):
+        # for code_point in range(256, 257):
             try:
                 self._run_tokenizer([chr(code_point)])
             except AssertionError as e:
                 print(f"Failed for code point {code_point}: {self.slow_tokenizer([chr(code_point)])}")
-                # raise e
+                raise e
 
 
 if __name__ == "__main__":
