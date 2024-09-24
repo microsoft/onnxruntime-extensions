@@ -7,6 +7,7 @@
 
 #include <wincodec.h>
 #include <wincodecsdk.h>
+#include <winrt/base.h>
 
 #include "op_def_struct.h"
 #include "ext_status.h"
@@ -15,12 +16,12 @@
 struct DecodeImage {
   template <typename DictT>
   OrtxStatus Init(const DictT& attrs) {
-    HRESULT hr = CoInitialize(NULL);
+    HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
     if (FAILED(hr)) {
       return {kOrtxErrorInternal, "[ImageDecoder]: Failed when CoInitialize."};
     }
     // Create the COM imaging factory
-    hr = CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&_pIWICFactory));
+    hr = CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pIWICFactory_));
     if (FAILED(hr)) {
       return {kOrtxErrorInternal, "[ImageDecoder]: Failed to create pIWICFactory."};
     }
@@ -45,14 +46,14 @@ struct DecodeImage {
 
     OrtxStatus status{};
 
-    IWICBitmapDecoder* pIDecoder = NULL;
-    IWICStream* pIWICStream = NULL;
-    IWICBitmapFrameDecode* pIDecoderFrame = NULL;
-    IWICComponentInfo* pIComponentInfo = NULL;
+    winrt::com_ptr<IWICBitmapDecoder> pIDecoder;
+    winrt::com_ptr<IWICStream> pIWICStream;
+    winrt::com_ptr<IWICBitmapFrameDecode> pIDecoderFrame;
+    winrt::com_ptr<IWICComponentInfo> pIComponentInfo;
     WICPixelFormatGUID pixelFormat;
 
     // Create a WIC stream to map onto the memory.
-    HRESULT hr = _pIWICFactory->CreateStream(&pIWICStream);
+    HRESULT hr = pIWICFactory_->CreateStream(pIWICStream.put());
     if (FAILED(hr)) {
       return {kOrtxErrorInternal, "[ImageDecoder]: Failed to create pIWICStream."};
     }
@@ -66,17 +67,17 @@ struct DecodeImage {
     }
 
     // Create a decoder for the stream.
-    hr = _pIWICFactory->CreateDecoderFromStream(pIWICStream,                     // Image to be decoded
-                                               NULL,                            // Do not prefer a particular vendor
-                                               WICDecodeMetadataCacheOnDemand,  // Cache metadata when needed
-                                               &pIDecoder                       // Pointer to the decoder
+    hr = pIWICFactory_->CreateDecoderFromStream(pIWICStream.get(),               // Image to be decoded
+                                                NULL,                            // Do not prefer a particular vendor
+                                                WICDecodeMetadataCacheOnDemand,  // Cache metadata when needed
+                                                pIDecoder.put()                  // Pointer to the decoder
     );
     if (FAILED(hr)) {
       return {kOrtxErrorInternal, "[ImageDecoder]: Failed to create pIDecoder."};
     }
 
     // Retrieve the first bitmap frame.
-    hr = pIDecoder->GetFrame(0, &pIDecoderFrame);
+    hr = pIDecoder->GetFrame(0, pIDecoderFrame.put());
     if (FAILED(hr)) {
       return {kOrtxErrorInternal, "[ImageDecoder]: Failed when pIDecoder->GetFrame."};
     }
@@ -87,14 +88,14 @@ struct DecodeImage {
       return {kOrtxErrorInternal, "[ImageDecoder]: Failed when pIDecoderFrame->GetPixelFormat."};
     }
 
-    hr = _pIWICFactory->CreateComponentInfo(pixelFormat, &pIComponentInfo);
+    hr = pIWICFactory_->CreateComponentInfo(pixelFormat, pIComponentInfo.put());
     if (FAILED(hr)) {
       return {kOrtxErrorInternal, "[ImageDecoder]: Failed when pIWICFactory->CreateComponentInfo."};
     }
 
     // Get IWICPixelFormatInfo from IWICComponentInfo
     IWICPixelFormatInfo2* pIPixelFormatInfo = NULL;
-    hr = pIComponentInfo->QueryInterface(__uuidof(IWICPixelFormatInfo2), reinterpret_cast<void**>(&pIPixelFormatInfo));
+    hr = pIComponentInfo.as(__uuidof(IWICPixelFormatInfo2), reinterpret_cast<void**>(&pIPixelFormatInfo));
     if (FAILED(hr)) {
       return {kOrtxErrorInternal, "[ImageDecoder]: Failed to query IWICPixelFormatInfo."};
     }
@@ -117,40 +118,32 @@ struct DecodeImage {
       return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Failed to allocate memory for decoded image data."};
     }
 
-    IWICBitmapSource* pSource = pIDecoderFrame;
-
     // Convert to 24 bytes per pixel RGB format if needed
     if (pixelFormat != GUID_WICPixelFormat24bppRGB) {
       IWICBitmapSource* pConverted = NULL;
-      hr = WICConvertBitmapSource(GUID_WICPixelFormat24bppRGB, pSource, &pConverted);
+      hr = WICConvertBitmapSource(GUID_WICPixelFormat24bppRGB, pIDecoderFrame.get(), &pConverted);
       if (FAILED(hr)) {
         return {kOrtxErrorInternal, "[ImageDecoder]: Failed when WICConvertBitmapSource."};
       }
 
-      pSource->Release();
-      pSource = pConverted;
+      // Upcast to make winrt::com_ptr happy. Should be fine because we only use CopyPixels.
+      pIDecoderFrame.attach((IWICBitmapFrameDecode *)pConverted);
     }
 
     const int rowStride = uiWidth * sizeof(uint8_t) * channels;
-    hr = pSource->CopyPixels(NULL, rowStride, output.SizeInBytes(), decoded_image_data);
+    hr = pIDecoderFrame->CopyPixels(NULL, rowStride, output.SizeInBytes(), decoded_image_data);
 
     if (FAILED(hr)) {
-      return {kOrtxErrorInternal, "[ImageDecoder]: Failed when pConvertedFrame->CopyPixels."};
+      return {kOrtxErrorInternal, "[ImageDecoder]: Failed when pIDecoderFrame->CopyPixels."};
     }
-
-    pIComponentInfo->Release();
-    pSource->Release();
-    pIWICStream->Release();
-    pIDecoder->Release();
 
     return status;
   }
 
   ~DecodeImage() {
-    _pIWICFactory->Release();
     CoUninitialize();
   }
 
   private:
-    IWICImagingFactory* _pIWICFactory{NULL};
+    winrt::com_ptr<IWICImagingFactory> pIWICFactory_;
 };

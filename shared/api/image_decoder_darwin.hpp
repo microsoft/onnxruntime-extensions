@@ -20,7 +20,7 @@ struct DecodeImage {
     optionKeys[1] = kCGImageSourceShouldAllowFloat;
     optionValues[1] = (CFTypeRef)kCFBooleanFalse;
 
-    _imageSourceOptions = CFDictionaryCreate(NULL, (const void**)optionKeys, (const void**)optionValues, 2,
+    imageSourceOptions_ = CFDictionaryCreate(NULL, (const void**)optionKeys, (const void**)optionValues, 2,
                                              &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
     return {};
@@ -51,7 +51,7 @@ struct DecodeImage {
     if (imageData == nullptr) {
       return {kOrtxErrorInternal, "[ImageDecoder]: Failed to create CFData."};
     }
-    imageSource = CGImageSourceCreateWithData(imageData, _imageSourceOptions);
+    imageSource = CGImageSourceCreateWithData(imageData, imageSourceOptions_);
     CFRelease(imageData);
 
     if (imageSource == nullptr) {
@@ -113,9 +113,9 @@ struct DecodeImage {
   }
 
   ~DecodeImage() {
-    CFRelease(_imageSourceOptions);
+    CFRelease(imageSourceOptions_);
   }
 
   private:
-    CFDictionaryRef _imageSourceOptions{NULL};
+    CFDictionaryRef imageSourceOptions_{NULL};
 };
