@@ -18,7 +18,7 @@
 #include "nlohmann/json.hpp"
 #include "bpe_utils.hpp"
 #include "trietree.hpp"
-#include "tokjson_types.h"
+#include "tokenizer_common.h"
 
 namespace ort_extensions {
 
@@ -249,7 +249,7 @@ class BpeModel {
     return {};
   }
 
-  OrtxStatus LoadAddedTokens(const std::vector<bpe::AddedToken>& added_tokens) {
+  OrtxStatus LoadAddedTokens(const std::vector<AddedToken>& added_tokens) {
     for (const auto& token : added_tokens) {
       added_tokens_.Add(ustring(token.content_), 0, token.id_);
     }

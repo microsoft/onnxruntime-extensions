@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 #include "bpe_kernels.h"
-#include "bpe_tokenizer.hpp"
+#include "bpe_tokenizer_model.hpp"
 #include "bpe_decoder.hpp"
 #include "ugm_kernels.hpp"
 
@@ -16,7 +16,7 @@ TokenizerImpl::TokenizerImpl()
 TokenizerImpl::~TokenizerImpl() {};
 
 OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
-  tok_config_ = std::make_shared<ort_extensions::bpe::TokenJsonConfig>();
+  tok_config_ = std::make_shared<ort_extensions::TokenJsonConfig>();
   auto status = tok_config_->Load(tok_path);
   if (!status.IsOk()) {
     return status;
@@ -90,7 +90,7 @@ OrtxStatus TokenizerImpl::BatchDecode(const std::vector<span<extTokenId_t const>
   return {};
 }
 
-OrtxStatus TokenizerImpl::Id2Token(extTokenId_t id, std::string& token, BPEDecoderState** state) const {
+OrtxStatus TokenizerImpl::Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state) const {
   return detokenizer_->Id2Token(id, token, state);
 }
 

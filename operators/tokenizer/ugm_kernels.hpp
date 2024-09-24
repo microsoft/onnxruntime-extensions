@@ -20,7 +20,7 @@
 #include "ustring.h"
 #include "nlohmann/json.hpp"
 #include "trietree.hpp"
-#include "bpe_jsoncfg.hpp"
+#include "tokenizer_jsconfig.hpp"
 
 namespace ort_extensions {
 
@@ -109,7 +109,7 @@ struct SpmUgmTokenizer {
     return {};
   }
 
-  OrtxStatus Load(const bpe::TokenJsonConfig& config) {
+  OrtxStatus Load(const TokenJsonConfig& config) {
     ortx::path vocab_path(config.GetVocabDataFile());
     if (!vocab_path.exists()) {
       return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, "Vocabulary file does not exist.");
@@ -454,4 +454,30 @@ struct SpmUgmTokenizer {
   std::string unk_token_ = "<unk>";
 };
 
+
+class SpmUgmDecoder {
+ public:
+  SpmUgmDecoder() {
+  }
+
+  OrtxStatus Compute(const ortc::Tensor<int64_t>& ids, ortc::Tensor<std::string>& output) const {
+    // const int64_t* p_ids = ids.Data();
+    // const auto& ids_dim = ids.Shape();
+    // std::vector<int64_t> output_dim = {1};
+    // if (ids_dim.size() > 1) {
+    //   output_dim.resize(ids_dim.size() - 1);
+    //   std::copy(ids_dim.begin(), ids_dim.begin() + ids_dim.size() - 1, output_dim.begin());
+    // }
+
+    // std::vector<std::string> output_strings;    
+    // output_strings.reserve(ids.NumElements());
+    // for (int64_t i = 0; i < ids.NumElements(); ++i) {
+    //   output_strings.push_back(GetTokenString(p_ids[i]));
+    // }
+    // output.Allocate(output_dim);
+    // std::copy(output_strings.begin(), output_strings.end(), output.Data());
+    return {};
+  }
+
+};
 }  // namespace ort_extensions

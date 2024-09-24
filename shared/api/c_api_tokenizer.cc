@@ -13,7 +13,7 @@ class DetokenizerCache : public OrtxObjectImpl {
   DetokenizerCache() : OrtxObjectImpl(extObjectKind_t::kOrtxKindDetokenizerCache) {}
   ~DetokenizerCache() override = default;
 
-  std::unique_ptr<BPEDecoderState> decoder_state_{};
+  std::unique_ptr<TokenizerDecodingState> decoder_state_{};
   std::string last_text_{};  // last detokenized text
 };
 

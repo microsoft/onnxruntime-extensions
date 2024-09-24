@@ -335,7 +335,7 @@ TEST(OrtxTokenizerStreamTest, CodeGenTokenizer) {
   EXPECT_EQ(token_ids.size(), 1);
 
   std::string text;
-  std::unique_ptr<ort_extensions::BPEDecoderState> decoder_cache;
+  std::unique_ptr<ort_extensions::TokenizerDecodingState> decoder_cache;
   // token_ids[0].insert(token_ids[0].begin() + 2, 607);  // <0x20>
   token_ids[0] = {564, 921, 765, 2130, 588, 262, 6123, 447, 251, 2130, 588, 262};
   for (const auto& token_id : token_ids[0]) {
@@ -369,7 +369,7 @@ TEST(OrtxTokenizerStreamTest, Llama2Tokenizer) {
   DumpTokenIds(token_ids);
 
   std::string text;
-  std::unique_ptr<ort_extensions::BPEDecoderState> decoder_cache;
+  std::unique_ptr<ort_extensions::TokenizerDecodingState> decoder_cache;
   // std::cout << "\"";
   for (const auto& token_id : token_ids[0]) {
     std::string token;
@@ -406,7 +406,7 @@ TEST(OrtxTokenizerStreamTest, Phi3Tokenizer) {
   DumpTokenIds(token_ids);
 
   std::string text;
-  std::unique_ptr<ort_extensions::BPEDecoderState> decoder_cache;
+  std::unique_ptr<ort_extensions::TokenizerDecodingState> decoder_cache;
   // std::cout << "\"";
   for (const auto& token_id : token_ids[0]) {
     std::string token;

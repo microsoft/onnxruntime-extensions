@@ -13,7 +13,7 @@
 #include <charconv>
 #include <optional>
 
-#include "unescape.h"
+#include "unescape.hpp"
 #include "trietree.hpp"
 
 // This Trie Tree is C++ implementation of
@@ -40,6 +40,7 @@ class TrieTokenizer {
  private:
   std::map<int, std::string> idx2token;
   RWKVTrieTree root;
+  using UnescapeUtils = ort_extensions::UnescapeUtils;
 
  public:
   TrieTokenizer(const std::string& text_tokens) {
@@ -62,7 +63,7 @@ class TrieTokenizer {
       std::string raw = line.substr(line.find(' ') + 1, line.rfind(' ') - line.find(' ') - 1);
       std::string x;
       int key_length = 0;
-      if (ort_extensions::UnquoteString(raw, x)) {
+      if (UnescapeUtils::UnquoteString(raw, x)) {
         std::from_chars(line.data() + r_ws + 1, line.data() + line.size(), key_length);
       }
       if (x.length() != key_length) {

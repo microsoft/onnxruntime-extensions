@@ -7,7 +7,7 @@
 
 #include "bpe_kernels.h"
 #include "ugm_kernels.hpp"
-#include "bpe_jsoncfg.hpp"
+#include "tokenizer_jsconfig.hpp"
 #include "bpe_streaming.hpp"
 #include "c_api_utils.hpp"
 
@@ -34,8 +34,8 @@ class TokenizerImpl : public OrtxObjectImpl {
     return {};
   }
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, std::unique_ptr<BPEDecoderState>& cache) const {
-    BPEDecoderState* state_ptr = cache.get();
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, std::unique_ptr<TokenizerDecodingState>& cache) const {
+    TokenizerDecodingState* state_ptr = cache.get();
     OrtxStatus status = Id2Token(id, token, &state_ptr);
     if (status.IsOk()) {
       if (state_ptr != cache.get()) {
@@ -51,7 +51,7 @@ class TokenizerImpl : public OrtxObjectImpl {
 
   OrtxStatus BatchDecode(const std::vector<span<extTokenId_t const>>& t_ids, std::vector<std::string>& t_text) const;
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, BPEDecoderState** state) const;
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state) const;
 
   OrtxStatus GetDecoderPromptIds(size_t batch_size, const char* lang, const char* task, int no_timestamps,
                                  std::vector<std::vector<extTokenId_t>>& t_ids) const;
@@ -61,7 +61,7 @@ class TokenizerImpl : public OrtxObjectImpl {
   using ugm_tokenizer_t = std::unique_ptr<SpmUgmTokenizer>;
   std::variant<bpe_tokenizer_t, ugm_tokenizer_t> tokenizer_;
 
-  std::shared_ptr<ort_extensions::bpe::TokenJsonConfig> tok_config_;
+  std::shared_ptr<ort_extensions::TokenJsonConfig> tok_config_;
   std::unique_ptr<BpeStreamingDecoder> detokenizer_;
 };
 

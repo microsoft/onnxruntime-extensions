@@ -5,26 +5,19 @@
 
 #include "bpe_kernels.h"
 #include "bpe_decoder.hpp"
-#include "bpe_jsoncfg.hpp"
-#include "bpe_tokenizer.hpp"
-
-namespace ort_extensions {
-struct BPEDecoderState {
-  bool f_special_last{};
-  std::string incomplete_utf8_;
-};
-}  // namespace ort_extensions
+#include "tokenizer_jsconfig.hpp"
+#include "bpe_tokenizer_model.hpp"
 
 class BpeStreamingDecoder : public KernelBpeDecoder {
  public:
   BpeStreamingDecoder() = default;
   ~BpeStreamingDecoder() override = default;
 
-  using BPEDecoderState = ort_extensions::BPEDecoderState;
+  using BPEDecoderState = ort_extensions::TokenizerDecodingState;
 
   // shared the data between the encoder and decoder
   OrtxStatus Load(
-      std::shared_ptr<ort_extensions::bpe::TokenJsonConfig const> ptr_config,
+      std::shared_ptr<ort_extensions::TokenJsonConfig const> ptr_config,
       const JsonFastTokenizer& encoder) {
     const auto& tok_config = *ptr_config;
     bos_token_ = tok_config.bos_token_;
@@ -258,5 +251,5 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
   extTokenId_t eos_token_id_{0};
   bool add_dummy_prefix_ = false;
   bool spm_model_{};
-  std::shared_ptr<ort_extensions::bpe::TokenJsonConfig const> tok_config_;
+  std::shared_ptr<ort_extensions::TokenJsonConfig const> tok_config_;
 };
