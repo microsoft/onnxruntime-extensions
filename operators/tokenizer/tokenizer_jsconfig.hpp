@@ -3,14 +3,14 @@
 
 #pragma once
 
-#include "ocos.h"
 #include "file_sys.h"
 #include "nlohmann/json.hpp"
 
-#include "tokjson_types.h"
+#include "tokenizer_common.h"
 
-namespace ort_extensions::bpe {
+namespace ort_extensions {
 
+// TokenJsonConfig: Handles loading and parsing of JSON configuration files for tokenizers
 class TokenJsonConfig final {
  public:
   static constexpr const char* kDefaultVocabFile = "tokenizer.json";
@@ -25,6 +25,7 @@ class TokenJsonConfig final {
     if (json_path.empty()) {
       return OrtxStatus(kOrtxErrorInvalidArgument, "json_path is empty.");
     }
+
 
     ortx::path tok_dir(json_path);
     ortx::path vocab_path(json_path);
@@ -122,4 +123,4 @@ class TokenJsonConfig final {
   std::string module_path_;
 };
 
-}  // namespace ort_extensions::bpe
+}  // namespace ort_extensions

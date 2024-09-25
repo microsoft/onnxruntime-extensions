@@ -5,10 +5,16 @@
 
 #include <string>
 
+#include "ortx_tokenizer.h"
+#include "ext_status.h"
+#include "op_def_struct.h"
+#include "nlohmann/json_fwd.hpp"
+
+#include "ustring.h"
+
+
 namespace ort_extensions {
 class BpeModel;
-
-namespace bpe {
 
 struct AddedToken final {
   uint32_t id_{};
@@ -23,7 +29,10 @@ struct AddedToken final {
 
 class TokenJsonConfig;  // forward declaration
 
-}  // namespace bpe
+struct TokenizerDecodingState {
+  bool f_special_last{};
+  std::string incomplete_utf8_;
+};
 
 constexpr std::string_view spm_escaped_space = "\xE2\x96\x81";
 }  // namespace ort_extensions
