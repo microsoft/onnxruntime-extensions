@@ -3,9 +3,11 @@
 
 #pragma once
 
-#include "ortx_tokenizer.h"
+#include <variant>
+
 #include "bpe_kernels.h"
-#include "bpe_json.hpp"
+#include "ugm_kernels.hpp"
+#include "tokenizer_jsconfig.hpp"
 #include "bpe_streaming.hpp"
 #include "c_api_utils.hpp"
 
@@ -17,7 +19,7 @@ class TokenizerImpl : public OrtxObjectImpl {
   virtual ~TokenizerImpl();
 
  public:
-  OrtxStatus Load(const std::string& dir);
+  OrtxStatus Load(const std::string& tok_path);
 
   OrtxStatus Tokenize(const std::vector<std::string_view>& input, std::vector<std::vector<extTokenId_t>>& t_ids) const {
     return BatchEncode(input, t_ids);
@@ -28,12 +30,12 @@ class TokenizerImpl : public OrtxObjectImpl {
   }
 
   OrtxStatus Token2Id(const std::string& token, extTokenId_t& id) const {
-    id = tokenizer_->GetTokenId(token);
+    id = std::visit([&](auto& tokenizer) { return tokenizer->GetTokenId(token); }, tokenizer_);
     return {};
   }
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, std::unique_ptr<BPEDecoderState>& cache) const {
-    BPEDecoderState* state_ptr = cache.get();
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, std::unique_ptr<TokenizerDecodingState>& cache) const {
+    TokenizerDecodingState* state_ptr = cache.get();
     OrtxStatus status = Id2Token(id, token, &state_ptr);
     if (status.IsOk()) {
       if (state_ptr != cache.get()) {
@@ -49,16 +51,21 @@ class TokenizerImpl : public OrtxObjectImpl {
 
   OrtxStatus BatchDecode(const std::vector<span<extTokenId_t const>>& t_ids, std::vector<std::string>& t_text) const;
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, BPEDecoderState** state) const;
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state) const;
 
   OrtxStatus GetDecoderPromptIds(size_t batch_size, const char* lang, const char* task, int no_timestamps,
                                  std::vector<std::vector<extTokenId_t>>& t_ids) const;
 
  private:
-  std::string tokenizer_dir_;
-  std::shared_ptr<ort_extensions::bpe::TokenJsonConfig> tok_config_;
-  std::unique_ptr<JsonFastTokenizer> tokenizer_;
-  std::unique_ptr<BpeStreamingDecoder> detokenizer_;
+  using bpe_tokenizer_t = std::unique_ptr<JsonFastTokenizer>;
+  using ugm_tokenizer_t = std::unique_ptr<SpmUgmTokenizer>;
+  std::variant<bpe_tokenizer_t, ugm_tokenizer_t> tokenizer_;
+
+  using bpe_decoder_t = std::unique_ptr<BpeStreamingDecoder>;
+  using ugm_decoder_t = std::unique_ptr<SpmUgmDecoder>;
+  std::variant<bpe_decoder_t, ugm_decoder_t> detokenizer_;
+
+  std::shared_ptr<ort_extensions::TokenJsonConfig> tok_config_;
 };
 
 }  // namespace ort_extensions

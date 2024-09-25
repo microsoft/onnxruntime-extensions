@@ -26,7 +26,3 @@ ORT_API_CALL GetActiveOrtAPIVersion();
 #ifdef __cplusplus
 }
 #endif
-
-#if defined(ENABLE_C_API)
-#include "ortx_tokenizer.h"
-#endif // ENABLE_C_API

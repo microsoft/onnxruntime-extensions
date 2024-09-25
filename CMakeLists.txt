@@ -694,7 +694,7 @@ if(OCOS_ENABLE_BLINGFIRE)
 endif()
 
 if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
-  target_include_directories(ocos_operators PUBLIC ${nlohmann_json_SOURCE_DIR}/single_include)
+  target_include_directories(ocos_operators PUBLIC ${nlohmann_json_SOURCE_DIR}/include)
 endif()
 
 # If building a shared library we can't throw an internal exception type across the library boundary as the type

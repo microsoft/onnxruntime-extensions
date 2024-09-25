@@ -3,15 +3,13 @@
 
 #pragma once
 
-#include "ocos.h"
-#include "ustring.h"
-
 #include <list>
 #include <string>
 #include <vector>
 #include <functional>
 
-#include "bpe_types.h"
+#include "tokenizer_common.h"
+
 
 struct BpeModelConf {
   const char* name_{"GPT2"};  // this name may be overridden by the tokenizer's attribute.
@@ -25,6 +23,7 @@ struct BpeModelConf {
 };
 
 struct KernelBpeTokenizer {
+  using json = nlohmann::json;
   KernelBpeTokenizer(const BpeModelConf& conf);
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info);
 
@@ -112,11 +111,12 @@ struct SpmTokenizer : KernelBpeTokenizer {
 class JsonFastTokenizer : public KernelBpeTokenizer {
  public:
   JsonFastTokenizer();
-  OrtxStatus Load(const ort_extensions::bpe::TokenJsonConfig& config);
+  OrtxStatus Load(const ort_extensions::TokenJsonConfig& config);
+  OrtxStatus LoadTikTokenBase64(const ort_extensions::TokenJsonConfig& config);
   OrtxStatus Compute(const ortc::Tensor<std::string>& input,
                      ortc::Tensor<int64_t>& tokenize_output,
-                     std::optional<ortc::Tensor<int64_t>*> attention_mask,
-                     std::optional<ortc::Tensor<int64_t>*> offset_mapping) const;
+                     std::optional<ortc::Tensor<int64_t>*> attention_mask = std::nullopt,
+                     std::optional<ortc::Tensor<int64_t>*> offset_mapping = std::nullopt) const;
 
  public:
   const auto& GetAddedTokens() const { return added_tokens_; }
@@ -126,7 +126,11 @@ class JsonFastTokenizer : public KernelBpeTokenizer {
 
  private:
   std::string TokenBytesToString(std::vector<uint8_t>& bytes);
+  // template functions to avoid including the huge json header file
+  bool CheckForSpmModel(const json& tok_json);
+  void UpdateTokenAdditionFlags(const json& tok_json, const ort_extensions::TokenJsonConfig& config);
+  OrtxStatus LoadAddedTokens(const json& tok_json, const ort_extensions::TokenJsonConfig& config);
 
   BpeModelConf json_conf_;
-  std::vector<ort_extensions::bpe::AddedToken> added_tokens_;
+  std::vector<ort_extensions::AddedToken> added_tokens_;
 };
