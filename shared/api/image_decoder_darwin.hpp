@@ -8,7 +8,6 @@
 #include "op_def_struct.h"
 #include "ext_status.h"
 
-
 struct DecodeImage {
   template <typename DictT>
   OrtxStatus Init(const DictT& attrs) {
@@ -79,7 +78,7 @@ struct DecodeImage {
     const size_t _32bpp_channel = 4;
     const size_t _32bpp_bytesPerRow = width * _32bpp_channel;
     const size_t _32bpp_bitmapByteCount = width * height * _32bpp_channel;
-    void* _32bpp_bitmapData = malloc(_32bpp_bitmapByteCount);
+    auto _32bpp_bitmapData = std::make_unique<std::byte[]>(_32bpp_bitmapByteCount);
 
     // Ask for the sRGB color space.
     const CGColorSpaceRef colorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
@@ -88,7 +87,7 @@ struct DecodeImage {
     }
 
     const CGBitmapInfo _32bpp_bitmapInfo = kCGBitmapByteOrder32Big | (CGBitmapInfo)kCGImageAlphaPremultipliedLast;
-    CGContextRef context = CGBitmapContextCreate(_32bpp_bitmapData, width, height, 8 /** bitsPerComponent */,
+    CGContextRef context = CGBitmapContextCreate(_32bpp_bitmapData.get(), width, height, 8 /** bitsPerComponent */,
                                                  _32bpp_bytesPerRow, colorSpace, _32bpp_bitmapInfo);
     CFRelease(colorSpace);
     if (context == nullptr) {
@@ -99,7 +98,7 @@ struct DecodeImage {
     CGContextDrawImage(context, rect, image);
     CFRelease(context);
 
-    uint8_t* ptr = (uint8_t*)_32bpp_bitmapData;
+    uint8_t* ptr = (uint8_t*)_32bpp_bitmapData.get();
     for (int i = 0; i < width * height; i++) {
       *(decoded_image_data++) = *(ptr)++;  // R
       *(decoded_image_data++) = *(ptr)++;  // G
@@ -107,14 +106,10 @@ struct DecodeImage {
       ptr++;                               // Skip A
     }
 
-    free(_32bpp_bitmapData);
-
     return status;
   }
 
-  ~DecodeImage() {
-    CFRelease(imageSourceOptions_);
-  }
+  ~DecodeImage() { CFRelease(imageSourceOptions_); }
 
   private:
     CFDictionaryRef imageSourceOptions_{NULL};

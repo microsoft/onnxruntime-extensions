@@ -61,7 +61,7 @@ struct DecodeImage {
     static_assert(sizeof(uint8_t) == sizeof(unsigned char));
 
     // Initialize the stream with the memory pointer and size.
-    hr = pIWICStream->InitializeFromMemory((unsigned char*)input.Data(), input.NumberOfElement());
+    hr = pIWICStream->InitializeFromMemory((unsigned char*)input.Data(), static_cast<DWORD>(input.NumberOfElement()));
     if (FAILED(hr)) {
       return {kOrtxErrorInternal, "[ImageDecoder]: Failed when pIWICStream->InitializeFromMemory."};
     }
@@ -131,7 +131,7 @@ struct DecodeImage {
     }
 
     const int rowStride = uiWidth * sizeof(uint8_t) * channels;
-    hr = pIDecoderFrame->CopyPixels(NULL, rowStride, output.SizeInBytes(), decoded_image_data);
+    hr = pIDecoderFrame->CopyPixels(NULL, rowStride, static_cast<UINT>(output.SizeInBytes()), decoded_image_data);
 
     if (FAILED(hr)) {
       return {kOrtxErrorInternal, "[ImageDecoder]: Failed when pIDecoderFrame->CopyPixels."};
