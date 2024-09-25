@@ -198,7 +198,8 @@ class TokenWithRegularExp {
     std::wsmatch match;
 
     if (std::regex_search(wstr, match, pattern)) {
-        std::u32string_view token = std::u32string_view(W2Ustring(match.str()).data(), match.str().size());
+        std::u32string temp = W2Ustring(match.str());
+        std::u32string_view token = std::u32string_view(temp.data(), match.str().size());
         m_text = std::u32string(match.suffix().first, match.suffix().second); // Update text to the remaining part after the match
         return token;
     } else {
@@ -531,7 +532,7 @@ class TokenWithRegularExp {
 
     try {
       return RegexMatchSTD(ustring(regex_expr));
-    } catch (const std::exception& ex) {
+    } catch (const std::exception& /* ex */) {
       std::string part1 = "Regex '";
       std::string part2 = "' not supported!";
       throw std::runtime_error(part1 + regex_expr + part2);

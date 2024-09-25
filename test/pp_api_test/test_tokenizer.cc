@@ -51,10 +51,10 @@ TEST(CApiTest, StreamApiTest) {
   for (size_t i = 0; i < sizeof(token_ids) / sizeof(token_ids[0]); i++) {
     const char* token = NULL;
     err = OrtxDetokenizeCached(tokenizer, detok_cache, token_ids[i], &token);
+    EXPECT_EQ(err, kOrtxOK);
 #ifdef _DEBUG
     std::cout << token;
 #endif
-    EXPECT_EQ(err, kOrtxOK);
   }
 
 #ifdef _DEBUG
@@ -85,7 +85,7 @@ TEST(OrtxTokenizerTest, RegexTest) {
 
 TEST(OrtxTokenizerTest, ClipTokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
-  auto status = tokenizer->Load("data/clip");
+  auto status = tokenizer->Load("data/tokenizer/clip");
   if (!status.IsOk()) {
     std::cout << status.ToString() << std::endl;
   }
@@ -136,13 +136,9 @@ TEST(OrtxTokenizerTest, TicTokenTokenizer) {
   EXPECT_EQ(out_text[0], input[0]);
 }
 
-TEST(OrtxTokenizerTest, Phi3_S_Tokenizer) {
-  if (!std::filesystem::exists("data2/phi-3-small")) {
-    GTEST_SKIP() << "Skip test as extra test data is not deployed.";
-  }
-
+TEST(OrtxTokenizerTest, Phi3_Small_Hf_Tokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
-  auto status = tokenizer->Load("data2/phi-3-small");
+  auto status = tokenizer->Load("data/tokenizer/phi-3-small-cvt");
   if (!status.IsOk()) {
     std::cout << status.ToString() << std::endl;
   }
@@ -171,7 +167,7 @@ TEST(OrtxTokenizerTest, Phi3_S_Tokenizer) {
 
 TEST(OrtxTokenizerTest, Phi3_Small_Tokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
-  auto status = tokenizer->Load("data/phi-3-small");
+  auto status = tokenizer->Load("data/tokenizer/phi-3-small");
   if (!status.IsOk()) {
     std::cout << status.ToString() << std::endl;
   }
@@ -399,7 +395,9 @@ TEST(OrtxTokenizerStreamTest, Phi3Tokenizer) {
   EXPECT_TRUE(tokenizer != nullptr);
 
   std::vector<std::string_view> input = {
-      R"(こんにちは。データ分析にはいくつかのステップがあります。まずは目的を明確にします。次に、データを収集し、クリーニングを行い ます。その後、データを構造化し、その後、データを分析します。これらのステップを実行することで、データを有意的に分析することができます。)"};
+      R"(こんにちは。データ分析にはいくつかのステップがあります。まずは目的を明確にします。次に、データを収集し、クリーニングを行います。)"
+      R"(その後、データを構造化し、その後、データを分析します。これらのステップを実行することで、データを有意的に分析することができます。)"
+  };
   std::vector<std::vector<extTokenId_t>> token_ids;
   status = tokenizer->Tokenize(input, token_ids);
   EXPECT_TRUE(status.IsOk());
@@ -445,4 +443,25 @@ TEST(OrtxTokenizerTest, WhisperTokenizer) {
   err = OrtxConvertTokenToId(tokenizer.get(), "<|startoftranscript|>", &sot_id);
   EXPECT_EQ(err, kOrtxOK);
   EXPECT_EQ(sot_id, 50258);
+}
+
+TEST(OrtxTokenizerTest, SpmUgmTokenizer) {
+  // test the llama2 tokenizer with BPE class, instead of sentencepiece wrapper.
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/fairseq/xlm-roberta-base");
+  EXPECT_EQ(tokenizer.Code(), kOrtxOK);
+
+  const char* input[] = {"I like walking my cute dog\n and\x17 then, 生活的真谛是  \t\t\t\t \n\n61"};
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  OrtxTokenize(tokenizer.get(), input, 1, ort_extensions::ptr(token_ids));
+  EXPECT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  std::vector<extTokenId_t> ids_vec(ids, ids + length);
+
+  // expected ids was generated using the following command:
+  // AutoTokenizer.from_pretrained("FacebookAI/xlm-roberta-base")
+  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({
+    0, 87, 1884, 122395, 759, 99942, 10269, 136, 7068, 4, 6, 62668, 5364, 245875, 354, 11716, 2}));
 }

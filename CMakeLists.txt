@@ -596,7 +596,7 @@ target_include_directories(ocos_operators PUBLIC
   ${PROJECT_SOURCE_DIR}/base
   ${PROJECT_SOURCE_DIR}/operators)
 
-if (OCOS_USE_CUDA) 
+if (OCOS_USE_CUDA)
   target_include_directories(ocos_operators PUBLIC ${cutlass_SOURCE_DIR}/include ${cutlass_SOURCE_DIR}/examples)
 endif()
 
@@ -693,7 +693,7 @@ if(OCOS_ENABLE_BLINGFIRE)
 endif()
 
 if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
-  target_include_directories(ocos_operators PUBLIC ${nlohmann_json_SOURCE_DIR}/single_include)
+  target_include_directories(ocos_operators PUBLIC ${nlohmann_json_SOURCE_DIR}/include)
 endif()
 
 # If building a shared library we can't throw an internal exception type across the library boundary as the type
@@ -741,7 +741,7 @@ if(OCOS_ENABLE_C_API)
     file(GLOB cv2_TARGET_SRC "shared/api/c_api_processor.*" "shared/api/image_*.*")
     list(APPEND _TARGET_LIB_SRC ${cv2_TARGET_SRC})
     target_include_directories(ocos_operators PUBLIC ${libPNG_SOURCE_DIR} ${libJPEG_SOURCE_DIR})
-    target_link_libraries(ocos_operators PUBLIC ${PNG_LIBRARY} ${JPEG_LIBRARY} ${ZLIB_LIBRARY})
+    target_link_libraries(ocos_operators PUBLIC ${PNG_LIBRARY} ${JPEG_LIBRARY})
   endif()
 endif()
 

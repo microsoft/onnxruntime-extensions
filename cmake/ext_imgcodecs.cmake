@@ -69,6 +69,11 @@ else()
   target_compile_options(${PNG_LIBRARY} PRIVATE -Wno-deprecated-non-prototype)
 endif()
 
+set_target_properties(${PNG_LIBRARY}
+  PROPERTIES
+      POSITION_INDEPENDENT_CODE ON
+      FOLDER externals)
+
 # ----------------------------------------------------------------------------
 #  project libjpeg
 #
@@ -129,3 +134,7 @@ if(NOT MSVC)
   set_source_files_properties(jcdctmgr.c PROPERTIES COMPILE_FLAGS "-O1")
 endif()
 target_compile_definitions(${JPEG_LIBRARY} PRIVATE -DNO_MKTEMP)
+set_target_properties(${JPEG_LIBRARY}
+  PROPERTIES
+      POSITION_INDEPENDENT_CODE ON
+      FOLDER externals)

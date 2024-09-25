@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 #pragma once
 #include "ocos.h"
-#include "ortx_common.h"
 #include "narrow.h"
 
 #include <vector>

@@ -1,41 +1,51 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+
 #include "bpe_kernels.h"
 #include "bpe_tokenizer.hpp"
 #include "bpe_decoder.hpp"
+#include "ugm_kernels.hpp"
 
 #include "tokenizer_impl.h"
 
-using namespace ort_extensions;
 
-TokenizerImpl::TokenizerImpl() : OrtxObjectImpl(extObjectKind_t::kOrtxKindTokenizer) {};
+namespace ort_extensions {
+
+TokenizerImpl::TokenizerImpl()
+    : OrtxObjectImpl(extObjectKind_t::kOrtxKindTokenizer) {};
 TokenizerImpl::~TokenizerImpl() {};
 
-OrtxStatus TokenizerImpl::Load(const std::string& dir) {
+OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
   tok_config_ = std::make_shared<ort_extensions::bpe::TokenJsonConfig>();
-  auto status = tok_config_->Load(dir);
+  auto status = tok_config_->Load(tok_path);
   if (!status.IsOk()) {
     return status;
   }
 
-  auto vocab_file_path = path(dir) / "tokenizer.json";
-  std::ifstream vocab_fs = vocab_file_path.open();
-
-  tokenizer_ = std::make_unique<JsonFastTokenizer>();
-  if (!vocab_fs.is_open()) {
-    // No tokenizer.json file present; use TikToken tokenizer
-    tokenizer_->tiktoken_ = true;
-
-    // load the tokenizer from a config
-    status = tokenizer_->Load(*tok_config_);
-  } else {
-    // load the tokenizer from a config
-    status = tokenizer_->Load(*tok_config_);
-
+  if (tok_config_->tokenizer_class_.empty()) {
+    auto tokenizer = std::make_unique<SpmUgmTokenizer>();
+    status = tokenizer->Load(*tok_config_);
     if (status.IsOk()) {
-      detokenizer_ = std::make_unique<BpeStreamingDecoder>();
-      status = detokenizer_->Load(tok_config_, *tokenizer_);
+      tokenizer_ = std::move(tokenizer);
     }
+
+    return status;
+  }
+
+  auto vocab_file_path = ortx::path(tok_config_->GetVocabDataFile());
+  auto tokenizer = std::make_unique<JsonFastTokenizer>();
+  // vocab file is checked in TokenJsonConfig::Load
+  auto fx_load = vocab_file_path.extension() == ".json"?
+                 &JsonFastTokenizer::Load: &JsonFastTokenizer::LoadTikTokenBase64;
+  status = (tokenizer.get()->*fx_load)(*tok_config_);
+
+  if (status.IsOk()) {
+    detokenizer_ = std::make_unique<BpeStreamingDecoder>();
+    status = detokenizer_->Load(tok_config_, *tokenizer);
+  }
+
+  if (status.IsOk()) {
+    tokenizer_ = std::move(tokenizer);
   }
 
   return status;
@@ -46,7 +56,10 @@ OrtxStatus TokenizerImpl::BatchEncode(const std::vector<std::string_view>& input
   for (const auto& s : input) {
     ortc::Tensor<int64_t> ts_output(&CppAllocator::Instance());
     ortc::Tensor<std::string> ts_input = ortc::Tensor<std::string>(std::vector<std::string>{std::string(s)});
-    OrtxStatus status = tokenizer_->Compute(ts_input, ts_output, std::nullopt, std::nullopt);
+    
+    OrtxStatus status = std::visit([&](auto& tokenizer) {
+      return tokenizer->Compute(ts_input, ts_output);
+    }, tokenizer_);
 
     if (!status.IsOk()) {
       return status;
@@ -90,7 +103,7 @@ static std::map<std::string, std::string> LANGUAGES = {
     {"ro", "romanian"},       {"da", "danish"},        {"hu", "hungarian"}, {"ta", "tamil"},      {"no", "norwegian"},
     {"th", "thai"},           {"ur", "urdu"},          {"hr", "croatian"},  {"bg", "bulgarian"},  {"lt", "lithuanian"},
     {"la", "latin"},          {"mi", "maori"},         {"ml", "malayalam"}, {"cy", "welsh"},      {"sk", "slovak"},
-    {"te", "telugu"},         {"fa", "persian"},       {"lv", "latvian"},   {"bn", "bengali"},    {"sr", "serbian"},
+    {"te", "telugu"},         {"fa", "persian"},       {"lv", "latvian"},   {"bn", "bangla"},     {"sr", "serbian"},
     {"az", "azerbaijani"},    {"sl", "slovenian"},     {"kn", "kannada"},   {"et", "estonian"},   {"mk", "macedonian"},
     {"br", "breton"},         {"eu", "basque"},        {"is", "icelandic"}, {"hy", "armenian"},   {"ne", "nepali"},
     {"mn", "mongolian"},      {"bs", "bosnian"},       {"kk", "kazakh"},    {"sq", "albanian"},   {"sw", "swahili"},
@@ -105,14 +118,14 @@ static std::map<std::string, std::string> LANGUAGES = {
 
 OrtxStatus TokenizerImpl::GetDecoderPromptIds(size_t batch_size, const char* lang, const char* task, int no_timestamps,
                                               std::vector<std::vector<extTokenId_t>>& t_ids) const {
-  if (tokenizer_ == nullptr) {
+  // since it was only supported by Whisper model, which is bpe only.
+  if (!std::holds_alternative<bpe_tokenizer_t>(tokenizer_)) {
     return OrtxStatus(kOrtxErrorInvalidArgument, "Tokenizer is not loaded");
   }
-  // since it was only supported by Whisper model, should we check it here?
 
-  auto translate_token_id = tokenizer_->GetTokenId("<|translate|>");
-  auto transcribe_token_id = tokenizer_->GetTokenId("<|transcribe|>");
-  auto notimestamps_token_id = tokenizer_->GetTokenId("<|notimestamps|>");
+  auto translate_token_id = std::get<bpe_tokenizer_t>(tokenizer_)->GetTokenId("<|translate|>");
+  auto transcribe_token_id = std::get<bpe_tokenizer_t>(tokenizer_)->GetTokenId("<|transcribe|>");
+  auto notimestamps_token_id = std::get<bpe_tokenizer_t>(tokenizer_)->GetTokenId("<|notimestamps|>");
   std::vector<extTokenId_t> ids;
   ids.reserve(4);
   if (lang != nullptr) {
@@ -122,7 +135,7 @@ OrtxStatus TokenizerImpl::GetDecoderPromptIds(size_t batch_size, const char* lan
     }
 
     std::string lang_token = "<|" + lang_str->first + "|>";
-    ids.push_back(tokenizer_->GetTokenId(lang_token));
+    ids.push_back(std::get<bpe_tokenizer_t>(tokenizer_)->GetTokenId(lang_token));
   }
 
   if (task != nullptr) {
@@ -142,3 +155,5 @@ OrtxStatus TokenizerImpl::GetDecoderPromptIds(size_t batch_size, const char* lan
   t_ids.resize(batch_size, ids);
   return {};
 }
+
+}  // namespace ort_extensions
