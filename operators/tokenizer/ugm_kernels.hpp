@@ -24,6 +24,8 @@
 
 namespace ort_extensions {
 
+class SpmUgmDecoder;  // forward declaration
+
 struct SpmUgmTokenizer {
   using json = nlohmann::json;
   using VocabTrieTree = ort_extensions::TrieTree<char, extTokenId_t, -1>;
@@ -417,6 +419,7 @@ struct SpmUgmTokenizer {
     }
   }
 
+  friend class SpmUgmDecoder;
   // escaped space symbol - U+2581 (Lower One Eighth Block)
   static constexpr double unknown_token_score_penalty_ = 10.0;
 
@@ -460,24 +463,78 @@ class SpmUgmDecoder {
   SpmUgmDecoder() {
   }
 
-  OrtxStatus Compute(const ortc::Tensor<int64_t>& ids, ortc::Tensor<std::string>& output) const {
-    // const int64_t* p_ids = ids.Data();
-    // const auto& ids_dim = ids.Shape();
-    // std::vector<int64_t> output_dim = {1};
-    // if (ids_dim.size() > 1) {
-    //   output_dim.resize(ids_dim.size() - 1);
-    //   std::copy(ids_dim.begin(), ids_dim.begin() + ids_dim.size() - 1, output_dim.begin());
-    // }
+  OrtxStatus Load(const TokenJsonConfig& config, const SpmUgmTokenizer& tokenizer) {
+    auto vocab_size = tokenizer.vocab_.size();
+    vocab_.resize(vocab_size);
+    for (auto iter = tokenizer.vocab_.begin(); iter != tokenizer.vocab_.end(); ++iter) {
+      vocab_[std::get<0>(iter->second)] = iter->first;
+    }
 
-    // std::vector<std::string> output_strings;    
-    // output_strings.reserve(ids.NumElements());
-    // for (int64_t i = 0; i < ids.NumElements(); ++i) {
-    //   output_strings.push_back(GetTokenString(p_ids[i]));
-    // }
-    // output.Allocate(output_dim);
-    // std::copy(output_strings.begin(), output_strings.end(), output.Data());
+    unknown_token_ = tokenizer.unk_token_;
+    special_token_ids_ = tokenizer.special_token_ids_;
+    tokenizer_add_space_prefix_ = tokenizer.tokenizer_add_space_prefix_;
     return {};
   }
 
+  OrtxStatus Compute(const ortc::Tensor<int64_t>& ids, ortc::Tensor<std::string>& output) const {
+    const int64_t* p_ids = ids.Data();
+    const auto& ids_dim = ids.Shape();
+    std::vector<int64_t> output_dim = {1};
+    if (ids_dim.size() > 1) {
+      output_dim.resize(ids_dim.size() - 1);
+      std::copy(ids_dim.begin(), ids_dim.begin() + ids_dim.size() - 1, output_dim.begin());
+    }
+
+    size_t seq_len = ids_dim.back();
+    size_t string_batch = ids.NumberOfElement() / seq_len;
+
+    std::vector<std::string> decoded_strings;
+    decoded_strings.reserve(string_batch);
+    const std::string ws = " ";
+    for (auto n = string_batch; n > 0; n--) {
+      std::string text;
+      for (int64_t i = 0; i < seq_len; ++i) {
+        std::string token;
+        Id2Token(p_ids[i], token, nullptr);
+        if (token.find(spm_escaped_space) == 0) {
+          token = ws + token.substr(spm_escaped_space.length());
+        }
+
+        text += token;
+      }
+
+      if (tokenizer_add_space_prefix_) {
+        if (text.length() > 0 && text[0] == ' ') {
+          text = text.substr(1);
+        }
+      }
+      decoded_strings.push_back(text);
+    }
+
+    output.SetStringOutput(decoded_strings, output_dim);
+    return {};
+  }
+
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** /* state */) const {
+    if (special_token_ids_.count(id)) {
+      token = "";
+      return {};
+    }
+
+    if (id >= vocab_.size()) {
+      token = unknown_token_;
+      return {};
+    }
+
+    token = vocab_[id];
+    return {};
+  }
+
+private:
+  bool tokenizer_add_space_prefix_ = true;
+  std::vector<std::string> vocab_;
+  std::string unknown_token_ = "<unk>";
+  std::set<extTokenId_t> special_token_ids_;
 };
+
 }  // namespace ort_extensions

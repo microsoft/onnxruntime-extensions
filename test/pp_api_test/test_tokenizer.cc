@@ -464,4 +464,20 @@ TEST(OrtxTokenizerTest, SpmUgmTokenizer) {
   // AutoTokenizer.from_pretrained("FacebookAI/xlm-roberta-base")
   EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({
     0, 87, 1884, 122395, 759, 99942, 10269, 136, 7068, 4, 6, 62668, 5364, 245875, 354, 11716, 2}));
+
+  OrtxObjectPtr<OrtxStringArray> decoded_text;
+  OrtxDetokenize(tokenizer.get(), token_ids.get(), ort_extensions::ptr(decoded_text));
+  EXPECT_EQ(decoded_text.Code(), kOrtxOK);
+
+  const char* text = nullptr;
+  OrtxStringArrayGetItem(decoded_text.get(), 0, &text);
+  // because the tokenization remove the character from the string, the decoded text is not the same as the input text.
+  std::string filtered_text(input[0]);
+  filtered_text.erase(std::remove_if(
+    filtered_text.begin(), filtered_text.end(), [](unsigned char chr){ return chr < 0x20; }), filtered_text.end());
+  // remove the consecutive spaces
+  filtered_text.erase(std::unique(filtered_text.begin(), filtered_text.end(),
+    [](char lhs, char rhs) { return lhs == ' ' && rhs == ' ';  }), filtered_text.end());
+
+  EXPECT_STREQ(filtered_text.c_str(), text);
 }

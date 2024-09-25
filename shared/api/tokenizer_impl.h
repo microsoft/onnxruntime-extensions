@@ -61,8 +61,11 @@ class TokenizerImpl : public OrtxObjectImpl {
   using ugm_tokenizer_t = std::unique_ptr<SpmUgmTokenizer>;
   std::variant<bpe_tokenizer_t, ugm_tokenizer_t> tokenizer_;
 
+  using bpe_decoder_t = std::unique_ptr<BpeStreamingDecoder>;
+  using ugm_decoder_t = std::unique_ptr<SpmUgmDecoder>;
+  std::variant<bpe_decoder_t, ugm_decoder_t> detokenizer_;
+
   std::shared_ptr<ort_extensions::TokenJsonConfig> tok_config_;
-  std::unique_ptr<BpeStreamingDecoder> detokenizer_;
 };
 
 }  // namespace ort_extensions
