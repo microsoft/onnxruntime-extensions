@@ -468,7 +468,7 @@ class OrtGraphCudaKernelContext : public CUDAKernelContext {
     }
     void* resource = nullptr;
     result = api_.KernelContext_GetResource(&ctx, cuda_resource_ver, CudaResource::device_id_t, &resource);
-    if (result || !resource) {
+    if (result) {
       ORTX_CXX_API_THROW("Failed to fetch device id from context", ORT_RUNTIME_EXCEPTION);
     }
     memcpy(&device_id_, &resource, sizeof(int));
