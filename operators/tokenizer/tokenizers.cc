@@ -4,18 +4,18 @@
 #include "ocos.h"
 
 #ifdef ENABLE_GPT2_TOKENIZER
-#include "bpe_tokenizer.hpp"
 #include "bpe_kernels.h"
+#include "bpe_tokenizer_model.hpp"
 #include "bpe_decoder.hpp"
 #endif
 
 #ifdef ENABLE_SPM_TOKENIZER
-#include "sentencepiece_tokenizer.hpp"
+#include "sentencepiece_tokenizer.h"
 #include "sentencepiece_decoder.hpp"
 #endif
 
 #ifdef ENABLE_WORDPIECE_TOKENIZER
-#include "wordpiece_tokenizer.hpp"
+#include "wordpiece_tokenizer.h"
 #endif
 
 #ifdef ENABLE_BLINGFIRE
