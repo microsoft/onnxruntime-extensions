@@ -10,6 +10,20 @@
 #include "op_def_struct.h"
 #include "ext_status.h"
 
+
+OrtxStatus image_decoder(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output);
+
+struct DecodeImage {
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    return {};
+  }
+
+  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) {
+    return image_decoder(input, output);
+  }
+};
+
 class JMemorySourceManager : public jpeg_source_mgr {
  public:
   // Constructor
