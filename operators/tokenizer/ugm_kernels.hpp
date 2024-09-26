@@ -18,6 +18,7 @@
 #include "op_def_struct.h"
 #include "base64.h"
 #include "ustring.h"
+#include "narrow.h"
 #include "nlohmann/json.hpp"
 #include "trietree.hpp"
 #include "tokenizer_jsconfig.hpp"
@@ -485,7 +486,7 @@ class SpmUgmDecoder {
       std::copy(ids_dim.begin(), ids_dim.begin() + ids_dim.size() - 1, output_dim.begin());
     }
 
-    size_t seq_len = ids_dim.back();
+    int64_t seq_len = ids_dim.back();
     size_t string_batch = ids.NumberOfElement() / seq_len;
 
     std::vector<std::string> decoded_strings;
@@ -495,7 +496,7 @@ class SpmUgmDecoder {
       std::string text;
       for (int64_t i = 0; i < seq_len; ++i) {
         std::string token;
-        Id2Token(p_ids[i], token, nullptr);
+        Id2Token(ort_extensions::narrow<extTokenId_t>(p_ids[i]), token, nullptr);
         if (token.find(spm_escaped_space) == 0) {
           token = ws + token.substr(spm_escaped_space.length());
         }
@@ -508,6 +509,7 @@ class SpmUgmDecoder {
           text = text.substr(1);
         }
       }
+
       decoded_strings.push_back(text);
     }
 
