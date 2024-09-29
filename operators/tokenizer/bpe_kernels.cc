@@ -397,17 +397,14 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input,
                                                      bool compute_offset_mapping,
                                                      std::list<OffsetMappingType>& offset_map) const {
   std::vector<int64_t> res;
-
   // Add BOS token to result
   res.push_back(bos_token_id_);
 
   size_t max_length = static_cast<size_t>(max_length_i64);
   // Parse input
-  bool add_dummy_prefix = false;
-  if (ModelName() == kModel_Llama) {
-    add_dummy_prefix = true;
-  }
   auto special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input);
+  bool add_dummy_prefix = add_dummy_prefix_;
+
   for (auto& seg_id : special_token_split_res) {
     if (res.size() >= max_length) break;
 
@@ -700,7 +697,7 @@ OrtxStatus JsonFastTokenizer::LoadAddedTokens(const json& tok_json, const ort_ex
 }
 
 // Helper methods (to be added to the class declaration)
-bool JsonFastTokenizer::CheckForSpmModel(const json& tok_json) {
+void JsonFastTokenizer::LoadSpmModelParams(const json& tok_json) {
   auto decoder_node = tok_json.find("decoder");
   if (decoder_node != tok_json.end()) {
     auto decoders_node = decoder_node->find("decoders");
@@ -710,13 +707,19 @@ bool JsonFastTokenizer::CheckForSpmModel(const json& tok_json) {
         if (type == "Replace") {
           std::string target = step.value("/pattern/String"_json_pointer, "");
           if (target == spm_escaped_space) {
-            return true;
+            json_conf_.spm_model_ = true;
+          }
+        }
+        else if (type == "Strip") {
+          std::string content = step.value("/content"_json_pointer, "");
+          if (content == " ") {
+            add_dummy_prefix_ = true;
           }
         }
       }
     }
   }
-  return false;
+
 }
 
 void JsonFastTokenizer::UpdateTokenAdditionFlags(const json& tok_json, const ort_extensions::TokenJsonConfig& config) {
@@ -756,7 +759,7 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::TokenJsonConfig& config
   bpe_conf_ = json_conf_;
 
   // Check for SPM model
-  json_conf_.spm_model_ = CheckForSpmModel(tok_json);
+  LoadSpmModelParams(tok_json);
 
   auto model_node = tok_json.find("model");
   if (model_node == tok_json.end()) {
