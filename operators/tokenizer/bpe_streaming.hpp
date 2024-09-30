@@ -249,7 +249,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
  private:
 
   extTokenId_t eos_token_id_{0};
-  bool add_dummy_prefix_ = true;
   bool spm_model_{};
+  bool add_dummy_prefix_{};
   std::shared_ptr<ort_extensions::TokenJsonConfig const> tok_config_;
 };
