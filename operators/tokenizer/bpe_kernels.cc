@@ -634,7 +634,8 @@ static const auto kSpmConfiguration = BpeModelConf{
     "<s>",         // bos_token
     "</s>",        // eos_token
     "",            // pad_token
-    true};
+    true,          // spm_model
+    true};         // add_dummy_prefix
 
 SpmTokenizer::SpmTokenizer()
     : KernelBpeTokenizer(kSpmConfiguration) {}
