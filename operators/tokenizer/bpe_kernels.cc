@@ -403,7 +403,7 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input,
   size_t max_length = static_cast<size_t>(max_length_i64);
   // Parse input
   auto special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input);
-  bool add_dummy_prefix = add_dummy_prefix_;
+  bool add_dummy_prefix = bpe_conf_.get().add_dummy_prefix_;
 
   for (auto& seg_id : special_token_split_res) {
     if (res.size() >= max_length) break;
@@ -713,13 +713,12 @@ void JsonFastTokenizer::LoadSpmModelParams(const json& tok_json) {
         else if (type == "Strip") {
           std::string content = step.value("/content"_json_pointer, "");
           if (content == " ") {
-            add_dummy_prefix_ = true;
+            json_conf_.add_dummy_prefix_ = true;
           }
         }
       }
     }
   }
-
 }
 
 void JsonFastTokenizer::UpdateTokenAdditionFlags(const json& tok_json, const ort_extensions::TokenJsonConfig& config) {

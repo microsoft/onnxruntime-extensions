@@ -19,6 +19,7 @@ struct BpeModelConf {
   const char* pad_token_{nullptr};
 
   bool spm_model_{};
+  bool add_dummy_prefix_{};
   std::string GetSpecialTokens() const;
 };
 
@@ -34,7 +35,7 @@ struct KernelBpeTokenizer {
 
   const std::string& ModelName() const { return model_name_; }
   uint32_t GetTokenId(const std::string& token) const;
-  bool GetAddDummyPrefix() const { return add_dummy_prefix_; }
+  bool GetAddDummyPrefix() const { return bpe_conf_.get().add_dummy_prefix_; }
 
  protected:
   using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
@@ -51,8 +52,8 @@ struct KernelBpeTokenizer {
   void CreateUnicodeByteEncoder();
 
  protected:
-  std::reference_wrapper<BpeModelConf const> bpe_conf_;
   std::string model_name_;
+  std::reference_wrapper<BpeModelConf const> bpe_conf_;
   std::unique_ptr<ort_extensions::BpeModel> bbpe_tokenizer_;
 
   int64_t padding_length_ = -1;
@@ -63,7 +64,6 @@ struct KernelBpeTokenizer {
   std::optional<bool> add_bos_token_;
   std::optional<bool> add_eos_token_;
   std::string unicode_byte_encoder_[256] = {};
-  bool add_dummy_prefix_{};
 };
 
 struct GPT2Tokenizer : KernelBpeTokenizer {
