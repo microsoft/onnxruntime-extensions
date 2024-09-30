@@ -8,7 +8,17 @@
 
 #include "image_processor.h"
 #include "c_api_utils.hpp"
+#if OCOS_ENABLE_VENDOR_IMAGE_CODECS
+  #if WIN32
+    #include "image_decoder_win32.hpp"
+  #elif __APPLE__
+    #include "image_decoder_darwin.hpp"
+  #else
+    #include "image_decoder.hpp"
+  #endif
+#else
 #include "image_decoder.hpp"
+#endif
 #include "image_transforms.hpp"
 #include "image_transforms_phi_3.hpp"
 
@@ -21,7 +31,7 @@ ort_extensions::LoadRawImages(const std::initializer_list<const char*>& image_pa
 }
 
 Operation::KernelRegistry ImageProcessor::kernel_registry_ = {
-    {"DecodeImage", []() { return CreateKernelInstance(image_decoder); }},
+    {"DecodeImage", []() { return CreateKernelInstance(&DecodeImage::Compute); }},
     {"Resize", []() { return CreateKernelInstance(&Resize::Compute); }},
     {"Rescale", []() { return CreateKernelInstance(&Rescale::Compute); }},
     {"Normalize", []() { return CreateKernelInstance(&Normalize::Compute); }},

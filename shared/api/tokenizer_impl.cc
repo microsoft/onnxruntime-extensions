@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 #include "bpe_kernels.h"
-#include "bpe_tokenizer.hpp"
+#include "bpe_tokenizer_model.hpp"
 #include "bpe_decoder.hpp"
 #include "ugm_kernels.hpp"
 
@@ -16,7 +16,7 @@ TokenizerImpl::TokenizerImpl()
 TokenizerImpl::~TokenizerImpl() {};
 
 OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
-  tok_config_ = std::make_shared<ort_extensions::bpe::TokenJsonConfig>();
+  tok_config_ = std::make_shared<ort_extensions::TokenJsonConfig>();
   auto status = tok_config_->Load(tok_path);
   if (!status.IsOk()) {
     return status;
@@ -25,8 +25,18 @@ OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
   if (tok_config_->tokenizer_class_.empty()) {
     auto tokenizer = std::make_unique<SpmUgmTokenizer>();
     status = tokenizer->Load(*tok_config_);
+    if (!status.IsOk()) {
+      return status;
+    }
+    auto detok = std::make_unique<SpmUgmDecoder>();
+
+    if (status.IsOk()) {
+      status = detok->Load(*tok_config_, *tokenizer);
+    }
+
     if (status.IsOk()) {
       tokenizer_ = std::move(tokenizer);
+      detokenizer_ = std::move(detok);
     }
 
     return status;
@@ -38,14 +48,16 @@ OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
   auto fx_load = vocab_file_path.extension() == ".json"?
                  &JsonFastTokenizer::Load: &JsonFastTokenizer::LoadTikTokenBase64;
   status = (tokenizer.get()->*fx_load)(*tok_config_);
-
-  if (status.IsOk()) {
-    detokenizer_ = std::make_unique<BpeStreamingDecoder>();
-    status = detokenizer_->Load(tok_config_, *tokenizer);
+  if (!status.IsOk()) {
+    return status;
   }
+
+  auto detok = std::make_unique<BpeStreamingDecoder>();
+  status = detok->Load(tok_config_, *tokenizer);
 
   if (status.IsOk()) {
     tokenizer_ = std::move(tokenizer);
+    detokenizer_ = std::move(detok);
   }
 
   return status;
@@ -81,7 +93,9 @@ OrtxStatus TokenizerImpl::BatchDecode(const std::vector<span<extTokenId_t const>
     std::transform(s.begin(), s.end(), ids.begin(), [](extTokenId_t v) { return static_cast<int64_t>(v); });
     ortc::Tensor<int64_t> ts_input(std::vector<int64_t>{1, static_cast<int64_t>(ids.size())}, (void*)ids.data());
     ortc::Tensor<std::string> ts_output;
-    OrtxStatus status = detokenizer_->Compute(ts_input, ts_output);
+    OrtxStatus status = std::visit([&](auto& detokenizer) {
+      return detokenizer->Compute(ts_input, ts_output); }, detokenizer_);
+
     if (!status.IsOk()) {
       return status;
     }
@@ -90,8 +104,9 @@ OrtxStatus TokenizerImpl::BatchDecode(const std::vector<span<extTokenId_t const>
   return {};
 }
 
-OrtxStatus TokenizerImpl::Id2Token(extTokenId_t id, std::string& token, BPEDecoderState** state) const {
-  return detokenizer_->Id2Token(id, token, state);
+OrtxStatus TokenizerImpl::Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state) const {
+  return std::visit([&](auto& detokenizer) {
+    return detokenizer->Id2Token(id, token, state); }, detokenizer_);
 }
 
 static std::map<std::string, std::string> LANGUAGES = {

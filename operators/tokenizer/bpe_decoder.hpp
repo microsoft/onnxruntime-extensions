@@ -15,7 +15,7 @@
 
 #include "ustring.h"
 #include "narrow.h"
-#include "tokjson_types.h"
+#include "tokenizer_common.h"
 
 struct KernelBpeDecoder {
  public:

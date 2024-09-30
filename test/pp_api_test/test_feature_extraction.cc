@@ -30,7 +30,7 @@ TEST(ExtractorTest, TestWhisperFeatureExtraction) {
   const float* data{};
   const int64_t* shape{};
   size_t num_dims;
-  err = OrtxGetTensorDataFloat(tensor.get(), &data, &shape, &num_dims);
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
   ASSERT_EQ(err, kOrtxOK);
   ASSERT_EQ(num_dims, 3);
   ASSERT_EQ(shape[0], 3);

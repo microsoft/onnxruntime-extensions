@@ -18,7 +18,7 @@
 #include "nlohmann/json.hpp"
 #include "bpe_utils.hpp"
 #include "trietree.hpp"
-#include "tokjson_types.h"
+#include "tokenizer_common.h"
 
 namespace ort_extensions {
 
@@ -145,23 +145,32 @@ class BpeModel {
     uint32_t index = 0;
     auto merge_item = merges_json.begin();
     while (merge_item != merges_json.end()) {
-      std::string line = merge_item.value();
-      line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
-      if (line.empty()) continue;
-      if ((line[0] == '#') && (index == 0)) continue;
-      auto pos = line.find(' ');
-      if (pos == std::string::npos) {
-        return {
-            kOrtxErrorCorruptData,
-            "Cannot know how to parse line: " + line,
-        };
+      std::string w1, w2;
+      if (merge_item->is_string()) {
+        std::string line = merge_item.value();
+        line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
+        if (line.empty()) continue;
+        if ((line[0] == '#') && (index == 0)) continue;
+        auto pos = line.find(' ');
+        if (pos == std::string::npos) {
+          return {
+              kOrtxErrorCorruptData,
+              "Cannot know how to parse line: " + line,
+          };
+        }
+        w1 = line.substr(0, pos);
+        w2 = line.substr(pos + 1);
+      } else if (merge_item->is_array()) {
+        w1 = merge_item->at(0).get<std::string>();
+        w2 = merge_item->at(1).get<std::string>();
+      } else {
+        return {kOrtxErrorCorruptData, "Cannot know how to parse line: " + merge_item->dump()};
       }
-      std::string w1 = line.substr(0, pos);
-      std::string w2 = line.substr(pos + 1);
       int token_length = ort_extensions::narrow<int>(w1.length() + w2.length());
       if (w2.find("</w>") != std::string::npos || w1.find("</w>") != std::string::npos) {
         token_length -= 4;
       }
+
       auto iw1 = GetTokenId(w1);
       auto iw2 = GetTokenId(w2);
       auto iww = GetTokenId(w1 + w2);
@@ -249,7 +258,7 @@ class BpeModel {
     return {};
   }
 
-  OrtxStatus LoadAddedTokens(const std::vector<bpe::AddedToken>& added_tokens) {
+  OrtxStatus LoadAddedTokens(const std::vector<AddedToken>& added_tokens) {
     for (const auto& token : added_tokens) {
       added_tokens_.Add(ustring(token.content_), 0, token.id_);
     }

@@ -1,16 +1,14 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "file_sys.h"
-
-#include "bpe_kernels.h"
-#include "bpe_jsoncfg.hpp"
-#include "bpe_tokenizer.hpp"
+#include <limits>
+#include <optional>
 
 #include "base64.h"
-
-#include <optional>
-#include <limits>
+#include "file_sys.h"
+#include "bpe_kernels.h"
+#include "tokenizer_jsconfig.hpp"
+#include "bpe_tokenizer_model.hpp"
 
 using namespace ort_extensions;
 
@@ -78,11 +76,26 @@ static bool IsUnicodeSpace(char32_t ch) {
   return unicode_spaces.count(ch) > 0;
 }
 
-bool AllSpaceUstring(const ustring& str) {
+// Note: In CPython, it supports converting upper case 'I' with diaeresis to lower case 'i' with diaeresis
+static ustring ToLowerCase(ustring input) {
+  ustring str_lower;
+  str_lower.reserve(input.size() * 2);
+  for (auto c : input) {
+    if (c == 304) {
+      str_lower += {105, 775};
+    } else {
+      str_lower += ufal::unilib::unicode::lowercase(c);
+    }
+  }
+
+  return str_lower;
+}
+
+static bool AllSpaceUstring(const ustring& str) {
   return std::all_of(str.begin(), str.end(), [](char32_t ch) { return IsUnicodeSpace(ch); });
 }
 
-ustring RemoveConsecutiveSpaces(const ustring& input) {
+static ustring RemoveConsecutiveSpaces(const ustring& input) {
   ustring result;
   result.reserve(input.size());
   bool lastWasSpace = false;
@@ -244,8 +257,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
   }
 
   if (ModelName() == kModel_CLIP) {
-    // Convert to lowercase
-    std::transform(input.begin(), input.end(), input.begin(), [](char32_t c) { return static_cast<char32_t>(ToLower(c)); });
+    input = std::move(ToLowerCase(input));
   }
 
   // Parse input
@@ -659,11 +671,11 @@ struct VectorEqual {
     }
 };
 
-OrtxStatus JsonFastTokenizer::LoadAddedTokens(const json& tok_json, const ort_extensions::bpe::TokenJsonConfig& config) {
+OrtxStatus JsonFastTokenizer::LoadAddedTokens(const json& tok_json, const ort_extensions::TokenJsonConfig& config) {
   auto added_tokens = tok_json.find("added_tokens");
   if (added_tokens != tok_json.end()) {
     for (const auto& token : *added_tokens) {
-      bpe::AddedToken added_token;
+      AddedToken added_token;
       added_token.id_ = token.value("id", 0);
       added_token.token_type_ = token.value("__type", "");
       added_token.content_ = token.value("content", "");
@@ -707,7 +719,7 @@ bool JsonFastTokenizer::CheckForSpmModel(const json& tok_json) {
   return false;
 }
 
-void JsonFastTokenizer::UpdateTokenAdditionFlags(const json& tok_json, const ort_extensions::bpe::TokenJsonConfig& config) {
+void JsonFastTokenizer::UpdateTokenAdditionFlags(const json& tok_json, const ort_extensions::TokenJsonConfig& config) {
   if (!config.add_bos_token_ && !config.bos_token_.empty()) {
     auto post_processor = tok_json.find("post_processor");
     if (post_processor != tok_json.end()) {
@@ -722,7 +734,7 @@ void JsonFastTokenizer::UpdateTokenAdditionFlags(const json& tok_json, const ort
   }
 }
 
-OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& config) {
+OrtxStatus JsonFastTokenizer::Load(const ort_extensions::TokenJsonConfig& config) {
   std::string voc_file = config.GetVocabDataFile();
   std::ifstream ifs = path(voc_file).open();
   if (!ifs.is_open()) {
@@ -771,7 +783,7 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::bpe::TokenJsonConfig& c
   return status;
 }
 
-OrtxStatus JsonFastTokenizer::LoadTikTokenBase64(const ort_extensions::bpe::TokenJsonConfig& config) {
+OrtxStatus JsonFastTokenizer::LoadTikTokenBase64(const ort_extensions::TokenJsonConfig& config) {
   std::string voc_file = config.GetVocabDataFile();
   std::ifstream ifs = path(voc_file).open();
   if (!ifs.is_open()) {

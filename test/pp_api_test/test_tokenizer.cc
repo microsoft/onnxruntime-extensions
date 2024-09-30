@@ -85,7 +85,7 @@ TEST(OrtxTokenizerTest, RegexTest) {
 
 TEST(OrtxTokenizerTest, ClipTokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
-  auto status = tokenizer->Load("data/clip");
+  auto status = tokenizer->Load("data/tokenizer/clip");
   if (!status.IsOk()) {
     std::cout << status.ToString() << std::endl;
   }
@@ -335,7 +335,7 @@ TEST(OrtxTokenizerStreamTest, CodeGenTokenizer) {
   EXPECT_EQ(token_ids.size(), 1);
 
   std::string text;
-  std::unique_ptr<ort_extensions::BPEDecoderState> decoder_cache;
+  std::unique_ptr<ort_extensions::TokenizerDecodingState> decoder_cache;
   // token_ids[0].insert(token_ids[0].begin() + 2, 607);  // <0x20>
   token_ids[0] = {564, 921, 765, 2130, 588, 262, 6123, 447, 251, 2130, 588, 262};
   for (const auto& token_id : token_ids[0]) {
@@ -369,7 +369,7 @@ TEST(OrtxTokenizerStreamTest, Llama2Tokenizer) {
   DumpTokenIds(token_ids);
 
   std::string text;
-  std::unique_ptr<ort_extensions::BPEDecoderState> decoder_cache;
+  std::unique_ptr<ort_extensions::TokenizerDecodingState> decoder_cache;
   // std::cout << "\"";
   for (const auto& token_id : token_ids[0]) {
     std::string token;
@@ -406,7 +406,7 @@ TEST(OrtxTokenizerStreamTest, Phi3Tokenizer) {
   DumpTokenIds(token_ids);
 
   std::string text;
-  std::unique_ptr<ort_extensions::BPEDecoderState> decoder_cache;
+  std::unique_ptr<ort_extensions::TokenizerDecodingState> decoder_cache;
   // std::cout << "\"";
   for (const auto& token_id : token_ids[0]) {
     std::string token;
@@ -464,4 +464,20 @@ TEST(OrtxTokenizerTest, SpmUgmTokenizer) {
   // AutoTokenizer.from_pretrained("FacebookAI/xlm-roberta-base")
   EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({
     0, 87, 1884, 122395, 759, 99942, 10269, 136, 7068, 4, 6, 62668, 5364, 245875, 354, 11716, 2}));
+
+  OrtxObjectPtr<OrtxStringArray> decoded_text;
+  OrtxDetokenize(tokenizer.get(), token_ids.get(), ort_extensions::ptr(decoded_text));
+  EXPECT_EQ(decoded_text.Code(), kOrtxOK);
+
+  const char* text = nullptr;
+  OrtxStringArrayGetItem(decoded_text.get(), 0, &text);
+  // because the tokenization remove the character from the string, the decoded text is not the same as the input text.
+  std::string filtered_text(input[0]);
+  filtered_text.erase(std::remove_if(
+    filtered_text.begin(), filtered_text.end(), [](unsigned char chr){ return chr < 0x20; }), filtered_text.end());
+  // remove the consecutive spaces
+  filtered_text.erase(std::unique(filtered_text.begin(), filtered_text.end(),
+    [](char lhs, char rhs) { return lhs == ' ' && rhs == ' ';  }), filtered_text.end());
+
+  EXPECT_STREQ(filtered_text.c_str(), text);
 }

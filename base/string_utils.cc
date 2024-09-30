@@ -98,16 +98,55 @@ bool IsAccent(char32_t c)
   return c >= 0x300 && c <= 0x36F;
 }
 
-// only support latin now
 char32_t ToLower(char32_t c) {
-  if ((c >= 'A') && (c <= 'Z')) {
-    return c + 'a' - 'A';
+  // Basic ASCII uppercase to lowercase
+  if (c >= 'A' && c <= 'Z') {
+    return c + 32;
   }
 
-  if ((c >= U'À' && (c <= U'Þ'))) {
-    return c + U'à' - U'À';
+  // Latin-1 Supplement (À-ß)
+  if (c >= U'À' && c <= U'Þ') {
+    // Special case for ×
+    if(c == U'×') {
+      return c;
+    }
+    return c + 32;
   }
 
+  // // Latin Extended-A (Ā-ſ)
+  // if (c >= U'Ā' && c <= U'Ʒ') {
+  //   return c + 1;
+  // }
+
+  // Greek and Coptic
+  if (c >= U'Ἀ' && c <= U'Ὠ') {
+    return c + 32;
+  }
+
+  // Cyrillic
+  if (c >= U'А' && c <= U'Я') {
+    return c + 32;
+  }
+
+  // Special cases
+  switch (c) {
+    case U'Ι':
+      return U'ι';
+    case U'Κ':
+      return U'κ';
+    case U'Λ':
+      return U'λ';
+    case U'Μ':
+      return U'μ';
+    case U'Ν':
+      return U'ν';
+    case U'Ο':
+      return U'ο';
+    case U'Π':
+      return U'π';
+  }
+
+  // If no conversion rule applies, return the original character
   return c;
 }
 

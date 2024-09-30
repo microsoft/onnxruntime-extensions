@@ -4,7 +4,7 @@
 #include "sentencepiece_processor.h"
 #include "sentencepiece_model.pb.h"
 #include "sentencepiece.pb.h"
-#include "sentencepiece_tokenizer.hpp"
+#include "sentencepiece_tokenizer.h"
 #include "string_tensor.h"
 #include "base64.h"
 #include "narrow.h"
