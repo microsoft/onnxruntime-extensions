@@ -40,7 +40,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     // whitespace_token_ = tok_config.clean_up_tokenization_spaces_ ? 1 : 0;
     skip_special_tokens_ = 1;
     // en_normalization_ = 0;
-    add_dummy_prefix_ = tok_config.tokenizer_class_ == "LlamaTokenizer" ? 1 : 0;
+    add_dummy_prefix_ = encoder.GetAddDummyPrefix();
     eos_token_id_ = encoder.GetEncoder().GetTokenId(tok_config.eos_token_);
 
     tok_config_ = ptr_config;
@@ -249,7 +249,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
  private:
 
   extTokenId_t eos_token_id_{0};
-  bool add_dummy_prefix_ = false;
   bool spm_model_{};
+  bool add_dummy_prefix_{};
   std::shared_ptr<ort_extensions::TokenJsonConfig const> tok_config_;
 };
