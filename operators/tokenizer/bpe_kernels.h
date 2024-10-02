@@ -19,6 +19,7 @@ struct BpeModelConf {
   const char* pad_token_{nullptr};
 
   bool spm_model_{};
+  bool add_dummy_prefix_{};
   std::string GetSpecialTokens() const;
 };
 
@@ -34,6 +35,7 @@ struct KernelBpeTokenizer {
 
   const std::string& ModelName() const { return model_name_; }
   uint32_t GetTokenId(const std::string& token) const;
+  bool GetAddDummyPrefix() const { return bpe_conf_.get().add_dummy_prefix_; }
 
  protected:
   using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
@@ -50,8 +52,8 @@ struct KernelBpeTokenizer {
   void CreateUnicodeByteEncoder();
 
  protected:
-  std::reference_wrapper<BpeModelConf const> bpe_conf_;
   std::string model_name_;
+  std::reference_wrapper<BpeModelConf const> bpe_conf_;
   std::unique_ptr<ort_extensions::BpeModel> bbpe_tokenizer_;
 
   int64_t padding_length_ = -1;
@@ -122,12 +124,10 @@ class JsonFastTokenizer : public KernelBpeTokenizer {
   const auto& GetAddedTokens() const { return added_tokens_; }
   const ort_extensions::BpeModel& GetEncoder() const { return *bbpe_tokenizer_; }
   bool IsSpmModel() const { return json_conf_.spm_model_; }
-  bool tiktoken_ = false;
 
  private:
   std::string TokenBytesToString(std::vector<uint8_t>& bytes);
-  // template functions to avoid including the huge json header file
-  bool CheckForSpmModel(const json& tok_json);
+  void LoadSpmModelParams(const json& tok_json);
   void UpdateTokenAdditionFlags(const json& tok_json, const ort_extensions::TokenJsonConfig& config);
   OrtxStatus LoadAddedTokens(const json& tok_json, const ort_extensions::TokenJsonConfig& config);
 
