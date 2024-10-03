@@ -22,7 +22,8 @@ OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
     return status;
   }
 
-  if (tok_config_->tokenizer_class_.empty()) {
+  if (tok_config_->tokenizer_class_.empty() ||
+      tok_config_->tokenizer_class_ == "XLMRobertaTokenizer") {
     auto tokenizer = std::make_unique<SpmUgmTokenizer>();
     status = tokenizer->Load(*tok_config_);
     if (!status.IsOk()) {

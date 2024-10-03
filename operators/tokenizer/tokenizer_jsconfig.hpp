@@ -26,7 +26,6 @@ class TokenJsonConfig final {
       return OrtxStatus(kOrtxErrorInvalidArgument, "json_path is empty.");
     }
 
-
     ortx::path tok_dir(json_path);
     ortx::path vocab_path(json_path);
     ortx::path tok_path_obj(json_path);
