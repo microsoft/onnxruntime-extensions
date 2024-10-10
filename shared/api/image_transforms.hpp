@@ -3,7 +3,8 @@
 
 #pragma once
 
-#include "ocos.h"
+#include "ext_status.h"
+#include "op_def_struct.h"
 #include "image_resample.h"
 
 inline OrtxStatus convert_to_rgb(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) {
@@ -113,7 +114,7 @@ struct Rescale {
   template <typename DictT>
   OrtxStatus Init(const DictT& attrs) {
     for (const auto& [key, value] : attrs) {
-      if (key == "scale") {
+      if (key == "rescale_factor") {
         scale_ = static_cast<float>(std::get<double>(value));
       } else {
         return {kOrtxErrorInvalidArgument, "[Rescale]: Invalid argument"};

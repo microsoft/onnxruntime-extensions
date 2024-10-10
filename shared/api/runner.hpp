@@ -28,10 +28,6 @@ class KernelDef {
   virtual TensorArgs AllocateOutput(ortc::IAllocator* allocator) const = 0;
   virtual OrtxStatus Apply(TensorArgs& inputs, TensorArgs& output) const = 0;
 
-  using AttrType =
-      std::variant<std::string, double, int64_t, std::vector<std::string>, std::vector<double>, std::vector<int64_t>>;
-  using AttrDict = std::unordered_map<std::string, AttrType>;
-
   template <typename... Args>
   using tuple_function_args = std::tuple<typename std::remove_reference<Args>::type*...>;
 
@@ -276,10 +272,9 @@ class Operation {
 
   void ResetTensors(ortc::IAllocator* allocator) { outputs_.clear(); }
 
+ 
  private:
   std::vector<std::unique_ptr<ortc::TensorBase>> outputs_;
-
- private:
   const KernelRegistry* kernel_registry_;
 
   std::unique_ptr<KernelDef> kernel_;
