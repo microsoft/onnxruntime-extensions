@@ -81,7 +81,7 @@ TEST(ProcessorTest, TestMLlamaImageProcessing) {
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxObjectPtr<OrtxProcessor> processor;
-  err = OrtxCreateProcessor(ort_extensions::ptr(processor), "data/processor/llama_3_image.json");
+  err = OrtxCreateProcessor(ort_extensions::ptr(processor), "data/processor/mllama/llama_3_image.json");
   if (err != kOrtxOK) {
     std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
   }

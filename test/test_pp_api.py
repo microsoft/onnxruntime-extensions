@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image
 
 
+
 is_pp_api_available = False
 try:
     from transformers import AutoImageProcessor
@@ -60,6 +61,9 @@ class TestPPAPI(unittest.TestCase):
             e_image = regen_image(np.transpose(expected, (1, 2, 0)))
             e_image.save(f"{temp_dir}/e_{i}.png")
 
+        ort_processor = pp_api.ImageProcessor("test/data/processor/mllama/llama_3_image.json")
+        inputs = ort_processor.pre_process(["test/data/processor/passport.png", "test/data/processor/exceltable.png"])
+        print(ort_processor.to_numpy(inputs, 0).shape)
 
 if __name__ == '__main__':
     unittest.main()
