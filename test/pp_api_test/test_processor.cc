@@ -12,7 +12,6 @@
 
 using namespace ort_extensions;
 
-
 TEST(ProcessorTest, TestPhi3VImageProcessing) {
   auto [input_data, n_data] = ort_extensions::LoadRawImages(
       {"data/processor/standard_s.jpg", "data/processor/australia.jpg", "data/processor/exceltable.png"});
@@ -71,4 +70,35 @@ TEST(ProcessorTest, TestClipImageProcessing) {
   err = OrtxGetTensorData(tensor, reinterpret_cast<const void**>(&data), &shape, &num_dims);
   ASSERT_EQ(err, kOrtxOK);
   ASSERT_EQ(num_dims, 4);
+}
+
+TEST(ProcessorTest, TestMLlamaImageProcessing) {
+  const char* images_path[] = {"data/processor/standard_s.jpg", "data/processor/australia.jpg"};
+
+  OrtxObjectPtr<OrtxRawImages> raw_images;
+  extError_t err = OrtxLoadImages(ort_extensions::ptr(raw_images), images_path,
+                                  sizeof(images_path) / sizeof(images_path[0]), nullptr);
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxProcessor> processor;
+  err = OrtxCreateProcessor(ort_extensions::ptr(processor), "data/processor/llama_3_image.json");
+  if (err != kOrtxOK) {
+    std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxImagePreProcess(processor.get(), raw_images.get(), ort_extensions::ptr(result));
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxTensor* tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, &tensor);
+  ASSERT_EQ(err, kOrtxOK);
+
+  const float* data{};
+  const int64_t* shape{};
+  size_t num_dims;
+  err = OrtxGetTensorData(tensor, reinterpret_cast<const void**>(&data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 5);
 }

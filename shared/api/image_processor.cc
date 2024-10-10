@@ -17,10 +17,12 @@
     #include "image_decoder.hpp"
   #endif
 #else
-#include "image_decoder.hpp"
+  #include "image_decoder.hpp"
 #endif
+
 #include "image_transforms.hpp"
 #include "image_transforms_phi_3.hpp"
+#include "image_transforms_llama_3.hpp"
 
 using namespace ort_extensions;
 using json = nlohmann::json;
@@ -38,6 +40,7 @@ Operation::KernelRegistry ImageProcessor::kernel_registry_ = {
     {"CenterCrop", []() { return CreateKernelInstance(&CenterCrop::Compute); }},
     {"ConvertRGB", []() { return CreateKernelInstance(convert_to_rgb); }},
     {"Phi3ImageTransform", []() { return CreateKernelInstance(phi3_hd_transform); }},
+    {"Llama3ImageTransform", []() { return CreateKernelInstance(&Llama3ImageTransform::Compute); }},
 };
 
 OrtxStatus ImageProcessor::Init(std::string_view processor_def) {
@@ -189,7 +192,6 @@ OrtxStatus ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_d
   operations_.back()->ResetTensors(allocator_);
   if (status.IsOk()) {
     r.SetTensors(std::move(img_result));
-    // r.SetTensorTypes({kOrtxFloat, kOrtxInt64, kOrtxInt64});
   }
 
   return status;

@@ -160,26 +160,3 @@ extError_t ORTX_API_CALL OrtxGetTensorData(OrtxTensor* tensor, const void** data
   return extError_t();
 }
 
-extError_t ORTX_API_CALL OrtxGetTensorDataInt64(OrtxTensor* tensor, const int64_t** data, const int64_t** shape,
-                                                size_t* num_dims) {
-  const void* data_ptr{};
-  auto err = OrtxGetTensorData(tensor, &data_ptr, shape, num_dims);
-  *data = reinterpret_cast<const int64_t*>(data_ptr);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-  return err;
-}
-
-extError_t ORTX_API_CALL OrtxGetTensorDataFloat(OrtxTensor* tensor, const float** data, const int64_t** shape,
-                                                size_t* num_dims) {
-  const void* data_ptr{};
-  auto err = OrtxGetTensorData(tensor, &data_ptr, shape, num_dims);
-  *data = reinterpret_cast<const float*>(data_ptr);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-  return err;
-}
-
-extError_t ORTX_API_CALL OrtxGetTensorDataUint8(OrtxTensor* tensor, const uint8_t** data, const int64_t** shape,
-                                                size_t* num_dims) {
-  const void* data_ptr{};
-  auto err = OrtxGetTensorData(tensor, &data_ptr, shape, num_dims);
-  *data = reinterpret_cast<const uint8_t*>(data_ptr);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-  return err;
-}
