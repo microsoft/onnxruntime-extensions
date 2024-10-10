@@ -215,8 +215,8 @@ class TokenWithRegularExp {
 
   */
 
-  const std::string GPT2_REGEX_PATTERN = "'s|'t|'re|'ve|'m|'ll|'d|?\\p{L}+|?\\p{N}+|?[^\\s\\p{L}\\p{N}]+|\\s+";
-  const std::string LLAMA_REGEX_PATTERN = "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}|?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+";
+  const std::string GPT2_REGEX_PATTERN = "'s|'t|'re|'ve|'m|'ll|'d|?\\p{L}+|?\\p{N}+|?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+";
+  const std::string LLAMA_REGEX_PATTERN = "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}|?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+";
   // Alternate form for LLaMa Regex:
   // const std::string LLAMA_REGEX_PATTERN_2 = "(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+";
 
@@ -429,7 +429,7 @@ class TokenWithRegularExp {
         m_text = m_text.substr(i);
         return res;
       }
-    } else if (premodifier == "" && postmodifier == "" && (categories.size() == 1 ? (categories[0] != "A" && categories[0] != "AL") : true)){
+    } else if (premodifier == "" && postmodifier == "" && (categories.size() == 1 ? (categories[0] != "A" && categories[0] != "AL" && categories[0] != "sS") : true)){
       if ((negated ? !IsCategory(m_text[0], categories) : IsCategory(m_text[0], categories))) {
         std::u32string res = ustring(m_text.substr(0, 1));
         m_text = m_text.substr(1);
@@ -505,6 +505,25 @@ class TokenWithRegularExp {
       }
     }
 
+    if (categories.size() == 1 && categories[0] == "sS") {
+      if ((m_text.size() >= 1) && (IsZ(m_text[0]))) {
+        size_t i = 1;
+        for (; i < m_text.size(); ++i) {
+          if (!IsZ(m_text[i])) break;
+        }
+        if ((i > 1) && (i != m_text.size())) {  //\s+(?!\S)
+          i--;
+          std::u32string res = ustring(m_text.substr(0, i));
+          m_text = m_text.substr(i);
+          return res;
+        }
+        // \s+
+        std::u32string res = ustring(m_text.substr(0, i));
+        m_text = m_text.substr(i);
+        return res;
+      }
+    }
+
     return U"";
   }
 
@@ -566,6 +585,15 @@ class TokenWithRegularExp {
       return result;
   }
 
+  std::string ReplaceString(std::string input, const std::string& target, const std::string& replacement) {
+    size_t pos = 0;
+    while ((pos = input.find(target, pos)) != std::string::npos) {
+        input.replace(pos, target.length(), replacement);
+        pos += replacement.length(); // Move past the replacement
+    }
+
+    return input;
+  }
 
   struct CategorySet {
     std::vector<std::string> categories;
@@ -580,7 +608,11 @@ class TokenWithRegularExp {
   //               ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+"
   std::u32string RegexMatchGeneral(const std::string & regex_expr) {
     // std::string input = "?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]*[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]+";
-    std::string input = std::regex_replace(regex_expr, std::regex("\\\\s"), "\\p{Z}");
+    std::string target = "\\s+(?!\\S)|\\s+";
+    std::string replacement = "\\p{sS}";
+
+    std::string input = ReplaceString(regex_expr, target, replacement);
+    input = std::regex_replace(input, std::regex("\\\\s"), "\\p{Z}");
     input = std::regex_replace(input, std::regex(R"(\(\?i:'s\|'t\|'re\|'ve\|'m\|'ll\|'d\)\?)"), "[\\p{A}]"); // Apostrophe endings case insensitive
     input = std::regex_replace(input, std::regex(R"((?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD]))"), "[\\p{A}]"); // variant of the above
     input = std::regex_replace(input, std::regex(R"('s\|'t\|'re\|'ve\|'m\|'ll\|'d)"), "[\\p{AL}]"); // Apostrophe endings lowercase
