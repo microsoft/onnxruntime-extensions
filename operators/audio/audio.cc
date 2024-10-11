@@ -2,13 +2,18 @@
 // Licensed under the MIT License.
 
 #include "ocos.h"
-#ifdef ENABLE_DR_LIBS
-#include "audio_decoder.h"
+
+#ifdef OCOS_ENABLE_VENDOR_AUDIO_CODECS
+  #if __APPLE__
+  #include "audio_decoder_darwin.h"
+  #endif
+#elif defined(ENABLE_DR_LIBS)
+  #include "audio_decoder_drlib.h"
 #endif  // ENABLE_DR_LIBS
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Audio = []() -> CustomOpArray& {
   static OrtOpLoader op_loader(
-#ifdef ENABLE_DR_LIBS
+#if defined(ENABLE_DR_LIBS) || defined(OCOS_ENABLE_VENDOR_AUDIO_CODECS)
       CustomCpuStructV2("AudioDecoder", AudioDecoder),
 #endif
       []() { return nullptr; });

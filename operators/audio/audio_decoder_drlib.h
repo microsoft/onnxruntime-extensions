@@ -18,16 +18,6 @@
 #include "narrow.h"
 #include "string_utils.h"
 #include "string_tensor.h"
-#include "sampling.h"
-
-OrtStatusPtr AudioDecoder::OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
-  auto status = OrtW::GetOpAttribute(info, "downsampling_rate", downsample_rate_);
-  if (!status) {
-    status = OrtW::GetOpAttribute(info, "stereo_to_mono", stereo_mixer_);
-  }
-
-  return status;
-}
 
 AudioDecoder::AudioStreamType AudioDecoder::ReadStreamFormat(const uint8_t* p_data, const std::string& str_format,
                                                              OrtxStatus& status) const {
@@ -156,23 +146,7 @@ OrtxStatus AudioDecoder::Compute(const ortc::Tensor<uint8_t>& input, const std::
     offset += _b.size();
   }
 
-  // mix the stereo channels into mono channel
-  if (stereo_mixer_ && orig_channels > 1) {
-    if (buf.size() > 1) {
-      for (size_t i = 0; i < buf.size() / 2; ++i) {
-        buf[i] = (buf[i * 2] + buf[i * 2 + 1]) / 2;
-      }
-      buf.resize(buf.size() / 2);
-    }
-  }
-
-  if (downsample_rate_ != 0 && downsample_rate_ != orig_sample_rate) {
-    // A lowpass filter on buf audio data to remove high frequency noise
-    ButterworthLowpass filter(0.5 * downsample_rate_, 1.0 * orig_sample_rate);
-    std::vector<float> filtered_buf = filter.Process(buf);
-    // downsample the audio data
-    KaiserWindowInterpolation::Process(filtered_buf, buf, 1.0f * orig_sample_rate, 1.0f * downsample_rate_);
-  }
+  MixAndDownsampleIfNeeded(buf, orig_channels, orig_sample_rate);
 
   std::vector<int64_t> dim_out = {1, ort_extensions::narrow<int64_t>(buf.size())};
   float* p_output = output0.Allocate(dim_out);
