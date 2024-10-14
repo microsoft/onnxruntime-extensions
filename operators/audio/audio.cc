@@ -4,7 +4,7 @@
 #include "ocos.h"
 
 #ifdef OCOS_ENABLE_VENDOR_AUDIO_CODECS
-  #if __APPLE__
+  #if defined(__APPLE__)
   #include "audio_decoder_darwin.h"
   #endif
 #elif defined(ENABLE_DR_LIBS)
