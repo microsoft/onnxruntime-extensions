@@ -85,12 +85,14 @@ TEST(OrtxTokenizerTest, RegexTest) {
 
 TEST(OrtxTokenizerTest, WrapStandaloneCategoriesTest) {
   std::vector<std::string> regex_expressions = {"[^\\p{rn}\\p{L}\\p{N}]?\\p{L}+",
+                                                "\\p{rn}\\p{L}\\p{N}\\p{L}",
                                                 "\\p{Z}*[\\p{rn}]+",
                                                 "\\p{Z}+"};
   auto regcmp = std::make_unique<ort_extensions::bpe::TokenWithRegularExp>();
 
   std::vector<std::string> res;
   std::vector<std::string> out_regex = {"[^\\p{rn}\\p{L}\\p{N}]?[\\p{L}]+",
+                                        "[\\p{rn}][\\p{L}][\\p{N}][\\p{L}]",
                                         "[\\p{Z}]*[\\p{rn}]+",
                                         "[\\p{Z}]+"};
 
@@ -103,6 +105,12 @@ TEST(OrtxTokenizerTest, WrapStandaloneCategoriesTest) {
 TEST(OrtxTokenizerTest, RegexMatchGeneralTest) {
   std::vector<std::string> regex_expressions = {"[^\\p{rn}\\p{L}\\p{N}]?\\p{L}+",
                                                 "\\p{N}{1,3}",
+                                                "\\p{N}{1,5}",
+                                                "[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]*"
+                                                "[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?|"
+                                                "[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]+"
+                                                "[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?|"
+                                                "\\p{N}{1,3}|?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+",
                                                 "[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]*"
                                                 "[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?|"
                                                 "[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]+"
@@ -111,13 +119,17 @@ TEST(OrtxTokenizerTest, RegexMatchGeneralTest) {
 
   std::vector<std::u32string> input_strings = {U"CAN'T \r\n ",
                                                U"2413m",
-                                               U"Ich liebe München <3 \r\n "};                      
+                                               U"241356m",
+                                               U"Ich liebe München <3 \r\n ",
+                                               U"生活的真谛是"};                      
   auto regcmp = std::make_unique<ort_extensions::bpe::TokenWithRegularExp>();
 
   std::vector<std::vector<std::u32string>> res_vector;
   std::vector<std::vector<std::u32string>> out_tokens = {{U"CAN", U"'T", U"", U""},
                                                          {U"241", U"3"},
-                                                         {U"Ich", U" liebe", U" München", U" <", U"3", U" \r\n", U" "}};
+                                                         {U"24135", U"6"},
+                                                         {U"Ich", U" liebe", U" München", U" <", U"3", U" \r\n", U" "},
+                                                         {U"生活的真谛是"}};
 
   for (auto i = 0; i < regex_expressions.size(); i++){
     int64_t max_length = out_tokens[i].size();
