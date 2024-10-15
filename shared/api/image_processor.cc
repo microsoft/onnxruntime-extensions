@@ -22,7 +22,7 @@
 
 #include "image_transforms.hpp"
 #include "image_transforms_phi_3.hpp"
-#include "image_transforms_llama_3.hpp"
+#include "image_transforms_mllama.hpp"
 
 using namespace ort_extensions;
 using json = nlohmann::json;

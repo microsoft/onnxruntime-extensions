@@ -81,7 +81,6 @@ class KernelDef {
 
   template <typename T, typename... Args>
   static auto CastOutputAllType(TensorArgs::iterator tensor, T& arg, Args&... args) {
-    // return std::make_tuple(static_cast<T&>(*tensor), CastOutputAllType(args...));
     return std::tuple_cat(CastOutputImpl<T>(tensor), CastOutputAllType(tensor + 1, args...));
   }
 
@@ -271,8 +270,8 @@ class Operation {
   }
 
   void ResetTensors(ortc::IAllocator* allocator) { outputs_.clear(); }
+  bool IsSequenceOnly() { return false; }
 
- 
  private:
   std::vector<std::unique_ptr<ortc::TensorBase>> outputs_;
   const KernelRegistry* kernel_registry_;
@@ -289,9 +288,10 @@ class OrtxRunner {
 
   template <typename IT, typename OT>  // batch input/output container
   OrtxStatus Run(IT& input_seq, OT& output_seq) {
-    for (size_t i = 0; i < input_seq.size(); ++i) {
+    size_t i = 0;
+    Operation* last_op = nullptr;
+    for (; i < input_seq.size(); ++i) {
       auto& input = *(input_seq.begin() + i);
-      Operation* last_op = nullptr;
       // sequentially apply the operations
       for (auto& op : ops_) {
         if (last_op != nullptr) {
@@ -300,7 +300,7 @@ class OrtxRunner {
         auto [status, ts_output] = op->Apply(allocator_, input);
         if (status.IsOk()) {
           if (op == ops_.back()) {
-            output_seq.push_back(ts_output);
+            output_seq.push_back(std::move(ts_output));
           } else {
             input = ts_output;
           }
@@ -308,11 +308,66 @@ class OrtxRunner {
           return status;
         }
 
+        if (op->IsSequenceOnly()) {
+          break;
+        }
+
         last_op = op;
       }
     }
 
+    if (last_op != nullptr) {
+      last_op->ResetTensors(allocator_);
+    }
+
     return {};
+  }
+
+  static bool IsGreaterShape(const std::vector<int64_t>& lhs, const std::vector<int64_t>& rhs) {
+    if (lhs.size() != rhs.size()) {
+      return lhs.size() > rhs.size();
+    }
+
+    for (size_t i = 0; i < lhs.size(); ++i) {
+      if (lhs[i] != rhs[i]) {
+        return lhs[i] > rhs[i];
+      }
+    }
+
+    return false;
+  }
+
+  static void CopyOrPadTensor(const std::vector<int64_t>::iterator dest_shape_begin,
+                              const std::vector<int64_t>::iterator dest_shape_end,
+                              const std::vector<int64_t>::iterator src_shape_begin,
+                              const std::vector<int64_t>::iterator src_shape_end,
+                              std::byte* dest, const std::byte* src, size_t element_size) {
+    if (dest_shape_begin == dest_shape_end) {
+      return;
+    }
+
+    // no broadcasting here
+    assert(dest_shape_end - dest_shape_begin == src_shape_end - src_shape_begin);
+
+    for (size_t dim = 0; dim < *dest_shape_begin; ++dim) {
+      int64_t dest_chunk_size = 1;
+      int64_t src_chunk_size = 1;
+      for (auto iter = dest_shape_begin + 1; iter != dest_shape_end; ++iter) {
+        dest_chunk_size *= *iter;
+      }
+
+      for (auto iter = src_shape_begin + 1; iter != src_shape_end; ++iter) {
+        src_chunk_size *= *iter;
+      }
+
+      if (dim < *src_shape_begin) {
+        CopyOrPadTensor(dest_shape_begin + 1, dest_shape_end, src_shape_begin + 1, src_shape_end,
+                        dest + dim * dest_chunk_size * element_size, src + dim * src_chunk_size * element_size,
+                        element_size);
+      } else {
+        memset(dest + dim * dest_chunk_size * element_size, 0, dest_chunk_size * element_size);
+      }
+    }
   }
 
   static OrtxStatus StackTensors(const std::vector<TensorArgs>& arg_lists, std::vector<TensorPtr>& outputs,
@@ -327,21 +382,41 @@ class OrtxRunner {
       std::vector<ortc::TensorBase*> ts_ptrs;
       ts_ptrs.reserve(arg_lists.size());
       std::vector<int64_t> shape = arg_lists[0][axis]->Shape();
+      bool is_same_shape = true;
       for (auto& ts : arg_lists) {
         if (shape != ts[axis]->Shape()) {
-          return {kOrtxErrorInvalidArgument, "[StackTensors]: shapes of tensors to stack are not the same."};
+          is_same_shape = false;
+          if (IsGreaterShape(shape, ts[axis]->Shape())) {
+            shape = ts[axis]->Shape();
+          }
+          break;
         }
         ts_ptrs.push_back(ts[axis]);
       }
 
       std::vector<int64_t> output_shape = shape;
+      if (!is_same_shape) {
+        if (ts_ptrs.front()->Type() != ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64) {
+          return {kOrtxErrorInvalidArgument, "[StackTensors]: shapes of tensors to stack are not the same."};
+        } else {
+          // if the shape is not the same, but the type is int64, let's pad the shape before the stack
+          // since shape is already is the max shape, we don't need to do anything here
+          ;
+        }
+      }
+
       output_shape.insert(output_shape.begin(), batch_size);
       std::byte* tensor_buf = outputs[axis]->AllocateRaw(output_shape);
       for (size_t i = 0; i < batch_size; ++i) {
         auto ts = ts_ptrs[i];
         const std::byte* ts_buff = reinterpret_cast<const std::byte*>(ts->DataRaw());
         auto ts_size = ts->SizeInBytes();
-        std::memcpy(tensor_buf + i * ts_size, ts_buff, ts_size);
+        if (is_same_shape) {
+          std::memcpy(tensor_buf + i * ts_size, ts_buff, ts_size);
+        } else {
+          CopyOrPadTensor(output_shape.begin() + 1, output_shape.end(), shape.begin() + 1, shape.end(),
+                          tensor_buf, reinterpret_cast<const std::byte*>(ts->DataRaw()), sizeof(int64_t));
+        }
       }
     }
 

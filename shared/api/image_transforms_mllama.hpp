@@ -73,17 +73,17 @@ struct Llama3ImageTransform {
     }
   }
 
-  OrtxStatus Compute(const ortc::Tensor<uint8_t>& images, ortc::Tensor<float>& pixel_values,
+  OrtxStatus Compute(const ortc::Tensor<uint8_t>& image, ortc::Tensor<float>& pixel_values,
                      ortc::Tensor<int64_t>& aspect_ratio_ids, ortc::Tensor<int64_t>& aspect_ratio_mask,
                      ortc::Tensor<int64_t>& num_tiles) {
-    auto& dimensions = images.Shape();
+    auto& dimensions = image.Shape();
     if (dimensions.size() != 3ULL) {
       return {kOrtxErrorInvalidArgument, "[Llama3ImageTransform]: Only 3D decoded image tensors are supported"};
     }
 
     std::pair<int64_t, int64_t> aspect_ratio;
     ortc::Tensor<uint8_t> resized_image(&ortx::CppAllocator::Instance());
-    OrtxStatus status = DoResize(images, resized_image, aspect_ratio);
+    OrtxStatus status = DoResize(image, resized_image, aspect_ratio);
     if (!status.IsOk()) {
       return status;
     }
@@ -161,7 +161,32 @@ struct Llama3ImageTransform {
     return std::make_tuple(new_height, new_width);
   }
 
-  static std::tuple<int64_t, int64_t> GetOptimalTiledCanvas(int64_t image_height, int64_t image_width,
+  static std::vector<std::vector<int64_t>> BuildAspectRatioMask(
+      const std::vector<std::pair<int64_t, int64_t>>& aspect_ratios, int64_t max_image_tiles) {
+    int64_t max_num_images = aspect_ratios.size();
+
+    // Initialize the 2D vector with zeros
+    std::vector<std::vector<int64_t>> aspect_ratio_mask(max_num_images, std::vector<int64_t>(max_image_tiles, 0));
+
+    // Set the first tile to 1 for all aspect ratios
+    for (int64_t j = 0; j < max_num_images; ++j) {
+      aspect_ratio_mask[j][0] = 1;
+    }
+
+    // Set the aspect ratio mask for the rest of the tiles
+    for (int64_t j = 0; j < aspect_ratios.size(); ++j) {
+      int64_t num_tiles_w = aspect_ratios[j].first;
+      int64_t num_tiles_h = aspect_ratios[j].second;
+      int64_t num_tiles = num_tiles_w * num_tiles_h;
+      for (int64_t k = 0; k < num_tiles && k < max_image_tiles; ++k) {
+        aspect_ratio_mask[j][k] = 1;
+      }
+    }
+
+    return aspect_ratio_mask;
+  }
+
+  static std::pair<int64_t, int64_t> GetOptimalTiledCanvas(int64_t image_height, int64_t image_width,
                                                             int64_t max_image_tiles, int64_t tile_size) {
     auto possible_tile_arrangements = GetAllSupportedAspectRatios(max_image_tiles);
     std::vector<std::pair<int64_t, int64_t>> possible_canvas_sizes;
@@ -210,32 +235,7 @@ struct Llama3ImageTransform {
       optimal_canvas = chosen_canvas[0];
     }
 
-    return std::make_tuple(optimal_canvas.second, optimal_canvas.first);
-  }
-
-  static std::vector<std::vector<int64_t>> BuildAspectRatioMask(
-      const std::vector<std::pair<int64_t, int64_t>>& aspect_ratios, int64_t max_image_tiles) {
-    int64_t max_num_images = aspect_ratios.size();
-
-    // Initialize the 2D vector with zeros
-    std::vector<std::vector<int64_t>> aspect_ratio_mask(max_num_images, std::vector<int64_t>(max_image_tiles, 0));
-
-    // Set the first tile to 1 for all aspect ratios
-    for (int64_t j = 0; j < max_num_images; ++j) {
-      aspect_ratio_mask[j][0] = 1;
-    }
-
-    // Set the aspect ratio mask for the rest of the tiles
-    for (int64_t j = 0; j < aspect_ratios.size(); ++j) {
-      int64_t num_tiles_w = aspect_ratios[j].first;
-      int64_t num_tiles_h = aspect_ratios[j].second;
-      int64_t num_tiles = num_tiles_w * num_tiles_h;
-      for (int64_t k = 0; k < num_tiles && k < max_image_tiles; ++k) {
-        aspect_ratio_mask[j][k] = 1;
-      }
-    }
-
-    return aspect_ratio_mask;
+    return std::make_pair(optimal_canvas.second, optimal_canvas.first);
   }
 
   static std::vector<int64_t> ConvertAspectRatiosToIds(const std::vector<std::pair<int64_t, int64_t>>& aspect_ratios,
