@@ -349,7 +349,7 @@ class OrtxRunner {
     // no broadcasting here
     assert(dest_shape_end - dest_shape_begin == src_shape_end - src_shape_begin);
 
-    for (size_t dim = 0; dim < *dest_shape_begin; ++dim) {
+    for (int64_t dim = 0; dim < *dest_shape_begin; ++dim) {
       int64_t dest_chunk_size = 1;
       int64_t src_chunk_size = 1;
       for (auto iter = dest_shape_begin + 1; iter != dest_shape_end; ++iter) {

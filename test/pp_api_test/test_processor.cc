@@ -99,4 +99,26 @@ TEST(ProcessorTest, TestMLlamaImageProcessing) {
   err = OrtxGetTensorData(tensor, reinterpret_cast<const void**>(&data), &shape, &num_dims);
   ASSERT_EQ(err, kOrtxOK);
   ASSERT_EQ(num_dims, 5);
+
+  err = OrtxTensorResultGetAt(result.get(), 1, &tensor);
+  ASSERT_EQ(err, kOrtxOK);
+  const int64_t* int_data{};
+  err = OrtxGetTensorData(tensor, reinterpret_cast<const void**>(&int_data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 2);
+  ASSERT_EQ(std::vector<int64_t>(int_data, int_data + 3), std::vector<int64_t>({6, 6, 1}));
+
+  err = OrtxTensorResultGetAt(result.get(), 2, &tensor);
+  ASSERT_EQ(err, kOrtxOK);
+  err = OrtxGetTensorData(tensor, reinterpret_cast<const void**>(&int_data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 2);
+  ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3, 4}));
+
+  err = OrtxTensorResultGetAt(result.get(), 3, &tensor);
+  ASSERT_EQ(err, kOrtxOK);
+  err = OrtxGetTensorData(tensor, reinterpret_cast<const void**>(&int_data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 2);
+  ASSERT_EQ(std::vector<int64_t>(int_data, int_data + 3), std::vector<int64_t>({4, 4, 1}));
 }

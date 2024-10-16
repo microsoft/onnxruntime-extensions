@@ -55,12 +55,12 @@ struct Llama3ImageTransform {
     float* output_pixel = pixel_values.Allocate({m * n, c, tile_size_.first, tile_size_.second});
     // Permute to (num_tiles_height, num_tiles_width, num_channels, tile_height, tile_width)
     // then Reshape into the desired output shape
-    //  (num_tiles_width * num_tiles_height, num_channels, tile_height, tile_width)
+    //   (num_tiles_width * num_tiles_height, num_channels, tile_height, tile_width)
     for (int i = 0; i < m; ++i) {
       for (int j = 0; j < n; ++j) {
         for (int32_t k = 0; k < c; ++k) {
           // convert to be channel first
-          int sub_index = (i * n + j) * image_1c_size * c + k * image_1c_size;
+          auto sub_index = (static_cast<int64_t>(i) * n + j) * image_1c_size * c + k * image_1c_size;
           for (int y = 0; y < tile_size_.first; ++y) {
             for (int x = 0; x < tile_size_.second; ++x) {
               output_pixel[sub_index + y * tile_size_.second + x] =
@@ -112,11 +112,12 @@ struct Llama3ImageTransform {
     auto v_aspect_ratio_ids = ConvertAspectRatiosToIds(aspect_ratios, max_image_tiles_);
     auto v_aspect_ratio_mask = BuildAspectRatioMask(aspect_ratios, max_image_tiles_);
 
-    auto p_ids = aspect_ratio_ids.Allocate({1});
-    p_ids[0] = v_aspect_ratio_ids[0];
+    auto p_ids = aspect_ratio_ids.Allocate({static_cast<int64_t>(v_aspect_ratio_ids.size())});
+    std::copy(v_aspect_ratio_ids.begin(), v_aspect_ratio_ids.end(), p_ids);
 
-    auto p_mask = aspect_ratio_mask.Allocate({1, 1});
-    p_mask[0] = v_aspect_ratio_mask[0][0];
+    auto p_mask = aspect_ratio_mask.Allocate({static_cast<int64_t>(v_aspect_ratio_mask[0].size())});
+    std::copy(v_aspect_ratio_mask[0].begin(), v_aspect_ratio_mask[0].end(), p_mask);
+
     auto p_num_tiles = num_tiles.Allocate({1});
     p_num_tiles[0] = aspect_ratios[0].first * aspect_ratios[0].second;
 
@@ -174,7 +175,7 @@ struct Llama3ImageTransform {
     }
 
     // Set the aspect ratio mask for the rest of the tiles
-    for (int64_t j = 0; j < aspect_ratios.size(); ++j) {
+    for (size_t j = 0; j < aspect_ratios.size(); ++j) {
       int64_t num_tiles_w = aspect_ratios[j].first;
       int64_t num_tiles_h = aspect_ratios[j].second;
       int64_t num_tiles = num_tiles_w * num_tiles_h;
@@ -247,7 +248,7 @@ struct Llama3ImageTransform {
     // Initialize the 1D vector with zeros
     std::vector<int64_t> aspect_ratios_ids(max_num_images, 0);
 
-    for (int64_t j = 0; j < aspect_ratios.size(); ++j) {
+    for (size_t j = 0; j < aspect_ratios.size(); ++j) {
       const auto& ratio = aspect_ratios[j];
       auto it = std::find(supported_aspect_ratios.begin(), supported_aspect_ratios.end(), ratio);
       if (it != supported_aspect_ratios.end()) {
@@ -259,7 +260,7 @@ struct Llama3ImageTransform {
   }
 
   OrtxStatus DoPad(const ortc::Tensor<uint8_t>& image, const std::pair<int64_t, int64_t>& aspect_ratio,
-                   ortc::Tensor<uint8_t>& padded_image) {
+                   ortc::Tensor<uint8_t>& padded_image) const{
     auto& dimensions = image.Shape();
     auto [image_height, image_width] = std::make_tuple(dimensions[0], dimensions[1]);
     auto [num_tiles_height, num_tiles_width] = aspect_ratio;
@@ -279,7 +280,7 @@ struct Llama3ImageTransform {
   }
 
   OrtxStatus DoResize(const ortc::Tensor<uint8_t>& image, ortc::Tensor<uint8_t>& resized_image,
-                      std::pair<int64_t, int64_t>& aspect_ratio) {
+                      std::pair<int64_t, int64_t>& aspect_ratio) const{
     auto& dimensions = image.Shape();
     auto [image_height, image_width] = std::make_tuple(dimensions[0], dimensions[1]);
     auto tile_size = tile_size_.first;
