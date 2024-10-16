@@ -24,13 +24,20 @@
 #include "image_transforms_phi_3.hpp"
 #include "image_transforms_mllama.hpp"
 
-using namespace ort_extensions;
-using json = nlohmann::json;
-
+namespace ort_extensions {
 std::tuple<std::unique_ptr<ImageRawData[]>, size_t>
-ort_extensions::LoadRawImages(const std::initializer_list<const char*>& image_paths) {
+LoadRawImages(const std::initializer_list<const char*>& image_paths) {
   return ort_extensions::LoadRawData<const char* const*, ImageRawData>(image_paths.begin(), image_paths.end());
 }
+
+std::tuple<std::unique_ptr<ImageRawData[]>, size_t>
+LoadRawImages(const char* image_paths[], size_t num_images) {
+  return ort_extensions::LoadRawData<const char* const*, ImageRawData>(image_paths, image_paths + num_images);
+}
+}  // namespace ort_extensions
+
+using namespace ort_extensions;
+using json = nlohmann::json;
 
 Operation::KernelRegistry ImageProcessor::kernel_registry_ = {
     {"DecodeImage", []() { return CreateKernelInstance(&DecodeImage::Compute); }},

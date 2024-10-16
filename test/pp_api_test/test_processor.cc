@@ -12,9 +12,12 @@
 
 using namespace ort_extensions;
 
+const char* test_image_paths[] = {"data/processor/standard_s.jpg", "data/processor/australia.jpg", "data/processor/exceltable.png"};
+const size_t test_image_count = sizeof(test_image_paths) / sizeof(test_image_paths[0]);
+
 TEST(ProcessorTest, TestPhi3VImageProcessing) {
-  auto [input_data, n_data] = ort_extensions::LoadRawImages(
-      {"data/processor/standard_s.jpg", "data/processor/australia.jpg", "data/processor/exceltable.png"});
+  auto [input_data, n_data] = ort_extensions::LoadRawImages(test_image_paths, test_image_count);
+      // {"data/processor/standard_s.jpg", "data/processor/australia.jpg", "data/processor/exceltable.png"});
 
   auto proc = OrtxObjectPtr<ImageProcessor>(OrtxCreateProcessor, "data/processor/phi_3_image.json");
   ortc::Tensor<float>* pixel_values;
@@ -43,10 +46,8 @@ TEST(ProcessorTest, TestPhi3VImageProcessing) {
 }
 
 TEST(ProcessorTest, TestClipImageProcessing) {
-  const char* images_path[] = {"data/processor/standard_s.jpg", "data/processor/australia.jpg",
-                               "data/processor/exceltable.png"};
-  OrtxObjectPtr<OrtxRawImages> raw_images;
-  extError_t err = OrtxLoadImages(ort_extensions::ptr(raw_images), images_path, 3, nullptr);
+  OrtxObjectPtr<OrtxRawImages> raw_images{};
+  extError_t err = OrtxLoadImages(ort_extensions::ptr(raw_images), test_image_paths, test_image_count, nullptr);
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxObjectPtr<OrtxProcessor> processor;
@@ -73,11 +74,8 @@ TEST(ProcessorTest, TestClipImageProcessing) {
 }
 
 TEST(ProcessorTest, TestMLlamaImageProcessing) {
-  const char* images_path[] = {"data/processor/standard_s.jpg", "data/processor/australia.jpg"};
-
-  OrtxObjectPtr<OrtxRawImages> raw_images;
-  extError_t err = OrtxLoadImages(ort_extensions::ptr(raw_images), images_path,
-                                  sizeof(images_path) / sizeof(images_path[0]), nullptr);
+  OrtxObjectPtr<OrtxRawImages> raw_images{};
+  extError_t err = OrtxLoadImages(ort_extensions::ptr(raw_images), test_image_paths, test_image_count, nullptr);
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxObjectPtr<OrtxProcessor> processor;
