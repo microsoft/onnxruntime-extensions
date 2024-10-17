@@ -1,0 +1,50 @@
+{
+  "processor": {
+    "name": "MllamaImageProcessor",
+    "transforms": [
+      {
+        "operation": {
+          "name": "decode_image",
+          "domain": "com.microsoft.extensions",
+          "type": "DecodeImage",
+          "attrs": {
+            "color_space": "BGR"
+          }
+        }
+      },
+      {
+        "operation": {
+          "name": "convert_to_rgb",
+          "domain": "com.microsoft.extensions",
+          "type": "ConvertRGB"
+        }
+      },
+      {
+        "operation": {
+          "name": "llama3_image_transform",
+          "domain": "com.microsoft.extensions",
+          "type": "Llama3ImageTransform",
+          "attrs": {
+            "max_image_tiles": 4,
+            "size": [
+              560,
+              560
+            ],
+            "interpolation": "LINEAR",
+            "rescale/rescale_factor": 0.00392156862745098,
+            "normalize/mean": [
+              0.48145466,
+              0.4578275,
+              0.40821073
+            ],
+            "normalize/std": [
+              0.26862954,
+              0.26130258,
+              0.27577711
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

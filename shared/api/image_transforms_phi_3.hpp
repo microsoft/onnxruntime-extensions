@@ -3,7 +3,8 @@
 
 #pragma once
 
-#include "ocos.h"
+#include "ext_status.h"
+#include "op_def_struct.h"
 #include "image_resample.h"
 
 constexpr int max_crops = 16;

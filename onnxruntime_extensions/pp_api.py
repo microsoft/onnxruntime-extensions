@@ -72,8 +72,8 @@ class ImageProcessor:
         return image_pre_process(self.processor, images)
 
     @staticmethod
-    def to_numpy(result):
-        return tensor_result_get_at(result, 0)
+    def to_numpy(result, idx):
+        return tensor_result_get_at(result, idx)
 
     def __del__(self):
         if delete_object and self.processor:
