@@ -270,7 +270,6 @@ class Operation {
   }
 
   void ResetTensors(ortc::IAllocator* allocator) { outputs_.clear(); }
-  bool IsSequenceOnly() { return false; }
 
  private:
   std::vector<std::unique_ptr<ortc::TensorBase>> outputs_;
@@ -306,10 +305,6 @@ class OrtxRunner {
           }
         } else {
           return status;
-        }
-
-        if (op->IsSequenceOnly()) {
-          break;
         }
 
         last_op = op;
@@ -375,7 +370,7 @@ class OrtxRunner {
                           element_size);
         }
       } else {
-        memset(dest + i * dest_chunk_size * element_size, 0, dest_chunk_size * element_size);
+        std::memset(dest + i * dest_chunk_size * element_size, 0, dest_chunk_size * element_size);
       }
     }
   }
@@ -409,16 +404,6 @@ class OrtxRunner {
       }
 
       std::vector<int64_t> output_shape = shape;
-      // if (!is_same_shape) {
-      //   if (ts_ptrs.front()->Type() != ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64) {
-      //     return {kOrtxErrorInvalidArgument, "[StackTensors]: shapes of tensors to stack are not the same."};
-      //   } else {
-      //     // if the shape is not the same, but the type is int64, let's pad the shape before the stack
-      //     // since shape is already is the max shape, we don't need to do anything here
-      //     ;
-      //   }
-      // }
-
       output_shape.insert(output_shape.begin(), batch_size);
       std::byte* tensor_buf = outputs[axis]->AllocateRaw(output_shape);
       auto ts_size = outputs[axis]->SizeInBytes() / batch_size;

@@ -557,63 +557,6 @@ class Tensor<std::string_view> : public TensorBase {
   std::unique_ptr<IStringTensorStorage<std::string_view>> storage_;
 };
 
-
-// template<>
-// class Tensor<std::vector<TensorBase*>> : public TensorBase {
-// public:
-//   using TensorVector = std::vector<TensorBase*>;
-//   Tensor(const TensorVector& ss) : storage_(std::make_unique<EagerStringTensorStorage<TensorVector>>(ss)) {}
-
-//   Tensor() : storage_(std::make_unique<EagerStringTensorStorage<TensorVector>>()) {}
-
-//   ONNXTensorElementDataType Type() const override {
-//     return GetOrtDType<std::vector<TensorBase*>>();
-//   }
-
-//   const TensorVector& Data() const {
-//     return storage_->Data();
-//   }
-
-//   const std::vector<int64_t>& Shape() const override {
-//     return storage_->Shape();
-//   }
-
-//   int64_t NumberOfElement() const override {
-//     auto& shape = storage_->Shape();
-//     return std::accumulate(shape.begin(), shape.end(), 1LL, std::multiplies<int64_t>());
-//   }
-
-//   std::string Shape2Str() const {
-//     if (storage_->IsInitialized()) {
-//       std::string shape_str;
-//       auto& shape = storage_->Shape();
-//       for (const auto& dim : shape) {
-//         shape_str.append(std::to_string(dim));
-//         shape_str.append(", ");
-//       }
-//       return shape_str;
-//     } else {
-//       return "empty";
-//     }
-//   }
-
-//   const void* DataRaw() const override {
-//     return storage_->DataRaw();
-//   }
-
-//   size_t SizeInBytes() const override {
-//       return 0; 
-//   }
-
-//   std::byte* AllocateRaw(const std::vector<int64_t>& shape) override {
-//     ORTX_CXX_API_THROW("AllocateRaw() not supported for string tensor", ORT_RUNTIME_EXCEPTION);
-//   }
-//   private:
-//   std::unique_ptr<IStringTensorStorage<TensorVector>> storage_;
-// };
-
-// using TensorSequence = Tensor<std::vector<TensorBase*>>;
-
 template<typename ...Args>
 class NamedArgumentDict{
 public:
