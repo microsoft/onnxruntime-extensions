@@ -117,6 +117,8 @@ struct Resize {
         height_ = std::get<int64_t>(value);
       } else if (key == "width") {
         width_ = std::get<int64_t>(value);
+      } else if (key == "keep_aspect_ratio") {
+        keep_aspect_ratio_ = std::get<int64_t>(value) != 0;
       } else if (key == "interpolation") {
         interpolation_ = std::get<std::string>(value);
         if (InterpolationMethods().find(interpolation_) == InterpolationMethods().end()) {

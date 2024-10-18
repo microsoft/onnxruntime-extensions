@@ -11,8 +11,7 @@
 #include "image_transforms.hpp"
 
 struct Llama3ImageTransform {
-  static void SplitIntoTitles(const ortc::Tensor<float>& normalized_image,
-                              ortc::Tensor<float>& pixel_values,
+  static void SplitIntoTitles(const ortc::Tensor<float>& normalized_image, ortc::Tensor<float>& pixel_values,
                               int64_t tile_height, int64_t tile_width) {
     auto& shape = normalized_image.Shape();
     int64_t image_height = shape[0];
@@ -27,21 +26,21 @@ struct Llama3ImageTransform {
 
     auto p_normalized_image = normalized_image.Data();
     // shape (num_tiles_width * num_tiles_height, num_channels, tile_height, tile_width)
-    float* output_pixel = pixel_values.Allocate(
-      {num_tiles_height * num_tiles_width, num_channels, tile_height, tile_width});
+    float* output_pixel =
+        pixel_values.Allocate({num_tiles_height * num_tiles_width, num_channels, tile_height, tile_width});
 
     // From (image_height, image_width, num_channels)
     // Permute to (num_tiles_height, num_tiles_width, num_channels, tile_height, tile_width)
     for (int64_t i = 0; i < num_tiles_height; ++i) {
       for (int64_t j = 0; j < num_tiles_width; ++j) {
-          // convert to be channel first
+        // convert to be channel first
         for (int64_t k = 0; k < num_channels; ++k) {
           auto sub_index = image_1c_size * (i * num_tiles_width + j) * num_channels + image_1c_size * k;
           for (int64_t y = 0; y < tile_height; ++y) {
             for (int64_t x = 0; x < tile_width; ++x) {
               output_pixel[sub_index + y * tile_width + x] =
-                  p_normalized_image[
-                    (i * tile_height + y) * image_width * num_channels + (j * tile_width + x) * num_channels + k];
+                  p_normalized_image[(i * tile_height + y) * image_width * num_channels +
+                                     (j * tile_width + x) * num_channels + k];
             }
           }
         }
@@ -83,7 +82,7 @@ struct Llama3ImageTransform {
       return status;
     }
 
-    DumpTensorToFile(normalized_image, "normalized_image");
+    // DumpTensorToFile(normalized_image, "normalized_image");
 
     SplitIntoTitles(normalized_image, pixel_values, tile_size_.first, tile_size_.second);
 
@@ -118,6 +117,31 @@ struct Llama3ImageTransform {
     return aspect_ratios;
   }
 
+  /*
+    Calculates the new size of an image to fit within a canvas while maintaining aspect ratio.
+
+    This function calculates the optimal size for an image to fit within a canvas defined by
+    canvas_height and canvas_width, while ensuring that the image dimensions are not smaller than
+    tile_size. If the image is larger than the canvas, the returned size will fit within the canvas.
+    If the image already fits within the canvas, the size remains unchanged.
+    The aspect ratio of the original image is preserved.
+
+    Args:
+        image_height (`int`):
+            The height of the original image.
+        image_width (`int`):
+            The width of the original image.
+        canvas_height (`int`):
+            The height of the canvas.
+        canvas_width (`int`):
+            The width of the canvas.
+        tile_size (`int`):
+            The tile size.
+
+    Returns:
+        `Tuple[int, int]`: A tuple containing the new height and width of the image.
+
+  */
   static std::tuple<int64_t, int64_t> GetImageSizeFitToCanvas(int64_t image_height, int64_t image_width,
                                                               int64_t canvas_height, int64_t canvas_width,
                                                               int64_t tile_size) {
@@ -132,10 +156,10 @@ struct Llama3ImageTransform {
 
     if (scale_w < scale_h) {
       new_width = target_width;
-      new_height = std::min(static_cast<int64_t>(std::floor(image_height * scale_w)), target_height);
+      new_height = static_cast<int64_t>(std::round(image_height * scale_w));
     } else {
       new_height = target_height;
-      new_width = std::min(static_cast<int64_t>(std::floor(image_width * scale_h)), target_width);
+      new_width = static_cast<int64_t>(std::round(image_width * scale_h));
     }
 
     return std::make_tuple(new_height, new_width);
@@ -166,56 +190,96 @@ struct Llama3ImageTransform {
     return aspect_ratio_mask;
   }
 
+  /*
+  Determines the best canvas based on image and tile size and maximum number of tiles.
+
+  First, calculates possible resolutions based on the maximum number of tiles and tile size.
+  For example for max_image_tiles=2, tile_size=100, possible tile arrangements are:
+  [(1, 1), (1, 2), (2, 1)] and corresponding canvas sizes are:
+  [(100, 100), (100, 200), (200, 100)]
+
+  For each possible resolution, calculates the scaling factors for
+  width and height, and selects the smallest one, which is the limiting side.
+  E.g. to match the canvas you can upscale height by 2x, and width by 1.5x,
+  therefore, the maximum upscaling you can do is min(2, 1.5) = 1.5.
+
+  If upscaling is possible (any of the scaling factors is greater than 1),
+  then picks the smallest upscaling factor > 1.
+
+  If upscaling is not possible, then picks the largest scaling factor <= 1, i.e.
+  reduce downscaling as much as possible.
+
+  If there are multiple resolutions with the same max scale, we pick the one with the lowest area,
+  to minimize padding. E.g., the same image can be upscaled to 224x224 and 224x448, but the latter
+  has more padding.
+
+  Args:
+      image_height (`int`):
+          The height of the image.
+      image_width (`int`):
+          The width of the image.
+      max_image_tiles (`int`):
+          The maximum number of tiles any image can be split into.
+      tile_size (`int`):
+          The tile size.
+
+  Returns:
+      `pair[int, int]`: The best canvas resolution [height, width] for the given image.
+  */
   static std::pair<int64_t, int64_t> GetOptimalTiledCanvas(int64_t image_height, int64_t image_width,
                                                            int64_t max_image_tiles, int64_t tile_size) {
-    auto possible_tile_arrangements = GetAllSupportedAspectRatios(max_image_tiles);
-    std::vector<std::pair<int64_t, int64_t>> possible_canvas_sizes;
+    {
+      auto possible_tile_arrangements = GetAllSupportedAspectRatios(max_image_tiles);
+      std::vector<std::pair<int, int>> possible_canvas_sizes;
 
-    for (const auto& arrangement : possible_tile_arrangements) {
-      possible_canvas_sizes.emplace_back(arrangement.first * tile_size, arrangement.second * tile_size);
-    }
-
-    std::vector<double> scales;
-    std::vector<std::pair<int64_t, int64_t>> chosen_canvas;
-    double selected_scale;
-
-    for (const auto& canvas : possible_canvas_sizes) {
-      double scale_h = static_cast<double>(canvas.second) / image_height;
-      double scale_w = static_cast<double>(canvas.first) / image_width;
-      double scale = std::min(scale_h, scale_w);
-      scales.push_back(scale);
-    }
-
-    auto upscaling_it = std::find_if(scales.begin(), scales.end(), [](double scale) { return scale >= 1.0; });
-
-    if (upscaling_it != scales.end()) {
-      selected_scale = *std::min_element(upscaling_it, scales.end());
-    } else {
-      selected_scale = *std::max_element(scales.begin(), scales.end());
-    }
-
-    for (size_t i = 0; i < scales.size(); ++i) {
-      if (std::abs(scales[i] - selected_scale) < std::numeric_limits<double>::epsilon()) {
-        chosen_canvas.push_back(possible_canvas_sizes[i]);
+      for (const auto& arrangement : possible_tile_arrangements) {
+        possible_canvas_sizes.emplace_back(arrangement.first * tile_size, arrangement.second * tile_size);
       }
-    }
 
-    std::pair<int64_t, int64_t> optimal_canvas;
+      std::vector<double> scales;
+      for (const auto& size : possible_canvas_sizes) {
+        double scale_h = static_cast<double>(size.first) / image_height;
+        double scale_w = static_cast<double>(size.second) / image_width;
+        scales.push_back(std::min(scale_h, scale_w));
+      }
 
-    if (chosen_canvas.size() > 1) {
-      int64_t min_area = std::numeric_limits<int64_t>::max();
-      for (const auto& canvas : chosen_canvas) {
-        int64_t area = canvas.first * canvas.second;
-        if (area < min_area) {
-          min_area = area;
-          optimal_canvas = canvas;
+      double selected_scale = 0;
+      std::vector<double> upscaling_options;
+      for (double scale : scales) {
+        if (scale >= 1) {
+          upscaling_options.push_back(scale);
         }
       }
-    } else {
-      optimal_canvas = chosen_canvas[0];
-    }
 
-    return std::make_pair(optimal_canvas.second, optimal_canvas.first);
+      if (!upscaling_options.empty()) {
+        selected_scale = *std::min_element(upscaling_options.begin(), upscaling_options.end());
+      } else {
+        std::vector<double> downscaling_options;
+        for (double scale : scales) {
+          if (scale < 1) {
+            downscaling_options.push_back(scale);
+          }
+        }
+        selected_scale = *std::max_element(downscaling_options.begin(), downscaling_options.end());
+      }
+
+      std::vector<std::pair<int, int>> chosen_canvas;
+      for (size_t i = 0; i < scales.size(); ++i) {
+        if (std::abs(scales[i] - selected_scale) < 1e-9) {
+          chosen_canvas.push_back(possible_canvas_sizes[i]);
+        }
+      }
+
+      if (chosen_canvas.size() > 1) {
+        auto optimal_canvas = std::min_element(chosen_canvas.begin(), chosen_canvas.end(),
+                                               [](const std::pair<int, int>& a, const std::pair<int, int>& b) {
+                                                 return (a.first * a.second) < (b.first * b.second);
+                                               });
+        return *optimal_canvas;
+      } else {
+        return chosen_canvas[0];
+      }
+    }
   }
 
   static std::vector<int64_t> ConvertAspectRatiosToIds(const std::vector<std::pair<int64_t, int64_t>>& aspect_ratios,
@@ -269,9 +333,12 @@ struct Llama3ImageTransform {
     aspect_ratio = std::make_pair(num_tiles_height, num_tiles_width);
     auto [new_height, new_width] =
         GetImageSizeFitToCanvas(image_height, image_width, canvas_height, canvas_width, tile_size);
+
     Resize resizer;
-    std::unordered_map<std::string, ortx::AttrType> attrs = {
-        {"height", new_height}, {"width", new_width}, {"interpolation", std::string("LINEAR")}};
+    std::unordered_map<std::string, ortx::AttrType> attrs = {{"height", new_height},
+                                                             {"width", new_width},
+                                                             {"interpolation", std::string("LINEAR")},
+                                                             {"keep_aspect_ratio", int64_t(0)}};
     OrtxStatus status = resizer.Init(attrs);
     if (!status.IsOk()) {
       return status;

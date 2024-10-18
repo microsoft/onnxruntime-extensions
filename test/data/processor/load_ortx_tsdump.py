@@ -4,7 +4,7 @@ import numpy as np
 
 from PIL import Image
 
-dumping_file_path = "C:\\temp\\normalized_image822870921_f_1120.bin"
+dumping_file_path = "C:\\temp\\normalized_image826885234_f_560.bin"
 
 
 def regen_image(arr):
@@ -35,7 +35,7 @@ image_height = int(raw_data.size / image_width) // 3
 raw_data = raw_data.reshape((image_height, image_width, 3))
 
 # from bgr to rgb
-raw_data = raw_data[:, :, ::-1]
+# raw_data = raw_data[:, :, ::-1]
 
 # save the image to disk
 if dtype == np.float32:

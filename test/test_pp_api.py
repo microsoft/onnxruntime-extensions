@@ -50,10 +50,12 @@ class TestPPAPI(unittest.TestCase):
 
     def test_CLIP_image_processing(self):
         model_id = "openai/clip-vit-large-patch14"
+        image_list = ["test/data/processor/australia.jpg",
+                      "test/data/processor/passport.png",
+                      "test/data/processor/exceltable.png"]
+        (image, image2, image3) = [Image.open(f) for f in image_list]
+
         processor = AutoImageProcessor.from_pretrained(model_id)
-        image = Image.open("test/data/processor/australia.jpg")
-        image2 = Image.open("test/data/processor/passport.png")
-        image3 = Image.open("test/data/processor/exceltable.png")
         inputs = processor.preprocess(
             [image, image2, image3], return_tensors="np")
         print({k: v.shape if k == "pixel_values" else v for k, v in inputs.items()})
@@ -66,8 +68,7 @@ class TestPPAPI(unittest.TestCase):
 
         ort_processor = pp_api.ImageProcessor(
             "test/data/processor/clip_image.json")
-        inputs = ort_processor.pre_process(
-            ["test/data/processor/australia.jpg", "test/data/processor/passport.png", "test/data/processor/exceltable.png"])
+        inputs = ort_processor.pre_process(image_list)
         print(ort_processor.to_numpy(inputs, 0).shape)
         actual_images = ort_processor.to_numpy(inputs, 0)
         for i in range(len(actual_images)):
@@ -77,8 +78,6 @@ class TestPPAPI(unittest.TestCase):
 
     def test_llama3_2_image_processing(self):
         model_id = "meta-llama/Llama-3.2-11B-Vision-Instruct"
-        processor = AutoImageProcessor.from_pretrained(
-            model_id, token=TestPPAPI.token_id)
 
         url = ("https://huggingface.co/datasets/huggingface/"
                "documentation-images/resolve/0052a70beed5bf71b92610a43a52df6d286cd5f3/diffusers/rabbit.jpg")
@@ -87,29 +86,33 @@ class TestPPAPI(unittest.TestCase):
             f.write(requests.get(url).content)
 
         # image = Image.open(requests.get(url, stream=True).raw)
-        image = Image.open(f"{self.temp_dir}/rabbit.jpg")
-        image2 = Image.open("test/data/processor/passport.png")
-        image3 = Image.open("test/data/processor/exceltable.png")
+        image_list = [f"{self.temp_dir}/rabbit.jpg",
+                      "test/data/processor/passport.png",
+                      "test/data/processor/exceltable.png"]
+        (image, image2, image3) = [Image.open(f) for f in image_list]
+
+        processor = AutoImageProcessor.from_pretrained(model_id, token=TestPPAPI.token_id)
         inputs = processor.preprocess(
             [image, image2, image3], return_tensors="np")
         print({k: v.shape if k == "pixel_values" else v for k, v in inputs.items()})
 
-        expected_images = inputs["pixel_values"][0][0]
-        for i in range(len(expected_images)):
-            expected = expected_images[i]
-            e_image = regen_image(np.transpose(expected, (1, 2, 0)))
-            e_image.save(f"{self.temp_dir}/e_{i}.png")
-
         ort_processor = pp_api.ImageProcessor(
             "test/data/processor/mllama/llama_3_image.json")
-        inputs = ort_processor.pre_process(
-            [f"{self.temp_dir}/rabbit.jpg", "test/data/processor/passport.png", "test/data/processor/exceltable.png"])
-        print(ort_processor.to_numpy(inputs, 0).shape)
-        actual_images = ort_processor.to_numpy(inputs, 0)[0]
-        for i in range(len(actual_images)):
-            actual = actual_images[i]
-            a_image = regen_image(np.transpose(actual, (1, 2, 0)))
-            a_image.save(f"{self.temp_dir}/a_{i}.png")
+        ort_inputs = ort_processor.to_numpy(ort_processor.pre_process(image_list), 0)
+        print(ort_inputs.shape)
+
+        for idx in range(len(image_list)):
+            expected_images = inputs["pixel_values"][0][idx]
+            for i in range(len(expected_images)):
+                expected = expected_images[i]
+                e_image = regen_image(np.transpose(expected, (1, 2, 0)))
+                e_image.save(f"{self.temp_dir}/e_{idx}_{i}.png")
+
+            actual_images = ort_inputs[idx]
+            for i in range(len(actual_images)):
+                actual = actual_images[i]
+                a_image = regen_image(np.transpose(actual, (1, 2, 0)))
+                a_image.save(f"{self.temp_dir}/a_{idx}_{i}.png")
 
 
 if __name__ == '__main__':
