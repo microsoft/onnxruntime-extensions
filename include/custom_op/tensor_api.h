@@ -557,7 +557,6 @@ class Tensor<std::string_view> : public TensorBase {
   std::unique_ptr<IStringTensorStorage<std::string_view>> storage_;
 };
 
-
 template<typename ...Args>
 class NamedArgumentDict{
 public:
