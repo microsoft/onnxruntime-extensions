@@ -45,7 +45,7 @@ TEST(ProcessorTest, TestPhi3VImageProcessing) {
   proc->ClearOutputs(&r);
 }
 
-TEST(ProcessorTest, TestClipImageProcessing) {
+TEST(ProcessorTest, TestCLIPImageProcessing) {
   OrtxObjectPtr<OrtxRawImages> raw_images{};
   extError_t err = OrtxLoadImages(ort_extensions::ptr(raw_images), test_image_paths, test_image_count, nullptr);
   ASSERT_EQ(err, kOrtxOK);

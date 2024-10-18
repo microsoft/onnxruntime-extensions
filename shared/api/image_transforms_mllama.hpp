@@ -11,61 +11,37 @@
 #include "image_transforms.hpp"
 
 struct Llama3ImageTransform {
-  template <typename DictT>
-  OrtxStatus Init(const DictT& attrs) {
-    DictT normalizer_attrs;
-    DictT rescaler_attrs;
-    for (const auto& [key, value] : attrs) {
-      if (key.find("normalize/") == 0) {
-        normalizer_attrs[key.substr(10)] = value;
-      } else if (key.find("rescale/") == 0) {
-        rescaler_attrs[key.substr(8)] = value;
-      } else if (key == "max_image_tiles") {
-        max_image_tiles_ = std::get<int64_t>(value);
-      } else if (key == "size") {
-        auto tile_size = std::get<std::vector<int64_t>>(value);
-        if (tile_size.size() != 2) {
-          return {kOrtxErrorInvalidArgument, "[Llama3ImageTransform]: Invalid tile size"};
-        }
-        tile_size_ = std::make_pair(tile_size[0], tile_size[1]);
-      } else if (key == "interpolation") {
-        interpolation_ = std::get<std::string>(value);
-      } else {
-        return {kOrtxErrorInvalidArgument, "[Llama3ImageTransform]: Invalid argument"};
-      }
-    }
-
-    OrtxStatus status = normalize_.Init(normalizer_attrs);
-    if (!status.IsOk()) {
-      return status;
-    }
-
-    return rescale_.Init(rescaler_attrs);
-  }
-
-  void ProcessImageTiles(const ortc::Tensor<float>& normalized_image, ortc::Tensor<float>& pixel_values) {
+  static void SplitIntoTitles(const ortc::Tensor<float>& normalized_image,
+                              ortc::Tensor<float>& pixel_values,
+                              int64_t tile_height, int64_t tile_width) {
     auto& shape = normalized_image.Shape();
-    auto c = shape[2];
-    auto p_pixel_values = normalized_image.Data();
+    int64_t image_height = shape[0];
+    int64_t image_width = shape[1];
+    int64_t num_channels = shape[2];
 
-    const auto image_1c_size = tile_size_.first * tile_size_.second;
-    int m = static_cast<int>(shape[0] / tile_size_.first);
-    int n = static_cast<int>(shape[1] / tile_size_.second);
+    const int64_t image_1c_size = tile_height * tile_width;
+    assert(image_height % tile_height == 0);
+    int64_t num_tiles_height = static_cast<int64_t>(image_height / tile_height);
+    assert(image_width % tile_width == 0);
+    int64_t num_tiles_width = static_cast<int64_t>(image_width / tile_width);
 
-    float* output_pixel = pixel_values.Allocate({m * n, c, tile_size_.first, tile_size_.second});
+    auto p_normalized_image = normalized_image.Data();
+    // shape (num_tiles_width * num_tiles_height, num_channels, tile_height, tile_width)
+    float* output_pixel = pixel_values.Allocate(
+      {num_tiles_height * num_tiles_width, num_channels, tile_height, tile_width});
+
+    // From (image_height, image_width, num_channels)
     // Permute to (num_tiles_height, num_tiles_width, num_channels, tile_height, tile_width)
-    // then Reshape into the desired output shape
-    //   (num_tiles_width * num_tiles_height, num_channels, tile_height, tile_width)
-    for (int i = 0; i < m; ++i) {
-      for (int j = 0; j < n; ++j) {
-        for (int32_t k = 0; k < c; ++k) {
+    for (int64_t i = 0; i < num_tiles_height; ++i) {
+      for (int64_t j = 0; j < num_tiles_width; ++j) {
           // convert to be channel first
-          auto sub_index = (static_cast<int64_t>(i) * n + j) * image_1c_size * c + k * image_1c_size;
-          for (int y = 0; y < tile_size_.first; ++y) {
-            for (int x = 0; x < tile_size_.second; ++x) {
-              output_pixel[sub_index + y * tile_size_.second + x] =
-                  p_pixel_values[k * shape[0] * shape[1] + (i * tile_size_.first + y) * shape[1] +
-                                 (j * tile_size_.second + x)];
+        for (int64_t k = 0; k < num_channels; ++k) {
+          auto sub_index = image_1c_size * (i * num_tiles_width + j) * num_channels + image_1c_size * k;
+          for (int64_t y = 0; y < tile_height; ++y) {
+            for (int64_t x = 0; x < tile_width; ++x) {
+              output_pixel[sub_index + y * tile_width + x] =
+                  p_normalized_image[
+                    (i * tile_height + y) * image_width * num_channels + (j * tile_width + x) * num_channels + k];
             }
           }
         }
@@ -93,6 +69,7 @@ struct Llama3ImageTransform {
     if (!status.IsOk()) {
       return status;
     }
+    resized_image.Release();
 
     ortc::Tensor<float> rescaled_image(&ortx::CppAllocator::Instance());
     status = rescale_.Compute(padded_image, rescaled_image);
@@ -106,7 +83,9 @@ struct Llama3ImageTransform {
       return status;
     }
 
-    ProcessImageTiles(normalized_image, pixel_values);
+    DumpTensorToFile(normalized_image, "normalized_image");
+
+    SplitIntoTitles(normalized_image, pixel_values, tile_size_.first, tile_size_.second);
 
     std::vector<std::pair<int64_t, int64_t>> aspect_ratios = {aspect_ratio};
     auto v_aspect_ratio_ids = ConvertAspectRatiosToIds(aspect_ratios, max_image_tiles_);
@@ -188,7 +167,7 @@ struct Llama3ImageTransform {
   }
 
   static std::pair<int64_t, int64_t> GetOptimalTiledCanvas(int64_t image_height, int64_t image_width,
-                                                            int64_t max_image_tiles, int64_t tile_size) {
+                                                           int64_t max_image_tiles, int64_t tile_size) {
     auto possible_tile_arrangements = GetAllSupportedAspectRatios(max_image_tiles);
     std::vector<std::pair<int64_t, int64_t>> possible_canvas_sizes;
 
@@ -260,7 +239,7 @@ struct Llama3ImageTransform {
   }
 
   OrtxStatus DoPad(const ortc::Tensor<uint8_t>& image, const std::pair<int64_t, int64_t>& aspect_ratio,
-                   ortc::Tensor<uint8_t>& padded_image) const{
+                   ortc::Tensor<uint8_t>& padded_image) const {
     auto& dimensions = image.Shape();
     auto [image_height, image_width] = std::make_tuple(dimensions[0], dimensions[1]);
     auto [num_tiles_height, num_tiles_width] = aspect_ratio;
@@ -280,7 +259,7 @@ struct Llama3ImageTransform {
   }
 
   OrtxStatus DoResize(const ortc::Tensor<uint8_t>& image, ortc::Tensor<uint8_t>& resized_image,
-                      std::pair<int64_t, int64_t>& aspect_ratio) const{
+                      std::pair<int64_t, int64_t>& aspect_ratio) const {
     auto& dimensions = image.Shape();
     auto [image_height, image_width] = std::make_tuple(dimensions[0], dimensions[1]);
     auto tile_size = tile_size_.first;
@@ -299,6 +278,39 @@ struct Llama3ImageTransform {
     }
 
     return resizer.Compute(image, resized_image);
+  }
+
+ public:
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    DictT normalizer_attrs;
+    DictT rescaler_attrs;
+    for (const auto& [key, value] : attrs) {
+      if (key.find("normalize/") == 0) {
+        normalizer_attrs[key.substr(10)] = value;
+      } else if (key.find("rescale/") == 0) {
+        rescaler_attrs[key.substr(8)] = value;
+      } else if (key == "max_image_tiles") {
+        max_image_tiles_ = std::get<int64_t>(value);
+      } else if (key == "size") {
+        auto tile_size = std::get<std::vector<int64_t>>(value);
+        if (tile_size.size() != 2) {
+          return {kOrtxErrorInvalidArgument, "[Llama3ImageTransform]: Invalid tile size"};
+        }
+        tile_size_ = std::make_pair(tile_size[0], tile_size[1]);
+      } else if (key == "interpolation") {
+        interpolation_ = std::get<std::string>(value);
+      } else {
+        return {kOrtxErrorInvalidArgument, "[Llama3ImageTransform]: Invalid argument"};
+      }
+    }
+
+    OrtxStatus status = normalize_.Init(normalizer_attrs);
+    if (!status.IsOk()) {
+      return status;
+    }
+
+    return rescale_.Init(rescaler_attrs);
   }
 
  private:

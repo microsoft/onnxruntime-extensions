@@ -342,30 +342,40 @@ class OrtxRunner {
                               const std::vector<int64_t>::const_iterator src_shape_begin,
                               const std::vector<int64_t>::const_iterator src_shape_end,
                               std::byte* dest, const std::byte* src, size_t element_size) {
-    if (dest_shape_begin == dest_shape_end) {
+    // no broadcasting here
+    assert(dest_shape_begin != dest_shape_end && src_shape_begin != src_shape_end);
+    assert(dest_shape_end - dest_shape_begin == src_shape_end - src_shape_begin);
+
+    if ((dest_shape_begin + 1) == dest_shape_end) {
+      std::memcpy(dest, src, element_size * (*src_shape_begin));
+      if (*dest_shape_begin > *src_shape_begin) {
+        std::memset(dest + *src_shape_begin * element_size, 0, (*dest_shape_begin - *src_shape_begin) * element_size);
+      }
       return;
     }
 
-    // no broadcasting here
-    assert(dest_shape_end - dest_shape_begin == src_shape_end - src_shape_begin);
+    int64_t dest_chunk_size = 1;
+    int64_t src_chunk_size = 1;
+    for (auto iter = dest_shape_begin + 1; iter != dest_shape_end; ++iter) {
+      dest_chunk_size *= *iter;
+    }
 
-    for (int64_t dim = 0; dim < *dest_shape_begin; ++dim) {
-      int64_t dest_chunk_size = 1;
-      int64_t src_chunk_size = 1;
-      for (auto iter = dest_shape_begin + 1; iter != dest_shape_end; ++iter) {
-        dest_chunk_size *= *iter;
-      }
+    for (auto iter = src_shape_begin + 1; iter != src_shape_end; ++iter) {
+      src_chunk_size *= *iter;
+    }
 
-      for (auto iter = src_shape_begin + 1; iter != src_shape_end; ++iter) {
-        src_chunk_size *= *iter;
-      }
-
-      if (dim < *src_shape_begin) {
-        CopyOrPadTensor(dest_shape_begin + 1, dest_shape_end, src_shape_begin + 1, src_shape_end,
-                        dest + dim * dest_chunk_size * element_size, src + dim * src_chunk_size * element_size,
-                        element_size);
+    for (int64_t i = 0; i < *dest_shape_begin; ++i) {
+      if (i < *src_shape_begin) {
+        if (dest_chunk_size == src_chunk_size) {
+          std::memcpy(dest + i * dest_chunk_size * element_size, src + i * src_chunk_size * element_size,
+                      dest_chunk_size * element_size);
+        } else {
+          CopyOrPadTensor(dest_shape_begin + 1, dest_shape_end, src_shape_begin + 1, src_shape_end,
+                          dest + i * dest_chunk_size * element_size, src + i * src_chunk_size * element_size,
+                          element_size);
+        }
       } else {
-        memset(dest + dim * dest_chunk_size * element_size, 0, dest_chunk_size * element_size);
+        memset(dest + i * dest_chunk_size * element_size, 0, dest_chunk_size * element_size);
       }
     }
   }
@@ -411,15 +421,15 @@ class OrtxRunner {
 
       output_shape.insert(output_shape.begin(), batch_size);
       std::byte* tensor_buf = outputs[axis]->AllocateRaw(output_shape);
+      auto ts_size = outputs[axis]->SizeInBytes() / batch_size;
       for (size_t i = 0; i < batch_size; ++i) {
         auto ts = ts_ptrs[i];
         const std::byte* ts_buff = reinterpret_cast<const std::byte*>(ts->DataRaw());
-        auto ts_size = ts->SizeInBytes();
-        if (is_same_shape) {
+        if (is_same_shape /* || ts->Shape() == std::vector<int64_t>(output_shape.begin() + 1, output_shape.end()) */) {
           std::memcpy(tensor_buf + i * ts_size, ts_buff, ts_size);
         } else {
           CopyOrPadTensor(output_shape.begin() + 1, output_shape.end(), ts->Shape().begin(), ts->Shape().end(),
-                          tensor_buf, reinterpret_cast<const std::byte*>(ts->DataRaw()), element_size);
+                          tensor_buf + i * ts_size, reinterpret_cast<const std::byte*>(ts->DataRaw()), element_size);
         }
       }
     }

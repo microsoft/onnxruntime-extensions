@@ -14,13 +14,6 @@
       },
       {
         "operation": {
-          "name": "convert_to_rgb",
-          "domain": "com.microsoft.extensions",
-          "type": "ConvertRGB"
-        }
-      },
-      {
-        "operation": {
           "name": "llama3_image_transform",
           "domain": "com.microsoft.extensions",
           "type": "Llama3ImageTransform",

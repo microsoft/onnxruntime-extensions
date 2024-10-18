@@ -7,6 +7,27 @@
 #include "op_def_struct.h"
 #include "image_resample.h"
 
+template <typename T>
+void DumpTensorToFile(const ortc::Tensor<T>& tensor, const char* name) {
+#if WIN32
+  auto tic = GetTickCount();
+  std::string dtype;
+  if constexpr (std::is_same_v<T, uint8_t> || std::is_same_v<T, std::byte>) {
+    dtype = "_u_";
+  } else {
+    dtype = "_f_";
+  }
+  dtype += std::to_string(tensor.Shape()[1]);
+  // use tic to be filename in a temp file name
+  auto filename = std::string("\\temp\\") + name + std::to_string(tic) + dtype + ".bin";
+  std::ofstream file(filename, std::ios::out | std::ios::binary);
+  if (file.is_open()) {
+    file.write(reinterpret_cast<const char*>(tensor.DataRaw()), tensor.SizeInBytes());
+    file.close();
+  }
+#endif
+}
+
 inline OrtxStatus convert_to_rgb(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) {
   auto& dimensions = input.Shape();
   if (dimensions.size() != 3ULL || dimensions[2] != 3) {
@@ -32,23 +53,13 @@ inline OrtxStatus convert_to_rgb(const ortc::Tensor<uint8_t>& input, ortc::Tenso
 }
 
 struct Resize {
-  template <typename DictT>
-  OrtxStatus Init(const DictT& attrs) {
-    for (const auto& [key, value] : attrs) {
-      if (key == "height") {
-        height_ = std::get<int64_t>(value);
-      } else if (key == "width") {
-        width_ = std::get<int64_t>(value);
-      } else if (key == "interpolation") {
-        interpolation_ = std::get<std::string>(value);
-        if (interpolation_ != "NEAREST" && interpolation_ != "LINEAR" && interpolation_ != "CUBIC") {
-          return {kOrtxErrorInvalidArgument, "[Resize]: Invalid interpolation method"};
-        }
-      } else {
-        return {kOrtxErrorInvalidArgument, "[Resize]: Invalid argument"};
-      }
-    }
-    return {};
+  static const std::unordered_map<std::string, int> InterpolationMethods() {
+    return {
+      {"NEAREST", IMAGING_TRANSFORM_NEAREST},
+      {"LINEAR", IMAGING_TRANSFORM_BILINEAR},
+      {"CUBIC", IMAGING_TRANSFORM_BICUBIC},
+      {"LANCZOS", IMAGING_TRANSFORM_LANCZOS}
+    };
   }
 
   OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) {
@@ -73,40 +84,55 @@ struct Resize {
       }
     }
 
-    int interp = IMAGING_TRANSFORM_NEAREST;
-    if (interpolation_ == "NEAREST") {
-      interp = IMAGING_TRANSFORM_NEAREST;
-    } else if (interpolation_ == "LINEAR") {
-      interp = IMAGING_TRANSFORM_BILINEAR;
-    } else if (interpolation_ == "CUBIC") {
-      interp = IMAGING_TRANSFORM_BICUBIC;
-    } else if (interpolation_ == "LANCZOS") {
-      interp = IMAGING_TRANSFORM_LANCZOS;
-    } else {
-      return {kOrtxErrorInvalidArgument, "[Resize]: Invalid interpolation method"};
+    int interp = InterpolationMethods().at(interpolation_);
+    float box[4] = {0.0f, 0.0f, static_cast<float>(w), static_cast<float>(h)};
+    auto [height, width] = std::make_tuple(height_, width_);
+
+    if (keep_aspect_ratio_) {
+      double scale = (std::max)(static_cast<double>(width) / w, static_cast<double>(height) / h);
+      width = static_cast<int64_t>(w * scale);
+      height = static_cast<int64_t>(h * scale);
     }
 
-    float box[4] = {0.0f, 0.0f, static_cast<float>(width_), static_cast<float>(height_)};
-
-    auto output_image = ImagingResample(rgb_image, static_cast<int>(width_), static_cast<int>(height_), interp, box);
-    // cv::resize(image, output_image, {static_cast<int32_t>(width_), static_cast<int32_t>(height_)}, 0.0, 0.0, interp);
+    auto output_image = ImagingResample(rgb_image, static_cast<int>(width), static_cast<int>(height), interp, box);
     ImagingDelete(rgb_image);
 
-    auto* p_output_image = output.Allocate({height_, width_, c});
-    for (auto i = height_ - height_; i < height_; ++i) {
-      for (auto j = width_ - width_; j < width_; ++j) {
-        auto c0_index = i * width_ * c + j * c;
-        std::memcpy(p_output_image + c0_index, output_image->image[i] + j * 4, c);
+    auto* p_output_image = output.Allocate({height, width, c});
+    for (auto i = height - height; i < height; ++i) {
+      for (auto j = width - width; j < width; ++j) {
+      auto c0_index = i * width * c + j * c;
+      std::memcpy(p_output_image + c0_index, output_image->image[i] + j * 4, c);
       }
     }
+//    DumpTensor(output);
 
     ImagingDelete(output_image);
+    return {};
+  }
+
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    for (const auto& [key, value] : attrs) {
+      if (key == "height") {
+        height_ = std::get<int64_t>(value);
+      } else if (key == "width") {
+        width_ = std::get<int64_t>(value);
+      } else if (key == "interpolation") {
+        interpolation_ = std::get<std::string>(value);
+        if (InterpolationMethods().find(interpolation_) == InterpolationMethods().end()) {
+          return {kOrtxErrorInvalidArgument, "[Resize]: Invalid interpolation method"};
+        }
+      } else {
+        return {kOrtxErrorInvalidArgument, "[Resize]: Invalid argument"};
+      }
+    }
     return {};
   }
 
  private:
   int64_t height_{256};
   int64_t width_{256};
+  bool keep_aspect_ratio_{true};
   std::string interpolation_{"CUBIC"};  // LINEAR, NEAREST, CUBIC
 };
 
@@ -140,7 +166,7 @@ struct Rescale {
       for (int64_t k = 0; k < w; ++k) {
         auto c0_index = j * w * c + k * c;
         for (int64_t l = 0; l < c; ++l) {
-          p_output_image[c0_index + l] = input_data[c0_index + l] * scale_;
+          p_output_image[c0_index + l] = static_cast<float>(input_data[c0_index + l]) * scale_;
         }
       }
     }
@@ -221,7 +247,6 @@ struct CenterCrop {
   // s_h = torch.div((img_h - height), 2, rounding_mode='trunc')
   // s_w = torch.div((img_w - width), 2, rounding_mode='trunc')
   // x = img[:, :, s_h:s_h + height, s_w:s_w + width]
-
   OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) {
     auto& dimensions = input.Shape();
     if (dimensions.size() != 3ULL) {
@@ -252,4 +277,48 @@ struct CenterCrop {
  private:
   int64_t target_h_{224};
   int64_t target_w_{224};
+};
+
+struct Permute3D {
+
+  OrtxStatus Compute(const ortc::Tensor<float>& input, ortc::Tensor<float>& output) {
+    auto& dimensions = input.Shape();
+    if (dimensions.size() != 3ULL || dims_.size() != 3ULL) {
+      return {kOrtxErrorInvalidArgument, "[Permute]: Only 3D tensors are supported"};
+    }
+
+    auto* input_data = input.Data();
+    std::vector<int64_t> output_shape = {dimensions[dims_[0]], dimensions[dims_[1]], dimensions[dims_[2]]};
+    auto* p_output_image = output.Allocate(output_shape);
+
+    for (int64_t i = 0; i < dimensions[0]; ++i) {
+      for (int64_t j = 0; j < dimensions[1]; ++j) {
+        for (int64_t k = 0; k < dimensions[2]; ++k) {
+          auto c0_index = i * dimensions[1] * dimensions[2] + j * dimensions[2] + k;
+          auto c1_index = (dims_[0] == 0 ? i : (dims_[0] == 1 ? j : k)) * output_shape[1] * output_shape[2] +
+                          (dims_[1] == 0 ? i : (dims_[1] == 1 ? j : k)) * output_shape[2] +
+                          (dims_[2] == 0 ? i : (dims_[2] == 1 ? j : k));
+          p_output_image[c1_index] = input_data[c0_index];
+        }
+      }
+    }
+
+    return {};
+  }
+
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    for (const auto& [key, value] : attrs) {
+      if (key == "dims") {
+        dims_ = std::get<std::vector<int64_t>>(value);
+      } else {
+        return {kOrtxErrorInvalidArgument, "[Permute]: Invalid argument"};
+      }
+    }
+
+    return {};
+  }
+
+ private:
+  std::vector<int64_t> dims_{1, 2, 0};
 };
