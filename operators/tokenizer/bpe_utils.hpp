@@ -248,7 +248,7 @@ class TokenWithRegularExp {
         wstr.push_back(low_surrogate);
       } else {
         // Invalid code point for UTF-16
-        throw std::runtime_error("Invalid UTF-32 codepoint encountered");
+        ORTX_CXX_API_THROW("Invalid UTF-32 codepoint encountered", ORT_INVALID_ARGUMENT);
       }
     }
 
@@ -282,7 +282,7 @@ class TokenWithRegularExp {
               u32str.push_back(ch);
           } else {
               // Invalid Unicode code point
-              throw std::runtime_error("Invalid wide character encountered");
+              ORTX_CXX_API_THROW("Invalid wide character encountered", ORT_INVALID_ARGUMENT);
           }
       }
 
@@ -291,8 +291,7 @@ class TokenWithRegularExp {
 
   // Use the C++ standard library to handle regex pattern matching for compatible strings
   std::u32string RegexMatchSTD(const std::u32string& regex) {
-    static std::u32string text(m_text);
-    std::wstring wstr = U2Wstring(text);
+    std::wstring wstr = U2Wstring(m_text);
     std::wstring wpattern = U2Wstring(regex);
 
     std::wregex pattern(wpattern);
@@ -702,7 +701,8 @@ class TokenWithRegularExp {
     } catch (const std::exception& /* ex */) {
       std::string part1 = "Regex '";
       std::string part2 = "' not supported!";
-      throw std::runtime_error(part1 + regex_expr + part2);
+      std::string msg = part1 + regex_expr + part2;
+      ORTX_CXX_API_THROW(msg, ORT_INVALID_ARGUMENT);
     }
 
     return U"";

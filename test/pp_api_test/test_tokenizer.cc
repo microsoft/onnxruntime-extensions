@@ -83,6 +83,36 @@ TEST(OrtxTokenizerTest, RegexTest) {
   EXPECT_EQ(res, out_tokens);
 }
 
+TEST(OrtxTokenizerTest, RegexMatchSTDTest) {
+  std::vector<std::string> regex_expressions = {"'s|'t|'re|'ve|'m|'ll|'d",
+                                                "\\s+",
+                                                "[A-Za-z]+"};
+
+  std::vector<std::u32string> input_strings = {U"not its, or IT'S, but it's",
+                                               U"   ",
+                                               U"AbCd"};                      
+  auto regcmp = std::make_unique<ort_extensions::bpe::TokenWithRegularExp>();
+
+  std::vector<std::vector<std::u32string>> res_vector;
+  std::vector<std::vector<std::u32string>> out_tokens = {{U"'s"},
+                                                         {U"   "},
+                                                         {U"AbCd"}};
+
+  for (auto i = 0; i < regex_expressions.size(); i++){
+    int64_t max_length = out_tokens[i].size();
+    regcmp->Set(input_strings[i].c_str());
+    std::string regex_expr = regex_expressions[i];
+    std::vector<std::u32string> res;
+
+    while (static_cast<int64_t>(res.size()) < max_length) {
+      res.push_back(regcmp->RegexMatchSTD(ustring(regex_expr)));
+    }
+
+    res_vector.push_back(res);
+  }
+  EXPECT_EQ(res_vector, out_tokens);
+}
+
 TEST(OrtxTokenizerTest, WrapStandaloneCategoriesTest) {
   std::vector<std::string> regex_expressions = {"[^\\p{rn}\\p{L}\\p{N}]?\\p{L}+",
                                                 "\\p{rn}\\p{L}\\p{N}\\p{L}",
