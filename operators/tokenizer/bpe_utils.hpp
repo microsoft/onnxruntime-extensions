@@ -115,112 +115,315 @@ class TokenWithRegularExp {
     return {false, {}};
   }
 
-  /*
-  
-  We describe the regex of GPT2 and LLaMa below, for clarity:
-
-  ************************   GPT2 Regex ************************
-
-  's|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+
-
-  Case 1: English apostrophe handling (1st-7th Alternative, the endings for her's, can't, you're, etc.)
-
-  Note: the sequencial of the following if should not be switched, which follows the python regex's syntax
-
-  Standard Library Search might be too compute intensive here due to conversions to and fro ustring and wstring,
-  so we stick to manual parsing here for efficiency, however (as an example for the usage of RegexMatchSTD),
-  note that this following snippet would also work:
-
-  std::u32string_view std_regex = RegexMatchSTD(U"'s|'t|'re|'ve|'m|'ll|'d");
-  if (std_regex.size() != 0){
-    return std_regex;
-  }
-
-  's|'t|'re|'ve|'m|'ll|'d
-
-  Case 2: Language Character Class (8th Alternative)
-  ? matches the previous token between zero and one times, as many times as possible, giving back as needed (greedy)
-  \p{L} matches any kind of letter from any language
-  + matches the previous token between one and unlimited times, as many times as possible, giving back as needed (greedy)
-  
-  ?\p{L}+
-
-  Case 3: Numeric Character Class (9th Alternative)
-  \p{N} matches any kind of numeric character in any script
-  all other symbols as previously described.
-
-  ?\p{N}+
-
-  Case 4: Custom Character Combination (10th Alternative)
-  [^...] matches a single character not present in the list
-  \s matches any whitespace character (equivalent to [\r\n\t\f\v])
-  all other symbols as previously described.
-
-  ?[^\s\p{L}\p{N}]+
-
-  Case 5: Custom Character Combination (11th and 12th Alternative)
-  (?!...) is a Negative Lookahead, it asserts that the regex in ... does not match
-  \S matches any non-whitespace character (equivalent to [^\r\n\t\f\v])
-  all other symbols as previously described.
-
-  \s+(?!\S)|\s+
-
-  Note that the above is equivalent to \s+, so we use that instead for simplicity.
-
-
-
-  ************************   LLaMa Regex ************************
-
-  (?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+
-  
-  Case 1: English apostrophe handling, case insensitive (1st Alternative, the endings for her's, CAN'T, etc.)
-  (?_: ...) is a Non-capturing Group, which matches the tokens contained with the effective flags following ?
-  i modifier performs a case insensitive match (ignores case of [a-zA-Z])
-  all other symbols as previously described.
-
-  Note: the sequencial of the following if should not be switched, which follows the python regex's syntax
-
-  (?i:'s|'t|'re|'ve|'m|'ll|'d)
-
-  Case 2: Custom Character Combination (2nd Alternative)
-  \r matches a carriage return (ASCII 13)
-  \n matches a line-feed (newline) character (ASCII 10)
-  all other symbols as previously described.
-
-  [^\r\n\p{L}\p{N}]?\p{L}+
-
-  Case 3: Numeric Character Class (3rd Alternative)
-  {1,3} matches the previous token between 1 and 3 times, as many times as possible, giving back as needed (greedy)
-  all other symbols as previously described. 
-
-  \p{N}{1,3}
-
-  Case 4: Custom Character Combination (4th Alternative)
-  * matches the previous token between zero and unlimited times, as many times as possible, giving back as needed (greedy)
-  all other symbols as previously described.
-
-  ?[^\s\p{L}\p{N}]+[\r\n]*
-
-  Case 5: Custom Character Combination (5th Alternative)
-  all symbols as previously described.
-
-  \s*[\r\n]+
-
-  Case 5: Custom Character Combination (6th and 7th Alternative)
-  all symbols as previously described.
-
-  \s+(?!\S)|\s+
-
-  Note that the above is equivalent to \s+, so we use that instead for simplicity.
-
-  */
-
   const std::string GPT2_REGEX_PATTERN = "'s|'t|'re|'ve|'m|'ll|'d|?\\p{L}+|?\\p{N}+|?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+";
   const std::string LLAMA_REGEX_PATTERN = "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}|?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+";
-  // Alternate form for LLaMa Regex:
-  // const std::string LLAMA_REGEX_PATTERN_2 = "(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+";
+  const std::string LLAMA_REGEX_PATTERN_2 = "(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+";
 
  public:
+
+  // Although we have RegexMatchGeneral which performs regex matching given any general regex string
+  // (not just GPT2, Llama, or C++ standard library compatible regex strings), we write the following
+  // two methods for GPT2 and Llama in order to make performance improvements.
+
+  std::u32string RegexMatchGPT2() {
+
+    // Case 1: English apostrophe handling (1st-7th Alternative, the endings for her's, can't, you're, etc.)
+
+    // Note: the sequencial of the following if should not be switched, which follows the python regex's syntax
+
+    // Standard Library Search might be too compute intensive here due to conversions to and fro ustring and wstring,
+    // so we stick to manual parsing here for efficiency, however (as an example for the usage of RegexMatchSTD),
+    // note that this following snippet would also work:
+
+    // std::u32string_view std_regex = RegexMatchSTD(U"'s|'t|'re|'ve|'m|'ll|'d");
+    // if (std_regex.size() != 0){
+    //   return std_regex;
+    // }
+
+    // 's|'t|'re|'ve|'m|'ll|'d
+    if ((m_text[0] == U'\'') && (m_text.size() > 1)) {
+      if ((m_text[1] == U's') || (m_text[1] == U't') ||
+          (m_text[1] == U'm') || (m_text[1] == U'd')) {
+        std::u32string res = m_text.substr(0, 2);
+        m_text = m_text.substr(2);
+        return res;
+      }
+
+      if (m_text.size() > 2) {
+        if (((m_text[1] == U'r') && (m_text[2] == U'e')) ||
+            ((m_text[1] == U'v') && (m_text[2] == U'e')) ||
+            ((m_text[1] == U'l') && (m_text[2] == U'l'))) {
+          std::u32string res = m_text.substr(0, 3);
+          m_text = m_text.substr(3);
+          return res;
+        }
+      }
+    }
+
+    // Case 2: Language Character Class (8th Alternative)
+    // ? matches the previous token between zero and one times, as many times as possible, giving back as needed (greedy)
+    // \p{L} matches any kind of letter from any language
+    // + matches the previous token between one and unlimited times, as many times as possible, giving back as needed (greedy)
+    
+    // ?\p{L}+
+    if ((m_text[0] == U' ') && (m_text.size() > 1) && IsL(m_text[1])) {
+      size_t i = 2;
+      for (; i < m_text.size(); ++i) {
+        if (!IsL(m_text[i]))
+          break;
+      }
+      std::u32string res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+    if (IsL(m_text[0])) {
+      size_t i = 1;
+      for (; i < m_text.size(); ++i) {
+        if (!IsL(m_text[i]))
+          break;
+      }
+      std::u32string res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+
+    // Case 3: Numeric Character Class (9th Alternative)
+    // \p{N} matches any kind of numeric character in any script
+    // all other symbols as previously described.
+
+    // ?\p{N}+
+    if ((m_text[0] == U' ') && (m_text.size() > 1) && IsN(m_text[1])) {
+      size_t i = 2;
+      for (; i < m_text.size(); ++i) {
+        if (!IsN(m_text[i]))
+          break;
+      }
+      std::u32string res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+    if (IsN(m_text[0])) {
+      size_t i = 1;
+      for (; i < m_text.size(); ++i) {
+        if (!IsN(m_text[i]))
+          break;
+      }
+      std::u32string res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+
+    // Case 4: Custom Character Combination (10th Alternative)
+    // [^...] matches a single character not present in the list
+    // \s matches any whitespace character (equivalent to [\r\n\t\f\v])
+    // all other symbols as previously described.
+
+    // ?[^\s\p{L}\p{N}]+
+    if ((m_text[0] == U' ') && (m_text.size() > 1) && (NotLNZ(m_text[1]))) {
+      size_t i = 2;
+      for (; i < m_text.size(); ++i) {
+        if (!NotLNZ(m_text[i]))
+          break;
+      }
+      std::u32string res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+    if (NotLNZ(m_text[0])) {
+      size_t i = 1;
+      for (; i < m_text.size(); ++i) {
+        if (!NotLNZ(m_text[i]))
+          break;
+      }
+      std::u32string res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+
+    // Case 5: Custom Character Combination (11th and 12th Alternative)
+    // (?!...) is a Negative Lookahead, it asserts that the regex in ... does not match
+    // \S matches any non-whitespace character (equivalent to [^\r\n\t\f\v])
+    // all other symbols as previously described.
+
+    // \s+(?!\S)|\s+
+    if ((m_text.size() >= 1) && (IsZ(m_text[0]))) {
+      size_t i = 1;
+      for (; i < m_text.size(); ++i) {
+        if (!IsZ(m_text[i])) break;
+      }
+      if ((i > 1) && (i != m_text.size())) {  //\s+(?!\S)
+        i--;
+        std::u32string res = m_text.substr(0, i);
+        m_text = m_text.substr(i);
+        return res;
+      }
+      // \s+
+      std::u32string res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+
+    return U"";
+  }
+
+  std::u32string RegexMatchLlama3() {
+
+    // Case 1: English apostrophe handling, case insensitive (1st Alternative, the endings for her's, CAN'T, etc.)
+    // (?_: ...) is a Non-capturing Group, which matches the tokens contained with the effective flags following ?
+    // i modifier performs a case insensitive match (ignores case of [a-zA-Z])
+    // all other symbols as previously described.
+
+    // Note: the sequencial of the following if should not be switched, which follows the python regex's syntax
+
+    // (?i:'s|'t|'re|'ve|'m|'ll|'d)
+    if ((m_text[0] == U'\'') && (m_text.size() > 1)) {
+      if ((m_text[1] == U's') || (m_text[1] == U't') ||
+          (m_text[1] == U'm') || (m_text[1] == U'd') ||
+          (m_text[1] == U'S') || (m_text[1] == U'T') ||
+          (m_text[1] == U'M') || (m_text[1] == U'D')) {
+        std::u32string res = m_text.substr(0, 2);
+        m_text = m_text.substr(2);
+        return res;
+      }
+
+      if (m_text.size() > 2) {
+        if ((((m_text[1] == U'r') || (m_text[1] == U'R')) && ((m_text[2] == U'e') || (m_text[2] == U'E'))) ||
+            (((m_text[1] == U'v') || (m_text[1] == U'V')) && ((m_text[2] == U'e') || (m_text[2] == U'E'))) ||
+            (((m_text[1] == U'l') || (m_text[1] == U'L')) && ((m_text[2] == U'l') || (m_text[2] == U'L')))) {
+          std::u32string res = m_text.substr(0, 3);
+          m_text = m_text.substr(3);
+          return res;
+        }
+      }
+    }
+
+    // Case 2: Custom Character Combination (2nd Alternative)
+    // \r matches a carriage return (ASCII 13)
+    // \n matches a line-feed (newline) character (ASCII 10)
+    // all other symbols as previously described.
+
+    // [^\r\n\p{L}\p{N}]?\p{L}+
+    if (!IsRN(m_text[0]) && !IsN(m_text[0])){
+      if (IsL(m_text[0]) || ((m_text.size() > 1) && IsL(m_text[1]))){
+        size_t i = 1;
+        for (; i < m_text.size(); ++i) {
+          if (!IsL(m_text[i]))
+            break;
+        }
+        std::u32string res = m_text.substr(0, i);
+        m_text = m_text.substr(i);
+        return res;
+      }
+    }
+
+    // Case 3: Numeric Character Class (3rd Alternative)
+    // {1,3} matches the previous token between 1 and 3 times, as many times as possible, giving back as needed (greedy)
+    // all other symbols as previously described. 
+
+    // \p{N}{1,3}
+    if (IsN(m_text[0])){
+      size_t i = 1;
+      for (; i < m_text.size(); ++i) {
+        if (!IsN(m_text[i]) || (i > 2))
+          break;
+      }
+      std::u32string res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+
+    // Case 4: Custom Character Combination (4th Alternative)
+    // * matches the previous token between zero and unlimited times, as many times as possible, giving back as needed (greedy)
+    // all other symbols as previously described.
+
+    // ?[^\s\p{L}\p{N}]+[\r\n]*
+    if ((m_text[0] == U' ') && (m_text.size() > 1) && (NotLNZ(m_text[1]))) {
+      size_t i = 2;
+      for (; i < m_text.size(); ++i) {
+        if (!NotLNZ(m_text[i]))
+          break;
+      }
+      if (i < m_text.size() && IsRN(m_text[i])){
+        for (; i < m_text.size(); ++i) {
+          if (!IsRN(m_text[i]))
+            break;
+        }
+      }
+      std::u32string res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+    if (NotLNZ(m_text[0])) {
+      size_t i = 1;
+      for (; i < m_text.size(); ++i) {
+        if (!NotLNZ(m_text[i]))
+          break;
+      }
+      if (i < m_text.size() && IsRN(m_text[i])){
+        for (; i < m_text.size(); ++i) {
+          if (!IsRN(m_text[i]))
+            break;
+        }
+      }
+      std::u32string res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+
+    // Case 5: Custom Character Combination (5th Alternative)
+    // all symbols as previously described.
+
+    // \s*[\r\n]+
+    if (IsZ(m_text[0])){
+      size_t i = 1;
+      for (; i < m_text.size(); ++i) {
+        if (!IsZ(m_text[i]))
+          break;
+      }
+      if (i < m_text.size() && IsRN(m_text[i])){
+        for (; i < m_text.size(); ++i) {
+          if (!IsRN(m_text[i]))
+            break;
+        }
+      }
+      std::u32string res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+    if (IsRN(m_text[0])){
+      size_t i = 1;
+      for (; i < m_text.size(); ++i) {
+        if (!IsRN(m_text[i]))
+          break;
+      }
+      std::u32string res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+
+    // Case 5: Custom Character Combination (6th and 7th Alternative)
+    // all symbols as previously described.
+
+    // \s+(?!\S)|\s+
+    if ((m_text.size() >= 1) && (IsZ(m_text[0]))) {
+      size_t i = 1;
+      for (; i < m_text.size(); ++i) {
+        if (!IsZ(m_text[i])) break;
+      }
+      if ((i > 1) && (i != m_text.size())) {  //\s+(?!\S)
+        i--;
+        std::u32string res = m_text.substr(0, i);
+        m_text = m_text.substr(i);
+        return res;
+      }
+      // \s+
+      std::u32string res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+
+    return U"";
+  }
 
   /*
   std::regex does not directly support std::u32string (which is what U"" literals produce).
@@ -231,6 +434,7 @@ class TokenWithRegularExp {
   characters and characters from various languages.
   */
 
+  // Convert std::u32string to std::wstring
   static std::wstring U2Wstring(const std::u32string& u32str) {
     std::wstring wstr;
     wstr.reserve(u32str.size()); // Reserve space to avoid multiple allocations
@@ -255,7 +459,7 @@ class TokenWithRegularExp {
     return wstr;
   }
 
-
+  // Convert std::wstring to std::u32string
   std::u32string W2Ustring(const std::wstring& wstr) {
       std::u32string u32str;
       u32str.reserve(wstr.size());  // Reserve space to avoid multiple allocations
@@ -306,6 +510,7 @@ class TokenWithRegularExp {
     }
   }
 
+  // Determine ufal::unilib::unicode regex category given string code.
   static ufal::unilib::unicode::category_t StringToCategory(const std::string & category = ""){
     ufal::unilib::unicode::category_t cat;
 
@@ -390,7 +595,7 @@ class TokenWithRegularExp {
     return cat;
   }
 
-  // perform regex match for a certain category
+  // Perform regex match given a list of categories (e.g. ?[\s\p{L}\p{N}]+), a premodifier, and a postmodifier
   std::u32string RegexCategory(const std::vector<std::string> & categories, const std::string & premodifier = "", const std::string & postmodifier = "", const bool negated = false){
 
     if (premodifier == "?"){
@@ -601,12 +806,8 @@ class TokenWithRegularExp {
     bool negated;
   };
 
-  // test string: "[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]*[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]+
-  //               (?i:'s|'t|'re|'ve|'m|'ll|'d)?|[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]+
-  //               [\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?|\\p{N}{1,3}|
-  //               ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+"
+  // Perform regex matching given any general regex string (not just GPT2 or Llama)
   std::u32string RegexMatchGeneral(const std::string & regex_expr) {
-    // std::string input = "?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]*[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]+";
     std::string target = "\\s+(?!\\S)|\\s+";
     std::string replacement = "\\p{sS}";
 
@@ -693,11 +894,19 @@ class TokenWithRegularExp {
   // it will be taken care of there. If not, we check to see if the regex can be parsed with the C++ Standard Library methods.
   std::u32string RegexMatchCustom(const std::string & regex_expr) {
     try {
-      std::u32string res = RegexMatchGeneral(regex_expr);
-      if (res != U"")
-        return res;
-      else
-        return RegexMatchSTD(ustring(regex_expr));
+      if (regex_expr == GPT2_REGEX_PATTERN) {
+        return RegexMatchGPT2();
+      } else if (regex_expr == LLAMA_REGEX_PATTERN ||
+                regex_expr == LLAMA_REGEX_PATTERN_2) {
+
+        return RegexMatchLlama3();
+      } else {
+        std::u32string res = RegexMatchGeneral(regex_expr);
+        if (res != U"")
+          return res;
+        else
+          return RegexMatchSTD(ustring(regex_expr));
+      }
     } catch (const std::exception& /* ex */) {
       std::string part1 = "Regex '";
       std::string part2 = "' not supported!";
