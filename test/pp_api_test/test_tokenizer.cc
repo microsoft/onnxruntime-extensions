@@ -181,10 +181,11 @@ TEST(OrtxTokenizerTest, ClipTokenizer) {
   auto status = tokenizer->Load("data/tokenizer/clip");
   if (!status.IsOk()) {
     std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
   }
 
   // validate tokenizer is not null
-  EXPECT_NE(tokenizer, nullptr);
+    ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
 
   std::vector<std::string_view> input = {"this is a test", "the second one"};
 
@@ -207,10 +208,11 @@ TEST(OrtxTokenizerTest, TicTokenTokenizer) {
   auto status = tokenizer->Load("data/tiktoken");
   if (!status.IsOk()) {
     std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
   }
 
   // validate tokenizer is not null
-  EXPECT_NE(tokenizer, nullptr);
+    ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
 
   std::vector<extTokenId_t> EXPECTED_IDS_0 = {128000, 2028, 374, 264, 1296};
   std::vector<std::string_view> input = {"This is a test", "the second one"};
@@ -234,10 +236,11 @@ TEST(OrtxTokenizerTest, Phi3_Small_Hf_Tokenizer) {
   auto status = tokenizer->Load("data/tokenizer/phi-3-small-cvt");
   if (!status.IsOk()) {
     std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
   }
 
   // validate tokenizer is not null
-  EXPECT_NE(tokenizer, nullptr);
+    ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
 
   std::vector<extTokenId_t> EXPECTED_IDS_0 = {2028, 374, 264, 1296, 13};
   std::vector<std::string_view> input = {"This is a test.", "Ich liebe München",
@@ -263,10 +266,11 @@ TEST(OrtxTokenizerTest, Phi3_Small_Tokenizer) {
   auto status = tokenizer->Load("data/tokenizer/phi-3-small");
   if (!status.IsOk()) {
     std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
   }
 
   // validate tokenizer is not null
-  EXPECT_NE(tokenizer, nullptr);
+    ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
 
   std::vector<extTokenId_t> EXPECTED_IDS_0 = {2028, 374, 264, 1296, 13};
   std::vector<std::string_view> input = {
@@ -289,7 +293,10 @@ TEST(OrtxTokenizerTest, GemmaTokenizer) {
   auto status = tokenizer->Load("data/gemma");
   if (!status.IsOk()) {
     std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
   }
+
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
 
   std::vector<std::string_view> input = {"I like walking my cute dog\n and\x17 then", "生活的真谛是", "\t\t\t\t \n\n61",
                                          "Hey<eos>. \t\t \n\nyou  é  @#😈  🤗!       , 1234 15 5,61"};
@@ -328,7 +335,10 @@ TEST(OrtxTokenizerTest, Phi3Tokenizer) {
   auto status = tokenizer->Load("data/phi-3");
   if (!status.IsOk()) {
     std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
   }
+
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
 
   std::vector<std::string_view> input = {
       "分析",
@@ -378,10 +388,11 @@ TEST(OrtxTokenizerTest, CodeGenTokenizer) {
   auto status = tokenizer->Load("data/phi-2");
   if (!status.IsOk()) {
     std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
   }
 
   // validate tokenizer is not null
-  EXPECT_NE(tokenizer, nullptr);
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
 
   const char* prompt_text = kPromptText;
 
@@ -414,10 +425,11 @@ TEST(OrtxTokenizerStreamTest, CodeGenTokenizer) {
   auto status = tokenizer->Load("data/phi-2");
   if (!status.IsOk()) {
     std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
   }
 
   // validate tokenizer is not null
-  EXPECT_NE(tokenizer, nullptr);
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
 
   const char* prompt_text = kPromptText;
 
@@ -448,10 +460,11 @@ TEST(OrtxTokenizerStreamTest, Llama2Tokenizer) {
   auto status = tokenizer->Load("data/llama2");
   if (!status.IsOk()) {
     std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
   }
 
   // validate tokenizer is not null
-  EXPECT_TRUE(tokenizer != nullptr);
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
 
   std::vector<std::string_view> input = {"This is a test and the second one is in German. Ich liebe München!"};
   std::vector<std::vector<extTokenId_t>> token_ids;
@@ -482,10 +495,11 @@ TEST(OrtxTokenizerStreamTest, Phi3Tokenizer) {
   auto status = tokenizer->Load("data/phi-3");
   if (!status.IsOk()) {
     std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
   }
 
   // validate tokenizer is not null
-  EXPECT_TRUE(tokenizer != nullptr);
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
 
   std::vector<std::string_view> input = {
       R"(こんにちは。データ分析にはいくつかのステップがあります。まずは目的を明確にします。次に、データを収集し、クリーニングを行います。)"
@@ -518,7 +532,7 @@ using namespace ort_extensions;
 TEST(OrtxTokenizerTest, WhisperTokenizer) {
   // test the llama2 tokenizer with BPE class, instead of sentencepiece wrapper.
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/whisper.tiny");
-  EXPECT_EQ(tokenizer.Code(), kOrtxOK);
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
 
   OrtxObjectPtr<OrtxTokenId2DArray> prompt_ids;
 
@@ -541,7 +555,7 @@ TEST(OrtxTokenizerTest, WhisperTokenizer) {
 TEST(OrtxTokenizerTest, SpmUgmTokenizer) {
   // test the llama2 tokenizer with BPE class, instead of sentencepiece wrapper.
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/fairseq/xlm-roberta-base");
-  EXPECT_EQ(tokenizer.Code(), kOrtxOK);
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
 
   const char* input[] = {"I like walking my cute dog\n and\x17 then, 生活的真谛是  \t\t\t\t \n\n61"};
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
