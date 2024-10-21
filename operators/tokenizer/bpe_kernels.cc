@@ -289,7 +289,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     while (static_cast<int64_t>(res.size()) < max_length) {
       std::string regex_expr = "";
       if (ModelName() == kModel_Llama){
-        regex_expr = regcmp.LLAMA_REGEX_PATTERN_1;
+        regex_expr = regcmp.LLAMA_REGEX_PATTERN;
       } else {
         // default to GPT2 regex
         regex_expr = regcmp.GPT2_REGEX_PATTERN;
