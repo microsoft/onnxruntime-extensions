@@ -10,7 +10,7 @@ if(NOT _ortcustomops_type STREQUAL "STATIC_LIBRARY")
 endif()
 
 set(APPLE_FRAMEWORK_NAME "onnxruntime_extensions")
-set(APPLE_FRAMEWORK_IDENTIFIER "com.microsoft.onnxruntime_extensions")
+set(APPLE_FRAMEWORK_IDENTIFIER "com.microsoft.onnxruntime-extensions")
 set(APPLE_FRAMEWORK_VERSION "${VERSION}")
 
 # public header files
