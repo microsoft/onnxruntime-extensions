@@ -214,6 +214,11 @@ std::unique_ptr<KernelDef> CreateKernelInstance(OrtxStatus (T::*method)(Args...)
   return std::make_unique<KernelStruct<T, Args...>>(method);
 }
 
+template <typename T, typename... Args>
+std::unique_ptr<KernelDef> CreateKernelInstance(OrtxStatus (T::*method)(Args...) const) {
+  return std::make_unique<KernelStruct<T, Args...>>(reinterpret_cast<OrtxStatus (T::*)(Args...)>(method));
+}
+
 class Operation {
  public:
   using KernelRegistry = std::unordered_map<std::string_view, std::function<std::unique_ptr<KernelDef>()>>;

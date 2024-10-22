@@ -25,7 +25,7 @@ struct DecodeImage {
     return {};
   }
 
-  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) {
+  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) const {
     const auto& dimensions = input.Shape();
     if (dimensions.size() != 1ULL) {
       return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Only raw image formats are supported."};

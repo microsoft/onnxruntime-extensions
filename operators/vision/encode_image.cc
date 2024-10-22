@@ -25,8 +25,7 @@ void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor
   std::vector<int32_t> height_x_width{static_cast<int32_t>(dimensions_bgr[0]),   // H
                                       static_cast<int32_t>(dimensions_bgr[1])};  // W
 
-  // data is const uint8_t but opencv2 wants void*.
-  const void* bgr_data = input.Data();
+  const uint8_t* bgr_data = input.Data();
   unsigned char* outbuffer = nullptr;
   std::vector<uint8_t> buffer;
   size_t outsize = 0;
@@ -44,7 +43,7 @@ void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor
     cinfo.image_width = height_x_width[1];
     cinfo.image_height = height_x_width[0];
     cinfo.input_components = 3;
-    cinfo.in_color_space = JCS_EXT_BGR;
+    cinfo.in_color_space = JCS_RGB;
 
     jpeg_set_defaults(&cinfo);
     jpeg_start_compress(&cinfo, TRUE);
