@@ -12,32 +12,24 @@
 namespace ort_extensions {
 
 void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) const {
-  // Setup inputs
   const auto dimensions_bgr = input.Shape();
 
   if (dimensions_bgr.size() != 3 || dimensions_bgr[2] != 3) {
-    // expect {H, W, C} as that's the inverse of what decode_image produces.
-    // we have no way to check if it's BGR or RGB though
     ORTX_CXX_API_THROW("[EncodeImage] requires rank 3 BGR input in channels last format.", ORT_INVALID_ARGUMENT);
   }
 
-  // Get data & the length
-  std::vector<int32_t> height_x_width{static_cast<int32_t>(dimensions_bgr[0]),   // H
-                                      static_cast<int32_t>(dimensions_bgr[1])};  // W
-
+  std::vector<int32_t> height_x_width{static_cast<int32_t>(dimensions_bgr[0]), static_cast<int32_t>(dimensions_bgr[1])};
   const uint8_t* bgr_data = input.Data();
   unsigned char* outbuffer = nullptr;
   std::vector<uint8_t> buffer;
   size_t outsize = 0;
 
   if (extension_ == ".jpg") {
-    // JPEG encoding
     struct jpeg_compress_struct cinfo;
     struct jpeg_error_mgr jerr;
 
     cinfo.err = jpeg_std_error(&jerr);
     jpeg_create_compress(&cinfo);
-
     jpeg_mem_dest(&cinfo, &outbuffer, &outsize);
 
     cinfo.image_width = height_x_width[1];
@@ -56,10 +48,7 @@ void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor
 
     jpeg_finish_compress(&cinfo);
     jpeg_destroy_compress(&cinfo);
-
-    free(outbuffer);
   } else if (extension_ == ".png") {
-    // PNG encoding
     png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
     if (!png_ptr) {
       ORTX_CXX_API_THROW("[EncodeImage] PNG create write struct failed.", ORT_INVALID_ARGUMENT);
@@ -99,12 +88,11 @@ void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor
     ORTX_CXX_API_THROW("[EncodeImage] Unsupported image format.", ORT_INVALID_ARGUMENT);
   }
 
-  // Setup output & copy to destination
   std::vector<int64_t> output_dimensions{static_cast<int64_t>(outsize)};
   uint8_t* data = output.Allocate(output_dimensions);
   memcpy(data, outbuffer, outsize);
 
-  if (outbuffer != buffer.data()) {
+  if (outbuffer != buffer.data() && outbuffer != nullptr) {
     free(outbuffer);
   }
 }
