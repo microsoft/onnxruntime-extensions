@@ -662,8 +662,9 @@ if(OCOS_ENABLE_VISION)
     endif()
   endif()
 
+  set(_DEFAULT_CODEC_ENABLE ON) # libpng and libjpeg can be optional after EncodeImage with native support too.
   if(_DEFAULT_CODEC_ENABLE)
-    include(ext_imgcodecs)
+    include(ext_imgcodecs)  
     target_include_directories(ocos_operators PUBLIC ${libPNG_SOURCE_DIR} ${libJPEG_SOURCE_DIR})
     target_link_libraries(ocos_operators PUBLIC ${PNG_LIBRARY} ${JPEG_LIBRARY})
   endif()

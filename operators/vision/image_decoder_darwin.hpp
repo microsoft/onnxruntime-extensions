@@ -8,6 +8,8 @@
 #include "op_def_struct.h"
 #include "ext_status.h"
 
+namespace ort_extensions::internal {
+
 struct DecodeImage {
   template <typename DictT>
   OrtxStatus Init(const DictT& attrs) {
@@ -114,3 +116,4 @@ struct DecodeImage {
   private:
     CFDictionaryRef imageSourceOptions_{NULL};
 };
+}  // namespace ort_extensions::internal

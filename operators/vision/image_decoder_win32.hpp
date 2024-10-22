@@ -12,7 +12,7 @@
 #include "op_def_struct.h"
 #include "ext_status.h"
 
-
+namespace ort_extensions::internal {
 struct DecodeImage {
   template <typename DictT>
   OrtxStatus Init(const DictT& attrs) {
@@ -147,3 +147,4 @@ struct DecodeImage {
   private:
     winrt::com_ptr<IWICImagingFactory> pIWICFactory_;
 };
+}  // namespace ort_extensions::internal
