@@ -4,6 +4,7 @@
 #pragma once
 #include <vector>
 #include <fstream>
+#include <variant>
 
 #include "ortx_utils.h"
 #include "file_sys.h"
@@ -258,4 +259,10 @@ std::tuple<std::unique_ptr<T[]>, size_t> LoadRawData(It begin, It end) {
 
   return std::make_tuple(std::move(raw_data), n);
 }
+
+using AttrType =
+  std::variant<std::string, double, int64_t, std::vector<std::string>, std::vector<double>, std::vector<int64_t>>;
+using AttrDict = std::unordered_map<std::string, AttrType>;
 }  // namespace ort_extensions
+
+namespace ortx = ort_extensions;

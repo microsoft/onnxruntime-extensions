@@ -17,7 +17,10 @@ namespace ort_extensions {
 using ImageRawData = std::vector<uint8_t>;
 
 std::tuple<std::unique_ptr<ImageRawData[]>, size_t> LoadRawImages(
-    const std::initializer_list<const char*>& image_paths);
+  const std::initializer_list<const char*>& image_paths);
+
+std::tuple<std::unique_ptr<ImageRawData[]>, size_t> LoadRawImages(
+  const char* image_paths[], size_t num_images);
 
 class ProcessorResult : public OrtxObjectImpl {
  public:
@@ -26,6 +29,7 @@ class ProcessorResult : public OrtxObjectImpl {
   ortc::Tensor<int64_t>* image_sizes{};
   ortc::Tensor<int64_t>* num_img_tokens{};
 };
+
 class ImageProcessor : public OrtxObjectImpl {
  public:
   ImageProcessor();

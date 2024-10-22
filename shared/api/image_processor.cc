@@ -17,18 +17,27 @@
     #include "image_decoder.hpp"
   #endif
 #else
-#include "image_decoder.hpp"
+  #include "image_decoder.hpp"
 #endif
+
 #include "image_transforms.hpp"
 #include "image_transforms_phi_3.hpp"
+#include "image_transforms_mllama.hpp"
+
+namespace ort_extensions {
+std::tuple<std::unique_ptr<ImageRawData[]>, size_t>
+LoadRawImages(const std::initializer_list<const char*>& image_paths) {
+  return ort_extensions::LoadRawData<const char* const*, ImageRawData>(image_paths.begin(), image_paths.end());
+}
+
+std::tuple<std::unique_ptr<ImageRawData[]>, size_t>
+LoadRawImages(const char* image_paths[], size_t num_images) {
+  return ort_extensions::LoadRawData<const char* const*, ImageRawData>(image_paths, image_paths + num_images);
+}
+}  // namespace ort_extensions
 
 using namespace ort_extensions;
 using json = nlohmann::json;
-
-std::tuple<std::unique_ptr<ImageRawData[]>, size_t>
-ort_extensions::LoadRawImages(const std::initializer_list<const char*>& image_paths) {
-  return ort_extensions::LoadRawData<const char* const*, ImageRawData>(image_paths.begin(), image_paths.end());
-}
 
 Operation::KernelRegistry ImageProcessor::kernel_registry_ = {
     {"DecodeImage", []() { return CreateKernelInstance(&DecodeImage::Compute); }},
@@ -37,7 +46,9 @@ Operation::KernelRegistry ImageProcessor::kernel_registry_ = {
     {"Normalize", []() { return CreateKernelInstance(&Normalize::Compute); }},
     {"CenterCrop", []() { return CreateKernelInstance(&CenterCrop::Compute); }},
     {"ConvertRGB", []() { return CreateKernelInstance(convert_to_rgb); }},
+    {"Permute3D", []() { return CreateKernelInstance(&Permute3D::Compute); }},
     {"Phi3ImageTransform", []() { return CreateKernelInstance(phi3_hd_transform); }},
+    {"Llama3ImageTransform", []() { return CreateKernelInstance(&Llama3ImageTransform::Compute); }},
 };
 
 OrtxStatus ImageProcessor::Init(std::string_view processor_def) {
@@ -189,7 +200,6 @@ OrtxStatus ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_d
   operations_.back()->ResetTensors(allocator_);
   if (status.IsOk()) {
     r.SetTensors(std::move(img_result));
-    // r.SetTensorTypes({kOrtxFloat, kOrtxInt64, kOrtxInt64});
   }
 
   return status;
