@@ -51,14 +51,14 @@ TEST(ProcessorTest, TestCLIPImageProcessing) {
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxObjectPtr<OrtxProcessor> processor;
-  err = OrtxCreateProcessor(ort_extensions::ptr(processor), "data/processor/clip_image.json");
+  err = OrtxCreateProcessor(ort_extensions::move_ptr(processor), "data/processor/clip_image.json");
   if (err != kOrtxOK) {
     std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
   }
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxObjectPtr<OrtxTensorResult> result;
-  err = OrtxImagePreProcess(processor.get(), raw_images.get(), ort_extensions::ptr(result));
+  err = OrtxImagePreProcess(processor.get(), raw_images.get(), ort_extensions::move_ptr(result));
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxTensor* tensor;

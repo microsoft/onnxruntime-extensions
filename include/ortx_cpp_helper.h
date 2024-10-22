@@ -90,7 +90,7 @@ struct PointerAssigner {
  * @return A PointerAssigner object for the given OrtxObjectPtr.
  */
 template <typename T>
-PointerAssigner<T> ptr(OrtxObjectPtr<T>& ptr) {
+PointerAssigner<T> move_ptr(OrtxObjectPtr<T>& ptr) {
   return PointerAssigner<T>{ptr};
 };
 
