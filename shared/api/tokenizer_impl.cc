@@ -11,6 +11,24 @@
 
 namespace ort_extensions {
 
+std::set<std::string> TokenizerImpl::supported_bpe_models_ = {
+  "PreTrainedTokenizerFast", 
+  "CLIPTokenizer",
+  "WhisperTokenizer",
+  "GemmaTokenizer",
+  "LlamaTokenizer",
+  "Phi3Tokenizer",
+  "CodeLlamaTokenizer",
+  "CodeGenTokenizer",
+  "GPT2Tokenizer",
+  "Qwen2Tokenizer",
+  "T5Tokenizer"
+};
+
+std::set<std::string> TokenizerImpl::supported_ugm_models_ = {
+  "XLMRobertaTokenizer"
+};
+
 TokenizerImpl::TokenizerImpl()
     : OrtxObjectImpl(extObjectKind_t::kOrtxKindTokenizer) {};
 TokenizerImpl::~TokenizerImpl() {};
@@ -23,7 +41,7 @@ OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
   }
 
   if (tok_config_->tokenizer_class_.empty() ||
-      tok_config_->tokenizer_class_ == "XLMRobertaTokenizer") {
+      supported_ugm_models_.count(tok_config_->tokenizer_class_)) {
     auto tokenizer = std::make_unique<SpmUgmTokenizer>();
     status = tokenizer->Load(*tok_config_);
     if (!status.IsOk()) {
@@ -41,6 +59,10 @@ OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
     }
 
     return status;
+  }
+
+  if (!supported_bpe_models_.count(tok_config_->tokenizer_class_)) {
+    return OrtxStatus(kOrtxErrorNotImplemented, "Unsupported tokenizer class");
   }
 
   auto vocab_file_path = ortx::path(tok_config_->GetVocabDataFile());

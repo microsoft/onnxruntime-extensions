@@ -15,6 +15,9 @@ namespace ort_extensions {
 
 class TokenizerImpl : public OrtxObjectImpl {
  public:
+  static std::set<std::string> supported_bpe_models_;
+  static std::set<std::string> supported_ugm_models_;
+
   TokenizerImpl();
   virtual ~TokenizerImpl();
 
