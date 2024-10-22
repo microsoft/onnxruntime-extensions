@@ -1,9 +1,13 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include "png.h"
+#include "jpeglib.h"
+#include "op_def_struct.h"
+#include "ext_status.h"
+
 #include "encode_image.hpp"
 
-#include <opencv2/imgcodecs.hpp>
 
 namespace ort_extensions {
 
@@ -23,18 +27,87 @@ void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor
 
   // data is const uint8_t but opencv2 wants void*.
   const void* bgr_data = input.Data();
-  const cv::Mat bgr_image(height_x_width, CV_8UC3, const_cast<void*>(bgr_data));
+  unsigned char* outbuffer = nullptr;
+  std::vector<uint8_t> buffer;
+  size_t outsize = 0;
 
-  // don't know output size ahead of time so need to encode and then copy to output
-  std::vector<uint8_t> encoded_image;
-  if (!cv::imencode(extension_, bgr_image, encoded_image)) {
-    ORTX_CXX_API_THROW("[EncodeImage] Image encoding failed.", ORT_INVALID_ARGUMENT);
+  if (extension_ == ".jpg") {
+    // JPEG encoding
+    struct jpeg_compress_struct cinfo;
+    struct jpeg_error_mgr jerr;
+
+    cinfo.err = jpeg_std_error(&jerr);
+    jpeg_create_compress(&cinfo);
+
+    jpeg_mem_dest(&cinfo, &outbuffer, &outsize);
+
+    cinfo.image_width = height_x_width[1];
+    cinfo.image_height = height_x_width[0];
+    cinfo.input_components = 3;
+    cinfo.in_color_space = JCS_EXT_BGR;
+
+    jpeg_set_defaults(&cinfo);
+    jpeg_start_compress(&cinfo, TRUE);
+
+    JSAMPROW row_pointer[1];
+    while (cinfo.next_scanline < cinfo.image_height) {
+      row_pointer[0] = (JSAMPROW)&bgr_data[cinfo.next_scanline * cinfo.image_width * 3];
+      jpeg_write_scanlines(&cinfo, row_pointer, 1);
+    }
+
+    jpeg_finish_compress(&cinfo);
+    jpeg_destroy_compress(&cinfo);
+
+    free(outbuffer);
+  } else if (extension_ == ".png") {
+    // PNG encoding
+    png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+    if (!png_ptr) {
+      ORTX_CXX_API_THROW("[EncodeImage] PNG create write struct failed.", ORT_INVALID_ARGUMENT);
+    }
+
+    png_infop info_ptr = png_create_info_struct(png_ptr);
+    if (!info_ptr) {
+      png_destroy_write_struct(&png_ptr, nullptr);
+      ORTX_CXX_API_THROW("[EncodeImage] PNG create info struct failed.", ORT_INVALID_ARGUMENT);
+    }
+
+    if (setjmp(png_jmpbuf(png_ptr))) {
+      png_destroy_write_struct(&png_ptr, &info_ptr);
+      ORTX_CXX_API_THROW("[EncodeImage] PNG encoding failed.", ORT_INVALID_ARGUMENT);
+    }
+
+    png_set_write_fn(png_ptr, &buffer, [](png_structp png_ptr, png_bytep data, png_size_t length) {
+      auto p = reinterpret_cast<std::vector<uint8_t>*>(png_get_io_ptr(png_ptr));
+      p->insert(p->end(), data, data + length);
+    }, nullptr);
+
+    png_set_IHDR(png_ptr, info_ptr, height_x_width[1], height_x_width[0], 8, PNG_COLOR_TYPE_RGB,
+                 PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+
+    png_write_info(png_ptr, info_ptr);
+
+    for (int y = 0; y < height_x_width[0]; ++y) {
+      png_write_row(png_ptr, (png_bytep)&bgr_data[y * height_x_width[1] * 3]);
+    }
+
+    png_write_end(png_ptr, info_ptr);
+    png_destroy_write_struct(&png_ptr, &info_ptr);
+
+    outbuffer = buffer.data();
+    outsize = buffer.size();
+  } else {
+    ORTX_CXX_API_THROW("[EncodeImage] Unsupported image format.", ORT_INVALID_ARGUMENT);
   }
 
   // Setup output & copy to destination
-  std::vector<int64_t> output_dimensions{static_cast<int64_t>(encoded_image.size())};
+  std::vector<int64_t> output_dimensions{static_cast<int64_t>(outsize)};
   uint8_t* data = output.Allocate(output_dimensions);
-  memcpy(data, encoded_image.data(), encoded_image.size());
+  memcpy(data, outbuffer, outsize);
+
+  if (outbuffer != buffer.data()) {
+    free(outbuffer);
+  }
 }
 
 }  // namespace ort_extensions

@@ -26,6 +26,7 @@ class ProcessorResult : public OrtxObjectImpl {
   ortc::Tensor<int64_t>* image_sizes{};
   ortc::Tensor<int64_t>* num_img_tokens{};
 };
+
 class ImageProcessor : public OrtxObjectImpl {
  public:
   ImageProcessor();

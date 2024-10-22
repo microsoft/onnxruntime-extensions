@@ -10,20 +10,6 @@
 #include "op_def_struct.h"
 #include "ext_status.h"
 
-
-OrtxStatus image_decoder(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output);
-
-struct DecodeImage {
-  template <typename DictT>
-  OrtxStatus Init(const DictT& attrs) {
-    return {};
-  }
-
-  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) {
-    return image_decoder(input, output);
-  }
-};
-
 class JMemorySourceManager : public jpeg_source_mgr {
  public:
   // Constructor
@@ -73,7 +59,13 @@ class JMemorySourceManager : public jpeg_source_mgr {
   extError_t extError{kOrtxOK};  // Error handler
 };
 
-inline OrtxStatus image_decoder(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) {
+struct DecodeImage {
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    return {};
+  }
+
+  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) {
   const auto& dimensions = input.Shape();
   if (dimensions.size() != 1ULL) {
     return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Only raw image formats are supported."};
@@ -156,4 +148,5 @@ inline OrtxStatus image_decoder(const ortc::Tensor<uint8_t>& input, ortc::Tensor
   }
 
   return status;
-}
+  }
+};

@@ -3,19 +3,14 @@
 
 #pragma once
 
-#include "ocos.h"
-#include "string_utils.h"
-
-#include <cstdint>
-
-namespace ort_extensions {
-
-void decode_image(const ortc::Tensor<uint8_t>& input,
-                  ortc::Tensor<uint8_t>& output);
-
-struct KernelDecodeImage : BaseKernel {
-  KernelDecodeImage(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel(api, info) {}
-  void Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) const;
-};
-
-}  // namespace ort_extensions
+#if OCOS_ENABLE_VENDOR_IMAGE_CODECS
+  #if WIN32
+    #include "image_decoder_win32.hpp"
+  #elif __APPLE__
+    #include "image_decoder_darwin.hpp"
+  #else
+    #include "image_decoder.hpp"
+  #endif
+#else
+#include "image_decoder.hpp"
+#endif
