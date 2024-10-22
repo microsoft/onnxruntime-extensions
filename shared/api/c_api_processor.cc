@@ -95,5 +95,5 @@ extError_t ORTX_API_CALL OrtxImagePreProcess(OrtxProcessor* processor, OrtxRawIm
     *result = nullptr;
   }
 
-  return {};
+  return status.Code();
 }
