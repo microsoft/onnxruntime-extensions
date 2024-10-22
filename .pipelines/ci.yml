@@ -197,7 +197,7 @@ stages:
     # compiled as only one operator selected.
     - bash: |
         set -e -x -u
-        ./build.sh -DOCOS_ENABLE_C_API=ON -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_VISION=OFF -DOCOS_ENABLE_OPENCV_CODECS=OFF
+        ./build.sh -DOCOS_ENABLE_C_API=ON
         cd out/Linux/RelWithDebInfo
         ctest -C RelWithDebInfo --output-on-failure
       displayName: Build ort-extensions with API enabled and run tests
@@ -281,7 +281,7 @@ stages:
     # compiled as only one operator selected.
     - bash: |
         set -e -x -u
-        ./build.sh -DOCOS_ENABLE_C_API=ON -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_VISION=OFF -DOCOS_ENABLE_OPENCV_CODECS=OFF
+        ./build.sh -DOCOS_ENABLE_C_API=ON
         cd out/Darwin/RelWithDebInfo
         ctest -C RelWithDebInfo --output-on-failure
       displayName: Build ort-extensions with API enabled and run tests
@@ -431,7 +431,7 @@ stages:
 
     steps:
     - script: |
-        call .\build.bat -DOCOS_ENABLE_C_API=ON -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_VISION=OFF -DOCOS_ENABLE_OPENCV_CODECS=OFF
+        call .\build.bat -DOCOS_ENABLE_C_API=ON
         cd out\Windows
         ctest -C RelWithDebInfo --output-on-failure
       displayName: Build ort-extensions with API enabled and run tests
