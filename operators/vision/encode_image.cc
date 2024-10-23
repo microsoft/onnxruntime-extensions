@@ -12,17 +12,26 @@
 namespace ort_extensions {
 
 void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) const {
-  const auto dimensions_bgr = input.Shape();
-
+  const auto& dimensions_bgr = input.Shape();
   if (dimensions_bgr.size() != 3 || dimensions_bgr[2] != 3) {
     ORTX_CXX_API_THROW("[EncodeImage] requires rank 3 BGR input in channels last format.", ORT_INVALID_ARGUMENT);
   }
 
-  std::vector<int32_t> height_x_width{static_cast<int32_t>(dimensions_bgr[0]), static_cast<int32_t>(dimensions_bgr[1])};
+  std::vector<int32_t> height_x_width{static_cast<int32_t>(dimensions_bgr[0]),   // H
+                                      static_cast<int32_t>(dimensions_bgr[1])};  // W
   const uint8_t* bgr_data = input.Data();
   unsigned char* outbuffer = nullptr;
-  std::vector<uint8_t> buffer;
+  std::vector<uint8_t> png_buffer;
   size_t outsize = 0;
+
+  auto rgb_data = std::make_unique<uint8_t[]>(height_x_width[0] * height_x_width[1] * 3).get();
+  for (int y = 0; y < height_x_width[0]; ++y) {
+    for (int x = 0; x < height_x_width[1]; ++x) {
+      rgb_data[(y * height_x_width[1] + x) * 3 + 0] = bgr_data[(y * height_x_width[1] + x) * 3 + 2];
+      rgb_data[(y * height_x_width[1] + x) * 3 + 1] = bgr_data[(y * height_x_width[1] + x) * 3 + 1];
+      rgb_data[(y * height_x_width[1] + x) * 3 + 2] = bgr_data[(y * height_x_width[1] + x) * 3 + 0];
+    }
+  }
 
   if (extension_ == ".jpg") {
     struct jpeg_compress_struct cinfo;
@@ -42,7 +51,7 @@ void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor
 
     JSAMPROW row_pointer[1];
     while (cinfo.next_scanline < cinfo.image_height) {
-      row_pointer[0] = (JSAMPROW)&bgr_data[cinfo.next_scanline * cinfo.image_width * 3];
+      row_pointer[0] = (JSAMPROW)&rgb_data[cinfo.next_scanline * cinfo.image_width * 3];
       jpeg_write_scanlines(&cinfo, row_pointer, 1);
     }
 
@@ -65,7 +74,7 @@ void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor
       ORTX_CXX_API_THROW("[EncodeImage] PNG encoding failed.", ORT_INVALID_ARGUMENT);
     }
 
-    png_set_write_fn(png_ptr, &buffer, [](png_structp png_ptr, png_bytep data, png_size_t length) {
+    png_set_write_fn(png_ptr, &png_buffer, [](png_structp png_ptr, png_bytep data, png_size_t length) {
       auto p = reinterpret_cast<std::vector<uint8_t>*>(png_get_io_ptr(png_ptr));
       p->insert(p->end(), data, data + length);
     }, nullptr);
@@ -76,14 +85,14 @@ void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor
     png_write_info(png_ptr, info_ptr);
 
     for (int y = 0; y < height_x_width[0]; ++y) {
-      png_write_row(png_ptr, (png_bytep)&bgr_data[y * height_x_width[1] * 3]);
+      png_write_row(png_ptr, (png_bytep)&rgb_data[y * height_x_width[1] * 3]);
     }
 
     png_write_end(png_ptr, info_ptr);
     png_destroy_write_struct(&png_ptr, &info_ptr);
 
-    outbuffer = buffer.data();
-    outsize = buffer.size();
+    outbuffer = png_buffer.data();
+    outsize = png_buffer.size();
   } else {
     ORTX_CXX_API_THROW("[EncodeImage] Unsupported image format.", ORT_INVALID_ARGUMENT);
   }
@@ -92,7 +101,7 @@ void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor
   uint8_t* data = output.Allocate(output_dimensions);
   memcpy(data, outbuffer, outsize);
 
-  if (outbuffer != buffer.data() && outbuffer != nullptr) {
+  if (outbuffer != png_buffer.data() && outbuffer != nullptr) {
     free(outbuffer);
   }
 }
