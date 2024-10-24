@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <map>
+
 #include "ext_status.h"
 #include "op_def_struct.h"
 
