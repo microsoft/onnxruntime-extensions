@@ -4,13 +4,19 @@
 #pragma once
 
 #include "ocos.h"
+#include "sampling.h"
 
 #include <list>
 #include <optional>
 
 struct AudioDecoder {
  public:
-  OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info);
+  OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
+    auto status = OrtW::GetOpAttribute(info, "downsampling_rate", downsample_rate_);
+    if (!status) {
+      status = OrtW::GetOpAttribute(info, "stereo_to_mono", stereo_mixer_);
+    }
+  }
 
   template <typename DictT>
   OrtxStatus Init(const DictT& attrs) {
@@ -37,6 +43,26 @@ struct AudioDecoder {
                      ortc::Tensor<float>& output0) const;
   OrtxStatus ComputeNoOpt(const ortc::Tensor<uint8_t>& input, ortc::Tensor<float>& output0) {
     return Compute(input, std::nullopt, output0);
+  }
+
+  void MixAndDownsampleIfNeeded(std::vector<float>& buf, int64_t orig_channels, int64_t orig_sample_rate) const {
+    // mix the stereo channels into mono channel
+    if (stereo_mixer_ && orig_channels > 1) {
+      if (buf.size() > 1) {
+        for (size_t i = 0; i < buf.size() / 2; ++i) {
+          buf[i] = (buf[i * 2] + buf[i * 2 + 1]) / 2;
+        }
+        buf.resize(buf.size() / 2);
+      }
+    }
+
+    if (downsample_rate_ != 0 && downsample_rate_ != orig_sample_rate) {
+      // A lowpass filter on buf audio data to remove high frequency noise
+      ButterworthLowpass filter(0.5 * downsample_rate_, 1.0 * orig_sample_rate);
+      std::vector<float> filtered_buf = filter.Process(buf);
+      // downsample the audio data
+      KaiserWindowInterpolation::Process(filtered_buf, buf, 1.0f * orig_sample_rate, 1.0f * downsample_rate_);
+    }
   }
 
  private:
