@@ -20,10 +20,34 @@
 
 namespace ort_extensions {
 struct DecodeImage: public internal::DecodeImage {
-  OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {return {};}
-  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) const{
-    return internal::DecodeImage::Compute(input, output);
+  OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
+    is_bgr_ = true;
+    return internal::DecodeImage::Init(std::map<std::string, std::string>());
   }
+
+  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) const{
+    auto status = internal::DecodeImage::Compute(input, output);
+    if (!status.IsOk()) {
+      return status;
+    }
+
+    if (is_bgr_) {
+      // need to convert rgb to bgr for backward compatibility
+      const auto& dimensions = output.Shape();
+      uint8_t* rgb_data = const_cast<uint8_t*>(output.Data());
+      // do an inplace swap of the channels
+      for (int y = 0; y < dimensions[0]; ++y) {
+        for (int x = 0; x < dimensions[1]; ++x) {
+          std::swap(rgb_data[(y * dimensions[1] + x) * 3 + 0], rgb_data[(y * dimensions[1] + x) * 3 + 2]);
+        }
+      }
+    }
+
+    return status;
+  }
+
+  private:
+    bool is_bgr_{};  // flag to indicate if the output is in BGR format
 };
 
 }  // namespace ort_extensions

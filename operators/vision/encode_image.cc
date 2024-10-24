@@ -19,17 +19,18 @@ void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor
 
   std::vector<int32_t> height_x_width{static_cast<int32_t>(dimensions_bgr[0]),   // H
                                       static_cast<int32_t>(dimensions_bgr[1])};  // W
+  const int color_space = 3;
   const uint8_t* bgr_data = input.Data();
   unsigned char* outbuffer = nullptr;
   std::vector<uint8_t> png_buffer;
   size_t outsize = 0;
 
-  auto rgb_data = std::make_unique<uint8_t[]>(height_x_width[0] * height_x_width[1] * 3).get();
+  auto rgb_data = std::make_unique<uint8_t[]>(height_x_width[0] * height_x_width[1] * color_space);
   for (int y = 0; y < height_x_width[0]; ++y) {
     for (int x = 0; x < height_x_width[1]; ++x) {
-      rgb_data[(y * height_x_width[1] + x) * 3 + 0] = bgr_data[(y * height_x_width[1] + x) * 3 + 2];
-      rgb_data[(y * height_x_width[1] + x) * 3 + 1] = bgr_data[(y * height_x_width[1] + x) * 3 + 1];
-      rgb_data[(y * height_x_width[1] + x) * 3 + 2] = bgr_data[(y * height_x_width[1] + x) * 3 + 0];
+      rgb_data[(y * height_x_width[1] + x) * color_space + 0] = bgr_data[(y * height_x_width[1] + x) * color_space + 2];
+      rgb_data[(y * height_x_width[1] + x) * color_space + 1] = bgr_data[(y * height_x_width[1] + x) * color_space + 1];
+      rgb_data[(y * height_x_width[1] + x) * color_space + 2] = bgr_data[(y * height_x_width[1] + x) * color_space + 0];
     }
   }
 
@@ -43,15 +44,29 @@ void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor
 
     cinfo.image_width = height_x_width[1];
     cinfo.image_height = height_x_width[0];
-    cinfo.input_components = 3;
+    cinfo.input_components = color_space;
     cinfo.in_color_space = JCS_RGB;
 
+    // compression parameters is compatible with opencv
     jpeg_set_defaults(&cinfo);
+    jpeg_set_quality(&cinfo, 95, TRUE);
+    cinfo.optimize_coding = FALSE;
+    cinfo.restart_interval = 0;
+    cinfo.q_scale_factor[0] = jpeg_quality_scaling(-1);
+    cinfo.q_scale_factor[1] = jpeg_quality_scaling(-1);
+
+    const int sampling_factor = 0x221111; // 4:2:0  IMWRITE_JPEG_SAMPLING_FACTOR_420
+    cinfo.comp_info[0].v_samp_factor = (sampling_factor >> 16 ) & 0xF;
+    cinfo.comp_info[0].h_samp_factor = (sampling_factor >> 20 ) & 0xF;
+    cinfo.comp_info[1].v_samp_factor = 1;
+    cinfo.comp_info[1].h_samp_factor = 1;
+    // jpeg_default_qtables( &cinfo, TRUE );
+
     jpeg_start_compress(&cinfo, TRUE);
 
     JSAMPROW row_pointer[1];
     while (cinfo.next_scanline < cinfo.image_height) {
-      row_pointer[0] = (JSAMPROW)&rgb_data[cinfo.next_scanline * cinfo.image_width * 3];
+      row_pointer[0] = (JSAMPROW)&rgb_data[cinfo.next_scanline * cinfo.image_width * color_space];
       jpeg_write_scanlines(&cinfo, row_pointer, 1);
     }
 
@@ -85,7 +100,7 @@ void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor
     png_write_info(png_ptr, info_ptr);
 
     for (int y = 0; y < height_x_width[0]; ++y) {
-      png_write_row(png_ptr, (png_bytep)&rgb_data[y * height_x_width[1] * 3]);
+      png_write_row(png_ptr, (png_bytep)&rgb_data[y * height_x_width[1] * color_space]);
     }
 
     png_write_end(png_ptr, info_ptr);
