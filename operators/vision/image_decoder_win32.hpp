@@ -12,7 +12,7 @@
 #include "op_def_struct.h"
 #include "ext_status.h"
 
-
+namespace ort_extensions::internal {
 struct DecodeImage {
   template <typename DictT>
   OrtxStatus Init(const DictT& attrs) {
@@ -29,7 +29,7 @@ struct DecodeImage {
     return {};
   }
 
-  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) {
+  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) const{
     const auto& dimensions = input.Shape();
     if (dimensions.size() != 1ULL) {
       return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Only raw image formats are supported."};
@@ -147,3 +147,4 @@ struct DecodeImage {
   private:
     winrt::com_ptr<IWICImagingFactory> pIWICFactory_;
 };
+}  // namespace ort_extensions::internal

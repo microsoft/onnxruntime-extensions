@@ -9,22 +9,13 @@
 #include "gtest/gtest.h"
 #include "shared/api/c_api_utils.hpp"
 
-#if OCOS_ENABLE_VENDOR_IMAGE_CODECS
-  #if WIN32
-    #include "shared/api/image_decoder_win32.hpp"
-  #elif __APPLE__
-    #include "shared/api/image_decoder_darwin.hpp"
-  #else
-    #include "shared/api/image_decoder.hpp"
-  #endif
-#else
-#include "shared/api/image_decoder.hpp"
-#endif
+#include "vision/decode_image.hpp"
+
 
 using namespace ort_extensions;
 
 TEST(ImgDecoderTest, TestPngDecoder) {
-  DecodeImage image_decoder;
+  ort_extensions::DecodeImage image_decoder;
   image_decoder.Init(NULL);
   std::vector<uint8_t> png_data;
   std::filesystem::path png_path = "data/processor/exceltable.png";
@@ -60,7 +51,7 @@ TEST(ImgDecoderTest, TestPngDecoder) {
 }
 
 TEST(ImageDecoderTest, TestJpegDecoder) {
-  DecodeImage image_decoder;
+  ort_extensions::DecodeImage image_decoder;
   image_decoder.Init(NULL);
   std::vector<uint8_t> jpeg_data;
   std::filesystem::path jpeg_path = "data/processor/australia.jpg";
@@ -139,7 +130,7 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
 #if OCOS_ENABLE_VENDOR_IMAGE_CODECS
 #if defined(WIN32) || defined(__APPLE__)
 TEST(ImageDecoderTest, TestTiffDecoder) {
-  DecodeImage image_decoder;
+  ort_extensions::DecodeImage image_decoder;
   image_decoder.Init(NULL);
   std::vector<uint8_t> tiff_data;
   std::filesystem::path tiff_path = "data/processor/canoe.tif";

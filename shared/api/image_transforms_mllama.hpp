@@ -230,7 +230,7 @@ struct Llama3ImageTransform {
                                                            int64_t max_image_tiles, int64_t tile_size) {
     {
       auto possible_tile_arrangements = GetAllSupportedAspectRatios(max_image_tiles);
-      std::vector<std::pair<int, int>> possible_canvas_sizes;
+      std::vector<std::pair<int64_t, int64_t>> possible_canvas_sizes;
 
       for (const auto& arrangement : possible_tile_arrangements) {
         possible_canvas_sizes.emplace_back(arrangement.first * tile_size, arrangement.second * tile_size);
@@ -263,7 +263,7 @@ struct Llama3ImageTransform {
         selected_scale = *std::max_element(downscaling_options.begin(), downscaling_options.end());
       }
 
-      std::vector<std::pair<int, int>> chosen_canvas;
+      std::vector<std::pair<int64_t, int64_t>> chosen_canvas;
       for (size_t i = 0; i < scales.size(); ++i) {
         if (std::abs(scales[i] - selected_scale) < 1e-9) {
           chosen_canvas.push_back(possible_canvas_sizes[i]);
@@ -272,7 +272,7 @@ struct Llama3ImageTransform {
 
       if (chosen_canvas.size() > 1) {
         auto optimal_canvas = std::min_element(chosen_canvas.begin(), chosen_canvas.end(),
-                                               [](const std::pair<int, int>& a, const std::pair<int, int>& b) {
+                                               [](const std::pair<int64_t, int64_t>& a, const std::pair<int64_t, int64_t>& b) {
                                                  return (a.first * a.second) < (b.first * b.second);
                                                });
         return *optimal_canvas;

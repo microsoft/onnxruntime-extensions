@@ -6,19 +6,9 @@
 #include "nlohmann/json.hpp"
 #include "file_sys.h"
 
+#include "vision/decode_image.hpp"
 #include "image_processor.h"
 #include "c_api_utils.hpp"
-#if OCOS_ENABLE_VENDOR_IMAGE_CODECS
-  #if WIN32
-    #include "image_decoder_win32.hpp"
-  #elif __APPLE__
-    #include "image_decoder_darwin.hpp"
-  #else
-    #include "image_decoder.hpp"
-  #endif
-#else
-  #include "image_decoder.hpp"
-#endif
 
 #include "image_transforms.hpp"
 #include "image_transforms_phi_3.hpp"
@@ -40,7 +30,7 @@ using namespace ort_extensions;
 using json = nlohmann::json;
 
 Operation::KernelRegistry ImageProcessor::kernel_registry_ = {
-    {"DecodeImage", []() { return CreateKernelInstance(&DecodeImage::Compute); }},
+    {"DecodeImage", []() { return CreateKernelInstance(&ort_extensions::DecodeImage::Compute); }},
     {"Resize", []() { return CreateKernelInstance(&Resize::Compute); }},
     {"Rescale", []() { return CreateKernelInstance(&Rescale::Compute); }},
     {"Normalize", []() { return CreateKernelInstance(&Normalize::Compute); }},
