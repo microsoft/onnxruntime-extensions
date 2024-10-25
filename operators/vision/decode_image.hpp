@@ -4,6 +4,7 @@
 #pragma once
 
 #include <map>
+#include <cstring>
 
 #include "ext_status.h"
 #include "op_def_struct.h"
