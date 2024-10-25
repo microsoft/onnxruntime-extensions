@@ -94,6 +94,11 @@ void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor
       p->insert(p->end(), data, data + length);
     }, nullptr);
 
+    // sync with openCV parameters
+    png_set_filter(png_ptr, PNG_FILTER_TYPE_BASE, PNG_FILTER_SUB);
+    png_set_compression_level(png_ptr, 1);
+    png_set_compression_strategy(png_ptr, 3);
+
     png_set_IHDR(png_ptr, info_ptr, height_x_width[1], height_x_width[0], 8, PNG_COLOR_TYPE_RGB,
                  PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
