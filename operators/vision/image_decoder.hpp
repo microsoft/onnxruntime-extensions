@@ -35,8 +35,8 @@ struct DecodeImage {
 
     struct BufferState {
       const uint8_t* ptr;
-      int64_t size;
-    } bufferState = {encoded_image_data, encoded_image_data_len};
+      png_size_t size;
+    } bufferState = {encoded_image_data, static_cast<png_size_t>(encoded_image_data_len)};
 
     png_set_read_fn(png, &bufferState, [](png_structp pngPtr, png_bytep data, png_size_t length) {
       BufferState* state = static_cast<BufferState*>(png_get_io_ptr(pngPtr));
@@ -83,10 +83,10 @@ struct DecodeImage {
     uint8_t* output_data = output.Allocate(output_dimensions);
     // Read the image row by row
     std::vector<uint8_t> row(width * 4);
-    for (int i = 0; i < height; ++i) {
+    for (uint32_t i = 0; i < height; ++i) {
       png_read_row(png, row.data(), nullptr);
-      for (int j = 0; j < width; ++j) {
-        for (int k = 0; k < 3; ++k) {
+      for (uint32_t j = 0; j < width; ++j) {
+        for (uint32_t k = 0; k < 3; ++k) {
           output_data[i * width * 3 + j * 3 + k] = row[j * 4 + k];
         }
       }
