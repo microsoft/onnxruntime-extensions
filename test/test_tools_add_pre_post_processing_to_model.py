@@ -236,9 +236,16 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         result_img = Image.open(io.BytesIO(result_bytes))
         result = np.array(result_img.convert("RGB"))
         expected = np.array(Image.open(expected_output_image_path).convert("RGB"))
-        mse = np.mean((expected - result) ** 2)
-        print(f"MSE:{mse}")
-        self.assertLess(mse, 1e-4)
+
+        # check all pixel values are close. allowing for 0.1% of pixels to differ by 2 at the most.
+        #
+        # we expect some variance from the floating point operations involved during Resize and conversion of the
+        # original image to/from YCbCr. the different instructions used on different hardware can cause diffs, such as
+        # whether avx512 is used or not. MacOS seems to be slightly worse though (max of 2)
+        diffs = np.absolute(expected.astype(np.int32) - result.astype(np.int32))
+        total = np.sum(diffs)
+        print(f"Max diff:{diffs.max()} Total diffs:{total}")
+        self.assertTrue(diffs.max() < 3 and total < (result.size / 1000))
 
     def create_pipeline_and_run_for_tokenizer(self, tokenizer_impl, tokenizer_type,
                                               tokenizer_parameters, output_model: Path):

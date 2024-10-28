@@ -155,8 +155,8 @@ struct DecodeImage {
     return {};
   }
 
-    class JMemorySourceManager : public jpeg_source_mgr {
-  public:
+  class JMemorySourceManager : public jpeg_source_mgr {
+   public:
     // Constructor
     JMemorySourceManager(const uint8_t* encoded_image_data, const int64_t encoded_image_data_len) {
       // Initialize source fields
