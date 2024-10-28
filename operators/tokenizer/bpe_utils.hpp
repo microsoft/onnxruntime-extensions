@@ -514,83 +514,81 @@ class TokenWithRegularExp {
   static ufal::unilib::unicode::category_t StringToCategory(const std::string & category = ""){
     // Since C++ is not an interpreted language, we cannot simply convert the category to an object by typing
     // part of code into a string, so we manually parse it. Note that C++ also does not have switch-case statements.
-    try {
-      if (category == "C") {
-        return ufal::unilib::unicode::C;
-      } else if (category == "Cc"){
-        return ufal::unilib::unicode::Cc;
-      } else if (category == "Cf") {
-        return ufal::unilib::unicode::Cf;
-      } else if (category == "Cn") {
-        return ufal::unilib::unicode::Cn;
-      } else if (category == "Co") {
-        return ufal::unilib::unicode::Co;
-      } else if (category == "Cs") {
-        return ufal::unilib::unicode::Cs;
-      } else if (category == "L") {
-        return ufal::unilib::unicode::L;
-      } else if (category == "Ll") {
-        return ufal::unilib::unicode::Ll;
-      } else if (category == "Lm") {
-        return ufal::unilib::unicode::Lm;
-      } else if (category == "Lo") {
-        return ufal::unilib::unicode::Lo;
-      } else if (category == "Lt") {
-        return ufal::unilib::unicode::Lt;
-      } else if (category == "Lu") {
-        return ufal::unilib::unicode::Lu;
-      } else if (category == "M") {
-        return ufal::unilib::unicode::M;
-      } else if (category == "Mc") {
-        return ufal::unilib::unicode::Mc;
-      } else if (category == "Me") {
-        return ufal::unilib::unicode::Me;
-      } else if (category == "Mn") {
-        return ufal::unilib::unicode::Mn;
-      } else if (category == "N") {
-        return ufal::unilib::unicode::N;
-      } else if (category == "Nd") {
-        return ufal::unilib::unicode::Nd;
-      } else if (category == "Nl") {
-        return ufal::unilib::unicode::Nl;
-      } else if (category == "No") {
-        return ufal::unilib::unicode::No;
-      } else if (category == "P") {
-        return ufal::unilib::unicode::P;
-      } else if (category == "Pc") {
-        return ufal::unilib::unicode::Pc;
-      } else if (category == "Pd") {
-        return ufal::unilib::unicode::Pd;
-      } else if (category == "Pe") {
-        return ufal::unilib::unicode::Pe;
-      } else if (category == "Pf") {
-        return ufal::unilib::unicode::Pf;
-      } else if (category == "Pi") {
-        return ufal::unilib::unicode::Pi;
-      } else if (category == "Po") {
-        return ufal::unilib::unicode::Po;
-      } else if (category == "Ps") {
-        return ufal::unilib::unicode::Ps;
-      } else if (category == "S") {
-        return ufal::unilib::unicode::S;
-      } else if (category == "Sc") {
-        return ufal::unilib::unicode::Sc;
-      } else if (category == "Sk") {
-        return ufal::unilib::unicode::Sk;
-      } else if (category == "Sm") {
-        return ufal::unilib::unicode::Sm;
-      } else if (category == "So") {
-        return ufal::unilib::unicode::So;
-      } else if (category == "Z") {
-        return ufal::unilib::unicode::Z;
-      } else if (category == "Zl") {
-        return ufal::unilib::unicode::Zl;
-      } else if (category == "Zp") {
-        return ufal::unilib::unicode::Zp;
-      } else if (category == "Zs") {
-        return ufal::unilib::unicode::Zs;
-      }
-    } catch (const std::exception& /* ex */) {
+    if (category == "C") {
+      return ufal::unilib::unicode::C;
+    } else if (category == "Cc"){
+      return ufal::unilib::unicode::Cc;
+    } else if (category == "Cf") {
+      return ufal::unilib::unicode::Cf;
+    } else if (category == "Cn") {
+      return ufal::unilib::unicode::Cn;
+    } else if (category == "Co") {
+      return ufal::unilib::unicode::Co;
+    } else if (category == "Cs") {
+      return ufal::unilib::unicode::Cs;
+    } else if (category == "L") {
+      return ufal::unilib::unicode::L;
+    } else if (category == "Ll") {
+      return ufal::unilib::unicode::Ll;
+    } else if (category == "Lm") {
+      return ufal::unilib::unicode::Lm;
+    } else if (category == "Lo") {
+      return ufal::unilib::unicode::Lo;
+    } else if (category == "Lt") {
+      return ufal::unilib::unicode::Lt;
+    } else if (category == "Lu") {
+      return ufal::unilib::unicode::Lu;
+    } else if (category == "M") {
+      return ufal::unilib::unicode::M;
+    } else if (category == "Mc") {
+      return ufal::unilib::unicode::Mc;
+    } else if (category == "Me") {
+      return ufal::unilib::unicode::Me;
+    } else if (category == "Mn") {
+      return ufal::unilib::unicode::Mn;
+    } else if (category == "N") {
+      return ufal::unilib::unicode::N;
+    } else if (category == "Nd") {
+      return ufal::unilib::unicode::Nd;
+    } else if (category == "Nl") {
+      return ufal::unilib::unicode::Nl;
+    } else if (category == "No") {
+      return ufal::unilib::unicode::No;
+    } else if (category == "P") {
+      return ufal::unilib::unicode::P;
+    } else if (category == "Pc") {
+      return ufal::unilib::unicode::Pc;
+    } else if (category == "Pd") {
+      return ufal::unilib::unicode::Pd;
+    } else if (category == "Pe") {
+      return ufal::unilib::unicode::Pe;
+    } else if (category == "Pf") {
+      return ufal::unilib::unicode::Pf;
+    } else if (category == "Pi") {
+      return ufal::unilib::unicode::Pi;
+    } else if (category == "Po") {
+      return ufal::unilib::unicode::Po;
+    } else if (category == "Ps") {
+      return ufal::unilib::unicode::Ps;
+    } else if (category == "S") {
+      return ufal::unilib::unicode::S;
+    } else if (category == "Sc") {
+      return ufal::unilib::unicode::Sc;
+    } else if (category == "Sk") {
+      return ufal::unilib::unicode::Sk;
+    } else if (category == "Sm") {
+      return ufal::unilib::unicode::Sm;
+    } else if (category == "So") {
+      return ufal::unilib::unicode::So;
+    } else if (category == "Z") {
+      return ufal::unilib::unicode::Z;
+    } else if (category == "Zl") {
+      return ufal::unilib::unicode::Zl;
+    } else if (category == "Zp") {
+      return ufal::unilib::unicode::Zp;
+    } else if (category == "Zs") {
+      return ufal::unilib::unicode::Zs;
+    } else {
       ORTX_CXX_API_THROW("Invalid category string provided!", ORT_INVALID_ARGUMENT);
     }
   }
