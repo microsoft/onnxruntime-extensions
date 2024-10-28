@@ -1,6 +1,15 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include "zlib.h"
+#if ZLIB_VERNUM != 0x12b0
+// the following is a trick to show the invalid version number for the diagnosis.
+#define STR_VERSION(x) STR_NUM(x)
+#define STR_NUM(x) #x
+#pragma message "Invalid zlib version:  " STR_VERSION(ZLIB_VERNUM)
+#error "stopped"
+#endif
+
 #include "png.h"
 #include "jpeglib.h"
 #include "op_def_struct.h"
@@ -17,20 +26,20 @@ void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor
     ORTX_CXX_API_THROW("[EncodeImage] requires rank 3 BGR input in channels last format.", ORT_INVALID_ARGUMENT);
   }
 
-  std::vector<int32_t> height_x_width{static_cast<int32_t>(dimensions_bgr[0]),   // H
-                                      static_cast<int32_t>(dimensions_bgr[1])};  // W
-  const int color_space = 3;
+  int32_t height = static_cast<int32_t>(dimensions_bgr[0]);  // H
+  int32_t width = static_cast<int32_t>(dimensions_bgr[1]);   // W
+  const int32_t color_space = 3;
   const uint8_t* bgr_data = input.Data();
   unsigned char* outbuffer = nullptr;
   std::vector<uint8_t> png_buffer;
   size_t outsize = 0;
 
-  auto rgb_data = std::make_unique<uint8_t[]>(height_x_width[0] * height_x_width[1] * color_space);
-  for (int y = 0; y < height_x_width[0]; ++y) {
-    for (int x = 0; x < height_x_width[1]; ++x) {
-      rgb_data[(y * height_x_width[1] + x) * color_space + 0] = bgr_data[(y * height_x_width[1] + x) * color_space + 2];
-      rgb_data[(y * height_x_width[1] + x) * color_space + 1] = bgr_data[(y * height_x_width[1] + x) * color_space + 1];
-      rgb_data[(y * height_x_width[1] + x) * color_space + 2] = bgr_data[(y * height_x_width[1] + x) * color_space + 0];
+  auto rgb_data = std::make_unique<uint8_t[]>(height * width * color_space);
+  for (int32_t y = 0; y < height; ++y) {
+    for (int32_t x = 0; x < width; ++x) {
+      rgb_data[(y * width + x) * color_space + 0] = bgr_data[(y * width + x) * color_space + 2];
+      rgb_data[(y * width + x) * color_space + 1] = bgr_data[(y * width + x) * color_space + 1];
+      rgb_data[(y * width + x) * color_space + 2] = bgr_data[(y * width + x) * color_space + 0];
     }
   }
 
@@ -42,8 +51,8 @@ void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor
     jpeg_create_compress(&cinfo);
     jpeg_mem_dest(&cinfo, &outbuffer, &outsize);
 
-    cinfo.image_width = height_x_width[1];
-    cinfo.image_height = height_x_width[0];
+    cinfo.image_width = width;
+    cinfo.image_height = height;
     cinfo.input_components = color_space;
     cinfo.in_color_space = JCS_RGB;
 
@@ -55,7 +64,7 @@ void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor
     cinfo.q_scale_factor[0] = jpeg_quality_scaling(-1);
     cinfo.q_scale_factor[1] = jpeg_quality_scaling(-1);
 
-    const int sampling_factor = 0x221111; // 4:2:0  IMWRITE_JPEG_SAMPLING_FACTOR_420
+    const int32_t sampling_factor = 0x221111; // 4:2:0  IMWRITE_JPEG_SAMPLING_FACTOR_420
     cinfo.comp_info[0].v_samp_factor = (sampling_factor >> 16 ) & 0xF;
     cinfo.comp_info[0].h_samp_factor = (sampling_factor >> 20 ) & 0xF;
     cinfo.comp_info[1].v_samp_factor = 1;
@@ -99,15 +108,16 @@ void KernelEncodeImage::Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor
     png_set_compression_level(png_ptr, 1);
     png_set_compression_strategy(png_ptr, 3);
 
-    png_set_IHDR(png_ptr, info_ptr, height_x_width[1], height_x_width[0], 8, PNG_COLOR_TYPE_RGB,
+    png_set_IHDR(png_ptr, info_ptr, width, height, 8, PNG_COLOR_TYPE_RGB,
                  PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
     png_write_info(png_ptr, info_ptr);
 
-    for (int y = 0; y < height_x_width[0]; ++y) {
-      png_write_row(png_ptr, (png_bytep)&rgb_data[y * height_x_width[1] * color_space]);
+    for (int32_t y = 0; y < height; ++y) {
+      png_write_row(png_ptr, (png_bytep)&rgb_data[y * width * color_space]);
     }
 
+    png_write_flush(png_ptr);
     png_write_end(png_ptr, info_ptr);
     png_destroy_write_struct(&png_ptr, &info_ptr);
 

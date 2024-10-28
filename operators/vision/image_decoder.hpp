@@ -94,20 +94,29 @@ struct DecodeImage {
         return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Failed to read PNG image."};
       }
 
-      image.format = PNG_FORMAT_RGB;  // Ensure you have the appropriate format
       const int height = image.height;
       const int width = image.width;
       const int channels = PNG_IMAGE_PIXEL_CHANNELS(image.format);  // Calculates the number of channels based on format
 
-      std::vector<int64_t> output_dimensions{height, width, channels};
-
-      uint8_t* decoded_image_data = output.Allocate(output_dimensions);
+      // uint8_t* decoded_image_data = output.Allocate(output_dimensions);
+      auto decoded_image_data = std::make_unique<uint8_t[]>(height * width * channels);
       if (decoded_image_data == nullptr) {
         return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Failed to allocate memory for decoded image data."};
       }
 
-      if (png_image_finish_read(&image, nullptr, decoded_image_data, 0, nullptr) == 0) {
+      if (png_image_finish_read(&image, nullptr, decoded_image_data.get(), 0, nullptr) == 0) {
         return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Failed to decode PNG image."};
+      }
+
+      // Copy the decoded image data to the output tensor w/o the 4th channel (alpha)
+      std::vector<int64_t> output_dimensions{height, width, 3};
+      uint8_t* output_data = output.Allocate(output_dimensions);
+      for (int i = 0; i < height; ++i) {
+        for (int j = 0; j < width; ++j) {
+          for (int k = 0; k < 3; ++k) {
+            output_data[i * width * 3 + j * 3 + k] = decoded_image_data[i * width * channels + j * channels + k];
+          }
+        }
       }
     } else {
       // Initialize JPEG decompression object
