@@ -11,59 +11,88 @@
 #include "ext_status.h"
 
 namespace ort_extensions::internal {
+struct DecodeImage {
+  OrtxStatus OnInit() { return {}; }
 
-class JMemorySourceManager : public jpeg_source_mgr {
- public:
-  // Constructor
-  JMemorySourceManager(const uint8_t* encoded_image_data, const int64_t encoded_image_data_len) {
-    // Initialize source fields
-    next_input_byte = reinterpret_cast<const JOCTET*>(encoded_image_data);
-    bytes_in_buffer = static_cast<size_t>(encoded_image_data_len);
-    init_source = &JMemorySourceManager::initSource;
-    fill_input_buffer = &JMemorySourceManager::fillInputBuffer;
-    skip_input_data = &JMemorySourceManager::skipInputData;
-    resync_to_restart = jpeg_resync_to_restart;
-    term_source = &JMemorySourceManager::termSource;
-  }
+  OrtxStatus DecodePNG(const uint8_t* encoded_image_data, const int64_t encoded_image_data_len,
+                       ortc::Tensor<uint8_t>& output) const {
+    // Decode the PNG image
+    png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+    if (!png) {
+      return {kOrtxErrorCorruptData, "[ImageDecoder]: Failed to create png read struct."};
+    }
 
-  // Initialize source (no-op)
-  static void initSource(j_decompress_ptr cinfo) {
-    // No initialization needed
-  }
+    png_infop info = png_create_info_struct(png);
+    if (!info) {
+      png_destroy_read_struct(&png, nullptr, nullptr);
+      return {kOrtxErrorCorruptData, "[ImageDecoder]: Failed to create png info struct."};
+    }
 
-  // Fill input buffer (not used here, always return FALSE)
-  static boolean fillInputBuffer(j_decompress_ptr cinfo) {
-    return FALSE;  // Buffer is managed manually
-  }
+    if (setjmp(png_jmpbuf(png))) {
+      png_destroy_read_struct(&png, &info, nullptr);
+      return {kOrtxErrorCorruptData, "[ImageDecoder]: Error during png creation."};
+    }
 
-  // Skip input data
-  static void skipInputData(j_decompress_ptr cinfo, long num_bytes) {
-    JMemorySourceManager* srcMgr = reinterpret_cast<JMemorySourceManager*>(cinfo->src);
-    if (num_bytes > 0) {
-      size_t bytes_to_skip = static_cast<size_t>(num_bytes);
-      while (bytes_to_skip > srcMgr->bytes_in_buffer) {
-        bytes_to_skip -= srcMgr->bytes_in_buffer;
-        if (srcMgr->fillInputBuffer(cinfo)) {
-          // Error: buffer ran out
-          srcMgr->extError = kOrtxErrorCorruptData;
+    struct BufferState {
+      const uint8_t* ptr;
+      int64_t size;
+    } bufferState = {encoded_image_data, encoded_image_data_len};
+
+    png_set_read_fn(png, &bufferState, [](png_structp pngPtr, png_bytep data, png_size_t length) {
+      BufferState* state = static_cast<BufferState*>(png_get_io_ptr(pngPtr));
+      if (length > state->size) png_error(pngPtr, "Read Error: Exceeded buffer size");
+      memcpy(data, state->ptr, length);
+      state->ptr += length;
+      state->size -= length;
+    });
+
+    png_read_info(png, info);
+
+    auto width = png_get_image_width(png, info);
+    auto height = png_get_image_height(png, info);
+    png_byte color_type = png_get_color_type(png, info);
+    png_byte bit_depth = png_get_bit_depth(png, info);
+
+    if (bit_depth == 16) {
+      png_set_strip_16(png);
+    }
+
+    if (color_type == PNG_COLOR_TYPE_PALETTE) {
+      png_set_palette_to_rgb(png);
+    }
+
+    if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8) {
+      png_set_expand_gray_1_2_4_to_8(png);
+    }
+
+    if (png_get_valid(png, info, PNG_INFO_tRNS)) {
+      png_set_tRNS_to_alpha(png);
+    }
+
+    if (color_type == PNG_COLOR_TYPE_RGB || color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_PALETTE) {
+      png_set_filler(png, 0xFF, PNG_FILLER_AFTER);
+    }
+
+    if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA) {
+      png_set_gray_to_rgb(png);
+    }
+
+    png_read_update_info(png, info);
+
+    std::vector<int64_t> output_dimensions{height, width, 3};
+    uint8_t* output_data = output.Allocate(output_dimensions);
+    // Read the image row by row
+    std::vector<uint8_t> row(width * 4);
+    for (int i = 0; i < height; ++i) {
+      png_read_row(png, row.data(), nullptr);
+      for (int j = 0; j < width; ++j) {
+        for (int k = 0; k < 3; ++k) {
+          output_data[i * width * 3 + j * 3 + k] = row[j * 4 + k];
         }
       }
-      srcMgr->next_input_byte += bytes_to_skip;
-      srcMgr->bytes_in_buffer -= bytes_to_skip;
     }
-  }
 
-  // Terminate source (no-op)
-  static void termSource(j_decompress_ptr cinfo) {
-    // No cleanup needed
-  }
-
-  extError_t extError{kOrtxOK};  // Error handler
-};
-
-struct DecodeImage {
-  template <typename DictT>
-  OrtxStatus Init(const DictT& attrs) {
+    png_destroy_read_struct(&png, &info, nullptr);
     return {};
   }
 
@@ -82,42 +111,8 @@ struct DecodeImage {
       return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Invalid image data."};
     }
 
-    OrtxStatus status{};
     if (png_sig_cmp(encoded_image_data, 0, 8) == 0) {
-      // Decode the PNG image
-      png_image image;
-      std::memset(&image, 0, sizeof(image));  // Use std::memset for clarity
-      image.version = PNG_IMAGE_VERSION;
-
-      if (png_image_begin_read_from_memory(&image, encoded_image_data, static_cast<size_t>(encoded_image_data_len)) ==
-          0) {
-        return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Failed to read PNG image."};
-      }
-
-      const int height = image.height;
-      const int width = image.width;
-      const int channels = PNG_IMAGE_PIXEL_CHANNELS(image.format);  // Calculates the number of channels based on format
-
-      // uint8_t* decoded_image_data = output.Allocate(output_dimensions);
-      auto decoded_image_data = std::make_unique<uint8_t[]>(height * width * channels);
-      if (decoded_image_data == nullptr) {
-        return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Failed to allocate memory for decoded image data."};
-      }
-
-      if (png_image_finish_read(&image, nullptr, decoded_image_data.get(), 0, nullptr) == 0) {
-        return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Failed to decode PNG image."};
-      }
-
-      // Copy the decoded image data to the output tensor w/o the 4th channel (alpha)
-      std::vector<int64_t> output_dimensions{height, width, 3};
-      uint8_t* output_data = output.Allocate(output_dimensions);
-      for (int i = 0; i < height; ++i) {
-        for (int j = 0; j < width; ++j) {
-          for (int k = 0; k < 3; ++k) {
-            output_data[i * width * 3 + j * 3 + k] = decoded_image_data[i * width * channels + j * channels + k];
-          }
-        }
-      }
+      return DecodePNG(encoded_image_data, encoded_image_data_len, output);
     } else {
       // Initialize JPEG decompression object
       jpeg_decompress_struct cinfo;
@@ -150,16 +145,64 @@ struct DecodeImage {
       }
 
       if (srcManager.extError != kOrtxOK) {
-        status = {srcManager.extError, "[ImageDecoder]: Failed to decode JPEG image."};
+        return {kOrtxErrorInternal, "[ImageDecoder]: Failed to decode JPEG image."};
       }
 
       // Finish decompression
       jpeg_finish_decompress(&cinfo);
       jpeg_destroy_decompress(&cinfo);
     }
+    return {};
+  }
 
-    return status;
+    class JMemorySourceManager : public jpeg_source_mgr {
+  public:
+    // Constructor
+    JMemorySourceManager(const uint8_t* encoded_image_data, const int64_t encoded_image_data_len) {
+      // Initialize source fields
+      next_input_byte = reinterpret_cast<const JOCTET*>(encoded_image_data);
+      bytes_in_buffer = static_cast<size_t>(encoded_image_data_len);
+      init_source = &JMemorySourceManager::initSource;
+      fill_input_buffer = &JMemorySourceManager::fillInputBuffer;
+      skip_input_data = &JMemorySourceManager::skipInputData;
+      resync_to_restart = jpeg_resync_to_restart;
+      term_source = &JMemorySourceManager::termSource;
     }
+
+    // Initialize source (no-op)
+    static void initSource(j_decompress_ptr cinfo) {
+      // No initialization needed
+    }
+
+    // Fill input buffer (not used here, always return FALSE)
+    static boolean fillInputBuffer(j_decompress_ptr cinfo) {
+      return FALSE;  // Buffer is managed manually
+    }
+
+    // Skip input data
+    static void skipInputData(j_decompress_ptr cinfo, long num_bytes) {
+      JMemorySourceManager* srcMgr = reinterpret_cast<JMemorySourceManager*>(cinfo->src);
+      if (num_bytes > 0) {
+        size_t bytes_to_skip = static_cast<size_t>(num_bytes);
+        while (bytes_to_skip > srcMgr->bytes_in_buffer) {
+          bytes_to_skip -= srcMgr->bytes_in_buffer;
+          if (srcMgr->fillInputBuffer(cinfo)) {
+            // Error: buffer ran out
+            srcMgr->extError = kOrtxErrorCorruptData;
+          }
+        }
+        srcMgr->next_input_byte += bytes_to_skip;
+        srcMgr->bytes_in_buffer -= bytes_to_skip;
+      }
+    }
+
+    // Terminate source (no-op)
+    static void termSource(j_decompress_ptr cinfo) {
+      // No cleanup needed
+    }
+
+    extError_t extError{kOrtxOK};  // Error handler
+  };
 };
 
 }  // namespace ort_extensions::internal

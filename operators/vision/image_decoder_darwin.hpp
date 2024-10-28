@@ -11,8 +11,7 @@
 namespace ort_extensions::internal {
 
 struct DecodeImage {
-  template <typename DictT>
-  OrtxStatus Init(const DictT& attrs) {
+  OrtxStatus OnInit() {
     CFStringRef optionKeys[2];
     CFTypeRef optionValues[2];
     optionKeys[0] = kCGImageSourceShouldCache;

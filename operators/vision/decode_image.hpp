@@ -3,8 +3,9 @@
 
 #pragma once
 
-#include <map>
 #include <cstring>
+#include <variant>
+#include <unordered_map>
 
 #include "ext_status.h"
 #include "op_def_struct.h"
@@ -23,9 +24,35 @@
 
 namespace ort_extensions {
 struct DecodeImage: public internal::DecodeImage {
+
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    auto status = internal::DecodeImage::OnInit();
+    if (!status.IsOk()) {
+      return status;
+    }
+
+    for (const auto& [key, value] : attrs) {
+      if (key == "color_space") {
+        auto color_space = std::get<std::string>(value);
+        if (color_space == "RGB") {
+          is_bgr_ = false;
+        } else if (color_space == "BGR") {
+          is_bgr_ = true;
+        } else {
+          return {kOrtxErrorInvalidArgument, "[DecodeImage]: Invalid color_space"};
+        }
+      } else {
+        return {kOrtxErrorInvalidArgument, "[Resize]: Invalid argument"};
+      }
+    }
+
+    return {};
+  }
+
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
     is_bgr_ = true;
-    return internal::DecodeImage::Init(std::map<std::string, std::string>());
+    return Init(std::unordered_map<std::string, std::variant<std::string>>());
   }
 
   OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) const{

@@ -16,7 +16,7 @@ using namespace ort_extensions;
 
 TEST(ImgDecoderTest, TestPngDecoder) {
   ort_extensions::DecodeImage image_decoder;
-  image_decoder.Init(NULL);
+  image_decoder.Init(std::unordered_map<std::string, std::variant<std::string>>());
   std::vector<uint8_t> png_data;
   std::filesystem::path png_path = "data/processor/exceltable.png";
   std::ifstream png_file(png_path, std::ios::binary);
@@ -52,7 +52,7 @@ TEST(ImgDecoderTest, TestPngDecoder) {
 
 TEST(ImageDecoderTest, TestJpegDecoder) {
   ort_extensions::DecodeImage image_decoder;
-  image_decoder.Init(NULL);
+  image_decoder.Init(std::unordered_map<std::string, std::variant<std::string>>());
   std::vector<uint8_t> jpeg_data;
   std::filesystem::path jpeg_path = "data/processor/australia.jpg";
   std::ifstream jpeg_file(jpeg_path, std::ios::binary);
@@ -131,7 +131,7 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
 #if defined(WIN32) || defined(__APPLE__)
 TEST(ImageDecoderTest, TestTiffDecoder) {
   ort_extensions::DecodeImage image_decoder;
-  image_decoder.Init(NULL);
+  image_decoder.Init(std::unordered_map<std::string, std::variant<std::string>>());
   std::vector<uint8_t> tiff_data;
   std::filesystem::path tiff_path = "data/processor/canoe.tif";
   std::ifstream tiff_file(tiff_path, std::ios::binary);

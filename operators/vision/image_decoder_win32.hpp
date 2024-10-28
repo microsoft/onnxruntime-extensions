@@ -14,8 +14,7 @@
 
 namespace ort_extensions::internal {
 struct DecodeImage {
-  template <typename DictT>
-  OrtxStatus Init(const DictT& attrs) {
+  OrtxStatus OnInit() {
     HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
     if (FAILED(hr)) {
       return {kOrtxErrorInternal, "[ImageDecoder]: Failed when CoInitialize."};
