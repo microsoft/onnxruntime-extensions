@@ -1,0 +1,196 @@
+# packaging pipeline for iOS CocoaPods package
+
+parameters:
+- name: IsReleaseBuild
+  displayName: "Is this a release build?"
+  type: boolean
+  default: false
+
+trigger: none
+
+resources:
+  repositories:
+  - repository: 1esPipelines
+    type: git
+    name: 1ESPipelineTemplates/1ESPipelineTemplates
+    ref: refs/tags/release
+
+extends:
+  template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
+  parameters:
+    pool:
+      image: "macOS-13" 
+      os: macOS  
+
+    stages:
+    - stage: Stage
+      jobs:
+      - job: IosPackaging
+        displayName: "iOS Packaging"
+        timeoutInMinutes: 180
+        templateContext:
+          outputs:
+          - output: pipelineArtifact
+            path: '$(Build.ArtifactStagingDirectory)'
+            artifact: ios_packaging_artifacts
+
+        steps:
+        - template: tools/ci_build/github/azure-pipeline/templates/use-xcode-version.yml@self
+
+        - task: UsePythonVersion@0
+          inputs:
+            disableDownloadFromRegistry: true
+            versionSpec: "3.9"
+            addToPath: true
+            architecture: "x64"
+
+        # iOS xcframework build doesn't work with CMake 3.25.1, pin to 3.25.0
+        - script: |
+            python -m pip install cmake==3.25.0
+          displayName: "Install CMake 3.25.0"
+
+        - template: tools/ci_build/github/azure-pipeline/templates/install-appcenter.yml@self
+
+        - template: tools/ci_build/github/azure-pipeline/templates/set-package-version-variable-step.yml@self
+          parameters:
+            IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+            PackageVersionVariableName: ORT_EXTENSIONS_POD_VERSION
+
+        - script: |
+            python ./tools/gen_selectedops.py ./tools/ios/package_ops.config
+          displayName: "Generate selected ops CMake file"
+
+        - script: |
+            python ./tools/ios/build_xcframework.py \
+              --output_dir $(Build.BinariesDirectory)/xcframework_out \
+              --config Release \
+              -- \
+              --one_cmake_extra_define OCOS_ENABLE_SELECTED_OPLIST=ON
+          displayName: "Build xcframework"
+        
+        - script: |
+            cat $(Build.BinariesDirectory)/xcframework_out/xcframework_info.json
+          displayName: 'List xcframework_info.json file contents'
+
+        - script: |
+            python ./tools/ios/assemble_pod_package.py \
+              --staging-dir $(Build.BinariesDirectory)/pod_staging \
+              --xcframework-output-dir $(Build.BinariesDirectory)/xcframework_out \
+              --pod-version ${ORT_EXTENSIONS_POD_VERSION}
+          displayName: "Assemble pod"
+
+        - script: |
+            pod lib lint
+          displayName: "Lint pod"
+          workingDirectory: $(Build.BinariesDirectory)/pod_staging
+
+        - script: |
+            ORT_EXTENSIONS_LOCAL_POD_PATH=$(Build.BinariesDirectory)/pod_staging \
+              pod install
+          displayName: "Install pods for OrtExtensionsUsage"
+          workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage
+
+        - script: |
+            set -e
+
+            SIMULATOR_DEVICE_INFO=$(python ./tools/ios/get_simulator_device_info.py)
+
+            echo "Simulator device info:"
+            echo "${SIMULATOR_DEVICE_INFO}"
+
+            SIMULATOR_DEVICE_ID=$(jq --raw-output '.device_udid' <<< "${SIMULATOR_DEVICE_INFO}")
+
+            # Do not output ##vso[] commands with `set -x` or they may be parsed again and include a trailing quote.
+            set +x
+            echo "##vso[task.setvariable variable=ORT_EXTENSIONS_SIMULATOR_DEVICE_ID]${SIMULATOR_DEVICE_ID}"
+          displayName: "Get simulator device info"
+
+        - script: |
+            xcrun simctl bootstatus ${ORT_EXTENSIONS_SIMULATOR_DEVICE_ID} -b
+          displayName: "Wait for simulator device to boot"
+
+        - script: |
+            xcrun xcodebuild \
+              -sdk iphonesimulator \
+              -configuration Debug \
+              -parallel-testing-enabled NO \
+              -workspace $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace \
+              -scheme OrtExtensionsUsage \
+              -destination "platform=iOS Simulator,id=${ORT_EXTENSIONS_SIMULATOR_DEVICE_ID}" \
+              test CODE_SIGNING_ALLOWED=NO
+          displayName: "Build and test OrtExtensionsUsage"
+
+        - script: |
+            xcrun xcodebuild \
+              -configuration Debug \
+              -parallel-testing-enabled NO \
+              -workspace $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace \
+              -scheme OrtExtensionsMacOSUsage \
+              -destination "platform=macos" \
+              test CODE_SIGNING_ALLOWED=NO
+          displayName: "Build and test OrtExtensionsUsage for MacOS"
+
+        - task: InstallAppleCertificate@2
+          inputs:
+            certSecureFile: '$(ios_signing_certificate_name)'
+            certPwd: '$(ios_signing_certificate_password)'
+            keychain: 'temp'
+          name: installSigningCertificate
+          displayName: "Install ORT Mobile Test Signing Certificate"
+
+        - task: InstallAppleProvisioningProfile@1
+          inputs:
+            provProfileSecureFile: '$(ios_provision_profile_name)'
+            removeProfile: true
+          name: installProvisioningProfile
+          displayName: "Install ORT Mobile Test Provisioning Profile"
+
+        - script: |
+            xcrun xcodebuild \
+              -sdk iphoneos \
+              -configuration Debug \
+              -workspace $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace \
+              -scheme OrtExtensionsUsage \
+              -derivedDataPath $(Build.BinariesDirectory)/appcenter_test_derived_data \
+              build-for-testing \
+              CODE_SIGN_STYLE=Manual \
+              "CODE_SIGN_IDENTITY=$(installSigningCertificate.signingIdentity)" \
+              PROVISIONING_PROFILE= \
+              "PROVISIONING_PROFILE_SPECIFIER=$(installProvisioningProfile.provisioningProfileName)"
+          displayName: "Build appcenter test"
+
+        - script: |
+            appcenter test run xcuitest \
+              --app "AI-Frameworks/ORT-Ext-Mobile-iOS-Testapp" \
+              --devices "AI-Frameworks/apple-test-device-set" \
+              --test-series "master" \
+              --locale "en_US" \
+              --build-dir $(Build.BinariesDirectory)/appcenter_test_derived_data/Build/Products/Debug-iphoneos \
+              --token $(app_center_api_token)
+          displayName: "Run appcenter test"
+
+        - script: |
+            set -e -x
+
+            POD_STAGING_DIR="$(Build.BinariesDirectory)/pod_staging"
+            ARTIFACTS_STAGING_DIR="$(Build.ArtifactStagingDirectory)"
+            POD_NAME="onnxruntime-extensions-c"
+            POD_ARCHIVE_BASENAME="pod-archive-${POD_NAME}-${ORT_EXTENSIONS_POD_VERSION}.zip"
+            PODSPEC_BASENAME="${POD_NAME}.podspec"
+
+            pushd ${POD_STAGING_DIR}
+
+            # assemble the files in the artifacts staging directory
+            zip -vry ${ARTIFACTS_STAGING_DIR}/${POD_ARCHIVE_BASENAME} * --exclude ${PODSPEC_BASENAME}
+            cp ${PODSPEC_BASENAME} ${ARTIFACTS_STAGING_DIR}/${PODSPEC_BASENAME}
+
+            popd
+          displayName: "Assemble artifacts"
+
+        - publish: "$(Build.ArtifactStagingDirectory)"
+          artifact: ios_packaging_artifacts
+          displayName: "Publish artifacts"
+
+        - template: tools/ci_build/github/azure-pipeline/templates/component-governance-component-detection-steps.yml@self
+          parameters :
+            condition : 'succeeded'
