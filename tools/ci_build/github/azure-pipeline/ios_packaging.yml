@@ -19,8 +19,13 @@ extends:
   template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
   parameters:
     pool:
-      image: "macOS-13" 
-      os: macOS  
+      name: "Azure Pipelines"
+      image: "macOS-13"
+      os: macOS
+    sdl:
+      sourceAnalysisPool:
+        name: onnxruntime-Win-CPU-2022
+        os: windows
 
     stages:
     - stage: Stage
