@@ -13,7 +13,7 @@ extends:
   template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
   parameters:
     pool:
-      name: "macOS-13"
+      image: "macOS-13"
       os: macOS
     sdl:
       sourceAnalysisPool:
