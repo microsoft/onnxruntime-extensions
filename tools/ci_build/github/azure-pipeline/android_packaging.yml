@@ -15,6 +15,10 @@ extends:
     pool:
       name: "macOS-13"
       os: macOS
+    sdl:
+      sourceAnalysisPool:
+        name: onnxruntime-Win-CPU-2022
+        os: windows
     stages:
     - stage: Stage
       jobs:
