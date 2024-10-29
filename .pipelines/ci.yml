@@ -445,6 +445,10 @@ stages:
 
     strategy:
       matrix:
+        py313-1181:
+          python.version: '3.12'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.18.1'
         py312-1171:
           python.version: '3.12'
           torch.version: 'torch torchvision torchaudio'
@@ -461,10 +465,6 @@ stages:
           python.version: '3.9'
           torch.version: 'torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
           ort.version: '1.14.1'
-        py38-1131:
-          python.version: '3.8'
-          torch.version: 'torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -f https://download.pytorch.org/whl/torch_stable.html'
-          ort.version: '1.13.1'
 
     steps:
     - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
