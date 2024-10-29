@@ -446,7 +446,7 @@ stages:
     strategy:
       matrix:
         py313-1181:
-          python.version: '3.12'
+          python.version: '3.13'
           torch.version: 'torch torchvision torchaudio'
           ort.version: '1.18.1'
         py312-1171:
