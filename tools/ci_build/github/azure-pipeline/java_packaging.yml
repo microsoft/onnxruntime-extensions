@@ -14,6 +14,10 @@ resources:
 extends:
   template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
   parameters:
+    sdl:
+      sourceAnalysisPool:
+        name: onnxruntime-Win-CPU-2022
+        os: windows
     stages:
     - stage: Java_Packaging_and_Publishing
       jobs:
@@ -75,10 +79,6 @@ extends:
         pool: 
           name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'
           os: 'linux'
-        sdl:
-          sourceAnalysisPool:
-            name: onnxruntime-Win-CPU-2022
-            os: windows
         templateContext:
           outputs:
           - output: pipelineArtifact
@@ -130,10 +130,6 @@ extends:
           name: "Azure Pipelines"
           image: "macOS-13"
           os: macOS
-        sdl:
-          sourceAnalysisPool:
-            name: onnxruntime-Win-CPU-2022
-            os: windows
         templateContext:
           inputs:
             - input: pipelineArtifact
