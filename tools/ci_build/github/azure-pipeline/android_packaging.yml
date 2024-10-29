@@ -46,7 +46,7 @@ extends:
             - script: brew install coreutils ninja
               displayName: Install coreutils and ninja
 
-            - template: tools/ci_build/github/azure-pipeline/templates/install-appcenter.yml
+            - template: tools/ci_build/github/azure-pipeline/templates/install-appcenter.yml@self
 
             - script: |
                 python ./tools/gen_selectedops.py ./tools/android/package_ops.config
@@ -69,7 +69,7 @@ extends:
                 echo "##vso[task.setvariable variable=ORT_EXTENSIONS_AAR_PATH]${AAR_PATH}"
               displayName: Build onnxruntime-extensions AAR package
 
-            - template: tools/ci_build/github/azure-pipeline/templates/run-with-android-emulator-steps.yml
+            - template: tools/ci_build/github/azure-pipeline/templates/run-with-android-emulator-steps.yml@self
               parameters:
                 steps:
 
@@ -96,6 +96,6 @@ extends:
 
               displayName: "Assemble artifacts"
 
-            - template: tools/ci_build/github/azure-pipeline/templates/component-governance-component-detection-steps.yml
+            - template: tools/ci_build/github/azure-pipeline/templates/component-governance-component-detection-steps.yml@self
               parameters :
                 condition : 'succeeded'
