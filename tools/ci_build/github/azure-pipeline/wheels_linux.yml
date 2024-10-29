@@ -17,6 +17,10 @@ extends:
     pool:
       name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'
       os: linux
+    sdl:
+      sourceAnalysisPool:
+        name: onnxruntime-Win-CPU-2022
+        os: windows
     stages:
     - stage: stage
       jobs:
