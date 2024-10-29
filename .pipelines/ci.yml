@@ -35,26 +35,26 @@ stages:
 
     strategy:
       matrix:
-        py312-1171:
+        py312-1192:
           python.version: '3.12'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.17.1'
-        py311-1163:
+          ort.version: '1.19.2'
+        py311-1181:
+          python.version: '3.12'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.18.1'
+        py311-1171:
           python.version: '3.11'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.16.3'
-        py310-1151:
+          ort.version: '1.17.1'
+        py310-1163:
           python.version: '3.10'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.15.1'
-        py39-1141:
+          ort.version: '1.16.3'
+        py39-1151:
           python.version: '3.9'
           torch.version: 'torch==1.13.1+cpu torchvision==0.14.1+cpu torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
-          ort.version: '1.14.1'
-        py38-1131:
-          python.version: '3.8'
-          torch.version: 'torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -f https://download.pytorch.org/whl/torch_stable.html'
-          ort.version: '1.13.1'
+          ort.version: '1.15.1'
 
     steps:
     - task: DownloadGitHubRelease@0
@@ -223,6 +223,9 @@ stages:
 
     strategy:
       matrix:
+        ort-1181:
+          ort.version: '1.18.1'
+          ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
         ort-1171:
           ort.version: '1.17.1'
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
@@ -231,9 +234,6 @@ stages:
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
         ort-1151:
           ort.version: '1.15.1'
-          ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
-        ort-1141:
-          ort.version: '1.14.1'
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
 
     steps:
@@ -295,26 +295,26 @@ stages:
 
     strategy:
       matrix:
-        py312-1171:
+        py312-1192:
           python.version: '3.12'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.17.1'
-        py311-1163:
+          ort.version: '1.19.2'
+        py312-1181:
+          python.version: '3.12'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.18.1'
+        py311-1171:
           python.version: '3.11'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.16.3'
-        py310-1151:
+          ort.version: '1.17.1'
+        py310-1163:
           python.version: '3.10'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.15.1'
-        py39-1141:
+          ort.version: '1.16.3'
+        py39-1151:
           python.version: '3.9'
           torch.version: 'torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
-          ort.version: '1.14.1'
-        py38-1131:
-          python.version: '3.8'
-          torch.version: 'torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -f https://download.pytorch.org/whl/torch_stable.html'
-          ort.version: '1.13.1'
+          ort.version: '1.15.1'
 
     steps:
     - template: templates/use-xcode-version.yml
@@ -363,14 +363,14 @@ stages:
 
     strategy:
       matrix:
+        ort-1181:
+          ort.version: '1.18.1'
         ort-1171:
           ort.version: '1.17.1'
         ort-1163:
           ort.version: '1.16.3'
         ort-1151:
           ort.version: '1.15.1'
-        ort-1141:
-          ort.version: '1.14.1'
 
     steps:
     - task: DownloadGitHubRelease@0
@@ -463,7 +463,7 @@ stages:
           ort.version: '1.16.3'
         py39-1151:
           python.version: '3.9'
-          torch.version: 'torch torchvision torchaudio'
+          torch.version: 'torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
           ort.version: '1.15.1'
 
     steps:
