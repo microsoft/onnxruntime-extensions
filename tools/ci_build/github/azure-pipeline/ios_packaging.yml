@@ -192,10 +192,6 @@ extends:
             popd
           displayName: "Assemble artifacts"
 
-        - publish: "$(Build.ArtifactStagingDirectory)"
-          artifact: ios_packaging_artifacts
-          displayName: "Publish artifacts"
-
         - template: tools/ci_build/github/azure-pipeline/templates/component-governance-component-detection-steps.yml@self
           parameters :
             condition : 'succeeded'
