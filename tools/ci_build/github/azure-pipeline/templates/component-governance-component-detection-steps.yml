@@ -1,0 +1,28 @@
+# component detection for component governance checks
+parameters:
+- name: condition
+  type: string
+  default: 'succeeded' # could be 'ci_only', 'always', 'succeeded'
+
+steps:
+- ${{ if eq(variables['System.TeamProject'], 'Lotus') }}: 
+  - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
+    displayName: 'Component Detection'
+    continueOnError: true
+    condition:
+      or(or(and(eq('${{parameters.condition}}', 'ci_only'), and(succeeded(), in(variables['Build.Reason'], 'IndividualCI', 'BatchedCI', 'Scheduled'))),
+          and(eq('${{parameters.condition}}', 'always'), always())),
+          and(eq('${{parameters.condition}}', 'succeeded'), succeeded()))
+    inputs:
+      # ignore unused language bindings from 3rd party dependencies.
+      # skip the multi-build directories used for the Android and iOS packages. the contents of _deps is covered
+      # by the other builds where we explicitly exclude a subset of _deps
+      ignoreDirectories:
+        '$(Build.BinariesDirectory)/out/RelWithDebInfo/_deps/triton-src/src/grpc_generated,
+        $(Build.BinariesDirectory)/out/RelWithDebInfo/_deps/protobuf-src/benchmarks,
+        $(Build.BinariesDirectory)/out/RelWithDebInfo/_deps/protobuf-src/examples,
+        $(Build.BinariesDirectory)/out/RelWithDebInfo/_deps/protobuf-src/java,
+        $(Build.BinariesDirectory)/out/RelWithDebInfo/_deps/protobuf-src/js,
+        $(Build.BinariesDirectory)/out/RelWithDebInfo/_deps/protobuf-src/ruby,
+        $(Build.BinariesDirectory)/xcframework_out,
+        $(Build.BinariesDirectory)/android_aar'
