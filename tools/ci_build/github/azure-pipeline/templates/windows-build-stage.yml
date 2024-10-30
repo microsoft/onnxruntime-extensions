@@ -10,8 +10,7 @@ stages:
   jobs:
   - job: main
     pool:
-      name: Azure Pipelines
-      image: Windows-2022
+      name: onnxruntime-Win-CPU-2022
       os: windows
 
     variables:
@@ -51,6 +50,10 @@ stages:
       displayName: 'locate vsdevcmd via vswhere'
 
     - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.12'
+        addToPath: true
+
     - script: |
         call $(vsdevcmd) -arch=amd64
         set PYTHONPATH=

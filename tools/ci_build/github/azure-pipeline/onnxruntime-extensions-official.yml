@@ -28,8 +28,7 @@ extends:
   parameters:
     sdl:
       sourceAnalysisPool:
-        name: Azure Pipelines
-        image: Windows-2022
+        name: onnxruntime-Win-CPU-2022
         os: windows
       tsa:
         enabled: true
