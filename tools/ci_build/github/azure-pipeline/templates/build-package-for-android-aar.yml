@@ -48,15 +48,12 @@ stages:
         - input: pipelineArtifact
           artifactName: onnxruntime-extensions-android-x86_64
           targetPath: $(Build.BinariesDirectory)/android_aar  
-      inputs:
         - input: pipelineArtifact
           artifactName: onnxruntime-extensions-android-x86
           targetPath: $(Build.BinariesDirectory)/android_aar
-      inputs:
         - input: pipelineArtifact
           artifactName: onnxruntime-extensions-android-armeabi-v7a
           targetPath: $(Build.BinariesDirectory)/android_aar
-      inputs:
         - input: pipelineArtifact
           artifactName: onnxruntime-extensions-android-arm64-v8a
           targetPath: $(Build.BinariesDirectory)/android_aar
