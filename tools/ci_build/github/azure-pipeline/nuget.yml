@@ -43,7 +43,7 @@ extends:
 
     stages:
     - ${{ if eq(parameters.IsDummyPackage, false) }}:
-      - template: tools/ci_build/github/azure-pipeline/templates/build-package-for-nuget.yml@self
+      - template: templates/build-package-for-nuget.yml@self
         parameters:
           DoCompliance: ${{ parameters.DoCompliance }}
           DoEsrp: ${{ parameters.DoEsrp }}
@@ -51,7 +51,7 @@ extends:
           NugetVersionSuffix: ${{ parameters.NugetVersionSuffix }}
 
     - ${{ else }}:
-      - template: tools/ci_build/github/azure-pipeline/templates/build-package-for-nuget.yml@self
+      - template: templates/build-package-for-nuget.yml@self
         parameters:
           DoCompliance: ${{ parameters.DoCompliance }}
           DoEsrp: ${{ parameters.DoEsrp }}
