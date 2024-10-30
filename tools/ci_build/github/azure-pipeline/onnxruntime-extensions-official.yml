@@ -28,7 +28,9 @@ extends:
   parameters:
     sdl:
       sourceAnalysisPool:
-        vmImage: windows-latest
+        name: Azure Pipelines
+        image: Windows-2022
+        os: windows
       tsa:
         enabled: true
       binskim:

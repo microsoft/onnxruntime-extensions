@@ -10,7 +10,9 @@ stages:
   jobs:
   - job: main
     pool:
-      vmImage: windows-latest
+      name: Azure Pipelines
+      image: Windows-2022
+      os: windows
 
     variables:
       CIBW_BUILD: cp3{8,9,10,11,12}-*amd64
