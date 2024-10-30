@@ -4,6 +4,8 @@ parameters:
   type: string
   default: 'OCOS_ENABLE_AZURE=0'
 
+trigger: none
+
 resources:
   repositories:
     - repository: 1esPipelines
