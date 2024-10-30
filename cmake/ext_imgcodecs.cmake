@@ -61,7 +61,7 @@ set(lib_srcs
 )
 
 add_library(${PNG_LIBRARY} STATIC EXCLUDE_FROM_ALL ${lib_srcs})
-target_include_directories(${PNG_LIBRARY} BEFORE PRIVATE ${zlib_SOURCE_DIR})
+target_include_directories(${PNG_LIBRARY} BEFORE PUBLIC ${zlib_SOURCE_DIR})
 
 if(MSVC)
   target_compile_definitions(${PNG_LIBRARY} PRIVATE -D_CRT_SECURE_NO_DEPRECATE)
