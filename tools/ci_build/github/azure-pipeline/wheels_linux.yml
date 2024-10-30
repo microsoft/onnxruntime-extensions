@@ -17,7 +17,7 @@ extends:
   template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
   parameters:
     pool:
-      name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'
+      name: 'onnxruntime-extensions-Linux-CPU'
       os: linux
     sdl:
       sourceAnalysisPool:
