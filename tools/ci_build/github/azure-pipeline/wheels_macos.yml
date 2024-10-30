@@ -1,3 +1,5 @@
+trigger: none
+
 resources:
   repositories:
     - repository: 1esPipelines
@@ -20,7 +22,7 @@ extends:
     - stage: stage
       jobs:
       - job: macos
-        timeoutInMinutes: 180
+        # timeoutInMinutes: 180
         variables:
           CIBW_BUILD: "cp3{8,9,10,11,12}-*"
           CIBW_ARCHS_MACOS: "x86_64 universal2 arm64"
