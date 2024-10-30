@@ -23,6 +23,7 @@ class TokenizerImpl : public OrtxObjectImpl {
 
  public:
   OrtxStatus Load(const std::string& tok_path);
+  OrtxStatus Load(const OrtxTokenizerBlob& blob);
 
   OrtxStatus Tokenize(const std::vector<std::string_view>& input, std::vector<std::vector<extTokenId_t>>& t_ids) const {
     return BatchEncode(input, t_ids);
@@ -60,6 +61,8 @@ class TokenizerImpl : public OrtxObjectImpl {
                                  std::vector<std::vector<extTokenId_t>>& t_ids) const;
 
  private:
+  OrtxStatus LoadTokenizer(const OrtxTokenizerBlob* blob = nullptr);
+
   using bpe_tokenizer_t = std::unique_ptr<JsonFastTokenizer>;
   using ugm_tokenizer_t = std::unique_ptr<SpmUgmTokenizer>;
   std::variant<bpe_tokenizer_t, ugm_tokenizer_t> tokenizer_;

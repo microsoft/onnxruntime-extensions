@@ -588,3 +588,47 @@ TEST(OrtxTokenizerTest, SpmUgmTokenizer) {
 
   EXPECT_STREQ(filtered_text.c_str(), text);
 }
+
+
+TEST(OrtxTokenizerTest, Phi3TokenizerBlob) {
+
+  auto ReadFile = [](const std::string_view& filepath) -> std::string {
+    std::ifstream file(filepath.data(), std::ios::binary);
+    if (!file.is_open()) {
+      return "";
+    }
+    std::ostringstream ss;
+    ss << file.rdbuf();
+    return ss.str();
+  };
+
+  std::string config_blob = ReadFile("data/phi-3/tokenizer_config.json");
+  ASSERT_FALSE(config_blob.empty()) << "Failed to read config blob file, stopping the test.";
+
+  std::string vocab_blob = ReadFile("data/phi-3/tokenizer.json");
+  ASSERT_FALSE(vocab_blob.empty()) << "Failed to read vocab blob file, stopping the test.";
+
+  struct OrtxTokenizerBlob blob(config_blob, vocab_blob, "", "");
+
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizerFromBlob, &blob);
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  // validate tokenizer is not null
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
+
+  const char* input[] = {"I like walking my cute dog\n and\x17 then, 生活的真谛是  \t\t\t\t \n\n61"};
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  OrtxTokenize(tokenizer.get(), input, 1, ort_extensions::ptr(token_ids));
+  EXPECT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  std::vector<extTokenId_t> ids_vec(ids, ids + length);
+
+  // expected ids was generated using the following command:
+  // AutoTokenizer.from_pretrained("FacebookAI/xlm-roberta-base")
+  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({
+    1, 306, 763, 22049, 590, 274, 1082, 11203, 13, 322, 26, 769, 29892, 29871, 30486,
+    31704, 30210, 30848, 235, 179, 158, 30392, 259, 12, 12, 12, 12, 29871, 13, 13, 29953, 29896}));
+}

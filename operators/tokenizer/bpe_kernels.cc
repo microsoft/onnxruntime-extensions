@@ -738,14 +738,12 @@ void JsonFastTokenizer::UpdateTokenAdditionFlags(const json& tok_json, const ort
 }
 
 OrtxStatus JsonFastTokenizer::Load(const ort_extensions::TokenJsonConfig& config) {
-  std::string voc_file = config.GetVocabDataFile();
-  std::ifstream ifs = path(voc_file).open();
-  if (!ifs.is_open()) {
-    return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open json file: " + voc_file);
-  }
+
+  std::unique_ptr<std::istream> vocab_stream;
+  auto status = config.OpenVocabFile(vocab_stream);
 
   nlohmann::json tok_json;
-  ifs >> tok_json;
+  *vocab_stream >> tok_json;
 
   const char token_sub[] = "Tokenizer";
   model_name_ = config.tokenizer_class_.substr(0, config.tokenizer_class_.find(token_sub));
@@ -767,7 +765,7 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::TokenJsonConfig& config
   }
 
   bbpe_tokenizer_ = std::make_unique<BpeModel>();
-  OrtxStatus status = bbpe_tokenizer_->Load(*model_node,
+  status = bbpe_tokenizer_->Load(*model_node,
                                             bpe_conf_.get().GetSpecialTokens().c_str(),
                                             bpe_conf_.get().spm_model_);
   if (!status.IsOk()) {
@@ -880,22 +878,22 @@ OrtxStatus JsonFastTokenizer::LoadTikTokenBase64(const ort_extensions::TokenJson
     return status;
   }
 
-  std::string module_file = config.GetTikTokenModuleFile();
-  std::ifstream module_ifs = path(module_file).open();
-  if (!module_ifs.is_open()) {
-    return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open module file: " + module_file);
-  }
+  // std::string module_file = config.GetTikTokenModuleFile();
+  // std::ifstream module_ifs = path(module_file).open();
+  // if (!module_ifs.is_open()) {
+  //   return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open module file: " + module_file);
+  // }
 
-  nlohmann::json tok_json;
-  module_ifs >> tok_json;
-  status = LoadAddedTokens(tok_json, config);
-  if (!status.IsOk()) {
-    return status;
-  }
+  // nlohmann::json tok_json;
+  // module_ifs >> tok_json;
+  // status = LoadAddedTokens(tok_json, config);
+  // if (!status.IsOk()) {
+  //   return status;
+  // }
 
   add_bos_token_ = config.add_bos_token_;
   add_eos_token_ = config.add_eos_token_;
-  UpdateTokenAdditionFlags(tok_json, config);
+//  UpdateTokenAdditionFlags(tok_json, config);
 
   return status;
 }
