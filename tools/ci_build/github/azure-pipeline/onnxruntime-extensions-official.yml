@@ -28,8 +28,7 @@ extends:
   parameters:
     sdl:
       sourceAnalysisPool:
-        name: onnxruntime-Win-CPU-2022
-        os: windows
+        vmImage: windows-latest
       tsa:
         enabled: true
       binskim:

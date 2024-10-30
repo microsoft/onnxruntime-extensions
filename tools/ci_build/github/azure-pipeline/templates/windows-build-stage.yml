@@ -10,8 +10,7 @@ stages:
   jobs:
   - job: main
     pool:
-      name: onnxruntime-Win-CPU-2022
-      os: windows
+      vmImage: windows-latest
 
     variables:
       CIBW_BUILD: cp3{8,9,10,11,12}-*amd64
