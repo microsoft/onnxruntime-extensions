@@ -121,7 +121,8 @@ struct Resize {
         keep_aspect_ratio_ = std::get<int64_t>(value) != 0;
       } else if (key == "interpolation") {
         interpolation_ = std::get<std::string>(value);
-        if (InterpolationMethods().find(interpolation_) == InterpolationMethods().end()) {
+        std::unordered_map<std::string, int> interpolation_methods_ = InterpolationMethods();
+        if (interpolation_methods_.find(interpolation_) == interpolation_methods_.end()) {
           return {kOrtxErrorInvalidArgument, "[Resize]: Invalid interpolation method"};
         }
       } else {
