@@ -36,7 +36,7 @@ extends:
           outputs:
           - output: pipelineArtifact
             path: 'wheelhouse'
-            artifact: drop    
+            artifact: drop_x86_64 
 
         steps:
           - task: UsePythonVersion@0
@@ -60,7 +60,7 @@ extends:
           outputs:
           - output: pipelineArtifact
             path: 'wheelhouse'
-            artifact: drop  
+            artifact: drop_aarch64  
 
         steps:
           - task: UsePythonVersion@0
