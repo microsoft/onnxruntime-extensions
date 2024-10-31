@@ -110,7 +110,7 @@ extends:
             cd $(Build.ArtifactStagingDirectory)
             echo $(OrtExtVersion)
             jar xvf onnxruntime-extensions-$(OrtExtVersion).jar
-            tree $(Build.ArtifactStagingDirectory) /f
+            # tree $(Build.ArtifactStagingDirectory) /f
           displayName: Unpack JAR
 
         - template: tools/ci_build/github/azure-pipeline/templates/component-governance-component-detection-steps.yml@self
