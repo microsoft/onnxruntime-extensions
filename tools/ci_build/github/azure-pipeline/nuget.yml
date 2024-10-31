@@ -40,6 +40,8 @@ extends:
       sourceAnalysisPool:
         name: onnxruntime-Win-CPU-2022
         os: windows
+      credscan:
+        enabled: false
 
     stages:
     - ${{ if eq(parameters.IsDummyPackage, false) }}:

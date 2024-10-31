@@ -42,10 +42,6 @@ jobs:
       clean: true
       submodules: none
 
-    - task: UseDotNet@2
-      inputs:
-        version: '6.x'
-
     - bash: |
         sudo apt-get update
         sudo apt-get install -y libssh-dev
