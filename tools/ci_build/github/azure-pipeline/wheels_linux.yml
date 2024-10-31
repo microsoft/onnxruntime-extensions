@@ -17,7 +17,7 @@ extends:
   template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
   parameters:
     pool:
-      name: 'onnxruntime-extensions-Linux-CPU'
+      name: 'onnxruntime-Ubuntu2204-AMD-CPU'
       os: linux
     sdl:
       sourceAnalysisPool:
