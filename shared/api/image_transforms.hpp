@@ -54,12 +54,14 @@ inline OrtxStatus convert_to_rgb(const ortc::Tensor<uint8_t>& input, ortc::Tenso
 
 struct Resize {
   static const std::unordered_map<std::string, int>& InterpolationMethods() {
-    return {
+    static std::unordered_map<std::string, int> methods = {
       {"NEAREST", IMAGING_TRANSFORM_NEAREST},
       {"LINEAR", IMAGING_TRANSFORM_BILINEAR},
       {"CUBIC", IMAGING_TRANSFORM_BICUBIC},
       {"LANCZOS", IMAGING_TRANSFORM_LANCZOS}
     };
+    
+    return methods;
   }
 
   OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) {
