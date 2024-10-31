@@ -13,7 +13,7 @@ class DetokenizerCache : public OrtxObjectImpl {
   DetokenizerCache() : OrtxObjectImpl(extObjectKind_t::kOrtxKindDetokenizerCache) {}
   ~DetokenizerCache() override = default;
 
-  std::unique_ptr<BPEDecoderState> decoder_state_{};
+  std::unique_ptr<TokenizerDecodingState> decoder_state_{};
   std::string last_text_{};  // last detokenized text
 };
 
@@ -260,7 +260,8 @@ extError_t ORTX_API_CALL OrtxTokenId2DArrayGetItem(const OrtxTokenId2DArray* tok
   return extError_t();
 }
 
-extError_t OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, OrtxDetokenizerCache* cache, extTokenId_t next_id,
+extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, OrtxDetokenizerCache* cache,
+                                              extTokenId_t next_id,
                                 const char** text_out) {
   if (tokenizer == nullptr || cache == nullptr || text_out == nullptr) {
     ReturnableStatus::last_error_message_ = "Invalid argument";

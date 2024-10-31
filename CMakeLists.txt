@@ -71,8 +71,9 @@ option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
 option(OCOS_ENABLE_BLINGFIRE "Enable operators depending on the Blingfire library" ON)
 option(OCOS_ENABLE_MATH "Enable math tensor operators building" ON)
 option(OCOS_ENABLE_DLIB "Enable operators like Inverse depending on DLIB" ON)
-option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require opencv imgcodecs." ON)
-option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
+option(OCOS_ENABLE_VENDOR_IMAGE_CODECS "Enable and use vendor image codecs if supported over libpng & libjpeg" OFF)
+option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require opencv imgcodecs." OFF)
+option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" OFF)
 option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
 option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" OFF)
@@ -205,7 +206,6 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/externals ${PROJECT_SO
 if(NOT PROJECT_IS_TOP_LEVEL AND ONNXRUNTIME_ROOT)
   set(_ONNXRUNTIME_EMBEDDED TRUE)
 endif()
-
 
 if (OCOS_ENABLE_SELECTED_OPLIST OR OCOS_BUILD_PRESET)
   disable_all_operators()
@@ -383,7 +383,7 @@ if (OCOS_USE_CUDA)
 endif()
 
 # enable the opencv dependency if we have ops that require it
-if(OCOS_ENABLE_CV2 OR OCOS_ENABLE_VISION)
+if(OCOS_ENABLE_CV2)
   set(_ENABLE_OPENCV ON)
   message(STATUS "Fetch opencv")
   include(opencv)
@@ -402,10 +402,6 @@ if(OCOS_ENABLE_CV2)
 endif()
 
 if(OCOS_ENABLE_VISION)
-  if(NOT OCOS_ENABLE_OPENCV_CODECS)
-    message(FATAL_ERROR "OCOS_ENABLE_VISION requires OCOS_ENABLE_OPENCV_CODECS to be ON")
-  endif()
-
   file(GLOB TARGET_SRC_VISION "operators/vision/*.cc" "operators/vision/*.h*")
   list(APPEND TARGET_SRC ${TARGET_SRC_VISION})
 endif()
@@ -597,7 +593,7 @@ target_include_directories(ocos_operators PUBLIC
   ${PROJECT_SOURCE_DIR}/base
   ${PROJECT_SOURCE_DIR}/operators)
 
-if (OCOS_USE_CUDA) 
+if (OCOS_USE_CUDA)
   target_include_directories(ocos_operators PUBLIC ${cutlass_SOURCE_DIR}/include ${cutlass_SOURCE_DIR}/examples)
 endif()
 
@@ -653,6 +649,25 @@ endif()
 
 if(OCOS_ENABLE_VISION)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_VISION)
+  set(_DEFAULT_CODEC_ENABLE ON)
+  if(OCOS_ENABLE_VENDOR_IMAGE_CODECS)
+    add_compile_definitions(OCOS_ENABLE_VENDOR_IMAGE_CODECS)
+    if(WIN32)
+      # Use WIC on Windows. Nothing to be done
+      set(_DEFAULT_CODEC_ENABLE OFF)
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
+      # Use ImageIO on Apple platforms
+      set(_DEFAULT_CODEC_ENABLE OFF)
+      target_link_libraries(ocos_operators PRIVATE "-framework CoreFoundation" "-framework CoreGraphics" "-framework ImageIO")
+    endif()
+  endif()
+
+  set(_DEFAULT_CODEC_ENABLE ON) # libpng and libjpeg can be optional after EncodeImage with native support too.
+  if(_DEFAULT_CODEC_ENABLE)
+    include(ext_imgcodecs)  
+    target_include_directories(ocos_operators PUBLIC ${libPNG_SOURCE_DIR} ${libJPEG_SOURCE_DIR})
+    target_link_libraries(ocos_operators PUBLIC ${PNG_LIBRARY} ${JPEG_LIBRARY})
+  endif()
 endif()
 
 if(OCOS_ENABLE_AZURE)
@@ -694,7 +709,7 @@ if(OCOS_ENABLE_BLINGFIRE)
 endif()
 
 if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
-  target_include_directories(ocos_operators PUBLIC ${nlohmann_json_SOURCE_DIR}/single_include)
+  target_include_directories(ocos_operators PUBLIC ${nlohmann_json_SOURCE_DIR}/include)
 endif()
 
 # If building a shared library we can't throw an internal exception type across the library boundary as the type
@@ -737,7 +752,7 @@ if(OCOS_ENABLE_C_API)
     file(GLOB audio_TARGET_SRC "shared/api/c_api_feature_extraction.*" "shared/api/speech_*")
     list(APPEND _TARGET_LIB_SRC ${audio_TARGET_SRC})
   endif()
-  if(OCOS_ENABLE_CV2)
+  if(OCOS_ENABLE_DLIB)
     file(GLOB cv2_TARGET_SRC "shared/api/c_api_processor.*" "shared/api/image_*.*")
     list(APPEND _TARGET_LIB_SRC ${cv2_TARGET_SRC})
   endif()
@@ -852,8 +867,8 @@ target_link_libraries(ortcustomops PUBLIC ocos_operators)
 if(OCOS_BUILD_SHARED_LIB)
   file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h")
   if (OCOS_ENABLE_C_API)
-    if (NOT _HAS_TOKENIZER OR NOT OCOS_ENABLE_CV2 OR NOT OCOS_ENABLE_AUDIO)
-      message(FATAL_ERROR "Shared library build requires GPT2_TOKENIZER, CV2 and AUDIO to be enabled.")
+    if (NOT _HAS_TOKENIZER OR NOT OCOS_ENABLE_AUDIO)
+      message(FATAL_ERROR "Shared library build requires GPT2_TOKENIZER, AUDIO to be enabled.")
     endif()
     list(APPEND shared_TARGET_SRC "shared/extensions_c.def")
   else()

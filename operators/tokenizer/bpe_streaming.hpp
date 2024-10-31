@@ -5,26 +5,19 @@
 
 #include "bpe_kernels.h"
 #include "bpe_decoder.hpp"
-#include "bpe_json.hpp"
-#include "bpe_tokenizer.hpp"
-
-namespace ort_extensions {
-struct BPEDecoderState {
-  bool f_special_last{};
-  std::string incomplete_utf8_;
-};
-}  // namespace ort_extensions
+#include "tokenizer_jsconfig.hpp"
+#include "bpe_tokenizer_model.hpp"
 
 class BpeStreamingDecoder : public KernelBpeDecoder {
  public:
   BpeStreamingDecoder() = default;
   ~BpeStreamingDecoder() override = default;
 
-  using BPEDecoderState = ort_extensions::BPEDecoderState;
+  using BPEDecoderState = ort_extensions::TokenizerDecodingState;
 
   // shared the data between the encoder and decoder
   OrtxStatus Load(
-      std::shared_ptr<ort_extensions::bpe::TokenJsonConfig const> ptr_config,
+      std::shared_ptr<ort_extensions::TokenJsonConfig const> ptr_config,
       const JsonFastTokenizer& encoder) {
     const auto& tok_config = *ptr_config;
     bos_token_ = tok_config.bos_token_;
@@ -47,7 +40,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     // whitespace_token_ = tok_config.clean_up_tokenization_spaces_ ? 1 : 0;
     skip_special_tokens_ = 1;
     // en_normalization_ = 0;
-    add_dummy_prefix_ = tok_config.tokenizer_class_ == "LlamaTokenizer" ? 1 : 0;
+    add_dummy_prefix_ = encoder.GetAddDummyPrefix();
     eos_token_id_ = encoder.GetEncoder().GetTokenId(tok_config.eos_token_);
 
     tok_config_ = ptr_config;
@@ -112,7 +105,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
       char buf[3] = {piece[3], piece[4], 0};  // something like <0x20>
       token = {static_cast<char>(strtol(buf, NULL, 16))};
     } else {
-      token = ReplaceAll(piece, spm_underscore, " ");
+      token = ReplaceAll(piece, std::string(ort_extensions::spm_escaped_space), " ");
     }
 
     if (!token.empty() && token[0] == ' ' && f_special_last && add_dummy_prefix_) {
@@ -256,7 +249,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
  private:
 
   extTokenId_t eos_token_id_{0};
-  bool add_dummy_prefix_ = false;
   bool spm_model_{};
-  std::shared_ptr<ort_extensions::bpe::TokenJsonConfig const> tok_config_;
+  bool add_dummy_prefix_{};
+  std::shared_ptr<ort_extensions::TokenJsonConfig const> tok_config_;
 };

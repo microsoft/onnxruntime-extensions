@@ -7,7 +7,6 @@
 
 // OrtW: ONNX Runtime C ABI Wrapper
 namespace OrtW {
-
 struct CustomOpApi {
   CustomOpApi(const OrtApi& api) : api_(api) {}
 
@@ -371,3 +370,16 @@ struct OrtTensorDimensions : std::vector<int64_t> {
     return size() == 1;
   }
 };
+
+inline bool IsScalarOr1ElementVector(size_t num_dimensions, int64_t shape_size) {
+  if (num_dimensions == 0 || (num_dimensions == 1 && shape_size == 1)) return true;
+  return false;
+}
+
+#define ORTX_RETURN_IF_ERROR(expr) \
+  do {                             \
+    auto _status = (expr);         \
+    if (_status != nullptr) {      \
+      return _status;              \
+    }                              \
+  } while (0)

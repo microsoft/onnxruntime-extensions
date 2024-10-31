@@ -65,7 +65,15 @@ class ImageProcessor:
         self.processor = create_processor(processor_json)
 
     def pre_process(self, images):
+        if isinstance(images, str):
+            images = [images]
+        if isinstance(images, list):
+            images = load_images(images)
         return image_pre_process(self.processor, images)
+
+    @staticmethod
+    def to_numpy(result, idx):
+        return tensor_result_get_at(result, idx)
 
     def __del__(self):
         if delete_object and self.processor:

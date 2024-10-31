@@ -4,29 +4,17 @@
 
 ## What's ONNXRuntime-Extensions
 
-Introduction: ONNXRuntime-Extensions is a library that extends the capability of the ONNX models and inference with ONNX Runtime, via ONNX Runtime Custom Operator ABIs. It includes a set of [ONNX Runtime Custom Operator](https://onnxruntime.ai/docs/reference/operators/add-custom-op.html) to support the common pre- and post-processing operators for vision, text, and nlp models. And it supports multiple languages and platforms, like Python on Windows/Linux/macOS, some mobile platforms like Android and iOS, and Web-Assembly etc. The basic workflow is to enhance a ONNX model firstly and then do the model inference with ONNX Runtime and ONNXRuntime-Extensions package.
+Introduction: ONNXRuntime-Extensions is a C/C++ library that extends the capability of the ONNX models and inference with ONNX Runtime, via ONNX Runtime Custom Operator ABIs. It includes a set of [ONNX Runtime Custom Operator](https://onnxruntime.ai/docs/reference/operators/add-custom-op.html) to support the common pre- and post-processing operators for vision, text, and nlp models. And it supports multiple languages and platforms, like Python on Windows/Linux/macOS, some mobile platforms like Android and iOS, and Web-Assembly etc. The basic workflow is to enhance a ONNX model firstly and then do the model inference with ONNX Runtime and ONNXRuntime-Extensions package.
 
 
 ## Quickstart
+The library can be utilized as either a C/C++ library or other advance language packages like Python, Java, C#, etc. To build it as a shared library, you can use the `build.bat` or `build.sh` scripts located in the root folder. The CMake build definition is available in the `CMakeLists.txt` file and can be modified by appending options to `build.bat` or `build.sh`, such as `build.bat -DOCOS_BUILD_SHARED_LIB=OFF`. For more details, please refer to the [C API documentation](./docs/c_api.md).
 
 ### **Python installation**
 ```bash
 pip install onnxruntime-extensions
 ````
-
-
-### **Nightly Build**
-
-#### <strong>on Windows</strong>
-```cmd
-pip install --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ onnxruntime-extensions
-```
-Please ensure that you have met the prerequisites of onnxruntime-extensions (e.g., onnx and onnxruntime) in your Python environment.
-#### <strong>on Linux/macOS</strong>
-Please make sure the compiler toolkit like gcc(later than g++ 8.0) or clang are installed before the following command
-```bash
-python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git
-```
+The nightly build is also available for the latest features, please refer to [nightly build](./docs/development.md#nightly-build)
 
 
 ## Usage

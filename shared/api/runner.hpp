@@ -28,10 +28,6 @@ class KernelDef {
   virtual TensorArgs AllocateOutput(ortc::IAllocator* allocator) const = 0;
   virtual OrtxStatus Apply(TensorArgs& inputs, TensorArgs& output) const = 0;
 
-  using AttrType =
-      std::variant<std::string, double, int64_t, std::vector<std::string>, std::vector<double>, std::vector<int64_t>>;
-  using AttrDict = std::unordered_map<std::string, AttrType>;
-
   template <typename... Args>
   using tuple_function_args = std::tuple<typename std::remove_reference<Args>::type*...>;
 
@@ -85,7 +81,6 @@ class KernelDef {
 
   template <typename T, typename... Args>
   static auto CastOutputAllType(TensorArgs::iterator tensor, T& arg, Args&... args) {
-    // return std::make_tuple(static_cast<T&>(*tensor), CastOutputAllType(args...));
     return std::tuple_cat(CastOutputImpl<T>(tensor), CastOutputAllType(tensor + 1, args...));
   }
 
@@ -214,6 +209,11 @@ std::unique_ptr<KernelDef> CreateKernelInstance(OrtxStatus (T::*method)(Args...)
   return std::make_unique<KernelStruct<T, Args...>>(method);
 }
 
+template <typename T, typename... Args>
+std::unique_ptr<KernelDef> CreateKernelInstance(OrtxStatus (T::*method)(Args...) const) {
+  return std::make_unique<KernelStruct<T, Args...>>(reinterpret_cast<OrtxStatus (T::*)(Args...)>(method));
+}
+
 class Operation {
  public:
   using KernelRegistry = std::unordered_map<std::string_view, std::function<std::unique_ptr<KernelDef>()>>;
@@ -278,8 +278,6 @@ class Operation {
 
  private:
   std::vector<std::unique_ptr<ortc::TensorBase>> outputs_;
-
- private:
   const KernelRegistry* kernel_registry_;
 
   std::unique_ptr<KernelDef> kernel_;
@@ -294,9 +292,10 @@ class OrtxRunner {
 
   template <typename IT, typename OT>  // batch input/output container
   OrtxStatus Run(IT& input_seq, OT& output_seq) {
-    for (size_t i = 0; i < input_seq.size(); ++i) {
+    size_t i = 0;
+    Operation* last_op = nullptr;
+    for (; i < input_seq.size(); ++i) {
       auto& input = *(input_seq.begin() + i);
-      Operation* last_op = nullptr;
       // sequentially apply the operations
       for (auto& op : ops_) {
         if (last_op != nullptr) {
@@ -305,7 +304,7 @@ class OrtxRunner {
         auto [status, ts_output] = op->Apply(allocator_, input);
         if (status.IsOk()) {
           if (op == ops_.back()) {
-            output_seq.push_back(ts_output);
+            output_seq.push_back(std::move(ts_output));
           } else {
             input = ts_output;
           }
@@ -317,7 +316,68 @@ class OrtxRunner {
       }
     }
 
+    if (last_op != nullptr) {
+      last_op->ResetTensors(allocator_);
+    }
+
     return {};
+  }
+
+  static bool IsGreaterShape(const std::vector<int64_t>& lhs, const std::vector<int64_t>& rhs) {
+    if (lhs.size() != rhs.size()) {
+      return lhs.size() > rhs.size();
+    }
+
+    for (size_t i = 0; i < lhs.size(); ++i) {
+      if (lhs[i] != rhs[i]) {
+        return lhs[i] > rhs[i];
+      }
+    }
+
+    return false;
+  }
+
+  static void CopyOrPadTensor(const std::vector<int64_t>::const_iterator dest_shape_begin,
+                              const std::vector<int64_t>::const_iterator dest_shape_end,
+                              const std::vector<int64_t>::const_iterator src_shape_begin,
+                              const std::vector<int64_t>::const_iterator src_shape_end,
+                              std::byte* dest, const std::byte* src, size_t element_size) {
+    // no broadcasting here
+    assert(dest_shape_begin != dest_shape_end && src_shape_begin != src_shape_end);
+    assert(dest_shape_end - dest_shape_begin == src_shape_end - src_shape_begin);
+
+    if ((dest_shape_begin + 1) == dest_shape_end) {
+      std::memcpy(dest, src, element_size * (*src_shape_begin));
+      if (*dest_shape_begin > *src_shape_begin) {
+        std::memset(dest + *src_shape_begin * element_size, 0, (*dest_shape_begin - *src_shape_begin) * element_size);
+      }
+      return;
+    }
+
+    int64_t dest_chunk_size = 1;
+    int64_t src_chunk_size = 1;
+    for (auto iter = dest_shape_begin + 1; iter != dest_shape_end; ++iter) {
+      dest_chunk_size *= *iter;
+    }
+
+    for (auto iter = src_shape_begin + 1; iter != src_shape_end; ++iter) {
+      src_chunk_size *= *iter;
+    }
+
+    for (int64_t i = 0; i < *dest_shape_begin; ++i) {
+      if (i < *src_shape_begin) {
+        if (dest_chunk_size == src_chunk_size) {
+          std::memcpy(dest + i * dest_chunk_size * element_size, src + i * src_chunk_size * element_size,
+                      dest_chunk_size * element_size);
+        } else {
+          CopyOrPadTensor(dest_shape_begin + 1, dest_shape_end, src_shape_begin + 1, src_shape_end,
+                          dest + i * dest_chunk_size * element_size, src + i * src_chunk_size * element_size,
+                          element_size);
+        }
+      } else {
+        std::memset(dest + i * dest_chunk_size * element_size, 0, dest_chunk_size * element_size);
+      }
+    }
   }
 
   static OrtxStatus StackTensors(const std::vector<TensorArgs>& arg_lists, std::vector<TensorPtr>& outputs,
@@ -332,9 +392,18 @@ class OrtxRunner {
       std::vector<ortc::TensorBase*> ts_ptrs;
       ts_ptrs.reserve(arg_lists.size());
       std::vector<int64_t> shape = arg_lists[0][axis]->Shape();
+      size_t element_size = arg_lists[0][axis]->SizeInBytes() / arg_lists[0][axis]->NumberOfElement();
+      bool is_same_shape = true;
       for (auto& ts : arg_lists) {
         if (shape != ts[axis]->Shape()) {
-          return {kOrtxErrorInvalidArgument, "[StackTensors]: shapes of tensors to stack are not the same."};
+          is_same_shape = false;
+          auto dtype = ts[axis]->Type();
+          if (dtype != ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64 && dtype != ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT) {
+            return {kOrtxErrorInvalidArgument, "[StackTensors]: shapes of tensors to stack are not the same."};
+          }
+          if (IsGreaterShape(ts[axis]->Shape(), shape)) {
+            shape = ts[axis]->Shape();
+          }
         }
         ts_ptrs.push_back(ts[axis]);
       }
@@ -342,11 +411,16 @@ class OrtxRunner {
       std::vector<int64_t> output_shape = shape;
       output_shape.insert(output_shape.begin(), batch_size);
       std::byte* tensor_buf = outputs[axis]->AllocateRaw(output_shape);
+      auto ts_size = outputs[axis]->SizeInBytes() / batch_size;
       for (size_t i = 0; i < batch_size; ++i) {
         auto ts = ts_ptrs[i];
         const std::byte* ts_buff = reinterpret_cast<const std::byte*>(ts->DataRaw());
-        auto ts_size = ts->SizeInBytes();
-        std::memcpy(tensor_buf + i * ts_size, ts_buff, ts_size);
+        if (is_same_shape /* || ts->Shape() == std::vector<int64_t>(output_shape.begin() + 1, output_shape.end()) */) {
+          std::memcpy(tensor_buf + i * ts_size, ts_buff, ts_size);
+        } else {
+          CopyOrPadTensor(output_shape.begin() + 1, output_shape.end(), ts->Shape().begin(), ts->Shape().end(),
+                          tensor_buf + i * ts_size, reinterpret_cast<const std::byte*>(ts->DataRaw()), element_size);
+        }
       }
     }
 
