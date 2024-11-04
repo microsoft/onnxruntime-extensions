@@ -512,87 +512,85 @@ class TokenWithRegularExp {
 
   // Determine ufal::unilib::unicode regex category given string code.
   static ufal::unilib::unicode::category_t StringToCategory(const std::string & category = ""){
-    ufal::unilib::unicode::category_t cat;
-
     // Since C++ is not an interpreted language, we cannot simply convert the category to an object by typing
     // part of code into a string, so we manually parse it. Note that C++ also does not have switch-case statements.
     if (category == "C") {
-      cat = ufal::unilib::unicode::C;
+      return ufal::unilib::unicode::C;
     } else if (category == "Cc"){
-      cat = ufal::unilib::unicode::Cc;
+      return ufal::unilib::unicode::Cc;
     } else if (category == "Cf") {
-      cat = ufal::unilib::unicode::Cf;
+      return ufal::unilib::unicode::Cf;
     } else if (category == "Cn") {
-      cat = ufal::unilib::unicode::Cn;
+      return ufal::unilib::unicode::Cn;
     } else if (category == "Co") {
-      cat = ufal::unilib::unicode::Co;
+      return ufal::unilib::unicode::Co;
     } else if (category == "Cs") {
-      cat = ufal::unilib::unicode::Cs;
+      return ufal::unilib::unicode::Cs;
     } else if (category == "L") {
-      cat = ufal::unilib::unicode::L;
+      return ufal::unilib::unicode::L;
     } else if (category == "Ll") {
-      cat = ufal::unilib::unicode::Ll;
+      return ufal::unilib::unicode::Ll;
     } else if (category == "Lm") {
-      cat = ufal::unilib::unicode::Lm;
+      return ufal::unilib::unicode::Lm;
     } else if (category == "Lo") {
-      cat = ufal::unilib::unicode::Lo;
+      return ufal::unilib::unicode::Lo;
     } else if (category == "Lt") {
-      cat = ufal::unilib::unicode::Lt;
+      return ufal::unilib::unicode::Lt;
     } else if (category == "Lu") {
-      cat = ufal::unilib::unicode::Lu;
+      return ufal::unilib::unicode::Lu;
     } else if (category == "M") {
-      cat = ufal::unilib::unicode::M;
+      return ufal::unilib::unicode::M;
     } else if (category == "Mc") {
-      cat = ufal::unilib::unicode::Mc;
+      return ufal::unilib::unicode::Mc;
     } else if (category == "Me") {
-      cat = ufal::unilib::unicode::Me;
+      return ufal::unilib::unicode::Me;
     } else if (category == "Mn") {
-      cat = ufal::unilib::unicode::Mn;
+      return ufal::unilib::unicode::Mn;
     } else if (category == "N") {
-      cat = ufal::unilib::unicode::N;
+      return ufal::unilib::unicode::N;
     } else if (category == "Nd") {
-      cat = ufal::unilib::unicode::Nd;
+      return ufal::unilib::unicode::Nd;
     } else if (category == "Nl") {
-      cat = ufal::unilib::unicode::Nl;
+      return ufal::unilib::unicode::Nl;
     } else if (category == "No") {
-      cat = ufal::unilib::unicode::No;
+      return ufal::unilib::unicode::No;
     } else if (category == "P") {
-      cat = ufal::unilib::unicode::P;
+      return ufal::unilib::unicode::P;
     } else if (category == "Pc") {
-      cat = ufal::unilib::unicode::Pc;
+      return ufal::unilib::unicode::Pc;
     } else if (category == "Pd") {
-      cat = ufal::unilib::unicode::Pd;
+      return ufal::unilib::unicode::Pd;
     } else if (category == "Pe") {
-      cat = ufal::unilib::unicode::Pe;
+      return ufal::unilib::unicode::Pe;
     } else if (category == "Pf") {
-      cat = ufal::unilib::unicode::Pf;
+      return ufal::unilib::unicode::Pf;
     } else if (category == "Pi") {
-      cat = ufal::unilib::unicode::Pi;
+      return ufal::unilib::unicode::Pi;
     } else if (category == "Po") {
-      cat = ufal::unilib::unicode::Po;
+      return ufal::unilib::unicode::Po;
     } else if (category == "Ps") {
-      cat = ufal::unilib::unicode::Ps;
+      return ufal::unilib::unicode::Ps;
     } else if (category == "S") {
-      cat = ufal::unilib::unicode::S;
+      return ufal::unilib::unicode::S;
     } else if (category == "Sc") {
-      cat = ufal::unilib::unicode::Sc;
+      return ufal::unilib::unicode::Sc;
     } else if (category == "Sk") {
-      cat = ufal::unilib::unicode::Sk;
+      return ufal::unilib::unicode::Sk;
     } else if (category == "Sm") {
-      cat = ufal::unilib::unicode::Sm;
+      return ufal::unilib::unicode::Sm;
     } else if (category == "So") {
-      cat = ufal::unilib::unicode::So;
+      return ufal::unilib::unicode::So;
     } else if (category == "Z") {
-      cat = ufal::unilib::unicode::Z;
+      return ufal::unilib::unicode::Z;
     } else if (category == "Zl") {
-      cat = ufal::unilib::unicode::Zl;
+      return ufal::unilib::unicode::Zl;
     } else if (category == "Zp") {
-      cat = ufal::unilib::unicode::Zp;
+      return ufal::unilib::unicode::Zp;
     } else if (category == "Zs") {
-      cat = ufal::unilib::unicode::Zs;
+      return ufal::unilib::unicode::Zs;
+    } else {
+      ORTX_CXX_API_THROW("Invalid category string provided!", ORT_INVALID_ARGUMENT);
     }
-
-    return cat;
   }
 
   // Perform regex match given a list of categories (e.g. ?[\s\p{L}\p{N}]+), a premodifier, and a postmodifier
@@ -803,7 +801,7 @@ class TokenWithRegularExp {
     std::vector<std::string> categories;
     std::string premodifier;
     std::string postmodifier;
-    bool negated;
+    bool negated = false;
   };
 
   // Perform regex matching given any general regex string (not just GPT2 or Llama)

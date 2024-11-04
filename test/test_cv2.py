@@ -3,7 +3,8 @@ import numpy as np
 from PIL import Image
 from onnxruntime_extensions import OrtPyFunction, ONNXRuntimeError, util
 
-
+@unittest.skip("The opencv based operators are not supported in the offical release any more"
+               "please build from source code to with OCOS_ENABLE_CV2 and OCOS_ENABLE_OPENCV_CODECS enabled.")
 class TestOpenCV(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
