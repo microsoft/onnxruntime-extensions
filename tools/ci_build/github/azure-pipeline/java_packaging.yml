@@ -4,6 +4,8 @@ parameters:
   type: boolean
   default: true
 
+trigger: none
+
 resources:
   repositories:
     - repository: 1esPipelines

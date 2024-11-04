@@ -1,5 +1,3 @@
-trigger: none
-
 parameters: # parameters are shown up in ADO UI in a build queue time
 - name: 'debug'
   displayName: 'Enable debug output'
@@ -15,6 +13,8 @@ variables:
 - template: templates/common-variables.yml@self
   parameters:
     debug: ${{ parameters.debug }}
+
+trigger: none
 
 resources:
   repositories:
