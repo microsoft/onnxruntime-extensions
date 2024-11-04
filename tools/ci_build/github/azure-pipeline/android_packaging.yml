@@ -32,7 +32,6 @@ extends:
             - output: pipelineArtifact
               path: '$(Build.ArtifactStagingDirectory)'
               artifact: onnxruntime-extensions-android-aar
-              pattern: '*.jar,*.aar,*.pom'
           steps:
             - task: UsePythonVersion@0
               inputs:
