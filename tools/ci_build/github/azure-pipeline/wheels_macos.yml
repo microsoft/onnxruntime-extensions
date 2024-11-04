@@ -22,7 +22,7 @@ extends:
     - stage: stage
       jobs:
       - job: macos
-        timeoutInMinutes: 180
+        timeoutInMinutes: 240
         variables:
           CIBW_BUILD: "cp3{8,9,10,11,12}-*"
           CIBW_ARCHS_MACOS: "x86_64 universal2 arm64"
@@ -38,6 +38,11 @@ extends:
             artifact: drop
 
         steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.12'
+              addToPath: true
+              
           - bash: |
               set -e -x
               python --version
