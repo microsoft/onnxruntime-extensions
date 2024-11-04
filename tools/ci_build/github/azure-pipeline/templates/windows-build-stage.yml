@@ -85,7 +85,7 @@ stages:
       parameters:
         FolderPath: '$(REPOROOT)\out'
         DisplayName: 'Sign runtime DLLs'
-        Pattern: '**/**/*.pyd,**/**/*.dll'
+        Pattern: '*.pyd,*.dll'
 
     - script: |
         for /D %%i in ("out\onnxruntime_extensions*-win*") do (
