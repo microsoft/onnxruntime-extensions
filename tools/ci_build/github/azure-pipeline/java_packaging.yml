@@ -106,7 +106,6 @@ extends:
             TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
         - script: |
-            set -e -x
             cd $(Build.ArtifactStagingDirectory)
             echo $(OrtExtVersion)
             jar xvf onnxruntime-extensions-$(OrtExtVersion).jar
