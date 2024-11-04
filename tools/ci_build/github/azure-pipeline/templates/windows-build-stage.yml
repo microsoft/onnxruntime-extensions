@@ -18,8 +18,11 @@ stages:
       CIBW_ARCHS: AMD64
       CIBW_ENVIRONMENT: "${{ parameters.CibwEnv }}"
       CIBW_BUILD_VERBOSITY: 1
-      ob_outputDirectory: '$(REPOROOT)\out'
-      ob_sdl_binskim_break: true
+    templateContext:
+      outputs:
+      - output: pipelineArtifact
+        path: '$(REPOROOT)\out'
+        artifact: drop_Windows_Build_main
 
     steps:
     - script: |
