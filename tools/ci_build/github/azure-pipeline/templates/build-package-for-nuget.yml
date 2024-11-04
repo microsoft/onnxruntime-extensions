@@ -141,7 +141,7 @@ stages:
           artifactName: onnxruntime-extensions-ios_package
           targetPath: $(Build.BinariesDirectory)/artifact-downloads
         - input: pipelineArtifact
-          artifactName: onnxruntime-extensions-android-aa
+          artifactName: onnxruntime-extensions-android-aar
           targetPath: $(Build.BinariesDirectory)/artifact-downloads
           itemPattern: | 
             **/*.aar
