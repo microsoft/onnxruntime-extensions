@@ -31,6 +31,8 @@ jobs:
   pool: 
     name: ${{parameters.PoolName}}
     os: linux
+    ${{ if eq(parameters.OrtExtensionsArch, 'aarch64') }}:
+      hostArchitecture: Arm64
   templateContext:
     outputs:
     - output: pipelineArtifact
