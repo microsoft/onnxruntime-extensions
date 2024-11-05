@@ -22,7 +22,7 @@ extends:
     - stage: stage
       jobs:
       - job: macos
-        timeoutInMinutes: 240
+        timeoutInMinutes: 180
         variables:
           CIBW_BUILD: "cp3{8,9,10,11,12}-*"
           CIBW_ARCHS_MACOS: "x86_64 universal2 arm64"
@@ -39,16 +39,10 @@ extends:
 
         steps:
           - task: UsePythonVersion@0
-              
           - bash: |
-              set -e -x
-              python --version
               set -o errexit
               python3 -m pip install --upgrade pip
               python3 -m pip install cibuildwheel
             displayName: Install dependencies
-          - bash:  | 
-              set -e -x
-              python --version
-              CPU_NUMBER=2 cibuildwheel --output-dir wheelhouse .
+          - bash: CPU_NUMBER=2 cibuildwheel --output-dir wheelhouse .
             displayName: Build wheels
