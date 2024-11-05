@@ -48,8 +48,8 @@ extends:
                 jdkArchitectureOption: "x64"
                 jdkSourceOption: "PreInstalled"
 
-            - script: brew install coreutils ninja
-              displayName: Install coreutils and ninja
+            - script: brew install coreutils ninja dlib 
+              displayName: Install coreutils, ninja and dlib 
 
             - template: tools/ci_build/github/azure-pipeline/templates/install-appcenter.yml@self
 
