@@ -48,14 +48,18 @@ extends:
                 jdkArchitectureOption: "x64"
                 jdkSourceOption: "PreInstalled"
 
-            - script: brew install coreutils ninja dlib 
-              displayName: Install coreutils, ninja and dlib 
+            - script: brew install coreutils ninja
+              displayName: Install coreutils and ninja
 
             - template: tools/ci_build/github/azure-pipeline/templates/install-appcenter.yml@self
 
             - script: |
                 python ./tools/gen_selectedops.py ./tools/android/package_ops.config
               displayName: "Generate selected ops CMake file"
+
+            - script: |
+                pip install opencv-python
+              displayName: "Install opencv-python"
 
             - bash: |
                 set -e -x
