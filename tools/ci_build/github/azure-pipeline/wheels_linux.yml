@@ -1,0 +1,77 @@
+parameters:
+- name: ExtraEnv
+  displayName: 'Extra env variable set to CIBW_ENVIRONMENT, in form of "A=1 B=2 C=3"'
+  type: string
+  default: 'OCOS_ENABLE_AZURE=0'
+
+trigger: none
+
+resources:
+  repositories:
+    - repository: 1esPipelines
+      type: git
+      name: 1ESPipelineTemplates/1ESPipelineTemplates
+      ref: refs/tags/release
+
+extends:
+  template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
+  parameters:
+    pool:
+      name: 'onnxruntime-Ubuntu2204-AMD-CPU'
+      os: linux
+    sdl:
+      sourceAnalysisPool:
+        name: onnxruntime-Win-CPU-2022
+        os: windows
+    stages:
+    - stage: stage
+      jobs:
+      - job: linux_x86_64
+        timeoutInMinutes: 180
+        variables:
+          CIBW_BUILD: "cp3{8,9,10,11,12}-*"
+          CIBW_SKIP: "*musllinux*"
+          CIBW_ENVIRONMENT: "${{ parameters.ExtraEnv }}"
+        templateContext:
+          outputs:
+          - output: pipelineArtifact
+            path: 'wheelhouse'
+            artifact: drop_x86_64 
+
+        steps:
+          - task: UsePythonVersion@0
+          - bash: |
+              set -o errexit
+              python3 -m pip install --upgrade pip
+              pip3 install cibuildwheel
+            displayName: Install dependencies
+
+          - bash: cibuildwheel --archs x86_64 --output-dir wheelhouse .
+            displayName: Build wheels for x86_64
+
+      - job: manylinux_aarch64
+        timeoutInMinutes: 180
+        variables:
+          CIBW_BUILD: "cp3{8,9,10,11,12}-*"
+          CIBW_SKIP: "*musllinux_*"
+          # AzureOp doesn't support aaarch64 yet.
+          # CIBW_ENVIRONMENT: "${{ parameters.ExtraEnv }}"
+        templateContext:
+          outputs:
+          - output: pipelineArtifact
+            path: 'wheelhouse'
+            artifact: drop_aarch64  
+
+        steps:
+          - task: UsePythonVersion@0
+          - bash: |
+              set -o errexit
+              python3 -m pip install --upgrade pip
+              pip3 install cibuildwheel
+            displayName: Install dependencies
+
+          - script: docker run --privileged --rm tonistiigi/binfmt --install arm64
+            displayName: Register QEMU for arm64
+
+          - bash: cibuildwheel --archs aarch64 --output-dir wheelhouse .
+            displayName: Build wheels for arm64

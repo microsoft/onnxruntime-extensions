@@ -1,0 +1,202 @@
+parameters:
+- name: JavaPackagingandPublishing
+  displayName: Package and Publish Java Package
+  type: boolean
+  default: true
+
+trigger: none
+
+resources:
+  repositories:
+    - repository: 1esPipelines
+      type: git
+      name: 1ESPipelineTemplates/1ESPipelineTemplates
+      ref: refs/tags/release
+
+extends:
+  template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
+  parameters:
+    sdl:
+      sourceAnalysisPool:
+        name: onnxruntime-Win-CPU-2022
+        os: windows
+    stages:
+    - stage: Java_Packaging_and_Publishing
+      jobs:
+      - job: Windows_CPU_Java_Packaging
+        pool:
+          name: onnxruntime-Win-CPU-2022
+          os: windows
+        workspace:
+          clean: all
+        templateContext:
+          outputs:
+          - output: pipelineArtifact
+            path: '$(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native'
+            artifact: WindowsBinaries
+
+        steps:
+        - task: PowerShell@2
+          displayName: 'Set version'
+          inputs:
+            targetType: 'inline'
+            script: |
+              $_ExtVersion=(cat version.txt)
+              echo "##vso[task.setvariable variable=OrtExtVersion;]$_ExtVersion"
+            workingDirectory: '$(Build.SourcesDirectory)'
+
+        - script: |
+            call .\build.bat -DOCOS_BUILD_JAVA=ON
+          displayName: build the extensions java package
+
+        - task: CopyFiles@2
+          displayName: 'Copy Java Files for Windows Arch to Artifact Staging Directory'
+          inputs:
+            SourceFolder: 'out\Windows\java\build\libs'
+            TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+        - script: |
+            cd $(Build.ArtifactStagingDirectory)
+            jar xvf onnxruntime-extensions-$(OrtExtVersion).jar
+            tree $(Build.ArtifactStagingDirectory) /f
+          displayName: Unpack JAR to sign DLL
+
+        - template: tools/ci_build/github/azure-pipeline/templates/win-esrp-dll.yml@self
+          parameters:
+            FolderPath: '$(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native/win-x64'
+            DisplayName: 'Sign DLL'
+            DoEsrp: 'true'
+
+        - template: tools/ci_build/github/azure-pipeline/templates/component-governance-component-detection-steps.yml@self
+          parameters :
+            condition : 'succeeded'
+
+        - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
+          displayName: 'Clean Agent Directories'
+          condition: always()
+
+      - job: Linux_CPU_Java_Packaging
+        workspace:
+          clean: all
+        pool: 
+          name: 'onnxruntime-Ubuntu2204-AMD-CPU'
+          os: 'linux'
+        templateContext:
+          outputs:
+          - output: pipelineArtifact
+            path: '$(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native'
+            artifact: LinuxBinaries
+
+        steps:
+        - task: PowerShell@2
+          displayName: 'Set version'
+          inputs:
+            targetType: 'inline'
+            script: |
+              $_ExtVersion=(cat version.txt)
+              echo "##vso[task.setvariable variable=OrtExtVersion;]$_ExtVersion"
+            workingDirectory: '$(Build.SourcesDirectory)'
+
+        - script: |
+            sh ./build.sh -DOCOS_BUILD_JAVA=ON
+          displayName: build the extensions java package
+
+        - task: CopyFiles@2
+          displayName: 'Copy Java Files for $(Agent.OS) Arch to Artifact Staging Directory'
+          inputs:
+            SourceFolder: 'out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
+            TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+        - script: |
+            cd $(Build.ArtifactStagingDirectory)
+            echo $(OrtExtVersion)
+            jar xvf onnxruntime-extensions-$(OrtExtVersion).jar
+            # tree $(Build.ArtifactStagingDirectory) /f
+          displayName: Unpack JAR
+
+        - template: tools/ci_build/github/azure-pipeline/templates/component-governance-component-detection-steps.yml@self
+          parameters :
+            condition : 'succeeded'
+
+        - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
+          displayName: 'Clean Agent Directories'
+          condition: always()
+
+      - job: MacOS_CPU_Java_Packaging
+        dependsOn:
+        - Windows_CPU_Java_Packaging
+        - Linux_CPU_Java_Packaging
+        workspace:
+          clean: all
+        pool:
+          name: "Azure Pipelines"
+          image: "macOS-13"
+          os: macOS
+        templateContext:
+          inputs:
+            - input: pipelineArtifact
+              artifactName: WindowsBinaries
+              targetPath: '$(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native'      
+            - input: pipelineArtifact
+              artifactName: LinuxBinaries
+              targetPath: '$(Build.ArtifactStagingDirectory)/ai/onnxruntime/extensions/native' 
+          outputs:
+          - output: pipelineArtifact
+            path: '$(Build.ArtifactStagingDirectory)/drop'
+            artifact: drop-onnxruntime-extensions-java-cpu
+
+        steps:
+        - task: PowerShell@2
+          displayName: 'Set version'
+          inputs:
+            targetType: 'inline'
+            script: |
+              $_ExtVersion=(cat version.txt)
+              echo "##vso[task.setvariable variable=OrtExtVersion;]$_ExtVersion"
+            workingDirectory: '$(Build.SourcesDirectory)'
+
+        - script: |
+            sh ./build.sh -DOCOS_BUILD_JAVA=ON
+          displayName: build the extensions java package
+
+        - task: CopyFiles@2
+          displayName: 'Copy Java Files for $(Agent.OS) Arch to Artifact Staging Directory'
+          inputs:
+            SourceFolder: 'out/$(Agent.OS)/RelWithDebInfo/java/build/libs'
+            TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+        - script: |
+            cd $(Build.ArtifactStagingDirectory)
+            echo $(OrtExtVersion)
+            jar xvf onnxruntime-extensions-$(OrtExtVersion).jar
+            brew install tree
+            tree $(Build.ArtifactStagingDirectory)
+          displayName: Unpack JAR to view contents
+
+        - script: |
+            brew install tree
+            tree $(Build.ArtifactStagingDirectory)
+          displayName: Print contents
+
+        - script: |
+            cd $(Build.ArtifactStagingDirectory)
+            rm onnxruntime-extensions-$(OrtExtVersion).jar
+            jar cmf0 META-INF/MANIFEST.MF onnxruntime-extensions-$(OrtExtVersion).jar  *
+          displayName: Combine and pack JAR with Windows, Linux and MacOS Binaries
+
+        - script: |
+            cd $(Build.ArtifactStagingDirectory)
+            mkdir drop
+            cp onnxruntime-extensions-$(OrtExtVersion).jar drop/onnxruntime-extensions-$(OrtExtVersion).jar
+            cp onnxruntime-extensions-$(OrtExtVersion)-javadoc.jar drop/onnxruntime-extensions-$(OrtExtVersion)-javadoc.jar
+            cp onnxruntime-extensions-$(OrtExtVersion)-sources.jar drop/onnxruntime-extensions-$(OrtExtVersion)-sources.jar
+            cp META-INF/maven/com.microsoft.onnxruntime/onnxruntime-extensions/pom.xml drop/onnxruntime-extensions-$(OrtExtVersion).pom
+          displayName: Move files to a drop folder for publishing
+
+        - template: tools/ci_build/github/azure-pipeline//templates/component-governance-component-detection-steps.yml@self
+          parameters :
+            condition : 'succeeded'
+
+        - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
+          displayName: 'Clean Agent Directories'
+          condition: always()

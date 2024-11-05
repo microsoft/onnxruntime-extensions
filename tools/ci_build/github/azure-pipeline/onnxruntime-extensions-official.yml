@@ -1,0 +1,49 @@
+parameters: # parameters are shown up in ADO UI in a build queue time
+- name: 'debug'
+  displayName: 'Enable debug output'
+  type: boolean
+  default: false
+
+- name: ExtraEnv
+  displayName: 'Extra env variable set to CIBW_ENVIRONMENT, in form of "A=1 B=2 C=3"'
+  type: string
+  default: 'ExampleEnvVar=ON'
+
+variables:
+- template: templates/common-variables.yml@self
+  parameters:
+    debug: ${{ parameters.debug }}
+
+trigger: none
+
+resources:
+  repositories:
+    - repository: 1esPipelines
+      type: git
+      name: 1ESPipelineTemplates/1ESPipelineTemplates
+      ref: refs/tags/release
+
+extends:
+  template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
+  parameters:
+    sdl:
+      sourceAnalysisPool:
+        name: onnxruntime-Win-CPU-2022
+        os: windows
+      tsa:
+        enabled: true
+      binskim:
+        enabled: true
+        targetPathPattern: '**\RelWithDebInfo\ortextensions.dll'  # avoid scanning the 3rd party DLLs.
+      codeql:
+        compiled:
+          enabled: true
+        cadence: 10
+      policheck:
+        break: true # always break the build on policheck issues. You can disable it by setting to 'false'
+        exclusionsFile: '$(REPOROOT)\.config\policheck_exclusions.xml'
+
+    stages:
+    - template: templates/windows-build-stage.yml@self
+      parameters:
+        CibwEnv: ${{ parameters.ExtraEnv }}
