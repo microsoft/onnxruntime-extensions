@@ -1,0 +1,106 @@
+# packaging pipeline for onnxruntime-extensions Android AAR package
+
+trigger: none
+
+resources:
+  repositories:
+  - repository: 1esPipelines
+    type: git
+    name: 1ESPipelineTemplates/1ESPipelineTemplates
+    ref: refs/tags/release
+
+extends:
+  template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
+  parameters:
+    pool:
+      name: "Azure Pipelines"
+      image: "macOS-13"
+      os: macOS
+    sdl:
+      sourceAnalysisPool:
+        name: onnxruntime-Win-CPU-2022
+        os: windows
+    stages:
+    - stage: Stage
+      jobs:
+        - job: AndroidPackaging
+          timeoutInMinutes: 150
+          variables:
+            buildConfig: Release
+          templateContext:
+            outputs:
+            - output: pipelineArtifact
+              path: '$(Build.ArtifactStagingDirectory)'
+              artifact: onnxruntime-extensions-android-aar
+          steps:
+            - task: UsePythonVersion@0
+              inputs:
+                disableDownloadFromRegistry: true
+                versionSpec: "3.12"
+                addToPath: true
+                architecture: "x64"
+              displayName: "Use Python 3.12"
+
+            - task: JavaToolInstaller@0
+              displayName: Use jdk 17
+              inputs:
+                versionSpec: "17"
+                jdkArchitectureOption: "x64"
+                jdkSourceOption: "PreInstalled"
+
+            - script: brew install coreutils ninja
+              displayName: Install coreutils and ninja
+
+            - template: tools/ci_build/github/azure-pipeline/templates/install-appcenter.yml@self
+
+            - script: |
+                python ./tools/gen_selectedops.py ./tools/android/package_ops.config
+              displayName: "Generate selected ops CMake file"
+
+            - bash: |
+                set -e -x
+
+                python ./tools/android/build_aar.py \
+                  --output_dir $(Build.BinariesDirectory)/android_aar \
+                  --config $(buildConfig) \
+                  -- \
+                  --one_cmake_extra_define OCOS_ENABLE_SELECTED_OPLIST=ON
+
+                VERSION=$(cat ./version.txt)
+                AAR_PATH="$(Build.BinariesDirectory)/android_aar/aar_out/$(buildConfig)/com/microsoft/onnxruntime/onnxruntime-extensions-android/${VERSION}/onnxruntime-extensions-android-${VERSION}.aar"
+
+                # Do not output ##vso[] commands with `set -x` or they may be parsed again and include a trailing quote.
+                set +x
+                echo "##vso[task.setvariable variable=ORT_EXTENSIONS_AAR_PATH]${AAR_PATH}"
+              displayName: Build onnxruntime-extensions AAR package
+
+            - template: tools/ci_build/github/azure-pipeline/templates/run-with-android-emulator-steps.yml@self
+              parameters:
+                steps:
+
+                - bash: |
+                    set -e -x
+
+                    cp -r $(Build.SourcesDirectory)/java/src/test/android $(Build.BinariesDirectory)/android_test
+
+                    cd $(Build.BinariesDirectory)/android_test
+
+                    ./gradlew connectedDebugAndroidTest --no-daemon -DortExtensionsAarLocalPath="${ORT_EXTENSIONS_AAR_PATH}"
+                  displayName: Build and run onnxruntime-extensions Android test with Android Emulator
+
+            - bash: |
+                set -e -x
+
+                AAR_DIR=$(dirname "${ORT_EXTENSIONS_AAR_PATH}")
+                ARTIFACTS_STAGING_DIR="$(Build.ArtifactStagingDirectory)"
+
+                cp ${ORT_EXTENSIONS_AAR_PATH} ${ARTIFACTS_STAGING_DIR}
+                cp ${AAR_DIR}/*-javadoc.jar   ${ARTIFACTS_STAGING_DIR}
+                cp ${AAR_DIR}/*-sources.jar   ${ARTIFACTS_STAGING_DIR}
+                cp ${AAR_DIR}/*.pom           ${ARTIFACTS_STAGING_DIR}
+
+              displayName: "Assemble artifacts"
+
+            - template: tools/ci_build/github/azure-pipeline/templates/component-governance-component-detection-steps.yml@self
+              parameters :
+                condition : 'succeeded'
