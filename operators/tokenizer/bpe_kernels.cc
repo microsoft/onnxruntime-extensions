@@ -650,53 +650,6 @@ std::string JsonFastTokenizer::TokenBytesToString(std::vector<uint8_t>& bytes) {
     return result;
 }
 
-// Custom hash function for the vector key
-struct VectorHash {
-    size_t operator()(const std::vector<uint8_t>& v) const {
-        std::hash<uint8_t> hasher;
-        size_t seed = 0;
-        for (uint8_t i : v) {
-            seed ^= hasher(i) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        }
-        return seed;
-    }
-};
-
-// Custom equality function for the vector key
-struct VectorEqual {
-    bool operator()(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) const {
-        return a == b;
-    }
-};
-
-OrtxStatus JsonFastTokenizer::LoadAddedTokens(const json& tok_json, const ort_extensions::TokenJsonConfig& config) {
-  auto added_tokens = tok_json.find("added_tokens");
-  if (added_tokens != tok_json.end()) {
-    for (const auto& token : *added_tokens) {
-      AddedToken added_token;
-      added_token.id_ = token.value("id", 0);
-      added_token.token_type_ = token.value("__type", "");
-      added_token.content_ = token.value("content", "");
-      added_token.lstrip_ = token.value("lstrip", false);
-      added_token.normalized_ = token.value("normalized", false);
-      added_token.rstrip_ = token.value("rstrip", false);
-      added_token.single_word_ = token.value("single_word", false);
-      added_token.special_ = token.value("special", false);
-
-      added_tokens_.emplace_back(added_token);
-      if (added_token.content_ == config.bos_token_) {
-        bos_token_id_ = added_token.id_;
-      } else if (added_token.content_ == config.eos_token_) {
-        eos_token_id_ = added_token.id_;
-      } else if (added_token.content_ == config.pad_token_) {
-        pad_token_id_ = added_token.id_;
-      }
-    }
-  }
-
-  return bbpe_tokenizer_->LoadAddedTokens(added_tokens_);
-}
-
 // Helper methods (to be added to the class declaration)
 void JsonFastTokenizer::LoadSpmModelParams(const json& tok_json) {
   auto decoder_node = tok_json.find("decoder");
@@ -722,7 +675,29 @@ void JsonFastTokenizer::LoadSpmModelParams(const json& tok_json) {
   }
 }
 
-void JsonFastTokenizer::UpdateTokenAdditionFlags(const json& tok_json, const ort_extensions::TokenJsonConfig& config) {
+void JsonFastTokenizer::UpdateTokenizer(const TokenJsonConfig& config, const json& tok_json) {
+  added_tokens_ = config.added_tokens_;
+  auto added_tokens = tok_json.find("added_tokens");
+  if (added_tokens != tok_json.end()) {
+    for (const auto& token : *added_tokens) {
+      added_tokens_.emplace_back(TokenJsonConfig::ParseAddedToken(token));
+    }
+  }
+
+  for (const auto& added_token : added_tokens_) {
+      if (added_token.content_ == config.bos_token_) {
+        bos_token_id_ = added_token.id_;
+      } else if (added_token.content_ == config.eos_token_) {
+        eos_token_id_ = added_token.id_;
+      } else if (added_token.content_ == config.pad_token_) {
+        pad_token_id_ = added_token.id_;
+    }
+  }
+
+  bbpe_tokenizer_->LoadAddedTokens(added_tokens_);
+  add_bos_token_ = config.add_bos_token_;
+  add_eos_token_ = config.add_eos_token_;
+
   if (!config.add_bos_token_ && !config.bos_token_.empty()) {
     auto post_processor = tok_json.find("post_processor");
     if (post_processor != tok_json.end()) {
@@ -768,21 +743,31 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::TokenJsonConfig& config
   status = bbpe_tokenizer_->Load(*model_node,
                                             bpe_conf_.get().GetSpecialTokens().c_str(),
                                             bpe_conf_.get().spm_model_);
-  if (!status.IsOk()) {
-    return status;
+  if (status.IsOk()) {
+    UpdateTokenizer(config, tok_json);
   }
-
-  status = LoadAddedTokens(tok_json, config);
-  if (!status.IsOk()) {
-    return status;
-  }
-
-  add_bos_token_ = config.add_bos_token_;
-  add_eos_token_ = config.add_eos_token_;
-  UpdateTokenAdditionFlags(tok_json, config);
 
   return status;
 }
+
+// Custom hash function for the vector key
+struct VectorHash {
+    size_t operator()(const std::vector<uint8_t>& v) const {
+        std::hash<uint8_t> hasher;
+        size_t seed = 0;
+        for (uint8_t i : v) {
+            seed ^= hasher(i) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+        return seed;
+    }
+};
+
+// Custom equality function for the vector key
+struct VectorEqual {
+    bool operator()(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) const {
+        return a == b;
+    }
+};
 
 OrtxStatus JsonFastTokenizer::LoadTikTokenBase64(const ort_extensions::TokenJsonConfig& config) {
   std::string voc_file = config.GetVocabDataFile();
@@ -874,26 +859,9 @@ OrtxStatus JsonFastTokenizer::LoadTikTokenBase64(const ort_extensions::TokenJson
                                             bpe_conf_.get().GetSpecialTokens().c_str(),
                                             false);
 
-  if (!status.IsOk()) {
-    return status;
+  if (status.IsOk()) {
+    UpdateTokenizer(config, json());
   }
-
-  // std::string module_file = config.GetTikTokenModuleFile();
-  // std::ifstream module_ifs = path(module_file).open();
-  // if (!module_ifs.is_open()) {
-  //   return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open module file: " + module_file);
-  // }
-
-  // nlohmann::json tok_json;
-  // module_ifs >> tok_json;
-  // status = LoadAddedTokens(tok_json, config);
-  // if (!status.IsOk()) {
-  //   return status;
-  // }
-
-  add_bos_token_ = config.add_bos_token_;
-  add_eos_token_ = config.add_eos_token_;
-//  UpdateTokenAdditionFlags(tok_json, config);
 
   return status;
 }

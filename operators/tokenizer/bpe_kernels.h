@@ -128,8 +128,7 @@ class JsonFastTokenizer : public KernelBpeTokenizer {
  private:
   std::string TokenBytesToString(std::vector<uint8_t>& bytes);
   void LoadSpmModelParams(const json& tok_json);
-  void UpdateTokenAdditionFlags(const json& tok_json, const ort_extensions::TokenJsonConfig& config);
-  OrtxStatus LoadAddedTokens(const json& tok_json, const ort_extensions::TokenJsonConfig& config);
+  void UpdateTokenizer(const ort_extensions::TokenJsonConfig& config, const json& tok_json);
 
   BpeModelConf json_conf_;
   std::vector<ort_extensions::AddedToken> added_tokens_;

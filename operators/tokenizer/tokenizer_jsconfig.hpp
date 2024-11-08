@@ -134,6 +134,7 @@ class TokenJsonConfig final {
       if (json_module.is_discarded()) {
         return OrtxStatus(kOrtxErrorInvalidArgument, "Failed to parse tokenizer module json.");
       }
+      LoadAddedTokens(json_module);
       json_config.update(json_module);
     }
 
@@ -176,7 +177,32 @@ class TokenJsonConfig final {
   std::string unk_token_;
   std::string pad_token_;
 
+  std::vector<ort_extensions::AddedToken> added_tokens_;
+
+  static AddedToken ParseAddedToken(const json& token) {
+    AddedToken added_token;
+    added_token.id_ = token.value("id", 0);
+    added_token.token_type_ = token.value("__type", "");
+    added_token.content_ = token.value("content", "");
+    added_token.lstrip_ = token.value("lstrip", false);
+    added_token.normalized_ = token.value("normalized", false);
+    added_token.rstrip_ = token.value("rstrip", false);
+    added_token.single_word_ = token.value("single_word", false);
+    added_token.special_ = token.value("special", false);
+    return added_token;
+  }
+
+
  private:
+  void LoadAddedTokens(const json& tok_json) {
+    auto added_tokens = tok_json.find("added_tokens");
+    if (added_tokens != tok_json.end()) {
+      for (const auto& token : *added_tokens) {
+        added_tokens_.emplace_back(ParseAddedToken(token));
+      }
+    }
+  }
+
   std::string vocab_path_;
   const OrtxTokenizerBlob* blob_{nullptr};
 };
