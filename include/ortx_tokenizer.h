@@ -13,6 +13,33 @@ typedef OrtxObject OrtxStringArray;
 typedef OrtxObject OrtxTokenId2DArray;
 typedef OrtxObject OrtxDetokenizerCache;
 
+struct OrtxTokenizerBlob {
+  const char* config_json_blob;
+  const char* vocab_json_blob;
+  const char* token_module_blob;
+  const char* raw_model_blob;
+  const char* reserved_blob_1;
+
+  const size_t config_blob_len;
+  const size_t vocab_blob_len;
+  const size_t token_module_blob_len;
+  const size_t raw_model_blob_len;
+  const size_t reserved_blob_1_len;
+
+#ifdef __cplusplus
+  OrtxTokenizerBlob(const std::string_view& config_json_blob,
+                    const std::string_view& vocab_json_blob,
+                    const std::string_view& token_module_blob,
+                    const std::string_view& raw_model_blob)
+      : config_json_blob(config_json_blob.data()), vocab_json_blob(vocab_json_blob.data()),
+        token_module_blob(token_module_blob.data()), raw_model_blob(raw_model_blob.data()),
+        config_blob_len(config_json_blob.size()),
+        vocab_blob_len(vocab_json_blob.size()), token_module_blob_len(token_module_blob.size()),
+        raw_model_blob_len(raw_model_blob.size()), reserved_blob_1(nullptr),
+        reserved_blob_1_len(0) {}
+#endif
+};
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,6 +52,15 @@ extern "C" {
  * \return Error code indicating the success or failure of the operation
  */
 extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const char* tokenizer_path);
+
+/** \brief Create a tokenizer object with the specified tokenizer blob
+ *
+ * \param tokenizer Pointer to store the created tokenizer object
+ * \param tokenizer_blob Pointer to the tokenizer blob
+ * \return Error code indicating the success or failure of the operation
+ */
+extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer, const struct OrtxTokenizerBlob* tokenizer_blob);
+
 
 /** \brief Tokenize the input using the specified tokenizer
  *

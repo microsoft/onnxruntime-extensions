@@ -258,12 +258,10 @@ class BpeModel {
     return {};
   }
 
-  OrtxStatus LoadAddedTokens(const std::vector<AddedToken>& added_tokens) {
+  void LoadAddedTokens(const std::vector<AddedToken>& added_tokens) {
     for (const auto& token : added_tokens) {
       added_tokens_.Add(ustring(token.content_), 0, token.id_);
     }
-
-    return {};
   }
 
   std::vector<std::string> BuildDecoder() const { return id2token_map_; }

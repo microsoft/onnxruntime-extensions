@@ -113,22 +113,18 @@ struct SpmUgmTokenizer {
   }
 
   OrtxStatus Load(const TokenJsonConfig& config) {
-    ortx::path vocab_path(config.GetVocabDataFile());
-    if (!vocab_path.exists()) {
-      return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, "Vocabulary file does not exist.");
+    std::unique_ptr<std::istream> vocab_stream;
+    auto status = config.OpenVocabFile(vocab_stream);
+    if (!status.IsOk()) {
+      return status;
     }
 
-    auto ifs = vocab_path.open();
-    if (!ifs.is_open()) {
-      return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, "Failed to open vocabulary file.");
-    }
-
-    nlohmann::json j_vocab = json::parse(ifs, nullptr, false, true);
+    nlohmann::json j_vocab = json::parse(*vocab_stream, nullptr, false, true);
     if (j_vocab.is_discarded()) {
       return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, "Failed to parse vocabulary file.");
     }
 
-    OrtxStatus status = LoadConfig(j_vocab);
+    status = LoadConfig(j_vocab);
     if (!status.IsOk()) {
       return status;
     }

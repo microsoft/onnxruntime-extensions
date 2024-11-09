@@ -21,8 +21,7 @@ std::set<std::string> TokenizerImpl::supported_bpe_models_ = {
   "CodeLlamaTokenizer",
   "CodeGenTokenizer",
   "GPT2Tokenizer",
-  "Qwen2Tokenizer",
-  "T5Tokenizer"
+  "Qwen2Tokenizer"
 };
 
 std::set<std::string> TokenizerImpl::supported_ugm_models_ = {
@@ -33,17 +32,11 @@ TokenizerImpl::TokenizerImpl()
     : OrtxObjectImpl(extObjectKind_t::kOrtxKindTokenizer) {};
 TokenizerImpl::~TokenizerImpl() {};
 
-OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
-  tok_config_ = std::make_shared<ort_extensions::TokenJsonConfig>();
-  auto status = tok_config_->Load(tok_path);
-  if (!status.IsOk()) {
-    return status;
-  }
-
+OrtxStatus TokenizerImpl::LoadTokenizer(const OrtxTokenizerBlob* blob) {
   if (tok_config_->tokenizer_class_.empty() ||
       supported_ugm_models_.count(tok_config_->tokenizer_class_)) {
     auto tokenizer = std::make_unique<SpmUgmTokenizer>();
-    status = tokenizer->Load(*tok_config_);
+    auto status = tokenizer->Load(*tok_config_);
     if (!status.IsOk()) {
       return status;
     }
@@ -65,12 +58,21 @@ OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
     return OrtxStatus(kOrtxErrorNotImplemented, "Unsupported tokenizer class");
   }
 
-  auto vocab_file_path = ortx::path(tok_config_->GetVocabDataFile());
   auto tokenizer = std::make_unique<JsonFastTokenizer>();
-  // vocab file is checked in TokenJsonConfig::Load
-  auto fx_load = vocab_file_path.extension() == ".json"?
-                 &JsonFastTokenizer::Load: &JsonFastTokenizer::LoadTikTokenBase64;
-  status = (tokenizer.get()->*fx_load)(*tok_config_);
+  auto fx_load = &JsonFastTokenizer::Load;
+  if (blob == nullptr) {
+    auto vocab_file_path = ortx::path(tok_config_->GetVocabDataFile());
+    // vocab file is checked in TokenJsonConfig::Load
+    if (vocab_file_path.extension() != ".json") {
+      fx_load = &JsonFastTokenizer::LoadTikTokenBase64;
+    }
+  } else {
+    if (blob->raw_model_blob_len > 0) {
+      fx_load = &JsonFastTokenizer::LoadTikTokenBase64;
+    }
+  }
+
+  auto status = (tokenizer.get()->*fx_load)(*tok_config_);
   if (!status.IsOk()) {
     return status;
   }
@@ -84,6 +86,26 @@ OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
   }
 
   return status;
+}
+
+OrtxStatus TokenizerImpl::Load(const OrtxTokenizerBlob& blob) {
+  tok_config_ = std::make_shared<ort_extensions::TokenJsonConfig>();
+  auto status = tok_config_->LoadFromBlob(blob);
+  if (!status.IsOk()) {
+    return status;
+  }
+
+  return LoadTokenizer(&blob);
+}
+
+OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
+  tok_config_ = std::make_shared<ort_extensions::TokenJsonConfig>();
+  auto status = tok_config_->Load(tok_path);
+  if (!status.IsOk()) {
+    return status;
+  }
+
+  return LoadTokenizer();
 }
 
 OrtxStatus TokenizerImpl::BatchEncode(const std::vector<std::string_view>& input,

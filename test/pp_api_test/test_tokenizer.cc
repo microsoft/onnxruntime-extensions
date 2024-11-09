@@ -416,7 +416,7 @@ TEST(OrtxTokenizerTest, CodeGenTokenizer) {
   EXPECT_TRUE(status.IsOk());
   EXPECT_EQ(out_text1.size(), 1);
   std::string out_text_ref = out_text1.back();
-  std::cout << out_text_ref << std::endl;
+  // std::cout << out_text_ref << std::endl;
   EXPECT_EQ(out_text_ref.substr(out_text_ref.length() - 3, 3), "\ufffd");
 }
 
@@ -503,8 +503,7 @@ TEST(OrtxTokenizerStreamTest, Phi3Tokenizer) {
 
   std::vector<std::string_view> input = {
       R"(こんにちは。データ分析にはいくつかのステップがあります。まずは目的を明確にします。次に、データを収集し、クリーニングを行います。)"
-      R"(その後、データを構造化し、その後、データを分析します。これらのステップを実行することで、データを有意的に分析することができます。)"
-  };
+      R"(その後、データを構造化し、その後、データを分析します。これらのステップを実行することで、データを有意的に分析することができます。)"};
   std::vector<std::vector<extTokenId_t>> token_ids;
   status = tokenizer->Tokenize(input, token_ids);
   EXPECT_TRUE(status.IsOk());
@@ -569,8 +568,8 @@ TEST(OrtxTokenizerTest, SpmUgmTokenizer) {
 
   // expected ids was generated using the following command:
   // AutoTokenizer.from_pretrained("FacebookAI/xlm-roberta-base")
-  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({
-    0, 87, 1884, 122395, 759, 99942, 10269, 136, 7068, 4, 6, 62668, 5364, 245875, 354, 11716, 2}));
+  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({0, 87, 1884, 122395, 759, 99942, 10269, 136, 7068, 4, 6, 62668, 5364,
+                                                245875, 354, 11716, 2}));
 
   OrtxObjectPtr<OrtxStringArray> decoded_text;
   OrtxDetokenize(tokenizer.get(), token_ids.get(), ort_extensions::ptr(decoded_text));
@@ -580,11 +579,91 @@ TEST(OrtxTokenizerTest, SpmUgmTokenizer) {
   OrtxStringArrayGetItem(decoded_text.get(), 0, &text);
   // because the tokenization remove the character from the string, the decoded text is not the same as the input text.
   std::string filtered_text(input[0]);
-  filtered_text.erase(std::remove_if(
-    filtered_text.begin(), filtered_text.end(), [](unsigned char chr){ return chr < 0x20; }), filtered_text.end());
+  filtered_text.erase(
+      std::remove_if(filtered_text.begin(), filtered_text.end(), [](unsigned char chr) { return chr < 0x20; }),
+      filtered_text.end());
   // remove the consecutive spaces
   filtered_text.erase(std::unique(filtered_text.begin(), filtered_text.end(),
-    [](char lhs, char rhs) { return lhs == ' ' && rhs == ' ';  }), filtered_text.end());
+                                  [](char lhs, char rhs) { return lhs == ' ' && rhs == ' '; }),
+                      filtered_text.end());
 
   EXPECT_STREQ(filtered_text.c_str(), text);
+}
+
+static std::string ReadFile(const std::string& filepath) {
+  std::ifstream file(filepath.data(), std::ios::binary);
+  if (!file.is_open()) {
+    return "";
+  }
+  std::ostringstream ss;
+  ss << file.rdbuf();
+  return ss.str();
+};
+
+TEST(OrtxTokenizerTest, Phi3_Small_Tokenizer_Blob) {
+  std::string config_blob = ReadFile("data/tokenizer/phi-3-small/tokenizer_config.json");
+  ASSERT_FALSE(config_blob.empty()) << "Failed to read config blob file, stopping the test.";
+
+  std::string raw_model_blob = ReadFile("data/tokenizer/phi-3-small/cl100k_base.tiktoken");
+  ASSERT_FALSE(raw_model_blob.empty()) << "Failed to read raw model blob file, stopping the test.";
+
+  std::string module_blob = ReadFile("data/tokenizer/phi-3-small/tokenizer_module.json");
+  ASSERT_FALSE(module_blob.empty()) << "Failed to read module blob file, stopping the test.";
+
+  struct OrtxTokenizerBlob blobs(config_blob, "", module_blob, raw_model_blob);
+
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizerFromBlob, &blobs);
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  // validate tokenizer is not null
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
+
+  std::vector<extTokenId_t> EXPECTED_IDS_0 = {2028, 374, 264, 1296, 13};
+  const char* input[] = {"This is a test.",
+                         "the second one",
+                         "I like walking my cute dog\n and\x17 then",
+                         "Hey<|endoftext|>. \t\t \n\nyou  é  @#😈  🤗!       , 1234 15 5,61"};
+
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  OrtxTokenize(tokenizer.get(), input, 4, ort_extensions::ptr(token_ids));
+  EXPECT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  std::vector<extTokenId_t> ids_vec(ids, ids + length);
+  EXPECT_EQ(ids_vec, EXPECTED_IDS_0);
+}
+
+TEST(OrtxTokenizerTest, Phi3TokenizerBlob) {
+  std::string config_blob = ReadFile("data/phi-3/tokenizer_config.json");
+  ASSERT_FALSE(config_blob.empty()) << "Failed to read config blob file, stopping the test.";
+
+  std::string vocab_blob = ReadFile("data/phi-3/tokenizer.json");
+  ASSERT_FALSE(vocab_blob.empty()) << "Failed to read vocab blob file, stopping the test.";
+
+  struct OrtxTokenizerBlob blob(config_blob, vocab_blob, "", "");
+
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizerFromBlob, &blob);
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  // validate tokenizer is not null
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
+
+  const char* input[] = {"I like walking my cute dog\n and\x17 then, 生活的真谛是  \t\t\t\t \n\n61"};
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  OrtxTokenize(tokenizer.get(), input, 1, ort_extensions::ptr(token_ids));
+  EXPECT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  std::vector<extTokenId_t> ids_vec(ids, ids + length);
+
+  // expected ids was generated using the following command:
+  // AutoTokenizer.from_pretrained("FacebookAI/xlm-roberta-base")
+  EXPECT_EQ(ids_vec,
+            std::vector<extTokenId_t>({1,   306,   763,   22049, 590,   274,   1082,  11203, 13,    322,  26,
+                                       769, 29892, 29871, 30486, 31704, 30210, 30848, 235,   179,   158,  30392,
+                                       259, 12,    12,    12,    12,    29871, 13,    13,    29953, 29896}));
 }
