@@ -713,9 +713,11 @@ void JsonFastTokenizer::UpdateTokenizer(const TokenJsonConfig& config, const jso
 }
 
 OrtxStatus JsonFastTokenizer::Load(const ort_extensions::TokenJsonConfig& config) {
-
   std::unique_ptr<std::istream> vocab_stream;
   auto status = config.OpenVocabFile(vocab_stream);
+  if (!status.IsOk()) {
+    return status;
+  }
 
   nlohmann::json tok_json;
   *vocab_stream >> tok_json;
@@ -770,10 +772,10 @@ struct VectorEqual {
 };
 
 OrtxStatus JsonFastTokenizer::LoadTikTokenBase64(const ort_extensions::TokenJsonConfig& config) {
-  std::string voc_file = config.GetVocabDataFile();
-  std::ifstream ifs = path(voc_file).open();
-  if (!ifs.is_open()) {
-    return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open json file: " + voc_file);
+  std::unique_ptr<std::istream> vocab_stream;
+  auto status = config.OpenVocabFile(vocab_stream);
+  if (!status.IsOk()) {
+    return status;
   }
 
   std::unordered_map<std::string, uint32_t> vocab;
@@ -781,7 +783,7 @@ OrtxStatus JsonFastTokenizer::LoadTikTokenBase64(const ort_extensions::TokenJson
   std::unordered_map<std::vector<uint8_t>, uint32_t, VectorHash, VectorEqual> bpe_ranks;
 
   std::string line;
-  while (std::getline(ifs, line)) {
+  while (std::getline(*vocab_stream, line)) {
     if (!line.empty()) {
       std::istringstream lineStream(line);
       std::string token;
@@ -840,7 +842,8 @@ OrtxStatus JsonFastTokenizer::LoadTikTokenBase64(const ort_extensions::TokenJson
 
   // Populate merges
   for (auto& val : byte_merges) {
-    merges.push_back({JsonFastTokenizer::TokenBytesToString(std::get<0>(val)), JsonFastTokenizer::TokenBytesToString(std::get<1>(val))});
+    merges.push_back({JsonFastTokenizer::TokenBytesToString(std::get<0>(val)),
+      JsonFastTokenizer::TokenBytesToString(std::get<1>(val))});
   }
 
   const char token_sub[] = "Tokenizer";
@@ -854,10 +857,7 @@ OrtxStatus JsonFastTokenizer::LoadTikTokenBase64(const ort_extensions::TokenJson
   // re-bind the configuration object
   bpe_conf_ = json_conf_;
 
-  OrtxStatus status = bbpe_tokenizer_->Load(vocab,
-                                            merges,
-                                            bpe_conf_.get().GetSpecialTokens().c_str(),
-                                            false);
+  status = bbpe_tokenizer_->Load(vocab, merges, bpe_conf_.get().GetSpecialTokens().c_str(), false);
 
   if (status.IsOk()) {
     UpdateTokenizer(config, json());

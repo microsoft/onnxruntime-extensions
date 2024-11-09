@@ -49,8 +49,19 @@ class TokenJsonConfig final {
 
   OrtxStatus OpenVocabFile(std::unique_ptr<std::istream>& vocab_stream) const {
     if (blob_ != nullptr) {
-      std::string vocab_str(blob_->vocab_json_blob, blob_->vocab_blob_len);
-      vocab_stream = std::make_unique<std::istringstream>(vocab_str);
+      if (blob_->vocab_blob_len == 0) {
+        if (blob_->raw_model_blob_len == 0) {
+          return OrtxStatus(kOrtxErrorInvalidArgument, "vocab_blob_len and raw_model_blob_len are both 0.");
+        }
+        std::string vocab_str(blob_->raw_model_blob, blob_->raw_model_blob_len);
+        vocab_stream = std::make_unique<std::istringstream>(vocab_str);
+      } else {
+        if (blob_->raw_model_blob_len > 0) {
+          return OrtxStatus(kOrtxErrorInvalidArgument, "vocab_blob_len and raw_model_blob_len are both non-zero.");
+        }
+        std::string vocab_str(blob_->vocab_json_blob, blob_->vocab_blob_len);
+        vocab_stream = std::make_unique<std::istringstream>(vocab_str);
+      }
     }
     else {
       auto ifs = std::make_unique<std::ifstream>(vocab_path_);
@@ -78,6 +89,7 @@ class TokenJsonConfig final {
       if (json_tokenizer.is_discarded()) {
         return OrtxStatus(kOrtxErrorInvalidArgument, "Failed to parse tokenizer json.");
       }
+      LoadAddedTokens(json_tokenizer);
       json_config.update(json_tokenizer);
     }
 
