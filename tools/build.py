@@ -474,6 +474,7 @@ def _generate_build_tree(
     if args.android:
         cmake_args += [
             "-DOCOS_BUILD_ANDROID=ON",
+            "-DOCOS_ENABLE_VENDOR_IMAGE_CODECS=ON",
             "-DCMAKE_TOOLCHAIN_FILE="
             + str((args.android_ndk_path / "build" / "cmake" / "android.toolchain.cmake").resolve(strict=True)),
             f"-DANDROID_PLATFORM=android-{args.android_api}",
@@ -499,7 +500,7 @@ def _generate_build_tree(
             cmake_args += ["-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO"]
 
         if args.build_apple_framework or args.ios or args.macos:
-            cmake_args += ["-DOCOS_BUILD_APPLE_FRAMEWORK=ON"]
+            cmake_args += ["-DOCOS_BUILD_APPLE_FRAMEWORK=ON", "-DOCOS_ENABLE_VENDOR_IMAGE_CODECS=ON"]
             required_args = [
                 args.apple_sysroot,
                 args.apple_deploy_target,
