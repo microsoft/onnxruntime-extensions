@@ -1,6 +1,7 @@
 import os
-import tempfile
+import shutil
 import argparse
+import tempfile
 import numpy as np
 
 from tokenizers import decoders, normalizers, pre_tokenizers
@@ -101,14 +102,43 @@ def validate_tokenizer(model_path, output_dir):
     print("Tokenization test passed")
 
 
+def download_tokenizer(tokenizer_dir, output_dir):
+    try:
+        from transformers.utils import cached_file
+        resolved_full_file = cached_file(
+            tokenizer_dir, "tokenizer.json")
+        resolved_config_file = cached_file(
+            tokenizer_dir, "tokenizer_config.json")
+    except ImportError:
+        raise ValueError(
+            f"Directory '{tokenizer_dir}' not found and transformers is not available")
+    if not os.path.exists(resolved_full_file):
+        raise FileNotFoundError(
+            f"Downloaded HF file '{resolved_full_file}' cannot be found")
+    if (os.path.dirname(resolved_full_file) != os.path.dirname(resolved_config_file)):
+        raise FileNotFoundError(
+            f"Downloaded HF files '{resolved_full_file}' "
+            f"and '{resolved_config_file}' are not in the same directory")
+    
+    if output_dir is None:
+        output_dir = os.path.dirname(resolved_full_file)
+        print(f"Using {output_dir} as output directory")
+    else:
+        # copy the files to the output directory
+        shutil.copy(resolved_full_file, output_dir)
+        shutil.copy(resolved_config_file, output_dir)
+
+
 if __name__ == '__main__':
-    argparse.ArgumentParser()
-    parser = argparse.ArgumentParser(description='Sentencepiece Tokenizer')
+    parser = argparse.ArgumentParser(description='Download a tokenizer from Hugging Face model hub and convert it if neccessary')
     parser.add_argument('--model-path', type=str, required=True,
                         help='Path or name to tokenizer can be loaded by transformers.AutoTokenizer')
     parser.add_argument('--output-path', type=str, required=False,
                         help='The directory to save the generated tokenizer files')
     args = parser.parse_args()
 
-    output_dir = convert_tokenizer(args.model_path, args.output_path)
-    validate_tokenizer(args.model_path, output_dir)
+    if args.model_path.find("Baichuan2") != -1:
+        output_dir = convert_tokenizer(args.model_path, args.output_path)
+        validate_tokenizer(args.model_path, output_dir)
+    else:
+        download_tokenizer(args.model_path, args.output_path)
