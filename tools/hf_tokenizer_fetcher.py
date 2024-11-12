@@ -1,0 +1,114 @@
+import os
+import tempfile
+import argparse
+import numpy as np
+
+from tokenizers import decoders, normalizers, pre_tokenizers
+from transformers import AutoTokenizer
+from transformers.convert_slow_tokenizer import SpmConverter
+
+from onnxruntime_extensions.pp_api import Tokenizer as OrtxTokenizer
+
+
+def _get_prepend_scheme(add_prefix_space: bool, original_tokenizer) -> str:
+    if add_prefix_space:
+        prepend_scheme = "always"
+        if not getattr(original_tokenizer, "legacy", True):
+            prepend_scheme = "first"
+    else:
+        prepend_scheme = "never"
+    return prepend_scheme
+
+
+class GenericSpmConverter(SpmConverter):
+    handle_byte_fallback = True
+
+    def __init__(self, original_tokenizer):
+        super().__init__(original_tokenizer)
+        original_tokenizer.add_prefix_space = False
+
+    def vocab(self, proto):
+        vocab = [
+            (self.original_tokenizer.convert_ids_to_tokens(0), 0.0),
+            (self.original_tokenizer.convert_ids_to_tokens(1), 0.0),
+            (self.original_tokenizer.convert_ids_to_tokens(2), 0.0),
+        ]
+        vocab += [(piece.piece, piece.score) for piece in proto.pieces[3:]]
+        return vocab
+
+    def unk_id(self, proto):
+        unk_id = 0
+        return unk_id
+
+    def decoder(self, replacement, add_prefix_space):
+        sequence = [
+            decoders.Replace("▁", " "),
+            decoders.ByteFallback(),
+            decoders.Fuse(),
+        ]
+        if add_prefix_space:
+            sequence += [decoders.Strip(content=" ", left=1)]
+        return decoders.Sequence(sequence)
+
+    def normalizer(self, proto):
+        if getattr(self.original_tokenizer, "legacy", True):
+            sequence = []
+            if getattr(self.original_tokenizer, "add_prefix_space", True):
+                sequence += [normalizers.Prepend(prepend="▁")]
+            sequence += [normalizers.Replace(pattern=" ", content="▁")]
+            return normalizers.Sequence(sequence)
+        return None  # non-legacy, no normalizer
+
+    def pre_tokenizer(self, replacement, add_prefix_space):
+        if not getattr(self.original_tokenizer, "legacy", True):  # non-legacy, we need a replace
+            prepend_scheme = _get_prepend_scheme(
+                add_prefix_space, self.original_tokenizer)
+            return pre_tokenizers.Metaspace(replacement=replacement, prepend_scheme=prepend_scheme, split=False)
+        else:
+            return super().pre_tokenizer(replacement, add_prefix_space)
+
+    def post_processor(self):
+        # the processor is defined in the LlamaTokenizerFast class.
+        return None
+
+
+def convert_tokenizer(model_path, output_dir):
+    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    if output_dir is None:
+        if os.path.isdir(model_path):
+            output_dir = model_path
+        else:
+            # create a temporary directory
+            output_dir = tempfile.mkdtemp()
+            tokenizer.save_pretrained(output_dir)
+        json_path = os.path.join(output_dir, "tokenizer.json")
+
+    converted = GenericSpmConverter(tokenizer).converted()
+    converted.save(json_path)
+    print(f"Tokenizer saved to {json_path}")
+    return output_dir
+
+
+def validate_tokenizer(model_path, output_dir):
+    # test_sentence = "I like walking my cute dog\n and\x17 then, 生活的真谛是  \t\t\t\t \n\n61"
+    test_sentence = "I"
+    ortx_tokenizer = OrtxTokenizer(output_dir)
+    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, use_fast=False)
+    expected_ids = tokenizer(test_sentence, return_tensors="np")["input_ids"]
+    ortx_ids = np.asarray(ortx_tokenizer.tokenize(test_sentence))
+    assert np.array_equal(
+        expected_ids[0], ortx_ids), f"Tokenization mismatch: {expected_ids[0]} != {ortx_ids}"
+    print("Tokenization test passed")
+
+
+if __name__ == '__main__':
+    argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='Sentencepiece Tokenizer')
+    parser.add_argument('--model-path', type=str, required=True,
+                        help='Path or name to tokenizer can be loaded by transformers.AutoTokenizer')
+    parser.add_argument('--output-path', type=str, required=False,
+                        help='The directory to save the generated tokenizer files')
+    args = parser.parse_args()
+
+    output_dir = convert_tokenizer(args.model_path, args.output_path)
+    validate_tokenizer(args.model_path, output_dir)
