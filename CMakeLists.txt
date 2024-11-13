@@ -352,20 +352,24 @@ if(OCOS_ENABLE_RE2_REGEX)
   list(APPEND TARGET_SRC_NOEXCEPTION ${TARGET_SRC_RE2_KERNELS})
 endif()
 
-if(OCOS_ENABLE_MATH)
-  if(OCOS_ENABLE_DLIB)
-    set(DLIB_ISO_CPP_ONLY ON CACHE INTERNAL "")
-    set(DLIB_NO_GUI_SUPPORT ON CACHE INTERNAL "")
-    set(DLIB_USE_CUDA OFF CACHE INTERNAL "")
-    set(DLIB_USE_LAPACK OFF CACHE INTERNAL "")
-    set(DLIB_USE_BLAS OFF CACHE INTERNAL "")
-    include(dlib)
+if(OCOS_ENABLE_DLIB)
+  set(DLIB_ISO_CPP_ONLY ON CACHE INTERNAL "")
+  set(DLIB_NO_GUI_SUPPORT ON CACHE INTERNAL "")
+  set(DLIB_USE_CUDA OFF CACHE INTERNAL "")
+  set(DLIB_USE_LAPACK OFF CACHE INTERNAL "")
+  set(DLIB_USE_BLAS OFF CACHE INTERNAL "")
+  include(dlib)
 
-    # Ideally, dlib should be included as
-    # file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/all/source.cpp")
-    # To avoid the unintentional using some unwanted component, only include
-    file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/test_for_odr_violations.cpp")
-    file(GLOB TARGET_SRC_INVERSE "operators/math/dlib/*.cc" "operators/math/dlib/*.h*")
+  # Ideally, dlib should be included as
+  # file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/all/source.cpp")
+  # To avoid the unintentional using some unwanted component, only include
+  file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/test_for_odr_violations.cpp")
+  file(GLOB TARGET_SRC_INVERSE "operators/math/dlib/*.cc" "operators/math/dlib/*.h*")
+endif()
+
+if(OCOS_ENABLE_MATH)
+  if (NOT OCOS_ENABLE_DLIB)
+    message(FATAL_ERROR "Math operators require DLIB to be enabled.")
   endif()
 
   file(GLOB TARGET_SRC_MATH "operators/math/*.cc" "operators/math/*.h*")
