@@ -34,7 +34,7 @@
       "component": {
         "type": "git",
         "git": {
-          "commitHash": "a12824d42584e292ecb3bad05c4b32c2015a7b89",
+          "commitHash": "v19.24.6",
           "repositoryUrl": "https://github.com/davisking/dlib.git"
         }
       }
@@ -85,6 +85,38 @@
           "repositoryUrl": "https://github.com/nlohmann/json.git"
         },
         "comments": "v3.10.5"
+      }
+    },
+    {
+      "component": {
+        "type": "other",
+        "other": {
+          "name": "libjpeg",
+          "version": "release 9e of 16-Jan-2022",
+          "downloadUrl": "https://github.com/davisking/dlib/tree/v19.24.6/dlib/external/libjpeg"
+        },
+        "comments": "for vision domain"
+      }
+    },
+    {
+      "component": {
+        "type": "other",
+        "other": {
+          "name": "libpng",
+          "version": "1.6.37",
+          "downloadUrl": "https://github.com/davisking/dlib/tree/v19.24.6/dlib/external/libpng"
+        },
+        "comments": "for vision domain"
+      }
+    },
+    {
+      "component": {
+        "other": {
+          "name": "zlib",
+          "version": "1.2.11",
+          "downloadUrl": "https://github.com/davisking/dlib/tree/v19.24.6/dlib/external/zlib"
+        },
+        "comments": "for vision domain"
       }
     },
     {

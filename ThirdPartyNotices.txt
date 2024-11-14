@@ -106,7 +106,7 @@ Google Inc.
 Samsung Electronics
 Stefano Rivera <stefano.rivera@gmail.com>
 
-Dominic Battré <battre@chromium.org>
+Dominic BattrÃ© <battre@chromium.org>
 Doug Kwan <dougkwan@google.com>
 Dmitriy Vyukov <dvyukov@google.com>
 John Millikin <jmillikin@gmail.com>
