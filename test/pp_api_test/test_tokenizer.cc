@@ -535,7 +535,7 @@ TEST(OrtxTokenizerTest, WhisperTokenizer) {
 
   OrtxObjectPtr<OrtxTokenId2DArray> prompt_ids;
 
-  extError_t err = OrtxGetDecoderPromptIds(tokenizer.get(), 1, "en", "transcribe", 1, ort_extensions::ref_ptr(prompt_ids));
+  extError_t err = OrtxGetDecoderPromptIds(tokenizer.get(), 1, "en", "transcribe", 1, ort_extensions::ptr_to_pointer(prompt_ids));
   EXPECT_EQ(err, kOrtxOK);
 
   size_t length = 0;
@@ -558,7 +558,7 @@ TEST(OrtxTokenizerTest, SpmUgmTokenizer) {
 
   const char* input[] = {"I like walking my cute dog\n and\x17 then, 生活的真谛是  \t\t\t\t \n\n61"};
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
-  OrtxTokenize(tokenizer.get(), input, 1, ort_extensions::ref_ptr(token_ids));
+  OrtxTokenize(tokenizer.get(), input, 1, ort_extensions::ptr_to_pointer(token_ids));
   EXPECT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;
@@ -572,7 +572,7 @@ TEST(OrtxTokenizerTest, SpmUgmTokenizer) {
                                                 245875, 354, 11716, 2}));
 
   OrtxObjectPtr<OrtxStringArray> decoded_text;
-  OrtxDetokenize(tokenizer.get(), token_ids.get(), ort_extensions::ref_ptr(decoded_text));
+  OrtxDetokenize(tokenizer.get(), token_ids.get(), ort_extensions::ptr_to_pointer(decoded_text));
   EXPECT_EQ(decoded_text.Code(), kOrtxOK);
 
   const char* text = nullptr;
@@ -625,7 +625,7 @@ TEST(OrtxTokenizerTest, Phi3_Small_Tokenizer_Blob) {
                          "Hey<|endoftext|>. \t\t \n\nyou  é  @#😈  🤗!       , 1234 15 5,61"};
 
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
-  OrtxTokenize(tokenizer.get(), input, 4, ort_extensions::ref_ptr(token_ids));
+  OrtxTokenize(tokenizer.get(), input, 4, ort_extensions::ptr_to_pointer(token_ids));
   EXPECT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;
@@ -652,7 +652,7 @@ TEST(OrtxTokenizerTest, Phi3TokenizerBlob) {
 
   const char* input[] = {"I like walking my cute dog\n and\x17 then, 生活的真谛是  \t\t\t\t \n\n61"};
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
-  OrtxTokenize(tokenizer.get(), input, 1, ort_extensions::ref_ptr(token_ids));
+  OrtxTokenize(tokenizer.get(), input, 1, ort_extensions::ptr_to_pointer(token_ids));
   EXPECT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;
@@ -675,7 +675,7 @@ TEST(OrtxTokenizerTest, T5Tokenizer) {
 
   const char* input[] = {"I like walking my cute dog\n and\x17 then, 生活的真谛是  \t\t\t\t \n\n61"};
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
-  OrtxTokenize(tokenizer.get(), input, 1, ort_extensions::ref_ptr(token_ids));
+  OrtxTokenize(tokenizer.get(), input, 1, ort_extensions::ptr_to_pointer(token_ids));
   ASSERT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;

@@ -1,3 +1,11 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
+"""
+This module provides functionality to fetch and convert Hugging Face tokenizers
+for use with ONNX Runtime extensions.
+"""
+
 import os
 import shutil
 import argparse
@@ -8,6 +16,7 @@ from tokenizers import decoders, normalizers, pre_tokenizers
 from transformers import AutoTokenizer
 from transformers.convert_slow_tokenizer import SpmConverter
 
+# TODO: make it to be a optional dependency
 from onnxruntime_extensions.pp_api import Tokenizer as OrtxTokenizer
 
 
@@ -137,6 +146,7 @@ if __name__ == '__main__':
                         help='The directory to save the generated tokenizer files')
     args = parser.parse_args()
 
+    # TODO: add more models
     if args.model_path.find("Baichuan2") != -1:
         output_dir = convert_tokenizer(args.model_path, args.output_path)
         validate_tokenizer(args.model_path, output_dir)
