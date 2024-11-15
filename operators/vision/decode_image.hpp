@@ -11,7 +11,7 @@
 #include "op_def_struct.h"
 
 #if OCOS_ENABLE_VENDOR_IMAGE_CODECS
-  #if WIN32
+  #if _WIN32
     #include "image_decoder_win32.hpp"
   #elif __APPLE__
     #include "image_decoder_darwin.hpp"

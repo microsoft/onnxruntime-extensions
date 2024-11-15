@@ -74,7 +74,7 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
             std::vector<uint8_t>({48, 14, 5, 48, 14, 5, 48, 14, 5, 48, 14, 5}));
 
 #if OCOS_ENABLE_VENDOR_IMAGE_CODECS
-  #if WIN32
+  #if _WIN32
   out_range = out_tensor.Data() + 1296 * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({228, 234, 222, 228, 235, 219, 219, 221, 200, 203, 201, 178}));
@@ -128,7 +128,7 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
 }
 
 #if OCOS_ENABLE_VENDOR_IMAGE_CODECS
-#if defined(WIN32) || defined(__APPLE__)
+#if defined(_WIN32) || defined(__APPLE__)
 TEST(ImageDecoderTest, TestTiffDecoder) {
   ort_extensions::DecodeImage image_decoder;
   image_decoder.Init(std::unordered_map<std::string, std::variant<std::string>>());
