@@ -342,9 +342,9 @@ if(OCOS_ENABLE_DLIB)
   set(DLIB_USE_BLAS OFF CACHE INTERNAL "")
   include(dlib)
 
-  # Ideally, dlib should be included as
-  # file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/all/source.cpp")
-  # To avoid the unintentional using some unwanted component, only include
+  # Ideally, dlib should be included as file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/all/source.cpp")
+  # To avoid the unintentional using some unwanted component, we only include the test_for_odr_violations.cpp
+  # to check if there is any violation in build configuration to ensure compiling some dlib source files correctly.
   file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/test_for_odr_violations.cpp")
 endif()
 
