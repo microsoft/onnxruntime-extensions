@@ -6,7 +6,6 @@
 
 typedef OrtxObject OrtxFeatureExtractor;
 typedef OrtxObject OrtxRawAudios;
-typedef OrtxObject OrtxTensorResult;
 
 #ifdef __cplusplus
 extern "C" {

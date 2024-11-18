@@ -74,7 +74,9 @@ CMAKE_FLAG_TO_OPS = {
     ],
     "OCOS_ENABLE_DLIB": [
         "Inverse",
-        "StftNorm"
+        "StftNorm",
+        "DecodeImage",
+        "EncodeImage"
     ],
     "OCOS_ENABLE_TRIE_TOKENIZER": [
         "TrieTokenizer",
