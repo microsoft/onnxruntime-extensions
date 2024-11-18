@@ -9,7 +9,7 @@
 
 template <typename T>
 void DumpTensorToFile(const ortc::Tensor<T>& tensor, const char* name) {
-#if WIN32
+#if _WIN32
   auto tic = GetTickCount();
   std::string dtype;
   if constexpr (std::is_same_v<T, uint8_t> || std::is_same_v<T, std::byte>) {

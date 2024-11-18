@@ -851,10 +851,9 @@ stages:
         architecture: 'x64'
       displayName: "Use Python 3.12"
 
-    # iOS xcframework build doesn't work with CMake 3.25.1, pin to 3.25.0
     - script: |
-        python -m pip install cmake==3.25.0
-      displayName: "Install CMake 3.25.0"
+        python -m pip install cmake
+      displayName: "Install CMake"
 
     - template: templates/set-package-version-variable-step.yml
       parameters:

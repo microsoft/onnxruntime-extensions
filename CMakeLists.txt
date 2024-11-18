@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 
 # Minimum CMake required
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.28)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
 # set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -334,6 +334,20 @@ endif()
 file(GLOB TARGET_SRC_NOEXCEPTION "base/*.h" "base/*.cc")
 file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h" "include/*.h" "include/*.hpp")
 
+if(OCOS_ENABLE_DLIB)
+  set(DLIB_ISO_CPP_ONLY ON CACHE INTERNAL "")
+  set(DLIB_NO_GUI_SUPPORT ON CACHE INTERNAL "")
+  set(DLIB_USE_CUDA OFF CACHE INTERNAL "")
+  set(DLIB_USE_LAPACK OFF CACHE INTERNAL "")
+  set(DLIB_USE_BLAS OFF CACHE INTERNAL "")
+  include(dlib)
+
+  # Ideally, dlib should be included as file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/all/source.cpp")
+  # To avoid the unintentional using some unwanted component, we only include the test_for_odr_violations.cpp
+  # to check if there is any violation in build configuration to ensure compiling some dlib source files correctly.
+  file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/test_for_odr_violations.cpp")
+endif()
+
 if(OCOS_ENABLE_TF_STRING)
   set(farmhash_SOURCE_DIR ${PROJECT_SOURCE_DIR}/cmake/externals/farmhash)
   file(GLOB TARGET_SRC_KERNELS "operators/text/*.cc" "operators/text/*.h*")
@@ -342,8 +356,12 @@ if(OCOS_ENABLE_TF_STRING)
 endif()
 
 if(OCOS_ENABLE_AUDIO)
+  if (NOT OCOS_ENABLE_DLIB)
+    message(FATAL_ERROR "Audio operators require DLIB to be enabled.")
+  endif()
   include(dr_libs)
   file(GLOB TARGET_SRC_AUDIO "operators/audio/*.*")
+  list(APPEND TARGET_SRC_AUDIO ${dlib_SOURCE_DIR}/dlib/fft/fft.cpp)
   list(APPEND TARGET_SRC_NOEXCEPTION ${TARGET_SRC_AUDIO})
 endif()
 
@@ -353,20 +371,10 @@ if(OCOS_ENABLE_RE2_REGEX)
 endif()
 
 if(OCOS_ENABLE_MATH)
-  if(OCOS_ENABLE_DLIB)
-    set(DLIB_ISO_CPP_ONLY ON CACHE INTERNAL "")
-    set(DLIB_NO_GUI_SUPPORT ON CACHE INTERNAL "")
-    set(DLIB_USE_CUDA OFF CACHE INTERNAL "")
-    set(DLIB_USE_LAPACK OFF CACHE INTERNAL "")
-    set(DLIB_USE_BLAS OFF CACHE INTERNAL "")
-    include(dlib)
-
-    # Ideally, dlib should be included as
-    # file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/all/source.cpp")
-    # To avoid the unintentional using some unwanted component, only include
-    file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/test_for_odr_violations.cpp")
-    file(GLOB TARGET_SRC_INVERSE "operators/math/dlib/*.cc" "operators/math/dlib/*.h*")
+  if (NOT OCOS_ENABLE_DLIB)
+    message(FATAL_ERROR "Math operators require DLIB to be enabled.")
   endif()
+  file(GLOB TARGET_SRC_INVERSE "operators/math/dlib/*.cc" "operators/math/dlib/*.h*")
 
   file(GLOB TARGET_SRC_MATH "operators/math/*.cc" "operators/math/*.h*")
   if(OCOS_USE_CUDA)
@@ -664,6 +672,9 @@ if(OCOS_ENABLE_VISION)
 
   set(_DEFAULT_CODEC_ENABLE ON) # libpng and libjpeg can be optional after EncodeImage with native support too.
   if(_DEFAULT_CODEC_ENABLE)
+    if (NOT OCOS_ENABLE_DLIB)
+      message(FATAL_ERROR "Vision operators require DLIB to be enabled.") # for now, we need dlib for image processing
+    endif()
     include(ext_imgcodecs)  
     target_include_directories(ocos_operators PUBLIC ${libPNG_SOURCE_DIR} ${libJPEG_SOURCE_DIR})
     target_link_libraries(ocos_operators PUBLIC ${PNG_LIBRARY} ${JPEG_LIBRARY})
