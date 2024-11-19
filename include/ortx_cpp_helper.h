@@ -65,7 +65,6 @@ class OrtxObjectPtr : public std::unique_ptr<T, OrtxDeleter<T>> {
    */
   extError_t Code() const { return err_; }
 
-  template <typename T>
   struct PointerAssigner {
     OrtxObject* obj_{};
     OrtxObjectPtr<T>& ptr_;
@@ -83,7 +82,7 @@ class OrtxObjectPtr : public std::unique_ptr<T, OrtxDeleter<T>> {
  * object can be used to assign a pointer value to the OrtxObjectPtr.
  * 
  */
-  PointerAssigner<T> ToBeAssigned() { return PointerAssigner<T>{*this}; }
+  PointerAssigner ToBeAssigned() { return PointerAssigner{*this}; }
 
  private:
   extError_t err_ = kOrtxOK; /**< The error code associated with the creation of the OrtxObject. */
