@@ -15,16 +15,16 @@ using namespace ort_extensions;
 TEST(ExtractorTest, TestWhisperFeatureExtraction) {
   const char* audio_path[] = {"data/jfk.flac", "data/1272-141231-0002.wav", "data/1272-141231-0002.mp3"};
   OrtxObjectPtr<OrtxRawAudios> raw_audios;
-  extError_t err = OrtxLoadAudios(ort_extensions::ptr_to_pointer(raw_audios), audio_path, 3);
+  extError_t err = OrtxLoadAudios(raw_audios.ToBeAssigned(), audio_path, 3);
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxObjectPtr<OrtxFeatureExtractor> feature_extractor(OrtxCreateSpeechFeatureExtractor, "data/whisper/feature_extraction.json");
   OrtxObjectPtr<OrtxTensorResult> result;
-  err = OrtxSpeechLogMel(feature_extractor.get(), raw_audios.get(), ort_extensions::ptr_to_pointer(result));
+  err = OrtxSpeechLogMel(feature_extractor.get(), raw_audios.get(), result.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxObjectPtr<OrtxTensor> tensor;
-  err = OrtxTensorResultGetAt(result.get(), 0, ort_extensions::ptr_to_pointer(tensor));
+  err = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
 
   const float* data{};

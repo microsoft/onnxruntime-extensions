@@ -26,9 +26,9 @@ std::set<std::string> TokenizerImpl::supported_bpe_models_ = {
 };
 
 std::set<std::string> TokenizerImpl::supported_ugm_models_ = {
-  "XLMRobertaTokenizer"/* ,
+  "XLMRobertaTokenizer",
   "T5Tokenizer",
-  "ChatGLMTokenizer"  */
+  "ChatGLMTokenizer"
 };
 
 TokenizerImpl::TokenizerImpl()

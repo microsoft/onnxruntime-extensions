@@ -162,7 +162,7 @@ struct SpmUgmTokenizer {
     }
 
     scores_.resize(id);
-    double min_score = -DBL_MAX;
+    double min_score = DBL_MAX;
     for (const auto& entry : vocab_) {
       scores_[std::get<0>(entry.second)] = std::get<1>(entry.second);
       token_matcher_.Add(entry.first, 0, std::get<0>(entry.second));
