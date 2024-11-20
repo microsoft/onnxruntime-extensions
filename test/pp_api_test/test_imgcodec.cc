@@ -57,7 +57,7 @@ TEST(ImgDecoderTest, TestPngEncoderDecoder) {
 
   uint8_t* encodeOutputBuffer = nullptr;
   size_t encodeSize = 0;
-  image_encoder.EncodePngFromRgb(out_tensor.Data(), width, height, &encodeOutputBuffer, &encodeSize);
+  image_encoder.EncodePng(out_tensor.Data(), true, width, height, &encodeOutputBuffer, &encodeSize);
 
   ASSERT_NE(encodeOutputBuffer, nullptr);
 
@@ -69,7 +69,7 @@ TEST(ImgDecoderTest, TestPngEncoderDecoder) {
 
   encodeOutputBuffer = nullptr;
   encodeSize = 0;
-  image_encoder.EncodeJpgFromRgb(out_tensor.Data(), width, height, &encodeOutputBuffer, &encodeSize);
+  image_encoder.EncodeJpg(out_tensor.Data(), true, width, height, &encodeOutputBuffer, &encodeSize);
 
   std::filesystem::path encoded_jpg_path = "data/processor/exceltable_encoded_win32.jpg";
 
@@ -161,7 +161,7 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
 
   uint8_t* encodeOutputBuffer = nullptr;
   size_t encodeSize = 0;
-  image_encoder.EncodePngFromRgb(out_tensor.Data(), width, height, &encodeOutputBuffer, &encodeSize);
+  image_encoder.EncodePng(out_tensor.Data(), true, width, height, &encodeOutputBuffer, &encodeSize);
   ASSERT_NE(encodeOutputBuffer, nullptr);
 
   std::filesystem::path encoded_png_path = "data/processor/australia_encoded_win32.png";
@@ -172,7 +172,7 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
 
   encodeOutputBuffer = nullptr;
   encodeSize = 0;
-  image_encoder.EncodeJpgFromRgb(out_tensor.Data(), width, height, &encodeOutputBuffer, &encodeSize);
+  image_encoder.EncodeJpg(out_tensor.Data(), true, width, height, &encodeOutputBuffer, &encodeSize);
   ASSERT_NE(encodeOutputBuffer, nullptr);
 
   std::filesystem::path encoded_jpg_path = "data/processor/australia_encoded_win32.jpg";
