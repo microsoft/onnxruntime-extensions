@@ -28,7 +28,7 @@ struct EncodeImage {
     return {};
   }
 
-  void EncodeJpg(const uint8_t* source_data, bool source_is_rgb, int32_t width, int32_t height,
+  void EncodeJpg(const uint8_t* source_data, bool source_is_bgr, int32_t width, int32_t height,
                 uint8_t** outbuffer, size_t* outsize) const {
     std::vector<PROPBAG2> options;
     std::vector<VARIANT> values;
@@ -55,11 +55,11 @@ struct EncodeImage {
       values.push_back(varValue);
     }
 
-    return EncodeWith(GUID_ContainerFormatJpeg, options, values, source_data, source_is_rgb,
+    return EncodeWith(GUID_ContainerFormatJpeg, options, values, source_data, source_is_bgr,
         width, height, outbuffer,outsize);
   }
 
-  void EncodePng(const uint8_t* source_data, bool source_is_rgb, int32_t width, int32_t height,
+  void EncodePng(const uint8_t* source_data, bool source_is_bgr, int32_t width, int32_t height,
                 uint8_t** outbuffer,size_t* outsize) const{
     std::vector<PROPBAG2> options;
     std::vector<VARIANT> values;
@@ -86,7 +86,7 @@ struct EncodeImage {
       values.push_back(varValue);
     }
 
-    return EncodeWith(GUID_ContainerFormatPng, options, values, source_data, source_is_rgb, width, height,
+    return EncodeWith(GUID_ContainerFormatPng, options, values, source_data, source_is_bgr, width, height,
                       outbuffer, outsize);
   }
 
@@ -97,7 +97,7 @@ struct EncodeImage {
 
   private:
    void EncodeWith(GUID conatinerFormatGUID, std::vector<PROPBAG2> options, std::vector<VARIANT> values,
-                   const uint8_t* source_data, bool source_is_rgb, int32_t width, int32_t height, uint8_t** outbuffer,
+                   const uint8_t* source_data, bool source_is_bgr, int32_t width, int32_t height, uint8_t** outbuffer,
                    size_t* outsize) const {
      const uint8_t* encode_source_data = source_data;
      winrt::com_ptr<IStream> pOutputStream;
@@ -158,24 +158,8 @@ struct EncodeImage {
          IsEqualGUID(pixelFormatGUID, GUID_WICPixelFormat24bppBGR)) {
        // 24bppRGB not supported natively by encoder. Encoder expects BGR.
        // This is true for both PNG & JPEG encoder.
-       if (source_is_rgb) {
-         // Convert RGB to BGR
-         const int color_space = 3;
-         auto rgb_data = source_data;
-         auto bgr_data = (uint8_t*)malloc(height * width * color_space);
-         for (int32_t y = 0; y < height; ++y) {
-           for (int32_t x = 0; x < width; ++x) {
-             bgr_data[(y * width + x) * color_space + 0] = rgb_data[(y * width + x) * color_space + 2];
-             bgr_data[(y * width + x) * color_space + 1] = rgb_data[(y * width + x) * color_space + 1];
-             bgr_data[(y * width + x) * color_space + 2] = rgb_data[(y * width + x) * color_space + 0];
-           }
-         }
-
-         encode_source_data = (uint8_t*)bgr_data;
-       } else {
-         // Source is BGR. Do nothing
-         encode_source_data = source_data;
-       }
+       assert(source_is_bgr);
+       encode_source_data = source_data;
      } else {
        // TODO: Handle this if we need to support more formats.
      }
