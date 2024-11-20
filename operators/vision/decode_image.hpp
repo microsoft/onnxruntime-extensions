@@ -7,9 +7,6 @@
 #include <variant>
 #include <unordered_map>
 
-#include "ext_status.h"
-#include "op_def_struct.h"
-
 #if OCOS_ENABLE_VENDOR_IMAGE_CODECS
   #if _WIN32
     #include "image_decoder_win32.hpp"

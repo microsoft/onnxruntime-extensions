@@ -10,15 +10,18 @@
 #include "shared/api/c_api_utils.hpp"
 
 #include "vision/decode_image.hpp"
+#include "vision/encode_image.hpp"
 
 
 using namespace ort_extensions;
 
-TEST(ImgDecoderTest, TestPngDecoder) {
+TEST(ImgDecoderTest, TestPngEncoderDecoder) {
   ort_extensions::DecodeImage image_decoder;
   image_decoder.Init(std::unordered_map<std::string, std::variant<std::string>>());
   std::vector<uint8_t> png_data;
   std::filesystem::path png_path = "data/processor/exceltable.png";
+  const size_t width = 487;
+  const size_t height = 206;
   std::ifstream png_file(png_path, std::ios::binary);
   ASSERT_TRUE(png_file.is_open());
   png_file.seekg(0, std::ios::end);
@@ -32,7 +35,7 @@ TEST(ImgDecoderTest, TestPngDecoder) {
   auto status = image_decoder.Compute(png_tensor, out_tensor);
   ASSERT_TRUE(status.IsOk()) << status.ToString();
 
-  ASSERT_EQ(out_tensor.Shape(), std::vector<int64_t>({206, 487, 3}));
+  ASSERT_EQ(out_tensor.Shape(), std::vector<int64_t>({height, width, 3}));
   auto out_range = out_tensor.Data() + 0;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}));
@@ -41,13 +44,38 @@ TEST(ImgDecoderTest, TestPngDecoder) {
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}));
 
-  out_range = out_tensor.Data() + 243 * 206 * 3;
+  out_range = out_tensor.Data() + 243 * height * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({217, 217, 217, 217, 217, 217, 217, 217, 217, 217, 217, 217}));
 
-  out_range = out_tensor.Data() + 485 * 206 * 3;
+  out_range = out_tensor.Data() + 485 * height * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}));
+
+  ort_extensions::internal::EncodeImage image_encoder;
+  image_encoder.OnInit();
+
+  uint8_t* encodeOutputBuffer = nullptr;
+  size_t encodeSize = 0;
+  image_encoder.EncodePngFromRgb(out_tensor.Data(), width, height, &encodeOutputBuffer, &encodeSize);
+
+  ASSERT_NE(encodeOutputBuffer, nullptr);
+
+  std::filesystem::path encoded_png_path = "data/processor/exceltable_encoded_win32.png";
+
+  std::ofstream encoded_png_file(encoded_png_path, std::ios::binary | std::ios::out);
+  encoded_png_file.write((const char*)encodeOutputBuffer, encodeSize);
+  encoded_png_file.close();
+
+  encodeOutputBuffer = nullptr;
+  encodeSize = 0;
+  image_encoder.EncodeJpgFromRgb(out_tensor.Data(), width, height, &encodeOutputBuffer, &encodeSize);
+
+  std::filesystem::path encoded_jpg_path = "data/processor/exceltable_encoded_win32.jpg";
+
+  std::ofstream encoded_jpg_file(encoded_jpg_path, std::ios::binary | std::ios::out);
+  encoded_jpg_file.write((const char*)encodeOutputBuffer, encodeSize);
+  encoded_jpg_file.close();
 }
 
 TEST(ImageDecoderTest, TestJpegDecoder) {
@@ -55,6 +83,8 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
   image_decoder.Init(std::unordered_map<std::string, std::variant<std::string>>());
   std::vector<uint8_t> jpeg_data;
   std::filesystem::path jpeg_path = "data/processor/australia.jpg";
+  const size_t width = 1300;
+  const size_t height = 876;
   std::ifstream jpeg_file(jpeg_path, std::ios::binary);
   ASSERT_TRUE(jpeg_file.is_open());
   jpeg_file.seekg(0, std::ios::end);
@@ -68,7 +98,7 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
   auto status = image_decoder.Compute(jpeg_tensor, out_tensor);
   ASSERT_TRUE(status.IsOk()) << status.ToString();
 
-  ASSERT_EQ(out_tensor.Shape(), std::vector<int64_t>({876, 1300, 3}));
+  ASSERT_EQ(out_tensor.Shape(), std::vector<int64_t>({height, width, 3}));
   auto out_range = out_tensor.Data() + 0;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({48, 14, 5, 48, 14, 5, 48, 14, 5, 48, 14, 5}));
@@ -79,11 +109,11 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({228, 234, 222, 228, 235, 219, 219, 221, 200, 203, 201, 178}));
 
-  out_range = out_tensor.Data() + 438 * 1300 * 3;
+  out_range = out_tensor.Data() + 438 * width * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({84, 68, 53, 86, 70, 55, 92, 76, 60, 101, 86, 65}));
 
-  out_range = out_tensor.Data() + 875 * 1300 * 3 + 1296 * 3;
+  out_range = out_tensor.Data() + 875 * width * 3 + 1296 * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({208, 210, 197, 204, 206, 193, 198, 200, 187, 194, 196, 183}));
 
@@ -92,11 +122,11 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({225, 236, 222, 228, 235, 219, 218, 220, 199, 203, 201, 178}));
 
-  out_range = out_tensor.Data() + 438 * 1300 * 3;
+  out_range = out_tensor.Data() + 438 * width * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({84, 68, 53, 86, 70, 55, 92, 76, 59, 101, 86, 65}));
 
-  out_range = out_tensor.Data() + 875 * 1300 * 3 + 1296 * 3;
+  out_range = out_tensor.Data() + 875 * width * 3 + 1296 * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({209, 211, 198, 204, 206, 193, 198, 200, 187, 194, 196, 183}));
   #else
@@ -104,11 +134,11 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({221, 237, 224, 225, 236, 219, 218, 222, 199, 203, 202, 174}));
 
-  out_range = out_tensor.Data() + 438 * 1300 * 3;
+  out_range = out_tensor.Data() + 438 * width * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({84, 68, 55, 86, 70, 55, 92, 77, 58, 101, 86, 65}));
 
-  out_range = out_tensor.Data() + 875 * 1300 * 3 + 1296 * 3;
+  out_range = out_tensor.Data() + 875 * width * 3 + 1296 * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({208, 210, 197, 204, 206, 193, 198, 200, 187, 194, 196, 183}));
   #endif
@@ -117,14 +147,38 @@ TEST(ImageDecoderTest, TestJpegDecoder) {
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({221, 237, 224, 225, 236, 219, 218, 222, 199, 203, 202, 174}));
 
-  out_range = out_tensor.Data() + 438 * 1300 * 3;
+  out_range = out_tensor.Data() + 438 * width * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({84, 68, 55, 86, 70, 55, 92, 77, 58, 101, 86, 65}));
 
-  out_range = out_tensor.Data() + 875 * 1300 * 3 + 1296 * 3;
+  out_range = out_tensor.Data() + 875 * width * 3 + 1296 * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
             std::vector<uint8_t>({208, 210, 197, 204, 206, 193, 198, 200, 187, 194, 196, 183}));
 #endif
+
+  ort_extensions::internal::EncodeImage image_encoder;
+  image_encoder.OnInit();
+
+  uint8_t* encodeOutputBuffer = nullptr;
+  size_t encodeSize = 0;
+  image_encoder.EncodePngFromRgb(out_tensor.Data(), width, height, &encodeOutputBuffer, &encodeSize);
+  ASSERT_NE(encodeOutputBuffer, nullptr);
+
+  std::filesystem::path encoded_png_path = "data/processor/australia_encoded_win32.png";
+
+  std::ofstream encoded_png_file(encoded_png_path, std::ios::binary | std::ios::out);
+  encoded_png_file.write((const char*)encodeOutputBuffer, encodeSize);
+  encoded_png_file.close();
+
+  encodeOutputBuffer = nullptr;
+  encodeSize = 0;
+  image_encoder.EncodeJpgFromRgb(out_tensor.Data(), width, height, &encodeOutputBuffer, &encodeSize);
+  ASSERT_NE(encodeOutputBuffer, nullptr);
+
+  std::filesystem::path encoded_jpg_path = "data/processor/australia_encoded_win32.jpg";
+  std::ofstream encoded_jpg_file(encoded_jpg_path, std::ios::binary | std::ios::out);
+  encoded_jpg_file.write((const char*)encodeOutputBuffer, encodeSize);
+  encoded_jpg_file.close();
 }
 
 #if OCOS_ENABLE_VENDOR_IMAGE_CODECS

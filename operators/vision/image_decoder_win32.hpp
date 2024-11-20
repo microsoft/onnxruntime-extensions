@@ -118,7 +118,7 @@ struct DecodeImage {
     }
 
     // Convert to 24 bytes per pixel RGB format if needed
-    if (pixelFormat != GUID_WICPixelFormat24bppRGB) {
+    if (!IsEqualGUID(pixelFormat, GUID_WICPixelFormat24bppRGB)) {
       IWICBitmapSource* pConverted = NULL;
       hr = WICConvertBitmapSource(GUID_WICPixelFormat24bppRGB, pIDecoderFrame.get(), &pConverted);
       if (FAILED(hr)) {
@@ -140,6 +140,7 @@ struct DecodeImage {
   }
 
   ~DecodeImage() {
+    pIWICFactory_.detach();
     CoUninitialize();
   }
 
