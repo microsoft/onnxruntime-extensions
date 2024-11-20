@@ -24,8 +24,10 @@
 namespace ort_extensions::internal {
 struct EncodeImage {
   OrtxStatus OnInit() { return {}; }
-  void EncodeJpgFromRgb(const uint8_t* rgb_data, int32_t width, int32_t height, uint8_t** outbuffer,
-                        size_t* outsize) const {
+
+  bool JpgSupportsBgr() const{ return false; }
+  void EncodeJpg(const uint8_t* rgb_data, bool source_is_bgr, int32_t width, int32_t height, uint8_t** outbuffer,
+                size_t* outsize) const {
     struct jpeg_compress_struct cinfo;
     struct jpeg_error_mgr jerr;
 
@@ -65,7 +67,10 @@ struct EncodeImage {
     jpeg_destroy_compress(&cinfo);
   }
 
-  void EncodePngFromRgb(const uint8_t* rgb_data, int32_t width, int32_t height, uint8_t** outbuffer, size_t* outsize) const {
+  bool pngSupportsBgr() const{ return false; }
+
+  void EncodePng(const uint8_t* rgb_data, bool source_is_bgr, int32_t width, int32_t height,
+                uint8_t** outbuffer, size_t* outsize) const {
     std::vector<uint8_t> png_buffer;
     png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
     if (!png_ptr) {
@@ -111,7 +116,7 @@ struct EncodeImage {
 
     const auto size = png_buffer.size();
     *outbuffer = (uint8_t*)malloc(size);
-    memcpy_s(*outbuffer, size, png_buffer.data(), size);
+    std::copy(png_buffer.data(), png_buffer.data() + size, *outbuffer);
     *outsize = size;
   }
 };
