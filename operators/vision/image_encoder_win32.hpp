@@ -28,6 +28,8 @@ struct EncodeImage {
     return {};
   }
 
+  bool JpgSupportsBgr() const{ return true; }
+
   void EncodeJpg(const uint8_t* source_data, bool source_is_bgr, int32_t width, int32_t height,
                 uint8_t** outbuffer, size_t* outsize) const {
     std::vector<PROPBAG2> options;
@@ -58,6 +60,8 @@ struct EncodeImage {
     return EncodeWith(GUID_ContainerFormatJpeg, options, values, source_data, source_is_bgr,
         width, height, outbuffer,outsize);
   }
+
+  bool pngSupportsBgr() const{ return true; }
 
   void EncodePng(const uint8_t* source_data, bool source_is_bgr, int32_t width, int32_t height,
                 uint8_t** outbuffer,size_t* outsize) const{
