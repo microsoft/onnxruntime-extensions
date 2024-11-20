@@ -56,9 +56,17 @@ struct KernelEncodeImage : BaseKernel {
     }
 
     if (extension_ == ".jpg") {
-      encoder_.EncodeJpg(rgb_data.get(), true, width, height, &outbuffer, &outsize);
+      if (encoder_.JpgSupportsBgr()) {
+        encoder_.EncodeJpg(bgr_data, true, width, height, &outbuffer, &outsize);
+      } else {
+        encoder_.EncodeJpg(rgb_data.get(), false, width, height, &outbuffer, &outsize);
+      }
     } else if (extension_ == ".png") {
-      encoder_.EncodePng(rgb_data.get(), true, width, height, &outbuffer, &outsize);
+      if (encoder_.pngSupportsBgr()) {
+        encoder_.EncodePng(bgr_data, true, width, height, &outbuffer, &outsize);
+      } else {
+        encoder_.EncodePng(rgb_data.get(), false, width, height, &outbuffer, &outsize);
+      }
     } else {
       ORTX_CXX_API_THROW("[EncodeImage] Unsupported image format.", ORT_INVALID_ARGUMENT);
     }
