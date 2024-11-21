@@ -9,6 +9,7 @@ stages:
   dependsOn: []
   jobs:
   - job: main
+    timeoutInMinutes: 120
     pool:
       name: onnxruntime-Win-CPU-2022
       os: windows
