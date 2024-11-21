@@ -140,7 +140,9 @@ struct DecodeImage {
   }
 
   ~DecodeImage() {
-    pIWICFactory_.detach();
+    if (pIWICFactory_) {
+      pIWICFactory_->Release();
+    }
     CoUninitialize();
   }
 
@@ -150,6 +152,6 @@ struct DecodeImage {
        kOrtxErrorInternal,
        "[ImageDecoder]: " + message + " HRESULT: " + std::to_string(hr)};
     }
-    winrt::com_ptr<IWICImagingFactory> pIWICFactory_;
+    IWICImagingFactory *pIWICFactory_;
 };
 }  // namespace ort_extensions::internal

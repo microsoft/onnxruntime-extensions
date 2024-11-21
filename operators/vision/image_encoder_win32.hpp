@@ -95,7 +95,9 @@ struct EncodeImage {
   }
 
   ~EncodeImage() {
-    pIWICFactory_.detach();
+    if (pIWICFactory_) {
+      pIWICFactory_->Release();
+    }
     CoUninitialize();
   }
 
@@ -173,11 +175,6 @@ struct EncodeImage {
 
      hr = pBitmapFrame->WritePixels(height, cbStride, cbBufferSize, (BYTE*)encode_source_data);
 
-     // Release memory if RGB <-> BGR conversion happens.
-     if (source_data != encode_source_data) {
-       free((void*)encode_source_data);
-     }
-
      if (FAILED(hr)) {
        ORTX_CXX_API_THROW(errorWithHr_("pBitmapFrame->WritePixels.", hr).Message(), ORT_RUNTIME_EXCEPTION);
      }
@@ -219,7 +216,7 @@ struct EncodeImage {
    OrtxStatus errorWithHr_(const std::string message, HRESULT hr) const {
      return {kOrtxErrorInternal, "[ImageEncoder]: " + message + " HRESULT: " + std::to_string(hr)};
    }
-   winrt::com_ptr<IWICImagingFactory> pIWICFactory_;
+   IWICImagingFactory* pIWICFactory_;
 };
 }
 
