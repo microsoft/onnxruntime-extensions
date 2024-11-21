@@ -48,6 +48,7 @@ struct EncodeImage {
 private:
   void EncodeWith(CFStringRef type, CFDictionaryRef option, const uint8_t* source_data, bool source_is_bgr,
                  int32_t width, int32_t height, uint8_t** outbuffer, size_t* outsize) const{
+    assert(!source_is_bgr);
     const uint8_t* raw_pixel_source_data = source_data;
 
     size_t cbStride = (width * 24 + 7) / 8;

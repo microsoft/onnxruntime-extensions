@@ -57,25 +57,13 @@ TEST(ImgDecoderTest, TestPngEncoderDecoder) {
 
   uint8_t* encodeOutputBuffer = nullptr;
   size_t encodeSize = 0;
-  image_encoder.EncodePng(out_tensor.Data(), true, width, height, &encodeOutputBuffer, &encodeSize);
+  if (image_encoder.pngSupportsBgr()) {
+    image_encoder.EncodePng(out_tensor.Data(), true, width, height, &encodeOutputBuffer, &encodeSize);
+  } else {
+    image_encoder.EncodePng(out_tensor.Data(), false, width, height, &encodeOutputBuffer, &encodeSize);
+  }
 
   ASSERT_NE(encodeOutputBuffer, nullptr);
-
-  std::filesystem::path encoded_png_path = "data/processor/exceltable_encoded_darwin.png";
-
-  std::ofstream encoded_png_file(encoded_png_path, std::ios::binary | std::ios::out);
-  encoded_png_file.write((const char*)encodeOutputBuffer, encodeSize);
-  encoded_png_file.close();
-
-  encodeOutputBuffer = nullptr;
-  encodeSize = 0;
-  image_encoder.EncodeJpg(out_tensor.Data(), true, width, height, &encodeOutputBuffer, &encodeSize);
-
-  std::filesystem::path encoded_jpg_path = "data/processor/exceltable_encoded_darwin.jpg";
-
-  std::ofstream encoded_jpg_file(encoded_jpg_path, std::ios::binary | std::ios::out);
-  encoded_jpg_file.write((const char*)encodeOutputBuffer, encodeSize);
-  encoded_jpg_file.close();
 }
 
 TEST(ImageDecoderTest, TestJpegEncoderDecoder) {
@@ -161,24 +149,14 @@ TEST(ImageDecoderTest, TestJpegEncoderDecoder) {
 
   uint8_t* encodeOutputBuffer = nullptr;
   size_t encodeSize = 0;
-  image_encoder.EncodePng(out_tensor.Data(), true, width, height, &encodeOutputBuffer, &encodeSize);
+
+  if (image_encoder.JpgSupportsBgr()) {
+    image_encoder.EncodeJpg(out_tensor.Data(), true, width, height, &encodeOutputBuffer, &encodeSize);
+  } else {
+    image_encoder.EncodeJpg(out_tensor.Data(), false, width, height, &encodeOutputBuffer, &encodeSize);
+  }
+
   ASSERT_NE(encodeOutputBuffer, nullptr);
-
-  std::filesystem::path encoded_png_path = "data/processor/australia_encoded_darwin.png";
-
-  std::ofstream encoded_png_file(encoded_png_path, std::ios::binary | std::ios::out);
-  encoded_png_file.write((const char*)encodeOutputBuffer, encodeSize);
-  encoded_png_file.close();
-
-  encodeOutputBuffer = nullptr;
-  encodeSize = 0;
-  image_encoder.EncodeJpg(out_tensor.Data(), true, width, height, &encodeOutputBuffer, &encodeSize);
-  ASSERT_NE(encodeOutputBuffer, nullptr);
-
-  std::filesystem::path encoded_jpg_path = "data/processor/australia_encoded_darwin.jpg";
-  std::ofstream encoded_jpg_file(encoded_jpg_path, std::ios::binary | std::ios::out);
-  encoded_jpg_file.write((const char*)encodeOutputBuffer, encodeSize);
-  encoded_jpg_file.close();
 }
 
 #if OCOS_ENABLE_VENDOR_IMAGE_CODECS

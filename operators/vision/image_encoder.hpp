@@ -11,7 +11,7 @@
 #endif
 
 #include "png.h"
-#if WIN32
+#if _WIN32
 // Fix redefinition in jmorecfg.h
 #include <basetsd.h>
 #endif
@@ -28,6 +28,7 @@ struct EncodeImage {
   bool JpgSupportsBgr() const{ return false; }
   void EncodeJpg(const uint8_t* rgb_data, bool source_is_bgr, int32_t width, int32_t height, uint8_t** outbuffer,
                 size_t* outsize) const {
+    assert(!source_is_bgr);
     struct jpeg_compress_struct cinfo;
     struct jpeg_error_mgr jerr;
 
@@ -71,6 +72,7 @@ struct EncodeImage {
 
   void EncodePng(const uint8_t* rgb_data, bool source_is_bgr, int32_t width, int32_t height,
                 uint8_t** outbuffer, size_t* outsize) const {
+    assert(!source_is_bgr);
     std::vector<uint8_t> png_buffer;
     png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
     if (!png_ptr) {

@@ -6,7 +6,7 @@
 #include <cstdint>
 
 #include "png.h"
-#if WIN32
+#if _WIN32
 // Fix redefinition in jmorecfg.h
 #include <basetsd.h>
 #endif
