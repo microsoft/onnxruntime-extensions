@@ -651,34 +651,28 @@ if(OCOS_ENABLE_OPENCV_CODECS)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_OPENCV_CODECS)
 endif()
 
+if(OCOS_ENABLE_VENDOR_IMAGE_CODECS)
+  add_compile_definitions(OCOS_ENABLE_VENDOR_IMAGE_CODECS)
+  if(WIN32)
+    # Use WIC on Windows. Nothing to be done
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    # Use ImageIO on Apple platforms
+    target_link_libraries(ocos_operators PRIVATE "-framework CoreFoundation" "-framework CoreGraphics" "-framework ImageIO")
+  endif()
+endif()
+
 if(OCOS_ENABLE_CV2)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_CV2)
 endif()
 
 if(OCOS_ENABLE_VISION)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_VISION)
-  set(_DEFAULT_CODEC_ENABLE ON)
-  if(OCOS_ENABLE_VENDOR_IMAGE_CODECS)
-    add_compile_definitions(OCOS_ENABLE_VENDOR_IMAGE_CODECS)
-    if(WIN32)
-      # Use WIC on Windows. Nothing to be done
-      set(_DEFAULT_CODEC_ENABLE OFF)
-    elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
-      # Use ImageIO on Apple platforms
-      set(_DEFAULT_CODEC_ENABLE OFF)
-      target_link_libraries(ocos_operators PRIVATE "-framework CoreFoundation" "-framework CoreGraphics" "-framework ImageIO")
-    endif()
+  if (NOT OCOS_ENABLE_DLIB)
+    message(FATAL_ERROR "Vision operators require DLIB to be enabled.") # for now, we need dlib for image processing
   endif()
-
-  set(_DEFAULT_CODEC_ENABLE ON) # libpng and libjpeg can be optional after EncodeImage with native support too.
-  if(_DEFAULT_CODEC_ENABLE)
-    if (NOT OCOS_ENABLE_DLIB)
-      message(FATAL_ERROR "Vision operators require DLIB to be enabled.") # for now, we need dlib for image processing
-    endif()
-    include(ext_imgcodecs)  
-    target_include_directories(ocos_operators PUBLIC ${libPNG_SOURCE_DIR} ${libJPEG_SOURCE_DIR})
-    target_link_libraries(ocos_operators PUBLIC ${PNG_LIBRARY} ${JPEG_LIBRARY})
-  endif()
+  include(ext_imgcodecs)  
+  target_include_directories(ocos_operators PUBLIC ${libPNG_SOURCE_DIR} ${libJPEG_SOURCE_DIR})
+  target_link_libraries(ocos_operators PUBLIC ${PNG_LIBRARY} ${JPEG_LIBRARY})
 endif()
 
 if(OCOS_ENABLE_AZURE)
