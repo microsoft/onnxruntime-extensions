@@ -40,6 +40,14 @@ extends:
             artifact: ios_packaging_artifacts
 
         steps:
+        - script: |
+            echo "Build.ArtifactStagingDirectory: $(Build.ArtifactStagingDirectory)"
+            echo "Build.BinariesDirectory: $(Build.BinariesDirectory)"
+            echo "Build.SourcesDirectory: $(Build.SourcesDirectory)"
+            ls -al $(Build.BinariesDirectory)
+            ls -al $(Build.SourcesDirectory)
+          displayName: "KYLE DEBUG - Show directories"
+
         - task: InstallAppleCertificate@2
           inputs:
             certSecureFile: '$(ios_signing_certificate_name)'
