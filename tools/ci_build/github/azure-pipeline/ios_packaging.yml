@@ -161,7 +161,7 @@ extends:
             signingOption: 'manual'
             signingIdentity: '$(APPLE_CERTIFICATE_SIGNING_IDENTITY)'
             provisioningProfileUuid: '$(APPLE_PROV_PROFILE_UUID)'
-            args: '-derivedDataPath $(Build.SourcesDirectory)/OrtExtensionsUsage/DerivedData'
+            args: '-derivedDataPath $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/DerivedData'
             workingDirectory: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/'
             useXcpretty: false  # xcpretty can hide useful error output so we will disable it
           displayName: 'Build OrtExtensionsUsage'
