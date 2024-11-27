@@ -172,7 +172,7 @@ extends:
           displayName: "Create .zip file of the tests"
 
         - script: |
-            python $(Build.SourcesDirectory)/onnxruntime-extensions/test/ios/generate_ipa_export_options_plist.py \
+            python $(Build.SourcesDirectory)/test/ios/generate_ipa_export_options_plist.py \
               --dest_file "exportOptions.plist" \
               --apple_team_id $(APPLE_TEAM_ID) \
               --provisioning_profile_uuid $(APPLE_PROV_PROFILE_UUID)
