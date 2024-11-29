@@ -139,7 +139,6 @@ extends:
 
         # Xcode tasks require absolute paths because it searches for the paths and files relative to
         # the root directory and not relative to the working directory
-
         - script: |
             xcrun xcodebuild \
               -configuration Debug \
@@ -173,7 +172,7 @@ extends:
 
         - script: |
             python $(Build.SourcesDirectory)/test/ios/generate_ipa_export_options_plist.py \
-              --dest_file "exportOptions.plist" \
+              --dest_file "exportOptions_iphoneos.plist" \
               --apple_team_id $(APPLE_TEAM_ID) \
               --provisioning_profile_uuid $(APPLE_PROV_PROFILE_UUID)
           workingDirectory: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/'
