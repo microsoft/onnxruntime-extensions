@@ -39,15 +39,6 @@ extends:
             path: '$(Build.ArtifactStagingDirectory)'
             artifact: ios_packaging_artifacts
 
-        steps:
-        - script: |
-            echo "Build.ArtifactStagingDirectory: $(Build.ArtifactStagingDirectory)"
-            echo "Build.BinariesDirectory: $(Build.BinariesDirectory)"
-            echo "Build.SourcesDirectory: $(Build.SourcesDirectory)"
-            ls -al $(Build.BinariesDirectory)
-            ls -al $(Build.SourcesDirectory)
-          displayName: "KYLE DEBUG - Show directories"
-
         - task: InstallAppleCertificate@2
           inputs:
             certSecureFile: '$(ios_signing_certificate_name)'
@@ -72,12 +63,9 @@ extends:
             addToPath: true
             architecture: "x64"
 
-        # iOS xcframework build doesn't work with CMake 3.25.1, pin to 3.25.0
         - script: |
-            python -m pip install cmake==3.25.0
-          displayName: "Install CMake 3.25.0"
-
-        # - template: tools/ci_build/github/azure-pipeline/templates/install-appcenter.yml@self
+            python -m pip install cmake
+          displayName: "Install CMake"
 
         - template: tools/ci_build/github/azure-pipeline/templates/set-package-version-variable-step.yml@self
           parameters:
@@ -116,29 +104,8 @@ extends:
             ORT_EXTENSIONS_LOCAL_POD_PATH=$(Build.BinariesDirectory)/pod_staging \
               pod install
           displayName: "Install pods for OrtExtensionsUsage"
-          workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage
-        
-        #- script: |
-        #    set -e
+          workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage      
 
-        #    SIMULATOR_DEVICE_INFO=$(python ./tools/ios/get_simulator_device_info.py)
-
-        #    echo "Simulator device info:"
-        #    echo "${SIMULATOR_DEVICE_INFO}"
-
-        #    SIMULATOR_DEVICE_ID=$(jq --raw-output '.device_udid' <<< "${SIMULATOR_DEVICE_INFO}")
-
-        #    # Do not output ##vso[] commands with `set -x` or they may be parsed again and include a trailing quote.
-        #    set +x
-        #    echo "##vso[task.setvariable variable=ORT_EXTENSIONS_SIMULATOR_DEVICE_ID]${SIMULATOR_DEVICE_ID}"
-        #  displayName: "Get simulator device info"
-
-        #- script: |
-        #    xcrun simctl bootstatus ${ORT_EXTENSIONS_SIMULATOR_DEVICE_ID} -b
-        #  displayName: "Wait for simulator device to boot"
-
-        # Xcode tasks require absolute paths because it searches for the paths and files relative to
-        # the root directory and not relative to the working directory
         - script: |
             xcrun xcodebuild \
               -configuration Debug \
@@ -149,6 +116,8 @@ extends:
               test CODE_SIGNING_ALLOWED=NO
           displayName: "Build and test OrtExtensionsUsage for MacOS"
 
+        # Xcode tasks require absolute paths because it searches for the paths and files relative to
+        # the root directory and not relative to the working directory
         - task: Xcode@5
           inputs:
             actions: 'build-for-testing'
@@ -156,7 +125,6 @@ extends:
             xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
             sdk: 'iphoneos'
             scheme: 'OrtExtensionsUsage'
-            destinationPlatformOption: 'iOS'
             signingOption: 'manual'
             signingIdentity: '$(APPLE_CERTIFICATE_SIGNING_IDENTITY)'
             provisioningProfileUuid: '$(APPLE_PROV_PROFILE_UUID)'
@@ -215,37 +183,13 @@ extends:
               --test_platform xcuitest \
               --app_path "$(Build.ArtifactStagingDirectory)/test_ipa/OrtExtensionsUsage.ipa" \
               --test_path "$(Build.ArtifactStagingDirectory)/package_tests.zip" \
-              --devices "iPhone 15-17"
+              --devices "iPhone 14-17"
           displayName: Run E2E tests using Browserstack
           workingDirectory: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/'
           timeoutInMinutes: 15
           env:
             BROWSERSTACK_ID: $(browserstack_username)
             BROWSERSTACK_TOKEN: $(browserstack_access_key)
-
-        #- script: |
-        #    xcrun xcodebuild \
-        #      -sdk iphoneos \
-        #      -configuration Debug \
-        #      -workspace $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace \
-        #      -scheme OrtExtensionsUsage \
-        #      -derivedDataPath $(Build.BinariesDirectory)/appcenter_test_derived_data \
-        #      build-for-testing \
-        #      CODE_SIGN_STYLE=Manual \
-        #      "CODE_SIGN_IDENTITY=$(installSigningCertificate.signingIdentity)" \
-        #      PROVISIONING_PROFILE= \
-        #      "PROVISIONING_PROFILE_SPECIFIER=$(installProvisioningProfile.provisioningProfileName)"
-        #  displayName: "Build appcenter test"
-
-        #- script: |
-        #    appcenter test run xcuitest \
-        #      --app "AI-Frameworks/ORT-Ext-Mobile-iOS-Testapp" \
-        #      --devices "AI-Frameworks/apple-test-device-set" \
-        #      --test-series "master" \
-        #      --locale "en_US" \
-        #      --build-dir $(Build.BinariesDirectory)/appcenter_test_derived_data/Build/Products/Debug-iphoneos \
-        #      --token $(app_center_api_token)
-        #  displayName: "Run appcenter test"
 
         - script: |
             set -e -x
