@@ -183,7 +183,7 @@ extends:
               --test_platform xcuitest \
               --app_path "$(Build.ArtifactStagingDirectory)/test_ipa/OrtExtensionsUsage.ipa" \
               --test_path "$(Build.ArtifactStagingDirectory)/package_tests.zip" \
-              --devices "iPhone 14-17"
+              --devices "iPhone 15-17"
           displayName: Run E2E tests using Browserstack
           workingDirectory: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/'
           timeoutInMinutes: 15
