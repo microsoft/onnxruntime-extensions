@@ -38,7 +38,7 @@ extends:
           - output: pipelineArtifact
             path: '$(Build.ArtifactStagingDirectory)'
             artifact: ios_packaging_artifacts
-
+        steps:
         - task: InstallAppleCertificate@2
           inputs:
             certSecureFile: '$(ios_signing_certificate_name)'
