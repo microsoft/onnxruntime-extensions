@@ -1,0 +1,114 @@
+parameters:
+- name: DoCompliance
+  displayName: Run Compliance Tasks?
+  type: boolean
+  default: true
+
+- name: DoEsrp
+  displayName: Run code sign tasks? Must be true if you are doing an OnnxRuntime extensions release.
+  type: boolean
+  default: false
+
+- name: BuildPlatform
+  type: string
+  values:
+  - 'x86'
+  - 'x64'
+  - 'arm64'
+
+- name: StageNameSuffix
+  displayName: job name for nuget
+  type: string
+  default: ''
+
+- name: BuildPool
+  type: string
+  default: 'onnxruntime-Win-CPU-2022'
+
+- name: AdditionalBuildFlags
+  displayName: Additional build flags for build_lib.bat
+  type: string
+
+
+jobs:
+- job: Windows_Packaging_${{ parameters.StageNameSuffix }}
+  workspace:
+    clean: all
+  pool: 
+    name: ${{ parameters.BuildPool }}
+    os: windows
+  timeoutInMinutes: 300
+  templateContext:
+    outputs:
+    - output: pipelineArtifact
+      path: $(Build.ArtifactStagingDirectory)
+      artifact: onnxruntime-extensions-win-${{parameters.BuildPlatform}}
+
+  steps:
+    - checkout: self
+      clean: true
+      submodules: none
+    - task: UsePythonVersion@0
+    # Currently we can only run tests on x64. x86 tests faile. arm64 tests can't be run as the build machine is amd64
+    # TODO: Fix these issues so the nuget build is properly tested.
+    - ${{ if eq(parameters.BuildPlatform, 'x64') }}:
+      - task: BatchScript@1
+        displayName: 'build onnxruntime-extensions and run tests'
+        inputs:
+          filename: '.\build_lib.bat'
+          arguments: '--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out --config RelWithDebInfo --cmake_generator "Visual Studio 17 2022" --enable_cxx_tests ${{parameters.AdditionalBuildFlags}}'
+          modifyEnvironment: true
+          workingFolder: $(Build.SourcesDirectory)
+    - ${{ else }}:
+      - task: BatchScript@1
+        displayName: 'build onnxruntime-extensions'
+        inputs:
+          filename: '.\build_lib.bat'
+          arguments: '--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out --config RelWithDebInfo --cmake_generator "Visual Studio 17 2022" ${{parameters.AdditionalBuildFlags}}'
+          modifyEnvironment: true
+          workingFolder: $(Build.SourcesDirectory)
+
+    - script: |
+        dir $(Build.BinariesDirectory)\out\RelWithDebInfo\lib\RelWithDebInfo
+        dir $(Build.BinariesDirectory)\out\RelWithDebInfo\bin\RelWithDebInfo
+      displayName: 'List built DLLs'
+      workingDirectory: $(Build.BinariesDirectory)
+
+    - task: PowerShell@2
+      displayName: 'Set version'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $_OrtExtVersion=(cat version.txt)
+          echo "##vso[task.setvariable variable=OrtExtVersion;]$_OrtExtVersion"
+        workingDirectory: '$(Build.SourcesDirectory)'
+
+    - task: PowerShell@2
+      displayName: 'Copy and Create artifacts'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $target_lib_path="$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.BuildPlatform}}-$(OrtExtVersion)/lib"
+          New-Item $target_lib_path -ItemType Directory
+          cp bin/RelWithDebInfo/ortextensions.* $target_lib_path
+          cp lib/RelWithDebInfo/ortextensions.* $target_lib_path
+        workingDirectory: '$(Build.BinariesDirectory)/out/RelWithDebInfo'
+
+    - template: win-esrp-dll.yml
+      parameters:
+        FolderPath: '$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.BuildPlatform}}-$(OrtExtVersion)'
+        DisplayName: 'Sign DLL'
+        DoEsrp: 'true'
+
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: '$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.BuildPlatform}}-$(OrtExtVersion)'
+        includeRootFolder: true
+        archiveType: 'tar' # Options: zip, 7z, tar, wim
+        tarCompression: 'gz'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/onnxruntime-extensions-win-${{parameters.BuildPlatform}}.tgz'
+        replaceExistingArchive: true
+
+    - template: component-governance-component-detection-steps.yml
+      parameters :
+        condition : 'succeeded'

@@ -9,7 +9,7 @@
 
 template <typename T>
 void DumpTensorToFile(const ortc::Tensor<T>& tensor, const char* name) {
-#if WIN32
+#if _WIN32
   auto tic = GetTickCount();
   std::string dtype;
   if constexpr (std::is_same_v<T, uint8_t> || std::is_same_v<T, std::byte>) {
@@ -53,13 +53,15 @@ inline OrtxStatus convert_to_rgb(const ortc::Tensor<uint8_t>& input, ortc::Tenso
 }
 
 struct Resize {
-  static const std::unordered_map<std::string, int> InterpolationMethods() {
-    return {
+  static const std::unordered_map<std::string, int>& InterpolationMethods() {
+    static std::unordered_map<std::string, int> methods = {
       {"NEAREST", IMAGING_TRANSFORM_NEAREST},
       {"LINEAR", IMAGING_TRANSFORM_BILINEAR},
       {"CUBIC", IMAGING_TRANSFORM_BICUBIC},
       {"LANCZOS", IMAGING_TRANSFORM_LANCZOS}
     };
+    
+    return methods;
   }
 
   OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) {

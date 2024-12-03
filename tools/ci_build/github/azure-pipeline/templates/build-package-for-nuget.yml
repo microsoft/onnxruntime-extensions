@@ -1,0 +1,260 @@
+parameters:
+- name: DoCompliance
+  displayName: Run Compliance Tasks?
+  type: boolean
+  default: true
+
+- name: DoEsrp
+  displayName: Run code sign tasks? Must be true if you are doing an OnnxRuntime extensions release.
+  type: boolean
+  default: false
+
+- name: IsReleaseBuild
+  displayName: Is a release build?
+  type: boolean
+  default: false
+
+- name: IsDummyPackage
+  displayName: Is this a build of Microsoft.ML.OnnxRuntime.Extensions.Dummy package that has no operators?
+  type: boolean
+  default: false
+
+- name: NugetVersionSuffix
+  displayName: Nuget version suffix
+  type: string
+
+- name: OperatorSelectionFlags
+  displayName: Flags to select operators included. Default is to disable OCOS_ENABLE_CV2 and OCOS_ENABLE_BLINGFIRE
+  type: string
+  default: '--cmake_extra_defines OCOS_ENABLE_CV2=OFF OCOS_ENABLE_BLINGFIRE=OFF'
+
+- name: AdditionalBuildFlags
+  displayName: Additional build flags.
+  type: string
+  default: ''
+
+stages:
+# MacOS_C_API_Packaging_CPU
+- template: build-package-for-macosx.yml
+  parameters:
+    IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+    AdditionalBuildFlags: ${{parameters.OperatorSelectionFlags}} ${{parameters.AdditionalBuildFlags}}
+
+- stage: Linux_C_API_Packaging_CPU
+  dependsOn: []
+  jobs:
+  - template: build-package-for-linux.yml
+    parameters:
+      OrtExtensionsArch: 'x64'
+      PoolName: 'onnxruntime-Ubuntu2204-AMD-CPU'
+      IsReleaseBuild: ${{parameters.IsReleaseBuild}}
+      OrtExtensionsCFlags: ''
+      OrtExtensionsCXXFlags: ''
+      AdditionalBuildFlags: ${{parameters.OperatorSelectionFlags}} ${{parameters.AdditionalBuildFlags}}
+
+  - template: build-package-for-linux.yml
+    parameters:
+      OrtExtensionsArch: 'aarch64'
+      PoolName: 'onnxruntime-linux-ARM64-CPU-2019'
+      IsReleaseBuild: ${{parameters.IsReleaseBuild}}
+      OrtExtensionsCFlags: ''
+      OrtExtensionsCXXFlags: ''
+      AdditionalBuildFlags: ${{parameters.OperatorSelectionFlags}} ${{parameters.AdditionalBuildFlags}}
+
+- stage: Windows_C_API_Packaging_CPU
+  dependsOn: []
+  jobs:
+  - template: build-package-for-windows.yml
+    parameters:
+      DoCompliance: ${{ parameters.DoCompliance }}
+      DoEsrp: ${{ parameters.DoEsrp }}
+      StageNameSuffix: CPU_x86
+      # Win32
+      BuildPlatform: x86
+      AdditionalBuildFlags: ${{parameters.OperatorSelectionFlags}} ${{parameters.AdditionalBuildFlags}}
+
+  - template: build-package-for-windows.yml
+    parameters:
+      DoCompliance: ${{ parameters.DoCompliance }}
+      DoEsrp: ${{ parameters.DoEsrp }}
+      StageNameSuffix: CPU_arm64
+      BuildPlatform: arm64
+      AdditionalBuildFlags: ${{parameters.OperatorSelectionFlags}} ${{parameters.AdditionalBuildFlags}}
+
+  - template: build-package-for-windows.yml
+    parameters:
+      DoCompliance: ${{ parameters.DoCompliance }}
+      DoEsrp: ${{ parameters.DoEsrp }}
+      StageNameSuffix: CPU_x64
+      BuildPlatform: 'x64'
+      AdditionalBuildFlags: ${{parameters.OperatorSelectionFlags}} ${{parameters.AdditionalBuildFlags}}
+
+#Android_Java_API_AAR_Packaging_Full
+- template: build-package-for-android-aar.yml
+  parameters:
+    IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+    AdditionalBuildFlags: ${{parameters.OperatorSelectionFlags}} ${{parameters.AdditionalBuildFlags}}
+
+- stage: iOS_Full_xcframework
+  dependsOn: []
+  jobs:
+    - template: build-package-for-ios-cocoapods.yml
+      parameters:
+        IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+        AdditionalBuildFlags: ${{parameters.OperatorSelectionFlags}} ${{parameters.AdditionalBuildFlags}}
+
+
+- stage: NuGet_Packaging_CPU
+  dependsOn:
+  - Linux_C_API_Packaging_CPU
+  - Windows_C_API_Packaging_CPU
+  - MacOS_C_API_Packaging_CPU
+  - Android_Java_API_AAR_Packaging_Full
+  - iOS_Full_xcframework
+  condition: succeeded()
+  jobs:
+  - job: Nuget_Packaging
+    workspace:
+      clean: all
+    # we need to use the 2022 pool to create the nuget package with both pre-net6+Xamarin and net6 targets.
+    # VS2019 has no support for net6 and we need to use msbuild (from the VS install) to do the packing
+    pool: 
+      name: 'onnxruntime-Win-CPU-2022'
+      os: windows
+    variables:
+      breakCodesignValidationInjection: ${{ parameters.DoEsrp }}
+    templateContext:
+      inputs:
+        - input: pipelineArtifact
+          artifactName: onnxruntime-extensions-win-x64
+          targetPath: $(Build.BinariesDirectory)/artifact-downloads
+        - input: pipelineArtifact
+          artifactName: onnxruntime-extensions-win-x86
+          targetPath: $(Build.BinariesDirectory)/artifact-downloads
+        - input: pipelineArtifact
+          artifactName: onnxruntime-extensions-win-arm64
+          targetPath: $(Build.BinariesDirectory)/artifact-downloads
+        - input: pipelineArtifact
+          artifactName: onnxruntime-extensions-osx
+          targetPath: $(Build.BinariesDirectory)/artifact-downloads
+        - input: pipelineArtifact
+          artifactName: onnxruntime-extensions-ios_package
+          targetPath: $(Build.BinariesDirectory)/artifact-downloads
+        - input: pipelineArtifact
+          artifactName: onnxruntime-extensions-android-aar
+          targetPath: $(Build.BinariesDirectory)/artifact-downloads
+          itemPattern: | 
+            **/*.aar
+        - input: pipelineArtifact
+          artifactName: onnxruntime-extensions-linux-x64
+          targetPath: $(Build.BinariesDirectory)/artifact-downloads
+        - input: pipelineArtifact
+          artifactName: onnxruntime-extensions-linux-aarch64
+          targetPath: $(Build.BinariesDirectory)/artifact-downloads
+      outputs:
+        - output: pipelineArtifact
+          path: $(Build.ArtifactStagingDirectory)
+          artifact: drop-signed-nuget-CPU
+
+    steps:
+    - checkout: self
+      submodules: true
+
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: "3.12"
+        addToPath: true
+        architecture: "x64"
+      displayName: "Use Python 3.12"
+
+    - script: |
+       dir
+      workingDirectory: '$(Build.BinariesDirectory)/artifact-downloads'
+      displayName: 'List artifacts'
+
+    # Reconstruct the build dir
+    - task: PowerShell@2
+      displayName: 'Extract native libraries to artifact-downloads for addition to nuget native package'
+      inputs:
+        targetType: filePath
+        filePath: $(Build.SourcesDirectory)\tools\ci_build\extract_nuget_files.ps1
+        arguments: $(Build.BinariesDirectory)/artifact-downloads $(Build.BinariesDirectory)\nuget-artifacts
+
+    - task: NuGetToolInstaller@0
+      displayName: Use Nuget 6.2.1
+      inputs:
+        versionSpec: 6.2.1
+
+    - ${{ if eq(parameters.IsDummyPackage, false) }}:
+      - task: PowerShell@2
+        displayName: 'Updating NativeNuget.NuSpec'
+        inputs:
+          targetType: 'inline'
+          script: |
+            $OrtExtVersion=(cat ./version.txt)
+            python $(Build.SourcesDirectory)\tools\ci_build\update_nuspec_for_native_nuget.py `
+              --package_version $OrtExtVersion `
+              --commit_id $(Build.SourceVersion) `
+              --is_release_build ${{ parameters.IsReleaseBuild }} `
+              --nuget_version_suffix ${{ parameters.NugetVersionSuffix }}
+
+            cat $(Build.SourcesDirectory)\nuget\NativeNuget.nuspec
+          workingDirectory: '$(Build.SourcesDirectory)'
+
+    - ${{ else }}:
+      - task: PowerShell@2
+        displayName: 'Updating DummyNativeNuget.NuSpec, and props and targets filenames'
+        inputs:
+          targetType: 'inline'
+          script: |
+            $OrtExtVersion=(cat ./version.txt)
+            python $(Build.SourcesDirectory)\tools\ci_build\update_nuspec_for_native_nuget.py `
+              --package_version $OrtExtVersion `
+              --commit_id $(Build.SourceVersion) `
+              --is_release_build ${{ parameters.IsReleaseBuild }} `
+              --nuget_version_suffix ${{ parameters.NugetVersionSuffix }} `
+              --nuspec_path $(Build.SourcesDirectory)\nuget\DummyNativeNuget.nuspec
+
+            gci $(Build.SourcesDirectory)/nuget -Filter *.props -Recurse | Rename-Item -NewName { $_.name -replace 'Extensions', 'Extensions.Dummy' }
+            gci $(Build.SourcesDirectory)/nuget -Filter *.targets -Recurse | Rename-Item -NewName { $_.name -replace 'Extensions', 'Extensions.Dummy' }
+
+            cat $(Build.SourcesDirectory)\nuget\DummyNativeNuget.nuspec
+          workingDirectory: '$(Build.SourcesDirectory)'
+
+    - task: PowerShell@2
+      displayName: 'Setup for packing'
+      inputs:
+        # copy nuget folder to binaries dir so we can refer to the assembled artifacts in
+        # $(Build.BinariesDirectory)/nuget-artifacts using a deterministic relative path in the nuspec.
+        targetType: 'inline'
+        script: |
+          cp -r $(Build.SourcesDirectory)/nuget $(Build.BinariesDirectory)
+          cp $(Build.SourcesDirectory)/ThirdPartyNotices.txt $(Build.BinariesDirectory)
+
+        workingDirectory: '$(Build.SourcesDirectory)'
+
+    - ${{ if eq(parameters.IsDummyPackage, false) }}:
+      - task: NuGetCommand@2
+        displayName: Packing Microsoft.ML.OnnxRuntime.Extensions NuGet-package
+        inputs:
+          command: 'pack'
+          packagesToPack: '$(Build.BinariesDirectory)\nuget\NativeNuget.nuspec'
+          packDestination: $(Build.ArtifactStagingDirectory)
+
+    - ${{ else }}:
+      - task: NuGetCommand@2
+        displayName: Packing Microsoft.ML.OnnxRuntime.Extensions.Dummy NuGet-package
+        inputs:
+          command: 'pack'
+          packagesToPack: '$(Build.BinariesDirectory)\nuget\DummyNativeNuget.nuspec'
+          packDestination: $(Build.ArtifactStagingDirectory)
+
+    - template: esrp_nuget.yml
+      parameters:
+        DisplayName: 'ESRP - sign NuGet package'
+        FolderPath: '$(Build.ArtifactStagingDirectory)'
+        DoEsrp: 'true'
+
+    - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
+      displayName: 'Clean Agent Directories'
+      condition: always()

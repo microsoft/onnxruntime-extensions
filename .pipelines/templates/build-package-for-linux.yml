@@ -39,7 +39,7 @@ jobs:
         sudo apt-get install -y libssh-dev
       displayName: Install OpenSSL for Azure custom ops
 
-    # NOTE: on arm64 machine, CMake version needs to be updated since we now require CMake 3.25 or newer.
+    # NOTE: on arm64 machine, CMake version needs to be updated since we now require CMake 3.28 or newer.
     - ${{ if eq(parameters.OrtExtensionsArch, 'x64') }}:
       - bash: |
           export CFLAGS="${{parameters.OrtExtensionsCFlags}}"

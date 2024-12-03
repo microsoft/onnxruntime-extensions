@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 
 # Minimum CMake required
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.28)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
 # set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -72,8 +72,8 @@ option(OCOS_ENABLE_BLINGFIRE "Enable operators depending on the Blingfire librar
 option(OCOS_ENABLE_MATH "Enable math tensor operators building" ON)
 option(OCOS_ENABLE_DLIB "Enable operators like Inverse depending on DLIB" ON)
 option(OCOS_ENABLE_VENDOR_IMAGE_CODECS "Enable and use vendor image codecs if supported over libpng & libjpeg" OFF)
-option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require opencv imgcodecs." ON)
-option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
+option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require opencv imgcodecs." OFF)
+option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" OFF)
 option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
 option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" OFF)
@@ -334,6 +334,20 @@ endif()
 file(GLOB TARGET_SRC_NOEXCEPTION "base/*.h" "base/*.cc")
 file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h" "include/*.h" "include/*.hpp")
 
+if(OCOS_ENABLE_DLIB)
+  set(DLIB_ISO_CPP_ONLY ON CACHE INTERNAL "")
+  set(DLIB_NO_GUI_SUPPORT ON CACHE INTERNAL "")
+  set(DLIB_USE_CUDA OFF CACHE INTERNAL "")
+  set(DLIB_USE_LAPACK OFF CACHE INTERNAL "")
+  set(DLIB_USE_BLAS OFF CACHE INTERNAL "")
+  include(dlib)
+
+  # Ideally, dlib should be included as file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/all/source.cpp")
+  # To avoid the unintentional using some unwanted component, we only include the test_for_odr_violations.cpp
+  # to check if there is any violation in build configuration to ensure compiling some dlib source files correctly.
+  file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/test_for_odr_violations.cpp")
+endif()
+
 if(OCOS_ENABLE_TF_STRING)
   set(farmhash_SOURCE_DIR ${PROJECT_SOURCE_DIR}/cmake/externals/farmhash)
   file(GLOB TARGET_SRC_KERNELS "operators/text/*.cc" "operators/text/*.h*")
@@ -342,8 +356,12 @@ if(OCOS_ENABLE_TF_STRING)
 endif()
 
 if(OCOS_ENABLE_AUDIO)
+  if (NOT OCOS_ENABLE_DLIB)
+    message(FATAL_ERROR "Audio operators require DLIB to be enabled.")
+  endif()
   include(dr_libs)
   file(GLOB TARGET_SRC_AUDIO "operators/audio/*.*")
+  list(APPEND TARGET_SRC_AUDIO ${dlib_SOURCE_DIR}/dlib/fft/fft.cpp)
   list(APPEND TARGET_SRC_NOEXCEPTION ${TARGET_SRC_AUDIO})
 endif()
 
@@ -353,20 +371,10 @@ if(OCOS_ENABLE_RE2_REGEX)
 endif()
 
 if(OCOS_ENABLE_MATH)
-  if(OCOS_ENABLE_DLIB)
-    set(DLIB_ISO_CPP_ONLY ON CACHE INTERNAL "")
-    set(DLIB_NO_GUI_SUPPORT ON CACHE INTERNAL "")
-    set(DLIB_USE_CUDA OFF CACHE INTERNAL "")
-    set(DLIB_USE_LAPACK OFF CACHE INTERNAL "")
-    set(DLIB_USE_BLAS OFF CACHE INTERNAL "")
-    include(dlib)
-
-    # Ideally, dlib should be included as
-    # file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/all/source.cpp")
-    # To avoid the unintentional using some unwanted component, only include
-    file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/test_for_odr_violations.cpp")
-    file(GLOB TARGET_SRC_INVERSE "operators/math/dlib/*.cc" "operators/math/dlib/*.h*")
+  if (NOT OCOS_ENABLE_DLIB)
+    message(FATAL_ERROR "Math operators require DLIB to be enabled.")
   endif()
+  file(GLOB TARGET_SRC_INVERSE "operators/math/dlib/*.cc" "operators/math/dlib/*.h*")
 
   file(GLOB TARGET_SRC_MATH "operators/math/*.cc" "operators/math/*.h*")
   if(OCOS_USE_CUDA)
@@ -383,7 +391,7 @@ if (OCOS_USE_CUDA)
 endif()
 
 # enable the opencv dependency if we have ops that require it
-if(OCOS_ENABLE_CV2 OR OCOS_ENABLE_VISION)
+if(OCOS_ENABLE_CV2)
   set(_ENABLE_OPENCV ON)
   message(STATUS "Fetch opencv")
   include(opencv)
@@ -402,10 +410,6 @@ if(OCOS_ENABLE_CV2)
 endif()
 
 if(OCOS_ENABLE_VISION)
-  if(NOT OCOS_ENABLE_OPENCV_CODECS)
-    message(FATAL_ERROR "OCOS_ENABLE_VISION requires OCOS_ENABLE_OPENCV_CODECS to be ON")
-  endif()
-
   file(GLOB TARGET_SRC_VISION "operators/vision/*.cc" "operators/vision/*.h*")
   list(APPEND TARGET_SRC ${TARGET_SRC_VISION})
 endif()
@@ -653,6 +657,28 @@ endif()
 
 if(OCOS_ENABLE_VISION)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_VISION)
+  set(_DEFAULT_CODEC_ENABLE ON)
+  if(OCOS_ENABLE_VENDOR_IMAGE_CODECS)
+    add_compile_definitions(OCOS_ENABLE_VENDOR_IMAGE_CODECS)
+    if(WIN32)
+      # Use WIC on Windows. Nothing to be done
+      set(_DEFAULT_CODEC_ENABLE OFF)
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
+      # Use ImageIO on Apple platforms
+      set(_DEFAULT_CODEC_ENABLE OFF)
+      target_link_libraries(ocos_operators PRIVATE "-framework CoreFoundation" "-framework CoreGraphics" "-framework ImageIO")
+    endif()
+  endif()
+
+  set(_DEFAULT_CODEC_ENABLE ON) # libpng and libjpeg can be optional after EncodeImage with native support too.
+  if(_DEFAULT_CODEC_ENABLE)
+    if (NOT OCOS_ENABLE_DLIB)
+      message(FATAL_ERROR "Vision operators require DLIB to be enabled.") # for now, we need dlib for image processing
+    endif()
+    include(ext_imgcodecs)  
+    target_include_directories(ocos_operators PUBLIC ${libPNG_SOURCE_DIR} ${libJPEG_SOURCE_DIR})
+    target_link_libraries(ocos_operators PUBLIC ${PNG_LIBRARY} ${JPEG_LIBRARY})
+  endif()
 endif()
 
 if(OCOS_ENABLE_AZURE)
@@ -740,24 +766,6 @@ if(OCOS_ENABLE_C_API)
   if(OCOS_ENABLE_DLIB)
     file(GLOB cv2_TARGET_SRC "shared/api/c_api_processor.*" "shared/api/image_*.*")
     list(APPEND _TARGET_LIB_SRC ${cv2_TARGET_SRC})
-    if(OCOS_ENABLE_VENDOR_IMAGE_CODECS)
-      add_compile_definitions(OCOS_ENABLE_VENDOR_IMAGE_CODECS)
-      if(WIN32)
-        # Use WIC on Windows. Nothing to be done
-      elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
-        # Use ImageIO on Apple platforms
-        target_link_libraries(ocos_operators PRIVATE "-framework CoreFoundation" "-framework CoreGraphics" "-framework ImageIO")
-      else()
-        # Fallback to libpng & libjpeg on all other platforms
-        include(ext_imgcodecs)
-        target_include_directories(ocos_operators PUBLIC ${libPNG_SOURCE_DIR} ${libJPEG_SOURCE_DIR})
-        target_link_libraries(ocos_operators PUBLIC ${PNG_LIBRARY} ${JPEG_LIBRARY})
-      endif()
-    else()
-      include(ext_imgcodecs)
-      target_include_directories(ocos_operators PUBLIC ${libPNG_SOURCE_DIR} ${libJPEG_SOURCE_DIR})
-      target_link_libraries(ocos_operators PUBLIC ${PNG_LIBRARY} ${JPEG_LIBRARY})
-    endif()
   endif()
 endif()
 

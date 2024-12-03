@@ -1,0 +1,108 @@
+# packaging pipeline for onnxruntime-extensions Android AAR package
+parameters:
+- name: IsReleaseBuild
+  displayName: "Is this a release build?"
+  type: boolean
+  default: false
+
+- name: AdditionalBuildFlags
+  displayName: Additional build flags for /tools/android/build_aar.py
+  type: string
+
+stages:
+- stage: Android_Java_API_AAR_Packaging_Full
+  dependsOn: []
+  jobs:
+  - template: android-shared-lib-build.yml
+    parameters:
+      AndroidABI: 'x86_64'
+      JobSuffix: 'x86_64'
+      AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
+  - template: android-shared-lib-build.yml
+    parameters:
+      AndroidABI: 'x86'
+      JobSuffix: 'x86'
+      AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
+  - template: android-shared-lib-build.yml
+    parameters:
+      AndroidABI: 'armeabi-v7a'
+      JobSuffix: 'armeabi_v7a'
+      AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
+  - template: android-shared-lib-build.yml
+    parameters:
+      AndroidABI: 'arm64-v8a'
+      JobSuffix: 'arm64_v8a'
+      AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
+  - job: Android_Java_API_AAR_Package_Publish_All
+    dependsOn:
+    - Android_C_API_Packaging_x86_64
+    - Android_C_API_Packaging_x86
+    - Android_C_API_Packaging_armeabi_v7a
+    - Android_C_API_Packaging_arm64_v8a
+    pool:
+      name: "Azure Pipelines"
+      image: "macOS-13"
+      os: macOS
+    templateContext:
+      inputs:
+        - input: pipelineArtifact
+          artifactName: onnxruntime-extensions-android-x86_64
+          targetPath: $(Build.BinariesDirectory)/android_aar  
+        - input: pipelineArtifact
+          artifactName: onnxruntime-extensions-android-x86
+          targetPath: $(Build.BinariesDirectory)/android_aar
+        - input: pipelineArtifact
+          artifactName: onnxruntime-extensions-android-armeabi-v7a
+          targetPath: $(Build.BinariesDirectory)/android_aar
+        - input: pipelineArtifact
+          artifactName: onnxruntime-extensions-android-arm64-v8a
+          targetPath: $(Build.BinariesDirectory)/android_aar
+      outputs:
+        - output: pipelineArtifact
+          path: $(Build.ArtifactStagingDirectory)
+          artifact: onnxruntime-extensions-android-aar
+    timeoutInMinutes: 120
+    variables:
+      buildConfig: Release
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: "3.12"
+        addToPath: true
+        architecture: "x64"
+      displayName: "Use Python 3.12"
+    - task: JavaToolInstaller@0
+      displayName: Use jdk 17
+      inputs:
+        versionSpec: "17"
+        jdkArchitectureOption: "x64"
+        jdkSourceOption: "PreInstalled"
+
+    - task: Bash@3
+      displayName: 'build android aar'
+      inputs:
+        targetType: 'inline'
+        script: |
+          set -e -x
+          python ./tools/android/build_aar.py \
+              --output_dir $(Build.BinariesDirectory)/android_aar \
+              --mode pack_aar_only \
+              --config $(buildConfig)
+          VERSION=$(cat ./version.txt)
+          AAR_PATH="$(Build.BinariesDirectory)/android_aar/aar_out/$(buildConfig)/com/microsoft/onnxruntime/onnxruntime-extensions-android/${VERSION}/onnxruntime-extensions-android-${VERSION}.aar"
+
+          # Do not output ##vso[] commands with `set -x` or they may be parsed again and include a trailing quote.
+          set +x
+          echo "##vso[task.setvariable variable=ORT_EXTENSIONS_AAR_PATH]${AAR_PATH}"
+        workingDirectory: '$(Build.SourcesDirectory)'
+    - bash: |
+        set -e -x
+
+        AAR_DIR=$(dirname "${ORT_EXTENSIONS_AAR_PATH}")
+        ARTIFACTS_STAGING_DIR="$(Build.ArtifactStagingDirectory)"
+
+        cp ${ORT_EXTENSIONS_AAR_PATH} ${ARTIFACTS_STAGING_DIR}
+        cp ${AAR_DIR}/*-javadoc.jar   ${ARTIFACTS_STAGING_DIR}
+        cp ${AAR_DIR}/*-sources.jar   ${ARTIFACTS_STAGING_DIR}
+        cp ${AAR_DIR}/*.pom           ${ARTIFACTS_STAGING_DIR}
+      displayName: "Assemble artifacts"

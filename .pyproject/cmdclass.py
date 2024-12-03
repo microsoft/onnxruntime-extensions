@@ -208,8 +208,7 @@ class CmdBuildCMakeExt(_build_ext):
             # Disabling openCV can drastically reduce the build time.
             cmake_args += [
                 '-DOCOS_ENABLE_OPENCV_CODECS=OFF',
-                '-DOCOS_ENABLE_CV2=OFF',
-                '-DOCOS_ENABLE_VISION=OFF']
+                '-DOCOS_ENABLE_CV2=OFF']
 
         if self.pp_api:
             if not self.no_opencv:

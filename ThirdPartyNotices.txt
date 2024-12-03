@@ -45,7 +45,7 @@ blingfire 0831265c1aca95ca02eca5bf1155e4251e545328
 
 _____
 
-dlib a12824d42584e292ecb3bad05c4b32c2015a7b89
+dlib v19.24.6
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -106,7 +106,7 @@ Google Inc.
 Samsung Electronics
 Stefano Rivera <stefano.rivera@gmail.com>
 
-Dominic Battré <battre@chromium.org>
+Dominic BattrÃ© <battre@chromium.org>
 Doug Kwan <dougkwan@google.com>
 Dmitriy Vyukov <dvyukov@google.com>
 John Millikin <jmillikin@gmail.com>

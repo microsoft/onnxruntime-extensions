@@ -21,61 +21,7 @@ class TokenJsonConfig final {
   using json_pointer = nlohmann::json_pointer<std::string>;
 
  public:
-  OrtxStatus Load(const std::string& json_path) {
-    if (json_path.empty()) {
-      return OrtxStatus(kOrtxErrorInvalidArgument, "json_path is empty.");
-    }
-
-    ortx::path tok_dir(json_path);
-    ortx::path vocab_path(json_path);
-    ortx::path tok_path_obj(json_path);
-    if (tok_path_obj.is_directory()) {
-      vocab_path = tok_dir / kDefaultVocabFile;
-    } else {
-      if (!tok_path_obj.exists()) {
-        return OrtxStatus(kOrtxErrorInvalidFile, "Invalid file: " + tok_path_obj.string());
-      }
-
-      tok_dir = ortx::path(tok_path_obj.parent_path());
-    }
-
-    auto config_path = tok_dir / "tokenizer_config.json";
-    std::ifstream ifs = config_path.open();
-    if (!ifs.is_open()) {
-      return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open a json file: " + config_path.string());
-    }
-
-    nlohmann::json json_config = nlohmann::json::parse(ifs);
-    auto module_cfg = tok_dir / "tokenizer_module.json";
-    if (module_cfg.exists()) {
-      module_path_ = module_cfg.string();
-      std::ifstream module_ifs = module_cfg.open();
-      nlohmann::json module_config = nlohmann::json::parse(module_ifs);
-      json_config.update(module_config);
-    }
-
-    model_max_length_ = json_config.value("model_max_length", 1e+30);
-    std::string tiktoken_file = json_config.value("tiktoken_file", "");
-    if (!tiktoken_file.empty()) {
-      auto tktok_path = tok_dir / tiktoken_file;
-      if (tktok_path.exists()) {
-        vocab_path_ = tktok_path.string();
-      } else {
-        return OrtxStatus(kOrtxErrorInvalidFile, "Invalid file: " + tiktoken_file);
-      }
-    } else {
-      if (ortx::path(vocab_path).exists()) {
-        vocab_path_ = vocab_path.string();
-      } else {
-        return OrtxStatus(kOrtxErrorInvalidFile, "Invalid file: " + vocab_path.string());
-      }
-    }
-
-    tokenizer_class_ = json_config.value("tokenizer_class", "");
-    if (tokenizer_class_.empty()) {
-      return {};
-    }
-
+  OrtxStatus ParseTokensFromConfig(const json& json_config) {
     add_bos_token_ = json_config.value("add_bos_token", false);
     add_eos_token_ = json_config.value("add_eos_token", false);
     clean_up_tokenization_spaces_ = json_config.value("clean_up_tokenization_spaces", false);
@@ -101,9 +47,135 @@ class TokenJsonConfig final {
     return {};
   }
 
-  const std::string& GetVocabDataFile() const { return vocab_path_; }
+  OrtxStatus OpenVocabFile(std::unique_ptr<std::istream>& vocab_stream) const {
+    if (blob_ != nullptr) {
+      if (blob_->vocab_blob_len == 0) {
+        if (blob_->raw_model_blob_len == 0) {
+          return OrtxStatus(kOrtxErrorInvalidArgument, "vocab_blob_len and raw_model_blob_len are both 0.");
+        }
+        std::string vocab_str(blob_->raw_model_blob, blob_->raw_model_blob_len);
+        vocab_stream = std::make_unique<std::istringstream>(vocab_str);
+      } else {
+        if (blob_->raw_model_blob_len > 0) {
+          return OrtxStatus(kOrtxErrorInvalidArgument, "vocab_blob_len and raw_model_blob_len are both non-zero.");
+        }
+        std::string vocab_str(blob_->vocab_json_blob, blob_->vocab_blob_len);
+        vocab_stream = std::make_unique<std::istringstream>(vocab_str);
+      }
+    }
+    else {
+      auto ifs = std::make_unique<std::ifstream>(vocab_path_);
+      if (!ifs->is_open()) {
+        return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, vocab_path_ +  ": does not exist.");
+      }
+      vocab_stream = std::move(ifs);
+    }
 
-  const std::string& GetTikTokenModuleFile() const { return module_path_; }
+    return {}; 
+  }
+
+  OrtxStatus LoadFromBlob(const OrtxTokenizerBlob& blob) {
+    std::string config_str(blob.config_json_blob, blob.config_blob_len);
+    std::istringstream config_ifs(config_str);
+    json json_config = json::parse(config_ifs, nullptr, false, true);
+    if (json_config.is_discarded()) {
+      return OrtxStatus(kOrtxErrorInvalidArgument, "Failed to parse config json.");
+    }
+
+    if (blob.token_module_blob_len > 0) {
+      std::string tokenizer_str(blob.token_module_blob, blob.token_module_blob_len);
+      std::istringstream tokenizer_ifs(tokenizer_str);
+      json json_tokenizer = json::parse(tokenizer_ifs, nullptr, false, true);
+      if (json_tokenizer.is_discarded()) {
+        return OrtxStatus(kOrtxErrorInvalidArgument, "Failed to parse tokenizer json.");
+      }
+      LoadAddedTokens(json_tokenizer);
+      json_config.update(json_tokenizer);
+    }
+
+    blob_ = &blob;
+    model_max_length_ = json_config.value("model_max_length", 1e+30);
+    std::string tiktoken_file = json_config.value("tiktoken_file", "");
+    if (!tiktoken_file.empty()) {
+      if (blob.raw_model_blob_len == 0) {
+        return OrtxStatus(kOrtxErrorInvalidArgument, "missing tiktoken file content in blob.raw_model_blob.");
+      }
+    }
+
+    tokenizer_class_ = json_config.value("tokenizer_class", "");
+    if (!tokenizer_class_.empty()) {
+      return ParseTokensFromConfig(json_config);
+    }
+
+    return {};
+  }
+
+  OrtxStatus Load(const std::string& json_path) {
+    if (json_path.empty()) {
+      return OrtxStatus(kOrtxErrorInvalidArgument, "json_path is empty.");
+    }
+
+    ortx::path tok_dir(json_path);
+    ortx::path vocab_path(json_path);
+    ortx::path tok_path_obj(json_path);
+    if (tok_path_obj.is_directory()) {
+      vocab_path = tok_dir / kDefaultVocabFile;
+    } else {
+      if (!tok_path_obj.exists()) {
+        return OrtxStatus(kOrtxErrorInvalidFile, "Invalid file: " + tok_path_obj.string());
+      }
+
+      tok_dir = ortx::path(tok_path_obj.parent_path());
+    }
+
+    auto config_path = tok_dir / "tokenizer_config.json";
+    std::ifstream ifs = config_path.open();
+    if (!ifs.is_open()) {
+      return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open a json file: " + config_path.string());
+    }
+
+    json json_config = json::parse(ifs, nullptr, false, true);
+    if (json_config.is_discarded()) {
+      return OrtxStatus(kOrtxErrorInvalidArgument, "Failed to parse config json.");
+    }
+
+    auto module_cfg = tok_dir / "tokenizer_module.json";
+    if (module_cfg.exists()) {
+      std::ifstream module_ifs = module_cfg.open();
+      json json_module = json::parse(module_ifs, nullptr, false, true);
+      if (json_module.is_discarded()) {
+        return OrtxStatus(kOrtxErrorInvalidArgument, "Failed to parse tokenizer module json.");
+      }
+      LoadAddedTokens(json_module);
+      json_config.update(json_module);
+    }
+
+    model_max_length_ = json_config.value("model_max_length", 1e+30);
+    std::string tiktoken_file = json_config.value("tiktoken_file", "");
+    if (!tiktoken_file.empty()) {
+      auto tktok_path = tok_dir / tiktoken_file;
+      if (tktok_path.exists()) {
+        vocab_path_ = tktok_path.string();
+      } else {
+        return OrtxStatus(kOrtxErrorInvalidFile, "Invalid file: " + tiktoken_file);
+      }
+    } else {
+      if (ortx::path(vocab_path).exists()) {
+        vocab_path_ = vocab_path.string();
+      } else {
+        return OrtxStatus(kOrtxErrorInvalidFile, "Invalid file: " + vocab_path.string());
+      }
+    }
+
+    tokenizer_class_ = json_config.value("tokenizer_class", "");
+    if (!tokenizer_class_.empty()) {
+      return ParseTokensFromConfig(json_config);
+    }
+
+    return {};
+  }
+
+  const std::string& GetVocabDataFile() const { return vocab_path_; }
 
  public:
   bool add_bos_token_{};
@@ -117,9 +189,34 @@ class TokenJsonConfig final {
   std::string unk_token_;
   std::string pad_token_;
 
+  std::vector<ort_extensions::AddedToken> added_tokens_;
+
+  static AddedToken ParseAddedToken(const json& token) {
+    AddedToken added_token;
+    added_token.id_ = token.value("id", 0);
+    added_token.token_type_ = token.value("__type", "");
+    added_token.content_ = token.value("content", "");
+    added_token.lstrip_ = token.value("lstrip", false);
+    added_token.normalized_ = token.value("normalized", false);
+    added_token.rstrip_ = token.value("rstrip", false);
+    added_token.single_word_ = token.value("single_word", false);
+    added_token.special_ = token.value("special", false);
+    return added_token;
+  }
+
+
  private:
+  void LoadAddedTokens(const json& tok_json) {
+    auto added_tokens = tok_json.find("added_tokens");
+    if (added_tokens != tok_json.end()) {
+      for (const auto& token : *added_tokens) {
+        added_tokens_.emplace_back(ParseAddedToken(token));
+      }
+    }
+  }
+
   std::string vocab_path_;
-  std::string module_path_;
+  const OrtxTokenizerBlob* blob_{nullptr};
 };
 
 }  // namespace ort_extensions

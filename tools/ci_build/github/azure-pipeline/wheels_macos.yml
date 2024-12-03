@@ -1,0 +1,48 @@
+trigger: none
+
+resources:
+  repositories:
+    - repository: 1esPipelines
+      type: git
+      name: 1ESPipelineTemplates/1ESPipelineTemplates
+      ref: refs/tags/release
+
+extends:
+  template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
+  parameters:
+    pool:
+      name: "Azure Pipelines"
+      image: "macOS-13"
+      os: macOS
+    sdl:
+      sourceAnalysisPool:
+        name: onnxruntime-Win-CPU-2022
+        os: windows
+    stages:
+    - stage: stage
+      jobs:
+      - job: macos
+        timeoutInMinutes: 180
+        variables:
+          CIBW_BUILD: "cp3{8,9,10,11,12}-*"
+          CIBW_ARCHS_MACOS: "x86_64 universal2 arm64"
+          CIBW_ENVIRONMENT: "MACOSX_DEPLOYMENT_TARGET=11.0"
+          # Skip trying to test arm64 builds on Intel Macs
+          # CIBW_TEST_SKIP: "*-macosx_arm64 *-macosx_universal2:arm64"
+          # Disable building PyPy wheels
+          CIBW_SKIP: pp*
+        templateContext:
+          outputs:
+          - output: pipelineArtifact
+            path: 'wheelhouse'
+            artifact: drop
+
+        steps:
+          - task: UsePythonVersion@0
+          - bash: |
+              set -o errexit
+              python3 -m pip install --upgrade pip
+              python3 -m pip install cibuildwheel
+            displayName: Install dependencies
+          - bash: CPU_NUMBER=2 cibuildwheel --output-dir wheelhouse .
+            displayName: Build wheels
