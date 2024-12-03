@@ -168,6 +168,5 @@ if __name__ == "__main__":
     print("=" * 30)
     print("Test suite details: ", test_suite_details_url)
     print("=" * 30)
-    print("KYLE DEBUG: tests_status = ", tests_status)
     if tests_status != "passed":
         raise Exception(f"Tests failed. Go to {test_suite_details_url} for more details.")
