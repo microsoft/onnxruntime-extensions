@@ -30,7 +30,7 @@ struct EncodeImage {
 
   bool JpgSupportsBgr() const{ return true; }
 
-  void EncodeJpg(const uint8_t* source_data, bool source_is_bgr, int32_t width, int32_t height,
+  OrtxStatus EncodeJpg(const uint8_t* source_data, bool source_is_bgr, int32_t width, int32_t height,
                 uint8_t** outbuffer, size_t* outsize) const {
     std::vector<PROPBAG2> options;
     std::vector<VARIANT> values;
@@ -63,7 +63,7 @@ struct EncodeImage {
 
   bool pngSupportsBgr() const{ return true; }
 
-  void EncodePng(const uint8_t* source_data, bool source_is_bgr, int32_t width, int32_t height,
+  OrtxStatus EncodePng(const uint8_t* source_data, bool source_is_bgr, int32_t width, int32_t height,
                 uint8_t** outbuffer,size_t* outsize) const{
     std::vector<PROPBAG2> options;
     std::vector<VARIANT> values;
@@ -103,7 +103,7 @@ struct EncodeImage {
   }
 
   private:
-   void EncodeWith(GUID conatinerFormatGUID, std::vector<PROPBAG2> options, std::vector<VARIANT> values,
+   OrtxStatus EncodeWith(GUID conatinerFormatGUID, std::vector<PROPBAG2> options, std::vector<VARIANT> values,
                    const uint8_t* source_data, bool source_is_bgr, int32_t width, int32_t height, uint8_t** outbuffer,
                    size_t* outsize) const {
      const uint8_t* encode_source_data = source_data;
@@ -114,24 +114,24 @@ struct EncodeImage {
 
      HRESULT hr = ::CreateStreamOnHGlobal(NULL, FALSE, pOutputStream.put());
      if (FAILED(hr)) {
-       ORTX_CXX_API_THROW(errorWithHr_("Failed when CreateStreamOnHGlobal.", hr).Message(), ORT_RUNTIME_EXCEPTION);
+       return errorWithHr_("Failed when CreateStreamOnHGlobal.", hr);
      }
 
      hr = pIWICFactory_->CreateEncoder(conatinerFormatGUID, NULL, pIEncoder.put());
      if (FAILED(hr)) {
-       ORTX_CXX_API_THROW(errorWithHr_("Failed when CreateEncoder.", hr).Message(), ORT_RUNTIME_EXCEPTION);
+       return errorWithHr_("Failed when CreateEncoder.", hr);
      }
 
      hr = pIEncoder->Initialize(pOutputStream.get(), WICBitmapEncoderNoCache);
 
      if (FAILED(hr)) {
-       ORTX_CXX_API_THROW(errorWithHr_("Failed when pIEncoder->Initialize.", hr).Message(), ORT_RUNTIME_EXCEPTION);
+       return errorWithHr_("Failed when pIEncoder->Initialize.", hr);
      }
 
      hr = pIEncoder->CreateNewFrame(pBitmapFrame.put(), pPropertyBag.put());
 
      if (FAILED(hr)) {
-       ORTX_CXX_API_THROW(errorWithHr_("Failed when pIEncoder->CreateNewFrame.", hr).Message(), ORT_RUNTIME_EXCEPTION);
+       return errorWithHr_("Failed when pIEncoder->CreateNewFrame.", hr);
      }
 
      assert(options.size() == values.size());
@@ -145,20 +145,19 @@ struct EncodeImage {
 
      hr = pBitmapFrame->Initialize(pPropertyBag.get());
      if (FAILED(hr)) {
-       ORTX_CXX_API_THROW(errorWithHr_("Failed when pBitmapFrame->Initialize.", hr).Message(), ORT_RUNTIME_EXCEPTION);
+       return errorWithHr_("Failed when pBitmapFrame->Initialize.", hr);
      }
 
      hr = pBitmapFrame->SetSize(width, height);
      if (FAILED(hr)) {
-       ORTX_CXX_API_THROW(errorWithHr_("Failed when pBitmapFrame->SetSize.", hr).Message(), ORT_RUNTIME_EXCEPTION);
+       return errorWithHr_("Failed when pBitmapFrame->SetSize.", hr);
      }
 
      WICPixelFormatGUID pixelFormatGUID = GUID_WICPixelFormat24bppRGB;
 
      hr = pBitmapFrame->SetPixelFormat(&pixelFormatGUID);
      if (FAILED(hr)) {
-       ORTX_CXX_API_THROW(errorWithHr_("Failed when pBitmapFrame->SetPixelFormat.", hr).Message(),
-                          ORT_RUNTIME_EXCEPTION);
+       return errorWithHr_("Failed when pBitmapFrame->SetPixelFormat.", hr);
      }
 
      if (!IsEqualGUID(pixelFormatGUID, GUID_WICPixelFormat24bppRGB) &&
@@ -177,47 +176,48 @@ struct EncodeImage {
      hr = pBitmapFrame->WritePixels(height, cbStride, cbBufferSize, (BYTE*)encode_source_data);
 
      if (FAILED(hr)) {
-       ORTX_CXX_API_THROW(errorWithHr_("pBitmapFrame->WritePixels.", hr).Message(), ORT_RUNTIME_EXCEPTION);
+       return errorWithHr_("pBitmapFrame->WritePixels.", hr);
      }
 
      hr = pBitmapFrame->Commit();
      if (FAILED(hr)) {
-       ORTX_CXX_API_THROW(errorWithHr_("pBitmapFrame->Commit.", hr).Message(), ORT_RUNTIME_EXCEPTION);
+       return errorWithHr_("pBitmapFrame->Commit.", hr);
      }
      hr = pIEncoder->Commit();
      if (FAILED(hr)) {
-       ORTX_CXX_API_THROW(errorWithHr_("pIEncoder->Commit.", hr).Message(), ORT_RUNTIME_EXCEPTION);
+       return errorWithHr_("pIEncoder->Commit.", hr);
      }
 
      STATSTG outputStreamStat;
      hr = pOutputStream->Stat(&outputStreamStat, 0);
      if (FAILED(hr)) {
-       ORTX_CXX_API_THROW(errorWithHr_("pOutputStream->Stat.", hr).Message(), ORT_RUNTIME_EXCEPTION);
+       return errorWithHr_("pOutputStream->Stat.", hr);
      }
 
      const size_t size = static_cast<size_t>(outputStreamStat.cbSize.QuadPart);
      void *buffer = malloc(size);
      if (buffer == NULL) {
-       ORTX_CXX_API_THROW(errorWithHr_("malloc failed.", hr).Message(), ORT_RUNTIME_EXCEPTION);
+       return errorWithHr_("malloc failed.", hr);
      }
      ULONG cbRead = 0;
      // Seek to beginning for Read() to work properly.
      hr = pOutputStream->Seek(LARGE_INTEGER(), STREAM_SEEK_SET, NULL);
      if (FAILED(hr)) {
-       ORTX_CXX_API_THROW(errorWithHr_("pOutputStream->Seek.", hr).Message(), ORT_RUNTIME_EXCEPTION);
+       return errorWithHr_("pOutputStream->Seek.", hr);
      }
      hr = pOutputStream->Read(buffer, static_cast<ULONG>(size), &cbRead);
      if (FAILED(hr)) {
-       ORTX_CXX_API_THROW(errorWithHr_("pOutputStream->Read.", hr).Message(), ORT_RUNTIME_EXCEPTION);
+       return errorWithHr_("pOutputStream->Read.", hr);
      }
      *outbuffer = (uint8_t*)buffer;
      *outsize = size;
+     return {};
    }
 
    OrtxStatus errorWithHr_(const std::string message, HRESULT hr) const {
      return {kOrtxErrorInternal, "[ImageEncoder]: " + message + " HRESULT: " + std::to_string(hr)};
    }
+
    IWICImagingFactory* pIWICFactory_{NULL};
 };
 }
-

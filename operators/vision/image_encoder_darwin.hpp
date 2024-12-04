@@ -29,7 +29,7 @@ struct EncodeImage {
 
   bool JpgSupportsBgr() const{ return false; }
 
-  void EncodeJpg(const uint8_t* source_data, bool source_is_bgr, int32_t width, int32_t height,
+  OrtxStatus EncodeJpg(const uint8_t* source_data, bool source_is_bgr, int32_t width, int32_t height,
                 uint8_t** outbuffer, size_t* outsize) const{
     return EncodeWith(kUTTypeJPEG, imageDestinationOptions_, source_data, source_is_bgr,
                       width, height, outbuffer, outsize);
@@ -37,7 +37,7 @@ struct EncodeImage {
 
   bool pngSupportsBgr() const{ return false; }
 
-  void EncodePng(const uint8_t* source_data, bool source_is_bgr, int32_t width, int32_t height,
+  OrtxStatus EncodePng(const uint8_t* source_data, bool source_is_bgr, int32_t width, int32_t height,
                 uint8_t** outbuffer,size_t* outsize) const{
     return EncodeWith(kUTTypePNG, imageDestinationOptions_, source_data, source_is_bgr,
                       width, height, outbuffer, outsize);
@@ -46,7 +46,7 @@ struct EncodeImage {
   ~EncodeImage() { CFRelease(imageDestinationOptions_); }
 
 private:
-  void EncodeWith(CFStringRef type, CFDictionaryRef option, const uint8_t* source_data, bool source_is_bgr,
+  OrtxStatus EncodeWith(CFStringRef type, CFDictionaryRef option, const uint8_t* source_data, bool source_is_bgr,
                  int32_t width, int32_t height, uint8_t** outbuffer, size_t* outsize) const{
     assert(!source_is_bgr);
     const uint8_t* raw_pixel_source_data = source_data;
@@ -55,7 +55,7 @@ private:
     size_t cbBufferSize = height * cbStride;
     CFDataRef rawImageData = CFDataCreate(NULL, raw_pixel_source_data, cbBufferSize);
     if (rawImageData == nullptr) {
-      ORTX_CXX_API_THROW("[ImageDecoder]: Failed to create CFData.", ORT_RUNTIME_EXCEPTION);
+      return {kOrtxErrorInternal, "[ImageDecoder]: Failed to create CFData."};
     }
     CGDataProviderRef provider = CGDataProviderCreateWithCFData(rawImageData);
     CGColorSpaceRef colorspace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
@@ -75,15 +75,15 @@ private:
     CFRelease(provider);
     CFRelease(rawImageData);
     if (image == nullptr) {
-      ORTX_CXX_API_THROW("[ImageEncoder]: Failed to CGImageCreate.", ORT_RUNTIME_EXCEPTION);
+      return {kOrtxErrorInternal, "[ImageEncoder]: Failed to CGImageCreate."};
     }
     CFMutableDataRef result = CFDataCreateMutable(NULL, 0);
     if (result == nullptr) {
-      ORTX_CXX_API_THROW("[ImageEncoder]: Failed to CFDataCreateMutable.", ORT_RUNTIME_EXCEPTION);
+      return {kOrtxErrorInternal, "[ImageEncoder]: Failed to CFDataCreateMutable."};
     }
     CGImageDestinationRef imageDest = CGImageDestinationCreateWithData(result, type, 1 /* count */, NULL);
     if (imageDest == nullptr) {
-      ORTX_CXX_API_THROW("[ImageEncoder]: Failed to CGImageDestinationCreateWithData.", ORT_RUNTIME_EXCEPTION);
+      return {kOrtxErrorInternal, "[ImageEncoder]: Failed to CGImageDestinationCreateWithData."};
     }
     CGImageDestinationAddImage(imageDest, image, option);
     CGImageDestinationFinalize(imageDest);

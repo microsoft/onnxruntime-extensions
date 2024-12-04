@@ -670,7 +670,6 @@ if(OCOS_ENABLE_VISION)
     endif()
   endif()
 
-  set(_DEFAULT_CODEC_ENABLE ON) # libpng and libjpeg can be optional after EncodeImage with native support too.
   if(_DEFAULT_CODEC_ENABLE)
     if (NOT OCOS_ENABLE_DLIB)
       message(FATAL_ERROR "Vision operators require DLIB to be enabled.") # for now, we need dlib for image processing

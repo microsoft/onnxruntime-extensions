@@ -21,54 +21,110 @@
 #endif
 
 namespace ort_extensions {
-struct KernelEncodeImage : BaseKernel {
-  KernelEncodeImage(const OrtApi& api, const OrtKernelInfo& info) : BaseKernel{api, info} {
+struct EncodeImage: public internal::EncodeImage {
+
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    auto status = internal::EncodeImage::OnInit();
+    if (!status.IsOk()) {
+      return status;
+    }
+
+    for (const auto& [key, value] : attrs) {
+      if (key == "color_space") {
+        auto color_space = std::get<std::string>(value);
+        if (color_space == "RGB") {
+          is_bgr_ = false;
+        } else if (color_space == "BGR") {
+          is_bgr_ = true;
+        } else {
+          return {kOrtxErrorInvalidArgument, "[EncodeImage]: Invalid color_space"};
+        }
+      } else if (key == "file_extension") {
+        extension_ = std::get<std::string>(value);
+        if (extension_ != ".jpg" && extension_ != ".png") {
+          return {kOrtxErrorInvalidArgument, "[EncodeImage]: Invalid format"};
+        }
+      } else {
+        return {kOrtxErrorInvalidArgument, "[EncodeImage]: Invalid argument"};
+      }
+    }
+
+    return {};
+  }
+
+  OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
+    std::unordered_map<std::string, std::variant<std::string>> attrs = {
+        {"color_space", "BGR"},
+        {"file_extension", "png"}
+    };
+
     OrtW::CustomOpApi op_api{api};
     std::string format = op_api.KernelInfoGetAttribute<std::string>(&info, "format");
     if (format != "jpg" && format != "png") {
       ORTX_CXX_API_THROW("[EncodeImage] 'format' attribute value must be 'jpg' or 'png'.", ORT_RUNTIME_EXCEPTION);
     }
 
-    extension_ = std::string(".") + format;
-    encoder_.OnInit();
-  }
-
-  void Compute(const ortc::Tensor<uint8_t>& input_bgr, ortc::Tensor<uint8_t>& output) const{
-    const auto& dimensions_bgr = input_bgr.Shape();
-    if (dimensions_bgr.size() != 3 || dimensions_bgr[2] != 3) {
-      ORTX_CXX_API_THROW("[EncodeImage] requires rank 3 BGR input in channels last format.", ORT_INVALID_ARGUMENT);
+    std::string clr = op_api.KernelInfoGetAttribute<std::string>(&info, "color_space");
+    if (clr != "bgr" && clr != "rgb") {
+      ORTX_CXX_API_THROW("[EncodeImage] 'color_space' attribute value must be 'bgr' or 'rgb'.", ORT_RUNTIME_EXCEPTION);
     }
 
-    int32_t height = static_cast<int32_t>(dimensions_bgr[0]);  // H
-    int32_t width = static_cast<int32_t>(dimensions_bgr[1]);   // W
+    if (!format.empty()) {
+      attrs["format"] = std::string(".") + format;
+    }
+
+    if (!clr.empty()) {
+      attrs["color_space"] = clr;
+    }
+
+    return Init(attrs);
+  }
+
+  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) const{
+    const auto& dimensions = input.Shape();
+    if (dimensions.size() != 3 || dimensions[2] != 3) {
+      return {kOrtxErrorInvalidArgument, "[EncodeImage] requires rank 3 rgb input in channels last format."};
+    }
+
+    int32_t height = static_cast<int32_t>(dimensions[0]);  // H
+    int32_t width = static_cast<int32_t>(dimensions[1]);   // W
     const int32_t color_space = 3;
-    const uint8_t* bgr_data = input_bgr.Data();
+    const uint8_t* input_data_ptr = input.Data();
     uint8_t* outbuffer = nullptr;
     size_t outsize = 0;
 
-    auto rgb_data = std::make_unique<uint8_t[]>(height * width * color_space);
-    for (int32_t y = 0; y < height; ++y) {
-      for (int32_t x = 0; x < width; ++x) {
-        rgb_data[(y * width + x) * color_space + 0] = bgr_data[(y * width + x) * color_space + 2];
-        rgb_data[(y * width + x) * color_space + 1] = bgr_data[(y * width + x) * color_space + 1];
-        rgb_data[(y * width + x) * color_space + 2] = bgr_data[(y * width + x) * color_space + 0];
+    std::unique_ptr<uint8_t[]> conversion_buf;
+    auto rgb_data = input_data_ptr;
+    bool conversion_needed = false;
+    auto fx_supported_bgr = 
+      extension_ == ".png"? &internal::EncodeImage::pngSupportsBgr : &internal::EncodeImage::JpgSupportsBgr;
+
+    bool bgr_source = is_bgr_;  
+    if ((this->*fx_supported_bgr)() != is_bgr_) {
+      conversion_needed = true;
+      bgr_source = !is_bgr_;
+    }
+
+    if (conversion_needed) {
+      conversion_buf = std::make_unique<uint8_t[]>(height * width * color_space);
+      auto cvt_data = conversion_buf.get();
+      for (int32_t y = 0; y < height; ++y) {
+        for (int32_t x = 0; x < width; ++x) {
+          cvt_data[(y * width + x) * color_space + 0] = input_data_ptr[(y * width + x) * color_space + 2];
+          cvt_data[(y * width + x) * color_space + 1] = input_data_ptr[(y * width + x) * color_space + 1];
+          cvt_data[(y * width + x) * color_space + 2] = input_data_ptr[(y * width + x) * color_space + 0];
+        }
       }
+      rgb_data = cvt_data;
     }
 
     if (extension_ == ".jpg") {
-      if (encoder_.JpgSupportsBgr()) {
-        encoder_.EncodeJpg(bgr_data, true, width, height, &outbuffer, &outsize);
-      } else {
-        encoder_.EncodeJpg(rgb_data.get(), false, width, height, &outbuffer, &outsize);
-      }
+      EncodeJpg(input_data_ptr, bgr_source, width, height, &outbuffer, &outsize);
     } else if (extension_ == ".png") {
-      if (encoder_.pngSupportsBgr()) {
-        encoder_.EncodePng(bgr_data, true, width, height, &outbuffer, &outsize);
-      } else {
-        encoder_.EncodePng(rgb_data.get(), false, width, height, &outbuffer, &outsize);
-      }
+      EncodePng(input_data_ptr, bgr_source, width, height, &outbuffer, &outsize);
     } else {
-      ORTX_CXX_API_THROW("[EncodeImage] Unsupported image format.", ORT_INVALID_ARGUMENT);
+      return {kOrtxErrorInvalidArgument, "[EncodeImage] Unsupported image format."};
     }
 
     std::vector<int64_t> output_dimensions{static_cast<int64_t>(outsize)};
@@ -78,11 +134,13 @@ struct KernelEncodeImage : BaseKernel {
     if (outbuffer != nullptr) {
       free(outbuffer);
     }
+
+    return {};
   }
 
  private:
-  internal::EncodeImage encoder_;
-  std::string extension_;
+  std::string extension_{".png"};
+  bool is_bgr_{};   // is the input data buffer in BGR format?
 };
 
 }  // namespace ort_extensions

@@ -26,7 +26,7 @@ struct EncodeImage {
   OrtxStatus OnInit() { return {}; }
 
   bool JpgSupportsBgr() const{ return false; }
-  void EncodeJpg(const uint8_t* rgb_data, bool source_is_bgr, int32_t width, int32_t height, uint8_t** outbuffer,
+  OrtxStatus EncodeJpg(const uint8_t* rgb_data, bool source_is_bgr, int32_t width, int32_t height, uint8_t** outbuffer,
                 size_t* outsize) const {
     assert(!source_is_bgr);
     struct jpeg_compress_struct cinfo;
@@ -66,28 +66,29 @@ struct EncodeImage {
 
     jpeg_finish_compress(&cinfo);
     jpeg_destroy_compress(&cinfo);
+    return {};
   }
 
   bool pngSupportsBgr() const{ return false; }
 
-  void EncodePng(const uint8_t* rgb_data, bool source_is_bgr, int32_t width, int32_t height,
+  OrtxStatus EncodePng(const uint8_t* rgb_data, bool source_is_bgr, int32_t width, int32_t height,
                 uint8_t** outbuffer, size_t* outsize) const {
     assert(!source_is_bgr);
     std::vector<uint8_t> png_buffer;
     png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
     if (!png_ptr) {
-      ORTX_CXX_API_THROW("[EncodeImage] PNG create write struct failed.", ORT_INVALID_ARGUMENT);
+      return {kOrtxErrorInvalidArgument, "[EncodeImage] PNG create write struct failed."};
     }
 
     png_infop info_ptr = png_create_info_struct(png_ptr);
     if (!info_ptr) {
       png_destroy_write_struct(&png_ptr, nullptr);
-      ORTX_CXX_API_THROW("[EncodeImage] PNG create info struct failed.", ORT_INVALID_ARGUMENT);
+      return {kOrtxErrorInvalidArgument, "[EncodeImage] PNG create info struct failed."};
     }
 
     if (setjmp(png_jmpbuf(png_ptr))) {
       png_destroy_write_struct(&png_ptr, &info_ptr);
-      ORTX_CXX_API_THROW("[EncodeImage] PNG encoding failed.", ORT_INVALID_ARGUMENT);
+      return {kOrtxErrorInvalidArgument, "[EncodeImage] PNG encoding failed."};
     }
 
     png_set_write_fn(
@@ -120,6 +121,7 @@ struct EncodeImage {
     *outbuffer = (uint8_t*)malloc(size);
     std::copy(png_buffer.data(), png_buffer.data() + size, *outbuffer);
     *outsize = size;
+    return {};
   }
 };
 }  // namespace ort_extensions::internal

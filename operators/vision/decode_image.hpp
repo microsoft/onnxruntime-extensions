@@ -40,7 +40,7 @@ struct DecodeImage: public internal::DecodeImage {
           return {kOrtxErrorInvalidArgument, "[DecodeImage]: Invalid color_space"};
         }
       } else {
-        return {kOrtxErrorInvalidArgument, "[Resize]: Invalid argument"};
+        return {kOrtxErrorInvalidArgument, "[DecodeImage]: Invalid argument"};
       }
     }
 
@@ -48,8 +48,21 @@ struct DecodeImage: public internal::DecodeImage {
   }
 
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
-    is_bgr_ = true;
-    return Init(std::unordered_map<std::string, std::variant<std::string>>());
+    std::unordered_map<std::string, std::variant<std::string>> attrs = {
+        {"color_space", "bgr"}
+    };
+
+    OrtW::CustomOpApi op_api{api};
+    std::string clr = op_api.KernelInfoGetAttribute<std::string>(&info, "color_space");
+    if (clr != "bgr" && clr != "rgb") {
+      return OrtW::CreateStatus("[DecodeImage] 'color_space' attribute value must be 'bgr' or 'rgb'.", ORT_RUNTIME_EXCEPTION);
+    }
+
+    if (!clr.empty()) {
+      attrs["color_space"] = clr;
+    }
+
+    return Init(attrs);
   }
 
   OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) const{
@@ -74,6 +87,7 @@ struct DecodeImage: public internal::DecodeImage {
   }
 
   private:
+    std::string image_type_{"png"};
     bool is_bgr_{};  // flag to indicate if the output is in BGR format
 };
 
