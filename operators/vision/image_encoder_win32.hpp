@@ -97,6 +97,7 @@ struct EncodeImage {
   ~EncodeImage() {
     if (pIWICFactory_) {
       pIWICFactory_->Release();
+      pIWICFactory_ = NULL;
     }
     CoUninitialize();
   }
@@ -216,7 +217,7 @@ struct EncodeImage {
    OrtxStatus errorWithHr_(const std::string message, HRESULT hr) const {
      return {kOrtxErrorInternal, "[ImageEncoder]: " + message + " HRESULT: " + std::to_string(hr)};
    }
-   IWICImagingFactory* pIWICFactory_;
+   IWICImagingFactory* pIWICFactory_{NULL};
 };
 }
 
