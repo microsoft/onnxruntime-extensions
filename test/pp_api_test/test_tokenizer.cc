@@ -703,5 +703,6 @@ TEST(OrtxTokenizerTest, ChatGLMTokenizer) {
 
   // AutoTokenizer.from_pretrained("data/tokenizer/THUDM/chatglm-6b", trust_remote_code=True)
   EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({
-    1, 115, 176, 3867, 162, 9251, 2829, 0, 102, 0, 220, 6, 5, 63977, 91446, 63829, 5, 0, 5, 0, 21, 9, 2}));
+    115, 176, 3867, 162, 9251, 2829, 4, 102, 220, 6, 5, 63977, 91446,
+    63829, 130009, 130008, 130008, 130008, 130008, 5, 4, 4, 21, 9, 130001, 130004}));
 }
