@@ -31,7 +31,8 @@ struct DecodeImage: public internal::DecodeImage {
 
     for (const auto& [key, value] : attrs) {
       if (key == "color_space") {
-        auto color_space = std::get<std::string>(value);
+        std::string color_space = std::get<std::string>(value);
+        std::transform(color_space.begin(), color_space.end(), color_space.begin(), ::toupper);
         if (color_space == "RGB") {
           is_bgr_ = false;
         } else if (color_space == "BGR") {
@@ -52,14 +53,17 @@ struct DecodeImage: public internal::DecodeImage {
         {"color_space", "bgr"}
     };
 
-    OrtW::CustomOpApi op_api{api};
-    std::string clr = op_api.KernelInfoGetAttribute<std::string>(&info, "color_space");
-    if (clr != "bgr" && clr != "rgb") {
-      return OrtW::CreateStatus("[DecodeImage] 'color_space' attribute value must be 'bgr' or 'rgb'.", ORT_RUNTIME_EXCEPTION);
+    std::string clr;
+    auto status = OrtW::API::GetOpAttributeString(api, info, "color_space", clr);
+    if (status != nullptr) {
+      return status;
     }
-
     if (!clr.empty()) {
-      attrs["color_space"] = clr;
+      if (clr != "bgr" && clr != "rgb") {
+        return OrtW::CreateStatus("[EncodeImage] 'color_space' attribute value must be 'bgr' or 'rgb'.", ORT_RUNTIME_EXCEPTION);
+      } else {
+        attrs["color_space"] = clr;
+      }
     }
 
     return Init(attrs);

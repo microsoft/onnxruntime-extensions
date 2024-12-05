@@ -33,6 +33,7 @@ struct EncodeImage: public internal::EncodeImage {
     for (const auto& [key, value] : attrs) {
       if (key == "color_space") {
         auto color_space = std::get<std::string>(value);
+        std::transform(color_space.begin(), color_space.end(), color_space.begin(), ::toupper);
         if (color_space == "RGB") {
           is_bgr_ = false;
         } else if (color_space == "BGR") {
@@ -42,6 +43,7 @@ struct EncodeImage: public internal::EncodeImage {
         }
       } else if (key == "file_extension") {
         extension_ = std::get<std::string>(value);
+        std::transform(extension_.begin(), extension_.end(), extension_.begin(), ::tolower);
         if (extension_ != ".jpg" && extension_ != ".png") {
           return {kOrtxErrorInvalidArgument, "[EncodeImage]: Invalid format"};
         }
@@ -55,27 +57,34 @@ struct EncodeImage: public internal::EncodeImage {
 
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
     std::unordered_map<std::string, std::variant<std::string>> attrs = {
-        {"color_space", "BGR"},
+        {"color_space", "bgr"},
         {"file_extension", "png"}
     };
 
-    OrtW::CustomOpApi op_api{api};
-    std::string format = op_api.KernelInfoGetAttribute<std::string>(&info, "format");
-    if (format != "jpg" && format != "png") {
-      ORTX_CXX_API_THROW("[EncodeImage] 'format' attribute value must be 'jpg' or 'png'.", ORT_RUNTIME_EXCEPTION);
+    std::string format;
+    auto status = OrtW::API::GetOpAttributeString(api, info, "format", format);
+    if (status != nullptr) {
+      return status;
+    }
+    if (!format.empty()){
+      if (format != "jpg" && format != "png") {
+        return OrtW::CreateStatus("[EncodeImage] 'format' attribute value must be 'jpg' or 'png'.", ORT_RUNTIME_EXCEPTION);
+      } else {
+        attrs["file_extension"] = std::string(".") + format;
+      }
     }
 
-    std::string clr = op_api.KernelInfoGetAttribute<std::string>(&info, "color_space");
-    if (clr != "bgr" && clr != "rgb") {
-      ORTX_CXX_API_THROW("[EncodeImage] 'color_space' attribute value must be 'bgr' or 'rgb'.", ORT_RUNTIME_EXCEPTION);
+    std::string clr;
+    status = OrtW::API::GetOpAttributeString(api, info, "color_space", clr);
+    if (status != nullptr) {
+      return status;
     }
-
-    if (!format.empty()) {
-      attrs["format"] = std::string(".") + format;
-    }
-
     if (!clr.empty()) {
-      attrs["color_space"] = clr;
+      if (clr != "bgr" && clr != "rgb") {
+        return OrtW::CreateStatus("[EncodeImage] 'color_space' attribute value must be 'bgr' or 'rgb'.", ORT_RUNTIME_EXCEPTION);
+      } else {
+        attrs["color_space"] = clr;
+      }
     }
 
     return Init(attrs);
