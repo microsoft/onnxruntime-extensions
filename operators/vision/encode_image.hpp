@@ -104,7 +104,7 @@ struct EncodeImage: public internal::EncodeImage {
     size_t outsize = 0;
 
     std::unique_ptr<uint8_t[]> conversion_buf;
-    auto rgb_data = input_data_ptr;
+    auto encoding_data = input_data_ptr;
     bool conversion_needed = false;
     auto fx_supported_bgr = 
       extension_ == ".png"? &internal::EncodeImage::pngSupportsBgr : &internal::EncodeImage::JpgSupportsBgr;
@@ -125,13 +125,13 @@ struct EncodeImage: public internal::EncodeImage {
           cvt_data[(y * width + x) * color_space + 2] = input_data_ptr[(y * width + x) * color_space + 0];
         }
       }
-      rgb_data = cvt_data;
+      encoding_data = cvt_data;
     }
 
     if (extension_ == ".jpg") {
-      EncodeJpg(input_data_ptr, bgr_source, width, height, &outbuffer, &outsize);
+      EncodeJpg(encoding_data, bgr_source, width, height, &outbuffer, &outsize);
     } else if (extension_ == ".png") {
-      EncodePng(input_data_ptr, bgr_source, width, height, &outbuffer, &outsize);
+      EncodePng(encoding_data, bgr_source, width, height, &outbuffer, &outsize);
     } else {
       return {kOrtxErrorInvalidArgument, "[EncodeImage] Unsupported image format."};
     }
