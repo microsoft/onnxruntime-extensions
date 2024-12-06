@@ -21,29 +21,56 @@ class TokenJsonConfig final {
   using json_pointer = nlohmann::json_pointer<std::string>;
 
  public:
+  OrtxStatus AppendModuleJson(json& json_config) {
+    auto iter = module_json_.find(tokenizer_class_);
+    if (iter != module_json_.end()) {
+      json json_module = json::parse(iter->second, nullptr, false, true);
+      if (json_module.is_discarded()) {
+        return OrtxStatus(kOrtxErrorInternal, "Failed to parse tokenizer module json.");
+      }
+      json_config.update(json_module);
+    }
+
+    return {};
+  }
+
   OrtxStatus ParseTokensFromConfig(const json& json_config) {
-    add_bos_token_ = json_config.value("add_bos_token", false);
-    add_eos_token_ = json_config.value("add_eos_token", false);
+    if (tokenizer_class_.empty()) {
+      // Only the legacy fairseq/xlm-roberta tokenizer config doesn't have tokenizer_class.
+      // Add ugly hack to handle it.
+      add_bos_token_ = true;
+      add_eos_token_ = true;
+      bos_token_ = "<s>";
+      eos_token_ = "</s>";
+      unk_token_ = "<unk>";
+      return {};
+    }
+
     clean_up_tokenization_spaces_ = json_config.value("clean_up_tokenization_spaces", false);
 
-    auto tok_iter = json_config.find("bos_token");
-    if (tok_iter != json_config.end() && !tok_iter->is_null()) {
-      if (tok_iter->is_object()) {
-        bos_token_ = tok_iter->value("content", "");
-        eos_token_ = json_config.value("/eos_token/content"_json_pointer, "");
-        unk_token_ = json_config.value("/unk_token/content"_json_pointer, "");
-      } else {
-        bos_token_ = json_config.value("bos_token", "");
-        eos_token_ = json_config.value("eos_token", "");
-        unk_token_ = json_config.value("unk_token", "");
+    auto parse_token = [](const json& config, const std::string& key, std::string& token) {
+      auto iter = config.find(key);
+      if (iter != config.end() && !iter->is_null()) {
+        if (iter->is_object()) {
+          token = iter->value("content", "");
+        } else {
+          token = config.value(key, "");
+        }
       }
-    }
+    };
+
+    parse_token(json_config, "bos_token", bos_token_);
+    parse_token(json_config, "eos_token", eos_token_);
+    parse_token(json_config, "unk_token", unk_token_);
+
 
     auto pad_iter = json_config.find("pad_token");
     if (pad_iter != json_config.end() && pad_iter->is_string()) {
       pad_token_ = json_config.value("pad_token", "");
     }
 
+    add_bos_token_ = json_config.value("add_bos_token", false);
+    add_eos_token_ = json_config.value("add_eos_token", false);
     return {};
   }
 
@@ -62,16 +89,15 @@ class TokenJsonConfig final {
         std::string vocab_str(blob_->vocab_json_blob, blob_->vocab_blob_len);
         vocab_stream = std::make_unique<std::istringstream>(vocab_str);
       }
-    }
-    else {
+    } else {
       auto ifs = std::make_unique<std::ifstream>(vocab_path_);
       if (!ifs->is_open()) {
-        return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, vocab_path_ +  ": does not exist.");
+        return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, vocab_path_ + ": does not exist.");
       }
       vocab_stream = std::move(ifs);
     }
 
-    return {}; 
+    return {};
   }
 
   OrtxStatus LoadFromBlob(const OrtxTokenizerBlob& blob) {
@@ -103,11 +129,11 @@ class TokenJsonConfig final {
     }
 
     tokenizer_class_ = json_config.value("tokenizer_class", "");
-    if (!tokenizer_class_.empty()) {
-      return ParseTokensFromConfig(json_config);
+    auto status = AppendModuleJson(json_config);
+    if (!status.IsOk()) {
+      return status;
     }
-
-    return {};
+    return ParseTokensFromConfig(json_config);
   }
 
   OrtxStatus Load(const std::string& json_path) {
@@ -168,11 +194,11 @@ class TokenJsonConfig final {
     }
 
     tokenizer_class_ = json_config.value("tokenizer_class", "");
-    if (!tokenizer_class_.empty()) {
-      return ParseTokensFromConfig(json_config);
+    auto status = AppendModuleJson(json_config);
+    if (!status.IsOk()) {
+      return status;
     }
-
-    return {};
+    return ParseTokensFromConfig(json_config);
   }
 
   const std::string& GetVocabDataFile() const { return vocab_path_; }
@@ -204,7 +230,6 @@ class TokenJsonConfig final {
     return added_token;
   }
 
-
  private:
   void LoadAddedTokens(const json& tok_json) {
     auto added_tokens = tok_json.find("added_tokens");
@@ -217,6 +242,9 @@ class TokenJsonConfig final {
 
   std::string vocab_path_;
   const OrtxTokenizerBlob* blob_{nullptr};
+  const std::map<std::string, std::string> module_json_ = {
+      {"ChatGLMTokenizer", "{\"add_bos_token\"  : false, \"add_eos_token\": false}"},
+      {"T5Tokenizer", "{\"add_bos_token\"  : false, \"add_eos_token\": true}"}};
 };
 
 }  // namespace ort_extensions

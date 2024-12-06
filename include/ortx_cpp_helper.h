@@ -17,6 +17,7 @@ class OrtxDeleter {
   }
 };
 
+
 /**
  * @brief A smart pointer class that manages the lifetime of an OrtxObject.
  * 
@@ -64,34 +65,27 @@ class OrtxObjectPtr : public std::unique_ptr<T, OrtxDeleter<T>> {
    */
   extError_t Code() const { return err_; }
 
- private:
-  extError_t err_ = kOrtxOK; /**< The error code associated with the creation of the OrtxObject. */
-};
+  struct PointerAssigner {
+    OrtxObject* obj_{};
+    OrtxObjectPtr<T>& ptr_;
+    PointerAssigner(OrtxObjectPtr<T>& ptr) : ptr_(ptr){};
 
-template <typename T>
-struct PointerAssigner {
-  OrtxObject* obj_{};
-  OrtxObjectPtr<T>& ptr_;
-  PointerAssigner(OrtxObjectPtr<T>& ptr) : ptr_(ptr){};
+    ~PointerAssigner() { ptr_.reset(static_cast<T*>(obj_)); };
 
-  ~PointerAssigner() { ptr_.reset(static_cast<T*>(obj_)); };
-
-  operator T**() { return reinterpret_cast<T**>(&obj_); };
-};
+    operator T**() { return reinterpret_cast<T**>(&obj_); };
+  };
 
 /**
- * @brief A wrapper function for OrtxObjectPtr that can be used as a function parameter on creation.
+ * @brief A wrapper function for OrtxObjectPtr that can be used as a function parameter of T**.
  * 
  * This function creates a PointerAssigner object for the given OrtxObjectPtr. The PointerAssigner
  * object can be used to assign a pointer value to the OrtxObjectPtr.
  * 
- * @tparam T The type of the object pointed to by the OrtxObjectPtr.
- * @param ptr The OrtxObjectPtr to create the PointerAssigner for.
- * @return A PointerAssigner object for the given OrtxObjectPtr.
  */
-template <typename T>
-PointerAssigner<T> ptr(OrtxObjectPtr<T>& ptr) {
-  return PointerAssigner<T>{ptr};
+  PointerAssigner ToBeAssigned() { return PointerAssigner{*this}; }
+
+ private:
+  extError_t err_ = kOrtxOK; /**< The error code associated with the creation of the OrtxObject. */
 };
 
 }  // namespace ort_extensions

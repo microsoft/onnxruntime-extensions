@@ -17,7 +17,6 @@ const size_t test_image_count = sizeof(test_image_paths) / sizeof(test_image_pat
 
 TEST(ProcessorTest, TestPhi3VImageProcessing) {
   auto [input_data, n_data] = ort_extensions::LoadRawImages(test_image_paths, test_image_count);
-      // {"data/processor/standard_s.jpg", "data/processor/australia.jpg", "data/processor/exceltable.png"});
 
   auto proc = OrtxObjectPtr<ImageProcessor>(OrtxCreateProcessor, "data/processor/phi_3_image.json");
   ortc::Tensor<float>* pixel_values;
@@ -47,18 +46,18 @@ TEST(ProcessorTest, TestPhi3VImageProcessing) {
 
 TEST(ProcessorTest, TestCLIPImageProcessing) {
   OrtxObjectPtr<OrtxRawImages> raw_images{};
-  extError_t err = OrtxLoadImages(ort_extensions::ptr(raw_images), test_image_paths, test_image_count, nullptr);
+  extError_t err = OrtxLoadImages(raw_images.ToBeAssigned(), test_image_paths, test_image_count, nullptr);
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxObjectPtr<OrtxProcessor> processor;
-  err = OrtxCreateProcessor(ort_extensions::ptr(processor), "data/processor/clip_image.json");
+  err = OrtxCreateProcessor(processor.ToBeAssigned(), "data/processor/clip_image.json");
   if (err != kOrtxOK) {
     std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
   }
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxObjectPtr<OrtxTensorResult> result;
-  err = OrtxImagePreProcess(processor.get(), raw_images.get(), ort_extensions::ptr(result));
+  err = OrtxImagePreProcess(processor.get(), raw_images.get(), result.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxTensor* tensor;
@@ -75,18 +74,18 @@ TEST(ProcessorTest, TestCLIPImageProcessing) {
 
 TEST(ProcessorTest, TestMLlamaImageProcessing) {
   OrtxObjectPtr<OrtxRawImages> raw_images{};
-  extError_t err = OrtxLoadImages(ort_extensions::ptr(raw_images), test_image_paths, test_image_count, nullptr);
+  extError_t err = OrtxLoadImages(raw_images.ToBeAssigned(), test_image_paths, test_image_count, nullptr);
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxObjectPtr<OrtxProcessor> processor;
-  err = OrtxCreateProcessor(ort_extensions::ptr(processor), "data/processor/mllama/llama_3_image.json");
+  err = OrtxCreateProcessor(processor.ToBeAssigned(), "data/processor/mllama/llama_3_image.json");
   if (err != kOrtxOK) {
     std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
   }
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxObjectPtr<OrtxTensorResult> result;
-  err = OrtxImagePreProcess(processor.get(), raw_images.get(), ort_extensions::ptr(result));
+  err = OrtxImagePreProcess(processor.get(), raw_images.get(), result.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxTensor* tensor;
