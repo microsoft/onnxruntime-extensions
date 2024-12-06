@@ -10,6 +10,30 @@
 
 namespace ort_extensions {
 
+enum class TokenType {
+  kUnknown, kUnigram, kBPE
+};
+
+constexpr std::pair<const char*, TokenType> kTokenizerDict[] = {
+  {"PreTrainedTokenizerFast", TokenType::kBPE},
+  {"CLIPTokenizer", TokenType::kBPE},
+  {"WhisperTokenizer", TokenType::kBPE},
+  {"GemmaTokenizer", TokenType::kBPE},
+  {"LlamaTokenizer", TokenType::kBPE},
+  {"Phi3Tokenizer", TokenType::kBPE},
+  {"CodeLlamaTokenizer", TokenType::kBPE},
+  {"CodeGenTokenizer", TokenType::kBPE},
+  {"GPT2Tokenizer", TokenType::kBPE},
+  {"Qwen2Tokenizer", TokenType::kBPE},
+  {"BaichuanTokenizer", TokenType::kBPE},
+
+  {"", TokenType::kUnigram},
+  {"T5Tokenizer", TokenType::kUnigram},
+  {"ChatGLMTokenizer", TokenType::kUnigram},
+  {"XLMRobertaTokenizer", TokenType::kUnigram}
+};
+
+
 // TokenJsonConfig: Handles loading and parsing of JSON configuration files for tokenizers
 class TokenJsonConfig final {
  public:
@@ -41,7 +65,7 @@ class TokenJsonConfig final {
       add_bos_token_ = true;
       add_eos_token_ = true;
       bos_token_ = "<s>";
-      eos_token_ = "</s>";
+      eos_token_ = "";
       unk_token_ = "<unk>";
       return {};
     }
@@ -228,6 +252,14 @@ class TokenJsonConfig final {
     added_token.single_word_ = token.value("single_word", false);
     added_token.special_ = token.value("special", false);
     return added_token;
+  }
+
+  static TokenType GetTokenType(const std::string& tok) {
+    static const std::unordered_map<std::string, TokenType> dict {
+        std::begin(kTokenizerDict), std::end(kTokenizerDict) };
+
+    auto iter = dict.find(tok);
+    return iter == dict.end() ? TokenType::kUnknown : iter->second;
   }
 
  private:

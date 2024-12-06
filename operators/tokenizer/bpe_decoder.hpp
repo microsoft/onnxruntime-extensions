@@ -49,26 +49,26 @@ struct KernelBpeDecoder {
     }
 
     std::string added_tokens;
-    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "added_tokens", added_tokens));
+    ORTW_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "added_tokens", added_tokens));
     if (!added_tokens.empty()) {
       auto um = ParseId2String(added_tokens);
       added_tokens_ = std::map<int64_t, std::string>(um.begin(), um.end());
     }
 
     std::string all_special_ids;
-    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "all_special_ids", all_special_ids));
+    ORTW_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "all_special_ids", all_special_ids));
     if (!all_special_ids.empty()) {
       auto um = ParseId2String(all_special_ids);
       std::transform(um.begin(), um.end(), std::inserter(all_special_ids_, all_special_ids_.end()),
                      [](const auto& p) { return p.first; });
     }
 
-    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "en_normalization", en_normalization_));
-    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "skip_special_tokens", skip_special_tokens_));
-    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "whitespace_token", whitespace_token_));
-    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "bos_token", bos_token_));
-    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "eos_token", eos_token_));
-    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "unk_token", unk_token_));
+    ORTW_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "en_normalization", en_normalization_));
+    ORTW_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "skip_special_tokens", skip_special_tokens_));
+    ORTW_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "whitespace_token", whitespace_token_));
+    ORTW_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "bos_token", bos_token_));
+    ORTW_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "eos_token", eos_token_));
+    ORTW_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "unk_token", unk_token_));
 
     return status;
   }
