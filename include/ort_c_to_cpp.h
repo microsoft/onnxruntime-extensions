@@ -63,6 +63,25 @@ class API {
     instance()->ReleaseStatus(ptr);
   }
 
+  static OrtStatusPtr GetOpAttributeString(const OrtApi& api,
+    const OrtKernelInfo& info, const char* name, std::string& value) noexcept {
+    size_t size = 0;
+    OrtStatus* status = api.KernelInfoGetAttribute_string(&info, name, nullptr, &size);
+    if (status == nullptr) {
+      value.resize(size);
+      status = api.KernelInfoGetAttribute_string(&info, name, &value[0], &size);
+      value.resize(size - 1);  // remove the terminating character '\0'
+      if (status != nullptr) {
+        return status; // some unexpected error
+      }
+    } else {
+      // ignore the error, as the attribute is optional
+      api.ReleaseStatus(status);
+    }
+
+    return nullptr;
+  }
+
   template <typename T>
   static OrtStatusPtr KernelInfoGetAttribute(const OrtKernelInfo& info, const char* name, T& value) noexcept;
 

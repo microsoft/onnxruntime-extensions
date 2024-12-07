@@ -6,6 +6,10 @@
 #include <cstdint>
 
 #include "png.h"
+#if _WIN32
+// Fix redefinition in jmorecfg.h
+#include <basetsd.h>
+#endif
 #include "jpeglib.h"
 #include "op_def_struct.h"
 #include "ext_status.h"
