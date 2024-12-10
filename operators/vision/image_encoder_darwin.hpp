@@ -95,6 +95,7 @@ private:
     CFDataGetBytes(result, CFRangeMake(0, size), *outbuffer);
     CFRelease(result);
     *outsize = size;
+    return {};
   }
 
   CFDictionaryRef imageDestinationOptions_{NULL};
