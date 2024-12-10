@@ -4,6 +4,11 @@ parameters:
   type: string
   default: ''
 
+- name: artifact_feed
+  displayName: 'Artifact feed'
+  type: string
+  default: 'ORT-Nightly'
+
 stages:
 - stage: Windows_Build
   dependsOn: []
@@ -98,3 +103,18 @@ stages:
           )
       workingDirectory: '$(REPOROOT)'
       displayName: zip package
+
+    - script: 'pip install twine==3.4.2'
+      displayName: 'Install Twine'
+
+    - task: TwineAuthenticate@1
+      displayName: 'Twine Authenticate '
+      inputs:
+        artifactFeed: PublicPackages/${{ parameters.artifact_feed }}
+
+    - script: 'python -m twine upload -r ${{ parameters.artifact_feed }} --config-file $(PYPIRC_PATH) --non-interactive --skip-existing *.whl'
+      workingDirectory: '$(REPOROOT)\out'
+      displayName: 'Uploading wheels to ${{ parameters.artifact_feed }}'
+      retryCountOnTaskFailure: 3
+      env:
+        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
