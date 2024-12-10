@@ -20,7 +20,7 @@ stages:
       os: windows
 
     variables:
-      CIBW_BUILD: cp3{8,9,10,11,12}-*amd64
+      CIBW_BUILD: cp3{9,10,11,12,13}-*amd64
       CIBW_ARCHS: AMD64
       CIBW_ENVIRONMENT: "${{ parameters.CibwEnv }}"
       CIBW_BUILD_VERBOSITY: 1
@@ -60,7 +60,7 @@ stages:
 
     - task: UsePythonVersion@0
       inputs:
-        versionSpec: '3.12'
+        versionSpec: '3.13'
         addToPath: true
 
     - script: |
