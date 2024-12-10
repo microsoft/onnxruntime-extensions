@@ -106,10 +106,10 @@ struct EncodeImage: public internal::EncodeImage {
     std::unique_ptr<uint8_t[]> conversion_buf;
     auto encoding_data = input_data_ptr;
     bool conversion_needed = false;
-    auto fx_supported_bgr = 
+    auto fx_supported_bgr =
       extension_ == ".png"? &internal::EncodeImage::pngSupportsBgr : &internal::EncodeImage::JpgSupportsBgr;
 
-    bool bgr_source = is_bgr_;  
+    bool bgr_source = is_bgr_;
     if ((this->*fx_supported_bgr)() != is_bgr_) {
       conversion_needed = true;
       bgr_source = !is_bgr_;
@@ -128,12 +128,18 @@ struct EncodeImage: public internal::EncodeImage {
       encoding_data = cvt_data;
     }
 
+    OrtxStatus status{};
+
     if (extension_ == ".jpg") {
-      EncodeJpg(encoding_data, bgr_source, width, height, &outbuffer, &outsize);
+      status = EncodeJpg(encoding_data, bgr_source, width, height, &outbuffer, &outsize);
     } else if (extension_ == ".png") {
-      EncodePng(encoding_data, bgr_source, width, height, &outbuffer, &outsize);
+      status = EncodePng(encoding_data, bgr_source, width, height, &outbuffer, &outsize);
     } else {
-      return {kOrtxErrorInvalidArgument, "[EncodeImage] Unsupported image format."};
+      status = {kOrtxErrorInvalidArgument, "[EncodeImage] Unsupported image format."};
+    }
+
+    if (!status.IsOk()) {
+      return status;
     }
 
     std::vector<int64_t> output_dimensions{static_cast<int64_t>(outsize)};
