@@ -34,7 +34,7 @@ else()
   if (OCOS_ONNXRUNTIME_VERSION)
     set(ONNXRUNTIME_VER ${OCOS_ONNXRUNTIME_VERSION})
   else()
-    set(ONNXRUNTIME_VER "1.17.1")
+    set(ONNXRUNTIME_VER "1.20.1")
   endif()
 
   if (ANDROID)

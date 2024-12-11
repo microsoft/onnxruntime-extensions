@@ -19,7 +19,7 @@ class JsonTokenizerOpKernel {
     ORTW_RETURN_IF_ERROR(OrtW::API::GetOpAttributeString(api, info, "tokenizer_config", config_json));
 
     std::string vocab_json;
-    ORTW_RETURN_IF_ERROR(OrtW::API::GetOpAttributeString(api, info, "tokenizer_dict", vocab_json));
+    ORTW_RETURN_IF_ERROR(OrtW::API::GetOpAttributeString(api, info, "tokenizer_vocab", vocab_json));
 
     TokenJsonConfig cfg;
     OrtxTokenizerBlob blob({config_json.c_str(), config_json.length()},
