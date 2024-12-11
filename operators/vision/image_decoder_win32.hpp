@@ -118,7 +118,7 @@ struct DecodeImage {
     }
 
     // Convert to 24 bytes per pixel RGB format if needed
-    if (pixelFormat != GUID_WICPixelFormat24bppRGB) {
+    if (!IsEqualGUID(pixelFormat, GUID_WICPixelFormat24bppRGB)) {
       IWICBitmapSource* pConverted = NULL;
       hr = WICConvertBitmapSource(GUID_WICPixelFormat24bppRGB, pIDecoderFrame.get(), &pConverted);
       if (FAILED(hr)) {
@@ -140,6 +140,10 @@ struct DecodeImage {
   }
 
   ~DecodeImage() {
+    if (pIWICFactory_) {
+      pIWICFactory_->Release();
+      pIWICFactory_ = NULL;
+    }
     CoUninitialize();
   }
 
@@ -149,6 +153,6 @@ struct DecodeImage {
        kOrtxErrorInternal,
        "[ImageDecoder]: " + message + " HRESULT: " + std::to_string(hr)};
     }
-    winrt::com_ptr<IWICImagingFactory> pIWICFactory_;
+    IWICImagingFactory* pIWICFactory_{NULL};
 };
 }  // namespace ort_extensions::internal

@@ -666,11 +666,10 @@ if(OCOS_ENABLE_VISION)
     elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
       # Use ImageIO on Apple platforms
       set(_DEFAULT_CODEC_ENABLE OFF)
-      target_link_libraries(ocos_operators PRIVATE "-framework CoreFoundation" "-framework CoreGraphics" "-framework ImageIO")
+      target_link_libraries(ocos_operators PRIVATE "-framework CoreFoundation" "-framework CoreGraphics" "-framework CoreServices" "-framework ImageIO")
     endif()
   endif()
 
-  set(_DEFAULT_CODEC_ENABLE ON) # libpng and libjpeg can be optional after EncodeImage with native support too.
   if(_DEFAULT_CODEC_ENABLE)
     if (NOT OCOS_ENABLE_DLIB)
       message(FATAL_ERROR "Vision operators require DLIB to be enabled.") # for now, we need dlib for image processing
