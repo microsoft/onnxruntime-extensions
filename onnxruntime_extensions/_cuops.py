@@ -491,6 +491,16 @@ class StftNorm(CustomOp):
         ]
 
 
+class HfJsonTokenizer(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def('str', onnx_proto.TensorProto.STRING, ['N'])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def("ids", onnx.TensorProto.INT64, ['N', None])]
+
+
 # TODO: have a C++ impl.
 def _argsort_op(x, dim):
     d = numpy.argsort(x, dim)

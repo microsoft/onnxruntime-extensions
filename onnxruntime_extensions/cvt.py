@@ -170,13 +170,15 @@ def download_tokenizer(tokenizer_dir, output_dir):
             f"Downloaded HF files '{resolved_full_file}' " f"and '{resolved_config_file}' are not in the same directory"
         )
 
-    if output_dir is None:
+    if output_dir is None or len(output_dir) == 0:
         output_dir = os.path.dirname(resolved_full_file)
         print(f"Using {output_dir} as output directory")
+        return output_dir
     else:
         # copy the files to the output directory
         shutil.copy(resolved_full_file, output_dir)
         shutil.copy(resolved_config_file, output_dir)
+        return output_dir
 
 
 def gen_processing_models(processor: Union[str, object],
@@ -213,10 +215,9 @@ def gen_processing_models(processor: Union[str, object],
     if pre_kwargs is None and post_kwargs is None:
         raise ValueError(
             "Either pre_kwargs or post_kwargs should be provided. None means no processing graph output.")
-    
+
     if cached:
         model_name = processor if isinstance(processor, str) else type(processor).__name__
-        model_dir = tempfile.NamedTemporaryFile(delete=False)
 
         converted_tokenizer = {"Baichuan2", "chatglm"}
         need_convert = False
@@ -226,10 +227,10 @@ def gen_processing_models(processor: Union[str, object],
                 break
 
         if need_convert:
-            output_dir = convert_tokenizer(model_name, model_dir)
-            validate_tokenizer(model_name, output_dir)
+            model_dir = convert_tokenizer(model_name)
+            validate_tokenizer(model_name, None)
         else:
-            download_tokenizer(model_name, model_dir)
+            model_dir = download_tokenizer(model_name, None)
 
         # Load the content of tokenizer.json into a string
         with open(f"{model_dir}/tokenizer.json", "r", encoding="utf-8") as f:
@@ -239,18 +240,15 @@ def gen_processing_models(processor: Union[str, object],
         with open(f"{model_dir}/tokenizer_config.json", "r", encoding="utf-8") as f:
             tokenizer_config = f.read()
 
-        model_dir.close()
-        os.remove(model_dir.name)
-
         # Create an onnx model with these json file strings in attrs
         g_pre, g_post = (None, None)
-        if pre_kwargs:
+        if pre_kwargs is not None:
             # Add tokenizer_dict and tokenizer_config to the kwargs
             # so they are added to attrs in build_graph
-            pre_kwargs['tokenizer_dict'] = tokenizer_dict
+            pre_kwargs['tokenizer_vocab'] = tokenizer_dict
             pre_kwargs['tokenizer_config'] = tokenizer_config
-            g_pre = SingleOpGraph.build_graph(processor, **pre_kwargs)
-        if post_kwargs:
+            g_pre = SingleOpGraph.build_graph("HfJsonTokenizer", **pre_kwargs)
+        if post_kwargs is not None:
             if pre_kwargs is None:
                 cls_name = processor
             else:
@@ -260,7 +258,7 @@ def gen_processing_models(processor: Union[str, object],
                 cls_name = _PRE_POST_PAIR[processor]
             # Add tokenizer_dict and tokenizer_config to the kwargs
             # so they are added to attrs in build_graph
-            post_kwargs['tokenizer_dict'] = tokenizer_dict
+            post_kwargs['tokenizer_vocab'] = tokenizer_dict
             post_kwargs['tokenizer_config'] = tokenizer_config
             g_post = SingleOpGraph.build_graph(cls_name, **post_kwargs)
         return make_onnx_model(g_pre) if g_pre else None, make_onnx_model(g_post) if g_post else None
