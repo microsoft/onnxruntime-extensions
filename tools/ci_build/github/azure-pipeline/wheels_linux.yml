@@ -29,7 +29,7 @@ extends:
       - job: linux_x86_64
         timeoutInMinutes: 180
         variables:
-          CIBW_BUILD: "cp3{9,10,11,12,13}-*"
+          CIBW_BUILD: "cp3{10,11,12,13}-*"
           CIBW_SKIP: "*musllinux*"
           CIBW_ENVIRONMENT: "${{ parameters.ExtraEnv }}"
         templateContext:
@@ -52,7 +52,7 @@ extends:
       - job: manylinux_aarch64
         timeoutInMinutes: 180
         variables:
-          CIBW_BUILD: "cp3{9,10,11,12,13}-*"
+          CIBW_BUILD: "cp3{10,11,12,13}-*"
           CIBW_SKIP: "*musllinux_*"
           # AzureOp doesn't support aaarch64 yet.
           # CIBW_ENVIRONMENT: "${{ parameters.ExtraEnv }}"
