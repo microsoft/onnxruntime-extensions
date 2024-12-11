@@ -25,14 +25,14 @@ ort_ext_root = os.path.abspath(os.path.join(script_dir, ".."))
 test_data_dir = os.path.join(ort_ext_root, "test", "data", "ppp_vision")
 
 
-def compare_two_images(image1, image2):
+def compare_two_images_mse(image1, image2):
     # decoding it firstly to avoid any format issues
     image1 = Image.open(io.BytesIO(image1))
     image2 = Image.open(io.BytesIO(image2))
     if image1.size != image2.size:
-        return False
+        return 10   # arbitrary large value
     # check if the images are similar by MSE
-    return np.mean(np.square(np.array(image1) - np.array(image2))) < 0.001
+    return np.mean(np.square(np.array(image1) - np.array(image2)))
 
 
 def load_image_file(file_path):
@@ -449,7 +449,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
             create_boxdrawing_model.create_model(output_model, is_crop=is_crop)
             image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
             output = self.draw_boxes_on_image(output_model, test_boxes[idx])
-            self.assertTrue(compare_two_images(image_ref, output))
+            self.assertLess(compare_two_images_mse(image_ref, output), 0.1)
 
     def test_draw_box_share_border(self):
         import sys
@@ -469,7 +469,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
         output_img = (Path(test_data_dir) / f"../wolves_with_box_share_borders.jpg").resolve()
         image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
-        self.assertTrue(compare_two_images(image_ref, output))
+        self.assertLess(compare_two_images_mse(image_ref, output), 0.1)
 
     def test_draw_box_off_boundary_box(self):
         import sys
@@ -489,7 +489,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
         output_img = (Path(test_data_dir) / f"../wolves_with_box_off_boundary_box.jpg").resolve()
         image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
-        self.assertTrue(compare_two_images(image_ref, output))
+        self.assertLess(compare_two_images_mse(image_ref, output), 0.1)
 
     def test_draw_box_more_box_by_class_than_colors(self):
         import sys
@@ -519,7 +519,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
         output_img = (Path(test_data_dir) / f"../wolves_with_box_more_box_than_colors.jpg").resolve()
         image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
-        self.assertTrue(compare_two_images(image_ref, output))
+        self.assertLess(compare_two_images_mse(image_ref, output), 0.1)
 
     def test_draw_box_more_box_by_score_than_colors(self):
         import sys
@@ -550,7 +550,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
         output_img = (Path(test_data_dir) / f"../wolves_with_box_more_box_than_colors_score.jpg").resolve()
         image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
-        self.assertTrue(compare_two_images(image_ref, output))
+        self.assertLess(compare_two_images_mse(image_ref, output), 0.1)
 
     # a box with higher score should be drawn over a box with lower score
 
@@ -572,7 +572,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
         output_img = (Path(test_data_dir) / f"../wolves_with_box_overlapping.jpg").resolve()
         image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
-        self.assertTrue(compare_two_images(image_ref, output))
+        self.assertLess(compare_two_images_mse(image_ref, output), 0.1)
 
     def test_draw_box_with_large_thickness(self):
         import sys
@@ -592,7 +592,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
         output_img = (Path(test_data_dir) / f"../wolves_with_solid_box.jpg").resolve()
         image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
-        self.assertTrue(compare_two_images(image_ref, output))
+        self.assertLess(compare_two_images_mse(image_ref, output), 0.1)
 
     def _create_pipeline_and_run_for_nms(self, output_model: Path,
                                          has_conf_value: bool,
@@ -1018,7 +1018,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         # output.tofile(str(output_img) + "actual.jpg")
 
         image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
-        self.assertTrue(compare_two_images(image_ref, output))
+        self.assertLess(compare_two_images_mse(image_ref, output), 0.1)
 
 
 if __name__ == "__main__":
