@@ -122,7 +122,7 @@ JSON_TOKEN_CONVERTERS = {
     "ChatGLMTokenizer": ChatGlmConverter,
 }
 
-
+# Save tokenizer JSON files using HuggingFace AutoTokenizer
 def convert_tokenizer(model_path, output_dir):
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
     if output_dir is None:
@@ -142,7 +142,7 @@ def convert_tokenizer(model_path, output_dir):
     print(f"**Tokenizer saved to {json_path}")
     return output_dir
 
-
+# Validate tokenizer files downloaded from cache
 def validate_tokenizer(model_path, output_dir):
     test_sentence = "I like walking my cute dog\n and\x17 then, 生活的真谛是   \t\t\t\t \n\n61"
     if OrtxTokenizer is None:
@@ -154,7 +154,7 @@ def validate_tokenizer(model_path, output_dir):
     assert np.array_equal(expected_ids[0], ortx_ids), f"Tokenization mismatch: {expected_ids[0]} != {ortx_ids}"
     print("Tokenization test passed")
 
-
+# Download tokenizer JSON files from cache
 def download_tokenizer(tokenizer_dir, output_dir):
     try:
         from transformers.utils import cached_file
@@ -204,6 +204,9 @@ def gen_processing_models(processor: Union[str, object],
         Keyword arguments for generating the post-processing model
     opset: int
         the target opset version of the model
+    cached: bool
+        the flag for using cached tokenizer files; this option leverages the blob-loading functionality
+        which loads HF tokenizers from memory rather than using the tokenizer files in HF JSON format.
     kwargs:
         The additional arguments for generating models
 
@@ -216,6 +219,8 @@ def gen_processing_models(processor: Union[str, object],
         raise ValueError(
             "Either pre_kwargs or post_kwargs should be provided. None means no processing graph output.")
 
+    # If true, we get the tokenizer JSON files by either downloading from cache or using HuggingFace AutoTokenizer
+    # to convert them, and then create an ONNX model with the JSON files as strings in the model attributes (attrs).
     if cached:
         model_name = processor if isinstance(processor, str) else type(processor).__name__
 
@@ -234,18 +239,18 @@ def gen_processing_models(processor: Union[str, object],
 
         # Load the content of tokenizer.json into a string
         with open(f"{model_dir}/tokenizer.json", "r", encoding="utf-8") as f:
-            tokenizer_dict = f.read()
+            tokenizer_vocab = f.read()
 
         # Load the content of tokenizer_config.json into a string
         with open(f"{model_dir}/tokenizer_config.json", "r", encoding="utf-8") as f:
             tokenizer_config = f.read()
 
-        # Create an onnx model with these json file strings in attrs
+        # Create an ONNX model with these JSON file strings in attrs
         g_pre, g_post = (None, None)
         if pre_kwargs is not None:
-            # Add tokenizer_dict and tokenizer_config to the kwargs
+            # Add tokenizer_vocab and tokenizer_config to the kwargs
             # so they are added to attrs in build_graph
-            pre_kwargs['tokenizer_vocab'] = tokenizer_dict
+            pre_kwargs['tokenizer_vocab'] = tokenizer_vocab
             pre_kwargs['tokenizer_config'] = tokenizer_config
             g_pre = SingleOpGraph.build_graph("HfJsonTokenizer", **pre_kwargs)
         if post_kwargs is not None:
@@ -256,9 +261,9 @@ def gen_processing_models(processor: Union[str, object],
                     raise RuntimeError(
                         f"Cannot locate the post processing operator name from {processor}")
                 cls_name = _PRE_POST_PAIR[processor]
-            # Add tokenizer_dict and tokenizer_config to the kwargs
+            # Add tokenizer_vocab and tokenizer_config to the kwargs
             # so they are added to attrs in build_graph
-            post_kwargs['tokenizer_vocab'] = tokenizer_dict
+            post_kwargs['tokenizer_vocab'] = tokenizer_vocab
             post_kwargs['tokenizer_config'] = tokenizer_config
             g_post = SingleOpGraph.build_graph(cls_name, **post_kwargs)
         return make_onnx_model(g_pre) if g_pre else None, make_onnx_model(g_post) if g_post else None
