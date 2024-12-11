@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import Foundation
+import MobileCoreServices
 
 enum OrtSwiftClientError: Error {
   case error(_ message: String)
