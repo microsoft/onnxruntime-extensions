@@ -1006,7 +1006,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         output_model = os.path.join(test_data_dir, "FastestDet.updated.onnx")
         input_image_path = os.path.join(test_data_dir, "wolves.jpg")
 
-        add_ppp.yolo_detection(Path(input_model), Path(output_model), output_format = 'png', input_shape=(352, 352))
+        add_ppp.yolo_detection(Path(input_model), Path(output_model), output_format='png', input_shape=(352, 352))
 
         so = ort.SessionOptions()
         so.register_custom_ops_library(get_library_path())
