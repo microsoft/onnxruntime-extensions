@@ -175,9 +175,7 @@ template <typename T>
 void _assert_eq(Ort::Value& output_tensor, const std::vector<T>& expected, size_t total_len) {
   ASSERT_EQ(expected.size(), total_len);
   T* f = output_tensor.GetTensorMutableData<T>();
-  for (size_t i = 0; i != total_len; ++i) {
-    ASSERT_EQ(expected[i], f[i]);
-  }
+  ASSERT_EQ(expected, std::vector<T>(f, f + total_len));
 }
 
 void GetTensorMutableDataString(const OrtApi& api, const OrtValue* value, std::vector<std::string>& output) {

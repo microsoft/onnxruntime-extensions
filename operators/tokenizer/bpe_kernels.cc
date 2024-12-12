@@ -124,24 +124,24 @@ KernelBpeTokenizer::KernelBpeTokenizer(const BpeModelConf& conf)
 OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
   // note: if the attribute doesn't exist in op node, GetOpAttribute doesn't return a failed status;
   std::string vocab;
-  ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "vocab", vocab));
+  ORTW_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "vocab", vocab));
   if (vocab.empty()) {
     return OrtW::CreateStatus("vocabulary shouldn't be empty.", ORT_INVALID_ARGUMENT);
   }
 
   std::string merges;
-  ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "merges", merges));
+  ORTW_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "merges", merges));
   if (merges.empty()) {
     return OrtW::CreateStatus("merges shouldn't be empty.", ORT_INVALID_ARGUMENT);
   }
 
-  ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "padding_length", padding_length_));
+  ORTW_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "padding_length", padding_length_));
   if (padding_length_ != -1 && padding_length_ <= 0) {
     return OrtW::CreateStatus("padding_length should be more than 0 or equal -1", ORT_INVALID_ARGUMENT);
   }
 
   std::string model_name;
-  ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "model_name", model_name));
+  ORTW_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "model_name", model_name));
   if (!model_name.empty()) {
     model_name_ = model_name;
   }
@@ -159,7 +159,7 @@ OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKerne
   }
 
   std::string added_token;
-  ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "added_token", added_token));
+  ORTW_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "added_token", added_token));
   status = bbpe_tokenizer_->LoadAddedTokens(added_token.c_str());
   if (!status.IsOk()) {
     return (OrtStatusPtr)status;

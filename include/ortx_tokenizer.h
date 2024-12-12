@@ -29,8 +29,8 @@ struct OrtxTokenizerBlob {
 #ifdef __cplusplus
   OrtxTokenizerBlob(const std::string_view& config_json_blob,
                     const std::string_view& vocab_json_blob,
-                    const std::string_view& token_module_blob,
-                    const std::string_view& raw_model_blob)
+                    const std::string_view& token_module_blob = {},
+                    const std::string_view& raw_model_blob = {})
       : config_json_blob(config_json_blob.data()), vocab_json_blob(vocab_json_blob.data()),
         token_module_blob(token_module_blob.data()), raw_model_blob(raw_model_blob.data()),
         config_blob_len(config_json_blob.size()),

@@ -11,7 +11,7 @@
 
 OrtStatusPtr KernelSentencepieceTokenizer::OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
   std::string model_as_string;
-  ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "model", model_as_string));
+  ORTW_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "model", model_as_string));
 
   sentencepiece::ModelProto model_proto;
   std::vector<uint8_t> model_as_bytes;

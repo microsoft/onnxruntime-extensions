@@ -37,6 +37,14 @@ typedef OrtxObject OrtxTensorResult;
 // C, instead of C++ doesn't cast automatically,
 // so we need to use a macro to cast the object to the correct type
 #define ORTX_DISPOSE(obj) OrtxDispose((OrtxObject**)&obj)
+#define ORTX_RETURN_IF_ERROR(expr) \
+  do {                             \
+    auto _status = (expr);         \
+    if (!_status.IsOk()) {      \
+      return _status;              \
+    }                              \
+  } while (0)
+
 
 typedef uint32_t extTokenId_t;
 
