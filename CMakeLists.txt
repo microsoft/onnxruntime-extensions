@@ -666,7 +666,7 @@ if(OCOS_ENABLE_VISION)
     elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
       # Use ImageIO on Apple platforms
       set(_DEFAULT_CODEC_ENABLE OFF)
-      target_link_libraries(ocos_operators PRIVATE "-framework CoreFoundation" "-framework CoreGraphics" "-framework CoreServices" "-framework ImageIO")
+      target_link_libraries(ocos_operators PRIVATE "-framework CoreFoundation" "-framework CoreGraphics" "-framework ImageIO" "-framework CoreServices" "-framework MobileCoreServices")
     endif()
   endif()
 

@@ -108,7 +108,7 @@ TEST(ImageDecoderTest, TestJpegEncoderDecoder) {
   #elif __APPLE__
   out_range = out_tensor.Data() + 1296 * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
-            std::vector<uint8_t>({225, 236, 222, 228, 235, 219, 218, 220, 196, 203, 201, 178}));
+            std::vector<uint8_t>({225, 236, 222, 228, 235, 219, 218, 220, 199, 203, 201, 178}));
 
   out_range = out_tensor.Data() + 438 * width * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),

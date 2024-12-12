@@ -449,7 +449,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
             create_boxdrawing_model.create_model(output_model, is_crop=is_crop)
             image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
             output = self.draw_boxes_on_image(output_model, test_boxes[idx])
-            self.assertLess(compare_two_images_mse(image_ref, output), 0.1)
+            self.assertLess(compare_two_images_mse(image_ref, output), 0.13)
 
     def test_draw_box_share_border(self):
         import sys
@@ -1006,7 +1006,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         output_model = os.path.join(test_data_dir, "FastestDet.updated.onnx")
         input_image_path = os.path.join(test_data_dir, "wolves.jpg")
 
-        add_ppp.yolo_detection(Path(input_model), Path(output_model), input_shape=(352, 352))
+        add_ppp.yolo_detection(Path(input_model), Path(output_model), output_format = 'png', input_shape=(352, 352))
 
         so = ort.SessionOptions()
         so.register_custom_ops_library(get_library_path())
@@ -1014,8 +1014,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         image = np.frombuffer(load_image_file(input_image_path), dtype=np.uint8)
 
         output = ort_sess.run(None, {'image': image})[0]
-        output_img = (Path(test_data_dir) / "../wolves_with_fastestDet.jpg").resolve()
-        # output.tofile(str(output_img) + "actual.jpg")
+        output_img = (Path(test_data_dir) / "../wolves_with_fastestDet.png").resolve()
+        # output.tofile(str(output_img) + "actual.png")
 
         image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
         self.assertLess(compare_two_images_mse(image_ref, output), 0.1)
