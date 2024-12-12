@@ -105,7 +105,7 @@ struct KernelTrieTokenizer {
  public:
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
     std::string text_tokens;
-    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "vocab", text_tokens));
+    ORTW_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "vocab", text_tokens));
     tokenizer = std::make_shared<TrieTokenizer>(text_tokens);
     return nullptr;
   };
@@ -156,7 +156,7 @@ struct KernelTrieDetokenizer {
  public:
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
     std::string text_tokens;
-    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "vocab", text_tokens));
+    ORTW_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "vocab", text_tokens));
     tokenizer = std::make_shared<TrieTokenizer>(text_tokens);
     return nullptr;
   };

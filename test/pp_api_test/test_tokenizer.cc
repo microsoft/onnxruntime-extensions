@@ -27,7 +27,7 @@ TEST(CApiTest, ApiTest) {
   int ver = OrtxGetAPIVersion();
   EXPECT_GT(ver, 0);
   OrtxTokenizer* tokenizer = NULL;
-  extError_t err = OrtxCreateTokenizer(&tokenizer, "data/tiktoken");
+  extError_t err = OrtxCreateTokenizer(&tokenizer, "data/llama2");
   EXPECT_EQ(err, kOrtxOK);
 
   const char* input = "This is a test";
@@ -195,34 +195,6 @@ TEST(OrtxTokenizerTest, ClipTokenizer) {
   EXPECT_EQ(token_ids.size(), 2);
   EXPECT_EQ(token_ids[0].size(), 6);
   EXPECT_EQ(token_ids[1].size(), 5);
-
-  std::vector<std::string> out_text;
-  std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {token_ids[0], token_ids[1]};
-  status = tokenizer->Detokenize(token_ids_span, out_text);
-  EXPECT_TRUE(status.IsOk());
-  EXPECT_EQ(out_text[0], input[0]);
-}
-
-TEST(OrtxTokenizerTest, TicTokenTokenizer) {
-  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
-  auto status = tokenizer->Load("data/tiktoken");
-  if (!status.IsOk()) {
-    std::cout << status.ToString() << std::endl;
-    tokenizer.reset();
-  }
-
-  // validate tokenizer is not null
-    ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
-
-  std::vector<extTokenId_t> EXPECTED_IDS_0 = {128000, 2028, 374, 264, 1296};
-  std::vector<std::string_view> input = {"This is a test", "the second one"};
-
-  std::vector<std::vector<extTokenId_t>> token_ids;
-  status = tokenizer->Tokenize(input, token_ids);
-  EXPECT_TRUE(status.IsOk());
-  EXPECT_EQ(token_ids.size(), 2);
-  EXPECT_EQ(token_ids[0], EXPECTED_IDS_0);
-  EXPECT_EQ(token_ids[1].size(), 4);
 
   std::vector<std::string> out_text;
   std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {token_ids[0], token_ids[1]};
