@@ -1,0 +1,65 @@
+parameters:
+- name: DoCompliance
+  displayName: Run Compliance Tasks?
+  type: boolean
+  default: true
+
+- name: DoEsrp
+  displayName: Run code sign tasks? Must be true if you are doing an OnnxRuntime extensions release.
+  type: boolean
+  default: true
+
+- name: IsReleaseBuild
+  displayName: Is this a release build? Set it to true if you are doing an OnnxRuntime extensions release.
+  type: boolean
+  default: false
+
+- name: IsDummyPackage
+  displayName: Is this a build of Microsoft.ML.OnnxRuntime.Extensions.Dummy package that has no operators?
+  type: boolean
+  default: false
+
+- name: NugetVersionSuffix
+  displayName: Update nuget version suffix (e.g. alpha/beta/rc, only if publishing to nuget.org, otherwise leave as "none").
+  type: string
+  default: none
+
+trigger: none
+
+resources:
+  repositories:
+    - repository: 1esPipelines
+      type: git
+      name: 1ESPipelineTemplates/1ESPipelineTemplates
+      ref: refs/tags/release
+
+extends:
+  template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
+  parameters:
+    sdl:
+      sourceAnalysisPool:
+        name: onnxruntime-Win-CPU-2022
+        os: windows
+      credscan:
+        enabled: false
+
+    stages:
+    - ${{ if eq(parameters.IsDummyPackage, false) }}:
+      - template: templates/build-package-for-nuget.yml@self
+        parameters:
+          DoCompliance: ${{ parameters.DoCompliance }}
+          DoEsrp: ${{ parameters.DoEsrp }}
+          IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+          NugetVersionSuffix: ${{ parameters.NugetVersionSuffix }}
+
+    - ${{ else }}:
+      - template: templates/build-package-for-nuget.yml@self
+        parameters:
+          DoCompliance: ${{ parameters.DoCompliance }}
+          DoEsrp: ${{ parameters.DoEsrp }}
+          IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+          NugetVersionSuffix: ${{ parameters.NugetVersionSuffix }}
+          IsDummyPackage: true
+          # set flags to do a build with no operators for the dummy package
+          OperatorSelectionFlags: ''
+          AdditionalBuildFlags: '--include_ops_by_config ./tools/ci_build/no_ops.config --skip_tests --cmake_extra_defines OCOS_ENABLE_CTEST=OFF'

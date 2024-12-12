@@ -7,11 +7,8 @@
 #include <variant>
 #include <unordered_map>
 
-#include "ext_status.h"
-#include "op_def_struct.h"
-
 #if OCOS_ENABLE_VENDOR_IMAGE_CODECS
-  #if WIN32
+  #if _WIN32
     #include "image_decoder_win32.hpp"
   #elif __APPLE__
     #include "image_decoder_darwin.hpp"
@@ -34,7 +31,8 @@ struct DecodeImage: public internal::DecodeImage {
 
     for (const auto& [key, value] : attrs) {
       if (key == "color_space") {
-        auto color_space = std::get<std::string>(value);
+        std::string color_space = std::get<std::string>(value);
+        std::transform(color_space.begin(), color_space.end(), color_space.begin(), ::toupper);
         if (color_space == "RGB") {
           is_bgr_ = false;
         } else if (color_space == "BGR") {
@@ -43,7 +41,7 @@ struct DecodeImage: public internal::DecodeImage {
           return {kOrtxErrorInvalidArgument, "[DecodeImage]: Invalid color_space"};
         }
       } else {
-        return {kOrtxErrorInvalidArgument, "[Resize]: Invalid argument"};
+        return {kOrtxErrorInvalidArgument, "[DecodeImage]: Invalid argument"};
       }
     }
 
@@ -51,8 +49,24 @@ struct DecodeImage: public internal::DecodeImage {
   }
 
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
-    is_bgr_ = true;
-    return Init(std::unordered_map<std::string, std::variant<std::string>>());
+    std::unordered_map<std::string, std::variant<std::string>> attrs = {
+        {"color_space", "bgr"}
+    };
+
+    std::string clr;
+    auto status = OrtW::API::GetOpAttributeString(api, info, "color_space", clr);
+    if (status != nullptr) {
+      return status;
+    }
+    if (!clr.empty()) {
+      if (clr != "bgr" && clr != "rgb") {
+        return OrtW::CreateStatus("[EncodeImage] 'color_space' attribute value must be 'bgr' or 'rgb'.", ORT_RUNTIME_EXCEPTION);
+      } else {
+        attrs["color_space"] = clr;
+      }
+    }
+
+    return Init(attrs);
   }
 
   OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) const{
@@ -77,6 +91,7 @@ struct DecodeImage: public internal::DecodeImage {
   }
 
   private:
+    std::string image_type_{"png"};
     bool is_bgr_{};  // flag to indicate if the output is in BGR format
 };
 

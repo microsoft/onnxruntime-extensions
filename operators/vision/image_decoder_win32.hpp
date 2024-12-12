@@ -15,14 +15,14 @@
 namespace ort_extensions::internal {
 struct DecodeImage {
   OrtxStatus OnInit() {
-    HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+    HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED | COINIT_DISABLE_OLE1DDE);
     if (FAILED(hr)) {
-      return {kOrtxErrorInternal, "[ImageDecoder]: Failed when CoInitialize."};
+      return errorWithHr_("Failed when CoInitialize.", hr);
     }
     // Create the COM imaging factory
     hr = CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pIWICFactory_));
     if (FAILED(hr)) {
-      return {kOrtxErrorInternal, "[ImageDecoder]: Failed to create pIWICFactory."};
+      return errorWithHr_("Failed to create pIWICFactory.", hr);
     }
 
     return {};
@@ -54,7 +54,7 @@ struct DecodeImage {
     // Create a WIC stream to map onto the memory.
     HRESULT hr = pIWICFactory_->CreateStream(pIWICStream.put());
     if (FAILED(hr)) {
-      return {kOrtxErrorInternal, "[ImageDecoder]: Failed to create pIWICStream."};
+      return errorWithHr_("Failed to create pIWICStream.", hr);
     }
 
     static_assert(sizeof(uint8_t) == sizeof(unsigned char));
@@ -72,31 +72,31 @@ struct DecodeImage {
                                                 pIDecoder.put()                  // Pointer to the decoder
     );
     if (FAILED(hr)) {
-      return {kOrtxErrorInternal, "[ImageDecoder]: Failed to create pIDecoder."};
+      return errorWithHr_("Failed to create pIDecoder.", hr);
     }
 
     // Retrieve the first bitmap frame.
     hr = pIDecoder->GetFrame(0, pIDecoderFrame.put());
     if (FAILED(hr)) {
-      return {kOrtxErrorInternal, "[ImageDecoder]: Failed when pIDecoder->GetFrame."};
+      return errorWithHr_("Failed when pIDecoder->GetFrame.", hr);
     }
 
     // Now get a POINTER to an instance of the Pixel Format
     hr = pIDecoderFrame->GetPixelFormat(&pixelFormat);
     if (FAILED(hr)) {
-      return {kOrtxErrorInternal, "[ImageDecoder]: Failed when pIDecoderFrame->GetPixelFormat."};
+      return errorWithHr_("Failed when pIDecoderFrame->GetPixelFormat.", hr);
     }
 
     hr = pIWICFactory_->CreateComponentInfo(pixelFormat, pIComponentInfo.put());
     if (FAILED(hr)) {
-      return {kOrtxErrorInternal, "[ImageDecoder]: Failed when pIWICFactory->CreateComponentInfo."};
+      return errorWithHr_("Failed when pIWICFactory->CreateComponentInfo.", hr);
     }
 
     // Get IWICPixelFormatInfo from IWICComponentInfo
     IWICPixelFormatInfo2* pIPixelFormatInfo = NULL;
     hr = pIComponentInfo.as(__uuidof(IWICPixelFormatInfo2), reinterpret_cast<void**>(&pIPixelFormatInfo));
     if (FAILED(hr)) {
-      return {kOrtxErrorInternal, "[ImageDecoder]: Failed to query IWICPixelFormatInfo."};
+      errorWithHr_("Failed to query IWICPixelFormatInfo.", hr);
     }
 
     UINT uiWidth = 0;
@@ -118,11 +118,11 @@ struct DecodeImage {
     }
 
     // Convert to 24 bytes per pixel RGB format if needed
-    if (pixelFormat != GUID_WICPixelFormat24bppRGB) {
+    if (!IsEqualGUID(pixelFormat, GUID_WICPixelFormat24bppRGB)) {
       IWICBitmapSource* pConverted = NULL;
       hr = WICConvertBitmapSource(GUID_WICPixelFormat24bppRGB, pIDecoderFrame.get(), &pConverted);
       if (FAILED(hr)) {
-        return {kOrtxErrorInternal, "[ImageDecoder]: Failed when WICConvertBitmapSource."};
+        return errorWithHr_("Failed when WICConvertBitmapSource.", hr);
       }
 
       // Upcast to make winrt::com_ptr happy. Should be fine because we only use CopyPixels.
@@ -133,17 +133,26 @@ struct DecodeImage {
     hr = pIDecoderFrame->CopyPixels(NULL, rowStride, static_cast<UINT>(output.SizeInBytes()), decoded_image_data);
 
     if (FAILED(hr)) {
-      return {kOrtxErrorInternal, "[ImageDecoder]: Failed when pIDecoderFrame->CopyPixels."};
+      return errorWithHr_("Failed when pIDecoderFrame->CopyPixels.", hr);
     }
 
     return status;
   }
 
   ~DecodeImage() {
+    if (pIWICFactory_) {
+      pIWICFactory_->Release();
+      pIWICFactory_ = NULL;
+    }
     CoUninitialize();
   }
 
   private:
-    winrt::com_ptr<IWICImagingFactory> pIWICFactory_;
+    OrtxStatus errorWithHr_(const std::string message, HRESULT hr) const{
+     return {
+       kOrtxErrorInternal,
+       "[ImageDecoder]: " + message + " HRESULT: " + std::to_string(hr)};
+    }
+    IWICImagingFactory* pIWICFactory_{NULL};
 };
 }  // namespace ort_extensions::internal

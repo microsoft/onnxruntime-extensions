@@ -30,7 +30,7 @@ class SpmUgmDecoder;  // forward declaration
 struct SpmUgmTokenizer {
   using json = nlohmann::json;
   using VocabTrieTree = ort_extensions::TrieTree<char, extTokenId_t, -1>;
-  using Vocab = std::unordered_map<std::string, std::tuple<extTokenId_t, double>>; 
+  using Vocab = std::unordered_map<std::string, std::tuple<extTokenId_t, double>>;
 
   SpmUgmTokenizer() = default;
 
@@ -47,6 +47,7 @@ struct SpmUgmTokenizer {
         user_defined_token_matcher_.Add(word, 0, id);
       }
     }
+
     return {};
   }
 
@@ -113,22 +114,30 @@ struct SpmUgmTokenizer {
   }
 
   OrtxStatus Load(const TokenJsonConfig& config) {
-    ortx::path vocab_path(config.GetVocabDataFile());
-    if (!vocab_path.exists()) {
-      return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, "Vocabulary file does not exist.");
+    add_bos_token_ = config.add_bos_token_;
+    add_eos_token_ = config.add_eos_token_;
+    bos_token_ = config.bos_token_;
+    eos_token_ = config.eos_token_;
+    unk_token_ = config.unk_token_;
+    pad_token_ = config.pad_token_;
+
+    if (config.tokenizer_class_ == "ChatGLMTokenizer") {
+      chatglm_special_endings_ = true;
+      tokenizer_remove_extra_whitespaces_ = false;
     }
 
-    auto ifs = vocab_path.open();
-    if (!ifs.is_open()) {
-      return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, "Failed to open vocabulary file.");
+    std::unique_ptr<std::istream> vocab_stream;
+    auto status = config.OpenVocabFile(vocab_stream);
+    if (!status.IsOk()) {
+      return status;
     }
 
-    nlohmann::json j_vocab = json::parse(ifs, nullptr, false, true);
+    nlohmann::json j_vocab = json::parse(*vocab_stream, nullptr, false, true);
     if (j_vocab.is_discarded()) {
       return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, "Failed to parse vocabulary file.");
     }
 
-    OrtxStatus status = LoadConfig(j_vocab);
+    status = LoadConfig(j_vocab);
     if (!status.IsOk()) {
       return status;
     }
@@ -160,13 +169,33 @@ struct SpmUgmTokenizer {
 
     extTokenId_t id = 0;
     for (const auto& entry : vocab_node->items()) {
-      auto tkn = entry.value()[0].get<std::string>();
       auto score = entry.value()[1].get<double>();
+      auto tkn = entry.value()[0].get<std::string>();
+      if (chatglm_special_endings_) {
+        if (tkn == "<n>") {
+          tkn = "\n";
+        } else if (tkn == "<|tab|>") {
+          tkn = "\t";
+        } else if (tkn.size() == 11) {  // length of "<|blank_x|>"
+          auto blank_pos = tkn.find("<|blank_");
+          if (blank_pos != std::string::npos) {
+            auto num = tkn[blank_pos + 8] -'0';
+            if (num >= 2 && num <= 9) {
+              tkn.clear();
+              tkn.reserve(num);
+              for (; num != 0; num --) {
+                tkn += "▁";
+              }
+            }
+          }
+        }
+      }
+
       vocab_[tkn] = std::make_tuple(id++, score);
     }
 
     scores_.resize(id);
-    double min_score = -DBL_MAX;
+    double min_score = DBL_MAX;
     for (const auto& entry : vocab_) {
       scores_[std::get<0>(entry.second)] = std::get<1>(entry.second);
       token_matcher_.Add(entry.first, 0, std::get<0>(entry.second));
@@ -177,7 +206,7 @@ struct SpmUgmTokenizer {
     return status;
   }
 
-  extTokenId_t GetTokenId(const std::string& token) const { 
+  extTokenId_t GetTokenId(const std::string& token) const {
     auto iter = vocab_.find(token);
     if (iter == vocab_.end()) {
       return special_unk_id_;
@@ -190,8 +219,7 @@ struct SpmUgmTokenizer {
       return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, "Input tensor must have rank 1.");
     }
 
-    std::string normalized;
-    Normalize(input.AsScalar(), &normalized);
+    std::string normalized = Normalize(input.AsScalar());
     size_t input_len = normalized.size();
     if (input_len == 0) {
       return {};
@@ -242,6 +270,7 @@ struct SpmUgmTokenizer {
 
     std::vector<extTokenId_t> output;
     output.reserve(input_len);
+
     bool is_prev_unknown = false;
     for (struct BestTokenization& tokenization = tokenization_results[input_len];;
          tokenization = tokenization_results[tokenization.input_offset]) {
@@ -255,19 +284,28 @@ struct SpmUgmTokenizer {
       is_prev_unknown = is_unknown;
     }
 
-    bool add_bos = GetTokenId(bos_token_) != special_unk_id_;
-    bool add_eos = GetTokenId(eos_token_) != special_unk_id_;
+    // will be reversed
+    if (add_bos_token_) {
+      output.push_back(GetTokenId(bos_token_));
+    }
+    std::reverse(output.begin(), output.end());
+    if (chatglm_special_endings_) {
+      auto unknown_token_id = GetTokenId(unk_token_);
+      // remove the unknown token in the output ids
+      output.erase(
+          std::remove_if(output.begin(), output.end(), [this](extTokenId_t id) { return id == special_unk_id_; }),
+          output.end());
+      output.push_back(GetTokenId("[gMASK]"));
+      output.push_back(GetTokenId("<sop>"));
+    }
+
+    if (add_eos_token_) {
+      output.push_back(GetTokenId(eos_token_));
+    }
+
     auto output_size = static_cast<int64_t>(output.size());
-    int64_t* id_output = tokenize_output.Allocate({output_size + add_bos + add_eos});
-    if (add_bos) {
-      *id_output = GetTokenId(bos_token_);
-      id_output++;
-    }
+    int64_t* id_output = tokenize_output.Allocate({output_size});
     std::transform(output.begin(), output.end(), id_output, [](extTokenId_t id) { return static_cast<int64_t>(id); });
-    std::reverse(id_output, id_output + output_size);
-    if (add_eos) {
-      *(id_output + output_size) = GetTokenId(eos_token_);
-    }
     return {};
   }
 
@@ -278,9 +316,9 @@ struct SpmUgmTokenizer {
     size_t consumed_input;
   };
 
-  void Normalize(const std::string& input, std::string* normalized) const {
-    normalized->clear();
-    normalized->reserve(input.size() * 3);
+  std::string Normalize(const std::string& input) const {
+    std::string normalized;
+    normalized.reserve(input.size() * 3);
 
     const std::string space = tokenizer_escape_whitespaces_ ? std::string(spm_escaped_space) : " ";
 
@@ -301,17 +339,17 @@ struct SpmUgmTokenizer {
           if (!processing_non_ws) {
             processing_non_ws = true;
             if ((shall_prepend_space && !is_space_prepended) || shall_merge_spaces) {
-              normalized->append(space);
+              normalized.append(space);
               is_space_prepended = true;
             }
           }
-          normalized->push_back(c);
+          normalized.push_back(c);
         } else {
           if (processing_non_ws) {
             processing_non_ws = false;
           }
           if (!shall_merge_spaces) {
-            normalized->append(space);
+            normalized.append(space);
           }
         }
       }
@@ -320,8 +358,10 @@ struct SpmUgmTokenizer {
     }
 
     if (shall_append_space) {
-      normalized->append(space);
+      normalized.append(space);
     }
+
+    return normalized;
   }
 
   /*
@@ -440,7 +480,7 @@ struct SpmUgmTokenizer {
   };
 
   extTokenId_t special_unk_id_ = -1;
-  double unknown_token_score_;
+  double unknown_token_score_{};
 
   Vocab vocab_;
   std::vector<double> scores_;
@@ -448,6 +488,7 @@ struct SpmUgmTokenizer {
   VocabTrieTree token_matcher_;
 
  public:
+  bool chatglm_special_endings_ = false;
   bool tokenizer_escape_whitespaces_ = true;
   bool tokenizer_treat_whitespace_as_suffix_ = false;
   bool tokenizer_add_space_prefix_ = true;
@@ -456,17 +497,18 @@ struct SpmUgmTokenizer {
   std::string eos_token_ = "</s>";
   std::string pad_token_ = "<pad>";
   std::string unk_token_ = "<unk>";
+  bool add_bos_token_{};  // add bos token
+  bool add_eos_token_{};  // add eos token
 };
-
 
 class SpmUgmDecoder {
  public:
-  SpmUgmDecoder() {
-  }
+  SpmUgmDecoder() {}
 
   OrtxStatus Load(const TokenJsonConfig& config, const SpmUgmTokenizer& tokenizer) {
-    auto vocab_size = tokenizer.vocab_.size();
-    vocab_.resize(vocab_size);
+    // fill the vocab_ with the default token
+    vocab_.resize(tokenizer.scores_.size(), tokenizer.unk_token_);
+
     for (auto iter = tokenizer.vocab_.begin(); iter != tokenizer.vocab_.end(); ++iter) {
       vocab_[std::get<0>(iter->second)] = iter->first;
     }
@@ -532,7 +574,7 @@ class SpmUgmDecoder {
     return {};
   }
 
-private:
+ private:
   bool tokenizer_add_space_prefix_ = true;
   std::vector<std::string> vocab_;
   std::string unknown_token_ = "<unk>";

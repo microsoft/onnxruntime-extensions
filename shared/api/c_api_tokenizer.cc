@@ -46,6 +46,24 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const ch
   return status.Code();
 }
 
+extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer, const OrtxTokenizerBlob* blob) {
+  // test if the tokenizer_path is a valid directory
+  if (blob == nullptr) {
+    ReturnableStatus::last_error_message_ = "The tokenizer blob is null";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  ReturnableStatus status;
+  auto ptr = std::make_unique<ort_extensions::TokenizerImpl>();
+  status = ptr->Load(*blob);
+  if (status.IsOk()) {
+    *tokenizer = static_cast<OrtxTokenizer*>(ptr.release());
+    return extError_t();
+  }
+
+  return status.Code();
+}
+
 extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
                                       OrtxTokenId2DArray** output) {
   if (tokenizer == nullptr || input == nullptr || output == nullptr) {

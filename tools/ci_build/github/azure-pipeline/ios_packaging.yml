@@ -1,0 +1,214 @@
+# packaging pipeline for iOS CocoaPods package
+
+parameters:
+- name: IsReleaseBuild
+  displayName: "Is this a release build?"
+  type: boolean
+  default: false
+
+trigger: none
+
+resources:
+  repositories:
+  - repository: 1esPipelines
+    type: git
+    name: 1ESPipelineTemplates/1ESPipelineTemplates
+    ref: refs/tags/release
+
+extends:
+  template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
+  parameters:
+    pool:
+      name: "Azure Pipelines"
+      image: "macOS-13"
+      os: macOS
+    sdl:
+      sourceAnalysisPool:
+        name: onnxruntime-Win-CPU-2022
+        os: windows
+
+    stages:
+    - stage: Stage
+      jobs:
+      - job: IosPackaging
+        displayName: "iOS Packaging"
+        timeoutInMinutes: 180
+        templateContext:
+          outputs:
+          - output: pipelineArtifact
+            path: '$(Build.ArtifactStagingDirectory)'
+            artifact: ios_packaging_artifacts
+        steps:
+        - task: InstallAppleCertificate@2
+          inputs:
+            certSecureFile: '$(ios_signing_certificate_name)'
+            certPwd: '$(ios_signing_certificate_password)'
+            keychain: 'temp'
+          name: installSigningCertificate
+          displayName: "Install ORT Mobile Test Signing Certificate"
+
+        - task: InstallAppleProvisioningProfile@1
+          inputs:
+            provProfileSecureFile: '$(ios_provision_profile_name)'
+            removeProfile: true
+          name: installProvisioningProfile
+          displayName: "Install ORT Mobile Test Provisioning Profile"
+
+        - template: tools/ci_build/github/azure-pipeline/templates/use-xcode-version.yml@self
+
+        - task: UsePythonVersion@0
+          inputs:
+            disableDownloadFromRegistry: true
+            versionSpec: "3.12"
+            addToPath: true
+            architecture: "x64"
+
+        - script: |
+            python -m pip install cmake
+          displayName: "Install CMake"
+
+        - template: tools/ci_build/github/azure-pipeline/templates/set-package-version-variable-step.yml@self
+          parameters:
+            IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+            PackageVersionVariableName: ORT_EXTENSIONS_POD_VERSION
+
+        - script: |
+            python ./tools/gen_selectedops.py ./tools/ios/package_ops.config
+          displayName: "Generate selected ops CMake file"
+
+        - script: |
+            python ./tools/ios/build_xcframework.py \
+              --output_dir $(Build.BinariesDirectory)/xcframework_out \
+              --config Release \
+              -- \
+              --one_cmake_extra_define OCOS_ENABLE_SELECTED_OPLIST=ON
+          displayName: "Build xcframework"
+        
+        - script: |
+            cat $(Build.BinariesDirectory)/xcframework_out/xcframework_info.json
+          displayName: 'List xcframework_info.json file contents'
+
+        - script: |
+            python ./tools/ios/assemble_pod_package.py \
+              --staging-dir $(Build.BinariesDirectory)/pod_staging \
+              --xcframework-output-dir $(Build.BinariesDirectory)/xcframework_out \
+              --pod-version ${ORT_EXTENSIONS_POD_VERSION}
+          displayName: "Assemble pod"
+
+        - script: |
+            pod lib lint
+          displayName: "Lint pod"
+          workingDirectory: $(Build.BinariesDirectory)/pod_staging
+
+        - script: |
+            ORT_EXTENSIONS_LOCAL_POD_PATH=$(Build.BinariesDirectory)/pod_staging \
+              pod install
+          displayName: "Install pods for OrtExtensionsUsage"
+          workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage      
+
+        - script: |
+            xcrun xcodebuild \
+              -configuration Debug \
+              -parallel-testing-enabled NO \
+              -workspace $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace \
+              -scheme OrtExtensionsMacOSUsage \
+              -destination "platform=macos" \
+              test CODE_SIGNING_ALLOWED=NO
+          displayName: "Build and test OrtExtensionsUsage for MacOS"
+
+        # Xcode tasks require absolute paths because it searches for the paths and files relative to
+        # the root directory and not relative to the working directory
+        - task: Xcode@5
+          inputs:
+            actions: 'build-for-testing'
+            configuration: 'Debug'
+            xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
+            sdk: 'iphoneos'
+            scheme: 'OrtExtensionsUsage'
+            signingOption: 'manual'
+            signingIdentity: '$(APPLE_CERTIFICATE_SIGNING_IDENTITY)'
+            provisioningProfileUuid: '$(APPLE_PROV_PROFILE_UUID)'
+            args: '-derivedDataPath $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/DerivedData'
+            workingDirectory: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/'
+            useXcpretty: false  # xcpretty can hide useful error output so we will disable it
+          displayName: 'Build OrtExtensionsUsage'
+
+        - script: |
+            zip -r --symlinks $(Build.ArtifactStagingDirectory)/package_tests.zip OrtExtensionsUsageUITests-Runner.app
+          workingDirectory: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/DerivedData/Build/Products/Debug-iphoneos'
+          displayName: "Create .zip file of the tests"
+
+        - script: |
+            python $(Build.SourcesDirectory)/test/ios/generate_ipa_export_options_plist.py \
+              --dest_file "exportOptions_iphoneos.plist" \
+              --apple_team_id $(APPLE_TEAM_ID) \
+              --provisioning_profile_uuid $(APPLE_PROV_PROFILE_UUID)
+          workingDirectory: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/'
+          displayName: "Generate .plist file for the .ipa file"
+
+        # Task only generates an .xcarchive file if the plist export options are included, but does
+        # not produce an IPA file.
+        # Source code: https://github.com/microsoft/azure-pipelines-tasks/blob/master/Tasks/XcodeV5/xcode.ts
+        - task: Xcode@5
+          inputs:
+            actions: 'archive'
+            xcWorkspacePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/OrtExtensionsUsage.xcworkspace'
+            packageApp: true
+            archivePath: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/'
+            exportOptions: 'plist'
+            exportOptionsPlist: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/exportOptions_iphoneos.plist'
+            configuration: 'Debug'
+            sdk: 'iphoneos'
+            scheme: 'OrtExtensionsUsage'
+            args: '-derivedDataPath $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/DerivedData'
+            workingDirectory: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/'
+            useXcpretty: false
+          displayName: 'Create archive for the .ipa file'
+
+        # Use script step because exporting the .ipa file using the Xcode@5 task was too brittle (Xcode@5 is designed
+        # to handle both the .xcarchive step and the .ipa step in the same step -- ran into countless issues with signing
+        # and the .plist file)
+        - script: |
+            xcodebuild -exportArchive \
+              -archivePath OrtExtensionsUsage.xcarchive \
+              -exportOptionsPlist exportOptions_iphoneos.plist \
+              -exportPath $(Build.ArtifactStagingDirectory)/test_ipa
+          workingDirectory: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/'
+          displayName: "Create .ipa file"
+
+        - script: |
+            set -e -x
+            pip install requests
+            python $(Build.SourcesDirectory)/tools/upload_and_run_browserstack_tests.py \
+              --test_platform xcuitest \
+              --app_path "$(Build.ArtifactStagingDirectory)/test_ipa/OrtExtensionsUsage.ipa" \
+              --test_path "$(Build.ArtifactStagingDirectory)/package_tests.zip" \
+              --devices "iPhone 15-17"
+          displayName: Run E2E tests using Browserstack
+          workingDirectory: '$(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage/'
+          timeoutInMinutes: 15
+          env:
+            BROWSERSTACK_ID: $(browserstack_username)
+            BROWSERSTACK_TOKEN: $(browserstack_access_key)
+
+        - script: |
+            set -e -x
+
+            POD_STAGING_DIR="$(Build.BinariesDirectory)/pod_staging"
+            ARTIFACTS_STAGING_DIR="$(Build.ArtifactStagingDirectory)"
+            POD_NAME="onnxruntime-extensions-c"
+            POD_ARCHIVE_BASENAME="pod-archive-${POD_NAME}-${ORT_EXTENSIONS_POD_VERSION}.zip"
+            PODSPEC_BASENAME="${POD_NAME}.podspec"
+
+            pushd ${POD_STAGING_DIR}
+
+            # assemble the files in the artifacts staging directory
+            zip -vry ${ARTIFACTS_STAGING_DIR}/${POD_ARCHIVE_BASENAME} * --exclude ${PODSPEC_BASENAME}
+            cp ${PODSPEC_BASENAME} ${ARTIFACTS_STAGING_DIR}/${PODSPEC_BASENAME}
+
+            popd
+          displayName: "Assemble artifacts"
+
+        - template: tools/ci_build/github/azure-pipeline/templates/component-governance-component-detection-steps.yml@self
+          parameters :
+            condition : 'succeeded'
