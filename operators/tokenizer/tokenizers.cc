@@ -8,6 +8,7 @@
 #include "bpe_tokenizer_model.hpp"
 #include "bpe_decoder.hpp"
 #include "tokenizer_op_impl.hpp"
+using namespace ort_extensions;
 #endif
 
 #ifdef ENABLE_SPM_TOKENIZER
@@ -32,8 +33,6 @@
 #ifdef ENABLE_TRIE_TOKENIZER
 #include "trie_tokenizer.hpp"
 #endif
-
-using namespace ort_extensions;
 
 FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = []() -> CustomOpArray& {
   static OrtOpLoader op_loader(

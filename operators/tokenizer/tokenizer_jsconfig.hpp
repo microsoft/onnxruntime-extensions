@@ -65,7 +65,7 @@ class TokenJsonConfig final {
       add_bos_token_ = true;
       add_eos_token_ = true;
       bos_token_ = "<s>";
-      eos_token_ = "";
+      eos_token_ = "</s>";
       unk_token_ = "<unk>";
       return {};
     }

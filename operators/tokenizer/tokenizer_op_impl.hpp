@@ -24,7 +24,7 @@ class JsonTokenizerOpKernel {
     TokenJsonConfig cfg;
     OrtxTokenizerBlob blob({config_json.c_str(), config_json.length()},
                            {vocab_json.c_str(), vocab_json.length()});
-    
+
     ORTX_RETURN_IF_ERROR(cfg.LoadFromBlob(blob));
 
     auto type = TokenJsonConfig::GetTokenType(cfg.tokenizer_class_);
