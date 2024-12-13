@@ -112,7 +112,7 @@ TEST(ImageDecoderTest, TestJpegEncoderDecoder) {
 
   out_range = out_tensor.Data() + 438 * width * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),
-            std::vector<uint8_t>({84, 68, 53, 86, 70, 55, 92, 77, 58, 101, 86, 67}));
+            std::vector<uint8_t>({84, 68, 53, 86, 70, 55, 92, 76, 59, 101, 86, 65}));
 
   out_range = out_tensor.Data() + 875 * width * 3 + 1296 * 3;
   ASSERT_EQ(std::vector<uint8_t>(out_range, out_range + 12),

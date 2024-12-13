@@ -21,5 +21,4 @@ Pod::Spec.new do |spec|
     spec.source_files           = "@PUBLIC_HEADERS_DIR@/*.h"
     spec.preserve_paths         = [ "@LICENSE_FILE@" ]
     spec.library                = "c++"
-
 end

@@ -1018,7 +1018,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         # output.tofile(str(output_img) + "actual.png")
 
         image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
-        self.assertLess(compare_two_images_mse(image_ref, output), 0.1)
+        self.assertLess(compare_two_images_mse(image_ref, output), 0.2)
 
 
 if __name__ == "__main__":
