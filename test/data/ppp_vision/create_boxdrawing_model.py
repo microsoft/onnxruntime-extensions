@@ -5,9 +5,6 @@ from pathlib import Path
 # NOTE: This assumes you have created an editable pip install for onnxruntime_extensions by running
 # `pip install -e .` from the repo root.
 from onnxruntime_extensions.tools.pre_post_processing import *
-from onnxruntime_extensions import get_library_path
-
-import onnxruntime
 
 
 def create_model(output_file: Path, **kwargs):
