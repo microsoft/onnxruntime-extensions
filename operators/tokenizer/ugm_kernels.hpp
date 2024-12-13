@@ -214,7 +214,13 @@ struct SpmUgmTokenizer {
     return std::get<0>(iter->second);
   }
 
-  OrtxStatus Compute(const ortc::Tensor<std::string>& input, ortc::Tensor<int64_t>& tokenize_output) const {
+  OrtxStatus Compute(const ortc::Tensor<std::string>& input, ortc::Tensor<int64_t>& tokenize_output,
+                     std::optional<ortc::Tensor<int64_t>*> attention_mask = std::nullopt,
+                     std::optional<ortc::Tensor<int64_t>*> offset_mapping = std::nullopt) const {
+    if (attention_mask.has_value() || offset_mapping.has_value()) {
+      return {kOrtxErrorInvalidArgument, "attention-mask or offset-mapping was supported in unigram tokenizer"};
+    }
+
     if (input.Shape().size() != 1) {
       return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, "Input tensor must have rank 1.");
     }

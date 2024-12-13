@@ -7,6 +7,8 @@
 #include "bpe_kernels.h"
 #include "bpe_tokenizer_model.hpp"
 #include "bpe_decoder.hpp"
+#include "tokenizer_op_impl.hpp"
+using namespace ort_extensions;
 #endif
 
 #ifdef ENABLE_SPM_TOKENIZER
@@ -40,6 +42,7 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Tokenizer = []() -> CustomOpArray& {
       CustomCpuStructV2("RobertaTokenizer", RobertaTokenizer),
       CustomCpuStructV2("BpeDecoder", KernelBpeDecoder),
       CustomCpuStructV2("SpmTokenizer", SpmTokenizer),
+      CustomCpuStructV2("HfJsonTokenizer", JsonTokenizerOpKernel),
 #endif
 
 #ifdef ENABLE_SPM_TOKENIZER
