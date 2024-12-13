@@ -449,7 +449,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
             create_boxdrawing_model.create_model(output_model, is_crop=is_crop)
             image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
             output = self.draw_boxes_on_image(output_model, test_boxes[idx])
-            self.assertLess(compare_two_images_mse(image_ref, output), 0.2)
+            self.assertLess(compare_two_images_mse(image_ref, output), 0.13)
 
     def test_draw_box_share_border(self):
         import sys
@@ -1018,7 +1018,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         # output.tofile(str(output_img) + "actual.png")
 
         image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
-        self.assertLess(compare_two_images_mse(image_ref, output), 0.2)
+        self.assertLess(compare_two_images_mse(image_ref, output), 0.1)
 
 
 if __name__ == "__main__":
