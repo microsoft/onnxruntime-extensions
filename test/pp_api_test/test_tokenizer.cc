@@ -67,7 +67,7 @@ TEST(CApiTest, StreamApiTest) {
 
 TEST(OrtxTokenizerTest, RegexTest) {
   std::u32string str = U"CAN'T \r\n 2413m";
-  auto regcmp = std::make_unique<ort_extensions::bpe::TokenWithRegularExp>();
+  auto regcmp = std::make_unique<ort_extensions::bpe::PreTokenizerWithRegEx>();
 
   std::vector<std::u32string> res;
   std::vector<std::u32string> out_tokens = {U"CAN", U"'T", U" \r\n", U" ", U"241", U"3", U"m"};
@@ -91,7 +91,7 @@ TEST(OrtxTokenizerTest, RegexMatchSTDTest) {
   std::vector<std::u32string> input_strings = {U"not its, or IT'S, but it's",
                                                U"   ",
                                                U"AbCd"};                      
-  auto regcmp = std::make_unique<ort_extensions::bpe::TokenWithRegularExp>();
+  auto regcmp = std::make_unique<ort_extensions::bpe::PreTokenizerWithRegEx>();
 
   std::vector<std::vector<std::u32string>> res_vector;
   std::vector<std::vector<std::u32string>> out_tokens = {{U"'s"},
@@ -118,7 +118,7 @@ TEST(OrtxTokenizerTest, WrapStandaloneCategoriesTest) {
                                                 "\\p{rn}\\p{L}\\p{N}\\p{L}",
                                                 "\\p{Z}*[\\p{rn}]+",
                                                 "\\p{Z}+"};
-  auto regcmp = std::make_unique<ort_extensions::bpe::TokenWithRegularExp>();
+  auto regcmp = std::make_unique<ort_extensions::bpe::PreTokenizerWithRegEx>();
 
   std::vector<std::string> res;
   std::vector<std::string> out_regex = {"[^\\p{rn}\\p{L}\\p{N}]?[\\p{L}]+",
@@ -152,7 +152,7 @@ TEST(OrtxTokenizerTest, RegexMatchGeneralTest) {
                                                U"241356m",
                                                U"Ich liebe München <3 \r\n ",
                                                U"生活的真谛是"};                      
-  auto regcmp = std::make_unique<ort_extensions::bpe::TokenWithRegularExp>();
+  auto regcmp = std::make_unique<ort_extensions::bpe::PreTokenizerWithRegEx>();
 
   std::vector<std::vector<std::u32string>> res_vector;
   std::vector<std::vector<std::u32string>> out_tokens = {{U"CAN", U"'T", U"", U""},

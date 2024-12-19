@@ -121,7 +121,7 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         OrtxTokenizer* tokenizer = nullptr;
         auto err = OrtxCreateTokenizer(&tokenizer, tokenizer_def_json.c_str());
         if (err != kOrtxOK) {
-          throw std::runtime_error(std::string("Failed to create tokenizer") + OrtxGetLastErrorMessage());
+          throw std::runtime_error(std::string("Failed to create tokenizer\n") + OrtxGetLastErrorMessage());
         }
         return reinterpret_cast<std::uintptr_t>(tokenizer);
       },
