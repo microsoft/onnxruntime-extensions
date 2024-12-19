@@ -49,10 +49,12 @@ class Tokenizer:
             self.tokenizer = create_tokenizer(tokenizer_dir)
 
     def tokenize(self, text):
+        if isinstance(text, (list, tuple)):
+            return batch_tokenize(self.tokenizer, text)
         return batch_tokenize(self.tokenizer, [text])[0]
 
     def detokenize(self, tokens):
-        return batch_detokenize(self.tokenizer, [tokens])[0]
+        return batch_detokenize(self.tokenizer, [tokens])
 
     def __del__(self):
         if delete_object and self.tokenizer:

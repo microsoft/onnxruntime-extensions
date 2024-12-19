@@ -11,33 +11,15 @@
 
 namespace ort_extensions {
 
-std::set<std::string> TokenizerImpl::supported_bpe_models_ = {
-  "PreTrainedTokenizerFast", 
-  "CLIPTokenizer",
-  "WhisperTokenizer",
-  "GemmaTokenizer",
-  "LlamaTokenizer",
-  "Phi3Tokenizer",
-  "CodeLlamaTokenizer",
-  "CodeGenTokenizer",
-  "GPT2Tokenizer",
-  "Qwen2Tokenizer",
-  "BaichuanTokenizer"
-};
-
-std::set<std::string> TokenizerImpl::supported_ugm_models_ = {
-  "XLMRobertaTokenizer",
-  "T5Tokenizer",
-  "ChatGLMTokenizer"
-};
 
 TokenizerImpl::TokenizerImpl()
     : OrtxObjectImpl(extObjectKind_t::kOrtxKindTokenizer) {};
 TokenizerImpl::~TokenizerImpl() {};
 
 OrtxStatus TokenizerImpl::LoadTokenizer(const OrtxTokenizerBlob* blob) {
-  if (tok_config_->tokenizer_class_.empty() ||
-      supported_ugm_models_.count(tok_config_->tokenizer_class_)) {
+
+  auto type = TokenJsonConfig::GetTokenType(tok_config_->tokenizer_class_);
+  if (type == TokenType::kUnigram) {
     auto tokenizer = std::make_unique<SpmUgmTokenizer>();
     auto status = tokenizer->Load(*tok_config_);
     if (!status.IsOk()) {
@@ -53,42 +35,39 @@ OrtxStatus TokenizerImpl::LoadTokenizer(const OrtxTokenizerBlob* blob) {
       tokenizer_ = std::move(tokenizer);
       detokenizer_ = std::move(detok);
     }
+    return status;
+  } else if (type == TokenType::kBPE) {
+    auto tokenizer = std::make_unique<JsonFastTokenizer>();
+    auto fx_load = &JsonFastTokenizer::Load;
+    if (blob == nullptr) {
+      auto vocab_file_path = ortx::path(tok_config_->GetVocabDataFile());
+      // vocab file is checked in TokenJsonConfig::Load
+      if (vocab_file_path.extension() != ".json") {
+        fx_load = &JsonFastTokenizer::LoadTikTokenBase64;
+      }
+    } else {
+      if (blob->raw_model_blob_len > 0) {
+        fx_load = &JsonFastTokenizer::LoadTikTokenBase64;
+      }
+    }
+
+    auto status = (tokenizer.get()->*fx_load)(*tok_config_);
+    if (!status.IsOk()) {
+      return status;
+    }
+
+    auto detok = std::make_unique<BpeStreamingDecoder>();
+    status = detok->Load(tok_config_, *tokenizer);
+
+    if (status.IsOk()) {
+      tokenizer_ = std::move(tokenizer);
+      detokenizer_ = std::move(detok);
+    }
 
     return status;
   }
 
-  if (!supported_bpe_models_.count(tok_config_->tokenizer_class_)) {
-    return OrtxStatus(kOrtxErrorNotImplemented, "Unsupported tokenizer class");
-  }
-
-  auto tokenizer = std::make_unique<JsonFastTokenizer>();
-  auto fx_load = &JsonFastTokenizer::Load;
-  if (blob == nullptr) {
-    auto vocab_file_path = ortx::path(tok_config_->GetVocabDataFile());
-    // vocab file is checked in TokenJsonConfig::Load
-    if (vocab_file_path.extension() != ".json") {
-      fx_load = &JsonFastTokenizer::LoadTikTokenBase64;
-    }
-  } else {
-    if (blob->raw_model_blob_len > 0) {
-      fx_load = &JsonFastTokenizer::LoadTikTokenBase64;
-    }
-  }
-
-  auto status = (tokenizer.get()->*fx_load)(*tok_config_);
-  if (!status.IsOk()) {
-    return status;
-  }
-
-  auto detok = std::make_unique<BpeStreamingDecoder>();
-  status = detok->Load(tok_config_, *tokenizer);
-
-  if (status.IsOk()) {
-    tokenizer_ = std::move(tokenizer);
-    detokenizer_ = std::move(detok);
-  }
-
-  return status;
+  return OrtxStatus(kOrtxErrorNotImplemented, "Unsupported tokenizer class");
 }
 
 OrtxStatus TokenizerImpl::Load(const OrtxTokenizerBlob& blob) {

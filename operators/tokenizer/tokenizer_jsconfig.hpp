@@ -26,6 +26,7 @@ constexpr std::pair<const char*, TokenType> kTokenizerDict[] = {
   {"GPT2Tokenizer", TokenType::kBPE},
   {"Qwen2Tokenizer", TokenType::kBPE},
   {"BaichuanTokenizer", TokenType::kBPE},
+  {"GPTNeoXTokenizer", TokenType::kBPE},
 
   {"", TokenType::kUnigram},
   {"T5Tokenizer", TokenType::kUnigram},
