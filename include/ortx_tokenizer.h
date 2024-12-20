@@ -33,10 +33,9 @@ struct OrtxTokenizerBlob {
                     const std::string_view& raw_model_blob = {})
       : config_json_blob(config_json_blob.data()), vocab_json_blob(vocab_json_blob.data()),
         token_module_blob(token_module_blob.data()), raw_model_blob(raw_model_blob.data()),
-        config_blob_len(config_json_blob.size()),
+        reserved_blob_1(nullptr), config_blob_len(config_json_blob.size()),
         vocab_blob_len(vocab_json_blob.size()), token_module_blob_len(token_module_blob.size()),
-        raw_model_blob_len(raw_model_blob.size()), reserved_blob_1(nullptr),
-        reserved_blob_1_len(0) {}
+        raw_model_blob_len(raw_model_blob.size()), reserved_blob_1_len(0) {}
 #endif
 };
 
