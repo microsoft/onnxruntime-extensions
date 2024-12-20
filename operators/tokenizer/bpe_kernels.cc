@@ -262,7 +262,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
 
   // Parse input
   auto special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input);
-  bpe::TokenWithRegularExp regcmp;
+  bpe::PreTokenizerWithRegEx reg_splitter;
 
   for (auto& seg_id : special_token_split_res) {
     if (static_cast<int64_t>(res.size()) >= max_length) break;
@@ -274,7 +274,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
 
     // Note: keep ptr to make sure the string_view is valid in the following process
     std::u32string str(seg_id.first);
-    regcmp.Set(str.c_str());
+    reg_splitter.Set(str.c_str());
 
     size_t offset = 0;
     OffsetMappingType offset_mapping;
@@ -287,14 +287,8 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     }
 
     while (static_cast<int64_t>(res.size()) < max_length) {
-      std::string regex_expr = "";
-      if (ModelName() == kModel_Llama){
-        regex_expr = regcmp.LLAMA_REGEX_PATTERN;
-      } else {
-        // default to GPT2 regex
-        regex_expr = regcmp.GPT2_REGEX_PATTERN;
-      }
-      auto [b, tok] = regcmp.GetNextToken(regex_expr);
+      std::string regex_expr =  bbpe_tokenizer_->GetPreTokenizerRegex(ModelName());
+      auto [b, tok] = reg_splitter.GetNextToken(regex_expr);
 
       if (!b) break;
 
