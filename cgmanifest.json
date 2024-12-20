@@ -43,7 +43,7 @@
       "component": {
         "type": "git",
         "git": {
-          "commitHash": "dd762b861ecadf5ddd5fb03e9ca1db6707b54fbb",
+          "commitHash": "660795b2834aebb2217c9849d668b6e4bd4ef810",
           "repositoryUrl": "https://github.com/mackron/dr_libs.git"
         }
       }
