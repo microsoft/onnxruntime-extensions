@@ -258,10 +258,9 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
     inputs.push_back(InputInformation{input_X, i_dtype, i_dimensions});
   }
 
-  /* Acquire GIL before calling Python code, due to it was released in sess.run */
-  py::gil_scoped_acquire acquire;
-
   {
+    /* Acquire GIL before calling Python C API, due to it was released in sess.run */
+    py::gil_scoped_acquire acquire;
     py::list pyinputs;
     for (auto it = inputs.begin(); it != inputs.end(); ++it) {
       py::object input0 = PyCustomOpDefImpl::BuildPyArrayFromTensor(
@@ -349,8 +348,6 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
         memcpy(out, retval.data(), size * retval.size());
       }
     }
-
-    py::gil_scoped_release release;
   }
 }
 

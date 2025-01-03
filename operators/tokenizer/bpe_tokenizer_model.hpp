@@ -20,8 +20,12 @@
 #include "trietree.hpp"
 #include "tokenizer_common.h"
 
-namespace ort_extensions {
+#define ORTX_JSON_RETURN_IF_NULL(node_iter, name, var) \
+  auto var = (node_iter)->find(name); \
+  if (var == (node_iter)->end() || var->is_null()) { return {}; }
 
+
+namespace ort_extensions {
 class BpeModel {
   using json = nlohmann::json;
 
@@ -42,6 +46,39 @@ class BpeModel {
         vocab_map[tok] = it->second;
       }
     }
+  }
+
+  OrtxStatus LoadPreTokenizer(const json& bpe_model) {
+    auto root_node = &bpe_model;
+    ORTX_JSON_RETURN_IF_NULL(root_node, "pre_tokenizer", node_pre_tokenizer);
+    ORTX_JSON_RETURN_IF_NULL(node_pre_tokenizer, "type", iter_type);
+
+    auto pre_token_type = iter_type->get<std::string>();
+    if (pre_token_type == "ByteLevel") {
+      // need to add more flag support here in the future
+      return {};
+    } else if (pre_token_type != "Sequence") {
+      return {kOrtxErrorNotImplemented, std::string("Unsupported pretokenizer type!") + pre_token_type};
+    }
+
+    ORTX_JSON_RETURN_IF_NULL(node_pre_tokenizer, "pretokenizers", iter_node_list);
+
+    for (const auto& node : *iter_node_list) {
+      ORTX_JSON_RETURN_IF_NULL(&node, "type", iter_type);
+      auto pre_type = iter_type->get<std::string>();
+      if (pre_type == "Split") {
+        ORTX_JSON_RETURN_IF_NULL(&node, "pattern", iter_pattern);
+        ORTX_JSON_RETURN_IF_NULL(iter_pattern, "Regex", regex_str);
+        pre_tokenizer_regex_ = regex_str->get<std::string>();
+      } else if (pre_type == "ByteLevel") {
+        ; // need to add more flag support here in the future
+      }
+      else {
+        return {kOrtxErrorNotImplemented, "Unsupported pretokenizer type!"};
+      }
+    }
+
+    return {};
   }
 
   OrtxStatus Load(std::istream& vocab_stream, std::istream& merges_stream, const char* unk_token,
@@ -120,7 +157,9 @@ class BpeModel {
     return {};
   }
 
-  OrtxStatus Load(const json& bpe_model, const char* /* special_tokens */, bool spm_converted) {
+  OrtxStatus Load(const json& bpe_model, const json& tok_json, const char* /* special_tokens */, bool spm_converted) {
+    ORTX_RETURN_IF_ERROR(LoadPreTokenizer(tok_json));
+
     const json& vocab_json = bpe_model["vocab"];
     const json& merges_json = bpe_model["merges"];
     vocab_json.get_to(vocab_map_);
@@ -358,6 +397,19 @@ class BpeModel {
 
   const std::string& GetEndOfWordSuffix() const { return end_of_word_suffix_; }
 
+  std::string GetPreTokenizerRegex(const std::string& model_name) const {
+    if (!pre_tokenizer_regex_.empty()) {
+      return pre_tokenizer_regex_;
+    }
+
+    if (model_name == "Llama") {
+      return bpe::PreTokenizerWithRegEx::LLAMA_REGEX_PATTERN;
+    }
+
+    // by default, use the GPT2 pretokenizer regex
+    return bpe::PreTokenizerWithRegEx::GPT2_REGEX_PATTERN;
+  }
+
  private:
   struct BpeNode {
     uint32_t id;
@@ -379,6 +431,7 @@ class BpeModel {
   uint32_t unk_id_ = (std::numeric_limits<uint32_t>::max)();
   bpe::SpecialTokenMap special_tokens_;
   TrieTree<char32_t> added_tokens_;
+  std::string pre_tokenizer_regex_;
 };
 
 }  // namespace ort_extensions
