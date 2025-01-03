@@ -20,8 +20,12 @@
 #include "trietree.hpp"
 #include "tokenizer_common.h"
 
-namespace ort_extensions {
+#define ORTX_JSON_RETURN_IF_NULL(node_iter, name, var) \
+  auto var = (node_iter)->find(name); \
+  if (var == (node_iter)->end() || var->is_null()) { return {}; }
 
+
+namespace ort_extensions {
 class BpeModel {
   using json = nlohmann::json;
 
@@ -45,45 +49,26 @@ class BpeModel {
   }
 
   OrtxStatus LoadPreTokenizer(const json& bpe_model) {
-    auto node_pre_tokenizer = bpe_model.find("pre_tokenizer");
-    if (node_pre_tokenizer == bpe_model.end() || node_pre_tokenizer->is_null()) {
+    auto root_node = &bpe_model;
+    ORTX_JSON_RETURN_IF_NULL(root_node, "pre_tokenizer", node_pre_tokenizer);
+    ORTX_JSON_RETURN_IF_NULL(node_pre_tokenizer, "type", iter_type);
+
+    auto pre_token_type = iter_type->get<std::string>();
+    if (pre_token_type == "ByteLevel") {
+      // need to add more flag support here in the future
       return {};
+    } else if (pre_token_type != "Sequence") {
+      return {kOrtxErrorNotImplemented, std::string("Unsupported pretokenizer type!") + pre_token_type};
     }
 
-    auto iter_type = node_pre_tokenizer->find("type");
-    if (iter_type == node_pre_tokenizer->end() || iter_type->is_null()) {
-      return {};
-    }
-
-    if (iter_type->get<std::string>() != "Sequence") {
-      return {kOrtxErrorNotImplemented, "Unsupported pretokenizer type!"};
-    }
-
-    auto iter_node_list = node_pre_tokenizer->find("pretokenizers");
-
-    if (iter_node_list == node_pre_tokenizer->end() || iter_node_list->is_null()) {
-      return {};
-    }
+    ORTX_JSON_RETURN_IF_NULL(node_pre_tokenizer, "pretokenizers", iter_node_list);
 
     for (const auto& node : *iter_node_list) {
-      auto iter_type = node.find("type");
-      if (iter_type == node.end() || iter_type->is_null()) {
-        continue; // ignore unknown pre-tokenizer type
-      }
-
-
+      ORTX_JSON_RETURN_IF_NULL(&node, "type", iter_type);
       auto pre_type = iter_type->get<std::string>();
       if (pre_type == "Split") {
-        auto iter_pattern = node.find("pattern");
-        if (iter_pattern == node.end() || iter_pattern->is_null()) {
-          continue;
-        }
-
-        auto regex_str = iter_pattern->find("Regex");
-        if (regex_str == iter_pattern->end() || regex_str->is_null()) {
-          continue;
-        }
-
+        ORTX_JSON_RETURN_IF_NULL(&node, "pattern", iter_pattern);
+        ORTX_JSON_RETURN_IF_NULL(iter_pattern, "Regex", regex_str);
         pre_tokenizer_regex_ = regex_str->get<std::string>();
       } else if (pre_type == "ByteLevel") {
         ; // need to add more flag support here in the future
@@ -172,8 +157,8 @@ class BpeModel {
     return {};
   }
 
-  OrtxStatus Load(const json& bpe_model, const char* /* special_tokens */, bool spm_converted) {
-    ORTX_RETURN_IF_ERROR(LoadPreTokenizer(bpe_model));
+  OrtxStatus Load(const json& bpe_model, const json& tok_json, const char* /* special_tokens */, bool spm_converted) {
+    ORTX_RETURN_IF_ERROR(LoadPreTokenizer(tok_json));
 
     const json& vocab_json = bpe_model["vocab"];
     const json& merges_json = bpe_model["merges"];

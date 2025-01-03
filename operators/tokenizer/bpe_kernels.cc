@@ -736,9 +736,9 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::TokenJsonConfig& config
   }
 
   bbpe_tokenizer_ = std::make_unique<BpeModel>();
-  status = bbpe_tokenizer_->Load(*model_node,
-                                            bpe_conf_.get().GetSpecialTokens().c_str(),
-                                            bpe_conf_.get().spm_model_);
+  status = bbpe_tokenizer_->Load(*model_node, tok_json,
+                                 bpe_conf_.get().GetSpecialTokens().c_str(),
+                                 bpe_conf_.get().spm_model_);
   if (status.IsOk()) {
     UpdateTokenizer(config, tok_json);
   }

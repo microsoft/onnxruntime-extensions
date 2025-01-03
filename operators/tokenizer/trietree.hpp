@@ -97,6 +97,7 @@ class TrieTree {
       tok_idx += 1;
       if (tok_id == invalid_id) {
         if (tok_idx < input.length()) {
+          tok_idx -= tok_len;  // backtrack to the last token
           continue;
         } else {
           tok_idx += 1;  // Assign tok_idx to input.length()
