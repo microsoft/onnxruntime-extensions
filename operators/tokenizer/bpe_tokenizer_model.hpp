@@ -8,6 +8,7 @@
 #include "string_utils.h"
 #include "string_tensor.h"
 
+#include <set>
 #include <list>
 #include <unordered_map>
 #include <iostream>
@@ -21,16 +22,24 @@
 #include "tokenizer_common.h"
 
 #define ORTX_JSON_RETURN_IF_NULL(node_iter, name, var) \
-  auto var = (node_iter)->find(name); \
-  if (var == (node_iter)->end() || var->is_null()) { return {}; }
-
+  auto var = (node_iter)->find(name);                  \
+  if (var == (node_iter)->end() || var->is_null()) {   \
+    return {};                                         \
+  }
 
 namespace ort_extensions {
+
 class BpeModel {
   using json = nlohmann::json;
+  const std::array<const char*, 12> kPreTokenizerType = {
+      "BertPreTokenizer", "ByteLevel",       "CharDelimiterSplit", "Digits", "Metaspace",
+      "PreTokenizer",     "Punctuation",     "Sequence",           "Split",  "UnicodeScripts",
+      "Whitespace",       "WhitespaceSplit",
+  };
 
  public:
-  BpeModel() = default;
+  BpeModel()
+      : pre_tokenizer_types_(kPreTokenizerType.begin(), kPreTokenizerType.end()) {};
 
   static void UpdateSpmByteToken(std::unordered_map<std::string, uint32_t>& vocab_map) {
     static const char* hex = "0123456789ABCDEF";
@@ -51,14 +60,12 @@ class BpeModel {
   OrtxStatus LoadPreTokenizer(const json& bpe_model) {
     auto root_node = &bpe_model;
     ORTX_JSON_RETURN_IF_NULL(root_node, "pre_tokenizer", node_pre_tokenizer);
-    ORTX_JSON_RETURN_IF_NULL(node_pre_tokenizer, "type", iter_type);
-
-    auto pre_token_type = iter_type->get<std::string>();
-    if (pre_token_type == "ByteLevel") {
-      // need to add more flag support here in the future
-      return {};
-    } else if (pre_token_type != "Sequence") {
-      return {kOrtxErrorNotImplemented, std::string("Unsupported pretokenizer type!") + pre_token_type};
+    auto iter_type = node_pre_tokenizer->find("type");
+    if (iter_type != node_pre_tokenizer->end() && !iter_type->is_null()) {
+      auto pre_token_type = iter_type->get<std::string>();
+      if (pre_tokenizer_types_.count(pre_token_type) == 0) {
+        return {kOrtxErrorNotImplemented, std::string("Unsupported pretokenizer type!") + pre_token_type};
+      }
     }
 
     ORTX_JSON_RETURN_IF_NULL(node_pre_tokenizer, "pretokenizers", iter_node_list);
@@ -70,11 +77,11 @@ class BpeModel {
         ORTX_JSON_RETURN_IF_NULL(&node, "pattern", iter_pattern);
         ORTX_JSON_RETURN_IF_NULL(iter_pattern, "Regex", regex_str);
         pre_tokenizer_regex_ = regex_str->get<std::string>();
-      } else if (pre_type == "ByteLevel") {
-        ; // need to add more flag support here in the future
-      }
-      else {
-        return {kOrtxErrorNotImplemented, "Unsupported pretokenizer type!"};
+      } else {
+        if (pre_tokenizer_types_.count(pre_type) == 0) {
+          return {kOrtxErrorNotImplemented, "Unsupported pretokenizer type!"};
+        }
+        ; // TODO: implement other pretokenizer types
       }
     }
 
@@ -432,6 +439,8 @@ class BpeModel {
   bpe::SpecialTokenMap special_tokens_;
   TrieTree<char32_t> added_tokens_;
   std::string pre_tokenizer_regex_;
+
+  std::set<std::string_view> pre_tokenizer_types_;
 };
 
 }  // namespace ort_extensions
