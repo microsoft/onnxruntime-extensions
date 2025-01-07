@@ -364,7 +364,8 @@ class SentencepieceDecoder(CustomOp):
     @classmethod
     def get_inputs(cls):
         return [
-            cls.io_def("ids", onnx.TensorProto.INT64, [None])
+            cls.io_def("ids", onnx.TensorProto.INT64, [None]),
+            cls.io_def('fairseq', onnx_proto.TensorProto.BOOL, [None])
         ]
 
     @classmethod
