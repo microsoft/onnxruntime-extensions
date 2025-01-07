@@ -303,7 +303,7 @@ class HFTokenizerOnnxGraph:
             if default_inputs is None:
                 encoder_inputs = self.cvt_quadruple.default_encoder_inputs
                 if encoder_inputs is not None and encoder_inputs["fairseq"]:
-                    pass
+                    default_inputs = {} # need to set to empty dict to call .update later
                 else:
                     return g
 
