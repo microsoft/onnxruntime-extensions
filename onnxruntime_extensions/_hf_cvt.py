@@ -301,7 +301,8 @@ class HFTokenizerOnnxGraph:
             op_class = SingleOpGraph.get_op_class(_cvt_op)
             default_inputs = op_class.input_default_values()
             if default_inputs is None:
-                if self.cvt_quadruple.default_encoder_inputs["fairseq"]:
+                encoder_inputs = self.cvt_quadruple.default_encoder_inputs
+                if encoder_inputs is not None and encoder_inputs["fairseq"]:
                     pass
                 else:
                     return g
