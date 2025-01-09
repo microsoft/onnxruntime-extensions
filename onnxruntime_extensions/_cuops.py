@@ -367,6 +367,12 @@ class SentencepieceDecoder(CustomOp):
             cls.io_def("ids", onnx.TensorProto.INT64, [None]),
             cls.io_def('fairseq', onnx_proto.TensorProto.BOOL, [None])
         ]
+    
+    @classmethod
+    def input_default_values(cls):
+        return {
+            'fairseq': [False]
+        }
 
     @classmethod
     def get_outputs(cls):
