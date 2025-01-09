@@ -629,7 +629,7 @@ if(OCOS_ENABLE_TF_STRING)
 
   if(OCOS_ENABLE_RE2_REGEX)
     target_include_directories(noexcep_operators PUBLIC ${googlere2_SOURCE_DIR})
-    target_link_libraries(noexcep_operators PRIVATE re2)
+    target_link_libraries(noexcep_operators PRIVATE re2::re2)
   endif()
 endif()
 
