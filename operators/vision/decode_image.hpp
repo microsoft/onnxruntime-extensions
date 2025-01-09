@@ -6,6 +6,7 @@
 #include <cstring>
 #include <variant>
 #include <unordered_map>
+#include <algorithm>
 
 #if OCOS_ENABLE_VENDOR_IMAGE_CODECS
   #if _WIN32
