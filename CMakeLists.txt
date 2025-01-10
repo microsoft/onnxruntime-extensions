@@ -54,7 +54,12 @@ include(CMakeDependentOption)
 
 set(_ORTX_STANDALONE_PROJECT OFF)
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
-    set(_ORTX_STANDALONE_PROJECT ON)
+  set(_ORTX_STANDALONE_PROJECT ON)
+endif()
+
+set(_ORTX_SHARED_BUILD_SUPPORTED ON)
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  set(_ORTX_SHARED_BUILD_SUPPORTED OFF)
 endif()
 
 option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
@@ -82,7 +87,7 @@ option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF) # only for
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
 option(OCOS_ENABLE_C_API "Enable building the C API" OFF)
 
-option(OCOS_BUILD_SHARED_LIB "Enable building the dynamic library" ON)
+option(OCOS_BUILD_SHARED_LIB "Enable building the dynamic library" ${_ORTX_SHARED_BUILD_SUPPORTED})
 option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
 option(OCOS_BUILD_JAVA "Enable building the Java package" OFF)
 option(OCOS_BUILD_ANDROID "Enable building the Android package" OFF)

@@ -9,9 +9,6 @@ if(OCOS_ENABLE_STATIC_LIB)
   add_library(onnxruntime_extensions ALIAS ortcustomops)
   standardize_output_folder(ortcustomops)
 else()
-  # Emscripten does not support building a shared library with custom ops.
-  # and backward compatible with the previous version, we silently turn off the shared library build.
-  set(OCOS_BUILD_SHARED_LIB OFF CACHE INTERNAL "" FORCE)
   add_executable(ortcustomops ${_TARGET_LIB_SRC})
   set_target_properties(ortcustomops PROPERTIES LINK_FLAGS "                                  \
                       -s WASM=1                                                               \
