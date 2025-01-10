@@ -773,29 +773,7 @@ if(OCOS_ENABLE_C_API)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-  if(NOT OCOS_ENABLE_STATIC_LIB)
-    # Emscripten does not support building a shared library with custom ops.
-    # and backward compatible with the previous version, we silently turn off the shared library build.
-    set(OCOS_BUILD_SHARED_LIB OFF CACHE INTERNAL "" FORCE)
-    add_executable(ortcustomops ${_TARGET_LIB_SRC})
-    set_target_properties(ortcustomops PROPERTIES LINK_FLAGS "                                  \
-                        -s WASM=1                                                               \
-                        -s NO_EXIT_RUNTIME=0                                                    \
-                        -s ALLOW_MEMORY_GROWTH=1                                                \
-                        -s SAFE_HEAP=0                                                          \
-                        -s MODULARIZE=1                                                         \
-                        -s SAFE_HEAP_LOG=0                                                      \
-                        -s STACK_OVERFLOW_CHECK=0                                               \
-                        -s EXPORT_ALL=0                                                         \
-                        -s VERBOSE=0                                                            \
-                        --no-entry")
-
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-      set_property(TARGET ortcustomops APPEND_STRING PROPERTY LINK_FLAGS " -s ASSERTIONS=1 -s DEMANGLE_SUPPORT=1")
-    else()
-      set_property(TARGET ortcustomops APPEND_STRING PROPERTY LINK_FLAGS " -s ASSERTIONS=0 -s DEMANGLE_SUPPORT=0")
-    endif()
-  endif()
+  include(ext_wasm)
 else()
   add_library(ortcustomops STATIC ${_TARGET_LIB_SRC})
   if (HAS_SDL)
