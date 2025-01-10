@@ -168,7 +168,8 @@ class HFTokenizerConverter(CustomOpConverter):
 TokenOpParam = namedtuple("TokenOpParam",
                           ["pre_op", "pre_attribute_cvt",
                            "post_op", "post_attribute_cvt",
-                           "default_inputs"],
+                           "default_encoder_inputs",
+                           "default_decoder_inputs"],
                           defaults=(None, None, None, None, None))
 
 # Some tokenizers can be added by this table
@@ -176,35 +177,36 @@ TokenOpParam = namedtuple("TokenOpParam",
 # @formatter:off
 _PROCESSOR_DICT = {
     "BertTokenizer":        TokenOpParam('BertTokenizer',   HFTokenizerConverter.bert_tokenizer,
-                                         'BertDecoder',     HFTokenizerConverter.bpe_decoder, None),
+                                         'BertDecoder',     HFTokenizerConverter.bpe_decoder, None, None),
     "DistilBertTokenizer":  TokenOpParam('BertTokenizer',   HFTokenizerConverter.bert_tokenizer,
-                                         'BertDecoder',     HFTokenizerConverter.bpe_decoder, None),
+                                         'BertDecoder',     HFTokenizerConverter.bpe_decoder, None, None),
     "GPT2Tokenizer":        TokenOpParam('GPT2Tokenizer',   HFTokenizerConverter.bpe_tokenizer,
-                                         'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
+                                         'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None, None),
     "CodeGenTokenizer":     TokenOpParam('GPT2Tokenizer',   HFTokenizerConverter.bpe_tokenizer,
-                                         'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
+                                         'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None, None),
     "CLIPTokenizer":        TokenOpParam('CLIPTokenizer',   HFTokenizerConverter.clip_tokenizer,
-                                         'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None),
+                                         'BpeDecoder',      HFTokenizerConverter.bpe_decoder, None, None),
     "RobertaTokenizer":     TokenOpParam('RobertaTokenizer',        HFTokenizerConverter.roberta_tokenizer,
-                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None),
+                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None, None),
     "BartTokenizer":        TokenOpParam('RobertaTokenizer',        HFTokenizerConverter.roberta_tokenizer,
-                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None),
+                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None, None),
     "LayoutLMv3Tokenizer":  TokenOpParam('RobertaTokenizer',        HFTokenizerConverter.roberta_tokenizer,
-                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None),
+                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None, None),
     "LongformerTokenizer":  TokenOpParam('RobertaTokenizer',        HFTokenizerConverter.roberta_tokenizer,
-                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None),
+                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None, None),
     "LEDTokenizer":         TokenOpParam('RobertaTokenizer',        HFTokenizerConverter.roberta_tokenizer,
-                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None),
+                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None, None),
     "MvpTokenizer":         TokenOpParam('RobertaTokenizer',        HFTokenizerConverter.roberta_tokenizer,
-                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None),
+                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None, None),
     "T5Tokenizer":          TokenOpParam('SentencepieceTokenizer',  HFTokenizerConverter.spm_tokenizer,
                                          'SentencepieceDecoder',    HFTokenizerConverter.spm_decoder,
-                                         default_inputs={'add_eos': [True]}),
+                                         default_encoder_inputs={'add_eos': [True]}, default_decoder_inputs=None),
     "LlamaTokenizer":       TokenOpParam('SpmTokenizer',            HFTokenizerConverter.bpe_tokenizer,
-                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None),
+                                         'BpeDecoder',              HFTokenizerConverter.bpe_decoder, None, None),
     "XLMRobertaTokenizer":  TokenOpParam('SentencepieceTokenizer',  HFTokenizerConverter.spm_tokenizer,
                                          'SentencepieceDecoder',    HFTokenizerConverter.spm_decoder,
-                                         default_inputs={'add_bos': [True], 'add_eos': [True], 'fairseq': [True]}),
+                                         default_encoder_inputs={'add_bos': [True], 'add_eos': [True], 'fairseq': [True]},
+                                         default_decoder_inputs={'fairseq': [True]}),
 }
 # @formatter:on
 
@@ -246,8 +248,8 @@ class HFTokenizerOnnxGraph:
 
         # add default_inputs into initializers to simplify the model input
         n_inputs = len(default_inputs)
-        if self.cvt_quadruple.default_inputs is not None:
-            default_inputs.update(self.cvt_quadruple.default_inputs)
+        if self.cvt_quadruple.default_encoder_inputs is not None:
+            default_inputs.update(self.cvt_quadruple.default_encoder_inputs)
             if len(default_inputs) != n_inputs:
                 raise ValueError(
                     "Op: {} does not have the inputs from its TokenOpParam.".format(_cvt_op))
@@ -287,7 +289,43 @@ class HFTokenizerOnnxGraph:
         return g
 
     def post_processing(self, **kwargs):
+        with_default_inputs = kwargs.pop("WITH_DEFAULT_INPUTS", True)
+
         _cvt_op = self.cvt_quadruple.post_op
         _cvt_func = self.cvt_quadruple.post_attribute_cvt
         cvt = partial(_cvt_func, self.cvt_obj)
-        return SingleOpGraph.build_graph(_cvt_op, cvt=cvt, **kwargs)
+        g = SingleOpGraph.build_graph(_cvt_op, cvt=cvt, **kwargs)
+
+        default_inputs = {}
+        if with_default_inputs:
+            op_class = SingleOpGraph.get_op_class(_cvt_op)
+            default_inputs = op_class.input_default_values()
+            if default_inputs is None:
+                encoder_inputs = self.cvt_quadruple.default_encoder_inputs
+                if encoder_inputs is not None and encoder_inputs["fairseq"]:
+                    default_inputs = {} # need to set to empty dict to call .update later
+                else:
+                    return g
+
+        # add default_inputs into initializers to simplify the model input
+        if self.cvt_quadruple.default_decoder_inputs is not None:
+            default_inputs.update(self.cvt_quadruple.default_decoder_inputs)
+
+        new_initializers = []
+
+        for k, v in default_inputs.items():
+            input_value_info = next((i for i in g.input if i.name == k), None)
+            if input_value_info is None:
+                raise ValueError(
+                    "The input {} is not found in the graph".format(k))
+
+            np_dtype = onnx.helper.tensor_dtype_to_np_dtype(
+                input_value_info.type.tensor_type.elem_type)
+            value = nparray(v, np_dtype)
+            new_initializers.append(onnx.numpy_helper.from_array(value, k))
+        g.initializer.extend(new_initializers)
+        new_inputs = [i for i in g.input if i.name not in default_inputs]
+        g.ClearField("input")
+        g.input.extend(new_inputs)
+
+        return g

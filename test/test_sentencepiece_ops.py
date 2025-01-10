@@ -567,7 +567,7 @@ class TestOrtXSentencePiece(unittest.TestCase):
         fullname = util.get_test_data_file('data', 'en.wiki.bpe.vs100000.model')
         ofunc = OrtPyFunction.from_customop('SentencepieceDecoder', model=open(fullname, 'rb').read())
 
-        result = ofunc(np.array([1095, 4054, 26, 2022, 755, 99935], dtype=np.int64))
+        result = ofunc(np.array([1095, 4054, 26, 2022, 755, 99935], dtype=np.int64), np.array([False], dtype=np.bool_))
         self.assertEqual(' '.join(result), 'best hotel in bay area.')
 
 
