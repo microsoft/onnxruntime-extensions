@@ -54,7 +54,12 @@ include(CMakeDependentOption)
 
 set(_ORTX_STANDALONE_PROJECT OFF)
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
-    set(_ORTX_STANDALONE_PROJECT ON)
+  set(_ORTX_STANDALONE_PROJECT ON)
+endif()
+
+set(_ORTX_SHARED_BUILD_SUPPORTED ON)
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  set(_ORTX_SHARED_BUILD_SUPPORTED OFF)
 endif()
 
 option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
@@ -78,11 +83,11 @@ option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
 option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" OFF)
 
-option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
+option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF) # only for WebAssembly
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
 option(OCOS_ENABLE_C_API "Enable building the C API" OFF)
 
-option(OCOS_BUILD_SHARED_LIB "Enable building the dynamic library" ON)
+option(OCOS_BUILD_SHARED_LIB "Enable building the dynamic library" ${_ORTX_SHARED_BUILD_SUPPORTED})
 option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
 option(OCOS_BUILD_JAVA "Enable building the Java package" OFF)
 option(OCOS_BUILD_ANDROID "Enable building the Android package" OFF)
@@ -773,30 +778,7 @@ if(OCOS_ENABLE_C_API)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-  if(OCOS_ENABLE_STATIC_LIB)
-    message(FATAL_ERROR "Emscripten build does not support building a static library.")
-  endif()
-  # Emscripten does not support building a shared library with custom ops.
-  # and backward compatible with the previous version, we silently turn off the shared library build.
-  set(OCOS_BUILD_SHARED_LIB OFF CACHE INTERNAL "" FORCE)
-  add_executable(ortcustomops ${_TARGET_LIB_SRC})
-  set_target_properties(ortcustomops PROPERTIES LINK_FLAGS "                                  \
-                      -s WASM=1                                                               \
-                      -s NO_EXIT_RUNTIME=0                                                    \
-                      -s ALLOW_MEMORY_GROWTH=1                                                \
-                      -s SAFE_HEAP=0                                                          \
-                      -s MODULARIZE=1                                                         \
-                      -s SAFE_HEAP_LOG=0                                                      \
-                      -s STACK_OVERFLOW_CHECK=0                                               \
-                      -s EXPORT_ALL=0                                                         \
-                      -s VERBOSE=0                                                            \
-                      --no-entry")
-
-  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set_property(TARGET ortcustomops APPEND_STRING PROPERTY LINK_FLAGS " -s ASSERTIONS=1 -s DEMANGLE_SUPPORT=1")
-  else()
-    set_property(TARGET ortcustomops APPEND_STRING PROPERTY LINK_FLAGS " -s ASSERTIONS=0 -s DEMANGLE_SUPPORT=0")
-  endif()
+  include(ext_wasm)
 else()
   add_library(ortcustomops STATIC ${_TARGET_LIB_SRC})
   if (HAS_SDL)
