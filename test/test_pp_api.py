@@ -122,7 +122,6 @@ class TestPPAPI(unittest.TestCase):
     # test sentence for tokenizer
     tokenizer_test_sentence = "I like walking my cute dog\n and\x17 then 生活的真谛是 \t\t\t\t \n\n61"
 
-    # TODO: Fix the \n\n discrepancy between the two tokenizers with a new RegEx implementation
     def test_OLMa_tokenizer(self):
         test_sentence = [self.tokenizer_test_sentence + " |||IP_ADDRESS|||"]
         model_id = "amd/AMD-OLMo-1B-SFT-DPO"

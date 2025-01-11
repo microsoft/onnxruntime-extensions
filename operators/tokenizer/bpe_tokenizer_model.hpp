@@ -77,6 +77,12 @@ class BpeModel {
         ORTX_JSON_RETURN_IF_NULL(&node, "pattern", iter_pattern);
         ORTX_JSON_RETURN_IF_NULL(iter_pattern, "Regex", regex_str);
         pre_tokenizer_regex_ = regex_str->get<std::string>();
+        // Validate the regex pattern
+        bpe::PreTokenizerWithRegEx pre_tokenizer;
+        auto status = pre_tokenizer.Compile(pre_tokenizer_regex_);
+        if (!status.IsOk()) {
+          return status;
+        }
       } else {
         if (pre_tokenizer_types_.count(pre_type) == 0) {
           return {kOrtxErrorNotImplemented, "Unsupported pretokenizer type!"};
