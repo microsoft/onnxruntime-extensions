@@ -748,13 +748,24 @@ stages:
     - script: |
         bash ./build.sh \
         -DCMAKE_TOOLCHAIN_FILE=$(Build.BinariesDirectory)/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
+        -DOCOS_ENABLE_STATIC_LIB=OFF   \
         -DOCOS_ENABLE_SPM_TOKENIZER=ON \
-        -DOCOS_BUILD_PYTHON=OFF \
-        -DOCOS_ENABLE_CV2=OFF \
+        -DOCOS_BUILD_PYTHON=OFF  \
         -DOCOS_ENABLE_VISION=OFF \
-        -DOCOS_ENABLE_CTEST=OFF
-      displayName: build the customop library with onnxruntime
-    # TODO add unittest for webassembly
+        -DOCOS_ENABLE_CTEST=OFF  \
+        -DOCOS_ENABLE_C_API=ON
+      displayName: build ort-extensions as an executable
+
+    - script: |
+        bash ./build.sh \
+        -DCMAKE_TOOLCHAIN_FILE=$(Build.BinariesDirectory)/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
+        -DOCOS_ENABLE_STATIC_LIB=ON    \
+        -DOCOS_ENABLE_SPM_TOKENIZER=ON \
+        -DOCOS_BUILD_PYTHON=OFF  \
+        -DOCOS_ENABLE_VISION=OFF \
+        -DOCOS_ENABLE_CTEST=OFF  \
+        -DOCOS_ENABLE_C_API=ON
+      displayName: build ort-extensions as a static library
 
 - stage: AndroidBuilds
   dependsOn: []
