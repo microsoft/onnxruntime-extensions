@@ -263,6 +263,10 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
   // Parse input
   auto special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input);
   bpe::PreTokenizerWithRegEx reg_splitter;
+  // NOTE: the pattern was already validated on loading json file.
+  // safe to ingore the return value here.
+  auto status = reg_splitter.Compile(bbpe_tokenizer_->GetPreTokenizerRegex(ModelName()));
+  assert(status.IsOk());
 
   for (auto& seg_id : special_token_split_res) {
     if (static_cast<int64_t>(res.size()) >= max_length) break;
@@ -287,13 +291,12 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
     }
 
     while (static_cast<int64_t>(res.size()) < max_length) {
-      std::string regex_expr =  bbpe_tokenizer_->GetPreTokenizerRegex(ModelName());
-      auto [b, tok] = reg_splitter.GetNextToken(regex_expr);
-
-      if (!b) break;
+      std::u32string_view tok = reg_splitter.GetNextToken();
+      if (tok.empty()) {
+        break;
+      }
 
       std::string utf8_token = std::string(ustring(tok));
-
       size_t space_dif = 0;
       if (compute_offset_mapping) {
         // Handle special case for offset mapping
