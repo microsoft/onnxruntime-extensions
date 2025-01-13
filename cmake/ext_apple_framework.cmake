@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
 if(NOT "${CMAKE_SYSTEM_NAME}" MATCHES "Darwin|iOS")
   message(FATAL_ERROR "Building an Apple framework can only be enabled for MacOS or iOS.")
 endif()
