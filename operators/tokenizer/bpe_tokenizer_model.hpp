@@ -152,7 +152,7 @@ class BpeModel {
         } else {
           vocab_map_[line] = id;
         }
-        special_tokens_.Add(std::move(line_32), id);
+        ORTX_RETURN_IF_ERROR(special_tokens_.Add(std::move(line_32), id));
       }
     }
 
