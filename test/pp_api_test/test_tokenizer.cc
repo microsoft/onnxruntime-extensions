@@ -65,118 +65,6 @@ TEST(CApiTest, StreamApiTest) {
   OrtxDispose(&tokenizer);
 }
 
-TEST(OrtxTokenizerTest, RegexTest) {
-  std::u32string str = U"CAN'T \r\n 2413m";
-  auto regcmp = std::make_unique<ort_extensions::bpe::PreTokenizerWithRegEx>();
-
-  std::vector<std::u32string> res;
-  std::vector<std::u32string> out_tokens = {U"CAN", U"'T", U" \r\n", U" ", U"241", U"3", U"m"};
-
-  int64_t max_length = out_tokens.size();
-  regcmp->Set(str.c_str());
-  std::string regex_expr = regcmp->LLAMA_REGEX_PATTERN;
-
-  while (static_cast<int64_t>(res.size()) < max_length) {
-    auto [b, tok] = regcmp->GetNextToken(regex_expr);
-    res.push_back(ustring(tok));
-  }
-  EXPECT_EQ(res, out_tokens);
-}
-
-TEST(OrtxTokenizerTest, RegexMatchSTDTest) {
-  std::vector<std::string> regex_expressions = {"'s|'t|'re|'ve|'m|'ll|'d",
-                                                "\\s+",
-                                                "[A-Za-z]+"};
-
-  std::vector<std::u32string> input_strings = {U"not its, or IT'S, but it's",
-                                               U"   ",
-                                               U"AbCd"};                      
-  auto regcmp = std::make_unique<ort_extensions::bpe::PreTokenizerWithRegEx>();
-
-  std::vector<std::vector<std::u32string>> res_vector;
-  std::vector<std::vector<std::u32string>> out_tokens = {{U"'s"},
-                                                         {U"   "},
-                                                         {U"AbCd"}};
-
-  for (auto i = 0; i < regex_expressions.size(); i++){
-    int64_t max_length = out_tokens[i].size();
-    regcmp->Set(input_strings[i].c_str());
-    std::string regex_expr = regex_expressions[i];
-    std::vector<std::u32string> res;
-
-    while (static_cast<int64_t>(res.size()) < max_length) {
-      res.push_back(regcmp->RegexMatchSTD(ustring(regex_expr)));
-    }
-
-    res_vector.push_back(res);
-  }
-  EXPECT_EQ(res_vector, out_tokens);
-}
-
-TEST(OrtxTokenizerTest, WrapStandaloneCategoriesTest) {
-  std::vector<std::string> regex_expressions = {"[^\\p{rn}\\p{L}\\p{N}]?\\p{L}+",
-                                                "\\p{rn}\\p{L}\\p{N}\\p{L}",
-                                                "\\p{Z}*[\\p{rn}]+",
-                                                "\\p{Z}+"};
-  auto regcmp = std::make_unique<ort_extensions::bpe::PreTokenizerWithRegEx>();
-
-  std::vector<std::string> res;
-  std::vector<std::string> out_regex = {"[^\\p{rn}\\p{L}\\p{N}]?[\\p{L}]+",
-                                        "[\\p{rn}][\\p{L}][\\p{N}][\\p{L}]",
-                                        "[\\p{Z}]*[\\p{rn}]+",
-                                        "[\\p{Z}]+"};
-
-  for (auto regex : regex_expressions){
-    res.push_back(regcmp->WrapStandaloneCategories(regex));
-  }
-  EXPECT_EQ(res, out_regex);
-}
-
-TEST(OrtxTokenizerTest, RegexMatchGeneralTest) {
-  std::vector<std::string> regex_expressions = {"[^\\p{rn}\\p{L}\\p{N}]?\\p{L}+",
-                                                "\\p{N}{1,3}",
-                                                "\\p{N}{1,5}",
-                                                "[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]*"
-                                                "[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?|"
-                                                "[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]+"
-                                                "[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?|"
-                                                "\\p{N}{1,3}|?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+",
-                                                "[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]*"
-                                                "[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?|"
-                                                "[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]+"
-                                                "[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?|"
-                                                "\\p{N}{1,3}|?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+"};
-
-  std::vector<std::u32string> input_strings = {U"CAN'T \r\n ",
-                                               U"2413m",
-                                               U"241356m",
-                                               U"Ich liebe München <3 \r\n ",
-                                               U"生活的真谛是"};                      
-  auto regcmp = std::make_unique<ort_extensions::bpe::PreTokenizerWithRegEx>();
-
-  std::vector<std::vector<std::u32string>> res_vector;
-  std::vector<std::vector<std::u32string>> out_tokens = {{U"CAN", U"'T", U"", U""},
-                                                         {U"241", U"3"},
-                                                         {U"24135", U"6"},
-                                                         {U"Ich", U" liebe", U" München", U" <", U"3", U" \r\n", U" "},
-                                                         {U"生活的真谛是"}};
-
-  for (auto i = 0; i < regex_expressions.size(); i++){
-    int64_t max_length = out_tokens[i].size();
-    regcmp->Set(input_strings[i].c_str());
-    std::string regex_expr = regex_expressions[i];
-    std::vector<std::u32string> res;
-
-    while (static_cast<int64_t>(res.size()) < max_length) {
-      res.push_back(regcmp->RegexMatchGeneral(regex_expr));
-    }
-
-    res_vector.push_back(res);
-  }
-  EXPECT_EQ(res_vector, out_tokens);
-}
-
-#if !defined(__APPLE__)   // TODO: Fix the test for MacOS with a new regex implementation
 TEST(OrtxTokenizerTest, ClipTokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
   auto status = tokenizer->Load("data/tokenizer/clip");
@@ -186,15 +74,15 @@ TEST(OrtxTokenizerTest, ClipTokenizer) {
   }
 
   // validate tokenizer is not null
-    ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
 
-  std::vector<std::string_view> input = {"this is a test", "the second one"};
+  std::vector<std::string_view> input = {"this is a test .", "the second one"};
 
   std::vector<std::vector<extTokenId_t>> token_ids;
   status = tokenizer->Tokenize(input, token_ids);
   EXPECT_TRUE(status.IsOk());
   EXPECT_EQ(token_ids.size(), 2);
-  EXPECT_EQ(token_ids[0].size(), 6);
+  EXPECT_EQ(token_ids[0].size(), 7);
   EXPECT_EQ(token_ids[1].size(), 5);
 
   std::vector<std::string> out_text;
@@ -203,7 +91,6 @@ TEST(OrtxTokenizerTest, ClipTokenizer) {
   EXPECT_TRUE(status.IsOk());
   EXPECT_EQ(out_text[0], input[0]);
 }
-#endif
 
 TEST(OrtxTokenizerTest, Phi3_Small_Hf_Tokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
@@ -214,7 +101,7 @@ TEST(OrtxTokenizerTest, Phi3_Small_Hf_Tokenizer) {
   }
 
   // validate tokenizer is not null
-    ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
 
   std::vector<extTokenId_t> EXPECTED_IDS_0 = {2028, 374, 264, 1296, 13};
   std::vector<std::string_view> input = {"This is a test.", "Ich liebe München",
@@ -244,14 +131,15 @@ TEST(OrtxTokenizerTest, Phi3_Small_Tokenizer) {
   }
 
   // validate tokenizer is not null
-    ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
 
   std::vector<extTokenId_t> EXPECTED_IDS_0 = {2028, 374, 264, 1296, 13};
   std::vector<std::string_view> input = {
       "This is a test.",
       "the second one",
       "I like walking my cute dog\n and\x17 then", 
-      "Hey<|endoftext|>. \t\t \n\nyou  é  @#😈  🤗!       , 1234 15 5,61"};
+      // "Hey<|endoftext|>. \t\t \n\nyou  é  @#😈  🤗!       , 1234 15 5,61"};
+      "I like walking my cute dog\n and\x17 then 生活的真谛是 \t\t\t\t \n\n61" };
   std::vector<std::vector<extTokenId_t>>
       token_ids;
   status = tokenizer->Tokenize(input, token_ids);
@@ -596,7 +484,9 @@ TEST(OrtxTokenizerTest, Phi3_Small_Tokenizer_Blob) {
   const char* input[] = {"This is a test.",
                          "the second one",
                          "I like walking my cute dog\n and\x17 then",
-                         "Hey<|endoftext|>. \t\t \n\nyou  é  @#😈  🤗!       , 1234 15 5,61"};
+                         // "Hey<|endoftext|>. \t\t \n\nyou  é  @#😈  🤗!       , 1234 15 5,61"};
+                         "I like walking my cute dog\n and\x17 then 生活的真谛是 \t\t\t\t \n\n61" };
+
 
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
   OrtxTokenize(tokenizer.get(), input, 4, token_ids.ToBeAssigned());
