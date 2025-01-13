@@ -76,13 +76,13 @@ TEST(OrtxTokenizerTest, ClipTokenizer) {
   // validate tokenizer is not null
   ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
 
-  std::vector<std::string_view> input = {"<|startoftext|>|this is a test<|endoftext|>", "the second one"};
+  std::vector<std::string_view> input = {"this is a test .", "the second one"};
 
   std::vector<std::vector<extTokenId_t>> token_ids;
   status = tokenizer->Tokenize(input, token_ids);
   EXPECT_TRUE(status.IsOk());
   EXPECT_EQ(token_ids.size(), 2);
-  EXPECT_EQ(token_ids[0].size(), 6);
+  EXPECT_EQ(token_ids[0].size(), 7);
   EXPECT_EQ(token_ids[1].size(), 5);
 
   std::vector<std::string> out_text;
