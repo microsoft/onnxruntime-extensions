@@ -15,7 +15,7 @@ enum class TokenType {
 };
 
 constexpr std::pair<const char*, TokenType> kTokenizerDict[] = {
-  {"PreTrainedTokenizerFast", TokenType::kBPE},
+  {"PreTrainedTokenizer", TokenType::kBPE},
   {"CLIPTokenizer", TokenType::kBPE},
   {"WhisperTokenizer", TokenType::kBPE},
   {"GemmaTokenizer", TokenType::kBPE},
