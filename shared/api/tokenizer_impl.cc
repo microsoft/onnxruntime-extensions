@@ -67,7 +67,7 @@ OrtxStatus TokenizerImpl::LoadTokenizer(const OrtxTokenizerBlob* blob) {
     return status;
   }
 
-  return OrtxStatus(kOrtxErrorNotImplemented, "Unsupported tokenizer class");
+  return OrtxStatus(kOrtxErrorNotImplemented, "Unsupported tokenizer class: " + tok_config_->tokenizer_class_);
 }
 
 OrtxStatus TokenizerImpl::Load(const OrtxTokenizerBlob& blob) {
