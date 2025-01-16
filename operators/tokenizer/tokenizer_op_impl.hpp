@@ -33,7 +33,7 @@ class JsonTokenizerOpKernel {
     } else if (type == TokenType::kBPE) {
       tokenizer_ = std::make_unique<JsonFastTokenizer>();
     } else {
-      return OrtxStatus(kOrtxErrorCorruptData, "Unknown tokenizer type");
+      return OrtxStatus(kOrtxErrorCorruptData, "Unknown tokenizer type" + cfg.tokenizer_class_);
     }
 
     return std::visit([&](auto& ptr) { return ptr->Load(cfg); }, tokenizer_);
