@@ -140,6 +140,15 @@ class TestPPAPI(unittest.TestCase):
         ortx_inputs = tokenizer.tokenize(test_sentence)
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
+    def test_Phi4_tokenizer(self):
+        model_id = "/g/phi-x-12202024"
+        test_sentence = [self.tokenizer_test_sentence]
+        hf_enc = AutoTokenizer.from_pretrained(model_id)
+        inputs = hf_enc(test_sentence)["input_ids"]
+        tokenizer = pp_api.Tokenizer(model_id)
+        ortx_inputs = tokenizer.tokenize(test_sentence)
+        np.testing.assert_array_equal(ortx_inputs, inputs)
+
 
 if __name__ == "__main__":
     unittest.main()

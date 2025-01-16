@@ -15,7 +15,7 @@ enum class TokenType {
 };
 
 constexpr std::pair<const char*, TokenType> kTokenizerDict[] = {
-  {"PreTrainedTokenizerFast", TokenType::kBPE},
+  {"PreTrainedTokenizer", TokenType::kBPE},
   {"CLIPTokenizer", TokenType::kBPE},
   {"WhisperTokenizer", TokenType::kBPE},
   {"GemmaTokenizer", TokenType::kBPE},
@@ -256,10 +256,16 @@ class TokenJsonConfig final {
   }
 
   static TokenType GetTokenType(const std::string& tok) {
-    static const std::unordered_map<std::string, TokenType> dict {
+    static const std::unordered_map<std::string_view, TokenType> dict {
         std::begin(kTokenizerDict), std::end(kTokenizerDict) };
 
-    auto iter = dict.find(tok);
+    std::string_view tok_class(tok);
+    auto pos = tok_class.find("Fast");
+    if (pos != std::string_view::npos && pos + 4 == tok_class.size()) {
+      tok_class.remove_suffix(4);
+    }
+
+    auto iter = dict.find(tok_class);
     return iter == dict.end() ? TokenType::kUnknown : iter->second;
   }
 
