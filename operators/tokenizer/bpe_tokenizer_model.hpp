@@ -417,6 +417,8 @@ class BpeModel {
 
     if (model_name == "Llama") {
       return bpe::PreTokenizerWithRegEx::LLAMA_REGEX_PATTERN;
+    } else if (model_name == "Phi") {
+      return bpe::PreTokenizerWithRegEx::PHI4_REGEX_PATTERN;
     }
 
     // by default, use the GPT2 pretokenizer regex
