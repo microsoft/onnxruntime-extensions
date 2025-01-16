@@ -120,7 +120,7 @@ class TestPPAPI(unittest.TestCase):
                 a_image.save(f"{self.temp_dir}/a_{idx}_{i}.png")
 
     # test sentence for tokenizer
-    tokenizer_test_sentence = "I like walking my cute dog\n and\x17 then 生活的真谛是 \t\t\t\t \n\n61"
+    tokenizer_test_sentence = "I like walking my cute dog\n and\x17 then 生活的真谛是 \t\t\t\t \n\n61. You'll enjoy the concert."
 
     def test_OLMa_tokenizer(self):
         test_sentence = [self.tokenizer_test_sentence + " |||IP_ADDRESS|||"]

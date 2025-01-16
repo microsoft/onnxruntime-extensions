@@ -74,7 +74,6 @@ TEST(OrtxTokenizerTest, RegexTest) {
 
   int64_t max_length = out_tokens.size();
   reg_splitter->Set(str.c_str());
-  auto regex_expr = reg_splitter->PHI4_REGEX_PATTERN;
   auto status = reg_splitter->Compile(R"([^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?)");
   assert(status.IsOk());
 
