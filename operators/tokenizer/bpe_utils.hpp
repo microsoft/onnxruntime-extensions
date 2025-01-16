@@ -360,7 +360,7 @@ class PreTokenizerWithRegEx {
   }
 
   void CategoryMatch(size_t& index, std::set<ufal::unilib::unicode::category_t>& categories){
-    while (categories.find(ufal::unilib::unicode::category(m_text[index])) != categories.end()){
+    while (index < m_text.size() && categories.find(ufal::unilib::unicode::category(m_text[index])) != categories.end()){
       index++;
     }
   }
