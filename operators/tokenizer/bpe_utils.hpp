@@ -359,6 +359,12 @@ class PreTokenizerWithRegEx {
     return {};
   }
 
+  void CategoryMatch(size_t& index, std::set<ufal::unilib::unicode::category_t>& categories){
+    while (categories.find(ufal::unilib::unicode::category(m_text[index])) != categories.end()){
+      index++;
+    }
+  }
+
   // [^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?
   std::u32string_view Match_PHI4_Pattern_1() {
     size_t i = 0;
@@ -369,24 +375,20 @@ class PreTokenizerWithRegEx {
     }
 
     // [\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*
-    std::vector<ufal::unilib::unicode::category_t> categories1 = {ufal::unilib::unicode::Lu,
-                                                                 ufal::unilib::unicode::Lt,
-                                                                 ufal::unilib::unicode::Lm,
-                                                                 ufal::unilib::unicode::Lo,
-                                                                 ufal::unilib::unicode::M};
-    while (std::find(categories1.begin(), categories1.end(), ufal::unilib::unicode::category(m_text[i])) != categories1.end()){
-      i++;
-    }
+    std::set<ufal::unilib::unicode::category_t> categories1 = {ufal::unilib::unicode::Lu,
+                                                               ufal::unilib::unicode::Lt,
+                                                               ufal::unilib::unicode::Lm,
+                                                               ufal::unilib::unicode::Lo,
+                                                               ufal::unilib::unicode::M};
+    CategoryMatch(i, categories1);
 
     // [\p{Ll}\p{Lm}\p{Lo}\p{M}]+
     size_t j = i;
-    std::vector<ufal::unilib::unicode::category_t> categories2 = {ufal::unilib::unicode::Ll,
+    std::set<ufal::unilib::unicode::category_t> categories2 = {ufal::unilib::unicode::Ll,
                                                                  ufal::unilib::unicode::Lm,
                                                                  ufal::unilib::unicode::Lo,
                                                                  ufal::unilib::unicode::M};
-    while (std::find(categories2.begin(), categories2.end(), ufal::unilib::unicode::category(m_text[i])) != categories2.end()){
-      i++;
-    }
+    CategoryMatch(i, categories2);
     if (i == j){
       // No case match, return as this is a '+' category case (one or more occurrences must be found)
       std::u32string_view res = m_text.substr(0, i);
@@ -424,14 +426,12 @@ class PreTokenizerWithRegEx {
 
     // [\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+
     size_t j = i;
-    std::vector<ufal::unilib::unicode::category_t> categories1 = {ufal::unilib::unicode::Lu,
+    std::set<ufal::unilib::unicode::category_t> categories1 = {ufal::unilib::unicode::Lu,
                                                                  ufal::unilib::unicode::Lt,
                                                                  ufal::unilib::unicode::Lm,
                                                                  ufal::unilib::unicode::Lo,
                                                                  ufal::unilib::unicode::M};
-    while (std::find(categories1.begin(), categories1.end(), ufal::unilib::unicode::category(m_text[i])) != categories1.end()){
-      i++;
-    }
+    CategoryMatch(i, categories1);
     if (i == j){
       // No case match, return as this is a '+' category case (one or more occurrences must be found)
       std::u32string_view res = m_text.substr(0, i);
@@ -440,13 +440,11 @@ class PreTokenizerWithRegEx {
     }
 
     // [\p{Ll}\p{Lm}\p{Lo}\p{M}]*
-    std::vector<ufal::unilib::unicode::category_t> categories2 = {ufal::unilib::unicode::Ll,
+    std::set<ufal::unilib::unicode::category_t> categories2 = {ufal::unilib::unicode::Ll,
                                                                  ufal::unilib::unicode::Lm,
                                                                  ufal::unilib::unicode::Lo,
                                                                  ufal::unilib::unicode::M};
-    while (std::find(categories2.begin(), categories2.end(), ufal::unilib::unicode::category(m_text[i])) != categories2.end()){
-      i++;
-    }
+    CategoryMatch(i, categories2);
 
     // (?i:'s|'t|'re|'ve|'m|'ll|'d)?
     if ((m_text[i] == U'\'') && ((i + 1) < m_text.size())) {
