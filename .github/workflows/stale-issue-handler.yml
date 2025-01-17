@@ -23,7 +23,7 @@ jobs:
           # Start date should be April 19, 2022 - corresponds to the day previous stale bot stopped working
           start-date: '2022-04-19T00:00:00Z'
           # Number of days without activity before the actions/stale action labels an issue
-          days-before-issue-stale: 30
+          days-before-issue-stale: 90
           # Number of days without activity before the actions/stale action closes an issue
           days-before-issue-close: 30
           # Label you want to apply to issues that have been inactive for the amount of time specified by days-before-issue-stale
