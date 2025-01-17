@@ -596,6 +596,67 @@ class TestCudaOps(unittest.TestCase):
         self._masked_scatternd_of_shape_cuda("add", 1, TensorProto.FLOAT, True)
         self._masked_scatternd_of_shape_cuda("add", 1, TensorProto.FLOAT16, True)
 
+    def _rotary_cuda(self, itype, side, input_shape=(3, 2, 3, 4)):
+        model2 = helper.make_model(
+            helper.make_graph(
+                [
+                    helper.make_node(
+                        "Rotary",
+                        ["X", "splits"],
+                        ["Y"],
+                        domain="ai.onnx.contrib",
+                        side=side,
+                    )
+                ],
+                "nd",
+                [
+                    helper.make_tensor_value_info("X", itype, [None, None, None, None]),
+                    helper.make_tensor_value_info("splits", TensorProto.INT64, [2]),
+                ],
+                [helper.make_tensor_value_info("Y", itype, [None, None, None, None])],
+            ),
+            opset_imports=[
+                helper.make_opsetid("", 18),
+                helper.make_opsetid("ai.onnx.contrib", 1),
+            ],
+            ir_version=9,
+        )
+
+        dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
+        x = (np.arange(np.prod(input_shape)) + 1).reshape(input_shape).astype(dtype)
+        splits = np.array([x.shape[-1] // 2, x.shape[-1] // 2], dtype=np.int64)
+
+        expected = x.copy()
+        half = x.shape[-1] // 2
+        if side == "left":
+            expected[:, :, :, :half] = x[:, :, :, half:]
+            expected[:, :, :, half:] = -x[:, :, :, :half]
+        else:
+            expected[:, :, :, :half] = -x[:, :, :, half:]
+            expected[:, :, :, half:] = x[:, :, :, :half]
+
+        feeds = dict(X=x, splits=splits)
+        opts = _ort.SessionOptions()
+        opts.register_custom_ops_library(_get_library_path())
+        sess = _ort.InferenceSession(model2.SerializeToString(), opts, providers=["CUDAExecutionProvider"])
+        got = sess.run(None, feeds)[0]
+        assert_almost_equal(expected, got)
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_rotary_cuda(self):
+        self._rotary_cuda(TensorProto.FLOAT, "left")
+        self._rotary_cuda(TensorProto.FLOAT, "right")
+        self._rotary_cuda(TensorProto.FLOAT16, "left")
+        self._rotary_cuda(TensorProto.FLOAT16, "right")
+
+    @unittest.skipIf(not has_cuda(), reason="cuda not available")
+    def test_bigger_rotary_cuda(self):
+        sh = (2, 2, 1024, 8)
+        self._rotary_cuda(TensorProto.FLOAT, "left", input_shape=sh)
+        self._rotary_cuda(TensorProto.FLOAT, "right", input_shape=sh)
+        self._rotary_cuda(TensorProto.FLOAT16, "left", input_shape=sh)
+        self._rotary_cuda(TensorProto.FLOAT16, "right", input_shape=sh)
+
     def _transpose_cast_cuda(self, itype):
         dtype = np.float32 if itype == TensorProto.FLOAT else np.float16
         itype2 = TensorProto.FLOAT if itype == TensorProto.FLOAT16 else TensorProto.FLOAT16
