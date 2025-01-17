@@ -70,7 +70,7 @@ TEST(OrtxTokenizerTest, RegexTest) {
   auto reg_splitter = std::make_unique<ort_extensions::bpe::PreTokenizerWithRegEx>();
 
   std::vector<std::u32string> res;
-  std::vector<std::u32string> out_tokens = {U"You'll"};
+  std::vector<std::u32string> out_tokens = {U"You'll", U" enjoy", U" the", U" concert", U"."};
 
   int64_t max_length = out_tokens.size();
   reg_splitter->Set(str.c_str());

@@ -359,9 +359,15 @@ class PreTokenizerWithRegEx {
     return {};
   }
 
-  void CategoryMatch(size_t& index, std::set<ufal::unilib::unicode::category_t>& categories){
-    while (index < m_text.size() && categories.find(ufal::unilib::unicode::category(m_text[index])) != categories.end()){
-      index++;
+  void CategoryMatch(size_t& index, std::string categories){
+    if (categories == "LuLtLmLoM"){
+      while (index < m_text.size() && IsLuLtLmLoM(m_text[index])){
+        index++;
+      }
+    } else if (categories == "LlLmLoM"){
+      while (index < m_text.size() && IsLlLmLoM(m_text[index])){
+        index++;
+      }
     }
   }
 
@@ -380,7 +386,7 @@ class PreTokenizerWithRegEx {
                                                                ufal::unilib::unicode::Lm,
                                                                ufal::unilib::unicode::Lo,
                                                                ufal::unilib::unicode::M};
-    CategoryMatch(i, categories1);
+    CategoryMatch(i, "LuLtLmLoM");
 
     // [\p{Ll}\p{Lm}\p{Lo}\p{M}]+
     size_t j = i;
@@ -388,7 +394,7 @@ class PreTokenizerWithRegEx {
                                                                  ufal::unilib::unicode::Lm,
                                                                  ufal::unilib::unicode::Lo,
                                                                  ufal::unilib::unicode::M};
-    CategoryMatch(i, categories2);
+    CategoryMatch(i, "LlLmLoM");
     if (i == j){
       // No case match, return as this is a '+' category case (one or more occurrences must be found)
       std::u32string_view res = m_text.substr(0, i);
@@ -431,7 +437,7 @@ class PreTokenizerWithRegEx {
                                                                  ufal::unilib::unicode::Lm,
                                                                  ufal::unilib::unicode::Lo,
                                                                  ufal::unilib::unicode::M};
-    CategoryMatch(i, categories1);
+    CategoryMatch(i, "LuLtLmLoM");
     if (i == j){
       // No case match, return as this is a '+' category case (one or more occurrences must be found)
       std::u32string_view res = m_text.substr(0, i);
@@ -444,7 +450,7 @@ class PreTokenizerWithRegEx {
                                                                  ufal::unilib::unicode::Lm,
                                                                  ufal::unilib::unicode::Lo,
                                                                  ufal::unilib::unicode::M};
-    CategoryMatch(i, categories2);
+    CategoryMatch(i, "LlLmLoM");
 
     // (?i:'s|'t|'re|'ve|'m|'ll|'d)?
     if ((m_text[i] == U'\'') && ((i + 1) < m_text.size())) {
@@ -613,6 +619,27 @@ class PreTokenizerWithRegEx {
   static bool IsL(char32_t ch) {
     auto category = ufal::unilib::unicode::category(ch);
     return (category & ufal::unilib::unicode::L) != 0;
+  }
+
+  static bool IsLuLtLmLoM(char32_t ch) {
+    auto category = ufal::unilib::unicode::category(ch);
+    return (
+      (category & ufal::unilib::unicode::Lu) != 0 ||
+      (category & ufal::unilib::unicode::Lt) != 0 ||
+      (category & ufal::unilib::unicode::Lm) != 0 ||
+      (category & ufal::unilib::unicode::Lo) != 0 ||
+      (category & ufal::unilib::unicode::M) != 0
+    );
+  }
+
+  static bool IsLlLmLoM(char32_t ch) {
+    auto category = ufal::unilib::unicode::category(ch);
+    return (
+      (category & ufal::unilib::unicode::Ll) != 0 ||
+      (category & ufal::unilib::unicode::Lm) != 0 ||
+      (category & ufal::unilib::unicode::Lo) != 0 ||
+      (category & ufal::unilib::unicode::M) != 0
+    );
   }
 
   static bool IsN(char32_t ch) {
