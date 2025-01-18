@@ -65,6 +65,26 @@ TEST(CApiTest, StreamApiTest) {
   OrtxDispose(&tokenizer);
 }
 
+TEST(OrtxTokenizerTest, RegexTest) {
+  std::u32string str = U"You'll enjoy the concert.";
+  auto reg_splitter = std::make_unique<ort_extensions::bpe::PreTokenizerWithRegEx>();
+
+  std::vector<std::u32string> res;
+  std::vector<std::u32string> out_tokens = {U"You'll", U" enjoy", U" the", U" concert"};
+
+  int64_t max_length = out_tokens.size();
+  reg_splitter->Set(str.c_str());
+  auto status = reg_splitter->Compile(R"([^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?)");
+  assert(status.IsOk());
+
+  while (static_cast<int64_t>(res.size()) < max_length) {
+    std::u32string_view tok = reg_splitter->GetNextToken();
+    res.push_back(ustring(tok));
+  }
+  
+  EXPECT_EQ(res, out_tokens);
+}
+
 TEST(OrtxTokenizerTest, ClipTokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
   auto status = tokenizer->Load("data/tokenizer/clip");
