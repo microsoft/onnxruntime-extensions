@@ -1,0 +1,39 @@
+{
+  "processor": {
+    "name": "Phi4VisionProcessor",
+    "transforms": [
+      {
+        "operation": {
+          "name": "decode_image",
+          "domain": "com.microsoft.extensions",
+          "type": "DecodeImage",
+          "attrs": {
+            "color_space": "RGB"
+          }
+        }
+      },
+      {
+        "operation": {
+          "name": "phi4_vision_preprocess",
+          "domain": "com.microsoft.extensions",
+          "type": "Phi4VisionPreprocess",
+          "attrs": {
+            "dynamic_hd": 36,
+            "dyhd_base_resolution": 448,
+            "interpolation": "CUBIC",
+            "normalize/mean": [
+              0.5,
+              0.5,
+              0.5
+            ],
+            "normalize/std": [
+              0.5,
+              0.5,
+              0.5
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

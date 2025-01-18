@@ -13,6 +13,7 @@
 #include "image_transforms.hpp"
 #include "image_transforms_phi_3.hpp"
 #include "image_transforms_mllama.hpp"
+#include "vision_processor_phi_4.hpp"
 
 namespace ort_extensions {
 std::tuple<std::unique_ptr<ImageRawData[]>, size_t>
@@ -39,6 +40,7 @@ Operation::KernelRegistry ImageProcessor::kernel_registry_ = {
     {"Permute3D", []() { return CreateKernelInstance(&Permute3D::Compute); }},
     {"Phi3ImageTransform", []() { return CreateKernelInstance(phi3_hd_transform); }},
     {"Llama3ImageTransform", []() { return CreateKernelInstance(&Llama3ImageTransform::Compute); }},
+    {"Llama3ImageTransform", []() { return CreateKernelInstance(&Phi4VisionProcessor::Compute); }},
 };
 
 OrtxStatus ImageProcessor::Init(std::string_view processor_def) {
