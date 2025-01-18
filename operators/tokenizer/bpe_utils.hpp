@@ -370,9 +370,9 @@ class PreTokenizerWithRegEx {
 
     size_t j = i;
     // [\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*
-    ufal::unilib::unicode::category_t categories1 = ufal::unilib::unicode::Lu | ufal::unilib::unicode::Lt |
-                                                    ufal::unilib::unicode::Lm | ufal::unilib::unicode::Lo |
-                                                    ufal::unilib::unicode::M;
+    const ufal::unilib::unicode::category_t categories1 = ufal::unilib::unicode::Lu | ufal::unilib::unicode::Lt |
+                                                          ufal::unilib::unicode::Lm | ufal::unilib::unicode::Lo |
+                                                          ufal::unilib::unicode::M;
     if (IsCategory(m_text[i], categories1)) {
       for (; j < m_text.size(); ++j) {
         if (!IsCategory(m_text[j], categories1)) break;
@@ -380,7 +380,7 @@ class PreTokenizerWithRegEx {
     }
 
     // [\p{Ll}\p{Lm}\p{Lo}\p{M}]+
-    ufal::unilib::unicode::category_t categories2 =
+    const ufal::unilib::unicode::category_t categories2 =
         ufal::unilib::unicode::Ll | ufal::unilib::unicode::Lm | ufal::unilib::unicode::Lo | ufal::unilib::unicode::M;
 
     if (IsCategory(m_text[j], categories2)) {
@@ -428,9 +428,9 @@ class PreTokenizerWithRegEx {
     }
 
     // [\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+
-    ufal::unilib::unicode::category_t categories1 = ufal::unilib::unicode::Lu | ufal::unilib::unicode::Lt |
-                                                    ufal::unilib::unicode::Lm | ufal::unilib::unicode::Lo |
-                                                    ufal::unilib::unicode::M;
+    const ufal::unilib::unicode::category_t categories1 = ufal::unilib::unicode::Lu | ufal::unilib::unicode::Lt |
+                                                          ufal::unilib::unicode::Lm | ufal::unilib::unicode::Lo |
+                                                          ufal::unilib::unicode::M;
     if (IsCategory(m_text[i], categories1)) {
       for (; i < m_text.size(); ++i) {
         if (!IsCategory(m_text[i], categories1)) break;
@@ -440,7 +440,7 @@ class PreTokenizerWithRegEx {
     }
 
     // [\p{Ll}\p{Lm}\p{Lo}\p{M}]*
-    ufal::unilib::unicode::category_t categories2 =
+    const ufal::unilib::unicode::category_t categories2 =
         ufal::unilib::unicode::Ll | ufal::unilib::unicode::Lm | ufal::unilib::unicode::Lo | ufal::unilib::unicode::M;
     if (IsCategory(m_text[i], categories2)) {
       for (; i < m_text.size(); ++i) {
