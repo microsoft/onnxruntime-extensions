@@ -450,8 +450,8 @@ TEST(OrtxTokenizerTest, SpmUgmTokenizer) {
 
   // expected ids was generated using the following command:
   // AutoTokenizer.from_pretrained("FacebookAI/xlm-roberta-base")
-  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({0, 87, 1884, 122395, 759, 99942, 10269, 136, 7068, 4, 6, 62668, 5364,
-                                                245875, 354, 11716, 2}));
+  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({
+    0, 87, 1884, 122395, 759, 99942, 10269, 136, 7068, 4, 6, 62668, 5364, 245875, 354, 11716, 2}));
 
   OrtxObjectPtr<OrtxStringArray> decoded_text;
   OrtxDetokenize(tokenizer.get(), token_ids.get(), decoded_text.ToBeAssigned());

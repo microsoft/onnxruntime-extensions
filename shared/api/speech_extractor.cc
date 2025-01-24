@@ -9,13 +9,14 @@
 using namespace ort_extensions;
 
 Operation::KernelRegistry SpeechFeatureExtractor::kernel_registry_ = {
-    {"AudioDecoder", []() { return CreateKernelInstance(&AudioDecoder::ComputeNoOpt); }},
-    {"STFTNorm", []() { return CreateKernelInstance(&SpeechFeatures::STFTNorm); }},
-    {"LogMelSpectrum", []() { return CreateKernelInstance(&LogMel::Compute); }},
+  {"AudioDecoder", []() { return CreateKernelInstance(&AudioDecoder::ComputeNoOpt); }},
+  {"STFTNorm", []() { return CreateKernelInstance(&SpeechFeatures::STFTNorm); }},
+  {"LogMelSpectrum", []() { return CreateKernelInstance(&LogMel::Compute); }},
+  {"Phi4AudioEmbed", []() { return CreateKernelInstance(&Phi4AudioEmbed::Compute); }}
 };
 
 SpeechFeatureExtractor::SpeechFeatureExtractor()
-    : OrtxObjectImpl(extObjectKind_t::kOrtxKindFeatureExtractor), allocator_(&CppAllocator::Instance()) {}
+  : OrtxObjectImpl(extObjectKind_t::kOrtxKindFeatureExtractor) {}
 
 OrtxStatus SpeechFeatureExtractor::Init(std::string_view extractor_def) {
   std::string fe_def_str;
@@ -44,18 +45,18 @@ OrtxStatus SpeechFeatureExtractor::Init(std::string_view extractor_def) {
     return {kOrtxErrorInvalidArgument, "[SpeechFeatureExtractor]: sequence field is missing."};
   }
 
-  operations_.reserve(op_sequence.size());
-  for (auto mod_iter = op_sequence.begin(); mod_iter != op_sequence.end(); ++mod_iter) {
-    auto op = std::make_unique<Operation>(kernel_registry_);
-    auto status = op->Init(mod_iter->dump());
-    if (!status.IsOk()) {
-      return status;
-    }
+  // operations_.reserve(op_sequence.size());
+  // for (auto mod_iter = op_sequence.begin(); mod_iter != op_sequence.end(); ++mod_iter) {
+  //   auto op = std::make_unique<Operation>(kernel_registry_);
+  //   auto status = op->Init(mod_iter->dump());
+  //   if (!status.IsOk()) {
+  //     return status;
+  //   }
 
-    operations_.push_back(std::move(op));
-  }
+  //   operations_.push_back(std::move(op));
+  // }
 
-  return {};
+  return op_plan_.Init(op_sequence, kernel_registry_);
 }
 
 OrtxStatus SpeechFeatureExtractor::DoCall(ort_extensions::span<AudioRawData> raw_speech,
@@ -71,13 +72,14 @@ OrtxStatus SpeechFeatureExtractor::DoCall(ort_extensions::span<AudioRawData> raw
   }
 
   std::vector<TensorArgs> outputs;
-  std::vector<Operation*> ops(operations_.size());
-  std::transform(operations_.begin(), operations_.end(), ops.begin(), [](auto& op) { return op.get(); });
-  OrtxRunner runner(allocator_, ops.data(), ops.size());
+  // std::vector<Operation*> ops(operations_.size());
+  // std::transform(operations_.begin(), operations_.end(), ops.begin(), [](auto& op) { return op.get(); });
+  // OrtxRunner runner(allocator_, ops.data(), ops.size());
+  OrtxRunner runner(op_plan_);
   auto status = runner.Run(inputs, outputs);
   if (!status.IsOk()) {
     return status;
-  }
+  }  
 
   // clear the input tensors
   for (auto& input : inputs) {
@@ -86,11 +88,50 @@ OrtxStatus SpeechFeatureExtractor::DoCall(ort_extensions::span<AudioRawData> raw
     }
   }
 
-  auto results = operations_.back()->AllocateOutputs(allocator_);
-  status = OrtxRunner::StackTensors(outputs, results, allocator_);
+  auto results = op_plan_.AllocateOutputs(runner.GetAllocator());
+  status = OrtxRunner::StackTensors(outputs, results, runner.GetAllocator());
   if (status.IsOk()) {
     log_mel.reset(static_cast<ortc::Tensor<float>*>(results[0].release()));
-    operations_.back()->ResetTensors(allocator_);
+  }
+
+  return status;
+}
+
+OrtxStatus
+SpeechFeatureExtractor::Preprocess(ort_extensions::span<AudioRawData> raw_speech, TensorResult& r) const {
+                                              // std::unique_ptr<ortc::Tensor<float>>& audio_embeds,
+                                              // std::unique_ptr<ortc::Tensor<int64_t>>& audio_embed_sizes) const {
+  // setup the input tensors
+  std::vector<TensorArgs> inputs;
+  inputs.resize(raw_speech.size());
+  for (size_t i = 0; i < raw_speech.size(); ++i) {
+    auto& ts_input = inputs[i];
+    AudioRawData& speech = raw_speech[i];
+    std::vector<int64_t> shape = {static_cast<int64_t>(speech.size())};
+    ts_input.push_back(std::make_unique<ortc::Tensor<uint8_t>>(shape, speech.data()).release());
+  }
+
+  std::vector<TensorArgs> outputs;
+  // std::vector<Operation*> ops(operations_.size());
+  // std::transform(operations_.begin(), operations_.end(), ops.begin(), [](auto& op) { return op.get(); });
+  // OrtxRunner runner(allocator_, ops.data(), ops.size());
+  OrtxRunner runner(op_plan_);
+  auto status = runner.Run(inputs, outputs);
+  if (!status.IsOk()) {
+    return status;
+  }  
+
+  // clear the input tensors
+  for (auto& input : inputs) {
+    for (auto& ts : input) {
+      std::unique_ptr<ortc::TensorBase>(ts).reset();
+    }
+  }
+
+  auto results = op_plan_.AllocateOutputs(runner.GetAllocator());
+  status = OrtxRunner::StackTensors(outputs, results, runner.GetAllocator());
+  if (status.IsOk()) {
+    r.SetTensors(std::move(results));
   }
 
   return status;

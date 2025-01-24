@@ -221,4 +221,78 @@ class LogMel {
   dlib::matrix<float> mel_filters_;
 };
 
+class Phi4AudioEmbed {
+ public:
+  Phi4AudioEmbed() = default;
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    for (const auto& [key, value] : attrs) {
+      if (key.find("stft_normal/") == 0) {
+        stft_normal_attrs_[key.substr(10)] = value;
+      } else if (key.find("logmel/") == 0) {
+        logmel_attrs_[key.substr(8)] = value;
+      } else if (key == "audio_compression_rate") {
+        audio_compression_rate_ = std::get<int64_t>(value);
+      } else if (key == "qformer_compression_rate") {
+        qformer_compression_rate_ = std::get<int64_t>(value);
+      } else {
+        return {kOrtxErrorInvalidArgument, "[Phi4AudioEmbed]: Invalid key in the JSON configuration."};
+      }
+    }
+
+    SpeechFeatures stft_normal;
+    OrtxStatus status = stft_normal.Init(stft_normal_attrs_);
+    if (!status.IsOk()) {
+      return status;
+    }
+
+    LogMel logmel;
+    return logmel.Init(logmel_attrs_);
+  }
+
+  OrtxStatus Compute(const ortc::Tensor<float>& pcm,
+                     ortc::Tensor<float>& ts_logmel,
+                     ortc::Tensor<int64_t>& embeded_size) {
+    ortc::Tensor<float> stft_norm(&CppAllocator::Instance());
+    SpeechFeatures stft_normal;
+    stft_normal.Init(stft_normal_attrs_);
+    auto status = stft_normal.STFTNorm(pcm, stft_norm);
+    if (!status.IsOk()) {
+      return status;
+    }
+
+
+    LogMel logmel;
+    // already checked in Init
+    logmel.Init(logmel_attrs_);
+    status = logmel.Compute(stft_norm, ts_logmel);
+    if (!status.IsOk()) {
+      return status;
+    }
+
+    /*
+    def _compute_audio_embed_size(self, audio_frames):
+        integer = audio_frames // self.compression_rate
+        remainder = audio_frames % self.compression_rate
+
+        result = integer if remainder == 0 else integer + 1
+
+        integer = result // self.qformer_compression_rate
+        remainder = result % self.qformer_compression_rate
+        result = integer if remainder == 0 else integer + 1  # qformer compression
+
+        return result    
+    */
+    auto embedded_size_data = embeded_size.Allocate({1});
+    embedded_size_data[0] = std::ceil(static_cast<float>(ts_logmel.Shape()[1]) / audio_compression_rate_);
+    return {};
+  }
+
+ private:
+  AttrDict logmel_attrs_;
+  AttrDict stft_normal_attrs_;
+  int64_t audio_compression_rate_{8};
+  int64_t qformer_compression_rate_{1};
+};
+
 }  // namespace ort_extensions

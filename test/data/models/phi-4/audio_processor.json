@@ -14,7 +14,7 @@
           "attrs": {
             "n_fft": 400,
             "frame_length": 400,
-            "hop_length": 160,
+            "hop_length": 160
           }
         }
       },
@@ -27,6 +27,22 @@
             "hop_length": 160,
             "n_fft": 400,
             "n_mel": 80
+          }
+        }
+      },
+      {
+        "operation": {
+          "name": "phi_4_audio_embed",
+          "type": "Phi4AudioEmbed",
+          "attrs": {
+            "audio_compression_rate": 8,
+            "logmel/chunk_size": 30,
+            "logmel/hop_length": 160,
+            "logmel/n_fft": 512,
+            "logmel/n_mel": 80,
+            "stft_normal/n_fft": 512,
+            "stft_normal/frame_length": 400,
+            "stft_normal/hop_length": 160
           }
         }
       }

@@ -121,3 +121,25 @@ TEST(ProcessorTest, TestMLlamaImageProcessing) {
   ASSERT_EQ(num_dims, 2);
   ASSERT_EQ(std::vector<int64_t>(int_data, int_data + 3), std::vector<int64_t>({4, 4, 1}));
 }
+
+TEST(ProcessorTest, TestPhi4VisionProcessor) {
+  OrtxObjectPtr<OrtxRawImages> raw_images{};
+  extError_t err = OrtxLoadImages(raw_images.ToBeAssigned(), test_image_paths, 1, nullptr);
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxProcessor> processor;
+  err = OrtxCreateProcessor(processor.ToBeAssigned(), "data/models/phi-4/vision_processor.json");
+  if (err != kOrtxOK) {
+    std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxImagePreProcess(processor.get(), raw_images.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxTensor* tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, &tensor);
+  ASSERT_EQ(err, kOrtxOK);  
+}

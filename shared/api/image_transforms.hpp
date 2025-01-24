@@ -29,8 +29,10 @@ void DumpTensorToFile(const ortc::Tensor<T>& tensor, const char* name) {
 }
 
 template <typename T>
-void SplitIntoTitles(const ortc::Tensor<T>& normalized_image, ortc::Tensor<T>& pixel_values,
-                     int64_t tile_height, int64_t tile_width) {
+void SplitIntoTitles(const ortc::Tensor<T>& normalized_image,
+                     ortc::Tensor<T>& pixel_values,
+                     int64_t tile_height,
+                     int64_t tile_width) {
   auto& shape = normalized_image.Shape();
   int64_t image_height = shape[0];
   int64_t image_width = shape[1];
@@ -44,7 +46,7 @@ void SplitIntoTitles(const ortc::Tensor<T>& normalized_image, ortc::Tensor<T>& p
 
   auto p_normalized_image = normalized_image.Data();
   // shape (num_tiles_width * num_tiles_height, num_channels, tile_height, tile_width)
-  float* output_pixel =
+  T* output_pixel =
       pixel_values.Allocate({num_tiles_height * num_tiles_width, num_channels, tile_height, tile_width});
 
   // From (image_height, image_width, num_channels)
