@@ -37,3 +37,30 @@ TEST(ExtractorTest, TestWhisperFeatureExtraction) {
   ASSERT_EQ(shape[1], 80);
   ASSERT_EQ(shape[2], 3000);
 }
+
+TEST(ExtractorTest, TestPhi4AudioFeatureExtraction) {
+  const char* audio_path[] = {"data/jfk.flac", "data/1272-141231-0002.wav", "data/1272-141231-0002.mp3"};
+  OrtxObjectPtr<OrtxRawAudios> raw_audios;
+  extError_t err = OrtxLoadAudios(raw_audios.ToBeAssigned(), audio_path, 3);
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxFeatureExtractor>
+    feature_extractor(OrtxCreateSpeechFeatureExtractor, "data/models/phi-4/audio_processor.json");
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxFeatureExtraction(feature_extractor.get(), raw_audios.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const float* data{};
+  const int64_t* shape{};
+  size_t num_dims;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 3);
+  ASSERT_EQ(shape[0], 3);
+  ASSERT_EQ(shape[1], 80);
+  ASSERT_EQ(shape[2], 3000);
+}

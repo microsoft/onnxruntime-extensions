@@ -228,9 +228,9 @@ class Phi4AudioEmbed {
   OrtxStatus Init(const DictT& attrs) {
     for (const auto& [key, value] : attrs) {
       if (key.find("stft_normal/") == 0) {
-        stft_normal_attrs_[key.substr(10)] = value;
+        stft_normal_attrs_[key.substr(12)] = value;
       } else if (key.find("logmel/") == 0) {
-        logmel_attrs_[key.substr(8)] = value;
+        logmel_attrs_[key.substr(7)] = value;
       } else if (key == "audio_compression_rate") {
         audio_compression_rate_ = std::get<int64_t>(value);
       } else if (key == "qformer_compression_rate") {

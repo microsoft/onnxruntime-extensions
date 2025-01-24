@@ -1,5 +1,5 @@
 {
-  "audio_feature_extraction": {
+  "feature_extraction": {
     "sequence": [
       {
         "operation": {
