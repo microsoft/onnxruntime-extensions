@@ -9,29 +9,6 @@
       },
       {
         "operation": {
-          "name": "STFT",
-          "type": "STFTNorm",
-          "attrs": {
-            "n_fft": 400,
-            "frame_length": 400,
-            "hop_length": 160
-          }
-        }
-      },
-      {
-        "operation": {
-          "name": "log_mel_spectrogram",
-          "type": "LogMelSpectrum",
-          "attrs": {
-            "chunk_size": 30,
-            "hop_length": 160,
-            "n_fft": 400,
-            "n_mel": 80
-          }
-        }
-      },
-      {
-        "operation": {
           "name": "phi_4_audio_embed",
           "type": "Phi4AudioEmbed",
           "attrs": {

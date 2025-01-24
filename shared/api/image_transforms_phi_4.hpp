@@ -9,11 +9,11 @@
 #include "ext_status.h"
 #include "op_def_struct.h"
 #include "image_resample.h"
+#include "narrow.h"
 
 namespace ort_extensions {
 
 class Phi4VisionDynamicPreprocess {
-
  public:
   Phi4VisionDynamicPreprocess() = default;
 
@@ -33,8 +33,7 @@ class Phi4VisionDynamicPreprocess {
                   best_ratio = ratio
       return best_ratio
   */
-  std::pair<int, int> FindClosestAspectRatio(float aspect_ratio,
-                                             const std::vector<std::pair<int, int>>& target_ratios,
+  std::pair<int, int> FindClosestAspectRatio(float aspect_ratio, const std::vector<std::pair<int, int>>& target_ratios,
                                              int width, int height, int image_size) const {
     float best_ratio_diff = std::numeric_limits<float>::infinity();
     std::pair<int, int> best_ratio = {1, 1};
@@ -54,10 +53,8 @@ class Phi4VisionDynamicPreprocess {
     return best_ratio;
   }
 
-  OrtxStatus Compute(const ortc::Tensor<uint8_t>& ts_image,
-                     ortc::Tensor<uint8_t>& resized_image,
+  OrtxStatus Compute(const ortc::Tensor<uint8_t>& ts_image, ortc::Tensor<uint8_t>& resized_image,
                      ortc::Tensor<int64_t>& attention_mask) {
-
     auto& dimensions = ts_image.Shape();
     if (dimensions.size() != 3ULL) {
       return {kOrtxErrorInvalidArgument, "[Phi4VisionProcessor]: Only raw image formats"};
@@ -73,9 +70,8 @@ class Phi4VisionDynamicPreprocess {
     mask_resolution = base_resolution // 14
     elems, image_attention_masks = [], []
     for im in images:
-        elem, attention_mask = self.dynamic_preprocess(im, max_num=self.dynamic_hd, image_size=base_resolution, mask_size=mask_resolution)
-        elems.append(elem)
-        image_attention_masks.append(attention_mask)
+        elem, attention_mask = self.dynamic_preprocess(im, max_num=self.dynamic_hd, image_size=base_resolution,
+    mask_size=mask_resolution) elems.append(elem) image_attention_masks.append(attention_mask)
     */
     const int32_t dyhd_base_resolution = 448;
     const int64_t mask_resolution = dyhd_base_resolution / 14;
@@ -83,7 +79,7 @@ class Phi4VisionDynamicPreprocess {
     int64_t h = ts_image.Shape()[0];
     int64_t w = ts_image.Shape()[1];
     int64_t c = ts_image.Shape()[2];
-    Imaging image = ImagingNew("RGB", w, h);
+    Imaging image = ImagingNew("RGB", ort_extensions::narrow<int>(w), ort_extensions::narrow<int>(h));
     for (int64_t i = 0; i < h; ++i) {
       for (int64_t j = 0; j < w; ++j) {
         uint8_t* pixel = reinterpret_cast<uint8_t*>(image->image[i] + j * 4);
@@ -96,8 +92,8 @@ class Phi4VisionDynamicPreprocess {
 
     Imaging elem{};
     std::vector<std::vector<int64_t>> image_attention_masks;
-    OrtxStatus status = DynamicPreprocess(
-      image, elem, image_attention_masks, 1, dynamic_hd_, dyhd_base_resolution, mask_resolution);
+    OrtxStatus status =
+        DynamicPreprocess(image, elem, image_attention_masks, 1, dynamic_hd_, dyhd_base_resolution, mask_resolution);
     if (!status.IsOk()) {
       return status;
     }
@@ -113,9 +109,8 @@ class Phi4VisionDynamicPreprocess {
     ImagingDelete(image);
     ImagingDelete(elem);
 
-    auto attention_mask_data = attention_mask.Allocate({
-      static_cast<int64_t>(image_attention_masks.size()),
-      static_cast<int64_t>(image_attention_masks[0].size())});
+    auto attention_mask_data = attention_mask.Allocate(
+        {static_cast<int64_t>(image_attention_masks.size()), static_cast<int64_t>(image_attention_masks[0].size())});
 
     for (size_t i = 0; i < image_attention_masks.size(); ++i) {
       for (size_t j = 0; j < image_attention_masks[i].size(); ++j) {
@@ -129,7 +124,7 @@ class Phi4VisionDynamicPreprocess {
   /*
   def dynamic_preprocess(self, image, min_num=1, max_num=12, image_size=384, mask_size=27, use_thumbnail=True):
       orig_width, orig_height = image.size
-      
+
       w_crop_num = math.ceil(orig_width/float(image_size))
       h_crop_num = math.ceil(orig_height/float(image_size))
       if w_crop_num * h_crop_num > max_num:
@@ -175,23 +170,24 @@ class Phi4VisionDynamicPreprocess {
       assert attention_mask.sum() > 0
 
       if min(new_size[1], target_height) < 10 or min(new_size[0], target_width) < 10:
-          raise ValueError(f'the aspect ratio is very extreme {new_size}') 
+          raise ValueError(f'the aspect ratio is very extreme {new_size}')
 
       image = torchvision.transforms.functional.resize(image, [new_size[1], new_size[0]],)
 
-      resized_img = torchvision.transforms.functional.pad(image, [0, 0, padding_width, padding_height], fill=[255,255,255])
+      resized_img = torchvision.transforms.functional.pad(image, [0, 0, padding_width, padding_height],
+  fill=[255,255,255])
 
       return resized_img, attention_mask
     */
 
-  OrtxStatus DynamicPreprocess(Imaging image,
-    Imaging& resized_image, std::vector<std::vector<int64_t>>& attention_mask,
-    int min_num=1, int max_num=12, int image_size=384, int mask_size=27 ) const {
+  OrtxStatus DynamicPreprocess(Imaging image, Imaging& resized_image, std::vector<std::vector<int64_t>>& attention_mask,
+                               int64_t min_num = 1, int64_t max_num = 12, int64_t image_size = 384,
+                               int64_t mask_size = 27) const {
     int orig_width = image->xsize;
     int orig_height = image->ysize;
 
-    int w_crop_num = std::ceil(orig_width / static_cast<float>(image_size));
-    int h_crop_num = std::ceil(orig_height / static_cast<float>(image_size));
+    int w_crop_num = static_cast<int>(std::ceil(orig_width / static_cast<float>(image_size)));
+    int h_crop_num = static_cast<int>(std::ceil(orig_height / static_cast<float>(image_size)));
     int target_width{}, target_height{};
     std::pair<int, int> target_aspect_ratio;
     if (w_crop_num * h_crop_num > max_num) {
@@ -208,11 +204,11 @@ class Phi4VisionDynamicPreprocess {
       }
 
       std::vector<std::pair<int, int>> target_ratios_sorted(target_ratios.begin(), target_ratios.end());
-      std::sort(target_ratios_sorted.begin(), target_ratios_sorted.end(), [](const auto& a, const auto& b) {
-        return a.first * a.second < b.first * b.second;
-      });
+      std::sort(target_ratios_sorted.begin(), target_ratios_sorted.end(),
+                [](const auto& a, const auto& b) { return a.first * a.second < b.first * b.second; });
 
-      std::pair<int, int> target_aspect_ratio = FindClosestAspectRatio(aspect_ratio, target_ratios_sorted, orig_width, orig_height, image_size);
+      std::pair<int, int> target_aspect_ratio =
+          FindClosestAspectRatio(aspect_ratio, target_ratios_sorted, orig_width, orig_height, image_size);
       target_width = image_size * target_aspect_ratio.first;
       target_height = image_size * target_aspect_ratio.second;
     } else {
@@ -257,38 +253,43 @@ class Phi4VisionDynamicPreprocess {
       assert attention_mask.sum() > 0
 
       if min(new_size[1], target_height) < 10 or min(new_size[0], target_width) < 10:
-          raise ValueError(f'the aspect ratio is very extreme {new_size}') 
+          raise ValueError(f'the aspect ratio is very extreme {new_size}')
     */
-    attention_mask.resize(mask_size * target_aspect_ratio.second, std::vector<int64_t>(mask_size * target_aspect_ratio.first, 1));
+    attention_mask.resize(mask_size * target_aspect_ratio.second,
+                          std::vector<int64_t>(mask_size * target_aspect_ratio.first, 1));
     if (padding_width >= 14) {
       for (int i = 0; i < mask_size * target_aspect_ratio.second; ++i) {
-        for (int j = mask_size * target_aspect_ratio.first - std::floor(padding_width / 14); j < mask_size * target_aspect_ratio.first; ++j) {
+        for (int j = mask_size * target_aspect_ratio.first - static_cast<int>(std::floor(padding_width / 14));
+             j < mask_size * target_aspect_ratio.first; ++j) {
           attention_mask[i][j] = 0;
         }
       }
     }
     if (padding_height >= 14) {
-      for (int i = mask_size * target_aspect_ratio.second - std::floor(padding_height / 14); i < mask_size * target_aspect_ratio.second; ++i) {
+      for (int i = mask_size * target_aspect_ratio.second - static_cast<int>(std::floor(padding_height / 14));
+           i < mask_size * target_aspect_ratio.second; ++i) {
         for (int j = 0; j < mask_size * target_aspect_ratio.first; ++j) {
           attention_mask[i][j] = 0;
         }
       }
     }
-    assert(std::accumulate(attention_mask.begin(), attention_mask.end(), 0) > 0);
+    // assert(std::accumulate(attention_mask.begin(), attention_mask.end(), 0) > 0);
 
-    if (std::min(new_size.second, target_height) < 10 || std::min(new_size.first, target_width) < 10) {
+    if ((std::min)(new_size.second, target_height) < 10 || (std::min)(new_size.first, target_width) < 10) {
       return {kOrtxErrorInvalidArgument, "[Phi4VisionProcessor]: The aspect ratio is very extreme"};
     }
 
     // image = torchvision.transforms.functional.resize(image, [new_size[1], new_size[0]],)
     float box[4] = {0.0f, 0.0f, static_cast<float>(image->xsize), static_cast<float>(image->ysize)};
-    auto output_image =
-      ImagingResample(image, static_cast<int>(new_size.first), static_cast<int>(new_size.second), IMAGING_TRANSFORM_BILINEAR, box);
+    auto output_image = ImagingResample(image, static_cast<int>(new_size.first), static_cast<int>(new_size.second),
+                                        IMAGING_TRANSFORM_BILINEAR, box);
 
-    // resized_img = torchvision.transforms.functional.pad(image, [0, 0, padding_width, padding_height], fill=[255,255,255])
+    // resized_img = torchvision.transforms.functional.pad(image, [0, 0, padding_width, padding_height],
+    // fill=[255,255,255])
     Imaging resized_img = ImagingNew("RGB", output_image->xsize + padding_width, output_image->ysize + padding_height);
     if (resized_img == nullptr) {
-      return {kOrtxErrorOutOfMemory, "[Phi4VisionProcessor]: The aspect ratio is very extreme"};;
+      return {kOrtxErrorOutOfMemory, "[Phi4VisionProcessor]: The aspect ratio is very extreme"};
+      ;
     }
 
     for (int i = 0; i < output_image->ysize; ++i) {
@@ -320,23 +321,21 @@ class Phi4VisionDynamicPreprocess {
   }
 
  private:
-   int64_t dynamic_hd_{36};
+  int64_t dynamic_hd_{36};
 };
 
 class Phi4VisionProcessor {
  public:
-  OrtxStatus Compute(const ortc::Tensor<float>& normalized_image,
-                     const ortc::Tensor<int64_t>& image_attention_mask,
-                     ortc::Tensor<float>& input_image_embeds,
-                     ortc::Tensor<int64_t>& image_sizes,
+  OrtxStatus Compute(const ortc::Tensor<float>& normalized_image, const ortc::Tensor<int64_t>& image_attention_mask,
+                     ortc::Tensor<float>& input_image_embeds, ortc::Tensor<int64_t>& image_sizes,
                      ortc::Tensor<int64_t>& returned_image_attention_mask,
                      ortc::Tensor<int64_t>& num_img_tokens) const {
     const int64_t base_resolution = dyhd_base_resolution_;
     const int64_t mask_resolution = base_resolution / 14;
     /*
       hd_images = [img_processor(im) for im in elems]
-      global_image = [torch.nn.functional.interpolate(im.unsqueeze(0).float(), size=(base_resolution, base_resolution), mode='bicubic',).to(im.dtype) for im in hd_images]
-      shapes = [[im.size(1), im.size(2)] for im in hd_images]
+      global_image = [torch.nn.functional.interpolate(im.unsqueeze(0).float(), size=(base_resolution, base_resolution),
+      mode='bicubic',).to(im.dtype) for im in hd_images] shapes = [[im.size(1), im.size(2)] for im in hd_images]
       mask_shapes = [[mask.size(0), mask.size(1)] for mask in image_attention_masks]
       global_attention_mask = [torch.ones((1, mask_resolution, mask_resolution)) for _ in hd_images]
     */
@@ -365,7 +364,7 @@ class Phi4VisionProcessor {
     std::vector<Imaging> global_image(c);  // resample the image per channel
     for (int32_t k = 0; k < c; ++k) {
       // # create global image
-      auto image_1c = ImagingNew("F", w, h);
+      auto image_1c = ImagingNew("F", ort_extensions::narrow<int>(w), ort_extensions::narrow<int>(h));
       for (int32_t y = 0; y < h; ++y) {
         for (int32_t x = 0; x < w; ++x) {
           float* pixel = reinterpret_cast<float*>(image_1c->image[y]);
@@ -385,7 +384,7 @@ class Phi4VisionProcessor {
       for (int i = 0; i < global_image[k]->ysize; ++i) {
         for (int j = 0; j < global_image[k]->xsize; ++j) {
           global_image_data[k * global_image[k]->ysize * global_image[k]->xsize + i * global_image[k]->xsize + j] =
-            global_image[k]->image[i][j];
+              global_image[k]->image[i][j];
         }
       }
 
@@ -398,25 +397,22 @@ class Phi4VisionProcessor {
                           base_resolution,
                           w//base_resolution,
                           base_resolution
-                          ).permute(0,2,4,1,3,5).reshape(-1, 3, base_resolution, base_resolution).contiguous() for im, (h, w) in zip(hd_images, shapes)]
-      attention_masks_reshape = [mask.reshape(1,
-                                h//mask_resolution,
-                                mask_resolution,
+                          ).permute(0,2,4,1,3,5).reshape(-1, 3, base_resolution, base_resolution).contiguous() for im,
+      (h, w) in zip(hd_images, shapes)] attention_masks_reshape = [mask.reshape(1, h//mask_resolution, mask_resolution,
                                 w//mask_resolution,
                                 mask_resolution
-                                ).permute(0,1,3,2,4).reshape(-1, mask_resolution, mask_resolution).contiguous() for mask, (h, w) in zip(image_attention_masks, mask_shapes)]
-      downsample_attention_masks = [mask[:,0::2,0::2].reshape(1,
-                                    h//mask_resolution,
-                                    w//mask_resolution,
-                                    mask_resolution//2+mask_resolution%2,
+                                ).permute(0,1,3,2,4).reshape(-1, mask_resolution, mask_resolution).contiguous() for
+      mask, (h, w) in zip(image_attention_masks, mask_shapes)] downsample_attention_masks =
+      [mask[:,0::2,0::2].reshape(1, h//mask_resolution, w//mask_resolution, mask_resolution//2+mask_resolution%2,
                                     mask_resolution//2+mask_resolution%2
                                     ).permute(0,1,3,2,4) for mask, (h,w) in zip(attention_masks_reshape, mask_shapes)]
-      downsample_attention_masks = [mask.reshape(mask.size(1)*mask.size(2), mask.size(3)*mask.size(4))for mask in downsample_attention_masks]
-      num_img_tokens = [256 + 1 + int(mask.sum().item()) + int(mask[:,0].sum().item()) + 16 for mask in downsample_attention_masks]
+      downsample_attention_masks = [mask.reshape(mask.size(1)*mask.size(2), mask.size(3)*mask.size(4))for mask in
+      downsample_attention_masks] num_img_tokens = [256 + 1 + int(mask.sum().item()) + int(mask[:,0].sum().item()) + 16
+      for mask in downsample_attention_masks]
 
-      hd_images_reshape = [torch.cat([_global_image] + [_im], dim=0) for _global_image, _im in zip(global_image, hd_images_reshape)]
-      hd_masks_reshape = [torch.cat([_global_mask] + [_mask], dim=0) for _global_mask, _mask in zip(global_attention_mask, attention_masks_reshape)]
-      max_crops = max([img.size(0) for img in hd_images_reshape])
+      hd_images_reshape = [torch.cat([_global_image] + [_im], dim=0) for _global_image, _im in zip(global_image,
+      hd_images_reshape)] hd_masks_reshape = [torch.cat([_global_mask] + [_mask], dim=0) for _global_mask, _mask in
+      zip(global_attention_mask, attention_masks_reshape)] max_crops = max([img.size(0) for img in hd_images_reshape])
       image_transformed = [self.pad_to_max_num_crops(im, max_crops) for im in hd_images_reshape]
       image_transformed = torch.stack(image_transformed, dim=0)
       mask_transformed = [self.pad_mask_to_max_num_crops(mask, max_crops) for mask in hd_masks_reshape]
@@ -443,35 +439,36 @@ class Phi4VisionProcessor {
       for (int j = 0; j < mask_resolution; ++j) {
         for (int k = 0; k < mask_resolution; ++k) {
           attention_mask_reshape_data[i * mask_resolution * mask_resolution + j * mask_resolution + k] =
-            image_attention_mask_data[i * mask_resolution * mask_resolution + j * mask_resolution + k];
+              image_attention_mask_data[i * mask_resolution * mask_resolution + j * mask_resolution + k];
         }
       }
     }
 
-    auto input_image_embeds_data = input_image_embeds.Allocate({
-      hd_images_reshape.Shape()[0] + 1, 3, base_resolution, base_resolution});
-    
+    auto input_image_embeds_data =
+        input_image_embeds.Allocate({hd_images_reshape.Shape()[0] + 1, 3, base_resolution, base_resolution});
+
     size_t global_image_size = ts_global_image.SizeInBytes();
     std::memcpy(input_image_embeds_data, ts_global_image.Data(), ts_global_image.SizeInBytes());
     std::memcpy(input_image_embeds_data + global_image_size, hd_images_reshape.Data(), hd_images_reshape.SizeInBytes());
 
     auto image_sizes_data = image_sizes.Allocate({hd_images_reshape.Shape()[0], 2});
-    for (size_t i = 0; i < hd_images_reshape.Shape()[0]; ++i) {
+    for (int64_t i = 0; i < hd_images_reshape.Shape()[0]; ++i) {
       image_sizes_data[i * 2] = base_resolution;
       image_sizes_data[i * 2 + 1] = base_resolution;
     }
 
     std::vector<int64_t> global_attention_mask(mask_resolution * mask_resolution, 1);
-    auto returned_image_attention_mask_data = returned_image_attention_mask.Allocate({
-      attention_masks_reshape.Shape()[0] + 1, mask_resolution, mask_resolution});
-    std::memcpy(returned_image_attention_mask_data,
-                global_attention_mask.data(), global_attention_mask.size() * sizeof(int64_t));
-    std::memcpy(returned_image_attention_mask_data + global_attention_mask.size(),
-                attention_masks_reshape.Data(), attention_masks_reshape.SizeInBytes());
+    auto returned_image_attention_mask_data = returned_image_attention_mask.Allocate(
+        {attention_masks_reshape.Shape()[0] + 1, mask_resolution, mask_resolution});
+    std::memcpy(returned_image_attention_mask_data, global_attention_mask.data(),
+                global_attention_mask.size() * sizeof(int64_t));
+    std::memcpy(returned_image_attention_mask_data + global_attention_mask.size(), attention_masks_reshape.Data(),
+                attention_masks_reshape.SizeInBytes());
 
     auto num_img_tokens_data = num_img_tokens.Allocate({1});
-    num_img_tokens_data[0] = 256 + 1 + std::accumulate(global_attention_mask.begin(), global_attention_mask.end(), 0) +
-                             std::accumulate(global_attention_mask.begin(), global_attention_mask.end(), 0) + 16;
+    num_img_tokens_data[0] =
+        256 + 1 + 16;  // std::accumulate(global_attention_mask.begin(), global_attention_mask.end(), 0) +
+                       // std::accumulate(global_attention_mask.begin(), global_attention_mask.end(), 0) + 16;
 
     return {};
   }
