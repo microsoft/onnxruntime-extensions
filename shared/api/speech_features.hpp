@@ -261,7 +261,6 @@ class Phi4AudioEmbed {
       return status;
     }
 
-
     LogMel logmel;
     // already checked in Init
     logmel.Init(logmel_attrs_);

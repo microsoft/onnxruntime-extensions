@@ -18,7 +18,7 @@
             "logmel/n_fft": 512,
             "logmel/n_mel": 80,
             "stft_normal/n_fft": 512,
-            "stft_normal/frame_length": 400,
+            "stft_normal/frame_length": 512,
             "stft_normal/hop_length": 160
           }
         }
