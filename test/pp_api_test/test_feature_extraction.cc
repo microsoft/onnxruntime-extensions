@@ -63,4 +63,8 @@ TEST(ExtractorTest, TestPhi4AudioFeatureExtraction) {
   ASSERT_EQ(shape[0], 3);
   ASSERT_EQ(shape[1], 80);
   ASSERT_EQ(shape[2], 3000);
+
+  tensor.reset();
+  err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
 }

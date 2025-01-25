@@ -16,43 +16,6 @@ namespace ort_extensions {
 class Phi4VisionDynamicPreprocess {
  public:
   Phi4VisionDynamicPreprocess() = default;
-
-  /*
-  def find_closest_aspect_ratio(self, aspect_ratio, target_ratios, width, height, image_size):
-      best_ratio_diff = float('inf')
-      best_ratio = (1, 1)
-      area = width * height
-      for ratio in target_ratios:
-          target_aspect_ratio = ratio[0] / ratio[1]
-          ratio_diff = abs(aspect_ratio - target_aspect_ratio)
-          if ratio_diff < best_ratio_diff:
-              best_ratio_diff = ratio_diff
-              best_ratio = ratio
-          elif ratio_diff == best_ratio_diff:
-              if area > 0.5 * image_size * image_size * ratio[0] * ratio[1]:
-                  best_ratio = ratio
-      return best_ratio
-  */
-  std::pair<int, int> FindClosestAspectRatio(float aspect_ratio, const std::vector<std::pair<int, int>>& target_ratios,
-                                             int width, int height, int image_size) const {
-    float best_ratio_diff = std::numeric_limits<float>::infinity();
-    std::pair<int, int> best_ratio = {1, 1};
-    int area = width * height;
-    for (const auto& ratio : target_ratios) {
-      float target_aspect_ratio = static_cast<float>(ratio.first) / ratio.second;
-      float ratio_diff = std::abs(aspect_ratio - target_aspect_ratio);
-      if (ratio_diff < best_ratio_diff) {
-        best_ratio_diff = ratio_diff;
-        best_ratio = ratio;
-      } else if (ratio_diff == best_ratio_diff) {
-        if (area > 0.5 * image_size * image_size * ratio.first * ratio.second) {
-          best_ratio = ratio;
-        }
-      }
-    }
-    return best_ratio;
-  }
-
   OrtxStatus Compute(const ortc::Tensor<uint8_t>& ts_image, ortc::Tensor<uint8_t>& resized_image,
                      ortc::Tensor<int64_t>& attention_mask) {
     auto& dimensions = ts_image.Shape();
@@ -122,6 +85,42 @@ class Phi4VisionDynamicPreprocess {
   }
 
   /*
+  def find_closest_aspect_ratio(self, aspect_ratio, target_ratios, width, height, image_size):
+      best_ratio_diff = float('inf')
+      best_ratio = (1, 1)
+      area = width * height
+      for ratio in target_ratios:
+          target_aspect_ratio = ratio[0] / ratio[1]
+          ratio_diff = abs(aspect_ratio - target_aspect_ratio)
+          if ratio_diff < best_ratio_diff:
+              best_ratio_diff = ratio_diff
+              best_ratio = ratio
+          elif ratio_diff == best_ratio_diff:
+              if area > 0.5 * image_size * image_size * ratio[0] * ratio[1]:
+                  best_ratio = ratio
+      return best_ratio
+  */
+  std::pair<int64_t, int64_t> FindClosestAspectRatio(float aspect_ratio, const std::vector<std::pair<int64_t, int64_t>>& target_ratios,
+                                                     int64_t width, int64_t height, int64_t image_size) const {
+    float best_ratio_diff = std::numeric_limits<float>::infinity();
+    std::pair<int64_t, int64_t> best_ratio = {1, 1};
+    int64_t area = width * height;
+    for (const auto& ratio : target_ratios) {
+      float target_aspect_ratio = static_cast<float>(ratio.first) / ratio.second;
+      float ratio_diff = std::abs(aspect_ratio - target_aspect_ratio);
+      if (ratio_diff < best_ratio_diff) {
+        best_ratio_diff = ratio_diff;
+        best_ratio = ratio;
+      } else if (ratio_diff == best_ratio_diff) {
+        if (area > 0.5 * image_size * image_size * ratio.first * ratio.second) {
+          best_ratio = ratio;
+        }
+      }
+    }
+    return best_ratio;
+  }
+
+  /*
   def dynamic_preprocess(self, image, min_num=1, max_num=12, image_size=384, mask_size=27, use_thumbnail=True):
       orig_width, orig_height = image.size
 
@@ -183,32 +182,32 @@ class Phi4VisionDynamicPreprocess {
   OrtxStatus DynamicPreprocess(Imaging image, Imaging& resized_image, std::vector<std::vector<int64_t>>& attention_mask,
                                int64_t min_num = 1, int64_t max_num = 12, int64_t image_size = 384,
                                int64_t mask_size = 27) const {
-    int orig_width = image->xsize;
-    int orig_height = image->ysize;
+    int64_t orig_width = image->xsize;
+    int64_t orig_height = image->ysize;
 
-    int w_crop_num = static_cast<int>(std::ceil(orig_width / static_cast<float>(image_size)));
-    int h_crop_num = static_cast<int>(std::ceil(orig_height / static_cast<float>(image_size)));
-    int target_width{}, target_height{};
-    std::pair<int, int> target_aspect_ratio;
+    int64_t w_crop_num = static_cast<int64_t>(std::ceil(orig_width / static_cast<float>(image_size)));
+    int64_t h_crop_num = static_cast<int64_t>(std::ceil(orig_height / static_cast<float>(image_size)));
+    int64_t target_width{}, target_height{};
+    std::pair<int64_t, int64_t> target_aspect_ratio;
     if (w_crop_num * h_crop_num > max_num) {
       float aspect_ratio = static_cast<float>(orig_width) / orig_height;
-      std::set<std::pair<int, int>> target_ratios;
-      for (int n = min_num; n <= max_num; ++n) {
-        for (int i = 1; i <= n; ++i) {
-          for (int j = 1; j <= n; ++j) {
-            if (i * j <= max_num && i * j >= min_num) {
-              target_ratios.insert({i, j});
-            }
-          }
+      std::set<std::pair<int64_t, int64_t>> target_ratios;
+      for (int64_t n = min_num; n <= max_num; ++n) {
+      for (int64_t i = 1; i <= n; ++i) {
+        for (int64_t j = 1; j <= n; ++j) {
+        if (i * j <= max_num && i * j >= min_num) {
+          target_ratios.insert({i, j});
+        }
         }
       }
+      }
 
-      std::vector<std::pair<int, int>> target_ratios_sorted(target_ratios.begin(), target_ratios.end());
+      std::vector<std::pair<int64_t, int64_t>> target_ratios_sorted(target_ratios.begin(), target_ratios.end());
       std::sort(target_ratios_sorted.begin(), target_ratios_sorted.end(),
-                [](const auto& a, const auto& b) { return a.first * a.second < b.first * b.second; });
+          [](const auto& a, const auto& b) { return a.first * a.second < b.first * b.second; });
 
-      std::pair<int, int> target_aspect_ratio =
-          FindClosestAspectRatio(aspect_ratio, target_ratios_sorted, orig_width, orig_height, image_size);
+      std::pair<int64_t, int64_t> target_aspect_ratio =
+        FindClosestAspectRatio(aspect_ratio, target_ratios_sorted, orig_width, orig_height, image_size);
       target_width = image_size * target_aspect_ratio.first;
       target_height = image_size * target_aspect_ratio.second;
     } else {
@@ -217,30 +216,29 @@ class Phi4VisionDynamicPreprocess {
       target_aspect_ratio = {w_crop_num, h_crop_num};
     }
     /*
-        # Calculate the ratio
-        ratio_width = target_width / orig_width
-        ratio_height = target_height / orig_height
-        if ratio_width < ratio_height:
-            new_size = (target_width, int(orig_height * ratio_width))
-            padding_width = 0
-            padding_height = target_height - int(orig_height * ratio_width)
-        else:
-            new_size = (int(orig_width * ratio_height), target_height)
-            padding_width = target_width - int(orig_width * ratio_height)
-            padding_height = 0
-
+      # Calculate the ratio
+      ratio_width = target_width / orig_width
+      ratio_height = target_height / orig_height
+      if ratio_width < ratio_height:
+          new_size = (target_width, int(orig_height * ratio_width))
+          padding_width = 0
+          padding_height = target_height - int(orig_height * ratio_width)
+      else:
+          new_size = (int(orig_width * ratio_height), target_height)
+          padding_width = target_width - int(orig_width * ratio_height)
+          padding_height = 0
     */
     float ratio_width = static_cast<float>(target_width) / orig_width;
     float ratio_height = static_cast<float>(target_height) / orig_height;
-    std::pair<int, int> new_size;
-    int padding_width, padding_height;
+    std::pair<int64_t, int64_t> new_size;
+    int64_t padding_width, padding_height;
     if (ratio_width < ratio_height) {
-      new_size = {target_width, static_cast<int>(orig_height * ratio_width)};
+      new_size = {target_width, static_cast<int64_t>(orig_height * ratio_width)};
       padding_width = 0;
-      padding_height = target_height - static_cast<int>(orig_height * ratio_width);
+      padding_height = target_height - static_cast<int64_t>(orig_height * ratio_width);
     } else {
-      new_size = {static_cast<int>(orig_width * ratio_height), target_height};
-      padding_width = target_width - static_cast<int>(orig_width * ratio_height);
+      new_size = {static_cast<int64_t>(orig_width * ratio_height), target_height};
+      padding_width = target_width - static_cast<int64_t>(orig_width * ratio_height);
       padding_height = 0;
     }
 
@@ -258,17 +256,17 @@ class Phi4VisionDynamicPreprocess {
     attention_mask.resize(mask_size * target_aspect_ratio.second,
                           std::vector<int64_t>(mask_size * target_aspect_ratio.first, 1));
     if (padding_width >= 14) {
-      for (int i = 0; i < mask_size * target_aspect_ratio.second; ++i) {
-        for (int j = mask_size * target_aspect_ratio.first - static_cast<int>(std::floor(padding_width / 14));
+      for (int64_t i = 0; i < mask_size * target_aspect_ratio.second; ++i) {
+        for (int64_t j = mask_size * target_aspect_ratio.first - static_cast<int64_t>(std::floor(padding_width / 14));
              j < mask_size * target_aspect_ratio.first; ++j) {
           attention_mask[i][j] = 0;
         }
       }
     }
     if (padding_height >= 14) {
-      for (int i = mask_size * target_aspect_ratio.second - static_cast<int>(std::floor(padding_height / 14));
+      for (int64_t i = mask_size * target_aspect_ratio.second - static_cast<int64_t>(std::floor(padding_height / 14));
            i < mask_size * target_aspect_ratio.second; ++i) {
-        for (int j = 0; j < mask_size * target_aspect_ratio.first; ++j) {
+        for (int64_t j = 0; j < mask_size * target_aspect_ratio.first; ++j) {
           attention_mask[i][j] = 0;
         }
       }
@@ -286,7 +284,10 @@ class Phi4VisionDynamicPreprocess {
 
     // resized_img = torchvision.transforms.functional.pad(image, [0, 0, padding_width, padding_height],
     // fill=[255,255,255])
-    Imaging resized_img = ImagingNew("RGB", output_image->xsize + padding_width, output_image->ysize + padding_height);
+    Imaging resized_img = ImagingNew(
+      "RGB",
+      output_image->xsize + ort_extensions::narrow<int>(padding_width),
+      output_image->ysize + ort_extensions::narrow<int>(padding_height));
     if (resized_img == nullptr) {
       return {kOrtxErrorOutOfMemory, "[Phi4VisionProcessor]: The aspect ratio is very extreme"};
       ;
@@ -326,8 +327,10 @@ class Phi4VisionDynamicPreprocess {
 
 class Phi4VisionProcessor {
  public:
-  OrtxStatus Compute(const ortc::Tensor<float>& normalized_image, const ortc::Tensor<int64_t>& image_attention_mask,
-                     ortc::Tensor<float>& input_image_embeds, ortc::Tensor<int64_t>& image_sizes,
+  OrtxStatus Compute(const ortc::Tensor<float>& normalized_image,
+                     const ortc::Tensor<int64_t>& image_attention_mask,
+                     ortc::Tensor<float>& input_image_embeds,
+                     ortc::Tensor<int64_t>& image_sizes,
                      ortc::Tensor<int64_t>& returned_image_attention_mask,
                      ortc::Tensor<int64_t>& num_img_tokens) const {
     const int64_t base_resolution = dyhd_base_resolution_;
@@ -398,7 +401,8 @@ class Phi4VisionProcessor {
                           w//base_resolution,
                           base_resolution
                           ).permute(0,2,4,1,3,5).reshape(-1, 3, base_resolution, base_resolution).contiguous() for im,
-      (h, w) in zip(hd_images, shapes)] attention_masks_reshape = [mask.reshape(1, h//mask_resolution, mask_resolution,
+      (h, w) in zip(hd_images, shapes)]
+      attention_masks_reshape = [mask.reshape(1, h//mask_resolution, mask_resolution,
                                 w//mask_resolution,
                                 mask_resolution
                                 ).permute(0,1,3,2,4).reshape(-1, mask_resolution, mask_resolution).contiguous() for
@@ -429,17 +433,21 @@ class Phi4VisionProcessor {
     ortc::Tensor<int64_t> attention_masks_reshape(&CppAllocator::Instance());
     // SplitIntoTitles(image_attention_mask, attention_masks_reshape, mask_resolution, mask_resolution);
     // SplitIntoTitles only support 3d tensor, need to implement SplitIntoTitles for 2d tensor
+    auto image_attention_mask_shape = image_attention_mask.Shape();
+    std::tie(h, w) = std::make_tuple(image_attention_mask_shape[0], image_attention_mask_shape[1]);
     const int64_t tiles_w = w / mask_resolution;
     const int64_t tiles_h = h / mask_resolution;
     const int64_t crop_num = tiles_w * tiles_h;
     auto attention_mask_reshape_data = attention_masks_reshape.Allocate({crop_num, mask_resolution, mask_resolution});
     auto image_attention_mask_data = image_attention_mask.Data();
-    auto image_attention_mask_shape = image_attention_mask.Shape();
-    for (int i = 0; i < crop_num; ++i) {
-      for (int j = 0; j < mask_resolution; ++j) {
-        for (int k = 0; k < mask_resolution; ++k) {
-          attention_mask_reshape_data[i * mask_resolution * mask_resolution + j * mask_resolution + k] =
-              image_attention_mask_data[i * mask_resolution * mask_resolution + j * mask_resolution + k];
+    const int64_t mask_size = mask_resolution * mask_resolution;
+    for (int64_t i = 0; i < tiles_w; ++i) {
+      for (int64_t j = 0; j < tiles_h; ++j) {
+        for (int64_t x = 0; x < mask_resolution; ++x) {
+          for (int64_t y = 0; y < mask_resolution; ++y) {
+            attention_mask_reshape_data[(i * tiles_h + j)*mask_size + x * mask_resolution + y] =
+                image_attention_mask_data[(i * mask_resolution + x) * w + j * mask_resolution + y];
+          }
         }
       }
     }
@@ -449,28 +457,62 @@ class Phi4VisionProcessor {
 
     size_t global_image_size = ts_global_image.SizeInBytes();
     std::memcpy(input_image_embeds_data, ts_global_image.Data(), ts_global_image.SizeInBytes());
-    std::memcpy(input_image_embeds_data + global_image_size, hd_images_reshape.Data(), hd_images_reshape.SizeInBytes());
+    std::memcpy(reinterpret_cast<char*>(input_image_embeds_data)
+        + global_image_size, hd_images_reshape.Data(), hd_images_reshape.SizeInBytes());
 
-    auto image_sizes_data = image_sizes.Allocate({hd_images_reshape.Shape()[0], 2});
-    for (int64_t i = 0; i < hd_images_reshape.Shape()[0]; ++i) {
-      image_sizes_data[i * 2] = base_resolution;
-      image_sizes_data[i * 2 + 1] = base_resolution;
-    }
+    auto image_sizes_data = image_sizes.Allocate({2});
+    image_sizes_data[0] = normalized_image_shape[0];
+    image_sizes_data[1] = normalized_image_shape[1];
 
     std::vector<int64_t> global_attention_mask(mask_resolution * mask_resolution, 1);
     auto returned_image_attention_mask_data = returned_image_attention_mask.Allocate(
         {attention_masks_reshape.Shape()[0] + 1, mask_resolution, mask_resolution});
     std::memcpy(returned_image_attention_mask_data, global_attention_mask.data(),
                 global_attention_mask.size() * sizeof(int64_t));
-    std::memcpy(returned_image_attention_mask_data + global_attention_mask.size(), attention_masks_reshape.Data(),
-                attention_masks_reshape.SizeInBytes());
+    std::memcpy(reinterpret_cast<char*>(returned_image_attention_mask_data)
+                + global_attention_mask.size(), attention_masks_reshape.Data(), attention_masks_reshape.SizeInBytes());
 
     auto num_img_tokens_data = num_img_tokens.Allocate({1});
-    num_img_tokens_data[0] =
-        256 + 1 + 16;  // std::accumulate(global_attention_mask.begin(), global_attention_mask.end(), 0) +
-                       // std::accumulate(global_attention_mask.begin(), global_attention_mask.end(), 0) + 16;
+    num_img_tokens_data[0] = CountTokenNumber(image_attention_mask);
 
     return {};
+  }
+  /*
+  (h, w) = mask_shapes()
+  downsample_attention_mask = attention_masks_reshape[:,0::2,0::2].reshape(1,
+                                    h//mask_resolution,
+                                    w//mask_resolution,
+                                    mask_resolution//2+mask_resolution%2,
+                                    mask_resolution//2+mask_resolution%2
+                                    ).permute(0,1,3,2,4)
+
+  downsample_attention_masks = downsample_attention_mask.reshape(
+    downsample_attention_mask.size(1)*downsample_attention_mask.size(2),
+    downsample_attention_mask.size(3)*downsample_attention_mask.size(4))
+  mask = downsample_attention_masks
+  num_img_tokens = 256 + 1 + int(mask.sum().item()) + int(mask[:,0].sum().item()) + 16
+  */
+  int64_t CountTokenNumber(const ortc::Tensor<int64_t>& image_attention_mask) const {
+    int64_t num_img_tokens = 0;
+    auto attention_mask_shape = image_attention_mask.Shape();
+    int64_t h = attention_mask_shape[0];
+    int64_t w = attention_mask_shape[1];
+    auto attention_mask_data = image_attention_mask.Data();
+    // int(mask.sum().item()) 
+    for (int64_t i = 0; i < h; ++i) {
+      for (int64_t j = 0; j < w; ++j) {
+        if (i % 2 == 0 && j % 2 == 0) {
+          num_img_tokens += attention_mask_data[i * w + j];
+        }
+      }
+    }
+    
+    // int(mask[:,0].sum().item())
+    for (int64_t i = 0; i < h; i += 2) {
+      num_img_tokens += attention_mask_data[i * w];
+    }
+
+    return 256 + 1 + num_img_tokens + 16;
   }
 
  public:
