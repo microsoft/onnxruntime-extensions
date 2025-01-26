@@ -378,35 +378,34 @@ class Phi4VisionProcessor {
     // ImagingDelete(hd_image);
     ortc::Tensor<float> ts_global_image{&CppAllocator::Instance()};
     auto global_image_data = ts_global_image.Allocate({c, base_resolution, base_resolution});
-    auto image_size_1c = h * w;
-    std::vector<Imaging> global_image(c);  // resample the image per channel
+    Imaging global_image_1c;  // resample the image per channel
     for (int32_t k = 0; k < c; ++k) {
       // # create global image
       auto image_1c = ImagingNew("F", ort_extensions::narrow<int>(w), ort_extensions::narrow<int>(h));
       for (int32_t y = 0; y < h; ++y) {
         for (int32_t x = 0; x < w; ++x) {
-          float* pixel = reinterpret_cast<float*>(image_1c->image[y]);
-          *(pixel + x) = hd_image_data[k * image_size_1c + y * w + x];
+          float* pixel = reinterpret_cast<float*>(image_1c->image32[y]);
+          *(pixel + x) = hd_image_data[(y * w + x) * c + k];
         }
       }
       // global_image = [torch.nn.functional.interpolate(im.unsqueeze(0).float(), size=(336, 336),
       //  mode='bicubic',).to(im.dtype) for im in hd_images]
       float box[]{0.0f, 0.0f, static_cast<float>(image_1c->xsize), static_cast<float>(image_1c->ysize)};
-      global_image[k] =
-          ImagingResample(image_1c, image_resized_width, image_resized_height, IMAGING_TRANSFORM_BICUBIC, box);
-      if (global_image[k] == nullptr) {
+      global_image_1c =
+          ImagingResample(image_1c, base_resolution, base_resolution, IMAGING_TRANSFORM_BICUBIC, box);
+      if (global_image_1c == nullptr) {
         return {kOrtxErrorOutOfMemory, "[hd_transform]: Failed to allocate memory for global_image"};
       }
       ImagingDelete(image_1c);
 
-      for (int i = 0; i < global_image[k]->ysize; ++i) {
-        for (int j = 0; j < global_image[k]->xsize; ++j) {
-          global_image_data[k * global_image[k]->ysize * global_image[k]->xsize + i * global_image[k]->xsize + j] =
-              global_image[k]->image[i][j];
+      for (int i = 0; i < global_image_1c->ysize; ++i) {
+        for (int j = 0; j < global_image_1c->xsize; ++j) {
+          global_image_data[k * global_image_1c->ysize * global_image_1c->xsize + i * global_image_1c->xsize + j] =
+            static_cast<float>(global_image_1c->image32[i][j]);
         }
       }
 
-      ImagingDelete(global_image[k]);
+      ImagingDelete(global_image_1c);
     }
 
     /*
