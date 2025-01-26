@@ -147,8 +147,8 @@ TEST(ProcessorTest, TestPhi4VisionProcessor) {
   size_t num_dims;
   err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
   ASSERT_EQ(err, kOrtxOK);
-  ASSERT_EQ(num_dims, 5);
-  
+  ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3, 10, 3, 448, 448}));
+
   err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
 

@@ -36,8 +36,8 @@ class Phi4VisionDynamicPreprocess {
         elem, attention_mask = self.dynamic_preprocess(im, max_num=self.dynamic_hd, image_size=base_resolution,
     mask_size=mask_resolution) elems.append(elem) image_attention_masks.append(attention_mask)
     */
-    const int32_t dyhd_base_resolution = 448;
-    const int64_t mask_resolution = dyhd_base_resolution / 14;
+    const int64_t base_resolution = dyhd_base_resolution_;
+    const int64_t mask_resolution = base_resolution / 14;
     const uint8_t* input_data = ts_image.Data();
     int64_t h = ts_image.Shape()[0];
     int64_t w = ts_image.Shape()[1];
@@ -56,7 +56,7 @@ class Phi4VisionDynamicPreprocess {
     Imaging elem{};
     std::vector<std::vector<int64_t>> image_attention_masks;
     OrtxStatus status =
-        DynamicPreprocess(image, elem, image_attention_masks, 1, dynamic_hd_, dyhd_base_resolution, mask_resolution);
+      DynamicPreprocess(image, elem, image_attention_masks, 1, dynamic_hd_, base_resolution, mask_resolution);
     if (!status.IsOk()) {
       return status;
     }
@@ -73,12 +73,14 @@ class Phi4VisionDynamicPreprocess {
     ImagingDelete(elem);
 
     auto attention_mask_data = attention_mask.Allocate(
-        {static_cast<int64_t>(image_attention_masks.size()), static_cast<int64_t>(image_attention_masks[0].size())});
+      {static_cast<int64_t>(image_attention_masks.size()), static_cast<int64_t>(image_attention_masks[0].size())});
 
     for (size_t i = 0; i < image_attention_masks.size(); ++i) {
-      for (size_t j = 0; j < image_attention_masks[i].size(); ++j) {
-        attention_mask_data[i * image_attention_masks[i].size() + j] = image_attention_masks[i][j];
-      }
+      std::memcpy(
+        attention_mask_data + i * image_attention_masks[i].size(),
+        image_attention_masks[i].data(),
+        image_attention_masks[i].size() * sizeof(image_attention_masks[i][0])
+      );
     }
 
     return {};
@@ -100,7 +102,8 @@ class Phi4VisionDynamicPreprocess {
                   best_ratio = ratio
       return best_ratio
   */
-  std::pair<int64_t, int64_t> FindClosestAspectRatio(float aspect_ratio, const std::vector<std::pair<int64_t, int64_t>>& target_ratios,
+  std::pair<int64_t, int64_t> FindClosestAspectRatio(float aspect_ratio,
+                                                     const std::vector<std::pair<int64_t, int64_t>>& target_ratios,
                                                      int64_t width, int64_t height, int64_t image_size) const {
     float best_ratio_diff = std::numeric_limits<float>::infinity();
     std::pair<int64_t, int64_t> best_ratio = {1, 1};
@@ -173,8 +176,7 @@ class Phi4VisionDynamicPreprocess {
 
       image = torchvision.transforms.functional.resize(image, [new_size[1], new_size[0]],)
 
-      resized_img = torchvision.transforms.functional.pad(image, [0, 0, padding_width, padding_height],
-  fill=[255,255,255])
+      resized_img = torchvision.transforms.functional.pad(image, [0, 0, padding_width, padding_height], fill=[255,255,255])
 
       return resized_img, attention_mask
     */
@@ -193,13 +195,13 @@ class Phi4VisionDynamicPreprocess {
       float aspect_ratio = static_cast<float>(orig_width) / orig_height;
       std::set<std::pair<int64_t, int64_t>> target_ratios;
       for (int64_t n = min_num; n <= max_num; ++n) {
-      for (int64_t i = 1; i <= n; ++i) {
-        for (int64_t j = 1; j <= n; ++j) {
-        if (i * j <= max_num && i * j >= min_num) {
-          target_ratios.insert({i, j});
+        for (int64_t i = 1; i <= n; ++i) {
+          for (int64_t j = 1; j <= n; ++j) {
+            if (i * j <= max_num && i * j >= min_num) {
+              target_ratios.insert({i, j});
+            }
+          }
         }
-        }
-      }
       }
 
       std::vector<std::pair<int64_t, int64_t>> target_ratios_sorted(target_ratios.begin(), target_ratios.end());
@@ -282,18 +284,20 @@ class Phi4VisionDynamicPreprocess {
     auto output_image = ImagingResample(image, static_cast<int>(new_size.first), static_cast<int>(new_size.second),
                                         IMAGING_TRANSFORM_BILINEAR, box);
 
-    // resized_img = torchvision.transforms.functional.pad(image, [0, 0, padding_width, padding_height],
-    // fill=[255,255,255])
+    // resized_img = torchvision.transforms.functional.pad(
+    //   image, [0, 0, padding_width, padding_height], fill=[255,255,255])
     Imaging resized_img = ImagingNew(
       "RGB",
       output_image->xsize + ort_extensions::narrow<int>(padding_width),
       output_image->ysize + ort_extensions::narrow<int>(padding_height));
     if (resized_img == nullptr) {
       return {kOrtxErrorOutOfMemory, "[Phi4VisionProcessor]: The aspect ratio is very extreme"};
-      ;
     }
 
     for (int i = 0; i < output_image->ysize; ++i) {
+      for (int j = 0; j < output_image->xsize; ++j) {
+        resized_img->image32[i][j] = output_image->image32[i][j];
+      }
       for (int j = output_image->xsize; j < resized_img->xsize; ++j) {
         resized_img->image[i][j * 4 + 0] = char(255);
         resized_img->image[i][j * 4 + 1] = char(255);
@@ -318,16 +322,27 @@ class Phi4VisionDynamicPreprocess {
 
   template <typename DictT>
   OrtxStatus Init(const DictT& attrs) {
+    for (const auto& [key, value] : attrs) {
+      if (key == "dyhd_base_resolution") {
+        dyhd_base_resolution_ = std::get<int64_t>(value);
+      } else if (key == "dynamic_hd") {
+        dynamic_hd_ = std::get<int64_t>(value);
+      } else {
+        return {kOrtxErrorInvalidArgument, "[Phi4VisionProcessor]: Invalid argument"};
+      }
+    }
+
     return {};
   }
 
  private:
   int64_t dynamic_hd_{36};
+  int64_t dyhd_base_resolution_{448};
 };
 
 class Phi4VisionProcessor {
  public:
-  OrtxStatus Compute(const ortc::Tensor<float>& normalized_image,
+  OrtxStatus Compute(const ortc::Tensor<float>& hd_image,
                      const ortc::Tensor<int64_t>& image_attention_mask,
                      ortc::Tensor<float>& input_image_embeds,
                      ortc::Tensor<int64_t>& image_sizes,
@@ -342,9 +357,9 @@ class Phi4VisionProcessor {
       mask_shapes = [[mask.size(0), mask.size(1)] for mask in image_attention_masks]
       global_attention_mask = [torch.ones((1, mask_resolution, mask_resolution)) for _ in hd_images]
     */
-    auto normalized_image_data = normalized_image.Data();
-    auto normalized_image_shape = normalized_image.Shape();
-    auto [h, w, c] = std::make_tuple(normalized_image_shape[0], normalized_image_shape[1], normalized_image_shape[2]);
+    auto hd_image_data = hd_image.Data();
+    auto hd_image_shape = hd_image.Shape();
+    auto [h, w, c] = std::make_tuple(hd_image_shape[0], hd_image_shape[1], hd_image_shape[2]);
     // Imaging hd_image = ImagingNew("F", w, h);
     // for ()
     // for (int i = 0; i < hd_image->xsize; ++i) {
@@ -371,7 +386,7 @@ class Phi4VisionProcessor {
       for (int32_t y = 0; y < h; ++y) {
         for (int32_t x = 0; x < w; ++x) {
           float* pixel = reinterpret_cast<float*>(image_1c->image[y]);
-          *(pixel + x) = normalized_image_data[k * image_size_1c + y * w + x];
+          *(pixel + x) = hd_image_data[k * image_size_1c + y * w + x];
         }
       }
       // global_image = [torch.nn.functional.interpolate(im.unsqueeze(0).float(), size=(336, 336),
@@ -428,10 +443,9 @@ class Phi4VisionProcessor {
       returned_num_img_tokens = num_img_tokens
     */
     ortc::Tensor<float> hd_images_reshape(&CppAllocator::Instance());
-    SplitIntoTitles(normalized_image, hd_images_reshape, base_resolution, base_resolution);
+    SplitIntoTitles(hd_image, hd_images_reshape, base_resolution, base_resolution);
 
     ortc::Tensor<int64_t> attention_masks_reshape(&CppAllocator::Instance());
-    // SplitIntoTitles(image_attention_mask, attention_masks_reshape, mask_resolution, mask_resolution);
     // SplitIntoTitles only support 3d tensor, need to implement SplitIntoTitles for 2d tensor
     auto image_attention_mask_shape = image_attention_mask.Shape();
     std::tie(h, w) = std::make_tuple(image_attention_mask_shape[0], image_attention_mask_shape[1]);
@@ -446,7 +460,7 @@ class Phi4VisionProcessor {
         for (int64_t x = 0; x < mask_resolution; ++x) {
           for (int64_t y = 0; y < mask_resolution; ++y) {
             attention_mask_reshape_data[(i * tiles_h + j)*mask_size + x * mask_resolution + y] =
-                image_attention_mask_data[(i * mask_resolution + x) * w + j * mask_resolution + y];
+                image_attention_mask_data[(j * mask_resolution + x) * w + i * mask_resolution + y];
           }
         }
       }
@@ -461,8 +475,8 @@ class Phi4VisionProcessor {
         + global_image_size, hd_images_reshape.Data(), hd_images_reshape.SizeInBytes());
 
     auto image_sizes_data = image_sizes.Allocate({2});
-    image_sizes_data[0] = normalized_image_shape[0];
-    image_sizes_data[1] = normalized_image_shape[1];
+    image_sizes_data[0] = hd_image_shape[0];
+    image_sizes_data[1] = hd_image_shape[1];
 
     std::vector<int64_t> global_attention_mask(mask_resolution * mask_resolution, 1);
     auto returned_image_attention_mask_data = returned_image_attention_mask.Allocate(
@@ -506,7 +520,7 @@ class Phi4VisionProcessor {
         }
       }
     }
-    
+
     // int(mask[:,0].sum().item())
     for (int64_t i = 0; i < h; i += 2) {
       num_img_tokens += attention_mask_data[i * w];
@@ -528,19 +542,6 @@ class Phi4VisionProcessor {
       }
     }
     return {};
-  }
-
-  // Function to permute 3D array stored in 1D array from (X, Y, Z) to (Z, X, Y)
-  static void Permute3DArray(const float* array, float* permutedArray, size_t X, size_t Y, size_t Z) {
-    for (size_t x = 0; x < X; ++x) {
-      for (size_t y = 0; y < Y; ++y) {
-        for (size_t z = 0; z < Z; ++z) {
-          size_t oldIndex = Index3D(x, y, z, X, Y, Z);
-          size_t newIndex = Index3D(z, x, y, Z, X, Y);
-          permutedArray[newIndex] = array[oldIndex];
-        }
-      }
-    }
   }
 
  private:
