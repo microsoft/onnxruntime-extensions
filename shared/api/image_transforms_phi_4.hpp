@@ -348,7 +348,7 @@ class Phi4VisionProcessor {
                      ortc::Tensor<int64_t>& image_sizes,
                      ortc::Tensor<int64_t>& returned_image_attention_mask,
                      ortc::Tensor<int64_t>& num_img_tokens) const {
-    const int64_t base_resolution = dyhd_base_resolution_;
+    const int32_t base_resolution = ort_extensions::narrow<int32_t>(dyhd_base_resolution_);
     const int64_t mask_resolution = base_resolution / 14;
     /*
       hd_images = [img_processor(im) for im in elems]
