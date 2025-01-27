@@ -4,7 +4,12 @@
       {
         "operation": {
           "name": "audio_decoder",
-          "type": "AudioDecoder"
+          "type": "AudioDecoderEx",
+          "attrs": {
+            "target_sample_rates": [
+              8000, 16000
+            ]
+          }
         }
       },
       {

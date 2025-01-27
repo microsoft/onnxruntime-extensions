@@ -378,7 +378,7 @@ class Phi4VisionProcessor {
     // ImagingDelete(hd_image);
     ortc::Tensor<float> ts_global_image{&CppAllocator::Instance()};
     auto global_image_data = ts_global_image.Allocate({c, base_resolution, base_resolution});
-    Imaging global_image_1c;  // resample the image per channel
+    Imaging global_image_1c{};  // resample the image per channel
     for (int32_t k = 0; k < c; ++k) {
       // # create global image
       auto image_1c = ImagingNew("F", ort_extensions::narrow<int>(w), ort_extensions::narrow<int>(h));
@@ -398,10 +398,11 @@ class Phi4VisionProcessor {
       }
       ImagingDelete(image_1c);
 
+      auto global_image_size = global_image_1c->ysize * global_image_1c->xsize;
       for (int i = 0; i < global_image_1c->ysize; ++i) {
         for (int j = 0; j < global_image_1c->xsize; ++j) {
-          global_image_data[k * global_image_1c->ysize * global_image_1c->xsize + i * global_image_1c->xsize + j] =
-            static_cast<float>(global_image_1c->image32[i][j]);
+          global_image_data[k * global_image_size 
+            + i * global_image_1c->xsize + j] = reinterpret_cast<float*>(global_image_1c->image32[i])[j];
         }
       }
 

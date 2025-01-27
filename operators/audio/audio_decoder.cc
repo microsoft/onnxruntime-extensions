@@ -21,8 +21,11 @@
 #include "sampling.h"
 
 OrtStatusPtr AudioDecoder::OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
-  auto status = OrtW::GetOpAttribute(info, "downsampling_rate", downsample_rate_);
-  if (!status) {
+  int64_t downsample_rate = 0;
+  auto status = OrtW::GetOpAttribute(info, "downsampling_rate", downsample_rate);
+  if (status) {
+    downsample_rates_ = {downsample_rate};
+  } else {
     status = OrtW::GetOpAttribute(info, "stereo_to_mono", stereo_mixer_);
   }
 
@@ -87,8 +90,8 @@ static size_t DrReadFrames(std::list<std::vector<float>>& frames, FX_DECODER fx,
   return total_buf_size;
 }
 
-OrtxStatus AudioDecoder::Compute(const ortc::Tensor<uint8_t>& input, const std::optional<std::string> format,
-                                 ortc::Tensor<float>& output0) const {
+OrtxStatus AudioDecoder::ComputeInternal(const ortc::Tensor<uint8_t>& input, const std::optional<std::string> format,
+                                         ortc::Tensor<float>& pcm, std::optional<ortc::Tensor<int64_t>>& sr) const {
   const uint8_t* p_data = input.Data();
   auto input_dim = input.Shape();
   OrtxStatus status;
@@ -142,7 +145,7 @@ OrtxStatus AudioDecoder::Compute(const ortc::Tensor<uint8_t>& input, const std::
     total_buf_size = DrReadFrames(lst_frames, drwav_read_pcm_frames_f32, wav_obj);
   }
 
-  if (downsample_rate_ != 0 && orig_sample_rate < downsample_rate_) {
+  if (downsample_rates_.size() > 0 && orig_sample_rate < downsample_rates_.front()) {
     status = {kOrtxErrorCorruptData, "[AudioDecoder]: only down-sampling supported."};
     return status;
   }
@@ -166,16 +169,53 @@ OrtxStatus AudioDecoder::Compute(const ortc::Tensor<uint8_t>& input, const std::
     }
   }
 
-  if (downsample_rate_ != 0 && downsample_rate_ != orig_sample_rate) {
+  auto target_sample_rate = orig_sample_rate;
+  if (downsample_rates_.size() > 0) {
+    for (auto rate : downsample_rates_) {
+      if (rate > orig_sample_rate) {
+        break;  // the rates are sorted
+      } else if (rate == orig_sample_rate) {
+        target_sample_rate = rate;
+        break;
+      } else {
+        target_sample_rate = rate;
+      }
+    }
+  }
+
+  if (target_sample_rate != orig_sample_rate) {
     // A lowpass filter on buf audio data to remove high frequency noise
-    ButterworthLowpass filter(0.5 * downsample_rate_, 1.0 * orig_sample_rate);
+    ButterworthLowpass filter(0.5 * target_sample_rate, 1.0 * orig_sample_rate);
     std::vector<float> filtered_buf = filter.Process(buf);
     // downsample the audio data
-    KaiserWindowInterpolation::Process(filtered_buf, buf, 1.0f * orig_sample_rate, 1.0f * downsample_rate_);
+    KaiserWindowInterpolation::Process(filtered_buf, buf, 1.0f * orig_sample_rate, 1.0f * target_sample_rate);
   }
 
   std::vector<int64_t> dim_out = {1, ort_extensions::narrow<int64_t>(buf.size())};
-  float* p_output = output0.Allocate(dim_out);
+  float* p_output = pcm.Allocate(dim_out);
   std::copy(buf.begin(), buf.end(), p_output);
+
+  if (sr.has_value()) {
+    if (!sr.value()) {
+      int64_t* p_sr = sr->Allocate({1});
+      p_sr[0] = target_sample_rate;
+    } else {
+      const_cast<int64_t*>(sr.value().Data())[0] = target_sample_rate;
+    }
+  }
+
+  return status;
+}
+
+OrtxStatus AudioDecoder::ComputeNoOpt2(
+  const ortc::Tensor<uint8_t>& input, ortc::Tensor<float>& pcm, ortc::Tensor<int64_t>& sr) const {
+  int64_t sr_val[] = {0};
+  ortc::Tensor<int64_t> ts_sr({1}, sr_val);
+  std::optional<ortc::Tensor<int64_t>> sr_opt(std::move(ts_sr));
+  auto status = ComputeInternal(input, std::nullopt, pcm, sr_opt);
+  if (status.IsOk()) {
+    *sr.Allocate({1}) = sr_val[0];
+  }
+
   return status;
 }

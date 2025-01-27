@@ -15,11 +15,14 @@ struct AudioDecoder {
   template <typename DictT>
   OrtxStatus Init(const DictT& attrs) {
     // in API mode, the default value is 1
-    downsample_rate_ = 16000;
+    downsample_rates_ = {16000};
     stereo_mixer_ = 1;
     for (const auto& [key, value] : attrs) {
       if (key == "target_sample_rate") {
-        downsample_rate_ = std::get<std::int64_t>(value);
+        downsample_rates_[0] = std::get<std::int64_t>(value);
+      } else if (key == "target_sample_rates") {
+        downsample_rates_ = std::get<std::vector<std::int64_t>>(value);
+        std::sort(downsample_rates_.begin(), downsample_rates_.end());
       } else if (key == "stereo_to_mono") {
         stereo_mixer_ = std::get<std::int64_t>(value);
       } else {
@@ -33,13 +36,24 @@ struct AudioDecoder {
   enum class AudioStreamType { kDefault = 0, kWAV, kMP3, kFLAC };
 
   AudioStreamType ReadStreamFormat(const uint8_t* p_data, const std::string& str_format, OrtxStatus& status) const;
+
+  OrtxStatus ComputeInternal(const ortc::Tensor<uint8_t>& input, const std::optional<std::string> format,
+                             ortc::Tensor<float>& pcm, std::optional<ortc::Tensor<int64_t>>& sr) const;
+
   OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, const std::optional<std::string> format,
-                     ortc::Tensor<float>& output0) const;
-  OrtxStatus ComputeNoOpt(const ortc::Tensor<uint8_t>& input, ortc::Tensor<float>& output0) {
-    return Compute(input, std::nullopt, output0);
-  }
+                     ortc::Tensor<float>& output0) const {
+    std::optional<ortc::Tensor<int64_t>> null_opt{};
+    return ComputeInternal(input, format, output0, null_opt); }
+
+  OrtxStatus ComputeNoOpt(const ortc::Tensor<uint8_t>& input, ortc::Tensor<float>& pcm) const {
+    std::optional<ortc::Tensor<int64_t>> null_opt{};
+    return ComputeInternal(input, std::nullopt, pcm, null_opt); }
+
+  OrtxStatus ComputeNoOpt2(const ortc::Tensor<uint8_t>& input,
+                           ortc::Tensor<float>& pcm,
+                           ortc::Tensor<int64_t>& sr) const;
 
  private:
-  int64_t downsample_rate_{};
   int64_t stereo_mixer_{};
+  std::vector<int64_t> downsample_rates_{};
 };

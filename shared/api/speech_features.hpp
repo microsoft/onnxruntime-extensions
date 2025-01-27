@@ -231,6 +231,10 @@ class Phi4AudioEmbed {
         stft_normal_attrs_[key.substr(12)] = value;
       } else if (key.find("logmel/") == 0) {
         logmel_attrs_[key.substr(7)] = value;
+      } else if (key.find("stft_normal_8k/") == 0) {
+        stft_normal_8k_attrs_[key.substr(15)] = value;
+      } else if (key.find("logmel_8k/") == 0) {
+        logmel_8k_attrs_[key.substr(10)] = value;
       } else if (key == "audio_compression_rate") {
         audio_compression_rate_ = std::get<int64_t>(value);
       } else if (key == "qformer_compression_rate") {
@@ -251,11 +255,14 @@ class Phi4AudioEmbed {
   }
 
   OrtxStatus Compute(const ortc::Tensor<float>& pcm,
+                     const ortc::Tensor<int64_t>& sr,
                      ortc::Tensor<float>& ts_logmel,
                      ortc::Tensor<int64_t>& embeded_size) {
+
+    int64_t sr_val = sr.Data()[0];
     ortc::Tensor<float> stft_norm(&CppAllocator::Instance());
     SpeechFeatures stft_normal;
-    stft_normal.Init(stft_normal_attrs_);
+    stft_normal.Init(sr_val == 8000? stft_normal_8k_attrs_: stft_normal_attrs_);
     auto status = stft_normal.STFTNorm(pcm, stft_norm);
     if (!status.IsOk()) {
       return status;
@@ -263,7 +270,7 @@ class Phi4AudioEmbed {
 
     LogMel logmel;
     // already checked in Init
-    logmel.Init(logmel_attrs_);
+    logmel.Init(sr_val == 8000? logmel_8k_attrs_: logmel_attrs_);
     status = logmel.Compute(stft_norm, ts_logmel);
     if (!status.IsOk()) {
       return status;
@@ -284,12 +291,16 @@ class Phi4AudioEmbed {
     */
     auto embedded_size_data = embeded_size.Allocate({1});
     embedded_size_data[0] = std::ceil(static_cast<float>(ts_logmel.Shape()[1]) / audio_compression_rate_);
-    return {};
+    return status;
   }
 
  private:
   AttrDict logmel_attrs_;
   AttrDict stft_normal_attrs_;
+
+  AttrDict logmel_8k_attrs_;
+  AttrDict stft_normal_8k_attrs_;
+
   int64_t audio_compression_rate_{8};
   int64_t qformer_compression_rate_{1};
 };

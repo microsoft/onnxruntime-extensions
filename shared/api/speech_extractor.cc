@@ -10,6 +10,7 @@ using namespace ort_extensions;
 
 Operation::KernelRegistry SpeechFeatureExtractor::kernel_registry_ = {
   {"AudioDecoder", []() { return CreateKernelInstance(&AudioDecoder::ComputeNoOpt); }},
+  {"AudioDecoderEx", []() { return CreateKernelInstance(&AudioDecoder::ComputeNoOpt2); }},
   {"STFTNorm", []() { return CreateKernelInstance(&SpeechFeatures::STFTNorm); }},
   {"LogMelSpectrum", []() { return CreateKernelInstance(&LogMel::Compute); }},
   {"Phi4AudioEmbed", []() { return CreateKernelInstance(&Phi4AudioEmbed::Compute); }}
@@ -44,17 +45,6 @@ OrtxStatus SpeechFeatureExtractor::Init(std::string_view extractor_def) {
   if (!op_sequence.is_array() || op_sequence.empty()) {
     return {kOrtxErrorInvalidArgument, "[SpeechFeatureExtractor]: sequence field is missing."};
   }
-
-  // operations_.reserve(op_sequence.size());
-  // for (auto mod_iter = op_sequence.begin(); mod_iter != op_sequence.end(); ++mod_iter) {
-  //   auto op = std::make_unique<Operation>(kernel_registry_);
-  //   auto status = op->Init(mod_iter->dump());
-  //   if (!status.IsOk()) {
-  //     return status;
-  //   }
-
-  //   operations_.push_back(std::move(op));
-  // }
 
   return op_plan_.Init(op_sequence, kernel_registry_);
 }
