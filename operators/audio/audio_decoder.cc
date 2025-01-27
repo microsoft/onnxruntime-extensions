@@ -91,7 +91,7 @@ static size_t DrReadFrames(std::list<std::vector<float>>& frames, FX_DECODER fx,
 }
 
 OrtxStatus AudioDecoder::ComputeInternal(const ortc::Tensor<uint8_t>& input, const std::optional<std::string> format,
-                                         ortc::Tensor<float>& pcm, std::optional<ortc::Tensor<int64_t>>& sr) const {
+                                         ortc::Tensor<float>& pcm, int64_t& sr) const {
   const uint8_t* p_data = input.Data();
   auto input_dim = input.Shape();
   OrtxStatus status;
@@ -194,27 +194,17 @@ OrtxStatus AudioDecoder::ComputeInternal(const ortc::Tensor<uint8_t>& input, con
   std::vector<int64_t> dim_out = {1, ort_extensions::narrow<int64_t>(buf.size())};
   float* p_output = pcm.Allocate(dim_out);
   std::copy(buf.begin(), buf.end(), p_output);
+  sr = target_sample_rate;
 
-  if (sr.has_value()) {
-    if (!sr.value()) {
-      int64_t* p_sr = sr->Allocate({1});
-      p_sr[0] = target_sample_rate;
-    } else {
-      const_cast<int64_t*>(sr.value().Data())[0] = target_sample_rate;
-    }
-  }
-
-  return status;
+  return {};
 }
 
 OrtxStatus AudioDecoder::ComputeNoOpt2(
   const ortc::Tensor<uint8_t>& input, ortc::Tensor<float>& pcm, ortc::Tensor<int64_t>& sr) const {
-  int64_t sr_val[] = {0};
-  ortc::Tensor<int64_t> ts_sr({1}, sr_val);
-  std::optional<ortc::Tensor<int64_t>> sr_opt(std::move(ts_sr));
-  auto status = ComputeInternal(input, std::nullopt, pcm, sr_opt);
+  int64_t sr_val;
+  auto status = ComputeInternal(input, std::nullopt, pcm, sr_val);
   if (status.IsOk()) {
-    *sr.Allocate({1}) = sr_val[0];
+    *sr.Allocate({1}) = sr_val;
   }
 
   return status;

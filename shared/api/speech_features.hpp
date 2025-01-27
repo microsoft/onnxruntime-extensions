@@ -139,7 +139,7 @@ class LogMel {
 
     float* buff{};
     if (no_padding_ == 1) {
-      buff = logmel.Allocate({log_spec.nr(), log_spec.nc()});
+      buff = logmel.Allocate({log_spec.nc(), log_spec.nr()});
       std::memcpy(buff, log_spec.begin(), log_spec.size() * sizeof(float));
     } else {
       std::vector<int64_t> shape = {mel_filters_.nr(), n_samples_ / hop_length_};
