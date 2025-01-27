@@ -79,7 +79,12 @@ class LogMel {
         n_mel = std::get<int64_t>(value);
       } else if (key == "chunk_size") {
         chunk_size = std::get<int64_t>(value);
-      } else {
+      } else if (key == "feature_first") {
+        feature_first_ = std::get<int64_t>(value);
+      } else if (key == "no_padding") {
+        no_padding_ = std::get<int64_t>(value);
+      }
+      else {
         return {kOrtxErrorInvalidArgument, "[LogMel]: Invalid key in the JSON configuration."};
       }
     }
@@ -132,12 +137,31 @@ class LogMel {
       }
     }
 
-    std::vector<int64_t> shape = {mel_filters_.nr(), n_samples_ / hop_length_};
-    float* buff = logmel.Allocate(shape);
-    std::fill(buff, buff + logmel.NumberOfElement(), (log_spec_min + 4.0f) / 4.0f);
-    for (int i = 0; i < log_spec.nr(); ++i) {
-      auto row_len = log_spec.nc() * i;
-      std::copy(log_spec.begin() + i * log_spec.nc(), log_spec.begin() + (i + 1) * log_spec.nc(), buff + i * shape[1]);
+    float* buff{};
+    if (no_padding_ == 1) {
+      buff = logmel.Allocate({log_spec.nr(), log_spec.nc()});
+      std::memcpy(buff, log_spec.begin(), log_spec.size() * sizeof(float));
+    } else {
+      std::vector<int64_t> shape = {mel_filters_.nr(), n_samples_ / hop_length_};
+      buff = logmel.Allocate(shape);
+      std::fill(buff, buff + logmel.NumberOfElement(), (log_spec_min + 4.0f) / 4.0f);
+    }
+
+    if (buff == nullptr) {
+      return {kOrtxErrorOutOfMemory, "Failed to allocate memory for logmel tensor."};
+    }
+
+    if (feature_first_ == 1) {
+      for (int i = 0; i < log_spec.nr(); ++i) {
+        auto row_len = log_spec.nc() * i;
+        std::copy(log_spec.begin() + i * log_spec.nc(), log_spec.begin() + (i + 1) * log_spec.nc(), buff + i * log_spec.nc());
+      }
+    } else {
+      for (int i = 0; i < log_spec.nc(); ++i) {
+        for (int j = 0; j < log_spec.nr(); ++j) {
+          buff[i * log_spec.nr() + j] = log_spec(j, i);
+        }
+      }
     }
 
     return {};
@@ -219,6 +243,8 @@ class LogMel {
   int64_t hop_length_{};
   const int64_t n_sr_{16000};
   dlib::matrix<float> mel_filters_;
+  int64_t feature_first_{1};
+  int64_t no_padding_{};
 };
 
 class Phi4AudioEmbed {
