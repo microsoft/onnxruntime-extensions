@@ -23,9 +23,8 @@
 OrtStatusPtr AudioDecoder::OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
   int64_t downsample_rate = 0;
   auto status = OrtW::GetOpAttribute(info, "downsampling_rate", downsample_rate);
-  if (status) {
+  if (status == nullptr) {
     downsample_rates_ = {downsample_rate};
-  } else {
     status = OrtW::GetOpAttribute(info, "stereo_to_mono", stereo_mixer_);
   }
 
