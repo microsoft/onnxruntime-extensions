@@ -273,7 +273,6 @@ class Phi4VisionDynamicPreprocess {
         }
       }
     }
-    // assert(std::accumulate(attention_mask.begin(), attention_mask.end(), 0) > 0);
 
     if ((std::min)(new_size.second, target_height) < 10 || (std::min)(new_size.first, target_width) < 10) {
       return {kOrtxErrorInvalidArgument, "[Phi4VisionProcessor]: The aspect ratio is very extreme"};
@@ -284,8 +283,10 @@ class Phi4VisionDynamicPreprocess {
     auto output_image = ImagingResample(image, static_cast<int>(new_size.first), static_cast<int>(new_size.second),
                                         IMAGING_TRANSFORM_BILINEAR, box);
 
-    // resized_img = torchvision.transforms.functional.pad(
-    //   image, [0, 0, padding_width, padding_height], fill=[255,255,255])
+    /*
+      resized_img = torchvision.transforms.functional.pad(
+        image, [0, 0, padding_width, padding_height], fill=[255,255,255])
+    */
     Imaging resized_img = ImagingNew(
       "RGB",
       output_image->xsize + ort_extensions::narrow<int>(padding_width),
@@ -328,7 +329,7 @@ class Phi4VisionDynamicPreprocess {
       } else if (key == "dynamic_hd") {
         dynamic_hd_ = std::get<int64_t>(value);
       } else {
-        return {kOrtxErrorInvalidArgument, "[Phi4VisionProcessor]: Invalid argument"};
+        return {kOrtxErrorInvalidArgument, "[Phi4VisionProcessor]: Invalid config: " + key};
       }
     }
 
@@ -360,22 +361,6 @@ class Phi4VisionProcessor {
     auto hd_image_data = hd_image.Data();
     auto hd_image_shape = hd_image.Shape();
     auto [h, w, c] = std::make_tuple(hd_image_shape[0], hd_image_shape[1], hd_image_shape[2]);
-    // Imaging hd_image = ImagingNew("F", w, h);
-    // for ()
-    // for (int i = 0; i < hd_image->xsize; ++i) {
-    //   for (int j = 0; j < hd_image->ysize; ++j) {
-    //     float* pixel = reinterpret_cast<float*>(hd_image->image32[i]);
-    //     *(pixel + j) = normalized_image_data[i * hd_image->xsize + j];
-    //   }
-    // }
-
-    // float box[]{0.0f, 0.0f, static_cast<float>(hd_image->xsize), static_cast<float>(hd_image->ysize)};
-    // Imaging global_image = ImagingResample(hd_image,
-    //                                        base_resolution,
-    //                                        base_resolution,
-    //                                        IMAGING_TRANSFORM_BICUBIC,
-    //                                        box);
-    // ImagingDelete(hd_image);
     ortc::Tensor<float> ts_global_image{&CppAllocator::Instance()};
     auto global_image_data = ts_global_image.Allocate({c, base_resolution, base_resolution});
     Imaging global_image_1c{};  // resample the image per channel
@@ -411,27 +396,26 @@ class Phi4VisionProcessor {
 
     /*
       hd_images_reshape = [im.reshape(1, 3,
-                          h//base_resolution,
-                          base_resolution,
-                          w//base_resolution,
-                          base_resolution
-                          ).permute(0,2,4,1,3,5).reshape(-1, 3, base_resolution, base_resolution).contiguous() for im,
-      (h, w) in zip(hd_images, shapes)]
-      attention_masks_reshape = [mask.reshape(1, h//mask_resolution, mask_resolution,
-                                w//mask_resolution,
-                                mask_resolution
-                                ).permute(0,1,3,2,4).reshape(-1, mask_resolution, mask_resolution).contiguous() for
-      mask, (h, w) in zip(image_attention_masks, mask_shapes)] downsample_attention_masks =
-      [mask[:,0::2,0::2].reshape(1, h//mask_resolution, w//mask_resolution, mask_resolution//2+mask_resolution%2,
-                                    mask_resolution//2+mask_resolution%2
-                                    ).permute(0,1,3,2,4) for mask, (h,w) in zip(attention_masks_reshape, mask_shapes)]
-      downsample_attention_masks = [mask.reshape(mask.size(1)*mask.size(2), mask.size(3)*mask.size(4))for mask in
-      downsample_attention_masks] num_img_tokens = [256 + 1 + int(mask.sum().item()) + int(mask[:,0].sum().item()) + 16
-      for mask in downsample_attention_masks]
+                                      h//base_resolution,
+                                      base_resolution,
+                                      w//base_resolution,
+                                      base_resolution
+                                      ).permute(0,2,4,1,3,5).reshape(
+        -1, 3, base_resolution, base_resolution).contiguous() for im, (h, w) in zip(hd_images, shapes)]
+      attention_masks_reshape = [mask.reshape(
+        1,
+        h//mask_resolution,
+        mask_resolution,
+        w//mask_resolution,
+        mask_resolution
+        ).permute(0,1,3,2,4).reshape(-1, mask_resolution, mask_resolution).contiguous(
+          ) for mask, (h, w) in zip(image_attention_masks, mask_shapes)]
 
-      hd_images_reshape = [torch.cat([_global_image] + [_im], dim=0) for _global_image, _im in zip(global_image,
-      hd_images_reshape)] hd_masks_reshape = [torch.cat([_global_mask] + [_mask], dim=0) for _global_mask, _mask in
-      zip(global_attention_mask, attention_masks_reshape)] max_crops = max([img.size(0) for img in hd_images_reshape])
+      hd_images_reshape = [torch.cat(
+        [_global_image] + [_im], dim=0) for _global_image, _im in zip(global_image, hd_images_reshape)]
+      hd_masks_reshape = [torch.cat(
+        [_global_mask] + [_mask], dim=0) for _global_mask, _mask in zip(global_attention_mask, attention_masks_reshape)]
+      max_crops = max([img.size(0) for img in hd_images_reshape])
       image_transformed = [self.pad_to_max_num_crops(im, max_crops) for im in hd_images_reshape]
       image_transformed = torch.stack(image_transformed, dim=0)
       mask_transformed = [self.pad_mask_to_max_num_crops(mask, max_crops) for mask in hd_masks_reshape]
@@ -467,7 +451,7 @@ class Phi4VisionProcessor {
     }
 
     auto input_image_embeds_data =
-        input_image_embeds.Allocate({hd_images_reshape.Shape()[0] + 1, 3, base_resolution, base_resolution});
+      input_image_embeds.Allocate({hd_images_reshape.Shape()[0] + 1, 3, base_resolution, base_resolution});
 
     size_t global_image_size = ts_global_image.SizeInBytes();
     std::memcpy(input_image_embeds_data, ts_global_image.Data(), ts_global_image.SizeInBytes());
@@ -492,19 +476,19 @@ class Phi4VisionProcessor {
     return {};
   }
   /*
-  (h, w) = mask_shapes()
-  downsample_attention_mask = attention_masks_reshape[:,0::2,0::2].reshape(1,
-                                    h//mask_resolution,
-                                    w//mask_resolution,
-                                    mask_resolution//2+mask_resolution%2,
-                                    mask_resolution//2+mask_resolution%2
-                                    ).permute(0,1,3,2,4)
+    (h, w) = mask_shapes()
+    downsample_attention_mask = attention_masks_reshape[:,0::2,0::2].reshape(1,
+                                      h//mask_resolution,
+                                      w//mask_resolution,
+                                      mask_resolution//2+mask_resolution%2,
+                                      mask_resolution//2+mask_resolution%2
+                                      ).permute(0,1,3,2,4)
 
-  downsample_attention_masks = downsample_attention_mask.reshape(
-    downsample_attention_mask.size(1)*downsample_attention_mask.size(2),
-    downsample_attention_mask.size(3)*downsample_attention_mask.size(4))
-  mask = downsample_attention_masks
-  num_img_tokens = 256 + 1 + int(mask.sum().item()) + int(mask[:,0].sum().item()) + 16
+    downsample_attention_masks = downsample_attention_mask.reshape(
+      downsample_attention_mask.size(1)*downsample_attention_mask.size(2),
+      downsample_attention_mask.size(3)*downsample_attention_mask.size(4))
+    mask = downsample_attention_masks
+    num_img_tokens = 256 + 1 + int(mask.sum().item()) + int(mask[:,0].sum().item()) + 16
   */
   int64_t CountTokenNumber(const ortc::Tensor<int64_t>& image_attention_mask) const {
     int64_t num_img_tokens = 0;
@@ -536,9 +520,15 @@ class Phi4VisionProcessor {
       if (key == "dyhd_base_resolution") {
         dyhd_base_resolution_ = std::get<int64_t>(value);
       } else if (key == "interpolation") {
-        interpolation_ = std::get<std::string>(value);
+        std::string interpolation = std::get<std::string>(value);
+        if (auto iter = Resize::InterpolationMethods().find(interpolation); iter != Resize::InterpolationMethods().end()) {
+           interpolation_ = iter->second;
+        } else {
+          return {kOrtxErrorInvalidArgument, "[Phi4VisionProcessor]: Invalid interpolation: " + interpolation};
+        }
+
       } else {
-        return {kOrtxErrorInvalidArgument, "[Phi4VisionProcessor]: Invalid argument"};
+        return {kOrtxErrorInvalidArgument, "[Phi4VisionProcessor]: Invalid config: " + key};
       }
     }
     return {};
@@ -546,7 +536,7 @@ class Phi4VisionProcessor {
 
  private:
   int64_t dyhd_base_resolution_{448};
-  std::string interpolation_{"CUBIC"};
+  int interpolation_{IMAGING_TRANSFORM_BICUBIC};
 };
 
 }  // namespace ort_extensions

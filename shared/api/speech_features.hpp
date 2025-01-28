@@ -23,33 +23,55 @@ class SpeechFeatures {
         hop_length_ = std::get<int64_t>(value);
       } else if (key == "frame_length") {
         frame_length_ = std::get<int64_t>(value);
+      } else if (key == "win_fn") {
+        win_fn_ = std::get<std::string>(value);
+        if (win_fn_ != "hann" && win_fn_ != "hamming") {
+          return {kOrtxErrorInvalidArgument, "[AudioFeatures]: Invalid window type."};
+        }
       } else if (key == "hann_win") {
         auto& win = std::get<std::vector<double>>(value);
-        hann_win_.resize(win.size());
-        std::transform(win.begin(), win.end(), hann_win_.begin(), [](double x) { return static_cast<float>(x); });
+        fft_win_.resize(win.size());
+        std::transform(win.begin(), win.end(), fft_win_.begin(), [](double x) { return static_cast<float>(x); });
       } else if (key != "_comment") {
         return {kOrtxErrorInvalidArgument, "[AudioFeatures]: Invalid key in the JSON configuration."};
       }
     }
 
-    if (hann_win_.empty()) {
-      hann_win_ = hann_window(frame_length_);
+    if (fft_win_.empty()) {
+      if (win_fn_ == "hamming") {
+        fft_win_ = hamming_window(frame_length_);
+      } else {  // default to hann
+        fft_win_ = hann_window(frame_length_);
+      }
     }
     return {};
   }
 
   OrtxStatus STFTNorm(const ortc::Tensor<float>& pcm, ortc::Tensor<float>& stft_norm) {
-    return stft_norm_.Compute(pcm, n_fft_, hop_length_, {hann_win_.data(), hann_win_.size()}, frame_length_, stft_norm);
+    return stft_norm_.Compute(pcm, n_fft_, hop_length_, {fft_win_.data(), fft_win_.size()}, n_fft_, stft_norm);
   }
 
   static std::vector<float> hann_window(int N) {
     std::vector<float> window(N);
 
     for (int n = 0; n < N; ++n) {
-      // this formula leads to more rounding errors than the one below
+      // Original formula introduces more rounding errors than the current implementation
       // window[n] = static_cast<float>(0.5 * (1 - std::cos(2 * M_PI * n / (N - 1))));
       double n_sin = std::sin(M_PI * n / N);
       window[n] = static_cast<float>(n_sin * n_sin);
+    }
+
+    return window;
+  }
+
+  static std::vector<float> hamming_window(int N) {
+    std::vector<float> window(N);
+
+    for (int n = 0; n < N; ++n) {
+      // Original formula introduces more rounding errors than the current implementation
+      // window[n] = static_cast<float>(0.54 - 0.46 * std::cos(2 * M_PI * n / (N - 1)));
+      double n_sin = std::sin(M_PI * n / (N - 1));
+      window[n] = static_cast<float>(0.08 + 0.92 * n_sin * n_sin);
     }
 
     return window;
@@ -60,7 +82,8 @@ class SpeechFeatures {
   int64_t n_fft_{};
   int64_t hop_length_{};
   int64_t frame_length_{};
-  std::vector<float> hann_win_;
+  std::vector<float> fft_win_;
+  std::string win_fn_{"hann"};
 };
 
 class LogMel {
@@ -313,7 +336,7 @@ class Phi4AudioEmbed {
         remainder = result % self.qformer_compression_rate
         result = integer if remainder == 0 else integer + 1  # qformer compression
 
-        return result    
+        return result
     */
     auto embedded_size_data = embeded_size.Allocate({1});
     embedded_size_data[0] = std::ceil(static_cast<float>(ts_logmel.Shape()[1]) / audio_compression_rate_);

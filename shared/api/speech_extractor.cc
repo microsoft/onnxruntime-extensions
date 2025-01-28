@@ -62,14 +62,11 @@ OrtxStatus SpeechFeatureExtractor::DoCall(ort_extensions::span<AudioRawData> raw
   }
 
   std::vector<TensorArgs> outputs;
-  // std::vector<Operation*> ops(operations_.size());
-  // std::transform(operations_.begin(), operations_.end(), ops.begin(), [](auto& op) { return op.get(); });
-  // OrtxRunner runner(allocator_, ops.data(), ops.size());
   OrtxRunner runner(op_plan_);
   auto status = runner.Run(inputs, outputs);
   if (!status.IsOk()) {
     return status;
-  }  
+  }
 
   // clear the input tensors
   for (auto& input : inputs) {
@@ -89,8 +86,6 @@ OrtxStatus SpeechFeatureExtractor::DoCall(ort_extensions::span<AudioRawData> raw
 
 OrtxStatus
 SpeechFeatureExtractor::Preprocess(ort_extensions::span<AudioRawData> raw_speech, TensorResult& r) const {
-                                              // std::unique_ptr<ortc::Tensor<float>>& audio_embeds,
-                                              // std::unique_ptr<ortc::Tensor<int64_t>>& audio_embed_sizes) const {
   // setup the input tensors
   std::vector<TensorArgs> inputs;
   inputs.resize(raw_speech.size());
@@ -102,9 +97,6 @@ SpeechFeatureExtractor::Preprocess(ort_extensions::span<AudioRawData> raw_speech
   }
 
   std::vector<TensorArgs> outputs;
-  // std::vector<Operation*> ops(operations_.size());
-  // std::transform(operations_.begin(), operations_.end(), ops.begin(), [](auto& op) { return op.get(); });
-  // OrtxRunner runner(allocator_, ops.data(), ops.size());
   OrtxRunner runner(op_plan_);
   auto status = runner.Run(inputs, outputs);
   if (!status.IsOk()) {

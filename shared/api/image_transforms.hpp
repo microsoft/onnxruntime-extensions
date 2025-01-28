@@ -100,7 +100,7 @@ struct Resize {
       {"CUBIC", IMAGING_TRANSFORM_BICUBIC},
       {"LANCZOS", IMAGING_TRANSFORM_LANCZOS}
     };
-    
+
     return methods;
   }
 
