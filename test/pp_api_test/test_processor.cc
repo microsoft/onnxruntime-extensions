@@ -12,7 +12,7 @@
 
 using namespace ort_extensions;
 
-const char* test_image_paths[] = {"data/processor/australia.jpg", "data/processor/standard_s.jpg", "data/processor/exceltable.png"};
+const char* test_image_paths[] = {"data/processor/standard_s.jpg", "data/processor/australia.jpg", "data/processor/exceltable.png"};
 const size_t test_image_count = sizeof(test_image_paths) / sizeof(test_image_paths[0]);
 
 TEST(ProcessorTest, TestPhi3VImageProcessing) {
