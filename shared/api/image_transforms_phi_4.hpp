@@ -439,12 +439,12 @@ class Phi4VisionProcessor {
     auto attention_mask_reshape_data = attention_masks_reshape.Allocate({crop_num, mask_resolution, mask_resolution});
     auto image_attention_mask_data = image_attention_mask.Data();
     const int64_t mask_size = mask_resolution * mask_resolution;
-    for (int64_t i = 0; i < tiles_w; ++i) {
-      for (int64_t j = 0; j < tiles_h; ++j) {
+    for (int64_t i = 0; i < tiles_h; ++i) {
+      for (int64_t j = 0; j < tiles_w; ++j) {
         for (int64_t x = 0; x < mask_resolution; ++x) {
           for (int64_t y = 0; y < mask_resolution; ++y) {
-            attention_mask_reshape_data[(i * tiles_h + j)*mask_size + x * mask_resolution + y] =
-                image_attention_mask_data[(j * mask_resolution + x) * w + i * mask_resolution + y];
+            attention_mask_reshape_data[(i * tiles_w + j) * mask_size + x * mask_resolution + y] =
+              image_attention_mask_data[(i * mask_resolution + x) * w + j * mask_resolution + y];
           }
         }
       }
@@ -455,8 +455,8 @@ class Phi4VisionProcessor {
 
     size_t global_image_size = ts_global_image.SizeInBytes();
     std::memcpy(input_image_embeds_data, ts_global_image.Data(), ts_global_image.SizeInBytes());
-    std::memcpy(reinterpret_cast<char*>(input_image_embeds_data)
-        + global_image_size, hd_images_reshape.Data(), hd_images_reshape.SizeInBytes());
+    std::memcpy(reinterpret_cast<char*>(
+      input_image_embeds_data) + global_image_size, hd_images_reshape.Data(), hd_images_reshape.SizeInBytes());
 
     auto image_sizes_data = image_sizes.Allocate({2});
     image_sizes_data[0] = hd_image_shape[0];
@@ -467,8 +467,9 @@ class Phi4VisionProcessor {
         {attention_masks_reshape.Shape()[0] + 1, mask_resolution, mask_resolution});
     std::memcpy(returned_image_attention_mask_data, global_attention_mask.data(),
                 global_attention_mask.size() * sizeof(int64_t));
-    std::memcpy(reinterpret_cast<char*>(returned_image_attention_mask_data)
-                + global_attention_mask.size(), attention_masks_reshape.Data(), attention_masks_reshape.SizeInBytes());
+    std::memcpy(reinterpret_cast<char*>(returned_image_attention_mask_data) +
+                global_attention_mask.size() * sizeof(int64_t),
+                attention_masks_reshape.Data(), attention_masks_reshape.SizeInBytes());
 
     auto num_img_tokens_data = num_img_tokens.Allocate({1});
     num_img_tokens_data[0] = CountTokenNumber(image_attention_mask);

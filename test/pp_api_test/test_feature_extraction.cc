@@ -45,7 +45,7 @@ TEST(ExtractorTest, TestPhi4AudioFeatureExtraction) {
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxObjectPtr<OrtxFeatureExtractor>
-    feature_extractor(OrtxCreateSpeechFeatureExtractor, "data/models/phi-4/audio_feature_extensions.json");
+    feature_extractor(OrtxCreateSpeechFeatureExtractor, "data/models/phi-4/audio_feature_extraction.json");
   OrtxObjectPtr<OrtxTensorResult> result;
   err = OrtxFeatureExtraction(feature_extractor.get(), raw_audios.get(), result.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
@@ -76,7 +76,7 @@ TEST(ExtractorTest, TestPhi4AudioFeatureExtraction8k) {
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxObjectPtr<OrtxFeatureExtractor>
-    feature_extractor(OrtxCreateSpeechFeatureExtractor, "data/models/phi-4/audio_feature_extensions.json");
+    feature_extractor(OrtxCreateSpeechFeatureExtractor, "data/models/phi-4/audio_feature_extraction.json");
   OrtxObjectPtr<OrtxTensorResult> result;
   err = OrtxFeatureExtraction(feature_extractor.get(), raw_audios.get(), result.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
