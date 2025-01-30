@@ -51,6 +51,99 @@ class SpeechFeatures {
     return stft_norm_.Compute(pcm, n_fft_, hop_length_, {fft_win_.data(), fft_win_.size()}, n_fft_, stft_norm);
   }
 
+  OrtxStatus SpeechLibSTFTNorm(const ortc::Tensor<float>& pcm, ortc::Tensor<float>& stft_norm) {
+    const float preemphasis = 0.97f;
+    // # Spec 1: SpeechLib cut remaining sample insufficient for a hop
+    // n_batch = (wav.shape[0] - win_length) // hop_length + 1
+    auto pcm_length = pcm.Shape()[1];
+    auto n_batch = (pcm_length - frame_length_) / hop_length_ + 1;
+    auto pcm_data = pcm.Data();
+    dlib::matrix<float> dm_x = dlib::mat(pcm_data, 1, pcm_length);
+
+    // # Here we don't use stride_tricks since the input array may not satisfy
+    // # memory layout requirement and we need writeable output
+    // # Here we only use list of views before copy to desination
+    // # so it is more efficient than broadcasting
+    // y_frames = np.array(
+    //     [wav[_stride : _stride + win_length] for _stride in range(0, hop_length * n_batch, hop_length)],
+    //     dtype=np.float32,
+    // )
+
+    // # Spec 2: SpeechLib applies preemphasis within each batch
+    // y_frames_prev = np.roll(y_frames, 1, axis=1)
+    // y_frames_prev[:, 0] = y_frames_prev[:, 1]
+    // y_frames = (y_frames - preemphasis * y_frames_prev) * 32768
+    // S = np.fft.rfft(fft_window * y_frames, n=n_fft, axis=1).astype(np.complex64)
+
+    // Step 1: Create y_frames_prev by rolling each row right by 1 and adjusting the first element
+    dlib::matrix<float> y_frames_prev(n_batch, frame_length_);
+    for (long r = 0; r < n_batch; ++r) {
+      for (long c = 0; c < frame_length_; ++c) {
+        if (c == 0) {
+          y_frames_prev(r, c) = dm_x(0, r * hop_length_ + frame_length_ - 1);
+        } else {
+          y_frames_prev(r, c) = dm_x(0, r * hop_length_ + c - 1);
+        }
+      }
+        y_frames_prev(r, 0) = y_frames_prev(r, 1);
+    }
+
+    // Step 2: Apply pre-emphasis and scale by 32768
+    dlib::matrix<float> y_processed(n_batch, frame_length_);
+    for (long r = 0; r < n_batch; ++r) {
+      for (long c = 0; c < frame_length_; ++c) {
+        float sample = dm_x(0, r * hop_length_ + c);
+        float rolled_sample = y_frames_prev(r, c);
+        y_processed(r, c) = (sample - preemphasis * rolled_sample) * 32768.0f;
+      }
+    }
+
+    // Step 3: Apply FFT window to each frame
+    for (long r = 0; r < n_batch; ++r) {
+      for (long c = 0; c < frame_length_; ++c) {
+        y_processed(r, c) *= fft_win_[c];
+      }
+    }
+
+    // Step 4: Compute Full FFT for each frame (complex output)
+    // add extra column for simulating STFTNorm output shape
+    dlib::matrix<std::complex<float>> S(n_batch + 1, n_fft_ / 2 + 1);  // Use n_fft_ columns instead of n_rfft
+
+    for (long r = 0; r < n_batch; ++r) {
+      dlib::matrix<float, 1, 0> frame = rowm(y_processed, r);
+      dlib::matrix<float, 1, 0> padded_frame(1, n_fft_);
+      padded_frame = 0;
+
+      long copy_length = (std::min)(frame_length_, n_fft_);
+      dlib::set_subm(padded_frame, 0, 0, 1, copy_length) = dlib::subm(frame, 0, 0, 1, copy_length);
+
+      // Convert real-valued frame to complex for full FFT
+      dlib::matrix<std::complex<float>> padded_frame_complex(1, n_fft_);
+      for (long j = 0; j < n_fft_; ++j) {
+          padded_frame_complex(0, j) = std::complex<float>(padded_frame(0, j), 0.0f);
+      }
+
+      // Compute full FFT (complex output)
+      dlib::matrix<std::complex<float>> fft_result = dlib::fft(padded_frame_complex);
+
+      // Store result (n_fft_ complex values)
+      for (long c = 0; c <= n_fft_ / 2; ++c) {
+        S(r, c) = fft_result(0, c);
+      }
+    }
+
+    // Compute spectral power (squared magnitude)
+    auto S_norm = dlib::norm(S);
+    dlib::matrix<float> spec_power = dlib::trans(S_norm);
+
+    std::vector<int64_t> outdim{1, spec_power.nr(), spec_power.nc()};
+    auto result_size = spec_power.size();
+    auto out0 = stft_norm.Allocate(outdim);
+    memcpy(out0, spec_power.steal_memory().get(), result_size * sizeof(float));
+
+    return {};
+  }
+
   static std::vector<float> hann_window(int N) {
     std::vector<float> window(N);
 
@@ -137,10 +230,20 @@ class LogMel {
     */
     assert(stft_norm.Shape().size() == 3 && stft_norm.Shape()[0] == 1);
     std::vector<int64_t> stft_shape = stft_norm.Shape();
-    dlib::matrix<float> magnitudes(stft_norm.Shape()[1], stft_norm.Shape()[2] - 1);
+    int64_t n_fill_zero_col = stft_shape[1];  // if 8k, fill 4k - 8k hz with zeros
+    int64_t additional_row = 0;
+    if (mel_filters_.nc() > stft_shape[1]) {
+      n_fill_zero_col = mel_filters_.nc() - stft_shape[1] - 1;
+      additional_row = stft_shape[1] - 1;
+    }
+    dlib::matrix<float> magnitudes(stft_shape[1] + additional_row, stft_shape[2] - 1);
     for (int i = 0; i < magnitudes.nr(); ++i) {
-      std::copy(stft_norm.Data() + i * stft_shape[2], stft_norm.Data() + (i + 1) * stft_shape[2] - 1,
-                magnitudes.begin() + i * magnitudes.nc());
+      if (i < n_fill_zero_col) {
+        std::copy(stft_norm.Data() + i * stft_shape[2], stft_norm.Data() + (i + 1) * stft_shape[2] - 1,
+                  magnitudes.begin() + i * magnitudes.nc());
+      } else {
+        std::fill(magnitudes.begin() + i * magnitudes.nc(), magnitudes.begin() + (i + 1) * magnitudes.nc(), 0.0f);
+      }
     }
 
     dlib::matrix<float> mel_spec = mel_filters_ * magnitudes;
@@ -191,7 +294,8 @@ class LogMel {
   }
 
   // Function to compute the Mel filterbank
-  static dlib::matrix<float> MelFilterBank(int n_fft, int n_mels, int sr = 16000, float min_mel = 0,
+  static dlib::matrix<float> MelFilterBank(int n_fft, int n_mels,
+                                           int sr = 16000, float min_mel = 0,
                                            float max_mel = 45.245640471924965) {
     // Initialize the filterbank matrix
     dlib::matrix<float> fbank(n_mels, n_fft / 2 + 1);
@@ -312,7 +416,7 @@ class Phi4AudioEmbed {
     ortc::Tensor<float> stft_norm(&CppAllocator::Instance());
     SpeechFeatures stft_normal;
     stft_normal.Init(sr_val == 8000? stft_normal_8k_attrs_: stft_normal_attrs_);
-    auto status = stft_normal.STFTNorm(pcm, stft_norm);
+    auto status = stft_normal.SpeechLibSTFTNorm(pcm, stft_norm);
     if (!status.IsOk()) {
       return status;
     }
