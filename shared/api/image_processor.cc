@@ -71,16 +71,6 @@ OrtxStatus ImageProcessor::Init(std::string_view processor_def) {
     return {kOrtxErrorInvalidArgument, "[ImageProcessor]: transforms field is missing."};
   }
 
-  // operations_.reserve(transforms.size());
-  // for (auto mod_iter = transforms.begin(); mod_iter != transforms.end(); ++mod_iter) {
-  //   auto op = std::make_unique<Operation>(kernel_registry_);
-  //   auto status = op->Init(mod_iter->dump());
-  //   if (!status.IsOk()) {
-  //     return status;
-  //   }
-
-  //   operations_.push_back(std::move(op));
-  // }
   return op_plan_.Init(transforms, kernel_registry_);
 }
 
@@ -136,12 +126,9 @@ ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_data,
     std::vector<int64_t> shape = {static_cast<int64_t>(image.size())};
     input_tensor_objects[i] = std::make_unique<ortc::Tensor<uint8_t>>(shape, image.data());
     ts_input.push_back(input_tensor_objects[i].get());
-    // ts_input.push_back(std::make_unique<ortc::Tensor<uint8_t>>(shape, image.data()).release());
   }
 
   std::vector<TensorArgs> outputs;
-  // std::vector<Operation*> ops(operations_.size());
-  // std::transform(operations_.begin(), operations_.end(), ops.begin(), [](auto& op) { return op.get(); });
   OrtxRunner runner(op_plan_);
   auto status = runner.Run(inputs, outputs);
   if (!status.IsOk()) {
@@ -149,13 +136,6 @@ ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_data,
   }
 
   input_tensor_objects.clear();
-  // clear the input tensors
-  // for (auto& input : inputs) {
-  //   for (auto& ts : input) {
-  //     std::unique_ptr<ortc::TensorBase>(ts).reset();
-  //   }
-  // }
-
   *pixel_values = r.pixel_values = StackTensor<float>(outputs, 0, runner.GetAllocator());
   *image_sizes = r.image_sizes = StackTensor<int64_t>(outputs, 1, runner.GetAllocator());
   *num_img_takens = r.num_img_tokens = StackTensor<int64_t>(outputs, 2, runner.GetAllocator());
@@ -172,12 +152,9 @@ OrtxStatus ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_d
     std::vector<int64_t> shape = {static_cast<int64_t>(image.size())};
     input_tensor_objects[i] = std::make_unique<ortc::Tensor<uint8_t>>(shape, image.data());
     ts_input.push_back(input_tensor_objects[i].get());
-    // ts_input.push_back(std::make_unique<ortc::Tensor<uint8_t>>(shape, image.data()).release());
   }
 
   std::vector<TensorArgs> outputs;
-  // std::vector<Operation*> ops(operations_.size());
-  // std::transform(operations_.begin(), operations_.end(), ops.begin(), [](auto& op) { return op.get(); });
   OrtxRunner runner(op_plan_);
   auto status = runner.Run(inputs, outputs);
   if (!status.IsOk()) {

@@ -101,7 +101,7 @@ SpeechFeatureExtractor::Preprocess(ort_extensions::span<AudioRawData> raw_speech
   auto status = runner.Run(inputs, outputs);
   if (!status.IsOk()) {
     return status;
-  }  
+  }
 
   // clear the input tensors
   for (auto& input : inputs) {
