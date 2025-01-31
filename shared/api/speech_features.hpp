@@ -293,76 +293,145 @@ class LogMel {
     return {};
   }
 
+  // // Function to compute the Mel filterbank
+  // static dlib::matrix<float> MelFilterBank(int n_fft, int n_mels,
+  //                                          int sr = 16000, float min_mel = 0,
+  //                                          float max_mel = 45.245640471924965) {
+  //   // Initialize the filterbank matrix
+  //   dlib::matrix<float> fbank(n_mels, n_fft / 2 + 1);
+  //   memset(fbank.begin(), 0, fbank.size() * sizeof(float));
+
+  //   // Compute the frequency bins for the DFT
+  //   std::vector<float> freq_bins(n_fft / 2 + 1);
+  //   for (int i = 0; i <= n_fft / 2; ++i) {
+  //     freq_bins[i] = i * sr / static_cast<float>(n_fft);
+  //   }
+
+  //   // Compute the Mel scale frequencies
+  //   std::vector<float> mel(n_mels + 2);
+  //   for (int i = 0; i < n_mels + 2; ++i) {
+  //     mel[i] = min_mel + i * (max_mel - min_mel) / (n_mels + 1);
+  //   }
+
+  //   // Fill in the linear scale
+  //   float f_min = 0.0f;
+  //   float f_sp = 200.0f / 3.0f;
+  //   std::vector<float> freqs(n_mels + 2);
+  //   for (int i = 0; i < n_mels + 2; ++i) {
+  //     freqs[i] = f_min + f_sp * mel[i];
+  //   }
+
+  //   // Nonlinear scale
+  //   float min_log_hz = 1000.0f;
+  //   float min_log_mel = (min_log_hz - f_min) / f_sp;
+  //   float logstep = log(6.4) / 27.0;
+
+  //   for (int i = 0; i < n_mels + 2; ++i) {
+  //     if (mel[i] >= min_log_mel) {
+  //       freqs[i] = min_log_hz * exp(logstep * (mel[i] - min_log_mel));
+  //     }
+  //   }
+
+  //   std::vector<float> mel_bins = freqs;
+  //   std::vector<float> mel_spacing(n_mels + 1);
+  //   for (int i = 0; i < n_mels + 1; ++i) {
+  //     mel_spacing[i] = mel_bins[i + 1] - mel_bins[i];
+  //   }
+
+  //   // Compute the ramps
+  //   std::vector<std::vector<float>> ramps(n_mels + 2, std::vector<float>(n_fft / 2 + 1));
+  //   for (int i = 0; i < n_mels + 2; ++i) {
+  //     for (int j = 0; j <= n_fft / 2; ++j) {
+  //       ramps[i][j] = mel_bins[i] - freq_bins[j];
+  //     }
+  //   }
+
+  //   for (int i = 0; i < n_mels; ++i) {
+  //     for (int j = 0; j <= n_fft / 2; ++j) {
+  //       float left = -ramps[i][j] / mel_spacing[i];
+  //       float right = ramps[i + 2][j] / mel_spacing[i + 1];
+  //       fbank(i, j) = std::max(0.0f, std::min(left, right));
+  //     }
+  //   }
+
+  //   // Energy normalization
+  //   for (int i = 0; i < n_mels; ++i) {
+  //     float energy_norm = 2.0f / (mel_bins[i + 2] - mel_bins[i]);
+  //     for (int j = 0; j <= n_fft / 2; ++j) {
+  //       fbank(i, j) *= energy_norm;
+  //     }
+  //   }
+
+  //   return fbank;
+  // }
+
   // Function to compute the Mel filterbank
-  static dlib::matrix<float> MelFilterBank(int n_fft, int n_mels,
-                                           int sr = 16000, float min_mel = 0,
-                                           float max_mel = 45.245640471924965) {
-    // Initialize the filterbank matrix
-    dlib::matrix<float> fbank(n_mels, n_fft / 2 + 1);
-    memset(fbank.begin(), 0, fbank.size() * sizeof(float));
+  static dlib::matrix<float> MelFilterBank(int n_fft, int n_mels, 
+                                            int sr = 16000, int fmin = 0, int fmax = -1) {
 
-    // Compute the frequency bins for the DFT
-    std::vector<float> freq_bins(n_fft / 2 + 1);
-    for (int i = 0; i <= n_fft / 2; ++i) {
-      freq_bins[i] = i * sr / static_cast<float>(n_fft);
+    // Initialize bank_width and check fmax if it's not set
+    int bank_width = n_fft / 2 + 1;
+    if (fmax == -1) {
+        fmax = sr / 2; // default to sample_rate / 2 if fmax is not specified
     }
 
-    // Compute the Mel scale frequencies
-    std::vector<float> mel(n_mels + 2);
-    for (int i = 0; i < n_mels + 2; ++i) {
-      mel[i] = min_mel + i * (max_mel - min_mel) / (n_mels + 1);
+    // Ensure fmin and fmax are valid
+    if (fmin < 0) {
+        throw std::invalid_argument("fmin cannot be negative.");
+    }
+    if (fmin >= fmax || fmax > sr / 2) {
+        throw std::invalid_argument("fmax must be between (fmin, sample rate / 2].");
     }
 
-    // Fill in the linear scale
-    float f_min = 0.0f;
-    float f_sp = 200.0f / 3.0f;
-    std::vector<float> freqs(n_mels + 2);
-    for (int i = 0; i < n_mels + 2; ++i) {
-      freqs[i] = f_min + f_sp * mel[i];
+    // Function to calculate Mel scale
+    auto mel = [](float f) {
+        return 1127.0f * std::log(1.0f + f / 700.0f);
+    };
+
+    // Convert FFT bin to Mel scale
+    auto bin2mel = [sr, n_fft](int fft_bin) {
+        return 1127.0f * std::log(1.0f + fft_bin * sr / (n_fft * 700.0f));
+    };
+
+    // Convert frequency to FFT bin
+    auto f2bin = [sr, n_fft](float f) {
+        return static_cast<int>((f * n_fft / sr) + 0.5f);
+    };
+
+    // Spec 1: FFT bin range [f2bin(fmin) + 1, f2bin(fmax) - 1]
+    int klo = f2bin(fmin) + 1;
+    int khi = f2bin(fmax);
+
+    khi = std::max(khi, klo); // Ensure khi is at least klo
+
+    // Spec 2: Mel scale range from fmin to fmax
+    float mlo = mel(fmin);
+    float mhi = mel(fmax);
+    std::vector<float> m_centers(n_mels + 2);
+    float ms = (mhi - mlo) / (n_mels + 1);
+
+    // Compute the mel centers
+    for (int m = 0; m < n_mels + 2; ++m) {
+        m_centers[m] = mlo + m * ms;
     }
 
-    // Nonlinear scale
-    float min_log_hz = 1000.0f;
-    float min_log_mel = (min_log_hz - f_min) / f_sp;
-    float logstep = log(6.4) / 27.0;
+    // Create the Mel filterbank matrix (n_mels x bank_width)
+    dlib::matrix<float> matrix(n_mels, bank_width);
 
-    for (int i = 0; i < n_mels + 2; ++i) {
-      if (mel[i] >= min_log_mel) {
-        freqs[i] = min_log_hz * exp(logstep * (mel[i] - min_log_mel));
-      }
+    // Fill in the matrix with Mel weights
+    for (int m = 0; m < n_mels; ++m) {
+        float left = m_centers[m];
+        float center = m_centers[m + 1];
+        float right = m_centers[m + 2];
+        for (int fft_bin = klo; fft_bin < khi; ++fft_bin) {
+            float mbin = bin2mel(fft_bin);
+            if (left < mbin && mbin < right) {
+                matrix(m, fft_bin) = 1.0f - std::abs(center - mbin) / ms;
+            }
+        }
     }
 
-    std::vector<float> mel_bins = freqs;
-    std::vector<float> mel_spacing(n_mels + 1);
-    for (int i = 0; i < n_mels + 1; ++i) {
-      mel_spacing[i] = mel_bins[i + 1] - mel_bins[i];
-    }
-
-    // Compute the ramps
-    std::vector<std::vector<float>> ramps(n_mels + 2, std::vector<float>(n_fft / 2 + 1));
-    for (int i = 0; i < n_mels + 2; ++i) {
-      for (int j = 0; j <= n_fft / 2; ++j) {
-        ramps[i][j] = mel_bins[i] - freq_bins[j];
-      }
-    }
-
-    for (int i = 0; i < n_mels; ++i) {
-      for (int j = 0; j <= n_fft / 2; ++j) {
-        float left = -ramps[i][j] / mel_spacing[i];
-        float right = ramps[i + 2][j] / mel_spacing[i + 1];
-        fbank(i, j) = std::max(0.0f, std::min(left, right));
-      }
-    }
-
-    // Energy normalization
-    for (int i = 0; i < n_mels; ++i) {
-      float energy_norm = 2.0f / (mel_bins[i + 2] - mel_bins[i]);
-      for (int j = 0; j <= n_fft / 2; ++j) {
-        fbank(i, j) *= energy_norm;
-      }
-    }
-
-    return fbank;
+    return matrix;
   }
 
  private:
