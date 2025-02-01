@@ -29,3 +29,5 @@ EXPORTS
  OrtxLoadImages @27
  OrtxCreateRawImages @28
  OrtxImagePreProcess @29
+ OrtxFeatureExtraction @30
+ OrtxDisposeOnly @31

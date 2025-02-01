@@ -67,6 +67,25 @@ extError_t ORTX_API_CALL OrtxCreateRawAudios(OrtxRawAudios** audios, const void*
  */
 extError_t ORTX_API_CALL OrtxSpeechLogMel(OrtxFeatureExtractor* extractor, OrtxRawAudios* audio, OrtxTensorResult** log_mel);
 
+
+/**
+ * @brief Extracts log-mel features from raw audio data using a feature extractor.
+ * 
+ * This function processes the input audio buffers through the provided feature extractor,
+ * producing log-mel spectrogram outputs suitable for inference or further signal analysis.
+ *
+ * @param extractor A pointer to an OrtxFeatureExtractor object that defines the feature
+ *                  extraction pipeline and processing parameters.
+ * @param audio     A pointer to an OrtxRawAudios structure containing raw audio data buffers
+ *                  and associated metadata (e.g., sampling rate, channels).
+ * @param result   A pointer to an OrtxTensorResult pointer that will be allocated and set to
+ *                  hold the resulting log-mel spectrogram data and other outputs based on json configuration.
+ *
+ * @return An extError_t value indicating success or error status. Returns
+ *         EXT_SUCCESS on success, or an appropriate error code if extraction fails.
+ */
+extError_t ORTX_API_CALL OrtxFeatureExtraction(OrtxFeatureExtractor* extractor, OrtxRawAudios* audio, OrtxTensorResult** result);
+
 #ifdef __cplusplus
 }
 #endif

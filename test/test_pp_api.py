@@ -37,6 +37,24 @@ def regen_image(arr):
     return image
 
 
+def regen_image_phi4(arr):
+    mean = np.array([0.5, 0.5, 0.5])
+    std = np.array([0.5, 0.5, 0.5])
+
+    # Reverse normalization
+    array = arr * std + mean
+
+    # Clip the values to [0, 1] range
+    array = np.clip(array, 0, 1)
+
+    # Convert to [0, 255] range and uint8 type
+    array = (array * 255).astype(np.uint8)
+
+    # Convert NumPy array to PIL Image
+    image = Image.fromarray(array)
+    return image
+
+
 @unittest.skipIf(not is_pp_api_available, "pp_api is not available")
 class TestPPAPI(unittest.TestCase):
     @classmethod
@@ -119,6 +137,38 @@ class TestPPAPI(unittest.TestCase):
                 a_image = regen_image(np.transpose(actual, (1, 2, 0)))
                 a_image.save(f"{self.temp_dir}/a_{idx}_{i}.png")
 
+    phi4_model_local_path = None
+
+    def test_phi_4_image_processing(self):
+        model_path = self.phi4_model_local_path
+        image_list = [
+            "test/data/processor/australia.jpg",
+            "test/data/processor/passport.png",
+            "test/data/processor/exceltable.png",
+        ]
+        (image, image2, image3) = [Image.open(f) for f in image_list]
+
+        processor = AutoImageProcessor.from_pretrained(model_path, trust_remote_code=True)
+        inputs = processor.preprocess([image, image2, image3], return_tensors="np")
+        print({k: v.shape if v.size > 10  else v for k, v in inputs.items()})
+
+        ort_processor = pp_api.ImageProcessor("test/data/models/phi-4/vision_processor.json")
+        ort_inputs = ort_processor.to_numpy(ort_processor.pre_process(image_list), 0)
+        print(ort_inputs.shape)
+
+        for idx in range(len(image_list)):
+            expected_images = inputs["input_image_embeds"][idx]
+            for i in range(len(expected_images)):
+                expected = expected_images[i]
+                e_image = regen_image_phi4(np.transpose(expected, (1, 2, 0)))
+                e_image.save(f"{self.temp_dir}/e_{idx}_{i}.png")
+
+            actual_images = ort_inputs[idx]
+            for i in range(len(actual_images)):
+                actual = actual_images[i]
+                a_image = regen_image_phi4(np.transpose(actual, (1, 2, 0)))
+                a_image.save(f"{self.temp_dir}/a_{idx}_{i}.png")
+
     # test sentence for tokenizer
     tokenizer_test_sentence = "I like walking my cute dog\n and\x17 then 生活的真谛是 \t\t\t\t \n\n61. You'll enjoy the concert."
 
@@ -141,7 +191,7 @@ class TestPPAPI(unittest.TestCase):
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
     def test_Phi4_tokenizer(self):
-        model_id = "/g/phi-x-12202024"
+        model_id = self.phi4_model_local_path
         test_sentence = [self.tokenizer_test_sentence]
         hf_enc = AutoTokenizer.from_pretrained(model_id)
         inputs = hf_enc(test_sentence)["input_ids"]
