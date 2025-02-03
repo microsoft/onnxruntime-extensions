@@ -117,15 +117,12 @@ class SpeechFeatures {
       long copy_length = (std::min)(frame_length_, n_fft_);
       dlib::set_subm(padded_frame, 0, 0, 1, copy_length) = dlib::subm(frame, 0, 0, 1, copy_length);
 
-      // Convert row vector to column vector for fftr input
-      dlib::matrix<float> padded_frame_col = dlib::trans(padded_frame);
-
       // Compute real FFT (output is column vector with n_fft_/2 +1 elements)
-      dlib::matrix<std::complex<float>> fft_result = dlib::fftr(padded_frame_col);
+      dlib::matrix<std::complex<float>> fft_result = dlib::fftr(padded_frame);
 
       // Store the FFT coefficients (only non-redundant part)
       for (long c = 0; c <= n_fft_ / 2; ++c) {
-        S(r, c) = fft_result(c, 0);
+        S(r, c) = fft_result(0, c);
       }
     }
 
@@ -497,13 +494,8 @@ class SpeechLibLogMel {
   static dlib::matrix<float> MelFilterBank(int n_fft, int n_mels,
                                            int sr = 16000, float fmin = 0.0f,
                                            float fmax = 7689.0f) {
-    // Set default for fmax if not provided
-    if (fmax <= 0.0f) {
-      fmax = static_cast<float>(sr) / 2.0f;
-    }
-
     // Validate input parameters
-    assert(fmin > 0.0f && "fmin cannot be negative");
+    assert(fmin >= 0.0f && "fmin cannot be negative");
     assert((fmin < fmax && fmax <= static_cast<float>(sr) / 2.0f) && "fmax must be between (fmin, samplerate/2]");
 
     // Helper functions
