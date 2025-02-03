@@ -4,6 +4,8 @@
 import unittest
 import numpy as np
 
+from onnxruntime_extensions import util
+
 def read_file(file_path):
     """Reads a file and returns a list of lists with numbers from each row."""
     with open(file_path, 'r') as file:
@@ -56,8 +58,8 @@ class TestPhi4AudioOutput(unittest.TestCase):
         # Note - these files are currently set to those with data from [:, :, :10] of the
         # PhiO audio processor output using the 'test/data/1272-141231-0002.wav' file
 
-        file1_path = "test/data/models/phi-4/expected_output.txt"
-        file2_path = "test/data/models/phi-4/actual_output.txt"
+        file1_path = util.get_test_data_file('data', 'models', 'phi-4','expected_output.txt')
+        file2_path = util.get_test_data_file('data', 'models', 'phi-4','actual_output.txt')
 
         # Compare the two files with a tolerance and mismatch threshold of 2% (HuggingFace's WhisperProcessor has around 1.5%)
         mismatch_percentage = get_mismatch_percentage(file1_path, file2_path)
