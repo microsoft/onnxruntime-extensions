@@ -7,6 +7,10 @@
 
 #include "ortx_utils.h"
 
+#ifdef __cplusplus
+#include <string_view>
+#endif
+
 // typedefs to create/dispose function flood, and to make the API more C++ friendly with less casting
 typedef OrtxObject OrtxTokenizer;
 typedef OrtxObject OrtxStringArray;
