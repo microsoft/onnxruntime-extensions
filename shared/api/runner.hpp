@@ -516,39 +516,6 @@ class OrtxRunner {
 
   ortc::IAllocator* GetAllocator() const { return allocator_; }
 
-  // template <typename IT, typename OT>  // batch input/output container
-  // OrtxStatus Run(IT& input_seq, OT& output_seq) {
-  //   size_t i = 0;
-  //   Operation* last_op = nullptr;
-  //   for (; i < input_seq.size(); ++i) {
-  //     auto& input = *(input_seq.begin() + i);
-  //     // sequentially apply the operations
-  //     for (auto& op : ops_) {
-  //       if (last_op != nullptr) {
-  //         last_op->ResetTensors(allocator_);
-  //       }
-  //       auto [status, ts_output] = op->Apply(allocator_, input);
-  //       if (status.IsOk()) {
-  //         if (op == ops_.back()) {
-  //           output_seq.push_back(std::move(ts_output));
-  //         } else {
-  //           input = ts_output;
-  //         }
-  //       } else {
-  //         return status;
-  //       }
-
-  //       last_op = op;
-  //     }
-  //   }
-
-  //   if (last_op != nullptr) {
-  //     last_op->ResetTensors(allocator_);
-  //   }
-
-  //   return {};
-  // }
-
   static bool IsGreaterShape(const std::vector<int64_t>& lhs, const std::vector<int64_t>& rhs) {
     if (lhs.size() != rhs.size()) {
       return lhs.size() > rhs.size();

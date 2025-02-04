@@ -49,6 +49,7 @@
           }
         }
       }
-    ]
+    ],
+    "output_aligner": "phi4-vision-aligner"
   }
 }

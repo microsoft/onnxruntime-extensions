@@ -5,6 +5,7 @@
 
 #include <set>
 #include <string>
+#include <limits>
 
 #include "ext_status.h"
 #include "op_def_struct.h"
@@ -532,6 +533,59 @@ class Phi4VisionProcessor {
         return {kOrtxErrorInvalidArgument, "[Phi4VisionProcessor]: Invalid config: " + key};
       }
     }
+    return {};
+  }
+
+  static OrtxStatus AlignOutputs(std::vector<TensorPtr>& img_result) {
+    assert(img_result.size() == 4);
+    auto image_sizes = std::move(img_result[1]);
+    auto image_attention_mask = std::move(img_result[2]);
+
+    auto new_image_sizes = std::make_unique<ortc::Tensor<float>>(&CppAllocator::Instance());
+    auto image_sizes_data = new_image_sizes->Allocate(image_sizes->Shape());
+    auto image_sizes_raw = reinterpret_cast<const int64_t*>(image_sizes->DataRaw());
+    for (int64_t i = 0; i < image_sizes->NumberOfElement(); ++i) {
+      image_sizes_data[i] = static_cast<float>(image_sizes_raw[i]);
+    }
+    auto new_image_attention_mask = std::make_unique<ortc::Tensor<float>>(&CppAllocator::Instance());
+    auto image_attention_mask_data = new_image_attention_mask->Allocate(image_attention_mask->Shape());
+    auto image_attention_mask_raw = reinterpret_cast<const int64_t*>(image_attention_mask->DataRaw());
+    for (int64_t i = 0; i < image_attention_mask->NumberOfElement(); ++i) {
+      image_attention_mask_data[i] = static_cast<float>(image_attention_mask_raw[i]);
+    }
+
+    // because the image was padded to mask value 0 by default, but phi-4 model requires mask value 1
+    /*
+    def pad_mask_to_max_num_crops(self, masks, max_crops=5):
+        B, H, W = masks.shape
+        if B < max_crops:
+            pad = torch.ones(max_crops - B, H, W, dtype=masks.dtype, device=masks.device)
+            masks = torch.cat([masks, pad], dim=0)
+        return masks
+    */
+    auto& image_attention_mask_shape = image_attention_mask->Shape();
+    assert(image_attention_mask_shape.size() == 4);
+    int64_t n = image_attention_mask_shape[0];
+    int64_t crop_num = image_attention_mask_shape[1];
+    int64_t h = image_attention_mask_shape[2];
+    int64_t w = image_attention_mask_shape[3];
+    for (int64_t i = 0; i < n; ++i) {
+      for (int64_t j = 0; j < crop_num; ++j) {
+        // if top-left corner is 0, which means the image is padded, then set the whole mask to 1
+        if (image_attention_mask_data[i * crop_num * h * w + j * h * w] > 0.0f) {
+          continue;
+        }
+        for (int64_t x = 0; x < h; ++x) {
+          for (int64_t y = 0; y < w; ++y) {
+            image_attention_mask_data[i * crop_num * h * w + j * h * w + x * w + y] = 1.0f;
+          }
+        }
+      }
+    }
+
+
+    img_result[1].reset(new_image_sizes.release());
+    img_result[2].reset(new_image_attention_mask.release());
     return {};
   }
 

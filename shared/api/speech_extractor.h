@@ -28,7 +28,8 @@ class SpeechFeatureExtractor : public OrtxObjectImpl {
 
  private:
   ExecutionPlan op_plan_;
-
+  std::string   name_;
+  std::string   output_aligner_;
 };
 
 }  // namespace ort_extensions

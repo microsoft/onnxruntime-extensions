@@ -46,6 +46,14 @@ OrtxStatus SpeechFeatureExtractor::Init(std::string_view extractor_def) {
     return {kOrtxErrorInvalidArgument, "[SpeechFeatureExtractor]: sequence field is missing."};
   }
 
+  if (auto iter = fe_root.find("name"); iter != fe_root.end()) {
+    name_ = iter->get<std::string>();
+  }
+
+  if (auto iter = fe_root.find("output_aligner"); iter != fe_root.end()) {
+    output_aligner_ = iter->get<std::string>();
+  }
+
   return op_plan_.Init(op_sequence, kernel_registry_);
 }
 
@@ -84,8 +92,18 @@ OrtxStatus SpeechFeatureExtractor::DoCall(ort_extensions::span<AudioRawData> raw
   return status;
 }
 
-OrtxStatus
-SpeechFeatureExtractor::Preprocess(ort_extensions::span<AudioRawData> raw_speech, TensorResult& r) const {
+OrtxStatus Phi4AudioEmbed::AlignOutputs(std::vector<TensorPtr>& audio_result) {
+  auto ts_embed_size = std::move(audio_result.back());
+  audio_result.pop_back();
+  auto new_ts_size = std::make_unique<ortc::Tensor<int64_t>>(&CppAllocator::Instance());
+  auto new_embed_size_data = new_ts_size->Allocate({ts_embed_size->Shape()[0]});
+  std::memcpy(new_embed_size_data, ts_embed_size->DataRaw(), ts_embed_size->SizeInBytes());
+  audio_result.emplace_back(std::move(new_ts_size));
+  return {};
+}
+
+OrtxStatus SpeechFeatureExtractor::Preprocess(
+  ort_extensions::span<AudioRawData> raw_speech, TensorResult& r) const {
   // setup the input tensors
   std::vector<TensorArgs> inputs;
   inputs.resize(raw_speech.size());
@@ -111,7 +129,12 @@ SpeechFeatureExtractor::Preprocess(ort_extensions::span<AudioRawData> raw_speech
   }
 
   auto results = op_plan_.AllocateOutputs(runner.GetAllocator());
-  status = OrtxRunner::StackTensors(outputs, results, runner.GetAllocator());
+  ORTX_RETURN_IF_ERROR(OrtxRunner::StackTensors(outputs, results, runner.GetAllocator()));
+
+  if (output_aligner_ == "phi4-audio-aligner") {
+    status = Phi4AudioEmbed::AlignOutputs(results);
+  }
+
   if (status.IsOk()) {
     r.SetTensors(std::move(results));
   }
