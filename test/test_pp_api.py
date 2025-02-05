@@ -131,7 +131,7 @@ class TestPPAPI(unittest.TestCase):
         image_list = [
             "test/data/processor/australia.jpg",
             "test/data/processor/passport.png",
-            "test/data/processor/exceltable.png",
+            "test/data/processor/photo-1585521747230-516376e5a85d.jpg",
         ]
         (image, image2, image3) = [Image.open(f) for f in image_list]
 
@@ -172,7 +172,7 @@ class TestPPAPI(unittest.TestCase):
             actual_images = ort_inputs[idx]
             for i in range(len(actual_images)):
                 actual = actual_images[i]
-                a_image = regen_image(np.transpose(actual, (1, 2, 0)), openai_image_mean, openai_image_std)
+                a_image = regen_image(np.transpose(actual, (1, 2, 0)), phi4_image_mean, phi4_image_std)
                 a_image.save(f"{self.temp_dir}/a_{idx}_{i}.png")
 
     # test sentence for tokenizer

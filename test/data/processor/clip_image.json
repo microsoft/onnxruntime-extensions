@@ -7,7 +7,7 @@
           "name": "decode_image",
           "type": "DecodeImage",
           "attrs": {
-            "color_space": "BGR"
+            "color_space": "RGB"
           }
         }
       },
