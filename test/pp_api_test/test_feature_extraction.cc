@@ -65,12 +65,12 @@ TEST(ExtractorTest, TestPhi4AudioFeatureExtraction) {
   err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
   err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
-  ASSERT_EQ(num_dims, 2);
-  ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3, 1}));
+  ASSERT_EQ(num_dims, 1);
+  ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3}));
 }
 
 TEST(ExtractorTest, TestPhi4AudioFeatureExtraction8k) {
-  const char* audio_path[] = {"data/1272-128104-0004-8k.wav"};
+  const char* audio_path[] = {"data/models/phi-4/1272-128104-0004-8k.wav"};
   OrtxObjectPtr<OrtxRawAudios> raw_audios;
   extError_t err = OrtxLoadAudios(raw_audios.ToBeAssigned(), audio_path, 1);
   ASSERT_EQ(err, kOrtxOK);
@@ -96,6 +96,6 @@ TEST(ExtractorTest, TestPhi4AudioFeatureExtraction8k) {
   err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
   err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
-  ASSERT_EQ(num_dims, 2);
-  ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({1, 1}));
+  ASSERT_EQ(num_dims, 1);
+  ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({1}));
 }

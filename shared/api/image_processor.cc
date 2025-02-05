@@ -66,6 +66,14 @@ OrtxStatus ImageProcessor::Init(std::string_view processor_def) {
     return {kOrtxErrorInvalidArgument, "[ImageProcessor]: processor field is missing."};
   }
 
+  if (auto iter = processor_root.find("name"); iter != processor_root.end()) {
+    name_ = iter->get<std::string>();
+  }
+
+  if (auto iter = processor_root.find("output_aligner"); iter != processor_root.end()) {
+    output_aligner_ = iter->get<std::string>();
+  }
+
   auto transforms = processor_root.at("transforms");
   if (!transforms.is_array() || transforms.empty()) {
     return {kOrtxErrorInvalidArgument, "[ImageProcessor]: transforms field is missing."};
@@ -165,7 +173,12 @@ OrtxStatus ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_d
   input_tensor_objects.clear();
 
   std::vector<TensorPtr> img_result = op_plan_.AllocateOutputs(runner.GetAllocator());
-  status = OrtxRunner::StackTensors(outputs, img_result, runner.GetAllocator());
+  ORTX_RETURN_IF_ERROR (OrtxRunner::StackTensors(outputs, img_result, runner.GetAllocator()));
+
+  if (output_aligner_ == "phi4-vision-aligner") {
+    status = Phi4VisionProcessor::AlignOutputs(img_result);
+  }
+
   if (status.IsOk()) {
     r.SetTensors(std::move(img_result));
   }
