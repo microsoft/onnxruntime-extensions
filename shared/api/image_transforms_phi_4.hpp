@@ -16,7 +16,8 @@ namespace ort_extensions {
 class Phi4VisionDynamicPreprocess {
  public:
   Phi4VisionDynamicPreprocess() = default;
-  OrtxStatus Compute(const ortc::Tensor<uint8_t>& ts_image, ortc::Tensor<uint8_t>& resized_image,
+  OrtxStatus Compute(const ortc::Tensor<uint8_t>& ts_image,
+                     ortc::Tensor<uint8_t>& resized_image,
                      ortc::Tensor<int64_t>& attention_mask) {
     auto& dimensions = ts_image.Shape();
     if (dimensions.size() != 3ULL) {
@@ -57,6 +58,8 @@ class Phi4VisionDynamicPreprocess {
     std::vector<std::vector<int64_t>> image_attention_masks;
     OrtxStatus status =
       DynamicPreprocess(image, elem, image_attention_masks, 1, dynamic_hd_, base_resolution, mask_resolution);
+
+    ImagingDelete(image);
     if (!status.IsOk()) {
       return status;
     }
@@ -69,7 +72,6 @@ class Phi4VisionDynamicPreprocess {
       }
     }
 
-    ImagingDelete(image);
     ImagingDelete(elem);
 
     auto attention_mask_data = attention_mask.Allocate(
@@ -208,7 +210,7 @@ class Phi4VisionDynamicPreprocess {
       std::sort(target_ratios_sorted.begin(), target_ratios_sorted.end(),
           [](const auto& a, const auto& b) { return a.first * a.second < b.first * b.second; });
 
-      std::pair<int64_t, int64_t> target_aspect_ratio =
+      target_aspect_ratio =
         FindClosestAspectRatio(aspect_ratio, target_ratios_sorted, orig_width, orig_height, image_size);
       target_width = image_size * target_aspect_ratio.first;
       target_height = image_size * target_aspect_ratio.second;

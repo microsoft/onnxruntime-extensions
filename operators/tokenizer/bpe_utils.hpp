@@ -368,6 +368,8 @@ class PreTokenizerWithRegEx {
       i++;
     }
 
+    if (i >= m_text.size()) return {};
+
     size_t j = i;
     // [\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*
     const ufal::unilib::unicode::category_t categories1 = ufal::unilib::unicode::Lu | ufal::unilib::unicode::Lt |
@@ -426,6 +428,8 @@ class PreTokenizerWithRegEx {
     if (!IsRN(m_text[i]) && !IsN(m_text[i]) && !IsL(m_text[i])) {
       i++;
     }
+
+    if (i >= m_text.size()) return {};
 
     // [\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+
     const ufal::unilib::unicode::category_t categories1 = ufal::unilib::unicode::Lu | ufal::unilib::unicode::Lt |
