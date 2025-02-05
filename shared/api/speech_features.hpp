@@ -642,6 +642,8 @@ class Phi4AudioEmbed {
     return status;
   }
 
+  static OrtxStatus AlignOutputs(std::vector<TensorPtr>& audio_result);
+
  private:
   AttrDict logmel_attrs_;
   AttrDict stft_normal_attrs_;
