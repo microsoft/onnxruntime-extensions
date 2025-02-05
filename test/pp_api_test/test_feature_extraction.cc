@@ -128,13 +128,10 @@ TEST(ExtractorTest, TestPhi4AudioOutput) {
   const size_t num_columns = shape[2];
 
   // Read the expected output from the file
-  std::filesystem::path expected_file_path = "data/models/phi-4/expected_output.txt";
-  std::ifstream infile(expected_file_path);
+  std::filesystem::path expected_audio_embed_output_path = "data/models/phi-4/expected_output.txt";
+  std::ifstream expected_audio_embed_output(expected_audio_embed_output_path);
 
-  if (!infile.is_open()) {
-      std::cerr << "Failed to open expected output file: " << expected_file_path << std::endl;
-      return;
-  }
+  ASSERT_TRUE(expected_audio_embed_output.is_open());
 
   // Define lambda for comparison
   auto are_close = [](float a, float b, float rtol = 1e-03, float atol = 1e-02) -> bool {
@@ -146,7 +143,7 @@ TEST(ExtractorTest, TestPhi4AudioOutput) {
   std::string line;
   size_t row_idx = 0;
 
-  while (std::getline(infile, line) && row_idx < num_rows) {
+  while (std::getline(expected_audio_embed_output, line) && row_idx < num_rows) {
       std::stringstream ss(line); // Stringstream to parse each line
       std::string value_str;
       size_t col_idx = 0;
@@ -166,11 +163,13 @@ TEST(ExtractorTest, TestPhi4AudioOutput) {
       row_idx++;
   }
 
-  infile.close();
+  expected_audio_embed_output.close();
 
   // Calculate the mismatch percentage
   float mismatch_percentage = static_cast<float>(num_mismatched) / total_elements;
 
   std::cout << "Mismatch percentage: " << mismatch_percentage * 100 << "%" << std::endl;
+
+  // We use a 2% mismatch threshold, same as that for Whisper
   ASSERT_LT(mismatch_percentage, 0.02) << "Mismatch percentage exceeds 2% threshold!";
 }
