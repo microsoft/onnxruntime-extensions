@@ -5,7 +5,6 @@
 
 #include <set>
 #include <string>
-#include <limits>
 
 #include "ext_status.h"
 #include "op_def_struct.h"
@@ -536,6 +535,7 @@ class Phi4VisionProcessor {
     return {};
   }
 
+  // Change image_size and image_mask data type to floating point to align the original Python code
   static OrtxStatus AlignOutputs(std::vector<TensorPtr>& img_result) {
     assert(img_result.size() == 4);
     auto image_sizes = std::move(img_result[1]);

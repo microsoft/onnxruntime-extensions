@@ -92,6 +92,7 @@ OrtxStatus SpeechFeatureExtractor::DoCall(ort_extensions::span<AudioRawData> raw
   return status;
 }
 
+// Change audio_embed_size data shape to 1-dim to align the original Python code
 OrtxStatus Phi4AudioEmbed::AlignOutputs(std::vector<TensorPtr>& audio_result) {
   auto ts_embed_size = std::move(audio_result.back());
   audio_result.pop_back();
