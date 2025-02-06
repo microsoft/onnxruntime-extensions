@@ -67,6 +67,9 @@ TEST(ExtractorTest, TestPhi4AudioFeatureExtraction) {
   err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
   ASSERT_EQ(num_dims, 1);
   ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3}));
+  ASSERT_EQ(std::vector<int64_t>(reinterpret_cast<const int64_t*>(data),
+                                 reinterpret_cast<const int64_t*>(data) + 3),
+                                 std::vector<int64_t>({138, 167, 168}));
 }
 
 TEST(ExtractorTest, TestPhi4AudioFeatureExtraction8k) {
