@@ -1,6 +1,6 @@
 FetchContent_Declare(nlohmann_json
-  URL       https://codeload.github.com/nlohmann/json/zip/refs/tags/v3.10.5
-  URL_HASH  SHA1=f257f8dc27c5b8c085dc887b40cddd18ae1f725c
+  URL       https://codeload.github.com/nlohmann/json/zip/refs/tags/v3.11.3
+  URL_HASH  SHA1=5e88795165cc8590138d1f47ce94ee567b85b4d6
   SOURCE_SUBDIR not_set
   )
 

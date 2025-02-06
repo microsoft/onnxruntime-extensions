@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <sstream>
 #include "file_sys.h"
 #include "nlohmann/json.hpp"
 
