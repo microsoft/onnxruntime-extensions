@@ -638,7 +638,7 @@ class Phi4AudioEmbed {
         return result
     */
     auto embedded_size_data = embeded_size.Allocate({1});
-    embedded_size_data[0] = std::ceil(static_cast<float>(ts_logmel.Shape()[1]) / audio_compression_rate_);
+    embedded_size_data[0] = std::ceil(static_cast<float>(ts_logmel.Shape()[0]) / audio_compression_rate_);
     return status;
   }
 
