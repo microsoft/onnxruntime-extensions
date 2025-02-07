@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
 #pragma once
@@ -338,7 +338,7 @@ class BpeModel {
           if (iter_tok_extend != t_map.end()) {
             if (has_right && iter_tok_extend->second.rstrip_) {
               auto& [next_token, next_id] = added_result[n + 1];
-              // r-strip means remove whitespace from left side of next token
+              // r-strip removes trailing characters from right side, which is equivalent to removing whitespace from left side of next token
               if (next_id == bpe::kInvalidTokenId) {
                 final_result.emplace_back(token, id);
                 size_t pos = 0;
