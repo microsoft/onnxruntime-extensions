@@ -71,9 +71,6 @@ TEST(ExtractorTest, TestPhi4AudioFeatureExtraction) {
   ASSERT_FLOAT_EQ(actual_output[0], 138.0f);
   ASSERT_FLOAT_EQ(actual_output[1], 167.0f);
   ASSERT_FLOAT_EQ(actual_output[2], 168.0f);
-  // ASSERT_FLOAT_EQ(std::vector<int64_t>(reinterpret_cast<const float*>(data),
-  //                                reinterpret_cast<const float*>(data) + 3),
-  //                                std::vector<float>({138, 167, 168}));
 }
 
 TEST(ExtractorTest, TestPhi4AudioFeatureExtraction8k) {
@@ -142,7 +139,7 @@ TEST(ExtractorTest, TestPhi4AudioOutput) {
 
   // Define lambda for comparison
   auto are_close = [](float a, float b, float rtol = 1e-03, float atol = 1e-02) -> bool {
-      return std::abs(a - b) <= atol || std::abs(a - b) <= rtol * std::abs(b);
+    return std::abs(a - b) <= atol || std::abs(a - b) <= rtol * std::abs(b);
   };
 
   size_t num_mismatched = 0;
@@ -151,23 +148,23 @@ TEST(ExtractorTest, TestPhi4AudioOutput) {
   size_t row_idx = 0;
 
   while (std::getline(expected_audio_embed_output, line) && row_idx < num_rows) {
-      std::stringstream ss(line); // Stringstream to parse each line
-      std::string value_str;
-      size_t col_idx = 0;
+    std::stringstream ss(line); // Stringstream to parse each line
+    std::string value_str;
+    size_t col_idx = 0;
 
-      while (std::getline(ss, value_str, ',') && col_idx < 10) {  // Only read the first 10 columns
-          float expected_value = std::stof(value_str);  // Convert string to float
+    while (std::getline(ss, value_str, ',') && col_idx < 10) {  // Only read the first 10 columns
+      float expected_value = std::stof(value_str);  // Convert string to float
 
-          // Compare values
-          const float* row_start = data + (row_idx * num_columns);
-          if (!are_close(row_start[col_idx], expected_value)) {
-              num_mismatched++;  // Count mismatches
-              std::cout << "Mismatch at (" << row_idx << "," << col_idx << "): "
-                        << "Expected: " << expected_value << ", Got: " << row_start[col_idx] << std::endl;
-          }
-          col_idx++;
+      // Compare values
+      const float* row_start = data + (row_idx * num_columns);
+      if (!are_close(row_start[col_idx], expected_value)) {
+          num_mismatched++;  // Count mismatches
+          std::cout << "Mismatch at (" << row_idx << "," << col_idx << "): "
+                    << "Expected: " << expected_value << ", Got: " << row_start[col_idx] << std::endl;
       }
-      row_idx++;
+      col_idx++;
+    }
+    row_idx++;
   }
 
   expected_audio_embed_output.close();

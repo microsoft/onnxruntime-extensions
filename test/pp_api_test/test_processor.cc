@@ -140,30 +140,40 @@ TEST(ProcessorTest, TestPhi4VisionProcessor) {
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxObjectPtr<OrtxTensor> tensor;
+  // embedding data (float32)
   err = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
   const float* data{};
+  const int64_t* int_data{};
   const int64_t* shape{};
   size_t num_dims;
   err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
   ASSERT_EQ(err, kOrtxOK);
   ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3, 10, 3, 448, 448}));
+  EXPECT_FLOAT_EQ(data[0], -0.295063f);
 
+  // image sizes (int64_t)
   err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
-  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&int_data), &shape, &num_dims);
   ASSERT_EQ(err, kOrtxOK);
   ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3, 2}));
+  EXPECT_EQ(std::vector<int64_t>(int_data, int_data + 6),
+            std::vector<int64_t>({1344, 1344, 896, 1344, 448, 896}));
 
+  // mask data (float32)
   err = OrtxTensorResultGetAt(result.get(), 2, tensor.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
   err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
   ASSERT_EQ(err, kOrtxOK);
   ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3, 10, 32, 32}));
+  EXPECT_FLOAT_EQ(data[0], 1.0f);
 
+  // num tokens (int64_t)
   err = OrtxTensorResultGetAt(result.get(), 3, tensor.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
-  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&int_data), &shape, &num_dims);
   ASSERT_EQ(err, kOrtxOK);
   ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3, 1}));
+  EXPECT_EQ(std::vector<int64_t>(int_data, int_data + 3), std::vector<int64_t>({2625, 1841, 735}));
 }
