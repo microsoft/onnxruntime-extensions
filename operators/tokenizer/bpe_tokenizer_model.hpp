@@ -351,19 +351,19 @@ class BpeModel {
                 continue;
               }
             }
-          }
-          if (has_left && iter_tok_extend->second.lstrip_) {
-            auto& [prev_token, prev_id] = added_result[n - 1];
-            // l-strip means remove whitespaces from right side of previous token
-            if (prev_id == bpe::kInvalidTokenId) {
-              size_t pos = token.size();
-              while (pos > 0 && ws_chars.count(token[pos - 1])) {
-                pos--;
+            if (has_left && iter_tok_extend->second.lstrip_) {
+              auto& [prev_token, prev_id] = added_result[n - 1];
+              // l-strip means remove whitespaces from right side of previous token
+              if (prev_id == bpe::kInvalidTokenId) {
+                size_t pos = token.size();
+                while (pos > 0 && ws_chars.count(token[pos - 1])) {
+                  pos--;
+                }
+                auto stripped_token = token.substr(0, pos);
+                final_result.back().first = stripped_token;
+                final_result.emplace_back(token, id);
+                continue;
               }
-              auto stripped_token = token.substr(0, pos);
-              final_result.back().first = stripped_token;
-              final_result.emplace_back(token, id);
-              continue;
             }
           }
         }
