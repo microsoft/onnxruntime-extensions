@@ -540,15 +540,8 @@ class Phi4VisionProcessor {
   // Change image_size and image_mask data type to floating point to align the original Python code
   static OrtxStatus AlignOutputs(std::vector<TensorPtr>& img_result) {
     assert(img_result.size() == 4);
-    auto image_sizes = std::move(img_result[1]);
     auto image_attention_mask = std::move(img_result[2]);
 
-    auto new_image_sizes = std::make_unique<ortc::Tensor<float>>(&CppAllocator::Instance());
-    auto image_sizes_data = new_image_sizes->Allocate(image_sizes->Shape());
-    auto image_sizes_raw = reinterpret_cast<const int64_t*>(image_sizes->DataRaw());
-    for (int64_t i = 0; i < image_sizes->NumberOfElement(); ++i) {
-      image_sizes_data[i] = static_cast<float>(image_sizes_raw[i]);
-    }
     auto new_image_attention_mask = std::make_unique<ortc::Tensor<float>>(&CppAllocator::Instance());
     auto image_attention_mask_data = new_image_attention_mask->Allocate(image_attention_mask->Shape());
     auto image_attention_mask_raw = reinterpret_cast<const int64_t*>(image_attention_mask->DataRaw());
@@ -585,8 +578,6 @@ class Phi4VisionProcessor {
       }
     }
 
-
-    img_result[1].reset(new_image_sizes.release());
     img_result[2].reset(new_image_attention_mask.release());
     return {};
   }

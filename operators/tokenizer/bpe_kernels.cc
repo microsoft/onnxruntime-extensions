@@ -261,7 +261,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input,
   }
 
   // Parse input
-  auto special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input);
+  auto special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input, added_tokens_);
   bpe::PreTokenizerWithRegEx reg_splitter;
   // NOTE: the pattern was already validated on loading json file.
   // safe to ingore the return value here.
@@ -399,7 +399,7 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input,
 
   size_t max_length = static_cast<size_t>(max_length_i64);
   // Parse input
-  auto special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input);
+  auto special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input, added_tokens_);
   bool add_dummy_prefix = bpe_conf_.get().add_dummy_prefix_;
 
   for (auto& seg_id : special_token_split_res) {
@@ -677,11 +677,13 @@ void JsonFastTokenizer::UpdateTokenizer(const TokenJsonConfig& config, const jso
   auto added_tokens = tok_json.find("added_tokens");
   if (added_tokens != tok_json.end()) {
     for (const auto& token : *added_tokens) {
-      added_tokens_.emplace_back(TokenJsonConfig::ParseAddedToken(token));
+      auto tok_extended = TokenJsonConfig::ParseAddedToken(token);
+      added_tokens_.emplace(ustring(tok_extended.content_), tok_extended);
     }
   }
 
-  for (const auto& added_token : added_tokens_) {
+  // iterate the added_tokens_ map and set the special tokens
+  for (const auto& [key, added_token] : added_tokens_) {
       if (added_token.content_ == config.bos_token_) {
         bos_token_id_ = added_token.id_;
       } else if (added_token.content_ == config.eos_token_) {
@@ -692,6 +694,7 @@ void JsonFastTokenizer::UpdateTokenizer(const TokenJsonConfig& config, const jso
   }
 
   bbpe_tokenizer_->LoadAddedTokens(added_tokens_);
+
   add_bos_token_ = config.add_bos_token_;
   add_eos_token_ = config.add_eos_token_;
 

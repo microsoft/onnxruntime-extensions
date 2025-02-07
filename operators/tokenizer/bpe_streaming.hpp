@@ -26,7 +26,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     spm_model_ = encoder.IsSpmModel();
 
     const auto& a_toks = encoder.GetAddedTokens();
-    for (const auto& tok : a_toks) {
+    for (const auto&[key, tok] : a_toks) {
       added_tokens_[tok.id_] = tok.content_;
       if (tok.special_) {
         all_special_ids_.insert(tok.id_);

@@ -6,9 +6,11 @@ import numpy as np
 
 from PIL import Image
 
-
+# uncomment it if there is a protobuf version mismatch error
+# os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 is_pp_api_available = False
 hf_token_id = None
+phi4_model_local_path = None
 try:
     from transformers import AutoImageProcessor, AutoTokenizer
     from onnxruntime_extensions import pp_api
@@ -38,9 +40,6 @@ def regen_image(arr, mean, std):
     # Convert NumPy array to PIL Image
     image = Image.fromarray(array)
     return image
-
-
-phi4_model_local_path = None
 
 
 @unittest.skipIf(not is_pp_api_available, "pp_api is not available")
@@ -198,10 +197,11 @@ class TestPPAPI(unittest.TestCase):
         ortx_inputs = tokenizer.tokenize(test_sentence)
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
+    @unittest.skipIf(phi4_model_local_path is None, "phi4_model_local_path is not available")
     def test_Phi4_tokenizer(self):
         model_id = phi4_model_local_path
-        test_sentence = [self.tokenizer_test_sentence]
-        hf_enc = AutoTokenizer.from_pretrained(model_id)
+        test_sentence = ['<|user|>\n' + self.tokenizer_test_sentence]
+        hf_enc = AutoTokenizer.from_pretrained(model_id, use_fast=True)
         inputs = hf_enc(test_sentence)["input_ids"]
         tokenizer = pp_api.Tokenizer(model_id)
         ortx_inputs = tokenizer.tokenize(test_sentence)

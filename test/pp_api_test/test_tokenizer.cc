@@ -225,11 +225,11 @@ TEST(OrtxTokenizerTest, Phi3Tokenizer) {
   std::vector<std::string_view> input = {
       "分析",
       " こんにちは",  // an extra space at the beginning
-      "<|user|>こんにちは。データ分析するにはなにをすればいい？<|end|><|assistant|>"};
+      "<|user|>\nこんにちは。データ分析するにはなにをすればいい？<|end|><|assistant|>"};
   std::vector<extTokenId_t> EXPECTED_IDS_0 = {1, 29871, 30748, 233, 161, 147};
   std::vector<extTokenId_t> EXPECTED_IDS_1 = {1, 259, 30589, 30389, 30353, 30644, 30449};
   std::vector<extTokenId_t> EXPECTED_IDS_2 = {
-      1,     32010, 29871, 30589, 30389, 30353, 30644, 30449, 30267, 30597, 30185, 30369, 30748, 233,   161,  147,
+      1, 32010, 29871, 13, 30589, 30389, 30353, 30644, 30449, 30267, 30597, 30185, 30369, 30748, 233,   161,  147,
       30427, 30332, 30353, 30449, 30371, 30353, 30396, 30427, 30553, 31254, 30298, 30298, 30882, 32007, 32001};
 
   std::vector<std::vector<extTokenId_t>> token_ids;

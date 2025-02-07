@@ -25,6 +25,7 @@ struct BpeModelConf {
 
 struct KernelBpeTokenizer {
   using json = nlohmann::json;
+  using AddedTokenMap = ort_extensions::AddedTokenMap;
   KernelBpeTokenizer(const BpeModelConf& conf);
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info);
 
@@ -53,6 +54,7 @@ struct KernelBpeTokenizer {
 
  protected:
   std::string model_name_;
+  AddedTokenMap added_tokens_;
   std::reference_wrapper<BpeModelConf const> bpe_conf_;
   std::unique_ptr<ort_extensions::BpeModel> bbpe_tokenizer_;
 
@@ -131,5 +133,4 @@ class JsonFastTokenizer : public KernelBpeTokenizer {
   void UpdateTokenizer(const ort_extensions::TokenJsonConfig& config, const json& tok_json);
 
   BpeModelConf json_conf_;
-  std::vector<ort_extensions::AddedToken> added_tokens_;
 };
