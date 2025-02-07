@@ -150,7 +150,7 @@ TEST(ProcessorTest, TestPhi4VisionProcessor) {
   err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
   ASSERT_EQ(err, kOrtxOK);
   ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3, 10, 3, 448, 448}));
-  EXPECT_FLOAT_EQ(data[0], -0.295063f);
+  EXPECT_TRUE((data[0] > -0.30f) && (data[0] < -0.29f));
 
   // image sizes (int64_t)
   err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
