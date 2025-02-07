@@ -407,7 +407,7 @@ class ExecutionPlan {
     return {};
   }
 
-  OrtxStatus Excute(ortc::IAllocator* allocator, TensorArgs& input, TensorLookupTable& ts_lookup_table) const {
+  OrtxStatus Execute(ortc::IAllocator* allocator, TensorArgs& input, TensorLookupTable& ts_lookup_table) const {
     for (auto& op : operations_) {
       // add tensor references
       auto spec = op->GetInputSpec();
@@ -501,7 +501,7 @@ class OrtxRunner {
   OrtxStatus Run(std::vector<TensorArgs>& input_seq, std::vector<TensorArgs>& output_seq) {
     for (size_t i = 0; i < input_seq.size(); ++i) {
       auto& input = *(input_seq.begin() + i);
-      auto status = plan_.Excute(allocator_, input, tensor_lookup_table_);
+      auto status = plan_.Execute(allocator_, input, tensor_lookup_table_);
       if (!status.IsOk()) {
         return status;
       }

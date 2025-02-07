@@ -4,6 +4,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 
 #include "ortx_tokenizer.h"
 #include "ext_status.h"
@@ -33,6 +34,8 @@ struct TokenizerDecodingState {
   bool f_special_last{};
   std::string incomplete_utf8_;
 };
+
+using AddedTokenMap = std::unordered_map<std::u32string, AddedToken>;
 
 constexpr std::string_view spm_escaped_space = "\xE2\x96\x81";
 }  // namespace ort_extensions
