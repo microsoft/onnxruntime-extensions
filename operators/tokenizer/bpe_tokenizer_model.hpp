@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
 #pragma once
@@ -310,8 +310,8 @@ class BpeModel {
     return {};
   }
 
-  void LoadAddedTokens(const std::vector<AddedToken>& added_tokens) {
-    for (const auto& token : added_tokens) {
+  void LoadAddedTokens(const AddedTokenMap& added_tokens) {
+    for (const auto& [key, token] : added_tokens) {
       added_tokens_.Add(ustring(token.content_), 0, token.id_);
     }
   }
@@ -320,13 +320,54 @@ class BpeModel {
 
   // REF:
   // https://github.com/huggingface/transformers/blob/c9e72f55b2dc4b9be4edb986dce0552582b328f2/src/transformers/tokenization_utils.py#L52
-  bpe::TokenPairs SplitByAddedAndSpecial(const ustring& input) const {
+  bpe::TokenPairs SplitByAddedAndSpecial(const ustring& input, const AddedTokenMap& t_map) const {
+    static const std::set<char32_t> ws_chars = {U' ', U'\n', U'\r', U'\t'};
     // split by added tokens
     bpe::TokenPairs added_result;
     bpe::TokenPairs final_result;
     added_tokens_.Split(input, added_result);
-    for (const auto& [token, id] : added_result) {
+
+    for (size_t n = 0; n < added_result.size(); ++n) {
+      auto& [token, id] = added_result[n];
+      bool has_left = n > 0;
+      bool has_right = n < added_result.size() - 1;
+
       if (id != bpe::kInvalidTokenId) {
+        if (has_left || has_right) {
+          auto iter_tok_extend = t_map.find(std::u32string(token));
+          if (iter_tok_extend != t_map.end()) {
+            if (has_right && iter_tok_extend->second.rstrip_) {
+              auto& [next_token, next_id] = added_result[n + 1];
+              // r-strip removes trailing characters from right side, which is equivalent to removing whitespace from left side of next token
+              if (next_id == bpe::kInvalidTokenId) {
+                final_result.emplace_back(token, id);
+                size_t pos = 0;
+                while (pos < next_token.size() && ws_chars.count(next_token[pos])) {
+                  pos++;
+                }
+                auto stripped_token = next_token.substr(pos);
+                final_result.emplace_back(stripped_token, next_id);
+                n += 1;
+                continue;
+              }
+            }
+            if (has_left && iter_tok_extend->second.lstrip_) {
+              auto& [prev_token, prev_id] = added_result[n - 1];
+              // l-strip means remove whitespaces from right side of previous token
+              if (prev_id == bpe::kInvalidTokenId) {
+                size_t pos = token.size();
+                while (pos > 0 && ws_chars.count(token[pos - 1])) {
+                  pos--;
+                }
+                auto stripped_token = token.substr(0, pos);
+                final_result.back().first = stripped_token;
+                final_result.emplace_back(token, id);
+                continue;
+              }
+            }
+          }
+        }
+        // if not additional processing, just add it to final result
         final_result.emplace_back(token, id);
       } else {
         auto special_result = special_tokens_.SplitBySpecialTokens(token);

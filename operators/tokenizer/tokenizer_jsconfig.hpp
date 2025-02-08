@@ -4,6 +4,7 @@
 #pragma once
 
 #include <sstream>
+#include <string_view>
 #include "file_sys.h"
 #include "nlohmann/json.hpp"
 
@@ -88,7 +89,6 @@ class TokenJsonConfig final {
     parse_token(json_config, "bos_token", bos_token_);
     parse_token(json_config, "eos_token", eos_token_);
     parse_token(json_config, "unk_token", unk_token_);
-
 
     auto pad_iter = json_config.find("pad_token");
     if (pad_iter != json_config.end() && pad_iter->is_string()) {
@@ -241,7 +241,7 @@ class TokenJsonConfig final {
   std::string unk_token_;
   std::string pad_token_;
 
-  std::vector<ort_extensions::AddedToken> added_tokens_;
+  AddedTokenMap added_tokens_;
 
   static AddedToken ParseAddedToken(const json& token) {
     AddedToken added_token;
@@ -275,7 +275,9 @@ class TokenJsonConfig final {
     auto added_tokens = tok_json.find("added_tokens");
     if (added_tokens != tok_json.end()) {
       for (const auto& token : *added_tokens) {
-        added_tokens_.emplace_back(ParseAddedToken(token));
+        auto tok_extended = ParseAddedToken(token);
+        // insert the token into the unordered_map
+        added_tokens_.emplace(ustring(tok_extended.content_), tok_extended);
       }
     }
   }
