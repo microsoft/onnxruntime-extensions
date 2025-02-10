@@ -331,7 +331,7 @@ if(OCOS_ENABLE_RE2_REGEX)
   endif()
 
   if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-    set_property(TARGET re2 PROPERTY COMPILE_OPTIONS)
+    set_property(TARGET re2::re2 PROPERTY COMPILE_OPTIONS)
   endif()
 endif()
 
