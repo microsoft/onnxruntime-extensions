@@ -93,7 +93,15 @@ else()
   )
 
   FetchContent_makeAvailable(onnxruntime)
-
+  if(TARGET onnxruntime::onnxruntime)
+    get_target_property(ONNXRUNTIME_INCLUDE_DIRS onnxruntime::onnxruntime INTERFACE_INCLUDE_DIRECTORIES)
+    list(LENGTH ONNXRUNTIME_INCLUDE_DIRS ONNXRUNTIME_INCLUDE_DIRS_LENGTH)
+    if(ONNXRUNTIME_INCLUDE_DIRS_LENGTH EQUAL 1)
+        list(GET ONNXRUNTIME_INCLUDE_DIRS 0 ONNXRUNTIME_INCLUDE_DIR)
+    else()
+        message(FATAL_ERROR "Expected exactly one include directory in ONNXRUNTIME_INCLUDE_DIRS, but found ${ONNXRUNTIME_INCLUDE_DIRS_LENGTH}")
+    endif()
+  else()
   if (ANDROID)
     set(ONNXRUNTIME_INCLUDE_DIR ${onnxruntime_SOURCE_DIR}/headers)
     set(ONNXRUNTIME_LIB_DIR ${onnxruntime_SOURCE_DIR}/jni/${ANDROID_ABI})
@@ -115,8 +123,11 @@ else()
     set(ONNXRUNTIME_INCLUDE_DIR ${onnxruntime_SOURCE_DIR}/include)
     set(ONNXRUNTIME_LIB_DIR ${onnxruntime_SOURCE_DIR}/lib)
   endif()
+  endif()
 endif()
 
+
+  
 if(NOT EXISTS ${ONNXRUNTIME_INCLUDE_DIR})
   message(FATAL_ERROR "ONNX Runtime headers not found at ${ONNXRUNTIME_INCLUDE_DIR}")
 endif()
