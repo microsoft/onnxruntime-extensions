@@ -56,6 +56,7 @@ FetchContent_Declare(
   GIT_TAG v0.1.96
   EXCLUDE_FROM_ALL
   PATCH_COMMAND ${spm_patch_command}
+  FIND_PACKAGE_ARGS NAMES sentencepiece
 )
 
 set(SPM_USE_EXTERNAL_ABSL OFF CACHE BOOL "Use external absl" FORCE)
