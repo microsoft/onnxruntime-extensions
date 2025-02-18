@@ -632,11 +632,11 @@ if(_HAS_TOKENIZER)
 endif()
 
 if(OCOS_ENABLE_TF_STRING)
-  target_include_directories(noexcep_operators PUBLIC ${farmhash_SOURCE_DIR}/src)
+  FIND_PACKAGE(farmhash REQUIRED)
+  TARGET_LINK_LIBRARIES(noexcep_operators PRIVATE GOOGLE::farmhash) 
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING NOMINMAX FARMHASH_NO_BUILTIN_EXPECT FARMHASH_DEBUG=0)
 
   if(OCOS_ENABLE_RE2_REGEX)
-    target_include_directories(noexcep_operators PUBLIC ${googlere2_SOURCE_DIR})
     target_link_libraries(noexcep_operators PRIVATE re2::re2)
   endif()
 endif()
