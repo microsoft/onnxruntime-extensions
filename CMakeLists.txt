@@ -902,7 +902,7 @@ if(OCOS_BUILD_SHARED_LIB)
   )
 
   # Install your target
-  install(TARGETS extensions_shared
+  install(TARGETS extensions_shared ortcustomops
     EXPORT ${PROJECT_NAME}Targets
 	PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 	ARCHIVE   DESTINATION ${CMAKE_INSTALL_LIBDIR}
