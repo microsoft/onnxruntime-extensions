@@ -590,21 +590,24 @@ source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${_TARGET_SRC_FOR_SOURCE_GROUP})
 standardize_output_folder(noexcep_operators)
 standardize_output_folder(ocos_operators)
 
-target_include_directories(noexcep_operators PUBLIC
-  ${ONNXRUNTIME_INCLUDE_DIR}
-  ${GSL_INCLUDE_DIR}
-  ${PROJECT_SOURCE_DIR}/include
-  ${PROJECT_SOURCE_DIR}/include/custom_op
-  ${PROJECT_SOURCE_DIR}/base
-  ${PROJECT_SOURCE_DIR}/operators)
+target_link_libraries(noexcep_operators PRIVATE onnxruntime::onnxruntime GSL::GSL)
+target_link_libraries(ocos_operators PRIVATE onnxruntime::onnxruntime GSL::GSL)
 
+target_include_directories(noexcep_operators PUBLIC
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/custom_op>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/base>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/operators>
+  $<INSTALL_INTERFACE:include>
+)
 target_include_directories(ocos_operators PUBLIC
-  ${ONNXRUNTIME_INCLUDE_DIR}
-  ${GSL_INCLUDE_DIR}
-  ${PROJECT_SOURCE_DIR}/include
-  ${PROJECT_SOURCE_DIR}/include/custom_op
-  ${PROJECT_SOURCE_DIR}/base
-  ${PROJECT_SOURCE_DIR}/operators)
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/custom_op>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/base>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/operators>
+  $<INSTALL_INTERFACE:include>
+)
+
 
 if (OCOS_USE_CUDA)
   target_include_directories(ocos_operators PUBLIC ${cutlass_SOURCE_DIR}/include ${cutlass_SOURCE_DIR}/examples)
