@@ -62,9 +62,6 @@ FetchContent_Declare(
 set(SPM_USE_EXTERNAL_ABSL OFF CACHE BOOL "Use external absl" FORCE)
 set(SPM_USE_BUILTIN_PROTOBUF OFF CACHE BOOL "Use built-in protobuf" FORCE)
 
-if(NOT protobuf_SOURCE_DIR)
-  message(FATAL_ERROR "Cannot find the protobuf library in ORT")
-endif()
 
 FetchContent_MakeAvailable(spm)
 if(TARGET sentencepiece-static)
@@ -72,7 +69,4 @@ if(TARGET sentencepiece-static)
   set_target_properties(sentencepiece-static PROPERTIES
     FOLDER externals/google)
 endif()
-set(spm_INCLUDE_DIRS
-  ${protobuf_SOURCE_DIR}/src
-  ${spm_SOURCE_DIR}/src/builtin_pb
-  ${spm_SOURCE_DIR}/src )
+get_target_property(spm_INCLUDE_DIRS sentencepiece::sentencepiece-static INTERFACE_INCLUDE_DIRECTORIES)
