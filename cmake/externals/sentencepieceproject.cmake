@@ -12,6 +12,7 @@ if(NOT _ONNXRUNTIME_EMBEDDED)
     GIT_TAG v21.12
     EXCLUDE_FROM_ALL
     PATCH_COMMAND git checkout . && git apply --ignore-space-change --ignore-whitespace ${PROJECT_SOURCE_DIR}/cmake/externals/protobuf_cmake.patch
+	FIND_PACKAGE_ARGS NAMES Protobuf protobuf
   )
   
   set(protobuf_BUILD_TESTS OFF CACHE BOOL "Build tests")
@@ -29,8 +30,10 @@ if(NOT _ONNXRUNTIME_EMBEDDED)
   set(protobuf_DISABLE_RTTI ON CACHE BOOL "Disable RTTI")
 
   FetchContent_MakeAvailable(protobuf)
-  set_target_properties(libprotobuf-lite PROPERTIES
+  if(TARGET libprotobuf-lite)
+    set_target_properties(libprotobuf-lite PROPERTIES
     FOLDER externals/google)
+  endif()
 endif()
 
 # To avoid creating complicated logic to build protoc, especially for mobile platforms, we use the pre-generated pb files
@@ -63,10 +66,11 @@ if(NOT protobuf_SOURCE_DIR)
 endif()
 
 FetchContent_MakeAvailable(spm)
-target_link_libraries(sentencepiece-static PUBLIC protobuf::libprotobuf-lite)
-set_target_properties(sentencepiece-static PROPERTIES
-  FOLDER externals/google)
-
+if(TARGET sentencepiece-static)
+  target_link_libraries(sentencepiece-static PUBLIC protobuf::libprotobuf-lite)
+  set_target_properties(sentencepiece-static PROPERTIES
+    FOLDER externals/google)
+endif()
 set(spm_INCLUDE_DIRS
   ${protobuf_SOURCE_DIR}/src
   ${spm_SOURCE_DIR}/src/builtin_pb

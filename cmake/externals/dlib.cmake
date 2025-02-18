@@ -4,6 +4,7 @@ FetchContent_Declare(
     URL_HASH SHA1=59b1fb4e9909697c646e4f74e94871dacf49f0bf
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     SOURCE_SUBDIR  not_set
+	FIND_PACKAGE_ARGS NAMES dlib
 )
 
 FetchContent_MakeAvailable(dlib)
