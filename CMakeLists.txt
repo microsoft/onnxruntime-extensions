@@ -784,6 +784,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   include(ext_wasm)
 else()
   add_library(ortcustomops STATIC ${_TARGET_LIB_SRC})
+  target_link_libraries(ortcustomops PRIVATE onnxruntime::onnxruntime
   if (HAS_SDL)
     target_compile_options(ortcustomops PRIVATE "/sdl")
   endif()
