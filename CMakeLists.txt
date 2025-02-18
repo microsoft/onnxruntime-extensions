@@ -966,7 +966,7 @@ if (_ORTX_STANDALONE_PROJECT)
   configure_package_config_file(
     "${CMAKE_CURRENT_BINARY_DIR}/PROJECT_CONFIG_FILE" ${PROJECT_NAME}Config.cmake
     INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
-  file (STRINGS "${REPO_ROOT}/version.txt" ORT_VERSION)
+  file (STRINGS "${PROJECT_SOURCE_DIR}/version.txt" ORT_VERSION)
 
   write_basic_package_version_file(
     "${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
