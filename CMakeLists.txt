@@ -590,8 +590,8 @@ source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${_TARGET_SRC_FOR_SOURCE_GROUP})
 standardize_output_folder(noexcep_operators)
 standardize_output_folder(ocos_operators)
 
-target_link_libraries(noexcep_operators PRIVATE onnxruntime::onnxruntime GSL::GSL)
-target_link_libraries(ocos_operators PRIVATE onnxruntime::onnxruntime GSL::GSL)
+target_link_libraries(noexcep_operators PRIVATE onnxruntime::onnxruntime Microsoft.GSL::GSL)
+target_link_libraries(ocos_operators PRIVATE onnxruntime::onnxruntime Microsoft.GSL::GSL)
 
 target_include_directories(noexcep_operators PUBLIC
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
