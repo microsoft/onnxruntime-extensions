@@ -69,4 +69,3 @@ if(TARGET sentencepiece-static)
   set_target_properties(sentencepiece-static PROPERTIES
     FOLDER externals/google)
 endif()
-get_target_property(spm_INCLUDE_DIRS sentencepiece::sentencepiece-static INTERFACE_INCLUDE_DIRECTORIES)
