@@ -871,7 +871,7 @@ if(OCOS_BUILD_SHARED_LIB)
     list(APPEND shared_TARGET_SRC "shared/ortcustomops.def")
   endif()
   add_library(extensions_shared SHARED ${shared_TARGET_SRC})
-
+  target_link_libraries(extensions_shared PUBLIC dlib::dlib)
   # We need to propagate OCOS_SHARED_LIBRARY if set.
   # could specifically add that if using OCOS_COMPILE_DEFINITIONS is too much.
   target_compile_definitions(extensions_shared PRIVATE ${OCOS_COMPILE_DEFINITIONS})
