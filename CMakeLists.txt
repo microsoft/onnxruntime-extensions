@@ -784,7 +784,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   include(ext_wasm)
 else()
   add_library(ortcustomops STATIC ${_TARGET_LIB_SRC})
-  file(GLOB ORT_EXT_PUB_HEADERS "include/*.h" "include/*.hpp"
+  file(GLOB ORT_EXT_PUB_HEADERS "include/*.h" "include/*.hpp")
   target_sources(ortcustomops PUBLIC FILE_SET HEADERS BASE_DIRS ${PROJECT_SOURCE_DIR}/include FILES ORT_EXT_PUB_HEADERS)
   target_link_libraries(ortcustomops PRIVATE onnxruntime::onnxruntime)
   if (HAS_SDL)
