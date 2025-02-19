@@ -4,6 +4,7 @@
 #pragma once
 
 #include "ocos.h"
+#include <dlib/config.h>
 #include <dlib/matrix.h>
 
 OrtStatusPtr inverse(const ortc::Tensor<float>& input,
