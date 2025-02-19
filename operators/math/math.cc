@@ -1,6 +1,7 @@
 #include "ocos.h"
 #include "negpos.hpp"
 #ifdef ENABLE_DLIB
+#include "dlib/config.h"
 #include "dlib/inverse.hpp"
 #include "dlib/stft_norm.hpp"
 #endif
