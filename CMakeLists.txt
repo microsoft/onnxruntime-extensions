@@ -337,7 +337,7 @@ endif()
 
 # ### scan all source files
 file(GLOB TARGET_SRC_NOEXCEPTION "base/*.h" "base/*.cc")
-file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h" "include/*.h" "include/*.hpp")
+file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h")
 
 if(OCOS_ENABLE_DLIB)
   set(DLIB_ISO_CPP_ONLY ON CACHE INTERNAL "")
@@ -784,6 +784,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   include(ext_wasm)
 else()
   add_library(ortcustomops STATIC ${_TARGET_LIB_SRC})
+  file(GLOB ORT_EXT_PUB_HEADERS "include/*.h" "include/*.hpp"
+  target_sources(ortcustomops PUBLIC FILE_SET HEADERS BASE_DIRS ${PROJECT_SOURCE_DIR}/include FILES ORT_EXT_PUB_HEADERS)
   target_link_libraries(ortcustomops PRIVATE onnxruntime::onnxruntime)
   if (HAS_SDL)
     target_compile_options(ortcustomops PRIVATE "/sdl")
