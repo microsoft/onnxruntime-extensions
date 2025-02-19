@@ -682,6 +682,32 @@ void JsonFastTokenizer::UpdateTokenizer(const TokenJsonConfig& config, const jso
     }
   }
 
+  const json added_tokens_decoder = config.added_tokens_decoder;
+
+  // Add any tokens from the added_tokens_decoder that were missing in added_tokens_
+  if (!added_tokens_decoder.empty()) {
+    for (const auto& [id_str, token] : added_tokens_decoder.items()) {
+      int id = std::stoi(id_str); // Convert key (ID) from string to integer
+
+      // Check if this token is already in the added_tokens_
+      auto existing_token = added_tokens_.find(ustring(token.value("content", "")));
+      if (existing_token == added_tokens_.end()) {  // Token doesn't exist yet
+        // Prepare a new token (populate id's with the keys from added_tokens_decoder)
+        AddedToken added_token;
+        added_token.id_ = id;
+        added_token.content_ = token.value("content", "");
+        added_token.lstrip_ = token.value("lstrip", false);
+        added_token.normalized_ = token.value("normalized", false);
+        added_token.rstrip_ = token.value("rstrip", false);
+        added_token.single_word_ = token.value("single_word", false);
+        added_token.special_ = token.value("special", false);
+
+        // Add the new token to added_tokens_
+        added_tokens_.emplace(ustring(added_token.content_), added_token);
+      }
+    }
+  }
+
   // iterate the added_tokens_ map and set the special tokens
   for (const auto& [key, added_token] : added_tokens_) {
       if (added_token.content_ == config.bos_token_) {
