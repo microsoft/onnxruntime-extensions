@@ -116,7 +116,7 @@ class TokenJsonConfig final {
         vocab_stream = std::make_unique<std::istringstream>(vocab_str);
       }
     } else {
-      auto ifs = std::make_unique<std::ifstream>(vocab_path_);
+      auto ifs = std::make_unique<std::ifstream>(path(vocab_path_.data()).open());
       if (!ifs->is_open()) {
         return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, vocab_path_ + ": does not exist.");
       }
