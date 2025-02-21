@@ -590,3 +590,24 @@ TEST(OrtxTokenizerTest, ChatGLMTokenizer) {
     115, 176, 3867, 162, 9251, 2829, 4, 102, 220, 6, 5, 63977, 91446,
     63829, 130009, 130008, 130008, 130008, 130008, 5, 4, 4, 21, 9, 130001, 130004}));
 }
+
+TEST(OrtxTokenizerTest, AddedTokensTest) {
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/added-tokens");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
+  }
+
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
+
+  std::vector<std::string_view> input = {"<|endoftext|><|assistant|><|placeholder1|>"};
+  std::vector<extTokenId_t> EXPECTED_IDS_0 = {1, 32000, 32001, 32002};
+
+  std::vector<std::vector<extTokenId_t>> token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  EXPECT_TRUE(status.IsOk());
+  EXPECT_EQ(token_ids.size(), input.size());
+  DumpTokenIds(token_ids);
+  EXPECT_EQ(token_ids[0], EXPECTED_IDS_0);
+}
