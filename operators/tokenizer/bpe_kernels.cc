@@ -682,11 +682,11 @@ void JsonFastTokenizer::UpdateTokenizer(const TokenJsonConfig& config, const jso
     }
   }
 
-  const json added_tokens_decoder = config.added_tokens_decoder;
+  std::shared_ptr<json> added_tokens_decoder = config.added_tokens_decoder;
 
   // Add any tokens from the added_tokens_decoder that were missing in added_tokens_
-  if (!added_tokens_decoder.empty()) {
-    for (const auto& [id_str, token] : added_tokens_decoder.items()) {
+  if (added_tokens_decoder && !added_tokens_decoder->empty()) {
+    for (const auto& [id_str, token] : added_tokens_decoder->items()) {
       int id = std::stoi(id_str); // Convert key (ID) from string to integer
 
       // Check if this token is already in the added_tokens_

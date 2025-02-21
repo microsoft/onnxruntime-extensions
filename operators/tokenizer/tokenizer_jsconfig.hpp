@@ -46,7 +46,7 @@ class TokenJsonConfig final {
   ~TokenJsonConfig() {}
   using json = nlohmann::json;
   using json_pointer = nlohmann::json_pointer<std::string>;
-  json added_tokens_decoder;
+  std::shared_ptr<json> added_tokens_decoder;
 
  public:
   OrtxStatus AppendModuleJson(json& json_config) {
@@ -193,7 +193,7 @@ class TokenJsonConfig final {
     }
 
     // Store added_tokens_decoder to add any missed tokens into added_tokens in UpdateTokenizer 
-    added_tokens_decoder = json_config.value("added_tokens_decoder", json::object());
+    added_tokens_decoder = std::make_shared<json>(json_config.value("added_tokens_decoder", json::object()));
 
     auto module_cfg = tok_dir / "tokenizer_module.json";
     if (module_cfg.exists()) {
