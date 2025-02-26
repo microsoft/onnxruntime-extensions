@@ -611,8 +611,6 @@ class Phi4AudioEmbed {
                      ortc::Tensor<float>& ts_logmel,
                      ortc::Tensor<int64_t>& audio_frames,
                      ortc::Tensor<int64_t>& embeded_size) {
-    constexpr int64_t feat_stride = 1;
-
     int64_t sr_val = sr.Data()[0];
     ortc::Tensor<float> stft_norm(&CppAllocator::Instance());
     ortc::Tensor<int64_t> num_audio_frames(&CppAllocator::Instance());

@@ -62,7 +62,19 @@ TEST(ExtractorTest, TestPhi4AudioFeatureExtraction) {
   ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3, 1344, 80}));
 
   tensor.reset();
+  const int64_t* audio_frames{};
+  const int64_t* audio_frames_shape{};
+  size_t audio_frames_num_dims;
   err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&audio_frames), &audio_frames_shape, &audio_frames_num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(std::vector<int64_t>(audio_frames_shape, audio_frames_shape + audio_frames_num_dims), std::vector<int64_t>({3, 1}));
+  const size_t num_elements = std::accumulate(audio_frames_shape, audio_frames_shape + audio_frames_num_dims, 1, std::multiplies<size_t>());
+  ASSERT_EQ(std::vector<int64_t>(audio_frames, audio_frames + num_elements), std::vector<int64_t>({1098, 1332, 1344}));
+
+  tensor.reset();
+  err = OrtxTensorResultGetAt(result.get(), 2, tensor.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
   err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
   ASSERT_EQ(num_dims, 1);
@@ -97,7 +109,19 @@ TEST(ExtractorTest, TestPhi4AudioFeatureExtraction8k) {
   ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({1, 2938, 80}));
 
   tensor.reset();
+  const int64_t* audio_frames{};
+  const int64_t* audio_frames_shape{};
+  size_t audio_frames_num_dims;
   err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&audio_frames), &audio_frames_shape, &audio_frames_num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(std::vector<int64_t>(audio_frames_shape, audio_frames_shape + audio_frames_num_dims), std::vector<int64_t>({1, 1}));
+  const size_t num_elements = std::accumulate(audio_frames_shape, audio_frames_shape + audio_frames_num_dims, 1, std::multiplies<size_t>());
+  ASSERT_EQ(std::vector<int64_t>(audio_frames, audio_frames + num_elements), std::vector<int64_t>({2938}));
+
+  tensor.reset();
+  err = OrtxTensorResultGetAt(result.get(), 2, tensor.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
   err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
   ASSERT_EQ(num_dims, 1);
