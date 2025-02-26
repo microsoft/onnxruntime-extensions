@@ -447,7 +447,6 @@ class ExecutionPlan {
           status = PrepareInput(*operations_[n + 1], ts_output, ts_input, ts_lookup_table);
         }
 
-        size_t i = 0;
         for (size_t i = 0; i < ts_output.size(); i++) {
           auto& out_tensor = ts_output[i];
           std::string tensor_name = op->GetOpName() + ":" + std::to_string(i);
