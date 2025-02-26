@@ -51,12 +51,16 @@ class SpeechFeatures {
     return stft_norm_.Compute(pcm, n_fft_, hop_length_, {fft_win_.data(), fft_win_.size()}, n_fft_, stft_norm);
   }
 
-  OrtxStatus SpeechLibSTFTNorm(const ortc::Tensor<float>& pcm, ortc::Tensor<float>& stft_norm) {
+  OrtxStatus SpeechLibSTFTNorm(const ortc::Tensor<float>& pcm,
+                               ortc::Tensor<float>& stft_norm,
+                               ortc::Tensor<int64_t>& audio_frames) {
+    constexpr int64_t feat_stride = 1;
     const float preemphasis = 0.97f;
     // # Spec 1: SpeechLib cut remaining sample insufficient for a hop
     // n_batch = (wav.shape[0] - win_length) // hop_length + 1
     auto pcm_length = pcm.Shape()[1];
     auto n_batch = (pcm_length - frame_length_) / hop_length_ + 1;
+    audio_frames.Allocate({1})[0] = n_batch * feat_stride;
     auto pcm_data = pcm.Data();
     dlib::matrix<float> dm_x = dlib::mat(pcm_data, 1, pcm_length);
 
@@ -605,13 +609,16 @@ class Phi4AudioEmbed {
   OrtxStatus Compute(const ortc::Tensor<float>& pcm,
                      const ortc::Tensor<int64_t>& sr,
                      ortc::Tensor<float>& ts_logmel,
+                     ortc::Tensor<int64_t>& audio_frames,
                      ortc::Tensor<int64_t>& embeded_size) {
+    constexpr int64_t feat_stride = 1;
 
     int64_t sr_val = sr.Data()[0];
     ortc::Tensor<float> stft_norm(&CppAllocator::Instance());
+    ortc::Tensor<int64_t> num_audio_frames(&CppAllocator::Instance());
     SpeechFeatures stft_normal;
     stft_normal.Init(sr_val == 8000? stft_normal_8k_attrs_: stft_normal_attrs_);
-    auto status = stft_normal.SpeechLibSTFTNorm(pcm, stft_norm);
+    auto status = stft_normal.SpeechLibSTFTNorm(pcm, stft_norm, num_audio_frames);
     if (!status.IsOk()) {
       return status;
     }
@@ -639,6 +646,8 @@ class Phi4AudioEmbed {
     */
     auto embedded_size_data = embeded_size.Allocate({1});
     embedded_size_data[0] = std::ceil(static_cast<float>(ts_logmel.Shape()[0]) / audio_compression_rate_);
+
+    audio_frames.Allocate({1})[0] = num_audio_frames.Data()[0];
     return status;
   }
 
