@@ -740,7 +740,7 @@ stages:
     steps:
     - script: |
         cd $(Build.BinariesDirectory)
-        git clone https://github.com/emscripten-core/emsdk --depth 1 --branch 3.1.74
+        git clone https://github.com/emscripten-core/emsdk --depth 1 --branch 4.0.3
         emsdk/emsdk install latest
         emsdk/emsdk activate latest
       displayName: Setup emscripten pipeline
