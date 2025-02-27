@@ -46,6 +46,7 @@ class TokenJsonConfig final {
   ~TokenJsonConfig() {}
   using json = nlohmann::json;
   using json_pointer = nlohmann::json_pointer<std::string>;
+  std::shared_ptr<json> added_tokens_decoder;
 
  public:
   OrtxStatus AppendModuleJson(json& json_config) {
@@ -116,7 +117,7 @@ class TokenJsonConfig final {
         vocab_stream = std::make_unique<std::istringstream>(vocab_str);
       }
     } else {
-      auto ifs = std::make_unique<std::ifstream>(vocab_path_);
+      auto ifs = std::make_unique<std::ifstream>(path(vocab_path_.data()).open());
       if (!ifs->is_open()) {
         return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, vocab_path_ + ": does not exist.");
       }
@@ -190,6 +191,9 @@ class TokenJsonConfig final {
     if (json_config.is_discarded()) {
       return OrtxStatus(kOrtxErrorInvalidArgument, "Failed to parse config json.");
     }
+
+    // Store added_tokens_decoder to add any missed tokens into added_tokens in UpdateTokenizer 
+    added_tokens_decoder = std::make_shared<json>(json_config.value("added_tokens_decoder", json::object()));
 
     auto module_cfg = tok_dir / "tokenizer_module.json";
     if (module_cfg.exists()) {
