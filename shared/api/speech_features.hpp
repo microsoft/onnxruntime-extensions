@@ -623,7 +623,13 @@ class Phi4AudioEmbed {
 
     SpeechLibLogMel logmel;
     // already checked in Init
-    logmel.Init(sr_val == 8000? logmel_8k_attrs_: logmel_attrs_);
+    
+    // Currently we only support 8k and 16k Hz sampling rate.
+    if (sr_val != 8000 && sr_val != 16000){
+      return OrtxStatus(kOrtxErrorNotImplemented, "Currently only 8k and 16k Hz sampling rate is supported. Please resample your audio file with unsupported audio sampling rate: " + sr_val);
+    }
+
+    logmel.Init(sr_val == 8000 ? logmel_8k_attrs_: logmel_attrs_);
     status = logmel.Compute(stft_norm, ts_logmel);
     if (!status.IsOk()) {
       return status;
