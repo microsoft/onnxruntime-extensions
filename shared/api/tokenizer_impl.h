@@ -56,6 +56,8 @@ class TokenizerImpl : public OrtxObjectImpl {
 
   OrtxStatus TokenizerImpl::Phi4ChatTemplate(std::string* output, bool add_generation_prompt, const std::string& eos_token);
   
+  OrtxStatus TokenizerImpl::Phi3_5ChatTemplate(std::string* output, bool add_generation_prompt, const std::string& eos_token);
+
   OrtxStatus TokenizerImpl::ApplyChatTemplate(std::string* output, bool add_generation_prompt, const std::string& eos_token);
 
   OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state) const;
