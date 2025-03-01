@@ -30,6 +30,8 @@ class TokenizerImpl : public OrtxObjectImpl {
     return BatchDecode(t_ids, t_text);
   }
 
+
+
   OrtxStatus Token2Id(const std::string& token, extTokenId_t& id) const {
     id = std::visit([&](auto& tokenizer) { return tokenizer->GetTokenId(token); }, tokenizer_);
     return {};
@@ -51,6 +53,10 @@ class TokenizerImpl : public OrtxObjectImpl {
                          std::vector<std::vector<extTokenId_t>>& t_ids) const;
 
   OrtxStatus BatchDecode(const std::vector<span<extTokenId_t const>>& t_ids, std::vector<std::string>& t_text) const;
+
+  OrtxStatus TokenizerImpl::Phi4ChatTemplate(std::string* output, bool add_generation_prompt, const std::string& eos_token);
+  
+  OrtxStatus TokenizerImpl::ApplyChatTemplate(std::string* output, bool add_generation_prompt, const std::string& eos_token);
 
   OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state) const;
 

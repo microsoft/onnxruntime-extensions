@@ -131,6 +131,60 @@ OrtxStatus TokenizerImpl::BatchDecode(const std::vector<span<extTokenId_t const>
   return {};
 }
 
+// Constant string variable to store predefined chat template strings for popular supported models
+const std::string PHI4_CHAT_TEMPLATE = 
+    R"({% for message in messages %}{% if message['role'] == 'system' and 'tools' in message and message['tools'] is not none %}{{ '<|' + message['role'] + '|>' + message['content'] + '<|tool|>' + message['tools'] + '<|/tool|>' + '<|end|>' }}{% else %}{{ '<|' + message['role'] + '|>' + message['content'] + '<|end|>' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>' }}{% else %}{{ eos_token }}{% endif %})";
+
+// Member variable to store the messages
+std::vector<std::unordered_map<std::string, std::string>> messages;
+    
+// Member variable to store the chat_template (customized for each instance)
+std::string chat_template;
+
+// Phi4ChatTemplate method to process messages and store result in output
+OrtxStatus TokenizerImpl::Phi4ChatTemplate(std::string* output, bool add_generation_prompt = true, const std::string& eos_token = "<|eos|>") {
+    // Clear the output string before starting
+    output->clear();
+
+    // Process the messages
+    for (const auto& message : messages) {
+        std::string role = message.at("role");
+        std::string content = message.at("content");
+
+        // Check if "tools" is present in the message and is not empty for "system" role
+        if (role == "system" && message.find("tools") != message.end() && !message.at("tools").empty()) {
+            std::string tools = message.at("tools");
+            *output += "<|" + role + "|>\n";
+            *output += content + "<|tool|>" + tools + "<|/tool|>" + "<|end|>\n";
+        } else {
+            // For other messages, no tools
+            *output += "<|" + role + "|>\n";
+            *output += content + "<|end|>\n";
+        }
+    }
+
+    // Add generation prompt or eos_token
+    if (add_generation_prompt) {
+        *output += "<|assistant|>\n";
+    } else {
+        *output += eos_token;
+    }
+
+    return OrtxStatus(kOrtxOK, "Created chat template.");
+}
+
+// ApplyChatTemplate method to choose the template logic based on chat_template
+OrtxStatus TokenizerImpl::ApplyChatTemplate(std::string* output, bool add_generation_prompt = true, const std::string& eos_token = "<|eos|>") {
+    // Check if the chat_template matches the global PHI4_CHAT_TEMPLATE string
+    if (chat_template == PHI4_CHAT_TEMPLATE) {
+        // If the template matches, apply Phi4ChatTemplate logic
+        return Phi4ChatTemplate(output, add_generation_prompt, eos_token);
+    } else {
+        // Handle other templates or custom logic here
+        return OrtxStatus(kOrtxErrorNotImplemented, "The provided chat template is currently not supported. Custom template handling needed.");
+    }
+}
+
 OrtxStatus TokenizerImpl::Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state) const {
   return std::visit([&](auto& detokenizer) {
     return detokenizer->Id2Token(id, token, state); }, detokenizer_);
