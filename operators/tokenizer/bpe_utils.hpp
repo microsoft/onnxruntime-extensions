@@ -397,6 +397,11 @@ class PreTokenizerWithRegEx {
       return {};
     }
 
+    if (j >= m_text.size())  {
+      auto res = m_text.substr(0, j);
+      m_text = m_text.substr(j);
+      return res;
+    }
     i = j;
     // (?i:'s|'t|'re|'ve|'m|'ll|'d)?
     if ((m_text[i] == U'\'') && ((i + 1) < m_text.size())) {
@@ -442,6 +447,11 @@ class PreTokenizerWithRegEx {
     } else {
       return {};
     }
+    if (i >= m_text.size()) {
+      auto res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
 
     // [\p{Ll}\p{Lm}\p{Lo}\p{M}]*
     const ufal::unilib::unicode::category_t categories2 =
@@ -450,6 +460,11 @@ class PreTokenizerWithRegEx {
       for (; i < m_text.size(); ++i) {
         if (!IsCategory(m_text[i], categories2)) break;
       }
+    }
+    if (i >= m_text.size()) {
+      auto res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
     }
 
     // (?i:'s|'t|'re|'ve|'m|'ll|'d)?
