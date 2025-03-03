@@ -42,6 +42,10 @@ extError_t ORTX_API_CALL OrtxLoadAudios(OrtxRawAudios** raw_audios, const char* 
   auto audios_obj = std::make_unique<RawAudiosObject>();
   auto [audios, num] =
       ort_extensions::LoadRawData<char const* const*, AudioRawData>(audio_paths, audio_paths + num_audios);
+  if (num == 0) {
+    ReturnableStatus::last_error_message_ = "No audio data loaded";
+    return kOrtxErrorInvalidArgument;
+  }
   audios_obj->audios_ = std::move(audios);
   audios_obj->num_audios_ = num;
 
