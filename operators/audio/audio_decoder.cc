@@ -106,7 +106,7 @@ OrtxStatus AudioDecoder::ComputeInternal(const ortc::Tensor<uint8_t>& input, con
     str_format = *format;
   }
   auto stream_format = ReadStreamFormat(p_data, str_format, status);
-  if (status) {
+  if (!status.IsOk()) {
     return status;
   }
 
