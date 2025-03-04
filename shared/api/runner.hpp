@@ -590,7 +590,8 @@ class OrtxRunner {
         if (shape != ts[axis]->Shape()) {
           is_same_shape = false;
           auto dtype = ts[axis]->Type();
-          if (dtype != ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64 && dtype != ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT) {
+          if (dtype != ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64 &&
+            dtype != ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT && dtype != ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL) {
             return {kOrtxErrorInvalidArgument, "[StackTensors]: shapes of tensors to stack are not the same."};
           }
           if (IsGreaterShape(ts[axis]->Shape(), shape)) {
