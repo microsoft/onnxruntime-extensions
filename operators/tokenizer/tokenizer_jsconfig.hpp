@@ -71,6 +71,7 @@ class TokenJsonConfig final {
       bos_token_ = "<s>";
       eos_token_ = "</s>";
       unk_token_ = "<unk>";
+      chat_template_ = ""; // can add default chat template
       return {};
     }
 
@@ -90,6 +91,8 @@ class TokenJsonConfig final {
     parse_token(json_config, "bos_token", bos_token_);
     parse_token(json_config, "eos_token", eos_token_);
     parse_token(json_config, "unk_token", unk_token_);
+
+    parse_token(json_config, "chat_template", chat_template_);
 
     auto pad_iter = json_config.find("pad_token");
     if (pad_iter != json_config.end() && pad_iter->is_string()) {
@@ -244,6 +247,8 @@ class TokenJsonConfig final {
   std::string eos_token_;
   std::string unk_token_;
   std::string pad_token_;
+
+  std::string chat_template_;
 
   AddedTokenMap added_tokens_;
 

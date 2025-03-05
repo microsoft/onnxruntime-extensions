@@ -87,6 +87,8 @@ OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
     return status;
   }
 
+  chat_template = tok_config_->chat_template_;
+  
   return LoadTokenizer();
 }
 
@@ -143,7 +145,7 @@ std::vector<std::unordered_map<std::string, std::string>> messages;
 std::string chat_template;
 
 // Phi4ChatTemplate method to process messages and store result in output
-OrtxStatus TokenizerImpl::Phi4ChatTemplate(std::string* output, bool add_generation_prompt = true, const std::string& eos_token = "<|eos|>") {
+OrtxStatus TokenizerImpl::Phi4ChatTemplate(std::string* output, bool add_generation_prompt = true, const std::string& eos_token = "<|endoftext|>") {
     // Clear the output string before starting
     output->clear();
 
@@ -155,18 +157,18 @@ OrtxStatus TokenizerImpl::Phi4ChatTemplate(std::string* output, bool add_generat
         // Check if "tools" is present in the message and is not empty for "system" role
         if (role == "system" && message.find("tools") != message.end() && !message.at("tools").empty()) {
             std::string tools = message.at("tools");
-            *output += "<|" + role + "|>\n";
-            *output += content + "<|tool|>" + tools + "<|/tool|>" + "<|end|>\n";
+            *output += "<|" + role + "|>";
+            *output += content + "<|tool|>" + tools + "<|/tool|>" + "<|end|>";
         } else {
             // For other messages, no tools
-            *output += "<|" + role + "|>\n";
-            *output += content + "<|end|>\n";
+            *output += "<|" + role + "|>";
+            *output += content + "<|end|>";
         }
     }
 
     // Add generation prompt or eos_token
     if (add_generation_prompt) {
-        *output += "<|assistant|>\n";
+        *output += "<|assistant|>";
     } else {
         *output += eos_token;
     }
@@ -174,7 +176,7 @@ OrtxStatus TokenizerImpl::Phi4ChatTemplate(std::string* output, bool add_generat
     return OrtxStatus(kOrtxOK, "Created chat template.");
 }
 
-OrtxStatus TokenizerImpl::Phi3_5ChatTemplate(std::string* output, bool add_generation_prompt = true, const std::string& eos_token = "<|eos|>") {
+OrtxStatus TokenizerImpl::Phi3_5ChatTemplate(std::string* output, bool add_generation_prompt = true, const std::string& eos_token = "<|endoftext|>") {
   // Clear the output string before starting
   output->clear();
 
@@ -299,14 +301,18 @@ OrtxStatus TokenizerImpl::Llama3ChatTemplate(
 }
 
 // ApplyChatTemplate method to choose the template logic based on chat_template
-OrtxStatus TokenizerImpl::ApplyChatTemplate(std::string* output, bool add_generation_prompt = true, const std::string& eos_token = "<|eos|>") {
+OrtxStatus TokenizerImpl::ApplyChatTemplate(std::vector<std::unordered_map<std::string, std::string>> message_list, std::string* output, bool add_generation_prompt = true) {
+    
+    // Initialize messages
+    messages = message_list;
+  
     // Check if the chat_template matches any of the supported template strings and if so apply the corresponding template.
     if (chat_template == PHI4_CHAT_TEMPLATE) {
-        return Phi4ChatTemplate(output, add_generation_prompt, eos_token);
+        return Phi4ChatTemplate(output, add_generation_prompt);
     } else if (chat_template == PHI3_5_CHAT_TEMPLATE) {
-      return Phi3_5ChatTemplate(output, add_generation_prompt, eos_token);
+      return Phi3_5ChatTemplate(output, add_generation_prompt);
     } else if (chat_template == LLAMA3_CHAT_TEMPLATE) {
-      return Llama3ChatTemplate(output, add_generation_prompt, eos_token);
+      return Llama3ChatTemplate(output, add_generation_prompt);
     } else {
         // Handle other templates or custom logic here
         return OrtxStatus(kOrtxErrorNotImplemented, "The provided chat template is currently not supported. Custom template handling needed.");
