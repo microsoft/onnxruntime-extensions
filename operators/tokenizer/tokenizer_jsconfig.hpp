@@ -45,7 +45,6 @@ class TokenJsonConfig final {
   TokenJsonConfig() {}
   ~TokenJsonConfig() {}
   using json = nlohmann::json;
-  using json_pointer = nlohmann::json_pointer<std::string>;
   std::shared_ptr<json> added_tokens_decoder;
 
  public:

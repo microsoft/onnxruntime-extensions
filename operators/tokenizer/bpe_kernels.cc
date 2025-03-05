@@ -656,13 +656,16 @@ void JsonFastTokenizer::LoadSpmModelParams(const json& tok_json) {
       for (const auto& step : *decoders_node) {
         std::string type = step.value("type", "");
         if (type == "Replace") {
-          std::string target = step.value("/pattern/String"_json_pointer, "");
+            std::string target = "";
+            if (step.contains("pattern")) {
+              target = step["pattern"].value("String", "");
+            }
           if (target == spm_escaped_space) {
             json_conf_.spm_model_ = true;
           }
         }
         else if (type == "Strip") {
-          std::string content = step.value("/content"_json_pointer, "");
+          std::string content = step.value("content", "");
           if (content == " ") {
             json_conf_.add_dummy_prefix_ = true;
           }

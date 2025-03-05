@@ -34,7 +34,7 @@
       "component": {
         "type": "git",
         "git": {
-          "commitHash": "v19.24.6",
+          "commitHash": "v19.24.7",
           "repositoryUrl": "https://github.com/davisking/dlib.git"
         }
       }
