@@ -470,12 +470,12 @@ stages:
     - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
       displayName: Add conda to PATH
 
-    - script: conda create --yes --quiet --name pyenv -c conda-forge python=$(python.version) numpy
+    - script: |
+        conda create --yes --quiet --name pyenv -c conda-forge python=$(python.version) numpy
       displayName: Create Anaconda environment
 
     - script: |
-        conda init
-        conda activate pyenv
+        conda init --all && call conda activate pyenv
         python -m pip install --upgrade pip
         python -m pip install onnxruntime==$(ort.version)
         python -m pip install -r requirements-dev.txt
@@ -483,21 +483,21 @@ stages:
       condition: ne(variables['python.version'], '3.12')
 
     - script: |
-        conda init  
-        conda activate pyenv
+        conda init --all
+        call conda activate pyenv
         set CMAKE_ARGS=-DOCOS_ONNXRUNTIME_VERSION=$(ort.version)
         python -m pip install .
       displayName: Build the wheel
 
     - script: |
-        conda init
+        conda init --all
         conda activate pyenv
         python -m pip install $(torch.version)
       displayName: Install pytorch
       condition: ne(variables['python.version'], '3.12')
 
     - script: |
-        conda init
+        conda init --all
         conda activate pyenv
         python -m pytest test
       displayName: Run python test
