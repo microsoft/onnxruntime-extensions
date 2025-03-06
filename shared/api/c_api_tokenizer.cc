@@ -310,7 +310,7 @@ extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, Or
 extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, const char* template_str,
                                                const char* input, OrtxStringArray** output,
                                                bool add_generation_prompt) {
-  if (tokenizer == nullptr || output == nullptr) {
+  if (tokenizer == nullptr && template_str == nullptr) {
     ReturnableStatus::last_error_message_ = "both tokenizer and template_str are null, no template to apply";
     return kOrtxErrorInvalidArgument;
   }
