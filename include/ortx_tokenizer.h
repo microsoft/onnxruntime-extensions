@@ -183,7 +183,7 @@ extError_t ORTX_API_CALL OrtxTokenId2DArrayGetItem(
  * @param tokenizer Pointer to an OrtxTokenizer used for template processing
  * @param template_str Null-terminated string representing the chat template, can be null if tokenizer.json has one.
  * @param input Null-terminated string containing the input to be processed.
- * @param output Double pointer to an OrtxStringArray that will be populated with the output strings.
+ * @param output an OrtxStringArray that will be populated with the output strings.
  * @param add_generation_prompt Indicates whether to add a generation prompt to the output (defaults to true).
  * @return extError_t Returns an error code indicating success or the type of failure.
  */
