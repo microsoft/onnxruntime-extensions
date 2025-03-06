@@ -57,6 +57,7 @@ class TokenizerImpl : public OrtxObjectImpl {
   const std::string PHI4_CHAT_TEMPLATE;
   const std::string PHI3_5_CHAT_TEMPLATE;
   const std::string LLAMA3_CHAT_TEMPLATE;
+  const std::string DEEPSEEK_CHAT_TEMPLATE;
 
   std::string chat_template;
   std::vector<std::unordered_map<std::string, std::string>> messages;
