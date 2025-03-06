@@ -474,8 +474,8 @@ stages:
       displayName: Create Anaconda environment
 
     - script: |
-        call conda init
-        call conda activate pyenv
+        conda init
+        conda activate pyenv
         python -m pip install --upgrade pip
         python -m pip install onnxruntime==$(ort.version)
         python -m pip install -r requirements-dev.txt
@@ -483,22 +483,22 @@ stages:
       condition: ne(variables['python.version'], '3.12')
 
     - script: |
-        call conda init  
-        call conda activate pyenv
+        conda init  
+        conda activate pyenv
         set CMAKE_ARGS=-DOCOS_ONNXRUNTIME_VERSION=$(ort.version)
         python -m pip install .
       displayName: Build the wheel
 
     - script: |
-        call conda init
-        call conda activate pyenv
+        conda init
+        conda activate pyenv
         python -m pip install $(torch.version)
       displayName: Install pytorch
       condition: ne(variables['python.version'], '3.12')
 
     - script: |
-        call conda init
-        call conda activate pyenv
+        conda init
+        conda activate pyenv
         python -m pytest test
       displayName: Run python test
       condition: ne(variables['python.version'], '3.12')
