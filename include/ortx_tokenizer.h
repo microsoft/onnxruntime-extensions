@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include "ortx_utils.h"
 
 #ifdef __cplusplus
@@ -75,7 +76,6 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer, 
  */
 extError_t ORTX_API_CALL OrtxTokenize(
     const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size, OrtxTokenId2DArray** output);
-
 
 /**
  * Converts a token to its corresponding ID.
@@ -170,6 +170,26 @@ extError_t ORTX_API_CALL OrtxTokenId2DArrayGetBatch(const OrtxTokenId2DArray* to
  */
 extError_t ORTX_API_CALL OrtxTokenId2DArrayGetItem(
     const OrtxTokenId2DArray* token_id_2d_array, size_t index, const extTokenId_t** item, size_t* length);
+
+/**
+ * @brief Applies a chat template to the given input.
+ *
+ * This function processes the specified template with the provided input using the
+ * tokenizer, and outputs the resulting string array. Optionally, it can include a
+ * generation prompt in the output. The chat template can be provided as a string or
+ * be retrieved from a loaded tokenizer json file which contains the chat template its json file.
+ * if both tokenizer and template_str are provided, the template_str will supersede the tokenizer.
+ *
+ * @param tokenizer Pointer to an OrtxTokenizer used for template processing
+ * @param template_str Null-terminated string representing the chat template, can be null if tokenizer.json has one.
+ * @param input Null-terminated string containing the input to be processed.
+ * @param output Double pointer to an OrtxStringArray that will be populated with the output strings.
+ * @param add_generation_prompt Indicates whether to add a generation prompt to the output (defaults to true).
+ * @return extError_t Returns an error code indicating success or the type of failure.
+ */
+extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, const char* template_str,
+                                               const char* input, OrtxStringArray** output,
+                                               bool add_generation_prompt);
 
 #ifdef __cplusplus
 }

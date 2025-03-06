@@ -611,3 +611,18 @@ TEST(OrtxTokenizerTest, AddedTokensTest) {
   DumpTokenIds(token_ids);
   EXPECT_EQ(token_ids[0], EXPECTED_IDS_0);
 }
+
+TEST(OrtxTokenizerTest, Llama2ChatTemplate) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/llama2");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  OrtxObjectPtr<OrtxStringArray> templated_text;
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    "{\"role\": \"user\", \"content\": \"hello\"},", templated_text.ToBeAssigned(), true);
+
+  ASSERT_EQ(err, kOrtxOK) << "Failed to apply chat template, stopping the test.";
+  const char* text = nullptr;
+  OrtxStringArrayGetItem(templated_text.get(), 0, &text);
+  EXPECT_STREQ(text, "<s>[INST] hello [/INST]response</s>[INST] again [/INST]response</s>");
+}

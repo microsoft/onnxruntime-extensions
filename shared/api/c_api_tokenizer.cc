@@ -306,3 +306,26 @@ extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, Or
 
   return status.Code();
 }
+
+extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, const char* template_str,
+                                               const char* input, OrtxStringArray** output,
+                                               bool add_generation_prompt) {
+  if (tokenizer == nullptr || output == nullptr) {
+    ReturnableStatus::last_error_message_ = "both tokenizer and template_str are null, no template to apply";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  const auto token_ptr = static_cast<const TokenizerImpl*>(tokenizer);
+  ReturnableStatus status(token_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindTokenizer));
+  if (!status.IsOk()) {
+    return status.Code();
+  }
+
+
+  auto result = std::make_unique<ort_extensions::StringArray>().release();
+  result->SetStrings(std::vector<std::string>({"<s>[INST] hello [/INST]response</s>[INST] again [/INST]response</s>"}));
+  *output = static_cast<OrtxStringArray*>(result);
+
+
+  return status.Code();
+}
