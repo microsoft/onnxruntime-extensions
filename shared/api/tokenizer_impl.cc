@@ -222,7 +222,7 @@ OrtxStatus TokenizerImpl::Llama3ChatTemplate(
   output->clear();
 
   // Prepend BOS token at the start of the output
-  *output += bos_token + "\n";  // BOS token goes first
+  *output += bos_token;  // BOS token goes first
 
   // Initialize date_string with default value
   std::string date_string = "26 Jul 2024";  // Default date
@@ -255,7 +255,6 @@ OrtxStatus TokenizerImpl::Llama3ChatTemplate(
 
               *output += tools_json.dump(4) + "\n\n";
           }
-          *output += "<|eot_id|>\n";
       }
 
       // Handle user message with tools in it
@@ -279,15 +278,17 @@ OrtxStatus TokenizerImpl::Llama3ChatTemplate(
 
           // Serialize the tool call as JSON and append it to output
           *output += "<|start_header_id|>assistant<|end_header_id|>\n\n";
-          *output += tool_call_json.dump() + "\n";
-          *output += "<|eot_id|>\n";  // End of tool call
+          *output += tool_call_json.dump();
+          *output += "<|eot_id|>";  // End of tool call
       }
 
       // Handle other messages (user, assistant, etc.)
       else {
-          *output += "<|start_header_id|>" + role + "<|end_header_id|>\n\n";
-          *output += content + "\n";
-          *output += "<|eot_id|>\n";
+          if (role != "system") {
+            *output += "<|start_header_id|>" + role + "<|end_header_id|>\n\n";
+          }
+          *output += content;
+          *output += "<|eot_id|>";
       }
   }
 
