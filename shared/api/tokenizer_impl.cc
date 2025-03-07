@@ -279,7 +279,7 @@ OrtxStatus TokenizerImpl::Llama3ChatTemplate(
           // Serialize the tool call as JSON and append it to output
           *output += "<|start_header_id|>assistant<|end_header_id|>\n\n";
           *output += tool_call_json.dump();
-          *output += "<|eot_id|>";  // End of tool call
+          *output += eos_token;  // End of tool call
       }
 
       // Handle other messages (user, assistant, etc.)
@@ -288,7 +288,7 @@ OrtxStatus TokenizerImpl::Llama3ChatTemplate(
             *output += "<|start_header_id|>" + role + "<|end_header_id|>\n\n";
           }
           *output += content;
-          *output += "<|eot_id|>";
+          *output += eos_token;
       }
   }
 
@@ -374,16 +374,19 @@ OrtxStatus TokenizerImpl::DeepSeekChatTemplate(
               *output += "\n<｜tool_call_begin｜>" + tool_calls_json[0]["type"].get<std::string>() + "<｜tool_sep｜>" + tool_calls_json[0]["function"]["name"].get<std::string>() + "\njson\n" + tool_calls_json[0]["function"]["arguments"].dump() + "\n<｜tool_call_end｜>";
           }
 
-          *output += "<｜tool_calls_end｜><｜end▁of▁sentence｜>";
+          *output += "<｜tool_calls_end｜>";
+          *output += eos_token;
       }
 
       // Handle assistant message without tool calls
       if (role == "assistant" && !content.empty()) {
           if (is_tool) {
-              *output += "<｜tool_outputs_end｜>" + content + "<｜end▁of▁sentence｜>";
+              *output += "<｜tool_outputs_end｜>" + content;
+              *output += eos_token;
               is_tool = false;
           } else {
-              *output += "<｜Assistant｜>" + content + "<｜end▁of▁sentence｜>";
+              *output += "<｜Assistant｜>" + content;
+              *output += eos_token;
           }
       }
 
