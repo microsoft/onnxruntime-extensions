@@ -467,38 +467,32 @@ stages:
           ort.version: '1.15.1'
 
     steps:
-    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
-      displayName: Add conda to PATH
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: $(python.version)
+        disableDownloadFromRegistry: true
+        addToPath: true
+        architecture: 'x64'
+      displayName: Use ADO python task
 
     - script: |
-        conda create --yes --quiet --name pyenv -c conda-forge python=$(python.version) numpy
-      displayName: Create Anaconda environment
-
-    - script: |
-        call conda activate pyenv
         python -m pip install --upgrade pip
         python -m pip install onnxruntime==$(ort.version)
         python -m pip install -r requirements-dev.txt
       displayName: Install requirements{-dev}.txt and cmake python modules
-      condition: ne(variables['python.version'], '3.12')
 
     - script: |
-        call conda activate pyenv
         set CMAKE_ARGS=-DOCOS_ONNXRUNTIME_VERSION=$(ort.version)
         python -m pip install .
       displayName: Build the wheel
 
     - script: |
-        call conda activate pyenv
         python -m pip install $(torch.version)
       displayName: Install pytorch
-      condition: ne(variables['python.version'], '3.12')
 
     - script: |
-        call conda activate pyenv
         python -m pytest test
       displayName: Run python test
-      condition: ne(variables['python.version'], '3.12')
 
   #################
   # Windows PyDebug
@@ -510,7 +504,7 @@ stages:
     steps:
     - task: UsePythonVersion@0
       inputs:
-        versionSpec: '3.x'
+        versionSpec: '3.12'
         disableDownloadFromRegistry: true
         addToPath: true
         architecture: 'x64'
