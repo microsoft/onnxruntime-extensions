@@ -445,26 +445,26 @@ stages:
 
     strategy:
       matrix:
+        py312-1201:
+          python.version: '3.12'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.20.1'
         py312-1192:
           python.version: '3.12'
           torch.version: 'torch torchvision torchaudio'
           ort.version: '1.19.2'
-        py312-1181:
-          python.version: '3.12'
+        py311-1181:
+          python.version: '3.11'
           torch.version: 'torch torchvision torchaudio'
           ort.version: '1.18.1'
-        py311-1171:
-          python.version: '3.11'
+        py310-1171:
+          python.version: '3.10'
           torch.version: 'torch torchvision torchaudio'
           ort.version: '1.17.1'
         py310-1163:
           python.version: '3.10'
           torch.version: 'torch torchvision torchaudio'
           ort.version: '1.16.3'
-        py310-1151:
-          python.version: '3.10'
-          torch.version: 'torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
-          ort.version: '1.15.1'
 
     steps:
     - task: UsePythonVersion@0
