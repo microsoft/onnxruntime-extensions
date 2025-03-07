@@ -461,8 +461,8 @@ stages:
           python.version: '3.10'
           torch.version: 'torch torchvision torchaudio'
           ort.version: '1.16.3'
-        py39-1151:
-          python.version: '3.9'
+        py310-1151:
+          python.version: '3.10'
           torch.version: 'torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
           ort.version: '1.15.1'
 
@@ -513,10 +513,11 @@ stages:
     - script: |
         python -m pip install --upgrade setuptools pip
         python -m pip install "numpy < 2.0.0"
-        set OCOS_NO_OPENCV=1
-        set OCOS_SCB_DEBUG=1
         python -m pip install -v -e .
       displayName: Build onnxruntime-extensions in editable mode.
+      env:
+        OCOS_NO_OPENCV: 1
+        OCOS_SCB_DEBUG: 1
 
     - script: |
         python -m pip install -r requirements-dev.txt
