@@ -191,14 +191,14 @@ class PreTokenizerWithRegEx {
     return {};
   }
 
-  // "\s+(?!\S)|\s+)"
+  // "\s+(?!\S)|\s+"
   std::u32string_view Match_GPT2_Pattern_4() {
     if ((m_text.size() >= 1) && (IsZ(m_text[0]))) {
       size_t i = 1;
       for (; i < m_text.size(); ++i) {
         if (!IsZ(m_text[i])) break;
       }
-      if ((i > 1) && (i != m_text.size())) {  //\s+(?!\S)
+      if ((i > 1) && (i != m_text.size())) {  // ?!\S
         i--;
         std::u32string_view res = m_text.substr(0, i);
         m_text = m_text.substr(i);
@@ -504,28 +504,29 @@ class PreTokenizerWithRegEx {
   OrtxStatus Compile(const std::string& regex) {
     // NOTES: to avoid the short pattern shadowing the longer one, the longer pattern should be placed first
     auto patterns = std::vector<std::tuple<std::string_view, RegexMatchFunc>>{
-        {R"((?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD]))",
-         &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_1},
         {R"([^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?)",
          &PreTokenizerWithRegEx::Match_PHI4_Pattern_1},
         {R"([^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?)",
          &PreTokenizerWithRegEx::Match_PHI4_Pattern_2},
+        {R"((?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD]))",
+         &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_1},
         {R"((?i:'s|'t|'re|'ve|'m|'ll|'d))", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_1},
-        {R"('s|'t|'re|'ve|'m|'ll|'d)", &PreTokenizerWithRegEx::Match_GPT2_Pattern_1},
-        {R"([^\r\n\p{L}\p{N}]?\p{L}+)", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_2},
-        {R"(\p{N}{1,3})", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_3},
+        {R"( ?[^\s\p{L}\p{N}]+[\r\n/]*)", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_4},
         {R"( ?[^\s\p{L}\p{N}]+[\r\n]*)", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_4},
-        {R"(\s*[\r\n]+)", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_5},
-        {R"( ?\p{L}+| ?\p{N}+)", &PreTokenizerWithRegEx::Match_GPT2_Pattern_2},
+        {R"([^\r\n\p{L}\p{N}]?\p{L}+)", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_2},
+        {R"('s|'t|'re|'ve|'m|'ll|'d)", &PreTokenizerWithRegEx::Match_GPT2_Pattern_1},
         {R"( ?[^\s\p{L}\p{N}]+)", &PreTokenizerWithRegEx::Match_GPT2_Pattern_3},
-        {R"(\s+(?!\S)|\s+)", &PreTokenizerWithRegEx::Match_GPT2_Pattern_4},
+        {R"( ?\p{L}+| ?\p{N}+)", &PreTokenizerWithRegEx::Match_GPT2_Pattern_2},
         {R"([\p{L}]+|[\p{N}])", &PreTokenizerWithRegEx::Match_CLIP_Pattern_1},
         {R"([^\s\p{L}\p{N}]+)", &PreTokenizerWithRegEx::Match_CLIP_Pattern_2},
-        {R"(?[^\s\p{L}\p{N}]+[\r\n/]*)", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_4},
+        {R"(\s+(?!\S)|\s+)", &PreTokenizerWithRegEx::Match_GPT2_Pattern_4},
+        {R"(\p{N}{1,3})", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_3},
+        {R"(\s*[\r\n]+)", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_5},
         {R"(\p{N})", &PreTokenizerWithRegEx::Match_General_Pattern_1},
     };
 
     std::string regex_compound = regex;
+    std::map<size_t, RegexMatchFunc> patterns_map;  // using map for a ordered pattern matchers
     for (const auto& [pattern, func] : patterns) {
       auto pos = regex_compound.find(pattern);
       if (pos != std::string::npos) {
@@ -539,8 +540,9 @@ class PreTokenizerWithRegEx {
             continue;
           }
         }
-
-        activated_matchers_.push_back(func);
+        auto original_pos = regex.find(pattern);
+        assert(original_pos != std::string::npos);
+        patterns_map[original_pos] = func;
         std::string regex_prefix;
         auto pattern_size = pattern.size();
         if (pos > 0) {  // remove the '|' at the end of the prefix
@@ -556,6 +558,9 @@ class PreTokenizerWithRegEx {
         }
         regex_compound = regex_prefix + regex_compound.substr(pos + pattern_size);
       }
+    }
+    for (const auto& [_, func] : patterns_map) {
+      activated_matchers_.push_back(func);
     }
 
     if (regex_compound.size() > 0) {

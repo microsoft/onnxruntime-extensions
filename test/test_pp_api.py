@@ -10,7 +10,7 @@ from PIL import Image
 # os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 is_pp_api_available = False
 hf_token_id = None
-phi4_model_local_path = None
+phi4_model_local_path = "microsoft/Phi-4-multimodal-instruct"
 try:
     from transformers import AutoImageProcessor, AutoTokenizer
     from onnxruntime_extensions import pp_api
@@ -201,7 +201,7 @@ class TestPPAPI(unittest.TestCase):
     def test_Phi4_tokenizer(self):
         model_id = phi4_model_local_path
         test_sentence = ['<|user|>\n' + self.tokenizer_test_sentence]
-        hf_enc = AutoTokenizer.from_pretrained(model_id, use_fast=True)
+        hf_enc = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True, use_fast=True)
         inputs = hf_enc(test_sentence)["input_ids"]
         tokenizer = pp_api.Tokenizer(model_id)
         ortx_inputs = tokenizer.tokenize(test_sentence)
