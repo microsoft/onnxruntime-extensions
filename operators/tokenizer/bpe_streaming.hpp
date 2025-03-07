@@ -93,9 +93,11 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
   }
 
   OrtxStatus SpmId2Token(extTokenId_t id, std::string& token, bool& f_special_last) const {
-    bool f_special = all_special_ids_.count(id) ? true : false;
+    bool f_special = false;
     if (added_tokens_.count(id)) {
-      token = added_tokens_.at(id);
+      f_special = all_special_ids_.count(id) ? true : false;
+      // special token was skipped
+      token = f_special ? "" : added_tokens_.at(id);
     } else {
       std::string piece = id < arr_vocab_.size() ? arr_vocab_[id] : "";
       if (piece.empty()) {
