@@ -491,7 +491,7 @@ stages:
       displayName: Install pytorch
 
     - script: |
-        python -m pytest test
+        cd test && python -m pytest .
       displayName: Run python test
 
   #################
