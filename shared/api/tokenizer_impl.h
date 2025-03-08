@@ -68,6 +68,8 @@ class TokenizerImpl : public OrtxObjectImpl {
   
   OrtxStatus Phi3_5ChatTemplate(std::string* output, bool add_generation_prompt, const std::string& eos_token);
 
+  OrtxStatus Llama3ChatTemplate(std::string* output, bool add_generation_prompt, const std::string& eos_token, const std::string& bos_token);
+
   OrtxStatus Llama3_2ChatTemplate(std::string* output, bool add_generation_prompt, const std::string& eos_token, const std::vector<std::string>& custom_tools, bool tools_in_user_message, const std::string& strftime_now, const std::string& bos_token);
 
   OrtxStatus Llama3_3ChatTemplate(std::string* output, bool add_generation_prompt, const std::string& eos_token, const std::vector<std::string>& custom_tools, const std::vector<std::string>& builtin_tools, bool tools_in_user_message, const std::string& date_string, const std::string& bos_token);
