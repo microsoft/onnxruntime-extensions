@@ -134,8 +134,10 @@ OrtxStatus TokenizerImpl::BatchDecode(const std::vector<span<extTokenId_t const>
 }
 
 // Constant string variable to store predefined chat template strings for popular supported models
-const std::string PHI4_CHAT_TEMPLATE = R"({% for message in messages %}{% if message['role'] == 'system' and 'tools' in message and message['tools'] is not none %}{{ '<|' + message['role'] + '|>' + message['content'] + '<|tool|>' + message['tools'] + '<|/tool|>' + '<|end|>' }}{% else %}{{ '<|' + message['role'] + '|>' + message['content'] + '<|end|>' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>' }}{% else %}{{ eos_token }}{% endif %})";
+const std::string PHI_VISION_CHAT_TEMPLATE = R"({% for message in messages %}{{'<|' + message['role'] + '|>' + '\n' + message['content'] + '<|end|>\n' }}{% endfor %}{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{- '<|assistant|>\n' -}}{% endif %})";
+const std::string PHI3_CHAT_TEMPLATE = R"({% for message in messages %}{% if message['role'] == 'system' %}{{'<|system|>\n' + message['content'] + '<|end|>\n'}}{% elif message['role'] == 'user' %}{{'<|user|>\n' + message['content'] + '<|end|>\n'}}{% elif message['role'] == 'assistant' %}{{'<|assistant|>\n' + message['content'] + '<|end|>\n'}}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>\n' }}{% else %}{{ eos_token }}{% endif %})";
 const std::string PHI3_5_CHAT_TEMPLATE = R"({% for message in messages %}{% if message['role'] == 'system' and message['content'] %}{{'<|system|>\n' + message['content'] + '<|end|>\n'}}{% elif message['role'] == 'user' %}{{'<|user|>\n' + message['content'] + '<|end|>\n'}}{% elif message['role'] == 'assistant' %}{{'<|assistant|>\n' + message['content'] + '<|end|>\n'}}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>\n' }}{% else %}{{ eos_token }}{% endif %})";
+const std::string PHI4_CHAT_TEMPLATE = R"({% for message in messages %}{% if message['role'] == 'system' and 'tools' in message and message['tools'] is not none %}{{ '<|' + message['role'] + '|>' + message['content'] + '<|tool|>' + message['tools'] + '<|/tool|>' + '<|end|>' }}{% else %}{{ '<|' + message['role'] + '|>' + message['content'] + '<|end|>' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>' }}{% else %}{{ eos_token }}{% endif %})";
 const std::string LLAMA2_CHAT_TEMPLATE = R"({% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}{% else %}{% set loop_messages = messages %}{% set system_message = false %}{% endif %}{% for message in loop_messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if loop.index0 == 0 and system_message != false %}{% set content = '<<SYS>>\\n' + system_message + '\\n<</SYS>>\\n\\n' + message['content'] %}{% else %}{% set content = message['content'] %}{% endif %}{% if message['role'] == 'user' %}{{ bos_token + '[INST] ' + content.strip() + ' [/INST]' }}{% elif message['role'] == 'assistant' %}{{ ' '  + content.strip() + ' ' + eos_token }}{% endif %}{% endfor %})";
 const std::string LLAMA3_CHAT_TEMPLATE = R"({% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = bos_token + content %}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% endif %})";
 const std::string LLAMA3_2_CHAT_TEMPLATE = R"({{- bos_token }}\n{%- if custom_tools is defined %}\n    {%- set tools = custom_tools %}\n{%- endif %}\n{%- if not tools_in_user_message is defined %}\n    {%- set tools_in_user_message = true %}\n{%- endif %}\n{%- if not date_string is defined %}\n    {%- if strftime_now is defined %}\n        {%- set date_string = strftime_now(\"%d %b %Y\") %}\n    {%- else %}\n        {%- set date_string = \"26 Jul 2024\" %}\n    {%- endif %}\n{%- endif %}\n{%- if not tools is defined %}\n    {%- set tools = none %}\n{%- endif %}\n\n{#- This block extracts the system message, so we can slot it into the right place. #}\n{%- if messages[0]['role'] == 'system' %}\n    {%- set system_message = messages[0]['content']|trim %}\n    {%- set messages = messages[1:] %}\n{%- else %}\n    {%- set system_message = \"\" %}\n{%- endif %}\n\n{#- System message #}\n{{- \"<|start_header_id|>system<|end_header_id|>\\n\\n\" }}\n{%- if tools is not none %}\n    {{- \"Environment: ipython\\n\" }}\n{%- endif %}\n{{- \"Cutting Knowledge Date: December 2023\\n\" }}\n{{- \"Today Date: \" + date_string + \"\\n\\n\" }}\n{%- if tools is not none and not tools_in_user_message %}\n    {{- \"You have access to the following functions. To call a function, please respond with JSON for a function call.\" }}\n    {{- 'Respond in the format {\"name\": function name, \"parameters\": dictionary of argument name and its value}.' }}\n    {{- \"Do not use variables.\\n\\n\" }}\n    {%- for t in tools %}\n        {{- t | tojson(indent=4) }}\n        {{- \"\\n\\n\" }}\n    {%- endfor %}\n{%- endif %}\n{{- system_message }}\n{{- \"<|eot_id|>\" }}\n\n{#- Custom tools are passed in a user message with some extra guidance #}\n{%- if tools_in_user_message and not tools is none %}\n    {#- Extract the first user message so we can plug it in here #}\n    {%- if messages | length != 0 %}\n        {%- set first_user_message = messages[0]['content']|trim %}\n        {%- set messages = messages[1:] %}\n    {%- else %}\n        {{- raise_exception(\"Cannot put tools in the first user message when there's no first user message!\") }}\n{%- endif %}\n    {{- '<|start_header_id|>user<|end_header_id|>\\n\\n' -}}\n    {{- \"Given the following functions, please respond with a JSON for a function call \" }}\n    {{- \"with its proper arguments that best answers the given prompt.\\n\\n\" }}\n    {{- 'Respond in the format {\"name\": function name, \"parameters\": dictionary of argument name and its value}.' }}\n    {{- \"Do not use variables.\\n\\n\" }}\n    {%- for t in tools %}\n        {{- t | tojson(indent=4) }}\n        {{- \"\\n\\n\" }}\n    {%- endfor %}\n    {{- first_user_message + \"<|eot_id|>\"}}\n{%- endif %}\n\n{%- for message in messages %}\n    {%- if not (message.role == 'ipython' or message.role == 'tool' or 'tool_calls' in message) %}\n        {{- '<|start_header_id|>' + message['role'] + '<|end_header_id|>\\n\\n'+ message['content'] | trim + '<|eot_id|>' }}\n    {%- elif 'tool_calls' in message %}\n        {%- if not message.tool_calls|length == 1 %}\n            {{- raise_exception(\"This model only supports single tool-calls at once!\") }}\n        {%- endif %}\n        {%- set tool_call = message.tool_calls[0].function %}\n        {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' -}}\n        {{- '{\"name\": \"' + tool_call.name + '\", ' }}\n        {{- '\"parameters\": ' }}\n        {{- tool_call.arguments | tojson }}\n        {{- \"}\" }}\n        {{- \"<|eot_id|>\" }}\n    {%- elif message.role == \"tool\" or message.role == \"ipython\" %}\n        {{- \"<|start_header_id|>ipython<|end_header_id|>\\n\\n\" }}\n        {%- if message.content is mapping or message.content is iterable %}\n            {{- message.content | tojson }}\n        {%- else %}\n            {{- message.content }}\n        {%- endif %}\n        {{- \"<|eot_id|>\" }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' }}\n{%- endif %}\n)";
@@ -148,39 +150,30 @@ std::vector<std::unordered_map<std::string, std::string>> messages;
 // Member variable to store the chat_template (customized for each instance)
 std::string chat_template;
 
-// Phi4ChatTemplate method to process messages and store result in output
-OrtxStatus TokenizerImpl::Phi4ChatTemplate(std::string* output, bool add_generation_prompt = true, const std::string& eos_token = "<|endoftext|>") {
-    // Clear the output string before starting
-    output->clear();
+OrtxStatus TokenizerImpl::PhiVisionChatTemplate(std::string* output, bool add_generation_prompt = true) {
 
-    // Process the messages
-    for (const auto& message : messages) {
-        std::string role = message.at("role");
-        std::string content = message.at("content");
+  // Clear the output string before starting
+  output->clear();
 
-        // Check if "tools" is present in the message and is not empty for "system" role
-        if (role == "system" && message.find("tools") != message.end() && !message.at("tools").empty()) {
-            std::string tools = message.at("tools");
-            *output += "<|" + role + "|>";
-            *output += content + "<|tool|>" + tools + "<|/tool|>" + "<|end|>";
-        } else {
-            // For other messages, no tools
-            *output += "<|" + role + "|>";
-            *output += content + "<|end|>";
-        }
-    }
+  // Iterate over the messages
+  for (const auto& message : messages) {
+      std::string role = message.at("role");
+      std::string content = message.at("content");
 
-    // Add generation prompt or eos_token
-    if (add_generation_prompt) {
-        *output += "<|assistant|>";
-    } else {
-        *output += eos_token;
-    }
+      // Format the message according to the role
+      *output += "<|" + role + "|>\n" + content + "<|end|>\n";
+  }
 
-    return OrtxStatus(kOrtxOK, "Created Phi-4 chat template.");
+  // Check if a generation prompt is needed and the last message isn't from the assistant
+  if (add_generation_prompt && messages.back().at("role") != "assistant") {
+      *output += "<|assistant|>\n";
+  }
+
+  return OrtxStatus(kOrtxOK, "Created Phi Vision chat template.");
 }
 
-OrtxStatus TokenizerImpl::Phi3_5ChatTemplate(std::string* output, bool add_generation_prompt = true, const std::string& eos_token = "<|endoftext|>") {
+// Note Phi-3 and Phi-3.5 have slightly different chat template strings but share the same functionality so this method can be used for both.
+OrtxStatus TokenizerImpl::Phi3ChatTemplate(std::string* output, bool add_generation_prompt = true, const std::string& eos_token = "<|endoftext|>") {
   // Clear the output string before starting
   output->clear();
 
@@ -210,6 +203,37 @@ OrtxStatus TokenizerImpl::Phi3_5ChatTemplate(std::string* output, bool add_gener
   }
 
   return OrtxStatus(kOrtxOK, "Created Phi-3.5 chat template.");
+}
+
+OrtxStatus TokenizerImpl::Phi4ChatTemplate(std::string* output, bool add_generation_prompt = true, const std::string& eos_token = "<|endoftext|>") {
+  // Clear the output string before starting
+  output->clear();
+
+  // Process the messages
+  for (const auto& message : messages) {
+      std::string role = message.at("role");
+      std::string content = message.at("content");
+
+      // Check if "tools" is present in the message and is not empty for "system" role
+      if (role == "system" && message.find("tools") != message.end() && !message.at("tools").empty()) {
+          std::string tools = message.at("tools");
+          *output += "<|" + role + "|>";
+          *output += content + "<|tool|>" + tools + "<|/tool|>" + "<|end|>";
+      } else {
+          // For other messages, no tools
+          *output += "<|" + role + "|>";
+          *output += content + "<|end|>";
+      }
+  }
+
+  // Add generation prompt or eos_token
+  if (add_generation_prompt) {
+      *output += "<|assistant|>";
+  } else {
+      *output += eos_token;
+  }
+
+  return OrtxStatus(kOrtxOK, "Created Phi-4 chat template.");
 }
 
 OrtxStatus TokenizerImpl::Llama2ChatTemplate(
@@ -645,8 +669,10 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(std::vector<std::unordered_map<std::
   // Check if the chat_template matches any of the supported template strings and if so apply the corresponding template.
   if (chat_template == PHI4_CHAT_TEMPLATE) {
     return Phi4ChatTemplate(output, add_generation_prompt);
-  } else if (chat_template == PHI3_5_CHAT_TEMPLATE) {
-    return Phi3_5ChatTemplate(output, add_generation_prompt);
+  } else if (chat_template == PHI3_CHAT_TEMPLATE || chat_template == PHI3_5_CHAT_TEMPLATE) {
+    return Phi3ChatTemplate(output, add_generation_prompt);
+  } else if (chat_template == PHI_VISION_CHAT_TEMPLATE) {
+    return PhiVisionChatTemplate(output, add_generation_prompt);
   } else if (chat_template == LLAMA2_CHAT_TEMPLATE) {
     return Llama2ChatTemplate(output, add_generation_prompt);
   } else if (chat_template == LLAMA3_CHAT_TEMPLATE) {
