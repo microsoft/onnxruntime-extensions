@@ -56,6 +56,7 @@ class TokenizerImpl : public OrtxObjectImpl {
 
   const std::string PHI4_CHAT_TEMPLATE;
   const std::string PHI3_5_CHAT_TEMPLATE;
+  const std::string LLAMA2_CHAT_TEMPLATE;
   const std::string LLAMA3_CHAT_TEMPLATE;
   const std::string LLAMA3_2_CHAT_TEMPLATE;
   const std::string LLAMA3_3_CHAT_TEMPLATE;
@@ -67,6 +68,8 @@ class TokenizerImpl : public OrtxObjectImpl {
   OrtxStatus Phi4ChatTemplate(std::string* output, bool add_generation_prompt, const std::string& eos_token);
   
   OrtxStatus Phi3_5ChatTemplate(std::string* output, bool add_generation_prompt, const std::string& eos_token);
+
+  OrtxStatus Llama2ChatTemplate(std::string* output, bool add_generation_prompt, const std::string& eos_token, const std::string& bos_token);
 
   OrtxStatus Llama3ChatTemplate(std::string* output, bool add_generation_prompt, const std::string& eos_token, const std::string& bos_token);
 
