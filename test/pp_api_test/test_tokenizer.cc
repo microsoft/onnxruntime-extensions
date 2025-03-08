@@ -611,3 +611,30 @@ TEST(OrtxTokenizerTest, AddedTokensTest) {
   DumpTokenIds(token_ids);
   EXPECT_EQ(token_ids[0], EXPECTED_IDS_0);
 }
+
+TEST(OrtxTokenizerTest, ChatTemplate) {
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+
+  // Since we do not have local test files for Phi4/Llama3/DeepSeek, we simply manually
+  // set the chat_template, but otherwise this will be loaded from the tokenizer config automatically.
+  tokenizer->chat_template = tokenizer->PHI4_CHAT_TEMPLATE;
+
+  std::vector<std::unordered_map<std::string, std::string>> messages = {
+    {{"role", "system"}, {"content", "You are a helpful assistant."}, {"tools", "Calculator"}},
+    {{"role", "user"}, {"content", "How do I add two numbers?"}},
+    {{"role", "assistant"}, {"content", "You can add numbers by using the '+' operator."}}
+  };
+
+  // From HuggingFace Python output for 'microsoft/Phi-4-multimodal-instruct'
+  std::string expected_output = "<|system|>You are a helpful assistant.<|tool|>Calculator<|/tool|><|end|><|user|>How do I add two numbers?<|end|><|assistant|>You can add numbers by using the '+' operator.<|end|><|assistant|>";
+
+  std::string output = "";
+  
+  auto status = tokenizer->ApplyChatTemplate(messages, &output, true);
+
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+  }
+
+  ASSERT_EQ(output, expected_output);
+}
