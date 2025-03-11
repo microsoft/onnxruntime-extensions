@@ -630,7 +630,7 @@ TEST(OrtxTokenizerTest, ChatTemplate) {
 
   std::string output = "";
   
-  auto status = tokenizer->ApplyChatTemplate(messages, &output, true);
+  auto status = tokenizer->ApplyChatTemplate(messages, output, true);
 
   if (!status.IsOk()) {
     std::cout << status.ToString() << std::endl;
