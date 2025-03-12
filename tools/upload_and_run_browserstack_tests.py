@@ -16,6 +16,7 @@ java/src/test/android
 
 
 def response_to_json(response):
+    print(response.request.body)
     response.raise_for_status()
     response_json = response.json()
     print(response_json)
