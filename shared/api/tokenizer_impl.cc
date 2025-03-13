@@ -7,7 +7,6 @@
 #include "ugm_kernels.hpp"
 
 #include "tokenizer_impl.h"
-#include "chat_template.cc"
 
 namespace ort_extensions {
 
