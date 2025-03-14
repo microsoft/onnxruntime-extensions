@@ -581,11 +581,29 @@ OrtxStatus TokenizerImpl::DeepSeekChatTemplate(
   return OrtxStatus(kOrtxOK, "Created DeepSeek chat template.");
 }
 
+void TokenizerImpl::NormalizeNewlines(std::vector<std::unordered_map<std::string, std::string>>& message_list) {
+    messages = message_list;
+    
+    // Iterate over the vector of unordered maps
+    for (auto& map : messages) {
+        // Iterate over each key-value pair in the unordered map
+        for (auto& pair : map) {
+            // Get the string and replace all occurrences of \r\n with \n
+            std::string& str = pair.second;
+            size_t pos = 0;
+            while ((pos = str.find("\r\n", pos)) != std::string::npos) {
+                str.replace(pos, 2, "\n");
+                pos += 1;  // Move past the '\n' character
+            }
+        }
+    }
+}
+
 // ApplyChatTemplate method to choose the template logic based on chat_template
 OrtxStatus TokenizerImpl::ApplyChatTemplate(std::vector<std::unordered_map<std::string, std::string>> message_list, std::string& output, bool add_generation_prompt = true) {
     
-  // Initialize messages
-  messages = message_list;
+  // Initialize and normalize messages
+  NormalizeNewlines(message_list);
 
   // Check if the chat_template matches any of the supported template strings and if so apply the corresponding template.
   if (chat_template == PHI4_CHAT_TEMPLATE) {

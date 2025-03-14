@@ -89,6 +89,8 @@ class TokenizerImpl : public OrtxObjectImpl {
   
   OrtxStatus DeepSeekChatTemplate(std::string& output, bool add_generation_prompt, const std::string& eos_token, const std::string& bos_token);
   
+  void NormalizeNewlines(std::vector<std::unordered_map<std::string, std::string>>& messages);
+  
   OrtxStatus ApplyChatTemplate(std::vector<std::unordered_map<std::string, std::string>> messages, std::string& output, bool add_generation_prompt);
 
   OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state) const;
