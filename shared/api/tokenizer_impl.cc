@@ -8,7 +8,6 @@
 
 #include "tokenizer_impl.h"
 
-
 namespace ort_extensions {
 
 
@@ -87,6 +86,8 @@ OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
     return status;
   }
 
+  chat_template = tok_config_->chat_template_;
+  
   return LoadTokenizer();
 }
 
