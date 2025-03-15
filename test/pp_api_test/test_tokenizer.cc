@@ -617,7 +617,6 @@ TEST(OrtxTokenizerTest, ChatTemplate) {
 
   // Since we do not have local test files for Phi4/Llama3/DeepSeek, we simply manually
   // set the chat_template, but otherwise this will be loaded from the tokenizer config automatically.
-  tokenizer->chat_template = tokenizer->PHI4_CHAT_TEMPLATE;
 
   std::vector<std::unordered_map<std::string, std::string>> messages = {
     {{"role", "system"}, {"content", "You are a helpful assistant."}, {"tools", "Calculator"}},
@@ -629,8 +628,13 @@ TEST(OrtxTokenizerTest, ChatTemplate) {
   std::string expected_output = "<|system|>You are a helpful assistant.<|tool|>Calculator<|/tool|><|end|><|user|>How do I add two numbers?<|end|><|assistant|>You can add numbers by using the '+' operator.<|end|><|assistant|>";
 
   std::string output = "";
+
+  tokenizer->SetChatTemplate(R"({% for message in messages %}{% if message['role'] == 'system' and message['content'] %}{{'<|system|>\n' + message['content'] + '<|end|>\n'}}{% elif message['role'] == 'user' %}{{'<|user|>\n' + message['content'] + '<|end|>\n'}}{% elif message['role'] == 'assistant' %}{{'<|assistant|>\n' + message['content'] + '<|end|>\n'}}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>\n' }}{% else %}{{ eos_token }}{% endif %})");
   
-  auto status = tokenizer->ApplyChatTemplate(messages, output, true);
+  // Note: since this is a Phi-4 test, we just use default values, otherwise please pass in the necessary parameters.
+  tokenizer->InitializeChatParameters();
+
+  auto status = tokenizer->ApplyChatTemplate(messages, output);
 
   if (!status.IsOk()) {
     std::cout << status.ToString() << std::endl;

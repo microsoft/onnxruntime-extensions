@@ -54,44 +54,56 @@ class TokenizerImpl : public OrtxObjectImpl {
 
   OrtxStatus BatchDecode(const std::vector<span<extTokenId_t const>>& t_ids, std::vector<std::string>& t_text) const;
 
-  const std::string PHI_VISION_CHAT_TEMPLATE;
-  const std::string PHI3_CHAT_TEMPLATE;
-  const std::string PHI3_SMALL_CHAT_TEMPLATE;
-  const std::string PHI3_MEDIUM_CHAT_TEMPLATE;
-  const std::string PHI3_5_CHAT_TEMPLATE;
-  const std::string PHI4_CHAT_TEMPLATE;
-  const std::string LLAMA2_CHAT_TEMPLATE;
-  const std::string LLAMA3_CHAT_TEMPLATE;
-  const std::string LLAMA3_2_CHAT_TEMPLATE;
-  const std::string LLAMA3_3_CHAT_TEMPLATE;
-  const std::string DEEPSEEK_CHAT_TEMPLATE;
-
+  std::unordered_map<std::string, std::function<OrtxStatus(std::string&)>> template_map;
   std::string chat_template;
-  std::vector<std::unordered_map<std::string, std::string>> messages;
+  static std::vector<std::unordered_map<std::string, std::string>> messages;
 
-  OrtxStatus PhiVisionChatTemplate(std::string& output, bool add_generation_prompt);
+  static bool add_generation_prompt;
+  static std::string eos_token;
+  static std::string bos_token;
+  static std::vector<std::string> custom_tools;
+  static bool tools_in_user_message;
+  static std::string strftime_now;
+  static std::string date_string;
+  static std::vector<std::string> builtin_tools;
+
+
+  static OrtxStatus PhiVisionChatTemplate(std::string& output);
   
-  OrtxStatus Phi3ChatTemplate(std::string& output, bool add_generation_prompt, const std::string& eos_token);
+  static OrtxStatus Phi3ChatTemplate(std::string& output);
 
-  OrtxStatus Phi3SmallChatTemplate(std::string& output, bool add_generation_prompt, const std::string& eos_token, const std::string& bos_token);
+  static OrtxStatus Phi3SmallChatTemplate(std::string& output);
 
-  OrtxStatus Phi3MediumChatTemplate(std::string& output);
+  static OrtxStatus Phi3MediumChatTemplate(std::string& output);
   
-  OrtxStatus Phi4ChatTemplate(std::string& output, bool add_generation_prompt, const std::string& eos_token);
+  static OrtxStatus Phi4ChatTemplate(std::string& output);
   
-  OrtxStatus Llama2ChatTemplate(std::string& output, bool add_generation_prompt, const std::string& eos_token, const std::string& bos_token);
+  static OrtxStatus Llama2ChatTemplate(std::string& output);
 
-  OrtxStatus Llama3ChatTemplate(std::string& output, bool add_generation_prompt, const std::string& eos_token, const std::string& bos_token);
+  static OrtxStatus Llama3ChatTemplate(std::string& output);
 
-  OrtxStatus Llama3_2ChatTemplate(std::string& output, bool add_generation_prompt, const std::string& eos_token, const std::vector<std::string>& custom_tools, bool tools_in_user_message, const std::string& strftime_now, const std::string& bos_token);
+  static OrtxStatus Llama3_2ChatTemplate(std::string& output);
 
-  OrtxStatus Llama3_3ChatTemplate(std::string& output, bool add_generation_prompt, const std::string& eos_token, const std::vector<std::string>& custom_tools, const std::vector<std::string>& builtin_tools, bool tools_in_user_message, const std::string& date_string, const std::string& bos_token);
+  static OrtxStatus Llama3_3ChatTemplate(std::string& output);
   
-  OrtxStatus DeepSeekChatTemplate(std::string& output, bool add_generation_prompt, const std::string& eos_token, const std::string& bos_token);
+  static OrtxStatus DeepSeekChatTemplate(std::string& output);
   
   void NormalizeNewlines(std::vector<std::unordered_map<std::string, std::string>>& messages);
+
+  void InitializeChatParameters(
+    bool add_prompt = true,
+    const std::string& eos = "<|endoftext|>",
+    const std::string& bos = "<|startoftext|>",
+    const std::vector<std::string>& custom_tools_param = {},
+    bool tools_in_user_message_param = true,
+    const std::string& strftime_param = "",
+    const std::string& date_str = "26 Jul 2024",
+    const std::vector<std::string>& builtin_tools_param = {}
+);
+
+  void SetChatTemplate(const std::string& new_template);
   
-  OrtxStatus ApplyChatTemplate(std::vector<std::unordered_map<std::string, std::string>> messages, std::string& output, bool add_generation_prompt);
+  OrtxStatus ApplyChatTemplate(std::vector<std::unordered_map<std::string, std::string>> messages, std::string& output);
 
   OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state) const;
 
