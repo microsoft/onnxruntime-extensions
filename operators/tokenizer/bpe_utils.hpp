@@ -320,7 +320,7 @@ class PreTokenizerWithRegEx {
           if (!IsRN(m_text[i])) break;
         }
       }
-      std::u32string_view res = m_text.substr(pos, i - pos);
+      std::u32string_view res = m_text.substr(0, i);
       m_text = m_text.substr(i);
       return res;
     }
