@@ -626,3 +626,29 @@ TEST(OrtxTokenizerTest, Llama2ChatTemplate) {
   OrtxStringArrayGetItem(templated_text.get(), 0, &text);
   EXPECT_STREQ(text, "<s>[INST] hello [/INST]response</s>[INST] again [/INST]response</s>");
 }
+
+TEST(OrtxTokenizerTest, ChatTemplate) {
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+
+  std::vector<std::unordered_map<std::string, std::string>> messages = {
+    {{"role", "system"}, {"content", "You are a helpful assistant."}, {"tools", "Calculator"}},
+    {{"role", "user"}, {"content", "How do I add two numbers?"}},
+    {{"role", "assistant"}, {"content", "You can add numbers by using the '+' operator."}}
+  };
+
+  // From HuggingFace Python output for 'microsoft/Phi-4-multimodal-instruct'
+  std::string expected_output = "<|system|>You are a helpful assistant.<|tool|>Calculator<|/tool|><|end|><|user|>How do I add two numbers?<|end|><|assistant|>You can add numbers by using the '+' operator.<|end|><|assistant|>";
+
+  std::string output = "";
+
+  // Note: since this is a Phi-4 test, we just use default values, otherwise please pass in the necessary parameters.
+  tokenizer->InitializeChatParameters();
+
+  auto status = tokenizer->ApplyChatTemplate("microsoft/Phi-4-multimodal-instruct", messages, output);
+
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+  }
+
+  ASSERT_EQ(output, expected_output);
+}
