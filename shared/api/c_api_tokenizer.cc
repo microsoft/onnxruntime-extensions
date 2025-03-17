@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include <regex>
 #include <algorithm>
 
 #include "c_api_utils.hpp"
@@ -215,6 +216,23 @@ extError_t ORTX_API_CALL OrtxStringArrayGetBatch(const OrtxStringArray* string_a
   return extError_t();
 }
 
+extError_t ORTX_API_CALL OrtxStringGetCstr(const OrtxString* string_obj, const char** str) {
+  if (string_obj == nullptr || str == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  const auto token_ptr = static_cast<const String*>(string_obj);
+  ReturnableStatus status(token_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindString));
+  if (!status.IsOk()) {
+    return status.Code();
+  }
+
+  *str = token_ptr->GetString().c_str();
+
+  return extError_t();
+}
+
 extError_t ORTX_API_CALL OrtxStringArrayGetItem(const OrtxStringArray* string_array, size_t index, const char** item) {
   if (string_array == nullptr || item == nullptr) {
     ReturnableStatus::last_error_message_ = "Invalid argument";
@@ -307,11 +325,25 @@ extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, Or
   return status.Code();
 }
 
+static std::string NormalizeNewlines(const std::string& s) {
+#ifdef _WIN32
+  static const std::regex nl_regex("\r\n");
+  return std::regex_replace(s, nl_regex, "\n");
+#else
+  return s;
+#endif
+}
+
 extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, const char* template_str,
-                                               const char* input, OrtxStringArray** output,
+                                               const char* input, OrtxString** output,
                                                bool add_generation_prompt) {
   if (tokenizer == nullptr && template_str == nullptr) {
     ReturnableStatus::last_error_message_ = "both tokenizer and template_str are null, no template to apply";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  if (input == nullptr || output == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
     return kOrtxErrorInvalidArgument;
   }
 
@@ -321,11 +353,15 @@ extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, c
     return status.Code();
   }
 
-
-  auto result = std::make_unique<ort_extensions::StringArray>().release();
-  result->SetStrings(std::vector<std::string>({"<s>[INST] hello [/INST]response</s>[INST] again [/INST]response</s>"}));
-  *output = static_cast<OrtxStringArray*>(result);
-
+  const_cast<TokenizerImpl*>(token_ptr)->InitializeChatParameters(template_str);
+  std::string text;
+  std::string input_str = NormalizeNewlines(input);
+  status = token_ptr->ApplyChatTemplate(TokenizerImpl::ParseJson(input_str.c_str()), text, add_generation_prompt);
+  if (status.IsOk()) {
+    auto result = std::make_unique<ort_extensions::String>().release();
+    result->SetString(text);
+    *output = static_cast<OrtxString*>(result);
+  }
 
   return status.Code();
 }

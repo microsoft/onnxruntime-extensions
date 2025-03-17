@@ -13,6 +13,7 @@
 #endif
 
 // typedefs to create/dispose function flood, and to make the API more C++ friendly with less casting
+typedef OrtxObject OrtxString;
 typedef OrtxObject OrtxTokenizer;
 typedef OrtxObject OrtxStringArray;
 typedef OrtxObject OrtxTokenId2DArray;
@@ -135,6 +136,19 @@ extError_t ORTX_API_CALL OrtxDetokenize1D(
 extError_t ORTX_API_CALL OrtxDetokenizeCached(
     const OrtxTokenizer* tokenizer, OrtxDetokenizerCache* cache, extTokenId_t next_id, const char** text_out);
 
+/**
+ * @brief Retrieves the C-style string representation from an OrtxString object.
+ *
+ * This function obtains a pointer to the C-string encapsulated by the provided OrtxString object.
+ * The retrieved string pointer is valid as long as the OrtxString object remains unmodified.
+ *
+ * @param string_obj Pointer to the OrtxString object from which the string is to be retrieved.
+ * @param[out] str Pointer to a constant character pointer that will be set to refer to the internal string data.
+ *
+ * @return An extError_t error code indicating the success or failure of the operation.
+ */
+extError_t ORTX_API_CALL OrtxStringGetCstr(const OrtxString* string_obj, const char** str);
+
 /** \brief Get the length of the string array
  *
  * \param string_array Pointer to the string array
@@ -183,12 +197,12 @@ extError_t ORTX_API_CALL OrtxTokenId2DArrayGetItem(
  * @param tokenizer Pointer to an OrtxTokenizer used for template processing
  * @param template_str Null-terminated string representing the chat template, can be null if tokenizer.json has one.
  * @param input Null-terminated string containing the input to be processed.
- * @param output an OrtxStringArray that will be populated with the output strings.
- * @param add_generation_prompt Indicates whether to add a generation prompt to the output (defaults to true).
+ * @param output an OrtxString that will be populated with the output strings.
+ * @param add_generation_prompt Indicates whether to add a generation prompt to the output.
  * @return extError_t Returns an error code indicating success or the type of failure.
  */
 extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, const char* template_str,
-                                               const char* input, OrtxStringArray** output,
+                                               const char* input, OrtxString** output,
                                                bool add_generation_prompt);
 
 #ifdef __cplusplus
