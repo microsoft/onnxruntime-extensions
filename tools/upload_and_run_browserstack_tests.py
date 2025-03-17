@@ -16,7 +16,7 @@ java/src/test/android
 
 
 def response_to_json(response):
-    print(response.request.body)
+    # print(response.request.body)
     response.raise_for_status()
     response_json = response.json()
     print(response_json)
@@ -25,6 +25,10 @@ def response_to_json(response):
 
 
 def upload_apk_parse_json(post_url, apk_path, id, token):
+    print("Post url ", post_url)
+    print("apk_path", apk_path)
+    print("id", id)
+    print("token", token)
     with open(apk_path, "rb") as apk_file:
         response = requests.post(post_url, files={"file": apk_file}, auth=(id, token), timeout=180)
     return response_to_json(response)
