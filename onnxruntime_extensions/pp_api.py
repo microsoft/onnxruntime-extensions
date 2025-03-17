@@ -18,6 +18,7 @@ tensor_result_get_at = _C.tensor_result_get_at
 create_tokenizer = _C.create_tokenizer
 batch_tokenize = _C.batch_tokenize
 batch_detokenize = _C.batch_detokenize
+_apply_chat_template = _C.apply_chat_template
 
 delete_object = _C.delete_object
 
@@ -55,6 +56,11 @@ class Tokenizer:
 
     def detokenize(self, tokens):
         return batch_detokenize(self.tokenizer, [tokens])
+
+    def apply_chat_template(self, chat, add_generation_prompt=True):
+        prompt = _apply_chat_template(
+            self.tokenizer, "", chat, add_generation_prompt)
+        return prompt
 
     def __del__(self):
         if delete_object and self.tokenizer:

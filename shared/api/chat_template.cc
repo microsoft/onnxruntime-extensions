@@ -639,7 +639,7 @@ void TokenizerImpl::InitializeChatParameters(
 
     bos_token = tok_config_->bos_token_;
     eos_token = tok_config_->eos_token_;
-    if (template_str) {
+    if (template_str && *template_str) {
         chat_template = template_str;
     } else {
         chat_template = tok_config_->chat_template_;

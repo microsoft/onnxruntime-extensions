@@ -198,7 +198,8 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
       const std::string& input, bool add_generation_prompt) -> std::string {
       OrtxTokenizer* tokenizer = reinterpret_cast<OrtxTokenizer*>(h);
       ort_extensions::OrtxObjectPtr<OrtxString> templated_text;
-      auto err = OrtxApplyChatTemplate(tokenizer, template_str.c_str(), input.c_str(),
+      auto err = OrtxApplyChatTemplate(tokenizer,
+        template_str.empty()? nullptr: template_str.c_str(), input.c_str(),
         templated_text.ToBeAssigned(), add_generation_prompt);
       if (err != kOrtxOK) {
         throw std::runtime_error(std::string("Failed to apply chat template") + OrtxGetLastErrorMessage());

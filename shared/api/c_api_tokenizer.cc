@@ -356,7 +356,13 @@ extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, c
   const_cast<TokenizerImpl*>(token_ptr)->InitializeChatParameters(template_str);
   std::string text;
   std::string input_str = NormalizeNewlines(input);
-  status = token_ptr->ApplyChatTemplate(TokenizerImpl::ParseJson(input_str.c_str()), text, add_generation_prompt);
+  auto message_list = TokenizerImpl::ParseJson(input_str.c_str());
+  if (message_list.empty()) {
+    ReturnableStatus::last_error_message_ = "Invalid JSON format";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  status = token_ptr->ApplyChatTemplate(message_list, text, add_generation_prompt);
   if (status.IsOk()) {
     auto result = std::make_unique<ort_extensions::String>().release();
     result->SetString(text);
