@@ -75,7 +75,7 @@ class TestPPAPI(unittest.TestCase):
             e_image = regen_image(np.transpose(expected, (1, 2, 0)), openai_image_mean, openai_image_std)
             e_image.save(f"{self.temp_dir}/CLIP_e_{i}.png")
 
-        ort_processor = pp_api.ImageProcessor("test/data/processor/clip_image.json")
+        ort_processor = pp_api.ImageProcessor(util.get_test_data_file("data/processor/clip_image.json"))
         inputs = ort_processor.pre_process([util.get_test_data_file(f) for f in image_list])
         print(ort_processor.to_numpy(inputs, 0).shape)
         actual_images = ort_processor.to_numpy(inputs, 0)
