@@ -43,8 +43,9 @@ def regen_image(arr, mean, std):
     image = Image.fromarray(array)
     return image
 
-@unittest.skipIf(not is_pp_api_available, "pp_api is not available")
-@unittest.skipIf(sys.version_info >= (3, 10), "transformers processor requires Python 3.10")
+
+@unittest.skipIf(not is_pp_api_available and sys.version_info < (3, 10),
+                 "transformers processor requires some higher Python version")
 class TestPPAPI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -64,25 +65,31 @@ class TestPPAPI(unittest.TestCase):
             "data/processor/passport.png",
             "data/processor/exceltable.png",
         ]
-        (image, image2, image3) = [Image.open(util.get_test_data_file(f)) for f in image_list]
+        (image, image2, image3) = [
+            Image.open(util.get_test_data_file(f)) for f in image_list]
 
         processor = AutoImageProcessor.from_pretrained(model_id)
-        inputs = processor.preprocess([image, image2, image3], return_tensors="np")
+        inputs = processor.preprocess(
+            [image, image2, image3], return_tensors="np")
         print({k: v.shape if k == "pixel_values" else v for k, v in inputs.items()})
 
         expected_images = inputs["pixel_values"]
         for i in range(len(expected_images)):
             expected = expected_images[i]
-            e_image = regen_image(np.transpose(expected, (1, 2, 0)), openai_image_mean, openai_image_std)
+            e_image = regen_image(np.transpose(
+                expected, (1, 2, 0)), openai_image_mean, openai_image_std)
             e_image.save(f"{self.temp_dir}/CLIP_e_{i}.png")
 
-        ort_processor = pp_api.ImageProcessor(util.get_test_data_file("data/processor/clip_image.json"))
-        inputs = ort_processor.pre_process([util.get_test_data_file(f) for f in image_list])
+        ort_processor = pp_api.ImageProcessor(
+            util.get_test_data_file("data/processor/clip_image.json"))
+        inputs = ort_processor.pre_process(
+            [util.get_test_data_file(f) for f in image_list])
         print(ort_processor.to_numpy(inputs, 0).shape)
         actual_images = ort_processor.to_numpy(inputs, 0)
         for i in range(len(actual_images)):
             actual = actual_images[i]
-            a_image = regen_image(np.transpose(actual, (1, 2, 0)), openai_image_mean, openai_image_std)
+            a_image = regen_image(np.transpose(
+                actual, (1, 2, 0)), openai_image_mean, openai_image_std)
             a_image.save(f"{self.temp_dir}/CLIP_a_{i}.png")
 
     @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
@@ -105,25 +112,31 @@ class TestPPAPI(unittest.TestCase):
         ]
         (image, image2, image3) = [Image.open(f) for f in image_list]
 
-        processor = AutoImageProcessor.from_pretrained(model_id, token=hf_token_id)
-        inputs = processor.preprocess([image, image2, image3], return_tensors="np")
+        processor = AutoImageProcessor.from_pretrained(
+            model_id, token=hf_token_id)
+        inputs = processor.preprocess(
+            [image, image2, image3], return_tensors="np")
         print({k: v.shape if k == "pixel_values" else v for k, v in inputs.items()})
 
-        ort_processor = pp_api.ImageProcessor("test/data/processor/mllama/llama_3_image.json")
-        ort_inputs = ort_processor.to_numpy(ort_processor.pre_process(image_list), 0)
+        ort_processor = pp_api.ImageProcessor(
+            "test/data/processor/mllama/llama_3_image.json")
+        ort_inputs = ort_processor.to_numpy(
+            ort_processor.pre_process(image_list), 0)
         print(ort_inputs.shape)
 
         for idx in range(len(image_list)):
             expected_images = inputs["pixel_values"][0][idx]
             for i in range(len(expected_images)):
                 expected = expected_images[i]
-                e_image = regen_image(np.transpose(expected, (1, 2, 0)), openai_image_mean, openai_image_std)
+                e_image = regen_image(np.transpose(
+                    expected, (1, 2, 0)), openai_image_mean, openai_image_std)
                 e_image.save(f"{self.temp_dir}/e_{idx}_{i}.png")
 
             actual_images = ort_inputs[idx]
             for i in range(len(actual_images)):
                 actual = actual_images[i]
-                a_image = regen_image(np.transpose(actual, (1, 2, 0)), openai_image_mean, openai_image_std)
+                a_image = regen_image(np.transpose(
+                    actual, (1, 2, 0)), openai_image_mean, openai_image_std)
                 a_image.save(f"{self.temp_dir}/a_{idx}_{i}.png")
 
     def test_phi_4_image_processing(self):
@@ -133,32 +146,41 @@ class TestPPAPI(unittest.TestCase):
             "data/processor/passport.png",
             "data/processor/photo-1585521747230-516376e5a85d.jpg",
         ]
-        (image, image2, image3) = [Image.open(util.get_test_data_file(f)) for f in image_list]
+        (image, image2, image3) = [
+            Image.open(util.get_test_data_file(f)) for f in image_list]
 
-        processor = AutoImageProcessor.from_pretrained(model_id, trust_remote_code=True)
-        inputs = processor.preprocess([image, image2, image3], return_tensors="np")
+        processor = AutoImageProcessor.from_pretrained(
+            model_id, trust_remote_code=True)
+        inputs = processor.preprocess(
+            [image, image2, image3], return_tensors="np")
         print({k: v.shape if v.size > 10 else v for k, v in inputs.items()})
 
-        ort_processor = pp_api.ImageProcessor(util.get_test_data_file("data/models/phi-4/vision_processor.json"))
-        tensor_result = ort_processor.pre_process([util.get_test_data_file(f) for f in image_list])
+        ort_processor = pp_api.ImageProcessor(
+            util.get_test_data_file("data/models/phi-4/vision_processor.json"))
+        tensor_result = ort_processor.pre_process(
+            [util.get_test_data_file(f) for f in image_list])
         print(list(ort_processor.to_numpy(tensor_result, i).shape for i in range(4)))
 
         attention_mask = inputs["image_attention_mask"]
         for i in range(len(attention_mask)):
-            attention_sum = [attention_mask[i][j].sum() for j in range(len(attention_mask[i]))]
+            attention_sum = [attention_mask[i][j].sum()
+                             for j in range(len(attention_mask[i]))]
             print(f"attention-mask {i}: ", attention_sum)
 
         attention_mask = ort_processor.to_numpy(tensor_result, 2)
         for i in range(len(attention_mask)):
-            attention_sum = [attention_mask[i][j].sum() for j in range(len(attention_mask[i]))]
+            attention_sum = [attention_mask[i][j].sum()
+                             for j in range(len(attention_mask[i]))]
             print(f"ortx attention-mask {i}: ", attention_sum)
 
-        np.testing.assert_array_equal(inputs["image_sizes"], ort_processor.to_numpy(tensor_result, 1))
+        np.testing.assert_array_equal(
+            inputs["image_sizes"], ort_processor.to_numpy(tensor_result, 1))
         # np.testing.assert_array_equal(
         #     inputs["image_attention_mask"],
         #     ort_processor.to_numpy(tensor_result, 2))
         np.testing.assert_array_equal(
-            inputs["num_img_tokens"].ravel(), ort_processor.to_numpy(tensor_result, 3).ravel()
+            inputs["num_img_tokens"].ravel(), ort_processor.to_numpy(
+                tensor_result, 3).ravel()
         )
 
         ort_inputs = ort_processor.to_numpy(tensor_result, 0)
@@ -166,13 +188,15 @@ class TestPPAPI(unittest.TestCase):
             expected_images = inputs["input_image_embeds"][idx]
             for i in range(len(expected_images)):
                 expected = expected_images[i]
-                e_image = regen_image(np.transpose(expected, (1, 2, 0)), phi4_image_mean, phi4_image_std)
+                e_image = regen_image(np.transpose(
+                    expected, (1, 2, 0)), phi4_image_mean, phi4_image_std)
                 e_image.save(f"{self.temp_dir}/e_{idx}_{i}.png")
 
             actual_images = ort_inputs[idx]
             for i in range(len(actual_images)):
                 actual = actual_images[i]
-                a_image = regen_image(np.transpose(actual, (1, 2, 0)), phi4_image_mean, phi4_image_std)
+                a_image = regen_image(np.transpose(
+                    actual, (1, 2, 0)), phi4_image_mean, phi4_image_std)
                 a_image.save(f"{self.temp_dir}/a_{idx}_{i}.png")
 
     # test sentence for tokenizer
@@ -201,7 +225,8 @@ class TestPPAPI(unittest.TestCase):
     def test_Phi4_tokenizer(self):
         model_id = util.get_test_data_file("data/models/phi-4")
         test_sentence = ['<|user|>\n' + self.tokenizer_test_sentence]
-        hf_enc = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True, use_fast=True)
+        hf_enc = AutoTokenizer.from_pretrained(
+            model_id, trust_remote_code=True, use_fast=True)
         inputs = hf_enc(test_sentence)["input_ids"]
         tokenizer = pp_api.Tokenizer(model_id)
         ortx_inputs = tokenizer.tokenize(test_sentence)
@@ -215,7 +240,8 @@ class TestPPAPI(unittest.TestCase):
         ]
         message_json = json.dumps(messages)
         hf_enc = AutoTokenizer.from_pretrained(model_id, use_fast=True)
-        inputs = hf_enc.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
+        inputs = hf_enc.apply_chat_template(
+            messages, add_generation_prompt=True, tokenize=False)
         tokenizer = pp_api.Tokenizer(model_id)
         ortx_inputs = tokenizer.apply_chat_template(message_json)
         np.testing.assert_array_equal(ortx_inputs, inputs)
