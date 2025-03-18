@@ -147,7 +147,7 @@ class CmdBuildCMakeExt(_build_ext):
         self.no_azure = None
         self.no_opencv = None
         self.cc_debug = None
-        self.pp_api = None
+        self.pp_api = True
         self.cuda_archs = None
         self.ort_pkg_dir = None
 
