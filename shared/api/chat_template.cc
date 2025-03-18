@@ -591,7 +591,7 @@ OrtxStatus TokenizerImpl::Gemma3ChatTemplate(std::string& output, bool add_gener
         } else { // Handle iterable type (when content is a list)
             // Parse the message content string into JSON
             nlohmann::json message_content = nlohmann::json::parse(messages[0].at("content"));
-            first_user_prefix = message_content[0]["text"] + "\n\n";
+            first_user_prefix = message_content[0]["text"].get<std::string>() + "\n\n";
             start_index = 1;  // Start iterating from the next message
         }
     }
@@ -629,10 +629,10 @@ OrtxStatus TokenizerImpl::Gemma3ChatTemplate(std::string& output, bool add_gener
             // Parse the message content string into JSON
             nlohmann::json message_content = nlohmann::json::parse(message.at("content"));
             for (const auto& item : message_content) {
-                if (item["type"] == "image") {
+                if (item["type"].get<std::string>() == "image") {
                     formatted_content += "<start_of_image>\n";
-                } else if (item["type"] == "text") {
-                    formatted_content += item.at("text");
+                } else if (item["type"].get<std::string>() == "text") {
+                    formatted_content += item.at("text").get<std::string>();
                 }
             }
         }
