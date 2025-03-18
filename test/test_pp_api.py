@@ -44,7 +44,7 @@ def regen_image(arr, mean, std):
     return image
 
 
-@unittest.skipIf(not is_pp_api_available and sys.version_info < (3, 10),
+@unittest.skipIf(not is_pp_api_available or sys.version_info < (3, 10),
                  "transformers processor requires some higher Python version")
 class TestPPAPI(unittest.TestCase):
     @classmethod
