@@ -144,8 +144,8 @@ class CmdBuildCMakeExt(_build_ext):
     def initialize_options(self):
         super().initialize_options()
         self.use_cuda = None
-        self.no_azure = None
-        self.no_opencv = None
+        self.no_azure = True
+        self.no_opencv = True
         self.cc_debug = None
         self.pp_api = True
         self.cuda_archs = None
