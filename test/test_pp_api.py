@@ -6,12 +6,12 @@ import unittest
 import numpy as np
 
 from PIL import Image
+from onnxruntime_extensions import util
 
 # uncomment it if there is a protobuf version mismatch error
 # os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 is_pp_api_available = False
 hf_token_id = None
-phi4_model_local_path = "microsoft/Phi-4-multimodal-instruct"
 try:
     from transformers import AutoImageProcessor, AutoTokenizer
     from onnxruntime_extensions import pp_api
@@ -59,11 +59,11 @@ class TestPPAPI(unittest.TestCase):
     def test_CLIP_image_processing(self):
         model_id = "openai/clip-vit-large-patch14"
         image_list = [
-            "test/data/processor/australia.jpg",
-            "test/data/processor/passport.png",
-            "test/data/processor/exceltable.png",
+            "data/processor/australia.jpg",
+            "data/processor/passport.png",
+            "data/processor/exceltable.png",
         ]
-        (image, image2, image3) = [Image.open(f) for f in image_list]
+        (image, image2, image3) = [Image.open(util.get_test_data_file(f)) for f in image_list]
 
         processor = AutoImageProcessor.from_pretrained(model_id)
         inputs = processor.preprocess([image, image2, image3], return_tensors="np")
@@ -76,7 +76,7 @@ class TestPPAPI(unittest.TestCase):
             e_image.save(f"{self.temp_dir}/CLIP_e_{i}.png")
 
         ort_processor = pp_api.ImageProcessor("test/data/processor/clip_image.json")
-        inputs = ort_processor.pre_process(image_list)
+        inputs = ort_processor.pre_process([util.get_test_data_file(f) for f in image_list])
         print(ort_processor.to_numpy(inputs, 0).shape)
         actual_images = ort_processor.to_numpy(inputs, 0)
         for i in range(len(actual_images)):
@@ -125,22 +125,21 @@ class TestPPAPI(unittest.TestCase):
                 a_image = regen_image(np.transpose(actual, (1, 2, 0)), openai_image_mean, openai_image_std)
                 a_image.save(f"{self.temp_dir}/a_{idx}_{i}.png")
 
-    @unittest.skipIf(phi4_model_local_path is None, "phi4_model_local_path is not available")
     def test_phi_4_image_processing(self):
-        model_path = phi4_model_local_path
+        model_id = "microsoft/Phi-4-multimodal-instruct"
         image_list = [
-            "test/data/processor/australia.jpg",
-            "test/data/processor/passport.png",
-            "test/data/processor/photo-1585521747230-516376e5a85d.jpg",
+            "data/processor/australia.jpg",
+            "data/processor/passport.png",
+            "data/processor/photo-1585521747230-516376e5a85d.jpg",
         ]
-        (image, image2, image3) = [Image.open(f) for f in image_list]
+        (image, image2, image3) = [Image.open(util.get_test_data_file(f)) for f in image_list]
 
-        processor = AutoImageProcessor.from_pretrained(model_path, trust_remote_code=True)
+        processor = AutoImageProcessor.from_pretrained(model_id, trust_remote_code=True)
         inputs = processor.preprocess([image, image2, image3], return_tensors="np")
         print({k: v.shape if v.size > 10 else v for k, v in inputs.items()})
 
-        ort_processor = pp_api.ImageProcessor("test/data/models/phi-4/vision_processor.json")
-        tensor_result = ort_processor.pre_process(image_list)
+        ort_processor = pp_api.ImageProcessor(util.get_test_data_file("data/models/phi-4/vision_processor.json"))
+        tensor_result = ort_processor.pre_process([util.get_test_data_file(f) for f in image_list])
         print(list(ort_processor.to_numpy(tensor_result, i).shape for i in range(4)))
 
         attention_mask = inputs["image_attention_mask"]
@@ -199,7 +198,7 @@ class TestPPAPI(unittest.TestCase):
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
     def test_Phi4_tokenizer(self):
-        model_id = "test/data/models/phi-4"
+        model_id = util.get_test_data_file("data/models/phi-4")
         test_sentence = ['<|user|>\n' + self.tokenizer_test_sentence]
         hf_enc = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True, use_fast=True)
         inputs = hf_enc(test_sentence)["input_ids"]
@@ -208,7 +207,7 @@ class TestPPAPI(unittest.TestCase):
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
     def test_phi4_chat_template(self):
-        model_id = "test/data/models/phi-4"
+        model_id = util.get_test_data_file("data/models/phi-4")
         messages = [
             {"role": "system", "content": "You are a medieval knight and must provide explanations to modern people."},
             {"role": "user", "content": "How should I explain the Internet?"},
