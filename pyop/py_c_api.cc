@@ -11,6 +11,7 @@
 #include "ortx_utils.h"
 #include "ortx_tokenizer.h"
 #include "ortx_processor.h"
+#include "ortx_cpp_helper.h"
 #include "pykernel.h"
 
 namespace py = pybind11;
@@ -190,6 +191,29 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         return result;
       },
       "Batch detokenize.");
+
+  m.def(
+    "apply_chat_template",
+    [](std::uintptr_t h, const std::string& template_str,
+      const std::string& input, bool add_generation_prompt) -> std::string {
+      OrtxTokenizer* tokenizer = reinterpret_cast<OrtxTokenizer*>(h);
+      ort_extensions::OrtxObjectPtr<OrtxString> templated_text;
+      auto err = OrtxApplyChatTemplate(tokenizer,
+        template_str.empty()? nullptr: template_str.c_str(), input.c_str(),
+        templated_text.ToBeAssigned(), add_generation_prompt);
+      if (err != kOrtxOK) {
+        throw std::runtime_error(std::string("Failed to apply chat template") + OrtxGetLastErrorMessage());
+      }
+
+      const char* text{};
+      err = OrtxStringGetCstr(templated_text.get(), &text);
+      if (err != kOrtxOK) {
+        throw std::runtime_error(std::string("Failed to get string") + OrtxGetLastErrorMessage());
+      }
+      std::string result(text);
+      return result;
+    },
+    "Apply chat template.");
 
   m.def(
       "delete_object", [](std::uintptr_t h) { OrtxDisposeOnly(reinterpret_cast<OrtxObject*>(h)); },

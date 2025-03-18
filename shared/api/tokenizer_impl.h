@@ -30,8 +30,6 @@ class TokenizerImpl : public OrtxObjectImpl {
     return BatchDecode(t_ids, t_text);
   }
 
-
-
   OrtxStatus Token2Id(const std::string& token, extTokenId_t& id) const {
     id = std::visit([&](auto& tokenizer) { return tokenizer->GetTokenId(token); }, tokenizer_);
     return {};
@@ -54,69 +52,46 @@ class TokenizerImpl : public OrtxObjectImpl {
 
   OrtxStatus BatchDecode(const std::vector<span<extTokenId_t const>>& t_ids, std::vector<std::string>& t_text) const;
 
-  std::string PHI_VISION_CHAT_TEMPLATE;
-  std::string PHI3_CHAT_TEMPLATE;
-  std::string PHI3_SMALL_CHAT_TEMPLATE;
-  std::string PHI3_MEDIUM_CHAT_TEMPLATE;
-  std::string PHI3_5_CHAT_TEMPLATE;
-  std::string PHI4_CHAT_TEMPLATE;
-  std::string LLAMA2_CHAT_TEMPLATE;
-  std::string LLAMA3_CHAT_TEMPLATE;
-  std::string LLAMA3_2_CHAT_TEMPLATE;
-  std::string LLAMA3_3_CHAT_TEMPLATE;
-  std::string DEEPSEEK_CHAT_TEMPLATE;
-
-  std::unordered_map<std::string, std::string> model_to_template_map;
+  using MessageList = std::vector<std::unordered_map<std::string, std::string>>;
   std::string chat_template;
-  std::vector<std::unordered_map<std::string, std::string>> messages;
+  mutable MessageList messages;
 
-  bool add_generation_prompt;
-  std::string eos_token;
   std::string bos_token;
+  std::string eos_token;
   std::vector<std::string> custom_tools;
   bool tools_in_user_message;
   std::string strftime_now;
   std::string date_string;
   std::vector<std::string> builtin_tools;
 
+  OrtxStatus PhiVisionChatTemplate(std::string& output, bool add_generation_prompt) const;
+  OrtxStatus Phi3ChatTemplate(std::string& output, bool add_generation_prompt) const;
+  OrtxStatus Phi3SmallChatTemplate(std::string& output, bool add_generation_prompt) const;
+  OrtxStatus Phi3MediumChatTemplate(std::string& output, bool add_generation_prompt) const;
+  OrtxStatus Phi4ChatTemplate(std::string& output, bool add_generation_prompt) const;
+  OrtxStatus Llama2ChatTemplate(std::string& output, bool add_generation_prompt) const;
+  OrtxStatus Llama3ChatTemplate(std::string& output, bool add_generation_prompt) const;
+  OrtxStatus Llama3_2ChatTemplate(std::string& output, bool add_generation_prompt) const;
+  OrtxStatus Llama3_3ChatTemplate(std::string& output, bool add_generation_prompt) const;
+  OrtxStatus DeepSeekChatTemplate(std::string& output, bool add_generation_prompt) const;
 
-  OrtxStatus PhiVisionChatTemplate(std::string& output);
-
-  OrtxStatus Phi3ChatTemplate(std::string& output);
-
-  OrtxStatus Phi3SmallChatTemplate(std::string& output);
-
-  OrtxStatus Phi3MediumChatTemplate(std::string& output);
-
-  OrtxStatus Phi4ChatTemplate(std::string& output);
-
-  OrtxStatus Llama2ChatTemplate(std::string& output);
-
-  OrtxStatus Llama3ChatTemplate(std::string& output);
-
-  OrtxStatus Llama3_2ChatTemplate(std::string& output);
-
-  OrtxStatus Llama3_3ChatTemplate(std::string& output);
-
-  OrtxStatus DeepSeekChatTemplate(std::string& output);
-  
-  void NormalizeNewlines(std::vector<std::unordered_map<std::string, std::string>>& messages);
+  static MessageList ParseJson(const std::string& json_str);
 
   void InitializeChatParameters(
-    bool add_prompt = true,
-    const std::string& eos = "<|endoftext|>",
-    const std::string& bos = "<|startoftext|>",
+    const char* template_str = nullptr,
     const std::vector<std::string>& custom_tools_param = {},
     bool tools_in_user_message_param = true,
     const std::string& strftime_param = "",
     const std::string& date_str = "26 Jul 2024",
     const std::vector<std::string>& builtin_tools_param = {}
 );
-  
-  OrtxStatus ApplyChatTemplate(const std::string model_str, std::vector<std::unordered_map<std::string, std::string>> messages, std::string& output);
+
+  OrtxStatus ApplyChatTemplate(
+    const MessageList& messages,
+    std::string& output,
+    bool add_generation_prompt) const;
 
   OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state) const;
-
   OrtxStatus GetDecoderPromptIds(size_t batch_size, const char* lang, const char* task, int no_timestamps,
                                  std::vector<std::vector<extTokenId_t>>& t_ids) const;
 

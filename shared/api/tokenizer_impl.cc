@@ -86,8 +86,6 @@ OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
     return status;
   }
 
-  chat_template = tok_config_->chat_template_;
-  
   return LoadTokenizer();
 }
 
@@ -96,7 +94,7 @@ OrtxStatus TokenizerImpl::BatchEncode(const std::vector<std::string_view>& input
   for (const auto& s : input) {
     ortc::Tensor<int64_t> ts_output(&CppAllocator::Instance());
     ortc::Tensor<std::string> ts_input = ortc::Tensor<std::string>(std::vector<std::string>{std::string(s)});
-    
+
     OrtxStatus status = std::visit([&](auto& tokenizer) {
       return tokenizer->Compute(ts_input, ts_output);
     }, tokenizer_);

@@ -81,6 +81,18 @@ class TokenId2DArray : public OrtxObjectImpl {
   std::vector<std::vector<extTokenId_t>> token_ids_;
 };
 
+class String : public OrtxObjectImpl {
+  public:
+   String() : OrtxObjectImpl(extObjectKind_t::kOrtxKindString) {}
+   ~String() override = default;
+
+   void SetString(std::string_view string) { string_ = string; }
+   const std::string& GetString() const { return string_; }
+
+  private:
+    std::string string_;
+};
+
 class StringArray : public OrtxObjectImpl {
  public:
   StringArray() : OrtxObjectImpl(extObjectKind_t::kOrtxKindStringArray) {}

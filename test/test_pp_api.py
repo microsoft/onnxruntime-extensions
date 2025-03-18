@@ -1,4 +1,5 @@
 import os
+import json
 import tempfile
 import requests
 import unittest
@@ -197,14 +198,26 @@ class TestPPAPI(unittest.TestCase):
         ortx_inputs = tokenizer.tokenize(test_sentence)
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
-    @unittest.skipIf(phi4_model_local_path is None, "phi4_model_local_path is not available")
     def test_Phi4_tokenizer(self):
-        model_id = phi4_model_local_path
+        model_id = "test/data/models/phi-4"
         test_sentence = ['<|user|>\n' + self.tokenizer_test_sentence]
         hf_enc = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True, use_fast=True)
         inputs = hf_enc(test_sentence)["input_ids"]
         tokenizer = pp_api.Tokenizer(model_id)
         ortx_inputs = tokenizer.tokenize(test_sentence)
+        np.testing.assert_array_equal(ortx_inputs, inputs)
+
+    def test_phi4_chat_template(self):
+        model_id = "test/data/models/phi-4"
+        messages = [
+            {"role": "system", "content": "You are a medieval knight and must provide explanations to modern people."},
+            {"role": "user", "content": "How should I explain the Internet?"},
+        ]
+        message_json = json.dumps(messages)
+        hf_enc = AutoTokenizer.from_pretrained(model_id, use_fast=True)
+        inputs = hf_enc.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
+        tokenizer = pp_api.Tokenizer(model_id)
+        ortx_inputs = tokenizer.apply_chat_template(message_json)
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
 

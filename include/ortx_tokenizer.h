@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include "ortx_utils.h"
 
 #ifdef __cplusplus
@@ -12,6 +13,7 @@
 #endif
 
 // typedefs to create/dispose function flood, and to make the API more C++ friendly with less casting
+typedef OrtxObject OrtxString;
 typedef OrtxObject OrtxTokenizer;
 typedef OrtxObject OrtxStringArray;
 typedef OrtxObject OrtxTokenId2DArray;
@@ -76,7 +78,6 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer, 
 extError_t ORTX_API_CALL OrtxTokenize(
     const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size, OrtxTokenId2DArray** output);
 
-
 /**
  * Converts a token to its corresponding ID.
  *
@@ -135,6 +136,19 @@ extError_t ORTX_API_CALL OrtxDetokenize1D(
 extError_t ORTX_API_CALL OrtxDetokenizeCached(
     const OrtxTokenizer* tokenizer, OrtxDetokenizerCache* cache, extTokenId_t next_id, const char** text_out);
 
+/**
+ * @brief Retrieves the C-style string representation from an OrtxString object.
+ *
+ * This function obtains a pointer to the C-string encapsulated by the provided OrtxString object.
+ * The retrieved string pointer is valid as long as the OrtxString object remains unmodified.
+ *
+ * @param string_obj Pointer to the OrtxString object from which the string is to be retrieved.
+ * @param[out] str Pointer to a constant character pointer that will be set to refer to the internal string data.
+ *
+ * @return An extError_t error code indicating the success or failure of the operation.
+ */
+extError_t ORTX_API_CALL OrtxStringGetCstr(const OrtxString* string_obj, const char** str);
+
 /** \brief Get the length of the string array
  *
  * \param string_array Pointer to the string array
@@ -170,6 +184,26 @@ extError_t ORTX_API_CALL OrtxTokenId2DArrayGetBatch(const OrtxTokenId2DArray* to
  */
 extError_t ORTX_API_CALL OrtxTokenId2DArrayGetItem(
     const OrtxTokenId2DArray* token_id_2d_array, size_t index, const extTokenId_t** item, size_t* length);
+
+/**
+ * @brief Applies a chat template to the given input.
+ *
+ * This function processes the specified template with the provided input using the
+ * tokenizer, and outputs the resulting string array. Optionally, it can include a
+ * generation prompt in the output. The chat template can be provided as a string or
+ * be retrieved from a loaded tokenizer json file which contains the chat template its json file.
+ * if both tokenizer and template_str are provided, the template_str will supersede the tokenizer.
+ *
+ * @param tokenizer Pointer to an OrtxTokenizer used for template processing
+ * @param template_str Null-terminated string representing the chat template, can be null if tokenizer.json has one.
+ * @param input Null-terminated string containing the input to be processed.
+ * @param output an OrtxString that will be populated with the output strings.
+ * @param add_generation_prompt Indicates whether to add a generation prompt to the output.
+ * @return extError_t Returns an error code indicating success or the type of failure.
+ */
+extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, const char* template_str,
+                                               const char* input, OrtxString** output,
+                                               bool add_generation_prompt);
 
 #ifdef __cplusplus
 }

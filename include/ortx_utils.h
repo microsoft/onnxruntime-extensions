@@ -22,6 +22,7 @@ typedef enum {
   kOrtxKindTensor = 0x7790,
   kOrtxKindFeatureExtractor = 0x7791,
   kOrtxKindRawAudios = 0x7792,
+  kOrtxKindString = 0x7793,
   kOrtxKindEnd = 0x7999
 } extObjectKind_t;
 
@@ -40,7 +41,7 @@ typedef OrtxObject OrtxTensorResult;
 #define ORTX_RETURN_IF_ERROR(expr) \
   do {                             \
     auto _status = (expr);         \
-    if (!_status.IsOk()) {      \
+    if (!_status.IsOk()) {         \
       return _status;              \
     }                              \
   } while (0)

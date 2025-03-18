@@ -91,7 +91,7 @@ class TokenJsonConfig final {
     parse_token(json_config, "eos_token", eos_token_);
     parse_token(json_config, "unk_token", unk_token_);
 
-    parse_token(json_config, "chat_template", chat_template_);
+    chat_template_ = json_config.value("chat_template", "");
 
     auto pad_iter = json_config.find("pad_token");
     if (pad_iter != json_config.end() && pad_iter->is_string()) {
