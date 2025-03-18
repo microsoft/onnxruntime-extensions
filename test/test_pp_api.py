@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import tempfile
 import requests
@@ -42,8 +43,8 @@ def regen_image(arr, mean, std):
     image = Image.fromarray(array)
     return image
 
-
 @unittest.skipIf(not is_pp_api_available, "pp_api is not available")
+@unittest.skipIf(sys.version_info >= (3, 10), "transformers processor requires Python 3.10")
 class TestPPAPI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
