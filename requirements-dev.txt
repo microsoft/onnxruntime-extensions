@@ -8,3 +8,4 @@ transformers     >=4.9.2
 tensorflow_text  >=2.5.0;python_version < '3.11'
 requests         >=2.26.0
 sentencepiece
+scipy
