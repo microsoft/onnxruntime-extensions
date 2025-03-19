@@ -729,7 +729,13 @@ const std::unordered_map<std::string, std::string> model_to_template_map = {
 
     // DeepSeek variants
     { DEEPSEEK_CHAT_TEMPLATE, "deepseek-ai/DeepSeek-R1-Distill-Llama-70B" },
-    { DEEPSEEK_CHAT_TEMPLATE, "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" }
+    { DEEPSEEK_CHAT_TEMPLATE, "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" },
+
+    // Gemma-3 variants
+    { GEMMA3_CHAT_TEMPLATE, "google/gemma-3-1b-it" },
+    { GEMMA3_CHAT_TEMPLATE, "google/gemma-3-4b-it" },
+    { GEMMA3_CHAT_TEMPLATE, "google/gemma-3-12b-it" },
+    { GEMMA3_CHAT_TEMPLATE, "google/gemma-3-27b-it" }
 };
 
 void TokenizerImpl::InitializeChatParameters(
