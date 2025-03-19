@@ -232,19 +232,61 @@ class TestPPAPI(unittest.TestCase):
         ortx_inputs = tokenizer.tokenize(test_sentence)
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
-    def test_phi4_chat_template(self):
-        model_id = util.get_test_data_file("data/models/phi-4")
-        messages = [
-            {"role": "system", "content": "You are a medieval knight and must provide explanations to modern people."},
-            {"role": "user", "content": "How should I explain the Internet?"},
+    def test_chat_template(self):
+        tokenizer_locations = [
+            "test/data/models/phi-4",
+            "test/data/deepseek"
         ]
-        message_json = json.dumps(messages)
-        hf_enc = AutoTokenizer.from_pretrained(model_id, use_fast=True)
-        inputs = hf_enc.apply_chat_template(
-            messages, add_generation_prompt=True, tokenize=False)
-        tokenizer = pp_api.Tokenizer(model_id)
-        ortx_inputs = tokenizer.apply_chat_template(message_json)
-        np.testing.assert_array_equal(ortx_inputs, inputs)
+        # Define a list of different message scenarios
+        messages_list = [
+            # Case 1: Regular case with system, user, and assistant
+            [
+                {"role": "system", "content": "System message", "tools": "calculate_sum"},
+                {"role": "user", "content": "Hello, can you call some tools for me?"},
+                {"role": "assistant", "content": "Sure, I can calculate the sum for you!"}
+            ],
+            
+            # Case 2: Two back-to-back user messages
+            [
+                {"role": "system", "content": "", "tools": "calculate_sum"},
+                {"role": "user", "content": "Hi, I need some help with tools."},
+                {"role": "user", "content": "Also, can you help with calculations?"}
+            ],
+            
+            # Case 3: Two back-to-back assistant messages
+            [
+                {"role": "system", "content": "", "tools": "calculate_sum"},
+                {"role": "assistant", "content": "Sure, what would you like me to calculate?"},
+                {"role": "assistant", "content": "I can handle multiple requests."}
+            ],
+            
+            # Case 4: Mixed roles (user, assistant, user, assistant)
+            [
+                {"role": "user", "content": "What can you do for me?"},
+                {"role": "assistant", "content": "I can assist with a variety of tasks."},
+                {"role": "user", "content": "Can you calculate a sum for me?"},
+                {"role": "assistant", "content": "Sure, let me calculate that for you."}
+            ],
+            
+            # Case 5: System message with empty content
+            [
+                {"role": "system", "content": "", "tools": "calculate_sum"},
+                {"role": "user", "content": "Hello, I need some help."}
+            ]
+        ]
+
+        for location in tokenizer_locations:
+            model_id = util.get_test_data_file(location)
+
+            for messages in messages_list:
+
+                message_json = json.dumps(messages)
+                hf_enc = AutoTokenizer.from_pretrained(model_id, use_fast=True)
+                inputs = hf_enc.apply_chat_template(
+                    messages, add_generation_prompt=True, tokenize=False)
+                tokenizer = pp_api.Tokenizer(model_id)
+                ortx_inputs = tokenizer.apply_chat_template(message_json)
+                np.testing.assert_array_equal(ortx_inputs, inputs)
 
 
 if __name__ == "__main__":
