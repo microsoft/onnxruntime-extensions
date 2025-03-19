@@ -28,7 +28,6 @@ OrtxStatus TokenizerImpl::PhiVisionChatTemplate(std::string& output, bool add_ge
   return OrtxStatus(kOrtxOK, "Created Phi vision chat template.");
 }
 
-// Note Phi-3 and Phi-3.5 have slightly different chat template strings but share the same functionality so this method can be used for both.
 // Defaults: eos_token = "<|endoftext|>"
 OrtxStatus TokenizerImpl::Phi3ChatTemplate(std::string& output, bool add_generation_prompt) const {
   // Clear the output string before starting
@@ -59,7 +58,40 @@ OrtxStatus TokenizerImpl::Phi3ChatTemplate(std::string& output, bool add_generat
       output += eos_token;
   }
 
-  return OrtxStatus(kOrtxOK, "Created Phi-3/3.5 chat template.");
+  return OrtxStatus(kOrtxOK, "Created Phi-3 chat template.");
+}
+
+// Defaults: eos_token = "<|endoftext|>"
+OrtxStatus TokenizerImpl::Phi3_5ChatTemplate(std::string& output, bool add_generation_prompt) const {
+  // Clear the output string before starting
+  output.clear();
+
+  // Process the messages
+  for (const auto& message : messages) {
+      std::string role = message.at("role");
+      std::string content = message.at("content");
+
+      // Check for different roles and format accordingly
+      if (role == "system") {
+          output += "<|system|>\n";
+          output += content + "<|end|>\n";
+      } else if (role == "user") {
+          output += "<|user|>\n";
+          output += content + "<|end|>\n";
+      } else if (role == "assistant") {
+          output += "<|assistant|>\n";
+          output += content + "<|end|>\n";
+      }
+  }
+
+  // Add generation prompt or EOS token
+  if (add_generation_prompt) {
+      output += "<|assistant|>\n";
+  } else {
+      output += eos_token;
+  }
+
+  return OrtxStatus(kOrtxOK, "Created Phi-3.5 chat template.");
 }
 
 // Defaults: eos_token = "<|endoftext|>", bos_token = "<|startoftext|>"
@@ -544,6 +576,83 @@ OrtxStatus TokenizerImpl::DeepSeekChatTemplate(std::string& output, bool add_gen
   return OrtxStatus(kOrtxOK, "Created DeepSeek chat template.");
 }
 
+OrtxStatus TokenizerImpl::Gemma3ChatTemplate(std::string& output, bool add_generation_prompt) const {
+    // Clear the output string before starting
+    output.clear();
+
+    // Handle the first system message (if any) to set the first_user_prefix
+    std::string first_user_prefix = "";
+    size_t start_index = 0;
+
+    if (!messages.empty() && messages[0].at("role") == "system") {
+        if (messages[0].at("content").find("{") == std::string::npos) { // String type check
+            first_user_prefix = messages[0].at("content") + "\n\n";
+            start_index = 1;  // Start iterating from the next message
+        } else { // Handle iterable type (when content is a list)
+            // Parse the message content string into JSON
+            nlohmann::json message_content = nlohmann::json::parse(messages[0].at("content"));
+            first_user_prefix = message_content[0]["text"].get<std::string>() + "\n\n";
+            start_index = 1;  // Start iterating from the next message
+        }
+    }
+
+    // Add the BOS token at the beginning of the first message
+    output += bos_token;
+
+    // Iterate through the messages starting from `start_index`
+    for (size_t i = start_index; i < messages.size(); ++i) {
+        const auto& message = messages[i];
+        std::string role = message.at("role");
+        std::string content = message.at("content");
+
+        // Check for alternating user/assistant roles
+        if ((role == "user") != (i % 2 == start_index % 2)) {
+            return OrtxStatus(kOrtxErrorInvalidArgument, "Conversation roles must alternate user/assistant/user/assistant/...");
+        }
+
+        // Determine role (assistant gets converted to model)
+        if (role == "assistant") {
+            role = "model";
+        }
+
+        // Add start of turn with role and first user prefix if it's the first message after system message
+        std::string formatted_content = "<start_of_turn>" + role + "\n";
+        if (i == start_index) {
+            formatted_content += first_user_prefix;
+        }
+
+        // Add content, checking if it's a string or iterable (image/text)
+        if (content.find("{") == std::string::npos) { // String type content
+            formatted_content += content;
+        } else { // Iterable content (like image or text objects)
+            // Loop through content items (assuming content is iterable)
+            // Parse the message content string into JSON
+            nlohmann::json message_content = nlohmann::json::parse(message.at("content"));
+            for (const auto& item : message_content) {
+                if (item["type"].get<std::string>() == "image") {
+                    formatted_content += "<start_of_image>\n";
+                } else if (item["type"].get<std::string>() == "text") {
+                    formatted_content += item.at("text").get<std::string>();
+                }
+            }
+        }
+
+        // Close the turn
+        formatted_content += "<end_of_turn>\n";
+        output += formatted_content;
+    }
+
+    // Add generation prompt if necessary
+    if (add_generation_prompt) {
+        output += "<start_of_turn>model\n";
+    }
+
+    // Add the EOS token at the end
+    output += eos_token;
+
+    return OrtxStatus(kOrtxOK, "Created Gemma-3 chat template.");
+}
+
 TokenizerImpl::MessageList TokenizerImpl::ParseJson(const std::string& json_str) {
     nlohmann::ordered_json json_obj = nlohmann::json::parse(json_str, nullptr, false, true);
     // Check if the parsed JSON is an array
@@ -576,6 +685,7 @@ const char LLAMA3_CHAT_TEMPLATE[] = R"({% set loop_messages = messages %}{% for 
 const char LLAMA3_2_CHAT_TEMPLATE[] = R"({{- bos_token }}\n{%- if custom_tools is defined %}\n    {%- set tools = custom_tools %}\n{%- endif %}\n{%- if not tools_in_user_message is defined %}\n    {%- set tools_in_user_message = true %}\n{%- endif %}\n{%- if not date_string is defined %}\n    {%- if strftime_now is defined %}\n        {%- set date_string = strftime_now(\"%d %b %Y\") %}\n    {%- else %}\n        {%- set date_string = \"26 Jul 2024\" %}\n    {%- endif %}\n{%- endif %}\n{%- if not tools is defined %}\n    {%- set tools = none %}\n{%- endif %}\n\n{#- This block extracts the system message, so we can slot it into the right place. #}\n{%- if messages[0]['role'] == 'system' %}\n    {%- set system_message = messages[0]['content']|trim %}\n    {%- set messages = messages[1:] %}\n{%- else %}\n    {%- set system_message = \"\" %}\n{%- endif %}\n\n{#- System message #}\n{{- \"<|start_header_id|>system<|end_header_id|>\\n\\n\" }}\n{%- if tools is not none %}\n    {{- \"Environment: ipython\\n\" }}\n{%- endif %}\n{{- \"Cutting Knowledge Date: December 2023\\n\" }}\n{{- \"Today Date: \" + date_string + \"\\n\\n\" }}\n{%- if tools is not none and not tools_in_user_message %}\n    {{- \"You have access to the following functions. To call a function, please respond with JSON for a function call.\" }}\n    {{- 'Respond in the format {\"name\": function name, \"parameters\": dictionary of argument name and its value}.' }}\n    {{- \"Do not use variables.\\n\\n\" }}\n    {%- for t in tools %}\n        {{- t | tojson(indent=4) }}\n        {{- \"\\n\\n\" }}\n    {%- endfor %}\n{%- endif %}\n{{- system_message }}\n{{- \"<|eot_id|>\" }}\n\n{#- Custom tools are passed in a user message with some extra guidance #}\n{%- if tools_in_user_message and not tools is none %}\n    {#- Extract the first user message so we can plug it in here #}\n    {%- if messages | length != 0 %}\n        {%- set first_user_message = messages[0]['content']|trim %}\n        {%- set messages = messages[1:] %}\n    {%- else %}\n        {{- raise_exception(\"Cannot put tools in the first user message when there's no first user message!\") }}\n{%- endif %}\n    {{- '<|start_header_id|>user<|end_header_id|>\\n\\n' -}}\n    {{- \"Given the following functions, please respond with a JSON for a function call \" }}\n    {{- \"with its proper arguments that best answers the given prompt.\\n\\n\" }}\n    {{- 'Respond in the format {\"name\": function name, \"parameters\": dictionary of argument name and its value}.' }}\n    {{- \"Do not use variables.\\n\\n\" }}\n    {%- for t in tools %}\n        {{- t | tojson(indent=4) }}\n        {{- \"\\n\\n\" }}\n    {%- endfor %}\n    {{- first_user_message + \"<|eot_id|>\"}}\n{%- endif %}\n\n{%- for message in messages %}\n    {%- if not (message.role == 'ipython' or message.role == 'tool' or 'tool_calls' in message) %}\n        {{- '<|start_header_id|>' + message['role'] + '<|end_header_id|>\\n\\n'+ message['content'] | trim + '<|eot_id|>' }}\n    {%- elif 'tool_calls' in message %}\n        {%- if not message.tool_calls|length == 1 %}\n            {{- raise_exception(\"This model only supports single tool-calls at once!\") }}\n        {%- endif %}\n        {%- set tool_call = message.tool_calls[0].function %}\n        {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' -}}\n        {{- '{\"name\": \"' + tool_call.name + '\", ' }}\n        {{- '\"parameters\": ' }}\n        {{- tool_call.arguments | tojson }}\n        {{- \"}\" }}\n        {{- \"<|eot_id|>\" }}\n    {%- elif message.role == \"tool\" or message.role == \"ipython\" %}\n        {{- \"<|start_header_id|>ipython<|end_header_id|>\\n\\n\" }}\n        {%- if message.content is mapping or message.content is iterable %}\n            {{- message.content | tojson }}\n        {%- else %}\n            {{- message.content }}\n        {%- endif %}\n        {{- \"<|eot_id|>\" }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' }}\n{%- endif %}\n)";
 const char LLAMA3_3_CHAT_TEMPLATE[] = R"({{- bos_token }}\n{%- if custom_tools is defined %}\n    {%- set tools = custom_tools %}\n{%- endif %}\n{%- if not tools_in_user_message is defined %}\n    {%- set tools_in_user_message = true %}\n{%- endif %}\n{%- if not date_string is defined %}\n    {%- set date_string = \"26 Jul 2024\" %}\n{%- endif %}\n{%- if not tools is defined %}\n    {%- set tools = none %}\n{%- endif %}\n\n{#- This block extracts the system message, so we can slot it into the right place. #}\n{%- if messages[0]['role'] == 'system' %}\n    {%- set system_message = messages[0]['content']|trim %}\n    {%- set messages = messages[1:] %}\n{%- else %}\n    {%- set system_message = \"\" %}\n{%- endif %}\n\n{#- System message + builtin tools #}\n{{- \"<|start_header_id|>system<|end_header_id|>\\n\\n\" }}\n{%- if builtin_tools is defined or tools is not none %}\n    {{- \"Environment: ipython\\n\" }}\n{%- endif %}\n{%- if builtin_tools is defined %}\n    {{- \"Tools: \" + builtin_tools | reject('equalto', 'code_interpreter') | join(\", \") + \"\\n\\n\"}}\n{%- endif %}\n{{- \"Cutting Knowledge Date: December 2023\\n\" }}\n{{- \"Today Date: \" + date_string + \"\\n\\n\" }}\n{%- if tools is not none and not tools_in_user_message %}\n    {{- \"You have access to the following functions. To call a function, please respond with JSON for a function call.\" }}\n    {{- 'Respond in the format {\"name\": function name, \"parameters\": dictionary of argument name and its value}.' }}\n    {{- \"Do not use variables.\\n\\n\" }}\n    {%- for t in tools %}\n        {{- t | tojson(indent=4) }}\n        {{- \"\\n\\n\" }}\n    {%- endfor %}\n{%- endif %}\n{{- system_message }}\n{{- \"<|eot_id|>\" }}\n\n{#- Custom tools are passed in a user message with some extra guidance #}\n{%- if tools_in_user_message and not tools is none %}\n    {#- Extract the first user message so we can plug it in here #}\n    {%- if messages | length != 0 %}\n        {%- set first_user_message = messages[0]['content']|trim %}\n        {%- set messages = messages[1:] %}\n    {%- else %}\n        {{- raise_exception(\"Cannot put tools in the first user message when there's no first user message!\") }}\n{%- endif %}\n    {{- '<|start_header_id|>user<|end_header_id|>\\n\\n' -}}\n    {{- \"Given the following functions, please respond with a JSON for a function call \" }}\n    {{- \"with its proper arguments that best answers the given prompt.\\n\\n\" }}\n    {{- 'Respond in the format {\"name\": function name, \"parameters\": dictionary of argument name and its value}.' }}\n    {{- \"Do not use variables.\\n\\n\" }}\n    {%- for t in tools %}\n        {{- t | tojson(indent=4) }}\n        {{- \"\\n\\n\" }}\n    {%- endfor %}\n    {{- first_user_message + \"<|eot_id|>\"}}\n{%- endif %}\n\n{%- for message in messages %}\n    {%- if not (message.role == 'ipython' or message.role == 'tool' or 'tool_calls' in message) %}\n        {{- '<|start_header_id|>' + message['role'] + '<|end_header_id|>\\n\\n'+ message['content'] | trim + '<|eot_id|>' }}\n    {%- elif 'tool_calls' in message %}\n        {%- if not message.tool_calls|length == 1 %}\n            {{- raise_exception(\"This model only supports single tool-calls at once!\") }}\n        {%- endif %}\n        {%- set tool_call = message.tool_calls[0].function %}\n        {%- if builtin_tools is defined and tool_call.name in builtin_tools %}\n            {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' -}}\n            {{- \"<|python_tag|>\" + tool_call.name + \".call(\" }}\n            {%- for arg_name, arg_val in tool_call.arguments | items %}\n                {{- arg_name + '=\"' + arg_val + '\"' }}\n                {%- if not loop.last %}\n                    {{- \", \" }}\n                {%- endif %}\n                {%- endfor %}\n            {{- \")\" }}\n        {%- else  %}\n            {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' -}}\n            {{- '{\"name\": \"' + tool_call.name + '\", ' }}\n            {{- '\"parameters\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- \"}\" }}\n        {%- endif %}\n        {%- if builtin_tools is defined %}\n            {#- This means we're in ipython mode #}\n            {{- \"<|eom_id|>\" }}\n        {%- else %}\n            {{- \"<|eot_id|>\" }}\n        {%- endif %}\n    {%- elif message.role == \"tool\" or message.role == \"ipython\" %}\n        {{- \"<|start_header_id|>ipython<|end_header_id|>\\n\\n\" }}\n        {%- if message.content is mapping or message.content is iterable %}\n            {{- message.content | tojson }}\n        {%- else %}\n            {{- message.content }}\n        {%- endif %}\n        {{- \"<|eot_id|>\" }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' }}\n{%- endif %}\n)";
 const char DEEPSEEK_CHAT_TEMPLATE[] = R"({% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% set ns = namespace(is_first=false, is_tool=false, is_output_first=true, system_prompt='') %}{%- for message in messages %}{%- if message['role'] == 'system' %}{% set ns.system_prompt = message['content'] %}{%- endif %}{%- endfor %}{{bos_token}}{{ns.system_prompt}}{%- for message in messages %}{%- if message['role'] == 'user' %}{%- set ns.is_tool = false -%}{{'<｜User｜>' + message['content']}}{%- endif %}{%- if message['role'] == 'assistant' and message['content'] is none %}{%- set ns.is_tool = false -%}{%- for tool in message['tool_calls']%}{%- if not ns.is_first %}{{'<｜Assistant｜><｜tool▁calls▁begin｜><｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\\n' + '```json' + '\\n' + tool['function']['arguments'] + '\\n' + '```' + '<｜tool▁call▁end｜>'}}{%- set ns.is_first = true -%}{%- else %}{{'\\n' + '<｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\\n' + '```json' + '\\n' + tool['function']['arguments'] + '\\n' + '```' + '<｜tool▁call▁end｜>'}}{{'<｜tool▁calls▁end｜><｜end▁of▁sentence｜>'}}{%- endif %}{%- endfor %}{%- endif %}{%- if message['role'] == 'assistant' and message['content'] is not none %}{%- if ns.is_tool %}{{'<｜tool▁outputs▁end｜>' + message['content'] + '<｜end▁of▁sentence｜>'}}{%- set ns.is_tool = false -%}{%- else %}{% set content = message['content'] %}{% if '</think>' in content %}{% set content = content.split('</think>')[-1] %}{% endif %}{{'<｜Assistant｜>' + content + '<｜end▁of▁sentence｜>'}}{%- endif %}{%- endif %}{%- if message['role'] == 'tool' %}{%- set ns.is_tool = true -%}{%- if ns.is_output_first %}{{'<｜tool▁outputs▁begin｜><｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}{%- set ns.is_output_first = false %}{%- else %}{{'\\n<｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}{%- endif %}{%- endif %}{%- endfor -%}{% if ns.is_tool %}{{'<｜tool▁outputs▁end｜>'}}{% endif %}{% if add_generation_prompt and not ns.is_tool %}{{'<｜Assistant｜><think>\\n'}}{% endif %})";
+const char GEMMA3_CHAT_TEMPLATE[] = R"({{ bos_token }}\n{%- if messages[0]['role'] == 'system' -%}\n    {%- if messages[0]['content'] is string -%}\n        {%- set first_user_prefix = messages[0]['content'] + '\n\n' -%}\n    {%- else -%}\n        {%- set first_user_prefix = messages[0]['content'][0]['text'] + '\n\n' -%}\n    {%- endif -%}\n    {%- set loop_messages = messages[1:] -%}\n{%- else -%}\n    {%- set first_user_prefix = \"\" -%}\n    {%- set loop_messages = messages -%}\n{%- endif -%}\n{%- for message in loop_messages -%}\n    {%- if (message['role'] == 'user') != (loop.index0 % 2 == 0) -%}\n        {{ raise_exception(\"Conversation roles must alternate user/assistant/user/assistant/...\") }}\n    {%- endif -%}\n    {%- if (message['role'] == 'assistant') -%}\n        {%- set role = \"model\" -%}\n    {%- else -%}\n        {%- set role = message['role'] -%}\n    {%- endif -%}\n    {{ '<start_of_turn>' + role + '\n' + (first_user_prefix if loop.first else \"\") }}\n    {%- if message['content'] is string -%}\n        {{ message['content'] | trim }}\n    {%- elif message['content'] is iterable -%}\n        {%- for item in message['content'] -%}\n            {%- if item['type'] == 'image' -%}\n                {{ '<start_of_image>' }}\n            {%- elif item['type'] == 'text' -%}\n                {{ item['text'] | trim }}\n            {%- endif -%}\n        {%- endfor -%}\n    {%- else -%}\n        {{ raise_exception(\"Invalid content type\") }}\n    {%- endif -%}\n    {{ '<end_of_turn>\n' }}\n{%- endfor -%}\n{%- if add_generation_prompt -%}\n    {{'<start_of_turn>model\n'}}\n{%- endif -%}\n)";
 
 const std::unordered_map<std::string, std::string> model_to_template_map = {
     // Phi-vision variants
@@ -619,7 +729,13 @@ const std::unordered_map<std::string, std::string> model_to_template_map = {
 
     // DeepSeek variants
     { DEEPSEEK_CHAT_TEMPLATE, "deepseek-ai/DeepSeek-R1-Distill-Llama-70B" },
-    { DEEPSEEK_CHAT_TEMPLATE, "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" }
+    { DEEPSEEK_CHAT_TEMPLATE, "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" },
+
+    // Gemma-3 variants
+    { GEMMA3_CHAT_TEMPLATE, "google/gemma-3-1b-it" },
+    { GEMMA3_CHAT_TEMPLATE, "google/gemma-3-4b-it" },
+    { GEMMA3_CHAT_TEMPLATE, "google/gemma-3-12b-it" },
+    { GEMMA3_CHAT_TEMPLATE, "google/gemma-3-27b-it" }
 };
 
 void TokenizerImpl::InitializeChatParameters(
@@ -665,8 +781,10 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(
   // Apply the corresponding chat template if it is supported
   if (chat_template == PHI4_CHAT_TEMPLATE) {
     return Phi4ChatTemplate(output, add_generation_prompt);
-  } else if (chat_template == PHI3_CHAT_TEMPLATE || chat_template == PHI3_5_CHAT_TEMPLATE) {
+  } else if (chat_template == PHI3_CHAT_TEMPLATE) {
     return Phi3ChatTemplate(output, add_generation_prompt);
+  } else if (chat_template == PHI3_5_CHAT_TEMPLATE) {
+    return Phi3_5ChatTemplate(output, add_generation_prompt);
   } else if (chat_template == PHI3_SMALL_CHAT_TEMPLATE) {
     return Phi3SmallChatTemplate(output, add_generation_prompt);
   } else if (chat_template == PHI3_MEDIUM_CHAT_TEMPLATE) {
@@ -683,6 +801,8 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(
     return Llama3_3ChatTemplate(output, add_generation_prompt);
   } else if (chat_template == DEEPSEEK_CHAT_TEMPLATE) {
     return DeepSeekChatTemplate(output, add_generation_prompt);
+  } else if (chat_template == GEMMA3_CHAT_TEMPLATE) {
+    return Gemma3ChatTemplate(output, add_generation_prompt);
   }
 
   return {};
