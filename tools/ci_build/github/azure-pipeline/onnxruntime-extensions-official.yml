@@ -34,7 +34,7 @@ extends:
         enabled: true
       binskim:
         enabled: true
-        targetPathPattern: '**\RelWithDebInfo\ortextensions.dll'  # avoid scanning the 3rd party DLLs.
+        targetPathPattern: '**\onnxruntime_extensions\_extensions_pydll.*'  # avoid scanning the 3rd party DLLs.
       codeql:
         compiled:
           enabled: true
