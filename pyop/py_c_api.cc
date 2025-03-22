@@ -32,7 +32,7 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         OrtxProcessor* processor = nullptr;
         auto err = OrtxCreateProcessor(&processor, processor_def_json);
         if (err != kOrtxOK) {
-          throw std::runtime_error(std::string("Failed to create processor") + OrtxGetLastErrorMessage());
+          throw std::runtime_error(std::string("Failed to create processor: ") + OrtxGetLastErrorMessage());
         }
         return reinterpret_cast<std::uintptr_t>(processor);
       },
@@ -50,7 +50,7 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
 
         auto err = OrtxLoadImages(&images, image_ptrs.get(), num_images, nullptr);
         if (err != kOrtxOK) {
-          throw std::runtime_error(std::string("Failed to load images") + OrtxGetLastErrorMessage());
+          throw std::runtime_error(std::string("Failed to load images: ") + OrtxGetLastErrorMessage());
         }
         return reinterpret_cast<std::uintptr_t>(images);
       },
@@ -64,7 +64,7 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         OrtxTensorResult* result{};
         auto err = OrtxImagePreProcess(processor, images, &result);
         if (err != kOrtxOK) {
-          throw std::runtime_error(std::string("Failed to preprocess images") + OrtxGetLastErrorMessage());
+          throw std::runtime_error(std::string("Failed to preprocess images: ") + OrtxGetLastErrorMessage());
         }
         return reinterpret_cast<std::uintptr_t>(result);
       },
@@ -77,7 +77,7 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         OrtxTensor* tensor{};
         auto err = OrtxTensorResultGetAt(result, index, &tensor);
         if (err != kOrtxOK) {
-          throw std::runtime_error(std::string("Failed to get tensor") + OrtxGetLastErrorMessage());
+          throw std::runtime_error(std::string("Failed to get tensor: ") + OrtxGetLastErrorMessage());
         }
 
         extDataType_t tensor_type;
@@ -140,7 +140,7 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         }
         auto err = OrtxTokenize(tokenizer, cs_inputs.data(), inputs.size(), &tid_output);
         if (err != kOrtxOK) {
-          throw std::runtime_error(std::string("Failed to tokenize") + OrtxGetLastErrorMessage());
+          throw std::runtime_error(std::string("Failed to tokenize: ") + OrtxGetLastErrorMessage());
         }
 
         for (size_t i = 0; i < inputs.size(); ++i) {
@@ -148,7 +148,7 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
           size_t length{};
           err = OrtxTokenId2DArrayGetItem(tid_output, i, &t2d, &length);
           if (err != kOrtxOK) {
-            throw std::runtime_error(std::string("Failed to get token id") + OrtxGetLastErrorMessage());
+            throw std::runtime_error(std::string("Failed to get token id: ") + OrtxGetLastErrorMessage());
           }
           output.push_back(std::vector<int64_t>(t2d, t2d + length));
         }
@@ -171,18 +171,18 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
 
           auto err = OrtxDetokenize1D(tokenizer, input.data(), input.size(), &output);
           if (err != kOrtxOK) {
-            throw std::runtime_error(std::string("Failed to detokenize") + OrtxGetLastErrorMessage());
+            throw std::runtime_error(std::string("Failed to detokenize: ") + OrtxGetLastErrorMessage());
           }
           size_t length;
           err = OrtxStringArrayGetBatch(output, &length);
           if (err != kOrtxOK) {
-            throw std::runtime_error(std::string("Failed to get batch size") + OrtxGetLastErrorMessage());
+            throw std::runtime_error(std::string("Failed to get batch size: ") + OrtxGetLastErrorMessage());
           }
           for (size_t i = 0; i < length; ++i) {
             const char* item;
             err = OrtxStringArrayGetItem(output, i, &item);
             if (err != kOrtxOK) {
-              throw std::runtime_error(std::string("Failed to get item") + OrtxGetLastErrorMessage());
+              throw std::runtime_error(std::string("Failed to get item: ") + OrtxGetLastErrorMessage());
             }
             result.push_back(item);
           }
@@ -202,13 +202,13 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         template_str.empty()? nullptr: template_str.c_str(), input.c_str(),
         templated_text.ToBeAssigned(), add_generation_prompt);
       if (err != kOrtxOK) {
-        throw std::runtime_error(std::string("Failed to apply chat template") + OrtxGetLastErrorMessage());
+        throw std::runtime_error(std::string("Failed to apply chat template: ") + OrtxGetLastErrorMessage());
       }
 
       const char* text{};
       err = OrtxStringGetCstr(templated_text.get(), &text);
       if (err != kOrtxOK) {
-        throw std::runtime_error(std::string("Failed to get string") + OrtxGetLastErrorMessage());
+        throw std::runtime_error(std::string("Failed to get string: ") + OrtxGetLastErrorMessage());
       }
       std::string result(text);
       return result;
