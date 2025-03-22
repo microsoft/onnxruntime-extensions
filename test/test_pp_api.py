@@ -213,6 +213,34 @@ class TestPPAPI(unittest.TestCase):
         ortx_inputs = tokenizer.tokenize(test_sentence)
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
+    @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
+    def test_gemma_3_chat_template(self):
+        ckpt = "google/gemma-3-4b-it"
+        hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
+
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "url": "https://huggingface.co/spaces/big-vision/paligemma-hf/resolve/main/examples/password.jpg",
+                    },
+                    {"type": "text", "text": "What is the password?"},
+                ],
+            }
+        ]
+
+        inputs = hf_tok.apply_chat_template(
+            messages, add_generation_prompt=True, tokenize=False, return_tensors="np")
+
+        tokenizer = pp_api.Tokenizer(ckpt)
+        message_json = json.dumps(messages)
+        prompt = tokenizer.apply_chat_template(message_json)
+        self.assertEqual(prompt, inputs)
+        ortx_inputs = tokenizer.tokenize(prompt)
+        np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
+
     def test_phi4_chat_template(self):
         model_id = util.get_test_data_file("data/models/phi-4")
         messages = [
