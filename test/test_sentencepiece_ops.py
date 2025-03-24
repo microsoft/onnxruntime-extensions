@@ -561,7 +561,6 @@ class TestOrtXSentencePiece(unittest.TestCase):
             np.array([flags & 4], dtype=np.bool_),
             np.array([False], dtype=np.bool_))
         self.assertEqual(tokens.tolist(), [1095, 4054, 26, 2022, 755, 99935])
-    
 
     def test_spm_decoder(self):
         fullname = util.get_test_data_file('data', 'en.wiki.bpe.vs100000.model')
