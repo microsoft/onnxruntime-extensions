@@ -99,6 +99,7 @@ stages:
     - script: |
         for /D %%i in ("out\onnxruntime_extensions*-win*") do (
           7z u %%i.whl .\%%i\*
+          copy %%i\onnxruntime_extensions\*.pyd out\
           rmdir /s /q %%i
           )
       workingDirectory: '$(REPOROOT)'
