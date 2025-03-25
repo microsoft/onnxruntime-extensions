@@ -102,6 +102,10 @@ stages:
           copy %%i\onnxruntime_extensions\*.pyd out\
           rmdir /s /q %%i
           )
+        for %%i in (out\*.pyd) do (
+          move %%i %%~pni.dll
+          )
+        dir out\*.*
       workingDirectory: '$(REPOROOT)'
       displayName: zip package
 
