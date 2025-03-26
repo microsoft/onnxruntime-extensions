@@ -53,7 +53,7 @@ stages:
           ort.version: '1.16.3'
         py39-1151:
           python.version: '3.9'
-          torch.version: 'torch==1.13.1+cpu torchvision==0.14.1+cpu torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
+          torch.version: 'torch torchvision torchaudio'
           ort.version: '1.15.1'
 
     steps:
@@ -313,7 +313,7 @@ stages:
           ort.version: '1.16.3'
         py39-1151:
           python.version: '3.9'
-          torch.version: 'torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
+          torch.version: 'torch torchvision torchaudio'
           ort.version: '1.15.1'
 
     steps:
