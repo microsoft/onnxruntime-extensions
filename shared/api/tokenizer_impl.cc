@@ -10,7 +10,6 @@
 
 namespace ort_extensions {
 
-
 TokenizerImpl::TokenizerImpl()
     : OrtxObjectImpl(extObjectKind_t::kOrtxKindTokenizer) {};
 TokenizerImpl::~TokenizerImpl() {};
@@ -56,7 +55,8 @@ OrtxStatus TokenizerImpl::LoadTokenizer(const OrtxTokenizerBlob* blob) {
     }
 
     auto detok = std::make_unique<BpeStreamingDecoder>();
-    status = detok->Load(tok_config_, *tokenizer);
+    ORTX_RETURN_IF_ERROR(detok->Load(tok_config_, *tokenizer));
+    ORTX_RETURN_IF_ERROR(LoadChatTemplate());
 
     if (status.IsOk()) {
       tokenizer_ = std::move(tokenizer);

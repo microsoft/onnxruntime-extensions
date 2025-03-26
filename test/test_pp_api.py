@@ -254,6 +254,24 @@ class TestPPAPI(unittest.TestCase):
         ortx_inputs = tokenizer.apply_chat_template(message_json)
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
+    def test_qwen2_5_vl_chat_template(self):
+        model_id = "Qwen/Qwen2.5-VL-72B-Instruct"
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": "data:image;base64,/9j/..."},
+                    {"type": "text", "text": "Describe this image."},
+                ],
+            }
+        ]
+        message_json = json.dumps(messages)
+        hf_enc = AutoTokenizer.from_pretrained(model_id, use_fast=True)
+        inputs = hf_enc.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
+        tokenizer = pp_api.Tokenizer(model_id)
+        ortx_inputs = tokenizer.apply_chat_template(message_json)
+        np.testing.assert_array_equal(ortx_inputs, inputs)
+
     @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_gemma_3_image_processor(self):
         ckpt = "google/gemma-3-4b-it"
