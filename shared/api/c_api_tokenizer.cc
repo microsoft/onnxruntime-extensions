@@ -325,15 +325,6 @@ extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, Or
   return status.Code();
 }
 
-static std::string NormalizeNewlines(const std::string& s) {
-#ifdef _WIN32
-  static const std::regex nl_regex("\r\n");
-  return std::regex_replace(s, nl_regex, "\n");
-#else
-  return s;
-#endif
-}
-
 extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, const char* template_str,
                                                const char* input, OrtxString** output,
                                                bool add_generation_prompt) {
@@ -353,16 +344,8 @@ extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, c
     return status.Code();
   }
 
-  const_cast<TokenizerImpl*>(token_ptr)->InitializeChatParameters(template_str);
   std::string text;
-  std::string input_str = NormalizeNewlines(input);
-  auto message_list = TokenizerImpl::ParseJson(input_str.c_str());
-  if (message_list.empty()) {
-    ReturnableStatus::last_error_message_ = "Invalid JSON format";
-    return kOrtxErrorInvalidArgument;
-  }
-
-  status = token_ptr->ApplyChatTemplate(message_list, text, add_generation_prompt);
+  status = token_ptr->ApplyChatTemplate(template_str, input, text, add_generation_prompt);
   if (status.IsOk()) {
     auto result = std::make_unique<ort_extensions::String>().release();
     result->SetString(text);
