@@ -859,7 +859,7 @@ stages:
       displayName: "Use Python 3.12"
 
     - script: |
-        python -m pip install cmake
+        python -m pip install cmake==3.31.6
       displayName: "Install CMake"
 
     - template: templates/set-package-version-variable-step.yml
