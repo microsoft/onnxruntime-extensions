@@ -255,6 +255,60 @@ class TestPPAPI(unittest.TestCase):
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
     @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
+    def test_deepseek_chat_template(self):
+        ckpt = "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"
+        hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
+
+        # Define a list of different message scenarios
+        messages_list = [
+            # Case 1: Regular case with system, user, and assistant
+            [
+                {"role": "system", "content": "System message", "tools": "calculate_sum"},
+                {"role": "user", "content": "Hello, can you call some tools for me?"},
+                {"role": "assistant", "content": "Sure, I can calculate the sum for you!"}
+            ],
+            
+            # Case 2: Two back-to-back user messages
+            [
+                {"role": "system", "content": "", "tools": "calculate_sum"},
+                {"role": "user", "content": "Hi, I need some help with tools."},
+                {"role": "user", "content": "Also, can you help with calculations?"}
+            ],
+            
+            # Case 3: Two back-to-back assistant messages
+            [
+                {"role": "system", "content": "", "tools": "calculate_sum"},
+                {"role": "assistant", "content": "Sure, what would you like me to calculate?"},
+                {"role": "assistant", "content": "I can handle multiple requests."}
+            ],
+            
+            # Case 4: Mixed roles (user, assistant, user, assistant)
+            [
+                {"role": "user", "content": "What can you do for me?"},
+                {"role": "assistant", "content": "I can assist with a variety of tasks."},
+                {"role": "user", "content": "Can you calculate a sum for me?"},
+                {"role": "assistant", "content": "Sure, let me calculate that for you."}
+            ],
+            
+            # Case 5: System message with empty content
+            [
+                {"role": "system", "content": "", "tools": "calculate_sum"},
+                {"role": "user", "content": "Hello, I need some help."}
+            ]
+        ]
+
+        for messages in messages_list:
+            inputs = hf_tok.apply_chat_template(
+                messages, add_generation_prompt=True, tokenize=False, return_tensors="np")
+
+            tokenizer = pp_api.Tokenizer(ckpt)
+            message_json = json.dumps(messages)
+            prompt = tokenizer.apply_chat_template(message_json)
+            self.assertEqual(prompt, inputs)
+            ortx_inputs = tokenizer.tokenize(prompt)
+            np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
+
+    @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_gemma_3_image_processor(self):
         ckpt = "google/gemma-3-4b-it"
         image_list = [
