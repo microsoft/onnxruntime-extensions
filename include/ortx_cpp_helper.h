@@ -35,7 +35,7 @@ class OrtxObjectPtr : public std::unique_ptr<T, OrtxDeleter<T>> {
    * 
    * Constructs an OrtxObjectPtr with a null pointer.
    */
-  OrtxObjectPtr() : std::unique_ptr<T, OrtxDeleter<T>>(nullptr) {}
+  explicit OrtxObjectPtr(T* ptr=nullptr) : std::unique_ptr<T, OrtxDeleter<T>>(ptr) {}
 
   /**
    * @brief Constructor that creates an OrtxObjectPtr from a function call.
@@ -55,6 +55,15 @@ class OrtxObjectPtr : public std::unique_ptr<T, OrtxDeleter<T>> {
     err_ = fn(&proc, std::forward<Args>(args)...);
     if (err_ == kOrtxOK) {
       this->reset(static_cast<T*>(proc));
+    }
+  }
+
+  template <typename TFn, typename... Args>
+  static OrtxObjectPtr<T> FromCapi(TFn fn, Args&&... args) {
+    OrtxObject* proc = nullptr;
+    extError_t err = fn(&proc, std::forward<Args>(args)...);
+    if (err == kOrtxOK) {
+      return OrtxObjectPtr(static_cast<T*>(proc));
     }
   }
 

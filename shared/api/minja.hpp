@@ -1740,6 +1740,7 @@ namespace minja
   class UnaryOpExpr : public Expression
   {
   public:
+    DEFINE_EXPRESION_ID();
     enum class Op
     {
       Plus,
@@ -1932,7 +1933,7 @@ namespace minja
       ArgumentsValue vargs;
       for (const auto &arg : this->args)
       {
-        if (auto un_expr = std::dynamic_pointer_cast<UnaryOpExpr>(arg))
+        if (auto un_expr = expr_cast<UnaryOpExpr*>(arg.get()))
         {
           if (un_expr->op == UnaryOpExpr::Op::Expansion)
           {

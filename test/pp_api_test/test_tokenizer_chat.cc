@@ -17,7 +17,7 @@ TEST(OrtxTokenizerTest, Phi4ChatTemplate) {
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/models/phi-4");
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
 
-  OrtxObjectPtr<OrtxString> templated_text;
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
   std::string messages_json = R"(
     [
       {
@@ -37,7 +37,7 @@ TEST(OrtxTokenizerTest, Phi4ChatTemplate) {
 
   auto err = OrtxApplyChatTemplate(
     tokenizer.get(), nullptr,
-    messages_json.c_str(), templated_text.ToBeAssigned(), true);
+    messages_json.c_str(), templated_text.ToBeAssigned(), true, false);
 
   if (err != kOrtxOK) {
     std::cout << "Failed to apply chat template, stopping the test." << std::endl;
@@ -45,12 +45,15 @@ TEST(OrtxTokenizerTest, Phi4ChatTemplate) {
     std::cout << "Error message: " << OrtxGetLastErrorMessage() << std::endl;
   }
 
-  const char* text = nullptr;
-  OrtxStringGetCstr(templated_text.get(), &text);
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK) << "Failed to get tensor from templated text, stopping the test.";
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
 
   // From HuggingFace Python output for 'microsoft/Phi-4-multimodal-instruct'
   std::string expected_output = "<|system|>You are a helpful assistant.<|tool|>Calculator<|/tool|><|end|><|user|>"
     "How do I add two numbers?<|end|><|assistant|>You can add numbers by using the '+' operator.<|end|><|assistant|>";
 
-  ASSERT_EQ(text, expected_output);
+  ASSERT_EQ(text_ptr, expected_output);
 }

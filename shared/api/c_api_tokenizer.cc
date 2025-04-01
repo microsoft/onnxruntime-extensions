@@ -297,8 +297,7 @@ extError_t ORTX_API_CALL OrtxTokenId2DArrayGetItem(const OrtxTokenId2DArray* tok
 }
 
 extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, OrtxDetokenizerCache* cache,
-                                              extTokenId_t next_id,
-                                const char** text_out) {
+                                              extTokenId_t next_id, const char** text_out) {
   if (tokenizer == nullptr || cache == nullptr || text_out == nullptr) {
     ReturnableStatus::last_error_message_ = "Invalid argument";
     return kOrtxErrorInvalidArgument;
@@ -326,8 +325,8 @@ extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, Or
 }
 
 extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, const char* template_str,
-                                               const char* input, OrtxString** output,
-                                               bool add_generation_prompt) {
+                                               const char* input, OrtxTensorResult** output, bool add_generation_prompt,
+                                               bool tokenize) {
   if (tokenizer == nullptr && template_str == nullptr) {
     ReturnableStatus::last_error_message_ = "both tokenizer and template_str are null, no template to apply";
     return kOrtxErrorInvalidArgument;
@@ -345,11 +344,20 @@ extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, c
   }
 
   std::string text;
-  status = token_ptr->ApplyChatTemplate(template_str, input, text, add_generation_prompt);
+  std::vector<extTokenId_t> ids_vec;
+  status = token_ptr->ApplyChatTemplate(template_str, input, text, ids_vec, add_generation_prompt, tokenize);
   if (status.IsOk()) {
-    auto result = std::make_unique<ort_extensions::String>().release();
-    result->SetString(text);
-    *output = static_cast<OrtxString*>(result);
+    auto result = std::make_unique<ort_extensions::TensorResult>();
+    std::vector<std::unique_ptr<ortc::TensorBase>> tensors;
+    tensors.emplace_back(std::make_unique<ortc::Tensor<std::string>>(std::vector<std::string>{text}));
+    if (tokenize) {
+      auto id_tensor = std::make_unique<ortc::Tensor<extTokenId_t>>(&CppAllocator::Instance());
+      extTokenId_t* data = id_tensor->Allocate({1, static_cast<int64_t>(ids_vec.size())});
+      std::copy(ids_vec.begin(), ids_vec.end(), data);
+      tensors.push_back(std::move(id_tensor));
+    }
+    result->SetTensors(std::move(tensors));
+    *output = static_cast<OrtxTensorResult*>(result.release());
   }
 
   return status.Code();

@@ -759,7 +759,8 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const TokenizerImpl::MessageList& me
 }
 
 OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char* message, std::string& output,
-                                            bool add_generation_prompt) const {
+                                            std::vector<extTokenId_t>& ids_vec, bool add_generation_prompt,
+                                            bool tokenize) const {
   OrtxStatus status;
   std::string input_str = minja::normalize_newlines(message);
   auto activated_str = tok_config_->chat_template_.c_str();
@@ -801,8 +802,16 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
       text = root->render(context);
       output = text;
     } catch (const std::runtime_error& e) {
-      return {kOrtxErrorInvalidArgument, e.what()};
+      status = {kOrtxErrorInvalidArgument, e.what()};
     }
+  }
+
+  if (!status.IsOk()) {
+    return status;
+  }
+
+  if (tokenize) {
+    status = std::visit([&](auto& tokenizer) { return tokenizer->ComputeNoOp(output, ids_vec, false); }, tokenizer_);
   }
 
   return status;

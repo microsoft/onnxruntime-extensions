@@ -76,32 +76,26 @@ class TokenizerImpl : public OrtxObjectImpl {
   OrtxStatus Llama3_2ChatTemplate(std::string& output, bool add_generation_prompt) const;
   OrtxStatus Llama3_3ChatTemplate(std::string& output, bool add_generation_prompt) const;
   OrtxStatus DeepSeekChatTemplate(std::string& output, bool add_generation_prompt) const;
-  OrtxStatus Gemma3ChatTemplate(std::string& output, bool add_generation_prompt) const;
-
 
   OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state) const;
   OrtxStatus GetDecoderPromptIds(size_t batch_size, const char* lang, const char* task, int no_timestamps,
                                  std::vector<std::vector<extTokenId_t>>& t_ids) const;
-  OrtxStatus ApplyChatTemplate(
-    const char* template_str, const char* message, std::string& output, bool add_generation_prompt) const;
+  OrtxStatus ApplyChatTemplate(const char* template_str, const char* message, std::string& output,
+                               std::vector<extTokenId_t>& ids_vec, bool add_generation_prompt, bool tokenize) const;
 
  private:
   OrtxStatus LoadTokenizer(const OrtxTokenizerBlob* blob = nullptr);
   OrtxStatus LoadChatTemplate();
 
   static MessageList ParseJson(const std::string& json_str);
-  void InitializeChatParameters(
-    const char* template_str = nullptr,
-    const std::vector<std::string>& custom_tools_param = {},
-    bool tools_in_user_message_param = true,
-    const std::string& strftime_param = "",
-    const std::string& date_str = "26 Jul 2024",
-    const std::vector<std::string>& builtin_tools_param = {});
+  void InitializeChatParameters(const char* template_str = nullptr,
+                                const std::vector<std::string>& custom_tools_param = {},
+                                bool tools_in_user_message_param = true, const std::string& strftime_param = "",
+                                const std::string& date_str = "26 Jul 2024",
+                                const std::vector<std::string>& builtin_tools_param = {});
 
-  OrtxStatus ApplyChatTemplate(
-    const MessageList& messages,
-    std::string& output,
-    bool add_generation_prompt) const;
+  OrtxStatus ApplyChatTemplate(const MessageList& messages, std::string& output,
+                               bool add_generation_prompt) const;
 
   using bpe_tokenizer_t = std::unique_ptr<JsonFastTokenizer>;
   using ugm_tokenizer_t = std::unique_ptr<SpmUgmTokenizer>;

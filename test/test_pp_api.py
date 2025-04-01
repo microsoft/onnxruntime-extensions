@@ -272,6 +272,10 @@ class TestPPAPI(unittest.TestCase):
         ortx_inputs = tokenizer.apply_chat_template(message_json)
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
+        inputs = hf_enc.apply_chat_template(messages, add_generation_prompt=True, tokenize=True, return_tensors="np")
+        ortx_inputs = tokenizer.apply_chat_template(message_json, add_generation_prompt=True, tokenize=True)
+        np.testing.assert_array_equal(ortx_inputs, inputs)
+
     @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_gemma_3_image_processor(self):
         ckpt = "google/gemma-3-4b-it"

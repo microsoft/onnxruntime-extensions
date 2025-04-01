@@ -33,18 +33,20 @@ struct OrtxTokenizerBlob {
   const size_t reserved_blob_1_len;
 
 #ifdef __cplusplus
-  OrtxTokenizerBlob(const std::string_view& config_json_blob,
-                    const std::string_view& vocab_json_blob,
-                    const std::string_view& token_module_blob = {},
-                    const std::string_view& raw_model_blob = {})
-      : config_json_blob(config_json_blob.data()), vocab_json_blob(vocab_json_blob.data()),
-        token_module_blob(token_module_blob.data()), raw_model_blob(raw_model_blob.data()),
-        reserved_blob_1(nullptr), config_blob_len(config_json_blob.size()),
-        vocab_blob_len(vocab_json_blob.size()), token_module_blob_len(token_module_blob.size()),
-        raw_model_blob_len(raw_model_blob.size()), reserved_blob_1_len(0) {}
+  OrtxTokenizerBlob(const std::string_view& config_json_blob, const std::string_view& vocab_json_blob,
+                    const std::string_view& token_module_blob = {}, const std::string_view& raw_model_blob = {})
+      : config_json_blob(config_json_blob.data()),
+        vocab_json_blob(vocab_json_blob.data()),
+        token_module_blob(token_module_blob.data()),
+        raw_model_blob(raw_model_blob.data()),
+        reserved_blob_1(nullptr),
+        config_blob_len(config_json_blob.size()),
+        vocab_blob_len(vocab_json_blob.size()),
+        token_module_blob_len(token_module_blob.size()),
+        raw_model_blob_len(raw_model_blob.size()),
+        reserved_blob_1_len(0) {}
 #endif
 };
-
 
 #ifdef __cplusplus
 extern "C" {
@@ -64,8 +66,8 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const ch
  * \param tokenizer_blob Pointer to the tokenizer blob
  * \return Error code indicating the success or failure of the operation
  */
-extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer, const struct OrtxTokenizerBlob* tokenizer_blob);
-
+extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer,
+                                                     const struct OrtxTokenizerBlob* tokenizer_blob);
 
 /** \brief Tokenize the input using the specified tokenizer
  *
@@ -75,8 +77,8 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer, 
  * \param output Pointer to store the tokenized result
  * \return Error code indicating the success or failure of the operation
  */
-extError_t ORTX_API_CALL OrtxTokenize(
-    const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size, OrtxTokenId2DArray** output);
+extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
+                                      OrtxTokenId2DArray** output);
 
 /**
  * Converts a token to its corresponding ID.
@@ -101,8 +103,8 @@ extError_t ORTX_API_CALL OrtxConvertTokenToId(const OrtxTokenizer* tokenizer, co
  * @param output A pointer to the OrtxTokenId2DArray object to store the output.
  * @return An extError_t value indicating the success or failure of the operation.
  */
-extError_t ORTX_API_CALL OrtxGetDecoderPromptIds(
-    const OrtxTokenizer* tokenizer, size_t batch_size, const char* lang, const char* task, int no_timestamps, OrtxTokenId2DArray** output);
+extError_t ORTX_API_CALL OrtxGetDecoderPromptIds(const OrtxTokenizer* tokenizer, size_t batch_size, const char* lang,
+                                                 const char* task, int no_timestamps, OrtxTokenId2DArray** output);
 
 /** \brief Detokenize the input using the specified tokenizer
  *
@@ -111,8 +113,8 @@ extError_t ORTX_API_CALL OrtxGetDecoderPromptIds(
  * \param output Pointer to store the detokenized result
  * \return Error code indicating the success or failure of the operation
  */
-extError_t ORTX_API_CALL OrtxDetokenize(
-    const OrtxTokenizer* tokenizer, const OrtxTokenId2DArray* input, OrtxStringArray** output);
+extError_t ORTX_API_CALL OrtxDetokenize(const OrtxTokenizer* tokenizer, const OrtxTokenId2DArray* input,
+                                        OrtxStringArray** output);
 
 /** \brief Detokenize the input using the specified tokenizer (1D version)
  *
@@ -122,8 +124,8 @@ extError_t ORTX_API_CALL OrtxDetokenize(
  * \param output Pointer to store the detokenized result
  * \return Error code indicating the success or failure of the operation
  */
-extError_t ORTX_API_CALL OrtxDetokenize1D(
-    const OrtxTokenizer* tokenizer, const extTokenId_t* input, size_t len, OrtxStringArray** output);
+extError_t ORTX_API_CALL OrtxDetokenize1D(const OrtxTokenizer* tokenizer, const extTokenId_t* input, size_t len,
+                                          OrtxStringArray** output);
 
 /** \brief Detokenize the input using the specified tokenizer with caching
  *
@@ -133,8 +135,8 @@ extError_t ORTX_API_CALL OrtxDetokenize1D(
  * \param text_out Pointer to store the detokenized text
  * \return Error code indicating the success or failure of the operation
  */
-extError_t ORTX_API_CALL OrtxDetokenizeCached(
-    const OrtxTokenizer* tokenizer, OrtxDetokenizerCache* cache, extTokenId_t next_id, const char** text_out);
+extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, OrtxDetokenizerCache* cache,
+                                              extTokenId_t next_id, const char** text_out);
 
 /**
  * @brief Retrieves the C-style string representation from an OrtxString object.
@@ -182,28 +184,30 @@ extError_t ORTX_API_CALL OrtxTokenId2DArrayGetBatch(const OrtxTokenId2DArray* to
  * \param length Pointer to store the length of the item
  * \return Error code indicating the success or failure of the operation
  */
-extError_t ORTX_API_CALL OrtxTokenId2DArrayGetItem(
-    const OrtxTokenId2DArray* token_id_2d_array, size_t index, const extTokenId_t** item, size_t* length);
+extError_t ORTX_API_CALL OrtxTokenId2DArrayGetItem(const OrtxTokenId2DArray* token_id_2d_array, size_t index,
+                                                   const extTokenId_t** item, size_t* length);
 
 /**
  * @brief Applies a chat template to the given input.
  *
  * This function processes the specified template with the provided input using the
- * tokenizer, and outputs the resulting string array. Optionally, it can include a
+ * tokenizer, and outputs the resulting tensor result. Optionally, it can include a
  * generation prompt in the output. The chat template can be provided as a string or
- * be retrieved from a loaded tokenizer json file which contains the chat template its json file.
- * if both tokenizer and template_str are provided, the template_str will supersede the tokenizer.
+ * be retrieved from a loaded tokenizer json file which contains the chat template in its json file.
+ * If both tokenizer and template_str are provided, the template_str will supersede the tokenizer.
  *
- * @param tokenizer Pointer to an OrtxTokenizer used for template processing
- * @param template_str Null-terminated string representing the chat template, can be null if tokenizer.json has one.
+ * @param tokenizer Pointer to an OrtxTokenizer used for template processing.
+ * @param template_str Null-terminated string representing the chat template; can be null if tokenizer.json has one.
  * @param input Null-terminated string containing the input to be processed.
- * @param output an OrtxString that will be populated with the output strings.
+ * @param output Pointer to an OrtxTensorResult that will be populated with the output strings,
+ *        if tokenize is true, the ids will be in the output as indexed 1.
  * @param add_generation_prompt Indicates whether to add a generation prompt to the output.
+ * @param tokenize Indicates whether to tokenize the templated text to IDs
  * @return extError_t Returns an error code indicating success or the type of failure.
  */
 extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, const char* template_str,
-                                               const char* input, OrtxString** output,
-                                               bool add_generation_prompt);
+                                               const char* input, OrtxTensorResult** output,
+                                               bool add_generation_prompt, bool tokenize);
 
 #ifdef __cplusplus
 }
