@@ -66,6 +66,7 @@ class TokenizerImpl : public OrtxObjectImpl {
 
   OrtxStatus PhiVisionChatTemplate(std::string& output, bool add_generation_prompt) const;
   OrtxStatus Phi3ChatTemplate(std::string& output, bool add_generation_prompt) const;
+  OrtxStatus Phi3_5ChatTemplate(std::string& output, bool add_generation_prompt) const;
   OrtxStatus Phi3SmallChatTemplate(std::string& output, bool add_generation_prompt) const;
   OrtxStatus Phi3MediumChatTemplate(std::string& output, bool add_generation_prompt) const;
   OrtxStatus Phi4ChatTemplate(std::string& output, bool add_generation_prompt) const;
@@ -74,6 +75,8 @@ class TokenizerImpl : public OrtxObjectImpl {
   OrtxStatus Llama3_2ChatTemplate(std::string& output, bool add_generation_prompt) const;
   OrtxStatus Llama3_3ChatTemplate(std::string& output, bool add_generation_prompt) const;
   OrtxStatus DeepSeekChatTemplate(std::string& output, bool add_generation_prompt) const;
+  OrtxStatus Gemma3ChatTemplate(std::string& output, bool add_generation_prompt) const;
+
 
   static MessageList ParseJson(const std::string& json_str);
 

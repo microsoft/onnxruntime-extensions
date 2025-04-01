@@ -28,7 +28,6 @@ OrtxStatus TokenizerImpl::PhiVisionChatTemplate(std::string& output, bool add_ge
   return OrtxStatus(kOrtxOK, "Created Phi vision chat template.");
 }
 
-// Note Phi-3 and Phi-3.5 have slightly different chat template strings but share the same functionality so this method can be used for both.
 // Defaults: eos_token = "<|endoftext|>"
 OrtxStatus TokenizerImpl::Phi3ChatTemplate(std::string& output, bool add_generation_prompt) const {
   // Clear the output string before starting
@@ -59,7 +58,40 @@ OrtxStatus TokenizerImpl::Phi3ChatTemplate(std::string& output, bool add_generat
       output += eos_token;
   }
 
-  return OrtxStatus(kOrtxOK, "Created Phi-3/3.5 chat template.");
+  return OrtxStatus(kOrtxOK, "Created Phi-3 chat template.");
+}
+
+// Defaults: eos_token = "<|endoftext|>"
+OrtxStatus TokenizerImpl::Phi3_5ChatTemplate(std::string& output, bool add_generation_prompt) const {
+  // Clear the output string before starting
+  output.clear();
+
+  // Process the messages
+  for (const auto& message : messages) {
+      std::string role = message.at("role");
+      std::string content = message.at("content");
+
+      // Check for different roles and format accordingly
+      if (role == "system") {
+          output += "<|system|>\n";
+          output += content + "<|end|>\n";
+      } else if (role == "user") {
+          output += "<|user|>\n";
+          output += content + "<|end|>\n";
+      } else if (role == "assistant") {
+          output += "<|assistant|>\n";
+          output += content + "<|end|>\n";
+      }
+  }
+
+  // Add generation prompt or EOS token
+  if (add_generation_prompt) {
+      output += "<|assistant|>\n";
+  } else {
+      output += eos_token;
+  }
+
+  return OrtxStatus(kOrtxOK, "Created Phi-3.5 chat template.");
 }
 
 // Defaults: eos_token = "<|endoftext|>", bos_token = "<|startoftext|>"
@@ -544,6 +576,131 @@ OrtxStatus TokenizerImpl::DeepSeekChatTemplate(std::string& output, bool add_gen
   return OrtxStatus(kOrtxOK, "Created DeepSeek chat template.");
 }
 
+const char GEMMA3_CHAT_TEMPLATE[] =
+R"({{ bos_token }}
+{%- if messages[0]['role'] == 'system' -%}
+    {%- if messages[0]['content'] is string -%}
+        {%- set first_user_prefix = messages[0]['content'] + '
+
+' -%}
+    {%- else -%}
+        {%- set first_user_prefix = messages[0]['content'][0]['text'] + '
+
+' -%}
+    {%- endif -%}
+    {%- set loop_messages = messages[1:] -%}
+{%- else -%}
+    {%- set first_user_prefix = "" -%}
+    {%- set loop_messages = messages -%}
+{%- endif -%}
+{%- for message in loop_messages -%}
+    {%- if (message['role'] == 'user') != (loop.index0 % 2 == 0) -%}
+        {{ raise_exception("Conversation roles must alternate user/assistant/user/assistant/...") }}
+    {%- endif -%}
+    {%- if (message['role'] == 'assistant') -%}
+        {%- set role = "model" -%}
+    {%- else -%}
+        {%- set role = message['role'] -%}
+    {%- endif -%}
+    {{ '<start_of_turn>' + role + '
+' + (first_user_prefix if loop.first else "") }}
+    {%- if message['content'] is string -%}
+        {{ message['content'] | trim }}
+    {%- elif message['content'] is iterable -%}
+        {%- for item in message['content'] -%}
+            {%- if item['type'] == 'image' -%}
+                {{ '<start_of_image>' }}
+            {%- elif item['type'] == 'text' -%}
+                {{ item['text'] | trim }}
+            {%- endif -%}
+        {%- endfor -%}
+    {%- else -%}
+        {{ raise_exception("Invalid content type") }}
+    {%- endif -%}
+    {{ '<end_of_turn>
+' }}
+{%- endfor -%}
+{%- if add_generation_prompt -%}
+    {{'<start_of_turn>model
+'}}
+{%- endif -%}
+)";
+
+OrtxStatus TokenizerImpl::Gemma3ChatTemplate(std::string& output, bool add_generation_prompt) const {
+    // Clear the output string before starting
+    output.clear();
+
+    // Handle the first system message (if any) to set the first_user_prefix
+    std::string first_user_prefix = "";
+    size_t start_index = 0;
+
+    if (!messages.empty() && messages[0].at("role") == "system") {
+        if (messages[0].at("content").find("{") == std::string::npos) { // String type check
+            first_user_prefix = messages[0].at("content") + "\n\n";
+            start_index = 1;  // Start iterating from the next message
+        } else { // Handle iterable type (when content is a list)
+            // Parse the message content string into JSON
+            nlohmann::json message_content = nlohmann::json::parse(messages[0].at("content"));
+            first_user_prefix = message_content[0]["text"].get<std::string>() + "\n\n";
+            start_index = 1;  // Start iterating from the next message
+        }
+    }
+
+    // Add the BOS token at the beginning of the first message
+    output += bos_token;
+
+    // Iterate through the messages starting from `start_index`
+    for (size_t i = start_index; i < messages.size(); ++i) {
+        const auto& message = messages[i];
+        std::string role = message.at("role");
+        std::string content = message.at("content");
+
+        // Check for alternating user/assistant roles
+        if ((role == "user") != (i % 2 == start_index % 2)) {
+            return OrtxStatus(kOrtxErrorInvalidArgument, "Conversation roles must alternate user/assistant/user/assistant/...");
+        }
+
+        // Determine role (assistant gets converted to model)
+        if (role == "assistant") {
+            role = "model";
+        }
+
+        // Add start of turn with role and first user prefix if it's the first message after system message
+        std::string formatted_content = "<start_of_turn>" + role + "\n";
+        if (i == start_index) {
+            formatted_content += first_user_prefix;
+        }
+
+        // Add content, checking if it's a string or iterable (image/text)
+        if (content.find("{") == std::string::npos) { // String type content
+            formatted_content += content;
+        } else { // Iterable content (like image or text objects)
+            // Loop through content items (assuming content is iterable)
+            // Parse the message content string into JSON
+            nlohmann::json message_content = nlohmann::json::parse(message.at("content"));
+            for (const auto& item : message_content) {
+                if (item["type"].get<std::string>() == "image") {
+                    formatted_content += "<start_of_image>";
+                } else if (item["type"].get<std::string>() == "text") {
+                    formatted_content += item.at("text").get<std::string>();
+                }
+            }
+        }
+
+        // Close the turn
+        formatted_content += "<end_of_turn>\n";
+        output += formatted_content;
+    }
+
+    // Add generation prompt if necessary
+    if (add_generation_prompt) {
+        output += "<start_of_turn>model\n";
+    }
+
+
+    return OrtxStatus(kOrtxOK, "Created Gemma-3 chat template.");
+}
+
 TokenizerImpl::MessageList TokenizerImpl::ParseJson(const std::string& json_str) {
     nlohmann::ordered_json json_obj = nlohmann::json::parse(json_str, nullptr, false, true);
     // Check if the parsed JSON is an array
@@ -558,7 +715,19 @@ TokenizerImpl::MessageList TokenizerImpl::ParseJson(const std::string& json_str)
             return {};
         }
         // Add the message to the vector
-        messages.push_back(message.get<std::unordered_map<std::string, std::string>>());
+        auto msg = message.get<std::unordered_map<std::string, nlohmann::ordered_json>>();
+        // convert msg to a string-string map
+        std::unordered_map<std::string, std::string> msg_str;
+        for (const auto& [key, value] : msg) {
+            std::string value_str = value.dump();
+            // remove the quotes from the string
+            if (value_str.size() > 1 && value_str[0] == '"' && value_str[value_str.size() - 1] == '"') {
+                value_str.erase(0, 1);
+                value_str.erase(value_str.size() - 1, 1);
+            }
+            msg_str[key] = value_str;
+        }
+        messages.push_back(msg_str);
     }
 
     return messages;
@@ -619,7 +788,13 @@ const std::unordered_map<std::string, std::string> model_to_template_map = {
 
     // DeepSeek variants
     { DEEPSEEK_CHAT_TEMPLATE, "deepseek-ai/DeepSeek-R1-Distill-Llama-70B" },
-    { DEEPSEEK_CHAT_TEMPLATE, "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" }
+    { DEEPSEEK_CHAT_TEMPLATE, "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" },
+
+    // Gemma-3 variants
+    { GEMMA3_CHAT_TEMPLATE, "google/gemma-3-1b-it" },
+    { GEMMA3_CHAT_TEMPLATE, "google/gemma-3-4b-it" },
+    { GEMMA3_CHAT_TEMPLATE, "google/gemma-3-12b-it" },
+    { GEMMA3_CHAT_TEMPLATE, "google/gemma-3-27b-it" }
 };
 
 void TokenizerImpl::InitializeChatParameters(
@@ -665,8 +840,10 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(
   // Apply the corresponding chat template if it is supported
   if (chat_template == PHI4_CHAT_TEMPLATE) {
     return Phi4ChatTemplate(output, add_generation_prompt);
-  } else if (chat_template == PHI3_CHAT_TEMPLATE || chat_template == PHI3_5_CHAT_TEMPLATE) {
+  } else if (chat_template == PHI3_CHAT_TEMPLATE) {
     return Phi3ChatTemplate(output, add_generation_prompt);
+  } else if (chat_template == PHI3_5_CHAT_TEMPLATE) {
+    return Phi3_5ChatTemplate(output, add_generation_prompt);
   } else if (chat_template == PHI3_SMALL_CHAT_TEMPLATE) {
     return Phi3SmallChatTemplate(output, add_generation_prompt);
   } else if (chat_template == PHI3_MEDIUM_CHAT_TEMPLATE) {
@@ -683,6 +860,8 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(
     return Llama3_3ChatTemplate(output, add_generation_prompt);
   } else if (chat_template == DEEPSEEK_CHAT_TEMPLATE) {
     return DeepSeekChatTemplate(output, add_generation_prompt);
+  } else if (chat_template == GEMMA3_CHAT_TEMPLATE) {
+    return Gemma3ChatTemplate(output, add_generation_prompt);
   }
 
   return {};
