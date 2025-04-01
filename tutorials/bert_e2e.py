@@ -24,7 +24,7 @@ def get_tokenizer_and_model_from_huggingface(model_name):
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
     config = transformers.AutoConfig.from_pretrained(model_name)
 
-    if model_name == "FacebookAI/xlm-roberta-base":
+    if model_name == "xlm-roberta-base":
         model = transformers.AutoModelForSequenceClassification.from_pretrained(model_name)
         onnx_config = transformers.models.xlm_roberta.XLMRobertaOnnxConfig(config, "sequence-classification")
         text = ("Hello, my dog is cute",)
@@ -155,7 +155,7 @@ def main():
         type=str,
         required=True,
         choices=[
-            "FacebookAI/xlm-roberta-base",
+            "xlm-roberta-base",
             "google/mobilebert-uncased",
             "csarron/mobilebert-uncased-squad-v2",
             "lordtt13/emo-mobilebert",
