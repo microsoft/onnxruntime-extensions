@@ -87,7 +87,7 @@ class TestAutoTokenizer(unittest.TestCase):
 
     def test_xlm_roberta_tokenizer(self):
         tokenizer = AutoTokenizer.from_pretrained(
-            "xlm-roberta-base", use_fast=False)
+            "FacebookAI/xlm-roberta-base", use_fast=False)
         # TODO: if there is <unk> in text, the result is not matched.
         text = (
             'This is a very long text with a lot of weird characters, such as: . , ~ ? ( ) " [ ] ! : - . Also we will'

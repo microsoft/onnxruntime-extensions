@@ -62,13 +62,13 @@ def _create_test_model(**kwargs):
 class TestRobertaTokenizer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.tokenizer = RobertaTokenizerFast.from_pretrained("roberta-base")
+        cls.tokenizer = RobertaTokenizerFast.from_pretrained("FacebookAI/roberta-base")
         temp_dir = Path('./temp_onnxroberta')
         temp_dir.mkdir(parents=True, exist_ok=True)
         files = cls.tokenizer.save_vocabulary(str(temp_dir))
         cls.tokjson = files[0]
         cls.merges = files[1]
-        cls.slow_tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
+        cls.slow_tokenizer = RobertaTokenizer.from_pretrained("FacebookAI/roberta-base")
         cls.tokenizer_cvt = HFTokenizerConverter(cls.slow_tokenizer)
 
     def _run_tokenizer(self, test_sentence, padding_length=-1):

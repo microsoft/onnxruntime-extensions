@@ -505,7 +505,7 @@ class TestPythonOpSentencePiece(unittest.TestCase):
     def test_xlm_roberta_tokenizer(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
-        tokenizer = AutoTokenizer.from_pretrained("xlm-roberta-base", use_fast=False)
+        tokenizer = AutoTokenizer.from_pretrained("FacebookAI/xlm-roberta-base", use_fast=False)
         text = "Wow, these models are getting popular."
         ids = tokenizer.encode(text, return_tensors="np")
         model = util.read_file(tokenizer.vocab_file, 'rb')
