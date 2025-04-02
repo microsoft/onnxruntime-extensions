@@ -60,6 +60,44 @@ class TestPPAPI(unittest.TestCase):
         else:
             cls.temp_dir = tempfile.mkdtemp()
             print(f"Created temp dir: {cls.temp_dir}")
+        
+        # Define a list of different message scenarios for chat template testing
+        cls.messages_list = [
+            # Case 1: Regular case with system, user, and assistant
+            [
+                {"role": "system", "content": "System message", "tools": "calculate_sum"},
+                {"role": "user", "content": "Hello, can you call some tools for me?"},
+                {"role": "assistant", "content": "Sure, I can calculate the sum for you!"}
+            ],
+            
+            # Case 2: Two back-to-back user messages
+            [
+                {"role": "system", "content": "", "tools": "calculate_sum"},
+                {"role": "user", "content": "Hi, I need some help with tools."},
+                {"role": "user", "content": "Also, can you help with calculations?"}
+            ],
+            
+            # Case 3: Two back-to-back assistant messages
+            [
+                {"role": "system", "content": "", "tools": "calculate_sum"},
+                {"role": "assistant", "content": "Sure, what would you like me to calculate?"},
+                {"role": "assistant", "content": "I can handle multiple requests."}
+            ],
+            
+            # Case 4: Mixed roles (user, assistant, user, assistant)
+            [
+                {"role": "user", "content": "What can you do for me?"},
+                {"role": "assistant", "content": "I can assist with a variety of tasks."},
+                {"role": "user", "content": "Can you calculate a sum for me?"},
+                {"role": "assistant", "content": "Sure, let me calculate that for you."}
+            ],
+            
+            # Case 5: System message with empty content
+            [
+                {"role": "system", "content": "", "tools": "calculate_sum"},
+                {"role": "user", "content": "Hello, I need some help."}
+            ]
+        ]
 
     def test_CLIP_image_processing(self):
         model_id = "openai/clip-vit-large-patch14"
@@ -255,49 +293,123 @@ class TestPPAPI(unittest.TestCase):
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
     @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
+    def test_phi3_vision_chat_template(self):
+        ckpt = "microsoft/Phi-3-vision-128k-instruct"
+        hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
+
+        for messages in self.messages_list:
+            inputs = hf_tok.apply_chat_template(
+                messages, add_generation_prompt=True, tokenize=False, return_tensors="np")
+
+            tokenizer = pp_api.Tokenizer(ckpt)
+            message_json = json.dumps(messages)
+            prompt = tokenizer.apply_chat_template(message_json)
+            self.assertEqual(prompt, inputs)
+            ortx_inputs = tokenizer.tokenize(prompt)
+            np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
+
+    @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
+    def test_phi3_mini_chat_template(self):
+        ckpt = "microsoft/Phi-3-mini-4k-instruct"
+        hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
+
+        for messages in self.messages_list:
+            inputs = hf_tok.apply_chat_template(
+                messages, add_generation_prompt=True, tokenize=False, return_tensors="np")
+
+            tokenizer = pp_api.Tokenizer(ckpt)
+            message_json = json.dumps(messages)
+            prompt = tokenizer.apply_chat_template(message_json)
+            self.assertEqual(prompt, inputs)
+            ortx_inputs = tokenizer.tokenize(prompt)
+            np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
+    
+    @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
+    def test_phi3_medium_chat_template(self):
+        ckpt = "microsoft/Phi-3-medium-4k-instruct"
+        hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
+
+        for messages in self.messages_list:
+            inputs = hf_tok.apply_chat_template(
+                messages, add_generation_prompt=True, tokenize=False, return_tensors="np")
+
+            tokenizer = pp_api.Tokenizer(ckpt)
+            message_json = json.dumps(messages)
+            prompt = tokenizer.apply_chat_template(message_json)
+            self.assertEqual(prompt, inputs)
+            ortx_inputs = tokenizer.tokenize(prompt)
+            np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
+    
+    @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
+    def test_llama3_chat_template(self):
+        ckpt = "meta-llama/Meta-Llama-3-8B-Instruct"
+        hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
+
+        for messages in self.messages_list:
+            inputs = hf_tok.apply_chat_template(
+                messages, add_generation_prompt=True, tokenize=False, return_tensors="np")
+
+            tokenizer = pp_api.Tokenizer(ckpt)
+            message_json = json.dumps(messages)
+            prompt = tokenizer.apply_chat_template(message_json)
+            self.assertEqual(prompt, inputs)
+            ortx_inputs = tokenizer.tokenize(prompt)
+            np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
+    
+    @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
+    def test_llama3_1_chat_template(self):
+        ckpt = "meta-llama/Llama-3.1-8B-Instruct"
+        hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
+
+        for messages in self.messages_list:
+            inputs = hf_tok.apply_chat_template(
+                messages, add_generation_prompt=True, tokenize=False, return_tensors="np")
+
+            tokenizer = pp_api.Tokenizer(ckpt)
+            message_json = json.dumps(messages)
+            prompt = tokenizer.apply_chat_template(message_json)
+            self.assertEqual(prompt, inputs)
+            ortx_inputs = tokenizer.tokenize(prompt)
+            np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
+
+    @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
+    def test_llama3_2_chat_template(self):
+        ckpt = "meta-llama/Llama-3.2-1B-Instruct"
+        hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
+
+        for messages in self.messages_list:
+            inputs = hf_tok.apply_chat_template(
+                messages, add_generation_prompt=True, tokenize=False, return_tensors="np")
+
+            tokenizer = pp_api.Tokenizer(ckpt)
+            message_json = json.dumps(messages)
+            prompt = tokenizer.apply_chat_template(message_json)
+            self.assertEqual(prompt, inputs)
+            ortx_inputs = tokenizer.tokenize(prompt)
+            np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
+    
+    @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
+    def test_llama3_3_chat_template(self):
+        ckpt = "meta-llama/Llama-3.3-70B-Instruct"
+        hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
+
+        for messages in self.messages_list:
+            inputs = hf_tok.apply_chat_template(
+                messages, add_generation_prompt=True, tokenize=False, return_tensors="np")
+
+            tokenizer = pp_api.Tokenizer(ckpt)
+            message_json = json.dumps(messages)
+            prompt = tokenizer.apply_chat_template(message_json)
+            self.assertEqual(prompt, inputs)
+            ortx_inputs = tokenizer.tokenize(prompt)
+            np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
+    
+    @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_deepseek_chat_template(self):
         ckpt = "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"
         hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
 
-        # Define a list of different message scenarios
-        messages_list = [
-            # Case 1: Regular case with system, user, and assistant
-            [
-                {"role": "system", "content": "System message", "tools": "calculate_sum"},
-                {"role": "user", "content": "Hello, can you call some tools for me?"},
-                {"role": "assistant", "content": "Sure, I can calculate the sum for you!"}
-            ],
-            
-            # Case 2: Two back-to-back user messages
-            [
-                {"role": "system", "content": "", "tools": "calculate_sum"},
-                {"role": "user", "content": "Hi, I need some help with tools."},
-                {"role": "user", "content": "Also, can you help with calculations?"}
-            ],
-            
-            # Case 3: Two back-to-back assistant messages
-            [
-                {"role": "system", "content": "", "tools": "calculate_sum"},
-                {"role": "assistant", "content": "Sure, what would you like me to calculate?"},
-                {"role": "assistant", "content": "I can handle multiple requests."}
-            ],
-            
-            # Case 4: Mixed roles (user, assistant, user, assistant)
-            [
-                {"role": "user", "content": "What can you do for me?"},
-                {"role": "assistant", "content": "I can assist with a variety of tasks."},
-                {"role": "user", "content": "Can you calculate a sum for me?"},
-                {"role": "assistant", "content": "Sure, let me calculate that for you."}
-            ],
-            
-            # Case 5: System message with empty content
-            [
-                {"role": "system", "content": "", "tools": "calculate_sum"},
-                {"role": "user", "content": "Hello, I need some help."}
-            ]
-        ]
-
-        for messages in messages_list:
+        for messages in self.messages_list:
             inputs = hf_tok.apply_chat_template(
                 messages, add_generation_prompt=True, tokenize=False, return_tensors="np")
 
