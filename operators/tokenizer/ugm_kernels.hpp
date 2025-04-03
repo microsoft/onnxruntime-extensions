@@ -179,11 +179,11 @@ struct SpmUgmTokenizer {
         } else if (tkn.size() == 11) {  // length of "<|blank_x|>"
           auto blank_pos = tkn.find("<|blank_");
           if (blank_pos != std::string::npos) {
-            auto num = tkn[blank_pos + 8] -'0';
+            auto num = tkn[blank_pos + 8] - '0';
             if (num >= 2 && num <= 9) {
               tkn.clear();
               tkn.reserve(num);
-              for (; num != 0; num --) {
+              for (; num != 0; num--) {
                 tkn += "▁";
               }
             }
@@ -214,18 +214,10 @@ struct SpmUgmTokenizer {
     return std::get<0>(iter->second);
   }
 
-  OrtxStatus Compute(const ortc::Tensor<std::string>& input, ortc::Tensor<int64_t>& tokenize_output,
-                     std::optional<ortc::Tensor<int64_t>*> attention_mask = std::nullopt,
-                     std::optional<ortc::Tensor<int64_t>*> offset_mapping = std::nullopt) const {
-    if (attention_mask.has_value() || offset_mapping.has_value()) {
-      return {kOrtxErrorInvalidArgument, "attention-mask or offset-mapping was supported in unigram tokenizer"};
-    }
+  OrtxStatus ComputeNoOp(const std::string& input, std::vector<extTokenId_t>& output,
+                         bool add_special_tokens = true) const {
 
-    if (input.Shape().size() != 1) {
-      return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, "Input tensor must have rank 1.");
-    }
-
-    std::string normalized = Normalize(input.AsScalar());
+    std::string normalized = Normalize(input);
     size_t input_len = normalized.size();
     if (input_len == 0) {
       return {};
@@ -274,9 +266,7 @@ struct SpmUgmTokenizer {
       input_offset += n_utf8_code_units;
     }
 
-    std::vector<extTokenId_t> output;
     output.reserve(input_len);
-
     bool is_prev_unknown = false;
     for (struct BestTokenization& tokenization = tokenization_results[input_len];;
          tokenization = tokenization_results[tokenization.input_offset]) {
@@ -291,7 +281,7 @@ struct SpmUgmTokenizer {
     }
 
     // will be reversed
-    if (add_bos_token_) {
+    if (add_bos_token_ && add_special_tokens) {
       output.push_back(GetTokenId(bos_token_));
     }
     std::reverse(output.begin(), output.end());
@@ -305,14 +295,33 @@ struct SpmUgmTokenizer {
       output.push_back(GetTokenId("<sop>"));
     }
 
-    if (add_eos_token_) {
+    if (add_eos_token_ && add_special_tokens) {
       output.push_back(GetTokenId(eos_token_));
     }
 
-    auto output_size = static_cast<int64_t>(output.size());
-    int64_t* id_output = tokenize_output.Allocate({output_size});
-    std::transform(output.begin(), output.end(), id_output, [](extTokenId_t id) { return static_cast<int64_t>(id); });
     return {};
+  }
+
+  OrtxStatus Compute(const ortc::Tensor<std::string>& input, ortc::Tensor<int64_t>& tokenize_output,
+                     std::optional<ortc::Tensor<int64_t>*> attention_mask = std::nullopt,
+                     std::optional<ortc::Tensor<int64_t>*> offset_mapping = std::nullopt) const {
+    if (attention_mask.has_value() || offset_mapping.has_value()) {
+      return {kOrtxErrorInvalidArgument, "attention-mask or offset-mapping was supported in unigram tokenizer"};
+    }
+
+    if (input.Shape().size() != 1) {
+      return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, "Input tensor must have rank 1.");
+    }
+
+    std::vector<extTokenId_t> ids_vec;
+    auto status = ComputeNoOp(input.AsScalar(), ids_vec, true);
+    if (status.IsOk()) {
+      auto output_size = static_cast<int64_t>(ids_vec.size());
+      int64_t* id_output = tokenize_output.Allocate({output_size});
+      std::transform(ids_vec.begin(), ids_vec.end(), id_output, [](extTokenId_t id) { return static_cast<int64_t>(id); });
+    }
+
+    return status;
   }
 
  private:
