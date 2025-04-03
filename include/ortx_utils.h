@@ -46,7 +46,6 @@ typedef OrtxObject OrtxTensorResult;
     }                              \
   } while (0)
 
-
 typedef uint32_t extTokenId_t;
 
 #ifdef __cplusplus
@@ -99,7 +98,7 @@ extError_t ORTX_API_CALL OrtxDisposeOnly(OrtxObject* object);
  * @param tensor A pointer to a variable that will hold the retrieved tensor.
  * @return An error code indicating the success or failure of the operation.
  */
-extError_t ORTX_API_CALL OrtxTensorResultGetAt(OrtxTensorResult* result, size_t index, OrtxTensor** tensor);
+extError_t ORTX_API_CALL OrtxTensorResultGetAt(const OrtxTensorResult* result, size_t index, OrtxTensor** tensor);
 
 /**
  * @brief Retrieves the data type of the given tensor.
@@ -112,18 +111,19 @@ extError_t ORTX_API_CALL OrtxTensorResultGetAt(OrtxTensorResult* result, size_t 
  *
  * @return An `extError_t` value indicating the success or failure of the operation.
  */
-extError_t ORTX_API_CALL OrtxGetTensorType(OrtxTensor* tensor, extDataType_t* type);
+extError_t ORTX_API_CALL OrtxGetTensorType(const OrtxTensor* tensor, extDataType_t* type);
 
 /**
  * @brief Retrieves the size of each element in the given tensor.
  *
- * This function calculates the size of each element in the specified tensor and stores it in the provided size variable.
+ * This function calculates the size of each element in the specified tensor and stores it in the provided size
+ * variable.
  *
  * @param tensor A pointer to the OrtxTensor object.
  * @param size A pointer to a size_t variable to store the size of each element.
  * @return An extError_t value indicating the success or failure of the operation.
  */
-extError_t ORTX_API_CALL OrtxGetTensorSizeOfElement(OrtxTensor* tensor, size_t* size);
+extError_t ORTX_API_CALL OrtxGetTensorSizeOfElement(const OrtxTensor* tensor, size_t* size);
 
 /** \brief Get the data from the tensor
  *
@@ -133,7 +133,7 @@ extError_t ORTX_API_CALL OrtxGetTensorSizeOfElement(OrtxTensor* tensor, size_t* 
  * \param num_dims Pointer to store the number of dimensions
  * \return Error code indicating the success or failure of the operation
  */
-extError_t ORTX_API_CALL OrtxGetTensorData(OrtxTensor* tensor, const void** data, const int64_t** shape,
+extError_t ORTX_API_CALL OrtxGetTensorData(const OrtxTensor* tensor, const void** data, const int64_t** shape,
                                            size_t* num_dims);
 
 #ifdef __cplusplus

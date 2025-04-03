@@ -57,10 +57,10 @@ class Tokenizer:
     def detokenize(self, tokens):
         return batch_detokenize(self.tokenizer, [tokens])
 
-    def apply_chat_template(self, chat, add_generation_prompt=True):
-        prompt = _apply_chat_template(
-            self.tokenizer, "", chat, add_generation_prompt)
-        return prompt
+    def apply_chat_template(self, chat, add_generation_prompt=True, tokenize=False):
+        result = _apply_chat_template(
+            self.tokenizer, "", chat, add_generation_prompt, tokenize)
+        return tensor_result_get_at(result, 1 if tokenize else 0)
 
     def __del__(self):
         if delete_object and self.tokenizer:

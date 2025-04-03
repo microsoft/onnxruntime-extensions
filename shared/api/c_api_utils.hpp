@@ -150,7 +150,7 @@ class TensorObject : public OrtxObjectImpl {
       return extDataType_t::kOrtxUnknownType;
     }
   }
-  
+
   [[nodiscard]] extDataType_t GetTensorType() const {
     if (tensor_ == nullptr) {
       return extDataType_t::kOrtxUnknownType;
