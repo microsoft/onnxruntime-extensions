@@ -832,6 +832,7 @@ stages:
         displayName: Install ninja
 
       - bash: |
+          python -m pip install cmake==3.31.6
           python ./tools/build.py \
             --config RelWithDebInfo \
             --android \
