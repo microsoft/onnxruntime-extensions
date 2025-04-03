@@ -449,7 +449,7 @@ TEST(OrtxTokenizerTest, SpmUgmTokenizer) {
   std::vector<extTokenId_t> ids_vec(ids, ids + length);
 
   // expected ids was generated using the following command:
-  // AutoTokenizer.from_pretrained("FacebookAI/xlm-roberta-base")
+  // AutoTokenizer.from_pretrained("xlm-roberta-base")
   EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({
     0, 87, 1884, 122395, 759, 99942, 10269, 136, 7068, 4, 6, 62668, 5364, 245875, 354, 11716, 2}));
 
@@ -545,7 +545,7 @@ TEST(OrtxTokenizerTest, Phi3TokenizerBlob) {
   std::vector<extTokenId_t> ids_vec(ids, ids + length);
 
   // expected ids was generated using the following command:
-  // AutoTokenizer.from_pretrained("FacebookAI/xlm-roberta-base")
+  // AutoTokenizer.from_pretrained("xlm-roberta-base")
   EXPECT_EQ(ids_vec,
             std::vector<extTokenId_t>({1,   306,   763,   22049, 590,   274,   1082,  11203, 13,    322,  26,
                                        769, 29892, 29871, 30486, 31704, 30210, 30848, 235,   179,   158,  30392,

@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 import unittest
-
+import transformers
 import numpy as np
 from transformers import AutoTokenizer
 from onnxruntime_extensions import gen_processing_models, ort_inference
@@ -20,6 +20,8 @@ class TestAutoTokenizer(unittest.TestCase):
         self.assertEqual(actual_ids.dtype, np.int64)
         np.testing.assert_array_equal(ids[0], actual_ids[0])
 
+    @unittest.skipIf(transformers.__version__ > "4.50",
+                     reason="mistral tokenizer protobuf is out of date")
     def test_mistral(self):
         tokenizer = AutoTokenizer.from_pretrained(
             "mistral-community/Mistral-7B-v0.2", use_fast=True)
