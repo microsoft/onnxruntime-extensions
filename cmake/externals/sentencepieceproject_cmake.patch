@@ -4,6 +4,9 @@ index a3870cb..a8732f4 100644
 +++ b/CMakeLists.txt
 @@ -59,11 +59,13 @@ else()
  endif()
+
+-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
++cmake_minimum_required(VERSION 3.28)
  
  if (MSVC)
 -  string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_DEBUG          ${CMAKE_CXX_FLAGS_DEBUG})
