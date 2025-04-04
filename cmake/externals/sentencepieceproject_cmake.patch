@@ -2,7 +2,7 @@ diff --git a/CMakeLists.txt b/CMakeLists.txt
 index a3870cb..a8732f4 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -59,11 +59,13 @@ else()
+@@ -15,12 +15,14 @@ else()
  endif()
 
 -cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
