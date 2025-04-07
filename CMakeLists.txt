@@ -955,5 +955,5 @@ target_compile_definitions(ortcustomops PRIVATE WINRT_NO_SOURCE_LOCATION)
 target_compile_definitions(noexcep_operators PRIVATE WINRT_NO_SOURCE_LOCATION)
 target_compile_definitions(extensions_shared PRIVATE WINRT_NO_SOURCE_LOCATION)
 
-
+include(cmake/winrt.cmake)
 enable_cppwinrt(ortcustomops)
