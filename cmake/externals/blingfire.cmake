@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.5)
+
 FetchContent_Declare(
   Blingfire
   GIT_REPOSITORY https://github.com/microsoft/BlingFire.git
