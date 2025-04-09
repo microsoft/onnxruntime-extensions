@@ -144,10 +144,10 @@ class CmdBuildCMakeExt(_build_ext):
     def initialize_options(self):
         super().initialize_options()
         self.use_cuda = None
-        self.no_azure = None
-        self.no_opencv = None
+        self.no_azure = True
+        self.no_opencv = True
         self.cc_debug = None
-        self.pp_api = None
+        self.pp_api = True
         self.cuda_archs = None
         self.ort_pkg_dir = None
 
@@ -195,6 +195,7 @@ class CmdBuildCMakeExt(_build_ext):
         cmake_args = [
             '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' +
             str(ext_fullpath.parent.absolute()),
+            '-DCMAKE_POLICY_VERSION_MINIMUM=3.5',
             '-DOCOS_ENABLE_CTEST=OFF',
             '-DOCOS_BUILD_PYTHON=ON',
             '-DOCOS_PYTHON_MODULE_PATH=' + str(ext_fullpath),
