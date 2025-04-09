@@ -33,7 +33,8 @@ constexpr std::pair<const char*, TokenType> kTokenizerDict[] = {
   {"", TokenType::kUnigram},
   {"T5Tokenizer", TokenType::kUnigram},
   {"ChatGLMTokenizer", TokenType::kUnigram},
-  {"XLMRobertaTokenizer", TokenType::kUnigram}
+  {"XLMRobertaTokenizer", TokenType::kUnigram},
+  {"MarianTokenizer", TokenType::kUnigram}
 };
 
 

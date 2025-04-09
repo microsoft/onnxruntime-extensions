@@ -235,3 +235,22 @@ TEST(OrtxTokenizerTest, ChatGLMTokenizer) {
     115, 176, 3867, 162, 9251, 2829, 4, 102, 220, 6, 5, 63977, 91446,
     63829, 130009, 130008, 130008, 130008, 130008, 5, 4, 4, 21, 9, 130001, 130004}));
 }
+
+TEST(OrtxTokenizerTest, MarianTokenizer) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/nmt");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  const char* input[] = {"Hello-there THIS Is a Test"};
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  std::vector<extTokenId_t> ids_vec(ids, ids + length);
+
+  // AutoTokenizer.from_pretrained("data/tokenizer/nmt")(...)
+  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({
+    281, 13919, 296, 404, 352, 346, 479, 292, 9428, 0}));
+}
