@@ -227,7 +227,10 @@ struct SpmUgmTokenizer {
       case_encoder_->setNormalizer([this](std::string_view input) {
         return NmtNormalizePrefix(input); 
       });
-      tokenizer_add_space_prefix_ = false;
+      tokenizer_add_space_prefix_ = true;
+      tokenizer_remove_extra_whitespaces_ = false;
+      tokenizer_treat_whitespace_as_suffix_ = true;
+      add_eos_token_ = true;
     }
     return status;
   }
