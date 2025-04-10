@@ -227,8 +227,8 @@ struct SpmUgmTokenizer {
       tokenizer_remove_extra_whitespaces_ = false;
       tokenizer_treat_whitespace_as_suffix_ = true;
       add_eos_token_ = true;
-      case_encoder_ = std::make_unique<normalizer::UpperCaseEncoder>(tokenizer_remove_extra_whitespaces_);
-      case_encoder_->setNormalizer([this](std::string_view input) {
+      case_encoder_ = std::make_unique<normalizer::CaseEncoder>(tokenizer_remove_extra_whitespaces_);
+      case_encoder_->SetNormalizer([this](std::string_view input) {
         return NmtNormalizePrefix(input); 
       });
     }
@@ -487,7 +487,7 @@ struct SpmUgmTokenizer {
     int consumed = 0;
  
     while (!input_view.empty()) {
-      auto p = case_encoder_->normalizePrefix(input_view);
+      auto p = case_encoder_->NormalizePrefix(input_view);
 
       for (size_t i = 0; i < p.first.size(); i++) {
         char c = p.first[i];
@@ -514,7 +514,7 @@ struct SpmUgmTokenizer {
       input_view.remove_prefix(p.second);
     }
 
-    case_encoder_->postProcess(&normalized, &norm_to_orig);
+    case_encoder_->PostProcess(&normalized, &norm_to_orig);
 
 
     if (shall_append_space) {

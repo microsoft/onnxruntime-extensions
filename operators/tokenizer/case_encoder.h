@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-
+// The implementation is generated from:
+// https://github.com/marian-nmt/sentencepiece/blob/6652629ab26af9b1d4418a0ed8348d6c9ffb052c/src/case_encoder.h
 #pragma once
 
 #include <memory>
@@ -14,7 +15,7 @@
 namespace ort_extensions {
 namespace normalizer {
 
-std::vector<std::pair<const char*, const char*>> search(const std::string& input);
+std::vector<std::pair<const char*, const char*>> Search(const std::string& input);
 
 constexpr char cUppercase = 'U';
 constexpr char cAllUppercase = 'A';
@@ -30,36 +31,12 @@ class CaseEncoder {
 
  public:
   virtual ~CaseEncoder() {}
-
-  virtual std::pair<std::string_view, int> normalizePrefix(std::string_view input) { return normalizer_(input); }
-
-  virtual void setNormalizer(Normalizer normalizer) { normalizer_ = normalizer; }
-
-  virtual void postProcess(std::string* normalized, std::vector<size_t>* norm_to_orig) {}
-
-  static std::unique_ptr<CaseEncoder> Create(bool, bool, bool);
-};
-
-class UpperCaseEncoder : public CaseEncoder {
- private:
-  std::string buffer_;
-  std::string signature_;
-  int offset_ = 0;
-
-  // This is a queue consisting of all buffered "chars" and
-  // the corresponding number of consumed bytes
-  std::vector<std::pair<std::string, int>> buffer_queue_;
-  int dump_buffer_from_ = -1;
-
-  int state_{0};
-  size_t spans_{0};
-  bool seenThreeSpans_{false};
-  bool removeExtraWhiteSpace_{false};
+  void SetNormalizer(Normalizer normalizer) { normalizer_ = normalizer; }
 
  public:
-  UpperCaseEncoder(bool removeExtraWhiteSpace) : removeExtraWhiteSpace_(removeExtraWhiteSpace) {}
+  CaseEncoder(bool remove_extra_white_space) : remove_extra_white_space_(remove_extra_white_space) {}
 
-  std::pair<std::string_view, int> normalizePrefix(std::string_view orig_input) {
+  std::pair<std::string_view, int> NormalizePrefix(std::string_view orig_input) {
     // dump_buffer_from controls the return process for characters and consumed bytes
     // When this is -1, we are in "collection" mode and just keep adding to the buffer.
     // When collection is complete at some logical point, we set this to 0 to force an
@@ -81,7 +58,7 @@ class UpperCaseEncoder : public CaseEncoder {
     }
 
     const auto input = orig_input.substr(offset_);
-    auto p = CaseEncoder::normalizePrefix(input);
+    auto p = normalizer_(input);
     auto sp = p.first;
     int consumed = p.second;
 
@@ -165,7 +142,7 @@ class UpperCaseEncoder : public CaseEncoder {
         signature_.append(sp.size(), 'l');
       } else if (isSpace(sp)) {
         if (state_ == 1) spans_++;
-        if (!removeExtraWhiteSpace_ || signature_.empty() || signature_.back() != 's') signature_.append("sss");
+        if (!remove_extra_white_space_ || signature_.empty() || signature_.back() != 's') signature_.append("sss");
       } else {
         spans_ = 0;
         signature_.append(sp.size(), 'l');
@@ -185,13 +162,13 @@ class UpperCaseEncoder : public CaseEncoder {
       ret = p;
     }
 
-    if (spans_ >= 3) seenThreeSpans_ = true;
+    if (spans_ >= 3) seen_three_spans_ = true;
 
     return ret;
   }
 
-  virtual void postProcess(std::string* normalized, std::vector<size_t>* norm_to_orig) {
-    if (!seenThreeSpans_) return;
+  void PostProcess(std::string* normalized, std::vector<size_t>* norm_to_orig) {
+    if (!seen_three_spans_) return;
 
     std::string normalized_temp;
     normalized_temp.reserve(normalized->size());
@@ -204,7 +181,7 @@ class UpperCaseEncoder : public CaseEncoder {
     auto nrm_it = normalized->cbegin();
     auto n2o_it = norm_to_orig->cbegin();
 
-    for (const auto& span : search(signature_)) {
+    for (const auto& span : Search(signature_)) {
       size_t len = std::distance(sig_it, span.first);
 
       normalized_temp.insert(normalized_temp.end(), nrm_it, nrm_it + len);
@@ -240,73 +217,21 @@ class UpperCaseEncoder : public CaseEncoder {
     normalized->swap(normalized_temp);
     norm_to_orig->swap(norm_to_orig_temp);
   }
-};
 
-class UpperCaseDecoder : public CaseEncoder {
  private:
-  std::unique_ptr<std::string> buffer_;
-  std::string_view input_;
+  std::string buffer_;
+  std::string signature_;
+  int offset_ = 0;
 
-  int state_ = 0;
-  bool allUp_{false};
+  // This is a queue consisting of all buffered "chars" and
+  // the corresponding number of consumed bytes
+  std::vector<std::pair<std::string, int>> buffer_queue_;
+  int dump_buffer_from_ = -1;
 
- public:
-  UpperCaseDecoder() {}
-
-  std::pair<std::string_view, int> normalizePrefix(std::string_view input) {
-    if (!buffer_) {
-      buffer_.reset(new std::string(input.data(), input.size()));
-      input_ = std::string_view(*buffer_);
-    }
-
-    if (input_[0] == cAllUppercase) {
-      const_cast<char&>(input_[0]) = cUppercase;
-      allUp_ = true;
-    } else if (input_[0] == cTitlecase) {
-      allUp_ = false;
-    } else if (input_[0] == cLowercase) {
-      allUp_ = false;
-    }
-
-    auto p = CaseEncoder::normalizePrefix(input_);
-    int consumed = p.second;
-
-    if (input_[0] == cUppercase) {
-      if (state_ == 0) {
-        input_.remove_prefix(consumed - 1);
-        const_cast<char&>(input_[0]) = cUppercase;
-        state_ = 1;
-      } else if (state_ == 1) {
-        if (consumed > 1) {
-          input_.remove_prefix(consumed - 1);
-          const_cast<char&>(input_[0]) = cUppercase;
-          p.second = consumed - 1;
-          state_ = 1;
-        } else {
-          input_.remove_prefix(consumed);
-          p.first.remove_prefix(1);
-          p.second = 0;
-          state_ = 0;
-        }
-      }
-    } else if (input_[0] == cLowercase) {
-      input_.remove_prefix(consumed);
-      p.first.remove_prefix(1);
-      state_ = 0;
-    } else {
-      if (allUp_) {
-        p.first = std::string_view(input.data(), p.first.size());
-        input_.remove_prefix(consumed - 1);
-        const_cast<char&>(input_[0]) = cUppercase;
-        state_ = 1;
-      } else {
-        input_.remove_prefix(consumed);
-        state_ = 0;
-      }
-    }
-
-    return p;
-  }
+  int state_{0};
+  size_t spans_{0};
+  bool seen_three_spans_{false};
+  bool remove_extra_white_space_{false};
 };
 
 }  // namespace normalizer
