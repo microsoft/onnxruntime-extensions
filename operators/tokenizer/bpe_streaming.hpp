@@ -128,8 +128,8 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
       is_first = true;
     }
 
-    bool f_special = bpe_state->f_special_last;  // [Spm]Id2Token needs the last state
-    bool f_special_last = bpe_state->f_special_last;
+    bool f_special = bpe_state->f_special_last_;  // [Spm]Id2Token needs the last state
+    bool f_special_last = bpe_state->f_special_last_;
     auto status = spm_model_
                   ? SpmId2Token(id, token, f_special)
                   : Id2Token(id, token, true /* tok_config_.skip_special_tokens_ */, f_special);
@@ -166,7 +166,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
       s_utf8 = s_utf8.substr(utf8_all_len);
     }
 
-    bpe_state->f_special_last = f_special;
+    bpe_state->f_special_last_ = f_special;
     return status;
   }
 

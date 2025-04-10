@@ -22,6 +22,7 @@
 #include "nlohmann/json.hpp"
 #include "trietree.hpp"
 #include "tokenizer_jsconfig.hpp"
+#include "case_encoder.h"
 
 namespace ort_extensions {
 
@@ -53,40 +54,57 @@ struct SpmUgmTokenizer {
 
   OrtxStatus LoadCharsMap(const json& j_vocab) {
     auto normalizer = j_vocab.find("normalizer");
+    std::string charsmap;
     if (normalizer != j_vocab.end()) {
       auto iter = normalizer->find("precompiled_charsmap");
       if (iter != normalizer->end()) {
-        auto charsmap = iter->get<std::string>();
-        if (!base64_decode(charsmap, charsmap_data_)) {
-          return OrtxStatus(extError_t::kOrtxErrorCorruptData, "Failed to decode charsmap.");
+        charsmap = iter->get<std::string>();
+      } else {
+        auto iter = normalizer->find("normalizers");  // v2 schema
+        if (iter != normalizer->end()) {
+          for (const auto& normalizer : iter->items()) {
+            if (normalizer.value().contains("type")) {
+              auto type = normalizer.value()["type"].get<std::string>();
+              if (type == "Precompiled") {
+                charsmap = normalizer.value()["precompiled_charsmap"].get<std::string>();
+                break;
+              }
+            }
+          }
         }
-
-        // std::cout << "charsmap size: " << charsmap_data_.size() << std::endl;
-        // for (size_t i = 0; i < charsmap_data_.size() && i < 100; ++i) {
-        //   std::cout << int(charsmap_data_[i]) << " ";
-        // }
-
-        size_t charsmap_offset = 0;
-
-        // First four bytes of precompiled_charsmap contains length of binary
-        // blob containing XOR-compressed compact double array (XCDA) entries
-        uint32_t xcda_blob_size = *(const uint32_t*)&charsmap_data_[0];
-        charsmap_offset += sizeof(xcda_blob_size);
-        if (xcda_blob_size + charsmap_offset >= charsmap_data_.size()) {
-          return OrtxStatus(extError_t::kOrtxErrorCorruptData, "Index out of array bounds in precompiled charsmap!");
-        }
-
-        // Next xcda_blob_size bytes contain entries of XOR-compressed compact
-        // double array (XCDA). Each entry is bit-packed into a 32-bit integer.
-        xcda_array_ = (const uint32_t*)&charsmap_data_[charsmap_offset];
-        xcda_array_size_ = xcda_blob_size / sizeof(uint32_t);
-        charsmap_offset += xcda_blob_size;
-
-        // Remaining bytes of precompiled charsmap contain null-terminated
-        // replacement strings for prefixes matched by the XCDA.
-        prefix_replacements_ = reinterpret_cast<const char*>(&charsmap_data_[charsmap_offset]);
-        prefix_replacements_size_ = charsmap_data_.size() - charsmap_offset;
       }
+    }
+
+    if (!charsmap.empty()) {
+      if (!base64_decode(charsmap, charsmap_data_)) {
+        return OrtxStatus(extError_t::kOrtxErrorCorruptData, "Failed to decode charsmap.");
+      }
+
+      // std::cout << "charsmap size: " << charsmap_data_.size() << std::endl;
+      // for (size_t i = 0; i < charsmap_data_.size() && i < 100; ++i) {
+      //   std::cout << int(charsmap_data_[i]) << " ";
+      // }
+
+      size_t charsmap_offset = 0;
+
+      // First four bytes of precompiled_charsmap contains length of binary
+      // blob containing XOR-compressed compact double array (XCDA) entries
+      uint32_t xcda_blob_size = *(const uint32_t*)&charsmap_data_[0];
+      charsmap_offset += sizeof(xcda_blob_size);
+      if (xcda_blob_size + charsmap_offset >= charsmap_data_.size()) {
+        return OrtxStatus(extError_t::kOrtxErrorCorruptData, "Index out of array bounds in precompiled charsmap!");
+      }
+
+      // Next xcda_blob_size bytes contain entries of XOR-compressed compact
+      // double array (XCDA). Each entry is bit-packed into a 32-bit integer.
+      xcda_array_ = (const uint32_t*)&charsmap_data_[charsmap_offset];
+      xcda_array_size_ = xcda_blob_size / sizeof(uint32_t);
+      charsmap_offset += xcda_blob_size;
+
+      // Remaining bytes of precompiled charsmap contain null-terminated
+      // replacement strings for prefixes matched by the XCDA.
+      prefix_replacements_ = reinterpret_cast<const char*>(&charsmap_data_[charsmap_offset]);
+      prefix_replacements_size_ = charsmap_data_.size() - charsmap_offset;
     }
 
     return {};
@@ -203,6 +221,17 @@ struct SpmUgmTokenizer {
     }
 
     unknown_token_score_ = min_score - unknown_token_score_penalty_;
+
+    if (config.tokenizer_class_ == "MarianTokenizer") {
+      tokenizer_add_space_prefix_ = true;
+      tokenizer_remove_extra_whitespaces_ = false;
+      tokenizer_treat_whitespace_as_suffix_ = true;
+      add_eos_token_ = true;
+      case_encoder_ = std::make_unique<normalizer::UpperCaseEncoder>(tokenizer_remove_extra_whitespaces_);
+      case_encoder_->setNormalizer([this](std::string_view input) {
+        return NmtNormalizePrefix(input); 
+      });
+    }
     return status;
   }
 
@@ -217,7 +246,12 @@ struct SpmUgmTokenizer {
   OrtxStatus ComputeNoOp(const std::string& input, std::vector<extTokenId_t>& output,
                          bool add_special_tokens = true) const {
 
-    std::string normalized = Normalize(input);
+    std::string normalized;
+    if (case_encoder_) {
+      normalized = NmtNormalize(input);
+    } else {
+      normalized = Normalize(input);
+    }
     size_t input_len = normalized.size();
     if (input_len == 0) {
       return {};
@@ -379,6 +413,117 @@ struct SpmUgmTokenizer {
     return normalized;
   }
 
+  std::pair<std::string_view, int> NmtNormalizePrefix(std::string_view input_view) const {
+    if (input_view.empty()) {
+      return {"", 0};
+    }
+
+    size_t prefix_off = 0;
+    auto user_defined_token_match = user_defined_token_matcher_.FindLongest(std::string(input_view), prefix_off);
+    if (user_defined_token_match != user_defined_token_matcher_.kInvalidId_) {
+      return {input_view.substr(0, prefix_off), static_cast<int>(prefix_off)};
+    }
+
+    size_t longest_prefix_length = 0;
+    size_t longest_prefix_offset = 0;
+
+    if (xcda_array_size_ > 0) {
+      XcdaArrayView xcda_view(xcda_array_, xcda_array_size_);
+
+      uint32_t node_index = 0;
+      node_index = xcda_view.GetBase(node_index);
+      for (size_t prefix_offset = 0; prefix_offset < input_view.size(); prefix_offset++) {
+        unsigned char c = input_view[prefix_offset];
+        if (c == 0) {
+          break;
+        }
+        node_index ^= c;
+        if (xcda_view.GetLcheck(node_index) != c) {
+          break;
+        }
+        bool is_leaf = xcda_view.IsLeaf(node_index);
+        node_index ^= xcda_view.GetBase(node_index);
+        if (is_leaf) {
+          longest_prefix_length = prefix_offset + 1;
+          longest_prefix_offset = xcda_view.GetValue(node_index);
+        }
+      }
+    }
+
+    if (longest_prefix_length > 0) {
+      if (longest_prefix_offset >= prefix_replacements_size_) {
+        ORTX_CXX_API_THROW("[UgmTok]Index out of array bounds in precompiled charsmap!", ORT_RUNTIME_EXCEPTION);
+      }
+      const char* prefix_replacement = &prefix_replacements_[longest_prefix_offset];
+      return {prefix_replacement, static_cast<int>(longest_prefix_length)};
+    } else {
+      // if yes, return this sequence unmodified
+      size_t prefix_offset = ustring::UTF8Len(input_view[0]);
+      if (prefix_offset <= input_view.size()) {
+        return {input_view.substr(0, prefix_offset), static_cast<int>(prefix_offset)};
+      }
+    }
+
+    return {"\xEF\xBF\xBD", 1};
+  }
+
+  std::string NmtNormalize(const std::string& input) const {
+    std::string normalized;
+    normalized.reserve(input.size() * 3);
+    std::vector<size_t> norm_to_orig(input.size() * 3);
+
+    const std::string space = tokenizer_escape_whitespaces_ ? std::string(spm_escaped_space) : " ";
+
+    bool shall_prepend_space = !tokenizer_treat_whitespace_as_suffix_ && tokenizer_add_space_prefix_;
+    bool shall_append_space = tokenizer_treat_whitespace_as_suffix_ && tokenizer_add_space_prefix_;
+    bool shall_merge_spaces = tokenizer_remove_extra_whitespaces_;
+
+    bool is_space_prepended = false;
+    bool processing_non_ws = false;
+
+    size_t input_len = input.size();
+
+    std::string_view input_view(input);
+    int consumed = 0;
+ 
+    while (!input_view.empty()) {
+      auto p = case_encoder_->normalizePrefix(input_view);
+
+      for (size_t i = 0; i < p.first.size(); i++) {
+        char c = p.first[i];
+        if (c != ' ') {
+          if (!processing_non_ws) {
+            processing_non_ws = true;
+            if ((shall_prepend_space && !is_space_prepended) || shall_merge_spaces) {
+              normalized.append(space);
+              is_space_prepended = true;
+            }
+          }
+          normalized.push_back(c);
+        } else {
+          if (processing_non_ws) {
+            processing_non_ws = false;
+          }
+          if (!shall_merge_spaces) {
+            normalized.append(space);
+          }
+        }
+      }
+
+      consumed += p.second;
+      input_view.remove_prefix(p.second);
+    }
+
+    case_encoder_->postProcess(&normalized, &norm_to_orig);
+
+
+    if (shall_append_space) {
+      normalized.append(space);
+    }
+
+    return normalized;
+  }
+
   /*
    * This structure is a view wrapper for XOR-compressed double array (XCDA)
    * See Shunsuke Kanda (2018). Space- and Time-Efficient String Dictionaries.
@@ -420,7 +565,7 @@ struct SpmUgmTokenizer {
     size_t xcda_array_size_;
   };
 
-  struct NormalizationResult NormalizePrefix(const std::string& input, size_t input_offset) const {
+  NormalizationResult NormalizePrefix(const std::string& input, size_t input_offset) const {
     if (input_offset == input.size()) {
       return {&input[input_offset], 0, 0};
     }
@@ -469,10 +614,10 @@ struct SpmUgmTokenizer {
       size_t prefix_offset = input_offset + ustring::UTF8Len(input[input_offset]);
       if (prefix_offset <= input.size()) {
         return {&input[input_offset], prefix_offset - input_offset, prefix_offset - input_offset};
-      } else {
-        return {"\xEF\xBF\xBD", 3, 1};
       }
     }
+
+    return {"\xEF\xBF\xBD", 3, 1};
   }
 
   friend class SpmUgmDecoder;
@@ -514,6 +659,8 @@ struct SpmUgmTokenizer {
   std::string unk_token_ = "<unk>";
   bool add_bos_token_{};  // add bos token
   bool add_eos_token_{};  // add eos token
+
+  std::unique_ptr<normalizer::CaseEncoder> case_encoder_;
 };
 
 class SpmUgmDecoder {
@@ -531,6 +678,7 @@ class SpmUgmDecoder {
     unknown_token_ = tokenizer.unk_token_;
     special_token_ids_ = tokenizer.special_token_ids_;
     tokenizer_add_space_prefix_ = tokenizer.tokenizer_add_space_prefix_;
+    case_encoding_ = tokenizer.case_encoder_ != nullptr;
     return {};
   }
 
@@ -548,16 +696,12 @@ class SpmUgmDecoder {
 
     std::vector<std::string> decoded_strings;
     decoded_strings.reserve(string_batch);
-    const std::string ws = " ";
+    TokenizerDecodingState* state{};
     for (auto n = string_batch; n > 0; n--) {
       std::string text;
       for (int64_t i = 0; i < seq_len; ++i) {
         std::string token;
-        Id2Token(ort_extensions::narrow<extTokenId_t>(p_ids[i]), token, nullptr);
-        if (token.find(spm_escaped_space) == 0) {
-          token = ws + token.substr(spm_escaped_space.length());
-        }
-
+        Id2Token(ort_extensions::narrow<extTokenId_t>(p_ids[i]), token, &state);
         text += token;
       }
 
@@ -567,14 +711,24 @@ class SpmUgmDecoder {
         }
       }
 
+      if (case_encoding_ && text.back() == ' ') {
+        text.pop_back();
+      }
       decoded_strings.push_back(text);
     }
 
+    std::unique_ptr<TokenizerDecodingState> decoding_state(state);
     output.SetStringOutput(decoded_strings, output_dim);
     return {};
   }
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** /* state */) const {
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state) const {
+    std::unique_ptr<TokenizerDecodingState> decoding_state;
+    if (*state == nullptr) {
+      decoding_state = std::make_unique<TokenizerDecodingState>();
+      *state = decoding_state.release();
+    }
+
     if (special_token_ids_.count(id)) {
       token = "";
       return {};
@@ -586,11 +740,80 @@ class SpmUgmDecoder {
     }
 
     token = vocab_[id];
+    if (case_encoding_ && token.length() == 1) {
+      if (token[0] == normalizer::cUppercase || token[0] == normalizer::cAllUppercase ||
+          token[0] == normalizer::cTitlecase || token[0] == normalizer::cLowercase ||
+          token[0] == normalizer::cPunctuation) {
+        (*state)->signature_ = token[0];
+        token = "";
+        return {};
+      }
+    }
+
+    const std::string ws = " ";
+    auto pos = token.find(spm_escaped_space);
+    if (pos == 0) {
+      token = ws + token.substr(spm_escaped_space.length());
+    } else if (pos + 3 == token.length()) {
+      token = token.substr(0, pos) + ws;
+    }
+    if (!case_encoding_) {
+      return {};
+    }
+
+    char signature = 0;
+    if ((*state)->signature_ != 0) {
+      signature = (*state)->signature_;
+      (*state)->signature_ = 0;
+    }
+
+    if (signature) {
+      // Apply transformation from previous token's signature
+      switch (signature) {
+        case normalizer::cUppercase:
+        case normalizer::cAllUppercase:
+          std::transform(token.begin(), token.end(), token.begin(), ::toupper);
+          break;
+        case normalizer::cTitlecase:
+          if (!token.empty()) {
+            token[0] = toupper(token[0]);
+          }
+          break;
+        case normalizer::cLowercase:
+        case normalizer::cPunctuation:
+          // No transformation needed
+          break;
+      }
+    } else if (!token.empty()) {
+      // Check if current token starts with a signature character
+      char first_char = token[0];
+      if (first_char == normalizer::cUppercase || first_char == normalizer::cAllUppercase ||
+          first_char == normalizer::cTitlecase || first_char == normalizer::cLowercase ||
+          first_char == normalizer::cPunctuation) {
+
+        token.erase(0, 1); // Remove signature character
+
+        switch (first_char) {
+          case normalizer::cUppercase:
+          case normalizer::cAllUppercase:
+            std::transform(token.begin(), token.end(), token.begin(), ::toupper);
+            break;
+          case normalizer::cTitlecase:
+            if (!token.empty()) {
+              token[0] = toupper(token[0]);
+            }
+            break;
+          // For cLowercase and cPunctuation, no transformation needed
+        }
+      }
+    }
+
     return {};
   }
 
  private:
   bool tokenizer_add_space_prefix_ = true;
+  bool case_encoding_ = false;
   std::vector<std::string> vocab_;
   std::string unknown_token_ = "<unk>";
   std::set<extTokenId_t> special_token_ids_;
