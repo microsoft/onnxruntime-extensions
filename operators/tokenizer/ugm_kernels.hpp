@@ -223,14 +223,14 @@ struct SpmUgmTokenizer {
     unknown_token_score_ = min_score - unknown_token_score_penalty_;
 
     if (config.tokenizer_class_ == "MarianTokenizer") {
-      case_encoder_ = std::make_unique<normalizer::UpperCaseEncoder>(tokenizer_remove_extra_whitespaces_);
-      case_encoder_->setNormalizer([this](std::string_view input) {
-        return NmtNormalizePrefix(input); 
-      });
       tokenizer_add_space_prefix_ = true;
       tokenizer_remove_extra_whitespaces_ = false;
       tokenizer_treat_whitespace_as_suffix_ = true;
       add_eos_token_ = true;
+      case_encoder_ = std::make_unique<normalizer::UpperCaseEncoder>(tokenizer_remove_extra_whitespaces_);
+      case_encoder_->setNormalizer([this](std::string_view input) {
+        return NmtNormalizePrefix(input); 
+      });
     }
     return status;
   }
@@ -678,6 +678,7 @@ class SpmUgmDecoder {
     unknown_token_ = tokenizer.unk_token_;
     special_token_ids_ = tokenizer.special_token_ids_;
     tokenizer_add_space_prefix_ = tokenizer.tokenizer_add_space_prefix_;
+    case_encoding_ = tokenizer.case_encoder_ != nullptr;
     return {};
   }
 
@@ -695,16 +696,12 @@ class SpmUgmDecoder {
 
     std::vector<std::string> decoded_strings;
     decoded_strings.reserve(string_batch);
-    const std::string ws = " ";
+    TokenizerDecodingState* state{};
     for (auto n = string_batch; n > 0; n--) {
       std::string text;
       for (int64_t i = 0; i < seq_len; ++i) {
         std::string token;
-        Id2Token(ort_extensions::narrow<extTokenId_t>(p_ids[i]), token, nullptr);
-        if (token.find(spm_escaped_space) == 0) {
-          token = ws + token.substr(spm_escaped_space.length());
-        }
-
+        Id2Token(ort_extensions::narrow<extTokenId_t>(p_ids[i]), token, &state);
         text += token;
       }
 
@@ -714,14 +711,24 @@ class SpmUgmDecoder {
         }
       }
 
+      if (case_encoding_ && text.back() == ' ') {
+        text.pop_back();
+      }
       decoded_strings.push_back(text);
     }
 
+    std::unique_ptr<TokenizerDecodingState> decoding_state(state);
     output.SetStringOutput(decoded_strings, output_dim);
     return {};
   }
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** /* state */) const {
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state) const {
+    std::unique_ptr<TokenizerDecodingState> decoding_state;
+    if (*state == nullptr) {
+      decoding_state = std::make_unique<TokenizerDecodingState>();
+      *state = decoding_state.release();
+    }
+
     if (special_token_ids_.count(id)) {
       token = "";
       return {};
@@ -733,11 +740,80 @@ class SpmUgmDecoder {
     }
 
     token = vocab_[id];
+    if (case_encoding_ && token.length() == 1) {
+      if (token[0] == normalizer::cUppercase || token[0] == normalizer::cAllUppercase ||
+          token[0] == normalizer::cTitlecase || token[0] == normalizer::cLowercase ||
+          token[0] == normalizer::cPunctuation) {
+        (*state)->signature_ = token[0];
+        token = "";
+        return {};
+      }
+    }
+
+    const std::string ws = " ";
+    auto pos = token.find(spm_escaped_space);
+    if (pos == 0) {
+      token = ws + token.substr(spm_escaped_space.length());
+    } else if (pos + 3 == token.length()) {
+      token = token.substr(0, pos) + ws;
+    }
+    if (!case_encoding_) {
+      return {};
+    }
+
+    char signature = 0;
+    if ((*state)->signature_ != 0) {
+      signature = (*state)->signature_;
+      (*state)->signature_ = 0;
+    }
+
+    if (signature) {
+      // Apply transformation from previous token's signature
+      switch (signature) {
+        case normalizer::cUppercase:
+        case normalizer::cAllUppercase:
+          std::transform(token.begin(), token.end(), token.begin(), ::toupper);
+          break;
+        case normalizer::cTitlecase:
+          if (!token.empty()) {
+            token[0] = toupper(token[0]);
+          }
+          break;
+        case normalizer::cLowercase:
+        case normalizer::cPunctuation:
+          // No transformation needed
+          break;
+      }
+    } else if (!token.empty()) {
+      // Check if current token starts with a signature character
+      char first_char = token[0];
+      if (first_char == normalizer::cUppercase || first_char == normalizer::cAllUppercase ||
+          first_char == normalizer::cTitlecase || first_char == normalizer::cLowercase ||
+          first_char == normalizer::cPunctuation) {
+
+        token.erase(0, 1); // Remove signature character
+
+        switch (first_char) {
+          case normalizer::cUppercase:
+          case normalizer::cAllUppercase:
+            std::transform(token.begin(), token.end(), token.begin(), ::toupper);
+            break;
+          case normalizer::cTitlecase:
+            if (!token.empty()) {
+              token[0] = toupper(token[0]);
+            }
+            break;
+          // For cLowercase and cPunctuation, no transformation needed
+        }
+      }
+    }
+
     return {};
   }
 
  private:
   bool tokenizer_add_space_prefix_ = true;
+  bool case_encoding_ = false;
   std::vector<std::string> vocab_;
   std::string unknown_token_ = "<unk>";
   std::set<extTokenId_t> special_token_ids_;
