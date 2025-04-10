@@ -1,24 +1,14 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+// The implementation is generated from:
+// https://github.com/marian-nmt/sentencepiece/blob/6652629ab26af9b1d4418a0ed8348d6c9ffb052c/src/case_encoder.cc
 
 #include "case_encoder.h"
 
 namespace ort_extensions {
 namespace normalizer {
 
-std::unique_ptr<CaseEncoder> CaseEncoder::Create(bool encodeCase, bool decodeCase, bool removeExtraWhiteSpace) {
-  if (encodeCase && decodeCase) {
-    // LOG(ERROR) << "Cannot set both encodeCase=true and decodeCase=true";
-    return nullptr;
-  } else if (encodeCase) {
-    return std::unique_ptr<CaseEncoder>(new UpperCaseEncoder(removeExtraWhiteSpace));
-  } else if (decodeCase) {
-    return std::unique_ptr<CaseEncoder>(new UpperCaseDecoder());
-  } else {
-    return nullptr;
-  }
-}
-
+namespace detail {
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Implements finite state automaton for regex: Uu+(sss|p|$)+Uu+(sss|p|$)+(Uu+(sss|p|$)+)+
 // std::regex seems to be causing weird issues with stack overflow etc. on Windows.
@@ -64,7 +54,7 @@ inline int delta(int state, char c) {
 
 // finds longest sequence that is accepted by the fsa starting
 // from the beginning up to given length
-size_t searchLongestSuffix(const char* data, size_t length) {
+size_t SearchLongestSuffix(const char* data, size_t length) {
   // init
   size_t found = npos;
   int state = 0;
@@ -90,14 +80,15 @@ size_t searchLongestSuffix(const char* data, size_t length) {
 
   return found;
 }
+}  // namespace detail
 
 // find all the longest sequences that match the fsa in the string and return matched spans
 // note, this is greedy and we restart search after the previous longest sequence
-std::vector<std::pair<const char*, const char*>> search(const std::string& input) {
+std::vector<std::pair<const char*, const char*>> Search(const std::string& input) {
   std::vector<std::pair<const char*, const char*>> results;
   for (size_t i = 0; i < input.length(); ++i) {
-    size_t found = searchLongestSuffix(input.data() + i, input.length() - i);
-    if (found != npos) {
+    size_t found = detail::SearchLongestSuffix(input.data() + i, input.length() - i);
+    if (found != detail::npos) {
       results.emplace_back(input.data() + i, input.data() + i + found);
       i += found - 1;
     }
