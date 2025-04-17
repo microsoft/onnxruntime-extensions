@@ -8,6 +8,7 @@
 #include <set>
 #include <list>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <cfloat>
 #include <functional>
@@ -185,10 +186,37 @@ struct SpmUgmTokenizer {
       return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, "Vocabulary not found in model node.");
     }
 
+    static std::string_view val_pattern = "<0xXY>";
+    auto convert_hex_to_token = [](const std::string& str) {
+      int val = -1;
+      char char_3_4[3] = {0};
+      if (str.size() != val_pattern.size()) {
+        return val;
+      }
+      for (size_t i = 0; i < str.size(); ++i) {
+        if (str[i] != val_pattern[i]) {
+          if (i == 3) {
+            char_3_4[0] = str[i];
+          }else if (i == 4) {
+            char_3_4[1] = str[i];
+          } 
+        }
+      }
+      if (char_3_4[0] < '0' || (char_3_4[0] > '9' && char_3_4[0] < 'A') || char_3_4[0] > 'F' || 
+          char_3_4[1] < '0' || (char_3_4[1] > '9' && char_3_4[1] < 'A') || char_3_4[1] > 'F' ) {
+        return val;
+      }
+      return std::stoi(char_3_4, nullptr, 16);
+    };
+
     extTokenId_t id = 0;
     for (const auto& entry : vocab_node->items()) {
       auto score = entry.value()[1].get<double>();
       auto tkn = entry.value()[0].get<std::string>();
+      int val = convert_hex_to_token(tkn);
+      if (val != -1) {
+        tkn = std::string(1, static_cast<unsigned char>(val));
+      } 
       if (chatglm_special_endings_) {
         if (tkn == "<n>") {
           tkn = "\n";
