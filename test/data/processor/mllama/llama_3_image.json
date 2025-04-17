@@ -5,17 +5,17 @@
       {
         "operation": {
           "name": "decode_image",
-          "domain": "com.microsoft.extensions",
+          "domain": "com.microsoft.onnxruntime.extensions",
           "type": "DecodeImage",
           "attrs": {
-            "color_space": "BGR"
+            "color_space": "RGB"
           }
         }
       },
       {
         "operation": {
           "name": "llama3_image_transform",
-          "domain": "com.microsoft.extensions",
+          "domain": "com.microsoft.onnxruntime.extensions",
           "type": "Llama3ImageTransform",
           "attrs": {
             "max_image_tiles": 4,

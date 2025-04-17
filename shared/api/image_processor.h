@@ -51,8 +51,9 @@ class ImageProcessor : public OrtxObjectImpl {
   static Operation::KernelRegistry kernel_registry_;
 
  private:
-  std::vector<std::unique_ptr<Operation>> operations_;
-  ortc::IAllocator* allocator_;
+  ExecutionPlan op_plan_;
+  std::string   name_;
+  std::string   output_aligner_;
 };
 
 }  // namespace ort_extensions

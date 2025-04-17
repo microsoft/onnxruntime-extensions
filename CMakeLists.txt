@@ -54,7 +54,14 @@ include(CMakeDependentOption)
 
 set(_ORTX_STANDALONE_PROJECT OFF)
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
-    set(_ORTX_STANDALONE_PROJECT ON)
+  set(_ORTX_STANDALONE_PROJECT ON)
+endif()
+
+set(_ORTX_CPP_NO_RTTI ON)
+set(_ORTX_SHARED_BUILD_SUPPORTED ON)
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  set(_ORTX_SHARED_BUILD_SUPPORTED OFF)
+  set(_ORTX_CPP_NO_RTTI OFF)
 endif()
 
 option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
@@ -78,11 +85,11 @@ option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
 option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" OFF)
 
-option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
+option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF) # only for WebAssembly
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
 option(OCOS_ENABLE_C_API "Enable building the C API" OFF)
 
-option(OCOS_BUILD_SHARED_LIB "Enable building the dynamic library" ON)
+option(OCOS_BUILD_SHARED_LIB "Enable building the dynamic library" ${_ORTX_SHARED_BUILD_SUPPORTED})
 option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
 option(OCOS_BUILD_JAVA "Enable building the Java package" OFF)
 option(OCOS_BUILD_ANDROID "Enable building the Android package" OFF)
@@ -141,8 +148,8 @@ if(NOT CC_OPTIMIZE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
   else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Od")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Od")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Od /RTC1")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Od /RTC1")
   endif()
 endif()
 
@@ -182,6 +189,18 @@ endif()
 if(NOT OCOS_BUILD_PYTHON AND OCOS_ENABLE_PYTHON)
   message("OCOS_ENABLE_PYTHON IS DEPRECATED, USE OCOS_BUILD_PYTHON INSTEAD")
   set(OCOS_BUILD_PYTHON ON CACHE INTERNAL "")
+endif()
+
+if(OCOS_BUILD_PYTHON)
+  set(_ORTX_CPP_NO_RTTI OFF)
+endif()
+
+if(_ORTX_CPP_NO_RTTI)
+  if(MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GR-")
+  else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
+  endif()
 endif()
 
 if(OCOS_BUILD_ANDROID)
@@ -419,7 +438,7 @@ set(_HAS_TOKENIZER OFF)
 if(OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
   set(_HAS_TOKENIZER ON)
-  file(GLOB tok_TARGET_SRC "operators/tokenizer/bpe_*.*" "operators/tokenizer/unicode*.*")
+  file(GLOB tok_TARGET_SRC "operators/tokenizer/bpe_*.*" "operators/tokenizer/unicode*.*", "operators/tokenizer/case_*.*")
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
 endif()
 
@@ -629,7 +648,7 @@ if(OCOS_ENABLE_TF_STRING)
 
   if(OCOS_ENABLE_RE2_REGEX)
     target_include_directories(noexcep_operators PUBLIC ${googlere2_SOURCE_DIR})
-    target_link_libraries(noexcep_operators PRIVATE re2)
+    target_link_libraries(noexcep_operators PRIVATE re2::re2)
   endif()
 endif()
 
@@ -759,7 +778,7 @@ if(OCOS_ENABLE_C_API)
   file(GLOB utils_TARGET_SRC "shared/api/c_api_utils.*" "shared/api/runner.hpp")
   list(APPEND _TARGET_LIB_SRC ${utils_TARGET_SRC})
   if(_HAS_TOKENIZER)
-    file(GLOB tok_TARGET_SRC "shared/api/c_api_tokenizer.cc" "shared/api/token*")
+    file(GLOB tok_TARGET_SRC "shared/api/c_api_tokenizer.cc" "shared/api/token*" "shared/api/chat*")
     list(APPEND _TARGET_LIB_SRC ${tok_TARGET_SRC})
   endif()
   if(OCOS_ENABLE_AUDIO)
@@ -773,30 +792,7 @@ if(OCOS_ENABLE_C_API)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-  if(OCOS_ENABLE_STATIC_LIB)
-    message(FATAL_ERROR "Emscripten build does not support building a static library.")
-  endif()
-  # Emscripten does not support building a shared library with custom ops.
-  # and backward compatible with the previous version, we silently turn off the shared library build.
-  set(OCOS_BUILD_SHARED_LIB OFF CACHE INTERNAL "" FORCE)
-  add_executable(ortcustomops ${_TARGET_LIB_SRC})
-  set_target_properties(ortcustomops PROPERTIES LINK_FLAGS "                                  \
-                      -s WASM=1                                                               \
-                      -s NO_EXIT_RUNTIME=0                                                    \
-                      -s ALLOW_MEMORY_GROWTH=1                                                \
-                      -s SAFE_HEAP=0                                                          \
-                      -s MODULARIZE=1                                                         \
-                      -s SAFE_HEAP_LOG=0                                                      \
-                      -s STACK_OVERFLOW_CHECK=0                                               \
-                      -s EXPORT_ALL=0                                                         \
-                      -s VERBOSE=0                                                            \
-                      --no-entry")
-
-  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set_property(TARGET ortcustomops APPEND_STRING PROPERTY LINK_FLAGS " -s ASSERTIONS=1 -s DEMANGLE_SUPPORT=1")
-  else()
-    set_property(TARGET ortcustomops APPEND_STRING PROPERTY LINK_FLAGS " -s ASSERTIONS=0 -s DEMANGLE_SUPPORT=0")
-  endif()
+  include(ext_wasm)
 else()
   add_library(ortcustomops STATIC ${_TARGET_LIB_SRC})
   if (HAS_SDL)

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <sstream>
+#include <string_view>
 #include "file_sys.h"
 #include "nlohmann/json.hpp"
 
@@ -15,7 +17,7 @@ enum class TokenType {
 };
 
 constexpr std::pair<const char*, TokenType> kTokenizerDict[] = {
-  {"PreTrainedTokenizerFast", TokenType::kBPE},
+  {"PreTrainedTokenizer", TokenType::kBPE},
   {"CLIPTokenizer", TokenType::kBPE},
   {"WhisperTokenizer", TokenType::kBPE},
   {"GemmaTokenizer", TokenType::kBPE},
@@ -26,11 +28,13 @@ constexpr std::pair<const char*, TokenType> kTokenizerDict[] = {
   {"GPT2Tokenizer", TokenType::kBPE},
   {"Qwen2Tokenizer", TokenType::kBPE},
   {"BaichuanTokenizer", TokenType::kBPE},
+  {"GPTNeoXTokenizer", TokenType::kBPE},
 
   {"", TokenType::kUnigram},
   {"T5Tokenizer", TokenType::kUnigram},
   {"ChatGLMTokenizer", TokenType::kUnigram},
-  {"XLMRobertaTokenizer", TokenType::kUnigram}
+  {"XLMRobertaTokenizer", TokenType::kUnigram},
+  {"MarianTokenizer", TokenType::kUnigram}
 };
 
 
@@ -42,7 +46,7 @@ class TokenJsonConfig final {
   TokenJsonConfig() {}
   ~TokenJsonConfig() {}
   using json = nlohmann::json;
-  using json_pointer = nlohmann::json_pointer<std::string>;
+  std::shared_ptr<json> added_tokens_decoder;
 
  public:
   OrtxStatus AppendModuleJson(json& json_config) {
@@ -67,6 +71,7 @@ class TokenJsonConfig final {
       bos_token_ = "<s>";
       eos_token_ = "</s>";
       unk_token_ = "<unk>";
+      chat_template_ = ""; // can add default chat template
       return {};
     }
 
@@ -87,6 +92,7 @@ class TokenJsonConfig final {
     parse_token(json_config, "eos_token", eos_token_);
     parse_token(json_config, "unk_token", unk_token_);
 
+    chat_template_ = json_config.value("chat_template", "");
 
     auto pad_iter = json_config.find("pad_token");
     if (pad_iter != json_config.end() && pad_iter->is_string()) {
@@ -114,7 +120,7 @@ class TokenJsonConfig final {
         vocab_stream = std::make_unique<std::istringstream>(vocab_str);
       }
     } else {
-      auto ifs = std::make_unique<std::ifstream>(vocab_path_);
+      auto ifs = std::make_unique<std::ifstream>(path(vocab_path_.data()).open());
       if (!ifs->is_open()) {
         return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, vocab_path_ + ": does not exist.");
       }
@@ -189,6 +195,9 @@ class TokenJsonConfig final {
       return OrtxStatus(kOrtxErrorInvalidArgument, "Failed to parse config json.");
     }
 
+    // Store added_tokens_decoder to add any missed tokens into added_tokens in UpdateTokenizer 
+    added_tokens_decoder = std::make_shared<json>(json_config.value("added_tokens_decoder", json::object()));
+
     auto module_cfg = tok_dir / "tokenizer_module.json";
     if (module_cfg.exists()) {
       std::ifstream module_ifs = module_cfg.open();
@@ -239,7 +248,9 @@ class TokenJsonConfig final {
   std::string unk_token_;
   std::string pad_token_;
 
-  std::vector<ort_extensions::AddedToken> added_tokens_;
+  std::string chat_template_;
+
+  AddedTokenMap added_tokens_;
 
   static AddedToken ParseAddedToken(const json& token) {
     AddedToken added_token;
@@ -255,10 +266,16 @@ class TokenJsonConfig final {
   }
 
   static TokenType GetTokenType(const std::string& tok) {
-    static const std::unordered_map<std::string, TokenType> dict {
+    static const std::unordered_map<std::string_view, TokenType> dict {
         std::begin(kTokenizerDict), std::end(kTokenizerDict) };
 
-    auto iter = dict.find(tok);
+    std::string_view tok_class(tok);
+    auto pos = tok_class.find("Fast");
+    if (pos != std::string_view::npos && pos + 4 == tok_class.size()) {
+      tok_class.remove_suffix(4);
+    }
+
+    auto iter = dict.find(tok_class);
     return iter == dict.end() ? TokenType::kUnknown : iter->second;
   }
 
@@ -267,7 +284,9 @@ class TokenJsonConfig final {
     auto added_tokens = tok_json.find("added_tokens");
     if (added_tokens != tok_json.end()) {
       for (const auto& token : *added_tokens) {
-        added_tokens_.emplace_back(ParseAddedToken(token));
+        auto tok_extended = ParseAddedToken(token);
+        // insert the token into the unordered_map
+        added_tokens_.emplace(ustring(tok_extended.content_), tok_extended);
       }
     }
   }

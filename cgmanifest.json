@@ -34,7 +34,7 @@
       "component": {
         "type": "git",
         "git": {
-          "commitHash": "v19.24.6",
+          "commitHash": "v19.24.7",
           "repositoryUrl": "https://github.com/davisking/dlib.git"
         }
       }
@@ -62,7 +62,7 @@
       "component": {
         "type": "git",
         "git": {
-          "commitHash": "9406a60c7839052e4944ea4dbc8344762a89f9bd",
+          "commitHash": "e39786088138f2749d64e9e90e0f9902daa77c40",
           "repositoryUrl": "https://github.com/google/googletest.git"
         }
       }

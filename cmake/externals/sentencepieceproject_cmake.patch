@@ -1,7 +1,16 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index a3870cb..a8732f4 100644
+index a3870cb..d42d5ab 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
+@@ -12,7 +12,7 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.!
+ 
+-cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
++cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+ file(STRINGS "VERSION.txt" SPM_VERSION)
+ message(STATUS "VERSION: ${SPM_VERSION}")
+ project(sentencepiece VERSION ${SPM_VERSION} LANGUAGES C CXX)
 @@ -59,11 +59,13 @@ else()
  endif()
  

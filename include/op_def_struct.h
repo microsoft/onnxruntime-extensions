@@ -286,18 +286,18 @@ struct OrtLiteCustomStructV2 : public OrtLiteCustomOp {
 };
 
 template <typename RType, typename... Args>
-OrtLiteCustomOp* CreateLiteCustomOpV2(const char* op_name,
+std::shared_ptr<OrtLiteCustomOp> CreateLiteCustomOpV2(const char* op_name,
                                       const char* execution_provider,
                                       RType (*custom_compute_fn)(Args...)) {
   using LiteOp = OrtLiteCustomStructV2<FunctionKernel<RType, Args...>>;
-  return std::make_unique<LiteOp>(op_name, execution_provider, custom_compute_fn).release();
+  return std::make_shared<LiteOp>(op_name, execution_provider, custom_compute_fn);
 }
 
 template <typename OpKernel>
-OrtLiteCustomOp* CreateLiteCustomOpV2(const char* op_name,
+std::shared_ptr<OrtLiteCustomOp> CreateLiteCustomOpV2(const char* op_name,
                                       const char* execution_provider) {
   using LiteOp = OrtLiteCustomStructV2<OpKernel>;
-  return std::make_unique<LiteOp>(op_name, execution_provider).release();
+  return std::make_shared<LiteOp>(op_name, execution_provider);
 }
 
 }  // namespace Custom

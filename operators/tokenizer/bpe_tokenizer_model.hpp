@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
 #pragma once
@@ -8,6 +8,7 @@
 #include "string_utils.h"
 #include "string_tensor.h"
 
+#include <set>
 #include <list>
 #include <unordered_map>
 #include <iostream>
@@ -20,13 +21,25 @@
 #include "trietree.hpp"
 #include "tokenizer_common.h"
 
+#define ORTX_JSON_RETURN_IF_NULL(node_iter, name, var) \
+  auto var = (node_iter)->find(name);                  \
+  if (var == (node_iter)->end() || var->is_null()) {   \
+    return {};                                         \
+  }
+
 namespace ort_extensions {
 
 class BpeModel {
   using json = nlohmann::json;
+  const std::array<const char*, 12> kPreTokenizerType = {
+      "BertPreTokenizer", "ByteLevel",       "CharDelimiterSplit", "Digits", "Metaspace",
+      "PreTokenizer",     "Punctuation",     "Sequence",           "Split",  "UnicodeScripts",
+      "Whitespace",       "WhitespaceSplit",
+  };
 
  public:
-  BpeModel() = default;
+  BpeModel()
+      : pre_tokenizer_types_(kPreTokenizerType.begin(), kPreTokenizerType.end()) {};
 
   static void UpdateSpmByteToken(std::unordered_map<std::string, uint32_t>& vocab_map) {
     static const char* hex = "0123456789ABCDEF";
@@ -42,6 +55,43 @@ class BpeModel {
         vocab_map[tok] = it->second;
       }
     }
+  }
+
+  OrtxStatus LoadPreTokenizer(const json& bpe_model) {
+    auto root_node = &bpe_model;
+    ORTX_JSON_RETURN_IF_NULL(root_node, "pre_tokenizer", node_pre_tokenizer);
+    auto iter_type = node_pre_tokenizer->find("type");
+    if (iter_type != node_pre_tokenizer->end() && !iter_type->is_null()) {
+      auto pre_token_type = iter_type->get<std::string>();
+      if (pre_tokenizer_types_.count(pre_token_type) == 0) {
+        return {kOrtxErrorNotImplemented, std::string("Unsupported pretokenizer type!") + pre_token_type};
+      }
+    }
+
+    ORTX_JSON_RETURN_IF_NULL(node_pre_tokenizer, "pretokenizers", iter_node_list);
+
+    for (const auto& node : *iter_node_list) {
+      ORTX_JSON_RETURN_IF_NULL(&node, "type", iter_type);
+      auto pre_type = iter_type->get<std::string>();
+      if (pre_type == "Split") {
+        ORTX_JSON_RETURN_IF_NULL(&node, "pattern", iter_pattern);
+        ORTX_JSON_RETURN_IF_NULL(iter_pattern, "Regex", regex_str);
+        pre_tokenizer_regex_ = regex_str->get<std::string>();
+        // Validate the regex pattern
+        bpe::PreTokenizerWithRegEx pre_tokenizer;
+        auto status = pre_tokenizer.Compile(pre_tokenizer_regex_);
+        if (!status.IsOk()) {
+          return status;
+        }
+      } else {
+        if (pre_tokenizer_types_.count(pre_type) == 0) {
+          return {kOrtxErrorNotImplemented, "Unsupported pretokenizer type!"};
+        }
+        ; // TODO: implement other pretokenizer types
+      }
+    }
+
+    return {};
   }
 
   OrtxStatus Load(std::istream& vocab_stream, std::istream& merges_stream, const char* unk_token,
@@ -102,7 +152,7 @@ class BpeModel {
         } else {
           vocab_map_[line] = id;
         }
-        special_tokens_.Add(std::move(line_32), id);
+        ORTX_RETURN_IF_ERROR(special_tokens_.Add(std::move(line_32), id));
       }
     }
 
@@ -120,7 +170,9 @@ class BpeModel {
     return {};
   }
 
-  OrtxStatus Load(const json& bpe_model, const char* /* special_tokens */, bool spm_converted) {
+  OrtxStatus Load(const json& bpe_model, const json& tok_json, const char* /* special_tokens */, bool spm_converted) {
+    ORTX_RETURN_IF_ERROR(LoadPreTokenizer(tok_json));
+
     const json& vocab_json = bpe_model["vocab"];
     const json& merges_json = bpe_model["merges"];
     vocab_json.get_to(vocab_map_);
@@ -258,8 +310,8 @@ class BpeModel {
     return {};
   }
 
-  void LoadAddedTokens(const std::vector<AddedToken>& added_tokens) {
-    for (const auto& token : added_tokens) {
+  void LoadAddedTokens(const AddedTokenMap& added_tokens) {
+    for (const auto& [key, token] : added_tokens) {
       added_tokens_.Add(ustring(token.content_), 0, token.id_);
     }
   }
@@ -268,13 +320,54 @@ class BpeModel {
 
   // REF:
   // https://github.com/huggingface/transformers/blob/c9e72f55b2dc4b9be4edb986dce0552582b328f2/src/transformers/tokenization_utils.py#L52
-  bpe::TokenPairs SplitByAddedAndSpecial(const ustring& input) const {
+  bpe::TokenPairs SplitByAddedAndSpecial(const ustring& input, const AddedTokenMap& t_map) const {
+    static const std::set<char32_t> ws_chars = {U' ', U'\n', U'\r', U'\t'};
     // split by added tokens
     bpe::TokenPairs added_result;
     bpe::TokenPairs final_result;
     added_tokens_.Split(input, added_result);
-    for (const auto& [token, id] : added_result) {
+
+    for (size_t n = 0; n < added_result.size(); ++n) {
+      auto& [token, id] = added_result[n];
+      bool has_left = n > 0;
+      bool has_right = n < added_result.size() - 1;
+
       if (id != bpe::kInvalidTokenId) {
+        if (has_left || has_right) {
+          auto iter_tok_extend = t_map.find(std::u32string(token));
+          if (iter_tok_extend != t_map.end()) {
+            if (has_right && iter_tok_extend->second.rstrip_) {
+              auto& [next_token, next_id] = added_result[n + 1];
+              // r-strip removes trailing characters from right side, which is equivalent to removing whitespace from left side of next token
+              if (next_id == bpe::kInvalidTokenId) {
+                final_result.emplace_back(token, id);
+                size_t pos = 0;
+                while (pos < next_token.size() && ws_chars.count(next_token[pos])) {
+                  pos++;
+                }
+                auto stripped_token = next_token.substr(pos);
+                final_result.emplace_back(stripped_token, next_id);
+                n += 1;
+                continue;
+              }
+            }
+            if (has_left && iter_tok_extend->second.lstrip_) {
+              auto& [prev_token, prev_id] = added_result[n - 1];
+              // l-strip means remove whitespaces from right side of previous token
+              if (prev_id == bpe::kInvalidTokenId) {
+                size_t pos = token.size();
+                while (pos > 0 && ws_chars.count(token[pos - 1])) {
+                  pos--;
+                }
+                auto stripped_token = token.substr(0, pos);
+                final_result.back().first = stripped_token;
+                final_result.emplace_back(token, id);
+                continue;
+              }
+            }
+          }
+        }
+        // if not additional processing, just add it to final result
         final_result.emplace_back(token, id);
       } else {
         auto special_result = special_tokens_.SplitBySpecialTokens(token);
@@ -358,6 +451,19 @@ class BpeModel {
 
   const std::string& GetEndOfWordSuffix() const { return end_of_word_suffix_; }
 
+  std::string GetPreTokenizerRegex(const std::string& model_name) const {
+    if (!pre_tokenizer_regex_.empty()) {
+      return pre_tokenizer_regex_;
+    }
+
+    if (model_name == "Llama") {
+      return bpe::PreTokenizerWithRegEx::LLAMA_REGEX_PATTERN;
+    }
+
+    // by default, use the GPT2 pretokenizer regex
+    return bpe::PreTokenizerWithRegEx::GPT2_REGEX_PATTERN;
+  }
+
  private:
   struct BpeNode {
     uint32_t id;
@@ -379,6 +485,9 @@ class BpeModel {
   uint32_t unk_id_ = (std::numeric_limits<uint32_t>::max)();
   bpe::SpecialTokenMap special_tokens_;
   TrieTree<char32_t> added_tokens_;
+  std::string pre_tokenizer_regex_;
+
+  std::set<std::string_view> pre_tokenizer_types_;
 };
 
 }  // namespace ort_extensions

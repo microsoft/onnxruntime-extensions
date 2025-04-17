@@ -22,12 +22,14 @@ class SpeechFeatureExtractor : public OrtxObjectImpl {
   OrtxStatus Init(std::string_view extractor_def);
 
   OrtxStatus DoCall(ort_extensions::span<AudioRawData> raw_speech, std::unique_ptr<ortc::Tensor<float>>& log_mel) const;
-
+  OrtxStatus Preprocess(ort_extensions::span<AudioRawData> raw_speech,TensorResult& r) const;
+  
   static Operation::KernelRegistry kernel_registry_;
 
  private:
-  std::vector<std::unique_ptr<Operation>> operations_;
-  ortc::IAllocator* allocator_;
+  ExecutionPlan op_plan_;
+  std::string   name_;
+  std::string   output_aligner_;
 };
 
 }  // namespace ort_extensions

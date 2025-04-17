@@ -1,0 +1,47 @@
+{
+  "feature_extraction": {
+    "sequence": [
+      {
+        "operation": {
+          "name": "audio_decoder",
+          "type": "AudioDecoderEx",
+          "attrs": {
+            "target_sample_rates": [
+              8000, 16000
+            ]
+          }
+        }
+      },
+      {
+        "operation": {
+          "name": "phi_4_audio_embed",
+          "type": "Phi4AudioEmbed",
+          "attrs": {
+            "audio_compression_rate": 8,
+            "stft_normal/n_fft": 512,
+            "stft_normal/frame_length": 400,
+            "stft_normal/hop_length": 160,
+            "stft_normal/win_fn": "hamming",
+            "logmel/chunk_size": 30,
+            "logmel/hop_length": 160,
+            "logmel/n_fft": 512,
+            "logmel/n_mel": 80,
+            "logmel/feature_first": 0,
+            "logmel/no_padding": 1,
+            "stft_normal_8k/n_fft": 256,
+            "stft_normal_8k/frame_length": 200,
+            "stft_normal_8k/hop_length": 80,
+            "stft_normal_8k/win_fn": "hamming",
+            "logmel_8k/chunk_size": 30,
+            "logmel_8k/hop_length": 80,
+            "logmel_8k/n_fft": 512,
+            "logmel_8k/n_mel": 80,
+            "logmel_8k/feature_first": 0,
+            "logmel_8k/no_padding": 1
+          }
+        }
+      }
+    ],
+    "output_aligner": "phi4-audio-aligner"
+  }
+}

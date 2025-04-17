@@ -42,6 +42,10 @@ extError_t ORTX_API_CALL OrtxLoadAudios(OrtxRawAudios** raw_audios, const char* 
   auto audios_obj = std::make_unique<RawAudiosObject>();
   auto [audios, num] =
       ort_extensions::LoadRawData<char const* const*, AudioRawData>(audio_paths, audio_paths + num_audios);
+  if (num == 0) {
+    ReturnableStatus::last_error_message_ = "No audio data loaded";
+    return kOrtxErrorInvalidArgument;
+  }
   audios_obj->audios_ = std::move(audios);
   audios_obj->num_audios_ = num;
 
@@ -86,6 +90,28 @@ extError_t ORTX_API_CALL OrtxSpeechLogMel(OrtxFeatureExtractor* extractor, OrtxR
                    [](auto& ts) { return std::unique_ptr<ortc::TensorBase>(ts.release()); });
     ts_result->SetTensors(std::move(tensors));
     *result = ts_result.release();
+  } else {
+    *result = nullptr;
+  }
+
+  return status.Code();
+}
+
+extError_t ORTX_API_CALL OrtxFeatureExtraction(OrtxFeatureExtractor* extractor, OrtxRawAudios* raw_audios,
+                                               OrtxTensorResult** result) {
+  if (extractor == nullptr || raw_audios == nullptr || result == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  auto extractor_ptr = static_cast<SpeechFeatureExtractor*>(extractor);
+  auto audios_obj = static_cast<RawAudiosObject*>(raw_audios);
+
+  auto result_ptr = std::make_unique<TensorResult>();
+  ReturnableStatus status = extractor_ptr->Preprocess(
+    ort_extensions::span(audios_obj->audios_.get(), audios_obj->num_audios_), *result_ptr);
+  if (status.IsOk()) {
+    *result = static_cast<OrtxTensorResult*>(result_ptr.release());
   } else {
     *result = nullptr;
   }
