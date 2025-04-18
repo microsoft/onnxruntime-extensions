@@ -95,8 +95,8 @@ TEST(OrtxTokenizerTest, SpmUgmTokenizer) {
 
   // expected ids was generated using the following command:
   // AutoTokenizer.from_pretrained("FacebookAI/xlm-roberta-base")
-  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({
-    0, 87, 1884, 122395, 759, 99942, 10269, 136, 7068, 4, 6, 62668, 5364, 245875, 354, 11716, 2}));
+  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({0, 87, 1884, 122395, 759, 99942, 10269, 136, 7068, 4, 6, 62668, 5364,
+                                                245875, 354, 11716, 2}));
 
   OrtxObjectPtr<OrtxStringArray> decoded_text;
   OrtxDetokenize(tokenizer.get(), token_ids.get(), decoded_text.ToBeAssigned());
@@ -146,12 +146,9 @@ TEST(OrtxTokenizerTest, Phi3_Small_Tokenizer_Blob) {
   ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
 
   std::vector<extTokenId_t> EXPECTED_IDS_0 = {2028, 374, 264, 1296, 13};
-  const char* input[] = {"This is a test.",
-                         "the second one",
-                         "I like walking my cute dog\n and\x17 then",
+  const char* input[] = {"This is a test.", "the second one", "I like walking my cute dog\n and\x17 then",
                          // "Hey<|endoftext|>. \t\t \n\nyou  é  @#😈  🤗!       , 1234 15 5,61"};
-                         "I like walking my cute dog\n and\x17 then 生活的真谛是 \t\t\t\t \n\n61" };
-
+                         "I like walking my cute dog\n and\x17 then 生活的真谛是 \t\t\t\t \n\n61"};
 
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
   OrtxTokenize(tokenizer.get(), input, 4, token_ids.ToBeAssigned());
@@ -212,8 +209,8 @@ TEST(OrtxTokenizerTest, T5Tokenizer) {
   std::vector<extTokenId_t> ids_vec(ids, ids + length);
 
   // AutoTokenizer.from_pretrained("google-t5/t5-small")
-  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({
-    27, 3, 32099, 114, 3214, 82, 5295, 1782, 11, 258, 6, 3, 2, 3, 4241, 1}));
+  EXPECT_EQ(ids_vec,
+            std::vector<extTokenId_t>({27, 3, 32099, 114, 3214, 82, 5295, 1782, 11, 258, 6, 3, 2, 3, 4241, 1}));
 }
 
 TEST(OrtxTokenizerTest, ChatGLMTokenizer) {
@@ -231,8 +228,8 @@ TEST(OrtxTokenizerTest, ChatGLMTokenizer) {
   std::vector<extTokenId_t> ids_vec(ids, ids + length);
 
   // AutoTokenizer.from_pretrained("data/tokenizer/THUDM/chatglm-6b", trust_remote_code=True)
-  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({
-    115, 176, 3867, 162, 9251, 2829, 5, 102, 220, 6, 5, 63977, 91446, 63829, 130016, 21, 9, 130001, 130004}));
+  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({115, 176, 3867, 162, 9251, 2829, 5, 102, 220, 6, 5, 63977, 91446, 63829,
+                                                130016, 21, 9, 130001, 130004}));
 }
 
 TEST(OrtxTokenizerTest, MarianTokenizer) {
@@ -250,8 +247,7 @@ TEST(OrtxTokenizerTest, MarianTokenizer) {
   std::vector<extTokenId_t> ids_vec(ids, ids + length);
 
   // AutoTokenizer.from_pretrained("data/tokenizer/nmt")(...)
-  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({
-    281, 13919, 296, 404, 352, 346, 479, 292, 9428, 0}));
+  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({281, 13919, 296, 404, 352, 346, 479, 292, 9428, 0}));
 
   OrtxObjectPtr<OrtxStringArray> decoded_text;
   OrtxDetokenize1D(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned());
@@ -259,4 +255,24 @@ TEST(OrtxTokenizerTest, MarianTokenizer) {
   const char* text = nullptr;
   OrtxStringArrayGetItem(decoded_text.get(), 0, &text);
   EXPECT_STREQ(text, "Hello-there THIS Is a Test");
+}
+
+TEST(OrtxTokenizerTest, MarianTokenizer2) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/nmt");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  const char* input[] = {"I like walking my cute dog\n and\x17 then, 生活的真谛是  \t\t\t\t \n\n61"};
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  std::vector<extTokenId_t> ids_vec(ids, ids + length);
+
+  // AutoTokenizer.from_pretrained("data/tokenizer/nmt")(...)
+  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({367, 580,  10899, 579,  12998, 7647,  31,  278, 2446, 44,
+                                                278, 6412, 279,   8970, 1541,  31514, 323, 278, 278,  30,
+                                                30,  30,   30,    278,  31,    31,    311, 289, 278,  0}));
 }

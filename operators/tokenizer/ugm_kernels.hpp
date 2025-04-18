@@ -197,13 +197,13 @@ struct SpmUgmTokenizer {
         if (str[i] != val_pattern[i]) {
           if (i == 3) {
             char_3_4[0] = str[i];
-          }else if (i == 4) {
+          } else if (i == 4) {
             char_3_4[1] = str[i];
-          } 
+          }
         }
       }
-      if (char_3_4[0] < '0' || (char_3_4[0] > '9' && char_3_4[0] < 'A') || char_3_4[0] > 'F' || 
-          char_3_4[1] < '0' || (char_3_4[1] > '9' && char_3_4[1] < 'A') || char_3_4[1] > 'F' ) {
+      if (char_3_4[0] < '0' || (char_3_4[0] > '9' && char_3_4[0] < 'A') || char_3_4[0] > 'F' || char_3_4[1] < '0' ||
+          (char_3_4[1] > '9' && char_3_4[1] < 'A') || char_3_4[1] > 'F') {
         return val;
       }
       return std::stoi(char_3_4, nullptr, 16);
@@ -216,7 +216,7 @@ struct SpmUgmTokenizer {
       int val = convert_hex_to_token(tkn);
       if (val != -1) {
         tkn = std::string(1, static_cast<unsigned char>(val));
-      } 
+      }
       if (chatglm_special_endings_) {
         if (tkn == "<n>") {
           tkn = "\n";
@@ -236,8 +236,9 @@ struct SpmUgmTokenizer {
           }
         }
       }
-
-      vocab_[tkn] = std::make_tuple(id++, score);
+      if (score != 0.0 || vocab_.count(tkn) == 0) {
+        vocab_[tkn] = std::make_tuple(id++, score);
+      }
     }
 
     scores_.resize(id);
@@ -251,14 +252,13 @@ struct SpmUgmTokenizer {
     unknown_token_score_ = min_score - unknown_token_score_penalty_;
 
     if (config.tokenizer_class_ == "MarianTokenizer") {
+      byte_fallback_ = true;
       tokenizer_add_space_prefix_ = true;
       tokenizer_remove_extra_whitespaces_ = false;
       tokenizer_treat_whitespace_as_suffix_ = true;
       add_eos_token_ = true;
       case_encoder_ = std::make_unique<normalizer::CaseEncoder>(tokenizer_remove_extra_whitespaces_);
-      case_encoder_->SetNormalizer([this](std::string_view input) {
-        return NmtNormalizePrefix(input); 
-      });
+      case_encoder_->SetNormalizer([this](std::string_view input) { return NmtNormalizePrefix(input); });
     }
     return status;
   }
@@ -273,7 +273,6 @@ struct SpmUgmTokenizer {
 
   OrtxStatus ComputeNoOp(const std::string& input, std::vector<extTokenId_t>& output,
                          bool add_special_tokens = true) const {
-
     std::string normalized;
     if (case_encoder_) {
       normalized = NmtNormalize(input);
@@ -316,12 +315,17 @@ struct SpmUgmTokenizer {
       }
 
       if (!single_codepoint_token_found) {
-        const double challenger_score = current_best.score_sum + unknown_token_score_;
-        prefix_offset = input_offset + n_utf8_code_units;
-        struct BestTokenization& current_champ = tokenization_results[prefix_offset];
-        if (challenger_score > current_champ.score_sum) {
-          struct BestTokenization challenger = {input_offset, (float)challenger_score, special_unk_id_};
-          current_champ = challenger;
+        if (byte_fallback_) {
+          prefix_offset -= 1;
+          n_utf8_code_units = prefix_offset - input_offset;
+        } else {
+          const double challenger_score = current_best.score_sum + unknown_token_score_;
+          prefix_offset = input_offset + n_utf8_code_units;
+          struct BestTokenization& current_champ = tokenization_results[prefix_offset];
+          if (challenger_score > current_champ.score_sum) {
+            struct BestTokenization challenger = {input_offset, (float)challenger_score, special_unk_id_};
+            current_champ = challenger;
+          }
         }
       }
 
@@ -380,7 +384,8 @@ struct SpmUgmTokenizer {
     if (status.IsOk()) {
       auto output_size = static_cast<int64_t>(ids_vec.size());
       int64_t* id_output = tokenize_output.Allocate({output_size});
-      std::transform(ids_vec.begin(), ids_vec.end(), id_output, [](extTokenId_t id) { return static_cast<int64_t>(id); });
+      std::transform(ids_vec.begin(), ids_vec.end(), id_output,
+                     [](extTokenId_t id) { return static_cast<int64_t>(id); });
     }
 
     return status;
@@ -513,7 +518,7 @@ struct SpmUgmTokenizer {
 
     std::string_view input_view(input);
     int consumed = 0;
- 
+
     while (!input_view.empty()) {
       auto p = case_encoder_->NormalizePrefix(input_view);
 
@@ -543,7 +548,6 @@ struct SpmUgmTokenizer {
     }
 
     case_encoder_->PostProcess(&normalized, &norm_to_orig);
-
 
     if (shall_append_space) {
       normalized.append(space);
@@ -676,6 +680,7 @@ struct SpmUgmTokenizer {
   VocabTrieTree token_matcher_;
 
  public:
+  bool byte_fallback_ = false;
   bool chatglm_special_endings_ = false;
   bool tokenizer_escape_whitespaces_ = true;
   bool tokenizer_treat_whitespace_as_suffix_ = false;
@@ -818,8 +823,7 @@ class SpmUgmDecoder {
       if (first_char == normalizer::cUppercase || first_char == normalizer::cAllUppercase ||
           first_char == normalizer::cTitlecase || first_char == normalizer::cLowercase ||
           first_char == normalizer::cPunctuation) {
-
-        token.erase(0, 1); // Remove signature character
+        token.erase(0, 1);  // Remove signature character
 
         switch (first_char) {
           case normalizer::cUppercase:
@@ -831,7 +835,7 @@ class SpmUgmDecoder {
               token[0] = toupper(token[0]);
             }
             break;
-          // For cLowercase and cPunctuation, no transformation needed
+            // For cLowercase and cPunctuation, no transformation needed
         }
       }
     }

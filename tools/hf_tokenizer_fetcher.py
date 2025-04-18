@@ -316,7 +316,8 @@ def convert_tokenizer(model_path, output_dir, token_type=None):
 
 
 def validate_tokenizer(model_path, output_dir):
-    test_sentence = "I like walking my cute dog\n and\x17 then, 生活的真谛是   \t\t\t\t \n\n61"
+    test_sentence = "生活的真谛是"
+    # test_sentence = "I like walking my cute dog\n and\x17 then, 生活的真谛是   \t\t\t\t \n\n61"
     # test_sentence = "Hello-there THIS Is a Test"
     # test_sentence = "Hello How are you?"
     if OrtxTokenizer is None:
