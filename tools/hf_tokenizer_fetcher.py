@@ -6,12 +6,15 @@ This module provides functionality to fetch and convert Hugging Face tokenizers
 for use with ONNX Runtime extensions.
 """
 # formatted by ruff
-
 import os
 import shutil
 import argparse
 import tempfile
 import numpy as np
+import json
+from pathlib import Path
+from tokenizers.models import BPE, Unigram
+from tokenizers import AddedToken, Tokenizer
 
 # edit environment variables to avoid protobuf version mismatch
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
@@ -20,8 +23,6 @@ from transformers.convert_slow_tokenizer \
     import SpmConverter, Converter, SentencePieceExtractor, import_protobuf  # noqa: E402
 from transformers import AutoTokenizer  # noqa: E402
 from tokenizers import decoders, normalizers, pre_tokenizers, Regex  # noqa: E402
-from tokenizers import AddedToken, Tokenizer
-from tokenizers.models import BPE, Unigram
 
 
 OrtxTokenizer = None
@@ -82,7 +83,8 @@ class Baichuan2Converter(SpmConverter):
 
     def pre_tokenizer(self, replacement, add_prefix_space):
         if not getattr(self.original_tokenizer, "legacy", True):  # non-legacy, we need a replace
-            prepend_scheme = _get_prepend_scheme(add_prefix_space, self.original_tokenizer)
+            prepend_scheme = _get_prepend_scheme(
+                add_prefix_space, self.original_tokenizer)
             return pre_tokenizers.Metaspace(replacement=replacement, prepend_scheme=prepend_scheme, split=False)
         else:
             return super().pre_tokenizer(replacement, add_prefix_space)
@@ -92,7 +94,8 @@ class ChatGlmConverter(SpmConverter):
     def normalizer(self, proto):
         precompiled_charsmap = proto.normalizer_spec.precompiled_charsmap
         _normalizers = [
-            normalizers.Strip(left=False, right=True),  # stripping is important
+            # stripping is important
+            normalizers.Strip(left=False, right=True),
             normalizers.Replace(Regex(" {2,}"), "▁"),
         ]
         return normalizers.Sequence([normalizers.Precompiled(precompiled_charsmap)] + _normalizers)
@@ -104,6 +107,37 @@ class ChatGlmConverter(SpmConverter):
         return pre_tokenizers.Metaspace(
             replacement=replacement, add_prefix_space=add_prefix_space, prepend_scheme=prepend_scheme
         )
+
+
+class NmtTokenizerModel:
+    def load_spm(self, model_dir):
+        from sentencepiece import SentencePieceProcessor
+
+        # load vocabs
+        joint_spm_path = model_dir / "vocab.joint.spm"
+        src_spm_path = model_dir / "vocab.source.spm"
+        tgt_spm_path = model_dir / "vocab.target.spm"
+        assert joint_spm_path.exists() or (src_spm_path.exists() and tgt_spm_path.exists()), \
+            f"Expected either {joint_spm_path} or {src_spm_path} and {tgt_spm_path} to exist"
+        if joint_spm_path.exists():
+            self.src_spm = self.tgt_spm = SentencePieceProcessor(str(joint_spm_path))
+        else:
+            self.src_spm = SentencePieceProcessor(str(src_spm_path))
+            self.tgt_spm = SentencePieceProcessor(str(tgt_spm_path))
+
+    def save_vocabs(self, model_dir):
+        last_piece_id = self.src_spm.GetPieceSize()
+        id_map = {}
+        for id in range(last_piece_id):
+            p = self.src_spm.IdToPiece(id)
+            id_map[p] = id
+
+        id_map["<pad>"] = 32000
+        # save the map to vocab.json
+        with open(f"{model_dir}/vocab.json", "w") as f:
+            json.dump(id_map, f, indent=2)
+        shutil.copy(f"{model_dir}/vocab.joint.spm", f"{model_dir}/source.spm")
+        shutil.copy(f"{model_dir}/vocab.joint.spm", f"{model_dir}/target.spm")
 
 
 class MarianConverter(Converter):
@@ -160,8 +194,10 @@ class MarianConverter(Converter):
             )
 
         elif model_type == 2:
-            _, merges = self.SpmExtractor(self.original_tokenizer.vocab_file).extract(vocab_scores)
-            bpe_vocab = {word: i for i, (word, score) in enumerate(vocab_scores)}
+            _, merges = self.SpmExtractor(
+                self.original_tokenizer.vocab_file).extract(vocab_scores)
+            bpe_vocab = {word: i for i,
+                         (word, score) in enumerate(vocab_scores)}
             tokenizer = Tokenizer(
                 BPE(
                     bpe_vocab,
@@ -181,7 +217,8 @@ class MarianConverter(Converter):
         # control tokens are special
         # user defined symbols are not
         # both user and control tokens are AddedTokens
-        # Add user defined symbols (type == 4) from sentencepiece (https://github.com/google/sentencepiece/blob/6225e08edb2577757163b3f5dbba4c0b670ef445/src/sentencepiece_model.proto#L299C29-L299C33)
+        # Add user defined symbols (type == 4) from sentencepiece (
+        #   https://github.com/google/sentencepiece/blob/6225e08edb2577757163b3f5dbba4c0b670ef445/src/sentencepiece_model.proto#L299C29-L299C33)
         spm_added_tokens = [
             (id, p.piece, p.type == 3 or p.piece in self.special_tokens)
             for id, p in enumerate(proto.pieces)
@@ -199,7 +236,8 @@ class MarianConverter(Converter):
     def normalizer(self, proto):
         precompiled_charsmap = proto.normalizer_spec.precompiled_charsmap
         _normalizers = [
-            normalizers.Strip(left=False, right=True),  # stripping is important
+            # stripping is important
+            normalizers.Strip(left=False, right=True),
             normalizers.Replace(Regex(" {2,}"), "▁"),
         ]
         if not precompiled_charsmap:
@@ -208,14 +246,16 @@ class MarianConverter(Converter):
             return normalizers.Sequence([normalizers.Precompiled(precompiled_charsmap)] + _normalizers)
 
     def pre_tokenizer(self, replacement, add_prefix_space):
-        prepend_scheme = _get_prepend_scheme(add_prefix_space, self.original_tokenizer)
+        prepend_scheme = _get_prepend_scheme(
+            add_prefix_space, self.original_tokenizer)
         return pre_tokenizers.Metaspace(replacement=replacement, prepend_scheme=prepend_scheme)
 
     def post_processor(self):
         return None
 
     def decoder(self, replacement, add_prefix_space):
-        prepend_scheme = _get_prepend_scheme(add_prefix_space, self.original_tokenizer)
+        prepend_scheme = _get_prepend_scheme(
+            add_prefix_space, self.original_tokenizer)
         return decoders.Metaspace(replacement=replacement, prepend_scheme=prepend_scheme)
 
     def converted(self) -> Tokenizer:
@@ -250,7 +290,12 @@ JSON_TOKEN_CONVERTERS = {
 }
 
 
-def convert_tokenizer(model_path, output_dir):
+def convert_tokenizer(model_path, output_dir, token_type=None):
+    if token_type == "Marian":
+        tok_model = NmtTokenizerModel()
+        tok_model.load_spm(Path(model_path))
+        tok_model.save_vocabs(Path(model_path))
+
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
     if output_dir is None:
         if os.path.isdir(model_path):
@@ -271,14 +316,18 @@ def convert_tokenizer(model_path, output_dir):
 
 
 def validate_tokenizer(model_path, output_dir):
-    test_sentence = "I like walking my cute dog\n and\x17 then, 生活的真谛是   \t\t\t\t \n\n61"
+    test_sentence = "生活的真谛是"
+    # test_sentence = "I like walking my cute dog\n and\x17 then, 生活的真谛是   \t\t\t\t \n\n61"
+    # test_sentence = "Hello-there THIS Is a Test"
+    # test_sentence = "Hello How are you?"
     if OrtxTokenizer is None:
         print("onnxruntime_extensions package was built with C API enabled, skipping tokenization test")
     ortx_tokenizer = OrtxTokenizer(output_dir)
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, use_fast=False)
     expected_ids = tokenizer(test_sentence, return_tensors="np")["input_ids"]
     ortx_ids = np.asarray(ortx_tokenizer.tokenize(test_sentence))
-    assert np.array_equal(expected_ids[0], ortx_ids), f"Tokenization mismatch: {expected_ids[0]} != {ortx_ids}"
+    assert np.array_equal(
+        expected_ids[0], ortx_ids), f"Tokenization mismatch: {expected_ids[0]} != {ortx_ids}"
     print("Tokenization test passed")
 
 
@@ -320,17 +369,29 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output-path", type=str, required=False, help="The directory to save the generated tokenizer files"
     )
+    parser.add_argument(
+        "--type",
+        type=str,
+        required=False,
+        help="The type of tokenizer, if not specified, the type will be inferred from the model path"
+    )
     args = parser.parse_args()
 
-    converted_tokenizer = {"Baichuan2", "chatglm", "Marina"}
-    need_convert = False
-    for token in converted_tokenizer:
-        if args.model_path.find(token) != -1:
-            need_convert = True
-            break
+    converted_tokenizer = {"Baichuan2", "chatglm", "Marian"}
+    token_type = args.type
+    if args.type is None:
+        for token in converted_tokenizer:
+            if args.model_path.find(token) != -1:
+                token_type = token
+                break
 
-    if need_convert:
-        output_dir = convert_tokenizer(args.model_path, args.output_path)
+    if token_type not in converted_tokenizer:
+        raise ValueError(
+            f"Tokenizer type '{token_type}' is not supported. Supported types are: {converted_tokenizer}"
+        )
+
+    if token_type:
+        output_dir = convert_tokenizer(args.model_path, args.output_path, token_type=token_type)
         validate_tokenizer(args.model_path, output_dir)
     else:
         download_tokenizer(args.model_path, args.output_path)
