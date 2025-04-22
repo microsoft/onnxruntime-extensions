@@ -47,10 +47,8 @@ set(CMAKE_C_STANDARD 99)
 
 if(USE_WINRT)
   set(CMAKE_CXX_STANDARD 20)
-  message("USE_WINRT is set")
 else()
   set(CMAKE_CXX_STANDARD 17)
-  message("USE_WINRT is not set")
   endif()
 
 message(STATUS "CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
@@ -105,6 +103,8 @@ option(OCOS_BUILD_ANDROID "Enable building the Android package" OFF)
 option(OCOS_BUILD_APPLE_FRAMEWORK "Enable building of the MacOS/iOS framework" OFF)
 
 option(OCOS_USE_CUDA "Build the CUDA kernels" OFF)
+
+option(USE_WINRT "Build with CXX20 and CppWinRT enabled" OFF)
 
 # Optional value. Some operators do not support old versions due to using the new custom operator interface
 # and will be disabled if this value is set and the version is incompatible.
