@@ -45,7 +45,14 @@ endif()
 # Needed for Java
 set(CMAKE_C_STANDARD 99)
 
-set(CMAKE_CXX_STANDARD 20)
+if(USE_WINRT)
+  set(CMAKE_CXX_STANDARD 20)
+else()
+  set(CMAKE_CXX_STANDARD 17)
+endif()
+
+message(STATUS "CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
+
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 include(CheckCXXCompilerFlag)
@@ -964,5 +971,9 @@ if (_ORTX_STANDALONE_PROJECT)
   endif()
 endif()
 
-include(cmake/winrt.cmake)
-enable_cppwinrt(ortcustomops)
+
+if(USE_WINRT)
+  set(CMAKE_CXX_STANDARD 20)
+  include(cmake/winrt.cmake)
+  enable_cppwinrt(ortcustomops)
+endif()

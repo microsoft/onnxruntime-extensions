@@ -2,7 +2,13 @@ cmake_minimum_required(VERSION 3.28)
 
 project(ortx_api_test)
 
-set(CMAKE_CXX_STANDARD 20)
+if(USE_WINRT)
+  set(CMAKE_CXX_STANDARD 20)
+else()
+  set(CMAKE_CXX_STANDARD 17)
+endif()
+
+message(STATUS "CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
 include(FetchContent)
 
 FetchContent_Declare(
