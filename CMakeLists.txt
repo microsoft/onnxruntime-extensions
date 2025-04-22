@@ -50,9 +50,6 @@ if(USE_WINRT)
 else()
   set(CMAKE_CXX_STANDARD 17)
   endif()
-
-message(STATUS "CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
-
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 include(CheckCXXCompilerFlag)
@@ -972,7 +969,6 @@ if (_ORTX_STANDALONE_PROJECT)
     include(ext_tests)
   endif()
 endif()
-
 
 if(USE_WINRT)
   set(CMAKE_CXX_STANDARD 20)
