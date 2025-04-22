@@ -2,9 +2,7 @@ cmake_minimum_required(VERSION 3.28)
 
 project(ortx_api_test)
 
-if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
-endif()
+set(CMAKE_CXX_STANDARD 20)
 include(FetchContent)
 
 FetchContent_Declare(
