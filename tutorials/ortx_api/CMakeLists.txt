@@ -7,8 +7,6 @@ if(USE_WINRT)
 else()
   set(CMAKE_CXX_STANDARD 17)
 endif()
-
-message(STATUS "CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
 include(FetchContent)
 
 FetchContent_Declare(
