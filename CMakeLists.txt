@@ -47,9 +47,11 @@ set(CMAKE_C_STANDARD 99)
 
 if(USE_WINRT)
   set(CMAKE_CXX_STANDARD 20)
+  message("USE_WINRT is set")
 else()
   set(CMAKE_CXX_STANDARD 17)
-endif()
+  message("USE_WINRT is not set")
+  endif()
 
 message(STATUS "CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
 
