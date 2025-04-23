@@ -1,5 +1,6 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
+import os
 import unittest
 
 import numpy as np
@@ -81,7 +82,8 @@ class TestHuggingfaceWhisper(unittest.TestCase):
         self.assertAlmostEqual(expected.min(), actual.min(), delta=1e-05)
 
     def test_stft_norm_consistency_large(self):
-        processor = WhisperProcessor.from_pretrained("openai/whisper-large-v3")
+        model_id = util.get_test_data_file("data/models/whisper-large-v3")
+        processor = WhisperProcessor.from_pretrained(model_id)
         pre_m, _ = gen_processing_models(processor,
                                          pre_kwargs={"USE_AUDIO_DECODER": False, "USE_ONNX_STFT": False})
 
