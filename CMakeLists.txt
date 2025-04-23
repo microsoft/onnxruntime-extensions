@@ -45,7 +45,9 @@ endif()
 # Needed for Java
 set(CMAKE_C_STANDARD 99)
 
-if(USE_WINRT)
+option(OCOS_USE_WINRT "Build with CXX20 and CppWinRT enabled" OFF)
+
+if(OCOS_USE_WINRT)
   set(CMAKE_CXX_STANDARD 20)
 else()
   set(CMAKE_CXX_STANDARD 17)
@@ -100,8 +102,6 @@ option(OCOS_BUILD_ANDROID "Enable building the Android package" OFF)
 option(OCOS_BUILD_APPLE_FRAMEWORK "Enable building of the MacOS/iOS framework" OFF)
 
 option(OCOS_USE_CUDA "Build the CUDA kernels" OFF)
-
-option(USE_WINRT "Build with CXX20 and CppWinRT enabled" OFF)
 
 # Optional value. Some operators do not support old versions due to using the new custom operator interface
 # and will be disabled if this value is set and the version is incompatible.
@@ -970,7 +970,7 @@ if (_ORTX_STANDALONE_PROJECT)
   endif()
 endif()
 
-if(USE_WINRT)
+if(OCOS_USE_WINRT)
   set(CMAKE_CXX_STANDARD 20)
   include(cmake/winrt.cmake)
   enable_cppwinrt(ortcustomops)
