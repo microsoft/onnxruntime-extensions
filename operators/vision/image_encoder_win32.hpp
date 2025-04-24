@@ -37,7 +37,7 @@ struct EncodeImage {
 
     {
       PROPBAG2 option = {0};
-      option.pstrName = L"ImageQuality";
+      option.pstrName = const_cast<wchar_t*>(L"ImageQuality");
       options.push_back(option);
       VARIANT varValue;
       VariantInit(&varValue);
@@ -48,7 +48,7 @@ struct EncodeImage {
 
     {
       PROPBAG2 option = {0};
-      option.pstrName = L"JpegYCrCbSubsampling";
+      option.pstrName = const_cast<wchar_t*>(L"JpegYCrCbSubsampling");
       options.push_back(option);
       VARIANT varValue;
       VariantInit(&varValue);
@@ -70,7 +70,7 @@ struct EncodeImage {
 
     {
       PROPBAG2 option = {0};
-      option.pstrName = L"InterlaceOption";
+      option.pstrName = const_cast<wchar_t*>(L"InterlaceOption");
       options.push_back(option);
       VARIANT varValue;
       VariantInit(&varValue);
@@ -81,7 +81,7 @@ struct EncodeImage {
 
     {
       PROPBAG2 option = {0};
-      option.pstrName = L"FilterOption";
+      option.pstrName = const_cast<wchar_t*>(L"FilterOption");
       options.push_back(option);
       VARIANT varValue;
       VariantInit(&varValue);
