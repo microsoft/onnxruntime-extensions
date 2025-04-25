@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
 if(_ONNXRUNTIME_EMBEDDED)
   set(ONNXRUNTIME_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/../include/onnxruntime/core/session)
   set(ONNXRUNTIME_LIB_DIR "")
@@ -34,7 +37,7 @@ else()
   if (OCOS_ONNXRUNTIME_VERSION)
     set(ONNXRUNTIME_VER ${OCOS_ONNXRUNTIME_VERSION})
   else()
-    set(ONNXRUNTIME_VER "1.17.1")
+    set(ONNXRUNTIME_VER "1.19.2")     # need to check if android package of this version is available too.
   endif()
 
   if (ANDROID)

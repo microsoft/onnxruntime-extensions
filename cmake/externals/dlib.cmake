@@ -1,8 +1,8 @@
-FetchContent_Declare(dlib
-    GIT_REPOSITORY https://github.com/davisking/dlib.git
-    # there is non an official tag which supports STFT,
-    # choose a relatively stable commit id for that.
-    GIT_TAG        a12824d42584e292ecb3bad05c4b32c2015a7b89
+FetchContent_Declare(
+    dlib
+    URL https://github.com/davisking/dlib/archive/refs/tags/v19.24.7.zip
+    URL_HASH SHA1=6c63ea576e2b525751b0dead27c6c1139c5100ae
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     SOURCE_SUBDIR  not_set
 )
 

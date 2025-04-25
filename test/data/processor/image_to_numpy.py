@@ -30,7 +30,7 @@ img_proc = ImageProcessor(R"""
 
 img_name = "australia.jpg"
 result = img_proc.pre_process(os.path.dirname(__file__) + "/" + img_name)
-np_img = img_proc.to_numpy(result)
+np_img = img_proc.to_numpy(result, 0)
 print(np_img.shape, np_img.dtype)
 
 # can save the image back to disk

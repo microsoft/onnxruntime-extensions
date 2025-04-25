@@ -364,8 +364,15 @@ class SentencepieceDecoder(CustomOp):
     @classmethod
     def get_inputs(cls):
         return [
-            cls.io_def("ids", onnx.TensorProto.INT64, [None])
+            cls.io_def("ids", onnx.TensorProto.INT64, [None]),
+            cls.io_def('fairseq', onnx_proto.TensorProto.BOOL, [None])
         ]
+    
+    @classmethod
+    def input_default_values(cls):
+        return {
+            'fairseq': [False]
+        }
 
     @classmethod
     def get_outputs(cls):
@@ -489,6 +496,16 @@ class StftNorm(CustomOp):
             cls.io_def('stft_norm', onnx_proto.TensorProto.FLOAT,
                        [1, None, None])
         ]
+
+
+class HfJsonTokenizer(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [cls.io_def('str', onnx_proto.TensorProto.STRING, ['N'])]
+
+    @classmethod
+    def get_outputs(cls):
+        return [cls.io_def("ids", onnx.TensorProto.INT64, ['N', None])]
 
 
 # TODO: have a C++ impl.

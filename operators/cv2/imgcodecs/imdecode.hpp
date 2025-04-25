@@ -8,7 +8,6 @@
 #include <opencv2/imgcodecs.hpp>
 
 #include "ocos.h"
-#include "ortx_common.h"
 
 #include <cstdint>
 

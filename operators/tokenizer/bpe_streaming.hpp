@@ -5,26 +5,19 @@
 
 #include "bpe_kernels.h"
 #include "bpe_decoder.hpp"
-#include "bpe_json.hpp"
-#include "bpe_tokenizer.hpp"
-
-namespace ort_extensions {
-struct BPEDecoderState {
-  bool f_special_last{};
-  std::string incomplete_utf8_;
-};
-}  // namespace ort_extensions
+#include "tokenizer_jsconfig.hpp"
+#include "bpe_tokenizer_model.hpp"
 
 class BpeStreamingDecoder : public KernelBpeDecoder {
  public:
   BpeStreamingDecoder() = default;
   ~BpeStreamingDecoder() override = default;
 
-  using BPEDecoderState = ort_extensions::BPEDecoderState;
+  using BPEDecoderState = ort_extensions::TokenizerDecodingState;
 
   // shared the data between the encoder and decoder
   OrtxStatus Load(
-      std::shared_ptr<ort_extensions::bpe::TokenJsonConfig const> ptr_config,
+      std::shared_ptr<ort_extensions::TokenJsonConfig const> ptr_config,
       const JsonFastTokenizer& encoder) {
     const auto& tok_config = *ptr_config;
     bos_token_ = tok_config.bos_token_;
@@ -33,7 +26,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     spm_model_ = encoder.IsSpmModel();
 
     const auto& a_toks = encoder.GetAddedTokens();
-    for (const auto& tok : a_toks) {
+    for (const auto&[key, tok] : a_toks) {
       added_tokens_[tok.id_] = tok.content_;
       if (tok.special_) {
         all_special_ids_.insert(tok.id_);
@@ -47,14 +40,12 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     // whitespace_token_ = tok_config.clean_up_tokenization_spaces_ ? 1 : 0;
     skip_special_tokens_ = 1;
     // en_normalization_ = 0;
-    add_dummy_prefix_ = tok_config.tokenizer_class_ == "LlamaTokenizer" ? 1 : 0;
+    add_dummy_prefix_ = encoder.GetAddDummyPrefix();
     eos_token_id_ = encoder.GetEncoder().GetTokenId(tok_config.eos_token_);
 
     tok_config_ = ptr_config;
     return {};
   }
-
-
 
   OrtxStatus Id2Token(extTokenId_t id,
                       std::string& token,
@@ -102,17 +93,21 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
   }
 
   OrtxStatus SpmId2Token(extTokenId_t id, std::string& token, bool& f_special_last) const {
-
-    std::string piece = id < arr_vocab_.size() ? arr_vocab_[id] : "";
     bool f_special = false;
-    if (piece.empty() || all_special_ids_.count(id)) {
-      token = "";
-      f_special = true;
-    } else if (IsSpmByteWord(piece)) {
-      char buf[3] = {piece[3], piece[4], 0};  // something like <0x20>
-      token = {static_cast<char>(strtol(buf, NULL, 16))};
+    if (added_tokens_.count(id)) {
+      f_special = all_special_ids_.count(id) ? true : false;
+      // special token was skipped
+      token = f_special ? "" : added_tokens_.at(id);
     } else {
-      token = ReplaceAll(piece, spm_underscore, " ");
+      std::string piece = id < arr_vocab_.size() ? arr_vocab_[id] : "";
+      if (piece.empty()) {
+        token = unk_token_;
+      } else if (IsSpmByteWord(piece)) {
+        char buf[3] = {piece[3], piece[4], 0};  // something like <0x20>
+        token = {static_cast<char>(strtol(buf, NULL, 16))};
+      } else {
+        token = ReplaceAll(piece, std::string(ort_extensions::spm_escaped_space), " ");
+      }
     }
 
     if (!token.empty() && token[0] == ' ' && f_special_last && add_dummy_prefix_) {
@@ -133,8 +128,8 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
       is_first = true;
     }
 
-    bool f_special = bpe_state->f_special_last;  // [Spm]Id2Token needs the last state
-    bool f_special_last = bpe_state->f_special_last;
+    bool f_special = bpe_state->f_special_last_;  // [Spm]Id2Token needs the last state
+    bool f_special_last = bpe_state->f_special_last_;
     auto status = spm_model_
                   ? SpmId2Token(id, token, f_special)
                   : Id2Token(id, token, true /* tok_config_.skip_special_tokens_ */, f_special);
@@ -171,7 +166,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
       s_utf8 = s_utf8.substr(utf8_all_len);
     }
 
-    bpe_state->f_special_last = f_special;
+    bpe_state->f_special_last_ = f_special;
     return status;
   }
 
@@ -256,7 +251,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
  private:
 
   extTokenId_t eos_token_id_{0};
-  bool add_dummy_prefix_ = false;
   bool spm_model_{};
-  std::shared_ptr<ort_extensions::bpe::TokenJsonConfig const> tok_config_;
+  bool add_dummy_prefix_{};
+  std::shared_ptr<ort_extensions::TokenJsonConfig const> tok_config_;
 };

@@ -4,7 +4,6 @@
 #pragma once
 
 #include "ocos.h"
-#include "ortx_common.h"
 #include "string_utils.h"
 #include "string_tensor.h"
 #include "sentencepiece_processor.h"
@@ -13,7 +12,7 @@
 struct KernelSentencepieceDecoder {
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
     std::string model_blob;
-    ORTX_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "model", model_blob));
+    ORTW_RETURN_IF_ERROR(OrtW::GetOpAttribute(info, "model", model_blob));
 
     sentencepiece::ModelProto model_proto;
     model_proto.ParseFromArray(model_blob.data(), static_cast<int>(model_blob.size()));

@@ -3,15 +3,12 @@
 
 #pragma once
 
-#include "ocos.h"
-#include "ustring.h"
-
 #include <list>
 #include <string>
 #include <vector>
 #include <functional>
 
-#include "bpe_types.h"
+#include "tokenizer_common.h"
 
 struct BpeModelConf {
   const char* name_{"GPT2"};  // this name may be overridden by the tokenizer's attribute.
@@ -21,38 +18,41 @@ struct BpeModelConf {
   const char* pad_token_{nullptr};
 
   bool spm_model_{};
+  bool add_dummy_prefix_{};
   std::string GetSpecialTokens() const;
 };
 
 struct KernelBpeTokenizer {
+  using json = nlohmann::json;
+  using AddedTokenMap = ort_extensions::AddedTokenMap;
   KernelBpeTokenizer(const BpeModelConf& conf);
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info);
 
-  OrtxStatus Compute(const ortc::Tensor<std::string>& input,
-                     ortc::Tensor<int64_t>& tokenize_output,
+  OrtxStatus Compute(const ortc::Tensor<std::string>& input, ortc::Tensor<int64_t>& tokenize_output,
                      std::optional<ortc::Tensor<int64_t>*> attention_mask,
                      std::optional<ortc::Tensor<int64_t>*> offset_mapping) const;
 
+  OrtxStatus ComputeNoOp(const std::string& input, std::vector<extTokenId_t>& tokenize_output,
+                         bool add_special_tokens = true);
+
   const std::string& ModelName() const { return model_name_; }
   uint32_t GetTokenId(const std::string& token) const;
+  bool GetAddDummyPrefix() const { return bpe_conf_.get().add_dummy_prefix_; }
 
  protected:
   using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
-  std::vector<int64_t> Tokenize(ustring& input,
-                                int64_t max_length,
-                                bool compute_offset_mapping,
-                                std::list<OffsetMappingType>& offset_map) const;
+  std::vector<int64_t> Tokenize(ustring& input, int64_t max_length, bool compute_offset_mapping,
+                                std::list<OffsetMappingType>& offset_map, bool add_special_tokens) const;
 
-  std::vector<int64_t> SpmTokenize(ustring& input,
-                                   int64_t max_length,
-                                   bool compute_offset_mapping,
-                                   std::list<OffsetMappingType>& offset_map) const;
+  std::vector<int64_t> SpmTokenize(ustring& input, int64_t max_length, bool compute_offset_mapping,
+                                   std::list<OffsetMappingType>& offset_map, bool add_special_tokens) const;
 
   void CreateUnicodeByteEncoder();
 
  protected:
-  std::reference_wrapper<BpeModelConf const> bpe_conf_;
   std::string model_name_;
+  AddedTokenMap added_tokens_;
+  std::reference_wrapper<BpeModelConf const> bpe_conf_;
   std::unique_ptr<ort_extensions::BpeModel> bbpe_tokenizer_;
 
   int64_t padding_length_ = -1;
@@ -68,8 +68,7 @@ struct KernelBpeTokenizer {
 struct GPT2Tokenizer : KernelBpeTokenizer {
   GPT2Tokenizer();
   // required by LiteCustomOp which needs an explicit Compute declaration for non-MSVC compiler.
-  OrtxStatus Compute(const ortc::Tensor<std::string>& input,
-                     ortc::Tensor<int64_t>& tokenize_output,
+  OrtxStatus Compute(const ortc::Tensor<std::string>& input, ortc::Tensor<int64_t>& tokenize_output,
                      std::optional<ortc::Tensor<int64_t>*> attention_mask,
                      std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
     return KernelBpeTokenizer::Compute(input, tokenize_output, attention_mask, offset_mapping);
@@ -79,8 +78,7 @@ struct GPT2Tokenizer : KernelBpeTokenizer {
 struct RobertaTokenizer : KernelBpeTokenizer {
   RobertaTokenizer();
   // required by LiteCustomOp which needs a explicit Compute declaration for non-MSVC compiler.
-  OrtxStatus Compute(const ortc::Tensor<std::string>& input,
-                     ortc::Tensor<int64_t>& tokenize_output,
+  OrtxStatus Compute(const ortc::Tensor<std::string>& input, ortc::Tensor<int64_t>& tokenize_output,
                      std::optional<ortc::Tensor<int64_t>*> attention_mask,
                      std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
     return KernelBpeTokenizer::Compute(input, tokenize_output, attention_mask, offset_mapping);
@@ -90,8 +88,7 @@ struct RobertaTokenizer : KernelBpeTokenizer {
 struct CLIPTokenizer : KernelBpeTokenizer {
   CLIPTokenizer();
   // required by LiteCustomOp which needs a explicit Compute declaration for non-MSVC compiler.
-  OrtxStatus Compute(const ortc::Tensor<std::string>& input,
-                     ortc::Tensor<int64_t>& tokenize_output,
+  OrtxStatus Compute(const ortc::Tensor<std::string>& input, ortc::Tensor<int64_t>& tokenize_output,
                      std::optional<ortc::Tensor<int64_t>*> attention_mask,
                      std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
     return KernelBpeTokenizer::Compute(input, tokenize_output, attention_mask, offset_mapping);
@@ -101,8 +98,7 @@ struct CLIPTokenizer : KernelBpeTokenizer {
 struct SpmTokenizer : KernelBpeTokenizer {
   SpmTokenizer();
   // required by LiteCustomOp which needs a explicit Compute declaration for non-MSVC compiler.
-  OrtxStatus Compute(const ortc::Tensor<std::string>& input,
-                     ortc::Tensor<int64_t>& tokenize_output,
+  OrtxStatus Compute(const ortc::Tensor<std::string>& input, ortc::Tensor<int64_t>& tokenize_output,
                      std::optional<ortc::Tensor<int64_t>*> attention_mask,
                      std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
     return KernelBpeTokenizer::Compute(input, tokenize_output, attention_mask, offset_mapping);
@@ -112,21 +108,21 @@ struct SpmTokenizer : KernelBpeTokenizer {
 class JsonFastTokenizer : public KernelBpeTokenizer {
  public:
   JsonFastTokenizer();
-  OrtxStatus Load(const ort_extensions::bpe::TokenJsonConfig& config);
-  OrtxStatus Compute(const ortc::Tensor<std::string>& input,
-                     ortc::Tensor<int64_t>& tokenize_output,
-                     std::optional<ortc::Tensor<int64_t>*> attention_mask,
-                     std::optional<ortc::Tensor<int64_t>*> offset_mapping) const;
+  OrtxStatus Load(const ort_extensions::TokenJsonConfig& config);
+  OrtxStatus LoadTikTokenBase64(const ort_extensions::TokenJsonConfig& config);
+  OrtxStatus Compute(const ortc::Tensor<std::string>& input, ortc::Tensor<int64_t>& tokenize_output,
+                     std::optional<ortc::Tensor<int64_t>*> attention_mask = std::nullopt,
+                     std::optional<ortc::Tensor<int64_t>*> offset_mapping = std::nullopt) const;
 
  public:
   const auto& GetAddedTokens() const { return added_tokens_; }
   const ort_extensions::BpeModel& GetEncoder() const { return *bbpe_tokenizer_; }
   bool IsSpmModel() const { return json_conf_.spm_model_; }
-  bool tiktoken_ = false;
 
  private:
   std::string TokenBytesToString(std::vector<uint8_t>& bytes);
+  void LoadSpmModelParams(const json& tok_json);
+  void UpdateTokenizer(const ort_extensions::TokenJsonConfig& config, const json& tok_json);
 
   BpeModelConf json_conf_;
-  std::vector<ort_extensions::bpe::AddedToken> added_tokens_;
 };

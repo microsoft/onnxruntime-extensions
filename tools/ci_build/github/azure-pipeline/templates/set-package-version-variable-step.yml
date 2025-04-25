@@ -1,0 +1,31 @@
+parameters:
+- name: IsReleaseBuild
+  displayName: |
+    If true, the version is a release version. Otherwise, the version has a development suffix.
+  type: boolean
+  default: false
+
+- name: PackageVersionVariableName
+  displayName: |
+    The name of the variable that will contain the version value.
+  type: string
+
+steps:
+- bash: |
+    set -e -x
+
+    VERSION_FILE="$(Build.SourcesDirectory)/version.txt"
+    BASE_VERSION="$(cat "${VERSION_FILE}")"
+
+    IS_RELEASE_BUILD="$(printf "%s" "${{ parameters.IsReleaseBuild }}" | tr "[:upper:]" "[:lower:]")"
+    if [[ "${IS_RELEASE_BUILD}" == "true" ]]; then
+      VERSION="${BASE_VERSION}"
+    else
+      SHORT_COMMIT_HASH="$(git rev-parse --short HEAD)"
+      VERSION="${BASE_VERSION}-dev+$(Build.BuildId).${SHORT_COMMIT_HASH}"
+    fi
+
+    # Do not output ##vso[] commands with `set -x` or they may be parsed again and include a trailing quote.
+    set +x
+    echo "##vso[task.setvariable variable=${{ parameters.PackageVersionVariableName }}]${VERSION}"
+  displayName: "Set \"${{ parameters.PackageVersionVariableName }}\" variable to package version"

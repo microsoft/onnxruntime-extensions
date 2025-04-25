@@ -8,7 +8,7 @@
 
 using namespace ort_extensions;
 
-extError_t OrtxCreateProcessor(OrtxProcessor** processor, const char* def) {
+extError_t ORTX_API_CALL OrtxCreateProcessor(OrtxProcessor** processor, const char* def) {
   if (processor == nullptr || def == nullptr) {
     return kOrtxErrorInvalidArgument;
   }
@@ -28,8 +28,27 @@ struct RawImagesObject : public OrtxObjectImpl {
  public:
   RawImagesObject() : OrtxObjectImpl(kOrtxKindRawImages) {}
   std::unique_ptr<ort_extensions::ImageRawData[]> images;
-  size_t num_images;
+  size_t num_images{};
 };
+
+extError_t ORTX_API_CALL OrtxCreateRawImages(OrtxRawImages** images, const void* data[], const int64_t sizes[],
+                                             size_t num_images) {
+  if (images == nullptr || data == nullptr || sizes == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  auto images_obj = std::make_unique<RawImagesObject>();
+  images_obj->images = std::make_unique<ImageRawData[]>(num_images);
+  images_obj->num_images = num_images;
+  for (size_t i = 0; i < num_images; ++i) {
+    images_obj->images[i].resize(static_cast<size_t>(sizes[i]));
+    std::copy_n(static_cast<const uint8_t*>(data[i]), sizes[i], images_obj->images[i].data());
+  }
+
+  *images = static_cast<OrtxRawImages*>(images_obj.release());
+  return extError_t();
+}
 
 extError_t ORTX_API_CALL OrtxLoadImages(OrtxRawImages** images, const char** image_paths, size_t num_images,
                                         size_t* num_images_loaded) {
@@ -78,5 +97,5 @@ extError_t ORTX_API_CALL OrtxImagePreProcess(OrtxProcessor* processor, OrtxRawIm
     *result = nullptr;
   }
 
-  return {};
+  return status.Code();
 }

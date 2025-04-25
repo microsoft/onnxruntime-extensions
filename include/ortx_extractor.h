@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
-
 // C ABI header file for the onnxruntime-extensions tokenization module
 
 #pragma once
@@ -9,7 +6,6 @@
 
 typedef OrtxObject OrtxFeatureExtractor;
 typedef OrtxObject OrtxRawAudios;
-typedef OrtxObject OrtxTensorResult;
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,9 +39,10 @@ extError_t ORTX_API_CALL OrtxCreateSpeechFeatureExtractor(OrtxFeatureExtractor**
 extError_t ORTX_API_CALL OrtxLoadAudios(OrtxRawAudios** audios, const char* const* audio_paths, size_t num_audios);
 
 /**
- * @brief Creates an array of raw audio objects.
+ * @brief Creates an array of raw audio objects, which refers to the audio data and sizes provided.
  *
- * This function creates an array of raw audio objects based on the provided data and sizes.
+ * This function creates an array of raw audio objects based on the provided data and sizes. The data will be stored in
+ * the `audios` parameter.
  *
  * @param audios Pointer to the variable that will hold the created raw audio objects.
  * @param data Array of pointers to the audio data.
@@ -54,21 +51,40 @@ extError_t ORTX_API_CALL OrtxLoadAudios(OrtxRawAudios** audios, const char* cons
  *
  * @return extError_t Error code indicating the success or failure of the operation.
  */
-extError_t ORTX_API_CALL OrtxCreateRawAudios(OrtxRawAudios** audios, const void* data[], const int64_t* sizes[], size_t num_audios);
+extError_t ORTX_API_CALL OrtxCreateRawAudios(OrtxRawAudios** audios, const void* data[], const int64_t sizes[], size_t num_audios);
 
 /**
  * @brief Calculates the log mel spectrogram for a given audio using the specified feature extractor.
  *
  * This function takes an instance of the OrtxFeatureExtractor struct, an instance of the OrtxRawAudios struct,
- * and a pointer to a OrtxTensorResult pointer. It calculates the log mel spectrogram for the given audio using
+ * and a pointer to an OrtxTensorResult pointer. It calculates the log mel spectrogram for the given audio using
  * the specified feature extractor and stores the result in the provided log_mel pointer.
  *
  * @param extractor The feature extractor to use for calculating the log mel spectrogram.
  * @param audio The raw audio data to process.
- * @param log_mel A pointer to a OrtxTensorResult pointer where the result will be stored.
+ * @param log_mel A pointer to an OrtxTensorResult pointer where the result will be stored.
  * @return An extError_t value indicating the success or failure of the operation.
  */
 extError_t ORTX_API_CALL OrtxSpeechLogMel(OrtxFeatureExtractor* extractor, OrtxRawAudios* audio, OrtxTensorResult** log_mel);
+
+
+/**
+ * @brief Extracts log-mel features from raw audio data using a feature extractor.
+ * 
+ * This function processes the input audio buffers through the provided feature extractor,
+ * producing log-mel spectrogram outputs suitable for inference or further signal analysis.
+ *
+ * @param extractor A pointer to an OrtxFeatureExtractor object that defines the feature
+ *                  extraction pipeline and processing parameters.
+ * @param audio     A pointer to an OrtxRawAudios structure containing raw audio data buffers
+ *                  and associated metadata (e.g., sampling rate, channels).
+ * @param result   A pointer to an OrtxTensorResult pointer that will be allocated and set to
+ *                  hold the resulting log-mel spectrogram data and other outputs based on json configuration.
+ *
+ * @return An extError_t value indicating success or error status. Returns
+ *         EXT_SUCCESS on success, or an appropriate error code if extraction fails.
+ */
+extError_t ORTX_API_CALL OrtxFeatureExtraction(OrtxFeatureExtractor* extractor, OrtxRawAudios* audio, OrtxTensorResult** result);
 
 #ifdef __cplusplus
 }

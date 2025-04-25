@@ -34,7 +34,7 @@
       "component": {
         "type": "git",
         "git": {
-          "commitHash": "a12824d42584e292ecb3bad05c4b32c2015a7b89",
+          "commitHash": "v19.24.7",
           "repositoryUrl": "https://github.com/davisking/dlib.git"
         }
       }
@@ -43,7 +43,7 @@
       "component": {
         "type": "git",
         "git": {
-          "commitHash": "dd762b861ecadf5ddd5fb03e9ca1db6707b54fbb",
+          "commitHash": "660795b2834aebb2217c9849d668b6e4bd4ef810",
           "repositoryUrl": "https://github.com/mackron/dr_libs.git"
         }
       }
@@ -62,7 +62,7 @@
       "component": {
         "type": "git",
         "git": {
-          "commitHash": "9406a60c7839052e4944ea4dbc8344762a89f9bd",
+          "commitHash": "e39786088138f2749d64e9e90e0f9902daa77c40",
           "repositoryUrl": "https://github.com/google/googletest.git"
         }
       }
@@ -85,6 +85,38 @@
           "repositoryUrl": "https://github.com/nlohmann/json.git"
         },
         "comments": "v3.10.5"
+      }
+    },
+    {
+      "component": {
+        "type": "other",
+        "other": {
+          "name": "libjpeg",
+          "version": "release 9e of 16-Jan-2022",
+          "downloadUrl": "https://github.com/davisking/dlib/tree/v19.24.6/dlib/external/libjpeg"
+        },
+        "comments": "for vision domain"
+      }
+    },
+    {
+      "component": {
+        "type": "other",
+        "other": {
+          "name": "libpng",
+          "version": "1.6.37",
+          "downloadUrl": "https://github.com/davisking/dlib/tree/v19.24.6/dlib/external/libpng"
+        },
+        "comments": "for vision domain"
+      }
+    },
+    {
+      "component": {
+        "other": {
+          "name": "zlib",
+          "version": "1.2.11",
+          "downloadUrl": "https://github.com/davisking/dlib/tree/v19.24.6/dlib/external/zlib"
+        },
+        "comments": "for vision domain"
       }
     },
     {

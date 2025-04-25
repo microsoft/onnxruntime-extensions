@@ -35,26 +35,26 @@ stages:
 
     strategy:
       matrix:
-        py312-1171:
+        py312-1192:
           python.version: '3.12'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.17.1'
-        py311-1163:
+          ort.version: '1.19.2'
+        py311-1181:
+          python.version: '3.12'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.18.1'
+        py311-1171:
           python.version: '3.11'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.16.3'
-        py310-1151:
+          ort.version: '1.17.1'
+        py310-1163:
           python.version: '3.10'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.15.1'
-        py39-1141:
+          ort.version: '1.16.3'
+        py39-1151:
           python.version: '3.9'
-          torch.version: 'torch==1.13.1+cpu torchvision==0.14.1+cpu torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
-          ort.version: '1.14.1'
-        py38-1131:
-          python.version: '3.8'
-          torch.version: 'torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -f https://download.pytorch.org/whl/torch_stable.html'
-          ort.version: '1.13.1'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.15.1'
 
     steps:
     - task: DownloadGitHubRelease@0
@@ -106,8 +106,10 @@ stages:
         python -m pip install -r requirements-dev.txt
       displayName: Install requirements-dev.txt
 
-    - script: cd test && python -m pytest . --verbose
+    - script: |
+        cd test && python -m pytest . --verbose
       displayName: Run python test
+      condition: and(succeeded(), eq(variables['python.version'], '3.11'))
 
   ###############
   # Linux PyDebug
@@ -197,7 +199,7 @@ stages:
     # compiled as only one operator selected.
     - bash: |
         set -e -x -u
-        ./build.sh -DOCOS_ENABLE_C_API=ON -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_VISION=OFF -DOCOS_ENABLE_OPENCV_CODECS=OFF
+        ./build.sh -DOCOS_ENABLE_C_API=ON
         cd out/Linux/RelWithDebInfo
         ctest -C RelWithDebInfo --output-on-failure
       displayName: Build ort-extensions with API enabled and run tests
@@ -223,6 +225,9 @@ stages:
 
     strategy:
       matrix:
+        ort-1181:
+          ort.version: '1.18.1'
+          ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
         ort-1171:
           ort.version: '1.17.1'
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
@@ -231,9 +236,6 @@ stages:
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
         ort-1151:
           ort.version: '1.15.1'
-          ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
-        ort-1141:
-          ort.version: '1.14.1'
           ort.dirname: 'onnxruntime-osx-x86_64-$(ort.version)'
 
     steps:
@@ -281,7 +283,7 @@ stages:
     # compiled as only one operator selected.
     - bash: |
         set -e -x -u
-        ./build.sh -DOCOS_ENABLE_C_API=ON -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_VISION=OFF -DOCOS_ENABLE_OPENCV_CODECS=OFF
+        ./build.sh -DOCOS_ENABLE_C_API=ON
         cd out/Darwin/RelWithDebInfo
         ctest -C RelWithDebInfo --output-on-failure
       displayName: Build ort-extensions with API enabled and run tests
@@ -295,26 +297,26 @@ stages:
 
     strategy:
       matrix:
-        py312-1171:
+        py312-1192:
           python.version: '3.12'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.17.1'
-        py311-1163:
+          ort.version: '1.19.2'
+        py312-1181:
+          python.version: '3.12'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.18.1'
+        py311-1171:
           python.version: '3.11'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.16.3'
-        py310-1151:
+          ort.version: '1.17.1'
+        py310-1163:
           python.version: '3.10'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.15.1'
-        py39-1141:
+          ort.version: '1.16.3'
+        py39-1151:
           python.version: '3.9'
-          torch.version: 'torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
-          ort.version: '1.14.1'
-        py38-1131:
-          python.version: '3.8'
-          torch.version: 'torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -f https://download.pytorch.org/whl/torch_stable.html'
-          ort.version: '1.13.1'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.15.1'
 
     steps:
     - template: templates/use-xcode-version.yml
@@ -349,6 +351,7 @@ stages:
 
     - script: cd test && python -m pytest . --verbose
       displayName: Run python test
+      condition: and(succeeded(), eq(variables['python.version'], '3.11'))
 
 - stage: WindowsBuilds
   dependsOn: []
@@ -363,14 +366,14 @@ stages:
 
     strategy:
       matrix:
+        ort-1181:
+          ort.version: '1.18.1'
         ort-1171:
           ort.version: '1.17.1'
         ort-1163:
           ort.version: '1.16.3'
         ort-1151:
           ort.version: '1.15.1'
-        ort-1141:
-          ort.version: '1.14.1'
 
     steps:
     - task: DownloadGitHubRelease@0
@@ -431,7 +434,7 @@ stages:
 
     steps:
     - script: |
-        call .\build.bat -DOCOS_ENABLE_C_API=ON -DOCOS_ENABLE_CV2=OFF -DOCOS_ENABLE_VISION=OFF -DOCOS_ENABLE_OPENCV_CODECS=OFF
+        call .\build.bat -DOCOS_ENABLE_C_API=ON
         cd out\Windows
         ctest -C RelWithDebInfo --output-on-failure
       displayName: Build ort-extensions with API enabled and run tests
@@ -445,59 +448,55 @@ stages:
 
     strategy:
       matrix:
-        py312-1171:
+        py312-1201:
           python.version: '3.12'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.17.1'
-        py311-1163:
+          ort.version: '1.20.1'
+        py312-1192:
+          python.version: '3.12'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.19.2'
+        py311-1181:
           python.version: '3.11'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.16.3'
-        py310-1151:
+          ort.version: '1.18.1'
+        py310-1171:
           python.version: '3.10'
           torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.15.1'
-        py39-1141:
-          python.version: '3.9'
-          torch.version: 'torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cpu'
-          ort.version: '1.14.1'
-        py38-1131:
-          python.version: '3.8'
-          torch.version: 'torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -f https://download.pytorch.org/whl/torch_stable.html'
-          ort.version: '1.13.1'
+          ort.version: '1.17.1'
+        py310-1163:
+          python.version: '3.10'
+          torch.version: 'torch torchvision torchaudio'
+          ort.version: '1.16.3'
 
     steps:
-    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
-      displayName: Add conda to PATH
-
-    - script: conda create --yes --quiet --name pyenv -c conda-forge python=$(python.version) numpy
-      displayName: Create Anaconda environment
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: $(python.version)
+        disableDownloadFromRegistry: true
+        addToPath: true
+        architecture: 'x64'
+      displayName: Use ADO python task
 
     - script: |
-        call activate pyenv
         python -m pip install --upgrade pip
         python -m pip install onnxruntime==$(ort.version)
         python -m pip install -r requirements-dev.txt
       displayName: Install requirements{-dev}.txt and cmake python modules
-      condition: ne(variables['python.version'], '3.12')
 
     - script: |
-        call activate pyenv
         set CMAKE_ARGS=-DOCOS_ONNXRUNTIME_VERSION=$(ort.version)
-        python -m pip install .
+        python -m pip install -v .
       displayName: Build the wheel
 
     - script: |
-        call activate pyenv
         python -m pip install $(torch.version)
       displayName: Install pytorch
-      condition: ne(variables['python.version'], '3.12')
 
     - script: |
-        call activate pyenv
-        pytest test
+        cd test && python -m pytest .
       displayName: Run python test
-      condition: ne(variables['python.version'], '3.12')
+      condition: and(succeeded(), eq(variables['python.version'], '3.11'))
 
   #################
   # Windows PyDebug
@@ -509,7 +508,7 @@ stages:
     steps:
     - task: UsePythonVersion@0
       inputs:
-        versionSpec: '3.x'
+        versionSpec: '3.12'
         disableDownloadFromRegistry: true
         addToPath: true
         architecture: 'x64'
@@ -518,10 +517,11 @@ stages:
     - script: |
         python -m pip install --upgrade setuptools pip
         python -m pip install "numpy < 2.0.0"
-        set OCOS_NO_OPENCV=1
-        set OCOS_SCB_DEBUG=1
         python -m pip install -v -e .
       displayName: Build onnxruntime-extensions in editable mode.
+      env:
+        OCOS_NO_OPENCV: 1
+        OCOS_SCB_DEBUG: 1
 
     - script: |
         python -m pip install -r requirements-dev.txt
@@ -587,7 +587,7 @@ stages:
 
       - task: UsePythonVersion@0
         inputs:
-          versionSpec: '3.x'
+          versionSpec: '3.12'
           disableDownloadFromRegistry: true
           addToPath: true
           architecture: 'x64'
@@ -740,7 +740,7 @@ stages:
     steps:
     - script: |
         cd $(Build.BinariesDirectory)
-        git clone https://github.com/emscripten-core/emsdk
+        git clone https://github.com/emscripten-core/emsdk --depth 1 --branch 4.0.3
         emsdk/emsdk install latest
         emsdk/emsdk activate latest
       displayName: Setup emscripten pipeline
@@ -748,13 +748,24 @@ stages:
     - script: |
         bash ./build.sh \
         -DCMAKE_TOOLCHAIN_FILE=$(Build.BinariesDirectory)/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
+        -DOCOS_ENABLE_STATIC_LIB=OFF   \
         -DOCOS_ENABLE_SPM_TOKENIZER=ON \
-        -DOCOS_BUILD_PYTHON=OFF \
-        -DOCOS_ENABLE_CV2=OFF \
+        -DOCOS_BUILD_PYTHON=OFF  \
         -DOCOS_ENABLE_VISION=OFF \
-        -DOCOS_ENABLE_CTEST=OFF
-      displayName: build the customop library with onnxruntime
-    # TODO add unittest for webassembly
+        -DOCOS_ENABLE_CTEST=OFF  \
+        -DOCOS_ENABLE_C_API=ON
+      displayName: build ort-extensions as an executable
+
+    - script: |
+        bash ./build.sh \
+        -DCMAKE_TOOLCHAIN_FILE=$(Build.BinariesDirectory)/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
+        -DOCOS_ENABLE_STATIC_LIB=ON    \
+        -DOCOS_ENABLE_SPM_TOKENIZER=ON \
+        -DOCOS_BUILD_PYTHON=OFF  \
+        -DOCOS_ENABLE_VISION=OFF \
+        -DOCOS_ENABLE_CTEST=OFF  \
+        -DOCOS_ENABLE_C_API=ON
+      displayName: build ort-extensions as a static library
 
 - stage: AndroidBuilds
   dependsOn: []
@@ -821,6 +832,7 @@ stages:
         displayName: Install ninja
 
       - bash: |
+          python -m pip install cmake==3.31.6
           python ./tools/build.py \
             --config RelWithDebInfo \
             --android \
@@ -851,10 +863,9 @@ stages:
         architecture: 'x64'
       displayName: "Use Python 3.12"
 
-    # iOS xcframework build doesn't work with CMake 3.25.1, pin to 3.25.0
     - script: |
-        python -m pip install cmake==3.25.0
-      displayName: "Install CMake 3.25.0"
+        python -m pip install "cmake<4.0.0"
+      displayName: "Install CMake"
 
     - template: templates/set-package-version-variable-step.yml
       parameters:

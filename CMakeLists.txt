@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 
 # Minimum CMake required
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.28)
 project(onnxruntime_extensions LANGUAGES C CXX)
 
 # set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -45,7 +45,13 @@ endif()
 # Needed for Java
 set(CMAKE_C_STANDARD 99)
 
-set(CMAKE_CXX_STANDARD 17)
+option(OCOS_USE_WINRT "Build with CXX20 and CppWinRT enabled" OFF)
+
+if(OCOS_USE_WINRT)
+  set(CMAKE_CXX_STANDARD 20)
+else()
+  set(CMAKE_CXX_STANDARD 17)
+endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 include(CheckCXXCompilerFlag)
@@ -54,7 +60,14 @@ include(CMakeDependentOption)
 
 set(_ORTX_STANDALONE_PROJECT OFF)
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
-    set(_ORTX_STANDALONE_PROJECT ON)
+  set(_ORTX_STANDALONE_PROJECT ON)
+endif()
+
+set(_ORTX_CPP_NO_RTTI ON)
+set(_ORTX_SHARED_BUILD_SUPPORTED ON)
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  set(_ORTX_SHARED_BUILD_SUPPORTED OFF)
+  set(_ORTX_CPP_NO_RTTI OFF)
 endif()
 
 option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
@@ -71,17 +84,18 @@ option(OCOS_ENABLE_BERT_TOKENIZER "Enable the BertTokenizer building" ON)
 option(OCOS_ENABLE_BLINGFIRE "Enable operators depending on the Blingfire library" ON)
 option(OCOS_ENABLE_MATH "Enable math tensor operators building" ON)
 option(OCOS_ENABLE_DLIB "Enable operators like Inverse depending on DLIB" ON)
-option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require opencv imgcodecs." ON)
-option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" ON)
+option(OCOS_ENABLE_VENDOR_IMAGE_CODECS "Enable and use vendor image codecs if supported over libpng & libjpeg" ON)
+option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require opencv imgcodecs." OFF)
+option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" OFF)
 option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
 option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" OFF)
 
-option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF)
+option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF) # only for WebAssembly
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
 option(OCOS_ENABLE_C_API "Enable building the C API" OFF)
 
-option(OCOS_BUILD_SHARED_LIB "Enable building the dynamic library" ON)
+option(OCOS_BUILD_SHARED_LIB "Enable building the dynamic library" ${_ORTX_SHARED_BUILD_SUPPORTED})
 option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
 option(OCOS_BUILD_JAVA "Enable building the Java package" OFF)
 option(OCOS_BUILD_ANDROID "Enable building the Android package" OFF)
@@ -140,8 +154,8 @@ if(NOT CC_OPTIMIZE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
   else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Od")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Od")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Od /RTC1")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Od /RTC1")
   endif()
 endif()
 
@@ -181,6 +195,18 @@ endif()
 if(NOT OCOS_BUILD_PYTHON AND OCOS_ENABLE_PYTHON)
   message("OCOS_ENABLE_PYTHON IS DEPRECATED, USE OCOS_BUILD_PYTHON INSTEAD")
   set(OCOS_BUILD_PYTHON ON CACHE INTERNAL "")
+endif()
+
+if(OCOS_BUILD_PYTHON)
+  set(_ORTX_CPP_NO_RTTI OFF)
+endif()
+
+if(_ORTX_CPP_NO_RTTI)
+  if(MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GR-")
+  else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
+  endif()
 endif()
 
 if(OCOS_BUILD_ANDROID)
@@ -333,6 +359,20 @@ endif()
 file(GLOB TARGET_SRC_NOEXCEPTION "base/*.h" "base/*.cc")
 file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h" "include/*.h" "include/*.hpp")
 
+if(OCOS_ENABLE_DLIB)
+  set(DLIB_ISO_CPP_ONLY ON CACHE INTERNAL "")
+  set(DLIB_NO_GUI_SUPPORT ON CACHE INTERNAL "")
+  set(DLIB_USE_CUDA OFF CACHE INTERNAL "")
+  set(DLIB_USE_LAPACK OFF CACHE INTERNAL "")
+  set(DLIB_USE_BLAS OFF CACHE INTERNAL "")
+  include(dlib)
+
+  # Ideally, dlib should be included as file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/all/source.cpp")
+  # To avoid the unintentional using some unwanted component, we only include the test_for_odr_violations.cpp
+  # to check if there is any violation in build configuration to ensure compiling some dlib source files correctly.
+  file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/test_for_odr_violations.cpp")
+endif()
+
 if(OCOS_ENABLE_TF_STRING)
   set(farmhash_SOURCE_DIR ${PROJECT_SOURCE_DIR}/cmake/externals/farmhash)
   file(GLOB TARGET_SRC_KERNELS "operators/text/*.cc" "operators/text/*.h*")
@@ -341,8 +381,12 @@ if(OCOS_ENABLE_TF_STRING)
 endif()
 
 if(OCOS_ENABLE_AUDIO)
+  if (NOT OCOS_ENABLE_DLIB)
+    message(FATAL_ERROR "Audio operators require DLIB to be enabled.")
+  endif()
   include(dr_libs)
   file(GLOB TARGET_SRC_AUDIO "operators/audio/*.*")
+  list(APPEND TARGET_SRC_AUDIO ${dlib_SOURCE_DIR}/dlib/fft/fft.cpp)
   list(APPEND TARGET_SRC_NOEXCEPTION ${TARGET_SRC_AUDIO})
 endif()
 
@@ -352,20 +396,10 @@ if(OCOS_ENABLE_RE2_REGEX)
 endif()
 
 if(OCOS_ENABLE_MATH)
-  if(OCOS_ENABLE_DLIB)
-    set(DLIB_ISO_CPP_ONLY ON CACHE INTERNAL "")
-    set(DLIB_NO_GUI_SUPPORT ON CACHE INTERNAL "")
-    set(DLIB_USE_CUDA OFF CACHE INTERNAL "")
-    set(DLIB_USE_LAPACK OFF CACHE INTERNAL "")
-    set(DLIB_USE_BLAS OFF CACHE INTERNAL "")
-    include(dlib)
-
-    # Ideally, dlib should be included as
-    # file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/all/source.cpp")
-    # To avoid the unintentional using some unwanted component, only include
-    file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/test_for_odr_violations.cpp")
-    file(GLOB TARGET_SRC_INVERSE "operators/math/dlib/*.cc" "operators/math/dlib/*.h*")
+  if (NOT OCOS_ENABLE_DLIB)
+    message(FATAL_ERROR "Math operators require DLIB to be enabled.")
   endif()
+  file(GLOB TARGET_SRC_INVERSE "operators/math/dlib/*.cc" "operators/math/dlib/*.h*")
 
   file(GLOB TARGET_SRC_MATH "operators/math/*.cc" "operators/math/*.h*")
   if(OCOS_USE_CUDA)
@@ -382,7 +416,7 @@ if (OCOS_USE_CUDA)
 endif()
 
 # enable the opencv dependency if we have ops that require it
-if(OCOS_ENABLE_CV2 OR OCOS_ENABLE_VISION)
+if(OCOS_ENABLE_CV2)
   set(_ENABLE_OPENCV ON)
   message(STATUS "Fetch opencv")
   include(opencv)
@@ -401,10 +435,6 @@ if(OCOS_ENABLE_CV2)
 endif()
 
 if(OCOS_ENABLE_VISION)
-  if(NOT OCOS_ENABLE_OPENCV_CODECS)
-    message(FATAL_ERROR "OCOS_ENABLE_VISION requires OCOS_ENABLE_OPENCV_CODECS to be ON")
-  endif()
-
   file(GLOB TARGET_SRC_VISION "operators/vision/*.cc" "operators/vision/*.h*")
   list(APPEND TARGET_SRC ${TARGET_SRC_VISION})
 endif()
@@ -414,7 +444,7 @@ set(_HAS_TOKENIZER OFF)
 if(OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
   set(_HAS_TOKENIZER ON)
-  file(GLOB tok_TARGET_SRC "operators/tokenizer/bpe_*.*" "operators/tokenizer/unicode*.*")
+  file(GLOB tok_TARGET_SRC "operators/tokenizer/bpe_*.*" "operators/tokenizer/unicode*.*", "operators/tokenizer/case_*.*")
   list(APPEND TARGET_SRC ${tok_TARGET_SRC})
 endif()
 
@@ -596,7 +626,7 @@ target_include_directories(ocos_operators PUBLIC
   ${PROJECT_SOURCE_DIR}/base
   ${PROJECT_SOURCE_DIR}/operators)
 
-if (OCOS_USE_CUDA) 
+if (OCOS_USE_CUDA)
   target_include_directories(ocos_operators PUBLIC ${cutlass_SOURCE_DIR}/include ${cutlass_SOURCE_DIR}/examples)
 endif()
 
@@ -624,7 +654,7 @@ if(OCOS_ENABLE_TF_STRING)
 
   if(OCOS_ENABLE_RE2_REGEX)
     target_include_directories(noexcep_operators PUBLIC ${googlere2_SOURCE_DIR})
-    target_link_libraries(noexcep_operators PRIVATE re2)
+    target_link_libraries(noexcep_operators PRIVATE re2::re2)
   endif()
 endif()
 
@@ -652,6 +682,31 @@ endif()
 
 if(OCOS_ENABLE_VISION)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_VISION)
+  set(_DEFAULT_CODEC_ENABLE ON)
+  if(OCOS_ENABLE_VENDOR_IMAGE_CODECS)
+    add_compile_definitions(OCOS_ENABLE_VENDOR_IMAGE_CODECS)
+    if(WIN32)
+      # Use WIC on Windows. Nothing to be done
+      set(_DEFAULT_CODEC_ENABLE OFF)
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
+      # Use ImageIO on Apple platforms
+      set(_DEFAULT_CODEC_ENABLE OFF)
+      set(_APPLE_FRAMEWORKS "-framework CoreFoundation" "-framework CoreGraphics" "-framework ImageIO" "-framework CoreServices")
+      if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+        list(APPEND _APPLE_FRAMEWORKS "-framework MobileCoreServices")
+      endif()
+      target_link_libraries(ocos_operators PRIVATE ${_APPLE_FRAMEWORKS})
+    endif()
+  endif()
+
+  if(_DEFAULT_CODEC_ENABLE)
+    if (NOT OCOS_ENABLE_DLIB)
+      message(FATAL_ERROR "Vision operators require DLIB to be enabled.") # for now, we need dlib for image processing
+    endif()
+    include(ext_imgcodecs)  
+    target_include_directories(ocos_operators PUBLIC ${libPNG_SOURCE_DIR} ${libJPEG_SOURCE_DIR})
+    target_link_libraries(ocos_operators PUBLIC ${PNG_LIBRARY} ${JPEG_LIBRARY})
+  endif()
 endif()
 
 if(OCOS_ENABLE_AZURE)
@@ -693,7 +748,7 @@ if(OCOS_ENABLE_BLINGFIRE)
 endif()
 
 if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
-  target_include_directories(ocos_operators PUBLIC ${nlohmann_json_SOURCE_DIR}/single_include)
+  target_include_directories(ocos_operators PUBLIC ${nlohmann_json_SOURCE_DIR}/include)
 endif()
 
 # If building a shared library we can't throw an internal exception type across the library boundary as the type
@@ -729,47 +784,21 @@ if(OCOS_ENABLE_C_API)
   file(GLOB utils_TARGET_SRC "shared/api/c_api_utils.*" "shared/api/runner.hpp")
   list(APPEND _TARGET_LIB_SRC ${utils_TARGET_SRC})
   if(_HAS_TOKENIZER)
-    file(GLOB tok_TARGET_SRC "shared/api/c_api_tokenizer.cc" "shared/api/token*")
+    file(GLOB tok_TARGET_SRC "shared/api/c_api_tokenizer.cc" "shared/api/token*" "shared/api/chat*")
     list(APPEND _TARGET_LIB_SRC ${tok_TARGET_SRC})
   endif()
   if(OCOS_ENABLE_AUDIO)
     file(GLOB audio_TARGET_SRC "shared/api/c_api_feature_extraction.*" "shared/api/speech_*")
     list(APPEND _TARGET_LIB_SRC ${audio_TARGET_SRC})
   endif()
-  if(OCOS_ENABLE_DLIB)
-    include(ext_imgcodecs)
+  if(OCOS_ENABLE_VISION)
     file(GLOB cv2_TARGET_SRC "shared/api/c_api_processor.*" "shared/api/image_*.*")
     list(APPEND _TARGET_LIB_SRC ${cv2_TARGET_SRC})
-    target_include_directories(ocos_operators PUBLIC ${libPNG_SOURCE_DIR} ${libJPEG_SOURCE_DIR})
-    target_link_libraries(ocos_operators PUBLIC ${PNG_LIBRARY} ${JPEG_LIBRARY} ${ZLIB_LIBRARY})
   endif()
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-  if(OCOS_ENABLE_STATIC_LIB)
-    message(FATAL_ERROR "Emscripten build does not support building a static library.")
-  endif()
-  # Emscripten does not support building a shared library with custom ops.
-  # and backward compatible with the previous version, we silently turn off the shared library build.
-  set(OCOS_BUILD_SHARED_LIB OFF CACHE INTERNAL "" FORCE)
-  add_executable(ortcustomops ${_TARGET_LIB_SRC})
-  set_target_properties(ortcustomops PROPERTIES LINK_FLAGS "                                  \
-                      -s WASM=1                                                               \
-                      -s NO_EXIT_RUNTIME=0                                                    \
-                      -s ALLOW_MEMORY_GROWTH=1                                                \
-                      -s SAFE_HEAP=0                                                          \
-                      -s MODULARIZE=1                                                         \
-                      -s SAFE_HEAP_LOG=0                                                      \
-                      -s STACK_OVERFLOW_CHECK=0                                               \
-                      -s EXPORT_ALL=0                                                         \
-                      -s VERBOSE=0                                                            \
-                      --no-entry")
-
-  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set_property(TARGET ortcustomops APPEND_STRING PROPERTY LINK_FLAGS " -s ASSERTIONS=1 -s DEMANGLE_SUPPORT=1")
-  else()
-    set_property(TARGET ortcustomops APPEND_STRING PROPERTY LINK_FLAGS " -s ASSERTIONS=0 -s DEMANGLE_SUPPORT=0")
-  endif()
+  include(ext_wasm)
 else()
   add_library(ortcustomops STATIC ${_TARGET_LIB_SRC})
   if (HAS_SDL)
@@ -854,8 +883,8 @@ target_link_libraries(ortcustomops PUBLIC ocos_operators)
 if(OCOS_BUILD_SHARED_LIB)
   file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h")
   if (OCOS_ENABLE_C_API)
-    if (NOT _HAS_TOKENIZER OR NOT OCOS_ENABLE_AUDIO)
-      message(FATAL_ERROR "Shared library build requires GPT2_TOKENIZER, AUDIO to be enabled.")
+    if (NOT _HAS_TOKENIZER OR NOT OCOS_ENABLE_AUDIO OR NOT OCOS_ENABLE_VISION)
+      message(FATAL_ERROR "Shared library build requires GPT2_TOKENIZER, AUDIO, VISION to be enabled.")
     endif()
     list(APPEND shared_TARGET_SRC "shared/extensions_c.def")
   else()
@@ -939,4 +968,10 @@ if (_ORTX_STANDALONE_PROJECT)
   if(OCOS_ENABLE_CTEST AND NOT MAC_CATALYST)
     include(ext_tests)
   endif()
+endif()
+
+if(OCOS_USE_WINRT)
+  set(CMAKE_CXX_STANDARD 20)
+  include(cmake/winrt.cmake)
+  enable_cppwinrt(ortcustomops)
 endif()

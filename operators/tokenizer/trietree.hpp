@@ -12,12 +12,13 @@
 
 namespace ort_extensions {
 
-template <typename CharT, typename ValueT = int>
+template <typename CharT, typename ValueT = int, int invalid_id = -1>
 class TrieTree {
  public:
   static constexpr int kMaxTokenLength_ = 128;
+  static constexpr ValueT kInvalidId_ = static_cast<ValueT>(invalid_id);
 
-  TrieTree(CharT ch = 0, ValueT invalid_id = -1) : ch_(ch), invalid_id_(invalid_id) {}
+  TrieTree(CharT ch = 0) : ch_(ch), value_(std::nullopt) {}
 
   void Add(const std::basic_string<CharT>& key, int idx = 0,
            const std::optional<ValueT>& value = std::nullopt) noexcept {
@@ -36,11 +37,16 @@ class TrieTree {
     }
   }
 
+  const TrieTree* Find(CharT ch) const {
+    auto it = to_.find(ch);
+    return it != to_.end() ? it->second.get() : nullptr;
+  }
+
   ValueT FindLongest(const std::basic_string<CharT>& key, size_t& idx) const noexcept {
     const TrieTree* u = this;
     CharT ch = key[idx];
 
-    ValueT tok_id = invalid_id_;
+    ValueT tok_id = invalid_id;
     size_t idx_end = idx;
     while (u->to_.count(ch)) {
       u = u->to_.at(ch).get();
@@ -70,7 +76,7 @@ class TrieTree {
       auto ch = input[tok_idx];
       size_t tok_len = 0;
       size_t idx_end = tok_idx;
-      ValueT tok_id = invalid_id_;
+      ValueT tok_id = invalid_id;
 
       // try to match a longest token
       while (u->to_.count(ch)) {
@@ -89,8 +95,9 @@ class TrieTree {
       }
 
       tok_idx += 1;
-      if (tok_id == invalid_id_) {
+      if (tok_id == invalid_id) {
         if (tok_idx < input.length()) {
+          tok_idx -= tok_len;  // backtrack to the last token
           continue;
         } else {
           tok_idx += 1;  // Assign tok_idx to input.length()
@@ -102,9 +109,9 @@ class TrieTree {
       tok_len = idx_end - token_begin_idx;
       if (token_begin_idx > seg_idx || tok_len == 0) {
         tokens.emplace_back(std::basic_string_view<CharT>(input.data() + seg_idx, token_begin_idx - seg_idx),
-                            invalid_id_);
+                            invalid_id);
       }
-      if (tok_id != invalid_id_) {
+      if (tok_id != invalid_id) {
         tokens.emplace_back(std::basic_string_view<CharT>(input.data() + token_begin_idx, tok_len), tok_id);
         tok_idx = idx_end;
       }
@@ -116,11 +123,18 @@ class TrieTree {
     return 0;
   }
 
+  bool HasValue() const {
+    return value_.has_value();
+  }
+
+  ValueT Value() const {
+    return value_.value();
+  }
+
  private:
-  std::map<CharT, std::unique_ptr<TrieTree>> to_;
+  std::unordered_map<CharT, std::unique_ptr<TrieTree>> to_;
   std::optional<ValueT> value_;
   const CharT ch_;
-  const ValueT invalid_id_;
 };
 
 }  // namespace ort_extensions

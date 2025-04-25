@@ -1,0 +1,55 @@
+{
+  "processor": {
+    "name": "phi_4_vision_processor",
+    "transforms": [
+      {
+        "operation": {
+          "name": "decode_image",
+          "type": "DecodeImage",
+          "attrs": {
+            "color_space": "RGB"
+          }
+        }
+      },
+      {
+        "operation": {
+          "name": "phi4_vision_dynamic_preprocess",
+          "type": "Phi4VisionDynamicPreprocess",
+          "attrs": {
+            "dynamic_hd": 36,
+            "dyhd_base_resolution": 448
+          }
+        }
+      },    
+      {
+        "operation": {
+          "name": "rescale",
+          "type": "Rescale",
+          "inputs": [":0"]
+        }
+      },
+      {
+        "operation": {
+          "name": "normalize",
+          "type": "Normalize",
+          "attrs": {
+            "mean": [0.5, 0.5, 0.5],
+            "std": [0.5, 0.5, 0.5]
+          }
+        }
+      },
+      {
+        "operation": {
+          "name": "phi4_vision_processor",
+          "type": "Phi4VisionProcessor",
+          "inputs": [":0", "phi4_vision_dynamic_preprocess:1"],
+          "attrs": {
+            "dyhd_base_resolution": 448,
+            "interpolation": "CUBIC"
+          }
+        }
+      }
+    ],
+    "output_aligner": "phi4-vision-aligner"
+  }
+}

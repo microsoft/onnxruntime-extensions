@@ -18,6 +18,7 @@ tensor_result_get_at = _C.tensor_result_get_at
 create_tokenizer = _C.create_tokenizer
 batch_tokenize = _C.batch_tokenize
 batch_detokenize = _C.batch_detokenize
+_apply_chat_template = _C.apply_chat_template
 
 delete_object = _C.delete_object
 
@@ -49,10 +50,17 @@ class Tokenizer:
             self.tokenizer = create_tokenizer(tokenizer_dir)
 
     def tokenize(self, text):
+        if isinstance(text, (list, tuple)):
+            return batch_tokenize(self.tokenizer, text)
         return batch_tokenize(self.tokenizer, [text])[0]
 
     def detokenize(self, tokens):
-        return batch_detokenize(self.tokenizer, [tokens])[0]
+        return batch_detokenize(self.tokenizer, [tokens])
+
+    def apply_chat_template(self, chat, add_generation_prompt=True, tokenize=False):
+        result = _apply_chat_template(
+            self.tokenizer, "", chat, add_generation_prompt, tokenize)
+        return tensor_result_get_at(result, 1 if tokenize else 0)
 
     def __del__(self):
         if delete_object and self.tokenizer:
@@ -72,8 +80,8 @@ class ImageProcessor:
         return image_pre_process(self.processor, images)
 
     @staticmethod
-    def to_numpy(result):
-        return tensor_result_get_at(result, 0)
+    def to_numpy(result, idx):
+        return tensor_result_get_at(result, idx)
 
     def __del__(self):
         if delete_object and self.processor:

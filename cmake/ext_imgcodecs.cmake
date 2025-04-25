@@ -61,13 +61,18 @@ set(lib_srcs
 )
 
 add_library(${PNG_LIBRARY} STATIC EXCLUDE_FROM_ALL ${lib_srcs})
-target_include_directories(${PNG_LIBRARY} BEFORE PRIVATE ${zlib_SOURCE_DIR})
+target_include_directories(${PNG_LIBRARY} BEFORE PUBLIC ${zlib_SOURCE_DIR})
 
 if(MSVC)
   target_compile_definitions(${PNG_LIBRARY} PRIVATE -D_CRT_SECURE_NO_DEPRECATE)
 else()
   target_compile_options(${PNG_LIBRARY} PRIVATE -Wno-deprecated-non-prototype)
 endif()
+
+set_target_properties(${PNG_LIBRARY}
+  PROPERTIES
+      POSITION_INDEPENDENT_CODE ON
+      FOLDER externals)
 
 # ----------------------------------------------------------------------------
 #  project libjpeg
@@ -129,3 +134,7 @@ if(NOT MSVC)
   set_source_files_properties(jcdctmgr.c PROPERTIES COMPILE_FLAGS "-O1")
 endif()
 target_compile_definitions(${JPEG_LIBRARY} PRIVATE -DNO_MKTEMP)
+set_target_properties(${JPEG_LIBRARY}
+  PROPERTIES
+      POSITION_INDEPENDENT_CODE ON
+      FOLDER externals)
