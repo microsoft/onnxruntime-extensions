@@ -20,10 +20,14 @@ import shutil
 # edit environment variables to avoid protobuf version mismatch
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 
-from transformers.convert_slow_tokenizer import SpmConverter  # noqa: E402
-from transformers import AutoTokenizer  # noqa: E402
-from tokenizers import decoders, normalizers, pre_tokenizers, Regex  # noqa: E402
-
+_is_transformers_tokenizers_available = False
+try:
+    from transformers.convert_slow_tokenizer import SpmConverter
+    from transformers import AutoTokenizer
+    from tokenizers import decoders, normalizers, pre_tokenizers, Regex
+    _is_transformers_tokenizers_available = True
+except ImportError:
+    SpmConverter, AutoTokenizer, decoders, normalizers, pre_tokenizers, Regex = object, None, None, None, None, None
 
 OrtxTokenizer = None
 try:
@@ -214,6 +218,11 @@ def gen_processing_models(processor: Union[str, object],
     -------
     ONNX-Models
         The pre- and post-processing ONNX models
+
+    Raises
+    ------
+    ValueError
+        Optional dependencies missing for conversion of processor.
     """
     if pre_kwargs is None and post_kwargs is None:
         raise ValueError(
@@ -222,6 +231,11 @@ def gen_processing_models(processor: Union[str, object],
     # If true, we get the tokenizer JSON files by either downloading from cache or using HuggingFace AutoTokenizer
     # to convert them, and then create an ONNX model with the JSON files as strings in the model attributes (attrs).
     if schema_v2:
+        if not _is_transformers_tokenizers_available:
+            raise ValueError(
+                "For conversion of a tokenizer, please install a recent version of tokenizers and transformers."
+            )
+
         model_name = processor if isinstance(processor, str) else type(processor).__name__
 
         converted_tokenizer = {"Baichuan2", "chatglm"}
@@ -285,9 +299,8 @@ def gen_processing_models(processor: Union[str, object],
 
         cls_name = type(processor).__name__
         if cls_name == "WhisperProcessor":
-            if WhisperDataProcGraph is None:
-                raise ValueError(
-                    "The Whisper processor needs torch.onnx support, please install pytorch 2.0 and above")
+            if not _is_torch_available:
+                raise ValueError("The Whisper processor needs torch.onnx support, please install pytorch 2.0 and above")
             _converter = WhisperDataProcGraph(processor, opset=opset, **kwargs)
             pre_m = _converter.pre_processing(
                 **pre_kwargs) if pre_kwargs is not None else None
