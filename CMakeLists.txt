@@ -102,6 +102,7 @@ option(OCOS_BUILD_ANDROID "Enable building the Android package" OFF)
 option(OCOS_BUILD_APPLE_FRAMEWORK "Enable building of the MacOS/iOS framework" OFF)
 
 option(OCOS_USE_CUDA "Build the CUDA kernels" OFF)
+option(OCOS_USE_BUILTIN_DEPS "Use the builtin dependencies / no fetch content" OFF)
 
 # Optional value. Some operators do not support old versions due to using the new custom operator interface
 # and will be disabled if this value is set and the version is incompatible.
@@ -748,7 +749,7 @@ if(OCOS_ENABLE_BLINGFIRE)
 endif()
 
 if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
-  target_include_directories(ocos_operators PUBLIC ${nlohmann_json_SOURCE_DIR}/include)
+  target_include_directories(ocos_operators PUBLIC ${nlohmann_json_SOURCE_DIR}/single_include)
 endif()
 
 # If building a shared library we can't throw an internal exception type across the library boundary as the type
