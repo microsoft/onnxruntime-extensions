@@ -58,7 +58,7 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
 
   m.def(
       "image_pre_process",
-      [](std::uintptr_t processor_h, std::uintptr_t images_h) {
+      [](std::uintptr_t processor_h, std::uintptr_t images_h) -> std::uintptr_t {
         OrtxProcessor* processor = reinterpret_cast<OrtxProcessor*>(processor_h);
         OrtxRawImages* images = reinterpret_cast<OrtxRawImages*>(images_h);
         OrtxTensorResult* result{};
@@ -72,7 +72,7 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
 
   m.def(
       "tensor_result_get_at",
-      [](std::uintptr_t result_h, size_t index) {
+      [](std::uintptr_t result_h, size_t index) -> py::object {
         OrtxTensorResult* result = reinterpret_cast<OrtxTensorResult*>(result_h);
         OrtxTensor* tensor{};
         auto err = OrtxTensorResultGetAt(result, index, &tensor);
@@ -81,15 +81,17 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         }
 
         extDataType_t tensor_type;
-
         OrtxGetTensorType(tensor, &tensor_type);
         const int64_t* shape{};
         size_t num_dims;
         const void* data{};
         size_t elem_size = 1;
-        if (tensor_type == extDataType_t::kOrtxInt64 ||
-            tensor_type == extDataType_t::kOrtxFloat ||
-            tensor_type == extDataType_t::kOrtxUint8) {
+        if (tensor_type == extDataType_t::kOrtxString) {
+          const char* str{};
+          OrtxGetTensorData(tensor, reinterpret_cast<const void**>(&str), nullptr, nullptr);
+          return py::str(str);
+        } else if (tensor_type == extDataType_t::kOrtxInt64 || tensor_type == extDataType_t::kOrtxFloat ||
+                   tensor_type == extDataType_t::kOrtxUint8 || tensor_type == extDataType_t::kOrtxUint32) {
           OrtxGetTensorData(tensor, reinterpret_cast<const void**>(&data), &shape, &num_dims);
           OrtxGetTensorSizeOfElement(tensor, &elem_size);
         } else if (tensor_type == extDataType_t::kOrtxUnknownType) {
@@ -108,6 +110,10 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
           obj = py::array_t<int64_t>(npy_dims);
         } else if (tensor_type == extDataType_t::kOrtxUint8) {
           obj = py::array_t<uint8_t>(npy_dims);
+        } else if (tensor_type == extDataType_t::kOrtxUint32) {
+          obj = py::array_t<uint32_t>(npy_dims);
+        } else {
+          throw std::runtime_error("unsupported tensor type");
         }
 
         void* out_ptr = obj.mutable_data();
@@ -193,27 +199,20 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
       "Batch detokenize.");
 
   m.def(
-    "apply_chat_template",
-    [](std::uintptr_t h, const std::string& template_str,
-      const std::string& input, bool add_generation_prompt) -> std::string {
-      OrtxTokenizer* tokenizer = reinterpret_cast<OrtxTokenizer*>(h);
-      ort_extensions::OrtxObjectPtr<OrtxString> templated_text;
-      auto err = OrtxApplyChatTemplate(tokenizer,
-        template_str.empty()? nullptr: template_str.c_str(), input.c_str(),
-        templated_text.ToBeAssigned(), add_generation_prompt);
-      if (err != kOrtxOK) {
-        throw std::runtime_error(std::string("Failed to apply chat template: ") + OrtxGetLastErrorMessage());
-      }
+      "apply_chat_template",
+      [](std::uintptr_t h, const std::string& template_str, const std::string& input, bool add_generation_prompt,
+         bool tokenize) -> std::uintptr_t {
+        OrtxTokenizer* tokenizer = reinterpret_cast<OrtxTokenizer*>(h);
+        OrtxTensorResult* result{};
+        auto err = OrtxApplyChatTemplate(tokenizer, template_str.empty() ? nullptr : template_str.c_str(),
+                                         input.c_str(), &result, add_generation_prompt, tokenize);
+        if (err != kOrtxOK) {
+          throw std::runtime_error(std::string("Failed to apply chat template: ") + OrtxGetLastErrorMessage());
+        }
 
-      const char* text{};
-      err = OrtxStringGetCstr(templated_text.get(), &text);
-      if (err != kOrtxOK) {
-        throw std::runtime_error(std::string("Failed to get string: ") + OrtxGetLastErrorMessage());
-      }
-      std::string result(text);
-      return result;
-    },
-    "Apply chat template.");
+        return reinterpret_cast<std::uintptr_t>(result);
+      },
+      "Apply chat template.");
 
   m.def(
       "delete_object", [](std::uintptr_t h) { OrtxDisposeOnly(reinterpret_cast<OrtxObject*>(h)); },

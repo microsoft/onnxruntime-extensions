@@ -59,7 +59,7 @@ stages:
     steps:
     - task: DownloadGitHubRelease@0
       inputs:
-        connection: 'GitHub - Release'
+        connection: 'microsoft'
         userRepository: 'microsoft/onnxruntime'
         defaultVersionType: 'specificTag'
         version: 'v$(ort.version)'
@@ -106,8 +106,10 @@ stages:
         python -m pip install -r requirements-dev.txt
       displayName: Install requirements-dev.txt
 
-    - script: cd test && python -m pytest . --verbose
+    - script: |
+        cd test && python -m pytest . --verbose
       displayName: Run python test
+      condition: and(succeeded(), eq(variables['python.version'], '3.11'))
 
   ###############
   # Linux PyDebug
@@ -245,7 +247,7 @@ stages:
 
     - task: DownloadGitHubRelease@0
       inputs:
-        connection: 'GitHub - Release'
+        connection: 'microsoft'
         userRepository: 'microsoft/onnxruntime'
         defaultVersionType: 'specificTag'
         version: 'v$(ort.version)'
@@ -349,6 +351,7 @@ stages:
 
     - script: cd test && python -m pytest . --verbose
       displayName: Run python test
+      condition: and(succeeded(), eq(variables['python.version'], '3.11'))
 
 - stage: WindowsBuilds
   dependsOn: []
@@ -375,7 +378,7 @@ stages:
     steps:
     - task: DownloadGitHubRelease@0
       inputs:
-        connection: 'GitHub - Release'
+        connection: 'microsoft'
         userRepository: 'microsoft/onnxruntime'
         defaultVersionType: 'specificTag'
         version: 'v$(ort.version)'
@@ -493,6 +496,7 @@ stages:
     - script: |
         cd test && python -m pytest .
       displayName: Run python test
+      condition: and(succeeded(), eq(variables['python.version'], '3.11'))
 
   #################
   # Windows PyDebug
@@ -552,7 +556,7 @@ stages:
 
       - task: DownloadGitHubRelease@0
         inputs:
-          connection: 'GitHub - Release'
+          connection: 'microsoft'
           userRepository: 'microsoft/onnxruntime'
           defaultVersionType: 'specificTag'
           version: 'v$(ORT_VERSION)'
@@ -639,7 +643,7 @@ stages:
 
       - task: DownloadGitHubRelease@0
         inputs:
-          connection: 'GitHub - Release'
+          connection: 'microsoft'
           userRepository: 'microsoft/onnxruntime'
           defaultVersionType: 'specificTag'
           version: 'v$(ORT_VERSION)'
@@ -828,6 +832,7 @@ stages:
         displayName: Install ninja
 
       - bash: |
+          python -m pip install cmake==3.31.6
           python ./tools/build.py \
             --config RelWithDebInfo \
             --android \
@@ -859,7 +864,7 @@ stages:
       displayName: "Use Python 3.12"
 
     - script: |
-        python -m pip install cmake
+        python -m pip install "cmake<4.0.0"
       displayName: "Install CMake"
 
     - template: templates/set-package-version-variable-step.yml
