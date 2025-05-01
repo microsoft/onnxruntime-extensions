@@ -17,6 +17,7 @@ tensor_result_get_at = _C.tensor_result_get_at
 
 create_tokenizer = _C.create_tokenizer
 batch_tokenize = _C.batch_tokenize
+batch_tokenize_with_options = _C.batch_tokenize_with_options
 batch_detokenize = _C.batch_detokenize
 _apply_chat_template = _C.apply_chat_template
 
@@ -51,8 +52,8 @@ class Tokenizer:
 
     def tokenize(self, text, add_special_tokens = True):
         if isinstance(text, (list, tuple)):
-            return batch_tokenize(self.tokenizer, text, add_special_tokens)
-        return batch_tokenize(self.tokenizer, [text], add_special_tokens)[0]
+            return batch_tokenize_with_options(self.tokenizer, text, add_special_tokens)
+        return batch_tokenize_with_options(self.tokenizer, [text], add_special_tokens)[0]
 
     def detokenize(self, tokens):
         return batch_detokenize(self.tokenizer, [tokens])
