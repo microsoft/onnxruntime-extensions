@@ -60,7 +60,7 @@ class TestPPAPI(unittest.TestCase):
         else:
             cls.temp_dir = tempfile.mkdtemp()
             print(f"Created temp dir: {cls.temp_dir}")
-        
+
         # Define a list of different message scenarios for chat template testing
         cls.messages_list = [
             # Case 1: Regular case with system, user, and assistant
@@ -69,21 +69,21 @@ class TestPPAPI(unittest.TestCase):
                 {"role": "user", "content": "Hello, can you call some tools for me?"},
                 {"role": "assistant", "content": "Sure, I can calculate the sum for you!"}
             ],
-            
+
             # Case 2: Two back-to-back user messages
             [
                 {"role": "system", "content": "", "tools": "calculate_sum"},
                 {"role": "user", "content": "Hi, I need some help with tools."},
                 {"role": "user", "content": "Also, can you help with calculations?"}
             ],
-            
+
             # Case 3: Two back-to-back assistant messages
             [
                 {"role": "system", "content": "", "tools": "calculate_sum"},
                 {"role": "assistant", "content": "Sure, what would you like me to calculate?"},
                 {"role": "assistant", "content": "I can handle multiple requests."}
             ],
-            
+
             # Case 4: Mixed roles (user, assistant, user, assistant)
             [
                 {"role": "user", "content": "What can you do for me?"},
@@ -91,7 +91,7 @@ class TestPPAPI(unittest.TestCase):
                 {"role": "user", "content": "Can you calculate a sum for me?"},
                 {"role": "assistant", "content": "Sure, let me calculate that for you."}
             ],
-            
+
             # Case 5: System message with empty content
             [
                 {"role": "system", "content": "", "tools": "calculate_sum"},
@@ -251,6 +251,19 @@ class TestPPAPI(unittest.TestCase):
         ortx_inputs = tokenizer.tokenize(test_sentence)
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
+    def test_whisper_tokenizer(self):
+        model_id = util.get_test_data_file("data/models/whisper-large-v3")
+        # test_sentence = [self.tokenizer_test_sentence]
+        # hf_enc = AutoTokenizer.from_pretrained(model_id, use_fast=True)
+        # inputs = hf_enc(test_sentence)["input_ids"]
+        tokenizer = pp_api.Tokenizer(model_id)
+        ortx_input = [50258, 50364,    40,   411,  4494,   452,  4052,  3000,   198,
+                      293,   211,   550,   220, 49958,  1546,  6303,  8897,   249,
+                      1541,   220,   197,   197,   197,   197,   220,   198,   198,
+                      31537,    13,   509,   603,  2103,   264,  8543,    13, 50257]
+        decoded_string = tokenizer.detokenize(ortx_input)
+        self.assertEqual(decoded_string[0], self.tokenizer_test_sentence)
+
     @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_gemma_3_chat_template(self):
         ckpt = "google/gemma-3-4b-it"
@@ -345,7 +358,7 @@ class TestPPAPI(unittest.TestCase):
             self.assertEqual(prompt, inputs)
             ortx_inputs = tokenizer.tokenize(prompt)
             np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
-    
+
     @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_phi3_medium_chat_template(self):
         ckpt = "microsoft/Phi-3-medium-4k-instruct"
@@ -361,7 +374,7 @@ class TestPPAPI(unittest.TestCase):
             self.assertEqual(prompt, inputs)
             ortx_inputs = tokenizer.tokenize(prompt)
             np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
-    
+
     @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_llama3_chat_template(self):
         ckpt = "meta-llama/Meta-Llama-3-8B-Instruct"
@@ -377,7 +390,7 @@ class TestPPAPI(unittest.TestCase):
             self.assertEqual(prompt, inputs)
             ortx_inputs = tokenizer.tokenize(prompt)
             np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
-    
+
     @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_llama3_1_chat_template(self):
         ckpt = "meta-llama/Llama-3.1-8B-Instruct"
@@ -409,7 +422,7 @@ class TestPPAPI(unittest.TestCase):
             self.assertEqual(prompt, inputs)
             ortx_inputs = tokenizer.tokenize(prompt)
             np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
-    
+
     @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_llama3_3_chat_template(self):
         ckpt = "meta-llama/Llama-3.3-70B-Instruct"
@@ -425,7 +438,7 @@ class TestPPAPI(unittest.TestCase):
             self.assertEqual(prompt, inputs)
             ortx_inputs = tokenizer.tokenize(prompt)
             np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
-    
+
     @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_deepseek_chat_template(self):
         ckpt = "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"

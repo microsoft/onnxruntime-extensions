@@ -59,7 +59,7 @@ stages:
     steps:
     - task: DownloadGitHubRelease@0
       inputs:
-        connection: 'GitHub - Release'
+        connection: 'microsoft'
         userRepository: 'microsoft/onnxruntime'
         defaultVersionType: 'specificTag'
         version: 'v$(ort.version)'
@@ -247,7 +247,7 @@ stages:
 
     - task: DownloadGitHubRelease@0
       inputs:
-        connection: 'GitHub - Release'
+        connection: 'microsoft'
         userRepository: 'microsoft/onnxruntime'
         defaultVersionType: 'specificTag'
         version: 'v$(ort.version)'
@@ -378,7 +378,7 @@ stages:
     steps:
     - task: DownloadGitHubRelease@0
       inputs:
-        connection: 'GitHub - Release'
+        connection: 'microsoft'
         userRepository: 'microsoft/onnxruntime'
         defaultVersionType: 'specificTag'
         version: 'v$(ort.version)'
@@ -556,7 +556,7 @@ stages:
 
       - task: DownloadGitHubRelease@0
         inputs:
-          connection: 'GitHub - Release'
+          connection: 'microsoft'
           userRepository: 'microsoft/onnxruntime'
           defaultVersionType: 'specificTag'
           version: 'v$(ORT_VERSION)'
@@ -643,7 +643,7 @@ stages:
 
       - task: DownloadGitHubRelease@0
         inputs:
-          connection: 'GitHub - Release'
+          connection: 'microsoft'
           userRepository: 'microsoft/onnxruntime'
           defaultVersionType: 'specificTag'
           version: 'v$(ORT_VERSION)'
