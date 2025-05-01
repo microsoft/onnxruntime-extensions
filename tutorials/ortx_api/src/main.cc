@@ -9,7 +9,7 @@ extError_t tokenize_text(const OrtxTokenizer *tokenizer,
 {
   OrtxTokenId2DArray *tok_2d_output = NULL;
   const char *tok_input[] = {text};
-  extError_t err = OrtxTokenize(tokenizer, tok_input, 1, &tok_2d_output);
+  extError_t err = OrtxTokenize(tokenizer, tok_input, 1, &tok_2d_output, true);
   if (err != kOrtxOK)
   {
     return err;

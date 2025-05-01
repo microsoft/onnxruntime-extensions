@@ -85,7 +85,7 @@ TEST(OrtxTokenizerTest, SpmUgmTokenizer) {
 
   const char* input[] = {"I like walking my cute dog\n and\x17 then, 生活的真谛是  \t\t\t\t \n\n61"};
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
-  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned(), true);
   EXPECT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;
@@ -151,7 +151,7 @@ TEST(OrtxTokenizerTest, Phi3_Small_Tokenizer_Blob) {
                          "I like walking my cute dog\n and\x17 then 生活的真谛是 \t\t\t\t \n\n61"};
 
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
-  OrtxTokenize(tokenizer.get(), input, 4, token_ids.ToBeAssigned());
+  OrtxTokenize(tokenizer.get(), input, 4, token_ids.ToBeAssigned(), true);
   EXPECT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;
@@ -178,7 +178,7 @@ TEST(OrtxTokenizerTest, Phi3TokenizerBlob) {
 
   const char* input[] = {"I like walking my cute dog\n and\x17 then, 生活的真谛是  \t\t\t\t \n\n61"};
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
-  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned(), true);
   EXPECT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;
@@ -200,7 +200,7 @@ TEST(OrtxTokenizerTest, T5Tokenizer) {
 
   const char* input[] = {"I <extra_id_0> like walking my cute dog\n and\x17 then, 生活的真谛是  \t\t\t\t \n\n61"};
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
-  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned(), true);
   ASSERT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;
@@ -219,7 +219,7 @@ TEST(OrtxTokenizerTest, ChatGLMTokenizer) {
 
   const char* input[] = {"I like walking my cute dog\n and\x17 then, 生活的真谛是  \t\t\t\t \n\n61"};
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
-  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned(), true);
   ASSERT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;
@@ -238,7 +238,7 @@ TEST(OrtxTokenizerTest, MarianTokenizer) {
 
   const char* input[] = {"Hello-there THIS Is a Test"};
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
-  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned(), true);
   ASSERT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;
@@ -263,7 +263,7 @@ TEST(OrtxTokenizerTest, MarianTokenizer2) {
 
   const char* input[] = {"I like walking my cute dog\n and\x17 then, 生活的真谛是  \t\t\t\t \n\n61"};
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
-  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned(), true);
   ASSERT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;

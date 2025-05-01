@@ -66,7 +66,7 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer, 
 }
 
 extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
-                                      OrtxTokenId2DArray** output) {
+                                      OrtxTokenId2DArray** output, bool add_special_tokens) {
   if (tokenizer == nullptr || input == nullptr || output == nullptr) {
     ReturnableStatus::last_error_message_ = "Invalid argument";
     return kOrtxErrorInvalidArgument;
@@ -83,7 +83,7 @@ extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char
   std::transform(input, input + batch_size, std::back_inserter(input_view),
                  [](const char* str) { return std::string_view(str); });
 
-  status = token_ptr->Tokenize(input_view, t_ids);
+  status = token_ptr->Tokenize(input_view, t_ids, add_special_tokens);
   if (!status.IsOk()) {
     return status.Code();
   }
