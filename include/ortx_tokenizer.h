@@ -75,11 +75,24 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer,
  * \param input Array of input strings
  * \param batch_size Number of input strings in the batch
  * \param output Pointer to store the tokenized result
- * \param add_special_tokens Boolean to determine whether to add or omit special tokens
  * \return Error code indicating the success or failure of the operation
  */
 extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
-                                      OrtxTokenId2DArray** output, bool add_special_tokens);
+                                      OrtxTokenId2DArray** output);
+
+/** \brief Tokenize the input using the specified tokenizer and options such as the add_special_tokens flag.
+ * 
+ * Separate from OrtxTokenize for backward compatibility. Can be used to specify other options in the future.
+ *
+ * \param tokenizer Pointer to the tokenizer object
+ * \param input Array of input strings
+ * \param batch_size Number of input strings in the batch
+ * \param output Pointer to store the tokenized result
+ * \param add_special_tokens Boolean to determine whether to add or omit special tokens
+ * \return Error code indicating the success or failure of the operation
+ */
+extError_t ORTX_API_CALL OrtxTokenizeWithOptions(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
+                                                           OrtxTokenId2DArray** output, bool add_special_tokens);
 
 /**
  * Converts a token to its corresponding ID.

@@ -144,7 +144,7 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         for (const auto& input : inputs) {
           cs_inputs.push_back(input.c_str());
         }
-        auto err = OrtxTokenize(tokenizer, cs_inputs.data(), inputs.size(), &tid_output, true);
+        auto err = OrtxTokenize(tokenizer, cs_inputs.data(), inputs.size(), &tid_output);
         if (err != kOrtxOK) {
           throw std::runtime_error(std::string("Failed to tokenize: ") + OrtxGetLastErrorMessage());
         }

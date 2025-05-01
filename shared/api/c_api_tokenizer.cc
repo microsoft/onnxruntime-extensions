@@ -66,6 +66,36 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer, 
 }
 
 extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
+                                      OrtxTokenId2DArray** output) {
+  if (tokenizer == nullptr || input == nullptr || output == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  auto token_ptr = static_cast<const TokenizerImpl*>(tokenizer);
+  ReturnableStatus status = token_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindTokenizer);
+  if (!status.IsOk()) {
+    return status.Code();
+  }
+
+  std::vector<std::vector<extTokenId_t>> t_ids;
+  std::vector<std::string_view> input_view;
+  std::transform(input, input + batch_size, std::back_inserter(input_view),
+                 [](const char* str) { return std::string_view(str); });
+
+  status = token_ptr->Tokenize(input_view, t_ids);
+  if (!status.IsOk()) {
+    return status.Code();
+  }
+
+  auto result = std::make_unique<ort_extensions::TokenId2DArray>().release();
+  result->SetTokenIds(std::move(t_ids));
+  *output = static_cast<OrtxTokenId2DArray*>(result);
+
+  return extError_t();
+}
+
+extError_t ORTX_API_CALL OrtxTokenizeWithOptions(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
                                       OrtxTokenId2DArray** output, bool add_special_tokens) {
   if (tokenizer == nullptr || input == nullptr || output == nullptr) {
     ReturnableStatus::last_error_message_ = "Invalid argument";
