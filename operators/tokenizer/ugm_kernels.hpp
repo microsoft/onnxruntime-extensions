@@ -370,9 +370,16 @@ struct SpmUgmTokenizer {
 
   OrtxStatus Compute(const ortc::Tensor<std::string>& input, ortc::Tensor<int64_t>& tokenize_output,
                      std::optional<ortc::Tensor<int64_t>*> attention_mask = std::nullopt,
-                     std::optional<ortc::Tensor<int64_t>*> offset_mapping = std::nullopt) const {
+                     std::optional<ortc::Tensor<int64_t>*> offset_mapping = std::nullopt,
+                     std::optional<bool> add_special_tokens = true) const {
     if (attention_mask.has_value() || offset_mapping.has_value()) {
       return {kOrtxErrorInvalidArgument, "attention-mask or offset-mapping was supported in unigram tokenizer"};
+    }
+
+    // Update add_special_tokens
+    bool append_special_tokens = true;
+    if (add_special_tokens.has_value()) {
+      append_special_tokens = add_special_tokens.value();
     }
 
     if (input.Shape().size() != 1) {
@@ -380,7 +387,7 @@ struct SpmUgmTokenizer {
     }
 
     std::vector<extTokenId_t> ids_vec;
-    auto status = ComputeNoOp(input.AsScalar(), ids_vec, true);
+    auto status = ComputeNoOp(input.AsScalar(), ids_vec, append_special_tokens);
     if (status.IsOk()) {
       auto output_size = static_cast<int64_t>(ids_vec.size());
       int64_t* id_output = tokenize_output.Allocate({output_size});
