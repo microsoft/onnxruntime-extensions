@@ -290,7 +290,13 @@ class TestPPAPI(unittest.TestCase):
         prompt = tokenizer.apply_chat_template(message_json)
         self.assertEqual(prompt, inputs)
         ortx_inputs = tokenizer.tokenize(prompt)
-        np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
+        hf_inputs = hf_tok(prompt, return_tensors="np")["input_ids"][0]
+        np.testing.assert_array_equal(ortx_inputs, hf_inputs)
+
+        # Test without special tokens
+        # (should omit extra BOS token in the case of Gemma-3)
+        ortx_inputs_2 = tokenizer.tokenize(prompt, False)
+        np.testing.assert_array_equal(ortx_inputs_2, hf_tok.encode(inputs[0], add_special_tokens=False))
 
     def test_phi4_chat_template(self):
         model_id = util.get_test_data_file("data/models/phi-4")

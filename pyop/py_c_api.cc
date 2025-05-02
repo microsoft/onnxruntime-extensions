@@ -162,6 +162,35 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         return output;
       },
       "Batch tokenize.");
+  
+      m.def(
+        "batch_tokenize_with_options",
+        [](std::uintptr_t h, const std::vector<std::string>& inputs, bool add_special_tokens) -> std::vector<std::vector<int64_t>> {
+          std::vector<std::vector<int64_t>> output;
+          OrtxTokenizer* tokenizer = reinterpret_cast<OrtxTokenizer*>(h);
+          OrtxTokenId2DArray* tid_output = nullptr;
+          std::vector<const char*> cs_inputs;
+          for (const auto& input : inputs) {
+            cs_inputs.push_back(input.c_str());
+          }
+          auto err = OrtxTokenizeWithOptions(tokenizer, cs_inputs.data(), inputs.size(), &tid_output, add_special_tokens);
+          if (err != kOrtxOK) {
+            throw std::runtime_error(std::string("Failed to tokenize: ") + OrtxGetLastErrorMessage());
+          }
+  
+          for (size_t i = 0; i < inputs.size(); ++i) {
+            const extTokenId_t* t2d{};
+            size_t length{};
+            err = OrtxTokenId2DArrayGetItem(tid_output, i, &t2d, &length);
+            if (err != kOrtxOK) {
+              throw std::runtime_error(std::string("Failed to get token id: ") + OrtxGetLastErrorMessage());
+            }
+            output.push_back(std::vector<int64_t>(t2d, t2d + length));
+          }
+          OrtxDisposeOnly(tid_output);
+          return output;
+        },
+        "Batch tokenize with options.");
 
   m.def(
       "batch_detokenize",

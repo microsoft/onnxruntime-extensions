@@ -526,7 +526,8 @@ OrtxStatus KernelBpeTokenizer::ComputeNoOp(const std::string& input, std::vector
 
 OrtxStatus KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input, ortc::Tensor<int64_t>& tokenize_output,
                                        std::optional<ortc::Tensor<int64_t>*> attention_mask,
-                                       std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
+                                       std::optional<ortc::Tensor<int64_t>*> offset_mapping,
+                                       std::optional<bool> add_special_tokens) const {
   // Setup inputs
   std::vector<std::string> str_input{input.Data()};
   std::list<OffsetMappingType> offset_map;
@@ -540,6 +541,12 @@ OrtxStatus KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input, o
     compute_offset_mapping = true;
   }
 
+  // Update add_special_tokens
+  bool append_special_tokens = true;
+  if (add_special_tokens.has_value()) {
+    append_special_tokens = add_special_tokens.value();
+  }
+
   auto tok_fun = &KernelBpeTokenizer::Tokenize;
   if (bpe_conf_.get().spm_model_) {
     tok_fun = &KernelBpeTokenizer::SpmTokenize;
@@ -549,7 +556,7 @@ OrtxStatus KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input, o
     ustring ustr = ustring(str);
     tokenize_results.emplace_back(
         (this->*tok_fun)(ustr, padding_length_ < 0 ? (std::numeric_limits<uint32_t>::max)() : padding_length_,
-                         compute_offset_mapping, offset_map, true));
+                         compute_offset_mapping, offset_map, append_special_tokens));
   }
 
   size_t max_length = 0;
@@ -897,6 +904,7 @@ OrtxStatus JsonFastTokenizer::LoadTikTokenBase64(const ort_extensions::TokenJson
 
 OrtxStatus JsonFastTokenizer::Compute(const ortc::Tensor<std::string>& input, ortc::Tensor<int64_t>& tokenize_output,
                                       std::optional<ortc::Tensor<int64_t>*> attention_mask,
-                                      std::optional<ortc::Tensor<int64_t>*> offset_mapping) const {
-  return KernelBpeTokenizer::Compute(input, tokenize_output, attention_mask, offset_mapping);
+                                      std::optional<ortc::Tensor<int64_t>*> offset_mapping,
+                                      std::optional<bool> add_special_tokens) const {
+  return KernelBpeTokenizer::Compute(input, tokenize_output, attention_mask, offset_mapping, add_special_tokens);
 }
