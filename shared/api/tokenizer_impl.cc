@@ -91,7 +91,7 @@ OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
 
 OrtxStatus TokenizerImpl::BatchEncode(const std::vector<std::string_view>& input,
                                       std::vector<std::vector<extTokenId_t>>& t_ids,
-                                      std::optional<bool> add_special_tokens) const {
+                                      bool add_special_tokens) const {
   for (const auto& s : input) {
     ortc::Tensor<int64_t> ts_output(&CppAllocator::Instance());
     ortc::Tensor<std::string> ts_input = ortc::Tensor<std::string>(std::vector<std::string>{std::string(s)});

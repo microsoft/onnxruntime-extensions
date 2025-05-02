@@ -92,7 +92,7 @@ extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char
  * \return Error code indicating the success or failure of the operation
  */
 extError_t ORTX_API_CALL OrtxTokenizeWithOptions(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
-                                                           OrtxTokenId2DArray** output, bool add_special_tokens);
+                                                 OrtxTokenId2DArray** output, bool add_special_tokens);
 
 /**
  * Converts a token to its corresponding ID.

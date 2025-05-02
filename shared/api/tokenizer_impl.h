@@ -23,7 +23,7 @@ class TokenizerImpl : public OrtxObjectImpl {
   OrtxStatus Load(const std::string& tok_path);
   OrtxStatus Load(const OrtxTokenizerBlob& blob);
 
-  OrtxStatus Tokenize(const std::vector<std::string_view>& input, std::vector<std::vector<extTokenId_t>>& t_ids, std::optional<bool> add_special_tokens = true) const {
+  OrtxStatus Tokenize(const std::vector<std::string_view>& input, std::vector<std::vector<extTokenId_t>>& t_ids, bool add_special_tokens = true) const {
     return BatchEncode(input, t_ids, add_special_tokens);
   }
 
@@ -50,7 +50,7 @@ class TokenizerImpl : public OrtxObjectImpl {
 
   OrtxStatus BatchEncode(const std::vector<std::string_view>& input,
                          std::vector<std::vector<extTokenId_t>>& t_ids,
-                         std::optional<bool> add_special_tokens) const;
+                         bool add_special_tokens) const;
 
   OrtxStatus BatchDecode(const std::vector<span<extTokenId_t const>>& t_ids, std::vector<std::string>& t_text) const;
 
