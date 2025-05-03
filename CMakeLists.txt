@@ -761,7 +761,6 @@ if(OCOS_ENABLE_BERT_TOKENIZER)
 endif()
 
 if(OCOS_ENABLE_SPM_TOKENIZER)
-  # SentencePiece
   if(OCOS_USE_VCPKG)
     list(APPEND ocos_libraries sentencepiece::sentencepiece-static)
   else()

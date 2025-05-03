@@ -64,7 +64,12 @@ set(SPM_USE_BUILTIN_PROTOBUF OFF CACHE BOOL "Use built-in protobuf" FORCE)
 
 
 FetchContent_MakeAvailable(spm)
-if(TARGET sentencepiece-static)
+
+if(TARGET sentencepiece-static AND NOT TARGET sentencepiece::sentencepiece-static)
+  add_library(sentencepiece::sentencepiece-static ALIAS sentencepiece-static)
+endif()
+
+if(OCOS_USE_VCPKG)
   target_link_libraries(sentencepiece-static PUBLIC protobuf::libprotobuf-lite)
   set_target_properties(sentencepiece-static PROPERTIES
     FOLDER externals/google)
