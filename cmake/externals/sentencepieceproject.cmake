@@ -68,4 +68,11 @@ if(TARGET sentencepiece-static)
   target_link_libraries(sentencepiece-static PUBLIC protobuf::libprotobuf-lite)
   set_target_properties(sentencepiece-static PROPERTIES
     FOLDER externals/google)
+else()
+  set(spm_INCLUDE_DIRS    
+    ${spm_SOURCE_DIR}/src/builtin_pb
+    ${spm_SOURCE_DIR}/src)
+  if(protobuf_SOURCE_DIR)
+    list(APPEND spm_INCLUDE_DIRS ${protobuf_SOURCE_DIR}/src)
+  endif()
 endif()
