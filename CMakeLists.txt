@@ -1015,6 +1015,7 @@ if (_ORTX_STANDALONE_PROJECT)
   if(OCOS_ENABLE_CTEST AND NOT MAC_CATALYST)
     include(ext_tests)
   endif()
+  if(OCOS_USE_VCPKG)
   include(GNUInstallDirs)
   include(CMakePackageConfigHelpers)
   set(PROJECT_CONFIG_CONTENT "@PACKAGE_INIT@\n")
@@ -1040,6 +1041,7 @@ if (_ORTX_STANDALONE_PROJECT)
     "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
     "${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+  endif()
 endif()
 
 if(OCOS_USE_WINRT)
