@@ -614,8 +614,18 @@ source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${_TARGET_SRC_FOR_SOURCE_GROUP})
 standardize_output_folder(noexcep_operators)
 standardize_output_folder(ocos_operators)
 
-target_link_libraries(noexcep_operators PRIVATE onnxruntime::onnxruntime Microsoft.GSL::GSL)
-target_link_libraries(ocos_operators PRIVATE onnxruntime::onnxruntime Microsoft.GSL::GSL)
+if(TARGET onnxruntime::onnxruntime)
+  target_link_libraries(noexcep_operators PRIVATE onnxruntime::onnxruntime)
+  target_link_libraries(ocos_operators PRIVATE onnxruntime::onnxruntime)
+else()
+  target_link_libraries(noexcep_operators PRIVATE ${ONNXRUNTIME_INCLUDE_DIR})
+  target_link_libraries(ocos_operators PRIVATE ${ONNXRUNTIME_INCLUDE_DIR})  
+endif()
+
+if(TARGET Microsoft.GSL::GSL)
+  target_link_libraries(noexcep_operators PRIVATE Microsoft.GSL::GSL)
+  target_link_libraries(ocos_operators PRIVATE Microsoft.GSL::GSL)
+endif()
 
 target_include_directories(noexcep_operators PUBLIC
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
@@ -664,7 +674,7 @@ if(OCOS_ENABLE_TF_STRING)
     FIND_PACKAGE(farmhash REQUIRED)
     TARGET_LINK_LIBRARIES(noexcep_operators PRIVATE GOOGLE::farmhash) 
   else()
-    target_include_directories(noexcep_operators PUBLIC ${farmhash_SOURCE_DIR}/src)
+    target_include_directories(noexcep_operators PUBLIC $<BUILD_INTERFACE:${farmhash_SOURCE_DIR}/src>)
   endif()
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING NOMINMAX FARMHASH_NO_BUILTIN_EXPECT FARMHASH_DEBUG=0)
 
@@ -911,7 +921,12 @@ if(OCOS_BUILD_SHARED_LIB)
     list(APPEND shared_TARGET_SRC "shared/ortcustomops.def")
   endif()
   add_library(extensions_shared SHARED ${shared_TARGET_SRC})
-  target_link_libraries(extensions_shared PUBLIC dlib::dlib onnxruntime::onnxruntime)
+  if(TARGET dlib::dlib)
+    target_link_libraries(extensions_shared PUBLIC dlib::dlib)
+  endif()
+  if(TARGET dlib::dlib)
+    target_link_libraries(extensions_shared PUBLIC onnxruntime::onnxruntime)
+  endif()
   # We need to propagate OCOS_SHARED_LIBRARY if set.
   # could specifically add that if using OCOS_COMPILE_DEFINITIONS is too much.
   target_compile_definitions(extensions_shared PRIVATE ${OCOS_COMPILE_DEFINITIONS})
