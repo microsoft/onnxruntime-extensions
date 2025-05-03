@@ -93,7 +93,7 @@ else()
   )
 
   FetchContent_makeAvailable(onnxruntime)
-  if(TARGET onnxruntime::onnxruntime)
+  if(OCOS_USE_VCPKG)
     get_target_property(ONNXRUNTIME_INCLUDE_DIRS onnxruntime::onnxruntime INTERFACE_INCLUDE_DIRECTORIES)
     list(LENGTH ONNXRUNTIME_INCLUDE_DIRS ONNXRUNTIME_INCLUDE_DIRS_LENGTH)
     if(ONNXRUNTIME_INCLUDE_DIRS_LENGTH EQUAL 1)
