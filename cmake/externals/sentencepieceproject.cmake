@@ -12,7 +12,7 @@ if(NOT _ONNXRUNTIME_EMBEDDED)
     GIT_TAG v21.12
     EXCLUDE_FROM_ALL
     PATCH_COMMAND git checkout . && git apply --ignore-space-change --ignore-whitespace ${PROJECT_SOURCE_DIR}/cmake/externals/protobuf_cmake.patch
-	FIND_PACKAGE_ARGS NAMES Protobuf protobuf
+    FIND_PACKAGE_ARGS NAMES Protobuf protobuf
   )
   
   set(protobuf_BUILD_TESTS OFF CACHE BOOL "Build tests")
