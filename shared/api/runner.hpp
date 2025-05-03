@@ -447,7 +447,6 @@ class ExecutionPlan {
           status = PrepareInput(*operations_[n + 1], ts_output, ts_input, ts_lookup_table);
         }
 
-        size_t i = 0;
         for (size_t i = 0; i < ts_output.size(); i++) {
           auto& out_tensor = ts_output[i];
           std::string tensor_name = op->GetOpName() + ":" + std::to_string(i);
@@ -591,7 +590,8 @@ class OrtxRunner {
         if (shape != ts[axis]->Shape()) {
           is_same_shape = false;
           auto dtype = ts[axis]->Type();
-          if (dtype != ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64 && dtype != ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT) {
+          if (dtype != ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64 &&
+            dtype != ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT && dtype != ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL) {
             return {kOrtxErrorInvalidArgument, "[StackTensors]: shapes of tensors to stack are not the same."};
           }
           if (IsGreaterShape(ts[axis]->Shape(), shape)) {

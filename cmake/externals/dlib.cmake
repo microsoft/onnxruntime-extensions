@@ -1,7 +1,7 @@
 FetchContent_Declare(
     dlib
-    URL https://github.com/davisking/dlib/archive/refs/tags/v19.24.6.zip
-    URL_HASH SHA1=59b1fb4e9909697c646e4f74e94871dacf49f0bf
+    URL https://github.com/davisking/dlib/archive/refs/tags/v19.24.7.zip
+    URL_HASH SHA1=6c63ea576e2b525751b0dead27c6c1139c5100ae
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     SOURCE_SUBDIR  not_set
     FIND_PACKAGE_ARGS NAMES dlib

@@ -33,7 +33,8 @@ constexpr std::pair<const char*, TokenType> kTokenizerDict[] = {
   {"", TokenType::kUnigram},
   {"T5Tokenizer", TokenType::kUnigram},
   {"ChatGLMTokenizer", TokenType::kUnigram},
-  {"XLMRobertaTokenizer", TokenType::kUnigram}
+  {"XLMRobertaTokenizer", TokenType::kUnigram},
+  {"MarianTokenizer", TokenType::kUnigram}
 };
 
 
@@ -45,7 +46,7 @@ class TokenJsonConfig final {
   TokenJsonConfig() {}
   ~TokenJsonConfig() {}
   using json = nlohmann::json;
-  using json_pointer = nlohmann::json_pointer<std::string>;
+  std::shared_ptr<json> added_tokens_decoder;
 
  public:
   OrtxStatus AppendModuleJson(json& json_config) {
@@ -70,6 +71,7 @@ class TokenJsonConfig final {
       bos_token_ = "<s>";
       eos_token_ = "</s>";
       unk_token_ = "<unk>";
+      chat_template_ = ""; // can add default chat template
       return {};
     }
 
@@ -89,6 +91,8 @@ class TokenJsonConfig final {
     parse_token(json_config, "bos_token", bos_token_);
     parse_token(json_config, "eos_token", eos_token_);
     parse_token(json_config, "unk_token", unk_token_);
+
+    chat_template_ = json_config.value("chat_template", "");
 
     auto pad_iter = json_config.find("pad_token");
     if (pad_iter != json_config.end() && pad_iter->is_string()) {
@@ -116,7 +120,7 @@ class TokenJsonConfig final {
         vocab_stream = std::make_unique<std::istringstream>(vocab_str);
       }
     } else {
-      auto ifs = std::make_unique<std::ifstream>(vocab_path_);
+      auto ifs = std::make_unique<std::ifstream>(path(vocab_path_.data()).open());
       if (!ifs->is_open()) {
         return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, vocab_path_ + ": does not exist.");
       }
@@ -191,6 +195,9 @@ class TokenJsonConfig final {
       return OrtxStatus(kOrtxErrorInvalidArgument, "Failed to parse config json.");
     }
 
+    // Store added_tokens_decoder to add any missed tokens into added_tokens in UpdateTokenizer 
+    added_tokens_decoder = std::make_shared<json>(json_config.value("added_tokens_decoder", json::object()));
+
     auto module_cfg = tok_dir / "tokenizer_module.json";
     if (module_cfg.exists()) {
       std::ifstream module_ifs = module_cfg.open();
@@ -240,6 +247,8 @@ class TokenJsonConfig final {
   std::string eos_token_;
   std::string unk_token_;
   std::string pad_token_;
+
+  std::string chat_template_;
 
   AddedTokenMap added_tokens_;
 

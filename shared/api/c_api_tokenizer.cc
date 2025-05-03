@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include <regex>
 #include <algorithm>
 
 #include "c_api_utils.hpp"
@@ -83,6 +84,36 @@ extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char
                  [](const char* str) { return std::string_view(str); });
 
   status = token_ptr->Tokenize(input_view, t_ids);
+  if (!status.IsOk()) {
+    return status.Code();
+  }
+
+  auto result = std::make_unique<ort_extensions::TokenId2DArray>().release();
+  result->SetTokenIds(std::move(t_ids));
+  *output = static_cast<OrtxTokenId2DArray*>(result);
+
+  return extError_t();
+}
+
+extError_t ORTX_API_CALL OrtxTokenizeWithOptions(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
+                                      OrtxTokenId2DArray** output, bool add_special_tokens) {
+  if (tokenizer == nullptr || input == nullptr || output == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  auto token_ptr = static_cast<const TokenizerImpl*>(tokenizer);
+  ReturnableStatus status = token_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindTokenizer);
+  if (!status.IsOk()) {
+    return status.Code();
+  }
+
+  std::vector<std::vector<extTokenId_t>> t_ids;
+  std::vector<std::string_view> input_view;
+  std::transform(input, input + batch_size, std::back_inserter(input_view),
+                 [](const char* str) { return std::string_view(str); });
+
+  status = token_ptr->Tokenize(input_view, t_ids, add_special_tokens);
   if (!status.IsOk()) {
     return status.Code();
   }
@@ -215,6 +246,23 @@ extError_t ORTX_API_CALL OrtxStringArrayGetBatch(const OrtxStringArray* string_a
   return extError_t();
 }
 
+extError_t ORTX_API_CALL OrtxStringGetCstr(const OrtxString* string_obj, const char** str) {
+  if (string_obj == nullptr || str == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  const auto token_ptr = static_cast<const String*>(string_obj);
+  ReturnableStatus status(token_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindString));
+  if (!status.IsOk()) {
+    return status.Code();
+  }
+
+  *str = token_ptr->GetString().c_str();
+
+  return extError_t();
+}
+
 extError_t ORTX_API_CALL OrtxStringArrayGetItem(const OrtxStringArray* string_array, size_t index, const char** item) {
   if (string_array == nullptr || item == nullptr) {
     ReturnableStatus::last_error_message_ = "Invalid argument";
@@ -279,8 +327,7 @@ extError_t ORTX_API_CALL OrtxTokenId2DArrayGetItem(const OrtxTokenId2DArray* tok
 }
 
 extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, OrtxDetokenizerCache* cache,
-                                              extTokenId_t next_id,
-                                const char** text_out) {
+                                              extTokenId_t next_id, const char** text_out) {
   if (tokenizer == nullptr || cache == nullptr || text_out == nullptr) {
     ReturnableStatus::last_error_message_ = "Invalid argument";
     return kOrtxErrorInvalidArgument;
@@ -302,6 +349,45 @@ extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, Or
   status = ReturnableStatus(token_ptr->Id2Token(next_id, cache_ptr->last_text_, cache_ptr->decoder_state_));
   if (status.IsOk()) {
     *text_out = cache_ptr->last_text_.c_str();
+  }
+
+  return status.Code();
+}
+
+extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, const char* template_str,
+                                               const char* input, OrtxTensorResult** output, bool add_generation_prompt,
+                                               bool tokenize) {
+  if (tokenizer == nullptr && template_str == nullptr) {
+    ReturnableStatus::last_error_message_ = "both tokenizer and template_str are null, no template to apply";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  if (input == nullptr || output == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  const auto token_ptr = static_cast<const TokenizerImpl*>(tokenizer);
+  ReturnableStatus status(token_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindTokenizer));
+  if (!status.IsOk()) {
+    return status.Code();
+  }
+
+  std::string text;
+  std::vector<extTokenId_t> ids_vec;
+  status = token_ptr->ApplyChatTemplate(template_str, input, text, ids_vec, add_generation_prompt, tokenize);
+  if (status.IsOk()) {
+    auto result = std::make_unique<ort_extensions::TensorResult>();
+    std::vector<std::unique_ptr<ortc::TensorBase>> tensors;
+    tensors.emplace_back(std::make_unique<ortc::Tensor<std::string>>(std::vector<std::string>{text}));
+    if (tokenize) {
+      auto id_tensor = std::make_unique<ortc::Tensor<extTokenId_t>>(&CppAllocator::Instance());
+      extTokenId_t* data = id_tensor->Allocate({1, static_cast<int64_t>(ids_vec.size())});
+      std::copy(ids_vec.begin(), ids_vec.end(), data);
+      tensors.push_back(std::move(id_tensor));
+    }
+    result->SetTensors(std::move(tensors));
+    *output = static_cast<OrtxTensorResult*>(result.release());
   }
 
   return status.Code();

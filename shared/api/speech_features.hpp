@@ -605,8 +605,8 @@ class Phi4AudioEmbed {
   OrtxStatus Compute(const ortc::Tensor<float>& pcm,
                      const ortc::Tensor<int64_t>& sr,
                      ortc::Tensor<float>& ts_logmel,
+                     ortc::Tensor<bool>& audio_attention_mask,
                      ortc::Tensor<int64_t>& embeded_size) {
-
     int64_t sr_val = sr.Data()[0];
     ortc::Tensor<float> stft_norm(&CppAllocator::Instance());
     SpeechFeatures stft_normal;
@@ -615,10 +615,15 @@ class Phi4AudioEmbed {
     if (!status.IsOk()) {
       return status;
     }
+    
+    // Currently we only support 8k and 16k Hz sampling rate.
+    if (sr_val != 8000 && sr_val != 16000){
+      return {kOrtxErrorInvalidArgument, "Only 8k and 16k Hz target sampling rate is supported."};
+    }
 
     SpeechLibLogMel logmel;
-    // already checked in Init
-    logmel.Init(sr_val == 8000? logmel_8k_attrs_: logmel_attrs_);
+    // attributes already are verified in Init method
+    logmel.Init(sr_val == 8000 ? logmel_8k_attrs_: logmel_attrs_);
     status = logmel.Compute(stft_norm, ts_logmel);
     if (!status.IsOk()) {
       return status;
@@ -637,8 +642,13 @@ class Phi4AudioEmbed {
 
         return result
     */
+    auto audio_frames = ts_logmel.Shape()[0];
     auto embedded_size_data = embeded_size.Allocate({1});
-    embedded_size_data[0] = std::ceil(static_cast<float>(ts_logmel.Shape()[0]) / audio_compression_rate_);
+    embedded_size_data[0] = std::ceil(static_cast<float>(audio_frames) / audio_compression_rate_);
+
+    constexpr int64_t feat_stride = 1;
+    auto attention = audio_attention_mask.Allocate({audio_frames * feat_stride});
+    std::memset(attention, 1, audio_frames * feat_stride * sizeof(bool));
     return status;
   }
 
