@@ -761,9 +761,12 @@ endif()
 
 if(OCOS_ENABLE_SPM_TOKENIZER)
   # SentencePiece
-  #target_include_directories(ocos_operators PUBLIC ${spm_INCLUDE_DIRS})
+  if(OCOS_USE_VCPKG)
+    list(APPEND ocos_libraries sentencepiece::sentencepiece-static)
+  else()
+    target_include_directories(ocos_operators PUBLIC ${spm_INCLUDE_DIRS})
+  endif()
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_SPM_TOKENIZER)
-  list(APPEND ocos_libraries sentencepiece::sentencepiece-static)
 endif()
 
 if(OCOS_ENABLE_BLINGFIRE)
