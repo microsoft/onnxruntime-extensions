@@ -89,7 +89,7 @@ else()
   FetchContent_Declare(
     onnxruntime
     URL ${ort_fetch_URL}
-	FIND_PACKAGE_ARGS NAMES onnxruntime
+    FIND_PACKAGE_ARGS NAMES onnxruntime
   )
 
   FetchContent_makeAvailable(onnxruntime)

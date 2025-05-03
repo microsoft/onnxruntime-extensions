@@ -646,7 +646,11 @@ endif()
 
 if (OCOS_ENABLE_AUDIO)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_DR_LIBS)
-  target_include_directories(noexcep_operators PUBLIC ${DRLIBS_INCLUDE_DIR})
+  if(OCOS_USE_VCPKG)
+    target_include_directories(noexcep_operators INTERFACE ${DRLIBS_INCLUDE_DIR})
+  else()
+    target_include_directories(noexcep_operators INTERFACE $<BUILD_INTERFACE:${DRLIBS_INCLUDE_DIR}>)
+  endif()
 endif()
 
 if(_HAS_TOKENIZER)
