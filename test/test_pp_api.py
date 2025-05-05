@@ -234,7 +234,7 @@ class TestPPAPI(unittest.TestCase):
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
     def test_Qwen_QVQ_tokenizer(self):
-        model_id = "Qwen/Qwen3-0.6B-FP8"
+        model_id = "Qwen/QVQ-72B-Preview"
         test_sentence = [self.tokenizer_test_sentence]
         hf_enc = AutoTokenizer.from_pretrained(model_id)
         inputs = hf_enc(test_sentence)["input_ids"]
