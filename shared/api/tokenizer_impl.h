@@ -58,6 +58,8 @@ class TokenizerImpl : public OrtxObjectImpl {
   std::string chat_template;
   mutable MessageList messages;
 
+  std::string chat_template_parsing_status;
+
   std::string bos_token;
   std::string eos_token;
   std::vector<std::string> custom_tools;

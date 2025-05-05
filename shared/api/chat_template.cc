@@ -11,10 +11,12 @@ OrtxStatus TokenizerImpl::LoadChatTemplate() {
     try {
       chat_template_root_ = minja::Parser::parse(chat_template, {});
     } catch (const std::runtime_error& e) {
-      return OrtxStatus(kOrtxErrorInvalidArgument, "Failed to parse chat template: " + std::string(e.what()));
+      chat_template_parsing_status = std::string(e.what());
+      return OrtxStatus(kOrtxOK, "Warning: The chat template for this model is not yet supported, trying to apply chat template will cause an error.");
     }
   }
 
+  chat_template_parsing_status = "Success";
   return OrtxStatus(kOrtxOK, "Loaded chat template.");
 }
 
@@ -720,6 +722,10 @@ void TokenizerImpl::InitializeChatParameters(const char* template_str,
 // ApplyChatTemplate method to choose the template logic based on chat_template
 OrtxStatus TokenizerImpl::ApplyChatTemplate(const TokenizerImpl::MessageList& message_list, std::string& output,
                                             bool add_generation_prompt) const {
+  if (chat_template_parsing_status != "Success"){
+    return OrtxStatus(kOrtxErrorInvalidArgument, "Failed to parse chat template: " + chat_template_parsing_status);
+  }
+  
   // Find the chat_template string for this model if it is supported
   auto it = model_to_template_map.find(chat_template);
   if (it == model_to_template_map.end()) {
