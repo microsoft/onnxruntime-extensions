@@ -722,9 +722,9 @@ void TokenizerImpl::InitializeChatParameters(const char* template_str,
 // ApplyChatTemplate method to choose the template logic based on chat_template
 OrtxStatus TokenizerImpl::ApplyChatTemplate(const TokenizerImpl::MessageList& message_list, std::string& output,
                                             bool add_generation_prompt) const {
-  if (chat_template_parsing_status != "Success"){
-    return OrtxStatus(kOrtxErrorInvalidArgument, "Failed to parse chat template: " + chat_template_parsing_status);
-  }
+  // Note: chat_template_parsing_status holds the value for whether the official chat template from
+  // this model's config file is supported. However, we do not throw an error if not as the user
+  // may pass in a template string in our supported list to override the model config template.
   
   // Find the chat_template string for this model if it is supported
   auto it = model_to_template_map.find(chat_template);
