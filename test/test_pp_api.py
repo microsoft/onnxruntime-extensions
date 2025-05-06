@@ -234,11 +234,32 @@ class TestPPAPI(unittest.TestCase):
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
     def test_Qwen_QVQ_tokenizer(self):
-        model_id = "Qwen/QVQ-72B-Preview"
+        model_id = "Qwen/Qwen3-0.6B-FP8"
         test_sentence = [self.tokenizer_test_sentence]
         hf_enc = AutoTokenizer.from_pretrained(model_id)
         inputs = hf_enc(test_sentence)["input_ids"]
         tokenizer = pp_api.Tokenizer(model_id)
+
+        # Note: we simply check if chat template override works here, as Qwen/Qwen3-0.6B-FP8 is not a
+        # supported chat template model, but we do not compare the output of apply_chat_template
+        # with HF, as it is not supported in Extensions yet.
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "url": "https://huggingface.co/spaces/big-vision/paligemma-hf/resolve/main/examples/password.jpg",
+                    },
+                    {"type": "text", "text": "What is the password?"},
+                ],
+            }
+        ]
+        message_json = json.dumps(messages)
+        templ = """{% for message in messages %}{% if message['role'] == 'system' and 'tools' in message and message['tools'] is not none %}{{ '<|' + message['role'] + '|>' + message['content'] + '<|tool|>' + message['tools'] + '<|/tool|>' + '<|end|>' }}{% else %}{{ '<|' + message['role'] + '|>' + message['content'] + '<|end|>' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>' }}{% else %}{{ eos_token }}{% endif %}"""
+        prompt = tokenizer.apply_chat_template(chat=message_json, template=templ)
+        
+        # Continue tokenizer test
         ortx_inputs = tokenizer.tokenize(test_sentence)
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
