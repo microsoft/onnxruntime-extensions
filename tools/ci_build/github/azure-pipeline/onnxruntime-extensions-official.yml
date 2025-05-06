@@ -42,7 +42,7 @@ extends:
       policheck:
         enabled: true
         break: true # always break the build on policheck issues. You can disable it by setting to 'false'
-        exclusionsFile: '$(REPOROOT)\.config\policheck_exclusions.xml'
+        exclusionsFile: '$(Build.SourcesDirectory)\.config\policheck_exclusions.xml'
 
     stages:
     - template: templates/windows-build-stage.yml@self
