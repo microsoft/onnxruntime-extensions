@@ -343,6 +343,9 @@ endif()
 #######################################################################################################################
 # build the operator file list from the build flag.
 
+# re2 and spm requires abseil
+find_package(Patch)
+include(abseil-cpp)
 if(OCOS_ENABLE_RE2_REGEX)
   if(NOT TARGET re2::re2)
     set(RE2_BUILD_TESTING OFF CACHE INTERNAL "")
@@ -389,6 +392,7 @@ if(OCOS_ENABLE_AUDIO)
   else()
     include(dr_libs)
     set(DRLIBS_INCLUDE_DIR ${dr_libs_SOURCE_DIR})
+    list(APPEND TARGET_SRC_AUDIO ${dlib_SOURCE_DIR}/dlib/fft/fft.cpp)
   endif()
   message("DR_LIB INCLUDE DIR: ${DRLIBS_INCLUDE_DIR}")
   file(GLOB TARGET_SRC_AUDIO "operators/audio/*.*")
@@ -680,7 +684,7 @@ if(OCOS_ENABLE_TF_STRING)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING NOMINMAX FARMHASH_NO_BUILTIN_EXPECT FARMHASH_DEBUG=0)
 
   if(OCOS_ENABLE_RE2_REGEX)
-    target_link_libraries(noexcep_operators PRIVATE re2::re2)
+    target_link_libraries(noexcep_operators PUBLIC re2::re2)
   endif()
 endif()
 
@@ -761,10 +765,10 @@ if(OCOS_ENABLE_BERT_TOKENIZER)
 endif()
 
 if(OCOS_ENABLE_SPM_TOKENIZER)
-  if(OCOS_USE_VCPKG)
-    list(APPEND ocos_libraries sentencepiece::sentencepiece-static)
-  else()
-    target_include_directories(ocos_operators PUBLIC ${spm_INCLUDE_DIRS})
+  if(TARGET sentencepiece::sentencepiece-static)
+    list(APPEND ocos_libraries sentencepiece::sentencepiece-static)  
+  else()    
+    list(APPEND ocos_libraries sentencepiece-static)
   endif()
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_SPM_TOKENIZER)
 endif()
@@ -776,7 +780,7 @@ if(OCOS_ENABLE_BLINGFIRE)
 endif()
 
 if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
-  target_link_libraries(ocos_operators PRIVATE nlohmann_json::nlohmann_json)
+  target_link_libraries(ocos_operators PUBLIC nlohmann_json::nlohmann_json)
 endif()
 
 # If building a shared library we can't throw an internal exception type across the library boundary as the type

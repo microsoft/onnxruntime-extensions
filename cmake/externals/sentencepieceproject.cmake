@@ -9,9 +9,8 @@ if(NOT _ONNXRUNTIME_EMBEDDED)
   FetchContent_Declare(
     protobuf
     GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
-    GIT_TAG v21.12
+    GIT_TAG v25.7
     EXCLUDE_FROM_ALL
-    PATCH_COMMAND git checkout . && git apply --ignore-space-change --ignore-whitespace ${PROJECT_SOURCE_DIR}/cmake/externals/protobuf_cmake.patch
     FIND_PACKAGE_ARGS NAMES Protobuf protobuf
   )
   
@@ -40,11 +39,8 @@ endif()
 # Uses the following command line in _deps/spm-src folder to generate the PB patch file if protobuf version is updated
 # git diff -- src/builtin_pb/* | out-file -Encoding utf8 <REPO-ROOT>\cmake\externals\sentencepieceproject_pb.patch
 # PB files was seperated as another patch file to avoid the patch file too large to be reviewed.
-set(spm_patches
-  "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject_cmake.patch"
-  "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject_pb.patch")
 
-set(spm_patch_command git checkout . && git apply --ignore-space-change --ignore-whitespace ${spm_patches})
+set(spm_patch_command ${Patch_EXECUTABLE} -p1 <  "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepiece.patch")
 
 if (NOT DEFINED CMAKE_INSTALL_INCDIR)
   set(CMAKE_INSTALL_INCDIR include)
@@ -52,32 +48,20 @@ endif()
 
 FetchContent_Declare(
   spm
-  GIT_REPOSITORY https://github.com/google/sentencepiece.git
-  GIT_TAG v0.1.96
+  URL https://github.com/google/sentencepiece/archive/refs/tags/v0.2.0.tar.gz
+  URL_HASH SHA512=b4214f5bfbe2a0757794c792e87e7c53fda7e65b2511b37fc757f280bf9287ba59b5d630801e17de6058f8292a3c6433211917324cb3446a212a51735402e614
   EXCLUDE_FROM_ALL
   PATCH_COMMAND ${spm_patch_command}
   FIND_PACKAGE_ARGS NAMES sentencepiece
 )
 
-set(SPM_USE_EXTERNAL_ABSL OFF CACHE BOOL "Use external absl" FORCE)
-set(SPM_USE_BUILTIN_PROTOBUF OFF CACHE BOOL "Use built-in protobuf" FORCE)
+set(SPM_ABSL_PROVIDER "package" CACHE STRING "Protobuf provider" FORCE)
+set(SPM_PROTOBUF_PROVIDER "package" CACHE STRING "Protobuf provider" FORCE)
 
 
 FetchContent_MakeAvailable(spm)
-
-if(TARGET sentencepiece-static AND NOT TARGET sentencepiece::sentencepiece-static)
-  add_library(sentencepiece::sentencepiece-static ALIAS sentencepiece-static)
+if(sentencepiece_SOURCE_DIR)
+  message(STATUS "XXXXXXXXXXXXXXXX sentencepiece source dir: ${sentencepiece_SOURCE_DIR}")
+  include_directories(${sentencepiece_SOURCE_DIR}/src)
 endif()
 
-if(OCOS_USE_VCPKG)
-  target_link_libraries(sentencepiece-static PUBLIC protobuf::libprotobuf-lite)
-  set_target_properties(sentencepiece-static PROPERTIES
-    FOLDER externals/google)
-else()
-  set(spm_INCLUDE_DIRS    
-    ${spm_SOURCE_DIR}/src/builtin_pb
-    ${spm_SOURCE_DIR}/src)
-  if(protobuf_SOURCE_DIR)
-    list(APPEND spm_INCLUDE_DIRS ${protobuf_SOURCE_DIR}/src)
-  endif()
-endif()
