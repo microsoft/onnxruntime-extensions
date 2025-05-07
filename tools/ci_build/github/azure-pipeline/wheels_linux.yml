@@ -23,6 +23,10 @@ extends:
       sourceAnalysisPool:
         name: onnxruntime-Win-CPU-2022
         os: windows
+      policheck:
+        enabled: true
+        break: true # always break the build on policheck issues. You can disable it by setting to 'false'
+        exclusionsFile: '$(Build.SourcesDirectory)\.config\policheck_exclusions.xml'
     stages:
     - stage: stage
       jobs:
