@@ -277,6 +277,64 @@ class YCbCrToPixels(Step):
 #
 # Pre-processing
 #
+
+class Grayscale(Step):
+    """Convert an image to grayscale.
+
+    Input data can be uint8 or float.
+
+    Input shape: {height, width, 3}
+    Output shape is the same.
+    """
+
+    def __init__(self, layout: str = "BGR", name: Optional[str] = None):
+        """
+        Args:
+            layout: Optional channel layout. "BGR" and "RGB" are supported. Defaults to "BGR".
+            name: Optional name of step. Defaults to 'Grayscale'.
+        """
+        super().__init__(["image"], ["grayscale_image"], name)
+        assert layout == "RGB" or layout == "BGR"
+        self._layout = layout
+
+    def _create_graph_for_step(self, graph: onnx.GraphProto, onnx_opset: int) -> onnx.GraphProto:
+        input_type_str, input_shape_str = self._get_input_type_and_shape_strs(graph, 0)
+        assert input_type_str == "uint8" or input_type_str == "float"
+        assert len(input_shape_str.split(",")) == 3
+
+        # do ITU-R 601-2 luma transform. Weights adapted from:
+        # see: https://docs.opencv.org/3.4/de/d25/imgproc_color_conversions.html
+        cm_str = "0.114,0.587,0.299" if self._layout == "BGR" else "0.299,0.587,0.114"
+
+        input_name = self.input_names[0]
+        output_name = self.output_names[0]
+
+        grayscaling_graph = onnx.parser.parse_graph(
+            f"""
+                grayscale ({input_type_str}[height, width, 3] {input_name})
+                    => (uint8[height, width, 3] {output_name})
+                {{
+                    axes = Constant <value = int64[1] {{2}}>()
+
+                    # create a tensor with shape (1, 1, 3) for tiling along the channel dimension
+                    repeat_dims = Constant <value = int64[3] {{1, 1, 3}}>()
+
+                    const_node_b = Constant <value = float[3] {{ {cm_str} }}>()
+                    
+                    # cast to float (some ops like Sum require floats)
+                    X_float = Cast <to={onnx.TensorProto.FLOAT}> ({input_name})
+                    X_mult_b = Mul(const_node_b, X_float)
+                    X_channel_gray = ReduceSum(X_mult_b, axes)
+
+                    X_gray_3_channel = Tile (X_channel_gray, repeat_dims)
+                    X_gray_3_rounded = Round(X_gray_3_channel)
+                    {output_name} = Cast <to={onnx.TensorProto.UINT8}> (X_gray_3_rounded)
+                }}
+        """
+        )
+        return grayscaling_graph
+
+
 class Resize(Step):
     """
     Resize input data. Aspect ratio is maintained.

@@ -50,6 +50,7 @@ Classes
     * pre_post_processing.steps.vision.ConvertImageToBGR
     * pre_post_processing.steps.vision.DrawBoundingBoxes
     * pre_post_processing.steps.vision.FloatToImageBytes
+    * pre_post_processing.steps.vision.Grayscale
     * pre_post_processing.steps.vision.ImageBytesToFloat
     * pre_post_processing.steps.vision.LetterBox
     * pre_post_processing.steps.vision.Normalize
