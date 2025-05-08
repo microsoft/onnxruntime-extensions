@@ -718,7 +718,8 @@ void TokenizerImpl::InitializeChatParameters(const char* template_str,
 }
 
 // ApplyChatTemplate method to choose the template logic based on chat_template
-OrtxStatus TokenizerImpl::ApplyChatTemplate(const TokenizerImpl::MessageList& message_list, std::string& output,
+OrtxStatus TokenizerImpl::ApplyChatTemplate(const TokenizerImpl::MessageList& message_list,
+                                            const char* tools, std::string& output,
                                             bool add_generation_prompt) const {
   // Note: The official chat template from this model's config file may not be supported.
   // However, we do not throw an error until checking model_to_template_map as the user
@@ -733,6 +734,20 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const TokenizerImpl::MessageList& me
   }
 
   messages = message_list;
+
+  if (tools && *tools) {
+    tool_calls = std::string(tools);
+    if (!messages.empty()) {
+      if (messages[0].find("tools") != messages[0].end()) {
+        messages[0]["tools"] = tool_calls;
+        tools_in_user_message = true;
+      }
+      if (messages[0].find("tool_calls ") != messages[0].end()) {
+        messages[0]["tool_calls "] = tool_calls;
+        tools_in_user_message = true;
+      }
+    }
+  }
 
   // Apply the corresponding chat template if it is supported
   if (chat_template == PHI4_CHAT_TEMPLATE) {
@@ -762,9 +777,9 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const TokenizerImpl::MessageList& me
   return {};
 }
 
-OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char* message, std::string& output,
-                                            std::vector<extTokenId_t>& ids_vec, bool add_generation_prompt,
-                                            bool tokenize) const {
+OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char* message, const char* tools,
+                                            std::string& output, std::vector<extTokenId_t>& ids_vec,
+                                            bool add_generation_prompt, bool tokenize) const {
   OrtxStatus status;
   std::string input_str = minja::normalize_newlines(message);
   auto activated_str = tok_config_->chat_template_.c_str();
@@ -783,7 +798,7 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
       return {kOrtxErrorInvalidArgument, "Invalid JSON format in chat message."};
     }
 
-    status = ApplyChatTemplate(message_list, output, add_generation_prompt);
+    status = ApplyChatTemplate(message_list, tools, output, add_generation_prompt);
   } else {
     using json = nlohmann::ordered_json;
     std::string text;

@@ -37,7 +37,7 @@ TEST(OrtxTokenizerTest, Phi4ChatTemplate) {
 
   auto err = OrtxApplyChatTemplate(
     tokenizer.get(), nullptr,
-    messages_json.c_str(), templated_text.ToBeAssigned(), true, false);
+    messages_json.c_str(), nullptr, templated_text.ToBeAssigned(), true, false);
 
   if (err != kOrtxOK) {
     std::cout << "Failed to apply chat template, stopping the test." << std::endl;
