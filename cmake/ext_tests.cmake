@@ -131,6 +131,7 @@ add_test_target(TARGET ocos_test
                 LIBRARIES ortcustomops ${ocos_libraries})
 target_compile_definitions(ocos_test PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 target_link_libraries(ocos_test PRIVATE Microsoft.GSL::GSL)
+target_include_directories(ocos_test PRIVATE ${PROJECT_SOURCE_DIR}/operators/tokenizer)
 if(OCOS_ENABLE_SPM_TOKENIZER)
   if(TARGET sentencepiece::sentencepiece-static)
     target_link_libraries(ocos_test PRIVATE sentencepiece::sentencepiece-static)  
