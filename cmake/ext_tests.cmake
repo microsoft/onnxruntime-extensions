@@ -130,7 +130,10 @@ add_test_target(TARGET ocos_test
                 TEST_SOURCES ${static_TEST_SRC}
                 LIBRARIES ortcustomops ${ocos_libraries})
 target_compile_definitions(ocos_test PRIVATE ${OCOS_COMPILE_DEFINITIONS})
-target_link_libraries(ocos_test PRIVATE Microsoft.GSL::GSL sentencepiece::sentencepiece-static)
+target_link_libraries(ocos_test PRIVATE Microsoft.GSL::GSL)
+if(OCOS_ENABLE_SPM_TOKENIZER)
+  target_link_libraries(ocos_test PRIVATE sentencepiece::sentencepiece-static)
+endif()
 if (OCOS_ENABLE_C_API AND OCOS_BUILD_SHARED_LIB)
   file(GLOB pp_api_TEST_SRC
     "${TEST_SRC_DIR}/pp_api_test/*.c"
