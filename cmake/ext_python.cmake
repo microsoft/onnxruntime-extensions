@@ -37,7 +37,7 @@ target_compile_definitions(extensions_pydll PRIVATE
   $<TARGET_PROPERTY:Python3::Module,INTERFACE_COMPILE_DEFINITIONS>)
 
 target_link_libraries(extensions_pydll PRIVATE Python3::Module ocos_operators)
-
+target_include_directories(ocos_operators PRIVATE ${PROJECT_SOURCE_DIR}/operators/tokenizer)
 if(OCOS_PYTHON_MODULE_PATH)
   get_filename_component(OCOS_PYTHON_MODULE_NAME ${OCOS_PYTHON_MODULE_PATH} NAME)
   if(NOT WIN32)
