@@ -151,6 +151,7 @@ if (OCOS_ENABLE_C_API AND OCOS_BUILD_SHARED_LIB)
     TEST_DATA_DIRECTORIES ${TEST_SRC_DIR}/data)
 
   target_compile_definitions(pp_api_test PRIVATE ${OCOS_COMPILE_DEFINITIONS})
+  target_include_directories(pp_api_test PRIVATE ${PROJECT_SOURCE_DIR}/operators/tokenizer)
   target_include_directories(pp_api_test PRIVATE
     ${PROJECT_SOURCE_DIR}/
     "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>"
