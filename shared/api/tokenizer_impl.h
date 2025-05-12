@@ -58,10 +58,12 @@ class TokenizerImpl : public OrtxObjectImpl {
   std::string chat_template;
   mutable MessageList messages;
 
+  mutable std::string tool_calls;
+
   std::string bos_token;
   std::string eos_token;
   std::vector<std::string> custom_tools;
-  bool tools_in_user_message;
+  mutable bool tools_in_user_message;
   std::string strftime_now;
   std::string date_string;
   std::vector<std::string> builtin_tools;
@@ -81,7 +83,7 @@ class TokenizerImpl : public OrtxObjectImpl {
   OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state) const;
   OrtxStatus GetDecoderPromptIds(size_t batch_size, const char* lang, const char* task, int no_timestamps,
                                  std::vector<std::vector<extTokenId_t>>& t_ids) const;
-  OrtxStatus ApplyChatTemplate(const char* template_str, const char* message, std::string& output,
+  OrtxStatus ApplyChatTemplate(const char* template_str, const char* message, const char* tools, std::string& output,
                                std::vector<extTokenId_t>& ids_vec, bool add_generation_prompt, bool tokenize) const;
 
  private:
@@ -95,7 +97,7 @@ class TokenizerImpl : public OrtxObjectImpl {
                                 const std::string& date_str = "26 Jul 2024",
                                 const std::vector<std::string>& builtin_tools_param = {});
 
-  OrtxStatus ApplyChatTemplate(const MessageList& messages, std::string& output,
+  OrtxStatus ApplyChatTemplate(const MessageList& messages, const char* tools, std::string& output,
                                bool add_generation_prompt) const;
 
   using bpe_tokenizer_t = std::unique_ptr<JsonFastTokenizer>;

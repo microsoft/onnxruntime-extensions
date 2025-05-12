@@ -331,6 +331,25 @@ class TestPPAPI(unittest.TestCase):
         tokenizer = pp_api.Tokenizer(model_id)
         ortx_inputs = tokenizer.apply_chat_template(message_json)
         np.testing.assert_array_equal(ortx_inputs, inputs)
+    
+    def test_chat_tools_input(self):
+        model_id = util.get_test_data_file("data/models/phi-4")
+        messages = [
+            {"role": "system", "content": "You are a medieval knight and must provide explanations to modern people."},
+            {"role": "user", "content": "How should I explain the Internet?"},
+        ]
+        message_json = json.dumps(messages)
+        tokenizer = pp_api.Tokenizer(model_id)
+
+        # Note: we simply test passing in a tools input to apply_chat_template here,
+        # we do not compare with HF as they place the result of the function call in their output,
+        # and we do not have the ability to call a function in-line within the C++ chat template backend.
+        tool_calls = """[{"name": "fn1", "description": "fn details", "parameters": {"p1": {"description": "details", "type": "string"}}}, {"fn2": 2},{"fn3": 3}]"""
+
+        try:
+            tokenizer.apply_chat_template(chat=message_json, tools=tool_calls)
+        except Exception as e:
+            assert False, f"Error while trying to pass in tools to chat template: {e}"
 
     def test_qwen2_5_vl_chat_template(self):
         model_id = "Qwen/Qwen2.5-VL-72B-Instruct"
