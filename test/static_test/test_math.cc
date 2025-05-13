@@ -4,7 +4,7 @@
 #include "gtest/gtest.h"
 
 #ifdef ENABLE_DLIB
-
+#include <dlib/config.h>
 #include <dlib/matrix.h>
 
 using namespace dlib;
