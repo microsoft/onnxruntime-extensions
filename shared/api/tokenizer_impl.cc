@@ -121,23 +121,10 @@ OrtxStatus TokenizerImpl::BatchDecode(const std::vector<span<extTokenId_t const>
     ortc::Tensor<int64_t> ts_input(std::vector<int64_t>{1, static_cast<int64_t>(ids.size())}, (void*)ids.data());
     ortc::Tensor<std::string> ts_output;
 
-    // Update skip_special_tokens
-    bool skip_special_tokens = true;
-    if (chat_template != ""){
-      skip_special_tokens = false;
-    }
-
-    OrtxStatus status = std::visit([&](auto& detokenizer_ptr) -> OrtxStatus {
-      using T = std::decay_t<decltype(*detokenizer_ptr)>;
-  
-      if constexpr (std::is_same_v<T, BpeStreamingDecoder>) {
-        return detokenizer_ptr->Compute(ts_input, ts_output, skip_special_tokens);
-      } else if constexpr (std::is_same_v<T, SpmUgmDecoder>) {
-        return detokenizer_ptr->Compute(ts_input, ts_output);  // No skip_special_tokens
-      } else {
-        return OrtxStatus(kOrtxErrorInvalidArgument, "Invalid detokenizer.");
-      }
-  }, detokenizer_);
+    // Note: currently the detokenizer Compute is called with skip_special_tokens = true
+    // by default, but this parameter should be exposed to GenAI in the future.
+    OrtxStatus status = std::visit([&](auto& detokenizer) {
+      return detokenizer->Compute(ts_input, ts_output); }, detokenizer_);
 
     if (!status.IsOk()) {
       return status;

@@ -334,7 +334,7 @@ class BpeModel {
 
       if (id != bpe::kInvalidTokenId) {
         if (has_left || has_right) {
-            auto iter_tok_extend = t_map.find(std::u32string(token));
+          auto iter_tok_extend = t_map.find(std::u32string(token));
           if (iter_tok_extend != t_map.end()) {
             if (has_right && iter_tok_extend->second.rstrip_) {
               auto& [next_token, next_id] = added_result[n + 1];

@@ -74,5 +74,9 @@ TEST(OrtxTokenizerTest, Phi4ChatTemplate) {
   const char* text = nullptr;
   OrtxStringArrayGetItem(decoded_text.get(), 0, &text);
 
-  EXPECT_STREQ(text, text_ptr);
+  std::string expected_decoder_output = "systemYou are a helpful assistant."
+                                        "userHow should I explain the Internet?"
+                                        "assistant";
+
+  ASSERT_EQ(std::string(text), expected_decoder_output);
 }
