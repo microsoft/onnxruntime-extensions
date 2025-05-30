@@ -559,6 +559,14 @@ OrtxStatus TokenizerImpl::DeepSeekChatTemplate(std::string& output, bool add_gen
 
     // Handle assistant message without tool calls
     if (role == "assistant" && !content.empty()) {
+      constexpr std::string_view think_token = "</think>";
+      
+      // Remove content before and including "</think>" if present
+      std::size_t think_pos = content.find(think_token);
+      if (think_pos != std::string::npos) {
+        content = content.substr(think_pos + think_token.size());
+      }
+
       if (is_tool) {
         output += "<｜tool_outputs_end｜>" + content;
         output += eos_token;
