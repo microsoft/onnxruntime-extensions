@@ -171,7 +171,8 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
   }
 
   OrtxStatus Compute(const ortc::Tensor<int64_t>& ids,
-                     ortc::Tensor<std::string>& output) const {
+                     ortc::Tensor<std::string>& output,
+                     std::optional<bool> skip_special_tokens = std::nullopt) const {
     const int64_t* p_ids = ids.Data();
     const auto& ids_dim = ids.Shape();
     std::vector<int64_t> output_dim = {1};
@@ -192,9 +193,16 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
       for (size_t tok_idx = 0; tok_idx < seq_len; ++tok_idx) {
         const auto id = ort_extensions::narrow<extTokenId_t>(*(p_ids + tok_idx));
         std::string decoded_token;
+
+        // Update skip_special_tokens
+        bool skip_special_tok = true;
+        if (skip_special_tokens.has_value()) {
+          skip_special_tok = skip_special_tokens.value();
+        }
+
         auto status = spm_model_
                       ? SpmId2Token(id, decoded_token, f_special_last)
-                      : Id2Token(id, decoded_token, true, f_special_last);
+                      : Id2Token(id, decoded_token, skip_special_tok, f_special_last);
 
         if (!status.IsOk()) {
           return status;
