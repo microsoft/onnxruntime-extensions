@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #include <string_view>
+#include <iostream>
 
 #include "nlohmann/json.hpp"
 #include "file_sys.h"
@@ -154,6 +155,7 @@ ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_data,
 OrtxStatus ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_data, TensorResult& r) const {
   std::vector<TensorArgs> inputs(image_data.size());
   std::vector<TensorPtr> input_tensor_objects(image_data.size());
+  std::cout << "ImageProcessor::PreProcess image_data size=" << image_data.size() << std::endl;
   for (size_t i = 0; i < image_data.size(); ++i) {
     auto& ts_input = inputs[i];
     ImageRawData& image = image_data[i];
@@ -168,7 +170,7 @@ OrtxStatus ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_d
   if (!status.IsOk()) {
     return status;
   }
-
+  std::cout << "ImageProcessor::PreProcess Finish Push" << std::endl;
   // clear the input tensors
   input_tensor_objects.clear();
 
@@ -182,6 +184,7 @@ OrtxStatus ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_d
   if (status.IsOk()) {
     r.SetTensors(std::move(img_result));
   }
+  std::cout << "ImageProcessor::PreProcess Finish" << std::endl;
 
   return status;
 }
