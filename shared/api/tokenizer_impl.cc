@@ -120,6 +120,9 @@ OrtxStatus TokenizerImpl::BatchDecode(const std::vector<span<extTokenId_t const>
     std::transform(s.begin(), s.end(), ids.begin(), [](extTokenId_t v) { return static_cast<int64_t>(v); });
     ortc::Tensor<int64_t> ts_input(std::vector<int64_t>{1, static_cast<int64_t>(ids.size())}, (void*)ids.data());
     ortc::Tensor<std::string> ts_output;
+
+    // Note: currently the detokenizer Compute is called with skip_special_tokens = true
+    // by default, but this parameter should be exposed to GenAI in the future.
     OrtxStatus status = std::visit([&](auto& detokenizer) {
       return detokenizer->Compute(ts_input, ts_output); }, detokenizer_);
 

@@ -14,7 +14,7 @@
 using namespace ort_extensions;
 
 TEST(OrtxTokenizerTest, Phi4ChatTemplate) {
-  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/models/phi-4");
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
 
   OrtxObjectPtr<OrtxTensorResult> templated_text;
@@ -22,16 +22,11 @@ TEST(OrtxTokenizerTest, Phi4ChatTemplate) {
     [
       {
         "role": "system",
-        "content": "You are a helpful assistant.",
-        "tools": "Calculator"
+        "content": "You are a helpful assistant."
       },
       {
         "role": "user",
-        "content": "How do I add two numbers?"
-      },
-      {
-        "role": "assistant",
-        "content": "You can add numbers by using the '+' operator."
+        "content": "How should I explain the Internet?"
       }
     ])";
 
@@ -51,9 +46,37 @@ TEST(OrtxTokenizerTest, Phi4ChatTemplate) {
   const char* text_ptr = nullptr;
   OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
 
-  // From HuggingFace Python output for 'microsoft/Phi-4-multimodal-instruct'
-  std::string expected_output = "<|system|>You are a helpful assistant.<|tool|>Calculator<|/tool|><|end|><|user|>"
-    "How do I add two numbers?<|end|><|assistant|>You can add numbers by using the '+' operator.<|end|><|assistant|>";
+  // From HuggingFace Python output for 'microsoft/Phi-4'
+  std::string expected_output = "<|im_start|>system<|im_sep|>You are a helpful assistant.<|im_end|>"
+                                "<|im_start|>user<|im_sep|>How should I explain the Internet?<|im_end|>"
+                                "<|im_start|>assistant<|im_sep|>";
 
   ASSERT_EQ(text_ptr, expected_output);
+
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  const char* input[] = { text_ptr };
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  std::vector<extTokenId_t> ids_vec(ids, ids + length);
+
+  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({100264, 9125, 100266, 2675, 527, 264, 11190, 18328, 13,
+                                                100265, 100264, 882, 100266, 4438, 1288, 358, 10552, 279,
+                                                8191, 30, 100265, 100264, 78191, 100266}));
+  
+  OrtxObjectPtr<OrtxStringArray> decoded_text;
+  OrtxDetokenize(tokenizer.get(), token_ids.get(), decoded_text.ToBeAssigned());
+  EXPECT_EQ(decoded_text.Code(), kOrtxOK);
+
+  const char* text = nullptr;
+  OrtxStringArrayGetItem(decoded_text.get(), 0, &text);
+
+  std::string expected_decoder_output = "systemYou are a helpful assistant."
+                                        "userHow should I explain the Internet?"
+                                        "assistant";
+
+  ASSERT_EQ(std::string(text), expected_decoder_output);
 }

@@ -485,10 +485,9 @@ class TestPPAPI(unittest.TestCase):
             ortx_inputs = tokenizer.tokenize(prompt)
             np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
 
-    @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_deepseek_chat_template(self):
         ckpt = "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"
-        hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
+        hf_tok = AutoTokenizer.from_pretrained(ckpt)
 
         for messages in self.messages_list:
             inputs = hf_tok.apply_chat_template(
