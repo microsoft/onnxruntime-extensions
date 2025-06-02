@@ -564,12 +564,12 @@ OrtxStatus TokenizerImpl::DeepSeekChatTemplate(std::string& output, bool add_gen
         output += eos_token;
         is_tool = false;
       } else {
-        constexpr std::string_view think_token = "</think>";
+        constexpr std::string_view end_of_reasoning_tag = "</think>";
       
         // Remove content before and including "</think>" if present
-        std::size_t think_pos = content.find(think_token);
-        if (think_pos != std::string::npos) {
-          content = content.substr(think_pos + think_token.size());
+        const std::size_t end_of_reasoning_pos = content.find(end_of_reasoning_tag);
+        if (end_of_reasoning_pos != std::string::npos) {
+          content = content.substr(end_of_reasoning_pos + end_of_reasoning_tag.size());
         }
 
         output += "<｜Assistant｜>" + content;
