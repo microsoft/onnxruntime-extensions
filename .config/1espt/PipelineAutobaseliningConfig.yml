@@ -37,6 +37,8 @@ pipelines:
           lastModifiedDate: 2024-11-08
         armory:
           lastModifiedDate: 2024-11-08
+        policheck:
+          lastModifiedDate: 2025-06-02
   1659:
     retail:
       source:
