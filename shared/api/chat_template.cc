@@ -10,7 +10,7 @@ OrtxStatus TokenizerImpl::LoadChatTemplate() {
   if (chat_template.size()) {
     try {
       chat_template_root_ = minja::Parser::parse(chat_template, {});
-    } catch (const std::runtime_error& e) {
+    } catch (const std::runtime_error&) {
       return OrtxStatus(kOrtxOK, "Warning: The chat template for this model is not yet supported, trying to apply chat template will cause an error.");
     }
   }
