@@ -799,36 +799,37 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
     return {kOrtxErrorInvalidArgument, "Empty chat template."};
   }
 
-  if (model_to_template_map.count(activated_str)) {
-    const_cast<TokenizerImpl*>(this)->InitializeChatParameters(template_str);
-    auto message_list = TokenizerImpl::ParseJson(input_str.c_str());
-    if (message_list.empty()) {
-      return {kOrtxErrorInvalidArgument, "Invalid JSON format in chat message."};
+  // Try to parse the chat template with Minja first, and fallback on the native implementation.
+  using json = nlohmann::ordered_json;
+  std::string text;
+  try {
+    json actual_messages = json::parse(input_str.c_str());
+    auto root = chat_template_root_;
+    if (activated_str == template_str) {
+      root = minja::Parser::parse(template_str, {});
+    }
+    if (root == nullptr) {
+      return {kOrtxErrorInvalidArgument, "Invalid chat template."};
     }
 
-    status = ApplyChatTemplate(message_list, tools, output, add_generation_prompt);
-  } else {
-    using json = nlohmann::ordered_json;
-    std::string text;
-    try {
-      json actual_messages = json::parse(input_str.c_str());
-      auto root = chat_template_root_;
-      if (activated_str == template_str) {
-        root = minja::Parser::parse(template_str, {});
+    auto context = minja::Context::make(json({
+        {"messages", actual_messages},
+        {"add_generation_prompt", add_generation_prompt},
+    }));
+    context->set("bos_token", tok_config_->bos_token_);
+    context->set("eos_token", tok_config_->eos_token_);
+    text = root->render(context);
+    output = text;
+  } catch (const std::runtime_error& e) {
+    if (model_to_template_map.count(activated_str)) {
+      const_cast<TokenizerImpl*>(this)->InitializeChatParameters(template_str);
+      auto message_list = TokenizerImpl::ParseJson(input_str.c_str());
+      if (message_list.empty()) {
+        return {kOrtxErrorInvalidArgument, "Invalid JSON format in chat message."};
       }
-      if (root == nullptr) {
-        return {kOrtxErrorInvalidArgument, "Invalid chat template."};
-      }
-
-      auto context = minja::Context::make(json({
-          {"messages", actual_messages},
-          {"add_generation_prompt", add_generation_prompt},
-      }));
-      context->set("bos_token", tok_config_->bos_token_);
-      context->set("eos_token", tok_config_->eos_token_);
-      text = root->render(context);
-      output = text;
-    } catch (const std::runtime_error& e) {
+  
+      status = ApplyChatTemplate(message_list, tools, output, add_generation_prompt);
+    } else {
       status = {kOrtxErrorInvalidArgument, e.what()};
     }
   }
