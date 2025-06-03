@@ -809,7 +809,8 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
       root = minja::Parser::parse(template_str, {});
     }
     if (root == nullptr) {
-      return {kOrtxErrorInvalidArgument, "Invalid chat template."};
+      // Note that this will get caught in the "catch" and then we try the native implementation.
+      throw std::runtime_error("Invalid chat template.");
     }
 
     auto context = minja::Context::make(json({
