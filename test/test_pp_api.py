@@ -9,6 +9,8 @@ import numpy as np
 from PIL import Image
 from onnxruntime_extensions import util
 
+from datetime import datetime
+
 # uncomment it if there is a protobuf version mismatch error
 # os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 is_pp_api_available = False
@@ -285,10 +287,9 @@ class TestPPAPI(unittest.TestCase):
         decoded_string = tokenizer.detokenize(ortx_input)
         self.assertEqual(decoded_string[0], self.tokenizer_test_sentence)
 
-    @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_gemma_3_chat_template(self):
         ckpt = "google/gemma-3-4b-it"
-        hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
+        hf_tok = AutoTokenizer.from_pretrained(ckpt)
 
         messages = [
             {
@@ -317,7 +318,7 @@ class TestPPAPI(unittest.TestCase):
         # Test without special tokens
         # (should omit extra BOS token in the case of Gemma-3)
         ortx_inputs_2 = tokenizer.tokenize(prompt, False)
-        np.testing.assert_array_equal(ortx_inputs_2, hf_tok.encode(inputs[0], add_special_tokens=False))
+        np.testing.assert_array_equal(ortx_inputs_2, hf_tok.encode(inputs, add_special_tokens=False))
 
     def test_phi4_chat_template(self):
         model_id = util.get_test_data_file("data/models/phi-4")
@@ -373,10 +374,9 @@ class TestPPAPI(unittest.TestCase):
         ortx_inputs = tokenizer.apply_chat_template(message_json, add_generation_prompt=True, tokenize=True)
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
-    @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_phi3_vision_chat_template(self):
         ckpt = "microsoft/Phi-3-vision-128k-instruct"
-        hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
+        hf_tok = AutoTokenizer.from_pretrained(ckpt)
 
         for messages in self.messages_list:
             inputs = hf_tok.apply_chat_template(
@@ -389,10 +389,9 @@ class TestPPAPI(unittest.TestCase):
             ortx_inputs = tokenizer.tokenize(prompt)
             np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
 
-    @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_phi3_mini_chat_template(self):
         ckpt = "microsoft/Phi-3-mini-4k-instruct"
-        hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
+        hf_tok = AutoTokenizer.from_pretrained(ckpt)
 
         for messages in self.messages_list:
             inputs = hf_tok.apply_chat_template(
@@ -405,10 +404,9 @@ class TestPPAPI(unittest.TestCase):
             ortx_inputs = tokenizer.tokenize(prompt)
             np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
 
-    @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_phi3_medium_chat_template(self):
         ckpt = "microsoft/Phi-3-medium-4k-instruct"
-        hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
+        hf_tok = AutoTokenizer.from_pretrained(ckpt)
 
         for messages in self.messages_list:
             inputs = hf_tok.apply_chat_template(
@@ -421,10 +419,9 @@ class TestPPAPI(unittest.TestCase):
             ortx_inputs = tokenizer.tokenize(prompt)
             np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
 
-    @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_llama3_chat_template(self):
         ckpt = "meta-llama/Meta-Llama-3-8B-Instruct"
-        hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
+        hf_tok = AutoTokenizer.from_pretrained(ckpt)
 
         for messages in self.messages_list:
             inputs = hf_tok.apply_chat_template(
@@ -437,10 +434,9 @@ class TestPPAPI(unittest.TestCase):
             ortx_inputs = tokenizer.tokenize(prompt)
             np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
 
-    @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_llama3_1_chat_template(self):
         ckpt = "meta-llama/Llama-3.1-8B-Instruct"
-        hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
+        hf_tok = AutoTokenizer.from_pretrained(ckpt)
 
         for messages in self.messages_list:
             inputs = hf_tok.apply_chat_template(
@@ -453,14 +449,18 @@ class TestPPAPI(unittest.TestCase):
             ortx_inputs = tokenizer.tokenize(prompt)
             np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
 
-    @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_llama3_2_chat_template(self):
         ckpt = "meta-llama/Llama-3.2-1B-Instruct"
-        hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
+        hf_tok = AutoTokenizer.from_pretrained(ckpt)
+
+        # To match default chat template date we set the date to 26 Jul 2024.
+        # (and provide a callable that matches the template's expected interface)
+        def strftime_now(fmt: str):
+            return datetime(2024, 7, 26).strftime(fmt)
 
         for messages in self.messages_list:
             inputs = hf_tok.apply_chat_template(
-                messages, add_generation_prompt=True, tokenize=False, return_tensors="np")
+                messages, add_generation_prompt=True, tokenize=False, return_tensors="np", strftime_now=strftime_now)
 
             tokenizer = pp_api.Tokenizer(ckpt)
             message_json = json.dumps(messages)
@@ -469,10 +469,9 @@ class TestPPAPI(unittest.TestCase):
             ortx_inputs = tokenizer.tokenize(prompt)
             np.testing.assert_array_equal(ortx_inputs, hf_tok(prompt, return_tensors="np")["input_ids"][0])
 
-    @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_llama3_3_chat_template(self):
         ckpt = "meta-llama/Llama-3.3-70B-Instruct"
-        hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
+        hf_tok = AutoTokenizer.from_pretrained(ckpt)
 
         for messages in self.messages_list:
             inputs = hf_tok.apply_chat_template(
