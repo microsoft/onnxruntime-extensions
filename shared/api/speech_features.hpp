@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 #pragma once
-
+#include <dlib/config.h>
 #include <dlib/matrix.h>
 #include <math/dlib/stft_norm.hpp>
 
