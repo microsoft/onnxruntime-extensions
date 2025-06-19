@@ -195,6 +195,30 @@ class TokenJsonConfig final {
       return OrtxStatus(kOrtxErrorInvalidArgument, "Failed to parse config json.");
     }
 
+    // Check if "chat_template" attribute in tokenizer_config.json is missing or empty
+    if (json_config.find("chat_template") == json_config.end()) {
+        // Check for chat_template.jinja file
+        auto jinja_path = tok_dir / "chat_template.jinja";
+        std::ifstream jinjafs = jinja_path.open();
+        if (jinjafs.is_open()) {
+          std::stringstream buffer;
+          buffer << jinjafs.rdbuf();
+
+          // Inject into json_config
+          json_config["chat_template"] = buffer.str();
+        } else {
+          // Check for chat_template.json file
+          auto tmpl_path = tok_dir / "chat_template.json";
+          std::ifstream chatfs = tmpl_path.open();
+          if (chatfs.is_open()) {
+            json chat_config = json::parse(chatfs, nullptr, false, true);
+
+            // Inject chat_template value into json_config
+            json_config["chat_template"] = chat_config.value("chat_template", "");
+          }
+        }
+    }
+
     // Store added_tokens_decoder to add any missed tokens into added_tokens in UpdateTokenizer 
     added_tokens_decoder = std::make_shared<json>(json_config.value("added_tokens_decoder", json::object()));
 
