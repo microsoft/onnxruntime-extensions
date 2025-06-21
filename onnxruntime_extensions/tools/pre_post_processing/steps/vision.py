@@ -316,8 +316,8 @@ class Grayscale(Step):
                 {{
                     axes = Constant <value = int64[1] {{2}}>()
 
-                    # create a tensor with shape (1, 1, 3) for tiling along the channel dimension
-                    repeat_dims = Constant <value = int64[3] {{1, 1, 3}}>()
+                    # create a tensor with shape (1, 1, 3) for expanding along the channel dimension
+                    expand_shape = Constant <value = int64[3] {{1, 1, 3}}>()
 
                     const_node_b = Constant <value = float[3] {{ {cm_str} }}>()
                     
@@ -325,10 +325,8 @@ class Grayscale(Step):
                     X_float = Cast <to={onnx.TensorProto.FLOAT}> ({input_name})
                     X_mult_b = Mul(const_node_b, X_float)
                     X_channel_gray = ReduceSum(X_mult_b, axes)
-
-                    X_gray_3_channel = Tile (X_channel_gray, repeat_dims)
-                    X_gray_3_rounded = Round(X_gray_3_channel)
-                    {output_name} = Cast <to={onnx.TensorProto.UINT8}> (X_gray_3_rounded)
+                    X_channel_cast = Cast <to={onnx.TensorProto.UINT8}> (X_channel_gray)
+                    {output_name} = Expand (X_channel_cast, expand_shape)
                 }}
         """
         )
