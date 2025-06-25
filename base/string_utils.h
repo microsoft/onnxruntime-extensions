@@ -73,5 +73,3 @@ uint64_t Hash64(const char* data, size_t n, uint64_t seed);
 inline uint64_t Hash64(const char* data, size_t n) {
   return Hash64(data, n, 0xDECAFCAFFE);
 }
-
-uint64_t Hash64Fast(const char* data, size_t n);

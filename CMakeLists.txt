@@ -374,10 +374,8 @@ if(OCOS_ENABLE_DLIB)
 endif()
 
 if(OCOS_ENABLE_TF_STRING)
-  set(farmhash_SOURCE_DIR ${PROJECT_SOURCE_DIR}/cmake/externals/farmhash)
   file(GLOB TARGET_SRC_KERNELS "operators/text/*.cc" "operators/text/*.h*")
-  file(GLOB TARGET_SRC_HASH "${farmhash_SOURCE_DIR}/src/farmhash.*")
-  list(APPEND TARGET_SRC_NOEXCEPTION ${TARGET_SRC_KERNELS} ${TARGET_SRC_HASH})
+  list(APPEND TARGET_SRC_NOEXCEPTION ${TARGET_SRC_KERNELS})
 endif()
 
 if(OCOS_ENABLE_AUDIO)
@@ -649,8 +647,7 @@ if(_HAS_TOKENIZER)
 endif()
 
 if(OCOS_ENABLE_TF_STRING)
-  target_include_directories(noexcep_operators PUBLIC ${farmhash_SOURCE_DIR}/src)
-  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING NOMINMAX FARMHASH_NO_BUILTIN_EXPECT FARMHASH_DEBUG=0)
+  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING NOMINMAX)
 
   if(OCOS_ENABLE_RE2_REGEX)
     target_include_directories(noexcep_operators PUBLIC ${googlere2_SOURCE_DIR})
