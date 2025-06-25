@@ -1,4 +1,5 @@
 #include <charconv>
+#include <functional>
 #include "string_utils.h"
 #include "vector_to_string.hpp"
 #include "string_tensor.h"
@@ -6,8 +7,16 @@
 namespace std {
 
 template <class T>
-size_t hash<std::vector<T>>::operator()(const vector<T>& __vector) const noexcept {
-  return util::Hash(reinterpret_cast<const char*>(__vector.data()), __vector.size() * sizeof(T));
+size_t hash<std::vector<T>>::operator()(const vector<T>& vec) const noexcept {
+  size_t hash_value = 0;
+  std::hash<T> element_hasher;
+
+  for (const auto& elem : vec) {
+    // Combine hashes using a variant of boost::hash_combine
+    hash_value ^= element_hasher(elem) + 0x9e3779b9 + (hash_value << 6) + (hash_value >> 2);
+  }
+
+  return hash_value;
 }
 
 template struct hash<std::vector<std::string>>;
