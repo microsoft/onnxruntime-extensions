@@ -846,7 +846,6 @@ class TestPythonOpString(unittest.TestCase):
             tfres = StringToHashBucketFast(
                 input=text, num_buckets=num_buckets[0])
             self.assertEqual(tfres.shape, txout[0].shape)
-            self.assertEqual(tfres.numpy().tolist(), txout[0].tolist())
 
         # Note: since we switched to std::hash instead of farmhash, which produces
         # non-deterministic results (it uses random seed initialization, so the
