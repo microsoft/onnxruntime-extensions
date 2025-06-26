@@ -1,8 +1,5 @@
-#ifdef ENABLE_TF_STRING
-#include "farmhash.h"
-#endif
-
 #include "string_utils.h"
+#include <functional>
 
 std::vector<std::string_view> SplitString(const std::string_view& str, const std::string_view& seps, bool remove_empty_entries) {
   std::vector<std::string_view> result;
@@ -226,7 +223,7 @@ uint64_t Hash64(const char* data, size_t n, uint64_t seed) {
 }
 
 uint64_t Hash64Fast(const char* data, size_t n) {
-  return static_cast<int64_t>(util::Fingerprint64(data, n));
+  return std::hash<std::string_view>{}(std::string_view(data, n));
 }
 
 #endif  // ENABLE_TF_STRING
