@@ -981,6 +981,102 @@ OrtxStatus JsonFastTokenizer::LoadTikTokenBase64(const ort_extensions::TokenJson
   return status;
 }
 
+OrtxStatus JsonFastTokenizer::LoadTekken(const ort_extensions::TokenJsonConfig& config) {
+  std::unique_ptr<std::istream> file_stream;
+  auto status = config.OpenVocabFile(file_stream);
+  if (!status.IsOk()) {
+    return status;
+  }
+
+  // Parse the JSON from the input stream
+  nlohmann::json tekken_json;
+  *file_stream >> tekken_json;
+
+  const auto& vocab_list = tekken_json.at("vocab");
+  const auto& tokenizer_config = tekken_json.at("config");
+
+  std::unordered_map<std::string, uint32_t> vocab;
+  std::vector<std::pair<std::string, std::string>> merges;
+  std::unordered_map<std::vector<uint8_t>, uint32_t, VectorHash, VectorEqual> bpe_ranks;
+
+  // Parse the main vocabulary tokens
+  for (const auto& token_entry : vocab_list) {
+    uint32_t rank = token_entry.at("rank");
+    std::string encoded_token = token_entry.at("token_bytes");
+
+    std::vector<uint8_t> decoded_token;
+    base64_decode(encoded_token, decoded_token);
+
+    bpe_ranks[decoded_token] = rank;
+    vocab[JsonFastTokenizer::TokenBytesToString(decoded_token)] = rank;
+  }
+
+  // Construct byte merges from bpe_ranks (same logic as TikTokenBase64)
+  std::vector<std::tuple<std::vector<uint8_t>, std::vector<uint8_t>, uint32_t>> byte_merges;
+
+  for (const auto& entry : bpe_ranks) {
+    const auto& token_bytes = entry.first;
+    uint32_t rank = entry.second;
+
+    if (token_bytes.size() == 1) {
+      continue;
+    }
+
+    std::vector<std::tuple<std::vector<uint8_t>, std::vector<uint8_t>, uint32_t>> token_splits;
+
+    for (size_t split_index = 1; split_index < token_bytes.size(); ++split_index) {
+      std::vector<uint8_t> left_part(token_bytes.begin(), token_bytes.begin() + split_index);
+      std::vector<uint8_t> right_part(token_bytes.begin() + split_index, token_bytes.end());
+
+      if (bpe_ranks.count(left_part) && bpe_ranks.count(right_part)) {
+        token_splits.emplace_back(left_part, right_part, rank);
+      }
+    }
+
+    std::sort(token_splits.begin(), token_splits.end(),
+      [&](const auto& a, const auto& b) {
+        return bpe_ranks[std::get<0>(a)] < bpe_ranks[std::get<0>(b)] ||
+               (bpe_ranks[std::get<0>(a)] == bpe_ranks[std::get<0>(b)] &&
+                bpe_ranks[std::get<1>(a)] < bpe_ranks[std::get<1>(b)]);
+      });
+
+    byte_merges.insert(byte_merges.end(), token_splits.begin(), token_splits.end());
+  }
+
+  // Sort by merge rank
+  std::sort(byte_merges.begin(), byte_merges.end(),
+    [](const auto& a, const auto& b) {
+      return std::get<2>(a) < std::get<2>(b);
+    });
+
+  for (const auto& merge_entry : byte_merges) {
+    merges.emplace_back(
+      JsonFastTokenizer::TokenBytesToString(std::get<0>(merge_entry)),
+      JsonFastTokenizer::TokenBytesToString(std::get<1>(merge_entry))
+    );
+  }
+
+  // Optional: parse and assign special tokens from tekken_json["special_tokens"]
+  const char token_sub[] = "Tokenizer";
+  model_name_ = config.tokenizer_class_.substr(0, config.tokenizer_class_.find(token_sub));
+  json_conf_.name_ = model_name_.c_str();
+  json_conf_.bos_token_ = config.bos_token_.c_str();
+  json_conf_.eos_token_ = config.eos_token_.c_str();
+  json_conf_.unk_token_ = config.unk_token_.c_str();
+  json_conf_.pad_token_ = config.pad_token_.c_str();
+
+  bpe_conf_ = json_conf_;
+
+  bbpe_tokenizer_ = std::make_unique<BpeModel>();
+  status = bbpe_tokenizer_->Load(vocab, merges, bpe_conf_.get().GetSpecialTokens().c_str(), false);
+
+  if (status.IsOk()) {
+    UpdateTokenizer(config, tekken_json);
+  }
+
+  return status;
+}
+
 OrtxStatus JsonFastTokenizer::Compute(const ortc::Tensor<std::string>& input, ortc::Tensor<int64_t>& tokenize_output,
                                       std::optional<ortc::Tensor<int64_t>*> attention_mask,
                                       std::optional<ortc::Tensor<int64_t>*> offset_mapping,

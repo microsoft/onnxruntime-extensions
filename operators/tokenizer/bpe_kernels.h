@@ -115,6 +115,7 @@ class JsonFastTokenizer : public KernelBpeTokenizer {
   JsonFastTokenizer();
   OrtxStatus Load(const ort_extensions::TokenJsonConfig& config);
   OrtxStatus LoadTikTokenBase64(const ort_extensions::TokenJsonConfig& config);
+  OrtxStatus LoadTekken(const ort_extensions::TokenJsonConfig& config);
   OrtxStatus Compute(const ortc::Tensor<std::string>& input, ortc::Tensor<int64_t>& tokenize_output,
                      std::optional<ortc::Tensor<int64_t>*> attention_mask = std::nullopt,
                      std::optional<ortc::Tensor<int64_t>*> offset_mapping = std::nullopt,
