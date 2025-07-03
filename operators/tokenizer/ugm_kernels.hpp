@@ -719,6 +719,11 @@ class SpmUgmDecoder {
     special_token_ids_ = tokenizer.special_token_ids_;
     tokenizer_add_space_prefix_ = tokenizer.tokenizer_add_space_prefix_;
     case_encoding_ = tokenizer.case_encoder_ != nullptr;
+
+    if (config.tokenizer_class_ == "MarianTokenizer") {
+      is_marian = true;
+    }
+
     return {};
   }
 
@@ -726,6 +731,7 @@ class SpmUgmDecoder {
     const int64_t* p_ids = ids.Data();
     const auto& ids_dim = ids.Shape();
     std::vector<int64_t> output_dim = {1};
+
     if (ids_dim.size() > 1) {
       output_dim.resize(ids_dim.size() - 1);
       std::copy(ids_dim.begin(), ids_dim.begin() + ids_dim.size() - 1, output_dim.begin());
@@ -737,24 +743,62 @@ class SpmUgmDecoder {
     std::vector<std::string> decoded_strings;
     decoded_strings.reserve(string_batch);
     TokenizerDecodingState* state{};
-    for (auto n = string_batch; n > 0; n--) {
-      std::string text;
-      for (int64_t i = 0; i < seq_len; ++i) {
-        std::string token;
-        Id2Token(ort_extensions::narrow<extTokenId_t>(p_ids[i]), token, &state);
-        text += token;
-      }
 
-      if (tokenizer_add_space_prefix_) {
-        if (text.length() > 0 && text[0] == ' ') {
-          text = text.substr(1);
+    for (size_t n = 0; n < string_batch; ++n) {
+      std::vector<std::string> words;
+      std::string current_word;
+
+      for (int64_t i = 0; i < seq_len; ++i) {
+        int64_t id = p_ids[n * seq_len + i];
+
+        std::string token;
+        Id2Token(ort_extensions::narrow<extTokenId_t>(id), token, &state);
+        if (token.empty() || token == "</s>") continue;
+
+        if (is_marian) {
+          // Check if token ends with ▁ (U+2581), UTF-8: E2 96 81
+          const std::string marker = "\u2581";
+          if (token.size() >= 3 &&
+              token.compare(token.size() - 3, 3, marker) == 0) {
+            current_word += token.substr(0, token.size() - 3);
+            words.push_back(std::move(current_word));
+            current_word.clear();
+          } else {
+            current_word += token;
+          }
+        } else {
+          current_word += token;
         }
       }
 
-      if (case_encoding_ && text.back() == ' ') {
-        text.pop_back();
+      if (is_marian) {
+        if (!current_word.empty()) {
+          words.push_back(std::move(current_word));
+        }
+
+        // Join words with space
+        std::string text;
+        for (size_t i = 0; i < words.size(); ++i) {
+          if (i > 0) text += " ";
+          text += words[i];
+        }
+
+        // Capitalize first letter if needed
+        if (!text.empty() && std::islower(static_cast<unsigned char>(text[0]))) {
+          text[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(text[0])));
+        }
+
+        decoded_strings.push_back(std::move(text));
+      } else {
+        std::string text = current_word;
+        if (tokenizer_add_space_prefix_ && !text.empty() && text[0] == ' ') {
+          text = text.substr(1);
+        }
+        if (case_encoding_ && !text.empty() && text.back() == ' ') {
+          text.pop_back();
+        }
+        decoded_strings.push_back(std::move(text));
       }
-      decoded_strings.push_back(text);
     }
 
     std::unique_ptr<TokenizerDecodingState> decoding_state(state);
@@ -856,6 +900,7 @@ class SpmUgmDecoder {
   std::vector<std::string> vocab_;
   std::string unknown_token_ = "<unk>";
   std::set<extTokenId_t> special_token_ids_;
+  bool is_marian = false;
 };
 
 }  // namespace ort_extensions
