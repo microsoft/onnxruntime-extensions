@@ -86,17 +86,22 @@ else()
   # include path will be wrong so the build error is delayed/misleading and non-trivial to understand/resolve.
   set(RapidJSON_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/_deps/rapidjson)
   set(RapidJSON_INSTALL_DIR ${RapidJSON_PREFIX}/install)
+  
+  set(rapidjson_patch_file ${PROJECT_SOURCE_DIR}/cmake/externals/rapidjson_cmake.patch)
+  set(rapidjson_patch_command ${triton_patch_exe} --verbose -p1 -i ${rapidjson_patch_file})
+
   ExternalProject_Add(RapidJSON
-                      PREFIX ${RapidJSON_PREFIX}
-                      URL https://github.com/Tencent/rapidjson/archive/refs/tags/v1.1.0.zip
-                      URL_HASH SHA1=0fe7b4f7b83df4b3d517f4a202f3a383af7a0818
-                      CMAKE_ARGS -DRAPIDJSON_BUILD_DOC=OFF
-                                 -DRAPIDJSON_BUILD_EXAMPLES=OFF
-                                 -DRAPIDJSON_BUILD_TESTS=OFF
-                                 -DRAPIDJSON_HAS_STDSTRING=ON
-                                 -DRAPIDJSON_USE_MEMBERSMAP=ON
-                                 -DCMAKE_INSTALL_PREFIX=${RapidJSON_INSTALL_DIR}
-                                 )
+    PREFIX ${RapidJSON_PREFIX}
+    URL https://github.com/Tencent/rapidjson/archive/refs/tags/v1.1.0.zip
+    URL_HASH SHA1=0fe7b4f7b83df4b3d517f4a202f3a383af7a0818
+    PATCH_COMMAND ${rapidjson_patch_command}
+    CMAKE_ARGS -DRAPIDJSON_BUILD_DOC=OFF
+              -DRAPIDJSON_BUILD_EXAMPLES=OFF
+              -DRAPIDJSON_BUILD_TESTS=OFF
+              -DRAPIDJSON_HAS_STDSTRING=ON
+              -DRAPIDJSON_USE_MEMBERSMAP=ON
+              -DCMAKE_INSTALL_PREFIX=${RapidJSON_INSTALL_DIR}
+  )
 
   ExternalProject_Get_Property(RapidJSON SOURCE_DIR BINARY_DIR)
   # message(STATUS "RapidJSON src=${SOURCE_DIR} binary=${BINARY_DIR}")
