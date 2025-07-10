@@ -86,6 +86,8 @@ else()
   # include path will be wrong so the build error is delayed/misleading and non-trivial to understand/resolve.
   set(RapidJSON_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/_deps/rapidjson)
   set(RapidJSON_INSTALL_DIR ${RapidJSON_PREFIX}/install)
+
+  set(triton_patch_exe patch)
   
   set(rapidjson_patch_file ${PROJECT_SOURCE_DIR}/cmake/externals/rapidjson_cmake.patch)
   set(rapidjson_patch_command ${triton_patch_exe} --verbose -p1 -i ${rapidjson_patch_file})
@@ -109,7 +111,6 @@ else()
   set(RapidJSON_ROOT_DIR ${BINARY_DIR})
 
   set(triton_extra_cmake_args "")
-  set(triton_patch_exe patch)
   set(triton_dependencies RapidJSON)
 
 endif() #if (WIN32)
