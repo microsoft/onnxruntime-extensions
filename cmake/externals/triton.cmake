@@ -110,7 +110,12 @@ else()
   # Set RapidJSON_ROOT_DIR for find_package. The required RapidJSONConfig.cmake file is generated in the binary dir
   set(RapidJSON_ROOT_DIR ${BINARY_DIR})
 
-  set(triton_extra_cmake_args "")
+  # Set custom CURL paths manually because find_package(CURL) fails sometimes in CMake
+  set(triton_extra_cmake_args
+    -DCURL_INCLUDE_DIR=${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg/installed/${vcpkg_triplet}/include
+    -DCURL_LIBRARY=${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg/installed/${vcpkg_triplet}/lib/libcurl.a
+  )
+
   set(triton_dependencies RapidJSON)
 
 endif() #if (WIN32)
