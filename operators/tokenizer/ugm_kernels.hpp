@@ -13,6 +13,8 @@
 #include <cfloat>
 #include <functional>
 #include <unordered_map>
+#include <cwctype>
+#include <locale>
 
 #include "ortx_tokenizer.h"
 #include "ext_status.h"
@@ -762,6 +764,79 @@ class SpmUgmDecoder {
     return {};
   }
 
+  // Helper: Decode first UTF-8 codepoint
+  bool DecodeFirstUTF8Codepoint(const std::string& utf8, wchar_t& codepoint, size_t& char_len) const {
+    unsigned char lead = static_cast<unsigned char>(utf8[0]);
+    if (lead < 0x80) {
+      codepoint = lead;
+      char_len = 1;
+    } else if ((lead >> 5) == 0x6) {
+      if (utf8.size() < 2) return false;
+      codepoint = ((lead & 0x1F) << 6) | (utf8[1] & 0x3F);
+      char_len = 2;
+    } else if ((lead >> 4) == 0xE) {
+      if (utf8.size() < 3) return false;
+      codepoint = ((lead & 0x0F) << 12) |
+                  ((utf8[1] & 0x3F) << 6) |
+                  (utf8[2] & 0x3F);
+      char_len = 3;
+    } else if ((lead >> 3) == 0x1E) {
+      if (utf8.size() < 4) return false;
+      codepoint = ((lead & 0x07) << 18) |
+                  ((utf8[1] & 0x3F) << 12) |
+                  ((utf8[2] & 0x3F) << 6) |
+                  (utf8[3] & 0x3F);
+      char_len = 4;
+    } else {
+      return false;
+    }
+    return true;
+  }
+
+  // Helper: Encode a wchar_t as UTF-8
+  std::string EncodeUTF8(wchar_t wc) const {
+    std::string out;
+    if (wc < 0x80) {
+      out += static_cast<char>(wc);
+    } else if (wc < 0x800) {
+      out += static_cast<char>((wc >> 6) | 0xC0);
+      out += static_cast<char>((wc & 0x3F) | 0x80);
+    } else if (wc < 0x10000) {
+      out += static_cast<char>((wc >> 12) | 0xE0);
+      out += static_cast<char>(((wc >> 6) & 0x3F) | 0x80);
+      out += static_cast<char>((wc & 0x3F) | 0x80);
+    } else {
+      out += static_cast<char>((wc >> 18) | 0xF0);
+      out += static_cast<char>(((wc >> 12) & 0x3F) | 0x80);
+      out += static_cast<char>(((wc >> 6) & 0x3F) | 0x80);
+      out += static_cast<char>((wc & 0x3F) | 0x80);
+    }
+    return out;
+  }
+
+  // Updated titlecase logic (basic toupper does not work for a lot of languages)
+  void TitlecaseFirstCharacter(std::string& token) const {
+    if (token.empty()) return;
+
+    wchar_t codepoint;
+    size_t char_len = 0;
+
+    if (!DecodeFirstUTF8Codepoint(token, codepoint, char_len)) return;
+
+    // Unicode-aware titlecasing for Cyrillic
+    if (codepoint >= L'а' && codepoint <= L'я') {
+      codepoint = codepoint - (L'а' - L'А');  // Convert to uppercase
+    } else if (codepoint == L'ё') {
+      codepoint = L'Ё';  // Special case
+    } else {
+      codepoint = std::towupper(codepoint);  // Fallback (Latin, etc.)
+    }
+
+    std::string prefix = EncodeUTF8(codepoint);
+    std::string suffix = token.substr(char_len);
+    token = prefix + suffix;
+  }
+
   OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state) const {
     std::unique_ptr<TokenizerDecodingState> decoding_state;
     if (*state == nullptr) {
@@ -818,9 +893,7 @@ class SpmUgmDecoder {
           std::transform(token.begin(), token.end(), token.begin(), ::toupper);
           break;
         case normalizer::cTitlecase:
-          if (!token.empty()) {
-            token[0] = toupper(token[0]);
-          }
+          TitlecaseFirstCharacter(token);
           break;
         case normalizer::cLowercase:
         case normalizer::cPunctuation:
@@ -841,9 +914,7 @@ class SpmUgmDecoder {
             std::transform(token.begin(), token.end(), token.begin(), ::toupper);
             break;
           case normalizer::cTitlecase:
-            if (!token.empty()) {
-              token[0] = toupper(token[0]);
-            }
+            TitlecaseFirstCharacter(token);
             break;
             // For cLowercase and cPunctuation, no transformation needed
         }
