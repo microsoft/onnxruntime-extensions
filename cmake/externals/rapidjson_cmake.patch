@@ -1,7 +1,7 @@
-diff --git a/cmake/externals/CMakeLists.txt b/cmake/externals/CMakeLists.txt
-index ceda71b..67692ba 100644
---- a/cmake/externals/CMakeLists.txt
-+++ b/cmake/externals/CMakeLists.txt
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index ceda71b1..67692ba3 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
 @@ -1,4 +1,4 @@
 -CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 +CMAKE_MINIMUM_REQUIRED(VERSION 3.5)
