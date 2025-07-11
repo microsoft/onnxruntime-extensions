@@ -117,8 +117,8 @@ else()
   set(triton_curl_library ${triton_THIRD_PARTY_DIR}/curl/build/lib/libcurl.a)
 
   set(triton_extra_cmake_args
-    -DCURL_INCLUDE_DIR=${triton_curl_include_dir}
-    -DCURL_LIBRARY=${triton_curl_library}
+    -DTRITON_CURL_INCLUDE_DIRS=${triton_curl_include_dir}
+    -DTRITON_CURL_LIBRARY=${triton_curl_library}
   )
 
   # Debug info
