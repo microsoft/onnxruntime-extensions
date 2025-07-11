@@ -3,6 +3,7 @@
 
 #include "ortx_processor.h"
 #include "image_processor.h"
+#include <iostream>
 
 #include "c_api_utils.hpp"
 
@@ -89,8 +90,10 @@ extError_t ORTX_API_CALL OrtxImagePreProcess(OrtxProcessor* processor, OrtxRawIm
   }
 
   auto result_ptr = std::make_unique<TensorResult>();
+  std::cout << "OrtxImagePreProcess: num_images=" << images_ptr->num_images << std::endl;
   status =
       processor_ptr->PreProcess(ort_extensions::span(images_ptr->images.get(), images_ptr->num_images), *result_ptr);
+  std::cout << "OrtxImagePreProcess: Finish PreProcess" << std::endl;
   if (status.IsOk()) {
     *result = static_cast<OrtxTensorResult*>(result_ptr.release());
   } else {
