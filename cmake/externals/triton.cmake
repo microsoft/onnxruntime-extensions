@@ -110,11 +110,21 @@ else()
   # Set RapidJSON_ROOT_DIR for find_package. The required RapidJSONConfig.cmake file is generated in the binary dir
   set(RapidJSON_ROOT_DIR ${BINARY_DIR})
 
+  set(triton_THIRD_PARTY_DIR ${BINARY_DIR}/third-party)
+
   # Set custom CURL paths manually because find_package(CURL) fails sometimes in CMake
+  set(triton_curl_include_dir ${triton_THIRD_PARTY_DIR}/curl/build/include)
+  set(triton_curl_library ${triton_THIRD_PARTY_DIR}/curl/build/lib/libcurl.a)
+
   set(triton_extra_cmake_args
-    -DCURL_INCLUDE_DIR=${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg/installed/${vcpkg_triplet}/include
-    -DCURL_LIBRARY=${CMAKE_CURRENT_BINARY_DIR}/_deps/vcpkg/installed/${vcpkg_triplet}/lib/libcurl.a
+    -DCURL_INCLUDE_DIR=${triton_curl_include_dir}
+    -DCURL_LIBRARY=${triton_curl_library}
   )
+
+  # Debug info
+  message(STATUS "Using custom CURL include dir: ${triton_curl_include_dir}")
+  message(STATUS "Using custom CURL library path: ${triton_curl_library}")
+  message(STATUS "triton_extra_cmake_args: ${triton_extra_cmake_args}")
 
   set(triton_dependencies RapidJSON)
 
@@ -156,9 +166,3 @@ ExternalProject_Add(triton
 add_dependencies(triton ${triton_dependencies})
 
 ExternalProject_Get_Property(triton SOURCE_DIR BINARY_DIR)
-set(triton_THIRD_PARTY_DIR ${BINARY_DIR}/third-party)
-
-# DEBUG: Print what we think the curl include/lib dir will be
-message(STATUS ">>> triton_THIRD_PARTY_DIR = ${triton_THIRD_PARTY_DIR}")
-message(STATUS ">>> curl include dir = ${triton_THIRD_PARTY_DIR}/curl/build/include")
-message(STATUS ">>> curl lib dir     = ${triton_THIRD_PARTY_DIR}/curl/build/lib")
