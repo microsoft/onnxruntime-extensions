@@ -157,3 +157,8 @@ add_dependencies(triton ${triton_dependencies})
 
 ExternalProject_Get_Property(triton SOURCE_DIR BINARY_DIR)
 set(triton_THIRD_PARTY_DIR ${BINARY_DIR}/third-party)
+
+# DEBUG: Print what we think the curl include/lib dir will be
+message(STATUS ">>> triton_THIRD_PARTY_DIR = ${triton_THIRD_PARTY_DIR}")
+message(STATUS ">>> curl include dir = ${triton_THIRD_PARTY_DIR}/curl/build/include")
+message(STATUS ">>> curl lib dir     = ${triton_THIRD_PARTY_DIR}/curl/build/lib")
