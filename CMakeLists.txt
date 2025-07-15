@@ -847,42 +847,33 @@ if(OCOS_ENABLE_AZURE)
         message(STATUS "Found CURL package")
         set(libcurl_target CURL::libcurl)
       else()
-        # curl is coming from triton but as that's an external project it isn't built yet and we have to add
-        # paths and library names instead of cmake targets.
         message(STATUS "Using CURL build from triton client. Once built it should be in ${triton_THIRD_PARTY_DIR}/curl")
-        
+
         # Static libcurl location (adjust if your structure differs)
         set(TRITON_CURL_INCLUDE_DIR ${triton_THIRD_PARTY_DIR}/curl/build/include)
         set(TRITON_CURL_LIBRARY ${triton_THIRD_PARTY_DIR}/curl/build/lib/libcurl.a)
 
-        # Verify the file exists (optional sanity check)
+        # Sanity check
         if(NOT EXISTS ${TRITON_CURL_LIBRARY})
-          message(FATAL_ERROR "Expected Triton libcurl at ${TRITON_CURL_LIBRARY} not found!")
+          message(WARNING "Triton libcurl not found yet at ${TRITON_CURL_LIBRARY}. This may be expected if Triton hasn't built yet.")
         endif()
 
-        # Create an imported static library target for libcurl
-        add_library(libcurl STATIC IMPORTED)
-        set_target_properties(libcurl PROPERTIES
-          IMPORTED_LOCATION ${TRITON_CURL_LIBRARY}
-          INTERFACE_INCLUDE_DIRECTORIES ${TRITON_CURL_INCLUDE_DIR}
+        # Define an imported target CURL::libcurl if not found
+        add_library(CURL::libcurl STATIC IMPORTED GLOBAL)
+        set_target_properties(CURL::libcurl PROPERTIES
+          IMPORTED_LOCATION "${TRITON_CURL_LIBRARY}"
+          INTERFACE_INCLUDE_DIRECTORIES "${TRITON_CURL_INCLUDE_DIR}"
         )
-        
-        target_include_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/include)
 
-        # Install is to 'lib' except on CentOS (which is used for the manylinux build of the python wheel).
-        # Side note: we have to patch the triton client CMakeLists.txt to only use 'lib64' for 64-bit builds otherwise
-        #            the build of the 32-bit python wheel fails with CURL not being found due to the invalid library
-        #            directory name.
+        # Link and include paths
         target_include_directories(ocos_operators PUBLIC ${TRITON_CURL_INCLUDE_DIR})
         target_link_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/build/lib)
 
-        if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-          set(libcurl_target "curl-d")
-        else()
-          set(libcurl_target "curl")
-        endif()
+        # Use our manually created target
+        set(libcurl_target CURL::libcurl)
       endif()
 
+      # Finally, link libcurl (and others)
       target_link_libraries(ocos_operators PUBLIC httpclient_static ${libcurl_target} OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB)
     endif()
   endif()
