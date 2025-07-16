@@ -849,28 +849,20 @@ if(OCOS_ENABLE_AZURE)
       else()
         message(STATUS "Using CURL build from triton client. Once built it should be in ${triton_THIRD_PARTY_DIR}/curl")
 
-        # Static libcurl location (adjust if your structure differs)
+        # Paths to Triton-built curl
         set(TRITON_CURL_INCLUDE_DIR ${triton_THIRD_PARTY_DIR}/curl/build/include)
         set(TRITON_CURL_LIBRARY ${triton_THIRD_PARTY_DIR}/curl/build/lib/libcurl.a)
 
-        # Sanity check
         if(NOT EXISTS ${TRITON_CURL_LIBRARY})
           message(WARNING "Triton libcurl not found yet at ${TRITON_CURL_LIBRARY}. This may be expected if Triton hasn't built yet.")
         endif()
 
-        # Define an imported target CURL::libcurl if not found
-        add_library(CURL::libcurl STATIC IMPORTED GLOBAL)
-        set_target_properties(CURL::libcurl PROPERTIES
-          IMPORTED_LOCATION "${TRITON_CURL_LIBRARY}"
-          INTERFACE_INCLUDE_DIRECTORIES "${TRITON_CURL_INCLUDE_DIR}"
-        )
-
-        # Link and include paths
+        # Add include and link directories directly
         target_include_directories(ocos_operators PUBLIC ${TRITON_CURL_INCLUDE_DIR})
         target_link_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/build/lib)
 
-        # Use our manually created target
-        set(libcurl_target CURL::libcurl)
+        # Instead of an imported target, link directly using full path
+        set(libcurl_target ${TRITON_CURL_LIBRARY})
       endif()
 
       # Finally, link libcurl (and others)
