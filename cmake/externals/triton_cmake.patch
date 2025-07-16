@@ -46,3 +46,8 @@ index bdaae25..0e599f2 100644
      )
 
      set_target_properties(
+@@ -1,6 +1,9 @@
++project(TritonClient)
++
++# Fix missing CURL::libcurl by ensuring CURL is found
++find_package(CURL REQUIRED)
