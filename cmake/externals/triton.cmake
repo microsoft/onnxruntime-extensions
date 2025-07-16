@@ -161,6 +161,7 @@ ExternalProject_Add(triton
                                ${triton_extra_cmake_args}
                     INSTALL_COMMAND ${CMAKE_COMMAND} -E echo "Skipping install step."
                     PATCH_COMMAND ${triton_patch_command}
+                    BUILD_BYPRODUCTS ${triton_curl_library}
                     )
 
 add_dependencies(triton ${triton_dependencies})
