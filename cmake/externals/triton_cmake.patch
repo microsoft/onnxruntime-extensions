@@ -15,6 +15,12 @@ index 7b11178..7749fa9 100644
 
    set(_cc_client_depends "")
    if(${TRITON_ENABLE_CC_HTTP})
+@@ -149,6 +150,7 @@ if(TRITON_ENABLE_CC_HTTP OR TRITON_ENABLE_CC_GRPC OR TRITON_ENABLE_PERF_ANALYZER
+       -DCURL_DIR:PATH=${TRITON_THIRD_PARTY_INSTALL_PREFIX}/curl/${CURL_LIB_DIR}/cmake/CURL
++      -DCMAKE_PREFIX_PATH:PATH=${TRITON_THIRD_PARTY_INSTALL_PREFIX}/curl/${CURL_LIB_DIR}/cmake/CURL
+       -DProtobuf_DIR:PATH=${_FINDPACKAGE_PROTOBUF_CONFIG_DIR}
+       -DgRPC_DIR:PATH=${TRITON_THIRD_PARTY_INSTALL_PREFIX}/grpc/lib/cmake/grpc
+       -Dabsl_DIR:PATH=${TRITON_THIRD_PARTY_INSTALL_PREFIX}/absl/lib/cmake/absl
 diff --git a/src/c++/library/CMakeLists.txt b/src/c++/library/CMakeLists.txt
 index bdaae25..0e599f2 100644
 --- a/src/c++/library/CMakeLists.txt
