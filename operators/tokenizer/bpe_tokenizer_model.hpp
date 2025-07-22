@@ -360,7 +360,6 @@ class BpeModel {
                   pos--;
                 }
                 auto stripped_token = token.substr(0, pos);
-                final_result.back().first = stripped_token;
                 final_result.emplace_back(token, id);
                 continue;
               }

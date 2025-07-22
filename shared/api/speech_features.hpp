@@ -205,88 +205,95 @@ class LogMel {
   }
 
   OrtxStatus Compute(const ortc::Tensor<float>& stft_norm, ortc::Tensor<float>& logmel) {
-    // Compute the Mel spectrogram by following Python code
-    /*
-      magnitudes = stft_norm[:, :, :-1]
-      mel_spec = self.mel_filters @ magnitudes
-      log_spec = torch.clamp(mel_spec, min=1e-10).log10()
-      spec_min = log_spec.max() - 8.0
-      log_spec = torch.maximum(log_spec, spec_min)
-      spec_shape = log_spec.shape
-      padding_spec = torch.ones(spec_shape[0],
-                                spec_shape[1],
-                                self.n_samples // self.hop_length - spec_shape[2],
-                                dtype=torch.float)
-      padding_spec *= spec_min
-      log_spec = torch.cat((log_spec, padding_spec), dim=2)
-      log_spec = (log_spec + 4.0) / 4.0
-      return log_spec
-    */
     assert(stft_norm.Shape().size() == 3 && stft_norm.Shape()[0] == 1);
-    std::vector<int64_t> stft_shape = stft_norm.Shape();
-    int64_t n_fill_zero_col = stft_shape[1];  // if 8k, fill 4k - 8k hz with zeros
-    int64_t additional_row = 0;
-    if (mel_filters_.nc() > stft_shape[1]) {
-      n_fill_zero_col = mel_filters_.nc() - stft_shape[1] - 1;
-      additional_row = stft_shape[1] - 1;
-    }
-    dlib::matrix<float> magnitudes(stft_shape[1] + additional_row, stft_shape[2] - 1);
-    for (int i = 0; i < magnitudes.nr(); ++i) {
-      if (i < n_fill_zero_col) {
-        std::copy(stft_norm.Data() + i * stft_shape[2], stft_norm.Data() + (i + 1) * stft_shape[2] - 1,
-                  magnitudes.begin() + i * magnitudes.nc());
+
+    const std::vector<int64_t>& stft_shape = stft_norm.Shape();
+    const int64_t stft_freq = stft_shape[1];    // freq bins (e.g., 257)
+    const int64_t stft_time = stft_shape[2];    // time steps (e.g., ~300)
+    const int64_t mel_freq = mel_filters_.nr(); // n_mel
+    const int64_t mel_input_freq = mel_filters_.nc(); // expected input freq bins
+
+    // Remove last frequency bin from STFT (to mimic Python stft[:, :, :-1])
+    const int64_t mag_time = stft_time - 1;
+
+    // Prepare magnitudes: shape = (mel_input_freq, mag_time)
+    dlib::matrix<float> magnitudes(mel_input_freq, mag_time);
+    for (int i = 0; i < mel_input_freq; ++i) {
+      if (i < stft_freq) {
+        std::copy(
+          stft_norm.Data() + i * stft_time,
+          stft_norm.Data() + i * stft_time + mag_time,
+          magnitudes.begin() + i * mag_time
+        );
       } else {
-        std::fill(magnitudes.begin() + i * magnitudes.nc(), magnitudes.begin() + (i + 1) * magnitudes.nc(), 0.0f);
+        // Zero-fill if mel expects more freq bins than provided
+        std::fill(
+          magnitudes.begin() + i * mag_time,
+          magnitudes.begin() + (i + 1) * mag_time,
+          0.0f
+        );
       }
     }
 
+    // Apply mel filter
     dlib::matrix<float> mel_spec = mel_filters_ * magnitudes;
-    for (int i = 0; i < mel_spec.nr(); ++i) {
-      for (int j = 0; j < mel_spec.nc(); ++j) {
-        mel_spec(i, j) = std::max(1e-10f, mel_spec(i, j));
-      }
-    }
+
+    // Clamp and log10
+    for (long r = 0; r < mel_spec.nr(); ++r)
+      for (long c = 0; c < mel_spec.nc(); ++c)
+        mel_spec(r, c) = std::max(1e-10f, mel_spec(r, c));
 
     dlib::matrix<float> log_spec = dlib::log10(mel_spec);
     float log_spec_min = dlib::max(log_spec) - 8.0f;
-    for (int i = 0; i < log_spec.nr(); ++i) {
-      for (int j = 0; j < log_spec.nc(); ++j) {
-        float v = std::max(log_spec(i, j), log_spec_min);
-        v = (v + 4.0f) / 4.0f;
-        log_spec(i, j) = v;
-      }
-    }
 
-    float* buff{};
+    for (long r = 0; r < log_spec.nr(); ++r)
+      for (long c = 0; c < log_spec.nc(); ++c)
+        log_spec(r, c) = (std::max(log_spec(r, c), log_spec_min) + 4.0f) / 4.0f;
+
+    float* buff = nullptr;
+
     if (no_padding_ == 1) {
-      buff = logmel.Allocate({log_spec.nc(), log_spec.nr()});
-      std::memcpy(buff, log_spec.begin(), log_spec.size() * sizeof(float));
-    } else {
-      std::vector<int64_t> shape = {mel_filters_.nr(), n_samples_ / hop_length_};
-      buff = logmel.Allocate(shape);
-      std::fill(buff, buff + logmel.NumberOfElement(), (log_spec_min + 4.0f) / 4.0f);
-    }
-
-    if (buff == nullptr) {
-      return {kOrtxErrorOutOfMemory, "Failed to allocate memory for logmel tensor."};
-    }
-
-    if (feature_first_ == 1) {
-      for (int i = 0; i < log_spec.nr(); ++i) {
-        auto row_len = log_spec.nc() * i;
-        std::copy(log_spec.begin() + i * log_spec.nc(), log_spec.begin() + (i + 1) * log_spec.nc(), buff + i * log_spec.nc());
+      // Output shape: [time, features] or [features, time]
+      std::vector<int64_t> out_shape = feature_first_ ? std::vector<int64_t>{mel_freq, mag_time}
+                                                      : std::vector<int64_t>{mag_time, mel_freq};
+      buff = logmel.Allocate(out_shape);
+      if (buff == nullptr) {
+        return {kOrtxErrorOutOfMemory, "Failed to allocate memory for logmel tensor."};
+      }
+      if (feature_first_) {
+        // log_spec is already [mel, time]
+        std::memcpy(buff, log_spec.begin(), log_spec.size() * sizeof(float));
+      } else {
+        // Transpose [mel, time] → [time, mel]
+        for (long t = 0; t < log_spec.nc(); ++t) {
+          for (long m = 0; m < log_spec.nr(); ++m) {
+            buff[t * log_spec.nr() + m] = log_spec(m, t);
+          }
+        }
       }
     } else {
-      for (int i = 0; i < log_spec.nc(); ++i) {
-        for (int j = 0; j < log_spec.nr(); ++j) {
-          buff[i * log_spec.nr() + j] = log_spec(j, i);
-        }
+      // With padding: shape = [mel, expected_time]
+      const int64_t expected_time = n_samples_ / hop_length_;
+      std::vector<int64_t> shape = {mel_freq, expected_time};
+      buff = logmel.Allocate(shape);
+      if (buff == nullptr) {
+        return {kOrtxErrorOutOfMemory, "Failed to allocate memory for padded logmel tensor."};
+      }
+      float pad_val = (log_spec_min + 4.0f) / 4.0f;
+      std::fill(buff, buff + logmel.NumberOfElement(), pad_val);
+
+      for (int m = 0; m < mel_freq; ++m) {
+        std::copy(
+          log_spec.begin() + m * mag_time,
+          log_spec.begin() + m * mag_time + mag_time,
+          buff + m * expected_time
+        );
       }
     }
 
     return {};
   }
-
+  
   // Function to compute the Mel filterbank
   static dlib::matrix<float> MelFilterBank(int n_fft, int n_mels,
                                            int sr = 16000, float min_mel = 0,

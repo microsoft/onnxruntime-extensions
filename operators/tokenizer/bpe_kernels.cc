@@ -280,7 +280,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
     OffsetMappingType offset_mapping;
 
     if (compute_offset_mapping) {
-      if (add_bos_token) {
+      if (add_bos_token && add_special_tokens) {
         // Add offset mapping for BOS token
         offset_mapping.push_back(std::make_pair(0, 0));
       }
@@ -391,12 +391,22 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
                                                      std::list<OffsetMappingType>& offset_map,
                                                      bool add_special_tokens) const {
   std::vector<int64_t> res;
-  // Add BOS token to result
-  res.push_back(bos_token_id_);
 
   size_t max_length = static_cast<size_t>(max_length_i64);
-  // Parse input
+
+  // Add BOS token if configured
+  if (add_bos_token_.value_or(true) && add_special_tokens) {
+    res.push_back(bos_token_id_);
+  }
+
+  // Split input by special/added tokens
   auto special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input, added_tokens_);
+
+  // Compile the regex-based pretokenizer
+  bpe::PreTokenizerWithRegEx reg_splitter;
+  auto status = reg_splitter.Compile(bbpe_tokenizer_->GetPreTokenizerRegex(ModelName()));
+  assert(status.IsOk());
+
   bool add_dummy_prefix = bpe_conf_.get().add_dummy_prefix_;
 
   for (auto& seg_id : special_token_split_res) {
@@ -407,97 +417,166 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
       continue;
     }
 
-    // Note: keep ptr to make sure the string_view is valid in the following process
+    bool special = false;
+
     std::u32string ustr(seg_id.first);
-    if (add_dummy_prefix) {
-      ustr.insert(ustr.begin(), 0x2581);  // UTF-8 string '\xe2\x96\x81'
-      add_dummy_prefix = false;           // only add dummy prefix once
+    if (add_dummy_prefix && !ustr.empty()) {
+      if (ustr.front() == U' '){
+        special = true;
+      }
+      ustr.insert(ustr.begin(), 0x2581);  // U+2581 = '▁'
     }
+
+    reg_splitter.Set(ustr.c_str());
 
     size_t offset = 0;
-    size_t char_pos = 0;
     OffsetMappingType offset_mapping;
-
-    if (compute_offset_mapping) {
-      offset_mapping.push_back(std::make_pair(0, 0));
+    if (compute_offset_mapping && add_bos_token_.value_or(true) && add_special_tokens) {
+      offset_mapping.push_back(std::make_pair(0, 0));  // initial offset
     }
 
-    // Get byte encodings prior to performing BPE
-    std::list<std::pair<uint32_t, uint32_t>> byte_list;
+    // Gemma has its own SPM-based tokenizer with BPE fallback that behaves differently
+    // from the traditional LlamaTokenizer. This is also true for certain special cases.
 
-    while (res.size() < max_length && char_pos <= ustr.length()) {
-      bool split_now = false;
-      if (char_pos == ustr.length()) {
-        split_now = true;
-      }
+    if (ModelName() == "Gemma" || special){
+      size_t char_pos = 0;
+      std::list<std::pair<uint32_t, uint32_t>> byte_list;
+      while (res.size() < max_length && char_pos <= ustr.length()) {
+        bool split_now = false;
 
-      // temporary split logic, will be replaced regex based split after it is implemented
-      if (!split_now && byte_list.size() > 10) {
-        auto is_split_char = [](char32_t ch) { return ch == U' ' || ch == U'\n' || ch == U'\r' || ch == U'▁'; };
-        if (!is_split_char(ustr[char_pos - 1]) && is_split_char(ustr[char_pos])) {
+        if (char_pos == ustr.length()) {
           split_now = true;
         }
-        // split immediately to avoid too long byte_list for extreme cases, which is slow.
-        if (!split_now && byte_list.size() > 100) {
-          split_now = true;
-        }
-      }
 
-      if (split_now) {
-        // Perform BPE
+        // Specialized split logic
+        if (!split_now && byte_list.size() > 10) {
+          auto is_split_char = [](char32_t ch) { return ch == U' ' || ch == U'\n' || ch == U'\r' || ch == U'▁'; };
+          
+          if (!is_split_char(ustr[char_pos - 1]) && is_split_char(ustr[char_pos])) {
+            split_now = true;
+          }
+
+          // Split immediately to avoid too long byte_list for extreme cases, which is slow.
+          if (!split_now && byte_list.size() > 100) {
+            split_now = true;
+          }
+        }
+
+        if (split_now) {
+          // Perform BPE
+          bbpe_tokenizer_->PerformBPE(byte_list);
+
+          // Add output to result
+          for (auto p : byte_list) {
+            if (res.size() >= max_length) {
+              break;
+            }
+            res.push_back(p.first);
+            if (compute_offset_mapping) {
+              offset_mapping.emplace_back(
+                  std::make_pair(offset, ort_extensions::narrow<size_t>(offset + (size_t)p.second)));
+              offset += ((size_t)p.second);
+            }
+          }
+          byte_list.clear();
+        }
+
+        if (char_pos == ustr.length()) {
+          break;
+        }
+
+        auto chr = ustr[char_pos];
+        if (chr == U' ') {
+          chr = 0x2581;  // UTF-8 string '\xe2\x96\x81'
+        }
+
+        std::u32string token_ucs = {chr};
+        std::string token_s = (std::string)ustring(token_ucs);
+
+        auto id = bbpe_tokenizer_->GetTokenId(token_s);
+        if (id == bpe::kInvalidTokenId) {
+          for (auto chr : token_s) {
+            auto byte_id = bbpe_tokenizer_->GetTokenId({chr});
+            byte_list.emplace_back(byte_id, 1);
+          }
+        } else {
+          byte_list.emplace_back(id, ort_extensions::narrow<uint32_t>(token_s.length()));
+        }
+
+        char_pos++;
+      }
+    } else { // Traditional LlamaTokenizer: SPM-based tokenizer with BPE fallback
+      while (res.size() < max_length) {
+        std::u32string_view tok = reg_splitter.GetNextToken();
+        if (tok.empty()) break;
+
+        std::list<std::pair<uint32_t, uint32_t>> byte_list;
+
+        std::u32string mutable_tok(tok);
+
+        // Replace all spaces with U+2581
+        for (auto& ch : mutable_tok) {
+          if (ch == U' ') {
+            ch = 0x2581;
+          }
+        }
+
+        // Handle leading '▁' if in vocab
+        if (mutable_tok.front() == 0x2581) {
+          // Convert the full token to UTF-8 for vocab check
+          std::string full_utf8_token = std::string(ustring(mutable_tok));
+          auto full_id = bbpe_tokenizer_->GetTokenId(full_utf8_token);
+
+          // Convert just the '▁' prefix to UTF-8 and get its ID
+          std::string prefix_utf8 = "\xE2\x96\x81";  // U+2581 in UTF-8
+          auto prefix_id = bbpe_tokenizer_->GetTokenId(prefix_utf8);
+
+          if (full_id == bpe::kInvalidTokenId && prefix_id != bpe::kInvalidTokenId) {
+            byte_list.emplace_back(prefix_id, 1);
+            mutable_tok.erase(mutable_tok.begin());  // Remove '▁' from token
+          }
+        }
+
+        std::string utf8_token = std::string(ustring(mutable_tok));
+
+        auto id = bbpe_tokenizer_->GetTokenId(utf8_token);
+        if (id == bpe::kInvalidTokenId) {
+          for (auto c : mutable_tok) {
+            std::u32string single_char_str(1, c);  // make a u32string with just that char
+            std::string utf8_char = std::string(ustring(single_char_str));
+            auto char_id = bbpe_tokenizer_->GetTokenId(utf8_char);
+            if (char_id != bpe::kInvalidTokenId) {
+              byte_list.emplace_back(char_id, 1);
+            } else {
+              // Fallback to byte-by-byte encoding
+              for (unsigned char byte : utf8_char) {
+                std::string byte_str(1, byte);
+                auto byte_id = bbpe_tokenizer_->GetTokenId(byte_str);
+                byte_list.emplace_back(byte_id, 1);
+              }
+            }
+          }
+        } else {
+          byte_list.emplace_back(id, ort_extensions::narrow<uint32_t>(utf8_token.length()));
+        }
+
         bbpe_tokenizer_->PerformBPE(byte_list);
 
-        // Add output to result
         for (auto p : byte_list) {
-          if (res.size() >= max_length) {
-            break;
-          }
+          if (res.size() >= max_length) break;
 
           res.push_back(p.first);
 
           if (compute_offset_mapping) {
-            offset_mapping.emplace_back(
-                std::make_pair(offset, ort_extensions::narrow<size_t>(offset + (size_t)p.second)));
-            offset += ((size_t)p.second);
+            offset_mapping.emplace_back(std::make_pair(offset, offset + p.second));
+            offset += p.second;
           }
         }
-
-        byte_list.clear();
       }
-
-      if (char_pos == ustr.length()) {
-        break;
-      }
-
-      auto chr = ustr[char_pos];
-      if (chr == U' ') {
-        chr = 0x2581;  // UTF-8 string '\xe2\x96\x81'
-      }
-
-      std::u32string token_ucs = {chr};
-      std::string token_s = (std::string)ustring(token_ucs);
-      auto id = bbpe_tokenizer_->GetTokenId(token_s);
-      if (id == bpe::kInvalidTokenId) {
-        for (auto chr : token_s) {
-          auto byte_id = bbpe_tokenizer_->GetTokenId({chr});
-          byte_list.emplace_back(byte_id, 1);
-        }
-      } else {
-        byte_list.emplace_back(id, ort_extensions::narrow<uint32_t>(token_s.length()));
-      }
-
-      char_pos++;
     }
 
     if (compute_offset_mapping) {
-      // Add offset mappings for input in this instance to list of offset mappings for all inputs
       offset_map.emplace_back(offset_mapping);
-    }
-  }
-
-  if (res.size() > 0 && res.front() == bos_token_id_) {
-    if (add_bos_token_.has_value() && add_bos_token_.value() == false) {
-      res.erase(res.begin());
     }
   }
 

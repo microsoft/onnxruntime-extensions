@@ -192,6 +192,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
       for (size_t tok_idx = 0; tok_idx < seq_len; ++tok_idx) {
         const auto id = ort_extensions::narrow<extTokenId_t>(*(p_ids + tok_idx));
         std::string decoded_token;
+
         auto status = spm_model_
                       ? SpmId2Token(id, decoded_token, f_special_last)
                       : Id2Token(id, decoded_token, true, f_special_last);
