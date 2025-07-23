@@ -4,7 +4,23 @@ This project supports Python and can be built from source easily, or a simple cm
 
 ## Python package
 
+### **Nightly Build**
+
+#### <strong>Windows</strong>
+Ensure that the prerequisite packages for onnxruntime-extensions (e.g., onnx and onnxruntime) are installed in your Python environment.
+```cmd
+pip install --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ onnxruntime-extensions
+```
+#### <strong>Linux/macOS</strong>
+Ensure the compiler toolkit like gcc(later than g++ 8.0) or clang, and cmake are installed before the following command
+```bash
+python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git
+```
+
+
 The package contains all custom operators and some Python scripts to manipulate the ONNX models.
+
+### Build from source
 
 - Install Visual Studio with C++ development tools on Windows, or gcc(>8.0) for Linux or xcode for macOS, and cmake on the unix-like platform.
 - If running on Windows, ensure that long file names are enabled, both for the [operating system](https://docs.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation?tabs=cmd) and for git: `git config --system core.longpaths true`

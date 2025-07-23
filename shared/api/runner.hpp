@@ -7,7 +7,9 @@
 #include <tuple>
 #include <string>
 #include <vector>
+#include <memory>
 #include <variant>
+#include <type_traits>
 #include <unordered_map>
 
 #include "nlohmann/json.hpp"
@@ -25,12 +27,9 @@ class KernelDef {
   KernelDef() = default;
   virtual ~KernelDef() = default;
   virtual OrtxStatus Init(std::string_view attr) { return {}; }  // no need to be initialized for a kernel function
+  virtual int64_t GetOutputCount() const = 0;
   virtual TensorArgs AllocateOutput(ortc::IAllocator* allocator) const = 0;
-  virtual OrtxStatus Apply(TensorArgs& inputs, TensorArgs& output) const = 0;
-
-  using AttrType =
-      std::variant<std::string, double, int64_t, std::vector<std::string>, std::vector<double>, std::vector<int64_t>>;
-  using AttrDict = std::unordered_map<std::string, AttrType>;
+  virtual OrtxStatus Invoke(TensorArgs& inputs, TensorArgs& output) const = 0;
 
   template <typename... Args>
   using tuple_function_args = std::tuple<typename std::remove_reference<Args>::type*...>;
@@ -53,6 +52,15 @@ class KernelDef {
   template <typename T>
   static std::tuple<T> CastOutputImpl(TensorArgs::iterator tensor) {
     return std::make_tuple(static_cast<T>(*tensor));
+  }
+
+  template <typename T, typename... Args>
+  static int64_t CountOutputArgs() {
+    if constexpr (sizeof...(Args) == 0) {
+      return std::is_const<T>::value ? 0 : 1;
+    } else {
+      return (std::is_const<T>::value ? 0 : 1) + CountOutputArgs<Args...>();
+    }
   }
 
   template <typename T>
@@ -85,7 +93,6 @@ class KernelDef {
 
   template <typename T, typename... Args>
   static auto CastOutputAllType(TensorArgs::iterator tensor, T& arg, Args&... args) {
-    // return std::make_tuple(static_cast<T&>(*tensor), CastOutputAllType(args...));
     return std::tuple_cat(CastOutputImpl<T>(tensor), CastOutputAllType(tensor + 1, args...));
   }
 
@@ -102,6 +109,8 @@ class KernelFunction : public KernelDef {
   KernelFunction(OrtxStatus (*body)(Args...)) : body_(body) {};
   virtual ~KernelFunction() = default;
 
+  int64_t GetOutputCount() const override { return CountOutputArgs<Args...>(); }
+
   TensorArgs AllocateOutput(ortc::IAllocator* allocator) const override {
     auto tensors = KernelDef::AllocateOutput<Args...>(allocator);
     TensorArgs all_args;
@@ -114,7 +123,7 @@ class KernelFunction : public KernelDef {
     return all_args;
   }
 
-  OrtxStatus Apply(TensorArgs& inputs, TensorArgs& outputs) const override {
+  OrtxStatus Invoke(TensorArgs& inputs, TensorArgs& outputs) const override {
     TensorArgs all_args;
     all_args.reserve(inputs.size() + outputs.size());
     all_args.insert(all_args.end(), inputs.begin(), inputs.end());
@@ -135,6 +144,8 @@ class KernelStruct : public KernelDef {
  public:
   KernelStruct(OrtxStatus (T::*body)(Args...)) : body_(body) {};
   virtual ~KernelStruct() = default;
+
+  int64_t GetOutputCount() const override { return CountOutputArgs<Args...>(); }
 
   TensorArgs AllocateOutput(ortc::IAllocator* allocator) const override {
     auto tensors = KernelDef::AllocateOutput<Args...>(allocator);
@@ -188,7 +199,7 @@ class KernelStruct : public KernelDef {
     return instance_->Init(attr_dict);
   }
 
-  OrtxStatus Apply(TensorArgs& inputs, TensorArgs& outputs) const override {
+  OrtxStatus Invoke(TensorArgs& inputs, TensorArgs& outputs) const override {
     TensorArgs all_args;
     all_args.reserve(inputs.size() + outputs.size());
     all_args.insert(all_args.end(), inputs.begin(), inputs.end());
@@ -213,6 +224,59 @@ template <typename T, typename... Args>
 std::unique_ptr<KernelDef> CreateKernelInstance(OrtxStatus (T::*method)(Args...)) {
   return std::make_unique<KernelStruct<T, Args...>>(method);
 }
+
+template <typename T, typename... Args>
+std::unique_ptr<KernelDef> CreateKernelInstance(OrtxStatus (T::*method)(Args...) const) {
+  return std::make_unique<KernelStruct<T, Args...>>(reinterpret_cast<OrtxStatus (T::*)(Args...)>(method));
+}
+
+class TensorLookupTable {
+ public:
+  using TensorBase = ortc::TensorBase;
+  TensorLookupTable() = default;
+  ~TensorLookupTable() = default;
+
+  void AddTensorRef(std::string_view name) { tensor_map_.insert({std::string(name), nullptr}); }
+
+  void AddTensor(std::string_view name, std::unique_ptr<TensorBase>&& tensor) {
+    auto it = tensor_map_.find(std::string(name));
+    if (it == tensor_map_.end()) {
+      tensor_map_.emplace(std::string(name), std::move(tensor));
+    } else {
+      it->second = std::move(tensor);
+    }
+  }
+
+  ortc::TensorBase* GetTensor(const std::string& name) const {
+    auto iter = tensor_map_.find(name);
+    if (iter == tensor_map_.end()) {
+      return nullptr;
+    }
+
+    return iter->second.get();
+  }
+
+  bool IsReferenced(const std::string& name) const { return tensor_map_.find(name) != tensor_map_.end(); }
+
+  TensorPtr ReleaseTensor(const std::string& name) {
+    if (auto it = tensor_map_.find(name); it != tensor_map_.end()) {
+      auto ptr = std::move(it->second);
+      tensor_map_.erase(it);
+      return ptr;
+    }
+
+    return {};
+  }
+
+  void Reset() {
+    for (auto& [name, tensor] : tensor_map_) {
+      tensor.reset();
+    }
+  }
+
+ private:
+  std::unordered_map<std::string, std::unique_ptr<ortc::TensorBase>> tensor_map_;
+};
 
 class Operation {
  public:
@@ -246,6 +310,15 @@ class Operation {
     op_name_ = op_name;
     kernel_ = kernel_iter->second();
 
+    auto inputs_iter = op_json.find("inputs");
+    if (inputs_iter != op_json.end()) {
+      inputs_spec_.clear();
+      for (auto& input : *inputs_iter) {
+        auto name = input.get<std::string>();
+        inputs_spec_.push_back(std::move(name));
+      }
+    }
+
     std::string attr_str;
     if (op_json.contains("attrs")) {
       auto attrs = op_json.at("attrs");
@@ -255,69 +328,248 @@ class Operation {
     return kernel_->Init(attr_str);
   }
 
-  virtual ~Operation() { ResetTensors(allocator_); }
+  virtual ~Operation() {}
 
-  std::tuple<OrtxStatus, std::vector<ortc::TensorBase*>> Apply(ortc::IAllocator* allocator,
-                                                               std::vector<ortc::TensorBase*> inputs) {
-    auto outputs = kernel_->AllocateOutput(allocator);
-    auto status = kernel_->Apply(inputs, outputs);
-    return std::make_tuple(status, outputs);
+  OrtxStatus Apply(std::vector<ortc::TensorBase*>& inputs, std::vector<ortc::TensorBase*>& outputs) const {
+    return kernel_->Invoke(inputs, outputs);
   }
 
-  std::vector<TensorPtr> AllocateOutputs(ortc::IAllocator* allocator) {
+  std::vector<TensorPtr> AllocateOutputs(ortc::IAllocator* allocator) const {
     auto tensors = kernel_->AllocateOutput(allocator);
     std::vector<TensorPtr> outputs;
     for (auto& tensor : tensors) {
       outputs.push_back(std::unique_ptr<ortc::TensorBase>(tensor));
     }
 
+    // for (size_t i = 0; i < tensors.size(); ++i) {
+    //   std::string name = op_name_ + ":" + std::to_string(i);
+    //   if (tensor_lookup_table_->GetTensor(name) != nullptr) {
+    //     tensor_lookup_table_->AddTensor(name, outputs[i]);
+    //   }
+    // }
+
     return outputs;
   }
 
-  void ResetTensors(ortc::IAllocator* allocator) { outputs_.clear(); }
-
- private:
-  std::vector<std::unique_ptr<ortc::TensorBase>> outputs_;
+  auto& GetOpName() const { return op_name_; }
+  int64_t GetOutputCount() const { return kernel_->GetOutputCount(); }
+  auto& GetInputSpec() const { return inputs_spec_; }
 
  private:
   const KernelRegistry* kernel_registry_;
 
-  std::unique_ptr<KernelDef> kernel_;
   std::string op_name_;
-  ortc::IAllocator* allocator_{};
+  std::unique_ptr<KernelDef> kernel_;
+  std::vector<std::string> inputs_spec_{":*"};
 };
 
-class OrtxRunner {
+class ExecutionPlan {
  public:
-  OrtxRunner(ortc::IAllocator* allocator, Operation** ops, size_t op_num)
-      : allocator_(allocator), ops_(ops, ops + op_num) {}
+  ExecutionPlan() = default;
+  OrtxStatus Init(const json& plan, const Operation::KernelRegistry& kernel_registry) {
+    for (auto mod_iter = plan.begin(); mod_iter != plan.end(); ++mod_iter) {
+      auto op = std::make_unique<Operation>(kernel_registry);
+      auto status = op->Init(mod_iter->dump());
+      if (!status.IsOk()) {
+        return status;
+      }
 
-  template <typename IT, typename OT>  // batch input/output container
-  OrtxStatus Run(IT& input_seq, OT& output_seq) {
-    for (size_t i = 0; i < input_seq.size(); ++i) {
-      auto& input = *(input_seq.begin() + i);
-      Operation* last_op = nullptr;
-      // sequentially apply the operations
-      for (auto& op : ops_) {
-        if (last_op != nullptr) {
-          last_op->ResetTensors(allocator_);
-        }
-        auto [status, ts_output] = op->Apply(allocator_, input);
-        if (status.IsOk()) {
-          if (op == ops_.back()) {
-            output_seq.push_back(ts_output);
-          } else {
-            input = ts_output;
-          }
-        } else {
-          return status;
-        }
+      operations_.push_back(std::move(op));
+    }
 
-        last_op = op;
+    return {};
+  }
+
+  OrtxStatus PrepareInput(const Operation& op, std::vector<TensorPtr>& ts_output, TensorArgs& ts_inputs,
+                          TensorLookupTable& ts_lookup_table) const {
+    ts_inputs.clear();
+
+    auto& input_spec = op.GetInputSpec();
+    for (auto& spec : input_spec) {
+      if (spec == ":*") {
+        for (auto& out : ts_output) {
+          ts_inputs.push_back(out.get());
+        }
+        continue;
+      } else if (spec[0] == ':' && spec.size() > 1) {
+        size_t num = std::strtoul(spec.c_str() + 1, nullptr, 10);
+        if (num >= ts_output.size()) {
+          return {kOrtxErrorInvalidArgument, "Invalid input index."};
+        }
+        ts_inputs.push_back(ts_output[num].get());
+      } else if (auto ts = ts_lookup_table.GetTensor(spec); ts != nullptr) {
+        ts_inputs.push_back(ts);
+      } else {
+        return {kOrtxErrorInvalidArgument, "Input tensor is unknown: " + spec};
       }
     }
 
     return {};
+  }
+
+  OrtxStatus Execute(ortc::IAllocator* allocator, TensorArgs& input, TensorLookupTable& ts_lookup_table) const {
+    for (auto& op : operations_) {
+      // add tensor references
+      auto spec = op->GetInputSpec();
+      for (auto& name : spec) {
+        if (!name.empty() && name[0] != ':') {
+          ts_lookup_table.AddTensorRef(name);
+        }
+      }
+    }
+
+    TensorArgs ts_input{input.begin(), input.end()};
+    // Add the outputs of the last operation to the tensor lookup table
+    auto& last_op = operations_.back();
+    for (int64_t i = 0; i < last_op->GetOutputCount(); ++i) {
+      std::string name = last_op->GetOpName() + ":" + std::to_string(i);
+      ts_lookup_table.AddTensorRef(name);
+    }
+
+    std::vector<TensorPtr> ts_disposables;
+    // sequentially apply the operations
+    for (size_t n = 0; n < operations_.size(); ++n) {
+      auto& op = operations_[n];
+      auto ts_output = op->AllocateOutputs(allocator);
+      TensorArgs out_ptrs;
+      out_ptrs.reserve(ts_output.size());
+      std::transform(ts_output.begin(), ts_output.end(), std::back_inserter(out_ptrs),
+                     [](auto& ts) { return ts.get(); });
+      auto status = op->Apply(ts_input, out_ptrs);
+
+      for (auto& ts : ts_disposables) {
+        ts.reset();
+      }
+      ts_disposables.clear();
+
+      if (status.IsOk()) {
+        if (n < operations_.size() - 1) {
+          status = PrepareInput(*operations_[n + 1], ts_output, ts_input, ts_lookup_table);
+        }
+
+        for (size_t i = 0; i < ts_output.size(); i++) {
+          auto& out_tensor = ts_output[i];
+          std::string tensor_name = op->GetOpName() + ":" + std::to_string(i);
+          if (ts_lookup_table.IsReferenced(tensor_name)) {
+            ts_lookup_table.AddTensor(tensor_name, std::move(out_tensor));
+          } else {
+            ts_disposables.push_back(std::move(out_tensor));
+          }
+        }
+      }
+
+      if (!status.IsOk()) {
+        return status;
+      }
+    }
+
+    for (auto& ts : ts_disposables) {
+      ts.reset();
+    }
+
+    return {};
+  }
+
+  TensorArgs RetrieveOutput(TensorLookupTable& ts_lookup_table) const {
+    std::vector<ortc::TensorBase*> outputs;
+    auto& last_op = operations_.back();
+    for (int64_t i = 0; i < last_op->GetOutputCount(); ++i) {
+      std::string name = last_op->GetOpName() + ":" + std::to_string(i);
+      auto ts = ts_lookup_table.ReleaseTensor(name);
+      if (ts != nullptr) {
+        outputs.push_back(ts.release());
+      }
+    }
+
+    return outputs;
+  }
+
+  std::vector<TensorPtr> AllocateOutputs(ortc::IAllocator* allocator) const {
+    auto& last_op = operations_.back();
+    return last_op->AllocateOutputs(allocator);
+  }
+
+ private:
+  std::vector<std::unique_ptr<Operation>> operations_;
+};
+
+class OrtxRunner {
+ public:
+  OrtxRunner(const ExecutionPlan& plan) : allocator_(&CppAllocator::Instance()), plan_(plan) {}
+
+  OrtxStatus Run(std::vector<TensorArgs>& input_seq, std::vector<TensorArgs>& output_seq) {
+    for (size_t i = 0; i < input_seq.size(); ++i) {
+      auto& input = *(input_seq.begin() + i);
+      auto status = plan_.Execute(allocator_, input, tensor_lookup_table_);
+      if (!status.IsOk()) {
+        return status;
+      }
+
+      output_seq.push_back(plan_.RetrieveOutput(tensor_lookup_table_));
+    }
+
+    return {};
+  }
+
+  void Release() { tensor_lookup_table_.Reset(); }
+
+  ortc::IAllocator* GetAllocator() const { return allocator_; }
+
+  static bool IsGreaterShape(const std::vector<int64_t>& lhs, const std::vector<int64_t>& rhs) {
+    if (lhs.size() != rhs.size()) {
+      return lhs.size() > rhs.size();
+    }
+
+    for (size_t i = 0; i < lhs.size(); ++i) {
+      if (lhs[i] != rhs[i]) {
+        return lhs[i] > rhs[i];
+      }
+    }
+
+    return false;
+  }
+
+  static void CopyOrPadTensor(const std::vector<int64_t>::const_iterator dest_shape_begin,
+                              const std::vector<int64_t>::const_iterator dest_shape_end,
+                              const std::vector<int64_t>::const_iterator src_shape_begin,
+                              const std::vector<int64_t>::const_iterator src_shape_end, std::byte* dest,
+                              const std::byte* src, size_t element_size) {
+    // no broadcasting here
+    assert(dest_shape_begin != dest_shape_end && src_shape_begin != src_shape_end);
+    assert(dest_shape_end - dest_shape_begin == src_shape_end - src_shape_begin);
+
+    if ((dest_shape_begin + 1) == dest_shape_end) {
+      std::memcpy(dest, src, element_size * (*src_shape_begin));
+      if (*dest_shape_begin > *src_shape_begin) {
+        std::memset(dest + *src_shape_begin * element_size, 0, (*dest_shape_begin - *src_shape_begin) * element_size);
+      }
+      return;
+    }
+
+    int64_t dest_chunk_size = 1;
+    int64_t src_chunk_size = 1;
+    for (auto iter = dest_shape_begin + 1; iter != dest_shape_end; ++iter) {
+      dest_chunk_size *= *iter;
+    }
+
+    for (auto iter = src_shape_begin + 1; iter != src_shape_end; ++iter) {
+      src_chunk_size *= *iter;
+    }
+
+    for (int64_t i = 0; i < *dest_shape_begin; ++i) {
+      if (i < *src_shape_begin) {
+        if (dest_chunk_size == src_chunk_size) {
+          std::memcpy(dest + i * dest_chunk_size * element_size, src + i * src_chunk_size * element_size,
+                      dest_chunk_size * element_size);
+        } else {
+          CopyOrPadTensor(dest_shape_begin + 1, dest_shape_end, src_shape_begin + 1, src_shape_end,
+                          dest + i * dest_chunk_size * element_size, src + i * src_chunk_size * element_size,
+                          element_size);
+        }
+      } else {
+        std::memset(dest + i * dest_chunk_size * element_size, 0, dest_chunk_size * element_size);
+      }
+    }
   }
 
   static OrtxStatus StackTensors(const std::vector<TensorArgs>& arg_lists, std::vector<TensorPtr>& outputs,
@@ -332,9 +584,19 @@ class OrtxRunner {
       std::vector<ortc::TensorBase*> ts_ptrs;
       ts_ptrs.reserve(arg_lists.size());
       std::vector<int64_t> shape = arg_lists[0][axis]->Shape();
+      size_t element_size = arg_lists[0][axis]->SizeInBytes() / arg_lists[0][axis]->NumberOfElement();
+      bool is_same_shape = true;
       for (auto& ts : arg_lists) {
         if (shape != ts[axis]->Shape()) {
-          return {kOrtxErrorInvalidArgument, "[StackTensors]: shapes of tensors to stack are not the same."};
+          is_same_shape = false;
+          auto dtype = ts[axis]->Type();
+          if (dtype != ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64 &&
+            dtype != ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT && dtype != ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL) {
+            return {kOrtxErrorInvalidArgument, "[StackTensors]: shapes of tensors to stack are not the same."};
+          }
+          if (IsGreaterShape(ts[axis]->Shape(), shape)) {
+            shape = ts[axis]->Shape();
+          }
         }
         ts_ptrs.push_back(ts[axis]);
       }
@@ -342,11 +604,16 @@ class OrtxRunner {
       std::vector<int64_t> output_shape = shape;
       output_shape.insert(output_shape.begin(), batch_size);
       std::byte* tensor_buf = outputs[axis]->AllocateRaw(output_shape);
+      auto ts_size = outputs[axis]->SizeInBytes() / batch_size;
       for (size_t i = 0; i < batch_size; ++i) {
         auto ts = ts_ptrs[i];
         const std::byte* ts_buff = reinterpret_cast<const std::byte*>(ts->DataRaw());
-        auto ts_size = ts->SizeInBytes();
-        std::memcpy(tensor_buf + i * ts_size, ts_buff, ts_size);
+        if (is_same_shape /* || ts->Shape() == std::vector<int64_t>(output_shape.begin() + 1, output_shape.end()) */) {
+          std::memcpy(tensor_buf + i * ts_size, ts_buff, ts_size);
+        } else {
+          CopyOrPadTensor(output_shape.begin() + 1, output_shape.end(), ts->Shape().begin(), ts->Shape().end(),
+                          tensor_buf + i * ts_size, reinterpret_cast<const std::byte*>(ts->DataRaw()), element_size);
+        }
       }
     }
 
@@ -356,6 +623,8 @@ class OrtxRunner {
  private:
   ortc::IAllocator* allocator_;
   std::vector<Operation*> ops_;
+  const ExecutionPlan& plan_;
+  TensorLookupTable tensor_lookup_table_;
 };
 
 }  // namespace ort_extensions

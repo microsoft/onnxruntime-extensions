@@ -3,7 +3,7 @@
 
 #include "gtest/gtest.h"
 #include "string_utils.h"
-#include "wordpiece_tokenizer.hpp"
+#include "wordpiece_tokenizer.h"
 #include "bert_tokenizer.hpp"
 
 #include <clocale>

@@ -4,7 +4,6 @@
 #pragma once
 #include "ocos.h"
 #include "transpose_cast_impl.cuh"
-#include "ortx_common.h"
 
 namespace contrib {
 

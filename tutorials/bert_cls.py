@@ -7,7 +7,7 @@ from transformers import AutoTokenizer
 from transformers.onnx import export, FeaturesManager
 
 # get an onnx model by converting HuggingFace pretrained model
-model_name = "bert-base-cased"
+model_name = "google-bert/bert-base-cased"
 model_path = Path("onnx-model/bert-base-cased.onnx")
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 if not model_path.exists():

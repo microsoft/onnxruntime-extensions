@@ -37,7 +37,7 @@ class OrtxStatus {
 
   bool operator==(const OrtxStatus& s) const { return (rep_ == s.rep_); }
   bool operator!=(const OrtxStatus& s) const { return (rep_ != s.rep_); }
-  [[nodiscard]] inline bool IsOk() const noexcept{ return rep_ == nullptr; }
+  [[nodiscard]] inline bool IsOk() const noexcept{ return rep_ == nullptr || rep_->code == kOrtxOK; }
 
   void SetErrorMessage(const char* str) {
     if (rep_ == nullptr)

@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "wordpiece_tokenizer.hpp"
+#include "wordpiece_tokenizer.h"
 #include "nlohmann/json.hpp"
 
 KernelWordpieceTokenizer::KernelWordpieceTokenizer(const OrtApi& api, const OrtKernelInfo& info)

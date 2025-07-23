@@ -12,10 +12,11 @@
 
 using namespace ort_extensions;
 
+const char* test_image_paths[] = {"data/processor/standard_s.jpg", "data/processor/australia.jpg", "data/processor/exceltable.png"};
+const size_t test_image_count = sizeof(test_image_paths) / sizeof(test_image_paths[0]);
 
 TEST(ProcessorTest, TestPhi3VImageProcessing) {
-  auto [input_data, n_data] = ort_extensions::LoadRawImages(
-      {"data/processor/standard_s.jpg", "data/processor/australia.jpg", "data/processor/exceltable.png"});
+  auto [input_data, n_data] = ort_extensions::LoadRawImages(test_image_paths, test_image_count);
 
   auto proc = OrtxObjectPtr<ImageProcessor>(OrtxCreateProcessor, "data/processor/phi_3_image.json");
   ortc::Tensor<float>* pixel_values;
@@ -43,22 +44,20 @@ TEST(ProcessorTest, TestPhi3VImageProcessing) {
   proc->ClearOutputs(&r);
 }
 
-TEST(ProcessorTest, TestClipImageProcessing) {
-  const char* images_path[] = {"data/processor/standard_s.jpg", "data/processor/australia.jpg",
-                               "data/processor/exceltable.png"};
-  OrtxObjectPtr<OrtxRawImages> raw_images;
-  extError_t err = OrtxLoadImages(ort_extensions::ptr(raw_images), images_path, 3, nullptr);
+TEST(ProcessorTest, TestCLIPImageProcessing) {
+  OrtxObjectPtr<OrtxRawImages> raw_images{};
+  extError_t err = OrtxLoadImages(raw_images.ToBeAssigned(), test_image_paths, test_image_count, nullptr);
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxObjectPtr<OrtxProcessor> processor;
-  err = OrtxCreateProcessor(ort_extensions::ptr(processor), "data/processor/clip_image.json");
+  err = OrtxCreateProcessor(processor.ToBeAssigned(), "data/processor/clip_image.json");
   if (err != kOrtxOK) {
     std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
   }
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxObjectPtr<OrtxTensorResult> result;
-  err = OrtxImagePreProcess(processor.get(), raw_images.get(), ort_extensions::ptr(result));
+  err = OrtxImagePreProcess(processor.get(), raw_images.get(), result.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
 
   OrtxTensor* tensor;
@@ -68,7 +67,113 @@ TEST(ProcessorTest, TestClipImageProcessing) {
   const float* data{};
   const int64_t* shape{};
   size_t num_dims;
-  err = OrtxGetTensorDataFloat(tensor, &data, &shape, &num_dims);
+  err = OrtxGetTensorData(tensor, reinterpret_cast<const void**>(&data), &shape, &num_dims);
   ASSERT_EQ(err, kOrtxOK);
   ASSERT_EQ(num_dims, 4);
+}
+
+TEST(ProcessorTest, TestMLlamaImageProcessing) {
+  OrtxObjectPtr<OrtxRawImages> raw_images{};
+  extError_t err = OrtxLoadImages(raw_images.ToBeAssigned(), test_image_paths, test_image_count, nullptr);
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxProcessor> processor;
+  err = OrtxCreateProcessor(processor.ToBeAssigned(), "data/processor/mllama/llama_3_image.json");
+  if (err != kOrtxOK) {
+    std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxImagePreProcess(processor.get(), raw_images.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const float* data{};
+  const int64_t* shape{};
+  size_t num_dims;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 5);
+
+  err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+  const int64_t* int_data{};
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&int_data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 2);
+  ASSERT_EQ(std::vector<int64_t>(int_data, int_data + 3), std::vector<int64_t>({6, 6, 1}));
+
+  err = OrtxTensorResultGetAt(result.get(), 2, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&int_data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 2);
+  ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3, 4}));
+
+  err = OrtxTensorResultGetAt(result.get(), 3, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&int_data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 2);
+  ASSERT_EQ(std::vector<int64_t>(int_data, int_data + 3), std::vector<int64_t>({4, 4, 1}));
+}
+
+TEST(ProcessorTest, TestPhi4VisionProcessor) {
+  OrtxObjectPtr<OrtxRawImages> raw_images{};
+  extError_t err = OrtxLoadImages(raw_images.ToBeAssigned(), test_image_paths, test_image_count, nullptr);
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxProcessor> processor;
+  err = OrtxCreateProcessor(processor.ToBeAssigned(), "data/models/phi-4/vision_processor.json");
+  if (err != kOrtxOK) {
+    std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxImagePreProcess(processor.get(), raw_images.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  // embedding data (float32)
+  err = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+  const float* data{};
+  const int64_t* int_data{};
+  const int64_t* shape{};
+  size_t num_dims;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3, 10, 3, 448, 448}));
+  EXPECT_TRUE((data[0] > -0.30f) && (data[0] < -0.29f));
+
+  // image sizes (int64_t)
+  err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&int_data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3, 2}));
+  EXPECT_EQ(std::vector<int64_t>(int_data, int_data + 6),
+            std::vector<int64_t>({1344, 1344, 896, 1344, 448, 896}));
+
+  // mask data (float32)
+  err = OrtxTensorResultGetAt(result.get(), 2, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3, 10, 32, 32}));
+  EXPECT_FLOAT_EQ(data[0], 1.0f);
+
+  // num tokens (int64_t)
+  err = OrtxTensorResultGetAt(result.get(), 3, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&int_data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3, 1}));
+  EXPECT_EQ(std::vector<int64_t>(int_data, int_data + 3), std::vector<int64_t>({2625, 1841, 735}));
 }

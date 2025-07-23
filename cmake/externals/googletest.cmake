@@ -1,7 +1,7 @@
 FetchContent_Declare(
   googletest
-  URL             https://github.com/google/googletest/archive/9406a60c7839052e4944ea4dbc8344762a89f9bd.zip
-  URL_HASH        SHA1=06096d3900c356e468ba060a609642c635131106
+  URL             https://github.com/google/googletest/archive/refs/tags/v1.15.0.zip
+  URL_HASH        SHA1=9d2d0af8d77ac726ea55d44a8fa727ec98311349
   EXCLUDE_FROM_ALL
 )
 

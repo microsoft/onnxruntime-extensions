@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
 if(NOT "${CMAKE_SYSTEM_NAME}" MATCHES "Darwin|iOS")
   message(FATAL_ERROR "Building an Apple framework can only be enabled for MacOS or iOS.")
 endif()
@@ -10,7 +13,7 @@ if(NOT _ortcustomops_type STREQUAL "STATIC_LIBRARY")
 endif()
 
 set(APPLE_FRAMEWORK_NAME "onnxruntime_extensions")
-set(APPLE_FRAMEWORK_IDENTIFIER "com.microsoft.onnxruntime_extensions")
+set(APPLE_FRAMEWORK_IDENTIFIER "com.microsoft.onnxruntime-extensions")
 set(APPLE_FRAMEWORK_VERSION "${VERSION}")
 
 # public header files

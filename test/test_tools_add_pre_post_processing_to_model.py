@@ -17,12 +17,27 @@ from onnxruntime_extensions import get_library_path
 from onnxruntime_extensions.tools import add_pre_post_processing_to_model as add_ppp
 from onnxruntime_extensions.tools import add_HuggingFace_CLIPImageProcessor_to_model as add_clip_feature
 from onnxruntime_extensions.tools import pre_post_processing as pre_post_processing
-from onnxruntime_extensions.tools.pre_post_processing import *
+from onnxruntime_extensions.tools.pre_post_processing import *  # noqa
 
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 ort_ext_root = os.path.abspath(os.path.join(script_dir, ".."))
 test_data_dir = os.path.join(ort_ext_root, "test", "data", "ppp_vision")
+
+
+def compare_two_images_mse(image1, image2):
+    # decoding it firstly to avoid any format issues
+    image1 = Image.open(io.BytesIO(image1))
+    image2 = Image.open(io.BytesIO(image2))
+    if image1.size != image2.size:
+        return 10   # arbitrary large value
+    # check if the images are similar by MSE
+    return np.mean(np.square(np.array(image1) - np.array(image2)))
+
+
+def load_image_file(file_path):
+    with open(file_path, "rb") as f:
+        return f.read()
 
 
 # Function to read the mobilenet labels and adjust for PT vs TF training if needed
@@ -103,9 +118,9 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         output_model = os.path.join(test_data_dir, "pytorch_mobilenet_v2.updated.onnx")
         input_image_path = os.path.join(test_data_dir, "wolves.jpg")
 
-        add_clip_feature.clip_image_processor(Path(input_model), Path(output_model), opset=16, do_resize=True, 
+        add_clip_feature.clip_image_processor(Path(input_model), Path(output_model), opset=16, do_resize=True,
                                               do_center_crop=True, do_normalize=True, do_rescale=True,
-                                              do_convert_rgb=True, size=256, crop_size=224, 
+                                              do_convert_rgb=True, size=256, crop_size=224,
                                               rescale_factor=1/255, image_mean=[0.485, 0.456, 0.406],
                                               image_std=[0.229, 0.224, 0.225])
 
@@ -346,10 +361,10 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         self.assertEqual(np.allclose(result[0], ref_output[0]), True)
         self.assertEqual(np.allclose(result[1], ref_output[2]), True)
         self.assertEqual(np.allclose(result[2], ref_output[1]), True)
-        
+
     def test_hfbert_tokenizer_optional_output(self):
         output_model = (self.temp4onnx / "hfbert_tokenizer_optional_output.onnx").resolve()
-            
+
         ref_output = ([
             np.array([[2, 236, 118, 16, 1566, 875, 643, 3, 236, 118, 978, 1566, 875, 643, 3]]),
             np.array([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]),
@@ -368,7 +383,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         s = ort.InferenceSession(str(output_model), so, providers=["CPUExecutionProvider"])
 
         result = s.run(None, {s.get_inputs()[0].name: np.array([[input_text[0], input_text[1]]])})
-        
+
         self.assertEqual(len(result), 2)
 
         self.assertEqual(np.allclose(result[0], ref_output[0]), True)
@@ -416,7 +431,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         so = ort.SessionOptions()
         so.register_custom_ops_library(get_library_path())
         ort_sess = ort.InferenceSession(str(output_model), providers=['CPUExecutionProvider'], sess_options=so)
-        image = np.frombuffer(open(Path(test_data_dir)/'wolves.jpg', 'rb').read(), dtype=np.uint8)
+        image = np.frombuffer(load_image_file(Path(test_data_dir)/'wolves.jpg'), dtype=np.uint8)
 
         return ort_sess.run(None, {'image': image, "boxes_in": test_boxes})[0]
 
@@ -432,9 +447,9 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         for idx, is_crop in enumerate([True, False]):
             output_img = (Path(test_data_dir) / f"../{ref_img[idx]}").resolve()
             create_boxdrawing_model.create_model(output_model, is_crop=is_crop)
-            image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
+            image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
             output = self.draw_boxes_on_image(output_model, test_boxes[idx])
-            self.assertEqual((image_ref == output).all(), True)
+            self.assertLess(compare_two_images_mse(image_ref, output), 0.2)
 
     def test_draw_box_share_border(self):
         import sys
@@ -453,8 +468,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         output = self.draw_boxes_on_image(output_model, test_boxes)
 
         output_img = (Path(test_data_dir) / f"../wolves_with_box_share_borders.jpg").resolve()
-        image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
-        self.assertEqual((image_ref == output).all(), True)
+        image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
+        self.assertLess(compare_two_images_mse(image_ref, output), 0.2)
 
     def test_draw_box_off_boundary_box(self):
         import sys
@@ -473,8 +488,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         output = self.draw_boxes_on_image(output_model, test_boxes)
 
         output_img = (Path(test_data_dir) / f"../wolves_with_box_off_boundary_box.jpg").resolve()
-        image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
-        self.assertEqual((image_ref == output).all(), True)
+        image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
+        self.assertLess(compare_two_images_mse(image_ref, output), 0.1)
 
     def test_draw_box_more_box_by_class_than_colors(self):
         import sys
@@ -503,8 +518,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         output = self.draw_boxes_on_image(output_model, test_boxes)
 
         output_img = (Path(test_data_dir) / f"../wolves_with_box_more_box_than_colors.jpg").resolve()
-        image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
-        self.assertEqual((image_ref == output).all(), True)
+        image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
+        self.assertLess(compare_two_images_mse(image_ref, output), 0.1)
 
     def test_draw_box_more_box_by_score_than_colors(self):
         import sys
@@ -534,8 +549,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         output = self.draw_boxes_on_image(output_model, test_boxes)
 
         output_img = (Path(test_data_dir) / f"../wolves_with_box_more_box_than_colors_score.jpg").resolve()
-        image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
-        self.assertEqual((image_ref == output).all(), True)
+        image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
+        self.assertLess(compare_two_images_mse(image_ref, output), 0.1)
 
     # a box with higher score should be drawn over a box with lower score
 
@@ -556,8 +571,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         output = self.draw_boxes_on_image(output_model, test_boxes)
 
         output_img = (Path(test_data_dir) / f"../wolves_with_box_overlapping.jpg").resolve()
-        image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
-        self.assertEqual((image_ref == output).all(), True)
+        image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
+        self.assertLess(compare_two_images_mse(image_ref, output), 0.1)
 
     def test_draw_box_with_large_thickness(self):
         import sys
@@ -576,8 +591,8 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         output = self.draw_boxes_on_image(output_model, test_boxes)
 
         output_img = (Path(test_data_dir) / f"../wolves_with_solid_box.jpg").resolve()
-        image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
-        self.assertEqual((image_ref == output).all(), True)
+        image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
+        self.assertLess(compare_two_images_mse(image_ref, output), 0.1)
 
     def _create_pipeline_and_run_for_nms(self, output_model: Path,
                                          has_conf_value: bool,
@@ -612,7 +627,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         graph_def = onnx.parser.parse_graph(
             f"""\
             identity (float[num_boxes,{length}] _input)
-                => (float[num_boxes,{length}] _output)  
+                => (float[num_boxes,{length}] _output)
             {{
                 _output = Identity(_input)
             }}
@@ -683,7 +698,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
             out = ort_sess.run(None, {'_input': input_data})[0]
             return out
-            
+
         expected_size = [24,12,6,18,12,6,18,12,6,]
         idx = 0
         for iou_threshold in [0.9, 0.75, 0.5]:
@@ -801,7 +816,7 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         onnx_opset = 16
 
         graph_text = \
-            f"""pass_through ({', '.join(graph_input_strings)}) => ({', '.join(graph_output_strings)})             
+            f"""pass_through ({', '.join(graph_input_strings)}) => ({', '.join(graph_output_strings)})
             {{
                 {graph_nodes}
             }}"""
@@ -991,17 +1006,19 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
         output_model = os.path.join(test_data_dir, "FastestDet.updated.onnx")
         input_image_path = os.path.join(test_data_dir, "wolves.jpg")
 
-        add_ppp.yolo_detection(Path(input_model), Path(output_model), input_shape=(352, 352))
+        add_ppp.yolo_detection(Path(input_model), Path(output_model), output_format='png', input_shape=(352, 352))
 
         so = ort.SessionOptions()
         so.register_custom_ops_library(get_library_path())
         ort_sess = ort.InferenceSession(str(output_model), providers=['CPUExecutionProvider'], sess_options=so)
-        image = np.frombuffer(open(Path(test_data_dir)/'wolves.jpg', 'rb').read(), dtype=np.uint8)
+        image = np.frombuffer(load_image_file(input_image_path), dtype=np.uint8)
 
         output = ort_sess.run(None, {'image': image})[0]
-        output_img = (Path(test_data_dir) / f"../wolves_with_fastestDet.jpg").resolve()
-        image_ref = np.frombuffer(open(output_img, 'rb').read(), dtype=np.uint8)
-        self.assertEqual((image_ref == output).all(), True)
+        output_img = (Path(test_data_dir) / "../wolves_with_fastestDet.png").resolve()
+        # output.tofile(str(output_img) + "actual.png")
+
+        image_ref = np.frombuffer(load_image_file(output_img), dtype=np.uint8)
+        self.assertLess(compare_two_images_mse(image_ref, output), 0.2)
 
 
 if __name__ == "__main__":

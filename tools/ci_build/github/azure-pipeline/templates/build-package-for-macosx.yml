@@ -1,0 +1,51 @@
+parameters:
+- name: AdditionalBuildFlags
+  displayName: Additional build flags for build.sh
+  type: string
+
+- name: IsReleaseBuild
+  displayName: "Is this a release build?"
+  type: boolean
+  default: false
+
+stages:
+- stage: MacOS_C_API_Packaging_CPU
+  dependsOn: []
+  jobs:
+  - template: mac-shared-lib-build.yml
+    parameters:
+      MacosArch: 'x86_64'
+      AdditionalBuildFlags: ${{ parameters.AdditionalBuildFlags }}
+
+  - template: mac-shared-lib-build.yml
+    parameters:
+      MacosArch: 'arm64'
+      AdditionalBuildFlags: "${{ parameters.AdditionalBuildFlags }} --cmake_extra_defines CMAKE_OSX_ARCHITECTURES=arm64"
+  - template: mac-shared-lib-build.yml
+    parameters:
+      MacosArch: 'universal2'
+      AdditionalBuildFlags: "${{ parameters.AdditionalBuildFlags }} --cmake_extra_defines CMAKE_OSX_ARCHITECTURES=\"arm64;x86_64\""
+  - job: MacOS_C_API_Package_Publish_All
+    dependsOn:
+    - MacOS_C_API_Packaging_CPU_x86_64
+    - MacOS_C_API_Packaging_CPU_arm64
+    - MacOS_C_API_Packaging_CPU_universal2
+    pool:
+      name: "Azure Pipelines"
+      image: "macOS-13"
+      os: macOS
+    templateContext:
+      inputs:
+      - input: pipelineArtifact
+        artifactName: onnxruntime-extensions-osx-x86_64
+        targetPath: $(Build.ArtifactStagingDirectory)
+      - input: pipelineArtifact
+        artifactName: onnxruntime-extensions-osx-arm64
+        targetPath: $(Build.ArtifactStagingDirectory)
+      - input: pipelineArtifact
+        artifactName: onnxruntime-extensions-osx-universal2
+        targetPath: $(Build.ArtifactStagingDirectory)
+      outputs:
+      - output: pipelineArtifact
+        path: $(Build.ArtifactStagingDirectory)
+        artifact: onnxruntime-extensions-osx

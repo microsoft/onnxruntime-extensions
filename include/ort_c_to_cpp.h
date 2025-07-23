@@ -7,7 +7,6 @@
 
 // OrtW: ONNX Runtime C ABI Wrapper
 namespace OrtW {
-
 struct CustomOpApi {
   CustomOpApi(const OrtApi& api) : api_(api) {}
 
@@ -62,6 +61,25 @@ class API {
 
   static void ReleaseStatus(OrtStatusPtr ptr) noexcept {
     instance()->ReleaseStatus(ptr);
+  }
+
+  static OrtStatusPtr GetOpAttributeString(const OrtApi& api,
+    const OrtKernelInfo& info, const char* name, std::string& value) noexcept {
+    size_t size = 0;
+    OrtStatus* status = api.KernelInfoGetAttribute_string(&info, name, nullptr, &size);
+    if (status == nullptr) {
+      value.resize(size);
+      status = api.KernelInfoGetAttribute_string(&info, name, &value[0], &size);
+      value.resize(size - 1);  // remove the terminating character '\0'
+      if (status != nullptr) {
+        return status; // some unexpected error
+      }
+    } else {
+      // ignore the error, as the attribute is optional
+      api.ReleaseStatus(status);
+    }
+
+    return nullptr;
   }
 
   template <typename T>
@@ -371,3 +389,16 @@ struct OrtTensorDimensions : std::vector<int64_t> {
     return size() == 1;
   }
 };
+
+inline bool IsScalarOr1ElementVector(size_t num_dimensions, int64_t shape_size) {
+  if (num_dimensions == 0 || (num_dimensions == 1 && shape_size == 1)) return true;
+  return false;
+}
+
+#define ORTW_RETURN_IF_ERROR(expr) \
+  do {                             \
+    auto _status = (expr);         \
+    if (_status != nullptr) {      \
+      return _status;              \
+    }                              \
+  } while (0)

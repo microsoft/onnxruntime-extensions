@@ -5,6 +5,10 @@ ColumnLimit:  120
 SortIncludes: false
 DerivePointerAlignment: false
 
+# C++ specific customization
+Language: Cpp
+IndentWidth: 2
+
 # if you want to customize when working locally see https://clang.llvm.org/docs/ClangFormatStyleOptions.html for options.
 # See ReformatSource.ps1 for a script to update all source according to the current options in this file.
 # e.g. customizations to use Allman bracing and more indenting.

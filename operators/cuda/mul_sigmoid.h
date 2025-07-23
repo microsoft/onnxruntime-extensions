@@ -4,7 +4,6 @@
 #pragma once
 #include "ocos.h"
 #include "mul_sigmoid_impl.cuh"
-#include "ortx_common.h"
 
 namespace contrib {
 

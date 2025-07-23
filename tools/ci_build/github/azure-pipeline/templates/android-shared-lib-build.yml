@@ -1,0 +1,80 @@
+# packaging pipeline for onnxruntime-extensions Android AAR in nuget package
+parameters:
+- name: AndroidABI
+  displayName: android abi,[arm64-v8a, x86_64, x86, armeabi-v7a]
+  values:
+  - 'x86_64'
+  - 'x86'
+  - 'arm64-v8a'
+  - 'armeabi-v7a'
+  type: string
+
+- name: JobSuffix
+  displayName: android abi has dash `-`, which can't be part of job name.
+  type: string
+
+- name: AdditionalBuildFlags
+  displayName: Additional build flags for /tools/android/build_aar.py
+  type: string
+
+
+jobs:
+  - job: Android_C_API_Packaging_${{ parameters.JobSuffix }}
+    pool:
+      name: "Azure Pipelines"
+      image: "macOS-13"
+      os: macOS
+    timeoutInMinutes: 120
+    variables:
+      buildConfig: Release
+    templateContext:
+      outputs:
+      - output: pipelineArtifact
+        path: $(Build.ArtifactStagingDirectory)
+        artifact: onnxruntime-extensions-android-${{ parameters.AndroidABI }}
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: "3.12"
+          addToPath: true
+          architecture: "x64"
+        displayName: "Use Python 3.12"
+
+      - task: JavaToolInstaller@0
+        displayName: Use jdk 17
+        inputs:
+          versionSpec: "17"
+          jdkArchitectureOption: "x64"
+          jdkSourceOption: "PreInstalled"
+
+      - script: brew install coreutils ninja
+        displayName: Install coreutils and ninja
+
+      - task: Bash@3
+        displayName: 'Build android shared library'
+        inputs:
+          targetType: 'inline'
+          script: |
+            set -e -x
+            python ./tools/android/build_aar.py \
+                --output_dir $(Build.BinariesDirectory)/android_so \
+                --mode build_so_only \
+                --abi ${{ parameters.AndroidABI }} \
+                --config $(buildConfig) \
+                -- \
+                ${{parameters.AdditionalBuildFlags}}
+          workingDirectory: '$(Build.SourcesDirectory)'
+
+      - bash: |
+          set -e -x
+
+          SO_DIR=$(Build.BinariesDirectory)/android_so
+          ARTIFACTS_STAGING_DIR="$(Build.ArtifactStagingDirectory)"
+          mkdir ${ARTIFACTS_STAGING_DIR}/intermediates
+          cp -r ${SO_DIR}/intermediates/jnilibs ${ARTIFACTS_STAGING_DIR}/intermediates/
+
+        displayName: "Assemble artifacts"
+
+      - template: component-governance-component-detection-steps.yml
+        parameters :
+          condition : 'succeeded'

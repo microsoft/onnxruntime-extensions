@@ -93,7 +93,7 @@ e attended to by the model
 ```python
 import transformers
 
-bert_cased_tokenizer = transformers.BertTokenizer.from_pretrained('bert-base-cased')
+bert_cased_tokenizer = transformers.BertTokenizer.from_pretrained('google-bert/bert-base-cased')
 
 node = onnx.helper.make_node(
     'BertTokenizer',
@@ -195,7 +195,7 @@ def get_file_content(path):
   with open(path, "rb") as file:
     return file.read()
   
-bert_cased_tokenizer = transformers.BertTokenizer.from_pretrained('bert-base-cased')
+bert_cased_tokenizer = transformers.BertTokenizer.from_pretrained('google-bert/bert-base-cased')
 bert_cased_tokenizer.save('.', 'bert')
 
 

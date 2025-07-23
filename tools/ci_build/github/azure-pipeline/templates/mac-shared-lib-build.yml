@@ -1,0 +1,80 @@
+parameters:
+- name: MacosArch
+  type: string
+  values:
+  - 'x86_64'
+  - 'arm64'
+  - 'universal2'
+  default: 'x86_64'
+
+- name: AdditionalBuildFlags
+  displayName: Additional build flags for build_lib.sh
+  type: string
+
+jobs:
+- job: MacOS_C_API_Packaging_CPU_${{ parameters.MacosArch }}
+  workspace:
+    clean: all
+  variables:
+    MACOSX_DEPLOYMENT_TARGET: '11.0'
+    TODAY: $[format('{0:dd}{0:MM}{0:yyyy}', pipeline.startTime)]
+  pool:
+    name: "Azure Pipelines"
+    image: "macOS-13"
+    os: macOS
+  timeoutInMinutes: 300
+  templateContext:
+    outputs:
+    - output: pipelineArtifact
+      path: $(Build.ArtifactStagingDirectory)
+      artifact: onnxruntime-extensions-osx-${{ parameters.MacosArch }}
+
+  steps:
+  - checkout: self
+    clean: true
+    submodules: none
+
+  - template: use-xcode-version.yml
+
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '16.x'
+
+  - template: set-package-version-variable-step.yml
+    parameters:
+      IsReleaseBuild: true
+      PackageVersionVariableName: ORT_EXTENSIONS_VERSION
+
+  # Can't run tests on macos due to build error
+  # https://github.com/microsoft/onnxruntime-extensions/issues/418
+  # Add --enable_cxx_tests to the build_lib.sh command line when fixed
+  - script: |
+      set -e -x
+      ./build_lib.sh --build_dir $(Build.BinariesDirectory)/out/ --config RelWithDebInfo --parallel ${{parameters.AdditionalBuildFlags}}
+    displayName: 'Build ${{ parameters.MacosArch }}'
+
+  - task: Bash@3
+    displayName: 'Copy build artifacts for zipping'
+    inputs:
+      targetType: 'inline'
+      # TODO: Save debug symbols instead of just stripping
+      script: |
+        set -e -x
+        target_lib_path=onnxruntime-extensions-osx-${{ parameters.MacosArch }}-$(ORT_EXTENSIONS_VERSION)/lib
+        mkdir -p $target_lib_path
+        cp out/RelWithDebInfo/lib/libortextensions.dylib  ${target_lib_path}/
+        strip -S ${target_lib_path}/libortextensions.dylib
+      workingDirectory: $(Build.BinariesDirectory)
+
+  - task: ArchiveFiles@2
+    inputs:
+      rootFolderOrFile: '$(Build.BinariesDirectory)/onnxruntime-extensions-osx-${{ parameters.MacosArch }}-$(ORT_EXTENSIONS_VERSION)'
+      includeRootFolder: true
+      archiveType: 'tar' # Options: zip, 7z, tar, wim
+      tarCompression: 'gz'
+      archiveFile: '$(Build.ArtifactStagingDirectory)/onnxruntime-extensions-osx-${{ parameters.MacosArch }}.tgz'
+      replaceExistingArchive: true
+
+  - template: component-governance-component-detection-steps.yml
+    parameters :
+      condition : 'succeeded'

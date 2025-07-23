@@ -23,7 +23,7 @@ RUN dnf install -y \
 
 RUN pip3 install --upgrade pip
 RUN pip3 install setuptools>=68.2.2
-RUN pip3 install cmake==3.27.2
+RUN pip3 install cmake==3.28.4
 
 # Install TensorRT
 RUN dnf install -y libnvinfer8 libnvonnxparsers8 libnvparsers8 libnvinfer-plugin8 libnvinfer-lean8 libnvinfer-vc-plugin8 libnvinfer-dispatch8

@@ -1,0 +1,15 @@
+parameters:
+- name: steps
+  type: stepList
+
+steps:
+- template: use-android-emulator.yml@self
+  parameters:
+    create: true
+    start: true
+
+- ${{ parameters.steps }}
+
+- template: use-android-emulator.yml@self
+  parameters:
+    stop: true

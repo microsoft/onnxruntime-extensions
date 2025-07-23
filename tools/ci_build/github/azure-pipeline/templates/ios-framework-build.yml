@@ -1,0 +1,80 @@
+# packaging pipeline for onnxruntime-extensions ios cocoapods package
+parameters:
+- name: Platform
+  displayName: ios Platform
+  type: string
+
+- name: IosArch
+  displayName: IosArch
+  type: string
+
+- name: IosVersion
+  displayName: IosVersion
+  type: string
+
+- name: IsReleaseBuild
+  displayName: "Is this a release build?"
+  type: boolean
+
+
+- name: AdditionalBuildFlags
+  displayName: Additional build flags for /tools/ios/build_xcframework.py
+  type: string
+
+jobs:
+  - job: IOS_C_API_Packaging_${{ parameters.Platform }}_${{ parameters.IosArch }}
+    condition: succeeded()
+    pool:
+      name: "Azure Pipelines"
+      image: "macOS-13"
+      os: macOS
+    timeoutInMinutes: 120
+    variables:
+      buildConfig: Release
+    templateContext:
+      outputs:
+      - output: pipelineArtifact
+        path: $(Build.ArtifactStagingDirectory) 
+        artifact: onnxruntime-extensions-ios-${{ parameters.Platform }}-${{ parameters.IosArch }}-lib
+    steps:
+      - template: use-xcode-version.yml
+
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: "3.12"
+          addToPath: true
+          architecture: "x64"
+
+      - script: |
+          python -m pip install cmake
+        displayName: "Install CMake"
+
+      - template: set-package-version-variable-step.yml
+        parameters:
+          IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+          PackageVersionVariableName: ORT_EXTENSIONS_POD_VERSION
+
+      - script: |
+          python ./tools/ios/build_xcframework.py \
+            --output_dir $(Build.BinariesDirectory)/xcframework_out \
+            --config $(buildConfig) \
+            --platform_arch  ${{ parameters.Platform }} ${{ parameters.IosArch }} \
+            --mode build_platform_arch_frameworks_only \
+            --ios_deployment_target ${{ parameters.IosVersion}} \
+            -- \
+            ${{parameters.AdditionalBuildFlags}}
+        displayName: "Build xcframework"
+
+      - bash: |
+          set -e -x
+
+          package_name=onnxruntime-extensions-ios-${{ parameters.Platform }}-${{ parameters.IosArch }}-lib.tgz
+          target_folder=xcframework_out/intermediates/${{ parameters.Platform }}/${{ parameters.IosArch }}/$(buildConfig)
+          framework_info=${target_folder}/framework_info.json
+          tar -cvzf $(Build.ArtifactStagingDirectory)/${package_name} -C $(Build.BinariesDirectory)/ ${target_folder}/static_framework ${framework_info}
+
+        displayName: "Assemble artifacts"
+
+      - template: component-governance-component-detection-steps.yml
+        parameters :
+          condition : 'succeeded'

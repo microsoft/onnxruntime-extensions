@@ -1,0 +1,183 @@
+# packaging pipeline for iOS CocoaPods package
+
+parameters:
+- name: IsReleaseBuild
+  displayName: "Is this a release build?"
+  type: boolean
+  default: false
+
+
+- name: AdditionalBuildFlags
+  displayName: Additional build flags for /tools/ios/build_xcframework.py
+  type: string
+
+jobs:
+- template: ios-framework-build.yml
+  parameters:
+    Platform: 'iphoneos'
+    IosArch: 'arm64'
+    IosVersion: '12.0'
+    IsReleaseBuild: ${{parameters.IsReleaseBuild}}
+    AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
+
+- template: ios-framework-build.yml
+  parameters:
+    Platform: 'iphonesimulator'
+    IosArch: 'x86_64'
+    IosVersion: '12.0'
+    IsReleaseBuild: ${{parameters.IsReleaseBuild}}
+    AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
+
+- template: ios-framework-build.yml
+  parameters:
+    Platform: 'iphonesimulator'
+    IosArch: 'arm64'
+    IosVersion: '12.0'
+    IsReleaseBuild: ${{parameters.IsReleaseBuild}}
+    AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
+  
+- template: ios-framework-build.yml
+  parameters:
+    Platform: 'maccatalyst'
+    IosArch: 'arm64'
+    IosVersion: '14.0'
+    IsReleaseBuild: ${{parameters.IsReleaseBuild}}
+    AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
+
+- template: ios-framework-build.yml
+  parameters:
+    Platform: 'maccatalyst'
+    IosArch: 'x86_64'
+    IosVersion: '14.0'
+    IsReleaseBuild: ${{parameters.IsReleaseBuild}}
+    AdditionalBuildFlags: ${{parameters.AdditionalBuildFlags}}
+
+- job: IosPackaging
+  condition: not(or(failed(), canceled()))
+  displayName: "iOS Packaging"
+  dependsOn:
+  - IOS_C_API_Packaging_iphoneos_arm64
+  - IOS_C_API_Packaging_iphonesimulator_arm64
+  - IOS_C_API_Packaging_iphonesimulator_x86_64
+  - IOS_C_API_Packaging_maccatalyst_x86_64
+  - IOS_C_API_Packaging_maccatalyst_arm64
+  pool:
+    name: "Azure Pipelines"
+    image: "macOS-13"
+    os: macOS
+  templateContext:
+    inputs:
+      - input: pipelineArtifact
+        artifactName: onnxruntime-extensions-ios-iphoneos-arm64-lib
+        targetPath: $(Build.BinariesDirectory)
+      - input: pipelineArtifact
+        artifactName: onnxruntime-extensions-ios-iphonesimulator-arm64-lib
+        targetPath: $(Build.BinariesDirectory)
+      - input: pipelineArtifact
+        artifactName: onnxruntime-extensions-ios-iphonesimulator-x86_64-lib
+        targetPath: $(Build.BinariesDirectory)
+      - input: pipelineArtifact
+        artifactName: onnxruntime-extensions-ios-maccatalyst-x86_64-lib
+        targetPath: $(Build.BinariesDirectory)
+      - input: pipelineArtifact
+        artifactName: onnxruntime-extensions-ios-maccatalyst-arm64-lib
+        targetPath: $(Build.BinariesDirectory)
+    outputs:
+      - output: pipelineArtifact
+        path: $(Build.ArtifactStagingDirectory)
+        artifact: onnxruntime-extensions-ios_package
+
+  timeoutInMinutes: 120
+
+  steps:
+  - checkout: self
+    submodules: true
+
+  - template: use-xcode-version.yml
+
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.12"
+      addToPath: true
+      architecture: "x64"
+
+  - script: |
+      python -m pip install cmake
+    displayName: "Install CMake"
+
+  - template: set-package-version-variable-step.yml
+    parameters:
+      IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
+      PackageVersionVariableName: ORT_EXTENSIONS_POD_VERSION
+      
+  - script: |
+      set -e -x
+      ls
+      if ! ls onnxruntime-extensions-ios*.tgz &> /dev/null; then
+        echo "no tgz files found. It's not distributed building, skip!"
+        exit 0
+      fi
+      for tgz_lib in `ls onnxruntime-extensions-ios*.tgz`
+      do
+        echo "decompress $tgz_lib"
+        tar -xvzf $tgz_lib
+      done
+
+        ls 
+      ls xcframework_out/intermediates/*
+    workingDirectory: $(Build.BinariesDirectory)
+    displayName: "Extract file from distributed build"
+
+  - script: |
+      python ./tools/ios/build_xcframework.py \
+        --output_dir $(Build.BinariesDirectory)/xcframework_out \
+        --config Release \
+        --platform_arch iphonesimulator x86_64 \
+        --platform_arch iphonesimulator arm64 \
+        --platform_arch iphoneos arm64 \
+        --platform_arch maccatalyst x86_64 \
+        --platform_arch maccatalyst arm64 \
+        --mode pack_xcframework_only
+    displayName: "Pack xcframework for distributed building"
+
+  - script: |
+      python ./tools/ios/assemble_pod_package.py \
+        --staging-dir $(Build.BinariesDirectory)/pod_staging \
+        --xcframework-output-dir $(Build.BinariesDirectory)/xcframework_out \
+        --pod-version ${ORT_EXTENSIONS_POD_VERSION} \
+        --mac_catalyst_enabled
+    displayName: "Assemble pod"
+
+  - script: |
+      ls -lR $(Build.BinariesDirectory)/pod_staging
+      pod lib lint
+    displayName: "Lint pod"
+    workingDirectory: $(Build.BinariesDirectory)/pod_staging
+
+  # Note: In this CI, we exclude macos arch in the build_framework.py command however the test app's podfile by default
+  # is setup for all platforms, and due to that we have explicitly exclude the macos target below when installing the pod
+  # for the test app.
+  - script: |
+      ORT_EXTENSIONS_LOCAL_POD_PATH=$(Build.BinariesDirectory)/pod_staging \
+      EXCLUDE_MACOS_TARGET=true \
+        pod install
+    displayName: "Install pods for OrtExtensionsUsage"
+    workingDirectory: $(Build.SourcesDirectory)/test/ios/OrtExtensionsUsage
+
+  - script: |
+      set -e -x
+
+      POD_STAGING_DIR="$(Build.BinariesDirectory)/pod_staging"
+      ARTIFACTS_STAGING_DIR="$(Build.ArtifactStagingDirectory)"
+      POD_NAME="onnxruntime-extensions-c"
+      POD_ARCHIVE_BASENAME="onnxruntime_extensions.xcframework.${ORT_EXTENSIONS_POD_VERSION}.zip"
+      PODSPEC_BASENAME="${POD_NAME}.podspec"
+
+      pushd ${POD_STAGING_DIR}
+
+      # assemble the files in the artifacts staging directory
+      zip -vry ${ARTIFACTS_STAGING_DIR}/${POD_ARCHIVE_BASENAME} * --exclude ${PODSPEC_BASENAME}
+      cp ${PODSPEC_BASENAME} ${ARTIFACTS_STAGING_DIR}/${PODSPEC_BASENAME}
+
+      popd
+    displayName: "Assemble artifacts"

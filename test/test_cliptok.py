@@ -1,4 +1,5 @@
 ﻿import unittest
+import tempfile
 import numpy as np
 import onnxruntime as _ort
 
@@ -65,7 +66,7 @@ class TestCLIPTokenizer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tokenizer = CLIPTokenizerFast.from_pretrained("openai/clip-vit-base-patch32")
-        temp_dir = Path('./temp_onnxclip')
+        temp_dir = Path(tempfile.gettempdir())
         temp_dir.mkdir(parents=True, exist_ok=True)
         files = cls.tokenizer.save_vocabulary(str(temp_dir))
         cls.tokjson = files[0]
@@ -146,6 +147,27 @@ class TestCLIPTokenizer(unittest.TestCase):
         expect_attention_mask = clip_out['attention_mask']
         np.testing.assert_array_equal(expect_input_ids, outputs1[0])
         np.testing.assert_array_equal(expect_attention_mask, outputs1[1])
+
+    def test_unicode(self):
+        model = _create_test_model(vocab_file=self.tokjson, merges_file=self.merges,
+                                   max_length=-1, attention_mask=True, offset_map=True)
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        sess = _ort.InferenceSession(model.SerializeToString(), so, providers=["CPUExecutionProvider"])
+        # for code_point in range(256, 257):
+        for code_point in range(32, 500):
+            try:
+                test_sentence = [chr(code_point)]
+                input_text = np.array(test_sentence)
+                input_ids, attention_mask, _ = sess.run(None, {'string_input': input_text})
+                clip_out = self.tokenizer(test_sentence, return_offsets_mapping=True)
+                expect_input_ids = clip_out['input_ids']
+                expect_attention_mask = clip_out['attention_mask']
+                np.testing.assert_array_equal(expect_input_ids, input_ids)
+                np.testing.assert_array_equal(expect_attention_mask, attention_mask)
+            except AssertionError as e:
+                print(f"Failed for code point {code_point}: {self.slow_tokenizer([chr(code_point)])}")
+                raise e
 
 
 if __name__ == "__main__":

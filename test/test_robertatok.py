@@ -6,10 +6,12 @@ from pathlib import Path
 from onnx import helper, onnx_pb as onnx_proto
 from transformers import RobertaTokenizer, RobertaTokenizerFast
 from onnxruntime_extensions import (
+    util,
     make_onnx_model,
     get_library_path as _get_library_path,
     PyOrtFunction)
 from onnxruntime_extensions.cvt import HFTokenizerConverter
+
 
 def _get_file_content(path):
     with open(path, "rb") as file:
@@ -62,13 +64,14 @@ def _create_test_model(**kwargs):
 class TestRobertaTokenizer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.tokenizer = RobertaTokenizerFast.from_pretrained("roberta-base")
+        model_id = util.get_test_data_file("data/tokenizer/roberta-base")
+        cls.tokenizer = RobertaTokenizerFast.from_pretrained(model_id)
         temp_dir = Path('./temp_onnxroberta')
         temp_dir.mkdir(parents=True, exist_ok=True)
         files = cls.tokenizer.save_vocabulary(str(temp_dir))
         cls.tokjson = files[0]
         cls.merges = files[1]
-        cls.slow_tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
+        cls.slow_tokenizer = RobertaTokenizer.from_pretrained(model_id)
         cls.tokenizer_cvt = HFTokenizerConverter(cls.slow_tokenizer)
 
     def _run_tokenizer(self, test_sentence, padding_length=-1):

@@ -464,10 +464,10 @@ class Tensor<std::string> : public TensorBase {
   void SetStringOutput(const std::vector<const char*>& ss, const std::vector<int64_t>& dims) {
     storage_->SetStringOutput(ss, dims);
   }
-  const Span<std::string>& AsSpan() {
+  const Span<std::string>& AsSpan() const {
     ORTX_CXX_API_THROW("span for TensorT of string not implemented", ORT_RUNTIME_EXCEPTION);
   }
-  const std::string& AsScalar() {
+  const std::string& AsScalar() const {
     auto& ss = storage_->Data();
     if (ss.size() != 1) {
       ORTX_CXX_API_THROW("to get a scalar, shape must be {1}, actual shape: " + Shape2Str(), ORT_RUNTIME_EXCEPTION);
@@ -542,10 +542,10 @@ class Tensor<std::string_view> : public TensorBase {
   void SetStringOutput(const std::vector<const char*>& ss, const std::vector<int64_t>& dims) {
     storage_->SetStringOutput(ss, dims);
   }
-  const Span<std::string_view>& AsSpan() {
+  const Span<std::string_view>& AsSpan() const {
     ORTX_CXX_API_THROW("span for TensorT of string not implemented", ORT_RUNTIME_EXCEPTION);
   }
-  const std::string_view& AsScalar() {
+  const std::string_view& AsScalar() const {
     auto& ss = storage_->Data();
     if (ss.size() != 1) {
       ORTX_CXX_API_THROW("to get a scalar, shape must be {1}, actual shape: " + Shape2Str(), ORT_RUNTIME_EXCEPTION);
@@ -556,7 +556,6 @@ class Tensor<std::string_view> : public TensorBase {
  private:
   std::unique_ptr<IStringTensorStorage<std::string_view>> storage_;
 };
-
 
 template<typename ...Args>
 class NamedArgumentDict{

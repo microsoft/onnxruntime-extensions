@@ -43,7 +43,7 @@ def _run_basic_with_offset_check(input, vocab_path):
     np.testing.assert_array_equal(result[0], expect_result["input_ids"])
     np.testing.assert_array_equal(result[1], expect_result["token_type_ids"])
     np.testing.assert_array_equal(result[2], expect_result["attention_mask"])
-    tokenizer = BertTokenizerFast.from_pretrained("bert-base-cased")
+    tokenizer = BertTokenizerFast.from_pretrained("google-bert/bert-base-cased")
     bert_out = tokenizer(input, return_offsets_mapping=True)
     np.testing.assert_array_equal(result[3], bert_out['offset_mapping'])
     print("\nTest sentence: " + str(input))

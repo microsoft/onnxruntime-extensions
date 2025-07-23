@@ -5,7 +5,7 @@ import transformers
 from onnxruntime_extensions import util
 from onnxruntime_extensions import PyOrtFunction, BertTokenizerDecoder
 
-bert_cased_tokenizer = transformers.BertTokenizer.from_pretrained('bert-base-cased')
+bert_cased_tokenizer = transformers.BertTokenizer.from_pretrained('google-bert/bert-base-cased')
 bert_uncased_tokenizer = transformers.BertTokenizer.from_pretrained('bert-base-uncased')
 
 

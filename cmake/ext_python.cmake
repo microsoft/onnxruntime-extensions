@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
 block(PROPAGATE Python3_FOUND)
   set(Python3_FIND_REGISTRY NEVER)
   # if we don't set this to NEVER (or possibly LAST) the builds of the wheel for different python versions will fail

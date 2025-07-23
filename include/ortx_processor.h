@@ -51,7 +51,7 @@ extError_t ORTX_API_CALL OrtxLoadImages(OrtxRawImages** images, const char** ima
  * @param num_images Number of images to create.
  * @return An `extError_t` value indicating the success or failure of the operation.
  */
-extError_t ORTX_API_CALL OrtxCreateRawImages(OrtxRawImages** images, const void* data[], const int64_t* sizes[], size_t num_images);
+extError_t ORTX_API_CALL OrtxCreateRawImages(OrtxRawImages** images, const void* data[], const int64_t sizes[], size_t num_images);
 
 /**
  * @brief Pre-processes the given raw images using the specified processor.

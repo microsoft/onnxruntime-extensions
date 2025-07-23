@@ -34,8 +34,6 @@ CMAKE_FLAG_TO_OPS = {
         "SegmentExtraction",
     ],
     "OCOS_ENABLE_OPENCV_CODECS": [
-        "DecodeImage",
-        "EncodeImage",
         "ImageReader"
     ],
     "OCOS_ENABLE_RE2_REGEX": [
@@ -76,7 +74,9 @@ CMAKE_FLAG_TO_OPS = {
     ],
     "OCOS_ENABLE_DLIB": [
         "Inverse",
-        "StftNorm"
+        "StftNorm",
+        "DecodeImage",
+        "EncodeImage"
     ],
     "OCOS_ENABLE_TRIE_TOKENIZER": [
         "TrieTokenizer",

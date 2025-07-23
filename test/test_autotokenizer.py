@@ -94,10 +94,12 @@ class TestAutoTokenizer(unittest.TestCase):
             " add words that should not exist and be tokenized to , such as saoneuhaoesuth")
         ids = tokenizer.encode(text, return_tensors="np")
 
-        ort_tok, _ = gen_processing_models(
-            tokenizer, pre_kwargs={"WITH_DEFAULT_INPUTS": True})
-        actual_ids, *_ = ort_inference(ort_tok, [text])
+        tok, detok = gen_processing_models(
+            tokenizer, pre_kwargs={"WITH_DEFAULT_INPUTS": True}, post_kwargs={"WITH_DEFAULT_INPUTS": True})
+        actual_ids, *_ = ort_inference(tok, [text])
+        det_text = ort_inference(detok, actual_ids)
         np.testing.assert_array_equal(ids[0], actual_ids)
+        self.assertEqual(text, det_text)
 
     def test_trie_tokenizer(self):
         vocab_file = util.get_test_data_file(
