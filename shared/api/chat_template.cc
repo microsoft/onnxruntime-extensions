@@ -6,7 +6,7 @@ namespace ort_extensions {
 
 OrtxStatus TokenizerImpl::LoadChatTemplate() {
   // Load the chat template from the tokenizer configuration
-  chat_template = tok_config_->chat_template_;
+  chat_template = (tok_config_->tokenizer_class_ == "WhisperTokenizer") ? R"({{ messages | map(attribute='content') | join('\n') }})" : tok_config_->chat_template_;
   if (chat_template.size()) {
     try {
       chat_template_root_ = minja::Parser::parse(chat_template, {});
@@ -76,7 +76,12 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
                                             bool add_generation_prompt, bool tokenize) const {
   OrtxStatus status;
   std::string input_str = minja::normalize_newlines(message);
-  auto activated_str = tok_config_->chat_template_.c_str();
+
+  // Whisper does not have explicit chat template functionality.
+  // However, the expected logic (same for HF and OAI) should emulate concatenating message['content'],
+  // with no roles, separators, etc. We thereby automatically handle this in ORT Extensions as well.
+  auto activated_str = (tok_config_->tokenizer_class_ == "WhisperTokenizer") ? R"({{ messages | map(attribute='content') | join('\n') }})" : tok_config_->chat_template_.c_str();
+  
   if (template_str && *template_str) {
     activated_str = template_str;
   }
@@ -85,7 +90,7 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
     return {kOrtxErrorInvalidArgument, "Empty chat template."};
   }
 
-  // Try to parse the chat template with Minja first, and fallback on the native implementation.
+  // Parse the chat template with Minja (a C++ Jinja templating engine).
   using json = nlohmann::ordered_json;
   std::string text;
   try {

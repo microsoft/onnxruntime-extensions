@@ -518,3 +518,91 @@ TEST(OrtxTokenizerTest, Gemma3SpecialChatTemplate) {
 
   ASSERT_EQ(std::string(text), expected_decoder_output);
 }
+
+/*
+
+Neither OpenAI nor HuggingFace have explicit Whisper chat template functionality.
+
+OpenAI does not expose Whisper via a chat interface like ChatCompletion.
+Instead, their Whisper API uses raw audio uploads. For finetuning or embedding Whisper
+in pipelines, they rely on pre-tokenized sequences. They don’t use Jinja2 or chat templates
+for Whisper at all — it is purely sequence input with prepended tokens like
+<|startoftranscript|> manually inserted.
+
+In HuggingFace transformers, for Whisper, you are expected to pass in the template manually
+or have it defined in tokenizer_config.json.
+
+However, the expected logic (same for HF and OAI) should emulate concatenating
+message['content'], with no roles, separators, etc. We thereby automatically handle this
+in ORT Extensions as well.
+
+*/
+
+TEST(OrtxTokenizerTest, WhisperChatTemplate) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/whisper.tiny");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+
+  std::string messages_json = R"(
+    [
+      {
+        "role": "system",
+        "content": "You are an audio assistant."
+      },
+      {
+        "role": "user",
+        "content": "transcribe this clip:"
+      },
+      {
+        "role": "user",
+        "content": "<|audio|>…binary…<|endofaudio|>"
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), nullptr,
+    templated_text.ToBeAssigned(), /*add_generation_prompt=*/false, /*tokenize=*/false);
+
+  if (err != kOrtxOK) {
+    std::cout << "Failed to apply Whisper chat template, stopping the test." << std::endl;
+    std::cout << "Error code: " << err << std::endl;
+    std::cout << "Error message: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK) << "Failed to get tensor from templated text, stopping the test.";
+
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string expected_output = "You are an audio assistant.\ntranscribe this clip:\n<|audio|>…binary…<|endofaudio|>";
+
+  ASSERT_EQ(std::string(text_ptr), expected_output);
+
+  // Tokenize to confirm token IDs
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  const char* input[] = { text_ptr };
+  OrtxTokenizeWithOptions(tokenizer.get(), input, 1, token_ids.ToBeAssigned(), false);
+  ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  std::vector<extTokenId_t> ids_vec(ids, ids + length);
+
+  // Validate against HuggingFace Input IDs
+  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({3223, 366, 364, 6278, 10994, 13, 198, 24999, 8056, 341, 7353, 25, 198, 27, 91, 46069, 91, 29, 1260, 48621, 1260, 27, 91, 521, 2670, 46069, 91, 29}));
+
+  // Detokenize to confirm behavior
+  OrtxObjectPtr<OrtxStringArray> decoded_text;
+  OrtxDetokenize(tokenizer.get(), token_ids.get(), decoded_text.ToBeAssigned());
+  EXPECT_EQ(decoded_text.Code(), kOrtxOK);
+
+  const char* roundtrip_text = nullptr;
+  OrtxStringArrayGetItem(decoded_text.get(), 0, &roundtrip_text);
+
+  ASSERT_EQ(std::string(roundtrip_text), expected_output);
+}

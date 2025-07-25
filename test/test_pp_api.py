@@ -287,6 +287,32 @@ class TestPPAPI(unittest.TestCase):
         decoded_string = tokenizer.detokenize(ortx_input)
         self.assertEqual(decoded_string[0], self.tokenizer_test_sentence)
 
+    def test_whisper_chat_template(self):
+        model_id = util.get_test_data_file("data/tokenizer/whisper.tiny")
+        tokenizer = pp_api.Tokenizer(model_id)
+
+        # Simulate a short user-chat with audio placeholder
+        messages = [
+            {"role": "system", "content": "You are an audio assistant."},
+            {"role": "user", "content": "transcribe this clip:"},
+            {"role": "user", "content": "<|audio|>…binary…<|endofaudio|>"},
+        ]
+        message_json = json.dumps(messages)
+
+        # Whisper does not have an explicit chat template so we need to pass one in for HuggingFace.
+        # However, this is automatically handled in ORT Extensions.
+        jinja_template = "{{ messages | map(attribute='content') | join('\\n') }}"
+        
+        # ORT Extensions chat templating
+        ortx_inputs = tokenizer.apply_chat_template(chat=message_json, add_generation_prompt=True, tokenize=False)
+
+        # HuggingFace chat templating
+        hf_tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True)
+        hf_inputs = hf_tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False, chat_template=jinja_template)
+
+        # Validation
+        np.testing.assert_array_equal(ortx_inputs, hf_inputs)
+
     @unittest.skipIf(hf_token_id is None, "HF_TOKEN is not available")
     def test_gemma_3_chat_template(self):
         ckpt = "google/gemma-3-4b-it"
