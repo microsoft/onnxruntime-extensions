@@ -71,6 +71,36 @@ void TokenizerImpl::InitializeChatParameters(const char* template_str,
   }
 }
 
+// This chat template implementation uses a Minja engine, a lightweight Jinja implementation in C++,
+// hence it does not automatically support built-in filters or custom functions unless they are provided.
+// We can thereby write common functions such as strftime_now here.
+
+minja::Value strftime_function(const std::shared_ptr<minja::Context>&, minja::ArgumentsValue& args) {
+    std::string format = "%Y-%m-%d";
+
+    if (args.has_named("format") && args.get_named("format").is_string()) {
+        format = args.get_named("format").to_str();
+    } else if (!args.args.empty() && args.args[0].is_string()) {
+        format = args.args[0].to_str();
+    }
+
+    auto now = std::chrono::system_clock::now();
+    std::time_t t = std::chrono::system_clock::to_time_t(now);
+
+    std::tm tm;
+#ifdef _WIN32
+    localtime_s(&tm, &t);
+#else
+    localtime_r(&t, &tm);
+#endif
+
+    char buf[100];
+    if (std::strftime(buf, sizeof(buf), format.c_str(), &tm)) {
+        return minja::Value(std::string(buf));
+    }
+    return minja::Value("");
+}
+
 OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char* message, const char* tools,
                                             std::string& output, std::vector<extTokenId_t>& ids_vec,
                                             bool add_generation_prompt, bool tokenize) const {
@@ -108,6 +138,8 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
         {"messages", actual_messages},
         {"add_generation_prompt", add_generation_prompt},
     }));
+
+    context->set("strftime_now", minja::Value::callable(strftime_function));
 
     if (tools && *tools) {
       std::string tools_str(tools);
