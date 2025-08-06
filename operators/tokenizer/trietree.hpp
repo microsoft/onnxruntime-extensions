@@ -18,7 +18,7 @@ class TrieTree {
   static constexpr int kMaxTokenLength_ = 128;
   static constexpr ValueT kInvalidId_ = static_cast<ValueT>(invalid_id);
 
-  TrieTree(CharT ch = 0) : ch_(ch), value_(std::nullopt) {}
+  TrieTree(CharT ch = 0) : value_(std::nullopt), ch_(ch) {}
 
   void Add(const std::basic_string<CharT>& key, int idx = 0,
            const std::optional<ValueT>& value = std::nullopt) noexcept {
