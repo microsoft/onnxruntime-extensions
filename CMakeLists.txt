@@ -69,7 +69,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   set(_ORTX_SHARED_BUILD_SUPPORTED OFF)
   set(_ORTX_CPP_NO_RTTI OFF)
 endif()
-
+option(OCOS_USE_VCPKG "Build with the vcpkg package manager" OFF)
 option(CC_OPTIMIZE "Allow compiler optimizations, Set to OFF to disable" ON)
 option(OCOS_ENABLE_PYTHON "Enable Python component building, (deprecated)" OFF)
 option(OCOS_ENABLE_CTEST "Enable C++ test" ${_ORTX_STANDALONE_PROJECT})
@@ -343,6 +343,9 @@ endif()
 #######################################################################################################################
 # build the operator file list from the build flag.
 
+# re2 and spm requires abseil
+find_package(Patch)
+include(abseil-cpp)
 if(OCOS_ENABLE_RE2_REGEX)
   if(NOT TARGET re2::re2)
     set(RE2_BUILD_TESTING OFF CACHE INTERNAL "")
@@ -357,7 +360,7 @@ endif()
 
 # ### scan all source files
 file(GLOB TARGET_SRC_NOEXCEPTION "base/*.h" "base/*.cc")
-file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h" "include/*.h" "include/*.hpp")
+file(GLOB TARGET_SRC "operators/*.cc" "operators/*.h")
 
 if(OCOS_ENABLE_DLIB)
   set(DLIB_ISO_CPP_ONLY ON CACHE INTERNAL "")
@@ -366,11 +369,13 @@ if(OCOS_ENABLE_DLIB)
   set(DLIB_USE_LAPACK OFF CACHE INTERNAL "")
   set(DLIB_USE_BLAS OFF CACHE INTERNAL "")
   include(dlib)
-
-  # Ideally, dlib should be included as file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/all/source.cpp")
-  # To avoid the unintentional using some unwanted component, we only include the test_for_odr_violations.cpp
-  # to check if there is any violation in build configuration to ensure compiling some dlib source files correctly.
-  file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/test_for_odr_violations.cpp")
+  if(dlib_SOURCE_DIR)
+      # Ideally, dlib should be included as file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/all/source.cpp")
+      # To avoid the unintentional using some unwanted component, we only include the test_for_odr_violations.cpp
+      # to check if there is any violation in build configuration to ensure compiling some dlib source files correctly.
+      file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/test_for_odr_violations.cpp")
+      message("XXXXXXXXXX:${TARGET_SRC_DLIB}")
+  endif()
 endif()
 
 if(OCOS_ENABLE_TF_STRING)
@@ -382,9 +387,15 @@ if(OCOS_ENABLE_AUDIO)
   if (NOT OCOS_ENABLE_DLIB)
     message(FATAL_ERROR "Audio operators require DLIB to be enabled.")
   endif()
-  include(dr_libs)
   file(GLOB TARGET_SRC_AUDIO "operators/audio/*.*")
-  list(APPEND TARGET_SRC_AUDIO ${dlib_SOURCE_DIR}/dlib/fft/fft.cpp)
+  if(OCOS_USE_VCPKG)
+    find_path(DRLIBS_INCLUDE_DIR "dr_flac.h")
+  else()
+    include(dr_libs)
+    set(DRLIBS_INCLUDE_DIR ${dr_libs_SOURCE_DIR})
+    list(APPEND TARGET_SRC_AUDIO ${dlib_SOURCE_DIR}/dlib/fft/fft.cpp)
+  endif()
+  message("DR_LIB INCLUDE DIR: ${DRLIBS_INCLUDE_DIR}")
   list(APPEND TARGET_SRC_NOEXCEPTION ${TARGET_SRC_AUDIO})
 endif()
 
@@ -608,21 +619,34 @@ source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${_TARGET_SRC_FOR_SOURCE_GROUP})
 standardize_output_folder(noexcep_operators)
 standardize_output_folder(ocos_operators)
 
-target_include_directories(noexcep_operators PUBLIC
-  ${ONNXRUNTIME_INCLUDE_DIR}
-  ${GSL_INCLUDE_DIR}
-  ${PROJECT_SOURCE_DIR}/include
-  ${PROJECT_SOURCE_DIR}/include/custom_op
-  ${PROJECT_SOURCE_DIR}/base
-  ${PROJECT_SOURCE_DIR}/operators)
+if(OCOS_USE_VCPKG)
+  target_link_libraries(noexcep_operators PRIVATE onnxruntime::onnxruntime)
+  target_link_libraries(ocos_operators PRIVATE onnxruntime::onnxruntime)
+else()
+  target_include_directories(noexcep_operators PUBLIC ${ONNXRUNTIME_INCLUDE_DIR})
+  target_include_directories(ocos_operators PUBLIC ${ONNXRUNTIME_INCLUDE_DIR})  
+endif()
 
+if(TARGET Microsoft.GSL::GSL)
+  target_link_libraries(noexcep_operators PRIVATE Microsoft.GSL::GSL)
+  target_link_libraries(ocos_operators PRIVATE Microsoft.GSL::GSL)
+endif()
+
+target_include_directories(noexcep_operators PUBLIC
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/custom_op>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/base>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/operators>
+  $<INSTALL_INTERFACE:include>
+)
 target_include_directories(ocos_operators PUBLIC
-  ${ONNXRUNTIME_INCLUDE_DIR}
-  ${GSL_INCLUDE_DIR}
-  ${PROJECT_SOURCE_DIR}/include
-  ${PROJECT_SOURCE_DIR}/include/custom_op
-  ${PROJECT_SOURCE_DIR}/base
-  ${PROJECT_SOURCE_DIR}/operators)
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/custom_op>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/base>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/operators>
+  $<INSTALL_INTERFACE:include>
+)
+
 
 if (OCOS_USE_CUDA)
   target_include_directories(ocos_operators PUBLIC ${cutlass_SOURCE_DIR}/include ${cutlass_SOURCE_DIR}/examples)
@@ -637,12 +661,16 @@ endif()
 
 if (OCOS_ENABLE_AUDIO)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_DR_LIBS)
-  target_include_directories(noexcep_operators PUBLIC ${dr_libs_SOURCE_DIR})
+  if(OCOS_USE_VCPKG)
+    target_include_directories(noexcep_operators PUBLIC ${DRLIBS_INCLUDE_DIR})
+  else()
+    target_include_directories(noexcep_operators PUBLIC $<BUILD_INTERFACE:${DRLIBS_INCLUDE_DIR}>)
+  endif()
 endif()
 
 if(_HAS_TOKENIZER)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TOKENIZER)
-  target_include_directories(ocos_operators PUBLIC
+  target_include_directories(ocos_operators PRIVATE
     ${PROJECT_SOURCE_DIR}/operators/tokenizer)
 endif()
 
@@ -650,8 +678,7 @@ if(OCOS_ENABLE_TF_STRING)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_TF_STRING NOMINMAX)
 
   if(OCOS_ENABLE_RE2_REGEX)
-    target_include_directories(noexcep_operators PUBLIC ${googlere2_SOURCE_DIR})
-    target_link_libraries(noexcep_operators PRIVATE re2::re2)
+    target_link_libraries(noexcep_operators PUBLIC re2::re2)
   endif()
 endif()
 
@@ -732,10 +759,12 @@ if(OCOS_ENABLE_BERT_TOKENIZER)
 endif()
 
 if(OCOS_ENABLE_SPM_TOKENIZER)
-  # SentencePiece
-  target_include_directories(ocos_operators PUBLIC ${spm_INCLUDE_DIRS})
+  if(TARGET sentencepiece::sentencepiece-static)
+    list(APPEND ocos_libraries sentencepiece::sentencepiece-static)  
+  else()    
+    list(APPEND ocos_libraries sentencepiece-static)
+  endif()
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_SPM_TOKENIZER)
-  list(APPEND ocos_libraries sentencepiece-static)
 endif()
 
 if(OCOS_ENABLE_BLINGFIRE)
@@ -745,7 +774,7 @@ if(OCOS_ENABLE_BLINGFIRE)
 endif()
 
 if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
-  target_include_directories(ocos_operators PUBLIC ${nlohmann_json_SOURCE_DIR}/include)
+  target_link_libraries(ocos_operators PUBLIC nlohmann_json::nlohmann_json)
 endif()
 
 # If building a shared library we can't throw an internal exception type across the library boundary as the type
@@ -798,6 +827,18 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   include(ext_wasm)
 else()
   add_library(ortcustomops STATIC ${_TARGET_LIB_SRC})
+  file(GLOB ORT_EXT_PUB_HEADERS "base/*.h" "include/*.h" "include/custom_op/*.h" "include/custom_op/*.inc" "include/*.hpp" "shared/api/*.h" "shared/api/*.hpp")
+  target_sources(ortcustomops PUBLIC FILE_SET HEADERS BASE_DIRS ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/base ${PROJECT_SOURCE_DIR}/shared/api FILES ${ORT_EXT_PUB_HEADERS})
+  if(OCOS_USE_VCPKG)
+    target_link_libraries(ortcustomops PRIVATE onnxruntime::onnxruntime)
+  else()
+    target_include_directories(ortcustomops PRIVATE ${ONNXRUNTIME_INCLUDE_DIR})
+  endif()
+  target_link_libraries(ortcustomops PRIVATE Microsoft.GSL::GSL)
+  if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
+    target_link_libraries(ortcustomops PRIVATE nlohmann_json::nlohmann_json)
+  endif()
+  target_include_directories(ortcustomops PRIVATE operators/tokenizer)
   if (HAS_SDL)
     target_compile_options(ortcustomops PRIVATE "/sdl")
   endif()
@@ -888,7 +929,16 @@ if(OCOS_BUILD_SHARED_LIB)
     list(APPEND shared_TARGET_SRC "shared/ortcustomops.def")
   endif()
   add_library(extensions_shared SHARED ${shared_TARGET_SRC})
-
+  if(TARGET dlib::dlib)
+    target_link_libraries(extensions_shared PUBLIC dlib::dlib)
+  elseif(TARGET dlib)
+    target_link_libraries(extensions_shared PUBLIC dlib)
+  endif()
+  if(OCOS_USE_VCPKG)
+    target_link_libraries(extensions_shared PRIVATE onnxruntime::onnxruntime)
+  else()
+    target_include_directories(extensions_shared PRIVATE ${ONNXRUNTIME_INCLUDE_DIR})
+  endif()
   # We need to propagate OCOS_SHARED_LIBRARY if set.
   # could specifically add that if using OCOS_COMPILE_DEFINITIONS is too much.
   target_compile_definitions(extensions_shared PRIVATE ${OCOS_COMPILE_DEFINITIONS})
@@ -919,8 +969,14 @@ if(OCOS_BUILD_SHARED_LIB)
   )
 
   # Install your target
-  install(TARGETS extensions_shared
-    RUNTIME DESTINATION bin
+  install(TARGETS extensions_shared ortcustomops noexcep_operators ocos_operators
+    EXPORT ${PROJECT_NAME}Targets
+	FILE_SET HEADERS DESTINATION include
+	PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+	ARCHIVE   DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY   DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME   DESTINATION ${CMAKE_INSTALL_BINDIR}
+    FRAMEWORK DESTINATION ${CMAKE_INSTALL_BINDIR}
   )
 
 endif()
@@ -964,6 +1020,33 @@ if (_ORTX_STANDALONE_PROJECT)
 
   if(OCOS_ENABLE_CTEST AND NOT MAC_CATALYST)
     include(ext_tests)
+  endif()
+  if(OCOS_USE_VCPKG)
+  include(GNUInstallDirs)
+  include(CMakePackageConfigHelpers)
+  set(PROJECT_CONFIG_CONTENT "@PACKAGE_INIT@\n")
+  string(APPEND PROJECT_CONFIG_CONTENT
+        "include(\"\${CMAKE_CURRENT_LIST_DIR}/${PROJECT_NAME}Targets.cmake\")")
+  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/PROJECT_CONFIG_FILE" ${PROJECT_CONFIG_CONTENT})
+  install(EXPORT ${PROJECT_NAME}Targets
+    NAMESPACE ${PROJECT_NAME}::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
+# Create config for find_package()
+  configure_package_config_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/PROJECT_CONFIG_FILE" ${PROJECT_NAME}Config.cmake
+    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+  file (STRINGS "${PROJECT_SOURCE_DIR}/version.txt" ORT_VERSION)
+
+  write_basic_package_version_file(
+    "${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+    VERSION ${ORT_VERSION}
+    COMPATIBILITY SameMajorVersion)
+
+  install(
+    FILES
+    "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+    "${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
   endif()
 endif()
 
