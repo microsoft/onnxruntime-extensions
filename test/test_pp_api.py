@@ -4,6 +4,7 @@ import json
 import tempfile
 import requests
 import unittest
+import builtins
 import numpy as np
 
 from PIL import Image
@@ -359,6 +360,74 @@ class TestPPAPI(unittest.TestCase):
         tokenizer = pp_api.Tokenizer(model_id)
         ortx_inputs = tokenizer.apply_chat_template(message_json)
         np.testing.assert_array_equal(ortx_inputs, inputs)
+
+    def test_gpt_oss_chat_template(self):
+        # Force utf-8 opening as the chat template for GPT-OSS causes issues when loading
+        # the tokenizer with HuggingFace transformers' AutoTokenizer otherwise.
+        _real_open = open
+        def utf8_open(*args, **kwargs):
+            if 'encoding' not in kwargs:
+                kwargs['encoding'] = 'utf-8'
+            return _real_open(*args, **kwargs)
+        builtins.open = utf8_open
+
+        # Load the ORT-Extensions and HuggingFace tokenizers
+        model_id = "openai/gpt-oss-20b"
+        tokenizer = pp_api.Tokenizer(model_id)
+        hf_tokenizer = AutoTokenizer.from_pretrained(model_id)
+
+        # Simulate a short user-chat
+        messages = [
+            {
+                "role": "user",
+                "content": "Explain how inference works."
+            },
+            {
+                "role": "assistant",
+                "content": "Inference is the process of using a trained model to make predictions."
+            }
+        ]
+        message_json = json.dumps(messages)
+
+        # ORT Extensions chat templating
+        ortx_inputs = tokenizer.apply_chat_template(chat=message_json, add_generation_prompt=True, tokenize=False)
+
+        # HuggingFace chat templating
+        hf_inputs = hf_tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
+
+        # Validation for Chat Templating and Tokenization
+        ortx_inputs = ortx_inputs
+        hf_inputs = hf_inputs
+        np.testing.assert_array_equal(ortx_inputs, hf_inputs)
+
+        hf_input_ids = hf_tokenizer(hf_inputs)["input_ids"]
+        ortx_input_ids = tokenizer.tokenize(ortx_inputs)
+        np.testing.assert_array_equal(ortx_input_ids, hf_input_ids)
+
+        # Check GPT-OSS special tokens
+        special_tokens_map = {
+            "<|startoftext|>": 199998,
+            "<|endoftext|>": 199999,
+            "<|return|>": 200002,
+            "<|constrain|>": 200003,
+            "<|channel|>": 200005,
+            "<|start|>": 200006,
+            "<|end|>": 200007,
+            "<|message|>": 200008,
+            "<|call|>": 200012,
+            "<|endofprompt|>": 200018,
+        }
+
+        for special_token, expected_input_id in special_tokens_map.items():
+            # Tokenize
+            ortx_input_id = tokenizer.tokenize(special_token)
+
+            # Check if ID matches expected
+            np.testing.assert_array_equal(ortx_input_id, [expected_input_id])
+
+            # Detokenize
+            decoded_string = tokenizer.detokenize(ortx_input_id)
+            np.testing.assert_array_equal(decoded_string, special_token)
     
     def test_chat_tools_input(self):
         model_id = util.get_test_data_file("data/models/phi-4")
