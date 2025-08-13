@@ -128,6 +128,16 @@ class TestAutoTokenizer(unittest.TestCase):
         self.assertEqual(len(ids["input_ids"].shape), len(actual_ids.shape))
         np.testing.assert_array_equal(ids["input_ids"], actual_ids)
 
+    def test_microsoft_phi4(self):
+        tokenizer = AutoTokenizer.from_pretrained(
+            "data/phi-4-instruct",  torch_dtype="auto")
+        code = 'This is a sample Code'
+
+        ids = tokenizer(code, return_tensors="np")
+        ort_tok, _ = gen_processing_models(tokenizer, pre_kwargs={})
+        actual_ids, *_ = ort_inference(ort_tok, [code])
+        self.assertEqual(len(ids["input_ids"].shape), len(actual_ids.shape))
+        np.testing.assert_array_equal(ids["input_ids"], actual_ids)
 
 if __name__ == '__main__':
     unittest.main()
