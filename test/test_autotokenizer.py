@@ -2,6 +2,7 @@
 # Licensed under the MIT License.
 import unittest
 
+import os
 import numpy as np
 from transformers import AutoTokenizer, GPT2Tokenizer
 from onnxruntime_extensions import OrtPyFunction, gen_processing_models, ort_inference, util
@@ -129,8 +130,11 @@ class TestAutoTokenizer(unittest.TestCase):
         np.testing.assert_array_equal(ids["input_ids"], actual_ids)
 
     def test_microsoft_phi4(self):
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        tokenizer_dir = os.path.join(script_dir, 'data',"phi-4-mini-reasoning")
+
         tokenizer = AutoTokenizer.from_pretrained(
-            "data/phi-4-instruct",  torch_dtype="auto")
+            tokenizer_dir,  torch_dtype="auto")
         code = 'This is a sample Code'
 
         ids = tokenizer(code, return_tensors="np")
