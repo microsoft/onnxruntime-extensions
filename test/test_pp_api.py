@@ -4,8 +4,8 @@ import json
 import tempfile
 import requests
 import unittest
-import builtins
 import numpy as np
+import transformers.tokenization_utils_base as tub
 
 from PIL import Image
 from onnxruntime_extensions import util
@@ -362,14 +362,17 @@ class TestPPAPI(unittest.TestCase):
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
     def test_gpt_oss_chat_template(self):
-        # Force utf-8 opening as the chat template for GPT-OSS causes issues when loading
-        # the tokenizer with HuggingFace transformers' AutoTokenizer otherwise.
+        # AutoTokenizer.from_pretrained() fails to decode chat_template.jinja on Windows,
+        # because it defaults to Windows-1252 (cp1252) instead of UTF-8. Hence, we patch it here.
         _real_open = open
+
         def utf8_open(*args, **kwargs):
-            if 'encoding' not in kwargs:
-                kwargs['encoding'] = 'utf-8'
+            if "b" not in kwargs.get("mode", "r") and (len(args) < 2 or "b" not in args[1]):
+                kwargs.setdefault("encoding", "utf-8")
             return _real_open(*args, **kwargs)
-        builtins.open = utf8_open
+
+        # Patch only within transformers
+        tub.open = utf8_open
 
         # Load the ORT-Extensions and HuggingFace tokenizers
         model_id = "openai/gpt-oss-20b"
