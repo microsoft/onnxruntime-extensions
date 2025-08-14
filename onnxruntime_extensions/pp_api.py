@@ -27,25 +27,45 @@ delete_object = _C.delete_object
 class Tokenizer:
     def __init__(self, tokenizer_dir):
         self.tokenizer = None
+
         if os.path.isdir(tokenizer_dir):
             self.tokenizer = create_tokenizer(tokenizer_dir)
         else:
             try:
                 from transformers.utils import cached_file
-                resolved_full_file = cached_file(
-                    tokenizer_dir, "tokenizer.json")
-                resolved_config_file = cached_file(
-                    tokenizer_dir, "tokenizer_config.json")
+
+                # Required files
+                resolved_full_file = cached_file(tokenizer_dir, "tokenizer.json")
+                resolved_config_file = cached_file(tokenizer_dir, "tokenizer_config.json")
+
+                # Optional: attempt to download chat_template.jinja
+                try:
+                    cached_file(tokenizer_dir, "chat_template.jinja")
+                except EnvironmentError:
+                    # It is okay if this file does not exist as not every model has it
+                    pass
+
+                # Optional: chat_template.json (e.g., some models use this instead)
+                try:
+                    cached_file(tokenizer_dir, "chat_template.json")
+                except EnvironmentError:
+                    pass
+
             except ImportError:
                 raise ValueError(
-                    f"Directory '{tokenizer_dir}' not found and transformers is not available")
+                    f"Directory '{tokenizer_dir}' not found and transformers is not available"
+                )
+
             if not os.path.exists(resolved_full_file):
                 raise FileNotFoundError(
-                    f"Downloaded HF file '{resolved_full_file}' cannot be found")
-            if (os.path.dirname(resolved_full_file) != os.path.dirname(resolved_config_file)):
+                    f"Downloaded HF file '{resolved_full_file}' cannot be found"
+                )
+
+            if os.path.dirname(resolved_full_file) != os.path.dirname(resolved_config_file):
                 raise FileNotFoundError(
                     f"Downloaded HF files '{resolved_full_file}' "
-                    f"and '{resolved_config_file}' are not in the same directory")
+                    f"and '{resolved_config_file}' are not in the same directory"
+                )
 
             tokenizer_dir = os.path.dirname(resolved_full_file)
             self.tokenizer = create_tokenizer(tokenizer_dir)
