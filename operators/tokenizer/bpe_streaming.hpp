@@ -52,11 +52,17 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
                       bool skip_special_tokens,
                       bool& f_special_last) const {
     bool f_special = all_special_ids_.count(id) ? true : false;
-    if (skip_special_tokens && f_special) {
-      f_special_last = f_special;
-      return {};
+    if (!(added_tokens_.count(200005) && added_tokens_.at(200005) == "<|channel|>")){
+      // We do not skip special tokens when decoding IDs for channel-based models as
+      // they may be relevant to the output.
+
+      if (skip_special_tokens && f_special) {
+        f_special_last = f_special;
+        return {};
+      }
     }
 
+    // Regular decoding logic
     if (added_tokens_.count(id)) {
       const std::string ws = added_tokens_.at(id);
       token = (std::string)ws;

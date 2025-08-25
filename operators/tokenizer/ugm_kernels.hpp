@@ -796,21 +796,26 @@ class SpmUgmDecoder {
   // Helper: Encode a wchar_t as UTF-8
   std::string EncodeUTF8(wchar_t wc) const {
     std::string out;
-    if (wc < 0x80) {
-      out += static_cast<char>(wc);
-    } else if (wc < 0x800) {
-      out += static_cast<char>((wc >> 6) | 0xC0);
-      out += static_cast<char>((wc & 0x3F) | 0x80);
-    } else if (wc < 0x10000) {
-      out += static_cast<char>((wc >> 12) | 0xE0);
-      out += static_cast<char>(((wc >> 6) & 0x3F) | 0x80);
-      out += static_cast<char>((wc & 0x3F) | 0x80);
+
+    // Promote wchar_t to uint32_t to avoid data loss from shift operations and silence warning C4333
+    uint32_t u = static_cast<uint32_t>(wc);
+
+    if (u < 0x80) {
+      out += static_cast<char>(u);
+    } else if (u < 0x800) {
+      out += static_cast<char>((u >> 6) | 0xC0);
+      out += static_cast<char>((u & 0x3F) | 0x80);
+    } else if (u < 0x10000) {
+      out += static_cast<char>((u >> 12) | 0xE0);
+      out += static_cast<char>(((u >> 6) & 0x3F) | 0x80);
+      out += static_cast<char>((u & 0x3F) | 0x80);
     } else {
-      out += static_cast<char>((wc >> 18) | 0xF0);
-      out += static_cast<char>(((wc >> 12) & 0x3F) | 0x80);
-      out += static_cast<char>(((wc >> 6) & 0x3F) | 0x80);
-      out += static_cast<char>((wc & 0x3F) | 0x80);
+      out += static_cast<char>((u >> 18) | 0xF0);
+      out += static_cast<char>(((u >> 12) & 0x3F) | 0x80);
+      out += static_cast<char>(((u >> 6) & 0x3F) | 0x80);
+      out += static_cast<char>((u & 0x3F) | 0x80);
     }
+
     return out;
   }
 
