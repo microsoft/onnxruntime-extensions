@@ -603,6 +603,24 @@ TEST(OrtxTokenizerTest, Gemma3SpecialChatTemplate) {
   ASSERT_EQ(std::string(special_text), expected_special_decoder_output);
 }
 
+/*
+
+Neither OpenAI nor HuggingFace have explicit Whisper chat template functionality.
+
+OpenAI does not expose Whisper via a chat interface like ChatCompletion.
+Instead, their Whisper API uses raw audio uploads. For finetuning or embedding Whisper
+in pipelines, they rely on pre-tokenized sequences. They don’t use Jinja2 or chat templates
+for Whisper at all — it is purely sequence input with prepended tokens like
+<|startoftranscript|> manually inserted.
+
+In HuggingFace transformers, for Whisper, you are expected to pass in the template manually
+or have it defined in tokenizer_config.json.
+
+However, the expected logic (same for HF and OAI) should emulate concatenating
+message['content'], with no roles, separators, etc. We thereby automatically handle this
+in ORT Extensions as well.
+
+*/
 
 TEST(OrtxTokenizerTest, WhisperChatTemplate) {
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/whisper.tiny");
