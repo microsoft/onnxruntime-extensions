@@ -81,6 +81,72 @@ TEST(OrtxTokenizerTest, Phi4ChatTemplate) {
   ASSERT_EQ(std::string(text), expected_decoder_output);
 }
 
+TEST(OrtxTokenizerTest, Phi4SpecialChatTemplate) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "How should I explain the Internet?"
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), nullptr, templated_text.ToBeAssigned(), true, false);
+
+  if (err != kOrtxOK) {
+    std::cout << "Failed to apply chat template, stopping the test." << std::endl;
+    std::cout << "Error code: " << err << std::endl;
+    std::cout << "Error message: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK) << "Failed to get tensor from templated text, stopping the test.";
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  // From HuggingFace Python output for 'microsoft/Phi-4'
+  std::string expected_output = "<|im_start|>system<|im_sep|>You are a helpful assistant.<|im_end|>"
+                                "<|im_start|>user<|im_sep|>How should I explain the Internet?<|im_end|>"
+                                "<|im_start|>assistant<|im_sep|>";
+
+  ASSERT_EQ(text_ptr, expected_output);
+
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  const char* input[] = { text_ptr };
+  OrtxTokenizeWithOptions(tokenizer.get(), input, 1, token_ids.ToBeAssigned(), true);
+  ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  std::vector<extTokenId_t> ids_vec(ids, ids + length);
+
+  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({100264, 9125, 100266, 2675, 527, 264, 11190, 18328, 13,
+                                                100265, 100264, 882, 100266, 4438, 1288, 358, 10552, 279,
+                                                8191, 30, 100265, 100264, 78191, 100266}));
+  
+  OrtxObjectPtr<OrtxStringArray> decoded_text;
+
+  // Test detokenization with skip_special_tokens = false (tokens like <|im_start|> should be part of the output)
+  OrtxDetokenize1DWithOptions(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned(), false);
+  const char* special_text = nullptr;
+  OrtxStringArrayGetItem(decoded_text.get(), 0, &special_text);
+
+  std::string expected_special_decoder_output = "<|im_start|>system<|im_sep|>You are a helpful assistant.<|im_end|><|im_start|>user<|im_sep|>How should I explain the Internet?<|im_end|><|im_start|>assistant<|im_sep|>";
+
+  ASSERT_EQ(std::string(special_text), expected_special_decoder_output);
+}
+
 /*
 
 Test loading chat template from chat_template.jinja file. The tokenizer_config.json from
@@ -440,6 +506,15 @@ TEST(OrtxTokenizerTest, Gemma3ChatTemplate) {
   std::string expected_decoder_output = "user\nWhat is the password?\nmodel\n";
 
   ASSERT_EQ(std::string(text), expected_decoder_output);
+
+  // Test detokenization with skip_special_tokens = false
+  OrtxDetokenize1DWithOptions(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned(), false);
+  const char* special_text = nullptr;
+  OrtxStringArrayGetItem(decoded_text.get(), 0, &special_text);
+
+  std::string expected_special_decoder_output = "user\nWhat is the password?\nmodel\n";
+
+  ASSERT_EQ(std::string(special_text), expected_special_decoder_output);
 }
 
 /*
@@ -517,26 +592,17 @@ TEST(OrtxTokenizerTest, Gemma3SpecialChatTemplate) {
   std::string expected_decoder_output = "user\nWhat is the password?\nmodel\n";
 
   ASSERT_EQ(std::string(text), expected_decoder_output);
+
+  // Test detokenization with skip_special_tokens = false
+  OrtxDetokenize1DWithOptions(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned(), false);
+  const char* special_text = nullptr;
+  OrtxStringArrayGetItem(decoded_text.get(), 0, &special_text);
+
+  std::string expected_special_decoder_output = "user\nWhat is the password?\nmodel\n";
+
+  ASSERT_EQ(std::string(special_text), expected_special_decoder_output);
 }
 
-/*
-
-Neither OpenAI nor HuggingFace have explicit Whisper chat template functionality.
-
-OpenAI does not expose Whisper via a chat interface like ChatCompletion.
-Instead, their Whisper API uses raw audio uploads. For finetuning or embedding Whisper
-in pipelines, they rely on pre-tokenized sequences. They don’t use Jinja2 or chat templates
-for Whisper at all — it is purely sequence input with prepended tokens like
-<|startoftranscript|> manually inserted.
-
-In HuggingFace transformers, for Whisper, you are expected to pass in the template manually
-or have it defined in tokenizer_config.json.
-
-However, the expected logic (same for HF and OAI) should emulate concatenating
-message['content'], with no roles, separators, etc. We thereby automatically handle this
-in ORT Extensions as well.
-
-*/
 
 TEST(OrtxTokenizerTest, WhisperChatTemplate) {
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/whisper.tiny");
@@ -605,4 +671,13 @@ TEST(OrtxTokenizerTest, WhisperChatTemplate) {
   OrtxStringArrayGetItem(decoded_text.get(), 0, &roundtrip_text);
 
   ASSERT_EQ(std::string(roundtrip_text), expected_output);
+
+  // Test detokenization with skip_special_tokens = false
+  OrtxDetokenize1DWithOptions(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned(), false);
+  const char* special_text = nullptr;
+  OrtxStringArrayGetItem(decoded_text.get(), 0, &special_text);
+
+  std::string expected_special_decoder_output = "You are an audio assistant.\ntranscribe this clip:\n<|audio|>\xE2\x80\xA6" "binary\xE2\x80\xA6<|endofaudio|>";
+
+  ASSERT_EQ(std::string(special_text), expected_special_decoder_output);
 }
