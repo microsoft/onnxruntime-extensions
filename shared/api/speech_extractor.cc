@@ -9,15 +9,13 @@
 using namespace ort_extensions;
 
 Operation::KernelRegistry SpeechFeatureExtractor::kernel_registry_ = {
-  {"AudioDecoder", []() { return CreateKernelInstance(&AudioDecoder::ComputeNoOpt); }},
-  {"AudioDecoderEx", []() { return CreateKernelInstance(&AudioDecoder::ComputeNoOpt2); }},
-  {"STFTNorm", []() { return CreateKernelInstance(&SpeechFeatures::STFTNorm); }},
-  {"LogMelSpectrum", []() { return CreateKernelInstance(&LogMel::Compute); }},
-  {"Phi4AudioEmbed", []() { return CreateKernelInstance(&Phi4AudioEmbed::Compute); }}
-};
+    {"AudioDecoder", []() { return CreateKernelInstance(&AudioDecoder::ComputeNoOpt); }},
+    {"AudioDecoderEx", []() { return CreateKernelInstance(&AudioDecoder::ComputeNoOpt2); }},
+    {"STFTNorm", []() { return CreateKernelInstance(&SpeechFeatures::STFTNorm); }},
+    {"LogMelSpectrum", []() { return CreateKernelInstance(&LogMel::Compute); }},
+    {"Phi4AudioEmbed", []() { return CreateKernelInstance(&Phi4AudioEmbed::Compute); }}};
 
-SpeechFeatureExtractor::SpeechFeatureExtractor()
-  : OrtxObjectImpl(extObjectKind_t::kOrtxKindFeatureExtractor) {}
+SpeechFeatureExtractor::SpeechFeatureExtractor() : OrtxObjectImpl(extObjectKind_t::kOrtxKindFeatureExtractor) {}
 
 OrtxStatus SpeechFeatureExtractor::Init(std::string_view extractor_def) {
   std::string fe_def_str;
@@ -107,8 +105,7 @@ OrtxStatus Phi4AudioEmbed::AlignOutputs(std::vector<TensorPtr>& audio_result) {
   return {};
 }
 
-OrtxStatus SpeechFeatureExtractor::Preprocess(
-  ort_extensions::span<AudioRawData> raw_speech, TensorResult& r) const {
+OrtxStatus SpeechFeatureExtractor::Preprocess(ort_extensions::span<AudioRawData> raw_speech, TensorResult& r) const {
   // setup the input tensors
   std::vector<TensorArgs> inputs;
   inputs.resize(raw_speech.size());
@@ -135,6 +132,13 @@ OrtxStatus SpeechFeatureExtractor::Preprocess(
 
   auto results = op_plan_.AllocateOutputs(runner.GetAllocator());
   ORTX_RETURN_IF_ERROR(OrtxRunner::StackTensors(outputs, results, runner.GetAllocator()));
+
+  // Free up intermediate output tensors
+  for (auto& tensor_arg : outputs) {
+    for (auto& t : tensor_arg) {
+      std::unique_ptr<ortc::TensorBase>(t).reset();
+    }
+  }
 
   if (output_aligner_ == "phi4-audio-aligner") {
     status = Phi4AudioEmbed::AlignOutputs(results);
