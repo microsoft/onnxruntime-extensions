@@ -724,7 +724,7 @@ class SpmUgmDecoder {
     return {};
   }
 
-  OrtxStatus Compute(const ortc::Tensor<int64_t>& ids, ortc::Tensor<std::string>& output) const {
+  OrtxStatus Compute(const ortc::Tensor<int64_t>& ids, ortc::Tensor<std::string>& output, std::optional<bool> add_special_tokens) const {
     const int64_t* p_ids = ids.Data();
     const auto& ids_dim = ids.Shape();
     std::vector<int64_t> output_dim = {1};

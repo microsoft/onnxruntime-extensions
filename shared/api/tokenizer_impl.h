@@ -27,8 +27,8 @@ class TokenizerImpl : public OrtxObjectImpl {
     return BatchEncode(input, t_ids, add_special_tokens);
   }
 
-  OrtxStatus Detokenize(const std::vector<span<extTokenId_t const>>& t_ids, std::vector<std::string>& t_text) const {
-    return BatchDecode(t_ids, t_text);
+  OrtxStatus Detokenize(const std::vector<span<extTokenId_t const>>& t_ids, std::vector<std::string>& t_text, bool skip_special_tokens = true) const {
+    return BatchDecode(t_ids, t_text, skip_special_tokens);
   }
 
   OrtxStatus Token2Id(const std::string& token, extTokenId_t& id) const {
@@ -52,7 +52,9 @@ class TokenizerImpl : public OrtxObjectImpl {
                          std::vector<std::vector<extTokenId_t>>& t_ids,
                          bool add_special_tokens) const;
 
-  OrtxStatus BatchDecode(const std::vector<span<extTokenId_t const>>& t_ids, std::vector<std::string>& t_text) const;
+  OrtxStatus BatchDecode(const std::vector<span<extTokenId_t const>>& t_ids,
+                         std::vector<std::string>& t_text,
+                         bool skip_special_tokens) const;
 
   using MessageList = std::vector<std::unordered_map<std::string, std::string>>;
   std::string chat_template;

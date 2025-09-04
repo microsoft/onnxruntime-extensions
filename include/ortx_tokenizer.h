@@ -141,6 +141,20 @@ extError_t ORTX_API_CALL OrtxDetokenize(const OrtxTokenizer* tokenizer, const Or
 extError_t ORTX_API_CALL OrtxDetokenize1D(const OrtxTokenizer* tokenizer, const extTokenId_t* input, size_t len,
                                           OrtxStringArray** output);
 
+/** \brief Detokenize the input using the specified tokenizer and options such as the skip_special_tokens flag (1D version).
+ * 
+ * Separate from OrtxDetokenize1D for backward compatibility. Can be used to specify other options in the future.
+ *
+ * \param tokenizer Pointer to the tokenizer object
+ * \param input Pointer to the input token IDs
+ * \param len Length of the input token IDs array
+ * \param output Pointer to store the detokenized result
+ * \param skip_special_tokens Boolean to determine whether to add or omit special tokens
+ * \return Error code indicating the success or failure of the operation
+ */
+extError_t ORTX_API_CALL OrtxDetokenize1DWithOptions(const OrtxTokenizer* tokenizer, const extTokenId_t* input, size_t len,
+                                          OrtxStringArray** output, bool skip_special_tokens);
+
 /** \brief Detokenize the input using the specified tokenizer with caching
  *
  * \param tokenizer Pointer to the tokenizer object
