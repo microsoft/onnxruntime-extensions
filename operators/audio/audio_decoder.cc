@@ -72,21 +72,37 @@ AudioDecoder::AudioStreamType AudioDecoder::ReadStreamFormat(const uint8_t* p_da
 }
 
 template <typename TY_AUDIO, typename FX_DECODER>
-static size_t DrReadFrames(std::list<std::vector<float>>& frames, FX_DECODER fx, TY_AUDIO& obj) {
+static size_t DrReadFrames(std::list<std::vector<float>>& frames, FX_DECODER fx, TY_AUDIO& obj, bool half_size=false) {
   const size_t default_chunk_size = 1024 * 256;
   int64_t total_buf_size = 0;
+  // This is 30 seconds audio input sampled at 16kHz, mono, float32
+  size_t available_chunk_size = 480000L;
+  size_t allocated_chunk_size = 0;
+
+  if (half_size) {
+    available_chunk_size *= 2;
+  }
 
   for (;;) {
     std::vector<float> buf;
-    buf.resize(default_chunk_size * obj.channels);
-    auto n_frames = fx(&obj, default_chunk_size, buf.data());
+    if (available_chunk_size < default_chunk_size * obj.channels) {
+      allocated_chunk_size = available_chunk_size;
+    } else {
+      allocated_chunk_size = default_chunk_size * obj.channels;
+    }
+    buf.resize(allocated_chunk_size);
+    auto n_frames = fx(&obj, allocated_chunk_size, buf.data());
     if (n_frames <= 0) {
       break;
     }
     auto data_size = n_frames * obj.channels;
     total_buf_size += data_size;
     buf.resize(data_size);
+    available_chunk_size -= data_size;
     frames.emplace_back(std::move(buf));
+    if (available_chunk_size <= 0) {
+      break;
+    }
   }
 
   return total_buf_size;
@@ -114,6 +130,7 @@ OrtxStatus AudioDecoder::ComputeInternal(const ortc::Tensor<uint8_t>& input, con
   std::list<std::vector<float>> lst_frames;
   int64_t orig_sample_rate = 0;
   int64_t orig_channels = 0;
+  bool half_size = false;
 
   if (stream_format == AudioStreamType::kMP3) {
     auto mp3_obj_ptr = std::make_unique<drmp3>();
@@ -123,7 +140,8 @@ OrtxStatus AudioDecoder::ComputeInternal(const ortc::Tensor<uint8_t>& input, con
     }
     orig_sample_rate = mp3_obj_ptr->sampleRate;
     orig_channels = mp3_obj_ptr->channels;
-    total_buf_size = DrReadFrames(lst_frames, drmp3_read_pcm_frames_f32, *mp3_obj_ptr);
+    half_size = stereo_mixer_ && orig_channels > 1;
+    total_buf_size = DrReadFrames(lst_frames, drmp3_read_pcm_frames_f32, *mp3_obj_ptr, half_size);
 
   } else if (stream_format == AudioStreamType::kFLAC) {
     drflac* flac_obj = drflac_open_memory(p_data, input.NumberOfElement(), nullptr);
@@ -134,7 +152,8 @@ OrtxStatus AudioDecoder::ComputeInternal(const ortc::Tensor<uint8_t>& input, con
     }
     orig_sample_rate = flac_obj->sampleRate;
     orig_channels = flac_obj->channels;
-    total_buf_size = DrReadFrames(lst_frames, drflac_read_pcm_frames_f32, *flac_obj);
+    half_size = stereo_mixer_ && orig_channels > 1;
+    total_buf_size = DrReadFrames(lst_frames, drflac_read_pcm_frames_f32, *flac_obj, half_size);
 
   } else {
     drwav wav_obj;
@@ -144,7 +163,8 @@ OrtxStatus AudioDecoder::ComputeInternal(const ortc::Tensor<uint8_t>& input, con
     }
     orig_sample_rate = wav_obj.sampleRate;
     orig_channels = wav_obj.channels;
-    total_buf_size = DrReadFrames(lst_frames, drwav_read_pcm_frames_f32, wav_obj);
+    half_size = stereo_mixer_ && orig_channels > 1;
+    total_buf_size = DrReadFrames(lst_frames, drwav_read_pcm_frames_f32, wav_obj, half_size);
   }
 
   if (downsample_rates_.size() > 0 && orig_sample_rate < downsample_rates_.front()) {
@@ -162,7 +182,7 @@ OrtxStatus AudioDecoder::ComputeInternal(const ortc::Tensor<uint8_t>& input, con
   }
 
   // mix the stereo channels into mono channel
-  if (stereo_mixer_ && orig_channels > 1) {
+  if (half_size) {
     if (buf.size() > 1) {
       for (size_t i = 0; i < buf.size() / 2; ++i) {
         buf[i] = (buf[i * 2] + buf[i * 2 + 1]) / 2;
