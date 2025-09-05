@@ -75,18 +75,30 @@ template <typename TY_AUDIO, typename FX_DECODER>
 static size_t DrReadFrames(std::list<std::vector<float>>& frames, FX_DECODER fx, TY_AUDIO& obj) {
   const size_t default_chunk_size = 1024 * 256;
   int64_t total_buf_size = 0;
+  // This is 30 seconds audio input sampled at 16kHz, mono, float32
+  size_t available_chunk_size = 480000L;
+  size_t allocated_chunk_size = 0;
 
   for (;;) {
     std::vector<float> buf;
-    buf.resize(default_chunk_size * obj.channels);
-    auto n_frames = fx(&obj, default_chunk_size, buf.data());
+    if (available_chunk_size < default_chunk_size * obj.channels) {
+      allocated_chunk_size = available_chunk_size;
+    } else {
+      allocated_chunk_size = default_chunk_size * obj.channels;
+    }
+    buf.resize(allocated_chunk_size);
+    auto n_frames = fx(&obj, allocated_chunk_size, buf.data());
     if (n_frames <= 0) {
       break;
     }
     auto data_size = n_frames * obj.channels;
     total_buf_size += data_size;
     buf.resize(data_size);
+    available_chunk_size -= data_size;
     frames.emplace_back(std::move(buf));
+    if (available_chunk_size <= 0) {
+      break;
+    }
   }
 
   return total_buf_size;
