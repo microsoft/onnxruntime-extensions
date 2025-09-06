@@ -193,6 +193,12 @@ OrtxStatus AudioDecoder::ComputeInternal(const ortc::Tensor<uint8_t>& input, con
     KaiserWindowInterpolation::Process(filtered_buf, buf, 1.0f * orig_sample_rate, 1.0f * target_sample_rate);
   }
 
+  // 30 seconds with 16 KHz
+  size_t size_limit = 480000;
+  if (buf.size() > size_limit)
+  {
+    buf.resize(size_limit);
+  }
   std::vector<int64_t> dim_out = {1, ort_extensions::narrow<int64_t>(buf.size())};
   float* p_output = pcm.Allocate(dim_out);
   std::copy(buf.begin(), buf.end(), p_output);
