@@ -16,13 +16,12 @@
 #include "image_transforms_phi_4.hpp"
 
 namespace ort_extensions {
-std::tuple<std::unique_ptr<ImageRawData[]>, size_t>
-LoadRawImages(const std::initializer_list<const char*>& image_paths) {
+std::tuple<std::unique_ptr<ImageRawData[]>, size_t> LoadRawImages(
+    const std::initializer_list<const char*>& image_paths) {
   return ort_extensions::LoadRawData<const char* const*, ImageRawData>(image_paths.begin(), image_paths.end());
 }
 
-std::tuple<std::unique_ptr<ImageRawData[]>, size_t>
-LoadRawImages(const char* image_paths[], size_t num_images) {
+std::tuple<std::unique_ptr<ImageRawData[]>, size_t> LoadRawImages(const char* image_paths[], size_t num_images) {
   return ort_extensions::LoadRawData<const char* const*, ImageRawData>(image_paths, image_paths + num_images);
 }
 }  // namespace ort_extensions
@@ -41,8 +40,7 @@ Operation::KernelRegistry ImageProcessor::kernel_registry_ = {
     {"Phi3ImageTransform", []() { return CreateKernelInstance(phi3_hd_transform); }},
     {"Llama3ImageTransform", []() { return CreateKernelInstance(&Llama3ImageTransform::Compute); }},
     {"Phi4VisionDynamicPreprocess", []() { return CreateKernelInstance(&Phi4VisionDynamicPreprocess::Compute); }},
-    {"Phi4VisionProcessor", []() { return CreateKernelInstance(&Phi4VisionProcessor::Compute); }} };  // NOLINT
-
+    {"Phi4VisionProcessor", []() { return CreateKernelInstance(&Phi4VisionProcessor::Compute); }}};  // NOLINT
 
 OrtxStatus ImageProcessor::Init(std::string_view processor_def) {
   std::string processor_def_str;
@@ -119,11 +117,10 @@ static ortc::Tensor<T>* StackTensor(const std::vector<TensorArgs>& arg_lists, in
   return output.release();
 }
 
-std::tuple<OrtxStatus, ProcessorResult>
-ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_data,
-                           ortc::Tensor<float>** pixel_values,
-                           ortc::Tensor<int64_t>** image_sizes,
-                           ortc::Tensor<int64_t>** num_img_takens) const {
+std::tuple<OrtxStatus, ProcessorResult> ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_data,
+                                                                   ortc::Tensor<float>** pixel_values,
+                                                                   ortc::Tensor<int64_t>** image_sizes,
+                                                                   ortc::Tensor<int64_t>** num_img_takens) const {
   ProcessorResult r;
 
   std::vector<TensorArgs> inputs(image_data.size());
@@ -173,7 +170,14 @@ OrtxStatus ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_d
   input_tensor_objects.clear();
 
   std::vector<TensorPtr> img_result = op_plan_.AllocateOutputs(runner.GetAllocator());
-  ORTX_RETURN_IF_ERROR (OrtxRunner::StackTensors(outputs, img_result, runner.GetAllocator()));
+  ORTX_RETURN_IF_ERROR(OrtxRunner::StackTensors(outputs, img_result, runner.GetAllocator()));
+
+  // Free up intermediate output tensors
+  for (auto& tensor_arg : outputs) {
+    for (auto& t : tensor_arg) {
+      std::unique_ptr<ortc::TensorBase>(t).reset();
+    }
+  }
 
   if (output_aligner_ == "phi4-vision-aligner") {
     status = Phi4VisionProcessor::AlignOutputs(img_result);

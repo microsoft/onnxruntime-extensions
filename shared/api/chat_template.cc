@@ -134,18 +134,24 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
       throw std::runtime_error("Invalid or unsupported chat template.");
     }
 
-    auto context = minja::Context::make(json({
-        {"messages", actual_messages},
-        {"add_generation_prompt", add_generation_prompt},
-    }));
-
-    context->set("strftime_now", minja::Value::callable(strftime_function));
+    std::shared_ptr<minja::Context> context;
 
     if (tools && *tools) {
-      std::string tools_str(tools);
-      context->set("tools", tools_str);
+      std::string tools_str = minja::normalize_newlines(tools);
+      json tools_json = json::parse(tools_str.c_str());
+      context = minja::Context::make(json({
+          {"messages", actual_messages},
+          {"tools", tools_json},
+          {"add_generation_prompt", add_generation_prompt},
+      }));
+    } else {
+      context = minja::Context::make(json({
+          {"messages", actual_messages},
+          {"add_generation_prompt", add_generation_prompt},
+      }));
     }
 
+    context->set("strftime_now", minja::Value::callable(strftime_function));
     context->set("bos_token", tok_config_->bos_token_);
     context->set("eos_token", tok_config_->eos_token_);
     text = root->render(context);

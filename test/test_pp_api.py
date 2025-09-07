@@ -452,21 +452,44 @@ class TestPPAPI(unittest.TestCase):
             assert False, f"Error while trying to pass in tools to chat template: {e}"
 
     def test_qwen2_5_vl_chat_template(self):
-        model_id = "Qwen/Qwen2.5-VL-72B-Instruct"
+        model_id = "Qwen/Qwen2.5-1.5B-Instruct"
+        
+        # For Qwen, tools should be a list of functions stored in json format, passed in
+        # separately, as an additional input to apply_chat_template
+        # (for Phi-4, it should be part of messages)
+        tools = [
+            {
+                "name": "get_match_result",
+                "description": "get match result",
+                "parameters": {
+                    "match": {
+                        "description": "The name of the match",
+                        "type": "str",
+                        "default": "Arsenal vs ManCity"
+                    }
+                }
+            },
+        ]
+
+
         messages = [
             {
+                "role": "system",
+                "content": "You are a helpful assistant",
+                # "tools": json.dumps(tools), # pass the tools into system message using tools argument
+            },
+            {
                 "role": "user",
-                "content": [
-                    {"type": "image", "image": "data:image;base64,/9j/..."},
-                    {"type": "text", "text": "Describe this image."},
-                ],
+                "content": "What is the result of Arsenal vs ManCity today?"
             }
         ]
+
         message_json = json.dumps(messages)
+
         hf_enc = AutoTokenizer.from_pretrained(model_id, use_fast=True)
-        inputs = hf_enc.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
+        inputs = hf_enc.apply_chat_template(messages, tools=tools, add_generation_prompt=True, tokenize=False)
         tokenizer = pp_api.Tokenizer(model_id)
-        ortx_inputs = tokenizer.apply_chat_template(message_json)
+        ortx_inputs = tokenizer.apply_chat_template(chat=message_json, tools=json.dumps(tools))
         np.testing.assert_array_equal(ortx_inputs, inputs)
 
         inputs = hf_enc.apply_chat_template(messages, add_generation_prompt=True, tokenize=True, return_tensors="np")
