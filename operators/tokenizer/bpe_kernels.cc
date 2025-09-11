@@ -521,22 +521,6 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
           }
         }
 
-        // Handle leading '▁' if in vocab
-        if (mutable_tok.front() == 0x2581) {
-          // Convert the full token to UTF-8 for vocab check
-          std::string full_utf8_token = std::string(ustring(mutable_tok));
-          auto full_id = bbpe_tokenizer_->GetTokenId(full_utf8_token);
-
-          // Convert just the '▁' prefix to UTF-8 and get its ID
-          std::string prefix_utf8 = "\xE2\x96\x81";  // U+2581 in UTF-8
-          auto prefix_id = bbpe_tokenizer_->GetTokenId(prefix_utf8);
-
-          if (full_id == bpe::kInvalidTokenId && prefix_id != bpe::kInvalidTokenId) {
-            byte_list.emplace_back(prefix_id, 1);
-            mutable_tok.erase(mutable_tok.begin());  // Remove '▁' from token
-          }
-        }
-
         std::string utf8_token = std::string(ustring(mutable_tok));
 
         auto id = bbpe_tokenizer_->GetTokenId(utf8_token);

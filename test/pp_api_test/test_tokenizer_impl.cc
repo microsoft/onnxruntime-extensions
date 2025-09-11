@@ -143,6 +143,28 @@ TEST(OrtxTokenizerTest, Phi3_Small_Tokenizer) {
   EXPECT_EQ(token_ids[0], EXPECTED_IDS_0);
 }
 
+TEST(OrtxTokenizerTest, Phi3_Vision_Tokenizer) {
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/phi-3-vision");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
+  }
+
+  // validate tokenizer is not null
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
+
+  std::vector<extTokenId_t> EXPECTED_IDS_0 = {1, 3750, 338, 512, 2325, 16459, 17587, 29973};
+  std::vector<std::string_view> input = {"Why is Include handled differently?"};
+  std::vector<std::vector<extTokenId_t>> token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  EXPECT_TRUE(status.IsOk());
+  DumpTokenIds(token_ids);
+
+  EXPECT_EQ(token_ids.size(), input.size());
+  EXPECT_EQ(token_ids[0], EXPECTED_IDS_0);
+}
+
 TEST(OrtxTokenizerTest, GemmaTokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
   auto status = tokenizer->Load("data/gemma");
