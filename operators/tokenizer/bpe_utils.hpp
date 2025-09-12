@@ -363,11 +363,7 @@ class PreTokenizerWithRegEx {
   std::u32string_view Match_PHI4_Pattern_1() {
     size_t i = 0;
 
-    if (i >= m_text.size())  {
-      auto res = m_text.substr(0, i);
-      m_text = m_text.substr(i);
-      return res;
-    }
+    if (m_text.empty()) return {};
 
     // [^\r\n\p{L}\p{N}]?
     if (!IsRN(m_text[i]) && !IsN(m_text[i]) && !IsL(m_text[i])) {
