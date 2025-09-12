@@ -390,15 +390,36 @@ TEST(OrtxTokenizerStreamTest, Phi3Tokenizer) {
 
   std::string text;
   std::unique_ptr<ort_extensions::TokenizerDecodingState> decoder_cache;
-  // std::cout << "\"";
   for (const auto& token_id : token_ids[0]) {
     std::string token;
     auto status = tokenizer->Id2Token(token_id, token, decoder_cache);
     EXPECT_TRUE(status.IsOk());
-    // std::cout << token;
     text.append(token);
   }
 
-  // std::cout << "\"" << std::endl;
   EXPECT_EQ(std::string(text), std::string(input[0]) + " ");  // from the extra byte token */
+}
+
+TEST(OrtxTokenizerTest, Nvidia_Mistral_Tokenizer) {
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/nvidia-mistral");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
+  }
+
+  // validate tokenizer is not null
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
+
+  // From HuggingFace expected values for "nvidia/Mistral-NeMo-Minitron-8B-Instruct"
+  std::vector<extTokenId_t> EXPECTED_IDS_0 = {1, 4380, 1395, 1261, 2688, 1321, 1278, 2667, 1925, 1395, 1294,
+                                              8863, 1046, 14314, 5897, 2352, 28943, 1033};
+  std::vector<std::string_view> input = {"This is a test and the second one is in German. Ich liebe München!"};
+  std::vector<std::vector<extTokenId_t>> token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  EXPECT_TRUE(status.IsOk());
+  DumpTokenIds(token_ids);
+
+  EXPECT_EQ(token_ids.size(), input.size());
+  EXPECT_EQ(token_ids[0], EXPECTED_IDS_0);
 }

@@ -489,6 +489,103 @@ class PreTokenizerWithRegEx {
     return res;
   }
 
+  // [^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+
+  std::u32string_view Match_Nvidia_Mistral_Pattern_1() {
+    size_t i = 0;
+
+    // [^\r\n\p{L}\p{N}]?
+    if (!IsRN(m_text[i]) && !IsN(m_text[i]) && !IsL(m_text[i])) {
+      i++;
+    }
+
+    if (i >= m_text.size()) return {};
+
+    size_t j = i;
+    // [\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*
+    const ufal::unilib::unicode::category_t categories1 = ufal::unilib::unicode::Lu | ufal::unilib::unicode::Lt |
+                                                          ufal::unilib::unicode::Lm | ufal::unilib::unicode::Lo |
+                                                          ufal::unilib::unicode::M;
+    if (IsCategory(m_text[i], categories1)) {
+      for (; j < m_text.size(); ++j) {
+        if (!IsCategory(m_text[j], categories1)) break;
+      }
+    }
+
+    // [\p{Ll}\p{Lm}\p{Lo}\p{M}]+
+    const ufal::unilib::unicode::category_t categories2 =
+        ufal::unilib::unicode::Ll | ufal::unilib::unicode::Lm | ufal::unilib::unicode::Lo | ufal::unilib::unicode::M;
+
+    if (IsCategory(m_text[j], categories2)) {
+      for (; j < m_text.size(); ++j) {
+        if (!IsCategory(m_text[j], categories2)) break;
+      }
+    } else if (j > i && j > 0 && IsCategory(m_text[j - 1], categories2)) {
+      for (; j < m_text.size(); ++j) {
+        if (!IsCategory(m_text[j], categories2)) break;
+      }
+    } else {
+      return {};
+    }
+
+    if (j >= m_text.size())  {
+      auto res = m_text.substr(0, j);
+      m_text = m_text.substr(j);
+      return res;
+    }
+    i = j;
+
+    std::u32string_view res = m_text.substr(0, i);
+    m_text = m_text.substr(i);
+    return res;
+  }
+
+  // [^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*
+  std::u32string_view Match_Nvidia_Mistral_Pattern_2() {
+    size_t i = 0;
+
+    // [^\r\n\p{L}\p{N}]?
+    if (!IsRN(m_text[i]) && !IsN(m_text[i]) && !IsL(m_text[i])) {
+      i++;
+    }
+
+    if (i >= m_text.size()) return {};
+
+    // [\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+
+    const ufal::unilib::unicode::category_t categories1 = ufal::unilib::unicode::Lu | ufal::unilib::unicode::Lt |
+                                                          ufal::unilib::unicode::Lm | ufal::unilib::unicode::Lo |
+                                                          ufal::unilib::unicode::M;
+    if (IsCategory(m_text[i], categories1)) {
+      for (; i < m_text.size(); ++i) {
+        if (!IsCategory(m_text[i], categories1)) break;
+      }
+    } else {
+      return {};
+    }
+    if (i >= m_text.size()) {
+      auto res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+
+    // [\p{Ll}\p{Lm}\p{Lo}\p{M}]*
+    const ufal::unilib::unicode::category_t categories2 =
+        ufal::unilib::unicode::Ll | ufal::unilib::unicode::Lm | ufal::unilib::unicode::Lo | ufal::unilib::unicode::M;
+    if (IsCategory(m_text[i], categories2)) {
+      for (; i < m_text.size(); ++i) {
+        if (!IsCategory(m_text[i], categories2)) break;
+      }
+    }
+    if (i >= m_text.size()) {
+      auto res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+
+    std::u32string_view res = m_text.substr(0, i);
+    m_text = m_text.substr(i);
+    return res;
+  }
+
   // "(\p{N})"
   std::u32string_view Match_General_Pattern_1() {
     if (IsN(m_text[0])) {
@@ -508,6 +605,10 @@ class PreTokenizerWithRegEx {
          &PreTokenizerWithRegEx::Match_PHI4_Pattern_1},
         {R"([^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?)",
          &PreTokenizerWithRegEx::Match_PHI4_Pattern_2},
+        {R"([^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+)",
+         &PreTokenizerWithRegEx::Match_Nvidia_Mistral_Pattern_1},
+        {R"([^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*)",
+         &PreTokenizerWithRegEx::Match_Nvidia_Mistral_Pattern_2},
         {R"((?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD]))",
          &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_1},
         {R"((?i:'s|'t|'re|'ve|'m|'ll|'d))", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_1},
