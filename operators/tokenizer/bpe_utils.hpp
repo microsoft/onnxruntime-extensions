@@ -363,43 +363,39 @@ class PreTokenizerWithRegEx {
   std::u32string_view Match_PHI4_Pattern_1() {
     size_t i = 0;
 
-    std::cout << "Here 1" << std::endl;
+    if (i >= m_text.size())  {
+      auto res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
 
     // [^\r\n\p{L}\p{N}]?
     if (!IsRN(m_text[i]) && !IsN(m_text[i]) && !IsL(m_text[i])) {
       i++;
     }
 
-    std::cout << "Here 2" << std::endl;
-
     if (i >= m_text.size()) return {};
-
-    std::cout << "Here 3" << std::endl;
 
     size_t j = i;
     // [\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*
     const ufal::unilib::unicode::category_t categories1 = ufal::unilib::unicode::Lu | ufal::unilib::unicode::Lt |
                                                           ufal::unilib::unicode::Lm | ufal::unilib::unicode::Lo |
                                                           ufal::unilib::unicode::M;
-    std::cout << "Here 4" << std::endl;
-
     if (IsCategory(m_text[i], categories1)) {
       for (; j < m_text.size(); ++j) {
         if (!IsCategory(m_text[j], categories1)) break;
       }
     }
 
-    std::cout << "Here 5" << std::endl;
-
-    if (j >= m_text.size()) return {};
-
-    std::cout << "Here 6" << std::endl;
-
     // [\p{Ll}\p{Lm}\p{Lo}\p{M}]+
     const ufal::unilib::unicode::category_t categories2 =
         ufal::unilib::unicode::Ll | ufal::unilib::unicode::Lm | ufal::unilib::unicode::Lo | ufal::unilib::unicode::M;
 
-    std::cout << "Here 7" << std::endl;
+    if (j >= m_text.size())  {
+      auto res = m_text.substr(0, j);
+      m_text = m_text.substr(j);
+      return res;
+    }
 
     if (IsCategory(m_text[j], categories2)) {
       for (; j < m_text.size(); ++j) {
@@ -413,16 +409,11 @@ class PreTokenizerWithRegEx {
       return {};
     }
 
-    std::cout << "Here 8" << std::endl;
-
     if (j >= m_text.size())  {
       auto res = m_text.substr(0, j);
       m_text = m_text.substr(j);
       return res;
     }
-
-    std::cout << "Here 9" << std::endl;
-
     i = j;
     // (?i:'s|'t|'re|'ve|'m|'ll|'d)?
     if ((m_text[i] == U'\'') && ((i + 1) < m_text.size())) {
@@ -441,12 +432,8 @@ class PreTokenizerWithRegEx {
       }
     }
 
-    std::cout << "Here 10" << std::endl;
-
     std::u32string_view res = m_text.substr(0, i);
-    std::cout << "Here 11" << std::endl;
     m_text = m_text.substr(i);
-    std::cout << "Here 12" << std::endl;
     return res;
   }
 
