@@ -363,6 +363,8 @@ class PreTokenizerWithRegEx {
   std::u32string_view Match_PHI4_Pattern_1() {
     size_t i = 0;
 
+    if (m_text.empty()) return {};
+
     // [^\r\n\p{L}\p{N}]?
     if (!IsRN(m_text[i]) && !IsN(m_text[i]) && !IsL(m_text[i])) {
       i++;
@@ -384,6 +386,12 @@ class PreTokenizerWithRegEx {
     // [\p{Ll}\p{Lm}\p{Lo}\p{M}]+
     const ufal::unilib::unicode::category_t categories2 =
         ufal::unilib::unicode::Ll | ufal::unilib::unicode::Lm | ufal::unilib::unicode::Lo | ufal::unilib::unicode::M;
+
+    if (j >= m_text.size())  {
+      auto res = m_text.substr(0, j);
+      m_text = m_text.substr(j);
+      return res;
+    }
 
     if (IsCategory(m_text[j], categories2)) {
       for (; j < m_text.size(); ++j) {
