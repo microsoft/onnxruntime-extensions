@@ -102,6 +102,9 @@ class PreTokenizerWithRegEx {
 
   // "'s|'t|'re|'ve|'m|'ll|'d"
   std::u32string_view Match_GPT2_Pattern_1() {
+
+    if (m_text.empty()) return {};
+
     if ((m_text[0] == U'\'') && (m_text.size() > 1)) {
       if ((m_text[1] == U's') || (m_text[1] == U't') || (m_text[1] == U'm') || (m_text[1] == U'd')) {
         std::u32string_view res = m_text.substr(0, 2);
@@ -124,6 +127,9 @@ class PreTokenizerWithRegEx {
 
   // " ?\p{L}+| ?\p{N}+"
   std::u32string_view Match_GPT2_Pattern_2() {
+
+    if (m_text.empty()) return {};
+
     // ?\p{L}+
     if ((m_text[0] == U' ') && (m_text.size() > 1) && IsL(m_text[1])) {
       size_t i = 2;
@@ -169,6 +175,9 @@ class PreTokenizerWithRegEx {
 
   // " ?[^\s\p{L}\p{N}]+"
   std::u32string_view Match_GPT2_Pattern_3() {
+
+    if (m_text.empty()) return {};
+
     if ((m_text[0] == U' ') && (m_text.size() > 1) && (NotLNZ(m_text[1]))) {
       size_t i = 2;
       for (; i < m_text.size(); ++i) {
@@ -193,6 +202,9 @@ class PreTokenizerWithRegEx {
 
   // "\s+(?!\S)|\s+"
   std::u32string_view Match_GPT2_Pattern_4() {
+
+    if (m_text.empty()) return {};
+
     if ((m_text.size() >= 1) && (IsZ(m_text[0]))) {
       size_t i = 1;
       for (; i < m_text.size(); ++i) {
@@ -215,6 +227,9 @@ class PreTokenizerWithRegEx {
 
   // [\p{L}]+|[\p{N}]
   std::u32string_view Match_CLIP_Pattern_1() {
+
+    if (m_text.empty()) return {};
+
     if (IsL(m_text[0])) {
       size_t i = 1;
       for (; i < m_text.size(); ++i) {
@@ -236,6 +251,9 @@ class PreTokenizerWithRegEx {
 
   // [^\s\p{L}\p{N}]+
   std::u32string_view Match_CLIP_Pattern_2() {
+
+    if (m_text.empty()) return {};
+
     if (NotLNZ(m_text[0])) {
       size_t i = 1;
       for (; i < m_text.size(); ++i) {
@@ -252,6 +270,9 @@ class PreTokenizerWithRegEx {
   // "(?i:'s|'t|'re|'ve|'m|'ll|'d)"
   // (?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])
   std::u32string_view Match_LLAMA3_Pattern_1() {
+
+    if (m_text.empty()) return {};
+
     if ((m_text[0] == U'\'') && (m_text.size() > 1)) {
       if ((m_text[1] == U's') || (m_text[1] == U't') || (m_text[1] == U'm') || (m_text[1] == U'd') ||
           (m_text[1] == U'S') || (m_text[1] == U'T') || (m_text[1] == U'M') || (m_text[1] == U'D')) {
@@ -276,6 +297,9 @@ class PreTokenizerWithRegEx {
 
   // "[^\r\n\p{L}\p{N}]?\p{L}+"
   std::u32string_view Match_LLAMA3_Pattern_2() {
+
+    if (m_text.empty()) return {};
+
     if ((!IsRN(m_text[0]) && !IsN(m_text[0])) || IsL(m_text[0])) {
       if (IsL(m_text[0]) || ((m_text.size() > 1) && IsL(m_text[1]))) {
         size_t i = 1;
@@ -293,6 +317,9 @@ class PreTokenizerWithRegEx {
 
   // "\p{N}{1,3}"
   std::u32string_view Match_LLAMA3_Pattern_3() {
+
+    if (m_text.empty()) return {};
+
     if (IsN(m_text[0])) {
       size_t i = 1;
       for (; i < m_text.size(); ++i) {
@@ -308,6 +335,9 @@ class PreTokenizerWithRegEx {
 
   // " ?[^\s\p{L}\p{N}]+[\r\n]*"
   std::u32string_view Match_LLAMA3_Pattern_4() {
+
+    if (m_text.empty()) return {};
+
     auto pos = 0;
     if (m_text[0] == U' ') pos = 1;
     if (pos < m_text.size() && NotLNZ(m_text[pos])) {
@@ -330,6 +360,9 @@ class PreTokenizerWithRegEx {
 
   // "\s*[\r\n]+"
   std::u32string_view Match_LLAMA3_Pattern_5() {
+
+    if (m_text.empty()) return {};
+
     if (IsZ(m_text[0])) {
       size_t i = 1;
       for (; i < m_text.size(); ++i) {
@@ -435,6 +468,9 @@ class PreTokenizerWithRegEx {
 
   // [^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?
   std::u32string_view Match_PHI4_Pattern_2() {
+
+    if (m_text.empty()) return {};
+
     size_t i = 0;
 
     // [^\r\n\p{L}\p{N}]?
@@ -499,6 +535,9 @@ class PreTokenizerWithRegEx {
 
   // [^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+
   std::u32string_view Match_Nvidia_Mistral_Pattern_1() {
+
+    if (m_text.empty()) return {};
+
     size_t i = 0;
 
     // [^\r\n\p{L}\p{N}]?
@@ -523,6 +562,12 @@ class PreTokenizerWithRegEx {
     const ufal::unilib::unicode::category_t categories2 =
         ufal::unilib::unicode::Ll | ufal::unilib::unicode::Lm | ufal::unilib::unicode::Lo | ufal::unilib::unicode::M;
 
+    if (j >= m_text.size())  {
+      auto res = m_text.substr(0, j);
+      m_text = m_text.substr(j);
+      return res;
+    }
+    
     if (IsCategory(m_text[j], categories2)) {
       for (; j < m_text.size(); ++j) {
         if (!IsCategory(m_text[j], categories2)) break;
@@ -549,6 +594,9 @@ class PreTokenizerWithRegEx {
 
   // [^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*
   std::u32string_view Match_Nvidia_Mistral_Pattern_2() {
+
+    if (m_text.empty()) return {};
+
     size_t i = 0;
 
     // [^\r\n\p{L}\p{N}]?
@@ -596,6 +644,9 @@ class PreTokenizerWithRegEx {
 
   // "(\p{N})"
   std::u32string_view Match_General_Pattern_1() {
+
+    if (m_text.empty()) return {};
+    
     if (IsN(m_text[0])) {
       std::u32string_view res = m_text.substr(0, 1);
       m_text = m_text.substr(1);
