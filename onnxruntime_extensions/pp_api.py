@@ -86,7 +86,7 @@ class Tokenizer:
             return batch_tokenize(self.tokenizer, text)
         return batch_tokenize(self.tokenizer, [text])[0]
     
-    def update_options(self, options: dict[str, str | int | bool]):
+    def update_options(self, options):
         # Update tokenizer options at runtime.
         for k, v in options.items():
             if isinstance(v, bool):

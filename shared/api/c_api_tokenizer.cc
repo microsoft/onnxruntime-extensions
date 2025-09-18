@@ -440,7 +440,12 @@ extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, Or
   // If skip_special_tokens option exists, use its value, otherwise use default (true)
   auto it = token_ptr->options_map.find("skip_special_tokens");
   if (it != token_ptr->options_map.end()) {
-    bool skip_special_tokens = it->second == "true";
+    bool skip_special_tokens = "true"; // default
+    std::string val = it->second;
+    std::transform(val.begin(), val.end(), val.begin(), ::tolower);
+    if (val == "false" || val == "0") {
+      skip_special_tokens = false;
+    }
     status = ReturnableStatus(token_ptr->Id2Token(next_id, cache_ptr->last_text_,
                                                   cache_ptr->decoder_state_, skip_special_tokens));
   } else {

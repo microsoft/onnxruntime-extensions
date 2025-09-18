@@ -60,14 +60,36 @@ extern "C" {
  */
 extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const char* tokenizer_path);
 
-/** \brief Create a tokenizer object with the specified tokenizer path and options such as add_special_tokens for tokenizing, or skip_special_tokens for detokenizing.
+/** \brief Create a tokenizer object with the specified tokenizer path and options.
  *
- * \param tokenizer Pointer to store the created tokenizer object
- * \param tokenizer_path The path to the tokenizer directory, which is utf-8 encoded
- * \param option_keys Array of option keys
- * \param option_values Array of option values (same length as keys)
- * \param num_options Number of options
- * \return Error code indicating the success or failure of the operation
+ * This function creates a tokenizer for text tokenization and detokenization.
+ * Additional options can be passed to control tokenizer behavior, such as
+ * whether to add special tokens during tokenization or skip them during detokenization.
+ *
+ * \param tokenizer Pointer to store the created tokenizer object.
+ * \param tokenizer_path The path to the tokenizer directory, which is UTF-8 encoded.
+ * \param option_keys Array of option keys.
+ * \param option_values Array of option values (same length as keys).
+ * \param num_options Number of options.
+ * \return Error code indicating the success or failure of the operation.
+ *
+ * \note Both keys and values are expected to be null-terminated UTF-8 strings.
+ *
+ * Supported options:
+ *
+ * - `add_special_tokens`
+ *   - Purpose: Controls whether to add special tokens (like BOS/EOS) during tokenization;
+ *   - Values: `"true"` / `"false"` or `"1"` / `"0"`;
+ *   - Default: `"true"`
+ *
+ * - `skip_special_tokens`
+ *   - Purpose: Controls whether to remove special tokens during detokenization;
+ *   - Values: `"true"` / `"false"` or `"1"` / `"0"`;
+ *   - Default: `"true"`
+ *
+ * Future tokenizer options may be added without changing this API signature.
+ *
+ * \see OrtxUpdateTokenizerOptions for updating options on an existing tokenizer.
  */
 extError_t ORTX_API_CALL OrtxCreateTokenizerWithOptions(OrtxTokenizer** tokenizer, const char* tokenizer_path, const char* option_keys[], const char* option_values[], size_t num_options);
 
@@ -89,6 +111,24 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer,
  * \param option_values Array of option values (same length as keys)
  * \param num_options Number of options
  * \return Error code indicating the success or failure of the operation
+ * 
+ *  *
+ * \note Both keys and values are expected to be null-terminated UTF-8 strings.
+ *
+ * Supported options:
+ *
+ * - `add_special_tokens`
+ *   - Purpose: Controls whether to add special tokens (like BOS/EOS) during tokenization;
+ *   - Values: `"true"` / `"false"` or `"1"` / `"0"`;
+ *   - Default: `"true"`
+ *
+ * - `skip_special_tokens`
+ *   - Purpose: Controls whether to remove special tokens during detokenization;
+ *   - Values: `"true"` / `"false"` or `"1"` / `"0"`;
+ *   - Default: `"true"`
+ *
+ * Future tokenizer options may be added without changing this API signature.
+ * 
  */
 extError_t ORTX_API_CALL OrtxUpdateTokenizerOptions(OrtxTokenizer* tokenizer, const char* option_keys[], const char* option_values[], size_t num_options);
 
