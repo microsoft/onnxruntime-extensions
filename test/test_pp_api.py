@@ -335,7 +335,14 @@ class TestPPAPI(unittest.TestCase):
         inputs = hf_tok.apply_chat_template(
             messages, add_generation_prompt=True, tokenize=False, return_tensors="np")
 
-        tokenizer = pp_api.Tokenizer(ckpt)
+        # Initialize ORT Extensions tokenizer with options (initially with special tokens)
+        tokenizer = pp_api.Tokenizer(
+            ckpt,
+            options={
+                "add_special_tokens": "true"
+            }
+        )
+        
         message_json = json.dumps(messages)
         prompt = tokenizer.apply_chat_template(message_json)
         self.assertEqual(prompt, inputs)
@@ -345,7 +352,11 @@ class TestPPAPI(unittest.TestCase):
 
         # Test without special tokens
         # (should omit extra BOS token in the case of Gemma-3)
-        ortx_inputs_2 = tokenizer.tokenize(prompt, False)
+
+        # Update options at runtime
+        tokenizer.update_options({"add_special_tokens": "false"})
+
+        ortx_inputs_2 = tokenizer.tokenize(prompt)
         np.testing.assert_array_equal(ortx_inputs_2, hf_tok.encode(inputs, add_special_tokens=False))
 
     def test_phi4_chat_template(self):

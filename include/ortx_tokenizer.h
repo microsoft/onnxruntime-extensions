@@ -60,6 +60,18 @@ extern "C" {
  */
 extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const char* tokenizer_path);
 
+/** \brief Create a tokenizer object with the specified tokenizer path and options such as add_special_tokens for tokenizing, or skip_special_tokens for detokenizing.
+ *
+ * \param tokenizer Pointer to store the created tokenizer object
+ * \param tokenizer_path The path to the tokenizer directory, which is utf-8 encoded
+ * \param option_keys Array of option keys
+ * \param option_values Array of option values (same length as keys)
+ * \param num_options Number of options
+ * \return Error code indicating the success or failure of the operation
+ */
+extError_t ORTX_API_CALL OrtxCreateTokenizerWithOptions(OrtxTokenizer** tokenizer, const char* tokenizer_path, const char* option_keys[], const char* option_values[], size_t num_options);
+
+
 /** \brief Create a tokenizer object with the specified tokenizer blob
  *
  * \param tokenizer Pointer to store the created tokenizer object
@@ -68,6 +80,18 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const ch
  */
 extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer,
                                                      const struct OrtxTokenizerBlob* tokenizer_blob);
+
+
+/** \brief Update the tokenizer options
+ *
+ * \param tokenizer Pointer to the tokenizer object
+ * \param option_keys Array of option keys
+ * \param option_values Array of option values (same length as keys)
+ * \param num_options Number of options
+ * \return Error code indicating the success or failure of the operation
+ */
+extError_t ORTX_API_CALL OrtxUpdateTokenizerOptions(OrtxTokenizer* tokenizer, const char* option_keys[], const char* option_values[], size_t num_options);
+
 
 /** \brief Tokenize the input using the specified tokenizer
  *
@@ -80,19 +104,6 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer,
 extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
                                       OrtxTokenId2DArray** output);
 
-/** \brief Tokenize the input using the specified tokenizer and options such as the add_special_tokens flag.
- * 
- * Separate from OrtxTokenize for backward compatibility. Can be used to specify other options in the future.
- *
- * \param tokenizer Pointer to the tokenizer object
- * \param input Array of input strings
- * \param batch_size Number of input strings in the batch
- * \param output Pointer to store the tokenized result
- * \param add_special_tokens Boolean to determine whether to add or omit special tokens
- * \return Error code indicating the success or failure of the operation
- */
-extError_t ORTX_API_CALL OrtxTokenizeWithOptions(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
-                                                 OrtxTokenId2DArray** output, bool add_special_tokens);
 
 /**
  * Converts a token to its corresponding ID.
@@ -141,19 +152,6 @@ extError_t ORTX_API_CALL OrtxDetokenize(const OrtxTokenizer* tokenizer, const Or
 extError_t ORTX_API_CALL OrtxDetokenize1D(const OrtxTokenizer* tokenizer, const extTokenId_t* input, size_t len,
                                           OrtxStringArray** output);
 
-/** \brief Detokenize the input using the specified tokenizer and options such as the skip_special_tokens flag (1D version).
- * 
- * Separate from OrtxDetokenize1D for backward compatibility. Can be used to specify other options in the future.
- *
- * \param tokenizer Pointer to the tokenizer object
- * \param input Pointer to the input token IDs
- * \param len Length of the input token IDs array
- * \param output Pointer to store the detokenized result
- * \param skip_special_tokens Boolean to determine whether to add or omit special tokens
- * \return Error code indicating the success or failure of the operation
- */
-extError_t ORTX_API_CALL OrtxDetokenize1DWithOptions(const OrtxTokenizer* tokenizer, const extTokenId_t* input, size_t len,
-                                          OrtxStringArray** output, bool skip_special_tokens);
 
 /** \brief Detokenize the input using the specified tokenizer with caching
  *
