@@ -47,6 +47,53 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const ch
   return status.Code();
 }
 
+// Helper function to convert key/value arrays to unordered_map for tokenizer options
+static std::unordered_map<std::string, std::string> BuildOptionsMap(const char* keys[], const char* values[], size_t num_options) {
+  // Define the set of valid option keys - may be added to in the future
+  static const std::unordered_set<std::string> valid_keys = {
+      "add_special_tokens",
+      "skip_special_tokens"
+  };
+
+  std::unordered_map<std::string, std::string> options;
+
+  for (size_t i = 0; i < num_options; ++i) {
+    if (keys[i] && values[i]) {
+      std::string key = keys[i];
+
+      if (valid_keys.find(key) == valid_keys.end()) {
+        ReturnableStatus::last_error_message_ =
+            "Invalid tokenizer option key: " + key;
+        // Return empty map — caller should handle this as an error
+        return {};
+      }
+
+      options[key] = values[i];
+    }
+  }
+
+  return options;
+}
+
+static bool ParseBoolOption(
+    const std::unordered_map<std::string, std::string>& options_map,
+    const std::string& option_name,
+    bool default_value = true)
+{
+  auto it = options_map.find(option_name);
+  if (it == options_map.end()) {
+    return default_value;
+  }
+
+  std::string val = it->second;
+  std::transform(val.begin(), val.end(), val.begin(), ::tolower);
+
+  if (val == "false" || val == "0") {
+    return false;
+  }
+  return true;
+}
+
 extError_t ORTX_API_CALL OrtxCreateTokenizerWithOptions(
     OrtxTokenizer** tokenizer,
     const char* tokenizer_path,
@@ -67,11 +114,9 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerWithOptions(
   }
 
   // Convert keys/values for tokenizer options to unordered_map
-  std::unordered_map<std::string, std::string> options;
-  for (size_t i = 0; i < num_options; ++i) {
-    if (keys[i] && values[i]) {
-      options[keys[i]] = values[i];
-    }
+  auto options = BuildOptionsMap(keys, values, num_options);
+  if (options.empty() && num_options > 0) {
+    return kOrtxErrorInvalidArgument;  // invalid option key detected
   }
 
   // Create and load tokenizer
@@ -122,11 +167,9 @@ extError_t ORTX_API_CALL OrtxUpdateTokenizerOptions(
   }
 
   // Convert key/value arrays to unordered_map
-  std::unordered_map<std::string, std::string> options;
-  for (size_t i = 0; i < num_options; ++i) {
-    if (keys[i] && values[i]) {
-      options[keys[i]] = values[i];
-    }
+  auto options = BuildOptionsMap(keys, values, num_options);
+  if (options.empty() && num_options > 0) {
+    return kOrtxErrorInvalidArgument;  // invalid option key detected
   }
 
   // Cast and update tokenizer with options
@@ -163,18 +206,8 @@ extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char
                  [](const char* str) { return std::string_view(str); });
 
   // If add_special_tokens option exists, use its value, otherwise use default (true)
-  auto it = token_ptr->options_map.find("add_special_tokens");
-  if (it != token_ptr->options_map.end()) {
-    bool add_special_tokens = true; // default
-    std::string val = it->second;
-    std::transform(val.begin(), val.end(), val.begin(), ::tolower);
-    if (val == "false" || val == "0") {
-      add_special_tokens = false;
-    }
-    status = token_ptr->Tokenize(input_view, t_ids, add_special_tokens);
-  } else {
-    status = token_ptr->Tokenize(input_view, t_ids);
-  }
+  bool add_special_tokens = ParseBoolOption(token_ptr->options_map, "add_special_tokens", true);
+  status = token_ptr->Tokenize(input_view, t_ids, add_special_tokens);
 
   if (!status.IsOk()) {
     return status.Code();
@@ -254,18 +287,8 @@ extError_t ORTX_API_CALL OrtxDetokenize(const OrtxTokenizer* tokenizer, const Or
   std::vector<std::string> output_text;
 
   // If skip_special_tokens option exists, use its value, otherwise use default (true)
-  auto it = token_ptr->options_map.find("skip_special_tokens");
-  if (it != token_ptr->options_map.end()) {
-    bool skip_special_tokens = true;  // default true
-    std::string val = it->second;
-    std::transform(val.begin(), val.end(), val.begin(), ::tolower);
-    if (val == "false" || val == "0") {
-      skip_special_tokens = false;
-    }
-    status = token_ptr->Detokenize(t_ids, output_text, skip_special_tokens);
-  } else {
-    status = token_ptr->Detokenize(t_ids, output_text);
-  }
+  bool skip_special_tokens = ParseBoolOption(token_ptr->options_map, "skip_special_tokens", true);
+  status = token_ptr->Detokenize(t_ids, output_text, skip_special_tokens);
 
   if (!status.IsOk()) {
     return status.Code();
@@ -295,18 +318,8 @@ extError_t ORTX_API_CALL OrtxDetokenize1D(const OrtxTokenizer* tokenizer, const 
   std::vector<std::string> output_text;
 
   // If skip_special_tokens option exists, use its value, otherwise use default (true)
-  auto it = token_ptr->options_map.find("skip_special_tokens");
-  if (it != token_ptr->options_map.end()) {
-    bool skip_special_tokens = true;  // default true
-    std::string val = it->second;
-    std::transform(val.begin(), val.end(), val.begin(), ::tolower);
-    if (val == "false" || val == "0") {
-      skip_special_tokens = false;
-    }
-    status = token_ptr->Detokenize(t_ids, output_text, skip_special_tokens);
-  } else {
-    status = token_ptr->Detokenize(t_ids, output_text);
-  }
+  bool skip_special_tokens = ParseBoolOption(token_ptr->options_map, "skip_special_tokens", true);
+  status = token_ptr->Detokenize(t_ids, output_text, skip_special_tokens);
 
   if (!status.IsOk()) {
     return status.Code();
@@ -438,20 +451,9 @@ extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, Or
   cache_ptr->last_text_.clear();
 
   // If skip_special_tokens option exists, use its value, otherwise use default (true)
-  auto it = token_ptr->options_map.find("skip_special_tokens");
-  if (it != token_ptr->options_map.end()) {
-    bool skip_special_tokens = "true"; // default
-    std::string val = it->second;
-    std::transform(val.begin(), val.end(), val.begin(), ::tolower);
-    if (val == "false" || val == "0") {
-      skip_special_tokens = false;
-    }
-    status = ReturnableStatus(token_ptr->Id2Token(next_id, cache_ptr->last_text_,
+  bool skip_special_tokens = ParseBoolOption(token_ptr->options_map, "skip_special_tokens", true);
+  status = ReturnableStatus(token_ptr->Id2Token(next_id, cache_ptr->last_text_,
                                                   cache_ptr->decoder_state_, skip_special_tokens));
-  } else {
-    status = ReturnableStatus(token_ptr->Id2Token(next_id, cache_ptr->last_text_,
-                                                  cache_ptr->decoder_state_));
-  }
 
   if (status.IsOk()) {
     *text_out = cache_ptr->last_text_.c_str();
