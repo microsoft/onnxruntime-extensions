@@ -75,6 +75,7 @@ static std::unordered_map<std::string, std::string> BuildOptionsMap(const char* 
   return options;
 }
 
+// Helper function to parse boolean tokenizer options
 static bool ParseBoolOption(
     const std::unordered_map<std::string, std::string>& options_map,
     const std::string& option_name,
