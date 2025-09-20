@@ -152,49 +152,41 @@ struct SpmUgmTokenizer {
     if (!status.IsOk()) {
       return status;
     }
-    std::cout << "Here 1" << std::endl;
 
     nlohmann::json j_vocab = json::parse(*vocab_stream, nullptr, false, true);
     if (j_vocab.is_discarded()) {
       return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, "Failed to parse vocabulary file.");
     }
-    std::cout << "Here 2" << std::endl;
 
     status = LoadConfig(j_vocab);
     if (!status.IsOk()) {
       return status;
     }
-    std::cout << "Here 3" << std::endl;
 
     status = LoadCharsMap(j_vocab);
     if (!status.IsOk()) {
       return status;
     }
-    std::cout << "Here 4" << std::endl;
 
     status = LoadSpecialTokens(j_vocab);
     if (!status.IsOk()) {
       return status;
     }
-    std::cout << "Here 5" << std::endl;
 
     auto model_node = j_vocab.find("model");
     if (model_node == j_vocab.end()) {
       return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, "Model node not found in vocabulary file.");
     }
-    std::cout << "Here 6" << std::endl;
 
     auto unk_id_iter = model_node->find("unk_id");
     if (unk_id_iter != model_node->end()) {
       special_unk_id_ = unk_id_iter->get<extTokenId_t>();
     }
-    std::cout << "Here 7" << std::endl;
 
     auto vocab_node = model_node->find("vocab");
     if (vocab_node == model_node->end()) {
       return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, "Vocabulary not found in model node.");
     }
-    std::cout << "Here 8" << std::endl;
 
     static std::string_view val_pattern = "<0xXY>";
     auto convert_hex_to_token = [](const std::string& str) {
@@ -218,13 +210,6 @@ struct SpmUgmTokenizer {
       }
       return std::stoi(char_3_4, nullptr, 16);
     };
-    std::cout << "Here 9" << std::endl;
-
-    for (const auto& entry : vocab_node->items()) {
-      std::cout << entry.key() << std::endl;
-      std::cout << entry.value().type_name() << std::endl;
-      std::cout << entry.value().get<double>() << std::endl;
-    }
 
     extTokenId_t id = 0;
     for (const auto& entry : vocab_node->items()) {
@@ -241,10 +226,7 @@ struct SpmUgmTokenizer {
       } else {
         return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, "Key-value entries not found in vocab node.");
       }
-      std::cout << "Score = " << score << std::endl;
-      std::cout << "Token = " << tkn << std::endl;
       int val = convert_hex_to_token(tkn);
-      std::cout << "Val = " << val << std::endl;
       if (val != -1) {
         tkn = std::string(1, static_cast<unsigned char>(val));
       }
@@ -271,7 +253,6 @@ struct SpmUgmTokenizer {
         vocab_[tkn] = std::make_tuple(id++, score);
       }
     }
-    std::cout << "Here 10" << std::endl;
 
     scores_.resize(id);
     double min_score = DBL_MAX;
@@ -280,7 +261,6 @@ struct SpmUgmTokenizer {
       token_matcher_.Add(entry.first, 0, std::get<0>(entry.second));
       min_score = std::min<double>(min_score, std::get<1>(entry.second));
     }
-    std::cout << "Here 11" << std::endl;
 
     unknown_token_score_ = min_score - unknown_token_score_penalty_;
 
@@ -293,7 +273,6 @@ struct SpmUgmTokenizer {
       case_encoder_ = std::make_unique<normalizer::CaseEncoder>(tokenizer_remove_extra_whitespaces_);
       case_encoder_->SetNormalizer([this](std::string_view input) { return NmtNormalizePrefix(input); });
     }
-    std::cout << "Here 12" << std::endl;
     return status;
   }
 
