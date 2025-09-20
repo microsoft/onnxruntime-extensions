@@ -23,6 +23,7 @@ OrtxStatus TokenizerImpl::LoadTokenizer(const OrtxTokenizerBlob* blob) {
     if (!status.IsOk()) {
       return status;
     }
+    std::cout << "SpmUgmTokenizer has loaded" << std::endl;
     auto detok = std::make_unique<SpmUgmDecoder>();
 
     if (status.IsOk()) {
@@ -82,6 +83,7 @@ OrtxStatus TokenizerImpl::Load(const OrtxTokenizerBlob& blob) {
 OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
   tok_config_ = std::make_shared<ort_extensions::TokenJsonConfig>();
   auto status = tok_config_->Load(tok_path);
+  std::cout << "TokenizerConfig has loaded" << std::endl;
   if (!status.IsOk()) {
     return status;
   }
