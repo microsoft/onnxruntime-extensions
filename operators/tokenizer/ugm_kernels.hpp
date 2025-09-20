@@ -15,7 +15,6 @@
 #include <unordered_map>
 #include <cwctype>
 #include <locale>
-#include <typeinfo>
 
 #include "ortx_tokenizer.h"
 #include "ext_status.h"
@@ -223,10 +222,20 @@ struct SpmUgmTokenizer {
 
     extTokenId_t id = 0;
     for (const auto& entry : vocab_node->items()) {
-      std::cout << typeid(entry.value()).name() << std::endl;
-      auto score = entry.value()[1].get<double>();
+      double score;
+      std::string tkn;
+      if (entry.is_array()) {
+        // T5: [["<pad>",0.0], ["</s>",0.0], ["<unk>",0.0], ...]
+        score = entry.value()[1].get<double>();
+        tkn = entry.value()[0].get<std::string>();
+      } else if (entry.is_object()) {
+        // ChatGLM: {"<unk>": 0, "<s>": 1, "</s>": 2, ...}
+        score = entry.value().get<double>();
+        tkn = entry.key().get<std::string>();
+      } else {
+        return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, "Key-value entries not found in vocab node.");
+      }
       std::cout << "Score = " << score << std::endl;
-      auto tkn = entry.value()[0].get<std::string>();
       std::cout << "Token = " << tkn << std::endl;
       int val = convert_hex_to_token(tkn);
       std::cout << "Val = " << val << std::endl;
