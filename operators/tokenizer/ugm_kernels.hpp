@@ -223,8 +223,11 @@ struct SpmUgmTokenizer {
     extTokenId_t id = 0;
     for (const auto& entry : vocab_node->items()) {
       auto score = entry.value()[1].get<double>();
+      std::cout << "Score = " << score << std::endl;
       auto tkn = entry.value()[0].get<std::string>();
+      std::cout << "Token = " << tkn << std::endl;
       int val = convert_hex_to_token(tkn);
+      std::cout << "Val = " << val << std::endl;
       if (val != -1) {
         tkn = std::string(1, static_cast<unsigned char>(val));
       }
