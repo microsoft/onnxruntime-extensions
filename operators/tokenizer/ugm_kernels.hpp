@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <cwctype>
 #include <locale>
+#include <typeinfo>
 
 #include "ortx_tokenizer.h"
 #include "ext_status.h"
@@ -222,6 +223,7 @@ struct SpmUgmTokenizer {
 
     extTokenId_t id = 0;
     for (const auto& entry : vocab_node->items()) {
+      std::cout << typeid(entry.value()).name() << std::endl;
       auto score = entry.value()[1].get<double>();
       std::cout << "Score = " << score << std::endl;
       auto tkn = entry.value()[0].get<std::string>();
