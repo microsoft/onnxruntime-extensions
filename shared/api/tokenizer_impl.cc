@@ -17,6 +17,8 @@ TokenizerImpl::~TokenizerImpl() {};
 OrtxStatus TokenizerImpl::LoadTokenizer(const OrtxTokenizerBlob* blob) {
 
   auto type = TokenJsonConfig::GetTokenType(tok_config_->tokenizer_class_);
+  std::cout << "TokenType is kUnigram = " << (type == TokenType::kUnigram) << std::endl;
+  std::cout << "TokenType is kBPE = " << (type == TokenType::kBPE) << std::endl;
   if (type == TokenType::kUnigram) {
     auto tokenizer = std::make_unique<SpmUgmTokenizer>();
     auto status = tokenizer->Load(*tok_config_);
