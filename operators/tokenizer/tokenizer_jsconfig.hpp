@@ -184,16 +184,22 @@ class TokenJsonConfig final {
       tok_dir = ortx::path(tok_path_obj.parent_path());
     }
 
+    std::cout << "Here 1" << std::endl;
+
     auto config_path = tok_dir / "tokenizer_config.json";
     std::ifstream ifs = config_path.open();
     if (!ifs.is_open()) {
       return OrtxStatus(kOrtxErrorInvalidFile, "Failed to open a json file: " + config_path.string());
     }
 
+    std::cout << "Here 2" << std::endl;
+
     json json_config = json::parse(ifs, nullptr, false, true);
     if (json_config.is_discarded()) {
       return OrtxStatus(kOrtxErrorInvalidArgument, "Failed to parse config json.");
     }
+
+    std::cout << "Here 3" << std::endl;
 
     // Check if "chat_template" attribute in tokenizer_config.json is missing or empty
     if (json_config.find("chat_template") == json_config.end()) {
@@ -219,8 +225,12 @@ class TokenJsonConfig final {
         }
     }
 
+    std::cout << "Here 4" << std::endl;
+
     // Store added_tokens_decoder to add any missed tokens into added_tokens in UpdateTokenizer 
     added_tokens_decoder = std::make_shared<json>(json_config.value("added_tokens_decoder", json::object()));
+
+    std::cout << "Here 5" << std::endl;
 
     auto module_cfg = tok_dir / "tokenizer_module.json";
     if (module_cfg.exists()) {
@@ -232,6 +242,8 @@ class TokenJsonConfig final {
       LoadAddedTokens(json_module);
       json_config.update(json_module);
     }
+
+    std::cout << "Here 6" << std::endl;
 
     model_max_length_ = json_config.value("model_max_length", 1e+30);
     std::string tiktoken_file = json_config.value("tiktoken_file", "");
@@ -250,11 +262,14 @@ class TokenJsonConfig final {
       }
     }
 
+    std::cout << "Here 7" << std::endl;
+
     tokenizer_class_ = json_config.value("tokenizer_class", "");
     auto status = AppendModuleJson(json_config);
     if (!status.IsOk()) {
       return status;
     }
+    std::cout << "Here 8" << std::endl;
     return ParseTokensFromConfig(json_config);
   }
 
