@@ -220,17 +220,21 @@ struct SpmUgmTokenizer {
     };
     std::cout << "Here 9" << std::endl;
 
-    extTokenId_t id = 0;
     for (const auto& entry : vocab_node->items()) {
       std::cout << entry.key() << std::endl;
       std::cout << entry.value().type_name() << std::endl;
+      std::cout << entry.value().get<double>() << std::endl;
+    }
+
+    extTokenId_t id = 0;
+    for (const auto& entry : vocab_node->items()) {
       double score;
       std::string tkn;
       if (entry.value().is_array()) {
         // T5: [["<pad>",0.0], ["</s>",0.0], ["<unk>",0.0], ...]
         score = entry.value()[1].get<double>();
         tkn = entry.value()[0].get<std::string>();
-      } else if (entry.value().is_object()) {
+      } else if (entry.value().is_number()) {
         // ChatGLM: {"<unk>": 0, "<s>": 1, "</s>": 2, ...}
         score = entry.value().get<double>();
         tkn = entry.key();
