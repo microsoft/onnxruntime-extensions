@@ -222,7 +222,7 @@ struct SpmUgmTokenizer {
 
     extTokenId_t id = 0;
     for (const auto& entry : vocab_node->items()) {
-      std::cout << entry.key().get<std::string>() << std::endl;
+      std::cout << entry.key() << std::endl;
       double score;
       std::string tkn;
       if (entry.value().is_array()) {
@@ -232,7 +232,7 @@ struct SpmUgmTokenizer {
       } else if (entry.value().is_object()) {
         // ChatGLM: {"<unk>": 0, "<s>": 1, "</s>": 2, ...}
         score = entry.value().get<double>();
-        tkn = entry.key().get<std::string>();
+        tkn = entry.key();
       } else {
         return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, "Key-value entries not found in vocab node.");
       }
