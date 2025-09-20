@@ -222,7 +222,8 @@ struct SpmUgmTokenizer {
 
     extTokenId_t id = 0;
     for (const auto& entry : vocab_node->items()) {
-      std::cout << entry.type_name() << std::endl;
+      std::cout << entry.key().type_name() << std::endl;
+      std::cout << entry.value().type_name() << std::endl;
       double score;
       std::string tkn;
       if (entry.value().is_array()) {
