@@ -252,6 +252,8 @@ struct SpmUgmTokenizer {
       if (score != 0.0 || vocab_.count(tkn) == 0) {
         vocab_[tkn] = std::make_tuple(id++, score);
       }
+
+      std::cout << "Token = " << tkn << ", Score = " << score << ", Val = " << val << std::endl;
     }
 
     scores_.resize(id);
