@@ -17,15 +17,12 @@ TokenizerImpl::~TokenizerImpl() {};
 OrtxStatus TokenizerImpl::LoadTokenizer(const OrtxTokenizerBlob* blob) {
 
   auto type = TokenJsonConfig::GetTokenType(tok_config_->tokenizer_class_);
-  std::cout << "TokenType is kUnigram = " << (type == TokenType::kUnigram) << std::endl;
-  std::cout << "TokenType is kBPE = " << (type == TokenType::kBPE) << std::endl;
   if (type == TokenType::kUnigram) {
     auto tokenizer = std::make_unique<SpmUgmTokenizer>();
     auto status = tokenizer->Load(*tok_config_);
     if (!status.IsOk()) {
       return status;
     }
-    std::cout << "SpmUgmTokenizer has loaded" << std::endl;
     auto detok = std::make_unique<SpmUgmDecoder>();
 
     if (status.IsOk()) {
@@ -85,7 +82,6 @@ OrtxStatus TokenizerImpl::Load(const OrtxTokenizerBlob& blob) {
 OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
   tok_config_ = std::make_shared<ort_extensions::TokenJsonConfig>();
   auto status = tok_config_->Load(tok_path);
-  std::cout << "TokenizerConfig has loaded" << std::endl;
   if (!status.IsOk()) {
     return status;
   }
