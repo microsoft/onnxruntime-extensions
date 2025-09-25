@@ -847,25 +847,25 @@ if(OCOS_ENABLE_AZURE)
         message(STATUS "Found CURL package")
         set(libcurl_target CURL::libcurl)
       else()
-        # curl is coming from triton but as that's an external project it isn't built yet and we have to add
-        # paths and library names instead of cmake targets.
         message(STATUS "Using CURL build from triton client. Once built it should be in ${triton_THIRD_PARTY_DIR}/curl")
-        target_include_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/include)
 
-        # Install is to 'lib' except on CentOS (which is used for the manylinux build of the python wheel).
-        # Side note: we have to patch the triton client CMakeLists.txt to only use 'lib64' for 64-bit builds otherwise
-        #            the build of the 32-bit python wheel fails with CURL not being found due to the invalid library
-        #            directory name.
-        target_link_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/lib)
-        target_link_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/lib64)
+        # Paths to Triton-built curl
+        set(TRITON_CURL_INCLUDE_DIR ${triton_THIRD_PARTY_DIR}/curl/build/include)
+        set(TRITON_CURL_LIBRARY ${triton_THIRD_PARTY_DIR}/curl/build/lib/libcurl.a)
 
-        if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-          set(libcurl_target "curl-d")
-        else()
-          set(libcurl_target "curl")
+        if(NOT EXISTS ${TRITON_CURL_LIBRARY})
+          message(WARNING "Triton libcurl not found yet at ${TRITON_CURL_LIBRARY}. This may be expected if Triton hasn't built yet.")
         endif()
+
+        # Add include and link directories directly
+        target_include_directories(ocos_operators PUBLIC ${TRITON_CURL_INCLUDE_DIR})
+        target_link_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/build/lib)
+
+        # Instead of an imported target, link directly using full path
+        set(libcurl_target ${TRITON_CURL_LIBRARY})
       endif()
 
+      # Finally, link libcurl (and others)
       target_link_libraries(ocos_operators PUBLIC httpclient_static ${libcurl_target} OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB)
     endif()
   endif()
