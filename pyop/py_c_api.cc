@@ -133,6 +133,61 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         return reinterpret_cast<std::uintptr_t>(tokenizer);
       },
       "Create a tokenizer.");
+  
+  m.def(
+      "create_tokenizer_with_options",
+      [](std::string tokenizer_def_json, std::unordered_map<std::string, std::string> options) {
+        OrtxTokenizer* tokenizer = nullptr;
+
+        // Convert the options map into parallel arrays of keys and values
+        std::vector<const char*> keys;
+        std::vector<const char*> values;
+        keys.reserve(options.size());
+        values.reserve(options.size());
+        for (const auto& [k, v] : options) {
+            keys.push_back(k.c_str());
+            values.push_back(v.c_str());
+        }
+
+        auto err = OrtxCreateTokenizerWithOptions(
+            &tokenizer,
+            tokenizer_def_json.c_str(),
+            keys.data(),
+            values.data(),
+            keys.size()
+        );
+
+        if (err != kOrtxOK) {
+            throw std::runtime_error(
+                std::string("Failed to create tokenizer with options\n") + OrtxGetLastErrorMessage()
+            );
+        }
+
+        return reinterpret_cast<std::uintptr_t>(tokenizer);
+      },
+      "Create a tokenizer with options (like add_special_tokens, skip_special_tokens).");
+
+  m.def(
+      "update_tokenizer_options",
+      [](std::uintptr_t tokenizer_h, std::unordered_map<std::string, std::string> options) {
+        OrtxTokenizer* tokenizer = reinterpret_cast<OrtxTokenizer*>(tokenizer_h);
+
+        std::vector<const char*> keys;
+        std::vector<const char*> values;
+        keys.reserve(options.size());
+        values.reserve(options.size());
+
+        for (const auto& [k, v] : options) {
+            keys.push_back(k.c_str());
+            values.push_back(v.c_str());
+        }
+
+        auto err = OrtxUpdateTokenizerOptions(tokenizer, keys.data(), values.data(), keys.size());
+        if (err != kOrtxOK) {
+            throw std::runtime_error(std::string("Failed to update tokenizer options\n") + OrtxGetLastErrorMessage());
+        }
+      },
+      "Update existing tokenizer options, e.g., add_special_tokens or skip_special_tokens.");
 
   m.def(
       "batch_tokenize",
@@ -162,35 +217,6 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         return output;
       },
       "Batch tokenize.");
-  
-      m.def(
-        "batch_tokenize_with_options",
-        [](std::uintptr_t h, const std::vector<std::string>& inputs, bool add_special_tokens) -> std::vector<std::vector<int64_t>> {
-          std::vector<std::vector<int64_t>> output;
-          OrtxTokenizer* tokenizer = reinterpret_cast<OrtxTokenizer*>(h);
-          OrtxTokenId2DArray* tid_output = nullptr;
-          std::vector<const char*> cs_inputs;
-          for (const auto& input : inputs) {
-            cs_inputs.push_back(input.c_str());
-          }
-          auto err = OrtxTokenizeWithOptions(tokenizer, cs_inputs.data(), inputs.size(), &tid_output, add_special_tokens);
-          if (err != kOrtxOK) {
-            throw std::runtime_error(std::string("Failed to tokenize: ") + OrtxGetLastErrorMessage());
-          }
-  
-          for (size_t i = 0; i < inputs.size(); ++i) {
-            const extTokenId_t* t2d{};
-            size_t length{};
-            err = OrtxTokenId2DArrayGetItem(tid_output, i, &t2d, &length);
-            if (err != kOrtxOK) {
-              throw std::runtime_error(std::string("Failed to get token id: ") + OrtxGetLastErrorMessage());
-            }
-            output.push_back(std::vector<int64_t>(t2d, t2d + length));
-          }
-          OrtxDisposeOnly(tid_output);
-          return output;
-        },
-        "Batch tokenize with options.");
 
   m.def(
       "batch_detokenize",

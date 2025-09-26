@@ -23,6 +23,8 @@ class TokenizerImpl : public OrtxObjectImpl {
   OrtxStatus Load(const std::string& tok_path);
   OrtxStatus Load(const OrtxTokenizerBlob& blob);
 
+  OrtxStatus UpdateOptions(const std::unordered_map<std::string, std::string>& options);
+
   OrtxStatus Tokenize(const std::vector<std::string_view>& input, std::vector<std::vector<extTokenId_t>>& t_ids, bool add_special_tokens = true) const {
     return BatchEncode(input, t_ids, add_special_tokens);
   }
@@ -36,9 +38,9 @@ class TokenizerImpl : public OrtxObjectImpl {
     return {};
   }
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, std::unique_ptr<TokenizerDecodingState>& cache) const {
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, std::unique_ptr<TokenizerDecodingState>& cache, bool skip_special_tokens = true) const {
     TokenizerDecodingState* state_ptr = cache.get();
-    OrtxStatus status = Id2Token(id, token, &state_ptr);
+    OrtxStatus status = Id2Token(id, token, &state_ptr, skip_special_tokens);
     if (status.IsOk()) {
       if (state_ptr != cache.get()) {
         cache.reset(state_ptr);
@@ -62,6 +64,8 @@ class TokenizerImpl : public OrtxObjectImpl {
 
   mutable std::string tool_calls;
 
+  std::unordered_map<std::string, std::string> options_map;
+
   std::string bos_token;
   std::string eos_token;
   std::vector<std::string> custom_tools;
@@ -82,7 +86,7 @@ class TokenizerImpl : public OrtxObjectImpl {
   OrtxStatus Llama3_3ChatTemplate(std::string& output, bool add_generation_prompt) const;
   OrtxStatus DeepSeekChatTemplate(std::string& output, bool add_generation_prompt) const;
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state) const;
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state, bool skip_special_tokens) const;
   OrtxStatus GetDecoderPromptIds(size_t batch_size, const char* lang, const char* task, int no_timestamps,
                                  std::vector<std::vector<extTokenId_t>>& t_ids) const;
   OrtxStatus ApplyChatTemplate(const char* template_str, const char* message, const char* tools, std::string& output,

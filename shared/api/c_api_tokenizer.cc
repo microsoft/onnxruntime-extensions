@@ -47,6 +47,97 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const ch
   return status.Code();
 }
 
+// Helper function to convert key/value arrays to unordered_map for tokenizer options
+static std::unordered_map<std::string, std::string> BuildOptionsMap(const char* keys[], const char* values[], size_t num_options) {
+  // Define the set of valid option keys - may be added to in the future
+  static const std::unordered_set<std::string> valid_keys = {
+      "add_special_tokens",
+      "skip_special_tokens"
+  };
+
+  std::unordered_map<std::string, std::string> options;
+
+  for (size_t i = 0; i < num_options; ++i) {
+    if (keys[i] && values[i]) {
+      std::string key = keys[i];
+
+      if (valid_keys.find(key) == valid_keys.end()) {
+        ReturnableStatus::last_error_message_ =
+            "Invalid tokenizer option key: " + key;
+        // Return empty map — caller should handle this as an error
+        return {};
+      }
+
+      options[key] = values[i];
+    }
+  }
+
+  return options;
+}
+
+// Helper function to parse boolean tokenizer options
+static bool ParseBoolOption(
+    const std::unordered_map<std::string, std::string>& options_map,
+    const std::string& option_name,
+    bool default_value = true)
+{
+  auto it = options_map.find(option_name);
+  if (it == options_map.end()) {
+    return default_value;
+  }
+
+  std::string val = it->second;
+  std::transform(val.begin(), val.end(), val.begin(), ::tolower);
+
+  if (val == "false" || val == "0") {
+    return false;
+  }
+  return true;
+}
+
+extError_t ORTX_API_CALL OrtxCreateTokenizerWithOptions(
+    OrtxTokenizer** tokenizer,
+    const char* tokenizer_path,
+    const char* keys[],
+    const char* values[],
+    size_t num_options) 
+{
+  // Validate tokenizer_path
+  if (tokenizer_path == nullptr) {
+    ReturnableStatus::last_error_message_ = "The tokenizer data directory is null";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  if (!path(tokenizer_path).is_directory()) {
+    ReturnableStatus::last_error_message_ =
+        std::string("Cannot find the directory of ") + tokenizer_path;
+    return kOrtxErrorInvalidArgument;
+  }
+
+  // Convert keys/values for tokenizer options to unordered_map
+  auto options = BuildOptionsMap(keys, values, num_options);
+  if (options.empty() && num_options > 0) {
+    return kOrtxErrorInvalidArgument;  // invalid option key detected
+  }
+
+  // Create and load tokenizer
+  ReturnableStatus status;
+
+  auto ptr = std::make_unique<ort_extensions::TokenizerImpl>();
+
+  // Initialize tokenizer options
+  ptr->options_map = std::move(options);
+
+  status = ptr->Load(tokenizer_path);
+
+  if (status.IsOk()) {
+    *tokenizer = static_cast<OrtxTokenizer*>(ptr.release());
+    return extError_t();
+  }
+
+  return status.Code();
+}
+
 extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer, const OrtxTokenizerBlob* blob) {
   // test if the tokenizer_path is a valid directory
   if (blob == nullptr) {
@@ -63,6 +154,38 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer, 
   }
 
   return status.Code();
+}
+
+extError_t ORTX_API_CALL OrtxUpdateTokenizerOptions(
+    OrtxTokenizer* tokenizer,
+    const char* keys[],
+    const char* values[],
+    size_t num_options)
+{
+  if (tokenizer == nullptr) {
+    ReturnableStatus::last_error_message_ = "Tokenizer pointer is null.";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  // Convert key/value arrays to unordered_map
+  auto options = BuildOptionsMap(keys, values, num_options);
+  if (options.empty() && num_options > 0) {
+    return kOrtxErrorInvalidArgument;  // invalid option key detected
+  }
+
+  // Cast and update tokenizer with options
+  auto tokenizer_ptr = static_cast<TokenizerImpl*>(tokenizer);
+  ReturnableStatus status = tokenizer_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindTokenizer);
+  if (!status.IsOk()) {
+    return status.Code();
+  }
+
+  status = tokenizer_ptr->UpdateOptions(options);
+  if (!status.IsOk()) {
+    return status.Code();
+  }
+
+  return extError_t();
 }
 
 extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
@@ -83,37 +206,10 @@ extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char
   std::transform(input, input + batch_size, std::back_inserter(input_view),
                  [](const char* str) { return std::string_view(str); });
 
-  status = token_ptr->Tokenize(input_view, t_ids);
-  if (!status.IsOk()) {
-    return status.Code();
-  }
-
-  auto result = std::make_unique<ort_extensions::TokenId2DArray>().release();
-  result->SetTokenIds(std::move(t_ids));
-  *output = static_cast<OrtxTokenId2DArray*>(result);
-
-  return extError_t();
-}
-
-extError_t ORTX_API_CALL OrtxTokenizeWithOptions(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
-                                      OrtxTokenId2DArray** output, bool add_special_tokens) {
-  if (tokenizer == nullptr || input == nullptr || output == nullptr) {
-    ReturnableStatus::last_error_message_ = "Invalid argument";
-    return kOrtxErrorInvalidArgument;
-  }
-
-  auto token_ptr = static_cast<const TokenizerImpl*>(tokenizer);
-  ReturnableStatus status = token_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindTokenizer);
-  if (!status.IsOk()) {
-    return status.Code();
-  }
-
-  std::vector<std::vector<extTokenId_t>> t_ids;
-  std::vector<std::string_view> input_view;
-  std::transform(input, input + batch_size, std::back_inserter(input_view),
-                 [](const char* str) { return std::string_view(str); });
-
+  // If add_special_tokens option exists, use its value, otherwise use default (true)
+  bool add_special_tokens = ParseBoolOption(token_ptr->options_map, "add_special_tokens", true);
   status = token_ptr->Tokenize(input_view, t_ids, add_special_tokens);
+
   if (!status.IsOk()) {
     return status.Code();
   }
@@ -190,7 +286,11 @@ extError_t ORTX_API_CALL OrtxDetokenize(const OrtxTokenizer* tokenizer, const Or
                  [](const std::vector<extTokenId_t>& vec) { return span<extTokenId_t const>(vec.data(), vec.size()); });
 
   std::vector<std::string> output_text;
-  status = token_ptr->Detokenize(t_ids, output_text);
+
+  // If skip_special_tokens option exists, use its value, otherwise use default (true)
+  bool skip_special_tokens = ParseBoolOption(token_ptr->options_map, "skip_special_tokens", true);
+  status = token_ptr->Detokenize(t_ids, output_text, skip_special_tokens);
+
   if (!status.IsOk()) {
     return status.Code();
   }
@@ -217,34 +317,11 @@ extError_t ORTX_API_CALL OrtxDetokenize1D(const OrtxTokenizer* tokenizer, const 
 
   std::vector<span<extTokenId_t const>> t_ids = {{input, len}};
   std::vector<std::string> output_text;
-  status = token_ptr->Detokenize(t_ids, output_text);
-  if (!status.IsOk()) {
-    return status.Code();
-  }
 
-  auto result = std::make_unique<ort_extensions::StringArray>().release();
-  result->SetStrings(std::move(output_text));
-  *output = static_cast<OrtxStringArray*>(result);
-
-  return extError_t();
-}
-
-extError_t ORTX_API_CALL OrtxDetokenize1DWithOptions(const OrtxTokenizer* tokenizer, const extTokenId_t* input, size_t len,
-                                          OrtxStringArray** output, bool skip_special_tokens) {
-  if (tokenizer == nullptr || input == nullptr || output == nullptr) {
-    ReturnableStatus::last_error_message_ = "Invalid argument";
-    return kOrtxErrorInvalidArgument;
-  }
-
-  const auto token_ptr = static_cast<const TokenizerImpl*>(tokenizer);
-  ReturnableStatus status(token_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindTokenizer));
-  if (!status.IsOk()) {
-    return status.Code();
-  }
-
-  std::vector<span<extTokenId_t const>> t_ids = {{input, len}};
-  std::vector<std::string> output_text;
+  // If skip_special_tokens option exists, use its value, otherwise use default (true)
+  bool skip_special_tokens = ParseBoolOption(token_ptr->options_map, "skip_special_tokens", true);
   status = token_ptr->Detokenize(t_ids, output_text, skip_special_tokens);
+
   if (!status.IsOk()) {
     return status.Code();
   }
@@ -373,7 +450,12 @@ extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, Or
   }
 
   cache_ptr->last_text_.clear();
-  status = ReturnableStatus(token_ptr->Id2Token(next_id, cache_ptr->last_text_, cache_ptr->decoder_state_));
+
+  // If skip_special_tokens option exists, use its value, otherwise use default (true)
+  bool skip_special_tokens = ParseBoolOption(token_ptr->options_map, "skip_special_tokens", true);
+  status = ReturnableStatus(token_ptr->Id2Token(next_id, cache_ptr->last_text_,
+                                                  cache_ptr->decoder_state_, skip_special_tokens));
+
   if (status.IsOk()) {
     *text_out = cache_ptr->last_text_.c_str();
   }

@@ -192,6 +192,27 @@ TEST(OrtxTokenizerTest, Phi3TokenizerBlob) {
             std::vector<extTokenId_t>({1,   306,   763,   22049, 590,   274,   1082,  11203, 13,    322,  26,
                                        769, 29892, 29871, 30486, 31704, 30210, 30848, 235,   179,   158,  30392,
                                        259, 12,    12,    12,    12,    29871, 13,    13,    29953, 29896}));
+  
+  // Set add_special_tokens to false before the updated tokenization
+  const char* keys[] = {"add_special_tokens"};
+  const char* vals[] = {"false"};
+  OrtxUpdateTokenizerOptions(tokenizer.get(), keys, vals, 1);
+
+  OrtxObjectPtr<OrtxTokenId2DArray> updated_token_ids;
+  OrtxTokenize(tokenizer.get(), input, 1, updated_token_ids.ToBeAssigned());
+  EXPECT_EQ(updated_token_ids.Code(), kOrtxOK);
+
+  const extTokenId_t* updated_ids = nullptr;
+  OrtxTokenId2DArrayGetItem(updated_token_ids.get(), 0, &updated_ids, &length);
+  std::vector<extTokenId_t> updated_ids_vec(updated_ids, updated_ids + length);
+
+  // expected ids was generated using the following command:
+  // AutoTokenizer.from_pretrained("FacebookAI/xlm-roberta-base")
+  EXPECT_EQ(updated_ids_vec,
+            std::vector<extTokenId_t>({306, 763,   22049, 590,   274,   1082,  11203, 13,    322,   26,
+                                       769, 29892, 29871, 30486, 31704, 30210, 30848, 235,   179,   158,  30392,
+                                       259, 12,    12,    12,    12,    29871, 13,    13,    29953, 29896}));
+  
 }
 
 TEST(OrtxTokenizerTest, T5Tokenizer) {

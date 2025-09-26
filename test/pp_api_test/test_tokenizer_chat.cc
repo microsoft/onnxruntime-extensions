@@ -82,7 +82,10 @@ TEST(OrtxTokenizerTest, Phi4ChatTemplate) {
 }
 
 TEST(OrtxTokenizerTest, Phi4SpecialChatTemplate) {
-  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  // Create tokenizer with options (skip_special_tokens = false)
+  const char* option_keys[] = { "skip_special_tokens" };
+  const char* option_values[] = { "false" };
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizerWithOptions, "data/phi-4-base", option_keys, option_values, 1);
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
 
   OrtxObjectPtr<OrtxTensorResult> templated_text;
@@ -123,7 +126,7 @@ TEST(OrtxTokenizerTest, Phi4SpecialChatTemplate) {
 
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
   const char* input[] = { text_ptr };
-  OrtxTokenizeWithOptions(tokenizer.get(), input, 1, token_ids.ToBeAssigned(), true);
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
   ASSERT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;
@@ -138,7 +141,7 @@ TEST(OrtxTokenizerTest, Phi4SpecialChatTemplate) {
   OrtxObjectPtr<OrtxStringArray> decoded_text;
 
   // Test detokenization with skip_special_tokens = false (tokens like <|im_start|> should be part of the output)
-  OrtxDetokenize1DWithOptions(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned(), false);
+  OrtxDetokenize1D(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned());
   const char* special_text = nullptr;
   OrtxStringArrayGetItem(decoded_text.get(), 0, &special_text);
 
@@ -442,7 +445,10 @@ TEST(OrtxTokenizerTest, Phi3VisionChatTemplate) {
 }
 
 TEST(OrtxTokenizerTest, Gemma3ChatTemplate) {
-  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/models/gemma-3");
+  // Create tokenizer with options (add_special_tokens = false)
+  const char* option_keys[] = { "add_special_tokens" };
+  const char* option_values[] = { "false" };
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizerWithOptions, "data/models/gemma-3", option_keys, option_values, 1);
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
 
   OrtxObjectPtr<OrtxTensorResult> templated_text;
@@ -486,7 +492,9 @@ TEST(OrtxTokenizerTest, Gemma3ChatTemplate) {
 
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
   const char* input[] = { text_ptr };
-  OrtxTokenizeWithOptions(tokenizer.get(), input, 1, token_ids.ToBeAssigned(), false);
+
+  // Test tokenization with add_special_tokens = false (options already set during tokenizer creation)
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
   ASSERT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;
@@ -507,8 +515,14 @@ TEST(OrtxTokenizerTest, Gemma3ChatTemplate) {
 
   ASSERT_EQ(std::string(text), expected_decoder_output);
 
+  // Set skip_special_tokens to false before the 1D detokenization
+  const char* keys[] = {"skip_special_tokens"};
+  const char* vals[] = {"false"};
+  auto err2 = OrtxUpdateTokenizerOptions(tokenizer.get(), keys, vals, 1);
+  ASSERT_EQ(err2, kOrtxOK);
+
   // Test detokenization with skip_special_tokens = false
-  OrtxDetokenize1DWithOptions(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned(), false);
+  OrtxDetokenize1D(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned());
   const char* special_text = nullptr;
   OrtxStringArrayGetItem(decoded_text.get(), 0, &special_text);
 
@@ -528,7 +542,10 @@ to test the special loading from the chat_template.json file.
 */
 
 TEST(OrtxTokenizerTest, Gemma3SpecialChatTemplate) {
-  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/gemma-3-chat");
+  // Create tokenizer with options (both add_special_tokens and skip_special_tokens = false)
+  const char* option_keys[] = { "add_special_tokens", "skip_special_tokens" };
+  const char* option_values[] = { "false", "False" }; // also testing case as this may also be used with our Python API
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizerWithOptions, "data/gemma-3-chat", option_keys, option_values, 2);
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
 
   OrtxObjectPtr<OrtxTensorResult> templated_text;
@@ -572,7 +589,9 @@ TEST(OrtxTokenizerTest, Gemma3SpecialChatTemplate) {
 
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
   const char* input[] = { text_ptr };
-  OrtxTokenizeWithOptions(tokenizer.get(), input, 1, token_ids.ToBeAssigned(), false);
+
+  // Test tokenization with add_special_tokens = false (options already set during tokenizer creation)
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
   ASSERT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;
@@ -593,8 +612,8 @@ TEST(OrtxTokenizerTest, Gemma3SpecialChatTemplate) {
 
   ASSERT_EQ(std::string(text), expected_decoder_output);
 
-  // Test detokenization with skip_special_tokens = false
-  OrtxDetokenize1DWithOptions(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned(), false);
+  // Test detokenization with skip_special_tokens = false (options already set during tokenizer creation)
+  OrtxDetokenize1D(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned());
   const char* special_text = nullptr;
   OrtxStringArrayGetItem(decoded_text.get(), 0, &special_text);
 
@@ -623,7 +642,10 @@ in ORT Extensions as well.
 */
 
 TEST(OrtxTokenizerTest, WhisperChatTemplate) {
-  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/whisper.tiny");
+  // Create tokenizer with options (add_special_tokens = false and skip_special_tokens = true)
+  const char* option_keys[] = { "add_special_tokens", "skip_special_tokens" };
+  const char* option_values[] = { "false", "true" };
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizerWithOptions, "data/tokenizer/whisper.tiny", option_keys, option_values, 2);
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
 
   OrtxObjectPtr<OrtxTensorResult> templated_text;
@@ -669,7 +691,7 @@ TEST(OrtxTokenizerTest, WhisperChatTemplate) {
   // Tokenize to confirm token IDs
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
   const char* input[] = { text_ptr };
-  OrtxTokenizeWithOptions(tokenizer.get(), input, 1, token_ids.ToBeAssigned(), false);
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
   ASSERT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;
@@ -690,8 +712,14 @@ TEST(OrtxTokenizerTest, WhisperChatTemplate) {
 
   ASSERT_EQ(std::string(roundtrip_text), expected_output);
 
+  // Flip skip_special_tokens to false before the 1D detokenization
+  const char* keys[] = {"skip_special_tokens"};
+  const char* vals[] = {"false"};
+  auto err2 = OrtxUpdateTokenizerOptions(tokenizer.get(), keys, vals, 1);
+  ASSERT_EQ(err2, kOrtxOK);
+
   // Test detokenization with skip_special_tokens = false
-  OrtxDetokenize1DWithOptions(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned(), false);
+  OrtxDetokenize1D(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned());
   const char* special_text = nullptr;
   OrtxStringArrayGetItem(decoded_text.get(), 0, &special_text);
 
