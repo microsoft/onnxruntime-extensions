@@ -10,6 +10,39 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+#include <iostream>
+#include <vector>
+#include <iomanip> // for std::setprecision
+
+void print_tensor(const ortc::Tensor<float>& tensor) {
+    // Get shape
+    std::vector<int64_t> shape = tensor.Shape();  // Replace with actual API if needed
+
+    // Compute total size
+    size_t total_size = 1;
+    for (auto dim : shape) {
+        total_size *= dim;
+    }
+
+    // Access raw data
+    const float* data = tensor.Data();  // Replace with correct method for accessing data
+
+    // Print shape
+    std::cout << "Tensor shape: [";
+    for (size_t i = 0; i < shape.size(); ++i) {
+        std::cout << shape[i];
+        if (i < shape.size() - 1) std::cout << ", ";
+    }
+    std::cout << "]" << std::endl;
+
+    // Print values (flat for now)
+    std::cout << "Tensor values:" << std::endl;
+    for (size_t i = 0; i < total_size; ++i) {
+        std::cout << std::fixed << std::setprecision(4) << data[i] << " ";
+        if ((i + 1) % shape.back() == 0) std::cout << std::endl;  // new line for last dimension
+    }
+}
+
 namespace ort_extensions {
 
 class SpeechFeatures {
@@ -39,8 +72,10 @@ class SpeechFeatures {
 
     if (fft_win_.empty()) {
       if (win_fn_ == "hamming") {
+        std::cout << "win_fn is hamming" << std::endl;
         fft_win_ = hamming_window(frame_length_);
       } else {  // default to hann
+        std::cout << "win_fn is hann" << std::endl;
         fft_win_ = hann_window(frame_length_);
       }
     }
@@ -48,6 +83,17 @@ class SpeechFeatures {
   }
 
   OrtxStatus STFTNorm(const ortc::Tensor<float>& pcm, ortc::Tensor<float>& stft_norm) {
+    std::cout << "n_fft_: " << n_fft_ << std::endl;
+    std::cout << "hop_length_: " << hop_length_ << std::endl;
+    std::cout << "frame_length_: " << frame_length_ << std::endl;
+    std::cout << "pcm shape=" << pcm.Shape()[0] << "," << pcm.Shape()[1] << std::endl;
+    std::cout << "Input pcm Tensor:" << std::endl;
+    print_tensor(pcm);
+    std::cout << "ort extension fft_win_: ";
+    for (size_t i = 0; i < fft_win_.size(); ++i) {
+        std::cout << fft_win_[i] << " ";
+    }
+    std::cout << std::endl;
     return stft_norm_.Compute(pcm, n_fft_, hop_length_, {fft_win_.data(), fft_win_.size()}, n_fft_, stft_norm);
   }
 
@@ -206,6 +252,8 @@ class LogMel {
 
   OrtxStatus Compute(const ortc::Tensor<float>& stft_norm, ortc::Tensor<float>& logmel) {
     assert(stft_norm.Shape().size() == 3 && stft_norm.Shape()[0] == 1);
+    std::cout << "Input STFT Norm Tensor:" << std::endl;
+    print_tensor(stft_norm);
 
     const std::vector<int64_t>& stft_shape = stft_norm.Shape();
     const int64_t stft_freq = stft_shape[1];    // freq bins (e.g., 257)
@@ -290,6 +338,9 @@ class LogMel {
         );
       }
     }
+
+    std::cout << "Log-Mel Tensor:" << std::endl;
+    print_tensor(logmel);
 
     return {};
   }
