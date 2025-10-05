@@ -21,7 +21,8 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Math = []() -> CustomOpArray& {
                                CustomCpuStructV2("StftNorm", StftNormal),
 #endif
                                CustomCpuFuncV2("SegmentExtraction", segment_extraction),
-                               CustomCpuFuncV2("SegmentSum", segment_sum));
+                               CustomCpuFuncV2("SegmentSum", segment_sum),
+                               CustomCpuFuncV2("SegmentNenoExtraction", segment_extraction2));
 
 #if defined(USE_CUDA)
   // CustomCudaFunc("NegPos", neg_pos_cuda),

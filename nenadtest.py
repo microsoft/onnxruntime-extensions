@@ -2,6 +2,8 @@ import numpy as np
 import torch
 import librosa
 from onnxruntime_extensions import OrtPyFunction, StftNorm
+from onnxruntime_extensions._cuops import SegmentNenoExtraction  # 👈 import the op class
+
 
 # ============================
 # 1️⃣ Load real audio (60s–120s slice)
@@ -98,3 +100,27 @@ print("\nTorch detected segments (60–120s):")
 print("\nC++ StftNorm detected segments (60–120s):")
 #for s, e in segments_cpp:
     #print(f"  {s + start_s:.2f}s – {e + start_s:.2f}s")
+
+audio_in = audio[np.newaxis, :]  # shape [1, num_samples]
+
+# Scalar inputs (shape [1])
+sr_tensor = np.array([sr], dtype=np.int64)
+frame_ms_tensor = np.array([25], dtype=np.int64)
+hop_ms_tensor = np.array([10], dtype=np.int64)
+energy_threshold_db_tensor = np.array([-20.0], dtype=np.float32)
+
+# Create function from custom op
+seg_fn = OrtPyFunction.from_customop(SegmentNenoExtraction)
+
+# Call op with new signature
+out = seg_fn(audio_in, sr_tensor, frame_ms_tensor, hop_ms_tensor, energy_threshold_db_tensor)
+
+# Inspect output
+print("\nSegmentNenoExtraction output shape:", out.shape)
+print("SegmentNenoExtraction output:", out)
+
+# Optional: Pretty print segments if out is [num_segments, 2]
+if out.ndim == 2 and out.shape[1] == 2:
+    print("\nDetected segments (start_s – end_s):")
+    for start_ms, end_ms in out:
+        print(f"  {start_ms/1000:.2f}s – {end_ms/1000:.2f}s")

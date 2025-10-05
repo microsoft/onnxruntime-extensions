@@ -252,6 +252,24 @@ class SegmentExtraction(CustomOp):
         ]
 
 
+class SegmentNenoExtraction(CustomOp):
+
+    @classmethod
+    def get_inputs(cls):
+        return [
+            cls.io_def("audio", onnx_proto.TensorProto.FLOAT, [1, None]),   # PCM audio
+            cls.io_def("sr", onnx_proto.TensorProto.INT64, [1]),           # scalar sample rate
+            cls.io_def("frame_ms", onnx_proto.TensorProto.INT64, [1]),     # scalar frame size in ms
+            cls.io_def("hop_ms", onnx_proto.TensorProto.INT64, [1]),       # scalar hop size in ms
+            cls.io_def("energy_threshold_db", onnx_proto.TensorProto.FLOAT, [1])  # scalar threshold
+        ]
+
+    @classmethod
+    def get_outputs(cls):
+        return [
+            cls.io_def('value', onnx_proto.TensorProto.INT64, [None])      # [freq_bins, frames] or any shape
+        ]
+    
 class BertTokenizer(CustomOp):
 
     @classmethod
