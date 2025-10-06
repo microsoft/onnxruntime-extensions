@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import librosa
 from onnxruntime_extensions import OrtPyFunction, StftNorm
-from onnxruntime_extensions._cuops import SegmentNenoExtraction  # 👈 import the op class
+from onnxruntime_extensions._cuops import DetectEnergySegments  # 👈 import the op class
 
 
 # ============================
@@ -110,7 +110,7 @@ hop_ms_tensor = np.array([10], dtype=np.int64)
 energy_threshold_db_tensor = np.array([-20.0], dtype=np.float32)
 
 # Create function from custom op
-seg_fn = OrtPyFunction.from_customop(SegmentNenoExtraction)
+seg_fn = OrtPyFunction.from_customop(DetectEnergySegments)
 
 # Call op with new signature
 out = seg_fn(audio_in, sr_tensor, frame_ms_tensor, hop_ms_tensor, energy_threshold_db_tensor)

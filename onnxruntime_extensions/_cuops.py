@@ -252,7 +252,7 @@ class SegmentExtraction(CustomOp):
         ]
 
 
-class SegmentNenoExtraction(CustomOp):
+class DetectEnergySegments(CustomOp):
 
     @classmethod
     def get_inputs(cls):

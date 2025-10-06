@@ -4,6 +4,7 @@
 #include "dlib/inverse.hpp"
 #include "dlib/stft_norm.hpp"
 #endif
+#include "energy_stft_segmentation.hpp"
 #include "segment_extraction.hpp"
 #include "segment_sum.hpp"
 
@@ -17,13 +18,12 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Math = []() -> CustomOpArray& {
                                CustomCudaFuncV2("NegPos", neg_pos_cuda),
 #endif
 #ifdef ENABLE_DLIB
-                               CustomCpuFuncV2("Inverse", inverse),
-                               CustomCpuStructV2("StftNorm", StftNormal),
+                               CustomCpuFuncV2("Inverse", inverse), CustomCpuStructV2("StftNorm", StftNormal),
+                               CustomCpuFuncV2("DetectEnergySegments", detect_energy_segments),
+                               CustomCpuFuncV2("MergeAndFilterAudioSegments", merge_and_filter_segments),
 #endif
                                CustomCpuFuncV2("SegmentExtraction", segment_extraction),
-                               CustomCpuFuncV2("SegmentSum", segment_sum),
-                               CustomCpuFuncV2("SegmentNenoExtraction", segment_extraction2),
-                               CustomCpuFuncV2("MergeAndFilterAudioSegments", merge_and_filter_segments));
+                               CustomCpuFuncV2("SegmentSum", segment_sum));
 
 #if defined(USE_CUDA)
   // CustomCudaFunc("NegPos", neg_pos_cuda),
