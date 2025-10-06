@@ -6,13 +6,14 @@
 #include "ocos.h"
 #include "string_utils.h"
 
-OrtStatusPtr segment_extraction(const ortc::Tensor<int64_t>& input,
-                        ortc::Tensor<int64_t>& output0,
-                        ortc::Tensor<int64_t>& output1);
+OrtStatusPtr segment_extraction(const ortc::Tensor<int64_t>& input, ortc::Tensor<int64_t>& output0,
+                                ortc::Tensor<int64_t>& output1);
 
-OrtStatusPtr segment_extraction2(const ortc::Tensor<float>& audio,
- const ortc::Tensor<int64_t>& sr_tensor,
-    const ortc::Tensor<int64_t>& frame_ms_tensor,
-    const ortc::Tensor<int64_t>& hop_ms_tensor,
-    const ortc::Tensor<float>& energy_threshold_db_tensor,
-                                 ortc::Tensor<int64_t>& output0);
+OrtStatusPtr segment_extraction2(const ortc::Tensor<float>& audio, const ortc::Tensor<int64_t>& sr_tensor,
+                                 const ortc::Tensor<int64_t>& frame_ms_tensor,
+                                 const ortc::Tensor<int64_t>& hop_ms_tensor,
+                                 const ortc::Tensor<float>& energy_threshold_db_tensor, ortc::Tensor<int64_t>& output0);
+
+OrtStatusPtr merge_and_filter_segments(const ortc::Tensor<int64_t>& segments_tensor,
+                                       const ortc::Tensor<int64_t>& merge_gap_in_milliseconds_tensor,
+                                       ortc::Tensor<int64_t>& output0);

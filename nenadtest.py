@@ -124,3 +124,30 @@ if out.ndim == 2 and out.shape[1] == 2:
     print("\nDetected segments (start_s – end_s):")
     for start_ms, end_ms in out:
         print(f"  {start_ms/1000:.2f}s – {end_ms/1000:.2f}s")
+
+
+
+from onnxruntime_extensions._cuops import MergeAndFilterAudioSegments  # 👈 import the new op
+
+# Create OrtPyFunction for the custom op
+merge_fn = OrtPyFunction.from_customop(MergeAndFilterAudioSegments)
+
+# Prepare inputs
+# `out` is expected to be shape [num_segments, 2] (start_ms, end_ms)
+# If it's not already int64, convert:
+segments_np = out.astype(np.int64)
+
+# merge_gap is scalar float [1] (e.g. 200 ms)
+merge_gap_tensor = np.array([200], dtype=np.float32)  # seconds
+
+# Call the op
+merged_segments = merge_fn(segments_np, merge_gap_tensor)
+
+# Inspect output
+print("\nMerged & filtered segments (C++):")
+print(merged_segments)
+
+if merged_segments.ndim == 2 and merged_segments.shape[1] == 2:
+    print("\nDetected segments (start_s – end_s):")
+    for start_ms, end_ms in merged_segments:
+        print(f"  {start_ms/1000:.2f}s – {end_ms/1000:.2f}s")

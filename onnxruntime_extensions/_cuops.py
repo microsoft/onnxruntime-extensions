@@ -269,6 +269,24 @@ class SegmentNenoExtraction(CustomOp):
         return [
             cls.io_def('value', onnx_proto.TensorProto.INT64, [None])      # [freq_bins, frames] or any shape
         ]
+
+
+class MergeAndFilterAudioSegments(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [
+            # segments: shape [N, 2], typically (start_time, end_time) pairs
+            cls.io_def("segments", onnx_proto.TensorProto.INT64, [None, 2]),
+            # merge_gap: scalar float
+            cls.io_def("merge_gap", onnx_proto.TensorProto.INT64, [1]),
+        ]
+
+    @classmethod
+    def get_outputs(cls):
+        return [
+            # merged_segments: shape [M, 2], same format as input
+            cls.io_def("merged_segments", onnx_proto.TensorProto.INT64, [None, 2])
+        ]
     
 class BertTokenizer(CustomOp):
 

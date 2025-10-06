@@ -22,7 +22,8 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Math = []() -> CustomOpArray& {
 #endif
                                CustomCpuFuncV2("SegmentExtraction", segment_extraction),
                                CustomCpuFuncV2("SegmentSum", segment_sum),
-                               CustomCpuFuncV2("SegmentNenoExtraction", segment_extraction2));
+                               CustomCpuFuncV2("SegmentNenoExtraction", segment_extraction2),
+                               CustomCpuFuncV2("MergeAndFilterAudioSegments", merge_and_filter_segments));
 
 #if defined(USE_CUDA)
   // CustomCudaFunc("NegPos", neg_pos_cuda),
