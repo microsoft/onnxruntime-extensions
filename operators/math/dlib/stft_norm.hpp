@@ -20,13 +20,6 @@ struct StftNormal {
     auto dimensions = pcm.Shape();
     auto win_length = win.size();
 
-std::cerr << "[DEBUG] PCM shape: ";
-for (auto d : dimensions) std::cerr << d << " ";
-std::cerr << "\n[DEBUG] PCM num elements: " << pcm.NumberOfElement() << "\n";
-std::cerr << "[DEBUG] X ptr=" << X << "\n";
-std::cerr << "[DEBUG] win_length=" << win_length << "\n";
-std::cerr << "[DEBUG] n_fft=" << n_fft << " hop=" << hop_length << " frame=" << frame_length << "\n";
-
     if (dimensions.size() < 2 || pcm.NumberOfElement() != dimensions[1]) {
       return {kOrtxErrorInvalidArgument, "[Stft] Only batch == 1 tensor supported."};
     }
@@ -34,41 +27,22 @@ std::cerr << "[DEBUG] n_fft=" << n_fft << " hop=" << hop_length << " frame=" << 
       return {kOrtxErrorInvalidArgument, "[Stft] Only support size of FFT equals the frame length."};
     }
 
-    std::cerr << "1" << std::endl;
-
     dlib::matrix<float> dm_x = dlib::mat(X, 1, dimensions[1]);
     dlib::matrix<float> fft_win = dlib::mat(window, 1, win_length);
-    std::cerr << "2" << std::endl;
 
     auto m_stft =
       dlib::stft(dm_x, [&fft_win](size_t x, size_t len) { return fft_win(0, x); }, n_fft, win_length, hop_length);
-    std::cerr << "3" << std::endl;
 
     if (onesided_) {
       m_stft = dlib::subm(m_stft, 0, 0, m_stft.nr(), (m_stft.nc() >> 1) + 1);
     }
-    std::cerr << "4" << std::endl;
 
     dlib::matrix<float> result = dlib::norm(m_stft);
-        std::cerr << "5" << std::endl;
-
     result = dlib::trans(result);
-        std::cerr << "6" << std::endl;
-
     std::vector<int64_t> outdim{1, result.nr(), result.nc()};
-            std::cerr << "7" << std::endl;
-
     auto result_size = result.size();
-                std::cerr << "8" << std::endl;
-
     auto out0 = output0.Allocate(outdim);
-                std::cerr << "9" << std::endl;
-
     memcpy(out0, result.steal_memory().get(), result_size * sizeof(float));
-                std::cerr << "10" << std::endl;
-
-
-                std::cerr << std::flush;
 
     return {};
   }
@@ -76,3 +50,16 @@ std::cerr << "[DEBUG] n_fft=" << n_fft << " hop=" << hop_length << " frame=" << 
  private:
   int64_t onesided_{1};
 };
+
+  static std::vector<float> hann_window(int N) {
+    std::vector<float> window(N);
+
+    for (int n = 0; n < N; ++n) {
+      // Original formula introduces more rounding errors than the current implementation
+      // window[n] = static_cast<float>(0.5 * (1 - std::cos(2 * M_PI * n / (N - 1))));
+      double n_sin = std::sin(M_PI * n / N);
+      window[n] = static_cast<float>(n_sin * n_sin);
+    }
+
+    return window;
+  }

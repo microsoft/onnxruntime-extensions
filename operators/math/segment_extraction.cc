@@ -3,6 +3,7 @@
 
 #include "segment_extraction.hpp"
 #include "dlib/stft_norm.hpp"
+#include "../../shared/api/c_api_utils.hpp"
 
 OrtStatusPtr segment_extraction(const ortc::Tensor<int64_t>& input, ortc::Tensor<int64_t>& output0,
                                 ortc::Tensor<int64_t>& output1) {
@@ -41,34 +42,6 @@ OrtStatusPtr segment_extraction(const ortc::Tensor<int64_t>& input, ortc::Tensor
   return nullptr;
 }
 
-class CppAllocator : public ortc::IAllocator {
- public:
-  void* Alloc(size_t size) override { return std::make_unique<char[]>(size).release(); }
-
-  void Free(void* p) override {
-    std::unique_ptr<char[]> ptr(static_cast<char*>(p));
-    ptr.reset();
-  }
-
-  static CppAllocator& Instance() {
-    static CppAllocator allocator;
-    return allocator;
-  }
-};
-
-static std::vector<float> hann_window(int N) {
-  std::vector<float> window(N);
-
-  for (int n = 0; n < N; ++n) {
-    // Original formula introduces more rounding errors than the current implementation
-    // window[n] = static_cast<float>(0.5 * (1 - std::cos(2 * M_PI * n / (N - 1))));
-    double n_sin = std::sin(M_PI * n / N);
-    window[n] = static_cast<float>(n_sin * n_sin);
-  }
-
-  return window;
-}
-
 OrtStatusPtr segment_extraction2(const ortc::Tensor<float>& audio, const ortc::Tensor<int64_t>& sr_tensor,
                                  const ortc::Tensor<int64_t>& frame_ms_tensor,
                                  const ortc::Tensor<int64_t>& hop_ms_tensor,
@@ -96,7 +69,7 @@ OrtStatusPtr segment_extraction2(const ortc::Tensor<float>& audio, const ortc::T
 
   std::vector<float> hann = hann_window(static_cast<int>(n_fft));
 
-  ortc::Tensor<float> stft_out(&CppAllocator::Instance());
+  ortc::Tensor<float> stft_out(&ort_extensions::CppAllocator::Instance());
   StftNormal stft;
   auto status = stft.Compute(audio, n_fft, hop_length, {hann.data(), hann.size()}, n_fft, stft_out);
   if (!status.IsOk()) {
