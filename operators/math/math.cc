@@ -18,7 +18,8 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Math = []() -> CustomOpArray& {
                                CustomCudaFuncV2("NegPos", neg_pos_cuda),
 #endif
 #ifdef ENABLE_DLIB
-                               CustomCpuFuncV2("Inverse", inverse), CustomCpuStructV2("StftNorm", StftNormal),
+                               CustomCpuFuncV2("Inverse", inverse), 
+                               CustomCpuStructV2("StftNorm", StftNormal),
                                CustomCpuFuncV2("DetectEnergySegments", detect_energy_segments),
                                CustomCpuFuncV2("MergeAndFilterAudioSegments", merge_and_filter_segments),
 #endif

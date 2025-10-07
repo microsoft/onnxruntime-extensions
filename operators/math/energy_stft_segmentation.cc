@@ -5,7 +5,8 @@
 #include "dlib/stft_norm.hpp"
 #include "../../shared/api/c_api_utils.hpp"
 
-OrtStatusPtr detect_energy_segments(const ortc::Tensor<float>& audio, const ortc::Tensor<int64_t>& sr_tensor,
+OrtStatusPtr detect_energy_segments(const ortc::Tensor<float>& audio,
+                                    const ortc::Tensor<int64_t>& sr_tensor,
                                     const ortc::Tensor<int64_t>& frame_ms_tensor,
                                     const ortc::Tensor<int64_t>& hop_ms_tensor,
                                     const ortc::Tensor<float>& energy_threshold_db_tensor,
@@ -62,20 +63,16 @@ OrtStatusPtr detect_energy_segments(const ortc::Tensor<float>& audio, const ortc
   for (float v : energy_db) max_val = std::max(max_val, v);
   float threshold = std::max(max_val + energy_threshold_db, median_val);
 
-  std::vector<bool> mask(n_frames);
-  for (int64_t t = 0; t < n_frames; ++t) {
-    mask[t] = energy_db[t] > threshold;
-  }
-
   std::vector<std::pair<float, float>> segments;
   bool active = false;
   int64_t start_idx = 0;
 
   for (int64_t t = 0; t < n_frames; ++t) {
-    if (!active && mask[t]) {
+    bool above_threshold = energy_db[t] > threshold;
+    if (!active && above_threshold) {
       active = true;
       start_idx = t;
-    } else if (active && !mask[t]) {
+    } else if (active && !above_threshold) {
       active = false;
       float start_s = static_cast<float>(start_idx * hop_length) / sr;
       float end_s = static_cast<float>(t * hop_length) / sr;
@@ -93,7 +90,7 @@ OrtStatusPtr detect_energy_segments(const ortc::Tensor<float>& audio, const ortc
   int64_t* out_data = output0.Allocate(out_shape);
 
   for (int64_t i = 0; i < num_segments; ++i) {
-    out_data[i * 2 + 0] = static_cast<int64_t>(segments[i].first * 1000.0f);
+    out_data[i * 2] = static_cast<int64_t>(segments[i].first * 1000.0f);
     out_data[i * 2 + 1] = static_cast<int64_t>(segments[i].second * 1000.0f);
   }
 
@@ -126,7 +123,7 @@ OrtStatusPtr merge_and_filter_segments(const Ort::Custom::Tensor<int64_t>& segme
   int64_t cur_end = seg_data[1];
 
   for (int64_t i = 1; i < num_segments; ++i) {
-    const int64_t s = seg_data[i * 2 + 0];
+    const int64_t s = seg_data[i * 2];
     const int64_t e = seg_data[i * 2 + 1];
 
     if (s - cur_end <= merge_gap_ms) {
@@ -142,7 +139,7 @@ OrtStatusPtr merge_and_filter_segments(const Ort::Custom::Tensor<int64_t>& segme
   const int64_t m = static_cast<int64_t>(merged.size());
   int64_t* out = output0.Allocate({m, 2});
   for (int64_t i = 0; i < m; ++i) {
-    out[i * 2 + 0] = merged[i].first;
+    out[i * 2] = merged[i].first;
     out[i * 2 + 1] = merged[i].second;
   }
 
