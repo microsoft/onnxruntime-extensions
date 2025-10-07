@@ -127,9 +127,6 @@ OrtStatusPtr merge_and_filter_segments(const Ort::Custom::Tensor<int64_t>& segme
     segments.emplace_back(start, end);
   }
 
-  // Sort by start time.
-  std::sort(segments.begin(), segments.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
-
   // Merge overlapping or close segments.
   std::vector<std::pair<int64_t, int64_t>> merged;
   int64_t cur_start = segments[0].first;
