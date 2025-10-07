@@ -53,7 +53,7 @@ def _create_test_model(**kwargs):
 class TestAudio(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        wavefile = wave.open(util.get_test_data_file('1272-141231-0002.wav'), 'r')
+        wavefile = wave.open(util.get_test_data_file('data/1272-141231-0002.wav'), 'r')
         samples = wavefile.getnframes()
         sr = wavefile.getframerate()
         audio = wavefile.readframes(samples)

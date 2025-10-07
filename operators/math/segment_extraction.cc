@@ -3,8 +3,9 @@
 
 #include "segment_extraction.hpp"
 
-OrtStatusPtr segment_extraction(const ortc::Tensor<int64_t>& input, ortc::Tensor<int64_t>& output0,
-                                ortc::Tensor<int64_t>& output1) {
+OrtStatusPtr segment_extraction(const ortc::Tensor<int64_t>& input,
+                        ortc::Tensor<int64_t>& output0,
+                        ortc::Tensor<int64_t>& output1) {
   auto& input_dim = input.Shape();
   if (!((input_dim.size() == 1) || (input_dim.size() == 2 && input_dim[0] == 1))) {
     return OrtW::CreateStatus("[SegmentExtraction]: Expect input dimension [n] or [1,n].", ORT_INVALID_GRAPH);

@@ -6,10 +6,10 @@
 #include "../../shared/api/c_api_utils.hpp"
 
 OrtStatusPtr detect_energy_segments(const ortc::Tensor<float>& audio, const ortc::Tensor<int64_t>& sr_tensor,
-                                 const ortc::Tensor<int64_t>& frame_ms_tensor,
-                                 const ortc::Tensor<int64_t>& hop_ms_tensor,
-                                 const ortc::Tensor<float>& energy_threshold_db_tensor,
-                                 ortc::Tensor<int64_t>& output0) {
+                                    const ortc::Tensor<int64_t>& frame_ms_tensor,
+                                    const ortc::Tensor<int64_t>& hop_ms_tensor,
+                                    const ortc::Tensor<float>& energy_threshold_db_tensor,
+                                    ortc::Tensor<int64_t>& output0) {
   const auto& audio_shape = audio.Shape();
   if (audio_shape.size() != 2 || audio_shape[0] != 1) {
     return OrtW::CreateStatus("Audio must have shape [1, num_samples]", ORT_INVALID_ARGUMENT);
@@ -26,10 +26,6 @@ OrtStatusPtr detect_energy_segments(const ortc::Tensor<float>& audio, const ortc
   const float* pcm_data = audio.Data();
   const int64_t num_samples = audio_shape[1];
 
-  std::cout << "[DEBUG] Received audio with " << num_samples << " samples.\n";
-  std::cout << "[DEBUG] sr=" << sr << " frame_ms=" << frame_ms << " hop_ms=" << hop_ms
-            << " threshold=" << energy_threshold_db << " dB\n";
-
   std::vector<float> hann = hann_window(static_cast<int>(n_fft));
 
   ortc::Tensor<float> stft_out(&ort_extensions::CppAllocator::Instance());
@@ -43,9 +39,6 @@ OrtStatusPtr detect_energy_segments(const ortc::Tensor<float>& audio, const ortc
   const int64_t n_freq = stft_shape[1];
   const int64_t n_frames = stft_shape[2];
   const float* spec_ptr = stft_out.Data();
-
-  std::cout << "Freq " << n_freq << std::endl;
-  std::cout << "Frames " << n_frames << std::endl;
 
   std::vector<float> energy(n_frames, 0.0f);
   for (int64_t t = 0; t < n_frames; ++t) {
@@ -100,17 +93,15 @@ OrtStatusPtr detect_energy_segments(const ortc::Tensor<float>& audio, const ortc
   int64_t* out_data = output0.Allocate(out_shape);
 
   for (int64_t i = 0; i < num_segments; ++i) {
-    out_data[i * 2 + 0] = static_cast<int64_t>(segments[i].first * 1000.0f);   // start ms
-    out_data[i * 2 + 1] = static_cast<int64_t>(segments[i].second * 1000.0f);  // end ms
+    out_data[i * 2 + 0] = static_cast<int64_t>(segments[i].first * 1000.0f);
+    out_data[i * 2 + 1] = static_cast<int64_t>(segments[i].second * 1000.0f);
   }
-
-  std::cout << "[DEBUG] Segments detected: " << num_segments << std::endl;
 
   return nullptr;
 }
 
 OrtStatusPtr merge_and_filter_segments(const Ort::Custom::Tensor<int64_t>& segments_tensor,
-                                       const Ort::Custom::Tensor<int64_t>& merge_gap_in_milliseconds_tensor,
+                                       const Ort::Custom::Tensor<int64_t>& merge_gap_ms_tensor,
                                        Ort::Custom::Tensor<int64_t>& output0) {
   const int64_t* seg_data = segments_tensor.Data();
   const auto& seg_shape = segments_tensor.Shape();
@@ -126,7 +117,7 @@ OrtStatusPtr merge_and_filter_segments(const Ort::Custom::Tensor<int64_t>& segme
     return nullptr;
   }
 
-  const int64_t merge_gap_in_milliseconds = merge_gap_in_milliseconds_tensor.Data()[0];
+  const int64_t merge_gap_ms = merge_gap_ms_tensor.Data()[0];
 
   std::vector<std::pair<int64_t, int64_t>> segments;
   segments.reserve(num_segments);
@@ -148,11 +139,9 @@ OrtStatusPtr merge_and_filter_segments(const Ort::Custom::Tensor<int64_t>& segme
     const int64_t s = segments[i].first;
     const int64_t e = segments[i].second;
 
-    if (static_cast<double>(s - cur_end) <= merge_gap_in_milliseconds) {
-      std::cout << "prolonging segments.." << std::endl;
+    if (static_cast<double>(s - cur_end) <= merge_gap_ms) {
       cur_end = std::max(cur_end, e);
     } else {
-      std::cout << "merging segments.." << cur_end << std::endl;
       merged.emplace_back(cur_start, cur_end);
       cur_start = s;
       cur_end = e;

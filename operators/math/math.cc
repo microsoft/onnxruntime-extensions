@@ -3,8 +3,8 @@
 #ifdef ENABLE_DLIB
 #include "dlib/inverse.hpp"
 #include "dlib/stft_norm.hpp"
-#endif
 #include "energy_stft_segmentation.hpp"
+#endif
 #include "segment_extraction.hpp"
 #include "segment_sum.hpp"
 

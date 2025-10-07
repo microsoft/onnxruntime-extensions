@@ -253,21 +253,20 @@ class SegmentExtraction(CustomOp):
 
 
 class DetectEnergySegments(CustomOp):
-
     @classmethod
     def get_inputs(cls):
         return [
-            cls.io_def("audio", onnx_proto.TensorProto.FLOAT, [1, None]),   # PCM audio
-            cls.io_def("sr", onnx_proto.TensorProto.INT64, [1]),           # scalar sample rate
-            cls.io_def("frame_ms", onnx_proto.TensorProto.INT64, [1]),     # scalar frame size in ms
-            cls.io_def("hop_ms", onnx_proto.TensorProto.INT64, [1]),       # scalar hop size in ms
-            cls.io_def("energy_threshold_db", onnx_proto.TensorProto.FLOAT, [1])  # scalar threshold
+            cls.io_def("audio", onnx_proto.TensorProto.FLOAT, [1, None]),
+            cls.io_def("sr", onnx_proto.TensorProto.INT64, [1]),
+            cls.io_def("frame_ms", onnx_proto.TensorProto.INT64, [1]),
+            cls.io_def("hop_ms", onnx_proto.TensorProto.INT64, [1]),
+            cls.io_def("energy_threshold_db", onnx_proto.TensorProto.FLOAT, [1])
         ]
 
     @classmethod
     def get_outputs(cls):
         return [
-            cls.io_def('value', onnx_proto.TensorProto.INT64, [None])      # [freq_bins, frames] or any shape
+            cls.io_def('value', onnx_proto.TensorProto.INT64, [None])
         ]
 
 
@@ -275,16 +274,13 @@ class MergeAndFilterAudioSegments(CustomOp):
     @classmethod
     def get_inputs(cls):
         return [
-            # segments: shape [N, 2], typically (start_time, end_time) pairs
             cls.io_def("segments", onnx_proto.TensorProto.INT64, [None, 2]),
-            # merge_gap: scalar float
-            cls.io_def("merge_gap", onnx_proto.TensorProto.INT64, [1]),
+            cls.io_def("merge_gap_ms", onnx_proto.TensorProto.INT64, [1]),
         ]
 
     @classmethod
     def get_outputs(cls):
         return [
-            # merged_segments: shape [M, 2], same format as input
             cls.io_def("merged_segments", onnx_proto.TensorProto.INT64, [None, 2])
         ]
     
