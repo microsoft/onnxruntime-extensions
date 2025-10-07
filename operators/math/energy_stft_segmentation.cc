@@ -111,7 +111,6 @@ OrtStatusPtr merge_and_filter_segments(const Ort::Custom::Tensor<int64_t>& segme
   }
 
   const int64_t num_segments = seg_shape[0];
-
   if (num_segments == 0) {
     output0.Allocate({0, 2});
     return nullptr;
@@ -119,24 +118,18 @@ OrtStatusPtr merge_and_filter_segments(const Ort::Custom::Tensor<int64_t>& segme
 
   const int64_t merge_gap_ms = merge_gap_ms_tensor.Data()[0];
 
-  std::vector<std::pair<int64_t, int64_t>> segments;
-  segments.reserve(num_segments);
-  for (int64_t i = 0; i < num_segments; ++i) {
-    int64_t start = seg_data[i * 2 + 0];
-    int64_t end = seg_data[i * 2 + 1];
-    segments.emplace_back(start, end);
-  }
-
-  // Merge overlapping or close segments.
+  // Merge overlapping or close segments directly
   std::vector<std::pair<int64_t, int64_t>> merged;
-  int64_t cur_start = segments[0].first;
-  int64_t cur_end = segments[0].second;
+  merged.reserve(num_segments);
 
-  for (size_t i = 1; i < segments.size(); ++i) {
-    const int64_t s = segments[i].first;
-    const int64_t e = segments[i].second;
+  int64_t cur_start = seg_data[0];
+  int64_t cur_end = seg_data[1];
 
-    if (static_cast<double>(s - cur_end) <= merge_gap_ms) {
+  for (int64_t i = 1; i < num_segments; ++i) {
+    const int64_t s = seg_data[i * 2 + 0];
+    const int64_t e = seg_data[i * 2 + 1];
+
+    if (s - cur_end <= merge_gap_ms) {
       cur_end = std::max(cur_end, e);
     } else {
       merged.emplace_back(cur_start, cur_end);
@@ -148,7 +141,6 @@ OrtStatusPtr merge_and_filter_segments(const Ort::Custom::Tensor<int64_t>& segme
 
   const int64_t m = static_cast<int64_t>(merged.size());
   int64_t* out = output0.Allocate({m, 2});
-
   for (int64_t i = 0; i < m; ++i) {
     out[i * 2 + 0] = merged[i].first;
     out[i * 2 + 1] = merged[i].second;
