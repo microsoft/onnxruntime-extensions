@@ -5,8 +5,7 @@
 #include "dlib/stft_norm.hpp"
 #include "../../shared/api/c_api_utils.hpp"
 
-OrtStatusPtr split_signal_energy_segments(const ortc::Tensor<float>& input, 
-                                          const ortc::Tensor<int64_t>& sr_tensor,
+OrtStatusPtr split_signal_energy_segments(const ortc::Tensor<float>& input, const ortc::Tensor<int64_t>& sr_tensor,
                                           const ortc::Tensor<int64_t>& frame_ms_tensor,
                                           const ortc::Tensor<int64_t>& hop_ms_tensor,
                                           const ortc::Tensor<float>& energy_threshold_db_tensor,
