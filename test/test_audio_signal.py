@@ -116,14 +116,14 @@ class TestAudio(unittest.TestCase):
         hop_ms_tensor = np.array([10], dtype=np.int64)
         energy_threshold_db_tensor = np.array([-20.0], dtype=np.float32)
 
-        energy_stft_fn = OrtPyFunction.from_customop("DetectEnergySegments")
+        energy_stft_fn = OrtPyFunction.from_customop("SplitSignalEnergySegments")
 
         original_stft_out = energy_stft_fn(audio_pcm, sr_tensor, frame_ms_tensor, hop_ms_tensor, energy_threshold_db_tensor)
         np.testing.assert_equal(52, original_stft_out.shape[0])
 
         merge_gap_in_milliseconds_tensor = np.array([200], dtype=np.int64)
 
-        merge_and_filter_fn = OrtPyFunction.from_customop("MergeAndFilterAudioSegments")
+        merge_and_filter_fn = OrtPyFunction.from_customop("MergeSignalSegments")
 
         merged_stft_out = merge_and_filter_fn(original_stft_out, merge_gap_in_milliseconds_tensor)
         np.testing.assert_equal(5, merged_stft_out.shape[0])

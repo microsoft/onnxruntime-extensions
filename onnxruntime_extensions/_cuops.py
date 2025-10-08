@@ -252,7 +252,7 @@ class SegmentExtraction(CustomOp):
         ]
 
 
-class DetectEnergySegments(CustomOp):
+class SplitSignalEnergySegments(CustomOp):
     @classmethod
     def get_inputs(cls):
         return [
@@ -270,7 +270,7 @@ class DetectEnergySegments(CustomOp):
         ]
 
 
-class MergeAndFilterAudioSegments(CustomOp):
+class MergeSignalSegments(CustomOp):
     @classmethod
     def get_inputs(cls):
         return [

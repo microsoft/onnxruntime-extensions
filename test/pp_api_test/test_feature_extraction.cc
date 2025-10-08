@@ -308,7 +308,7 @@ TEST(ExtractorTest, TestStftEnergySegmentationAndMerge) {
 
   ortc::Tensor<int64_t> output(alloc);
 
-  detect_energy_segments(audio, sr, frame, hop, thr, output);
+  split_signal_energy_segments(audio, sr, frame, hop, thr, output);
 
   const auto& out_shape = output.Shape();
   ASSERT_EQ(out_shape.size(), 2u);
@@ -322,7 +322,7 @@ TEST(ExtractorTest, TestStftEnergySegmentationAndMerge) {
 
   ortc::Tensor<int64_t> merged_segments(alloc);
 
-  merge_and_filter_segments(output, merge_gap, merged_segments);
+  merge_signal_segments(output, merge_gap, merged_segments);
 
   const auto& merged_shape = merged_segments.Shape();
   ASSERT_EQ(merged_shape.size(), 2u);

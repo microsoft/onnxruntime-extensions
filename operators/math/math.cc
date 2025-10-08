@@ -20,8 +20,8 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Math = []() -> CustomOpArray& {
 #ifdef ENABLE_DLIB
                                CustomCpuFuncV2("Inverse", inverse), 
                                CustomCpuStructV2("StftNorm", StftNormal),
-                               CustomCpuFuncV2("DetectEnergySegments", detect_energy_segments),
-                               CustomCpuFuncV2("MergeAndFilterAudioSegments", merge_and_filter_segments),
+                               CustomCpuFuncV2("SplitSignalEnergySegments", split_signal_energy_segments),
+                               CustomCpuFuncV2("MergeSignalSegments", merge_signal_segments),
 #endif
                                CustomCpuFuncV2("SegmentExtraction", segment_extraction),
                                CustomCpuFuncV2("SegmentSum", segment_sum));

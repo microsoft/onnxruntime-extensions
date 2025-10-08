@@ -5,14 +5,14 @@
 #include "dlib/stft_norm.hpp"
 #include "../../shared/api/c_api_utils.hpp"
 
-OrtStatusPtr detect_energy_segments(const ortc::Tensor<float>& audio,
-                                    const ortc::Tensor<int64_t>& sr_tensor,
-                                    const ortc::Tensor<int64_t>& frame_ms_tensor,
-                                    const ortc::Tensor<int64_t>& hop_ms_tensor,
-                                    const ortc::Tensor<float>& energy_threshold_db_tensor,
-                                    ortc::Tensor<int64_t>& output0) {
-  const auto& audio_shape = audio.Shape();
-  if (audio_shape.size() != 2 || audio_shape[0] != 1) {
+OrtStatusPtr split_signal_energy_segments(const ortc::Tensor<float>& input, 
+                                          const ortc::Tensor<int64_t>& sr_tensor,
+                                          const ortc::Tensor<int64_t>& frame_ms_tensor,
+                                          const ortc::Tensor<int64_t>& hop_ms_tensor,
+                                          const ortc::Tensor<float>& energy_threshold_db_tensor,
+                                          ortc::Tensor<int64_t>& output0) {
+  const auto& input_shape = input.Shape();
+  if (input_shape.size() != 2 || input_shape[0] != 1) {
     return OrtW::CreateStatus("Audio must have shape [1, num_samples]", ORT_INVALID_ARGUMENT);
   }
 
@@ -24,14 +24,11 @@ OrtStatusPtr detect_energy_segments(const ortc::Tensor<float>& audio,
   const int64_t n_fft = (frame_ms * sr) / 1000;
   const int64_t hop_length = (hop_ms * sr) / 1000;
 
-  const float* pcm_data = audio.Data();
-  const int64_t num_samples = audio_shape[1];
-
   std::vector<float> hann = hann_window(static_cast<int>(n_fft));
 
   ortc::Tensor<float> stft_out(&ort_extensions::CppAllocator::Instance());
   StftNormal stft;
-  auto status = stft.Compute(audio, n_fft, hop_length, {hann.data(), hann.size()}, n_fft, stft_out);
+  auto status = stft.Compute(input, n_fft, hop_length, {hann.data(), hann.size()}, n_fft, stft_out);
   if (!status.IsOk()) {
     return OrtW::CreateStatus("STFT Compute failed", ORT_FAIL);
   }
@@ -41,6 +38,7 @@ OrtStatusPtr detect_energy_segments(const ortc::Tensor<float>& audio,
   const int64_t n_frames = stft_shape[2];
   const float* spec_ptr = stft_out.Data();
 
+  // Sum energy across all frequencies for each timestamp.
   std::vector<float> energy(n_frames, 0.0f);
   for (int64_t t = 0; t < n_frames; ++t) {
     float sum = 0.0f;
@@ -51,11 +49,14 @@ OrtStatusPtr detect_energy_segments(const ortc::Tensor<float>& audio,
     energy[t] = sum;
   }
 
+  // Convert to Db for easier calculations.
   std::vector<float> energy_db(n_frames);
   for (int64_t t = 0; t < n_frames; ++t) {
     energy_db[t] = 10.0f * std::log10(energy[t] + 1e-10f);
   }
 
+  // Calculate an adaptive threshold for noise vs. no-noise by subtracting the specified
+  // threshold from the maximum energy value.
   float max_val = energy_db[0];
   std::vector<float> tmp = energy_db;
   std::nth_element(tmp.begin(), tmp.begin() + tmp.size() / 2, tmp.end());
@@ -67,6 +68,7 @@ OrtStatusPtr detect_energy_segments(const ortc::Tensor<float>& audio,
   bool active = false;
   int64_t start_idx = 0;
 
+  // Extract the high-energy segments.
   for (int64_t t = 0; t < n_frames; ++t) {
     bool above_threshold = energy_db[t] > threshold;
     if (!active && above_threshold) {
@@ -97,9 +99,9 @@ OrtStatusPtr detect_energy_segments(const ortc::Tensor<float>& audio,
   return nullptr;
 }
 
-OrtStatusPtr merge_and_filter_segments(const Ort::Custom::Tensor<int64_t>& segments_tensor,
-                                       const Ort::Custom::Tensor<int64_t>& merge_gap_ms_tensor,
-                                       Ort::Custom::Tensor<int64_t>& output0) {
+OrtStatusPtr merge_signal_segments(const Ort::Custom::Tensor<int64_t>& segments_tensor,
+                                   const Ort::Custom::Tensor<int64_t>& merge_gap_ms_tensor,
+                                   Ort::Custom::Tensor<int64_t>& output0) {
   const int64_t* seg_data = segments_tensor.Data();
   const auto& seg_shape = segments_tensor.Shape();
 
