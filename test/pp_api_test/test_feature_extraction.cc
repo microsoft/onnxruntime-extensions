@@ -7,6 +7,7 @@
 #include <filesystem>
 
 #include "gtest/gtest.h"
+#include "operators/math/energy_stft_segmentation.hpp"
 #include "ortx_cpp_helper.h"
 #include "shared/api/speech_extractor.h"
 
@@ -275,4 +276,56 @@ TEST(ExtractorTest, TestWhisperAudioOutput) {
 
   // We use a 4% mismatch threshold currently, and aim to improve this further in the future
   ASSERT_LT(mismatch_percentage, 0.04) << "Mismatch percentage exceeds 4% threshold!";
+}
+
+TEST(ExtractorTest, TestStftEnergySegmentationAndMerge) {
+  const int64_t sample_rate = 16000;
+  const int64_t num_samples = sample_rate * 2;
+
+  std::vector<float> pcm(num_samples);
+  const float freq = 440.0f;
+  for (int64_t i = 0; i < num_samples; ++i) {
+    pcm[i] = std::sin(2.0f * static_cast<float>(3.14159) * freq * (float)i / (float)sample_rate);
+  }
+
+  auto* alloc = &CppAllocator::Instance();
+
+  ortc::Tensor<float> audio(alloc);
+  float* audio_data = audio.Allocate({1, num_samples});
+  std::memcpy(audio_data, pcm.data(), num_samples * sizeof(float));
+
+  ortc::Tensor<int64_t> sr(alloc);
+  sr.Allocate({1})[0] = sample_rate;
+
+  ortc::Tensor<int64_t> frame(alloc);
+  frame.Allocate({1})[0] = 25;
+
+  ortc::Tensor<int64_t> hop(alloc);
+  hop.Allocate({1})[0] = 10;
+
+  ortc::Tensor<float> thr(alloc);
+  thr.Allocate({1})[0] = -40.0f;
+
+  ortc::Tensor<int64_t> output(alloc);
+
+  detect_energy_segments(audio, sr, frame, hop, thr, output);
+
+  const auto& out_shape = output.Shape();
+  ASSERT_EQ(out_shape.size(), 2u);
+  int64_t num_segments = out_shape[0];
+  ASSERT_EQ(out_shape[1], 2);
+  ASSERT_EQ(num_segments, 53);
+
+  // Start merging
+  ortc::Tensor<int64_t> merge_gap(alloc);
+  merge_gap.Allocate({1})[0] = 50;
+
+  ortc::Tensor<int64_t> merged_segments(alloc);
+
+  merge_and_filter_segments(output, merge_gap, merged_segments);
+
+  const auto& merged_shape = merged_segments.Shape();
+  ASSERT_EQ(merged_shape.size(), 2u);
+  ASSERT_EQ(merged_shape[1], 2);
+  ASSERT_EQ(merged_shape[0], 4);
 }
