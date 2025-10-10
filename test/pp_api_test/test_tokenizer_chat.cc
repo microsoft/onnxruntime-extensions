@@ -727,3 +727,61 @@ TEST(OrtxTokenizerTest, WhisperChatTemplate) {
 
   ASSERT_EQ(std::string(special_text), expected_special_decoder_output);
 }
+
+TEST(OrtxTokenizerTest, Qwen3ChatTemplate) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/qwen3");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "user",
+        "content": "Hi, this is a test!"
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), nullptr, templated_text.ToBeAssigned(), true, false);
+
+  if (err != kOrtxOK) {
+    std::cout << "Failed to apply chat template, stopping the test." << std::endl;
+    std::cout << "Error code: " << err << std::endl;
+    std::cout << "Error message: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK) << "Failed to get tensor from templated text, stopping the test.";
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  // From HuggingFace Python output for 'Qwen/Qwen3-0.6B'
+  std::string expected_output = "<|im_start|>user\nHi, this is a test!<|im_end|>\n<|im_start|>assistant\n";
+
+  ASSERT_EQ(text_ptr, expected_output);
+
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  const char* input[] = { text_ptr };
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  std::vector<extTokenId_t> ids_vec(ids, ids + length);
+
+  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({151644, 872, 198, 13048, 11, 419, 374, 264, 1273, 0, 151645, 198, 151644, 77091, 198}));
+  
+  OrtxObjectPtr<OrtxStringArray> decoded_text;
+  OrtxDetokenize(tokenizer.get(), token_ids.get(), decoded_text.ToBeAssigned());
+  EXPECT_EQ(decoded_text.Code(), kOrtxOK);
+
+  const char* text = nullptr;
+  OrtxStringArrayGetItem(decoded_text.get(), 0, &text);
+
+  std::string expected_decoder_output = "user\nHi, this is a test!\nassistant\n";
+
+  ASSERT_EQ(std::string(text), expected_decoder_output);
+}
