@@ -5,11 +5,11 @@
 #include "dlib/stft_norm.hpp"
 #include "../../shared/api/c_api_utils.hpp"
 
-OrtStatusPtr split_signal_energy_segments(const ortc::Tensor<float>& input, const ortc::Tensor<int64_t>& sr_tensor,
-                                          const ortc::Tensor<int64_t>& frame_ms_tensor,
-                                          const ortc::Tensor<int64_t>& hop_ms_tensor,
-                                          const ortc::Tensor<float>& energy_threshold_db_tensor,
-                                          ortc::Tensor<int64_t>& output0) {
+OrtStatusPtr split_signal_segments(const ortc::Tensor<float>& input, const ortc::Tensor<int64_t>& sr_tensor,
+                                   const ortc::Tensor<int64_t>& frame_ms_tensor,
+                                   const ortc::Tensor<int64_t>& hop_ms_tensor,
+                                   const ortc::Tensor<float>& energy_threshold_db_tensor,
+                                   ortc::Tensor<int64_t>& output0) {
   const auto& input_shape = input.Shape();
   if (input_shape.size() != 2 || input_shape[0] != 1) {
     return OrtW::CreateStatus("Audio must have shape [1, num_samples]", ORT_INVALID_ARGUMENT);

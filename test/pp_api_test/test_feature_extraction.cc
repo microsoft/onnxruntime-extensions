@@ -19,7 +19,8 @@ TEST(ExtractorTest, TestWhisperFeatureExtraction) {
   extError_t err = OrtxLoadAudios(raw_audios.ToBeAssigned(), audio_path, 3);
   ASSERT_EQ(err, kOrtxOK);
 
-  OrtxObjectPtr<OrtxFeatureExtractor> feature_extractor(OrtxCreateSpeechFeatureExtractor, "data/whisper/feature_extraction.json");
+  OrtxObjectPtr<OrtxFeatureExtractor> feature_extractor(OrtxCreateSpeechFeatureExtractor,
+                                                        "data/whisper/feature_extraction.json");
   OrtxObjectPtr<OrtxTensorResult> result;
   err = OrtxSpeechLogMel(feature_extractor.get(), raw_audios.get(), result.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
@@ -45,8 +46,8 @@ TEST(ExtractorTest, TestPhi4AudioFeatureExtraction) {
   extError_t err = OrtxLoadAudios(raw_audios.ToBeAssigned(), audio_path, 3);
   ASSERT_EQ(err, kOrtxOK);
 
-  OrtxObjectPtr<OrtxFeatureExtractor>
-    feature_extractor(OrtxCreateSpeechFeatureExtractor, "data/models/phi-4/audio_feature_extraction.json");
+  OrtxObjectPtr<OrtxFeatureExtractor> feature_extractor(OrtxCreateSpeechFeatureExtractor,
+                                                        "data/models/phi-4/audio_feature_extraction.json");
   OrtxObjectPtr<OrtxTensorResult> result;
   err = OrtxFeatureExtraction(feature_extractor.get(), raw_audios.get(), result.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
@@ -68,9 +69,11 @@ TEST(ExtractorTest, TestPhi4AudioFeatureExtraction) {
   size_t audio_mask_dims;
   err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
-  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&audio_attention_mask), &audio_mask_shape, &audio_mask_dims);
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&audio_attention_mask), &audio_mask_shape,
+                          &audio_mask_dims);
   ASSERT_EQ(err, kOrtxOK);
-  ASSERT_EQ(std::vector<int64_t>(audio_mask_shape, audio_mask_shape + audio_mask_dims), std::vector<int64_t>({3, 1344}));
+  ASSERT_EQ(std::vector<int64_t>(audio_mask_shape, audio_mask_shape + audio_mask_dims),
+            std::vector<int64_t>({3, 1344}));
   ASSERT_EQ(std::count(audio_attention_mask + 0 * 1344, audio_attention_mask + 1 * 1344, true), 1098);
   ASSERT_EQ(std::count(audio_attention_mask + 1 * 1344, audio_attention_mask + 2 * 1344, true), 1332);
   ASSERT_EQ(std::count(audio_attention_mask + 2 * 1344, audio_attention_mask + 3 * 1344, true), 1344);
@@ -93,8 +96,8 @@ TEST(ExtractorTest, TestPhi4AudioFeatureExtraction8k) {
   extError_t err = OrtxLoadAudios(raw_audios.ToBeAssigned(), audio_path, 1);
   ASSERT_EQ(err, kOrtxOK);
 
-  OrtxObjectPtr<OrtxFeatureExtractor>
-    feature_extractor(OrtxCreateSpeechFeatureExtractor, "data/models/phi-4/audio_feature_extraction.json");
+  OrtxObjectPtr<OrtxFeatureExtractor> feature_extractor(OrtxCreateSpeechFeatureExtractor,
+                                                        "data/models/phi-4/audio_feature_extraction.json");
   OrtxObjectPtr<OrtxTensorResult> result;
   err = OrtxFeatureExtraction(feature_extractor.get(), raw_audios.get(), result.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
@@ -116,9 +119,11 @@ TEST(ExtractorTest, TestPhi4AudioFeatureExtraction8k) {
   size_t audio_mask_dims{};
   err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
-  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&audio_attention_mask), &audio_mask_shape, &audio_mask_dims);
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&audio_attention_mask), &audio_mask_shape,
+                          &audio_mask_dims);
   ASSERT_EQ(err, kOrtxOK);
-  ASSERT_EQ(std::vector<int64_t>(audio_mask_shape, audio_mask_shape + audio_mask_dims), std::vector<int64_t>({1, 2938}));
+  ASSERT_EQ(std::vector<int64_t>(audio_mask_shape, audio_mask_shape + audio_mask_dims),
+            std::vector<int64_t>({1, 2938}));
   const size_t num_elements = std::count(audio_attention_mask, audio_attention_mask + 2938, true);
   ASSERT_EQ(num_elements, 2938);
 
@@ -136,8 +141,8 @@ TEST(ExtractorTest, TestPhi4AudioOutput) {
   extError_t err = OrtxLoadAudios(raw_audios.ToBeAssigned(), audio_path, 1);
   ASSERT_EQ(err, kOrtxOK);
 
-  OrtxObjectPtr<OrtxFeatureExtractor>
-    feature_extractor(OrtxCreateSpeechFeatureExtractor, "data/models/phi-4/audio_feature_extraction.json");
+  OrtxObjectPtr<OrtxFeatureExtractor> feature_extractor(OrtxCreateSpeechFeatureExtractor,
+                                                        "data/models/phi-4/audio_feature_extraction.json");
   OrtxObjectPtr<OrtxTensorResult> result;
   err = OrtxFeatureExtraction(feature_extractor.get(), raw_audios.get(), result.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
@@ -174,19 +179,19 @@ TEST(ExtractorTest, TestPhi4AudioOutput) {
   size_t row_idx = 0;
 
   while (std::getline(expected_audio_embed_output, line) && row_idx < num_rows) {
-    std::stringstream ss(line); // Stringstream to parse each line
+    std::stringstream ss(line);  // Stringstream to parse each line
     std::string value_str;
     size_t col_idx = 0;
 
     while (std::getline(ss, value_str, ',') && col_idx < 10) {  // Only read the first 10 columns
-      float expected_value = std::stof(value_str);  // Convert string to float
+      float expected_value = std::stof(value_str);              // Convert string to float
 
       // Compare values
       const float* row_start = data + (row_idx * num_columns);
       if (!are_close(row_start[col_idx], expected_value)) {
-          num_mismatched++;  // Count mismatches
-          std::cout << "Mismatch at (" << row_idx << "," << col_idx << "): "
-                    << "Expected: " << expected_value << ", Got: " << row_start[col_idx] << std::endl;
+        num_mismatched++;  // Count mismatches
+        std::cout << "Mismatch at (" << row_idx << "," << col_idx << "): "
+                  << "Expected: " << expected_value << ", Got: " << row_start[col_idx] << std::endl;
       }
       col_idx++;
     }
@@ -210,8 +215,8 @@ TEST(ExtractorTest, TestWhisperAudioOutput) {
   extError_t err = OrtxLoadAudios(raw_audios.ToBeAssigned(), audio_path, 1);
   ASSERT_EQ(err, kOrtxOK);
 
-  OrtxObjectPtr<OrtxFeatureExtractor>
-    feature_extractor(OrtxCreateSpeechFeatureExtractor, "data/whisper/feature_extraction.json");
+  OrtxObjectPtr<OrtxFeatureExtractor> feature_extractor(OrtxCreateSpeechFeatureExtractor,
+                                                        "data/whisper/feature_extraction.json");
   OrtxObjectPtr<OrtxTensorResult> result;
   err = OrtxFeatureExtraction(feature_extractor.get(), raw_audios.get(), result.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
@@ -248,19 +253,19 @@ TEST(ExtractorTest, TestWhisperAudioOutput) {
   size_t row_idx = 0;
 
   while (std::getline(expected_audio_embed_output, line) && row_idx < num_rows) {
-    std::stringstream ss(line); // Stringstream to parse each line
+    std::stringstream ss(line);  // Stringstream to parse each line
     std::string value_str;
     size_t col_idx = 0;
 
     while (std::getline(ss, value_str, ',') && col_idx < 10) {  // Only read the first 10 columns
-      float expected_value = std::stof(value_str);  // Convert string to float
+      float expected_value = std::stof(value_str);              // Convert string to float
 
       // Compare values
       const float* row_start = data + (row_idx * num_columns);
       if (!are_close(row_start[col_idx], expected_value)) {
-          num_mismatched++;  // Count mismatches
-          std::cout << "Mismatch at (" << row_idx << "," << col_idx << "): "
-                    << "Expected: " << expected_value << ", Got: " << row_start[col_idx] << std::endl;
+        num_mismatched++;  // Count mismatches
+        std::cout << "Mismatch at (" << row_idx << "," << col_idx << "): "
+                  << "Expected: " << expected_value << ", Got: " << row_start[col_idx] << std::endl;
       }
       col_idx++;
     }
@@ -308,7 +313,7 @@ TEST(ExtractorTest, TestStftEnergySegmentationAndMerge) {
 
   ortc::Tensor<int64_t> output(alloc);
 
-  split_signal_energy_segments(audio, sr, frame, hop, thr, output);
+  split_signal_segments(audio, sr, frame, hop, thr, output);
 
   const auto& out_shape = output.Shape();
   ASSERT_EQ(out_shape.size(), 2u);

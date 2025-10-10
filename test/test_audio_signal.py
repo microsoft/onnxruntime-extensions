@@ -116,7 +116,7 @@ class TestAudio(unittest.TestCase):
         hop_ms_tensor = np.array([10], dtype=np.int64)
         energy_threshold_db_tensor = np.array([-20.0], dtype=np.float32)
 
-        energy_stft_fn = OrtPyFunction.from_customop("SplitSignalEnergySegments")
+        energy_stft_fn = OrtPyFunction.from_customop("SplitSignalSegments")
 
         original_stft_out = energy_stft_fn(audio_pcm, sr_tensor, frame_ms_tensor, hop_ms_tensor, energy_threshold_db_tensor)
         np.testing.assert_equal(52, original_stft_out.shape[0])

@@ -252,7 +252,7 @@ class SegmentExtraction(CustomOp):
         ]
 
 
-class SplitSignalEnergySegments(CustomOp):
+class SplitSignalSegments(CustomOp):
     @classmethod
     def get_inputs(cls):
         return [
