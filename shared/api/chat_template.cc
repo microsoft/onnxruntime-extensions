@@ -101,6 +101,201 @@ minja::Value strftime_function(const std::shared_ptr<minja::Context>&, minja::Ar
     return minja::Value("");
 }
 
+/*
+
+ConvertParameters
+--------------------------------------------------------------------------
+Converts an OpenAI-style "parameters" object into the Minja/Phi-4 expected
+format for tools.
+
+OpenAI tool/function definitions typically follow this JSON schema structure:
+
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "param_name": {
+        "type": "string",
+        "description": "..."
+      },
+      ...
+    },
+    "required": ["param_name", ...]
+  }
+
+But Minja/Phi-4 templates expect a simpler object mapping directly from
+parameter names to their type/description:
+
+  "parameters": {
+    "param_name": {
+      "type": "string",
+      "description": "..."
+    }
+  }
+
+This function detects the OpenAI "type":"object" pattern and flattens it
+accordingly. If the parameters are already in the expected format, they are
+returned as-is.
+
+*/
+static json ConvertParameters(const json& parameters) {
+  json out_params = json::object();
+
+  // If already in normalized style, simply return as-is
+  if (parameters.is_object() && parameters.contains("properties")) {
+    // OpenAI style: e.g. {"type":"object","properties":{...},"required":[...]}
+    for (auto& [prop_name, prop_schema] : parameters.at("properties").items()) {
+      json param_entry = json::object();
+      if (prop_schema.contains("type")) {
+        param_entry["type"] = prop_schema["type"];
+      }
+      if (prop_schema.contains("description")) {
+        param_entry["description"] = prop_schema["description"];
+      }
+      // Default handling if needed
+      out_params[prop_name] = param_entry;
+    }
+  } else {
+    // Already in Minja style (e.g. Phi-4), just return
+    out_params = parameters;
+  }
+
+  return out_params;
+}
+
+/*
+
+NormalizeTools
+--------------------------------------------------------------------------
+Accepts a raw JSON string representing an array of tool definitions, and
+normalizes them into a unified format that the Minja engine can render.
+
+This is required because OpenAI and Phi-4 define tools slightly differently.
+
+Specifically, our chat template engine now handles three formats:
+
+1. Phi-4 / Minja format (already normalized):
+   [
+     {
+       "name": "get_horoscope",
+       "description": "...",
+       "parameters": { ... }
+     }
+   ]
+
+2. OpenAI "type": "tool" format:
+   [
+     {
+       "type": "tool",
+       "name": "get_horoscope",
+       "description": "...",
+       "parameters": {
+         "type": "object",
+         "properties": {
+           "sign": { "type": "string" }
+         }
+       }
+     }
+   ]
+
+   → normalized by flattening "parameters" through ConvertParameters.
+
+3. OpenAI "type": "function" format with a "function" sub-object:
+   [
+     {
+       "type": "function",
+       "function": {
+         "name": "get_weather",
+         "description": "...",
+         "parameters": {
+           "type": "object",
+           "properties": {
+             "location": { "type": "string" }
+           }
+         }
+       }
+     }
+   ]
+
+   → normalized by unwrapping the "function" field, then flattening parameters.
+
+By performing this normalization once at chat template application time,
+the rest of the templating logic (Minja, chat templates, etc.) can treat all
+tool arrays uniformly — without special-casing OpenAI or Phi-4 formats.
+
+Example:
+
+Input (OpenAI function format):
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "get_weather",
+      "description": "...",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": { "type": "string" }
+        }
+      }
+    }
+  }
+]
+
+Output (normalized):
+[
+  {
+    "name": "get_weather",
+    "description": "...",
+    "parameters": {
+      "location": { "type": "string" }
+    }
+  }
+]
+
+*/
+static json NormalizeTools(const char* tools_str) {
+  if (!tools_str || *tools_str == '\0') {
+    return json::array();
+  }
+
+  json raw_tools = json::parse(tools_str);
+  json normalized = json::array();
+
+  for (auto& tool : raw_tools) {
+    json norm_tool = json::object();
+
+    // OpenAI type:function
+    if (tool.contains("type") && tool["type"] == "function" && tool.contains("function")) {
+      const json& fn = tool["function"];
+      norm_tool["name"] = fn.value("name", "");
+      norm_tool["description"] = fn.value("description", "");
+      if (fn.contains("parameters")) {
+        norm_tool["parameters"] = ConvertParameters(fn["parameters"]);
+      } else {
+        norm_tool["parameters"] = json::object();
+      }
+
+    // OpenAI type:tool (e.g. {"type":"tool","name":...})
+    } else if (tool.contains("type") && tool["type"] == "tool") {
+      norm_tool["name"] = tool.value("name", "");
+      norm_tool["description"] = tool.value("description", "");
+      if (tool.contains("parameters")) {
+        norm_tool["parameters"] = ConvertParameters(tool["parameters"]);
+      } else {
+        norm_tool["parameters"] = json::object();
+      }
+
+    // Already normalized (Minja/Phi-4 style)
+    } else {
+      norm_tool = tool;
+    }
+
+    normalized.push_back(norm_tool);
+  }
+
+  return normalized;
+}
+
 OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char* message, const char* tools,
                                             std::string& output, std::vector<extTokenId_t>& ids_vec,
                                             bool add_generation_prompt, bool tokenize) const {
@@ -138,7 +333,9 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
 
     if (tools && *tools) {
       std::string tools_str = minja::normalize_newlines(tools);
-      json tools_json = json::parse(tools_str.c_str());
+
+      // Normalize tool structure (e.g. OpenAI formats) into Minja-accepted format
+      json tools_json = NormalizeTools(tools_str.c_str());
       context = minja::Context::make(json({
           {"messages", actual_messages},
           {"tools", tools_json},
