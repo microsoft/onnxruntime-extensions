@@ -326,6 +326,9 @@ stages:
         disableDownloadFromRegistry: true
         addToPath: true
 
+    - script: brew install hdf5
+      displayName: Install HDF5
+
     - script: |
         python -m pip install --upgrade pip
         python -m pip install --upgrade setuptools
