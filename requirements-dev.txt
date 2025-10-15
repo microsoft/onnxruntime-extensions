@@ -5,10 +5,9 @@ onnx             >=1.9.0
 protobuf         < 4.0.0
 # multiple versions of onnxruntime are supported, but only one can be installed at a time
 onnxruntime      >=1.12.0
-onnxscript       >=0.1.0
 safetensors      < 0.4.3
 transformers     < 4.50.0
-tensorflow_text  >=2.5.0; python_version < '3.11' and python_version != '3.10'
+tensorflow_text  >=2.5.0;python_version < '3.11'
 requests         >=2.26.0
 sentencepiece
 scipy
