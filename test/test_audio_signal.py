@@ -55,11 +55,13 @@ class TestAudio(unittest.TestCase):
     def setUpClass(cls):
         wavefile = wave.open(util.get_test_data_file('data/1272-141231-0002.wav'), 'r')
         samples = wavefile.getnframes()
+        sr = wavefile.getframerate()
         audio = wavefile.readframes(samples)
         audio_as_np_int16 = np.frombuffer(audio, dtype=np.int16)
         audio_as_np_float32 = audio_as_np_int16.astype(np.float32)
         max_int16 = 2 ** 15
         cls.test_pcm = audio_as_np_float32 / max_int16
+        cls.sr = sr
 
     @staticmethod
     def stft(waveform, n_fft, hop_length, window):
@@ -104,6 +106,28 @@ class TestAudio(unittest.TestCase):
         actual = ortx_stft(np.expand_dims(audio_pcm, axis=0), 400, 160, np.hanning(400).astype(np.float32), 400)
         actual = actual[0]
         np.testing.assert_allclose(expected[:, 1:], actual[:, 1:], rtol=1e-3, atol=1e-3)
+
+    def test_stft_energy_based_segmentation_and_merge(self):
+        audio_pcm = self.test_pcm[np.newaxis, :]
+        sr = self.sr
+
+        sr_tensor = np.array([sr], dtype=np.int64)
+        frame_ms_tensor = np.array([25], dtype=np.int64)
+        hop_ms_tensor = np.array([10], dtype=np.int64)
+        energy_threshold_db_tensor = np.array([-20.0], dtype=np.float32)
+
+        energy_stft_fn = OrtPyFunction.from_customop("SplitSignalSegments")
+
+        original_stft_out = energy_stft_fn(audio_pcm, sr_tensor, frame_ms_tensor, hop_ms_tensor, energy_threshold_db_tensor)
+        np.testing.assert_equal(52, original_stft_out.shape[0])
+
+        merge_gap_in_milliseconds_tensor = np.array([200], dtype=np.int64)
+
+        merge_and_filter_fn = OrtPyFunction.from_customop("MergeSignalSegments")
+
+        merged_stft_out = merge_and_filter_fn(original_stft_out, merge_gap_in_milliseconds_tensor)
+        np.testing.assert_equal(5, merged_stft_out.shape[0])
+
 
     @unittest.skipIf(not _is_torch_available, "PyTorch is not available")
     def test_stft_norm_torch(self):
