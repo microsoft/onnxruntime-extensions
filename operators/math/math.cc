@@ -3,6 +3,7 @@
 #ifdef ENABLE_DLIB
 #include "dlib/inverse.hpp"
 #include "dlib/stft_norm.hpp"
+#include "energy_stft_segmentation.hpp"
 #endif
 #include "segment_extraction.hpp"
 #include "segment_sum.hpp"
@@ -17,8 +18,9 @@ FxLoadCustomOpFactory LoadCustomOpClasses_Math = []() -> CustomOpArray& {
                                CustomCudaFuncV2("NegPos", neg_pos_cuda),
 #endif
 #ifdef ENABLE_DLIB
-                               CustomCpuFuncV2("Inverse", inverse),
-                               CustomCpuStructV2("StftNorm", StftNormal),
+                               CustomCpuFuncV2("Inverse", inverse), CustomCpuStructV2("StftNorm", StftNormal),
+                               CustomCpuFuncV2("SplitSignalSegments", split_signal_segments),
+                               CustomCpuFuncV2("MergeSignalSegments", merge_signal_segments),
 #endif
                                CustomCpuFuncV2("SegmentExtraction", segment_extraction),
                                CustomCpuFuncV2("SegmentSum", segment_sum));
