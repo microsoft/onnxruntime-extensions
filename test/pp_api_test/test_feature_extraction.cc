@@ -283,7 +283,7 @@ TEST(ExtractorTest, TestWhisperAudioOutput) {
   ASSERT_LT(mismatch_percentage, 0.04) << "Mismatch percentage exceeds 4% threshold!";
 }
 
-TEST(ExtractorTest, TestStftEnergySegmentationAndMerge) {
+TEST(ExtractorTest, TestSplitSignalSegments) {
   const int64_t sample_rate = 16000;
   const int64_t num_samples = sample_rate * 2;
 
@@ -295,39 +295,45 @@ TEST(ExtractorTest, TestStftEnergySegmentationAndMerge) {
 
   auto* alloc = &CppAllocator::Instance();
 
-  ortc::Tensor<float> audio(alloc);
-  float* audio_data = audio.Allocate({1, num_samples});
-  std::memcpy(audio_data, pcm.data(), num_samples * sizeof(float));
+  ortc::Tensor<float> input(alloc);
+  float* in_data = input.Allocate({1, num_samples});
+  std::memcpy(in_data, pcm.data(), num_samples * sizeof(float));
 
   ortc::Tensor<int64_t> sr(alloc);
   sr.Allocate({1})[0] = sample_rate;
 
-  ortc::Tensor<int64_t> frame(alloc);
-  frame.Allocate({1})[0] = 25;
+  ortc::Tensor<int64_t> frame_ms(alloc);
+  frame_ms.Allocate({1})[0] = 25;
 
-  ortc::Tensor<int64_t> hop(alloc);
-  hop.Allocate({1})[0] = 10;
+  ortc::Tensor<int64_t> hop_ms(alloc);
+  hop_ms.Allocate({1})[0] = 10;
 
-  ortc::Tensor<float> thr(alloc);
-  thr.Allocate({1})[0] = -40.0f;
+  ortc::Tensor<float> energy_threshold_db(alloc);
+  energy_threshold_db.Allocate({1})[0] = -40.0f;
 
   ortc::Tensor<int64_t> output(alloc);
 
-  split_signal_segments(audio, sr, frame, hop, thr, output);
+  extError_t err = OrtxSplitSignalSegments(
+      reinterpret_cast<OrtxTensor*>(&input), reinterpret_cast<OrtxTensor*>(&sr),
+      reinterpret_cast<OrtxTensor*>(&frame_ms), reinterpret_cast<OrtxTensor*>(&hop_ms),
+      reinterpret_cast<OrtxTensor*>(&energy_threshold_db), reinterpret_cast<OrtxTensor*>(&output));
+
+  ASSERT_EQ(err, kOrtxOK);
 
   const auto& out_shape = output.Shape();
   ASSERT_EQ(out_shape.size(), 2u);
-  int64_t num_segments = out_shape[0];
   ASSERT_EQ(out_shape[1], 2);
-  ASSERT_EQ(num_segments, 53);
+  ASSERT_EQ(out_shape[0], 53);
 
-  // Start merging
   ortc::Tensor<int64_t> merge_gap(alloc);
   merge_gap.Allocate({1})[0] = 50;
 
   ortc::Tensor<int64_t> merged_segments(alloc);
 
-  merge_signal_segments(output, merge_gap, merged_segments);
+  err = OrtxMergeSignalSegments(reinterpret_cast<OrtxTensor*>(&output), reinterpret_cast<OrtxTensor*>(&merge_gap),
+                                reinterpret_cast<OrtxTensor*>(&merged_segments));
+
+  ASSERT_EQ(err, kOrtxOK);
 
   const auto& merged_shape = merged_segments.Shape();
   ASSERT_EQ(merged_shape.size(), 2u);
