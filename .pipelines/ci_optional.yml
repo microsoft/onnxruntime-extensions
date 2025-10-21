@@ -145,7 +145,7 @@ stages:
 
     - script: |
         python -m pip install -r requirements-dev.txt
-        python -m pip install torch torchvision torchaudio
+        python -m pip install torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1
       displayName: Install dependencies for pytest
 
     - script: |
