@@ -785,3 +785,207 @@ TEST(OrtxTokenizerTest, Qwen3ChatTemplate) {
 
   ASSERT_EQ(std::string(text), expected_decoder_output);
 }
+
+TEST(OrtxTokenizerTest, Phi4ChatTemplateWithMinjaTools) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "How should I explain the Internet?"
+      }
+    ])";
+
+  // Minja/Phi-4 style tools
+  std::string tools_json = R"(
+    [
+      {
+        "name": "get_horoscope",
+        "description": "Get today's horoscope for an astrological sign.",
+        "parameters": {
+          "sign": {
+            "type": "str",
+            "description": "An astrological sign like Taurus or Aquarius",
+            "default": ""
+          }
+        }
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), tools_json.c_str(),
+    templated_text.ToBeAssigned(), true, false);
+
+  if (err != kOrtxOK) {
+    std::cout << "Failed to apply chat template (Phi-4 tools)" << std::endl;
+    std::cout << "Error code: " << err << std::endl;
+    std::cout << "Error message: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string expected_output =
+      "<|im_start|>system<|im_sep|>You are a helpful assistant.<|im_end|>"
+      "<|im_start|>user<|im_sep|>How should I explain the Internet?<|im_end|>"
+      "<|im_start|>assistant<|im_sep|>";
+
+  ASSERT_EQ(std::string(text_ptr), expected_output);
+}
+
+TEST(OrtxTokenizerTest, Phi4ChatTemplateWithOAIToolType) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "How should I explain the Internet?"
+      }
+    ])";
+
+  // OpenAI "type": "tool" format
+  std::string tools_json = R"(
+    [
+      {
+        "type": "tool",
+        "name": "get_horoscope",
+        "description": "Get today's horoscope for an astrological sign.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "sign": {
+              "type": "string",
+              "description": "An astrological sign like Taurus or Aquarius"
+            }
+          },
+          "required": ["sign"]
+        }
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), tools_json.c_str(),
+    templated_text.ToBeAssigned(), true, false);
+
+  if (err != kOrtxOK) {
+    std::cout << "Failed to apply chat template (OAI tool type)" << std::endl;
+    std::cout << "Error code: " << err << std::endl;
+    std::cout << "Error message: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string expected_output =
+      "<|im_start|>system<|im_sep|>You are a helpful assistant.<|im_end|>"
+      "<|im_start|>user<|im_sep|>How should I explain the Internet?<|im_end|>"
+      "<|im_start|>assistant<|im_sep|>";
+
+  ASSERT_EQ(std::string(text_ptr), expected_output);
+}
+
+TEST(OrtxTokenizerTest, Phi4ChatTemplateWithOAIFunctionType) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "How should I explain the Internet?"
+      }
+    ])";
+
+  // OpenAI "type": "function" format
+  std::string tools_json = R"(
+    [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "description": "Get the current weather for a given location.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "The name of the city or location."
+              }
+            },
+            "required": ["location"]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "get_tourist_attractions",
+          "description": "Get a list of top tourist attractions for a given city.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "city": {
+                "type": "string",
+                "description": "The name of the city to find attractions for."
+              }
+            },
+            "required": ["city"]
+          }
+        }
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), tools_json.c_str(),
+    templated_text.ToBeAssigned(), true, false);
+
+  if (err != kOrtxOK) {
+    std::cout << "Failed to apply chat template (OAI function type)" << std::endl;
+    std::cout << "Error code: " << err << std::endl;
+    std::cout << "Error message: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string expected_output =
+      "<|im_start|>system<|im_sep|>You are a helpful assistant.<|im_end|>"
+      "<|im_start|>user<|im_sep|>How should I explain the Internet?<|im_end|>"
+      "<|im_start|>assistant<|im_sep|>";
+
+  ASSERT_EQ(std::string(text_ptr), expected_output);
+}
