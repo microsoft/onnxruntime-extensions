@@ -138,19 +138,6 @@ class SpeechFeatures {
     return {};
   }
 
-  static std::vector<float> hann_window(int N) {
-    std::vector<float> window(N);
-
-    for (int n = 0; n < N; ++n) {
-      // Original formula introduces more rounding errors than the current implementation
-      // window[n] = static_cast<float>(0.5 * (1 - std::cos(2 * M_PI * n / (N - 1))));
-      double n_sin = std::sin(M_PI * n / N);
-      window[n] = static_cast<float>(n_sin * n_sin);
-    }
-
-    return window;
-  }
-
   static std::vector<float> hamming_window(int N) {
     std::vector<float> window(N);
 
