@@ -205,7 +205,7 @@ stages:
 - stage: MacOSBuilds
   dependsOn: []
   variables:
-    torch.packages: 'torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1'
+    torch.packages: 'torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2'
   jobs:
 
   ###########
@@ -289,9 +289,6 @@ stages:
 
     strategy:
       matrix:
-        py313-1201:
-          python.version: '3.13'
-          ort.version: '1.20.1'
         py312-1192:
           python.version: '3.12'
           ort.version: '1.19.2'
