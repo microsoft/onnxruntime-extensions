@@ -24,6 +24,8 @@ stages:
 
 - stage: LinuxBuilds
   dependsOn: []
+  variables:
+    torch.packages: 'torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1'
   jobs:
 
   #######
@@ -35,26 +37,15 @@ stages:
 
     strategy:
       matrix:
+        py313-1201:
+          python.version: '3.13'
+          ort.version: '1.20.1'
         py312-1192:
           python.version: '3.12'
-          torch.version: 'torch torchvision torchaudio'
           ort.version: '1.19.2'
         py311-1181:
-          python.version: '3.12'
-          torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.18.1'
-        py311-1171:
           python.version: '3.11'
-          torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.17.1'
-        py310-1163:
-          python.version: '3.10'
-          torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.16.3'
-        py39-1151:
-          python.version: '3.9'
-          torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.15.1'
+          ort.version: '1.18.1'
 
     steps:
     - task: DownloadGitHubRelease@0
@@ -99,7 +90,7 @@ stages:
         CPU_NUMBER=8 python -m pip install .
       displayName: Build the library and tests
 
-    - script: python -m pip install $(torch.version)
+    - script: python -m pip install $(torch.packages)
       displayName: Install pytorch
 
     - script: |
@@ -121,7 +112,7 @@ stages:
     steps:
     - task: UsePythonVersion@0
       inputs:
-        versionSpec: '3.10'
+        versionSpec: '3.12'
         addToPath: true
         architecture: 'x64'
 
@@ -134,7 +125,7 @@ stages:
       displayName: Build the python library in editable mode
 
     - script: |
-        python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+        python -m pip install $(torch.packages) --index-url https://download.pytorch.org/whl/cpu
         python -m pip install -r requirements-dev.txt
       displayName: Install requirements-dev.txt
 
@@ -354,6 +345,8 @@ stages:
 
 - stage: WindowsBuilds
   dependsOn: []
+  variables:
+    torch.packages: 'torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1'
   jobs:
 
   #########
@@ -447,26 +440,15 @@ stages:
 
     strategy:
       matrix:
-        py312-1201:
-          python.version: '3.12'
-          torch.version: 'torch torchvision torchaudio'
+        py313-1201:
+          python.version: '3.13'
           ort.version: '1.20.1'
         py312-1192:
           python.version: '3.12'
-          torch.version: 'torch torchvision torchaudio'
           ort.version: '1.19.2'
         py311-1181:
           python.version: '3.11'
-          torch.version: 'torch torchvision torchaudio'
           ort.version: '1.18.1'
-        py310-1171:
-          python.version: '3.10'
-          torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.17.1'
-        py310-1163:
-          python.version: '3.10'
-          torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.16.3'
 
     steps:
     - task: UsePythonVersion@0
@@ -489,7 +471,7 @@ stages:
       displayName: Build the wheel
 
     - script: |
-        python -m pip install $(torch.version)
+        python -m pip install $(torch.packages)
       displayName: Install pytorch
 
     - script: |
@@ -524,7 +506,7 @@ stages:
 
     - script: |
         python -m pip install -r requirements-dev.txt
-        python -m pip install torch torchvision torchaudio
+        python -m pip install torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1
       displayName: Install dependencies for pytest
 
     - script: |
@@ -621,7 +603,7 @@ stages:
     timeoutInMinutes: 120
     variables:
       ORT_VERSION: '1.17.1'
-      TORCH_VERSION: 'torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118'
+      TORCH_VERSION: 'torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1'
     steps:
       - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
         displayName: 'Clean Agent Directories'
