@@ -309,6 +309,7 @@ TEST(ExtractorTest, TestSplitSignalSegments) {
   hop_ms.Allocate({1})[0] = 10;
 
   ortc::Tensor<float> energy_threshold_db(alloc);
+  // Difference of 40 decibels can be a reasonable diff between voice and silence (or background noise)
   energy_threshold_db.Allocate({1})[0] = -40.0f;
 
   ortc::Tensor<int64_t> output(alloc);
