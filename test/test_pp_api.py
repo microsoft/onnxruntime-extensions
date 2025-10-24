@@ -68,21 +68,33 @@ class TestPPAPI(unittest.TestCase):
         cls.messages_list = [
             # Case 1: Regular case with system, user, and assistant
             [
-                {"role": "system", "content": "System message", "tools": "calculate_sum"},
+                {
+                    "role": "system",
+                    "content": "System message",
+                    "tools": '[{"name": "calculate_sum", "description": "Calculate the sum of two numbers.", "parameters": {"a": {"type": "int"}, "b": {"type": "int"}}}]'
+                },
                 {"role": "user", "content": "Hello, can you call some tools for me?"},
                 {"role": "assistant", "content": "Sure, I can calculate the sum for you!"}
             ],
 
             # Case 2: Two back-to-back user messages
             [
-                {"role": "system", "content": "", "tools": "calculate_sum"},
+                {
+                    "role": "system",
+                    "content": "",
+                    "tools": '[{"name": "calculate_sum", "description": "Calculate the sum of two numbers.", "parameters": {"a": {"type": "int"}, "b": {"type": "int"}}}]'
+                },
                 {"role": "user", "content": "Hi, I need some help with tools."},
                 {"role": "user", "content": "Also, can you help with calculations?"}
             ],
 
             # Case 3: Two back-to-back assistant messages
             [
-                {"role": "system", "content": "", "tools": "calculate_sum"},
+                {
+                    "role": "system",
+                    "content": "",
+                    "tools": '[{"name": "calculate_sum", "description": "Calculate the sum of two numbers.", "parameters": {"a": {"type": "int"}, "b": {"type": "int"}}}]'
+                },
                 {"role": "assistant", "content": "Sure, what would you like me to calculate?"},
                 {"role": "assistant", "content": "I can handle multiple requests."}
             ],
@@ -97,7 +109,11 @@ class TestPPAPI(unittest.TestCase):
 
             # Case 5: System message with empty content
             [
-                {"role": "system", "content": "", "tools": "calculate_sum"},
+                {
+                    "role": "system",
+                    "content": "",
+                    "tools": '[{"name": "calculate_sum", "description": "Calculate the sum of two numbers.", "parameters": {"a": {"type": "int"}, "b": {"type": "int"}}}]'
+                },
                 {"role": "user", "content": "Hello, I need some help."}
             ]
         ]

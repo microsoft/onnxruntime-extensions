@@ -141,17 +141,25 @@ static json ConvertParameters(const json& parameters) {
   json out_params = json::object();
 
   // If already in normalized style, simply return as-is
+  // Else normalize OpenAI style: e.g. {"type":"object","properties":{...},"required":[...]}
   if (parameters.is_object() && parameters.contains("properties")) {
-    // OpenAI style: e.g. {"type":"object","properties":{...},"required":[...]}
     for (auto& [prop_name, prop_schema] : parameters.at("properties").items()) {
       json param_entry = json::object();
+      
       if (prop_schema.contains("type")) {
-        param_entry["type"] = prop_schema["type"];
+        // Normalize the "string" field to "str"
+        std::string type = prop_schema["type"];
+        if (type == "string") {
+          param_entry["type"] = "str";  // Convert "string" to "str"
+        } else {
+          param_entry["type"] = type;  // Keep other types as-is
+        }
       }
+
       if (prop_schema.contains("description")) {
         param_entry["description"] = prop_schema["description"];
       }
-      // Default handling if needed
+
       out_params[prop_name] = param_entry;
     }
   } else {
@@ -331,26 +339,43 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
 
     std::shared_ptr<minja::Context> context;
 
+    // Case 1: Check if tools are inside messages (for Phi-4-mini)
+    if (actual_messages.is_array()) {
+      for (auto& message_obj : actual_messages) {
+        if (message_obj.contains("tools")) {
+          // Normalize the tools inside the message
+          std::string tools_str = minja::normalize_newlines(message_obj["tools"].get<std::string>().c_str());
+          json tools_json = NormalizeTools(tools_str.c_str());
+          message_obj["tools"] = tools_json;  // Update the tools in the message
+        }
+      }
+    }
+
+    // Case 2: Check if we received tools separately (for Qwen or others)
     if (tools && *tools) {
       std::string tools_str = minja::normalize_newlines(tools);
-
-      // Normalize tool structure (e.g. OpenAI formats) into Minja-accepted format
       json tools_json = NormalizeTools(tools_str.c_str());
+
+      // Add normalized tools to the context if tools are passed separately
       context = minja::Context::make(json({
           {"messages", actual_messages},
           {"tools", tools_json},
           {"add_generation_prompt", add_generation_prompt},
       }));
     } else {
+      // No tools input, just use the messages
       context = minja::Context::make(json({
           {"messages", actual_messages},
           {"add_generation_prompt", add_generation_prompt},
       }));
     }
 
+    // Set required context values
     context->set("strftime_now", minja::Value::callable(strftime_function));
     context->set("bos_token", tok_config_->bos_token_);
     context->set("eos_token", tok_config_->eos_token_);
+
+    // Render the template
     text = root->render(context);
     output = text;
   } catch (const std::runtime_error& e) {
