@@ -252,6 +252,38 @@ class SegmentExtraction(CustomOp):
         ]
 
 
+class SplitSignalSegments(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [
+            cls.io_def("audio", onnx_proto.TensorProto.FLOAT, [1, None]),
+            cls.io_def("sr", onnx_proto.TensorProto.INT64, [1]),
+            cls.io_def("frame_ms", onnx_proto.TensorProto.INT64, [1]),
+            cls.io_def("hop_ms", onnx_proto.TensorProto.INT64, [1]),
+            cls.io_def("energy_threshold_db", onnx_proto.TensorProto.FLOAT, [1])
+        ]
+
+    @classmethod
+    def get_outputs(cls):
+        return [
+            cls.io_def('value', onnx_proto.TensorProto.INT64, [None])
+        ]
+
+
+class MergeSignalSegments(CustomOp):
+    @classmethod
+    def get_inputs(cls):
+        return [
+            cls.io_def("segments", onnx_proto.TensorProto.INT64, [None, 2]),
+            cls.io_def("merge_gap_ms", onnx_proto.TensorProto.INT64, [1]),
+        ]
+
+    @classmethod
+    def get_outputs(cls):
+        return [
+            cls.io_def("merged_segments", onnx_proto.TensorProto.INT64, [None, 2])
+        ]
+    
 class BertTokenizer(CustomOp):
 
     @classmethod

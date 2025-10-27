@@ -82,7 +82,10 @@ TEST(OrtxTokenizerTest, Phi4ChatTemplate) {
 }
 
 TEST(OrtxTokenizerTest, Phi4SpecialChatTemplate) {
-  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  // Create tokenizer with options (skip_special_tokens = false)
+  const char* option_keys[] = { "skip_special_tokens" };
+  const char* option_values[] = { "false" };
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizerWithOptions, "data/phi-4-base", option_keys, option_values, 1);
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
 
   OrtxObjectPtr<OrtxTensorResult> templated_text;
@@ -123,7 +126,7 @@ TEST(OrtxTokenizerTest, Phi4SpecialChatTemplate) {
 
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
   const char* input[] = { text_ptr };
-  OrtxTokenizeWithOptions(tokenizer.get(), input, 1, token_ids.ToBeAssigned(), true);
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
   ASSERT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;
@@ -138,7 +141,7 @@ TEST(OrtxTokenizerTest, Phi4SpecialChatTemplate) {
   OrtxObjectPtr<OrtxStringArray> decoded_text;
 
   // Test detokenization with skip_special_tokens = false (tokens like <|im_start|> should be part of the output)
-  OrtxDetokenize1DWithOptions(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned(), false);
+  OrtxDetokenize1D(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned());
   const char* special_text = nullptr;
   OrtxStringArrayGetItem(decoded_text.get(), 0, &special_text);
 
@@ -442,7 +445,10 @@ TEST(OrtxTokenizerTest, Phi3VisionChatTemplate) {
 }
 
 TEST(OrtxTokenizerTest, Gemma3ChatTemplate) {
-  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/models/gemma-3");
+  // Create tokenizer with options (add_special_tokens = false)
+  const char* option_keys[] = { "add_special_tokens" };
+  const char* option_values[] = { "false" };
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizerWithOptions, "data/models/gemma-3", option_keys, option_values, 1);
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
 
   OrtxObjectPtr<OrtxTensorResult> templated_text;
@@ -486,7 +492,9 @@ TEST(OrtxTokenizerTest, Gemma3ChatTemplate) {
 
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
   const char* input[] = { text_ptr };
-  OrtxTokenizeWithOptions(tokenizer.get(), input, 1, token_ids.ToBeAssigned(), false);
+
+  // Test tokenization with add_special_tokens = false (options already set during tokenizer creation)
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
   ASSERT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;
@@ -507,8 +515,14 @@ TEST(OrtxTokenizerTest, Gemma3ChatTemplate) {
 
   ASSERT_EQ(std::string(text), expected_decoder_output);
 
+  // Set skip_special_tokens to false before the 1D detokenization
+  const char* keys[] = {"skip_special_tokens"};
+  const char* vals[] = {"false"};
+  auto err2 = OrtxUpdateTokenizerOptions(tokenizer.get(), keys, vals, 1);
+  ASSERT_EQ(err2, kOrtxOK);
+
   // Test detokenization with skip_special_tokens = false
-  OrtxDetokenize1DWithOptions(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned(), false);
+  OrtxDetokenize1D(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned());
   const char* special_text = nullptr;
   OrtxStringArrayGetItem(decoded_text.get(), 0, &special_text);
 
@@ -528,7 +542,10 @@ to test the special loading from the chat_template.json file.
 */
 
 TEST(OrtxTokenizerTest, Gemma3SpecialChatTemplate) {
-  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/gemma-3-chat");
+  // Create tokenizer with options (both add_special_tokens and skip_special_tokens = false)
+  const char* option_keys[] = { "add_special_tokens", "skip_special_tokens" };
+  const char* option_values[] = { "false", "False" }; // also testing case as this may also be used with our Python API
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizerWithOptions, "data/gemma-3-chat", option_keys, option_values, 2);
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
 
   OrtxObjectPtr<OrtxTensorResult> templated_text;
@@ -572,7 +589,9 @@ TEST(OrtxTokenizerTest, Gemma3SpecialChatTemplate) {
 
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
   const char* input[] = { text_ptr };
-  OrtxTokenizeWithOptions(tokenizer.get(), input, 1, token_ids.ToBeAssigned(), false);
+
+  // Test tokenization with add_special_tokens = false (options already set during tokenizer creation)
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
   ASSERT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;
@@ -593,8 +612,8 @@ TEST(OrtxTokenizerTest, Gemma3SpecialChatTemplate) {
 
   ASSERT_EQ(std::string(text), expected_decoder_output);
 
-  // Test detokenization with skip_special_tokens = false
-  OrtxDetokenize1DWithOptions(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned(), false);
+  // Test detokenization with skip_special_tokens = false (options already set during tokenizer creation)
+  OrtxDetokenize1D(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned());
   const char* special_text = nullptr;
   OrtxStringArrayGetItem(decoded_text.get(), 0, &special_text);
 
@@ -623,7 +642,10 @@ in ORT Extensions as well.
 */
 
 TEST(OrtxTokenizerTest, WhisperChatTemplate) {
-  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/whisper.tiny");
+  // Create tokenizer with options (add_special_tokens = false and skip_special_tokens = true)
+  const char* option_keys[] = { "add_special_tokens", "skip_special_tokens" };
+  const char* option_values[] = { "false", "true" };
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizerWithOptions, "data/tokenizer/whisper.tiny", option_keys, option_values, 2);
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
 
   OrtxObjectPtr<OrtxTensorResult> templated_text;
@@ -669,7 +691,7 @@ TEST(OrtxTokenizerTest, WhisperChatTemplate) {
   // Tokenize to confirm token IDs
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
   const char* input[] = { text_ptr };
-  OrtxTokenizeWithOptions(tokenizer.get(), input, 1, token_ids.ToBeAssigned(), false);
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
   ASSERT_EQ(token_ids.Code(), kOrtxOK);
 
   size_t length = 0;
@@ -690,12 +712,449 @@ TEST(OrtxTokenizerTest, WhisperChatTemplate) {
 
   ASSERT_EQ(std::string(roundtrip_text), expected_output);
 
+  // Flip skip_special_tokens to false before the 1D detokenization
+  const char* keys[] = {"skip_special_tokens"};
+  const char* vals[] = {"false"};
+  auto err2 = OrtxUpdateTokenizerOptions(tokenizer.get(), keys, vals, 1);
+  ASSERT_EQ(err2, kOrtxOK);
+
   // Test detokenization with skip_special_tokens = false
-  OrtxDetokenize1DWithOptions(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned(), false);
+  OrtxDetokenize1D(tokenizer.get(), &ids_vec.front(), ids_vec.size(), decoded_text.ToBeAssigned());
   const char* special_text = nullptr;
   OrtxStringArrayGetItem(decoded_text.get(), 0, &special_text);
 
   std::string expected_special_decoder_output = "You are an audio assistant.\ntranscribe this clip:\n<|audio|>\xE2\x80\xA6" "binary\xE2\x80\xA6<|endofaudio|>";
 
   ASSERT_EQ(std::string(special_text), expected_special_decoder_output);
+}
+
+TEST(OrtxTokenizerTest, Qwen3ChatTemplate) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/qwen3");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "user",
+        "content": "Hi, this is a test!"
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), nullptr, templated_text.ToBeAssigned(), true, false);
+
+  if (err != kOrtxOK) {
+    std::cout << "Failed to apply chat template, stopping the test." << std::endl;
+    std::cout << "Error code: " << err << std::endl;
+    std::cout << "Error message: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK) << "Failed to get tensor from templated text, stopping the test.";
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  // From HuggingFace Python output for 'Qwen/Qwen3-0.6B'
+  std::string expected_output = "<|im_start|>user\nHi, this is a test!<|im_end|>\n<|im_start|>assistant\n";
+
+  ASSERT_EQ(text_ptr, expected_output);
+
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  const char* input[] = { text_ptr };
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  std::vector<extTokenId_t> ids_vec(ids, ids + length);
+
+  EXPECT_EQ(ids_vec, std::vector<extTokenId_t>({151644, 872, 198, 13048, 11, 419, 374, 264, 1273, 0, 151645, 198, 151644, 77091, 198}));
+  
+  OrtxObjectPtr<OrtxStringArray> decoded_text;
+  OrtxDetokenize(tokenizer.get(), token_ids.get(), decoded_text.ToBeAssigned());
+  EXPECT_EQ(decoded_text.Code(), kOrtxOK);
+
+  const char* text = nullptr;
+  OrtxStringArrayGetItem(decoded_text.get(), 0, &text);
+
+  std::string expected_decoder_output = "user\nHi, this is a test!\nassistant\n";
+
+  ASSERT_EQ(std::string(text), expected_decoder_output);
+}
+
+TEST(OrtxTokenizerTest, Phi4MiniChatTemplateWithMinjaTools) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-mini");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant.",
+        "tools": "[{\"name\": \"get_horoscope\", \"description\": \"Get today's horoscope for an astrological sign.\", \"parameters\": {\"sign\": {\"type\": \"str\", \"description\": \"An astrological sign like Taurus or Aquarius\", \"default\": \"\"}}}]"
+      },
+      {
+        "role": "user",
+        "content": "How should I explain the Internet?"
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), nullptr,
+    templated_text.ToBeAssigned(), true, false);
+
+  if (err != kOrtxOK) {
+    std::cout << "Failed to apply chat template (Minja/Phi-4 tools)" << std::endl;
+    std::cout << "Error code: " << err << std::endl;
+    std::cout << "Error message: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string expected_output = "<|system|>You are a helpful assistant.<|tool|>"
+                                "[{'name': 'get_horoscope', 'description': \"Get today's horoscope for an astrological sign.\", "
+                                "'parameters': {'sign': {'type': 'str', 'description': 'An astrological sign like Taurus or Aquarius', "
+                                "'default': ''}}}]<|/tool|><|end|><|user|>How should I explain the Internet?<|end|><|assistant|>";
+
+  ASSERT_EQ(std::string(text_ptr), expected_output);
+}
+
+TEST(OrtxTokenizerTest, Phi4MiniChatTemplateWithOAIToolType) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-mini");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant.",
+        "tools": "[{\"type\": \"tool\", \"name\": \"get_horoscope\", \"description\": \"Get today's horoscope for an astrological sign.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"sign\": {\"type\": \"string\", \"description\": \"An astrological sign like Taurus or Aquarius\"}}}}]"
+      },
+      {
+        "role": "user",
+        "content": "How should I explain the Internet?"
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), nullptr,
+    templated_text.ToBeAssigned(), true, false);
+
+  if (err != kOrtxOK) {
+    std::cout << "Failed to apply chat template (Minja/Phi-4 tools)" << std::endl;
+    std::cout << "Error code: " << err << std::endl;
+    std::cout << "Error message: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string expected_output = "<|system|>You are a helpful assistant.<|tool|>"
+                                "[{'name': 'get_horoscope', 'description': \"Get today's horoscope for "
+                                "an astrological sign.\", 'parameters': {'sign': {'type': 'str', "
+                                "'description': 'An astrological sign like Taurus or Aquarius'}}}]<|/tool|>"
+                                "<|end|><|user|>How should I explain the Internet?<|end|><|assistant|>";
+
+  ASSERT_EQ(std::string(text_ptr), expected_output);
+}
+
+TEST(OrtxTokenizerTest, Phi4MiniChatTemplateWithOAIFunctionType) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-mini");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+  [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant.",
+      "tools": "[{\"type\": \"function\", \"function\": {\"name\": \"get_weather\", \"description\": \"Get the current weather for a given location.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"location\": {\"type\": \"string\", \"description\": \"The name of the city or location.\"}}, \"required\": [\"location\"]}}}, {\"type\": \"function\", \"function\": {\"name\": \"get_tourist_attractions\", \"description\": \"Get a list of top tourist attractions for a given city.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"city\": {\"type\": \"string\", \"description\": \"The name of the city to find attractions for.\"}}, \"required\": [\"city\"]}}}]"
+    },
+    {
+      "role": "user",
+      "content": "How should I explain the Internet?"
+    }
+  ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), nullptr,
+    templated_text.ToBeAssigned(), true, false);
+
+  if (err != kOrtxOK) {
+    std::cout << "Failed to apply chat template (Minja/Phi-4 tools)" << std::endl;
+    std::cout << "Error code: " << err << std::endl;
+    std::cout << "Error message: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string expected_output = "<|system|>You are a helpful assistant.<|tool|>[{'name': 'get_weather', "
+                                "'description': 'Get the current weather for a given location.', "
+                                "'parameters': {'location': {'type': 'str', 'description': 'The name of the city or location.'}}}, "
+                                "{'name': 'get_tourist_attractions', 'description': 'Get a list of top tourist attractions for a given city.', "
+                                "'parameters': {'city': {'type': 'str', 'description': 'The name of the city to find attractions for.'}}}]"
+                                "<|/tool|><|end|><|user|>How should I explain the Internet?<|end|><|assistant|>";
+
+  ASSERT_EQ(std::string(text_ptr), expected_output);
+}
+
+TEST(OrtxTokenizerTest, Qwen2_5_ChatTemplateWithMinjaTools) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/qwen2.5");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "How should I explain the Internet?"
+      }
+    ])";
+
+  // Minja/Phi-4 style tools
+  std::string tools_json = R"(
+    [
+      {
+        "name": "get_horoscope",
+        "description": "Get today's horoscope for an astrological sign.",
+        "parameters": {
+          "sign": {
+            "type": "str",
+            "description": "An astrological sign like Taurus or Aquarius",
+            "default": ""
+          }
+        }
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), tools_json.c_str(),
+    templated_text.ToBeAssigned(), true, false);
+
+  if (err != kOrtxOK) {
+    std::cout << "Failed to apply chat template (Minja tools)" << std::endl;
+    std::cout << "Error code: " << err << std::endl;
+    std::cout << "Error message: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+    std::string expected_output = "<|im_start|>system\n"
+                                  "You are a helpful assistant.\n\n"
+                                  "# Tools\n\n"
+                                  "You may call one or more functions to assist with the user query.\n\n"
+                                  "You are provided with function signatures within <tools></tools> XML tags:\n"
+                                  "<tools>\n"
+                                  "{\"name\": \"get_horoscope\", \"description\": \"Get today's horoscope for an astrological sign.\", \"parameters\": {\"sign\": {\"type\": \"str\", \"description\": \"An astrological sign like Taurus or Aquarius\", \"default\": \"\"}}}\n"
+                                  "</tools>\n\n"
+                                  "For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n"
+                                  "<tool_call>\n"
+                                  "{\"name\": <function-name>, \"arguments\": <args-json-object>}\n"
+                                  "</tool_call><|im_end|>\n"
+                                  "<|im_start|>user\n"
+                                  "How should I explain the Internet?<|im_end|>\n"
+                                  "<|im_start|>assistant\n";
+
+  ASSERT_EQ(std::string(text_ptr), expected_output);
+}
+
+TEST(OrtxTokenizerTest, Qwen2_5_ChatTemplateWithOAIToolType) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/qwen2.5");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "How should I explain the Internet?"
+      }
+    ])";
+
+  // OpenAI "type": "tool" format
+  std::string tools_json = R"(
+    [
+      {
+        "type": "tool",
+        "name": "get_horoscope",
+        "description": "Get today's horoscope for an astrological sign.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "sign": {
+              "type": "string",
+              "description": "An astrological sign like Taurus or Aquarius"
+            }
+          },
+          "required": ["sign"]
+        }
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), tools_json.c_str(),
+    templated_text.ToBeAssigned(), true, false);
+
+  if (err != kOrtxOK) {
+    std::cout << "Failed to apply chat template (OAI tool type)" << std::endl;
+    std::cout << "Error code: " << err << std::endl;
+    std::cout << "Error message: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string expected_output = "<|im_start|>system\n"
+                                "You are a helpful assistant.\n\n"
+                                "# Tools\n\n"
+                                "You may call one or more functions to assist with the user query.\n\n"
+                                "You are provided with function signatures within <tools></tools> XML tags:\n"
+                                "<tools>\n"
+                                "{\"name\": \"get_horoscope\", \"description\": \"Get today's horoscope for an astrological sign.\", \"parameters\": {\"sign\": {\"type\": \"str\", \"description\": \"An astrological sign like Taurus or Aquarius\"}}}\n"
+                                "</tools>\n\n"
+                                "For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n"
+                                "<tool_call>\n"
+                                "{\"name\": <function-name>, \"arguments\": <args-json-object>}\n"
+                                "</tool_call><|im_end|>\n"
+                                "<|im_start|>user\n"
+                                "How should I explain the Internet?<|im_end|>\n"
+                                "<|im_start|>assistant\n";
+
+  ASSERT_EQ(std::string(text_ptr), expected_output);
+}
+
+TEST(OrtxTokenizerTest, Qwen2_5_ChatTemplateWithOAIFunctionType) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/qwen2.5");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "How should I explain the Internet?"
+      }
+    ])";
+
+  // OpenAI "type": "function" format
+  std::string tools_json = R"(
+    [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "description": "Get the current weather for a given location.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "The name of the city or location."
+              }
+            },
+            "required": ["location"]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "get_tourist_attractions",
+          "description": "Get a list of top tourist attractions for a given city.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "city": {
+                "type": "string",
+                "description": "The name of the city to find attractions for."
+              }
+            },
+            "required": ["city"]
+          }
+        }
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), tools_json.c_str(),
+    templated_text.ToBeAssigned(), true, false);
+
+  if (err != kOrtxOK) {
+    std::cout << "Failed to apply chat template (OAI function type)" << std::endl;
+    std::cout << "Error code: " << err << std::endl;
+    std::cout << "Error message: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string expected_output = "<|im_start|>system\n"
+                                "You are a helpful assistant.\n\n"
+                                "# Tools\n\n"
+                                "You may call one or more functions to assist with the user query.\n\n"
+                                "You are provided with function signatures within <tools></tools> XML tags:\n"
+                                "<tools>\n"
+                                "{\"name\": \"get_weather\", \"description\": \"Get the current weather for a given location.\", \"parameters\": {\"location\": {\"type\": \"str\", \"description\": \"The name of the city or location.\"}}}\n"
+                                "{\"name\": \"get_tourist_attractions\", \"description\": \"Get a list of top tourist attractions for a given city.\", \"parameters\": {\"city\": {\"type\": \"str\", \"description\": \"The name of the city to find attractions for.\"}}}\n"
+                                "</tools>\n\n"
+                                "For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n"
+                                "<tool_call>\n"
+                                "{\"name\": <function-name>, \"arguments\": <args-json-object>}\n"
+                                "</tool_call><|im_end|>\n"
+                                "<|im_start|>user\n"
+                                "How should I explain the Internet?<|im_end|>\n"
+                                "<|im_start|>assistant\n";
+
+  ASSERT_EQ(std::string(text_ptr), expected_output);
 }

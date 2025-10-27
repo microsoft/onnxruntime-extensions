@@ -68,21 +68,33 @@ class TestPPAPI(unittest.TestCase):
         cls.messages_list = [
             # Case 1: Regular case with system, user, and assistant
             [
-                {"role": "system", "content": "System message", "tools": "calculate_sum"},
+                {
+                    "role": "system",
+                    "content": "System message",
+                    "tools": '[{"name": "calculate_sum", "description": "Calculate the sum of two numbers.", "parameters": {"a": {"type": "int"}, "b": {"type": "int"}}}]'
+                },
                 {"role": "user", "content": "Hello, can you call some tools for me?"},
                 {"role": "assistant", "content": "Sure, I can calculate the sum for you!"}
             ],
 
             # Case 2: Two back-to-back user messages
             [
-                {"role": "system", "content": "", "tools": "calculate_sum"},
+                {
+                    "role": "system",
+                    "content": "",
+                    "tools": '[{"name": "calculate_sum", "description": "Calculate the sum of two numbers.", "parameters": {"a": {"type": "int"}, "b": {"type": "int"}}}]'
+                },
                 {"role": "user", "content": "Hi, I need some help with tools."},
                 {"role": "user", "content": "Also, can you help with calculations?"}
             ],
 
             # Case 3: Two back-to-back assistant messages
             [
-                {"role": "system", "content": "", "tools": "calculate_sum"},
+                {
+                    "role": "system",
+                    "content": "",
+                    "tools": '[{"name": "calculate_sum", "description": "Calculate the sum of two numbers.", "parameters": {"a": {"type": "int"}, "b": {"type": "int"}}}]'
+                },
                 {"role": "assistant", "content": "Sure, what would you like me to calculate?"},
                 {"role": "assistant", "content": "I can handle multiple requests."}
             ],
@@ -97,7 +109,11 @@ class TestPPAPI(unittest.TestCase):
 
             # Case 5: System message with empty content
             [
-                {"role": "system", "content": "", "tools": "calculate_sum"},
+                {
+                    "role": "system",
+                    "content": "",
+                    "tools": '[{"name": "calculate_sum", "description": "Calculate the sum of two numbers.", "parameters": {"a": {"type": "int"}, "b": {"type": "int"}}}]'
+                },
                 {"role": "user", "content": "Hello, I need some help."}
             ]
         ]
@@ -335,7 +351,14 @@ class TestPPAPI(unittest.TestCase):
         inputs = hf_tok.apply_chat_template(
             messages, add_generation_prompt=True, tokenize=False, return_tensors="np")
 
-        tokenizer = pp_api.Tokenizer(ckpt)
+        # Initialize ORT Extensions tokenizer with options (initially with special tokens)
+        tokenizer = pp_api.Tokenizer(
+            ckpt,
+            options={
+                "add_special_tokens": "true"
+            }
+        )
+        
         message_json = json.dumps(messages)
         prompt = tokenizer.apply_chat_template(message_json)
         self.assertEqual(prompt, inputs)
@@ -345,7 +368,11 @@ class TestPPAPI(unittest.TestCase):
 
         # Test without special tokens
         # (should omit extra BOS token in the case of Gemma-3)
-        ortx_inputs_2 = tokenizer.tokenize(prompt, False)
+
+        # Update options at runtime
+        tokenizer.update_options({"add_special_tokens": "false"})
+
+        ortx_inputs_2 = tokenizer.tokenize(prompt)
         np.testing.assert_array_equal(ortx_inputs_2, hf_tok.encode(inputs, add_special_tokens=False))
 
     def test_phi4_chat_template(self):

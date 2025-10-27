@@ -16,8 +16,9 @@ image_pre_process = _C.image_pre_process
 tensor_result_get_at = _C.tensor_result_get_at
 
 create_tokenizer = _C.create_tokenizer
+create_tokenizer_with_options = _C.create_tokenizer_with_options
+update_tokenizer_options = _C.update_tokenizer_options
 batch_tokenize = _C.batch_tokenize
-batch_tokenize_with_options = _C.batch_tokenize_with_options
 batch_detokenize = _C.batch_detokenize
 _apply_chat_template = _C.apply_chat_template
 
@@ -25,11 +26,21 @@ delete_object = _C.delete_object
 
 
 class Tokenizer:
-    def __init__(self, tokenizer_dir):
+    def __init__(self, tokenizer_dir, options = None):
         self.tokenizer = None
+        self.options = {}
 
         if os.path.isdir(tokenizer_dir):
-            self.tokenizer = create_tokenizer(tokenizer_dir)
+            if options is None:
+                self.tokenizer = create_tokenizer(tokenizer_dir)
+            else:
+                # Convert values to lowercase strings if bool, otherwise str
+                for k, v in options.items():
+                    if isinstance(v, bool):
+                        self.options[k] = str(v).lower()
+                    else:
+                        self.options[k] = str(v)
+                self.tokenizer = create_tokenizer_with_options(tokenizer_dir, self.options)
         else:
             try:
                 from transformers.utils import cached_file
@@ -70,10 +81,20 @@ class Tokenizer:
             tokenizer_dir = os.path.dirname(resolved_full_file)
             self.tokenizer = create_tokenizer(tokenizer_dir)
 
-    def tokenize(self, text, add_special_tokens = True):
+    def tokenize(self, text):
         if isinstance(text, (list, tuple)):
-            return batch_tokenize_with_options(self.tokenizer, text, add_special_tokens)
-        return batch_tokenize_with_options(self.tokenizer, [text], add_special_tokens)[0]
+            return batch_tokenize(self.tokenizer, text)
+        return batch_tokenize(self.tokenizer, [text])[0]
+    
+    def update_options(self, options):
+        # Update tokenizer options at runtime.
+        for k, v in options.items():
+            if isinstance(v, bool):
+                self.options[k] = str(v).lower()
+            else:
+                self.options[k] = str(v)
+
+        update_tokenizer_options(self.tokenizer, self.options)
 
     def detokenize(self, tokens):
         return batch_detokenize(self.tokenizer, [tokens])

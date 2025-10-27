@@ -89,6 +89,27 @@ OrtxStatus TokenizerImpl::Load(const std::string& tok_path) {
   return LoadTokenizer();
 }
 
+OrtxStatus TokenizerImpl::UpdateOptions(const std::unordered_map<std::string, std::string>& options) {
+  if (options.empty()) {
+    return OrtxStatus(kOrtxErrorInvalidArgument, "No options provided.");
+  }
+
+  for (const auto& [k, v] : options) {
+    if (k.empty()) {
+      return OrtxStatus(kOrtxErrorInvalidArgument, "Option key cannot be empty.");
+    }
+
+    if (v.empty()) {
+      return OrtxStatus(kOrtxErrorInvalidArgument, "Option value cannot be empty for key: " + k);
+    }
+
+    // Insert new or update existing KV pair
+    options_map[k] = v;
+  }
+
+  return OrtxStatus(kOrtxOK, "Tokenizer options updated successfully.");
+}
+
 OrtxStatus TokenizerImpl::BatchEncode(const std::vector<std::string_view>& input,
                                       std::vector<std::vector<extTokenId_t>>& t_ids,
                                       bool add_special_tokens) const {
@@ -132,9 +153,9 @@ OrtxStatus TokenizerImpl::BatchDecode(const std::vector<span<extTokenId_t const>
   return {};
 }
 
-OrtxStatus TokenizerImpl::Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state) const {
+OrtxStatus TokenizerImpl::Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state, bool skip_special_tokens = true) const {
   return std::visit([&](auto& detokenizer) {
-    return detokenizer->Id2Token(id, token, state); }, detokenizer_);
+    return detokenizer->Id2Token(id, token, state, skip_special_tokens); }, detokenizer_);
 }
 
 static std::map<std::string, std::string> LANGUAGES = {

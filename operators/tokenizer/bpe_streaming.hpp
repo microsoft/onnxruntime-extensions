@@ -124,7 +124,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     return {};
   }
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, BPEDecoderState** state) const {
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, BPEDecoderState** state, bool skip_special_tokens = true) const {
     auto bpe_state = *state;
     std::unique_ptr<BPEDecoderState> bpe_state_ptr;
     bool is_first = false;
@@ -138,7 +138,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     bool f_special_last = bpe_state->f_special_last_;
     auto status = spm_model_
                   ? SpmId2Token(id, token, f_special)
-                  : Id2Token(id, token, true /* tok_config_.skip_special_tokens_ */, f_special);
+                  : Id2Token(id, token, skip_special_tokens, f_special);
 
     if (status.IsOk()) {
       if (bpe_state_ptr) {
