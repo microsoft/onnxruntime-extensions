@@ -318,8 +318,41 @@ struct SpmUgmTokenizer {
 
       if (!single_codepoint_token_found) {
         if (byte_fallback_) {
-          prefix_offset -= 1;
-          n_utf8_code_units = prefix_offset - input_offset;
+          // MarianTokenizer byte-fallback fix: emit <0xXX> tokens for each byte of the first UTF-8 codepoint
+          // Previously this path could set n_utf8_code_units to 0 causing no forward progress.
+          size_t utf8_len = n_utf8_code_units;  // length (in bytes) of first UTF-8 codepoint
+          static const char hex_digits[] = "0123456789ABCDEF";
+          size_t prev_offset = input_offset;
+          for (size_t i = 0; i < utf8_len; ++i) {
+            unsigned char b = static_cast<unsigned char>(normalized[input_offset + i]);
+            std::string byte_token;
+            byte_token.reserve(7); // "<0xXX>"
+            byte_token.append("<0x");
+            byte_token.push_back(hex_digits[(b >> 4) & 0xF]);
+            byte_token.push_back(hex_digits[b & 0xF]);
+            byte_token.push_back('>');
+
+            extTokenId_t token_id = special_unk_id_;
+            double token_score = unknown_token_score_;
+            auto viter = vocab_.find(byte_token);
+            if (viter != vocab_.end()) {
+              token_id = std::get<0>(viter->second);
+              token_score = scores_[token_id];
+              if (special_token_ids_.count(token_id) > 0) {
+                token_score = 0.0; // keep special token neutral
+              }
+            }
+
+            const struct BestTokenization& best_before = tokenization_results[prev_offset];
+            double challenger_score = best_before.score_sum + token_score;
+            struct BestTokenization& champ = tokenization_results[prev_offset + 1];
+            if (challenger_score > champ.score_sum) {
+              champ = {prev_offset, (float)challenger_score, token_id};
+            }
+            prev_offset += 1;
+          }
+          input_offset += utf8_len; // advance past the codepoint bytes
+          continue; // restart main loop
         } else {
           const double challenger_score = current_best.score_sum + unknown_token_score_;
           prefix_offset = input_offset + n_utf8_code_units;
