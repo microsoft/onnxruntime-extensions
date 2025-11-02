@@ -506,7 +506,8 @@ struct SpmUgmTokenizer {
       }
     }
 
-    return {"\xEF\xBF\xBD", 1};
+    // Invalid UTF-8 sequence: return the single byte and consume it
+    return {input_view.substr(0, 1), 1};
   }
 
   std::string NmtNormalize(const std::string& input) const {
