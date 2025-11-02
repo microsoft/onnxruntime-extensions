@@ -892,23 +892,43 @@ class SpmUgmDecoder {
       *state = decoding_state.release();
     }
 
-    // DEBUG: Log token ID being decoded
-    std::cerr << "[UGM_DECODE] Token ID: " << id << std::endl;
+    // DEBUG: Log to both cout and file
+    std::cout << "[UGM_DECODE] Token ID: " << id << std::endl;
+    std::cout.flush();
+    {
+      static std::ofstream debug_log("C:\\temp\\ugm_decode.log", std::ios::app);
+      debug_log << "[UGM_DECODE] Token ID: " << id << std::endl;
+      debug_log.flush();
+    }
 
     if (special_token_ids_.count(id)) {
-      std::cerr << "[UGM_DECODE] Token " << id << " is SPECIAL, returning empty" << std::endl;
+      std::cout << "[UGM_DECODE] Token " << id << " is SPECIAL, returning empty" << std::endl;
+      std::cout.flush();
+      static std::ofstream debug_log("C:\\temp\\ugm_decode.log", std::ios::app);
+      debug_log << "[UGM_DECODE] Token " << id << " is SPECIAL, returning empty" << std::endl;
+      debug_log.flush();
       token = "";
       return {};
     }
 
     if (id >= vocab_.size()) {
-      std::cerr << "[UGM_DECODE] Token " << id << " out of vocab range, returning UNK" << std::endl;
+      std::cout << "[UGM_DECODE] Token " << id << " out of vocab range, returning UNK" << std::endl;
+      std::cout.flush();
+      static std::ofstream debug_log("C:\\temp\\ugm_decode.log", std::ios::app);
+      debug_log << "[UGM_DECODE] Token " << id << " out of vocab range, returning UNK" << std::endl;
+      debug_log.flush();
       token = unknown_token_;
       return {};
     }
 
     token = vocab_[id];
-    std::cerr << "[UGM_DECODE] Token " << id << " decoded to: '" << token << "'" << std::endl;
+    std::cout << "[UGM_DECODE] Token " << id << " decoded to: '" << token << "'" << std::endl;
+    std::cout.flush();
+    {
+      static std::ofstream debug_log("C:\\temp\\ugm_decode.log", std::ios::app);
+      debug_log << "[UGM_DECODE] Token " << id << " decoded to: '" << token << "'" << std::endl;
+      debug_log.flush();
+    }
     if (case_encoding_ && token.length() == 1) {
       if (token[0] == normalizer::cUppercase || token[0] == normalizer::cAllUppercase ||
           token[0] == normalizer::cTitlecase || token[0] == normalizer::cLowercase ||
