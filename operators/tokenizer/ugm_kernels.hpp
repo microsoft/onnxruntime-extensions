@@ -318,8 +318,50 @@ struct SpmUgmTokenizer {
 
       if (!single_codepoint_token_found) {
         if (byte_fallback_) {
-          prefix_offset -= 1;
-          n_utf8_code_units = prefix_offset - input_offset;
+          // Byte fallback: tokenize the UTF-8 character byte-by-byte
+          // Extract the bytes of the UTF-8 character
+          size_t byte_start = input_offset;
+          size_t byte_end = input_offset + n_utf8_code_units;
+          
+          // Try to tokenize each byte individually, building a continuous path
+          size_t current_offset = byte_start;
+          
+          while (current_offset < byte_end) {
+            // Get the best path to current_offset (may have been updated by earlier byte processing)
+            const struct BestTokenization& current_best_at_offset = tokenization_results[current_offset];
+            
+            // Get the byte as a single character
+            std::string byte_token(1, normalized[current_offset]);
+            auto vocab_iter = vocab_.find(byte_token);
+            extTokenId_t byte_token_id;
+            double byte_score;
+            
+            if (vocab_iter != vocab_.end()) {
+              // Byte token found in vocabulary
+              byte_token_id = std::get<0>(vocab_iter->second);
+              byte_score = special_token_ids_.count(byte_token_id) > 0 ? 0.0 : scores_[byte_token_id];
+            } else {
+              // Byte not found, use UNK token
+              byte_token_id = special_unk_id_;
+              byte_score = unknown_token_score_;
+            }
+            
+            // Update the tokenization result for the next position
+            size_t next_offset = current_offset + 1;
+            double challenger_score = current_best_at_offset.score_sum + byte_score;
+            struct BestTokenization& byte_champ = tokenization_results[next_offset];
+            
+            // Update if our byte-by-byte path is better
+            if (challenger_score > byte_champ.score_sum) {
+              struct BestTokenization byte_challenger = {current_offset, (float)challenger_score, byte_token_id};
+              byte_champ = byte_challenger;
+            }
+            
+            current_offset = next_offset;
+          }
+          
+          // Ensure we process all bytes of this UTF-8 character
+          prefix_offset = byte_end;
         } else {
           const double challenger_score = current_best.score_sum + unknown_token_score_;
           prefix_offset = input_offset + n_utf8_code_units;
