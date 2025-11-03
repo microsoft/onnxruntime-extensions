@@ -12,6 +12,7 @@
 #include <vector>
 #include <cfloat>
 #include <cstdio>
+#include <cstdlib>
 #include <functional>
 #include <unordered_map>
 #include <cwctype>
@@ -894,6 +895,20 @@ class SpmUgmDecoder {
     }
 
     token = vocab_[id];
+    
+    // Handle byte-level tokens (format: <0xXY>)
+    if (token.size() == 6 && token[0] == '<' && token[1] == '0' && token[2] == 'x' && token[5] == '>') {
+      // Extract the hex byte value (handles both uppercase and lowercase)
+      char hex_str[3] = {token[3], token[4], '\0'};
+      char* end_ptr = nullptr;
+      long byte_val = std::strtol(hex_str, &end_ptr, 16);
+      if (end_ptr != nullptr && end_ptr == hex_str + 2 && byte_val >= 0 && byte_val <= 0xFF) {
+        // Convert byte to character
+        token = std::string(1, static_cast<char>(static_cast<unsigned char>(byte_val)));
+        return {};
+      }
+    }
+    
     if (case_encoding_ && token.length() == 1) {
       if (token[0] == normalizer::cUppercase || token[0] == normalizer::cAllUppercase ||
           token[0] == normalizer::cTitlecase || token[0] == normalizer::cLowercase ||
