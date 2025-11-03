@@ -11,6 +11,7 @@
 #include <string_view>
 #include <vector>
 #include <cfloat>
+#include <cstdio>
 #include <functional>
 #include <unordered_map>
 #include <cwctype>
@@ -318,8 +319,30 @@ struct SpmUgmTokenizer {
 
       if (!single_codepoint_token_found) {
         if (byte_fallback_) {
-          prefix_offset -= 1;
-          n_utf8_code_units = prefix_offset - input_offset;
+          // For byte fallback, split the UTF-8 character into individual bytes
+          // and encode each byte as a token like <0xXY>
+          for (size_t i = 0; i < n_utf8_code_units; ++i) {
+            unsigned char byte = static_cast<unsigned char>(normalized[input_offset + i]);
+            char byte_token[7];  // Format: <0xXY>\0
+            std::snprintf(byte_token, sizeof(byte_token), "<0x%02X>", byte);
+            std::string byte_token_str(byte_token);
+            
+            auto iter = vocab_.find(byte_token_str);
+            extTokenId_t byte_token_id = special_unk_id_;
+            double byte_token_score = unknown_token_score_;
+            
+            if (iter != vocab_.end()) {
+              byte_token_id = std::get<0>(iter->second);
+              byte_token_score = std::get<1>(iter->second);
+            }
+            
+            const double challenger_score = tokenization_results[input_offset + i].score_sum + byte_token_score;
+            struct BestTokenization& current_champ = tokenization_results[input_offset + i + 1];
+            if (challenger_score > current_champ.score_sum) {
+              struct BestTokenization challenger = {input_offset + i, (float)challenger_score, byte_token_id};
+              current_champ = challenger;
+            }
+          }
         } else {
           const double challenger_score = current_best.score_sum + unknown_token_score_;
           prefix_offset = input_offset + n_utf8_code_units;
