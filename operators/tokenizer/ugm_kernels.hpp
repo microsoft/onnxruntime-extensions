@@ -323,6 +323,23 @@ struct SpmUgmTokenizer {
           size_t byte_start = input_offset;
           size_t byte_end = input_offset + n_utf8_code_units;
           
+          // Debug: Log when byte fallback is triggered
+          std::string debug_char(normalized.begin() + byte_start, normalized.begin() + byte_end);
+          std::string debug_msg = "[UGM_BYTE_FALLBACK] Char at offset " + std::to_string(input_offset) + 
+                                  " (bytes " + std::to_string(byte_start) + "-" + std::to_string(byte_end) + 
+                                  "): '" + debug_char + "'\n";
+          std::cout << debug_msg << std::flush;
+          FILE* log_file = nullptr;
+#ifdef _WIN32
+          fopen_s(&log_file, "C:\\temp\\ugm_encode.log", "a");
+#else
+          log_file = fopen("C:\\temp\\ugm_encode.log", "a");
+#endif
+          if (log_file) {
+            fprintf(log_file, "%s", debug_msg.c_str());
+            fclose(log_file);
+          }
+          
           // Try to tokenize each byte individually, building a continuous path
           size_t current_offset = byte_start;
           
@@ -381,7 +398,9 @@ struct SpmUgmTokenizer {
     for (struct BestTokenization& tokenization = tokenization_results[input_len];;
          tokenization = tokenization_results[tokenization.input_offset]) {
       bool is_unknown = tokenization.token_id == special_unk_id_;
-      if (!(is_prev_unknown && is_unknown)) {
+      // When byte_fallback is enabled, keep consecutive unknown tokens (they represent individual bytes)
+      // When byte_fallback is disabled, deduplicate consecutive unknown tokens
+      if (!(!byte_fallback_ && is_prev_unknown && is_unknown)) {
         output.push_back(tokenization.token_id);
       }
       if (tokenization.input_offset == 0) {
@@ -407,6 +426,26 @@ struct SpmUgmTokenizer {
 
     if (add_eos_token_ && add_special_tokens) {
       output.push_back(GetTokenId(eos_token_));
+    }
+
+    // Debug: Log the encoded token sequence
+    std::string debug_msg = "[UGM_ENCODE] Token IDs: [";
+    for (size_t i = 0; i < output.size(); ++i) {
+      debug_msg += std::to_string(output[i]);
+      if (i < output.size() - 1) debug_msg += ", ";
+    }
+    debug_msg += "]\n";
+    std::cout << debug_msg << std::flush;
+    
+    FILE* log_file = nullptr;
+#ifdef _WIN32
+    fopen_s(&log_file, "C:\\temp\\ugm_encode.log", "a");
+#else
+    log_file = fopen("C:\\temp\\ugm_encode.log", "a");
+#endif
+    if (log_file) {
+      fprintf(log_file, "%s", debug_msg.c_str());
+      fclose(log_file);
     }
 
     return {};
