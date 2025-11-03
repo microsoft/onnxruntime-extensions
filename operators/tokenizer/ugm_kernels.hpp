@@ -243,12 +243,25 @@ struct SpmUgmTokenizer {
       }
     }
 
-    scores_.resize(id);
+    // Add explicit byte tokens (<0xXX> converted earlier to single-byte) if Marian expects full byte coverage
     double min_score = DBL_MAX;
+    for (const auto& entry : vocab_) {
+      min_score = std::min<double>(min_score, std::get<1>(entry.second));
+    }
+    if (config.tokenizer_class_ == "MarianTokenizer") {
+      // Ensure all 256 byte values have entries; use min_score so they are not worse than existing minimum
+      for (int b = 0; b < 256; ++b) {
+        std::string btok(1, static_cast<unsigned char>(b));
+        if (vocab_.count(btok) == 0) {
+          vocab_[btok] = std::make_tuple(id++, min_score);
+        }
+      }
+    }
+    // Rebuild scores_ and trie with updated vocab
+    scores_.resize(id);
     for (const auto& entry : vocab_) {
       scores_[std::get<0>(entry.second)] = std::get<1>(entry.second);
       token_matcher_.Add(entry.first, 0, std::get<0>(entry.second));
-      min_score = std::min<double>(min_score, std::get<1>(entry.second));
     }
 
     unknown_token_score_ = min_score - unknown_token_score_penalty_;
@@ -262,6 +275,24 @@ struct SpmUgmTokenizer {
       case_encoder_ = std::make_unique<normalizer::CaseEncoder>(tokenizer_remove_extra_whitespaces_);
       case_encoder_->SetNormalizer([this](std::string_view input) { return NmtNormalizePrefix(input); });
     }
+
+    // Debug: Log vocabulary info (OLD c892300 code)
+    std::string debug_msg = "[UGM_INIT_OLD] Vocabulary size: " + std::to_string(vocab_.size()) + 
+                            ", scores_ size: " + std::to_string(scores_.size()) + 
+                            ", byte_fallback: " + std::string(byte_fallback_ ? "true" : "false") +
+                            ", tokenizer_class: " + config.tokenizer_class_ + "\n";
+    std::cout << debug_msg << std::flush;
+    FILE* log_file = nullptr;
+#ifdef _WIN32
+    fopen_s(&log_file, "C:\\temp\\ugm_init.log", "a");
+#else
+    log_file = fopen("C:\\temp\\ugm_init.log", "a");
+#endif
+    if (log_file) {
+      fprintf(log_file, "%s", debug_msg.c_str());
+      fclose(log_file);
+    }
+
     return status;
   }
 
@@ -318,71 +349,24 @@ struct SpmUgmTokenizer {
 
       if (!single_codepoint_token_found) {
         if (byte_fallback_) {
-          // Byte fallback: tokenize the UTF-8 character byte-by-byte
-          // Extract the bytes of the UTF-8 character
-          size_t byte_start = input_offset;
-          size_t byte_end = input_offset + n_utf8_code_units;
-          
-          // Debug: Log when byte fallback is triggered
-          std::string debug_char(normalized.begin() + byte_start, normalized.begin() + byte_end);
-          std::string debug_msg = "[UGM_BYTE_FALLBACK] Char at offset " + std::to_string(input_offset) + 
-                                  " (bytes " + std::to_string(byte_start) + "-" + std::to_string(byte_end) + 
-                                  "): '" + debug_char + "'\n";
-          std::cout << debug_msg << std::flush;
-          FILE* log_file = nullptr;
-#ifdef _WIN32
-          fopen_s(&log_file, "C:\\temp\\ugm_encode.log", "a");
-#else
-          log_file = fopen("C:\\temp\\ugm_encode.log", "a");
-#endif
-          if (log_file) {
-            fprintf(log_file, "%s", debug_msg.c_str());
-            fclose(log_file);
-          }
-          
-          // Try to tokenize each byte individually, building a continuous path
-          size_t current_offset = byte_start;
-          
-          while (current_offset < byte_end) {
-            // Get the best path to current_offset (may have been updated by earlier byte processing)
-            const struct BestTokenization& current_best_at_offset = tokenization_results[current_offset];
-            
-            // Get the byte as a single character
-            std::string byte_token(1, normalized[current_offset]);
-            auto vocab_iter = vocab_.find(byte_token);
-            extTokenId_t byte_token_id;
-            double byte_score;
-            
-            if (vocab_iter != vocab_.end()) {
-              // Byte token found in vocabulary
-              byte_token_id = std::get<0>(vocab_iter->second);
-              byte_score = special_token_ids_.count(byte_token_id) > 0 ? 0.0 : scores_[byte_token_id];
-            } else {
-              // Byte not found, use UNK token
-              byte_token_id = special_unk_id_;
-              byte_score = unknown_token_score_;
+          // Fix #4: explicit byte-level fallback segmentation for each byte of the current UTF-8 codepoint
+          size_t bytes = n_utf8_code_units;
+          for (size_t b = 0; b < bytes; ++b) {
+            unsigned char bc = static_cast<unsigned char>(normalized[input_offset + b]);
+            std::string btok(1, static_cast<char>(bc));
+            extTokenId_t token_id = GetTokenId(btok);
+            double token_score = (token_id != special_unk_id_) ? (special_token_ids_.count(token_id) ? 0.0 : scores_[token_id]) : unknown_token_score_;
+            double challenger_score = current_best.score_sum + token_score;
+            size_t target_index = input_offset + b + 1;
+            struct BestTokenization& champ = tokenization_results[target_index];
+            if (challenger_score > champ.score_sum) {
+              champ = {input_offset, challenger_score, token_id};
             }
-            
-            // Update the tokenization result for the next position
-            size_t next_offset = current_offset + 1;
-            double challenger_score = current_best_at_offset.score_sum + byte_score;
-            struct BestTokenization& byte_champ = tokenization_results[next_offset];
-            
-            // Update if our byte-by-byte path is better
-            if (challenger_score > byte_champ.score_sum) {
-              struct BestTokenization byte_challenger = {current_offset, (float)challenger_score, byte_token_id};
-              byte_champ = byte_challenger;
-            }
-            
-            current_offset = next_offset;
           }
-          
-          // Ensure we process all bytes of this UTF-8 character
-          prefix_offset = byte_end;
         } else {
           const double challenger_score = current_best.score_sum + unknown_token_score_;
-          prefix_offset = input_offset + n_utf8_code_units;
-          struct BestTokenization& current_champ = tokenization_results[prefix_offset];
+          size_t target_index = input_offset + n_utf8_code_units;
+          struct BestTokenization& current_champ = tokenization_results[target_index];
           if (challenger_score > current_champ.score_sum) {
             struct BestTokenization challenger = {input_offset, (float)challenger_score, special_unk_id_};
             current_champ = challenger;
@@ -398,9 +382,7 @@ struct SpmUgmTokenizer {
     for (struct BestTokenization& tokenization = tokenization_results[input_len];;
          tokenization = tokenization_results[tokenization.input_offset]) {
       bool is_unknown = tokenization.token_id == special_unk_id_;
-      // When byte_fallback is enabled, keep consecutive unknown tokens (they represent individual bytes)
-      // When byte_fallback is disabled, deduplicate consecutive unknown tokens
-      if (!(!byte_fallback_ && is_prev_unknown && is_unknown)) {
+      if (!( !byte_fallback_ && is_prev_unknown && is_unknown)) { // Fix #5: keep consecutive unknowns when byte_fallback_ is true
         output.push_back(tokenization.token_id);
       }
       if (tokenization.input_offset == 0) {
@@ -426,26 +408,6 @@ struct SpmUgmTokenizer {
 
     if (add_eos_token_ && add_special_tokens) {
       output.push_back(GetTokenId(eos_token_));
-    }
-
-    // Debug: Log the encoded token sequence
-    std::string debug_msg = "[UGM_ENCODE] Token IDs: [";
-    for (size_t i = 0; i < output.size(); ++i) {
-      debug_msg += std::to_string(output[i]);
-      if (i < output.size() - 1) debug_msg += ", ";
-    }
-    debug_msg += "]\n";
-    std::cout << debug_msg << std::flush;
-    
-    FILE* log_file = nullptr;
-#ifdef _WIN32
-    fopen_s(&log_file, "C:\\temp\\ugm_encode.log", "a");
-#else
-    log_file = fopen("C:\\temp\\ugm_encode.log", "a");
-#endif
-    if (log_file) {
-      fprintf(log_file, "%s", debug_msg.c_str());
-      fclose(log_file);
     }
 
     return {};
@@ -587,8 +549,7 @@ struct SpmUgmTokenizer {
       }
     }
 
-    // Invalid UTF-8 sequence: return the single byte and consume it
-    return {input_view.substr(0, 1), 1};
+    return {"\xEF\xBF\xBD", 1};
   }
 
   std::string NmtNormalize(const std::string& input) const {
@@ -679,7 +640,7 @@ struct SpmUgmTokenizer {
 
    private:
     uint32_t GetNode(size_t index) {
-      if (index > xcda_array_size_) {
+      if (index >= xcda_array_size_) {  // Fix #2: off-by-one correction
         ORTX_CXX_API_THROW("[UgmTok]Index out of array bounds in XCDA array!", ORT_RUNTIME_EXCEPTION);
       }
       return xcda_array_[index];
@@ -697,7 +658,8 @@ struct SpmUgmTokenizer {
     size_t prefix_off = 0;
     auto user_defined_token_match = user_defined_token_matcher_.FindLongest(prefix, prefix_off);
     if (user_defined_token_match != user_defined_token_matcher_.kInvalidId_) {
-      return {&input[input_offset], prefix_off + input_offset, prefix_off + input_offset};
+      // Fix #1: normalized_len should be matched token length (prefix_off), consumed_input = prefix_off
+      return {&input[input_offset], prefix_off, prefix_off};
     }
 
     size_t longest_prefix_length = 0;
