@@ -317,8 +317,19 @@ struct SpmUgmTokenizer {
         node = node->Find(normalized[prefix_offset++]);
       }
 
+      // Check if any valid tokenization path exists from the current position
+      // If byte_fallback is enabled and no path was found, use byte-level tokens
       if (!single_codepoint_token_found) {
-        if (byte_fallback_) {
+        // Check if any tokenization was added for any position starting from input_offset
+        bool any_tokenization_found = false;
+        for (size_t check_offset = input_offset + 1; check_offset <= input_offset + n_utf8_code_units && check_offset <= input_len; ++check_offset) {
+          if (tokenization_results[check_offset].score_sum > tokenization_results[input_offset].score_sum + unknown_token_score_) {
+            any_tokenization_found = true;
+            break;
+          }
+        }
+        
+        if (byte_fallback_ && !any_tokenization_found) {
           // For byte fallback, split the UTF-8 character into individual bytes
           // and encode each byte as a token like <0xXY>
           for (size_t i = 0; i < n_utf8_code_units; ++i) {
@@ -343,7 +354,7 @@ struct SpmUgmTokenizer {
               current_champ = challenger;
             }
           }
-        } else {
+        } else if (!byte_fallback_) {
           const double challenger_score = current_best.score_sum + unknown_token_score_;
           prefix_offset = input_offset + n_utf8_code_units;
           struct BestTokenization& current_champ = tokenization_results[prefix_offset];
