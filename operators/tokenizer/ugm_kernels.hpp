@@ -902,15 +902,7 @@ class SpmUgmDecoder {
       return {};
     }
 
-    // WORKAROUND: Suppress consecutive duplicate tokens during streaming decode
-    // This handles the case where the same token ID is decoded twice at the end of generation
-    if ((*state)->last_token_id_ == id && !(*state)->signature_) {
-      token = "";
-      return {};
-    }
-
     token = vocab_[id];
-    (*state)->last_token_id_ = id;
     if (case_encoding_ && token.length() == 1) {
       if (token[0] == normalizer::cUppercase || token[0] == normalizer::cAllUppercase ||
           token[0] == normalizer::cTitlecase || token[0] == normalizer::cLowercase ||

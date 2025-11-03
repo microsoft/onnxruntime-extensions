@@ -34,7 +34,6 @@ struct TokenizerDecodingState {
   std::string incomplete_utf8_;
   bool f_special_last_{};
   char signature_{};
-  extTokenId_t last_token_id_{static_cast<extTokenId_t>(-1)};  // Track last decoded token to suppress duplicates
 };
 
 using AddedTokenMap = std::unordered_map<std::u32string, AddedToken>;
