@@ -773,7 +773,7 @@ class SpmUgmDecoder {
 
     std::vector<std::string> decoded_strings;
     decoded_strings.reserve(string_batch);
-    bool skip_special_tokens = add_special_tokens.value_or(true);
+    bool skip_special_tokens = !add_special_tokens.value_or(true);
     TokenizerDecodingState* state{};
     for (auto n = string_batch; n > 0; n--) {
       std::string text;
