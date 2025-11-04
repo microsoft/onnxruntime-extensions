@@ -878,14 +878,14 @@ class SpmUgmDecoder {
     token = prefix + suffix;
   }
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state, bool skip_special_tokens /* only used by BPE; placeholder for UGM */ = true) const {
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state, bool skip_special_tokens = true) const {
     std::unique_ptr<TokenizerDecodingState> decoding_state;
     if (*state == nullptr) {
       decoding_state = std::make_unique<TokenizerDecodingState>();
       *state = decoding_state.release();
     }
 
-    if (special_token_ids_.count(id)) {
+    if (skip_special_tokens && special_token_ids_.count(id)) {
       token = "";
       return {};
     }
