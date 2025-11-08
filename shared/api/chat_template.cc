@@ -304,6 +304,34 @@ static json NormalizeTools(const char* tools_str) {
   return normalized;
 }
 
+std::string normalize_tool_quotes(const std::string& input) {
+    std::string output = input;
+    size_t length = output.size();
+
+    // Iterate through the string
+    for (size_t i = 0; i < length; ++i) {
+        // Look for single quotes preceded or followed by specific characters for tool calls
+        if (output[i] == '\'') {
+            bool replace = false;
+            char precede_char = (i > 0) ? output[i - 1] : '\0'; // Character before the single quote
+            char follow_char = (i < length - 1) ? output[i + 1] : '\0'; // Character after the single quote
+
+            // Check if the current single quote is in the right context
+            if ((precede_char == '{' || precede_char == ':' || precede_char == ' ' || precede_char == ',') || 
+                (follow_char == '}' || follow_char == ':' || follow_char == ' ' || follow_char == ',')) {
+                replace = true;
+            }
+
+            // Only replace if the condition is met
+            if (replace) {
+                output[i] = '\"';
+            }
+        }
+    }
+
+    return output;
+}
+
 OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char* message, const char* tools,
                                             std::string& output, std::vector<extTokenId_t>& ids_vec,
                                             bool add_generation_prompt, bool tokenize) const {
@@ -339,14 +367,34 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
 
     std::shared_ptr<minja::Context> context;
 
+    // Check Phi-4-mini tool call case for quote normalization
+    bool phi_4_mini = false;
+
     // Case 1: Check if tools are inside messages (for Phi-4-mini)
     if (actual_messages.is_array()) {
       for (auto& message_obj : actual_messages) {
         if (message_obj.contains("tools")) {
+          phi_4_mini = true;
+
           // Normalize the tools inside the message
-          std::string tools_str = minja::normalize_newlines(message_obj["tools"].get<std::string>().c_str());
-          json tools_json = NormalizeTools(tools_str.c_str());
+          std::cout << "Before Normalization: " << message_obj["tools"] << std::endl;
+          json tools_json = NormalizeTools(message_obj["tools"].get<std::string>().c_str());
+
+          // Convert single quotes to double quotes in the JSON string (if needed)
+          // std::string tools_json_str = tools_json.dump();  // Convert json to string
+          // std::string result;
+          // for (char c : tools_json_str) {
+          //     if (c == '"') {
+          //         result += "\\\""; // Append the escaped double quote
+          //     } else {
+          //         result += c;
+          //     }
+          // }
+          // // Reparse the string back to JSON after replacing the quotes
+          // tools_json = json::parse(result);
+          
           message_obj["tools"] = tools_json;  // Update the tools in the message
+          std::cout << "After Normalization: " << message_obj["tools"] << std::endl;
         }
       }
     }
@@ -364,6 +412,7 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
       }));
     } else {
       // No tools input, just use the messages
+      std::cout << "Before Minja: " << actual_messages[0]["tools"] << std::endl;
       context = minja::Context::make(json({
           {"messages", actual_messages},
           {"add_generation_prompt", add_generation_prompt},
@@ -377,7 +426,7 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
 
     // Render the template
     text = root->render(context);
-    output = text;
+    output = phi_4_mini ? normalize_tool_quotes(text) : text;
   } catch (const std::runtime_error& e) {
     status = {kOrtxErrorInvalidArgument, e.what()};
   }
