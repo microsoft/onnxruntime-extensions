@@ -304,6 +304,31 @@ static json NormalizeTools(const char* tools_str) {
   return normalized;
 }
 
+/*
+ * This function normalizes quotes in tool-related strings within the input message. This normalization is crucial for
+ * ensuring consistent JSON serialization and deserialization when working with tool calls. Specifically, the function
+ * helps avoid differences between `json::dump` and `json::parse` behavior, which can occur when single quotes are used
+ * incorrectly in tools. This also leads to missing initial tool tag tokens (<|tool_call|>) during inference.
+ *
+ * In the case of Phi-4, when tools are embedded within messages, Minja's handling of tools within the message body
+ * (instead of treating them as separate input keys/values) can lead to issues with the serialization process. For instance,
+ * `json::dump` might escape single quotes, but `json::parse` might not interpret them correctly, resulting in inconsistent
+ * output when processing tools as part of a message.
+ *
+ * To mitigate this, the function scans through the string and normalizes single quotes to double quotes in the context
+ * of tool calls. This ensures that tool keys and values are serialized consistently, and the tool call context remains
+ * intact. The function specifically looks for single quotes that are preceded or followed by specific characters
+ * (such as '{', ':', ' ', or ',') which typically indicate the presence of tool keys and values.
+ *
+ * Parameters:
+ * - input (const std::string&): The input string containing single quotes that may need to be normalized.
+ *
+ * Returns:
+ * - std::string: A new string where appropriate single quotes are replaced by double quotes.
+ *
+ * Example:
+ * - If the input string is "{'key': 'value'}", the function will return "{\"key\": \"value\"}".
+ */
 std::string normalize_tool_quotes(const std::string& input) {
     std::string output = input;
     size_t length = output.size();
@@ -374,27 +399,14 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
     if (actual_messages.is_array()) {
       for (auto& message_obj : actual_messages) {
         if (message_obj.contains("tools")) {
+          // Set flag for Phi-4 tools to true
           phi_4_mini = true;
 
           // Normalize the tools inside the message
-          std::cout << "Before Normalization: " << message_obj["tools"] << std::endl;
           json tools_json = NormalizeTools(message_obj["tools"].get<std::string>().c_str());
-
-          // Convert single quotes to double quotes in the JSON string (if needed)
-          // std::string tools_json_str = tools_json.dump();  // Convert json to string
-          // std::string result;
-          // for (char c : tools_json_str) {
-          //     if (c == '"') {
-          //         result += "\\\""; // Append the escaped double quote
-          //     } else {
-          //         result += c;
-          //     }
-          // }
-          // // Reparse the string back to JSON after replacing the quotes
-          // tools_json = json::parse(result);
           
-          message_obj["tools"] = tools_json;  // Update the tools in the message
-          std::cout << "After Normalization: " << message_obj["tools"] << std::endl;
+          // Update the tools in the message
+          message_obj["tools"] = tools_json;
         }
       }
     }
@@ -412,7 +424,6 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
       }));
     } else {
       // No tools input, just use the messages
-      std::cout << "Before Minja: " << actual_messages[0]["tools"] << std::endl;
       context = minja::Context::make(json({
           {"messages", actual_messages},
           {"add_generation_prompt", add_generation_prompt},
@@ -426,6 +437,9 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
 
     // Render the template
     text = root->render(context);
+
+    // Normalize tool quotes (for tool keys and values) to avoid json::dump vs. json::parse differences
+    // which show up for Phi-4 due to Minja handling of tools within messages rather than as an added input.
     output = phi_4_mini ? normalize_tool_quotes(text) : text;
   } catch (const std::runtime_error& e) {
     status = {kOrtxErrorInvalidArgument, e.what()};
