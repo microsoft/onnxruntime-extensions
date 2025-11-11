@@ -218,6 +218,12 @@ if(OCOS_BUILD_ANDROID)
   endif()
 
   set(OCOS_BUILD_JAVA ON CACHE INTERNAL "")
+
+  # Add 16KB page size compatibility
+  # The -Wl,-z,max-page-size=16384 flag ensures binaries are compatible with 16KB page size systems
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,max-page-size=16384")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,max-page-size=16384")
+  message(STATUS "Android build: 16KB page size support enabled")
 endif()
 
 # Build the libraries with -fPIC
@@ -903,6 +909,13 @@ if(OCOS_BUILD_SHARED_LIB)
     if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
       set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-s")
     endif()
+  endif()
+
+  # Add 16KB page size compatibility for Android shared library
+  if(ANDROID)
+      set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS
+              " -Wl,-z,max-page-size=16384")
+      message(STATUS "Android extensions_shared: 16KB page size support enabled")
   endif()
 
   target_include_directories(extensions_shared PUBLIC $<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>)

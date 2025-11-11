@@ -478,6 +478,7 @@ def _generate_build_tree(
             + str((args.android_ndk_path / "build" / "cmake" / "android.toolchain.cmake").resolve(strict=True)),
             f"-DANDROID_PLATFORM=android-{args.android_api}",
             f"-DANDROID_ABI={args.android_abi}",
+            "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
         ]
 
     if is_macOS() and not args.android:

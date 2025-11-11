@@ -76,6 +76,13 @@ else()
   target_link_libraries(onnxruntime_extensions4j_jni PRIVATE ortcustomops)
 endif()
 
+# Add 16KB page size compatibility for Android JNI library
+if(ANDROID)
+    set_property(TARGET onnxruntime_extensions4j_jni APPEND_STRING PROPERTY LINK_FLAGS
+            " -Wl,-z,max-page-size=16384")
+    message(STATUS "Android JNI: 16KB page size support enabled")
+endif()
+
 if(LINUX)
   set_property(TARGET onnxruntime_extensions4j_jni APPEND_STRING PROPERTY LINK_FLAGS
     " -Wl,--version-script -Wl,${JAVA_ROOT}/ortx_jni.ver")

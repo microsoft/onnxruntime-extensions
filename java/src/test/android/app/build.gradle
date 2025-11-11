@@ -14,6 +14,16 @@ android {
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+        }
+
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
+            }
+        }
     }
 
     buildTypes {
@@ -37,9 +47,9 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'com.microsoft.onnxruntime:onnxruntime-android:latest.release'
     if (ortExtensionsAarLocalPath != null) {
-      implementation files(ortExtensionsAarLocalPath)
+        implementation files(ortExtensionsAarLocalPath)
     } else {
-      implementation 'com.microsoft.onnxruntime:onnxruntime-extensions-android:latest.release'
+        implementation 'com.microsoft.onnxruntime:onnxruntime-extensions-android:latest.release'
     }
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
