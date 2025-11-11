@@ -219,11 +219,23 @@ if(OCOS_BUILD_ANDROID)
 
   set(OCOS_BUILD_JAVA ON CACHE INTERNAL "")
 
-  # Add 16KB page size compatibility
-  # The -Wl,-z,max-page-size=16384 flag ensures binaries are compatible with 16KB page size systems
-  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,max-page-size=16384")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,max-page-size=16384")
-  message(STATUS "Android build: 16KB page size support enabled")
+  # Add 16KB page size compatibility for Android 15+ devices
+  # See: https://developer.android.com/guide/practices/page-sizes
+  # This flag ensures binaries work on both 4KB and 16KB page size systems
+  option(ANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES "Enable 16KB page size support for Android" ON)
+
+  if(ANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES)
+    # Android NDK uses Clang + lld which supports this flag
+    if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
+      set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,max-page-size=16384")
+      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,max-page-size=16384")
+      message(STATUS "Android build: 16KB page size support enabled")
+    else()
+      message(WARNING "Compiler ${CMAKE_C_COMPILER_ID} may not support -Wl,-z,max-page-size. Skipping.")
+    endif()
+  else()
+    message(WARNING "Android build: 16KB page size support disabled (not recommended for production)")
+  endif()
 endif()
 
 # Build the libraries with -fPIC
@@ -912,10 +924,8 @@ if(OCOS_BUILD_SHARED_LIB)
   endif()
 
   # Add 16KB page size compatibility for Android shared library
-  if(ANDROID)
-      set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS
-              " -Wl,-z,max-page-size=16384")
-      message(STATUS "Android extensions_shared: 16KB page size support enabled")
+  if(ANDROID AND ANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES)
+      target_link_options(extensions_shared PRIVATE "-Wl,-z,max-page-size=16384")
   endif()
 
   target_include_directories(extensions_shared PUBLIC $<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>)

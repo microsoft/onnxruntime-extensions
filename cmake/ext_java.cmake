@@ -77,10 +77,8 @@ else()
 endif()
 
 # Add 16KB page size compatibility for Android JNI library
-if(ANDROID)
-    set_property(TARGET onnxruntime_extensions4j_jni APPEND_STRING PROPERTY LINK_FLAGS
-            " -Wl,-z,max-page-size=16384")
-    message(STATUS "Android JNI: 16KB page size support enabled")
+if(ANDROID AND ANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES)
+    target_link_options(onnxruntime_extensions4j_jni PRIVATE "-Wl,-z,max-page-size=16384")
 endif()
 
 if(LINUX)
