@@ -11,7 +11,7 @@ Introduction: ONNXRuntime-Extensions is a C/C++ library that extends the capabil
 The library can be utilized as either a C/C++ library or other advance language packages like Python, Java, C#, etc. To build it as a shared library, you can use the `build.bat` or `build.sh` scripts located in the root folder. The CMake build definition is available in the `CMakeLists.txt` file and can be modified by appending options to `build.bat` or `build.sh`, such as `build.bat -DOCOS_BUILD_SHARED_LIB=OFF`. For more details, please refer to the [C API documentation](./docs/c_api.md).
 
 ### Android 16KB Page Size Support
-Android builds automatically enable 16KB page size compatibility to support Android 15+ devices. The linker flag `-Wl,-z,max-page-size=16384` sets the maximum page alignment, ensuring binaries work on both traditional 4KB and newer 16KB page size systems. This is controlled by the `ANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES` CMake option (default: ON) and applies safely to all Android ABIs including 32-bit architectures. The flag only sets a maximum alignment constraint and does not negatively impact devices using 4KB pages.
+Android builds automatically enable 16KB page size compatibility to support Android 15+ devices. The linker flag `-Wl,-z,max-page-size=16384` sets the maximum page alignment, ensuring binaries work on both traditional 4KB and newer 16KB page size systems. This applies to all Android ABIs including 32-bit architectures. The flag only sets a maximum alignment constraint and does not negatively impact devices using 4KB pages.
 
 ### **Python installation**
 ```bash
