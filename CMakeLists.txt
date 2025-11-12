@@ -223,8 +223,7 @@ if(OCOS_BUILD_ANDROID)
   # See: https://developer.android.com/guide/practices/page-sizes
   # This flag ensures binaries work on both 4KB and 16KB page size systems.
   # Requires NDK r23+ (project minimum is r27d).
-  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,max-page-size=16384")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,max-page-size=16384")
+  add_link_options(-Wl,-z,max-page-size=16384)
   message(STATUS "Android build: 16KB page size support enabled")
 endif()
 
