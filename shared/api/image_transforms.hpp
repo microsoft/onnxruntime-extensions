@@ -104,6 +104,46 @@ struct Resize {
     return methods;
   }
 
+  int64_t round_by_factor(int64_t number, int64_t factor) {
+      // Returns the closest integer to 'number' that is divisible by 'factor'.
+      return static_cast<int>(std::round(static_cast<double>(number) / factor) * factor);
+  }
+
+  int64_t ceil_by_factor(int64_t number, int64_t factor) {
+      // Returns the smallest integer greater than or equal to 'number' that is divisible by 'factor'.
+      return static_cast<int>(std::ceil(static_cast<double>(number) / factor) * factor);
+  }
+
+  int64_t floor_by_factor(int64_t number, int64_t factor) {
+      // Returns the largest integer less than or equal to 'number' that is divisible by 'factor'.
+      return static_cast<int>(std::floor(static_cast<double>(number) / factor) * factor);
+  }
+
+  std::tuple<int64_t, int64_t> smart_resize(int64_t height, int64_t width) {
+      // Rescales the image to maintain the aspect ratio and adhere to pixel constraints.
+
+      // Check if the aspect ratio exceeds the maximum allowed ratio.
+      if (std::max(height, width) / static_cast<double>(std::min(height, width)) > max_ratio_) {
+        throw std::invalid_argument("Absolute aspect ratio must be smaller than " + std::to_string(max_ratio_));
+      }
+
+      int64_t h_bar = std::max(static_cast<int64_t>(image_factor_), static_cast<int64_t>(round_by_factor(height, image_factor_)));
+      int64_t w_bar = std::max(static_cast<int64_t>(image_factor_), static_cast<int64_t>(round_by_factor(width, image_factor_)));
+
+      // Adjust the size if the pixel count is outside the min/max range.
+      if (h_bar * w_bar > max_pixels_) {
+          double beta = std::sqrt(static_cast<double>(height * width) / max_pixels_);
+          h_bar = floor_by_factor(static_cast<int64_t>(height / beta), image_factor_);
+          w_bar = floor_by_factor(static_cast<int64_t>(width / beta), image_factor_);
+      } else if (h_bar * w_bar < min_pixels_) {
+          double beta = std::sqrt(static_cast<double>(min_pixels_) / (height * width));
+          h_bar = ceil_by_factor(static_cast<int64_t>(height * beta), image_factor_);
+          w_bar = ceil_by_factor(static_cast<int64_t>(width * beta), image_factor_);
+      }
+
+      return std::make_tuple(h_bar, w_bar);
+  }
+
   OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) {
     auto& dimensions = input.Shape();
     if (dimensions.size() != 3ULL) {
@@ -128,7 +168,11 @@ struct Resize {
 
     int interp = InterpolationMethods().at(interpolation_);
     float box[4] = {0.0f, 0.0f, static_cast<float>(w), static_cast<float>(h)};
-    auto [height, width] = std::make_tuple(height_, width_);
+
+    image_factor_ = patch_size_ * temporal_patch_size_;
+
+    // Perform Smart Resize if Set
+    auto [height, width] = smart_resize_ ? smart_resize(height_, width_) : std::make_tuple(height_, width_);
 
     if (keep_aspect_ratio_) {
       double scale = (std::max)(static_cast<double>(width) / w, static_cast<double>(height) / h);
@@ -165,6 +209,16 @@ struct Resize {
         if (InterpolationMethods().find(interpolation_) == InterpolationMethods().end()) {
           return {kOrtxErrorInvalidArgument, "[Resize]: Invalid interpolation method"};
         }
+      } else if (key == "smart_resize") {
+        smart_resize_ = std::get<int64_t>(value) != 0;
+      } else if (key == "min_pixels") {
+        min_pixels_ = std::get<int64_t>(value);
+      } else if (key == "max_pixels") {
+        max_pixels_ = std::get<int64_t>(value);
+      } else if (key == "patch_size") {
+        patch_size_ = std::get<int64_t>(value);
+      } else if (key == "temporal_patch_size") {
+        temporal_patch_size_ = std::get<int64_t>(value);
       } else {
         return {kOrtxErrorInvalidArgument, "[Resize]: Invalid argument"};
       }
@@ -177,6 +231,14 @@ struct Resize {
   int64_t width_{256};
   bool keep_aspect_ratio_{true};
   std::string interpolation_{"CUBIC"};  // LINEAR, NEAREST, CUBIC
+
+  bool smart_resize_{false};
+  int64_t image_factor_{28};
+  int64_t min_pixels_{3136};
+  int64_t max_pixels_{12845056};
+  int64_t patch_size_{14};
+  int64_t temporal_patch_size_{2};
+  double max_ratio_{200.0};
 };
 
 struct Rescale {

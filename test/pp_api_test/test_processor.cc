@@ -177,3 +177,32 @@ TEST(ProcessorTest, TestPhi4VisionProcessor) {
   ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3, 1}));
   EXPECT_EQ(std::vector<int64_t>(int_data, int_data + 3), std::vector<int64_t>({2625, 1841, 735}));
 }
+
+TEST(ProcessorTest, TestQwen2_5VLImageProcessing) {
+  OrtxObjectPtr<OrtxRawImages> raw_images{};
+  extError_t err = OrtxLoadImages(raw_images.ToBeAssigned(), test_image_paths, test_image_count, nullptr);
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxProcessor> processor;
+  err = OrtxCreateProcessor(processor.ToBeAssigned(), "data/qwen2.5vl/vision_processor.json");
+  if (err != kOrtxOK) {
+    std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxImagePreProcess(processor.get(), raw_images.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const float* data{};
+  const int64_t* shape{};
+  size_t num_dims;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 3);
+
+}
