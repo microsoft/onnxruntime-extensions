@@ -923,11 +923,6 @@ if(OCOS_BUILD_SHARED_LIB)
     endif()
   endif()
 
-  # Add 16KB page size compatibility for Android shared library
-  if(ANDROID AND ANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES)
-      target_link_options(extensions_shared PRIVATE "-Wl,-z,max-page-size=16384")
-  endif()
-
   target_include_directories(extensions_shared PUBLIC $<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>)
   target_link_libraries(extensions_shared PRIVATE ortcustomops)
   set_target_properties(extensions_shared PROPERTIES OUTPUT_NAME "ortextensions")
