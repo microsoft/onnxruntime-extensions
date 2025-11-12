@@ -8,9 +8,6 @@ on:
       - 'java/**'
       - 'tools/build.py'
       - '.github/workflows/android-16kb-check.yml'
-  push:
-    branches:
-      - 'enable-16KB-for-android'  # Your branch name
 
 jobs:
   verify-android-16kb-alignment:
