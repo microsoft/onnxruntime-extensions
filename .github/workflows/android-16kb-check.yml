@@ -54,8 +54,7 @@ jobs:
             --android_ndk_path=$ANDROID_NDK_HOME \
             --config=Release \
             --parallel \
-            --build \
-            --cmake_extra_defines ANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON
+            --build
 
       - name: Verify 16KB page alignment
         env:
