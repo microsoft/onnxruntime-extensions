@@ -823,9 +823,9 @@ TEST(OrtxTokenizerTest, Phi4MiniChatTemplateWithMinjaTools) {
   OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
 
   std::string expected_output = "<|system|>You are a helpful assistant.<|tool|>"
-                                "[{'name': 'get_horoscope', 'description': \"Get today's horoscope for an astrological sign.\", "
-                                "'parameters': {'sign': {'type': 'str', 'description': 'An astrological sign like Taurus or Aquarius', "
-                                "'default': ''}}}]<|/tool|><|end|><|user|>How should I explain the Internet?<|end|><|assistant|>";
+                                "[{\"name\": \"get_horoscope\", \"description\": \"Get today's horoscope for an astrological sign.\", "
+                                "\"parameters\": {\"sign\": {\"type\": \"str\", \"description\": \"An astrological sign like Taurus or Aquarius\", "
+                                "\"default\": \"\"}}}]<|/tool|><|end|><|user|>How should I explain the Internet?<|end|><|assistant|>";
 
   ASSERT_EQ(std::string(text_ptr), expected_output);
 }
@@ -867,10 +867,9 @@ TEST(OrtxTokenizerTest, Phi4MiniChatTemplateWithOAIToolType) {
   OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
 
   std::string expected_output = "<|system|>You are a helpful assistant.<|tool|>"
-                                "[{'name': 'get_horoscope', 'description': \"Get today's horoscope for "
-                                "an astrological sign.\", 'parameters': {'sign': {'type': 'str', "
-                                "'description': 'An astrological sign like Taurus or Aquarius'}}}]<|/tool|>"
-                                "<|end|><|user|>How should I explain the Internet?<|end|><|assistant|>";
+                                "[{\"name\": \"get_horoscope\", \"description\": \"Get today's horoscope for an astrological sign.\", "
+                                "\"parameters\": {\"sign\": {\"type\": \"str\", \"description\": \"An astrological sign like Taurus or Aquarius\"}}}]"
+                                "<|/tool|><|end|><|user|>How should I explain the Internet?<|end|><|assistant|>";
 
   ASSERT_EQ(std::string(text_ptr), expected_output);
 }
@@ -911,11 +910,11 @@ TEST(OrtxTokenizerTest, Phi4MiniChatTemplateWithOAIFunctionType) {
   const char* text_ptr = nullptr;
   OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
 
-  std::string expected_output = "<|system|>You are a helpful assistant.<|tool|>[{'name': 'get_weather', "
-                                "'description': 'Get the current weather for a given location.', "
-                                "'parameters': {'location': {'type': 'str', 'description': 'The name of the city or location.'}}}, "
-                                "{'name': 'get_tourist_attractions', 'description': 'Get a list of top tourist attractions for a given city.', "
-                                "'parameters': {'city': {'type': 'str', 'description': 'The name of the city to find attractions for.'}}}]"
+  std::string expected_output = "<|system|>You are a helpful assistant.<|tool|>"
+                                "[{\"name\": \"get_weather\", \"description\": \"Get the current weather for a given location.\", "
+                                "\"parameters\": {\"location\": {\"type\": \"str\", \"description\": \"The name of the city or location.\"}}}, "
+                                "{\"name\": \"get_tourist_attractions\", \"description\": \"Get a list of top tourist attractions for a given city.\", "
+                                "\"parameters\": {\"city\": {\"type\": \"str\", \"description\": \"The name of the city to find attractions for.\"}}}]"
                                 "<|/tool|><|end|><|user|>How should I explain the Internet?<|end|><|assistant|>";
 
   ASSERT_EQ(std::string(text_ptr), expected_output);
