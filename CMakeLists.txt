@@ -219,10 +219,10 @@ if(OCOS_BUILD_ANDROID)
 
   set(OCOS_BUILD_JAVA ON CACHE INTERNAL "")
 
-  # Add 16KB page size compatibility for Android 15+ devices
+  # Add 16KB page size compatibility for Android 15+ devices.
   # See: https://developer.android.com/guide/practices/page-sizes
   # This flag ensures binaries work on both 4KB and 16KB page size systems.
-  # Requires NDK r23+ (project minimum is r27d).
+  # Requires NDK r23+.
   add_link_options(-Wl,-z,max-page-size=16384)
   message(STATUS "Android build: 16KB page size support enabled")
 endif()
