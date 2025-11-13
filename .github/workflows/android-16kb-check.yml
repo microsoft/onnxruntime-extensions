@@ -53,6 +53,7 @@ jobs:
             --android_home=$ANDROID_HOME \
             --android_ndk_path=$ANDROID_NDK_HOME \
             --config=Release \
+            --update \
             --parallel \
             --build
 
