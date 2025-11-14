@@ -338,11 +338,11 @@ struct SpmUgmTokenizer {
             std::string btok(1, static_cast<char>(bc));
             extTokenId_t token_id = GetTokenId(btok);
             double token_score = (token_id != special_unk_id_) ? (special_token_ids_.count(token_id) ? 0.0 : scores_[token_id]) : unknown_token_score_;
-            double challenger_score = current_best.score_sum + token_score;
+            double challenger_score = tokenization_results[input_offset + b].score_sum + token_score;
             size_t target_index = input_offset + b + 1;
             struct BestTokenization& champ = tokenization_results[target_index];
             if (challenger_score > champ.score_sum) {
-              champ = {input_offset, challenger_score, token_id};
+              champ = {input_offset + b, challenger_score, token_id};
             }
           }
         } else {
@@ -364,7 +364,7 @@ struct SpmUgmTokenizer {
     for (struct BestTokenization& tokenization = tokenization_results[input_len];;
          tokenization = tokenization_results[tokenization.input_offset]) {
       bool is_unknown = tokenization.token_id == special_unk_id_;
-      if (!( !byte_fallback_ && is_prev_unknown && is_unknown)) { // Fix #5: keep consecutive unknowns when byte_fallback_ is true
+      if (byte_fallback_ || !is_prev_unknown || !is_unknown) { // Fix #5: keep consecutive unknowns when byte_fallback_ is true
         output.push_back(tokenization.token_id);
       }
       if (tokenization.input_offset == 0) {
