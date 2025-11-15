@@ -65,12 +65,12 @@ jobs:
 
           echo "=== Verifying 16KB page size alignment ==="
 
-          # Find built libraries
-          LIBS=$(find build/Android -name "*.so" -type f)
+          # Find android built libraries
+          LIBS=$(find build/Android/Release/lib -name "libortextensions.so" -o -name "libonnxruntime_extensions4j_jni.so")
 
           if [ -z "$LIBS" ]; then
-            echo "ERROR: No .so files found in build output"
-            find build -type f -name "*.so" || true
+            echo "ERROR: Android built libraries not found"
+            find build/Android -name "*.so" -type f || true
             exit 1
           fi
 
