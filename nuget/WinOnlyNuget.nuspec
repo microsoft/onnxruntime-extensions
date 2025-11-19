@@ -24,7 +24,9 @@
 		<file src="..\ThirdPartyNotices.txt" target="ThirdPartyNotices.txt" />
 		
 		<!-- Src paths for local Windows build via netstandard -->
-		<file src="..\out\Windows\bin\RelWithDebInfo\ortextensions.dll" target="runtimes\win-x64\native" />
+		<file src="..\build\RelWithDebInfo\bin\RelWithDebInfo\ortextensions.dll" target="runtimes\win-x64\native" />
+		<file src="..\build\RelWithDebInfo\lib\RelWithDebInfo\ortextensions.lib" target="runtimes\win-x64\native" />
+		<file src="..\include\**\*.*" target="build\native\include" />
 		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.props" target="build\netstandard1.1" />
 		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.props" target="build\netstandard2.0" />
 		<file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.targets" target="build\netstandard1.1" />

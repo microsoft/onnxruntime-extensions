@@ -261,7 +261,7 @@ def _parse_arguments():
 
     parser.add_argument(
         "--cmake_generator",
-        choices=["Visual Studio 16 2019", "Visual Studio 17 2022", "Ninja", "Unix Makefiles", "Xcode"],
+        choices=["Visual Studio 16 2019", "Visual Studio 17 2022", "Visual Studio 18 2026", "Ninja", "Unix Makefiles", "Xcode"],
         default="Visual Studio 17 2022" if is_windows() else "Unix Makefiles",
         help="Specify the generator that CMake invokes.",
     )
