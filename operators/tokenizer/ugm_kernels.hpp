@@ -243,12 +243,25 @@ struct SpmUgmTokenizer {
       }
     }
 
-    scores_.resize(id);
+    // Add explicit byte tokens (<0xXX> converted earlier to single-byte) if Marian expects full byte coverage
     double min_score = DBL_MAX;
+    for (const auto& entry : vocab_) {
+      min_score = std::min<double>(min_score, std::get<1>(entry.second));
+    }
+    if (config.tokenizer_class_ == "MarianTokenizer") {
+      // Ensure all 256 byte values have entries; use min_score so they are not worse than existing minimum
+      for (int b = 0; b < 256; ++b) {
+        std::string btok(1, static_cast<unsigned char>(b));
+        if (vocab_.count(btok) == 0) {
+          vocab_[btok] = std::make_tuple(id++, min_score);
+        }
+      }
+    }
+    // Rebuild scores_ and trie with updated vocab
+    scores_.resize(id);
     for (const auto& entry : vocab_) {
       scores_[std::get<0>(entry.second)] = std::get<1>(entry.second);
       token_matcher_.Add(entry.first, 0, std::get<0>(entry.second));
-      min_score = std::min<double>(min_score, std::get<1>(entry.second));
     }
 
     unknown_token_score_ = min_score - unknown_token_score_penalty_;
@@ -318,12 +331,24 @@ struct SpmUgmTokenizer {
 
       if (!single_codepoint_token_found) {
         if (byte_fallback_) {
-          prefix_offset -= 1;
-          n_utf8_code_units = prefix_offset - input_offset;
+          // Fix #4: explicit byte-level fallback segmentation for each byte of the current UTF-8 codepoint
+          size_t bytes = n_utf8_code_units;
+          for (size_t b = 0; b < bytes; ++b) {
+            unsigned char bc = static_cast<unsigned char>(normalized[input_offset + b]);
+            std::string btok(1, static_cast<char>(bc));
+            extTokenId_t token_id = GetTokenId(btok);
+            double token_score = (token_id != special_unk_id_) ? (special_token_ids_.count(token_id) ? 0.0 : scores_[token_id]) : unknown_token_score_;
+            double challenger_score = tokenization_results[input_offset + b].score_sum + token_score;
+            size_t target_index = input_offset + b + 1;
+            struct BestTokenization& champ = tokenization_results[target_index];
+            if (challenger_score > champ.score_sum) {
+              champ = {input_offset + b, challenger_score, token_id};
+            }
+          }
         } else {
           const double challenger_score = current_best.score_sum + unknown_token_score_;
-          prefix_offset = input_offset + n_utf8_code_units;
-          struct BestTokenization& current_champ = tokenization_results[prefix_offset];
+          size_t target_index = input_offset + n_utf8_code_units;
+          struct BestTokenization& current_champ = tokenization_results[target_index];
           if (challenger_score > current_champ.score_sum) {
             struct BestTokenization challenger = {input_offset, (float)challenger_score, special_unk_id_};
             current_champ = challenger;
@@ -339,7 +364,7 @@ struct SpmUgmTokenizer {
     for (struct BestTokenization& tokenization = tokenization_results[input_len];;
          tokenization = tokenization_results[tokenization.input_offset]) {
       bool is_unknown = tokenization.token_id == special_unk_id_;
-      if (!(is_prev_unknown && is_unknown)) {
+      if (byte_fallback_ || !is_prev_unknown || !is_unknown) { // Fix #5: keep consecutive unknowns when byte_fallback_ is true
         output.push_back(tokenization.token_id);
       }
       if (tokenization.input_offset == 0) {
@@ -597,7 +622,7 @@ struct SpmUgmTokenizer {
 
    private:
     uint32_t GetNode(size_t index) {
-      if (index > xcda_array_size_) {
+      if (index >= xcda_array_size_) {  // Fix #2: off-by-one correction
         ORTX_CXX_API_THROW("[UgmTok]Index out of array bounds in XCDA array!", ORT_RUNTIME_EXCEPTION);
       }
       return xcda_array_[index];
@@ -615,7 +640,8 @@ struct SpmUgmTokenizer {
     size_t prefix_off = 0;
     auto user_defined_token_match = user_defined_token_matcher_.FindLongest(prefix, prefix_off);
     if (user_defined_token_match != user_defined_token_matcher_.kInvalidId_) {
-      return {&input[input_offset], prefix_off + input_offset, prefix_off + input_offset};
+      // Fix #1: normalized_len should be matched token length (prefix_off), consumed_input = prefix_off
+      return {&input[input_offset], prefix_off, prefix_off};
     }
 
     size_t longest_prefix_length = 0;
