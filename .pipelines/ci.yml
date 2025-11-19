@@ -46,7 +46,7 @@ stages:
 
     steps:
     - template: templates/download-file.yml
-      inputs:
+      parameters:
         url: "https://github.com/microsoft/onnxruntime/releases/download/v$(ort.version)/onnxruntime-linux-x64-$(ort.version).tgz"
         outputFilePath: "$(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ort.version).tgz"
 
@@ -240,7 +240,7 @@ stages:
       displayName: 'Install omp'
 
     - template: templates/download-file.yml
-      inputs:
+      parameters:
         url: "https://github.com/microsoft/onnxruntime/releases/download/v$(ort.version)/onnxruntime-osx-x86_64-$(ort.version).tgz"
         outputFilePath: "$(Build.SourcesDirectory)/onnxruntime-osx-x86_64-$(ort.version).tgz"
 
@@ -364,7 +364,7 @@ stages:
 
     steps:
     - template: templates/download-file.yml
-      inputs:
+      parameters:
         url: "https://github.com/microsoft/onnxruntime/releases/download/v$(ort.version)/onnxruntime-win-x64-$(ort.version).zip"
         outputFilePath: "$(Build.SourcesDirectory)/onnxruntime-win-x64-$(ort.version).zip"
 
@@ -533,7 +533,7 @@ stages:
         displayName: check cuda version
 
       - template: templates/download-file.yml
-        inputs:
+        parameters:
           url: "https://github.com/microsoft/onnxruntime/releases/download/v$(ORT_VERSION)/onnxruntime-win-x64-gpu-$(ORT_VERSION).zip"
           outputFilePath: "$(Build.SourcesDirectory)/onnxruntime-win-x64-gpu-$(ORT_VERSION).zip"
 
@@ -625,7 +625,7 @@ stages:
           addToPath: true
 
       - template: templates/download-file.yml
-        inputs:
+        parameters:
           url: "https://github.com/microsoft/onnxruntime/releases/download/v$(ORT_VERSION)/onnxruntime-linux-x64-gpu-$(ORT_VERSION).tgz"
           outputFilePath: "$(Build.SourcesDirectory)/onnxruntime-linux-x64-gpu-$(ORT_VERSION).tgz"
 
