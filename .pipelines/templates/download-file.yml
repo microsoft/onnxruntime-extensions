@@ -6,6 +6,8 @@ parameters:
   type: string
 
 steps:
+- script: echo "Agent.OS = ${{ variables['Agent.OS'] }}"
+
 - ${{ if eq(variables['Agent.OS'], 'Windows_NT') }}:
   - pwsh: |
       Invoke-WebRequest -Uri "${{ parameters.url }}" -OutFile "${{ parameters.outputFilePath }}"
