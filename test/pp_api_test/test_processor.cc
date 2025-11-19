@@ -179,30 +179,63 @@ TEST(ProcessorTest, TestPhi4VisionProcessor) {
 }
 
 TEST(ProcessorTest, TestQwen2_5VLImageProcessing) {
+  const char* qwen_test_image_path[] = {"data/processor/australia.jpg"};
+  const size_t qwen_test_image_count = 1;
+
+  // Load Image
   OrtxObjectPtr<OrtxRawImages> raw_images{};
-  extError_t err = OrtxLoadImages(raw_images.ToBeAssigned(), test_image_paths, test_image_count, nullptr);
+  extError_t err = OrtxLoadImages(raw_images.ToBeAssigned(), qwen_test_image_path, qwen_test_image_count, nullptr);
   ASSERT_EQ(err, kOrtxOK);
 
+  // Create Processor
   OrtxObjectPtr<OrtxProcessor> processor;
   err = OrtxCreateProcessor(processor.ToBeAssigned(), "data/qwen2.5vl/vision_processor.json");
-  if (err != kOrtxOK) {
-    std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
-  }
   ASSERT_EQ(err, kOrtxOK);
 
+  // Run Processor
   OrtxObjectPtr<OrtxTensorResult> result;
   err = OrtxImagePreProcess(processor.get(), raw_images.get(), result.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
 
+  // Extract tensor
   OrtxObjectPtr<OrtxTensor> tensor;
   err = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
 
-  const float* data{};
+  const float* cpp_data{};
   const int64_t* shape{};
-  size_t num_dims;
-  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
+  size_t num_dims{};
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&cpp_data), &shape, &num_dims);
   ASSERT_EQ(err, kOrtxOK);
-  ASSERT_EQ(num_dims, 3);
 
+  // Expect 3 Dimensions
+  ASSERT_EQ(num_dims, 3ULL);
+
+  // Read the expected output from file
+  std::filesystem::path expected_pixel_values_output_path = "data/qwen2.5vl/pixel_values_reference.txt";
+  std::ifstream ref(expected_pixel_values_output_path);
+  ASSERT_TRUE(ref.is_open()) << "Could not open reference output file.";
+
+  std::vector<float> reference;
+  reference.reserve(1000);
+
+  std::string line;
+  while (std::getline(ref, line)) {
+    reference.push_back(std::stof(line));
+  }
+
+  ref.close();
+  ASSERT_EQ(reference.size(), 1000) << "Reference float count does not match C++ output count.";
+
+  // Compute MSE
+  double mse = 0.0;
+  for (size_t i = 0; i < 1000; i++) {
+
+    double diff = static_cast<double>(cpp_data[i]) - static_cast<double>(reference[i]);
+    mse += diff * diff;
+  }
+  mse /= 1000;
+
+  ASSERT_LE(mse, 1e-3);
 }
+

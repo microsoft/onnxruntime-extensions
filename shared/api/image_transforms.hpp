@@ -169,11 +169,13 @@ struct Resize {
     int interp = InterpolationMethods().at(interpolation_);
     float box[4] = {0.0f, 0.0f, static_cast<float>(w), static_cast<float>(h)};
 
-    image_factor_ = patch_size_ * temporal_patch_size_;
+    image_factor_ = patch_size_ * merge_size_;
 
     // Perform Smart Resize if Set
     auto [height, width] = smart_resize_ ? smart_resize(height_, width_) : std::make_tuple(height_, width_);
-
+    h = static_cast<int>(height);
+    w = static_cast<int>(width);
+    
     if (keep_aspect_ratio_) {
       double scale = (std::max)(static_cast<double>(width) / w, static_cast<double>(height) / h);
       width = static_cast<int64_t>(w * scale);
@@ -217,8 +219,8 @@ struct Resize {
         max_pixels_ = std::get<int64_t>(value);
       } else if (key == "patch_size") {
         patch_size_ = std::get<int64_t>(value);
-      } else if (key == "temporal_patch_size") {
-        temporal_patch_size_ = std::get<int64_t>(value);
+      } else if (key == "merge_size") {
+        merge_size_ = std::get<int64_t>(value);
       } else {
         return {kOrtxErrorInvalidArgument, "[Resize]: Invalid argument"};
       }
@@ -237,7 +239,7 @@ struct Resize {
   int64_t min_pixels_{3136};
   int64_t max_pixels_{12845056};
   int64_t patch_size_{14};
-  int64_t temporal_patch_size_{2};
+  int64_t merge_size_{2};
   double max_ratio_{200.0};
 };
 
@@ -293,31 +295,52 @@ struct Normalize {
       } else if (key == "std") {
         auto std = std::get<std::vector<double>>(value);
         std_ = {static_cast<float>(std[0]), static_cast<float>(std[1]), static_cast<float>(std[2])};
+      } else if (key == "qwen2_5_vl") {
+        qwen2_5_vl_ = std::get<int64_t>(value) != 0;
       } else {
         return {kOrtxErrorInvalidArgument, "[Normalize]: Invalid argument"};
       }
     }
-
     return {};
   }
 
   OrtxStatus Compute(const ortc::Tensor<float>& input, ortc::Tensor<float>& output) {
-    auto& dimensions = input.Shape();
+    const auto& dimensions = input.Shape();
     if (dimensions.size() != 3ULL) {
       return {kOrtxErrorInvalidArgument, "[Normalize]: Only raw image formats"};
     }
 
-    auto* input_data = input.Data();
-    auto h = dimensions[0];
-    auto w = dimensions[1];
-    auto c = dimensions[2];
-    auto* p_output_image = output.Allocate({h, w, c});
+    const float* input_data = input.Data();
+    int64_t H = dimensions[0];
+    int64_t W = dimensions[1];
+    int64_t C = dimensions[2];
 
-    for (int64_t j = 0; j < h; ++j) {
-      for (int64_t k = 0; k < w; ++k) {
-        auto c0_index = j * w * c + k * c;
-        for (int64_t l = 0; l < c; ++l) {
-          p_output_image[c0_index + l] = (input_data[c0_index + l] - mean_[l]) / std_[l];
+    float* out = output.Allocate({H, W, C});
+
+    if (!qwen2_5_vl_) {
+      // Default: HWC direct normalization
+      for (int64_t h = 0; h < H; h++) {
+        for (int64_t w = 0; w < W; w++) {
+          size_t idx = (h * W + w) * C;
+          for (int c = 0; c < C; c++) {
+            out[idx + c] = (input_data[idx + c] - mean_[c]) / std_[c];
+          }
+        }
+      }
+    } else {
+      // Qwen2.5-VL: Swap BGR -> RGB before normalization
+      for (int64_t h = 0; h < H; h++) {
+        for (int64_t w = 0; w < W; w++) {
+          size_t idx = (h * W + w) * C;
+
+          float B = input_data[idx + 0];
+          float G = input_data[idx + 1];
+          float R = input_data[idx + 2];
+
+          // Normalize in RGB order
+          out[idx + 0] = (R - mean_[0]) / std_[0];
+          out[idx + 1] = (G - mean_[1]) / std_[1];
+          out[idx + 2] = (B - mean_[2]) / std_[2];
         }
       }
     }
@@ -328,6 +351,7 @@ struct Normalize {
  private:
   std::vector<float> mean_{0.48145466f, 0.4578275f, 0.40821073f};
   std::vector<float> std_{0.26862954f, 0.26130258f, 0.27577711f};
+  bool qwen2_5_vl_{false};
 };
 
 struct CenterCrop {
