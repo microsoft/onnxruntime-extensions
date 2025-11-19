@@ -343,6 +343,14 @@ stages:
           ort.version: '1.15.1'
 
     steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.12'
+        disableDownloadFromRegistry: true
+        addToPath: true
+        architecture: 'x64'
+      displayName: Use ADO python task
+
     - template: templates/download-file.yml
       parameters:
         url: "https://github.com/microsoft/onnxruntime/releases/download/v$(ort.version)/onnxruntime-win-x64-$(ort.version).zip"
@@ -491,6 +499,14 @@ stages:
       ORT_VERSION: '1.17.1'
     timeoutInMinutes: 120
     steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.12'
+          disableDownloadFromRegistry: true
+          addToPath: true
+          architecture: 'x64'
+        displayName: Use ADO python task
+
       - template: templates/set_winenv.yml
         parameters:
           EnvSetupScript: 'set_env_cuda.bat'
@@ -527,14 +543,6 @@ stages:
           cd out/Windows
           ctest -C RelWithDebInfo --output-on-failure
         displayName: Run C++ native tests
-
-      - task: UsePythonVersion@0
-        inputs:
-          versionSpec: '3.12'
-          disableDownloadFromRegistry: true
-          addToPath: true
-          architecture: 'x64'
-        displayName: Use ADO python task
 
       - script: |
           set CUDA_PATH=$(Agent.TempDirectory)\v11.8
