@@ -6,14 +6,15 @@ parameters:
   type: string
 
 steps:
-- script: echo "Agent.OS = ${{ variables['Agent.OS'] }}"
+- task: PythonScript@0
+  inputs:
+    scriptSource: inline
+    script: |
+      import urllib.request
 
-- ${{ if eq(variables['Agent.OS'], 'Windows_NT') }}:
-  - pwsh: |
-      Invoke-WebRequest -Uri "${{ parameters.url }}" -OutFile "${{ parameters.outputFilePath }}"
-    displayName: "Download file from URL: ${{ parameters.url }}"
-- ${{ else }}:
-  - bash: |
-      wget --output-document="${{ parameters.outputFilePath }}" "${{ parameters.url }}"
-    displayName: "Download file from URL: ${{ parameters.url }}"
+      url = "${{ parameters.url }}"
+      output_file_path = "${{ parameters.outputFilePath }}"
+
+      urllib.request.urlretrieve(url, filename=output_file_path)
+  displayName: "Download file from URL: ${{ parameters.url }}"
   
