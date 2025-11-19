@@ -1,0 +1,16 @@
+parameters:
+- name: url
+  type: string
+- name: outputFilePath
+  type: string
+
+steps:
+- ${{ if eq(variables['Agent.OS'], 'Windows_NT') }}:
+  - pwsh: |
+      Invoke-WebRequest -Uri "${{ parameters.url }}" -OutFile "${{ parameters.outputFilePath }}"
+    displayName: "Download file from URL: ${{ parameters.url }}"
+- ${{ else }}:
+  - bash: |
+      wget --output-document="${{ parameters.outputFilePath }}" "${{ parameters.url }}"
+    displayName: "Download file from URL: ${{ parameters.url }}"
+  
