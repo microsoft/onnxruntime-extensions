@@ -10,11 +10,13 @@ steps:
   inputs:
     scriptSource: inline
     script: |
+      import sys
       import urllib.request
 
-      url = "${{ parameters.url }}"
-      output_file_path = "${{ parameters.outputFilePath }}"
-
+      url = sys.argv[1]
+      output_file_path = sys.argv[2]
+      
       urllib.request.urlretrieve(url, filename=output_file_path)
+    arguments: '"${{ parameters.url }}" "${{ parameters.outputFilePath }}"'
   displayName: "Download file from URL: ${{ parameters.url }}"
   
