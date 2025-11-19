@@ -1,3 +1,4 @@
+# Downloads a file from `url` and saves it to `outputFilePath`.
 parameters:
 - name: url
   type: string
