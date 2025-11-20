@@ -45,15 +45,10 @@ stages:
           ort.version: '1.18.1'
 
     steps:
-    - task: DownloadGitHubRelease@0
-      inputs:
-        connection: 'microsoft'
-        userRepository: 'microsoft/onnxruntime'
-        defaultVersionType: 'specificTag'
-        version: 'v$(ort.version)'
-        itemPattern: '*-linux-x64-$(ort.version)*'
-        downloadPath: '$(Build.SourcesDirectory)'
-      displayName: Download the ONNXRuntime prebuilt package.
+    - template: templates/download-file.yml
+      parameters:
+        url: "https://github.com/microsoft/onnxruntime/releases/download/v$(ort.version)/onnxruntime-linux-x64-$(ort.version).tgz"
+        outputFilePath: "$(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ort.version).tgz"
 
     - task: ExtractFiles@1
       inputs:
@@ -234,15 +229,10 @@ stages:
     - script: brew install libomp
       displayName: 'Install omp'
 
-    - task: DownloadGitHubRelease@0
-      inputs:
-        connection: 'microsoft'
-        userRepository: 'microsoft/onnxruntime'
-        defaultVersionType: 'specificTag'
-        version: 'v$(ort.version)'
-        itemPattern: '$(ort.dirname)*'
-        downloadPath: '$(Build.SourcesDirectory)'
-      displayName: Download the ONNXRuntime prebuilt package.
+    - template: templates/download-file.yml
+      parameters:
+        url: "https://github.com/microsoft/onnxruntime/releases/download/v$(ort.version)/onnxruntime-osx-x86_64-$(ort.version).tgz"
+        outputFilePath: "$(Build.SourcesDirectory)/onnxruntime-osx-x86_64-$(ort.version).tgz"
 
     - task: ExtractFiles@1
       inputs:
@@ -353,15 +343,18 @@ stages:
           ort.version: '1.15.1'
 
     steps:
-    - task: DownloadGitHubRelease@0
+    - task: UsePythonVersion@0
       inputs:
-        connection: 'microsoft'
-        userRepository: 'microsoft/onnxruntime'
-        defaultVersionType: 'specificTag'
-        version: 'v$(ort.version)'
-        itemPattern: '*-win-x64-$(ort.version)*'
-        downloadPath: '$(Build.SourcesDirectory)'
-      displayName: Download the ONNXRuntime prebuilt package.
+        versionSpec: '3.12'
+        disableDownloadFromRegistry: true
+        addToPath: true
+        architecture: 'x64'
+      displayName: Use ADO python task
+
+    - template: templates/download-file.yml
+      parameters:
+        url: "https://github.com/microsoft/onnxruntime/releases/download/v$(ort.version)/onnxruntime-win-x64-$(ort.version).zip"
+        outputFilePath: "$(Build.SourcesDirectory)/onnxruntime-win-x64-$(ort.version).zip"
 
     - task: ExtractFiles@1
       inputs:
@@ -506,6 +499,14 @@ stages:
       ORT_VERSION: '1.17.1'
     timeoutInMinutes: 120
     steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.12'
+          disableDownloadFromRegistry: true
+          addToPath: true
+          architecture: 'x64'
+        displayName: Use ADO python task
+
       - template: templates/set_winenv.yml
         parameters:
           EnvSetupScript: 'set_env_cuda.bat'
@@ -517,15 +518,10 @@ stages:
           where nvcc
         displayName: check cuda version
 
-      - task: DownloadGitHubRelease@0
-        inputs:
-          connection: 'microsoft'
-          userRepository: 'microsoft/onnxruntime'
-          defaultVersionType: 'specificTag'
-          version: 'v$(ORT_VERSION)'
-          itemPattern: '*-win-x64-gpu-$(ORT_VERSION)*'
-          downloadPath: '$(Build.SourcesDirectory)'
-        displayName: Download the ONNXRuntime prebuilt package.
+      - template: templates/download-file.yml
+        parameters:
+          url: "https://github.com/microsoft/onnxruntime/releases/download/v$(ORT_VERSION)/onnxruntime-win-x64-gpu-$(ORT_VERSION).zip"
+          outputFilePath: "$(Build.SourcesDirectory)/onnxruntime-win-x64-gpu-$(ORT_VERSION).zip"
 
       - task: ExtractFiles@1
         inputs:
@@ -547,14 +543,6 @@ stages:
           cd out/Windows
           ctest -C RelWithDebInfo --output-on-failure
         displayName: Run C++ native tests
-
-      - task: UsePythonVersion@0
-        inputs:
-          versionSpec: '3.12'
-          disableDownloadFromRegistry: true
-          addToPath: true
-          architecture: 'x64'
-        displayName: Use ADO python task
 
       - script: |
           set CUDA_PATH=$(Agent.TempDirectory)\v11.8
@@ -604,15 +592,10 @@ stages:
           versionSpec: '3.12'
           addToPath: true
 
-      - task: DownloadGitHubRelease@0
-        inputs:
-          connection: 'microsoft'
-          userRepository: 'microsoft/onnxruntime'
-          defaultVersionType: 'specificTag'
-          version: 'v$(ORT_VERSION)'
-          itemPattern: '*-linux-x64-gpu-$(ORT_VERSION)*'
-          downloadPath: '$(Build.SourcesDirectory)'
-        displayName: Download the ONNXRuntime prebuilt package.
+      - template: templates/download-file.yml
+        parameters:
+          url: "https://github.com/microsoft/onnxruntime/releases/download/v$(ORT_VERSION)/onnxruntime-linux-x64-gpu-$(ORT_VERSION).tgz"
+          outputFilePath: "$(Build.SourcesDirectory)/onnxruntime-linux-x64-gpu-$(ORT_VERSION).tgz"
 
       - task: ExtractFiles@1
         inputs:
