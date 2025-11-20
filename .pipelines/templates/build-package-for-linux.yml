@@ -54,8 +54,12 @@ jobs:
         displayName: 'build onnxruntime-extensions and run tests'
     - ${{ else }}:
       - bash: |
-          sudo dnf remove cmake
-          pip install cmake --upgrade
+          if ! dnf list installed cmake &>/dev/null; then
+            echo "CMake is not installed. Installing/upgrading cmake."
+            pip install cmake --upgrade
+          else
+            echo "CMake is already installed."
+          fi
           export PATH=~/.local/bin:$PATH
           cmake --version
           export CFLAGS="${{parameters.OrtExtensionsCFlags}}"
