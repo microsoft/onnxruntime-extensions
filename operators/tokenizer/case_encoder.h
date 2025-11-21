@@ -97,6 +97,7 @@ class CaseEncoder {
     if (state_ == 0) {
       buffer_.clear();
       buffer_queue_.clear();
+      buffer_queue_.reserve(32);  // Reserve space to prevent reallocation during collection
       offset_ = 0;
     }
 

@@ -449,8 +449,14 @@ struct SpmUgmTokenizer {
 
     for (size_t input_offset = 0; input_offset < input_len;) {
       auto norm_res = NormalizePrefix(input, input_offset);
-      for (size_t i = 0; i < norm_res.normalized_len; i++) {
-        char c = norm_res.normalized[i];
+      // Validate the result before using it
+      if (norm_res.normalized == nullptr && norm_res.normalized_len > 0) {
+        ORTX_CXX_API_THROW("[UgmTok]NormalizePrefix returned null pointer with non-zero length!", ORT_RUNTIME_EXCEPTION);
+      }
+      // Copy normalized data immediately to be safe
+      std::string normalized_segment(norm_res.normalized, norm_res.normalized_len);
+      for (size_t i = 0; i < normalized_segment.size(); i++) {
+        char c = normalized_segment[i];
         if (c != ' ') {
           if (!processing_non_ws) {
             processing_non_ws = true;
@@ -521,8 +527,25 @@ struct SpmUgmTokenizer {
       if (longest_prefix_offset >= prefix_replacements_size_) {
         ORTX_CXX_API_THROW("[UgmTok]Index out of array bounds in precompiled charsmap!", ORT_RUNTIME_EXCEPTION);
       }
+      // Validate that we have valid prefix_replacements_ data
+      if (prefix_replacements_ == nullptr || prefix_replacements_size_ == 0) {
+        ORTX_CXX_API_THROW("[UgmTok]prefix_replacements_ is null or empty!", ORT_RUNTIME_EXCEPTION);
+      }
       const char* prefix_replacement = &prefix_replacements_[longest_prefix_offset];
-      return {prefix_replacement, static_cast<int>(longest_prefix_length)};
+      // Calculate safe length: find null terminator within remaining buffer
+      size_t max_len = prefix_replacements_size_ - longest_prefix_offset;
+      size_t replacement_len = 0;
+      while (replacement_len < max_len && prefix_replacement[replacement_len] != '\0') {
+        replacement_len++;
+      }
+      if (replacement_len == max_len) {
+        ORTX_CXX_API_THROW("[UgmTok]Replacement string not null-terminated in precompiled charsmap!", ORT_RUNTIME_EXCEPTION);
+      }
+      // Additional safety: if empty replacement, return original input segment
+      if (replacement_len == 0) {
+        return {input_view.substr(0, longest_prefix_length), static_cast<int>(longest_prefix_length)};
+      }
+      return {std::string_view(prefix_replacement, replacement_len), static_cast<int>(longest_prefix_length)};
     } else {
       // if yes, return this sequence unmodified
       size_t prefix_offset = ustring::UTF8Len(input_view[0]);
@@ -555,9 +578,12 @@ struct SpmUgmTokenizer {
 
     while (!input_view.empty()) {
       auto p = case_encoder_->NormalizePrefix(input_view);
+      
+      // Copy the string_view data to avoid dangling pointer issues
+      std::string normalized_str(p.first);
 
-      for (size_t i = 0; i < p.first.size(); i++) {
-        char c = p.first[i];
+      for (size_t i = 0; i < normalized_str.size(); i++) {
+        char c = normalized_str[i];
         if (c != ' ') {
           if (!processing_non_ws) {
             processing_non_ws = true;
@@ -674,8 +700,29 @@ struct SpmUgmTokenizer {
       if (longest_prefix_offset >= prefix_replacements_size_) {
         ORTX_CXX_API_THROW("[UgmTok]Index out of array bounds in precompiled charsmap!", ORT_RUNTIME_EXCEPTION);
       }
+      // Validate that we have valid prefix_replacements_ data
+      if (prefix_replacements_ == nullptr || prefix_replacements_size_ == 0) {
+        ORTX_CXX_API_THROW("[UgmTok]prefix_replacements_ is null or empty!", ORT_RUNTIME_EXCEPTION);
+      }
       const char* prefix_replacement = &prefix_replacements_[longest_prefix_offset];
-      return {prefix_replacement, strlen(prefix_replacement), longest_prefix_length};
+      // Calculate safe length: find null terminator within remaining buffer
+      size_t max_len = prefix_replacements_size_ - longest_prefix_offset;
+      size_t replacement_len = 0;
+      while (replacement_len < max_len && prefix_replacement[replacement_len] != '\0') {
+        replacement_len++;
+      }
+      if (replacement_len == max_len) {
+        ORTX_CXX_API_THROW("[UgmTok]Replacement string not null-terminated in precompiled charsmap!", ORT_RUNTIME_EXCEPTION);
+      }
+      // Additional safety: if empty replacement, return original input segment
+      if (replacement_len == 0) {
+        size_t prefix_offset = input_offset + ustring::UTF8Len(input[input_offset]);
+        if (prefix_offset <= input.size()) {
+          return {&input[input_offset], prefix_offset - input_offset, longest_prefix_length};
+        }
+        return {"\xEF\xBF\xBD", 3, 1};
+      }
+      return {prefix_replacement, replacement_len, longest_prefix_length};
     } else {
       // if yes, return this sequence unmodified
       size_t prefix_offset = input_offset + ustring::UTF8Len(input[input_offset]);
