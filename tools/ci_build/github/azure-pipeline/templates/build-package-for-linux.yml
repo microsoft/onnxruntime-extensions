@@ -45,8 +45,13 @@ jobs:
       submodules: none
 
     - bash: |
-        sudo apt-get update
-        sudo apt-get install -y libssh-dev
+        if [ "${{parameters.OrtExtensionsArch}}" == "x64" ]; then
+          sudo apt-get update
+          sudo apt-get install -y libssh-dev
+        else
+          sudo dnf update
+          sudo dnf install -y libssh-devel
+        fi
       displayName: Install OpenSSL for Azure custom ops
 
     # NOTE: on arm64 machine, CMake version needs to be updated since we now require CMake 3.28 or newer.
@@ -59,8 +64,12 @@ jobs:
         displayName: 'build onnxruntime-extensions and run tests'
     - ${{ else }}:
       - bash: |
-          sudo apt remove cmake
-          pip install cmake --upgrade
+          if ! dnf list installed cmake &>/dev/null; then
+            echo "CMake is not installed. Installing/upgrading cmake."
+            pip install cmake --upgrade
+          else
+            echo "CMake is already installed."
+          fi
           export PATH=~/.local/bin:$PATH
           cmake --version
           export CFLAGS="${{parameters.OrtExtensionsCFlags}}"
