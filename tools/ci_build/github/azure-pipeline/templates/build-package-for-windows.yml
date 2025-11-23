@@ -88,10 +88,14 @@ jobs:
       inputs:
         targetType: 'inline'
         script: |
-          $target_lib_path="$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.BuildPlatform}}-$(OrtExtVersion)/lib"
-          New-Item $target_lib_path -ItemType Directory
-          cp bin/RelWithDebInfo/ortextensions.* $target_lib_path
-          cp lib/RelWithDebInfo/ortextensions.* $target_lib_path
+          $target_base="$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.BuildPlatform}}-$(OrtExtVersion)"
+          $target_lib_path="$target_base/lib"
+          $target_include_path="$target_base/include"
+          New-Item $target_lib_path -ItemType Directory -Force
+          New-Item $target_include_path -ItemType Directory -Force
+          Copy-Item -Path "bin/RelWithDebInfo/ortextensions.*" -Destination $target_lib_path -Force
+          Copy-Item -Path "lib/RelWithDebInfo/ortextensions.*" -Destination $target_lib_path -Force
+          Copy-Item -Path "$(Build.SourcesDirectory)/include/*" -Destination $target_include_path -Recurse -Force
         workingDirectory: '$(Build.BinariesDirectory)/out/RelWithDebInfo'
 
     - template: win-esrp-dll.yml
