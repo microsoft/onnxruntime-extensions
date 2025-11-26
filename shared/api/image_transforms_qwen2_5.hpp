@@ -171,6 +171,7 @@ class PatchImage {
   }
 
  private:
+  // Constants set to defaults
   int64_t patch_size_{14};
   int64_t temporal_patch_size_{2};
   int64_t merge_size_{2};

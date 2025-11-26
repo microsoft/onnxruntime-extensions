@@ -106,17 +106,17 @@ struct Resize {
 
   int64_t round_by_factor(int64_t number, int64_t factor) {
       // Returns the closest integer to 'number' that is divisible by 'factor'.
-      return static_cast<int>(std::round(static_cast<double>(number) / factor) * factor);
+      return static_cast<int64_t>(std::round(static_cast<double>(number) / factor) * factor);
   }
 
   int64_t ceil_by_factor(int64_t number, int64_t factor) {
       // Returns the smallest integer greater than or equal to 'number' that is divisible by 'factor'.
-      return static_cast<int>(std::ceil(static_cast<double>(number) / factor) * factor);
+      return static_cast<int64_t>(std::ceil(static_cast<double>(number) / factor) * factor);
   }
 
   int64_t floor_by_factor(int64_t number, int64_t factor) {
       // Returns the largest integer less than or equal to 'number' that is divisible by 'factor'.
-      return static_cast<int>(std::floor(static_cast<double>(number) / factor) * factor);
+      return static_cast<int64_t>(std::floor(static_cast<double>(number) / factor) * factor);
   }
 
   std::tuple<int64_t, int64_t> smart_resize(int64_t height, int64_t width) {
@@ -234,6 +234,16 @@ struct Resize {
   bool keep_aspect_ratio_{true};
   std::string interpolation_{"CUBIC"};  // LINEAR, NEAREST, CUBIC
 
+  /*
+  These constants below are defaults from Qwen2/Qwen2.5-VL image processing, and come from
+  the config: https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct/blob/main/preprocessor_config.json#L2
+
+  Some have calculations behind them, for instance:
+  min_pixels_ = 4 * 28 * 28
+  max_pixels_ = 16384 * 28 * 28,
+  but they are passed in through a JSON config and hence passed as constants (same for defaults).
+  */
+
   bool smart_resize_{false};
   int64_t image_factor_{28};
   int64_t min_pixels_{3136};
@@ -349,6 +359,7 @@ struct Normalize {
   }
 
  private:
+  // Constants set to defaults
   std::vector<float> mean_{0.48145466f, 0.4578275f, 0.40821073f};
   std::vector<float> std_{0.26862954f, 0.26130258f, 0.27577711f};
   bool qwen2_5_vl_{false};
