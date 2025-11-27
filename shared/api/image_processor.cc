@@ -14,6 +14,7 @@
 #include "image_transforms_phi_3.hpp"
 #include "image_transforms_mllama.hpp"
 #include "image_transforms_phi_4.hpp"
+#include "image_transforms_qwen2_5.hpp"
 
 namespace ort_extensions {
 std::tuple<std::unique_ptr<ImageRawData[]>, size_t> LoadRawImages(
@@ -40,7 +41,8 @@ Operation::KernelRegistry ImageProcessor::kernel_registry_ = {
     {"Phi3ImageTransform", []() { return CreateKernelInstance(phi3_hd_transform); }},
     {"Llama3ImageTransform", []() { return CreateKernelInstance(&Llama3ImageTransform::Compute); }},
     {"Phi4VisionDynamicPreprocess", []() { return CreateKernelInstance(&Phi4VisionDynamicPreprocess::Compute); }},
-    {"Phi4VisionProcessor", []() { return CreateKernelInstance(&Phi4VisionProcessor::Compute); }}};  // NOLINT
+    {"Phi4VisionProcessor", []() { return CreateKernelInstance(&Phi4VisionProcessor::Compute); }},
+    {"PatchImage", []() { return CreateKernelInstance(&PatchImage::Compute); }}};  // NOLINT
 
 OrtxStatus ImageProcessor::Init(std::string_view processor_def) {
   std::string processor_def_str;
