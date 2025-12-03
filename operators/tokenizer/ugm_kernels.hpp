@@ -537,7 +537,9 @@ struct SpmUgmTokenizer {
   std::string NmtNormalize(const std::string& input) const {
     std::string normalized;
     normalized.reserve(input.size() * 3);
-    std::vector<size_t> norm_to_orig(input.size() * 3);
+    // Use a vector that tracks original positions - reserve capacity but start empty
+    std::vector<size_t> norm_to_orig;
+    norm_to_orig.reserve(input.size() * 3);
 
     const std::string space = tokenizer_escape_whitespaces_ ? std::string(spm_escaped_space) : " ";
 
@@ -551,10 +553,19 @@ struct SpmUgmTokenizer {
     size_t input_len = input.size();
 
     std::string_view input_view(input);
-    int consumed = 0;
+    size_t orig_offset = 0;
 
     while (!input_view.empty()) {
       auto p = case_encoder_->NormalizePrefix(input_view);
+
+      // Safety check: if nothing was consumed and nothing was returned, skip one byte to avoid infinite loop
+      if (p.second == 0 && p.first.empty()) {
+        // Advance by one UTF-8 character to prevent infinite loop
+        size_t skip = std::min(ustring::UTF8Len(input_view[0]), input_view.size());
+        orig_offset += skip;
+        input_view.remove_prefix(skip);
+        continue;
+      }
 
       for (size_t i = 0; i < p.first.size(); i++) {
         char c = p.first[i];
@@ -563,28 +574,39 @@ struct SpmUgmTokenizer {
             processing_non_ws = true;
             if ((shall_prepend_space && !is_space_prepended) || shall_merge_spaces) {
               normalized.append(space);
+              // Track original position for space characters
+              for (size_t j = 0; j < space.size(); j++) {
+                norm_to_orig.push_back(orig_offset);
+              }
               is_space_prepended = true;
             }
           }
           normalized.push_back(c);
+          norm_to_orig.push_back(orig_offset + i);
         } else {
           if (processing_non_ws) {
             processing_non_ws = false;
           }
           if (!shall_merge_spaces) {
             normalized.append(space);
+            for (size_t j = 0; j < space.size(); j++) {
+              norm_to_orig.push_back(orig_offset + i);
+            }
           }
         }
       }
 
-      consumed += p.second;
-      input_view.remove_prefix(p.second);
+      orig_offset += static_cast<size_t>(p.second);
+      input_view.remove_prefix(static_cast<size_t>(p.second));
     }
 
     case_encoder_->PostProcess(&normalized, &norm_to_orig);
 
     if (shall_append_space) {
       normalized.append(space);
+      for (size_t j = 0; j < space.size(); j++) {
+        norm_to_orig.push_back(input.size());
+      }
     }
 
     return normalized;
