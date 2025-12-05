@@ -33,6 +33,18 @@ class CaseEncoder {
   virtual ~CaseEncoder() {}
   void SetNormalizer(Normalizer normalizer) { normalizer_ = normalizer; }
 
+  // Reset all state for a new tokenization call - call this before starting new input
+  void Reset() {
+    buffer_.clear();
+    buffer_queue_.clear();
+    signature_.clear();
+    offset_ = 0;
+    dump_buffer_from_ = -1;
+    state_ = 0;
+    spans_ = 0;
+    seen_three_spans_ = false;
+  }
+
  public:
   CaseEncoder(bool remove_extra_white_space) : remove_extra_white_space_(remove_extra_white_space) {}
 
@@ -98,10 +110,6 @@ class CaseEncoder {
       buffer_.clear();
       buffer_queue_.clear();
       offset_ = 0;
-      // Reset all state for new tokenization
-      signature_.clear();
-      spans_ = 0;
-      seen_three_spans_ = false;
     }
 
     if (isUpper(sp)) {
@@ -174,11 +182,6 @@ class CaseEncoder {
   void PostProcess(std::string* normalized, std::vector<size_t>* norm_to_orig) {
     if (!seen_three_spans_) return;
 
-    // Safety check: ensure norm_to_orig has enough elements
-    if (norm_to_orig->size() < normalized->size()) {
-      return;  // Cannot safely process - sizes don't match
-    }
-
     std::string normalized_temp;
     normalized_temp.reserve(normalized->size());
 
@@ -199,7 +202,7 @@ class CaseEncoder {
       // Bounds check before advancing iterators
       if (std::distance(nrm_it, nrm_end) < static_cast<ptrdiff_t>(len) ||
           std::distance(n2o_it, n2o_end) < static_cast<ptrdiff_t>(len)) {
-        break;  // Not enough elements remaining
+        break;
       }
 
       normalized_temp.insert(normalized_temp.end(), nrm_it, nrm_it + len);
