@@ -14,7 +14,9 @@ class PatchImage {
  public:
   PatchImage() = default;
 
-  OrtxStatus Compute(const ortc::Tensor<float>& input, ortc::Tensor<float>& output) {
+  OrtxStatus Compute(const ortc::Tensor<float>& input, 
+                     ortc::Tensor<float>& output,
+                     ortc::Tensor<int64_t>& grid_thw_output) {
     // Validate and read HWC
     const auto& dims = input.Shape();
     if (dims.size() != 3ULL) {
@@ -58,6 +60,13 @@ class PatchImage {
     int64_t grid_t = frames / temporal_patch_size_;
     int64_t grid_h = H / patch_size_;
     int64_t grid_w = W / patch_size_;
+
+    // Populate grid_thw output tensor
+    grid_thw_output.Allocate({1, 3});
+    int64_t* grid_data = const_cast<int64_t*>(grid_thw_output.Data());
+    grid_data[0] = grid_t;
+    grid_data[1] = grid_h;
+    grid_data[2] = grid_w;
 
     // Reshape dimensions (Python 9D)
     if (merge_size_ <= 0) {
