@@ -98,6 +98,10 @@ class CaseEncoder {
       buffer_.clear();
       buffer_queue_.clear();
       offset_ = 0;
+      // Reset all state for new tokenization
+      signature_.clear();
+      spans_ = 0;
+      seen_three_spans_ = false;
     }
 
     if (isUpper(sp)) {
