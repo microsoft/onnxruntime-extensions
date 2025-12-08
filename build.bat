@@ -22,9 +22,9 @@ IF "%1" == "-A" GOTO :VSDEV_CMD
 set GEN_PLATFORM=-A x64
 
 :VSDEV_CMD
-set GENERATOR="Visual Studio 16 2019"
-IF "%VisualStudioVersion:~0,2%" == "16" GOTO :START_BUILD
 set GENERATOR="Visual Studio 17 2022"
+IF "%VisualStudioVersion:~0,2%" == "17" GOTO :START_BUILD
+set GENERATOR="Visual Studio 18 2026"
 
 :START_BUILD
 mkdir .\out\Windows\ 2>NUL
