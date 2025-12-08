@@ -36,10 +36,15 @@
     -->
     <!-- Windows and Linux via netstandard -->
     <file src="..\nuget-artifacts\onnxruntime-extensions-win-x64\lib\ortextensions.dll" target="runtimes\win-x64\native" />
+    <file src="..\nuget-artifacts\onnxruntime-extensions-win-x64\lib\ortextensions.lib" target="runtimes\win-x64\native" />
     <file src="..\nuget-artifacts\onnxruntime-extensions-win-x86\lib\ortextensions.dll" target="runtimes\win-x86\native" />
+    <file src="..\nuget-artifacts\onnxruntime-extensions-win-x86\lib\ortextensions.lib" target="runtimes\win-x86\native" />
     <file src="..\nuget-artifacts\onnxruntime-extensions-win-arm64\lib\ortextensions.dll" target="runtimes\win-arm64\native" />
+    <file src="..\nuget-artifacts\onnxruntime-extensions-win-arm64\lib\ortextensions.lib" target="runtimes\win-arm64\native" />
     <file src="..\nuget-artifacts\onnxruntime-extensions-linux-aarch64\lib\libortextensions.so" target="runtimes\linux-arm64\native" />
     <file src="..\nuget-artifacts\onnxruntime-extensions-linux-x64\lib\libortextensions.so" target="runtimes\linux-x64\native" />
+    <!-- Include headers for native C++ development -->
+    <file src="..\nuget-artifacts\onnxruntime-extensions-win-x64\include\**\*.*" target="build\native\include" />
     <file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.props" target="build\netstandard1.1" />
     <file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.props" target="build\netstandard2.0" />
     <file src="targets\netstandard\Microsoft.ML.OnnxRuntime.Extensions.targets" target="build\netstandard1.1" />
