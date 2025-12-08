@@ -32,7 +32,7 @@ stages:
     - MacOS_C_API_Packaging_CPU_universal2
     pool:
       name: "Azure Pipelines"
-      image: "macOS-13"
+      image: "macOS-15"
       os: macOS
     templateContext:
       inputs:

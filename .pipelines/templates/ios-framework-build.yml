@@ -25,7 +25,7 @@ jobs:
   - job: IOS_C_API_Packaging_${{ parameters.Platform }}_${{ parameters.IosArch }}
     condition: succeeded()
     pool:
-      vmImage: "macOS-13"
+      vmImage: "macOS-15"
     timeoutInMinutes: 120
     variables:
       buildConfig: Release

@@ -29,7 +29,7 @@ stages:
   #############
   - job: AndroidPackage
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-15'
     timeoutInMinutes: 120
     steps:
     - task: UsePythonVersion@0
@@ -78,7 +78,7 @@ stages:
   
   - job: AndroidCpp
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-15'
     timeoutInMinutes: 30
     steps:
       - task: UsePythonVersion@0

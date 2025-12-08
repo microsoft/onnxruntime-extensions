@@ -21,7 +21,7 @@ parameters:
 jobs:
   - job: Android_C_API_Packaging_${{ parameters.JobSuffix }}
     pool:
-      vmImage: "macOS-13"
+      vmImage: "macOS-15"
     timeoutInMinutes: 120
     variables:
       buildConfig: Release

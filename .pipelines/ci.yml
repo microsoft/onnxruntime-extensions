@@ -205,7 +205,7 @@ stages:
   ###########
   - job: MacOSX
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-15'
 
     strategy:
       matrix:
@@ -256,7 +256,7 @@ stages:
   ##############################
   - job: MacOS_PPApiBuild
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-15'
 
     steps:
     # compiled as only one operator selected.
@@ -272,7 +272,7 @@ stages:
   #############
   - job: MacOSPython
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-15'
 
     strategy:
       matrix:
@@ -722,7 +722,7 @@ stages:
   #############
   - job: AndroidPackage_BuildOnly
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-15'
     timeoutInMinutes: 120
     steps:
     - task: UsePythonVersion@0
@@ -757,7 +757,7 @@ stages:
 
   - job: AndroidCpp_BuildOnly
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-15'
     timeoutInMinutes: 45
     steps:
       - task: UsePythonVersion@0
@@ -796,7 +796,7 @@ stages:
   #############
   - job: IosPackage
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-15'
     timeoutInMinutes: 120
     steps:
     - template: templates/use-xcode-version.yml

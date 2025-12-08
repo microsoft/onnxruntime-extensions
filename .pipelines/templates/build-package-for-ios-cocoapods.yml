@@ -62,7 +62,7 @@ jobs:
   - IOS_C_API_Packaging_maccatalyst_x86_64
   - IOS_C_API_Packaging_maccatalyst_arm64
   pool:
-    vmImage: "macOS-13"
+    vmImage: "macOS-15"
 
   timeoutInMinutes: 120
 

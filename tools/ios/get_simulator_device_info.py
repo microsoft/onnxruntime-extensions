@@ -141,7 +141,7 @@ def main():
     _ = parser.parse_args()  # no args yet
 
     info = get_simulator_device_info(
-        # The macOS-13 hosted agent image has iOS 17 which is currently in beta. Limit it to 16.4 for now.
+        # The macOS-15 hosted agent image has iOS 17 which is currently in beta. Limit it to 16.4 for now.
         # See https://github.com/actions/runner-images/issues/8023
         # TODO Remove max_runtime_version limit.
         max_runtime_version_str="16.4",

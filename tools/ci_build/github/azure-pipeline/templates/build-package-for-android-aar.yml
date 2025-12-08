@@ -41,7 +41,7 @@ stages:
     - Android_C_API_Packaging_arm64_v8a
     pool:
       name: "Azure Pipelines"
-      image: "macOS-13"
+      image: "macOS-15"
       os: macOS
     templateContext:
       inputs:

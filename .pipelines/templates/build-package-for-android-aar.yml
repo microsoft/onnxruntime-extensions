@@ -40,7 +40,7 @@ stages:
     - Android_C_API_Packaging_armeabi_v7a
     - Android_C_API_Packaging_arm64_v8a
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-15'
     timeoutInMinutes: 120
     variables:
       buildConfig: Release

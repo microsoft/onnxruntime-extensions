@@ -63,7 +63,7 @@ jobs:
   - IOS_C_API_Packaging_maccatalyst_arm64
   pool:
     name: "Azure Pipelines"
-    image: "macOS-13"
+    image: "macOS-15"
     os: macOS
   templateContext:
     inputs:
