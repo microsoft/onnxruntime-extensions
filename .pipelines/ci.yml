@@ -847,7 +847,7 @@ stages:
     - script: |
         set -e
 
-        SIMULATOR_DEVICE_INFO=$(python ./tools/ios/get_simulator_device_info.py)
+        SIMULATOR_DEVICE_INFO=$(python ./tools/ios/get_simulator_device_info.py --requested-runtime-version 18.2)
 
         echo "Simulator device info:"
         echo "${SIMULATOR_DEVICE_INFO}"
