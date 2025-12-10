@@ -86,7 +86,9 @@ function(add_test_target)
 
     xctest_add_bundle(${ARG_TARGET} ${dummy_testee_target})
 
-    xctest_add_test("${ARG_TARGET}_xctest" ${ARG_TARGET})
+    # Clear LIBRARY_OUTPUT_DIRECTORY to avoid duplicate PlugIns directory issue
+    # See: https://gitlab.kitware.com/cmake/cmake/-/issues/26301
+    set_property(TARGET ${ARG_TARGET} PROPERTY LIBRARY_OUTPUT_DIRECTORY)
 
     target_sources(${ARG_TARGET} PRIVATE
                    ${ARG_TEST_SOURCES}

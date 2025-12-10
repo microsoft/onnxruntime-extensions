@@ -288,6 +288,14 @@ struct SpmUgmTokenizer {
 
   OrtxStatus ComputeNoOp(const std::string& input, std::vector<extTokenId_t>& output,
                          bool add_special_tokens = true) const {
+    // Validate UTF-8 encoding before processing
+    ptrdiff_t validation_result = ustring::ValidateUTF8(input);
+    if (validation_result < 0) {
+      return OrtxStatus(extError_t::kOrtxErrorInvalidArgument,
+                        "Invalid UTF-8 encoding detected in input string at position " +
+                        std::to_string(-validation_result));
+    }
+    
     std::string normalized;
     if (case_encoder_) {
       normalized = NmtNormalize(input);
@@ -535,6 +543,9 @@ struct SpmUgmTokenizer {
   }
 
   std::string NmtNormalize(const std::string& input) const {
+    // Reset the case encoder state before starting new normalization
+    case_encoder_->Reset();
+
     std::string normalized;
     normalized.reserve(input.size() * 3);
     std::vector<size_t> norm_to_orig(input.size() * 3);

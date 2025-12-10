@@ -205,7 +205,7 @@ stages:
   ###########
   - job: MacOSX
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-14'
 
     strategy:
       matrix:
@@ -256,7 +256,7 @@ stages:
   ##############################
   - job: MacOS_PPApiBuild
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-14'
 
     steps:
     # compiled as only one operator selected.
@@ -272,7 +272,7 @@ stages:
   #############
   - job: MacOSPython
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-14'
 
     strategy:
       matrix:
@@ -722,7 +722,7 @@ stages:
   #############
   - job: AndroidPackage_BuildOnly
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-14'
     timeoutInMinutes: 120
     steps:
     - task: UsePythonVersion@0
@@ -757,7 +757,7 @@ stages:
 
   - job: AndroidCpp_BuildOnly
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-14'
     timeoutInMinutes: 45
     steps:
       - task: UsePythonVersion@0
@@ -796,7 +796,7 @@ stages:
   #############
   - job: IosPackage
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-14'
     timeoutInMinutes: 120
     steps:
     - template: templates/use-xcode-version.yml
@@ -822,7 +822,7 @@ stages:
           --output_dir $(Build.BinariesDirectory)/xcframework_out \
           --platform_arch iphonesimulator x86_64 \
           --config RelWithDebInfo \
-          --ios_deployment_target 13.0 \
+          --ios_deployment_target 15.0 \
           -- \
           --enable_cxx_tests
       displayName: "Build xcframework for iphonesimulator x86_64"
@@ -847,7 +847,7 @@ stages:
     - script: |
         set -e
 
-        SIMULATOR_DEVICE_INFO=$(python ./tools/ios/get_simulator_device_info.py)
+        SIMULATOR_DEVICE_INFO=$(python ./tools/ios/get_simulator_device_info.py --requested-runtime-version 18.2)
 
         echo "Simulator device info:"
         echo "${SIMULATOR_DEVICE_INFO}"
