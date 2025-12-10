@@ -3,7 +3,7 @@
 parameters:
 - name: xcodeVersion
   type: string
-  default: "26.1"
+  default: "16.2"
 
 steps:
 - bash: |

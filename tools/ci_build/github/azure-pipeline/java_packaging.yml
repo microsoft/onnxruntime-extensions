@@ -134,7 +134,7 @@ extends:
           clean: all
         pool:
           name: "Azure Pipelines"
-          image: "macOS-15"
+          image: "macOS-14"
           os: macOS
         templateContext:
           inputs:

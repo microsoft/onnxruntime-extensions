@@ -14,7 +14,7 @@ extends:
   parameters:
     pool:
       name: "Azure Pipelines"
-      image: "macOS-15"
+      image: "macOS-14"
       os: macOS
     sdl:
       sourceAnalysisPool:
