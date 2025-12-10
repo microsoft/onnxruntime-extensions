@@ -56,7 +56,7 @@ jobs:
         displayName: 'build onnxruntime-extensions and run tests'
         inputs:
           filename: '.\build_lib.bat'
-          arguments: '--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out --config RelWithDebInfo --cmake_generator "Visual Studio 17 2022" --enable_cxx_tests ${{parameters.AdditionalBuildFlags}} --cmake_extra_defines DOCOS_ENABLE_C_API=ON'
+          arguments: '--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out --config RelWithDebInfo --cmake_generator "Visual Studio 17 2022" --enable_cxx_tests ${{parameters.AdditionalBuildFlags}} --cmake_extra_defines OCOS_ENABLE_C_API=ON'
           modifyEnvironment: true
           workingFolder: $(Build.SourcesDirectory)
     - ${{ else }}:
@@ -64,7 +64,7 @@ jobs:
         displayName: 'build onnxruntime-extensions'
         inputs:
           filename: '.\build_lib.bat'
-          arguments: '--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out --config RelWithDebInfo --cmake_generator "Visual Studio 17 2022" ${{parameters.AdditionalBuildFlags}} --cmake_extra_defines DOCOS_ENABLE_C_API=ON'
+          arguments: '--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out --config RelWithDebInfo --cmake_generator "Visual Studio 17 2022" ${{parameters.AdditionalBuildFlags}} --cmake_extra_defines OCOS_ENABLE_C_API=ON'
           modifyEnvironment: true
           workingFolder: $(Build.SourcesDirectory)
 
