@@ -22,7 +22,7 @@ jobs:
   - job: Android_C_API_Packaging_${{ parameters.JobSuffix }}
     pool:
       name: "Azure Pipelines"
-      image: "macOS-13"
+      image: "macOS-14"
       os: macOS
     timeoutInMinutes: 120
     variables:
