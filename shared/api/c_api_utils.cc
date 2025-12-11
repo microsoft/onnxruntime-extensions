@@ -25,7 +25,7 @@ OrtxStatus OrtxObjectImpl::IsInstanceOf(extObjectKind_t kind) const {
 
 int ORTX_API_CALL OrtxGetAPIVersion() { return API_VERSION; }
 
-const char* OrtxGetLastErrorMessage() { return ReturnableStatus::last_error_message_.c_str(); }
+const char* ORTX_API_CALL OrtxGetLastErrorMessage() { return ReturnableStatus::last_error_message_.c_str(); }
 
 extError_t ORTX_API_CALL OrtxCreate(extObjectKind_t kind, OrtxObject** object, ...) {
   if (object == nullptr) {
