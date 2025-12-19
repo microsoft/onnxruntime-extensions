@@ -802,7 +802,7 @@ class SpmUgmDecoder {
   }
 
   // Helper: Decode first UTF-8 codepoint
-  bool DecodeFirstUTF8Codepoint(const std::string& utf8, wchar_t& codepoint, size_t& char_len) const {
+  bool DecodeFirstUTF8Codepoint(const std::string& utf8, uint32_t& codepoint, size_t& char_len) const {
     unsigned char lead = static_cast<unsigned char>(utf8[0]);
     if (lead < 0x80) {
       codepoint = lead;
@@ -830,12 +830,9 @@ class SpmUgmDecoder {
     return true;
   }
 
-  // Helper: Encode a wchar_t as UTF-8
-  std::string EncodeUTF8(wchar_t wc) const {
+  // Helper: Encode a uint32_t codepoint as UTF-8
+  std::string EncodeUTF8(uint32_t u) const {
     std::string out;
-
-    // Promote wchar_t to uint32_t to avoid data loss from shift operations and silence warning C4333
-    uint32_t u = static_cast<uint32_t>(wc);
 
     if (u < 0x80) {
       out += static_cast<char>(u);
@@ -856,23 +853,68 @@ class SpmUgmDecoder {
     return out;
   }
 
+  // Helper: Convert UTF-8 string to uppercase (Unicode-aware)
+  std::string UTF8ToUpper(const std::string& input) const {
+    std::string result;
+    size_t pos = 0;
+    
+    while (pos < input.length()) {
+      uint32_t codepoint;
+      size_t char_len = 0;
+      std::string char_str = input.substr(pos);
+      
+      if (!DecodeFirstUTF8Codepoint(char_str, codepoint, char_len)) {
+        // If decode fails, just copy the byte as-is
+        result += input[pos];
+        pos++;
+        continue;
+      }
+      
+      // Apply uppercasing rules
+      if (codepoint >= 'a' && codepoint <= 'z') {
+        codepoint = codepoint - ('a' - 'A');  // ASCII uppercase
+      } else if (codepoint >= 0x0430 && codepoint <= 0x044F) {  // Cyrillic а-я
+        codepoint = codepoint - (0x0430 - 0x0410);  // Convert to А-Я
+      } else if (codepoint == 0x0451) {  // Cyrillic ё
+        codepoint = 0x0401;  // Ё
+      } else if (codepoint >= 0x00E0 && codepoint <= 0x00FF) {
+        // Latin-1 Supplement lowercase letters
+        if ((codepoint >= 0x00E0 && codepoint <= 0x00F6) || (codepoint >= 0x00F8 && codepoint <= 0x00FE)) {
+          codepoint = codepoint - 0x20;
+        }
+      }
+      // For other characters, leave unchanged
+      
+      result += EncodeUTF8(codepoint);
+      pos += char_len;
+    }
+    
+    return result;
+  }
+
   // Updated titlecase logic (basic toupper does not work for a lot of languages)
   void TitlecaseFirstCharacter(std::string& token) const {
     if (token.empty()) return;
 
-    wchar_t codepoint;
+    uint32_t codepoint;
     size_t char_len = 0;
 
     if (!DecodeFirstUTF8Codepoint(token, codepoint, char_len)) return;
 
     // Unicode-aware titlecasing for Cyrillic
-    if (codepoint >= L'а' && codepoint <= L'я') {
-      codepoint = codepoint - (L'а' - L'А');  // Convert to uppercase
-    } else if (codepoint == L'ё') {
-      codepoint = L'Ё';  // Special case
-    } else {
-      codepoint = std::towupper(codepoint);  // Fallback (Latin, etc.)
+    if (codepoint >= 0x0430 && codepoint <= 0x044F) {  // а-я
+      codepoint = codepoint - (0x0430 - 0x0410);  // Convert to uppercase (А-Я)
+    } else if (codepoint == 0x0451) {  // ё
+      codepoint = 0x0401;  // Ё
+    } else if (codepoint >= 'a' && codepoint <= 'z') {
+      codepoint = codepoint - ('a' - 'A');  // ASCII uppercase
+    } else if (codepoint >= 0x00E0 && codepoint <= 0x00FF) {
+      // Latin-1 Supplement lowercase letters
+      if ((codepoint >= 0x00E0 && codepoint <= 0x00F6) || (codepoint >= 0x00F8 && codepoint <= 0x00FE)) {
+        codepoint = codepoint - 0x20;
+      }
     }
+    // For other characters, leave unchanged (more comprehensive Unicode support would require ICU or similar)
 
     std::string prefix = EncodeUTF8(codepoint);
     std::string suffix = token.substr(char_len);
@@ -932,7 +974,7 @@ class SpmUgmDecoder {
       switch (signature) {
         case normalizer::cUppercase:
         case normalizer::cAllUppercase:
-          std::transform(token.begin(), token.end(), token.begin(), ::toupper);
+          token = UTF8ToUpper(token);
           break;
         case normalizer::cTitlecase:
           TitlecaseFirstCharacter(token);
@@ -953,7 +995,7 @@ class SpmUgmDecoder {
         switch (first_char) {
           case normalizer::cUppercase:
           case normalizer::cAllUppercase:
-            std::transform(token.begin(), token.end(), token.begin(), ::toupper);
+            token = UTF8ToUpper(token);
             break;
           case normalizer::cTitlecase:
             TitlecaseFirstCharacter(token);

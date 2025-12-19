@@ -129,8 +129,8 @@ class CaseEncoder {
 
         sp.remove_prefix(1);
         buffer(sp);
-        buffer_queue_.front().first[0] = cUppercase;
-        buffer_[0] = cUppercase;
+        buffer_queue_.back().first[0] = cUppercase;
+        buffer_[buffer_.size() - sp.size()] = cUppercase;
         state_ = 2;
         ret = null(consumed);
 
