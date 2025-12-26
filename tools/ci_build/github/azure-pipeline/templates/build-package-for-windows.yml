@@ -56,7 +56,7 @@ jobs:
         displayName: 'build onnxruntime-extensions and run tests'
         inputs:
           filename: '.\build_lib.bat'
-          arguments: '--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out --config RelWithDebInfo --cmake_generator "Visual Studio 17 2022" --enable_cxx_tests ${{parameters.AdditionalBuildFlags}}'
+          arguments: '--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out --config RelWithDebInfo --cmake_generator "Visual Studio 17 2022" --enable_cxx_tests ${{parameters.AdditionalBuildFlags}} --cmake_extra_defines OCOS_ENABLE_C_API=ON'
           modifyEnvironment: true
           workingFolder: $(Build.SourcesDirectory)
     - ${{ else }}:
@@ -64,7 +64,7 @@ jobs:
         displayName: 'build onnxruntime-extensions'
         inputs:
           filename: '.\build_lib.bat'
-          arguments: '--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out --config RelWithDebInfo --cmake_generator "Visual Studio 17 2022" ${{parameters.AdditionalBuildFlags}}'
+          arguments: '--${{parameters.BuildPlatform}} --build_dir $(Build.BinariesDirectory)/out --config RelWithDebInfo --cmake_generator "Visual Studio 17 2022" ${{parameters.AdditionalBuildFlags}} --cmake_extra_defines OCOS_ENABLE_C_API=ON'
           modifyEnvironment: true
           workingFolder: $(Build.SourcesDirectory)
 
@@ -88,10 +88,14 @@ jobs:
       inputs:
         targetType: 'inline'
         script: |
-          $target_lib_path="$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.BuildPlatform}}-$(OrtExtVersion)/lib"
-          New-Item $target_lib_path -ItemType Directory
-          cp bin/RelWithDebInfo/ortextensions.* $target_lib_path
-          cp lib/RelWithDebInfo/ortextensions.* $target_lib_path
+          $target_base="$(Build.BinariesDirectory)/onnxruntime-extensions-win-${{parameters.BuildPlatform}}-$(OrtExtVersion)"
+          $target_lib_path="$target_base/lib"
+          $target_include_path="$target_base/include"
+          New-Item $target_lib_path -ItemType Directory -Force
+          New-Item $target_include_path -ItemType Directory -Force
+          Copy-Item -Path "bin/RelWithDebInfo/ortextensions.*" -Destination $target_lib_path -Force
+          Copy-Item -Path "lib/RelWithDebInfo/ortextensions.*" -Destination $target_lib_path -Force
+          Copy-Item -Path "$(Build.SourcesDirectory)/include/*" -Destination $target_include_path -Recurse -Force
         workingDirectory: '$(Build.BinariesDirectory)/out/RelWithDebInfo'
 
     - template: win-esrp-dll.yml
