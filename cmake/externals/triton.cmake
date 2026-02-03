@@ -84,12 +84,16 @@ else()
   # The triton code here https://github.com/triton-inference-server/common/blob/main/CMakeLists.txt is using
   # RAPIDJSON_INCLUDE_DIRS so the build fails if a newer RapidJSON version is used. It will find the package but the
   # include path will be wrong so the build error is delayed/misleading and non-trivial to understand/resolve.
+  #
+  # Patch RapidJSON to update cmake_minimum_required from 2.8 to 3.5 to fix build with newer CMake versions.
   set(RapidJSON_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/_deps/rapidjson)
   set(RapidJSON_INSTALL_DIR ${RapidJSON_PREFIX}/install)
+  set(rapidjson_patch_command patch --verbose -p1 -i ${PROJECT_SOURCE_DIR}/cmake/externals/rapidjson_cmake.patch)
   ExternalProject_Add(RapidJSON
                       PREFIX ${RapidJSON_PREFIX}
                       URL https://github.com/Tencent/rapidjson/archive/refs/tags/v1.1.0.zip
                       URL_HASH SHA1=0fe7b4f7b83df4b3d517f4a202f3a383af7a0818
+                      PATCH_COMMAND ${rapidjson_patch_command}
                       CMAKE_ARGS -DRAPIDJSON_BUILD_DOC=OFF
                                  -DRAPIDJSON_BUILD_EXAMPLES=OFF
                                  -DRAPIDJSON_BUILD_TESTS=OFF
