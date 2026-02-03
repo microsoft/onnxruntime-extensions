@@ -78,15 +78,12 @@ if (WIN32)
   set(triton_dependencies ${VCPKG_DEPENDENCIES})
 else()
   # RapidJSON 1.1.0 (released in 2016) has C++ compatibility issues with GCC 14 (deprecated std::iterator,
-  # const member assignment). Use a more recent commit from master that includes these fixes.
+  # const member assignment). Use master branch which includes these fixes and already has cmake_minimum_required 3.5.
   #
   # Note: Newer RapidJSON changed the CMake variable name from RAPIDJSON_INCLUDE_DIRS to RapidJSON_INCLUDE_DIRS
   # in RapidJSONConfig.cmake.in (see https://github.com/Tencent/rapidjson/commit/b91c515afea9f0ba6a81fc670889549d77c83db3).
   # The triton code expects RAPIDJSON_INCLUDE_DIRS: https://github.com/triton-inference-server/common/blob/main/CMakeLists.txt
   # Our patch adds backward compatibility by also setting RAPIDJSON_INCLUDE_DIRS.
-  #
-  # We also patch cmake_minimum_required to 3.5 to fix build with newer CMake versions (CMake 4.x removed
-  # support for cmake_minimum_required < 3.5).
   set(RapidJSON_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/_deps/rapidjson)
   set(RapidJSON_INSTALL_DIR ${RapidJSON_PREFIX}/install)
   set(rapidjson_patch_command patch --verbose -p1 -i ${PROJECT_SOURCE_DIR}/cmake/externals/rapidjson_cmake.patch)
