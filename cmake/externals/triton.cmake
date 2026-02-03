@@ -86,25 +86,46 @@ else()
   # include path will be wrong so the build error is delayed/misleading and non-trivial to understand/resolve.
   set(RapidJSON_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/_deps/rapidjson)
   set(RapidJSON_INSTALL_DIR ${RapidJSON_PREFIX}/install)
+
+  set(triton_patch_exe patch)
+  
+  set(rapidjson_patch_file ${PROJECT_SOURCE_DIR}/cmake/externals/rapidjson_cmake.patch)
+  set(rapidjson_patch_command ${triton_patch_exe} --verbose -p1 -i ${rapidjson_patch_file})
+
   ExternalProject_Add(RapidJSON
-                      PREFIX ${RapidJSON_PREFIX}
-                      URL https://github.com/Tencent/rapidjson/archive/refs/tags/v1.1.0.zip
-                      URL_HASH SHA1=0fe7b4f7b83df4b3d517f4a202f3a383af7a0818
-                      CMAKE_ARGS -DRAPIDJSON_BUILD_DOC=OFF
-                                 -DRAPIDJSON_BUILD_EXAMPLES=OFF
-                                 -DRAPIDJSON_BUILD_TESTS=OFF
-                                 -DRAPIDJSON_HAS_STDSTRING=ON
-                                 -DRAPIDJSON_USE_MEMBERSMAP=ON
-                                 -DCMAKE_INSTALL_PREFIX=${RapidJSON_INSTALL_DIR}
-                                 )
+    PREFIX ${RapidJSON_PREFIX}
+    URL https://github.com/Tencent/rapidjson/archive/refs/tags/v1.1.0.zip
+    URL_HASH SHA1=0fe7b4f7b83df4b3d517f4a202f3a383af7a0818
+    PATCH_COMMAND ${rapidjson_patch_command}
+    CMAKE_ARGS -DRAPIDJSON_BUILD_DOC=OFF
+              -DRAPIDJSON_BUILD_EXAMPLES=OFF
+              -DRAPIDJSON_BUILD_TESTS=OFF
+              -DRAPIDJSON_HAS_STDSTRING=ON
+              -DRAPIDJSON_USE_MEMBERSMAP=ON
+              -DCMAKE_INSTALL_PREFIX=${RapidJSON_INSTALL_DIR}
+  )
 
   ExternalProject_Get_Property(RapidJSON SOURCE_DIR BINARY_DIR)
   # message(STATUS "RapidJSON src=${SOURCE_DIR} binary=${BINARY_DIR}")
   # Set RapidJSON_ROOT_DIR for find_package. The required RapidJSONConfig.cmake file is generated in the binary dir
   set(RapidJSON_ROOT_DIR ${BINARY_DIR})
 
-  set(triton_extra_cmake_args "")
-  set(triton_patch_exe patch)
+  set(triton_THIRD_PARTY_DIR ${BINARY_DIR}/third-party)
+
+  # Set custom CURL paths manually because find_package(CURL) fails sometimes in CMake
+  set(triton_curl_include_dir ${triton_THIRD_PARTY_DIR}/curl/build/include)
+  set(triton_curl_library ${triton_THIRD_PARTY_DIR}/curl/build/lib/libcurl.a)
+
+  set(triton_extra_cmake_args
+    -DTRITON_CURL_INCLUDE_DIRS=${triton_curl_include_dir}
+    -DTRITON_CURL_LIBRARY=${triton_curl_library}
+  )
+
+  # Debug info
+  message(STATUS "Using custom CURL include dir: ${triton_curl_include_dir}")
+  message(STATUS "Using custom CURL library path: ${triton_curl_library}")
+  message(STATUS "triton_extra_cmake_args: ${triton_extra_cmake_args}")
+
   set(triton_dependencies RapidJSON)
 
 endif() #if (WIN32)
@@ -140,9 +161,9 @@ ExternalProject_Add(triton
                                ${triton_extra_cmake_args}
                     INSTALL_COMMAND ${CMAKE_COMMAND} -E echo "Skipping install step."
                     PATCH_COMMAND ${triton_patch_command}
+                    BUILD_BYPRODUCTS ${triton_curl_library}
                     )
 
 add_dependencies(triton ${triton_dependencies})
 
 ExternalProject_Get_Property(triton SOURCE_DIR BINARY_DIR)
-set(triton_THIRD_PARTY_DIR ${BINARY_DIR}/third-party)
