@@ -80,19 +80,16 @@ else()
   # RapidJSON 1.1.0 (released in 2016) has C++ compatibility issues with GCC 14 (deprecated std::iterator,
   # const member assignment). Use master branch which includes these fixes and already has cmake_minimum_required 3.5.
   #
-  # Note: Newer RapidJSON changed the CMake variable name from RAPIDJSON_INCLUDE_DIRS to RapidJSON_INCLUDE_DIRS
-  # in RapidJSONConfig.cmake.in (see https://github.com/Tencent/rapidjson/commit/b91c515afea9f0ba6a81fc670889549d77c83db3).
-  # The triton code expects RAPIDJSON_INCLUDE_DIRS: https://github.com/triton-inference-server/common/blob/main/CMakeLists.txt
-  # Our patch adds backward compatibility by also setting RAPIDJSON_INCLUDE_DIRS.
+  # Note: Newer RapidJSON uses modern CMake with exported targets and changed the variable name from
+  # RAPIDJSON_INCLUDE_DIRS to RapidJSON_INCLUDE_DIRS. Triton expects the uppercase version, so we pass
+  # RAPIDJSON_INCLUDE_DIRS directly as a cmake argument to the triton build.
   set(RapidJSON_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/_deps/rapidjson)
   set(RapidJSON_INSTALL_DIR ${RapidJSON_PREFIX}/install)
-  set(rapidjson_patch_command patch --verbose -p1 -i ${PROJECT_SOURCE_DIR}/cmake/externals/rapidjson_cmake.patch)
   ExternalProject_Add(RapidJSON
                       PREFIX ${RapidJSON_PREFIX}
                       GIT_REPOSITORY https://github.com/Tencent/rapidjson.git
                       GIT_TAG master
                       GIT_SHALLOW TRUE
-                      PATCH_COMMAND ${rapidjson_patch_command}
                       CMAKE_ARGS -DRAPIDJSON_BUILD_DOC=OFF
                                  -DRAPIDJSON_BUILD_EXAMPLES=OFF
                                  -DRAPIDJSON_BUILD_TESTS=OFF
@@ -103,10 +100,10 @@ else()
 
   ExternalProject_Get_Property(RapidJSON SOURCE_DIR BINARY_DIR)
   # message(STATUS "RapidJSON src=${SOURCE_DIR} binary=${BINARY_DIR}")
-  # Set RapidJSON_ROOT_DIR for find_package. The required RapidJSONConfig.cmake file is generated in the binary dir
-  set(RapidJSON_ROOT_DIR ${BINARY_DIR})
-
-  set(triton_extra_cmake_args "")
+  # Set RapidJSON_ROOT_DIR for find_package. The cmake config files are installed to lib/cmake/RapidJSON
+  set(RapidJSON_ROOT_DIR ${RapidJSON_INSTALL_DIR}/lib/cmake/RapidJSON)
+  # Triton expects RAPIDJSON_INCLUDE_DIRS (uppercase). Pass it directly as a cmake arg.
+  set(triton_extra_cmake_args -DRAPIDJSON_INCLUDE_DIRS=${RapidJSON_INSTALL_DIR}/include)
   set(triton_patch_exe patch)
   set(triton_dependencies RapidJSON)
 
