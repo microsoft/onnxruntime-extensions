@@ -8,3 +8,14 @@ index a891ce8..b8d8a3e 100644
  if(POLICY CMP0025)
    # detect Apple's Clang
    cmake_policy(SET CMP0025 NEW)
+diff --git a/RapidJSONConfig.cmake.in b/RapidJSONConfig.cmake.in
+index 8ee24b8..1234567 100644
+--- a/RapidJSONConfig.cmake.in
++++ b/RapidJSONConfig.cmake.in
+@@ -1,3 +1,6 @@
+ get_filename_component(RapidJSON_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+ set(RapidJSON_INCLUDE_DIRS "@INCLUDE_INSTALL_DIR@")
++# Backward compatibility: triton-inference-server expects RAPIDJSON_INCLUDE_DIRS (uppercase prefix)
++# See: https://github.com/triton-inference-server/common/blob/main/CMakeLists.txt
++set(RAPIDJSON_INCLUDE_DIRS "${RapidJSON_INCLUDE_DIRS}")
+ message(STATUS "RapidJSON found. Headers: ${RapidJSON_INCLUDE_DIRS}")
