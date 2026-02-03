@@ -2,12 +2,13 @@ diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 7b11178..7749fa9 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -115,10 +115,11 @@ if(TRITON_ENABLE_CC_HTTP OR TRITON_ENABLE_CC_GRPC OR TRITON_ENABLE_PERF_ANALYZER
+@@ -115,10 +115,12 @@ if(TRITON_ENABLE_CC_HTTP OR TRITON_ENABLE_CC_GRPC OR TRITON_ENABLE_PERF_ANALYZER
      file(STRINGS /etc/os-release DISTRO REGEX "^NAME=")
      string(REGEX REPLACE "NAME=\"(.*)\"" "\\1" DISTRO "${DISTRO}")
      message(STATUS "Distro Name: ${DISTRO}")
 -    if(DISTRO STREQUAL "CentOS Linux")
-+    if(DISTRO STREQUAL "CentOS Linux" AND CMAKE_SIZEOF_VOID_P EQUAL 8)
++    # Check for CentOS, AlmaLinux, or Rocky Linux (used by newer manylinux images) on 64-bit systems
++    if((DISTRO STREQUAL "CentOS Linux" OR DISTRO STREQUAL "AlmaLinux" OR DISTRO STREQUAL "Rocky Linux") AND CMAKE_SIZEOF_VOID_P EQUAL 8)
        set (CURL_LIB_DIR "lib64")
      endif()
    endif()
