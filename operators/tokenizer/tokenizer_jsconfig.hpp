@@ -21,6 +21,7 @@ constexpr std::pair<const char*, TokenType> kTokenizerDict[] = {
   {"CLIPTokenizer", TokenType::kBPE},
   {"WhisperTokenizer", TokenType::kBPE},
   {"GemmaTokenizer", TokenType::kBPE},
+  {"InternLM2Tokenizer", TokenType::kBPE},  // InternLM2 uses BPE (same as Llama)
   {"LlamaTokenizer", TokenType::kBPE},
   {"Phi3Tokenizer", TokenType::kBPE},
   {"CodeLlamaTokenizer", TokenType::kBPE},
