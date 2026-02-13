@@ -11,8 +11,6 @@
 
 using namespace nemo_mel;
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
 static NemoMelConfig MakeTestConfig() {
   NemoMelConfig cfg;
   cfg.num_mels = 128;
@@ -37,7 +35,7 @@ static std::vector<float> SineWave(float freq_hz, float duration_sec,
   return wav;
 }
 
-// ─── Mel scale conversions ──────────────────────────────────────────────────
+// Mel scale conversions (Slaney)
 
 TEST(NemoMelTest, HzToMelLinearRegion) {
   // Below 1000 Hz the Slaney scale is linear: mel = 3 * hz / 200

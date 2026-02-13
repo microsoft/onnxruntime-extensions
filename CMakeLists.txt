@@ -778,7 +778,6 @@ target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
 
 file(GLOB _TARGET_LIB_SRC "shared/lib/*.cc")
 
-# NeMo mel spectrogram is standalone (no ORT/C API deps) — always compile when audio is enabled
 if(OCOS_ENABLE_AUDIO)
   file(GLOB nemo_mel_SRC "shared/api/nemo_mel_*")
   list(APPEND _TARGET_LIB_SRC ${nemo_mel_SRC})

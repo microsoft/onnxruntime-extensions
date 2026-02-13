@@ -2,8 +2,6 @@
 // Licensed under the MIT License.
 //
 // NeMo-compatible log-mel spectrogram extraction (Slaney scale, matching librosa/NeMo).
-// No ONNX Runtime or other framework dependencies — pure C++ with standard library only.
-// Designed to be portable across repos.
 
 #pragma once
 
@@ -12,8 +10,6 @@
 #include <vector>
 
 namespace nemo_mel {
-
-// ─── Configuration ──────────────────────────────────────────────────────────
 
 struct NemoMelConfig {
   int num_mels;
@@ -25,18 +21,14 @@ struct NemoMelConfig {
   float log_eps;
 };
 
-// ─── Mel scale conversions (Slaney) ────────────────────────────────────────
+// Mel scale conversions (Slaney)
 
 float HzToMel(float hz);
 float MelToHz(float mel);
 
-// ─── Filterbank creation ────────────────────────────────────────────────────
-
 /// Build a triangular mel filterbank with Slaney normalization (matches librosa).
 /// Returns shape [num_mels][num_bins] where num_bins = fft_size/2 + 1.
 std::vector<std::vector<float>> CreateMelFilterbank(int num_mels, int fft_size, int sample_rate);
-
-// ─── Single-frame DFT ──────────────────────────────────────────────────────
 
 /// Compute |DFT|^2 (power spectrum) for a single windowed frame.
 /// frame: pointer to fft_size samples (or win_length samples with window applied).
@@ -47,8 +39,8 @@ std::vector<std::vector<float>> CreateMelFilterbank(int num_mels, int fft_size, 
 void ComputeSTFTFrame(const float* frame, const float* window, int frame_len,
                       int fft_size, std::vector<float>& magnitudes);
 
-// ─── Batch (offline) log-mel extraction ─────────────────────────────────────
 
+// BATCH LOG-MEL EXTRACTION
 /// Compute NeMo-compatible log-mel spectrogram for a complete audio buffer.
 /// Applies pre-emphasis, center-pads both sides (fft_size/2 zeros), computes STFT
 /// with a periodic Hann window, applies mel filterbank, and takes log(mel + eps).
@@ -58,8 +50,7 @@ void ComputeSTFTFrame(const float* frame, const float* window, int frame_len,
 std::vector<float> NemoComputeLogMelBatch(const float* audio, size_t num_samples,
                                           const NemoMelConfig& cfg, int& out_num_frames);
 
-// ─── Streaming log-mel extraction ───────────────────────────────────────────
-
+// STREAMING LOG-MEL EXTRACTION
 /// Stateful streaming NeMo-compatible mel extractor that maintains overlap and
 /// pre-emphasis state across successive audio chunks.
 ///
