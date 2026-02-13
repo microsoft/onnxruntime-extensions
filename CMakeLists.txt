@@ -777,6 +777,13 @@ target_compile_definitions(ocos_operators PRIVATE ${OCOS_COMPILE_DEFINITIONS})
 target_link_libraries(ocos_operators PRIVATE ${ocos_libraries})
 
 file(GLOB _TARGET_LIB_SRC "shared/lib/*.cc")
+
+# NeMo mel spectrogram is standalone (no ORT/C API deps) — always compile when audio is enabled
+if(OCOS_ENABLE_AUDIO)
+  file(GLOB nemo_mel_SRC "shared/api/nemo_mel_*")
+  list(APPEND _TARGET_LIB_SRC ${nemo_mel_SRC})
+endif()
+
 if(OCOS_ENABLE_C_API)
   file(GLOB utils_TARGET_SRC "shared/api/c_api_utils.*" "shared/api/runner.hpp")
   list(APPEND _TARGET_LIB_SRC ${utils_TARGET_SRC})
@@ -874,6 +881,7 @@ endif()
 target_compile_definitions(ortcustomops PUBLIC ${OCOS_COMPILE_DEFINITIONS})
 target_include_directories(ortcustomops PUBLIC "$<TARGET_PROPERTY:noexcep_operators,INTERFACE_INCLUDE_DIRECTORIES>")
 target_include_directories(ortcustomops PUBLIC "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
+target_include_directories(ortcustomops PUBLIC "${PROJECT_SOURCE_DIR}/shared/api")
 
 target_link_libraries(ortcustomops PUBLIC ocos_operators)
 
