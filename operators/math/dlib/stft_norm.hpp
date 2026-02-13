@@ -66,3 +66,15 @@ struct StftNormal {
 
     return window;
   }
+
+  // Symmetric Hann window: matches torch.hann_window(N, periodic=False).
+  // Uses the classic cosine formula with denominator (N-1).
+  static std::vector<float> hann_window_symmetric(int N) {
+    std::vector<float> window(N);
+
+    for (int n = 0; n < N; ++n) {
+      window[n] = 0.5f * (1.0f - std::cos(2.0f * static_cast<float>(M_PI) * n / (N - 1)));
+    }
+
+    return window;
+  }

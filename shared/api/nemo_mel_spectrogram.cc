@@ -11,6 +11,9 @@
 #include <cstring>
 #include <vector>
 
+#include <dlib/matrix.h>
+#include <math/dlib/stft_norm.hpp>
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -79,25 +82,6 @@ std::vector<std::vector<float>> CreateMelFilterbank(int num_mels, int fft_size, 
   return filterbank;
 }
 
-// ─── Window functions ───────────────────────────────────────────────────────
-
-std::vector<float> HannWindowSymmetric(int win_length) {
-  std::vector<float> window(win_length);
-  for (int i = 0; i < win_length; ++i) {
-    window[i] = 0.5f * (1.0f - std::cos(2.0f * static_cast<float>(M_PI) * i / (win_length - 1)));
-  }
-  return window;
-}
-
-std::vector<float> HannWindowPeriodic(int fft_size, int win_length) {
-  std::vector<float> window(fft_size, 0.0f);
-  int offset = (fft_size - win_length) / 2;
-  for (int i = 0; i < win_length; ++i) {
-    window[offset + i] = 0.5f * (1.0f - std::cos(2.0f * static_cast<float>(M_PI) * i / win_length));
-  }
-  return window;
-}
-
 // ─── Single-frame DFT ──────────────────────────────────────────────────────
 
 void ComputeSTFTFrame(const float* frame, const float* window, int frame_len,
@@ -105,15 +89,21 @@ void ComputeSTFTFrame(const float* frame, const float* window, int frame_len,
   int num_bins = fft_size / 2 + 1;
   magnitudes.resize(num_bins);
 
+  // Apply window and zero-pad to fft_size for FFT
+  dlib::matrix<float, 1, 0> windowed(1, fft_size);
+  windowed = 0;
+  for (int n = 0; n < frame_len; ++n) {
+    windowed(0, n) = frame[n] * window[n];
+  }
+
+  // Real-valued FFT via dlib (O(N log N) instead of naive O(N²) DFT)
+  dlib::matrix<std::complex<float>> fft_result = dlib::fftr(windowed);
+
+  // Power spectrum: |X[k]|²
   for (int k = 0; k < num_bins; ++k) {
-    float real_sum = 0.0f, imag_sum = 0.0f;
-    for (int n = 0; n < frame_len; ++n) {
-      float val = frame[n] * window[n];
-      float angle = 2.0f * static_cast<float>(M_PI) * k * n / fft_size;
-      real_sum += val * std::cos(angle);
-      imag_sum -= val * std::sin(angle);
-    }
-    magnitudes[k] = real_sum * real_sum + imag_sum * imag_sum;
+    float re = fft_result(0, k).real();
+    float im = fft_result(0, k).imag();
+    magnitudes[k] = re * re + im * im;
   }
 }
 
@@ -124,7 +114,7 @@ std::vector<float> NemoComputeLogMelBatch(const float* audio, size_t num_samples
   // Lazily-initialized statics are fine for batch mode (same config per process).
   // If you need thread-safety with multiple configs, pass the filterbank in explicitly.
   static auto mel_filters = CreateMelFilterbank(cfg.num_mels, cfg.fft_size, cfg.sample_rate);
-  static auto window = HannWindowPeriodic(cfg.fft_size, cfg.win_length);
+  static auto window = hann_window(cfg.win_length);
 
   int n = static_cast<int>(num_samples);
 
@@ -152,13 +142,14 @@ std::vector<float> NemoComputeLogMelBatch(const float* audio, size_t num_samples
   int num_frames = static_cast<int>((padded.size() - cfg.fft_size) / cfg.hop_length) + 1;
   out_num_frames = num_frames;
 
+  int win_offset = (cfg.fft_size - cfg.win_length) / 2;
   int num_bins = cfg.fft_size / 2 + 1;
   std::vector<float> magnitudes;
   std::vector<float> mel_spec(cfg.num_mels * num_frames);
 
   for (int t = 0; t < num_frames; ++t) {
-    const float* frame = padded.data() + t * cfg.hop_length;
-    ComputeSTFTFrame(frame, window.data(), cfg.fft_size, cfg.fft_size, magnitudes);
+    const float* frame = padded.data() + t * cfg.hop_length + win_offset;
+    ComputeSTFTFrame(frame, window.data(), cfg.win_length, cfg.fft_size, magnitudes);
 
     for (int m = 0; m < cfg.num_mels; ++m) {
       float val = 0.0f;
@@ -177,7 +168,7 @@ std::vector<float> NemoComputeLogMelBatch(const float* audio, size_t num_samples
 NemoStreamingMelExtractor::NemoStreamingMelExtractor(const NemoMelConfig& cfg)
     : cfg_(cfg) {
   mel_filters_ = CreateMelFilterbank(cfg_.num_mels, cfg_.fft_size, cfg_.sample_rate);
-  hann_window_ = HannWindowSymmetric(cfg_.win_length);
+  hann_window_ = hann_window_symmetric(cfg_.win_length);
   audio_overlap_.assign(cfg_.fft_size / 2, 0.0f);
   preemph_last_sample_ = 0.0f;
 }
@@ -237,18 +228,9 @@ std::pair<std::vector<float>, int> NemoStreamingMelExtractor::Process(
   for (int t = 0; t < num_frames; ++t) {
     const float* frame = padded.data() + t * cfg_.hop_length + win_offset;
 
-    // Inline DFT with symmetric Hann window (win_length samples)
-    std::vector<float> magnitudes(num_bins);
-    for (int k = 0; k < num_bins; ++k) {
-      float real_sum = 0.0f, imag_sum = 0.0f;
-      for (int n = 0; n < cfg_.win_length; ++n) {
-        float val = frame[n] * hann_window_[n];
-        float angle = 2.0f * static_cast<float>(M_PI) * k * n / cfg_.fft_size;
-        real_sum += val * std::cos(angle);
-        imag_sum -= val * std::sin(angle);
-      }
-      magnitudes[k] = real_sum * real_sum + imag_sum * imag_sum;
-    }
+    // FFT with symmetric Hann window (win_length samples, zero-padded to fft_size)
+    std::vector<float> magnitudes;
+    ComputeSTFTFrame(frame, hann_window_.data(), cfg_.win_length, cfg_.fft_size, magnitudes);
 
     // Apply mel filterbank + log
     for (int m = 0; m < cfg_.num_mels; ++m) {

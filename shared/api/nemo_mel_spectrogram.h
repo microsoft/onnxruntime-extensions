@@ -36,17 +36,6 @@ float MelToHz(float mel);
 /// Returns shape [num_mels][num_bins] where num_bins = fft_size/2 + 1.
 std::vector<std::vector<float>> CreateMelFilterbank(int num_mels, int fft_size, int sample_rate);
 
-// ─── Window functions ───────────────────────────────────────────────────────
-
-/// Symmetric Hann window of length win_length (periodic=False).
-/// Matches torch.hann_window(win_length, periodic=False).
-std::vector<float> HannWindowSymmetric(int win_length);
-
-/// Periodic Hann window of length win_length centered in an fft_size frame.
-/// Matches torch.stft behavior: window placed at offset (fft_size - win_length) / 2.
-/// Returns a vector of fft_size elements (zero-padded outside the window).
-std::vector<float> HannWindowPeriodic(int fft_size, int win_length);
-
 // ─── Single-frame DFT ──────────────────────────────────────────────────────
 
 /// Compute |DFT|^2 (power spectrum) for a single windowed frame.
