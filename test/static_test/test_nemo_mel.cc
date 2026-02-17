@@ -8,6 +8,10 @@
 #include "gtest/gtest.h"
 #include "nemo_mel_spectrogram.h"
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 using namespace nemo_mel;
 
 static NemoMelConfig MakeTestConfig() {
