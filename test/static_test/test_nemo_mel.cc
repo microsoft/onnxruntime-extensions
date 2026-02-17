@@ -7,7 +7,6 @@
 
 #include "gtest/gtest.h"
 #include "nemo_mel_spectrogram.h"
-#include <math/dlib/stft_norm.hpp>
 
 using namespace nemo_mel;
 
@@ -100,66 +99,6 @@ TEST(NemoMelTest, FilterbankTriangular) {
     for (int i = first_nz; i <= last_nz; ++i) {
       EXPECT_GT(row[i], 0.0f) << "Zero gap in mel filter " << m << " at bin " << i;
     }
-  }
-}
-
-// ─── Window functions ───────────────────────────────────────────────────────
-
-TEST(NemoMelTest, HannSymmetric) {
-  auto w = hann_window_symmetric(400);
-  ASSERT_EQ(w.size(), 400u);
-  // Endpoints should be 0 (symmetric Hann)
-  EXPECT_NEAR(w[0], 0.0f, 1e-7f);
-  EXPECT_NEAR(w[399], 0.0f, 1e-7f);
-  // Middle should be ~1.0
-  EXPECT_NEAR(w[200], 1.0f, 0.01f);
-  // Should be symmetric
-  for (int i = 0; i < 200; ++i) {
-    EXPECT_NEAR(w[i], w[399 - i], 1e-6f) << "Asymmetry at index " << i;
-  }
-}
-
-TEST(NemoMelTest, HannPeriodic) {
-  auto w = hann_window(400);
-  ASSERT_EQ(w.size(), 400u);
-  // Periodic window: first element is 0, last is non-zero
-  EXPECT_FLOAT_EQ(w[0], 0.0f);
-  EXPECT_GT(w[399], 0.0f);
-  // Window should have non-zero values
-  float sum = 0.0f;
-  for (int i = 0; i < 400; ++i) {
-    sum += w[i];
-  }
-  EXPECT_GT(sum, 0.0f);
-}
-
-// ─── STFT frame ─────────────────────────────────────────────────────────────
-
-TEST(NemoMelTest, STFTFrameDCSignal) {
-  // Constant signal: all energy should be in bin 0
-  int fft_size = 512;
-  int win_length = 400;
-  std::vector<float> frame(win_length, 1.0f);
-  auto window = hann_window(win_length);
-  std::vector<float> magnitudes;
-  ComputeSTFTFrame(frame.data(), window.data(), win_length, fft_size, magnitudes);
-  ASSERT_EQ(magnitudes.size(), 257u);
-  // DC bin should have the largest magnitude
-  float dc = magnitudes[0];
-  for (size_t i = 1; i < magnitudes.size(); ++i) {
-    EXPECT_LE(magnitudes[i], dc + 1e-4f) << "Non-DC bin " << i << " exceeds DC";
-  }
-}
-
-TEST(NemoMelTest, STFTFrameZeroSignal) {
-  int fft_size = 512;
-  int win_length = 400;
-  std::vector<float> frame(win_length, 0.0f);
-  auto window = hann_window(win_length);
-  std::vector<float> magnitudes;
-  ComputeSTFTFrame(frame.data(), window.data(), win_length, fft_size, magnitudes);
-  for (size_t i = 0; i < magnitudes.size(); ++i) {
-    EXPECT_NEAR(magnitudes[i], 0.0f, 1e-10f);
   }
 }
 

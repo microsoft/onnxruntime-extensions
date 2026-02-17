@@ -20,6 +20,19 @@
 
 namespace nemo_mel {
 
+// Apply pre-emphasis filter: y[n] = x[n] - preemph * x[n-1]
+// For batch mode pass prev_sample = 0.0f; for streaming pass the last sample
+// from the previous chunk. Returns audio[n-1] (the new prev_sample for streaming).
+float ApplyPreemphasis(const float* audio, size_t n, float preemph,
+                       float prev_sample, float* out) {
+  if (n == 0) return prev_sample;
+  out[0] = audio[0] - preemph * prev_sample;
+  for (size_t i = 1; i < n; ++i) {
+    out[i] = audio[i] - preemph * audio[i - 1];
+  }
+  return audio[n - 1];
+}
+
 // Slaney mel scale constants
 
 static constexpr float kMinLogHz = 1000.0f;
@@ -113,12 +126,7 @@ std::vector<float> NemoComputeLogMelBatch(const float* audio, size_t num_samples
 
   // Apply pre-emphasis: y[n] = x[n] - preemph * x[n-1]
   std::vector<float> preemphasized(n);
-  if (n > 0) {
-    preemphasized[0] = audio[0];  // No previous sample for first sample
-    for (int i = 1; i < n; ++i) {
-      preemphasized[i] = audio[i] - cfg.preemph * audio[i - 1];
-    }
-  }
+  ApplyPreemphasis(audio, n, cfg.preemph, 0.0f, preemphasized.data());
 
   // Center-pad both sides: fft_size/2 zeros on each side (matching torch.stft center=True)
   int pad = cfg.fft_size / 2;
@@ -174,13 +182,8 @@ std::pair<std::vector<float>, int> NemoStreamingMelExtractor::Process(
     const float* audio, size_t num_samples) {
   // Apply pre-emphasis filter: y[n] = x[n] - preemph * x[n-1]
   std::vector<float> preemphasized(num_samples);
-  if (num_samples > 0) {
-    preemphasized[0] = audio[0] - cfg_.preemph * preemph_last_sample_;
-    for (size_t i = 1; i < num_samples; ++i) {
-      preemphasized[i] = audio[i] - cfg_.preemph * audio[i - 1];
-    }
-    preemph_last_sample_ = audio[num_samples - 1];
-  }
+  preemph_last_sample_ = ApplyPreemphasis(audio, num_samples, cfg_.preemph,
+                                          preemph_last_sample_, preemphasized.data());
 
   // Left-only center pad for streaming: prepend overlap from previous chunk.
   // For the first chunk this is zeros (matching center=True left edge).

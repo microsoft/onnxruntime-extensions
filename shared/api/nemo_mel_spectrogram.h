@@ -30,6 +30,13 @@ float MelToHz(float mel);
 /// Returns shape [num_mels][num_bins] where num_bins = fft_size/2 + 1.
 std::vector<std::vector<float>> CreateMelFilterbank(int num_mels, int fft_size, int sample_rate);
 
+/// Apply pre-emphasis filter: y[n] = x[n] - preemph * x[n-1].
+/// For batch mode pass prev_sample = 0.0f; for streaming pass the last sample
+/// from the previous chunk.
+/// Returns audio[n-1] (the new prev_sample for the next streaming chunk).
+float ApplyPreemphasis(const float* audio, size_t n, float preemph,
+                       float prev_sample, float* out);
+
 /// Compute |DFT|^2 (power spectrum) for a single windowed frame.
 /// frame: pointer to fft_size samples (or win_length samples with window applied).
 /// window: pointer to window coefficients (same length as frame_len).
