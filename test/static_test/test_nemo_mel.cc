@@ -39,7 +39,6 @@ static std::vector<float> SineWave(float freq_hz, float duration_sec,
 }
 
 // Mel scale conversions (Slaney)
-
 TEST(NemoMelTest, HzToMelLinearRegion) {
   // Below 1000 Hz the Slaney scale is linear: mel = 3 * hz / 200
   EXPECT_FLOAT_EQ(HzToMel(0.0f), 0.0f);
@@ -66,8 +65,6 @@ TEST(NemoMelTest, MelToHzRoundTrip) {
     EXPECT_NEAR(hz_back, hz, 0.01f) << "Round-trip failed for hz=" << hz;
   }
 }
-
-// ─── Filterbank ─────────────────────────────────────────────────────────────
 
 TEST(NemoMelTest, FilterbankShape) {
   auto fb = CreateMelFilterbank(128, 512, 16000);
@@ -106,11 +103,9 @@ TEST(NemoMelTest, FilterbankTriangular) {
   }
 }
 
-// ─── Batch log-mel extraction ───────────────────────────────────────────────
-
 TEST(NemoMelTest, BatchOutputShape) {
   auto cfg = MakeTestConfig();
-  auto wav = SineWave(440.0f, 0.5f);  // 0.5 sec, 8000 samples
+  auto wav = SineWave(440.0f, 0.5f);
   int num_frames = 0;
   auto mel = NemoComputeLogMelBatch(wav.data(), wav.size(), cfg, num_frames);
 
@@ -175,8 +170,6 @@ TEST(NemoMelTest, BatchSineEnergy) {
   avg_high /= 28.0f;
   EXPECT_GT(max_low, avg_high);
 }
-
-// ─── Streaming extractor ────────────────────────────────────────────────────
 
 TEST(NemoMelTest, StreamingSingleChunkMatchesBatch) {
   auto cfg = MakeTestConfig();

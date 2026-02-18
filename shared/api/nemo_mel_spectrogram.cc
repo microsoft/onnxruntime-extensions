@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 //
 // NeMo-compatible log-mel spectrogram extraction (Slaney scale, matching librosa/NeMo).
-// No ONNX Runtime or other framework dependencies — pure C++ with standard library only.
 
 #include "nemo_mel_spectrogram.h"
 
@@ -34,7 +33,6 @@ float ApplyPreemphasis(const float* audio, size_t n, float preemph,
 }
 
 // Slaney mel scale constants
-
 static constexpr float kMinLogHz = 1000.0f;
 static constexpr float kMinLogMel = 15.0f;               // 1000 / (200/3)
 static constexpr float kLinScale = 200.0f / 3.0f;        // Hz per mel (linear region)
@@ -103,10 +101,10 @@ void ComputeSTFTFrame(const float* frame, const float* window, int frame_len,
     windowed(0, n) = frame[n] * window[n];
   }
 
-  // Real-valued FFT via dlib (O(N log N) instead of naive O(N²) DFT)
+  // Fast FFT via dlib (returns num_bins complex values for real input)
   dlib::matrix<std::complex<float>> fft_result = dlib::fftr(windowed);
 
-  // Power spectrum: |X[k]|²
+  // Calculate power spectrum
   for (int k = 0; k < num_bins; ++k) {
     float re = fft_result(0, k).real();
     float im = fft_result(0, k).imag();
@@ -114,11 +112,8 @@ void ComputeSTFTFrame(const float* frame, const float* window, int frame_len,
   }
 }
 
-// BATCH LOG-MEL EXTRACTION
 std::vector<float> NemoComputeLogMelBatch(const float* audio, size_t num_samples,
                                           const NemoMelConfig& cfg, int& out_num_frames) {
-  // Lazily-initialized statics are fine for batch mode (same config per process).
-  // If you need thread-safety with multiple configs, pass the filterbank in explicitly.
   static auto mel_filters = CreateMelFilterbank(cfg.num_mels, cfg.fft_size, cfg.sample_rate);
   static auto window = hann_window(cfg.win_length);
 
@@ -164,7 +159,6 @@ std::vector<float> NemoComputeLogMelBatch(const float* audio, size_t num_samples
   return mel_spec;
 }
 
-// STREAMING LOG-MEL EXTRACTION
 NemoStreamingMelExtractor::NemoStreamingMelExtractor(const NemoMelConfig& cfg)
     : cfg_(cfg) {
   mel_filters_ = CreateMelFilterbank(cfg_.num_mels, cfg_.fft_size, cfg_.sample_rate);
@@ -186,7 +180,7 @@ std::pair<std::vector<float>, int> NemoStreamingMelExtractor::Process(
                                           preemph_last_sample_, preemphasized.data());
 
   // Left-only center pad for streaming: prepend overlap from previous chunk.
-  // For the first chunk this is zeros (matching center=True left edge).
+  // For the first chunk this is zeros.
   int pad = cfg_.fft_size / 2;
   std::vector<float> padded(pad + num_samples);
   std::memcpy(padded.data(), audio_overlap_.data(), pad * sizeof(float));
@@ -204,17 +198,13 @@ std::pair<std::vector<float>, int> NemoStreamingMelExtractor::Process(
     audio_overlap_ = std::move(new_overlap);
   }
 
-  // Window centering offset (symmetric window smaller than fft_size)
-  int win_offset = (cfg_.fft_size - cfg_.win_length) / 2;  // e.g. 56
-
-  // Right-pad to accommodate the window offset for the last frame
+  int win_offset = (cfg_.fft_size - cfg_.win_length) / 2;
   padded.resize(padded.size() + win_offset, 0.0f);
 
   if (static_cast<int>(padded.size()) < win_offset + cfg_.win_length) {
     padded.resize(win_offset + cfg_.win_length, 0.0f);
   }
 
-  // Frame count
   int num_frames = static_cast<int>((padded.size() - win_offset - cfg_.win_length) / cfg_.hop_length) + 1;
 
   int num_bins = cfg_.fft_size / 2 + 1;

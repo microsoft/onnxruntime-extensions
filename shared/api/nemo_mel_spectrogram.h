@@ -22,7 +22,6 @@ struct NemoMelConfig {
 };
 
 // Mel scale conversions (Slaney)
-
 float HzToMel(float hz);
 float MelToHz(float mel);
 
@@ -37,12 +36,7 @@ std::vector<std::vector<float>> CreateMelFilterbank(int num_mels, int fft_size, 
 float ApplyPreemphasis(const float* audio, size_t n, float preemph,
                        float prev_sample, float* out);
 
-/// Compute |DFT|^2 (power spectrum) for a single windowed frame.
-/// frame: pointer to fft_size samples (or win_length samples with window applied).
-/// window: pointer to window coefficients (same length as frame_len).
-/// frame_len: number of samples to read from frame and window.
-/// fft_size: DFT size (output has fft_size/2 + 1 bins).
-/// magnitudes: output power spectrum (resized to fft_size/2 + 1).
+/// Compute power spectrum for a single windowed frame.
 void ComputeSTFTFrame(const float* frame, const float* window, int frame_len,
                       int fft_size, std::vector<float>& magnitudes);
 
@@ -69,6 +63,8 @@ std::vector<float> NemoComputeLogMelBatch(const float* audio, size_t num_samples
 ///
 class NemoStreamingMelExtractor {
  public:
+  NemoStreamingMelExtractor() = default;
+
   explicit NemoStreamingMelExtractor(const NemoMelConfig& cfg);
 
   /// Process one chunk of raw PCM audio (mono, float32).
@@ -81,13 +77,12 @@ class NemoStreamingMelExtractor {
   const NemoMelConfig& config() const { return cfg_; }
 
  private:
-  NemoMelConfig cfg_;
+  NemoMelConfig cfg_{};
   std::vector<std::vector<float>> mel_filters_;
-  std::vector<float> hann_window_;  // symmetric, length = win_length
+  std::vector<float> hann_window_;
 
   // Streaming state
-  std::vector<float> audio_overlap_;   // last fft_size/2 pre-emphasized samples
+  std::vector<float> audio_overlap_;
   float preemph_last_sample_{0.0f};
 };
-
 }  // namespace nemo_mel
