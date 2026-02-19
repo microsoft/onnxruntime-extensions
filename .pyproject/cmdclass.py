@@ -129,10 +129,12 @@ class CmdBuild(CommandMixin, _build):
     def finalize_options(self) -> None:
         # There is a bug in setuptools that prevents the build get the right platform name from arguments.
         # So, it cannot generate the correct wheel with the right arch in Official release pipeline.
-        # Force plat_name to be 'win-amd64' in Windows to fix that,
-        # since extensions cmake is only available on x64 for Windows now, it is not a problem to hardcode it.
-        if sys.platform == "win32" and "arm" not in sys.version.lower():
-            self.plat_name = "win-amd64"
+        # Force plat_name to be 'win-amd64' / 'win-arm64' in Windows to fix that.
+        if sys.platform == "win32":
+            if "arm" in sys.version.lower():
+                self.plat_name = "win-arm64"
+            else:
+                self.plat_name = "win-amd64"
         if os.environ.get('OCOS_SCB_DEBUG', None) == '1':
             self.debug = True
         super().finalize_options()
