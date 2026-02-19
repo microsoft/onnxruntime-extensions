@@ -54,15 +54,27 @@ struct StftNormal {
   int64_t onesided_{1};
 };
 
-  static std::vector<float> hann_window(int N) {
-    std::vector<float> window(N);
+static std::vector<float> hann_window(int N) {
+  std::vector<float> window(N);
 
-    for (int n = 0; n < N; ++n) {
-      // Original formula introduces more rounding errors than the current implementation
-      // window[n] = static_cast<float>(0.5 * (1 - std::cos(2 * M_PI * n / (N - 1))));
-      double n_sin = std::sin(M_PI * n / N);
-      window[n] = static_cast<float>(n_sin * n_sin);
-    }
-
-    return window;
+  for (int n = 0; n < N; ++n) {
+    // Original formula introduces more rounding errors than the current implementation
+    // window[n] = static_cast<float>(0.5 * (1 - std::cos(2 * M_PI * n / (N - 1))));
+    double n_sin = std::sin(M_PI * n / N);
+    window[n] = static_cast<float>(n_sin * n_sin);
   }
+
+  return window;
+}
+
+// Symmetric Hann window: matches torch.hann_window(N, periodic=False).
+static std::vector<float> hann_window_symmetric(int N) {
+  assert(N >= 2 && "hann_window_symmetric requires N >= 2 to avoid division by zero");
+  std::vector<float> window(N);
+
+  for (int n = 0; n < N; ++n) {
+    window[n] = 0.5f * (1.0f - std::cos(2.0f * static_cast<float>(M_PI) * n / (N - 1)));
+  }
+
+  return window;
+}
