@@ -114,8 +114,8 @@ void ComputeSTFTFrame(const float* frame, const float* window, int frame_len,
 
 std::vector<float> NemoComputeLogMelBatch(const float* audio, size_t num_samples,
                                           const NemoMelConfig& cfg, int& out_num_frames) {
-  static auto mel_filters = CreateMelFilterbank(cfg.num_mels, cfg.fft_size, cfg.sample_rate);
-  static auto window = hann_window(cfg.win_length);
+  auto mel_filters = CreateMelFilterbank(cfg.num_mels, cfg.fft_size, cfg.sample_rate);
+  auto window = hann_window(cfg.win_length);
 
   int n = static_cast<int>(num_samples);
 
@@ -209,12 +209,12 @@ std::pair<std::vector<float>, int> NemoStreamingMelExtractor::Process(
 
   int num_bins = cfg_.fft_size / 2 + 1;
   std::vector<float> mel_spec(cfg_.num_mels * num_frames);
+  std::vector<float> magnitudes;
 
   for (int t = 0; t < num_frames; ++t) {
     const float* frame = padded.data() + t * cfg_.hop_length + win_offset;
 
     // FFT with symmetric Hann window (win_length samples, zero-padded to fft_size)
-    std::vector<float> magnitudes;
     ComputeSTFTFrame(frame, hann_window_.data(), cfg_.win_length, cfg_.fft_size, magnitudes);
 
     // Apply mel filterbank + log

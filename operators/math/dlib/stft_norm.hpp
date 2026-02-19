@@ -69,6 +69,7 @@ struct StftNormal {
 
   // Symmetric Hann window: matches torch.hann_window(N, periodic=False).
   static std::vector<float> hann_window_symmetric(int N) {
+    assert(N >= 2 && "hann_window_symmetric requires N >= 2 to avoid division by zero");
     std::vector<float> window(N);
 
     for (int n = 0; n < N; ++n) {

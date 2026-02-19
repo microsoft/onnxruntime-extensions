@@ -1,8 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <numeric>
+#include <set>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -244,11 +247,13 @@ TEST(NemoMelTest, StreamingEmptyChunk) {
 }
 
 TEST(NemoMelTest, StreamingSmallChunk) {
-  // Chunk smaller than hop_length should produce 0 frames (buffered for next call)
+  // Even a chunk smaller than hop_length produces frames on the first call
+  // because the initial left-pad (fft_size/2 zeros) is prepended, giving
+  // enough samples to form at least one STFT frame.
   auto cfg = MakeTestConfig();
   NemoStreamingMelExtractor extractor(cfg);
   std::vector<float> tiny(100, 0.1f);  // 100 samples < hop_length (160)
   auto [mel, frames] = extractor.Process(tiny.data(), tiny.size());
-  // May produce 0 frames since not enough samples for a full hop
-  EXPECT_GE(frames, 0);
+  EXPECT_GT(frames, 0);
+  EXPECT_EQ(mel.size(), static_cast<size_t>(cfg.num_mels) * frames);
 }
