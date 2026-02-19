@@ -55,6 +55,11 @@ std::vector<float> NemoComputeLogMelBatch(const float* audio, size_t num_samples
 /// Stateful streaming NeMo-compatible mel extractor that maintains overlap and
 /// pre-emphasis state across successive audio chunks.
 ///
+/// @note This class is NOT thread-safe. It maintains mutable internal state
+/// (overlap buffer, pre-emphasis filter state) that is modified by Process()
+/// and Reset(). Concurrent calls to Process() or Reset() on the same instance
+/// produce undefined behavior. Use a separate instance per concurrent stream.
+///
 /// Usage:
 ///   nemo_mel::NemoStreamingMelExtractor extractor(cfg);
 ///   auto [mel, frames] = extractor.Process(chunk1, n1);

@@ -33,19 +33,19 @@ float ApplyPreemphasis(const float* audio, size_t n, float preemph,
 }
 
 // Slaney mel scale constants
-static constexpr float kMinLogHz = 1000.0f;
-static constexpr float kMinLogMel = 15.0f;               // 1000 / (200/3)
-static constexpr float kLinScale = 200.0f / 3.0f;        // Hz per mel (linear region)
-static constexpr float kLogStep = 0.06875177742094912f;   // log(6.4) / 27
+static constexpr float K_MIN_LOG_HZ = 1000.0f;
+static constexpr float K_MIN_LOG_MEL = 15.0f;               // 1000 / (200/3)
+static constexpr float K_LIN_SCALE = 200.0f / 3.0f;        // Hz per mel (linear region)
+static constexpr float K_LOG_STEP = 0.06875177742094912f;   // log(6.4) / 27
 
 float HzToMel(float hz) {
-  if (hz < kMinLogHz) return hz / kLinScale;
-  return kMinLogMel + std::log(hz / kMinLogHz) / kLogStep;
+  if (hz < K_MIN_LOG_HZ) return hz / K_LIN_SCALE;
+  return K_MIN_LOG_MEL + std::log(hz / K_MIN_LOG_HZ) / K_LOG_STEP;
 }
 
 float MelToHz(float mel) {
-  if (mel < kMinLogMel) return mel * kLinScale;
-  return kMinLogHz * std::exp((mel - kMinLogMel) * kLogStep);
+  if (mel < K_MIN_LOG_MEL) return mel * K_LIN_SCALE;
+  return K_MIN_LOG_HZ * std::exp((mel - K_MIN_LOG_MEL) * K_LOG_STEP);
 }
 
 std::vector<std::vector<float>> CreateMelFilterbank(int num_mels, int fft_size, int sample_rate) {
