@@ -408,6 +408,53 @@ class TestToolsAddPrePostProcessingToModel(unittest.TestCase):
 
         self.assertEqual(result[0][0], ref_output[0][0])
 
+    def _create_pipeline_and_run_for_grayscale(self, output_model: Path, layout: str = "RGB"):
+        import onnx
+
+        graph_def = onnx.parser.parse_graph("""\
+            identity (uint8[h,w,c] image_in)
+            => (uint8[h,w,c] image_out)
+            {
+            image_out = Identity(image_in)
+            }
+        """)
+
+        onnx_opset = 16
+
+        onnx_import = onnx.helper.make_operatorsetid("", onnx_opset)
+        ir_version = onnx.helper.find_min_ir_version_for([onnx_import])
+        input_model = onnx.helper.make_model_gen_version(graph_def, opset_imports=[onnx_import], ir_version=ir_version)
+
+        create_named_value = pre_post_processing.utils.create_named_value
+        inputs = [
+            create_named_value("image", onnx.TensorProto.UINT8, ["height", "width", 3]),
+        ]
+        pipeline = PrePostProcessor(inputs, onnx_opset)
+        pipeline.add_pre_processing([Grayscale(layout=layout)])
+
+        new_model = pipeline.run(input_model)
+        onnx.save_model(new_model, output_model)
+
+    def test_grayscale_step_rgb(self):
+        output_model = (self.temp4onnx / "identity.onnx").resolve()
+        self._create_pipeline_and_run_for_grayscale(output_model, layout="RGB")
+        image = Image.open(Path(test_data_dir) / "../pineapple.jpg").convert("RGB")
+
+        ort_sess = ort.InferenceSession(str(output_model), providers=["CPUExecutionProvider"])
+        grayscaled_image = ort_sess.run(
+            None,
+            {"image": np.asarray(image)},
+        )[0]
+
+        # all channel values are the same
+        self.assertEqual((np.max(grayscaled_image, axis=-1) == np.min(grayscaled_image, axis=-1)).all(), True)
+        # assert onnxruntime-extensions gray scaling matches Pillows gray scaling
+        np.testing.assert_allclose(
+            np.repeat(np.array(image.convert("L"))[:, :, np.newaxis], 3, axis=2),
+            grayscaled_image,
+            atol=1,
+        )
+
     # Corner Case
     def test_debug_step(self):
         import onnx
