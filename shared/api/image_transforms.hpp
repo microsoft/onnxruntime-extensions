@@ -305,7 +305,7 @@ struct Normalize {
       } else if (key == "std") {
         auto std = std::get<std::vector<double>>(value);
         std_ = {static_cast<float>(std[0]), static_cast<float>(std[1]), static_cast<float>(std[2])};
-      } else if (key == "qwen2_5_vl") {
+      } else if (key == "qwen2_5_vl" || key == "qwen3_vl") {
         qwen2_5_vl_ = std::get<int64_t>(value) != 0;
       } else {
         return {kOrtxErrorInvalidArgument, "[Normalize]: Invalid argument"};
