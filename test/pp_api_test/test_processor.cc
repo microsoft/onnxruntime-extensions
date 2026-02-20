@@ -239,3 +239,42 @@ TEST(ProcessorTest, TestQwen2_5VLImageProcessing) {
   ASSERT_LE(mse, 1e-3);
 }
 
+TEST(ProcessorTest, TestQwen3VLImageProcessing) {
+  const char* qwen_test_image_path[] = {"data/processor/australia.jpg"};
+  const size_t qwen_test_image_count = 1;
+
+  // Load Image
+  OrtxObjectPtr<OrtxRawImages> raw_images{};
+  extError_t err = OrtxLoadImages(raw_images.ToBeAssigned(), qwen_test_image_path, qwen_test_image_count, nullptr);
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Create Processor with Qwen3-VL config (patch_size=16 vs 14 for Qwen2.5-VL)
+  OrtxObjectPtr<OrtxProcessor> processor;
+  err = OrtxCreateProcessor(processor.ToBeAssigned(), "data/qwen3vl/vision_processor.json");
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Run Processor
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxImagePreProcess(processor.get(), raw_images.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Extract pixel_values tensor
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const float* cpp_data{};
+  const int64_t* shape{};
+  size_t num_dims{};
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&cpp_data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Expect 3 Dimensions: [num_patches, patch_dim]
+  ASSERT_EQ(num_dims, 3ULL);
+
+  // Qwen3-VL uses patch_size=16, so patch_dim = 3 * 2 * 16 * 16 = 1536
+  // (vs Qwen2.5-VL's 3 * 2 * 14 * 14 = 1176)
+  int64_t patch_dim = shape[2];
+  ASSERT_EQ(patch_dim, 1536);
+}
+
