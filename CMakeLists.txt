@@ -222,7 +222,12 @@ if(OCOS_BUILD_ANDROID)
   # Add 16KB page size compatibility for Android 15+ devices.
   # See: https://developer.android.com/guide/practices/page-sizes
   # This flag ensures binaries work on both 4KB and 16KB page size systems.
-  # Requires NDK r23+.
+  # Requires Android NDK r23 or newer because -Wl,-z,max-page-size=16384 was
+  # introduced in NDK r23. Ensure all build tooling (CMake, Gradle, CI) uses
+  # an NDK >= r23.
+  if(DEFINED ANDROID_NDK_MAJOR AND ANDROID_NDK_MAJOR LESS 23)
+    message(FATAL_ERROR "Android NDK r23 or newer is required to build with 16KB page size support. Detected ANDROID_NDK_MAJOR=${ANDROID_NDK_MAJOR}")
+  endif()
   add_link_options(-Wl,-z,max-page-size=16384)
   message(STATUS "Android build: 16KB page size support enabled")
 endif()
