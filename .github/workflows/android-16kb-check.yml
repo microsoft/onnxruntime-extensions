@@ -94,8 +94,8 @@ jobs:
             # Display LOAD segments
             $READELF -l "$LIB" | grep -A 1 "LOAD" || true
 
-            # Check for 16KB alignment (0x4000)
-            if $READELF -l "$LIB" | grep -q "0x4000"; then
+            # Check for 16KB alignment (0x4000) in the Align field of LOAD segments
+            if $READELF -l "$LIB" | grep "LOAD" | awk '{print $NF}' | grep -q '^0x4000$'; then
               echo "PASS: Found 16KB alignment (0x4000) in $(basename $LIB)"
             else
               echo "FAIL: Did not find 16KB alignment (0x4000) in $(basename $LIB)"
