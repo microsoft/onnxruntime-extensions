@@ -62,7 +62,7 @@ class PatchImage {
     int64_t grid_w = W / patch_size_;
 
     // Populate grid_thw output tensor
-    grid_thw_output.Allocate({1, 3});
+    grid_thw_output.Allocate({3});
     int64_t* grid_data = const_cast<int64_t*>(grid_thw_output.Data());
     grid_data[0] = grid_t;
     grid_data[1] = grid_h;
