@@ -1,0 +1,124 @@
+name: Android 16KB Page Size Verification
+
+on:
+  pull_request:
+    paths:
+      - 'CMakeLists.txt'
+      - 'cmake/**'
+      - 'java/**'
+      - 'tools/build.py'
+      - '.github/workflows/android-16kb-check.yml'
+
+jobs:
+  verify-android-16kb-alignment:
+    name: Build & Verify 16KB Page Alignment (arm64-v8a)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r25c
+          add-to-path: false
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build Android arm64-v8a with 16KB support
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          set -e
+
+          # Use the project's build script
+          python tools/build.py \
+            --android \
+            --android_abi=arm64-v8a \
+            --android_api=27 \
+            --android_home=$ANDROID_HOME \
+            --android_ndk_path=$ANDROID_NDK_HOME \
+            --config=Release \
+            --update \
+            --parallel \
+            --build
+
+      - name: Verify 16KB page alignment
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          set -e
+
+          echo "=== Verifying 16KB page size alignment ==="
+
+          # Find android built libraries
+          LIBS=$(find build/Android/Release/lib -name "libortextensions.so" -o -name "libonnxruntime_extensions4j_jni.so")
+
+          if [ -z "$LIBS" ]; then
+            echo "ERROR: Android built libraries not found"
+            find build/Android -name "*.so" -type f || true
+            exit 1
+          fi
+
+          # Use llvm-readelf from NDK
+          READELF="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+
+          if [ ! -f "$READELF" ]; then
+            echo "ERROR: llvm-readelf not found at $READELF"
+            exit 1
+          fi
+
+          echo "Found libraries:"
+          echo "$LIBS"
+          echo ""
+
+          FAILED=0
+          for LIB in $LIBS; do
+            echo "Checking: $(basename $LIB)"
+            echo "Full path: $LIB"
+
+            # Display LOAD segments
+            $READELF -l "$LIB" | grep -A 1 "LOAD" || true
+
+            # Check for 16KB alignment (0x4000) in the Align field of LOAD segments
+            if $READELF -l "$LIB" | grep "LOAD" | awk '{print $NF}' | grep -q '^0x4000$'; then
+              echo "PASS: Found 16KB alignment (0x4000) in $(basename $LIB)"
+            else
+              echo "FAIL: Did not find 16KB alignment (0x4000) in $(basename $LIB)"
+              echo "Full segment details:"
+              $READELF -l "$LIB"
+              FAILED=1
+            fi
+            echo "---"
+          done
+
+          if [ $FAILED -ne 0 ]; then
+            echo ""
+            echo "ERROR: One or more libraries do not have 16KB page alignment"
+            exit 1
+          fi
+
+          echo ""
+          echo "SUCCESS: All libraries have correct 16KB page alignment"
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-arm64-libraries
+          path: build/Android/**/lib/*.so
+          retention-days: 7
