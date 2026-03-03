@@ -172,7 +172,12 @@ struct Resize {
     image_factor_ = patch_size_ * merge_size_;
 
     // Perform Smart Resize if Set
-    auto [height, width] = smart_resize_ ? smart_resize(height_, width_) : std::make_tuple(height_, width_);
+    // When smart_resize is enabled, use the original image dimensions (h, w)
+    // to compute the target size that preserves the aspect ratio and snaps to
+    // the patch grid, matching the HuggingFace smart_resize behavior.
+    // When smart_resize is disabled, fall back to the fixed config dimensions.
+    auto [height, width] = smart_resize_ ? smart_resize(static_cast<int64_t>(h), static_cast<int64_t>(w))
+                                         : std::make_tuple(height_, width_);
     h = static_cast<int>(height);
     w = static_cast<int>(width);
     
