@@ -76,6 +76,14 @@ class NemoStreamingMelExtractor {
   /// Returns (mel_data, num_frames) where mel_data is row-major [num_mels, num_frames].
   std::pair<std::vector<float>, int> Process(const float* audio, size_t num_samples);
 
+  /// Process one chunk, writing mel output directly into a caller-provided buffer.
+  /// @param audio        Input PCM samples (mono, float32).
+  /// @param num_samples  Number of input samples.
+  /// @param out_mel      Caller-owned buffer to receive row-major [num_mels, num_frames] mel data.
+  /// @param mel_capacity Size of out_mel in floats. Must be >= num_mels * num_frames.
+  /// @returns            Number of mel frames produced.
+  int Process(const float* audio, size_t num_samples, float* out_mel, size_t mel_capacity);
+
   /// Reset all streaming state for a new utterance.
   void Reset();
 
