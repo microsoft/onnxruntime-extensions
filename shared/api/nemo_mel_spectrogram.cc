@@ -6,6 +6,7 @@
 #include "nemo_mel_spectrogram.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstring>
 #include <vector>
@@ -221,10 +222,7 @@ int NemoStreamingMelExtractor::Process(
   int num_frames = static_cast<int>((padded.size() - win_offset - cfg_.win_length) / cfg_.hop_length) + 1;
 
   int num_bins = cfg_.fft_size / 2 + 1;
-  size_t required = static_cast<size_t>(cfg_.num_mels) * num_frames;
-  if (mel_capacity < required) {
-    num_frames = static_cast<int>(mel_capacity / cfg_.num_mels);
-  }
+  assert(mel_capacity >= static_cast<size_t>(cfg_.num_mels) * num_frames && "mel buffer too small");
   std::vector<float> magnitudes;
 
   for (int t = 0; t < num_frames; ++t) {
