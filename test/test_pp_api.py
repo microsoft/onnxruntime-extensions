@@ -795,5 +795,33 @@ class TestPPAPI(unittest.TestCase):
                          f"Qwen3-VL patch_dim should be 1536, got {patch_dim}")
 
 
+
+@unittest.skipIf(not is_pp_api_available, "pp_api not available")
+class TestPhi4CMYKRejection(unittest.TestCase):
+    """Security regression: CMYK JPEG must be rejected at decode time (CWE-122).
+
+    A CMYK JPEG has 4 output channels. Phi4VisionDynamicPreprocess allocates a
+    3-channel output buffer but previously copied using the dynamic channel count,
+    writing ~3 MB past the allocation and enabling heap corruption / RCE.
+    Both the JPEG decoder and the transform op now validate channel count.
+    """
+
+    def test_cmyk_jpeg_rejected(self):
+        import io
+        phi4_proc_path = util.get_test_data_file("models/phi-4/vision_processor.json")
+        proc = pp_api.create_processor(phi4_proc_path)
+        buf = io.BytesIO()
+        Image.new("CMYK", (64, 64), color=(128, 64, 32, 255)).save(buf, format="JPEG")
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
+            f.write(buf.getvalue())
+            tmp_path = f.name
+        try:
+            with self.assertRaises(Exception, msg="CMYK JPEG must be rejected, not silently overflow the heap"):
+                images = pp_api.load_images([tmp_path])
+                pp_api.image_pre_process(proc, images)
+        finally:
+            os.unlink(tmp_path)
+
+
 if __name__ == "__main__":
     unittest.main()
