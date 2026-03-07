@@ -24,6 +24,15 @@ class Phi4VisionDynamicPreprocess {
       return {kOrtxErrorInvalidArgument, "[Phi4VisionProcessor]: Only raw image formats"};
     }
 
+    // Security: reject non-RGB inputs (e.g. CMYK JPEGs decoded as 4-channel tensors).
+    // Downstream allocation is hardcoded to 3 channels, so a 4-channel input would cause
+    // memcpy to write past the buffer end, enabling heap corruption / RCE (CWE-122).
+    int64_t c = ts_image.Shape()[2];
+    if (c != 3) {
+      return {kOrtxErrorInvalidArgument,
+              "[Phi4VisionProcessor]: Expected 3-channel RGB input, got " + std::to_string(c) + " channels"};
+    }
+
     /*
     dyhd_base_resolution = 448
 
@@ -42,7 +51,6 @@ class Phi4VisionDynamicPreprocess {
     const uint8_t* input_data = ts_image.Data();
     int64_t h = ts_image.Shape()[0];
     int64_t w = ts_image.Shape()[1];
-    int64_t c = ts_image.Shape()[2];
     Imaging image = ImagingNew("RGB", ort_extensions::narrow<int>(w), ort_extensions::narrow<int>(h));
     for (int64_t i = 0; i < h; ++i) {
       for (int64_t j = 0; j < w; ++j) {

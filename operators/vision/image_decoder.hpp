@@ -134,6 +134,15 @@ struct DecodeImage {
       // Start decompression
       jpeg_start_decompress(&cinfo);
 
+      // Security: reject non-RGB/grayscale color spaces (e.g. CMYK has 4 channels).
+      // Allowing other channel counts propagates attacker-controlled tensor shapes downstream,
+      // causing heap overflows in consumers that assume 3 channels (CVE-class: CWE-122).
+      if (cinfo.output_components != 3 && cinfo.output_components != 1) {
+        jpeg_destroy_decompress(&cinfo);
+        return {kOrtxErrorInvalidArgument,
+                "[ImageDecoder]: Unsupported JPEG color space. Only RGB and grayscale are supported."};
+      }
+
       // Allocate memory for the image
       std::vector<int64_t> output_dimensions{cinfo.output_height, cinfo.output_width, cinfo.output_components};
       uint8_t* imageBuffer = output.Allocate(output_dimensions);
