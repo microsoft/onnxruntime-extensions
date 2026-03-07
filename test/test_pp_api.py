@@ -808,7 +808,7 @@ class TestPhi4CMYKRejection(unittest.TestCase):
 
     def test_cmyk_jpeg_rejected(self):
         import io
-        phi4_proc_path = util.get_test_data_file("models/phi-4/vision_processor.json")
+        phi4_proc_path = util.get_test_data_file("data/models/phi-4/vision_processor.json")
         proc = pp_api.create_processor(phi4_proc_path)
         buf = io.BytesIO()
         Image.new("CMYK", (64, 64), color=(128, 64, 32, 255)).save(buf, format="JPEG")
