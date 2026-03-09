@@ -64,6 +64,18 @@ struct DecodeImage {
       return {kOrtxErrorInternal, "[ImageDecoder]: Failed to create CGImage."};
     }
 
+    // CoreGraphics silently converts CMYK to sRGB via CGContextDrawImage, which might
+    // cause heap overflows in consumers that assume 3 channels.
+    {
+      CGColorSpaceRef imageColorSpace = CGImageGetColorSpace(image);
+      CGColorSpaceModel model = CGColorSpaceGetModel(imageColorSpace);
+      if (model != kCGColorSpaceModelRGB && model != kCGColorSpaceModelMonochrome) {
+        CGImageRelease(image);
+        return {kOrtxErrorInvalidArgument,
+                "[ImageDecoder]: Unsupported image color space. Only RGB and grayscale are supported."};
+      }
+    }
+
     const int64_t width = static_cast<int64_t>(CGImageGetWidth(image));
     const int64_t height = static_cast<int64_t>(CGImageGetHeight(image));
     const int64_t channels = 3;
