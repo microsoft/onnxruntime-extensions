@@ -6,6 +6,7 @@
 #include "nemo_mel_spectrogram.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstring>
 #include <vector>
@@ -174,6 +175,19 @@ void NemoStreamingMelExtractor::Reset() {
 
 std::pair<std::vector<float>, int> NemoStreamingMelExtractor::Process(
     const float* audio, size_t num_samples) {
+  // Upper bound on frames: (pad + num_samples + win_offset) / hop_length + 1
+  // Conservative over-estimate is fine; the actual count is returned.
+  int pad = cfg_.fft_size / 2;
+  int win_offset = (cfg_.fft_size - cfg_.win_length) / 2;
+  int max_frames = static_cast<int>((pad + num_samples + win_offset) / cfg_.hop_length) + 1;
+  std::vector<float> mel_spec(static_cast<size_t>(cfg_.num_mels) * max_frames);
+  int num_frames = Process(audio, num_samples, mel_spec.data(), mel_spec.size());
+  mel_spec.resize(static_cast<size_t>(cfg_.num_mels) * num_frames);
+  return {std::move(mel_spec), num_frames};
+}
+
+int NemoStreamingMelExtractor::Process(
+    const float* audio, size_t num_samples, float* out_mel, size_t mel_capacity) {
   // Apply pre-emphasis filter: y[n] = x[n] - preemph * x[n-1]
   std::vector<float> preemphasized(num_samples);
   preemph_last_sample_ = ApplyPreemphasis(audio, num_samples, cfg_.preemph,
@@ -208,7 +222,7 @@ std::pair<std::vector<float>, int> NemoStreamingMelExtractor::Process(
   int num_frames = static_cast<int>((padded.size() - win_offset - cfg_.win_length) / cfg_.hop_length) + 1;
 
   int num_bins = cfg_.fft_size / 2 + 1;
-  std::vector<float> mel_spec(cfg_.num_mels * num_frames);
+  assert(mel_capacity >= static_cast<size_t>(cfg_.num_mels) * num_frames && "mel buffer too small");
   std::vector<float> magnitudes;
 
   for (int t = 0; t < num_frames; ++t) {
@@ -223,11 +237,11 @@ std::pair<std::vector<float>, int> NemoStreamingMelExtractor::Process(
       for (int k = 0; k < num_bins; ++k) {
         val += mel_filters_[m][k] * magnitudes[k];
       }
-      mel_spec[m * num_frames + t] = std::log(val + cfg_.log_eps);
+      out_mel[m * num_frames + t] = std::log(val + cfg_.log_eps);
     }
   }
 
-  return {mel_spec, num_frames};
+  return num_frames;
 }
 
 }  // namespace nemo_mel
