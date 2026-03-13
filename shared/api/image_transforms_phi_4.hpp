@@ -359,6 +359,14 @@ class Phi4VisionProcessor {
                      ortc::Tensor<int64_t>& image_sizes,
                      ortc::Tensor<int64_t>& returned_image_attention_mask,
                      ortc::Tensor<int64_t>& num_img_tokens) const {
+    // Defense-in-depth: reject non-3-channel inputs. Downstream code hardcodes 3 channels
+    // when allocating/copying tensors. A non-3-channel input would cause heap corruption (CWE-122).
+    if (hd_image.Shape().size() >= 3 && hd_image.Shape()[2] != 3) {
+      return {kOrtxErrorInvalidArgument,
+              "[Phi4VisionProcessor]: Expected 3-channel input, got " +
+              std::to_string(hd_image.Shape()[2]) + " channels"};
+    }
+
     const int32_t base_resolution = ort_extensions::narrow<int32_t>(dyhd_base_resolution_);
     const int64_t mask_resolution = base_resolution / 14;
     /*

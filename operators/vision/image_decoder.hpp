@@ -131,16 +131,27 @@ struct DecodeImage {
       // Read the JPEG header to get image info
       jpeg_read_header(&cinfo, TRUE);
 
+      // Security: explicitly reject CMYK/YCCK color spaces before decompression.
+      // These have 4 channels and downstream code assumes 3 channels (CVE-class: CWE-122).
+      if (cinfo.jpeg_color_space == JCS_CMYK || cinfo.jpeg_color_space == JCS_YCCK) {
+        jpeg_destroy_decompress(&cinfo);
+        return {kOrtxErrorInvalidArgument,
+                "[ImageDecoder]: Unsupported JPEG color space (CMYK/YCCK). Only RGB and grayscale are supported."};
+      }
+
+      // Force RGB output to ensure consistent 3-channel output regardless of input
+      // (e.g., grayscale JPEGs are expanded to RGB).
+      cinfo.out_color_space = JCS_RGB;
+
       // Start decompression
       jpeg_start_decompress(&cinfo);
 
-      // Security: reject non-RGB/grayscale color spaces (e.g. CMYK has 4 channels).
-      // Allowing other channel counts propagates attacker-controlled tensor shapes downstream,
-      // causing heap overflows in consumers that assume 3 channels (CVE-class: CWE-122).
-      if (cinfo.output_components != 3 && cinfo.output_components != 1) {
+      // Safety net: verify 3-channel output after decompression.
+      if (cinfo.output_components != 3) {
         jpeg_destroy_decompress(&cinfo);
         return {kOrtxErrorInvalidArgument,
-                "[ImageDecoder]: Unsupported JPEG color space. Only RGB and grayscale are supported."};
+                "[ImageDecoder]: Unexpected JPEG output channels. Expected 3 (RGB), got " +
+                std::to_string(cinfo.output_components) + "."};
       }
 
       // Allocate memory for the image
@@ -158,6 +169,7 @@ struct DecodeImage {
       }
 
       if (srcManager.extError != kOrtxOK) {
+        jpeg_destroy_decompress(&cinfo);
         return {kOrtxErrorInternal, "[ImageDecoder]: Failed to decode JPEG image."};
       }
 
