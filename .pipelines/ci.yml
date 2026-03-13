@@ -760,32 +760,119 @@ stages:
       vmImage: 'macOS-14'
     timeoutInMinutes: 45
     steps:
-      - task: UsePythonVersion@0
-        inputs:
-          versionSpec: "3.12"
-          addToPath: true
-          architecture: "x64"
-        displayName: "Use Python 3.12"
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: "3.12"
+        addToPath: true
+        architecture: "x64"
+      displayName: "Use Python 3.12"
 
-      - task: JavaToolInstaller@0
-        displayName: Use jdk 17
-        inputs:
-          versionSpec: '17'
-          jdkArchitectureOption: 'x64'
-          jdkSourceOption: 'PreInstalled'
+    - task: JavaToolInstaller@0
+      displayName: Use jdk 17
+      inputs:
+        versionSpec: '17'
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'PreInstalled'
 
-      - script: brew install ninja
-        displayName: Install ninja
+    - script: brew install ninja
+      displayName: Install ninja
 
-      - bash: |
-          python -m pip install cmake==3.31.6
-          python ./tools/build.py \
-            --config RelWithDebInfo \
-            --android \
-            --android_abi x86_64 \
-            --enable_cxx_tests \
-            --update --build --parallel
-        displayName: Build onnxruntime-extensions for Android
+    - bash: |
+        python -m pip install cmake==3.31.6
+        python ./tools/build.py \
+          --config RelWithDebInfo \
+          --android \
+          --android_abi x86_64 \
+          --enable_cxx_tests \
+          --update --build --parallel
+      displayName: Build onnxruntime-extensions for Android
+
+  - job: Android_Verify16KbPageAlignment
+    pool:
+      vmImage: 'ubuntu-24.04'
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: "3.12"
+        addToPath: true
+        architecture: "x64"
+      displayName: "Use Python 3.12"
+
+    - task: JavaToolInstaller@0
+      displayName: Use jdk 17
+      inputs:
+        versionSpec: '17'
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'PreInstalled'
+
+    - bash: |
+        python tools/build.py \
+          --android \
+          --android_abi=arm64-v8a \
+          --android_api=27 \
+          --android_home=$ANDROID_HOME \
+          --android_ndk_path=$ANDROID_NDK_HOME \
+          --config=Release \
+          --update \
+          --parallel \
+          --build
+      displayName: Build onnxruntime-extensions for Android
+
+    - bash: |
+        set -e
+
+        echo "=== Verifying 16KB page size alignment ==="
+
+        # Find android built libraries
+        LIBS=$(find build/Android/Release/lib -name "libortextensions.so" -o -name "libonnxruntime_extensions4j_jni.so")
+
+        if [ -z "$LIBS" ]; then
+          echo "ERROR: Android built libraries not found"
+          find build/Android -name "*.so" -type f || true
+          exit 1
+        fi
+
+        # Use llvm-readelf from NDK
+        READELF="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+
+        if [ ! -f "$READELF" ]; then
+          echo "ERROR: llvm-readelf not found at $READELF"
+          exit 1
+        fi
+
+        echo "Found libraries:"
+        echo "$LIBS"
+        echo ""
+
+        FAILED=0
+        for LIB in $LIBS; do
+          echo "Checking: $(basename $LIB)"
+          echo "Full path: $LIB"
+
+          # Display LOAD segments
+          $READELF -l "$LIB" | grep -A 1 "LOAD" || true
+
+          # Check for 16KB alignment (0x4000) in the Align field of LOAD segments
+          if $READELF -l "$LIB" | grep "LOAD" | awk '{print $NF}' | grep -q '^0x4000$'; then
+            echo "PASS: Found 16KB alignment (0x4000) in $(basename $LIB)"
+          else
+            echo "FAIL: Did not find 16KB alignment (0x4000) in $(basename $LIB)"
+            echo "Full segment details:"
+            $READELF -l "$LIB"
+            FAILED=1
+          fi
+          echo "---"
+        done
+
+        if [ $FAILED -ne 0 ]; then
+          echo ""
+          echo "ERROR: One or more libraries do not have 16KB page alignment"
+          exit 1
+        fi
+
+        echo ""
+        echo "SUCCESS: All libraries have correct 16KB page alignment"
+      displayName: Verify 16KB page alignment
 
 - stage: IosBuilds
   dependsOn: []
