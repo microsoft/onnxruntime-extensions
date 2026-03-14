@@ -141,18 +141,22 @@ class ustring : public std::u32string {
     ucs32.reserve(utf8.length() / 2);  // a rough estimation for less memory allocation.
     for (size_t i = 0; i < utf8.size();) {
       char32_t codepoint = 0;
+      size_t remaining = utf8.size() - i;
       if ((utf8[i] & 0x80) == 0) {
         codepoint = utf8[i];
         i++;
-      } else if ((utf8[i] & 0xE0) == 0xC0) {
+      } else if ((utf8[i] & 0xE0) == 0xC0 && remaining >= 2) {
         codepoint = ((utf8[i] & 0x1F) << 6) | (utf8[i + 1] & 0x3F);
         i += 2;
-      } else if ((utf8[i] & 0xF0) == 0xE0) {
+      } else if ((utf8[i] & 0xF0) == 0xE0 && remaining >= 3) {
         codepoint = ((utf8[i] & 0x0F) << 12) | ((utf8[i + 1] & 0x3F) << 6) | (utf8[i + 2] & 0x3F);
         i += 3;
-      } else {
+      } else if ((utf8[i] & 0xF8) == 0xF0 && remaining >= 4) {
         codepoint = ((utf8[i] & 0x07) << 18) | ((utf8[i + 1] & 0x3F) << 12) | ((utf8[i + 2] & 0x3F) << 6) | (utf8[i + 3] & 0x3F);
         i += 4;
+      } else {
+        codepoint = 0xFFFD;  // replacement character for invalid/truncated sequence
+        i++;
       }
       ucs32.push_back(codepoint);
     }
