@@ -83,6 +83,16 @@ struct DecodeImage {
 
     png_read_update_info(png, info);
 
+    // Add dimension limit to prevent decompression bombs
+    static constexpr uint32_t kMaxImageDimension = 16384;
+    static constexpr uint64_t kMaxPixelCount = 100 * 1024 * 1024;  // 100 megapixels
+    if (width > kMaxImageDimension || height > kMaxImageDimension ||
+        static_cast<uint64_t>(width) * height > kMaxPixelCount) {
+      png_destroy_read_struct(&png, &info, nullptr);
+      return {kOrtxErrorInvalidArgument,
+              "[ImageDecoder]: PNG dimensions exceed maximum allowed size."};
+    }
+
     std::vector<int64_t> output_dimensions{height, width, 3};
     uint8_t* output_data = output.Allocate(output_dimensions);
     // Read the image row by row
@@ -145,6 +155,17 @@ struct DecodeImage {
 
       // Start decompression
       jpeg_start_decompress(&cinfo);
+
+      // Add dimension limit to prevent decompression bombs
+      static constexpr unsigned int kMaxImageDimension = 16384;
+      static constexpr uint64_t kMaxPixelCount = 100 * 1024 * 1024;  // 100 megapixels
+      if (cinfo.output_width > kMaxImageDimension ||
+          cinfo.output_height > kMaxImageDimension ||
+          static_cast<uint64_t>(cinfo.output_width) * cinfo.output_height > kMaxPixelCount) {
+        jpeg_destroy_decompress(&cinfo);
+        return {kOrtxErrorInvalidArgument,
+                "[ImageDecoder]: JPEG dimensions exceed maximum allowed size."};
+      }
 
       // Safety net: verify 3-channel output after decompression.
       if (cinfo.output_components != 3) {

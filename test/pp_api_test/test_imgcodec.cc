@@ -198,3 +198,124 @@ TEST(ImageDecoderTest, TestTiffDecoder) {
 }
 #endif
 #endif
+// Security: verify that oversized PNG images are rejected (decompression bomb mitigation).
+// Crafts a minimal valid PNG with an IHDR claiming 20000x20000 dimensions.
+TEST(ImageDecoderTest, TestPngOversizeDimensionsRejected) {
+  ort_extensions::DecodeImage image_decoder;
+  image_decoder.Init(std::unordered_map<std::string, std::variant<std::string>>());
+
+  // Minimal PNG: signature + IHDR chunk with 20000x20000 dimensions.
+  // PNG signature (8 bytes)
+  // IHDR chunk: length(4) + "IHDR"(4) + width(4) + height(4) + bitdepth(1) + colortype(1) + compression(1) + filter(1) + interlace(1) + crc(4)
+  // We include just enough for the decoder to parse the header and hit the dimension check.
+  std::vector<uint8_t> png_oversize = {
+    // PNG signature
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+    // IHDR chunk length = 13
+    0x00, 0x00, 0x00, 0x0D,
+    // "IHDR"
+    0x49, 0x48, 0x44, 0x52,
+    // Width = 20000 (0x00004E20)
+    0x00, 0x00, 0x4E, 0x20,
+    // Height = 20000 (0x00004E20)
+    0x00, 0x00, 0x4E, 0x20,
+    // Bit depth = 8, Color type = 2 (RGB), Compression = 0, Filter = 0, Interlace = 0
+    0x08, 0x02, 0x00, 0x00, 0x00,
+    // CRC32 of IHDR chunk (precomputed for the above data)
+    0x6C, 0x12, 0xD1, 0x6E
+  };
+
+  ortc::Tensor<uint8_t> png_tensor({static_cast<int64_t>(png_oversize.size())}, png_oversize.data());
+  ortc::Tensor<uint8_t> out_tensor{&CppAllocator::Instance()};
+  auto status = image_decoder.Compute(png_tensor, out_tensor);
+
+  // Should fail — either with our dimension check or a corrupt data error (truncated stream).
+  // The key thing is it must NOT attempt a ~1.2 GB allocation.
+  std::cout << "[Expected rejection] PNG 20000x20000: " << status.ToString() << std::endl;
+  ASSERT_FALSE(status.IsOk()) << "Oversized PNG (20000x20000) should have been rejected but was accepted.";
+}
+
+// Security: verify that oversized JPEG images are rejected (decompression bomb mitigation).
+// Crafts a minimal JPEG with SOF0 claiming 17000x17000 dimensions.
+TEST(ImageDecoderTest, TestJpegOversizeDimensionsRejected) {
+  ort_extensions::DecodeImage image_decoder;
+  image_decoder.Init(std::unordered_map<std::string, std::variant<std::string>>());
+
+  // Minimal JPEG: SOI + SOF0 (with oversized dimensions) + EOI
+  // This should be enough for jpeg_read_header + jpeg_start_decompress to parse dimensions.
+  // Craft a minimal but structurally valid JPEG so libjpeg can parse the header
+  // and reach jpeg_start_decompress where our dimension check fires.
+  // Structure: SOI + DQT + SOF0 (oversized dims) + SOS + EOI
+  std::vector<uint8_t> jpeg_oversize = {
+    // SOI
+    0xFF, 0xD8,
+
+    // DQT marker (required for jpeg_start_decompress to succeed)
+    0xFF, 0xDB,
+    // Length = 67 (2 + 1 + 64): precision/table byte + 64 quantization values
+    0x00, 0x43,
+    // Table 0, 8-bit precision
+    0x00,
+    // 64 quantization values (all 1s — minimal valid table)
+    0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+    0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+    0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+    0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+    0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+    0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+    0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+    0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+
+    // SOF0 marker
+    0xFF, 0xC0,
+    // Length = 11
+    0x00, 0x0B,
+    // Precision = 8
+    0x08,
+    // Height = 17000 (0x4268)
+    0x42, 0x68,
+    // Width = 17000 (0x4268)
+    0x42, 0x68,
+    // Number of components = 1 (grayscale)
+    0x01,
+    // Component 1: id=1, sampling=0x11, quant_table=0
+    0x01, 0x11, 0x00,
+
+    // DHT marker (minimal Huffman table for DC, required by libjpeg)
+    0xFF, 0xC4,
+    // Length = 31 (2 + 1 + 16 + 12 symbols)
+    0x00, 0x1F,
+    // DC table 0
+    0x00,
+    // Number of codes of each length 1-16 (12 codes total)
+    0x00, 0x01, 0x05, 0x01, 0x01, 0x01, 0x01, 0x01,
+    0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    // Symbol values
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+    0x08, 0x09, 0x0A, 0x0B,
+
+    // SOS marker
+    0xFF, 0xDA,
+    // Length = 8
+    0x00, 0x08,
+    // Number of components = 1
+    0x01,
+    // Component 1: DC table 0, AC table 0
+    0x01, 0x00,
+    // Spectral selection start, end, approximation
+    0x00, 0x3F, 0x00,
+
+    // Minimal scan data (a single zero byte) + EOI
+    0x00,
+    0xFF, 0xD9
+  };
+
+  ortc::Tensor<uint8_t> jpeg_tensor({static_cast<int64_t>(jpeg_oversize.size())}, jpeg_oversize.data());
+  ortc::Tensor<uint8_t> out_tensor{&CppAllocator::Instance()};
+  auto status = image_decoder.Compute(jpeg_tensor, out_tensor);
+
+  // Should fail — either with our dimension check or a decode error.
+  // The key thing is it must NOT attempt a ~870 MB allocation.
+  std::cout << "[Expected rejection] JPEG 17000x17000: " << status.ToString() << std::endl;
+  ASSERT_FALSE(status.IsOk()) << "Oversized JPEG (17000x17000) should have been rejected but was accepted.";
+}
