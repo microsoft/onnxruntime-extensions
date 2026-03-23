@@ -111,6 +111,15 @@ struct DecodeImage {
     const int width = static_cast<int>(uiWidth);
     const int channels = 3;  // Asks for RGB
 
+    // Add dimension limit to prevent decompression bombs
+    static constexpr UINT kMaxImageDimension = 16384;
+    static constexpr uint64_t kMaxPixelCount = 100 * 1024 * 1024;  // 100 megapixels
+    if (uiWidth > kMaxImageDimension || uiHeight > kMaxImageDimension ||
+        static_cast<uint64_t>(uiWidth) * uiHeight > kMaxPixelCount) {
+      return {kOrtxErrorInvalidArgument,
+              "[ImageDecoder]: Image dimensions exceed maximum allowed size."};
+    }
+
     // Security: reject CMYK pixel formats (e.g. CMYK JPEGs) before silent conversion.
     // WICConvertBitmapSource can silently convert CMYK→RGB, hiding the 4-channel shape from
     // downstream consumers that assume 3 channels, enabling heap overflow (CWE-122).

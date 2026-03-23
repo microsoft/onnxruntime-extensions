@@ -82,6 +82,16 @@ struct DecodeImage {
     const int64_t height = static_cast<int64_t>(CGImageGetHeight(image));
     const int64_t channels = 3;
 
+    // Add dimension limit to prevent decompression bombs
+    static constexpr int64_t kMaxImageDimension = 16384;
+    static constexpr int64_t kMaxPixelCount = 100 * 1024 * 1024;  // 100 megapixels
+    if (width > kMaxImageDimension || height > kMaxImageDimension ||
+        width * height > kMaxPixelCount) {
+      CGImageRelease(image);
+      return {kOrtxErrorInvalidArgument,
+              "[ImageDecoder]: Image dimensions exceed maximum allowed size."};
+    }
+
     std::vector<int64_t> output_dimensions{height, width, channels};
     uint8_t* decoded_image_data = output.Allocate(output_dimensions);
 
