@@ -22,9 +22,15 @@ class CurlHandler {
   void AddHeader(const char* data) {
     // Defense-in-depth: reject headers containing CRLF to prevent HTTP header injection.
     if (std::strchr(data, '\r') || std::strchr(data, '\n')) {
-      ORTX_CXX_API_THROW("HTTP header value must not contain CR or LF characters", ORT_INVALID_ARGUMENT);
+      ORTX_CXX_API_THROW("HTTP header line must not contain CR or LF characters", ORT_INVALID_ARGUMENT);
     }
-    headers_.reset(curl_slist_append(headers_.release(), data));
+    curl_slist* current = headers_.release();
+    curl_slist* updated = curl_slist_append(current, data);
+    if (updated == nullptr) {
+      headers_.reset(current);
+      ORTX_CXX_API_THROW("Failed to append HTTP header (out of memory)", ORT_RUNTIME_EXCEPTION);
+    }
+    headers_.reset(updated);
   }
 
   template <typename... Args>

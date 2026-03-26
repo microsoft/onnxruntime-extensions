@@ -1,6 +1,8 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include <algorithm>
+
 #include "gtest/gtest.h"
 #ifdef ENABLE_RE2_REGEX
 #include "re2/re2.h"
