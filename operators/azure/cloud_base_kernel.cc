@@ -3,6 +3,7 @@
 
 #include "cloud_base_kernel.hpp"
 
+#include <algorithm>
 #include <sstream>
 
 #include "narrow.h"
@@ -78,6 +79,11 @@ std::string CloudBaseKernel::GetAuthToken(const ortc::Variadic& inputs) const {
   }
 
   std::string auth_token{static_cast<const char*>(inputs[0]->DataRaw())};
+
+  // Sanitize CRLF to prevent HTTP header injection (CWE-113).
+  auth_token.erase(std::remove_if(auth_token.begin(), auth_token.end(), [](char c) { return c == '\r' || c == '\n'; }),
+                   auth_token.end());
+
   return auth_token;
 }
 

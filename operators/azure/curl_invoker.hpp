@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #pragma once
+#include <cstring>
 #include <memory>
 
 #include "curl/curl.h"
@@ -19,7 +20,17 @@ class CurlHandler {
   ~CurlHandler() = default;
 
   void AddHeader(const char* data) {
-    headers_.reset(curl_slist_append(headers_.release(), data));
+    // Defense-in-depth: reject headers containing CRLF to prevent HTTP header injection.
+    if (std::strchr(data, '\r') || std::strchr(data, '\n')) {
+      ORTX_CXX_API_THROW("HTTP header line must not contain CR or LF characters", ORT_INVALID_ARGUMENT);
+    }
+    curl_slist* current = headers_.release();
+    curl_slist* updated = curl_slist_append(current, data);
+    if (updated == nullptr) {
+      headers_.reset(current);
+      ORTX_CXX_API_THROW("Failed to append HTTP header (out of memory)", ORT_RUNTIME_EXCEPTION);
+    }
+    headers_.reset(updated);
   }
 
   template <typename... Args>
