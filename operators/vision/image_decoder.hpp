@@ -15,6 +15,11 @@
 #include "ext_status.h"
 
 namespace ort_extensions::internal {
+
+// Maximum image dimension (width or height) and total pixel count to prevent decompression bombs.
+static constexpr uint64_t kMaxImageDimension = 16384;
+static constexpr uint64_t kMaxPixelCount = 100'000'000;  // 100 megapixels
+
 struct DecodeImage {
   OrtxStatus OnInit() { return {}; }
 
@@ -83,9 +88,7 @@ struct DecodeImage {
 
     png_read_update_info(png, info);
 
-    // Add dimension limit to prevent decompression bombs
-    static constexpr uint32_t kMaxImageDimension = 16384;
-    static constexpr uint64_t kMaxPixelCount = 100 * 1024 * 1024;  // 100 megapixels
+    // Dimension limit to prevent decompression bombs
     if (width > kMaxImageDimension || height > kMaxImageDimension ||
         static_cast<uint64_t>(width) * height > kMaxPixelCount) {
       png_destroy_read_struct(&png, &info, nullptr);
@@ -156,9 +159,7 @@ struct DecodeImage {
       // Start decompression
       jpeg_start_decompress(&cinfo);
 
-      // Add dimension limit to prevent decompression bombs
-      static constexpr unsigned int kMaxImageDimension = 16384;
-      static constexpr uint64_t kMaxPixelCount = 100 * 1024 * 1024;  // 100 megapixels
+      // Dimension limit to prevent decompression bombs
       if (cinfo.output_width > kMaxImageDimension ||
           cinfo.output_height > kMaxImageDimension ||
           static_cast<uint64_t>(cinfo.output_width) * cinfo.output_height > kMaxPixelCount) {

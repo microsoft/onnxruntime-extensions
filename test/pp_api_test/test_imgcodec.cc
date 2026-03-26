@@ -204,14 +204,14 @@ TEST(ImageDecoderTest, TestPngOversizeDimensionsRejected) {
   ort_extensions::DecodeImage image_decoder;
   image_decoder.Init(std::unordered_map<std::string, std::variant<std::string>>());
 
-  // Minimal PNG: signature + IHDR chunk with 20000x20000 dimensions.
-  // PNG signature (8 bytes)
-  // IHDR chunk: length(4) + "IHDR"(4) + width(4) + height(4) + bitdepth(1) + colortype(1) + compression(1) + filter(1) + interlace(1) + crc(4)
-  // We include just enough for the decoder to parse the header and hit the dimension check.
+  // Minimal PNG: signature + IHDR (20000x20000) + IDAT (minimal zlib) + IEND.
+  // png_read_info reads all chunks up to the first IDAT, so we need IDAT present
+  // for libpng to successfully parse the header and reach our dimension check.
   std::vector<uint8_t> png_oversize = {
     // PNG signature
     0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
-    // IHDR chunk length = 13
+
+    // IHDR chunk: length=13
     0x00, 0x00, 0x00, 0x0D,
     // "IHDR"
     0x49, 0x48, 0x44, 0x52,
@@ -221,18 +221,35 @@ TEST(ImageDecoderTest, TestPngOversizeDimensionsRejected) {
     0x00, 0x00, 0x4E, 0x20,
     // Bit depth = 8, Color type = 2 (RGB), Compression = 0, Filter = 0, Interlace = 0
     0x08, 0x02, 0x00, 0x00, 0x00,
-    // CRC32 of IHDR chunk (precomputed for the above data)
-    0x6C, 0x12, 0xD1, 0x6E
+    // CRC32 of IHDR
+    0x6C, 0x12, 0xD1, 0x6E,
+
+    // IDAT chunk: length=11 (minimal valid zlib stream)
+    0x00, 0x00, 0x00, 0x0B,
+    // "IDAT"
+    0x49, 0x44, 0x41, 0x54,
+    // Minimal zlib: header(78 01) + stored block BFINAL=1 LEN=0 NLEN=FFFF + Adler32(00000001)
+    0x78, 0x01, 0x01, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x01,
+    // CRC32 of IDAT type + data
+    0x89, 0xD6, 0xAE, 0x5F,
+
+    // IEND chunk: length=0
+    0x00, 0x00, 0x00, 0x00,
+    // "IEND"
+    0x49, 0x45, 0x4E, 0x44,
+    // CRC32 of IEND
+    0xAE, 0x42, 0x60, 0x82
   };
 
   ortc::Tensor<uint8_t> png_tensor({static_cast<int64_t>(png_oversize.size())}, png_oversize.data());
   ortc::Tensor<uint8_t> out_tensor{&CppAllocator::Instance()};
   auto status = image_decoder.Compute(png_tensor, out_tensor);
 
-  // Should fail — either with our dimension check or a corrupt data error (truncated stream).
-  // The key thing is it must NOT attempt a ~1.2 GB allocation.
+  // Must be rejected by the dimension check, not just any decode failure.
   std::cout << "[Expected rejection] PNG 20000x20000: " << status.ToString() << std::endl;
   ASSERT_FALSE(status.IsOk()) << "Oversized PNG (20000x20000) should have been rejected but was accepted.";
+  ASSERT_NE(status.ToString().find("dimensions exceed"), std::string::npos)
+      << "Expected dimension-limit error, got: " << status.ToString();
 }
 
 // Security: verify that oversized JPEG images are rejected (decompression bomb mitigation).
@@ -314,8 +331,9 @@ TEST(ImageDecoderTest, TestJpegOversizeDimensionsRejected) {
   ortc::Tensor<uint8_t> out_tensor{&CppAllocator::Instance()};
   auto status = image_decoder.Compute(jpeg_tensor, out_tensor);
 
-  // Should fail — either with our dimension check or a decode error.
-  // The key thing is it must NOT attempt a ~870 MB allocation.
+  // Must be rejected by the dimension check, not just any decode failure.
   std::cout << "[Expected rejection] JPEG 17000x17000: " << status.ToString() << std::endl;
   ASSERT_FALSE(status.IsOk()) << "Oversized JPEG (17000x17000) should have been rejected but was accepted.";
+  ASSERT_NE(status.ToString().find("dimensions exceed"), std::string::npos)
+      << "Expected dimension-limit error, got: " << status.ToString();
 }
