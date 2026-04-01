@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <cwctype>
 #include <locale>
+#include <cstring>
 
 #include "ortx_tokenizer.h"
 #include "ext_status.h"
@@ -92,7 +93,15 @@ struct SpmUgmTokenizer {
 
       // First four bytes of precompiled_charsmap contains length of binary
       // blob containing XOR-compressed compact double array (XCDA) entries
-      uint32_t xcda_blob_size = *(const uint32_t*)&charsmap_data_[0];
+      // The data is stored in little-endian format, so we need to convert on big-endian systems
+      uint32_t xcda_blob_size;
+      std::memcpy(&xcda_blob_size, &charsmap_data_[0], sizeof(xcda_blob_size));
+
+      // Convert from little-endian to host byte order
+      #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+      xcda_blob_size = __builtin_bswap32(xcda_blob_size);
+      #endif
+
       charsmap_offset += sizeof(xcda_blob_size);
       if (xcda_blob_size + charsmap_offset >= charsmap_data_.size()) {
         return OrtxStatus(extError_t::kOrtxErrorCorruptData, "Index out of array bounds in precompiled charsmap!");
@@ -295,7 +304,7 @@ struct SpmUgmTokenizer {
                         "Invalid UTF-8 encoding detected in input string at position " +
                         std::to_string(-validation_result));
     }
-    
+
     std::string normalized;
     if (case_encoder_) {
       normalized = NmtNormalize(input);
@@ -636,7 +645,12 @@ struct SpmUgmTokenizer {
       if (index >= xcda_array_size_) {  // Fix #2: off-by-one correction
         ORTX_CXX_API_THROW("[UgmTok]Index out of array bounds in XCDA array!", ORT_RUNTIME_EXCEPTION);
       }
-      return xcda_array_[index];
+      uint32_t value = xcda_array_[index];
+      // Convert from little-endian to host byte order
+      #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+      value = __builtin_bswap32(value);
+      #endif
+      return value;
     }
     const uint32_t* xcda_array_;
     size_t xcda_array_size_;
@@ -916,7 +930,7 @@ class SpmUgmDecoder {
         token = token.substr(0, pos) + ws;
       }
     }
-    
+
     if (!case_encoding_) {
       return {};
     }
