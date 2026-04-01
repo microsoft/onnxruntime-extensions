@@ -383,6 +383,9 @@ if(OCOS_ENABLE_DLIB)
   # To avoid the unintentional using some unwanted component, we only include the test_for_odr_violations.cpp
   # to check if there is any violation in build configuration to ensure compiling some dlib source files correctly.
   file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/test_for_odr_violations.cpp")
+
+  # Note: PowerPC VSX support for libpng is now handled directly in OpenCV's libpng build
+  # via the opencv_libpng_aix.patch applied in cmake/externals/opencv.cmake
 endif()
 
 if(OCOS_ENABLE_TF_STRING)
@@ -712,7 +715,7 @@ if(OCOS_ENABLE_VISION)
     if (NOT OCOS_ENABLE_DLIB)
       message(FATAL_ERROR "Vision operators require DLIB to be enabled.") # for now, we need dlib for image processing
     endif()
-    include(ext_imgcodecs)  
+    include(ext_imgcodecs)
     target_include_directories(ocos_operators PUBLIC ${libPNG_SOURCE_DIR} ${libJPEG_SOURCE_DIR})
     target_link_libraries(ocos_operators PUBLIC ${PNG_LIBRARY} ${JPEG_LIBRARY})
   endif()
@@ -915,9 +918,14 @@ if(OCOS_BUILD_SHARED_LIB)
   source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${shared_TARGET_SRC})
   standardize_output_folder(extensions_shared)
 
-  if(LINUX OR ANDROID)
-    set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS
-      " -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
+ if(LINUX OR ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "AIX")
+    if(CMAKE_SYSTEM_NAME STREQUAL "AIX")
+      set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS
+        " -Wl,-bE:${PROJECT_SOURCE_DIR}/shared/ortcustomops.exp")
+    else()
+      set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS
+        " -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
+    endif()
     # strip if not a debug build
     if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
       set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-s")
