@@ -1,0 +1,61 @@
+--- ./modules/core/src/rand.cpp	2026-03-25 07:34:27.666925971 -0500
++++ ./modules/core/src/rand.cpp	2026-03-25 07:40:40.661543262 -0500
+@@ -48,6 +48,12 @@
+
+ #include "precomp.hpp"
+
++#if defined(_AIX)
++#if defined(hz)
++#undef hz
++#endif
++#endif
++
+ namespace cv
+ {
+
+--- ./modules/core/src/system.cpp	2026-03-25 07:50:38.785508231 -0500
++++ ./modules/core/src/system.cpp	2026-03-25 07:50:25.791118063 -0500
+@@ -128,12 +128,12 @@
+ #include <cstdlib>        // std::abort
+ #endif
+
+-#if defined __ANDROID__ || defined __unix__ || defined __FreeBSD__ || defined __OpenBSD__ || defined __HAIKU__ || defined __Fuchsia__
++#if defined __ANDROID__ || defined __unix__ || defined __FreeBSD__ || defined __OpenBSD__ || defined __HAIKU__ || defined __Fuchsia__ || defined _AIX
+ #  include <unistd.h>
+ #  include <fcntl.h>
+ #if defined __QNXNTO__
+ #  include <sys/elf.h>
+-#else
++#elif !defined (_AIX)
+ #  include <elf.h>
+ #endif
+ #if defined __ANDROID__ || defined __linux__
+@@ -146,8 +146,8 @@
+ #endif
+
+
+-#if (defined __ppc64__ || defined __PPC64__) && defined __unix__
++#if (defined __ppc64__ || defined __PPC64__) && defined __unix__ && !defined _AIX
+ # include "sys/auxv.h"
+ # ifndef AT_HWCAP2
+ #   define AT_HWCAP2 26
+ # endif
+@@ -249,7 +251,7 @@
+ #include "omp.h"
+ #endif
+
+-#if defined __unix__ || defined __APPLE__ || defined __EMSCRIPTEN__ || defined __FreeBSD__ || defined __GLIBC__ || defined __HAIKU__
++#if defined __unix__ || defined __APPLE__ || defined __EMSCRIPTEN__ || defined __FreeBSD__ || defined __GLIBC__ || defined __HAIKU__ || defined _AIX
+ #include <unistd.h>
+ #include <stdio.h>
+ #include <sys/types.h>
+@@ -615,7 +617,7 @@
+     #ifdef __mips_msa
+         have[CV_CPU_MSA] = true;
+     #endif
+
+-    #if (defined __ppc64__ || defined __PPC64__) && defined __unix__
++    #if (defined __ppc64__ || defined __PPC64__) && defined __unix__ && !defined _AIX
+         unsigned int hwcap = getauxval(AT_HWCAP);
+         if (hwcap & PPC_FEATURE_HAS_VSX) {
+             hwcap = getauxval(AT_HWCAP2);

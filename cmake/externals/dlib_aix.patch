@@ -1,0 +1,11 @@
+--- a/dlib/external/libpng/pngpriv.h
++++ b/dlib/external/libpng/pngpriv.h
+@@ -196,7 +196,7 @@
+ #endif
+
+ #ifndef PNG_POWERPC_VSX_OPT
+-#  if defined(__PPC64__) && defined(__ALTIVEC__) && defined(__VSX__)
++#  if (defined(_AIX) || defined(__PPC64__)) && defined(__ALTIVEC__) && defined(__VSX__)
+ #     define PNG_POWERPC_VSX_OPT 2
+ #  else
+ #     define PNG_POWERPC_VSX_OPT 0

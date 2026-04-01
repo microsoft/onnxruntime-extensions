@@ -1,0 +1,11 @@
+--- ./blingfireclient.library/inc/FAConfig.h_orig	2026-03-13 04:14:07.137538206 -0500
++++ ./blingfireclient.library/inc/FAConfig.h	2026-03-13 04:19:21.156378776 -0500
+@@ -11,7 +11,7 @@
+ #define NEW new
+ #endif
+ 
+-#if _MSC_VER < 1400
++#if defined(_MSC_VER) && _MSC_VER < 1400
+ # ifndef fopen_s
+ #   define fopen_s(ppF,pN,pA) int(0); *ppF = fopen(pN,pA);
+ # endif
