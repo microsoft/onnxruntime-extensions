@@ -39,7 +39,8 @@ endif()
 # PB files was seperated as another patch file to avoid the patch file too large to be reviewed.
 set(spm_patches
   "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject_cmake.patch"
-  "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject_pb.patch")
+  "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject_pb.patch"
+  "${PROJECT_SOURCE_DIR}/cmake/externals/sentencepieceproject_aix.patch")
 
 set(spm_patch_command git checkout . && git apply --ignore-space-change --ignore-whitespace ${spm_patches})
 
