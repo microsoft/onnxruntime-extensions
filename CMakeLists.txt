@@ -89,7 +89,6 @@ option(OCOS_ENABLE_OPENCV_CODECS "Enable cv2 and vision operators that require o
 option(OCOS_ENABLE_CV2 "Enable the operators in `operators/cv2`" OFF)
 option(OCOS_ENABLE_VISION "Enable the operators in `operators/vision`" ON)
 option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
-option(OCOS_ENABLE_AZURE "Enable the operators for azure execution provider" OFF)
 
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF) # only for WebAssembly
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
@@ -112,11 +111,7 @@ set(OCOS_ONNXRUNTIME_PKG_URI "" CACHE STRING
 set(OCOS_BUILD_PRESET "" CACHE STRING
   "Specify the build preset cmake settings file path, like 'token_api_only' which includes ./cmake/presets/token_api_only.cmake")
 
-# AzureOp can be enabled by environment variable OCOS_ENABLE_AZURE=1
-if (DEFINED ENV{OCOS_ENABLE_AZURE} AND "$ENV{OCOS_ENABLE_AZURE}" STREQUAL "1")
-  set(OCOS_ENABLE_AZURE ON CACHE INTERNAL "" FORCE)
-  message(STATUS "=> AzureOp is enabled via environment variable.")
-endif()
+
 
 function(disable_all_operators)
   set(OCOS_ENABLE_RE2_REGEX OFF CACHE INTERNAL "" FORCE)
@@ -132,7 +127,6 @@ function(disable_all_operators)
   set(OCOS_ENABLE_OPENCV_CODECS OFF CACHE INTERNAL "" FORCE)
   set(OCOS_ENABLE_CV2 OFF CACHE INTERNAL "" FORCE)
   set(OCOS_ENABLE_VISION OFF CACHE INTERNAL "" FORCE)
-  set(OCOS_ENABLE_AZURE OFF CACHE INTERNAL "" FORCE)
   set(OCOS_ENABLE_AUDIO OFF CACHE INTERNAL "" FORCE)
 endfunction()
 
@@ -499,83 +493,6 @@ if(OCOS_ENABLE_BLINGFIRE)
   list(APPEND TARGET_SRC ${blingfire_TARGET_SRC})
 endif()
 
-# Build with Azure ops is disabled in a number of places due to the following reasons:
-# - not setup for macOS, iOS or WASM
-# - link error on Windows 32-bit ARM from some functions in wincrpt.h (e.g. CryptDestroyHash)
-#   - not sure if they're available on ARM 32.
-#   - we explicitly add crypt32 to the link list which is where they should be defined.
-# - build with static CRT on Windows causes link errors with triton. may not be supported.
-# - x86 Android build has error when using static openssl.
-#   - TODO: need to investigate further. currently getting load error with dynamic libs and runtime error with static libs
-if(OCOS_ENABLE_AZURE)
-  if (APPLE OR
-      CMAKE_SYSTEM_NAME STREQUAL "Emscripten" OR
-      (MSVC AND CMAKE_GENERATOR_PLATFORM STREQUAL "ARM") OR
-      (MSVC AND _STATIC_MSVC_RUNTIME_LIBRARY) OR
-      (ANDROID AND ANDROID_ABI STREQUAL "x86"))
-    message(STATUS "Excluding Azure custom operators as they are not currently supported in this type of build. ")
-    set(OCOS_ENABLE_AZURE OFF)
-
-  elseif(OCOS_ONNXRUNTIME_VERSION)
-    string(REPLACE "." ";" VERSION_LIST ${OCOS_ONNXRUNTIME_VERSION})
-    list(GET VERSION_LIST 0 ORT_VERSION_MAJOR)
-    list(GET VERSION_LIST 1 ORT_VERSION_MINOR)
-    if(ORT_VERSION_MAJOR EQUAL 1 AND ORT_VERSION_MINOR LESS 14)
-      message(STATUS "Azure custom operators are not supported with ONNX Runtime versions < 1.14. "
-                     "Excluding them from the build.")
-      set(OCOS_ENABLE_AZURE OFF)
-    endif()
-  endif()
-endif()
-
-if(OCOS_ENABLE_AZURE)
-  # Azure endpoint invokers
-  file(GLOB TARGET_SRC_AZURE "operators/azure/*.cc" "operators/azure/*.h*")
-
-  if (ANDROID)
-    include(curl)
-
-    # make sure these work
-    find_package(OpenSSL REQUIRED)
-    find_package(CURL REQUIRED)
-
-    # exclude triton as it's not supported on Android
-    list(FILTER TARGET_SRC_AZURE EXCLUDE REGEX ".*triton.*")
-  else()
-    add_compile_definitions(AZURE_INVOKERS_ENABLE_TRITON)
-
-    # need to set the correct vcpkg target platform strings before including triton
-    if (WIN32)
-      set(vcpkg_target_platform ${ocos_target_platform})
-
-      # remap known variants
-      if (ocos_target_platform STREQUAL "AMD64")
-        set(vcpkg_target_platform "x64")
-      elseif(ocos_target_platform STREQUAL "Win32")
-        set(vcpkg_target_platform "x86")
-      elseif(ocos_target_platform STREQUAL "ARM64")
-        set(vcpkg_target_platform "arm64")
-      elseif(ocos_target_platform STREQUAL "ARM")
-        set(vcpkg_target_platform "arm")
-      endif()
-
-      if(NOT "${vcpkg_target_platform}" MATCHES "^(x64|x86|arm64|arm)$")
-        message(FATAL_ERROR "Unexpected ocos_target_platform: ${ocos_target_platform}")
-      endif()
-
-      # vcpkg is used for the azure ops. we build static versions so they're directly included in the extensions library
-      # in the python package.
-      set(vcpkg_triplet ${vcpkg_target_platform}-windows-static-md)
-
-      message(STATUS "vcpkg_triplet: ${vcpkg_triplet}")
-    endif()
-
-    include(triton)
-  endif()
-
-  list(APPEND TARGET_SRC ${TARGET_SRC_AZURE})
-endif()
-
 if(OCOS_ENABLE_GPT2_TOKENIZER OR OCOS_ENABLE_WORDPIECE_TOKENIZER)
   message(STATUS "Fetch json")
   include(json)
@@ -718,10 +635,6 @@ if(OCOS_ENABLE_VISION)
   endif()
 endif()
 
-if(OCOS_ENABLE_AZURE)
-  list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_AZURE)
-endif()
-
 if (OCOS_ENABLE_C_API)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_C_API)
 endif()
@@ -823,71 +736,6 @@ else()
   standardize_output_folder(ortcustomops)
 endif()
 set_target_properties(ortcustomops PROPERTIES FOLDER "operators")
-
-if(OCOS_ENABLE_AZURE)
-  if (ANDROID)
-    # find_package calls were made immediately after `include(curl)` so we know CURL and OpenSSL are available.
-    find_package(ZLIB REQUIRED)
-    target_link_libraries(ocos_operators PUBLIC CURL::libcurl OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB)
-  else()
-    # we need files from the triton client (e.g. curl header on linux) to be available for the ocos_operators build.
-    # add a dependency so the fetch and build of triton happens first.
-    add_dependencies(ocos_operators triton)
-    target_include_directories(ocos_operators PUBLIC ${triton_INSTALL_DIR}/include)
-
-    target_link_directories(ocos_operators PUBLIC ${triton_INSTALL_DIR}/lib)
-    target_link_directories(ocos_operators PUBLIC ${triton_INSTALL_DIR}/lib64)
-
-    if (WIN32)
-      # As per https://curl.se/docs/faq.html#Link_errors_when_building_libcur we need to set CURL_STATICLIB.
-      target_compile_definitions(ocos_operators PRIVATE CURL_STATICLIB)
-      target_include_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_triplet}/include)
-
-      if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-        set(curl_LIB_NAME "libcurl-d")
-        set(zlib_LIB_NAME "zlibd")
-        target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_triplet}/debug/lib)
-      else()
-        set(curl_LIB_NAME "libcurl")
-        set(zlib_LIB_NAME "zlib")
-        target_link_directories(ocos_operators PUBLIC ${VCPKG_SRC}/installed/${vcpkg_triplet}/lib)
-      endif()
-      target_link_libraries(ocos_operators PUBLIC httpclient_static ${curl_LIB_NAME} libcrypto libssl ${zlib_LIB_NAME} ws2_32 crypt32 Wldap32)
-    else()
-      find_package(ZLIB REQUIRED)
-
-      # If finding the OpenSSL or CURL package fails for a local build you can install libcurl4-openssl-dev.
-      # See also info on triton client dependencies here: https://github.com/triton-inference-server/client
-      find_package(OpenSSL REQUIRED)
-      find_package(CURL)
-
-      if (CURL_FOUND)
-        message(STATUS "Found CURL package")
-        set(libcurl_target CURL::libcurl)
-      else()
-        # curl is coming from triton but as that's an external project it isn't built yet and we have to add
-        # paths and library names instead of cmake targets.
-        message(STATUS "Using CURL build from triton client. Once built it should be in ${triton_THIRD_PARTY_DIR}/curl")
-        target_include_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/include)
-
-        # Install is to 'lib' except on CentOS (which is used for the manylinux build of the python wheel).
-        # Side note: we have to patch the triton client CMakeLists.txt to only use 'lib64' for 64-bit builds otherwise
-        #            the build of the 32-bit python wheel fails with CURL not being found due to the invalid library
-        #            directory name.
-        target_link_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/lib)
-        target_link_directories(ocos_operators PUBLIC ${triton_THIRD_PARTY_DIR}/curl/lib64)
-
-        if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-          set(libcurl_target "curl-d")
-        else()
-          set(libcurl_target "curl")
-        endif()
-      endif()
-
-      target_link_libraries(ocos_operators PUBLIC httpclient_static ${libcurl_target} OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB)
-    endif()
-  endif()
-endif()
 
 target_compile_definitions(ortcustomops PUBLIC ${OCOS_COMPILE_DEFINITIONS})
 target_include_directories(ortcustomops PUBLIC "$<TARGET_PROPERTY:noexcep_operators,INTERFACE_INCLUDE_DIRECTORIES>")
