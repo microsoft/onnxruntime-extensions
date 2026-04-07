@@ -147,12 +147,30 @@ static json ConvertParameters(const json& parameters) {
       json param_entry = json::object();
       
       if (prop_schema.contains("type")) {
-        // Normalize the "string" field to "str"
-        std::string type = prop_schema["type"];
-        if (type == "string") {
-          param_entry["type"] = "str";  // Convert "string" to "str"
+        // Per the OpenAI spec, the "type" field in a property schema is any valid JSON value:
+        // a string (e.g. "string"), an array (e.g. ["string", "null"]), an object, etc.
+        const auto& type_val = prop_schema["type"];
+
+        if (type_val.is_string()) {
+          // Simple string type — normalize "string" to "str"
+          std::string type = type_val.get<std::string>();
+          param_entry["type"] = (type == "string") ? "str" : type;
+        } else if (type_val.is_array()) {
+          // Array of types (e.g. ["string", "null"]) — extract the first non-null type
+          std::string type;
+          for (const auto& t : type_val) {
+            if (t.is_string() && t.get<std::string>() != "null") {
+              type = t.get<std::string>();
+              break;
+            }
+          }
+          if (type.empty()) {
+            type = "null";
+          }
+          param_entry["type"] = (type == "string") ? "str" : type;
         } else {
-          param_entry["type"] = type;  // Keep other types as-is
+          // Any other JSON value (object, number, bool, etc.) — pass through as-is
+          param_entry["type"] = type_val;
         }
       }
 
