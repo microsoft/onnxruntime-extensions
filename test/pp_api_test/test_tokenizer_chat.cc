@@ -1064,6 +1064,90 @@ TEST(OrtxTokenizerTest, Qwen2_5_ChatTemplateWithOAIToolType) {
   ASSERT_EQ(std::string(text_ptr), expected_output);
 }
 
+TEST(OrtxTokenizerTest, Qwen2_5_ChatTemplateWithOAIFunctionTypeArrayType) {
+  // Regression test: per OpenAI spec, "type" can be an array like ["string", "null"].
+  // See https://github.com/microsoft/Foundry-Local/issues/576
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/qwen2.5");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "system",
+        "content": "You are an AI programming assistant."
+      },
+      {
+        "role": "user",
+        "content": "Search for something."
+      }
+    ])";
+
+  // OpenAI "type": "function" format with array type (e.g. ["string", "null"])
+  std::string tools_json = R"(
+    [
+      {
+        "type": "function",
+        "function": {
+          "name": "grep_search",
+          "description": "Search for a pattern in files.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "description": "The search query."
+              },
+              "includePattern": {
+                "type": ["string", "null"],
+                "description": "Glob pattern to filter files."
+              }
+            },
+            "required": ["query"],
+            "additionalProperties": false
+          }
+        }
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), tools_json.c_str(),
+    templated_text.ToBeAssigned(), true, false);
+
+  if (err != kOrtxOK) {
+    std::cout << "Failed to apply chat template (OAI function type with array type)" << std::endl;
+    std::cout << "Error code: " << err << std::endl;
+    std::cout << "Error message: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  // "includePattern" with type ["string", "null"] should be normalized to "str"
+  std::string expected_output = "<|im_start|>system\n"
+                                "You are an AI programming assistant.\n\n"
+                                "# Tools\n\n"
+                                "You may call one or more functions to assist with the user query.\n\n"
+                                "You are provided with function signatures within <tools></tools> XML tags:\n"
+                                "<tools>\n"
+                                "{\"name\": \"grep_search\", \"description\": \"Search for a pattern in files.\", \"parameters\": {\"query\": {\"type\": \"str\", \"description\": \"The search query.\"}, \"includePattern\": {\"type\": \"str\", \"description\": \"Glob pattern to filter files.\"}}}\n"
+                                "</tools>\n\n"
+                                "For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n"
+                                "<tool_call>\n"
+                                "{\"name\": <function-name>, \"arguments\": <args-json-object>}\n"
+                                "</tool_call><|im_end|>\n"
+                                "<|im_start|>user\n"
+                                "Search for something.<|im_end|>\n"
+                                "<|im_start|>assistant\n";
+
+  ASSERT_EQ(std::string(text_ptr), expected_output);
+}
+
 TEST(OrtxTokenizerTest, Qwen2_5_ChatTemplateWithOAIFunctionType) {
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/qwen2.5");
   ASSERT_EQ(tokenizer.Code(), kOrtxOK);
