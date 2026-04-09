@@ -45,20 +45,18 @@ endif()
 # Add architecture-specific PNG optimizations
 set(lib_srcs)
 
-# ARM NEON optimizations
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|aarch64|ARM64")
-  list(APPEND lib_srcs
-    ${libPNG_SOURCE_DIR}/arm/arm_init.c
-    ${libPNG_SOURCE_DIR}/arm/filter_neon_intrinsics.c
-    ${libPNG_SOURCE_DIR}/arm/palette_neon_intrinsics.c
-  )
-endif()
-
 # PowerPC VSX optimizations
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64|ppc64le")
   list(APPEND lib_srcs
     ${libPNG_SOURCE_DIR}/powerpc/powerpc_init.c
     ${libPNG_SOURCE_DIR}/powerpc/filter_vsx_intrinsics.c
+  )
+
+else()
+  list(APPEND lib_srcs
+    ${libPNG_SOURCE_DIR}/arm/arm_init.c
+    ${libPNG_SOURCE_DIR}/arm/filter_neon_intrinsics.c
+    ${libPNG_SOURCE_DIR}/arm/palette_neon_intrinsics.c
   )
 endif()
 
