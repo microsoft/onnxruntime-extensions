@@ -297,3 +297,36 @@ TEST(OrtxTokenizerTest, MarianTokenizer2) {
                                                 278, 6412, 279,   8970, 1541,  31514, 323, 278, 278,  30,
                                                 30,  30,   30,    278,  31,    31,    311, 289, 278,  0}));
 }
+
+// ============================================================================
+// Transformers v5 format tests
+// ============================================================================
+
+/*
+  Test SmolLM3-3B basic tokenization (real model from HuggingFace).
+  Covers the v5-era file layout through the C API path.
+  Files downloaded from: https://huggingface.co/HuggingFaceTB/SmolLM3-3B
+*/
+TEST(OrtxTokenizerV5Test, SmolLM3_V5_CApi) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/v5/smollm3");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create SmolLM3 tokenizer: " << OrtxGetLastErrorMessage();
+
+  const char* input[] = {"Hello, world!"};
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  ASSERT_GT(length, 0u) << "Tokenized output should not be empty.";
+
+  // Verify round-trip
+  OrtxObjectPtr<OrtxStringArray> decoded_text;
+  OrtxDetokenize(tokenizer.get(), token_ids.get(), decoded_text.ToBeAssigned());
+  EXPECT_EQ(decoded_text.Code(), kOrtxOK);
+
+  const char* text = nullptr;
+  OrtxStringArrayGetItem(decoded_text.get(), 0, &text);
+  EXPECT_STREQ(text, "Hello, world!");
+}
