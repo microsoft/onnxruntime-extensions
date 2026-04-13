@@ -86,7 +86,9 @@ function(add_test_target)
 
     xctest_add_bundle(${ARG_TARGET} ${dummy_testee_target})
 
-    xctest_add_test("${ARG_TARGET}_xctest" ${ARG_TARGET})
+    # Clear LIBRARY_OUTPUT_DIRECTORY to avoid duplicate PlugIns directory issue
+    # See: https://gitlab.kitware.com/cmake/cmake/-/issues/26301
+    set_property(TARGET ${ARG_TARGET} PROPERTY LIBRARY_OUTPUT_DIRECTORY)
 
     target_sources(${ARG_TARGET} PRIVATE
                    ${ARG_TEST_SOURCES}
@@ -125,6 +127,10 @@ endfunction(add_test_target)
 
 # -- static test --
 file(GLOB static_TEST_SRC "${TEST_SRC_DIR}/static_test/*.cc")
+
+if(NOT OCOS_ENABLE_AUDIO)
+  list(FILTER static_TEST_SRC EXCLUDE REGEX "test_nemo_mel")
+endif()
 
 add_test_target(TARGET ocos_test
                 TEST_SOURCES ${static_TEST_SRC}

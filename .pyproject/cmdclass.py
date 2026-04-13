@@ -129,10 +129,12 @@ class CmdBuild(CommandMixin, _build):
     def finalize_options(self) -> None:
         # There is a bug in setuptools that prevents the build get the right platform name from arguments.
         # So, it cannot generate the correct wheel with the right arch in Official release pipeline.
-        # Force plat_name to be 'win-amd64' in Windows to fix that,
-        # since extensions cmake is only available on x64 for Windows now, it is not a problem to hardcode it.
-        if sys.platform == "win32" and "arm" not in sys.version.lower():
-            self.plat_name = "win-amd64"
+        # Force plat_name to be 'win-amd64' / 'win-arm64' in Windows to fix that.
+        if sys.platform == "win32":
+            if "arm" in sys.version.lower():
+                self.plat_name = "win-arm64"
+            else:
+                self.plat_name = "win-amd64"
         if os.environ.get('OCOS_SCB_DEBUG', None) == '1':
             self.debug = True
         super().finalize_options()
@@ -144,7 +146,6 @@ class CmdBuildCMakeExt(_build_ext):
     def initialize_options(self):
         super().initialize_options()
         self.use_cuda = None
-        self.no_azure = True
         self.no_opencv = True
         self.cc_debug = None
         self.pp_api = True
@@ -216,11 +217,6 @@ class CmdBuildCMakeExt(_build_ext):
                 raise RuntimeError(
                     "Cannot enable PP C API Python Wrapper without disabling OpenCV.")
             cmake_args += ['-DOCOS_ENABLE_C_API=ON']
-
-        if self.no_azure is not None:
-            azure_flag = "OFF" if self.no_azure == 1 else "ON"
-            cmake_args += ['-DOCOS_ENABLE_AZURE=' + azure_flag]
-            print("=> AzureOp build flag: " + azure_flag)
 
         if self.use_cuda is not None:
             cuda_flag = "OFF" if self.use_cuda == 0 else "ON"

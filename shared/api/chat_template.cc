@@ -101,6 +101,280 @@ minja::Value strftime_function(const std::shared_ptr<minja::Context>&, minja::Ar
     return minja::Value("");
 }
 
+/*
+
+ConvertParameters
+--------------------------------------------------------------------------
+Converts an OpenAI-style "parameters" object into the Minja/Phi-4 expected
+format for tools.
+
+OpenAI tool/function definitions typically follow this JSON schema structure:
+
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "param_name": {
+        "type": "string",
+        "description": "..."
+      },
+      ...
+    },
+    "required": ["param_name", ...]
+  }
+
+But Minja/Phi-4 templates expect a simpler object mapping directly from
+parameter names to their type/description:
+
+  "parameters": {
+    "param_name": {
+      "type": "string",
+      "description": "..."
+    }
+  }
+
+This function detects the OpenAI "type":"object" pattern and flattens it
+accordingly. If the parameters are already in the expected format, they are
+returned as-is.
+
+*/
+static json ConvertParameters(const json& parameters) {
+  json out_params = json::object();
+
+  // If already in normalized style, simply return as-is
+  // Else normalize OpenAI style: e.g. {"type":"object","properties":{...},"required":[...]}
+  if (parameters.is_object() && parameters.contains("properties")) {
+    for (auto& [prop_name, prop_schema] : parameters.at("properties").items()) {
+      json param_entry = json::object();
+      
+      if (prop_schema.contains("type")) {
+        // Per the OpenAI spec, the "type" field in a property schema is any valid JSON value:
+        // a string (e.g. "string"), an array (e.g. ["string", "null"]), an object, etc.
+        const auto& type_val = prop_schema["type"];
+
+        if (type_val.is_string()) {
+          // Simple string type — normalize "string" to "str"
+          std::string type = type_val.get<std::string>();
+          param_entry["type"] = (type == "string") ? "str" : type;
+        } else if (type_val.is_array()) {
+          // Array of types (e.g. ["string", "null"]) — extract the first non-null type
+          std::string type;
+          for (const auto& t : type_val) {
+            if (t.is_string() && t.get<std::string>() != "null") {
+              type = t.get<std::string>();
+              break;
+            }
+          }
+          if (type.empty()) {
+            type = "null";
+          }
+          param_entry["type"] = (type == "string") ? "str" : type;
+        } else {
+          // Any other JSON value (object, number, bool, etc.) — pass through as-is
+          param_entry["type"] = type_val;
+        }
+      }
+
+      if (prop_schema.contains("description")) {
+        param_entry["description"] = prop_schema["description"];
+      }
+
+      out_params[prop_name] = param_entry;
+    }
+  } else {
+    // Already in Minja style (e.g. Phi-4), just return
+    out_params = parameters;
+  }
+
+  return out_params;
+}
+
+/*
+
+NormalizeTools
+--------------------------------------------------------------------------
+Accepts a raw JSON string representing an array of tool definitions, and
+normalizes them into a unified format that the Minja engine can render.
+
+This is required because OpenAI and Phi-4 define tools slightly differently.
+
+Specifically, our chat template engine now handles three formats:
+
+1. Phi-4 / Minja format (already normalized):
+   [
+     {
+       "name": "get_horoscope",
+       "description": "...",
+       "parameters": { ... }
+     }
+   ]
+
+2. OpenAI "type": "tool" format:
+   [
+     {
+       "type": "tool",
+       "name": "get_horoscope",
+       "description": "...",
+       "parameters": {
+         "type": "object",
+         "properties": {
+           "sign": { "type": "string" }
+         }
+       }
+     }
+   ]
+
+   → normalized by flattening "parameters" through ConvertParameters.
+
+3. OpenAI "type": "function" format with a "function" sub-object:
+   [
+     {
+       "type": "function",
+       "function": {
+         "name": "get_weather",
+         "description": "...",
+         "parameters": {
+           "type": "object",
+           "properties": {
+             "location": { "type": "string" }
+           }
+         }
+       }
+     }
+   ]
+
+   → normalized by unwrapping the "function" field, then flattening parameters.
+
+By performing this normalization once at chat template application time,
+the rest of the templating logic (Minja, chat templates, etc.) can treat all
+tool arrays uniformly — without special-casing OpenAI or Phi-4 formats.
+
+Example:
+
+Input (OpenAI function format):
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "get_weather",
+      "description": "...",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": { "type": "string" }
+        }
+      }
+    }
+  }
+]
+
+Output (normalized):
+[
+  {
+    "name": "get_weather",
+    "description": "...",
+    "parameters": {
+      "location": { "type": "string" }
+    }
+  }
+]
+
+*/
+static json NormalizeTools(const char* tools_str) {
+  if (!tools_str || *tools_str == '\0') {
+    return json::array();
+  }
+
+  json raw_tools = json::parse(tools_str);
+  json normalized = json::array();
+
+  for (auto& tool : raw_tools) {
+    json norm_tool = json::object();
+
+    // OpenAI type:function
+    if (tool.contains("type") && tool["type"] == "function" && tool.contains("function")) {
+      const json& fn = tool["function"];
+      norm_tool["name"] = fn.value("name", "");
+      norm_tool["description"] = fn.value("description", "");
+      if (fn.contains("parameters")) {
+        norm_tool["parameters"] = ConvertParameters(fn["parameters"]);
+      } else {
+        norm_tool["parameters"] = json::object();
+      }
+
+    // OpenAI type:tool (e.g. {"type":"tool","name":...})
+    } else if (tool.contains("type") && tool["type"] == "tool") {
+      norm_tool["name"] = tool.value("name", "");
+      norm_tool["description"] = tool.value("description", "");
+      if (tool.contains("parameters")) {
+        norm_tool["parameters"] = ConvertParameters(tool["parameters"]);
+      } else {
+        norm_tool["parameters"] = json::object();
+      }
+
+    // Already normalized (Minja/Phi-4 style)
+    } else {
+      norm_tool = tool;
+    }
+
+    normalized.push_back(norm_tool);
+  }
+
+  return normalized;
+}
+
+/*
+ * This function normalizes quotes in tool-related strings within the input message. This normalization is crucial for
+ * ensuring consistent JSON serialization and deserialization when working with tool calls. Specifically, the function
+ * helps avoid differences between `json::dump` and `json::parse` behavior, which can occur when single quotes are used
+ * incorrectly in tools. This also leads to missing initial tool tag tokens (<|tool_call|>) during inference.
+ *
+ * In the case of Phi-4, when tools are embedded within messages, Minja's handling of tools within the message body
+ * (instead of treating them as separate input keys/values) can lead to issues with the serialization process. For instance,
+ * `json::dump` might escape single quotes, but `json::parse` might not interpret them correctly, resulting in inconsistent
+ * output when processing tools as part of a message.
+ *
+ * To mitigate this, the function scans through the string and normalizes single quotes to double quotes in the context
+ * of tool calls. This ensures that tool keys and values are serialized consistently, and the tool call context remains
+ * intact. The function specifically looks for single quotes that are preceded or followed by specific characters
+ * (such as '{', ':', ' ', or ',') which typically indicate the presence of tool keys and values.
+ *
+ * Parameters:
+ * - input (const std::string&): The input string containing single quotes that may need to be normalized.
+ *
+ * Returns:
+ * - std::string: A new string where appropriate single quotes are replaced by double quotes.
+ *
+ * Example:
+ * - If the input string is "{'key': 'value'}", the function will return "{\"key\": \"value\"}".
+ */
+std::string normalize_tool_quotes(const std::string& input) {
+    std::string output = input;
+    size_t length = output.size();
+
+    // Iterate through the string
+    for (size_t i = 0; i < length; ++i) {
+        // Look for single quotes preceded or followed by specific characters for tool calls
+        if (output[i] == '\'') {
+            bool replace = false;
+            char precede_char = (i > 0) ? output[i - 1] : '\0'; // Character before the single quote
+            char follow_char = (i < length - 1) ? output[i + 1] : '\0'; // Character after the single quote
+
+            // Check if the current single quote is in the right context
+            if ((precede_char == '{' || precede_char == ':' || precede_char == ' ' || precede_char == ',') || 
+                (follow_char == '}' || follow_char == ':' || follow_char == ' ' || follow_char == ',')) {
+                replace = true;
+            }
+
+            // Only replace if the condition is met
+            if (replace) {
+                output[i] = '\"';
+            }
+        }
+    }
+
+    return output;
+}
+
 OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char* message, const char* tools,
                                             std::string& output, std::vector<extTokenId_t>& ids_vec,
                                             bool add_generation_prompt, bool tokenize) const {
@@ -136,26 +410,55 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
 
     std::shared_ptr<minja::Context> context;
 
+    // Check Phi-4-mini tool call case for quote normalization
+    bool phi_4_mini = false;
+
+    // Case 1: Check if tools are inside messages (for Phi-4-mini)
+    if (actual_messages.is_array()) {
+      for (auto& message_obj : actual_messages) {
+        if (message_obj.contains("tools")) {
+          // Set flag for Phi-4 tools to true
+          phi_4_mini = true;
+
+          // Normalize the tools inside the message
+          json tools_json = NormalizeTools(message_obj["tools"].get<std::string>().c_str());
+          
+          // Update the tools in the message
+          message_obj["tools"] = tools_json;
+        }
+      }
+    }
+
+    // Case 2: Check if we received tools separately (for Qwen or others)
     if (tools && *tools) {
       std::string tools_str = minja::normalize_newlines(tools);
-      json tools_json = json::parse(tools_str.c_str());
+      json tools_json = NormalizeTools(tools_str.c_str());
+
+      // Add normalized tools to the context if tools are passed separately
       context = minja::Context::make(json({
           {"messages", actual_messages},
           {"tools", tools_json},
           {"add_generation_prompt", add_generation_prompt},
       }));
     } else {
+      // No tools input, just use the messages
       context = minja::Context::make(json({
           {"messages", actual_messages},
           {"add_generation_prompt", add_generation_prompt},
       }));
     }
 
+    // Set required context values
     context->set("strftime_now", minja::Value::callable(strftime_function));
     context->set("bos_token", tok_config_->bos_token_);
     context->set("eos_token", tok_config_->eos_token_);
+
+    // Render the template
     text = root->render(context);
-    output = text;
+
+    // Normalize tool quotes (for tool keys and values) to avoid json::dump vs. json::parse differences
+    // which show up for Phi-4 due to Minja handling of tools within messages rather than as an added input.
+    output = phi_4_mini ? normalize_tool_quotes(text) : text;
   } catch (const std::runtime_error& e) {
     status = {kOrtxErrorInvalidArgument, e.what()};
   }

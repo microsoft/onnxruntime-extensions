@@ -19,6 +19,7 @@ hf_token_id = None
 pp_diagnosis = None
 try:
     from transformers import AutoImageProcessor, AutoTokenizer
+    from transformers import Qwen2VLImageProcessor
     from onnxruntime_extensions import pp_api
 
     is_pp_api_available = True
@@ -68,21 +69,33 @@ class TestPPAPI(unittest.TestCase):
         cls.messages_list = [
             # Case 1: Regular case with system, user, and assistant
             [
-                {"role": "system", "content": "System message", "tools": "calculate_sum"},
+                {
+                    "role": "system",
+                    "content": "System message",
+                    "tools": '[{"name": "calculate_sum", "description": "Calculate the sum of two numbers.", "parameters": {"a": {"type": "int"}, "b": {"type": "int"}}}]'
+                },
                 {"role": "user", "content": "Hello, can you call some tools for me?"},
                 {"role": "assistant", "content": "Sure, I can calculate the sum for you!"}
             ],
 
             # Case 2: Two back-to-back user messages
             [
-                {"role": "system", "content": "", "tools": "calculate_sum"},
+                {
+                    "role": "system",
+                    "content": "",
+                    "tools": '[{"name": "calculate_sum", "description": "Calculate the sum of two numbers.", "parameters": {"a": {"type": "int"}, "b": {"type": "int"}}}]'
+                },
                 {"role": "user", "content": "Hi, I need some help with tools."},
                 {"role": "user", "content": "Also, can you help with calculations?"}
             ],
 
             # Case 3: Two back-to-back assistant messages
             [
-                {"role": "system", "content": "", "tools": "calculate_sum"},
+                {
+                    "role": "system",
+                    "content": "",
+                    "tools": '[{"name": "calculate_sum", "description": "Calculate the sum of two numbers.", "parameters": {"a": {"type": "int"}, "b": {"type": "int"}}}]'
+                },
                 {"role": "assistant", "content": "Sure, what would you like me to calculate?"},
                 {"role": "assistant", "content": "I can handle multiple requests."}
             ],
@@ -97,7 +110,11 @@ class TestPPAPI(unittest.TestCase):
 
             # Case 5: System message with empty content
             [
-                {"role": "system", "content": "", "tools": "calculate_sum"},
+                {
+                    "role": "system",
+                    "content": "",
+                    "tools": '[{"name": "calculate_sum", "description": "Calculate the sum of two numbers.", "parameters": {"a": {"type": "int"}, "b": {"type": "int"}}}]'
+                },
                 {"role": "user", "content": "Hello, I need some help."}
             ]
         ]
@@ -676,6 +693,106 @@ class TestPPAPI(unittest.TestCase):
                 actual = actual_images[i]
                 a_image = regen_image(np.transpose(actual, (1, 2, 0)), phi4_image_mean, phi4_image_std)
                 a_image.save(f"{self.temp_dir}/a_{idx}_{i}.png")
+
+    @unittest.skipIf(is_pp_api_available is False, "pp_api is not available")
+    def test_qwen2_5_vl_image_processing(self):
+        """Test Qwen2.5-VL image processing with smart_resize.
+
+        Verifies that smart_resize uses the actual image dimensions (not fixed
+        config values) to compute the target size, preserving the aspect ratio
+        and snapping to the patch grid.  Images with different aspect ratios
+        must produce different output shapes.
+        """
+        image_list = [
+            "data/processor/australia.jpg",   # 1300×876,  landscape
+            "data/processor/passport.png",    # 600×805,   portrait
+            "data/processor/exceltable.png",  # 487×206,   wide landscape
+        ]
+        pil_images = [Image.open(util.get_test_data_file(f)) for f in image_list]
+
+        # HuggingFace reference (slow processor for numpy support)
+        hf_proc = Qwen2VLImageProcessor(
+            min_pixels=3136, max_pixels=12845056,
+            patch_size=14, merge_size=2, temporal_patch_size=2)
+
+        ort_processor = pp_api.ImageProcessor(
+            util.get_test_data_file("data/qwen2.5vl/vision_processor.json"))
+
+        for idx, (img, path) in enumerate(zip(pil_images, image_list)):
+            hf_result = hf_proc.preprocess([img], return_tensors="np")
+            hf_pv = hf_result["pixel_values"]            # (num_patches, patch_dim)
+            hf_grid = hf_result["image_grid_thw"]         # (1, 3)
+
+            ort_result = ort_processor.pre_process([util.get_test_data_file(path)])
+            ort_pv = ort_processor.to_numpy(ort_result, 0)   # (1, num_patches, patch_dim)
+            ort_grid = ort_processor.to_numpy(ort_result, 1)  # (1, 1, 3)
+
+            # Shape check: num_patches and patch_dim must agree
+            self.assertEqual(
+                hf_pv.shape, ort_pv.squeeze(0).shape,
+                f"Shape mismatch for {path}: HF={hf_pv.shape} vs OrtX={ort_pv.squeeze(0).shape}")
+
+            # Grid check
+            np.testing.assert_array_equal(
+                hf_grid, ort_grid.squeeze(0),
+                err_msg=f"Grid mismatch for {path}")
+
+            # Pixel value MSE check
+            mse = np.mean((hf_pv - ort_pv.squeeze(0)) ** 2)
+            print(f"Qwen2.5-VL image {idx} ({path}): shape={hf_pv.shape}, MSE={mse:.6f}")
+            self.assertLessEqual(mse, 1e-3, f"MSE too high for {path}: {mse}")
+
+        # Verify different images yield different num_patches (smart_resize is aspect-aware)
+        shapes = set()
+        for img, path in zip(pil_images, image_list):
+            ort_result = ort_processor.pre_process([util.get_test_data_file(path)])
+            shapes.add(ort_processor.to_numpy(ort_result, 0).shape)
+        self.assertGreater(len(shapes), 1,
+                           "smart_resize should produce different shapes for images with different aspect ratios")
+
+    @unittest.skipIf(is_pp_api_available is False, "pp_api is not available")
+    def test_qwen3_vl_image_processing(self):
+        """Test Qwen3-VL image processing (patch_size=16 vs Qwen2.5-VL's 14)."""
+        image_list = [
+            "data/processor/australia.jpg",
+            "data/processor/passport.png",
+        ]
+        pil_images = [Image.open(util.get_test_data_file(f)) for f in image_list]
+
+        # HuggingFace reference (Qwen3-VL uses same processor class with patch_size=16)
+        hf_proc = Qwen2VLImageProcessor(
+            min_pixels=3136, max_pixels=12845056,
+            patch_size=16, merge_size=2, temporal_patch_size=2)
+
+        ort_processor = pp_api.ImageProcessor(
+            util.get_test_data_file("data/qwen3vl/vision_processor.json"))
+
+        for idx, (img, path) in enumerate(zip(pil_images, image_list)):
+            hf_result = hf_proc.preprocess([img], return_tensors="np")
+            hf_pv = hf_result["pixel_values"]
+            hf_grid = hf_result["image_grid_thw"]
+
+            ort_result = ort_processor.pre_process([util.get_test_data_file(path)])
+            ort_pv = ort_processor.to_numpy(ort_result, 0)
+            ort_grid = ort_processor.to_numpy(ort_result, 1)
+
+            self.assertEqual(
+                hf_pv.shape, ort_pv.squeeze(0).shape,
+                f"Shape mismatch for {path}: HF={hf_pv.shape} vs OrtX={ort_pv.squeeze(0).shape}")
+
+            np.testing.assert_array_equal(
+                hf_grid, ort_grid.squeeze(0),
+                err_msg=f"Grid mismatch for {path}")
+
+            mse = np.mean((hf_pv - ort_pv.squeeze(0)) ** 2)
+            print(f"Qwen3-VL image {idx} ({path}): shape={hf_pv.shape}, MSE={mse:.6f}")
+            self.assertLessEqual(mse, 1e-3, f"MSE too high for {path}: {mse}")
+
+        # patch_dim should be 1536 for Qwen3-VL (3 * 2 * 16 * 16)
+        ort_result = ort_processor.pre_process([util.get_test_data_file(image_list[0])])
+        patch_dim = ort_processor.to_numpy(ort_result, 0).shape[-1]
+        self.assertEqual(patch_dim, 1536,
+                         f"Qwen3-VL patch_dim should be 1536, got {patch_dim}")
 
 
 if __name__ == "__main__":

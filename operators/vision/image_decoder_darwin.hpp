@@ -10,6 +10,10 @@
 
 namespace ort_extensions::internal {
 
+// Maximum image dimension (width or height) and total pixel count to prevent decompression bombs.
+static constexpr uint64_t kMaxImageDimension = 16384;
+static constexpr uint64_t kMaxPixelCount = 100'000'000;  // 100 megapixels
+
 struct DecodeImage {
   OrtxStatus OnInit() {
     CFStringRef optionKeys[2];
@@ -64,8 +68,34 @@ struct DecodeImage {
       return {kOrtxErrorInternal, "[ImageDecoder]: Failed to create CGImage."};
     }
 
-    const int64_t width = static_cast<int64_t>(CGImageGetWidth(image));
-    const int64_t height = static_cast<int64_t>(CGImageGetHeight(image));
+    // Security: reject CMYK images explicitly for defense-in-depth.
+    // While CoreGraphics can convert CMYK to sRGB via CGContextDrawImage,
+    // we reject CMYK to match other platform decoders and prevent
+    // 4-channel data from reaching downstream code that assumes 3 channels (CWE-122).
+    {
+      CGColorSpaceRef imageColorSpace = CGImageGetColorSpace(image);
+      CGColorSpaceModel model = CGColorSpaceGetModel(imageColorSpace);
+      if (model == kCGColorSpaceModelCMYK) {
+        CGImageRelease(image);
+        return {kOrtxErrorInvalidArgument,
+                "[ImageDecoder]: Unsupported CMYK image color space. Only RGB and grayscale are supported."};
+      }
+    }
+
+    // Validate dimensions using unsigned types before any narrowing cast
+    const size_t rawWidth = CGImageGetWidth(image);
+    const size_t rawHeight = CGImageGetHeight(image);
+
+    // Dimension limit to prevent decompression bombs
+    if (rawWidth > kMaxImageDimension || rawHeight > kMaxImageDimension ||
+        static_cast<uint64_t>(rawWidth) * rawHeight > kMaxPixelCount) {
+      CGImageRelease(image);
+      return {kOrtxErrorInvalidArgument,
+              "[ImageDecoder]: Image dimensions exceed maximum allowed size."};
+    }
+
+    const int64_t width = static_cast<int64_t>(rawWidth);
+    const int64_t height = static_cast<int64_t>(rawHeight);
     const int64_t channels = 3;
 
     std::vector<int64_t> output_dimensions{height, width, channels};

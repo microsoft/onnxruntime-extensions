@@ -15,6 +15,11 @@
 #include "ext_status.h"
 
 namespace ort_extensions::internal {
+
+// Maximum image dimension (width or height) and total pixel count to prevent decompression bombs.
+static constexpr uint64_t kMaxImageDimension = 16384;
+static constexpr uint64_t kMaxPixelCount = 100'000'000;  // 100 megapixels
+
 struct DecodeImage {
   OrtxStatus OnInit() { return {}; }
 
@@ -83,6 +88,14 @@ struct DecodeImage {
 
     png_read_update_info(png, info);
 
+    // Dimension limit to prevent decompression bombs
+    if (width > kMaxImageDimension || height > kMaxImageDimension ||
+        static_cast<uint64_t>(width) * height > kMaxPixelCount) {
+      png_destroy_read_struct(&png, &info, nullptr);
+      return {kOrtxErrorInvalidArgument,
+              "[ImageDecoder]: PNG dimensions exceed maximum allowed size."};
+    }
+
     std::vector<int64_t> output_dimensions{height, width, 3};
     uint8_t* output_data = output.Allocate(output_dimensions);
     // Read the image row by row
@@ -131,8 +144,37 @@ struct DecodeImage {
       // Read the JPEG header to get image info
       jpeg_read_header(&cinfo, TRUE);
 
+      // Security: explicitly reject CMYK/YCCK color spaces before decompression.
+      // These have 4 channels and downstream code assumes 3 channels (CVE-class: CWE-122).
+      if (cinfo.jpeg_color_space == JCS_CMYK || cinfo.jpeg_color_space == JCS_YCCK) {
+        jpeg_destroy_decompress(&cinfo);
+        return {kOrtxErrorInvalidArgument,
+                "[ImageDecoder]: Unsupported JPEG color space (CMYK/YCCK). Only RGB and grayscale are supported."};
+      }
+
+      // Force RGB output to ensure consistent 3-channel output regardless of input
+      // (e.g., grayscale JPEGs are expanded to RGB).
+      cinfo.out_color_space = JCS_RGB;
+
       // Start decompression
       jpeg_start_decompress(&cinfo);
+
+      // Dimension limit to prevent decompression bombs
+      if (cinfo.output_width > kMaxImageDimension ||
+          cinfo.output_height > kMaxImageDimension ||
+          static_cast<uint64_t>(cinfo.output_width) * cinfo.output_height > kMaxPixelCount) {
+        jpeg_destroy_decompress(&cinfo);
+        return {kOrtxErrorInvalidArgument,
+                "[ImageDecoder]: JPEG dimensions exceed maximum allowed size."};
+      }
+
+      // Safety net: verify 3-channel output after decompression.
+      if (cinfo.output_components != 3) {
+        jpeg_destroy_decompress(&cinfo);
+        return {kOrtxErrorInvalidArgument,
+                "[ImageDecoder]: Unexpected JPEG output channels. Expected 3 (RGB), got " +
+                std::to_string(cinfo.output_components) + "."};
+      }
 
       // Allocate memory for the image
       std::vector<int64_t> output_dimensions{cinfo.output_height, cinfo.output_width, cinfo.output_components};
@@ -149,6 +191,7 @@ struct DecodeImage {
       }
 
       if (srcManager.extError != kOrtxOK) {
+        jpeg_destroy_decompress(&cinfo);
         return {kOrtxErrorInternal, "[ImageDecoder]: Failed to decode JPEG image."};
       }
 

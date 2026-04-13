@@ -4,6 +4,7 @@
 #include "speech_extractor.h"
 
 #include "c_api_utils.hpp"
+#include <math/energy_stft_segmentation.hpp>
 
 using namespace ort_extensions;
 
@@ -17,7 +18,7 @@ class RawAudiosObject : public OrtxObjectImpl {
 };
 
 extError_t ORTX_API_CALL OrtxCreateRawAudios(OrtxRawAudios** audios, const void* data[], const int64_t sizes[],
-                                            size_t num_audios) {
+                                             size_t num_audios) {
   if (audios == nullptr || data == nullptr || sizes == nullptr) {
     ReturnableStatus::last_error_message_ = "Invalid argument";
     return kOrtxErrorInvalidArgument;
@@ -99,6 +100,50 @@ extError_t ORTX_API_CALL OrtxSpeechLogMel(OrtxFeatureExtractor* extractor, OrtxR
   return status.Code();
 }
 
+extError_t ORTX_API_CALL OrtxSplitSignalSegments(const OrtxTensor* input, const OrtxTensor* sr_tensor,
+                                                 const OrtxTensor* frame_ms_tensor, const OrtxTensor* hop_ms_tensor,
+                                                 const OrtxTensor* energy_threshold_db_tensor, OrtxTensor* output0) {
+  if (input == nullptr || sr_tensor == nullptr || frame_ms_tensor == nullptr || hop_ms_tensor == nullptr ||
+      energy_threshold_db_tensor == nullptr || output0 == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+  const ortc::Tensor<float>& input_tensor = *reinterpret_cast<const ortc::Tensor<float>*>(input);
+  const ortc::Tensor<int64_t>& sr_t = *reinterpret_cast<const ortc::Tensor<int64_t>*>(sr_tensor);
+  const ortc::Tensor<int64_t>& frame_t = *reinterpret_cast<const ortc::Tensor<int64_t>*>(frame_ms_tensor);
+  const ortc::Tensor<int64_t>& hop_t = *reinterpret_cast<const ortc::Tensor<int64_t>*>(hop_ms_tensor);
+  const ortc::Tensor<float>& threshold_t = *reinterpret_cast<const ortc::Tensor<float>*>(energy_threshold_db_tensor);
+  ortc::Tensor<int64_t>& output_t = *reinterpret_cast<ortc::Tensor<int64_t>*>(output0);
+
+  OrtStatusPtr status = split_signal_segments(input_tensor, sr_t, frame_t, hop_t, threshold_t, output_t);
+  if (status) {
+    ReturnableStatus::last_error_message_ = "split_signal_segments failed";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  return extError_t();
+}
+
+extError_t ORTX_API_CALL OrtxMergeSignalSegments(const OrtxTensor* segments_tensor,
+                                                 const OrtxTensor* merge_gap_ms_tensor, OrtxTensor* output0) {
+  if (segments_tensor == nullptr || merge_gap_ms_tensor == nullptr || output0 == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  const ortc::Tensor<int64_t>& seg_t = *reinterpret_cast<const ortc::Tensor<int64_t>*>(segments_tensor);
+  const ortc::Tensor<int64_t>& gap_t = *reinterpret_cast<const ortc::Tensor<int64_t>*>(merge_gap_ms_tensor);
+  ortc::Tensor<int64_t>& output_t = *reinterpret_cast<ortc::Tensor<int64_t>*>(output0);
+
+  OrtStatusPtr status = merge_signal_segments(seg_t, gap_t, output_t);
+  if (status) {
+    ReturnableStatus::last_error_message_ = "merge_signal_segments failed";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  return kOrtxOK;
+}
+
 extError_t ORTX_API_CALL OrtxFeatureExtraction(OrtxFeatureExtractor* extractor, OrtxRawAudios* raw_audios,
                                                OrtxTensorResult** result) {
   if (extractor == nullptr || raw_audios == nullptr || result == nullptr) {
@@ -110,8 +155,8 @@ extError_t ORTX_API_CALL OrtxFeatureExtraction(OrtxFeatureExtractor* extractor, 
   auto audios_obj = static_cast<RawAudiosObject*>(raw_audios);
 
   auto result_ptr = std::make_unique<TensorResult>();
-  ReturnableStatus status = extractor_ptr->Preprocess(
-    ort_extensions::span(audios_obj->audios_.get(), audios_obj->num_audios_), *result_ptr);
+  ReturnableStatus status =
+      extractor_ptr->Preprocess(ort_extensions::span(audios_obj->audios_.get(), audios_obj->num_audios_), *result_ptr);
   if (status.IsOk()) {
     *result = static_cast<OrtxTensorResult*>(result_ptr.release());
   } else {

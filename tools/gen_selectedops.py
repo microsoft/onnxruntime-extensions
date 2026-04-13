@@ -7,11 +7,6 @@ import pathlib
 import sys
 
 CMAKE_FLAG_TO_OPS = {
-    "OCOS_ENABLE_AZURE": [
-        "AzureAudioToText",
-        "AzureTextToText",
-        "OpenAIAudioToText"
-    ],
     "OCOS_ENABLE_BERT_TOKENIZER": [
         "BasicTokenizer",
         "BertTokenizer",

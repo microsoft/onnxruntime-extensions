@@ -1,0 +1,21 @@
+# Downloads a file from `url` and saves it to `outputFilePath`.
+parameters:
+- name: url
+  type: string
+- name: outputFilePath
+  type: string
+
+steps:
+- task: PythonScript@0
+  inputs:
+    scriptSource: inline
+    script: |
+      import sys
+      import urllib.request
+
+      url = sys.argv[1]
+      output_file_path = sys.argv[2]
+      
+      urllib.request.urlretrieve(url, filename=output_file_path)
+    arguments: '"${{ parameters.url }}" "${{ parameters.outputFilePath }}"'
+  displayName: "Download file from URL: ${{ parameters.url }}"

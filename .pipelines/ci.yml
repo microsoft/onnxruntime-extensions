@@ -24,6 +24,8 @@ stages:
 
 - stage: LinuxBuilds
   dependsOn: []
+  variables:
+    torch.packages: 'torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1'
   jobs:
 
   #######
@@ -37,35 +39,16 @@ stages:
       matrix:
         py312-1192:
           python.version: '3.12'
-          torch.version: 'torch torchvision torchaudio'
           ort.version: '1.19.2'
         py311-1181:
-          python.version: '3.12'
-          torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.18.1'
-        py311-1171:
           python.version: '3.11'
-          torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.17.1'
-        py310-1163:
-          python.version: '3.10'
-          torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.16.3'
-        py39-1151:
-          python.version: '3.9'
-          torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.15.1'
+          ort.version: '1.18.1'
 
     steps:
-    - task: DownloadGitHubRelease@0
-      inputs:
-        connection: 'microsoft'
-        userRepository: 'microsoft/onnxruntime'
-        defaultVersionType: 'specificTag'
-        version: 'v$(ort.version)'
-        itemPattern: '*-linux-x64-$(ort.version)*'
-        downloadPath: '$(Build.SourcesDirectory)'
-      displayName: Download the ONNXRuntime prebuilt package.
+    - template: templates/download-file.yml
+      parameters:
+        url: "https://github.com/microsoft/onnxruntime/releases/download/v$(ort.version)/onnxruntime-linux-x64-$(ort.version).tgz"
+        outputFilePath: "$(Build.SourcesDirectory)/onnxruntime-linux-x64-$(ort.version).tgz"
 
     - task: ExtractFiles@1
       inputs:
@@ -99,7 +82,7 @@ stages:
         CPU_NUMBER=8 python -m pip install .
       displayName: Build the library and tests
 
-    - script: python -m pip install $(torch.version)
+    - script: python -m pip install $(torch.packages)
       displayName: Install pytorch
 
     - script: |
@@ -121,7 +104,7 @@ stages:
     steps:
     - task: UsePythonVersion@0
       inputs:
-        versionSpec: '3.10'
+        versionSpec: '3.12'
         addToPath: true
         architecture: 'x64'
 
@@ -134,7 +117,7 @@ stages:
       displayName: Build the python library in editable mode
 
     - script: |
-        python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+        python -m pip install $(torch.packages) --index-url https://download.pytorch.org/whl/cpu
         python -m pip install -r requirements-dev.txt
       displayName: Install requirements-dev.txt
 
@@ -213,6 +196,8 @@ stages:
 
 - stage: MacOSBuilds
   dependsOn: []
+  variables:
+    torch.packages: 'torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2'
   jobs:
 
   ###########
@@ -220,7 +205,7 @@ stages:
   ###########
   - job: MacOSX
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-14'
 
     strategy:
       matrix:
@@ -244,15 +229,10 @@ stages:
     - script: brew install libomp
       displayName: 'Install omp'
 
-    - task: DownloadGitHubRelease@0
-      inputs:
-        connection: 'microsoft'
-        userRepository: 'microsoft/onnxruntime'
-        defaultVersionType: 'specificTag'
-        version: 'v$(ort.version)'
-        itemPattern: '$(ort.dirname)*'
-        downloadPath: '$(Build.SourcesDirectory)'
-      displayName: Download the ONNXRuntime prebuilt package.
+    - template: templates/download-file.yml
+      parameters:
+        url: "https://github.com/microsoft/onnxruntime/releases/download/v$(ort.version)/onnxruntime-osx-x86_64-$(ort.version).tgz"
+        outputFilePath: "$(Build.SourcesDirectory)/onnxruntime-osx-x86_64-$(ort.version).tgz"
 
     - task: ExtractFiles@1
       inputs:
@@ -276,7 +256,7 @@ stages:
   ##############################
   - job: MacOS_PPApiBuild
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-14'
 
     steps:
     # compiled as only one operator selected.
@@ -292,30 +272,16 @@ stages:
   #############
   - job: MacOSPython
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-14'
 
     strategy:
       matrix:
         py312-1192:
           python.version: '3.12'
-          torch.version: 'torch torchvision torchaudio'
           ort.version: '1.19.2'
-        py312-1181:
-          python.version: '3.12'
-          torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.18.1'
-        py311-1171:
+        py311-1181:
           python.version: '3.11'
-          torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.17.1'
-        py310-1163:
-          python.version: '3.10'
-          torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.16.3'
-        py39-1151:
-          python.version: '3.9'
-          torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.15.1'
+          ort.version: '1.18.1'
 
     steps:
     - template: templates/use-xcode-version.yml
@@ -345,7 +311,7 @@ stages:
     - script: python -m pip install -r requirements-dev.txt
       displayName: Install requirements-dev.txt
 
-    - script: python -m pip install $(torch.version)
+    - script: python -m pip install $(torch.packages)
       displayName: Install pytorch
 
     - script: cd test && python -m pytest . --verbose
@@ -354,6 +320,8 @@ stages:
 
 - stage: WindowsBuilds
   dependsOn: []
+  variables:
+    torch.packages: 'torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1'
   jobs:
 
   #########
@@ -375,15 +343,18 @@ stages:
           ort.version: '1.15.1'
 
     steps:
-    - task: DownloadGitHubRelease@0
+    - task: UsePythonVersion@0
       inputs:
-        connection: 'microsoft'
-        userRepository: 'microsoft/onnxruntime'
-        defaultVersionType: 'specificTag'
-        version: 'v$(ort.version)'
-        itemPattern: '*-win-x64-$(ort.version)*'
-        downloadPath: '$(Build.SourcesDirectory)'
-      displayName: Download the ONNXRuntime prebuilt package.
+        versionSpec: '3.12'
+        disableDownloadFromRegistry: true
+        addToPath: true
+        architecture: 'x64'
+      displayName: Use ADO python task
+
+    - template: templates/download-file.yml
+      parameters:
+        url: "https://github.com/microsoft/onnxruntime/releases/download/v$(ort.version)/onnxruntime-win-x64-$(ort.version).zip"
+        outputFilePath: "$(Build.SourcesDirectory)/onnxruntime-win-x64-$(ort.version).zip"
 
     - task: ExtractFiles@1
       inputs:
@@ -408,7 +379,7 @@ stages:
 
     - script: |
         call $(vsdevcmd)
-        call .\build.bat -DOCOS_ENABLE_CTEST=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version)
+        call .\build.bat -DOCOS_ENABLE_CTEST=ON -DOCOS_ONNXRUNTIME_VERSION="$(ort.version)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-$(ort.version) -DOCOS_ENABLE_C_API=ON
       displayName: build the customop library with onnxruntime
 
     - script: |
@@ -447,26 +418,12 @@ stages:
 
     strategy:
       matrix:
-        py312-1201:
-          python.version: '3.12'
-          torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.20.1'
         py312-1192:
           python.version: '3.12'
-          torch.version: 'torch torchvision torchaudio'
           ort.version: '1.19.2'
         py311-1181:
           python.version: '3.11'
-          torch.version: 'torch torchvision torchaudio'
           ort.version: '1.18.1'
-        py310-1171:
-          python.version: '3.10'
-          torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.17.1'
-        py310-1163:
-          python.version: '3.10'
-          torch.version: 'torch torchvision torchaudio'
-          ort.version: '1.16.3'
 
     steps:
     - task: UsePythonVersion@0
@@ -489,7 +446,7 @@ stages:
       displayName: Build the wheel
 
     - script: |
-        python -m pip install $(torch.version)
+        python -m pip install $(torch.packages)
       displayName: Install pytorch
 
     - script: |
@@ -524,7 +481,7 @@ stages:
 
     - script: |
         python -m pip install -r requirements-dev.txt
-        python -m pip install torch torchvision torchaudio
+        python -m pip install torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1
       displayName: Install dependencies for pytest
 
     - script: |
@@ -542,6 +499,14 @@ stages:
       ORT_VERSION: '1.17.1'
     timeoutInMinutes: 120
     steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.12'
+          disableDownloadFromRegistry: true
+          addToPath: true
+          architecture: 'x64'
+        displayName: Use ADO python task
+
       - template: templates/set_winenv.yml
         parameters:
           EnvSetupScript: 'set_env_cuda.bat'
@@ -553,15 +518,10 @@ stages:
           where nvcc
         displayName: check cuda version
 
-      - task: DownloadGitHubRelease@0
-        inputs:
-          connection: 'microsoft'
-          userRepository: 'microsoft/onnxruntime'
-          defaultVersionType: 'specificTag'
-          version: 'v$(ORT_VERSION)'
-          itemPattern: '*-win-x64-gpu-$(ORT_VERSION)*'
-          downloadPath: '$(Build.SourcesDirectory)'
-        displayName: Download the ONNXRuntime prebuilt package.
+      - template: templates/download-file.yml
+        parameters:
+          url: "https://github.com/microsoft/onnxruntime/releases/download/v$(ORT_VERSION)/onnxruntime-win-x64-gpu-$(ORT_VERSION).zip"
+          outputFilePath: "$(Build.SourcesDirectory)/onnxruntime-win-x64-gpu-$(ORT_VERSION).zip"
 
       - task: ExtractFiles@1
         inputs:
@@ -576,21 +536,13 @@ stages:
           call .\build.bat -T cuda="%CUDA_PATH%" -DOCOS_ENABLE_CTEST=ON^
             -DCMAKE_CUDA_FLAGS_INIT=-allow-unsupported-compiler^
             -DOCOS_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=70;86^
-            -DOCOS_ONNXRUNTIME_VERSION="$(ORT_VERSION)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-gpu-$(ORT_VERSION)
+            -DOCOS_ONNXRUNTIME_VERSION="$(ORT_VERSION)" -DONNXRUNTIME_PKG_DIR=.\onnxruntime-win-x64-gpu-$(ORT_VERSION) -DOCOS_ENABLE_C_API=ON
         displayName: build the customop library with onnxruntime
 
       - script: |
           cd out/Windows
           ctest -C RelWithDebInfo --output-on-failure
         displayName: Run C++ native tests
-
-      - task: UsePythonVersion@0
-        inputs:
-          versionSpec: '3.12'
-          disableDownloadFromRegistry: true
-          addToPath: true
-          architecture: 'x64'
-        displayName: Use ADO python task
 
       - script: |
           set CUDA_PATH=$(Agent.TempDirectory)\v11.8
@@ -621,7 +573,7 @@ stages:
     timeoutInMinutes: 120
     variables:
       ORT_VERSION: '1.17.1'
-      TORCH_VERSION: 'torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118'
+      TORCH_VERSION: 'torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1'
     steps:
       - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
         displayName: 'Clean Agent Directories'
@@ -640,15 +592,10 @@ stages:
           versionSpec: '3.12'
           addToPath: true
 
-      - task: DownloadGitHubRelease@0
-        inputs:
-          connection: 'microsoft'
-          userRepository: 'microsoft/onnxruntime'
-          defaultVersionType: 'specificTag'
-          version: 'v$(ORT_VERSION)'
-          itemPattern: '*-linux-x64-gpu-$(ORT_VERSION)*'
-          downloadPath: '$(Build.SourcesDirectory)'
-        displayName: Download the ONNXRuntime prebuilt package.
+      - template: templates/download-file.yml
+        parameters:
+          url: "https://github.com/microsoft/onnxruntime/releases/download/v$(ORT_VERSION)/onnxruntime-linux-x64-gpu-$(ORT_VERSION).tgz"
+          outputFilePath: "$(Build.SourcesDirectory)/onnxruntime-linux-x64-gpu-$(ORT_VERSION).tgz"
 
       - task: ExtractFiles@1
         inputs:
@@ -775,7 +722,7 @@ stages:
   #############
   - job: AndroidPackage_BuildOnly
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-14'
     timeoutInMinutes: 120
     steps:
     - task: UsePythonVersion@0
@@ -810,35 +757,122 @@ stages:
 
   - job: AndroidCpp_BuildOnly
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-14'
     timeoutInMinutes: 45
     steps:
-      - task: UsePythonVersion@0
-        inputs:
-          versionSpec: "3.12"
-          addToPath: true
-          architecture: "x64"
-        displayName: "Use Python 3.12"
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: "3.12"
+        addToPath: true
+        architecture: "x64"
+      displayName: "Use Python 3.12"
 
-      - task: JavaToolInstaller@0
-        displayName: Use jdk 17
-        inputs:
-          versionSpec: '17'
-          jdkArchitectureOption: 'x64'
-          jdkSourceOption: 'PreInstalled'
+    - task: JavaToolInstaller@0
+      displayName: Use jdk 17
+      inputs:
+        versionSpec: '17'
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'PreInstalled'
 
-      - script: brew install ninja
-        displayName: Install ninja
+    - script: brew install ninja
+      displayName: Install ninja
 
-      - bash: |
-          python -m pip install cmake==3.31.6
-          python ./tools/build.py \
-            --config RelWithDebInfo \
-            --android \
-            --android_abi x86_64 \
-            --enable_cxx_tests \
-            --update --build --parallel
-        displayName: Build onnxruntime-extensions for Android
+    - bash: |
+        python -m pip install cmake==3.31.6
+        python ./tools/build.py \
+          --config RelWithDebInfo \
+          --android \
+          --android_abi x86_64 \
+          --enable_cxx_tests \
+          --update --build --parallel
+      displayName: Build onnxruntime-extensions for Android
+
+  - job: Android_Verify16KbPageAlignment
+    pool:
+      vmImage: 'ubuntu-24.04'
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: "3.12"
+        addToPath: true
+        architecture: "x64"
+      displayName: "Use Python 3.12"
+
+    - task: JavaToolInstaller@0
+      displayName: Use jdk 17
+      inputs:
+        versionSpec: '17'
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'PreInstalled'
+
+    - bash: |
+        python tools/build.py \
+          --android \
+          --android_abi=arm64-v8a \
+          --android_api=27 \
+          --android_home=$ANDROID_HOME \
+          --android_ndk_path=$ANDROID_NDK_HOME \
+          --config=Release \
+          --update \
+          --parallel \
+          --build
+      displayName: Build onnxruntime-extensions for Android
+
+    - bash: |
+        set -e
+
+        echo "=== Verifying 16KB page size alignment ==="
+
+        # Find android built libraries
+        LIBS=$(find build/Android/Release/lib -name "libortextensions.so" -o -name "libonnxruntime_extensions4j_jni.so")
+
+        if [ -z "$LIBS" ]; then
+          echo "ERROR: Android built libraries not found"
+          find build/Android -name "*.so" -type f || true
+          exit 1
+        fi
+
+        # Use llvm-readelf from NDK
+        READELF="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+
+        if [ ! -f "$READELF" ]; then
+          echo "ERROR: llvm-readelf not found at $READELF"
+          exit 1
+        fi
+
+        echo "Found libraries:"
+        echo "$LIBS"
+        echo ""
+
+        FAILED=0
+        for LIB in $LIBS; do
+          echo "Checking: $(basename $LIB)"
+          echo "Full path: $LIB"
+
+          # Display LOAD segments
+          $READELF -l "$LIB" | grep -A 1 "LOAD" || true
+
+          # Check for 16KB alignment (0x4000) in the Align field of LOAD segments
+          if $READELF -l "$LIB" | grep "LOAD" | awk '{print $NF}' | grep -q '^0x4000$'; then
+            echo "PASS: Found 16KB alignment (0x4000) in $(basename $LIB)"
+          else
+            echo "FAIL: Did not find 16KB alignment (0x4000) in $(basename $LIB)"
+            echo "Full segment details:"
+            $READELF -l "$LIB"
+            FAILED=1
+          fi
+          echo "---"
+        done
+
+        if [ $FAILED -ne 0 ]; then
+          echo ""
+          echo "ERROR: One or more libraries do not have 16KB page alignment"
+          exit 1
+        fi
+
+        echo ""
+        echo "SUCCESS: All libraries have correct 16KB page alignment"
+      displayName: Verify 16KB page alignment
 
 - stage: IosBuilds
   dependsOn: []
@@ -849,7 +883,7 @@ stages:
   #############
   - job: IosPackage
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-14'
     timeoutInMinutes: 120
     steps:
     - template: templates/use-xcode-version.yml
@@ -875,7 +909,7 @@ stages:
           --output_dir $(Build.BinariesDirectory)/xcframework_out \
           --platform_arch iphonesimulator x86_64 \
           --config RelWithDebInfo \
-          --ios_deployment_target 13.0 \
+          --ios_deployment_target 15.0 \
           -- \
           --enable_cxx_tests
       displayName: "Build xcframework for iphonesimulator x86_64"
@@ -900,7 +934,7 @@ stages:
     - script: |
         set -e
 
-        SIMULATOR_DEVICE_INFO=$(python ./tools/ios/get_simulator_device_info.py)
+        SIMULATOR_DEVICE_INFO=$(python ./tools/ios/get_simulator_device_info.py --requested-runtime-version 18.2)
 
         echo "Simulator device info:"
         echo "${SIMULATOR_DEVICE_INFO}"

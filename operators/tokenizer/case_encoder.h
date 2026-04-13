@@ -33,6 +33,18 @@ class CaseEncoder {
   virtual ~CaseEncoder() {}
   void SetNormalizer(Normalizer normalizer) { normalizer_ = normalizer; }
 
+  // Reset all state for a new tokenization call - call this before starting new input
+  void Reset() {
+    buffer_.clear();
+    buffer_queue_.clear();
+    signature_.clear();
+    offset_ = 0;
+    dump_buffer_from_ = -1;
+    state_ = 0;
+    spans_ = 0;
+    seen_three_spans_ = false;
+  }
+
  public:
   CaseEncoder(bool remove_extra_white_space) : remove_extra_white_space_(remove_extra_white_space) {}
 
@@ -177,12 +189,21 @@ class CaseEncoder {
     norm_to_orig_temp.reserve(norm_to_orig->size());
 
     const char* sig_it = signature_.data();
+    const char* sig_end = signature_.data() + signature_.length();
 
     auto nrm_it = normalized->cbegin();
+    auto nrm_end = normalized->cend();
     auto n2o_it = norm_to_orig->cbegin();
+    auto n2o_end = norm_to_orig->cend();
 
     for (const auto& span : Search(signature_)) {
       size_t len = std::distance(sig_it, span.first);
+
+      // Bounds check before advancing iterators
+      if (std::distance(nrm_it, nrm_end) < static_cast<ptrdiff_t>(len) ||
+          std::distance(n2o_it, n2o_end) < static_cast<ptrdiff_t>(len)) {
+        break;
+      }
 
       normalized_temp.insert(normalized_temp.end(), nrm_it, nrm_it + len);
       norm_to_orig_temp.insert(norm_to_orig_temp.end(), n2o_it, n2o_it + len);
@@ -190,29 +211,37 @@ class CaseEncoder {
       sig_it += len;
       nrm_it += len;
       n2o_it += len;
+
+      // Bounds check before dereferencing
+      if (n2o_it == n2o_end) break;
+
       normalized_temp.push_back(cAllUppercase);
       norm_to_orig_temp.push_back(*n2o_it);
 
       while (sig_it != span.second) {
+        if (sig_it >= sig_end || nrm_it >= nrm_end || n2o_it >= n2o_end) break;
+
         if (*sig_it == cUppercase) {
           sig_it++;
           nrm_it++;
           n2o_it++;
         }
+        if (sig_it >= sig_end || nrm_it >= nrm_end || n2o_it >= n2o_end) break;
+
         sig_it++;
         normalized_temp.push_back(*nrm_it++);
         norm_to_orig_temp.push_back(*n2o_it++);
       }
-      if (sig_it != signature_.data() + signature_.length()) {
-        if (*sig_it != cUppercase) {
+      if (sig_it != sig_end) {
+        if (*sig_it != cUppercase && n2o_it != n2o_end) {
           normalized_temp.push_back(cLowercase);
           norm_to_orig_temp.push_back(*n2o_it);
         }
       }
     }
 
-    if (nrm_it != normalized->cend()) normalized_temp.insert(normalized_temp.end(), nrm_it, normalized->cend());
-    if (n2o_it != norm_to_orig->cend()) norm_to_orig_temp.insert(norm_to_orig_temp.end(), n2o_it, norm_to_orig->cend());
+    if (nrm_it != nrm_end) normalized_temp.insert(normalized_temp.end(), nrm_it, nrm_end);
+    if (n2o_it != n2o_end) norm_to_orig_temp.insert(norm_to_orig_temp.end(), n2o_it, n2o_end);
 
     normalized->swap(normalized_temp);
     norm_to_orig->swap(norm_to_orig_temp);

@@ -20,7 +20,7 @@ jobs:
     TODAY: $[format('{0:dd}{0:MM}{0:yyyy}', pipeline.startTime)]
   pool:
     name: "Azure Pipelines"
-    image: "macOS-13"
+    image: "macOS-14"
     os: macOS
   timeoutInMinutes: 300
   templateContext:
