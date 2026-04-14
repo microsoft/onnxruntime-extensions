@@ -262,6 +262,29 @@ class TokenJsonConfig final {
 
   const std::string& GetVocabDataFile() const { return vocab_path_; }
 
+  // Peek at the tokenizer.json to determine the actual model type.
+  // Returns "BPE", "Unigram", "WordPiece", etc., or empty string on failure.
+  std::string PeekModelType() const {
+    std::unique_ptr<std::istream> vocab_stream;
+    auto status = const_cast<TokenJsonConfig*>(this)->OpenVocabFile(vocab_stream);
+    if (!status.IsOk()) {
+      return "";
+    }
+    json tok_json = json::parse(*vocab_stream, nullptr, false, true);
+    if (tok_json.is_discarded()) {
+      return "";
+    }
+    auto model_node = tok_json.find("model");
+    if (model_node == tok_json.end()) {
+      return "";
+    }
+    auto type_node = model_node->find("type");
+    if (type_node == model_node->end() || !type_node->is_string()) {
+      return "";
+    }
+    return type_node->get<std::string>();
+  }
+
  public:
   bool add_bos_token_{};
   bool add_eos_token_{};

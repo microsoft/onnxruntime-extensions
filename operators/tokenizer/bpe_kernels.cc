@@ -261,7 +261,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
   bpe::PreTokenizerWithRegEx reg_splitter;
   // NOTE: the pattern was already validated on loading json file.
   // safe to ingore the return value here.
-  auto status = reg_splitter.Compile(bbpe_tokenizer_->GetPreTokenizerRegex(ModelName()));
+  auto status = reg_splitter.Compile(bbpe_tokenizer_->GetPreTokenizerRegex(ModelName(), bpe_conf_.get().spm_model_));
   assert(status.IsOk());
 
   for (auto& seg_id : special_token_split_res) {
@@ -404,7 +404,7 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
 
   // Compile the regex-based pretokenizer
   bpe::PreTokenizerWithRegEx reg_splitter;
-  auto status = reg_splitter.Compile(bbpe_tokenizer_->GetPreTokenizerRegex(ModelName()));
+  auto status = reg_splitter.Compile(bbpe_tokenizer_->GetPreTokenizerRegex(ModelName(), bpe_conf_.get().spm_model_));
   assert(status.IsOk());
 
   bool add_dummy_prefix = bpe_conf_.get().add_dummy_prefix_;
@@ -438,7 +438,7 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
     // Gemma has its own SPM-based tokenizer with BPE fallback that behaves differently
     // from the traditional LlamaTokenizer. This is also true for certain special cases.
 
-    if (ModelName() == "Gemma" || special){
+    if (ModelName() == "Gemma" || special || bbpe_tokenizer_->IsNoOpPretokenizer()){
       size_t char_pos = 0;
       std::list<std::pair<uint32_t, uint32_t>> byte_list;
       while (res.size() < max_length && char_pos <= ustr.length()) {
@@ -736,6 +736,15 @@ void JsonFastTokenizer::LoadSpmModelParams(const json& tok_json) {
           if (target == spm_escaped_space) {
             json_conf_.spm_model_ = true;
           }
+        } else if (type == "Metaspace") {
+          // Metaspace decoder with ▁ replacement indicates SPM-style tokenization
+          std::string replacement = step.value("replacement", "");
+          if (replacement == spm_escaped_space) {
+            json_conf_.spm_model_ = true;
+          }
+          if (step.value("add_prefix_space", false)) {
+            json_conf_.add_dummy_prefix_ = true;
+          }
         } else if (type == "Strip") {
           std::string content = step.value("content", "");
           if (content == " ") {
@@ -846,6 +855,13 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::TokenJsonConfig& config
   status = bbpe_tokenizer_->Load(*model_node, tok_json, bpe_conf_.get().GetSpecialTokens().c_str(),
                                  bpe_conf_.get().spm_model_);
   if (status.IsOk()) {
+    // If the pre-tokenizer is a no-op (e.g., chatglm3's dummy Split on a literal string),
+    // don't add a ▁ prefix during encoding. The Metaspace in the decoder tells us spaces
+    // map to ▁ (spm_model_=true), but a no-op pre-tokenizer means no prefix is added
+    // during encoding — only existing spaces are converted to ▁.
+    if (bbpe_tokenizer_->IsNoOpPretokenizer()) {
+      json_conf_.add_dummy_prefix_ = false;
+    }
     UpdateTokenizer(config, tok_json);
   }
 
