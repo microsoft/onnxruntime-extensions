@@ -99,18 +99,31 @@ class BpeModel {
       if (pre_type == "Split") {
         ORTX_JSON_RETURN_IF_NULL(&node, "pattern", iter_pattern);
         ORTX_JSON_RETURN_IF_NULL(iter_pattern, "Regex", regex_str);
-        pre_tokenizer_regex_ = regex_str->get<std::string>();
-        // Validate the regex pattern
+        auto regex = regex_str->get<std::string>();
+        // JSON decodes \r and \n into literal CR/LF bytes, but the Compile()
+        // pattern table uses the two-character escape sequences \r and \n.
+        // Normalize so that pattern substring matching works correctly.
+        for (size_t p = 0; p < regex.size(); ++p) {
+          if (regex[p] == '\r') {
+            regex.replace(p, 1, "\\r");
+            ++p;
+          } else if (regex[p] == '\n') {
+            regex.replace(p, 1, "\\n");
+            ++p;
+          }
+        }
         bpe::PreTokenizerWithRegEx pre_tokenizer;
-        auto status = pre_tokenizer.Compile(pre_tokenizer_regex_);
+        auto status = pre_tokenizer.Compile(regex);
         if (!status.IsOk()) {
           return status;
         }
+        split_regexes_.push_back(std::move(regex));
+      } else if (pre_type == "ByteLevel") {
+        has_byte_level_in_sequence_ = true;
       } else {
         if (pre_tokenizer_types_.count(pre_type) == 0) {
           return {kOrtxErrorNotImplemented, "Unsupported pretokenizer type!"};
         }
-        ; // TODO: implement other pretokenizer types
       }
     }
 
@@ -480,12 +493,27 @@ class BpeModel {
       return pre_tokenizer_regex_;
     }
 
+    std::string base_regex;
     if (model_name == "Llama" || spm_model) {
-      return bpe::PreTokenizerWithRegEx::LLAMA_REGEX_PATTERN;
+      base_regex = bpe::PreTokenizerWithRegEx::LLAMA_REGEX_PATTERN;
+    } else {
+      base_regex = bpe::PreTokenizerWithRegEx::GPT2_REGEX_PATTERN;
     }
 
-    // by default, use the GPT2 pretokenizer regex
-    return bpe::PreTokenizerWithRegEx::GPT2_REGEX_PATTERN;
+    if (split_regexes_.empty()) {
+      return base_regex;
+    }
+
+    // Fuse Split pre-tokenizer patterns into the base regex by prepending them
+    // as higher-priority alternation branches. This ensures patterns like
+    // \p{N}{1,3} match before the base regex's \p{N}+ branch.
+    std::string fused;
+    for (const auto& sr : split_regexes_) {
+      if (!fused.empty()) fused += "|";
+      fused += sr;
+    }
+    fused += "|" + base_regex;
+    return fused;
   }
 
  private:
@@ -511,6 +539,8 @@ class BpeModel {
   TrieTree<char32_t> added_tokens_;
   std::string pre_tokenizer_regex_;
   bool no_op_pretokenizer_ = false;
+  std::vector<std::string> split_regexes_;
+  bool has_byte_level_in_sequence_{};
 
   std::set<std::string_view> pre_tokenizer_types_;
 };
