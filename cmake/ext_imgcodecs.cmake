@@ -1,6 +1,5 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
-
 set(_IMGCODEC_ROOT_DIR ${dlib_SOURCE_DIR}/dlib/external)
 
 # ----------------------------------------------------------------------------
@@ -10,18 +9,9 @@ set(_IMGCODEC_ROOT_DIR ${dlib_SOURCE_DIR}/dlib/external)
 set (PNG_LIBRARY "libpng_static_c")
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64|ppc64le")
-  message(STATUS "Using upstream libpng for PowerPC")
-  include(FetchContent)
-  FetchContent_Declare(
-    libpng_external
-    GIT_REPOSITORY https://github.com/pnggroup/libpng.git
-    GIT_TAG        v1.6.56   # latest version
-    )
-
-  FetchContent_MakeAvailable(libpng_external)
-
-  set(libPNG_SOURCE_DIR ${libpng_external_SOURCE_DIR})
-
+  FetchContent_GetProperties(opencv)
+  message(STATUS "Using opencv 3rdparty libpng for PowerPC")
+  set(libPNG_SOURCE_DIR ${opencv_SOURCE_DIR}/3rdparty/libpng)
 else()
   # default (dlib bundled)
   set(libPNG_SOURCE_DIR ${_IMGCODEC_ROOT_DIR}/libpng)
@@ -51,7 +41,6 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64|ppc64le")
     ${libPNG_SOURCE_DIR}/powerpc/powerpc_init.c
     ${libPNG_SOURCE_DIR}/powerpc/filter_vsx_intrinsics.c
   )
-
 else()
   list(APPEND lib_srcs
     ${libPNG_SOURCE_DIR}/arm/arm_init.c
