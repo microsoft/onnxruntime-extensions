@@ -344,3 +344,112 @@ TEST(ProcessorTest, TestCMYKJpegRejected) {
   ASSERT_NE(err, kOrtxOK) << "CMYK JPEG must be rejected to prevent heap buffer overflow (CWE-122)";
 }
 
+TEST(ProcessorTest, TestPixtralImageProcessingSingleImage) {
+  const char* test_image_path[] = {"data/processor/australia.jpg"};
+  const size_t test_image_count = 1;
+
+  // Load image
+  OrtxObjectPtr<OrtxRawImages> raw_images{};
+  extError_t err = OrtxLoadImages(raw_images.ToBeAssigned(), test_image_path, test_image_count, nullptr);
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Create processor with Pixtral config
+  OrtxObjectPtr<OrtxProcessor> processor;
+  err = OrtxCreateProcessor(processor.ToBeAssigned(), "data/pixtral/vision_processor.json");
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Run processor
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxImagePreProcess(processor.get(), raw_images.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Output[0]: pixel_values — should be [N, C, H, W] where N=1
+  OrtxObjectPtr<OrtxTensor> pixel_values_tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, pixel_values_tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const float* pixel_data{};
+  const int64_t* pv_shape{};
+  size_t pv_num_dims{};
+  err = OrtxGetTensorData(pixel_values_tensor.get(), reinterpret_cast<const void**>(&pixel_data), &pv_shape, &pv_num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(pv_num_dims, 4ULL);  // [N, C, H, W]
+  ASSERT_EQ(pv_shape[0], 1);     // single image
+  ASSERT_EQ(pv_shape[1], 3);     // RGB channels
+
+  // Output[1]: image_sizes — should be [N, 2] = [1, 2]
+  OrtxObjectPtr<OrtxTensor> image_sizes_tensor;
+  err = OrtxTensorResultGetAt(result.get(), 1, image_sizes_tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const int64_t* sizes_data{};
+  const int64_t* is_shape{};
+  size_t is_num_dims{};
+  err = OrtxGetTensorData(image_sizes_tensor.get(), reinterpret_cast<const void**>(&sizes_data), &is_shape, &is_num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(is_num_dims, 2ULL);  // [N, 2]
+  ASSERT_EQ(is_shape[0], 1);     // single image
+  ASSERT_EQ(is_shape[1], 2);     // [H, W]
+
+  // image_sizes should match actual pixel_values dimensions
+  ASSERT_EQ(sizes_data[0], pv_shape[2]);  // H
+  ASSERT_EQ(sizes_data[1], pv_shape[3]);  // W
+
+  // H and W should be multiples of 28 (patch_size * merge_size) from smart resize
+  ASSERT_EQ(sizes_data[0] % 28, 0);
+  ASSERT_EQ(sizes_data[1] % 28, 0);
+}
+
+TEST(ProcessorTest, TestPixtralImageProcessingMultiImage) {
+  // Use the same image twice to simulate multi-image (same-size case)
+  const char* test_image_paths[] = {"data/processor/australia.jpg", "data/processor/australia.jpg"};
+  const size_t test_image_count = 2;
+
+  // Load images
+  OrtxObjectPtr<OrtxRawImages> raw_images{};
+  extError_t err = OrtxLoadImages(raw_images.ToBeAssigned(), test_image_paths, test_image_count, nullptr);
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Create processor
+  OrtxObjectPtr<OrtxProcessor> processor;
+  err = OrtxCreateProcessor(processor.ToBeAssigned(), "data/pixtral/vision_processor.json");
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Run processor
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxImagePreProcess(processor.get(), raw_images.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Output[0]: pixel_values — [N, C, H, W] where N=2
+  OrtxObjectPtr<OrtxTensor> pixel_values_tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, pixel_values_tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const float* pixel_data{};
+  const int64_t* pv_shape{};
+  size_t pv_num_dims{};
+  err = OrtxGetTensorData(pixel_values_tensor.get(), reinterpret_cast<const void**>(&pixel_data), &pv_shape, &pv_num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(pv_num_dims, 4ULL);
+  ASSERT_EQ(pv_shape[0], 2);  // two images
+  ASSERT_EQ(pv_shape[1], 3);  // RGB
+
+  // Output[1]: image_sizes — [N, 2] = [2, 2]
+  OrtxObjectPtr<OrtxTensor> image_sizes_tensor;
+  err = OrtxTensorResultGetAt(result.get(), 1, image_sizes_tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const int64_t* sizes_data{};
+  const int64_t* is_shape{};
+  size_t is_num_dims{};
+  err = OrtxGetTensorData(image_sizes_tensor.get(), reinterpret_cast<const void**>(&sizes_data), &is_shape, &is_num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(is_num_dims, 2ULL);
+  ASSERT_EQ(is_shape[0], 2);  // two images
+  ASSERT_EQ(is_shape[1], 2);  // [H, W]
+
+  // Both images are identical, so image_sizes rows should match
+  ASSERT_EQ(sizes_data[0], sizes_data[2]);  // H1 == H2
+  ASSERT_EQ(sizes_data[1], sizes_data[3]);  // W1 == W2
+}
+
