@@ -1212,7 +1212,7 @@ Scalar boolean. When true, empty substrings are removed from the output.
 <details>
 <summary>StringUpper details</summary>
 
-Converts every ASCII character in each string of the input tensor to uppercase. Non-ASCII bytes are left unchanged.
+Converts every ASCII character in each string of the input tensor to uppercase using `std::toupper`. This operator is ASCII-only; non-ASCII bytes are passed through unchanged. For full Unicode case folding, pre-process inputs accordingly or use `StringLower` as a reference for Unicode handling.
 
 #### Inputs
 
@@ -1233,7 +1233,7 @@ String tensor of the same shape as `input` with uppercased strings.
 <details>
 <summary>StringLower details</summary>
 
-Converts each string in the input tensor to lowercase using Unicode case folding.
+Converts each string in the input tensor to lowercase. Unlike `StringUpper`, this operator decodes input bytes as UTF-8 and performs Unicode-aware case folding on each code point before re-encoding the result.
 
 #### Inputs
 
