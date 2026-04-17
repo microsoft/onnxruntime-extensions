@@ -808,7 +808,35 @@ void JsonFastTokenizer::UpdateTokenizer(const TokenJsonConfig& config, const jso
   add_bos_token_ = config.add_bos_token_;
   add_eos_token_ = config.add_eos_token_;
 
-  if (!config.add_bos_token_ && !config.bos_token_.empty()) {
+  // In Transformers v5, add_bos_token/add_eos_token are no longer saved in
+  // tokenizer_config.json. When these flags were not explicitly set, try to
+  // infer BOS/EOS behavior from the post_processor in tokenizer.json, or fall
+  // back to per-class defaults for known tokenizer families.
+  if (!config.add_bos_token_explicit_ && !config.bos_token_.empty()) {
+    auto post_processor = tok_json.find("post_processor");
+    if (post_processor != tok_json.end()) {
+      std::string text = post_processor->dump();
+      if (text.find(config.bos_token_) != std::string::npos) {
+        add_bos_token_ = true;
+      }
+      if (text.find(config.eos_token_) != std::string::npos) {
+        add_eos_token_ = true;
+      }
+    } else {
+      // No post_processor in tokenizer.json and no explicit config flags:
+      // apply per-class defaults for known tokenizer families.
+      // Note: GPT2-family models (Phi-4, Qwen2, DeepSeek, etc.) correctly
+      // default to add_bos_token_=false so they don't need to be listed here.
+      // Only SPM/Llama-family models that require BOS by convention are listed.
+      if (model_name_ == kModel_Llama || model_name_ == "Phi3" ||
+          model_name_ == "InternLM2" || model_name_ == kModel_Gemma ||
+          model_name_ == "CodeLlama" || model_name_ == "Mistral") {
+        add_bos_token_ = true;
+      }
+    }
+  } else if (!config.add_bos_token_ && !config.bos_token_.empty()) {
+    // Legacy path: add_bos_token was explicitly false but post_processor may
+    // still require it (e.g., v4-era Llama tokenizers).
     auto post_processor = tok_json.find("post_processor");
     if (post_processor != tok_json.end()) {
       std::string text = post_processor->dump();
@@ -832,8 +860,15 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::TokenJsonConfig& config
   nlohmann::json tok_json;
   *vocab_stream >> tok_json;
 
+  // Extract model name from tokenizer_class by stripping known suffixes.
+  // v4: "Qwen2Tokenizer" -> "Qwen2", v5: "TokenizersBackend" -> "" (generic)
   const char token_sub[] = "Tokenizer";
-  model_name_ = config.tokenizer_class_.substr(0, config.tokenizer_class_.find(token_sub));
+  const char backend_sub[] = "Backend";
+  auto pos = config.tokenizer_class_.find(token_sub);
+  if (pos == std::string::npos) {
+    pos = config.tokenizer_class_.find(backend_sub);
+  }
+  model_name_ = (pos != std::string::npos) ? config.tokenizer_class_.substr(0, pos) : config.tokenizer_class_;
   json_conf_.name_ = model_name_.c_str();
   json_conf_.bos_token_ = config.bos_token_.c_str();
   json_conf_.eos_token_ = config.eos_token_.c_str();

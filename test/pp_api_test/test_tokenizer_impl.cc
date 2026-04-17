@@ -488,3 +488,93 @@ TEST(OrtxTokenizerTest, ChatGLM3Tokenizer) {
         << "Content token IDs do not match HuggingFace reference output";
   }
 }
+
+// ============================================================================
+// Transformers v5 format tests
+// ============================================================================
+
+/*
+  Test real SmolLM3-3B tokenizer from HuggingFace (HuggingFaceTB/SmolLM3-3B).
+  This is a real v5-era model with:
+  - No add_bos_token / add_eos_token in tokenizer_config.json
+  - chat_template stored as separate chat_template.jinja file
+  - tokenizer_class = "PreTrainedTokenizerFast" (v4 naming, but v5 file layout)
+  - "extra_special_tokens" field (new in v5)
+  Files downloaded from: https://huggingface.co/HuggingFaceTB/SmolLM3-3B
+*/
+TEST(OrtxTokenizerV5Test, SmolLM3_V5_Tokenizer) {
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/v5/smollm3");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
+  }
+
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
+
+  std::vector<std::string_view> input = {"This is a test."};
+  std::vector<std::vector<extTokenId_t>> token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  EXPECT_TRUE(status.IsOk());
+  DumpTokenIds(token_ids);
+
+  EXPECT_EQ(token_ids.size(), 1u);
+  ASSERT_GT(token_ids[0].size(), 0u);
+
+  // Verify round-trip detokenization
+  std::vector<std::string> out_text;
+  std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {token_ids[0]};
+  status = tokenizer->Detokenize(token_ids_span, out_text);
+  EXPECT_TRUE(status.IsOk());
+  EXPECT_EQ(out_text[0], input[0]);
+}
+
+/*
+  Test synthetic Qwen2.5 v5 tokenizer (based on Qwen/Qwen2.5-0.5B-Instruct).
+  This uses a REAL tokenizer.json from the original qwen2.5 test data, with a
+  SYNTHETIC tokenizer_config.json that simulates Transformers v5 save_pretrained():
+  - Removed add_bos_token (v5 no longer saves this)
+  - Removed added_tokens_decoder (v5 only stores when no tokenizer.json)
+  - chat_template in separate .jinja file (v5 pattern)
+  - tokenizer_class = "TokenizersBackend" (v5 backend class name)
+  See comments in test/data/v5/qwen2.5-synthetic/tokenizer_config.json for details.
+*/
+TEST(OrtxTokenizerV5Test, Qwen2_5_SyntheticV5_Tokenizer) {
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/v5/qwen2.5-synthetic");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
+  }
+
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
+
+  // Tokenize a string that includes an added token (<tool_call>) to verify that
+  // added tokens from tokenizer.json work correctly even without added_tokens_decoder.
+  // <tool_call> is token id 151657 in the Qwen2.5 vocabulary.
+  std::vector<std::string_view> input = {"Hello <tool_call> world"};
+  std::vector<std::vector<extTokenId_t>> token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  EXPECT_TRUE(status.IsOk());
+  DumpTokenIds(token_ids);
+
+  EXPECT_EQ(token_ids.size(), 1u);
+  ASSERT_GT(token_ids[0].size(), 0u);
+
+  // Verify that <tool_call> was correctly tokenized as a single added token (id=151657)
+  bool found_tool_call = false;
+  for (const auto& id : token_ids[0]) {
+    if (id == 151657) {
+      found_tool_call = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(found_tool_call) << "<tool_call> (id=151657) should be recognized as an added token even without added_tokens_decoder";
+
+  // Verify round-trip detokenization
+  std::vector<std::string> out_text;
+  std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {token_ids[0]};
+  status = tokenizer->Detokenize(token_ids_span, out_text);
+  EXPECT_TRUE(status.IsOk());
+  EXPECT_EQ(out_text[0], input[0]);
+}

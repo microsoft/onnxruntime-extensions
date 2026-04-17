@@ -1241,3 +1241,131 @@ TEST(OrtxTokenizerTest, Qwen2_5_ChatTemplateWithOAIFunctionType) {
 
   ASSERT_EQ(std::string(text_ptr), expected_output);
 }
+
+// ============================================================================
+// Transformers v5 format tests
+// ============================================================================
+
+/*
+  Test real SmolLM3-3B chat template from HuggingFace (HuggingFaceTB/SmolLM3-3B).
+  This model ships with:
+  - chat_template.jinja as a separate file (v5 pattern) — NOT inline in tokenizer_config.json
+  - No add_bos_token / add_eos_token in tokenizer_config.json
+  - Uses <|im_start|>/<|im_end|> chat format
+  Files downloaded from: https://huggingface.co/HuggingFaceTB/SmolLM3-3B
+*/
+TEST(OrtxTokenizerV5Test, SmolLM3_V5_ChatTemplate) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/v5/smollm3");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create SmolLM3 tokenizer: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "user",
+        "content": "How should I explain the Internet?"
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), nullptr, templated_text.ToBeAssigned(), true, false);
+
+  if (err != kOrtxOK) {
+    std::cout << "Failed to apply chat template for SmolLM3." << std::endl;
+    std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  // The SmolLM3 template should produce an <|im_start|>-based format.
+  // Verify the output contains the expected structural tokens.
+  std::string output(text_ptr);
+  EXPECT_TRUE(output.find("<|im_start|>") != std::string::npos) << "Expected <|im_start|> in chat output";
+  EXPECT_TRUE(output.find("How should I explain the Internet?") != std::string::npos) << "Expected user message in chat output";
+  EXPECT_TRUE(output.find("<|im_start|>assistant") != std::string::npos) << "Expected assistant prompt in chat output";
+
+  // Also verify tokenization of the templated text works
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  const char* input[] = { text_ptr };
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  ASSERT_GT(length, 0u) << "Tokenized output should not be empty.";
+
+  // Verify round-trip detokenization
+  OrtxObjectPtr<OrtxStringArray> decoded_text;
+  OrtxDetokenize(tokenizer.get(), token_ids.get(), decoded_text.ToBeAssigned());
+  EXPECT_EQ(decoded_text.Code(), kOrtxOK);
+}
+
+/*
+  Test synthetic Qwen2.5 v5 chat template with .jinja file and no inline template.
+  Uses real tokenizer.json from Qwen/Qwen2.5-0.5B-Instruct with a synthetic
+  tokenizer_config.json simulating Transformers v5 output (tokenizer_class=TokenizersBackend).
+  See comments in test/data/v5/qwen2.5-synthetic/tokenizer_config.json.
+*/
+TEST(OrtxTokenizerV5Test, Qwen2_5_SyntheticV5_ChatTemplate) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/v5/qwen2.5-synthetic");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create synthetic v5 qwen2.5 tokenizer: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "How should I explain the Internet?"
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), nullptr, templated_text.ToBeAssigned(), true, false);
+
+  if (err != kOrtxOK) {
+    std::cout << "Failed to apply chat template for synthetic v5 qwen2.5." << std::endl;
+    std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  // The chat template from the .jinja file should produce Qwen-style output
+  std::string expected_output = "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n"
+                                "<|im_start|>user\nHow should I explain the Internet?<|im_end|>\n"
+                                "<|im_start|>assistant\n";
+
+  ASSERT_EQ(std::string(text_ptr), expected_output);
+
+  // Verify tokenization works
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  const char* input[] = { text_ptr };
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  ASSERT_GT(length, 0u) << "Tokenized output should not be empty.";
+
+  // Verify round-trip detokenization
+  OrtxObjectPtr<OrtxStringArray> decoded_text;
+  OrtxDetokenize(tokenizer.get(), token_ids.get(), decoded_text.ToBeAssigned());
+  EXPECT_EQ(decoded_text.Code(), kOrtxOK);
+}
