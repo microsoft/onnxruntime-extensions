@@ -816,9 +816,12 @@ void JsonFastTokenizer::UpdateTokenizer(const TokenJsonConfig& config, const jso
     } else {
       // No post_processor in tokenizer.json and no explicit config flags:
       // apply per-class defaults for known tokenizer families.
+      // Note: GPT2-family models (Phi-4, Qwen2, DeepSeek, etc.) correctly
+      // default to add_bos_token_=false so they don't need to be listed here.
+      // Only SPM/Llama-family models that require BOS by convention are listed.
       if (model_name_ == kModel_Llama || model_name_ == "Phi3" ||
-          model_name_ == "InternLM2" || model_name_ == "Gemma" ||
-          model_name_ == "CodeLlama") {
+          model_name_ == "InternLM2" || model_name_ == kModel_Gemma ||
+          model_name_ == "CodeLlama" || model_name_ == "Mistral") {
         add_bos_token_ = true;
       }
     }
@@ -861,6 +864,24 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::TokenJsonConfig& config
   json_conf_.bos_token_ = config.bos_token_.c_str();
   json_conf_.eos_token_ = config.eos_token_.c_str();
   json_conf_.unk_token_ = config.unk_token_.c_str();
+  json_conf_.pad_token_ = config.pad_token_.c_str();
+
+  // re-bind the configuration object
+  bpe_conf_ = json_conf_;
+
+  // Check for SPM model
+  LoadSpmModelParams(tok_json);
+
+  auto model_node = tok_json.find("model");
+  if (model_node == tok_json.end()) {
+    return OrtxStatus(kOrtxErrorCorruptData, "Failed to get model node from tokenizer.json");
+  }
+
+  bbpe_tokenizer_ = std::make_unique<BpeModel>();
+  status = bbpe_tokenizer_->Load(*model_node, tok_json, bpe_conf_.get().GetSpecialTokens().c_str(),
+                                 bpe_conf_.get().spm_model_);
+  if (status.IsOk()) {
+ json_conf_.unk_token_ = config.unk_token_.c_str();
   json_conf_.pad_token_ = config.pad_token_.c_str();
 
   // re-bind the configuration object
