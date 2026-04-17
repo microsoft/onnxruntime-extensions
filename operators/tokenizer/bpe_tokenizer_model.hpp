@@ -66,6 +66,29 @@ class BpeModel {
       if (pre_tokenizer_types_.count(pre_token_type) == 0) {
         return {kOrtxErrorNotImplemented, std::string("Unsupported pretokenizer type!") + pre_token_type};
       }
+
+      // Handle top-level Split pre-tokenizer (not nested in a Sequence/pretokenizers array).
+      // E.g., chatglm3 has: {"type": "Split", "pattern": {"String": "<!dummy-prefix!>"}}
+      // A Split on a literal String that never appears in normal text is effectively a no-op.
+      if (pre_token_type == "Split") {
+        auto iter_pattern = node_pre_tokenizer->find("pattern");
+        if (iter_pattern != node_pre_tokenizer->end()) {
+          auto iter_regex = iter_pattern->find("Regex");
+          if (iter_regex != iter_pattern->end() && !iter_regex->is_null()) {
+            // Split with a Regex pattern — use it as the pre-tokenizer regex
+            pre_tokenizer_regex_ = iter_regex->get<std::string>();
+            bpe::PreTokenizerWithRegEx pre_tokenizer;
+            auto status = pre_tokenizer.Compile(pre_tokenizer_regex_);
+            if (!status.IsOk()) {
+              return status;
+            }
+          } else {
+            // Split with a String pattern (no-op for tokenization — never matches normal text)
+            no_op_pretokenizer_ = true;
+          }
+        }
+        return {};
+      }
     }
 
     ORTX_JSON_RETURN_IF_NULL(node_pre_tokenizer, "pretokenizers", iter_node_list);
@@ -450,12 +473,14 @@ class BpeModel {
 
   const std::string& GetEndOfWordSuffix() const { return end_of_word_suffix_; }
 
-  std::string GetPreTokenizerRegex(const std::string& model_name) const {
+  bool IsNoOpPretokenizer() const { return no_op_pretokenizer_; }
+
+  std::string GetPreTokenizerRegex(const std::string& model_name, bool spm_model = false) const {
     if (!pre_tokenizer_regex_.empty()) {
       return pre_tokenizer_regex_;
     }
 
-    if (model_name == "Llama") {
+    if (model_name == "Llama" || spm_model) {
       return bpe::PreTokenizerWithRegEx::LLAMA_REGEX_PATTERN;
     }
 
@@ -485,6 +510,7 @@ class BpeModel {
   bpe::SpecialTokenMap special_tokens_;
   TrieTree<char32_t> added_tokens_;
   std::string pre_tokenizer_regex_;
+  bool no_op_pretokenizer_ = false;
 
   std::set<std::string_view> pre_tokenizer_types_;
 };

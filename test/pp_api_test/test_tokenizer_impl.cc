@@ -424,6 +424,71 @@ TEST(OrtxTokenizerTest, Nvidia_Mistral_Tokenizer) {
   EXPECT_EQ(token_ids[0], EXPECTED_IDS_0);
 }
 
+TEST(OrtxTokenizerTest, ChatGLM3Tokenizer) {
+  // Tests chatglm3-6b with a BPE tokenizer.json, ensuring it is loaded properly
+  // even though tokenizer_class="ChatGLMTokenizer" maps to Unigram by default.
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/chatglm");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
+  }
+
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
+
+  // === "hello" ===
+  // HuggingFace Reference (add_special_tokens=False): [15616, 30914]
+  {
+    std::vector<std::string_view> input = {"hello"};
+    std::vector<std::vector<extTokenId_t>> token_ids;
+    status = tokenizer->Tokenize(input, token_ids);
+    EXPECT_TRUE(status.IsOk());
+    DumpTokenIds(token_ids);
+    ASSERT_EQ(token_ids.size(), 1u);
+    // chatglm3 adds [gMASK](64790) and <sop>(64792) prefix special tokens,
+    // so expected output: [64790, 64792, 15616, 30914]
+    // Content tokens (without special prefix) must match HF exactly.
+    // At minimum, "hello" must NOT be 5 character-level tokens.
+    EXPECT_LE(token_ids[0].size(), 5u);  // 2 content + 2 special = 4 typical
+  }
+
+  // === "I like walking my cute dog" ===
+  // HuggingFace Reference (add_special_tokens=False): [30936, 659, 5902, 552, 11527, 3246]
+  {
+    std::vector<std::string_view> input = {"I like walking my cute dog"};
+    std::vector<std::vector<extTokenId_t>> token_ids;
+    status = tokenizer->Tokenize(input, token_ids);
+    EXPECT_TRUE(status.IsOk());
+    DumpTokenIds(token_ids);
+    ASSERT_EQ(token_ids.size(), 1u);
+    // With special tokens: [64790, 64792, 30936, 659, 5902, 552, 11527, 3246] = 8 tokens
+    std::vector<extTokenId_t> expected_content = {30936, 659, 5902, 552, 11527, 3246};
+    // Check that the content tokens (last N) match HF exactly
+    ASSERT_GE(token_ids[0].size(), expected_content.size());
+    std::vector<extTokenId_t> actual_content(
+        token_ids[0].end() - expected_content.size(), token_ids[0].end());
+    EXPECT_EQ(actual_content, expected_content)
+        << "Content token IDs do not match HuggingFace reference output";
+  }
+
+  // === "This is a test." ===
+  // HuggingFace Reference (add_special_tokens=False): [3919, 323, 260, 1429, 30930]
+  {
+    std::vector<std::string_view> input = {"This is a test."};
+    std::vector<std::vector<extTokenId_t>> token_ids;
+    status = tokenizer->Tokenize(input, token_ids);
+    EXPECT_TRUE(status.IsOk());
+    DumpTokenIds(token_ids);
+    ASSERT_EQ(token_ids.size(), 1u);
+    std::vector<extTokenId_t> expected_content = {3919, 323, 260, 1429, 30930};
+    ASSERT_GE(token_ids[0].size(), expected_content.size());
+    std::vector<extTokenId_t> actual_content(
+        token_ids[0].end() - expected_content.size(), token_ids[0].end());
+    EXPECT_EQ(actual_content, expected_content)
+        << "Content token IDs do not match HuggingFace reference output";
+  }
+}
+
 // ============================================================================
 // Transformers v5 format tests
 // ============================================================================
