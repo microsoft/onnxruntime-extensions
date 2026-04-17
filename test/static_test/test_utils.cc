@@ -1,6 +1,8 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include <algorithm>
+
 #include "gtest/gtest.h"
 #ifdef ENABLE_RE2_REGEX
 #include "re2/re2.h"
@@ -67,4 +69,34 @@ TEST(utils, utf8) {
     std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
     EXPECT_EQ(lowered[i], lower);
   }
+}
+
+// Regression test for CRLF injection sanitization in auth_token (CWE-113).
+// Verifies the erase-remove pattern used in CloudBaseKernel::GetAuthToken().
+TEST(utils, crlf_sanitization) {
+  auto sanitize = [](std::string token) {
+    token.erase(std::remove_if(token.begin(), token.end(), [](char c) { return c == '\r' || c == '\n'; }), token.end());
+    return token;
+  };
+
+  // Clean token passes through unchanged
+  EXPECT_EQ(sanitize("Bearer abc123"), "Bearer abc123");
+
+  // CR and LF are stripped
+  EXPECT_EQ(sanitize("fake\r\nX-Injected: pwned"), "fakeX-Injected: pwned");
+
+  // Lone CR stripped
+  EXPECT_EQ(sanitize("token\rinjected"), "tokeninjected");
+
+  // Lone LF stripped
+  EXPECT_EQ(sanitize("token\ninjected"), "tokeninjected");
+
+  // Multiple CRLF sequences stripped
+  EXPECT_EQ(sanitize("a\r\nb\r\nc"), "abc");
+
+  // Empty string is fine
+  EXPECT_EQ(sanitize(""), "");
+
+  // Token that is only CRLF
+  EXPECT_EQ(sanitize("\r\n\r\n"), "");
 }

@@ -13,6 +13,11 @@
 #include "ext_status.h"
 
 namespace ort_extensions::internal {
+
+// Maximum image dimension (width or height) and total pixel count to prevent decompression bombs.
+static constexpr uint64_t kMaxImageDimension = 16384;
+static constexpr uint64_t kMaxPixelCount = 100'000'000;  // 100 megapixels
+
 struct DecodeImage {
   OrtxStatus OnInit() {
     HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED | COINIT_DISABLE_OLE1DDE);
@@ -105,6 +110,13 @@ struct DecodeImage {
     hr = pIDecoderFrame->GetSize(&uiWidth, &uiHeight);
     if (FAILED(hr)) {
       return {kOrtxErrorInternal, "[ImageDecoder]: pIDecoderFrame->GetSize."};
+    }
+
+    // Dimension limit to prevent decompression bombs (validate before narrowing cast)
+    if (uiWidth > kMaxImageDimension || uiHeight > kMaxImageDimension ||
+        static_cast<uint64_t>(uiWidth) * uiHeight > kMaxPixelCount) {
+      return {kOrtxErrorInvalidArgument,
+              "[ImageDecoder]: Image dimensions exceed maximum allowed size."};
     }
 
     const int height = static_cast<int>(uiHeight);

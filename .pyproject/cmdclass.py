@@ -146,7 +146,6 @@ class CmdBuildCMakeExt(_build_ext):
     def initialize_options(self):
         super().initialize_options()
         self.use_cuda = None
-        self.no_azure = True
         self.no_opencv = True
         self.cc_debug = None
         self.pp_api = True
@@ -218,11 +217,6 @@ class CmdBuildCMakeExt(_build_ext):
                 raise RuntimeError(
                     "Cannot enable PP C API Python Wrapper without disabling OpenCV.")
             cmake_args += ['-DOCOS_ENABLE_C_API=ON']
-
-        if self.no_azure is not None:
-            azure_flag = "OFF" if self.no_azure == 1 else "ON"
-            cmake_args += ['-DOCOS_ENABLE_AZURE=' + azure_flag]
-            print("=> AzureOp build flag: " + azure_flag)
 
         if self.use_cuda is not None:
             cuda_flag = "OFF" if self.use_cuda == 0 else "ON"
