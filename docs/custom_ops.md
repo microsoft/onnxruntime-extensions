@@ -550,7 +550,7 @@ Merge rules (contents of `merges.txt`).
 
 ***padding_length: int64_t*** (default is -1)
 
-If positive, the output is right-padded (or truncated) to this length. When -1 no padding is performed and outputs stay ragged.
+If positive, the output is right-padded (or truncated) to this length. When -1, the output is padded to the maximum sequence length in the batch; the operator still returns a dense tensor with a dynamic second dimension.
 
 #### Inputs
 
@@ -564,7 +564,7 @@ If positive, the output is right-padded (or truncated) to this length. When -1 n
 
 Tensor of token ids.
 
-***attention_mask: tensor(int64)***
+***attention_mask: tensor(int64)*** (optional)
 
 Mask with the same shape as `input_ids` (1 for real tokens, 0 for padding).
 
@@ -594,7 +594,7 @@ BPE merge rules (contents of `merges.txt`).
 
 ***padding_length: int64_t*** (default is -1)
 
-Optional fixed output length. See `CLIPTokenizer`.
+See `CLIPTokenizer`.
 
 #### Inputs
 
@@ -608,7 +608,7 @@ Optional fixed output length. See `CLIPTokenizer`.
 
 Token ids.
 
-***attention_mask: tensor(int64)***
+***attention_mask: tensor(int64)*** (optional)
 
 Attention mask, same shape as `input_ids`.
 
@@ -638,7 +638,7 @@ SentencePiece merge rules.
 
 ***padding_length: int64_t*** (default is -1)
 
-Optional fixed output length.
+See `CLIPTokenizer`.
 
 #### Inputs
 
@@ -652,7 +652,7 @@ Optional fixed output length.
 
 Tensor of token ids.
 
-***attention_mask: tensor(int64)***
+***attention_mask: tensor(int64)*** (optional)
 
 Attention mask with the same shape as `input_ids`.
 
@@ -680,7 +680,7 @@ Contents of `vocab.txt`.
 
 Lowercase inputs before tokenization.
 
-***strip_accents: int64_t*** (default is 1)
+***strip_accents: int64_t*** (default is 0)
 
 Strip accents as part of normalization.
 
@@ -703,6 +703,10 @@ Attention mask, same shape as `input_ids`.
 ***token_type_ids: tensor(int64)*** (optional)
 
 Segment ids. All zero for single-sentence input.
+
+***offset_mapping: tensor(int64)*** (optional)
+
+Per-token `(begin, end)` byte offsets into the corresponding input string.
 
 </details>
 
@@ -736,7 +740,7 @@ Additional vocabulary data when the tokenizer uses an external vocab file.
 
 Token ids.
 
-***attention_mask: tensor(int64)***
+***attention_mask: tensor(int64)*** (optional)
 
 Attention mask matching `input_ids`.
 
@@ -774,7 +778,7 @@ Scalar flag. When true the `fairseq` vocab-id offset convention is applied.
 
 ***output: tensor(string)***
 
-Scalar string containing the decoded text.
+1D tensor with one string element containing the decoded text.
 
 </details>
 
@@ -929,61 +933,59 @@ Scalar input string.
 <details>
 <summary>StringEqual details</summary>
 
-Compares two strings and returns true if they are equal and false if not.
+Compares two strings elementwise and returns true when they are equal.
 
 #### Inputs
 
 ***x: tensor(string)***
 
-The first string input
+The first string input.
 
-***x: tensor(string)***
+***y: tensor(string)***
 
-The second string input
+The second string input. Must have the same shape as `x` (or be broadcastable).
 
 #### Outputs
 
-***z: tensor(boolean)***
+***z: tensor(bool)***
 
-String with replacements.
+Boolean tensor with the same shape as the broadcasted inputs; `true` where the inputs are equal.
 
 </details>
 
 
-### StringHash
+### StringToHashBucket
 
 <details>
-<summary>StringHash details</summary>
+<summary>StringToHashBucket details</summary>
 
-
-Hashes the input string based on the number of buckets
+Hashes each input string into one of `num_buckets` buckets using the internal FarmHash-like 64-bit hash implementation.
 
 #### Inputs
 
 ***input: tensor(string)***
 
-The string to hash
+The input string tensor to hash.
 
 ***num_buckets: tensor(int64)***
 
-The number of buckets (must be equal to 1?)
+Scalar number of hash buckets. Must be greater than 0.
 
 #### Outputs
 
-***name: tensor(int64)***
+***output: tensor(int64)***
 
-The hash value of the string
+Tensor of the same shape as `input` containing the hash-bucket index for each input string. Each value lies in the range `[0, num_buckets)`.
 
 </details>
 
 
-### StringHashFast
+### StringToHashBucketFast
 
 <details>
-<summary>StringHashFast details</summary>
+<summary>StringToHashBucketFast details</summary>
 
-
-A faster implementation of StringHash. Computes hash values for each input string modulo `num_buckets`.
+A faster variant of `StringToHashBucket` that uses `std::hash<std::string>` internally. Hash values are not stable across platforms or compilers, so the op is intended for stateless in-process hashing rather than persisted lookup tables.
 
 #### Inputs
 
@@ -993,7 +995,7 @@ The strings to hash.
 
 ***num_buckets: tensor(int64)***
 
-The number of hash buckets (scalar). Each output value will be in the range `[0, num_buckets)`.
+Scalar number of hash buckets. Must be greater than 0.
 
 #### Outputs
 
@@ -1020,11 +1022,11 @@ The input array of strings
 
 ***input_sep: tensor(string)***
 
-The string separator for the resulting joing
+The string separator for the resulting joining.
 
 ***input_axis: tensor(int64)***
 
-The axis along which to joing
+The axis along which to join.
 
 #### Outputs
 
@@ -1137,7 +1139,7 @@ Replace all strings matching the pattern or the first one.
 
 ***ignore_case: int64*** (default is 0)
 
-Replace 
+Whether to perform case-insensitive ECMAScript regular expression matching.
 
 #### Outputs
 
@@ -1151,7 +1153,7 @@ String with replacements.
 ```python
 
 node = onnx.helper.make_node(
-    'StringRegexReplace',
+    'StringECMARegexReplace',
     inputs=['text', 'pattern', 'rewrite'],
     outputs=['y'],
 )
@@ -1273,15 +1275,15 @@ String tensor of the same shape as `input` with whitespace stripped.
 ### StringLength
 
 <details>
-<summary>StringECMARegexReplace details</summary>
+<summary>StringLength details</summary>
 
-Get the length of each string element in input tensor. Similar to the function `len("abcde"")` in python.
+Get the length of each string element in the input tensor. Similar to the function `len("abcde")` in Python.
 
 #### Inputs 
 
-***data: tensor(string)***
+***input: tensor(string)***
 
-String tensor to get length of its each string element.
+String tensor to get the length of each string element from.
 
 #### Outputs
 
@@ -1369,33 +1371,39 @@ expect(node, inputs=[x, y], outputs=[result],
 <details>
 <summary>StringRegexSplitWithOffsets details</summary>
 
-Splits string based on regular expressions.
+Splits strings based on regular expressions (RE2 dialect) and reports the byte offsets of each produced token.
 
 #### Inputs
 
 ***text: tensor(string)***
 
-String tensor to extract slices from.
+String tensor to split.
 
 ***delim_regex_pattern: tensor(string)***
 
-Splitting attern of the regular expression.
+Splitting pattern of the regular expression.
 
 ***keep_delim_regex_pattern: tensor(string)***
 
-By default, delimiters are not included in the split string results. Delimiters may be included by specifying a regex pattern keep_delim_regex_pattern.
+By default, delimiters are not included in the split string results. Delimiters may be included by specifying a regex pattern via `keep_delim_regex_pattern`.
 
 #### Outputs
 
-***words: tensor(string)*** Tensor of words.
+***tokens: tensor(string)***
 
-***offsets: tensor(int64)*** 2D tensor with 3 columns:
-sentence index, position of the first character, position of the last one (excluded)
+1D tensor of tokens produced by splitting, in row-major order.
 
-***row_indices: tensor(int64)*** Indices of every first token of input sentences.
-`row_indices[i+1] - row_indices[i]` is the number of tokens in input `i`.
-These are updates row indices given as inputs or new ones if the second input is empty.
+***begin_offsets: tensor(int64)***
 
+1D tensor with the begin byte offset of each token in the corresponding input string.
+
+***end_offsets: tensor(int64)***
+
+1D tensor with the end byte offset (exclusive) of each token in the corresponding input string.
+
+***row_offsets: tensor(int64)***
+
+1D tensor of row offsets such that tokens of the i-th input string occupy `[row_offsets[i], row_offsets[i+1])` in `tokens`.
 
 #### Examples
 
@@ -1403,22 +1411,22 @@ These are updates row indices given as inputs or new ones if the second input is
 ```python
 
 node = onnx.helper.make_node(
-    'StringRegexSplit',
-    inputs=['text', 'pattern', 'rewrite'],
-    outputs=['y', 'begin_end', 'indices'],
+    'StringRegexSplitWithOffsets',
+    inputs=['text', 'pattern', 'keep_pattern'],
+    outputs=['tokens', 'begin_offsets', 'end_offsets', 'row_offsets'],
 )
 
 text = np.array(["hello there"])
 pattern = np.array([r'\s'])
-rewrite = np.array([r'\s'])
-y = np.array(["hello", " ", "there"])
-z1 = np.array([[0, 0, 5],
-               [0, 5, 6],
-               [0, 6, 11]], dtype=np.int64)
-z2 = np.array([0, 2], dtype=np.int64)
+keep_pattern = np.array([""])
+tokens = np.array(["hello", "there"])
+begin_offsets = np.array([0, 6], dtype=np.int64)
+end_offsets = np.array([5, 11], dtype=np.int64)
+row_offsets = np.array([0, 2], dtype=np.int64)
 
-expect(node, inputs=[text, pattern, rewrite], outputs=[y, z1, z2],
-       name='test_string_regex_replace')
+expect(node, inputs=[text, pattern, keep_pattern],
+       outputs=[tokens, begin_offsets, end_offsets, row_offsets],
+       name='test_string_regex_split_with_offsets')
 ```
 
 </details>
@@ -1453,17 +1461,21 @@ When set to 1 the regex is matched case-insensitively.
 
 #### Outputs
 
-***words: tensor(string)***
+***tokens: tensor(string)***
 
 1D tensor containing the split tokens.
 
-***offsets: tensor(int64)***
+***begin_offsets: tensor(int64)***
 
-2D tensor of shape `[num_tokens, 3]` where each row is `(sentence_index, begin_byte, end_byte)`.
+1D tensor with the begin byte offset of each token in the corresponding input string.
 
-***row_indices: tensor(int64)***
+***end_offsets: tensor(int64)***
 
-1D tensor of row offsets such that tokens of the i-th input string occupy `[row_indices[i], row_indices[i+1])` in `words`.
+1D tensor with the end byte offset (exclusive) of each token in the corresponding input string.
+
+***row_offsets: tensor(int64)***
+
+1D tensor of row offsets such that tokens of the i-th input string occupy `[row_offsets[i], row_offsets[i+1])` in `tokens`.
 
 </details>
 
@@ -2098,17 +2110,13 @@ Decodes a byte stream containing an encoded audio file (WAV, MP3, or FLAC) into 
 
 #### Attributes
 
-***downsampling_rate: int64_t*** (default is 0)
+***downsampling_rate: int64_t*** (default is -1)
 
-Target sample rate. When 0 the native sample rate of the decoded stream is used.
+Target sample rate to resample the decoded audio to. When -1, the native sample rate of the decoded stream is used.
 
-***stereo_to_mono: int64_t*** (default is 1)
+***stereo_to_mono: int64_t*** (default is 0)
 
-If 1, multi-channel audio is mixed down to a single mono channel.
-
-***target_sample_rate: int64_t*** (default is 0)
-
-Alias for `downsampling_rate`; when non-zero the decoded audio is resampled to this rate.
+If set to 1, multi-channel audio is mixed down to a single mono channel.
 
 #### Inputs
 
@@ -2139,9 +2147,9 @@ Decodes an encoded image (PNG, JPEG, BMP, TIFF, …) into an `HxWx3` uint8 tenso
 
 #### Attributes
 
-***color_space: string*** (default is "BGR")
+***color_space: string*** (default is "bgr")
 
-Color ordering of the output. Valid values are `"RGB"` and `"BGR"`.
+Color ordering of the output. Valid values are `"rgb"` and `"bgr"` (case-insensitive).
 
 #### Inputs
 
@@ -2162,19 +2170,23 @@ Color ordering of the output. Valid values are `"RGB"` and `"BGR"`.
 <details>
 <summary>EncodeImage details</summary>
 
-Encodes a 3-channel `HxWx3` uint8 image tensor to PNG or JPEG bytes.
+Encodes a 3-channel `HxWx3` uint8 image tensor to image bytes.
 
 #### Attributes
 
 ***format: string*** (default is "png")
 
-Output image format. Valid values are `"png"` and `"jpg"` (or `"jpeg"`).
+Output image format. Valid values are `"png"` and `"jpg"`.
+
+***color_space: string*** (default is "bgr")
+
+Color space / channel order of the input image. Supported values are `"bgr"` and `"rgb"`.
 
 #### Inputs
 
 ***input: tensor(uint8)***
 
-3D tensor of shape `[H, W, 3]` in BGR order.
+3D tensor of shape `[H, W, 3]`. The expected channel order depends on `color_space`: BGR for `"bgr"` and RGB for `"rgb"`.
 
 #### Outputs
 
@@ -2232,13 +2244,13 @@ Image tensor with boxes drawn, same shape as `image`.
 <details>
 <summary>GaussianBlur details</summary>
 
-Applies a 2D Gaussian blur to an image tensor using OpenCV's `cv::GaussianBlur`.
+Applies a 2D Gaussian blur to an image tensor using OpenCV's `cv::GaussianBlur`. The current kernel wraps the input buffer as a single `CV_32FC3` matrix, so inputs must have `N == 1` and `C == 3` channels.
 
 #### Inputs
 
 ***input: tensor(float)***
 
-4D image tensor of shape `[N, H, W, C]`.
+4D image tensor of shape `[1, H, W, 3]`.
 
 ***ksize: tensor(int64)***
 
@@ -2288,7 +2300,7 @@ Reads an image from a file path using OpenCV's `cv::imread` and returns the deco
 
 ***input: tensor(string)***
 
-Scalar string with the path of the image file to read.
+1D string tensor of shape `[1]` containing the path of the image file to read.
 
 #### Outputs
 
