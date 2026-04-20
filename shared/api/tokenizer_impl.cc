@@ -17,6 +17,20 @@ TokenizerImpl::~TokenizerImpl() {};
 OrtxStatus TokenizerImpl::LoadTokenizer(const OrtxTokenizerBlob* blob) {
 
   auto type = TokenJsonConfig::GetTokenType(tok_config_->tokenizer_class_);
+
+  // If tokenizer_class maps to Unigram, verify by checking the actual model type
+  // in tokenizer.json. Some models (e.g., chatglm3-6b) have tokenizer_class=ChatGLMTokenizer
+  // (which maps to Unigram) but provide a BPE tokenizer.json.
+  if (type == TokenType::kUnigram) {
+    auto vocab_file_path = ortx::path(tok_config_->GetVocabDataFile());
+    if (vocab_file_path.extension() == ".json") {
+      auto actual_model_type = tok_config_->PeekModelType();
+      if (actual_model_type == "BPE") {
+        type = TokenType::kBPE;
+      }
+    }
+  }
+
   if (type == TokenType::kUnigram) {
     auto tokenizer = std::make_unique<SpmUgmTokenizer>();
     auto status = tokenizer->Load(*tok_config_);
