@@ -4,7 +4,6 @@
 #pragma once
 
 #include <cstring>
-#include <vector>
 #include "ext_status.h"
 #include "op_def_struct.h"
 
@@ -57,8 +56,8 @@ class PixtralImageSizes {
 
   template <typename DictT>
   OrtxStatus Init(const DictT& attrs) {
-    for (const auto& [key, value] : attrs) {
-      return {kOrtxErrorInvalidArgument, "[PixtralImageSizes]: unexpected attribute " + key};
+    for (const auto& attr : attrs) {
+      return {kOrtxErrorInvalidArgument, "[PixtralImageSizes]: unexpected attribute " + attr.first};
     }
     return {};
   }
