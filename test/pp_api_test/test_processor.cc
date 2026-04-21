@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <tuple>
+#include <algorithm>
 #include <fstream>
 #include <filesystem>
 
@@ -342,5 +343,222 @@ TEST(ProcessorTest, TestCMYKJpegRejected) {
 
   // The CMYK JPEG must be rejected somewhere in the pipeline (CWE-122 mitigation)
   ASSERT_NE(err, kOrtxOK) << "CMYK JPEG must be rejected to prevent heap buffer overflow (CWE-122)";
+}
+
+TEST(ProcessorTest, TestPixtralImageProcessingSingleImage) {
+  const char* test_image_path[] = {"data/processor/australia.jpg"};
+  const size_t test_image_count = 1;
+
+  // Load image
+  OrtxObjectPtr<OrtxRawImages> raw_images{};
+  extError_t err = OrtxLoadImages(raw_images.ToBeAssigned(), test_image_path, test_image_count, nullptr);
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Create processor with Pixtral config
+  OrtxObjectPtr<OrtxProcessor> processor;
+  err = OrtxCreateProcessor(processor.ToBeAssigned(), "data/pixtral/vision_processor.json");
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Run processor
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxImagePreProcess(processor.get(), raw_images.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Output[0]: pixel_values — should be [N, C, H, W] where N=1
+  OrtxObjectPtr<OrtxTensor> pixel_values_tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, pixel_values_tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const float* pixel_data{};
+  const int64_t* pv_shape{};
+  size_t pv_num_dims{};
+  err = OrtxGetTensorData(pixel_values_tensor.get(), reinterpret_cast<const void**>(&pixel_data), &pv_shape, &pv_num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(pv_num_dims, 4ULL);  // [N, C, H, W]
+  ASSERT_EQ(pv_shape[0], 1);     // single image
+  ASSERT_EQ(pv_shape[1], 3);     // RGB channels
+
+  // Output[1]: image_sizes — should be [N, 2] = [1, 2]
+  OrtxObjectPtr<OrtxTensor> image_sizes_tensor;
+  err = OrtxTensorResultGetAt(result.get(), 1, image_sizes_tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const int64_t* sizes_data{};
+  const int64_t* is_shape{};
+  size_t is_num_dims{};
+  err = OrtxGetTensorData(image_sizes_tensor.get(), reinterpret_cast<const void**>(&sizes_data), &is_shape, &is_num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(is_num_dims, 2ULL);  // [N, 2]
+  ASSERT_EQ(is_shape[0], 1);     // single image
+  ASSERT_EQ(is_shape[1], 2);     // [H, W]
+
+  // image_sizes should match actual pixel_values dimensions
+  ASSERT_EQ(sizes_data[0], pv_shape[2]);  // H
+  ASSERT_EQ(sizes_data[1], pv_shape[3]);  // W
+
+  // H and W should be multiples of 28 (patch_size * merge_size) from smart resize
+  ASSERT_EQ(sizes_data[0] % 28, 0);
+  ASSERT_EQ(sizes_data[1] % 28, 0);
+}
+
+// Helper: run Pixtral processor on a single image and return pixel_values shape + data copy.
+static void RunPixtralSingleImage(const char* image_path,
+                                  std::vector<float>& out_pixels,
+                                  int64_t out_shape[4],
+                                  int64_t out_hw[2]) {
+  OrtxObjectPtr<OrtxRawImages> raw{};
+  ASSERT_EQ(OrtxLoadImages(raw.ToBeAssigned(), &image_path, 1, nullptr), kOrtxOK);
+
+  OrtxObjectPtr<OrtxProcessor> proc;
+  ASSERT_EQ(OrtxCreateProcessor(proc.ToBeAssigned(), "data/pixtral/vision_processor.json"), kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensorResult> res;
+  ASSERT_EQ(OrtxImagePreProcess(proc.get(), raw.get(), res.ToBeAssigned()), kOrtxOK);
+
+  // pixel_values [1, C, H, W]
+  OrtxObjectPtr<OrtxTensor> pv;
+  ASSERT_EQ(OrtxTensorResultGetAt(res.get(), 0, pv.ToBeAssigned()), kOrtxOK);
+  const float* data{};
+  const int64_t* shape{};
+  size_t ndims{};
+  ASSERT_EQ(OrtxGetTensorData(pv.get(), reinterpret_cast<const void**>(&data), &shape, &ndims), kOrtxOK);
+  ASSERT_EQ(ndims, 4ULL);
+  size_t n = static_cast<size_t>(shape[0] * shape[1] * shape[2] * shape[3]);
+  out_pixels.assign(data, data + n);
+  for (int i = 0; i < 4; ++i) out_shape[i] = shape[i];
+
+  // image_sizes [1, 2]
+  OrtxObjectPtr<OrtxTensor> is;
+  ASSERT_EQ(OrtxTensorResultGetAt(res.get(), 1, is.ToBeAssigned()), kOrtxOK);
+  const int64_t* sdata{};
+  const int64_t* sshape{};
+  size_t sndims{};
+  ASSERT_EQ(OrtxGetTensorData(is.get(), reinterpret_cast<const void**>(&sdata), &sshape, &sndims), kOrtxOK);
+  out_hw[0] = sdata[0];
+  out_hw[1] = sdata[1];
+}
+
+TEST(ProcessorTest, TestPixtralImageProcessingMultiImage) {
+  // Use two different-sized images to exercise padded-batch behavior
+  const char* test_image_paths[] = {"data/processor/australia.jpg", "data/processor/standard_s.jpg"};
+  const size_t test_image_count = 2;
+
+  // --- Run each image individually for reference ---
+  std::vector<float> single_pixels_0, single_pixels_1;
+  int64_t single_shape_0[4], single_shape_1[4];
+  int64_t single_hw_0[2], single_hw_1[2];
+  RunPixtralSingleImage(test_image_paths[0], single_pixels_0, single_shape_0, single_hw_0);
+  RunPixtralSingleImage(test_image_paths[1], single_pixels_1, single_shape_1, single_hw_1);
+
+  // Images must have different dimensions for this test to be meaningful
+  ASSERT_TRUE(single_hw_0[0] != single_hw_1[0] || single_hw_0[1] != single_hw_1[1])
+      << "Test images should have different resized dimensions";
+
+  // --- Run batch of two images ---
+  OrtxObjectPtr<OrtxRawImages> raw_images{};
+  extError_t err = OrtxLoadImages(raw_images.ToBeAssigned(), test_image_paths, test_image_count, nullptr);
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxProcessor> processor;
+  err = OrtxCreateProcessor(processor.ToBeAssigned(), "data/pixtral/vision_processor.json");
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxImagePreProcess(processor.get(), raw_images.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Output[0]: pixel_values [N, C, max_H, max_W]
+  OrtxObjectPtr<OrtxTensor> pixel_values_tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, pixel_values_tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const float* pixel_data{};
+  const int64_t* pv_shape{};
+  size_t pv_num_dims{};
+  err = OrtxGetTensorData(pixel_values_tensor.get(), reinterpret_cast<const void**>(&pixel_data), &pv_shape, &pv_num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(pv_num_dims, 4ULL);
+  ASSERT_EQ(pv_shape[0], 2);  // two images
+  ASSERT_EQ(pv_shape[1], 3);  // RGB
+
+  int64_t max_H = std::max(single_hw_0[0], single_hw_1[0]);
+  int64_t max_W = std::max(single_hw_0[1], single_hw_1[1]);
+  ASSERT_EQ(pv_shape[2], max_H);
+  ASSERT_EQ(pv_shape[3], max_W);
+
+  // Output[1]: image_sizes [N, 2]
+  OrtxObjectPtr<OrtxTensor> image_sizes_tensor;
+  err = OrtxTensorResultGetAt(result.get(), 1, image_sizes_tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const int64_t* sizes_data{};
+  const int64_t* is_shape{};
+  size_t is_num_dims{};
+  err = OrtxGetTensorData(image_sizes_tensor.get(), reinterpret_cast<const void**>(&sizes_data), &is_shape, &is_num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(is_num_dims, 2ULL);
+  ASSERT_EQ(is_shape[0], 2);
+  ASSERT_EQ(is_shape[1], 2);
+
+  // image_sizes rows must match per-image dimensions
+  ASSERT_EQ(sizes_data[0], single_hw_0[0]);  // H of image 0
+  ASSERT_EQ(sizes_data[1], single_hw_0[1]);  // W of image 0
+  ASSERT_EQ(sizes_data[2], single_hw_1[0]);  // H of image 1
+  ASSERT_EQ(sizes_data[3], single_hw_1[1]);  // W of image 1
+
+  // Validate pixel values: batch slice [i, :, :Hi, :Wi] must equal single-image output
+  int64_t C = pv_shape[1];
+  auto batch_idx = [&](int64_t n, int64_t c, int64_t h, int64_t w) {
+    return n * C * max_H * max_W + c * max_H * max_W + h * max_W + w;
+  };
+  auto single_idx = [](int64_t c, int64_t h, int64_t w, int64_t sH, int64_t sW) {
+    return c * sH * sW + h * sW + w;
+  };
+
+  // Check image 0: unpadded region matches single-image output
+  for (int64_t c = 0; c < C; ++c) {
+    for (int64_t h = 0; h < single_hw_0[0]; ++h) {
+      for (int64_t w = 0; w < single_hw_0[1]; ++w) {
+        ASSERT_FLOAT_EQ(pixel_data[batch_idx(0, c, h, w)],
+                        single_pixels_0[static_cast<size_t>(single_idx(c, h, w, single_hw_0[0], single_hw_0[1]))])
+            << "Mismatch at image 0, c=" << c << " h=" << h << " w=" << w;
+      }
+    }
+  }
+
+  // Check image 1: unpadded region matches single-image output
+  for (int64_t c = 0; c < C; ++c) {
+    for (int64_t h = 0; h < single_hw_1[0]; ++h) {
+      for (int64_t w = 0; w < single_hw_1[1]; ++w) {
+        ASSERT_FLOAT_EQ(pixel_data[batch_idx(1, c, h, w)],
+                        single_pixels_1[static_cast<size_t>(single_idx(c, h, w, single_hw_1[0], single_hw_1[1]))])
+            << "Mismatch at image 1, c=" << c << " h=" << h << " w=" << w;
+      }
+    }
+  }
+
+  // Check padding is zero for the smaller image (image 0 if it has smaller H or W)
+  // Bottom padding: rows [H0, max_H) for image 0
+  if (single_hw_0[0] < max_H) {
+    for (int64_t c = 0; c < C; ++c) {
+      for (int64_t h = single_hw_0[0]; h < max_H; ++h) {
+        for (int64_t w = 0; w < max_W; ++w) {
+          ASSERT_FLOAT_EQ(pixel_data[batch_idx(0, c, h, w)], 0.0f)
+              << "Expected zero padding at image 0, c=" << c << " h=" << h << " w=" << w;
+        }
+      }
+    }
+  }
+  // Right padding: cols [W0, max_W) for image 0
+  if (single_hw_0[1] < max_W) {
+    for (int64_t c = 0; c < C; ++c) {
+      for (int64_t h = 0; h < single_hw_0[0]; ++h) {
+        for (int64_t w = single_hw_0[1]; w < max_W; ++w) {
+          ASSERT_FLOAT_EQ(pixel_data[batch_idx(0, c, h, w)], 0.0f)
+              << "Expected zero padding at image 0, c=" << c << " h=" << h << " w=" << w;
+        }
+      }
+    }
+  }
 }
 
