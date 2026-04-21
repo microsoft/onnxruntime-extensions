@@ -18,7 +18,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64|ppc64le|powerpc")
   FetchContent_Declare(
     libpng_external
     GIT_REPOSITORY https://github.com/pnggroup/libpng.git
-    GIT_TAG        libpng18   # stable branch
+    GIT_TAG        v1.6.58   # stable branch
   )
 
   FetchContent_MakeAvailable(libpng_external)
