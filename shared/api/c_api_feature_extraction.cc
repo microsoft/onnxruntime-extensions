@@ -4,7 +4,6 @@
 #include "speech_extractor.h"
 
 #include "c_api_utils.hpp"
-#include <cmath>
 #include <math/energy_stft_segmentation.hpp>
 
 using namespace ort_extensions;

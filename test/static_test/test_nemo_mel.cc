@@ -387,6 +387,33 @@ TEST(NemoMelTest, NormalizeRejectsBadShape) {
   EXPECT_FALSE(kernel.Compute(input, output).IsOk());
 }
 
+TEST(NemoMelTest, NormalizeSingleFrame) {
+  // Single frame (num_frames=1) should not crash and should output zeros
+  const int64_t F = 4, T = 1;
+  std::vector<float> data = {1.0f, 2.0f, 3.0f, 4.0f};
+
+  PerFeatureNormalize kernel;
+  AttrDict attrs;
+  attrs["eps"] = double{1e-5};
+  attrs["feature_first"] = int64_t{1};
+  ASSERT_TRUE(kernel.Init(attrs).IsOk());
+
+  auto input = MakeInputTensor({F, T}, data.data());
+  auto output = MakeOutputTensor();
+  ASSERT_TRUE(kernel.Compute(input, output).IsOk());
+
+  auto& shape = output.Shape();
+  ASSERT_EQ(shape.size(), 2u);
+  EXPECT_EQ(shape[0], F);
+  EXPECT_EQ(shape[1], T);
+
+  // All outputs should be zero and finite
+  for (int64_t f = 0; f < F; ++f) {
+    EXPECT_NEAR(output.Data()[f], 0.0f, 1e-6f);
+    ASSERT_TRUE(std::isfinite(output.Data()[f]));
+  }
+}
+
 // =====================================================================
 // End-to-end: NemoLogMel -> PerFeatureNormalize
 // =====================================================================

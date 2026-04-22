@@ -702,6 +702,13 @@ class PerFeatureNormalize {
     // Copy input to output first
     std::memcpy(out_data, in_data, num_features * num_frames * sizeof(float));
 
+    // Need at least 2 frames for sample std (N-1 denominator)
+    if (num_frames <= 1) {
+      // Single frame or empty: output zeros (value - mean = 0 for constant)
+      std::memset(out_data, 0, num_features * num_frames * sizeof(float));
+      return {};
+    }
+
     for (int64_t f = 0; f < num_features; ++f) {
       // Compute mean
       float sum = 0.0f;
@@ -737,8 +744,9 @@ class PerFeatureNormalize {
 
 // NeMo-compatible log-mel spectrogram kernel.
 // Wraps nemo_mel::NemoComputeLogMelBatch for use in the SpeechFeatureExtractor pipeline.
-// Input:  [1, num_samples] float32 PCM audio
-// Output: [1, num_mels, num_frames] float32 log-mel spectrogram
+// Input:  [num_samples] or [1, num_samples] float32 PCM audio
+// Output: [num_mels, num_frames] float32 log-mel spectrogram per example;
+//         StackTensors adds the batch dimension later in the pipeline.
 class NemoLogMel {
  public:
   template <typename DictT>

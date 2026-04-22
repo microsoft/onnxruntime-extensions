@@ -26,7 +26,11 @@ struct AudioDecoder {
       } else if (key == "stereo_to_mono") {
         stereo_mixer_ = std::get<std::int64_t>(value);
       } else if (key == "max_samples") {
-        max_samples_ = static_cast<size_t>(std::get<std::int64_t>(value));
+        auto val = std::get<std::int64_t>(value);
+        if (val < 0) {
+          return {kOrtxErrorInvalidArgument, "[AudioDecoder]: max_samples must be >= 0"};
+        }
+        max_samples_ = static_cast<size_t>(val);  // 0 = unlimited
       } else {
         return {kOrtxErrorInvalidArgument, "[AudioDecoder]: Invalid argument"};
       }
