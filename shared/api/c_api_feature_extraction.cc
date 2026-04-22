@@ -6,7 +6,6 @@
 #include "c_api_utils.hpp"
 #include <cmath>
 #include <math/energy_stft_segmentation.hpp>
-#include <audio/audio_decoder.h>
 
 using namespace ort_extensions;
 
@@ -166,58 +165,4 @@ extError_t ORTX_API_CALL OrtxFeatureExtraction(OrtxFeatureExtractor* extractor, 
   }
 
   return status.Code();
-}
-
-extError_t ORTX_API_CALL OrtxDecodeAudio(OrtxRawAudios* raw_audios, size_t index, int64_t target_sample_rate,
-                                         OrtxTensorResult** result) {
-  if (raw_audios == nullptr || result == nullptr) {
-    ReturnableStatus::last_error_message_ = "Invalid argument";
-    return kOrtxErrorInvalidArgument;
-  }
-
-  auto* audios_obj = static_cast<RawAudiosObject*>(raw_audios);
-  if (index >= audios_obj->num_audios_) {
-    ReturnableStatus::last_error_message_ = "Audio index out of range";
-    return kOrtxErrorInvalidArgument;
-  }
-
-  // Configure decoder: target sample rate, stereo to mono, no truncation
-  AudioDecoder decoder;
-  std::unordered_map<std::string, std::variant<std::int64_t, std::vector<std::int64_t>>> attrs;
-  if (target_sample_rate > 0) {
-    attrs["target_sample_rate"] = target_sample_rate;
-  }
-  attrs["stereo_to_mono"] = int64_t{1};
-  attrs["max_samples"] = int64_t{0};  // No truncation
-  ReturnableStatus status = decoder.Init(attrs);
-  if (!status.IsOk()) {
-    *result = nullptr;
-    return status.Code();
-  }
-
-  // Wrap raw audio bytes as a uint8 tensor for the decoder
-  auto& audio_bytes = audios_obj->audios_[index];
-  std::vector<int64_t> input_shape = {1, static_cast<int64_t>(audio_bytes.size())};
-  ortc::Tensor<uint8_t> input_tensor(&CppAllocator::Instance());
-  auto* input_data = input_tensor.Allocate(input_shape);
-  std::memcpy(input_data, audio_bytes.data(), audio_bytes.size());
-
-  // Decode to float32 PCM
-  auto pcm_tensor = std::make_unique<ortc::Tensor<float>>(&CppAllocator::Instance());
-  auto sr_tensor = std::make_unique<ortc::Tensor<int64_t>>(&CppAllocator::Instance());
-  status = decoder.ComputeNoOpt2(input_tensor, *pcm_tensor, *sr_tensor);
-  if (!status.IsOk()) {
-    *result = nullptr;
-    return status.Code();
-  }
-
-  // Pack results: [0] = pcm float32, [1] = sample rate int64
-  auto ts_result = std::make_unique<TensorResult>();
-  std::vector<std::unique_ptr<ortc::TensorBase>> tensors;
-  tensors.push_back(std::move(pcm_tensor));
-  tensors.push_back(std::move(sr_tensor));
-  ts_result->SetTensors(std::move(tensors));
-  *result = static_cast<OrtxTensorResult*>(ts_result.release());
-
-  return extError_t();
 }
