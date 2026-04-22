@@ -342,33 +342,32 @@ TEST(ProcessorTest, TestGemma4ImageProcessing) {
   EXPECT_EQ(pos_data[0], 0);
   EXPECT_EQ(pos_data[1], 0);
 
-  // Find the first padding position (should have -1, -1).
-  bool found_padding = false;
-  for (int64_t i = 0; i < kMaxPatches; ++i) {
-    if (pos_data[i * 2] == -1 && pos_data[i * 2 + 1] == -1) {
-      found_padding = true;
-      // All subsequent positions should also be padding.
-      for (int64_t j = i + 1; j < kMaxPatches; ++j) {
-        EXPECT_EQ(pos_data[j * 2], -1);
-        EXPECT_EQ(pos_data[j * 2 + 1], -1);
-      }
-      break;
-    }
+  // Derive the expected number of real patches from num_soft_tokens.
+  // Each soft token maps to pooling_kernel_size^2 = 9 patches.
+  // Read num_soft_tokens early (output 2) to compute expected real patch count.
+  OrtxObjectPtr<OrtxTensor> nst_tensor;
+  err = OrtxTensorResultGetAt(result.get(), 2, nst_tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+  const int64_t* nst_peek{};
+  const int64_t* nst_shape_peek{};
+  size_t nst_dims_peek{};
+  OrtxGetTensorData(nst_tensor.get(), reinterpret_cast<const void**>(&nst_peek), &nst_shape_peek, &nst_dims_peek);
+  int64_t expected_real_patches = nst_peek[0] * 9;  // pooling_kernel_size^2
+  ASSERT_GT(expected_real_patches, 0);
+  ASSERT_LE(expected_real_patches, kMaxPatches);
+
+  // Verify that positions beyond the real patches are (-1, -1) padding.
+  for (int64_t i = expected_real_patches; i < kMaxPatches; ++i) {
+    EXPECT_EQ(pos_data[i * 2], -1) << "Padding position " << i << " x should be -1";
+    EXPECT_EQ(pos_data[i * 2 + 1], -1) << "Padding position " << i << " y should be -1";
   }
-  EXPECT_TRUE(found_padding) << "Image should not fill all patches exactly (expect some padding)";
 
-  // Output 2: num_soft_tokens — int64 (batch, 1)
-  err = OrtxTensorResultGetAt(result.get(), 2, tensor.ToBeAssigned());
-  ASSERT_EQ(err, kOrtxOK);
-
-  const int64_t* nst_data{};
-  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&nst_data), &shape, &num_dims);
-  ASSERT_EQ(err, kOrtxOK);
-  ASSERT_EQ(num_dims, 2ULL);
-  ASSERT_EQ(shape[0], 1);
-  // num_soft_tokens should be > 0 and <= max_soft_tokens
-  EXPECT_GT(nst_data[0], 0);
-  EXPECT_LE(nst_data[0], 280);
+  // Output 2: num_soft_tokens — already validated above via nst_peek.
+  // Just verify the shape here.
+  ASSERT_EQ(nst_dims_peek, 2ULL);
+  ASSERT_EQ(nst_shape_peek[0], 1);
+  EXPECT_GT(nst_peek[0], 0);
+  EXPECT_LE(nst_peek[0], 280);
 }
 
 TEST(ProcessorTest, TestGemma4ImageProcessingMultiImage) {
