@@ -278,6 +278,128 @@ TEST(ProcessorTest, TestQwen3VLImageProcessing) {
   ASSERT_EQ(patch_dim, 1536);
 }
 
+TEST(ProcessorTest, TestGemma4ImageProcessing) {
+  // Use a single test image to verify the Gemma 4 vision preprocessing pipeline:
+  // DecodeImage -> Gemma4ImageTransform (aspect-ratio resize + patchify + position IDs)
+  const char* image_path[] = {"data/processor/australia.jpg"};
+
+  OrtxObjectPtr<OrtxRawImages> raw_images{};
+  extError_t err = OrtxLoadImages(raw_images.ToBeAssigned(), image_path, 1, nullptr);
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxProcessor> processor;
+  err = OrtxCreateProcessor(processor.ToBeAssigned(), "data/models/gemma-4/image_processor.json");
+  if (err != kOrtxOK) {
+    std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxImagePreProcess(processor.get(), raw_images.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Output 0: pixel_values — float (batch, max_patches, patch_dim)
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const float* pv_data{};
+  const int64_t* shape{};
+  size_t num_dims;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&pv_data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 3ULL);           // (batch, max_patches, patch_dim)
+  ASSERT_EQ(shape[0], 1);              // single image
+  // Default max_patches = 280 * 9 = 2520
+  constexpr int64_t kMaxPatches = 280 * 9;
+  constexpr int64_t kPatchDim = 16 * 16 * 3;  // 768
+  ASSERT_EQ(shape[1], kMaxPatches);
+  ASSERT_EQ(shape[2], kPatchDim);
+
+  // Pixel values should be rescaled to [0, 1].
+  bool all_in_range = true;
+  for (int64_t i = 0; i < std::min<int64_t>(shape[1] * shape[2], 10000); ++i) {
+    if (pv_data[i] < 0.0f || pv_data[i] > 1.0f) {
+      all_in_range = false;
+      break;
+    }
+  }
+  EXPECT_TRUE(all_in_range) << "Pixel values should be in [0, 1]";
+
+  // Output 1: position_ids — int64 (batch, max_patches, 2)
+  err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const int64_t* pos_data{};
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&pos_data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 3ULL);           // (batch, max_patches, 2)
+  ASSERT_EQ(shape[1], kMaxPatches);
+  ASSERT_EQ(shape[2], 2);
+
+  // First position should be (0, 0), i.e. x=0, y=0
+  EXPECT_EQ(pos_data[0], 0);
+  EXPECT_EQ(pos_data[1], 0);
+
+  // Find the first padding position (should have -1, -1).
+  bool found_padding = false;
+  for (int64_t i = 0; i < kMaxPatches; ++i) {
+    if (pos_data[i * 2] == -1 && pos_data[i * 2 + 1] == -1) {
+      found_padding = true;
+      // All subsequent positions should also be padding.
+      for (int64_t j = i + 1; j < kMaxPatches; ++j) {
+        EXPECT_EQ(pos_data[j * 2], -1);
+        EXPECT_EQ(pos_data[j * 2 + 1], -1);
+      }
+      break;
+    }
+  }
+  EXPECT_TRUE(found_padding) << "Image should not fill all patches exactly (expect some padding)";
+
+  // Output 2: num_soft_tokens — int64 (batch, 1)
+  err = OrtxTensorResultGetAt(result.get(), 2, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const int64_t* nst_data{};
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&nst_data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 2ULL);
+  ASSERT_EQ(shape[0], 1);
+  // num_soft_tokens should be > 0 and <= max_soft_tokens
+  EXPECT_GT(nst_data[0], 0);
+  EXPECT_LE(nst_data[0], 280);
+}
+
+TEST(ProcessorTest, TestGemma4ImageProcessingMultiImage) {
+  // Verify batched processing works with multiple images of different sizes.
+  const char* image_paths[] = {"data/processor/standard_s.jpg", "data/processor/australia.jpg"};
+
+  OrtxObjectPtr<OrtxRawImages> raw_images{};
+  extError_t err = OrtxLoadImages(raw_images.ToBeAssigned(), image_paths, 2, nullptr);
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxProcessor> processor;
+  err = OrtxCreateProcessor(processor.ToBeAssigned(), "data/models/gemma-4/image_processor.json");
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxImagePreProcess(processor.get(), raw_images.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  // pixel_values batch dim should be 2
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const float* data{};
+  const int64_t* shape{};
+  size_t num_dims;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 3ULL);
+  ASSERT_EQ(shape[0], 2);  // batch of 2 images
+}
+
 // Security regression test: CMYK JPEG must be rejected at decode time (CWE-122).
 //
 // A CMYK JPEG has 4 output channels. Phi4VisionDynamicPreprocess allocates a

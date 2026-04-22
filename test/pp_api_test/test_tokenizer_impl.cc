@@ -578,3 +578,47 @@ TEST(OrtxTokenizerV5Test, Qwen2_5_SyntheticV5_Tokenizer) {
   EXPECT_TRUE(status.IsOk());
   EXPECT_EQ(out_text[0], input[0]);
 }
+
+// ============================================================================
+// Gemma 4 tokenizer tests
+// ============================================================================
+
+/*
+  Test Gemma 4 tokenizer (google/gemma-4-E2B-it).
+  Gemma 4 uses GemmaTokenizer (BPE), same tokenizer family as Gemma 2/3,
+  with v5-era file layout:
+  - No add_bos_token in tokenizer_config.json (inferred from per-class defaults)
+  - chat_template in separate .jinja file
+  - 262144 vocab size
+  Files downloaded from: https://huggingface.co/google/gemma-4-E2B-it
+*/
+TEST(OrtxTokenizerTest, Gemma4Tokenizer) {
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/models/gemma-4");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
+  }
+
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
+
+  // Test basic tokenization (BOS should be added automatically)
+  std::vector<std::string_view> input = {"This is a test."};
+  std::vector<std::vector<extTokenId_t>> token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  EXPECT_TRUE(status.IsOk());
+  DumpTokenIds(token_ids);
+
+  EXPECT_EQ(token_ids.size(), 1u);
+  ASSERT_GT(token_ids[0].size(), 0u);
+
+  // BOS token should be the first token (id=2 for Gemma family)
+  EXPECT_EQ(token_ids[0][0], 2) << "First token should be BOS (id=2)";
+
+  // Verify round-trip detokenization
+  std::vector<std::string> out_text;
+  std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {token_ids[0]};
+  status = tokenizer->Detokenize(token_ids_span, out_text);
+  EXPECT_TRUE(status.IsOk());
+  EXPECT_EQ(out_text[0], input[0]);
+}
