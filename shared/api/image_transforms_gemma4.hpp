@@ -43,22 +43,10 @@ class Gemma4ImageTransform {
 
     const int64_t max_side = (max_patches / (pooling_kernel_size * pooling_kernel_size)) * side_mult;
 
-    if (tgt_h == 0 && tgt_w == 0) {
-      // Both rounded to zero — fall back to the smallest possible square.
-      tgt_h = side_mult;
-      tgt_w = side_mult;
-    } else if (tgt_h == 0) {
-      tgt_h = side_mult;
-      tgt_w = std::min(
-          static_cast<int64_t>(std::floor(static_cast<double>(src_w) / src_h)) * side_mult,
-          max_side);
-      if (tgt_w == 0) tgt_w = side_mult;
-    } else if (tgt_w == 0) {
-      tgt_w = side_mult;
-      tgt_h = std::min(
-          static_cast<int64_t>(std::floor(static_cast<double>(src_h) / src_w)) * side_mult,
-          max_side);
-      if (tgt_h == 0) tgt_h = side_mult;
+    // Match HuggingFace behavior: reject extreme aspect ratios that round
+    // a dimension to zero.  See image_processing_gemma4.py L61.
+    if (tgt_h == 0 || tgt_w == 0) {
+      return {0, 0};  // caller checks and returns an error
     }
 
     return {tgt_h, tgt_w};
@@ -83,6 +71,13 @@ class Gemma4ImageTransform {
     const int64_t max_patches = max_soft_tokens_ * pooling_kernel_size_ * pooling_kernel_size_;
     auto [tgt_h, tgt_w] = GetAspectRatioPreservingSize(
         src_h, src_w, patch_size_, max_patches, pooling_kernel_size_);
+
+    if (tgt_h == 0 || tgt_w == 0) {
+      return {kOrtxErrorInvalidArgument,
+          "[Gemma4ImageTransform]: image has extreme aspect ratio ("
+          + std::to_string(src_h) + ", " + std::to_string(src_w)
+          + ") and cannot be resized to fit the patch constraints"};
+    }
 
     // Use Pillow-style bicubic resampling (same as existing Resize kernel).
     Imaging rgb_src = ImagingNew("RGB", static_cast<int>(src_w), static_cast<int>(src_h));
@@ -126,17 +121,18 @@ class Gemma4ImageTransform {
       for (int64_t px = 0; px < pw; ++px) {
         const int64_t patch_idx = py * pw + px;
         float* dst = pv + patch_idx * patch_dim;
-        // Copy patch pixels in raster order: for each (dy, dx) in patch, for
-        // each channel.  Layout: C contiguous blocks of (patch_size * patch_size).
-        for (int64_t ch = 0; ch < C; ++ch) {
-          for (int64_t dy = 0; dy < patch_size_; ++dy) {
-            const int64_t row = py * patch_size_ + dy;
-            for (int64_t dx = 0; dx < patch_size_; ++dx) {
-              const int64_t col = px * patch_size_ + dx;
-              uint8_t* pixel = reinterpret_cast<uint8_t*>(
-                  rgb_dst->image[row] + col * 4);
-              dst[ch * patch_size_ * patch_size_ + dy * patch_size_ + dx] =
-                  static_cast<float>(pixel[ch]) * rescale;
+        // Copy patch pixels in HWC raster order to match HuggingFace:
+        // permute(1, 3, 2, 4, 0) in convert_image_to_patches() yields
+        // (patch_height, patch_width, num_channels) within each patch.
+        for (int64_t dy = 0; dy < patch_size_; ++dy) {
+          const int64_t row = py * patch_size_ + dy;
+          for (int64_t dx = 0; dx < patch_size_; ++dx) {
+            const int64_t col = px * patch_size_ + dx;
+            uint8_t* pixel = reinterpret_cast<uint8_t*>(
+                rgb_dst->image[row] + col * 4);
+            const int64_t base = (dy * patch_size_ + dx) * C;
+            for (int64_t ch = 0; ch < C; ++ch) {
+              dst[base + ch] = static_cast<float>(pixel[ch]) * rescale;
             }
           }
         }

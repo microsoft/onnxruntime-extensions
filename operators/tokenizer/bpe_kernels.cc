@@ -812,11 +812,15 @@ void JsonFastTokenizer::UpdateTokenizer(const TokenJsonConfig& config, const jso
   // tokenizer_config.json. When these flags were not explicitly set, try to
   // infer BOS/EOS behavior from the post_processor in tokenizer.json, or fall
   // back to per-class defaults for known tokenizer families.
-  // Track BOS and EOS inference separately so that finding only one in the
-  // post_processor doesn't suppress the per-class default for the other.
+  //
+  // Note: EOS inference is intentionally scoped inside the BOS-not-explicit
+  // block rather than being fully independent. In pre-v5 tokenizers (e.g.
+  // Mistral), add_bos_token is explicit but add_eos_token is simply absent
+  // (meaning "default false", not "infer from post_processor"). Making EOS
+  // inference independent would incorrectly enable EOS for those models.
+  // In v5, both flags are absent, so this block correctly handles both.
   if (!config.add_bos_token_explicit_ && !config.bos_token_.empty()) {
     bool bos_inferred = false;
-    bool eos_inferred = false;
     auto post_processor = tok_json.find("post_processor");
     if (post_processor != tok_json.end()) {
       std::string text = post_processor->dump();
@@ -827,7 +831,6 @@ void JsonFastTokenizer::UpdateTokenizer(const TokenJsonConfig& config, const jso
       if (!config.add_eos_token_explicit_ &&
           text.find(config.eos_token_) != std::string::npos) {
         add_eos_token_ = true;
-        eos_inferred = true;
       }
     }
 

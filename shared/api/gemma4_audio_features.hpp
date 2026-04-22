@@ -259,7 +259,9 @@ class Gemma4LogMel {
       for (int64_t fi = 0; fi < num_frames; ++fi) {
         float* mel_row = logmel_data.data() + fi * feature_size_;
         for (int64_t m = 0; m < feature_size_; ++m) {
-          mel_row[m] /= per_bin_stddev_[m];
+          if (per_bin_stddev_[m] != 0.0f) {
+            mel_row[m] /= per_bin_stddev_[m];
+          }
         }
       }
     }
