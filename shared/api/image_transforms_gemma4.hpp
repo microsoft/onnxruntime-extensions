@@ -43,10 +43,22 @@ class Gemma4ImageTransform {
 
     const int64_t max_side = (max_patches / (pooling_kernel_size * pooling_kernel_size)) * side_mult;
 
-    // Match HuggingFace behavior: reject extreme aspect ratios that round
-    // a dimension to zero.  See image_processing_gemma4.py L61.
-    if (tgt_h == 0 || tgt_w == 0) {
+    // Match HuggingFace behavior: reject images where both dimensions round
+    // to zero (extreme aspect ratio).  See image_processing_gemma4.py L61.
+    if (tgt_h == 0 && tgt_w == 0) {
       return {0, 0};  // caller checks and returns an error
+    } else if (tgt_h == 0) {
+      tgt_h = side_mult;
+      tgt_w = std::min(
+          static_cast<int64_t>(std::floor(static_cast<double>(src_w) / src_h)) * side_mult,
+          max_side);
+      if (tgt_w == 0) tgt_w = side_mult;
+    } else if (tgt_w == 0) {
+      tgt_w = side_mult;
+      tgt_h = std::min(
+          static_cast<int64_t>(std::floor(static_cast<double>(src_h) / src_w)) * side_mult,
+          max_side);
+      if (tgt_h == 0) tgt_h = side_mult;
     }
 
     return {tgt_h, tgt_w};
