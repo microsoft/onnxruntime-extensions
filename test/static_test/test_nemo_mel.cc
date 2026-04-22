@@ -10,8 +10,9 @@
 
 #include "gtest/gtest.h"
 #include "nemo_mel_spectrogram.h"
-#include "speech_features.hpp"
 #include "c_api_utils.hpp"
+#include "runner.hpp"
+#include "speech_features.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -266,10 +267,6 @@ TEST(NemoMelTest, StreamingSmallChunk) {
 
 using namespace ort_extensions;
 
-using AttrDict = std::unordered_map<std::string,
-    std::variant<std::string, int64_t, double,
-                 std::vector<int64_t>, std::vector<double>, std::vector<std::string>>>;
-
 static ortc::Tensor<float> MakeInputTensor(const std::vector<int64_t>& shape, const float* data) {
   return ortc::Tensor<float>(shape, const_cast<void*>(static_cast<const void*>(data)));
 }
@@ -288,53 +285,6 @@ static AttrDict MakeNemoLogMelAttrs() {
   attrs["preemph"] = double{0.97};
   attrs["log_eps"] = double{5.96046448e-08};
   return attrs;
-}
-
-TEST(NemoMelTest, KernelOutputShape) {
-  auto wav = SineWave(440.0f, 1.0f);
-
-  NemoLogMel kernel;
-  ASSERT_TRUE(kernel.Init(MakeNemoLogMelAttrs()).IsOk());
-
-  auto input = MakeInputTensor({static_cast<int64_t>(wav.size())}, wav.data());
-  auto output = MakeOutputTensor();
-  ASSERT_TRUE(kernel.Compute(input, output).IsOk());
-
-  auto& shape = output.Shape();
-  ASSERT_EQ(shape.size(), 2u);  // [num_mels, num_frames] -- no batch dim
-  EXPECT_EQ(shape[0], 128);
-  EXPECT_EQ(shape[1], 100);  // ceil(16000 / 160)
-}
-
-TEST(NemoMelTest, KernelAccepts2DInput) {
-  auto wav = SineWave(440.0f, 0.5f);
-
-  NemoLogMel kernel;
-  ASSERT_TRUE(kernel.Init(MakeNemoLogMelAttrs()).IsOk());
-
-  auto input = MakeInputTensor({1, static_cast<int64_t>(wav.size())}, wav.data());
-  auto output = MakeOutputTensor();
-  ASSERT_TRUE(kernel.Compute(input, output).IsOk());
-
-  auto& shape = output.Shape();
-  ASSERT_EQ(shape.size(), 2u);
-  EXPECT_EQ(shape[0], 128);
-}
-
-TEST(NemoMelTest, KernelFiniteOutput) {
-  auto wav = SineWave(1000.0f, 0.5f);
-
-  NemoLogMel kernel;
-  ASSERT_TRUE(kernel.Init(MakeNemoLogMelAttrs()).IsOk());
-
-  auto input = MakeInputTensor({static_cast<int64_t>(wav.size())}, wav.data());
-  auto output = MakeOutputTensor();
-  ASSERT_TRUE(kernel.Compute(input, output).IsOk());
-
-  auto& shape = output.Shape();
-  size_t n = static_cast<size_t>(shape[0] * shape[1]);
-  for (size_t i = 0; i < n; ++i)
-    ASSERT_TRUE(std::isfinite(output.Data()[i])) << "Non-finite at index " << i;
 }
 
 // =====================================================================

@@ -181,14 +181,14 @@ extError_t ORTX_API_CALL OrtxDecodeAudio(OrtxRawAudios* raw_audios, size_t index
     return kOrtxErrorInvalidArgument;
   }
 
-  // Configure decoder: target sample rate, stereo→mono, no truncation
+  // Configure decoder: target sample rate, stereo to mono, no truncation
   AudioDecoder decoder;
   std::unordered_map<std::string, std::variant<std::int64_t, std::vector<std::int64_t>>> attrs;
   if (target_sample_rate > 0) {
     attrs["target_sample_rate"] = target_sample_rate;
   }
   attrs["stereo_to_mono"] = int64_t{1};
-  attrs["max_samples"] = int64_t{0};  // No truncation — return full audio
+  attrs["max_samples"] = int64_t{0};  // No truncation
   ReturnableStatus status = decoder.Init(attrs);
   if (!status.IsOk()) {
     *result = nullptr;
