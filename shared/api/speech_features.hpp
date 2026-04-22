@@ -659,4 +659,71 @@ class Phi4AudioEmbed {
   int64_t qformer_compression_rate_{1};
 };
 
+// Per-feature (per-mel-bin) normalization: for each feature row,
+// compute mean and std across time, then normalize.
+// Input:  [1, num_features, num_frames]  (feature_first) or [1, num_frames, num_features]
+// Output: same shape, normalized.
+class PerFeatureNormalize {
+ public:
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    for (const auto& [key, value] : attrs) {
+      if (key == "eps") {
+        eps_ = static_cast<float>(std::get<double>(value));
+      } else if (key == "feature_first") {
+        feature_first_ = std::get<int64_t>(value);
+      } else if (key != "_comment") {
+        return {kOrtxErrorInvalidArgument, "[PerFeatureNormalize]: Invalid key in the JSON configuration."};
+      }
+    }
+    return {};
+  }
+
+  OrtxStatus Compute(const ortc::Tensor<float>& input, ortc::Tensor<float>& output) {
+    const auto& shape = input.Shape();
+    if (shape.size() != 3 || shape[0] != 1) {
+      return {kOrtxErrorInvalidArgument, "[PerFeatureNormalize]: Expected input shape [1, features, frames]."};
+    }
+
+    const int64_t num_features = feature_first_ ? shape[1] : shape[2];
+    const int64_t num_frames = feature_first_ ? shape[2] : shape[1];
+    const float* in_data = input.Data();
+    float* out_data = output.Allocate({shape[0], shape[1], shape[2]});
+
+    // Copy input to output first
+    std::memcpy(out_data, in_data, shape[0] * shape[1] * shape[2] * sizeof(float));
+
+    for (int64_t f = 0; f < num_features; ++f) {
+      // Compute mean
+      float sum = 0.0f;
+      for (int64_t t = 0; t < num_frames; ++t) {
+        int64_t idx = feature_first_ ? (f * num_frames + t) : (t * num_features + f);
+        sum += out_data[idx];
+      }
+      float mean = sum / static_cast<float>(num_frames);
+
+      // Compute std (sample std, divide by N-1)
+      float var_sum = 0.0f;
+      for (int64_t t = 0; t < num_frames; ++t) {
+        int64_t idx = feature_first_ ? (f * num_frames + t) : (t * num_features + f);
+        float d = out_data[idx] - mean;
+        var_sum += d * d;
+      }
+      float std_val = std::sqrt(var_sum / static_cast<float>(num_frames - 1)) + eps_;
+
+      // Normalize
+      for (int64_t t = 0; t < num_frames; ++t) {
+        int64_t idx = feature_first_ ? (f * num_frames + t) : (t * num_features + f);
+        out_data[idx] = (out_data[idx] - mean) / std_val;
+      }
+    }
+
+    return {};
+  }
+
+ private:
+  float eps_{1e-5f};
+  int64_t feature_first_{1};  // 1 = [1, features, frames], 0 = [1, frames, features]
+};
+
 }  // namespace ort_extensions

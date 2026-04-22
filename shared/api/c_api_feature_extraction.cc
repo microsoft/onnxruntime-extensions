@@ -4,7 +4,9 @@
 #include "speech_extractor.h"
 
 #include "c_api_utils.hpp"
+#include <cmath>
 #include <math/energy_stft_segmentation.hpp>
+#include <audio/audio_decoder.h>
 
 using namespace ort_extensions;
 
@@ -164,4 +166,85 @@ extError_t ORTX_API_CALL OrtxFeatureExtraction(OrtxFeatureExtractor* extractor, 
   }
 
   return status.Code();
+}
+
+extError_t ORTX_API_CALL OrtxDecodeAudio(OrtxRawAudios* raw_audios, size_t index, int64_t target_sample_rate,
+                                         OrtxTensorResult** result) {
+  if (raw_audios == nullptr || result == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  auto* audios_obj = static_cast<RawAudiosObject*>(raw_audios);
+  if (index >= audios_obj->num_audios_) {
+    ReturnableStatus::last_error_message_ = "Audio index out of range";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  // Configure decoder: target sample rate, stereo→mono, no truncation
+  AudioDecoder decoder;
+  std::unordered_map<std::string, std::variant<std::int64_t, std::vector<std::int64_t>>> attrs;
+  if (target_sample_rate > 0) {
+    attrs["target_sample_rate"] = target_sample_rate;
+  }
+  attrs["stereo_to_mono"] = int64_t{1};
+  attrs["max_samples"] = int64_t{0};  // No truncation — return full audio
+  ReturnableStatus status = decoder.Init(attrs);
+  if (!status.IsOk()) {
+    *result = nullptr;
+    return status.Code();
+  }
+
+  // Wrap raw audio bytes as a uint8 tensor for the decoder
+  auto& audio_bytes = audios_obj->audios_[index];
+  std::vector<int64_t> input_shape = {1, static_cast<int64_t>(audio_bytes.size())};
+  ortc::Tensor<uint8_t> input_tensor(&CppAllocator::Instance());
+  auto* input_data = input_tensor.Allocate(input_shape);
+  std::memcpy(input_data, audio_bytes.data(), audio_bytes.size());
+
+  // Decode to float32 PCM
+  auto pcm_tensor = std::make_unique<ortc::Tensor<float>>(&CppAllocator::Instance());
+  auto sr_tensor = std::make_unique<ortc::Tensor<int64_t>>(&CppAllocator::Instance());
+  status = decoder.ComputeNoOpt2(input_tensor, *pcm_tensor, *sr_tensor);
+  if (!status.IsOk()) {
+    *result = nullptr;
+    return status.Code();
+  }
+
+  // Pack results: [0] = pcm float32, [1] = sample rate int64
+  auto ts_result = std::make_unique<TensorResult>();
+  std::vector<std::unique_ptr<ortc::TensorBase>> tensors;
+  tensors.push_back(std::move(pcm_tensor));
+  tensors.push_back(std::move(sr_tensor));
+  ts_result->SetTensors(std::move(tensors));
+  *result = static_cast<OrtxTensorResult*>(ts_result.release());
+
+  return extError_t();
+}
+
+extError_t ORTX_API_CALL OrtxPerFeatureNormalize(float* mel, int64_t num_features, int64_t num_frames, float eps) {
+  if (mel == nullptr || num_features <= 0 || num_frames <= 1) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  for (int64_t f = 0; f < num_features; ++f) {
+    float* row = mel + f * num_frames;
+    // Mean
+    float sum = 0.0f;
+    for (int64_t t = 0; t < num_frames; ++t) sum += row[t];
+    float mean = sum / static_cast<float>(num_frames);
+    // Std (sample std, N-1)
+    float var_sum = 0.0f;
+    for (int64_t t = 0; t < num_frames; ++t) {
+      float d = row[t] - mean;
+      var_sum += d * d;
+    }
+    float std_val = std::sqrt(var_sum / static_cast<float>(num_frames - 1)) + eps;
+    // Normalize
+    for (int64_t t = 0; t < num_frames; ++t)
+      row[t] = (row[t] - mean) / std_val;
+  }
+
+  return extError_t();
 }
