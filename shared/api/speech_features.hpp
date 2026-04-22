@@ -5,6 +5,7 @@
 
 #include <dlib/matrix.h>
 #include <math/dlib/stft_norm.hpp>
+#include "nemo_mel_spectrogram.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -681,17 +682,25 @@ class PerFeatureNormalize {
 
   OrtxStatus Compute(const ortc::Tensor<float>& input, ortc::Tensor<float>& output) {
     const auto& shape = input.Shape();
-    if (shape.size() != 3 || shape[0] != 1) {
-      return {kOrtxErrorInvalidArgument, "[PerFeatureNormalize]: Expected input shape [1, features, frames]."};
+    int64_t num_features, num_frames;
+
+    if (shape.size() == 2) {
+      // 2D: [features, frames] or [frames, features]
+      num_features = feature_first_ ? shape[0] : shape[1];
+      num_frames = feature_first_ ? shape[1] : shape[0];
+    } else if (shape.size() == 3 && shape[0] == 1) {
+      // 3D: [1, features, frames] or [1, frames, features]
+      num_features = feature_first_ ? shape[1] : shape[2];
+      num_frames = feature_first_ ? shape[2] : shape[1];
+    } else {
+      return {kOrtxErrorInvalidArgument, "[PerFeatureNormalize]: Expected input shape [features, frames] or [1, features, frames]."};
     }
 
-    const int64_t num_features = feature_first_ ? shape[1] : shape[2];
-    const int64_t num_frames = feature_first_ ? shape[2] : shape[1];
     const float* in_data = input.Data();
-    float* out_data = output.Allocate({shape[0], shape[1], shape[2]});
+    float* out_data = output.Allocate(shape);
 
     // Copy input to output first
-    std::memcpy(out_data, in_data, shape[0] * shape[1] * shape[2] * sizeof(float));
+    std::memcpy(out_data, in_data, num_features * num_frames * sizeof(float));
 
     for (int64_t f = 0; f < num_features; ++f) {
       // Compute mean
@@ -724,6 +733,60 @@ class PerFeatureNormalize {
  private:
   float eps_{1e-5f};
   int64_t feature_first_{1};  // 1 = [1, features, frames], 0 = [1, frames, features]
+};
+
+// NeMo-compatible log-mel spectrogram kernel.
+// Wraps nemo_mel::NemoComputeLogMelBatch for use in the SpeechFeatureExtractor pipeline.
+// Input:  [1, num_samples] float32 PCM audio
+// Output: [1, num_mels, num_frames] float32 log-mel spectrogram
+class NemoLogMel {
+ public:
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    for (const auto& [key, value] : attrs) {
+      if (key == "num_mels") {
+        cfg_.num_mels = static_cast<int>(std::get<int64_t>(value));
+      } else if (key == "fft_size") {
+        cfg_.fft_size = static_cast<int>(std::get<int64_t>(value));
+      } else if (key == "hop_length") {
+        cfg_.hop_length = static_cast<int>(std::get<int64_t>(value));
+      } else if (key == "win_length") {
+        cfg_.win_length = static_cast<int>(std::get<int64_t>(value));
+      } else if (key == "sample_rate") {
+        cfg_.sample_rate = static_cast<int>(std::get<int64_t>(value));
+      } else if (key == "preemph") {
+        cfg_.preemph = static_cast<float>(std::get<double>(value));
+      } else if (key == "log_eps") {
+        cfg_.log_eps = static_cast<float>(std::get<double>(value));
+      } else if (key != "_comment") {
+        return {kOrtxErrorInvalidArgument, "[NemoLogMel]: Invalid key in the JSON configuration."};
+      }
+    }
+    return {};
+  }
+
+  OrtxStatus Compute(const ortc::Tensor<float>& pcm, ortc::Tensor<float>& logmel) {
+    const auto& shape = pcm.Shape();
+    size_t num_samples;
+    if (shape.size() == 1) {
+      num_samples = static_cast<size_t>(shape[0]);
+    } else if (shape.size() == 2 && shape[0] == 1) {
+      num_samples = static_cast<size_t>(shape[1]);
+    } else {
+      return {kOrtxErrorInvalidArgument, "[NemoLogMel]: Expected input shape [num_samples] or [1, num_samples]."};
+    }
+
+    int num_frames = 0;
+    auto mel_data = nemo_mel::NemoComputeLogMelBatch(pcm.Data(), num_samples, cfg_, num_frames);
+
+    // Output [num_mels, num_frames] (no batch dim) — StackTensors adds the batch dim
+    auto* out = logmel.Allocate({cfg_.num_mels, num_frames});
+    std::memcpy(out, mel_data.data(), mel_data.size() * sizeof(float));
+    return {};
+  }
+
+ private:
+  nemo_mel::NemoMelConfig cfg_{128, 512, 160, 400, 16000, 0.97f, 5.96046448e-08f};
 };
 
 }  // namespace ort_extensions
