@@ -221,30 +221,3 @@ extError_t ORTX_API_CALL OrtxDecodeAudio(OrtxRawAudios* raw_audios, size_t index
 
   return extError_t();
 }
-
-extError_t ORTX_API_CALL OrtxPerFeatureNormalize(float* mel, int64_t num_features, int64_t num_frames, float eps) {
-  if (mel == nullptr || num_features <= 0 || num_frames <= 1) {
-    ReturnableStatus::last_error_message_ = "Invalid argument";
-    return kOrtxErrorInvalidArgument;
-  }
-
-  for (int64_t f = 0; f < num_features; ++f) {
-    float* row = mel + f * num_frames;
-    // Mean
-    float sum = 0.0f;
-    for (int64_t t = 0; t < num_frames; ++t) sum += row[t];
-    float mean = sum / static_cast<float>(num_frames);
-    // Std (sample std, N-1)
-    float var_sum = 0.0f;
-    for (int64_t t = 0; t < num_frames; ++t) {
-      float d = row[t] - mean;
-      var_sum += d * d;
-    }
-    float std_val = std::sqrt(var_sum / static_cast<float>(num_frames - 1)) + eps;
-    // Normalize
-    for (int64_t t = 0; t < num_frames; ++t)
-      row[t] = (row[t] - mean) / std_val;
-  }
-
-  return extError_t();
-}

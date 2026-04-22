@@ -146,21 +146,6 @@ extError_t ORTX_API_CALL OrtxFeatureExtraction(OrtxFeatureExtractor* extractor, 
 extError_t ORTX_API_CALL OrtxDecodeAudio(OrtxRawAudios* audios, size_t index, int64_t target_sample_rate,
                                          OrtxTensorResult** result);
 
-/**
- * @brief Applies per-feature (per-mel-bin) normalization in-place.
- *
- * For each feature row, computes mean and standard deviation across time frames,
- * then normalizes: out[t] = (in[t] - mean) / (std + eps).
- * Data is assumed to be row-major with shape [num_features, num_frames].
- *
- * @param mel Pointer to the mel spectrogram data (modified in-place).
- * @param num_features Number of feature rows (e.g. 128 mel bins).
- * @param num_frames Number of time frames.
- * @param eps Small constant added to std to avoid division by zero.
- * @return An extError_t value indicating success or failure.
- */
-extError_t ORTX_API_CALL OrtxPerFeatureNormalize(float* mel, int64_t num_features, int64_t num_frames, float eps);
-
 #ifdef __cplusplus
 }
 #endif
