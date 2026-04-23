@@ -15,6 +15,7 @@
 #include "image_transforms_mllama.hpp"
 #include "image_transforms_phi_4.hpp"
 #include "image_transforms_qwen2_5.hpp"
+#include "image_transforms_gemma4.hpp"
 #include "image_transforms_pixtral.hpp"
 
 namespace ort_extensions {
@@ -44,6 +45,7 @@ Operation::KernelRegistry ImageProcessor::kernel_registry_ = {
     {"Phi4VisionDynamicPreprocess", []() { return CreateKernelInstance(&Phi4VisionDynamicPreprocess::Compute); }},
     {"Phi4VisionProcessor", []() { return CreateKernelInstance(&Phi4VisionProcessor::Compute); }},
     {"PatchImage", []() { return CreateKernelInstance(&PatchImage::Compute); }},
+    {"Gemma4ImageTransform", []() { return CreateKernelInstance(&Gemma4ImageTransform::Compute); }},
     {"PixtralImageSizes", []() { return CreateKernelInstance(&PixtralImageSizes::Compute); }}};  // NOLINT
 
 OrtxStatus ImageProcessor::Init(std::string_view processor_def) {
