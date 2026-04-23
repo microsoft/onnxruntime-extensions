@@ -615,6 +615,16 @@ TEST(OrtxTokenizerTest, Gemma4Tokenizer) {
   // BOS token should be the first token (id=2 for Gemma family)
   EXPECT_EQ(token_ids[0][0], 2) << "First token should be BOS (id=2)";
 
+  // Verify token IDs match HF reference (HF returns [2094, 563, 496, 1594, 236761]
+  // without BOS; our tokenizer prepends BOS=2).
+  const std::vector<extTokenId_t> kExpectedIds = {2, 2094, 563, 496, 1594, 236761};
+  ASSERT_EQ(token_ids[0].size(), kExpectedIds.size())
+      << "Token count mismatch vs HF reference";
+  for (size_t i = 0; i < kExpectedIds.size(); ++i) {
+    EXPECT_EQ(token_ids[0][i], kExpectedIds[i])
+        << "Token " << i << " mismatch vs HF reference";
+  }
+
   // Verify round-trip detokenization
   std::vector<std::string> out_text;
   std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {token_ids[0]};

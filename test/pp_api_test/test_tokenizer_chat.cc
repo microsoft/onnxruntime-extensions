@@ -1510,6 +1510,18 @@ TEST(OrtxTokenizerTest, Gemma4ChatTemplate) {
   OrtxTokenId2DArrayGetItem(token_ids2.get(), 0, &ids2, &length2);
   ASSERT_GT(length2, 0u) << "Tokenized output should not be empty.";
 
+  // Verify that the first token is BOS (id=2) and the sequence contains
+  // expected structural tokens from the chat template.
+  EXPECT_EQ(ids2[0], 2) << "First token should be BOS";
+  // The rendered template starts with <bos> which tokenizes to id=2, and our
+  // tokenizer also prepends BOS, so we expect the sequence to start with BOS.
+  // Structural tokens: <|turn>=105, user=2364, \n=107
+  bool found_turn = false;
+  for (size_t i = 0; i < length2; ++i) {
+    if (ids2[i] == 105) { found_turn = true; break; }
+  }
+  EXPECT_TRUE(found_turn) << "Expected <|turn> token (id=105) in chat output";
+
   // Verify round-trip detokenization
   OrtxObjectPtr<OrtxStringArray> decoded_text2;
   OrtxDetokenize(tokenizer.get(), token_ids2.get(), decoded_text2.ToBeAssigned());

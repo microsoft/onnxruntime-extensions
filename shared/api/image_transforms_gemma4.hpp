@@ -125,7 +125,7 @@ class Gemma4ImageTransform {
     const int64_t patch_dim = patch_size_ * patch_size_ * C;   // 16*16*3 = 768
     const float rescale = 1.0f / 255.0f;
 
-    // Output 1: pixel_values  (max_patches, patch_dim), zero-padded
+    // Output 0: pixel_values  (max_patches, patch_dim), zero-padded
     float* pv = pixel_values_out.Allocate({max_patches, patch_dim});
     std::memset(pv, 0, static_cast<size_t>(max_patches * patch_dim) * sizeof(float));
 
@@ -152,7 +152,7 @@ class Gemma4ImageTransform {
     }
     ImagingDelete(rgb_dst);
 
-    // Output 2: position_ids  (max_patches, 2)
+    // Output 1: position_ids  (max_patches, 2)
     // Real patches get (x=col, y=row); padding gets (-1, -1).
     int64_t* pos = position_ids_out.Allocate({max_patches, 2});
     for (int64_t py = 0; py < ph; ++py) {
@@ -168,7 +168,7 @@ class Gemma4ImageTransform {
       pos[i * 2 + 1] = -1;
     }
 
-    // Output 3: num_soft_tokens  (1,) — the number of vision tokens after pooling
+    // Output 2: num_soft_tokens  (1,) — the number of vision tokens after pooling
     int64_t* nst = num_soft_tokens_out.Allocate({1});
     nst[0] = num_patches / (pooling_kernel_size_ * pooling_kernel_size_);
 

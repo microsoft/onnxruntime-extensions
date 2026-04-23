@@ -147,19 +147,6 @@ class Gemma4LogMel {
     const int64_t num_samples = pcm_shape[1];
     const float* pcm = pcm_input.Data();
 
-    // --- build window & filterbank on first call ---------------------------
-    if (window_.empty()) {
-      window_ = PeriodicHannWindow(static_cast<int>(frame_length_));
-      int fft_len = 1;
-      while (fft_len < frame_length_) fft_len <<= 1;
-      if (fft_overdrive_) fft_len <<= 1;
-      fft_length_ = fft_len;
-
-      mel_filters_ = MelFilterBank(
-          fft_len / 2 + 1, static_cast<int>(feature_size_),
-          static_cast<int>(sampling_rate_), min_frequency_, max_frequency_);
-    }
-
     // --- semicausal padding ------------------------------------------------
     const int64_t pad_left = frame_length_ / 2;
     const int64_t padded_len = num_samples + pad_left;
@@ -188,13 +175,13 @@ class Gemma4LogMel {
 
     std::vector<float> frame_buf(fft_length_, 0.0f);
     std::vector<float> mag;
+    std::vector<float> processed(static_cast<size_t>(frame_length_));
 
     for (int64_t fi = 0; fi < num_frames; ++fi) {
       const int64_t offset = fi * hop_length_;
       const float* frame_start = padded.data() + offset;
 
       // --- pre-emphasis (HTK flavour) or simple truncation -----------------
-      std::vector<float> processed(static_cast<size_t>(frame_length_));
       if (preemphasis_ > 0.0f) {
         if (preemphasis_htk_flavor_) {
           processed[0] = frame_start[0] * (1.0f - preemphasis_);
@@ -319,6 +306,18 @@ class Gemma4LogMel {
     hop_length_ = static_cast<int64_t>(
         std::round(sampling_rate_ * hop_length_ms_ / 1000.0));
 
+    // Pre-compute window, FFT length, and mel filterbank so Compute() is
+    // allocation-free for these (avoids lazy-init races if reused concurrently).
+    window_ = PeriodicHannWindow(static_cast<int>(frame_length_));
+    int fft_len = 1;
+    while (fft_len < frame_length_) fft_len <<= 1;
+    if (fft_overdrive_) fft_len <<= 1;
+    fft_length_ = fft_len;
+
+    mel_filters_ = MelFilterBank(
+        fft_len / 2 + 1, static_cast<int>(feature_size_),
+        static_cast<int>(sampling_rate_), min_frequency_, max_frequency_);
+
     return {};
   }
 
@@ -337,7 +336,7 @@ class Gemma4LogMel {
   std::vector<float> per_bin_mean_;
   std::vector<float> per_bin_stddev_;
 
-  // Derived / cached state (computed on first Compute call).
+  // Derived / cached state (computed in Init()).
   int64_t frame_length_ = 320;   // samples
   int64_t hop_length_ = 160;     // samples
   int fft_length_ = 512;

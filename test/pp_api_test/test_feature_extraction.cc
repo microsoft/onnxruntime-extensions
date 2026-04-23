@@ -376,6 +376,19 @@ TEST(ExtractorTest, TestGemma4AudioFeatureExtraction) {
     ASSERT_TRUE(std::isfinite(data[i])) << "log-mel value at index " << i << " is not finite";
   }
 
+  // Verify log-mel values are in a reasonable range.
+  // With mel_floor=0.001, log(0.001) ~ -6.9078. Values should be >= ~-7
+  // and typically < ~5 for speech audio.
+  const float* frame0 = data;
+  for (int i = 0; i < 10; ++i) {
+    EXPECT_GE(frame0[i], -7.5f) << "Frame 0 bin " << i << " too low";
+    EXPECT_LE(frame0[i], 5.0f) << "Frame 0 bin " << i << " too high";
+  }
+  // The first mel bin of silent/padding frames should be close to log(mel_floor)
+  // = log(0.001) ~ -6.9078.
+  EXPECT_NEAR(frame0[0], -6.9078f, 0.05f)
+      << "Frame 0 bin 0 should be near log(0.001) for semicausal pad region";
+
   // Output 1: attention mask — bool (batch, num_frames)
   err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);

@@ -327,6 +327,30 @@ TEST(ProcessorTest, TestGemma4ImageProcessing) {
   }
   EXPECT_TRUE(all_in_range) << "Pixel values should be in [0, 1]";
 
+  // Verify pixel values match HuggingFace Gemma4ImageProcessor output.
+  // Reference: HF transformers Gemma4ImageProcessor on australia.jpg (1300x876).
+  // Patch 0, first 10 values (HWC order within each patch):
+  const float kPatch0Expected[] = {
+      0.18823531f, 0.05490196f, 0.01960784f,
+      0.18823531f, 0.05490196f, 0.01960784f,
+      0.18823531f, 0.05490196f, 0.01960784f,
+      0.18823531f};
+  for (int i = 0; i < 10; ++i) {
+    EXPECT_NEAR(pv_data[i], kPatch0Expected[i], 1e-3f)
+        << "Patch 0, value " << i << " mismatch vs HF reference";
+  }
+  // Patch 1, first 10 values:
+  const float kPatch1Expected[] = {
+      0.18039216f, 0.04705883f, 0.01176471f,
+      0.18039216f, 0.04705883f, 0.01176471f,
+      0.17647059f, 0.04313726f, 0.00784314f,
+      0.17647059f};
+  const float* patch1 = pv_data + kPatchDim;  // start of patch 1
+  for (int i = 0; i < 10; ++i) {
+    EXPECT_NEAR(patch1[i], kPatch1Expected[i], 1e-3f)
+        << "Patch 1, value " << i << " mismatch vs HF reference";
+  }
+
   // Output 1: position_ids — int64 (batch, max_patches, 2)
   err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
   ASSERT_EQ(err, kOrtxOK);
@@ -338,9 +362,12 @@ TEST(ProcessorTest, TestGemma4ImageProcessing) {
   ASSERT_EQ(shape[1], kMaxPatches);
   ASSERT_EQ(shape[2], 2);
 
-  // First position should be (0, 0), i.e. x=0, y=0
-  EXPECT_EQ(pos_data[0], 0);
-  EXPECT_EQ(pos_data[1], 0);
+  // Verify position IDs match HF reference.
+  // Patch 0: (x=0, y=0), Patch 1: (x=1, y=0)  — HF uses meshgrid(arange(pw), arange(ph), indexing="xy")
+  EXPECT_EQ(pos_data[0], 0);  // patch 0 x
+  EXPECT_EQ(pos_data[1], 0);  // patch 0 y
+  EXPECT_EQ(pos_data[2], 1);  // patch 1 x
+  EXPECT_EQ(pos_data[3], 0);  // patch 1 y
 
   // Derive the expected number of real patches from num_soft_tokens.
   // Each soft token maps to pooling_kernel_size^2 = 9 patches.
@@ -351,7 +378,8 @@ TEST(ProcessorTest, TestGemma4ImageProcessing) {
   const int64_t* nst_peek{};
   const int64_t* nst_shape_peek{};
   size_t nst_dims_peek{};
-  OrtxGetTensorData(nst_tensor.get(), reinterpret_cast<const void**>(&nst_peek), &nst_shape_peek, &nst_dims_peek);
+  err = OrtxGetTensorData(nst_tensor.get(), reinterpret_cast<const void**>(&nst_peek), &nst_shape_peek, &nst_dims_peek);
+  ASSERT_EQ(err, kOrtxOK);
   int64_t expected_real_patches = nst_peek[0] * 9;  // pooling_kernel_size^2
   ASSERT_GT(expected_real_patches, 0);
   ASSERT_LE(expected_real_patches, kMaxPatches);
@@ -362,12 +390,14 @@ TEST(ProcessorTest, TestGemma4ImageProcessing) {
     EXPECT_EQ(pos_data[i * 2 + 1], -1) << "Padding position " << i << " y should be -1";
   }
 
-  // Output 2: num_soft_tokens — already validated above via nst_peek.
-  // Just verify the shape here.
+  // Verify last real patch position matches HF: (59, 38)
+  EXPECT_EQ(pos_data[(expected_real_patches - 1) * 2], 59);
+  EXPECT_EQ(pos_data[(expected_real_patches - 1) * 2 + 1], 38);
+
+  // Output 2: num_soft_tokens — verify exact value from HF reference (260).
   ASSERT_EQ(nst_dims_peek, 2ULL);
   ASSERT_EQ(nst_shape_peek[0], 1);
-  EXPECT_GT(nst_peek[0], 0);
-  EXPECT_LE(nst_peek[0], 280);
+  EXPECT_EQ(nst_peek[0], 260) << "num_soft_tokens should be 260 for australia.jpg (HF reference)";
 }
 
 TEST(ProcessorTest, TestGemma4ImageProcessingMultiImage) {
