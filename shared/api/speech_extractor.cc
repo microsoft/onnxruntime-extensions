@@ -14,6 +14,8 @@ Operation::KernelRegistry SpeechFeatureExtractor::kernel_registry_ = {
     {"AudioDecoderEx", []() { return CreateKernelInstance(&AudioDecoder::ComputeNoOpt2); }},
     {"STFTNorm", []() { return CreateKernelInstance(&SpeechFeatures::STFTNorm); }},
     {"LogMelSpectrum", []() { return CreateKernelInstance(&LogMel::Compute); }},
+    {"NemoLogMel", []() { return CreateKernelInstance(&NemoLogMel::Compute); }},
+    {"PerFeatureNormalize", []() { return CreateKernelInstance(&PerFeatureNormalize::Compute); }},
     {"Phi4AudioEmbed", []() { return CreateKernelInstance(&Phi4AudioEmbed::Compute); }},
     {"Gemma4LogMel", []() { return CreateKernelInstance(&Gemma4LogMel::Compute); }}};
 
