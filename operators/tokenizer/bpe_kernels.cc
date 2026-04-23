@@ -261,7 +261,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
   bpe::PreTokenizerWithRegEx reg_splitter;
   // NOTE: the pattern was already validated on loading json file.
   // safe to ingore the return value here.
-  auto status = reg_splitter.Compile(bbpe_tokenizer_->GetPreTokenizerRegex(ModelName()));
+  auto status = reg_splitter.Compile(bbpe_tokenizer_->GetPreTokenizerRegex(ModelName(), bpe_conf_.get().spm_model_));
   assert(status.IsOk());
 
   for (auto& seg_id : special_token_split_res) {
@@ -404,7 +404,7 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
 
   // Compile the regex-based pretokenizer
   bpe::PreTokenizerWithRegEx reg_splitter;
-  auto status = reg_splitter.Compile(bbpe_tokenizer_->GetPreTokenizerRegex(ModelName()));
+  auto status = reg_splitter.Compile(bbpe_tokenizer_->GetPreTokenizerRegex(ModelName(), bpe_conf_.get().spm_model_));
   assert(status.IsOk());
 
   bool add_dummy_prefix = bpe_conf_.get().add_dummy_prefix_;
@@ -438,7 +438,7 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
     // Gemma has its own SPM-based tokenizer with BPE fallback that behaves differently
     // from the traditional LlamaTokenizer. This is also true for certain special cases.
 
-    if (ModelName() == "Gemma" || special){
+    if (ModelName() == "Gemma" || special || bbpe_tokenizer_->IsNoOpPretokenizer()){
       size_t char_pos = 0;
       std::list<std::pair<uint32_t, uint32_t>> byte_list;
       while (res.size() < max_length && char_pos <= ustr.length()) {
@@ -736,6 +736,15 @@ void JsonFastTokenizer::LoadSpmModelParams(const json& tok_json) {
           if (target == spm_escaped_space) {
             json_conf_.spm_model_ = true;
           }
+        } else if (type == "Metaspace") {
+          // Metaspace decoder with ▁ replacement indicates SPM-style tokenization
+          std::string replacement = step.value("replacement", "");
+          if (replacement == spm_escaped_space) {
+            json_conf_.spm_model_ = true;
+          }
+          if (step.value("add_prefix_space", false)) {
+            json_conf_.add_dummy_prefix_ = true;
+          }
         } else if (type == "Strip") {
           std::string content = step.value("content", "");
           if (content == " ") {
@@ -799,7 +808,47 @@ void JsonFastTokenizer::UpdateTokenizer(const TokenJsonConfig& config, const jso
   add_bos_token_ = config.add_bos_token_;
   add_eos_token_ = config.add_eos_token_;
 
-  if (!config.add_bos_token_ && !config.bos_token_.empty()) {
+  // In Transformers v5, add_bos_token/add_eos_token are no longer saved in
+  // tokenizer_config.json. When these flags were not explicitly set, try to
+  // infer BOS/EOS behavior from the post_processor in tokenizer.json, or fall
+  // back to per-class defaults for known tokenizer families.
+  //
+  // Note: EOS inference is intentionally scoped inside the BOS-not-explicit
+  // block rather than being fully independent. In pre-v5 tokenizers (e.g.
+  // Mistral), add_bos_token is explicit but add_eos_token is simply absent
+  // (meaning "default false", not "infer from post_processor"). Making EOS
+  // inference independent would incorrectly enable EOS for those models.
+  // In v5, both flags are absent, so this block correctly handles both.
+  if (!config.add_bos_token_explicit_ && !config.bos_token_.empty()) {
+    bool bos_inferred = false;
+    auto post_processor = tok_json.find("post_processor");
+    if (post_processor != tok_json.end()) {
+      std::string text = post_processor->dump();
+      if (text.find(config.bos_token_) != std::string::npos) {
+        add_bos_token_ = true;
+        bos_inferred = true;
+      }
+      if (!config.add_eos_token_explicit_ &&
+          text.find(config.eos_token_) != std::string::npos) {
+        add_eos_token_ = true;
+      }
+    }
+
+    if (!bos_inferred) {
+      // post_processor is absent or doesn't mention BOS:
+      // apply per-class defaults for known tokenizer families.
+      // Note: GPT2-family models (Phi-4, Qwen2, DeepSeek, etc.) correctly
+      // default to add_bos_token_=false so they don't need to be listed here.
+      // Only SPM/Llama-family models that require BOS by convention are listed.
+      if (model_name_ == kModel_Llama || model_name_ == "Phi3" ||
+          model_name_ == "InternLM2" || model_name_ == kModel_Gemma ||
+          model_name_ == "CodeLlama" || model_name_ == "Mistral") {
+        add_bos_token_ = true;
+      }
+    }
+  } else if (!config.add_bos_token_ && !config.bos_token_.empty()) {
+    // Legacy path: add_bos_token was explicitly false but post_processor may
+    // still require it (e.g., v4-era Llama tokenizers).
     auto post_processor = tok_json.find("post_processor");
     if (post_processor != tok_json.end()) {
       std::string text = post_processor->dump();
@@ -823,8 +872,15 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::TokenJsonConfig& config
   nlohmann::json tok_json;
   *vocab_stream >> tok_json;
 
+  // Extract model name from tokenizer_class by stripping known suffixes.
+  // v4: "Qwen2Tokenizer" -> "Qwen2", v5: "TokenizersBackend" -> "" (generic)
   const char token_sub[] = "Tokenizer";
-  model_name_ = config.tokenizer_class_.substr(0, config.tokenizer_class_.find(token_sub));
+  const char backend_sub[] = "Backend";
+  auto pos = config.tokenizer_class_.find(token_sub);
+  if (pos == std::string::npos) {
+    pos = config.tokenizer_class_.find(backend_sub);
+  }
+  model_name_ = (pos != std::string::npos) ? config.tokenizer_class_.substr(0, pos) : config.tokenizer_class_;
   json_conf_.name_ = model_name_.c_str();
   json_conf_.bos_token_ = config.bos_token_.c_str();
   json_conf_.eos_token_ = config.eos_token_.c_str();
@@ -846,6 +902,13 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::TokenJsonConfig& config
   status = bbpe_tokenizer_->Load(*model_node, tok_json, bpe_conf_.get().GetSpecialTokens().c_str(),
                                  bpe_conf_.get().spm_model_);
   if (status.IsOk()) {
+    // If the pre-tokenizer is a no-op (e.g., chatglm3's dummy Split on a literal string),
+    // don't add a ▁ prefix during encoding. The Metaspace in the decoder tells us spaces
+    // map to ▁ (spm_model_=true), but a no-op pre-tokenizer means no prefix is added
+    // during encoding — only existing spaces are converted to ▁.
+    if (bbpe_tokenizer_->IsNoOpPretokenizer()) {
+      json_conf_.add_dummy_prefix_ = false;
+    }
     UpdateTokenizer(config, tok_json);
   }
 

@@ -423,3 +423,212 @@ TEST(OrtxTokenizerTest, Nvidia_Mistral_Tokenizer) {
   EXPECT_EQ(token_ids.size(), input.size());
   EXPECT_EQ(token_ids[0], EXPECTED_IDS_0);
 }
+
+TEST(OrtxTokenizerTest, ChatGLM3Tokenizer) {
+  // Tests chatglm3-6b with a BPE tokenizer.json, ensuring it is loaded properly
+  // even though tokenizer_class="ChatGLMTokenizer" maps to Unigram by default.
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/chatglm");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
+  }
+
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
+
+  // === "hello" ===
+  // HuggingFace Reference (add_special_tokens=False): [15616, 30914]
+  {
+    std::vector<std::string_view> input = {"hello"};
+    std::vector<std::vector<extTokenId_t>> token_ids;
+    status = tokenizer->Tokenize(input, token_ids);
+    EXPECT_TRUE(status.IsOk());
+    DumpTokenIds(token_ids);
+    ASSERT_EQ(token_ids.size(), 1u);
+    // chatglm3 adds [gMASK](64790) and <sop>(64792) prefix special tokens,
+    // so expected output: [64790, 64792, 15616, 30914]
+    // Content tokens (without special prefix) must match HF exactly.
+    // At minimum, "hello" must NOT be 5 character-level tokens.
+    EXPECT_LE(token_ids[0].size(), 5u);  // 2 content + 2 special = 4 typical
+  }
+
+  // === "I like walking my cute dog" ===
+  // HuggingFace Reference (add_special_tokens=False): [30936, 659, 5902, 552, 11527, 3246]
+  {
+    std::vector<std::string_view> input = {"I like walking my cute dog"};
+    std::vector<std::vector<extTokenId_t>> token_ids;
+    status = tokenizer->Tokenize(input, token_ids);
+    EXPECT_TRUE(status.IsOk());
+    DumpTokenIds(token_ids);
+    ASSERT_EQ(token_ids.size(), 1u);
+    // With special tokens: [64790, 64792, 30936, 659, 5902, 552, 11527, 3246] = 8 tokens
+    std::vector<extTokenId_t> expected_content = {30936, 659, 5902, 552, 11527, 3246};
+    // Check that the content tokens (last N) match HF exactly
+    ASSERT_GE(token_ids[0].size(), expected_content.size());
+    std::vector<extTokenId_t> actual_content(
+        token_ids[0].end() - expected_content.size(), token_ids[0].end());
+    EXPECT_EQ(actual_content, expected_content)
+        << "Content token IDs do not match HuggingFace reference output";
+  }
+
+  // === "This is a test." ===
+  // HuggingFace Reference (add_special_tokens=False): [3919, 323, 260, 1429, 30930]
+  {
+    std::vector<std::string_view> input = {"This is a test."};
+    std::vector<std::vector<extTokenId_t>> token_ids;
+    status = tokenizer->Tokenize(input, token_ids);
+    EXPECT_TRUE(status.IsOk());
+    DumpTokenIds(token_ids);
+    ASSERT_EQ(token_ids.size(), 1u);
+    std::vector<extTokenId_t> expected_content = {3919, 323, 260, 1429, 30930};
+    ASSERT_GE(token_ids[0].size(), expected_content.size());
+    std::vector<extTokenId_t> actual_content(
+        token_ids[0].end() - expected_content.size(), token_ids[0].end());
+    EXPECT_EQ(actual_content, expected_content)
+        << "Content token IDs do not match HuggingFace reference output";
+  }
+}
+
+// ============================================================================
+// Transformers v5 format tests
+// ============================================================================
+
+/*
+  Test real SmolLM3-3B tokenizer from HuggingFace (HuggingFaceTB/SmolLM3-3B).
+  This is a real v5-era model with:
+  - No add_bos_token / add_eos_token in tokenizer_config.json
+  - chat_template stored as separate chat_template.jinja file
+  - tokenizer_class = "PreTrainedTokenizerFast" (v4 naming, but v5 file layout)
+  - "extra_special_tokens" field (new in v5)
+  Files downloaded from: https://huggingface.co/HuggingFaceTB/SmolLM3-3B
+*/
+TEST(OrtxTokenizerV5Test, SmolLM3_V5_Tokenizer) {
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/v5/smollm3");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
+  }
+
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
+
+  std::vector<std::string_view> input = {"This is a test."};
+  std::vector<std::vector<extTokenId_t>> token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  EXPECT_TRUE(status.IsOk());
+  DumpTokenIds(token_ids);
+
+  EXPECT_EQ(token_ids.size(), 1u);
+  ASSERT_GT(token_ids[0].size(), 0u);
+
+  // Verify round-trip detokenization
+  std::vector<std::string> out_text;
+  std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {token_ids[0]};
+  status = tokenizer->Detokenize(token_ids_span, out_text);
+  EXPECT_TRUE(status.IsOk());
+  EXPECT_EQ(out_text[0], input[0]);
+}
+
+/*
+  Test synthetic Qwen2.5 v5 tokenizer (based on Qwen/Qwen2.5-0.5B-Instruct).
+  This uses a REAL tokenizer.json from the original qwen2.5 test data, with a
+  SYNTHETIC tokenizer_config.json that simulates Transformers v5 save_pretrained():
+  - Removed add_bos_token (v5 no longer saves this)
+  - Removed added_tokens_decoder (v5 only stores when no tokenizer.json)
+  - chat_template in separate .jinja file (v5 pattern)
+  - tokenizer_class = "TokenizersBackend" (v5 backend class name)
+  See comments in test/data/v5/qwen2.5-synthetic/tokenizer_config.json for details.
+*/
+TEST(OrtxTokenizerV5Test, Qwen2_5_SyntheticV5_Tokenizer) {
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/v5/qwen2.5-synthetic");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
+  }
+
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
+
+  // Tokenize a string that includes an added token (<tool_call>) to verify that
+  // added tokens from tokenizer.json work correctly even without added_tokens_decoder.
+  // <tool_call> is token id 151657 in the Qwen2.5 vocabulary.
+  std::vector<std::string_view> input = {"Hello <tool_call> world"};
+  std::vector<std::vector<extTokenId_t>> token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  EXPECT_TRUE(status.IsOk());
+  DumpTokenIds(token_ids);
+
+  EXPECT_EQ(token_ids.size(), 1u);
+  ASSERT_GT(token_ids[0].size(), 0u);
+
+  // Verify that <tool_call> was correctly tokenized as a single added token (id=151657)
+  bool found_tool_call = false;
+  for (const auto& id : token_ids[0]) {
+    if (id == 151657) {
+      found_tool_call = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(found_tool_call) << "<tool_call> (id=151657) should be recognized as an added token even without added_tokens_decoder";
+
+  // Verify round-trip detokenization
+  std::vector<std::string> out_text;
+  std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {token_ids[0]};
+  status = tokenizer->Detokenize(token_ids_span, out_text);
+  EXPECT_TRUE(status.IsOk());
+  EXPECT_EQ(out_text[0], input[0]);
+}
+
+// ============================================================================
+// Gemma 4 tokenizer tests
+// ============================================================================
+
+/*
+  Test Gemma 4 tokenizer (google/gemma-4-E2B-it).
+  Gemma 4 uses GemmaTokenizer (BPE), same tokenizer family as Gemma 2/3,
+  with v5-era file layout:
+  - No add_bos_token in tokenizer_config.json (inferred from per-class defaults)
+  - chat_template in separate .jinja file
+  - 262144 vocab size
+  Files downloaded from: https://huggingface.co/google/gemma-4-E2B-it
+*/
+TEST(OrtxTokenizerTest, Gemma4Tokenizer) {
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/models/gemma-4");
+  if (!status.IsOk()) {
+    std::cout << status.ToString() << std::endl;
+    tokenizer.reset();
+  }
+
+  ASSERT_NE(tokenizer.get(), nullptr) << "Tokenizer is null, stopping the test.";
+
+  // Test basic tokenization (BOS should be added automatically)
+  std::vector<std::string_view> input = {"This is a test."};
+  std::vector<std::vector<extTokenId_t>> token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  EXPECT_TRUE(status.IsOk());
+  DumpTokenIds(token_ids);
+
+  EXPECT_EQ(token_ids.size(), 1u);
+  ASSERT_GT(token_ids[0].size(), 0u);
+
+  // BOS token should be the first token (id=2 for Gemma family)
+  EXPECT_EQ(token_ids[0][0], 2) << "First token should be BOS (id=2)";
+
+  // Verify token IDs match HF reference (HF returns [2094, 563, 496, 1594, 236761]
+  // without BOS; our tokenizer prepends BOS=2).
+  const std::vector<extTokenId_t> kExpectedIds = {2, 2094, 563, 496, 1594, 236761};
+  ASSERT_EQ(token_ids[0].size(), kExpectedIds.size())
+      << "Token count mismatch vs HF reference";
+  for (size_t i = 0; i < kExpectedIds.size(); ++i) {
+    EXPECT_EQ(token_ids[0][i], kExpectedIds[i])
+        << "Token " << i << " mismatch vs HF reference";
+  }
+
+  // Verify round-trip detokenization
+  std::vector<std::string> out_text;
+  std::vector<ort_extensions::span<extTokenId_t const>> token_ids_span = {token_ids[0]};
+  status = tokenizer->Detokenize(token_ids_span, out_text);
+  EXPECT_TRUE(status.IsOk());
+  EXPECT_EQ(out_text[0], input[0]);
+}

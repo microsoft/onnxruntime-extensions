@@ -341,3 +341,109 @@ TEST(ExtractorTest, TestSplitSignalSegments) {
   ASSERT_EQ(merged_shape[1], 2);
   ASSERT_EQ(merged_shape[0], 4);
 }
+
+TEST(ExtractorTest, TestGemma4AudioFeatureExtraction) {
+  // Use existing test audio files to verify the Gemma 4 USM-style log-mel pipeline:
+  // AudioDecoder -> Gemma4LogMel
+  const char* audio_path[] = {"data/jfk.flac"};
+  OrtxObjectPtr<OrtxRawAudios> raw_audios;
+  extError_t err = OrtxLoadAudios(raw_audios.ToBeAssigned(), audio_path, 1);
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxFeatureExtractor> feature_extractor(OrtxCreateSpeechFeatureExtractor,
+                                                        "data/models/gemma-4/audio_feature_extraction.json");
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxFeatureExtraction(feature_extractor.get(), raw_audios.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Output 0: log-mel spectrogram — float (batch, num_frames, 128)
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const float* data{};
+  const int64_t* shape{};
+  size_t num_dims;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 3ULL);           // (batch, num_frames, feature_size)
+  ASSERT_EQ(shape[0], 1);              // single audio
+  ASSERT_EQ(shape[2], 128);            // 128 mel bins
+  EXPECT_GT(shape[1], 0);              // should have some frames
+
+  // Verify values are finite (not NaN/Inf).
+  for (int64_t i = 0; i < std::min<int64_t>(shape[1] * 128, 5000); ++i) {
+    ASSERT_TRUE(std::isfinite(data[i])) << "log-mel value at index " << i << " is not finite";
+  }
+
+  // Verify log-mel values are in a reasonable range.
+  // With mel_floor=0.001, log(0.001) ~ -6.9078. Values should be >= ~-7
+  // and typically < ~5 for speech audio.
+  const float* frame0 = data;
+  for (int i = 0; i < 10; ++i) {
+    EXPECT_GE(frame0[i], -7.5f) << "Frame 0 bin " << i << " too low";
+    EXPECT_LE(frame0[i], 5.0f) << "Frame 0 bin " << i << " too high";
+  }
+  // The first mel bin of silent/padding frames should be close to log(mel_floor)
+  // = log(0.001) ~ -6.9078.
+  EXPECT_NEAR(frame0[0], -6.9078f, 0.05f)
+      << "Frame 0 bin 0 should be near log(0.001) for semicausal pad region";
+
+  // Output 1: attention mask — bool (batch, num_frames)
+  err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const bool* mask_data{};
+  const int64_t* mask_shape{};
+  size_t mask_dims;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&mask_data), &mask_shape, &mask_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(mask_dims, 2ULL);          // (batch, num_frames)
+  ASSERT_EQ(mask_shape[0], 1);
+  ASSERT_EQ(mask_shape[1], shape[1]);   // same frame count
+
+  // For JFK audio (not truncated), all frames except those from the semicausal pad
+  // should be valid. At least some frames should be true.
+  int true_count = std::count(mask_data, mask_data + mask_shape[1], true);
+  EXPECT_GT(true_count, 0) << "Expected at least some valid frames";
+}
+
+TEST(ExtractorTest, TestGemma4AudioFeatureExtractionMultiFile) {
+  // Verify batched processing with multiple audio files.
+  const char* audio_path[] = {"data/jfk.flac", "data/1272-141231-0002.wav"};
+  OrtxObjectPtr<OrtxRawAudios> raw_audios;
+  extError_t err = OrtxLoadAudios(raw_audios.ToBeAssigned(), audio_path, 2);
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxFeatureExtractor> feature_extractor(OrtxCreateSpeechFeatureExtractor,
+                                                        "data/models/gemma-4/audio_feature_extraction.json");
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxFeatureExtraction(feature_extractor.get(), raw_audios.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  // log-mel: batch dim should be 2
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const float* data{};
+  const int64_t* shape{};
+  size_t num_dims;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 3ULL);
+  ASSERT_EQ(shape[0], 2);             // batch of 2
+  ASSERT_EQ(shape[2], 128);
+
+  // mask: batch dim should be 2
+  err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const bool* mask_data{};
+  const int64_t* mask_shape{};
+  size_t mask_dims;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&mask_data), &mask_shape, &mask_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(mask_dims, 2ULL);
+  ASSERT_EQ(mask_shape[0], 2);
+}
