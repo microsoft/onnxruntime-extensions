@@ -812,18 +812,30 @@ void JsonFastTokenizer::UpdateTokenizer(const TokenJsonConfig& config, const jso
   // tokenizer_config.json. When these flags were not explicitly set, try to
   // infer BOS/EOS behavior from the post_processor in tokenizer.json, or fall
   // back to per-class defaults for known tokenizer families.
+  //
+  // Note: EOS inference is intentionally scoped inside the BOS-not-explicit
+  // block rather than being fully independent. In pre-v5 tokenizers (e.g.
+  // Mistral), add_bos_token is explicit but add_eos_token is simply absent
+  // (meaning "default false", not "infer from post_processor"). Making EOS
+  // inference independent would incorrectly enable EOS for those models.
+  // In v5, both flags are absent, so this block correctly handles both.
   if (!config.add_bos_token_explicit_ && !config.bos_token_.empty()) {
+    bool bos_inferred = false;
     auto post_processor = tok_json.find("post_processor");
     if (post_processor != tok_json.end()) {
       std::string text = post_processor->dump();
       if (text.find(config.bos_token_) != std::string::npos) {
         add_bos_token_ = true;
+        bos_inferred = true;
       }
-      if (text.find(config.eos_token_) != std::string::npos) {
+      if (!config.add_eos_token_explicit_ &&
+          text.find(config.eos_token_) != std::string::npos) {
         add_eos_token_ = true;
       }
-    } else {
-      // No post_processor in tokenizer.json and no explicit config flags:
+    }
+
+    if (!bos_inferred) {
+      // post_processor is absent or doesn't mention BOS:
       // apply per-class defaults for known tokenizer families.
       // Note: GPT2-family models (Phi-4, Qwen2, DeepSeek, etc.) correctly
       // default to add_bos_token_=false so they don't need to be listed here.

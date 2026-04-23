@@ -1369,3 +1369,161 @@ TEST(OrtxTokenizerV5Test, Qwen2_5_SyntheticV5_ChatTemplate) {
   OrtxDetokenize(tokenizer.get(), token_ids.get(), decoded_text.ToBeAssigned());
   EXPECT_EQ(decoded_text.Code(), kOrtxOK);
 }
+
+// ============================================================================
+// Gemma 4 chat template tests
+// ============================================================================
+
+/*
+  Test Gemma 4 chat template (google/gemma-4-E2B-it).
+  Gemma 4 uses <|turn>role\n...<turn|>\n format (different from Gemma 3's
+  <start_of_turn>...<end_of_turn>). Chat template loaded from separate
+  chat_template.jinja file (v5-era layout).
+  Files downloaded from: https://huggingface.co/google/gemma-4-E2B-it
+*/
+TEST(OrtxTokenizerTest, Gemma4ChatTemplate) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/models/gemma-4");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create Gemma 4 tokenizer: " << OrtxGetLastErrorMessage();
+
+  // Test 1: Simple text-only message
+  {
+    OrtxObjectPtr<OrtxTensorResult> templated_text;
+    std::string messages_json = R"(
+      [
+        {
+          "role": "user",
+          "content": "What is the meaning of life?"
+        }
+      ])";
+
+    auto err = OrtxApplyChatTemplate(
+      tokenizer.get(), nullptr,
+      messages_json.c_str(), nullptr, templated_text.ToBeAssigned(), true, false);
+
+    if (err != kOrtxOK) {
+      std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
+    }
+    ASSERT_EQ(err, kOrtxOK);
+
+    OrtxObjectPtr<OrtxTensor> tensor;
+    OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+    ASSERT_EQ(tensor.Code(), kOrtxOK);
+    const char* text_ptr = nullptr;
+    OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+    std::string expected = "<bos><|turn>user\nWhat is the meaning of life?<turn|>\n<|turn>model\n";
+    ASSERT_EQ(std::string(text_ptr), expected);
+  }
+
+  // Test 2: Image + text (multimodal)
+  {
+    OrtxObjectPtr<OrtxTensorResult> templated_text;
+    std::string messages_json = R"(
+      [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "image"
+            },
+            {
+              "type": "text",
+              "text": "What is the password?"
+            }
+          ]
+        }
+      ])";
+
+    auto err = OrtxApplyChatTemplate(
+      tokenizer.get(), nullptr,
+      messages_json.c_str(), nullptr, templated_text.ToBeAssigned(), true, false);
+    ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+    OrtxObjectPtr<OrtxTensor> tensor;
+    OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+    ASSERT_EQ(tensor.Code(), kOrtxOK);
+    const char* text_ptr = nullptr;
+    OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+    std::string expected = "<bos><|turn>user\n<|image|>What is the password?<turn|>\n<|turn>model\n";
+    ASSERT_EQ(std::string(text_ptr), expected);
+  }
+
+  // Test 3: System message + user message
+  {
+    OrtxObjectPtr<OrtxTensorResult> templated_text;
+    std::string messages_json = R"(
+      [
+        {
+          "role": "system",
+          "content": "You are a helpful assistant."
+        },
+        {
+          "role": "user",
+          "content": "Hello!"
+        }
+      ])";
+
+    auto err = OrtxApplyChatTemplate(
+      tokenizer.get(), nullptr,
+      messages_json.c_str(), nullptr, templated_text.ToBeAssigned(), true, false);
+    ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+    OrtxObjectPtr<OrtxTensor> tensor;
+    OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+    ASSERT_EQ(tensor.Code(), kOrtxOK);
+    const char* text_ptr = nullptr;
+    OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+    std::string expected = "<bos><|turn>system\nYou are a helpful assistant.<turn|>\n"
+                           "<|turn>user\nHello!<turn|>\n<|turn>model\n";
+    ASSERT_EQ(std::string(text_ptr), expected);
+  }
+
+  // Verify tokenization of templated text works
+  OrtxObjectPtr<OrtxTensorResult> final_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "user",
+        "content": "Hello!"
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), nullptr, final_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensor> final_tensor;
+  OrtxTensorResultGetAt(final_text.get(), 0, final_tensor.ToBeAssigned());
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(final_tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids2;
+  const char* input2[] = { text_ptr };
+  OrtxTokenize(tokenizer.get(), input2, 1, token_ids2.ToBeAssigned());
+  ASSERT_EQ(token_ids2.Code(), kOrtxOK);
+
+  size_t length2 = 0;
+  const extTokenId_t* ids2 = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids2.get(), 0, &ids2, &length2);
+  ASSERT_GT(length2, 0u) << "Tokenized output should not be empty.";
+
+  // Verify that the first token is BOS (id=2) and the sequence contains
+  // expected structural tokens from the chat template.
+  EXPECT_EQ(ids2[0], 2) << "First token should be BOS";
+  // The rendered template starts with <bos> which tokenizes to id=2, and our
+  // tokenizer also prepends BOS, so we expect the sequence to start with BOS.
+  // Structural tokens: <|turn>=105, user=2364, \n=107
+  bool found_turn = false;
+  for (size_t i = 0; i < length2; ++i) {
+    if (ids2[i] == 105) { found_turn = true; break; }
+  }
+  EXPECT_TRUE(found_turn) << "Expected <|turn> token (id=105) in chat output";
+
+  // Verify round-trip detokenization
+  OrtxObjectPtr<OrtxStringArray> decoded_text2;
+  OrtxDetokenize(tokenizer.get(), token_ids2.get(), decoded_text2.ToBeAssigned());
+  EXPECT_EQ(decoded_text2.Code(), kOrtxOK);
+}
