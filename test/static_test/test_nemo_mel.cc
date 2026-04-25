@@ -10,6 +10,9 @@
 
 #include "gtest/gtest.h"
 #include "nemo_mel_spectrogram.h"
+#include "c_api_utils.hpp"
+#include "runner.hpp"
+#include "speech_features.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -256,4 +259,199 @@ TEST(NemoMelTest, StreamingSmallChunk) {
   auto [mel, frames] = extractor.Process(tiny.data(), tiny.size());
   EXPECT_GT(frames, 0);
   EXPECT_EQ(mel.size(), static_cast<size_t>(cfg.num_mels) * frames);
+}
+
+// =====================================================================
+// NemoLogMel kernel tests (pipeline kernel wrapping NemoComputeLogMelBatch)
+// =====================================================================
+
+using namespace ort_extensions;
+
+static ortc::Tensor<float> MakeInputTensor(const std::vector<int64_t>& shape, const float* data) {
+  return ortc::Tensor<float>(shape, const_cast<void*>(static_cast<const void*>(data)));
+}
+
+static ortc::Tensor<float> MakeOutputTensor() {
+  return ortc::Tensor<float>(&CppAllocator::Instance());
+}
+
+static AttrDict MakeNemoLogMelAttrs() {
+  AttrDict attrs;
+  attrs["num_mels"] = int64_t{128};
+  attrs["fft_size"] = int64_t{512};
+  attrs["hop_length"] = int64_t{160};
+  attrs["win_length"] = int64_t{400};
+  attrs["sample_rate"] = int64_t{16000};
+  attrs["preemph"] = double{0.97};
+  attrs["log_eps"] = double{5.96046448e-08};
+  return attrs;
+}
+
+// =====================================================================
+// PerFeatureNormalize kernel tests
+// =====================================================================
+
+TEST(NemoMelTest, Normalize2D) {
+  const int64_t F = 4, T = 10;
+  std::vector<float> data(F * T);
+  for (int64_t f = 0; f < F; ++f)
+    for (int64_t t = 0; t < T; ++t)
+      data[f * T + t] = static_cast<float>(f * 10 + t);
+
+  PerFeatureNormalize kernel;
+  AttrDict attrs;
+  attrs["eps"] = double{1e-5};
+  attrs["feature_first"] = int64_t{1};
+  ASSERT_TRUE(kernel.Init(attrs).IsOk());
+
+  auto input = MakeInputTensor({F, T}, data.data());
+  auto output = MakeOutputTensor();
+  ASSERT_TRUE(kernel.Compute(input, output).IsOk());
+
+  auto& shape = output.Shape();
+  ASSERT_EQ(shape.size(), 2u);
+
+  // Each row should be zero-mean
+  for (int64_t f = 0; f < F; ++f) {
+    float sum = 0.0f;
+    for (int64_t t = 0; t < T; ++t) sum += output.Data()[f * T + t];
+    EXPECT_NEAR(sum / T, 0.0f, 1e-5f) << "Row " << f << " not zero-mean";
+  }
+
+  // Each row should have unit sample std
+  for (int64_t f = 0; f < F; ++f) {
+    float var = 0.0f;
+    for (int64_t t = 0; t < T; ++t) {
+      float v = output.Data()[f * T + t];
+      var += v * v;  // mean is ~0
+    }
+    float std_val = std::sqrt(var / (T - 1));
+    EXPECT_NEAR(std_val, 1.0f, 1e-4f) << "Row " << f << " not unit std";
+  }
+}
+
+TEST(NemoMelTest, Normalize3D) {
+  const int64_t F = 3, T = 8;
+  std::vector<float> data(F * T);
+  for (int64_t i = 0; i < F * T; ++i) data[i] = static_cast<float>(i);
+
+  PerFeatureNormalize kernel;
+  AttrDict attrs;
+  attrs["eps"] = double{1e-5};
+  attrs["feature_first"] = int64_t{1};
+  ASSERT_TRUE(kernel.Init(attrs).IsOk());
+
+  auto input = MakeInputTensor({1, F, T}, data.data());
+  auto output = MakeOutputTensor();
+  ASSERT_TRUE(kernel.Compute(input, output).IsOk());
+
+  auto& shape = output.Shape();
+  ASSERT_EQ(shape.size(), 3u);
+  EXPECT_EQ(shape[0], 1);
+  EXPECT_EQ(shape[1], F);
+  EXPECT_EQ(shape[2], T);
+}
+
+TEST(NemoMelTest, NormalizeConstantRow) {
+  const int64_t F = 2, T = 5;
+  std::vector<float> data(F * T);
+  for (int64_t t = 0; t < T; ++t) data[t] = 7.0f;
+  for (int64_t t = 0; t < T; ++t) data[T + t] = float(t);
+
+  PerFeatureNormalize kernel;
+  AttrDict attrs;
+  attrs["eps"] = double{1e-5};
+  attrs["feature_first"] = int64_t{1};
+  ASSERT_TRUE(kernel.Init(attrs).IsOk());
+
+  auto input = MakeInputTensor({F, T}, data.data());
+  auto output = MakeOutputTensor();
+  ASSERT_TRUE(kernel.Compute(input, output).IsOk());
+
+  // Constant row should normalize to zeros
+  for (int64_t t = 0; t < T; ++t)
+    EXPECT_NEAR(output.Data()[t], 0.0f, 1e-4f);
+}
+
+TEST(NemoMelTest, NormalizeRejectsBadShape) {
+  std::vector<float> data(120, 1.0f);
+
+  PerFeatureNormalize kernel;
+  AttrDict attrs;
+  attrs["eps"] = double{1e-5};
+  attrs["feature_first"] = int64_t{1};
+  ASSERT_TRUE(kernel.Init(attrs).IsOk());
+
+  auto input = MakeInputTensor({2, 3, 4, 5}, data.data());
+  auto output = MakeOutputTensor();
+  EXPECT_FALSE(kernel.Compute(input, output).IsOk());
+}
+
+TEST(NemoMelTest, NormalizeSingleFrame) {
+  // Single frame (num_frames=1) should not crash and should output zeros
+  const int64_t F = 4, T = 1;
+  std::vector<float> data = {1.0f, 2.0f, 3.0f, 4.0f};
+
+  PerFeatureNormalize kernel;
+  AttrDict attrs;
+  attrs["eps"] = double{1e-5};
+  attrs["feature_first"] = int64_t{1};
+  ASSERT_TRUE(kernel.Init(attrs).IsOk());
+
+  auto input = MakeInputTensor({F, T}, data.data());
+  auto output = MakeOutputTensor();
+  ASSERT_TRUE(kernel.Compute(input, output).IsOk());
+
+  auto& shape = output.Shape();
+  ASSERT_EQ(shape.size(), 2u);
+  EXPECT_EQ(shape[0], F);
+  EXPECT_EQ(shape[1], T);
+
+  // All outputs should be zero and finite
+  for (int64_t f = 0; f < F; ++f) {
+    EXPECT_NEAR(output.Data()[f], 0.0f, 1e-6f);
+    ASSERT_TRUE(std::isfinite(output.Data()[f]));
+  }
+}
+
+// =====================================================================
+// End-to-end: NemoLogMel -> PerFeatureNormalize
+// =====================================================================
+
+TEST(NemoMelTest, KernelPipeline) {
+  auto wav = SineWave(440.0f, 1.0f);
+
+  NemoLogMel mel_kernel;
+  ASSERT_TRUE(mel_kernel.Init(MakeNemoLogMelAttrs()).IsOk());
+
+  auto pcm = MakeInputTensor({static_cast<int64_t>(wav.size())}, wav.data());
+  auto mel_out = MakeOutputTensor();
+  ASSERT_TRUE(mel_kernel.Compute(pcm, mel_out).IsOk());
+
+  PerFeatureNormalize norm_kernel;
+  AttrDict norm_attrs;
+  norm_attrs["eps"] = double{1e-5};
+  norm_attrs["feature_first"] = int64_t{1};
+  ASSERT_TRUE(norm_kernel.Init(norm_attrs).IsOk());
+
+  auto norm_out = MakeOutputTensor();
+  ASSERT_TRUE(norm_kernel.Compute(mel_out, norm_out).IsOk());
+
+  auto& shape = norm_out.Shape();
+  ASSERT_EQ(shape.size(), 2u);
+  EXPECT_EQ(shape[0], 128);
+
+  // All finite
+  size_t n = static_cast<size_t>(shape[0] * shape[1]);
+  for (size_t i = 0; i < n; ++i)
+    ASSERT_TRUE(std::isfinite(norm_out.Data()[i])) << "Non-finite at " << i;
+
+  // Zero-mean per feature
+  int64_t frames = shape[1];
+  for (int64_t f = 0; f < 128; ++f) {
+    float sum = 0.0f;
+    for (int64_t t = 0; t < frames; ++t)
+      sum += norm_out.Data()[f * frames + t];
+    EXPECT_NEAR(sum / frames, 0.0f, 1e-4f) << "Feature " << f << " not zero-mean";
+  }
 }

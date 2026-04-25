@@ -25,6 +25,12 @@ struct AudioDecoder {
         std::sort(downsample_rates_.begin(), downsample_rates_.end());
       } else if (key == "stereo_to_mono") {
         stereo_mixer_ = std::get<std::int64_t>(value);
+      } else if (key == "max_samples") {
+        auto val = std::get<std::int64_t>(value);
+        if (val < 0) {
+          return {kOrtxErrorInvalidArgument, "[AudioDecoder]: max_samples must be >= 0"};
+        }
+        max_samples_ = static_cast<size_t>(val);  // 0 = unlimited
       } else {
         return {kOrtxErrorInvalidArgument, "[AudioDecoder]: Invalid argument"};
       }
@@ -57,4 +63,5 @@ struct AudioDecoder {
  private:
   int64_t stereo_mixer_{};
   std::vector<int64_t> downsample_rates_{};
+  size_t max_samples_{480000};  // 0 = unlimited; default = 30s at 16kHz (Whisper compat)
 };
