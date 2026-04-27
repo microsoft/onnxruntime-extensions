@@ -4,6 +4,11 @@
 #include "speech_extractor.h"
 
 #include "c_api_utils.hpp"
+#include <cstring>
+#include <string>
+#include <unordered_map>
+#include <variant>
+#include <vector>
 #include <math/energy_stft_segmentation.hpp>
 #include "audio/audio_decoder.h"
 
@@ -185,6 +190,13 @@ extError_t ORTX_API_CALL OrtxDecodeAudio(OrtxRawAudios* raw_audios, size_t index
   std::unordered_map<std::string, std::variant<std::int64_t, std::vector<std::int64_t>>> attrs;
   if (target_sample_rate > 0) {
     attrs["target_sample_rate"] = target_sample_rate;
+  } else if (target_sample_rate == 0) {
+    // 0 = keep native rate: pass empty downsample list to disable resampling
+    attrs["target_sample_rates"] = std::vector<std::int64_t>{};
+  } else {
+    ReturnableStatus::last_error_message_ = "target_sample_rate must be >= 0";
+    *result = nullptr;
+    return kOrtxErrorInvalidArgument;
   }
   attrs["stereo_to_mono"] = int64_t{1};
   attrs["max_samples"] = int64_t{0};  // No truncation

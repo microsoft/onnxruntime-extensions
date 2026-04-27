@@ -133,6 +133,39 @@ TEST(DecodeAudioTest, Resample) {
   EXPECT_NEAR(static_cast<double>(n), 8000.0, 200.0);  // allow some tolerance
 }
 
+TEST(DecodeAudioTest, NativeRatePreserved) {
+  // 44100 Hz input, target_sample_rate=0 should keep native rate (no resampling)
+  auto wav = MakeSineWav(440.0f, 0.5f, 44100);
+
+  const void* data_ptrs[1] = {wav.data()};
+  int64_t sizes[1] = {static_cast<int64_t>(wav.size())};
+  ort_extensions::OrtxObjectPtr<OrtxRawAudios> raw_audios;
+  ASSERT_EQ(OrtxCreateRawAudios(raw_audios.ToBeAssigned(), data_ptrs, sizes, 1), kOrtxOK);
+
+  ort_extensions::OrtxObjectPtr<OrtxTensorResult> result;
+  ASSERT_EQ(OrtxDecodeAudio(raw_audios.get(), 0, 0 /* native rate */, result.ToBeAssigned()), kOrtxOK);
+
+  // Sample rate should be 44100, not downsampled to 16000
+  ort_extensions::OrtxObjectPtr<OrtxTensor> sr;
+  ASSERT_EQ(OrtxTensorResultGetAt(result.get(), 1, sr.ToBeAssigned()), kOrtxOK);
+  const int64_t* sr_data{};
+  const int64_t* sr_shape{};
+  size_t sr_dims;
+  ASSERT_EQ(OrtxGetTensorData(sr.get(), reinterpret_cast<const void**>(&sr_data), &sr_shape, &sr_dims), kOrtxOK);
+  EXPECT_EQ(*sr_data, 44100) << "target_sample_rate=0 should preserve native 44100 Hz";
+
+  // Sample count should be ~0.5s * 44100 = 22050
+  ort_extensions::OrtxObjectPtr<OrtxTensor> pcm;
+  ASSERT_EQ(OrtxTensorResultGetAt(result.get(), 0, pcm.ToBeAssigned()), kOrtxOK);
+  const float* pcm_data{};
+  const int64_t* pcm_shape{};
+  size_t pcm_dims;
+  ASSERT_EQ(OrtxGetTensorData(pcm.get(), reinterpret_cast<const void**>(&pcm_data), &pcm_shape, &pcm_dims), kOrtxOK);
+  size_t n = 1;
+  for (size_t d = 0; d < pcm_dims; ++d) n *= pcm_shape[d];
+  EXPECT_NEAR(static_cast<double>(n), 22050.0, 100.0);
+}
+
 TEST(DecodeAudioTest, InvalidIndex) {
   auto wav = MakeSineWav(440.0f, 0.1f);
   const void* data_ptrs[1] = {wav.data()};
