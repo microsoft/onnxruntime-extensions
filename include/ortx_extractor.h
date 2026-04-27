@@ -126,6 +126,24 @@ extError_t ORTX_API_CALL OrtxMergeSignalSegments(const OrtxTensor* segments_tens
 extError_t ORTX_API_CALL OrtxFeatureExtraction(OrtxFeatureExtractor* extractor, OrtxRawAudios* audio,
                                                OrtxTensorResult** result);
 
+/**
+ * @brief Decode raw audio bytes to float32 PCM samples.
+ *
+ * Decodes the audio at the given index from an OrtxRawAudios object into
+ * float32 PCM samples (mono). The result contains two tensors:
+ *   [0] = float32 PCM samples of shape [1, num_samples]
+ *   [1] = int64 sample rate of shape [1]
+ *
+ * @param raw_audios         An OrtxRawAudios object containing one or more audio buffers.
+ * @param index              Index of the audio to decode (0-based).
+ * @param target_sample_rate Target sample rate for resampling. Set to 0 to keep the native rate.
+ * @param result             Output: OrtxTensorResult with [pcm, sample_rate] tensors.
+ *
+ * @return An extError_t value indicating success or error status.
+ */
+extError_t ORTX_API_CALL OrtxDecodeAudio(OrtxRawAudios* raw_audios, size_t index, int64_t target_sample_rate,
+                                         OrtxTensorResult** result);
+
 #ifdef __cplusplus
 }
 #endif
