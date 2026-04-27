@@ -18,7 +18,8 @@ static std::vector<uint8_t> MakeSineWav(float freq_hz, float duration_sec, int s
   uint8_t* p = wav.data();
 
   std::memcpy(p, "RIFF", 4); p += 4;
-  uint32_t cs = static_cast<uint32_t>(file_size - 8); std::memcpy(p, &cs, 4); p += 4;
+  uint32_t cs = static_cast<uint32_t>(file_size - 8);
+  std::memcpy(p, &cs, 4); p += 4;
   std::memcpy(p, "WAVE", 4); p += 4;
   std::memcpy(p, "fmt ", 4); p += 4;
   uint32_t fs = 16; std::memcpy(p, &fs, 4); p += 4;
