@@ -413,6 +413,25 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
     // Check Phi-4-mini tool call case for quote normalization
     bool phi_4_mini = false;
 
+    // Determine whether to skip tool normalization based on template content.
+    // GPT-OSS/Harmony templates access `tool.function` directly (they expect the raw OpenAI format),
+    // so NormalizeTools() would break them by unwrapping the function object.
+    // Other templates (Phi-4, Qwen) either use a flat format or access `tool_call.function`.
+    bool skip_tool_normalization = false;
+    {
+      std::string tmpl_str(activated_str);
+      // Look for "tool.function" but exclude "tool_call.function" matches
+      size_t pos = 0;
+      while ((pos = tmpl_str.find("tool.function", pos)) != std::string::npos) {
+        // Check that this isn't part of "tool_call.function"
+        if (pos < 5 || tmpl_str.substr(pos - 5, 5) != "call.") {
+          skip_tool_normalization = true;
+          break;
+        }
+        pos += 13;
+      }
+    }
+
     // Case 1: Check if tools are inside messages (for Phi-4-mini)
     if (actual_messages.is_array()) {
       for (auto& message_obj : actual_messages) {
@@ -420,11 +439,15 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
           // Set flag for Phi-4 tools to true
           phi_4_mini = true;
 
-          // Normalize the tools inside the message
-          json tools_json = NormalizeTools(message_obj["tools"].get<std::string>().c_str());
-          
-          // Update the tools in the message
-          message_obj["tools"] = tools_json;
+          if (skip_tool_normalization) {
+            // GPT-OSS/Harmony: parse tools as-is without normalization
+            json tools_json = json::parse(message_obj["tools"].get<std::string>().c_str());
+            message_obj["tools"] = tools_json;
+          } else {
+            // Normalize the tools inside the message
+            json tools_json = NormalizeTools(message_obj["tools"].get<std::string>().c_str());
+            message_obj["tools"] = tools_json;
+          }
         }
       }
     }
@@ -432,9 +455,15 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
     // Case 2: Check if we received tools separately (for Qwen or others)
     if (tools && *tools) {
       std::string tools_str = minja::normalize_newlines(tools);
-      json tools_json = NormalizeTools(tools_str.c_str());
+      json tools_json;
+      if (skip_tool_normalization) {
+        // GPT-OSS/Harmony: pass raw tools without normalization
+        tools_json = json::parse(tools_str.c_str());
+      } else {
+        tools_json = NormalizeTools(tools_str.c_str());
+      }
 
-      // Add normalized tools to the context if tools are passed separately
+      // Add tools to the context
       context = minja::Context::make(json({
           {"messages", actual_messages},
           {"tools", tools_json},
