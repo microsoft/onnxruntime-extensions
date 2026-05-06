@@ -24,8 +24,6 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64|ppc64le|powerpc")
   FetchContent_MakeAvailable(libpng_external)
   # Use libpng's CMake target
   set (PNG_LIBRARY "png_static")
-  # Link PNG to main target
-  target_link_libraries(ocos_operators PRIVATE ${PNG_LIBRARY})
 
 else()
   # default (dlib bundled)
