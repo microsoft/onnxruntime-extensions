@@ -333,6 +333,9 @@ TEST(ProcessorTest, TestGemma4ImageProcessing) {
   // Verify pixel values match HuggingFace Gemma4ImageProcessor output.
   // Reference: HF transformers Gemma4ImageProcessor on australia.jpg (1300x876).
   // Patch 0 is in a uniform region, so uint8 and float-domain values match closely.
+  // NOTE: Reference values are exact 1/255 multiples captured from HF's uint8 path.
+  // The float-domain resize can differ by up to ~2e-3 in uniform regions because
+  // coefficient precomputation differs slightly from Pillow's integer rounding.
   // Patch 0, first 10 values (HWC order within each patch):
   const float kPatch0Expected[] = {
       0.18823531f, 0.05490196f, 0.01960784f,
@@ -449,8 +452,8 @@ TEST(ProcessorTest, TestGemma4ImageResizeBenchmark) {
       {3024, 4032, "phone photo"},
   };
 
-  constexpr int kWarmup = 3;
-  constexpr int kIters = 20;
+  constexpr int kWarmup = 1;
+  constexpr int kIters = 3;  // Informational only; keep small for CI
   constexpr int patch_size = 16;
   constexpr int pooling_kernel_size = 3;
   constexpr int max_soft_tokens = 280;
@@ -463,7 +466,8 @@ TEST(ProcessorTest, TestGemma4ImageResizeBenchmark) {
         tc.h, tc.w, patch_size, max_patches, pooling_kernel_size);
     if (tgt_h == 0 || tgt_w == 0) continue;
 
-    // Create random uint8 source
+    // Create random uint8 source (fixed seed for reproducibility)
+    srand(42);
     std::vector<uint8_t> src(static_cast<size_t>(tc.h) * tc.w * 3);
     for (auto& v : src) v = static_cast<uint8_t>(rand() % 256);
     std::vector<float> dst(static_cast<size_t>(tgt_h) * tgt_w * 3);

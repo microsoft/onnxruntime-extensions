@@ -159,6 +159,12 @@ inline void resample_vertical_rgb(
 // Fuses the 1/255 rescale into the horizontal pass to avoid a full-resolution
 // float copy of the source image. Output may exceed [0,1] due to bicubic
 // overshoot (matching torchvision F.resize behavior).
+//
+// Parameters:
+//   dst  — caller-allocated buffer of size tgt_h * tgt_w * 3 floats.
+//          Output is HWC-interleaved float RGB, nominally in [0,1] but
+//          values may slightly exceed this range due to bicubic overshoot.
+//   src  — source image in HWC uint8 RGB layout (src_h * src_w * 3 bytes).
 inline void BicubicResizeU8ToFloatRGB(
     float* dst,
     const uint8_t* src, int src_h, int src_w,
