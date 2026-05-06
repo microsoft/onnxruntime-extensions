@@ -7,107 +7,99 @@ set(_IMGCODEC_ROOT_DIR ${dlib_SOURCE_DIR}/dlib/external)
 #  project libpng
 #
 # ----------------------------------------------------------------------------
+# Default PNG target
 set (PNG_LIBRARY "libpng_static_c")
 
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64|ppc64le")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64|ppc64le|powerpc")
   message(STATUS "Using upstream libpng for PowerPC")
+
   include(FetchContent)
+
   FetchContent_Declare(
     libpng_external
     GIT_REPOSITORY https://github.com/pnggroup/libpng.git
-    GIT_TAG        v1.6.56   # latest version
-    )
+    GIT_TAG        v1.6.58   # pinned release tag
+  )
 
   FetchContent_MakeAvailable(libpng_external)
-
-  set(libPNG_SOURCE_DIR ${libpng_external_SOURCE_DIR})
+  # Use libpng's CMake target
+  set (PNG_LIBRARY "png_static")
 
 else()
   # default (dlib bundled)
   set(libPNG_SOURCE_DIR ${_IMGCODEC_ROOT_DIR}/libpng)
-endif()
 
-set (zlib_SOURCE_DIR ${_IMGCODEC_ROOT_DIR}/zlib)
+  set (zlib_SOURCE_DIR ${_IMGCODEC_ROOT_DIR}/zlib)
 
-if(NOT WIN32)
-  find_library(M_LIBRARY
-    NAMES m
-    PATHS /usr/lib /usr/local/lib
-  )
-  if(NOT M_LIBRARY)
-    message(STATUS "math lib 'libm' not found; floating point support disabled")
+  if(NOT WIN32)
+    find_library(M_LIBRARY
+      NAMES m
+      PATHS /usr/lib /usr/local/lib
+    )
+    if(NOT M_LIBRARY)
+      message(STATUS "math lib 'libm' not found; floating point support disabled")
+    endif()
+  else()
+    # not needed on windows
+    set(M_LIBRARY "")
   endif()
-else()
-  # not needed on windows
-  set(M_LIBRARY "")
-endif()
 
-# Add architecture-specific PNG optimizations
-set(lib_srcs)
-
-# PowerPC VSX optimizations
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64|ppc64le")
-  list(APPEND lib_srcs
-    ${libPNG_SOURCE_DIR}/powerpc/powerpc_init.c
-    ${libPNG_SOURCE_DIR}/powerpc/filter_vsx_intrinsics.c
-  )
-
-else()
+  # Add architecture-specific PNG optimizations
+  set(lib_srcs)
   list(APPEND lib_srcs
     ${libPNG_SOURCE_DIR}/arm/arm_init.c
     ${libPNG_SOURCE_DIR}/arm/filter_neon_intrinsics.c
     ${libPNG_SOURCE_DIR}/arm/palette_neon_intrinsics.c
   )
+
+  # Common PNG sources
+  list(APPEND lib_srcs
+    ${libPNG_SOURCE_DIR}//png.c
+    ${libPNG_SOURCE_DIR}//pngerror.c
+    ${libPNG_SOURCE_DIR}//pngget.c
+    ${libPNG_SOURCE_DIR}//pngmem.c
+    ${libPNG_SOURCE_DIR}//pngpread.c
+    ${libPNG_SOURCE_DIR}//pngread.c
+    ${libPNG_SOURCE_DIR}//pngrio.c
+    ${libPNG_SOURCE_DIR}//pngrtran.c
+    ${libPNG_SOURCE_DIR}//pngrutil.c
+    ${libPNG_SOURCE_DIR}//pngset.c
+    ${libPNG_SOURCE_DIR}//pngtrans.c
+    ${libPNG_SOURCE_DIR}//pngwio.c
+    ${libPNG_SOURCE_DIR}//pngwrite.c
+    ${libPNG_SOURCE_DIR}//pngwtran.c
+    ${libPNG_SOURCE_DIR}//pngwutil.c
+    ${zlib_SOURCE_DIR}/adler32.c
+    ${zlib_SOURCE_DIR}/compress.c
+    ${zlib_SOURCE_DIR}/crc32.c
+    ${zlib_SOURCE_DIR}/deflate.c
+    ${zlib_SOURCE_DIR}/gzclose.c
+    ${zlib_SOURCE_DIR}/gzlib.c
+    ${zlib_SOURCE_DIR}/gzread.c
+    ${zlib_SOURCE_DIR}/gzwrite.c
+    ${zlib_SOURCE_DIR}/infback.c
+    ${zlib_SOURCE_DIR}/inffast.c
+    ${zlib_SOURCE_DIR}/inflate.c
+    ${zlib_SOURCE_DIR}/inftrees.c
+    ${zlib_SOURCE_DIR}/trees.c
+    ${zlib_SOURCE_DIR}/uncompr.c
+    ${zlib_SOURCE_DIR}/zutil.c
+  )
+  add_library(${PNG_LIBRARY} STATIC EXCLUDE_FROM_ALL ${lib_srcs})
+  target_include_directories(${PNG_LIBRARY} BEFORE PUBLIC ${zlib_SOURCE_DIR})
+
+  if(MSVC)
+    target_compile_definitions(${PNG_LIBRARY} PRIVATE -D_CRT_SECURE_NO_DEPRECATE)
+  else()
+    target_compile_options(${PNG_LIBRARY} PRIVATE -Wno-deprecated-non-prototype)
+  endif()
+
+  set_target_properties(${PNG_LIBRARY}
+    PROPERTIES
+        POSITION_INDEPENDENT_CODE ON
+        FOLDER externals)
+
 endif()
-
-# Common PNG sources
-list(APPEND lib_srcs
-   ${libPNG_SOURCE_DIR}//png.c
-   ${libPNG_SOURCE_DIR}//pngerror.c
-   ${libPNG_SOURCE_DIR}//pngget.c
-   ${libPNG_SOURCE_DIR}//pngmem.c
-   ${libPNG_SOURCE_DIR}//pngpread.c
-   ${libPNG_SOURCE_DIR}//pngread.c
-   ${libPNG_SOURCE_DIR}//pngrio.c
-   ${libPNG_SOURCE_DIR}//pngrtran.c
-   ${libPNG_SOURCE_DIR}//pngrutil.c
-   ${libPNG_SOURCE_DIR}//pngset.c
-   ${libPNG_SOURCE_DIR}//pngtrans.c
-   ${libPNG_SOURCE_DIR}//pngwio.c
-   ${libPNG_SOURCE_DIR}//pngwrite.c
-   ${libPNG_SOURCE_DIR}//pngwtran.c
-   ${libPNG_SOURCE_DIR}//pngwutil.c
-   ${zlib_SOURCE_DIR}/adler32.c
-   ${zlib_SOURCE_DIR}/compress.c
-   ${zlib_SOURCE_DIR}/crc32.c
-   ${zlib_SOURCE_DIR}/deflate.c
-   ${zlib_SOURCE_DIR}/gzclose.c
-   ${zlib_SOURCE_DIR}/gzlib.c
-   ${zlib_SOURCE_DIR}/gzread.c
-   ${zlib_SOURCE_DIR}/gzwrite.c
-   ${zlib_SOURCE_DIR}/infback.c
-   ${zlib_SOURCE_DIR}/inffast.c
-   ${zlib_SOURCE_DIR}/inflate.c
-   ${zlib_SOURCE_DIR}/inftrees.c
-   ${zlib_SOURCE_DIR}/trees.c
-   ${zlib_SOURCE_DIR}/uncompr.c
-   ${zlib_SOURCE_DIR}/zutil.c
-)
-
-add_library(${PNG_LIBRARY} STATIC EXCLUDE_FROM_ALL ${lib_srcs})
-target_include_directories(${PNG_LIBRARY} BEFORE PUBLIC ${zlib_SOURCE_DIR})
-
-if(MSVC)
-  target_compile_definitions(${PNG_LIBRARY} PRIVATE -D_CRT_SECURE_NO_DEPRECATE)
-else()
-  target_compile_options(${PNG_LIBRARY} PRIVATE -Wno-deprecated-non-prototype)
-endif()
-
-set_target_properties(${PNG_LIBRARY}
-  PROPERTIES
-      POSITION_INDEPENDENT_CODE ON
-      FOLDER externals)
-
 # ----------------------------------------------------------------------------
 #  project libjpeg
 #
