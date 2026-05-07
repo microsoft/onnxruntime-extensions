@@ -31,37 +31,37 @@ class Gemma4ImageTransform {
   // while fitting within the patch budget.  Both dimensions are rounded DOWN to
   // the nearest multiple of `side_mult = pooling_kernel_size * patch_size`.
   static std::pair<int64_t, int64_t> GetAspectRatioPreservingSize(
-      int64_t src_h, int64_t src_w,
+      int64_t source_height, int64_t source_width,
       int64_t patch_size, int64_t max_patches, int64_t pooling_kernel_size) {
     const int64_t side_mult = pooling_kernel_size * patch_size;
     const double target_px = static_cast<double>(max_patches) * patch_size * patch_size;
-    const double total_px = static_cast<double>(src_h) * src_w;
+    const double total_px = static_cast<double>(source_height) * source_width;
     const double factor = std::sqrt(target_px / total_px);
 
-    int64_t tgt_h = static_cast<int64_t>(std::floor(factor * src_h / side_mult)) * side_mult;
-    int64_t tgt_w = static_cast<int64_t>(std::floor(factor * src_w / side_mult)) * side_mult;
+    int64_t target_height = static_cast<int64_t>(std::floor(factor * source_height / side_mult)) * side_mult;
+    int64_t target_width = static_cast<int64_t>(std::floor(factor * source_width / side_mult)) * side_mult;
 
     const int64_t max_side = (max_patches / (pooling_kernel_size * pooling_kernel_size)) * side_mult;
 
     // Match HuggingFace behavior: reject images where both dimensions round
     // to zero (extreme aspect ratio).  See image_processing_gemma4.py L61.
-    if (tgt_h == 0 && tgt_w == 0) {
+    if (target_height == 0 && target_width == 0) {
       return {0, 0};  // caller checks and returns an error
-    } else if (tgt_h == 0) {
-      tgt_h = side_mult;
-      tgt_w = std::min(
-          static_cast<int64_t>(std::floor(static_cast<double>(src_w) / src_h)) * side_mult,
+    } else if (target_height == 0) {
+      target_height = side_mult;
+      target_width = std::min(
+          static_cast<int64_t>(std::floor(static_cast<double>(source_width) / source_height)) * side_mult,
           max_side);
-      if (tgt_w == 0) tgt_w = side_mult;
-    } else if (tgt_w == 0) {
-      tgt_w = side_mult;
-      tgt_h = std::min(
-          static_cast<int64_t>(std::floor(static_cast<double>(src_h) / src_w)) * side_mult,
+      if (target_width == 0) target_width = side_mult;
+    } else if (target_width == 0) {
+      target_width = side_mult;
+      target_height = std::min(
+          static_cast<int64_t>(std::floor(static_cast<double>(source_height) / source_width)) * side_mult,
           max_side);
-      if (tgt_h == 0) tgt_h = side_mult;
+      if (target_height == 0) target_height = side_mult;
     }
 
-    return {tgt_h, tgt_w};
+    return {target_height, target_width};
   }
 
   OrtxStatus Compute(const ortc::Tensor<uint8_t>& input,
@@ -75,19 +75,19 @@ class Gemma4ImageTransform {
               "[Gemma4ImageTransform]: expected (H, W, 3) uint8 input"};
     }
 
-    const int64_t src_h = dims[0];
-    const int64_t src_w = dims[1];
+    const int64_t source_height = dims[0];
+    const int64_t source_width = dims[1];
     constexpr int64_t C = 3;
 
     // --- aspect-ratio-preserving resize ----------------------------------
     const int64_t max_patches = max_soft_tokens_ * pooling_kernel_size_ * pooling_kernel_size_;
-    auto [tgt_h, tgt_w] = GetAspectRatioPreservingSize(
-        src_h, src_w, patch_size_, max_patches, pooling_kernel_size_);
+    auto [target_height, target_width] = GetAspectRatioPreservingSize(
+        source_height, source_width, patch_size_, max_patches, pooling_kernel_size_);
 
-    if (tgt_h == 0 || tgt_w == 0) {
+    if (target_height == 0 || target_width == 0) {
       return {kOrtxErrorInvalidArgument,
           "[Gemma4ImageTransform]: image has extreme aspect ratio ("
-          + std::to_string(src_h) + ", " + std::to_string(src_w)
+          + std::to_string(source_height) + ", " + std::to_string(source_width)
           + ") and cannot be resized to fit the patch constraints"};
     }
 
@@ -99,18 +99,18 @@ class Gemma4ImageTransform {
     // (Keys cubic, a=-0.5) with antialias and no clamping.
     // The horizontal pass fuses the uint8→float 1/255 rescale to avoid
     // allocating a full-resolution float copy of the source image.
-    const uint8_t* src_data = input.Data();
+    const uint8_t* source_data = input.Data();
 
     // Bicubic resize uint8 → float with fused rescale
-    std::vector<float> dst_float(static_cast<size_t>(tgt_h) * tgt_w * C);
+    std::vector<float> destination_float(static_cast<size_t>(target_height) * target_width * C);
     BicubicResizeU8ToFloatRGB(
-        dst_float.data(), src_data,
-        static_cast<int>(src_h), static_cast<int>(src_w),
-        static_cast<int>(tgt_h), static_cast<int>(tgt_w));
+        destination_float.data(), source_data,
+        static_cast<int>(source_height), static_cast<int>(source_width),
+        static_cast<int>(target_height), static_cast<int>(target_width));
 
     // --- patchify ---------------------------------------------------------
-    const int64_t ph = tgt_h / patch_size_;   // patches along height
-    const int64_t pw = tgt_w / patch_size_;   // patches along width
+    const int64_t ph = target_height / patch_size_;   // patches along height
+    const int64_t pw = target_width / patch_size_;    // patches along width
     const int64_t num_patches = ph * pw;
     const int64_t patch_dim = patch_size_ * patch_size_ * C;   // 16*16*3 = 768
 
@@ -121,7 +121,7 @@ class Gemma4ImageTransform {
     for (int64_t py = 0; py < ph; ++py) {
       for (int64_t px = 0; px < pw; ++px) {
         const int64_t patch_idx = py * pw + px;
-        float* dst = pv + patch_idx * patch_dim;
+        float* destination = pv + patch_idx * patch_dim;
         // Copy patch pixels in HWC raster order to match HuggingFace:
         // permute(1, 3, 2, 4, 0) in convert_image_to_patches() yields
         // (patch_height, patch_width, num_channels) within each patch.
@@ -130,10 +130,10 @@ class Gemma4ImageTransform {
           for (int64_t dx = 0; dx < patch_size_; ++dx) {
             const int64_t col = px * patch_size_ + dx;
             const int64_t base = (dy * patch_size_ + dx) * C;
-            const float* pixel = dst_float.data() + (row * tgt_w + col) * C;
-            dst[base + 0] = pixel[0];
-            dst[base + 1] = pixel[1];
-            dst[base + 2] = pixel[2];
+            const float* pixel = destination_float.data() + (row * target_width + col) * C;
+            destination[base + 0] = pixel[0];
+            destination[base + 1] = pixel[1];
+            destination[base + 2] = pixel[2];
           }
         }
       }

@@ -32,192 +32,207 @@ inline double bicubic_kernel(double x) {
 }
 
 // Precompute filter coefficients for one dimension.
-// Returns kernel size; fills bounds (xmin, count per output pixel)
-// and kk (normalised weights).  Mirrors Pillow's precompute_coeffs().
+// Returns kernel size; fills bounds (x_start, count per output pixel)
+// and coefficients (normalised weights).  Mirrors Pillow's precompute_coeffs().
 inline int precompute_coeffs(
-    int in_size, double in0, double in1, int out_size,
-    std::vector<int>& bounds, std::vector<double>& kk) {
+    int input_size, double input_start, double input_end, int output_size,
+    std::vector<int>& bounds, std::vector<double>& coefficients) {
   constexpr double kSupport = 2.0;  // bicubic support
 
-  double scale = (in1 - in0) / out_size;
+  double scale = (input_end - input_start) / output_size;
   double filter_scale = std::max(scale, 1.0);
   double support = kSupport * filter_scale;
-  int ksize = static_cast<int>(std::ceil(support)) * 2 + 1;
+  int kernel_size = static_cast<int>(std::ceil(support)) * 2 + 1;
 
-  bounds.resize(static_cast<size_t>(out_size) * 2);
-  kk.resize(static_cast<size_t>(out_size) * ksize);
+  bounds.resize(static_cast<size_t>(output_size) * 2);
+  coefficients.resize(static_cast<size_t>(output_size) * kernel_size);
 
   double inv_filter_scale = 1.0 / filter_scale;
-  for (int xx = 0; xx < out_size; ++xx) {
-    double center = in0 + (xx + 0.5) * scale;
-    int xmin = static_cast<int>(center - support + 0.5);
-    if (xmin < 0) xmin = 0;
-    int xmax = static_cast<int>(center + support + 0.5);
-    if (xmax > in_size) xmax = in_size;
-    xmax -= xmin;
+  for (int output_x = 0; output_x < output_size; ++output_x) {
+    double center = input_start + (output_x + 0.5) * scale;
+    int x_start = static_cast<int>(center - support + 0.5);
+    if (x_start < 0) x_start = 0;
+    int x_count = static_cast<int>(center + support + 0.5);
+    if (x_count > input_size) x_count = input_size;
+    x_count -= x_start;
 
-    double* k = &kk[static_cast<size_t>(xx) * ksize];
-    double ww = 0.0;
-    for (int x = 0; x < xmax; ++x) {
-      double w = bicubic_kernel((x + xmin - center + 0.5) * inv_filter_scale);
-      k[x] = w;
-      ww += w;
+    double* coeffs = &coefficients[static_cast<size_t>(output_x) * kernel_size];
+    double weight_sum = 0.0;
+    for (int x = 0; x < x_count; ++x) {
+      double weight = bicubic_kernel((x + x_start - center + 0.5) * inv_filter_scale);
+      coeffs[x] = weight;
+      weight_sum += weight;
     }
-    if (ww != 0.0) {
-      for (int x = 0; x < xmax; ++x) k[x] /= ww;
+    if (weight_sum != 0.0) {
+      for (int x = 0; x < x_count; ++x) coeffs[x] /= weight_sum;
     }
-    for (int x = xmax; x < ksize; ++x) k[x] = 0.0;
-    bounds[static_cast<size_t>(xx) * 2 + 0] = xmin;
-    bounds[static_cast<size_t>(xx) * 2 + 1] = xmax;
+    for (int x = x_count; x < kernel_size; ++x) coeffs[x] = 0.0;
+    bounds[static_cast<size_t>(output_x) * 2 + 0] = x_start;
+    bounds[static_cast<size_t>(output_x) * 2 + 1] = x_count;
   }
-  return ksize;
+  return kernel_size;
 }
 
-// Horizontal resample from uint8 source: (in_h, in_w, 3) uint8 → (in_h, out_w, 3) float.
+// Horizontal resample from uint8 source: (input_height, input_width, 3) uint8
+// → (input_height, output_width, 3) float.
 // Fuses the uint8→float rescale (1/255) into the filter accumulation to avoid
 // allocating a full-resolution float copy of the source image.
 inline void resample_horizontal_rgb_u8(
-    float* dst, const uint8_t* src,
-    int in_h, int in_w, int out_w,
-    int ksize, const int* bounds, const double* kk) {
+    float* destination, const uint8_t* source,
+    int input_height, int input_width, int output_width,
+    int kernel_size, const int* bounds, const double* coefficients) {
   constexpr double kRescale = 1.0 / 255.0;
-  for (int y = 0; y < in_h; ++y) {
-    const uint8_t* src_row = src + static_cast<size_t>(y) * in_w * 3;
-    float* dst_row = dst + static_cast<size_t>(y) * out_w * 3;
-    for (int xx = 0; xx < out_w; ++xx) {
-      int xmin = bounds[xx * 2];
-      int xmax = bounds[xx * 2 + 1];
-      const double* k = &kk[static_cast<size_t>(xx) * ksize];
-      double s0 = 0.0, s1 = 0.0, s2 = 0.0;
-      for (int x = 0; x < xmax; ++x) {
-        const uint8_t* p = src_row + (xmin + x) * 3;
-        s0 += p[0] * k[x];
-        s1 += p[1] * k[x];
-        s2 += p[2] * k[x];
+  for (int y = 0; y < input_height; ++y) {
+    const uint8_t* source_row = source + static_cast<size_t>(y) * input_width * 3;
+    float* destination_row = destination + static_cast<size_t>(y) * output_width * 3;
+    for (int output_x = 0; output_x < output_width; ++output_x) {
+      int x_start = bounds[output_x * 2];
+      int x_count = bounds[output_x * 2 + 1];
+      const double* coeffs = &coefficients[static_cast<size_t>(output_x) * kernel_size];
+      double sum_r = 0.0, sum_g = 0.0, sum_b = 0.0;
+      for (int x = 0; x < x_count; ++x) {
+        const uint8_t* pixel = source_row + (x_start + x) * 3;
+        sum_r += pixel[0] * coeffs[x];
+        sum_g += pixel[1] * coeffs[x];
+        sum_b += pixel[2] * coeffs[x];
       }
-      dst_row[xx * 3 + 0] = static_cast<float>(s0 * kRescale);
-      dst_row[xx * 3 + 1] = static_cast<float>(s1 * kRescale);
-      dst_row[xx * 3 + 2] = static_cast<float>(s2 * kRescale);
+      destination_row[output_x * 3 + 0] = static_cast<float>(sum_r * kRescale);
+      destination_row[output_x * 3 + 1] = static_cast<float>(sum_g * kRescale);
+      destination_row[output_x * 3 + 2] = static_cast<float>(sum_b * kRescale);
     }
   }
 }
 
-// Horizontal resample: (in_h, in_w, 3) → (in_h, out_w, 3)
+// Horizontal resample: (input_height, input_width, 3) → (input_height, output_width, 3)
 inline void resample_horizontal_rgb(
-    float* dst, const float* src,
-    int in_h, int in_w, int out_w,
-    int ksize, const int* bounds, const double* kk) {
-  for (int y = 0; y < in_h; ++y) {
-    const float* src_row = src + static_cast<size_t>(y) * in_w * 3;
-    float* dst_row = dst + static_cast<size_t>(y) * out_w * 3;
-    for (int xx = 0; xx < out_w; ++xx) {
-      int xmin = bounds[xx * 2];
-      int xmax = bounds[xx * 2 + 1];
-      const double* k = &kk[static_cast<size_t>(xx) * ksize];
-      double s0 = 0.0, s1 = 0.0, s2 = 0.0;
-      for (int x = 0; x < xmax; ++x) {
-        const float* p = src_row + (xmin + x) * 3;
-        s0 += p[0] * k[x];
-        s1 += p[1] * k[x];
-        s2 += p[2] * k[x];
+    float* destination, const float* source,
+    int input_height, int input_width, int output_width,
+    int kernel_size, const int* bounds, const double* coefficients) {
+  for (int y = 0; y < input_height; ++y) {
+    const float* source_row = source + static_cast<size_t>(y) * input_width * 3;
+    float* destination_row = destination + static_cast<size_t>(y) * output_width * 3;
+    for (int output_x = 0; output_x < output_width; ++output_x) {
+      int x_start = bounds[output_x * 2];
+      int x_count = bounds[output_x * 2 + 1];
+      const double* coeffs = &coefficients[static_cast<size_t>(output_x) * kernel_size];
+      double sum_r = 0.0, sum_g = 0.0, sum_b = 0.0;
+      for (int x = 0; x < x_count; ++x) {
+        const float* pixel = source_row + (x_start + x) * 3;
+        sum_r += pixel[0] * coeffs[x];
+        sum_g += pixel[1] * coeffs[x];
+        sum_b += pixel[2] * coeffs[x];
       }
-      dst_row[xx * 3 + 0] = static_cast<float>(s0);
-      dst_row[xx * 3 + 1] = static_cast<float>(s1);
-      dst_row[xx * 3 + 2] = static_cast<float>(s2);
+      destination_row[output_x * 3 + 0] = static_cast<float>(sum_r);
+      destination_row[output_x * 3 + 1] = static_cast<float>(sum_g);
+      destination_row[output_x * 3 + 2] = static_cast<float>(sum_b);
     }
   }
 }
 
-// Vertical resample: (in_h, w, 3) → (out_h, w, 3)
+// Vertical resample: (input_height, width, 3) → (output_height, width, 3)
 inline void resample_vertical_rgb(
-    float* dst, const float* src,
-    int in_h, int w, int out_h,
-    int ksize, const int* bounds, const double* kk) {
-  for (int yy = 0; yy < out_h; ++yy) {
-    int ymin = bounds[yy * 2];
-    int ymax = bounds[yy * 2 + 1];
-    const double* k = &kk[static_cast<size_t>(yy) * ksize];
-    float* dst_row = dst + static_cast<size_t>(yy) * w * 3;
-    for (int xx = 0; xx < w; ++xx) {
-      double s0 = 0.0, s1 = 0.0, s2 = 0.0;
-      for (int y = 0; y < ymax; ++y) {
-        const float* p = src + (static_cast<size_t>(ymin + y) * w + xx) * 3;
-        s0 += p[0] * k[y];
-        s1 += p[1] * k[y];
-        s2 += p[2] * k[y];
+    float* destination, const float* source,
+    int input_height, int width, int output_height,
+    int kernel_size, const int* bounds, const double* coefficients) {
+  for (int output_y = 0; output_y < output_height; ++output_y) {
+    int y_start = bounds[output_y * 2];
+    int y_count = bounds[output_y * 2 + 1];
+    const double* coeffs = &coefficients[static_cast<size_t>(output_y) * kernel_size];
+    float* destination_row = destination + static_cast<size_t>(output_y) * width * 3;
+    for (int output_x = 0; output_x < width; ++output_x) {
+      double sum_r = 0.0, sum_g = 0.0, sum_b = 0.0;
+      for (int y = 0; y < y_count; ++y) {
+        const float* pixel = source + (static_cast<size_t>(y_start + y) * width + output_x) * 3;
+        sum_r += pixel[0] * coeffs[y];
+        sum_g += pixel[1] * coeffs[y];
+        sum_b += pixel[2] * coeffs[y];
       }
-      dst_row[xx * 3 + 0] = static_cast<float>(s0);
-      dst_row[xx * 3 + 1] = static_cast<float>(s1);
-      dst_row[xx * 3 + 2] = static_cast<float>(s2);
+      destination_row[output_x * 3 + 0] = static_cast<float>(sum_r);
+      destination_row[output_x * 3 + 1] = static_cast<float>(sum_g);
+      destination_row[output_x * 3 + 2] = static_cast<float>(sum_b);
     }
   }
 }
 
 }  // namespace detail
 
-// Bicubic resize from uint8 RGB to float RGB: (src_h, src_w, 3) uint8 → (tgt_h, tgt_w, 3) float.
+// Bicubic resize from uint8 RGB to float RGB:
+// (source_height, source_width, 3) uint8 → (target_height, target_width, 3) float.
 // Fuses the 1/255 rescale into the horizontal pass to avoid a full-resolution
 // float copy of the source image. Output may exceed [0,1] due to bicubic
 // overshoot (matching torchvision F.resize behavior).
 //
 // Parameters:
-//   dst  — caller-allocated buffer of size tgt_h * tgt_w * 3 floats.
-//          Output is HWC-interleaved float RGB, nominally in [0,1] but
-//          values may slightly exceed this range due to bicubic overshoot.
-//   src  — source image in HWC uint8 RGB layout (src_h * src_w * 3 bytes).
+//   destination  — caller-allocated buffer of size
+//                  target_height * target_width * 3 floats.  Output is
+//                  HWC-interleaved float RGB, nominally in [0,1] but values
+//                  may slightly exceed this range due to bicubic overshoot.
+//   source       — source image in HWC uint8 RGB layout
+//                  (source_height * source_width * 3 bytes).
 inline void BicubicResizeU8ToFloatRGB(
-    float* dst,
-    const uint8_t* src, int src_h, int src_w,
-    int tgt_h, int tgt_w) {
+    float* destination,
+    const uint8_t* source, int source_height, int source_width,
+    int target_height, int target_width) {
   // Precompute coefficients for each dimension
-  std::vector<int> bounds_h, bounds_v;
-  std::vector<double> kk_h, kk_v;
-  int ksize_h = detail::precompute_coeffs(
-      src_w, 0.0, static_cast<double>(src_w), tgt_w, bounds_h, kk_h);
-  int ksize_v = detail::precompute_coeffs(
-      src_h, 0.0, static_cast<double>(src_h), tgt_h, bounds_v, kk_v);
+  std::vector<int> horizontal_bounds, vertical_bounds;
+  std::vector<double> horizontal_coefficients, vertical_coefficients;
+  int horizontal_kernel_size = detail::precompute_coeffs(
+      source_width, 0.0, static_cast<double>(source_width), target_width,
+      horizontal_bounds, horizontal_coefficients);
+  int vertical_kernel_size = detail::precompute_coeffs(
+      source_height, 0.0, static_cast<double>(source_height), target_height,
+      vertical_bounds, vertical_coefficients);
 
-  bool need_h = (tgt_w != src_w);
-  bool need_v = (tgt_h != src_h);
+  bool needs_horizontal = (target_width != source_width);
+  bool needs_vertical = (target_height != source_height);
 
-  if (need_h && need_v) {
+  if (needs_horizontal && needs_vertical) {
     // Horizontal pass reads uint8, writes float (fused rescale).
     // Only resample rows that the vertical pass will read.
-    int ybox_first = bounds_v[0];
-    int ybox_last = bounds_v[static_cast<size_t>(tgt_h - 1) * 2]
-                  + bounds_v[static_cast<size_t>(tgt_h - 1) * 2 + 1];
-    int temp_h = ybox_last - ybox_first;
+    int ybox_first = vertical_bounds[0];
+    int ybox_last = vertical_bounds[static_cast<size_t>(target_height - 1) * 2]
+                  + vertical_bounds[static_cast<size_t>(target_height - 1) * 2 + 1];
+    int temp_height = ybox_last - ybox_first;
 
-    std::vector<float> temp(static_cast<size_t>(temp_h) * tgt_w * 3);
+    std::vector<float> temp(static_cast<size_t>(temp_height) * target_width * 3);
     detail::resample_horizontal_rgb_u8(
-        temp.data(), src + static_cast<size_t>(ybox_first) * src_w * 3,
-        temp_h, src_w, tgt_w, ksize_h, bounds_h.data(), kk_h.data());
+        temp.data(),
+        source + static_cast<size_t>(ybox_first) * source_width * 3,
+        temp_height, source_width, target_width,
+        horizontal_kernel_size, horizontal_bounds.data(),
+        horizontal_coefficients.data());
 
     // Shift vertical bounds to account for ybox_first offset
-    for (int i = 0; i < tgt_h; ++i) {
-      bounds_v[static_cast<size_t>(i) * 2] -= ybox_first;
+    for (int i = 0; i < target_height; ++i) {
+      vertical_bounds[static_cast<size_t>(i) * 2] -= ybox_first;
     }
 
-    // Vertical pass: (temp_h, tgt_w, 3) float → (tgt_h, tgt_w, 3) float
+    // Vertical pass: (temp_height, target_width, 3) float
+    //             → (target_height, target_width, 3) float
     detail::resample_vertical_rgb(
-        dst, temp.data(), temp_h, tgt_w, tgt_h,
-        ksize_v, bounds_v.data(), kk_v.data());
-  } else if (need_h) {
+        destination, temp.data(), temp_height, target_width, target_height,
+        vertical_kernel_size, vertical_bounds.data(),
+        vertical_coefficients.data());
+  } else if (needs_horizontal) {
     detail::resample_horizontal_rgb_u8(
-        dst, src, src_h, src_w, tgt_w, ksize_h, bounds_h.data(), kk_h.data());
-  } else if (need_v) {
+        destination, source, source_height, source_width, target_width,
+        horizontal_kernel_size, horizontal_bounds.data(),
+        horizontal_coefficients.data());
+  } else if (needs_vertical) {
     // Rare: same width, different height — convert to float first
-    std::vector<float> src_float(static_cast<size_t>(src_h) * src_w * 3);
+    std::vector<float> source_float(
+        static_cast<size_t>(source_height) * source_width * 3);
     constexpr float kRescale = 1.0f / 255.0f;
-    for (size_t i = 0; i < src_float.size(); ++i)
-      src_float[i] = static_cast<float>(src[i]) * kRescale;
+    for (size_t i = 0; i < source_float.size(); ++i)
+      source_float[i] = static_cast<float>(source[i]) * kRescale;
     detail::resample_vertical_rgb(
-        dst, src_float.data(), src_h, src_w, tgt_h,
-        ksize_v, bounds_v.data(), kk_v.data());
+        destination, source_float.data(), source_height, source_width,
+        target_height, vertical_kernel_size, vertical_bounds.data(),
+        vertical_coefficients.data());
   } else {
     constexpr float kRescale = 1.0f / 255.0f;
-    for (size_t i = 0; i < static_cast<size_t>(src_h) * src_w * 3; ++i)
-      dst[i] = static_cast<float>(src[i]) * kRescale;
+    for (size_t i = 0; i < static_cast<size_t>(source_height) * source_width * 3; ++i)
+      destination[i] = static_cast<float>(source[i]) * kRescale;
   }
 }
 
