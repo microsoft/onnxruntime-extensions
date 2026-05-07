@@ -184,7 +184,7 @@ class BpeModel {
       if (i > static_cast<uint32_t>((std::numeric_limits<int32_t>::max)())) {
         continue;  // safe purpose.
       }
-      if (i > id2token_map_.size()) {
+      if (i >= id2token_map_.size()) {
         id2token_map_.resize(static_cast<size_t>(i) + 1);
       }
       id2token_map_[i] = t;
@@ -260,7 +260,7 @@ class BpeModel {
       if (i > static_cast<uint32_t>((std::numeric_limits<int32_t>::max)())) {
         continue;  // safe purpose.
       }
-      if (i > id2token_map_.size()) {
+      if (i >= id2token_map_.size()) {
         id2token_map_.resize(static_cast<size_t>(i) + 1);
       }
       id2token_map_[i] = t;
@@ -298,7 +298,7 @@ class BpeModel {
       if (i > static_cast<uint32_t>((std::numeric_limits<int32_t>::max)())) {
         continue;  // safe purpose.
       }
-      if (i > id2token_map_.size()) {
+      if (i >= id2token_map_.size()) {
         id2token_map_.resize(static_cast<size_t>(i) + 1);
       }
       id2token_map_[i] = t;
