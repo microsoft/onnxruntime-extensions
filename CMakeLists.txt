@@ -410,7 +410,9 @@ if(OCOS_ENABLE_MATH)
     file(GLOB TARGET_SRC_MATH_CUDA "operators/math/cuda/*.*")
     list(APPEND TARGET_SRC_MATH ${TARGET_SRC_MATH_CUDA})
   endif()
-  list(APPEND TARGET_SRC ${dlib_SOURCE_DIR}/dlib/fft/fft.cpp) # For the OCOS_ENABLE_AUDIO=OFF so that unknown symbol error shouldn't come.
+  if(NOT OCOS_ENABLE_AUDIO)
+    list(APPEND TARGET_SRC ${dlib_SOURCE_DIR}/dlib/fft/fft.cpp) # For the OCOS_ENABLE_AUDIO=OFF so that unknown symbol error shouldn't come.
+  endif()
   list(APPEND TARGET_SRC ${TARGET_SRC_MATH} ${TARGET_SRC_DLIB} ${TARGET_SRC_INVERSE})
 endif()
 
