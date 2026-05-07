@@ -6,10 +6,12 @@
 #include <algorithm>
 #include <fstream>
 #include <filesystem>
+#include <chrono>
 
 #include "gtest/gtest.h"
 #include "ortx_cpp_helper.h"
 #include "shared/api/image_processor.h"
+#include "shared/api/image_transforms_gemma4.hpp"
 
 using namespace ort_extensions;
 
@@ -317,18 +319,23 @@ TEST(ProcessorTest, TestGemma4ImageProcessing) {
   ASSERT_EQ(shape[1], kMaxPatches);
   ASSERT_EQ(shape[2], kPatchDim);
 
-  // Pixel values should be rescaled to [0, 1].
+  // Float-domain bicubic can produce values slightly outside [0, 1] due to
+  // overshoot (matching torchvision/HF behavior).  Verify the range is reasonable.
   bool all_in_range = true;
   for (int64_t i = 0; i < std::min<int64_t>(shape[1] * shape[2], 10000); ++i) {
-    if (pv_data[i] < 0.0f || pv_data[i] > 1.0f) {
+    if (pv_data[i] < -0.5f || pv_data[i] > 1.5f) {
       all_in_range = false;
       break;
     }
   }
-  EXPECT_TRUE(all_in_range) << "Pixel values should be in [0, 1]";
+  EXPECT_TRUE(all_in_range) << "Pixel values should be in [-0.5, 1.5] (bicubic overshoot allowed)";
 
   // Verify pixel values match HuggingFace Gemma4ImageProcessor output.
   // Reference: HF transformers Gemma4ImageProcessor on australia.jpg (1300x876).
+  // Patch 0 is in a uniform region, so uint8 and float-domain values match closely.
+  // NOTE: Reference values are exact 1/255 multiples captured from HF's uint8 path.
+  // The float-domain resize can differ by up to ~2e-3 in uniform regions because
+  // coefficient precomputation differs slightly from Pillow's integer rounding.
   // Patch 0, first 10 values (HWC order within each patch):
   const float kPatch0Expected[] = {
       0.18823531f, 0.05490196f, 0.01960784f,
@@ -336,7 +343,7 @@ TEST(ProcessorTest, TestGemma4ImageProcessing) {
       0.18823531f, 0.05490196f, 0.01960784f,
       0.18823531f};
   for (int i = 0; i < 10; ++i) {
-    EXPECT_NEAR(pv_data[i], kPatch0Expected[i], 1e-3f)
+    EXPECT_NEAR(pv_data[i], kPatch0Expected[i], 2e-3f)
         << "Patch 0, value " << i << " mismatch vs HF reference";
   }
   // Patch 1, first 10 values:
@@ -347,7 +354,7 @@ TEST(ProcessorTest, TestGemma4ImageProcessing) {
       0.17647059f};
   const float* patch1 = pv_data + kPatchDim;  // start of patch 1
   for (int i = 0; i < 10; ++i) {
-    EXPECT_NEAR(patch1[i], kPatch1Expected[i], 1e-3f)
+    EXPECT_NEAR(patch1[i], kPatch1Expected[i], 2e-3f)
         << "Patch 1, value " << i << " mismatch vs HF reference";
   }
 
@@ -430,7 +437,61 @@ TEST(ProcessorTest, TestGemma4ImageProcessingMultiImage) {
   ASSERT_EQ(shape[0], 2);  // batch of 2 images
 }
 
-// Security regression test: CMYK JPEG must be rejected at decode time (CWE-122).
+TEST(ProcessorTest, TestGemma4ImageResizeBenchmark) {
+  // Benchmark the float-domain bicubic resize in isolation (no JPEG decode).
+  // Tests multiple image sizes representative of real Gemma4 usage.
+  struct TestCase {
+    int w, h;
+    const char* label;
+  };
+  TestCase cases[] = {
+      {224, 224, "small square"},
+      {640, 480, "standard"},
+      {1300, 876, "australia.jpg"},
+      {1920, 1080, "Full HD"},
+      {3024, 4032, "phone photo"},
+  };
+
+  constexpr int kWarmup = 1;
+  constexpr int kIters = 3;  // Informational only; keep small for CI
+  constexpr int patch_size = 16;
+  constexpr int pooling_kernel_size = 3;
+  constexpr int max_soft_tokens = 280;
+  constexpr int max_patches = max_soft_tokens * pooling_kernel_size * pooling_kernel_size;
+
+  std::cout << "[Benchmark] Gemma4 BicubicResizeU8ToFloatRGB (resize only, no decode)\n";
+  for (const auto& tc : cases) {
+    // Compute Gemma4 target size
+    auto [tgt_h, tgt_w] = ort_extensions::Gemma4ImageTransform::GetAspectRatioPreservingSize(
+        tc.h, tc.w, patch_size, max_patches, pooling_kernel_size);
+    if (tgt_h == 0 || tgt_w == 0) continue;
+
+    // Create random uint8 source (fixed seed for reproducibility)
+    srand(42);
+    std::vector<uint8_t> src(static_cast<size_t>(tc.h) * tc.w * 3);
+    for (auto& v : src) v = static_cast<uint8_t>(rand() % 256);
+    std::vector<float> dst(static_cast<size_t>(tgt_h) * tgt_w * 3);
+
+    // Warmup
+    for (int i = 0; i < kWarmup; ++i) {
+      ort_extensions::BicubicResizeU8ToFloatRGB(
+          dst.data(), src.data(), tc.h, tc.w,
+          static_cast<int>(tgt_h), static_cast<int>(tgt_w));
+    }
+    // Timed
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < kIters; ++i) {
+      ort_extensions::BicubicResizeU8ToFloatRGB(
+          dst.data(), src.data(), tc.h, tc.w,
+          static_cast<int>(tgt_h), static_cast<int>(tgt_w));
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+    double ms = std::chrono::duration<double, std::milli>(end - start).count() / kIters;
+    std::cout << "  " << tc.w << "x" << tc.h << " (" << tc.label
+              << ") -> " << tgt_w << "x" << tgt_h << ": " << ms << " ms\n";
+  }
+}
+
 //
 // A CMYK JPEG has 4 output channels. Phi4VisionDynamicPreprocess allocates a
 // 3-channel output buffer but previously copied using the dynamic channel count,
