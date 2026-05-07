@@ -377,7 +377,6 @@ if(OCOS_ENABLE_DLIB)
   # To avoid the unintentional using some unwanted component, we only include the test_for_odr_violations.cpp
   # to check if there is any violation in build configuration to ensure compiling some dlib source files correctly.
   file(GLOB TARGET_SRC_DLIB "${dlib_SOURCE_DIR}/dlib/test_for_odr_violations.cpp")
-  list(APPEND TARGET_SRC_DLIB ${dlib_SOURCE_DIR}/dlib/fft/fft.cpp) # For the OCOS_ENABLE_AUDIO=OFF so that unknown symbol error shouldn't come.
 endif()
 
 if(OCOS_ENABLE_TF_STRING)
@@ -411,7 +410,7 @@ if(OCOS_ENABLE_MATH)
     file(GLOB TARGET_SRC_MATH_CUDA "operators/math/cuda/*.*")
     list(APPEND TARGET_SRC_MATH ${TARGET_SRC_MATH_CUDA})
   endif()
-
+  list(APPEND TARGET_SRC ${dlib_SOURCE_DIR}/dlib/fft/fft.cpp) # For the OCOS_ENABLE_AUDIO=OFF so that unknown symbol error shouldn't come.
   list(APPEND TARGET_SRC ${TARGET_SRC_MATH} ${TARGET_SRC_DLIB} ${TARGET_SRC_INVERSE})
 endif()
 
