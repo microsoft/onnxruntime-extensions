@@ -299,6 +299,126 @@ TEST(OrtxTokenizerTest, MarianTokenizer2) {
 }
 
 // ============================================================================
+// Marian Id2Token bug-fix regression tests
+// ============================================================================
+
+// Bug 1: Mode doesn't propagate across pieces.
+// The Marian case-encoder U (uppercase) mode must persist across SPM piece
+// boundaries.  E.g. "MCP" encodes as pieces like "Umc"+"p", and the U mode
+// from the first piece must carry into the second so "p" becomes "P".
+TEST(OrtxTokenizerTest, MarianId2Token_CrossPieceModePropagate) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/nmt");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  // "MCP" triggers cross-piece U-run: the encoder emits "Umc"+"p" (or
+  // similar segmentation) where U mode must survive the piece boundary.
+  const char* input[] = {"MCP protocol"};
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  ASSERT_GT(length, 0u);
+
+  std::vector<extTokenId_t> ids_vec(ids, ids + length);
+  OrtxObjectPtr<OrtxStringArray> decoded_text;
+  OrtxDetokenize1D(tokenizer.get(), ids_vec.data(), ids_vec.size(), decoded_text.ToBeAssigned());
+  ASSERT_EQ(decoded_text.Code(), kOrtxOK);
+
+  const char* text = nullptr;
+  OrtxStringArrayGetItem(decoded_text.get(), 0, &text);
+  EXPECT_STREQ(text, "MCP protocol");
+}
+
+// Bug 2: Markers mid-piece are ignored.
+// When the SPM unigram lattice merges a case marker into the middle of a
+// piece (e.g. "iTphone" where T is a titlecase marker), the old decoder
+// only checked position 0 and emitted the marker literally.
+TEST(OrtxTokenizerTest, MarianId2Token_MidPieceMarker) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/nmt");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  // "iPhone" triggers mid-piece marker: the encoder lowercases to "iphone"
+  // and inserts a T(itlecase) before the 'p', producing a piece like "iTphone".
+  const char* input[] = {"iPhone is great"};
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  ASSERT_GT(length, 0u);
+
+  std::vector<extTokenId_t> ids_vec(ids, ids + length);
+  OrtxObjectPtr<OrtxStringArray> decoded_text;
+  OrtxDetokenize1D(tokenizer.get(), ids_vec.data(), ids_vec.size(), decoded_text.ToBeAssigned());
+  ASSERT_EQ(decoded_text.Code(), kOrtxOK);
+
+  const char* text = nullptr;
+  OrtxStringArrayGetItem(decoded_text.get(), 0, &text);
+  EXPECT_STREQ(text, "iPhone is great");
+}
+
+// Bug 3: Implicit L reset not recovered.
+// When the SPM unigram lattice drops an explicit L (lowercase) marker at a
+// non-letter codepoint boundary, the decoder must implicitly reset the mode.
+// E.g. "PPV-mp" encodes as "Upp"+"v"+"-"+"mp" and after the hyphen the
+// mode should reset to lowercase, yielding "mp" not "MP".
+TEST(OrtxTokenizerTest, MarianId2Token_ImplicitLReset) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/nmt");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  const char* input[] = {"PPV-mp format"};
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  ASSERT_GT(length, 0u);
+
+  std::vector<extTokenId_t> ids_vec(ids, ids + length);
+  OrtxObjectPtr<OrtxStringArray> decoded_text;
+  OrtxDetokenize1D(tokenizer.get(), ids_vec.data(), ids_vec.size(), decoded_text.ToBeAssigned());
+  ASSERT_EQ(decoded_text.Code(), kOrtxOK);
+
+  const char* text = nullptr;
+  OrtxStringArrayGetItem(decoded_text.get(), 0, &text);
+  EXPECT_STREQ(text, "PPV-mp format");
+}
+
+// Combined test: exercises all three Id2Token bugs in a single sentence.
+TEST(OrtxTokenizerTest, MarianId2Token_CombinedBugs) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/nmt");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  // Combines: cross-piece U-run (THIS), mid-piece marker (iPhone), and
+  // implicit L reset (PPV-mp).
+  const char* input[] = {"THIS iPhone costs PPV-mp only"};
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  ASSERT_GT(length, 0u);
+
+  std::vector<extTokenId_t> ids_vec(ids, ids + length);
+  OrtxObjectPtr<OrtxStringArray> decoded_text;
+  OrtxDetokenize1D(tokenizer.get(), ids_vec.data(), ids_vec.size(), decoded_text.ToBeAssigned());
+  ASSERT_EQ(decoded_text.Code(), kOrtxOK);
+
+  const char* text = nullptr;
+  OrtxStringArrayGetItem(decoded_text.get(), 0, &text);
+  EXPECT_STREQ(text, "THIS iPhone costs PPV-mp only");
+}
+
+// ============================================================================
 // Transformers v5 format tests
 // ============================================================================
 

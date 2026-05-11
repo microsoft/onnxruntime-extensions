@@ -11,6 +11,7 @@
 #include <string_view>
 #include <vector>
 #include <cfloat>
+#include <cstring>
 #include <functional>
 #include <unordered_map>
 #include <cwctype>
@@ -896,73 +897,159 @@ class SpmUgmDecoder {
       return {};
     }
 
-    token = vocab_[id];
-    if (case_encoding_ && token.length() == 1) {
-      if (token[0] == normalizer::cUppercase || token[0] == normalizer::cAllUppercase ||
-          token[0] == normalizer::cTitlecase || token[0] == normalizer::cLowercase ||
-          token[0] == normalizer::cPunctuation) {
-        (*state)->signature_ = token[0];
-        token = "";
-        return {};
-      }
-    }
+    const std::string& piece = vocab_[id];
 
-    const std::string ws = " ";
-    auto pos = token.find(spm_escaped_space);
-    if (pos != std::string::npos) {
-      if (pos == 0) {
-        token = ws + token.substr(spm_escaped_space.length());
-      } else if (pos + 3 == token.length()) {
-        token = token.substr(0, pos) + ws;
-      }
-    }
-    
     if (!case_encoding_) {
+      // Non-Marian unigram path: just rewrite the SPM space marker and
+      // emit the piece verbatim.
+      token = piece;
+      auto pos = token.find(spm_escaped_space);
+      if (pos == 0) {
+        token = std::string(" ") + token.substr(spm_escaped_space.length());
+      } else if (pos != std::string::npos &&
+                 pos + spm_escaped_space.length() == token.length()) {
+        token = token.substr(0, pos) + std::string(" ");
+      }
       return {};
     }
 
-    char signature = 0;
-    if ((*state)->signature_ != 0) {
-      signature = (*state)->signature_;
-      (*state)->signature_ = 0;
-    }
+    // Marian case-encoder protocol -- per-piece byte-level state machine.
+    //
+    // The Marian case-encoder pre-pass lowercases everything before applying
+    // markers, so any uppercase ASCII letter we encounter inside a unigram
+    // piece is by construction a marker (cUppercase 'U', cAllUppercase 'A',
+    // cTitlecase 'T', cLowercase 'L', cPunctuation 'P').
+    //
+    // The previous implementation only recognized a marker at position 0 of
+    // a piece, which broke three real-world cases that ship in the trained
+    // vocab: (1) cross-piece U-runs ("Umc"+"p" -> "MCp" instead of "MCP"),
+    // (2) mid-piece markers ("iTphone" -> "iTphone" instead of "iPhone"),
+    // and (3) implicit L reset where the SPM lattice drops the explicit L
+    // ("Upp"+"v" -> "PPV" instead of "PPv"). See
+    // https://microsoft.visualstudio.com/Edge/_git/edge.onnxruntime-extensions
+    // commit history for the full repro.
 
-    if (signature) {
-      // Apply transformation from previous token's signature
-      switch (signature) {
-        case normalizer::cUppercase:
-        case normalizer::cAllUppercase:
-          std::transform(token.begin(), token.end(), token.begin(), ::toupper);
-          break;
-        case normalizer::cTitlecase:
-          TitlecaseFirstCharacter(token);
-          break;
-        case normalizer::cLowercase:
-        case normalizer::cPunctuation:
-          // No transformation needed
-          break;
+    token.clear();
+    token.reserve(piece.size());
+
+    char mode = (*state)->signature_;
+
+    auto is_letter_codepoint = [this](const std::string& cp_utf8) -> bool {
+      if (cp_utf8.empty()) return false;
+      wchar_t codepoint = 0;
+      size_t char_len = 0;
+      if (!DecodeFirstUTF8Codepoint(cp_utf8, codepoint, char_len)) {
+        return false;
       }
-    } else if (!token.empty()) {
-      // Check if current token starts with a signature character
-      char first_char = token[0];
-      if (first_char == normalizer::cUppercase || first_char == normalizer::cAllUppercase ||
-          first_char == normalizer::cTitlecase || first_char == normalizer::cLowercase ||
-          first_char == normalizer::cPunctuation) {
-        token.erase(0, 1);  // Remove signature character
+      (void)char_len;
+      return std::iswalpha(static_cast<wint_t>(codepoint)) != 0;
+    };
 
-        switch (first_char) {
-          case normalizer::cUppercase:
-          case normalizer::cAllUppercase:
-            std::transform(token.begin(), token.end(), token.begin(), ::toupper);
-            break;
-          case normalizer::cTitlecase:
-            TitlecaseFirstCharacter(token);
-            break;
-            // For cLowercase and cPunctuation, no transformation needed
+    auto uppercase_codepoint = [this](std::string& cp_utf8) {
+      if (cp_utf8.empty()) return;
+      wchar_t codepoint = 0;
+      size_t char_len = 0;
+      if (!DecodeFirstUTF8Codepoint(cp_utf8, codepoint, char_len)) return;
+      (void)char_len;
+      // Match TitlecaseFirstCharacter's special-cases.
+      if (codepoint >= L'\u0430' && codepoint <= L'\u044f') {
+        codepoint = codepoint - (L'\u0430' - L'\u0410');
+      } else if (codepoint == L'\u0451') {
+        codepoint = L'\u0401';
+      } else {
+        codepoint = static_cast<wchar_t>(
+            std::towupper(static_cast<wint_t>(codepoint)));
+      }
+      cp_utf8 = EncodeUTF8(codepoint);
+    };
+
+    size_t i = 0;
+    const size_t n = piece.size();
+    while (i < n) {
+      // SPM space marker (\u2581 = U+2581, 3 UTF-8 bytes).
+      if (i + spm_escaped_space.size() <= n &&
+          std::memcmp(piece.data() + i, spm_escaped_space.data(),
+                      spm_escaped_space.size()) == 0) {
+        token.push_back(' ');
+        // U/T modes do not survive a word boundary.  cAllUppercase by
+        // design crosses spaces (matches case_encoder.cc::PostProcess
+        // A-spans).
+        if (mode != normalizer::cAllUppercase) {
+          mode = 0;
+        }
+        i += spm_escaped_space.size();
+        continue;
+      }
+
+      const unsigned char ch = static_cast<unsigned char>(piece[i]);
+
+      // Single-byte ASCII marker dispatch.
+      if (ch == normalizer::cUppercase) {
+        mode = normalizer::cUppercase;
+        ++i;
+        continue;
+      }
+      if (ch == normalizer::cAllUppercase) {
+        mode = normalizer::cAllUppercase;
+        ++i;
+        continue;
+      }
+      if (ch == normalizer::cTitlecase) {
+        mode = normalizer::cTitlecase;
+        ++i;
+        continue;
+      }
+      if (ch == normalizer::cLowercase) {
+        mode = 0;
+        ++i;
+        continue;
+      }
+      if (ch == normalizer::cPunctuation) {
+        // P is a pass-through marker; preserve the active mode.
+        ++i;
+        continue;
+      }
+
+      // Real codepoint: determine UTF-8 byte length from the lead byte,
+      // then apply / propagate the active case mode.
+      size_t cp_len = 1;
+      if ((ch >> 5) == 0x6) {
+        cp_len = 2;
+      } else if ((ch >> 4) == 0xE) {
+        cp_len = 3;
+      } else if ((ch >> 3) == 0x1E) {
+        cp_len = 4;
+      }
+      if (i + cp_len > n) {
+        cp_len = n - i;  // truncated; emit verbatim
+      }
+      std::string cp = piece.substr(i, cp_len);
+      const bool is_letter = is_letter_codepoint(cp);
+
+      if (is_letter && (mode == normalizer::cTitlecase ||
+                        mode == normalizer::cUppercase ||
+                        mode == normalizer::cAllUppercase)) {
+        uppercase_codepoint(cp);
+        token.append(cp);
+        if (mode == normalizer::cTitlecase) {
+          mode = 0;  // T applies to one codepoint only
+        }
+        // U / A persist
+      } else {
+        token.append(cp);
+        if (!is_letter && (mode == normalizer::cUppercase ||
+                           mode == normalizer::cTitlecase)) {
+          // Implicit L: the encoder would have terminated the U/T run at
+          // a non-letter codepoint, but the SPM unigram lattice may have
+          // merged the explicit L away in scoring.  Recover here.
+          mode = 0;
         }
       }
+
+      i += cp_len;
     }
 
+    (*state)->signature_ = mode;
     return {};
   }
 
