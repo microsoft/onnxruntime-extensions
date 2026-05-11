@@ -1663,6 +1663,172 @@ TEST(OrtxTokenizerTest, Qwen2_5_NormalizationStillApplies) {
       << "Tool description should be preserved";
 }
 
+/*
+  Test GPT-OSS tools with an EXPLICIT template_str parameter (matches genai Python code path).
+  GenAI reads chat_template.jinja and passes it as template_str to OrtxApplyChatTemplate,
+  whereas our earlier tests used template_str=nullptr (uses the built-in from tokenizer_config.json).
+  This test verifies skip_tool_normalization works when template_str is explicitly provided.
+*/
+TEST(OrtxTokenizerTest, GptOssToolsWithExplicitTemplateStr) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/gpt-oss");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create GPT-OSS tokenizer: " << OrtxGetLastErrorMessage();
+
+  // Read chat_template.jinja file (same as what genai does)
+  std::ifstream jinja_file("data/gpt-oss/chat_template.jinja");
+  ASSERT_TRUE(jinja_file.is_open()) << "Could not open data/gpt-oss/chat_template.jinja";
+  std::string template_str((std::istreambuf_iterator<char>(jinja_file)),
+                            std::istreambuf_iterator<char>());
+  ASSERT_FALSE(template_str.empty()) << "Template file is empty";
+  ASSERT_NE(template_str.find("tool.function"), std::string::npos)
+      << "GPT-OSS template should contain 'tool.function'";
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "What's the weather in Seattle?"
+      }
+    ])";
+
+  std::string tools_json = R"(
+    [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "description": "Get current weather for a location.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "The city name"
+              }
+            },
+            "required": ["location"]
+          }
+        }
+      }
+    ])";
+
+  // KEY DIFFERENCE: pass template_str explicitly (not nullptr)
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), template_str.c_str(),
+    messages_json.c_str(), tools_json.c_str(),
+    templated_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string output(text_ptr);
+
+  // Same expectations as GptOssChatTemplateWithTools - tools should render as TypeScript namespace
+  EXPECT_NE(output.find("namespace functions {"), std::string::npos)
+      << "Missing TypeScript namespace declaration.\nFull output:\n" << output;
+  EXPECT_NE(output.find("// Get current weather for a location."), std::string::npos)
+      << "Missing tool description in TypeScript format.\nFull output:\n" << output;
+  EXPECT_NE(output.find("type get_weather = ("), std::string::npos)
+      << "Missing tool type declaration.\nFull output:\n" << output;
+  EXPECT_NE(output.find("location"), std::string::npos)
+      << "Missing parameter name.\nFull output:\n" << output;
+  EXPECT_NE(output.find("} // namespace functions"), std::string::npos)
+      << "Missing namespace closing.\nFull output:\n" << output;
+}
+
+/*
+  Test that tools JSON is passed through RAW (not normalized) when skip_tool_normalization fires.
+  Uses a minimal template that dumps the tools JSON so we can inspect the keys directly.
+  This is the definitive test: if tools are raw, tool[0] will have keys "type" and "function".
+  If normalized, tool[0] will have keys "name", "description", "parameters" (no "type"/"function").
+*/
+TEST(OrtxTokenizerTest, GptOssToolsNotNormalized) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/gpt-oss");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create GPT-OSS tokenizer: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"([{"role":"user","content":"hi"}])";
+  std::string tools_json = R"([{"type":"function","function":{"name":"foo","description":"bar","parameters":{"type":"object","properties":{}}}}])";
+
+  // Minimal template that contains "tool.function" to trigger skip_normalization,
+  // and dumps the first tool's keys so we can verify they're raw
+  std::string minimal_template = R"({% for tool in tools %}{% for k, v in tool.items() %}KEY={{k}} {% endfor %}{% endfor %}<!-- tool.function -->)";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), minimal_template.c_str(),
+    messages_json.c_str(), tools_json.c_str(),
+    templated_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string output(text_ptr);
+
+  // If skip_normalization works, tools are raw: keys should be "type" and "function"
+  EXPECT_NE(output.find("KEY=type"), std::string::npos)
+      << "Raw tools should have 'type' key. Output: " << output;
+  EXPECT_NE(output.find("KEY=function"), std::string::npos)
+      << "Raw tools should have 'function' key. Output: " << output;
+  // Should NOT have normalized keys at top level
+  EXPECT_EQ(output.find("KEY=description"), std::string::npos)
+      << "Raw tools should NOT have 'description' at top level (it's inside .function). Output: " << output;
+}
+
+/*
+  Counterpart: verify tools ARE normalized when template does NOT contain "tool.function".
+  Uses same minimal template approach but without the "tool.function" marker.
+*/
+TEST(OrtxTokenizerTest, ToolsNormalizedWhenNoToolDotFunction) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/gpt-oss");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create GPT-OSS tokenizer: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"([{"role":"user","content":"hi"}])";
+  std::string tools_json = R"([{"type":"function","function":{"name":"foo","description":"bar","parameters":{"type":"object","properties":{}}}}])";
+
+  // Template WITHOUT "tool.function" - normalization SHOULD happen
+  std::string minimal_template = R"({% for tool in tools %}{% for k, v in tool.items() %}KEY={{k}} {% endfor %}{% endfor %})";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), minimal_template.c_str(),
+    messages_json.c_str(), tools_json.c_str(),
+    templated_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string output(text_ptr);
+
+  // Normalization should have unwrapped: keys should be "name", "description", "parameters"
+  EXPECT_NE(output.find("KEY=name"), std::string::npos)
+      << "Normalized tools should have 'name' key. Output: " << output;
+  EXPECT_NE(output.find("KEY=description"), std::string::npos)
+      << "Normalized tools should have 'description' key. Output: " << output;
+  EXPECT_NE(output.find("KEY=parameters"), std::string::npos)
+      << "Normalized tools should have 'parameters' key. Output: " << output;
+  // Should NOT have the wrapper keys
+  EXPECT_EQ(output.find("KEY=type"), std::string::npos)
+      << "Normalized tools should NOT have 'type' key. Output: " << output;
+  EXPECT_EQ(output.find("KEY=function"), std::string::npos)
+      << "Normalized tools should NOT have 'function' key. Output: " << output;
+}
+
 // ============================================================================
 // Transformers v5 format tests
 // ============================================================================
