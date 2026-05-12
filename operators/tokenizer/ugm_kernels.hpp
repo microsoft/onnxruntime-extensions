@@ -924,26 +924,15 @@ class SpmUgmDecoder {
     // a piece, which broke three real-world cases that ship in the trained
     // vocab: (1) cross-piece U-runs ("Umc"+"p" -> "MCp" instead of "MCP"),
     // (2) mid-piece markers ("iTphone" -> "iTphone" instead of "iPhone"),
-    // and (3) implicit L reset where the SPM lattice drops the explicit L
-    // ("Upp"+"v" -> "PPV" instead of "PPv"). See
-    // https://microsoft.visualstudio.com/Edge/_git/edge.onnxruntime-extensions
-    // commit history for the full repro.
+    // and (3) implicit mode reset after a non-letter boundary, where
+    // uppercase/titlecase state must not leak past punctuation or into the
+    // following lowercase run (e.g. "PPV-mp" decoded as "PPV-MP" instead
+    // of "PPV-mp").
 
     token.clear();
     token.reserve(piece.size());
 
     char mode = (*state)->signature_;
-
-    auto is_letter_codepoint = [this](const std::string& cp_utf8) -> bool {
-      if (cp_utf8.empty()) return false;
-      wchar_t codepoint = 0;
-      size_t char_len = 0;
-      if (!DecodeFirstUTF8Codepoint(cp_utf8, codepoint, char_len)) {
-        return false;
-      }
-      (void)char_len;
-      return std::iswalpha(static_cast<wint_t>(codepoint)) != 0;
-    };
 
     auto uppercase_codepoint = [this](std::string& cp_utf8) {
       if (cp_utf8.empty()) return;
@@ -1010,25 +999,25 @@ class SpmUgmDecoder {
         continue;
       }
 
-      // Real codepoint: determine UTF-8 byte length from the lead byte,
-      // then apply / propagate the active case mode.
-      size_t cp_len = 1;
-      if ((ch >> 5) == 0x6) {
-        cp_len = 2;
-      } else if ((ch >> 4) == 0xE) {
-        cp_len = 3;
-      } else if ((ch >> 3) == 0x1E) {
-        cp_len = 4;
+      // Real codepoint: use DecodeFirstUTF8Codepoint for robust byte-
+      // length detection (handles malformed / truncated sequences).
+      wchar_t codepoint = 0;
+      size_t cp_len = 0;
+      std::string remaining = piece.substr(i);
+      if (!DecodeFirstUTF8Codepoint(remaining, codepoint, cp_len) || cp_len == 0) {
+        // Malformed UTF-8: emit a single byte verbatim and advance.
+        token.push_back(piece[i]);
+        ++i;
+        continue;
       }
-      if (i + cp_len > n) {
-        cp_len = n - i;  // truncated; emit verbatim
-      }
-      std::string cp = piece.substr(i, cp_len);
-      const bool is_letter = is_letter_codepoint(cp);
+
+      const bool is_letter = std::iswalpha(static_cast<wint_t>(codepoint)) != 0;
 
       if (is_letter && (mode == normalizer::cTitlecase ||
                         mode == normalizer::cUppercase ||
                         mode == normalizer::cAllUppercase)) {
+        // Uppercase transform needed -- allocate only for this path.
+        std::string cp = piece.substr(i, cp_len);
         uppercase_codepoint(cp);
         token.append(cp);
         if (mode == normalizer::cTitlecase) {
@@ -1036,7 +1025,8 @@ class SpmUgmDecoder {
         }
         // U / A persist
       } else {
-        token.append(cp);
+        // No transform: append directly from piece without allocating.
+        token.append(piece, i, cp_len);
         if (!is_letter && (mode == normalizer::cUppercase ||
                            mode == normalizer::cTitlecase)) {
           // Implicit L: the encoder would have terminated the U/T run at
