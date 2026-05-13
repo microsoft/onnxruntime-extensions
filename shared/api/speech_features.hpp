@@ -7,7 +7,7 @@
 #include <math/dlib/stft_norm.hpp>
 #include "nemo_mel_spectrogram.h"
 
-#include "speech_features_normalize.hpp"
+#include "nemo_speech_features.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
