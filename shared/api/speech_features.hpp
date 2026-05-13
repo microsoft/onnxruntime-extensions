@@ -662,9 +662,4 @@ class Phi4AudioEmbed {
   int64_t qformer_compression_rate_{1};
 };
 
-// PerFeatureNormalize and NemoLogMel have been moved to
-// "speech_features_normalize.hpp" (included above). They remain available
-// to consumers of this header unchanged.
-
-
 }  // namespace ort_extensions

@@ -45,7 +45,8 @@ class PerFeatureNormalize {
       num_features = feature_first_ ? shape[1] : shape[2];
       num_frames = feature_first_ ? shape[2] : shape[1];
     } else {
-      return {kOrtxErrorInvalidArgument, "[PerFeatureNormalize]: Expected input shape [features, frames] or [1, features, frames]."};
+      return {kOrtxErrorInvalidArgument,
+              "[PerFeatureNormalize]: Expected input shape [features, frames] or [1, features, frames]."};
     }
 
     const float* in_data = input.Data();
