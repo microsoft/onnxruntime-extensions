@@ -5,7 +5,6 @@
 
 #include <dlib/matrix.h>
 #include <math/dlib/stft_norm.hpp>
-#include "nemo_mel_spectrogram.h"
 
 #include "nemo_speech_features.hpp"
 

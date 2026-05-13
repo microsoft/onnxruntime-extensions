@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstring>
 #include <cstdint>
+#include <variant>
 
 namespace ort_extensions {
 
