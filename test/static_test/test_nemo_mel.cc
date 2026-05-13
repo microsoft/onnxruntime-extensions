@@ -12,7 +12,7 @@
 #include "nemo_mel_spectrogram.h"
 #include "c_api_utils.hpp"
 #include "runner.hpp"
-#include "speech_features.hpp"
+#include "nemo_speech_features.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
