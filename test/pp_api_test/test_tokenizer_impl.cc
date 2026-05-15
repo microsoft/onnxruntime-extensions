@@ -41,6 +41,32 @@ TEST(OrtxTokenizerTest, RegexTest) {
   EXPECT_EQ(res, out_tokens);
 }
 
+TEST(OrtxTokenizerTest, Qwen35RegexTest) {
+  // Qwen3.5 tokenizer regex — exercises [\p{L}\p{M}] and [^\s\p{L}\p{M}\p{N}] matchers
+  std::u32string str = U"Hello, world! 42\ncaf\u0065\u0301 ok";  // café with combining acute accent (U+0301)
+  auto reg_splitter = std::make_unique<ort_extensions::bpe::PreTokenizerWithRegEx>();
+
+  auto status = reg_splitter->Compile(
+      R"((?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?[\p{L}\p{M}]+|\p{N}| ?[^\s\p{L}\p{M}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+)");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  reg_splitter->Set(str.c_str());
+
+  std::vector<std::u32string> res;
+  for (;;) {
+    std::u32string_view tok = reg_splitter->GetNextToken();
+    if (tok.empty()) break;
+    res.push_back(ustring(tok));
+  }
+
+  // Expected tokens:
+  // "Hello" "," " world" "!" " " "4" "2" "\n" "café" (with combining accent) " ok"
+  std::vector<std::u32string> expected = {
+      U"Hello", U",", U" world", U"!", U" ", U"4", U"2", U"\n",
+      U"caf\u0065\u0301", U" ok"};
+  EXPECT_EQ(res, expected);
+}
+
 TEST(OrtxTokenizerTest, AddedTokensTest) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
   auto status = tokenizer->Load("data/added-tokens");

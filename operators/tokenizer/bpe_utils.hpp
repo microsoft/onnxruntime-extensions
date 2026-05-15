@@ -642,6 +642,51 @@ class PreTokenizerWithRegEx {
     return res;
   }
 
+  // "[^\r\n\p{L}\p{N}]?[\p{L}\p{M}]+"
+  std::u32string_view Match_Qwen35_Pattern_1() {
+
+    if (m_text.empty()) return {};
+
+    if ((!IsRN(m_text[0]) && !IsN(m_text[0])) || IsLM(m_text[0])) {
+      if (IsLM(m_text[0]) || ((m_text.size() > 1) && IsLM(m_text[1]))) {
+        size_t i = 1;
+        for (; i < m_text.size(); ++i) {
+          if (!IsLM(m_text[i])) break;
+        }
+        std::u32string_view res = m_text.substr(0, i);
+        m_text = m_text.substr(i);
+        return res;
+      }
+    }
+
+    return {};
+  }
+
+  // " ?[^\s\p{L}\p{M}\p{N}]+[\r\n]*"
+  std::u32string_view Match_Qwen35_Pattern_2() {
+
+    if (m_text.empty()) return {};
+
+    auto pos = 0;
+    if (m_text[0] == U' ') pos = 1;
+    if (pos < m_text.size() && NotLMNZ(m_text[pos])) {
+      size_t i = pos + 1;
+      for (; i < m_text.size(); ++i) {
+        if (!NotLMNZ(m_text[i])) break;
+      }
+      if (i < m_text.size() && IsRN(m_text[i])) {
+        for (; i < m_text.size(); ++i) {
+          if (!IsRN(m_text[i])) break;
+        }
+      }
+      std::u32string_view res = m_text.substr(0, i);
+      m_text = m_text.substr(i);
+      return res;
+    }
+
+    return {};
+  }
+
   // "(\p{N})"
   std::u32string_view Match_General_Pattern_1() {
 
@@ -673,6 +718,8 @@ class PreTokenizerWithRegEx {
         {R"((?i:'s|'t|'re|'ve|'m|'ll|'d))", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_1},
         {R"( ?[^\s\p{L}\p{N}]+[\r\n/]*)", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_4},
         {R"( ?[^\s\p{L}\p{N}]+[\r\n]*)", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_4},
+        {R"([^\r\n\p{L}\p{N}]?[\p{L}\p{M}]+)", &PreTokenizerWithRegEx::Match_Qwen35_Pattern_1},
+        {R"( ?[^\s\p{L}\p{M}\p{N}]+[\r\n]*)", &PreTokenizerWithRegEx::Match_Qwen35_Pattern_2},
         {R"([^\r\n\p{L}\p{N}]?\p{L}+)", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_2},
         {R"('s|'t|'re|'ve|'m|'ll|'d)", &PreTokenizerWithRegEx::Match_GPT2_Pattern_1},
         {R"( ?[^\s\p{L}\p{N}]+)", &PreTokenizerWithRegEx::Match_GPT2_Pattern_3},
@@ -835,11 +882,28 @@ class PreTokenizerWithRegEx {
     return (category & ufal::unilib::unicode::Z) != 0;
   }
 
+  static bool IsLM(char32_t ch) {
+    auto category = ufal::unilib::unicode::category(ch);
+    return ((category & ufal::unilib::unicode::L) != 0 ||
+            (category & ufal::unilib::unicode::M) != 0);
+  }
+
   static bool NotLNZ(char32_t ch) {
     // \r\n\t\f\v
     if (ch == U'\r' || ch == U'\n' || ch == U'\t' || ch == U'\f' || ch == U'\v') return false;
     auto category = ufal::unilib::unicode::category(ch);
     if (category & ufal::unilib::unicode::L) return false;
+    if (category & ufal::unilib::unicode::N) return false;
+    if (category & ufal::unilib::unicode::Z) return false;
+    return true;
+  }
+
+  static bool NotLMNZ(char32_t ch) {
+    // \r\n\t\f\v
+    if (ch == U'\r' || ch == U'\n' || ch == U'\t' || ch == U'\f' || ch == U'\v') return false;
+    auto category = ufal::unilib::unicode::category(ch);
+    if (category & ufal::unilib::unicode::L) return false;
+    if (category & ufal::unilib::unicode::M) return false;
     if (category & ufal::unilib::unicode::N) return false;
     if (category & ufal::unilib::unicode::Z) return false;
     return true;
