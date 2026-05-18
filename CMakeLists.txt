@@ -511,6 +511,9 @@ if(MSVC)
   add_compile_options("$<$<COMPILE_LANGUAGE:CUDA>:SHELL:--compiler-options /utf-8>" "$<$<COMPILE_LANGUAGE:CXX,C>:/utf-8>")
 endif()
 
+#Removing duplicate files added to the target sources.
+list(REMOVE_DUPLICATES TARGET_SRC_NOEXCEPTION)
+list(REMOVE_DUPLICATES TARGET_SRC)
 # Library will not be built if the target src for the lib does not contain any valid *.cc files.
 # Hence the placeholders `noexcep_operators_placeholder.cc` and `ocos_operators_placeholder.cc`
 # are added to the target sources for TARGET_SRC_NOEXCEPTION and TARGET_SRC respectively
