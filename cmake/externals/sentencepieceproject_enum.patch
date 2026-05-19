@@ -1,0 +1,11 @@
+--- ./src/unicode_script.h_orig	2026-04-06 23:28:59.276085358 -0500
++++ ./src/unicode_script.h	2026-04-06 23:29:39.906085511 -0500
+@@ -19,7 +19,7 @@
+
+ namespace sentencepiece {
+ namespace unicode_script {
+-enum ScriptType {
++enum ScriptType : int32_t {
+   U_Adlam,
+   U_Ahom,
+   U_Anatolian_Hieroglyphs,
