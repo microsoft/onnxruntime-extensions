@@ -9,6 +9,10 @@
 #include <utility>
 #include <vector>
 
+#if defined _AIX && defined (hz)
+#undef hz
+#endif
+
 namespace nemo_mel {
 
 struct NemoMelConfig {
