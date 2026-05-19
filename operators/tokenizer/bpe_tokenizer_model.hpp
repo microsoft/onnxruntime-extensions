@@ -93,24 +93,56 @@ class BpeModel {
 
     ORTX_JSON_RETURN_IF_NULL(node_pre_tokenizer, "pretokenizers", iter_node_list);
 
+    // A HuggingFace Sequence pre_tokenizer applies each child Split in order, with the
+    // output chunks of step N being fed into step N+1. When every Split uses
+    // behavior == "Isolated" (the only behavior we model), the chain is equivalent to a
+    // single alternation `p1|p2|...|pN` evaluated left-to-right — each chunk in the
+    // final segmentation matches exactly one of the patterns. We therefore concatenate
+    // the regexes with `|` and hand the union to PreTokenizerWithRegEx::Compile, which
+    // both fast-paths recognised sub-patterns and falls back to std::regex for the rest.
+    //
+    // Previously this loop overwrote pre_tokenizer_regex_ on every iteration, silently
+    // discarding all but the last Split. That caused mis-tokenisation for models such as
+    // tencent/Hy-MT1.5, whose Sequence contains three Splits (digits-of-1-to-3, CJK
+    // runs, then a GPT2-style fallback).
+    std::vector<std::string> split_regexes;
     for (const auto& node : *iter_node_list) {
       ORTX_JSON_RETURN_IF_NULL(&node, "type", iter_type);
       auto pre_type = iter_type->get<std::string>();
       if (pre_type == "Split") {
+        // Only Isolated behavior preserves the alternation equivalence above. If we ever
+        // encounter Removed/MergedWith* we'd silently change tokenisation, so reject.
+        auto iter_behavior = node.find("behavior");
+        if (iter_behavior != node.end() && !iter_behavior->is_null()) {
+          auto behavior = iter_behavior->get<std::string>();
+          if (behavior != "Isolated") {
+            return {kOrtxErrorNotImplemented,
+                    std::string("Unsupported Split behavior in Sequence pretokenizer: ") + behavior};
+          }
+        }
         ORTX_JSON_RETURN_IF_NULL(&node, "pattern", iter_pattern);
         ORTX_JSON_RETURN_IF_NULL(iter_pattern, "Regex", regex_str);
-        pre_tokenizer_regex_ = regex_str->get<std::string>();
-        // Validate the regex pattern
-        bpe::PreTokenizerWithRegEx pre_tokenizer;
-        auto status = pre_tokenizer.Compile(pre_tokenizer_regex_);
-        if (!status.IsOk()) {
-          return status;
-        }
+        split_regexes.push_back(regex_str->get<std::string>());
       } else {
         if (pre_tokenizer_types_.count(pre_type) == 0) {
           return {kOrtxErrorNotImplemented, "Unsupported pretokenizer type!"};
         }
         ; // TODO: implement other pretokenizer types
+      }
+    }
+
+    if (!split_regexes.empty()) {
+      std::string combined = split_regexes[0];
+      for (size_t i = 1; i < split_regexes.size(); ++i) {
+        combined += "|";
+        combined += split_regexes[i];
+      }
+      pre_tokenizer_regex_ = combined;
+      // Validate the combined regex pattern
+      bpe::PreTokenizerWithRegEx pre_tokenizer;
+      auto status = pre_tokenizer.Compile(pre_tokenizer_regex_);
+      if (!status.IsOk()) {
+        return status;
       }
     }
 

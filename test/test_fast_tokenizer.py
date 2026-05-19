@@ -53,5 +53,22 @@ class TestAutoTokenizer(unittest.TestCase):
                 raise
 
 
+    def test_hy_mt_sequence_of_splits(self):
+        # tencent/Hy-MT1.5-1.8B-2bit has a pre_tokenizer of type Sequence containing
+        # three Split regexes (digits-of-1-to-3, CJK runs, then a GPT2-style fallback).
+        # Prior to honouring every Split in the Sequence, only the last regex was kept,
+        # which mistokenised plain English as a single byte token.
+        tokenizer = AutoTokenizer.from_pretrained(
+            "tencent/Hy-MT1.5-1.8B-2bit", use_fast=True, trust_remote_code=True)
+        text = ["Hello, world!", "The cat is sleeping.", "明天有雨。"]
+
+        ort_tok, _ = gen_processing_models(tokenizer, pre_kwargs={})
+        actual_ids, *_ = ort_inference(ort_tok, text)
+        for n, t in enumerate(text):
+            expected_ids = tokenizer.encode(t, return_tensors="np")
+            np.testing.assert_array_equal(
+                expected_ids[0], actual_ids[n][:expected_ids.shape[1]])
+
+
 if __name__ == '__main__':
     unittest.main()
