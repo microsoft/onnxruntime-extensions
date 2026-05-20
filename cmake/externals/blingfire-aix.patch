@@ -13,7 +13,7 @@
  #include <fcntl.h>
  
 -#ifdef BLING_FIRE_MAC
-+#if defined(BLING_FIRE_MAC) && defined(_AIX)
++#if defined(BLING_FIRE_MAC) || defined(_AIX)
    #include <string>
  #else
    #include <malloc.h>
