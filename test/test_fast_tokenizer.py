@@ -53,21 +53,74 @@ class TestAutoTokenizer(unittest.TestCase):
                 raise
 
 
-    def test_hy_mt_sequence_of_splits(self):
-        # tencent/Hy-MT1.5-1.8B-2bit has a pre_tokenizer of type Sequence containing
-        # three Split regexes (digits-of-1-to-3, CJK runs, then a GPT2-style fallback).
-        # Prior to honouring every Split in the Sequence, only the last regex was kept,
-        # which mistokenised plain English as a single byte token.
-        tokenizer = AutoTokenizer.from_pretrained(
-            "tencent/Hy-MT1.5-1.8B-2bit", use_fast=True, trust_remote_code=True)
-        text = ["Hello, world!", "The cat is sleeping.", "明天有雨。"]
+    def test_sequence_of_splits_pre_tokenizer(self):
+        # Regression test for a Sequence pre_tokenizer containing multiple Split
+        # regexes (HuggingFace allows this; models like tencent/Hy-MT1.5 ship one
+        # with three Splits). Prior to this fix, ort-extensions silently kept only
+        # the LAST Split in the Sequence, so any text matched by an earlier pattern
+        # was mis-tokenised. We build a tiny synthetic tokenizer here rather than
+        # downloading a remote model so the test is deterministic and offline.
+        import json as _json
+        import tempfile
 
-        ort_tok, _ = gen_processing_models(tokenizer, pre_kwargs={})
+        from tokenizers import Regex, Tokenizer, decoders, models, pre_tokenizers
+        from transformers import PreTrainedTokenizerFast
+
+        # Byte-level BPE vocab over the 256-char ByteLevel alphabet (gpt2-style
+        # mapping of raw bytes to printable code points). No merges -> every
+        # token is one byte, which makes the round-trip easy to reason about
+        # while still exercising the pre-tokeniser path end-to-end.
+        alphabet = pre_tokenizers.ByteLevel.alphabet()
+        vocab = {ch: i for i, ch in enumerate(sorted(alphabet))}
+        tok = Tokenizer(models.BPE(vocab=vocab, merges=[]))
+        # Sequence with two Isolated Splits: digit runs (1-3) and a GPT2-style
+        # word/whitespace pattern. The pre-fix bug would have dropped the digit
+        # rule and only kept the GPT2 one.
+        tok.pre_tokenizer = pre_tokenizers.Sequence([
+            pre_tokenizers.Split(Regex(r"\p{N}{1,3}"), behavior="isolated"),
+            pre_tokenizers.Split(
+                Regex(
+                    r"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"
+                ),
+                behavior="isolated",
+            ),
+            pre_tokenizers.ByteLevel(add_prefix_space=False, use_regex=False),
+        ])
+        tok.decoder = decoders.ByteLevel()
+        hf_tok = PreTrainedTokenizerFast(tokenizer_object=tok)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # gen_processing_models reads the saved tokenizer.json on disk.
+            hf_tok.save_pretrained(tmpdir)
+            # Sanity-check that the saved tokenizer.json really does have a
+            # Sequence with multiple Splits (otherwise this test would regress
+            # to the single-Split case and not exercise the bug).
+            with open(f"{tmpdir}/tokenizer.json", encoding="utf-8") as fh:
+                spec = _json.load(fh)
+            pretokens = spec["pre_tokenizer"]["pretokenizers"]
+            splits = [p for p in pretokens if p.get("type") == "Split"]
+            self.assertGreaterEqual(len(splits), 2)
+
+            reloaded = AutoTokenizer.from_pretrained(tmpdir)
+            ort_tok, _ = gen_processing_models(reloaded, pre_kwargs={})
+
+        # Mix of words and digit runs to exercise both Split patterns.
+        text = ["hello 123 world", "abc 42 def 9 ghi", "no digits here"]
         actual_ids, *_ = ort_inference(ort_tok, text)
+        pad_id = reloaded.pad_token_id  # may be None for tokenizers without an explicit pad
         for n, t in enumerate(text):
-            expected_ids = tokenizer.encode(t, return_tensors="np")
-            np.testing.assert_array_equal(
-                expected_ids[0], actual_ids[n][:expected_ids.shape[1]])
+            expected = reloaded.encode(t, return_tensors="np")[0]
+            row = actual_ids[n]
+            if pad_id is not None:
+                row = row[row != pad_id]
+            # Length must match exactly; a slice-then-compare would let extra
+            # trailing tokens pass silently.
+            self.assertEqual(
+                len(row),
+                len(expected),
+                f"Token count mismatch for {t!r}: ort={list(row)} hf={list(expected)}",
+            )
+            np.testing.assert_array_equal(expected, row)
 
 
 if __name__ == '__main__':
