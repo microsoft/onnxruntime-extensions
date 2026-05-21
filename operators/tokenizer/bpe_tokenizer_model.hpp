@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+// Modifications Copyright(C) 2026 Advanced Micro Devices, Inc. All rights reserved
+
 #pragma once
 #include "ocos.h"
 #include "narrow.h"
@@ -99,18 +101,17 @@ class BpeModel {
       if (pre_type == "Split") {
         ORTX_JSON_RETURN_IF_NULL(&node, "pattern", iter_pattern);
         ORTX_JSON_RETURN_IF_NULL(iter_pattern, "Regex", regex_str);
-        pre_tokenizer_regex_ = regex_str->get<std::string>();
-        // Validate the regex pattern
+        auto regex = NormalizeJsonRegexEscapes(regex_str->get<std::string>());
         bpe::PreTokenizerWithRegEx pre_tokenizer;
-        auto status = pre_tokenizer.Compile(pre_tokenizer_regex_);
+        auto status = pre_tokenizer.Compile(regex);
         if (!status.IsOk()) {
           return status;
         }
+        split_regexes_.push_back(std::move(regex));
       } else {
         if (pre_tokenizer_types_.count(pre_type) == 0) {
           return {kOrtxErrorNotImplemented, "Unsupported pretokenizer type!"};
         }
-        ; // TODO: implement other pretokenizer types
       }
     }
 
@@ -480,12 +481,28 @@ class BpeModel {
       return pre_tokenizer_regex_;
     }
 
+    std::string base_regex;
     if (model_name == "Llama" || spm_model) {
-      return bpe::PreTokenizerWithRegEx::LLAMA_REGEX_PATTERN;
+      base_regex = bpe::PreTokenizerWithRegEx::LLAMA_REGEX_PATTERN;
+    } else {
+      base_regex = bpe::PreTokenizerWithRegEx::GPT2_REGEX_PATTERN;
     }
 
-    // by default, use the GPT2 pretokenizer regex
-    return bpe::PreTokenizerWithRegEx::GPT2_REGEX_PATTERN;
+    if (split_regexes_.empty()) {
+      return base_regex;
+    }
+
+    // Fuse Split pre-tokenizer patterns into the base regex by prepending them
+    // as higher-priority alternation branches. This ensures patterns like
+    // \p{N}{1,3} match before the base regex's \p{N}+ branch.
+    std::string fused;
+    for (const auto& sr : split_regexes_) {
+      if (!fused.empty()) fused += "|";
+      fused += sr;
+    }
+    // Keep the model's base regex as fallback for text that is not isolated by the Split steps.
+    fused += "|" + base_regex;
+    return fused;
   }
 
  private:
@@ -497,6 +514,37 @@ class BpeModel {
 
   static uint64_t GetRankKey(uint32_t i0, uint32_t i1) {
     return (static_cast<uint64_t>(i1) << 32) | (i0 & 0xFFFFFFFFLL);
+  }
+
+  // JSON turns regex escapes like \r and \t into control bytes; Compile() matches escaped spellings.
+  static std::string NormalizeJsonRegexEscapes(std::string regex) {
+    std::string normalized;
+    normalized.reserve(regex.size());
+
+    for (char ch : regex) {
+      switch (ch) {
+        case '\r':
+          normalized += "\\r";
+          break;
+        case '\n':
+          normalized += "\\n";
+          break;
+        case '\t':
+          normalized += "\\t";
+          break;
+        case '\f':
+          normalized += "\\f";
+          break;
+        case '\v':
+          normalized += "\\v";
+          break;
+        default:
+          normalized += ch;
+          break;
+      }
+    }
+
+    return normalized;
   }
 
  private:
@@ -511,6 +559,7 @@ class BpeModel {
   TrieTree<char32_t> added_tokens_;
   std::string pre_tokenizer_regex_;
   bool no_op_pretokenizer_ = false;
+  std::vector<std::string> split_regexes_;
 
   std::set<std::string_view> pre_tokenizer_types_;
 };
