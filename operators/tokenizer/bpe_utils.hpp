@@ -690,7 +690,7 @@ class PreTokenizerWithRegEx {
   }
 
   static bool IsCJK(char32_t ch) {
-    return (ch >= 0x4E00 && ch <= 0x9FFF) ||   // CJK Unified Ideographs (一-龥 approx)
+    return (ch >= 0x4E00 && ch <= 0x9FA5) ||   // CJK Unified Ideographs (一-龥)
            (ch >= 0x3040 && ch <= 0x309F) ||   // Hiragana (぀-ゟ)
            (ch >= 0x30A0 && ch <= 0x30FF);     // Katakana (゠-ヿ)
   }
@@ -738,7 +738,6 @@ class PreTokenizerWithRegEx {
     while (i < m_text.size() && IsLM(m_text[i])) {
       i++;
     }
-    if (i == 0) return {};
 
     std::u32string_view res = m_text.substr(0, i);
     m_text = m_text.substr(i);

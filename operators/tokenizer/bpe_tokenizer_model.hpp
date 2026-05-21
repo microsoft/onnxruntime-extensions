@@ -101,27 +101,13 @@ class BpeModel {
       if (pre_type == "Split") {
         ORTX_JSON_RETURN_IF_NULL(&node, "pattern", iter_pattern);
         ORTX_JSON_RETURN_IF_NULL(iter_pattern, "Regex", regex_str);
-        auto regex = regex_str->get<std::string>();
-        // JSON decodes \r and \n into literal CR/LF bytes, but the Compile()
-        // pattern table uses the two-character escape sequences \r and \n.
-        // Normalize so that pattern substring matching works correctly.
-        for (size_t p = 0; p < regex.size(); ++p) {
-          if (regex[p] == '\r') {
-            regex.replace(p, 1, "\\r");
-            ++p;
-          } else if (regex[p] == '\n') {
-            regex.replace(p, 1, "\\n");
-            ++p;
-          }
-        }
+        auto regex = NormalizeJsonRegexEscapes(regex_str->get<std::string>());
         bpe::PreTokenizerWithRegEx pre_tokenizer;
         auto status = pre_tokenizer.Compile(regex);
         if (!status.IsOk()) {
           return status;
         }
         split_regexes_.push_back(std::move(regex));
-      } else if (pre_type == "ByteLevel") {
-        has_byte_level_in_sequence_ = true;
       } else {
         if (pre_tokenizer_types_.count(pre_type) == 0) {
           return {kOrtxErrorNotImplemented, "Unsupported pretokenizer type!"};
@@ -514,6 +500,7 @@ class BpeModel {
       if (!fused.empty()) fused += "|";
       fused += sr;
     }
+    // Keep the model's base regex as fallback for text that is not isolated by the Split steps.
     fused += "|" + base_regex;
     return fused;
   }
@@ -529,6 +516,37 @@ class BpeModel {
     return (static_cast<uint64_t>(i1) << 32) | (i0 & 0xFFFFFFFFLL);
   }
 
+  // JSON turns regex escapes like \r and \t into control bytes; Compile() matches escaped spellings.
+  static std::string NormalizeJsonRegexEscapes(std::string regex) {
+    std::string normalized;
+    normalized.reserve(regex.size());
+
+    for (char ch : regex) {
+      switch (ch) {
+        case '\r':
+          normalized += "\\r";
+          break;
+        case '\n':
+          normalized += "\\n";
+          break;
+        case '\t':
+          normalized += "\\t";
+          break;
+        case '\f':
+          normalized += "\\f";
+          break;
+        case '\v':
+          normalized += "\\v";
+          break;
+        default:
+          normalized += ch;
+          break;
+      }
+    }
+
+    return normalized;
+  }
+
  private:
   std::string end_of_word_suffix_;
   std::map<uint64_t, BpeNode> bpe_rank_;
@@ -542,7 +560,6 @@ class BpeModel {
   std::string pre_tokenizer_regex_;
   bool no_op_pretokenizer_ = false;
   std::vector<std::string> split_regexes_;
-  bool has_byte_level_in_sequence_{};
 
   std::set<std::string_view> pre_tokenizer_types_;
 };
