@@ -106,6 +106,12 @@ size_t VectorToStringImpl::ParseVectorLen(const std::string_view& line) {
 void VectorToStringImpl::ParseValues(const std::string_view& v, std::vector<int64_t>& values) {
   std::vector<std::string_view> value_strs = SplitString(v, " ", true);
 
+  if (value_strs.size() != values.size()) {
+    ORTX_CXX_API_THROW(
+        MakeString("All map lines must have ", values.size(), " value columns; got ", value_strs.size()),
+        ORT_INVALID_ARGUMENT);
+  }
+
   int64_t value;
   for (size_t i = 0; i < value_strs.size(); i++) {
     auto [end, ec] = std::from_chars(value_strs[i].data(), value_strs[i].data() + value_strs[i].size(), value);
