@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 #include "gtest/gtest.h"
+
+#ifdef ENABLE_TF_STRING
 #include "text/vector_to_string.hpp"
 #include "text/string_to_vector.hpp"
 
@@ -55,3 +57,5 @@ TEST(StringToVectorTest, ConsistentLineWidthsSucceeds) {
   std::string unk = "0 0 0";
   EXPECT_NO_THROW(StringToVectorImpl(map, unk));
 }
+
+#endif  // ENABLE_TF_STRING
