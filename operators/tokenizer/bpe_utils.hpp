@@ -940,12 +940,20 @@ class PreTokenizerWithRegEx {
     std::u32string unmatched;
 
     while (!m_text.empty()) {
+      auto before = m_text;
       auto res = TryMatch();
       if (res.empty()) {
         unmatched += m_text[0];
         m_last_char = m_text[0];
         m_text = m_text.substr(1);
         continue;
+      }
+      // MatchWithSTLRegEx may skip characters before the match (regex_search
+      // finds the next match anywhere in the remaining text). Capture the
+      // skipped gap so nothing is lost.
+      if (res.data() > before.data()) {
+        size_t gap_len = static_cast<size_t>(res.data() - before.data());
+        unmatched.append(before.data(), gap_len);
       }
       if (!unmatched.empty()) {
         results.push_back(std::move(unmatched));
