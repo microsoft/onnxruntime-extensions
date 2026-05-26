@@ -258,11 +258,97 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
 
   // Parse input
   auto special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input, added_tokens_);
+
+  // Helper lambda: byte-encode a pre-tokenized chunk, perform BPE, and append IDs to res.
+  auto process_bpe_chunk = [&](std::string utf8_token, size_t& offset, OffsetMappingType& offset_mapping) {
+    if (utf8_token.empty()) return;
+
+    int64_t space_dif = 0;
+    if (compute_offset_mapping) {
+      if (utf8_token[0] == ' ') {
+        offset++;
+        space_dif = -1;
+      }
+    }
+
+    std::list<std::pair<uint32_t, uint32_t>> byte_list;
+    std::string token_bytes;
+    token_bytes.reserve(utf8_token.size() * 2);
+    size_t token_len = utf8_token.length();
+    size_t end_diff = 0;
+    if (clean_up_spaces) {
+      utf8_token.erase(std::remove(utf8_token.begin(), utf8_token.end(), U' '), utf8_token.end());
+      token_len = utf8_token.empty() ? 0 : utf8_token.length() - 1;
+      if (utf8_token.empty()) return;
+    }
+
+    for (size_t i = 0; i < token_len; i++) {
+      token_bytes += unicode_byte_encoder_[static_cast<unsigned char>(utf8_token[i])];
+    }
+
+    if (clean_up_spaces) {
+      end_diff = token_bytes.length();
+      if (!utf8_token.empty()) {
+        token_bytes += unicode_byte_encoder_[static_cast<unsigned char>(utf8_token.back())];
+        token_bytes += "</w>";
+      }
+      end_diff = token_bytes.length() - end_diff;
+    }
+
+    auto id = bbpe_tokenizer_->GetTokenId(token_bytes);
+    if (id != bpe::kInvalidTokenId) {
+      byte_list.push_back(std::make_pair(id, ort_extensions::narrow<uint32_t>(utf8_token.size())));
+    } else {
+      token_len = token_bytes.length();
+      for (size_t i = 0; i < token_len - end_diff; /* i++ */) {
+        size_t j = ustring::UTF8Len(token_bytes[i]);
+        byte_list.push_back(std::make_pair(bbpe_tokenizer_->GetTokenId(token_bytes.substr(i, j)),
+                                           ort_extensions::narrow<uint32_t>(j)));
+        i += j;
+      }
+      if (end_diff > 0) {
+        byte_list.push_back(
+            std::make_pair(bbpe_tokenizer_->GetTokenId(token_bytes.substr(token_len - end_diff, end_diff)),
+                           ort_extensions::narrow<uint32_t>(end_diff)));
+      }
+    }
+
+    bbpe_tokenizer_->PerformBPE(byte_list);
+
+    for (auto p : byte_list) {
+      if (static_cast<int64_t>(res.size()) >= max_length) break;
+      res.push_back(p.first);
+      if (compute_offset_mapping) {
+        if (clean_up_spaces) {
+          offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + p.second)));
+          offset += p.second;
+        } else {
+          auto adjusted = static_cast<size_t>(static_cast<int64_t>(p.second) + space_dif);
+          offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + adjusted)));
+          offset += adjusted;
+        }
+      }
+    }
+  };
+
+  // Prepare pre-tokenizer: either single-regex or sequential pipeline
+  const bool use_sequence = bbpe_tokenizer_->HasSequencePreTokenizer();
+
   bpe::PreTokenizerWithRegEx reg_splitter;
-  // NOTE: the pattern was already validated on loading json file.
-  // safe to ingore the return value here.
-  auto status = reg_splitter.Compile(bbpe_tokenizer_->GetPreTokenizerRegex(ModelName(), bpe_conf_.get().spm_model_));
-  assert(status.IsOk());
+  std::vector<bpe::PreTokenizerWithRegEx> seq_splitters;
+
+  if (use_sequence) {
+    auto& steps = bbpe_tokenizer_->GetSequenceSteps();
+    seq_splitters.resize(steps.size());
+    for (size_t i = 0; i < steps.size(); ++i) {
+      auto status = seq_splitters[i].Compile(steps[i].regex);
+      assert(status.IsOk());
+    }
+  } else {
+    auto status = reg_splitter.Compile(
+        bbpe_tokenizer_->GetPreTokenizerRegex(ModelName(), bpe_conf_.get().spm_model_));
+    assert(status.IsOk());
+  }
 
   for (auto& seg_id : special_token_split_res) {
     if (static_cast<int64_t>(res.size()) >= max_length) break;
@@ -272,9 +358,7 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
       continue;
     }
 
-    // Note: keep ptr to make sure the string_view is valid in the following process
     std::u32string str(seg_id.first);
-    reg_splitter.Set(str.c_str());
 
     size_t offset = 0;
     OffsetMappingType offset_mapping;
@@ -286,85 +370,33 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
       }
     }
 
-    while (static_cast<int64_t>(res.size()) < max_length) {
-      std::u32string_view tok = reg_splitter.GetNextToken();
-      if (tok.empty()) {
-        break;
+    if (use_sequence) {
+      // Sequential pre-tokenization: run each Split step on the accumulated chunks
+      std::vector<std::u32string> chunks = {std::move(str)};
+      for (auto& splitter : seq_splitters) {
+        std::vector<std::u32string> new_chunks;
+        for (auto& chunk : chunks) {
+          auto sub = splitter.SplitIsolated(chunk);
+          new_chunks.insert(new_chunks.end(),
+                            std::make_move_iterator(sub.begin()),
+                            std::make_move_iterator(sub.end()));
+        }
+        chunks = std::move(new_chunks);
       }
 
-      std::string utf8_token = std::string(ustring(tok));
-      size_t space_dif = 0;
-      if (compute_offset_mapping) {
-        // Handle special case for offset mapping
-        if (utf8_token.at(0) == ' ') {
-          offset++;
-          space_dif = -1;  // account for spaces used in offset map algorithm in bpe(byte_list_)
-        }
+      for (auto& chunk : chunks) {
+        if (static_cast<int64_t>(res.size()) >= max_length) break;
+        std::string utf8_token = std::string(ustring(chunk));
+        process_bpe_chunk(std::move(utf8_token), offset, offset_mapping);
       }
-
-      std::list<std::pair<uint32_t, uint32_t>> byte_list;
-      std::string token_bytes;
-      token_bytes.reserve(utf8_token.size() * 2);
-      size_t token_len = utf8_token.length();
-      size_t end_diff = 0;
-      if (clean_up_spaces) {
-        // Whitespace clean
-        utf8_token.erase(std::remove(utf8_token.begin(), utf8_token.end(), U' '), utf8_token.end());
-        token_len = utf8_token.length() - 1;
-      }
-
-      for (size_t i = 0; i < token_len; i++) {
-        token_bytes += unicode_byte_encoder_[static_cast<unsigned char>(utf8_token[i])];
-      }
-
-      if (clean_up_spaces) {
-        end_diff = token_bytes.length();
-        if (!utf8_token.empty()) {
-          token_bytes += unicode_byte_encoder_[static_cast<unsigned char>(utf8_token.back())];
-          token_bytes += "</w>";
-        }
-        end_diff = token_bytes.length() - end_diff;
-      }
-
-      auto id = bbpe_tokenizer_->GetTokenId(token_bytes);
-      if (id != bpe::kInvalidTokenId) {
-        byte_list.push_back(std::make_pair(id, ort_extensions::narrow<uint32_t>(utf8_token.size())));
-      } else {
-        token_len = token_bytes.length();
-        for (size_t i = 0; i < token_len - end_diff; /* i++ */) {
-          size_t j = ustring::UTF8Len(token_bytes[i]);
-          byte_list.push_back(std::make_pair(bbpe_tokenizer_->GetTokenId(token_bytes.substr(i, j)),
-                                             ort_extensions::narrow<uint32_t>(j)));
-          i += j;
-        }
-        if (end_diff > 0) {
-          byte_list.push_back(
-              std::make_pair(bbpe_tokenizer_->GetTokenId(token_bytes.substr(token_len - end_diff, end_diff)),
-                             ort_extensions::narrow<uint32_t>(end_diff)));
-        }
-      }
-
-      // Perform BPE
-      bbpe_tokenizer_->PerformBPE(byte_list);
-
-      // Add output to result
-      for (auto p : byte_list) {
-        if (static_cast<int64_t>(res.size()) >= max_length) {
-          break;
-        }
-
-        res.push_back(p.first);
-
-        if (compute_offset_mapping) {
-          if (clean_up_spaces) {
-            offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + p.second)));
-            offset += p.second;
-          } else {
-            offset_mapping.emplace_back(
-                std::make_pair(offset, ort_extensions::narrow<size_t>(offset + (size_t)p.second + space_dif)));
-            offset += ((size_t)p.second + space_dif);
-          }
-        }
+    } else {
+      // Single-regex pre-tokenization (existing behavior)
+      reg_splitter.Set(str.c_str());
+      while (static_cast<int64_t>(res.size()) < max_length) {
+        std::u32string_view tok = reg_splitter.GetNextToken();
+        if (tok.empty()) break;
+        std::string utf8_token = std::string(ustring(tok));
+        process_bpe_chunk(std::move(utf8_token), offset, offset_mapping);
       }
     }
 

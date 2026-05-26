@@ -687,6 +687,88 @@ class PreTokenizerWithRegEx {
     return {};
   }
 
+  static bool IsCJK(char32_t ch) {
+    return (ch >= 0x4E00 && ch <= 0x9FA5) ||   // 一-龥
+           (ch >= 0x3040 && ch <= 0x309F) ||    // ぀-ゟ (Hiragana)
+           (ch >= 0x30A0 && ch <= 0x30FF);      // ゠-ヿ (Katakana)
+  }
+
+  // "[一-龥぀-ゟ゠-ヿ]+"
+  std::u32string_view Match_CJK_Pattern() {
+    if (m_text.empty()) return {};
+    if (!IsCJK(m_text[0])) return {};
+    size_t i = 1;
+    while (i < m_text.size() && IsCJK(m_text[i])) i++;
+    auto res = m_text.substr(0, i);
+    m_text = m_text.substr(i);
+    return res;
+  }
+
+  static bool IsP(char32_t ch) {
+    return IsCategory(ch, ufal::unilib::unicode::P);
+  }
+
+  static bool IsS(char32_t ch) {
+    return IsCategory(ch, ufal::unilib::unicode::S);
+  }
+
+  static bool IsPS(char32_t ch) { return IsP(ch) || IsS(ch); }
+
+  // "[^\r\n\p{L}\p{P}\p{S}]?[\p{L}\p{M}]+"
+  std::u32string_view Match_Hunyuan_Pattern_1() {
+    if (m_text.empty()) return {};
+
+    size_t i = 0;
+    if (!IsRN(m_text[0]) && !IsL(m_text[0]) && !IsP(m_text[0]) && !IsS(m_text[0])) {
+      i = 1;
+    }
+
+    if (i >= m_text.size() || !IsLM(m_text[i])) return {};
+
+    while (i < m_text.size() && IsLM(m_text[i])) i++;
+
+    auto res = m_text.substr(0, i);
+    m_text = m_text.substr(i);
+    return res;
+  }
+
+  // " ?[\p{P}\p{S}]+[\r\n]*"
+  std::u32string_view Match_Hunyuan_Pattern_2() {
+    if (m_text.empty()) return {};
+
+    size_t i = 0;
+    if (m_text[0] == U' ') i = 1;
+    if (i >= m_text.size() || !IsPS(m_text[i])) return {};
+
+    while (i < m_text.size() && IsPS(m_text[i])) i++;
+    while (i < m_text.size() && IsRN(m_text[i])) i++;
+
+    auto res = m_text.substr(0, i);
+    m_text = m_text.substr(i);
+    return res;
+  }
+
+  static bool IsAsciiPunct(char32_t ch) {
+    return (ch >= 0x21 && ch <= 0x2F) || (ch >= 0x3A && ch <= 0x40) ||
+           (ch >= 0x5B && ch <= 0x60) || (ch >= 0x7B && ch <= 0x7E);
+  }
+
+  static bool IsAsciiLetter(char32_t ch) {
+    return (ch >= U'A' && ch <= U'Z') || (ch >= U'a' && ch <= U'z');
+  }
+
+  // "[!"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~][A-Za-z]+"
+  std::u32string_view Match_Hunyuan_Pattern_3() {
+    if (m_text.empty()) return {};
+    if (!IsAsciiPunct(m_text[0])) return {};
+    size_t i = 1;
+    if (i >= m_text.size() || !IsAsciiLetter(m_text[i])) return {};
+    while (i < m_text.size() && IsAsciiLetter(m_text[i])) i++;
+    auto res = m_text.substr(0, i);
+    m_text = m_text.substr(i);
+    return res;
+  }
+
   // "(\p{N})"
   std::u32string_view Match_General_Pattern_1() {
 
@@ -730,6 +812,10 @@ class PreTokenizerWithRegEx {
         {R"(\p{N}{1,3})", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_3},
         {R"(\s*[\r\n]+)", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_5},
         {R"(\p{N})", &PreTokenizerWithRegEx::Match_General_Pattern_1},
+        {R"([一-龥぀-ゟ゠-ヿ]+)", &PreTokenizerWithRegEx::Match_CJK_Pattern},
+        {R"([!"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~][A-Za-z]+)", &PreTokenizerWithRegEx::Match_Hunyuan_Pattern_3},
+        {R"([^\r\n\p{L}\p{P}\p{S}]?[\p{L}\p{M}]+)", &PreTokenizerWithRegEx::Match_Hunyuan_Pattern_1},
+        {R"( ?[\p{P}\p{S}]+[\r\n]*)", &PreTokenizerWithRegEx::Match_Hunyuan_Pattern_2},
     };
 
     std::string regex_compound = regex;
@@ -843,6 +929,43 @@ class PreTokenizerWithRegEx {
     }
 
     return {};
+  }
+
+  // Split text into chunks preserving both matched and unmatched regions.
+  // Mirrors HuggingFace's Split pre-tokenizer with behavior=Isolated:
+  // regex matches AND inter-match gaps both become separate output chunks.
+  std::vector<std::u32string> SplitIsolated(const std::u32string& text) {
+    std::vector<std::u32string> results;
+    Set(text);
+    std::u32string unmatched;
+
+    while (!m_text.empty()) {
+      auto before = m_text;
+      auto res = TryMatch();
+      if (res.empty()) {
+        unmatched += m_text[0];
+        m_last_char = m_text[0];
+        m_text = m_text.substr(1);
+        continue;
+      }
+      // MatchWithSTLRegEx may skip characters before the match (regex_search
+      // finds the next match anywhere in the remaining text). Capture the
+      // skipped gap so nothing is lost.
+      if (res.data() > before.data()) {
+        size_t gap_len = static_cast<size_t>(res.data() - before.data());
+        unmatched.append(before.data(), gap_len);
+      }
+      if (!unmatched.empty()) {
+        results.push_back(std::move(unmatched));
+        unmatched.clear();
+      }
+      results.emplace_back(res);
+      m_last_char = res.back();
+    }
+    if (!unmatched.empty()) {
+      results.push_back(std::move(unmatched));
+    }
+    return results;
   }
 
  public:
