@@ -5,13 +5,8 @@ FetchContent_Declare(
   EXCLUDE_FROM_ALL
   PATCH_COMMAND git checkout . && git apply --ignore-space-change --ignore-whitespace ${PROJECT_SOURCE_DIR}/cmake/externals/blingfire_cmake.patch  && git apply --ignore-space-change --ignore-whitespace  ${PROJECT_SOURCE_DIR}/cmake/externals/blingfire-aix.patch
   )
-
-if(CMAKE_SYSTEM_NAME STREQUAL "AIX")
-  find_package(Iconv REQUIRED)
-  link_libraries(Iconv::Iconv)
-endif()
-
 FetchContent_MakeAvailable(Blingfire)
+
 set_target_properties(bingfirtinydll_static PROPERTIES FOLDER
                                                        externals/bingfire)
 set_target_properties(fsaClientTiny PROPERTIES FOLDER externals/bingfire)

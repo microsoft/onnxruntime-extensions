@@ -16,7 +16,6 @@
 #include <unordered_map>
 #include <cwctype>
 #include <locale>
-#include <cstring>
 
 #include "ortx_tokenizer.h"
 #include "ext_status.h"
@@ -90,6 +89,9 @@ struct SpmUgmTokenizer {
       //   std::cout << int(charsmap_data_[i]) << " ";
       // }
 
+      if (charsmap_data_.size() < sizeof(uint32_t)) {
+        return OrtxStatus(extError_t::kOrtxErrorCorruptData, "Precompiled charsmap is too short to contain XCDA header.");
+      }
       size_t charsmap_offset = 0;
 
       // First four bytes of precompiled_charsmap contains length of binary
