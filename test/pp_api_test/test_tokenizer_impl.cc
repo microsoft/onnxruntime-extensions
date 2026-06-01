@@ -6,6 +6,7 @@
 #include "gtest/gtest.h"
 
 #include "shared/api/tokenizer_impl.h"
+#include "bpe_utils.hpp"
 
 static void DumpTokenIds(const std::vector<std::vector<extTokenId_t>>& token_ids) {
 #ifdef _DEBUG
@@ -321,6 +322,166 @@ TEST(OrtxTokenizerTest, CodeGenTokenizer) {
   std::string out_text_ref = out_text1.back();
   // std::cout << out_text_ref << std::endl;
   EXPECT_EQ(out_text_ref.substr(out_text_ref.length() - 3, 3), "\ufffd");
+}
+
+// Test that phi-2 (GPT-2 pattern) correctly tokenizes strings ending with
+// a single character after a space, verifying no trailing characters are dropped.
+TEST(OrtxTokenizerTest, CodeGenTokenizerTrailingChar) {
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/phi-2");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  // "return n" — the trailing " n" should produce token 299 (Ġn), not 220 (Ġ) with 'n' dropped
+  {
+    std::vector<std::string_view> input = {"return n"};
+    std::vector<std::vector<extTokenId_t>> token_ids;
+    status = tokenizer->Tokenize(input, token_ids);
+    EXPECT_TRUE(status.IsOk());
+    // HF tokenizers produces: [7783, 299] for "return n"
+    std::vector<extTokenId_t> EXPECTED_IDS = {7783, 299};
+    EXPECT_EQ(token_ids[0], EXPECTED_IDS) << "Trailing single letter after space was dropped";
+
+    // Also verify round-trip
+    std::vector<std::string> out_text;
+    std::vector<ort_extensions::span<extTokenId_t const>> span = {token_ids[0]};
+    status = tokenizer->Detokenize(span, out_text);
+    EXPECT_TRUE(status.IsOk());
+    EXPECT_EQ(out_text[0], "return n");
+  }
+
+  // " n" — minimal case
+  {
+    std::vector<std::string_view> input = {" n"};
+    std::vector<std::vector<extTokenId_t>> token_ids;
+    status = tokenizer->Tokenize(input, token_ids);
+    EXPECT_TRUE(status.IsOk());
+    // HF: [299] for " n"
+    std::vector<extTokenId_t> EXPECTED_IDS = {299};
+    EXPECT_EQ(token_ids[0], EXPECTED_IDS) << "Single letter after space was dropped";
+  }
+
+  // "abc x" — another trailing single char case
+  {
+    std::vector<std::string_view> input = {"abc x"};
+    std::vector<std::vector<extTokenId_t>> token_ids;
+    status = tokenizer->Tokenize(input, token_ids);
+    EXPECT_TRUE(status.IsOk());
+    // HF: [39305, 2124] for "abc x"
+    std::vector<extTokenId_t> EXPECTED_IDS = {39305, 2124};
+    EXPECT_EQ(token_ids[0], EXPECTED_IDS) << "Trailing single letter after space was dropped";
+  }
+
+  // "def fibonacci(n):\n    if n <= 1:\n        return n" — real-world code case
+  {
+    std::vector<std::string_view> input = {"def fibonacci(n):\n    if n <= 1:\n        return n"};
+    std::vector<std::vector<extTokenId_t>> token_ids;
+    status = tokenizer->Tokenize(input, token_ids);
+    EXPECT_TRUE(status.IsOk());
+    // HF produces 18 tokens, last one is 299 (Ġn)
+    EXPECT_FALSE(token_ids[0].empty());
+    // The last token should be 299 (" n"), not 220 (" ")
+    EXPECT_EQ(token_ids[0].back(), 299) << "Last token should be ' n' (299), not ' ' (220)";
+
+    // Verify round-trip
+    std::vector<std::string> out_text;
+    std::vector<ort_extensions::span<extTokenId_t const>> span = {token_ids[0]};
+    status = tokenizer->Detokenize(span, out_text);
+    EXPECT_TRUE(status.IsOk());
+    EXPECT_EQ(out_text[0], "def fibonacci(n):\n    if n <= 1:\n        return n");
+  }
+}
+
+// Direct test of PreTokenizerWithRegEx to isolate pre-tokenization from BPE
+TEST(OrtxTokenizerTest, GPT2PreTokenizerDirect) {
+  using namespace ort_extensions::bpe;
+
+  // First verify IsL works for basic ASCII letters
+  std::cout << "=== IsL diagnostics ===" << std::endl;
+  std::cout << "IsL('n') = " << PreTokenizerWithRegEx::IsL(U'n') << std::endl;
+  std::cout << "IsL('a') = " << PreTokenizerWithRegEx::IsL(U'a') << std::endl;
+  std::cout << "IsL('Z') = " << PreTokenizerWithRegEx::IsL(U'Z') << std::endl;
+  std::cout << "IsL(' ') = " << PreTokenizerWithRegEx::IsL(U' ') << std::endl;
+  std::cout << "IsL('1') = " << PreTokenizerWithRegEx::IsL(U'1') << std::endl;
+  std::cout << "IsN('1') = " << PreTokenizerWithRegEx::IsN(U'1') << std::endl;
+  std::cout << "IsZ(' ') = " << PreTokenizerWithRegEx::IsZ(U' ') << std::endl;
+  std::cout << "IsZ('n') = " << PreTokenizerWithRegEx::IsZ(U'n') << std::endl;
+
+  ASSERT_TRUE(PreTokenizerWithRegEx::IsL(U'n')) << "IsL('n') must be true - 'n' is a letter!";
+  ASSERT_TRUE(PreTokenizerWithRegEx::IsL(U'a')) << "IsL('a') must be true";
+  ASSERT_FALSE(PreTokenizerWithRegEx::IsZ(U'n')) << "IsZ('n') must be false";
+  ASSERT_TRUE(PreTokenizerWithRegEx::IsZ(U' ')) << "IsZ(' ') must be true";
+
+  PreTokenizerWithRegEx splitter;
+  auto status = splitter.Compile(PreTokenizerWithRegEx::GPT2_REGEX_PATTERN);
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  // Test " n" directly — collect all tokens
+  {
+    std::u32string text = U" n";
+    splitter.Set(text.c_str());
+    std::cout << "=== Pre-tokenizing \" n\" (space + n) ===" << std::endl;
+    std::cout << "Input size: " << text.size() << std::endl;
+    std::cout << "Input chars: ";
+    for (auto c : text) std::cout << "U+" << std::hex << (int)c << " ";
+    std::cout << std::dec << std::endl;
+
+    std::vector<std::u32string> tokens;
+    while (true) {
+      auto tok = splitter.GetNextToken();
+      if (tok.empty()) break;
+      tokens.push_back(std::u32string(tok));
+      std::cout << "  Token[" << tokens.size()-1 << "]: size=" << tok.size() << " chars=";
+      for (auto c : tok) std::cout << "U+" << std::hex << (int)c << " ";
+      std::cout << std::dec << " utf8='" << std::string(ustring(std::u32string(tok))) << "'" << std::endl;
+    }
+    std::cout << "  Total tokens: " << tokens.size() << std::endl;
+
+    // " n" should be matched as ONE token by the " ?\p{L}+" pattern
+    ASSERT_EQ(tokens.size(), 1u) << "Expected 1 token (' n'), got " << tokens.size();
+    EXPECT_EQ(tokens[0], U" n") << "Pre-tokenizer should match ' n' as single token";
+  }
+
+  // Test "return n"
+  {
+    std::u32string text = U"return n";
+    splitter.Set(text.c_str());
+    std::cout << "=== Pre-tokenizing \"return n\" ===" << std::endl;
+
+    std::vector<std::u32string> tokens;
+    while (true) {
+      auto tok = splitter.GetNextToken();
+      if (tok.empty()) break;
+      tokens.push_back(std::u32string(tok));
+      std::cout << "  Token[" << tokens.size()-1 << "]: size=" << tok.size()
+                << " utf8='" << std::string(ustring(std::u32string(tok))) << "'" << std::endl;
+    }
+    std::cout << "  Total tokens: " << tokens.size() << std::endl;
+
+    ASSERT_EQ(tokens.size(), 2u) << "Expected 2 tokens ('return' + ' n'), got " << tokens.size();
+    EXPECT_EQ(tokens[0], U"return") << "First token should be 'return'";
+    EXPECT_EQ(tokens[1], U" n") << "Second token should be ' n'";
+  }
+
+  // Test that 'n' alone matches as \p{L}+
+  {
+    std::u32string text = U"n";
+    splitter.Set(text.c_str());
+    auto tok1 = splitter.GetNextToken();
+    EXPECT_EQ(tok1.size(), 1u) << "Single 'n' should match";
+    EXPECT_EQ(std::u32string(tok1), U"n") << "Single 'n' should be its own token";
+  }
+
+  // Test "hello world" — normal case
+  {
+    std::u32string text = U"hello world";
+    splitter.Set(text.c_str());
+    auto tok1 = splitter.GetNextToken();
+    EXPECT_EQ(std::u32string(tok1), U"hello");
+    auto tok2 = splitter.GetNextToken();
+    EXPECT_EQ(std::u32string(tok2), U" world");
+    auto tok3 = splitter.GetNextToken();
+    EXPECT_TRUE(tok3.empty());
+  }
 }
 
 TEST(OrtxTokenizerStreamTest, CodeGenTokenizer) {

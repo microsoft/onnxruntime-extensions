@@ -100,8 +100,12 @@ class TrieTree {
           tok_idx -= tok_len;  // backtrack to the last token
           continue;
         } else {
-          tok_idx += 1;  // Assign tok_idx to input.length()
-          idx_end = tok_idx;
+          // End of string with no match. Emit entire remainder as unmatched.
+          if (seg_idx < input.length()) {
+            tokens.emplace_back(std::basic_string_view<CharT>(input.data() + seg_idx, input.length() - seg_idx),
+                                invalid_id);
+          }
+          break;
         }
       }
 

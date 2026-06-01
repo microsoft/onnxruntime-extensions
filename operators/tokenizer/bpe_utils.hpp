@@ -919,9 +919,13 @@ class PreTokenizerWithRegEx {
     while (!m_text.empty()) {
       auto res = TryMatch();
       if (res.empty()) {
+        // No matcher fired for this position. Return the single character as its own token
+        // rather than silently dropping it. Well-formed regex patterns should cover all
+        // characters, but if they don't, we must not lose data.
+        auto single = m_text.substr(0, 1);
         m_last_char = m_text[0];
         m_text = m_text.substr(1);
-        continue;
+        return single;
       }
 
       m_last_char = res.back();

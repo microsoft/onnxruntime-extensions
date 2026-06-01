@@ -94,9 +94,18 @@ stages:
       displayName: Run python test
       condition: and(succeeded(), eq(variables['python.version'], '3.11'))
 
-  ###############
-  # Linux PyDebug
-  ###############
+    - script: |
+        cd test && python test_performance.py --iterations 10 --warmup 3
+      displayName: Run performance benchmark
+      condition: and(succeededOrFailed(), eq(variables['python.version'], '3.11'))
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: 'test/benchmark_results.json'
+        ArtifactName: 'benchmark_results'
+        publishLocation: 'Container'
+      displayName: Publish benchmark results
+      condition: and(succeededOrFailed(), eq(variables['python.version'], '3.11'))
   - job: LinuxPyDbg
     pool:
       name: 'onnxruntime-extensions-Linux-CPU'
