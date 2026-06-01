@@ -395,17 +395,6 @@ TEST(OrtxTokenizerTest, CodeGenTokenizerTrailingChar) {
 TEST(OrtxTokenizerTest, GPT2PreTokenizerDirect) {
   using namespace ort_extensions::bpe;
 
-  // First verify IsL works for basic ASCII letters
-  std::cout << "=== IsL diagnostics ===" << std::endl;
-  std::cout << "IsL('n') = " << PreTokenizerWithRegEx::IsL(U'n') << std::endl;
-  std::cout << "IsL('a') = " << PreTokenizerWithRegEx::IsL(U'a') << std::endl;
-  std::cout << "IsL('Z') = " << PreTokenizerWithRegEx::IsL(U'Z') << std::endl;
-  std::cout << "IsL(' ') = " << PreTokenizerWithRegEx::IsL(U' ') << std::endl;
-  std::cout << "IsL('1') = " << PreTokenizerWithRegEx::IsL(U'1') << std::endl;
-  std::cout << "IsN('1') = " << PreTokenizerWithRegEx::IsN(U'1') << std::endl;
-  std::cout << "IsZ(' ') = " << PreTokenizerWithRegEx::IsZ(U' ') << std::endl;
-  std::cout << "IsZ('n') = " << PreTokenizerWithRegEx::IsZ(U'n') << std::endl;
-
   ASSERT_TRUE(PreTokenizerWithRegEx::IsL(U'n')) << "IsL('n') must be true - 'n' is a letter!";
   ASSERT_TRUE(PreTokenizerWithRegEx::IsL(U'a')) << "IsL('a') must be true";
   ASSERT_FALSE(PreTokenizerWithRegEx::IsZ(U'n')) << "IsZ('n') must be false";
@@ -419,22 +408,13 @@ TEST(OrtxTokenizerTest, GPT2PreTokenizerDirect) {
   {
     std::u32string text = U" n";
     splitter.Set(text.c_str());
-    std::cout << "=== Pre-tokenizing \" n\" (space + n) ===" << std::endl;
-    std::cout << "Input size: " << text.size() << std::endl;
-    std::cout << "Input chars: ";
-    for (auto c : text) std::cout << "U+" << std::hex << (int)c << " ";
-    std::cout << std::dec << std::endl;
 
     std::vector<std::u32string> tokens;
     while (true) {
       auto tok = splitter.GetNextToken();
       if (tok.empty()) break;
       tokens.push_back(std::u32string(tok));
-      std::cout << "  Token[" << tokens.size()-1 << "]: size=" << tok.size() << " chars=";
-      for (auto c : tok) std::cout << "U+" << std::hex << (int)c << " ";
-      std::cout << std::dec << " utf8='" << std::string(ustring(std::u32string(tok))) << "'" << std::endl;
     }
-    std::cout << "  Total tokens: " << tokens.size() << std::endl;
 
     // " n" should be matched as ONE token by the " ?\p{L}+" pattern
     ASSERT_EQ(tokens.size(), 1u) << "Expected 1 token (' n'), got " << tokens.size();
@@ -445,17 +425,13 @@ TEST(OrtxTokenizerTest, GPT2PreTokenizerDirect) {
   {
     std::u32string text = U"return n";
     splitter.Set(text.c_str());
-    std::cout << "=== Pre-tokenizing \"return n\" ===" << std::endl;
 
     std::vector<std::u32string> tokens;
     while (true) {
       auto tok = splitter.GetNextToken();
       if (tok.empty()) break;
       tokens.push_back(std::u32string(tok));
-      std::cout << "  Token[" << tokens.size()-1 << "]: size=" << tok.size()
-                << " utf8='" << std::string(ustring(std::u32string(tok))) << "'" << std::endl;
     }
-    std::cout << "  Total tokens: " << tokens.size() << std::endl;
 
     ASSERT_EQ(tokens.size(), 2u) << "Expected 2 tokens ('return' + ' n'), got " << tokens.size();
     EXPECT_EQ(tokens[0], U"return") << "First token should be 'return'";

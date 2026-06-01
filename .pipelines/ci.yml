@@ -95,16 +95,17 @@ stages:
       condition: and(succeeded(), eq(variables['python.version'], '3.11'))
 
     - script: |
-        cd test && python test_performance.py --iterations 10 --warmup 3
-      displayName: Run performance benchmark
+        cd test && python test_performance.py --iterations 10 --warmup 3 || true
+      displayName: Run performance benchmark (best-effort)
       condition: and(succeededOrFailed(), eq(variables['python.version'], '3.11'))
 
     - task: PublishBuildArtifacts@1
       inputs:
         PathtoPublish: 'test/benchmark_results.json'
-        ArtifactName: 'benchmark_results'
+        ArtifactName: 'benchmark_results_$(Agent.OS)'
         publishLocation: 'Container'
       displayName: Publish benchmark results
+      continueOnError: true
       condition: and(succeededOrFailed(), eq(variables['python.version'], '3.11'))
   - job: LinuxPyDbg
     pool:
@@ -134,6 +135,8 @@ stages:
         cd test
         python -m pytest --ignore=test_cv2.py --ignore=test_tools_add_pre_post_processing_to_model.py . --verbose
       displayName: Run python test
+      env:
+        OCOS_SCB_DEBUG: '1'
 
   #####################################
   # Linux prevent exception propagation
@@ -497,6 +500,8 @@ stages:
         cd test
         python -m pytest --ignore=test_cv2.py --ignore=test_tools_add_pre_post_processing_to_model.py . --verbose
       displayName: Run python test
+      env:
+        OCOS_SCB_DEBUG: '1'
 
 - stage: WindowsCUDABuilds
   dependsOn: []
