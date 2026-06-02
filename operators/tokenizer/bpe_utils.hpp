@@ -919,9 +919,21 @@ class PreTokenizerWithRegEx {
     while (!m_text.empty()) {
       auto res = TryMatch();
       if (res.empty()) {
+        // No matcher fired for this position. Return the single character as its own token
+        // rather than silently dropping it. Well-formed regex patterns should cover all
+        // characters, but if they don't, we must not lose data.
+        auto single = m_text.substr(0, 1);
         m_last_char = m_text[0];
         m_text = m_text.substr(1);
-        continue;
+        if (fallback_patterns_ && !m_utf8_text.empty()) {
+          // Keep m_utf8_text in sync for subsequent STL regex fallback
+          std::string utf8_char = (std::string)ustring(std::u32string(1, single[0]));
+          auto pos = m_utf8_text.find(utf8_char);
+          if (pos != std::string::npos) {
+            m_utf8_text = m_utf8_text.substr(pos + utf8_char.size());
+          }
+        }
+        return single;
       }
 
       m_last_char = res.back();
