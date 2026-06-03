@@ -795,3 +795,71 @@ TEST(OrtxTokenizerTest, Gemma4Tokenizer) {
   EXPECT_TRUE(status.IsOk());
   EXPECT_EQ(out_text[0], input[0]);
 }
+
+// =============================================================================
+// PROFILING TEST: Tokenize a substantial input on each model and print timing
+// =============================================================================
+extern void BpeProfiler_Reset();
+extern void BpeProfiler_Print(const char* label);
+
+TEST(OrtxTokenizerProfileTest, ProfileAllModels) {
+  // A ~2KB English text to exercise the tokenizer meaningfully
+  const std::string long_text =
+      "The transformer architecture has revolutionized natural language processing. "
+      "Self-attention mechanisms allow the model to weigh the importance of different words "
+      "in a sentence relative to each other. Multi-head attention extends this by allowing "
+      "the model to jointly attend to information from different representation subspaces. "
+      "The original transformer paper 'Attention Is All You Need' was published in 2017. "
+      "Since then, models like BERT, GPT-2, GPT-3, and GPT-4 have pushed the boundaries "
+      "of what's possible with language models. These models are pre-trained on massive "
+      "amounts of text data and can be fine-tuned for specific downstream tasks. "
+      "Tokenization is a critical first step: converting raw text into integer token IDs "
+      "that the model can process. BPE (Byte Pair Encoding) is the most common algorithm, "
+      "iteratively merging frequent character pairs into subword tokens. The vocabulary "
+      "typically contains 32K-100K tokens, balancing between character-level granularity "
+      "and word-level efficiency. Pre-tokenization splits text into words first using "
+      "regex patterns, then BPE operates on each word independently. This ensures that "
+      "token boundaries respect word boundaries in most cases. Performance of tokenization "
+      "matters for latency-sensitive applications like real-time chat and code completion.";
+
+  struct ModelInfo {
+    const char* name;
+    const char* path;
+  };
+
+  ModelInfo models[] = {
+      {"GPT-2 (Phi-2)", "data/phi-2"},
+      {"Phi-4", "data/phi-4-base"},
+      {"LLaMA-2", "data/llama2"},
+      {"Gemma", "data/gemma"},
+  };
+
+  const int iterations = 50;
+
+  for (const auto& model : models) {
+    auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+    auto status = tokenizer->Load(model.path);
+    if (!status.IsOk()) {
+      fprintf(stderr, "  [%s] SKIPPED: %s\n", model.name, status.ToString().c_str());
+      continue;
+    }
+
+    // Warmup
+    std::vector<std::string_view> input = {long_text};
+    std::vector<std::vector<extTokenId_t>> token_ids;
+    for (int i = 0; i < 5; i++) {
+      token_ids.clear();
+      tokenizer->Tokenize(input, token_ids);
+    }
+
+    // Profiled run
+    BpeProfiler_Reset();
+    for (int i = 0; i < iterations; i++) {
+      token_ids.clear();
+      tokenizer->Tokenize(input, token_ids);
+    }
+    BpeProfiler_Print(model.name);
+
+    fprintf(stderr, "  [%s] Tokens produced: %zu (per call)\n\n", model.name, token_ids[0].size());
+  }
+}

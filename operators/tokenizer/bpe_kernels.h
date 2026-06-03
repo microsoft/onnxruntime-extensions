@@ -64,6 +64,11 @@ struct KernelBpeTokenizer {
   std::optional<bool> add_bos_token_;
   std::optional<bool> add_eos_token_;
   std::string unicode_byte_encoder_[256] = {};
+
+  // Pre-computed token IDs for each byte value (avoids per-byte hash lookups in ByteEncode fallback)
+  uint32_t byte_token_ids_[256] = {};
+  uint32_t byte_encoded_lens_[256] = {};
+  bool byte_token_ids_valid_ = false;
 };
 
 struct GPT2Tokenizer : KernelBpeTokenizer {

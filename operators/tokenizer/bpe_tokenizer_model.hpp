@@ -508,7 +508,7 @@ class BpeModel {
 
  private:
   std::string end_of_word_suffix_;
-  std::map<uint64_t, BpeNode> bpe_rank_;
+  std::unordered_map<uint64_t, BpeNode> bpe_rank_;
 
   std::unordered_map<std::string, uint32_t> vocab_map_;
   std::vector<std::string> id2token_map_;
