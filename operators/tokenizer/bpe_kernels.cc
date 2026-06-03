@@ -274,6 +274,22 @@ OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKerne
     }
   }
 
+  // Pre-compute SPM character token IDs (for SpmTokenize ByteEncode fast path).
+  // After UpdateSpmByteToken, vocab_map_ maps all 256 raw byte values to token IDs.
+  if (bpe_conf_.get().spm_model_) {
+    spm_token_ids_valid_ = true;
+    for (int i = 0; i < 256; ++i) {
+      std::string s(1, static_cast<char>(static_cast<unsigned char>(i)));
+      uint32_t id = bbpe_tokenizer_->GetTokenId(s);
+      spm_token_ids_[i] = id;
+      if (id == bpe::kInvalidTokenId) {
+        spm_token_ids_valid_ = false;
+      }
+    }
+    // ▁ (U+2581) → 3-byte UTF-8: E2 96 81
+    spm_underscore_id_ = bbpe_tokenizer_->GetTokenId("\xe2\x96\x81");
+  }
+
   return {};
 }
 
@@ -665,18 +681,31 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
             chr = 0x2581;  // UTF-8 string '\xe2\x96\x81'
           }
 
-          char utf8_buf[4];
-          size_t utf8_len = ustring::EncodeUTF8Char(utf8_buf, chr);
-          std::string token_s(utf8_buf, utf8_len);
-
-          auto id = bbpe_tokenizer_->GetTokenId(token_s);
-          if (id == bpe::kInvalidTokenId) {
-            for (size_t i = 0; i < utf8_len; i++) {
-              auto byte_id = bbpe_tokenizer_->GetTokenId(std::string(1, utf8_buf[i]));
-              byte_list.emplace_back(byte_id, 1);
-            }
+          // Fast path: ASCII characters (after space→▁ substitution)
+          if (chr < 128 && spm_token_ids_valid_) {
+            byte_list.emplace_back(spm_token_ids_[chr], 1);
+          } else if (chr == 0x2581 && spm_underscore_id_ != bpe::kInvalidTokenId) {
+            // ▁ (from space substitution): 3-byte UTF-8
+            byte_list.emplace_back(spm_underscore_id_, 3);
           } else {
-            byte_list.emplace_back(id, ort_extensions::narrow<uint32_t>(utf8_len));
+            // Fallback for non-ASCII, non-▁ characters
+            char utf8_buf[4];
+            size_t utf8_len = ustring::EncodeUTF8Char(utf8_buf, chr);
+            std::string token_s(utf8_buf, utf8_len);
+
+            auto id = bbpe_tokenizer_->GetTokenId(token_s);
+            if (id == bpe::kInvalidTokenId) {
+              for (size_t i = 0; i < utf8_len; i++) {
+                if (spm_token_ids_valid_) {
+                  byte_list.emplace_back(spm_token_ids_[static_cast<unsigned char>(utf8_buf[i])], 1);
+                } else {
+                  auto byte_id = bbpe_tokenizer_->GetTokenId(std::string(1, utf8_buf[i]));
+                  byte_list.emplace_back(byte_id, 1);
+                }
+              }
+            } else {
+              byte_list.emplace_back(id, ort_extensions::narrow<uint32_t>(utf8_len));
+            }
           }
         }
 
@@ -711,16 +740,28 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
           auto id = bbpe_tokenizer_->GetTokenId(utf8_token);
           if (id == bpe::kInvalidTokenId) {
             for (auto c : mutable_tok) {
-              std::string utf8_char = ustring::ToUTF8(std::u32string_view(&c, 1));
-              auto char_id = bbpe_tokenizer_->GetTokenId(utf8_char);
-              if (char_id != bpe::kInvalidTokenId) {
-                byte_list.emplace_back(char_id, 1);
+              // Fast path: ASCII characters (after space→▁ substitution)
+              if (c < 128 && spm_token_ids_valid_) {
+                byte_list.emplace_back(spm_token_ids_[c], 1);
+              } else if (c == 0x2581 && spm_underscore_id_ != bpe::kInvalidTokenId) {
+                byte_list.emplace_back(spm_underscore_id_, 1);
               } else {
-                // Fallback to byte-by-byte encoding
-                for (unsigned char byte : utf8_char) {
-                  std::string byte_str(1, byte);
-                  auto byte_id = bbpe_tokenizer_->GetTokenId(byte_str);
-                  byte_list.emplace_back(byte_id, 1);
+                // Fallback for non-ASCII, non-▁ characters
+                std::string utf8_char = ustring::ToUTF8(std::u32string_view(&c, 1));
+                auto char_id = bbpe_tokenizer_->GetTokenId(utf8_char);
+                if (char_id != bpe::kInvalidTokenId) {
+                  byte_list.emplace_back(char_id, 1);
+                } else {
+                  // Fallback to byte-by-byte encoding
+                  for (unsigned char byte : utf8_char) {
+                    if (spm_token_ids_valid_) {
+                      byte_list.emplace_back(spm_token_ids_[byte], 1);
+                    } else {
+                      std::string byte_str(1, byte);
+                      auto byte_id = bbpe_tokenizer_->GetTokenId(byte_str);
+                      byte_list.emplace_back(byte_id, 1);
+                    }
+                  }
                 }
               }
             }
@@ -1099,6 +1140,32 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::TokenJsonConfig& config
       json_conf_.add_dummy_prefix_ = false;
     }
     UpdateTokenizer(config, tok_json);
+
+    // Pre-compute per-byte token IDs (GPT-2/Phi-4 ByteEncode fast path)
+    byte_token_ids_valid_ = true;
+    for (int i = 0; i < 256; ++i) {
+      const std::string& encoded = unicode_byte_encoder_[i];
+      uint32_t id = bbpe_tokenizer_->GetTokenId(encoded);
+      byte_token_ids_[i] = id;
+      byte_encoded_lens_[i] = static_cast<uint32_t>(encoded.size());
+      if (id == bpe::kInvalidTokenId) {
+        byte_token_ids_valid_ = false;
+      }
+    }
+
+    // Pre-compute SPM character token IDs (LLaMA/Gemma ByteEncode fast path)
+    if (bpe_conf_.get().spm_model_) {
+      spm_token_ids_valid_ = true;
+      for (int i = 0; i < 256; ++i) {
+        std::string s(1, static_cast<char>(static_cast<unsigned char>(i)));
+        uint32_t id = bbpe_tokenizer_->GetTokenId(s);
+        spm_token_ids_[i] = id;
+        if (id == bpe::kInvalidTokenId) {
+          spm_token_ids_valid_ = false;
+        }
+      }
+      spm_underscore_id_ = bbpe_tokenizer_->GetTokenId("\xe2\x96\x81");
+    }
   }
 
   return status;

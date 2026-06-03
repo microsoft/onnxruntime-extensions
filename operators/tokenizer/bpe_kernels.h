@@ -69,6 +69,13 @@ struct KernelBpeTokenizer {
   uint32_t byte_token_ids_[256] = {};
   uint32_t byte_encoded_lens_[256] = {};
   bool byte_token_ids_valid_ = false;
+
+  // Pre-computed SPM character token IDs (avoids per-char string alloc + hash lookup in SpmTokenize)
+  // spm_token_ids_[i] = vocab_map_[string(1, (char)i)] for raw byte values 0-255
+  // spm_underscore_id_ = token ID for ▁ (U+2581, the SPM space replacement character)
+  uint32_t spm_token_ids_[256] = {};
+  uint32_t spm_underscore_id_ = 0xFFFFFFFF;
+  bool spm_token_ids_valid_ = false;
 };
 
 struct GPT2Tokenizer : KernelBpeTokenizer {
