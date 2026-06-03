@@ -14,7 +14,7 @@
 
 // ============================================================================
 // PROFILING: Define OCOS_PROFILING=1 via CMake or uncomment below to enable
-#define OCOS_PROFILING 0
+// #define OCOS_PROFILING 1
 // ============================================================================
 
 #ifdef OCOS_PROFILING
