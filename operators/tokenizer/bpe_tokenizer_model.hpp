@@ -99,18 +99,17 @@ class BpeModel {
       if (pre_type == "Split") {
         ORTX_JSON_RETURN_IF_NULL(&node, "pattern", iter_pattern);
         ORTX_JSON_RETURN_IF_NULL(iter_pattern, "Regex", regex_str);
-        pre_tokenizer_regex_ = regex_str->get<std::string>();
-        // Validate the regex pattern
+        auto regex = NormalizeJsonRegexEscapes(regex_str->get<std::string>());
         bpe::PreTokenizerWithRegEx pre_tokenizer;
-        auto status = pre_tokenizer.Compile(pre_tokenizer_regex_);
+        auto status = pre_tokenizer.Compile(regex);
         if (!status.IsOk()) {
           return status;
         }
+        sequence_steps_.push_back({std::move(regex)});
       } else {
         if (pre_tokenizer_types_.count(pre_type) == 0) {
           return {kOrtxErrorNotImplemented, "Unsupported pretokenizer type!"};
         }
-        ; // TODO: implement other pretokenizer types
       }
     }
 
@@ -475,6 +474,14 @@ class BpeModel {
 
   bool IsNoOpPretokenizer() const { return no_op_pretokenizer_; }
 
+  struct SequencePreTokenizerStep {
+    std::string regex;
+  };
+
+  bool HasSequencePreTokenizer() const { return !sequence_steps_.empty(); }
+
+  const std::vector<SequencePreTokenizerStep>& GetSequenceSteps() const { return sequence_steps_; }
+
   std::string GetPreTokenizerRegex(const std::string& model_name, bool spm_model = false) const {
     if (!pre_tokenizer_regex_.empty()) {
       return pre_tokenizer_regex_;
@@ -511,8 +518,25 @@ class BpeModel {
   TrieTree<char32_t> added_tokens_;
   std::string pre_tokenizer_regex_;
   bool no_op_pretokenizer_ = false;
+  std::vector<SequencePreTokenizerStep> sequence_steps_;
 
   std::set<std::string_view> pre_tokenizer_types_;
+
+  static std::string NormalizeJsonRegexEscapes(std::string regex) {
+    std::string normalized;
+    normalized.reserve(regex.size());
+    for (char ch : regex) {
+      switch (ch) {
+        case '\r': normalized += "\\r"; break;
+        case '\n': normalized += "\\n"; break;
+        case '\t': normalized += "\\t"; break;
+        case '\f': normalized += "\\f"; break;
+        case '\v': normalized += "\\v"; break;
+        default:   normalized += ch;    break;
+      }
+    }
+    return normalized;
+  }
 };
 
 }  // namespace ort_extensions

@@ -299,6 +299,81 @@ TEST(OrtxTokenizerTest, MarianTokenizer2) {
 }
 
 // ============================================================================
+// Marian Id2Token bug-fix regression tests
+// ============================================================================
+
+// Fixture: shares a single NMT tokenizer instance and provides a helper
+// that tokenizes + detokenizes a string, returning the round-tripped text.
+class MarianId2TokenTest : public ::testing::Test {
+ protected:
+  static void SetUpTestSuite() {
+    tokenizer_ = OrtxObjectPtr<OrtxTokenizer>(OrtxCreateTokenizer, "data/tokenizer/nmt");
+  }
+  static void TearDownTestSuite() { tokenizer_.reset(); }
+
+  // Tokenize |input|, detokenize, and return the result.
+  static std::string RoundTrip(const char* input) {
+    const char* inputs[] = {input};
+    OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+    OrtxTokenize(tokenizer_.get(), inputs, 1, token_ids.ToBeAssigned());
+    EXPECT_EQ(token_ids.Code(), kOrtxOK);
+
+    size_t length = 0;
+    const extTokenId_t* ids = nullptr;
+    OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+    EXPECT_GT(length, 0u);
+
+    std::vector<extTokenId_t> ids_vec(ids, ids + length);
+    OrtxObjectPtr<OrtxStringArray> decoded;
+    OrtxDetokenize1D(tokenizer_.get(), ids_vec.data(), ids_vec.size(),
+                     decoded.ToBeAssigned());
+    EXPECT_EQ(decoded.Code(), kOrtxOK);
+
+    const char* text = nullptr;
+    OrtxStringArrayGetItem(decoded.get(), 0, &text);
+    return text ? std::string(text) : std::string();
+  }
+
+  static OrtxObjectPtr<OrtxTokenizer> tokenizer_;
+};
+
+OrtxObjectPtr<OrtxTokenizer> MarianId2TokenTest::tokenizer_;
+
+// Bug 1: Mode doesn't propagate across pieces.
+// The case-encoder U (uppercase) mode must persist across SPM piece
+// boundaries.  E.g. "MCP" encodes as pieces like "Umc"+"p", and the U mode
+// from the first piece must carry into the second so "p" becomes "P".
+TEST_F(MarianId2TokenTest, CrossPieceModePropagate) {
+  ASSERT_EQ(tokenizer_.Code(), kOrtxOK) << "Failed to create tokenizer.";
+  EXPECT_EQ(RoundTrip("MCP protocol"), "MCP protocol");
+}
+
+// Bug 2: Markers mid-piece are ignored.
+// When the SPM unigram lattice merges a case marker into the middle of a
+// piece (e.g. "iTphone" where T is a titlecase marker), the old decoder
+// only checked position 0 and emitted the marker literally.
+TEST_F(MarianId2TokenTest, MidPieceMarker) {
+  ASSERT_EQ(tokenizer_.Code(), kOrtxOK) << "Failed to create tokenizer.";
+  EXPECT_EQ(RoundTrip("iPhone is great"), "iPhone is great");
+}
+
+// Bug 3: Implicit mode reset after a non-letter boundary.
+// When the SPM lattice drops an explicit L (lowercase) marker at a non-letter
+// codepoint boundary (e.g. "-"), the decoder must implicitly reset the mode
+// so the following lowercase run is not uppercased.
+TEST_F(MarianId2TokenTest, ImplicitLReset) {
+  ASSERT_EQ(tokenizer_.Code(), kOrtxOK) << "Failed to create tokenizer.";
+  EXPECT_EQ(RoundTrip("PPV-mp format"), "PPV-mp format");
+}
+
+// Combined test: exercises all three Id2Token bugs in a single sentence.
+TEST_F(MarianId2TokenTest, CombinedBugs) {
+  ASSERT_EQ(tokenizer_.Code(), kOrtxOK) << "Failed to create tokenizer.";
+  EXPECT_EQ(RoundTrip("THIS iPhone costs PPV-mp only"),
+            "THIS iPhone costs PPV-mp only");
+}
+
+// ============================================================================
 // Transformers v5 format tests
 // ============================================================================
 
