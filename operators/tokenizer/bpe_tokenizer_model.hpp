@@ -10,6 +10,7 @@
 
 #include <set>
 #include <list>
+#include <vector>
 #include <memory>
 #include <unordered_map>
 #include <iostream>
@@ -402,7 +403,7 @@ class BpeModel {
     return final_result;
   }
 
-  void PerformBPE(std::list<std::pair<uint32_t, uint32_t>>& vals) const {
+  void PerformBPE(std::vector<std::pair<uint32_t, uint32_t>>& vals) const {
     if (vals.size() < 2) return;
 
     // Flat-array linked list for cache-friendly traversal.
@@ -426,15 +427,11 @@ class BpeModel {
       nodes = heap_buf.get();
     }
 
-    // Initialize from list
-    {
-      int32_t idx = 0;
-      for (const auto& p : vals) {
-        nodes[idx] = {p.first, p.second, idx - 1, idx + 1};
-        idx++;
-      }
-      nodes[n - 1].next = -1;  // last node has no next
+    // Initialize from vector (contiguous access, no linked-list traversal)
+    for (size_t idx = 0; idx < n; idx++) {
+      nodes[idx] = {vals[idx].first, vals[idx].second, static_cast<int32_t>(idx) - 1, static_cast<int32_t>(idx) + 1};
     }
+    nodes[n - 1].next = -1;  // last node has no next
 
     size_t active_count = n;
 

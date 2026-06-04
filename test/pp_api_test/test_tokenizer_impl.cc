@@ -5,6 +5,12 @@
 #include <locale>
 #include "gtest/gtest.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#include <psapi.h>
+#pragma comment(lib, "psapi.lib")
+#endif
+
 #include "shared/api/tokenizer_impl.h"
 #include "bpe_utils.hpp"
 
@@ -862,4 +868,80 @@ TEST(OrtxTokenizerProfileTest, ProfileAllModels) {
 
     fprintf(stderr, "  [%s] Tokens produced: %zu (per call)\n\n", model.name, token_ids[0].size());
   }
+}
+
+// =============================================================================
+// MEMORY TEST: Measure per-model memory footprint
+// =============================================================================
+#ifdef _WIN32
+static size_t GetCurrentRSS() {
+  PROCESS_MEMORY_COUNTERS pmc;
+  if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+    return pmc.WorkingSetSize;
+  }
+  return 0;
+}
+#else
+static size_t GetCurrentRSS() {
+  // On Linux, read /proc/self/statm
+  FILE* f = fopen("/proc/self/statm", "r");
+  if (!f) return 0;
+  long pages = 0;
+  fscanf(f, "%*ld %ld", &pages);  // second field is RSS in pages
+  fclose(f);
+  return static_cast<size_t>(pages) * 4096;
+}
+#endif
+
+TEST(OrtxTokenizerProfileTest, MemoryUsage) {
+  struct ModelInfo {
+    const char* name;
+    const char* path;
+  };
+
+  ModelInfo models[] = {
+      {"GPT-2 (Phi-2)", "data/phi-2"},
+      {"Phi-4", "data/phi-4-base"},
+      {"LLaMA-2", "data/llama2"},
+      {"Gemma", "data/gemma"},
+  };
+
+  // Load all models simultaneously for accurate total measurement.
+  // RSS per-model is unreliable sequentially (OS doesn't reclaim pages immediately).
+  fprintf(stderr, "\n=== TOKENIZER MEMORY FOOTPRINT ===\n");
+  fprintf(stderr, "%-20s %12s\n", "Model", "Footprint");
+  fprintf(stderr, "%-20s %12s\n", "-----", "---------");
+
+  size_t base_rss = GetCurrentRSS();
+
+  std::vector<std::unique_ptr<ort_extensions::TokenizerImpl>> all_tokenizers;
+  std::vector<size_t> per_model_rss;
+
+  for (const auto& model : models) {
+    size_t before = GetCurrentRSS();
+
+    auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+    auto status = tokenizer->Load(model.path);
+    if (!status.IsOk()) {
+      fprintf(stderr, "  [%s] SKIPPED: %s\n", model.name, status.ToString().c_str());
+      continue;
+    }
+
+    // Trigger any lazy initialization
+    std::vector<std::string_view> input = {"This is a test."};
+    std::vector<std::vector<extTokenId_t>> token_ids;
+    tokenizer->Tokenize(input, token_ids);
+
+    size_t after = GetCurrentRSS();
+    per_model_rss.push_back(after - before);
+    all_tokenizers.push_back(std::move(tokenizer));
+
+    fprintf(stderr, "%-20s %9.2f MB\n", model.name, (after - before) / (1024.0 * 1024.0));
+  }
+
+  size_t total_rss = GetCurrentRSS();
+  fprintf(stderr, "%-20s %9.2f MB\n", "TOTAL (all 4)", (total_rss - base_rss) / (1024.0 * 1024.0));
+  fprintf(stderr, "Note: CPU-only heap memory (vocab + merges + lookup tables).\n");
+  fprintf(stderr, "Allocated once at model load, freed when tokenizer is destroyed.\n");
+  fprintf(stderr, "================================================================\n\n");
 }

@@ -4,11 +4,14 @@
 #pragma once
 
 #include <list>
+#include <memory>
 #include <string>
 #include <vector>
 #include <functional>
 
 #include "tokenizer_common.h"
+
+struct CachedSplitters;  // defined in bpe_kernels.cc
 
 struct BpeModelConf {
   const char* name_{"GPT2"};  // this name may be overridden by the tokenizer's attribute.
@@ -26,6 +29,7 @@ struct KernelBpeTokenizer {
   using json = nlohmann::json;
   using AddedTokenMap = ort_extensions::AddedTokenMap;
   KernelBpeTokenizer(const BpeModelConf& conf);
+  ~KernelBpeTokenizer();
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info);
 
   OrtxStatus Compute(const ortc::Tensor<std::string>& input, ortc::Tensor<int64_t>& tokenize_output,
@@ -49,6 +53,7 @@ struct KernelBpeTokenizer {
                                    std::list<OffsetMappingType>& offset_map, bool add_special_tokens) const;
 
   void CreateUnicodeByteEncoder();
+  void CompilePreTokenizer();
 
  protected:
   std::string model_name_;
@@ -76,6 +81,9 @@ struct KernelBpeTokenizer {
   uint32_t spm_token_ids_[256] = {};
   uint32_t spm_underscore_id_ = 0xFFFFFFFF;
   bool spm_token_ids_valid_ = false;
+
+  // Cached compiled pre-tokenizer splitters (compiled once, reused per call)
+  mutable std::unique_ptr<CachedSplitters> cached_splitters_;
 };
 
 struct GPT2Tokenizer : KernelBpeTokenizer {

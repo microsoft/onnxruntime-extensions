@@ -187,6 +187,16 @@ class ustring : public std::u32string {
 
     return utf8;
   }
+
+  // Write UTF-8 into an existing string (reuses its capacity to avoid heap allocations)
+  static void ToUTF8Into(const std::u32string_view& ucs32, std::string& utf8) {
+    utf8.clear();
+    char buf[4];
+    for (char32_t codepoint : ucs32) {
+      size_t len = EncodeUTF8Char(buf, codepoint);
+      utf8.append(buf, len);
+    }
+  }
 };
 
 namespace std {
