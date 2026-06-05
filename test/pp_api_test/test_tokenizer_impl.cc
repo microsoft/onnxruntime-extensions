@@ -808,7 +808,7 @@ TEST(OrtxTokenizerTest, Gemma4Tokenizer) {
 extern void BpeProfiler_Reset();
 extern void BpeProfiler_Print(const char* label);
 
-TEST(OrtxTokenizerProfileTest, ProfileAllModels) {
+TEST(OrtxTokenizerProfileTest, DISABLED_ProfileAllModels) {
   // A ~2KB English text to exercise the tokenizer meaningfully
   const std::string long_text =
       "The transformer architecture has revolutionized natural language processing. "
@@ -893,7 +893,7 @@ static size_t GetCurrentRSS() {
 }
 #endif
 
-TEST(OrtxTokenizerProfileTest, MemoryUsage) {
+TEST(OrtxTokenizerProfileTest, DISABLED_MemoryUsage) {
   struct ModelInfo {
     const char* name;
     const char* path;

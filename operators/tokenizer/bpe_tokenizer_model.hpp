@@ -408,7 +408,7 @@ class BpeModel {
 
     // Flat-array linked list for cache-friendly traversal.
     // Each node stores token_id, byte_length, and prev/next indices.
-    // Sentinel: index 0 = head, last+1 = tail (unused, next of last = 0 signals end).
+    // Nodes are indexed [0..n-1]; next == -1 marks the end of the list.
     struct BpeListNode {
       uint32_t token_id;
       uint32_t byte_len;

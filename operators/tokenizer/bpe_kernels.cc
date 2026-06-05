@@ -68,7 +68,8 @@ struct ScopedTimer {
   ScopedTimer(std::atomic<int64_t>& t) : target(t), start(std::chrono::high_resolution_clock::now()) {}
   ~ScopedTimer() {
     auto end = std::chrono::high_resolution_clock::now();
-    target += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+    target.fetch_add(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(),
+                     std::memory_order_relaxed);
   }
 };
 
@@ -81,7 +82,7 @@ struct ScopedTimer {
 }  // namespace
 
 #define PROFILE_SCOPE(counter) ScopedTimer _timer_##counter(g_bpe_profiler.counter)
-#define PROFILE_INCREMENT(counter, val) g_bpe_profiler.counter += (val)
+#define PROFILE_INCREMENT(counter, val) g_bpe_profiler.counter.fetch_add((val), std::memory_order_relaxed)
 #else
 #define PROFILE_SCOPE(counter) ((void)0)
 #define PROFILE_INCREMENT(counter, val) ((void)0)
@@ -509,7 +510,9 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
     }
   };
 
-  // Use cached pre-tokenizer (compiled once at model load, or lazily on first call)
+  // Use cached pre-tokenizer (compiled once at model load, or lazily on first call).
+  // Thread safety: ORT guarantees sequential execution per kernel instance;
+  // concurrent calls on the same instance do not occur.
   if (!cached_splitters_) {
     const_cast<KernelBpeTokenizer*>(this)->CompilePreTokenizer();
   }
@@ -614,7 +617,8 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
     special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input, added_tokens_);
   }
 
-  // Use cached pre-tokenizer (compiled once at model load, or lazily on first call)
+  // Use cached pre-tokenizer (compiled once at model load, or lazily on first call).
+  // Thread safety: ORT guarantees sequential execution per kernel instance.
   if (!cached_splitters_) {
     const_cast<KernelBpeTokenizer*>(this)->CompilePreTokenizer();
   }
@@ -775,7 +779,7 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
               if (c < 128 && spm_token_ids_valid_) {
                 byte_list.emplace_back(spm_token_ids_[c], 1);
               } else if (c == 0x2581 && spm_underscore_id_ != bpe::kInvalidTokenId) {
-                byte_list.emplace_back(spm_underscore_id_, 1);
+                byte_list.emplace_back(spm_underscore_id_, 3);  // U+2581 is 3 bytes in UTF-8
               } else {
                 // Fallback for non-ASCII, non-▁ characters
                 char utf8_buf[4];
