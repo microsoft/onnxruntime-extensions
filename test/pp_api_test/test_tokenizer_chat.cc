@@ -1527,3 +1527,64 @@ TEST(OrtxTokenizerTest, Gemma4ChatTemplate) {
   OrtxDetokenize(tokenizer.get(), token_ids2.get(), decoded_text2.ToBeAssigned());
   EXPECT_EQ(decoded_text2.Code(), kOrtxOK);
 }
+
+// Test that string slicing with step != 1 and out-of-range indices does not
+// read out of bounds (previously caused a heap-buffer-overflow read).
+TEST(OrtxTokenizerTest, MinjaStringSliceOOBClamped) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK);
+
+  std::string messages_json = R"([{"role":"user","content":"hi"}])";
+
+  // Slice with step=2 and end far beyond string length.
+  // Previously this would read past the string buffer.
+  {
+    OrtxObjectPtr<OrtxTensorResult> result;
+    auto err = OrtxApplyChatTemplate(
+        tokenizer.get(), "{{ 'abc'[0:65536:2] }}",
+        messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
+    ASSERT_EQ(err, kOrtxOK) << OrtxGetLastErrorMessage();
+
+    OrtxObjectPtr<OrtxTensor> tensor;
+    OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+    ASSERT_EQ(tensor.Code(), kOrtxOK);
+    const char* text = nullptr;
+    OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text), nullptr, nullptr);
+    // Python: 'abc'[0:65536:2] == 'ac'
+    EXPECT_STREQ(text, "ac");
+  }
+
+  // Negative step with start beyond string length.
+  {
+    OrtxObjectPtr<OrtxTensorResult> result;
+    auto err = OrtxApplyChatTemplate(
+        tokenizer.get(), "{{ 'abc'[100:0:-1] }}",
+        messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
+    ASSERT_EQ(err, kOrtxOK) << OrtxGetLastErrorMessage();
+
+    OrtxObjectPtr<OrtxTensor> tensor;
+    OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+    ASSERT_EQ(tensor.Code(), kOrtxOK);
+    const char* text = nullptr;
+    OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text), nullptr, nullptr);
+    // Python: 'abc'[100:0:-1] == 'cb'
+    EXPECT_STREQ(text, "cb");
+  }
+
+  // Negative index wrapping that would remain negative without clamping.
+  {
+    OrtxObjectPtr<OrtxTensorResult> result;
+    auto err = OrtxApplyChatTemplate(
+        tokenizer.get(), "{{ 'abc'[-100:2:1] }}",
+        messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
+    ASSERT_EQ(err, kOrtxOK) << OrtxGetLastErrorMessage();
+
+    OrtxObjectPtr<OrtxTensor> tensor;
+    OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+    ASSERT_EQ(tensor.Code(), kOrtxOK);
+    const char* text = nullptr;
+    OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text), nullptr, nullptr);
+    // Python: 'abc'[-100:2:1] == 'ab'
+    EXPECT_STREQ(text, "ab");
+  }
+}

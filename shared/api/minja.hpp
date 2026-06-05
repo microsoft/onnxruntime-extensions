@@ -1708,7 +1708,14 @@ namespace minja
         if (target_value.is_string())
         {
           std::string s = target_value.get<std::string>();
-          
+          int64_t n = static_cast<int64_t>(s.size());
+          // Clamp start/end to valid range per Python slice semantics.
+          auto clamp = [](int64_t i, int64_t lo, int64_t hi) -> int64_t {
+            return std::max(lo, std::min(i, hi));
+          };
+          start = clamp(start, step > 0 ? (int64_t)0 : (int64_t)-1, step > 0 ? n : n - 1);
+          end   = clamp(end,   step > 0 ? (int64_t)0 : (int64_t)-1, step > 0 ? n : n - 1);
+
           std::string result;
           if (start < end && step == 1) {
             result = s.substr(start, end - start);
