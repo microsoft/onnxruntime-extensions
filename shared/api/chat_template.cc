@@ -420,16 +420,8 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
     bool skip_tool_normalization = false;
     {
       std::string tmpl_str(activated_str);
-      // Look for "tool.function" but exclude "tool_call.function" matches
-      size_t pos = 0;
-      while ((pos = tmpl_str.find("tool.function", pos)) != std::string::npos) {
-        // Check that this isn't part of "tool_call.function"
-        if (pos < 5 || tmpl_str.substr(pos - 5, 5) != "call.") {
-          skip_tool_normalization = true;
-          break;
-        }
-        pos += 13;
-      }
+      // Look for "tool.function" in the template (Harmony/GPT-OSS expects raw OpenAI tool objects).
+      skip_tool_normalization = tmpl_str.find("tool.function") != std::string::npos;
     }
 
     // Case 1: Check if tools are inside messages (for Phi-4-mini)
@@ -441,8 +433,12 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
 
           if (skip_tool_normalization) {
             // GPT-OSS/Harmony: parse tools as-is without normalization
-            json tools_json = json::parse(message_obj["tools"].get<std::string>().c_str());
-            message_obj["tools"] = tools_json;
+            const auto tools_text = message_obj["tools"].get<std::string>();
+            json tools_json = json::parse(tools_text, nullptr, /*allow_exceptions=*/false);
+            if (tools_json.is_discarded()) {
+              throw std::runtime_error("Invalid tools JSON.");
+            }
+            message_obj["tools"] = std::move(tools_json);
           } else {
             // Normalize the tools inside the message
             json tools_json = NormalizeTools(message_obj["tools"].get<std::string>().c_str());
@@ -458,7 +454,10 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
       json tools_json;
       if (skip_tool_normalization) {
         // GPT-OSS/Harmony: pass raw tools without normalization
-        tools_json = json::parse(tools_str.c_str());
+        tools_json = json::parse(tools_str, nullptr, /*allow_exceptions=*/false);
+        if (tools_json.is_discarded()) {
+          throw std::runtime_error("Invalid tools JSON.");
+        }
       } else {
         tools_json = NormalizeTools(tools_str.c_str());
       }
