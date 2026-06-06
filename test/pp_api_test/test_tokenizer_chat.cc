@@ -1588,3 +1588,25 @@ TEST(OrtxTokenizerTest, MinjaStringSliceOOBClamped) {
     EXPECT_STREQ(text, "ab");
   }
 }
+
+TEST(OrtxTokenizerTest, MinjaParserRecursionDepthLimit) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK);
+
+  std::string messages_json = R"([{"role":"user","content":"hi"}])";
+
+  // A deeply nested template that would previously cause a stack overflow.
+  // Generate ~200 levels of nesting via repeated '{' dictionary openers.
+  std::string deep_template = "{{ ";
+  for (int i = 0; i < 200; ++i) {
+    deep_template += "{";
+  }
+  deep_template += " }}";
+
+  OrtxObjectPtr<OrtxTensorResult> result;
+  auto err = OrtxApplyChatTemplate(
+      tokenizer.get(), deep_template.c_str(),
+      messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
+  // Should fail gracefully with an error, not crash with a stack overflow.
+  EXPECT_NE(err, kOrtxOK);
+}
