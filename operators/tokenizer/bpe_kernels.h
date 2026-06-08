@@ -54,6 +54,8 @@ struct KernelBpeTokenizer {
 
   void CreateUnicodeByteEncoder();
   void CompilePreTokenizer();
+  void PrecomputeByteTokenIds();
+  void SpmEncodeChar(char32_t c, std::vector<std::pair<uint32_t, uint32_t>>& byte_list) const;
 
  protected:
   std::string model_name_;
