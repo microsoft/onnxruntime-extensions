@@ -4,11 +4,14 @@
 #pragma once
 
 #include <list>
+#include <memory>
 #include <string>
 #include <vector>
 #include <functional>
 
 #include "tokenizer_common.h"
+
+struct CachedSplitters;  // defined in bpe_kernels.cc
 
 struct BpeModelConf {
   const char* name_{"GPT2"};  // this name may be overridden by the tokenizer's attribute.
@@ -26,6 +29,7 @@ struct KernelBpeTokenizer {
   using json = nlohmann::json;
   using AddedTokenMap = ort_extensions::AddedTokenMap;
   KernelBpeTokenizer(const BpeModelConf& conf);
+  ~KernelBpeTokenizer();
   OrtStatusPtr OnModelAttach(const OrtApi& api, const OrtKernelInfo& info);
 
   OrtxStatus Compute(const ortc::Tensor<std::string>& input, ortc::Tensor<int64_t>& tokenize_output,
@@ -49,6 +53,9 @@ struct KernelBpeTokenizer {
                                    std::list<OffsetMappingType>& offset_map, bool add_special_tokens) const;
 
   void CreateUnicodeByteEncoder();
+  void CompilePreTokenizer();
+  void PrecomputeByteTokenIds();
+  void SpmEncodeChar(char32_t c, std::vector<std::pair<uint32_t, uint32_t>>& byte_list) const;
 
  protected:
   std::string model_name_;
@@ -64,6 +71,21 @@ struct KernelBpeTokenizer {
   std::optional<bool> add_bos_token_;
   std::optional<bool> add_eos_token_;
   std::string unicode_byte_encoder_[256] = {};
+
+  // Pre-computed token IDs for each byte value (avoids per-byte hash lookups in ByteEncode fallback)
+  uint32_t byte_token_ids_[256] = {};
+  uint32_t byte_encoded_lens_[256] = {};
+  bool byte_token_ids_valid_ = false;
+
+  // Pre-computed SPM character token IDs (avoids per-char string alloc + hash lookup in SpmTokenize)
+  // spm_token_ids_[i] = vocab_map_[string(1, (char)i)] for raw byte values 0-255
+  // spm_underscore_id_ = token ID for ▁ (U+2581, the SPM space replacement character)
+  uint32_t spm_token_ids_[256] = {};
+  uint32_t spm_underscore_id_ = 0xFFFFFFFF;
+  bool spm_token_ids_valid_ = false;
+
+  // Cached compiled pre-tokenizer splitters (compiled once, reused per call)
+  mutable std::unique_ptr<CachedSplitters> cached_splitters_;
 };
 
 struct GPT2Tokenizer : KernelBpeTokenizer {
