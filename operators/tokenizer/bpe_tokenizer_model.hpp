@@ -11,6 +11,7 @@
 #include <set>
 #include <list>
 #include <vector>
+#include <queue>
 #include <memory>
 #include <unordered_map>
 #include <iostream>
@@ -406,6 +407,21 @@ class BpeModel {
   void PerformBPE(std::vector<std::pair<uint32_t, uint32_t>>& vals) const {
     if (vals.size() < 2) return;
 
+    // For longer sequences, use priority-queue BPE: O(N log N) vs O(N*R) for flat scan.
+    // The priority queue avoids rescanning all pairs each round.
+    // Threshold chosen empirically: heap overhead loses for very short sequences.
+    if (vals.size() > 32) {
+      PerformBPE_Heap(vals);
+      return;
+    }
+
+    PerformBPE_FlatScan(vals);
+  }
+
+ private:
+  // O(N*R) flat-array scan: best for short sequences (pre-tokens from regex splitting).
+  // R = number of distinct merge rounds needed.
+  void PerformBPE_FlatScan(std::vector<std::pair<uint32_t, uint32_t>>& vals) const {
     // Flat-array linked list for cache-friendly traversal.
     // Each node stores token_id, byte_length, and prev/next indices.
     // Nodes are indexed [0..n-1]; next == -1 marks the end of the list.
@@ -493,6 +509,101 @@ class BpeModel {
     }
   }
 
+  // O(N log N) priority-queue BPE: best for longer sequences where the flat scan
+  // would do many rounds (e.g., Gemma with 256K merges and 100+ char pre-tokens).
+  // Uses a min-heap of adjacent pairs keyed by merge rank with lazy deletion.
+  // Based on Zouhar et al. "A Formal Perspective on Byte-Pair Encoding" (ACL 2023).
+  void PerformBPE_Heap(std::vector<std::pair<uint32_t, uint32_t>>& vals) const {
+    struct BpeListNode {
+      uint32_t token_id;
+      uint32_t byte_len;
+      int32_t prev;
+      int32_t next;
+      bool removed;
+    };
+
+    const size_t n = vals.size();
+    std::vector<BpeListNode> nodes(n);
+    for (size_t i = 0; i < n; i++) {
+      nodes[i] = {vals[i].first, vals[i].second, static_cast<int32_t>(i) - 1,
+                  static_cast<int32_t>(i) + 1, false};
+    }
+    nodes[n - 1].next = -1;
+
+    // Heap entry: merge rank (priority), resulting token, position (left node index),
+    // and the token IDs when this entry was created (for lazy validation).
+    struct HeapEntry {
+      uint32_t rank;
+      uint32_t merged_id;
+      int32_t pos;         // index of left node
+      uint32_t left_tok;   // token_id of left node at insertion time
+      uint32_t right_tok;  // token_id of right node at insertion time
+
+      bool operator>(const HeapEntry& o) const { return rank > o.rank; }
+    };
+
+    // Min-heap: lowest rank = highest priority
+    std::priority_queue<HeapEntry, std::vector<HeapEntry>, std::greater<HeapEntry>> heap;
+
+    // Seed heap with all valid adjacent pairs
+    for (size_t i = 0; i + 1 < n; i++) {
+      auto it = bpe_rank_.find(GetRankKey(nodes[i].token_id, nodes[i + 1].token_id));
+      if (it != bpe_rank_.end()) {
+        heap.push({it->second.value, it->second.id, static_cast<int32_t>(i),
+                   nodes[i].token_id, nodes[i + 1].token_id});
+      }
+    }
+
+    while (!heap.empty()) {
+      auto top = heap.top();
+      heap.pop();
+
+      // Lazy validation: check this entry is still valid
+      int32_t i = top.pos;
+      if (nodes[i].removed) continue;
+      if (nodes[i].token_id != top.left_tok) continue;
+      int32_t j = nodes[i].next;
+      if (j == -1 || nodes[j].removed) continue;
+      if (nodes[j].token_id != top.right_tok) continue;
+
+      // Merge: keep node i, absorb node j
+      nodes[i].token_id = top.merged_id;
+      nodes[i].byte_len += nodes[j].byte_len;
+
+      // Remove node j from linked list
+      nodes[j].removed = true;
+      int32_t after_j = nodes[j].next;
+      nodes[i].next = after_j;
+      if (after_j != -1) {
+        nodes[after_j].prev = i;
+      }
+
+      // Add new adjacent pairs to heap
+      // Left pair: (prev, i) — if prev exists
+      if (nodes[i].prev != -1) {
+        int32_t p = nodes[i].prev;
+        auto it = bpe_rank_.find(GetRankKey(nodes[p].token_id, nodes[i].token_id));
+        if (it != bpe_rank_.end()) {
+          heap.push({it->second.value, it->second.id, p, nodes[p].token_id, nodes[i].token_id});
+        }
+      }
+      // Right pair: (i, after_j) — if after_j exists
+      if (after_j != -1) {
+        auto it = bpe_rank_.find(GetRankKey(nodes[i].token_id, nodes[after_j].token_id));
+        if (it != bpe_rank_.end()) {
+          heap.push({it->second.value, it->second.id, i, nodes[i].token_id, nodes[after_j].token_id});
+        }
+      }
+    }
+
+    // Write back results
+    vals.clear();
+    for (int32_t i = 0; i != -1; i = nodes[i].next) {
+      vals.emplace_back(nodes[i].token_id, nodes[i].byte_len);
+    }
+  }
+
+ public:
   uint32_t GetTokenId(const std::string& key) const {
     auto it = vocab_map_.find(key);
     if (it != vocab_map_.end()) {
