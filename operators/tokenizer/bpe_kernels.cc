@@ -3,12 +3,111 @@
 
 #include <limits>
 #include <optional>
+#include <chrono>
+#include <atomic>
 
 #include "base64.h"
 #include "file_sys.h"
 #include "bpe_kernels.h"
-#include "tokenizer_jsconfig.hpp"
 #include "bpe_tokenizer_model.hpp"
+#include "tokenizer_jsconfig.hpp"
+
+// ============================================================================
+// PROFILING: Define OCOS_PROFILING=1 via CMake or uncomment below to enable
+// #define OCOS_PROFILING 1
+// ============================================================================
+
+#ifdef OCOS_PROFILING
+namespace {
+struct BpeProfiler {
+  std::atomic<int64_t> split_added_ns{0};    // SplitByAddedAndSpecial
+  std::atomic<int64_t> pretokenize_ns{0};    // Regex pre-tokenization
+  std::atomic<int64_t> byte_encode_ns{0};    // Byte encoding (char → token ID lookup)
+  std::atomic<int64_t> bpe_merge_ns{0};      // PerformBPE
+  std::atomic<int64_t> total_ns{0};          // Total tokenize call
+  std::atomic<int64_t> call_count{0};
+  std::atomic<int64_t> pretokens_count{0};   // Number of pre-tokens processed
+  std::atomic<int64_t> bpe_calls_count{0};   // Number of PerformBPE calls
+
+  void Print() const {
+    auto total = total_ns.load();
+    if (total == 0) return;
+    auto calls = call_count.load();
+    auto split = split_added_ns.load();
+    auto pretok = pretokenize_ns.load();
+    auto byteenc = byte_encode_ns.load();
+    auto bpe = bpe_merge_ns.load();
+    auto other = total - split - pretok - byteenc - bpe;
+
+    fprintf(stderr, "\n=== BPE PROFILER (%lld calls, %lld pre-tokens, %lld BPE merges) ===\n",
+            (long long)calls, (long long)pretokens_count.load(), (long long)bpe_calls_count.load());
+    fprintf(stderr, "  Total:          %8.3f ms (100.0%%)\n", total / 1e6);
+    fprintf(stderr, "  SplitAdded:     %8.3f ms (%5.1f%%)\n", split / 1e6, 100.0 * split / total);
+    fprintf(stderr, "  PreTokenize:    %8.3f ms (%5.1f%%)\n", pretok / 1e6, 100.0 * pretok / total);
+    fprintf(stderr, "  ByteEncode:     %8.3f ms (%5.1f%%)\n", byteenc / 1e6, 100.0 * byteenc / total);
+    fprintf(stderr, "  BPE Merge:      %8.3f ms (%5.1f%%)\n", bpe / 1e6, 100.0 * bpe / total);
+    fprintf(stderr, "  Other:          %8.3f ms (%5.1f%%)\n", other / 1e6, 100.0 * other / total);
+    fprintf(stderr, "  Avg/call:       %8.3f ms\n", (total / 1e6) / calls);
+    fprintf(stderr, "  Avg BPE/pretoken: %6.1f ns\n",
+            pretokens_count.load() > 0 ? (double)bpe / pretokens_count.load() : 0.0);
+    fprintf(stderr, "================================================================\n\n");
+  }
+
+  void Reset() {
+    split_added_ns = 0; pretokenize_ns = 0; byte_encode_ns = 0;
+    bpe_merge_ns = 0; total_ns = 0; call_count = 0;
+    pretokens_count = 0; bpe_calls_count = 0;
+  }
+};
+
+static BpeProfiler g_bpe_profiler;
+
+struct ScopedTimer {
+  std::atomic<int64_t>& target;
+  std::chrono::high_resolution_clock::time_point start;
+  ScopedTimer(std::atomic<int64_t>& t) : target(t), start(std::chrono::high_resolution_clock::now()) {}
+  ~ScopedTimer() {
+    auto end = std::chrono::high_resolution_clock::now();
+    target.fetch_add(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(),
+                     std::memory_order_relaxed);
+  }
+};
+
+// Print profile on program exit (disabled — use BpeProfiler_Print() per model instead)
+// struct ProfilePrinter {
+//   ~ProfilePrinter() { g_bpe_profiler.Print(); }
+// };
+// static ProfilePrinter g_profile_printer;
+
+}  // namespace
+
+#define PROFILE_SCOPE(counter) ScopedTimer _timer_##counter(g_bpe_profiler.counter)
+#define PROFILE_INCREMENT(counter, val) g_bpe_profiler.counter.fetch_add((val), std::memory_order_relaxed)
+#else
+#define PROFILE_SCOPE(counter) ((void)0)
+#define PROFILE_INCREMENT(counter, val) ((void)0)
+#endif
+
+// Exposed for tests to call Reset/Print per model
+#ifdef OCOS_PROFILING
+void BpeProfiler_Reset() { g_bpe_profiler.Reset(); }
+void BpeProfiler_Print(const char* label) {
+  fprintf(stderr, " [%s]", label);
+  g_bpe_profiler.Print();
+}
+#else
+void BpeProfiler_Reset() {}
+void BpeProfiler_Print(const char*) {}
+#endif
+#include "bpe_tokenizer_model.hpp"
+
+// Cached pre-tokenizer splitters: compiled once at model load, reused per Tokenize/SpmTokenize call.
+// Avoids re-doing pattern matching and std::regex construction on every call.
+struct CachedSplitters {
+  ort_extensions::bpe::PreTokenizerWithRegEx reg_splitter;
+  std::vector<ort_extensions::bpe::PreTokenizerWithRegEx> seq_splitters;
+  bool is_sequence = false;
+};
 
 using namespace ort_extensions;
 
@@ -120,6 +219,88 @@ KernelBpeTokenizer::KernelBpeTokenizer(const BpeModelConf& conf) : bpe_conf_(con
   CreateUnicodeByteEncoder();
 };
 
+KernelBpeTokenizer::~KernelBpeTokenizer() = default;
+
+void KernelBpeTokenizer::PrecomputeByteTokenIds() {
+  // Pre-compute per-byte token IDs (GPT-2/Phi-4 ByteEncode fast path)
+  byte_token_ids_valid_ = true;
+  for (int i = 0; i < 256; ++i) {
+    const std::string& encoded = unicode_byte_encoder_[i];
+    uint32_t id = bbpe_tokenizer_->GetTokenId(encoded);
+    byte_token_ids_[i] = id;
+    byte_encoded_lens_[i] = static_cast<uint32_t>(encoded.size());
+    if (id == bpe::kInvalidTokenId) {
+      byte_token_ids_valid_ = false;
+    }
+  }
+
+  // Pre-compute SPM character token IDs (LLaMA/Gemma ByteEncode fast path)
+  if (bpe_conf_.get().spm_model_) {
+    spm_token_ids_valid_ = true;
+    for (int i = 0; i < 256; ++i) {
+      std::string s(1, static_cast<char>(static_cast<unsigned char>(i)));
+      uint32_t id = bbpe_tokenizer_->GetTokenId(s);
+      spm_token_ids_[i] = id;
+      if (id == bpe::kInvalidTokenId) {
+        spm_token_ids_valid_ = false;
+      }
+    }
+    spm_underscore_id_ = bbpe_tokenizer_->GetTokenId("\xe2\x96\x81");
+  }
+}
+
+void KernelBpeTokenizer::SpmEncodeChar(char32_t c,
+                                       std::vector<std::pair<uint32_t, uint32_t>>& byte_list) const {
+  // Fast path: ASCII characters
+  if (c < 128 && spm_token_ids_valid_) {
+    byte_list.emplace_back(spm_token_ids_[c], 1);
+  } else if (c == 0x2581 && spm_underscore_id_ != bpe::kInvalidTokenId) {
+    // ▁ (U+2581): 3-byte UTF-8
+    byte_list.emplace_back(spm_underscore_id_, 3);
+  } else {
+    // Fallback for non-ASCII, non-▁ characters
+    char utf8_buf[4];
+    size_t utf8_len = ustring::EncodeUTF8Char(utf8_buf, c);
+    std::string utf8_str(utf8_buf, utf8_len);
+    auto id = bbpe_tokenizer_->GetTokenId(utf8_str);
+    if (id != bpe::kInvalidTokenId) {
+      byte_list.emplace_back(id, ort_extensions::narrow<uint32_t>(utf8_len));
+    } else {
+      // Byte-by-byte fallback
+      for (size_t i = 0; i < utf8_len; i++) {
+        if (spm_token_ids_valid_) {
+          byte_list.emplace_back(spm_token_ids_[static_cast<unsigned char>(utf8_buf[i])], 1);
+        } else {
+          auto byte_id = bbpe_tokenizer_->GetTokenId(std::string(1, utf8_buf[i]));
+          byte_list.emplace_back(byte_id, 1);
+        }
+      }
+    }
+  }
+}
+
+void KernelBpeTokenizer::CompilePreTokenizer() {
+  auto splitters = std::make_unique<CachedSplitters>();
+
+  const bool use_sequence = bbpe_tokenizer_->HasSequencePreTokenizer();
+  splitters->is_sequence = use_sequence;
+
+  if (use_sequence) {
+    auto& steps = bbpe_tokenizer_->GetSequenceSteps();
+    splitters->seq_splitters.resize(steps.size());
+    for (size_t i = 0; i < steps.size(); ++i) {
+      auto status = splitters->seq_splitters[i].Compile(steps[i].regex);
+      assert(status.IsOk());
+    }
+  } else {
+    auto status = splitters->reg_splitter.Compile(
+        bbpe_tokenizer_->GetPreTokenizerRegex(ModelName(), bpe_conf_.get().spm_model_));
+    assert(status.IsOk());
+  }
+
+  cached_splitters_ = std::move(splitters);
+}
+
 OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKernelInfo& info) {
   // note: if the attribute doesn't exist in op node, GetOpAttribute doesn't return a failed status;
   std::string vocab;
@@ -172,6 +353,9 @@ OrtStatusPtr KernelBpeTokenizer::OnModelAttach(const OrtApi& api, const OrtKerne
     pad_token_id_ = bbpe_tokenizer_->GetTokenId(bpe_conf_.get().pad_token_);
   }
 
+  PrecomputeByteTokenIds();
+  CompilePreTokenizer();
+
   return {};
 }
 
@@ -205,7 +389,11 @@ void KernelBpeTokenizer::CreateUnicodeByteEncoder() {
 std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_length, bool compute_offset_mapping,
                                                   std::list<OffsetMappingType>& offset_map,
                                                   bool add_special_tokens) const {
+  PROFILE_SCOPE(total_ns);
+  PROFILE_INCREMENT(call_count, 1);
   std::vector<int64_t> res;
+  // Reserve output capacity: typical English text averages ~3-4 chars per token
+  res.reserve(input.size() / 3);
 
   bool clean_up_spaces = false;
   if (ModelName() == kModel_CLIP) {
@@ -257,11 +445,20 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
   }
 
   // Parse input
-  auto special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input, added_tokens_);
+  bpe::TokenPairs special_token_split_res;
+  {
+    PROFILE_SCOPE(split_added_ns);
+    special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input, added_tokens_);
+  }
+
+  // Reusable buffers for process_bpe_chunk (retain capacity across iterations to avoid re-allocation)
+  std::vector<std::pair<uint32_t, uint32_t>> byte_list;
+  std::string token_bytes;
 
   // Helper lambda: byte-encode a pre-tokenized chunk, perform BPE, and append IDs to res.
-  auto process_bpe_chunk = [&](std::string utf8_token, size_t& offset, OffsetMappingType& offset_mapping) {
+  auto process_bpe_chunk = [&](std::string& utf8_token, size_t& offset, OffsetMappingType& offset_mapping) {
     if (utf8_token.empty()) return;
+    PROFILE_INCREMENT(pretokens_count, 1);
 
     int64_t space_dif = 0;
     if (compute_offset_mapping) {
@@ -271,9 +468,8 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
       }
     }
 
-    std::list<std::pair<uint32_t, uint32_t>> byte_list;
-    std::string token_bytes;
-    token_bytes.reserve(utf8_token.size() * 2);
+    byte_list.clear();
+    token_bytes.clear();
     size_t token_len = utf8_token.length();
     size_t end_diff = 0;
     if (clean_up_spaces) {
@@ -282,38 +478,52 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
       if (utf8_token.empty()) return;
     }
 
-    for (size_t i = 0; i < token_len; i++) {
-      token_bytes += unicode_byte_encoder_[static_cast<unsigned char>(utf8_token[i])];
+    {
+      PROFILE_SCOPE(byte_encode_ns);
+      for (size_t i = 0; i < token_len; i++) {
+        token_bytes += unicode_byte_encoder_[static_cast<unsigned char>(utf8_token[i])];
+      }
+
+      if (clean_up_spaces) {
+        end_diff = token_bytes.length();
+        if (!utf8_token.empty()) {
+          token_bytes += unicode_byte_encoder_[static_cast<unsigned char>(utf8_token.back())];
+          token_bytes += "</w>";
+        }
+        end_diff = token_bytes.length() - end_diff;
+      }
+
+      auto id = bbpe_tokenizer_->GetTokenId(token_bytes);
+      if (id != bpe::kInvalidTokenId) {
+        byte_list.emplace_back(id, ort_extensions::narrow<uint32_t>(utf8_token.size()));
+      } else if (byte_token_ids_valid_ && end_diff == 0) {
+        // Fast path: use pre-computed per-byte token IDs (no substr, no hash lookups)
+        size_t raw_len = clean_up_spaces ? token_len : utf8_token.size();
+        for (size_t i = 0; i < raw_len; i++) {
+          unsigned char b = static_cast<unsigned char>(utf8_token[i]);
+          byte_list.emplace_back(byte_token_ids_[b], byte_encoded_lens_[b]);
+        }
+      } else {
+        token_len = token_bytes.length();
+        for (size_t i = 0; i < token_len - end_diff; /* i++ */) {
+          size_t j = ustring::UTF8Len(token_bytes[i]);
+          byte_list.emplace_back(bbpe_tokenizer_->GetTokenId(token_bytes.substr(i, j)),
+                                 ort_extensions::narrow<uint32_t>(j));
+          i += j;
+        }
+        if (end_diff > 0) {
+          byte_list.emplace_back(
+              bbpe_tokenizer_->GetTokenId(token_bytes.substr(token_len - end_diff, end_diff)),
+              ort_extensions::narrow<uint32_t>(end_diff));
+        }
+      }
     }
 
-    if (clean_up_spaces) {
-      end_diff = token_bytes.length();
-      if (!utf8_token.empty()) {
-        token_bytes += unicode_byte_encoder_[static_cast<unsigned char>(utf8_token.back())];
-        token_bytes += "</w>";
-      }
-      end_diff = token_bytes.length() - end_diff;
+    {
+      PROFILE_SCOPE(bpe_merge_ns);
+      PROFILE_INCREMENT(bpe_calls_count, 1);
+      bbpe_tokenizer_->PerformBPE(byte_list);
     }
-
-    auto id = bbpe_tokenizer_->GetTokenId(token_bytes);
-    if (id != bpe::kInvalidTokenId) {
-      byte_list.push_back(std::make_pair(id, ort_extensions::narrow<uint32_t>(utf8_token.size())));
-    } else {
-      token_len = token_bytes.length();
-      for (size_t i = 0; i < token_len - end_diff; /* i++ */) {
-        size_t j = ustring::UTF8Len(token_bytes[i]);
-        byte_list.push_back(std::make_pair(bbpe_tokenizer_->GetTokenId(token_bytes.substr(i, j)),
-                                           ort_extensions::narrow<uint32_t>(j)));
-        i += j;
-      }
-      if (end_diff > 0) {
-        byte_list.push_back(
-            std::make_pair(bbpe_tokenizer_->GetTokenId(token_bytes.substr(token_len - end_diff, end_diff)),
-                           ort_extensions::narrow<uint32_t>(end_diff)));
-      }
-    }
-
-    bbpe_tokenizer_->PerformBPE(byte_list);
 
     for (auto p : byte_list) {
       if (static_cast<int64_t>(res.size()) >= max_length) break;
@@ -331,24 +541,13 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
     }
   };
 
-  // Prepare pre-tokenizer: either single-regex or sequential pipeline
-  const bool use_sequence = bbpe_tokenizer_->HasSequencePreTokenizer();
-
-  bpe::PreTokenizerWithRegEx reg_splitter;
-  std::vector<bpe::PreTokenizerWithRegEx> seq_splitters;
-
-  if (use_sequence) {
-    auto& steps = bbpe_tokenizer_->GetSequenceSteps();
-    seq_splitters.resize(steps.size());
-    for (size_t i = 0; i < steps.size(); ++i) {
-      auto status = seq_splitters[i].Compile(steps[i].regex);
-      assert(status.IsOk());
-    }
-  } else {
-    auto status = reg_splitter.Compile(
-        bbpe_tokenizer_->GetPreTokenizerRegex(ModelName(), bpe_conf_.get().spm_model_));
-    assert(status.IsOk());
+  // Use cached pre-tokenizer (compiled once at model load, or lazily on first call).
+  // Thread safety: ORT guarantees sequential execution per kernel instance;
+  // concurrent calls on the same instance do not occur.
+  if (!cached_splitters_) {
+    const_cast<KernelBpeTokenizer*>(this)->CompilePreTokenizer();
   }
+  const bool use_sequence = cached_splitters_->is_sequence;
 
   for (auto& seg_id : special_token_split_res) {
     if (static_cast<int64_t>(res.size()) >= max_length) break;
@@ -357,8 +556,6 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
       res.push_back(seg_id.second);
       continue;
     }
-
-    std::u32string str(seg_id.first);
 
     size_t offset = 0;
     OffsetMappingType offset_mapping;
@@ -372,31 +569,40 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
 
     if (use_sequence) {
       // Sequential pre-tokenization: run each Split step on the accumulated chunks
-      std::vector<std::u32string> chunks = {std::move(str)};
-      for (auto& splitter : seq_splitters) {
-        std::vector<std::u32string> new_chunks;
-        for (auto& chunk : chunks) {
-          auto sub = splitter.SplitIsolated(chunk);
-          new_chunks.insert(new_chunks.end(),
-                            std::make_move_iterator(sub.begin()),
-                            std::make_move_iterator(sub.end()));
+      std::vector<std::u32string> chunks = {std::u32string(seg_id.first)};
+      {
+        PROFILE_SCOPE(pretokenize_ns);
+        for (auto& splitter : cached_splitters_->seq_splitters) {
+          std::vector<std::u32string> new_chunks;
+          for (auto& chunk : chunks) {
+            auto sub = splitter.SplitIsolated(chunk);
+            new_chunks.insert(new_chunks.end(),
+                              std::make_move_iterator(sub.begin()),
+                              std::make_move_iterator(sub.end()));
+          }
+          chunks = std::move(new_chunks);
         }
-        chunks = std::move(new_chunks);
       }
 
+      std::string utf8_token;
       for (auto& chunk : chunks) {
         if (static_cast<int64_t>(res.size()) >= max_length) break;
-        std::string utf8_token = std::string(ustring(chunk));
-        process_bpe_chunk(std::move(utf8_token), offset, offset_mapping);
+        ustring::ToUTF8Into(std::u32string_view(chunk), utf8_token);
+        process_bpe_chunk(utf8_token, offset, offset_mapping);
       }
     } else {
-      // Single-regex pre-tokenization (existing behavior)
-      reg_splitter.Set(str.c_str());
+      // Single-regex pre-tokenization using cached splitter (no recompilation)
+      cached_splitters_->reg_splitter.Set(seg_id.first);
+      std::string utf8_token;
       while (static_cast<int64_t>(res.size()) < max_length) {
-        std::u32string_view tok = reg_splitter.GetNextToken();
+        std::u32string_view tok;
+        {
+          PROFILE_SCOPE(pretokenize_ns);
+          tok = cached_splitters_->reg_splitter.GetNextToken();
+        }
         if (tok.empty()) break;
-        std::string utf8_token = std::string(ustring(tok));
-        process_bpe_chunk(std::move(utf8_token), offset, offset_mapping);
+        ustring::ToUTF8Into(tok, utf8_token);
+        process_bpe_chunk(utf8_token, offset, offset_mapping);
       }
     }
 
@@ -422,7 +628,11 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
                                                      bool compute_offset_mapping,
                                                      std::list<OffsetMappingType>& offset_map,
                                                      bool add_special_tokens) const {
+  PROFILE_SCOPE(total_ns);
+  PROFILE_INCREMENT(call_count, 1);
   std::vector<int64_t> res;
+  // Reserve output capacity: typical text averages ~3-4 chars per token
+  res.reserve(input.size() / 3);
 
   size_t max_length = static_cast<size_t>(max_length_i64);
 
@@ -432,14 +642,23 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
   }
 
   // Split input by special/added tokens
-  auto special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input, added_tokens_);
+  bpe::TokenPairs special_token_split_res;
+  {
+    PROFILE_SCOPE(split_added_ns);
+    special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input, added_tokens_);
+  }
 
-  // Compile the regex-based pretokenizer
-  bpe::PreTokenizerWithRegEx reg_splitter;
-  auto status = reg_splitter.Compile(bbpe_tokenizer_->GetPreTokenizerRegex(ModelName(), bpe_conf_.get().spm_model_));
-  assert(status.IsOk());
+  // Use cached pre-tokenizer (compiled once at model load, or lazily on first call).
+  // Thread safety: ORT guarantees sequential execution per kernel instance.
+  if (!cached_splitters_) {
+    const_cast<KernelBpeTokenizer*>(this)->CompilePreTokenizer();
+  }
 
   bool add_dummy_prefix = bpe_conf_.get().add_dummy_prefix_;
+
+  // Hoisted reusable buffers (retain capacity across segments/iterations)
+  std::vector<std::pair<uint32_t, uint32_t>> byte_list;
+  std::string utf8_token;
 
   for (auto& seg_id : special_token_split_res) {
     if (res.size() >= max_length) break;
@@ -459,7 +678,7 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
       ustr.insert(ustr.begin(), 0x2581);  // U+2581 = '▁'
     }
 
-    reg_splitter.Set(ustr.c_str());
+    cached_splitters_->reg_splitter.Set(std::u32string_view(ustr));
 
     size_t offset = 0;
     OffsetMappingType offset_mapping;
@@ -472,7 +691,7 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
 
     if (ModelName() == "Gemma" || special || bbpe_tokenizer_->IsNoOpPretokenizer()){
       size_t char_pos = 0;
-      std::list<std::pair<uint32_t, uint32_t>> byte_list;
+      byte_list.clear();
       while (res.size() < max_length && char_pos <= ustr.length()) {
         bool split_now = false;
 
@@ -496,7 +715,12 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
 
         if (split_now) {
           // Perform BPE
-          bbpe_tokenizer_->PerformBPE(byte_list);
+          {
+            PROFILE_SCOPE(bpe_merge_ns);
+            PROFILE_INCREMENT(bpe_calls_count, 1);
+            bbpe_tokenizer_->PerformBPE(byte_list);
+          }
+          PROFILE_INCREMENT(pretokens_count, 1);
 
           // Add output to result
           for (auto p : byte_list) {
@@ -517,32 +741,29 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
           break;
         }
 
-        auto chr = ustr[char_pos];
-        if (chr == U' ') {
-          chr = 0x2581;  // UTF-8 string '\xe2\x96\x81'
-        }
-
-        std::u32string token_ucs = {chr};
-        std::string token_s = (std::string)ustring(token_ucs);
-
-        auto id = bbpe_tokenizer_->GetTokenId(token_s);
-        if (id == bpe::kInvalidTokenId) {
-          for (auto chr : token_s) {
-            auto byte_id = bbpe_tokenizer_->GetTokenId({chr});
-            byte_list.emplace_back(byte_id, 1);
+        {
+          PROFILE_SCOPE(byte_encode_ns);
+          auto chr = ustr[char_pos];
+          if (chr == U' ') {
+            chr = 0x2581;  // UTF-8 string '\xe2\x96\x81'
           }
-        } else {
-          byte_list.emplace_back(id, ort_extensions::narrow<uint32_t>(token_s.length()));
+
+          SpmEncodeChar(chr, byte_list);
         }
 
         char_pos++;
       }
     } else { // Traditional LlamaTokenizer: SPM-based tokenizer with BPE fallback
       while (res.size() < max_length) {
-        std::u32string_view tok = reg_splitter.GetNextToken();
+        std::u32string_view tok;
+        {
+          PROFILE_SCOPE(pretokenize_ns);
+          tok = cached_splitters_->reg_splitter.GetNextToken();
+        }
         if (tok.empty()) break;
+        PROFILE_INCREMENT(pretokens_count, 1);
 
-        std::list<std::pair<uint32_t, uint32_t>> byte_list;
+        byte_list.clear();
 
         std::u32string mutable_tok(tok);
 
@@ -553,30 +774,25 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
           }
         }
 
-        std::string utf8_token = std::string(ustring(mutable_tok));
+        {
+          PROFILE_SCOPE(byte_encode_ns);
+          ustring::ToUTF8Into(std::u32string_view(mutable_tok), utf8_token);
 
-        auto id = bbpe_tokenizer_->GetTokenId(utf8_token);
-        if (id == bpe::kInvalidTokenId) {
-          for (auto c : mutable_tok) {
-            std::u32string single_char_str(1, c);  // make a u32string with just that char
-            std::string utf8_char = std::string(ustring(single_char_str));
-            auto char_id = bbpe_tokenizer_->GetTokenId(utf8_char);
-            if (char_id != bpe::kInvalidTokenId) {
-              byte_list.emplace_back(char_id, 1);
-            } else {
-              // Fallback to byte-by-byte encoding
-              for (unsigned char byte : utf8_char) {
-                std::string byte_str(1, byte);
-                auto byte_id = bbpe_tokenizer_->GetTokenId(byte_str);
-                byte_list.emplace_back(byte_id, 1);
-              }
+          auto id = bbpe_tokenizer_->GetTokenId(utf8_token);
+          if (id == bpe::kInvalidTokenId) {
+            for (auto c : mutable_tok) {
+              SpmEncodeChar(c, byte_list);
             }
+          } else {
+            byte_list.emplace_back(id, ort_extensions::narrow<uint32_t>(utf8_token.length()));
           }
-        } else {
-          byte_list.emplace_back(id, ort_extensions::narrow<uint32_t>(utf8_token.length()));
         }
 
-        bbpe_tokenizer_->PerformBPE(byte_list);
+        {
+          PROFILE_SCOPE(bpe_merge_ns);
+          PROFILE_INCREMENT(bpe_calls_count, 1);
+          bbpe_tokenizer_->PerformBPE(byte_list);
+        }
 
         for (auto p : byte_list) {
           if (res.size() >= max_length) break;
@@ -942,6 +1158,9 @@ OrtxStatus JsonFastTokenizer::Load(const ort_extensions::TokenJsonConfig& config
       json_conf_.add_dummy_prefix_ = false;
     }
     UpdateTokenizer(config, tok_json);
+
+    PrecomputeByteTokenIds();
+    CompilePreTokenizer();
   }
 
   return status;
@@ -1055,6 +1274,8 @@ OrtxStatus JsonFastTokenizer::LoadTikTokenBase64(const ort_extensions::TokenJson
 
   if (status.IsOk()) {
     UpdateTokenizer(config, json());
+    PrecomputeByteTokenIds();
+    CompilePreTokenizer();
   }
 
   return status;

@@ -10,6 +10,8 @@
 
 #include <set>
 #include <list>
+#include <vector>
+#include <memory>
 #include <unordered_map>
 #include <iostream>
 #include <utility>
@@ -401,53 +403,93 @@ class BpeModel {
     return final_result;
   }
 
-  void PerformBPE(std::list<std::pair<uint32_t, uint32_t>>& vals) const {
-    while (vals.size() >= 2) {
-      auto pos_it = vals.end();
+  void PerformBPE(std::vector<std::pair<uint32_t, uint32_t>>& vals) const {
+    if (vals.size() < 2) return;
+
+    // Flat-array linked list for cache-friendly traversal.
+    // Each node stores token_id, byte_length, and prev/next indices.
+    // Nodes are indexed [0..n-1]; next == -1 marks the end of the list.
+    struct BpeListNode {
+      uint32_t token_id;
+      uint32_t byte_len;
+      int32_t prev;  // -1 = no prev (head)
+      int32_t next;  // -1 = no next (tail)
+    };
+
+    const size_t n = vals.size();
+    // Stack buffer for common case (pre-tokens up to 128 chars); heap fallback for longer.
+    constexpr size_t kStackSize = 128;
+    BpeListNode stack_buf[kStackSize];
+    std::unique_ptr<BpeListNode[]> heap_buf;
+    BpeListNode* nodes = stack_buf;
+    if (n > kStackSize) {
+      heap_buf = std::make_unique<BpeListNode[]>(n);
+      nodes = heap_buf.get();
+    }
+
+    // Initialize from vector (contiguous access, no linked-list traversal)
+    for (size_t idx = 0; idx < n; idx++) {
+      nodes[idx] = {vals[idx].first, vals[idx].second, static_cast<int32_t>(idx) - 1, static_cast<int32_t>(idx) + 1};
+    }
+    nodes[n - 1].next = -1;  // last node has no next
+
+    size_t active_count = n;
+
+    while (active_count >= 2) {
+      // Find the pair with minimum merge rank
+      int32_t best_idx = -1;
       uint32_t minval = (std::numeric_limits<uint32_t>::max)();
       uint32_t ori_id1 = 0, ori_id2 = 0;
       uint32_t aim_id = 0;
-      int token_length = 0;
-      for (auto it = vals.begin(); it != vals.end(); ++it) {
-        auto it2 = it;
-        ++it2;
-        if (it2 == vals.end()) {
-          break;
-        }
 
-        auto map_it = bpe_rank_.find(GetRankKey(it->first, it2->first));
-        if (map_it == bpe_rank_.end()) {
-          continue;
-        }
+      for (int32_t i = 0; i != -1; i = nodes[i].next) {
+        int32_t j = nodes[i].next;
+        if (j == -1) break;
+
+        auto map_it = bpe_rank_.find(GetRankKey(nodes[i].token_id, nodes[j].token_id));
+        if (map_it == bpe_rank_.end()) continue;
 
         if (minval > map_it->second.value) {
-          ori_id1 = it->first;
-          ori_id2 = it2->first;
+          ori_id1 = nodes[i].token_id;
+          ori_id2 = nodes[j].token_id;
           minval = map_it->second.value;
-          pos_it = it;
+          best_idx = i;
           aim_id = map_it->second.id;
         }
       }
 
-      if (pos_it == vals.end()) {
-        break;
-      }
+      if (best_idx == -1) break;
 
-      token_length = pos_it->second;
-      pos_it = vals.erase(pos_it);
-      pos_it->first = aim_id;
-      pos_it->second += token_length;
-      for (++pos_it; pos_it != vals.end(); ++pos_it) {
-        if (pos_it->first != ori_id1) continue;
-        auto it2 = pos_it;
-        ++it2;
-        if (it2 == vals.end()) break;
-        if (it2->first != ori_id2) continue;
-        token_length = pos_it->second;
-        pos_it = vals.erase(pos_it);
-        pos_it->first = aim_id;
-        pos_it->second += token_length;
+      // Merge all occurrences of (ori_id1, ori_id2) in one pass
+      for (int32_t i = best_idx; i != -1;) {
+        int32_t j = nodes[i].next;
+        if (j == -1) break;
+
+        if (nodes[i].token_id == ori_id1 && nodes[j].token_id == ori_id2) {
+          // Merge: replace node i's token with merged token, absorb j's byte length, remove j
+          nodes[i].token_id = aim_id;
+          nodes[i].byte_len += nodes[j].byte_len;
+
+          // Unlink j
+          int32_t after_j = nodes[j].next;
+          nodes[i].next = after_j;
+          if (after_j != -1) {
+            nodes[after_j].prev = i;
+          }
+          active_count--;
+
+          // Continue from i (the merged node might form a new pair with its new next)
+          // but don't advance — check i again with its new next
+          continue;
+        }
+        i = nodes[i].next;
       }
+    }
+
+    // Write back to list
+    vals.clear();
+    for (int32_t i = 0; i != -1; i = nodes[i].next) {
+      vals.emplace_back(nodes[i].token_id, nodes[i].byte_len);
     }
   }
 
@@ -508,7 +550,7 @@ class BpeModel {
 
  private:
   std::string end_of_word_suffix_;
-  std::map<uint64_t, BpeNode> bpe_rank_;
+  std::unordered_map<uint64_t, BpeNode> bpe_rank_;
 
   std::unordered_map<std::string, uint32_t> vocab_map_;
   std::vector<std::string> id2token_map_;
