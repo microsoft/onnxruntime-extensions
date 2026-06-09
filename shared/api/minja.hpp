@@ -12,6 +12,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -1708,7 +1709,11 @@ namespace minja
         if (target_value.is_string())
         {
           std::string s = target_value.get<std::string>();
-          
+          int64_t n = static_cast<int64_t>(s.size());
+          // Clamp start/end to valid range per Python slice semantics.
+          start = std::clamp(start, step > 0 ? (int64_t)0 : (int64_t)-1, step > 0 ? n : n - 1);
+          end   = std::clamp(end,   step > 0 ? (int64_t)0 : (int64_t)-1, step > 0 ? n : n - 1);
+
           std::string result;
           if (start < end && step == 1) {
             result = s.substr(start, end - start);
@@ -2272,6 +2277,18 @@ namespace minja
   private:
     using CharIterator = std::string::const_iterator;
 
+    static constexpr size_t MAX_PARSE_DEPTH = 100;
+    size_t parse_depth_ = 0;
+
+    struct DepthGuard {
+      size_t& depth;
+      DepthGuard(size_t& d, size_t max) : depth(d) {
+        if (++depth > max)
+          throw std::runtime_error("Template parsing exceeded maximum nesting depth");
+      }
+      ~DepthGuard() { --depth; }
+    };
+
     std::shared_ptr<std::string> template_str;
     CharIterator start, end, it;
     Options options;
@@ -2526,6 +2543,7 @@ namespace minja
 
     std::shared_ptr<Expression> parseExpression(bool allow_if_expr = true)
     {
+      DepthGuard guard(parse_depth_, MAX_PARSE_DEPTH);
       auto left = parseLogicalOr();
       if (it == end)
         return left;
