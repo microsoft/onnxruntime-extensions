@@ -21,7 +21,13 @@ OrtStatusPtr segment_sum(const ortc::Tensor<float>& data,
   const int64_t* p_segment_ids = segment_ids.Data();
   const float* p_data = data.Data();
 
+  if (p_segment_ids[0] < 0)
+    return OrtW::CreateStatus("segment_ids must not contain negative values.", ORT_INVALID_ARGUMENT);
+
   int64_t last_seg = p_segment_ids[dim_seg[0] - 1];
+  if (last_seg < 0)
+    return OrtW::CreateStatus("segment_ids must not contain negative values.", ORT_INVALID_ARGUMENT);
+
   std::vector<int64_t> dim_out = dim_data;
   dim_out[0] = last_seg + 1;
 
@@ -42,6 +48,12 @@ OrtStatusPtr segment_sum(const ortc::Tensor<float>& data,
       return OrtW::CreateStatus(MakeString("segment_ids must be increasing but found ",
                                         *(p_seg - 1), " and ", *p_seg, " at position ",
                                         std::distance(p_segment_ids, p_seg), ".").c_str(),
+                             ORT_RUNTIME_EXCEPTION);
+    }
+    if (*p_seg < 0 || *p_seg > last_seg) {
+      return OrtW::CreateStatus(MakeString("segment_ids value ", *p_seg, " at position ",
+                                        std::distance(p_segment_ids, p_seg),
+                                        " is out of range [0, ", last_seg, "].").c_str(),
                              ORT_RUNTIME_EXCEPTION);
     }
     p_out = p_output + *p_seg * in_stride;
