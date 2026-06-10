@@ -17,6 +17,18 @@ OrtStatusPtr RaggedTensorToSparse(const ortc::Tensor<int64_t>& n_element,
                                   .c_str(),
                               ORT_INVALID_ARGUMENT);
   int64_t n_els = d_length[0] - 1;
+
+  if (n_els < 0)
+    return OrtW::CreateStatus("Row-splits tensor must not be empty.", ORT_INVALID_ARGUMENT);
+
+  if (p_n_elements[0] != 0)
+    return OrtW::CreateStatus("Row-splits tensor must start at zero.", ORT_INVALID_ARGUMENT);
+
+  for (int64_t k = 1; k <= n_els; ++k) {
+    if (p_n_elements[k] < p_n_elements[k - 1])
+      return OrtW::CreateStatus("Row-splits tensor must be monotonic non-decreasing.", ORT_INVALID_ARGUMENT);
+  }
+
   int64_t n_values = p_n_elements[n_els];
   std::vector<int64_t> shape{n_values, 2};
   std::vector<int64_t> shape2{2};
