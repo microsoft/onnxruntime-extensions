@@ -60,6 +60,17 @@ class TestMathOpString(unittest.TestCase):
         self.assertEqual(exp.shape, txout[0].shape)
         self.assertEqual(exp.tolist(), txout[0].tolist())
 
+    def test_segment_sum_cc_negative_segment_ids(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_segment_sum("")
+        sess = _ort.InferenceSession(onnx_model.SerializeToString(), so, providers=['CPUExecutionProvider'])
+        data = np.array([[1.0], [2.0]], dtype=np.float32)
+        segment_ids = np.array([-1, 0], dtype=np.int64)
+        with self.assertRaises(Exception) as ctx:
+            sess.run(None, {"data": data, "segment_ids": segment_ids})
+        self.assertIn("negative", str(ctx.exception).lower())
+
     def test_segment_sum_python(self):
         so = _ort.SessionOptions()
         so.register_custom_ops_library(_get_library_path())
