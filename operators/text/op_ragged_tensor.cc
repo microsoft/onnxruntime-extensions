@@ -68,13 +68,20 @@ OrtStatusPtr KernelRaggedTensoroDense::Compute(const ortc::Tensor<int64_t>& inpu
   for (int64_t k = 0; k < size; ++k) {
     if (p_indices[k] < 0 || p_indices[k] > n_values)
       return OrtW::CreateStatus(
-          MakeString("Offset ", p_indices[k], " at index ", k, " is out of bounds for values tensor of size ", n_values, ".").c_str(),
+          MakeString("Offset ", p_indices[k], " at index ", k,
+                     " is out of valid range [0, ", n_values, "] for values tensor with ", n_values, " elements.")
+              .c_str(),
           ORT_INVALID_ARGUMENT);
   }
 
   for (int64_t k = 1; k < size; ++k) {
-    if (p_indices[k] < p_indices[k - 1])
-      return OrtW::CreateStatus("Offsets tensor must be monotonic non-decreasing.", ORT_INVALID_ARGUMENT);
+    if (p_indices[k] < p_indices[k - 1]) {
+      return OrtW::CreateStatus(
+          MakeString("Offsets tensor must be monotonic non-decreasing, but offsets[", k - 1, "]=", p_indices[k - 1],
+                     " > offsets[", k, "]=", p_indices[k], ".")
+              .c_str(),
+          ORT_INVALID_ARGUMENT);
+    }
   }
 
   int64_t max_col = GetMaxRaggedTensorCol(size, p_indices);

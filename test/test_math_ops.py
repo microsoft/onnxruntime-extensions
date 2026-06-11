@@ -92,5 +92,64 @@ class TestMathOpString(unittest.TestCase):
         np.testing.assert_allclose(inv_mat, act_mat, rtol=1.e-2, atol=1.e-3)
 
 
+class TestRaggedTensorToDenseValidation(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        nodes = [
+            helper.make_node(
+                "RaggedTensorToDense",
+                inputs=["unused", "values", "default_value", "offsets"],
+                outputs=["out"],
+                domain="ai.onnx.contrib",
+            ),
+        ]
+        inputs = [
+            helper.make_tensor_value_info("unused", onnx_proto.TensorProto.INT64, [0]),
+            helper.make_tensor_value_info("values", onnx_proto.TensorProto.INT64, [None]),
+            helper.make_tensor_value_info("default_value", onnx_proto.TensorProto.INT64, [1]),
+            helper.make_tensor_value_info("offsets", onnx_proto.TensorProto.INT64, [None]),
+        ]
+        output = helper.make_tensor_value_info("out", onnx_proto.TensorProto.INT64, [None])
+        graph = helper.make_graph(nodes, "test_ragged", inputs, [output])
+        cls.model = make_onnx_model(graph)
+
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        cls.so = so
+
+    def _run(self, values, offsets):
+        sess = _ort.InferenceSession(self.model.SerializeToString(), self.so, providers=["CPUExecutionProvider"])
+        return sess.run(None, {
+            "unused": np.array([], dtype=np.int64),
+            "values": np.array(values, dtype=np.int64),
+            "default_value": np.array([-1], dtype=np.int64),
+            "offsets": np.array(offsets, dtype=np.int64),
+        })
+
+    def test_empty_offsets(self):
+        with self.assertRaises(Exception) as ctx:
+            self._run([1, 2, 3], [])
+        self.assertIn("must not be empty", str(ctx.exception))
+
+    def test_out_of_range_offset(self):
+        with self.assertRaises(Exception) as ctx:
+            self._run([1, 2, 3], [0, 10])
+        self.assertIn("out of valid range", str(ctx.exception))
+
+    def test_negative_offset(self):
+        with self.assertRaises(Exception) as ctx:
+            self._run([1, 2, 3], [0, -1, 3])
+        self.assertIn("out of valid range", str(ctx.exception))
+
+    def test_non_monotonic_offsets(self):
+        with self.assertRaises(Exception) as ctx:
+            self._run([1, 2, 3], [0, 3, 1])
+        self.assertIn("monotonic non-decreasing", str(ctx.exception))
+
+    def test_valid_offsets(self):
+        result = self._run([10, 20, 30], [0, 2, 3])
+        self.assertEqual(result[0].shape[0], 2)
+
+
 if __name__ == "__main__":
     unittest.main()
