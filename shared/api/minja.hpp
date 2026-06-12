@@ -2200,17 +2200,24 @@ namespace minja
         else if (method->get_name() == "upper")
         {
           vargs.expectArgs("upper method", {0, 0}, {0, 0});
+          // ASCII-only case mapping for deterministic, locale-independent
+          // behavior. Matches upstream minja in practice for ASCII inputs;
+          // non-ASCII bytes are passed through unchanged. Full Unicode
+          // case folding is out of scope for the parser.
           auto res = str;
-          std::transform(res.begin(), res.end(), res.begin(),
-                         [](unsigned char c) { return std::toupper(c); });
+          for (char& c : res) {
+            if (c >= 'a' && c <= 'z') c = static_cast<char>(c - ('a' - 'A'));
+          }
           return Value(res);
         }
         else if (method->get_name() == "lower")
         {
           vargs.expectArgs("lower method", {0, 0}, {0, 0});
+          // ASCII-only case mapping; see .upper() comment above.
           auto res = str;
-          std::transform(res.begin(), res.end(), res.begin(),
-                         [](unsigned char c) { return std::tolower(c); });
+          for (char& c : res) {
+            if (c >= 'A' && c <= 'Z') c = static_cast<char>(c + ('a' - 'A'));
+          }
           return Value(res);
         }
         else if (method->get_name() == "replace")
@@ -2223,8 +2230,18 @@ namespace minja
           {
             return Value(res);
           }
-          auto count = vargs.args.size() == 3 ? vargs.args[2].get<int64_t>()
-                                              : static_cast<int64_t>(res.length());
+          // Python str.replace semantics: count < 0 means "replace all";
+          // count >= 0 limits the number of replacements; omitted argument
+          // also means "replace all".
+          int64_t count = static_cast<int64_t>(res.length());
+          if (vargs.args.size() == 3)
+          {
+            auto requested = vargs.args[2].get<int64_t>();
+            if (requested >= 0)
+            {
+              count = requested;
+            }
+          }
           size_t start_pos = 0;
           while ((start_pos = res.find(before, start_pos)) != std::string::npos &&
                  count-- > 0)

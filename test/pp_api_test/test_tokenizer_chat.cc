@@ -2218,11 +2218,14 @@ void ExpectTemplateRenders(OrtxTokenizer* tokenizer,
                           << " err: " << OrtxGetLastErrorMessage();
 
   OrtxObjectPtr<OrtxTensor> tensor;
-  OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  err = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK) << "OrtxTensorResultGetAt failed for template: " << tmpl;
   ASSERT_EQ(tensor.Code(), kOrtxOK);
   const char* text = nullptr;
-  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text),
-                    nullptr, nullptr);
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text),
+                          nullptr, nullptr);
+  ASSERT_EQ(err, kOrtxOK) << "OrtxGetTensorData failed for template: " << tmpl;
+  ASSERT_NE(text, nullptr) << "OrtxGetTensorData returned null data for template: " << tmpl;
   EXPECT_STREQ(text, expected.c_str()) << "template: " << tmpl;
 }
 
@@ -2248,6 +2251,16 @@ TEST(OrtxTokenizerTest, MinjaStringReplace) {
   ExpectTemplateRenders(tokenizer.get(),
                         "{{ 'aaaa'.replace('a', 'X', 2) }}",
                         "XXaa");
+
+  // Python str.replace semantics: count < 0 means "replace all".
+  ExpectTemplateRenders(tokenizer.get(),
+                        "{{ 'aaaa'.replace('a', 'X', -1) }}",
+                        "XXXX");
+
+  // Python str.replace semantics: count == 0 means no replacements.
+  ExpectTemplateRenders(tokenizer.get(),
+                        "{{ 'aaaa'.replace('a', 'X', 0) }}",
+                        "aaaa");
 
   // Replace with empty `before` is a no-op (matches upstream minja behavior).
   ExpectTemplateRenders(tokenizer.get(),
