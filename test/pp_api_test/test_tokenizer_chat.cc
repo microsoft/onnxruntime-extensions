@@ -2210,7 +2210,7 @@ TEST(OrtxTokenizerTest, ChatTemplateDivisionByZero) {
     auto err = OrtxApplyChatTemplate(
         tokenizer.get(), "{{ 1/0 }}",
         messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
-    EXPECT_NE(err, kOrtxOK);
+    EXPECT_NE(err, kOrtxOK) << "Expected division by zero to return an error.";
   }
 
   // Modulo by zero should fail gracefully, not crash with SIGFPE.
@@ -2219,6 +2219,6 @@ TEST(OrtxTokenizerTest, ChatTemplateDivisionByZero) {
     auto err = OrtxApplyChatTemplate(
         tokenizer.get(), "{{ 2%0 }}",
         messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
-    EXPECT_NE(err, kOrtxOK);
+    EXPECT_NE(err, kOrtxOK) << "Expected modulo by zero to return an error.";
   }
 }
