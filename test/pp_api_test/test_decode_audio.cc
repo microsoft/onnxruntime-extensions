@@ -274,7 +274,8 @@ TEST(DecodeAudioTest, GarbageBytes) {
 TEST(DecodeAudioTest, TooShortForFormatDetection) {
   for (size_t len = 0; len <= 3; ++len) {
     std::vector<uint8_t> tiny(len, 0x42);
-    const void* data_ptrs[1] = {tiny.empty() ? nullptr : tiny.data()};
+    static const uint8_t kDummy = 0;
+    const void* data_ptrs[1] = {tiny.empty() ? static_cast<const void*>(&kDummy) : tiny.data()};
     int64_t sizes[1] = {static_cast<int64_t>(len)};
     ort_extensions::OrtxObjectPtr<OrtxRawAudios> raw_audios;
     ASSERT_EQ(OrtxCreateRawAudios(raw_audios.ToBeAssigned(), data_ptrs, sizes, 1), kOrtxOK);
