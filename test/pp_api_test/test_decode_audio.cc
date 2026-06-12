@@ -403,3 +403,49 @@ TEST(DecodeAudioTest, BatchDecodeFailFast) {
   EXPECT_EQ(results[0], nullptr) << "fail-fast must clear already-produced results";
   EXPECT_EQ(results[1], nullptr);
 }
+
+// Regression test: decoding a known-malformed audio buffer must fail cleanly (no crash)
+// and must not populate the output result slot on error.
+TEST(DecodeAudioTest, MalformedAudioDoesNotCrash) {
+  // 17 bytes of malformed data that previously triggered a heap-buffer-overflow
+  // in the LogMel feature extractor via a degenerate spectrogram.
+  const uint8_t crash_data[] = {
+      0xff, 0xff, 0x07, 0xfa, 0xe6, 0xe6, 0xe6, 0xe6,
+      0xe6, 0xe6, 0xe6, 0xe6, 0xe6, 0xe6, 0xe6, 0xe6, 0xe6};
+
+  const void* data_ptrs[1] = {crash_data};
+  int64_t sizes[1] = {static_cast<int64_t>(sizeof(crash_data))};
+
+  ort_extensions::OrtxObjectPtr<OrtxRawAudios> raw_audios;
+  ASSERT_EQ(OrtxCreateRawAudios(raw_audios.ToBeAssigned(), data_ptrs, sizes, 1), kOrtxOK);
+
+  // Attempt to decode — should fail gracefully, not crash.
+  OrtxTensorResult* result_ptr = nullptr;
+  extError_t err = OrtxDecodeAudios(raw_audios.get(), 0, /*stereo_to_mono=*/1, &result_ptr, 1);
+  ort_extensions::OrtxObjectPtr<OrtxTensorResult> holder(result_ptr); // cleanup if populated
+  EXPECT_NE(err, kOrtxOK);
+  EXPECT_EQ(result_ptr, nullptr);
+}
+
+// Verify that the LogMel feature extractor rejects malformed audio that produces
+// a degenerate spectrogram, rather than crashing with an OOB read.
+TEST(ExtractorTest, MalformedAudioLogMelDoesNotCrash) {
+  // Use a valid but extremely short WAV so decoding succeeds and LogMel sees a degenerate STFT.
+  auto wav = MakeSineWav(440.0f, 1.0f / 16000.0f, 16000);
+
+  const void* data_ptrs[1] = {wav.data()};
+  int64_t sizes[1] = {static_cast<int64_t>(wav.size())};
+
+  ort_extensions::OrtxObjectPtr<OrtxRawAudios> raw_audios;
+  ASSERT_EQ(OrtxCreateRawAudios(raw_audios.ToBeAssigned(), data_ptrs, sizes, 1), kOrtxOK);
+
+  // Use the Whisper feature extraction config.
+  ort_extensions::OrtxObjectPtr<OrtxFeatureExtractor> feature_extractor(
+      OrtxCreateSpeechFeatureExtractor, "data/whisper/feature_extraction.json");
+  ASSERT_EQ(feature_extractor.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  ort_extensions::OrtxObjectPtr<OrtxTensorResult> result;
+  extError_t err = OrtxSpeechLogMel(feature_extractor.get(), raw_audios.get(), result.ToBeAssigned());
+  // Should return an error, not crash.
+  EXPECT_NE(err, kOrtxOK);
+}
