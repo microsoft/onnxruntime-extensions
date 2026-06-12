@@ -194,13 +194,21 @@ class LogMel {
   }
 
   OrtxStatus Compute(const ortc::Tensor<float>& stft_norm, ortc::Tensor<float>& logmel) {
-    assert(stft_norm.Shape().size() == 3 && stft_norm.Shape()[0] == 1);
+    if (stft_norm.Shape().size() != 3 || stft_norm.Shape()[0] != 1) {
+      return {kOrtxErrorInvalidArgument, "[LogMel]: Input STFT tensor must have shape [1, freq, time]."};
+    }
 
     const std::vector<int64_t>& stft_shape = stft_norm.Shape();
     const int64_t stft_freq = stft_shape[1];    // freq bins (e.g., 257)
     const int64_t stft_time = stft_shape[2];    // time steps (e.g., ~300)
     const int64_t mel_freq = mel_filters_.nr(); // n_mel
     const int64_t mel_input_freq = mel_filters_.nc(); // expected input freq bins
+
+    if (stft_time < 2 || stft_freq < 1) {
+      return {kOrtxErrorInvalidArgument,
+              "[LogMel]: STFT output is degenerate (too few time steps or frequency bins). "
+              "The input audio data may be too short or malformed."};
+    }
 
     // Remove last frequency bin from STFT (to mimic Python stft[:, :, :-1])
     const int64_t mag_time = stft_time - 1;
