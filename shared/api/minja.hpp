@@ -681,13 +681,20 @@ namespace minja
     }
     Value operator/(const Value &rhs) const
     {
-      if (is_number_integer() && rhs.is_number_integer())
+      if (is_number_integer() && rhs.is_number_integer()) {
+        if (rhs.get<int64_t>() == 0)
+          throw std::runtime_error("Division by zero");
         return get<int64_t>() / rhs.get<int64_t>();
-      else
+      } else {
+        if (rhs.get<double>() == 0.0)
+          throw std::runtime_error("Division by zero");
         return get<double>() / rhs.get<double>();
+      }
     }
     Value operator%(const Value &rhs) const
     {
+      if (rhs.get<int64_t>() == 0)
+        throw std::runtime_error("Modulo by zero");
       return get<int64_t>() % rhs.get<int64_t>();
     }
   };
