@@ -2197,6 +2197,43 @@ namespace minja
           }
           return res;
         }
+        else if (method->get_name() == "upper")
+        {
+          vargs.expectArgs("upper method", {0, 0}, {0, 0});
+          auto res = str;
+          std::transform(res.begin(), res.end(), res.begin(),
+                         [](unsigned char c) { return std::toupper(c); });
+          return Value(res);
+        }
+        else if (method->get_name() == "lower")
+        {
+          vargs.expectArgs("lower method", {0, 0}, {0, 0});
+          auto res = str;
+          std::transform(res.begin(), res.end(), res.begin(),
+                         [](unsigned char c) { return std::tolower(c); });
+          return Value(res);
+        }
+        else if (method->get_name() == "replace")
+        {
+          vargs.expectArgs("replace method", {2, 3}, {0, 0});
+          auto before = vargs.args[0].get<std::string>();
+          auto after = vargs.args[1].get<std::string>();
+          auto res = str;
+          if (before.empty())
+          {
+            return Value(res);
+          }
+          auto count = vargs.args.size() == 3 ? vargs.args[2].get<int64_t>()
+                                              : static_cast<int64_t>(res.length());
+          size_t start_pos = 0;
+          while ((start_pos = res.find(before, start_pos)) != std::string::npos &&
+                 count-- > 0)
+          {
+            res.replace(start_pos, before.length(), after);
+            start_pos += after.length();
+          }
+          return Value(res);
+        }
       }
       throw std::runtime_error("Unknown method: " + method->get_name());
     }
