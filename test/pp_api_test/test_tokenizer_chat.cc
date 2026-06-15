@@ -2198,6 +2198,31 @@ TEST(OrtxTokenizerTest, MinjaParserRecursionDepthLimit) {
   EXPECT_NE(err, kOrtxOK);
 }
 
+TEST(OrtxTokenizerTest, ChatTemplateDivisionByZero) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  std::string messages_json = R"([{"role":"user","content":"hi"}])";
+
+  // Division by zero should fail gracefully, not crash with SIGFPE.
+  {
+    OrtxObjectPtr<OrtxTensorResult> result;
+    auto err = OrtxApplyChatTemplate(
+        tokenizer.get(), "{{ 1/0 }}",
+        messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
+    EXPECT_NE(err, kOrtxOK) << "Expected division by zero to return an error.";
+  }
+
+  // Modulo by zero should fail gracefully, not crash with SIGFPE.
+  {
+    OrtxObjectPtr<OrtxTensorResult> result;
+    auto err = OrtxApplyChatTemplate(
+        tokenizer.get(), "{{ 2%0 }}",
+        messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
+    EXPECT_NE(err, kOrtxOK) << "Expected modulo by zero to return an error.";
+  }
+}
+
 // Regression tests for missing string methods (.replace, .upper, .lower) in
 // the vendored minja parser. Chat templates from popular HF models (e.g.
 // smollm3-3b) call these on string values; previously they failed with

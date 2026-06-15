@@ -681,14 +681,24 @@ namespace minja
     }
     Value operator/(const Value &rhs) const
     {
-      if (is_number_integer() && rhs.is_number_integer())
-        return get<int64_t>() / rhs.get<int64_t>();
-      else
-        return get<double>() / rhs.get<double>();
+      if (is_number_integer() && rhs.is_number_integer()) {
+        const auto denom = rhs.get<int64_t>();
+        if (denom == 0)
+          throw std::runtime_error("Division by zero");
+        return get<int64_t>() / denom;
+      } else {
+        const auto denom = rhs.get<double>();
+        if (denom == 0.0)
+          throw std::runtime_error("Division by zero");
+        return get<double>() / denom;
+      }
     }
     Value operator%(const Value &rhs) const
     {
-      return get<int64_t>() % rhs.get<int64_t>();
+      const auto denom = rhs.get<int64_t>();
+      if (denom == 0)
+        throw std::runtime_error("Modulo by zero");
+      return get<int64_t>() % denom;
     }
   };
 
@@ -1900,9 +1910,14 @@ namespace minja
         case Op::MulMul:
           return std::pow(l.get<double>(), r.get<double>());
         case Op::DivDiv:
-          return l.get<int64_t>() / r.get<int64_t>();
+        {
+          const auto denom = r.get<int64_t>();
+          if (denom == 0)
+            throw std::runtime_error("Division by zero");
+          return l.get<int64_t>() / denom;
+        }
         case Op::Mod:
-          return l.get<int64_t>() % r.get<int64_t>();
+          return l % r;
         case Op::Eq:
           return l == r;
         case Op::Ne:
