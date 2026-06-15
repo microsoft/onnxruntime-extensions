@@ -629,7 +629,7 @@ if(OCOS_ENABLE_VISION)
     if (NOT OCOS_ENABLE_DLIB)
       message(FATAL_ERROR "Vision operators require DLIB to be enabled.") # for now, we need dlib for image processing
     endif()
-    include(ext_imgcodecs)  
+    include(ext_imgcodecs)
     target_include_directories(ocos_operators PUBLIC ${libPNG_SOURCE_DIR} ${libJPEG_SOURCE_DIR})
     target_link_libraries(ocos_operators PUBLIC ${PNG_LIBRARY} ${JPEG_LIBRARY})
   endif()
@@ -763,9 +763,14 @@ if(OCOS_BUILD_SHARED_LIB)
   source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${shared_TARGET_SRC})
   standardize_output_folder(extensions_shared)
 
-  if(LINUX OR ANDROID)
-    set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS
-      " -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
+ if(LINUX OR ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "AIX")
+    if(CMAKE_SYSTEM_NAME STREQUAL "AIX")
+      set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS
+        " -Wl,-bE:${PROJECT_SOURCE_DIR}/shared/ortcustomops.exp")
+    else()
+      set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS
+        " -Wl,--version-script -Wl,${PROJECT_SOURCE_DIR}/shared/ortcustomops.ver")
+    endif()
     # strip if not a debug build
     if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
       set_property(TARGET extensions_shared APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-s")

@@ -1,0 +1,46 @@
+
+--- ./modules/core/src/rand.cpp	2026-03-25 07:34:27.666925971 -0500
++++ ./modules/core/src/rand.cpp	2026-03-25 07:40:40.661543262 -0500
+@@ -48,6 +48,10 @@
+
+ #include "precomp.hpp"
+
++#if defined(_AIX) && defined(hz)
++#undef hz
++#endif
++
+ namespace cv
+ {
+
+--- ./modules/core/src/system.cpp	2026-03-25 07:50:38.785508231 -0500
++++ ./modules/core/src/system.cpp	2026-03-25 07:50:25.791118063 -0500
+@@ -130,7 +130,7 @@
+ #  include <fcntl.h>
+ #if defined __QNXNTO__
+ #  include <sys/elf.h>
+-#else
++#elif !defined (_AIX)
+ #  include <elf.h>
+ #endif
+ #if defined __ANDROID__ || defined __linux__
+@@ -146,8 +146,8 @@
+ #endif
+
+
+-#if (defined __ppc64__ || defined __PPC64__) && defined __unix__
++#if (defined __ppc64__ || defined __PPC64__) && defined __unix__ && !defined _AIX
+ # include "sys/auxv.h"
+ # ifndef AT_HWCAP2
+ #   define AT_HWCAP2 26
+ # endif
+@@ -615,7 +615,7 @@
+     #ifdef __mips_msa
+         have[CV_CPU_MSA] = true;
+     #endif
+
+-    #if (defined __ppc64__ || defined __PPC64__) && defined __unix__
++    #if (defined __ppc64__ || defined __PPC64__) && defined __unix__ && !defined _AIX
+         unsigned int hwcap = getauxval(AT_HWCAP);
+         if (hwcap & PPC_FEATURE_HAS_VSX) {
+             hwcap = getauxval(AT_HWCAP2);
+
