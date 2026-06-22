@@ -2248,7 +2248,7 @@ namespace minja
           // Python str.replace semantics: count < 0 means "replace all";
           // count >= 0 limits the number of replacements; omitted argument
           // also means "replace all".
-          int64_t count = static_cast<int64_t>(res.length());
+          int64_t count = (std::numeric_limits<int64_t>::max)();
           if (vargs.args.size() == 3)
           {
             auto requested = vargs.args[2].get<int64_t>();
@@ -2258,11 +2258,12 @@ namespace minja
             }
           }
           size_t start_pos = 0;
-          while ((start_pos = res.find(before, start_pos)) != std::string::npos &&
-                 count-- > 0)
+          while (count > 0 &&
+                 (start_pos = res.find(before, start_pos)) != std::string::npos)
           {
             res.replace(start_pos, before.length(), after);
             start_pos += after.length();
+            --count;
           }
           return Value(res);
         }
