@@ -292,6 +292,9 @@ class Phi4VisionDynamicPreprocess {
     float box[4] = {0.0f, 0.0f, static_cast<float>(image->xsize), static_cast<float>(image->ysize)};
     auto output_image = ImagingResample(image, static_cast<int>(new_size.first), static_cast<int>(new_size.second),
                                         IMAGING_TRANSFORM_BILINEAR, box);
+    if (output_image == nullptr) {
+      return {kOrtxErrorOutOfMemory, "[Phi4VisionProcessor]: Failed to resample image"};
+    }
 
     /*
       resized_img = torchvision.transforms.functional.pad(
