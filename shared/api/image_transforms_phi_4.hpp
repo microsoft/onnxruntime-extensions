@@ -293,7 +293,7 @@ class Phi4VisionDynamicPreprocess {
     auto output_image = ImagingResample(image, static_cast<int>(new_size.first), static_cast<int>(new_size.second),
                                         IMAGING_TRANSFORM_BILINEAR, box);
     if (output_image == nullptr) {
-      return {kOrtxErrorOutOfMemory, "[Phi4VisionProcessor]: Failed to resample image"};
+      return {kOrtxErrorInvalidArgument, "[Phi4VisionProcessor]: ImagingResample failed (invalid parameters, unsupported mode, or out of memory)"};
     }
 
     /*

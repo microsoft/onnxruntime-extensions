@@ -716,6 +716,7 @@ precompute_coeffs(
     /* check for overflow using size_t arithmetic to avoid signed int overflow
        in the check itself */
     if (ksize <= 0 ||
+        (size_t)ksize > SIZE_MAX / sizeof(double) ||
         (size_t)outSize > SIZE_MAX / ((size_t)ksize * sizeof(double))) {
         ImagingError_MemoryError();
         return 0;
@@ -1066,6 +1067,10 @@ ImagingResample(Imaging imIn, int xsize, int ysize, int filter, float box[4]) {
     }
 
     /* Validate box coordinates: must be finite, properly ordered, and within image bounds */
+    if (!isfinite(box[0]) || !isfinite(box[1]) ||
+        !isfinite(box[2]) || !isfinite(box[3])) {
+        return (Imaging)ImagingError_ValueError("invalid box (non-finite)");
+    }
     if (box[0] >= box[2] || box[1] >= box[3]) {
         return (Imaging)ImagingError_ValueError("invalid box coordinates");
     }

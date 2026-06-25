@@ -190,7 +190,7 @@ struct Resize {
     auto output_image = ImagingResample(rgb_image, static_cast<int>(width), static_cast<int>(height), interp, box);
     ImagingDelete(rgb_image);
     if (output_image == nullptr) {
-      return {kOrtxErrorOutOfMemory, "[Resize]: Failed to resample image"};
+      return {kOrtxErrorInvalidArgument, "[Resize]: ImagingResample failed (invalid parameters, unsupported mode, or out of memory)"};
     }
 
     auto* p_output_image = output.Allocate({height, width, c});
