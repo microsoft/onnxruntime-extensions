@@ -183,6 +183,10 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
   int32_t h = static_cast<int32_t>(dimensions[0]);
   int32_t w = static_cast<int32_t>(dimensions[1]);
   int32_t c = static_cast<int32_t>(dimensions[2]);
+  if (c != 3) {
+    return {kOrtxErrorInvalidArgument,
+            "[phi3_hd_transform]: Expected 3-channel RGB input, got " + std::to_string(c) + " channels"};
+  }
   // std::vector<int32_t> height_x_width{static_cast<int32_t>(h),   // H
   //                                     static_cast<int32_t>(w)};  // W
 
