@@ -53,7 +53,11 @@ def write_py_version(ext_version):
         _fver.writelines(text)
 
 
-ext_modules = [setuptools.extension.Extension(name=str("onnxruntime_extensions._extensions_pydll"), sources=[])]
+ext_modules = [setuptools.extension.Extension(
+    name=str("onnxruntime_extensions._extensions_pydll"),
+    sources=[],
+    py_limited_api=True,
+)]
 
 packages = find_packages()
 package_dir = {k: os.path.join(".", k.replace(".", "/")) for k in packages}
@@ -88,6 +92,7 @@ setup(
     cmdclass=_cmds.ortx_cmdclass,
     include_package_data=True,
     install_requires=[],
+    python_requires=">=3.10",
     classifiers=[
         "Development Status :: 4 - Beta",
         "Environment :: Console",

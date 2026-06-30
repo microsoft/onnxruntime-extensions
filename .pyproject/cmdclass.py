@@ -14,6 +14,10 @@ from textwrap import dedent
 from setuptools.command.build import build as _build
 from setuptools.command.build_ext import build_ext as _build_ext
 from setuptools.command.develop import develop as _develop
+try:
+    from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
+except ImportError:  # pragma: no cover
+    _bdist_wheel = None
 
 VSINSTALLDIR_NAME = 'VSINSTALLDIR'
 ORTX_USER_OPTION = 'ortx-user-option'
@@ -316,6 +320,16 @@ class CmdBuildCMakeExt(_build_ext):
             self.spawn([cmake_exe, '--build', str(build_temp)] + build_args)
 
 
+if _bdist_wheel is not None:
+    class CmdBdistWheel(_bdist_wheel):
+        def finalize_options(self):
+            super().finalize_options()
+            if sys.version_info >= (3, 12):
+                self.py_limited_api = "cp312"
+
+
 ortx_cmdclass = dict(build=CmdBuild,
                      develop=CmdDevelop,
                      build_ext=CmdBuildCMakeExt)
+if _bdist_wheel is not None:
+    ortx_cmdclass["bdist_wheel"] = CmdBdistWheel
