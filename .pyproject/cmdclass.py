@@ -324,7 +324,8 @@ if _bdist_wheel is not None:
     class CmdBdistWheel(_bdist_wheel):
         def finalize_options(self):
             super().finalize_options()
-            if sys.version_info >= (3, 12):
+            no_gil = hasattr(sys, "_is_gil_enabled") and not sys._is_gil_enabled()
+            if sys.version_info >= (3, 12) and not no_gil:
                 self.py_limited_api = "cp312"
 
 
