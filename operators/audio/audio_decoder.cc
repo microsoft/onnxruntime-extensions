@@ -76,6 +76,12 @@ static size_t DrReadFrames(std::list<std::vector<float>>& frames, FX_DECODER fx,
   const size_t default_chunk_size = 1024 * 256;
   int64_t total_buf_size = 0;
 
+  // Reject unreasonable channel counts to prevent integer overflow in the
+  // multiplication below. Real audio never exceeds 8 channels (7.1 surround).
+  if (obj.channels == 0 || obj.channels > 16) {
+    return 0;
+  }
+
   for (;;) {
     std::vector<float> buf;
     buf.resize(default_chunk_size * obj.channels);
