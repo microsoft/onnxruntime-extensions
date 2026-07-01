@@ -9,17 +9,18 @@
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define PY_ARRAY_UNIQUE_SYMBOL ocos_python_ARRAY_API
 
-#include <pybind11/iostream.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-#include <pybind11/functional.h>
-#include <pybind11/numpy.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/function.h>
+#include <nanobind/stl/map.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
 #include <thread>
 #include "string_utils.h"
 #include "string_tensor.h"
 #include "pykernel.h"
 
-namespace py = pybind11;
+namespace nb = nanobind;
+using namespace nb::literals;
 
 const int PyCustomOpDef::undefined = ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED;
 const int PyCustomOpDef::dt_float = ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;    // maps to c type float
@@ -80,6 +81,58 @@ static size_t element_size(ONNXTensorElementDataType dt) {
   }
 }
 
+struct ScopedPyBuffer {
+  explicit ScopedPyBuffer(PyObject* object, int flags) {
+    if (PyObject_GetBuffer(object, &view, flags) != 0) {
+      throw nb::python_error();
+    }
+  }
+
+  ~ScopedPyBuffer() { PyBuffer_Release(&view); }
+
+  Py_buffer view{};
+};
+
+static nb::module_& GetNumpyModule() {
+  static nb::module_ numpy = nb::module_::import_("numpy");
+  return numpy;
+}
+
+static const char* GetNumpyDTypeName(ONNXTensorElementDataType dtype) {
+  switch (dtype) {
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
+      return "float32";
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
+      return "uint8";
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8:
+      return "int8";
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16:
+      return "uint16";
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16:
+      return "int16";
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
+      return "int32";
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
+      return "int64";
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL:
+      return "bool_";
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE:
+      return "float64";
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32:
+      return "uint32";
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64:
+      return "uint64";
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64:
+      return "complex64";
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128:
+      return "complex128";
+    case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16:
+      throw std::runtime_error(MakeString("Type float16 not supported by python customops api"));
+    default:
+      throw std::runtime_error(MakeString("Unsupported ONNX Tensor type: ", dtype));
+  }
+}
+
 struct PyCustomOpDefImpl : public PyCustomOpDef {
   typedef std::vector<int64_t> shape_t;
   static int64_t calc_size_from_shape(const shape_t& sp) {
@@ -90,87 +143,44 @@ struct PyCustomOpDefImpl : public PyCustomOpDef {
     return c;
   }
 
-  static py::object BuildPyArrayFromTensor(
+  static nb::object BuildPyArrayFromTensor(
       const OrtApi& api, OrtW::CustomOpApi& ort, OrtKernelContext* context, const OrtValue* value,
       const shape_t& shape, ONNXTensorElementDataType dtype) {
     std::vector<std::size_t> npy_dims;
+    npy_dims.reserve(shape.size());
     for (auto n : shape) {
-      npy_dims.push_back(n);
-    }
-    py::array obj;
-
-    switch (dtype) {
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING:
-        obj = py::array(py::dtype("O"), npy_dims);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
-        obj = py::array_t<float>(npy_dims);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
-        obj = py::array_t<uint8_t>(npy_dims);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8:
-        obj = py::array_t<int8_t>(npy_dims);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16:
-        obj = py::array_t<uint16_t>(npy_dims);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16:
-        obj = py::array_t<int16_t>(npy_dims);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
-        obj = py::array_t<int32_t>(npy_dims);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
-        obj = py::array_t<int64_t>(npy_dims);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL:
-        obj = py::array_t<bool>(npy_dims);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16:
-        throw std::runtime_error(MakeString(
-            "Type float16 not supported by python customops api"));
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE:
-        obj = py::array_t<double>(npy_dims);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32:
-        obj = py::array_t<uint32_t>(npy_dims);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64:
-        obj = py::array_t<uint64_t>(npy_dims);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64:
-        obj = py::array_t<std::complex<float>>(npy_dims);
-        break;
-      case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128:
-        obj = py::array_t<std::complex<double>>(npy_dims);
-        break;
-      default:
-        throw std::runtime_error(MakeString("Unsupported ONNX Tensor type: ", dtype));
+      npy_dims.push_back(static_cast<std::size_t>(n));
     }
 
-    void* out_ptr = obj.mutable_data();
+    auto& numpy = GetNumpyModule();
     if (dtype == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
-      py::object* outObj = static_cast<py::object*>(out_ptr);
-      auto size = calc_size_from_shape(shape);
       std::vector<std::string> src;
       GetTensorMutableDataString(api, ort, context, value, src);
-      for (int i = 0; i < size; ++i) {
-        outObj[i] = py::cast(src[i]);
+      nb::list py_values;
+      for (const auto& item : src) {
+        py_values.append(nb::str(item.c_str()));
       }
-    } else {
-      const void* p = (const void*)ort.GetTensorData<char>(value);
-      size_t size_type = element_size(dtype);
-      memcpy(out_ptr, p, size_type * calc_size_from_shape(shape));
+      nb::object obj = numpy.attr("array")(py_values, "dtype"_a = numpy.attr("object_"));
+      obj = obj.attr("reshape")(nb::cast(npy_dims));
+      return obj;
     }
+
+    nb::object obj = numpy.attr("empty")(nb::cast(npy_dims), "dtype"_a = GetNumpyDTypeName(dtype));
+    const void* p = static_cast<const void*>(ort.GetTensorData<char>(value));
+    size_t byte_size = element_size(dtype) * static_cast<size_t>(calc_size_from_shape(shape));
+    ScopedPyBuffer buffer(obj.ptr(), PyBUF_WRITABLE);
+    if (static_cast<size_t>(buffer.view.len) < byte_size) {
+      throw std::runtime_error("Numpy buffer is smaller than tensor data.");
+    }
+    memcpy(buffer.view.buf, p, byte_size);
     return obj;
   }
 
-  static py::object InvokePyFunction(uint64_t id, const py::object& feed, const py::object& attrs) {
+  static nb::object InvokePyFunction(uint64_t id, const nb::object& feed, const nb::object& attrs) {
     return (*op_invoker)(id, feed, attrs);
   }
 
-  using callback_t = std::function<py::object(uint64_t id, const py::object&, const py::object&)>;
+  using callback_t = std::function<nb::object(uint64_t id, const nb::object&, const nb::object&)>;
   static std::unique_ptr<callback_t> op_invoker;
 };
 
@@ -260,92 +270,54 @@ void PyCustomOpKernel::Compute(OrtKernelContext* context) {
 
   {
     /* Acquire GIL before calling Python C API, due to it was released in sess.run */
-    py::gil_scoped_acquire acquire;
-    py::list pyinputs;
+    nb::gil_scoped_acquire acquire;
+    nb::list pyinputs;
     for (auto it = inputs.begin(); it != inputs.end(); ++it) {
-      py::object input0 = PyCustomOpDefImpl::BuildPyArrayFromTensor(
+      nb::object input0 = PyCustomOpDefImpl::BuildPyArrayFromTensor(
           api_, ort_, context, it->input_X, it->dimensions, it->dtype);
       pyinputs.append(input0);
     }
 
-    py::dict pyattrs;
+    nb::dict pyattrs;
     for (auto it = attrs_values_.begin(); it != attrs_values_.end(); ++it) {
-      pyattrs[py::str(it->first)] = py::str(it->second);
+      pyattrs[nb::cast(it->first)] = nb::cast(it->second);
     }
 
     // Call python function id, shape, flat coefficient.
-    py::tuple fetch = PyCustomOpDefImpl::InvokePyFunction(obj_id_, pyinputs, pyattrs);
-    int64_t rid = fetch[0].cast<int64_t>();
+    nb::tuple fetch = nb::cast<nb::tuple>(PyCustomOpDefImpl::InvokePyFunction(obj_id_, pyinputs, pyattrs));
+    int64_t rid = nb::cast<int64_t>(fetch[0]);
     assert(rid == obj_id_);
 
     // Setup output.
     for (size_t no = 0; no < n_outputs; ++no) {
-      auto dims = fetch[1 + no * 2].cast<std::vector<int64_t>>();
+      auto dims = nb::cast<std::vector<int64_t>>(fetch[1 + no * 2]);
       OrtValue* output = ort_.KernelContext_GetOutput(context, no, dims.data(), dims.size());
       OrtTensorTypeAndShapeInfo* o_info = ort_.GetTensorTypeAndShape(output);
       ONNXTensorElementDataType o_dtype = ort_.GetTensorElementType(o_info);
       ort_.ReleaseTensorTypeAndShapeInfo(o_info);
 
       if (o_dtype == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING) {
-        std::vector<std::string> retval = fetch[2 + no * 2].cast<std::vector<std::string>>();
+        std::vector<std::string> retval = nb::cast<std::vector<std::string>>(fetch[2 + no * 2]);
         FillTensorDataString(api_, ort_, context, retval, output);
       } else {
-        const void* Y = (const void*)ort_.GetTensorData<float>(output);
         void* out = (void*)ort_.GetTensorMutableData<float>(output);
-        py::array retval = fetch[2 + no * 2].cast<py::array>();
-        if (element_size(o_dtype) != retval.itemsize()) {
-          switch (o_dtype) {
-            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
-              retval = fetch[2 + no * 2].cast<py::array_t<float>>();
-              break;
-            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
-              retval = fetch[2 + no * 2].cast<py::array_t<uint8_t>>();
-              break;
-            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8:
-              retval = fetch[2 + no * 2].cast<py::array_t<int8_t>>();
-              break;
-            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16:
-              retval = fetch[2 + no * 2].cast<py::array_t<uint16_t>>();
-              break;
-            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16:
-              retval = fetch[2 + no * 2].cast<py::array_t<int16_t>>();
-              break;
-            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
-              retval = fetch[2 + no * 2].cast<py::array_t<int32_t>>();
-              break;
-            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
-              retval = fetch[2 + no * 2].cast<py::array_t<int64_t>>();
-              break;
-            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL:
-              retval = fetch[2 + no * 2].cast<py::array_t<bool>>();
-              break;
-            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16:
-              throw std::runtime_error(MakeString(
-                  "Type float16 not supported by python customops api"));
-            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE:
-              retval = fetch[2 + no * 2].cast<py::array_t<double>>();
-              break;
-            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32:
-              retval = fetch[2 + no * 2].cast<py::array_t<uint32_t>>();
-              break;
-            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64:
-              retval = fetch[2 + no * 2].cast<py::array_t<uint64_t>>();
-              break;
-            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64:
-              retval = fetch[2 + no * 2].cast<py::array_t<std::complex<float>>>();
-              break;
-            case ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128:
-              retval = fetch[2 + no * 2].cast<py::array_t<std::complex<double>>>();
-              break;
-            default:
-              throw std::runtime_error(MakeString(
-                  "Type mismatch between declared output element size (",
-                  element_size(o_dtype), ") and python element size (",
-                  retval.itemsize(), ")"));
-          }
-        }
+        nb::object retval = GetNumpyModule().attr("ascontiguousarray")(fetch[2 + no * 2], "dtype"_a = GetNumpyDTypeName(o_dtype));
+        ScopedPyBuffer buffer(retval.ptr(), PyBUF_CONTIG_RO);
         size_t size = element_size(o_dtype);
-        memcpy(out, retval.data(), size * retval.size());
+        size_t output_bytes = size * static_cast<size_t>(PyCustomOpDefImpl::calc_size_from_shape(dims));
+        if (static_cast<size_t>(buffer.view.itemsize) != size) {
+          throw std::runtime_error(MakeString(
+              "Type mismatch between declared output element size (",
+              size, ") and python element size (",
+              buffer.view.itemsize, ")"));
+        }
+        if (static_cast<size_t>(buffer.view.len) != output_bytes) {
+          throw std::runtime_error(MakeString(
+              "Type mismatch between expected output bytes (",
+              output_bytes, ") and python output bytes (",
+              buffer.view.len, ")"));
+        }
+        memcpy(out, buffer.view.buf, output_bytes);
       }
     }
   }
@@ -438,7 +410,7 @@ uint64_t hash_64(const std::string& str, uint64_t num_buckets, bool fast) {
   return Hash64(str.c_str(), str.size()) % static_cast<uint64_t>(num_buckets);
 }
 
-void AddGlobalMethods(pybind11::module& m) {
+void AddGlobalMethods(nb::module_& m) {
   m.def("hash_64", &hash_64, "Computes a uint64 hash for a string (from tensorflow).");
   m.def("enable_py_op", &EnablePyCustomOps, "Enable or disable pyop functions.");
   m.def(
@@ -447,44 +419,47 @@ void AddGlobalMethods(pybind11::module& m) {
       "default_opset_domain", [] { return std::string(c_OpDomain); }, "return the default opset domain name.");
 }
 
-void AddObjectMethods(pybind11::module& m) {
-  pybind11::class_<PyCustomOpDef>(m, "PyCustomOpDef")
-      .def(pybind11::init<>())
-      .def_readwrite("op_type", &PyCustomOpDef::op_type)
-      .def_readwrite("obj_id", &PyCustomOpDef::obj_id)
-      .def_readwrite("input_types", &PyCustomOpDef::input_types)
-      .def_readwrite("output_types", &PyCustomOpDef::output_types)
-      .def_readwrite("attrs", &PyCustomOpDef::attrs)
-      .def_static("install_hooker", [](py::object obj) { PyCustomOpDefImpl::op_invoker = std::make_unique<PyCustomOpDefImpl::callback_t>(obj); })
-      .def_readonly_static("undefined", &PyCustomOpDef::undefined)
-      .def_readonly_static("dt_float", &PyCustomOpDef::dt_float)
-      .def_readonly_static("dt_uint8", &PyCustomOpDef::dt_uint8)
-      .def_readonly_static("dt_int8", &PyCustomOpDef::dt_int8)
-      .def_readonly_static("dt_uint16", &PyCustomOpDef::dt_uint16)
-      .def_readonly_static("dt_int16", &PyCustomOpDef::dt_int16)
-      .def_readonly_static("dt_int32", &PyCustomOpDef::dt_int32)
-      .def_readonly_static("dt_int64", &PyCustomOpDef::dt_int64)
-      .def_readonly_static("dt_string", &PyCustomOpDef::dt_string)
-      .def_readonly_static("dt_bool", &PyCustomOpDef::dt_bool)
-      .def_readonly_static("dt_float16", &PyCustomOpDef::dt_float16)
-      .def_readonly_static("dt_double", &PyCustomOpDef::dt_double)
-      .def_readonly_static("dt_uint32", &PyCustomOpDef::dt_uint32)
-      .def_readonly_static("dt_uint64", &PyCustomOpDef::dt_uint64)
-      .def_readonly_static("dt_complex64", &PyCustomOpDef::dt_complex64)
-      .def_readonly_static("dt_complex128", &PyCustomOpDef::dt_complex128)
-      .def_readonly_static("dt_bfloat16", &PyCustomOpDef::dt_bfloat16);
+void AddObjectMethods(nb::module_& m) {
+  nb::class_<PyCustomOpDef>(m, "PyCustomOpDef")
+      .def(nb::init<>())
+      .def_rw("op_type", &PyCustomOpDef::op_type)
+      .def_rw("obj_id", &PyCustomOpDef::obj_id)
+      .def_rw("input_types", &PyCustomOpDef::input_types)
+      .def_rw("output_types", &PyCustomOpDef::output_types)
+      .def_rw("attrs", &PyCustomOpDef::attrs)
+      .def_static("install_hooker", [](nb::object obj) {
+        PyCustomOpDefImpl::op_invoker = std::make_unique<PyCustomOpDefImpl::callback_t>(
+            nb::cast<PyCustomOpDefImpl::callback_t>(obj));
+      })
+      .def_ro_static("undefined", &PyCustomOpDef::undefined)
+      .def_ro_static("dt_float", &PyCustomOpDef::dt_float)
+      .def_ro_static("dt_uint8", &PyCustomOpDef::dt_uint8)
+      .def_ro_static("dt_int8", &PyCustomOpDef::dt_int8)
+      .def_ro_static("dt_uint16", &PyCustomOpDef::dt_uint16)
+      .def_ro_static("dt_int16", &PyCustomOpDef::dt_int16)
+      .def_ro_static("dt_int32", &PyCustomOpDef::dt_int32)
+      .def_ro_static("dt_int64", &PyCustomOpDef::dt_int64)
+      .def_ro_static("dt_string", &PyCustomOpDef::dt_string)
+      .def_ro_static("dt_bool", &PyCustomOpDef::dt_bool)
+      .def_ro_static("dt_float16", &PyCustomOpDef::dt_float16)
+      .def_ro_static("dt_double", &PyCustomOpDef::dt_double)
+      .def_ro_static("dt_uint32", &PyCustomOpDef::dt_uint32)
+      .def_ro_static("dt_uint64", &PyCustomOpDef::dt_uint64)
+      .def_ro_static("dt_complex64", &PyCustomOpDef::dt_complex64)
+      .def_ro_static("dt_complex128", &PyCustomOpDef::dt_complex128)
+      .def_ro_static("dt_bfloat16", &PyCustomOpDef::dt_bfloat16);
 }
 
-PYBIND11_MODULE(_extensions_pydll, m) {
-  m.doc() = "pybind11 stateful interface to ONNXRuntime-Extensions";
+NB_MODULE(_extensions_pydll, m) {
+  m.attr("__doc__") = "nanobind stateful interface to ONNXRuntime-Extensions";
 
   AddGlobalMethods(m);
 #if defined(ENABLE_C_API)
   AddGlobalMethodsCApi(m);
 #endif
   AddObjectMethods(m);
-  auto atexit = py::module_::import("atexit");
-  atexit.attr("register")(py::cpp_function([]() {
+  auto atexit = nb::module_::import_("atexit");
+  atexit.attr("register")(nb::cpp_function([]() {
     PyCustomOpDefImpl::op_invoker.reset();
   }));
 }
