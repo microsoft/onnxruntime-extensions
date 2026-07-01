@@ -99,7 +99,8 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         }
 
         std::vector<std::size_t> npy_dims;
-        for (auto n = num_dims - num_dims; n < num_dims; ++n) {
+        npy_dims.reserve(num_dims);
+        for (size_t n = 0; n < num_dims; ++n) {
           npy_dims.push_back(shape[n]);
         }
         py::array obj{};
