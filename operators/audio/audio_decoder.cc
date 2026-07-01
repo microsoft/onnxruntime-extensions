@@ -34,7 +34,8 @@ OrtStatusPtr AudioDecoder::OnModelAttach(const OrtApi& api, const OrtKernelInfo&
   return status;
 }
 
-AudioDecoder::AudioStreamType AudioDecoder::ReadStreamFormat(const uint8_t* p_data, const std::string& str_format,
+AudioDecoder::AudioStreamType AudioDecoder::ReadStreamFormat(const uint8_t* p_data, size_t data_size,
+                                                             const std::string& str_format,
                                                              OrtxStatus& status) const {
   const std::map<std::string, AudioStreamType> format_mapping = {{"default", AudioStreamType::kDefault},
                                                                  {"wav", AudioStreamType::kWAV},
@@ -53,6 +54,10 @@ AudioDecoder::AudioStreamType AudioDecoder::ReadStreamFormat(const uint8_t* p_da
   }
 
   if (stream_format == AudioStreamType::kDefault) {
+    if (data_size < 4) {
+      status = {kOrtxErrorInvalidArgument, "[AudioDecoder]: Audio data too short to detect format"};
+      return stream_format;
+    }
     auto p_stream = reinterpret_cast<char const*>(p_data);
     std::string_view marker(p_stream, 4);
     if (marker == "fLaC") {
@@ -111,7 +116,7 @@ OrtxStatus AudioDecoder::ComputeInternal(const ortc::Tensor<uint8_t>& input, con
   if (format) {
     str_format = *format;
   }
-  auto stream_format = ReadStreamFormat(p_data, str_format, status);
+  auto stream_format = ReadStreamFormat(p_data, input.NumberOfElement(), str_format, status);
   if (!status.IsOk()) {
     return status;
   }

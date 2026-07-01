@@ -41,7 +41,7 @@ struct AudioDecoder {
 
   enum class AudioStreamType { kDefault = 0, kWAV, kMP3, kFLAC };
 
-  AudioStreamType ReadStreamFormat(const uint8_t* p_data, const std::string& str_format, OrtxStatus& status) const;
+  AudioStreamType ReadStreamFormat(const uint8_t* p_data, size_t data_size, const std::string& str_format, OrtxStatus& status) const;
 
   OrtxStatus ComputeInternal(const ortc::Tensor<uint8_t>& input,
                              const std::optional<std::string> format,
