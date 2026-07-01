@@ -161,9 +161,7 @@ struct PyCustomOpDefImpl : public PyCustomOpDef {
         py_values.append(nb::str(item.c_str()));
       }
       nb::object obj = numpy.attr("array")(py_values, "dtype"_a = numpy.attr("object_"));
-      if (!npy_dims.empty()) {
-        obj = obj.attr("reshape")(nb::cast(npy_dims));
-      }
+      obj = obj.attr("reshape")(nb::cast(npy_dims));
       return obj;
     }
 
