@@ -158,7 +158,7 @@ struct PyCustomOpDefImpl : public PyCustomOpDef {
       GetTensorMutableDataString(api, ort, context, value, src);
       nb::list py_values;
       for (const auto& item : src) {
-        py_values.append(nb::str(item.c_str()));
+        py_values.append(nb::cast(item));
       }
       nb::object obj = numpy.attr("array")(py_values, "dtype"_a = numpy.attr("object_"));
       obj = obj.attr("reshape")(nb::cast(npy_dims));
