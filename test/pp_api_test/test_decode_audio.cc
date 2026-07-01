@@ -269,6 +269,23 @@ TEST(DecodeAudioTest, GarbageBytes) {
   ASSERT_NE(OrtxDecodeAudio(raw_audios.get(), 0, 0, /*stereo_to_mono=*/1, result.ToBeAssigned()), kOrtxOK);
 }
 
+// Audio data shorter than the 4-byte format magic must be rejected gracefully
+// (regression test for heap-buffer-overflow in ReadStreamFormat).
+TEST(DecodeAudioTest, TooShortForFormatDetection) {
+  for (size_t len = 0; len <= 3; ++len) {
+    std::vector<uint8_t> tiny(len, 0x42);
+    static const uint8_t kDummy = 0;
+    const void* data_ptrs[1] = {tiny.empty() ? static_cast<const void*>(&kDummy) : tiny.data()};
+    int64_t sizes[1] = {static_cast<int64_t>(len)};
+    ort_extensions::OrtxObjectPtr<OrtxRawAudios> raw_audios;
+    ASSERT_EQ(OrtxCreateRawAudios(raw_audios.ToBeAssigned(), data_ptrs, sizes, 1), kOrtxOK);
+
+    ort_extensions::OrtxObjectPtr<OrtxTensorResult> result;
+    EXPECT_NE(OrtxDecodeAudio(raw_audios.get(), 0, 0, /*stereo_to_mono=*/1, result.ToBeAssigned()), kOrtxOK)
+        << "Expected failure for " << len << "-byte input";
+  }
+}
+
 // MP3 input via the existing test asset. Verifies that the magic-byte format detector
 // in AudioDecoder works through this entry point.
 TEST(DecodeAudioTest, DecodeMp3FromFile) {
