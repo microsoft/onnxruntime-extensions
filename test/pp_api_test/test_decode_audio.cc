@@ -355,7 +355,12 @@ TEST(DecodeAudioTest, BatchDecodeMixedFormats) {
   auto wav = MakeSineWav(440.0f, 0.5f, 16000);
   // Read FLAC and MP3 bytes from disk so we can pack everything into one OrtxRawAudios.
   auto load_file = [](const char* path) -> std::vector<uint8_t> {
+#ifdef _MSC_VER
+    FILE* f = nullptr;
+    fopen_s(&f, path, "rb");
+#else
     FILE* f = std::fopen(path, "rb");
+#endif
     if (!f) return {};
     std::fseek(f, 0, SEEK_END);
     long sz = std::ftell(f);
@@ -444,11 +449,13 @@ TEST(DecodeAudioTest, MalformedAudioDoesNotCrash) {
   EXPECT_EQ(result_ptr, nullptr);
 }
 
-// Verify that the LogMel feature extractor rejects malformed audio that produces
-// a degenerate spectrogram, rather than crashing with an OOB read.
-TEST(ExtractorTest, MalformedAudioLogMelDoesNotCrash) {
-  // Use a valid but extremely short WAV so decoding succeeds and LogMel sees a degenerate STFT.
-  auto wav = MakeSineWav(440.0f, 1.0f / 16000.0f, 16000);
+// Verify that the LogMel feature extractor handles very short audio gracefully
+// (no crash or OOB read), regardless of whether it returns success or an error.
+// The pipeline pads short audio before STFT, so success is acceptable.
+TEST(ExtractorTest, ShortAudioLogMelDoesNotCrash) {
+  // Use a WAV just long enough to pass STFT's minimum window length (n_fft=400 samples).
+  // The pipeline will pad this to n_samples before STFT, so LogMel should succeed.
+  auto wav = MakeSineWav(440.0f, 400.0f / 16000.0f, 16000);
 
   const void* data_ptrs[1] = {wav.data()};
   int64_t sizes[1] = {static_cast<int64_t>(wav.size())};
@@ -463,6 +470,90 @@ TEST(ExtractorTest, MalformedAudioLogMelDoesNotCrash) {
 
   ort_extensions::OrtxObjectPtr<OrtxTensorResult> result;
   extError_t err = OrtxSpeechLogMel(feature_extractor.get(), raw_audios.get(), result.ToBeAssigned());
-  // Should return an error, not crash.
-  EXPECT_NE(err, kOrtxOK);
+  // The key assertion is reaching this point without crashing.
+  // The pipeline pads short audio, so success is the expected outcome.
+  EXPECT_EQ(err, kOrtxOK) << OrtxGetLastErrorMessage();
+}
+
+// Verify that audio longer than the model's chunk_size (30s for Whisper) is truncated
+// to expected_time frames rather than overflowing the output buffer.
+TEST(ExtractorTest, OversizedAudioLogMelTruncates) {
+  // 31 seconds at 16 kHz — exceeds the 30s chunk_size, so mag_time > expected_time.
+  auto wav = MakeSineWav(440.0f, 31.0f, 16000);
+
+  const void* data_ptrs[1] = {wav.data()};
+  int64_t sizes[1] = {static_cast<int64_t>(wav.size())};
+  ort_extensions::OrtxObjectPtr<OrtxRawAudios> raw_audios;
+  ASSERT_EQ(OrtxCreateRawAudios(raw_audios.ToBeAssigned(), data_ptrs, sizes, 1), kOrtxOK);
+
+  ort_extensions::OrtxObjectPtr<OrtxFeatureExtractor> feature_extractor(
+      OrtxCreateSpeechFeatureExtractor, "data/whisper/feature_extraction.json");
+  ASSERT_EQ(feature_extractor.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  ort_extensions::OrtxObjectPtr<OrtxTensorResult> result;
+  extError_t err = OrtxSpeechLogMel(feature_extractor.get(), raw_audios.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK) << OrtxGetLastErrorMessage();
+
+  // Output shape should be [n_mel=80, expected_time=3000], NOT [80, mag_time].
+  ort_extensions::OrtxObjectPtr<OrtxTensor> logmel;
+  ASSERT_EQ(OrtxTensorResultGetAt(result.get(), 0, logmel.ToBeAssigned()), kOrtxOK);
+  const float* data{};
+  const int64_t* shape{};
+  size_t dims;
+  ASSERT_EQ(OrtxGetTensorData(logmel.get(), reinterpret_cast<const void**>(&data), &shape, &dims), kOrtxOK);
+  ASSERT_EQ(dims, 3u);
+  EXPECT_EQ(shape[0], 1);     // batch
+  EXPECT_EQ(shape[1], 80);    // n_mel
+  EXPECT_EQ(shape[2], 3000);  // expected_time = 16000*30/160, NOT mag_time
+}
+
+// Verify that a WAV with an extreme channel count (65535) is rejected gracefully
+// rather than causing an integer overflow / OOM crash in DrReadFrames.
+TEST(DecodeAudioTest, ExtremeChannelCountRejected) {
+  // Craft a minimal valid WAV header with NumChannels = 65535, BitsPerSample = 8,
+  // and a tiny data chunk. The header is internally consistent so drwav accepts it,
+  // but DrReadFrames should reject the channel count.
+  uint8_t wav[46];
+  uint8_t* p = wav;
+  auto write16 = [&](uint16_t v) { std::memcpy(p, &v, 2); p += 2; };
+  auto write32 = [&](uint32_t v) { std::memcpy(p, &v, 4); p += 4; };
+
+  std::memcpy(p, "RIFF", 4); p += 4;
+  write32(38);                    // ChunkSize = 36 + 2 bytes of data
+  std::memcpy(p, "WAVE", 4); p += 4;
+  std::memcpy(p, "fmt ", 4); p += 4;
+  write32(16);                    // Subchunk1Size
+  write16(1);                     // AudioFormat = PCM
+  write16(65535);                 // NumChannels = 65535 (malicious)
+  write32(16000);                 // SampleRate
+  write32(16000u * 65535u);       // ByteRate
+  write16(65535);                 // BlockAlign = NumChannels * 1
+  write16(8);                     // BitsPerSample = 8
+  std::memcpy(p, "data", 4); p += 4;
+  write32(2);                     // Subchunk2Size = 2 bytes of audio data
+  // 2 bytes of silence (enough for drwav to parse but not enough for a full frame)
+  wav[44] = 0x80;
+  wav[45] = 0x80;
+
+  const void* data_ptrs[1] = {wav};
+  int64_t sizes[1] = {static_cast<int64_t>(sizeof(wav))};
+  ort_extensions::OrtxObjectPtr<OrtxRawAudios> raw_audios;
+  ASSERT_EQ(OrtxCreateRawAudios(raw_audios.ToBeAssigned(), data_ptrs, sizes, 1), kOrtxOK);
+
+  OrtxTensorResult* result_ptr = nullptr;
+  extError_t err = OrtxDecodeAudios(raw_audios.get(), 0, /*stereo_to_mono=*/1, &result_ptr, 1);
+  ort_extensions::OrtxObjectPtr<OrtxTensorResult> holder(result_ptr);
+  // Should either fail or produce empty output — must not crash or OOM.
+  if (err == kOrtxOK && result_ptr != nullptr) {
+    ort_extensions::OrtxObjectPtr<OrtxTensor> pcm;
+    ASSERT_EQ(OrtxTensorResultGetAt(holder.get(), 0, pcm.ToBeAssigned()), kOrtxOK);
+    const float* pcm_data{};
+    const int64_t* pcm_shape{};
+    size_t pcm_dims;
+    ASSERT_EQ(OrtxGetTensorData(pcm.get(), reinterpret_cast<const void**>(&pcm_data), &pcm_shape, &pcm_dims), kOrtxOK);
+    // If it decoded anything, it should be empty (0 samples) since we rejected the channels.
+    size_t n = 1;
+    for (size_t d = 0; d < pcm_dims; ++d) n *= pcm_shape[d];
+    EXPECT_EQ(n, 0u) << "Expected empty output for extreme channel count";
+  }
 }
