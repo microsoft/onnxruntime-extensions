@@ -25,10 +25,10 @@ RUN add-apt-repository ppa:deadsnakes/ppa &&\
     python3.10-venv &&\
     wget -q https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py &&\
     python3.10 /tmp/get-pip.py &&\
+    rm /tmp/get-pip.py &&\
     cd /usr/local/bin &&\
     ln -sf /usr/bin/python3.10 python3 &&\
-    ln -sf /usr/bin/python3.10 python &&\
-    ln -sf /usr/local/bin/pip3 pip;
+    ln -sf /usr/bin/python3.10 python;
 
 RUN pip install --upgrade pip 
 RUN pip install setuptools>=68.2.2
