@@ -34,7 +34,8 @@ OrtStatusPtr AudioDecoder::OnModelAttach(const OrtApi& api, const OrtKernelInfo&
   return status;
 }
 
-AudioDecoder::AudioStreamType AudioDecoder::ReadStreamFormat(const uint8_t* p_data, const std::string& str_format,
+AudioDecoder::AudioStreamType AudioDecoder::ReadStreamFormat(const uint8_t* p_data, size_t data_size,
+                                                             const std::string& str_format,
                                                              OrtxStatus& status) const {
   const std::map<std::string, AudioStreamType> format_mapping = {{"default", AudioStreamType::kDefault},
                                                                  {"wav", AudioStreamType::kWAV},
@@ -53,6 +54,10 @@ AudioDecoder::AudioStreamType AudioDecoder::ReadStreamFormat(const uint8_t* p_da
   }
 
   if (stream_format == AudioStreamType::kDefault) {
+    if (data_size < 4) {
+      status = {kOrtxErrorInvalidArgument, "[AudioDecoder]: Audio data too short to detect format"};
+      return stream_format;
+    }
     auto p_stream = reinterpret_cast<char const*>(p_data);
     std::string_view marker(p_stream, 4);
     if (marker == "fLaC") {
@@ -75,6 +80,12 @@ template <typename TY_AUDIO, typename FX_DECODER>
 static size_t DrReadFrames(std::list<std::vector<float>>& frames, FX_DECODER fx, TY_AUDIO& obj) {
   const size_t default_chunk_size = 1024 * 256;
   int64_t total_buf_size = 0;
+
+  // Reject unreasonable channel counts to prevent integer overflow in the
+  // multiplication below. Real audio never exceeds 8 channels (7.1 surround).
+  if (obj.channels == 0 || obj.channels > 16) {
+    return 0;
+  }
 
   for (;;) {
     std::vector<float> buf;
@@ -105,7 +116,7 @@ OrtxStatus AudioDecoder::ComputeInternal(const ortc::Tensor<uint8_t>& input, con
   if (format) {
     str_format = *format;
   }
-  auto stream_format = ReadStreamFormat(p_data, str_format, status);
+  auto stream_format = ReadStreamFormat(p_data, input.NumberOfElement(), str_format, status);
   if (!status.IsOk()) {
     return status;
   }

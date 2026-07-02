@@ -406,6 +406,10 @@ struct CenterCrop {
     auto w = dimensions[1];
     auto c = dimensions[2];
 
+    if (target_h_ > h || target_w_ > w) {
+      return {kOrtxErrorInvalidArgument, "[CenterCrop]: target dimensions exceed input image size"};
+    }
+
     auto* p_output_image = output.Allocate({target_h_, target_w_, c});
     auto s_h = (h - target_h_) / 2;
     auto s_w = (w - target_w_) / 2;
