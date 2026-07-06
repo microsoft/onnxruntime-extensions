@@ -663,13 +663,13 @@ class BpeModel {
 
       size_t walk = pos;
       while (walk < n) {
-        auto it = spec_trie_[cur_node].children.find(vals[walk].first);
-        if (it == spec_trie_[cur_node].children.end()) break;
-        cur_node = it->second;
+        uint32_t child = TrieLookupChild(cur_node, vals[walk].first);
+        if (child == UINT32_MAX) break;
+        cur_node = child;
         walk++;
 
-        if (spec_trie_[cur_node].token_id != bpe::kInvalidTokenId) {
-          best_token_id = spec_trie_[cur_node].token_id;
+        if (spec_trie_nodes_[cur_node].token_id != bpe::kInvalidTokenId) {
+          best_token_id = spec_trie_nodes_[cur_node].token_id;
           uint32_t total_bytes = 0;
           for (size_t k = pos; k < walk; k++) {
             total_bytes += vals[k].second;
@@ -828,11 +828,21 @@ class BpeModel {
   }
 
   // =========================================================================
-  // Speculative BPE trie structures
+  // Speculative BPE trie — compact flattened representation
   // =========================================================================
-  struct SpecTrieNode {
-    std::unordered_map<uint32_t, uint32_t> children;  // atom_token_id -> child node index
-    uint32_t token_id = bpe::kInvalidTokenId;
+  // After construction, the trie is flattened into two arrays for minimal memory:
+  //   spec_trie_nodes_[i] = {token_id, edge_offset, edge_count}
+  //   spec_trie_edges_[offset..offset+count) = sorted {atom_id, child_node} pairs
+  // Lookup uses binary search on the sorted edge slice (~log2(branching_factor)).
+  struct CompactTrieNode {
+    uint32_t token_id;
+    uint32_t edge_offset;  // index into spec_trie_edges_
+    uint32_t edge_count;   // number of children
+  };
+
+  struct TrieEdge {
+    uint32_t key;        // atom token_id
+    uint32_t child;      // node index in spec_trie_nodes_
   };
 
   struct SpecTokenMeta {
@@ -842,9 +852,22 @@ class BpeModel {
     uint32_t last_atom = bpe::kInvalidTokenId;
   };
 
-  std::vector<SpecTrieNode> spec_trie_;       // node 0 = root
+  std::vector<CompactTrieNode> spec_trie_nodes_;
+  std::vector<TrieEdge> spec_trie_edges_;
   std::vector<SpecTokenMeta> spec_token_meta_;
   bool spec_trie_valid_ = false;
+
+  // Binary search for a child in the sorted edge slice of a node.
+  uint32_t TrieLookupChild(uint32_t node_idx, uint32_t key) const {
+    const auto& node = spec_trie_nodes_[node_idx];
+    const TrieEdge* begin = spec_trie_edges_.data() + node.edge_offset;
+    const TrieEdge* end = begin + node.edge_count;
+    // Binary search for key
+    const TrieEdge* it = std::lower_bound(begin, end, key,
+        [](const TrieEdge& e, uint32_t k) { return e.key < k; });
+    if (it != end && it->key == key) return it->child;
+    return UINT32_MAX;  // not found
+  }
 
   void BuildSpeculativeTrie() {
     spec_trie_valid_ = false;
@@ -938,8 +961,13 @@ class BpeModel {
 
     // Build the trie. Only insert tokens whose atom decomposition BPE-reduces
     // back to exactly that token (BPE-consistency check).
-    spec_trie_.clear();
-    spec_trie_.emplace_back();  // root node (index 0)
+    // Use a temporary hash-map trie during construction, then flatten to compact arrays.
+    struct BuildNode {
+      std::unordered_map<uint32_t, uint32_t> children;
+      uint32_t token_id = bpe::kInvalidTokenId;
+    };
+    std::vector<BuildNode> build_trie;
+    build_trie.emplace_back();  // root node (index 0)
 
     size_t tokens_inserted = 0;
     for (uint32_t tid = 0; tid < static_cast<uint32_t>(max_token_id); tid++) {
@@ -959,20 +987,20 @@ class BpeModel {
         continue;  // BPE-inconsistent: skip this token
       }
 
-      // Insert base-atom path into trie
+      // Insert base-atom path into build trie
       uint32_t cur = 0;
       for (uint32_t cid : meta.char_ids) {
-        auto it = spec_trie_[cur].children.find(cid);
-        if (it == spec_trie_[cur].children.end()) {
-          uint32_t new_idx = static_cast<uint32_t>(spec_trie_.size());
-          spec_trie_[cur].children[cid] = new_idx;
-          spec_trie_.emplace_back();
+        auto it = build_trie[cur].children.find(cid);
+        if (it == build_trie[cur].children.end()) {
+          uint32_t new_idx = static_cast<uint32_t>(build_trie.size());
+          build_trie[cur].children[cid] = new_idx;
+          build_trie.emplace_back();
           cur = new_idx;
         } else {
           cur = it->second;
         }
       }
-      spec_trie_[cur].token_id = tid;
+      build_trie[cur].token_id = tid;
       tokens_inserted++;
     }
 
@@ -982,19 +1010,54 @@ class BpeModel {
     // directly from ByteEncode/SpmEncodeChar.
     for (uint32_t tid : is_operand) {
       if (tid >= max_token_id) continue;
-      auto it = spec_trie_[0].children.find(tid);
-      if (it == spec_trie_[0].children.end()) {
-        uint32_t new_idx = static_cast<uint32_t>(spec_trie_.size());
-        spec_trie_[0].children[tid] = new_idx;
-        spec_trie_.emplace_back();
-        spec_trie_[new_idx].token_id = tid;
+      auto it = build_trie[0].children.find(tid);
+      if (it == build_trie[0].children.end()) {
+        uint32_t new_idx = static_cast<uint32_t>(build_trie.size());
+        build_trie[0].children[tid] = new_idx;
+        build_trie.emplace_back();
+        build_trie[new_idx].token_id = tid;
       } else {
         // Node already exists (from a longer path), ensure it's marked as valid
-        if (spec_trie_[it->second].token_id == bpe::kInvalidTokenId) {
-          spec_trie_[it->second].token_id = tid;
+        if (build_trie[it->second].token_id == bpe::kInvalidTokenId) {
+          build_trie[it->second].token_id = tid;
         }
       }
     }
+
+    // Flatten into compact arrays: nodes + sorted edge list.
+    // This reduces memory from ~80 bytes/node (unordered_map overhead) to ~12 bytes/node.
+    size_t total_edges = 0;
+    for (const auto& node : build_trie) {
+      total_edges += node.children.size();
+    }
+
+    spec_trie_nodes_.resize(build_trie.size());
+    spec_trie_edges_.resize(total_edges);
+
+    uint32_t edge_offset = 0;
+    for (size_t i = 0; i < build_trie.size(); i++) {
+      spec_trie_nodes_[i].token_id = build_trie[i].token_id;
+      spec_trie_nodes_[i].edge_offset = edge_offset;
+      spec_trie_nodes_[i].edge_count = static_cast<uint32_t>(build_trie[i].children.size());
+
+      for (const auto& [key, child] : build_trie[i].children) {
+        spec_trie_edges_[edge_offset++] = {key, child};
+      }
+    }
+
+    // Sort each node's edge slice by key for binary search.
+    for (size_t i = 0; i < spec_trie_nodes_.size(); i++) {
+      auto& node = spec_trie_nodes_[i];
+      TrieEdge* begin = spec_trie_edges_.data() + node.edge_offset;
+      TrieEdge* end = begin + node.edge_count;
+      std::sort(begin, end, [](const TrieEdge& a, const TrieEdge& b) {
+        return a.key < b.key;
+      });
+    }
+
+    // Free spec_token_meta_ — only needed during construction.
+    spec_token_meta_.clear();
+    spec_token_meta_.shrink_to_fit();
 
     spec_trie_valid_ = (tokens_inserted > 0);
   }
