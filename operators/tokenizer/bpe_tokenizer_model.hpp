@@ -412,13 +412,12 @@ class BpeModel {
   void PerformBPE(std::vector<std::pair<uint32_t, uint32_t>>& vals) const {
     if (vals.size() < 2) return;
 
-    // TODO(Phase 2): Speculative O(N) greedy tokenization.
-    // Currently disabled — BPE-consistency verification rejects valid tokens
-    // for models with overlapping merge paths (Gemma, LLaMA SPM, ChatGLM).
-    // Need to rethink the consistency check before enabling.
-    // if (spec_trie_valid_ && PerformBPE_Speculative(vals)) {
-    //   return;
-    // }
+    // Phase 2: Speculative O(N) greedy tokenization via trie.
+    // Greedy longest-match + boundary verification. Falls back to heap/flat if
+    // speculation fails (cross-boundary merges detected).
+    if (spec_trie_valid_ && PerformBPE_Speculative(vals)) {
+      return;
+    }
 
     // Use appropriate algorithm based on sequence length.
     // For longer sequences, use priority-queue BPE: O(N log N) vs O(N*R) for flat scan.
@@ -616,21 +615,27 @@ class BpeModel {
   }
 
   // =========================================================================
-  // Speculative O(N) BPE: greedy longest-match via trie + boundary verification.
-  // Returns true if speculation succeeded (vals updated), false if fallback needed.
+  // Speculative O(N) BPE with partial acceptance and local repair.
+  // Greedy longest-match via full-depth trie → pairwise boundary verification →
+  // only re-BPE failing regions. Returns true if speculation produced a result.
   // =========================================================================
   bool PerformBPE_Speculative(std::vector<std::pair<uint32_t, uint32_t>>& vals) const {
     const size_t n = vals.size();
 
-    // Greedy longest-match through the trie
-    std::vector<std::pair<uint32_t, uint32_t>> output;
-    output.reserve(n / 2);  // typical compression ~2:1
+    // Phase 1: Greedy longest-match through the trie, recording token spans.
+    struct OutputToken {
+      uint32_t token_id;
+      uint32_t byte_len;
+      size_t start;  // start index in vals (inclusive)
+      size_t end;    // end index in vals (exclusive)
+    };
+    std::vector<OutputToken> output;
+    output.reserve(n / 2);
 
     size_t pos = 0;
     while (pos < n) {
-      // Walk trie from current position, tracking longest match
-      uint32_t cur_node = 0;  // root
-      uint32_t best_token_id = vals[pos].first;  // fallback: single atom
+      uint32_t cur_node = 0;
+      uint32_t best_token_id = vals[pos].first;
       uint32_t best_byte_len = vals[pos].second;
       size_t best_end = pos + 1;
 
@@ -641,10 +646,8 @@ class BpeModel {
         cur_node = it->second;
         walk++;
 
-        // Check if this node represents a valid token
         if (spec_trie_[cur_node].token_id != bpe::kInvalidTokenId) {
           best_token_id = spec_trie_[cur_node].token_id;
-          // Sum byte lengths for the matched span
           uint32_t total_bytes = 0;
           for (size_t k = pos; k < walk; k++) {
             total_bytes += vals[k].second;
@@ -654,92 +657,95 @@ class BpeModel {
         }
       }
 
-      output.emplace_back(best_token_id, best_byte_len);
+      output.push_back({best_token_id, best_byte_len, pos, best_end});
       pos = best_end;
     }
 
-    // If no compression happened, speculation trivially succeeds
-    if (output.size() == n) {
-      // No merges possible — same as BPE would produce
-      return true;
+    // If no compression, trie has no coverage for this input — fall back.
+    if (output.size() >= n) {
+      return false;
     }
 
-    // Boundary verification: check that no cross-boundary merge would have
-    // fired before the internal merges that form each token.
-    for (size_t i = 0; i + 1 < output.size(); i++) {
-      uint32_t ti_id = output[i].first;
-      uint32_t ti1_id = output[i + 1].first;
+    // Phase 2: Pairwise boundary verification with partial acceptance.
+    // A passing boundary is a "wall" — tokens on either side are independent.
+    // Failing boundaries group adjacent tokens into repair regions.
+    //
+    // FAST PATH: If no merge rule exists for the pair of raw atoms at the boundary
+    // (last atom of Ti's span, first atom of Ti+1's span), no merge can initiate
+    // across the boundary — it trivially passes without running BPE.
+    // This reduces O(K) flat-scan BPE calls to only the few "suspicious" boundaries.
+    const size_t num_boundaries = output.size() - 1;
+    std::vector<bool> boundary_pass(num_boundaries, false);
 
-      // Check 1: If merge(ti, ti+1) exists, BPE would merge them further → FAIL
-      if (bpe_rank_.find(GetRankKey(ti_id, ti1_id)) != bpe_rank_.end()) {
-        return false;
+    std::vector<std::pair<uint32_t, uint32_t>> test_vals;
+    for (size_t i = 0; i < num_boundaries; i++) {
+      // Fast check: no merge rule for boundary atoms → trivially passes.
+      uint32_t last_atom = vals[output[i].end - 1].first;
+      uint32_t first_atom = vals[output[i + 1].start].first;
+      if (bpe_rank_.find(GetRankKey(last_atom, first_atom)) == bpe_rank_.end()) {
+        boundary_pass[i] = true;
+        continue;
       }
 
-      // Check 2: Cross-boundary atom-level merge check.
-      // If merge(last_atom_of_ti, first_atom_of_ti+1) has rank < min_formation_rank
-      // of either token, BPE would have chosen a different split → FAIL
-      if (ti_id < spec_token_meta_.size() && ti1_id < spec_token_meta_.size()) {
-        uint32_t last_atom = spec_token_meta_[ti_id].last_atom;
-        uint32_t first_atom = spec_token_meta_[ti1_id].first_atom;
-        if (last_atom != bpe::kInvalidTokenId && first_atom != bpe::kInvalidTokenId) {
-          auto cross_it = bpe_rank_.find(GetRankKey(last_atom, first_atom));
-          if (cross_it != bpe_rank_.end()) {
-            uint32_t cross_rank = cross_it->second.value;
-            uint32_t min_rank = (std::min)(spec_token_meta_[ti_id].min_formation_rank,
-                                           spec_token_meta_[ti1_id].min_formation_rank);
-            if (cross_rank < min_rank) {
-              return false;
-            }
-          }
-        }
+      // Full verification: run BPE on the combined span of both tokens.
+      size_t span_start = output[i].start;
+      size_t span_end = output[i + 1].end;
+
+      test_vals.clear();
+      test_vals.reserve(span_end - span_start);
+      for (size_t k = span_start; k < span_end; k++) {
+        test_vals.push_back(vals[k]);
       }
 
-      // Check 3: Multi-character cross-boundary merges.
-      // For each suffix of ti's char decomposition that is a known token,
-      // and each prefix of ti+1's char decomposition that is a known token,
-      // check if their merge would fire before internal merges.
-      if (ti_id < spec_token_meta_.size() && ti1_id < spec_token_meta_.size()) {
-        const auto& ti_chars = spec_token_meta_[ti_id].char_ids;
-        const auto& ti1_chars = spec_token_meta_[ti1_id].char_ids;
-        uint32_t min_rank = (std::min)(spec_token_meta_[ti_id].min_formation_rank,
-                                       spec_token_meta_[ti1_id].min_formation_rank);
+      PerformBPE_FlatScan(test_vals);
 
-        if (!ti_chars.empty() && !ti1_chars.empty() && min_rank > 0) {
-          // Check suffixes of ti (skip full token, already checked above)
-          for (size_t s = 1; s < ti_chars.size(); s++) {
-            // Look up suffix [s..end] as a token via trie
-            uint32_t suffix_id = LookupCharSequence(ti_chars.data() + s, ti_chars.size() - s);
-            if (suffix_id == bpe::kInvalidTokenId) continue;
+      boundary_pass[i] = (test_vals.size() == 2 &&
+                          test_vals[0].first == output[i].token_id &&
+                          test_vals[1].first == output[i + 1].token_id);
+    }
 
-            // Check prefixes of ti+1 (skip full token)
-            for (size_t p = 1; p <= ti1_chars.size(); p++) {
-              uint32_t prefix_id = LookupCharSequence(ti1_chars.data(), p);
-              if (prefix_id == bpe::kInvalidTokenId) continue;
+    // Phase 3: Group tokens into independent segments separated by walls.
+    // Single-token segments are confirmed; multi-token segments get repaired.
+    // Save original input since we'll overwrite vals.
+    const size_t num_tokens = output.size();
+    std::vector<std::pair<uint32_t, uint32_t>> orig_vals(std::move(vals));
+    vals.clear();
+    vals.reserve(num_tokens);
 
-              auto merge_it = bpe_rank_.find(GetRankKey(suffix_id, prefix_id));
-              if (merge_it != bpe_rank_.end() && merge_it->second.value < min_rank) {
-                return false;
-              }
-            }
+    size_t seg_start = 0;
+    for (size_t i = 0; i < num_tokens; i++) {
+      bool at_end = (i == num_tokens - 1);
+      bool at_wall = (!at_end && boundary_pass[i]);
+      if (at_wall || at_end) {
+        // Segment is [seg_start .. i] inclusive
+        if (seg_start == i) {
+          // Single token — confirmed
+          vals.emplace_back(output[i].token_id, output[i].byte_len);
+        } else {
+          // Repair region: run BPE on combined atoms
+          size_t atom_start = output[seg_start].start;
+          size_t atom_end = output[i].end;
+
+          test_vals.clear();
+          test_vals.reserve(atom_end - atom_start);
+          for (size_t k = atom_start; k < atom_end; k++) {
+            test_vals.push_back(orig_vals[k]);
+          }
+
+          if (test_vals.size() > 32) {
+            PerformBPE_Heap(test_vals);
+          } else {
+            PerformBPE_FlatScan(test_vals);
+          }
+          for (const auto& tv : test_vals) {
+            vals.push_back(tv);
           }
         }
+        seg_start = i + 1;
       }
     }
 
-    // All checks passed — speculation succeeded
-    vals = std::move(output);
     return true;
-  }
-
-  // Look up a sequence of atom token IDs in the trie, return the token ID if found.
-  uint32_t LookupCharSequence(const uint32_t* ids, size_t len) const {
-    uint32_t cur = 0;
-    for (size_t i = 0; i < len; i++) {
-      auto it = spec_trie_[cur].children.find(ids[i]);
-      if (it == spec_trie_[cur].children.end()) return bpe::kInvalidTokenId;
-      cur = it->second;
-    }
-    return spec_trie_[cur].token_id;
   }
 
  public:
@@ -840,30 +846,53 @@ class BpeModel {
     std::sort(merges.begin(), merges.end(),
               [](const MergeEntry& a, const MergeEntry& b) { return a.rank < b.rank; });
 
-    // 2. Initialize token metadata
-    // ANY token that appears as an operand in a merge is a potential "atom" — it can
-    // appear directly in the input to PerformBPE (e.g., from ByteEncode/SpmTokenize).
-    // Even if it's also produced by another merge, we treat it as char_ids={self}
-    // because the input has it at that level.
-    std::unordered_set<uint32_t> appears_in_merge;
+    // 2. Identify effective input atoms.
+    // These are tokens that can appear directly in the input to PerformBPE
+    // (from ByteEncode for GPT-2, or SpmEncodeChar for SPM models).
+    // Two categories:
+    //   (a) True base atoms: operand AND NOT merge product (byte tokens, always input atoms)
+    //   (b) Single-character merge products: operand AND merge product, but their text
+    //       in id2token_map_ is a single Unicode code point. These are character tokens
+    //       produced by byte-level merges in SPM models (e.g., ▁ = U+2581 from 3 bytes),
+    //       but SpmEncodeChar emits them directly as input atoms.
+    // Both categories get char_ids = {self} — decomposition stops here.
+    std::unordered_set<uint32_t> is_operand;
+    std::unordered_set<uint32_t> is_merge_product;
     for (const auto& m : merges) {
-      appears_in_merge.insert(m.left_id);
-      appears_in_merge.insert(m.right_id);
+      is_operand.insert(m.left_id);
+      is_operand.insert(m.right_id);
+      is_merge_product.insert(m.result_id);
     }
 
     size_t max_token_id = id2token_map_.size();
     spec_token_meta_.resize(max_token_id);
 
-    // All operand tokens get char_ids = {self} — they're the "atoms" from PerformBPE's perspective.
-    for (uint32_t tid : appears_in_merge) {
+    // Effective input atoms get char_ids = {self}.
+    for (uint32_t tid : is_operand) {
       if (tid >= max_token_id) continue;
+      if (is_merge_product.count(tid)) {
+        // Dual-role token: only treat as input atom if it's a single Unicode character.
+        // This covers SPM character tokens formed by byte-level merges (like ▁).
+        const auto& tok_str = id2token_map_[tid];
+        if (tok_str.empty()) continue;
+        unsigned char first = static_cast<unsigned char>(tok_str[0]);
+        size_t expected_len;
+        if (first < 0x80) expected_len = 1;
+        else if ((first & 0xE0) == 0xC0) expected_len = 2;
+        else if ((first & 0xF0) == 0xE0) expected_len = 3;
+        else if ((first & 0xF8) == 0xF0) expected_len = 4;
+        else continue;  // invalid UTF-8 lead byte — skip
+        if (tok_str.size() != expected_len) continue;  // multi-char token — decompose
+      }
       spec_token_meta_[tid].char_ids = {tid};
       spec_token_meta_[tid].first_atom = tid;
       spec_token_meta_[tid].last_atom = tid;
     }
 
-    // 3. Process merges in rank order to build char decompositions for merged tokens.
-    // Only set char_ids for tokens that DON'T already have them (i.e., non-operand tokens).
+    // 3. Process merges in rank order to build full base-atom decompositions.
+    // Because we process in rank order and only true base atoms start with char_ids,
+    // each merge result gets the concatenation of its operands' base-atom sequences.
+    // Intermediate tokens (both operand AND merge product) get their char_ids here.
     for (const auto& m : merges) {
       if (m.result_id >= max_token_id) continue;
       if (m.left_id >= max_token_id || m.right_id >= max_token_id) continue;
@@ -875,15 +904,16 @@ class BpeModel {
       if (left_meta.char_ids.empty() || right_meta.char_ids.empty()) continue;
 
       auto& result_meta = spec_token_meta_[m.result_id];
-      // Only set if not already set (operands keep {self}; first merge wins for non-operands)
+      // Only set if not already set (first merge wins for multiply-produced tokens).
+      // True base atoms already have char_ids = {self} and won't be overwritten.
       if (result_meta.char_ids.empty()) {
         result_meta.char_ids.reserve(left_meta.char_ids.size() + right_meta.char_ids.size());
         result_meta.char_ids.insert(result_meta.char_ids.end(),
                                     left_meta.char_ids.begin(), left_meta.char_ids.end());
         result_meta.char_ids.insert(result_meta.char_ids.end(),
                                     right_meta.char_ids.begin(), right_meta.char_ids.end());
-        result_meta.first_atom = left_meta.first_atom;
-        result_meta.last_atom = right_meta.last_atom;
+        result_meta.first_atom = left_meta.char_ids.front();
+        result_meta.last_atom = right_meta.char_ids.back();
         result_meta.min_formation_rank = (std::min)(m.rank,
             (std::min)(left_meta.min_formation_rank, right_meta.min_formation_rank));
       }
@@ -891,8 +921,8 @@ class BpeModel {
 
     // 4. BPE-consistency check + trie construction.
     // Only insert a token into the trie if running BPE on its char_ids produces
-    // exactly that token. This prevents over-merging (greedy picking tokens that
-    // BPE's merge ordering wouldn't actually produce).
+    // exactly that token. This prevents inserting tokens that BPE wouldn't produce
+    // from those atoms (even in isolation), reducing unnecessary greedy matches.
     spec_trie_.clear();
     spec_trie_.emplace_back();  // root node (index 0)
 
@@ -900,10 +930,10 @@ class BpeModel {
     for (uint32_t tid = 0; tid < static_cast<uint32_t>(max_token_id); tid++) {
       const auto& meta = spec_token_meta_[tid];
       if (meta.char_ids.empty()) continue;
-      if (meta.char_ids.size() < 2) continue;  // don't insert atoms (single char)
+      if (meta.char_ids.size() < 2) continue;  // don't insert base atoms (single element)
 
-      // BPE-consistency check: run BPE on this token's char_ids and verify
-      // it produces exactly this token as a single output.
+      // BPE-consistency check: run BPE on this token's base-atom decomposition
+      // and verify it produces exactly this token as a single output.
       std::vector<std::pair<uint32_t, uint32_t>> test_vals;
       test_vals.reserve(meta.char_ids.size());
       for (uint32_t cid : meta.char_ids) {
@@ -914,7 +944,7 @@ class BpeModel {
         continue;  // BPE-inconsistent: skip this token
       }
 
-      // Insert char_ids path into trie
+      // Insert base-atom path into trie
       uint32_t cur = 0;
       for (uint32_t cid : meta.char_ids) {
         auto it = spec_trie_[cur].children.find(cid);
@@ -931,8 +961,11 @@ class BpeModel {
       tokens_inserted++;
     }
 
-    // Also insert all operand tokens (atoms) into the trie as single-step paths.
-    for (uint32_t tid : appears_in_merge) {
+    // Insert all operand tokens as single-step paths in the trie.
+    // This ensures the greedy walk can always match individual input atoms,
+    // including dual-role tokens (both operand and merge product) that appear
+    // directly from ByteEncode/SpmEncodeChar.
+    for (uint32_t tid : is_operand) {
       if (tid >= max_token_id) continue;
       auto it = spec_trie_[0].children.find(tid);
       if (it == spec_trie_[0].children.end()) {
